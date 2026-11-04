@@ -24,7 +24,7 @@ async function handleCultureMessage(message?, client?, cfg?, game?, content?, co
     return true;
   }
 
-  if (game.type === "completeVerse") {
+  if (game.type === "completeVerse" || game.type === "starWarsGuessPlanet") {
     if (await rejectMinigameShotgunListingGuess(message, content, "multiline")) return false;
     if (
       isLooseAliasGuessCorrect(contentForGuess, game.answers, normalizeCountryName, {

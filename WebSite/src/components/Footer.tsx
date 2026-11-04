@@ -5,7 +5,7 @@ import { COPYRIGHT_HREF, LEGAL, NAV_GROUPS, SOCIAL_LINKS } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { NavIcon } from "@/lib/nav-icons";
-import { EVENTO_BRAND, EVENTO_NAV } from "@/lib/evento-starwars";
+import { EVENTO_BRAND, eventoNavForViewer } from "@/lib/evento-starwars";
 import { DiscordButton } from "./DiscordButton";
 import { SmartLink } from "./SmartLink";
 import { Reveal } from "./Reveal";
@@ -13,6 +13,7 @@ import { BrandMark } from "./BrandMark";
 import { FooterStatusLink } from "./FooterStatusLink";
 import { footerUnderlineClass } from "./NavUnderline";
 import { useEventoChrome } from "./evento/EventoChrome";
+import { useEventoStaffAccess } from "./evento/EventoAccessGate";
 
 function pathActive(pathname: string, href: string) {
   const p = pathname.endsWith("/") ? pathname : `${pathname}/`;
@@ -52,9 +53,11 @@ export function Footer() {
   const pathname = usePathname() || "/";
   const year = new Date().getFullYear();
   const eventoChrome = useEventoChrome();
+  const { ready: eventoReady, access: eventoAccess } = useEventoStaffAccess();
+  const eventoLinks = eventoChrome && eventoReady ? eventoNavForViewer(eventoAccess) : [];
   const eventoCols = [
-    { title: EVENTO_BRAND, links: EVENTO_NAV.slice(0, 4) },
-    { title: "Attività", links: EVENTO_NAV.slice(4) },
+    { title: EVENTO_BRAND, links: eventoLinks.slice(0, 4) },
+    { title: "Attività", links: eventoLinks.slice(4) },
   ];
   return (
     <footer
@@ -126,12 +129,25 @@ export function Footer() {
                     <ul className="mt-3 flex flex-col items-center space-y-2 sm:mt-4 sm:space-y-2.5">
                       {g.links.map((l) => (
                         <li key={l.href}>
-                          <SmartLink
-                            href={l.href}
-                            className={cn(footerUnderlineClass(pathActive(pathname, l.href)), "text-[0.8rem] text-crema/80 sm:text-sm")}
-                          >
-                            {l.label}
-                          </SmartLink>
+                          {l.locked ? (
+                            <span
+                              role="link"
+                              aria-disabled="true"
+                              title="In arrivo"
+                              className="cursor-not-allowed text-[0.8rem] text-crema/35 sm:text-sm"
+                            >
+                              <span className="blur-[2.5px] select-none" aria-hidden>
+                                {l.label}
+                              </span>
+                            </span>
+                          ) : (
+                            <SmartLink
+                              href={l.href}
+                              className={cn(footerUnderlineClass(pathActive(pathname, l.href)), "text-[0.8rem] text-crema/80 sm:text-sm")}
+                            >
+                              {l.label}
+                            </SmartLink>
+                          )}
                         </li>
                       ))}
                     </ul>

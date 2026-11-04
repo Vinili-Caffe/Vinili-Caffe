@@ -1,18 +1,176 @@
-// Puzzle galassia: jigsaw client-side. Gate = High Staff via site-staff-access.
-// Logica allineata a WebSite/js/puzzle-page.js (puzzleHs9).
+// Puzzle di Kessel: 6 difficoltà (pezzi / tempo / premi / cooldown).
+// Gate = calendario evento / HS.
 
 import type { StaffAccess } from "@/lib/staff";
 import { cdnUrl } from "@/lib/site";
+import { canAccessEventoPage } from "@/lib/evento-starwars";
 
-export const PUZZLE_COLS = 6;
-export const PUZZLE_ROWS = 3;
-export const PUZZLE_PIECE_COUNT = PUZZLE_COLS * PUZZLE_ROWS;
 export const PUZZLE_TAB_RATIO = 0.2;
-/** Ratio immagine star-wars-italia-galaxy (1600×816). */
-export const PUZZLE_ASPECT = 1600 / 816;
+export const PUZZLE_CDN_V = "20261104pz1";
 
-/** Asset su CDN R2. */
-export const PUZZLE_IMG = cdnUrl("/images/starwars/star-wars-italia-galaxy.png?v=20261030cdn1");
+export type PuzzleCrateOdds = { crateId: string; weight: number };
+
+export type PuzzleDifficultyId =
+  | "facile"
+  | "normale"
+  | "intermedio"
+  | "difficile"
+  | "esperto"
+  | "impossibile";
+
+export type PuzzleDifficulty = {
+  id: PuzzleDifficultyId;
+  label: string;
+  order: number;
+  cols: number;
+  rows: number;
+  pieces: number;
+  timeLimitSec: number;
+  cooldownMs: number;
+  exp: number;
+  crateOdds: PuzzleCrateOdds[];
+  imageUrl: string;
+};
+
+function puzzleImg(slug: string) {
+  return cdnUrl(`/images/starwars/puzzle/${slug}.jpg?v=${PUZZLE_CDN_V}`);
+}
+
+export const PUZZLE_DIFFICULTIES: readonly PuzzleDifficulty[] = Object.freeze([
+  {
+    id: "facile",
+    label: "Facile",
+    order: 1,
+    cols: 4,
+    rows: 3,
+    pieces: 12,
+    timeLimitSec: 80,
+    cooldownMs: 30 * 60 * 1000,
+    exp: 50,
+    crateOdds: [
+      { crateId: "alpha", weight: 70 },
+      { crateId: "beta", weight: 30 },
+    ],
+    imageUrl: puzzleImg("puzzle-facile"),
+  },
+  {
+    id: "normale",
+    label: "Normale",
+    order: 2,
+    cols: 4,
+    rows: 4,
+    pieces: 16,
+    timeLimitSec: 130,
+    cooldownMs: 30 * 60 * 1000,
+    exp: 100,
+    crateOdds: [
+      { crateId: "alpha", weight: 60 },
+      { crateId: "beta", weight: 40 },
+    ],
+    imageUrl: puzzleImg("puzzle-normale"),
+  },
+  {
+    id: "intermedio",
+    label: "Intermedio",
+    order: 3,
+    cols: 5,
+    rows: 4,
+    pieces: 20,
+    timeLimitSec: 210,
+    cooldownMs: 30 * 60 * 1000,
+    exp: 150,
+    crateOdds: [
+      { crateId: "alpha", weight: 50 },
+      { crateId: "beta", weight: 50 },
+    ],
+    imageUrl: puzzleImg("puzzle-intermedio"),
+  },
+  {
+    id: "difficile",
+    label: "Difficile",
+    order: 4,
+    cols: 6,
+    rows: 4,
+    pieces: 24,
+    timeLimitSec: 330,
+    cooldownMs: 80 * 60 * 1000,
+    exp: 200,
+    crateOdds: [
+      { crateId: "beta", weight: 70 },
+      { crateId: "omega", weight: 30 },
+    ],
+    imageUrl: puzzleImg("puzzle-difficile"),
+  },
+  {
+    id: "esperto",
+    label: "Esperto",
+    order: 5,
+    cols: 6,
+    rows: 6,
+    pieces: 36,
+    timeLimitSec: 420,
+    cooldownMs: 80 * 60 * 1000,
+    exp: 250,
+    crateOdds: [
+      { crateId: "beta", weight: 60 },
+      { crateId: "omega", weight: 40 },
+    ],
+    imageUrl: puzzleImg("puzzle-esperto"),
+  },
+  {
+    id: "impossibile",
+    label: "Impossibile",
+    order: 6,
+    cols: 8,
+    rows: 6,
+    pieces: 48,
+    timeLimitSec: 510,
+    cooldownMs: 2 * 60 * 60 * 1000,
+    exp: 300,
+    crateOdds: [
+      { crateId: "beta", weight: 50 },
+      { crateId: "omega", weight: 50 },
+    ],
+    imageUrl: puzzleImg("puzzle-impossibile"),
+  },
+]);
+
+const BY_ID = new Map(PUZZLE_DIFFICULTIES.map((d) => [d.id, d]));
+
+export function getPuzzleDifficulty(id: string | null | undefined): PuzzleDifficulty | null {
+  return BY_ID.get(String(id || "").trim().toLowerCase() as PuzzleDifficultyId) || null;
+}
+
+/** Legacy default (prima difficoltà). */
+export const PUZZLE_COLS = PUZZLE_DIFFICULTIES[0]!.cols;
+export const PUZZLE_ROWS = PUZZLE_DIFFICULTIES[0]!.rows;
+export const PUZZLE_PIECE_COUNT = PUZZLE_DIFFICULTIES[0]!.pieces;
+export const PUZZLE_ASPECT = 16 / 9;
+export const PUZZLE_IMG = PUZZLE_DIFFICULTIES[0]!.imageUrl;
+
+export function formatPuzzleTime(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  if (m <= 0) return `${r}s`;
+  return `${m}m ${String(r).padStart(2, "0")}s`;
+}
+
+export function formatPuzzleCooldown(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+  if (m > 0) return `${m}m ${String(s).padStart(2, "0")}s`;
+  return `${s}s`;
+}
+
+export function crateOddsLabel(odds: PuzzleCrateOdds[]): string {
+  return odds
+    .map((o) => `${o.weight}% ${o.crateId}`)
+    .join(" · ");
+}
 
 export type EdgeSign = -1 | 0 | 1;
 export type PieceEdges = { top: EdgeSign; right: EdgeSign; bottom: EdgeSign; left: EdgeSign };
@@ -33,11 +191,12 @@ export type PuzzlePieceState = {
   seen: boolean;
 };
 
-/** Come puzzle-page.js: isHighStaff || canManage || highStaff. */
+/** Gate puzzle: HS sempre; pubblico solo nella finestra /puzzle/ (3–8 feb 12:00 Rome). */
 export function canAccessPuzzle(
-  access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean },
+  access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
+  now = new Date(),
 ): boolean {
-  return Boolean(access.isHighStaff || access.canManage || access.highStaff);
+  return canAccessEventoPage("puzzle", access, now);
 }
 
 export function pieceId(row: number, col: number): string {
@@ -95,7 +254,7 @@ export function buildPieces(E: EdgeGrid, cols = PUZZLE_COLS, rows = PUZZLE_ROWS)
   return pieces;
 }
 
-/** Contorno pezzo jigsaw (stesso path di puzzle-page.js). */
+/** Contorno pezzo jigsaw. */
 export function piecePath(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -116,47 +275,42 @@ export function piecePath(
   if (!e.top) ctx.lineTo(x + w, y);
   else {
     ctx.lineTo(midX - neck, y);
-    ctx.bezierCurveTo(midX - neck, y - e.top * bulge * 0.2, midX - bulge * 0.95, y - e.top * bulge, midX, y - e.top * bulge);
-    ctx.bezierCurveTo(midX + bulge * 0.95, y - e.top * bulge, midX + neck, y - e.top * bulge * 0.2, midX + neck, y);
+    ctx.bezierCurveTo(midX - neck, y - bulge * e.top, midX + neck, y - bulge * e.top, midX + neck, y);
     ctx.lineTo(x + w, y);
   }
 
   if (!e.right) ctx.lineTo(x + w, y + h);
   else {
     ctx.lineTo(x + w, midY - neck);
-    ctx.bezierCurveTo(x + w + e.right * bulge * 0.2, midY - neck, x + w + e.right * bulge, midY - bulge * 0.95, x + w + e.right * bulge, midY);
-    ctx.bezierCurveTo(x + w + e.right * bulge, midY + bulge * 0.95, x + w + e.right * bulge * 0.2, midY + neck, x + w, midY + neck);
+    ctx.bezierCurveTo(
+      x + w + bulge * e.right,
+      midY - neck,
+      x + w + bulge * e.right,
+      midY + neck,
+      x + w,
+      midY + neck,
+    );
     ctx.lineTo(x + w, y + h);
   }
 
   if (!e.bottom) ctx.lineTo(x, y + h);
   else {
     ctx.lineTo(midX + neck, y + h);
-    ctx.bezierCurveTo(midX + neck, y + h + e.bottom * bulge * 0.2, midX + bulge * 0.95, y + h + e.bottom * bulge, midX, y + h + e.bottom * bulge);
-    ctx.bezierCurveTo(midX - bulge * 0.95, y + h + e.bottom * bulge, midX - neck, y + h + e.bottom * bulge * 0.2, midX - neck, y + h);
+    ctx.bezierCurveTo(
+      midX + neck,
+      y + h + bulge * e.bottom,
+      midX - neck,
+      y + h + bulge * e.bottom,
+      midX - neck,
+      y + h,
+    );
     ctx.lineTo(x, y + h);
   }
 
-  // sinistra: dal basso verso l’alto (specchio del lato destro)
   if (!e.left) ctx.lineTo(x, y);
   else {
     ctx.lineTo(x, midY + neck);
-    ctx.bezierCurveTo(
-      x - e.left * bulge * 0.2,
-      midY + neck,
-      x - e.left * bulge,
-      midY + bulge * 0.95,
-      x - e.left * bulge,
-      midY,
-    );
-    ctx.bezierCurveTo(
-      x - e.left * bulge,
-      midY - bulge * 0.95,
-      x - e.left * bulge * 0.2,
-      midY - neck,
-      x,
-      midY - neck,
-    );
+    ctx.bezierCurveTo(x - bulge * e.left, midY + neck, x - bulge * e.left, midY - neck, x, midY - neck);
     ctx.lineTo(x, y);
   }
 
@@ -218,7 +372,6 @@ export function renderPieceCanvas(
   );
   ctx.restore();
 
-  // contorno pezzo
   piecePath(ctx, ox, oy, displayW, displayH, piece.edges, tab);
   ctx.strokeStyle = "rgba(201, 162, 39, 0.65)";
   ctx.lineWidth = 1.4;
@@ -228,7 +381,6 @@ export function renderPieceCanvas(
   ctx.lineWidth = 0.8;
   ctx.stroke();
 
-  // cornice stato: segue il path jigsaw (non un rettangolo)
   if (status === "wrong" || status === "ok" || status === "locked") {
     const stroke =
       status === "wrong" ? "rgba(224, 122, 106, 0.95)" : status === "ok" ? "rgba(109, 207, 138, 0.95)" : "rgba(109, 207, 138, 0.75)";
@@ -245,7 +397,6 @@ export function renderPieceCanvas(
   return { outerW, outerH };
 }
 
-/** Mini anteprima token rivelato (JPEG data URL). */
 export function tokenFaceDataUrl(
   img: HTMLImageElement,
   piece: Pick<PuzzlePieceState, "row" | "col">,
@@ -269,14 +420,15 @@ export function tokenFaceDataUrl(
   return canvas.toDataURL("image/jpeg", 0.82);
 }
 
-export function fitBoardSize(wrapW: number, wrapH: number, pad = 12): { w: number; h: number } {
+export function fitBoardSize(wrapW: number, wrapH: number, aspect = PUZZLE_ASPECT, pad = 12): { w: number; h: number } {
   const maxW = Math.max(120, wrapW - pad);
   const maxH = Math.max(100, wrapH - pad);
+  const a = aspect > 0.2 ? aspect : PUZZLE_ASPECT;
   let w = maxW;
-  let h = w / PUZZLE_ASPECT;
+  let h = w / a;
   if (h > maxH) {
     h = maxH;
-    w = h * PUZZLE_ASPECT;
+    w = h * a;
   }
   return { w, h };
 }

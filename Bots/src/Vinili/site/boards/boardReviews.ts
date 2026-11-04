@@ -57,9 +57,8 @@ function boardsConfig(client?) {
     turnstileSiteKey: String(turnstile.siteKey || "").trim(),
     turnstileSecretKey: String(turnstile.secretKey || "").trim(),
     ads: {
-      provider: ["mock", "adsense", "none"].includes(adProvider) ? adProvider : "mock",
-      adsenseClient: String(ads.adsenseClient || "").trim(),
-      adsenseSlot: String(ads.adsenseSlot || "").trim(),
+      /* Solo mock/none: niente AdSense (non accettato sul dominio). */
+      provider: ["mock", "none"].includes(adProvider) ? adProvider : "mock",
       minWatchSeconds: Math.max(0, Math.min(120, Number(ads.minWatchSeconds) || Number(raw.voteAdSeconds) || 0)),
     },
     categories: BOARD_CATEGORIES.slice(),

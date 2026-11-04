@@ -11,6 +11,8 @@ export function PuzzlePieceCanvas({
   cellW,
   cellH,
   tab,
+  cols,
+  rows,
   className,
   locked,
   wrong,
@@ -22,6 +24,8 @@ export function PuzzlePieceCanvas({
   cellW: number;
   cellH: number;
   tab: number;
+  cols: number;
+  rows: number;
   className?: string;
   locked?: boolean;
   wrong?: boolean;
@@ -39,8 +43,8 @@ export function PuzzlePieceCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || cellW <= 0 || cellH <= 0) return;
-    renderPieceCanvas(canvas, img, piece, cellW, cellH, tab, undefined, undefined, status);
-  }, [img, piece, piece.edges, cellW, cellH, tab, status]);
+    renderPieceCanvas(canvas, img, piece, cellW, cellH, tab, cols, rows, status);
+  }, [img, piece, piece.edges, cellW, cellH, tab, cols, rows, status]);
 
   const shellClass = cn(
     "relative block border-0 bg-transparent p-0",

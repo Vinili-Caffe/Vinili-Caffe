@@ -39,7 +39,12 @@ import { navUnderlineClass } from "./NavUnderline";
 import { ThemePrefRow } from "./ThemeToggle";
 import { ViewAsLaunch, useViewAsChrome } from "./view-as/ViewAsChrome";
 import { useDeviceFx } from "./effects/DeviceFxProvider";
-import { EVENTO_NAV, isEventoHighStaff, isEventoPublicWindowOpen } from "@/lib/evento-starwars";
+import {
+  eventoNavForViewer,
+  isEventoHighStaff,
+  isEventoPublicWindowOpen,
+  type EventoNavItemView,
+} from "@/lib/evento-starwars";
 import { useEventoChrome } from "./evento/EventoChrome";
 import { ContestNavPill } from "./contest/ContestNavPill";
 
@@ -432,12 +437,11 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [highStaff, setHighStaff] = useState(false);
+  const [staffAccess, setStaffAccess] = useState<StaffAccess | null>(null);
   const eventoChrome = useEventoChrome();
   const eventoNavOpen = isEventoPublicWindowOpen();
-  /* Dentro lo shell evento: voci sempre in nav (il gate pagina resta HS/pubblico). */
-  const eventoLinks = eventoChrome
-    ? EVENTO_NAV.filter((n) => n.id !== "puzzle" || highStaff)
-    : [];
+  /* Dentro lo shell evento: feature chiuse → blur (HS vede tutto sbloccato). */
+  const eventoLinks: EventoNavItemView[] = eventoChrome ? eventoNavForViewer(staffAccess) : [];
   const soon = t("auth.comingSoon");
   const headerRef = useRef<HTMLElement>(null);
   const navHidden = useAutoHideNav(headerRef, open);
@@ -447,10 +451,20 @@ export function Navbar() {
   useEffect(() => {
     if (!token) {
       setHighStaff(false);
+      setStaffAccess(null);
       return;
     }
     let alive = true;
-    loadStaffAccess(token).then((r) => alive && setHighStaff(Boolean(r.ok && r.data.isHighStaff)));
+    loadStaffAccess(token).then((r) => {
+      if (!alive) return;
+      if (r.ok) {
+        setStaffAccess(r.data);
+        setHighStaff(isEventoHighStaff(r.data));
+      } else {
+        setStaffAccess(null);
+        setHighStaff(false);
+      }
+    });
     return () => {
       alive = false;
     };
@@ -508,10 +522,19 @@ export function Navbar() {
               <>
                 {eventoLinks.map((l) => (
                   <li key={l.href}>
-                    <SmartLink href={l.href} className={navUnderlineClass(eventoLinkActive(pathname, l.href, l.id))}>
-                      <EventoNavIcon id={l.id} />
-                      {l.label}
-                    </SmartLink>
+                    {l.locked ? (
+                      <SoonNavItem
+                        label={l.label}
+                        soon={soon}
+                        icon={<EventoNavIcon id={l.id} />}
+                        className={cn(navUnderlineClass(false), "text-crema/45")}
+                      />
+                    ) : (
+                      <SmartLink href={l.href} className={navUnderlineClass(eventoLinkActive(pathname, l.href, l.id))}>
+                        <EventoNavIcon id={l.id} />
+                        {l.label}
+                      </SmartLink>
+                    )}
                   </li>
                 ))}
                 <li aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-crema/20" />
@@ -605,23 +628,33 @@ export function Navbar() {
                   <ul className="grid grid-cols-2 gap-2">
                     {eventoLinks.map((l) => {
                       const on = eventoLinkActive(pathname, l.href, l.id);
+                      const ico = <EventoNavIcon id={l.id} />;
                       return (
                         <li key={l.href}>
-                          <SmartLink
-                            href={l.href}
-                            onClick={() => {
-                              window.setTimeout(() => setOpen(false), 0);
-                            }}
-                            className={cn(
-                              "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-[transform,background-color,color] duration-200 ease-out active:scale-[0.98]",
-                              on
-                                ? "bg-caramel/15 text-ember ring-caramel/35"
-                                : "bg-crema/[0.05] text-crema/90 ring-sand/12 hover:bg-crema/10",
-                            )}
-                          >
-                            <EventoNavIcon id={l.id} />
-                            {l.label}
-                          </SmartLink>
+                          {l.locked ? (
+                            <SoonNavItem
+                              label={l.label}
+                              soon={soon}
+                              icon={ico}
+                              className="min-h-[3.1rem] flex-col gap-1 rounded-2xl bg-crema/[0.05] px-2.5 py-2.5 text-center text-sm font-semibold leading-snug text-crema/45 ring-1 ring-sand/12"
+                            />
+                          ) : (
+                            <SmartLink
+                              href={l.href}
+                              onClick={() => {
+                                window.setTimeout(() => setOpen(false), 0);
+                              }}
+                              className={cn(
+                                "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-[transform,background-color,color] duration-200 ease-out active:scale-[0.98]",
+                                on
+                                  ? "bg-caramel/15 text-ember ring-caramel/35"
+                                  : "bg-crema/[0.05] text-crema/90 ring-sand/12 hover:bg-crema/10",
+                              )}
+                            >
+                              {ico}
+                              {l.label}
+                            </SmartLink>
+                          )}
                         </li>
                       );
                     })}

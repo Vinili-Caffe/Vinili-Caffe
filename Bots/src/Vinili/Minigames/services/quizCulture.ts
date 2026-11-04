@@ -2,8 +2,12 @@
 const axios = require("axios") as any;
 const { getGuessYearBank, getCompleteVerseBank, getGuessEmojiBank, getQuoteFilmBank, getProverbBank, getSynonymAntonymBank, getItalianGkBank } = require("../../Minigames/data/minigameBanks") as typeof import("../../Minigames/data/minigameBanks");
 const { shouldUseHalloweenTheme, getHalloweenGuessYearBank, getHalloweenCompleteVerseBank } = require("../../Minigames/utils/halloweenMinigameHooks") as typeof import("../../Minigames/utils/halloweenMinigameHooks");
+const {
+  shouldUseStarWarsTheme,
+  getStarWarsCompleteQuoteBank,
+} = require("../../Minigames/utils/starWarsMinigameHooks") as typeof import("../../Minigames/utils/starWarsMinigameHooks");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
-const { normalizeCountryName, polishItalianQuestionText, buildEmojiRichPromptImageAttachment, buildPromptImageAttachment, buildMathExpressionImageAttachment } = require("./minigameImages") as typeof import("./minigameImages");
+const { normalizeCountryName, polishItalianQuestionText, buildEmojiRichPromptImageAttachment, buildPromptImageAttachment, buildMathExpressionImageAttachment, resolveMinigamePromptAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 const { buildItalianGkEmbed, buildMathExpressionEmbed, buildTimeoutItalianGkEmbed, buildTimeoutMathEmbed, buildGuessYearEmbed, buildCompleteVerseEmbed, buildGuessEmojiEmbed, buildQuoteFilmEmbed, buildCompleteProverbEmbed, buildSynonymAntonymEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { buildAliases } = require("./minigameSources") as typeof import("./minigameSources");
 const { getChannelCached, pickRandomItem } = require("./minigameUtils") as typeof import("./minigameUtils");
@@ -214,7 +218,11 @@ async function startGuessYearGame(client?, cfg?) {
 async function startCompleteVerseGame(client?, cfg?) {
   const channelId = cfg.channelId;
   if (!channelId || activeGames.has(channelId)) return false;
-  const bank = shouldUseHalloweenTheme(cfg) ? getHalloweenCompleteVerseBank() : getCompleteVerseBank();
+  const bank = shouldUseStarWarsTheme(cfg)
+    ? getStarWarsCompleteQuoteBank()
+    : shouldUseHalloweenTheme(cfg)
+      ? getHalloweenCompleteVerseBank()
+      : getCompleteVerseBank();
   const pick = pickQuestionAvoidRecent(channelId, "completeVerse", bank, (r?) => r.verse, 15);
   if (!pick) return false;
   const rewardExp = normalizeRewardExp(cfg?.completeVerse?.rewardExp ?? 150);
@@ -222,16 +230,30 @@ async function startCompleteVerseGame(client?, cfg?) {
   const channel = await getChannelCached(client, channelId);
   if (!channel) return false;
   await sendMinigameRolePing(channel, cfg);
-  const attachment = buildPromptImageAttachment(shouldUseHalloweenTheme(cfg) ? "Completa il verso Halloween" : "Completa il verso", [pick.verse, `${pick.song} — ${pick.artist}`], "complete_verse", "", client);
+  const promptTitle = shouldUseHalloweenTheme(cfg) && !shouldUseStarWarsTheme(cfg)
+    ? "Completa il verso Halloween"
+    : "Completa il verso";
+  const { attachment, backgroundUrl: verseSwBg } = await resolveMinigamePromptAttachment(
+    cfg,
+    promptTitle,
+    [pick.verse, `${pick.song} — ${pick.artist}`],
+    "complete_verse",
+    client,
+  );
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildCompleteVerseEmbed(pick.verse, rewardExp, durationMs, imageUrl);
-  if (shouldUseHalloweenTheme(cfg)) embed.setTitle("Completa il verso Halloween 🎃");
+  if (shouldUseHalloweenTheme(cfg) && !shouldUseStarWarsTheme(cfg)) embed.setTitle("Completa il verso Halloween 🎃");
   const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const hintText = `Verso: ${buildRevealHint(pick.answer)}`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, hintText);
   const answerNorm = normalizeCountryName(pick.answer);
-  const answers = [answerNorm, pick.answer, compactNoSpaces(answerNorm)];
+  const answers = [
+    answerNorm,
+    pick.answer,
+    compactNoSpaces(answerNorm),
+    ...(Array.isArray(pick.answers) ? pick.answers.map((a) => normalizeCountryName(a)).filter(Boolean) : []),
+  ];
   activeGames.set(channelId, {
     type: "completeVerse",
     verse: pick.verse,
@@ -240,6 +262,7 @@ async function startCompleteVerseGame(client?, cfg?) {
     song: pick.song,
     artist: pick.artist,
     rewardExp,
+    swBackgroundUrl: verseSwBg || null,
     startedAt: Date.now(),
     endsAt: Date.now() + durationMs,
     timeout,

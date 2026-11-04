@@ -2,7 +2,7 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { normalizeUserAnswerText } = require("./minigameText") as typeof import("./minigameText");
 const { getActivityWindowMs, getActivityScopeKey, recordActivity, canCountMessageForActivity } = require("./minigameActivity") as typeof import("./minigameActivity");
-const { activeGames, channelWinClosing, isMinigameRehydrateBlocked, clearActiveGame } = require("./minigameState") as typeof import("./minigameState");
+const { activeGames, channelWinClosing, endMinigameWinClose, isMinigameRehydrateBlocked, clearActiveGame } = require("./minigameState") as typeof import("./minigameState");
 const { purgeExpiredMinigameDbState } = require("./minigameRound") as typeof import("./minigameRound");
 const { getConfig } = require("./minigameConfig") as typeof import("./minigameConfig");
 const { ensureTreasureHuntGame, handleTreasureHuntIncomingMessage } = require("./minigameTreasureHunt") as typeof import("./minigameTreasureHunt");
@@ -20,27 +20,43 @@ async function handleMinigameMessage(message?, client?) {
   if (!message?.guild) return false;
   if (message.author?.bot) return false;
   const chId = String(message.channelId || "");
-  if (channelWinClosing.has(chId)) return true;
-  let cfg = baseCfg;
-  cfg.guildId = String(message.guild.id || "");
-  const chatId = String(cfg.channelId || "");
-  const mediaId = String(IDs.channels.media || "").trim();
-  const gameBucket = activeGames.get(chatId);
-  if (
-    !gameBucket &&
-    canCountMessageForActivity(message) &&
-    (chId === chatId || (mediaId && chId === mediaId))
-  ) {
-    recordActivity(getActivityScopeKey(cfg), getActivityWindowMs(cfg), message.author?.id);
+  if (!chId) return false;
+
+  // Claim di chiusura stantio: non bloccare le risposte per sempre
+  if (channelWinClosing.has(chId)) {
+    endMinigameWinClose(chId);
   }
-  if (chId !== chatId) return false;
-  let game = activeGames.get(chId);
-  if (!game) {
+
+  const officialChatId = String(baseCfg.channelId || "");
+  const mediaId = String(IDs.channels.media || "").trim();
+  const gameHere = activeGames.get(chId);
+
+  // Activity solo sul canale ufficiale / media quando non c'è partita
+  if (
+    !gameHere &&
+    canCountMessageForActivity(message) &&
+    (chId === officialChatId || (mediaId && chId === mediaId))
+  ) {
+    recordActivity(getActivityScopeKey(baseCfg), getActivityWindowMs(baseCfg), message.author?.id);
+  }
+
+  // Accetta risposte su QUALSIASI canale con partita attiva (swspawn / canale ufficiale)
+  if (!gameHere && chId !== officialChatId) return false;
+
+  // cfg.channelId DEVE essere il canale del messaggio, altrimenti win/close silenziosi
+  const cfg = {
+    ...baseCfg,
+    guildId: String(message.guild.id || ""),
+    channelId: chId,
+  };
+
+  let game = gameHere;
+  if (!game && chId === officialChatId) {
     game = await ensureTreasureHuntGame(client, cfg);
   }
   if (game?.type === "treasureHunt") {
     if (isStaleOrInvalidActiveGame(game)) {
-      await closeStaleActiveMinigameChannel(client, cfg, cfg.channelId, game, message.channel);
+      await closeStaleActiveMinigameChannel(client, cfg, chId, game, message.channel);
       return false;
     }
     if (game.hadParticipation === undefined) game.hadParticipation = false;
@@ -48,22 +64,37 @@ async function handleMinigameMessage(message?, client?) {
     return handleTreasureHuntIncomingMessage(message, client, cfg);
   }
   if (!game) {
-    if (isMinigameRehydrateBlocked(chatId)) {
-      await clearActiveGame(client, { ...cfg, guildId: message.guild.id }).catch(() => { });
+    if (isMinigameRehydrateBlocked(chId)) {
+      await clearActiveGame(client, cfg).catch(() => { });
     } else {
-      await purgeExpiredMinigameDbState(client, { ...cfg, guildId: message.guild.id });
+      await purgeExpiredMinigameDbState(client, cfg);
     }
     return false;
   }
-  if (game && isStaleOrInvalidActiveGame(game)) {
-    await closeStaleActiveMinigameChannel(client, cfg, cfg.channelId, game, message.channel);
+  if (isStaleOrInvalidActiveGame(game)) {
+    await closeStaleActiveMinigameChannel(client, cfg, chId, game, message.channel);
     return false;
   }
-  if (game) {
-    if (game.hadParticipation === undefined) game.hadParticipation = false;
-    game.hadParticipation = true;
-  }
-  if (!game) return false;
+  if (game.hadParticipation === undefined) game.hadParticipation = false;
+  game.hadParticipation = true;
+
+  // Malus freeze SW: lista in-memory sul game; Mongo solo per malus freeze
+  try {
+    const uid = String(message.author?.id || "");
+    const frozenIds = Array.isArray(game.frozenUserIds) ? game.frozenUserIds.map(String) : [];
+    if (uid && frozenIds.includes(uid)) {
+      await message.react("🧊").catch(() => null);
+      return true;
+    }
+    const malusId = String(game.malusId || "").toLowerCase();
+    if (malusId === "hansicle" || malusId === "sospensione") {
+      const { isUserFrozenForQuiz } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsQuizMalusService");
+      if (await isUserFrozenForQuiz(uid)) {
+        await message.react("🧊").catch(() => null);
+        return true;
+      }
+    }
+  } catch (_) {}
 
   const content = String(message.content || "").trim();
   const contentForGuess = normalizeUserAnswerText(content);

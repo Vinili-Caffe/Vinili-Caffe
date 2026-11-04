@@ -156,6 +156,27 @@ async function safeStartGameByType(client?, cfg?, gameType?) {
     if (gameType === "synonymAntonym") return startSynonymAntonymGame(client, cfg);
     if (gameType === "guessCity") return startGuessCityGame(client, cfg);
     if (gameType === "treasureHunt") return startTreasureHuntGame(client, cfg);
+    if (gameType === "starWarsQuiz") {
+      const { startStarWarsQuizGame } = require("../../../../archivio/starwars/src/Vinili/Services/Minigames/minigameStarWarsQuiz") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Minigames/minigameStarWarsQuiz");
+      return startStarWarsQuizGame(client, cfg);
+    }
+    if (gameType === "starWarsGuessPlanet") {
+      const { startStarWarsGuessPlanetGame } = require("../../../../archivio/starwars/src/Vinili/Services/Minigames/minigameStarWarsGuessPlanet") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Minigames/minigameStarWarsGuessPlanet");
+      return startStarWarsGuessPlanetGame(client, cfg);
+    }
+    {
+      const { isStarWarsSpecialDiscordType } = require("../../Minigames/utils/starWarsMinigameHooks") as typeof import("../../Minigames/utils/starWarsMinigameHooks");
+      if (isStarWarsSpecialDiscordType(gameType)) {
+        const { startSpecialFromRotation } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService");
+        const { markSent } = require("./minigameRoundStart") as typeof import("./minigameRoundStart");
+        const out = await startSpecialFromRotation(client, gameType, { channelId: cfg?.channelId || null });
+        if (out?.ok) {
+          if (cfg?.channelId) markSent(cfg.channelId);
+          return true;
+        }
+        return { started: false, skipToNext: true };
+      }
+    }
     return false;
   } catch (error) {
     warnMinigame(error);
@@ -217,7 +238,7 @@ async function maybeStartRandomGame(client?, force = false) {
     if (!force) {
       const windowStart = cfg?.timeWindow?.start;
       const windowEnd = cfg?.timeWindow?.end;
-      // Halloween: minigiochi sempre (no finestra globale); ToT/react hanno gate ore a parte
+      // Halloween: sempre; SW: finestra 06→02 (anche overnight)
       if (!cfg.halloweenEventLive && !isWithinAllowedWindow(now, windowStart, windowEnd)) {
         logMinigameDebug("skip: outside time window", { channelId: cfg.channelId });
         logMaybeStartSkip(cfg, client, "outside_time_window");
@@ -230,8 +251,8 @@ async function maybeStartRandomGame(client?, force = false) {
         logMaybeStartSkip(cfg, client, "interval_cooldown", { lastSentAt: lastSent, msSinceLastSent: Date.now() - lastSent });
         return false;
       }
-      // Durante Halloween: niente requisiti attività / fresh chat (spawn sempre allo slot)
-      if (!cfg.halloweenEventLive) {
+      // Halloween / Star Wars: niente requisiti attività / fresh chat
+      if (!cfg.halloweenEventLive && !cfg.starWarsEventLive) {
         const readyByActivity = isReadyByActivity(cfg, client);
         const failsafeDue = isFailsafeDue(cfg);
         if (!readyByActivity && !failsafeDue) {
@@ -317,6 +338,21 @@ async function maybeStartRandomGame(client?, force = false) {
             lastPlayedAtByChannelAndType.set(cfg.channelId, atMap);
           }
           atMap.set(gameType, Date.now());
+        }
+        if (cfg.starWarsEventLive) {
+          try {
+            const { isStarWarsSpecialDiscordType } = require("../../Minigames/utils/starWarsMinigameHooks");
+            if (!isStarWarsSpecialDiscordType(gameType)) {
+              const { attachMalusToStartedGame } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsQuizMalusService");
+              const attached = await attachMalusToStartedGame(client, gameType);
+              if (attached && cfg.channelId && activeGames.has(cfg.channelId)) {
+                const g = activeGames.get(cfg.channelId);
+                g.swMalusAttached = true;
+                g.malusId = g.malusId || attached.malusId;
+                g.frozenUserIds = Array.isArray(attached.frozenUserIds) ? attached.frozenUserIds : g.frozenUserIds || [];
+              }
+            }
+          } catch (_) {}
         }
         pendingGames.delete(cfg.channelId);
         await saveRotationState(client, cfg);

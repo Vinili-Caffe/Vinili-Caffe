@@ -3,6 +3,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { handleSerataFilmScheduledEventUpdate } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
 const { handleMovieNightEventStart } = require("../../Community/services/movieNightAnnouncementService") as typeof import("../../Community/services/movieNightAnnouncementService");
+const { ensureMovieNightScheduledEventPoster } = require("../../Community/services/movieNightEventPoster") as typeof import("../../Community/services/movieNightEventPoster");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const AUDIT_FETCH_LIMIT = 20;
@@ -156,6 +157,9 @@ export = {
     try {
       const guildEarly = newEvent?.guild || oldEvent?.guild;
       if (guildEarly?.id && !isViniliFullFeatureGuild(guildEarly.id)) return;
+      await ensureMovieNightScheduledEventPoster(newEvent).catch((err?) => {
+        global.logger?.warn?.("[guildScheduledEventUpdate] movie night poster:", err?.message || err);
+      });
       await handleSerataFilmScheduledEventUpdate(oldEvent, newEvent).catch((err?) => {
         global.logger?.warn?.("[guildScheduledEventUpdate] serata film auto:", err?.message || err);
       });

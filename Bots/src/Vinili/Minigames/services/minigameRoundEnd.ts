@@ -112,6 +112,16 @@ function buildMinigameTimeoutEmbedForGame(game?) {
       return buildTimeoutGuessCityEmbed(String(game.landmark || ""), String(game.city || game.answers?.[0] || ""));
     case "halloweenQuiz":
       return buildTimeoutItalianGkEmbed(String(game.displayAnswer || game.answers?.[0] || "sconosciuta")).setTitle("Tempo scaduto — Quiz Halloween");
+    case "starWarsQuiz":
+      return buildTimeoutItalianGkEmbed(String(game.displayAnswer || game.answers?.[0] || "sconosciuta")).setTitle("Tempo scaduto — Quiz Star Wars");
+    case "starWarsGuessPlanet": {
+      try {
+        const { buildTimeoutPlanetEmbed } = require("../../../../archivio/starwars/src/Vinili/Services/Minigames/minigameStarWarsGuessPlanet");
+        return buildTimeoutPlanetEmbed(String(game.planetName || game.displayAnswer || game.answer || "?"));
+      } catch (_) {
+        return buildTimeoutItalianGkEmbed(String(game.planetName || game.displayAnswer || "?")).setTitle("Tempo scaduto — Indovina il pianeta");
+      }
+    }
     case "halloweenMissingEmoji":
       return new EmbedBuilder()
         .setColor(MINIGAME_EMBED_COLOR)
@@ -182,11 +192,39 @@ function buildGameSnapshotFromPersistedState(state?) {
       return game;
     case "hangman":
       game.word = parsed?.word || String(state.target || "parola sconosciuta");
+      game.guessedLetters = Array.isArray(parsed?.guessedLetters) ? parsed.guessedLetters : [];
+      game.misses = Number(parsed?.misses || 0);
+      game.maxMisses = Number(parsed?.maxMisses || 10);
+      game.userMisses = parsed?.userMisses && typeof parsed.userMisses === "object" ? parsed.userMisses : {};
+      game.swBackgroundUrl = parsed?.swBackgroundUrl || null;
       return game;
     case "italianGK":
     case "halloweenQuiz":
       game.displayAnswer = parsed?.displayAnswer || parsed?.answers?.[0] || "sconosciuta";
       game.answers = parsed?.answers || [];
+      return game;
+    case "starWarsQuiz":
+      game.kind = parsed?.kind || "text";
+      game.question = parsed?.question || "";
+      game.displayAnswer = parsed?.displayAnswer || parsed?.answers?.[0] || "sconosciuta";
+      game.answers = parsed?.answers || [];
+      game.answer = typeof parsed?.answer === "boolean" ? parsed.answer : game.answer;
+      game.choices = Array.isArray(parsed?.choices) ? parsed.choices : [];
+      game.correctIndex = Number.isFinite(parsed?.correctIndex) ? parsed.correctIndex : -1;
+      game.malusId = parsed?.malusId || null;
+      game.frozenUserIds = Array.isArray(parsed?.frozenUserIds) ? parsed.frozenUserIds : [];
+      game.geoFactionId = parsed?.geoFactionId || null;
+      game.geonosianCorrectIds = Array.isArray(parsed?.geonosianCorrectIds) ? parsed.geonosianCorrectIds : [];
+      return game;
+    case "starWarsGuessPlanet":
+      game.planetId = parsed?.planetId || "";
+      game.planetName = parsed?.planetName || parsed?.displayAnswer || "pianeta";
+      game.displayAnswer = parsed?.planetName || parsed?.displayAnswer || "pianeta";
+      game.answer = game.planetName;
+      game.answers = Array.isArray(parsed?.answers) ? parsed.answers : [];
+      game.hint = parsed?.hint || "";
+      game.imageUrl = parsed?.imageUrl || "";
+      game.swBackgroundUrl = parsed?.swBackgroundUrl || null;
       return game;
     case "halloweenMissingEmoji":
       game.display = parsed?.display || "";
@@ -395,6 +433,10 @@ async function sendMinigameTimeoutAndClose(client?, cfg?, channelId?, channel?, 
     let guildId = String(cfg?.guildId || "").trim();
     if (!guildId) guildId = String(channel?.guild?.id || "").trim();
     await clearActiveGame(client, { ...cfg, channelId: chId, guildId }, game);
+    try {
+      const { consumeMalusAfterGame } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsQuizMalusService");
+      await consumeMalusAfterGame(game);
+    } catch (_) {}
   } finally {
     endMinigameWinClose(chId);
   }

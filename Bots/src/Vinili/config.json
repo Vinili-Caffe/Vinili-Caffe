@@ -93,8 +93,6 @@
     },
     "ads": {
       "provider": "none",
-      "adsenseClient": "",
-      "adsenseSlot": "",
       "minWatchSeconds": 0
     }
   },
@@ -399,6 +397,15 @@
     "completeVerse": {
       "durationMs": 180000,
       "rewardExp": 150
+    },
+    "starWarsQuiz": {
+      "durationMs": 180000,
+      "rewardExp": 50,
+      "rewardCredits": 5000
+    },
+    "starWarsGuessPlanet": {
+      "durationMs": 180000,
+      "rewardExp": 50
     },
     "guessEmoji": {
       "durationMs": 180000,

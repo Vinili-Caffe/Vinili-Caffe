@@ -1,7 +1,12 @@
 /** Memory emoji: sequenza da memorizzare, richiesta di riscriverla e ripristino. */
 const { getMemoryEmojiBank } = require("../../Minigames/data/minigameBanks") as typeof import("../../Minigames/data/minigameBanks");
 const { shouldUseHalloweenTheme, getHalloweenMemoryEmojiBank } = require("../../Minigames/utils/halloweenMinigameHooks") as typeof import("../../Minigames/utils/halloweenMinigameHooks");
+const {
+  shouldUseStarWarsTheme,
+  getStarWarsMemoryEmojiBank,
+} = require("../../Minigames/utils/starWarsMinigameHooks") as typeof import("../../Minigames/utils/starWarsMinigameHooks");
 const { buildMemorySequenceEmbed, buildMemoryRecallEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
+const { resolveMinigamePromptAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { normalizeRewardExp, shuffleArray, normalizeMemorySequence, displayMemorySequence } = require("./minigameText") as typeof import("./minigameText");
 const { activeGames, pickQuestionAvoidRecent } = require("./minigameState") as typeof import("./minigameState");
@@ -249,9 +254,24 @@ async function startMemoryEmojiGame(client?, cfg?, options?) {
   if (cfg.roleId)
     await sendMinigameRolePing(channel, cfg);
 
+  const sequenceEmbed = buildMemorySequenceEmbed(displaySequence, rewardExp, displayMs);
+  let sequenceFiles = [];
+  if (shouldUseStarWarsTheme(cfg)) {
+    const { attachment } = await resolveMinigamePromptAttachment(
+      cfg,
+      "Memoria",
+      [displaySequence, "Memorizza la sequenza"],
+      "memory_emoji",
+      client,
+    );
+    if (attachment) {
+      sequenceEmbed.setImage(`attachment://${attachment.name}`);
+      sequenceFiles = [attachment];
+    }
+  }
   const sequenceMessage = await sendMinigameMessage(
     channel,
-    { embeds: [buildMemorySequenceEmbed(displaySequence, rewardExp, displayMs)] }
+    { embeds: [sequenceEmbed], files: sequenceFiles },
   ).catch(() => null);
   if (!sequenceMessage) return false;
   suppressMinigameSnipe(client, channelId, sequenceMessage.id);
@@ -303,7 +323,11 @@ async function startMemoryEmojiGame(client?, cfg?, options?) {
 }
 
 async function startStandardMemoryEmojiGame(client?, cfg?) {
-  const bank = shouldUseHalloweenTheme(cfg) ? getHalloweenMemoryEmojiBank() : getMemoryEmojiBank();
+  const bank = shouldUseStarWarsTheme(cfg)
+    ? getStarWarsMemoryEmojiBank()
+    : shouldUseHalloweenTheme(cfg)
+      ? getHalloweenMemoryEmojiBank()
+      : getMemoryEmojiBank();
   return startMemoryEmojiGame(client, cfg, {
     type: "memoryEmoji",
     cfgKey: "memoryEmoji",

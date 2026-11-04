@@ -5,6 +5,7 @@ import { AccessHomeRedirect } from "@/components/AccessHomeRedirect";
 import { useAuth } from "@/lib/auth";
 import {
   canAccessEventoPage,
+  isEventoFeatureUnlocked,
   isEventoHighStaff,
   isEventoPagePublic,
   isEventoPublicWindowOpen,
@@ -46,7 +47,9 @@ export function EventoAccessGate({
   children: ReactNode;
 }) {
   const { ready, token } = useAuth();
-  const publicOk = isEventoPublicWindowOpen() && isEventoPagePublic(pageId);
+  /* Pubblico solo se finestra evento + pagina public + feature calendar sbloccata. */
+  const publicOk =
+    isEventoPublicWindowOpen() && isEventoPagePublic(pageId) && isEventoFeatureUnlocked(pageId);
 
   const [verdict, setVerdict] = useState<GateVerdict>("loading");
   const [access, setAccess] = useState<StaffAccess | null>(null);

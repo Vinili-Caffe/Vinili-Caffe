@@ -50,6 +50,14 @@ const REGISTRY = Object.freeze([
     teaser: "Ruolo Jedi random · pinga il sospetto in chat.",
   },
   {
+    id: "cacciatore_taglie",
+    feature: FEATURES.MINIGAME_CACCIATORE,
+    kind: "minigame",
+    label: "Cacciatore di taglie",
+    channel: "discord",
+    teaser: "Come Ordine 66 · ruolo Cacciatore · pinga il bersaglio.",
+  },
+  {
     id: "accademia",
     feature: FEATURES.EVENT_ACCADEMIA,
     kind: "event",
@@ -106,7 +114,7 @@ const REGISTRY = Object.freeze([
     label: "Puzzle di Kessel",
     channel: "site",
     href: "/puzzle/",
-    teaser: "3 difficoltà sul sito.",
+    teaser: "6 difficoltà sul sito · pezzi, tempo e casse.",
   },
   {
     id: "reliquie",
@@ -140,6 +148,7 @@ const IMPLEMENTED = new Set([
   "scommessa",
   "scova_pianeta",
   "ordine66",
+  "cacciatore_taglie",
   "accademia",
   "kyber",
   "attacca_base",

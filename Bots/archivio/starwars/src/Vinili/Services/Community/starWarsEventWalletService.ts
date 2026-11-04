@@ -77,6 +77,8 @@ function publicWallet(raw?, eventKey?) {
     exp: safeInt(raw?.exp),
     credits: safeInt(raw?.credits),
     pei: Number(raw?.pei) || 0,
+    creditsVolume: safeInt(raw?.creditsVolume),
+    votes: safeInt(raw?.votes),
     crates: normalizeCrates(raw?.crates),
     items: raw?.items && typeof raw.items === "object" ? { ...raw.items } : {},
     deckPG: Array.isArray(raw?.deckPG) ? raw.deckPG.slice(0, 200) : [],
@@ -97,6 +99,8 @@ function blankWallet(eventKey?) {
     exp: 0,
     credits: 0,
     pei: 0,
+    creditsVolume: 0,
+    votes: 0,
     crates: emptyCrates(),
     items: {},
     deckPG: [],
@@ -152,7 +156,16 @@ async function claimAdventDay(client, { guildId, userId, day, staffPreview = fal
         ok: false,
         status: 403,
         error: "too_early",
-        message: "Questo giorno non è ancora sbloccato.",
+        message: "Questo giorno non è ancora sbloccato (si apre a mezzanotte).",
+      };
+    }
+    /* Solo il giorno corrente: se salti la mezzanotte, la ricompensa di quel giorno è persa. */
+    if (dayNum < todaySlot) {
+      return {
+        ok: false,
+        status: 403,
+        error: "missed_day",
+        message: "Hai saltato questo giorno: la ricompensa non è più ritirabile.",
       };
     }
   }

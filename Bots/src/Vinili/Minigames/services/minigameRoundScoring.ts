@@ -6,7 +6,7 @@ const { normalizePlayerGuess } = require("./minigameSources") as typeof import("
 const { compactNoSpaces, normalizeUserAnswerText, buildStrictBankAliases, isExplicitBankAnswerCorrect, parseMathGuess, extractWordGuessCandidates, buildPlayerAnswerAliases, normalizeMemorySequence, memoryEmojiMessageMatches } = require("./minigameText") as typeof import("./minigameText");
 const { activeGames, channelWinClosing, clearNoParticipationDelay, clearActiveGame, beginMinigameWinClose, endMinigameWinClose } = require("./minigameState") as typeof import("./minigameState");
 const { reactMinigameWin } = require("./minigameDiscord") as typeof import("./minigameDiscord");
-const { handleExpReward, mergeHalloweenCandyDropIntoMessage, awardMinigameWinToUser } = require("./minigameRewards") as typeof import("./minigameRewards");
+const { handleExpReward, mergeHalloweenCandyDropIntoMessage, mergeStarWarsQuizRewardIntoMessage, awardMinigameWinToUser } = require("./minigameRewards") as typeof import("./minigameRewards");
 const { parseStateTarget, buildGameSnapshotFromPersistedState } = require("./minigameRoundEnd") as typeof import("./minigameRoundEnd");
 
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
@@ -84,7 +84,19 @@ function messageContentMatchesMinigameWin(content?, game?) {
       .filter(Boolean);
     return isExplicitBankAnswerCorrect(contentForGuess, answers, normalizeCountryName, 1);
   }
-  if ((type === "italianGK" || type === "guessCapital" || type === "guessRegionCapital" || type === "guessReverseCapital" || type === "guessEmoji" || type === "quoteFilm" || type === "guessCity" || type === "guessFlag" || type === "guessPlayer") || type === "guessTeam" || type === "guessSinger" || type === "guessAlbum") {
+  if (type === "starWarsQuiz" && String(game.kind || "") === "mc" && Array.isArray(game.choices) && Number.isFinite(game.correctIndex)) {
+    const norm = normalizeCountryName(contentForGuess);
+    if (/^\d+$/.test(norm)) {
+      const num = Number.parseInt(norm, 10);
+      if (num >= 1 && num <= game.choices.length) return num - 1 === game.correctIndex;
+    }
+    if (/^[a-d]$/i.test(norm)) {
+      const letters = ["A", "B", "C", "D"];
+      const idx = letters.indexOf(norm.toUpperCase());
+      if (idx >= 0 && idx < game.choices.length) return idx === game.correctIndex;
+    }
+  }
+  if ((type === "italianGK" || type === "halloweenQuiz" || type === "starWarsQuiz" || type === "starWarsGuessPlanet" || type === "guessCapital" || type === "guessRegionCapital" || type === "guessReverseCapital" || type === "guessEmoji" || type === "quoteFilm" || type === "guessCity" || type === "guessFlag" || type === "guessPlayer") || type === "guessTeam" || type === "guessSinger" || type === "guessAlbum") {
     const answers = [
       ...(Array.isArray(game.answers) ? game.answers : []),
       game.displayAnswer,
@@ -213,32 +225,49 @@ async function tryAwardMissedMinigameWinFromHistory(client?, cfg?, channel?, sta
 }
 
 async function handleMinigameWin(message?, game?, cfg?) {
-  clearNoParticipationDelay(message.channelId);
+  const msgChannelId = String(message.channelId || message.channel?.id || "").trim();
+  clearNoParticipationDelay(msgChannelId);
   const client = message.client;
-  const clearCfg = { ...cfg, guildId: message.guild.id };
+  // Sempre il canale del messaggio (swspawn può non essere il chat ufficiale)
+  const clearCfg = {
+    ...cfg,
+    guildId: String(message.guild?.id || cfg?.guildId || ""),
+    channelId: msgChannelId || String(cfg?.channelId || ""),
+  };
   const channelId = String(clearCfg.channelId || "");
 
-  try {
+  // Feedback immediato prima di Mongo/close
+  await reactMinigameWin(message).catch(() => { });
 
+  try {
     const closed = await beginMinigameWinClose(client, clearCfg, game);
-    if (!closed) return;
+    if (!closed) {
+      // Claim fallito: partita già in chiusura — non lasciare l'utente senza risposta
+      await message
+        .reply({ content: `${E.VC_Attention} Risposta corretta, round già in chiusura.` })
+        .catch(() => { });
+      return;
+    }
     try {
       const award = await awardMinigameWinToUser({
         client,
         guild: message.guild,
         userId: message.author.id,
-        cfg,
+        cfg: clearCfg,
         game,
         rewardExp: game.rewardExp,
-        channelId: message.channel?.id || message.channelId || null,
+        channelId: msgChannelId || null,
       });
-      await reactMinigameWin(message);
       await message
         .reply(
-          mergeHalloweenCandyDropIntoMessage(
-            {
-              embeds: [buildWinEmbed(message.author.id, award.effectiveExp, award.nextTotal, award.details)],
-            },
+          mergeStarWarsQuizRewardIntoMessage(
+            mergeHalloweenCandyDropIntoMessage(
+              {
+                embeds: [buildWinEmbed(message.author.id, award.effectiveExp, award.nextTotal, award.details)],
+              },
+              award,
+              message.author.id,
+            ),
             award,
             message.author.id,
           ),
@@ -249,7 +278,6 @@ async function handleMinigameWin(message?, game?, cfg?) {
       }
     } catch (err) {
       warnMinigame(err);
-      await reactMinigameWin(message).catch(() => { });
       await message.reply({
         content: `${E.VC_Attention} Risposta registrata, ma non sono riuscito a completare i premi. Il round è comunque chiuso.`,
       }).catch((replyErr?) => warnMinigame(replyErr));
@@ -258,8 +286,14 @@ async function handleMinigameWin(message?, game?, cfg?) {
         await clearActiveGame(client, clearCfg).catch(() => { });
         endMinigameWinClose(channelId);
       }
+      try {
+        const { consumeMalusAfterGame } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsQuizMalusService");
+        await consumeMalusAfterGame(game);
+      } catch (_) {}
     }
-  } finally {
+  } catch (err) {
+    warnMinigame(err);
+    if (channelId) endMinigameWinClose(channelId);
   }
 }
 

@@ -4,10 +4,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { PuzzlePieceCanvas } from "@/components/puzzle/PuzzlePieceCanvas";
 import { PuzzleConfetti } from "@/components/puzzle/PuzzleConfetti";
+import { PuzzleSponsorGate } from "@/components/puzzle/PuzzleSponsorGate";
 import { celebrate } from "@/lib/confetti";
 import { useFxCap } from "@/components/effects/DeviceFxProvider";
+import { showToast } from "@/components/ui/toast";
+import { finishEventoPuzzleAd, startEventoPuzzleAd } from "@/lib/evento-api";
+import { cn } from "@/lib/cn";
+import {
+  PUZZLE_TAB_RATIO,
+  buildPieces,
+  fitBoardSize,
+  formatPuzzleTime,
+  loadPuzzleImage,
+  makeEdges,
+  shuffle,
+  tokenFaceDataUrl,
+  type PuzzleDifficulty,
+  type PuzzlePieceState,
+} from "@/lib/puzzle";
 
-/** Puzzle finito: oltre ai coriandoli del puzzle, la festa dei due cannoni (come al Wordle). */
 function PuzzleWinConfetti({ complete }: { complete: boolean }) {
   const confettiRich = useFxCap("confettiRich");
   useEffect(() => {
@@ -15,20 +30,6 @@ function PuzzleWinConfetti({ complete }: { complete: boolean }) {
   }, [complete, confettiRich]);
   return null;
 }
-import { cn } from "@/lib/cn";
-import {
-  PUZZLE_COLS,
-  PUZZLE_PIECE_COUNT,
-  PUZZLE_ROWS,
-  PUZZLE_TAB_RATIO,
-  buildPieces,
-  fitBoardSize,
-  loadPuzzleImage,
-  makeEdges,
-  shuffle,
-  tokenFaceDataUrl,
-  type PuzzlePieceState,
-} from "@/lib/puzzle";
 
 type SlotMap = Record<string, string | null>;
 
@@ -38,9 +39,34 @@ function trayLabel(left: number, holding: boolean): string {
   return "Nessun pezzo";
 }
 
-/** Jigsaw 6×3: vassoio → pezzo che segue il puntatore → slot. */
-export function PuzzleGame() {
+export type PuzzleCompletePayload = {
+  elapsedMs: number;
+  timedOut: boolean;
+};
+
+export function PuzzleGame({
+  difficulty,
+  attemptId,
+  token,
+  watchSec = 12,
+  onExit,
+  onComplete,
+}: {
+  difficulty: PuzzleDifficulty;
+  attemptId: string | null;
+  token?: string | null;
+  watchSec?: number;
+  onExit: () => void;
+  onComplete: (payload: PuzzleCompletePayload) => void | Promise<void>;
+}) {
+  const cols = difficulty.cols;
+  const rows = difficulty.rows;
+  const pieceCount = difficulty.pieces;
   const wrapRef = useRef<HTMLDivElement>(null);
+  const startedAtRef = useRef(Date.now());
+  const expiresAtRef = useRef(Date.now() + difficulty.timeLimitSec * 1000);
+  const completeSent = useRef(false);
+
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [imgError, setImgError] = useState(false);
   const [pieces, setPieces] = useState<PuzzlePieceState[]>([]);
@@ -52,14 +78,24 @@ export function PuzzleGame() {
   const [settled, setSettled] = useState<Record<string, true>>({});
   const [flashOk, setFlashOk] = useState<string | null>(null);
   const [complete, setComplete] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
   const [board, setBoard] = useState({ w: 0, h: 0 });
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
   const [tokenFaces, setTokenFaces] = useState<Record<string, string>>({});
+  const [remainingSec, setRemainingSec] = useState(difficulty.timeLimitSec);
+  const [claiming, setClaiming] = useState(false);
+  const [claimMsg, setClaimMsg] = useState("");
+  const [timeAdsUsed, setTimeAdsUsed] = useState(0);
+  const [rewardBoosted, setRewardBoosted] = useState(false);
+  const [adGate, setAdGate] = useState<{ kind: "time" | "reward"; adSessionId: string; watchSec: number } | null>(
+    null,
+  );
   const settleTimers = useRef<Record<string, number>>({});
 
-  const cellW = board.w / PUZZLE_COLS;
-  const cellH = board.h / PUZZLE_ROWS;
+  const cellW = board.w / cols;
+  const cellH = board.h / rows;
   const tab = Math.min(cellW, cellH) * PUZZLE_TAB_RATIO;
+  const aspect = img && img.naturalWidth ? img.naturalWidth / img.naturalHeight : 16 / 9;
 
   const pieceById = useMemo(() => {
     const m = new Map<string, PuzzlePieceState>();
@@ -77,12 +113,12 @@ export function PuzzleGame() {
     const wrap = wrapRef.current;
     if (!wrap) return;
     const rect = wrap.getBoundingClientRect();
-    setBoard(fitBoardSize(rect.width, rect.height));
-  }, []);
+    setBoard(fitBoardSize(rect.width, rect.height, aspect));
+  }, [aspect]);
 
   const boot = useCallback(() => {
-    const E = makeEdges();
-    const built = buildPieces(E);
+    const E = makeEdges(cols, rows);
+    const built = buildPieces(E, cols, rows);
     const order = shuffle(built.map((p) => p.id));
     setPieces(built);
     setTrayOrder(order);
@@ -93,14 +129,26 @@ export function PuzzleGame() {
     setSettled({});
     setFlashOk(null);
     setComplete(false);
+    setTimedOut(false);
     setTokenFaces({});
+    setClaimMsg("");
+    setClaiming(false);
+    completeSent.current = false;
+    startedAtRef.current = Date.now();
+    expiresAtRef.current = Date.now() + difficulty.timeLimitSec * 1000;
+    setRemainingSec(difficulty.timeLimitSec);
+    setTimeAdsUsed(0);
+    setRewardBoosted(false);
+    setAdGate(null);
     for (const t of Object.values(settleTimers.current)) window.clearTimeout(t);
     settleTimers.current = {};
-  }, []);
+  }, [cols, rows, difficulty.timeLimitSec]);
 
   useEffect(() => {
     let alive = true;
-    loadPuzzleImage()
+    setImg(null);
+    setImgError(false);
+    loadPuzzleImage(difficulty.imageUrl)
       .then((image) => {
         if (!alive) return;
         setImg(image);
@@ -113,7 +161,7 @@ export function PuzzleGame() {
     return () => {
       alive = false;
     };
-  }, [boot]);
+  }, [difficulty.imageUrl, boot]);
 
   useEffect(() => {
     layout();
@@ -141,6 +189,32 @@ export function PuzzleGame() {
   }, [layout, img]);
 
   useEffect(() => {
+    if (complete || timedOut) return;
+    const tick = window.setInterval(() => {
+      const left = Math.max(0, Math.ceil((expiresAtRef.current - Date.now()) / 1000));
+      setRemainingSec(left);
+      if (left <= 0) setTimedOut(true);
+    }, 250);
+    return () => window.clearInterval(tick);
+  }, [complete, timedOut]);
+
+  async function openBoost(kind: "time" | "reward") {
+    if (!token || !attemptId || complete || timedOut || adGate) return;
+    if (kind === "time" && timeAdsUsed >= 2) return;
+    if (kind === "reward" && rewardBoosted) return;
+    const start = await startEventoPuzzleAd(token, {
+      kind,
+      difficultyId: difficulty.id,
+      attemptId,
+    });
+    if (!start?.ok || !start.adSessionId) {
+      showToast(start?.message || "Boost non disponibile.", true);
+      return;
+    }
+    setAdGate({ kind, adSessionId: start.adSessionId, watchSec: start.watchSec || watchSec });
+  }
+
+  useEffect(() => {
     const onMove = (ev: PointerEvent) => setPointer({ x: ev.clientX, y: ev.clientY });
     window.addEventListener("pointermove", onMove, { passive: true });
     return () => window.removeEventListener("pointermove", onMove);
@@ -155,17 +229,28 @@ export function PuzzleGame() {
       setTrayOrder((prev) => (prev.includes(handId) ? prev : [...prev, handId]));
       setHandId(null);
       if (img && piece.seen) {
-        const url = tokenFaceDataUrl(img, piece);
+        const url = tokenFaceDataUrl(img, piece, 72, cols, rows);
         if (url) setTokenFaces((prev) => ({ ...prev, [piece.id]: url }));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handId, pieces, img]);
+  }, [handId, pieces, img, cols, rows]);
 
   useEffect(() => {
-    if (placedCount === PUZZLE_PIECE_COUNT && pieces.length && !complete) setComplete(true);
-  }, [placedCount, pieces.length, complete]);
+    if (placedCount === pieceCount && pieces.length && !complete && !timedOut) setComplete(true);
+  }, [placedCount, pieces.length, complete, pieceCount, timedOut]);
+
+  useEffect(() => {
+    if (!complete || completeSent.current) return;
+    completeSent.current = true;
+    const elapsedMs = Date.now() - startedAtRef.current;
+    setClaiming(true);
+    void Promise.resolve(onComplete({ elapsedMs, timedOut: false }))
+      .then(() => setClaimMsg(""))
+      .catch((err) => setClaimMsg(String(err?.message || "Premio non disponibile.")))
+      .finally(() => setClaiming(false));
+  }, [complete, onComplete]);
 
   function updatePiece(id: string, patch: Partial<PuzzlePieceState>) {
     setPieces((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
@@ -173,22 +258,12 @@ export function PuzzleGame() {
 
   function paintToken(piece: PuzzlePieceState, image: HTMLImageElement) {
     if (!piece.seen) return;
-    const url = tokenFaceDataUrl(image, piece);
+    const url = tokenFaceDataUrl(image, piece, 72, cols, rows);
     if (url) setTokenFaces((prev) => ({ ...prev, [piece.id]: url }));
   }
 
-  function returnHandToTray() {
-    if (!handId) return;
-    const piece = pieceById.get(handId);
-    if (!piece) return;
-    updatePiece(handId, { home: "tray" });
-    setTrayOrder((prev) => (prev.includes(handId) ? prev : [...prev, handId]));
-    setHandId(null);
-    if (img && piece.seen) paintToken({ ...piece, home: "tray", seen: true }, img);
-  }
-
   function drawPiece(piece: PuzzlePieceState, clientX?: number, clientY?: number) {
-    if (complete || piece.home !== "tray") return;
+    if (complete || timedOut || piece.home !== "tray") return;
     if (handId) {
       const held = pieceById.get(handId);
       if (held) {
@@ -295,7 +370,7 @@ export function PuzzleGame() {
   }
 
   function onSlotClick(slotId: string) {
-    if (complete) return;
+    if (complete || timedOut) return;
     if (handId) {
       const piece = pieceById.get(handId);
       if (piece) placeInSlot(piece, slotId);
@@ -313,17 +388,9 @@ export function PuzzleGame() {
     }
   }
 
-  function reshuffle() {
-    if (!img) return;
-    boot();
-    const E = makeEdges();
-    const rebuilt = buildPieces(E);
-    setPieces(rebuilt);
-    setTrayOrder(shuffle(rebuilt.map((p) => p.id)));
-  }
-
   const handPiece = handId ? pieceById.get(handId) : null;
   const ready = Boolean(img && pieces.length && board.w > 0);
+  const urgent = remainingSec <= 20;
 
   if (imgError) {
     return (
@@ -337,7 +404,7 @@ export function PuzzleGame() {
     return (
       <div className="space-y-3" aria-busy="true" aria-label="Caricamento puzzle">
         <div className="h-10 animate-pulse rounded-2xl bg-crema/8" />
-        <div className="aspect-[1600/816] animate-pulse rounded-3xl bg-crema/6" />
+        <div className="aspect-video animate-pulse rounded-3xl bg-crema/6" />
         <div className="h-24 animate-pulse rounded-3xl bg-crema/6" />
       </div>
     );
@@ -347,22 +414,50 @@ export function PuzzleGame() {
     <div className={cn("relative mx-auto flex w-full max-w-5xl flex-col gap-3", handId && "select-none")}>
       <div className="flex flex-wrap items-center justify-between gap-3 px-0.5">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#e4c76b]">High Staff</p>
-          <h2 className="font-display text-2xl font-semibold text-crema sm:text-3xl">Puzzle galassia</h2>
-          <p className="mt-1 text-sm text-crema/55">
-            Pesca un pezzo: si svela e ti segue. Clicca lo slot. Esc per rimettere.
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#e4c76b]">{difficulty.label}</p>
+          <h2 className="font-display text-2xl font-semibold text-crema sm:text-3xl">
+            {cols}×{rows} · {pieceCount} pezzi
+          </h2>
+          <p className="mt-1 text-sm text-crema/55">Pesca un pezzo, clicca lo slot. Esc per rimettere.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="lining-nums text-sm text-crema/85">
-            {placedCount} / {PUZZLE_PIECE_COUNT}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <span
+            className={cn(
+              "lining-nums rounded-full px-3 py-1 text-sm font-semibold ring-1",
+              urgent ? "bg-rose-500/20 text-rose-200 ring-rose-400/40" : "bg-crema/8 text-crema/90 ring-sand/25",
+            )}
+          >
+            {formatPuzzleTime(remainingSec)}
           </span>
+          <span className="lining-nums text-sm text-crema/85">
+            {placedCount} / {pieceCount}
+          </span>
+          {attemptId && token && !complete && !timedOut ? (
+            <>
+              <button
+                type="button"
+                disabled={timeAdsUsed >= 2}
+                onClick={() => void openBoost("time")}
+                className="rounded-full bg-[#2ea8ff]/15 px-3 py-1.5 text-xs font-semibold text-[#9fd4ff] ring-1 ring-[#2ea8ff]/35 disabled:opacity-40"
+              >
+                +45s ({2 - timeAdsUsed})
+              </button>
+              <button
+                type="button"
+                disabled={rewardBoosted}
+                onClick={() => void openBoost("reward")}
+                className="rounded-full bg-caramel/20 px-3 py-1.5 text-xs font-semibold text-sand ring-1 ring-caramel/40 disabled:opacity-40"
+              >
+                {rewardBoosted ? "Premio ×1.5" : "Boost premio"}
+              </button>
+            </>
+          ) : null}
           <button
             type="button"
-            onClick={reshuffle}
+            onClick={onExit}
             className="rounded-full bg-crema/8 px-4 py-1.5 text-sm font-semibold ring-1 ring-sand/25 transition hover:ring-sand/40"
           >
-            Rimescola
+            Esci
           </button>
         </div>
       </div>
@@ -376,25 +471,24 @@ export function PuzzleGame() {
           style={{
             width: board.w || "100%",
             height: board.h || undefined,
-            aspectRatio: board.w ? undefined : "1600/816",
-            padding: board.w ? Math.max(10, (board.w / PUZZLE_COLS) * PUZZLE_TAB_RATIO) : 12,
+            aspectRatio: board.w ? undefined : String(aspect),
+            padding: board.w ? Math.max(10, (board.w / cols) * PUZZLE_TAB_RATIO) : 12,
           }}
           aria-label="Quadro da completare"
         >
-          {/* griglia guida */}
           <div
             className="pointer-events-none absolute inset-0 opacity-40"
             style={{
               backgroundImage: `
-                repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0, rgba(255,255,255,0.04) 1px, transparent 1px, transparent calc(100% / ${PUZZLE_COLS})),
-                repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0, rgba(255,255,255,0.04) 1px, transparent 1px, transparent calc(100% / ${PUZZLE_ROWS}))
+                repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0, rgba(255,255,255,0.04) 1px, transparent 1px, transparent calc(100% / ${cols})),
+                repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0, rgba(255,255,255,0.04) 1px, transparent 1px, transparent calc(100% / ${rows}))
               `,
             }}
             aria-hidden="true"
           />
           {ready
-            ? Array.from({ length: PUZZLE_ROWS }, (_, r) =>
-                Array.from({ length: PUZZLE_COLS }, (_, c) => {
+            ? Array.from({ length: rows }, (_, r) =>
+                Array.from({ length: cols }, (_, c) => {
                   const sid = `${r}-${c}`;
                   const occupant = slots[sid];
                   const occPiece = occupant ? pieceById.get(occupant) : null;
@@ -432,6 +526,8 @@ export function PuzzleGame() {
                           cellW={cellW}
                           cellH={cellH}
                           tab={tab}
+                          cols={cols}
+                          rows={rows}
                           className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
                           locked={Boolean(locked[occPiece.id])}
                           wrong={Boolean(wrong[occPiece.id])}
@@ -450,13 +546,13 @@ export function PuzzleGame() {
         aria-label="Pezzi del puzzle"
         onClick={(ev) => {
           if ((ev.target as HTMLElement).closest("[data-puzzle-token]")) return;
-          if (!trayPieces.length) return;
+          if (!trayPieces.length || timedOut || complete) return;
           drawRandom(ev.clientX, ev.clientY);
         }}
         className={cn(
           "rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast px-3 py-2.5 ring-1 ring-sand/12 transition hover:ring-caramel/40",
-          trayPieces.length === 0 && !handId && "cursor-default opacity-70",
-          trayPieces.length > 0 && "cursor-pointer",
+          (trayPieces.length === 0 || timedOut || complete) && "cursor-default opacity-70",
+          trayPieces.length > 0 && !timedOut && !complete && "cursor-pointer",
         )}
       >
         <p className="mb-2 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-crema/45">
@@ -505,7 +601,15 @@ export function PuzzleGame() {
             className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_18px_28px_rgba(0,0,0,0.55)]"
             style={{ left: pointer.x, top: pointer.y }}
           >
-            <PuzzlePieceCanvas img={img} piece={handPiece} cellW={cellW} cellH={cellH} tab={tab} />
+            <PuzzlePieceCanvas
+              img={img}
+              piece={handPiece}
+              cellW={cellW}
+              cellH={cellH}
+              tab={tab}
+              cols={cols}
+              rows={rows}
+            />
           </div>
           <p
             className="pointer-events-none fixed z-50 -translate-x-1/2 whitespace-nowrap rounded-full bg-espresso/85 px-3 py-1 text-[0.7rem] font-semibold text-crema/80 ring-1 ring-sand/20"
@@ -520,7 +624,7 @@ export function PuzzleGame() {
       <PuzzleWinConfetti complete={complete} />
 
       <AnimatePresence>
-        {complete ? (
+        {complete || timedOut ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -534,20 +638,56 @@ export function PuzzleGame() {
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               className="max-w-sm rounded-[2rem] bg-gradient-to-b from-caramel/15 to-roast p-8 text-center ring-1 ring-caramel/40 shadow-[0_30px_80px_-30px_rgba(212,145,80,0.45)]"
             >
-              <p className="font-script text-2xl text-sand">Completato</p>
-              <h3 className="mt-1 font-display text-3xl font-semibold">La galassia è di nuovo intera</h3>
-              <p className="mt-2 text-sm text-crema/60">Vuoi rifarlo?</p>
+              <p className="font-script text-2xl text-sand">{timedOut ? "Tempo scaduto" : "Completato"}</p>
+              <h3 className="mt-1 font-display text-3xl font-semibold">
+                {timedOut ? "La ricompensa è persa" : "La mappa è di nuovo intera"}
+              </h3>
+              <p className="mt-2 text-sm text-crema/60">
+                {timedOut
+                  ? "Ricomincia dalla selezione quando il cooldown lo consente."
+                  : claiming
+                    ? "Riconoscimento premio…"
+                    : claimMsg || (attemptId ? "Premio assegnato." : "Modalità anteprima · nessun premio.")}
+              </p>
               <button
                 type="button"
-                onClick={reshuffle}
+                onClick={onExit}
                 className="mt-6 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-2.5 font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
               >
-                Ricomincia
+                Torna alle difficoltà
               </button>
             </motion.div>
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      {adGate && token ? (
+        <PuzzleSponsorGate
+          watchSec={adGate.watchSec}
+          title={adGate.kind === "time" ? "Tempo extra" : "Premio potenziato"}
+          subtitle={adGate.kind === "time" ? "+45 secondi al timer" : "EXP ×1.5 e casse migliori"}
+          onCancel={() => setAdGate(null)}
+          onDone={async () => {
+            const out = await finishEventoPuzzleAd(token, adGate.adSessionId);
+            const kind = adGate.kind;
+            setAdGate(null);
+            if (!out?.ok) {
+              showToast(out?.message || "Boost fallito.", true);
+              return;
+            }
+            if (kind === "time") {
+              const exp = out.expiresAt ? Date.parse(out.expiresAt) : NaN;
+              if (Number.isFinite(exp)) expiresAtRef.current = exp;
+              else expiresAtRef.current += (out.bonusSec || 45) * 1000;
+              setTimeAdsUsed(Number(out.timeAdsLeft != null ? 2 - out.timeAdsLeft : timeAdsUsed + 1));
+              showToast(`+${out.bonusSec || 45}s`);
+            } else {
+              setRewardBoosted(true);
+              showToast("Premio potenziato");
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }

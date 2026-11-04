@@ -15,6 +15,15 @@ const SW_FACTION_PATH = "profile.events.starwars.factionId";
 const FACTION_ROLE_NAMES = Object.freeze({
   repubblica: "༄ Repubblica",
   separatisti: "༄ Separatisti",
+  ribellione: "༄ Ribellione",
+  impero: "༄ Impero Galattico",
+  nuova_repubblica: "༄ Nuova Repubblica",
+  nuovo_ordine: "༄ Primo Ordine",
+});
+
+const FACTION_SLOT = Object.freeze({
+  left: Object.freeze(["repubblica", "ribellione", "nuova_repubblica"]),
+  right: Object.freeze(["separatisti", "impero", "nuovo_ordine"]),
 });
 
 function normalizeId(v?) {
@@ -35,23 +44,43 @@ function walletGuildId(client?) {
 
 function normalizeFactionId(factionId?) {
   const f = normalizeId(factionId).toLowerCase();
-  if (f === "repubblica" || f === "separatisti") return f;
+  if (FACTION_SLOT.left.includes(f)) return "repubblica";
+  if (FACTION_SLOT.right.includes(f)) return "separatisti";
   return "";
 }
 
 function resolveFactionRoleByName(guild?, factionId?) {
   if (!guild?.roles?.cache) return null;
-  const fid = normalizeFactionId(factionId);
-  const wanted = String(FACTION_ROLE_NAMES[fid] || "")
+  const slot = normalizeFactionId(factionId);
+  if (!slot) return null;
+  try {
+    const { resolveFeatureStateNow, EPOCHS } = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
+    const { FACTION_SLOT_NAMES } = require("./starWarsCalendarRoleSync") as typeof import("./starWarsCalendarRoleSync");
+    const epoch = resolveFeatureStateNow(new Date()).epoch || EPOCHS.CLONE_WARS;
+    const names = FACTION_SLOT_NAMES[epoch] || FACTION_SLOT_NAMES[EPOCHS.CLONE_WARS];
+    const wantName = String(slot === "repubblica" ? names.left : names.right)
+      .normalize("NFC")
+      .trim()
+      .toLowerCase();
+    const aliases =
+      slot === "repubblica"
+        ? ["༄ Repubblica", "༄ Ribellione", "༄ Nuova Repubblica", "Repubblica", "Ribellione", "Nuova Repubblica"]
+        : ["༄ Separatisti", "༄ Impero Galattico", "༄ Primo Ordine", "Separatisti", "Impero Galattico", "Primo Ordine", "Impero"];
+    const wanted = new Set(aliases.map((a?) => String(a).normalize("NFC").trim().toLowerCase()));
+    const bareWanted = new Set([...wanted].map((a?) => a.replace(/^༄\s*/u, "").trim()));
+    for (const role of guild.roles.cache.values()) {
+      const full = String(role?.name || "").normalize("NFC").trim().toLowerCase();
+      const bare = full.replace(/^༄\s*/u, "").trim();
+      if (wanted.has(full) || bareWanted.has(bare) || full === wantName) {
+        return role;
+      }
+    }
+  } catch (_) {}
+  const wanted = String(FACTION_ROLE_NAMES[slot] || "")
     .normalize("NFC")
     .trim()
     .toLowerCase();
   if (!wanted) return null;
-  const exact = [...guild.roles.cache.values()].find(
-    (r?) => String(r?.name || "").normalize("NFC").trim().toLowerCase() === wanted,
-  );
-  if (exact) return exact;
-  const bareWanted = wanted.replace(/^༄\s*/u, "").trim();
   return (
     [...guild.roles.cache.values()].find((r?) => {
       const bare = String(r?.name || "")
@@ -59,7 +88,8 @@ function resolveFactionRoleByName(guild?, factionId?) {
         .replace(/^༄\s*/u, "")
         .trim()
         .toLowerCase();
-      return bare === bareWanted;
+      const full = String(r?.name || "").normalize("NFC").trim().toLowerCase();
+      return full === wanted || bare === wanted.replace(/^༄\s*/u, "").trim();
     }) || null
   );
 }

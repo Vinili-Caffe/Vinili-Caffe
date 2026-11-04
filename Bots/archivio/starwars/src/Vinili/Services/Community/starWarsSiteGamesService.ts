@@ -16,6 +16,14 @@ const { ADVENT_EVENT_KEY } = require("../../Utils/Eventi/starWarsAdventCatalog")
 const { getStarWarsWallet, ROOT, publicWallet } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
 const { grantStarWarsReward } = require("./starWarsRewardsService") as typeof import("./starWarsRewardsService");
 const { getRuntimeFlags } = require("../../Utils/Eventi/starWarsRuntimeGate") as typeof import("../../Utils/Eventi/starWarsRuntimeGate");
+const {
+  listPuzzleDifficulties,
+  getPuzzleDifficulty,
+  rollPuzzleCrateBiased,
+  publicPuzzleDifficulty,
+  publicPuzzleAdBoosts,
+  PUZZLE_AD_BOOSTS,
+} = require("../../Utils/Eventi/starWarsPuzzleCatalog") as typeof import("../../Utils/Eventi/starWarsPuzzleCatalog");
 
 const DOC_TYPE = SITE_DOCUMENT_TYPE.STARWARS_EVENT_STATE;
 const OWNER = "__starwars_site_games__";
@@ -335,6 +343,365 @@ async function digMiniera(client, { guildId, userId }) {
   };
 }
 
+/* ——— Puzzle di Kessel ——— */
+const PUZZLE_ATTEMPT_GRACE_MS = 12_000;
+const puzzleAdSessions = new Map(); /* adSessionId → { userId, kind, difficultyId, attemptId, startedAt } */
+
+function puzzleClaimsDocKey(userId?) {
+  return `puzzle_claims_${normalizeId(userId)}`;
+}
+
+function puzzleAttemptDocKey(userId?, difficultyId?) {
+  return `puzzle_attempt_${normalizeId(userId)}_${normalizeId(difficultyId)}`;
+}
+
+function readClaimsBlob(payload?) {
+  const claimsRaw = payload?.claims && typeof payload.claims === "object" ? payload.claims : {};
+  const cdEndsAt = payload?.cdEndsAt && typeof payload.cdEndsAt === "object" ? { ...payload.cdEndsAt } : {};
+  const cdAdsUsed = payload?.cdAdsUsed && typeof payload.cdAdsUsed === "object" ? { ...payload.cdAdsUsed } : {};
+  const claims: Record<string, string> = {};
+  for (const [k, v] of Object.entries(claimsRaw)) {
+    if (typeof v === "string") claims[k] = v;
+    else if (v && typeof v === "object" && (v as any).claimedAt) claims[k] = String((v as any).claimedAt);
+  }
+  return { claims, cdEndsAt, cdAdsUsed };
+}
+
+function puzzleCooldownRemainingMs(claimsBlob?, difficultyId?, cooldownMs?, now = Date.now()) {
+  const id = String(difficultyId || "");
+  const ends = Date.parse(String(claimsBlob?.cdEndsAt?.[id] || ""));
+  if (Number.isFinite(ends) && ends > 0) return Math.max(0, ends - now);
+  const last = Date.parse(String(claimsBlob?.claims?.[id] || ""));
+  if (!Number.isFinite(last) || last <= 0) return 0;
+  return Math.max(0, last + Math.max(0, Number(cooldownMs) || 0) - now);
+}
+
+async function getPuzzleState(client, { guildId, userId }) {
+  const playable = featurePlayable(client, FEATURES.EVENT_PUZZLE_KESSEL);
+  const claimsPayload =
+    userId ? ((await getDoc(puzzleClaimsDocKey(userId)))?.payload as Record<string, any>) || {} : {};
+  const blob = readClaimsBlob(claimsPayload);
+  const now = Date.now();
+  const adBoosts = publicPuzzleAdBoosts();
+  const difficulties = listPuzzleDifficulties().map((d?) => {
+    const lastClaimAt = blob.claims[d.id] ? String(blob.claims[d.id]) : null;
+    const remainingMs = userId ? puzzleCooldownRemainingMs(blob, d.id, d.cooldownMs, now) : 0;
+    const cdUsed = safeInt(blob.cdAdsUsed[d.id]);
+    return {
+      ...publicPuzzleDifficulty(d),
+      lastClaimAt,
+      cooldownRemainingMs: remainingMs,
+      canStart: Boolean(playable && userId && remainingMs <= 0),
+      canPlayGuest: Boolean(playable),
+      cdAdsUsed: cdUsed,
+      cdAdsLeft: Math.max(0, adBoosts.cooldown.max - cdUsed),
+      canCutCooldown: Boolean(userId && remainingMs > 0 && cdUsed < adBoosts.cooldown.max),
+    };
+  });
+  return {
+    ok: true,
+    playable,
+    difficulties,
+    adBoosts,
+    serverNow: new Date(now).toISOString(),
+  };
+}
+
+async function startPuzzleAttempt(client, { guildId, userId, difficultyId }) {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  if (!isValidGuildUserId(g, u)) return { ok: false, status: 400, error: "bad_ids" };
+  if (!featurePlayable(client, FEATURES.EVENT_PUZZLE_KESSEL)) {
+    return { ok: false, status: 403, error: "feature_off", message: "Puzzle non attivo." };
+  }
+  const diff = getPuzzleDifficulty(difficultyId);
+  if (!diff) return { ok: false, status: 400, error: "bad_difficulty", message: "Difficoltà non valida." };
+
+  const claimsDoc = await getDoc(puzzleClaimsDocKey(u));
+  const blob = readClaimsBlob(claimsDoc?.payload);
+  const remainingMs = puzzleCooldownRemainingMs(blob, diff.id, diff.cooldownMs);
+  if (remainingMs > 0) {
+    return {
+      ok: false,
+      status: 429,
+      error: "cooldown",
+      message: "Questa difficoltà è ancora in cooldown.",
+      cooldownRemainingMs: remainingMs,
+      difficulty: publicPuzzleDifficulty(diff),
+    };
+  }
+
+  const startedAt = Date.now();
+  const expiresAt = startedAt + diff.timeLimitSec * 1000 + PUZZLE_ATTEMPT_GRACE_MS;
+  const attemptId = `${diff.id}_${startedAt}_${Math.floor(Math.random() * 1e9)}`;
+  await setDoc(
+    puzzleAttemptDocKey(u, diff.id),
+    {
+      attemptId,
+      difficultyId: diff.id,
+      startedAt: new Date(startedAt).toISOString(),
+      expiresAt: new Date(expiresAt).toISOString(),
+      claimed: false,
+      timeAdsUsed: 0,
+      rewardAdsUsed: 0,
+      timeBonusSec: 0,
+      rewardBoosted: false,
+    },
+    g,
+  );
+
+  return {
+    ok: true,
+    status: 200,
+    attemptId,
+    startedAt: new Date(startedAt).toISOString(),
+    expiresAt: new Date(expiresAt).toISOString(),
+    difficulty: publicPuzzleDifficulty(diff),
+    adBoosts: publicPuzzleAdBoosts(),
+    timeAdsUsed: 0,
+    rewardAdsUsed: 0,
+  };
+}
+
+async function beginPuzzleAdSession(client, { guildId, userId, kind, difficultyId, attemptId }) {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  if (!isValidGuildUserId(g, u)) return { ok: false, status: 400, error: "bad_ids" };
+  if (!featurePlayable(client, FEATURES.EVENT_PUZZLE_KESSEL)) {
+    return { ok: false, status: 403, error: "feature_off", message: "Puzzle non attivo." };
+  }
+  const k = String(kind || "").trim().toLowerCase();
+  if (!["cooldown", "time", "reward"].includes(k)) {
+    return { ok: false, status: 400, error: "bad_kind", message: "Tipo boost non valido." };
+  }
+  const diff = getPuzzleDifficulty(difficultyId);
+  if (!diff) return { ok: false, status: 400, error: "bad_difficulty", message: "Difficoltà non valida." };
+
+  if (k === "cooldown") {
+    const claimsDoc = await getDoc(puzzleClaimsDocKey(u));
+    const blob = readClaimsBlob(claimsDoc?.payload);
+    const remainingMs = puzzleCooldownRemainingMs(blob, diff.id, diff.cooldownMs);
+    const used = safeInt(blob.cdAdsUsed[diff.id]);
+    if (remainingMs <= 0) {
+      return { ok: false, status: 400, error: "no_cooldown", message: "Nessun cooldown da ridurre." };
+    }
+    if (used >= PUZZLE_AD_BOOSTS.cooldown.max) {
+      return { ok: false, status: 429, error: "ad_limit", message: "Hai già usato tutti i tagli cooldown." };
+    }
+  } else {
+    const attemptDoc = await getDoc(puzzleAttemptDocKey(u, diff.id));
+    const attempt = attemptDoc?.payload && typeof attemptDoc.payload === "object" ? attemptDoc.payload : null;
+    if (!attempt || String(attempt.attemptId || "") !== String(attemptId || "").trim()) {
+      return { ok: false, status: 409, error: "bad_attempt", message: "Tentativo non valido." };
+    }
+    if (attempt.claimed) {
+      return { ok: false, status: 409, error: "already_claimed", message: "Partita già chiusa." };
+    }
+    if (k === "time" && safeInt(attempt.timeAdsUsed) >= PUZZLE_AD_BOOSTS.time.max) {
+      return { ok: false, status: 429, error: "ad_limit", message: "Limite tempo extra raggiunto." };
+    }
+    if (k === "reward" && safeInt(attempt.rewardAdsUsed) >= PUZZLE_AD_BOOSTS.reward.max) {
+      return { ok: false, status: 429, error: "ad_limit", message: "Premio già potenziato." };
+    }
+  }
+
+  const adSessionId = `pzad_${u}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+  puzzleAdSessions.set(adSessionId, {
+    userId: u,
+    kind: k,
+    difficultyId: diff.id,
+    attemptId: String(attemptId || "").trim() || null,
+    startedAt: Date.now(),
+  });
+  return {
+    ok: true,
+    status: 200,
+    adSessionId,
+    kind: k,
+    watchSec: PUZZLE_AD_BOOSTS.watchSec,
+  };
+}
+
+async function finishPuzzleAdSession(client, { guildId, userId, adSessionId }) {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  if (!isValidGuildUserId(g, u)) return { ok: false, status: 400, error: "bad_ids" };
+  const sid = String(adSessionId || "").trim();
+  const sess = puzzleAdSessions.get(sid);
+  if (!sess || sess.userId !== u) {
+    return { ok: false, status: 400, error: "bad_ad_session", message: "Sessione sponsor non valida." };
+  }
+  const needMs = Math.max(0, PUZZLE_AD_BOOSTS.watchSec * 1000 - 400);
+  if (Date.now() - sess.startedAt < needMs) {
+    return { ok: false, status: 400, error: "ad_early", message: "Completa lo sponsor per il tempo richiesto." };
+  }
+  puzzleAdSessions.delete(sid);
+
+  const diff = getPuzzleDifficulty(sess.difficultyId);
+  if (!diff) return { ok: false, status: 400, error: "bad_difficulty" };
+
+  if (sess.kind === "cooldown") {
+    const claimsKey = puzzleClaimsDocKey(u);
+    const claimsDoc = await getDoc(claimsKey);
+    const blob = readClaimsBlob(claimsDoc?.payload);
+    const remainingMs = puzzleCooldownRemainingMs(blob, diff.id, diff.cooldownMs);
+    const used = safeInt(blob.cdAdsUsed[diff.id]);
+    if (remainingMs <= 0 || used >= PUZZLE_AD_BOOSTS.cooldown.max) {
+      return { ok: false, status: 429, error: "ad_limit", message: "Boost cooldown non disponibile." };
+    }
+    const cut = Math.floor(remainingMs * (PUZZLE_AD_BOOSTS.cooldown.cutPercent / 100));
+    const nextRemaining = Math.max(0, remainingMs - Math.max(cut, 60_000));
+    const endsAt = Date.now() + nextRemaining;
+    blob.cdEndsAt[diff.id] = new Date(endsAt).toISOString();
+    blob.cdAdsUsed[diff.id] = used + 1;
+    await setDoc(claimsKey, { claims: blob.claims, cdEndsAt: blob.cdEndsAt, cdAdsUsed: blob.cdAdsUsed }, g);
+    return {
+      ok: true,
+      status: 200,
+      kind: "cooldown",
+      cooldownRemainingMs: nextRemaining,
+      cdAdsUsed: used + 1,
+      cdAdsLeft: Math.max(0, PUZZLE_AD_BOOSTS.cooldown.max - (used + 1)),
+      cutMs: remainingMs - nextRemaining,
+    };
+  }
+
+  const attemptKey = puzzleAttemptDocKey(u, diff.id);
+  const attemptDoc = await getDoc(attemptKey);
+  const attempt = attemptDoc?.payload && typeof attemptDoc.payload === "object" ? { ...attemptDoc.payload } : null;
+  if (!attempt || String(attempt.attemptId || "") !== String(sess.attemptId || "")) {
+    return { ok: false, status: 409, error: "bad_attempt", message: "Tentativo non valido." };
+  }
+
+  if (sess.kind === "time") {
+    const used = safeInt(attempt.timeAdsUsed);
+    if (used >= PUZZLE_AD_BOOSTS.time.max) {
+      return { ok: false, status: 429, error: "ad_limit", message: "Limite tempo extra raggiunto." };
+    }
+    const bonus = PUZZLE_AD_BOOSTS.time.bonusSec;
+    const prevExp = Date.parse(String(attempt.expiresAt || ""));
+    const base = Number.isFinite(prevExp) ? prevExp : Date.now();
+    attempt.expiresAt = new Date(base + bonus * 1000).toISOString();
+    attempt.timeAdsUsed = used + 1;
+    attempt.timeBonusSec = safeInt(attempt.timeBonusSec) + bonus;
+    await setDoc(attemptKey, attempt, g);
+    return {
+      ok: true,
+      status: 200,
+      kind: "time",
+      bonusSec: bonus,
+      timeAdsUsed: attempt.timeAdsUsed,
+      timeAdsLeft: Math.max(0, PUZZLE_AD_BOOSTS.time.max - attempt.timeAdsUsed),
+      expiresAt: attempt.expiresAt,
+      timeBonusSec: attempt.timeBonusSec,
+    };
+  }
+
+  /* reward */
+  const usedR = safeInt(attempt.rewardAdsUsed);
+  if (usedR >= PUZZLE_AD_BOOSTS.reward.max) {
+    return { ok: false, status: 429, error: "ad_limit", message: "Premio già potenziato." };
+  }
+  attempt.rewardAdsUsed = usedR + 1;
+  attempt.rewardBoosted = true;
+  await setDoc(attemptKey, attempt, g);
+  return {
+    ok: true,
+    status: 200,
+    kind: "reward",
+    rewardAdsUsed: attempt.rewardAdsUsed,
+    expMult: PUZZLE_AD_BOOSTS.reward.expMult,
+    betterCrateBias: PUZZLE_AD_BOOSTS.reward.betterCrateBias,
+  };
+}
+
+async function completePuzzleAttempt(client, { guildId, userId, difficultyId, attemptId, elapsedMs }) {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  if (!isValidGuildUserId(g, u)) return { ok: false, status: 400, error: "bad_ids" };
+  if (!featurePlayable(client, FEATURES.EVENT_PUZZLE_KESSEL)) {
+    return { ok: false, status: 403, error: "feature_off", message: "Puzzle non attivo." };
+  }
+  const diff = getPuzzleDifficulty(difficultyId);
+  if (!diff) return { ok: false, status: 400, error: "bad_difficulty", message: "Difficoltà non valida." };
+
+  const attemptKey = puzzleAttemptDocKey(u, diff.id);
+  const attemptDoc = await getDoc(attemptKey);
+  const attempt = attemptDoc?.payload && typeof attemptDoc.payload === "object" ? attemptDoc.payload : null;
+  if (!attempt || String(attempt.attemptId || "") !== String(attemptId || "").trim()) {
+    return { ok: false, status: 409, error: "bad_attempt", message: "Tentativo non valido. Ricomincia il puzzle." };
+  }
+  if (attempt.claimed) {
+    return { ok: false, status: 409, error: "already_claimed", message: "Premio già ritirato per questo tentativo." };
+  }
+
+  const now = Date.now();
+  const expiresAt = Date.parse(String(attempt.expiresAt || ""));
+  if (!Number.isFinite(expiresAt) || now > expiresAt) {
+    return { ok: false, status: 408, error: "time_up", message: "Tempo scaduto: niente ricompensa." };
+  }
+
+  const startedAt = Date.parse(String(attempt.startedAt || ""));
+  const elapsed = Math.max(0, Math.floor(Number(elapsedMs)));
+  const serverElapsed = Number.isFinite(startedAt) ? now - startedAt : elapsed;
+  const timeBonusSec = safeInt(attempt.timeBonusSec);
+  const limitMs = (diff.timeLimitSec + timeBonusSec) * 1000 + PUZZLE_ATTEMPT_GRACE_MS;
+  if (elapsed > limitMs || serverElapsed > limitMs) {
+    return { ok: false, status: 408, error: "time_up", message: "Tempo scaduto: niente ricompensa." };
+  }
+  if (elapsed < 4_000 && serverElapsed < 4_000) {
+    return { ok: false, status: 400, error: "too_fast", message: "Completamento non valido." };
+  }
+
+  const claimsDoc = await getDoc(puzzleClaimsDocKey(u));
+  const blob = readClaimsBlob(claimsDoc?.payload);
+  const remainingMs = puzzleCooldownRemainingMs(blob, diff.id, diff.cooldownMs, now);
+  if (remainingMs > 0) {
+    return {
+      ok: false,
+      status: 429,
+      error: "cooldown",
+      message: "Questa difficoltà è ancora in cooldown.",
+      cooldownRemainingMs: remainingMs,
+    };
+  }
+
+  const rewardBoosted = Boolean(attempt.rewardBoosted);
+  const exp = rewardBoosted ? Math.round(diff.exp * PUZZLE_AD_BOOSTS.reward.expMult) : diff.exp;
+  const crateId = rollPuzzleCrateBiased(
+    diff,
+    rewardBoosted ? PUZZLE_AD_BOOSTS.reward.betterCrateBias : 0,
+  );
+  const grant = await grantStarWarsReward(client, {
+    guildId: g,
+    userId: u,
+    reason: `puzzle_${diff.id}`,
+    grant: {
+      exp,
+      ...(crateId ? { crateId, crateQty: 1 } : {}),
+    },
+  });
+
+  const claimedAt = new Date(now).toISOString();
+  blob.claims[diff.id] = claimedAt;
+  blob.cdEndsAt[diff.id] = new Date(now + diff.cooldownMs).toISOString();
+  blob.cdAdsUsed[diff.id] = 0;
+  await setDoc(puzzleClaimsDocKey(u), { claims: blob.claims, cdEndsAt: blob.cdEndsAt, cdAdsUsed: blob.cdAdsUsed }, g);
+  await setDoc(attemptKey, { ...attempt, claimed: true, claimedAt, elapsedMs: elapsed }, g);
+
+  return {
+    ok: true,
+    status: 200,
+    difficulty: publicPuzzleDifficulty(diff),
+    elapsedMs: elapsed,
+    rewardBoosted,
+    grant: grant.granted,
+    wallet: grant.wallet,
+    cooldownRemainingMs: diff.cooldownMs,
+    nextAvailableAt: new Date(now + diff.cooldownMs).toISOString(),
+  };
+}
+
 export = {
   getAccademiaState,
   submitAccademia,
@@ -342,5 +709,10 @@ export = {
   pickGaraPod,
   getMinieraState,
   digMiniera,
+  getPuzzleState,
+  startPuzzleAttempt,
+  completePuzzleAttempt,
+  beginPuzzleAdSession,
+  finishPuzzleAdSession,
   featurePlayable,
 };

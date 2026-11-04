@@ -2,8 +2,13 @@
 const axios = require("axios") as any;
 const { getFastTypingPhrases, getHangmanWords } = require("../../Minigames/data/minigameBanks") as typeof import("../../Minigames/data/minigameBanks");
 const { shouldUseHalloweenTheme, getHalloweenHangmanWords } = require("../../Minigames/utils/halloweenMinigameHooks") as typeof import("../../Minigames/utils/halloweenMinigameHooks");
+const {
+  shouldUseStarWarsTheme,
+  getStarWarsHangmanWords,
+  getStarWarsFastTypePhrases,
+} = require("../../Minigames/utils/starWarsMinigameHooks") as typeof import("../../Minigames/utils/starWarsMinigameHooks");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
-const { normalizeCountryName, buildPromptImageAttachment } = require("./minigameImages") as typeof import("./minigameImages");
+const { normalizeCountryName, buildPromptImageAttachment, resolveMinigamePromptAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 const { buildGuessNumberEmbed, buildGuessWordEmbed, buildFastTypeEmbed, buildHangmanEmbed, buildTimeoutNumberEmbed, buildTimeoutWordEmbed, buildTimeoutFastTypeEmbed, buildTimeoutHangmanEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { randomBetween } = require("./minigameSources") as typeof import("./minigameSources");
 const { getChannelCached, pickRandomItem } = require("./minigameUtils") as typeof import("./minigameUtils");
@@ -34,7 +39,13 @@ async function startGuessNumberGame(client?, cfg?) {
   const roleId = cfg.roleId;
 
   await sendMinigameRolePing(channel, cfg, roleId);
-  const numberAttachment = buildPromptImageAttachment("Indovina il numero", [`Tra ${min} e ${max}`], "guess_number", "", client);
+  const { attachment: numberAttachment, backgroundUrl: numberSwBg } = await resolveMinigamePromptAttachment(
+    cfg,
+    "Indovina il numero",
+    [`Tra ${min} e ${max}`],
+    "guess_number",
+    client,
+  );
   const numberEmbed = buildGuessNumberEmbed(min, max, rewardExp, durationMs);
   if (numberAttachment) numberEmbed.setImage(`attachment://${numberAttachment.name}`);
   const gameMessage = await sendMinigameMessage(channel, { embeds: [numberEmbed], files: numberAttachment ? [numberAttachment] : [], }).catch(() => null);
@@ -48,6 +59,7 @@ async function startGuessNumberGame(client?, cfg?) {
     min,
     max,
     rewardExp,
+    swBackgroundUrl: numberSwBg || null,
     startedAt: Date.now(),
     endsAt: Date.now() + durationMs,
     timeout,
@@ -137,8 +149,11 @@ async function startFastTypeGame(client?, cfg?) {
 
   let phrase = "";
   let fromApi = false;
+  if (shouldUseStarWarsTheme(cfg)) {
+    phrase = String(pickRandomItem(getStarWarsFastTypePhrases()) || "").trim();
+  }
   const customApiUrl = cfg?.fastType?.apiUrl || null;
-  if (customApiUrl) {
+  if (!phrase && customApiUrl) {
     phrase = await fetchPhraseFromApiCandidates(customApiUrl);
     if (phrase) fromApi = true;
   }
@@ -173,7 +188,13 @@ async function startFastTypeGame(client?, cfg?) {
 
   if (cfg.roleId)
     await sendMinigameRolePing(channel, cfg);
-  const fastTypeAttachment = buildPromptImageAttachment("Scrivi la frase", [phrase], "fast_type", "", client);
+  const { attachment: fastTypeAttachment, backgroundUrl: fastTypeSwBg } = await resolveMinigamePromptAttachment(
+    cfg,
+    "Scrivi la frase",
+    [phrase],
+    "fast_type",
+    client,
+  );
   const fastTypeEmbed = buildFastTypeEmbed(phrase, rewardExp, durationMs);
   if (fastTypeAttachment) {
     fastTypeEmbed.setImage(`attachment://${fastTypeAttachment.name}`);
@@ -187,6 +208,7 @@ async function startFastTypeGame(client?, cfg?) {
     phrase,
     normalizedPhrase: normalizeCountryName(phrase),
     rewardExp,
+    swBackgroundUrl: fastTypeSwBg || null,
     startedAt: Date.now(),
     endsAt: Date.now() + durationMs,
     timeout,
@@ -215,7 +237,9 @@ async function startHangmanGame(client?, cfg?) {
   if (!channelId || activeGames.has(channelId)) return false;
 
   let words = [];
-  if (shouldUseHalloweenTheme(cfg)) {
+  if (shouldUseStarWarsTheme(cfg)) {
+    words = getStarWarsHangmanWords().map(normalizeWord).filter(isValidHangmanWord);
+  } else if (shouldUseHalloweenTheme(cfg)) {
     words = getHalloweenHangmanWords().map(normalizeWord).filter(isValidHangmanWord);
   }
   const apiUrl = cfg?.hangman?.apiUrl || cfg?.guessWord?.apiUrl || null;
@@ -236,9 +260,11 @@ async function startHangmanGame(client?, cfg?) {
     const customWords = Array.isArray(cfg?.hangman?.words) ? cfg.hangman.words : [];
     const fallbackWords = customWords.length
       ? customWords
-      : shouldUseHalloweenTheme(cfg)
-        ? getHalloweenHangmanWords()
-        : getHangmanWords();
+      : shouldUseStarWarsTheme(cfg)
+        ? getStarWarsHangmanWords()
+        : shouldUseHalloweenTheme(cfg)
+          ? getHalloweenHangmanWords()
+          : getHangmanWords();
     words = fallbackWords.map(normalizeWord).filter(isValidHangmanWord);
   }
   if (!words.length) return false;
@@ -257,10 +283,15 @@ async function startHangmanGame(client?, cfg?) {
     await sendMinigameRolePing(channel, cfg);
   const guessedLetters = [];
   const maskedWord = maskHangmanWord(word, new Set(guessedLetters));
-  const hangmanAttachment = buildPromptImageAttachment("Impiccato", [maskedWord, `Errori: 0/${maxMisses}`],
-    "hangman", "", client);
+  const { attachment: hangmanAttachment, backgroundUrl: hangmanSwBg } = await resolveMinigamePromptAttachment(
+    cfg,
+    "Impiccato",
+    [maskedWord, `Errori: 0/${maxMisses}`],
+    "hangman",
+    client,
+  );
   let hangmanEmbed = buildHangmanEmbed(maskedWord, rewardExp, durationMs);
-  if (shouldUseHalloweenTheme(cfg)) hangmanEmbed.setTitle("Impiccato Halloween 🎃");
+  if (shouldUseHalloweenTheme(cfg) && !shouldUseStarWarsTheme(cfg)) hangmanEmbed.setTitle("Impiccato Halloween 🎃");
   if (hangmanAttachment) {
     hangmanEmbed.setImage(`attachment://${hangmanAttachment.name}`);
   }
@@ -277,6 +308,7 @@ async function startHangmanGame(client?, cfg?) {
     userMisses: {},
     maxMisses,
     rewardExp,
+    swBackgroundUrl: hangmanSwBg || null,
     startedAt: Date.now(),
     endsAt: Date.now() + durationMs,
     timeout,
@@ -286,7 +318,14 @@ async function startHangmanGame(client?, cfg?) {
 
   await saveActiveGame(client, cfg, {
     type: "hangman",
-    target: JSON.stringify({ word, guessedLetters, misses: 0, maxMisses, userMisses: {} }),
+    target: JSON.stringify({
+      word,
+      guessedLetters,
+      misses: 0,
+      maxMisses,
+      userMisses: {},
+      swBackgroundUrl: hangmanSwBg || null,
+    }),
     rewardExp,
     startedAt: new Date(),
     endsAt: new Date(Date.now() + durationMs),

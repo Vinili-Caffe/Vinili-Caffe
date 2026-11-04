@@ -163,8 +163,6 @@ async function startListingVoteSession(client?, payload: Record<string, any> = {
     turnstileRequired: Boolean(cfg.turnstileSecretKey),
     ads: {
       provider: cfg.ads.provider,
-      adsenseClient: cfg.ads.adsenseClient,
-      adsenseSlot: cfg.ads.adsenseSlot,
       minWatchSeconds: cfg.ads.minWatchSeconds,
     },
     listing: {

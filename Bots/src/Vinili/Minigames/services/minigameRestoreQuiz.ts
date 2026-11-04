@@ -22,6 +22,7 @@ async function restoreQuizGames(client?, cfg?, channel?, restoreCfg?, state?, re
       misses,
       userMisses,
       maxMisses,
+      swBackgroundUrl: parsed?.swBackgroundUrl || null,
       rewardExp: Number(state.rewardExp || 0),
       startedAt: new Date(state.startedAt).getTime(),
       endsAt,
@@ -41,6 +42,66 @@ async function restoreQuizGames(client?, cfg?, channel?, restoreCfg?, state?, re
       question,
       answers,
       displayAnswer,
+      rewardExp: Number(state.rewardExp || 0),
+      startedAt: new Date(state.startedAt).getTime(),
+      endsAt,
+      timeout,
+      gameMessageId: state.gameMessageId || null,
+    });
+    return true;
+  }
+  if (state.type === "starWarsQuiz") {
+    const parsed = parseStateTarget(state.target);
+    const question = parsed?.question || "Domanda";
+    const answers = Array.isArray(parsed?.answers) ? parsed.answers : [];
+    const displayAnswer = parsed?.displayAnswer || answers[0] || "sconosciuta";
+    const timeout = setTimeout(async () => {
+      const game = activeGames.get(cfg.channelId);
+      if (!game) return;
+      await sendMinigameTimeoutAndClose(client, cfg, cfg.channelId, channel, game, buildMinigameTimeoutEmbedForGame(game));
+    }, remainingMs);
+    timeout.unref?.();
+    activeGames.set(cfg.channelId, {
+      type: "starWarsQuiz",
+      kind: parsed?.kind || "text",
+      question,
+      displayQuestion: parsed?.displayQuestion || question,
+      answers,
+      choices: Array.isArray(parsed?.choices) ? parsed.choices : [],
+      displayChoices: Array.isArray(parsed?.displayChoices) ? parsed.displayChoices : parsed?.choices || [],
+      correctIndex: Number.isFinite(parsed?.correctIndex) ? parsed.correctIndex : -1,
+      displayAnswer,
+      backgroundUrl: parsed?.backgroundUrl || null,
+      malusId: parsed?.malusId || null,
+      malusTitle: parsed?.malusTitle || null,
+      frozenUserIds: Array.isArray(parsed?.frozenUserIds) ? parsed.frozenUserIds : [],
+      geoFactionId: parsed?.geoFactionId || null,
+      geonosianCorrectIds: Array.isArray(parsed?.geonosianCorrectIds) ? parsed.geonosianCorrectIds : [],
+      rewardExp: Number(state.rewardExp || 0),
+      startedAt: new Date(state.startedAt).getTime(),
+      endsAt,
+      timeout,
+      gameMessageId: state.gameMessageId || null,
+    });
+    return true;
+  }
+  if (state.type === "starWarsGuessPlanet") {
+    const parsed = parseStateTarget(state.target);
+    const timeout = setTimeout(async () => {
+      const game = activeGames.get(cfg.channelId);
+      if (!game) return;
+      await sendMinigameTimeoutAndClose(client, cfg, cfg.channelId, channel, game, buildMinigameTimeoutEmbedForGame(game));
+    }, remainingMs);
+    timeout.unref?.();
+    activeGames.set(cfg.channelId, {
+      type: "starWarsGuessPlanet",
+      planetId: parsed?.planetId || "",
+      planetName: parsed?.planetName || "pianeta",
+      answer: parsed?.planetName || "",
+      answers: Array.isArray(parsed?.answers) ? parsed.answers : [],
+      displayAnswer: parsed?.planetName || "pianeta",
+      hint: parsed?.hint || "",
+      imageUrl: parsed?.imageUrl || null,
       rewardExp: Number(state.rewardExp || 0),
       startedAt: new Date(state.startedAt).getTime(),
       endsAt,

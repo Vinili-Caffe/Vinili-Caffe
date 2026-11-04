@@ -19,6 +19,8 @@ function mountEventoWebhookRoutes(app?, client?) {
     app.post("/webhooks/site-evento/gara", (req?, res?) => sw.handleSiteEventoGaraPost(client, req, res));
     app.get("/webhooks/site-evento/miniera", (req?, res?) => sw.handleSiteEventoMinieraGet(client, req, res));
     app.post("/webhooks/site-evento/miniera", (req?, res?) => sw.handleSiteEventoMinieraPost(client, req, res));
+    app.get("/webhooks/site-evento/puzzle", (req?, res?) => sw.handleSiteEventoPuzzleGet(client, req, res));
+    app.post("/webhooks/site-evento/puzzle", (req?, res?) => sw.handleSiteEventoPuzzlePost(client, req, res));
     app.get("/webhooks/site-evento/pei", (req?, res?) => sw.handleSiteEventoPeiGet(client, req, res));
     app.get("/webhooks/site-evento/traditore", (req?, res?) => sw.handleSiteEventoTraditoreGet(client, req, res));
     app.post("/webhooks/site-evento/traditore", (req?, res?) => sw.handleSiteEventoTraditorePost(client, req, res));

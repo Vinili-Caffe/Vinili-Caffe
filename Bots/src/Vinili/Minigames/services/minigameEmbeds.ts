@@ -20,6 +20,8 @@ export = {
   buildGuessAlbumEmbed: guess.buildGuessAlbumEmbed,
   buildHangmanEmbed: guess.buildHangmanEmbed,
   buildItalianGkEmbed: guess.buildItalianGkEmbed,
+  buildStarWarsQuizEmbed: guess.buildStarWarsQuizEmbed,
+  buildGuessPlanetEmbed: guess.buildGuessPlanetEmbed,
   DRIVING_QUIZ_LETTERS: shared.DRIVING_QUIZ_LETTERS,
   buildDrivingQuizEmbed: guess.buildDrivingQuizEmbed,
   buildMathExpressionEmbed: guess.buildMathExpressionEmbed,

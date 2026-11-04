@@ -2,14 +2,14 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const { isVoiceChannelEligibleForFindBotMinigame } = require("../../Minigames/utils/findBotVoiceChannelEligibility") as typeof import("../../Minigames/utils/findBotVoiceChannelEligibility");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
-const { buildPromptImageAttachment } = require("./minigameImages") as typeof import("./minigameImages");
+const { resolveMinigamePromptAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 const { buildFindBotEmbed, buildFindBotButtonEmbed, buildFindBotVoiceEmbed, buildWinEmbed, buildTimeoutFindBotEmbed, buildTimeoutFindBotVoiceEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { getChannelCached, pickRandomItem } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { normalizeRewardExp } = require("./minigameText") as typeof import("./minigameText");
 const { activeGames, clearNoParticipationDelay, clearActiveGame, beginMinigameWinClose, endMinigameWinClose } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
-const { handleExpReward, mergeHalloweenCandyDropIntoMessage, awardMinigameWinToUser } = require("./minigameRewards") as typeof import("./minigameRewards");
+const { handleExpReward, mergeHalloweenCandyDropIntoMessage, mergeStarWarsQuizRewardIntoMessage, awardMinigameWinToUser } = require("./minigameRewards") as typeof import("./minigameRewards");
 const { markSent, saveActiveGame, deleteFindMinigameRemoteMessage, sendMinigameTimeoutAndClose, scheduleMinuteHint, findBotVoiceSessionByGuild, leaveFindBotVoiceChannel } = require("./minigameRound") as typeof import("./minigameRound");
 const { getConfig } = require("./minigameConfig") as typeof import("./minigameConfig");
 
@@ -219,7 +219,13 @@ async function startFindBotGame(client?, cfg?) {
   const roleId = cfg.roleId;
   await sendMinigameRolePing(mainChannel, cfg, roleId);
 
-  const findBotAttachment = buildPromptImageAttachment("Trova il bot", ["Cerca il messaggio nascosto in un canale del server.", "Clicca il pulsante quando lo trovi!"], "find_bot", "", client);
+  const { attachment: findBotAttachment } = await resolveMinigamePromptAttachment(
+    cfg,
+    "Trova il bot",
+    ["Cerca il messaggio nascosto in un canale del server.", "Clicca il pulsante quando lo trovi!"],
+    "find_bot",
+    client,
+  );
   const findBotEmbed = buildFindBotEmbed(rewardExp, durationMs);
   if (findBotAttachment) findBotEmbed.setImage(`attachment://${findBotAttachment.name}`);
   const mainMessage = await sendMinigameMessage(mainChannel, { embeds: [findBotEmbed], files: findBotAttachment ? [findBotAttachment] : [], }).catch(() => null);
@@ -288,11 +294,11 @@ async function startFindBotVoiceGame(client?, cfg?) {
   const roleId = cfg.roleId;
   await sendMinigameRolePing(mainChannel, cfg, roleId);
 
-  const attachment = buildPromptImageAttachment(
+  const { attachment } = await resolveMinigamePromptAttachment(
+    cfg,
     "Trova il bot in vocale",
     ["Il bot si è nascosto in una vocale vuota del server.", "Entra in quella vocale per vincere!"],
     "find_bot",
-    "",
     client,
   );
   const introEmbed = buildFindBotVoiceEmbed(rewardExp, durationMs);
@@ -364,11 +370,15 @@ async function handleFindBotVoiceWin(client?, guild?, member?, game?, cfg?) {
     if (mainChannel) {
       await sendMinigameMessage(
         mainChannel,
-        mergeHalloweenCandyDropIntoMessage(
-          {
-            content: `${member}`,
-            embeds: [winEmbed],
-          },
+        mergeStarWarsQuizRewardIntoMessage(
+          mergeHalloweenCandyDropIntoMessage(
+            {
+              content: `${member}`,
+              embeds: [winEmbed],
+            },
+            award,
+            member.id,
+          ),
           award,
           member.id,
         ),

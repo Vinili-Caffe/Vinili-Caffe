@@ -1,5 +1,10 @@
 /** Serata film: testi degli annunci (votazione, spareggio, staff, finale, inizio, fine). */
-const { MOVIE_NIGHT_DISPLAY_TIME, buildMovieNightFinalClosingLines, formatMovieNightStaffDateLabel } = require("./movieNightSchedule") as typeof import("./movieNightSchedule");
+const {
+  MOVIE_NIGHT_DISPLAY_TIME,
+  buildMovieNightFinalClosingLines,
+  formatMovieNightStaffDateLabel,
+  isStarWarsMovieNightWeek,
+} = require("./movieNightSchedule") as typeof import("./movieNightSchedule");
 const { MOVIE_NIGHT_EVENT_CHANNEL_ID } = require("./movieNightEvents") as typeof import("./movieNightEvents");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { siteWorkflowUrl } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
@@ -89,8 +94,12 @@ function buildFinalAnnouncementMonthlyActivityBlock() {
   ].join("\n");
 }
 
-function buildFinalMovieNightAnnouncementMessage({ title, description, eventUrl, saturdayKey, announceSlot }: any) {
+function buildFinalMovieNightAnnouncementMessage({ title, description, eventUrl, saturdayKey, announceSlot, starWarsFilmNight = false }: any) {
   const fridayAdvance = String(announceSlot || "").toLowerCase() === "friday";
+  const satKey = String(saturdayKey || "").trim();
+  const swNight =
+    starWarsFilmNight === true ||
+    (satKey ? isStarWarsMovieNightWeek(new Date(`${satKey}T12:00:00+01:00`)) : false);
   const whenLine = fridayAdvance
     ? `> ${E.VC_movie} Tutto è pronto! **Domani** sera, alle **${MOVIE_NIGHT_DISPLAY_TIME}**, inizierà il nostro appuntamento con il cinema trasmettendo **${title}**!`
     : `> ${E.VC_movie} Tutto è pronto! Questa sera, alle **${MOVIE_NIGHT_DISPLAY_TIME}**, inizierà il nostro appuntamento con il cinema trasmettendo **${title}**!`;
@@ -102,11 +111,10 @@ function buildFinalMovieNightAnnouncementMessage({ title, description, eventUrl,
     `${E.VC_Info} Non sai di cosa parla?`,
     description,
     "",
-    ...buildMovieNightFinalClosingLines({ fridayAdvance }),
+    ...buildMovieNightFinalClosingLines({ fridayAdvance, starWarsFilmNight: swNight }),
     "",
     `${E.VC_CommunityManager} [Salva l'evento](${eventUrl})`,
   ];
-  const satKey = String(saturdayKey || "").trim();
   if (satKey && FINAL_ANNOUNCEMENT_EXTRA_BEFORE_PING_SATURDAYS.has(satKey)) {
     lines.push("", buildFinalAnnouncementMonthlyActivityBlock());
   }
@@ -131,12 +139,33 @@ function buildMovieNightEndAnnouncementMessage(title?, options: Record<string, a
   const reviewCta = reviewThreadId
     ? `${E.VC_NewsExclamation} Hai un suggerimento o vuoi lasciare una recensione per i prossimi eventi? Scrivi in <#${reviewThreadId}>!`
     : `${E.VC_NewsExclamation} Hai un suggerimento o vuoi lasciare una recensione per i prossimi eventi? Usa il thread qui sotto!`;
+  const lb = options?.lb && typeof options.lb === "object" ? options.lb : null;
+  const starWarsFilmNight = options?.starWarsFilmNight === true;
   const lines = [
     `# ${E.VC_Firework} SERATA FILM ANDATA!`,
     "",
     `> ${E.VC_HeartsBlue} Grazie per aver partecipato attivamente alla proiezione di **${title}**. `,
     "",
   ];
+  if (starWarsFilmNight && lb?.ok && Array.isArray(lb.rankedCombined) && lb.rankedCombined.length) {
+    const formatLines =
+      typeof options.formatCombinedRankingLines === "function"
+        ? options.formatCombinedRankingLines
+        : null;
+    const rankingLines = formatLines
+      ? formatLines(lb.rankedCombined, lb.epoch)
+      : lb.rankedCombined.slice(0, 2).map((row?, i?) => {
+          const n = i + 1;
+          return `${n}° **${row.factionId}** — ${row.voiceMembers} utenti · media ${row.avgVoiceMinutes}m`;
+        });
+    lines.push(
+      `<a:VC_Winner:1482535294757507255> **Top fazioni più attive in vocale**`,
+      ...rankingLines,
+      "",
+      `_Premi: crediti banca 200.000 · 100.000 · exp personali 5.000 (≥30 min) a 1° e 2°._`,
+      "",
+    );
+  }
   lines.push(
     reviewCta,
     "",

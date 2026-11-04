@@ -975,6 +975,286 @@ function buildRegionNameImageAttachment(regionName?) {
   }
 }
 
+async function paintStarWarsSceneBackground(ctx?, width?, height?, backgroundUrl?) {
+  const bgUrl = String(backgroundUrl || "").trim();
+  if (bgUrl) {
+    const img = await loadImageBufferFromUrl(bgUrl);
+    if (img?.width && img?.height) {
+      const scale = Math.max(width / img.width, height / img.height);
+      const dw = img.width * scale;
+      const dh = img.height * scale;
+      ctx.drawImage(img, (width - dw) / 2, (height - dh) / 2, dw, dh);
+      return;
+    }
+  }
+  fillCanvasBackground(ctx, width, height);
+}
+
+function paintStarWarsPanel(ctx?, panelX?, panelY?, panelW?, panelH?, alpha = 0.74) {
+  ctx.fillStyle = `rgba(5, 8, 16, ${alpha})`;
+  roundRect(ctx, panelX, panelY, panelW, panelH, 28);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(201, 162, 39, 0.6)";
+  ctx.lineWidth = 3;
+  roundRect(ctx, panelX, panelY, panelW, panelH, 28);
+  ctx.stroke();
+}
+
+/** Prompt generico stile SW (sfondo CDN + pannello oro) per qualsiasi minigame a tema. */
+async function buildStarWarsThemedPromptImage(row?) {
+  try {
+    registerCanvasFonts(canvasModule);
+    const title = String(row?.title || "Minigioco").trim() || "Minigioco";
+    const lines = Array.isArray(row?.lines)
+      ? row.lines.map((l?) => String(l || "").trim()).filter(Boolean)
+      : [];
+    const bgUrl = String(row?.backgroundUrl || "").trim();
+    const heroUrl = String(row?.heroImageUrl || "").trim();
+    const fileName = String(row?.fileName || "starwars_minigame.png").replace(/[^\w.\-]+/g, "_") || "starwars_minigame.png";
+
+    const W = 1280;
+    const H = 720;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext("2d");
+    await paintStarWarsSceneBackground(ctx, W, H, bgUrl);
+
+    const panelX = 70;
+    const panelY = 90;
+    const panelW = W - 140;
+    const panelH = H - 180;
+    paintStarWarsPanel(ctx, panelX, panelY, panelW, panelH, 0.76);
+
+    const usableW = panelW - 100;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#e4c76b";
+    ctx.font = fontStackPrimaryOnly(40, "700");
+    ctx.fillText(title.slice(0, 48), W / 2, panelY + 58);
+
+    let contentTop = panelY + 110;
+    if (heroUrl) {
+      const hero = await loadImageBufferFromUrl(heroUrl);
+      if (hero?.width && hero?.height) {
+        const maxW = panelW - 160;
+        const maxH = Math.min(340, panelH - (lines.length ? 220 : 140));
+        const scale = Math.min(maxW / hero.width, maxH / hero.height, 1);
+        const dw = hero.width * scale;
+        const dh = hero.height * scale;
+        const hx = (W - dw) / 2;
+        const hy = contentTop;
+        ctx.save();
+        roundRect(ctx, hx - 4, hy - 4, dw + 8, dh + 8, 16);
+        ctx.clip();
+        ctx.drawImage(hero, hx, hy, dw, dh);
+        ctx.restore();
+        ctx.strokeStyle = "rgba(201, 162, 39, 0.55)";
+        ctx.lineWidth = 2;
+        roundRect(ctx, hx - 4, hy - 4, dw + 8, dh + 8, 16);
+        ctx.stroke();
+        contentTop = hy + dh + 36;
+      }
+    }
+
+    ctx.fillStyle = "#f4e9d8";
+    ctx.font = fontStackPrimaryOnly(heroUrl ? 32 : 42, "700");
+    const lineH = heroUrl ? 42 : 56;
+    const wrapped = [];
+    for (const raw of lines) {
+      wrapped.push(...wrapPromptText(ctx, raw, usableW));
+    }
+    const blockH = wrapped.length * lineH;
+    const areaBottom = panelY + panelH - 36;
+    let y =
+      contentTop +
+      Math.max(0, (areaBottom - contentTop - blockH) / 2) +
+      (heroUrl ? lineH * 0.7 : lineH * 0.85);
+    for (const line of wrapped) {
+      if (y > areaBottom) break;
+      ctx.fillText(line, W / 2, y, usableW);
+      y += lineH;
+    }
+
+    return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: fileName });
+  } catch {
+    return null;
+  }
+}
+
+async function buildStarWarsQuizPromptImage(row?) {
+  try {
+    registerCanvasFonts(canvasModule);
+    const kind = String(row?.kind || "text");
+    const question = String(row?.question || "").trim() || "Domanda";
+    const choices = Array.isArray(row?.choices) ? row.choices.map((c?) => String(c || "").trim()).filter(Boolean) : [];
+    const malusTitle = String(row?.malusTitle || "").trim();
+    const title =
+      kind === "vf" ? "VERO O FALSO" : kind === "mc" ? "QUIZ STAR WARS" : "QUIZ STAR WARS";
+    const bgUrl = String(row?.backgroundUrl || "").trim();
+
+    const W = 1280;
+    const H = 720;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext("2d");
+    await paintStarWarsSceneBackground(ctx, W, H, bgUrl);
+
+    const panelX = 70;
+    const panelY = 90;
+    const panelW = W - 140;
+    const panelH = H - 180;
+    paintStarWarsPanel(ctx, panelX, panelY, panelW, panelH, 0.74);
+
+    const usableW = panelW - 100;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#e4c76b";
+    ctx.font = fontStackPrimaryOnly(42, "700");
+    ctx.fillText(title, W / 2, panelY + 58);
+    if (malusTitle) {
+      ctx.fillStyle = "rgba(248, 113, 113, 0.95)";
+      ctx.font = fontStackPrimaryOnly(24, "700");
+      ctx.fillText(malusTitle, W / 2, panelY + 92);
+    }
+
+    if (kind === "vf" && choices.length >= 2) {
+      const boxW = Math.floor((panelW - 160) / 2);
+      const boxH = 90;
+      const boxY = panelY + panelH - 150;
+      const leftX = panelX + 60;
+      const rightX = panelX + panelW - 60 - boxW;
+
+      ctx.fillStyle = "#f4e9d8";
+      ctx.font = fontStackPrimaryOnly(38, "700");
+      const qLines = wrapPromptText(ctx, question, usableW);
+      const lineH = 50;
+      const blockH = qLines.length * lineH;
+      const areaTop = panelY + (malusTitle ? 120 : 100);
+      const areaBottom = boxY - 28;
+      let y = areaTop + Math.max(0, (areaBottom - areaTop - blockH) / 2) + lineH * 0.75;
+      for (const line of qLines) {
+        ctx.fillText(line, W / 2, y);
+        y += lineH;
+      }
+      const labels = [choices[0] || "Vero", choices[1] || "Falso"];
+      for (const [i, boxX] of [
+        [0, leftX],
+        [1, rightX],
+      ] as const) {
+        ctx.fillStyle = "rgba(255,255,255,0.1)";
+        roundRect(ctx, boxX, boxY, boxW, boxH, 18);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(201, 162, 39, 0.45)";
+        ctx.lineWidth = 2;
+        roundRect(ctx, boxX, boxY, boxW, boxH, 18);
+        ctx.stroke();
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = fontStackPrimaryOnly(36, "700");
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(labels[i]), boxX + boxW / 2, boxY + boxH / 2);
+      }
+    } else if (kind === "mc" && choices.length >= 2) {
+      ctx.fillStyle = "#f4e9d8";
+      ctx.font = fontStackPrimaryOnly(36, "700");
+      const qLines = wrapPromptText(ctx, question, usableW);
+      let y = panelY + (malusTitle ? 160 : 140);
+      for (const line of qLines) {
+        ctx.fillText(line, W / 2, y);
+        y += 48;
+      }
+
+      const letters = ["A", "B", "C", "D"];
+      y += 24;
+      ctx.font = fontStackPrimaryOnly(30, "700");
+      const choiceW = panelW - 120;
+      for (let i = 0; i < Math.min(choices.length, 4); i++) {
+        const label = `${letters[i]})  ${choices[i]}`;
+        const boxY = y - 34;
+        ctx.fillStyle = "rgba(255,255,255,0.09)";
+        roundRect(ctx, panelX + 60, boxY, choiceW, 54, 14);
+        ctx.fill();
+        ctx.fillStyle = "#f8fafc";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(label, panelX + 88, y, choiceW - 40);
+        ctx.textAlign = "center";
+        y += 68;
+      }
+    } else {
+      /* text: domanda centrata in altezza nel pannello */
+      ctx.fillStyle = "#f4e9d8";
+      ctx.font = fontStackPrimaryOnly(44, "700");
+      const qLines = wrapPromptText(ctx, question, usableW);
+      const lineH = 58;
+      const blockH = qLines.length * lineH;
+      let y = panelY + (panelH - blockH) / 2 + 20;
+      for (const line of qLines) {
+        ctx.fillText(line, W / 2, y);
+        y += lineH;
+      }
+      ctx.fillStyle = "rgba(244, 233, 216, 0.55)";
+      ctx.font = fontStackPrimaryOnly(26, "600");
+      ctx.fillText("Scrivi la risposta in chat", W / 2, panelY + panelH - 48);
+    }
+
+    return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: "starwars_quiz.png" });
+  } catch {
+    return null;
+  }
+}
+
+async function buildStarWarsQuizAnnounceImage(row?) {
+  try {
+    registerCanvasFonts(canvasModule);
+    const title = String(row?.title || "MALUS QUIZ").trim() || "MALUS QUIZ";
+    const lines = Array.isArray(row?.lines) ? row.lines.map((l?) => String(l || "").trim()).filter(Boolean) : [];
+    const bgUrl = String(row?.backgroundUrl || "").trim();
+
+    const W = 1280;
+    const H = 720;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext("2d");
+    await paintStarWarsSceneBackground(ctx, W, H, bgUrl);
+
+    const panelX = 70;
+    const panelY = 90;
+    const panelW = W - 140;
+    const panelH = H - 180;
+    paintStarWarsPanel(ctx, panelX, panelY, panelW, panelH, 0.78);
+
+    const usableW = panelW - 100;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#e4c76b";
+    ctx.font = fontStackPrimaryOnly(40, "700");
+    ctx.fillText("MALUS QUIZ", W / 2, panelY + 58);
+
+    ctx.fillStyle = "#f4e9d8";
+    ctx.font = fontStackPrimaryOnly(44, "700");
+    const titleLines = wrapPromptText(ctx, title, usableW);
+    let y = panelY + 130;
+    for (const line of titleLines) {
+      ctx.fillText(line, W / 2, y);
+      y += 52;
+    }
+
+    y += 16;
+    ctx.fillStyle = "rgba(244, 233, 216, 0.9)";
+    ctx.font = fontStackPrimaryOnly(30, "600");
+    for (const raw of lines) {
+      const wrapped = wrapPromptText(ctx, raw, usableW);
+      for (const line of wrapped) {
+        if (y > panelY + panelH - 40) break;
+        ctx.fillText(line, W / 2, y);
+        y += 40;
+      }
+      y += 10;
+    }
+
+    return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: "starwars_quiz_malus.png" });
+  } catch {
+    return null;
+  }
+}
+
 export = {
   buildDrivingQuizPromptImage,
   buildEmojiRichPromptImageAttachment,
@@ -983,4 +1263,7 @@ export = {
   buildMathExpressionImageAttachment,
   censorArtworkImage,
   buildRegionNameImageAttachment,
+  buildStarWarsThemedPromptImage,
+  buildStarWarsQuizPromptImage,
+  buildStarWarsQuizAnnounceImage,
 };

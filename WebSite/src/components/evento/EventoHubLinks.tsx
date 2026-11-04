@@ -15,7 +15,7 @@ const ACCENTS: Record<string, string> = {
   puzzle: "from-rose-500/20 to-transparent",
 };
 
-/** Card hub: sezioni consentite al viewer. */
+/** Card hub: sezioni consentite al viewer; feature chiuse → blur, non cliccabili. */
 export function EventoHubLinks() {
   const { ready, access } = useEventoStaffAccess();
   const links = ready ? eventoNavForViewer(access).filter((n) => n.id !== "hub") : [];
@@ -33,31 +33,51 @@ export function EventoHubLinks() {
         <p className="mt-1 text-sm text-crema/70">Scegli un mondo e entra nella missione.</p>
       </EventoPanel>
       <div className="grid gap-3 sm:grid-cols-2">
-        {links.map((item) => (
-          <SmartLink
-            key={item.id}
-            href={item.href}
-            className={cn(
-              "group relative overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.12] via-roast/90 to-roast p-5 ring-1 ring-sand/15 transition hover:ring-caramel/45",
-            )}
-          >
-            <div
-              className={cn(
-                "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-90",
-                ACCENTS[item.id] || "from-caramel/20 to-transparent",
-              )}
-              aria-hidden
-            />
-            <p className="relative text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-caramel">
-              {item.label}
-              {item.soon ? " · soon" : ""}
-            </p>
-            <p className="relative mt-2 font-display text-2xl text-crema transition group-hover:text-sand">
-              {item.label}
-            </p>
-            <p className="relative mt-2 text-sm leading-relaxed text-crema/70">{item.teaser}</p>
-          </SmartLink>
-        ))}
+        {links.map((item) => {
+          const body = (
+            <>
+              <div
+                className={cn(
+                  "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-90",
+                  ACCENTS[item.id] || "from-caramel/20 to-transparent",
+                )}
+                aria-hidden
+              />
+              <p className="relative text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-caramel">
+                {item.label}
+                {item.soon ? " · soon" : ""}
+                {item.locked ? " · locked" : ""}
+              </p>
+              <p className="relative mt-2 font-display text-2xl text-crema transition group-hover:text-sand">
+                {item.label}
+              </p>
+              <p className="relative mt-2 text-sm leading-relaxed text-crema/70">{item.teaser}</p>
+            </>
+          );
+
+          if (item.locked) {
+            return (
+              <div
+                key={item.id}
+                className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.08] via-roast/90 to-roast p-5 ring-1 ring-sand/10"
+                aria-label={`${item.label} non ancora disponibile`}
+              >
+                <div className="pointer-events-none absolute inset-0 backdrop-blur-[6px]" aria-hidden />
+                <div className="relative opacity-55 blur-[2.5px] select-none">{body}</div>
+              </div>
+            );
+          }
+
+          return (
+            <SmartLink
+              key={item.id}
+              href={item.href}
+              className="group relative overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.12] via-roast/90 to-roast p-5 ring-1 ring-sand/15 transition hover:ring-caramel/45"
+            >
+              {body}
+            </SmartLink>
+          );
+        })}
       </div>
     </div>
   );

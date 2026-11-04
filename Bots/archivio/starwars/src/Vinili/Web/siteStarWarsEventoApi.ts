@@ -64,6 +64,11 @@ const {
   pickGaraPod,
   getMinieraState,
   digMiniera,
+  getPuzzleState,
+  startPuzzleAttempt,
+  completePuzzleAttempt,
+  beginPuzzleAdSession,
+  finishPuzzleAdSession,
 } = require("../Services/Community/starWarsSiteGamesService") as typeof import("../Services/Community/starWarsSiteGamesService");
 const {
   ensureEpochAlignment,
@@ -197,16 +202,20 @@ async function handleSiteEventoAvventoGet(client?, req?, res?) {
 
     const days = adventPublicCatalog().map((d?) => {
       const isClaimed = Boolean(claimed[String(d.day)]);
+      const isPast = todayAdvent != null && d.day < todayAdvent;
+      const isToday = todayAdvent != null && d.day === todayAdvent;
+      const missed = isPast && !isClaimed && !access.highStaff;
       let canClaim = false;
       if (auth?.userId && !isClaimed) {
         if (access.highStaff) canClaim = true;
-        else if (todayAdvent != null && d.day <= todayAdvent) canClaim = true;
+        else if (isToday) canClaim = true;
       }
       return {
         ...d,
         claimed: isClaimed,
         claimedAt: claimed[String(d.day)] || null,
         canClaim,
+        missed,
         unlocked: access.highStaff || (todayAdvent != null && d.day <= todayAdvent),
       };
     });
@@ -566,6 +575,70 @@ async function handleSiteEventoMinieraPost(client?, req?, res?) {
   }
 }
 
+async function handleSiteEventoPuzzleGet(client?, req?, res?) {
+  try {
+    const auth = await resolveAuth(client, req);
+    const access = accessFlags(client, auth);
+    if (!requireParticipate(access, res)) return;
+    const st = await getPuzzleState(client, { guildId: mainGuildId(client), userId: auth?.userId || null });
+    return res.status(200).json(st);
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-evento puzzle get:", err);
+    return res.status(500).json({ ok: false, error: "internal" });
+  }
+}
+
+async function handleSiteEventoPuzzlePost(client?, req?, res?) {
+  try {
+    const auth = await resolveAuth(client, req);
+    if (!auth?.userId) {
+      return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord per giocare." });
+    }
+    const access = accessFlags(client, auth);
+    if (!requireParticipate(access, res)) return;
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const action = String(body.action || "start").trim().toLowerCase();
+    const difficultyId = body.difficultyId || body.difficulty || body.id;
+    if (action === "complete" || action === "claim") {
+      const out = await completePuzzleAttempt(client, {
+        guildId: mainGuildId(client),
+        userId: auth.userId,
+        difficultyId,
+        attemptId: body.attemptId,
+        elapsedMs: body.elapsedMs,
+      });
+      return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
+    }
+    if (action === "ad_start" || action === "ad-start") {
+      const out = await beginPuzzleAdSession(client, {
+        guildId: mainGuildId(client),
+        userId: auth.userId,
+        kind: body.kind,
+        difficultyId,
+        attemptId: body.attemptId,
+      });
+      return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
+    }
+    if (action === "ad_finish" || action === "ad-finish" || action === "ad_complete") {
+      const out = await finishPuzzleAdSession(client, {
+        guildId: mainGuildId(client),
+        userId: auth.userId,
+        adSessionId: body.adSessionId,
+      });
+      return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
+    }
+    const out = await startPuzzleAttempt(client, {
+      guildId: mainGuildId(client),
+      userId: auth.userId,
+      difficultyId,
+    });
+    return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-evento puzzle post:", err);
+    return res.status(500).json({ ok: false, error: "internal" });
+  }
+}
+
 async function handleSiteEventoPeiGet(client?, req?, res?) {
   try {
     const auth = await resolveAuth(client, req);
@@ -657,6 +730,8 @@ export = {
   handleSiteEventoGaraPost,
   handleSiteEventoMinieraGet,
   handleSiteEventoMinieraPost,
+  handleSiteEventoPuzzleGet,
+  handleSiteEventoPuzzlePost,
   handleSiteEventoPeiGet,
   handleSiteEventoTraditoreGet,
   handleSiteEventoTraditorePost,

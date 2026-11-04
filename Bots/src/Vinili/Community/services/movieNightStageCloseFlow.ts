@@ -264,8 +264,44 @@ async function handleMovieNightStageClose(stageInstance?, opts: Record<string, a
       }
     }
 
+    let swLb = null;
+    let formatCombinedRankingLines = null;
+    try {
+      const { isStarWarsMovieNightWeek } = require("./movieNightSchedule") as typeof import("./movieNightSchedule");
+      if (isStarWarsMovieNightWeek(opts.now || new Date())) {
+        const swLbMod = require(
+          "../../../../archivio/starwars/src/Vinili/Services/Community/starWarsSerataFilmFactionLeaderboardService",
+        ) as typeof import("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsSerataFilmFactionLeaderboardService");
+        formatCombinedRankingLines = swLbMod.formatCombinedRankingLines;
+        swLb = await swLbMod
+          .resolveSerataFilmFactionLeaderboard(client, {
+            guild,
+            weekKey,
+            now: opts.now || new Date(),
+            state: {
+              ...(state && typeof state === "object" ? state : {}),
+              weekKey,
+              stageCloseMovieTitle: title,
+              stageClosedAt: new Date().toISOString(),
+            },
+            movieTitle: title,
+            attendanceSnapshot,
+          })
+          .catch((err?) => {
+            global.logger?.warn?.("[MOVIE NIGHT] SW serata film LB:", err?.message || err);
+            return null;
+          });
+      }
+    } catch (err) {
+      global.logger?.warn?.("[MOVIE NIGHT] SW serata film LB hook:", err?.message || err);
+    }
+
     const message = await channel.send({
-      content: buildMovieNightEndAnnouncementMessage(title),
+      content: buildMovieNightEndAnnouncementMessage(title, {
+        starWarsFilmNight: Boolean(swLb?.ok && swLb?.rankedCombined?.length),
+        lb: swLb || undefined,
+        formatCombinedRankingLines,
+      }),
       embeds: [],
       allowedMentions: {
         roles: [SERATA_FILM_ROLE_ID].filter(Boolean),
@@ -292,6 +328,7 @@ async function handleMovieNightStageClose(stageInstance?, opts: Record<string, a
       reviewThreadCloseAt,
       stagePermissionsClosedAt: permissionsClosed ? new Date().toISOString() : state?.stagePermissionsClosedAt || "",
       stageClosedAt: new Date().toISOString(),
+      starWarsSerataFilmLb: Boolean(swLb?.ok),
     };
     return {
       ok: true,
@@ -301,6 +338,7 @@ async function handleMovieNightStageClose(stageInstance?, opts: Record<string, a
       permissionsClosed,
       weekKey,
       nextState,
+      lbResult: swLb,
     };
   });
 

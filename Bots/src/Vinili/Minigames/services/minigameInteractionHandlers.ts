@@ -11,6 +11,7 @@ const {
   handleExpReward,
   awardMinigameWinToUser,
   mergeHalloweenCandyDropIntoMessage,
+  mergeStarWarsQuizRewardIntoMessage,
   computeMinigameAwardForUser,
 } = require("./minigameRewards") as typeof import("./minigameRewards");
 const { treasureEmojiMatches, botPlacedTreasureReaction, getTreasureHuntMessageUrl } = require("./minigameTreasureEmoji") as typeof import("./minigameTreasureEmoji");
@@ -139,7 +140,11 @@ async function handleMinigameButtonWin(interaction?, game?, cfg?) {
     if (mainChannel) {
       await sendMinigameMessage(
         mainChannel,
-        mergeHalloweenCandyDropIntoMessage({ embeds: [winEmbed] }, award, interaction.user.id),
+        mergeStarWarsQuizRewardIntoMessage(
+          mergeHalloweenCandyDropIntoMessage({ embeds: [winEmbed] }, award, interaction.user.id),
+          award,
+          interaction.user.id,
+        ),
       ).catch(() => { });
     }
     await interaction.reply({

@@ -70,6 +70,35 @@ async function saveFactionBank(eventKey?, factionId?, bank?) {
   return payload;
 }
 
+/**
+ * Aggiunge crediti alla banca fazione.
+ * Se passa userId, conta il versamento nel volume PEI dell'utente.
+ */
+async function addFactionBankCredits(client?, factionId?, amount?, { guildId = null, userId = null } = {}) {
+  const fid = normalizeId(factionId).toLowerCase();
+  const add = safeInt(amount);
+  if (!fid || add <= 0) return { ok: false, credits: 0 };
+  const cfg = resolveStarWarsEventConfig(client);
+  const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
+  const bank = await getFactionBank(eventKey, fid);
+  bank.credits = safeInt(bank.credits) + add;
+  await saveFactionBank(eventKey, fid, bank);
+  const uid = normalizeId(userId);
+  const gid = normalizeId(guildId);
+  if (uid && gid) {
+    try {
+      const { grantStarWarsCreditsVolumePei } = require("./starWarsRewardsService") as typeof import("./starWarsRewardsService");
+      await grantStarWarsCreditsVolumePei(client, {
+        guildId: gid,
+        userId: uid,
+        amount: add,
+        reason: "faction_bank_deposit",
+      });
+    } catch (_) {}
+  }
+  return { ok: true, credits: bank.credits, added: add, factionId: fid };
+}
+
 function unitPower(unitsMap?, epoch?) {
   const catalog = unitsForEpoch(epoch);
   let power = 0;
@@ -116,12 +145,15 @@ async function buyUnit(client, { guildId, userId, unitId, qty = 1 }) {
   }
 
   const nowIso = new Date().toISOString();
+  const peiGain = cost / 100000; /* 10M crediti spesi → 100 PEI */
   const updated = await ActivityUserProfile.findOneAndUpdate(
     { guildId: g, userId: u, [`${ROOT}.credits`]: { $gte: cost } },
     {
       $inc: {
         [`${ROOT}.credits`]: -cost,
         [`${ROOT}.army.${uid}`]: amount,
+        [`${ROOT}.creditsVolume`]: cost,
+        [`${ROOT}.pei`]: peiGain,
       },
       $set: { [`${ROOT}.updatedAt`]: nowIso, [`${ROOT}.eventKey`]: eventKey },
     },
@@ -141,6 +173,7 @@ async function buyUnit(client, { guildId, userId, unitId, qty = 1 }) {
     unitId: uid,
     qty: amount,
     cost,
+    pei: peiGain,
     wallet: publicWallet(updated.profile?.events?.starwars, eventKey),
     bank,
   };
@@ -264,6 +297,7 @@ async function getEconomySnapshot(client, { guildId, userId }) {
 export = {
   getFactionBank,
   saveFactionBank,
+  addFactionBankCredits,
   buyUnit,
   attackFaction,
   getEconomySnapshot,

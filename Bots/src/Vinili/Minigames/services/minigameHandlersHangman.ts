@@ -1,5 +1,5 @@
 /** Minigiochi: risposte e sconfitta dell'impiccato. */
-const { normalizeCountryName, buildPromptImageAttachment } = require("./minigameImages") as typeof import("./minigameImages");
+const { normalizeCountryName, buildHangmanBoardAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 const { buildHangmanEmbed, buildHangmanLossEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { normalizeCharForGuess, maskHangmanWord } = require("./minigameText") as typeof import("./minigameText");
@@ -23,12 +23,11 @@ async function finalizeHangmanLoss(message?, client?, cfg?, game?) {
   if (channel?.messages?.fetch && game.gameMessageId) {
     const gameMsg = await channel.messages.fetch(game.gameMessageId).catch(() => null);
     if (gameMsg?.edit) {
-      const attachment = buildPromptImageAttachment(
-        "Impiccato",
+      const attachment = await buildHangmanBoardAttachment(
+        game,
         [fullWordShown, `Errori: ${hmMax}/${hmMax}`],
-        "hangman",
+        client,
         `loss_${Date.now()}`,
-        client
       );
       const embed = buildHangmanEmbed(fullWordShown, game.rewardExp, 0);
       embed.setColor("#ED4245");
@@ -154,12 +153,12 @@ async function handleHangmanMessage(message?, client?, cfg?, game?, content?, co
     const maskedWord = maskHangmanWord(game.word, guessed);
     const hmMaxU = Number(game.maxMisses || 10);
     const hmErrU = Math.min(hmMaxU, Number(game.misses || 0));
-    const hangmanUpdateAttachment = buildPromptImageAttachment("Impiccato", [
-      maskedWord,
-      `Errori: ${hmErrU}/${hmMaxU}`,
-    ],
-      "hangman",
-      `update_${Date.now()}`, client);
+    const hangmanUpdateAttachment = await buildHangmanBoardAttachment(
+      game,
+      [maskedWord, `Errori: ${hmErrU}/${hmMaxU}`],
+      client,
+      `update_${Date.now()}`,
+    );
     const hangmanUpdateEmbed = buildHangmanEmbed(maskedWord, game.rewardExp, Math.max(1000, game.endsAt - Date.now()));
     if (hangmanUpdateAttachment) {
       hangmanUpdateEmbed.setImage(`attachment://${hangmanUpdateAttachment.name}`);

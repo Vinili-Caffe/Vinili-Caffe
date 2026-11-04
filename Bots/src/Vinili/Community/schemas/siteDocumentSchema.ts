@@ -24,6 +24,7 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   HOGWARTS_MINIGAME_SPAWN_WINDOW: "hogwarts_minigame_spawn_window",
   HOGWARTS_HOUSE_CHANNEL_MINIGAME_SCHEDULER: "hogwarts_house_channel_minigame_scheduler",
   HOGWARTS_SERATA_FILM_LB_PUBLISH: "hogwarts_serata_film_lb_publish",
+  STARWARS_SERATA_FILM_LB_PUBLISH: "starwars_serata_film_lb_publish",
     MINIGAME_ROLE_PING: "minigame_role_ping",
     COUNTING_RESTORE_TOKEN: "counting_restore_token",
     WEB_PUSH_SUBSCRIPTION: "web_push_subscription",
@@ -418,6 +419,10 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
   { unique: true, name: "hogwarts_serata_film_lb_publish_unique", partialFilterExpression: { docType: SITE_DOC.HOGWARTS_SERATA_FILM_LB_PUBLISH } },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1, dedupeKey: 1 },
+  { unique: true, name: "starwars_serata_film_lb_publish_unique", partialFilterExpression: { docType: SITE_DOC.STARWARS_SERATA_FILM_LB_PUBLISH } },
 );
 siteDocumentSchema.index(
   { docType: 1, guildId: 1, dedupeKey: 1 },

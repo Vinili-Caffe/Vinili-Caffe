@@ -6,7 +6,7 @@ import { useEventoStaffAccess } from "@/components/evento/EventoAccessGate";
 import { eventoNavForViewer } from "@/lib/evento-starwars";
 import { cn } from "@/lib/cn";
 
-/** Tab sottomenu evento Star Wars (filtrate per HS / finestra pubblica). */
+/** Tab sottomenu evento Star Wars (filtrate per HS / finestra pubblica + feature calendar). */
 export function EventoNav({ className }: { className?: string }) {
   const pathname = usePathname() || "/";
   const { ready, access } = useEventoStaffAccess();
@@ -27,6 +27,21 @@ export function EventoNav({ className }: { className?: string }) {
           item.id === "hub"
             ? pathname === "/evento" || pathname === "/evento/"
             : pathname === item.href || pathname === item.href.replace(/\/$/, "");
+        if (item.locked) {
+          return (
+            <span
+              key={item.id}
+              role="link"
+              aria-disabled="true"
+              title="In arrivo"
+              className="cursor-not-allowed rounded-full bg-black/20 px-3 py-1.5 text-xs font-semibold tracking-wide text-crema/35 ring-1 ring-sand/10 sm:text-[0.8rem]"
+            >
+              <span className="blur-[2.5px] select-none" aria-hidden>
+                {item.label}
+              </span>
+            </span>
+          );
+        }
         return (
           <SmartLink
             key={item.id}

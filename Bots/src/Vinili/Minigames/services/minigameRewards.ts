@@ -1,4 +1,5 @@
-/** Minigiochi: premi (exp, serie di vittorie, risposta veloce, ruoli premio, caramelle di Halloween). */
+/** Minigiochi: premi (exp, serie di vittorie, risposta veloce, ruoli premio, caramelle di Halloween, quiz SW). */
+const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { addExpWithLevel, shouldIgnoreExpForMember, incrementMinigameWinCounters } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
@@ -192,7 +193,60 @@ async function awardMinigameWinToUser({
     cfg,
     game,
   });
-  return { effectiveExp, nextTotal, details, member, halloweenCandyDrop };
+
+  let starWarsQuizReward = null;
+  try {
+    const { countsTowardStarWarsEventWinRewards } = require("../../Minigames/utils/starWarsMinigameHooks") as typeof import("../../Minigames/utils/starWarsMinigameHooks");
+    if (countsTowardStarWarsEventWinRewards(game?.type, cfg)) {
+      const { grantStarWarsQuizWinRewards } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsQuizRewards") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsQuizRewards");
+      starWarsQuizReward = await grantStarWarsQuizWinRewards(client, {
+        guildId: guild.id,
+        userId,
+        cfg,
+      });
+    }
+  } catch (err) {
+    warnMinigame(err);
+  }
+
+  return { effectiveExp, nextTotal, details, member, halloweenCandyDrop, starWarsQuizReward };
 }
 
-export = { handleExpReward, computeMinigameAwardForUser, mergeHalloweenCandyDropIntoMessage, awardMinigameWinToUser };
+function mergeStarWarsQuizRewardIntoMessage(basePayload?, award?, winnerUserId?) {
+  const sw = award?.starWarsQuizReward;
+  if (!sw?.ok) return basePayload || {};
+  const out = { ...(basePayload || {}) };
+  const embeds = Array.isArray(out.embeds) ? out.embeds.slice() : [];
+  if (embeds[0] && typeof embeds[0].data?.description === "string") {
+    const extras = [];
+    if (sw.credits > 0) extras.push(`**+${Number(sw.credits).toLocaleString("it-IT")} crediti** evento`);
+    if (sw.sideCredits > 0 || sw.bankCredits > 0) {
+      extras.push(`**+${Number(sw.sideCredits || 0)} crediti** personali · **+${Number(sw.bankCredits || 0)}** banca fazione`);
+    }
+    if (sw.crateId && sw.crateQty > 0) {
+      extras.push(`**+${sw.crateQty} Cassa Alpha** (${sw.quizCorrectTotal}ª vittoria)`);
+    } else if (sw.untilNextCrate > 0) {
+      extras.push(`Cassa Alpha tra **${sw.untilNextCrate}** vittorie`);
+    }
+    if (extras.length) {
+      const desc = `${embeds[0].data.description}\n\n${extras.join("\n")}`;
+      embeds[0] = EmbedBuilder.from(embeds[0]).setDescription(desc);
+    }
+  } else if (sw.credits > 0 || sw.crateId) {
+    const bits = [];
+    if (sw.credits > 0) bits.push(`+${Number(sw.credits).toLocaleString("it-IT")} crediti`);
+    if (sw.crateId) bits.push(`+Cassa Alpha`);
+    const line = `🌌 <@${winnerUserId}>: ${bits.join(" · ")}`;
+    out.content = out.content ? `${out.content}\n${line}` : line;
+  }
+  out.embeds = embeds;
+  return out;
+}
+
+export = {
+  handleExpReward,
+  computeMinigameAwardForUser,
+  mergeHalloweenCandyDropIntoMessage,
+  mergeStarWarsQuizRewardIntoMessage,
+  awardMinigameWinToUser,
+};

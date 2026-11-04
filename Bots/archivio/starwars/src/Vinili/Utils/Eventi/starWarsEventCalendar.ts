@@ -1,18 +1,6 @@
-/**
- * Calendario operativo Star Wars (da CALENDARIO EVENTO.pdf).
- * Ogni giorno: attivazioni/termini feature + slot avvento (1–25 dic).
- * Lo scheduler leggerà questo; Fase 0 = solo sorgente verità.
- */
 "use strict";
-
 const { romeYmd } = require("./starWarsEventConfig") as typeof import("./starWarsEventConfig");
 
-/** @typedef {"on"|"off"} FeatureToggle */
-
-/**
- * Feature keys stabili (bot/sito).
- * epoch: fazione attiva per smistamento / shop.
- */
 const FEATURES = Object.freeze({
   SMISTAMENTO: "smistamento",
   AVVENTO: "avvento",
@@ -21,6 +9,7 @@ const FEATURES = Object.freeze({
   MINIGAME_SCOMMESSA: "minigame_scommessa",
   MINIGAME_SCOVA: "minigame_scova_pianeta",
   MINIGAME_ORDINE66: "minigame_ordine66",
+  MINIGAME_CACCIATORE: "minigame_cacciatore_taglie",
   MINIGAME_ATTACCA_BASE: "minigame_attacca_base",
   MINIGAME_CACCIA_EWOK: "minigame_caccia_ewok",
   MINIGAME_PROTEGGI: "minigame_proteggi_convoglio",
@@ -35,9 +24,9 @@ const FEATURES = Object.freeze({
 });
 
 const EPOCHS = Object.freeze({
-  CLONE_WARS: "clone_wars", // Repubblica / Separatisti
-  CIVIL_WAR: "civil_war", // Impero / Ribellione
-  SEQUEL: "sequel", // Nuovo Ordine / Nuova Repubblica
+  CLONE_WARS: "clone_wars",
+  CIVIL_WAR: "civil_war",
+  SEQUEL: "sequel",
 });
 
 const ECONOMY_PHASE = Object.freeze({
@@ -46,113 +35,138 @@ const ECONOMY_PHASE = Object.freeze({
   III: 3,
 });
 
-/**
- * Giorni con eventi (ISO Europe/Rome date). Campi:
- * - advent: 1..25 | null
- * - epoch: EPOCHS.* (se cambia)
- * - economyPhase: 1|2|3|null + economyOn bool via on/off
- * - on / off: string[] FEATURES
- * - film: titolo opzionale
- * - note: stringa staff
- */
+
 const DAY_ROWS = Object.freeze([
-  { date: "2026-12-01", advent: 1, epoch: EPOCHS.CLONE_WARS, on: [FEATURES.SMISTAMENTO, FEATURES.AVVENTO], note: "Attivazione smistamento Repubblica/Separatisti" },
+  { date: "2026-12-01", at: "00:00", advent: 1, epoch: EPOCHS.CLONE_WARS, on: [FEATURES.AVVENTO], note: "Calendario dell'Avvento" },
+  { date: "2026-12-01", at: "12:00", on: [FEATURES.SMISTAMENTO], note: "Smistamento" },
   { date: "2026-12-02", advent: 2 },
-  { date: "2026-12-03", advent: 3, on: [FEATURES.MINIGAME_PODRACE], note: "Attivazione Gara di Podracer" },
-  { date: "2026-12-04", advent: 4, on: [FEATURES.EVENT_PODRACING_CHAMP], note: "Podracing Championship" },
-  { date: "2026-12-05", advent: 5, film: "Star Wars: La minaccia fantasma" },
+  { date: "2026-12-03", at: "12:00", advent: 3, on: [FEATURES.MINIGAME_PODRACE], note: "Attivazione Gara di Podracer" },
+  { date: "2026-12-04", at: "12:00", advent: 4, on: [FEATURES.EVENT_PODRACING_CHAMP], note: "Podracing Championship" },
+  { date: "2026-12-05", at: "21:00", advent: 5, film: "Star Wars: La minaccia fantasma" },
   { date: "2026-12-06", advent: 6 },
   { date: "2026-12-07", advent: 7 },
   { date: "2026-12-08", advent: 8 },
-  { date: "2026-12-09", advent: 9, off: [FEATURES.EVENT_PODRACING_CHAMP], note: "Termine Podracing Championship" },
-  { date: "2026-12-10", advent: 10 },
+  { date: "2026-12-09", at: "12:00", advent: 9, off: [FEATURES.EVENT_PODRACING_CHAMP], note: "Termine Podracing Championship" },
+  { date: "2026-12-10", at: "12:00", advent: 10, on: [FEATURES.MINIGAME_CACCIATORE], note: "Cacciatore di taglie" },
   { date: "2026-12-11", advent: 11 },
-  { date: "2026-12-12", advent: 12, off: [FEATURES.MINIGAME_PODRACE], film: "Star Wars: L'attacco dei cloni", note: "Termine Gara Podracer" },
-  { date: "2026-12-13", advent: 13, on: [FEATURES.MINIGAME_SCOMMESSA], economyPhase: ECONOMY_PHASE.I, note: "Scommessa Podracer + economia I ON" },
-  { date: "2026-12-14", advent: 14, on: [FEATURES.EVENT_ACCADEMIA], note: "Accademia Militare" },
+  { date: "2026-12-12", at: "21:00", advent: 12, film: "Star Wars: L'attacco dei cloni" },
+  { date: "2026-12-13", advent: 13, on: [FEATURES.MINIGAME_SCOMMESSA], economyPhase: ECONOMY_PHASE.I, note: "Scommessa Podracer + Economia I attiva" },
+  { date: "2026-12-14", advent: 14 },
   { date: "2026-12-15", advent: 15 },
-  { date: "2026-12-16", advent: 16 },
+  { date: "2026-12-16", at: "12:00", advent: 16, off: [FEATURES.MINIGAME_CACCIATORE], note: "Termine Cacciatore di taglie" },
   { date: "2026-12-17", advent: 17 },
-  { date: "2026-12-18", advent: 18, off: [FEATURES.MINIGAME_SCOMMESSA], note: "Termine Scommessa" },
-  { date: "2026-12-19", advent: 19, film: "Star Wars: La vendetta dei Sith" },
-  { date: "2026-12-20", advent: 20, off: [FEATURES.EVENT_ACCADEMIA], note: "Termine Accademia" },
-  { date: "2026-12-21", advent: 21, on: [FEATURES.MINIGAME_SCOVA], note: "Scova il pianeta" },
+  { date: "2026-12-18", at: "12:00", advent: 18, off: [FEATURES.MINIGAME_PODRACE, FEATURES.MINIGAME_SCOMMESSA], note: "Termine Podrace + Scommessa Podracer" },
+  { date: "2026-12-19", at: "21:00", advent: 19, film: "Star Wars: La vendetta dei Sith" },
+  { date: "2026-12-20", advent: 20 },
+  { date: "2026-12-21", at: "12:00", advent: 21, on: [FEATURES.MINIGAME_SCOVA], note: "Scova il pianeta" },
   { date: "2026-12-22", advent: 22 },
   { date: "2026-12-23", advent: 23 },
-  { date: "2026-12-24", advent: 24, on: [FEATURES.MINIGAME_ORDINE66], note: "Ordine 66" },
+  { date: "2026-12-24", at: "12:00", advent: 24, on: [FEATURES.MINIGAME_ORDINE66], note: "Ordine 66" },
   { date: "2026-12-25", advent: 25 },
   { date: "2026-12-26" },
   { date: "2026-12-27" },
   { date: "2026-12-28" },
   { date: "2026-12-29" },
-  { date: "2026-12-30", off: [FEATURES.MINIGAME_ORDINE66], note: "Termine Ordine 66" },
-  { date: "2026-12-31", economyPhase: null, note: "Disattivazione economia I" },
+  { date: "2026-12-30", at: "12:00", off: [FEATURES.MINIGAME_ORDINE66], note: "Termine Ordine 66" },
+  { date: "2026-12-31", economyPhase: null, note: "Disattivazione Economia I" },
   { date: "2027-01-01", epoch: EPOCHS.CIVIL_WAR, note: "Smistamento → Impero / Ribellione" },
-  { date: "2027-01-02", film: "Star Wars: Rogue One" },
-  { date: "2027-01-03", on: [FEATURES.EVENT_KYBER], note: "Estrazione Kyber" },
+  { date: "2027-01-02", at: "21:00", film: "Star Wars: Rogue One" },
+  { date: "2027-01-03", at: "12:00", on: [FEATURES.EVENT_KYBER], note: "Miniera Kyber" },
   { date: "2027-01-04" },
-  { date: "2027-01-05", off: [FEATURES.EVENT_KYBER], note: "Termine Kyber" },
+  { date: "2027-01-05", at: "12:00", off: [FEATURES.EVENT_KYBER], note: "Termine Miniera Kyber" },
   { date: "2027-01-06" },
   { date: "2027-01-07" },
-  { date: "2027-01-08", off: [FEATURES.MINIGAME_SCOVA], note: "Termine Scova il pianeta" },
-  { date: "2027-01-09", film: "Star Wars: Una nuova speranza" },
-  { date: "2027-01-10", economyPhase: ECONOMY_PHASE.II, note: "Economia II ON" },
-  { date: "2027-01-11", on: [FEATURES.MINIGAME_ATTACCA_BASE], note: "Attacca la base" },
-  { date: "2027-01-12", on: [FEATURES.GAME_CONQUISTA], note: "Conquista il sistema" },
-  { date: "2027-01-13", on: [FEATURES.EVENT_ACCADEMIA], note: "Accademia Militare (II)" },
+  { date: "2027-01-08", at: "12:00", off: [FEATURES.MINIGAME_SCOVA], note: "Termine Scova il pianeta" },
+  { date: "2027-01-09", at: "21:00", film: "Star Wars: Una nuova speranza" },
+  { date: "2027-01-10", economyPhase: ECONOMY_PHASE.II, note: "Economia II attiva" },
+  { date: "2027-01-11", at: "12:00", on: [FEATURES.MINIGAME_ATTACCA_BASE], note: "Attacca la base" },
+  { date: "2027-01-12", at: "12:00", on: [FEATURES.GAME_CONQUISTA], note: "Conquista il sistema" },
+  { date: "2027-01-13", at: "12:00", on: [FEATURES.EVENT_ACCADEMIA], note: "Accademia" },
   { date: "2027-01-14" },
   { date: "2027-01-15" },
-  { date: "2027-01-16", film: "Star Wars: L'impero colpisce ancora" },
-  { date: "2027-01-17", off: [FEATURES.MINIGAME_ATTACCA_BASE], note: "Termine Attacca la base" },
+  { date: "2027-01-16", at: "21:00", film: "Star Wars: L'impero colpisce ancora" },
+  { date: "2027-01-17", at: "12:00", off: [FEATURES.MINIGAME_ATTACCA_BASE], note: "Termine Attacca la base" },
   { date: "2027-01-18" },
   { date: "2027-01-19" },
   { date: "2027-01-20" },
   { date: "2027-01-21" },
-  { date: "2027-01-22", off: [FEATURES.EVENT_ACCADEMIA], note: "Termine Accademia" },
-  { date: "2027-01-23", film: "Star Wars: Il ritorno dello Jedi" },
-  { date: "2027-01-24", on: [FEATURES.MINIGAME_CACCIA_EWOK], note: "Caccia all'Ewok" },
-  { date: "2027-01-25", on: [FEATURES.GAME_COLLEZIONA_PG], note: "Colleziona PG" },
+  { date: "2027-01-22", at: "12:00", off: [FEATURES.EVENT_ACCADEMIA], note: "Termine Accademia" },
+  { date: "2027-01-23", at: "21:00", film: "Star Wars: Il ritorno dello Jedi" },
+  { date: "2027-01-24", at: "12:00", on: [FEATURES.MINIGAME_CACCIA_EWOK], note: "Caccia all'Ewok" },
+  { date: "2027-01-25", at: "12:00", on: [FEATURES.GAME_COLLEZIONA_PG], note: "Colleziona PG" },
   { date: "2027-01-26" },
-  { date: "2027-01-27", off: [FEATURES.MINIGAME_CACCIA_EWOK], note: "Termine Caccia Ewok" },
+  { date: "2027-01-27", at: "12:00", off: [FEATURES.MINIGAME_CACCIA_EWOK], note: "Termine Caccia Ewok" },
   { date: "2027-01-28", economyPhase: null, note: "Termine economia II" },
-  { date: "2027-01-29", epoch: EPOCHS.SEQUEL, note: "Smistamento → Nuovo Ordine / Nuova Repubblica" },
-  { date: "2027-01-30", film: "Star Wars: Il risveglio della forza" },
+  { date: "2027-01-29", epoch: EPOCHS.SEQUEL, note: "Smistamento → Primo Ordine / Nuova Repubblica" },
+  { date: "2027-01-30", at: "21:00", film: "Star Wars: Il risveglio della forza" },
   { date: "2027-01-31" },
   { date: "2027-02-01" },
   { date: "2027-02-02" },
-  { date: "2027-02-03", off: [FEATURES.GAME_CONQUISTA], on: [FEATURES.EVENT_PUZZLE_KESSEL], note: "Termine Conquista + Puzzle di Kessel" },
-  { date: "2027-02-04", economyPhase: ECONOMY_PHASE.III, note: "Economia III ON" },
+  { date: "2027-02-03", at: "12:00", off: [FEATURES.GAME_CONQUISTA], on: [FEATURES.EVENT_PUZZLE_KESSEL], note: "Termine Conquista il sistema + Puzzle" },
+  { date: "2027-02-04", economyPhase: ECONOMY_PHASE.III, note: "Economia III attiva" },
   { date: "2027-02-05" },
   { date: "2027-02-06" },
-  { date: "2027-02-07", on: [FEATURES.GAME_RELIQUIE], note: "Colleziona le reliquie" },
-  { date: "2027-02-08", off: [FEATURES.EVENT_PUZZLE_KESSEL], note: "Termine Puzzle Kessel" },
-  { date: "2027-02-09", on: [FEATURES.MINIGAME_PROTEGGI], note: "Proteggi convoglio" },
+  { date: "2027-02-07", at: "12:00", on: [FEATURES.GAME_RELIQUIE], note: "Colleziona le reliquie" },
+  { date: "2027-02-08", at: "12:00", off: [FEATURES.EVENT_PUZZLE_KESSEL], note: "Termine Puzzle" },
+  { date: "2027-02-09", at: "12:00", on: [FEATURES.MINIGAME_PROTEGGI], note: "Proteggi convoglio" },
   { date: "2027-02-10" },
-  { date: "2027-02-11", on: [FEATURES.GAME_OLOCRON], note: "Caccia all'Olocron" },
+  { date: "2027-02-11", at: "12:00", on: [FEATURES.GAME_OLOCRON], note: "Olocron in rotazione" },
   { date: "2027-02-12" },
-  { date: "2027-02-13", film: "Star Wars: Gli ultimi Jedi" },
+  { date: "2027-02-13", at: "21:00", film: "Star Wars: Gli ultimi Jedi" },
   { date: "2027-02-14" },
   { date: "2027-02-15" },
   { date: "2027-02-16" },
-  { date: "2027-02-17", on: [FEATURES.MINIGAME_ATTACCA_BASE], note: "Attacca la base (bis)" },
-  { date: "2027-02-18", off: [FEATURES.GAME_OLOCRON], note: "Termine Olocron" },
+  { date: "2027-02-17", at: "12:00", on: [FEATURES.MINIGAME_ATTACCA_BASE], note: "Attacca la base II Fase" },
+  { date: "2027-02-18", at: "12:00", off: [FEATURES.GAME_OLOCRON], note: "Termine Olocron" },
   { date: "2027-02-19", economyPhase: null, note: "Termine economia III" },
-  { date: "2027-02-20", film: "Star Wars: L'ascesa di Skywalker" },
-  { date: "2027-02-21", off: [FEATURES.GAME_RELIQUIE], note: "Termine Reliquie" },
-  { date: "2027-02-22", off: [FEATURES.GAME_COLLEZIONA_PG], note: "Termine Colleziona PG" },
-  { date: "2027-02-23", off: [FEATURES.MINIGAME_ATTACCA_BASE], note: "Termine Attacca la base" },
-  {
-    date: "2027-02-24",
-    on: [FEATURES.MINIGAME_SCOVA, FEATURES.MINIGAME_ORDINE66, FEATURES.MINIGAME_PROTEGGI],
-    note: "Ripristino Scova + Ordine 66 + Convoglio",
-  },
+  { date: "2027-02-20", at: "21:00", film: "Star Wars: L'ascesa di Skywalker" },
+  { date: "2027-02-21", at: "12:00", off: [FEATURES.GAME_RELIQUIE], note: "Termine Reliquie" },
+  { date: "2027-02-22", at: "12:00", off: [FEATURES.GAME_COLLEZIONA_PG], note: "Termine Colleziona PG" },
+  { date: "2027-02-23", at: "12:00", off: [FEATURES.MINIGAME_ATTACCA_BASE], note: "Termine Attacca la base" },
+  { date: "2027-02-24", at: "12:00", on: [FEATURES.MINIGAME_SCOVA, FEATURES.MINIGAME_ORDINE66], note: "Ripristino Scova il pianeta + Ordine 66" },
   { date: "2027-02-25" },
-  { date: "2027-02-26" },
-  { date: "2027-02-27", off: [FEATURES.MINIGAME_PROTEGGI], note: "Termine Proteggi convoglio" },
+  { date: "2027-02-26", at: "12:00", off: [FEATURES.MINIGAME_SCOVA, FEATURES.MINIGAME_ORDINE66], note: "Termine ripristino Scova il pianeta + Ordine 66" },
+  { date: "2027-02-27", at: "12:00", off: [FEATURES.MINIGAME_PROTEGGI], note: "Termine Proteggi convoglio" },
   { date: "2027-02-28" },
 ]);
 
-const BY_DATE = new Map(DAY_ROWS.map((r?) => [r.date, Object.freeze({ ...r })]));
+const BY_DATE = new Map();
+for (const r of DAY_ROWS) {
+  const d = String(r.date || "").trim();
+  if (!d || BY_DATE.has(d)) continue;
+  BY_DATE.set(d, Object.freeze({ ...r }));
+}
+
+function normalizeAt(at?) {
+  const s = String(at || "00:00").trim();
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s);
+  if (!m) return "00:00";
+  const hh = Math.max(0, Math.min(23, Number(m[1])));
+  const mm = Math.max(0, Math.min(59, Number(m[2])));
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+function rowStamp(row?) {
+  return `${String(row?.date || "").trim()}T${normalizeAt(row?.at)}`;
+}
+
+function romeDateTimeStamp(now = new Date(), timeZone = "Europe/Rome") {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(now)
+      .filter((p?) => p.type !== "literal")
+      .map((p?) => [p.type, p.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
 
 function listCalendarDays() {
   return DAY_ROWS.slice();
@@ -169,17 +183,15 @@ function adventSlotForRomeDate(now = new Date()) {
   return day;
 }
 
-/**
- * Stato feature aggregato fino a `isoDate` incluso (per scheduler / status API).
- */
-function resolveFeatureStateAt(isoDate?) {
+function resolveFeatureStateAtStamp(stamp?) {
   const active = new Set();
   let epoch = null;
   let economyPhase = null;
   let economyOn = false;
+  const target = String(stamp || "").trim();
 
   for (const row of DAY_ROWS) {
-    if (row.date > isoDate) break;
+    if (rowStamp(row) > target) break;
     if (row.epoch) epoch = row.epoch;
     if (Object.prototype.hasOwnProperty.call(row, "economyPhase")) {
       if (row.economyPhase == null) {
@@ -192,14 +204,15 @@ function resolveFeatureStateAt(isoDate?) {
     }
     for (const f of row.on || []) active.add(f);
     for (const f of row.off || []) active.delete(f);
-    if (row.date >= "2026-12-26") active.delete(FEATURES.AVVENTO);
+    if (String(row.date || "") >= "2026-12-26") active.delete(FEATURES.AVVENTO);
   }
 
   if (economyOn) active.add(FEATURES.ECONOMY);
   else active.delete(FEATURES.ECONOMY);
 
   return {
-    date: isoDate,
+    date: target.slice(0, 10),
+    stamp: target,
     epoch,
     economyPhase,
     economyOn,
@@ -207,9 +220,20 @@ function resolveFeatureStateAt(isoDate?) {
   };
 }
 
+function resolveFeatureStateAt(isoDate?) {
+  const d = String(isoDate || "").trim();
+  return resolveFeatureStateAtStamp(`${d}T23:59`);
+}
+
 function resolveFeatureStateNow(now = new Date()) {
-  const { iso } = romeYmd(now);
-  return resolveFeatureStateAt(iso);
+  return resolveFeatureStateAtStamp(romeDateTimeStamp(now));
+}
+
+function isCalendarFeatureActive(featureKey?, now = new Date()) {
+  const key = String(featureKey || "").trim();
+  if (!key) return false;
+  const state = resolveFeatureStateNow(now);
+  return (state.features || []).includes(key);
 }
 
 export = {
@@ -222,4 +246,7 @@ export = {
   adventSlotForRomeDate,
   resolveFeatureStateAt,
   resolveFeatureStateNow,
+  resolveFeatureStateAtStamp,
+  romeDateTimeStamp,
+  isCalendarFeatureActive,
 };

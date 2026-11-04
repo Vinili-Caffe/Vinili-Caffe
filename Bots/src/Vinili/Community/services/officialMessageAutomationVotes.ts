@@ -121,6 +121,27 @@ async function processDiscadiaVote(guild?, user?, client?, options: Record<strin
     global.logger?.warn?.("[officialMessageAutomation] record vote error: ", err?.message || err);
   }
 
+  /* Evento SW: smistato → +100 exp evento + 5 crediti personali per ogni voto */
+  try {
+    const { isStarWarsEventLive } = require("../../../../archivio/starwars/src/Vinili/Utils/Eventi/starWarsEventConfig");
+    if (isStarWarsEventLive(client, new Date(), guild.id)) {
+      const { getStarWarsWallet } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsEventWalletService");
+      const { addStarWarsVoteReward } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsRewardsService");
+      const walletGuild =
+        String(client?.config?.mainGuildId || "").trim() ||
+        String(IDs.guilds?.main || guild.id || "").trim();
+      const wallet = await getStarWarsWallet(walletGuild, userId).catch(() => null);
+      if (wallet?.factionId) {
+        const swVote = await addStarWarsVoteReward(client, { guildId: walletGuild, userId });
+        if (swVote?.ok) {
+          voteRewardExtras.push(`${E.VC_EXP} Star Wars: **+100 exp** evento · **+5 crediti**`);
+        }
+      }
+    }
+  } catch (err) {
+    global.logger?.warn?.("[officialMessageAutomation] SW vote reward: ", err?.message || err);
+  }
+
   const { DIVIDER_URL: dividerUrl } = require("../../../shared/discord/constants") as typeof import("../../../shared/discord/constants");
   const { userAvatarUrlStatic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
   const voteCooldownHours = Math.max(1, Math.round(voteCooldownMs / (60 * 60 * 1000)));

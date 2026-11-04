@@ -12,7 +12,15 @@ const {
 const { SiteDocument, SITE_DOCUMENT_TYPE, ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
 const IDs = require(__eventCoreVinili("Config/ids"));
 const { FEATURES, canAutoSpawnFeature, getRuntimeFlags, isHighStaffMember } = require("../../Utils/Eventi/starWarsRuntimeGate") as typeof import("../../Utils/Eventi/starWarsRuntimeGate");
-const { grantStarWarsReward } = require("./starWarsRewardsService") as typeof import("./starWarsRewardsService");
+const {
+  EPOCHS,
+  resolveFeatureStateNow,
+} = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
+const {
+  grantStarWarsReward,
+  grantStarWarsMinigameWinReward,
+  grantStarWarsGlobalMinigameWinBonus,
+} = require("./starWarsRewardsService") as typeof import("./starWarsRewardsService");
 
 const DOC_TYPE = SITE_DOCUMENT_TYPE.STARWARS_EVENT_STATE;
 const OWNER = "__starwars_mg__";
@@ -22,7 +30,9 @@ const huntTimeouts = new Map();
 const ordine66Timeouts = new Map();
 const HUNT_DURATION_MS = 5 * 60 * 1000;
 const ORDINE66_DURATION_MS = 15 * 60 * 1000;
-const JEDI_ROLE_NAME = "༄ Jedi";
+const JEDI_ROLE_NAME = "༄ Jedi"; /* legacy alias; resolve via starWarsCalendarRoleSync */
+const cacciatoreTimeouts = new Map();
+const CACCIATORE_DURATION_MS = ORDINE66_DURATION_MS;
 const SW_FACTION_PATH = "profile.events.starwars.factionId";
 
 const F1_STEP_MS = 2400;
@@ -512,7 +522,7 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
     try {
       const claimed = await claimRound(kind, user.id);
       if (!claimed) return true;
-      await grantStarWarsReward(client, {
+      await grantStarWarsMinigameWinReward(client, {
         guildId,
         userId: user.id,
         reason: kind,
@@ -521,7 +531,7 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
       const winEmbed = new EmbedBuilder()
         .setColor(0xeab308)
         .setTitle(`${meta.title} — Arrivo!`)
-        .setDescription(`🏁 <@${user.id}> vince!\n**+${meta.crate}** + **${meta.exp} exp**`);
+        .setDescription(`🏁 <@${user.id}> vince!\n**+${meta.crate}** + **${meta.exp} exp** (+5 crediti · +10 banca)`);
       if (meta.winImage) winEmbed.setImage(meta.winImage);
       await reaction.message
         ?.edit?.({ embeds: [winEmbed] })
@@ -577,13 +587,13 @@ async function handleStarWarsButton(interaction?) {
   }
   clearHuntTimeout(kind);
   const guildId = normalizeId(interaction.guildId) || normalizeId(round.payload.guildId) || mainGuildId();
-  await grantStarWarsReward(interaction.client, {
+  await grantStarWarsMinigameWinReward(interaction.client, {
     guildId,
     userId: interaction.user.id,
     reason: kind,
     grant: { crateId: meta.crate, crateQty: 1, exp: meta.exp },
   });
-  await interaction.editReply({ content: `Hai vinto! (+${meta.crate} + ${meta.exp} exp)` }).catch(() => null);
+  await interaction.editReply({ content: `Hai vinto! (+${meta.crate} + ${meta.exp} exp · +5 crediti · +10 banca)` }).catch(() => null);
   await deleteHuntHiddenMessage(interaction.client, round.payload);
   const hubId = normalizeId(round.payload.hubChannelId || round.payload.channelId);
   if (hubId) {
@@ -608,12 +618,13 @@ function isVisibleOnlinePresence(presence?) {
 }
 
 function resolveJediRole(guild?) {
+  try {
+    const { resolveHuntTargetRole } = require("./starWarsCalendarRoleSync") as typeof import("./starWarsCalendarRoleSync");
+    const role = resolveHuntTargetRole(guild);
+    if (role) return role;
+  } catch (_) {}
   if (!guild?.roles?.cache) return null;
   const wanted = JEDI_ROLE_NAME.normalize("NFC").trim().toLowerCase();
-  const exact = [...guild.roles.cache.values()].find(
-    (r?) => String(r?.name || "").normalize("NFC").trim().toLowerCase() === wanted,
-  );
-  if (exact) return exact;
   return (
     [...guild.roles.cache.values()].find((r?) => {
       const bare = String(r?.name || "")
@@ -621,7 +632,8 @@ function resolveJediRole(guild?) {
         .replace(/^༄\s*/u, "")
         .trim()
         .toLowerCase();
-      return bare === "jedi";
+      const full = String(r?.name || "").normalize("NFC").trim().toLowerCase();
+      return full === wanted || bare === "jedi" || bare === "cacciatore di taglie";
     }) || null
   );
 }
@@ -732,6 +744,10 @@ async function startOrdine66(client?, { channelId = null, force = false } = {}) 
     const { syncStarWarsFactionRolesOnTestFromDb } = require("./starWarsFactionTestRoles") as typeof import("./starWarsFactionTestRoles");
     await syncStarWarsFactionRolesOnTestFromDb(client);
   } catch (_) {}
+  try {
+    const { syncStarWarsCalendarRoleNames } = require("./starWarsCalendarRoleSync") as typeof import("./starWarsCalendarRoleSync");
+    await syncStarWarsCalendarRoleNames(client);
+  } catch (_) {}
 
   await guild.roles.fetch().catch(() => null);
   const jediRole = resolveJediRole(guild);
@@ -815,13 +831,164 @@ async function tryOrdine66Mention(message?, client?) {
     (normalizeId(round.payload.roleId) && guild?.roles?.cache?.get(normalizeId(round.payload.roleId))) ||
     resolveJediRole(guild);
   await clearJediRoleFromMember(guild, role, targetId, "Ordine 66 eseguito");
-  await grantStarWarsReward(client, {
+  await grantStarWarsMinigameWinReward(client, {
     guildId: message.guildId,
     userId: message.author.id,
     reason: "ordine66",
     grant: { crateId: "alpha", crateQty: 1, exp: 100, troops: { tier1: 5 } },
   });
-  await message.reply(`Eseguito. <@${message.author.id}> ottiene cassa alpha + 100 exp + 5 truppe.`).catch(() => null);
+  await message.reply(`Eseguito. <@${message.author.id}> ottiene cassa alpha + 100 exp + 5 truppe (+5 crediti · +10 banca).`).catch(() => null);
+  return true;
+}
+
+/* ——— Cacciatore di taglie (come Ordine 66, ruolo rinominato) ——— */
+function clearCacciatoreTimeout() {
+  const t = cacciatoreTimeouts.get("cacciatore");
+  if (t) clearTimeout(t);
+  cacciatoreTimeouts.delete("cacciatore");
+}
+
+async function finalizeCacciatoreTimeout(client?) {
+  clearCacciatoreTimeout();
+  const round = await getActiveRound("cacciatore");
+  if (!round?.payload || round.payload.status !== "active") return;
+  const payload = round.payload;
+  await setRound("cacciatore", { ...payload, status: "expired", expiredAt: new Date().toISOString() });
+  const guildId = normalizeId(payload.guildId);
+  const guild = client?.guilds?.cache?.get(guildId) || (await client?.guilds?.fetch?.(guildId).catch(() => null));
+  const role = resolveJediRole(guild);
+  await clearJediRoleFromMember(guild, role, payload.targetId, "Cacciatore di taglie scaduto");
+  const chId = normalizeId(payload.channelId);
+  if (!chId || !client) return;
+  const channel = client.channels.cache.get(chId) || (await client.channels.fetch(chId).catch(() => null));
+  if (channel?.send) {
+    await channel
+      .send({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x6b7280)
+            .setTitle("Cacciatore di taglie")
+            .setDescription("Tempo scaduto: il bersaglio è fuggito."),
+        ],
+      })
+      .catch(() => null);
+  }
+}
+
+function scheduleCacciatoreTimeout(client?, durationMs = CACCIATORE_DURATION_MS) {
+  clearCacciatoreTimeout();
+  const t = setTimeout(() => {
+    void finalizeCacciatoreTimeout(client);
+  }, Math.max(1000, Number(durationMs) || CACCIATORE_DURATION_MS));
+  if (typeof t.unref === "function") t.unref();
+  cacciatoreTimeouts.set("cacciatore", t);
+}
+
+async function startCacciatoreTaglie(client?, { channelId = null, force = false } = {}) {
+  if (!force && !canAutoSpawnFeature(client, FEATURES.MINIGAME_CACCIATORE)) return { ok: false, error: "gated" };
+  const targetCtx = await resolveSpawnTarget(client, channelId);
+  const guildId = targetCtx.guildId;
+  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  if (!guild) return { ok: false, error: "no_guild" };
+
+  const existing = await getActiveRound("cacciatore");
+  if (String(existing?.payload?.status || "") === "active") {
+    return { ok: false, error: "already_active" };
+  }
+
+  try {
+    const { syncStarWarsCalendarRoleNames } = require("./starWarsCalendarRoleSync") as typeof import("./starWarsCalendarRoleSync");
+    await syncStarWarsCalendarRoleNames(client);
+  } catch (_) {}
+
+  await guild.roles.fetch().catch(() => null);
+  const huntRole = resolveJediRole(guild);
+  if (!huntRole) return { ok: false, error: "no_hunt_role" };
+
+  const target = await pickOrdine66JediTarget(client, guild);
+  if (!target) return { ok: false, error: "no_candidates" };
+
+  const chId = targetCtx.channelId;
+  const channel = guild.channels.cache.get(chId) || (await guild.channels.fetch(chId).catch(() => null));
+  if (!channel?.isTextBased?.()) return { ok: false, error: "bad_channel" };
+
+  await clearAllJediRoleHolders(guild, huntRole, "Cacciatore di taglie nuovo round");
+  const roleOk = await target.roles.add(huntRole, "Cacciatore di taglie — bersaglio").then(() => true).catch(() => false);
+  if (!roleOk) return { ok: false, error: "role_assign_failed" };
+
+  const expiresAt = new Date(Date.now() + CACCIATORE_DURATION_MS).toISOString();
+  await setRound("cacciatore", {
+    status: "active",
+    kind: "cacciatore",
+    targetId: target.id,
+    roleId: huntRole.id,
+    channelId: channel.id,
+    guildId,
+    createdAt: new Date().toISOString(),
+    expiresAt,
+  });
+  scheduleCacciatoreTimeout(client, CACCIATORE_DURATION_MS);
+  await channel
+    .send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xb45309)
+          .setTitle("Cacciatore di taglie")
+          .setDescription(
+            `Un bersaglio è tra gli utenti **smistati online**… **Pingalo** in chat per riscuotere la taglia.\nVince chi lo menziona per primo.\nHai **${Math.round(CACCIATORE_DURATION_MS / 60000)} minuti**.`,
+          ),
+      ],
+    })
+    .catch(() => null);
+  return { ok: true, targetId: target.id, roleId: huntRole.id };
+}
+
+async function tryCacciatoreMention(message?, client?) {
+  const round = await getActiveRound("cacciatore");
+  if (!round?.payload || round.payload.status !== "active") return false;
+  const guildId = normalizeId(round.payload.guildId);
+  if (guildId && normalizeId(message.guildId) !== guildId) return false;
+  const targetId = normalizeId(round.payload.targetId);
+  if (!targetId) return false;
+  if (normalizeId(message.author?.id) === targetId) return false;
+
+  const mentionColl = message.mentions?.users;
+  const mentioned = [...(mentionColl?.values?.() || mentionColl?.cache?.values?.() || [])].filter(
+    (u?) => u && !u.bot && normalizeId(u.id) !== normalizeId(message.author?.id),
+  );
+  if (!mentioned.length) return false;
+
+  if (!(await isStarWarsSortedParticipant(client || message.client, message.guildId, message.author.id))) {
+    return false;
+  }
+
+  const hit = mentioned.some((u?) => normalizeId(u.id) === targetId);
+  if (!hit) {
+    await message.reply("Non è quello il bersaglio.").catch(() => null);
+    return true;
+  }
+
+  const claimed = await claimRound("cacciatore", message.author.id);
+  if (!claimed) {
+    await message.reply("Qualcun altro ha già riscosso la taglia.").catch(() => null);
+    return true;
+  }
+  clearCacciatoreTimeout();
+  const guild =
+    message.guild ||
+    client?.guilds?.cache?.get(guildId) ||
+    (await client?.guilds?.fetch?.(guildId).catch(() => null));
+  const role =
+    (normalizeId(round.payload.roleId) && guild?.roles?.cache?.get(normalizeId(round.payload.roleId))) ||
+    resolveJediRole(guild);
+  await clearJediRoleFromMember(guild, role, targetId, "Cacciatore di taglie eseguito");
+  await grantStarWarsMinigameWinReward(client, {
+    guildId: message.guildId,
+    userId: message.author.id,
+    reason: "cacciatore",
+    grant: { crateId: "alpha", crateQty: 1, exp: 100, troops: { tier1: 5 } },
+  });
+  await message.reply(`Taglia riscossa. <@${message.author.id}> ottiene cassa alpha + 100 exp + 5 truppe (+5 crediti · +10 banca).`).catch(() => null);
   return true;
 }
 
@@ -965,20 +1132,58 @@ async function tryScovaMessage(message?, client?) {
 
   const claimed = await claimRound("scova", message.author.id);
   if (!claimed) return true;
-  await grantStarWarsReward(client, {
-    guildId: message.guildId,
+
+  const clientRef = client || message.client;
+  const walletGid = walletGuildId(clientRef) || normalizeId(message.guildId);
+  const factionId = await resolveStarWarsFactionId(clientRef, message.guildId, message.author.id);
+  const SCOVA_FACTION_EXP = 1000;
+  const SCOVA_BANK_CREDITS = 250_000;
+
+  let factionRewarded = 0;
+  if (factionId) {
+    const { listFactionMembers } = require("./starWarsQuizMalusService") as typeof import("./starWarsQuizMalusService");
+    const members = await listFactionMembers(clientRef, [factionId]);
+    for (const m of Array.isArray(members) ? members : []) {
+      const uid = normalizeId(m?.userId);
+      if (!uid) continue;
+      await grantStarWarsReward(clientRef, {
+        guildId: walletGid,
+        userId: uid,
+        reason: "scova_faction",
+        grant: { exp: SCOVA_FACTION_EXP },
+      }).catch(() => null);
+      factionRewarded += 1;
+    }
+    const { addFactionBankCredits } = require("./starWarsEconomyService") as typeof import("./starWarsEconomyService");
+    await addFactionBankCredits(clientRef, factionId, SCOVA_BANK_CREDITS, {
+      guildId: walletGid,
+      userId: message.author.id,
+    }).catch(() => null);
+  } else {
+    await grantStarWarsReward(clientRef, {
+      guildId: walletGid,
+      userId: message.author.id,
+      reason: "scova",
+      grant: { exp: SCOVA_FACTION_EXP },
+    }).catch(() => null);
+    factionRewarded = 1;
+  }
+  await grantStarWarsGlobalMinigameWinBonus(clientRef, {
+    guildId: walletGid,
     userId: message.author.id,
-    reason: "scova",
-    grant: { exp: 1000, credits: 0 },
-  });
+  }).catch(() => null);
+
   const sector = round.payload.coord ? formatScovaGridCoord(round.payload.coord) : "";
+  const factionLabel =
+    factionId === "repubblica" ? "Repubblica" : factionId === "separatisti" ? "Separatisti" : "fazione";
   const winEmbed = new EmbedBuilder()
     .setColor(0x22c55e)
     .setTitle("Pianeta trovato!")
     .setDescription(
       `<@${message.author.id}> ha individuato **${guessPlanet.name}**` +
         (sector ? ` (\`${sector}\`)` : "") +
-        `.\nPremio: **+1000 exp**.`,
+        `.\n\nPremio fazione **${factionLabel}**: **+${SCOVA_FACTION_EXP.toLocaleString("it-IT")} exp** a ${factionRewarded} smistati` +
+        ` · **+${SCOVA_BANK_CREDITS.toLocaleString("it-IT")}** crediti in banca truppe.`,
     )
     .setImage(scovaPlanetImageUrl(guessPlanet.id));
   await message.reply({ embeds: [winEmbed] }).catch(() => null);
@@ -990,19 +1195,56 @@ const ATTACCA_DAMAGE = 5;
 const ATTACCA_MIN_CHARS = 5;
 const ATTACCA_MAX_HITS_PER_USER = 5;
 const ATTACCA_BAR_WIDTH = 10;
-const ATTACCA_VS_IMAGE = "https://cdn.viniliecaffe.it/images/starwars/attacca-base-vs.jpg?v=20261104vs2";
-const ATTACCA_VS_V = "20261104ko3";
-const ATTACCA_VS_YAVIN_DEAD = `https://cdn.viniliecaffe.it/images/starwars/attacca-base-vs-yavin-dead.jpg?v=${ATTACCA_VS_V}`;
-const ATTACCA_VS_DEATHSTAR_DEAD = `https://cdn.viniliecaffe.it/images/starwars/attacca-base-vs-deathstar-dead.jpg?v=${ATTACCA_VS_V}`;
-const ATTACCA_VS_DRAW = `https://cdn.viniliecaffe.it/images/starwars/attacca-base-vs-draw.jpg?v=${ATTACCA_VS_V}`;
+const ATTACCA_CDN = "https://cdn.viniliecaffe.it/images/starwars";
+const ATTACCA_VS_V = "20261104sq1";
+/** Civil War: Yavin IV vs Morte Nera. Sequel (dal 29 gen): Nuova Repubblica vs Primo Ordine. */
+const ATTACCA_SKINS = Object.freeze({
+  civil: Object.freeze({
+    leftLabel: "Yavin IV",
+    rightLabel: "Morte Nera",
+    leftEmoji: "🌲",
+    rightEmoji: "🌑",
+    vs: `${ATTACCA_CDN}/attacca-base-vs.jpg?v=20261104vs2`,
+    leftDead: `${ATTACCA_CDN}/attacca-base-vs-yavin-dead.jpg?v=${ATTACCA_VS_V}`,
+    rightDead: `${ATTACCA_CDN}/attacca-base-vs-deathstar-dead.jpg?v=${ATTACCA_VS_V}`,
+    draw: `${ATTACCA_CDN}/attacca-base-vs-draw.jpg?v=${ATTACCA_VS_V}`,
+  }),
+  sequel: Object.freeze({
+    leftLabel: "Nuova Repubblica",
+    rightLabel: "Primo Ordine",
+    leftEmoji: "✨",
+    rightEmoji: "⚫",
+    vs: `${ATTACCA_CDN}/attacca-base-vs-sequel.jpg?v=${ATTACCA_VS_V}`,
+    leftDead: `${ATTACCA_CDN}/attacca-base-vs-nuova-repubblica-dead.jpg?v=${ATTACCA_VS_V}`,
+    rightDead: `${ATTACCA_CDN}/attacca-base-vs-primo-ordine-dead.jpg?v=${ATTACCA_VS_V}`,
+    draw: `${ATTACCA_CDN}/attacca-base-vs-sequel-draw.jpg?v=${ATTACCA_VS_V}`,
+  }),
+});
 
-/** winnerLabel = base distrutta ("Yavin IV" | "Morte Nera" | "pareggio"/"draw"). */
-function attaccaVsImageForDestroyed(destroyedLabel?) {
+function attaccaSkinForNow(now = new Date()) {
+  const epoch = resolveFeatureStateNow(now).epoch || EPOCHS.CLONE_WARS;
+  return epoch === EPOCHS.SEQUEL ? ATTACCA_SKINS.sequel : ATTACCA_SKINS.civil;
+}
+
+function attaccaSkinFromPayload(payload?) {
+  const key = String(payload?.skin || "").toLowerCase();
+  if (key === "sequel") return ATTACCA_SKINS.sequel;
+  if (key === "civil") return ATTACCA_SKINS.civil;
+  return attaccaSkinForNow();
+}
+
+/** winnerLabel = base distrutta (label skin | "pareggio"/"draw"). */
+function attaccaVsImageForDestroyed(destroyedLabel?, skin?) {
+  const art = skin || attaccaSkinForNow();
   const s = String(destroyedLabel || "").toLowerCase();
-  if (s.includes("pareggio") || s.includes("draw") || s.includes("tie")) return ATTACCA_VS_DRAW;
-  if (s.includes("yavin")) return ATTACCA_VS_YAVIN_DEAD;
-  if (s.includes("morte") || s.includes("death")) return ATTACCA_VS_DEATHSTAR_DEAD;
-  return ATTACCA_VS_IMAGE;
+  if (s.includes("pareggio") || s.includes("draw") || s.includes("tie")) return art.draw;
+  if (s === art.leftLabel.toLowerCase() || s.includes("yavin") || s.includes("nuova repubblica")) {
+    return art.leftDead;
+  }
+  if (s === art.rightLabel.toLowerCase() || s.includes("morte") || s.includes("death") || s.includes("primo ordine")) {
+    return art.rightDead;
+  }
+  return art.vs;
 }
 
 function safeHp(v?) {
@@ -1019,14 +1261,15 @@ function attaccaHpBar(hp?, maxHp = ATTACCA_MAX_HP, width = ATTACCA_BAR_WIDTH) {
 }
 
 function attaccaBaseBoardEmbed(payload?, { lastHit = null, finished = false } = {}) {
-  const yavin = safeHp(payload?.hpYavin);
-  const death = safeHp(payload?.hpDeathStar);
+  const skin = attaccaSkinFromPayload(payload);
+  const left = safeHp(payload?.hpYavin);
+  const right = safeHp(payload?.hpDeathStar);
   const lines = [
-    `🌲 **Yavin IV**`,
-    `\`${String(yavin).padStart(3, " ")}/${ATTACCA_MAX_HP}\`  ${attaccaHpBar(yavin)}`,
+    `${skin.leftEmoji} **${skin.leftLabel}**`,
+    `\`${String(left).padStart(3, " ")}/${ATTACCA_MAX_HP}\`  ${attaccaHpBar(left)}`,
     "",
-    `🌑 **Morte Nera**`,
-    `\`${String(death).padStart(3, " ")}/${ATTACCA_MAX_HP}\`  ${attaccaHpBar(death)}`,
+    `${skin.rightEmoji} **${skin.rightLabel}**`,
+    `\`${String(right).padStart(3, " ")}/${ATTACCA_MAX_HP}\`  ${attaccaHpBar(right)}`,
   ];
   if (lastHit?.userId && lastHit?.label) {
     lines.push(
@@ -1044,12 +1287,12 @@ function attaccaBaseBoardEmbed(payload?, { lastHit = null, finished = false } = 
     if (/pareggio|draw|tie/i.test(wl)) lines.push("", "⚖️ **Pareggio** — entrambe le basi a pezzi.");
     else lines.push("", `🏆 **${wl}** distrutta!`);
   }
-  const bothDead = finished && yavin <= 0 && death <= 0;
-  const color = finished ? (bothDead || /pareggio|draw|tie/i.test(String(lastHit?.winnerLabel || "")) ? 0x9ca3af : 0x22c55e) : yavin <= 30 || death <= 30 ? 0xef4444 : 0xc9a227;
-  let image = ATTACCA_VS_IMAGE;
+  const bothDead = finished && left <= 0 && right <= 0;
+  const color = finished ? (bothDead || /pareggio|draw|tie/i.test(String(lastHit?.winnerLabel || "")) ? 0x9ca3af : 0x22c55e) : left <= 30 || right <= 30 ? 0xef4444 : 0xc9a227;
+  let image = skin.vs;
   if (finished) {
-    if (bothDead || /pareggio|draw|tie/i.test(String(lastHit?.winnerLabel || ""))) image = ATTACCA_VS_DRAW;
-    else if (lastHit?.winnerLabel) image = attaccaVsImageForDestroyed(lastHit.winnerLabel);
+    if (bothDead || /pareggio|draw|tie/i.test(String(lastHit?.winnerLabel || ""))) image = skin.draw;
+    else if (lastHit?.winnerLabel) image = attaccaVsImageForDestroyed(lastHit.winnerLabel, skin);
   }
   return new EmbedBuilder()
     .setColor(color)
@@ -1083,20 +1326,18 @@ async function startAttaccaBase(client?, { channelId = null, force = false } = {
   if (!channel?.isTextBased?.()) return { ok: false, error: "bad_channel" };
 
   const hp = ATTACCA_MAX_HP;
+  const skinKey = resolveFeatureStateNow().epoch === EPOCHS.SEQUEL ? "sequel" : "civil";
+  const boardPayload = { hpYavin: hp, hpDeathStar: hp, skin: skinKey };
   const boardMsg = await channel
     .send({
-      embeds: [
-        attaccaBaseBoardEmbed({
-          hpYavin: hp,
-          hpDeathStar: hp,
-        }),
-      ],
+      embeds: [attaccaBaseBoardEmbed(boardPayload)],
     })
     .catch(() => null);
   if (!boardMsg) return { ok: false, error: "send_failed" };
   const payload = {
     status: "active",
     kind: "attacca_base",
+    skin: skinKey,
     hpYavin: hp,
     hpDeathStar: hp,
     hitsByUser: {},
@@ -1130,14 +1371,16 @@ async function tryAttaccaBaseMessage(message?, client?) {
     return true;
   }
 
+  const skin = attaccaSkinFromPayload(round.payload);
   const target = Math.random() < 0.5 ? "hpYavin" : "hpDeathStar";
-  const label = target === "hpYavin" ? "Yavin IV" : "Morte Nera";
+  const label = target === "hpYavin" ? skin.leftLabel : skin.rightLabel;
   const before = safeHp(round.payload[target]);
   const next = Math.max(0, before - ATTACCA_DAMAGE);
   hitsByUser[uid] = used + 1;
 
   const payload = {
     ...round.payload,
+    skin: round.payload.skin || (skin === ATTACCA_SKINS.sequel ? "sequel" : "civil"),
     [target]: next,
     hitsByUser,
     lastHitAt: new Date().toISOString(),
@@ -1158,7 +1401,7 @@ async function tryAttaccaBaseMessage(message?, client?) {
   await editAttaccaBaseBoard(client || message.client, payload, { lastHit, finished: Boolean(winner) });
 
   if (winner) {
-    await grantStarWarsReward(client || message.client, {
+    await grantStarWarsMinigameWinReward(client || message.client, {
       guildId: message.guildId,
       userId: uid,
       reason: "attacca_base",
@@ -1171,7 +1414,7 @@ async function tryAttaccaBaseMessage(message?, client?) {
             .setColor(0xef4444)
             .setTitle("Base distrutta")
             .setDescription(`💥 <@${uid}> azzera **${winner}**!\nPremio: **cassa omega** + **100 exp**.`)
-            .setImage(attaccaVsImageForDestroyed(winner)),
+            .setImage(attaccaVsImageForDestroyed(winner, skin)),
         ],
       })
       .catch(() => null);
@@ -1428,7 +1671,7 @@ async function handleConvoglioButton(interaction?, parts?) {
 
     if (currentHop >= needHops) {
       await claimRound("convoglio", interaction.user.id);
-      await grantStarWarsReward(interaction.client, {
+      await grantStarWarsMinigameWinReward(interaction.client, {
         guildId: interaction.guildId,
         userId: interaction.user.id,
         reason: "convoglio_escort",
@@ -1920,10 +2163,10 @@ async function handleConquistaButton(interaction?, parts?) {
     const nextPayload = { ...fresh.payload, systems: freshSystems };
     await setRound("conquista", nextPayload);
 
-    await grantStarWarsReward(interaction.client, {
+    await grantStarWarsMinigameWinReward(interaction.client, {
       guildId: walletGuildId(interaction.client) || interaction.guildId,
       userId: interaction.user.id,
-    reason: "conquista",
+      reason: "conquista",
       grant: { exp: 100 },
     });
 
@@ -2052,11 +2295,11 @@ async function tryDeckMessage(message?, client?) {
       { upsert: true },
     ).catch(() => null);
 
-    await grantStarWarsReward(client, {
+    await grantStarWarsMinigameWinReward(client, {
       guildId: walletGid,
       userId: message.author.id,
       reason: kind,
-      grant: { exp: 50 },
+      grant: { crateId: "solare", crateQty: 1, exp: 100 },
     });
 
     const boardMsgId = normalizeId(round.payload.messageId);
@@ -2076,8 +2319,8 @@ async function tryDeckMessage(message?, client?) {
     await message
       .reply(
         alreadyOwned
-          ? `✨ <@${message.author.id}> indovina **${label}**! (+50 exp) — già nel tuo deck.`
-          : `✨ <@${message.author.id}> reclama **${label}**! (+50 exp) — aggiunta al deck profilo.`,
+          ? `✨ <@${message.author.id}> indovina **${label}**! (+cassa solare + 100 exp) — già nel tuo deck.`
+          : `✨ <@${message.author.id}> reclama **${label}**! (+cassa solare + 100 exp) — aggiunta al deck profilo.`,
       )
     .catch(() => null);
     return true;
@@ -2101,6 +2344,9 @@ async function staffSpawn(client?, kind?, channelId?) {
       return spawnHuntGame(client, "olocron", { channelId, force: true });
     case "ordine66":
       return startOrdine66(client, { channelId, force: true });
+    case "cacciatore":
+    case "cacciatore_taglie":
+      return startCacciatoreTaglie(client, { channelId, force: true });
     case "scova":
       return startScovaPianeta(client, { channelId, force: true });
     case "attacca_base":
@@ -2120,26 +2366,49 @@ async function staffSpawn(client?, kind?, channelId?) {
   }
 }
 
-async function tickAutoSpawns(client?) {
+/** Spawn da rotazione chat 15′ (stessi starter dello staff, senza force). */
+async function startSpecialFromRotation(client?, kind?, { channelId = null } = {}) {
+  const k = String(kind || "").trim();
+  switch (k) {
+    case "podrace":
+      return spawnReactGame(client, "podrace", { channelId, force: false });
+    case "ewok":
+      return spawnHuntGame(client, "ewok", { channelId, force: false });
+    case "olocron":
+      return spawnHuntGame(client, "olocron", { channelId, force: false });
+    case "ordine66":
+      return startOrdine66(client, { channelId, force: false });
+    case "cacciatore":
+      return startCacciatoreTaglie(client, { channelId, force: false });
+    case "scova":
+      return startScovaPianeta(client, { channelId, force: false });
+    case "attacca_base":
+      return startAttaccaBase(client, { channelId, force: false });
+    case "convoglio":
+      return startConvoglio(client, { channelId, force: false });
+    case "conquista":
+      return startConquista(client, { force: false });
+    case "pg":
+      return spawnDeckDrop(client, "pg", { channelId, force: false });
+    case "reliquie":
+      return spawnDeckDrop(client, "relic", { channelId, force: false });
+    default:
+      return { ok: false, error: "unknown_kind" };
+  }
+}
+
+/** Solo sync ruoli calendario (spawn speciali = rotazione 15′ chat). */
+async function tickCalendarRoleSync(client?) {
   const flags = getRuntimeFlags(client);
   if (!flags.enabled) return;
-  if (!flags.publicEnabled && !flags.previewAutoSpawn) return;
-
-  const jobs = [
-    () => spawnReactGame(client, "podrace"),
-    () => spawnHuntGame(client, "ewok"),
-    () => spawnHuntGame(client, "olocron"),
-    () => startOrdine66(client),
-    () => startScovaPianeta(client),
-    () => startAttaccaBase(client),
-    () => startConvoglio(client),
-    () => startConquista(client),
-    () => spawnDeckDrop(client, "pg"),
-    () => spawnDeckDrop(client, "relic"),
-  ];
-  /* sparse: one random eligible attempt per tick */
-  const job = jobs[Math.floor(Math.random() * jobs.length)];
-  await job().catch(() => null);
+  try {
+    const { syncStarWarsCalendarRoleNames } = require("./starWarsCalendarRoleSync") as typeof import("./starWarsCalendarRoleSync");
+    await syncStarWarsCalendarRoleNames(client);
+  } catch (_) {}
+  try {
+    const { maybeAnnounceDuePeiStandings } = require("./starWarsPeiStandingService") as typeof import("./starWarsPeiStandingService");
+    await maybeAnnounceDuePeiStandings(client);
+  } catch (_) {}
 }
 
 function startStarWarsMinigamesLoop(client?) {
@@ -2150,13 +2419,17 @@ function startStarWarsMinigamesLoop(client?) {
       const { syncStarWarsFactionRolesOnTestFromDb } = require("./starWarsFactionTestRoles") as typeof import("./starWarsFactionTestRoles");
       await syncStarWarsFactionRolesOnTestFromDb(client);
     } catch (_) {}
+    try {
+      const { syncStarWarsCalendarRoleNames } = require("./starWarsCalendarRoleSync") as typeof import("./starWarsCalendarRoleSync");
+      await syncStarWarsCalendarRoleNames(client);
+    } catch (_) {}
   })();
   const schedule = () => {
     const t = setTimeout(async () => {
       try {
-        await tickAutoSpawns(client);
+        await tickCalendarRoleSync(client);
       } catch (err) {
-        global.logger?.warn?.("[SW MG] tick:", err?.message || err);
+        global.logger?.warn?.("[SW MG] role sync:", err?.message || err);
       }
       schedule();
     }, 60_000);
@@ -2168,6 +2441,7 @@ function startStarWarsMinigamesLoop(client?) {
 async function handleStarWarsMessage(message?, client?) {
   if (!message?.guild || message.author?.bot) return false;
   if (await tryOrdine66Mention(message, client)) return true;
+  if (await tryCacciatoreMention(message, client)) return true;
   if (await tryScovaMessage(message, client)) return true;
   if (await tryAttaccaBaseMessage(message, client)) return true;
   if (await tryDeckMessage(message, client)) return true;
@@ -2177,10 +2451,12 @@ async function handleStarWarsMessage(message?, client?) {
 export = {
   startStarWarsMinigamesLoop,
   staffSpawn,
+  startSpecialFromRotation,
   handleStarWarsReaction,
   handleStarWarsButton,
   handleStarWarsMessage,
   tryOrdine66Mention,
+  tryCacciatoreMention,
   tryPuntaCommand,
   tryConquistaCommand,
   isHighStaffMember,

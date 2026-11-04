@@ -279,7 +279,7 @@ export type VoteSession = {
   adSeconds: number;
   turnstileSiteKey: string;
   turnstileRequired: boolean;
-  ads: { provider: string; adsenseClient?: string; adsenseSlot?: string };
+  ads: { provider: string; minWatchSeconds?: number };
 };
 
 export async function startVoteSession(token: string, listingId: string) {

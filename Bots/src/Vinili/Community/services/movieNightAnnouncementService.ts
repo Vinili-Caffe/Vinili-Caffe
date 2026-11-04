@@ -17,6 +17,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { mergeWatchedTitleEntries } = require("../utils/movieNightWatchedTitles") as typeof import("../utils/movieNightWatchedTitles");
 const { startSerataFilmAttendanceSession, restoreSerataFilmAttendanceSession } = require("./serataFilmAttendance") as typeof import("./serataFilmAttendance");
 const { startSerataFilmSession } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
+const { ensureMovieNightScheduledEventPoster } = require("./movieNightEventPoster") as typeof import("./movieNightEventPoster");
 
 let movieNightAnnouncementRunning = false;
 let movieNightThreadCloseRunning = false;
@@ -221,6 +222,11 @@ async function runMovieNightFinalAnnouncementCheck(client?, opts: Record<string,
     const guildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "");
     const guild = guildId ? await getClientGuildCached(client, guildId).catch(() => null) : null;
     const event = guild ? await findCurrentWeekMovieNightEvent(guild, now) : null;
+    if (event) {
+      await ensureMovieNightScheduledEventPoster(event, { now }).catch((err?) => {
+        global.logger?.warn?.("[MOVIE NIGHT FINAL] poster apply failed:", err?.message || err);
+      });
+    }
     const previousState =
       state?.weekKey === weekKey && typeof state === "object"
         ? state

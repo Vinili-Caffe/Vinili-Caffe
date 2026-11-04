@@ -33,7 +33,8 @@ function peiFromVotes(votes?) {
 }
 
 /**
- * @param {object} grant { credits?, exp?, pei?, crateId?, crateQty?, troops? }
+ * @param {object} grant { credits?, exp?, pei?, votes?, creditsVolume?, crateId?, crateQty?, troops? }
+ * PEI: 50k exp → 500; 10M crediti (volume guadagnati/spesi/banca) → 100; 1 voto → 0,2
  */
 async function grantStarWarsReward(client, { guildId, userId, grant, reason = "" }) {
   const g = normalizeId(guildId);
@@ -52,12 +53,18 @@ async function grantStarWarsReward(client, { guildId, userId, grant, reason = ""
 
   const credits = safeInt(gnt.credits);
   const exp = safeInt(gnt.exp);
+  const votes = Math.max(0, safeInt(gnt.votes));
+  const creditsVolumeExtra = Math.max(0, safeInt(gnt.creditsVolume));
+  /* Volume crediti per PEI: guadagnati + eventuali movimenti espliciti (spese/banca). */
+  const creditsVolume = Math.max(0, credits) + creditsVolumeExtra;
   let pei = Number(gnt.pei);
   if (!Number.isFinite(pei)) pei = 0;
-  pei += peiFromExp(exp) + peiFromCreditsMoved(credits);
+  pei += peiFromExp(exp) + peiFromCreditsMoved(creditsVolume) + peiFromVotes(votes);
 
   if (credits) $inc[`${ROOT}.credits`] = credits;
   if (exp) $inc[`${ROOT}.exp`] = exp;
+  if (votes) $inc[`${ROOT}.votes`] = votes;
+  if (creditsVolume) $inc[`${ROOT}.creditsVolume`] = creditsVolume;
   if (pei) $inc[`${ROOT}.pei`] = pei;
 
   const crateId = normalizeId(gnt.crateId);
@@ -92,17 +99,90 @@ async function grantStarWarsReward(client, { guildId, userId, grant, reason = ""
   return {
     ok: true,
     wallet: publicWallet(updated?.profile?.events?.starwars, eventKey),
-    granted: { credits, exp, pei, crateId: crateId || null, crateQty: crateId ? crateQty : 0, troops: gnt.troops || null },
+    granted: {
+      credits,
+      exp,
+      pei,
+      votes,
+      creditsVolume,
+      crateId: crateId || null,
+      crateQty: crateId ? crateQty : 0,
+      troops: gnt.troops || null,
+    },
   };
 }
 
+/** PEI + volume per crediti spesi o versati in banca (senza cambiare saldo se già applicato altrove). */
+async function grantStarWarsCreditsVolumePei(client?, { guildId, userId, amount, reason = "credits_volume" } = {}) {
+  const vol = Math.max(0, safeInt(amount));
+  if (!vol) return { ok: true, skipped: true };
+  return grantStarWarsReward(client, {
+    guildId,
+    userId,
+    reason,
+    grant: { creditsVolume: vol },
+  });
+}
+
+/** Regola globale vittoria minigame SW: +5 crediti personali +10 banca fazione. */
+const GLOBAL_WIN_PERSONAL_CREDITS = 5;
+const GLOBAL_WIN_FACTION_BANK_CREDITS = 10;
+
+async function grantStarWarsGlobalMinigameWinBonus(client?, { guildId, userId } = {}) {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  if (!isValidGuildUserId(g, u)) return { ok: false, error: "bad_ids" };
+
+  const personal = await grantStarWarsReward(client, {
+    guildId: g,
+    userId: u,
+    reason: "minigame_global_win",
+    grant: { credits: GLOBAL_WIN_PERSONAL_CREDITS },
+  });
+
+  let factionId = "";
+  let bank = null;
+  try {
+    const wallet = await getStarWarsWallet(g, u);
+    factionId = normalizeId(wallet?.factionId).toLowerCase();
+  } catch (_) {}
+  if (factionId) {
+    try {
+      const { addFactionBankCredits } = require("./starWarsEconomyService") as typeof import("./starWarsEconomyService");
+      bank = await addFactionBankCredits(client, factionId, GLOBAL_WIN_FACTION_BANK_CREDITS, {
+        guildId: g,
+        userId: u,
+      });
+    } catch (_) {}
+  }
+
+  return {
+    ok: Boolean(personal?.ok),
+    credits: GLOBAL_WIN_PERSONAL_CREDITS,
+    bankCredits: GLOBAL_WIN_FACTION_BANK_CREDITS,
+    factionId: factionId || null,
+    bank,
+    error: personal?.ok ? null : personal?.error || "grant_failed",
+  };
+}
+
+/** Premi specifici del minigame + regola globale 5/10. */
+async function grantStarWarsMinigameWinReward(client?, opts: Record<string, any> = {}) {
+  const out = await grantStarWarsReward(client, opts);
+  const side = await grantStarWarsGlobalMinigameWinBonus(client, {
+    guildId: opts?.guildId,
+    userId: opts?.userId,
+  }).catch(() => null);
+  return { ...out, sideWin: side };
+}
+
 async function addStarWarsVoteReward(client, { guildId, userId }) {
-  /* PDF: 1 voto = 2500 crediti + 10 exp (+ 0.2 PEI via grant) */
+  /* Smistato: 1 voto = 100 exp evento + 5 crediti + 0,2 PEI voto */
   return grantStarWarsReward(client, {
     guildId,
     userId,
     reason: "vote",
-    grant: { credits: 2500, exp: 10, pei: 0.2 },
+    grant: { credits: 5, exp: 100, votes: 1 },
   });
 }
 
@@ -110,6 +190,11 @@ export = {
   peiFromExp,
   peiFromCreditsMoved,
   peiFromVotes,
+  GLOBAL_WIN_PERSONAL_CREDITS,
+  GLOBAL_WIN_FACTION_BANK_CREDITS,
   grantStarWarsReward,
+  grantStarWarsCreditsVolumePei,
+  grantStarWarsGlobalMinigameWinBonus,
+  grantStarWarsMinigameWinReward,
   addStarWarsVoteReward,
 };

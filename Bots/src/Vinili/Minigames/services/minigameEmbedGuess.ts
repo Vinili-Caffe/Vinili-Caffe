@@ -210,6 +210,53 @@ function buildItalianGkEmbed(question?, rewardExp?, durationMs?) {
     );
 }
 
+function buildStarWarsQuizEmbed(kind?, rewardExp?, durationMs?, rewardCredits = 5000, malus = null) {
+  const minutes = Math.max(1, Math.round(Number(durationMs || 0) / 60000));
+  const k = String(kind || "text");
+  let how = "Scrivi la risposta in chat.";
+  if (k === "mc") how = "Rispondi con la lettera (**A–D**), il numero (**1–4**) o il testo della risposta.";
+  else if (k === "vf") how = "Rispondi con **vero** o **falso**.";
+  const creditsLabel = Number(rewardCredits || 0).toLocaleString("it-IT");
+  const lines = [
+    `${E.VC_EXP} Rispondi alla domanda sull'immagine per ottenere **${rewardExp} exp** + **${creditsLabel} crediti**.`,
+    `Ogni **10** risposte corrette → **Cassa Alpha**.`,
+    how,
+  ];
+  if (malus?.def) {
+    lines.push(`⚠️ **Malus attivo: ${malus.def.title}** — ${malus.def.short}`);
+    if (malus.def.teamWin && malus.geoFactionId) {
+      try {
+        const { factionLabel } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsQuizMalusService") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsQuizMalusService");
+        lines.push(`🧠 Servono **3** risposte corrette dalla fazione **${factionLabel(malus.geoFactionId)}**.`);
+      } catch (_) {}
+    }
+  }
+  lines.push(
+    `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+    `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+  );
+  return new EmbedBuilder()
+    .setColor(MINIGAME_EMBED_COLOR)
+    .setTitle(`Quiz Star Wars ${E.VC_Exclamation}`)
+    .setDescription(lines.join("\n"));
+}
+
+function buildGuessPlanetEmbed(rewardExp?, durationMs?, hint = null) {
+  const minutes = Math.max(1, Math.round(Number(durationMs || 0) / 60000));
+  const lines = [
+    `${E.VC_EXP} Indovina il pianeta da questa immagine per ottenere **${rewardExp} exp**.`,
+  ];
+  if (hint) lines.push(`Hint: \`${hint}\``);
+  lines.push(
+    `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per indovinarlo!`,
+    `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+  );
+  return new EmbedBuilder()
+    .setColor(MINIGAME_EMBED_COLOR)
+    .setTitle(`Indovina il pianeta ${E.VC_Exclamation}`)
+    .setDescription(lines.join("\n"));
+}
+
 function buildDrivingQuizEmbed(row?, rewardExp?, durationMs?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const statement = row?.statement ?? "";
@@ -461,6 +508,8 @@ export = {
   buildGuessAlbumEmbed,
   buildHangmanEmbed,
   buildItalianGkEmbed,
+  buildStarWarsQuizEmbed,
+  buildGuessPlanetEmbed,
   buildDrivingQuizEmbed,
   buildMathExpressionEmbed,
   buildFindBotEmbed,

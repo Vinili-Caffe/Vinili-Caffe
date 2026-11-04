@@ -16,6 +16,12 @@ function registerStarWarsPlugin(client?) {
   } catch (err) {
     global.logger?.warn?.("[EventPlugin:starwars] minigames loop:", err?.message || err);
   }
+  try {
+    const { startStarWarsQuizMalusLoop } = require("../../Services/Community/starWarsQuizMalusService") as typeof import("../../Services/Community/starWarsQuizMalusService");
+    startStarWarsQuizMalusLoop(client);
+  } catch (err) {
+    global.logger?.warn?.("[EventPlugin:starwars] quiz malus loop:", err?.message || err);
+  }
   global.logger?.info?.("[EventPlugin:starwars] registered");
   return { ok: true, enabled: true };
 }

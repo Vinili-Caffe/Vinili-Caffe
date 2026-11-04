@@ -47,9 +47,15 @@ function pickRandomItem(list = []) {
 
 function isWithinAllowedWindow(now?, start?, end?) {
   const startMinutes = (start?.hour ?? 9) * 60 + (start?.minute ?? 0);
-  const endMinutes = (end?.hour ?? 23) * 60 + (end?.minute ?? 45);
+  let endHour = end?.hour;
+  if (endHour === undefined || endHour === null) endHour = 23;
+  const endMinutes = Number(endHour) * 60 + (end?.minute ?? 45);
   const parts = getRomeParts(now);
   const current = parts.hour * 60 + parts.minute;
+  // Overnight (es. 06:00 → 02:00): end < start
+  if (endMinutes < startMinutes) {
+    return current >= startMinutes || current <= endMinutes;
+  }
   return current >= startMinutes && current <= endMinutes;
 }
 

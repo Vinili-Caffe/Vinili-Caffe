@@ -26,6 +26,7 @@ function DoorFace({
   label,
   claimed,
   locked,
+  missed,
   isToday,
   busy,
   crateId,
@@ -34,6 +35,7 @@ function DoorFace({
   label: string;
   claimed: boolean;
   locked: boolean;
+  missed: boolean;
   isToday: boolean;
   busy: boolean;
   crateId: string | null;
@@ -46,11 +48,13 @@ function DoorFace({
           "absolute inset-0 rounded-2xl",
           claimed
             ? "bg-gradient-to-br from-[#c9a227]/30 via-[#121a32] to-[#0a1020]"
-            : isToday
-              ? "bg-gradient-to-br from-[#2ea8ff]/30 via-[#1a2744] to-[#0a1020]"
-              : locked
-                ? "bg-gradient-to-br from-[#0a1020] to-black/80"
-                : "bg-gradient-to-br from-[#1a2744] to-[#0a1020]",
+            : missed
+              ? "bg-gradient-to-br from-[#3a1218]/80 via-[#0a1020] to-black/90"
+              : isToday
+                ? "bg-gradient-to-br from-[#2ea8ff]/30 via-[#1a2744] to-[#0a1020]"
+                : locked
+                  ? "bg-gradient-to-br from-[#0a1020] to-black/80"
+                  : "bg-gradient-to-br from-[#1a2744] to-[#0a1020]",
         )}
       />
       <span className="pointer-events-none absolute inset-0 rounded-2xl opacity-40 [background:repeating-linear-gradient(90deg,transparent,transparent_10px,rgba(255,255,255,0.03)_10px,rgba(255,255,255,0.03)_11px)]" />
@@ -60,13 +64,15 @@ function DoorFace({
           <span
             className={cn(
               "font-display text-2xl font-semibold tabular-nums leading-none sm:text-3xl",
-              isToday || claimed ? "text-[#e4c76b]" : locked ? "text-crema/35" : "text-crema/80",
+              isToday || claimed ? "text-[#e4c76b]" : missed ? "text-crema/25" : locked ? "text-crema/35" : "text-crema/80",
             )}
           >
             {day}
           </span>
           {claimed ? (
             <Check className="size-4 text-[#86efac]" aria-hidden />
+          ) : missed ? (
+            <Lock className="size-3.5 text-rose-400/50 sm:size-4" aria-hidden />
           ) : locked ? (
             <Lock className="size-3.5 text-crema/30 sm:size-4" aria-hidden />
           ) : isToday ? (
@@ -86,7 +92,7 @@ function DoorFace({
               data-vc-lightbox-ignore
               className={cn(
                 "h-7 w-7 object-contain sm:h-8 sm:w-8",
-                claimed ? "opacity-100" : locked ? "opacity-40" : "opacity-90",
+                claimed ? "opacity-100" : missed || locked ? "opacity-35 grayscale" : "opacity-90",
               )}
               style={{
                 filter: isToday ? "drop-shadow(0 0 8px rgba(46,168,255,0.55))" : undefined,
@@ -97,7 +103,7 @@ function DoorFace({
             <span
               className={cn(
                 "relative h-6 w-8 rounded-sm sm:h-7 sm:w-9",
-                claimed ? "opacity-100" : locked ? "opacity-40" : "opacity-90",
+                claimed ? "opacity-100" : missed || locked ? "opacity-35" : "opacity-90",
               )}
               style={{
                 background: `linear-gradient(160deg, ${crateTint(crateId || "casuale").lid}, ${crateTint(crateId || "casuale").face})`,
@@ -113,10 +119,10 @@ function DoorFace({
         <span
           className={cn(
             "line-clamp-2 text-center text-[0.58rem] font-medium leading-snug sm:text-[0.65rem]",
-            claimed ? "text-[#e4c76b]/90" : locked ? "text-crema/35" : "text-crema/70",
+            claimed ? "text-[#e4c76b]/90" : missed ? "text-rose-300/55" : locked ? "text-crema/35" : "text-crema/70",
           )}
         >
-          {busy ? "Apertura…" : claimed ? "Ritirato" : label}
+          {busy ? "Apertura…" : claimed ? "Ritirato" : missed ? "Perso" : label}
         </span>
       </span>
     </span>
@@ -219,6 +225,7 @@ export function AdventCalendar() {
           claimedAt: null,
           canClaim: false,
           unlocked: localToday != null && slot.day <= localToday,
+          missed: localToday != null && slot.day < localToday,
         }));
 
   return (
@@ -230,8 +237,8 @@ export function AdventCalendar() {
         <EventoKicker>Calendario galattico</EventoKicker>
         <p className="mt-2 text-sm text-crema/70">
           {todayAdvent
-            ? `Giorno ${todayAdvent} — apri la porta luminosa per ritirare la cassa.`
-            : "25 porte, 25 premi · ritiro dal 1° dicembre (HS in anteprima)."}
+            ? `Giorno ${todayAdvent} — apri la porta luminosa entro mezzanotte, altrimenti perdi il premio.`
+            : "25 porte, 25 premi · ogni giorno si sblocca a mezzanotte; se salti, perdi quel giorno."}
         </p>
         {!token ? (
           <p className="mt-2 text-xs text-[#e4c76b]">Accedi con Discord per aprire le caselle.</p>
@@ -244,7 +251,8 @@ export function AdventCalendar() {
         <ol className="grid grid-cols-5 gap-2 sm:gap-2.5">
           {rows.map((slot) => {
             const isToday = todayAdvent === slot.day;
-            const locked = !slot.unlocked && !slot.claimed;
+            const missed = Boolean(slot.missed) && !slot.claimed;
+            const locked = !slot.unlocked && !slot.claimed && !missed;
             const busy = claiming === slot.day;
             const flipping = openingDoor === slot.day;
             const crateId = primaryCrateId(slot);
@@ -254,7 +262,7 @@ export function AdventCalendar() {
                   type="button"
                   disabled={!slot.canClaim || busy}
                   onClick={() => void onClaim(slot)}
-                  title={slot.label}
+                  title={missed ? `${slot.label} · perso` : slot.label}
                   whileTap={slot.canClaim && !flipping ? { scale: 0.98 } : undefined}
                   animate={flipping ? { rotateY: -55, scale: 0.98 } : { rotateY: 0, scale: 1 }}
                   transition={{ type: "tween", duration: 0.28, ease: "easeOut" }}
@@ -262,11 +270,13 @@ export function AdventCalendar() {
                     "relative w-full overflow-hidden rounded-2xl text-left ring-1 transition will-change-transform",
                     slot.claimed
                       ? "ring-[#c9a227]/55 shadow-[0_0_20px_-8px_rgba(201,162,39,0.55)]"
-                      : isToday
-                        ? "ring-[#2ea8ff]/60 shadow-[0_0_28px_-6px_rgba(46,168,255,0.65)]"
-                        : locked
-                          ? "ring-white/5"
-                          : "ring-sand/15",
+                      : missed
+                        ? "ring-rose-500/25 opacity-80"
+                        : isToday
+                          ? "ring-[#2ea8ff]/60 shadow-[0_0_28px_-6px_rgba(46,168,255,0.65)]"
+                          : locked
+                            ? "ring-white/5"
+                            : "ring-sand/15",
                     slot.canClaim && "cursor-pointer hover:ring-[#e4c76b]/70",
                     !slot.canClaim && "cursor-default",
                   )}
@@ -277,6 +287,7 @@ export function AdventCalendar() {
                     label={slot.label}
                     claimed={slot.claimed}
                     locked={locked}
+                    missed={missed}
                     isToday={isToday}
                     busy={busy}
                     crateId={crateId}

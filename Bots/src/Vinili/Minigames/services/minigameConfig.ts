@@ -3,6 +3,15 @@ const { minigameRotationFindOneLean, minigameRotationFindOneAndUpdate } = requir
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getMemoryEmojiBank } = require("../../Minigames/data/minigameBanks") as typeof import("../../Minigames/data/minigameBanks");
 const { isHalloweenEventLiveForMinigames, isHalloweenExclusiveMinigamesEnabled, shouldUseHalloweenTheme, getHalloweenExclusiveAvailableTypes } = require("../../Minigames/utils/halloweenMinigameHooks") as typeof import("../../Minigames/utils/halloweenMinigameHooks");
+const {
+  isStarWarsEventLiveForMinigames,
+  shouldUseStarWarsTheme,
+  getStarWarsExtraAvailableTypes,
+  getStarWarsExclusiveAvailableTypes,
+  SW_MINIGAME_WINDOW,
+  SW_MINIGAME_INTERVAL_MS,
+  SW_MINIGAME_DURATION_MS,
+} = require("../../Minigames/utils/starWarsMinigameHooks") as typeof import("../../Minigames/utils/starWarsMinigameHooks");
 const { mergeFindBotVoiceExcludedChannelIds } = require("../../Minigames/utils/findBotVoiceChannelEligibility") as typeof import("../../Minigames/utils/findBotVoiceChannelEligibility");
 const { randomBetween } = require("./minigameSources") as typeof import("./minigameSources");
 const { getChannelCached, getRomeDateKey } = require("./minigameUtils") as typeof import("./minigameUtils");
@@ -18,10 +27,12 @@ const GAME_TYPE_COOLDOWN_MS = 30 * 60 * 1000;
 function getConfig(client?) {
   const cfg = client?.config?.minigames || null;
   if (!cfg) return null;
-  return {
+  const starWarsEventLive = isStarWarsEventLiveForMinigames(client);
+  const base = {
     ...cfg,
     halloweenEventLive: isHalloweenEventLiveForMinigames(client),
     halloweenExclusiveDuringEvent: isHalloweenExclusiveMinigamesEnabled(client, cfg),
+    starWarsEventLive,
     channelId: IDs.channels.chat,
     roleId: IDs.roles.Minigames,
     findBot: {
@@ -36,6 +47,28 @@ function getConfig(client?) {
         cfg.findBotVoice?.excludedChannelIds || cfg.findBot?.excludedChannelIds || [],
       ),
     },
+  };
+  if (!starWarsEventLive) return base;
+  // Durante SW: 15 min, 3 min durata, finestra 06→02; stessi premi quiz (50 exp + crediti/cassa via win rewards)
+  const swRewardExp = cfg?.starWarsQuiz?.rewardExp ?? 50;
+  const swDuration = { durationMs: SW_MINIGAME_DURATION_MS, rewardExp: swRewardExp };
+  return {
+    ...base,
+    intervalMs: SW_MINIGAME_INTERVAL_MS,
+    noParticipationIntervalMs: SW_MINIGAME_INTERVAL_MS,
+    timeWindow: {
+      start: { ...SW_MINIGAME_WINDOW.start },
+      end: { ...SW_MINIGAME_WINDOW.end },
+    },
+    starWarsQuiz: { ...(cfg.starWarsQuiz || {}), ...swDuration, rewardCredits: cfg?.starWarsQuiz?.rewardCredits ?? 5000 },
+    starWarsGuessPlanet: { ...(cfg.starWarsGuessPlanet || {}), ...swDuration },
+    guessNumber: { ...(cfg.guessNumber || {}), ...swDuration },
+    hangman: { ...(cfg.hangman || {}), ...swDuration },
+    fastType: { ...(cfg.fastType || {}), ...swDuration, useDefaultApi: false },
+    memoryEmoji: { ...(cfg.memoryEmoji || {}), ...swDuration },
+    completeVerse: { ...(cfg.completeVerse || {}), ...swDuration },
+    findBot: { ...base.findBot, ...(cfg.findBot || {}), ...swDuration },
+    findBotVoice: { ...base.findBotVoice, ...(cfg.findBotVoice || {}), ...swDuration },
   };
 }
 
@@ -55,12 +88,16 @@ function expandGameTypesByRotationWeight(cfg?, types?) {
 }
 
 function getGameTypeCooldownMs(type?, cfg?) {
+  if (cfg?.starWarsEventLive) return 0;
   return GAME_TYPE_COOLDOWN_MS;
 }
 
 function getAvailableGameTypes(cfg?) {
   if (shouldUseHalloweenTheme(cfg)) {
     return getHalloweenExclusiveAvailableTypes(cfg);
+  }
+  if (shouldUseStarWarsTheme(cfg)) {
+    return getStarWarsExclusiveAvailableTypes(cfg);
   }
   const types = [];
   if (cfg?.guessNumber !== false) types.push("guessNumber");
@@ -90,6 +127,9 @@ function getAvailableGameTypes(cfg?) {
   if (cfg?.synonymAntonym !== false) types.push("synonymAntonym");
   if (cfg?.guessCity !== false) types.push("guessCity");
   if (cfg?.treasureHunt !== false) types.push("treasureHunt");
+  for (const t of getStarWarsExtraAvailableTypes(cfg)) {
+    if (!types.includes(t)) types.push(t);
+  }
   return types;
 }
 

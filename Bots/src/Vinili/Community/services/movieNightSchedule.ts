@@ -1,6 +1,4 @@
-/** Serata film: date, settimane e calendario fisso (ora di Roma). */
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
-
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const TIME_ZONE = "Europe/Rome";
 const FINAL_ANNOUNCE_FRIDAY_WEEKDAY = 5;
@@ -14,8 +12,10 @@ const MOVIE_NIGHT_EVENT_WINDOW_AFTER_MIN = 10;
 const MOVIE_NIGHT_DISPLAY_TIME = `${String(MOVIE_NIGHT_FILM_HOUR).padStart(2, "0")}:${String(MOVIE_NIGHT_FILM_MINUTE).padStart(2, "0")}`;
 const MOVIE_NIGHT_CLOSING_LINE_FRIDAY = `> ${E.VC_Rocket} Ci vediamo domani! E ricorda: chi partecipa all'evento in vocale riceverà il **doppio** degli **XP** validi per la top weekly. Non mancare!`;
 const MOVIE_NIGHT_CLOSING_LINE_SATURDAY = `> ${E.VC_Rocket} Ci vediamo stasera! E ricorda: chi partecipa all'evento in vocale riceverà il **doppio** degli **XP** validi per la top weekly. Non mancare!`;
+const MOVIE_NIGHT_CLOSING_LINE_STARWARS = `> ${E.VC_Rocket} Durante tutta la serata, la **fazione** con più utenti e con più media di tempo in vocale riceverà crediti e **XP** personali a chi guarda almeno **30 minuti**. Non mancare!`;
 
-function buildMovieNightFinalClosingLines({ fridayAdvance = false } = {}) {
+function buildMovieNightFinalClosingLines({ fridayAdvance = false, starWarsFilmNight = false } = {}) {
+  if (starWarsFilmNight) return [MOVIE_NIGHT_CLOSING_LINE_STARWARS];
   return [fridayAdvance ? MOVIE_NIGHT_CLOSING_LINE_FRIDAY : MOVIE_NIGHT_CLOSING_LINE_SATURDAY];
 }
 const ITALIAN_MONTH_NAMES = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
@@ -32,7 +32,22 @@ function getMovieNightDiscordEventStartWindow() {
   };
 }
 
-const HARRY_POTTER_MOVIE_NIGHT_SCHEDULE = new Map([
+/** Voce calendario fisso serata film (titolo e/o skip; event/poster opzionali). */
+type FixedMovieNightEntry = {
+  title?: string;
+  skip?: boolean;
+  event?: string;
+  /** Cover evento Discord (CDN). */
+  poster?: string;
+};
+
+const SW_POSTER_CDN = "https://cdn.viniliecaffe.it/images/starwars/posters";
+const SW_POSTER_V = "20261104p1";
+function swPoster(slug?) {
+  return `${SW_POSTER_CDN}/${String(slug || "").trim()}.jpg?v=${SW_POSTER_V}`;
+}
+
+const HARRY_POTTER_MOVIE_NIGHT_SCHEDULE = new Map<string, FixedMovieNightEntry>([
   ["2026-06-06", { title: "Harry Potter e la pietra filosofale" }],
   ["2026-06-13", { title: "Harry Potter e la camera dei segreti" }],
   ["2026-06-20", { skip: true }],
@@ -46,13 +61,28 @@ const HARRY_POTTER_MOVIE_NIGHT_SCHEDULE = new Map([
   ["2026-08-15", { skip: true }],
   ["2026-08-22", { skip: true }],
   ["2026-08-29", { title: "Harry Potter e i Doni della Morte - Parte 2" }],
-  // Halloween 2026 — film già scelti, niente thread votazioni quelle settimane
   ["2026-10-24", { title: "Casper" }],
   ["2026-10-31", { title: "Nightmare Before Christmas" }],
 ]);
 
-/** Serate film extra a data fissa (non sabato). State separato per non collisionare col sabato della stessa settimana. */
-const EXTRA_FIXED_MOVIE_NIGHTS = new Map([
+const STAR_WARS_MOVIE_NIGHT_SCHEDULE = new Map<string, FixedMovieNightEntry>([
+  ["2026-12-05", { title: "Star Wars: La minaccia fantasma", event: "starwars", poster: swPoster("la-minaccia-fantasma") }],
+  ["2026-12-12", { title: "Star Wars: L'attacco dei cloni", event: "starwars", poster: swPoster("lattacco-dei-cloni") }],
+  ["2026-12-19", { title: "Star Wars: La vendetta dei Sith", event: "starwars", poster: swPoster("la-vendetta-dei-sith") }],
+  /* Gap: niente serata / niente thread voto */
+  ["2026-12-26", { skip: true, event: "starwars" }],
+  ["2027-01-02", { title: "Star Wars: Rogue One", event: "starwars", poster: swPoster("rogue-one") }],
+  ["2027-01-09", { title: "Star Wars: Una nuova speranza", event: "starwars", poster: swPoster("una-nuova-speranza") }],
+  ["2027-01-16", { title: "Star Wars: L'impero colpisce ancora", event: "starwars", poster: swPoster("limpero-colpisce-ancora") }],
+  ["2027-01-23", { title: "Star Wars: Il ritorno dello Jedi", event: "starwars", poster: swPoster("il-ritorno-dello-jedi") }],
+  ["2027-01-30", { title: "Star Wars: Il risveglio della forza", event: "starwars", poster: swPoster("il-risveglio-della-forza") }],
+  /* Gap: niente serata / niente thread voto */
+  ["2027-02-06", { skip: true, event: "starwars" }],
+  ["2027-02-13", { title: "Star Wars: Gli ultimi Jedi", event: "starwars", poster: swPoster("gli-ultimi-jedi") }],
+  ["2027-02-20", { title: "Star Wars: L'ascesa di Skywalker", event: "starwars", poster: swPoster("lascesa-di-skywalker") }],
+]);
+
+const EXTRA_FIXED_MOVIE_NIGHTS = new Map<string, FixedMovieNightEntry>([
   ["2026-10-28", { title: "La sposa cadavere" }],
 ]);
 const EXTRA_STATE_KEY = "movieNightExtra.v1";
@@ -158,7 +188,6 @@ function shouldAttemptMovieNightEventStartRecovery(now = new Date()) {
   if (parts.weekday === TARGET_WEEKDAY && inEveningWindow) return true;
   if (getExtraFixedMovieNight(now) && inEveningWindow) return true;
   if (parts.weekday === 7 && parts.hour < 8) return true;
-  // early next-day recovery for Wednesday extras (Thu before 04:00)
   if (parts.hour < 4) {
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     if (getExtraFixedMovieNight(yesterday)) return true;
@@ -204,7 +233,16 @@ function getRomeDateKey(date = new Date()) {
 }
 
 function getHarryPotterMovieNightScheduleForWeek(date = new Date()) {
-  return HARRY_POTTER_MOVIE_NIGHT_SCHEDULE.get(getRomeSaturdayKeyForWeek(date)) || null;
+  const satKey = getRomeSaturdayKeyForWeek(date);
+  return STAR_WARS_MOVIE_NIGHT_SCHEDULE.get(satKey) || HARRY_POTTER_MOVIE_NIGHT_SCHEDULE.get(satKey) || null;
+}
+
+function getStarWarsMovieNightScheduleForWeek(date = new Date()) {
+  return STAR_WARS_MOVIE_NIGHT_SCHEDULE.get(getRomeSaturdayKeyForWeek(date)) || null;
+}
+
+function isStarWarsMovieNightWeek(date = new Date()) {
+  return Boolean(getStarWarsMovieNightScheduleForWeek(date)?.title);
 }
 
 function getExtraFixedMovieNight(date = new Date()) {
@@ -218,6 +256,24 @@ function isMovieNightFixedScheduleSkipWeek(date = new Date()) {
 function getFixedMovieTitleForWeek(date = new Date()) {
   const entry = getHarryPotterMovieNightScheduleForWeek(date);
   return entry?.skip ? null : String(entry?.title || "").trim() || null;
+}
+
+function getFixedMoviePosterForWeek(date = new Date()) {
+  const entry = getHarryPotterMovieNightScheduleForWeek(date);
+  if (!entry || entry.skip) return null;
+  return String(entry.poster || "").trim() || null;
+}
+
+function getFixedMoviePosterForDate(date = new Date()) {
+  const extra = getExtraFixedMovieNight(date);
+  if (extra?.poster) return String(extra.poster).trim();
+  const parts = getRomeParts(date);
+  if (parts.hour < 4) {
+    const yesterday = new Date(date.getTime() - 24 * 60 * 60 * 1000);
+    const yExtra = getExtraFixedMovieNight(yesterday);
+    if (yExtra?.poster) return String(yExtra.poster).trim();
+  }
+  return getFixedMoviePosterForWeek(date);
 }
 
 function getFixedMovieTitleForDate(date = new Date()) {
@@ -280,4 +336,41 @@ function getWeekKeyStartMs(weekKey?) {
   return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
 }
 
-export = { TIME_ZONE, MOVIE_NIGHT_DISPLAY_TIME, buildMovieNightFinalClosingLines, ITALIAN_MONTH_NAMES, TARGET_WEEKDAY, EXTRA_FIXED_MOVIE_NIGHTS, getRomeParts, getRomeWeekKey, getRomeSaturdayKeyForWeek, formatMovieNightStaffDateLabel, getMovieNightFinalAnnouncementSlot, shouldAllowMovieNightStaffCommunication, resolveMovieNightStaffAnnounceSlot, shouldAttemptMovieNightEventStartRecovery, shouldAttemptMovieNightStageCloseRecovery, getMovieNightStartupRecoverySlot, hasMovieNightSpareggio, getRomeDateKey, getHarryPotterMovieNightScheduleForWeek, getExtraFixedMovieNight, isMovieNightFixedScheduleSkipWeek, getFixedMovieTitleForWeek, getFixedMovieTitleForDate, resolveExtraMovieNightDateKey, getExtraMovieNightState, patchExtraMovieNightState, isMovieNightClockInStartWindow, getMovieNightEventStartDate, getWeekKeyStartMs };
+export = {
+  TIME_ZONE,
+  MOVIE_NIGHT_DISPLAY_TIME,
+  MOVIE_NIGHT_FILM_HOUR,
+  MOVIE_NIGHT_FILM_MINUTE,
+  buildMovieNightFinalClosingLines,
+  ITALIAN_MONTH_NAMES,
+  TARGET_WEEKDAY,
+  EXTRA_FIXED_MOVIE_NIGHTS,
+  STAR_WARS_MOVIE_NIGHT_SCHEDULE,
+  getRomeParts,
+  getRomeWeekKey,
+  getRomeSaturdayKeyForWeek,
+  formatMovieNightStaffDateLabel,
+  getMovieNightFinalAnnouncementSlot,
+  shouldAllowMovieNightStaffCommunication,
+  resolveMovieNightStaffAnnounceSlot,
+  shouldAttemptMovieNightEventStartRecovery,
+  shouldAttemptMovieNightStageCloseRecovery,
+  getMovieNightStartupRecoverySlot,
+  hasMovieNightSpareggio,
+  getRomeDateKey,
+  getHarryPotterMovieNightScheduleForWeek,
+  getStarWarsMovieNightScheduleForWeek,
+  isStarWarsMovieNightWeek,
+  getExtraFixedMovieNight,
+  isMovieNightFixedScheduleSkipWeek,
+  getFixedMovieTitleForWeek,
+  getFixedMovieTitleForDate,
+  getFixedMoviePosterForWeek,
+  getFixedMoviePosterForDate,
+  resolveExtraMovieNightDateKey,
+  getExtraMovieNightState,
+  patchExtraMovieNightState,
+  isMovieNightClockInStartWindow,
+  getMovieNightEventStartDate,
+  getWeekKeyStartMs,
+};

@@ -49,6 +49,21 @@ export function EventoTopNav() {
                 : pathname === item.href ||
                   pathname === item.href.replace(/\/$/, "") ||
                   (item.id === "puzzle" && (pathname === "/puzzle" || pathname.startsWith("/puzzle/")));
+            if (item.locked) {
+              return (
+                <span
+                  key={item.id}
+                  role="link"
+                  aria-disabled="true"
+                  title="In arrivo"
+                  className="relative shrink-0 cursor-not-allowed rounded-full px-2.5 py-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-crema/35 sm:px-3 sm:text-[0.72rem]"
+                >
+                  <span className="blur-[2.5px] select-none" aria-hidden>
+                    {item.label}
+                  </span>
+                </span>
+              );
+            }
             return (
               <SmartLink
                 key={item.id}

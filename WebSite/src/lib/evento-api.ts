@@ -68,6 +68,8 @@ export type EventoAdventDayRow = {
   claimedAt: string | null;
   canClaim: boolean;
   unlocked: boolean;
+  /** Giorno passato non ritirato → premio perso. */
+  missed?: boolean;
 };
 
 export type EventoAvventoState = {
@@ -408,6 +410,152 @@ export async function digEventoMiniera(token: string) {
       find?: { color: string; rare: boolean };
       remaining?: number;
       message?: string;
+    } | null;
+  } catch {
+    return null;
+  }
+}
+
+export type EventoPuzzleDifficultyRow = {
+  id: string;
+  label: string;
+  order: number;
+  cols: number;
+  rows: number;
+  pieces: number;
+  timeLimitSec: number;
+  cooldownMs: number;
+  exp: number;
+  crateOdds: Array<{ crateId: string; weight: number }>;
+  imageUrl: string;
+  lastClaimAt?: string | null;
+  cooldownRemainingMs?: number;
+  canStart?: boolean;
+  canPlayGuest?: boolean;
+  cdAdsUsed?: number;
+  cdAdsLeft?: number;
+  canCutCooldown?: boolean;
+};
+
+export async function fetchEventoPuzzle(token?: string | null) {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/puzzle"), {
+      headers: authHeaders(token),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      playable?: boolean;
+      difficulties?: EventoPuzzleDifficultyRow[];
+      adBoosts?: {
+        watchSec: number;
+        cooldown: { max: number; cutPercent: number };
+        time: { max: number; bonusSec: number };
+        reward: { max: number; expMult: number; betterCrateBias: number };
+      };
+      serverNow?: string;
+      message?: string;
+    } | null;
+  } catch {
+    return null;
+  }
+}
+
+export async function startEventoPuzzle(token: string, difficultyId: string) {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/puzzle"), {
+      method: "POST",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "start", difficultyId }),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      attemptId?: string;
+      startedAt?: string;
+      expiresAt?: string;
+      difficulty?: EventoPuzzleDifficultyRow;
+      cooldownRemainingMs?: number;
+      message?: string;
+      error?: string;
+    } | null;
+  } catch {
+    return null;
+  }
+}
+
+export async function completeEventoPuzzle(
+  token: string,
+  opts: { difficultyId: string; attemptId: string; elapsedMs: number },
+) {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/puzzle"), {
+      method: "POST",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "complete", ...opts }),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      grant?: { exp?: number; crateId?: string | null; crateQty?: number };
+      cooldownRemainingMs?: number;
+      nextAvailableAt?: string;
+      rewardBoosted?: boolean;
+      message?: string;
+      error?: string;
+    } | null;
+  } catch {
+    return null;
+  }
+}
+
+export type PuzzleAdKind = "cooldown" | "time" | "reward";
+
+export async function startEventoPuzzleAd(
+  token: string,
+  opts: { kind: PuzzleAdKind; difficultyId: string; attemptId?: string | null },
+) {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/puzzle"), {
+      method: "POST",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "ad_start", ...opts }),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      adSessionId?: string;
+      watchSec?: number;
+      kind?: PuzzleAdKind;
+      message?: string;
+      error?: string;
+    } | null;
+  } catch {
+    return null;
+  }
+}
+
+export async function finishEventoPuzzleAd(token: string, adSessionId: string) {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/puzzle"), {
+      method: "POST",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "ad_finish", adSessionId }),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      kind?: PuzzleAdKind;
+      cooldownRemainingMs?: number;
+      cutMs?: number;
+      cdAdsLeft?: number;
+      bonusSec?: number;
+      expiresAt?: string;
+      timeAdsLeft?: number;
+      timeBonusSec?: number;
+      expMult?: number;
+      message?: string;
+      error?: string;
     } | null;
   } catch {
     return null;

@@ -284,8 +284,6 @@ function getBoardsPublicConfig(client?) {
     turnstileRequired: Boolean(gate.cfg.turnstileSecretKey),
     ads: {
       provider: ads.provider || "mock",
-      adsenseClient: ads.adsenseClient || "",
-      adsenseSlot: ads.adsenseSlot || "",
       minWatchSeconds: ads.minWatchSeconds || gate.cfg.voteAdSeconds,
     },
   };

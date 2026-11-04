@@ -95,17 +95,25 @@ async function beginMinigameWinClose(client?, cfg?, game = null) {
   const channelId = String(cfg?.channelId || "").trim();
   if (!channelId) return false;
   if (!tryClaimMinigameChannelClose(channelId)) return false;
-  const live = activeGames.get(channelId) || game;
-  markMinigameRoundClosed(live);
-  clearMinigameRoundTimers(live);
-  activeGames.delete(channelId);
-  let guildId = String(cfg?.guildId || "").trim();
-  if (!guildId) {
-    const channel = await getChannelCached(client, channelId);
-    guildId = String(channel?.guild?.id || "").trim();
+  try {
+    const live = activeGames.get(channelId) || game;
+    markMinigameRoundClosed(live);
+    clearMinigameRoundTimers(live);
+    activeGames.delete(channelId);
+    let guildId = String(cfg?.guildId || "").trim();
+    if (!guildId) {
+      const channel = await getChannelCached(client, channelId);
+      guildId = String(channel?.guild?.id || "").trim();
+    }
+    if (guildId) {
+      await clearActiveGame(client, { ...cfg, guildId, channelId }).catch((err?) => warnMinigame(err));
+    }
+    return true;
+  } catch (err) {
+    warnMinigame(err);
+    endMinigameWinClose(channelId);
+    return false;
   }
-  if (guildId) await clearActiveGame(client, { ...cfg, guildId, channelId });
-  return true;
 }
 
 function endMinigameWinClose(channelId?) {

@@ -1,5 +1,5 @@
 /** Minigiochi: indizi e aggiornamento della partita in corso. */
-const { buildPromptImageAttachment } = require("./minigameImages") as typeof import("./minigameImages");
+const { buildHangmanBoardAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 const { buildHangmanEmbed, buildMinuteHintEmbed, buildGenericHintEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
@@ -31,11 +31,12 @@ async function updateHangmanBoardMessage(message?, game?, shownWord?) {
   if (!gameMsg) return;
   const hmMax = Number(game.maxMisses || 10);
   const hmErr = Math.min(hmMax, Number(game.misses || 0));
-  const hangmanSolvedAttachment = buildPromptImageAttachment(
-    "Impiccato",
+  const hangmanSolvedAttachment = await buildHangmanBoardAttachment(
+    game,
     [shownWord, `Errori: ${hmErr}/${hmMax}`],
-    "hangman",
-    `solved_${Date.now()}`, message.client);
+    message.client,
+    `solved_${Date.now()}`,
+  );
   const hangmanSolvedEmbed = buildHangmanEmbed(
     shownWord,
     game.rewardExp,

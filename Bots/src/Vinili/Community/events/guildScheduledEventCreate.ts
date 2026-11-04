@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyl
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { startSerataFilmSession } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
 const { handleMovieNightEventStart } = require("../../Community/services/movieNightAnnouncementService") as typeof import("../../Community/services/movieNightAnnouncementService");
+const { ensureMovieNightScheduledEventPoster } = require("../../Community/services/movieNightEventPoster") as typeof import("../../Community/services/movieNightEventPoster");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const AUDIT_FETCH_LIMIT = 20;
@@ -97,6 +98,9 @@ export = {
     try {
       const guildEarly = scheduledEvent?.guild;
       if (guildEarly?.id && !isViniliFullFeatureGuild(guildEarly.id)) return;
+      await ensureMovieNightScheduledEventPoster(scheduledEvent).catch((err?) => {
+        global.logger?.warn?.("[guildScheduledEventCreate] movie night poster:", err?.message || err);
+      });
       if (Number(scheduledEvent?.status || 0) === 2) {
         await startSerataFilmSession(scheduledEvent).catch((err?) => {
           global.logger?.warn?.("[guildScheduledEventCreate] serata film auto:", err?.message || err);
