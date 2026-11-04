@@ -5,6 +5,7 @@ const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.
 const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isPartnershipOperational, memberHasPartnerManagerRole, SETUP_REQUIRED_REPLY } = require("../../Partner/core/partnershipConfigResolver") as typeof import("../../Partner/core/partnershipConfigResolver");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function getMainGuildIdFallback() {
   try {
     const configPath = path.join(__dirname, "..", "..", "config.json");
@@ -226,7 +227,7 @@ async function checkTenantPartnershipSlashAccess(interaction?, options: Record<s
         channels: null,
         message: allowed
           ? null
-          : "<:vegax:1443934876440068179> Ti serve il **ruolo Partner Manager** (o **Gestisci server**) per usare `/partnership`.",
+          : `${E.vegax} Ti serve il **ruolo Partner Manager** (o **Gestisci server**) per usare \`/partnership\`.`,
       };
     }
     return allowed;
@@ -241,7 +242,7 @@ async function checkTenantPartnershipSlashAccess(interaction?, options: Record<s
           requiredRoles: null,
           channels: null,
           message:
-            "<:vegax:1443934876440068179> Su questo server è disponibile solo `/delete partnership`.",
+            `${E.vegax} Su questo server è disponibile solo \`/delete partnership\`.`,
         };
       }
       return false;

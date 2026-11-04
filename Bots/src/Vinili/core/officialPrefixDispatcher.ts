@@ -1,6 +1,7 @@
 const path = require("path") as typeof import("path");
 const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js") as typeof import("discord.js");
 const { applyDefaultFooterToEmbeds } = require("../../shared/embeds/defaultFooter") as typeof import("../../shared/embeds/defaultFooter");
+const { E } = require("../../shared/emojis/emojiCatalog") as typeof import("../../shared/emojis/emojiCatalog");
 const {
   applyTenantPayloadBranding,
   stripTenantBrandingInternals,
@@ -26,14 +27,14 @@ const {
   buildInternalCommandErrorEmbed,
 } = createCommandErrorEmbeds({
   color: TENANT_EMBED_COLOR,
-  cancelEmoji: "<:cancel:1461730653677551691>",
+  cancelEmoji: E.cancel,
   cooldownDescription: (remaining?) =>
     [
-      `<:VC_Attention:1482534443632558151> Aspetta **${remaining}s** prima di usare un altro comando.`,
+      `${E.VC_Attention} Aspetta **${remaining}s** prima di usare un altro comando.`,
       "",
-      "<a:VC_Timer:1482527426557775954> Il cooldown si riduce con i ruoli:",
-      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level30}>, <@&${IDs.roles.ServerBooster}> o <@&${IDs.roles.VIP}> <a:VC_Arrow:1482706699365257397> **15s**`,
-      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level50}>, <@&${IDs.roles.VIPplus}> o <@&${IDs.roles.DoubleBooster}> <a:VC_Arrow:1482706699365257397> **5s**`,
+      `${E.VC_Timer} Il cooldown si riduce con i ruoli:`,
+      `${E.VC_Dot} <@&${IDs.roles.Level30}>, <@&${IDs.roles.ServerBooster}> o <@&${IDs.roles.VIP}> ${E.VC_Arrow} **15s**`,
+      `${E.VC_Dot} <@&${IDs.roles.Level50}>, <@&${IDs.roles.VIPplus}> o <@&${IDs.roles.DoubleBooster}> ${E.VC_Arrow} **5s**`,
     ].join("\n"),
 });
 const { buildErrorLogEmbed } = require("../../shared/discord/errorLogEmbed") as typeof import("../../shared/discord/errorLogEmbed");
@@ -84,10 +85,6 @@ const REMOVED_PREFIX_COMMANDS = new Set([
   "cf",
   "tris",
   "scratch",
-  "conquista",
-  "swspawn",
-  "punta",
-  "ordine66",
 ]);
 
 function finalizePrefixOutgoingPayload(payload?, guild?) {
@@ -185,7 +182,7 @@ const official = createOfficialPrefixDispatcher({
         message.channel,
         {
           content:
-            "<:VC_Attention:1482534443632558151> Bot ancora in avvio dopo il riavvio: riprova tra qualche secondo.",
+            `${E.VC_Attention} Bot ancora in avvio dopo il riavvio: riprova tra qualche secondo.`,
         },
         EPHEMERAL_TTL_SHORT_MS,
       );
@@ -238,7 +235,7 @@ const official = createOfficialPrefixDispatcher({
       await sendTemporaryMessage(
         message.channel,
         {
-          content: `<:VC_Lock:1482526739044368476> Server in lockdown di sicurezza: comandi temporaneamente bloccati. ${lockSources?.length ? ` (${lockSources.join(", ")})` : ""}`,
+          content: `${E.VC_Lock} Server in lockdown di sicurezza: comandi temporaneamente bloccati. ${lockSources?.length ? ` (${lockSources.join(", ")})` : ""}`,
         },
         EPHEMERAL_TTL_SHORT_MS,
       );
@@ -254,7 +251,7 @@ const official = createOfficialPrefixDispatcher({
       await sendTemporaryMessage(
         message.channel,
         {
-          content: "<:VC_Lock:1482526739044368476> Comandi di moderazione temporaneamente bloccati.",
+          content: `${E.VC_Lock} Comandi di moderazione temporaneamente bloccati.`,
         },
         EPHEMERAL_TTL_SHORT_MS,
       );
@@ -321,7 +318,7 @@ const official = createOfficialPrefixDispatcher({
         message.channel,
         {
           content:
-            "<:VC_Attention:1482534443632558151> Verifica permessi in ritardo. Riprova tra un attimo.",
+            `${E.VC_Attention} Verifica permessi in ritardo. Riprova tra un attimo.`,
         },
         EPHEMERAL_TTL_SHORT_MS,
       );
@@ -333,9 +330,9 @@ const official = createOfficialPrefixDispatcher({
       await sendTemporaryMessage(
         message.channel,
         buildSimpleNoticePayload(
-          "<:VC_Lock:1482526739044368476> Ti servono i permessi Discord adatti (es. **Banna membri**, **Espelli**, **Modera membri**, **Gestisci messaggi** o **Amministratore**).",
+          `${E.VC_Lock} Ti servono i permessi Discord adatti (es. **Banna membri**, **Espelli**, **Modera membri**, **Gestisci messaggi** o **Amministratore**).`,
           message.guild,
-          { title: "<:VC_Lock:1482526739044368476> **Non hai i permessi**" },
+          { title: `${E.VC_Lock} **Non hai i permessi**` },
         ),
         EPHEMERAL_TTL_SHORT_MS,
       );
@@ -365,7 +362,7 @@ const official = createOfficialPrefixDispatcher({
       "comando",
       isRoleDeny
         ? null
-        : "<:VC_Lock:1482526739044368476> Non hai i permessi per usare questo comando.",
+        : `${E.VC_Lock} Non hai i permessi per usare questo comando.`,
       message.guild,
     );
     await deleteCommandMessage();
@@ -414,15 +411,15 @@ const official = createOfficialPrefixDispatcher({
         const row = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId("error_pending")
-            .setEmoji(`<:VC_InactiveStatus:1482526984234860574>`)
+            .setEmoji(E.VC_InactiveStatus)
             .setStyle(ButtonStyle.Primary),
           new ButtonBuilder()
             .setCustomId("error_solved")
-            .setEmoji(`<:VC_OnlineStatus:1482527088912240650>`)
+            .setEmoji(E.VC_OnlineStatus)
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
             .setCustomId("error_unsolved")
-            .setEmoji(`<:VC_OfflineStatus:1482527117051957380>`)
+            .setEmoji(E.VC_OfflineStatus)
             .setStyle(ButtonStyle.Danger),
         );
         await errorChannel.send({ embeds: [errorEmbed], components: [row] }).catch(() => null);

@@ -14,6 +14,7 @@ const { sendMinigameMessage } = require("./minigameDiscord") as typeof import(".
 const { markSent, saveActiveGame, scheduleMinigameRoundTimeout, sendMinigameTimeoutAndClose, scheduleGenericHint } = require("./minigameRound") as typeof import("./minigameRound");
 const { translateToItalian, buildItalianGkApiUrls, parseItalianGkQuestionFromPayload } = require("./quizSources") as typeof import("./quizSources");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function startItalianGkGame(client?, cfg?) {
   const channelId = cfg.channelId;
   if (!channelId || activeGames.has(channelId)) return false;
@@ -132,8 +133,8 @@ async function startMathExpressionGame(client?, cfg?) {
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutMathEmbed(game.answer)); }, durationMs); timeout.unref?.();
   const answerNum = Number(row.answer);
-  const hintRangeText = Number.isFinite(answerNum) ? `<a:VC_Flame:1482725674711126140> Il risultato è compreso tra **${Math.floor(answerNum - 2)}** e **${Math.ceil(answerNum + 2)}**.`
-    : `<a:VC_Flame:1482725674711126140> Il risultato è un numero intero.`;
+  const hintRangeText = Number.isFinite(answerNum) ? `${E.VC_Flame} Il risultato è compreso tra **${Math.floor(answerNum - 2)}** e **${Math.ceil(answerNum + 2)}**.`
+    : `${E.VC_Flame} Il risultato è un numero intero.`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, hintRangeText,);
 
   activeGames.set(channelId, {
@@ -183,7 +184,7 @@ async function startGuessYearGame(client?, cfg?) {
   if (shouldUseHalloweenTheme(cfg)) embed.setTitle("Indovina l'anno Halloween 🎃");
   const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
-  const yearHint = `<a:VC_Flame:1482725674711126140> L'anno è tra **${pick.year - 5}** e **${pick.year + 5}**.`;
+  const yearHint = `${E.VC_Flame} L'anno è tra **${pick.year - 5}** e **${pick.year + 5}**.`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, yearHint);
   activeGames.set(channelId, {
     type: "guessYear",

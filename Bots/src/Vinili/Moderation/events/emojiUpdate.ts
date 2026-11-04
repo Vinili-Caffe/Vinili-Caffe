@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const EMOJI_UPDATE_ACTION = AuditLogEvent?.EmojiUpdate ?? 61;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -101,12 +102,12 @@ export = {
 
       const changeLines = [];
       if (hasNameChange) {
-        changeLines.push(`<:VC_Modifica:1478859646587633717> **Nome**`);
-        changeLines.push(`  ${fromName} <a:VC_Arrow:1482706699365257397> ${toName}`);
+        changeLines.push(`${E.VC_Modifica} **Nome**`);
+        changeLines.push(`  ${fromName} ${E.VC_Arrow} ${toName}`);
       }
 
       if (hasRolesChange) {
-        changeLines.push(`<:VC_Mention:1482526855289634997> **Ruoli**`);
+        changeLines.push(`${E.VC_Mention} **Ruoli**`);
         if (addedRoles.length) {
           changeLines.push(`  + ${addedRoles.map((id?) => `<@&${id}>`).join(", ")}`);
         }
@@ -117,18 +118,18 @@ export = {
 
       const embed = new EmbedBuilder()
         .setColor("#F59E0B")
-        .setTitle("<:VC_Color:1482532543273238569> Emoji Update")
+        .setTitle(`${E.VC_Color} Emoji Update`)
         .setDescription(
           [
-            `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-            `<:VC_User:1482527453586002103> **Utente:** ${newEmoji?.name || oldEmoji?.name || "emoji"} \`${emojiId}\``,
-            `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+            `${E.VC_Staff} **Responsabile:** ${responsibleText}`,
+            `${E.VC_User} **Utente:** ${newEmoji?.name || oldEmoji?.name || "emoji"} \`${emojiId}\``,
+            `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
             "",
-            "**<:VC_tools:1478862265305272364> Cambiamenti**",
+            `**${E.VC_tools} Cambiamenti**`,
             ...changeLines,
           ].join("\n"),
         )
-        .addFields({ name: "<a:VC_Countdown:1482706760476131539> Animato", value: newEmoji?.animated ? "Si" : "No", inline: true });
+        .addFields({ name: `${E.VC_Countdown} Animato`, value: newEmoji?.animated ? "Si" : "No", inline: true });
 
       const imageUrl = newEmoji?.imageURL?.({ extension: "png", size: 256 }) || newEmoji?.url || null;
       if (imageUrl) embed.setThumbnail(imageUrl);

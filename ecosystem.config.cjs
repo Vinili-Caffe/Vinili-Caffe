@@ -124,6 +124,18 @@ function makeBotsApp(name, loaderBots, memRestart, nodeHeapMb) {
       BOT_SCHEDULER_EXTERNAL: "1",
       AUTO_BACKUP_EXTERNAL: "1",
       COMMUNITY_POLL_EXTERNAL: "1",
+      /* Sweep Fan/presence su bot-workers; gateway solo eventi filtrati */
+      PRESENCE_SUPPORTER_SWEEP_ON_GATEWAY: "0",
+      /* Keeper HTTP + backfill + auto-send Markov su vinyls-markov */
+      MARKOV_EXTERNAL: "1",
+      /* Slot timer minigame su bot-workers; gateway = restore/expire/spawn-consumer */
+      MINIGAMES_EXTERNAL: "1",
+      /* messageCreate: enqueue activity/EXP → bot-workers drain */
+      ACTIVITY_WRITE_EXTERNAL: "1",
+      /* One-shot stanza overwrite migrate (già eseguito): lasciare 0 salvo re-migrate */
+      STANZA_MIGRATE_COFFEE_OVERWRITES: String(botEnvFromFile.STANZA_MIGRATE_COFFEE_OVERWRITES || "0"),
+      STANZA_MIGRATE_COFFEE_OVERWRITES_REMOVE: String(botEnvFromFile.STANZA_MIGRATE_COFFEE_OVERWRITES_REMOVE || "0"),
+
       FULL_STARTUP_SYNC: String(botEnvFromFile.FULL_STARTUP_SYNC || "0"),
       STARTUP_PANELS: String(botEnvFromFile.STARTUP_PANELS || "0"),
       FORCE_SLASH_DEPLOY: "0",
@@ -242,10 +254,27 @@ module.exports = {
         BOT_SCHEDULER_WORKER: "1",
         COMMUNITY_POLL_WORKER: "1",
         COMMUNITY_POLL_EXTERNAL: "1",
+        BOT_SCHEDULER_EXTERNAL: "1",
+        MINIGAMES_WORKER: "1",
+        MINIGAMES_EXTERNAL: "1",
+        ACTIVITY_WRITE_WORKER: "1",
+        ACTIVITY_WRITE_EXTERNAL: "1",
+        PRESENCE_SUPPORTER_SWEEP_ON_GATEWAY: "0",
         LIVE_VOICE_EXP_INTERVAL_MS: String(botEnvFromFile.LIVE_VOICE_EXP_INTERVAL_MS || "45000"),
         LIVE_VOICE_EXP_BATCH_SIZE: String(botEnvFromFile.LIVE_VOICE_EXP_BATCH_SIZE || "50"),
       },
       "--max-old-space-size=560",
+    ),
+    ensurePm2App(
+      "vinyls-markov",
+      "Vinili/site/workers/vinylsMarkovWorkerApp.js",
+      "320M",
+      {
+        MARKOV_WORKER: "1",
+        MARKOV_EXTERNAL: "1",
+        LOADER_BOTS: "vinyls",
+      },
+      "--max-old-space-size=256",
     ),
     /* Backup automatico: parte alle 00:15 (ora del server), fa il giro e si chiude. Se il server si
        riavvia gira subito una volta, ma il backup è al massimo uno al giorno (marker su disco). */

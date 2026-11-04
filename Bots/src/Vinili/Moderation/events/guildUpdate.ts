@@ -4,6 +4,7 @@ const { handleVanityGuard: antiNukeHandleVanityGuard } = require("../../Security
 const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../../Moderation/utils/modAuditLogUtils") as typeof import("../../Moderation/utils/modAuditLogUtils");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function notificationsLabel(value?) {
   const n = Number(value);
   if (n === 0) return "Tutti i messaggi";
@@ -26,22 +27,22 @@ export = {
 
       const changes = [];
       if (oldGuild?.name !== newGuild?.name) {
-        changes.push(["Nome", `${oldGuild?.name || "N/A"} <a:VC_Arrow:1482706699365257397> ${newGuild?.name || "N/A"}`]);
+        changes.push(["Nome", `${oldGuild?.name || "N/A"} ${E.VC_Arrow} ${newGuild?.name || "N/A"}`]);
       }
       if ((oldGuild?.description || "") !== (newGuild?.description || "")) {
-        changes.push(["Descrizione", `${oldGuild?.description || "N/A"} <a:VC_Arrow:1482706699365257397> ${newGuild?.description || "N/A"}`]);
+        changes.push(["Descrizione", `${oldGuild?.description || "N/A"} ${E.VC_Arrow} ${newGuild?.description || "N/A"}`]);
       }
       if (normalizeComparable(oldGuild?.icon) !== normalizeComparable(newGuild?.icon)) {
-        changes.push(["Icona", `${oldGuild?.icon || "N/A"} <a:VC_Arrow:1482706699365257397> ${newGuild?.icon || "N/A"}`]);
+        changes.push(["Icona", `${oldGuild?.icon || "N/A"} ${E.VC_Arrow} ${newGuild?.icon || "N/A"}`]);
       }
       if (normalizeComparable(oldGuild?.banner) !== normalizeComparable(newGuild?.banner)) {
-        changes.push(["Banner", `${oldGuild?.banner || "N/A"} <a:VC_Arrow:1482706699365257397> ${newGuild?.banner || "N/A"}`]);
+        changes.push(["Banner", `${oldGuild?.banner || "N/A"} ${E.VC_Arrow} ${newGuild?.banner || "N/A"}`]);
       }
       if (Number(oldGuild?.defaultMessageNotifications) !== Number(newGuild?.defaultMessageNotifications)) {
-        changes.push(["Notifiche messaggi predefinite", `${notificationsLabel(oldGuild?.defaultMessageNotifications)} <a:VC_Arrow:1482706699365257397> ${notificationsLabel(newGuild?.defaultMessageNotifications)}`]);
+        changes.push(["Notifiche messaggi predefinite", `${notificationsLabel(oldGuild?.defaultMessageNotifications)} ${E.VC_Arrow} ${notificationsLabel(newGuild?.defaultMessageNotifications)}`]);
       }
       if ((oldGuild?.vanityURLCode || "") !== (newGuild?.vanityURLCode || "")) {
-        changes.push(["Invito Vanity", `${oldGuild?.vanityURLCode || "N/A"} <a:VC_Arrow:1482706699365257397> ${newGuild?.vanityURLCode || "N/A"}`]);
+        changes.push(["Invito Vanity", `${oldGuild?.vanityURLCode || "N/A"} ${E.VC_Arrow} ${newGuild?.vanityURLCode || "N/A"}`]);
       }
       if (!changes.length) return;
       const vanityChanged=(oldGuild?.vanityURLCode||"")!==(newGuild?.vanityURLCode||"");
@@ -56,15 +57,15 @@ export = {
 
       const responsible = formatResponsible(executor);
       const lines = [
-        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-        `<:VC_Clock:1473359204189474886> ${nowDiscordTs()}`,
+        `${E.VC_Staff} **Responsabile:** ${responsible}`,
+        `${E.VC_Clock} ${nowDiscordTs()}`,
         "",
         "**Modifiche**",
       ];
 
       for (const [label, oldValue, newValue] of changes) {
-        lines.push(`<:VC_Modifica:1478859646587633717> **${label}**`);
-        lines.push(`${oldValue} <a:VC_Arrow:1482706699365257397> ${newValue}`);
+        lines.push(`${E.VC_Modifica} **${label}**`);
+        lines.push(`${oldValue} ${E.VC_Arrow} ${newValue}`);
       }
       lines.push(
         ...buildAuditExtraLines(auditEntry, [
@@ -80,7 +81,7 @@ export = {
       if (canLog) {
         const embed = new EmbedBuilder()
           .setColor("#F59E0B")
-          .setTitle("<a:VC_Verified:1482532479637127188> Server aggiornato")
+          .setTitle(`${E.VC_Verified} Server aggiornato`)
           .setDescription(lines.join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => null);

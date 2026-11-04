@@ -2,6 +2,7 @@ const { MessageFlags } = require("discord.js") as typeof import("discord.js");
 const { memberIsHighStaffForPointReview } = require("../../runtime/partnerPointContextUtils") as typeof import("../../runtime/partnerPointContextUtils");
 const { reviewPartnerPointReport } = require("../../runtime/partnerPointReportReviewRuntime") as typeof import("../../runtime/partnerPointReportReviewRuntime");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const PREFIX_OK = "partner_pt_ok:";
 const PREFIX_NO = "partner_pt_no:";
 const EPHEMERAL = MessageFlags.Ephemeral;
@@ -28,7 +29,7 @@ export = {
     if (!interaction.guild || !interaction.member) return true;
     if (!memberIsHighStaffForPointReview(interaction.member)) {
       await interaction.reply({
-        content: "<a:VC_Cross:1482532424570376253> Solo High Staff o gestore PM può gestire le segnalazioni.",
+        content: `${E.VC_Cross} Solo High Staff o gestore PM può gestire le segnalazioni.`,
         flags: EPHEMERAL,
       });
       return true;
@@ -36,7 +37,7 @@ export = {
     const isConfirm = String(interaction.customId || "").startsWith(PREFIX_OK);
     const parsed = parseReportButton(interaction.customId, isConfirm ? PREFIX_OK : PREFIX_NO);
     if (!parsed) {
-      await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Pulsante non valido.", flags: EPHEMERAL });
+      await interaction.reply({ content: `${E.VC_Cross} Pulsante non valido.`, flags: EPHEMERAL });
       return true;
     }
     const result = await reviewPartnerPointReport({
@@ -50,13 +51,13 @@ export = {
     });
     if (!result.ok) {
       await interaction.reply({
-        content: `<a:VC_Cross:1482532424570376253> ${result.message || "Operazione non riuscita."}`,
+        content: `${E.VC_Cross} ${result.message || "Operazione non riuscita."}`,
         flags: EPHEMERAL,
       });
       return true;
     }
     await interaction.reply({
-      content: `<:success:1461731530333229226> ${result.message || "Fatto."}`,
+      content: `${E.success} ${result.message || "Fatto."}`,
       flags: EPHEMERAL,
     });
     return true;

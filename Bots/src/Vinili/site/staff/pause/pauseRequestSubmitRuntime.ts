@@ -3,6 +3,7 @@ const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../../shared/utils/ephemeralMessageTtl");
 const { createPauseRequest, PAUSE_REQUEST_ROLE_IDS } = require("./pauseRequestRuntime") as typeof import("./pauseRequestRuntime");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const PAUSE_ROLE_PICK_PREFIX = "pause_rolepick:";
 const PAUSE_ROLE_PICK_PM = `${PAUSE_ROLE_PICK_PREFIX}pm`;
 const PAUSE_ROLE_PICK_STAFF = `${PAUSE_ROLE_PICK_PREFIX}staff`;
@@ -31,10 +32,10 @@ async function resolveRequestedPauseRole(member?, channel?, authorMention?) {
 
 async function submitPauseRequestForMember({ guild, member, rawStart, rawEnd, reason, requestedRole = null, replyChannel = null, halfDay = null }) {
   if (!guild || !member?.id) {
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Richiesta non valida." };
+    return { ok: false, error: `${E.VC_Alert} Richiesta non valida.` };
   }
   if (!memberCanRequestPause(member)) {
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Non hai i permessi per richiedere una pausa." };
+    return { ok: false, error: `${E.VC_Alert} Non hai i permessi per richiedere una pausa.` };
   }
   const authorMention =
     typeof member?.toString === "function" ? String(member) : `<@${member.id}>`;
@@ -43,7 +44,7 @@ async function submitPauseRequestForMember({ guild, member, rawStart, rawEnd, re
   if (!role) {
     const channel = replyChannel || guild.channels.cache.get(IDs.channels?.pause);
     if (!channel?.isTextBased?.()) {
-      return { ok: false, error: "<a:VC_Alert:1482706673176150077> Canale pause non disponibile." };
+      return { ok: false, error: `${E.VC_Alert} Canale pause non disponibile.` };
     }
     const rolePick = await resolveRequestedPauseRole(member, channel, safeMention);
     if (rolePick.needsRolePick) {

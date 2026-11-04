@@ -3,6 +3,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { toDiscordTimestamp } = require("../../Moderation/utils/channelRolesLogUtils") as typeof import("../../Moderation/utils/channelRolesLogUtils");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const INVITE_DELETE_ACTION = AuditLogEvent?.InviteDelete ?? 42;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -91,17 +92,17 @@ export = {
 
       const embed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setTitle("<a:VC_Verified:1482532479637127188> Invito eliminato")
-        .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-            `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+        .setTitle(`${E.VC_Verified} Invito eliminato`)
+        .setDescription([`${E.VC_Staff} **Responsabile:** ${responsibleText}`,
+            `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
             "",
             "**Impostazioni precedenti**",
-            `<:VC_Modifica:1478859646587633717> **Codice:** ${code}`,
-            inviteUrl ? `<:VC_Modifica:1478859646587633717> **URL:** ${inviteUrl}` : null,
-            `<:VC_Modifica:1478859646587633717> **Canale:** ${channelText}`,
-            `<:VC_Modifica:1478859646587633717> **Utilizzi:** ${normalizeCount(invite.maxUses, 0)}`,
-            `<:VC_Modifica:1478859646587633717> **Scadenza:** ${formatMaxAge(invite.maxAge)}`,
-            `<:VC_Modifica:1478859646587633717> **Temporaneo:** ${Boolean(invite.temporary) ? "Si" : "No"}`,
+            `${E.VC_Modifica} **Codice:** ${code}`,
+            inviteUrl ? `${E.VC_Modifica} **URL:** ${inviteUrl}` : null,
+            `${E.VC_Modifica} **Canale:** ${channelText}`,
+            `${E.VC_Modifica} **Utilizzi:** ${normalizeCount(invite.maxUses, 0)}`,
+            `${E.VC_Modifica} **Scadenza:** ${formatMaxAge(invite.maxAge)}`,
+            `${E.VC_Modifica} **Temporaneo:** ${Boolean(invite.temporary) ? "Si" : "No"}`,
           ]
             .filter(Boolean)
             .join("\n"));

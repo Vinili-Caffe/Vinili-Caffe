@@ -2,6 +2,7 @@ const { safePrefixPanelReply, safeMessageReply } = require("../../../../shared/d
 const { memberCanManageTenantPartnershipSettings } = require("../../core/tenantPartnershipAdminAccess") as typeof import("../../core/tenantPartnershipAdminAccess");
 const { resolveTenantLanguageForMessage, tenantNoticePayload } = require("../../tenant/tenantPartnershipPrefixMessages") as typeof import("../../tenant/tenantPartnershipPrefixMessages");
 const { refreshPartnershipConfigCache, getPartnershipConfigSync, isPartnershipSetupComplete } = require("../../core/tenantPartnershipSettings") as typeof import("../../core/tenantPartnershipSettings");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   shouldApplyMainPartnershipFilters,
   resolvePartnershipConfigSync,
@@ -26,7 +27,7 @@ async function executeMainSetup(message?, lang?) {
   if (isPartnershipSetupComplete(config) || config?.setupCompleted || config?.legacy) {
     return safeMessageReply(message, {
       embeds: [buildSetupAlreadyCompletedEmbed(lang)],
-      content: "<:VC_Info:1482526956703580372> Usa `+settings` per le impostazioni partnership.",
+      content: `${E.VC_Info} Usa \`+settings\` per le impostazioni partnership.`,
       allowedMentions: { repliedUser: false },
       skipAutoCleanup: true,
     });

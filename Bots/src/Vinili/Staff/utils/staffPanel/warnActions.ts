@@ -5,9 +5,10 @@ const { guildMemberDisplayAvatarUrlDynamic } = require("../../../../shared/disco
 const { resolveStaffValutazioniChannel } = require("../staffChannelUtils") as typeof import("../staffChannelUtils");
 const { SUCCESS_COLOR } = require("./helpers") as typeof import("./helpers");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 async function runProfileStaffWarnAdd(guild?, client?, targetUser?, actorUser?, reason?) {
   if (String(targetUser.id) === String(actorUser.id)) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
+    return { ok: false, message: `${E.VC_Attention} Non puoi usare questa azione su te stesso.` };
   }
   const warnChannel = await resolveStaffValutazioniChannel(guild, client);
   await ActivityUserProfile.findOneAndUpdate(
@@ -38,12 +39,12 @@ async function runProfileStaffWarnAdd(guild?, client?, targetUser?, actorUser?, 
       name: `Warn eseguito da ${actorUser.username}`,
       iconURL: guildMemberDisplayAvatarUrlDynamic(actorUser) || undefined,
     })
-    .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__**\`#${s.warnCount}\``)
+    .setTitle(`${E.VC_Alert} • **__WARN STAFF__**\`#${s.warnCount}\``)
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(targetMember || targetUser) || undefined)
     .setDescription(
-      `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${targetUser}
-            <:VC_reason:1478517122929004544> __${reason}__ 
-            <:VC_id:1478517313618575419> **ID Warn:** __\`${s.warnCount}\`__`,
+      `${E.VC_Staff} ${E.VC_Arrow} ${targetUser}
+            ${E.VC_reason} __${reason}__ 
+            ${E.VC_id} **ID Warn:** __\`${s.warnCount}\`__`,
     )
     .setColor(SUCCESS_COLOR);
   /* Warn staff: solo sito (niente post canale Discord). */
@@ -78,20 +79,20 @@ async function runProfileStaffWarnRemove(guild?, client?, targetUser?, actorUser
   const s = ensureStaff(profileDoc);
   const idx = removeId - 1;
   if (!Number.isInteger(removeId) || removeId < 1 || !s.warnReasons?.[idx]) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> ID warn non valido (usa il numero dalla lista in **Warn staff**)." };
+    return { ok: false, message: `${E.VC_Attention} ID warn non valido (usa il numero dalla lista in **Warn staff**).` };
   }
   if (tradeCount > 0) {
     if (tradeCount > WARN_REMOVE_POS_TRADE_MAX) {
       return {
         ok: false,
-        message: `<:VC_Attention:1482534443632558151> Massimo \`${WARN_REMOVE_POS_TRADE_MAX}\` positive per scambio.`,
+        message: `${E.VC_Attention} Massimo \`${WARN_REMOVE_POS_TRADE_MAX}\` positive per scambio.`,
       };
     }
     const available = Array.isArray(s.positiveReasons) ? s.positiveReasons.length : 0;
     if (available < tradeCount) {
       return {
         ok: false,
-        message: `<:VC_Attention:1482534443632558151> Servono **almeno ${tradeCount} valutazioni positive** per lo scambio (ne ha \`${available}\`).`,
+        message: `${E.VC_Attention} Servono **almeno ${tradeCount} valutazioni positive** per lo scambio (ne ha \`${available}\`).`,
       };
     }
   }
@@ -110,7 +111,7 @@ async function runProfileStaffWarnRemove(guild?, client?, targetUser?, actorUser
       guild,
       tradeReason,
       (finalPos?) =>
-        `<:VC_OnlineStatus:1482527088912240650> Ora ${targetUser?.id ? `<@${targetUser.id}>` : "lo staffer"} è a \`${finalPos}\` valutazioni positive!`,
+        `${E.VC_OnlineStatus} Ora ${targetUser?.id ? `<@${targetUser.id}>` : "lo staffer"} è a \`${finalPos}\` valutazioni positive!`,
     );
     tradedPositives = Number(posResult?.removed || tradeCount);
   }
@@ -133,17 +134,17 @@ async function runProfileStaffWarnRemove(guild?, client?, targetUser?, actorUser
 
   if (warnChannel?.isTextBased?.()) {
     const tradeLine = tradedPositives
-      ? `\n<:thumbsup:1471292172145004768> **Scambio:** rimosse **${tradedPositives}** positive più vecchie.`
+      ? `\n${E.thumbsup} **Scambio:** rimosse **${tradedPositives}** positive più vecchie.`
       : "";
     const embed = new EmbedBuilder()
       .setAuthor({
         name: `Warn staff rimosso da ${actorUser.username}`,
         iconURL: guildMemberDisplayAvatarUrlDynamic(actorUser) || undefined,
       })
-      .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF RIMOSSO__**`)
+      .setTitle(`${E.VC_Alert} • **__WARN STAFF RIMOSSO__**`)
       .setThumbnail(guildMemberDisplayAvatarUrlDynamic(targetUser) || undefined)
       .setDescription(
-        `<:VC_Staff:1494286904089247754> ${targetUser}\n<:VC_reason:1478517122929004544> __${String(reason).slice(0, 500)}__\n**Rimosso warn #${removeId}**${tradeLine}`,
+        `${E.VC_Staff} ${targetUser}\n${E.VC_reason} __${String(reason).slice(0, 500)}__\n**Rimosso warn #${removeId}**${tradeLine}`,
       )
       .setColor(SUCCESS_COLOR);
   }
@@ -167,7 +168,7 @@ async function runProfileStaffWarnRemove(guild?, client?, targetUser?, actorUser
     ok: true,
     tradedPositives,
     message: tradedPositives
-      ? `<a:VC_Verified:1482532479637127188> Warn rimosso. Scambiate anche **${tradedPositives}** positive.`
+      ? `${E.VC_Verified} Warn rimosso. Scambiate anche **${tradedPositives}** positive.`
       : null,
   };
 }

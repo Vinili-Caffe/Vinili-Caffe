@@ -8,6 +8,7 @@ const { resolveGuildChannel } = require("../../Community/events/joinInvites") as
 const { kickForJoinGate } = require("./joinBots") as typeof import("./joinBots");
 const { toUnix, formatAccountAge } = require("./joinSuspicious") as typeof import("./joinSuspicious");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const JOIN_LEAVE_LOG_CHANNEL_ID = IDs.channels.joinLeaveLogs;
 
 async function handleTooYoungAccount(member?, joinGateConfig = null) {
@@ -15,9 +16,9 @@ async function handleTooYoungAccount(member?, joinGateConfig = null) {
   const cfg = joinGateConfig || getJoinGateConfigSnapshot();
   const minAgeDays = Number(cfg?.newAccounts?.minAgeDays || 3);
   await kickForJoinGate(member, "Account troppo giovane per essere permesso.", [
-    `<:VC_Rules:1482527309868040393> **Regola:** Account troppo giovane`,
-    `<:VC_Clock:1473359204189474886> **Età account:** <t:${createdTs}:R>`,
-    `<:VC_Info:1482526956703580372> **Età minima:** ${minAgeDays} giorni`,
+    `${E.VC_Rules} **Regola:** Account troppo giovane`,
+    `${E.VC_Clock} **Età account:** <t:${createdTs}:R>`,
+    `${E.VC_Info} **Età minima:** ${minAgeDays} giorni`,
   ], cfg?.newAccounts?.action || "kick");
 }
 
@@ -29,15 +30,15 @@ async function sendJoinLog(member?) {
   const accountAge = formatAccountAge(member.user.createdAt);
   const joinLogEmbed = new EmbedBuilder()
     .setColor("#57F287")
-    .setTitle("<:VC_User:1482527453586002103> Membro Entrato")
+    .setTitle(`${E.VC_User} Membro Entrato`)
     .setDescription(
       [
-        `<:VC_User:1482527453586002103> **Membro:** ${member.user} ${member.user.tag}.`,
+        `${E.VC_User} **Membro:** ${member.user} ${member.user.tag}.`,
         "",
-        "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
-        `<:VC_Id:1482527453586002103> **Id:** \`${member.user.id}\``,
-        `<:VC_Modifica:1478859646587633717> **Username:** ${member.user.username}`,
-        `<:VC_Clock:1473359204189474886> **Creation:** <t:${createdTs}:R>`,
+        `**${E.VC_tools} Informazioni aggiuntive**`,
+        `${E.VC_Id} **Id:** \`${member.user.id}\``,
+        `${E.VC_Modifica} **Username:** ${member.user.username}`,
+        `${E.VC_Clock} **Creation:** <t:${createdTs}:R>`,
         accountAge,
       ].join("\n"),
     )

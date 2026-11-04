@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   exportClipFromCommand,
   parseClipDurationSec,
@@ -19,7 +20,7 @@ export = {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setDescription("<:vegax:1443934876440068179> Questo comando funziona solo in un server."),
+            .setDescription(`${E.vegax} Questo comando funziona solo in un server.`),
         ],
         allowedMentions: { repliedUser: false },
       });
@@ -30,7 +31,7 @@ export = {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setDescription(`<:vegax:1443934876440068179> ${CLIP_DISABLED_MESSAGE}`),
+            .setDescription(`${E.vegax} ${CLIP_DISABLED_MESSAGE}`),
         ],
         allowedMentions: { repliedUser: false },
       });
@@ -42,7 +43,7 @@ export = {
         embeds: [
           new EmbedBuilder()
             .setColor("#ED4245")
-            .setDescription("<:vegax:1443934876440068179> Devi essere in un canale vocale."),
+            .setDescription(`${E.vegax} Devi essere in un canale vocale.`),
         ],
         allowedMentions: { repliedUser: false },
       });
@@ -56,7 +57,7 @@ export = {
         embeds: [
           new EmbedBuilder()
             .setColor("#ED4245")
-            .setDescription(`<:vegax:1443934876440068179> ${parsed.message}`),
+            .setDescription(`${E.vegax} ${parsed.message}`),
         ],
         allowedMentions: { repliedUser: false },
       });
@@ -85,7 +86,7 @@ export = {
     if (!result.ok) {
       const failEmbed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setDescription(`<:vegax:1443934876440068179> ${result.message || "Clip non riuscita."}`);
+        .setDescription(`${E.vegax} ${result.message || "Clip non riuscita."}`);
       if (pending?.editable) {
         await pending.edit({ embeds: [failEmbed], components: [] }).catch(() => null);
         scheduleMessageDeletion(pending, EPHEMERAL_TTL_SHORT_MS);

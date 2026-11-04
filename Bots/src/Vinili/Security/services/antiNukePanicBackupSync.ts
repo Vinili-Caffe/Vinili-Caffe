@@ -4,6 +4,7 @@ const { ANTINUKE_CONFIG } = require("./antiNukeConfig") as typeof import("./anti
 const { sendAntiNukeLog } = require("./antiNukeLog") as typeof import("./antiNukeLog");
 const { restoreDeletedRoleSnapshots, restoreDeletedChannelSnapshots } = require("./antiNukePanicRestoreSnapshots") as typeof import("./antiNukePanicRestoreSnapshots");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function runAutoBackupSyncAfterPanic(guild?, state?) {
   const cfg = ANTINUKE_CONFIG.panicMode.autoBackupSync;
   if (!guild || !state) return;
@@ -28,7 +29,7 @@ async function runAutoBackupSyncAfterPanic(guild?, state?) {
       }
       const channel = await getGuildChannelCached(guild, String(channelId), { ttlMs: 30_000 });
       if (!channel) continue;
-      const deleted = await channel.delete("<a:VC_Unlock:1482532082466029608> AntiNuke panic cleanup: delete new channel").then(() => true).catch(() => false);
+      const deleted = await channel.delete(`${E.VC_Unlock} AntiNuke panic cleanup: delete new channel`).then(() => true).catch(() => false);
       if (deleted) {
         if (Number(channel.type) === 4) categoriesDeleted += 1;
         else channelsDeleted += 1;
@@ -42,7 +43,7 @@ async function runAutoBackupSyncAfterPanic(guild?, state?) {
       if (!role) continue;
       if (role.managed) continue;
       if (role.position >= me.roles.highest.position) continue;
-      const deleted = await role.delete("<a:VC_Unlock:1482532082466029608> AntiNuke panic cleanup: delete new role").then(() => true).catch(() => false);
+      const deleted = await role.delete(`${E.VC_Unlock} AntiNuke panic cleanup: delete new role`).then(() => true).catch(() => false);
       if (deleted) rolesDeleted += 1;
     }
   }
@@ -53,7 +54,7 @@ async function runAutoBackupSyncAfterPanic(guild?, state?) {
       : null;
     for (const webhook of webhooks?.values?.() || []) {
       if (!state.createdWebhookIds.has(String(webhook.id))) continue;
-      const deleted = await webhook.delete("<a:VC_Unlock:1482532082466029608> AntiNuke panic cleanup: delete new webhook").then(() => true).catch(() => false);
+      const deleted = await webhook.delete(`${E.VC_Unlock} AntiNuke panic cleanup: delete new webhook`).then(() => true).catch(() => false);
       if (deleted) webhooksDeleted += 1;
     }
   }
@@ -82,13 +83,13 @@ async function runAutoBackupSyncAfterPanic(guild?, state?) {
   ) {
     await sendAntiNukeLog(
       guild,
-      "<a:VC_Alert:1482706673176150077> AntiNuke: Restore System",
+      `${E.VC_Alert} AntiNuke: Restore System`,
       [
-        `<:VC_reason:1478517122929004544> **Roles ripristinati:** ${Number(restoredRoles.restored || 0)}`,
-        `<:VC_reason:1478517122929004544> **Ruoli falliti:** ${Number(restoredRoles.failed || 0)}`,
-        `<:VC_reason:1478517122929004544> **Canali ripristinati:** ${Number(restoredChannels.restored || 0)}`,
-        `<:VC_reason:1478517122929004544> **Canali falliti:** ${Number(restoredChannels.failed || 0)}`,
-        `<:VC_reason:1478517122929004544> Per ripristino completo canali/ruoli usa **+backup** → **Carica backup**.`,
+        `${E.VC_reason} **Roles ripristinati:** ${Number(restoredRoles.restored || 0)}`,
+        `${E.VC_reason} **Ruoli falliti:** ${Number(restoredRoles.failed || 0)}`,
+        `${E.VC_reason} **Canali ripristinati:** ${Number(restoredChannels.restored || 0)}`,
+        `${E.VC_reason} **Canali falliti:** ${Number(restoredChannels.failed || 0)}`,
+        `${E.VC_reason} Per ripristino completo canali/ruoli usa **+backup** → **Carica backup**.`,
       ],
       Number(restoredRoles.failed || 0) > 0 || Number(restoredChannels.failed || 0) > 0
         ? "#F59E0B"

@@ -1,3 +1,4 @@
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function disableRows(components?) {
   const rows = Array.isArray(components) ? components : [];
   return rows.map((row?) => {
@@ -18,14 +19,14 @@ function disableRows(components?) {
 function buildReviewStatusLine(isConfirm?, reviewerUserId?) {
   const ts = Math.floor(Date.now() / 1000);
   return isConfirm
-    ? `<:success:1461731530333229226> Rimozione **confermata** da <@${reviewerUserId}> (<t:${ts}:f>).`
-    : `<:cancel:1461730653677551691> Segnalazione **negata** da <@${reviewerUserId}> (<t:${ts}:f>).`;
+    ? `${E.success} Rimozione **confermata** da <@${reviewerUserId}> (<t:${ts}:f>).`
+    : `${E.cancel} Segnalazione **negata** da <@${reviewerUserId}> (<t:${ts}:f>).`;
 }
 
 function buildUpdatedLogContent(originalContent?, isConfirm?, reviewerUserId?) {
   const statusLine = buildReviewStatusLine(isConfirm, reviewerUserId);
   const nextContent = String(originalContent || "")
-    .replace(/\n?<:VC_Attention:1482534443632558151> In attesa di conferma High Staff\.\s*$/i, "")
+    .replace(/\n?${E.VC_Attention} In attesa di conferma High Staff\.\s*$/i, "")
     .trim();
   return `${nextContent}\n${statusLine}`;
 }

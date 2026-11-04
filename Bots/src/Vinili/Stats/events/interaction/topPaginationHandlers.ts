@@ -1,4 +1,5 @@
 const { TOP_CHANNEL_PAGE_MODAL_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_MODAL_INPUT_CUSTOM_ID, buildTopChannelPayload, normalizeLookbackDays, normalizeTopView, normalizeControlsView, normalizePage, } = require("../../../Stats/discord/prefix/top") as typeof import("../../../Stats/discord/prefix/top");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const SNOWFLAKE_RE = /^\d{16,20}$/;
 
 function parseTopPageModalCustomId(rawCustomId?) {
@@ -34,7 +35,7 @@ export = {
       String(parsed.ownerId) !== String(interaction.user?.id || "")
     ) {
       await interaction.reply({
-        content: "<:vegax:1443934876440068179> Non puoi modificare questo controllo.",
+        content: `${E.vegax} Non puoi modificare questo controllo.`,
         flags: 1 << 6,
       }).catch(() => { });
       return true;
@@ -46,7 +47,7 @@ export = {
       const requestedPage = Math.min(Math.max(1, inputPage), parsed.totalPages);
 
       if (!interaction.message) {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Non trovo il messaggio da aggiornare." }).catch(() => { });
+        await interaction.reply({ content: `${E.vegax} Non trovo il messaggio da aggiornare.` }).catch(() => { });
         return true;
       }
 
@@ -63,9 +64,9 @@ export = {
     } catch (error) {
       global.logger?.error?.("[TOP CHANNEL PAGE MODAL] Failed:", error);
       if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({ content: "<:vegax:1443934876440068179> Errore durante il cambio pagina." }).catch(() => { });
+        await interaction.followUp({ content: `${E.vegax} Errore durante il cambio pagina.` }).catch(() => { });
       } else {
-        await interaction.reply({ content: "<:vegax:1443934876440068179> Errore durante il cambio pagina." }).catch(() => { });
+        await interaction.reply({ content: `${E.vegax} Errore durante il cambio pagina.` }).catch(() => { });
       }
     }
     return true;

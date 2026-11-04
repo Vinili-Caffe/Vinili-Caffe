@@ -1,35 +1,20 @@
-const { restoreTempBans } = require("../../../Moderation/services/joinRaidService") as typeof import("../../../Moderation/services/joinRaidService");
 const { bootstrapMinigameScheduler } = require("../../../Minigames/services/minigameSchedulerService") as typeof import("../../../Minigames/services/minigameSchedulerService");
-const { startVerificationTenureLoop, } = require("../../../Community/services/communityOpsService") as typeof import("../../../Community/services/communityOpsService");
-const { startBirthdayLoop } = require("../../../Community/services/birthdayService") as typeof import("../../../Community/services/birthdayService");
-const { startDailyMemberStatsLoop } = require("../../../Community/services/dailyMemberStatsService") as typeof import("../../../Community/services/dailyMemberStatsService");
-const { startDailyEngagementStatsLoop } = require("../../../Community/services/dailyEngagementStatsService") as typeof import("../../../Community/services/dailyEngagementStatsService");
-const { startDailyChannelMessageStatsLoop } = require("../../../Community/services/dailyChannelMessageStatsService") as typeof import("../../../Community/services/dailyChannelMessageStatsService");
 const { startLiveVoiceExpLoop, } = require("../../../Community/services/activityService") as typeof import("../../../Community/services/activityService");
-const { startCustomRoleExpiryLoop, } = require("../../../Community/services/customRoleExpiryService") as typeof import("../../../Community/services/customRoleExpiryService");
-const { startTicketAutoClosePromptLoop, startTranscriptCleanupLoop, } = require("../../../../MultiGuild/tickets/transcript/ticketMaintenanceService") as typeof import("../../../../MultiGuild/tickets/transcript/ticketMaintenanceService");
-const { startModCaseLifecycleLoop } = require("../../../Moderation/services/modCaseLifecycleService") as typeof import("../../../Moderation/services/modCaseLifecycleService");
-const { startWeeklyStaffResocontoLoop } = require("../../../Staff/services/weeklyStaffResocontoService") as typeof import("../../../Staff/services/weeklyStaffResocontoService");
-const { startWeeklyActivityWinnersLoop } = require("../../../Community/services/weeklyActivityWinnersService") as typeof import("../../../Community/services/weeklyActivityWinnersService");
-const { startStafferDellaSettimanaLoop } = require("../../../Staff/services/stafferDellaSettimanaService") as typeof import("../../../Staff/services/stafferDellaSettimanaService");
-const { startTwitchLiveAlertLoop } = require("../../../Community/services/twitchLiveAlertService") as typeof import("../../../Community/services/twitchLiveAlertService");
-const { startGameNewsAlertLoop } = require("../../../Community/services/gameNewsAlertService") as typeof import("../../../Community/services/gameNewsAlertService");
-const { startStreamerStageGuardLoop } = require("../../../Community/services/streamerStageGuardService") as typeof import("../../../Community/services/streamerStageGuardService");
 const { runScheduledEnds, syncActiveGiveawayButtons, scheduleActiveGiveawayEnds } = require("../../../Giveaway/services/giveawayService") as typeof import("../../../Giveaway/services/giveawayService");
-const { startStaffGracePurgeLoop } = require("../../../Community/services/userLeaveBackupService") as typeof import("../../../Community/services/userLeaveBackupService");
-const { startUserFullStatePersistenceLoop } = require("../../../Community/services/userFullStatePersistenceService") as typeof import("../../../Community/services/userFullStatePersistenceService");
-const { startDbMaintenanceLoop } = require("../../../Community/services/dbMaintenanceService") as typeof import("../../../Community/services/dbMaintenanceService");
-const { startVoteQueueLoop } = require("../../../site/http/discadiaVoteQueueService") as typeof import("../../../site/http/discadiaVoteQueueService");
-const { startWebhookServer, shouldStartBotHttpServer } = require("../../../site/http/webhookService") as typeof import("../../../site/http/webhookService");
-const { startMovieNightAnnouncementLoop, } = require("../../../Community/services/movieNightAnnouncementService") as typeof import("../../../Community/services/movieNightAnnouncementService");
-const { startGlobalExpEventAnnouncementLoop } = require("../../../Community/services/globalExpEventAnnouncementService") as typeof import("../../../Community/services/globalExpEventAnnouncementService");
-const { startPremiumExpiryReminderLoop } = require("../../../../MultiGuild/services/premiumExpiryReminderService") as typeof import("../../../../MultiGuild/services/premiumExpiryReminderService");
 const { sweepExpiredPartnerManagerTimedPerks } = require("../../../Staff/utils/partnerManagerTimedPerks") as typeof import("../../../Staff/utils/partnerManagerTimedPerks");
+const { restoreTempBans } = require("../../../Moderation/services/joinRaidService") as typeof import("../../../Moderation/services/joinRaidService");
+const { envFlagOn } = require("../../../../shared/runtime/externalWorkerGate") as typeof import("../../../../shared/runtime/externalWorkerGate");
 const {
   LOOP_STAGGER_MS,
   ENGAGEMENT_INTERVAL_MS,
   JOIN_RAID_RESTORE_INTERVAL_MS,
 } = require("./startupHelpers") as typeof import("./startupHelpers");
+
+function skipExternalWorkerLoop(kind?) {
+  const key = String(kind || "").trim().toUpperCase();
+  if (!key) return false;
+  return envFlagOn(`${key}_EXTERNAL`) && !envFlagOn(`${key}_WORKER`);
+}
 
 function startPrimaryLoops(client?, engagementTick?) {
   if (client._primaryLoopsStarted) return;
@@ -46,35 +31,99 @@ function startPrimaryLoops(client?, engagementTick?) {
 
   const loopStarters = [
     ["[LIVE VOICE EXP] Failed to start loop", () => startLiveVoiceExpLoop(client)],
-    ["[MINIGAMES] Failed to start loop", () => void bootstrapMinigameScheduler(client).catch((err?) => global.logger?.error?.("[MINIGAMES] bootstrap failed:", err?.message || err))],
+    ["[MINIGAMES] Failed to start loop", () => {
+      /* MINIGAMES_EXTERNAL=1 → slot timer su bot-workers; gateway resta restore/expire/spawn-consumer */
+      void bootstrapMinigameScheduler(client).catch((err?) => global.logger?.error?.("[MINIGAMES] bootstrap failed:", err?.message || err));
+    }],
     ["[EventPlugins] Failed to register starwars plugin", () => {
       // Pack stagionali: halloween/hogwarts solo in archivio (non caricati). Star Wars via archivio.
       const { registerStarWarsPlugin } = require("../../../../../archivio/starwars/src/Vinili/EventPlugins/starwars/register") as any;
       registerStarWarsPlugin(client);
     }],
-    ["[DAILY MEMBER STATS] Failed to start loop", () => startDailyMemberStatsLoop(client)],
-    ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => startDailyEngagementStatsLoop(client)],
-    ["[DAILY CHANNEL MESSAGE STATS] Failed to start loop", () => startDailyChannelMessageStatsLoop(client)],
-    ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => startCustomRoleExpiryLoop(client)],
-    ["[USER FULL STATE] Failed to start persistence loop", () => startUserFullStatePersistenceLoop(client)],
-    ["[MOD CASE LIFECYCLE] Failed to start loop", () => startModCaseLifecycleLoop(client)],
-    ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => startTicketAutoClosePromptLoop(client)],
+    ["[DAILY MEMBER STATS] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startDailyMemberStatsLoop } = require("../../../Community/services/dailyMemberStatsService") as typeof import("../../../Community/services/dailyMemberStatsService");
+      startDailyMemberStatsLoop(client);
+    }],
+    ["[DAILY ENGAGEMENT STATS] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startDailyEngagementStatsLoop } = require("../../../Community/services/dailyEngagementStatsService") as typeof import("../../../Community/services/dailyEngagementStatsService");
+      startDailyEngagementStatsLoop(client);
+    }],
+    ["[DAILY CHANNEL MESSAGE STATS] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startDailyChannelMessageStatsLoop } = require("../../../Community/services/dailyChannelMessageStatsService") as typeof import("../../../Community/services/dailyChannelMessageStatsService");
+      startDailyChannelMessageStatsLoop(client);
+    }],
+    ["[CUSTOM ROLE EXPIRY] Failed to start cleanup loop", () => {
+      if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
+      const { startCustomRoleExpiryLoop } = require("../../../Community/services/customRoleExpiryService") as typeof import("../../../Community/services/customRoleExpiryService");
+      startCustomRoleExpiryLoop(client);
+    }],
+    ["[USER FULL STATE] Failed to start persistence loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startUserFullStatePersistenceLoop } = require("../../../Community/services/userFullStatePersistenceService") as typeof import("../../../Community/services/userFullStatePersistenceService");
+      startUserFullStatePersistenceLoop(client);
+    }],
+    ["[MOD CASE LIFECYCLE] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
+      const { startModCaseLifecycleLoop } = require("../../../Moderation/services/modCaseLifecycleService") as typeof import("../../../Moderation/services/modCaseLifecycleService");
+      startModCaseLifecycleLoop(client);
+    }],
+    ["[TICKET AUTO CLOSE PROMPT] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
+      const { startTicketAutoClosePromptLoop } = require("../../../../MultiGuild/tickets/transcript/ticketMaintenanceService") as typeof import("../../../../MultiGuild/tickets/transcript/ticketMaintenanceService");
+      startTicketAutoClosePromptLoop(client);
+    }],
     ["[WEB TICKET SLA] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
       const { startWebTicketSlaNotifLoop } = require("../../../site/tickets/siteWebTicketsApi") as typeof import("../../../site/tickets/siteWebTicketsApi");
       startWebTicketSlaNotifLoop(client);
     }],
-    ["[TRANSCRIPT CLEANUP] Failed to start loop", () => startTranscriptCleanupLoop()],
-    ["[WEEKLY ACTIVITY WINNERS] Failed to start loop", () => startWeeklyActivityWinnersLoop(client)],
-    ["[STAFFER SETTIMANA] Failed to start loop", () => startStafferDellaSettimanaLoop(client)],
-    ["[BIRTHDAY] Failed to start loop", () => startBirthdayLoop(client)],
-    ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => startWeeklyStaffResocontoLoop(client)],
-    ["[PREMIUM EXPIRY REMINDER] Failed to start loop", () => startPremiumExpiryReminderLoop(client)],
-    ["[MOVIE NIGHT ANNOUNCE] Failed to start loop", () => startMovieNightAnnouncementLoop(client)],
-    ["[EXP EVENT ANNOUNCE] Failed to start loop", () => startGlobalExpEventAnnouncementLoop(client)],
-    /* pexImport1: una volta sola (segnata in BotState), 2 minuti dopo l'avvio */
+    ["[TRANSCRIPT CLEANUP] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
+      const { startTranscriptCleanupLoop } = require("../../../../MultiGuild/tickets/transcript/ticketMaintenanceService") as typeof import("../../../../MultiGuild/tickets/transcript/ticketMaintenanceService");
+      startTranscriptCleanupLoop();
+    }],
+    ["[WEEKLY ACTIVITY WINNERS] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startWeeklyActivityWinnersLoop } = require("../../../Community/services/weeklyActivityWinnersService") as typeof import("../../../Community/services/weeklyActivityWinnersService");
+      startWeeklyActivityWinnersLoop(client);
+    }],
+    ["[STAFFER SETTIMANA] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startStafferDellaSettimanaLoop } = require("../../../Staff/services/stafferDellaSettimanaService") as typeof import("../../../Staff/services/stafferDellaSettimanaService");
+      startStafferDellaSettimanaLoop(client);
+    }],
+    ["[BIRTHDAY] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startBirthdayLoop } = require("../../../Community/services/birthdayService") as typeof import("../../../Community/services/birthdayService");
+      startBirthdayLoop(client);
+    }],
+    ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startWeeklyStaffResocontoLoop } = require("../../../Staff/services/weeklyStaffResocontoService") as typeof import("../../../Staff/services/weeklyStaffResocontoService");
+      startWeeklyStaffResocontoLoop(client);
+    }],
+    ["[PREMIUM EXPIRY REMINDER] Failed to start loop", () => {
+      const { startPremiumExpiryReminderLoop } = require("../../../../MultiGuild/services/premiumExpiryReminderService") as typeof import("../../../../MultiGuild/services/premiumExpiryReminderService");
+      startPremiumExpiryReminderLoop(client);
+    }],
+    ["[MOVIE NIGHT ANNOUNCE] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startMovieNightAnnouncementLoop } = require("../../../Community/services/movieNightAnnouncementService") as typeof import("../../../Community/services/movieNightAnnouncementService");
+      startMovieNightAnnouncementLoop(client);
+    }],
+    ["[EXP EVENT ANNOUNCE] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startGlobalExpEventAnnouncementLoop } = require("../../../Community/services/globalExpEventAnnouncementService") as typeof import("../../../Community/services/globalExpEventAnnouncementService");
+      startGlobalExpEventAnnouncementLoop(client);
+    }],
+    /* pexImport1: una volta sola (segnata in BotState), 2 minuti dopo l'avvio — offload su BOT_SCHEDULER */
     [
       "[PEX IMPORT] import cronologia pex/depex fallito",
       () => {
+        if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
         const t = setTimeout(() => {
           const { importOldPexDepex } = require("../../../site/staff/pexDepexImport") as typeof import("../../../site/staff/pexDepexImport");
           importOldPexDepex(client).catch((err) => global.logger?.error?.("[PEX IMPORT]", err));
@@ -83,13 +132,33 @@ function startPrimaryLoops(client?, engagementTick?) {
       },
     ],
     /* perfP1: se COMMUNITY_POLL_EXTERNAL=1 i start* no-op qui (gira community-poll) */
-    ["[TWITCH LIVE] Failed to start loop", () => startTwitchLiveAlertLoop(client)],
-    ["[GAME NEWS] Failed to start loop", () => startGameNewsAlertLoop(client)],
-    ["[STREAMER STAGE] Failed to start guard", () => startStreamerStageGuardLoop(client)],
-    ["[DB MAINTENANCE] Failed to start loop", () => startDbMaintenanceLoop(client)],
-    ["[STAFF GRACE PURGE] Failed to start loop", () => startStaffGracePurgeLoop(client)],
+    ["[TWITCH LIVE] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startTwitchLiveAlertLoop } = require("../../../Community/services/twitchLiveAlertService") as typeof import("../../../Community/services/twitchLiveAlertService");
+      startTwitchLiveAlertLoop(client);
+    }],
+    ["[GAME NEWS] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startGameNewsAlertLoop } = require("../../../Community/services/gameNewsAlertService") as typeof import("../../../Community/services/gameNewsAlertService");
+      startGameNewsAlertLoop(client);
+    }],
+    ["[STREAMER STAGE] Failed to start guard", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startStreamerStageGuardLoop } = require("../../../Community/services/streamerStageGuardService") as typeof import("../../../Community/services/streamerStageGuardService");
+      startStreamerStageGuardLoop(client);
+    }],
+    ["[DB MAINTENANCE] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
+      const { startDbMaintenanceLoop } = require("../../../Community/services/dbMaintenanceService") as typeof import("../../../Community/services/dbMaintenanceService");
+      startDbMaintenanceLoop(client);
+    }],
+    ["[STAFF GRACE PURGE] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
+      const { startStaffGracePurgeLoop } = require("../../../Community/services/userLeaveBackupService") as typeof import("../../../Community/services/userLeaveBackupService");
+      startStaffGracePurgeLoop(client);
+    }],
     ["[JOIN RAID RESTORE] Failed to start loop", () => {
-      if (String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() === "1") return;
+      if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
       const tick = async () => {
         const guilds = [...client.guilds.cache.values()];
         for (const guild of guilds) { await restoreTempBans(guild).catch(() => { }); }
@@ -100,7 +169,7 @@ function startPrimaryLoops(client?, engagementTick?) {
       client._joinRaidRestoreInterval = timer;
     }],
     ["[GIVEAWAY] Failed to start scheduled end loop", () => {
-      if (String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() === "1") {
+      if (skipExternalWorkerLoop("BOT_SCHEDULER")) {
         return;
       }
       const tick = () =>
@@ -135,7 +204,7 @@ function startPrimaryLoops(client?, engagementTick?) {
     [
       "[PARTNER MANAGER TIMED PERKS] Failed to start loop",
       () => {
-        if (String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() === "1") return;
+        if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
         const tick = () => sweepExpiredPartnerManagerTimedPerks(client).catch(() => { });
         tick();
         const timer = setInterval(tick, 5 * 60 * 1000);
@@ -143,14 +212,34 @@ function startPrimaryLoops(client?, engagementTick?) {
         client._partnerManagerTimedPerksInterval = timer;
       },
     ],
-    ["[DISCADIA VOTE QUEUE] Failed to start loop", () => startVoteQueueLoop(client)],
+    ["[DISCADIA VOTE QUEUE] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("VOTE_QUEUE")) return;
+      const { startVoteQueueLoop } = require("../../../site/http/discadiaVoteQueueService") as typeof import("../../../site/http/discadiaVoteQueueService");
+      startVoteQueueLoop(client);
+    }],
     /* tenureVeteranoLoop1: sweep giornaliero NuovoUtente→Veterano→OG (era importato ma mai avviato) */
-    ["[VERIFY TENURE] Failed to start loop", () => startVerificationTenureLoop(client)],
+    ["[VERIFY TENURE] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startVerificationTenureLoop } = require("../../../Community/services/communityOpsService") as typeof import("../../../Community/services/communityOpsService");
+      startVerificationTenureLoop(client);
+    }],
     [
       "[BOT HTTP WEBHOOK] Failed to start",
       () => {
-        if (!shouldStartBotHttpServer(client)) return;
-        startWebhookServer(client).catch((err?) => global.logger?.error?.("[BOT HTTP WEBHOOK]", err));
+        const {
+          startWebhookServer,
+          startGatewayHealthOnlyHttp,
+          shouldStartBotHttpServer,
+        } = require("../../../site/http/webhookService") as typeof import("../../../site/http/webhookService");
+        if (shouldStartBotHttpServer(client)) {
+          startWebhookServer(client).catch((err?) => global.logger?.error?.("[BOT HTTP WEBHOOK]", err));
+          return;
+        }
+        try {
+          startGatewayHealthOnlyHttp(client);
+        } catch (err) {
+          global.logger?.error?.("[BOT HTTP HEALTH-ONLY]", err);
+        }
       },
     ],
   ];

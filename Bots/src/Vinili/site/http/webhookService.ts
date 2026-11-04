@@ -1,6 +1,7 @@
 /** Facade webhook HTTP: stessa API pubblica, implementazione nei moduli fratelli. */
 const {
   startWebhookServer,
+  startGatewayHealthOnlyHttp,
   shouldStartBotHttpServer,
   isCandidatureWebsiteApiEnabled,
 } = require("./webhookServerBootstrap") as typeof import("./webhookServerBootstrap");
@@ -11,6 +12,7 @@ const {
 
 export = {
   startWebhookServer,
+  startGatewayHealthOnlyHttp,
   shouldStartBotHttpServer,
   isCandidatureWebsiteApiEnabled,
   extractTopggVoteDiscordUserId,

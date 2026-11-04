@@ -3,6 +3,7 @@ const { ActivityUserProfile } = require("../../Community/schemas/communitySchema
 const { getPartnerLeaderboardWeekBoundsUtc } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
 const { TOP_LIMIT, rankLabel, formatUserLabel, fetchMembers } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const PLB_MODE_PREFIX = "plb_mode:";
 const {
   resolvePartnerPointsShown,
@@ -45,7 +46,7 @@ async function buildPartnerLbEmbed(guild?, visibleRows?, isWeekly?) {
     const score = Number(row.score || 0);
     lines.push(`${rankLabel(index)} ${label}`);
     lines.push(
-      `<:VC_Reply:1482532158080942191> __${score}__ partnership <:VC_Partner:1482527213780729896>`,
+      `${E.VC_Reply} __${score}__ partnership ${E.VC_Partner}`,
     );
   });
   if (lines.length === 0) {
@@ -85,11 +86,11 @@ function buildPartnerLbToggleRow(mode = "totale") {
     new ButtonBuilder()
       .setCustomId(`${PLB_MODE_PREFIX}settimanale`)
       .setStyle(active === "settimanale" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setEmoji("<a:vegaleftarrow:1462914743416131816>"),
+      .setEmoji(E.vegaleftarrow),
     new ButtonBuilder()
       .setCustomId(`${PLB_MODE_PREFIX}totale`)
       .setStyle(active === "totale" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setEmoji("<a:vegarightarrow:1443673039156936837>"),
+      .setEmoji(E.vegarightarrow),
   );
 }
 

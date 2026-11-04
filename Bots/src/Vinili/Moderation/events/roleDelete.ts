@@ -3,6 +3,7 @@ const { queueIdsCatalogSync } = require("../../Config/idsAutoSync") as typeof im
 const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible } = require("../../Moderation/utils/channelRolesLogUtils") as typeof import("../../Moderation/utils/channelRolesLogUtils");
 const { handleRoleDeletionAction: antiNukeHandleRoleDeletionAction } = require("../../Security/services/antiNukeService") as typeof import("../../Security/services/antiNukeService");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const ROLE_DELETE_ACTION = AuditLogEvent?.RoleDelete ?? 32;
 
 function sleep(ms?) {
@@ -38,23 +39,23 @@ export = {
       if (logChannel?.isTextBased?.()) {
         const responsible = formatAuditActor(audit.executor);
 
-        const lines=[`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-          `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(),"F")}`,
+        const lines=[`${E.VC_Staff} **Responsabile:** ${responsible}`,
+          `${E.VC_Clock} ${toDiscordTimestamp(new Date(),"F")}`,
         ];
-        if (audit.reason) lines.push(`<:VC_Modifica:1478859646587633717> **Motivo:** ${audit.reason}`);
+        if (audit.reason) lines.push(`${E.VC_Modifica} **Motivo:** ${audit.reason}`);
         lines.push(
           "",
-          "**<:VC_tools:1478862265305272364> Impostazioni precedenti**",
-          `<:VC_Modifica:1478859646587633717> **Nome:** ${role.name || "sconosciuto"}`,
-          `<:VC_Color:1482532543273238569> **Color:** ${role.hexColor || "#000000"}`,
-          `<:VC_Color:1482532543273238569> **Hoist:** ${yesNo(Boolean(role.hoist))}`,
-          `<a:VC_Mention:1482526855289634997> **Menzionabile:** ${yesNo(Boolean(role.mentionable))}`,
+          `**${E.VC_tools} Impostazioni precedenti**`,
+          `${E.VC_Modifica} **Nome:** ${role.name || "sconosciuto"}`,
+          `${E.VC_Color} **Color:** ${role.hexColor || "#000000"}`,
+          `${E.VC_Color} **Hoist:** ${yesNo(Boolean(role.hoist))}`,
+          `${E.VC_Mention} **Menzionabile:** ${yesNo(Boolean(role.mentionable))}`,
         );
         lines.push(...buildAuditExtraLines(audit.entry, ["name", "color", "hoist", "mentionable"]));
 
         const embed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setTitle("<:VC_Color:1482532543273238569> Ruolo Eliminato")
+        .setTitle(`${E.VC_Color} Ruolo Eliminato`)
         .setDescription(lines.join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => {});

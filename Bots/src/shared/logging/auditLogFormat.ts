@@ -1,5 +1,6 @@
 const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
-const ARROW = "<:VC_right_arrow:1482459908245815296>";
+const { E } = require("../emojis/emojiCatalog") as typeof import("../emojis/emojiCatalog");
+const ARROW = E.VC_right_arrow;
 
 function toDiscordTimestamp(value = new Date(), style = "F") {
   const ms = new Date(value).getTime();
@@ -96,10 +97,10 @@ function toLabel(key?) {
 }
 
 function serializeAuditValue(value?) {
-  if (value === null || value === undefined) return "<:cancel:1461730653677551691>";
+  if (value === null || value === undefined) return E.cancel;
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "number" || typeof value === "bigint") return String(value);
-  if (typeof value === "string") return value || "<:cancel:1461730653677551691>";
+  if (typeof value === "string") return value || E.cancel;
   if (Array.isArray(value)) {
     if (!value.length) return "[]";
     return value.map((v?) => serializeAuditValue(v)).join(", ");

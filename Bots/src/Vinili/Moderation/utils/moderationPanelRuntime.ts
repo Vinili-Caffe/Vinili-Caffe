@@ -10,6 +10,7 @@ const {
 } = require("discord.js") as typeof import("discord.js");
 const { memberDisplayName, userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const PANEL_PREFIX = "mpr";
 const SECTION_HOME = "home";
 const SECTION_SANCTIONS = "sanctions";
@@ -99,8 +100,8 @@ function buildNavRow(guildId?, viewerId?, targetId?, section?, sourceMessageId =
       .setCustomId(formatNavCustomId(g, v, t, sourceMessageId))
       .setPlaceholder(`Sezione: ${sectionLabel(sec)}`)
       .addOptions(
-        { label: "Home", value: SECTION_HOME, default: sec === SECTION_HOME, emoji: "<:VC_Info:1482526956703580372>" },
-        { label: "Sanzioni", value: SECTION_SANCTIONS, default: sec === SECTION_SANCTIONS, emoji: "<:VC_BanHammer:1482534474502897795>" },
+        { label: "Home", value: SECTION_HOME, default: sec === SECTION_HOME, emoji: E.VC_Info },
+        { label: "Sanzioni", value: SECTION_SANCTIONS, default: sec === SECTION_SANCTIONS, emoji: E.VC_BanHammer },
       ),
   );
 }
@@ -114,9 +115,9 @@ function buildHomeRow(guildId?, viewerId?, targetId?, sourceMessageId = null) {
       .setCustomId(formatHomeCustomId(g, v, t, sourceMessageId))
       .setPlaceholder("Warnings · moderazioni · modlogs")
       .addOptions(
-        { label: "Warnings", value: "warnings", emoji: "<:VC_Info:1482526956703580372>" },
-        { label: "Moderazioni attive", value: "moderations", emoji: "<:VC_BanHammer:1482534474502897795>" },
-        { label: "Modlogs", value: "modlogs", emoji: "<:VC_id:1478517313618575419>" },
+        { label: "Warnings", value: "warnings", emoji: E.VC_Info },
+        { label: "Moderazioni attive", value: "moderations", emoji: E.VC_BanHammer },
+        { label: "Modlogs", value: "modlogs", emoji: E.VC_id },
       ),
   );
 }
@@ -173,7 +174,7 @@ function buildCloseRow(guildId?, viewerId?, targetId?, sourceMessageId = null) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(formatCloseCustomId(guildId, viewerId, targetId, sourceMessageId))
-      .setEmoji("<:cancel:1461730653677551691>")
+      .setEmoji(E.cancel)
       .setStyle(ButtonStyle.Danger),
   );
 }
@@ -348,17 +349,17 @@ async function buildModerationPanelPayload(guild?, viewerId?, targetId?, client?
   const sourceMessageId = normalizeSourceMessageId(options?.sourceMessageId);
 
   const lines = [
-    `<:VC_Staff:1494286904089247754> **Target:** ${targetUser ? `${targetUser} (\`${tid}\`)` : `\`${tid}\``}`,
-    member ? `<:VC_OnlineStatus:1482527088912240650> **Nel server:** sì` : `<:VC_InactiveStatus:1482526984234860574> **Nel server:** no (alcune azioni richiedono la presenza)`,
+    `${E.VC_Staff} **Target:** ${targetUser ? `${targetUser} (\`${tid}\`)` : `\`${tid}\``}`,
+    member ? `${E.VC_OnlineStatus} **Nel server:** sì` : `${E.VC_InactiveStatus} **Nel server:** no (alcune azioni richiedono la presenza)`,
     "",
-    "<:VC_Info:1482526956703580372> **Home:** menu consultazioni (warnings, moderazioni, modlogs) e sotto i pulsanti **Case / Reason / Duration**. **Sanzioni:** pulsanti sanzione. Il menu in alto passa tra Home e Sanzioni.",
+    "${E.VC_Info} **Home:** menu consultazioni (warnings, moderazioni, modlogs) e sotto i pulsanti **Case / Reason / Duration**. **Sanzioni:** pulsanti sanzione. Il menu in alto passa tra Home e Sanzioni.",
     "",
     "_Comandi legacy (+ban, +kick, …) restano disponibili; questo pannello li riunisce._",
   ];
 
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:VC_BanHammer:1482534474502897795> Pannello moderazione")
+    .setTitle("${E.VC_BanHammer} Pannello moderazione")
     .setDescription(lines.join("\n"))
     .setThumbnail(userAvatarUrlDynamic(member || targetUser, { size: 128 }) || null)
     .setFooter({ text: `Server ${guild.id} · Aperto da ${vid} · Target ${name} · ${tid}` });

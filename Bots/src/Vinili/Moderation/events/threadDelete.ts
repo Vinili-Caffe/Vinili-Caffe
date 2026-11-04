@@ -3,6 +3,7 @@ const { AuditLogEvent, EmbedBuilder } = require("discord.js") as typeof import("
 const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible } = require("../../Moderation/utils/channelRolesLogUtils") as typeof import("../../Moderation/utils/channelRolesLogUtils");
 const { handleThreadDeletionAction: antiNukeHandleThreadDeletionAction } = require("../../Security/services/antiNukeService") as typeof import("../../Security/services/antiNukeService");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const THREAD_DELETE_ACTION = AuditLogEvent?.ThreadDelete ?? 112;
 
 function sleep(ms?) {
@@ -44,26 +45,26 @@ export = {
       const logChannel = await resolveChannelRolesLogChannel(guild);
       if (logChannel?.isTextBased?.()) {
         const lines = [
-          `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-          `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+          `${E.VC_Staff} **Responsabile:** ${responsible}`,
+          `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
           "",
-          "**<:VC_tools:1478862265305272364> Impostazioni precedenti**",
-          `<:VC_Modifica:1478859646587633717> **Nome:** ${thread?.name || "sconosciuto"} \`[${threadId}]\``,
-          `<:VC_Modifica:1478859646587633717> **Tipo:** ${threadTypeLabel(thread?.type)}`,
-          `<:VC_Modifica:1478859646587633717> **Archivio:** ${yesNo(Boolean(thread?.archived))}`,
-          `<:VC_Modifica:1478859646587633717> **Bloccato:** ${yesNo(Boolean(thread?.locked))}`,
-          `<:VC_Modifica:1478859646587633717> **Durata auto-archiviazione:** ${Number(thread?.autoArchiveDuration || 0) ? formatItalianMinutesPlain(thread.autoArchiveDuration) : "Nessuna"}`,
-          `<:VC_Modifica:1478859646587633717> **Slowmode per utente:** ${Number(thread?.rateLimitPerUser || 0) || "Nessuna"}`,
+          `**${E.VC_tools} Impostazioni precedenti**`,
+          `${E.VC_Modifica} **Nome:** ${thread?.name || "sconosciuto"} \`[${threadId}]\``,
+          `${E.VC_Modifica} **Tipo:** ${threadTypeLabel(thread?.type)}`,
+          `${E.VC_Modifica} **Archivio:** ${yesNo(Boolean(thread?.archived))}`,
+          `${E.VC_Modifica} **Bloccato:** ${yesNo(Boolean(thread?.locked))}`,
+          `${E.VC_Modifica} **Durata auto-archiviazione:** ${Number(thread?.autoArchiveDuration || 0) ? formatItalianMinutesPlain(thread.autoArchiveDuration) : "Nessuna"}`,
+          `${E.VC_Modifica} **Slowmode per utente:** ${Number(thread?.rateLimitPerUser || 0) || "Nessuna"}`,
         ];
 
         if (Array.isArray(thread?.appliedTags) && thread.appliedTags.length) {
-          lines.push(`<:VC_Modifica:1478859646587633717> **Tag applicati:** \`${thread.appliedTags.map((id?) => String(id)).join(", ")}\``);
+          lines.push(`${E.VC_Modifica} **Tag applicati:** \`${thread.appliedTags.map((id?) => String(id)).join(", ")}\``);
         }
         lines.push(...buildAuditExtraLines(audit.entry, ["name", "type", "archived", "locked", "auto_archive_duration", "rate_limit_per_user", "applied_tags"]));
 
         const embed = new EmbedBuilder()
           .setColor("#ED4245")
-          .setTitle("<:VC_threads:1478515497569095760> Thread Eliminato")
+          .setTitle(`${E.VC_threads} Thread Eliminato`)
           .setDescription(lines.join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => {});

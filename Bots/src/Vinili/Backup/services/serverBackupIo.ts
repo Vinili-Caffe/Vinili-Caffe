@@ -4,6 +4,7 @@ const zlib = require("zlib") as typeof import("zlib");
 const crypto = require("crypto") as typeof import("crypto");
 const { promisify } = require("util") as typeof import("util");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const gunzipAsync = promisify(zlib.gunzip);
 const gzipAsync = promisify(zlib.gzip);
 
@@ -154,7 +155,7 @@ function parseBackupIdFromFileName(fileName?) {
 
 function toSafeDateLabel(value?) {
   const date = new Date(value || Date.now());
-  if (Number.isNaN(date.getTime())) return "<a:VC_Alert:1482706673176150077> Data sconosciuta";
+  if (Number.isNaN(date.getTime())) return `${E.VC_Alert} Data sconosciuta`;
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
@@ -220,7 +221,7 @@ async function listGuildBackupMetas(guildId?, { search = "", limit = 25, offset 
     const meta = await readBackupMeta(guildId, backupId).catch(() => null);
     if (!meta) continue;
 
-    const guildName = meta.guildName || "<a:VC_Alert:1482706673176150077> Server sconosciuto";
+    const guildName = meta.guildName || `${E.VC_Alert} Server sconosciuto`;
     const dateLabel = toSafeDateLabel(meta.createdAt || file.mtimeMs);
     const label = `${guildName} | ${dateLabel} (${meta.backupId})`;
     const haystack = `${label} ${meta.backupId}`.toLowerCase();
@@ -285,7 +286,7 @@ async function listAllBackupMetas({ search = "", limit = 25, offset = 0 } = {}) 
     const meta = await readBackupMeta(entry.guildId, entry.backupId).catch(() => null);
     if (!meta) continue;
 
-    const guildName = meta.guildName || "<a:VC_Alert:1482706673176150077> Server sconosciuto";
+    const guildName = meta.guildName || `${E.VC_Alert} Server sconosciuto`;
     const dateLabel = toSafeDateLabel(meta.createdAt || entry.mtimeMs);
     const label = `${guildName} | ${dateLabel} (${meta.backupId})`;
     const haystack = `${label} ${meta.backupId} ${entry.guildId}`.toLowerCase();
@@ -352,14 +353,14 @@ async function readBackupByIdGlobal(backupRef?) {
   );
   if (uniqueGuildIds.length > 1) {
     const err: any = new Error(
-      `<a:VC_Alert:1482706673176150077> Backup \`${backupId}\` trovato in più server. Usa il formato \`guildId:${backupId}\`.`,
+      `${E.VC_Alert} Backup \`${backupId}\` trovato in più server. Usa il formato \`guildId:${backupId}\`.`,
     );
     err.code = "EAMBIGUOUS";
     throw err;
   }
   const hit = matches[0] || null;
   if (!hit?.guildId) {
-    const err: any = new Error(`<a:VC_Alert:1482706673176150077> Backup \`${backupId}\` non trovato.`);
+    const err: any = new Error(`${E.VC_Alert} Backup \`${backupId}\` non trovato.`);
     err.code = "ENOENT";
     throw err;
   }
@@ -511,7 +512,7 @@ async function readSecuritySnapshot(guildId?, snapshotId?) {
   const effectiveGuildId = getEffectiveGuildIdForSecurity(guildId);
   const normalizedId = String(snapshotId || "").trim();
   if (!normalizedId.startsWith(SECURITY_SNAPSHOT_PREFIX)) {
-    const err: any = new Error("<a:VC_Alert:1482706673176150077> Invalid security snapshot id");
+    const err: any = new Error(`${E.VC_Alert} Invalid security snapshot id`);
     err.code = "EBADSEC";
     throw err;
   }

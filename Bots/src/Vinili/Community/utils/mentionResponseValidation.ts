@@ -1,6 +1,7 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const MAX_LEN = 500;
 const MAX_NEWLINES = 4;
 const RACIST_WORD_PATTERNS = [
@@ -117,14 +118,14 @@ function validateMentionResponseText(raw?) {
     return {
       ok: false,
       reason: "empty",
-      userMessage: "<:VC_Attention:1482534443632558151> La risposta non può essere vuota.",
+      userMessage: "${E.VC_Attention} La risposta non può essere vuota.",
     };
   }
   if ((text.match(/\n/g) || []).length > MAX_NEWLINES) {
     return {
       ok: false,
       reason: "too_many_lines",
-      userMessage: "<:VC_Attention:1482534443632558151> Troppi a capo: massimo 4 righe.",
+      userMessage: "${E.VC_Attention} Troppi a capo: massimo 4 righe.",
     };
   }
   if (MENTION_RE.test(text)) {
@@ -132,7 +133,7 @@ function validateMentionResponseText(raw?) {
       ok: false,
       reason: "mention",
       userMessage:
-        "<:VC_Attention:1482534443632558151> Non puoi usare mention (@utente, @ruolo, @everyone, @here o canali).",
+        "${E.VC_Attention} Non puoi usare mention (@utente, @ruolo, @everyone, @here o canali).",
     };
   }
   if (
@@ -144,14 +145,14 @@ function validateMentionResponseText(raw?) {
     return {
       ok: false,
       reason: "link",
-      userMessage: "<:VC_Attention:1482534443632558151> Non sono ammessi link, inviti o URL.",
+      userMessage: "${E.VC_Attention} Non sono ammessi link, inviti o URL.",
     };
   }
   if (CODE_FENCE_RE.test(text)) {
     return {
       ok: false,
       reason: "code_block",
-      userMessage: "<:VC_Attention:1482534443632558151> Non sono ammessi blocchi di codice.",
+      userMessage: "${E.VC_Attention} Non sono ammessi blocchi di codice.",
     };
   }
   const blacklist = findBlacklistedWordMatch(text);
@@ -159,7 +160,7 @@ function validateMentionResponseText(raw?) {
     return {
       ok: false,
       reason: "blacklist",
-      userMessage: "<:VC_Attention:1482534443632558151> Il testo contiene parole non consentite dal regolamento.",
+      userMessage: "${E.VC_Attention} Il testo contiene parole non consentite dal regolamento.",
     };
   }
   return { ok: true, text };

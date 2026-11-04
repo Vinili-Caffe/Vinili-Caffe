@@ -3,6 +3,7 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { safeMessageReply } = require("../../discord/replyRuntime") as typeof import("../../discord/replyRuntime");
 const music = require("../services/lavalinkMusicService") as typeof import("../services/lavalinkMusicService");
 
+const { E } = require("../../emojis/emojiCatalog") as typeof import("../../emojis/emojiCatalog");
 function profileOf(opts: Record<string, any> = {}) {
   const prefix = String(opts.prefix || "+");
   const coffee = Boolean(opts.coffee);
@@ -10,7 +11,7 @@ function profileOf(opts: Record<string, any> = {}) {
     prefix,
     coffee,
     err(msg?) {
-      if (coffee) return `<a:VC_Cross:1482532424570376253> ${msg}`;
+      if (coffee) return `${E.VC_Cross} ${msg}`;
       return `**${msg}**`;
     },
   };

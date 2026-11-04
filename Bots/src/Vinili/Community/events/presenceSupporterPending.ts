@@ -3,6 +3,7 @@ const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../.
 const { applyPronounGenderToEmbedForMember } = require("../../Community/utils/pronounGenderUtils") as typeof import("../../Community/utils/pronounGenderUtils");
 const { SUPPORTER_STATUS_LINK_HINT_IT } = require("../../Community/utils/supporterStatusLink") as typeof import("../../Community/utils/supporterStatusLink");
 const { isBotMember, computeSupporterLinkState } = require("./presenceSupporterInviteState") as typeof import("./presenceSupporterInviteState");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   getCachedState,
   setCachedState,
@@ -26,16 +27,16 @@ function buildPendingEmbed(member?) {
       name: accountUsername(member),
       iconURL: thumb || undefined,
     })
-    .setTitle("Nuovx Fan <a:VC_StarPink:1330194976440848500>")
+    .setTitle(`Nuovx Fan ${E.VC_StarPink}`)
     .setThumbnail(thumb || null)
     .setDescription(
       [
         `<@${member.id}>, \`hai sbloccato:\``,
-        "<:VC_Reply:1482532158080942191> Ti verrà dato entro **3 minuti** dal bot!",
-        "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
-        "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare nickname",
+        `${E.VC_Reply} Ti verrà dato entro **3 minuti** dal bot!`,
+        `${E.VC_Infinity} - Permesso di allegare immagini e link in chat`,
+        `${E.VC_HeartWhite} - Permesso di cambiare nickname`,
         "",
-        `<a:VC_Arrow:1482706699365257397> Metti ${SUPPORTER_STATUS_LINK_HINT_IT} nel tuo status.`,
+        `${E.VC_Arrow} Metti ${SUPPORTER_STATUS_LINK_HINT_IT} nel tuo status.`,
       ].join("\n"),
     )
     .setFooter({ text: "Grazie per il tuo supporto!" });

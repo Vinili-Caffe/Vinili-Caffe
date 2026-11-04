@@ -6,6 +6,7 @@ const { showPrefixUsageGuide } = require("./prefixUsageGuide") as typeof import(
 const { buildErrorLogEmbed } = require("../discord/errorLogEmbed") as typeof import("../discord/errorLogEmbed");
 const { EPHEMERAL_TTL_SHORT_MS } = require("../utils/ephemeralMessageTtl") as typeof import("../utils/ephemeralMessageTtl");
 
+const { E } = require("../emojis/emojiCatalog") as typeof import("../emojis/emojiCatalog");
 /**
  * Shared official prefix engine (queue + permission precheck + execute).
  * Bot-specific gates via optional hooks (Vinili MultiGuild/Security/Partner).
@@ -745,7 +746,7 @@ function createOfficialPrefixDispatcher(options: Record<string, any> = {}) {
 
       await sendTemporaryReply(
         message,
-        { content: "<a:VC_Attention:1482534443632558151> Comando non trovato." },
+        { content: `${E.VC_Attention} Comando non trovato.` },
         EPHEMERAL_TTL_SHORT_MS,
       );
       return;

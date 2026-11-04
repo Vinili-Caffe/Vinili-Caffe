@@ -9,6 +9,7 @@ const { shouldSkipDiscordDmForActiveWebPush } = require("../../site/http/siteNot
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, getUserCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { DISCADIA_VOTE_ROOT, voteListingKey, claimVoteReminderSlot, releaseVoteReminderSlot, voteReminderLockKey } = require("./voteReminderState") as typeof import("./voteReminderState");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const discadiaVoteTimers = new Map();
 const STAFF_BYPASS_ROLE_IDS = new Set(
   [
@@ -50,9 +51,9 @@ function getVoteReminderText(client?) {
   return (
     client?.config?.discadiaVoteReminder?.message ||
     [
-      "<:discadia:1498023529055260682> Hey! Sono passate 24 ore: puoi votare di nuovo su Discadia.",
-      "<a:VC_ThankYou:1330186319673950401> **Grazie per il supporto!**",
-      "<:link:1470064815899803668> Per votare su Discadia, clicca sul pulsante sottostante:\n",
+      `${E.discadia} Hey! Sono passate 24 ore: puoi votare di nuovo su Discadia.`,
+      `${E.VC_ThankYou} **Grazie per il supporto!**`,
+      `${E.link} Per votare su Discadia, clicca sul pulsante sottostante:\n`,
     ]
   );
 }
@@ -69,9 +70,9 @@ function getTopggVoteReminderText(client?) {
   if (Array.isArray(raw) && raw.length) return raw;
   if (typeof raw === "string" && raw.trim()) return raw;
   return [
-    "<:VC_topgg:1495124467553275934> Hey! Sono passate 12 ore: puoi votare di nuovo su **Top.gg**.",
-    "<a:VC_ThankYou:1330186319673950401> **Grazie per il supporto!**",
-    "<:link:1470064815899803668> Per votare su Top.gg, clicca sul pulsante sottostante:\n",
+    `${E.VC_topgg} Hey! Sono passate 12 ore: puoi votare di nuovo su **Top.gg**.`,
+    `${E.VC_ThankYou} **Grazie per il supporto!**`,
+    `${E.link} Per votare su Top.gg, clicca sul pulsante sottostante:\n`,
   ];
 }
 
@@ -141,7 +142,7 @@ async function buildVoteReminderEmbed(client?, opts: Record<string, any> = {}) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setStyle(ButtonStyle.Link)
-          .setEmoji("<a:VC_HeartPink:1448673486603292685>")
+          .setEmoji(E.VC_HeartPink)
           .setLabel("Vota cliccando qui")
           .setURL(voteUrl),
       ),

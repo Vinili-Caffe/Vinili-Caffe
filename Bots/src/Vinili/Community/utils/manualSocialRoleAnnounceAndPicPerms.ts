@@ -2,6 +2,7 @@ const { EmbedBuilder, PermissionsBitField, AuditLogEvent } = require("discord.js
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { shouldSendPublicMemberAnnouncement } = require("./memberPublicAnnouncementGate") as typeof import("./memberPublicAnnouncementGate");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   wasRoleRestoredByMuteMirror,
   memberIsInMuteMirrorState,
@@ -25,15 +26,15 @@ const socialRoleAnnounceDedupe = new Map();
 const SELFIE_VERIFIED_GUILDED_STYLE_SPECS = [
   {
     roleId: IDs.roles.Verificato,
-    title: "Nuovx Verified ʰᵉᐟʰⁱᵐ <a:VC_StarPink:1330194976440848500>",
+    title: `Nuovx Verified ʰᵉᐟʰⁱᵐ ${E.VC_StarPink}`,
   },
   {
     roleId: IDs.roles.Verificata,
-    title: "Nuovx Verified ˢʰᵉᐟʰᵉʳ <a:VC_StarPink:1330194976440848500>",
+    title: `Nuovx Verified ˢʰᵉᐟʰᵉʳ ${E.VC_StarPink}`,
   },
   {
     roleId: IDs.roles.VerifiedNeo,
-    title: "Nuovx Verified ⁿ^ᐟꜝ <a:VC_StarPink:1330194976440848500>",
+    title: `Nuovx Verified ⁿ^ᐟꜝ ${E.VC_StarPink}`,
   },
 ].filter((s?) => s.roleId);
 const { botPhotoCdnUrl } = require("../../../shared/discord/botPhotosCdn") as typeof import("../../../shared/discord/botPhotosCdn");
@@ -166,11 +167,11 @@ function buildSelfieVerifiedGuildedStyleEmbed(member?, roleId?, title?) {
     .setDescription(
       [
         `<@${member.id}>, \`hai sbloccato:\``,
-        `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${roleId}>!`,
-        "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
-        "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare il nickname",
+        `${E.VC_Reply} Ti è stato assegnato il ruolo <@&${roleId}>!`,
+        `${E.VC_Infinity} - Permesso di allegare immagini e link in chat`,
+        `${E.VC_HeartWhite} - Permesso di cambiare il nickname`,
         "",
-        "<a:VC_Arrow:1482706699365257397> Scopri i tuoi vantaggi sul nostro [sito](https://viniliecaffe.it/perks).",
+        `${E.VC_Arrow} Scopri i tuoi vantaggi sul nostro [sito](https://viniliecaffe.it/perks).`,
       ].join("\n"),
     )
     .setFooter({ text: "Grazie per il tuo supporto!" })
@@ -270,15 +271,15 @@ async function sendFollowerRoleAnnounce(member?, channel?) {
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({ name: accountUsername(member), iconURL: guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined })
-    .setTitle("Nuovx Follower <a:VC_StarPink:1330194976440848500>")
+    .setTitle(`Nuovx Follower ${E.VC_StarPink}`)
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null)
     .setDescription([
       `<@${member.id}>, \`hai sbloccato:\``,
-      `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${followerId}>!`,
-      "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
-      "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare il nickname",
+      `${E.VC_Reply} Ti è stato assegnato il ruolo <@&${followerId}>!`,
+      `${E.VC_Infinity} - Permesso di allegare immagini e link in chat`,
+      `${E.VC_HeartWhite} - Permesso di cambiare il nickname`,
       "",
-      "<a:VC_Arrow:1482706699365257397> Seguici su [Instagram](https://instagram.com/viniliecaffe) e su [TikTok](https://tiktok.com/@viniliecaffe).",
+      `${E.VC_Arrow} Seguici su [Instagram](https://instagram.com/viniliecaffe) e su [TikTok](https://tiktok.com/@viniliecaffe).`,
     ].join("\n"))
     .setFooter({ text: "Grazie per il tuo supporto!" });
   applyPronounGenderToEmbedForMember(embed, member);
@@ -292,15 +293,15 @@ async function sendSocialSupporterRoleAnnounce(member?, channel?) {
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({ name: accountUsername(member), iconURL: guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined })
-    .setTitle("Nuovx Supporter <a:VC_StarPink:1330194976440848500>")
+    .setTitle(`Nuovx Supporter ${E.VC_StarPink}`)
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null)
     .setDescription([
       `<@${member.id}>, \`hai sbloccato:\``,
-      `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${socialSupId}>!`,
-      "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
-      "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare il nickname",
+      `${E.VC_Reply} Ti è stato assegnato il ruolo <@&${socialSupId}>!`,
+      `${E.VC_Infinity} - Permesso di allegare immagini e link in chat`,
+      `${E.VC_HeartWhite} - Permesso di cambiare il nickname`,
       "",
-      "<a:VC_Arrow:1482706699365257397> Metti `.gg/viniliecaffe`, `discord.gg/viniliecaffe` o `viniliecaffe.it` nella tua bio.",
+      `${E.VC_Arrow} Metti \`.gg/viniliecaffe\`, \`discord.gg/viniliecaffe\` o \`viniliecaffe.it\` nella tua bio.`,
     ].join("\n"))
     .setFooter({ text: "Grazie per il tuo supporto!" });
   applyPronounGenderToEmbedForMember(embed, member);

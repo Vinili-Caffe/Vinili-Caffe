@@ -21,6 +21,7 @@ const { t, normalizeTenantLanguage } = require("../../tenant/tenantProfileConsta
 const { resolveTenantLanguageForInteraction } = require("../../tenant/tenantPartnershipPrefixMessages") as typeof import("../../tenant/tenantPartnershipPrefixMessages");
 const { setTenantObjectiveFlag } = require("../../services/tenantObjectiveService") as typeof import("../../services/tenantObjectiveService");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const EPHEMERAL = 1 << 6;
 
 function isViewOnlyPanel(parsed?) {
@@ -69,7 +70,7 @@ export = {
 
     if (String(interaction.user?.id || "") !== parsed.ownerId) {
       const lang = await resolveTenantLanguageForInteraction(interaction);
-      await replyEphemeral(interaction, `<:vegax:1443934876440068179> ${t(lang, "notYourPanel")}`);
+      await replyEphemeral(interaction, `${E.vegax} ${t(lang, "notYourPanel")}`);
       return true;
     }
 
@@ -124,7 +125,7 @@ export = {
         language: nextLang,
         languageManual: true,
       });
-      await replyEphemeral(interaction, `<:success:1461731530333229226> ${t(nextLang, "languageUpdated")}`);
+      await replyEphemeral(interaction, `${E.success} ${t(nextLang, "languageUpdated")}`);
       section = (TENANT_PROFILE_SECTIONS.LANGUAGE as any);
     } else if (parsed.action === "bsel_slot") {
       const slotIndex = Math.max(0, Math.min(1, Number(parsed.extra) || 0));
@@ -135,7 +136,7 @@ export = {
       if (!badgeId) return true;
       selected.splice(slotIndex, 1);
       await updateTenantProfilePrefs(parsed.guildId, parsed.targetUserId, { selectedBadges: selected });
-      await replyEphemeral(interaction, `<:success:1461731530333229226> ${t(lang, "badgeRemoved")}`);
+      await replyEphemeral(interaction, `${E.success} ${t(lang, "badgeRemoved")}`);
       const ctx = resolveBadgePanelContext(interaction.message);
       const payload = await buildTenantProfilePayload(interaction.client, interaction.guild, {
         ownerId: parsed.ownerId,
@@ -155,14 +156,14 @@ export = {
       if (idx >= 0) {
         selected.splice(idx, 1);
         await updateTenantProfilePrefs(parsed.guildId, parsed.targetUserId, { selectedBadges: selected });
-        await replyEphemeral(interaction, `<:success:1461731530333229226> ${t(lang, "badgeRemoved")}`);
+        await replyEphemeral(interaction, `${E.success} ${t(lang, "badgeRemoved")}`);
       } else if (selected.length >= MAX_SELECTED_BADGES) {
-        await replyEphemeral(interaction, `<:vegax:1443934876440068179> ${t(lang, "badgeLimit")}`);
+        await replyEphemeral(interaction, `${E.vegax} ${t(lang, "badgeLimit")}`);
         return true;
       } else {
         selected.push(badgeId);
         await updateTenantProfilePrefs(parsed.guildId, parsed.targetUserId, { selectedBadges: selected });
-        await replyEphemeral(interaction, `<:success:1461731530333229226> ${t(lang, "badgeSelected")}`);
+        await replyEphemeral(interaction, `${E.success} ${t(lang, "badgeSelected")}`);
       }
       const ctx = resolveBadgePanelContext(interaction.message);
       const payload = await buildTenantProfilePayload(interaction.client, interaction.guild, {

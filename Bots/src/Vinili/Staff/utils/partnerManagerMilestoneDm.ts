@@ -3,6 +3,7 @@ const { ActivityUserProfile } = require("../../Community/schemas/communitySchema
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { sendUserDirectMessage } = require("../../../shared/discord/dmPrivacyNotice") as typeof import("../../../shared/discord/dmPrivacyNotice");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   PARTNER_REWARD_CANONICAL_TIERS,
   PARTNER_REWARD_LABELS,
@@ -57,7 +58,7 @@ async function maybeSendPartnerManagerRewardMilestoneDms(client?, guild?, userId
     const howTo = ticketLine.replace(/\{tier\}/g, String(cost));
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle(`<:VC_PartnerManager:1494286911286808576> Soglia ${cost} partner`)
+      .setTitle(`${E.VC_PartnerManager} Soglia ${cost} partner`)
       .setDescription(
         [
           `Hai raggiunto **${cost}** punti partner validi.`,

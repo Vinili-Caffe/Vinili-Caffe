@@ -38,9 +38,75 @@ function isSiteApiExternal() {
   return ["1", "true", "yes", "on"].includes(String(process.env.SITE_API_EXTERNAL || "").trim().toLowerCase());
 }
 
+function isSiteApiProcess() {
+  return ["1", "true", "yes", "on"].includes(String(process.env.SITE_API_PROCESS || "").trim().toLowerCase());
+}
+
+function isBotHttpOnGatewayForced() {
+  return ["1", "true", "yes", "on"].includes(String(process.env.BOT_HTTP_ON_GATEWAY || "").trim().toLowerCase());
+}
+
 function shouldStartBotHttpServer(client?) {
-  if (isSiteApiExternal()) return true;
+  /* vote-intake / site-api own HTTP; gateway skips Express unless explicitly forced. */
+  if (isSiteApiProcess()) return false;
+  if (isSiteApiExternal() && !isBotHttpOnGatewayForced()) return false;
+  if (isBotHttpOnGatewayForced()) {
+    return (
+      shouldStartDiscadiaVoteHttpWebhook(client) ||
+      shouldStartTopggVoteHttpWebhook(client) ||
+      isCandidatureWebsiteApiEnabled() ||
+      shouldStartPublicSiteReadonlyHttp()
+    );
+  }
   return shouldStartDiscadiaVoteHttpWebhook(client) || shouldStartTopggVoteHttpWebhook(client) || isCandidatureWebsiteApiEnabled() || shouldStartPublicSiteReadonlyHttp();
+}
+
+/**
+ * Health-only listener for host-watchdog when site-api owns real HTTP
+ * (`SITE_API_EXTERNAL=1` → no Express/votes/WS on the gateway).
+ */
+function startGatewayHealthOnlyHttp(client?) {
+  if (client?._botHttpWebhookServer?.listening) return;
+  if (client?._gatewayHealthOnlyServer?.listening) return;
+  if (shouldStartBotHttpServer(client)) return;
+  if (isSiteApiProcess()) return;
+  if (!isSiteApiExternal()) return;
+
+  const http = require("node:http") as typeof import("node:http");
+  const port = Number(client?.config?.discadia?.webhookPort || process.env.BOT_GATEWAY_HEALTH_PORT || 3000) || 3000;
+  const server = http.createServer((req?, res?) => {
+    const pathOnly = normalizeWebhookPath(req?.url || "/");
+    if (req?.method === "GET" && (pathOnly === "/webhooks/health" || pathOnly === "/webhooks/status")) {
+      const ok = Boolean(client?.user?.id);
+      const body = JSON.stringify({
+        ok,
+        status: ok ? "online" : "starting",
+        service: "bots-vinyls-gateway",
+        bot: client?.user?.tag || null,
+        ts: new Date().toISOString(),
+      });
+      res.writeHead(ok ? 200 : 503, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(body);
+      return;
+    }
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Not found");
+  });
+
+  client._gatewayHealthOnlyServer = server;
+  server.once("error", (err?: any) => {
+    if (client._gatewayHealthOnlyServer === server) client._gatewayHealthOnlyServer = null;
+    if (err?.code === "EADDRINUSE") {
+      global.logger?.error?.(
+        `[WEBHOOK] health-only: porta ${port} già in uso (gateway senza Express).`,
+      );
+      return;
+    }
+    global.logger?.error?.("[WEBHOOK] health-only listen failed:", err);
+  });
+  server.listen(port, "0.0.0.0", () => {
+    global.logger?.info?.(`[WEBHOOK] gateway health-only on 0.0.0.0:${port} (SITE_API_EXTERNAL)`);
+  });
 }
 
 async function startWebhookServer(client?) {
@@ -177,6 +243,7 @@ async function startWebhookServer(client?) {
 
 export = {
   startWebhookServer,
+  startGatewayHealthOnlyHttp,
   shouldStartBotHttpServer,
   isCandidatureWebsiteApiEnabled,
 };

@@ -16,6 +16,7 @@ const {
   parsePointsAmount,
 } = require("../../tenant/tenantPointsRuntime") as typeof import("../../tenant/tenantPointsRuntime");
 const { safeMessageEdit } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   partnersChatPartnerCommandDeniedReplyContent,
   schedulePartnersDeniedDeleteReply,
@@ -57,12 +58,12 @@ async function validatePointsControl(interaction?, parsed?) {
   }
 
   if (String(interaction.guild.id) !== parsed.guildId) {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Pulsante non valido per questo server.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Pulsante non valido per questo server.`);
     return { ok: false, reason: "guild" };
   }
 
   if (String(interaction.user?.id || "") !== parsed.ownerId) {
-    await replyEphemeral(interaction, "<:vegax:1443934876440068179> Solo chi ha avviato la modifica punti può confermare.");
+    await replyEphemeral(interaction, `${E.vegax} Solo chi ha avviato la modifica punti può confermare.`);
     return { ok: false, reason: "owner" };
   }
 
@@ -74,7 +75,7 @@ async function validatePointsControl(interaction?, parsed?) {
   if (!canManageTenantPoints(actorMember, targetMember, interaction.guild.id)) {
     await replyEphemeral(
       interaction,
-      "<a:VC_Cross:1482532424570376253> Solo un **Amministratore** può modificare i punti di un **Partner Manager**.",
+      `${E.VC_Cross} Solo un **Amministratore** può modificare i punti di un **Partner Manager**.`,
     );
     return { ok: false, reason: "perms" };
   }
@@ -112,7 +113,7 @@ export = {
         lang,
       );
       await interaction.showModal(modal).catch(async () => {
-        await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aprire il modulo.");
+        await replyEphemeral(interaction, `${E.VC_Cross} Impossibile aprire il modulo.`);
       });
       return true;
     }
@@ -128,7 +129,7 @@ export = {
     if (!amount) {
       await replyEphemeral(
         interaction,
-        `<a:VC_Cross:1482532424570376253> Inserisci un numero valido tra **1** e **${MAX_POINTS_AMOUNT}**.`,
+        `${E.VC_Cross} Inserisci un numero valido tra **1** e **${MAX_POINTS_AMOUNT}**.`,
       );
       return true;
     }
@@ -142,13 +143,13 @@ export = {
       });
       if (!staffData) {
         await interaction.editReply({
-          content: "<a:VC_Cross:1482532424570376253> Impossibile aggiungere i punti.",
+          content: `${E.VC_Cross} Impossibile aggiungere i punti.`,
         }).catch(() => {});
         return true;
       }
       await refreshPointsPanel(interaction, parsed, check.actorMember, lang);
       await interaction.editReply({
-        content: `<:success:1461731530333229226> **Punti aggiunti con successo!**\n**Points:** ${amount}`,
+        content: `${E.success} **Punti aggiunti con successo!**\n**Points:** ${amount}`,
       }).catch(() => {});
       return true;
     }
@@ -156,7 +157,7 @@ export = {
     const staffData = await removePartnerPoints(interaction.guild.id, parsed.targetUserId, amount);
     if (!staffData) {
       await interaction.editReply({
-        content: "<a:VC_Cross:1482532424570376253> Nessun punto da rimuovere.",
+        content: `${E.VC_Cross} Nessun punto da rimuovere.`,
       }).catch(() => {});
       return true;
     }
@@ -168,7 +169,7 @@ export = {
       if (logChannel?.isTextBased?.()) {
         await logChannel
           .send({
-            content: `<:981353partner:1524730506531311688> <@${parsed.targetUserId}> — **${removedAmount}** ${removedAmount === 1 ? "punto rimosso" : "punti rimossi"} da <@${interaction.user.id}>.`,
+            content: `${E["981353partner"]} <@${parsed.targetUserId}> — **${removedAmount}** ${removedAmount === 1 ? "punto rimosso" : "punti rimossi"} da <@${interaction.user.id}>.`,
             allowedMentions: { users: [parsed.targetUserId, interaction.user.id] },
           })
           .catch(() => null);
@@ -178,7 +179,7 @@ export = {
     await refreshPointsPanel(interaction, parsed, check.actorMember);
     const changeLabel = formatPartnerPointsChange("remove", removedAmount);
     await interaction.editReply({
-      content: `<:success:1461731530333229226> **${changeLabel}** con successo!\n**Points:** ${removedAmount}`,
+      content: `${E.success} **${changeLabel}** con successo!\n**Points:** ${removedAmount}`,
     }).catch(() => {});
     return true;
   },

@@ -1,6 +1,5 @@
 const { isMongoReady } = require("../../../../shared/db/mongoConnect") as typeof import("../../../../shared/db/mongoConnect");
-const { startBumpDueReminderSweepLoop, } = require("../../../Community/services/bumpService") as typeof import("../../../Community/services/bumpService");
-const { startDiscadiaVoteMonthRolloverCron } = require("../../../Community/services/discadiaVoteMonthRepairOnStartupService") as typeof import("../../../Community/services/discadiaVoteMonthRepairOnStartupService");
+const { envFlagOn, shouldStartExternalWorkerLoop } = require("../../../../shared/runtime/externalWorkerGate") as typeof import("../../../../shared/runtime/externalWorkerGate");
 const { restoreWelcomeSessionsFromDb } = require("../../../Community/services/officialMessageCommunityHandlers") as typeof import("../../../Community/services/officialMessageCommunityHandlers");
 const { runDueChannelReminders, } = require("../../../Community/services/channelReminderService") as typeof import("../../../Community/services/channelReminderService");
 const { migrateLegacyDailyStatsCollections } = require("../../../Community/services/dailyStatsStore") as typeof import("../../../Community/services/dailyStatsStore");
@@ -8,7 +7,6 @@ const { startDailyPartnerAuditLoop, } = require("../../../Partner/services/partn
 const { startStaffChatThreadsLoop } = require("../../../Staff/services/staffChatThreadsService") as typeof import("../../../Staff/services/staffChatThreadsService");
 const { startStaffCmdsThreadsLoop } = require("../../../Staff/services/staffCmdsThreadsService") as typeof import("../../../Staff/services/staffCmdsThreadsService");
 const { startPublicVoiceHubSetup } = require("../../../Community/services/publicVoiceHubService") as typeof import("../../../Community/services/publicVoiceHubService");
-const { startAutoBackupLoop } = require("../../../Backup/services/autoBackupService") as typeof import("../../../Backup/services/autoBackupService");
 const { runFullCleanupUsersNotInServer } = require("../../../Community/services/cleanupUsersNotInServerService") as typeof import("../../../Community/services/cleanupUsersNotInServerService");
 const { logBotReady } = require("../../../../shared/discord/readyLog") as typeof import("../../../../shared/discord/readyLog");
 const {
@@ -57,8 +55,26 @@ async function execute(client?) {
     } catch (err) {
       global.logger?.warn?.("[welcome-context] restore sessions:", err?.message || err);
     }
+    void (async () => {
+      try {
+        const { restorePendingVoiceTranscriptions } = require("../../../Voice/services/voiceTranscriptionService") as typeof import("../../../Voice/services/voiceTranscriptionService");
+        await restorePendingVoiceTranscriptions(client);
+      } catch (err) {
+        global.logger?.warn?.("[VOICE TRANSCRIBE] restore failed:", err?.message || err);
+      }
+    })();
+    void (async () => {
+      try {
+        const { restoreStanzaRoomsFromSnapshot } = require("../../../Voice/services/stanzaVoiceRoomsService") as typeof import("../../../Voice/services/stanzaVoiceRoomsService");
+        await restoreStanzaRoomsFromSnapshot(client);
+        const { maybeMigrateStanzaCoffeeBotOverwritesOnReady } = require("../../../Voice/services/stanzaMigrateCoffeeOverwrites") as typeof import("../../../Voice/services/stanzaMigrateCoffeeOverwrites");
+        await maybeMigrateStanzaCoffeeBotOverwritesOnReady(client);
+      } catch (err) {
+        global.logger?.warn?.("[stanza] snapshot restore failed:", err?.message || err);
+      }
+    })();
     const primaryScheduler = isPrimaryScheduler(client);
-    if (primaryScheduler) {
+    if (primaryScheduler && shouldStartExternalWorkerLoop("BOT_SCHEDULER")) {
       try {
         const result = await migrateLegacyDailyStatsCollections();
         if (!result?.skipped) global.logger?.info?.("[DAILY STATS MIGRATION] completed into dailystats.");
@@ -67,8 +83,9 @@ async function execute(client?) {
       }
     }
 
-    if (primaryScheduler) {
+    if (primaryScheduler && shouldStartExternalWorkerLoop("BOT_SCHEDULER")) {
       try {
+        const { startBumpDueReminderSweepLoop } = require("../../../Community/services/bumpService") as typeof import("../../../Community/services/bumpService");
         startBumpDueReminderSweepLoop(client);
       } catch (err) {
         global.logger?.error?.("[BUMP DUE REMINDER SWEEP] early start failed:", err?.message || err);
@@ -81,13 +98,15 @@ async function execute(client?) {
       } catch (err) {
         global.logger?.error?.("[DAILY PARTNER AUDIT ERROR]", err);
       }
-      try {
-        const {
-          startPartnershipHistoryMigrationWorker,
-        } = require("../../../Partner/services/tenantPartnershipHistoryMigrationService") as typeof import("../../../Partner/services/tenantPartnershipHistoryMigrationService");
-        startPartnershipHistoryMigrationWorker(client);
-      } catch (err) {
-        global.logger?.error?.("[PARTNERSHIP HISTORY MIGRATION WORKER]", err);
+      if (shouldStartExternalWorkerLoop("PARTNERSHIP_MIGRATION")) {
+        try {
+          const {
+            startPartnershipHistoryMigrationWorker,
+          } = require("../../../Partner/services/tenantPartnershipHistoryMigrationService") as typeof import("../../../Partner/services/tenantPartnershipHistoryMigrationService");
+          startPartnershipHistoryMigrationWorker(client);
+        } catch (err) {
+          global.logger?.error?.("[PARTNERSHIP HISTORY MIGRATION WORKER]", err);
+        }
       }
       try {
         startStaffCmdsThreadsLoop(client);
@@ -123,10 +142,13 @@ async function execute(client?) {
     }
 
     if (primaryScheduler) {
-      try {
-        startAutoBackupLoop(client);
-      } catch (err) {
-        global.logger?.error?.("[AUTO BACKUP] Failed to start loop", err);
+      if (shouldStartExternalWorkerLoop("AUTO_BACKUP")) {
+        try {
+          const { startAutoBackupLoop } = require("../../../Backup/services/autoBackupService") as typeof import("../../../Backup/services/autoBackupService");
+          startAutoBackupLoop(client);
+        } catch (err) {
+          global.logger?.error?.("[AUTO BACKUP] Failed to start loop", err);
+        }
       }
       try {
         const { startTestGuildMirrorSyncLoop } = require("../../../Partner/services/testGuildMirrorSyncService") as typeof import("../../../Partner/services/testGuildMirrorSyncService");
@@ -139,7 +161,7 @@ async function execute(client?) {
     if (primaryScheduler) {
       let engagementTickRunning = false;
       const engagementTick = async () => {
-        if (String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() === "1") return;
+        if (envFlagOn("BOT_SCHEDULER_EXTERNAL") && !envFlagOn("BOT_SCHEDULER_WORKER")) return;
         if (engagementTickRunning) return;
         engagementTickRunning = true;
         try {
@@ -164,15 +186,29 @@ async function execute(client?) {
 
     if (primaryScheduler) {
       scheduleMonthlyGif(client);
-      try {
-        startDiscadiaVoteMonthRolloverCron(client);
-      } catch (err) {
-        logError(client, "[DISCADIA_VOTE_MONTH_CRON] schedule failed:", err);
+      if (shouldStartExternalWorkerLoop("COMMUNITY_POLL")) {
+        try {
+          const { startDiscadiaVoteMonthRolloverCron } = require("../../../Community/services/discadiaVoteMonthRepairOnStartupService") as typeof import("../../../Community/services/discadiaVoteMonthRepairOnStartupService");
+          startDiscadiaVoteMonthRolloverCron(client);
+        } catch (err) {
+          logError(client, "[DISCADIA_VOTE_MONTH_CRON] schedule failed:", err);
+        }
       }
     }
     maybeCheckPackagesOnReady(client);
 
     logBotReady(client, readyStartedAt);
+
+    if (primaryScheduler) {
+      setTimeout(() => {
+        try {
+          const { startHourlyReminderLoop } = require("../../../Community/services/chatReminderService") as typeof import("../../../Community/services/chatReminderService");
+          startHourlyReminderLoop(client);
+        } catch (err) {
+          global.logger?.error?.("[CHAT REMINDER] Failed to start hourly loop:", err?.message || err);
+        }
+      }, 45_000).unref?.();
+    }
 
     try {
       const { initLavalinkMusicIfEnabled } = require("../../../../shared/music/services/lavalinkMusicService") as typeof import("../../../../shared/music/services/lavalinkMusicService");
@@ -182,7 +218,7 @@ async function execute(client?) {
     }
 
     void processPendingPrefixCommands(client).catch((err?) => global.logger?.warn?.("[READY] pending commands:", err?.message || err));
-    if (primaryScheduler) {
+    if (primaryScheduler && shouldStartExternalWorkerLoop("BOT_SCHEDULER")) {
       void runStartupPanels(client, "ready").catch(() => { });
             if (envFlagEnabled("STARTUP_PANELS_RETRY")) {
         const retryPanels = setTimeout(() => {
@@ -192,7 +228,7 @@ async function execute(client?) {
       }
     }
 
-    /* Serve GuildMembers sul gateway — non spostare su bot-workers REST. */
+    /* Full scan needs gateway member list (REST worker lacks it). Leaves also prune via guildMemberRemove → runCleanupAfterMemberLeave. */
     const cleanupDisabled = String(process.env.CLEANUP_USERS_NOT_IN_SERVER_ON_STARTUP || "1").trim().toLowerCase() === "0";
     if (!cleanupDisabled && (isFullStartupSyncEnabled() || shouldRunMediumStartup("cleanup-users", CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS || 24 * 60 * 60 * 1000))) {
       const t = setTimeout(() => {

@@ -1,6 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const { personalityPanelFindOneAndUpdate, personalityPanelUpdateOne } = require("../../services/globalSettingsGuildStores") as typeof import("../../services/globalSettingsGuildStores");
 const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const INFO_CHANNEL_ID = IDs.channels.info;
 const { getClientChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { upsertPanelMessage } = require("../../../../shared/discord/panelUpsertRuntime") as typeof import("../../../../shared/discord/panelUpsertRuntime");
@@ -23,54 +24,54 @@ async function run(client?) {
     return;
   }
   const infoIntroText = [
-    "<a:VC_HeartsBlue:1468686100045369404> Benvenut* su **Vinili & Caffè**, l'unico server in Italia non tossico e __incentrato sulla socializzazione__.",
+    `${E.VC_HeartsBlue} Benvenut* su **Vinili & Caffè**, l'unico server in Italia non tossico e __incentrato sulla socializzazione__.`,
     "",
-    "<a:VC_HeartBlue:1448673354751021190> **Personalizza il tuo profilo:**",
-    `<:VC_Reply:1482532158080942191> Dalla pagina [PERSONALIZZA](https://viniliecaffe.it/personalizza) potrai selezionare i ruoli e il colore da aggiungere al tuo profilo per completarlo: come età, menzioni, passioni e molto altro!`,
+    `${E.VC_HeartBlue} **Personalizza il tuo profilo:**`,
+    `${E.VC_Reply} Dalla pagina [PERSONALIZZA](https://viniliecaffe.it/personalizza) potrai selezionare i ruoli e il colore da aggiungere al tuo profilo per completarlo: come età, menzioni, passioni e molto altro!`,
     "",
     `Dubbi o problemi? Apri un ${siteTicketsPageDiscordRef("SUPPORTO")}: lo staff vi risponderà il prima possibile!`,
   ].join("\n");
   const infoLinksText = [
-    "<:VC_Instagram:1482526710426767360> [Seguici su Instagram](https://www.instagram.com/viniliecaffe/)",
-    "<:VC_TikTok:1498017166060949525> [Seguici su TikTok](https://www.tiktok.com/@viniliecaffe)",
-    "<:VC_Link:1482460590894088222> [Sito Ufficiale](https://www.viniliecaffe.it/)",
+    `${E.VC_Instagram} [Seguici su Instagram](https://www.instagram.com/viniliecaffe/)`,
+    `${E.VC_TikTok} [Seguici su TikTok](https://www.tiktok.com/@viniliecaffe)`,
+    `${E.VC_Link} [Sito Ufficiale](https://www.viniliecaffe.it/)`,
   ].join("\n");
   const infoMetaText = [
-    "<:exp:1470067108543987846> Owner: <@295500038401163264>",
-    "<:moon:1470064812615667827> Fondazione: ||<t:1765382400:F>||",
-    "<:nitroboost:1470064881674883326> Invite: https://discord.gg/viniliecaffe",
+    `${E.exp} Owner: <@295500038401163264>`,
+    `${E.moon} Fondazione: ||<t:1765382400:F>||`,
+    `${E.nitroboost} Invite: https://discord.gg/viniliecaffe`,
   ].join("\n");
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setLabel("︲REGOLAMENTO")
-      .setEmoji("<a:VC_Rule:1482706839928967280>")
+      .setEmoji(E.VC_Rule)
       .setStyle(ButtonStyle.Link)
       .setURL("https://viniliecaffe.it/regole"),
     new ButtonBuilder()
       .setLabel("︲DONAZIONI")
-      .setEmoji("<a:VC_Sparkles:1468546911936974889>")
+      .setEmoji(E.VC_Sparkles)
       .setStyle(ButtonStyle.Link)
       .setURL("https://viniliecaffe.it/donazioni"),
     new ButtonBuilder()
       .setLabel("︲SPONSOR")
-      .setEmoji("<:pinnednew:1443670849990430750>")
+      .setEmoji(E.pinnednew)
       .setStyle(ButtonStyle.Link)
       .setURL("https://viniliecaffe.it/sponsor")
   );
   const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
     .setLabel("︲PERKS")
-    .setEmoji("<:VC_PurpleFlower:1469463879149944943>")
+    .setEmoji(E.VC_PurpleFlower)
     .setStyle(ButtonStyle.Link)
     .setURL("https://viniliecaffe.it/perks"),
     new ButtonBuilder()
       .setLabel("︲CANDIDATURE")
-      .setEmoji("<:VC_Collab:1482534540089098260>")
+      .setEmoji(E.VC_Collab)
       .setStyle(ButtonStyle.Link)
       .setURL("https://viniliecaffe.it/candidature"),
     new ButtonBuilder()
       .setLabel("︲TICKETS")
-      .setEmoji("<:VC_Ticket:1482535175283019888>")
+      .setEmoji(E.VC_Ticket)
       .setStyle(ButtonStyle.Link)
       .setURL("https://viniliecaffe.it/tickets")
   );
@@ -107,8 +108,8 @@ async function run(client?) {
     title: "Ti diamo il benvenuto nella nostra community!",
     body: infoIntroText,
     sections: [
-      { heading: "<:VC_Link:1482460590894088222> Links", body: infoLinksText },
-      { heading: "<:VC_Info:1482526956703580372> Informazioni", body: infoMetaText },
+      { heading: `${E.VC_Link} Links`, body: infoLinksText },
+      { heading: `${E.VC_Info} Informazioni`, body: infoMetaText },
     ],
     footer: "Usa i bottoni sottostanti per accedere ad altre categorie del server.",
     ...resolveBotPhotoMedia(INFO_MEDIA_NAME),

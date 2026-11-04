@@ -6,22 +6,23 @@ const { notifyDmPrivacyBlockedInCommands } = require("../../../shared/discord/dm
 const { guildIconUrl, accountUsername } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { getVerifiedPlusBotsCount } = require("../../Moderation/events/joinBots") as typeof import("../../Moderation/events/joinBots");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function buildDmWelcomeEmbed(member?) {
   const visibleCount = getVerifiedPlusBotsCount(member.guild);
   const dmGuildIcon = guildIconUrl(member.guild, { size: 256 });
   const dmFooterIcon = guildIconUrl(member.guild, { size: 64 });
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<a:VC_RightWing:1448672889845973214> Benvento in Vinili & Caffè!")
+    .setTitle(`${E.VC_RightWing} Benvento in Vinili & Caffè!`)
     .setDescription(
       [
         `Ciao **${accountUsername(member)}**, grazie per esserti unito a noi!`,
         "",
         "Entrando nel server accetti automaticamente le nostre regole.",
-        "<a:VC_Arrow:1482706699365257397> <https://discord.com/channels/1329080093599076474/1442569111119990887/1470102236527853661>",
+        `${E.VC_Arrow} <https://discord.com/channels/1329080093599076474/1442569111119990887/1470102236527853661>`,
         "------------------------------",
-        "<:VC_Dot:1482532364222595303> Metti la nostra GUILD TAG **V&C** sul tuo profilo",
-        "<a:VC_Arrow:1482706699365257397> <https://discord.com/channels/1329080093599076474/1442569111119990887/1470102239094767699>",
+        `${E.VC_Dot} Metti la nostra GUILD TAG **V&C** sul tuo profilo`,
+        `${E.VC_Arrow} <https://discord.com/channels/1329080093599076474/1442569111119990887/1470102239094767699>`,
                       ].join("\n"),
     )
     .setThumbnail(dmGuildIcon || undefined)

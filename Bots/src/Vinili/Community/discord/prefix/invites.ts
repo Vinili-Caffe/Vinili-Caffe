@@ -4,6 +4,7 @@ const { resolveEmbedColorForGuild } = require("../../../../MultiGuild/utils/tena
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const MAX_CODES_SHOWN = 8;
 const MAX_FIELD_CHARS = 1024;
 const MAX_EMBED_FIELDS = 25;
@@ -67,7 +68,7 @@ function formatJoinerLines(joiners?) {
   const list = sortJoiners(joiners);
   if (!list.length) return "_nessuno ancora tracciato_";
   return list
-    .map((j?) => `<:VC_Reply:1482532158080942191> <@${j.userId}> · ${formatJoinAt(j.joinedAt)}`)
+    .map((j?) => `${E.VC_Reply} <@${j.userId}> · ${formatJoinAt(j.joinedAt)}`)
     .join("\n");
 }
 
@@ -128,7 +129,7 @@ function buildInvitesEmbedFields(sortedInvites?, joinersByCode?, unknownJoiners?
   if (!blocks.length) {
     return [
       {
-        name: "<:VC_BlackPin:1482534513400610948> Link e chi è entrato",
+        name: `${E.VC_BlackPin} Link e chi è entrato`,
         value: "_Nessun ingresso tracciato sui link attivi._",
         inline: false,
       },
@@ -147,8 +148,8 @@ function buildInvitesEmbedFields(sortedInvites?, joinersByCode?, unknownJoiners?
     fields.push({
       name:
         i === 0
-          ? "<:VC_BlackPin:1482534513400610948> Link e chi è entrato"
-          : `<:VC_BlackPin:1482534513400610948> Continua (${i + 1})`,
+          ? `${E.VC_BlackPin} Link e chi è entrato`
+          : `${E.VC_BlackPin} Continua (${i + 1})`,
       value: chunks[i],
       inline: false,
     });
@@ -167,7 +168,7 @@ export = {
   async execute(message?, args = []) {
     if (!message.guild) {
       return safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Usa questo comando in un server.",
+        content: `${E.vegax} Usa questo comando in un server.`,
         allowedMentions: { repliedUser: false },
       });
     }
@@ -178,7 +179,7 @@ export = {
     if (!me?.permissions?.has?.(PermissionsBitField.Flags.ManageGuild)) {
       return safeMessageReply(message, {
         content:
-          "<:vegax:1443934876440068179> Mi serve il permesso **Gestisci Server** per leggere gli inviti.",
+          `${E.vegax} Mi serve il permesso **Gestisci Server** per leggere gli inviti.`,
         allowedMentions: { repliedUser: false },
       });
     }
@@ -187,7 +188,7 @@ export = {
     const target = (await resolveMember(message, query)) || message.member || memberLikeFromUser(message.author);
     if (!target?.id) {
       return safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Utente non trovato.",
+        content: `${E.vegax} Utente non trovato.`,
         allowedMentions: { repliedUser: false },
       });
     }
@@ -197,7 +198,7 @@ export = {
       invites = await message.guild.invites.fetch();
     } catch {
       return safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Non riesco a recuperare gli inviti del server.",
+        content: `${E.vegax} Non riesco a recuperare gli inviti del server.`,
         allowedMentions: { repliedUser: false },
       });
     }

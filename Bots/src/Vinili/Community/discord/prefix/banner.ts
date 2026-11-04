@@ -4,6 +4,7 @@ const { BannerPrivacy } = require("../../../Community/schemas/communitySchemas")
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { accountUsername, userAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 const { siteUserProfilePagePlainRef } = require("../../../../shared/web/siteTicketsPageRef") as typeof import("../../../../shared/web/siteTicketsPageRef");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const BANNER_MODE_PREFIX = "banner_mode:";
 
 function normalize(text?) {
@@ -44,7 +45,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Questo comando può essere usato solo in un server.",
+              `${E.vegax} Questo comando può essere usato solo in un server.`,
             ),
         ],
       });
@@ -56,7 +57,7 @@ export = {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setDescription("<:vegax:1443934876440068179> `+banner guild` non esiste più. Usa `+banner` e cambia vista con le frecce."),
+            .setDescription(`${E.vegax} \`+banner guild\` non esiste più. Usa \`+banner\` e cambia vista con le frecce.`),
         ],
       });
     }
@@ -108,11 +109,11 @@ function buildBannerRows(requesterId?, targetUserId?, mode = "user", viewState =
       new ButtonBuilder()
         .setCustomId(`${BANNER_MODE_PREFIX}${requesterId}:${targetUserId}:user:${stateToken}`)
         .setStyle(activeMode === "user" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji("<a:vegaleftarrow:1462914743416131816>"),
+        .setEmoji(E.vegaleftarrow),
       new ButtonBuilder()
         .setCustomId(`${BANNER_MODE_PREFIX}${requesterId}:${targetUserId}:server:${stateToken}`)
         .setStyle(activeMode === "server" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji("<a:vegarightarrow:1443673039156936837>"),
+        .setEmoji(E.vegarightarrow),
       new ButtonBuilder()
         .setCustomId("banner_views")
         .setLabel("Classifica Views")
@@ -127,7 +128,7 @@ async function buildBannerPayload({ guild, targetMember, fallbackUser, requester
   const user = member?.user || fallbackUser || null;
   if (!guild || !user) {
     return {
-      embeds: [new EmbedBuilder().setColor("Red").setDescription("<:vegax:1443934876440068179> Impossibile trovare questo utente.")],
+      embeds: [new EmbedBuilder().setColor("Red").setDescription(`${E.vegax} Impossibile trovare questo utente.`)],
       components: [],
     };
   }
@@ -142,14 +143,14 @@ async function buildBannerPayload({ guild, targetMember, fallbackUser, requester
   if (Boolean(privacyDoc?.blocked)) {
     const blockedEmbed = new EmbedBuilder()
       .setColor("#e74c3c")
-      .setTitle("<:vegax:1443934876440068179> Banner Bloccato")
+      .setTitle(`${E.vegax} Banner Bloccato`)
       .setThumbnail("https://images-ext-1.discordapp.net/external/qZp8C7dthauZs3SMmWIVqoxSjwXkKvmCXhZpro2lLzI/%3Fformat%3Dwebp%26quality%3Dlossless%26width%3D640%26height%3D640/https/images-ext-1.discordapp.net/external/fRgXgmNV39-c_gorTdDdWPSyx2fFy_i4t01cYEF-DKY/https/i.imgur.com/7OnTq5S.png?format=webp&quality=lossless&width=640&height=640")
       .setDescription("Questo utente ha bloccato la visualizzazione del proprio banner.");
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`banner_unblock:${user.id}`)
         .setLabel("Sblocca")
-        .setEmoji("<a:VC_Unlock:1482532082466029608>")
+        .setEmoji(E.VC_Unlock)
         .setStyle(ButtonStyle.Secondary),
     );
     return { embeds: [blockedEmbed], components: [row] };
@@ -201,8 +202,8 @@ async function buildBannerPayload({ guild, targetMember, fallbackUser, requester
   if (!imageUrl) {
     embed.setDescription(
       activeMode === "server"
-        ? "<:vegax:1443934876440068179> Questo utente non ha un banner impostato per questo server."
-        : "<:vegax:1443934876440068179> Questo utente non ha un banner.",
+        ? `${E.vegax} Questo utente non ha un banner impostato per questo server.`
+        : `${E.vegax} Questo utente non ha un banner.`,
     );
   } else {
     embed.setImage(imageUrl);

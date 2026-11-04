@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   getOrCreateStaffDoc,
   ensureStaff,
@@ -67,9 +68,9 @@ async function makeLogEmbed(
     .setThumbnail(thumb)
     .setDescription(
       [
-        `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${formatStaffMention(user)}`,
-        `<:VC_reason:1478517122929004544> __${reason}__`,
-        `<:VC_id:1478517313618575419> **ID Valutazione** __\`${idValue}\`__`,
+        `${E.VC_Staff} ${E.VC_Arrow} ${formatStaffMention(user)}`,
+        `${E.VC_reason} __${reason}__`,
+        `${E.VC_id} **ID Valutazione** __\`${idValue}\`__`,
       ].join("\n"),
     )
     .setColor(color);
@@ -89,13 +90,13 @@ async function buildAutoStaffWarnFromNegativesEmbed(actorLike?, targetUser?, war
       name: `Valutazione eseguita da ${username}`,
       iconURL: actorIcon,
     })
-    .setTitle(`<a:VC_Alert:1482706673176150077> • **__WARN STAFF__** \`#${warnCount}\``)
+    .setTitle(`${E.VC_Alert} • **__WARN STAFF__** \`#${warnCount}\``)
     .setThumbnail(thumb)
     .setDescription(
       [
-        `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${targetMention}`,
-        `<:VC_reason:1478517122929004544> __${STAFF_WARN_THREE_NEGATIVES_REASON}__`,
-        `<:VC_id:1478517313618575419> **ID Warn** __\`${warnCount}\`__`,
+        `${E.VC_Staff} ${E.VC_Arrow} ${targetMention}`,
+        `${E.VC_reason} __${STAFF_WARN_THREE_NEGATIVES_REASON}__`,
+        `${E.VC_id} **ID Warn** __\`${warnCount}\`__`,
       ].join("\n"),
     )
     .setColor("#E74C3C");
@@ -107,7 +108,7 @@ function makeRemovalEmbed(actor?, user?, title?, description?, reason?, updatedL
   const mention = formatStaffMention(user);
   const safeDescription = safeDescriptionRaw
     ? safeDescriptionRaw.replace(/\{user\}/g, mention)
-    : `<:VC_Staff:1494286904089247754> <a:VC_Arrow:1482706699365257397> ${mention}`;
+    : `${E.VC_Staff} ${E.VC_Arrow} ${mention}`;
   const safeReasonField = String(reason || "").trim() || "—";
   const safeUpdatedLabel = String(updatedLabel || "").trim() || "Aggiornamento";
   const safeUpdatedValue = String(updatedValue || "").trim() || "—";
@@ -119,7 +120,7 @@ function makeRemovalEmbed(actor?, user?, title?, description?, reason?, updatedL
     .setTitle(title)
     .setDescription(safeDescription)
     .addFields(
-      { name: "<:VC_reason:1478517122929004544> Motivazione: ", value: safeReasonField, inline: false },
+      { name: `${E.VC_reason} Motivazione: `, value: safeReasonField, inline: false },
       { name: safeUpdatedLabel, value: safeUpdatedValue, inline: false },
     )
     .setColor(VALUTAZIONE_EMBED_COLOR);

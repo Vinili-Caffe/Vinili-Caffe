@@ -1,6 +1,7 @@
 const { escapeMarkdown } = require("discord.js") as typeof import("discord.js");
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { parseEventDateMs } = require("../../utils/eventDates") as typeof import("../../utils/eventDates");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   MAX_PENDING_PER_USER,
   MAX_REASON_LENGTH,
@@ -97,7 +98,7 @@ export = {
     if (!message.guild || !message.channel) {
       return safeMessageReply(
         message,
-        "<:vegax:1443934876440068179> Questo comando si usa solo in un server.",
+        `${E.vegax} Questo comando si usa solo in un server.`,
       );
     }
 
@@ -107,7 +108,7 @@ export = {
       .toLowerCase();
 
     if (!head) {
-      return safeMessageReply(message, `<:vegax:1443934876440068179> ${usageText()}`);
+      return safeMessageReply(message, `${E.vegax} ${usageText()}`);
     }
 
     if (head === "list" || head === "lista") {
@@ -115,7 +116,7 @@ export = {
       if (!pending.length) {
         return safeMessageReply(
           message,
-          "<:vegacheckmark:1443666279058772028> Non hai reminder in attesa.",
+          `${E.vegacheckmark} Non hai reminder in attesa.`,
         );
       }
       const lines = pending.map((row?) => {
@@ -138,19 +139,19 @@ export = {
       if (!shortId) {
         return safeMessageReply(
           message,
-          "<:vegax:1443934876440068179> Specifica l'id: `+reminder cancel <id>`",
+          `${E.vegax} Specifica l'id: \`+reminder cancel <id>\``,
         );
       }
       const result = await cancelByShortId({ userId: message.author.id, shortId });
       if (!result.ok) {
         return safeMessageReply(
           message,
-          "<:vegax:1443934876440068179> Reminder non trovato (o già inviato).",
+          `${E.vegax} Reminder non trovato (o già inviato).`,
         );
       }
       return safeMessageReply(
         message,
-        `<:vegacheckmark:1443666279058772028> Reminder \`${result.reminder.shortId}\` annullato.`,
+        `${E.vegacheckmark} Reminder \`${result.reminder.shortId}\` annullato.`,
       );
     }
 
@@ -158,25 +159,25 @@ export = {
     if (!parsed || (parsed as any).error === "invalid_datetime") {
       return safeMessageReply(
         message,
-        `<:vegax:1443934876440068179> Data/ora non valida. Formato: \`DD/MM/YYYY HH:mm\` (Europe/Rome).\n${usageText()}`,
+        `${E.vegax} Data/ora non valida. Formato: \`DD/MM/YYYY HH:mm\` (Europe/Rome).\n${usageText()}`,
       );
     }
     if (!parsed.reason) {
       return safeMessageReply(
         message,
-        "<:vegax:1443934876440068179> Specifica un motivo per il reminder.",
+        `${E.vegax} Specifica un motivo per il reminder.`,
       );
     }
     if (parsed.reason.length > MAX_REASON_LENGTH) {
       return safeMessageReply(
         message,
-        `<:vegax:1443934876440068179> Motivo troppo lungo (max ${MAX_REASON_LENGTH} caratteri).`,
+        `${E.vegax} Motivo troppo lungo (max ${MAX_REASON_LENGTH} caratteri).`,
       );
     }
     if (parsed.sendAt.getTime() <= Date.now()) {
       return safeMessageReply(
         message,
-        "<:vegax:1443934876440068179> L'orario deve essere nel futuro (Europe/Rome).",
+        `${E.vegax} L'orario deve essere nel futuro (Europe/Rome).`,
       );
     }
 
@@ -192,31 +193,31 @@ export = {
       if (created.error === "limit") {
         return safeMessageReply(
           message,
-          `<:vegax:1443934876440068179> Hai già ${created.max} reminder in attesa. Annullane uno con \`+reminder cancel <id>\`.`,
+          `${E.vegax} Hai già ${created.max} reminder in attesa. Annullane uno con \`+reminder cancel <id>\`.`,
         );
       }
       if (created.error === "reason_too_long") {
         return safeMessageReply(
           message,
-          `<:vegax:1443934876440068179> Motivo troppo lungo (max ${created.max} caratteri).`,
+          `${E.vegax} Motivo troppo lungo (max ${created.max} caratteri).`,
         );
       }
       if (created.error === "not_future") {
         return safeMessageReply(
           message,
-          "<:vegax:1443934876440068179> L'orario deve essere nel futuro (Europe/Rome).",
+          `${E.vegax} L'orario deve essere nel futuro (Europe/Rome).`,
         );
       }
       return safeMessageReply(
         message,
-        "<:vegax:1443934876440068179> Non riesco a salvare il reminder. Riprova.",
+        `${E.vegax} Non riesco a salvare il reminder. Riprova.`,
       );
     }
 
     const whenLabel = formatRomeDateTime(created.reminder.sendAt);
     return safeMessageReply(
       message,
-      `<:vegacheckmark:1443666279058772028> Reminder impostato (\`${created.reminder.shortId}\`) per **${whenLabel}** (Europe/Rome) in questo canale.\nMotivo: ${escapeMarkdown(String(created.reminder.reason || ""))}`,
+      `${E.vegacheckmark} Reminder impostato (\`${created.reminder.shortId}\`) per **${whenLabel}** (Europe/Rome) in questo canale.\nMotivo: ${escapeMarkdown(String(created.reminder.reason || ""))}`,
     );
   },
 };

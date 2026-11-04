@@ -1,6 +1,7 @@
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { getPartnershipChannelId } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function buildPartnershipMessageLink(guildId?, channelId?, messageId?) {
   const g = String(guildId || "").trim();
   const c = String(channelId || "").trim();
@@ -92,12 +93,12 @@ function buildPartnerPointLogContent({
     if (ping) lines.push(ping);
   }
   lines.push(
-    `<:VC_PartnerManager:1494286911286808576> <@${String(pmUserId || "").trim()}>`,
-    `<:VC_reason:1478517122929004544> ${String(rule || "").trim()}`,
+    `${E.VC_PartnerManager} <@${String(pmUserId || "").trim()}>`,
+    `${E.VC_reason} ${String(rule || "").trim()}`,
   );
-  if (messageLink) lines.push(`<:VC_Chat:1482532573002465413> Messaggio: ${messageLink}`);
-  if (reporterUserId) lines.push(`<:VC_Staff:1494286904089247754> Segnalato da: <@${String(reporterUserId).trim()}>`);
-  if (actorUserId) lines.push(`<:VC_Staff:1494286904089247754> Rimosso da: <@${String(actorUserId).trim()}>`);
+  if (messageLink) lines.push(`${E.VC_Chat} Messaggio: ${messageLink}`);
+  if (reporterUserId) lines.push(`${E.VC_Staff} Segnalato da: <@${String(reporterUserId).trim()}>`);
+  if (actorUserId) lines.push(`${E.VC_Staff} Rimosso da: <@${String(actorUserId).trim()}>`);
   if (statusLine) lines.push(statusLine);
   return lines.join("\n");
 }

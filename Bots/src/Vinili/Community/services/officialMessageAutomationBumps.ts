@@ -1,6 +1,7 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { recordDiscadiaBump, recordBump, awardBumpVoteExp } = require("./bumpService") as typeof import("./bumpService");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   extractUserIdFromText,
   flattenEmbedText,
@@ -249,16 +250,16 @@ async function handleDisboardBump(message?, client?) {
     releaseBumpDedupeKey(dedupeKey);
     throw err;
   }
-  let thanksMessage = "<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server!__**\n" +
-    "<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **due ore!**\n" +
+  let thanksMessage = `${E.VC_ThankYou} **__Grazie per aver \`bumpato\` il server!__**\n` +
+    `${E.VC_HelloKittyGun} Ci __vediamo__ nuovamente tra **due ore!**\n` +
     bumpMention;
   if (bumpUserId && recordResult?.previousLastBumpAt !== undefined) {
     const reward = await awardBumpVoteExp(client, message.guild, bumpUserId, "disboard", recordResult.previousLastBumpAt, disboardCooldownMs, undefined, recordResult?.previousReminderSentAt || null, recordResult?.previousLastBumpUserId || null).catch(() => null);
     if (reward?.effectiveExp != null) {
-      const parts = ["<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server!__**", "<:VC_EXP:1482534670896730143> **" + reward.effectiveExp + " exp** guadagnati!"];
-      if (reward.fastBonus > 0) parts.push("<a:VC_Flame:1482725674711126140> Risposta rapida +" + reward.fastBonus + " exp");
-      if (reward.streakBonus > 0) parts.push("<a:VC_Flame:1482725674711126140> Streak " + reward.newStreak + " +" + reward.streakBonus + " exp");
-      parts.push("<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **due ore!**\n" + bumpMention);
+      const parts = [`${E.VC_ThankYou} **__Grazie per aver \`bumpato\` il server!__**`, `${E.VC_EXP} **` + reward.effectiveExp + " exp** guadagnati!"];
+      if (reward.fastBonus > 0) parts.push(`${E.VC_Flame} Risposta rapida +` + reward.fastBonus + " exp");
+      if (reward.streakBonus > 0) parts.push(`${E.VC_Flame} Streak ` + reward.newStreak + " +" + reward.streakBonus + " exp");
+      parts.push(`${E.VC_HelloKittyGun} Ci __vediamo__ nuovamente tra **due ore!**\n` + bumpMention);
       thanksMessage = parts.join("\n");
     }
   }
@@ -388,8 +389,8 @@ async function handleDiscadiaBump(message?, client?) {
     releaseBumpDedupeKey(dedupeKey);
     throw err;
   }
-  let thanksMessage = "<a:VC_ThankYou:1330186319673950401> **__Grazie per aver `bumpato` il server!__**\n" +
-    "<:VC_HelloKittyGun:1329447880150220883> Ci __vediamo__ nuovamente tra **24 ore!**\n" +
+  let thanksMessage = `${E.VC_ThankYou} **__Grazie per aver \`bumpato\` il server!__**\n` +
+    `${E.VC_HelloKittyGun} Ci __vediamo__ nuovamente tra **24 ore!**\n` +
     bumpMention;
   if (channel?.isTextBased?.()) {
     try {

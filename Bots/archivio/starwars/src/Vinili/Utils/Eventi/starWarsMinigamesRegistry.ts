@@ -29,8 +29,9 @@ const REGISTRY = Object.freeze([
     feature: FEATURES.MINIGAME_SCOMMESSA,
     kind: "minigame",
     label: "Scommessa ai Podracer",
-    channel: "discord+site",
-    teaser: "+punta <corridore> <importo> · esito su sito.",
+    channel: "site",
+    href: "/gara/",
+    teaser: "Scommesse solo sul sito · /gara/.",
   },
   {
     id: "scova_pianeta",
@@ -38,7 +39,7 @@ const REGISTRY = Object.freeze([
     kind: "minigame",
     label: "Scova il pianeta",
     channel: "discord",
-    teaser: "Coordinate → pianeta. Vince la fazione.",
+    teaser: "Mappa galattica · coordinate random → indovina il pianeta.",
   },
   {
     id: "ordine66",
@@ -46,7 +47,7 @@ const REGISTRY = Object.freeze([
     kind: "minigame",
     label: "Ordine 66",
     channel: "discord",
-    teaser: "Ruolo Jedi random · +ordine66 <utente>.",
+    teaser: "Ruolo Jedi random · pinga il sospetto in chat.",
   },
   {
     id: "accademia",
@@ -80,7 +81,7 @@ const REGISTRY = Object.freeze([
     kind: "game",
     label: "Conquista il sistema",
     channel: "discord",
-    teaser: "Canali community da conquistare.",
+    teaser: "Sistemi random in Community/Pinned. Max 2 a testa, vincono le fazioni.",
   },
   {
     id: "colleziona_pg",
@@ -88,7 +89,7 @@ const REGISTRY = Object.freeze([
     kind: "game",
     label: "Colleziona PG",
     channel: "discord+site",
-    teaser: "Deck PG · chi completa vince.",
+    teaser: "Nome in chat · primo a scriverlo · deck profilo (immagini in arrivo).",
   },
   {
     id: "caccia_ewok",
@@ -113,7 +114,7 @@ const REGISTRY = Object.freeze([
     kind: "game",
     label: "Colleziona le reliquie",
     channel: "discord+site",
-    teaser: "Deck reliquie.",
+    teaser: "Foto + nome in chat · primo a scriverlo · deck profilo.",
   },
   {
     id: "proteggi_convoglio",
@@ -121,7 +122,7 @@ const REGISTRY = Object.freeze([
     kind: "minigame",
     label: "Proteggi convoglio",
     channel: "discord",
-    teaser: "Continua / Intercetta tra canali.",
+    teaser: "3 tappe: chat → Community/Pinned. Continua scorta, Intercetta = fine senza premio.",
   },
   {
     id: "olocron",

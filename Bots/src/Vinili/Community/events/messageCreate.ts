@@ -5,6 +5,7 @@ const { recordMessageActivity } = require("../../Community/services/activityServ
 const { handleMessageCommunityExpBonuses } = require("../../Community/services/messageCommunityExpBonusesService") as typeof import("../../Community/services/messageCommunityExpBonusesService");
 const { trackMessageEngagement } = require("../../Community/services/dailyEngagementStatsService") as typeof import("../../Community/services/dailyEngagementStatsService");
 const { trackChannelMessage } = require("../../Community/services/dailyChannelMessageStatsService") as typeof import("../../Community/services/dailyChannelMessageStatsService");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   handleOfficialPrefixMessage,
   maybeSendWrongPrefixHint,
@@ -229,6 +230,16 @@ export = {
       return;
     }
 
+    if (!isAutomatedMessage && !isEditedPrefixExecution && message?.guild) {
+      try {
+        const { handleStarWarsMessage } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService") as any;
+        if (typeof handleStarWarsMessage === "function") {
+          const swHandled = await handleStarWarsMessage(message, resolvedClient);
+          if (swHandled) return;
+        }
+      } catch (_) {}
+    }
+
     if (!isEditedPrefixExecution && message?.guild) {
       try {
         const nativeBoost = guildMemberUpdateExtras.handleNativeBoostSystemMessage?.(message);
@@ -428,7 +439,7 @@ export = {
           await message.delete().catch(() => { });
           const embed = new EmbedBuilder()
             .setColor("#6f4e37")
-            .setDescription([`<:VC_Attention:1482534443632558151> Ciao ${message.author}, __non hai i permessi__ per inviare \`FOTO, GIF, LINK, VIDEO O AUDIO\` in chat.`, "", "<a:VC_StarPink:1330194976440848500> <a:VC_Arrow:1482706699365257397> **Sblocca il permesso:**", `<a:VC_Arrow:1482706699365257397> Ottieni il ruolo: <@&${IDs.roles.PicPerms}>.\n\n<a:VC_spongebobdance:1494319630771032084> **Scopri di più sul nostro sito:** [viniliecaffe.it](https://www.viniliecaffe.it/)`,
+            .setDescription([`${E.VC_Attention} Ciao ${message.author}, __non hai i permessi__ per inviare \`FOTO, GIF, LINK, VIDEO O AUDIO\` in chat.`, "", `${E.VC_StarPink} ${E.VC_Arrow} **Sblocca il permesso:**`, `${E.VC_Arrow} Ottieni il ruolo: <@&${IDs.roles.PicPerms}>.\n\n${E.VC_spongebobdance} **Scopri di più sul nostro sito:** [viniliecaffe.it](https://www.viniliecaffe.it/)`,
             ].join("\n"));
           await message.channel
             .send({ content: `${message.author}`, embeds: [embed] })

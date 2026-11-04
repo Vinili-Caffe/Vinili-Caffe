@@ -5,6 +5,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
 const { resolveVoteRoleIdForGuild } = require("../utils/resolveVoteRoleId") as typeof import("../utils/resolveVoteRoleId");
 const { getCachedOrFetchMember } = require("./officialMessageAutomationMemberCache") as typeof import("./officialMessageAutomationMemberCache");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   getRandomExp,
   getMessageTextParts,
@@ -114,8 +115,8 @@ async function processDiscadiaVote(guild?, user?, client?, options: Record<strin
     if (reward?.effectiveExp != null) {
       expValue = reward.effectiveExp;
     }
-    if (reward?.fastBonus > 0) voteRewardExtras.push("<a:VC_Flame:1482725674711126140> Risposta rapida **+" + reward.fastBonus + " exp**");
-    if (reward?.streakBonus > 0) voteRewardExtras.push("<a:VC_Flame:1482725674711126140> Streak " + reward.newStreak + " **+" + reward.streakBonus + " exp**");
+    if (reward?.fastBonus > 0) voteRewardExtras.push(`${E.VC_Flame} Risposta rapida **+` + reward.fastBonus + " exp**");
+    if (reward?.streakBonus > 0) voteRewardExtras.push(`${E.VC_Flame} Streak ` + reward.newStreak + " **+" + reward.streakBonus + " exp**");
   } catch (err) {
     global.logger?.warn?.("[officialMessageAutomation] record vote error: ", err?.message || err);
   }
@@ -128,21 +129,21 @@ async function processDiscadiaVote(guild?, user?, client?, options: Record<strin
   const votePlatformLabel = voteListing === "topgg" ? "Top.gg" : "Discadia";
   const resolvedVoteRoleId = await resolveVoteRoleIdForGuild(guild).catch(() => "");
   const voteRoleText = resolvedVoteRoleId
-    ? `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Il ruolo <@&${resolvedVoteRoleId}> per ${voteAgainHoursLabel}`
-    : `<a:VC_Money:1482724694699278487> <a:VC_Arrow:1482706699365257397> Reward voto assegnata per ${voteAgainHoursLabel}`;
+    ? `${E.VC_Money} ${E.VC_Arrow} Il ruolo <@&${resolvedVoteRoleId}> per ${voteAgainHoursLabel}`
+    : `${E.VC_Money} ${E.VC_Arrow} Reward voto assegnata per ${voteAgainHoursLabel}`;
   const thankLine =
     voteListing === "topgg"
-      ? `<a:VC_ThankYou:1330186319673950401> Grazie ${userMention} per aver votato su **Top.gg**!`
-      : `<a:VC_ThankYou:1330186319673950401> Grazie ${userMention} per aver votato su **Discadia**!`;
+      ? `${E.VC_ThankYou} Grazie ${userMention} per aver votato su **Top.gg**!`
+      : `${E.VC_ThankYou} Grazie ${userMention} per aver votato su **Discadia**!`;
   const descriptionLines = [
     thankLine,
     "",
     "`Hai guadagnato:`",
-    `<:VC_EXP:1482534670896730143> <a:VC_Arrow:1482706699365257397> **${expValue} EXP** per il tuo ${voteLabel ? `**${voteLabel} voto** su **${votePlatformLabel}**` : `**voto** su **${votePlatformLabel}**`}`,
+    `${E.VC_EXP} ${E.VC_Arrow} **${expValue} EXP** per il tuo ${voteLabel ? `**${voteLabel} voto** su **${votePlatformLabel}**` : `**voto** su **${votePlatformLabel}**`}`,
     ...(voteRewardExtras.length > 0 ? voteRewardExtras : []),
     voteRoleText,
     "",
-    `<:VC_update:1478721333096349817> Vota di nuovo tra __${voteAgainHoursLabel}__ per ottenere **altri exp** dal **bottone sottostante**.`,
+    `${E.VC_update} Vota di nuovo tra __${voteAgainHoursLabel}__ per ottenere **altri exp** dal **bottone sottostante**.`,
   ];
   const botFooterIcon =
     userAvatarUrlStatic(client?.user, { size: 64 }) ||
@@ -151,7 +152,7 @@ async function processDiscadiaVote(guild?, user?, client?, options: Record<strin
       : null);
   const embed = new EmbedBuilder()
     .setColor(TENANT_EMBED_COLOR)
-    .setTitle("<a:VC_Vote:1482535223001485473> **Un nuovo voto!**")
+    .setTitle(`${E.VC_Vote} **Un nuovo voto!**`)
     .setDescription(descriptionLines.join("\n"))
     .setFooter({
       text: "Ogni volta che voterai il valore dell'exp guadagnata varierà",
@@ -166,7 +167,7 @@ async function processDiscadiaVote(guild?, user?, client?, options: Record<strin
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setStyle(ButtonStyle.Link)
-          .setEmoji("<a:VC_HeartPink:1448673486603292685>")
+          .setEmoji(E.VC_HeartPink)
           .setLabel("Vota cliccando qui")
           .setURL(linkVoteUrl),
       ),

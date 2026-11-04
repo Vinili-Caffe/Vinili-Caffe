@@ -20,6 +20,7 @@ const {
 const { hasRequiredDiscordInviteLink } = require("../../../Partner/runtime/partnershipMessageUtils") as typeof import("../../../Partner/runtime/partnershipMessageUtils");
 const { replyInteractionSetupRequired } = require("../../tenant/tenantSetupRequiredReply") as typeof import("../../tenant/tenantSetupRequiredReply");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const EPHEMERAL = MessageFlags.Ephemeral;
 
 export = {
@@ -33,7 +34,7 @@ export = {
     if (shouldApplyMainPartnershipFilters(guildId)) {
       await interaction.reply({
         content:
-          "<:vegax:1443934876440068179> Sul server principale usa il flusso partnership del canale dedicato (non questo menu).",
+          `${E.vegax} Sul server principale usa il flusso partnership del canale dedicato (non questo menu).`,
         flags: EPHEMERAL,
       });
       return;
@@ -61,7 +62,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Ti serve il **ruolo Partner Manager** (o **Gestisci server**) per usare **Partnership**.",
+              `${E.vegax} Ti serve il **ruolo Partner Manager** (o **Gestisci server**) per usare **Partnership**.`,
             ),
         ],
         flags: EPHEMERAL,
@@ -72,7 +73,7 @@ export = {
     const targetMessage = interaction.targetMessage;
     if (!targetMessage?.id || !interaction.guild) {
       await interaction.reply({
-        content: "<a:VC_Cross:1482532424570376253> Messaggio non valido.",
+        content: `${E.VC_Cross} Messaggio non valido.`,
         flags: EPHEMERAL,
       });
       return;
@@ -85,7 +86,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<a:VC_Alert:1482706673176150077> Il messaggio selezionato non contiene una **descrizione** testuale.",
+              `${E.VC_Alert} Il messaggio selezionato non contiene una **descrizione** testuale.`,
             ),
         ],
         flags: EPHEMERAL,
@@ -100,7 +101,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<a:VC_Alert:1482706673176150077> Il **manager** deve essere l'autore del messaggio (utente reale, non un bot).",
+              `${E.VC_Alert} Il **manager** deve essere l'autore del messaggio (utente reale, non un bot).`,
             ),
         ],
         flags: EPHEMERAL,
@@ -119,7 +120,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<a:VC_Alert:1482706673176150077> Il messaggio deve contenere un **link d'invito Discord** valido (`discord.gg/...` o `discord.com/invite/...`).",
+              `${E.VC_Alert} Il messaggio deve contenere un **link d'invito Discord** valido (\`discord.gg/...\` o \`discord.com/invite/...\`).`,
             ),
         ],
         flags: EPHEMERAL,

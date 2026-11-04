@@ -5,8 +5,9 @@ const { getAutoModMemberSnapshot, isAutoModRoleExemptMember, } = require("../../
 const{isWhitelistedExecutor,}=require("../../../Security/services/antiNukeService") as typeof import("../../../Security/services/antiNukeService");
 const { memberDisplayName, memberLabelWithUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 function boolIcon(value?) {
-  return value ? "<:success:1461731530333229226>" : "<:cancel:1461730653677551691>";
+  return value ? E.success : E.cancel;
 }
 
 function norm(text?) {
@@ -125,32 +126,32 @@ export = {
       .setDescription(
         [
           "**General Informations:**",
-          `<:profile:1461732907508039834> **Name:** ${memberLabelWithUsername(member)}`,
-          `<:VC_Space:1482459974667075685><:rightDoubleArrow:1465450678062288937> ID: \`${member.id}\``,
-          `<:creation:1461732905016492220> **Creation:** <t:${createdTs}:R>`,
+          `${E.profile} **Name:** ${memberLabelWithUsername(member)}`,
+          `${E.VC_Space}${E.rightDoubleArrow} ID: \`${member.id}\``,
+          `${E.creation} **Creation:** <t:${createdTs}:R>`,
           `📅 **Join:** <t:${joinedTs}:R>`,
           `🎨 **Color:** \`${member.displayHexColor}\``,
           `🎮 **Discord Badges:** ${badges.length ? badges.join(", ") : "none"}`,
           "",
           "**Bot Informations:**",
           `🚨 **Suspicious?** ${boolIcon(auto.suspicious)}`,
-          `<:noDM:1463645183840354517> **Warn Points:** \`${auto.warnPoints}\``,
-          `<:alarm:1461725841451909183> **Active Strikes:** \`${auto.activeStrikes}\``,
+          `${E.noDM} **Warn Points:** \`${auto.warnPoints}\``,
+          `${E.alarm} **Active Strikes:** \`${auto.activeStrikes}\``,
           `🌡️ **Current Heat:** \`${Number(auto.heat || 0).toFixed(1)}%\``,
           `📌 **Whitelisted?**`,
-          `<:VC_Space:1482459974667075685><:rightDoubleArrow:1465450678062288937> Spam: ${boolIcon(auto.whitelist.spam)}`,
-          `<:VC_Space:1482459974667075685><:rightDoubleArrow:1465450678062288937> Ping: ${boolIcon(auto.whitelist.ping)}`,
-          `<:VC_Space:1482459974667075685><:rightDoubleArrow:1465450678062288937> Advertising: ${boolIcon(auto.whitelist.advertising)}`,
-          `<:VC_Space:1482459974667075685><:rightDoubleArrow:1465450678062288937> Quarantine: ${boolIcon(antiNukeExempt)}`,
-          `<:VC_Space:1482459974667075685><:rightDoubleArrow:1465450678062288937> Public Roles: ${boolIcon(antiNukeExempt)}`,
+          `${E.VC_Space}${E.rightDoubleArrow} Spam: ${boolIcon(auto.whitelist.spam)}`,
+          `${E.VC_Space}${E.rightDoubleArrow} Ping: ${boolIcon(auto.whitelist.ping)}`,
+          `${E.VC_Space}${E.rightDoubleArrow} Advertising: ${boolIcon(auto.whitelist.advertising)}`,
+          `${E.VC_Space}${E.rightDoubleArrow} Quarantine: ${boolIcon(antiNukeExempt)}`,
+          `${E.VC_Space}${E.rightDoubleArrow} Public Roles: ${boolIcon(antiNukeExempt)}`,
           "",
           "**Dangerous User:**",
           `💥 This user has dangerous permissions! ${boolIcon(dgPerms.length > 0)}`,
-          dgPerms.length ? `<:VC_Space:1482459974667075685><:rightDoubleArrow:1465450678062288937>${dgPerms.join("  <:VC_right_arrow:1482459908245815296>  ")}` : "<:VC_Space:1482459974667075685><:rightDoubleArrow:1465450678062288937> none",
+          dgPerms.length ? `${E.VC_Space}${E.rightDoubleArrow}${dgPerms.join("  ${E.VC_right_arrow}  ")}` : `${E.VC_Space}${E.rightDoubleArrow} none`,
           "",
           "**Bot Permissions:**",
           `🤖 This user has Bot permissions ${boolIcon(wkPerms.length > 0)}`,
-          wkPerms.length ? `<:VC_Space:1482459974667075685><:rightDoubleArrow:1465450678062288937>${wkPerms.join("  <:VC_right_arrow:1482459908245815296>  ")}` : "<:VC_Space:1482459974667075685><:rightDoubleArrow:1465450678062288937> none",
+          wkPerms.length ? `${E.VC_Space}${E.rightDoubleArrow}${wkPerms.join("  ${E.VC_right_arrow}  ")}` : `${E.VC_Space}${E.rightDoubleArrow} none`,
           "",
           "**Account Accessories:**",
           `☷ **Roles:** ${rolesPreview(member)}`,

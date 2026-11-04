@@ -53,8 +53,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "clear": {
@@ -67,8 +66,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "lyrics": {
@@ -81,8 +79,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "next": {
@@ -95,8 +92,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "now": {
@@ -109,8 +105,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "pause": {
@@ -123,8 +118,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "play": {
@@ -137,8 +131,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "previous": {
@@ -151,8 +144,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "queue": {
@@ -165,8 +157,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "repeat": {
@@ -179,8 +170,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "requested": {
@@ -193,8 +183,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "restart": {
@@ -207,8 +196,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "resume": {
@@ -221,8 +209,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "rewind": {
@@ -235,8 +222,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "shuffle": {
@@ -249,8 +235,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "skip": {
@@ -263,8 +248,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "stop": {
@@ -277,8 +261,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "upcoming": {
@@ -291,8 +274,7 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         },
         "volume": {
@@ -305,14 +287,12 @@
                 "channels.vocaleLounge3",
                 "channels.counting",
                 "channels.info",
-                "channels.noMic",
-                "channels.stanzaLobbyVoice"
+                "channels.noMic"
             ]
         }
     },
     "channels": {},
     "buttons": {
-        "stanza_*": {},
         "help_prev_*": {
             "roles": [
                 "roles.Member"

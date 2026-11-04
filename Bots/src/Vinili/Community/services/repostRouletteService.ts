@@ -7,16 +7,19 @@ const { resolveRouletteChannelId } = require("../utils/Quote/repostRoulettePostC
 const { isChatHubMinigameActive } = require("../../../shared/discord/chatHubMinigameGate") as typeof import("../../../shared/discord/chatHubMinigameGate");
 const {
   CHAT_HUB_SOURCES,
+  CHAT_HUB_KINDS,
   DEFAULT_CROSS_BOT_GAP_MS,
+  DEFAULT_SAME_BOT_GAP_MS,
+  DEFAULT_AFTER_MINIGAME_GAP_MS,
   recordChatHubBotPost,
   extendChatHubQuietForMs,
   msUntilChatHubAllowsPost,
-  waitForChatHubSlot,
+  claimChatHubSlot,
 } = require("../../../shared/discord/chatHubBotPacing") as typeof import("../../../shared/discord/chatHubBotPacing");
 
 const AFTER_MINIGAME_DELAY_MS = Math.max(
   90_000,
-  Number(process.env.VC_REPOST_ROULETTE_AFTER_MINIGAME_MS || 180_000),
+  Number(process.env.VC_REPOST_ROULETTE_AFTER_MINIGAME_MS || DEFAULT_AFTER_MINIGAME_GAP_MS),
 );
 const MIN_GAP_BETWEEN_REPOSTS_MS = Math.max(
   45 * 60 * 1000,
@@ -26,9 +29,9 @@ const CHAT_HUB_CROSS_BOT_GAP_MS = Math.max(
   3 * 60 * 1000,
   Number(process.env.VC_CHAT_HUB_CROSS_BOT_GAP_MS || DEFAULT_CROSS_BOT_GAP_MS),
 );
-const CHAT_HUB_VINILI_GAP_MS = Math.max(
-  2 * 60 * 1000,
-  Number(process.env.VC_CHAT_HUB_VINILI_GAP_MS || 3 * 60 * 1000),
+const CHAT_HUB_SAME_BOT_GAP_MS = Math.max(
+  60_000,
+  Number(process.env.VC_CHAT_HUB_SAME_BOT_GAP_MS || DEFAULT_SAME_BOT_GAP_MS),
 );
 const REPOST_RETRY_MS = Math.max(60_000, Number(process.env.VC_REPOST_ROULETTE_RETRY_MS || 90_000));
 const REPOST_MAX_ATTEMPTS = Math.max(1, Math.min(8, Number(process.env.VC_REPOST_ROULETTE_MAX_ATTEMPTS || 5)));
@@ -76,9 +79,13 @@ async function dispatchRepostRoulette(client?, guildId?, channelId?) {
   if (isMinigameChannelBusyInProcess(channelId)) return false;
   if (await isChatHubMinigameActive(guildId, channelId)) return false;
 
-  const slotOk = await waitForChatHubSlot(channelId, CHAT_HUB_SOURCES.VINILI, {
+  const slotOk = await claimChatHubSlot(channelId, {
+    kind: CHAT_HUB_KINDS.REPOST,
+    source: CHAT_HUB_SOURCES.VINILI,
     crossBotGapMs: CHAT_HUB_CROSS_BOT_GAP_MS,
-    sameBotGapMs: CHAT_HUB_VINILI_GAP_MS,
+    sameBotGapMs: CHAT_HUB_SAME_BOT_GAP_MS,
+    kindGapMs: MIN_GAP_BETWEEN_REPOSTS_MS,
+    afterKindGaps: { [CHAT_HUB_KINDS.MINIGAME]: AFTER_MINIGAME_DELAY_MS },
     maxWaitMs: 12 * 60 * 1000,
     pollMs: 20_000,
   });
@@ -89,7 +96,7 @@ async function dispatchRepostRoulette(client?, guildId?, channelId?) {
   const sent = await sendRepostRoulette(client, guildId).catch(() => false);
   if (sent) {
     lastRepostAtByChannel.set(String(channelId), Date.now());
-    recordChatHubBotPost(channelId, CHAT_HUB_SOURCES.VINILI);
+    recordChatHubBotPost(channelId, CHAT_HUB_SOURCES.VINILI, CHAT_HUB_KINDS.REPOST);
   }
   return Boolean(sent);
 }
@@ -121,8 +128,11 @@ function scheduleRepostAttempt(client?, guildId?, channelId?, delayMs?, attempt?
         return;
       }
       const gapWait = msUntilChatHubAllowsPost(cid, CHAT_HUB_SOURCES.VINILI, {
+        kind: CHAT_HUB_KINDS.REPOST,
         crossBotGapMs: CHAT_HUB_CROSS_BOT_GAP_MS,
-        sameBotGapMs: CHAT_HUB_VINILI_GAP_MS,
+        sameBotGapMs: CHAT_HUB_SAME_BOT_GAP_MS,
+        kindGapMs: MIN_GAP_BETWEEN_REPOSTS_MS,
+        afterKindGaps: { [CHAT_HUB_KINDS.MINIGAME]: AFTER_MINIGAME_DELAY_MS },
       });
       if (gapWait > 0) {
         if (attempt < REPOST_MAX_ATTEMPTS) {

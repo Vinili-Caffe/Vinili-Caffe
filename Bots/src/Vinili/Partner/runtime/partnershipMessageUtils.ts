@@ -3,6 +3,7 @@ const {
 } = require("./partnershipPingUtils") as typeof import("./partnershipPingUtils");
 const { unwrapDiscordForwardQuoteDump } = require("./partnershipMessageBody") as typeof import("./partnershipMessageBody");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const DISCORD_INVITE_URL_RE =
   /(?:https?:\/\/)?(?:www\.)?(?:discord\.gg|discord(?:app)?\.com\/invite|discord\.com\/invite)\/[A-Za-z0-9-]+(?:\?[^\s<>()[\]"']*)?/gi;
 
@@ -247,7 +248,7 @@ function formatManagerBadgeSuffix(badgeEmojis?) {
 
 function formatPartnershipManagerLine(managerId?, badgeEmojis = null) {
   if (!managerId) return "";
-  return `\n\n<:VC_Mention:1482526855289634997> Manager: <@${managerId}>${formatManagerBadgeSuffix(badgeEmojis)}`;
+  return `\n\n${E.VC_Mention} Manager: <@${managerId}>${formatManagerBadgeSuffix(badgeEmojis)}`;
 }
 
 function buildPartnershipAboveEmbedContent({

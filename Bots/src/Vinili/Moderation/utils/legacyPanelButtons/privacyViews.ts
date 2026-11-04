@@ -4,6 +4,7 @@ const { getGuildMemberCached, getUserCached } = require("../../../../shared/disc
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 const { PRIVATE_FLAG, logButtonErr } = require("./shared") as typeof import("./shared");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 async function resolveMentionLabel(interaction?, userId?) {
   let label = `<@${userId}>`;
   try {
@@ -23,7 +24,7 @@ async function sendPrivacyViewsLeaderboard(interaction?, kind?, title?) {
   const guildId = interaction.guild.id;
   const top = await ActivityUserProfile.find({ guildId }).sort({ [`profile.privacy.${kind}.views`]: -1 }).limit(10).lean().catch((err?) => { logButtonErr(err, { warn: true }); return []; });
 
-  const rankEmojis = ["<:VC_1:1482706338021642333>", "<:VC_2:1482706376525611090>", "<:VC_3:1482706404773990460>", "<:VC_4:1482706432347344916>", "<:VC_5:1482706459765637272>", "<:VC_6:1482706490769801327>", "<:VC_7:1482706523330183218>", "<:VC_8:1482706553281708092>", "<:VC_9:1482706583438889051>", "<:VC_10:1482706613663174707>",];
+  const rankEmojis = [E.VC_1, E.VC_2, E.VC_3, E.VC_4, E.VC_5, E.VC_6, E.VC_7, E.VC_8, E.VC_9, E.VC_10,];
 
   const lines = [];
   let idx = 1;
@@ -35,7 +36,7 @@ async function sendPrivacyViewsLeaderboard(interaction?, kind?, title?) {
     const label = await resolveMentionLabel(interaction, entry.userId);
     const rank = rankEmojis[idx - 1] || `${idx}.`;
     lines.push(
-      `${rank} ${label} <a:VC_Arrow:1482706699365257397> **${views}** visualizzazioni`,
+      `${rank} ${label} ${E.VC_Arrow} **${views}** visualizzazioni`,
     );
     idx += 1;
   }

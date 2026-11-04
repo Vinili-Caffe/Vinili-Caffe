@@ -9,6 +9,7 @@ const{ getAutoModConfigSnapshot, getAutoModRulesSnapshot, getAutoModPanicSnapsho
 const { getSecurityLockState, invalidateSecurityLockCache } = require("../../services/securityOrchestratorService") as typeof import("../../services/securityOrchestratorService");
 const { sendSecurityAuditLog } = require("../../utils/securityAuditLog") as typeof import("../../utils/securityAuditLog");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const STAFF_ROLE_IDS = [
   IDs.roles.Founder,
   IDs.roles.Manager,
@@ -187,7 +188,7 @@ async function buildStatusEmbeds(guild?) {
 
   const raidWarnedRoleIds=Array.isArray(raid?.config?.warnedRoleIds)?raid.config.warnedRoleIds.filter(Boolean):[];
   const raidWarnedRoles=raidWarnedRoleIds.length?raidWarnedRoleIds.map((id?) => `<@&${id}>`).join(", ")
-    : "<a:VC_Cross:1482532424570376253>";
+    : E.VC_Cross;
   const idFlag: any = raid?.config?.idFlag || {};
   const ageFlag: any = raid?.config?.ageFlag || {};
   const noPfpFlag: any = raid?.config?.noPfpFlag || {};
@@ -674,25 +675,25 @@ async function buildSecurityModulesPanelPayload(guild?, ownerId?, member = null)
   const activeCount = modules.filter((m?) => m.enabled).length;
   const lines = modules.map((m?) => {
     const status = m.enabled
-      ? "<:VC_OnlineStatus:1482527088912240650> Attivo"
-      : "<:VC_OfflineStatus:1482527117051957380> Disattivo";
+      ? `${E.VC_OnlineStatus} Attivo`
+      : `${E.VC_OfflineStatus} Disattivo`;
     const runtime = m.runtime ? ` · *${m.runtime}*` : "";
-    return `<:VC_Dot:1482532364222595303> **${m.label}**: ${status}${runtime}\n> ${m.hint}`;
+    return `${E.VC_Dot} **${m.label}**: ${status}${runtime}\n> ${m.hint}`;
   });
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:VC_Lock:1482526739044368476> Moduli sicurezza")
+    .setTitle(`${E.VC_Lock} Moduli sicurezza`)
     .setDescription(
       [
-        "<:VC_PinkQuestionMark:1471892611026391306> Clicca un **pulsante modulo** per attivarlo o disattivarlo **subito**.",
+        `${E.VC_PinkQuestionMark} Clicca un **pulsante modulo** per attivarlo o disattivarlo **subito**.`,
         "",
-        `<:VC_Info:1482526956703580372> **Stato attuale** (${activeCount}/${modules.length} attivi):`,
+        `${E.VC_Info} **Stato attuale** (${activeCount}/${modules.length} attivi):`,
         "",
         ...lines,
         "",
         canPanic
-          ? "<a:VC_Alert:1482706673176150077> **Disabilita tutto** / **Abilita tutto** agiscono su tutti i moduli elencati."
-          : "<:VC_InactiveStatus:1482526984234860574> Solo **Founder** può modificare i moduli.",
+          ? `${E.VC_Alert} **Disabilita tutto** / **Abilita tutto** agiscono su tutti i moduli elencati.`
+          : `${E.VC_InactiveStatus} Solo **Founder** può modificare i moduli.`,
       ].join("\n"),
     );
   const iconUrl = guild?.iconURL?.({ size: 256, extension: "png" });
@@ -700,7 +701,7 @@ async function buildSecurityModulesPanelPayload(guild?, ownerId?, member = null)
   const rowBack = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`security_panel:back:${ownerId}`)
-      .setEmoji("<:VC_page2:1482459724657201387>")
+      .setEmoji(E.VC_page2)
       .setLabel("Indietro")
       .setStyle(ButtonStyle.Primary),
   );
@@ -712,7 +713,7 @@ async function buildSecurityModulesPanelPayload(guild?, ownerId?, member = null)
       .setCustomId(`security_panel:toggle:${ownerId}:${m.id}`)
       .setLabel(m.label)
       .setStyle(m.enabled ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setEmoji(m.enabled ? "<:VC_OnlineStatus:1482527088912240650>" : "<:VC_OfflineStatus:1482527117051957380>"),
+      .setEmoji(m.enabled ? E.VC_OnlineStatus : E.VC_OfflineStatus),
   );
   const rowModules = new ActionRowBuilder().addComponents(...toggleButtons);
   const allOn = modules.every((m?) => m.enabled);
@@ -721,12 +722,12 @@ async function buildSecurityModulesPanelPayload(guild?, ownerId?, member = null)
     new ButtonBuilder()
       .setCustomId(`security_panel:bulk:${ownerId}:disable_all`)
       .setLabel("Disabilita tutto")
-      .setEmoji("<:cancel:1461730653677551691>")
+      .setEmoji(E.cancel)
       .setStyle(allOff ? ButtonStyle.Secondary : ButtonStyle.Danger),
     new ButtonBuilder()
       .setCustomId(`security_panel:bulk:${ownerId}:enable_all`)
       .setLabel("Abilita tutto")
-      .setEmoji("<:success:1461731530333229226>")
+      .setEmoji(E.success)
       .setStyle(allOn ? ButtonStyle.Success : ButtonStyle.Secondary),
   );
   return { embeds: [embed], components: [rowModules, rowBulk, rowBack] };
@@ -739,18 +740,18 @@ function buildSecurityHubPayload(guild?, ownerId?, openerUser = null, member = n
     : "Staff";
   const canPanic = member && hasPanicControlAccess(member, guild);
   const lines = [
-    "<:VC_Info:1482526956703580372> **Pannello sicurezza** — stato globale, statistiche e panic.",
+    `${E.VC_Info} **Pannello sicurezza** — stato globale, statistiche e panic.`,
     "",
     "- **Stato sistemi**: AntiNuke, JoinRaid, AutoMod (heat), JoinGate",
     "- **Statics**: ruoli, canali e utenti di configurazione",
     "- **Panic / runtime**: overview panic e lock attivi",
   ];
   if (canPanic) {
-    lines.push("", "<:VC_Modifica:1478859646587633717> **Founder**: attiva/disattiva i moduli dal menu **Moduli**.");
+    lines.push("", `${E.VC_Modifica} **Founder**: attiva/disattiva i moduli dal menu **Moduli**.`);
   } else {
-    lines.push("", "<:VC_InactiveStatus:1482526984234860574> Modifica moduli: solo Founder.");
+    lines.push("", `${E.VC_InactiveStatus} Modifica moduli: solo Founder.`);
   }
-  lines.push("", "<:VC_Modifica:1478859646587633717> Seleziona un'azione dal menu qui sotto.");
+  lines.push("", `${E.VC_Modifica} Seleziona un'azione dal menu qui sotto.`);
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle(`Benvenuto, ${welcome}.`)
@@ -762,19 +763,19 @@ function buildSecurityHubPayload(guild?, ownerId?, openerUser = null, member = n
       label: "Stato sistemi",
       description: "Pannello paginato (4 pagine)",
       value: "view_status",
-      emoji: "<:VC_Stats:1482527532682055780>",
+      emoji: E.VC_Stats,
     },
     {
       label: "Statics",
       description: "Ruoli, canali, utenti statici",
       value: "view_statics",
-      emoji: "<a:VC_Channel:1482534583944871996>",
+      emoji: E.VC_Channel,
     },
     {
       label: "Panic / runtime",
       description: "Stato panic e lock",
       value: "view_panic",
-      emoji: "<a:VC_Alert:1482706673176150077>",
+      emoji: E.VC_Alert,
     },
   ];
   if (canPanic) {
@@ -782,7 +783,7 @@ function buildSecurityHubPayload(guild?, ownerId?, openerUser = null, member = n
       label: "Moduli",
       description: "Attiva/disattiva moduli con un click",
       value: "view_modules",
-      emoji: "<:VC_Lock:1482526739044368476>",
+      emoji: E.VC_Lock,
     });
   }
   const row = new ActionRowBuilder().addComponents(
@@ -817,7 +818,7 @@ export = {
     if (!message?.guild || !message?.member) return;
     if (!hasStaffAccess(message.member, message.guild)) {
       await safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Non hai i permessi.",
+        content: `${E.vegax} Non hai i permessi.`,
         allowedMentions: { repliedUser: false },
       });
       return;
@@ -830,7 +831,7 @@ export = {
             .setColor("#6f4e37")
             .setTitle("Security")
             .setDescription(
-              "<:vegax:1443934876440068179> Usa solo **`+security`** senza argomenti. Si apre il **pannello** (menu: stato, statistiche, panic; Founder può attivare/disattivare i moduli con un click).",
+              `${E.vegax} Usa solo **\`+security\`** senza argomenti. Si apre il **pannello** (menu: stato, statistiche, panic; Founder può attivare/disattivare i moduli con un click).`,
             ),
         ],
         allowedMentions: { repliedUser: false },

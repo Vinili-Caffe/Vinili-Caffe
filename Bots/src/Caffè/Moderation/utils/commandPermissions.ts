@@ -282,19 +282,6 @@ async function checkButtonPermission(interaction?) {
   const precheck = evaluateComponentPolicy(interaction, policy);
   if (precheck) return precheck;
 
-  if (customId.startsWith("stanza_")) {
-    const { isStanzaButtonActorAllowed } = require("../../Voice/services/stanzaVoiceRoomsService") as typeof import("../../Voice/services/stanzaVoiceRoomsService");
-    const stanzaOk = await isStanzaButtonActorAllowed(interaction);
-    if (!stanzaOk) {
-      return {
-        allowed: false,
-        reason: "stanza_actor",
-        requiredRoles: asRequiredRoles(policy?.roles),
-        ownerId: null,
-      };
-    }
-  }
-
   if (Array.isArray(policy?.roles)) {
     if (!interaction?.inGuild?.()) {
       return {

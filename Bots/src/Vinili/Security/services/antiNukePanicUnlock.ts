@@ -5,6 +5,7 @@ const { unlockDangerousRolesAfterPanic } = require("./antiNukePanicRoleLock") as
 const { unlockGuildChannelsAfterPanic } = require("./antiNukePanicChannelLock") as typeof import("./antiNukePanicChannelLock");
 const { runAutoBackupSyncAfterPanic } = require("./antiNukePanicBackupSync") as typeof import("./antiNukePanicBackupSync");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function schedulePanicRestoreRetry(guild?, state?, reason = "retry") {
   if (!guild?.id || !state) return;
   if (state.restoreRetryTimer) return;
@@ -30,11 +31,11 @@ function schedulePanicRestoreRetry(guild?, state?, reason = "retry") {
     }
     await sendAntiNukeLog(
       guild,
-      "<a:VC_Alert:1482706673176150077> AntiNuke Panic Restore Pending",
+      `${E.VC_Alert} AntiNuke Panic Restore Pending`,
       [
-        `<:VC_reason:1478517122929004544> **Reason:** restore retry limit reached`,
-        `<:VC_reason:1478517122929004544> **Locked Roles Pending:** ${Number(state.lockedRoles?.size || 0)}`,
-        `<:VC_reason:1478517122929004544> **Locked Channels Pending:** ${Number(state.lockedChannels?.size || 0)}`,
+        `${E.VC_reason} **Reason:** restore retry limit reached`,
+        `${E.VC_reason} **Locked Roles Pending:** ${Number(state.lockedRoles?.size || 0)}`,
+        `${E.VC_reason} **Locked Channels Pending:** ${Number(state.lockedChannels?.size || 0)}`,
       ],
       "#F59E0B",
     );

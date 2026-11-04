@@ -16,6 +16,11 @@ const { shouldDeferTtsLeaveForFindBotVoiceMinigame, startFindBotGame, startFindB
 const { startGuessNumberGame, startGuessWordGame, startGuessFlagGame, startGuessPlayerGame, startGuessSongGame, startGuessCapitalGame, startGuessRegionCapitalGame, startGuessReverseCapitalGame, startFastTypeGame, startGuessTeamGame, startGuessSingerGame, startGuessAlbumGame, startHangmanGame, startItalianGkGame, startDrivingQuizGame, startMathExpressionGame, startGuessYearGame, startCompleteVerseGame, startGuessEmojiGame, startQuoteFilmGame, startCompleteProverbGame, startSynonymAntonymGame, startGuessCityGame } = require("./minigameQuizGames") as typeof import("./minigameQuizGames");
 const { restoreActiveGames } = require("./minigameRestoreCore") as typeof import("./minigameRestoreCore");
 const { isStaleOrInvalidActiveGame, closeStaleActiveMinigameChannel, handleMinigameReaction, handleMinigameMessage, handleMinigameButton, isMinigameFloodExemptChannel, handleMinigameVoiceState } = require("./minigameHandlers") as typeof import("./minigameHandlers");
+const { envFlagOn, shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+
+const MINIGAME_SPAWN_REQUEST_KEY = "minigameSpawnRequest";
+const spawnConsumerTimers = new WeakMap();
 
 
 
@@ -386,8 +391,101 @@ function startMinigameExpireSweep(client?) {
   expireSweepTimers.set(client, timer);
 }
 
+async function requestMinigameSlotSpawn(slotKey?, channelId?) {
+  const key = String(slotKey || "").trim();
+  if (!key) return false;
+  await setBotState(MINIGAME_SPAWN_REQUEST_KEY, {
+    slotKey: key,
+    channelId: String(channelId || "").trim() || null,
+    requestedAt: Date.now(),
+  });
+  return true;
+}
+
+async function consumeMinigameSpawnRequests(client?) {
+  const req = await getBotState(MINIGAME_SPAWN_REQUEST_KEY, null);
+  const slotKey = String(req?.slotKey || "").trim();
+  if (!slotKey) return false;
+  if (slotKey === lastMinigameSlotKey) {
+    await setBotState(MINIGAME_SPAWN_REQUEST_KEY, null);
+    return false;
+  }
+  await setBotState(MINIGAME_SPAWN_REQUEST_KEY, null);
+  const cfg = getConfig(client);
+  try {
+    if (!pendingGames.has(cfg?.channelId) && cfg?.channelId) {
+      const type = await getNextGameType(client, cfg);
+      if (type) pendingGames.set(cfg.channelId, { type, createdAt: Date.now() });
+    }
+    const started = await maybeStartRandomGame(client, false);
+    if (started) lastMinigameSlotKey = slotKey;
+    return Boolean(started);
+  } catch (err) {
+    global.logger?.error?.("[MINIGAMES] consume spawn failed", err?.message || err);
+    return false;
+  }
+}
+
+function startMinigameSpawnConsumerLoop(client?) {
+  if (spawnConsumerTimers.has(client)) return;
+  const tickMs = Math.max(5_000, Math.min(60_000, Number(process.env.VC_MINIGAME_SPAWN_CONSUMER_MS || 10_000) || 10_000));
+  const tick = () => {
+    void consumeMinigameSpawnRequests(client).catch((err?) => warnMinigame(err));
+  };
+  tick();
+  const timer = setInterval(tick, tickMs);
+  timer.unref?.();
+  spawnConsumerTimers.set(client, timer);
+}
+
+/**
+ * Worker-only: scrive richieste slot su BotState; il gateway le consuma e avvia il round in-process.
+ */
+function startMinigameSlotRequestLoop(client?) {
+  if (!shouldStartExternalWorkerLoop("MINIGAMES")) return;
+  if (envFlagOn("MINIGAMES_EXTERNAL") && !envFlagOn("MINIGAMES_WORKER")) return;
+  if (loopState.has(client)) return;
+  loopState.add(client);
+  const cfg = getConfig(client);
+  logMinigameSpawn("slot request loop started (worker)", {
+    channelId: cfg?.channelId,
+    enabled: Boolean(cfg?.enabled),
+  });
+  const schedule = () => {
+    const ms = computeMsUntilNextRomeSlotStart(client);
+    const timer = setTimeout(async () => {
+      try {
+        const cfgTick = getConfig(client);
+        if (!cfgTick?.enabled) return;
+        const rome = getMinigameRomeTime(new Date(), client);
+        if (!isMinigameFixedSlot(rome, client)) return;
+        const slotKey = minigameSlotKeyFromRome(rome);
+        if (slotKey === lastMinigameSlotKey) return;
+        await requestMinigameSlotSpawn(slotKey, cfgTick.channelId);
+        lastMinigameSlotKey = slotKey;
+        logMinigameDebug("slot request enqueued", { slotKey });
+      } catch (err) {
+        global.logger?.error?.("[MINIGAMES] slot request tick", err);
+      }
+      schedule();
+    }, ms);
+    timer.unref?.();
+    loopIntervals.set(client, timer);
+  };
+  schedule();
+}
+
 async function bootstrapMinigameScheduler(client?) {
   const cfg = getConfig(client);
+  const externalSplit = envFlagOn("MINIGAMES_EXTERNAL");
+  const isWorker = envFlagOn("MINIGAMES_WORKER");
+
+  /* Worker: solo timer slot → BotState; niente restore/expire (state live resta sul gateway). */
+  if (externalSplit && isWorker) {
+    startMinigameSlotRequestLoop(client);
+    return;
+  }
+
   try {
     await restoreActiveGames(client);
   } catch (err) {
@@ -406,16 +504,24 @@ async function bootstrapMinigameScheduler(client?) {
     minigamesEnabled: Boolean(cfg?.enabled),
     activityBackfill,
     activeMainGame: cfg?.channelId ? activeGames.get(String(cfg.channelId))?.type || null : null,
+    externalSplit,
   });
-  try {
-    startMinigameLoop(client);
-  } catch (err) {
-    global.logger?.error?.("[MINIGAMES] startMinigameLoop failed:", err?.message || err);
-  }
+
   try {
     startMinigameExpireSweep(client);
   } catch (err) {
     global.logger?.warn?.("[MINIGAMES] expire sweep failed to start:", err?.message || err);
+  }
+
+  if (externalSplit && !isWorker) {
+    startMinigameSpawnConsumerLoop(client);
+    return;
+  }
+
+  try {
+    startMinigameLoop(client);
+  } catch (err) {
+    global.logger?.error?.("[MINIGAMES] startMinigameLoop failed:", err?.message || err);
   }
 }
 
@@ -513,4 +619,25 @@ function clearGameForChannel(channelId?, client = null, guildId = null) {
   }
 }
 
-export = { startMinigameLoop, bootstrapMinigameScheduler, handleMinigameMessage, handleMinigameButton, handleMinigameReaction, handleMinigameVoiceState, shouldDeferTtsLeaveForFindBotVoiceMinigame, clearGameForChannel, isMinigameFloodExemptChannel, isMinigameChannelBusy, isMainChatMinigameChannelBusy, getActiveGameForChannel, getConfig, pickSnipeEntryForChannel, redactSnipeContentForMinigame, suppressMinigameSnipe, shouldSkipStoringSnipe, startHalloweenTrickOrTreatGameForAlternate, processHalloweenMinigamesShowcaseForce };
+export = {
+  startMinigameLoop,
+  startMinigameSlotRequestLoop,
+  bootstrapMinigameScheduler,
+  handleMinigameMessage,
+  handleMinigameButton,
+  handleMinigameReaction,
+  handleMinigameVoiceState,
+  shouldDeferTtsLeaveForFindBotVoiceMinigame,
+  clearGameForChannel,
+  isMinigameFloodExemptChannel,
+  isMinigameChannelBusy,
+  isMainChatMinigameChannelBusy,
+  getActiveGameForChannel,
+  getConfig,
+  pickSnipeEntryForChannel,
+  redactSnipeContentForMinigame,
+  suppressMinigameSnipe,
+  shouldSkipStoringSnipe,
+  startHalloweenTrickOrTreatGameForAlternate,
+  processHalloweenMinigamesShowcaseForce,
+};

@@ -1,9 +1,10 @@
+const { E } = require("../emojis/emojiCatalog") as typeof import("../emojis/emojiCatalog");
 /**
  * Shared registry dispatcher for button / select / modal components.
  * @param {{ errorEmoji?: string }} [options]
  */
 function createButtonInteractionDispatcher(options: Record<string, any> = {}) {
-  const errorEmoji = String(options.errorEmoji || "<a:VC_Cross:1482532424570376253>").trim();
+  const errorEmoji = String(options.errorEmoji || E.VC_Cross).trim();
 
   async function handleButtonInteraction(interaction?, client?) {
     const isComponent =

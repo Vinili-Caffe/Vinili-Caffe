@@ -1,8 +1,9 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const TICKET_UX_COLOR = "#6f4e37";
-const TICKET_ALERT = "<a:VC_Alert:1482706673176150077>";
-const TICKET_X = "<:vegax:1443934876440068179>";
-const TICKET_ATTENTION = "<:VC_Attention:1482534443632558151>";
+const TICKET_ALERT = E.VC_Alert;
+const TICKET_X = E.vegax;
+const TICKET_ATTENTION = E.VC_Attention;
 const { siteTicketsPageDiscordRef } = require("../../../shared/web/siteTicketsPageRef") as typeof import("../../../shared/web/siteTicketsPageRef");
 
 const DAY_IT = Object.freeze({

@@ -8,6 +8,7 @@ const { scheduleAntiNukePanicUnlock } = require("./antiNukePanicUnlock") as type
 const { isAntiNukeScopeGuild } = require("./antiNukeQuarantine") as typeof import("./antiNukeQuarantine");
 const { percentToHeat } = require("./antiNukeActionHeat") as typeof import("./antiNukeActionHeat");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const COMMAND_LOCK_CACHE = new Map();
 
 function resetPanicReport(state?) {
@@ -86,14 +87,14 @@ async function enableAntiNukePanic(guild?, reason?, addedHeat = 0, options: Reco
   if (!wasActive) {
     await sendAntiNukeLog(
       guild,
-      "<a:VC_Alert:1482706673176150077> AntiNuke Panic Mode Enabled",
+      `${E.VC_Alert} AntiNuke Panic Mode Enabled`,
       [
-        `<:VC_reason:1478517122929004544> **Reason:** ${reason || "threshold reached"}`,
-        `<:VC_reason:1478517122929004544> **Heat Algorithm:** ${ANTINUKE_CONFIG.panicMode.useHeatAlgorithm ? "ON" : "OFF"}`,
-        `<:VC_reason:1478517122929004544> **Duration:** ${Math.round(ANTINUKE_CONFIG.panicMode.durationMs / 60_000)} min`,
-        `<:VC_reason:1478517122929004544> **Max Duration:** ${Math.round(maxDuration / 60_000)} min`,
-        `<:VC_reason:1478517122929004544> **Dangerous Roles Lockdown:** ${ANTINUKE_CONFIG.panicMode.lockdown.dangerousRoles ? "ON" : "OFF"}`,
-        `<:VC_reason:1478517122929004544> **Channel Lockdown:** ${ANTINUKE_CONFIG.panicMode.lockdown.channelLockdown ? "ON" : "OFF"}`,
+        `${E.VC_reason} **Reason:** ${reason || "threshold reached"}`,
+        `${E.VC_reason} **Heat Algorithm:** ${ANTINUKE_CONFIG.panicMode.useHeatAlgorithm ? "ON" : "OFF"}`,
+        `${E.VC_reason} **Duration:** ${Math.round(ANTINUKE_CONFIG.panicMode.durationMs / 60_000)} min`,
+        `${E.VC_reason} **Max Duration:** ${Math.round(maxDuration / 60_000)} min`,
+        `${E.VC_reason} **Dangerous Roles Lockdown:** ${ANTINUKE_CONFIG.panicMode.lockdown.dangerousRoles ? "ON" : "OFF"}`,
+        `${E.VC_reason} **Channel Lockdown:** ${ANTINUKE_CONFIG.panicMode.lockdown.channelLockdown ? "ON" : "OFF"}`,
       ],
       "#ED4245",
     );

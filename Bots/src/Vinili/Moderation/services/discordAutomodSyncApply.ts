@@ -320,7 +320,11 @@ async function syncGuildDiscordAutomodRules(guild?, options: Record<string, any>
   const guildId = String(guild?.id || "");
   if (!guildId) return { ok: false, reason: "no_guild" };
   try {
-  const me = guild.members?.me;
+  /* REST workers (bot-scheduler) often lack guild.members.me until fetchMe. */
+  let me = guild.members?.me || null;
+  if (!me?.permissions) {
+    me = (await guild.members.fetchMe().catch(() => null)) || guild.members?.me || null;
+  }
   if (!me?.permissions?.has(PermissionsBitField.Flags.ManageGuild)) {
     return { ok: false, reason: "missing_manage_guild" };
   }
@@ -333,9 +337,6 @@ async function syncGuildDiscordAutomodRules(guild?, options: Record<string, any>
       await rule.delete("Vinili AutoMod: native layer disabled").catch(() => null);
     }
     return { ok: true, removed: managed.length, created: 0, updated: 0 };
-  }
-  if (!me) {
-    await guild.members.fetchMe().catch(() => null);
   }
   await guild.channels.fetch().catch(() => null);
   const exemptRoles = filterGuildSnowflakeIds(guild, collectExemptRoleIds(guild), "role");

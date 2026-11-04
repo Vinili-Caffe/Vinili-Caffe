@@ -1,5 +1,6 @@
 const { getGuildChannelCached, getClientGuildCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { findLifecycleCandidates, closeCaseByRef } = require("../utils/modCaseStore") as typeof import("../utils/modCaseStore");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   restoreRolesAfterCommunicationTimeoutEnd,
   sweepExpiredCommunicationTimeoutMirrors,
@@ -36,7 +37,7 @@ async function tryUnlockChannel(guild?, channelId?) {
     await channel.permissionOverwrites.edit(
       guild.roles.everyone,
       { SendMessages: null, SendMessagesInThreads: null },
-      { reason: "<:cancel:1461730653677551691> Auto unlock: timed lock expired" },
+      { reason: `${E.cancel} Auto unlock: timed lock expired` },
     );
     return true;
   } catch {
@@ -57,7 +58,7 @@ async function closeExpiredMuteCases(client?, now?) {
       client.guilds.cache.get(guildId) ||
       (await client.guilds.fetch(guildId).catch(() => null));
     if (!guild) {
-      await closeCaseByRef(guildId, userId, caseId, "<:cancel:1461730653677551691> Mute scaduto").catch(() => null);
+      await closeCaseByRef(guildId, userId, caseId, `${E.cancel} Mute scaduto`).catch(() => null);
       continue;
     }
     const member =
@@ -73,7 +74,7 @@ async function closeExpiredMuteCases(client?, now?) {
         guildId,
         userId,
         caseId,
-        `<:cancel:1461730653677551691> Mute case scaduto: utente ancora in timeout fino a ${new Date(untilTs).toISOString()}`,
+        `${E.cancel} Mute case scaduto: utente ancora in timeout fino a ${new Date(untilTs).toISOString()}`,
       ).catch(() => null);
       continue;
     }
@@ -97,7 +98,7 @@ async function closeExpiredBanCases(client?, now?) {
     const caseId = Number(row.caseId);
     const guild = await getClientGuildCached(client, guildId);
     if (!guild) {
-      await closeCaseByRef(guildId, userId, caseId, "<:cancel:1461730653677551691> Ban temporaneo scaduto").catch(() => null);
+      await closeCaseByRef(guildId, userId, caseId, `${E.cancel} Ban temporaneo scaduto`).catch(() => null);
       continue;
     }
     const unbanned = await tryUnban(guild, userId, `Timed ban expired (case #${caseId})`);
@@ -106,7 +107,7 @@ async function closeExpiredBanCases(client?, now?) {
       guildId,
       userId,
       caseId,
-      "<:cancel:1461730653677551691> Ban temporaneo scaduto: utente sbannato automaticamente",
+      `${E.cancel} Ban temporaneo scaduto: utente sbannato automaticamente`,
     ).catch(() => null);
   }
 }
@@ -123,7 +124,7 @@ async function closeExpiredLockCases(client?, now?) {
     const caseId = Number(row.caseId);
     const guild = await getClientGuildCached(client, guildId);
     if (!guild) {
-      await closeCaseByRef(guildId, userId, caseId, "<:cancel:1461730653677551691> Lock temporaneo scaduto").catch(() => null);
+      await closeCaseByRef(guildId, userId, caseId, `${E.cancel} Lock temporaneo scaduto`).catch(() => null);
       continue;
     }
     const channelId = userId.replace(/^CHANNEL:/, "");
@@ -133,7 +134,7 @@ async function closeExpiredLockCases(client?, now?) {
       guildId,
       userId,
       caseId,
-      "<:cancel:1461730653677551691> Lock temporaneo scaduto: canale sbloccato automaticamente",
+      `${E.cancel} Lock temporaneo scaduto: canale sbloccato automaticamente`,
     ).catch(() => null);
   }
 }

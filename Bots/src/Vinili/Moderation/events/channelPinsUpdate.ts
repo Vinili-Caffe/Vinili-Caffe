@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyl
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function isViniliFullFeatureGuild(guildId?) {
   try {
     const { isViniliFullFeatureGuild: check } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
@@ -124,18 +125,18 @@ export = {
       const messageUrl=messageId?buildMessageUrl(guild.id,channel.id,messageId):null;
 
       const lines = [
-        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-        `<:VC_User:1482527453586002103> **Utente:** ${channel} \`${channel.id}\``,
-        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+        `${E.VC_Staff} **Responsabile:** ${responsible}`,
+        `${E.VC_User} **Utente:** ${channel} \`${channel.id}\``,
+        `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
         "",
-        "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
-        `<a:VC_Channel:1482534583944871996> **Canale:** ${channel} \`${channel.id}\``,
-        `<:VC_Info:1482526956703580372> **ID messaggio:** \`${messageId || "sconosciuto"}\``,
+        `**${E.VC_tools} Informazioni aggiuntive**`,
+        `${E.VC_Channel} **Canale:** ${channel} \`${channel.id}\``,
+        `${E.VC_Info} **ID messaggio:** \`${messageId || "sconosciuto"}\``,
       ];
 
       const embed = new EmbedBuilder()
         .setColor(isPin ? "#57F287" : "#ED4245")
-        .setTitle(isPin ? "<:VC_BlackPin:1482534513400610948> Message Pin" : "<:VC_BlackPin:1482534513400610948> Message Unpin")
+        .setTitle(isPin ? `${E.VC_BlackPin} Message Pin` : `${E.VC_BlackPin} Message Unpin`)
         .setDescription(lines.join("\n"));
 
       const payload: Record<string, any> = { embeds: [embed] };

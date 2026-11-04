@@ -3,6 +3,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require(
 const { AvatarPrivacy } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { siteUserProfilePagePlainRef } = require("../../../../shared/web/siteTicketsPageRef") as typeof import("../../../../shared/web/siteTicketsPageRef");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const AVATAR_MODE_PREFIX = "avatar_mode:";
 
 function normalize(text?) {
@@ -63,7 +64,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Questo comando può essere usato solo in un server.",
+              `${E.vegax} Questo comando può essere usato solo in un server.`,
             ),
         ],
       });
@@ -75,7 +76,7 @@ export = {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setDescription("<:vegax:1443934876440068179> `+avatar guild` non esiste più. Usa `+avatar` e cambia vista con le frecce."),
+            .setDescription(`${E.vegax} \`+avatar guild\` non esiste più. Usa \`+avatar\` e cambia vista con le frecce.`),
         ],
       });
     }
@@ -122,11 +123,11 @@ function buildAvatarRows(requesterId?, targetUserId?, mode = "user", viewState =
       new ButtonBuilder()
         .setCustomId(`${AVATAR_MODE_PREFIX}${requesterId}:${targetUserId}:user:${stateToken}`)
         .setStyle(activeMode === "user" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji("<a:vegaleftarrow:1462914743416131816>"),
+        .setEmoji(E.vegaleftarrow),
       new ButtonBuilder()
         .setCustomId(`${AVATAR_MODE_PREFIX}${requesterId}:${targetUserId}:server:${stateToken}`)
         .setStyle(activeMode === "server" ? ButtonStyle.Primary : ButtonStyle.Secondary)
-        .setEmoji("<a:vegarightarrow:1443673039156936837>"),
+        .setEmoji(E.vegarightarrow),
       new ButtonBuilder()
         .setCustomId("avatar_views")
         .setLabel("Classifica Views")
@@ -141,7 +142,7 @@ async function buildAvatarPayload({ guild, targetMember, fallbackUser, requester
   const user = member?.user || fallbackUser || null;
   if (!guild || !user) {
     return {
-      embeds: [new EmbedBuilder().setColor("Red").setDescription("<:vegax:1443934876440068179> Impossibile trovare questo utente.")],
+      embeds: [new EmbedBuilder().setColor("Red").setDescription(`${E.vegax} Impossibile trovare questo utente.`)],
       components: [],
     };
   }
@@ -156,14 +157,14 @@ async function buildAvatarPayload({ guild, targetMember, fallbackUser, requester
   if (Boolean(privacyDoc?.blocked)) {
     const blockedEmbed = new EmbedBuilder()
       .setColor("#e74c3c")
-      .setTitle("<:vegax:1443934876440068179> Avatar Bloccato")
+      .setTitle(`${E.vegax} Avatar Bloccato`)
       .setThumbnail("https://images-ext-1.discordapp.net/external/qZp8C7dthauZs3SMmWIVqoxSjwXkKvmCXhZpro2lLzI/%3Fformat%3Dwebp%26quality%3Dlossless%26width%3D640%26height%3D640/https/images-ext-1.discordapp.net/external/fRgXgmNV39-c_gorTdDdWPSyx2fFy_i4t01cYEF-DKY/https/i.imgur.com/7OnTq5S.png?format=webp&quality=lossless&width=640&height=640")
       .setDescription("Questo utente ha bloccato la visualizzazione del proprio avatar.");
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`avatar_unblock:${user.id}`)
         .setLabel("Sblocca")
-        .setEmoji("<a:VC_Unlock:1482532082466029608>")
+        .setEmoji(E.VC_Unlock)
         .setStyle(ButtonStyle.Secondary),
     );
     return { embeds: [blockedEmbed], components: [row] };
@@ -217,7 +218,7 @@ async function buildAvatarPayload({ guild, targetMember, fallbackUser, requester
       text: `Puoi disabilitare la visualizzazione del tuo avatar tramite il ${siteUserProfilePagePlainRef()}.\n${totalViews} Views 👁️`,
     });
   if (activeMode === "server" && !hasServerAvatar) {
-    embed.setDescription("<:vegax:1443934876440068179> Non ha un avatar impostato solo per questo server.");
+    embed.setDescription(`${E.vegax} Non ha un avatar impostato solo per questo server.`);
   } else {
     embed.setImage(imageUrl);
   }

@@ -1,6 +1,7 @@
 const { AuditLogEvent, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, } = require("discord.js") as typeof import("discord.js");
 const { toDiscordTimestamp, yesNo, formatAuditActor, buildAuditExtraLines, resolveChannelRolesLogChannel, resolveResponsible, } = require("../../Moderation/utils/channelRolesLogUtils") as typeof import("../../Moderation/utils/channelRolesLogUtils");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const THREAD_UPDATE_ACTION = AuditLogEvent?.ThreadUpdate ?? 111;
 
 function sleep(ms?) {
@@ -53,36 +54,36 @@ export = {
       const responsible = formatAuditActor(audit.executor);
 
       const lines = [
-        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-        `<:VC_User:1482527453586002103> **Utente:** ${newThread || oldThread || "thread"} \`${threadId}\``,
-        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+        `${E.VC_Staff} **Responsabile:** ${responsible}`,
+        `${E.VC_User} **Utente:** ${newThread || oldThread || "thread"} \`${threadId}\``,
+        `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
         "",
-        "**<:VC_tools:1478862265305272364> Cambiamenti**",
+        `**${E.VC_tools} Cambiamenti**`,
       ];
 
       if (nameChanged) {
-        lines.push(`<:VC_Modifica:1478859646587633717> **Nome:** ${oldThread.name || "sconosciuto"} <a:VC_Arrow:1482706699365257397> ${newThread.name || "sconosciuto"}`);
+        lines.push(`${E.VC_Modifica} **Nome:** ${oldThread.name || "sconosciuto"} ${E.VC_Arrow} ${newThread.name || "sconosciuto"}`);
       }
       if (archivedChanged) {
         lines.push(
-          `<:VC_Modifica:1478859646587633717> **Archivio:** ${yesNo(Boolean(oldThread.archived))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newThread.archived))}`,
+          `${E.VC_Modifica} **Archivio:** ${yesNo(Boolean(oldThread.archived))} ${E.VC_Arrow} ${yesNo(Boolean(newThread.archived))}`,
         );
       }
       if (lockedChanged) {
         lines.push(
-          `<:VC_Modifica:1478859646587633717> **Bloccato:** ${yesNo(Boolean(oldThread.locked))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newThread.locked))}`,
+          `${E.VC_Modifica} **Bloccato:** ${yesNo(Boolean(oldThread.locked))} ${E.VC_Arrow} ${yesNo(Boolean(newThread.locked))}`,
         );
       }
       if (tagsChanged) {
         lines.push(
-          `<:VC_Modifica:1478859646587633717> **Tag applicati:** \`${oldTags.join(", ") || "nessuno"}\` <a:VC_Arrow:1482706699365257397> \`${newTags.join(", ") || "nessuno"}\``,
+          `${E.VC_Modifica} **Tag applicati:** \`${oldTags.join(", ") || "nessuno"}\` ${E.VC_Arrow} \`${newTags.join(", ") || "nessuno"}\``,
         );
       }
       lines.push(...buildAuditExtraLines(audit.entry, ["name", "archived", "locked", "applied_tags"]));
 
       const embed = new EmbedBuilder()
         .setColor("#F59E0B")
-        .setTitle("<:VC_threads:1478515497569095760> Thread Aggiornato")
+        .setTitle(`${E.VC_threads} Thread Aggiornato`)
         .setDescription(lines.join("\n"));
 
       const payload: Record<string, any> = { embeds: [embed] };
@@ -92,7 +93,7 @@ export = {
             new ButtonBuilder()
               .setStyle(ButtonStyle.Link)
               .setLabel("Vai al Thread")
-              .setEmoji("<:VC_threads:1478515497569095760>")
+              .setEmoji(E.VC_threads)
               .setURL(newThread.url),
           ),
         ];

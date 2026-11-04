@@ -1,5 +1,6 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 const { readBackupByIdGlobal, createGuildBackup } = require("./serverBackupService") as typeof import("./serverBackupService");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   formatMessagesLimit,
   getLoadSession,
@@ -43,7 +44,7 @@ async function handleBackupLoadInteraction(interaction?) {
   if (!session) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1482706673176150077> Sessione backup scaduta. Riesegui **+backup** → **Carica backup**.",
+        content: `${E.VC_Alert} Sessione backup scaduta. Riesegui **+backup** → **Carica backup**.`,
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -53,7 +54,7 @@ async function handleBackupLoadInteraction(interaction?) {
   if (String(session.userId) !== String(interaction.user?.id || "")) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1482706673176150077> Questo pannello non è tuo.",
+        content: `${E.VC_Alert} Questo pannello non è tuo.`,
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -63,7 +64,7 @@ async function handleBackupLoadInteraction(interaction?) {
   if (String(session.guildId) !== String(interaction.guildId || "")) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1482706673176150077> Questo pannello appartiene a un altro server.",
+        content: `${E.VC_Alert} Questo pannello appartiene a un altro server.`,
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -73,7 +74,7 @@ async function handleBackupLoadInteraction(interaction?) {
   if (!ensureManageGuild(interaction)) {
     await interaction
       .reply({
-        content: "<a:VC_Alert:1482706673176150077> Ti serve il permesso Manage Server per usare il backup load.",
+        content: `${E.VC_Alert} Ti serve il permesso Manage Server per usare il backup load.`,
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -157,7 +158,7 @@ async function handleBackupLoadInteraction(interaction?) {
     if (!activeLoad) {
       await interaction
         .reply({
-          content: "<a:VC_Alert:1482706673176150077> C'è già un backup load in corso in questo server.",
+          content: `${E.VC_Alert} C'è già un backup load in corso in questo server.`,
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -228,7 +229,7 @@ async function handleBackupLoadInteraction(interaction?) {
     if (!status) {
       await interaction
         .reply({
-          content: "<a:VC_Alert:1482706673176150077> Nessun backup load in corso.",
+          content: `${E.VC_Alert} Nessun backup load in corso.`,
           flags: 1 << 6,
         })
         .catch(() => { });
@@ -241,16 +242,16 @@ async function handleBackupLoadInteraction(interaction?) {
         embeds: [
           new EmbedBuilder()
             .setColor("#3498db")
-            .setTitle("<:VC_update:1478721333096349817> Backup Load Status")
+            .setTitle(`${E.VC_update} Backup Load Status`)
             .setDescription(
               [
-                `<:VC_id:1478517313618575419> Backup ID: \`${status.backupId}\``,
-                `<:VC_Clock:1473359204189474886> Started: <t:${startedAt}:R>`,
-                `<:VC_update:1478721333096349817> Phase: \`${status.phase}\``,
-                `<:VC_update:1478721333096349817> Processed items: **${status.processed}**`,
-                `<:VC_update:1478721333096349817> Cancel requested: **${status.cancelRequested ? "yes" : "no"}**`,
-                `<:VC_update:1478721333096349817> Messages limit: \`${formatMessagesLimit(status.messagesLimit)}\``,
-                status.checkpointId ? `<:VC_id:1478517313618575419> Checkpoint: \`${status.checkpointId}\`` : null,
+                `${E.VC_id} Backup ID: \`${status.backupId}\``,
+                `${E.VC_Clock} Started: <t:${startedAt}:R>`,
+                `${E.VC_update} Phase: \`${status.phase}\``,
+                `${E.VC_update} Processed items: **${status.processed}**`,
+                `${E.VC_update} Cancel requested: **${status.cancelRequested ? "yes" : "no"}**`,
+                `${E.VC_update} Messages limit: \`${formatMessagesLimit(status.messagesLimit)}\``,
+                status.checkpointId ? `${E.VC_id} Checkpoint: \`${status.checkpointId}\`` : null,
               ].filter(Boolean).join("\n"),
             ),
         ],

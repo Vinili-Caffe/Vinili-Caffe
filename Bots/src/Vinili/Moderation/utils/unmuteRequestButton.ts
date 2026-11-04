@@ -1,5 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const UNMUTE_REQUEST_URL = "https://www.viniliecaffe.it/appelli?tipo=unmute";
 
 function buildUnmuteRequestRow() {
@@ -7,7 +8,7 @@ function buildUnmuteRequestRow() {
     new ButtonBuilder()
       .setStyle(ButtonStyle.Link)
       .setLabel("Richiedi unmute")
-      .setEmoji("<:link:1470064815899803668>")
+      .setEmoji(E.link)
       .setURL(UNMUTE_REQUEST_URL),
   );
 }

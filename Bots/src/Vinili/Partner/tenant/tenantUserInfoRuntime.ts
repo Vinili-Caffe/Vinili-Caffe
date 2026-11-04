@@ -6,6 +6,7 @@ const { getUserPartnershipScores } = require("../services/tenantLeaderboardServi
 const { memberDisplayName, userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { buildTenantLookupNotFoundPayload } = require("./tenantLookupNotFoundRuntime") as typeof import("./tenantLookupNotFoundRuntime");
 const { t } = require("../i18n/tenantPartnershipI18n/index") as typeof import("../i18n/tenantPartnershipI18n/index");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const SNOWFLAKE_RE = /^\d{16,20}$/;
 const USER_MENTION_RE = /^<@!?(\d{16,20})>$/;
 
@@ -63,7 +64,7 @@ async function buildTenantUserInfoPayload(client?, sourceGuild?, options: Record
   if (!SNOWFLAKE_RE.test(targetUserId)) {
     return {
       content:
-        "<:vegax:1443934876440068179> Specifica un utente con `+user info`, `+user info <userId>` o una menzione.",
+        `${E.vegax} Specifica un utente con \`+user info\`, \`+user info <userId>\` o una menzione.`,
       allowedMentions: { repliedUser: false },
     };
   }
@@ -85,12 +86,12 @@ async function buildTenantUserInfoPayload(client?, sourceGuild?, options: Record
     .setThumbnail(avatarUrl || null)
     .setDescription(
       [
-        `<:861752staff:1524730539129438258> **${t(lang, "userInfo_username")}:** ${inlineCode(username)}`,
-        `<:808239search:1524730540983582728> **${t(lang, "userInfo_id")}:** ${inlineCode(targetUserId)}`,
+        `${E["861752staff"]} **${t(lang, "userInfo_username")}:** ${inlineCode(username)}`,
+        `${E["808239search"]} **${t(lang, "userInfo_id")}:** ${inlineCode(targetUserId)}`,
         "",
-        `<:981353partner:1524730506531311688> **${t(lang, "userInfo_count")}:** ${inlineCode(scores.total)}`,
-        `<:709897bolt:1524730543122681988> **${t(lang, "userInfo_daily")}:** ${inlineCode(scores.daily)}`,
-        `<:7619planet:1524730515436077187> **${t(lang, "userInfo_weekly")}:** ${inlineCode(scores.weekly)}`,
+        `${E["981353partner"]} **${t(lang, "userInfo_count")}:** ${inlineCode(scores.total)}`,
+        `${E["709897bolt"]} **${t(lang, "userInfo_daily")}:** ${inlineCode(scores.daily)}`,
+        `${E["7619planet"]} **${t(lang, "userInfo_weekly")}:** ${inlineCode(scores.weekly)}`,
       ].join("\n"),
     );
 
@@ -99,7 +100,7 @@ async function buildTenantUserInfoPayload(client?, sourceGuild?, options: Record
       new ButtonBuilder()
         .setStyle(ButtonStyle.Link)
         .setLabel(t(lang, "userInfo_openProfile"))
-        .setEmoji("<:808239search:1524730540983582728>")
+        .setEmoji(E["808239search"])
         .setURL(profileUrl),
     ),
   ];

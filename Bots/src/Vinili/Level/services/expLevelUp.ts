@@ -8,6 +8,7 @@ const { applyDefaultFooterToEmbeds } = require("../../../shared/embeds/defaultFo
 const { isLevelExpGuild, formatMemberMention, repairExpTotals, resolveLevelUpAnnounceLevel } = require("./expLevels") as typeof import("./expLevels");
 const { memberDisplayName, resolveEmbedUserAvatarUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const VINILI_EMBED_COLOR_INT = 0x826bc2;
 const LEVEL_UP_CHANNEL_ID = IDs.channels.commands;
 const PERKS_CHANNEL_ID = IDs.channels.supporters;
@@ -36,9 +37,9 @@ async function buildLevelUpEmbed(member?, level?) {
         thumbnail: { url: avatarUrl },
         author: { name, icon_url: avatarUrl },
         description: [
-          `<a:VC_PandaClap:1331620157398712330> **Complimenti ${formatMemberMention(member)}!**`,
-          `<:VC_LevelUp2:1482527047871107143> Hai appena __raggiunto__ il **livello** \`${level}\``,
-          `<a:VC_HelloKittyGift:1329447876857958471> __Continua__ ad essere **attivo** in __chat__ e in __vocale__ per avanzare di _livello_!`,
+          `${E.VC_PandaClap} **Complimenti ${formatMemberMention(member)}!**`,
+          `${E.VC_LevelUp2} Hai appena __raggiunto__ il **livello** \`${level}\``,
+          `${E.VC_HelloKittyGift} __Continua__ ad essere **attivo** in __chat__ e in __vocale__ per avanzare di _livello_!`,
         ].join("\n"),
       },
     ],
@@ -76,9 +77,9 @@ async function buildPerksLevelEmbed(member?, level?, roleId?) {
         thumbnail: { url: avatarUrl },
         author: { name, icon_url: avatarUrl },
         description: [
-          `<a:VC_PandaClap:1331620157398712330> **Complimenti ${formatMemberMention(member)}!**`,
-          `<:VC_LevelUp2:1482527047871107143> Hai appena __raggiunto__ il <@&${roleId}>`,
-          `<a:VC_HelloKittyGift:1329447876857958471> __Controlla__ <#${PERKS_CHANNEL_ID}> per sapere i nuovi **vantaggi** che hai _sbloccato_!`,
+          `${E.VC_PandaClap} **Complimenti ${formatMemberMention(member)}!**`,
+          `${E.VC_LevelUp2} Hai appena __raggiunto__ il <@&${roleId}>`,
+          `${E.VC_HelloKittyGift} __Controlla__ <#${PERKS_CHANNEL_ID}> per sapere i nuovi **vantaggi** che hai _sbloccato_!`,
         ].join("\n"),
       },
     ],
@@ -195,7 +196,7 @@ async function sendLevelUpPayload(channel?, member?, payload?) {
   const outgoing = applyDefaultFooterToEmbeds(
     applyPronounGenderToPayload(
       {
-        content: `<a:VC_LevelUp:1482527020641419415> ${formatMemberMention(member)} sei salito/a di livello!`,
+        content: `${E.VC_LevelUp} ${formatMemberMention(member)} sei salito/a di livello!`,
         ...payload,
       },
       member,

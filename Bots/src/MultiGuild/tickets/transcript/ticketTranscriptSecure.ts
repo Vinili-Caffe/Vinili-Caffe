@@ -2,6 +2,7 @@ const crypto = require("node:crypto") as typeof import("node:crypto");
 const { ButtonBuilder, ActionRowBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const { saveTranscriptHtml } = require("./transcriptUtils") as typeof import("./transcriptUtils");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const TRANSCRIPT_VIEW_TOKEN_BYTES = 32;
 const TRANSCRIPT_VIEW_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
@@ -74,7 +75,7 @@ async function prepareTicketTranscriptSecureFields(channel?, html?) {
 }
 
 function buildTicketTranscriptActionRow(ticketId?, viewUrl?) {
-  const emoji = "<:VC_file:1478515880722698300>";
+  const emoji = E.VC_file;
   const id = String(ticketId || "").trim();
   if (viewUrl) {
     return new ActionRowBuilder().addComponents(

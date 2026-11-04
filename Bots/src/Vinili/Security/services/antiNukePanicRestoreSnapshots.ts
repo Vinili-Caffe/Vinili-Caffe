@@ -1,6 +1,7 @@
 const { PermissionsBitField, OverwriteType } = require("discord.js") as typeof import("discord.js");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function restoreDeletedRoleSnapshots(guild?, state?) {
   const pending = Array.from(state?.deletedRoleSnapshots?.values?.() || []);
   if (!pending.length) return { restored: 0, failed: 0 };
@@ -26,7 +27,7 @@ async function restoreDeletedRoleSnapshots(guild?, state?) {
       continue;
     }
     const targetPosition = Math.max(1, Number((snap as any).position || 1));
-    await role.setPosition(targetPosition, { reason: "<a:VC_Unlock:1482532082466029608> AntiNuke restore: role position" }).catch(() => { });
+    await role.setPosition(targetPosition, { reason: `${E.VC_Unlock} AntiNuke restore: role position` }).catch(() => { });
     restored += 1;
   }
   state.deletedRoleSnapshots?.clear?.();
@@ -79,7 +80,7 @@ async function restoreDeletedChannelSnapshots(guild?, state?) {
     }
     const position = Number((snap as any).position || 0);
     if (Number.isFinite(position) && position >= 0) {
-      await restoredChannel.setPosition(position, { reason: "<a:VC_Unlock:1482532082466029608> AntiNuke restore: channel position" }).catch(() => { });
+      await restoredChannel.setPosition(position, { reason: `${E.VC_Unlock} AntiNuke restore: channel position` }).catch(() => { });
     }
     restored += 1;
   }

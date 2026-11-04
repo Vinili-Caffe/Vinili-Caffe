@@ -3,6 +3,7 @@ const { CAPITAL_COUNTRY_REGION, REGION_HINT_DATA } = require("../../Minigames/da
 const { normalizeCountryName } = require("./minigameImages") as typeof import("./minigameImages");
 const { randomBetween, normalizePlayerGuess, buildCompactAlias } = require("./minigameSources") as typeof import("./minigameSources");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function shuffleString(value?) {
   const arr = String(value || "").split("");
   for (let i = arr.length - 1; i > 0; i -= 1) {
@@ -354,7 +355,7 @@ function buildRevealHint(value?, revealRatio = 0.4, includeEmoji = false) {
     .map((_?, i?) => i)
     .filter((i?) => /[a-z0-9]/.test(charsLower[i]));
   if (indices.length === 0) return null;
-  const wrap = (s?) => (includeEmoji ? `<a:VC_Flame:1482725674711126140> **${s}**` : `**${s}**`);
+  const wrap = (s?) => (includeEmoji ? `${E.VC_Flame} **${s}**` : `**${s}**`);
   const isLetterOrDigit = (c?) => /[a-z0-9]/i.test(c);
   if (indices.length <= 2) {
     const out = chars.map((c?, i?) => (indices.includes(i) ? c : isLetterOrDigit(c) ? "_" : c)).join("");
@@ -387,14 +388,14 @@ function buildCountryHint(country?) {
     parts.push(`Lingua/e: **${country.languages.slice(0, 2).join(", ")}**`);
   }
   if (!parts.length) return null;
-  return `<a:VC_Flame:1482725674711126140> ${parts.join(" \u2022 ")}`;
+  return `${E.VC_Flame} ${parts.join(" \u2022 ")}`;
 }
 
 function buildCapitalHint(countryName?) {
   const key = normalizeCountryName(countryName || "").replace(/\s+/g, " ");
   const region = key ? CAPITAL_COUNTRY_REGION[key] : null;
   if (!region) return null;
-  return `<a:VC_Flame:1482725674711126140> Capitale di un paese in **${region}**.`;
+  return `${E.VC_Flame} Capitale di un paese in **${region}**.`;
 }
 
 function buildRegionCapitalHint(regionName?) {
@@ -411,7 +412,7 @@ function buildRegionCapitalHint(regionName?) {
     parts.push(`ha circa **${data.population}** abitanti`);
   }
   if (!parts.length) return null;
-  return `<a:VC_Flame:1482725674711126140> Capoluogo di una regione che ${parts.join(" • ")}.`;
+  return `${E.VC_Flame} Capoluogo di una regione che ${parts.join(" • ")}.`;
 }
 
 function buildNumberNearHint(target?, min?, max?) {
@@ -421,7 +422,7 @@ function buildNumberNearHint(target?, min?, max?) {
   const band = Math.max(2, Math.round(range * 0.18));
   const from = Math.max(low, Number(target) - band);
   const to = Math.min(high, Number(target) + band);
-  return `<a:VC_Flame:1482725674711126140> Il numero è tra **${from}** e **${to}**.`;
+  return `${E.VC_Flame} Il numero è tra **${from}** e **${to}**.`;
 }
 
 function shuffleArray(arr?) {

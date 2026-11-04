@@ -2,6 +2,7 @@ const { AVATAR_MODE_PREFIX, buildAvatarPayload } = require("../prefix/avatar") a
 const { BANNER_MODE_PREFIX, buildBannerPayload } = require("../prefix/banner") as typeof import("../prefix/banner");
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 function match(interaction?) {
   if (!interaction?.isButton?.()) return false;
   const id = String(interaction.customId || "");
@@ -27,7 +28,7 @@ async function execute(interaction?) {
   if (!guild) return false;
 
   if (ownerId && interaction.user?.id && String(ownerId) !== String(interaction.user.id)) {
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non è tuo.", flags: 1 << 6 }).catch(() => { });
+    await interaction.reply({ content: `${E.VC_Alert} Questo controllo non è tuo.`, flags: 1 << 6 }).catch(() => { });
     return true;
   }
 

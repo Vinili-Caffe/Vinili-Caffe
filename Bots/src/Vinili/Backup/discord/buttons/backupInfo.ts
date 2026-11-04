@@ -2,6 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFl
 const { readBackupByIdGlobal, deleteBackupByIdGlobal } = require("../../services/serverBackupService") as typeof import("../../services/serverBackupService");
 const { createLoadSession, buildLoadWarningEmbed, buildLoadComponents } = require("../../services/backupLoadService") as typeof import("../../services/backupLoadService");
 const { safeEditReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const PREFIX_LOAD = "backup_info_load:";
 const PREFIX_DELETE = "backup_info_delete:";
 const PREFIX_CONFIRM = "backup_delete_confirm:";
@@ -23,7 +24,7 @@ async function execute(interaction?) {
     const parts = customId.slice(PREFIX_LOAD.length).split(":");
     const [backupId, userId, guildId] = parts;
     if (!backupId || interaction.user?.id !== userId) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non è tuo.", flags: EPHEMERAL }).catch(() => { });
+      await interaction.reply({ content: `${E.VC_Alert} Questo controllo non è tuo.`, flags: EPHEMERAL }).catch(() => { });
       return true;
     }
     try {
@@ -43,7 +44,7 @@ async function execute(interaction?) {
     } catch (err) {
       global.logger?.error?.("[Buttons/backupInfo] load", err);
       await safeEditReply(interaction, {
-        content: `<:vegax:1443934876440068179> ${String(err?.message || err).slice(0, 300)}`,
+        content: `${E.vegax} ${String(err?.message || err).slice(0, 300)}`,
       });
     }
     return true;
@@ -53,7 +54,7 @@ async function execute(interaction?) {
     const parts = customId.slice(PREFIX_DELETE.length).split(":");
     const [backupId, userId, guildId] = parts;
     if (!backupId || interaction.user?.id !== userId) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non è tuo.", flags: EPHEMERAL }).catch(() => { });
+      await interaction.reply({ content: `${E.VC_Alert} Questo controllo non è tuo.`, flags: EPHEMERAL }).catch(() => { });
       return true;
     }
     await safeEditReply(interaction, {
@@ -69,11 +70,11 @@ async function execute(interaction?) {
     const parts = rest.split(":");
     const [backupId, userId] = parts;
     if (!backupId || interaction.user?.id !== userId) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non è tuo.", flags: EPHEMERAL }).catch(() => { });
+      await interaction.reply({ content: `${E.VC_Alert} Questo controllo non è tuo.`, flags: EPHEMERAL }).catch(() => { });
       return true;
     }
     await safeEditReply(interaction, {
-      embeds: [new EmbedBuilder().setColor("#3498db").setDescription("<:VC_InactiveStatus:1482526984234860574> Eliminazione annullata.")],
+      embeds: [new EmbedBuilder().setColor("#3498db").setDescription(`${E.VC_InactiveStatus} Eliminazione annullata.`)],
       components: [],
     });
     return true;
@@ -84,18 +85,18 @@ async function execute(interaction?) {
     const parts = rest.split(":");
     const [backupId, userId, guildId] = parts;
     if (!backupId || interaction.user?.id !== userId) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non è tuo.", flags: EPHEMERAL }).catch(() => { });
+      await interaction.reply({ content: `${E.VC_Alert} Questo controllo non è tuo.`, flags: EPHEMERAL }).catch(() => { });
       return true;
     }
     if (!interaction.memberPermissions?.has?.(PermissionFlagsBits.ManageGuild)) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non hai il permesso di gestire questo server.", flags: EPHEMERAL }).catch(() => { });
+      await interaction.reply({ content: `${E.VC_Alert} Non hai il permesso di gestire questo server.`, flags: EPHEMERAL }).catch(() => { });
       return true;
     }
     try {
       const currentGuildId = String(interaction.guild?.id || "").trim();
       if (guildId && String(guildId).trim() !== currentGuildId) {
         await interaction.reply({
-          content: "<a:VC_Alert:1482706673176150077> Puoi eliminare solo backup di questo server.",
+          content: `${E.VC_Alert} Puoi eliminare solo backup di questo server.`,
           flags: EPHEMERAL,
         }).catch(() => {});
         return true;
@@ -106,8 +107,8 @@ async function execute(interaction?) {
         embeds: [
           new EmbedBuilder()
             .setColor("#2ecc71")
-            .setTitle("<:success:1461731530333229226> Backup eliminato")
-            .setDescription(`<:success:1461731530333229226> Il backup \`${backupId}\` è stato eliminato.`),
+            .setTitle(`${E.success} Backup eliminato`)
+            .setDescription(`${E.success} Il backup \`${backupId}\` è stato eliminato.`),
         ],
         components: [],
         flags: EPHEMERAL,
@@ -118,7 +119,7 @@ async function execute(interaction?) {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setDescription(`<:vegax:1443934876440068179> ${String(err?.message || err).slice(0, 300)}`),
+            .setDescription(`${E.vegax} ${String(err?.message || err).slice(0, 300)}`),
         ],
         components: [],
       });
@@ -136,11 +137,11 @@ function buildInfoButtons(backupId?, userId?, guildId?) {
     new ButtonBuilder()
       .setCustomId(loadId)
       .setStyle(ButtonStyle.Primary)
-      .setEmoji("<a:VC_Loading:1482526818278969578>"),
+      .setEmoji(E.VC_Loading__969578),
     new ButtonBuilder()
       .setCustomId(deleteId)
       .setStyle(ButtonStyle.Danger)
-      .setEmoji("<:VC_purge:1478861828271636561>")
+      .setEmoji(E.VC_purge)
   );
 }
 
@@ -151,20 +152,20 @@ function buildDeleteConfirmButtons(backupId?, userId?, guildId?) {
     new ButtonBuilder()
       .setCustomId(confirmId)
       .setStyle(ButtonStyle.Danger)
-      .setEmoji("<:success:1461731530333229226>"),
+      .setEmoji(E.success),
     new ButtonBuilder()
       .setCustomId(cancelId)
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("<:cancel:1461730653677551691>")
+      .setEmoji(E.cancel)
   );
 }
 
 function buildDeleteWarningEmbed() {
   return new EmbedBuilder()
     .setColor("#e74c3c")
-    .setTitle("<a:VC_Alert:1482706673176150077> Conferma eliminazione")
+    .setTitle(`${E.VC_Alert} Conferma eliminazione`)
     .setDescription(
-      "<:VC_PinkQuestionMark:1471892611026391306> Sei sicuro di voler **eliminare** questo backup? L'operazione è **irreversibile** e non potrai recuperare i dati."
+      `${E.VC_PinkQuestionMark} Sei sicuro di voler **eliminare** questo backup? L'operazione è **irreversibile** e non potrai recuperare i dati.`
     );
 }
 

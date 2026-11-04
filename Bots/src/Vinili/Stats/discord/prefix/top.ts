@@ -11,6 +11,7 @@ const { upsertChannelSnapshot, syncGuildChannelSnapshots, getChannelSnapshotMap 
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const topComponents = require("../buttons/topChannel/components") as typeof import("../buttons/topChannel/components");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const TOP_CHANNEL_DIRECT_CHANNEL_IDS = new Set([IDs.channels.commands, IDs.channels.staffCmds].filter(Boolean).map(String));
 
 const {
@@ -583,7 +584,7 @@ async function buildTopChannelPayload(
     return {
       embeds: [],
       content:
-        "<:vegax:1443934876440068179> Non sono riuscito a generare l'immagine top.",
+        `${E.vegax} Non sono riuscito a generare l'immagine top.`,
       components: buildTopChannelComponents(
         ownerId,
         effectiveLookback,

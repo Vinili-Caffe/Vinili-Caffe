@@ -7,6 +7,7 @@ const { buildUnbanRequestRow } = require("../unbanRequestButton") as typeof impo
 const { buildUnmuteRequestRow } = require("../unmuteRequestButton") as typeof import("../unmuteRequestButton");
 const { isViniliProtectedGuild } = require("../../../../MultiGuild/core/viniliProtectedGuilds") as typeof import("../../../../MultiGuild/core/viniliProtectedGuilds");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 function embed(client?, title?, description?, color = null) {
   return new EmbedBuilder()
     .setColor(color || client?.config?.embedModLight || "#6f4e37")
@@ -28,7 +29,7 @@ async function reply(message?, client?, title?, description?, color = null) {
 function successText(subject?, verb?, reason?) {
   const safeSubject = String(subject || "unknown").trim();
   const safeVerb = String(verb || "was updated").trim();
-  const left = `<:success:1461731530333229226> ***${safeSubject} ${safeVerb}.***`;
+  const left = `${E.success} ***${safeSubject} ${safeVerb}.***`;
   if (!reason) return left;
   return `${left} • ${String(reason).trim()}`;
 }
@@ -131,20 +132,20 @@ async function validateModerationTarget(message?, member?, actionLabel?, targetU
   }
   if (!targetMember) return { ok: true };
   if (String(targetMember.id) === String(message.author.id)) {
-    return { ok: false, error: `<:VC_Lock:1482526739044368476> Non puoi usare \`${actionLabel}\` su te stesso.` };
+    return { ok: false, error: `${E.VC_Lock} Non puoi usare \`${actionLabel}\` su te stesso.` };
   }
   if (String(targetMember.id) === String(message.client.user.id)) {
-    return { ok: false, error: "<:VC_Lock:1482526739044368476> Non puoi moderare il bot." };
+    return { ok: false, error: `${E.VC_Lock} Non puoi moderare il bot.` };
   }
   if (isServerOwner(targetMember, message.guild)) {
-    return { ok: false, error: "<:VC_Lock:1482526739044368476> Non puoi moderare il proprietario del server." };
+    return { ok: false, error: `${E.VC_Lock} Non puoi moderare il proprietario del server.` };
   }
   if (targetMember.permissions?.has(PermissionsBitField.Flags.Administrator)) {
     const botAdmin = message.guild?.members?.me?.permissions?.has(PermissionsBitField.Flags.Administrator);
     if (!botAdmin) {
       return {
         ok: false,
-        error: "<:VC_Lock:1482526739044368476> Questo utente ha **Amministratore**: il bot non può bannarlo finché non ha anche Amministratore o finché non gli togli quel permesso.",
+        error: `${E.VC_Lock} Questo utente ha **Amministratore**: il bot non può bannarlo finché non ha anche Amministratore o finché non gli togli quel permesso.`,
       };
     }
   }
@@ -154,7 +155,7 @@ async function validateModerationTarget(message?, member?, actionLabel?, targetU
   if (actorHighest >= 0 && targetHighest >= 0 && targetHighest >= actorHighest) {
     return {
       ok: false,
-      error: "<:VC_Lock:1482526739044368476> Non puoi moderare un utente con ruolo superiore o uguale al tuo.",
+      error: `${E.VC_Lock} Non puoi moderare un utente con ruolo superiore o uguale al tuo.`,
     };
   }
   const protectedRoleIds = [ IDs?.roles?.Staff, IDs?.roles?.Helper, IDs?.roles?.Mod, IDs?.roles?.SeniorModerator, IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Manager, IDs?.roles?.Founder,].map((id?) => String(id || "").trim()).filter(Boolean);
@@ -168,7 +169,7 @@ async function validateModerationTarget(message?, member?, actionLabel?, targetU
   if (protectedRoleIds.some((roleId?) => targetMember.roles?.cache?.has(roleId))) {
     return {
       ok: false,
-      error: "<:VC_Lock:1482526739044368476> Non puoi moderare un utente con ruolo Staff o superiore.",
+      error: `${E.VC_Lock} Non puoi moderare un utente con ruolo Staff o superiore.`,
     };
   }
   return { ok: true };
@@ -209,22 +210,22 @@ async function sendModerationDm({ user, guildId, guildName, action, reason = "",
   const withReason = safeReason ? ` | **${safeReason}**` : "";
   let baseText = "";
   if (actionKey === "warn") {
-    baseText = `<a:VC_Alert:1482706673176150077> Sei stato warnato in ${safeGuildName}.${withReason}`;
+    baseText = `${E.VC_Alert} Sei stato warnato in ${safeGuildName}.${withReason}`;
   } else if (actionKey === "ban") {
-    baseText = `<a:VC_Alert:1482706673176150077> Sei stato bannato da ${safeGuildName}.${withReason}`;
+    baseText = `${E.VC_Alert} Sei stato bannato da ${safeGuildName}.${withReason}`;
   } else if (actionKey === "kick") {
-    baseText = `<a:VC_Alert:1482706673176150077> Sei stato kickato da ${safeGuildName}.${withReason}`;
+    baseText = `${E.VC_Alert} Sei stato kickato da ${safeGuildName}.${withReason}`;
   } else if (actionKey === "mute") {
     const durationPart = safeDuration ? ` per ${safeDuration}` : "";
-    baseText = `<a:VC_Alert:1482706673176150077> Sei stato mutato in ${safeGuildName}${durationPart}.${withReason}`;
+    baseText = `${E.VC_Alert} Sei stato mutato in ${safeGuildName}${durationPart}.${withReason}`;
   } else if (actionKey === "unban") {
-    baseText = `<a:VC_Alert:1482706673176150077> Il tuo ban in ${safeGuildName} è stato revocato.${withReason}`;
+    baseText = `${E.VC_Alert} Il tuo ban in ${safeGuildName} è stato revocato.${withReason}`;
   } else if (actionKey === "unmute") {
-    baseText = `<a:VC_Alert:1482706673176150077> Il tuo mute in ${safeGuildName} è stato revocato.${withReason}`;
+    baseText = `${E.VC_Alert} Il tuo mute in ${safeGuildName} è stato revocato.${withReason}`;
   } else if (actionKey === "delwarn") {
-    baseText = `<a:VC_Alert:1482706673176150077> Un warn ti è stato rimosso in ${safeGuildName}.${withReason}`;
+    baseText = `${E.VC_Alert} Un warn ti è stato rimosso in ${safeGuildName}.${withReason}`;
   } else if (actionKey === "clearwarn") {
-    baseText = `<a:VC_Alert:1482706673176150077> Tutti i tuoi warn sono stati rimossi in ${safeGuildName}.${withReason}`;
+    baseText = `${E.VC_Alert} Tutti i tuoi warn sono stati rimossi in ${safeGuildName}.${withReason}`;
   } else {
     return false;
   }
@@ -245,7 +246,7 @@ async function sendModerationDm({ user, guildId, guildName, action, reason = "",
           new ButtonBuilder()
             .setStyle(ButtonStyle.Link)
             .setLabel("Rientra nel server")
-            .setEmoji(`<:link:1470064815899803668>`)
+            .setEmoji(E.link)
             .setURL(inviteUrl),
         ),
       ];

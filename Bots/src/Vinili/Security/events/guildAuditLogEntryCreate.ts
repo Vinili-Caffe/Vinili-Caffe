@@ -6,6 +6,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { grantBestStaffPauseBonusYear } = require("../../site/staff/pause/pauseHandlersUtils") as typeof import("../../site/staff/pause/pauseHandlersUtils");
 const { onStafferDellaSettimanaRoleAdded } = require("../../Staff/services/stafferDellaSettimanaService") as typeof import("../../Staff/services/stafferDellaSettimanaService");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const MEMBER_ROLE_UPDATE_ACTION = AuditLogEvent.MemberRoleUpdate ?? 25;
 
 function auditEntryChangeAddsRoleId(entry?, roleId?) {
@@ -72,20 +73,20 @@ export = {
       const membersRemoved = Number.isFinite(rawMembersRemoved) ? Math.max(0, rawMembersRemoved) : 0;
       const deleteDays = Number.isFinite(rawDeleteDays) ? Math.max(0, rawDeleteDays) : 0;
       const extraLines = buildAuditExtraLines(entry, ["removed", "members_removed", "delete_member_days", "days"]);
-      const cleanedExtraLines=extraLines.filter((line?,index?) => !(index===0&&line==="")&&line!=="**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",);
+      const cleanedExtraLines=extraLines.filter((line?,index?) => !(index===0&&line==="")&&line!==`**${E.VC_tools} Informazioni aggiuntive**`,);
 
       if (logChannel?.isTextBased?.()) {
         const embed = new EmbedBuilder()
             .setColor("#ED4245")
-            .setTitle("<:VC_User:1482527453586002103> Member Prune")
-            .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-              `<:VC_Clock:1473359204189474886> ${nowDiscordTs()}`,
-              entry.reason ? `<:VC_reason:1478517122929004544> **Motivo:** ${entry.reason}` : null,
+            .setTitle(`${E.VC_User} Member Prune`)
+            .setDescription([`${E.VC_Staff} **Responsabile:** ${responsible}`,
+              `${E.VC_Clock} ${nowDiscordTs()}`,
+              entry.reason ? `${E.VC_reason} **Motivo:** ${entry.reason}` : null,
               "",
-              "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
-              `<:VC_Info:1482526956703580372> **Conteggio:** ${membersRemoved}`,
-              `<:VC_Info:1482526956703580372> **Giorni:** ${deleteDays}`,
-              ...(cleanedExtraLines.length ? ["", "**<:VC_tools:1478862265305272364> Dettagli audit**", ...cleanedExtraLines] : []),
+              `**${E.VC_tools} Informazioni aggiuntive**`,
+              `${E.VC_Info} **Conteggio:** ${membersRemoved}`,
+              `${E.VC_Info} **Giorni:** ${deleteDays}`,
+              ...(cleanedExtraLines.length ? ["", `**${E.VC_tools} Dettagli audit**`, ...cleanedExtraLines] : []),
             ]
               .filter(Boolean)
               .join("\n"));

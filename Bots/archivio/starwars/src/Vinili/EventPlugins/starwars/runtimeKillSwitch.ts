@@ -25,6 +25,8 @@ function isStarWarsRuntimeDisabled(client?) {
   try {
     const cfg = resolveStarWarsEventConfig(client);
     if (!cfg.enabled) return true;
+    /* Staging HS sul server test: plugin attivo senza aprire il pubblico. */
+    if (cfg.testGuildForceLive) return false;
     if (typeof isStarWarsEventLive === "function" && isStarWarsEventLive(client)) return false;
     if (typeof isStarWarsPublicWindowOpen === "function" && isStarWarsPublicWindowOpen(client)) return false;
     return true;

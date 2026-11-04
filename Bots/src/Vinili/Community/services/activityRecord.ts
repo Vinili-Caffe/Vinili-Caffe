@@ -11,51 +11,80 @@ const { getDayKey, getHourKey, getWeekKey } = require("./activityTime") as typeo
 const { profileActivityCollection } = require("./activityRows") as typeof import("./activityRows");
 const { logActivityBumpError, bumpGuildHourlyText, bumpDailyVoice, bumpHourlyVoice } = require("./activityBumps") as typeof import("./activityBumps");
 const { ensureVoiceKeys, getOrCreateActivityUser, countMessageMedia, collectCustomEmojiUses, looksLikePrefixCommand } = require("./activityUser") as typeof import("./activityUser");
+const {
+  enqueueGatewayOffloadJob,
+  startGatewayOffloadDrainLoop,
+  OFFLOAD_KINDS,
+} = require("../../../shared/runtime/gatewayOffloadQueue") as typeof import("../../../shared/runtime/gatewayOffloadQueue");
+const { envFlagOn } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 
-async function recordMessageActivity(message?) {
-  if (!isViniliFullFeatureGuild(message?.guild?.id)) return;
-  const mongoOk = await ensureMongoReady({ maxWaitMs: 4000 });
-  if (!mongoOk) {
-    if (process.env.ACTIVITY_DEBUG === "1") {
-      console.error("[ACTIVITY] recordMessageActivity skip: mongoose non connesso", mongoose.connection?.readyState);
-    }
-    return;
-  }
-  if (!message?.guild || !message.author || message.author.bot) return;
-  if (isExcludedActivityChannel(message.channel)) return;
-  const now = new Date();
+function shouldOffloadActivityMessageWrites() {
+  /* ACTIVITY_WRITE_EXTERNAL=1 (default when BOT_SCHEDULER_EXTERNAL) → worker fa Mongo/EXP */
+  if (envFlagOn("ACTIVITY_WRITE_WORKER") || envFlagOn("BOT_SCHEDULER_WORKER")) return false;
+  if (String(process.env.ACTIVITY_WRITE_EXTERNAL || "").trim() === "0") return false;
+  return (
+    envFlagOn("ACTIVITY_WRITE_EXTERNAL") ||
+    envFlagOn("BOT_SCHEDULER_EXTERNAL")
+  );
+}
+
+function buildMessageActivityTick(message?, now = new Date()) {
   const channelIdResolved = String(message.channelId ?? message.channel?.id ?? "").trim();
   const gid = String(message.guild.id);
   const uid = String(message.author.id);
-  if (!isValidGuildUserIdChannelId(gid, uid, channelIdResolved)) return;
+  const mentionedUsers = [];
+  try {
+    if (message.mentions?.users?.forEach) {
+      message.mentions.users.forEach((u?) => {
+        const id = String(u?.id || "").trim();
+        if (id && id !== uid) mentionedUsers.push(id);
+      });
+    }
+  } catch {
+    /* ignore */
+  }
+  const media = countMessageMedia(message);
+  return {
+    guildId: gid,
+    userId: uid,
+    channelId: channelIdResolved,
+    atMs: now.getTime(),
+    media,
+    mentionedUsers: mentionedUsers.slice(0, 15),
+    rolePingInc:
+      Math.max(0, Number(message.mentions?.roles?.size || 0)) + (message.mentions?.everyone ? 1 : 0),
+    emojiUses: collectCustomEmojiUses(message.content),
+    cmdInc: looksLikePrefixCommand(message) ? 1 : 0,
+  };
+}
 
-  /* perfP0: un solo updateOne invece di save + bumpDaily + bumpHourly */
+async function applyMessageActivityTick(client?, tick?) {
+  if (!tick?.guildId || !tick?.userId) return;
+  const mongoOk = await ensureMongoReady({ maxWaitMs: 4000 });
+  if (!mongoOk) return;
+  const gid = String(tick.guildId);
+  const uid = String(tick.userId);
+  const channelIdResolved = String(tick.channelId || "").trim();
+  if (!isValidGuildUserIdChannelId(gid, uid, channelIdResolved)) return;
+  if (!isViniliFullFeatureGuild(gid)) return;
+
+  const now = new Date(Number(tick.atMs) || Date.now());
   const dateKey = getDayKey(now);
   const hourKey = getHourKey(now);
+  const weekKey = getWeekKey(now);
   const col = profileActivityCollection();
   if (!col) {
-    logActivityBumpError("recordMessageActivity", new Error("mongoose.connection.db non disponibile"));
+    logActivityBumpError("applyMessageActivityTick", new Error("mongoose.connection.db non disponibile"));
     return;
   }
+
+  const media = tick.media && typeof tick.media === "object" ? tick.media : {};
+  const mentionedUsers = Array.isArray(tick.mentionedUsers) ? tick.mentionedUsers : [];
+  const rolePingInc = Math.max(0, Number(tick.rolePingInc || 0));
+  const emojiUses = tick.emojiUses && typeof tick.emojiUses === "object" ? tick.emojiUses : {};
+  const cmdInc = Number(tick.cmdInc || 0) ? 1 : 0;
+
   try {
-    const weekKey = getWeekKey(now);
-    const media = countMessageMedia(message);
-    const mentionedUsers = [];
-    try {
-      if (message.mentions?.users?.forEach) {
-        message.mentions.users.forEach((u?) => {
-          const id = String(u?.id || "").trim();
-          if (id && id !== uid) mentionedUsers.push(id);
-        });
-      }
-    } catch {
-      /* ignore */
-    }
-    const rolePingInc =
-      Math.max(0, Number(message.mentions?.roles?.size || 0)) + (message.mentions?.everyone ? 1 : 0);
-    const emojiUses = collectCustomEmojiUses(message.content);
-    const cmdInc = looksLikePrefixCommand(message) ? 1 : 0;
-    /* pipeline: reset daily/weekly flat counters al cambio chiave (compatibile compact) */
     const pipelineSet = {
       guildId: gid,
       userId: uid,
@@ -124,7 +153,7 @@ async function recordMessageActivity(message?) {
     }
     await col.updateOne({ guildId: gid, userId: uid }, [{ $set: pipelineSet }], { upsert: true });
     if (mentionedUsers.length > 0) {
-      const uniq = [...new Set(mentionedUsers)].slice(0, 15);
+      const uniq = [...new Set(mentionedUsers.map((x?) => String(x || "").trim()).filter(Boolean))].slice(0, 15);
       await Promise.all(
         uniq.map((mid?) =>
           col
@@ -151,17 +180,66 @@ async function recordMessageActivity(message?) {
       await bumpGuildHourlyText(gid, uid, channelIdResolved, hourKey, 1);
     }
   } catch (err) {
-    logActivityBumpError("recordMessageActivity coalesce", err);
+    logActivityBumpError("applyMessageActivityTick coalesce", err);
     return;
   }
 
-  const member = message.member || (await message.guild.members.fetch(message.author.id).catch(() => null));
-  if (isLevelExpGuild(message.guild.id)) {
-    const ignored = await shouldIgnoreExpForMember({ guildId: message.guild.id, member, channelId: message.channel?.id || message.channelId || null, });
-    if (!ignored) {
-      await addExpWithLevel(message.guild, message.author.id, MESSAGE_EXP, true, true, { source: "activity" });
-    }
+  if (!isLevelExpGuild(gid) || !client) return;
+  const guild =
+    client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
+  if (!guild) return;
+  const member = await guild.members.fetch(uid).catch(() => null);
+  const ignored = await shouldIgnoreExpForMember({
+    guildId: gid,
+    member,
+    channelId: channelIdResolved || null,
+  });
+  if (!ignored) {
+    await addExpWithLevel(guild, uid, MESSAGE_EXP, true, true, { source: "activity" });
   }
+}
+
+async function recordMessageActivity(message?) {
+  if (!isViniliFullFeatureGuild(message?.guild?.id)) return;
+  if (!message?.guild || !message.author || message.author.bot) return;
+  if (isExcludedActivityChannel(message.channel)) return;
+
+  const tick = buildMessageActivityTick(message, new Date());
+  if (!isValidGuildUserIdChannelId(tick.guildId, tick.userId, tick.channelId)) return;
+
+  if (shouldOffloadActivityMessageWrites()) {
+    const mongoOk = await ensureMongoReady({ maxWaitMs: 1500 });
+    if (!mongoOk) return;
+    await enqueueGatewayOffloadJob(OFFLOAD_KINDS.ACTIVITY_MESSAGE, tick);
+    return;
+  }
+
+  const mongoOk = await ensureMongoReady({ maxWaitMs: 4000 });
+  if (!mongoOk) {
+    if (process.env.ACTIVITY_DEBUG === "1") {
+      console.error("[ACTIVITY] recordMessageActivity skip: mongoose non connesso", mongoose.connection?.readyState);
+    }
+    return;
+  }
+  await applyMessageActivityTick(message.client || global.botClient, tick);
+}
+
+function startActivityMessageWriteDrainLoop(client?) {
+  if (!(envFlagOn("ACTIVITY_WRITE_WORKER") || envFlagOn("BOT_SCHEDULER_WORKER"))) return null;
+  if (client?._activityWriteDrainStarted) return client._activityWriteDrainTimer || null;
+  client._activityWriteDrainStarted = true;
+  global.botClient = client || global.botClient;
+  const timer = startGatewayOffloadDrainLoop(
+    "activity-write",
+    [OFFLOAD_KINDS.ACTIVITY_MESSAGE],
+    async (job?) => {
+      await applyMessageActivityTick(client, job?.payload);
+    },
+    Math.max(400, Number(process.env.VC_ACTIVITY_WRITE_DRAIN_MS || 800) || 800),
+  );
+  client._activityWriteDrainTimer = timer;
+  console.log("[BOT-SCHEDULER] activity/EXP write drain loop started");
+  return timer;
 }
 
 async function recordVoiceSessionEnd(doc?, now?, guild?, skipExp = false, channelIdOverride = null) {
@@ -327,4 +405,11 @@ async function handleVoiceActivity(oldState?, newState?) {
   }
 }
 
-export = { recordMessageActivity, recordVoiceSessionEnd, isCountableVoiceState, handleVoiceActivity };
+export = {
+  recordMessageActivity,
+  recordVoiceSessionEnd,
+  isCountableVoiceState,
+  handleVoiceActivity,
+  applyMessageActivityTick,
+  startActivityMessageWriteDrainLoop,
+};

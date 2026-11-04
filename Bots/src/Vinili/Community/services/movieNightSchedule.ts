@@ -1,6 +1,7 @@
 /** Serata film: date, settimane e calendario fisso (ora di Roma). */
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const TIME_ZONE = "Europe/Rome";
 const FINAL_ANNOUNCE_FRIDAY_WEEKDAY = 5;
 const FINAL_ANNOUNCE_FRIDAY_HOUR = 21;
@@ -11,8 +12,8 @@ const MOVIE_NIGHT_EVENT_ADVANCE_MINUTES = 15;
 const MOVIE_NIGHT_EVENT_WINDOW_BEFORE_MIN = 5;
 const MOVIE_NIGHT_EVENT_WINDOW_AFTER_MIN = 10;
 const MOVIE_NIGHT_DISPLAY_TIME = `${String(MOVIE_NIGHT_FILM_HOUR).padStart(2, "0")}:${String(MOVIE_NIGHT_FILM_MINUTE).padStart(2, "0")}`;
-const MOVIE_NIGHT_CLOSING_LINE_FRIDAY = "> <a:VC_Rocket:1468544312475123753> Ci vediamo domani! E ricorda: chi partecipa all'evento in vocale riceverà il **doppio** degli **XP** validi per la top weekly. Non mancare!";
-const MOVIE_NIGHT_CLOSING_LINE_SATURDAY = "> <a:VC_Rocket:1468544312475123753> Ci vediamo stasera! E ricorda: chi partecipa all'evento in vocale riceverà il **doppio** degli **XP** validi per la top weekly. Non mancare!";
+const MOVIE_NIGHT_CLOSING_LINE_FRIDAY = `> ${E.VC_Rocket} Ci vediamo domani! E ricorda: chi partecipa all'evento in vocale riceverà il **doppio** degli **XP** validi per la top weekly. Non mancare!`;
+const MOVIE_NIGHT_CLOSING_LINE_SATURDAY = `> ${E.VC_Rocket} Ci vediamo stasera! E ricorda: chi partecipa all'evento in vocale riceverà il **doppio** degli **XP** validi per la top weekly. Non mancare!`;
 
 function buildMovieNightFinalClosingLines({ fridayAdvance = false } = {}) {
   return [fridayAdvance ? MOVIE_NIGHT_CLOSING_LINE_FRIDAY : MOVIE_NIGHT_CLOSING_LINE_SATURDAY];

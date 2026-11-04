@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   JOIN_RAID_CONFIG,
   HIGH_STAFF_ROLE_ID,
@@ -97,11 +98,11 @@ async function doFinalizeJoinRaidReportLocked(guild?, reason = "elapsed") {
 
   await sendJoinRaidLog(
     guild,
-    "<a:VC_Alert:1482706673176150077> **Join Raid Report!**",
+    `${E.VC_Alert} **Join Raid Report!**`,
     [
-      `<:VC_Mention:1482526855289634997> **${caughtCount} utenti** sono stati catturati dalla protezione raid.`,
-      `<:VC_reason:1478517122929004544> **Codice:** \`${code}\``,
-      `<:VC_Clock:1473359204189474886> **Durata:** ${formatItalianMinutesPlain(Math.round(Number(JOIN_RAID_CONFIG.raidDurationMs || 0) / 60_000))}`,
+      `${E.VC_Mention} **${caughtCount} utenti** sono stati catturati dalla protezione raid.`,
+      `${E.VC_reason} **Codice:** \`${code}\``,
+      `${E.VC_Clock} **Durata:** ${formatItalianMinutesPlain(Math.round(Number(JOIN_RAID_CONFIG.raidDurationMs || 0) / 60_000))}`,
     ],
     "#57F287",
   );

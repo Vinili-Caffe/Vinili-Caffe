@@ -1,5 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } = require("discord.js") as typeof import("discord.js");
 const { listAllBackupMetasPaginated } = require("../../services/serverBackupService") as typeof import("../../services/serverBackupService");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const PREFIX_PREV = "backup_list_prev:";
 const PREFIX_NEXT = "backup_list_next:";
 const PREFIX_SELECT = "backup_list_select:";
@@ -76,7 +77,7 @@ async function execute(interaction?) {
   if (interaction.isStringSelectMenu() && customId.startsWith(PREFIX_SELECT)) {
     const parsed = parseBackupListTail(customId, PREFIX_SELECT);
     if (parsed.authorId && parsed.authorId !== userId) {
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non appartiene a te.", flags: EPHEMERAL }).catch(() => {});
+      await interaction.reply({ content: `${E.VC_Alert} Questo controllo non appartiene a te.`, flags: EPHEMERAL }).catch(() => {});
       return true;
     }
     if (!interaction.deferred && !interaction.replied) {
@@ -90,7 +91,7 @@ async function execute(interaction?) {
       return true;
     } catch (err) {
       global.logger?.error?.("[Buttons/backupList] select", err);
-      await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Errore durante la selezione.", flags: EPHEMERAL }).catch(() => {});
+      await interaction.reply({ content: `${E.VC_Alert} Errore durante la selezione.`, flags: EPHEMERAL }).catch(() => {});
       return true;
     }
   }
@@ -100,7 +101,7 @@ async function execute(interaction?) {
   const prefix = customId.startsWith(PREFIX_PREV) ? PREFIX_PREV : PREFIX_NEXT;
   const parsed = parseBackupListTail(customId, prefix);
   if (parsed.authorId && parsed.authorId !== userId) {
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo controllo non appartiene a te.", flags: EPHEMERAL }).catch(() => {});
+    await interaction.reply({ content: `${E.VC_Alert} Questo controllo non appartiene a te.`, flags: EPHEMERAL }).catch(() => {});
     return true;
   }
 
@@ -120,7 +121,7 @@ async function execute(interaction?) {
     return true;
   } catch (err) {
     global.logger?.error?.("[Buttons/backupList] execute", err);
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Errore durante l'aggiornamento della lista.", flags: EPHEMERAL }).catch(() => {});
+    await interaction.reply({ content: `${E.VC_Alert} Errore durante l'aggiornamento della lista.`, flags: EPHEMERAL }).catch(() => {});
     return true;
   }
 }
@@ -147,7 +148,7 @@ async function renderList(userId?, page = 1, withPanelNav = false, selectedRef =
 
   const embed = new EmbedBuilder()
     .setColor("#3498db")
-    .setTitle("<:VC_InactiveStatus:1482526984234860574> Lista backup")
+    .setTitle(`${E.VC_InactiveStatus} Lista backup`)
     .setDescription(body)
     .setFooter({ text: `Pagina ${currentPage}/${totalPages} • ${total} backup totali` })
     .setTimestamp();
@@ -157,12 +158,12 @@ async function renderList(userId?, page = 1, withPanelNav = false, selectedRef =
     new ButtonBuilder()
       .setCustomId(`${PREFIX_PREV}${userId}:${currentPage}${panelSuffix}`)
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("<:1343arrowleft:1525249879151083621> ")
+      .setEmoji(`${E["1343arrowleft"]} `)
       .setDisabled(currentPage <= 1),
     new ButtonBuilder()
       .setCustomId(`${PREFIX_NEXT}${userId}:${currentPage}${panelSuffix}`)
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("<:1343arrowright:1525249880728145970>")
+      .setEmoji(E["1343arrowright"])
       .setDisabled(currentPage >= totalPages),
   );
 
@@ -176,7 +177,7 @@ async function renderList(userId?, page = 1, withPanelNav = false, selectedRef =
     const pickOptions = items.map((m?) => ({
       label: labelForMeta(m),
       value: backupMetaToOptionValue(m),
-      emoji: "<:VC_id:1478517313618575419>",
+      emoji: E.VC_id,
       default: Boolean(selectedRef && backupMetaToOptionValue(m) === selectedRef),
     }));
     components.push(
@@ -200,16 +201,16 @@ function formatSelectedBackupBlock(m?) {
   const ts = toUnixTs(row?.createdAt);
   return [
     "**Backup selezionato**",
-    `<:VC_Mention:1482526855289634997> **Server:** ${String(row?.guildName || "?").replace(/\*\*/g, "")}`,
-    `<:VC_id:1478517313618575419> **Backup ID:** \`${row?.backupId || "?"}\``,
-    `<:VC_opentime:1478517163022221323> **Creato:** ${ts ? `<t:${ts}:F>` : "N/D"}`,
+    `${E.VC_Mention} **Server:** ${String(row?.guildName || "?").replace(/\*\*/g, "")}`,
+    `${E.VC_id} **Backup ID:** \`${row?.backupId || "?"}\``,
+    `${E.VC_opentime} **Creato:** ${ts ? `<t:${ts}:F>` : "N/D"}`,
   ].join("\n");
 }
 
 function buildListSelectionInfoEmbed(selectedBackup?) {
   return new EmbedBuilder()
     .setColor("#3498db")
-    .setTitle("<:VC_InactiveStatus:1482526984234860574> Backup selezionato")
+    .setTitle(`${E.VC_InactiveStatus} Backup selezionato`)
     .setDescription(formatSelectedBackupBlock(selectedBackup));
 }
 

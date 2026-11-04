@@ -6,6 +6,7 @@ const { handleDisboardBump, handleDiscadiaBump, handleVoteManagerMessage } = req
 const { handleMentionAutoReactions, handleWordReactions } = require("../../Community/services/officialMessageCommunityHandlers") as typeof import("../../Community/services/officialMessageCommunityHandlers");
 const { toDiscordTimestamp } = require("../../Moderation/utils/channelRolesLogUtils") as typeof import("../../Moderation/utils/channelRolesLogUtils");
 const { handlePartnerDescriptionMessageUpsert, isPartnerDescriptionChannel } = require("../../Partner/services/partnerDescriptionSyncService") as typeof import("../../Partner/services/partnerDescriptionSyncService");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   handleTenantPartnerDescriptionMessageUpsert,
   isTenantPartnerDescriptionChannel,
@@ -112,21 +113,21 @@ function buildEditLogText(previous?, updated?, beforeNames?, afterNames?) {
 
   return [
     "------ LOG MODIFICA MESSAGGIO ------",
-    `<:VC_Server:1494287244156049448> Server: ${updated?.guild?.name || "sconosciuto"} (${updated?.guild?.id || "-"})`,
-    `<a:VC_Channel:1482534583944871996> Canale: ${updated?.channel?.name || "sconosciuto"} (${updated?.channelId || "-"})`,
-    `<:VC_id:1478517313618575419> ID Messaggio: ${updated?.id || "-"}`,
-    `<:VC_User:1482527453586002103> Autore: ${updated?.author?.tag || "sconosciuto"} (${updated?.author?.id || "-"})`,
-    `<:VC_Clock:1473359204189474886> Data Modifica: <t:${nowTs}:F>`,
+    `${E.VC_Server} Server: ${updated?.guild?.name || "sconosciuto"} (${updated?.guild?.id || "-"})`,
+    `${E.VC_Channel} Canale: ${updated?.channel?.name || "sconosciuto"} (${updated?.channelId || "-"})`,
+    `${E.VC_id} ID Messaggio: ${updated?.id || "-"}`,
+    `${E.VC_User} Autore: ${updated?.author?.tag || "sconosciuto"} (${updated?.author?.id || "-"})`,
+    `${E.VC_Clock} Data Modifica: <t:${nowTs}:F>`,
     "",
-    "<:VC_Modifica:1478859646587633717> **Contenuto precedente:**",
+    `${E.VC_Modifica} **Contenuto precedente:**`,
     oldContent || "Nessun contenuto.",
     "",
-    "<:VC_Modifica:1478859646587633717> **Contenuto nuovo:**",
+    `${E.VC_Modifica} **Contenuto nuovo:**`,
     newContent || "Nessun contenuto.",
     "",
-    "<:VC_Modifica:1478859646587633717> **Attachment:**",
-    `<:VC_Modifica:1478859646587633717> **Attachment precedente:** ${oldAttachments}`,
-    `<:VC_Modifica:1478859646587633717> **Attachment nuovo:** ${newAttachments}`,
+    `${E.VC_Modifica} **Attachment:**`,
+    `${E.VC_Modifica} **Attachment precedente:** ${oldAttachments}`,
+    `${E.VC_Modifica} **Attachment nuovo:** ${newAttachments}`,
     "",
   ].join("\n");
 }
@@ -195,7 +196,7 @@ async function sendMessageEditLog(previous?, updated?) {
   if (updated?.webhookId) actorFlags.push("WEBHOOK");
   const actorSuffix = actorFlags.length ? ` [${actorFlags.join("/")}]` : "";
 
-  const lines=[`<:VC_right_arrow:1482459908245815296> **Autore:** ${updated.author}${actorSuffix}\`${updated.author.id}\``,`<:VC_right_arrow:1482459908245815296> **Target:** ${updated.channel||"#sconosciuto"}•\`${updated.id}\``,`<:VC_right_arrow:1482459908245815296> ${toDiscordTimestamp(new Date(),"F")}`,
+  const lines=[`${E.VC_right_arrow} **Autore:** ${updated.author}${actorSuffix}\`${updated.author.id}\``,`${E.VC_right_arrow} **Target:** ${updated.channel||"#sconosciuto"}•\`${updated.id}\``,`${E.VC_right_arrow} ${toDiscordTimestamp(new Date(),"F")}`,
     "",
     "**Modifiche**",
   ];
@@ -204,12 +205,12 @@ async function sendMessageEditLog(previous?, updated?) {
   if (contentChanged) {
     const fullDiff = buildSimpleDiff(beforeContent, afterContent);
     if (fullDiff.length <= MAX_EMBED_DIFF_LENGTH) {
-      lines.push("<:VC_Modifica:1478859646587633717> **Contenuto:**");
+      lines.push(`${E.VC_Modifica} **Contenuto:**`);
       lines.push("```diff");
       lines.push(fullDiff);
       lines.push("```");
     } else {
-      lines.push("<:VC_Modifica:1478859646587633717> **Contenuto:** diff troppo lungo, vedi allegato `.txt`.");
+      lines.push(`${E.VC_Modifica} **Contenuto:** diff troppo lungo, vedi allegato \`.txt\`.`);
       const text = buildEditLogText(previous, updated, beforeNames, afterNames);
       const name = `${updated.channelId || "channel"}_${updated.id || Date.now()}.txt`;
       files.push(new AttachmentBuilder(Buffer.from(text, "utf8"), { name }));
@@ -217,13 +218,13 @@ async function sendMessageEditLog(previous?, updated?) {
   }
 
   if (filesChanged) {
-    lines.push("<:VC_Modifica:1478859646587633717> **Attachment:**");
+    lines.push(`${E.VC_Modifica} **Attachment:**`);
     lines.push(formatAttachmentsChange(beforeNames, afterNames));
   }
 
   const embed = new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle("<a:VC_Verified:1482532479637127188> Messaggio modificato")
+    .setTitle(`${E.VC_Verified} Messaggio modificato`)
     .setDescription(lines.join("\n"));
 
   const preview = firstImageAttachment(updated);

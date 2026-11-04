@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: LicenseRef-Proprietary-ViniliCaffe — vedi LICENSE.
  */
 const discord = require("discord.js") as typeof import("discord.js");
+const { E } = require("../shared/emojis/emojiCatalog") as typeof import("../shared/emojis/emojiCatalog");
 const { Client, IntentsBitField } = discord;
 const GatewayIntentBits = discord.GatewayIntentBits || IntentsBitField?.Flags || {};
 const Partials = discord.Partials || {};
@@ -29,7 +30,7 @@ try {
   setMusicBotHooks({
     profile: "coffee",
     nowPlayingTitle: "Now playing",
-    nowPlayingVerifiedPrefix: "<a:VC_Verified:1482532479637127188>",
+    nowPlayingVerifiedPrefix: E.VC_Verified,
     enableVoiceCapture: false,
     purgeTtsVoicePersistence: async (guildId?, client?) => {
       const tts = loadSharedTts();

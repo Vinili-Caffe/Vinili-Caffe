@@ -1,5 +1,6 @@
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { shouldApplyMultiGuildLayer } = require("../../../../MultiGuild/core/accessPolicy") as typeof import("../../../../MultiGuild/core/accessPolicy");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   isPartnershipOperational,
   isProfilePmModeArg,
@@ -106,7 +107,7 @@ async function prepareProfileTarget(message?, args = []) {
   if (isProfilePmModeArg(args)) {
     await safeMessageReply(message, {
       ...buildSimpleNoticePayload(
-        "<:vegax:1443934876440068179> Qui usa solo `+profile` (senza `pm`).",
+        `${E.vegax} Qui usa solo \`+profile\` (senza \`pm\`).`,
         message.guild,
       ),
       allowedMentions: { repliedUser: false },
@@ -164,7 +165,7 @@ async function executeTenantProfile(message?, args = []) {
 
   await safeMessageReply(message, {
     ...buildSimpleNoticePayload(
-      "<:vegax:1443934876440068179> Il profilo partnership non è disponibile su questo server.",
+      `${E.vegax} Il profilo partnership non è disponibile su questo server.`,
       message.guild,
     ),
     allowedMentions: { repliedUser: false },

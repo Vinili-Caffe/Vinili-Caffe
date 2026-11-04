@@ -192,6 +192,19 @@ async function checkButtonPermission(interaction?) {
   const profilePanelGate = await checkProfilePanelControlPermission(interaction, customId);
   if (profilePanelGate) return profilePanelGate;
 
+  if (customId.startsWith("stanza_")) {
+    const { isStanzaButtonActorAllowed } = require("../../Voice/services/stanzaVoiceRoomsService") as typeof import("../../Voice/services/stanzaVoiceRoomsService");
+    const stanzaOk = await isStanzaButtonActorAllowed(interaction);
+    if (!stanzaOk) {
+      return {
+        allowed: false,
+        reason: "stanza_actor",
+        requiredRoles: null,
+        ownerId: null,
+      };
+    }
+  }
+
   const staffGuideGate = await checkStaffGuideButtonGate(interaction, customId);
   if (staffGuideGate) return staffGuideGate;
 

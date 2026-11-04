@@ -40,6 +40,7 @@ const { isSecurityProfileImmune, hasAdminsProfileCapability } = require("../../S
 const { CORE_EXEMPT_USER_IDS } = require("./joinGateExemptUtils") as typeof import("./joinGateExemptUtils");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function formatRaidHours(ms?) {
   const hours = Number(ms || 0) / 3_600_000;
   if (!Number.isFinite(hours) || hours <= 0) return "0";
@@ -145,26 +146,26 @@ async function processJoinRaidForMember(member?, options: Record<string, any> = 
                 ? "quarantined"
                 : "logged";
       await warnRaidRoles(member.guild, [
-        `<a:VC_Alert:1482706673176150077> **Join Raid triggered: **${triggerCountNow}** flagged ${String(JOIN_RAID_CONFIG.triggerType || "unique") === "events"
+        `${E.VC_Alert} **Join Raid triggered: **${triggerCountNow}** flagged ${String(JOIN_RAID_CONFIG.triggerType || "unique") === "events"
           ? "events"
           : "users"
         } in the last **${formatRaidHours(
           JOIN_RAID_CONFIG.triggerWindowMs,
         )}h**.**`,
-        `<a:VC_Alert:1482706673176150077> **Raid protection active until <t:${untilTs}:F>.**`,
+        `${E.VC_Alert} **Raid protection active until <t:${untilTs}:F>.**`,
       ]);
       await sendJoinRaidLog(
         member.guild,
-        "<a:VC_Alert:1482706673176150077> **Join Raid Trigger!**",
+        `${E.VC_Alert} **Join Raid Trigger!**`,
         [
-          `<a:VC_Alert:1482706673176150077> **BotGuard has identified a weird join pattern.**`,
-          `<a:VC_Alert:1482706673176150077> **Flagged accounts joining for the next **${Math.round(JOIN_RAID_CONFIG.raidDurationMs / 60_000)}m** will be **${actionVerb}**.**`,
-          `<a:VC_Alert:1482706673176150077> **A full report will be posted once the duration ends.**`,
+          `${E.VC_Alert} **BotGuard has identified a weird join pattern.**`,
+          `${E.VC_Alert} **Flagged accounts joining for the next **${Math.round(JOIN_RAID_CONFIG.raidDurationMs / 60_000)}m** will be **${actionVerb}**.**`,
+          `${E.VC_Alert} **A full report will be posted once the duration ends.**`,
           "",
-          `<a:VC_Alert:1482706673176150077> **Initial Flags:**`,
+          `${E.VC_Alert} **Initial Flags:**`,
           ...(initialFlags.length ? initialFlags : ["`No record found.`"]),
           "",
-          `<a:VC_Alert:1482706673176150077> **Code:** \`${state.raidCaseCode}\``,
+          `${E.VC_Alert} **Code:** \`${state.raidCaseCode}\``,
         ],
         "#ED4245",
       );
@@ -219,11 +220,11 @@ async function processJoinRaidForMember(member?, options: Record<string, any> = 
         LOW_RISK_FLAG_LOG_COOLDOWN.set(cooldownKey, at);
         await sendJoinRaidLog(
           member.guild,
-          "<a:VC_Alert:1482706673176150077> **Join Raid flagged account**",
+          `${E.VC_Alert} **Join Raid flagged account**`,
           [
-            `<:member_role_icon:1330530086792728618> **Member:** ${member.user} [\`${member.id}\`]`,
-            `<:VC_reason:1478517122929004544> **Reasons:** ${reasons.map((x?) => x.label).join(", ") || "N/A"}`,
-            `<:VC_BanHammer:1482534474502897795> **Action:** \`log\``,
+            `${E.member_role_icon} **Member:** ${member.user} [\`${member.id}\`]`,
+            `${E.VC_reason} **Reasons:** ${reasons.map((x?) => x.label).join(", ") || "N/A"}`,
+            `${E.VC_BanHammer} **Action:** \`log\``,
           ],
           "#F59E0B",
         );
@@ -267,20 +268,20 @@ async function activateJoinRaidWindow(
     const untilTs = Math.floor(state.raidUntil / 1000);
     if (!wasActive) {
       await warnRaidRoles(guild, [
-        `<a:VC_Alert:1482706673176150077> **Join Raid attivato da escalation sicurezza.**`,
-        `<a:VC_Alert:1482706673176150077> **Protezione raid attiva fino a <t:${untilTs}:F>.**`,
+        `${E.VC_Alert} **Join Raid attivato da escalation sicurezza.**`,
+        `${E.VC_Alert} **Protezione raid attiva fino a <t:${untilTs}:F>.**`,
       ]);
     }
     await sendJoinRaidLog(
       guild,
-      "<a:VC_Alert:1482706673176150077> **Join Raid escalation attivata**",
+      `${E.VC_Alert} **Join Raid escalation attivata**`,
       [
-        `<:VC_reason:1478517122929004544> **Reason:** ${String(reason || "Security escalation")}`,
-        `<:VC_reason:1478517122929004544> **Code:** \`${state.raidCaseCode || "N/A"}\``,
-        `<:VC_Clock:1473359204189474886> **Raid Duration:** ${Math.round(
+        `${E.VC_reason} **Reason:** ${String(reason || "Security escalation")}`,
+        `${E.VC_reason} **Code:** \`${state.raidCaseCode || "N/A"}\``,
+        `${E.VC_Clock} **Raid Duration:** ${Math.round(
           safeDuration / 60_000,
         )} minutes`,
-        `<:VC_Clock:1473359204189474886> **Raid Until:** <t:${untilTs}:F>`,
+        `${E.VC_Clock} **Raid Until:** <t:${untilTs}:F>`,
       ],
       "#ED4245",
     );

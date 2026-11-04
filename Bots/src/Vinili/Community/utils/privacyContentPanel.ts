@@ -2,13 +2,14 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { PRIVACY_CONTENT_KINDS, PRIVACY_CONTENT_LABELS, privacyContentModel } = require("./privacyContentKinds") as typeof import("./privacyContentKinds");
 const { siteUserProfilePagePlainRef } = require("../../../shared/web/siteTicketsPageRef") as typeof import("../../../shared/web/siteTicketsPageRef");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const PREFIX = "privacy_panel";
 const KINDS = PRIVACY_CONTENT_KINDS;
 const LABELS = PRIVACY_CONTENT_LABELS;
-const EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
-const EMOJI_ON = "<:VC_OnlineStatus:1482527088912240650>";
-const BTN_EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
-const BTN_EMOJI_ON = "<:VC_OnlineStatus:1482527088912240650>";
+const EMOJI_OFF = E.VC_OfflineStatus;
+const EMOJI_ON = E.VC_OnlineStatus;
+const BTN_EMOJI_OFF = E.VC_OfflineStatus;
+const BTN_EMOJI_ON = E.VC_OnlineStatus;
 const PRIVATE = 1 << 6;
 
 async function loadStates(guildId?, userId?) {
@@ -42,18 +43,18 @@ function buildPanelEmbed(states?) {
     return `• **${LABELS[key]}**: ${hidden ? `${EMOJI_OFF} Nascosto / bloccato` : `${EMOJI_ON} Visibile`}`;
   });
   const desc = [
-    "<:VC_PinkQuestionMark:1471892611026391306> Gestisci **privacy** di avatar, banner, quote e repost in questo server.",
+    `${E.VC_PinkQuestionMark} Gestisci **privacy** di avatar, banner, quote e repost in questo server.`,
     "",
     ...lines,
     "",
     "Clicca un pulsante per alternare. **Blocca tutto** / **Sblocca tutto** applica alle quattro voci.",
     "",
-    "<a:VC_Exclamation:1482534702077444217> In canale: avatar e banner nascosti se bloccati; **quote** e **repost** dei tuoi messaggi non si possono creare se bloccati.",
+    `${E.VC_Exclamation} In canale: avatar e banner nascosti se bloccati; **quote** e **repost** dei tuoi messaggi non si possono creare se bloccati.`,
   ].join("\n");
 
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<a:VC_Announce:1482534613568979007> Privacy contenuti")
+    .setTitle(`${E.VC_Announce} Privacy contenuti`)
     .setDescription(desc)
     .setFooter({ text: `Usa ${siteUserProfilePagePlainRef()} per riaprire questo pannello.` });
 }
@@ -77,17 +78,17 @@ function buildRows(states?, ownerId?) {
       .setCustomId(`${PREFIX}:all:${ownerId}`)
       .setLabel("Blocca tutto")
       .setStyle(allBlocked ? ButtonStyle.Danger : ButtonStyle.Secondary)
-      .setEmoji("<:cancel:1461730653677551691>"),
+      .setEmoji(E.cancel),
     new ButtonBuilder()
       .setCustomId(`${PREFIX}:none:${ownerId}`)
       .setLabel("Sblocca tutto")
       .setStyle(allVisible ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setEmoji("<:success:1461731530333229226>"),
+      .setEmoji(E.success),
     new ButtonBuilder()
       .setCustomId(`${PREFIX}:done:${ownerId}`)
       .setLabel("Fine")
       .setStyle(ButtonStyle.Primary)
-      .setEmoji("<:vegacheckmark:1443666279058772028>"),
+      .setEmoji(E.vegacheckmark),
   );
   return [row1, row2];
 }
@@ -107,7 +108,7 @@ async function handlePrivacyPanelInteraction(interaction?) {
   if (!parsed) return false;
   if (String(interaction.user?.id) !== String(parsed.ownerId)) {
     await interaction
-      .reply({ content: "<:vegax:1443934876440068179> Questo pannello non è tuo.", flags: PRIVATE })
+      .reply({ content: `${E.vegax} Questo pannello non è tuo.`, flags: PRIVATE })
       .catch(() => null);
     return true;
   }
@@ -121,9 +122,9 @@ async function handlePrivacyPanelInteraction(interaction?) {
         embeds: [
           new EmbedBuilder()
             .setColor("#6f4e37")
-            .setTitle("<:success:1461731530333229226> Privacy aggiornata")
+            .setTitle(`${E.success} Privacy aggiornata`)
             .setDescription(
-              "<:VC_InactiveStatus:1482526984234860574> Le impostazioni sono salvate. Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) per modificarle in futuro.",
+              `${E.VC_InactiveStatus} Le impostazioni sono salvate. Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) per modificarle in futuro.`,
             ),
         ],
         components: [],

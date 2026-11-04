@@ -1,4 +1,5 @@
 const { EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   reasonFrom,
   reply,
@@ -32,7 +33,7 @@ async function runLockOrUnlock(cmd?, message?, args?, client?) {
   const reason = reasonFrom(args, reasonStart, cmd === "lock" ? "Canale bloccato." : "Canale sbloccato.");
   const me = message.guild.members.me;
   const perms = channel?.permissionsFor?.(me);
-  if (!perms?.has(PermissionsBitField.Flags.ManageChannels)) return reply(message, client, cmd, "<:VC_Lock:1482526739044368476> Non posso gestire quel canale.", "Red");
+  if (!perms?.has(PermissionsBitField.Flags.ManageChannels)) return reply(message, client, cmd, `${E.VC_Lock} Non posso gestire quel canale.`, "Red");
   await channel.permissionOverwrites
     .edit(
       message.guild.roles.everyone,
@@ -49,8 +50,8 @@ async function runLockOrUnlock(cmd?, message?, args?, client?) {
         embeds: [
           new EmbedBuilder()
             .setColor("#ED4245")
-            .setTitle("<:VC_Lock:1482526739044368476> Canale bloccato")
-            .setDescription(`<:VC_Lock:1482526739044368476> Lock: ${reason}`),
+            .setTitle(`${E.VC_Lock} Canale bloccato`)
+            .setDescription(`${E.VC_Lock} Lock: ${reason}`),
         ],
       })
       .catch(() => null);
@@ -60,7 +61,7 @@ async function runLockOrUnlock(cmd?, message?, args?, client?) {
           .edit(
             message.guild.roles.everyone,
             { SendMessages: null, SendMessagesInThreads: null },
-            { reason: "<a:VC_Unlock:1482532082466029608> Sbloccato automaticamente." },
+            { reason: `${E.VC_Unlock} Sbloccato automaticamente.` },
           )
           .catch(() => null);
       }, duration);

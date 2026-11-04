@@ -1,5 +1,6 @@
 const sec = require("../prefix/security") as typeof import("../prefix/security");
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   notYourPanelReply,
   extractOwnerIdFromCustomId,
@@ -29,11 +30,11 @@ async function execute(interaction?) {
       member = await getGuildMemberCached(guild, interaction.user.id).catch(() => null);
     }
     if (!member) {
-      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile verificare il tuo profilo nel server. Riprova.");
+      await replyEphemeral(interaction, `${E.VC_Cross} Impossibile verificare il tuo profilo nel server. Riprova.`);
       return true;
     }
     if (!sec.hasStaffAccess(member, guild)) {
-      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Non hai i permessi.");
+      await replyEphemeral(interaction, `${E.VC_Cross} Non hai i permessi.`);
       return true;
     }
 
@@ -41,7 +42,7 @@ async function execute(interaction?) {
     if (!/^\d{16,20}$/.test(ownerId)) {
       await replyEphemeral(
         interaction,
-        "<a:VC_Cross:1482532424570376253> Pannello non valido o scaduto. Esegui di nuovo **`+security`**.",
+        `${E.VC_Cross} Pannello non valido o scaduto. Esegui di nuovo **\`+security\`**.`,
       );
       return true;
     }
@@ -76,7 +77,7 @@ async function execute(interaction?) {
       if (handled) return true;
     }
 
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Azione pannello non riconosciuta.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Azione pannello non riconosciuta.`);
     return true;
   } catch (err) {
     global.logger?.error?.(
@@ -85,7 +86,7 @@ async function execute(interaction?) {
     );
     await replyEphemeral(
       interaction,
-      "<a:VC_Cross:1482532424570376253> Errore nel pannello sicurezza. Controlla i log del bot o riprova tra poco.",
+      `${E.VC_Cross} Errore nel pannello sicurezza. Controlla i log del bot o riprova tra poco.`,
     );
     return true;
   }

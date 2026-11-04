@@ -2,6 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { safeMessageReply, safeInteractionUpdate } = require("../../shared/discord/replyRuntime") as typeof import("../../shared/discord/replyRuntime");
 const { resolveGuildAccess } = require("../core/guildRegistry") as typeof import("../core/guildRegistry");
 const { mapCategoryToFeature } = require("../core/accessPolicy") as typeof import("../core/accessPolicy");
+const { E } = require("../../shared/emojis/emojiCatalog") as typeof import("../../shared/emojis/emojiCatalog");
 const {
   resolveCommandPrefixForGuild,
   rewriteDefaultCommandPrefix,
@@ -275,12 +276,12 @@ function buildNavigationRow(ownerId?, currentIndex?, total?) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${base}:home`)
-      .setEmoji("<:50738home:1526527809261142036>")
+      .setEmoji(E["50738home"])
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(currentIndex <= 0),
     new ButtonBuilder()
       .setCustomId(`${base}:prev`)
-      .setEmoji("<:4391symbolleftarrow:1525462048438226974>")
+      .setEmoji(E["4391symbolleftarrow"])
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(currentIndex <= 0),
     new ButtonBuilder()
@@ -290,7 +291,7 @@ function buildNavigationRow(ownerId?, currentIndex?, total?) {
       .setDisabled(true),
     new ButtonBuilder()
       .setCustomId(`${base}:next`)
-      .setEmoji("<:4630symbolrightarrow:1525462049533071504>")
+      .setEmoji(E["4630symbolrightarrow"])
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(currentIndex >= total - 1),
   );

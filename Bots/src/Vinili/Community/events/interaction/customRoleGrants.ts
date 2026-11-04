@@ -6,6 +6,7 @@ const { deletePendingSiteRoleRequest, resolvePendingSiteRoleRequest, deletePendi
 const { PRIVATE_FLAG } = require("./customRoleHelpers") as typeof import("./customRoleHelpers");
 const { buildSiteRoleRequestButtons } = require("./customRoleRequests") as typeof import("./customRoleRequests");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 async function handleGrantButtons(interaction?) {
   if (
     !interaction.isButton() ||
@@ -20,7 +21,7 @@ async function handleGrantButtons(interaction?) {
     await interaction
       .reply({
         content:
-          "<:vegax:1443934876440068179> Azione richiesta non valida.",
+          `${E.vegax} Azione richiesta non valida.`,
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -32,7 +33,7 @@ async function handleGrantButtons(interaction?) {
     await interaction
       .reply({
         content:
-          "<:vegax:1443934876440068179> Questa richiesta non è più valida.",
+          `${E.vegax} Questa richiesta non è più valida.`,
         flags: 1 << 6,
       })
       .catch(() => { });
@@ -44,9 +45,9 @@ async function handleGrantButtons(interaction?) {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setTitle("<:VC_Lock:1482526739044368476> Accesso negato")
+            .setTitle(`${E.VC_Lock} Accesso negato`)
             .setDescription(
-              "<a:VC_Alert:1482706673176150077>Solo l'utente invitato può rispondere a questa richiesta.",
+              `${E.VC_Alert}Solo l'utente invitato può rispondere a questa richiesta.`,
             ),
         ],
         flags: 1 << 6,
@@ -58,7 +59,7 @@ async function handleGrantButtons(interaction?) {
     await deletePendingRoleGrant(token);
     persistPendingNow();
     await interaction
-      .reply({ content: "<:VC_Refresh:1473359252276904203> Richiesta scaduta.", flags: 1 << 6 })
+      .reply({ content: `${E.VC_Refresh} Richiesta scaduta.`, flags: 1 << 6 })
       .catch(() => { });
     return true;
   }
@@ -85,12 +86,12 @@ async function handleGrantButtons(interaction?) {
       : null;
 
   const disabledRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`customrole_grant:${token}:yes`)
-    .setEmoji("<:vegacheckmark:1443666279058772028>")
+    .setEmoji(E.vegacheckmark)
     .setStyle(ButtonStyle.Success)
     .setDisabled(true),
     new ButtonBuilder()
       .setCustomId(`customrole_grant:${token}:no`)
-      .setEmoji("<:vegax:1443934876440068179>")
+      .setEmoji(E.vegax)
       .setStyle(ButtonStyle.Danger)
       .setDisabled(true),
   );
@@ -104,9 +105,9 @@ async function handleGrantButtons(interaction?) {
           embeds: [
             new EmbedBuilder()
               .setColor("#e67e22")
-              .setTitle("<:cancel:1461730653677551691> Richiesta rifiutata")
+              .setTitle(`${E.cancel} Richiesta rifiutata`)
               .setDescription(
-                `<:vegax:1443934876440068179> ${targetMember || `<@${request.targetId}>`} ha rifiutato il ruolo ${role ? `**${role.name}**` : ""}.`,
+                `${E.vegax} ${targetMember || `<@${request.targetId}>`} ha rifiutato il ruolo ${role ? `**${role.name}**` : ""}.`,
               ),
           ],
         })
@@ -114,9 +115,9 @@ async function handleGrantButtons(interaction?) {
     }
     const rejectedEmbed = new EmbedBuilder()
       .setColor("#e67e22")
-      .setTitle("<:cancel:1461730653677551691> Ruolo rifiutato")
+      .setTitle(`${E.cancel} Ruolo rifiutato`)
       .setDescription(
-        `<:vegax:1443934876440068179> ${targetMember || `<@${request.targetId}>`} ha rifiutato di ricevere il ruolo ${role ? `**${role.name}**` : ""}.`,
+        `${E.vegax} ${targetMember || `<@${request.targetId}>`} ha rifiutato di ricevere il ruolo ${role ? `**${role.name}**` : ""}.`,
       );
     if (channel) {
       await channel.send({ embeds: [rejectedEmbed] }).catch(() => { });
@@ -127,8 +128,8 @@ async function handleGrantButtons(interaction?) {
       embeds: [
         new EmbedBuilder()
           .setColor("#e67e22")
-          .setTitle("<:cancel:1461730653677551691> Richiesta rifiutata")
-          .setDescription("<:vegax:1443934876440068179> Hai rifiutato il ruolo."),
+          .setTitle(`${E.cancel} Richiesta rifiutata`)
+          .setDescription(`${E.vegax} Hai rifiutato il ruolo.`),
       ],
       components: [disabledRow],
     });
@@ -140,7 +141,7 @@ async function handleGrantButtons(interaction?) {
     persistPendingNow();
     await updateGrantMessage({
       content:
-        "<:vegax:1443934876440068179> Errore: dati richiesta non validi.",
+        `${E.vegax} Errore: dati richiesta non validi.`,
       embeds: [],
       components: [disabledRow],
     });
@@ -159,9 +160,9 @@ async function handleGrantButtons(interaction?) {
           embeds: [
             new EmbedBuilder()
               .setColor("Red")
-              .setTitle("<:VC_Attention:1482534443632558151> Impossibile assegnare")
+              .setTitle(`${E.VC_Attention} Impossibile assegnare`)
               .setDescription(
-                "<a:VC_Alert:1482706673176150077> Non posso assegnare questo ruolo per permessi/gerarchia.",
+                `${E.VC_Alert} Non posso assegnare questo ruolo per permessi/gerarchia.`,
               ),
           ],
         })
@@ -171,8 +172,8 @@ async function handleGrantButtons(interaction?) {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
-          .setTitle("<:vegax:1443934876440068179> Errore")
-          .setDescription("<a:VC_Alert:1482706673176150077> Il bot non può assegnare questo ruolo."),
+          .setTitle(`${E.vegax} Errore`)
+          .setDescription(`${E.VC_Alert} Il bot non può assegnare questo ruolo.`),
       ],
       components: [disabledRow],
     });
@@ -199,9 +200,9 @@ async function handleGrantButtons(interaction?) {
           embeds: [
             new EmbedBuilder()
               .setColor("Red")
-              .setTitle("<:VC_Attention:1482534443632558151> Impossibile assegnare")
+              .setTitle(`${E.VC_Attention} Impossibile assegnare`)
               .setDescription(
-                "<a:VC_Alert:1482706673176150077> L'assegnazione del ruolo non è andata a buon fine.",
+                `${E.VC_Alert} L'assegnazione del ruolo non è andata a buon fine.`,
               ),
           ],
         })
@@ -211,8 +212,8 @@ async function handleGrantButtons(interaction?) {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
-          .setTitle("<:vegax:1443934876440068179> Errore")
-          .setDescription("<a:VC_Alert:1482706673176150077> Il bot non è riuscito ad assegnare questo ruolo."),
+          .setTitle(`${E.vegax} Errore`)
+          .setDescription(`${E.VC_Alert} Il bot non è riuscito ad assegnare questo ruolo.`),
       ],
       components: [disabledRow],
     });
@@ -224,9 +225,9 @@ async function handleGrantButtons(interaction?) {
         embeds: [
           new EmbedBuilder()
             .setColor("#2ecc71")
-            .setTitle("<:success:1461731530333229226> Ruolo Concesso")
+            .setTitle(`${E.success} Ruolo Concesso`)
             .setDescription(
-              `<:vegacheckmark:1443666279058772028> ${targetMember} ha accettato il ruolo **${role.name}**.`,
+              `${E.vegacheckmark} ${targetMember} ha accettato il ruolo **${role.name}**.`,
             ),
         ],
       })
@@ -234,9 +235,9 @@ async function handleGrantButtons(interaction?) {
   }
   const grantedEmbed = new EmbedBuilder()
     .setColor("#2ecc71")
-    .setTitle("<:success:1461731530333229226> Ruolo Concesso")
+    .setTitle(`${E.success} Ruolo Concesso`)
     .setDescription(
-      `<:vegacheckmark:1443666279058772028> Il ruolo **${role.name}** è stato assegnato a ${targetMember}.`,
+      `${E.vegacheckmark} Il ruolo **${role.name}** è stato assegnato a ${targetMember}.`,
     );
   if (channel) {
     await channel.send({ embeds: [grantedEmbed] }).catch(() => { });
@@ -248,8 +249,8 @@ async function handleGrantButtons(interaction?) {
     embeds: [
       new EmbedBuilder()
         .setColor("#2ecc71")
-        .setTitle("<:success:1461731530333229226> Richiesta accettata")
-        .setDescription(`<:vegacheckmark:1443666279058772028> Hai accettato il ruolo **${role.name}**.`),
+        .setTitle(`${E.success} Richiesta accettata`)
+        .setDescription(`${E.vegacheckmark} Hai accettato il ruolo **${role.name}**.`),
     ],
     components: [disabledRow],
   });
@@ -266,7 +267,7 @@ async function handleSiteRoleRequestButtons(interaction?) {
   const request = await resolvePendingSiteRoleRequest(token);
   if (!request) {
     await interaction
-      .reply({ content: "<:VC_Refresh:1473359252276904203> Questa richiesta non è più disponibile.", flags: PRIVATE_FLAG })
+      .reply({ content: `${E.VC_Refresh} Questa richiesta non è più disponibile.`, flags: PRIVATE_FLAG })
       .catch(() => { });
     return true;
   }
@@ -274,7 +275,7 @@ async function handleSiteRoleRequestButtons(interaction?) {
   if (String(interaction.user?.id || "") !== String(request.ownerId || "")) {
     await interaction
       .reply({
-        content: "<:VC_Attention:1482534443632558151> Solo il proprietario del ruolo può rispondere a questa richiesta.",
+        content: `${E.VC_Attention} Solo il proprietario del ruolo può rispondere a questa richiesta.`,
         flags: PRIVATE_FLAG,
       })
       .catch(() => { });
@@ -298,7 +299,7 @@ async function handleSiteRoleRequestButtons(interaction?) {
       embeds: [
         new EmbedBuilder()
           .setColor("#e67e22")
-          .setTitle("<:VC_update:1478721333096349817> Richiesta scaduta")
+          .setTitle(`${E.VC_update} Richiesta scaduta`)
           .setDescription("La richiesta del ruolo non è più valida: tempo scaduto."),
       ],
       components: [disabledRow],
@@ -321,7 +322,7 @@ async function handleSiteRoleRequestButtons(interaction?) {
       embeds: [
         new EmbedBuilder()
           .setColor("#e67e22")
-          .setTitle("<:cancel:1461730653677551691> Richiesta rifiutata")
+          .setTitle(`${E.cancel} Richiesta rifiutata`)
           .setDescription(
             `${requesterMember || `<@${request.requesterId}>`} non riceverà il ruolo ${role ? `**${role.name}**` : "richiesto"}.`,
           ),
@@ -333,7 +334,7 @@ async function handleSiteRoleRequestButtons(interaction?) {
         embeds: [
           new EmbedBuilder()
             .setColor("#e67e22")
-            .setTitle("<:cancel:1461730653677551691> Richiesta rifiutata")
+            .setTitle(`${E.cancel} Richiesta rifiutata`)
             .setDescription(
               `La tua richiesta per il ruolo ${role ? `**${role.name}**` : "custom"} è stata rifiutata dal proprietario.`,
             ),
@@ -350,7 +351,7 @@ async function handleSiteRoleRequestButtons(interaction?) {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
-          .setTitle("<:vegax:1443934876440068179> Errore")
+          .setTitle(`${E.vegax} Errore`)
           .setDescription("Non riesco più a recuperare i dati di questa richiesta."),
       ],
       components: [disabledRow],
@@ -365,7 +366,7 @@ async function handleSiteRoleRequestButtons(interaction?) {
       embeds: [
         new EmbedBuilder()
           .setColor("#60a5fa")
-          .setTitle("<:VC_Refresh:1473359252276904203> Richiesta già soddisfatta")
+          .setTitle(`${E.VC_Refresh} Richiesta già soddisfatta`)
           .setDescription(`<@${request.requesterId}> possiede già il ruolo **${role.name}**.`),
       ],
       components: [disabledRow],
@@ -384,7 +385,7 @@ async function handleSiteRoleRequestButtons(interaction?) {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
-          .setTitle("<:VC_Attention:1482534443632558151> Impossibile assegnare")
+          .setTitle(`${E.VC_Attention} Impossibile assegnare`)
           .setDescription("Il bot non può assegnare questo ruolo per permessi o gerarchia."),
       ],
       components: [disabledRow],
@@ -404,7 +405,7 @@ async function handleSiteRoleRequestButtons(interaction?) {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
-          .setTitle("<:vegax:1443934876440068179> Errore")
+          .setTitle(`${E.vegax} Errore`)
           .setDescription("Non sono riuscito ad assegnare il ruolo all'utente richiesto."),
       ],
       components: [disabledRow],
@@ -416,7 +417,7 @@ async function handleSiteRoleRequestButtons(interaction?) {
     embeds: [
       new EmbedBuilder()
         .setColor("#2ecc71")
-        .setTitle("<:success:1461731530333229226> Richiesta approvata")
+        .setTitle(`${E.success} Richiesta approvata`)
         .setDescription(`<@${request.requesterId}> ha ricevuto il ruolo **${role.name}**.`),
     ],
     components: [disabledRow],
@@ -426,7 +427,7 @@ async function handleSiteRoleRequestButtons(interaction?) {
       embeds: [
         new EmbedBuilder()
           .setColor("#2ecc71")
-          .setTitle("<:success:1461731530333229226> Richiesta approvata")
+          .setTitle(`${E.success} Richiesta approvata`)
           .setDescription(`Il proprietario ha approvato la tua richiesta: ora hai il ruolo **${role.name}**.`),
       ],
     })

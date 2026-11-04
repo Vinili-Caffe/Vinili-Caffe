@@ -4,6 +4,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { UNKNOWN_EXECUTOR_ID } = require("./antiNukeWhitelist") as typeof import("./antiNukeWhitelist");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const HIGH_STAFF_MENTION = IDs.roles?.HighStaff ? `<@&${IDs.roles.HighStaff}>` : null;
 const ANTINUKE_LOG_DEDUPE = new Map();
 const ANTINUKE_LOG_DEDUPE_TTL_MS = 12_000;
@@ -15,16 +16,16 @@ function isUnknownExecutorId(executorId?) {
 function formatExecutorLine(executorId?) {
   const actorId = String(executorId || "").trim();
   if (!actorId || actorId === UNKNOWN_EXECUTOR_ID) {
-    return `<:VC_Mention:1482526855289634997> **Executor:** Sconosciuto`;
+    return `${E.VC_Mention} **Executor:** Sconosciuto`;
   }
-  return `<:VC_Mention:1482526855289634997> **Executor:** <@${actorId}> \`${actorId}\``;
+  return `${E.VC_Mention} **Executor:** <@${actorId}> \`${actorId}\``;
 }
 
 function formatAuditStatusLine(executorId?) {
   if (isUnknownExecutorId(executorId)) {
-    return `<:VC_reason:1478517122929004544> **Audit Status:** Missing audit entry from Discord`;
+    return `${E.VC_reason} **Audit Status:** Missing audit entry from Discord`;
   }
-  return `<:VC_reason:1478517122929004544> **Audit Status:** Audit entry resolved`;
+  return `${E.VC_reason} **Audit Status:** Audit entry resolved`;
 }
 
 async function logAuditMissingSkip(guild?, title?, lines = []) {
@@ -35,8 +36,8 @@ async function logAuditMissingSkip(guild?, title?, lines = []) {
       formatExecutorLine(UNKNOWN_EXECUTOR_ID),
       formatAuditStatusLine(UNKNOWN_EXECUTOR_ID),
       ...lines,
-      `<:VC_reason:1478517122929004544> **Technical Reason:** Audit log entry not available in time, automatic enforcement skipped`,
-      `<:VC_reason:1478517122929004544> **Result:** No enforcement performed`,
+      `${E.VC_reason} **Technical Reason:** Audit log entry not available in time, automatic enforcement skipped`,
+      `${E.VC_reason} **Result:** No enforcement performed`,
     ].filter(Boolean),
     "#FEE75C",
   );
@@ -59,19 +60,19 @@ function extractLineValue(lines?, label?) {
 }
 
 function antiNukeHeadline(title?, lines?) {
-  const executor = extractLineValue(lines, "<:VC_Mention:1482526855289634997> Executor");
-  const action = extractLineValue(lines, "<:VC_Mention:1482526855289634997> Action");
+  const executor = extractLineValue(lines, `${E.VC_Mention} Executor`);
+  const action = extractLineValue(lines, `${E.VC_Mention} Action`);
   if (/panic mode enabled/i.test(String(title || ""))) {
-    return "<:success:1461731530333229226> AntiNuke panic mode has been enabled!";
+    return `${E.success} AntiNuke panic mode has been enabled!`;
   }
   if (/panic mode ended/i.test(String(title || ""))) {
-    return "<:cancel:1461730653677551691> AntiNuke panic mode has ended.";
+    return `${E.cancel} AntiNuke panic mode has ended.`;
   }
   if (executor && /quarantined/i.test((lines || []).join(" "))) {
-    return `<:VC_Lock:1482526739044368476> ${executor.split(" ")[0]} has been quarantined!`;
+    return `${E.VC_Lock} ${executor.split(" ")[0]} has been quarantined!`;
   }
-  if (action) return `<a:VC_Alert:1482706673176150077> AntiNuke action: ${action}`;
-  return title || "<a:VC_Alert:1482706673176150077> AntiNuke Trigger";
+  if (action) return `${E.VC_Alert} AntiNuke action: ${action}`;
+  return title || `${E.VC_Alert} AntiNuke Trigger`;
 }
 
 function cleanAntiNukeLines(lines?) {
@@ -84,9 +85,9 @@ function cleanAntiNukeLines(lines?) {
     )
     .filter(
       (line?) =>
-        !line.startsWith("<:VC_Mention:1482526855289634997> **Executor:**") &&
-        !line.startsWith("<:VC_Mention:1482526855289634997> **Target:**") &&
-        !line.startsWith("<:channeltext:1443247596922470551> **Channel:**"),
+        !line.startsWith(`${E.VC_Mention} **Executor:**`) &&
+        !line.startsWith(`${E.VC_Mention} **Target:**`) &&
+        !line.startsWith(`${E.channeltext} **Channel:**`),
     );
 }
 
@@ -103,25 +104,25 @@ async function sendAntiNukeLog(guild?, title?, lines?, color = "#ED4245") {
   if (ANTINUKE_LOG_DEDUPE.has(dedupeBasis)) return;
   ANTINUKE_LOG_DEDUPE.set(dedupeBasis, now);
 
-  const executor = extractLineValue(lines, "<:VC_Mention:1482526855289634997> Executor");
-  const target = extractLineValue(lines, "<:VC_Mention:1482526855289634997> Target");
-  const channel = extractLineValue(lines, "<:channeltext:1443247596922470551> Channel");
-  const filterName = title?.replace(/^AntiNuke:\s*/i, "") || "<a:VC_Alert:1482706673176150077> AntiNuke";
+  const executor = extractLineValue(lines, `${E.VC_Mention} Executor`);
+  const target = extractLineValue(lines, `${E.VC_Mention} Target`);
+  const channel = extractLineValue(lines, `${E.channeltext} Channel`);
+  const filterName = title?.replace(/^AntiNuke:\s*/i, "") || `${E.VC_Alert} AntiNuke`;
   const details = cleanAntiNukeLines(lines);
 
-  const embed = new EmbedBuilder().setColor(color).setTitle(antiNukeHeadline(title, lines)).setDescription([`<:VC_reason:1478517122929004544> **AntiNuke Filter:** ${filterName}`,
+  const embed = new EmbedBuilder().setColor(color).setTitle(antiNukeHeadline(title, lines)).setDescription([`${E.VC_reason} **AntiNuke Filter:** ${filterName}`,
   channel
-    ? `<:channeltext:1443247596922470551> **Channel:** ${channel}`
+    ? `${E.channeltext} **Channel:** ${channel}`
     : null,
   target
-    ? `<:VC_Mention:1482526855289634997> **Target:** ${target}`
+    ? `${E.VC_Mention} **Target:** ${target}`
     : null,
   executor
-    ? `<:VC_Mention:1482526855289634997> **Member:** ${executor}`
+    ? `${E.VC_Mention} **Member:** ${executor}`
     : null,
     "",
   ...details.map(
-    (line?) => `<:VC_reason:1478517122929004544>${line}`,
+    (line?) => `${E.VC_reason}${line}`,
   ),
   ]
     .filter(Boolean)

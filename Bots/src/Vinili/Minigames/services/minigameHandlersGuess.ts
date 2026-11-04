@@ -5,6 +5,7 @@ const { compactNoSpaces, extractWordGuessCandidates, memoryEmojiMessageMatches }
 const { normalizePlayerGuess } = require("./minigameSources") as typeof import("./minigameSources");
 const { reactMinigameWrongEmoji } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 const { handleMinigameWin } = require("./minigameRound") as typeof import("./minigameRound");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   rejectMinigameShotgunListingGuess,
   reactMinigameNearOrWrong,
@@ -16,7 +17,7 @@ const {
   isLooseAliasGuessCorrect,
 } = require("./minigameGuessMatchers") as typeof import("./minigameGuessMatchers");
 
-const MINIGAME_COOLDOWN_EMOJI = "<a:VC_Loading:1482526818278969578>";
+const MINIGAME_COOLDOWN_EMOJI = E.VC_Loading__969578;
 
 async function handleGuessMessage(message?, client?, cfg?, game?, content?, contentForGuess?) {
   if (game.type === "guessNumber") {
@@ -34,7 +35,7 @@ async function handleGuessMessage(message?, client?, cfg?, game?, content?, cont
     const range = Math.max(1, Number(game.max || 100) - Number(game.min || 1));
     const nearThreshold = Math.max(2, Math.round(range * 0.05));
     if (Math.abs(guess - game.target) <= nearThreshold) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
     } else {
       await reactMinigameWrongEmoji(message, game);
     }
@@ -71,7 +72,7 @@ async function handleGuessMessage(message?, client?, cfg?, game?, content?, cont
         }),
       )
     ) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
       return false;
     }
     await reactMinigameWrongEmoji(message, game);
@@ -93,7 +94,7 @@ async function handleGuessMessage(message?, client?, cfg?, game?, content?, cont
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
     } else {
       await reactMinigameWrongEmoji(message, game);
     }
@@ -115,7 +116,7 @@ async function handleGuessMessage(message?, client?, cfg?, game?, content?, cont
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
     } else {
       await reactMinigameWrongEmoji(message, game);
     }
@@ -138,7 +139,7 @@ async function handleGuessMessage(message?, client?, cfg?, game?, content?, cont
         { maxDistance: 3, maxRatio: 0.25 },
       )
     ) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
     } else {
       await reactMinigameWrongEmoji(message, game);
     }
@@ -160,7 +161,7 @@ async function handleGuessMessage(message?, client?, cfg?, game?, content?, cont
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
     } else {
       await reactMinigameWrongEmoji(message, game);
     }
@@ -182,7 +183,7 @@ async function handleGuessMessage(message?, client?, cfg?, game?, content?, cont
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
     } else {
       await reactMinigameWrongEmoji(message, game);
     }
@@ -204,7 +205,7 @@ async function handleGuessMessage(message?, client?, cfg?, game?, content?, cont
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
     } else {
       await reactMinigameWrongEmoji(message, game);
     }
@@ -257,7 +258,7 @@ async function handleGuessMessage(message?, client?, cfg?, game?, content?, cont
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
     } else {
       await reactMinigameWrongEmoji(message, game);
     }
@@ -273,7 +274,7 @@ async function handleGuessMessage(message?, client?, cfg?, game?, content?, cont
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 2, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
     } else {
       await reactMinigameWrongEmoji(message, game);
     }
@@ -289,7 +290,7 @@ async function handleGuessMessage(message?, client?, cfg?, game?, content?, cont
     if (
       isNearTextGuess(contentForGuess, game.answers, { maxDistance: 3, maxRatio: 0.25 })
     ) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
     } else {
       await reactMinigameWrongEmoji(message, game);
     }

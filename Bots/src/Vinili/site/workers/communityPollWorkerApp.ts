@@ -84,6 +84,11 @@ async function main(shared?: { client?: any } | null) {
     console.error("[COMMUNITY-POLL] discadia month cron:", err?.message || err);
   }
 
+  if (String(process.env.PRESENCE_SUPPORTER_SWEEP_ON_GATEWAY || "1").trim() === "0") {
+    const { startPresenceSupporterSweepLoop } = require("../../Community/events/presenceSupporterBootstrap") as typeof import("../../Community/events/presenceSupporterBootstrap");
+    startPresenceSupporterSweepLoop(client);
+  }
+
   console.log(
     `[COMMUNITY-POLL] online as ${client.user?.tag || client.user?.username || "bot"} (twitch/gamenews/fullState/movieNight/partnerAudit/stats/cron)`,
   );

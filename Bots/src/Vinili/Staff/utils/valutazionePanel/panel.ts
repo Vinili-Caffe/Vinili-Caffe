@@ -2,6 +2,7 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { ensureStaff } = require("../staffDocUtils") as typeof import("../staffDocUtils");
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
 const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   VALUTAZIONE_EMBED_COLOR,
   clearWebStaffProfileCache,
@@ -38,7 +39,7 @@ async function runValutazionePositiveAddForPanel(guild?, actorMember?, staffUser
     return { ok: true };
   } catch (err) {
     global.logger.error(err);
-    return { ok: false, message: "<:vegax:1443934876440068179> Errore valutazione positiva." };
+    return { ok: false, message: `${E.vegax} Errore valutazione positiva.` };
   }
 }
 
@@ -53,7 +54,7 @@ async function runValutazioneNegativeAddForPanel(guild?, actorMember?, staffUser
     return { ok: true };
   } catch (err) {
     global.logger.error(err);
-    return { ok: false, message: "<:vegax:1443934876440068179> Errore valutazione negativa." };
+    return { ok: false, message: `${E.vegax} Errore valutazione negativa.` };
   }
 }
 
@@ -75,7 +76,7 @@ async function runValutazionePositiveRemoveForPanel(guild?, actorMember?, staffU
     return res.ok ? { ok: true } : { ok: false, message: res.message };
   } catch (err) {
     global.logger.error(err);
-    return { ok: false, message: "<:vegax:1443934876440068179> Errore rimozione valutazione positiva." };
+    return { ok: false, message: `${E.vegax} Errore rimozione valutazione positiva.` };
   }
 }
 
@@ -95,7 +96,7 @@ async function runValutazioneNegativeRemoveForPanel(guild?, actorMember?, staffU
       if (available < tradeCount) {
         return {
           ok: false,
-          message: `<:VC_Attention:1482534443632558151> Servono **almeno ${tradeCount} valutazioni positive** per lo scambio (ne ha \`${available}\`).`,
+          message: `${E.VC_Attention} Servono **almeno ${tradeCount} valutazioni positive** per lo scambio (ne ha \`${available}\`).`,
         };
       }
       const tradeReason = `Scambio: ${tradeCount} positive → rimozione valutazione negativa #${removeId}`;
@@ -108,7 +109,7 @@ async function runValutazioneNegativeRemoveForPanel(guild?, actorMember?, staffU
         guild,
         tradeReason,
         (finalPos?) =>
-          `<:VC_OnlineStatus:1482527088912240650> Ora ${staffUser?.id ? `<@${staffUser.id}>` : "lo staffer"} è a \`${finalPos}\` valutazioni positive!`,
+          `${E.VC_OnlineStatus} Ora ${staffUser?.id ? `<@${staffUser.id}>` : "lo staffer"} è a \`${finalPos}\` valutazioni positive!`,
       );
     }
     const res = await valutazioneNegativeRemoveCore(
@@ -127,12 +128,12 @@ async function runValutazioneNegativeRemoveForPanel(guild?, actorMember?, staffU
       ok: true,
       tradedPositives: tradeCount,
       message: tradeCount
-        ? `<a:VC_Verified:1482532479637127188> Valutazione negativa rimossa. Scambiate anche **${tradeCount}** positive.`
+        ? `${E.VC_Verified} Valutazione negativa rimossa. Scambiate anche **${tradeCount}** positive.`
         : null,
     };
   } catch (err) {
     global.logger.error(err);
-    return { ok: false, message: "<:vegax:1443934876440068179> Errore rimozione valutazione negativa." };
+    return { ok: false, message: `${E.vegax} Errore rimozione valutazione negativa.` };
   }
 }
 
@@ -143,16 +144,16 @@ const POS_PAUSE_TRADE_REASON = "Scambio valutazioni positive per giorni pausa ex
 async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc?, staffUser?, negativeRemoveId1Based?, actor?, channel?, guild?, tradeReason = SELF_NEG_TRADE_REASON) {
   const s = ensureStaff(profileDoc);
   const guildRef = guild || channel?.guild;
-  if (!guildRef) return { ok: false, message: "<:VC_Attention:1482534443632558151> Server non valido." };
+  if (!guildRef) return { ok: false, message: `${E.VC_Attention} Server non valido.` };
   if (!Number.isInteger(negativeRemoveId1Based) || negativeRemoveId1Based < 1) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> **Numero negativa non valido.** Usa l’indice della lista (es. **1** per −1)." };
+    return { ok: false, message: `${E.VC_Attention} **Numero negativa non valido.** Usa l’indice della lista (es. **1** per −1).` };
   }
   if (!Array.isArray(s.positiveReasons) || s.positiveReasons.length < 3) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Servono **almeno 3 valutazioni positive** per questa opzione." };
+    return { ok: false, message: `${E.VC_Attention} Servono **almeno 3 valutazioni positive** per questa opzione.` };
   }
   const negIdx = await resolveValutazioneRemoveIndexFull(guildRef, s, "negative", negativeRemoveId1Based, staffUser?.id);
   if (negIdx < 0 || !Array.isArray(s.negativeReasons) || !s.negativeReasons[negIdx]) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> **Numero negativa non valido.** Controlla la lista ( −1, −2, … )." };
+    return { ok: false, message: `${E.VC_Attention} **Numero negativa non valido.** Controlla la lista ( −1, −2, … ).` };
   }
   const posResult = await removeOldestPositiveValutazioni(
     s,
@@ -162,7 +163,7 @@ async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc?, staffUser?
     channel,
     guildRef,
     tradeReason,
-    (finalPos?) => `<:VC_OnlineStatus:1482527088912240650> Ora ${staffUser.id ? `<@${staffUser.id}>` : "lo staffer"} è a \`${finalPos}\` valutazioni positive!`,
+    (finalPos?) => `${E.VC_OnlineStatus} Ora ${staffUser.id ? `<@${staffUser.id}>` : "lo staffer"} è a \`${finalPos}\` valutazioni positive!`,
   );
   const removedNegReason = s.negativeReasons[negIdx];
   const negEntry = getValutazioneEntry(s, "negative", negIdx, removedNegReason);
@@ -177,11 +178,11 @@ async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc?, staffUser?
   const negEmbed = makeRemovalEmbed(
     actor,
     staffUser,
-    "<:cancel:1461730653677551691> **__VALUTAZIONE NEGATIVA RIMOSSA__**",
-    `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Negativa!_`,
+    `${E.cancel} **__VALUTAZIONE NEGATIVA RIMOSSA__**`,
+    `${E.VC_reason} A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Negativa!_`,
     tradeReason,
-    "<:VC_update:1478721333096349817> __Valutazioni Negative Totali__",
-    `<:VC_OnlineStatus:1482527088912240650> Ora ${staffUser.id ? `<@${staffUser.id}>` : "lo staffer"} è a \`${finalNeg}\` valutazioni negative!`,
+    `${E.VC_update} __Valutazioni Negative Totali__`,
+    `${E.VC_OnlineStatus} Ora ${staffUser.id ? `<@${staffUser.id}>` : "lo staffer"} è a \`${finalNeg}\` valutazioni negative!`,
   );
   const negEdited = await editOriginalValutazioneMessage(guildRef, negEntry, negEmbed);
   if (!negEdited) await sendChannelEmbed(channel, { embeds: [negEmbed] });
@@ -191,17 +192,17 @@ async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc?, staffUser?
       name: `Valutazione negativa rimossa — ${accountUsername(actorLike)}`,
       iconURL: guildMemberDisplayAvatarUrlDynamic(actorLike) || undefined,
     })
-    .setTitle("<:thumbsup:1471292172145004768><:thumbsdown:1471292163957457013> **Scambio 3 positive → 1 negativa**")
+    .setTitle(`${E.thumbsup}${E.thumbsdown} **Scambio 3 positive → 1 negativa**`)
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic((await getGuildMemberCached(guildRef, staffUser.id).catch(() => null)) || staffUser) || undefined)
     .setDescription(
       [
-        `<:VC_Staff:1494286904089247754> ${formatStaffMention(staffUser)}`,
+        `${E.VC_Staff} ${formatStaffMention(staffUser)}`,
         "",
         `**Rimossa negativa n°** \`${negativeRemoveId1Based}\` — _${String(removedNegReason || "—").slice(0, 400)}_`,
         "",
         "**Rimosse le 3 positive più vecchie** come contropartita.",
         "",
-        `**Conteggi attuali:** <:thumbsup:1471292172145004768> \`${finalPos}\` · <:thumbsdown:1471292163957457013> \`${finalNeg}\``,
+        `**Conteggi attuali:** ${E.thumbsup} \`${finalPos}\` · ${E.thumbsdown} \`${finalNeg}\``,
       ].join("\n"),
     )
     .setColor(VALUTAZIONE_EMBED_COLOR);
@@ -213,14 +214,14 @@ async function valutazioneSelfNegTradeThreePosOneNegCore(profileDoc?, staffUser?
 async function valutazionePosForPauseTradeCore(profileDoc?, staffUser?, positiveCount?, pauseDays?, actor?, channel?, guild?) {
   const s = ensureStaff(profileDoc);
   const guildRef = guild || channel?.guild;
-  if (!guildRef) return { ok: false, message: "<:VC_Attention:1482534443632558151> Server non valido." };
+  if (!guildRef) return { ok: false, message: `${E.VC_Attention} Server non valido.` };
   const posCount = Math.floor(Number(positiveCount || 0));
   const days = Math.floor(Number(pauseDays || 0));
   if (posCount < 1 || days < 1) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Inserisci **numeri validi** (almeno 1 positiva e 1 giorno pausa)." };
+    return { ok: false, message: `${E.VC_Attention} Inserisci **numeri validi** (almeno 1 positiva e 1 giorno pausa).` };
   }
   if (!Array.isArray(s.positiveReasons) || s.positiveReasons.length < posCount) {
-    return { ok: false, message: `<:VC_Attention:1482534443632558151> Servono **almeno ${posCount} valutazioni positive** disponibili.` };
+    return { ok: false, message: `${E.VC_Attention} Servono **almeno ${posCount} valutazioni positive** disponibili.` };
   }
   const tradeReason = `${POS_PAUSE_TRADE_REASON}: ${posCount} positive → +${days} giorni pausa`;
   const posResult = await removeOldestPositiveValutazioni(
@@ -231,7 +232,7 @@ async function valutazionePosForPauseTradeCore(profileDoc?, staffUser?, positive
     channel,
     guildRef,
     tradeReason,
-    (finalPos?) => `<:VC_OnlineStatus:1482527088912240650> Ora ${staffUser.id ? `<@${staffUser.id}>` : "lo staffer"} è a \`${finalPos}\` valutazioni positive!`,
+    (finalPos?) => `${E.VC_OnlineStatus} Ora ${staffUser.id ? `<@${staffUser.id}>` : "lo staffer"} è a \`${finalPos}\` valutazioni positive!`,
   );
   const prevBonus = Math.max(0, Math.floor(Number(s.valPosTradedPauseBonusDays || 0)));
   s.valPosTradedPauseBonusDays = prevBonus + days;
@@ -243,11 +244,11 @@ async function valutazionePosForPauseTradeCore(profileDoc?, staffUser?, positive
       name: `Scambio pause — ${accountUsername(actorLike)}`,
       iconURL: guildMemberDisplayAvatarUrlDynamic(actorLike) || undefined,
     })
-    .setTitle("<:thumbsup:1471292172145004768> **Positive → giorni pausa extra**")
+    .setTitle(`${E.thumbsup} **Positive → giorni pausa extra**`)
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic((await getGuildMemberCached(guildRef, staffUser.id).catch(() => null)) || staffUser) || undefined)
     .setDescription(
       [
-        `<:VC_Staff:1494286904089247754> ${formatStaffMention(staffUser)}`,
+        `${E.VC_Staff} ${formatStaffMention(staffUser)}`,
         "",
         `**Rimosse** \`${posCount}\` valutazioni positive.`,
         `**Aggiunti** \`+${days}\` giorni pausa extra (totale scambio: \`${s.valPosTradedPauseBonusDays}\`).`,
@@ -266,7 +267,7 @@ async function runValutazioneNegTradeForPanel(guild?, actorMember?, staffUser?, 
   const targetId = String(staffUser?.id || "");
   const isSelf = actorId && targetId && actorId === targetId;
   if (!isSelf && !memberIsHighStaffOrAbove(actorMember)) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Solo **High Staff** può eseguire questo scambio per un altro staffer." };
+    return { ok: false, message: `${E.VC_Attention} Solo **High Staff** può eseguire questo scambio per un altro staffer.` };
   }
   try {
     const profileDoc = await ensureStaffProfileDoc(
@@ -286,13 +287,13 @@ async function runValutazioneNegTradeForPanel(guild?, actorMember?, staffUser?, 
     );
   } catch (err) {
     global.logger.error(err);
-    return { ok: false, message: "<:vegax:1443934876440068179> Errore durante la compensazione delle valutazioni." };
+    return { ok: false, message: `${E.vegax} Errore durante la compensazione delle valutazioni.` };
   }
 }
 
 async function runValutazionePosPauseTradeForPanel(guild?, actorMember?, staffUser?, positiveCount?, pauseDays?) {
   if (!memberIsHighStaffOrAbove(actorMember)) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Solo **High Staff** può registrare questo scambio." };
+    return { ok: false, message: `${E.VC_Attention} Solo **High Staff** può registrare questo scambio.` };
   }
   try {
     const profileDoc = await ensureStaffProfileDoc(
@@ -311,7 +312,7 @@ async function runValutazionePosPauseTradeForPanel(guild?, actorMember?, staffUs
     );
   } catch (err) {
     global.logger.error(err);
-    return { ok: false, message: "<:vegax:1443934876440068179> Errore durante lo scambio positive → pausa." };
+    return { ok: false, message: `${E.vegax} Errore durante lo scambio positive → pausa.` };
   }
 }
 

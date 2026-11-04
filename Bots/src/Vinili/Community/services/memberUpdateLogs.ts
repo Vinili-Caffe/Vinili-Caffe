@@ -8,6 +8,7 @@ const { handleMemberRoleAddition: antiNukeHandleMemberRoleAddition } = require("
 const { handleStaffRoleAssignmentGuard } = require("../../Moderation/services/staffRoleAssignmentGuardService") as typeof import("../../Moderation/services/staffRoleAssignmentGuardService");
 const { shouldSendPublicMemberAnnouncement, normalVerificationCompletedBetween } = require("../utils/memberPublicAnnouncementGate") as typeof import("../utils/memberPublicAnnouncementGate");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const MAX_UNVERIFIED_ROLE_DIFF = 4;
@@ -68,17 +69,17 @@ function didTimeoutChange(oldMember?, newMember?) {
 }
 
 function buildNickChangeLine(oldMember?, newMember?) {
-  const oldNick = String(oldMember?.nickname || "").trim() || "<:cancel:1461730653677551691>";
-  const newNick = String(newMember?.nickname || "").trim() || "<:cancel:1461730653677551691>";
-  return `${oldNick} <a:VC_Arrow:1482706699365257397> ${newNick}`;
+  const oldNick = String(oldMember?.nickname || "").trim() || E.cancel;
+  const newNick = String(newMember?.nickname || "").trim() || E.cancel;
+  return `${oldNick} ${E.VC_Arrow} ${newNick}`;
 }
 
 function buildTimeoutChangeLine(oldMember?, newMember?) {
   const oldTs = oldMember?.communicationDisabledUntilTimestamp || 0;
   const newTs = newMember?.communicationDisabledUntilTimestamp || 0;
-  const oldLabel = oldTs ? toRelativeDiscordTime(oldTs) : "<:cancel:1461730653677551691>";
-  const newLabel = newTs ? toRelativeDiscordTime(newTs) : "<:cancel:1461730653677551691>";
-  return `${oldLabel} <a:VC_Arrow:1482706699365257397> ${newLabel}`;
+  const oldLabel = oldTs ? toRelativeDiscordTime(oldTs) : E.cancel;
+  const newLabel = newTs ? toRelativeDiscordTime(newTs) : E.cancel;
+  return `${oldLabel} ${E.VC_Arrow} ${newLabel}`;
 }
 
 async function resolveMemberUpdateAuditInfo(guild?, targetUserId?) {
@@ -130,13 +131,13 @@ async function sendTimeoutRemovedModLog(oldMember?, newMember?) {
 
   const embed = new EmbedBuilder()
     .setColor("#57F287")
-    .setTitle("<:VC_User:1482527453586002103> Timeout Rimosso")
+    .setTitle(`${E.VC_User} Timeout Rimosso`)
     .setDescription(
       [
-        `<:VC_User:1482527453586002103> **Timeout per** ${newMember.user} **è stato rimosso**`,
-        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-        `<:VC_Clock:1473359204189474886> ${nowDiscordTs()}`,
-        audit.reason ? `<:VC_reason:1478517122929004544> **Motivo:** ${audit.reason}` : null,
+        `${E.VC_User} **Timeout per** ${newMember.user} **è stato rimosso**`,
+        `${E.VC_Staff} **Responsabile:** ${responsible}`,
+        `${E.VC_Clock} ${nowDiscordTs()}`,
+        audit.reason ? `${E.VC_reason} **Motivo:** ${audit.reason}` : null,
       ]
         .filter(Boolean)
         .join("\n"),
@@ -170,30 +171,30 @@ async function sendMemberUpdateLog(oldMember?, newMember?) {
   const responsibleText = formatAuditActor(audit.executor);
 
   const lines = [
-    `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-    `<:VC_User:1482527453586002103> **Utente:** ${newMember.user} \`${newMember.user.id}\``,
-    `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+    `${E.VC_Staff} **Responsabile:** ${responsibleText}`,
+    `${E.VC_User} **Utente:** ${newMember.user} \`${newMember.user.id}\``,
+    `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
   ];
 
   if (audit.reason) {
-    lines.push(`<:VC_reason:1478517122929004544> **Motivo:** ${audit.reason}`);
+    lines.push(`${E.VC_reason} **Motivo:** ${audit.reason}`);
   }
 
-  lines.push("", "**<:VC_tools:1478862265305272364> Cambiamenti**");
+  lines.push("", `**${E.VC_tools} Cambiamenti**`);
 
   if (timeoutChanged) {
-    lines.push("<:VC_Info:1482526956703580372> **Disabilitazione comunicazione fino a**");
+    lines.push(`${E.VC_Info} **Disabilitazione comunicazione fino a**`);
     lines.push(`  ${buildTimeoutChangeLine(oldMember, newMember)}`);
   }
 
   if (nickChanged) {
-    lines.push("<:VC_Modifica:1478859646587633717> **Nick**");
+    lines.push(`${E.VC_Modifica} **Nick**`);
     lines.push(`  ${buildNickChangeLine(oldMember, newMember)}`);
   }
 
   const embed = new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle("<:VC_User:1482527453586002103> Membro Aggiornato")
+    .setTitle(`${E.VC_User} Membro Aggiornato`)
     .setDescription(lines.join("\n"));
 
   await logChannel.send({ embeds: [embed] }).catch((err?) => {
@@ -261,30 +262,30 @@ async function sendMemberRoleUpdateLog(oldMember?, newMember?) {
   const logChannel = await resolveChannelRolesLogChannel(guild);
   if (logChannel?.isTextBased?.() && (allowPublicAnn || gainingNormalVerification)) {
     const lines = [
-      `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-      `<:VC_User:1482527453586002103> **Utente:** ${newMember.user} \`${newMember.user.id}\``,
-      `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+      `${E.VC_Staff} **Responsabile:** ${responsible}`,
+      `${E.VC_User} **Utente:** ${newMember.user} \`${newMember.user.id}\``,
+      `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
       "",
-      "**<:VC_tools:1478862265305272364> Cambiamenti**",
+      `**${E.VC_tools} Cambiamenti**`,
     ];
 
     if (additions.length) {
-      lines.push("<:success:1461731530333229226> **Additions:**");
+      lines.push(`${E.success} **Additions:**`);
       for (const role of additions.slice(0, 15)) {
-        lines.push(`<a:VC_Arrow:1482706699365257397> ${role}`);
+        lines.push(`${E.VC_Arrow} ${role}`);
       }
     }
 
     if (removals.length) {
-      lines.push("<:cancel:1461730653677551691> **Removals:**");
+      lines.push(`${E.cancel} **Removals:**`);
       for (const role of removals.slice(0, 15)) {
-        lines.push(`<a:VC_Arrow:1482706699365257397> ${role}`);
+        lines.push(`${E.VC_Arrow} ${role}`);
       }
     }
 
     const embed = new EmbedBuilder()
       .setColor("#F59E0B")
-      .setTitle("<:VC_User:1482527453586002103> Ruolo Membro Aggiornato")
+      .setTitle(`${E.VC_User} Ruolo Membro Aggiornato`)
       .setDescription(lines.join("\n"));
 
     await logChannel.send({ embeds: [embed] }).catch((err?) => {

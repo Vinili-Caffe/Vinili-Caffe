@@ -7,6 +7,7 @@ const { TENANT_PARTNERSHIP_ARROWS } = require("../../Partner/tenant/tenantPartne
 const { formatPingsSummary, channelLine, roleLine } = require("../../Partner/tenant/tenantPartnershipAdminRuntime") as typeof import("../../Partner/tenant/tenantPartnershipAdminRuntime");
 const { applyLocalizedTenantFooter } = require("../../Partner/i18n/tenantPartnershipI18n/tenantPartnershipFooter") as typeof import("../../Partner/i18n/tenantPartnershipI18n/tenantPartnershipFooter");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const PREFIX = "psetup";
 const MODAL_PREFIX = "psetup_modal";
 const SETUP_COLOR = 0xeb459e;
@@ -34,12 +35,12 @@ function buildChannelsEmbed(guild?, config?, lang = "it") {
       [
         t(lang, "setup_channels_intro"),
         "",
-        `<a:VC_Announce:1482534613568979007> **${t(lang, "setup_channels_partner")}:** ${
+        `${E.VC_Announce} **${t(lang, "setup_channels_partner")}:** ${
           config?.partnershipsChannelId
             ? channelLine(config.partnershipsChannelId, guild)
             : t(lang, "common_notSet")
         }`,
-        `<:VC_Quest:1482534879257165865> **${t(lang, "setup_channels_logs")}:** ${
+        `${E.VC_Quest} **${t(lang, "setup_channels_logs")}:** ${
           config?.logsChannelId ? channelLine(config.logsChannelId, guild) : t(lang, "common_notSetOptional")
         }`,
       ].join("\n"),
@@ -86,17 +87,17 @@ function buildCompleteEmbed(guild?, config?, lang = "it") {
     .setDescription(t(lang, "setup_complete_desc"))
     .addFields(
       {
-        name: `<:VC_page2:1482459724657201387> ${t(lang, "setup_complete_field_channels")}`,
+        name: `${E.VC_page2} ${t(lang, "setup_complete_field_channels")}`,
         value: channelsValue || "—",
         inline: false,
       },
       {
-        name: `<:861752staff:1524730539129438258> ${t(lang, "setup_complete_field_roles")}`,
+        name: `${E["861752staff"]} ${t(lang, "setup_complete_field_roles")}`,
         value: config?.partnerManagerRoleId ? `<@&${config.partnerManagerRoleId}>` : "—",
         inline: false,
       },
       {
-        name: `<:VC_Mention:1482526855289634997> ${t(lang, "setup_complete_field_pings")}`,
+        name: `${E.VC_Mention} ${t(lang, "setup_complete_field_pings")}`,
         value: formatPingsSummary(config?.pings, lang),
         inline: false,
       },
@@ -110,11 +111,11 @@ function buildChannelsComponents(ownerId?, config?) {
       new ButtonBuilder()
         .setCustomId(buildCustomId(ownerId, "ch_partner"))
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji("<a:VC_Announce:1482534613568979007>"),
+        .setEmoji(E.VC_Announce),
       new ButtonBuilder()
         .setCustomId(buildCustomId(ownerId, "ch_logs"))
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji("<:VC_Quest:1482534879257165865>"),
+        .setEmoji(E.VC_Quest),
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -133,7 +134,7 @@ function buildRolesComponents(ownerId?, config?) {
       new ButtonBuilder()
         .setCustomId(buildCustomId(ownerId, "role_manager"))
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji("<:VC_PartnerManager:1494286911286808576>"),
+        .setEmoji(E.VC_PartnerManager),
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -151,11 +152,11 @@ function buildPingsComponents(ownerId?) {
       new ButtonBuilder()
         .setCustomId(buildCustomId(ownerId, "ping_config"))
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji("<:VC_Mention:1482526855289634997>"),
+        .setEmoji(E.VC_Mention),
       new ButtonBuilder()
         .setCustomId(buildCustomId(ownerId, "ping_done"))
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji("<a:VC_Verified:1482532479637127188>"),
+        .setEmoji(E.VC_Verified),
     ),
   ];
 }
@@ -166,7 +167,7 @@ function buildCompleteComponents() {
       new ButtonBuilder()
         .setCustomId("psetup:done:completed")
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji("<a:VC_Verified:1482532479637127188>")
+        .setEmoji(E.VC_Verified)
         .setDisabled(true),
     ),
   ];

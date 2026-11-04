@@ -4,6 +4,7 @@ const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as
 const { addExpWithLevel, shouldIgnoreExpForMember, isLevelExpGuild } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const { isExcludedActivityChannel } = require("./activityService") as typeof import("./activityService");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   matchesWelcomeGreetingForExp,
   resolveWelcomeGreetingSessionId,
@@ -44,20 +45,20 @@ function runWelcomeExpAwardSerialized(guildId?, fn?) {
 }
 const FIRST_MESSAGE_DOC_TYPE = SITE_DOCUMENT_TYPE.COMMUNITY_FIRST_MESSAGE_DAILY;
 const WELCOME_GREETING_DOC_TYPE = SITE_DOCUMENT_TYPE.COMMUNITY_WELCOME_GREETING_EXP;
-const EXP_EMOJI = "<:VC_EXP:1482534670896730143>";
+const EXP_EMOJI = E.VC_EXP;
 
 function buildExpBonusChatContent(message?, amount?, variant?) {
   const mention = message.author ? `<@${message.author.id}>` : "";
   const expLine = `${EXP_EMOJI} **${Math.max(0, Math.floor(Number(amount) || 0))} exp** guadagnati!`;
   if (variant === "first_message_server_daily") {
     return [
-      "<a:VC_ThankYou:1330186319673950401> **Sei stato/a il primo a scrivere oggi nel server!**",
+      `${E.VC_ThankYou} **Sei stato/a il primo a scrivere oggi nel server!**`,
       expLine,
       mention,
     ].filter(Boolean).join("\n");
   }
   return [
-    "<a:VC_ThankYou:1330186319673950401> **Grazie per il benvenuto!**",
+    `${E.VC_ThankYou} **Grazie per il benvenuto!**`,
     expLine,
     mention,
   ].filter(Boolean).join("\n");

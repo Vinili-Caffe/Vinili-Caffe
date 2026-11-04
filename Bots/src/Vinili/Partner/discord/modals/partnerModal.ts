@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { partnersChatPartnerCommandDeniedReplyContent } = require("../../runtime/partnersChatChannelUtils") as typeof import("../../runtime/partnersChatChannelUtils");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   isPartnershipOperational,
   memberCanExecutePartnership,
@@ -23,7 +24,7 @@ async function handlePartnerModal(interaction?) {
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1482706673176150077> Non puoi usare questo modulo.",
+            `${E.VC_Alert} Non puoi usare questo modulo.`,
           ),
       ],
       flags: 1 << 6,
@@ -48,7 +49,7 @@ async function handlePartnerModal(interaction?) {
       embeds: [
         new EmbedBuilder()
           .setDescription(
-            "<:vegax:1443934876440068179> Ti serve il **ruolo Partner Manager** (o **Gestisci server**) per usare **Partnership**.",
+            `${E.vegax} Ti serve il **ruolo Partner Manager** (o **Gestisci server**) per usare **Partnership**.`,
           )
           .setColor("Red"),
       ],

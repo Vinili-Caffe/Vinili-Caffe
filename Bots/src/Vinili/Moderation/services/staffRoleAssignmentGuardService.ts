@@ -5,6 +5,7 @@ const { syncMutedMirrorRoleFromMemberUpdate } = require("./mutedMirrorRoleServic
 const { createModCase, getModConfig, logModCase } = require("../utils/moderation") as typeof import("../utils/moderation");
 const { isWhitelistedExecutor } = require("../../Security/services/antiNukeService") as typeof import("../../Security/services/antiNukeService");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const EXTRA_PROTECTED_ROLE_IDS = Object.freeze([
   "1442568888096391260",
   "1442568890075971724",
@@ -40,7 +41,7 @@ const PROTECTED_ROLE_KEYS = Object.freeze([
 ]);
 
 const GUARD_REASON =
-  "<:VC_Lock:1482526739044368476> Assegnazione manuale ruoli staff vietata: quarantena automatica";
+  `${E.VC_Lock} Assegnazione manuale ruoli staff vietata: quarantena automatica`;
 const DEDUPE_MS = 12_000;
 const recentActions = new Map();
 
@@ -223,7 +224,7 @@ async function sendStaffGuardLog(guild?, lines?) {
   if (!channel?.isTextBased?.()) return;
   const embed = new EmbedBuilder()
     .setColor("#E74C3C")
-    .setTitle("<:VC_Lock:1482526739044368476> Blocco assegnazione ruoli staff")
+    .setTitle(`${E.VC_Lock} Blocco assegnazione ruoli staff`)
     .setDescription(lines.join("\n"));
   await channel.send({ embeds: [embed] }).catch((err?) => {
     global.logger?.warn?.("[staffRoleAssignmentGuard] log send failed:", guild.id, err?.message || err);
@@ -271,20 +272,20 @@ async function handleStaffRoleAssignmentGuard({
 
   const roleLines = protectedAdded
     .slice(0, 12)
-    .map((role?) => `<a:VC_Arrow:1482706699365257397> ${role}`)
+    .map((role?) => `${E.VC_Arrow} ${role}`)
     .join("\n");
 
   await sendStaffGuardLog(guild, [
-    `<:VC_Staff:1494286904089247754> **Responsabile:** <@${actorId}> \`${actorId}\``,
-    `<:VC_User:1482527453586002103> **Target:** ${targetMember.user || targetMember} \`${targetMember.id}\``,
-    `<:VC_tools:1478862265305272364> **Ruoli bloccati:**`,
+    `${E.VC_Staff} **Responsabile:** <@${actorId}> \`${actorId}\``,
+    `${E.VC_User} **Target:** ${targetMember.user || targetMember} \`${targetMember.id}\``,
+    `${E.VC_tools} **Ruoli bloccati:**`,
     roleLines,
     rollback.ok
-      ? "<:success:1461731530333229226> Ruoli rimossi dal target."
-      : "<:cancel:1461730653677551691> Rollback ruoli non riuscito (permessi/gerarchia).",
+      ? `${E.success} Ruoli rimossi dal target.`
+      : `${E.cancel} Rollback ruoli non riuscito (permessi/gerarchia).`,
     muteResult.ok
-      ? "<:VC_Lock:1482526739044368476> Responsabile in quarantena (mute: ruoli rimossi + ruolo Muted)."
-      : `<:cancel:1461730653677551691> Quarantena non applicata: \`${muteResult.reason}\`.`,
+      ? `${E.VC_Lock} Responsabile in quarantena (mute: ruoli rimossi + ruolo Muted).`
+      : `${E.cancel} Quarantena non applicata: \`${muteResult.reason}\`.`,
   ]);
 
   return {

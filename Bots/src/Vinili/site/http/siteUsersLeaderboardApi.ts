@@ -14,7 +14,14 @@ const { replyUsers, siteSafeRankCard, siteSafeResolvedWallpaper, siteMemberAvata
 const { buildBirthdaysMonthPayload } = require("./usersLbBirthdays") as typeof import("./usersLbBirthdays");
 const { buildCustomProfileData } = require("./usersLbCustomProfile") as typeof import("./usersLbCustomProfile");
 const { siteRomeDayOverridesFromDoc, buildWeeklyMultiplierSources, getComputedSortedForBoard, computedMetricFromAgg, computedOverridesFromAgg } = require("./usersLbMultipliers") as typeof import("./usersLbMultipliers");
-const { PROFILE_CACHE_VER, SEARCH_SELECT, buildProfileSearchPayload, buildRowFromDoc, buildSearchStats } = require("./usersLbSearch") as typeof import("./usersLbSearch");
+const {
+  PROFILE_CACHE_VER,
+  SEARCH_SELECT,
+  buildProfileSearchPayload,
+  buildRowFromDoc,
+  buildSearchStats,
+  maybeAttachStarWarsDecksForHighStaff,
+} = require("./usersLbSearch") as typeof import("./usersLbSearch");
 
 
 
@@ -23,6 +30,13 @@ const { PROFILE_CACHE_VER, SEARCH_SELECT, buildProfileSearchPayload, buildRowFro
 const PROFILE_CACHE_TTL_MS = 90_000;
 const PROFILE_STALE_KEEP_MS = 10 * 60 * 1000;
 const BIRTHDAYS_CACHE_TTL_MS = 120_000;
+
+/** Deck HS o Bearer: mai cache pubblica (Vary non basta su CDN che ignorano Authorization). */
+function profileResponseCacheControl(req?, payload?) {
+  const auth = String(req?.headers?.authorization || "").trim();
+  if (auth || payload?.profile?.starWarsDecks) return "private, no-store";
+  return "public, max-age=45";
+}
 
 async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
   try {
@@ -83,7 +97,9 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
       }
       const profileMeta = cacheLookupMeta(profileCacheKey, PROFILE_STALE_KEEP_MS);
       if (profileMeta.hit && !profileMeta.stale) {
-        return replyUsers(req, res, profileMeta.hit, "public, max-age=15");
+        const hit = JSON.parse(JSON.stringify(profileMeta.hit));
+        await maybeAttachStarWarsDecksForHighStaff(client, req, hit, guildId);
+        return replyUsers(req, res, hit, profileResponseCacheControl(req, hit));
       }
       if (profileMeta.hit && profileMeta.stale) {
         startCacheBuild(profileCacheKey, async () => {
@@ -96,6 +112,9 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
             rebuilt.inGuild = memberResolved;
             if (rebuilt.profile && typeof rebuilt.profile === "object") {
               rebuilt.profile.inGuild = memberResolved;
+              try {
+                delete rebuilt.profile.starWarsDecks;
+              } catch (_) {}
             }
           }
           if (!rebuilt.notFound && memberResolved) return rebuilt;
@@ -103,7 +122,9 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
         }, PROFILE_CACHE_TTL_MS).catch((err?) => {
           global.logger?.warn?.("[WEBHOOK] site-users profile swr:", err?.message || err);
         });
-        return replyUsers(req, res, profileMeta.hit, "public, max-age=5, stale-while-revalidate=120", {
+        const stale = JSON.parse(JSON.stringify(profileMeta.hit));
+        await maybeAttachStarWarsDecksForHighStaff(client, req, stale, guildId);
+        return replyUsers(req, res, stale, profileResponseCacheControl(req, stale), {
           "X-VC-Users-Stale": "1",
         });
       }
@@ -116,14 +137,20 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
         payload.inGuild = memberResolved;
         if (payload.profile && typeof payload.profile === "object") {
           payload.profile.inGuild = memberResolved;
+          try {
+            delete payload.profile.starWarsDecks;
+          } catch (_) {}
         }
       }
       if (!payload.notFound && memberResolved) {
         cacheSet(profileCacheKey, payload, PROFILE_CACHE_TTL_MS);
       }
-      res.setHeader("Cache-Control", payload.notFound ? "no-store" : "public, max-age=45");
-      if (payload.notFound) return res.json(payload);
-      return replyUsers(req, res, payload, "public, max-age=45");
+      const out = JSON.parse(JSON.stringify(payload));
+      await maybeAttachStarWarsDecksForHighStaff(client, req, out, guildId);
+      const cc = out.notFound ? "no-store" : profileResponseCacheControl(req, out);
+      res.setHeader("Cache-Control", cc);
+      if (out.notFound) return res.json(out);
+      return replyUsers(req, res, out, cc);
     }
 
     if (searchId) {

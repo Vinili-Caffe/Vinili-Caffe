@@ -13,6 +13,7 @@ const { handleExpReward, mergeHalloweenCandyDropIntoMessage, awardMinigameWinToU
 const { markSent, saveActiveGame, deleteFindMinigameRemoteMessage, sendMinigameTimeoutAndClose, scheduleMinuteHint, findBotVoiceSessionByGuild, leaveFindBotVoiceChannel } = require("./minigameRound") as typeof import("./minigameRound");
 const { getConfig } = require("./minigameConfig") as typeof import("./minigameConfig");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function finalizeFindMinigameTimeout(client?, cfg?, mainChannelId?, mainChannel?, game?, buildTimeoutEmbed?) {
   if (!game) return;
   if (game.type === "findBotVoice") {
@@ -224,7 +225,7 @@ async function startFindBotGame(client?, cfg?) {
   const mainMessage = await sendMinigameMessage(mainChannel, { embeds: [findBotEmbed], files: findBotAttachment ? [findBotAttachment] : [], }).catch(() => null);
 
   const customId = `minigame_findbot:${Date.now()}`;
-  const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(customId).setEmoji(`<a:VC_Heart:1448672728822448141>`).setLabel("Clicca qui per vincere!").setStyle(ButtonStyle.Primary),);
+  const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(customId).setEmoji(E.VC_Heart).setLabel("Clicca qui per vincere!").setStyle(ButtonStyle.Primary),);
   const gameMessage = await sendMinigameMessage(targetChannel, { embeds: [buildFindBotButtonEmbed(rewardExp, durationMs)], components: [row] }).catch((err?) => {
     global.logger?.error?.("[MINIGAMES] FindBot: send to target channel failed", { channelId: targetChannel.id, channelName: targetChannel.name, err: err?.message || err });
     return null;

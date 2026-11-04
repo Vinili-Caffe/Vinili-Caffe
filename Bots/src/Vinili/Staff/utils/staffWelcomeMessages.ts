@@ -5,19 +5,20 @@ const { resolveStaffChatPmThread } = require("./staffChatChannelUtils") as typeo
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { siteWorkflowUrl } = require("../../site/http/discordWorkflowUiGate") as typeof import("../../site/http/discordWorkflowUiGate");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function buildHelperStaffWelcomeBody() {
   const staffNews = String(IDs.channels?.staffNews || "").trim();
   const lines = [
-    "# Benvenutx nello staff <:VC_Staff:1494286904089247754>",
+    `# Benvenutx nello staff ${E.VC_Staff}`,
     "",
-    "> **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>",
+    `> **Per iniziare al meglio controlla:** ${E.VC_id}`,
   ];
-  lines.push(`<:VC_DoubleReply:1482532332509466797> Guida staff: ${siteWorkflowUrl("guida")}`);
-  if (staffNews) lines.push(`<:VC_DoubleReply:1482532332509466797> News staff: <#${staffNews}>`);
+  lines.push(`${E.VC_DoubleReply} Guida staff: ${siteWorkflowUrl("guida")}`);
+  if (staffNews) lines.push(`${E.VC_DoubleReply} News staff: <#${staffNews}>`);
   lines.push(
-    `<:VC_DoubleReply:1482532332509466797> Area Staff: ${siteWorkflowUrl("staff")}`,
+    `${E.VC_DoubleReply} Area Staff: ${siteWorkflowUrl("staff")}`,
     "",
-    "__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>",
+    `__Per qualsiasi cosa l'High Staff è disponibile__ ${E.VC_Staff}`,
   );
   return lines.join("\n");
 }
@@ -31,18 +32,18 @@ function buildStaffWelcomeContent(member?, body?) {
 async function buildPartnerManagerWelcomeBody() {
   const [chatIds, cmdsIds] = await Promise.all([getStaffChatThreadIds(), getStaffCmdsThreadIds()]);
   const lines = [
-    "# Benvenutx nei Partner Manager <:VC_PartnerManager:1494286911286808576>",
+    `# Benvenutx nei Partner Manager ${E.VC_PartnerManager}`,
     "",
-    "> **Per iniziare al meglio controlla:** <:VC_id:1478517313618575419>",
+    `> **Per iniziare al meglio controlla:** ${E.VC_id}`,
   ];
-  if (chatIds.pm) lines.push(`<:VC_DoubleReply:1482532332509466797> Chat PM: <#${chatIds.pm}>`);
-  if (cmdsIds.pm) lines.push(`<:VC_DoubleReply:1482532332509466797> Comandi PM: <#${cmdsIds.pm}>`);
-  lines.push(`<:VC_DoubleReply:1482532332509466797> Guida staff: ${siteWorkflowUrl("guida")}`);
+  if (chatIds.pm) lines.push(`${E.VC_DoubleReply} Chat PM: <#${chatIds.pm}>`);
+  if (cmdsIds.pm) lines.push(`${E.VC_DoubleReply} Comandi PM: <#${cmdsIds.pm}>`);
+  lines.push(`${E.VC_DoubleReply} Guida staff: ${siteWorkflowUrl("guida")}`);
   lines.push(
-    `<:VC_DoubleReply:1482532332509466797> Profilo e shop PM sul sito: ${siteWorkflowUrl("staff")}`,
-    `<:VC_Reply:1482532158080942191> Punti tolti PM: ${siteWorkflowUrl("puntiTolti")}`,
+    `${E.VC_DoubleReply} Profilo e shop PM sul sito: ${siteWorkflowUrl("staff")}`,
+    `${E.VC_Reply} Punti tolti PM: ${siteWorkflowUrl("puntiTolti")}`,
     "",
-    "__Per qualsiasi cosa l'High Staff è disponibile__ <:VC_Staff:1494286904089247754>",
+    `__Per qualsiasi cosa l'High Staff è disponibile__ ${E.VC_Staff}`,
   );
   return lines.join("\n");
 }

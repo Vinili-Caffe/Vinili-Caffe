@@ -5,6 +5,7 @@ const { ANTINUKE_CONFIG } = require("./antiNukeConfig") as typeof import("./anti
 const { incrementPanicMetric } = require("./antiNukePanicReport") as typeof import("./antiNukePanicReport");
 const { sleep } = require("./antiNukePanicState") as typeof import("./antiNukePanicState");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const LOCKDOWN_CHANNEL_PERMISSION_FLAGS = [["SendMessages", PermissionsBitField.Flags.SendMessages], ["AddReactions", PermissionsBitField.Flags.AddReactions], ["CreatePublicThreads", PermissionsBitField.Flags.CreatePublicThreads], ["CreatePrivateThreads", PermissionsBitField.Flags.CreatePrivateThreads], ["SendMessagesInThreads", PermissionsBitField.Flags.SendMessagesInThreads], ["Connect", PermissionsBitField.Flags.Connect], ["Speak", PermissionsBitField.Flags.Speak], ["Stream", PermissionsBitField.Flags.Stream], ["UseApplicationCommands", PermissionsBitField.Flags.UseApplicationCommands],].filter(([, bit]) => Boolean(bit));
 const LOCKDOWN_EXTRA_ROLE_IDS = [IDs.roles?.Member, IDs.roles?.Staff,].map((id?) => String(id || "").trim()).filter(Boolean);
 
@@ -87,7 +88,7 @@ async function lockGuildChannelsForPanic(guild?, state?) {
           Object.fromEntries(
             LOCKDOWN_CHANNEL_PERMISSION_FLAGS.map(([name]) => [name, false]),
           ),
-          { reason: "<:VC_Lock:1482526739044368476> AntiNuke Panic: global channel lockdown" },
+          { reason: `${E.VC_Lock} AntiNuke Panic: global channel lockdown` },
         )
         .then(() => true)
         .catch(() => false);
@@ -132,7 +133,7 @@ async function unlockGuildChannelsAfterPanic(guild?, state?) {
       if (!targetSnapshot) continue;
       if (!targetSnapshot?.hadOverwrite) {
         await channel.permissionOverwrites
-          .delete(targetId, "<a:VC_Unlock:1482532082466029608> AntiNuke Panic: restore channel overwrite")
+          .delete(targetId, `${E.VC_Unlock} AntiNuke Panic: restore channel overwrite`)
           .catch(() => { });
         ops += 1;
         if (ops % 8 === 0) {
@@ -144,7 +145,7 @@ async function unlockGuildChannelsAfterPanic(guild?, state?) {
         .edit(
           targetId,
           buildLockdownRestorePayload(targetSnapshot),
-          { reason: "<a:VC_Unlock:1482532082466029608> AntiNuke Panic: restore channel permissions" },
+          { reason: `${E.VC_Unlock} AntiNuke Panic: restore channel permissions` },
         )
         .catch(() => { });
       ops += 1;

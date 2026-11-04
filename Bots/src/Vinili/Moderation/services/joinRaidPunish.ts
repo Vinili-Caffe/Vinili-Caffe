@@ -1,5 +1,6 @@
 const { EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const { JOIN_RAID_CONFIG } = require("./joinRaidConfig") as typeof import("./joinRaidConfig");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   getGuildState,
   loadGuildState,
@@ -13,7 +14,7 @@ const {
 const { sendJoinRaidLog, scheduleJoinRaidReport } = require("./joinRaidReport") as typeof import("./joinRaidReport");
 const { createModCase, getModConfig, logModCase } = require("../utils/moderation") as typeof import("../utils/moderation");
 
-const ARROW = "<:VC_right_arrow:1482459908245815296>";
+const ARROW = E.VC_right_arrow;
 
 async function sendPunishDm(member?, action?, reasons?) {
   const readableAction =
@@ -27,13 +28,13 @@ async function sendPunishDm(member?, action?, reasons?) {
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle(
-      `<a:VC_Alert:1482706673176150077> **You have been ${readableAction} in ${member.guild.name}!**`,
+      `${E.VC_Alert} **You have been ${readableAction} in ${member.guild.name}!**`,
     )
     .setDescription(
       [
-        `<:VC_reason:1478517122929004544> **Member:** ${member.user}[\`${member.user.id}\`]`,
-        `<:VC_reason:1478517122929004544> **Motivo:** Protezione raid attivata.`,
-        `<a:VC_Alert:1482706673176150077> **Flag:** ${reasons.map((x?) => x.label).join(", ") || "N/A"}`,
+        `${E.VC_reason} **Member:** ${member.user}[\`${member.user.id}\`]`,
+        `${E.VC_reason} **Motivo:** Protezione raid attivata.`,
+        `${E.VC_Alert} **Flag:** ${reasons.map((x?) => x.label).join(", ") || "N/A"}`,
       ].join("\n"),
     );
   try {
@@ -60,8 +61,8 @@ function buildJoinRaidBanReason(marker = "", guildId = "", userId = "") {
     guildId && userId ? `${joinRaidBanShortToken(guildId, userId)} ` : "";
   const suffix = String(marker || "").trim();
   return suffix
-    ? `${head}<a:VC_Alert:1482706673176150077> **Join Raid: flagged during raid ${suffix}**`
-    : `${head}<a:VC_Alert:1482706673176150077> **Join Raid: flagged during raid**`;
+    ? `${head}${E.VC_Alert} **Join Raid: flagged during raid ${suffix}**`
+    : `${head}${E.VC_Alert} **Join Raid: flagged during raid**`;
 }
 
 async function shouldUnbanJoinRaidBan(guild?, userId?, marker = "") {
@@ -150,7 +151,7 @@ async function restoreTempBans(guild?, options: Record<string, any> = {}) {
         await guild.members
           .unban(
             userId,
-            "<a:VC_Alert:1482706673176150077> **Ban temporaneo Join Raid scaduto (ripristinato in ritardo)**",
+            `${E.VC_Alert} **Ban temporaneo Join Raid scaduto (ripristinato in ritardo)**`,
           )
           .catch(() => {});
       }
@@ -255,7 +256,7 @@ async function applyPunishment(member?, reasons?) {
         await scheduleTempUnban(
           guild,
           member.id,
-          "<a:VC_Alert:1482706673176150077> **Ban temporaneo Join Raid scaduto**",
+          `${E.VC_Alert} **Ban temporaneo Join Raid scaduto**`,
           marker,
         );
       }
@@ -264,7 +265,7 @@ async function applyPunishment(member?, reasons?) {
     if (canKick) {
       punished = await member
         .kick(
-          "<a:VC_Alert:1482706673176150077> **Join Raid: flagged account during raid window**",
+          `${E.VC_Alert} **Join Raid: flagged account during raid window**`,
         )
         .then(() => true)
         .catch((err?) => {
@@ -283,7 +284,7 @@ async function applyPunishment(member?, reasons?) {
       punished = await member
         .timeout(
           timeoutMs,
-          "<a:VC_Alert:1482706673176150077> **Join Raid: flagged account during raid window**",
+          `${E.VC_Alert} **Join Raid: flagged account during raid window**`,
         )
         .then(() => true)
         .catch((err?) => {
@@ -301,7 +302,7 @@ async function applyPunishment(member?, reasons?) {
     const quarantine = await quarantineExecutor(
       guild,
       member.id,
-      "<:VC_Lock:1482526739044368476> Join Raid: suspicious join pattern",
+      `${E.VC_Lock} Join Raid: suspicious join pattern`,
     ).catch(() => null);
     if (quarantine?.applied) {
       punished = true;
@@ -315,7 +316,7 @@ async function applyPunishment(member?, reasons?) {
       punished = await member
         .timeout(
           timeoutMs,
-          "<a:VC_Alert:1482706673176150077> **Join Raid: punitive fallback timeout**",
+          `${E.VC_Alert} **Join Raid: punitive fallback timeout**`,
         )
         .then(() => true)
         .catch((err?) => {
@@ -338,7 +339,7 @@ async function applyPunishment(member?, reasons?) {
   }
 
   if (punished && appliedAction !== "log" && guild?.client) {
-    const caseReason = `<a:VC_Alert:1482706673176150077> **Join Raid: ${reasons.map((r?) => r.label || r).join(", ") || "flagged account during raid window"}**`;
+    const caseReason = `${E.VC_Alert} **Join Raid: ${reasons.map((r?) => r.label || r).join(", ") || "flagged account during raid window"}**`;
     const caseDurationMs =
       appliedAction === "timeout" || appliedAction === "quarantine"
         ? Math.max(10 * 60_000, JOIN_RAID_CONFIG.raidDurationMs)
@@ -392,12 +393,12 @@ async function applyPunishment(member?, reasons?) {
 
   await sendJoinRaidLog(
     guild,
-    `<a:VC_Alert:1482706673176150077> **${member.user.username} has been ${actionWord} by Join Raid!**`,
+    `${E.VC_Alert} **${member.user.username} has been ${actionWord} by Join Raid!**`,
     [
-      `<:member_role_icon:1330530086792728618> **JoinRaid Filter:** ${reasons.map((x?) => x.label).join(", ") || "N/A"}`,
-      `<:VC_reason:1478517122929004544> **Member:** ${member.user} [\`${member.id}\`]`,
-      `<:VC_BanHammer:1482534474502897795> **Action:** ${appliedAction}${punished ? "" : " (fallback)"}`,
-      `<:VC_PinkQuestionMark:1471892611026391306> **Can Ban:** ${canBan ? "Yes" : "No"}`,
+      `${E.member_role_icon} **JoinRaid Filter:** ${reasons.map((x?) => x.label).join(", ") || "N/A"}`,
+      `${E.VC_reason} **Member:** ${member.user} [\`${member.id}\`]`,
+      `${E.VC_BanHammer} **Action:** ${appliedAction}${punished ? "" : " (fallback)"}`,
+      `${E.VC_PinkQuestionMark} **Can Ban:** ${canBan ? "Yes" : "No"}`,
       `**Can Kick:** ${canKick ? "Yes" : "No"}`,
       `**Can Timeout:** ${canTimeout ? "Yes" : "No"}`,
       `**Can Quarantine:** ${canQuarantine ? "Yes" : "No"}`,

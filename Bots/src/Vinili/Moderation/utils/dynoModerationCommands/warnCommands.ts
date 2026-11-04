@@ -4,6 +4,7 @@ const { findActiveWarns } = require("../modCaseStore") as typeof import("../modC
 const { closeCasePersist } = require("../moderation") as typeof import("../moderation");
 const { resolveModLogChannel } = require("../modAuditLogUtils") as typeof import("../modAuditLogUtils");
 const { userAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   reply,
   formatTargetLabel,
@@ -18,14 +19,14 @@ async function runWarn(message?, args?, client?) {
   const { user, userId } = await pickUser(message, args, 0);
   if (!userId) return reply(message, client, "Warn", "Uso: `+warn @utente [testo]`.", "Red");
   if (String(userId) === String(message.author.id)) {
-    return reply(message, client, "Warn", "<:VC_Lock:1482526739044368476> Non puoi usare `warn` su te stesso.", "Red");
+    return reply(message, client, "Warn", `${E.VC_Lock} Non puoi usare \`warn\` su te stesso.`, "Red");
   }
   const warnMember = message.guild.members.cache.get(String(userId)) || (await message.guild.members.fetch(String(userId)).catch(() => null));
   const guard = await validateModerationTarget(message, warnMember, "warn", userId);
   if (!guard.ok) return reply(message, client, "Warn", guard.error, "Red");
   const content = String(args.slice(1).join(" ") || "").trim();
   if (!content) {
-    return reply(message, client, "Warn", "<:VC_Lock:1482526739044368476> Il motivo è obbligatorio per il warn. Uso: `+warn [utente] [motivo]`", "Red");
+    return reply(message, client, "Warn", `${E.VC_Lock} Il motivo è obbligatorio per il warn. Uso: \`+warn [utente] [motivo]\``, "Red");
   }
   const reasonContent = content.slice(0, 512);
   await makeCase(client, message, "WARN", userId, reasonContent);
@@ -43,7 +44,7 @@ async function runWarn(message?, args?, client?) {
 
 async function runWarnings(message?, args?, client?, cmd = "warnings") {
   const { userId } = await pickUser(message, args, 0);
-  if (!userId) return reply(message, client, cmd, `<:VC_Lock:1482526739044368476> Uso: \`+${cmd} @utente\`.`, "Red");
+  if (!userId) return reply(message, client, cmd, `${E.VC_Lock} Uso: \`+${cmd} @utente\`.`, "Red");
   const rows = await findActiveWarns(message.guild.id, userId, 20);
   if (!rows.length) {
     return message.channel
@@ -51,7 +52,7 @@ async function runWarnings(message?, args?, client?, cmd = "warnings") {
         embeds: [
           new EmbedBuilder()
             .setColor("#3498DB")
-            .setDescription("<:VC_Lock:1482526739044368476> Nessun warning attivo trovato."),
+            .setDescription(`${E.VC_Lock} Nessun warning attivo trovato.`),
         ],
       })
       .catch(() => null);
@@ -67,7 +68,7 @@ async function runWarnings(message?, args?, client?, cmd = "warnings") {
     }
     const when = row.createdAt ? `<t:${Math.floor(new Date(row.createdAt).getTime() / 1000)}:R>`
       : "data sconosciuta";
-    lines.push(`<:VC_Staff:1494286904089247754> **Moderatore:** ${moderator}\n<:VC_reason:1478517122929004544> ${row.reason || "Nessun motivo"} - ${when}`);
+    lines.push(`${E.VC_Staff} **Moderatore:** ${moderator}\n${E.VC_reason} ${row.reason || "Nessun motivo"} - ${when}`);
   }
   const warningEmbed = new EmbedBuilder().setColor("#ED4245").setTitle(String(`${titleCount}per ${targetUser?.username || userId}(${userId})`).slice(0, 256))
     .setDescription(String(lines.join("\n\n")).slice(0, 4096))
@@ -97,7 +98,7 @@ async function runDelwarn(message?, args?, client?) {
         embeds: [
           new EmbedBuilder()
             .setColor("#ED4245")
-            .setDescription("<:cancel:1461730653677551691> Nessun warning trovato con quel testo."),
+            .setDescription(`${E.cancel} Nessun warning trovato con quel testo.`),
         ],
       })
       .catch(() => null);
@@ -116,10 +117,10 @@ async function runDelwarn(message?, args?, client?) {
     const targetLabel = targetUser ? `${targetUser}` : `\`${target.userId}\``;
     const responsibleLabel = message.author?.bot ? `${message.author} [BOT] \`${message.author.id}\`` : `${message.author} \`${message.author.id}\``;
     const warnRemovedEmbed = new EmbedBuilder().setColor("#57F287").setTitle("Warn Rimosso").setDescription([
-      `<:VC_BanHammer:1482534474502897795> **Warn per** ${targetLabel} **è stato rimosso**`,
-      `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleLabel}`,
-      `<:VC_Clock:1473359204189474886> <t:${Math.floor(Date.now() / 1000)}:F>`,
-      `<:VC_reason:1478517122929004544> **Motivo:** ${(warningText || "").slice(0, 200)}${(warningText || "").length > 200 ? "…" : ""}`,
+      `${E.VC_BanHammer} **Warn per** ${targetLabel} **è stato rimosso**`,
+      `${E.VC_Staff} **Responsabile:** ${responsibleLabel}`,
+      `${E.VC_Clock} <t:${Math.floor(Date.now() / 1000)}:F>`,
+      `${E.VC_reason} **Motivo:** ${(warningText || "").slice(0, 200)}${(warningText || "").length > 200 ? "…" : ""}`,
     ].join("\n"),
     )
       .setFooter({ text: `ID: ${target.userId}` })
@@ -153,7 +154,7 @@ async function runClearwarn(message?, args?, client?) {
         embeds: [
           new EmbedBuilder()
             .setColor("#ED4245")
-            .setDescription("<:cancel:1461730653677551691> Nessun warn attivo trovato per questo utente."),
+            .setDescription(`${E.cancel} Nessun warn attivo trovato per questo utente.`),
         ],
       })
       .catch(() => null);
@@ -175,9 +176,9 @@ async function runClearwarn(message?, args?, client?) {
     const targetLabel = targetUser ? `${targetUser}` : `\`${target.userId}\``;
     const responsibleLabel = message.author?.bot ? `${message.author} [BOT] \`${message.author.id}\`` : `${message.author} \`${message.author.id}\``;
     const clearWarnEmbed = new EmbedBuilder().setColor("#57F287").setTitle("Warning Cleared").setDescription([
-      `<a:VC_Alert:1482706673176150077> **Tutti i warn per** ${targetLabel} **sono stati rimossi** (${rows.length} ${rows.length === 1 ? "avviso" : "avvisi"})`,
-      `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleLabel}`,
-      `<:VC_Clock:1473359204189474886> <t:${Math.floor(Date.now() / 1000)}:F>`,
+      `${E.VC_Alert} **Tutti i warn per** ${targetLabel} **sono stati rimossi** (${rows.length} ${rows.length === 1 ? "avviso" : "avvisi"})`,
+      `${E.VC_Staff} **Responsabile:** ${responsibleLabel}`,
+      `${E.VC_Clock} <t:${Math.floor(Date.now() / 1000)}:F>`,
     ].join("\n"),
     )
       .setFooter({ text: `ID: ${target.userId}` })

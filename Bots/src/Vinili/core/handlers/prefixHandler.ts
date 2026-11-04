@@ -43,10 +43,6 @@ const REMOVED_PREFIX_COMMANDS = new Set([
   "cf",
   "tris",
   "scratch",
-  "conquista",
-  "swspawn",
-  "punta",
-  "ordine66",
 ]);
 let prefixPermissionsCache = { filePath: null, mtimeMs: 0, data: {} };
 
@@ -186,6 +182,15 @@ export = (client?) => {
     loadPrefixFilesFromDir(
       path.resolve(__dirname, "..", "..", "Minigames", "discord", "prefix"),
       "Minigames",
+      newPcommands,
+      newAliases,
+      statusMap,
+    );
+
+    // Star Wars prefix (archivio) — HS-only staging su server test
+    loadPrefixFilesFromDir(
+      path.resolve(__dirname, "..", "..", "..", "..", "archivio", "starwars", "src", "Vinili", "Prefix", "Minigames"),
+      "StarWars",
       newPcommands,
       newAliases,
       statusMap,

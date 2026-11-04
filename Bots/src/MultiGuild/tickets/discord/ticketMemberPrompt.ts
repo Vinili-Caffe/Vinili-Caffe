@@ -5,6 +5,7 @@ const { isTicketOpenedByMember, memberCanActAsTicketStaff } = require("./ticketS
 const { editTicketMemberOverwrite } = require("./ticketHighStaffOverwrites") as typeof import("./ticketHighStaffOverwrites");
 const { isDiscordTicketsEnabled } = require("../../../Vinili/site/http/discordWorkflowUiGate") as typeof import("../../../Vinili/site/http/discordWorkflowUiGate");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const pendingTicketMemberPrompts = new Map();
 
 function ticketMemberPromptKey(guildId?, userId?) {
@@ -50,7 +51,7 @@ async function handleTicketMemberPromptMessage(message?) {
   if (/^annulla$/i.test(rawLine)) {
     clearTicketMemberPrompt(message.guild.id, message.author.id);
     await message.delete().catch(() => {});
-    await editTicketMemberPromptReply(message.client, pending, "<:cancel:1461730653677551691> Operazione annullata.");
+    await editTicketMemberPromptReply(message.client, pending, `${E.cancel} Operazione annullata.`);
     return true;
   }
 
@@ -61,7 +62,7 @@ async function handleTicketMemberPromptMessage(message?) {
   if (!ticketDoc) {
     clearTicketMemberPrompt(message.guild.id, message.author.id);
     await message.delete().catch(() => {});
-    await editTicketMemberPromptReply(message.client, pending, "<:vegax:1443934876440068179> Ticket non trovato o non aperto.");
+    await editTicketMemberPromptReply(message.client, pending, `${E.vegax} Ticket non trovato o non aperto.`);
     return true;
   }
 
@@ -73,8 +74,8 @@ async function handleTicketMemberPromptMessage(message?) {
       message.client,
       pending,
       isTicketOpenedByMember(ticketDoc, message.author.id)
-        ? "<:vegax:1443934876440068179> Non puoi usare i pulsanti staff sul ticket che hai aperto tu."
-        : "<:vegax:1443934876440068179> Non hai permesso per questa azione.",
+        ? `${E.vegax} Non puoi usare i pulsanti staff sul ticket che hai aperto tu.`
+        : `${E.vegax} Non hai permesso per questa azione.`,
     );
     return true;
   }
@@ -86,7 +87,7 @@ async function handleTicketMemberPromptMessage(message?) {
   if (!targetMember || targetMember.user?.bot) {
     clearTicketMemberPrompt(message.guild.id, message.author.id);
     await message.delete().catch(() => {});
-    await editTicketMemberPromptReply(message.client, pending, "<:vegax:1443934876440068179> Utente non valido o bot.");
+    await editTicketMemberPromptReply(message.client, pending, `${E.vegax} Utente non valido o bot.`);
     return true;
   }
 
@@ -101,7 +102,7 @@ async function handleTicketMemberPromptMessage(message?) {
     await editTicketMemberPromptReply(
       message.client,
       pending,
-      `<:vegacheckmark:1443666279058772028> <@${targetId}> è stato aggiunto al ticket.`,
+      `${E.vegacheckmark} <@${targetId}> è stato aggiunto al ticket.`,
     );
     return true;
   }
@@ -110,7 +111,7 @@ async function handleTicketMemberPromptMessage(message?) {
   if (!overwrite || overwrite.type !== 1) {
     clearTicketMemberPrompt(message.guild.id, message.author.id);
     await message.delete().catch(() => {});
-    await editTicketMemberPromptReply(message.client, pending, "<:vegax:1443934876440068179> Questo utente non ha permessi individuali nel ticket.");
+    await editTicketMemberPromptReply(message.client, pending, `${E.vegax} Questo utente non ha permessi individuali nel ticket.`);
     return true;
   }
 
@@ -123,7 +124,7 @@ async function handleTicketMemberPromptMessage(message?) {
   await editTicketMemberPromptReply(
     message.client,
     pending,
-    `<:vegacheckmark:1443666279058772028> <@${targetId}> è stato rimosso dal ticket.`,
+    `${E.vegacheckmark} <@${targetId}> è stato rimosso dal ticket.`,
   );
   return true;
 }

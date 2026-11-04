@@ -10,6 +10,7 @@ const { WEEKLY_WINNERS_EXCLUDED_ROLE_IDS, wasStaffDuringWeeklyActivityWindow, ef
 const { MINIGAME_WINNER_ROLE_ID, pickFirstAvailable, updateWeeklyWinnerRoles, syncRoyaleMinigameTotalRole } = require("./winnersRoles") as typeof import("./winnersRoles");
 const { TROPHY_LABELS } = require("./winnersMonthlyRewards") as typeof import("./winnersMonthlyRewards");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const TARGET_CHANNEL_ID = IDs.channels.topWeeklyUser;
 const TEMP_SUPPRESS_MINIGAME_WEEK_KEYS = new Set(
   ["2026-W19"]
@@ -18,12 +19,12 @@ const TEMP_SUPPRESS_MINIGAME_WEEK_KEYS = new Set(
 );
 
 function buildEmptyLine(kind?) {
-  return `<:VC_InactiveStatus:1482526984234860574> - Nessun dato disponibile per ${kind}.`;
+  return `${E.VC_InactiveStatus} - Nessun dato disponibile per ${kind}.`;
 }
 
 function formatRankLine(index?, userMention?, value?, unit?) {
-  const medal = TROPHY_LABELS[index] || TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>";
-  return `${medal} ${userMention} <a:VC_Arrow:1482706699365257397> **${value}** *${unit}*`;
+  const medal = TROPHY_LABELS[index] || TROPHY_LABELS[2] || E.VC_Podio3;
+  return `${medal} ${userMention} ${E.VC_Arrow} **${value}** *${unit}*`;
 }
 
 function voiceExpToMinutes(voiceExp?) {
@@ -41,8 +42,8 @@ function formatVoiceHoursFromExp(voiceExp?) {
 }
 
 function formatVoiceRankLine(index?, userMention?, voiceExp?) {
-  const medal = TROPHY_LABELS[index] || TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>";
-  return `${medal} ${userMention} <a:VC_Arrow:1482706699365257397> **${formatVoiceHoursFromExp(voiceExp)}**`;
+  const medal = TROPHY_LABELS[index] || TROPHY_LABELS[2] || E.VC_Podio3;
+  return `${medal} ${userMention} ${E.VC_Arrow} **${formatVoiceHoursFromExp(voiceExp)}**`;
 }
 
 async function publishWeeklyActivityWinners(client?, options: Record<string, any> = {}) {
@@ -251,16 +252,16 @@ async function publishWeeklyActivityWinners(client?, options: Record<string, any
   }
   if (skipNormalWeekly) return;
   const embedDescLines = [
-    `<:VC_Leaderboard:1482534806314287387> // I vantaggi che avete sbloccato sono sul [nostro sito](https://viniliecaffe.it/perks)`,
+    `${E.VC_Leaderboard} // I vantaggi che avete sbloccato sono sul [nostro sito](https://viniliecaffe.it/perks)`,
     "",
-    `<a:VC_HeartsPink:1468685897389052008> • **Classifica testuale:**`,
+    `${E.VC_HeartsPink} • **Classifica testuale:**`,
     ...messageRows,
     "",
-    `<a:VC_HeartsBlue:1468686100045369404> • **Classifica vocale:**`,
+    `${E.VC_HeartsBlue} • **Classifica vocale:**`,
     ...voiceRows,
   ];
   if (mode === "weekly" && !suppressMinigameThisWeek && minigameRows.length) {
-    embedDescLines.push("", `<a:VC_Events:1482706144953897223> • **Classifica minigames:**`, ...minigameRows);
+    embedDescLines.push("", `${E.VC_Events} • **Classifica minigames:**`, ...minigameRows);
   }
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
@@ -280,28 +281,28 @@ async function publishWeeklyActivityWinners(client?, options: Record<string, any
     new ButtonBuilder()
       .setLabel("Chat")
       .setStyle(ButtonStyle.Link)
-      .setEmoji("<:VC_FrogCute:1331620415185096746>")
+      .setEmoji(E.VC_FrogCute)
       .setURL("https://discord.com/channels/1329080093599076474/1442569130573303898"),
     new ButtonBuilder()
       .setLabel("Vocal")
       .setStyle(ButtonStyle.Link)
-      .setEmoji("<:VC_FrogJuice:1331620486517358613>")
+      .setEmoji(E.VC_FrogJuice)
       .setURL("https://discord.com/channels/1329080093599076474/1442569101225496819"),
   );
   const isDailyIntro = mode === "daily";
   const introLine = isDailyIntro
-    ? "<a:VC_Winner:1482535294757507255> Ciao a tutti! Ecco la Top 3 utenti più attivi di oggi."
-    : "<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori di questa settimana per attività.";
+    ? `${E.VC_Winner} Ciao a tutti! Ecco la Top 3 utenti più attivi di oggi.`
+    : `${E.VC_Winner} Ciao a tutti! Annunciamo i vincitori di questa settimana per attività.`;
   const minigameAnnounceLine =
     mode === "weekly" && MINIGAME_WINNER_ROLE_ID && !suppressMinigameThisWeek
-      ? `\n<:VC_Podio1:1482694399283433582> Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottieni il primo posto per **__minigames__** e il ruolo ${safeMinigameWinnerRoleMention}.`
+      ? `\n${E.VC_Podio1} Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottieni il primo posto per **__minigames__** e il ruolo ${safeMinigameWinnerRoleMention}.`
       : "";
   const payload = {
     content: `<@&1442568949605597264>
 ${introLine}
 
-<:VC_Podio1:1482694399283433582> Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__** e il ruolo <@&1544830834849087630>.
-<:VC_Podio1:1482694399283433582> Con un totale di **${formatVoiceHoursFromExp(voiceWinnerTotal)}** in vocale, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__** e il ruolo <@&1544830836686200992>.${minigameAnnounceLine}
+${E.VC_Podio1} Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__** e il ruolo <@&1544830834849087630>.
+${E.VC_Podio1} Con un totale di **${formatVoiceHoursFromExp(voiceWinnerTotal)}** in vocale, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__** e il ruolo <@&1544830836686200992>.${minigameAnnounceLine}
 _ _`,
     embeds: [embed],
     components: [button],

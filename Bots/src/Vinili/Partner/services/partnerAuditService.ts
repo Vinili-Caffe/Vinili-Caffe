@@ -4,6 +4,7 @@ const axios = require("axios") as any;
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached, getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   getPartnershipChannelId,
   getPartnershipLogChannelIds,
@@ -208,10 +209,10 @@ async function logPointRemoval(guild?, staffUserId?, reason?, action?) {
   const inviteDb = action?.invite ? String(action.invite).slice(0, 300) : "N/D";
   const { logPmPointsRemoved } = require("../../Partner/runtime/pmPointsRemovedStore") as typeof import("../../Partner/runtime/pmPointsRemovedStore");
 
-  const mirrorContent = `<:VC_PartnerManager:1494286911286808576> <@${staffUserId}>
-<:VC_reason:1478517122929004544> ${reason}
-<:VC_Chat:1482532573002465413> Messaggio: ${msgRef}
-<:link:1470064815899803668> Invite: ${inviteDb}`;
+  const mirrorContent = `${E.VC_PartnerManager} <@${staffUserId}>
+${E.VC_reason} ${reason}
+${E.VC_Chat} Messaggio: ${msgRef}
+${E.link} Invite: ${inviteDb}`;
 
   try {
     const entry = await logPmPointsRemoved({

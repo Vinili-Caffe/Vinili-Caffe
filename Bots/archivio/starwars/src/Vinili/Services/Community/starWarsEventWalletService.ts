@@ -302,6 +302,10 @@ async function setStarWarsFaction(client, { guildId, userId, factionId, epoch = 
   if (!updated) {
     const current = await getStarWarsWallet(g, u, eventKey);
     if (current.factionId) {
+      try {
+        const { applyStarWarsFactionRoleOnTest } = require("./starWarsFactionTestRoles") as typeof import("./starWarsFactionTestRoles");
+        await applyStarWarsFactionRoleOnTest(client, { userId: u, factionId: current.factionId });
+      } catch (_) {}
       return {
         ok: false,
         status: 409,
@@ -313,6 +317,11 @@ async function setStarWarsFaction(client, { guildId, userId, factionId, epoch = 
     }
     return { ok: false, status: 500, error: "persist_failed", message: "Salvataggio non riuscito." };
   }
+
+  try {
+    const { applyStarWarsFactionRoleOnTest } = require("./starWarsFactionTestRoles") as typeof import("./starWarsFactionTestRoles");
+    await applyStarWarsFactionRoleOnTest(client, { userId: u, factionId: fid });
+  } catch (_) {}
 
   return {
     ok: true,

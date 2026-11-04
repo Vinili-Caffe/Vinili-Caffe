@@ -5,6 +5,7 @@ const { handleKickBanAction: antiNukeHandleKickBanAction } = require("../../Secu
 const { closeOpenTicketsForGuildUser } = require("../../../MultiGuild/tickets/discord/ticketCloseRuntime") as typeof import("../../../MultiGuild/tickets/discord/ticketCloseRuntime");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function sleep(ms?) {
   return new Promise((resolve?) => {
     const timer = setTimeout(resolve, ms);
@@ -60,12 +61,12 @@ export = {
 
         const embed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setTitle("<:VC_User:1482527453586002103> Member Banned")
-        .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-              `<:VC_User:1482527453586002103> **Utente:** ${ban.user || "sconosciuto"}\`${targetId}\``,
-              `<:VC_Clock:1473359204189474886> ${nowDiscordTs()}`,
-              reason ? `<:VC_reason:1478517122929004544> **Motivo:** ${reason}` : null,
-              ticketClose?.closed ? `<:VC_Info:1482526956703580372> **Ticket chiuso:** ${ticketClose.closed}` : null,
+        .setTitle(`${E.VC_User} Member Banned`)
+        .setDescription([`${E.VC_Staff} **Responsabile:** ${responsible}`,
+              `${E.VC_User} **Utente:** ${ban.user || "sconosciuto"}\`${targetId}\``,
+              `${E.VC_Clock} ${nowDiscordTs()}`,
+              reason ? `${E.VC_reason} **Motivo:** ${reason}` : null,
+              ticketClose?.closed ? `${E.VC_Info} **Ticket chiuso:** ${ticketClose.closed}` : null,
               ...buildAuditExtraLines(auditEntry, ["reason"]),
             ]
               .filter(Boolean)

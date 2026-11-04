@@ -4,6 +4,7 @@ const { ActivityUserProfile } = require("../../Community/schemas/communitySchema
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { getPartnershipConfigSync, isPartnershipSetupComplete } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
 const { PARTNER_SAME_TARGET_COOLDOWN_MS } = require("../runtime/partnerSameTargetCooldown") as typeof import("../runtime/partnerSameTargetCooldown");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   remapRoleIdForward,
   expandRemappedRoleIds,
@@ -319,7 +320,7 @@ function isPartnershipSkipManagerAllowed(guildId?) {
 function buildSkipDeniedEmbed() {
   return new EmbedBuilder()
     .setColor(0xed4245)
-    .setDescription("<:vegax:1443934876440068179> **Non puoi usare lo skip!**");
+    .setDescription(`${E.vegax} **Non puoi usare lo skip!**`);
 }
 
 function buildPartnershipCompletedReplyEmbed({ client, guildId, managerId, pingRoleId = undefined, pingHere = false, pingEveryone = false }) {
@@ -335,10 +336,10 @@ function buildPartnershipCompletedReplyEmbed({ client, guildId, managerId, pingR
     .setColor(0x6f4e37)
     .setDescription(
       [
-        "<a:VC_Verified:1482532479637127188> **Partnership** completata con **successo**!",
+        `${E.VC_Verified} **Partnership** completata con **successo**!`,
         "",
-        `<:VC_Collab:1482534540089098260> **Manager:** ${managerValue}`,
-        `<:VC_Mention:1482526855289634997> **Ping:** ${pingValue}`,
+        `${E.VC_Collab} **Manager:** ${managerValue}`,
+        `${E.VC_Mention} **Ping:** ${pingValue}`,
       ].join("\n"),
     )
 }
@@ -634,6 +635,6 @@ function listOperationalPartnershipGuildIds(client?) {
 }
 
 const SETUP_REQUIRED_REPLY =
-  "<:vegax:1443934876440068179> Partnership non configurata su questo server. Un admin deve completare `+setup`.";
+  `${E.vegax} Partnership non configurata su questo server. Un admin deve completare \`+setup\`.`;
 
 export = { buildMainPartnershipMongoSeed, getMainGuildId, isMainPartnershipSettingsGuild, resolvePartnershipConfigSync, isPartnershipOperational, shouldApplyMainPartnershipFilters, shouldBlockTenantPartnershipPrefixCommands, shouldUseTenantStatsInfoRouting, shouldRouteTenantPartnershipProfile, isProfilePmModeArg, memberHasPartnerManagerRole, memberCanExecutePartnership, userQualifiesForTenantMissions, getPartnershipChannelId, getPartnerManagerRoleId, getPartnershipLogsChannelId, resolvePartnershipLifecycleLogChannelId, resolvePointsCustomLogChannelId, getPartnershipLogChannelIds, getPartnershipPingRoleId, getPartnerBlacklistRoleId, getPartnersChatChannelId, getPmCommandsCategoryIds, tenantPmCommandsZoneConfigured, listPartnershipAuditGuildIds, listOperationalPartnershipGuildIds, SETUP_REQUIRED_REPLY, isPartnershipSkipManagerAllowed, buildSkipDeniedEmbed, buildPartnershipCompletedReplyEmbed };

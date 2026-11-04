@@ -3,6 +3,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { executeDynoModerationCommand } = require("./dynoModerationCommands") as typeof import("./dynoModerationCommands");
 const { checkPrefixPermission } = require("./commandPermissions") as typeof import("./commandPermissions");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const PRIVATE_FLAG = 1 << 6;
 const SANCTIONS_OUTPUT_TO_SANZIONI = new Set(["warn", "kick", "mute", "ban", "unmute", "unban", "delwarn", "clearwarn"]);
 
@@ -73,7 +74,7 @@ async function replyEphemeral(interaction?, content?) {
 async function runDynoFromInteraction(interaction?, client?, cmd?, args?, guild?, options: Record<string, any> = {}) {
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Non trovo il tuo membro nel server.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Non trovo il tuo membro nel server.`);
     return { ok: false };
   }
   const permCh = resolvePermChannel(interaction, guild, options);
@@ -81,13 +82,13 @@ async function runDynoFromInteraction(interaction?, client?, cmd?, args?, guild?
   const allowed = await checkPrefixPermission(permProxy, cmd);
   if (!allowed) {
     const msg = options.useSanctionPermChannel
-      ? "<a:VC_Cross:1482532424570376253> Non hai permesso per applicare questa sanzione."
-      : "<a:VC_Cross:1482532424570376253> Non hai permesso per questa azione in questo canale.";
+      ? `${E.VC_Cross} Non hai permesso per applicare questa sanzione.`
+      : `${E.VC_Cross} Non hai permesso per questa azione in questo canale.`;
     await replyEphemeral(interaction, msg);
     return { ok: false };
   }
   if (!Array.isArray(args) || !args.length) {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Argomenti non validi.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Argomenti non validi.`);
     return { ok: false };
   }
   const outCh = await resolveSanctionOutputChannel(guild, interaction, cmd);
@@ -104,13 +105,13 @@ async function runDynoFromInteraction(interaction?, client?, cmd?, args?, guild?
   try {
     await executeDynoModerationCommand(cmd, execProxy, args, client);
     const doneMsg = usedSanzioni
-      ? "<a:VC_Verified:1482532479637127188> Eseguito. L'esito è stato inviato nel canale sanzioni."
-      : "<a:VC_Verified:1482532479637127188> Eseguito. Controlla il canale per output e conferme.";
+      ? `${E.VC_Verified} Eseguito. L'esito è stato inviato nel canale sanzioni.`
+      : `${E.VC_Verified} Eseguito. Controlla il canale per output e conferme.`;
     await interaction.editReply({ content: doneMsg }).catch(() => {});
     return { ok: true, usedSanzioni };
   } catch (err) {
     global.logger?.error?.("[moderationInteractionBridge]", err);
-    await interaction.editReply({ content: `<a:VC_Cross:1482532424570376253> ${String(err?.message || err).slice(0, 500)}` }).catch(() => {});
+    await interaction.editReply({ content: `${E.VC_Cross} ${String(err?.message || err).slice(0, 500)}` }).catch(() => {});
     return { ok: false };
   }
 }

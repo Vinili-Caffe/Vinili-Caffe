@@ -1,11 +1,12 @@
 const { InteractionType } = require("discord.js") as typeof import("discord.js");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   handleAutocomplete,
   handleSlashCommand,
 } = require("./interaction/commandHandlers") as typeof import("./interaction/commandHandlers");
 const { createButtonInteractionDispatcher } = require("../../../shared/discord/createButtonInteractionDispatcher") as typeof import("../../../shared/discord/createButtonInteractionDispatcher");
 const { handleButtonInteraction } = createButtonInteractionDispatcher({
-  errorEmoji: "<a:VC_Cross:1482532424570376253>",
+  errorEmoji: E.VC_Cross,
 });
 const { handlePartnerModal } = require("../../Partner/discord/modals/partnerModal") as typeof import("../../Partner/discord/modals/partnerModal");
 const { handleSanzionaModal } = require("../../Moderation/events/interaction/sanzionaHandlers") as typeof import("../../Moderation/events/interaction/sanzionaHandlers");

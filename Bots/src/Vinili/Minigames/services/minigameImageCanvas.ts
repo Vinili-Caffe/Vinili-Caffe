@@ -15,10 +15,16 @@ try {
   createCanvas = canvasModule.createCanvas;
   loadImage = canvasModule.loadImage;
 } catch (error) {
-  global.logger?.warn?.(
-    "[minigameService] canvas non disponibile: modalità immagini disattivata",
-    error?.message || error,
-  );
+  /* bot-workers usa spesso Node diverso da bots-vinyls: niente spam se non serve canvas qui */
+  const quietWorker =
+    String(process.env.MINIGAMES_WORKER || "").trim() === "1" ||
+    String(process.env.BOT_SCHEDULER_WORKER || "").trim() === "1";
+  if (!quietWorker) {
+    global.logger?.warn?.(
+      "[minigameService] canvas non disponibile: modalità immagini disattivata",
+      error?.message || error,
+    );
+  }
   createCanvas = () => {
     throw new Error("canvas_non_disponibile");
   };

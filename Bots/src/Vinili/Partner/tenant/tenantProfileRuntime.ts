@@ -11,6 +11,7 @@ const { listTenantStaffNotifications, countUnreadNotifications } = require("../s
 const { getTenantProfilePrefs } = require("../services/tenantProfilePreferencesService") as typeof import("../services/tenantProfilePreferencesService");
 const { embedTwoColumnStack } = require("../../../shared/discord/embedTwoColumnFields") as typeof import("../../../shared/discord/embedTwoColumnFields");
 const { formatTenantEmoji, toButtonEmoji } = require("./tenantPartnershipEmojis") as typeof import("./tenantPartnershipEmojis");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const SNOWFLAKE_RE = /^\d{16,20}$/;
 const PREFIX = "tprof:";
 
@@ -126,7 +127,7 @@ async function buildHomeEmbed(client?, guild?, targetUserId?, snapshot?) {
     .filter(Boolean);
   const badgesValue = selected.length ? selected.join(" ") : inlineCode("—");
   const descriptionLines = [
-    `<:VC_Mention:1482526855289634997> **${t(lang, "user")}:** <@${targetUserId}>`,
+    `${E.VC_Mention} **${t(lang, "user")}:** <@${targetUserId}>`,
     `${formatTenantEmoji("search")} **${t(lang, "id")}:** ${inlineCode(targetUserId)}`,
   ];
   if (isBotDev(targetUserId, client)) {
@@ -374,7 +375,7 @@ function buildSettingsEmbed(lang?, prefs?, viewOnly = false) {
       [
         viewOnly ? t(lang, "settingsViewOnlyTitle") : t(lang, "settingsTitle"),
         "",
-        `<:VC_Mention:1482526855289634997> **${t(lang, "pings")}:** ${inlineCode(prefs.suppressManagerPing ? t(lang, "true") : t(lang, "false"))}`,
+        `${E.VC_Mention} **${t(lang, "pings")}:** ${inlineCode(prefs.suppressManagerPing ? t(lang, "true") : t(lang, "false"))}`,
         `> ${t(lang, "pingsHint")}`,
         "",
         `${formatTenantEmoji("locked")} **${t(lang, "privacy")}:** ${inlineCode(prefs.ephemeralCommands ? t(lang, "true") : t(lang, "false"))}`,
@@ -429,7 +430,7 @@ function buildSettingsRows(state?, activeLanguage = "it") {
   return [
     new ActionRowBuilder().addComponents(
       navButton(null, TENANT_PARTNERSHIP_ARROWS.left, buildStateCustomId(TENANT_PROFILE_SECTIONS.HOME, guildId, ownerId, targetUserId)),
-      navButton(null, "<:VC_Mention:1482526855289634997>", buildStateCustomId("set_pings", guildId, ownerId, targetUserId)),
+      navButton(null, E.VC_Mention, buildStateCustomId("set_pings", guildId, ownerId, targetUserId)),
       navButton(null, "locked", buildStateCustomId("set_privacy", guildId, ownerId, targetUserId)),
       navButton(null, getLanguageFlag(activeLanguage), buildStateCustomId("open_lang", guildId, ownerId, targetUserId)),
     ),

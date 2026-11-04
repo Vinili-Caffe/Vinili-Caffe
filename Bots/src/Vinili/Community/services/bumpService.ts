@@ -4,12 +4,13 @@ const { recordDiscadiaVote, restorePendingVoteReminders, sendDueDiscadiaVoteRemi
 const { buildBumpStateModel, createBumpReminderService } = require("./bumpReminder") as typeof import("./bumpReminder");
 const { awardBumpVoteExp } = require("./bumpRewards") as typeof import("./bumpRewards");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const DISBOARD_BUMP_USER_ID = "__disboard_bump__";
 const DISCADIA_BUMP_USER_ID = "__discadia_bump__";
 
-const disboardService = createBumpReminderService({ model: buildBumpStateModel("disboard", DISBOARD_BUMP_USER_ID), configKey: "disboard", defaultCooldownMinutes: 120, mentionContent: "<@&1544830661637046303>", title: "<:VC_Eye:1331619214410383381> **È L'ORA DEL `BUMP`!**", url: "https://disboard.org/it/server/1329080093599076474", description: "<:VC_bump:1482531857521311885> **Per bumpare scrivi __`/bump` in chat__**!", errorTag: "<a:VC_Alert:1482706673176150077> [DISBOARD REMINDER ERROR]", logTag: "<a:VC_Alert:1482706673176150077> [DISBOARD REMINDER]", suppressInfoLogs: true, });
+const disboardService = createBumpReminderService({ model: buildBumpStateModel("disboard", DISBOARD_BUMP_USER_ID), configKey: "disboard", defaultCooldownMinutes: 120, mentionContent: "<@&1544830661637046303>", title: `${E.VC_Eye} **È L'ORA DEL \`BUMP\`!**`, url: "https://disboard.org/it/server/1329080093599076474", description: `${E.VC_bump} **Per bumpare scrivi __\`/bump\` in chat__**!`, errorTag: `${E.VC_Alert} [DISBOARD REMINDER ERROR]`, logTag: `${E.VC_Alert} [DISBOARD REMINDER]`, suppressInfoLogs: true, });
 
-const discadiaBumpService = createBumpReminderService({ model: buildBumpStateModel("discadia", DISCADIA_BUMP_USER_ID), configKey: "discadia", defaultCooldownMinutes: 1440, mentionContent: "<@&1544830661637046303>", title: "<:VC_Eye:1331619214410383381> **È L'ORA DEL `BUMP` SU DISCADIA!**", url: "https://discadia.com/server/viniliecaffe/", description: "<:VC_bump:1482531857521311885> **Per bumpare scrivi __`/bump` in chat__**!", errorTag: "<a:VC_Alert:1482706673176150077> [DISCADIA REMINDER ERROR]", logTag: "<a:VC_Alert:1482706673176150077> [DISCADIA REMINDER]", suppressInfoLogs: true, });
+const discadiaBumpService = createBumpReminderService({ model: buildBumpStateModel("discadia", DISCADIA_BUMP_USER_ID), configKey: "discadia", defaultCooldownMinutes: 1440, mentionContent: "<@&1544830661637046303>", title: `${E.VC_Eye} **È L'ORA DEL \`BUMP\` SU DISCADIA!**`, url: "https://discadia.com/server/viniliecaffe/", description: `${E.VC_bump} **Per bumpare scrivi __\`/bump\` in chat__**!`, errorTag: `${E.VC_Alert} [DISCADIA REMINDER ERROR]`, logTag: `${E.VC_Alert} [DISCADIA REMINDER]`, suppressInfoLogs: true, });
 let discadiaVoteReminderLoopHandle = null;
 const BUMP_DUE_REMINDER_SWEEP_MS = 2 * 60 * 1000;
 

@@ -11,6 +11,7 @@ const { evaluateTenantObjectives } = require("../../services/tenantObjectiveServ
 const { t } = require("../../i18n/tenantPartnershipI18n/index") as typeof import("../../i18n/tenantPartnershipI18n/index");
 const { safePanelMessageUpdate } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 function match(interaction?) {
   const id = String(interaction?.customId || "");
   if (interaction?.isButton?.() && id.startsWith("tlb:")) return true;
@@ -25,7 +26,7 @@ async function execute(interaction?) {
   if (String(interaction.user?.id || "") !== String(parsed.ownerId || "")) {
     const lang = await resolveTenantLanguageForInteraction(interaction);
     const reply = {
-      content: `<:vegax:1443934876440068179> ${t(lang, "notYourPanel")}`,
+      content: `${E.vegax} ${t(lang, "notYourPanel")}`,
       flags: 1 << 6,
     };
     if (interaction.deferred || interaction.replied) {

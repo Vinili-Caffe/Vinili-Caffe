@@ -6,6 +6,7 @@ const { buildWinEmbed, buildTreasureHuntFoundEmbed } = require("./minigameEmbeds
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { activeGames, blockMinigameRehydrate, clearNoParticipationDelay, clearActiveGame, beginMinigameWinClose, endMinigameWinClose } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   handleExpReward,
   awardMinigameWinToUser,
@@ -118,7 +119,7 @@ async function handleMinigameButtonWin(interaction?, game?, cfg?) {
   const closed = await beginMinigameWinClose(client, winCfg, game);
   if (!closed) {
     await interaction.reply({
-      content: "<:cancel:1461730653677551691> Partita già conclusa.",
+      content: `${E.cancel} Partita già conclusa.`,
       flags: 1 << 6,
     }).catch(() => { });
     return;
@@ -142,7 +143,7 @@ async function handleMinigameButtonWin(interaction?, game?, cfg?) {
       ).catch(() => { });
     }
     await interaction.reply({
-      content: "<a:VC_Events:1482706144953897223> Hai vinto!",
+      content: `${E.VC_Events} Hai vinto!`,
       flags: 1 << 6,
     }).catch(() => { });
     if (award.member) {
@@ -190,7 +191,7 @@ async function handleMinigameButton(interaction?, client?) {
 
     if (!game) {
       await interaction
-        .reply({ content: "<:cancel:1461730653677551691> Anteprima non disponibile.", flags: 1 << 6 })
+        .reply({ content: `${E.cancel} Anteprima non disponibile.`, flags: 1 << 6 })
         .catch(() => { });
       return true;
     }
@@ -198,7 +199,7 @@ async function handleMinigameButton(interaction?, client?) {
     await interaction.deferReply({ flags: 1 << 6 }).catch(() => { });
     if (!game.previewUrl) {
       await interaction
-        .editReply({ content: "<:cancel:1461730653677551691> Anteprima non disponibile." })
+        .editReply({ content: `${E.cancel} Anteprima non disponibile.` })
         .catch(() => { });
       return true;
     }
@@ -207,14 +208,14 @@ async function handleMinigameButton(interaction?, client?) {
     if (!audio) {
       await interaction
         .editReply({
-          content: `<:cancel:1461730653677551691> Non riesco ad allegare il file, ascoltala qui:
+          content: `${E.cancel} Non riesco ad allegare il file, ascoltala qui:
 ${game.previewUrl}`,
         })
         .catch(() => { });
       return true;
     }
 
-    const fallbackText = "<:link:1470064815899803668> Se su telefono non si riproduce, apri questo link per ascoltare: " + game.previewUrl;
+    const fallbackText = `${E.link} Se su telefono non si riproduce, apri questo link per ascoltare: ` + game.previewUrl;
     await interaction
       .editReply({
         content: fallbackText,
@@ -228,7 +229,7 @@ ${game.previewUrl}`,
     try {
       await interaction
         .reply({
-          content: "<:cancel:1461730653677551691> Trick or Treat è terminato (evento Halloween archiviato).",
+          content: `${E.cancel} Trick or Treat è terminato (evento Halloween archiviato).`,
           flags: 1 << 6,
         })
         .catch(() => {});
@@ -237,7 +238,7 @@ ${game.previewUrl}`,
       warnMinigame(err);
       await interaction
         .reply({
-          content: "<:cancel:1461730653677551691> Round Trick or Treat non attivo.",
+          content: `${E.cancel} Round Trick or Treat non attivo.`,
           flags: 1 << 6,
         })
         .catch(() => {});
@@ -268,7 +269,7 @@ ${game.previewUrl}`,
     if (isFindHiddenButton) {
       await interaction
         .reply({
-          content: "<:cancel:1461730653677551691> Partita già conclusa o non attiva.",
+          content: `${E.cancel} Partita già conclusa o non attiva.`,
           flags: 1 << 6,
         })
         .catch(() => {});
@@ -280,7 +281,7 @@ ${game.previewUrl}`,
     if (isFindHiddenButton) {
       await interaction
         .reply({
-          content: "<:cancel:1461730653677551691> Questo pulsante non è più valido.",
+          content: `${E.cancel} Questo pulsante non è più valido.`,
           flags: 1 << 6,
         })
         .catch(() => {});

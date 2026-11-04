@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const EMOJI_DELETE_ACTION = AuditLogEvent?.EmojiDelete ?? 62;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -73,16 +74,16 @@ export = {
 
       const embed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setTitle("<:VC_Color:1482532543273238569> Emoji Delete")
+        .setTitle(`${E.VC_Color} Emoji Delete`)
         .setDescription(
           [
-            `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-            `<:VC_User:1482527453586002103> **Utente:** ${emoji.name || "emoji"} \`${emojiId}\``,
-            `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+            `${E.VC_Staff} **Responsabile:** ${responsibleText}`,
+            `${E.VC_User} **Utente:** ${emoji.name || "emoji"} \`${emojiId}\``,
+            `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
             "",
-            "**<:VC_tools:1478862265305272364> Impostazioni precedenti**",
-            `<:VC_Modifica:1478859646587633717> **Nome:** ${emoji.name || "sconosciuto"}`,
-            `<a:VC_Countdown:1482706760476131539> **Animato:** ${emoji?.animated ? "Si" : "No"}`,
+            `**${E.VC_tools} Impostazioni precedenti**`,
+            `${E.VC_Modifica} **Nome:** ${emoji.name || "sconosciuto"}`,
+            `${E.VC_Countdown} **Animato:** ${emoji?.animated ? "Si" : "No"}`,
           ].join("\n"),
         );
 

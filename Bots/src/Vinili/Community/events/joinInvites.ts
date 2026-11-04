@@ -11,6 +11,7 @@ const { recordPartnershipInviteJoin } = require("../../Partner/services/tenantPa
 const { guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { applyPronounGenderToEmbedForMember } = require("../../Community/utils/pronounGenderUtils") as typeof import("../../Community/utils/pronounGenderUtils");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const THANKS_CHANNEL_ID = IDs.channels.supporters;
 const INFO_PERKS_CHANNEL_ID = IDs.channels.info;
 const INVITE_REWARD_TIERS = [{ target: 5, roleIds: [IDs.roles.Promoter, IDs.roles.PicPerms || "1544830789760454759",].filter(Boolean), }, { target: 25, roleIds: [IDs.roles.Propulsor].filter(Boolean), }, { target: 100, roleIds: [IDs.roles.Catalyst].filter(Boolean), },];
@@ -98,7 +99,7 @@ function buildInviteMilestoneEmbeds(inviterMember?, totalInvites?, tierChunks?) 
         : "Hai raggiunto la soglia massima degli inviti reward! 💞",
       "",
       `Ora hai **${formatInviteCountIt(safeTotal)}** registrat${safeTotal === 1 ? "o" : "i"}.`,
-      INFO_PERKS_CHANNEL_ID ? `\n<a:VC_Arrow:1482706699365257397> Dettagli perk: <#${INFO_PERKS_CHANNEL_ID}>` : "",
+      INFO_PERKS_CHANNEL_ID ? `\n${E.VC_Arrow} Dettagli perk: <#${INFO_PERKS_CHANNEL_ID}>` : "",
     ].join("\n");
     const embed = new EmbedBuilder()
       .setColor(INVITE_MILESTONE_EMBED_COLOR)
@@ -282,7 +283,7 @@ async function announceInviteInfo(member?, channel?, info?) {
     await channel
       .send({
         content:
-          "<:VC_Reply:1482532158080942191> L'utente ha usato il link vanity **.gg/viniliecaffe**",
+          `${E.VC_Reply} L'utente ha usato il link vanity **.gg/viniliecaffe**`,
       })
       .catch(() => { });
     return;
@@ -290,7 +291,7 @@ async function announceInviteInfo(member?, channel?, info?) {
 
   await channel
     .send({
-      content: `<:VC_Reply:1482532158080942191> È entratx con il link ${formatInviteLinkForJoinMessage(info.link)},\n-# -> invitato da ${info.inviterTag} che ora ha **${formatInviteCountIt(info.totalInvites)}**.`,
+      content: `${E.VC_Reply} È entratx con il link ${formatInviteLinkForJoinMessage(info.link)},\n-# -> invitato da ${info.inviterTag} che ora ha **${formatInviteCountIt(info.totalInvites)}**.`,
       flags: MessageFlags.SuppressEmbeds,
     })
     .catch(() => { });
@@ -340,7 +341,7 @@ async function maybeSendInviteNearRewardReminder(member?, info?) {
         .setTitle("Ci sei quasi con gli inviti!")
         .setDescription(
           [
-            `<a:VC_PandaClap:1331620157398712330> Ti manca solo **1 invito** per arrivare a **${nextTier.target}**.`,
+            `${E.VC_PandaClap} Ti manca solo **1 invito** per arrivare a **${nextTier.target}**.`,
             `Quando raggiungi la soglia, ricevi ${rewardRoleText}.`,
             INFO_PERKS_CHANNEL_ID
               ? `Controlla i perks in <#${INFO_PERKS_CHANNEL_ID}>.`

@@ -4,6 +4,7 @@ const { extractInviteCode, fetchInviteGuildMeta } = require("../../../Partner/ru
 const blacklistCommand = require("../../../Partner/discord/prefix/blacklist") as typeof import("../../../Partner/discord/prefix/blacklist");
 const { safePanelMessageUpdate, safeMessageEdit } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { partnersChatPartnerCommandDeniedReplyContent, schedulePartnersDeniedDeleteReply } = require("../../../Partner/runtime/partnersChatChannelUtils") as typeof import("../../../Partner/runtime/partnersChatChannelUtils");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const PREFIX = "blacklist_ui";
 const MODAL_PREFIX = "blacklist_ui_modal";
 const PRIVATE_FLAG = 1 << 6;
@@ -55,7 +56,7 @@ async function refreshBlacklistPanelMessage(interaction?, ownerId?, panelMessage
 async function ensureOwnerAndRole(interaction?, ownerId?, mode = "view") {
   if (String(interaction.user?.id || "") !== String(ownerId)) {
     await interaction.reply({
-      content: "<a:VC_Alert:1482706673176150077> Questo pannello non è tuo.",
+      content: `${E.VC_Alert} Questo pannello non è tuo.`,
       flags: 1 << 6,
     }).catch(() => {});
     return false;
@@ -66,7 +67,7 @@ async function ensureOwnerAndRole(interaction?, ownerId?, mode = "view") {
       : blacklistCommand.hasBlacklistViewRole(interaction.member);
   if (!allowed) {
     await interaction.reply({
-      content: "<a:VC_Alert:1482706673176150077> Non hai i ruoli necessari.",
+      content: `${E.VC_Alert} Non hai i ruoli necessari.`,
       flags: 1 << 6,
     }).catch(() => {});
     return false;
@@ -121,7 +122,7 @@ async function execute(interaction?) {
       const panelMessageId = interaction.message?.id;
       if (!panelMessageId) {
         await interaction.reply({
-          content: "<:vegax:1443934876440068179> Impossibile aggiornare il pannello: messaggio non trovato. Rilancia `+blacklist`.",
+          content: `${E.vegax} Impossibile aggiornare il pannello: messaggio non trovato. Rilancia \`+blacklist\`.`,
           flags: PRIVATE_FLAG,
         }).catch(() => {});
         return true;
@@ -166,7 +167,7 @@ async function execute(interaction?) {
     const gid = normalizeGuildId(interaction.fields.getTextInputValue("guild_id"));
     if (!gid) {
       await interaction.reply({
-        content: "<a:VC_Alert:1482706673176150077> Guild ID non valido.",
+        content: `${E.VC_Alert} Guild ID non valido.`,
         flags: PRIVATE_FLAG,
       }).catch(() => {});
       return true;
@@ -180,14 +181,14 @@ async function execute(interaction?) {
         const inviteMeta = await fetchInviteGuildMeta(inviteRaw).catch(() => null);
         if (!inviteMeta) {
           await interaction.reply({
-            content: "<a:VC_Alert:1482706673176150077> Invito non valido o non raggiungibile.",
+            content: `${E.VC_Alert} Invito non valido o non raggiungibile.`,
             flags: PRIVATE_FLAG,
           }).catch(() => {});
           return true;
         }
         if (inviteMeta.guildId && inviteMeta.guildId !== gid) {
           await interaction.reply({
-            content: `<a:VC_Alert:1482706673176150077> L'invito appartiene al server \`${inviteMeta.guildId}\`, diverso dal Guild ID indicato.`,
+            content: `${E.VC_Alert} L'invito appartiene al server \`${inviteMeta.guildId}\`, diverso dal Guild ID indicato.`,
             flags: PRIVATE_FLAG,
           }).catch(() => {});
           return true;
@@ -199,7 +200,7 @@ async function execute(interaction?) {
         };
       } else if (!extractInviteCode(inviteRaw) && inviteRaw) {
         await interaction.reply({
-          content: "<a:VC_Alert:1482706673176150077> Formato invito non valido.",
+          content: `${E.VC_Alert} Formato invito non valido.`,
           flags: PRIVATE_FLAG,
         }).catch(() => {});
         return true;
@@ -207,14 +208,14 @@ async function execute(interaction?) {
       const r = await addPartnershipBlacklistGuild(gid, interaction.user.id, note, meta).catch(() => ({ ok: false, reason: "db_error" }));
       if (!r.ok) {
         await interaction.reply({
-          content: `<a:VC_Alert:1482706673176150077> Errore: ${r.reason || "sconosciuto"}`,
+          content: `${E.VC_Alert} Errore: ${r.reason || "sconosciuto"}`,
           flags: PRIVATE_FLAG,
         }).catch(() => {});
         return true;
       }
       await refreshBlacklistPanelMessage(interaction, ownerId, panelMessageId, 0);
       await interaction.reply({
-        content: `<a:VC_Verified:1482532479637127188> Server \`${gid}\` aggiunto alla blacklist partnership.`,
+        content: `${E.VC_Verified} Server \`${gid}\` aggiunto alla blacklist partnership.`,
         flags: PRIVATE_FLAG,
       }).catch(() => {});
       return true;
@@ -225,8 +226,8 @@ async function execute(interaction?) {
       const removedIndex = rowsBefore.findIndex((row?) => String(row?.guildId) === gid);
       const r = await removePartnershipBlacklistGuild(gid).catch(() => ({ deleted: false }));
       const content = r.deleted
-        ? `<a:VC_Verified:1482532479637127188> Server \`${gid}\` rimosso dalla blacklist.`
-        : `<a:VC_Cross:1482532424570376253> Nessun server trovato per \`${gid}\`.`;
+        ? `${E.VC_Verified} Server \`${gid}\` rimosso dalla blacklist.`
+        : `${E.VC_Cross} Nessun server trovato per \`${gid}\`.`;
       if (r.deleted) {
         const rowsAfter = rowsBefore.filter((row?) => String(row?.guildId) !== gid);
         const nextIndex = removedIndex >= 0 ? Math.min(removedIndex, Math.max(0, rowsAfter.length - 1)) : 0;

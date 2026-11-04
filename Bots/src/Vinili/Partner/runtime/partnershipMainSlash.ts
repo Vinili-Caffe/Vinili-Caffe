@@ -1,4 +1,5 @@
 const { safeReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   showPartnershipSlashModal,
   EPHEMERAL_FLAG,
@@ -9,7 +10,7 @@ async function executeMainPartnershipSlash(interaction?) {
   const manager = interaction.options.getUser("manager");
   if (!manager?.id) {
     await safeReply(interaction, {
-      content: "<:vegax:1443934876440068179> Devi indicare un **manager** valido.",
+      content: `${E.vegax} Devi indicare un **manager** valido.`,
       flags: EPHEMERAL_FLAG,
     });
     return;

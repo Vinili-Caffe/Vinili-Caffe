@@ -3,6 +3,7 @@ const { DEFAULT_MESSAGES_LIMIT, sanitizeActions, normalizeMessagesLimit, sleep }
 const { buildPermissionOverwrites, syncLoadedRoles, syncLoadedChannels, normalizeMessagePayload, resolveAssetInput } = require("./backupLoadSync") as typeof import("./backupLoadSync");
 const { getActiveLoadState, updateActiveLoad, throwIfCancelled } = require("./backupLoadActive") as typeof import("./backupLoadActive");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function applyBackupToGuild(guild?, backupId?, selectedActions?, sourceGuildId = null, messagesLimit = DEFAULT_MESSAGES_LIMIT) {
   const guildKey = String(guild?.id || "");
   const actions = sanitizeActions(selectedActions);
@@ -25,7 +26,7 @@ async function applyBackupToGuild(guild?, backupId?, selectedActions?, sourceGui
       const preview = undeletable.slice(0, 8).map((r?) => `@${r.name}`)
         .join(", ");
       throw new Error(
-        `<a:VC_Alert:1482706673176150077> Impossibile eliminare tutti i ruoli: alza il ruolo del bot sopra i ruoli target. Bloccanti: ${preview}${undeletable.length > 8 ? ", ..." : ""}`,
+        `${E.VC_Alert} Impossibile eliminare tutti i ruoli: alza il ruolo del bot sopra i ruoli target. Bloccanti: ${preview}${undeletable.length > 8 ? ", ..." : ""}`,
       );
     }
     const roles = candidateRoles;

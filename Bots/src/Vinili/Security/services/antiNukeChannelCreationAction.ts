@@ -6,6 +6,7 @@ const { isUnknownExecutorId, formatExecutorLine, sendAntiNukeLog } = require("./
 const { getPanicState } = require("./antiNukePanicLock") as typeof import("./antiNukePanicLock");
 const { isAntiNukeScopeGuild, isAntiNukePanicActive, quarantineOutcomeLabel, quarantineExecutor } = require("./antiNukeQuarantine") as typeof import("./antiNukeQuarantine");
 const { enableAntiNukePanic } = require("./antiNukePanicEnable") as typeof import("./antiNukePanicEnable");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   percentToHeat,
   normalizeExecutorId,
@@ -63,12 +64,12 @@ async function handleChannelCreationAction({ guild, executorId, channelId = "", 
   await applyBurstPanicGuard(
     guild,
     actorId,
-    "<a:VC_Alert:1482706673176150077> channel create",
+    `${E.VC_Alert} channel create`,
     ANTINUKE_CONFIG.channelCreationFilter.heatPerAction || 16,
   );
   await enableAntiNukePanic(
     guild,
-    "<a:VC_Alert:1482706673176150077> Channel creation filter",
+    `${E.VC_Alert} Channel creation filter`,
     ANTINUKE_CONFIG.channelCreationFilter.heatPerAction,
   );
   const panicActive = isAntiNukePanicActive(guild.id);
@@ -90,20 +91,20 @@ async function handleChannelCreationAction({ guild, executorId, channelId = "", 
     const targetChannel = channel || (await getGuildChannelCached(guild, String(channelId), { ttlMs: 30_000 }));
     const canDelete = targetChannel?.deletable && me?.permissions?.has?.(PermissionsBitField.Flags.ManageChannels);
     if (canDelete) {
-      const removed = await targetChannel.delete("<:VC_Lock:1482526739044368476> AntiNuke panic: delete channel created during active panic").then(() => true).catch(() => false);
+      const removed = await targetChannel.delete(`${E.VC_Lock} AntiNuke panic: delete channel created during active panic`).then(() => true).catch(() => false);
       const canQuarantine = instantCfg?.quarantineExecutor && !isPanicExecutorCooldownActive(guild.id, actorId, now);
-      const quarantine = canQuarantine ? await quarantineExecutor(guild, actorId, "<:VC_Lock:1482526739044368476> AntiNuke panic: channel creation blocked during active panic",) : { applied: false, method: "cooldown" };
+      const quarantine = canQuarantine ? await quarantineExecutor(guild, actorId, `${E.VC_Lock} AntiNuke panic: channel creation blocked during active panic`,) : { applied: false, method: "cooldown" };
       if (canQuarantine && quarantine.applied) touchPanicExecutorCooldown(guild.id, actorId, now);
       if (removed) {
         await sendAntiNukeLog(
           guild,
-          "<a:VC_Alert:1482706673176150077> AntiNuke: Panic Instant Rollback",
+          `${E.VC_Alert} AntiNuke: Panic Instant Rollback`,
           [
             formatExecutorLine(actorId),
-            `<a:VC_Alert:1482706673176150077> **Action:** Channel creation blocked during panic`,
-            `<a:VC_Alert:1482706673176150077> **Channel:** \`${channelId}\``,
-            `<a:VC_Alert:1482706673176150077> **Result:** Channel deleted immediately`,
-            `<a:VC_Alert:1482706673176150077> **Quarantena executor:** ${quarantineOutcomeLabel(quarantine)}`,
+            `${E.VC_Alert} **Action:** Channel creation blocked during panic`,
+            `${E.VC_Alert} **Channel:** \`${channelId}\``,
+            `${E.VC_Alert} **Result:** Channel deleted immediately`,
+            `${E.VC_Alert} **Quarantena executor:** ${quarantineOutcomeLabel(quarantine)}`,
           ],
         );
       }
@@ -129,19 +130,19 @@ async function handleChannelCreationAction({ guild, executorId, channelId = "", 
   if (now - Number(state.lastPunishAt || 0) < 15_000) return;
   state.lastPunishAt = now;
 
-  const quarantine = await quarantineExecutor(guild, actorId, "<:VC_Lock:1482526739044368476> AntiNuke: channel creation spam detected",);
+  const quarantine = await quarantineExecutor(guild, actorId, `${E.VC_Lock} AntiNuke: channel creation spam detected`,);
   await sendAntiNukeLog(
     guild,
-    "<a:VC_Alert:1482706673176150077> AntiNuke: Channel Creations Filter",
+    `${E.VC_Alert} AntiNuke: Channel Creations Filter`,
     [
       formatExecutorLine(actorId),
       channelId
-        ? `<a:VC_Alert:1482706673176150077> **Last Channel:** <#${channelId}> \`${channelId}\``
+        ? `${E.VC_Alert} **Last Channel:** <#${channelId}> \`${channelId}\``
         : null,
-      `<a:VC_Alert:1482706673176150077> **Minute Count:** ${minuteCount}/${ANTINUKE_CONFIG.channelCreationFilter.minuteLimit}`,
-      `<a:VC_Alert:1482706673176150077> **Hour Count:** ${hourCount}/${ANTINUKE_CONFIG.channelCreationFilter.hourLimit}`,
-      `<a:VC_Alert:1482706673176150077> **Heat:** ${state.heat}/100`,
-      `<a:VC_Alert:1482706673176150077> **Result:** ${quarantineOutcomeLabel(quarantine)}`,
+      `${E.VC_Alert} **Minute Count:** ${minuteCount}/${ANTINUKE_CONFIG.channelCreationFilter.minuteLimit}`,
+      `${E.VC_Alert} **Hour Count:** ${hourCount}/${ANTINUKE_CONFIG.channelCreationFilter.hourLimit}`,
+      `${E.VC_Alert} **Heat:** ${state.heat}/100`,
+      `${E.VC_Alert} **Result:** ${quarantineOutcomeLabel(quarantine)}`,
     ].filter(Boolean),
   );
 }

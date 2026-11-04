@@ -6,7 +6,8 @@ const { reactMinigameWrongEmoji } = require("./minigameDiscord") as typeof impor
 const { handleMinigameWin } = require("./minigameRound") as typeof import("./minigameRound");
 const { rejectMinigameShotgunListingGuess, reactMinigameNearOrWrong, isLooseAliasGuessCorrect } = require("./minigameGuessMatchers") as typeof import("./minigameGuessMatchers");
 
-const MINIGAME_COOLDOWN_EMOJI = "<a:VC_Loading:1482526818278969578>";
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
+const MINIGAME_COOLDOWN_EMOJI = E.VC_Loading__969578;
 const DRIVING_QUIZ_USER_ANSWER_COOLDOWN_DEFAULT_MS = 5000;
 
 async function handleQuizMessage(message?, client?, cfg?, game?, content?, contentForGuess?) {
@@ -145,7 +146,7 @@ async function handleQuizMessage(message?, client?, cfg?, game?, content?, conte
       Number.isFinite(answerNum) &&
       Math.abs(guessNum - answerNum) <= 1
     ) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
     } else {
       await reactMinigameWrongEmoji(message, game);
     }

@@ -1,6 +1,7 @@
 const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { ActivityUserProfile } = require("../../../Community/schemas/communitySchemas") as typeof import("../../../Community/schemas/communitySchemas");
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   MS_PER_DAY,
   parseItalianDate,
@@ -100,7 +101,7 @@ async function rejectPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
     const msg = await fetchPauseRequestMessage(guild, targetPause);
     if (msg?.editable) {
       const currentContent = String(msg.content || "");
-      const rejectedSuffix = currentContent.includes("<:cancel:") ? "" : `\n\n<:cancel:1461730653677551691> **Richiesta pausa rifiutata** per <@${userId}> (via sito · ${actorMember?.displayName || actorMember?.id}).`;
+      const rejectedSuffix = currentContent.includes("<:cancel:") ? "" : `\n\n${E.cancel} **Richiesta pausa rifiutata** per <@${userId}> (via sito · ${actorMember?.displayName || actorMember?.id}).`;
       await msg.edit({ content: currentContent + rejectedSuffix, components: [] }).catch(() => null);
     }
     invalidateStaffPauseCalendarCache();
@@ -390,7 +391,7 @@ async function cancelPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
       await updatePauseInDb(guildId, userId, pauseId, { status: "rejected", giorniUsati: 0, cancelledAt: new Date() });
       const revokedMsg = await fetchPauseRequestMessage(guild, targetPause);
       if (revokedMsg?.editable) {
-        const revokedSuffix = `\n\n<:cancel:1461730653677551691> **__\`REVOCATA\`__** da <@${actorId}>: nessun giorno scalato.`;
+        const revokedSuffix = `\n\n${E.cancel} **__\`REVOCATA\`__** da <@${actorId}>: nessun giorno scalato.`;
         await revokedMsg.edit({ content: `${revokedMsg.content || ""}${revokedSuffix}`, components: [] }).catch(() => null);
       }
       invalidateStaffPauseCalendarCache();
@@ -476,7 +477,7 @@ async function cancelPauseRequestWeb(client?, guild?, actorMember?, userId?, pau
       const actorTag = actorMember?.displayName || actorMember?.id || "sito";
       await pauseChannel
         .send({
-          content: `<:cancel:1461730653677551691> Pausa annullata per <@${userId}> (via sito · ${actorTag}). <a:VC_Calendar:1482706208149475358> Giorni scalati: \`${consumedForCancelledPause}\`. <:VC_Clock:1473359204189474886> Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).`,
+          content: `${E.cancel} Pausa annullata per <@${userId}> (via sito · ${actorTag}). ${E.VC_Calendar} Giorni scalati: \`${consumedForCancelledPause}\`. ${E.VC_Clock} Totale usati: \`${giorniTotaliUsati}/${maxGiorni}\` (\`${giorniRimanenti}\` rimanenti).`,
         })
         .catch(() => null);
     }

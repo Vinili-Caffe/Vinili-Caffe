@@ -1,4 +1,5 @@
 const { getGuildChannelCached } = require("../../../../../shared/discord/interactionEntityCache") as typeof import("../../../../../shared/discord/interactionEntityCache");
+const { E } = require("../../../../../shared/emojis/emojiCatalog") as typeof import("../../../../../shared/emojis/emojiCatalog");
 const {
   memberHasResocontoButtonAccess,
 } = require("../../../../Staff/utils/resocontoAccess") as typeof import("../../../../Staff/utils/resocontoAccess");
@@ -243,10 +244,10 @@ async function decideResocontoFromWeb(guild?, actorMember?, opts: Record<string,
     const handledLabel = decisionLabel(handledKey);
     const handledStatus =
       handledKey === "vp"
-        ? "<:success:1461731530333229226> Valutazione Positiva già registrata."
+        ? "${E.success} Valutazione Positiva già registrata."
         : handledKey === "vn"
-          ? "<:success:1461731530333229226> Valutazione Negativa già registrata."
-          : "<:success:1461731530333229226> Valutazioni già registrate dal sistema.";
+          ? "${E.success} Valutazione Negativa già registrata."
+          : "${E.success} Valutazioni già registrate dal sistema.";
     await appendOutcomeToMessage(
       guild,
       channelId,

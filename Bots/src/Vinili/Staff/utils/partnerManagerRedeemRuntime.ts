@@ -2,6 +2,7 @@ const { redeemPartnerManagerPointsForDisplay, getPartnerRewardPointCost } = requ
 const { applyPartnerManagerRedeem50, applyPartnerManagerRedeem100 } = require("./partnerManagerTimedPerks") as typeof import("./partnerManagerTimedPerks");
 const { PARTNER_REWARD_LABELS } = require("../../../shared/partner/partnerManagerRewardTiers") as typeof import("../../../shared/partner/partnerManagerRewardTiers");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function completePartnerManagerRedeemForGuild(
   guild?,
   client?,
@@ -11,7 +12,7 @@ async function completePartnerManagerRedeemForGuild(
   const uid = String(targetUserId || "").trim();
   const tier = Math.floor(Number(redeemTier) || 0);
   if (!gid || !uid || tier < 1) {
-    return { ok: false, code: "bad_input", userMessage: "<a:VC_Cross:1482532424570376253> Richiesta non valida." };
+    return { ok: false, code: "bad_input", userMessage: `${E.VC_Cross} Richiesta non valida.` };
   }
 
   const pointCost = getPartnerRewardPointCost(tier);
@@ -21,14 +22,14 @@ async function completePartnerManagerRedeemForGuild(
       return {
         ok: false,
         code: "insufficient",
-        userMessage: `<a:VC_Cross:1482532424570376253> Punti insufficienti: saldo \`${redeemRes.before ?? 0}\`, servono \`${pointCost}\`.`,
+        userMessage: `${E.VC_Cross} Punti insufficienti: saldo \`${redeemRes.before ?? 0}\`, servono \`${pointCost}\`.`,
         before: redeemRes.before,
       };
     }
     return {
       ok: false,
       code: redeemRes.code || "save_failed",
-      userMessage: "<a:VC_Cross:1482532424570376253> Impossibile aggiornare i punti. Riprova.",
+      userMessage: `${E.VC_Cross} Impossibile aggiornare i punti. Riprova.`,
     };
   }
 
@@ -90,7 +91,7 @@ async function completePartnerManagerRedeemForGuild(
   const rewardName = PARTNER_REWARD_LABELS[tier] || `premio ${tier}`;
 
   const userMessage =
-    `<a:VC_Verified:1482532479637127188> Riscattati **${pointCost}** punti a ${pmMention} (${rewardName}). Nuovo saldo: \`${ptsAfter}\`.` +
+    `${E.VC_Verified} Riscattati **${pointCost}** punti a ${pmMention} (${rewardName}). Nuovo saldo: \`${ptsAfter}\`.` +
     (reasonText ? `\nMotivo: ${reasonText}` : "") +
     (postRedeemNote ? `\n${postRedeemNote.trim()}` : "") +
     (autoApplySummary ? `\n${autoApplySummary}` : "");

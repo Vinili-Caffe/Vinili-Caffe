@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, ChannelType } = require("discord.js") as typeof import("discord.js");
 const { safeEditReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { parseDuration, buildGiveawayEmbed, buildEnterButton, createGiveaway, setGiveawayMessageId, endGiveawayByMessageId, editGiveawayByMessageId, deleteGiveawayByMessageId, rerollGiveawayByMessageId, scheduleGiveawayEnd } = require("../../services/giveawayService") as typeof import("../../services/giveawayService");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const EPHEMERAL_FLAG = 1 << 6;
 
 function parseMessageIdFromOption(value?) {
@@ -17,7 +18,7 @@ function requireMessageId(interaction?, raw?) {
     return {
       ok: false,
       reply: safeEditReply(interaction, {
-        content: "<a:VC_Cross:1482532424570376253> Inserisci un ID messaggio valido o il link al messaggio del giveaway.",
+        content: `${E.VC_Cross} Inserisci un ID messaggio valido o il link al messaggio del giveaway.`,
         flags: EPHEMERAL_FLAG,
       }),
     };
@@ -103,7 +104,7 @@ export = {
 
       if (!prize) {
         return safeEditReply(interaction, {
-          content: "<a:VC_Cross:1482532424570376253> Inserisci un premio valido.",
+          content: `${E.VC_Cross} Inserisci un premio valido.`,
           flags: EPHEMERAL_FLAG,
         });
       }
@@ -111,7 +112,7 @@ export = {
       const durationMs = parseDuration(durationStr);
       if (!durationMs || durationMs < 60 * 1000) {
         return safeEditReply(interaction, {
-          content: "<a:VC_Cross:1482532424570376253> Durata non valida. Usa ad es. `1h`, `24h`, `7d`.",
+          content: `${E.VC_Cross} Durata non valida. Usa ad es. \`1h\`, \`24h\`, \`7d\`.`,
           flags: EPHEMERAL_FLAG,
         });
       }
@@ -119,7 +120,7 @@ export = {
       const channel = channelOption || interaction.channel;
       if (!channel?.isTextBased?.()) {
         return safeEditReply(interaction, {
-          content: "<a:VC_Cross:1482532424570376253> Canale non valido.",
+          content: `${E.VC_Cross} Canale non valido.`,
           flags: EPHEMERAL_FLAG,
         });
       }
@@ -142,7 +143,7 @@ export = {
         const msg = await channel.send({ embeds: [embed], components: [row] }).catch(() => null);
         if (!msg) {
           return safeEditReply(interaction, {
-            content: "<a:VC_Cross:1482532424570376253> Impossibile inviare il messaggio nel canale.",
+            content: `${E.VC_Cross} Impossibile inviare il messaggio nel canale.`,
             flags: EPHEMERAL_FLAG,
           });
         }
@@ -151,13 +152,13 @@ export = {
         scheduleGiveawayEnd(interaction.client, giveaway._id.toString(), giveaway.endAt);
 
         return safeEditReply(interaction, {
-          content: `<a:VC_Events:1482706144953897223> Giveaway creato in ${channel}. Termina tra ${durationStr}.`,
+          content: `${E.VC_Events} Giveaway creato in ${channel}. Termina tra ${durationStr}.`,
           flags: EPHEMERAL_FLAG,
         });
       } catch (err) {
         global.logger?.error?.("[GIVEAWAY] create error:", err);
         return safeEditReply(interaction, {
-          content: "<a:VC_Cross:1482532424570376253> Errore durante la creazione del giveaway.",
+          content: `${E.VC_Cross} Errore durante la creazione del giveaway.`,
           flags: EPHEMERAL_FLAG,
         });
       }
@@ -175,12 +176,12 @@ export = {
         const winnersText =
           winners.length > 0 ? winners.map((id?) => `<@${id}>`).join(", ") : "nessun partecipante";
         return safeEditReply(interaction, {
-          content: `<a:VC_Events:1482706144953897223> Giveaway terminato. Vincitori: ${winnersText}.`,
+          content: `${E.VC_Events} Giveaway terminato. Vincitori: ${winnersText}.`,
           flags: EPHEMERAL_FLAG,
         });
       }
       return safeEditReply(interaction, {
-        content: `<a:VC_Cross:1482532424570376253> ${result.error || "Errore durante la chiusura del giveaway."}`,
+        content: `${E.VC_Cross} ${result.error || "Errore durante la chiusura del giveaway."}`,
         flags: EPHEMERAL_FLAG,
       });
     }
@@ -202,7 +203,7 @@ export = {
         const durationMs = parseDuration(durationStr.trim());
         if (!durationMs || durationMs < 60 * 1000) {
           return safeEditReply(interaction, {
-            content: "<a:VC_Cross:1482532424570376253> Durata non valida. Usa ad es. `1h`, `24h`, `7d`.",
+            content: `${E.VC_Cross} Durata non valida. Usa ad es. \`1h\`, \`24h\`, \`7d\`.`,
             flags: EPHEMERAL_FLAG,
           });
         }
@@ -212,7 +213,7 @@ export = {
       if (!Object.keys(patch).length) {
         return safeEditReply(interaction, {
           content:
-            "<a:VC_Cross:1482532424570376253> Specifica almeno un campo da modificare (`premio`, `durata`, `vincitori` o `host`).",
+            `${E.VC_Cross} Specifica almeno un campo da modificare (\`premio\`, \`durata\`, \`vincitori\` o \`host\`).`,
           flags: EPHEMERAL_FLAG,
         });
       }
@@ -220,12 +221,12 @@ export = {
       const result = await editGiveawayByMessageId(messageId, interaction.client, patch);
       if (result.ok) {
         return safeEditReply(interaction, {
-          content: "<a:VC_Events:1482706144953897223> Giveaway aggiornato.",
+          content: `${E.VC_Events} Giveaway aggiornato.`,
           flags: EPHEMERAL_FLAG,
         });
       }
       return safeEditReply(interaction, {
-        content: `<a:VC_Cross:1482532424570376253> ${result.error || "Errore durante la modifica del giveaway."}`,
+        content: `${E.VC_Cross} ${result.error || "Errore durante la modifica del giveaway."}`,
         flags: EPHEMERAL_FLAG,
       });
     }
@@ -235,13 +236,13 @@ export = {
       if (result.ok) {
         return safeEditReply(interaction, {
           content: result.deletedMessage
-            ? "<a:VC_Events:1482706144953897223> Giveaway cancellato e messaggio rimosso."
-            : "<a:VC_Events:1482706144953897223> Giveaway cancellato.",
+            ? `${E.VC_Events} Giveaway cancellato e messaggio rimosso.`
+            : `${E.VC_Events} Giveaway cancellato.`,
           flags: EPHEMERAL_FLAG,
         });
       }
       return safeEditReply(interaction, {
-        content: `<a:VC_Cross:1482532424570376253> ${result.error || "Errore durante la cancellazione del giveaway."}`,
+        content: `${E.VC_Cross} ${result.error || "Errore durante la cancellazione del giveaway."}`,
         flags: EPHEMERAL_FLAG,
       });
     }
@@ -250,12 +251,12 @@ export = {
       const result = await rerollGiveawayByMessageId(messageId, interaction.client);
       if (result.ok) {
         return safeEditReply(interaction, {
-          content: `<a:VC_Events:1482706144953897223> Reroll effettuato! Nuovo vincitore: <@${result.newWinnerId}>. Il messaggio è stato aggiornato nel canale.`,
+          content: `${E.VC_Events} Reroll effettuato! Nuovo vincitore: <@${result.newWinnerId}>. Il messaggio è stato aggiornato nel canale.`,
           flags: EPHEMERAL_FLAG,
         });
       }
       return safeEditReply(interaction, {
-        content: `<a:VC_Cross:1482532424570376253> ${result.error || "Errore durante il reroll."}`,
+        content: `${E.VC_Cross} ${result.error || "Errore durante il reroll."}`,
         flags: EPHEMERAL_FLAG,
       });
     }

@@ -1,0 +1,1150 @@
+{
+  "116444unlocked": {
+    "id": "1524730512051277905",
+    "animated": false
+  },
+  "11781warning": {
+    "id": "1524730510092533790",
+    "animated": false
+  },
+  "1343arrowleft": {
+    "id": "1525249879151083621",
+    "animated": false
+  },
+  "1343arrowright": {
+    "id": "1525249880728145970",
+    "animated": false
+  },
+  "1357symboluparrow": {
+    "id": "1525462053597479022",
+    "animated": false
+  },
+  "1370everythingisstable": {
+    "id": "1444006799643508778",
+    "animated": true
+  },
+  "14755chavebronze": {
+    "id": "1525537881186242580",
+    "animated": false
+  },
+  "14755chavemedalhaprata": {
+    "id": "1525537877880996020",
+    "animated": false
+  },
+  "14755chaveouro": {
+    "id": "1525537879500259500",
+    "animated": false
+  },
+  "174112platinum": {
+    "id": "1525518313843851294",
+    "animated": false
+  },
+  "1757bugbusterbadgediscord": {
+    "id": "1525509035233644614",
+    "animated": false
+  },
+  "184723locked": {
+    "id": "1524730533064609812",
+    "animated": false
+  },
+  "22880partner": {
+    "id": "1525536381580087307",
+    "animated": false
+  },
+  "22955thirdplacetrophy": {
+    "id": "1525519449321635850",
+    "animated": true
+  },
+  "2398shinyredbughunter": {
+    "id": "1525509031651840171",
+    "animated": false
+  },
+  "250885giveaway": {
+    "id": "1524730537770746006",
+    "animated": false
+  },
+  "294025staff": {
+    "id": "1524730527943491594",
+    "animated": false
+  },
+  "30646secondplacetrophy": {
+    "id": "1525519446729556139",
+    "animated": true
+  },
+  "310916crimson": {
+    "id": "1525518317782040757",
+    "animated": false
+  },
+  "3409locked": {
+    "id": "1525536195520626871",
+    "animated": false
+  },
+  "373988mail": {
+    "id": "1524730508439719956",
+    "animated": false
+  },
+  "39560settings": {
+    "id": "1525525624628973608",
+    "animated": false
+  },
+  "4391symbolleftarrow": {
+    "id": "1525462048438226974",
+    "animated": false
+  },
+  "4630symbolrightarrow": {
+    "id": "1525462049533071504",
+    "animated": false
+  },
+  "50738home": {
+    "id": "1526527809261142036",
+    "animated": false
+  },
+  "510611star": {
+    "id": "1524730514156556328",
+    "animated": false
+  },
+  "528443newbie": {
+    "id": "1525511937721499849",
+    "animated": false
+  },
+  "5594shinypurplebughunter": {
+    "id": "1525509033514238112",
+    "animated": false
+  },
+  "5751attentionfromvega": {
+    "id": "1443651874032062505",
+    "animated": false
+  },
+  "57968element": {
+    "id": "1525536598765338694",
+    "animated": false
+  },
+  "641170diamond": {
+    "id": "1525518309993353297",
+    "animated": false
+  },
+  "681634top250": {
+    "id": "1525518324900036648",
+    "animated": false
+  },
+  "709897bolt": {
+    "id": "1524730543122681988",
+    "animated": false
+  },
+  "716729iridescent": {
+    "id": "1525518322987307138",
+    "animated": false
+  },
+  "7205symboldownarrow": {
+    "id": "1525462051978350743",
+    "animated": false
+  },
+  "720660medalbronze": {
+    "id": "1525537886026469546",
+    "animated": true
+  },
+  "75661closelogo": {
+    "id": "1524730529440596089",
+    "animated": false
+  },
+  "7619planet": {
+    "id": "1524730515436077187",
+    "animated": false
+  },
+  "76245medalla": {
+    "id": "1525537883027542116",
+    "animated": true
+  },
+  "78330medalsilver": {
+    "id": "1525537884231434433",
+    "animated": true
+  },
+  "808239search": {
+    "id": "1524730540983582728",
+    "animated": false
+  },
+  "829581silver": {
+    "id": "1525518304150556732",
+    "animated": false
+  },
+  "853922bronze": {
+    "id": "1525518301130657874",
+    "animated": false
+  },
+  "861752staff": {
+    "id": "1524730539129438258",
+    "animated": false
+  },
+  "919633gold": {
+    "id": "1525518306738442381",
+    "animated": false
+  },
+  "926683website": {
+    "id": "1524730518481141901",
+    "animated": false
+  },
+  "944992bell": {
+    "id": "1524730536369721404",
+    "animated": false
+  },
+  "945027student": {
+    "id": "1524730520276307968",
+    "animated": false
+  },
+  "94814firstplacetrophy": {
+    "id": "1525519444447723571",
+    "animated": true
+  },
+  "981353partner": {
+    "id": "1524730506531311688",
+    "animated": false
+  },
+  "alarm": {
+    "id": "1461725841451909183",
+    "animated": false
+  },
+  "appdirectoryallwhite": {
+    "id": "1443308556995788840",
+    "animated": false
+  },
+  "banhammer": {
+    "id": "1443651875441217639",
+    "animated": false
+  },
+  "blueflash": {
+    "id": "1470064803157643468",
+    "animated": false
+  },
+  "cancel": {
+    "id": "1461730653677551691",
+    "animated": false
+  },
+  "channeltext": {
+    "id": "1443247596922470551",
+    "animated": false
+  },
+  "channeltext__470551": {
+    "id": "1443247599752470551",
+    "animated": false,
+    "name": "channeltext",
+    "note": "duplicate id of channeltext (refs=1)"
+  },
+  "Clock": {
+    "id": "1330530065133338685",
+    "animated": false
+  },
+  "creation": {
+    "id": "1461732905016492220",
+    "animated": false
+  },
+  "DatabaseCheck": {
+    "id": "1330543470259212329",
+    "animated": false
+  },
+  "discadia": {
+    "id": "1498023529055260682",
+    "animated": false
+  },
+  "Discord_Mention": {
+    "id": "1329524304790028328",
+    "animated": false
+  },
+  "discordchannelwhite": {
+    "id": "1443308552536985810",
+    "animated": false
+  },
+  "discordstaff": {
+    "id": "1443651872258003005",
+    "animated": false
+  },
+  "exp": {
+    "id": "1470067108543987846",
+    "animated": false
+  },
+  "flyingnitroboost": {
+    "id": "1443652205705170986",
+    "animated": true
+  },
+  "forum": {
+    "id": "1470541157724328059",
+    "animated": false
+  },
+  "laydowntorest": {
+    "id": "1444006796661358673",
+    "animated": true
+  },
+  "link": {
+    "id": "1470064815899803668",
+    "animated": false
+  },
+  "loading": {
+    "id": "1443934440614264924",
+    "animated": true
+  },
+  "mariolevelup": {
+    "id": "1443679595084910634",
+    "animated": false
+  },
+  "member_role_icon": {
+    "id": "1330530086792728618",
+    "animated": false
+  },
+  "microphone": {
+    "id": "1443307206824169573",
+    "animated": false
+  },
+  "Money": {
+    "id": "1330544713463500970",
+    "animated": false
+  },
+  "moon": {
+    "id": "1470064812615667827",
+    "animated": false
+  },
+  "nitroboost": {
+    "id": "1470064881674883326",
+    "animated": false
+  },
+  "noDM": {
+    "id": "1463645183840354517",
+    "animated": false
+  },
+  "partneredserverowner": {
+    "id": "1443651871125409812",
+    "animated": false
+  },
+  "pinkstar": {
+    "id": "1470064804835229768",
+    "animated": false
+  },
+  "pinnednew": {
+    "id": "1443670849990430750",
+    "animated": false
+  },
+  "profile": {
+    "id": "1461732907508039834",
+    "animated": false
+  },
+  "questionexclaimanimated": {
+    "id": "1443660299994533960",
+    "animated": true
+  },
+  "reddiamond": {
+    "id": "1443652837346377841",
+    "animated": true
+  },
+  "reportmessage": {
+    "id": "1443670575376765130",
+    "animated": false
+  },
+  "rightDoubleArrow": {
+    "id": "1465450678062288937",
+    "animated": false
+  },
+  "rules": {
+    "id": "1443307208543703131",
+    "animated": false
+  },
+  "sparkle": {
+    "id": "1470064801811140866",
+    "animated": false
+  },
+  "sparkledred": {
+    "id": "1470064814502973591",
+    "animated": false
+  },
+  "success": {
+    "id": "1461731530333229226",
+    "animated": false
+  },
+  "ThankYou": {
+    "id": "1329504268369002507",
+    "animated": true
+  },
+  "thumbsdown": {
+    "id": "1471292163957457013",
+    "animated": false
+  },
+  "thumbsup": {
+    "id": "1471292172145004768",
+    "animated": false
+  },
+  "VC_1": {
+    "id": "1482706338021642333",
+    "animated": false
+  },
+  "VC_10": {
+    "id": "1482706613663174707",
+    "animated": false
+  },
+  "VC_2": {
+    "id": "1482706376525611090",
+    "animated": false
+  },
+  "VC_3": {
+    "id": "1482706404773990460",
+    "animated": false
+  },
+  "VC_4": {
+    "id": "1482706432347344916",
+    "animated": false
+  },
+  "VC_5": {
+    "id": "1482706459765637272",
+    "animated": false
+  },
+  "VC_6": {
+    "id": "1482706490769801327",
+    "animated": false
+  },
+  "VC_7": {
+    "id": "1482706523330183218",
+    "animated": false
+  },
+  "VC_8": {
+    "id": "1482706553281708092",
+    "animated": false
+  },
+  "VC_9": {
+    "id": "1482706583438889051",
+    "animated": false
+  },
+  "VC_Action": {
+    "id": "1482527453586002103",
+    "animated": false
+  },
+  "VC_addperson": {
+    "id": "1485419347068588073",
+    "animated": false
+  },
+  "VC_Admin": {
+    "id": "1494286848686686209",
+    "animated": false
+  },
+  "VC_Alarm": {
+    "id": "1482706641618079816",
+    "animated": true
+  },
+  "VC_Alert": {
+    "id": "1482706673176150077",
+    "animated": true
+  },
+  "VC_Announce": {
+    "id": "1482534613568979007",
+    "animated": true
+  },
+  "VC_Arrow": {
+    "id": "1482706699365257397",
+    "animated": true
+  },
+  "VC_Attention": {
+    "id": "1482534443632558151",
+    "animated": false
+  },
+  "VC_AutoMod": {
+    "id": "1478861194759508039",
+    "animated": false
+  },
+  "VC_BanHammer": {
+    "id": "1482534474502897795",
+    "animated": false
+  },
+  "VC_Beer": {
+    "id": "1448687940560490547",
+    "animated": true
+  },
+  "VC_BestStaff": {
+    "id": "1494286900436013056",
+    "animated": false
+  },
+  "VC_bimbakiss": {
+    "id": "1483092810663198850",
+    "animated": true
+  },
+  "VC_BlackPin": {
+    "id": "1482534513400610948",
+    "animated": false
+  },
+  "VC_bluthumbsdown": {
+    "id": "1482458289131360306",
+    "animated": false
+  },
+  "VC_bluthumbsup": {
+    "id": "1482458262401061044",
+    "animated": false
+  },
+  "VC_Boost": {
+    "id": "1482706171386269830",
+    "animated": true
+  },
+  "VC_Bot": {
+    "id": "1482526555174604964",
+    "animated": false
+  },
+  "VC_bump": {
+    "id": "1482531857521311885",
+    "animated": false
+  },
+  "VC_Calendar": {
+    "id": "1482706208149475358",
+    "animated": true
+  },
+  "VC_catdemon": {
+    "id": "1505995179738403017",
+    "animated": true
+  },
+  "VC_category": {
+    "id": "1478836096669581505",
+    "animated": false
+  },
+  "VC_catRAVE": {
+    "id": "1506009917906227200",
+    "animated": true
+  },
+  "VC_Channel": {
+    "id": "1482534583944871996",
+    "animated": true
+  },
+  "VC_Chat": {
+    "id": "1482532573002465413",
+    "animated": false
+  },
+  "VC_claim": {
+    "id": "1478517202016669887",
+    "animated": false
+  },
+  "VC_clap": {
+    "id": "1507868436095696976",
+    "animated": true
+  },
+  "VC_Clock": {
+    "id": "1473359204189474886",
+    "animated": false
+  },
+  "VC_close": {
+    "id": "1478517239136256020",
+    "animated": false
+  },
+  "VC_Collab": {
+    "id": "1482534540089098260",
+    "animated": false
+  },
+  "VC_Color": {
+    "id": "1482532543273238569",
+    "animated": false
+  },
+  "VC_CommunityManager": {
+    "id": "1494286896459681924",
+    "animated": false
+  },
+  "VC_Countdown": {
+    "id": "1482706760476131539",
+    "animated": true
+  },
+  "VC_Cross": {
+    "id": "1482532424570376253",
+    "animated": true
+  },
+  "VC_CrownYellow": {
+    "id": "1482706085440651428",
+    "animated": true
+  },
+  "VC_Director": {
+    "id": "1494286915778641941",
+    "animated": false
+  },
+  "VC_Dobby": {
+    "id": "1510941838138413146",
+    "animated": false
+  },
+  "VC_Dot": {
+    "id": "1482532364222595303",
+    "animated": false
+  },
+  "VC_Dot__329582": {
+    "id": "1443660294596329582",
+    "animated": false,
+    "name": "VC_Dot",
+    "note": "duplicate id of VC_Dot (refs=2)"
+  },
+  "VC_DoubleReply": {
+    "id": "1482532332509466797",
+    "animated": false
+  },
+  "VC_download": {
+    "id": "1478825280436175009",
+    "animated": false
+  },
+  "VC_emoji": {
+    "id": "1485419161168511036",
+    "animated": false
+  },
+  "VC_Events": {
+    "id": "1482706144953897223",
+    "animated": true
+  },
+  "VC_Exclamation": {
+    "id": "1482534702077444217",
+    "animated": true
+  },
+  "VC_EXP": {
+    "id": "1482534670896730143",
+    "animated": false
+  },
+  "VC_Eye": {
+    "id": "1331619214410383381",
+    "animated": false
+  },
+  "VC_file": {
+    "id": "1478515880722698300",
+    "animated": false
+  },
+  "VC_Firework": {
+    "id": "1470796227913322658",
+    "animated": false
+  },
+  "VC_Flame": {
+    "id": "1482725674711126140",
+    "animated": true
+  },
+  "VC_Flower": {
+    "id": "1468685050966179841",
+    "animated": true
+  },
+  "VC_FlowerPink": {
+    "id": "1468688049725636903",
+    "animated": true
+  },
+  "VC_Flowers": {
+    "id": "1468687836055212174",
+    "animated": true
+  },
+  "VC_Founder": {
+    "id": "1494286918974963732",
+    "animated": false
+  },
+  "VC_FrogCute": {
+    "id": "1331620415185096746",
+    "animated": false
+  },
+  "VC_FrogJuice": {
+    "id": "1331620486517358613",
+    "animated": false
+  },
+  "VC_gothsnake": {
+    "id": "1512513984283021413",
+    "animated": false
+  },
+  "VC_Halloween": {
+    "id": "1558964785113206824",
+    "animated": false
+  },
+  "VC_handleft": {
+    "id": "1482730852164305068",
+    "animated": false
+  },
+  "VC_handright": {
+    "id": "1482730777719476305",
+    "animated": false
+  },
+  "VC_HarryPotter": {
+    "id": "1508772790634025030",
+    "animated": false
+  },
+  "VC_harrypotters": {
+    "id": "1510941833222557696",
+    "animated": false
+  },
+  "VC_Heart": {
+    "id": "1448672728822448141",
+    "animated": true
+  },
+  "VC_HeartBlue": {
+    "id": "1448673354751021190",
+    "animated": true
+  },
+  "VC_heartfinger": {
+    "id": "1504513546782769332",
+    "animated": true
+  },
+  "VC_HeartPink": {
+    "id": "1448673486603292685",
+    "animated": true
+  },
+  "VC_HeartsBlue": {
+    "id": "1468686100045369404",
+    "animated": true
+  },
+  "VC_HeartsPink": {
+    "id": "1468685897389052008",
+    "animated": true
+  },
+  "VC_HeartWhite": {
+    "id": "1448673535253024860",
+    "animated": true
+  },
+  "VC_HelloKittyGift": {
+    "id": "1329447876857958471",
+    "animated": true
+  },
+  "VC_HelloKittyGun": {
+    "id": "1329447880150220883",
+    "animated": false
+  },
+  "VC_Helper": {
+    "id": "1502328751638450426",
+    "animated": false
+  },
+  "VC_Hogwarts": {
+    "id": "1508766773837693061",
+    "animated": false
+  },
+  "VC_id": {
+    "id": "1478517313618575419",
+    "animated": false
+  },
+  "VC_Id": {
+    "id": "1482527453586002103",
+    "animated": false
+  },
+  "VC_InactiveStatus": {
+    "id": "1482526984234860574",
+    "animated": false
+  },
+  "VC_Infinity": {
+    "id": "1448687797266288832",
+    "animated": true
+  },
+  "VC_Info": {
+    "id": "1482526956703580372",
+    "animated": false
+  },
+  "VC_Instagram": {
+    "id": "1482526710426767360",
+    "animated": false
+  },
+  "VC_Kiss": {
+    "id": "1448673021031223428",
+    "animated": true
+  },
+  "VC_Leaderboard": {
+    "id": "1482534806314287387",
+    "animated": false
+  },
+  "VC_LevelUp": {
+    "id": "1482527020641419415",
+    "animated": true
+  },
+  "VC_LevelUp2": {
+    "id": "1482527047871107143",
+    "animated": false
+  },
+  "VC_lil_swag": {
+    "id": "1494319540954464327",
+    "animated": true
+  },
+  "VC_Link": {
+    "id": "1482460590894088222",
+    "animated": false
+  },
+  "VC_Loading": {
+    "id": "1482526772862914776",
+    "animated": true
+  },
+  "VC_Loading__969578": {
+    "id": "1482526818278969578",
+    "animated": true,
+    "name": "VC_Loading",
+    "note": "duplicate id of VC_Loading (refs=9)"
+  },
+  "VC_Loading__376253": {
+    "id": "1482532424570376253",
+    "animated": true,
+    "name": "VC_Loading",
+    "note": "duplicate id of VC_Loading (refs=2)"
+  },
+  "VC_Lock": {
+    "id": "1482526739044368476",
+    "animated": false
+  },
+  "VC_Manager": {
+    "id": "1521629610876338307",
+    "animated": false
+  },
+  "VC_Mention": {
+    "id": "1482526855289634997",
+    "animated": false
+  },
+  "VC_MilkExclaim": {
+    "id": "1504510510492815411",
+    "animated": false
+  },
+  "VC_Mod": {
+    "id": "1494287597952958514",
+    "animated": false
+  },
+  "VC_Modifica": {
+    "id": "1478859646587633717",
+    "animated": false
+  },
+  "VC_Money": {
+    "id": "1482724694699278487",
+    "animated": true
+  },
+  "VC_Money__287387": {
+    "id": "1482534806314287387",
+    "animated": false,
+    "name": "VC_Money",
+    "note": "duplicate id of VC_Money (refs=2)"
+  },
+  "VC_movie": {
+    "id": "1497534838801174559",
+    "animated": false
+  },
+  "VC_Mute": {
+    "id": "1482534751511515238",
+    "animated": true
+  },
+  "VC_New": {
+    "id": "1471891729471770819",
+    "animated": false
+  },
+  "VC_NewsExclamation": {
+    "id": "1471891662786527253",
+    "animated": true
+  },
+  "VC_no": {
+    "id": "1522004036633755708",
+    "animated": true
+  },
+  "VC_OfflineStatus": {
+    "id": "1482527117051957380",
+    "animated": false
+  },
+  "VC_OnlineStatus": {
+    "id": "1482527088912240650",
+    "animated": false
+  },
+  "VC_open": {
+    "id": "1478517277279129712",
+    "animated": false
+  },
+  "VC_opentime": {
+    "id": "1478517163022221323",
+    "animated": false
+  },
+  "VC_Owlcall": {
+    "id": "1510941826176126976",
+    "animated": false
+  },
+  "VC_page2": {
+    "id": "1482459724657201387",
+    "animated": false
+  },
+  "VC_page3": {
+    "id": "1482459759268462613",
+    "animated": false
+  },
+  "VC_PandaClap": {
+    "id": "1331620157398712330",
+    "animated": true
+  },
+  "VC_Partner": {
+    "id": "1482527213780729896",
+    "animated": false
+  },
+  "VC_PartnerManager": {
+    "id": "1494286911286808576",
+    "animated": false
+  },
+  "VC_PausedStatus": {
+    "id": "1482527157283455086",
+    "animated": false
+  },
+  "VC_PepeCoffe": {
+    "id": "1331591342744277022",
+    "animated": false
+  },
+  "VC_PepeCoffee": {
+    "id": "1331589584831643699",
+    "animated": false
+  },
+  "VC_PepeCryCoffe": {
+    "id": "1331591489477939200",
+    "animated": false
+  },
+  "VC_PepeEggPlant": {
+    "id": "1331622686014570588",
+    "animated": true
+  },
+  "VC_PepeExit": {
+    "id": "1446190735937245415",
+    "animated": true
+  },
+  "VC_PepeFoto": {
+    "id": "1479131953100750882",
+    "animated": true
+  },
+  "VC_PepeSleep": {
+    "id": "1331590644506034247",
+    "animated": true
+  },
+  "VC_PepeSleep__440478": {
+    "id": "1331591537070440478",
+    "animated": false,
+    "name": "VC_PepeSleep",
+    "note": "duplicate id of VC_PepeSleep (refs=1)"
+  },
+  "VC_PepeWave": {
+    "id": "1331589315175907412",
+    "animated": false
+  },
+  "VC_PepeWelcome": {
+    "id": "1448671757128175626",
+    "animated": true
+  },
+  "VC_PepeWideAwake": {
+    "id": "1331589268648497201",
+    "animated": false
+  },
+  "VC_PikaWave": {
+    "id": "1331622011004260354",
+    "animated": true
+  },
+  "VC_Ping": {
+    "id": "1482694298687246377",
+    "animated": true
+  },
+  "VC_PinkQuestionMark": {
+    "id": "1471892611026391306",
+    "animated": false
+  },
+  "VC_pixeltime": {
+    "id": "1482535344103620771",
+    "animated": true
+  },
+  "VC_Podio1": {
+    "id": "1482694399283433582",
+    "animated": false
+  },
+  "VC_Podio2": {
+    "id": "1482694424411635712",
+    "animated": false
+  },
+  "VC_Podio3": {
+    "id": "1482694450806259744",
+    "animated": false
+  },
+  "VC_Poll": {
+    "id": "1482535102436216832",
+    "animated": false
+  },
+  "VC_Preview": {
+    "id": "1482527267992375368",
+    "animated": false
+  },
+  "VC_purge": {
+    "id": "1478861828271636561",
+    "animated": false
+  },
+  "VC_PurpleFlower": {
+    "id": "1469463879149944943",
+    "animated": false
+  },
+  "VC_Quest": {
+    "id": "1482534879257165865",
+    "animated": false
+  },
+  "VC_reason": {
+    "id": "1478517122929004544",
+    "animated": false
+  },
+  "VC_Reason": {
+    "id": "1478517122929004544",
+    "animated": false
+  },
+  "VC_Refresh": {
+    "id": "1473359252276904203",
+    "animated": false
+  },
+  "VC_Reply": {
+    "id": "1482532158080942191",
+    "animated": false
+  },
+  "VC_right_arrow": {
+    "id": "1482459908245815296",
+    "animated": false
+  },
+  "VC_RightWing": {
+    "id": "1448672889845973214",
+    "animated": true
+  },
+  "VC_risata": {
+    "id": "1483909391689449532",
+    "animated": true
+  },
+  "VC_Rocket": {
+    "id": "1468544312475123753",
+    "animated": true
+  },
+  "VC_Rule": {
+    "id": "1482706839928967280",
+    "animated": true
+  },
+  "VC_Rules": {
+    "id": "1482527309868040393",
+    "animated": false
+  },
+  "VC_SeniorModerator": {
+    "id": "1494286913744539648",
+    "animated": false
+  },
+  "VC_Server": {
+    "id": "1494287244156049448",
+    "animated": false
+  },
+  "VC_Skully": {
+    "id": "1331591939094614057",
+    "animated": false
+  },
+  "VC_Space": {
+    "id": "1482459974667075685",
+    "animated": false
+  },
+  "VC_Sparkles": {
+    "id": "1468546911936974889",
+    "animated": true
+  },
+  "VC_spongebobdance": {
+    "id": "1494319630771032084",
+    "animated": true
+  },
+  "VC_Spotify": {
+    "id": "1482527369477492797",
+    "animated": false
+  },
+  "VC_Staff": {
+    "id": "1494286904089247754",
+    "animated": false
+  },
+  "VC_stage": {
+    "id": "1478836138583134400",
+    "animated": false
+  },
+  "VC_StarBlue": {
+    "id": "1330194918043418674",
+    "animated": true
+  },
+  "VC_StarPink": {
+    "id": "1330194976440848500",
+    "animated": true
+  },
+  "VC_StarPurple": {
+    "id": "1330195026688344156",
+    "animated": true
+  },
+  "VC_Stats": {
+    "id": "1482527532682055780",
+    "animated": false
+  },
+  "VC_Status_5": {
+    "id": "1472011474909008017",
+    "animated": false
+  },
+  "VC_ThankYou": {
+    "id": "1330186319673950401",
+    "animated": true
+  },
+  "VC_threads": {
+    "id": "1478515497569095760",
+    "animated": false
+  },
+  "VC_Ticket": {
+    "id": "1482535175283019888",
+    "animated": false
+  },
+  "VC_TikTok": {
+    "id": "1498017166060949525",
+    "animated": false
+  },
+  "VC_Timer": {
+    "id": "1482527426557775954",
+    "animated": true
+  },
+  "VC_tools": {
+    "id": "1478862265305272364",
+    "animated": false
+  },
+  "VC_topgg": {
+    "id": "1495124467553275934",
+    "animated": false
+  },
+  "VC_TwitchLive": {
+    "id": "1524066585646596106",
+    "animated": true
+  },
+  "VC_uaskelly": {
+    "id": "1507868393305411655",
+    "animated": true
+  },
+  "VC_Unlock": {
+    "id": "1482532082466029608",
+    "animated": true
+  },
+  "VC_update": {
+    "id": "1478721333096349817",
+    "animated": false
+  },
+  "VC_User": {
+    "id": "1482527453586002103",
+    "animated": false
+  },
+  "VC_Verified": {
+    "id": "1482532479637127188",
+    "animated": true
+  },
+  "VC_Vip": {
+    "id": "1482534921472835895",
+    "animated": false
+  },
+  "VC_Vote": {
+    "id": "1482535223001485473",
+    "animated": true
+  },
+  "VC_Wallet": {
+    "id": "1482534947574124584",
+    "animated": false
+  },
+  "VC_webhooks": {
+    "id": "1478515450769047704",
+    "animated": false
+  },
+  "VC_WingYellow": {
+    "id": "1448687141604298822",
+    "animated": true
+  },
+  "VC_Winner": {
+    "id": "1482535294757507255",
+    "animated": true
+  },
+  "vegacheckmark": {
+    "id": "1443666279058772028",
+    "animated": false
+  },
+  "vegaleftarrow": {
+    "id": "1462914743416131816",
+    "animated": true
+  },
+  "vegarightarrow": {
+    "id": "1443673039156936837",
+    "animated": true
+  },
+  "vegax": {
+    "id": "1443934876440068179",
+    "animated": false
+  },
+  "voice": {
+    "id": "1467639623735054509",
+    "animated": false
+  }
+}

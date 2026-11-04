@@ -8,6 +8,7 @@ const { t } = require("../../Partner/i18n/tenantPartnershipI18n/index") as typeo
 const { TENANT_PARTNERSHIP_ARROWS } = require("../../Partner/tenant/tenantPartnershipArrows") as typeof import("../../Partner/tenant/tenantPartnershipArrows");
 const { formatLeaveAction, channelLine, roleLine, formatPmCommandsZone } = require("../../Partner/tenant/tenantPartnershipAdminRuntime") as typeof import("../../Partner/tenant/tenantPartnershipAdminRuntime");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const PREFIX = "psettings";
 const MODAL_PREFIX = "psettings_modal";
 const SETTINGS_COLOR = TENANT_EMBED_COLOR;
@@ -44,7 +45,7 @@ function formatPartnerManagerSummary(guild?, config?, lang = "it") {
 function formatDelaySummaryLine(guild?, config?, lang = "it") {
   const pings = config?.pings || {};
   const delayValue = formatPingDelayDisplay(pings.customRoleDelayMs);
-  return `> <:VC_Clock:1473359204189474886> **${t(lang, "settings_home_delay")}**: \`${delayValue}\``;
+  return `> ${E.VC_Clock} **${t(lang, "settings_home_delay")}**: \`${delayValue}\``;
 }
 
 function resolveSettingsConfig(guild?, config?) {
@@ -61,10 +62,10 @@ function buildHomeEmbed(guild?, config?, lang = "it") {
       [
         t(lang, "settings_home_intro"),
         "",
-        `<:VC_page2:1482459724657201387> **${t(lang, "settings_home_channels")}:** ${formatChannelsSummary(guild, cfg)}`,
-        `<:981353partner:1524730506531311688> **${t(lang, "settings_home_pmRole")}:** ${formatPartnerManagerSummary(guild, cfg, lang)}`,
-        `<:VC_page3:1482459759268462613> **${t(lang, "settings_home_skipManager")}:** ${cfg.skipManager ? `\`${t(lang, "true")}\`` : `\`${t(lang, "false")}\``}`,
-        `<:VC_Mention:1482526855289634997> **${t(lang, "settings_home_pings")}:** ${cfg.pings?.configured ? `\`${t(lang, "true")}\`` : `\`${t(lang, "false")}\``}`,
+        `${E.VC_page2} **${t(lang, "settings_home_channels")}:** ${formatChannelsSummary(guild, cfg)}`,
+        `${E["981353partner"]} **${t(lang, "settings_home_pmRole")}:** ${formatPartnerManagerSummary(guild, cfg, lang)}`,
+        `${E.VC_page3} **${t(lang, "settings_home_skipManager")}:** ${cfg.skipManager ? `\`${t(lang, "true")}\`` : `\`${t(lang, "false")}\``}`,
+        `${E.VC_Mention} **${t(lang, "settings_home_pings")}:** ${cfg.pings?.configured ? `\`${t(lang, "true")}\`` : `\`${t(lang, "false")}\``}`,
         formatDelaySummaryLine(guild, cfg, lang),
       ].join("\n"),
     );
@@ -90,13 +91,13 @@ function buildSelectRow(ownerId?, menuKey?, placeholder?, options?) {
 function buildHomeComponents(ownerId?, lang = "it") {
   return [
     buildSelectRow(ownerId, "home", t(lang, "settings_select_home"), [
-      { label: t(lang, "settings_sel_channels_label"), value: "open_channels", emoji: "<:VC_page2:1482459724657201387>", description: t(lang, "settings_sel_channels_desc") },
-      { label: t(lang, "settings_sel_roles_label"), value: "open_roles", emoji: "<:981353partner:1524730506531311688>", description: t(lang, "settings_sel_roles_desc") },
-      { label: t(lang, "settings_sel_skip_label"), value: "toggle_skip", emoji: "<:VC_page3:1482459759268462613>", description: t(lang, "settings_sel_skip_desc") },
-      { label: t(lang, "settings_sel_ping_label"), value: "open_ping_modal", emoji: "<:VC_Mention:1482526855289634997>", description: t(lang, "settings_sel_ping_desc") },
-      { label: t(lang, "settings_sel_custom_label"), value: "open_custom_embed", emoji: "<:709897bolt:1524730543122681988>", description: t(lang, "settings_sel_custom_desc") },
-      { label: t(lang, "settings_sel_desc_label"), value: "open_partner_desc", emoji: "<:373988mail:1524730508439719956>", description: t(lang, "settings_sel_desc_desc") },
-      { label: t(lang, "settings_sel_behaviors_label"), value: "open_behaviors", emoji: "<:294025staff:1524730527943491594>", description: t(lang, "settings_sel_behaviors_desc") },
+      { label: t(lang, "settings_sel_channels_label"), value: "open_channels", emoji: E.VC_page2, description: t(lang, "settings_sel_channels_desc") },
+      { label: t(lang, "settings_sel_roles_label"), value: "open_roles", emoji: E["981353partner"], description: t(lang, "settings_sel_roles_desc") },
+      { label: t(lang, "settings_sel_skip_label"), value: "toggle_skip", emoji: E.VC_page3, description: t(lang, "settings_sel_skip_desc") },
+      { label: t(lang, "settings_sel_ping_label"), value: "open_ping_modal", emoji: E.VC_Mention, description: t(lang, "settings_sel_ping_desc") },
+      { label: t(lang, "settings_sel_custom_label"), value: "open_custom_embed", emoji: E["709897bolt"], description: t(lang, "settings_sel_custom_desc") },
+      { label: t(lang, "settings_sel_desc_label"), value: "open_partner_desc", emoji: E["373988mail"], description: t(lang, "settings_sel_desc_desc") },
+      { label: t(lang, "settings_sel_behaviors_label"), value: "open_behaviors", emoji: E["294025staff"], description: t(lang, "settings_sel_behaviors_desc") },
     ]),
   ];
 }
@@ -108,9 +109,9 @@ function buildSettingsChannelsEmbed(guild?, config?, lang = "it") {
       [
         t(lang, "settings_channels_intro"),
         "",
-        `<a:VC_Announce:1482534613568979007> **${t(lang, "settings_channels_partner")}:** ${config?.partnershipsChannelId ? channelLine(config.partnershipsChannelId, guild) : t(lang, "common_notSet")}`,
-        `<:VC_Quest:1482534879257165865> **${t(lang, "settings_channels_logs")}:** ${config?.logsChannelId ? channelLine(config.logsChannelId, guild) : t(lang, "common_notSetOptional")}`,
-        `<:981353partner:1524730506531311688> **${t(lang, "settings_channels_pm")}:** ${formatPmCommandsZone(guild, config, lang)}`,
+        `${E.VC_Announce} **${t(lang, "settings_channels_partner")}:** ${config?.partnershipsChannelId ? channelLine(config.partnershipsChannelId, guild) : t(lang, "common_notSet")}`,
+        `${E.VC_Quest} **${t(lang, "settings_channels_logs")}:** ${config?.logsChannelId ? channelLine(config.logsChannelId, guild) : t(lang, "common_notSetOptional")}`,
+        `${E["981353partner"]} **${t(lang, "settings_channels_pm")}:** ${formatPmCommandsZone(guild, config, lang)}`,
       ]
         .filter(Boolean)
         .join("\n"),
@@ -120,10 +121,10 @@ function buildSettingsChannelsEmbed(guild?, config?, lang = "it") {
 function buildSettingsChannelsComponents(ownerId?, lang = "it") {
   return [
     buildSelectRow(ownerId, "channels", t(lang, "settings_select_channels"), [
-      { label: t(lang, "settings_sel_ch_partner_label"), value: "ch_partner", emoji: "<a:VC_Announce:1482534613568979007>", description: t(lang, "settings_sel_ch_partner_desc") },
-      { label: t(lang, "settings_sel_ch_logs_label"), value: "ch_logs", emoji: "<:VC_Quest:1482534879257165865>", description: t(lang, "settings_sel_ch_logs_desc") },
-      { label: t(lang, "settings_sel_ch_pm_label"), value: "ch_pm_commands", emoji: "<:981353partner:1524730506531311688>", description: t(lang, "settings_sel_ch_pm_desc") },
-      { label: t(lang, "settings_sel_ch_pm_cat_label"), value: "ch_pm_categories", emoji: "<:VC_page2:1482459724657201387>", description: t(lang, "settings_sel_ch_pm_cat_desc") },
+      { label: t(lang, "settings_sel_ch_partner_label"), value: "ch_partner", emoji: E.VC_Announce, description: t(lang, "settings_sel_ch_partner_desc") },
+      { label: t(lang, "settings_sel_ch_logs_label"), value: "ch_logs", emoji: E.VC_Quest, description: t(lang, "settings_sel_ch_logs_desc") },
+      { label: t(lang, "settings_sel_ch_pm_label"), value: "ch_pm_commands", emoji: E["981353partner"], description: t(lang, "settings_sel_ch_pm_desc") },
+      { label: t(lang, "settings_sel_ch_pm_cat_label"), value: "ch_pm_categories", emoji: E.VC_page2, description: t(lang, "settings_sel_ch_pm_cat_desc") },
       { label: t(lang, "common_backHome"), value: "back_home", emoji: TENANT_PARTNERSHIP_ARROWS.left, description: t(lang, "common_backHome") },
     ]),
   ];
@@ -144,7 +145,7 @@ function buildSettingsRolesEmbed(guild?, config?, lang = "it") {
 function buildSettingsRolesComponents(ownerId?, lang = "it") {
   return [
     buildSelectRow(ownerId, "roles", t(lang, "settings_select_roles"), [
-      { label: t(lang, "settings_sel_role_manager_label"), value: "role_manager", emoji: "<:981353partner:1524730506531311688>", description: t(lang, "settings_sel_role_manager_desc") },
+      { label: t(lang, "settings_sel_role_manager_label"), value: "role_manager", emoji: E["981353partner"], description: t(lang, "settings_sel_role_manager_desc") },
       { label: t(lang, "common_backHome"), value: "back_home", emoji: TENANT_PARTNERSHIP_ARROWS.left, description: t(lang, "common_backHome") },
     ]),
   ];
@@ -158,8 +159,8 @@ function buildBehaviorsEmbed(config?, lang = "it") {
       [
         t(lang, "settings_behaviors_intro"),
         "",
-        `<:510611star:1524730514156556328> **${t(lang, "settings_behaviors_badgeRole")}:** ${cfg.managerBadgeRoleId ? `<@&${cfg.managerBadgeRoleId}>` : t(lang, "common_null")}`,
-        `<:11781warning:1524730510092533790> **${t(lang, "settings_behaviors_leave")}:** ${formatLeaveAction(cfg.managerLeaveAction, lang)}`,
+        `${E["510611star"]} **${t(lang, "settings_behaviors_badgeRole")}:** ${cfg.managerBadgeRoleId ? `<@&${cfg.managerBadgeRoleId}>` : t(lang, "common_null")}`,
+        `${E["11781warning"]} **${t(lang, "settings_behaviors_leave")}:** ${formatLeaveAction(cfg.managerLeaveAction, lang)}`,
       ].join("\n"),
     );
 }
@@ -167,8 +168,8 @@ function buildBehaviorsEmbed(config?, lang = "it") {
 function buildBehaviorsComponents(ownerId?, lang = "it") {
   return [
     buildSelectRow(ownerId, "behaviors", t(lang, "settings_select_behaviors"), [
-      { label: t(lang, "settings_sel_behavior_role_label"), value: "behavior_create_role", emoji: "<:510611star:1524730514156556328>", description: t(lang, "settings_sel_behavior_role_desc") },
-      { label: t(lang, "settings_sel_behavior_leave_label"), value: "open_leave", emoji: "<:11781warning:1524730510092533790>", description: t(lang, "settings_sel_behavior_leave_desc") },
+      { label: t(lang, "settings_sel_behavior_role_label"), value: "behavior_create_role", emoji: E["510611star"], description: t(lang, "settings_sel_behavior_role_desc") },
+      { label: t(lang, "settings_sel_behavior_leave_label"), value: "open_leave", emoji: E["11781warning"], description: t(lang, "settings_sel_behavior_leave_desc") },
       { label: t(lang, "common_backHome"), value: "back_home", emoji: TENANT_PARTNERSHIP_ARROWS.left, description: t(lang, "common_backHome") },
     ]),
   ];
@@ -181,7 +182,7 @@ function buildLeaveBehaviorEmbed(config?, lang = "it") {
       [
         t(lang, "settings_leave_intro"),
         "",
-        `<:11781warning:1524730510092533790> **${t(lang, "settings_behaviors_leave")}:** ${formatLeaveAction(config?.managerLeaveAction, lang)}`,
+        `${E["11781warning"]} **${t(lang, "settings_behaviors_leave")}:** ${formatLeaveAction(config?.managerLeaveAction, lang)}`,
       ].join("\n"),
     );
 }
@@ -190,10 +191,10 @@ function buildPartnerDescEmbed(guild?, config?, lang = "it") {
   const desc = config?.partnerDesc || {};
   const modeLine =
     desc.mode === "channel"
-      ? `<:VC_page2:1482459724657201387> ${t(lang, "settings_partnerDesc_modeChannel", { channel: channelLine(desc.channelId, guild) })}`
+      ? `${E.VC_page2} ${t(lang, "settings_partnerDesc_modeChannel", { channel: channelLine(desc.channelId, guild) })}`
       : desc.mode === "static"
-        ? `<:373988mail:1524730508439719956> ${t(lang, "settings_partnerDesc_modeStatic")}`
-        : `<:vegax:1443934876440068179> ${t(lang, "settings_partnerDesc_modeNone")}`;
+        ? `${E["373988mail"]} ${t(lang, "settings_partnerDesc_modeStatic")}`
+        : `${E.vegax} ${t(lang, "settings_partnerDesc_modeNone")}`;
   const detailLine =
     desc.mode === "static" && desc.staticText
       ? `\n> ${String(desc.staticText).replace(/\n/g, "\n> ").slice(0, 900)}${desc.staticText.length > 900 ? "…" : ""}`
@@ -218,19 +219,19 @@ function buildPartnerDescComponents(ownerId?, lang = "it") {
       {
         label: t(lang, "settings_sel_desc_channel_label"),
         value: "desc_channel",
-        emoji: "<:VC_page2:1482459724657201387>",
+        emoji: E.VC_page2,
         description: t(lang, "settings_sel_desc_channel_desc"),
       },
       {
         label: t(lang, "settings_sel_desc_static_label"),
         value: "desc_static_modal",
-        emoji: "<:373988mail:1524730508439719956>",
+        emoji: E["373988mail"],
         description: t(lang, "settings_sel_desc_static_desc"),
       },
       {
         label: t(lang, "settings_sel_desc_clear_label"),
         value: "desc_clear",
-        emoji: "<:75661closelogo:1524730529440596089>",
+        emoji: E["75661closelogo"],
         description: t(lang, "settings_sel_desc_clear_desc"),
       },
       { label: t(lang, "common_backHome"), value: "back_home", emoji: TENANT_PARTNERSHIP_ARROWS.left, description: t(lang, "common_backHome") },
@@ -262,9 +263,9 @@ function buildLeaveBehaviorComponents(ownerId?, lang = "it") {
   return [
     buildSelectRow(ownerId, "leave", t(lang, "settings_select_leave"), [
       { label: t(lang, "settings_sel_leave_back_label"), value: "leave_back", emoji: TENANT_PARTNERSHIP_ARROWS.left },
-      { label: t(lang, "settings_sel_leave_delete_label"), value: "leave_delete_5m", emoji: "<:VC_Clock:1473359204189474886>", description: t(lang, "settings_sel_leave_delete_desc") },
-      { label: t(lang, "settings_sel_leave_warn_label"), value: "leave_warn", emoji: "<:11781warning:1524730510092533790>", description: t(lang, "settings_sel_leave_warn_desc") },
-      { label: t(lang, "settings_sel_leave_null_label"), value: "leave_null", emoji: "<:75661closelogo:1524730529440596089>", description: t(lang, "settings_sel_leave_null_desc") },
+      { label: t(lang, "settings_sel_leave_delete_label"), value: "leave_delete_5m", emoji: E.VC_Clock, description: t(lang, "settings_sel_leave_delete_desc") },
+      { label: t(lang, "settings_sel_leave_warn_label"), value: "leave_warn", emoji: E["11781warning"], description: t(lang, "settings_sel_leave_warn_desc") },
+      { label: t(lang, "settings_sel_leave_null_label"), value: "leave_null", emoji: E["75661closelogo"], description: t(lang, "settings_sel_leave_null_desc") },
     ]),
   ];
 }
@@ -279,8 +280,8 @@ function buildCustomEmbedPanelEmbed(config?, lang = "it") {
       [
         t(lang, "settings_custom_intro"),
         "",
-        `<:373988mail:1524730508439719956> **${t(lang, "settings_custom_message")}:** ${thankYouEnabled}`,
-        `<:116444unlocked:1524730512051277905> **${t(lang, "settings_custom_manual")}:** ${manualEnabled}`,
+        `${E["373988mail"]} **${t(lang, "settings_custom_message")}:** ${thankYouEnabled}`,
+        `${E["116444unlocked"]} **${t(lang, "settings_custom_manual")}:** ${manualEnabled}`,
       ].join("\n"),
     );
 }
@@ -291,25 +292,25 @@ function buildCustomEmbedComponents(ownerId?, lang = "it") {
       {
         label: t(lang, "settings_sel_custom_p1_label"),
         value: "custom_embed_edit_p1",
-        emoji: "<:VC_page2:1482459724657201387>",
+        emoji: E.VC_page2,
         description: t(lang, "settings_sel_custom_p1_desc"),
       },
       {
         label: t(lang, "settings_sel_custom_p2_label"),
         value: "custom_embed_edit_p2",
-        emoji: "<:709897bolt:1524730543122681988>",
+        emoji: E["709897bolt"],
         description: t(lang, "settings_sel_custom_p2_desc"),
       },
       {
         label: t(lang, "settings_sel_custom_vars_label"),
         value: "custom_embed_vars",
-        emoji: "<:VC_Quest:1482534879257165865>",
+        emoji: E.VC_Quest,
         description: t(lang, "settings_sel_custom_vars_desc"),
       },
       {
         label: t(lang, "settings_sel_custom_manual_label"),
         value: "custom_embed_toggle_manual",
-        emoji: "<:981353partner:1524730506531311688>",
+        emoji: E["981353partner"],
         description: t(lang, "settings_sel_custom_manual_desc"),
       },
       { label: t(lang, "common_backHome"), value: "back_home", emoji: TENANT_PARTNERSHIP_ARROWS.left, description: t(lang, "common_backHome") },

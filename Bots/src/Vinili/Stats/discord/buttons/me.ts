@@ -5,6 +5,7 @@ const { renderUserActivityCanvas, prefetchStatsCanvasAvatar } = require("../../.
 const { getOrBuildStatsCanvasBuffer } = require("../../runtime/statsCanvasCache") as typeof import("../../runtime/statsCanvasCache");
 const { accountUsername, guildMemberDisplayAvatarUrlStatic, userAvatarUrlStatic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 const { getEffectiveJoinedAt } = require("../../../Community/services/effectiveMemberJoinService") as typeof import("../../../Community/services/effectiveMemberJoinService");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const ME_REFRESH_CUSTOM_ID_PREFIX = "me_refresh";
 const ME_PERIOD_OPEN_CUSTOM_ID_PREFIX = "me_period_open";
 const ME_PERIOD_SET_CUSTOM_ID_PREFIX = "me_period_set";
@@ -123,8 +124,8 @@ function buildMeComponents(ownerId?, lookbackDays?, view?) {
   const periodOpen = ownerId ? `${ME_PERIOD_OPEN_CUSTOM_ID_PREFIX}:${ownerId}:${safeLookback}:embed` : `${ME_PERIOD_OPEN_CUSTOM_ID_PREFIX}:${safeLookback}:embed`;
 
   const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(base).setStyle(ButtonStyle.Secondary).setEmoji("<:VC_Refresh:1473359252276904203> "),
-    new ButtonBuilder().setCustomId(periodOpen).setStyle(ButtonStyle.Secondary).setEmoji("<:VC_Clock:1473359204189474886>")
+    new ButtonBuilder().setCustomId(base).setStyle(ButtonStyle.Secondary).setEmoji(`${E.VC_Refresh} `),
+    new ButtonBuilder().setCustomId(periodOpen).setStyle(ButtonStyle.Secondary).setEmoji(E.VC_Clock)
   );
 
   if (view === "period") {

@@ -4,6 +4,7 @@ const { renderChannelActivityCanvas, formatCanvasChannelLabel, prefetchStatsCanv
 const { getOrBuildStatsCanvasBuffer } = require("../../runtime/statsCanvasCache") as typeof import("../../runtime/statsCanvasCache");
 const { guildIconUrl } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 const { resolveTopUserEntriesForCanvas } = require("../prefix/top") as typeof import("../prefix/top");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const CHANNEL_REFRESH_CUSTOM_ID_PREFIX = "channel_refresh";
 const CHANNEL_PERIOD_OPEN_CUSTOM_ID_PREFIX = "channel_period_open";
 const CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX = "channel_period_set";
@@ -37,7 +38,7 @@ async function execute(interaction?) {
   }
   const channel = guild.channels?.cache?.get(parsed.channelId) || (await guild.channels.fetch(parsed.channelId).catch(() => null));
   if (!channel) {
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Canale non trovato.", flags: 1 << 6 }).catch(() => {});
+    await interaction.reply({ content: `${E.VC_Alert} Canale non trovato.`, flags: 1 << 6 }).catch(() => {});
     return true;
   }
 
@@ -129,14 +130,14 @@ function buildChannelComponents(ownerId?, channelId?, lookbackDays?, view?) {
   const periodOpen = `${CHANNEL_PERIOD_OPEN_CUSTOM_ID_PREFIX}:${o}${channelId}:${safeLookback}`;
 
   const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(base).setStyle(ButtonStyle.Secondary).setEmoji("<:VC_Refresh:1473359252276904203> "),
-    new ButtonBuilder().setCustomId(periodOpen).setStyle(ButtonStyle.Secondary).setEmoji("<:VC_Clock:1473359204189474886>")
+    new ButtonBuilder().setCustomId(base).setStyle(ButtonStyle.Secondary).setEmoji(`${E.VC_Refresh} `),
+    new ButtonBuilder().setCustomId(periodOpen).setStyle(ButtonStyle.Secondary).setEmoji(E.VC_Clock)
   );
 
   if (view === "period") {
     const periodBack = `${CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX}:${o}${channelId}:${safeLookback}`;
     const rowPeriod1 = new ActionRowBuilder().addComponents(...ALLOWED_LOOKBACK.map((d?) => new ButtonBuilder().setCustomId(`${CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX}:${o}${channelId}:${d}`).setStyle(safeLookback === d ? ButtonStyle.Primary : ButtonStyle.Secondary).setLabel(`${d}d`)));
-    const rowPeriod2 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(periodBack).setStyle(ButtonStyle.Secondary).setEmoji("<a:vegaleftarrow:1462914743416131816>"));
+    const rowPeriod2 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(periodBack).setStyle(ButtonStyle.Secondary).setEmoji(E.vegaleftarrow));
     return [row1, rowPeriod1, rowPeriod2].slice(0, 5);
   }
   return [row1].slice(0, 5);

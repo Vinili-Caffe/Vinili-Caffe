@@ -6,6 +6,7 @@ const { isUnknownExecutorId, formatExecutorLine, sendAntiNukeLog } = require("./
 const { getPanicState } = require("./antiNukePanicLock") as typeof import("./antiNukePanicLock");
 const { isAntiNukeScopeGuild, isAntiNukePanicActive, quarantineOutcomeLabel, quarantineExecutor } = require("./antiNukeQuarantine") as typeof import("./antiNukeQuarantine");
 const { enableAntiNukePanic } = require("./antiNukePanicEnable") as typeof import("./antiNukePanicEnable");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   percentToHeat,
   normalizeExecutorId,
@@ -65,7 +66,7 @@ async function handleRoleCreationAction({ guild, executorId, roleId = "" }) {
   );
   await enableAntiNukePanic(
     guild,
-    "<a:VC_Alert:1482706673176150077> Role creation filter",
+    `${E.VC_Alert} Role creation filter`,
     ANTINUKE_CONFIG.roleCreationFilter.heatPerAction,
   );
   const panicActive = isAntiNukePanicActive(guild.id);
@@ -82,20 +83,20 @@ async function handleRoleCreationAction({ guild, executorId, roleId = "" }) {
       me?.permissions?.has?.(PermissionsBitField.Flags.ManageRoles) &&
       role.position < me.roles.highest.position
     ) {
-      const removed = await role.delete("<:VC_Lock:1482526739044368476> AntiNuke panic: delete role created during active panic").then(() => true).catch(() => false);
+      const removed = await role.delete(`${E.VC_Lock} AntiNuke panic: delete role created during active panic`).then(() => true).catch(() => false);
       const canQuarantine = instantCfg?.quarantineExecutor && !isPanicExecutorCooldownActive(guild.id, actorId, now);
-      const quarantine = canQuarantine ? await quarantineExecutor(guild, actorId, "<:VC_Lock:1482526739044368476> AntiNuke panic: role creation blocked during active panic",) : { applied: false, method: "cooldown" };
+      const quarantine = canQuarantine ? await quarantineExecutor(guild, actorId, `${E.VC_Lock} AntiNuke panic: role creation blocked during active panic`,) : { applied: false, method: "cooldown" };
       if (canQuarantine && quarantine.applied) touchPanicExecutorCooldown(guild.id, actorId, now);
       if (removed) {
         await sendAntiNukeLog(
           guild,
-          "<a:VC_Alert:1482706673176150077> AntiNuke: Panic Instant Rollback",
+          `${E.VC_Alert} AntiNuke: Panic Instant Rollback`,
           [
             formatExecutorLine(actorId),
-            `<a:VC_Alert:1482706673176150077> **Action:** Role creation blocked during panic`,
-            `<a:VC_Alert:1482706673176150077> **Role:** \`${roleId}\``,
-            `<a:VC_Alert:1482706673176150077> **Result:** Role deleted immediately`,
-            `<a:VC_Alert:1482706673176150077> **Quarantena executor:** ${quarantineOutcomeLabel(quarantine)}`,
+            `${E.VC_Alert} **Action:** Role creation blocked during panic`,
+            `${E.VC_Alert} **Role:** \`${roleId}\``,
+            `${E.VC_Alert} **Result:** Role deleted immediately`,
+            `${E.VC_Alert} **Quarantena executor:** ${quarantineOutcomeLabel(quarantine)}`,
           ],
         );
       }
@@ -121,19 +122,19 @@ async function handleRoleCreationAction({ guild, executorId, roleId = "" }) {
   if (now - Number(state.lastPunishAt || 0) < 15_000) return;
   state.lastPunishAt = now;
 
-  const quarantine = await quarantineExecutor(guild, actorId, "<:VC_Lock:1482526739044368476> AntiNuke: role creation spam detected",);
+  const quarantine = await quarantineExecutor(guild, actorId, `${E.VC_Lock} AntiNuke: role creation spam detected`,);
   await sendAntiNukeLog(
     guild,
-    "<a:VC_Alert:1482706673176150077> AntiNuke: Role Creations Filter",
+    `${E.VC_Alert} AntiNuke: Role Creations Filter`,
     [
       formatExecutorLine(actorId),
       roleId
-        ? `<a:VC_Alert:1482706673176150077> **Last Role:** <@&${roleId}> \`${roleId}\``
+        ? `${E.VC_Alert} **Last Role:** <@&${roleId}> \`${roleId}\``
         : null,
-      `<:VC_reason:1478517122929004544> **Minute Count:** ${minuteCount}/${ANTINUKE_CONFIG.roleCreationFilter.minuteLimit}`,
-      `<:VC_reason:1478517122929004544> **Hour Count:** ${hourCount}/${ANTINUKE_CONFIG.roleCreationFilter.hourLimit}`,
-      `<:VC_reason:1478517122929004544> **Heat:** ${state.heat}/100`,
-      `<:VC_reason:1478517122929004544> **Result:** ${quarantineOutcomeLabel(quarantine)}`,
+      `${E.VC_reason} **Minute Count:** ${minuteCount}/${ANTINUKE_CONFIG.roleCreationFilter.minuteLimit}`,
+      `${E.VC_reason} **Hour Count:** ${hourCount}/${ANTINUKE_CONFIG.roleCreationFilter.hourLimit}`,
+      `${E.VC_reason} **Heat:** ${state.heat}/100`,
+      `${E.VC_reason} **Result:** ${quarantineOutcomeLabel(quarantine)}`,
     ].filter(Boolean),
   );
 }

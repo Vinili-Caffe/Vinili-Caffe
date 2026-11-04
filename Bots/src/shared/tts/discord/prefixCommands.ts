@@ -5,6 +5,7 @@ const { safeMessageReply } = require("../../discord/replyRuntime") as typeof imp
 const { buildMusicBlocksTtsUserMessage } = require("../../discord/musicTtsVoiceGuard") as typeof import("../../discord/musicTtsVoiceGuard");
 const { userAvatarUrlDynamic } = require("../../discord/guildDiscordIdentity") as typeof import("../../discord/guildDiscordIdentity");
 const { EPHEMERAL_TTL_SHORT_MS, scheduleMessageDeletion } = require("../../utils/ephemeralMessageTtl") as typeof import("../../utils/ephemeralMessageTtl");
+const { E } = require("../../emojis/emojiCatalog") as typeof import("../../emojis/emojiCatalog");
 const {
   markMusicVoiceLeaveIntentional,
   getGuildMusicVoiceChannelId,
@@ -44,19 +45,19 @@ function profileOf(opts: Record<string, any> = {}) {
     executeLeavePartnership:
       typeof opts.executeLeavePartnership === "function" ? opts.executeLeavePartnership : null,
     cross(msg?) {
-      if (coffee) return `<a:VC_Cross:1482532424570376253> ${msg}`;
+      if (coffee) return `${E.VC_Cross} ${msg}`;
       return String(msg || "");
     },
     ok(msg?) {
-      if (coffee) return `<a:VC_Verified:1482532479637127188> ${msg}`;
-      return `<:vegacheckmark:1443666279058772028> ${msg}`;
+      if (coffee) return `${E.VC_Verified} ${msg}`;
+      return `${E.vegacheckmark} ${msg}`;
     },
     bad(msg?) {
-      if (coffee) return `<a:VC_Cross:1482532424570376253> ${msg}`;
-      return `<:vegax:1443934876440068179> ${msg}`;
+      if (coffee) return `${E.VC_Cross} ${msg}`;
+      return `${E.vegax} ${msg}`;
     },
     attention(msg?) {
-      if (coffee) return `<a:VC_Attention:1482534443632558151> ${msg}`;
+      if (coffee) return `${E.VC_Attention} ${msg}`;
       return String(msg || "");
     },
   };

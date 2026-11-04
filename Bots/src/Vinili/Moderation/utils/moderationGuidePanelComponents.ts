@@ -3,6 +3,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { buildStaffGuideSectionMarkdown } = require("../../Staff/utils/staffGuideContent") as typeof import("../../Staff/utils/staffGuideContent");
 const { buildVcPagePayload } = require("../../../shared/embeds/vcPageEmbedV2") as typeof import("../../../shared/embeds/vcPageEmbedV2");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const MOD_GUIDE_BUTTON_IDS = Object.freeze([
   "generalimoderazione",
   "testualimoderazione",
@@ -12,7 +13,7 @@ const MOD_GUIDE_BUTTON_IDS = Object.freeze([
 function buildModerationGuideDescription() {
   const base =
     buildStaffGuideSectionMarkdown("moderazione_staff") ||
-    `<a:VC_Alarm:1482706641618079816> Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito.`;
+    `${E.VC_Alarm} Per **applicare** le __sanzioni__, è necessario __attenersi__ alle **indicazioni** riportate di seguito.`;
 
   const ch = String(IDs.channels?.sanzioniUtenti || "1442569245878648924").trim();
   const botId = String(IDs.bots?.ViniliCaffeBot || "1329118940110127204").trim();
@@ -42,17 +43,17 @@ function buildModerationGuideButtonRow() {
     new ButtonBuilder()
       .setCustomId("generalimoderazione")
       .setLabel("︲GENERALI")
-      .setEmoji("<:appdirectoryallwhite:1443308556995788840>")
+      .setEmoji(E.appdirectoryallwhite)
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId("testualimoderazione")
       .setLabel("︲TESTUALI")
-      .setEmoji("<:discordchannelwhite:1443308552536985810>")
+      .setEmoji(E.discordchannelwhite)
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId("vocalimoderazione")
       .setLabel("︲VOCALI")
-      .setEmoji("<:microphone:1443307206824169573>")
+      .setEmoji(E.microphone)
       .setStyle(ButtonStyle.Secondary),
   );
 }

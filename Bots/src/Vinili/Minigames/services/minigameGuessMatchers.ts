@@ -5,6 +5,7 @@ const { normalizePlayerGuess, buildCompactAlias } = require("./minigameSources")
 const { compactNoSpaces, normalizeUserAnswerText, isStrictAliasGuessCorrect, normalizeMemorySequence } = require("./minigameText") as typeof import("./minigameText");
 const { reactMinigameWrongEmoji, MINIGAME_WRONG_EMOJI } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function countNonEmptyUserGuessLines(raw?) {
   return String(raw || "")
     .split(/\r?\n+/)
@@ -63,7 +64,7 @@ function shouldReactToMinigameWrongAttempt(contentForGuess?, game?) {
 async function reactMinigameNearOrWrong(message?, contentForGuess?, game?, answerPool?, nearOptions: Record<string, any> = {}) {
   if (!shouldReactToMinigameWrongAttempt(contentForGuess, game)) return;
   if (isNearTextGuess(contentForGuess, answerPool, nearOptions)) {
-    await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+    await message.react(E.VC_Flame).catch(() => { });
   } else {
     await reactMinigameWrongEmoji(message, game);
   }

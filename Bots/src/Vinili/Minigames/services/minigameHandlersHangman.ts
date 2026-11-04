@@ -8,6 +8,7 @@ const { MINIGAME_CORRECT_FALLBACK_EMOJI, reactMinigameWrongEmoji } = require("./
 const { saveActiveGame, shouldRevealHangmanSolutionOnBoard, updateHangmanBoardMessage, sendMinigameTimeoutAndClose, handleMinigameWin } = require("./minigameRound") as typeof import("./minigameRound");
 const { isNearTextGuess, isHangmanFullWordMatch } = require("./minigameGuessMatchers") as typeof import("./minigameGuessMatchers");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function finalizeHangmanLoss(message?, client?, cfg?, game?) {
   if (!game || game._lossFinalized) return;
   game._lossFinalized = true;
@@ -85,7 +86,7 @@ async function handleHangmanMessage(message?, client?, cfg?, game?, content?, co
         minGuessLength: 4,
       })
     ) {
-      await message.react("<a:VC_Flame:1482725674711126140>").catch(() => { });
+      await message.react(E.VC_Flame).catch(() => { });
       return true;
     }
 

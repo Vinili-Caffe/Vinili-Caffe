@@ -2,6 +2,7 @@ const { EmbedBuilder, AttachmentBuilder, AuditLogEvent, PermissionsBitField, Mes
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { toDiscordTimestamp } = require("../../Moderation/utils/channelRolesLogUtils") as typeof import("../../Moderation/utils/channelRolesLogUtils");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const VERIFICATION_EXCLUDED_CHANNEL_IDS=new Set([IDs.channels.verify,IDs.channels.clickMe,IDs.channels.activityLogs].filter(Boolean).map((id?) => String(id)));
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 
@@ -220,15 +221,15 @@ export = {
 
       const embed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setTitle("<a:VC_Verified:1482532479637127188> Messaggi eliminati")
+        .setTitle(`${E.VC_Verified} Messaggi eliminati`)
         .setDescription(
           [
-            `<:VC_Staff:1494286904089247754> **Responsabile:** ${formatAuditActor(responsible)}`,
-            `<:VC_Modifica:1478859646587633717> **Target:** ${channelText} \`${channelId}\``,
-            `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+            `${E.VC_Staff} **Responsabile:** ${formatAuditActor(responsible)}`,
+            `${E.VC_Modifica} **Target:** ${channelText} \`${channelId}\``,
+            `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
             "",
             "**Informazioni aggiuntive**",
-            `<:VC_Modifica:1478859646587633717> **Conteggio:** ${count}`,
+            `${E.VC_Modifica} **Conteggio:** ${count}`,
           ].join("\n"),
         );
 

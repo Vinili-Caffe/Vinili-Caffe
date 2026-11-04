@@ -8,16 +8,17 @@ const { getUserCommandCooldownSeconds, consumeUserCooldown, } = require("../../.
 const { TENANT_EMBED_COLOR } = require("../../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../../MultiGuild/utils/tenantEmbedBranding");
 const { createCommandErrorEmbeds } = require("../../../../shared/moderation/createCommandErrorEmbeds") as typeof import("../../../../shared/moderation/createCommandErrorEmbeds");
 const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const { buildCooldownErrorEmbed, buildBusyCommandErrorEmbed, buildInternalCommandErrorEmbed } = createCommandErrorEmbeds({
   color: TENANT_EMBED_COLOR,
-  cancelEmoji: "<:cancel:1461730653677551691>",
+  cancelEmoji: E.cancel,
   cooldownDescription: (remaining?) =>
     [
-      `<:VC_Attention:1482534443632558151> Aspetta **${remaining}s** prima di usare un altro comando.`,
+      `${E.VC_Attention} Aspetta **${remaining}s** prima di usare un altro comando.`,
       "",
-      "<a:VC_Timer:1482527426557775954> Il cooldown si riduce con i ruoli:",
-      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level30}>, <@&${IDs.roles.ServerBooster}> o <@&${IDs.roles.VIP}> <a:VC_Arrow:1482706699365257397> **15s**`,
-      `<:VC_Dot:1482532364222595303> <@&${IDs.roles.Level50}>, <@&${IDs.roles.VIPplus}> o <@&${IDs.roles.DoubleBooster}> <a:VC_Arrow:1482706699365257397> **5s**`,
+      `${E.VC_Timer} Il cooldown si riduce con i ruoli:`,
+      `${E.VC_Dot} <@&${IDs.roles.Level30}>, <@&${IDs.roles.ServerBooster}> o <@&${IDs.roles.VIP}> ${E.VC_Arrow} **15s**`,
+      `${E.VC_Dot} <@&${IDs.roles.Level50}>, <@&${IDs.roles.VIPplus}> o <@&${IDs.roles.DoubleBooster}> ${E.VC_Arrow} **5s**`,
     ].join("\n"),
 });
 const { buildErrorLogEmbed } = require("../../../../shared/discord/errorLogEmbed") as typeof import("../../../../shared/discord/errorLogEmbed");
@@ -138,10 +139,10 @@ async function handleSlashCommand(interaction?, client?) {
       : Promise.resolve(false),
   ]);
   if (!isAntiNukeRecoveryCommand && securityLockState.commandLockActive) {
-    return interaction.reply({ content: `<a:VC_Lock:1482526739044368476> Server in lockdown di sicurezza: comandi temporaneamente bloccati.`, flags: 1 << 6 });
+    return interaction.reply({ content: `${E.VC_Lock} Server in lockdown di sicurezza: comandi temporaneamente bloccati.`, flags: 1 << 6 });
   }
   if (modBlocked) {
-    return interaction.reply({ content: "<a:VC_Lock:1482526739044368476> Comandi di moderazione temporaneamente bloccati.", flags: 1 << 6 });
+    return interaction.reply({ content: `${E.VC_Lock} Comandi di moderazione temporaneamente bloccati.`, flags: 1 << 6 });
   }
   if (isModerationSlashCommand && interaction.channel && !(expectsModal && isContextMenu)) {
     const { staffChatCommandsDeniedReplyContent } = require("../../../Staff/utils/staffChatChannelUtils") as typeof import("../../../Staff/utils/staffChatChannelUtils");
@@ -194,7 +195,7 @@ async function handleSlashCommand(interaction?, client?) {
       const { buildSimpleNoticePayload } = require("../../../../shared/embeds/simpleNoticeEmbed") as typeof import("../../../../shared/embeds/simpleNoticeEmbed");
       return interaction.reply({
         ...buildSimpleNoticePayload(
-          slashPermission.message || "<:vegax:1443934876440068179> Comando disponibile solo sul server principale.",
+          slashPermission.message || `${E.vegax} Comando disponibile solo sul server principale.`,
           interaction.guild,
           { ephemeral: true },
         ),
@@ -359,8 +360,8 @@ async function handleSlashCommand(interaction?, client?) {
       const staffEmbed=buildErrorLogEmbed({contextLabel:"Comando",contextValue:interaction.commandName||"unknown",userTag:interaction.user?.tag||interaction.user?.id||"-",error,serverName:interaction.guild?`${interaction.guild.name}[${interaction.guild.id}]`
           : null,
       });
-      const errorText=(error?.stack||error?.message||String(error))?.slice(0,1000)||"<:vegax:1443934876440068179> Errore sconosciuto";
-      const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("error_pending").setEmoji("<:VC_InactiveStatus:1482526984234860574>").setStyle(ButtonStyle.Primary),new ButtonBuilder().setCustomId("error_solved").setEmoji("<:VC_OnlineStatus:1482527088912240650>").setStyle(ButtonStyle.Success),new ButtonBuilder().setCustomId("error_unsolved").setEmoji("<:VC_OfflineStatus:1482527117051957380>").setStyle(ButtonStyle.Danger),);
+      const errorText=(error?.stack||error?.message||String(error))?.slice(0,1000)||`${E.vegax} Errore sconosciuto`;
+      const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("error_pending").setEmoji(E.VC_InactiveStatus).setStyle(ButtonStyle.Primary),new ButtonBuilder().setCustomId("error_solved").setEmoji(E.VC_OnlineStatus).setStyle(ButtonStyle.Success),new ButtonBuilder().setCustomId("error_unsolved").setEmoji(E.VC_OfflineStatus).setStyle(ButtonStyle.Danger),);
       if (errorChannel) {
         try {
           await errorChannel.send({
@@ -380,7 +381,7 @@ async function handleSlashCommand(interaction?, client?) {
     }
   } finally {
     if (!expectsModal && interaction.deferred && !interaction.replied) {
-      if (commandFailed && !userErrorResponseSent) await interaction.editReply({ content: "<:vegax:1443934876440068179> Comando terminato con errore." }).catch(() => {});
+      if (commandFailed && !userErrorResponseSent) await interaction.editReply({ content: `${E.vegax} Comando terminato con errore.` }).catch(() => {});
       else await interaction.deleteReply().catch(() => {});
     }
     if (deferTimer) clearTimeout(deferTimer);

@@ -9,6 +9,7 @@ const { reactMinigameWin } = require("./minigameDiscord") as typeof import("./mi
 const { handleExpReward, mergeHalloweenCandyDropIntoMessage, awardMinigameWinToUser } = require("./minigameRewards") as typeof import("./minigameRewards");
 const { parseStateTarget, buildGameSnapshotFromPersistedState } = require("./minigameRoundEnd") as typeof import("./minigameRoundEnd");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function catchUpMemoryEmojiWinFromHistory(client?, cfg?, channel?, game?) {
   const chId = String(cfg?.channelId || channel?.id || "").trim();
   if (!client || !channel?.messages?.fetch || !game?.normalizedSequence || !chId) return false;
@@ -250,7 +251,7 @@ async function handleMinigameWin(message?, game?, cfg?) {
       warnMinigame(err);
       await reactMinigameWin(message).catch(() => { });
       await message.reply({
-        content: "<:VC_Attention:1482534443632558151> Risposta registrata, ma non sono riuscito a completare i premi. Il round è comunque chiuso.",
+        content: `${E.VC_Attention} Risposta registrata, ma non sono riuscito a completare i premi. Il round è comunque chiuso.`,
       }).catch((replyErr?) => warnMinigame(replyErr));
     } finally {
       if (channelId) {

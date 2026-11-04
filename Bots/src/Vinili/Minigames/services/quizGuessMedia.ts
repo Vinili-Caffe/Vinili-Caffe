@@ -12,6 +12,7 @@ const { sendMinigameMessage } = require("./minigameDiscord") as typeof import(".
 const { markSent, saveActiveGame, scheduleMinigameRoundTimeout, sendMinigameTimeoutAndClose, scheduleGenericHint } = require("./minigameRound") as typeof import("./minigameRound");
 const { translateToItalian } = require("./quizSources") as typeof import("./quizSources");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function resolveGuessPuzzleAttachment({
   imageUrl = null,
   title,
@@ -250,7 +251,7 @@ async function startGuessSongGame(client?, cfg?) {
   await sendMinigameRolePing(channel, cfg, roleId);
 
   const previewCustomId = `minigame_song_preview:${Date.now()}`;
-  const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(previewCustomId).setLabel("Ascolta anteprima").setEmoji(`<:VC_Preview:1482527267992375368>`).setStyle(ButtonStyle.Secondary).setDisabled(!info.previewUrl),);
+  const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(previewCustomId).setLabel("Ascolta anteprima").setEmoji(E.VC_Preview).setStyle(ButtonStyle.Secondary).setDisabled(!info.previewUrl),);
 
   const songAttachmentName = "minigame_song.png";
   let songImageUrl = info.artwork;
@@ -278,7 +279,7 @@ async function startGuessSongGame(client?, cfg?) {
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
 
   const songHint = info.artistCountry || info.genre
-    ? `<a:VC_Flame:1482725674711126140> Artista da **${info.artistCountry || "?"}**, genere **${info.genre || "?"}**. Il titolo: ${buildRevealHint(info.title)}`
+    ? `${E.VC_Flame} Artista da **${info.artistCountry || "?"}**, genere **${info.genre || "?"}**. Il titolo: ${buildRevealHint(info.title)}`
     : `Canzone: ${buildRevealHint(info.title)}`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, songHint,
   );

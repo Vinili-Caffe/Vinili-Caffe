@@ -1,4 +1,5 @@
 const { buildErrorLogEmbed } = require("./errorLogEmbed") as typeof import("./errorLogEmbed");
+const { E } = require("../emojis/emojiCatalog") as typeof import("../emojis/emojiCatalog");
 const {
   PRIVATE_FLAG,
   isAckError,
@@ -31,7 +32,7 @@ function createInteractionErrorLogger(options: Record<string, any> = {}) {
       return { ...options.userErrorPayload, flags: options.userErrorPayload.flags ?? PRIVATE_FLAG };
     }
     return {
-      content: "<a:VC_Alert:1482706673176150077> C'è stato un errore nell'esecuzione del comando.",
+      content: `${E.VC_Alert} C'è stato un errore nell'esecuzione del comando.`,
       flags: PRIVATE_FLAG,
     };
   }

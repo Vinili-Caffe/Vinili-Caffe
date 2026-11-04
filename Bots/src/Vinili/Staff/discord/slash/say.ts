@@ -1,6 +1,7 @@
 const { safeEditReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { SlashCommandBuilder } = require("discord.js") as typeof import("discord.js");
 const { getGuildChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const EPHEMERAL_FLAG = 1 << 6;
 const DISCORD_CONTENT_MAX = 2000;
 const MESSAGE_LINK_REGEX = /https?:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/channels\/(\d+)\/(\d+)\/(\d+)/;
@@ -39,20 +40,20 @@ async function resolveReplyTarget(interaction?, messageId?, messageLink?) {
     if (interaction.guild?.id !== linkData.guildId) {
       return {
         error:
-          "<:vegax:1443934876440068179> Il link non appartiene a questo server.",
+          `${E.vegax} Il link non appartiene a questo server.`,
       };
     }
 
     const targetChannel = await getGuildChannelCached(interaction.guild, linkData.channelId);
     if (!targetChannel || !targetChannel.isTextBased()) {
       return {
-        error: "<:vegax:1443934876440068179> Canale non valido per rispondere.",
+        error: `${E.vegax} Canale non valido per rispondere.`,
       };
     }
 
     const targetMessage = await targetChannel.messages.fetch(linkData.messageId).catch(() => null);
     if (!targetMessage) {
-      return { error: "<:vegax:1443934876440068179> Messaggio non trovato." };
+      return { error: `${E.vegax} Messaggio non trovato.` };
     }
 
     return { channel: targetChannel, replyTo: targetMessage };
@@ -63,7 +64,7 @@ async function resolveReplyTarget(interaction?, messageId?, messageLink?) {
     if (!targetMessage) {
       return {
         error:
-          "<:vegax:1443934876440068179> Messaggio non trovato in questo canale.",
+          `${E.vegax} Messaggio non trovato in questo canale.`,
       };
     }
 
@@ -115,7 +116,7 @@ export = {
       if (!messageText && !attachment) {
         return safeEditReply(interaction, {
           content:
-            "<:vegax:1443934876440068179> Indica almeno **messaggio** o **allegato**.",
+            `${E.vegax} Indica almeno **messaggio** o **allegato**.`,
           flags: EPHEMERAL_FLAG,
         });
       }
@@ -131,7 +132,7 @@ export = {
       const textChunks = messageText ? splitDiscordContent(messageText) : [];
       if (!textChunks.length && !attachment) {
         return safeEditReply(interaction, {
-          content: "<:vegax:1443934876440068179> Messaggio vuoto.",
+          content: `${E.vegax} Messaggio vuoto.`,
           flags: EPHEMERAL_FLAG,
         });
       }
@@ -155,8 +156,8 @@ export = {
           return safeEditReply(interaction, {
             content:
               sent > 0
-                ? `<:vegax:1443934876440068179> Inviata solo la parte ${sent}/${textChunks.length}.`
-                : "<:vegax:1443934876440068179> Impossibile inviare il messaggio.",
+                ? `${E.vegax} Inviata solo la parte ${sent}/${textChunks.length}.`
+                : `${E.vegax} Impossibile inviare il messaggio.`,
             flags: EPHEMERAL_FLAG,
           });
         }
@@ -178,7 +179,7 @@ export = {
         });
         if (!msg) {
           return safeEditReply(interaction, {
-            content: "<:vegax:1443934876440068179> Impossibile inviare l'allegato.",
+            content: `${E.vegax} Impossibile inviare l'allegato.`,
             flags: EPHEMERAL_FLAG,
           });
         }
@@ -188,15 +189,15 @@ export = {
       return safeEditReply(interaction, {
         content:
           sent > 1
-            ? `<:success:1461731530333229226> Messaggio inviato (${sent} parti).`
-            : "<:success:1461731530333229226> Messaggio inviato",
+            ? `${E.success} Messaggio inviato (${sent} parti).`
+            : `${E.success} Messaggio inviato`,
         flags: EPHEMERAL_FLAG,
       });
     } catch (err) {
       global.logger.error(err);
       return safeEditReply(interaction, {
         content:
-          "<:vegax:1443934876440068179> Errore durante l'esecuzione del comando.",
+          `${E.vegax} Errore durante l'esecuzione del comando.`,
         flags: EPHEMERAL_FLAG,
       });
     }

@@ -1,6 +1,7 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const STICKER_CREATE_ACTION = AuditLogEvent?.StickerCreate ?? 90;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -77,20 +78,20 @@ export = {
 
       const embed = new EmbedBuilder()
         .setColor("#57F287")
-        .setTitle("<:VC_Color:1482532543273238569> Sticker Creato")
+        .setTitle(`${E.VC_Color} Sticker Creato`)
         .setDescription(
           [
-            `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-            `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+            `${E.VC_Staff} **Responsabile:** ${responsibleText}`,
+            `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
             "",
-            "**<:VC_tools:1478862265305272364> Impostazioni**",
-            `<:VC_Modifica:1478859646587633717> **ID:** \`${stickerId}\``,
-            `<:VC_Modifica:1478859646587633717> **Nome:** ${sticker.name || "sconosciuto"}`,
-            `<:VC_Modifica:1478859646587633717> **Tags:** ${sticker.tags || "-"}`,
-            `<:VC_Modifica:1478859646587633717> **Tipo:** Local Server Sticker`,
-            `<:VC_Modifica:1478859646587633717> **Formato:** ${stickerFormatLabel(sticker.formatType)}`,
-            `<:VC_Modifica:1478859646587633717> **Disponibile:** ${yesNo(Boolean(sticker.available))}`,
-            `<:VC_Modifica:1478859646587633717> **ID Server:** \`${guild.id}\``,
+            `**${E.VC_tools} Impostazioni**`,
+            `${E.VC_Modifica} **ID:** \`${stickerId}\``,
+            `${E.VC_Modifica} **Nome:** ${sticker.name || "sconosciuto"}`,
+            `${E.VC_Modifica} **Tags:** ${sticker.tags || "-"}`,
+            `${E.VC_Modifica} **Tipo:** Local Server Sticker`,
+            `${E.VC_Modifica} **Formato:** ${stickerFormatLabel(sticker.formatType)}`,
+            `${E.VC_Modifica} **Disponibile:** ${yesNo(Boolean(sticker.available))}`,
+            `${E.VC_Modifica} **ID Server:** \`${guild.id}\``,
           ].join("\n"),
         );
 

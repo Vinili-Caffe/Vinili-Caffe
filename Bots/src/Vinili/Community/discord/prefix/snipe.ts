@@ -1,5 +1,6 @@
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   pickSnipeEntryForChannel,
   redactSnipeContentForMinigame,
@@ -25,8 +26,8 @@ export = {
       const hiddenByMinigame = history.some((item?) => item && !item.isEmbedOnly);
       return safeMessageReply(message, {
         content: hiddenByMinigame
-          ? `<:vegax:1443934876440068179> Nessun messaggio snipabile${where} (risposte minigame nascoste).`
-          : `<:vegax:1443934876440068179> Nessun messaggio eliminato recentemente${where}.`,
+          ? `${E.vegax} Nessun messaggio snipabile${where} (risposte minigame nascoste).`
+          : `${E.vegax} Nessun messaggio eliminato recentemente${where}.`,
         allowedMentions: { repliedUser: false },
       });
     }
@@ -37,7 +38,7 @@ export = {
     );
     const safeContent = rawContent
       ? rawContent.replace(/```/g, "\\`\\`\\`")
-      : "*<:vegax:1443934876440068179> Nessun contenuto*";
+      : `*${E.vegax} Nessun contenuto*`;
     const maxFieldPayload = 980;
     const clippedContent =
       safeContent.length > maxFieldPayload ? `${safeContent.slice(0, maxFieldPayload)}...` : safeContent;
@@ -45,17 +46,17 @@ export = {
       .setColor("#6f4e37")
       .addFields(
         {
-          name: "<:member_role_icon:1330530086792728618> Messaggio inviato da:",
+          name: `${E.member_role_icon} Messaggio inviato da:`,
           value: snipe.authorId ? `<@${snipe.authorId}> (${snipe.authorTag})` : "Sconosciuto",
           inline: true,
         },
         {
-          name: "<:VC_BlackPin:1482534513400610948> Canale:",
+          name: `${E.VC_BlackPin} Canale:`,
           value: snipe.channel || `${targetChannel}`,
           inline: true,
         },
         {
-          name: "<:VC_Chat:1482532573002465413> Contenuto:",
+          name: `${E.VC_Chat} Contenuto:`,
           value: `\`\`\`${clippedContent}\`\`\``,
         },
       )

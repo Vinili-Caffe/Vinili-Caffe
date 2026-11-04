@@ -1,6 +1,7 @@
 const { safeEditReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { SlashCommandBuilder } = require("discord.js") as typeof import("discord.js");
 const { getGuildChannelCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const EPHEMERAL_FLAG = 1 << 6;
 const MESSAGE_LINK_REGEX = /https?:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/channels\/(\d+)\/(\d+)\/(\d+)/;
 
@@ -22,20 +23,20 @@ async function resolveReplyTarget(interaction?, messageId?, messageLink?) {
     if (interaction.guild?.id !== linkData.guildId) {
       return {
         error:
-          "<a:VC_Cross:1482532424570376253> Il link non appartiene a questo server.",
+          `${E.VC_Cross} Il link non appartiene a questo server.`,
       };
     }
 
     const targetChannel = await getGuildChannelCached(interaction.guild, linkData.channelId);
     if (!targetChannel || !targetChannel.isTextBased()) {
       return {
-        error: "<a:VC_Cross:1482532424570376253> Canale non valido per rispondere.",
+        error: `${E.VC_Cross} Canale non valido per rispondere.`,
       };
     }
 
     const targetMessage = await targetChannel.messages.fetch(linkData.messageId).catch(() => null);
     if (!targetMessage) {
-      return { error: "<a:VC_Cross:1482532424570376253> Messaggio non trovato." };
+      return { error: `${E.VC_Cross} Messaggio non trovato.` };
     }
 
     return { channel: targetChannel, replyTo: targetMessage };
@@ -46,7 +47,7 @@ async function resolveReplyTarget(interaction?, messageId?, messageLink?) {
     if (!targetMessage) {
       return {
         error:
-          "<a:VC_Cross:1482532424570376253> Messaggio non trovato in questo canale.",
+          `${E.VC_Cross} Messaggio non trovato in questo canale.`,
       };
     }
 
@@ -99,7 +100,7 @@ export = {
       if (!messageText && !attachment) {
         return safeEditReply(interaction, {
           content:
-            "<a:VC_Cross:1482532424570376253> Indica almeno **messaggio** o **allegato**.",
+            `${E.VC_Cross} Indica almeno **messaggio** o **allegato**.`,
           flags: EPHEMERAL_FLAG,
         });
       }
@@ -113,7 +114,7 @@ export = {
       }
 
       await safeEditReply(interaction, {
-        content: "<a:VC_Verified:1482532479637127188> Messaggio inviato",
+        content: `${E.VC_Verified} Messaggio inviato`,
         flags: EPHEMERAL_FLAG,
       });
 
@@ -133,7 +134,7 @@ export = {
       global.logger.error(err);
       return safeEditReply(interaction, {
         content:
-          "<a:VC_Cross:1482532424570376253> Errore durante l'esecuzione del comando.",
+          `${E.VC_Cross} Errore durante l'esecuzione del comando.`,
         flags: EPHEMERAL_FLAG,
       });
     }

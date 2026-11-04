@@ -1,6 +1,7 @@
 /** Resoconti settimanali: limiti di attività e sanzioni per ruolo. */
 const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const STAFF_ACTIVITY_LIMITS = {
   [String(IDs.roles.Helper)]: { messages: 400, hours: 4 },
   [String(IDs.roles.Mod)]: { messages: 500, hours: 5 },
@@ -96,7 +97,7 @@ function formatStaffLimitsSwapLine(limitsEval?) {
     parts.push(`__${limitsEval.messagesToHours}__ messaggi → __${formatHoursFromSeconds(hrsGain * 3600)}__`);
   }
   if (!parts.length) return null;
-  return `<:VC_Dot:1443660294596329582> **Scambio limiti** (${STAFF_LIMITS_MSG_PER_HOUR_SWAP} msg = 1h): ${parts.join(" · ")}`;
+  return `${E.VC_Dot__329582} **Scambio limiti** (${STAFF_LIMITS_MSG_PER_HOUR_SWAP} msg = 1h): ${parts.join(" · ")}`;
 }
 const STAFF_SANCTION_LIMITS = {
   [String(IDs.roles.Helper)]: 1,

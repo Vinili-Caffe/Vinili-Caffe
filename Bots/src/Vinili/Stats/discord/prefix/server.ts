@@ -1,5 +1,6 @@
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const serverButton = require("../buttons/server");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   isPartnershipOperational,
   memberHasPartnerManagerRole,
@@ -100,7 +101,7 @@ export = {
         if (shouldUseTenantStatsInfoRouting(guildId)) {
       return safeMessageReply(message, {
         content:
-          "<:vegax:1443934876440068179> Su questo server usa `+server info` per la scheda partnership.",
+          `${E.vegax} Su questo server usa \`+server info\` per la scheda partnership.`,
         allowedMentions: { repliedUser: false },
       });
     }

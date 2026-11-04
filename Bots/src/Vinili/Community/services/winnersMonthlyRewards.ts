@@ -8,7 +8,8 @@ const { previousMonthKeyRome } = require("./winnersTime") as typeof import("./wi
 const { WEEKLY_WINNERS_EXCLUDED_ROLE_IDS, resolveTopThreeUsers } = require("./winnersRows") as typeof import("./winnersRows");
 const { MONTHLY_MEMBER_ROLE_ID } = require("./winnersRoles") as typeof import("./winnersRoles");
 
-const TROPHY_LABELS = ["<:VC_Podio1:1482694399283433582>", "<:VC_Podio2:1482694424411635712>", "<:VC_Podio3:1482694450806259744>"];
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
+const TROPHY_LABELS = [E.VC_Podio1, E.VC_Podio2, E.VC_Podio3];
 const MONTHLY_VOTER_ROLE_RANK_1 = IDs.roles.VIPplus || IDs.roles["VIP+"];
 const MONTHLY_VOTER_ROLE_RANK_2 = IDs.roles.VIP;
 const MONTHLY_VOTER_ROLE_RANK_3 = IDs.roles.Donator;
@@ -168,10 +169,10 @@ function monthlyPrizeTicketRef() {
 }
 
 function buildMonthlyTopPrizeEmbedLines(displayTopCombined?, rankedYear?, rankedMonth?) {
-  const t0 = TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>";
-  const t1 = TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>";
-  const t2 = TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>";
-  const arrow = "<a:VC_Arrow:1482706699365257397>";
+  const t0 = TROPHY_LABELS[0] || E.VC_Podio1;
+  const t1 = TROPHY_LABELS[1] || E.VC_Podio2;
+  const t2 = TROPHY_LABELS[2] || E.VC_Podio3;
+  const arrow = E.VC_Arrow;
   const first = displayTopCombined[0];
   const second = displayTopCombined[1];
   const third = displayTopCombined[2];
@@ -215,17 +216,17 @@ function buildMonthlyTopWinnerAnnounceLines(awarded?, rankedYear?, rankedMonth?)
   if (usesNewMonthlyTopActivityRewards(rankedYear, rankedMonth)) {
     const vipPlus = monthlyTopVipPlusMention();
     secondLine = secondMention
-      ? `\n<:VC_Podio2:1482694424411635712> Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve una **decorazione a scelta (max 15,99€)** riscattabile tramite ${ticketRef}.`
+      ? `\n${E.VC_Podio2} Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve una **decorazione a scelta (max 15,99€)** riscattabile tramite ${ticketRef}.`
       : "";
     thirdLine = thirdMention
-      ? `\n<:VC_Podio3:1482694450806259744> Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve ${vipPlus} **per 30 giorni**.`
+      ? `\n${E.VC_Podio3} Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve ${vipPlus} **per 30 giorni**.`
       : "";
   } else {
     secondLine = secondMention
-      ? `\n<:VC_Podio2:1482694424411635712> Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve **VIP+ per 30 giorni** e una **decorazione a scelta (max 15,99€)** riscattabile tramite ${ticketRef}.`
+      ? `\n${E.VC_Podio2} Con un totale di **${secondTotal} EXP**, ${secondMention} ottiene il secondo posto e riceve **VIP+ per 30 giorni** e una **decorazione a scelta (max 15,99€)** riscattabile tramite ${ticketRef}.`
       : "";
     thirdLine = thirdMention
-      ? `\n<:VC_Podio3:1482694450806259744> Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve **VIP per 30 giorni** e un **Nitro Basic** riscattabile tramite ${ticketRef}.`
+      ? `\n${E.VC_Podio3} Con un totale di **${thirdTotal} EXP**, ${thirdMention} ottiene il terzo posto e riceve **VIP per 30 giorni** e un **Nitro Basic** riscattabile tramite ${ticketRef}.`
       : "";
   }
   return { winnerTotal, winnerMention, secondLine, thirdLine };

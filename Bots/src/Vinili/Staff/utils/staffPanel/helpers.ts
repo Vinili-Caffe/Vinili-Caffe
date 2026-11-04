@@ -1,6 +1,7 @@
 const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { memberHasStaffRole } = require("../../../Community/utils/staffListUtils") as typeof import("../../../Community/utils/staffListUtils");
 const { sendPartnerManagerWelcome, sendHelperWelcome } = require("../staffWelcomeMessages") as typeof import("../staffWelcomeMessages");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const ROLE_MEMBER = IDs.roles.Member;
 const ROLE_PARTNER_MANAGER = IDs.roles.PartnerManager;
 const ROLE_BLOGGER = String(IDs.roles.Blogger || "").trim();
@@ -273,13 +274,13 @@ function assertStaffCareerHierarchy(actorMember?, targetMember?, { destinationRo
     return {
       ok: false,
       message:
-        "<:VC_Lock:1482526739044368476> Impossibile verificare i ruoli per pex/depex.",
+        `${E.VC_Lock} Impossibile verificare i ruoli per pex/depex.`,
     };
   }
   if (String(actorMember.id) === String(targetMember.id)) {
     return {
       ok: false,
-      message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso.",
+      message: `${E.VC_Attention} Non puoi usare questa azione su te stesso.`,
     };
   }
 
@@ -295,14 +296,14 @@ function assertStaffCareerHierarchy(actorMember?, targetMember?, { destinationRo
       return {
         ok: false,
         message:
-          "<:VC_Lock:1482526739044368476> Non puoi pexare o depexare un membro con ruolo nella scala staff: il tuo grado è inferiore o assente.",
+          `${E.VC_Lock} Non puoi pexare o depexare un membro con ruolo nella scala staff: il tuo grado è inferiore o assente.`,
       };
     }
     if (!actorIsTop && targetRank >= actorRank) {
       return {
         ok: false,
         message:
-          "<:VC_Lock:1482526739044368476> Non puoi pexare o depexare un membro con ruolo uguale o superiore al tuo.",
+          `${E.VC_Lock} Non puoi pexare o depexare un membro con ruolo uguale o superiore al tuo.`,
       };
     }
   }
@@ -314,7 +315,7 @@ function assertStaffCareerHierarchy(actorMember?, targetMember?, { destinationRo
       return {
         ok: false,
         message:
-          "<:VC_Lock:1482526739044368476> Non puoi pexare a un ruolo uguale o superiore al tuo.",
+          `${E.VC_Lock} Non puoi pexare a un ruolo uguale o superiore al tuo.`,
       };
     }
   }

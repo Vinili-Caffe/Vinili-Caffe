@@ -2,6 +2,7 @@ const Ticket = require("../../../../MultiGuild/tickets/data/guildFeatureBucketTi
 const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { getPartnerDescriptionTextOrSync } = require("../../services/partnerDescriptionSyncService") as typeof import("../../services/partnerDescriptionSyncService");
 const { getTenantPartnerDescriptionTextOrSync } = require("../../services/tenantPartnerDescriptionService") as typeof import("../../services/tenantPartnerDescriptionService");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   isPartnershipOperational,
   memberHasPartnerManagerRole,
@@ -62,7 +63,7 @@ function buildMissingDescriptionReply(guildId?, legacy?, lang = "it") {
     const channelHint = IDs.channels?.descriptionPartner
       ? `<#${IDs.channels.descriptionPartner}>`
       : "descrizione partner";
-    return `<:vegax:1443934876440068179> Nessuna descrizione disponibile in ${channelHint}. Aggiungi o aggiorna il messaggio nel canale.`;
+    return `${E.vegax} Nessuna descrizione disponibile in ${channelHint}. Aggiungi o aggiorna il messaggio nel canale.`;
   }
 
   const cfg = getPartnershipConfigSync(guildId);
@@ -130,7 +131,7 @@ async function executeMainDescription(message?, args = []) {
     if (cat !== "partnership") {
       return _reply(
         message,
-        "<:vegax:1443934876440068179> Questo comando si usa **solo nei ticket partnership**.",
+        `${E.vegax} Questo comando si usa **solo nei ticket partnership**.`,
       );
     }
   } else {
@@ -138,7 +139,7 @@ async function executeMainDescription(message?, args = []) {
     if (!ticketDoc) {
       return _reply(
         message,
-        "<:vegax:1443934876440068179> Questo comando può essere usato **solo in un canale ticket aperto**.",
+        `${E.vegax} Questo comando può essere usato **solo in un canale ticket aperto**.`,
       );
     }
   }

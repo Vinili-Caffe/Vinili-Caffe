@@ -2,6 +2,7 @@ const { ActivityUserProfile } = require("../schemas/communitySchemas") as typeof
 const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
 const { validateMentionResponseText } = require("../utils/mentionResponseValidation") as typeof import("../utils/mentionResponseValidation");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function asStrings(values = []) {
   return Array.isArray(values) ? values.map((v?) => String(v || "").trim()).filter(Boolean) : [];
 }
@@ -90,7 +91,7 @@ async function getMentionResponse(guildId?, userId?) {
 
 async function setMentionResponse(guildId?, userId?, text?) {
   if (!isValidGuildUserId(guildId, userId)) {
-    return { ok: false, userMessage: "<:VC_Attention:1482534443632558151> Impossibile salvare la risposta." };
+    return { ok: false, userMessage: `${E.VC_Attention} Impossibile salvare la risposta.` };
   }
   const validation = validateMentionResponseText(text);
   if (!validation.ok) {

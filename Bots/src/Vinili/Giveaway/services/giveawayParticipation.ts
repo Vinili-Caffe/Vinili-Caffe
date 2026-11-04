@@ -1,6 +1,7 @@
 const Giveaway = require("./guildFeatureBucketGiveawayModel");
 const { GIVEAWAY_ENTER_PREFIX, GIVEAWAY_LEAVE_PREFIX, GIVEAWAY_COUNT_PREFIX } = require("./giveawayUi") as typeof import("./giveawayUi");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function replyGiveawayEphemeral(interaction?, payload?) {
   const ephemeral = { flags: 1 << 6 };
   try {
@@ -39,21 +40,21 @@ async function enterGiveaway(interaction?, client?, opts?) {
 
   const giveaway = await Giveaway.findOne({ _id: giveawayId }).lean();
   if (!giveaway) {
-    await replyGiveawayEphemeral(interaction, "<a:VC_Alert:1482706673176150077> Giveaway non trovato o già terminato.");
+    await replyGiveawayEphemeral(interaction, `${E.VC_Alert} Giveaway non trovato o già terminato.`);
     return true;
   }
   if (giveaway.cancelled) {
-    await replyGiveawayEphemeral(interaction, "<a:VC_Alert:1482706673176150077> Questo giveaway è stato annullato.");
+    await replyGiveawayEphemeral(interaction, `${E.VC_Alert} Questo giveaway è stato annullato.`);
     return true;
   }
   if (giveaway.ended) {
-    await replyGiveawayEphemeral(interaction, "<a:VC_Alert:1482706673176150077> Questo giveaway è già terminato.");
+    await replyGiveawayEphemeral(interaction, `${E.VC_Alert} Questo giveaway è già terminato.`);
     return true;
   }
   if (new Date(giveaway.endAt).getTime() <= Date.now()) {
     const { endGiveaway } = require("./giveawayLifecycle") as typeof import("./giveawayLifecycle");
     void endGiveaway(giveawayId, client).catch(() => null);
-    await replyGiveawayEphemeral(interaction, "<a:VC_Alert:1482706673176150077> Il tempo per partecipare è scaduto.");
+    await replyGiveawayEphemeral(interaction, `${E.VC_Alert} Il tempo per partecipare è scaduto.`);
     return true;
   }
 
@@ -66,15 +67,15 @@ async function enterGiveaway(interaction?, client?, opts?) {
     { new: true },
   );
   if (!updated) {
-    await replyGiveawayEphemeral(interaction, "<a:VC_Alert:1482706673176150077> Giveaway non trovato o già terminato.");
+    await replyGiveawayEphemeral(interaction, `${E.VC_Alert} Giveaway non trovato o già terminato.`);
     return true;
   }
 
   await replyGiveawayEphemeral(
     interaction,
     wasIn
-      ? "<a:VC_Alert:1482706673176150077> Sei già iscritto!"
-      : "<a:VC_Events:1482706144953897223> Sei entrato nel giveaway!",
+      ? `${E.VC_Alert} Sei già iscritto!`
+      : `${E.VC_Events} Sei entrato nel giveaway!`,
   );
 
   return true;
@@ -88,28 +89,28 @@ async function leaveGiveaway(interaction?, client?) {
 
   const giveaway = await Giveaway.findOne({ _id: giveawayId }).lean();
   if (!giveaway) {
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Giveaway non trovato o già terminato.", flags: 1 << 6 }).catch(() => { });
+    await interaction.reply({ content: `${E.VC_Alert} Giveaway non trovato o già terminato.`, flags: 1 << 6 }).catch(() => { });
     return true;
   }
   if (giveaway.cancelled) {
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo giveaway è stato annullato.", flags: 1 << 6 }).catch(() => { });
+    await interaction.reply({ content: `${E.VC_Alert} Questo giveaway è stato annullato.`, flags: 1 << 6 }).catch(() => { });
     return true;
   }
   if (giveaway.ended) {
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Questo giveaway è già terminato.", flags: 1 << 6 }).catch(() => { });
+    await interaction.reply({ content: `${E.VC_Alert} Questo giveaway è già terminato.`, flags: 1 << 6 }).catch(() => { });
     return true;
   }
   if (new Date(giveaway.endAt).getTime() <= Date.now()) {
     const { endGiveaway } = require("./giveawayLifecycle") as typeof import("./giveawayLifecycle");
     void endGiveaway(giveawayId, client).catch(() => null);
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Il tempo per modificare la partecipazione è scaduto.", flags: 1 << 6 }).catch(() => { });
+    await interaction.reply({ content: `${E.VC_Alert} Il tempo per modificare la partecipazione è scaduto.`, flags: 1 << 6 }).catch(() => { });
     return true;
   }
 
   const userId = String(interaction.user?.id || "");
   const wasIn = Array.isArray(giveaway.participants) && giveaway.participants.includes(userId);
   if (!wasIn) {
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Non eri iscritto a questo giveaway.", flags: 1 << 6 }).catch(() => { });
+    await interaction.reply({ content: `${E.VC_Alert} Non eri iscritto a questo giveaway.`, flags: 1 << 6 }).catch(() => { });
     return true;
   }
 
@@ -118,7 +119,7 @@ async function leaveGiveaway(interaction?, client?) {
     { $pull: { participants: userId } },
   );
   await interaction.reply({
-    content: "<:cancel:1461730653677551691> Sei uscito dal giveaway.",
+    content: `${E.cancel} Sei uscito dal giveaway.`,
     flags: 1 << 6,
   }).catch(() => { });
   return true;
@@ -133,12 +134,12 @@ async function showGiveawayJoinCount(interaction?, client?) {
 
   const giveaway = await Giveaway.findOne({ _id: giveawayId }, { participants: 1, ended: 1 }).lean();
   if (!giveaway) {
-    await interaction.reply({ content: "<a:VC_Alert:1482706673176150077> Giveaway non trovato.", flags: 1 << 6 }).catch(() => { });
+    await interaction.reply({ content: `${E.VC_Alert} Giveaway non trovato.`, flags: 1 << 6 }).catch(() => { });
     return true;
   }
   const count = Array.isArray(giveaway.participants) ? giveaway.participants.length : 0;
   await interaction.reply({
-    content: `<:VC_Stats:1482527532682055780> Partecipanti attuali: **${count}**.`,
+    content: `${E.VC_Stats} Partecipanti attuali: **${count}**.`,
     flags: 1 << 6,
   }).catch(() => { });
   return true;

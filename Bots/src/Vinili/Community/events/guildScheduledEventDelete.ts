@@ -2,6 +2,7 @@ const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 
@@ -99,31 +100,31 @@ export = {
       const endTime=toEventTimeLabel(scheduledEvent.scheduledEndAt||scheduledEvent.scheduledEndTimestamp,);
 
       const lines = [
-        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+        `${E.VC_Staff} **Responsabile:** ${responsibleText}`,
+        `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
         "",
         "**Impostazioni precedenti**",
-        `<:VC_Modifica:1478859646587633717> **Nome:** ${scheduledEvent.name || "sconosciuto"}`,
-        `<:VC_Modifica:1478859646587633717> **Livello privacy:** ${privacyLabel(scheduledEvent.privacyLevel)}`,
-        `<:VC_Modifica:1478859646587633717> **Stato:** ${statusLabel(scheduledEvent.status)}`,
-        `<:VC_Modifica:1478859646587633717> **Tipo entità:** ${entityTypeLabel(scheduledEvent.entityType)}`,
-        startTime ? `<:VC_Modifica:1478859646587633717> **Ora inizio:** ${startTime}` : null,
-        endTime ? `<:VC_Modifica:1478859646587633717> **Ora fine:** ${endTime}` : null,
+        `${E.VC_Modifica} **Nome:** ${scheduledEvent.name || "sconosciuto"}`,
+        `${E.VC_Modifica} **Livello privacy:** ${privacyLabel(scheduledEvent.privacyLevel)}`,
+        `${E.VC_Modifica} **Stato:** ${statusLabel(scheduledEvent.status)}`,
+        `${E.VC_Modifica} **Tipo entità:** ${entityTypeLabel(scheduledEvent.entityType)}`,
+        startTime ? `${E.VC_Modifica} **Ora inizio:** ${startTime}` : null,
+        endTime ? `${E.VC_Modifica} **Ora fine:** ${endTime}` : null,
       ];
 
       if (scheduledEvent.channelId) {
         lines.push(
-          `<:VC_Modifica:1478859646587633717> **Canale:** <#${scheduledEvent.channelId}>`,
+          `${E.VC_Modifica} **Canale:** <#${scheduledEvent.channelId}>`,
         );
       } else if (scheduledEvent.entityMetadata?.location) {
         lines.push(
-          `<:VC_Modifica:1478859646587633717> **Località:** ${scheduledEvent.entityMetadata.location}`,
+          `${E.VC_Modifica} **Località:** ${scheduledEvent.entityMetadata.location}`,
         );
       }
 
       const embed = new EmbedBuilder()
         .setColor("#ED4245")
-        .setTitle("<a:VC_Cross:1482532424570376253> Evento programmato eliminato")
+        .setTitle(`${E.VC_Cross} Evento programmato eliminato`)
         .setDescription(lines.filter(Boolean).join("\n"));
 
       await logChannel.send({ embeds: [embed] }).catch(() => null);

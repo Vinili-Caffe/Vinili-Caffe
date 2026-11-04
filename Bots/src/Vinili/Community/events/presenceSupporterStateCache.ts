@@ -8,6 +8,48 @@ const statusCache = new Map();
 const pendingChecks = new Map();
 const removalChecks = new Map();
 const REMOVE_CONFIRM_MS = 5 * 60 * 1000;
+const MAX_PRESENCE_CACHE_ENTRIES = Math.max(100, Number(process.env.VC_PRESENCE_CACHE_MAX || 2000) || 2000);
+const STATUS_CACHE_TTL_MS = Math.max(60_000, Number(process.env.VC_PRESENCE_STATUS_CACHE_TTL_MS || 6 * 60 * 60 * 1000) || 6 * 60 * 60 * 1000);
+const PRESENCE_CACHE_SWEEP_MS = Math.max(60_000, Number(process.env.VC_PRESENCE_CACHE_SWEEP_MS || 5 * 60 * 1000) || 5 * 60 * 1000);
+
+function evictOldestMapEntry(map, onEvict?) {
+  const oldestKey = map.keys().next().value;
+  if (oldestKey == null) return;
+  const value = map.get(oldestKey);
+  if (typeof onEvict === "function") onEvict(oldestKey, value);
+  map.delete(oldestKey);
+}
+
+function trimPresenceMap(map, onEvict?) {
+  while (map.size > MAX_PRESENCE_CACHE_ENTRIES) {
+    evictOldestMapEntry(map, onEvict);
+  }
+}
+
+function sweepPresenceCaches(now = Date.now()) {
+  for (const [key, state] of statusCache.entries()) {
+    const cachedAt = Number(state?._cachedAt || 0);
+    if (cachedAt > 0 && now - cachedAt > STATUS_CACHE_TTL_MS) {
+      statusCache.delete(key);
+    }
+  }
+  trimPresenceMap(statusCache);
+  trimPresenceMap(pendingChecks, (_key, pending) => {
+    if (pending?.timeout) clearTimeout(pending.timeout);
+  });
+  trimPresenceMap(removalChecks, (_key, removal) => {
+    if (removal?.timeout) clearTimeout(removal.timeout);
+  });
+}
+
+const presenceCacheSweepTimer = setInterval(() => {
+  try {
+    sweepPresenceCaches();
+  } catch (err) {
+    global.logger?.warn?.("[SUPPORTER STATUS] cache sweep failed:", err?.message || err);
+  }
+}, PRESENCE_CACHE_SWEEP_MS);
+presenceCacheSweepTimer.unref?.();
 
 function makeStateKey(guildId?, userId?) {
   return `${String(guildId || "")}:${String(userId || "")}`;
@@ -31,7 +73,9 @@ function getCachedState(guildId?, userId?) {
 }
 
 function setCachedState(guildId?, userId?, state?) {
-  statusCache.set(makeStateKey(guildId, userId), state);
+  const key = makeStateKey(guildId, userId);
+  statusCache.set(key, { ...(state || {}), _cachedAt: Date.now() });
+  trimPresenceMap(statusCache);
 }
 
 function getPendingState(guildId?, userId?) {
@@ -40,6 +84,9 @@ function getPendingState(guildId?, userId?) {
 
 function setPendingState(guildId?, userId?, state?) {
   pendingChecks.set(makeStateKey(guildId, userId), state);
+  trimPresenceMap(pendingChecks, (_key, pending) => {
+    if (pending?.timeout) clearTimeout(pending.timeout);
+  });
 }
 
 function deletePendingState(guildId?, userId?) {
@@ -56,6 +103,9 @@ function getRemovalState(guildId?, userId?) {
 
 function setRemovalState(guildId?, userId?, state?) {
   removalChecks.set(makeStateKey(guildId, userId), state);
+  trimPresenceMap(removalChecks, (_key, removal) => {
+    if (removal?.timeout) clearTimeout(removal.timeout);
+  });
 }
 
 function deleteRemovalState(guildId?, userId?) {
@@ -203,6 +253,21 @@ async function clearPersistedStatus(guildId?, userId?) {
   }
 }
 
+function isTrackedPresenceSupporterUser(guildId?, userId?, member?, presence?) {
+  const {
+    ROLE_ID,
+    hasInvite,
+    isOfflinePresence,
+  } = require("./presenceSupporterInviteState") as typeof import("./presenceSupporterInviteState");
+  if (ROLE_ID && member?.roles?.cache?.has(ROLE_ID)) return true;
+  if (hasPendingState(guildId, userId)) return true;
+  if (hasRemovalState(guildId, userId)) return true;
+  const cached = getCachedState(guildId, userId);
+  if (cached?.hasLink || cached?.lastMessageId || cached?.removalDueAt) return true;
+  if (presence && !isOfflinePresence(presence) && hasInvite(presence)) return true;
+  return false;
+}
+
 async function getPersistedStatus(guildId?, userId?) {
   if (!isDbReady() || !guildId || !userId) return null;
   try {
@@ -246,4 +311,5 @@ export = {
   persistStatus,
   clearPersistedStatus,
   getPersistedStatus,
+  isTrackedPresenceSupporterUser,
 };

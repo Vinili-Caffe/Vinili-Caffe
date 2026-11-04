@@ -2,6 +2,7 @@ const { EmbedBuilder, ChannelType, PermissionsBitField, OverwriteType } = requir
 const { getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { getCustomPrivateCategoryIdSet, isChannelInCustomPrivateCategory } = require("../utils/customPrivateCategoryUtils") as typeof import("../utils/customPrivateCategoryUtils");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function fetchGuildChannel(guild?, channelId?) {
   return getGuildChannelCached(guild, channelId);
 }
@@ -127,7 +128,7 @@ function refreshEmbedRoleLine(sourceEmbed?, role?) {
       `$1${role}`,
     );
   } else {
-    nextDesc = [oldDesc, "", "<:VC_Mention:1482526855289634997> **Ruolo:**", `${role}`]
+    nextDesc = [oldDesc, "", `${E.VC_Mention} **Ruolo:**`, `${role}`]
       .join("\n")
       .trim();
   }

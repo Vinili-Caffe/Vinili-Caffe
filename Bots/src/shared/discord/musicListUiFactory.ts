@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js") as typeof import("discord.js");
 
+const { E } = require("../emojis/emojiCatalog") as typeof import("../emojis/emojiCatalog");
 const PAGE_SIZE = 10;
 const PRIVATE = 1 << 6;
 
@@ -109,22 +110,22 @@ function createMusicListUi(deps?) {
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`${base}:first`)
-          .setEmoji("<:1343arrowleft:1525249879151083621>")
+          .setEmoji(E["1343arrowleft"])
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(pageIdx <= 0),
         new ButtonBuilder()
           .setCustomId(`${base}:prev`)
-          .setEmoji("<:1343arrowleft:1525249879151083621>")
+          .setEmoji(E["1343arrowleft"])
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(pageIdx <= 0),
         new ButtonBuilder()
           .setCustomId(`${base}:next`)
-          .setEmoji("<:1343arrowright:1525249880728145970>")
+          .setEmoji(E["1343arrowright"])
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(pageIdx >= totalPages - 1),
         new ButtonBuilder()
           .setCustomId(`${base}:last`)
-          .setEmoji("<:1343arrowright:1525249880728145970>")
+          .setEmoji(E["1343arrowright"])
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(pageIdx >= totalPages - 1),
       ),

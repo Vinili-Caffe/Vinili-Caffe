@@ -1,5 +1,6 @@
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const userButton = require("../buttons/user");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   isPartnershipOperational,
   memberHasPartnerManagerRole,
@@ -116,7 +117,7 @@ export = {
         if (shouldUseTenantStatsInfoRouting(guildId)) {
       return safeMessageReply(message, {
         content:
-          "<:vegax:1443934876440068179> Su questo server usa `+user info` per la scheda partnership.",
+          `${E.vegax} Su questo server usa \`+user info\` per la scheda partnership.`,
         allowedMentions: { repliedUser: false },
       });
     }
@@ -125,7 +126,7 @@ export = {
     const { targetId, lookbackDays } = await userButton.resolveUserTargetAndLookback(message, args);
     if (!targetId) {
       await safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Usa: `+user <@utente | id | username>`",
+        content: `${E.vegax} Usa: \`+user <@utente | id | username>\``,
         allowedMentions: { repliedUser: false },
       });
       return;
@@ -152,7 +153,7 @@ export = {
           ? " Sul server potrebbe mancare il pacchetto `canvas` (e dipendenze di sistema)."
           : "";
       await safeMessageReply(message, {
-        content: `<:vegax:1443934876440068179> Errore nel generare le statistiche.${hint}`,
+        content: `${E.vegax} Errore nel generare le statistiche.${hint}`,
         allowedMentions: { repliedUser: false },
       });
     }

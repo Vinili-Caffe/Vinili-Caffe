@@ -18,6 +18,7 @@ const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../../.
 const { buildMemberWelcomePhrase } = require("../../Community/utils/pronounWelcomeUtils") as typeof import("../../Community/utils/pronounWelcomeUtils");
 const { formatInviteCountIt, formatInviteLinkForJoinMessage, resolveGuildChannel, resolveInviteInfo } = require("../../Community/events/joinInvites") as typeof import("../../Community/events/joinInvites");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const JOIN_GATE_WHITELIST_ROLE_IDS = new Set([IDs.roles.Founder].filter(Boolean).map(String),);
 const AUDIT_FETCH_LIMIT = 20;
@@ -82,7 +83,7 @@ function buildWelcomeChannelContent(member?) {
   const { word } = buildMemberWelcomePhrase(member);
   const staffId = String(IDs.roles?.Staff || "").trim();
   const staffPing = staffId ? ` <@&${staffId}>` : "";
-  return `Ciao <@${member.id}>, ${word}!${staffPing} <a:VC_heartfinger:1504513546782769332>`;
+  return `Ciao <@${member.id}>, ${word}!${staffPing} ${E.VC_heartfinger}`;
 }
 
 async function sendWelcomeChannelAnnouncement(channel?, member?) {
@@ -122,11 +123,11 @@ function buildWelcomeEmbed(member?) {
       iconURL: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || undefined,
     })
     .setTitle(
-      `<a:VC_HeartsPink:1468685897389052008> ${capitalized} su Vinili & Caffè <a:VC_HeartsPink:1468685897389052008>`,
+      `${E.VC_HeartsPink} ${capitalized} su Vinili & Caffè ${E.VC_HeartsPink}`,
     )
     .setDescription(
-      `__${uname}__ ${word} nella nostra community <a:VC_Sparkles:1468546911936974889>\n` +
-      "<:VC_addperson:1485419347068588073> [Vai sul sito](https://www.viniliecaffe.it/personalizza/) per **personalizzare il tuo profilo**\n",
+      `__${uname}__ ${word} nella nostra community ${E.VC_Sparkles}\n` +
+      `${E.VC_addperson} [Vai sul sito](https://www.viniliecaffe.it/personalizza/) per **personalizzare il tuo profilo**\n`,
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined)
     .setImage(DIVIDER_URL)
@@ -161,17 +162,17 @@ async function sendBotAddLog(member?) {
 
   const embed = new EmbedBuilder()
     .setColor("#57F287")
-    .setTitle("<:VC_User:1482527453586002103> Bot Add")
+    .setTitle(`${E.VC_User} Bot Add`)
     .setDescription(
       [
-        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-        `<:VC_User:1482527453586002103> **Target:** ${member.user} \`${member.user.id}\``,
-        `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
+        `${E.VC_Staff} **Responsabile:** ${responsible}`,
+        `${E.VC_User} **Target:** ${member.user} \`${member.user.id}\``,
+        `${E.VC_Clock} <t:${nowTs}:F>`,
         "",
-        "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
-        `<:VC_Id:1482527453586002103> **Id:** \`${member.user.id}\``,
-        `<:VC_Modifica:1478859646587633717> **Username:** ${member.user.username}`,
-        `<:VC_Clock:1473359204189474886> **Creation:** <t:${createdTs}:R>`,
+        `**${E.VC_tools} Informazioni aggiuntive**`,
+        `${E.VC_Id} **Id:** \`${member.user.id}\``,
+        `${E.VC_Modifica} **Username:** ${member.user.username}`,
+        `${E.VC_Clock} **Creation:** <t:${createdTs}:R>`,
       ].join("\n"),
     );
 
@@ -201,8 +202,8 @@ async function handleBotJoin(member?, joinGateConfig?) {
 
   if ( joinGateConfig?.enabled && joinGateConfig?.unverifiedBotAdditions?.enabled && !verifiedBot) {
     const result = await kickForJoinGate(member, "Aggiunta di bot non verificato.", [
-      `<:VC_Rules:1482527309868040393> **Regola:** Aggiunta di bot non verificato`,
-      `<:VC_Staff:1494286904089247754> **Responsabile:** ${executorText}`,
+      `${E.VC_Rules} **Regola:** Aggiunta di bot non verificato`,
+      `${E.VC_Staff} **Responsabile:** ${executorText}`,
     ], joinGateConfig?.unverifiedBotAdditions?.action || "kick");
     if (result?.blocked) return;
   }
@@ -220,8 +221,8 @@ async function handleBotJoin(member?, joinGateConfig?) {
         member,
         "Aggiunta di bot da membro non autorizzato (no audit match — kick fallito).",
         [
-          `<:VC_Rules:1482527309868040393> **Regola:** Aggiunta di bot`,
-          `<:VC_Staff:1494286904089247754> **Responsabile:** ${executorText}`,
+          `${E.VC_Rules} **Regola:** Aggiunta di bot`,
+          `${E.VC_Staff} **Responsabile:** ${executorText}`,
         ],
         joinGateConfig?.botAdditions?.action || "kick",
       );
@@ -230,8 +231,8 @@ async function handleBotJoin(member?, joinGateConfig?) {
       const authorized = await isAuthorizedBotAdder(member.guild, executorId);
       if (!authorized) {
         const result = await kickForJoinGate(member, "Aggiunta di bot da membro non autorizzato.", [
-          `<:VC_Rules:1482527309868040393> **Regola:** Aggiunta di bot`,
-          `<:VC_Staff:1494286904089247754> **Responsabile:** ${executorText}`,
+          `${E.VC_Rules} **Regola:** Aggiunta di bot`,
+          `${E.VC_Staff} **Responsabile:** ${executorText}`,
         ], joinGateConfig?.botAdditions?.action || "kick");
         if (result?.blocked && executorId) {
           await punishMemberForBotAbuse(
@@ -269,13 +270,13 @@ async function handleBotJoin(member?, joinGateConfig?) {
       await inviteChannel
         .send({
           content:
-            "<:VC_Reply:1482532158080942191> Bot entrato tramite vanity **.gg/viniliecaffe**",
+            `${E.VC_Reply} Bot entrato tramite vanity **.gg/viniliecaffe**`,
         })
         .catch(() => { });
     } else {
       await inviteChannel
         .send({
-          content: `<:VC_Reply:1482532158080942191> Bot entrato con il link ${formatInviteLinkForJoinMessage(info.link)},\n-# -> invitato da ${info.inviterTag} che ora ha **${formatInviteCountIt(info.totalInvites)}**.`,
+          content: `${E.VC_Reply} Bot entrato con il link ${formatInviteLinkForJoinMessage(info.link)},\n-# -> invitato da ${info.inviterTag} che ora ha **${formatInviteCountIt(info.totalInvites)}**.`,
           flags: MessageFlags.SuppressEmbeds,
         })
         .catch(() => { });
@@ -354,8 +355,8 @@ async function sendJoinGatePunishDm(member?, reason?, extraLines = [], action = 
     .setTitle(`Azione JoinGate in ${member.guild.name}`)
     .setDescription(
       [
-        `<:VC_User:1482527453586002103> **Membro:** ${member.user} [\`${member.user.id}\`]`,
-        `<:VC_Reason:1478517122929004544> **Motivo:** ${reason}`,
+        `${E.VC_User} **Membro:** ${member.user} [\`${member.user.id}\`]`,
+        `${E.VC_Reason} **Motivo:** ${reason}`,
         ...extraLines.filter(Boolean),
       ].join("\n"),
     );
@@ -376,8 +377,8 @@ function buildJoinGateTriggeredEmbed(member?, reason?) {
     .setTitle(`${member.user.username} ha attivato il join gate!`)
     .setDescription(
       [
-        `<:VC_User:1482527453586002103> **Membro:** ${member.user.username} [\`${member.user.id}\`]`,
-        `<:VC_Reason:1478517122929004544> **Motivo:** ${reason}`,
+        `${E.VC_User} **Membro:** ${member.user.username} [\`${member.user.id}\`]`,
+        `${E.VC_Reason} **Motivo:** ${reason}`,
       ].join("\n"),
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined);
@@ -492,13 +493,13 @@ async function kickForJoinGate(member?, reason?, extraLines = [], action = "kick
         .setTitle(`${member.user.username} è stato ${actionLabel}!!`)
         .setDescription(
           [
-            `<:VC_User:1482527453586002103> **Membro:** ${member.user.username} [\`${member.user.id}\`]`,
-            `<:VC_Reason:1478517122929004544> **Motivo:** ${reason}`,
+            `${E.VC_User} **Membro:** ${member.user.username} [\`${member.user.id}\`]`,
+            `${E.VC_Reason} **Motivo:** ${reason}`,
             ...extraLines.filter(Boolean),
             "",
-            "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
-            `<:VC_Info:1482526956703580372> **Membro messaggio diretto?** ${dmSent ? "<a:VC_Verified:1482532479637127188>" : "<a:VC_Cross:1482532424570376253>"}`,
-            `<:VC_Info:1482526956703580372> **Membro punito?** ${punished ? "<a:VC_Verified:1482532479637127188>" : "<a:VC_Cross:1482532424570376253>"}`,
+            `**${E.VC_tools} Informazioni aggiuntive**`,
+            `${E.VC_Info} **Membro messaggio diretto?** ${dmSent ? E.VC_Verified : E.VC_Cross}`,
+            `${E.VC_Info} **Membro punito?** ${punished ? E.VC_Verified : E.VC_Cross}`,
           ].join("\n"),
         )
         .setFooter({ text: "© 2026 Vinili & Caffè. Tutti i diritti riservati." })

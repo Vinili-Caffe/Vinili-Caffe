@@ -2,6 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { listPartnershipBlacklistGuilds } = require("../../services/partnershipBlacklistService") as typeof import("../../services/partnershipBlacklistService");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   listTenantPartnershipBlacklistGuilds,
   addTenantPartnershipBlacklistGuild,
@@ -87,11 +88,11 @@ async function buildBlacklistEntryEmbed(client?, entry?, pageIndex?, total?) {
   const display = await resolvePartnershipBlacklistEntryDisplay(client, entry);
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle(`<a:VC_Verified:1482532479637127188> ${display.guildName}`)
+    .setTitle(`${E.VC_Verified} ${display.guildName}`)
     .setDescription(
       display.note
-        ? `<:VC_Info:1482526956703580372> **Motivo**\n${display.note.slice(0, 3500)}`
-        : "<:VC_Info:1482526956703580372> Nessun motivo registrato.",
+        ? `${E.VC_Info} **Motivo**\n${display.note.slice(0, 3500)}`
+        : `${E.VC_Info} Nessun motivo registrato.`,
     )
     .addFields(
       { name: "Guild ID", value: `\`${display.guildId}\``, inline: true },
@@ -114,12 +115,12 @@ function buildBlacklistPanelComponents(ownerId?, canManage?, pageIndex?, total?)
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`${PANEL_PREFIX}:prev:${ownerId}:${pageIndex}`)
-          .setEmoji("<a:vegaleftarrow:1462914743416131816>")
+          .setEmoji(E.vegaleftarrow)
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(total <= 1),
         new ButtonBuilder()
           .setCustomId(`${PANEL_PREFIX}:next:${ownerId}:${pageIndex}`)
-          .setEmoji("<a:vegarightarrow:1443673039156936837>")
+          .setEmoji(E.vegarightarrow)
           .setStyle(ButtonStyle.Primary)
           .setDisabled(total <= 1),
       ),
@@ -131,12 +132,12 @@ function buildBlacklistPanelComponents(ownerId?, canManage?, pageIndex?, total?)
         new ButtonBuilder()
           .setCustomId(`${PANEL_PREFIX}:add:${ownerId}`)
           .setLabel("Aggiungi")
-          .setEmoji("<a:VC_Verified:1482532479637127188>")
+          .setEmoji(E.VC_Verified)
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
           .setCustomId(`${PANEL_PREFIX}:remove:${ownerId}`)
           .setLabel("Rimuovi")
-          .setEmoji("<a:VC_Cross:1482532424570376253>")
+          .setEmoji(E.VC_Cross)
           .setStyle(ButtonStyle.Danger),
       ),
     );
@@ -152,7 +153,7 @@ async function buildBlacklistPanelPayload(client?, ownerId?, canView?, canManage
         new EmbedBuilder()
           .setColor("Red")
           .setTitle("Server in blacklist partnership")
-          .setDescription("<:vegax:1443934876440068179> Non hai i ruoli necessari per gestire la blacklist."),
+          .setDescription(`${E.vegax} Non hai i ruoli necessari per gestire la blacklist.`),
       ],
       components: [],
     };
@@ -161,8 +162,8 @@ async function buildBlacklistPanelPayload(client?, ownerId?, canView?, canManage
       embeds: [
         new EmbedBuilder()
           .setColor("#6f4e37")
-          .setTitle("<a:VC_Verified:1482532479637127188> Server in blacklist partnership")
-          .setDescription("<a:VC_Cross:1482532424570376253> Nessun server in blacklist partnership."),
+          .setTitle(`${E.VC_Verified} Server in blacklist partnership`)
+          .setDescription(`${E.VC_Cross} Nessun server in blacklist partnership.`),
       ],
       components: buildBlacklistPanelComponents(ownerId, canManage, 0, 0),
     };

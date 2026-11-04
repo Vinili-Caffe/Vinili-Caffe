@@ -12,10 +12,10 @@ const { buildPublicBirthdayPayload } = require("./usersLbBirthdays") as typeof i
 const { buildCustomProfileData } = require("./usersLbCustomProfile") as typeof import("./usersLbCustomProfile");
 const { pctBar, siteRomeDayOverridesFromDoc, buildWeeklyMultiplierSources, peekCachedWeeklyHourlySorted } = require("./usersLbMultipliers") as typeof import("./usersLbMultipliers");
 
-const PROFILE_CACHE_VER = 11;
+const PROFILE_CACHE_VER = 13;
 
 const SEARCH_SELECT =
-  "userId profile.totals.exp profile.totals.hourly profile.totals.daily profile.totals.messagesTotal profile.totals.messagesWeekly profile.totals.messagesDaily profile.totals.messagesDailyKey profile.totals.voiceTotalSeconds profile.totals.voiceWeeklySeconds profile.totals.voiceDailySeconds profile.totals.voiceDailyKey profile.totals.sessionStartedAt profile.rankCard profile.birthday";
+  "userId profile.totals.exp profile.totals.hourly profile.totals.daily profile.totals.messagesTotal profile.totals.messagesWeekly profile.totals.messagesDaily profile.totals.messagesDailyKey profile.totals.voiceTotalSeconds profile.totals.voiceWeeklySeconds profile.totals.voiceDailySeconds profile.totals.voiceDailyKey profile.totals.sessionStartedAt profile.rankCard profile.birthday profile.events.starwars.deckReliquie profile.events.starwars.deckPG profile.events.starwars.eventKey";
 
 async function computeUserSearchRankMeta({
   guild,
@@ -299,6 +299,51 @@ async function buildProfileSearchPayload(client?, guildId?, searchId?) {
   };
 }
 
+/** Deck SW solo preview HS→HS: mai nel cache pubblico. */
+async function maybeAttachStarWarsDecksForHighStaff(client?, req?, payload?, guildId?) {
+  if (!payload?.profile || payload.notFound) return payload;
+  try {
+    if (payload.profile.starWarsDecks) delete payload.profile.starWarsDecks;
+  } catch (_) {}
+
+  let token = "";
+  try {
+    const { normalizeHeaderSecret } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
+    token = normalizeHeaderSecret(req?.headers?.authorization);
+  } catch (_) {
+    return payload;
+  }
+  if (!token) return payload;
+
+  try {
+    const { assertWebsiteStaffAccess } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
+    const { memberIsHighStaffEligible, staffRoleId } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
+    const access = await assertWebsiteStaffAccess(client, token, { req });
+    if (!access?.ok || !memberIsHighStaffEligible(access.member)) return payload;
+
+    const hsRoleIds = new Set(
+      ["Founder", "Manager", "Admin", "HighStaff"].map((k?) => String(staffRoleId(k) || "").trim()).filter(Boolean),
+    );
+    const roles = Array.isArray(payload.profile.roles) ? payload.profile.roles : [];
+    const targetIsHs = roles.some((r?) => hsRoleIds.has(String(r?.id || "").trim()));
+    if (!targetIsHs) return payload;
+
+    const targetId = String(payload.profile.userId || "").trim();
+    if (!targetId || !guildId) return payload;
+    const doc = await ActivityUserProfile.findOne({ guildId, userId: targetId })
+      .select("profile.events.starwars.deckReliquie profile.events.starwars.deckPG profile.events.starwars.eventKey")
+      .lean()
+      .catch(() => null);
+    const { buildStarWarsDeckProfileSections } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDeckProfileService") as any;
+    const starWarsDecks = buildStarWarsDeckProfileSections(doc, client, {
+      guildId,
+      forceVisible: true,
+    });
+    if (starWarsDecks) payload.profile.starWarsDecks = starWarsDecks;
+  } catch (_) {}
+  return payload;
+}
+
 async function buildRowFromDoc(
   client?,
   guild?,
@@ -535,4 +580,11 @@ function buildSearchStats(guild?, board?, d?, topAccountUsername?, globalExpMult
   };
 }
 
-export = { PROFILE_CACHE_VER, SEARCH_SELECT, buildProfileSearchPayload, buildRowFromDoc, buildSearchStats };
+export = {
+  PROFILE_CACHE_VER,
+  SEARCH_SELECT,
+  buildProfileSearchPayload,
+  buildRowFromDoc,
+  buildSearchStats,
+  maybeAttachStarWarsDecksForHighStaff,
+};

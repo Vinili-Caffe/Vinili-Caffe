@@ -8,6 +8,7 @@ const { kickForJoinGate, matchUsernameFilters, getJoinGateNameCandidate } = requ
 const { syncClanTagRolesForUserEverywhere } = require("../../Community/services/clanTagRoleService") as typeof import("../../Community/services/clanTagRoleService");
 const { syncPersistentAutoValutazioniForMember } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const USER_UPDATE_DEDUPE_MS = 15_000;
 const recentUserUpdateActions = new Map();
 const CLAN_TAG_USER_UPDATE_THROTTLE_MS = 10_000;
@@ -26,11 +27,11 @@ async function maybeThrottledClanTagSyncFromUserUpdate(newUser?, resolvedClient?
 function buildJoinGateTriggeredEmbed(member?, reason?) {
   return new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle(`<:VC_User:1482527453586002103> ${member.user.username} ha attivato il join gate!`)
+    .setTitle(`${E.VC_User} ${member.user.username} ha attivato il join gate!`)
     .setDescription(
       [
-        `<:VC_Modifica:1478859646587633717> **Membro:** ${member.user.username} [\`${member.user.id}\`]`,
-        `<:VC_Modifica:1478859646587633717> **Motivo:** ${reason}`,
+        `${E.VC_Modifica} **Membro:** ${member.user.username} [\`${member.user.id}\`]`,
+        `${E.VC_Modifica} **Motivo:** ${reason}`,
       ].join("\n"),
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null);
@@ -52,9 +53,9 @@ function shouldSkipRecentUserUpdateAction(guildId?, userId?, match?) {
 async function punishUsernameMatchPostJoin(member?, match?, cfg?) {
   const reason = "Username matchato con il filtro post-join.";
   const extraLines = [
-    `<:VC_Modifica:1478859646587633717> **Regola:** Filtro username`,
-    `<:VC_Modifica:1478859646587633717> **Tipo di match:** ${match.type}`,
-    `<:VC_Modifica:1478859646587633717> **Match:** ${match.value}`,
+    `${E.VC_Modifica} **Regola:** Filtro username`,
+    `${E.VC_Modifica} **Tipo di match:** ${match.type}`,
+    `${E.VC_Modifica} **Match:** ${match.value}`,
   ];
   const action = String(cfg?.usernameFilter?.action || "kick").toLowerCase();
   if (action === "log") {

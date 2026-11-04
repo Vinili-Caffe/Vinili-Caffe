@@ -2,9 +2,10 @@
 
 const { registerShutdownFlush } = require("../recovery/shutdownCheckpoint") as typeof import("../recovery/shutdownCheckpoint");
 
+const { E } = require("../emojis/emojiCatalog") as typeof import("../emojis/emojiCatalog");
 const EPHEMERAL_FLAG = 1 << 6;
 const SHUTDOWN_MESSAGE =
-  "<:vegax:1443934876440068179> Il bot si sta riavviando. Riprova il comando tra qualche secondo.";
+  `${E.vegax} Il bot si sta riavviando. Riprova il comando tra qualche secondo.`;
 const DRAIN_MS = Math.max(0, Number(process.env.INTERACTION_SHUTDOWN_DRAIN_MS || 800));
 
 const inflight = new Map();

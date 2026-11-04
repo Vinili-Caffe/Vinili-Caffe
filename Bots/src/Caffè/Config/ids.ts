@@ -1,9 +1,9 @@
 /**
- * Stesso registry del server ufficiale (Vinili). Overlay Caffè da config.json
+ * Registry server ufficiale (shared/ids/officialGuildIds). Overlay Caffè da config.json
  * per stanza discovery / category se presenti.
  */
 const path = require("path") as typeof import("path");
-const baseIds: any = require("../../Vinili/Config/ids") as typeof import("../../Vinili/Config/ids");
+const baseIds: any = require("../../shared/ids/officialGuildIds") as typeof import("../../shared/ids/officialGuildIds");
 
 let config: Record<string, any> = {};
 try {

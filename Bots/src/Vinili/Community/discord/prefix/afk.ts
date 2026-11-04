@@ -2,6 +2,7 @@ const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") 
 const { EmbedBuilder, escapeMarkdown } = require("discord.js") as typeof import("discord.js");
 const { setAfk } = require("../../services/profileStore") as typeof import("../../services/profileStore");
 const { scheduleMessageDeletion } = require("../../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../../shared/utils/ephemeralMessageTtl");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const AFK_MISSING_REASON_TTL_MS = 3000;
 
 export = {
@@ -16,7 +17,7 @@ export = {
     if (!args || !args.length) {
       const prompt = await safeMessageReply(
         message,
-        "<:vegax:1443934876440068179> Per favore scrivi un messaggio per impostare il tuo stato AFK.",
+        `${E.vegax} Per favore scrivi un messaggio per impostare il tuo stato AFK.`,
       );
       if (prompt) scheduleMessageDeletion(prompt, AFK_MISSING_REASON_TTL_MS);
       scheduleMessageDeletion(message, AFK_MISSING_REASON_TTL_MS);
@@ -27,7 +28,7 @@ export = {
     if (afkMessage.includes("@everyone") || afkMessage.includes("@here"))
       return safeMessageReply(
         message,
-        "<:vegax:1443934876440068179> Non puoi usare @everyone o @here nel messaggio.",
+        `${E.vegax} Non puoi usare @everyone o @here nel messaggio.`,
       );
 
     try {
@@ -35,7 +36,7 @@ export = {
       if (!member)
         return safeMessageReply(
           message,
-          "<:vegax:1443934876440068179> Errore: non posso trovare il tuo profilo.",
+          `${E.vegax} Errore: non posso trovare il tuo profilo.`,
         );
       const originalName = member.nickname ?? null;
       const preferredBaseName = member.nickname || member.displayName || message.author.username;
@@ -59,7 +60,7 @@ export = {
         embeds: [
           new EmbedBuilder()
             .setDescription(
-              "<:vegax:1443934876440068179> Errore durante l'esecuzione del comando.",
+              `${E.vegax} Errore durante l'esecuzione del comando.`,
             )
             .setColor("Red"),
         ],

@@ -13,6 +13,7 @@ const {
 } = require("./backupPanelNav") as typeof import("./backupPanelNav");
 const { renderList } = require("../discord/buttons/backupList") as typeof import("../discord/buttons/backupList");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const MODAL_ROOT = "backup_panel_modal";
 
 function formatBackupOpenButtonId(ownerId?, action?) {
@@ -78,7 +79,7 @@ function buildBackupPanelModal(scope?, ownerId?) {
 function buildBackupHomeEmbed(guild?) {
   return new EmbedBuilder()
     .setColor("#3498db")
-    .setTitle("<:VC_InactiveStatus:1482526984234860574> Centro backup")
+    .setTitle(`${E.VC_InactiveStatus} Centro backup`)
     .setDescription(
       [
         "Da qui puoi **creare** uno snapshot, vedere la **lista**, aprire **info**, **caricare** o **eliminare** un backup.",
@@ -107,7 +108,7 @@ async function buildBackupPanelPayload(guild?, ownerId?, section = SECTION_HOME)
 
   if (sec === "info") {
     const embed = buildBackupFormIntroEmbed(
-      "<:VC_InactiveStatus:1482526984234860574> Info backup",
+      `${E.VC_InactiveStatus} Info backup`,
       [
         "Incolla l’ID del backup nel modulo (formato `BACKUPID` oppure `guildId:backupId` se serve).",
         "",
@@ -119,14 +120,14 @@ async function buildBackupPanelPayload(guild?, ownerId?, section = SECTION_HOME)
         .setCustomId(formatBackupOpenButtonId(o, "info"))
         .setStyle(ButtonStyle.Primary)
         .setLabel("Apri modulo")
-        .setEmoji("<:VC_Modifica:1478859646587633717>"),
+        .setEmoji(E.VC_Modifica),
     );
     return { embeds: [embed], components: [nav, row] };
   }
 
   if (sec === "load") {
     const embed = buildBackupFormIntroEmbed(
-      "<a:VC_Loading:1482526818278969578> Carica backup",
+      `${E.VC_Loading__969578} Carica backup`,
       [
         "Il caricamento sovrascrive dati del server: segui il wizard dopo aver inserito l’ID.",
         "",
@@ -138,14 +139,14 @@ async function buildBackupPanelPayload(guild?, ownerId?, section = SECTION_HOME)
         .setCustomId(formatBackupOpenButtonId(o, "load"))
         .setStyle(ButtonStyle.Primary)
         .setLabel("Apri modulo")
-        .setEmoji("<:VC_Modifica:1478859646587633717>"),
+        .setEmoji(E.VC_Modifica),
     );
     return { embeds: [embed], components: [nav, row] };
   }
 
   if (sec === "delete") {
     const embed = buildBackupFormIntroEmbed(
-      "<:VC_purge:1478861828271636561> Elimina backup",
+      `${E.VC_purge} Elimina backup`,
       [
         "Dopo il modulo vedrai la **conferma** sul messaggio del pannello.",
         "",
@@ -157,7 +158,7 @@ async function buildBackupPanelPayload(guild?, ownerId?, section = SECTION_HOME)
         .setCustomId(formatBackupOpenButtonId(o, "delete"))
         .setStyle(ButtonStyle.Danger)
         .setLabel("Apri modulo")
-        .setEmoji("<:VC_Modifica:1478859646587633717>"),
+        .setEmoji(E.VC_Modifica),
     );
     return { embeds: [embed], components: [nav, row] };
   }

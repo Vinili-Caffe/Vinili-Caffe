@@ -1,4 +1,5 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   assertWebsiteStaffAccess,
   normalizeHeaderSecret,
@@ -223,7 +224,7 @@ async function handleSiteStaffPmPointsRemovedPost(client?, req?, res?) {
         messageLink,
         reporterUserId,
         pingHighStaff: true,
-        statusLine: "<:VC_Attention:1482534443632558151> In attesa di conferma High Staff.",
+        statusLine: `${E.VC_Attention} In attesa di conferma High Staff.`,
       });
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()

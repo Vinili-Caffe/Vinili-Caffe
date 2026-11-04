@@ -4,6 +4,7 @@ const { getGuildMemberCached, getGuildChannelCached } = require("../../../shared
 const { memberDisplayName, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { wasRoleRestoredByMuteMirror, isSocialRoleAnnounceGloballySuppressed } = require("../../Moderation/utils/muteRestoreAnnounceSuppress") as typeof import("../../Moderation/utils/muteRestoreAnnounceSuppress");
 const { applyPronounGenderToEmbedForMember } = require("../utils/pronounGenderUtils") as typeof import("../utils/pronounGenderUtils");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const GLOBAL_GUILDED_ROLE_ID = IDs.roles.Guilded;
 const MAIN_GUILD_ID = IDs.guilds.main;
 const ANNOUNCE_CHANNEL_ID = IDs.channels.supporters;
@@ -335,16 +336,16 @@ async function announceNewGuildedMember(member?, tag?, roleIdAssigned = null) {
         name: memberDisplayName(member),
         iconURL: avatarUrl,
       })
-      .setTitle("Nuovx Guilded <a:VC_StarPink:1330194976440848500>")
+      .setTitle(`Nuovx Guilded ${E.VC_StarPink}`)
       .setThumbnail(avatarUrl)
       .setDescription(
         [
           `<@${member.id}>, \`hai sbloccato:\``,
-          `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo <@&${mentionRoleId}>!`,
-          "<a:VC_Infinity:1448687797266288832> - Permesso di allegare immagini e link in chat",
-          "<a:VC_HeartWhite:1448673535253024860> - Permesso di cambiare il nickname",
+          `${E.VC_Reply} Ti è stato assegnato il ruolo <@&${mentionRoleId}>!`,
+          `${E.VC_Infinity} - Permesso di allegare immagini e link in chat`,
+          `${E.VC_HeartWhite} - Permesso di cambiare il nickname`,
           "",
-          "<a:VC_Arrow:1482706699365257397> Grazie per aver scelto la nostra tag! Scopri tutti i vantaggi [qui](https://viniliecaffe.it/perks)",
+          `${E.VC_Arrow} Grazie per aver scelto la nostra tag! Scopri tutti i vantaggi [qui](https://viniliecaffe.it/perks)`,
         ].join("\n"),
       )
       .setFooter({ text: "Grazie per il tuo supporto!" });

@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
+const { E } = require("../emojis/emojiCatalog") as typeof import("../emojis/emojiCatalog");
 const {
   getClientChannelCached,
   getClientGuildCached,
@@ -80,7 +81,7 @@ function createCommandUsageLogger(IDs?, options: Record<string, any> = {}) {
     if (options.requireTextBased && !channel?.isTextBased?.()) return;
     const displayName =
       memberDisplayName(userLike) || String(user || "").trim() || String(userId || "unknown");
-    const userFieldIcon = options.userFieldIcon || "<:member_role_icon:1330530086792728618>";
+    const userFieldIcon = options.userFieldIcon || E.member_role_icon;
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
       .setAuthor({
@@ -89,8 +90,8 @@ function createCommandUsageLogger(IDs?, options: Record<string, any> = {}) {
       })
       .setTitle(`${client.user.username} - Log Comandi`)
       .addFields(
-        { name: "<a:VC_Channel:1482534583944871996> Server:", value: truncateEmbedField(serverName || "—") },
-        { name: "<:VC_Bot:1482526555174604964> Comando:", value: formatCommandContentField(content) },
+        { name: `${E.VC_Channel} Server:`, value: truncateEmbedField(serverName || "—") },
+        { name: `${E.VC_Bot} Comando:`, value: formatCommandContentField(content) },
         { name: `${userFieldIcon} Utente:`, value: truncateEmbedField(`${displayName} · \`${userId}\``) },
       )
       .setTimestamp();

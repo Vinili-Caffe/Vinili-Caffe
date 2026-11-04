@@ -6,11 +6,12 @@ const { pickRepostAckPhrase } = require("../utils/repostAckPhrases") as typeof i
 const { TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
 const { resolveQuotedAuthorIdFromQuoteMessage, isClipRepostDoc } = require("./repostClips") as typeof import("./repostClips");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const REPOST_COLOR = TENANT_EMBED_COLOR;
 const REPOST_BTN_PREFIX = "repost_btn:";
 const REPOST_SRC_PREFIX = "repost_src:";
 const REPOST_REMOVE_PREFIX = "repost_remove:";
-const REPOST_EMOJI = "<a:reddiamond:1443652837346377841>";
+const REPOST_EMOJI = E.reddiamond;
 const MAX_EMBED_BODY_CHARS = 3600;
 
 function messageJumpUrl(guildId?, channelId?, messageId?) {
@@ -197,7 +198,7 @@ function buildRepostPrivacyBlockedEmbed(authorLabel?) {
   const dateText = new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   return new EmbedBuilder()
     .setColor("#ed4245")
-    .setTitle("<a:VC_Unlock:1482532082466029608> Repost bloccati")
+    .setTitle(`${E.VC_Unlock} Repost bloccati`)
     .setDescription(
       [
         `**${authorLabel}** ha bloccato i repost dei propri messaggi.`,

@@ -4,6 +4,7 @@ const { renderServerActivityCanvas, prefetchStatsCanvasAvatar } = require("../..
 const { getOrBuildStatsCanvasBuffer } = require("../../runtime/statsCanvasCache") as typeof import("../../runtime/statsCanvasCache");
 const { guildIconUrl } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 const { resolveTopChannelEntries, resolveTopUserEntriesForCanvas } = require("../prefix/top") as typeof import("../prefix/top");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const SERVER_REFRESH_CUSTOM_ID_PREFIX = "server_refresh";
 const ALLOWED_LOOKBACK = [7, 14, 21, 30];
 const SERVER_STATS_TIMEOUT_MS = Math.max(5_000, Math.min(60_000, Number(process.env.SERVER_STATS_TIMEOUT_MS ?? 18_000)));
@@ -55,7 +56,7 @@ function buildRefreshRow(authorId?, safeLookback?) {
     new ButtonBuilder()
       .setCustomId(customId)
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("<:VC_Refresh:1473359252276904203> ")
+      .setEmoji(`${E.VC_Refresh} `)
   );
 }
 
@@ -80,9 +81,9 @@ function buildServerFallbackPayload({ guild, safeLookback, authorId, stats = nul
   }
   const lines = [`Periodo: ultimi **${safeLookback}** giorni`];
   if (pending) {
-    lines.push("", "<a:VC_pixeltime:1482535344103620771> Sto ancora generando il grafico…");
+    lines.push("", `${E.VC_pixeltime} Sto ancora generando il grafico…`);
   } else if (reason) {
-    lines.push("", "<a:VC_pixeltime:1482535344103620771> Grafico non generato in tempo. Premi ↻ per riprovare.");
+    lines.push("", `${E.VC_pixeltime} Grafico non generato in tempo. Premi ↻ per riprovare.`);
   }
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
@@ -97,7 +98,7 @@ function buildServerLoadingPayload(safeLookback?, authorId?) {
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setTitle("Statistiche Server")
-    .setDescription(`<a:VC_pixeltime:1482535344103620771> Caricamento ultimi **${safeLookback}** giorni…`);
+    .setDescription(`${E.VC_pixeltime} Caricamento ultimi **${safeLookback}** giorni…`);
   return { embeds: [embed], files: [], components: [buildRefreshRow(authorId, safeLookback)] };
 }
 

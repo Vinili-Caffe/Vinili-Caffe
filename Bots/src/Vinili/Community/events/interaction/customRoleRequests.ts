@@ -7,6 +7,7 @@ const { userAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscor
 const { fetchGuildChannel, fetchGuildMember, fetchGuildRole } = require("../../../Community/utils/customRoleUtils") as typeof import("../../../Community/utils/customRoleUtils");
 const { pendingRoleGrants, pendingSiteRoleRequests, PENDING_SITE_ROLE_DOC, persistPendingSiteRoleRequest, deletePendingSiteRoleRequest, resolvePendingSiteRoleRequest, persistPendingRoleGrant, deletePendingRoleGrant, resolvePendingRoleGrant, persistPendingNow, ensurePendingLoaded } = require("./customRolePending") as typeof import("./customRolePending");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 /** Same TTL as site role join requests (createSiteRoleJoinRequest). */
 const CUSTOM_ROLE_GRANT_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -25,16 +26,16 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
 
   const token = crypto.randomBytes(16).toString("hex");
   const dmRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`customrole_grant:${token}:yes`)
-    .setEmoji("<:vegacheckmark:1443666279058772028>")
+    .setEmoji(E.vegacheckmark)
     .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`customrole_grant:${token}:no`)
-      .setEmoji("<:vegax:1443934876440068179>")
+      .setEmoji(E.vegax)
       .setStyle(ButtonStyle.Danger),
   );
   const dmEmbed = new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<:VC_PinkQuestionMark:1471892611026391306> Richiesta ruolo personalizzato")
+    .setTitle(`${E.VC_PinkQuestionMark} Richiesta ruolo personalizzato`)
     .setDescription(
       `${requesterMember} vuole aggiungerti il ruolo **${role.name}** nel server. Accetti?`,
     );
@@ -51,9 +52,9 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
           embeds: [
             new EmbedBuilder()
               .setColor("Red")
-              .setTitle("<a:VC_Alert:1482706673176150077> Impossibile inviare DM")
+              .setTitle(`${E.VC_Alert} Impossibile inviare DM`)
               .setDescription(
-                `<:vegax:1443934876440068179> Non posso inviare il messaggio privato a ${targetMember}.`,
+                `${E.vegax} Non posso inviare il messaggio privato a ${targetMember}.`,
               ),
           ],
         })
@@ -64,9 +65,9 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
 
   const waitingEmbed = new EmbedBuilder()
     .setColor("#f1c40f")
-    .setTitle("<a:VC_pixeltime:1482535344103620771> In attesa di conferma")
+    .setTitle(`${E.VC_pixeltime} In attesa di conferma`)
     .setDescription(
-      `<a:VC_Timer:1482527426557775954> Sto aspettando che ${targetMember} accetti di ricevere il ruolo **${role.name}**.`,
+      `${E.VC_Timer} Sto aspettando che ${targetMember} accetti di ricevere il ruolo **${role.name}**.`,
     );
   let promptMsg = null;
   if (channel) {
@@ -112,8 +113,8 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
               embeds: [
                 new EmbedBuilder()
                   .setColor("#e67e22")
-                  .setTitle("<:VC_update:1478721333096349817> Scaduto")
-                  .setDescription(`<a:VC_Timer:1482527426557775954> <@${req.targetId}> non ha risposto in tempo.`),
+                  .setTitle(`${E.VC_update} Scaduto`)
+                  .setDescription(`${E.VC_Timer} <@${req.targetId}> non ha risposto in tempo.`),
               ],
             })
             .catch(() => {});
@@ -131,8 +132,8 @@ async function createCustomRoleGrantRequest({ client, guildId, channelId, reques
             embeds: [
               new EmbedBuilder()
                 .setColor("#e67e22")
-                .setTitle("<:VC_update:1478721333096349817> Scaduto")
-                .setDescription("<a:VC_Timer:1482527426557775954> Tempo scaduto: la richiesta non è più valida."),
+                .setTitle(`${E.VC_update} Scaduto`)
+                .setDescription(`${E.VC_Timer} Tempo scaduto: la richiesta non è più valida.`),
             ],
             components: [],
           })
@@ -151,13 +152,13 @@ function buildSiteRoleRequestButtons(token?, disabled = false) {
     new ButtonBuilder()
       .setCustomId(`siterolerequest:${token}:approve`)
       .setLabel("Approva")
-      .setEmoji("<:vegacheckmark:1443666279058772028>")
+      .setEmoji(E.vegacheckmark)
       .setStyle(ButtonStyle.Success)
       .setDisabled(disabled),
     new ButtonBuilder()
       .setCustomId(`siterolerequest:${token}:reject`)
       .setLabel("Rifiuta")
-      .setEmoji("<:vegax:1443934876440068179>")
+      .setEmoji(E.vegax)
       .setStyle(ButtonStyle.Danger)
       .setDisabled(disabled),
   );
@@ -211,7 +212,7 @@ async function createSiteRoleJoinRequest({ client, guildId, requesterId, ownerId
   const requesterMention = `<@${requesterId}>`;
   const dmEmbed = new EmbedBuilder()
     .setColor("#8b5cf6")
-    .setTitle("<:VC_PinkQuestionMark:1471892611026391306> Richiesta di accesso al tuo ruolo")
+    .setTitle(`${E.VC_PinkQuestionMark} Richiesta di accesso al tuo ruolo`)
     .setDescription(
       [
         `${requesterMention} vuole ottenere il tuo ruolo personalizzato **${role.name}**.`,
@@ -276,7 +277,7 @@ async function createSiteRoleJoinRequest({ client, guildId, requesterId, ownerId
           embeds: [
             new EmbedBuilder()
               .setColor("#e67e22")
-              .setTitle("<:VC_update:1478721333096349817> Richiesta scaduta")
+              .setTitle(`${E.VC_update} Richiesta scaduta`)
               .setDescription("La richiesta del ruolo non è più valida: tempo scaduto."),
           ],
           components: [buildSiteRoleRequestButtons(token, true)],

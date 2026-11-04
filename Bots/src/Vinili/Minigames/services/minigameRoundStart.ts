@@ -37,8 +37,13 @@ function markSent(channelId?) {
   standbyChannels.delete(channelId);
   void clearPersistedRolePing(channelId);
   try {
-    const { recordChatHubBotPost, extendChatHubQuietForMs, CHAT_HUB_SOURCES } = require("../../../shared/discord/chatHubBotPacing") as typeof import("../../../shared/discord/chatHubBotPacing");
-    recordChatHubBotPost(channelId, CHAT_HUB_SOURCES.VINILI);
+    const {
+      recordChatHubBotPost,
+      extendChatHubQuietForMs,
+      CHAT_HUB_SOURCES,
+      CHAT_HUB_KINDS,
+    } = require("../../../shared/discord/chatHubBotPacing") as typeof import("../../../shared/discord/chatHubBotPacing");
+    recordChatHubBotPost(channelId, CHAT_HUB_SOURCES.VINILI, CHAT_HUB_KINDS.MINIGAME);
     extendChatHubQuietForMs(channelId, 45_000);
   } catch (_) {}
 }
@@ -68,12 +73,18 @@ async function saveActiveGame(client?, cfg?, payload?) {
   const endsAt = Number(payload?.endsAt || 0);
   if (Number.isFinite(endsAt) && endsAt > Date.now()) {
     try {
-      const { extendChatHubQuietUntil } = require("../../../shared/discord/chatHubBotPacing") as typeof import("../../../shared/discord/chatHubBotPacing");
+      const {
+        extendChatHubQuietUntil,
+        noteChatHubKindAt,
+        CHAT_HUB_KINDS,
+      } = require("../../../shared/discord/chatHubBotPacing") as typeof import("../../../shared/discord/chatHubBotPacing");
       // Quiet sul canale reale anche se lo state è sul doc ToT sintetico
       const quietCh = String(channelId).endsWith(TOT_STATE_SUFFIX)
         ? String(channelId).slice(0, -TOT_STATE_SUFFIX.length)
         : channelId;
       extendChatHubQuietUntil(quietCh, endsAt + 90_000);
+      // Anchor after-kind gaps to round end so fillers wait ~3m after the game.
+      noteChatHubKindAt(quietCh, CHAT_HUB_KINDS.MINIGAME, endsAt);
     } catch (_) {}
   }
 }

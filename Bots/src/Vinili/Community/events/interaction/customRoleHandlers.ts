@@ -4,6 +4,7 @@ const { getPendingRoleGrantByToken } = require("./customRolePending") as typeof 
 const { createCustomRoleGrantRequest, createSiteRoleJoinRequest } = require("./customRoleRequests") as typeof import("./customRoleRequests");
 const { handleGrantButtons, handleSiteRoleRequestButtons } = require("./customRoleGrants") as typeof import("./customRoleGrants");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const LEGACY_PANEL_PREFIXES = ["customrole_", "customvoc_", "customreaction_"];
 const SITE_PERSONALIZZA_URL = "https://www.viniliecaffe.it/personalizza/";
 
@@ -14,7 +15,7 @@ async function handleLegacyPanelInteraction(interaction?) {
   if (typeof interaction.reply !== "function") return false;
   await interaction
     .reply({
-      content: `<:VC_Attention:1482534443632558151> Ruolo, vocale e reazioni personalizzati ora si gestiscono dal sito: ${SITE_PERSONALIZZA_URL}`,
+      content: `${E.VC_Attention} Ruolo, vocale e reazioni personalizzati ora si gestiscono dal sito: ${SITE_PERSONALIZZA_URL}`,
       flags: 1 << 6,
     })
     .catch(() => {});

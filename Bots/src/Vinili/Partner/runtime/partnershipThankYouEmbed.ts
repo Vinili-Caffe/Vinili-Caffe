@@ -5,6 +5,7 @@ const { buildThankYouTemplateVars, applyPartnershipEmbedTemplate, parseEmbedColo
 const { formatPartnershipManagerLine, stripTrailingManagerLine } = require("./partnershipMessageUtils") as typeof import("./partnershipMessageUtils");
 const { embedHasMeaningfulContent } = require("../../../shared/embeds/embedMediaFallback") as typeof import("../../../shared/embeds/embedMediaFallback");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function resolveThankYouManagerOutsideEmbed(
   description?,
   managerId?,
@@ -26,9 +27,9 @@ function resolveThankYouManagerOutsideEmbed(
 /* thankYouSpendableOnly1: “Ora sei a X partner” = solo saldo spendibile
    ({user.points}/{points} = earned − shop). Niente totale fatti / riga extra. */
 const DEFAULT_THANK_YOU_DESCRIPTION_BASE =
-  `<a:ThankYou:1329504268369002507> Grazie per aver _effettuato_ una **partner** con \`{guild}\`
-<:mariolevelup:1443679595084910634> Ora sei a **\`{user.points}\`** partner!
-<:Money:1330544713463500970> Continua ad __effettuare__ partner per riscattare i **premi**.`;
+  `${E.ThankYou} Grazie per aver _effettuato_ una **partner** con \`{guild}\`
+${E.mariolevelup} Ora sei a **\`{user.points}\`** partner!
+${E.Money} Continua ad __effettuare__ partner per riscattare i **premi**.`;
 
 function resolveDefaultThankYouDescription(guildId = null) {
   return DEFAULT_THANK_YOU_DESCRIPTION_BASE;
@@ -38,7 +39,7 @@ const DEFAULT_THANK_YOU_EMBED_FIELDS = Object.freeze({
   color: "",
   authorIconUrl: "",
   authorName: "{user.username}",
-  title: "**<:partneredserverowner:1443651871125409812> __PARTNER EFFETTUATA__**",
+  title: `**${E.partneredserverowner} __PARTNER EFFETTUATA__**`,
   thumbnailUrl: "",
   description: resolveDefaultThankYouDescription(null),
   imageUrl: "",
@@ -198,7 +199,7 @@ async function buildThankYouEmbed({
 
     const title = fields.title
       ? applyPartnershipEmbedTemplate(fields.title, templateVars)
-      : `**<:partneredserverowner:1443651871125409812> __PARTNER EFFETTUATA__**`;
+      : `**${E.partneredserverowner} __PARTNER EFFETTUATA__**`;
     if (title) embed.setTitle(title);
 
     let description = fields.description
@@ -271,7 +272,7 @@ async function buildThankYouEmbed({
       name: templateVars.actorLabel,
       iconURL: guildMemberDisplayAvatarUrlDynamic(actorMember) || undefined,
     })
-    .setTitle(`**<:partneredserverowner:1443651871125409812> __PARTNER EFFETTUATA__**`)
+    .setTitle(`**${E.partneredserverowner} __PARTNER EFFETTUATA__**`)
     .setDescription(defaultResolved.description)
     .setFooter({ text: serverName || "Server", iconURL: serverIcon || undefined })
     .setColor("#6f4e37")

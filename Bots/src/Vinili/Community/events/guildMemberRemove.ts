@@ -10,6 +10,7 @@ const { queueIdsCatalogSync } = require("../../Config/idsAutoSync") as typeof im
 const { runCleanupAfterMemberLeave } = require("../../Community/services/cleanupUsersNotInServerService") as typeof import("../../Community/services/cleanupUsersNotInServerService");
 const { backupUserOnLeave } = require("../../Community/services/userLeaveBackupService") as typeof import("../../Community/services/userLeaveBackupService");
 const { handleMuteMirrorOnMemberLeave } = require("../../Moderation/services/mutedMirrorRoleService") as typeof import("../../Moderation/services/mutedMirrorRoleService");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   handleTenantPartnerManagerLeave,
 } = require("../../Partner/services/partnerManagerLeaveService") as typeof import("../../Partner/services/partnerManagerLeaveService");
@@ -87,8 +88,8 @@ async function sendLeaveLog(member?) {
 
   const embed = new EmbedBuilder()
     .setColor("#ED4245")
-    .setTitle("<:VC_User:1482527453586002103> Membro Uscito")
-    .setDescription([`<:VC_User:1482527453586002103> **Membro:** ${member.user} ${member.user.tag}.`, ""].join("\n"))
+    .setTitle(`${E.VC_User} Membro Uscito`)
+    .setDescription([`${E.VC_User} **Membro:** ${member.user} ${member.user.tag}.`, ""].join("\n"))
     .setFooter({ text: `ID: ${member.user.id}` })
     .setTimestamp()
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null);
@@ -262,7 +263,7 @@ async function resolveLeaveStaffRoleIdsFromDb(guildId?, userId?) {
   }
 }
 
-const STAFF_LEAVE_FALLBACK_ROLE_EMOJI = "<:VC_Staff:1494286904089247754>";
+const STAFF_LEAVE_FALLBACK_ROLE_EMOJI = E.VC_Staff;
 
 function formatStaffRoleLeadingEmoji(role?) {
   return getStaffRoleEmojiByRoleId(role?.id, STAFF_LEAVE_FALLBACK_ROLE_EMOJI);
@@ -272,9 +273,9 @@ function buildStaffLeaveResignationContent(member?, staffRole?, userRoleLabel?) 
   const label = String(staffRole?.name || "Staff/PM").trim() || "Staff/PM";
   const dest = String(userRoleLabel || "User").trim() || "User";
   const lead = formatStaffRoleLeadingEmoji(staffRole);
-  return `**<:cancel:1461730653677551691> DEPEX** ${member.user}
-${lead}\`${label}\` <a:VC_Arrow:1482706699365257397> \`${dest}\`
-<:VC_reason:1478517122929004544> __Dimissioni (Esce dal server)__`;
+  return `**${E.cancel} DEPEX** ${member.user}
+${lead}\`${label}\` ${E.VC_Arrow} \`${dest}\`
+${E.VC_reason} __Dimissioni (Esce dal server)__`;
 }
 
 /** organicoLeaveAfterDim1: rename plain "Dimissioni" → "Dimissioni (Esce dal server)" on leave. */
@@ -580,11 +581,11 @@ async function sendMemberKickLog(member?) {
   const nowTs = Math.floor(Date.now() / 1000);
   const embed = new EmbedBuilder()
     .setColor("#ED4245")
-    .setTitle("<:VC_User:1482527453586002103> Membro Kickato")
-    .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-    `<:VC_User:1482527453586002103> **Utente:** ${member.user}\`${member.user.id}\``,
-    `<:VC_Clock:1473359204189474886> <t:${nowTs}:F>`,
-    entry.reason ? `<:VC_reason:1478517122929004544> **Motivo:** ${entry.reason}` : null,
+    .setTitle(`${E.VC_User} Membro Kickato`)
+    .setDescription([`${E.VC_Staff} **Responsabile:** ${responsible}`,
+    `${E.VC_User} **Utente:** ${member.user}\`${member.user.id}\``,
+    `${E.VC_Clock} <t:${nowTs}:F>`,
+    entry.reason ? `${E.VC_reason} **Motivo:** ${entry.reason}` : null,
     ...buildAuditExtraLines(entry, ["reason"]),
     ]
       .filter(Boolean)

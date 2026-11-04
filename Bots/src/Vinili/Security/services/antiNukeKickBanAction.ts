@@ -3,6 +3,7 @@ const { isWhitelistedExecutorAsync } = require("./antiNukeWhitelist") as typeof 
 const { isUnknownExecutorId, formatExecutorLine, sendAntiNukeLog } = require("./antiNukeLog") as typeof import("./antiNukeLog");
 const { isAntiNukeScopeGuild, quarantineOutcomeLabel, quarantineExecutor } = require("./antiNukeQuarantine") as typeof import("./antiNukeQuarantine");
 const { enableAntiNukePanic } = require("./antiNukePanicEnable") as typeof import("./antiNukePanicEnable");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   percentToHeat,
   normalizeExecutorId,
@@ -80,20 +81,20 @@ async function handleKickBanAction({ guild, executorId, action = "unknown", targ
   if (now - Number(state.lastPunishAt || 0) < 15_000) return;
   state.lastPunishAt = now;
 
-  const quarantine = await quarantineExecutor(guild, actorId, "<:VC_Lock:1482526739044368476> AntiNuke: kick/ban abuse detected",);
+  const quarantine = await quarantineExecutor(guild, actorId, `${E.VC_Lock} AntiNuke: kick/ban abuse detected`,);
   await sendAntiNukeLog(
     guild,
-    "<a:VC_Alert:1482706673176150077> AntiNuke: Kick/Ban Filter",
+    `${E.VC_Alert} AntiNuke: Kick/Ban Filter`,
     [
       formatExecutorLine(actorId),
-      `<a:VC_Alert:1482706673176150077> **Action:** ${action}`,
+      `${E.VC_Alert} **Action:** ${action}`,
       targetId
-        ? `<a:VC_Alert:1482706673176150077> **Target:** <@${targetId}> \`${targetId}\``
+        ? `${E.VC_Alert} **Target:** <@${targetId}> \`${targetId}\``
         : null,
-      `<a:VC_Alert:1482706673176150077> **Minute Count:** ${minuteCount}/${ANTINUKE_CONFIG.kickBanFilter.minuteLimit}`,
-      `<a:VC_Alert:1482706673176150077> **Hour Count:** ${hourCount}/${ANTINUKE_CONFIG.kickBanFilter.hourLimit}`,
-      `<a:VC_Alert:1482706673176150077> **Heat:** ${state.heat}/100`,
-      `<a:VC_Alert:1482706673176150077> **Result:** ${quarantineOutcomeLabel(quarantine)}`,
+      `${E.VC_Alert} **Minute Count:** ${minuteCount}/${ANTINUKE_CONFIG.kickBanFilter.minuteLimit}`,
+      `${E.VC_Alert} **Hour Count:** ${hourCount}/${ANTINUKE_CONFIG.kickBanFilter.hourLimit}`,
+      `${E.VC_Alert} **Heat:** ${state.heat}/100`,
+      `${E.VC_Alert} **Result:** ${quarantineOutcomeLabel(quarantine)}`,
     ].filter(Boolean),
   );
 }

@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   createRepostFromMessage,
   isRepostDisabledInGuild,
@@ -26,7 +27,7 @@ async function runRepostCommand(message?, targetMessage?) {
           result.privacyEmbed ||
             new EmbedBuilder()
               .setColor(color)
-              .setDescription(`<:vegax:1443934876440068179> ${result.message || "Repost non riuscito."}`),
+              .setDescription(`${E.vegax} ${result.message || "Repost non riuscito."}`),
         ],
         allowedMentions: { repliedUser: false },
       }).catch(() => null);
@@ -44,7 +45,7 @@ async function runRepostCommand(message?, targetMessage?) {
       embeds: [
         new EmbedBuilder()
           .setColor("Red")
-          .setDescription("<:vegax:1443934876440068179> Repost non riuscito. Riprova tra qualche secondo."),
+          .setDescription(`${E.vegax} Repost non riuscito. Riprova tra qualche secondo.`),
       ],
       allowedMentions: { repliedUser: false },
     }).catch(() => null);
@@ -61,7 +62,7 @@ export = {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setDescription("<:vegax:1443934876440068179> Questo comando funziona solo in un server."),
+            .setDescription(`${E.vegax} Questo comando funziona solo in un server.`),
         ],
         allowedMentions: { repliedUser: false },
       });
@@ -72,7 +73,7 @@ export = {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setDescription(`<:vegax:1443934876440068179> ${REPOST_DISABLED_MESSAGE}`),
+            .setDescription(`${E.vegax} ${REPOST_DISABLED_MESSAGE}`),
         ],
         allowedMentions: { repliedUser: false },
       });
@@ -85,7 +86,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Rispondi a un messaggio con `+repost` per condividerlo sulla bacheca.",
+              `${E.vegax} Rispondi a un messaggio con \`+repost\` per condividerlo sulla bacheca.`,
             ),
         ],
         allowedMentions: { repliedUser: false },
@@ -98,7 +99,7 @@ export = {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setDescription("<:vegax:1443934876440068179> Messaggio di riferimento non trovato."),
+            .setDescription(`${E.vegax} Messaggio di riferimento non trovato.`),
         ],
         allowedMentions: { repliedUser: false },
       });

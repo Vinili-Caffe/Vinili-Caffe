@@ -1,11 +1,12 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require("discord.js") as typeof import("discord.js");
 const sec = require("../prefix/security") as typeof import("../prefix/security");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const PRIVATE_FLAG = MessageFlags.Ephemeral;
 const STATICS_LAST = 2;
 
 function notYourPanelReply() {
-  return { content: "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può usarlo.", flags: PRIVATE_FLAG };
+  return { content: `${E.VC_Cross} Solo chi ha aperto il pannello può usarlo.`, flags: PRIVATE_FLAG };
 }
 
 function extractOwnerIdFromCustomId(customId?) {
@@ -63,25 +64,25 @@ function buildPagerRow(kind?, ownerId?, page?, lastIdx?) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:first`)
-      .setEmoji("<:1343arrowleft:1525249879151083621>")
+      .setEmoji(E["1343arrowleft"])
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p <= 0),
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:prev`)
-      .setEmoji("<:1343arrowleft:1525249879151083621>")
+      .setEmoji(E["1343arrowleft"])
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p <= 0),
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:next`)
-      .setEmoji("<:1343arrowright:1525249880728145970>")
+      .setEmoji(E["1343arrowright"])
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p >= lastIdx),
     new ButtonBuilder()
       .setCustomId(`${base}:${p}:last`)
-      .setEmoji("<:1343arrowright:1525249880728145970>")
+      .setEmoji(E["1343arrowright"])
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(p >= lastIdx),
-    new ButtonBuilder().setCustomId(back).setEmoji("<:VC_page2:1482459724657201387>").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(back).setEmoji(E.VC_page2).setStyle(ButtonStyle.Primary),
   );
 }
 
@@ -89,16 +90,16 @@ async function handleHub(interaction?, guild?, member?, ownerId?) {
   const v = String(interaction.values?.[0] || "");
   if (v === "view_modules") {
     if (!sec.hasPanicControlAccess(member, guild)) {
-      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo Founder può gestire i moduli.");
+      await replyEphemeral(interaction, `${E.VC_Cross} Solo Founder può gestire i moduli.`);
       return true;
     }
   }
   if (!v) {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Selezione non valida.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Selezione non valida.`);
     return true;
   }
   if (!(await ensureDeferred(interaction))) {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aggiornare il pannello. Riprova.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Impossibile aggiornare il pannello. Riprova.`);
     return true;
   }
   if (v === "view_status") {
@@ -136,13 +137,13 @@ async function handleHub(interaction?, guild?, member?, ownerId?) {
     await respondPayload(interaction, payload);
     return true;
   }
-  await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Selezione non valida.");
+  await replyEphemeral(interaction, `${E.VC_Cross} Selezione non valida.`);
   return true;
 }
 
 async function handleBack(interaction?, guild?, ownerId?, member?) {
   if (!(await ensureDeferred(interaction))) {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aggiornare il pannello. Riprova.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Impossibile aggiornare il pannello. Riprova.`);
     return true;
   }
   const payload = sec.buildSecurityHubPayload(guild, ownerId, interaction.user, member);
@@ -154,11 +155,11 @@ async function handlePager(interaction?, parts?, guild?, ownerId?) {
   const page = Number(parts[3]);
   const op = String(parts[4] || "").toLowerCase();
   if (!Number.isFinite(page)) {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Pagina non valida.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Pagina non valida.`);
     return true;
   }
   if (!(await ensureDeferred(interaction))) {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile aggiornare il pannello. Riprova.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Impossibile aggiornare il pannello. Riprova.`);
     return true;
   }
   let nextPage = page;
@@ -175,7 +176,7 @@ async function handlePager(interaction?, parts?, guild?, ownerId?) {
       nextPage = pages.length - 1;
     }
   } else {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Azione non valida.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Azione non valida.`);
     return true;
   }
 

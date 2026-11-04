@@ -2,6 +2,7 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { extractUserId } = require("../../utils/prefixModeration") as typeof import("../../utils/prefixModeration");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../../shared/utils/ephemeralMessageTtl");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const DISCORD_BULK_DELETE_MAX = 100;
 const BULK_DELETE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const BULK_DELETE_PAUSE_MS = 850;
@@ -269,7 +270,7 @@ export = {
     ) {
       await replyTemp({
         content:
-          "<:vegax:1443934876440068179> Quantità non valida. Usa un numero positivo oppure `all`.",
+          `${E.vegax} Quantità non valida. Usa un numero positivo oppure \`all\`.`,
       });
       return;
     }
@@ -285,7 +286,7 @@ export = {
 
       if (!deletedCount) {
         await replyTemp({
-          content: "<:vegax:1443934876440068179> Nessun messaggio da eliminare.",
+          content: `${E.vegax} Nessun messaggio da eliminare.`,
         });
         return;
       }
@@ -306,7 +307,7 @@ export = {
       global.logger?.error?.("[purge] purge run failed:", err?.stack || err?.message || err);
       await replyTemp({
         content:
-          "<:vegax:1443934876440068179> Purge interrotto per un errore. Controlla i log del bot.",
+          `${E.vegax} Purge interrotto per un errore. Controlla i log del bot.`,
       }).catch(() => null);
     }
   },

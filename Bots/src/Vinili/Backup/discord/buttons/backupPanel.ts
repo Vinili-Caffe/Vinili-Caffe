@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { safeMessageEdit } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { parseBackupPanelSelectCustomId, buildBackupPanelNavRow, SECTION_HOME } = require("../../utils/backupPanelNav") as typeof import("../../utils/backupPanelNav");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   buildBackupPanelPayload,
   buildBackupPanelModal,
@@ -49,7 +50,7 @@ function match(interaction?) {
 
 function denyNotOwner(interaction?) {
   return interaction.reply({
-    embeds: [new EmbedBuilder().setColor("#e74c3c").setDescription("<:vegax:1443934876440068179> Questo pannello non è tuo.")],
+    embeds: [new EmbedBuilder().setColor("#e74c3c").setDescription(`${E.vegax} Questo pannello non è tuo.`)],
     flags: PRIVATE,
   }).catch(() => {});
 }
@@ -81,7 +82,7 @@ async function execute(interaction?) {
         const result = await readBackupByIdGlobal(rawRef);
         if (String(result.guildId || "") !== String(guild.id)) {
           await interaction.editReply({
-            content: "<a:VC_Alert:1482706673176150077> Quel backup appartiene a un altro server.",
+            content: `${E.VC_Alert} Quel backup appartiene a un altro server.`,
           }).catch(() => {});
           return true;
         }
@@ -95,12 +96,12 @@ async function execute(interaction?) {
           },
           interaction,
         ).catch(() => {});
-        await interaction.editReply({ content: "<:success:1461731530333229226> Dettagli aggiornati nel messaggio del pannello." }).catch(() => {});
+        await interaction.editReply({ content: `${E.success} Dettagli aggiornati nel messaggio del pannello.` }).catch(() => {});
       } catch (error) {
         global.logger?.error?.("[backupPanel] info modal", error);
         const notFound =
           error?.code === "ENOENT"
-            ? `<:cancel:1461730653677551691> Backup \`${rawRef}\` non trovato.`
+            ? `${E.cancel} Backup \`${rawRef}\` non trovato.`
             : String(error?.message || error);
         await interaction.editReply({ content: notFound.slice(0, 1900) }).catch(() => {});
       }
@@ -120,7 +121,7 @@ async function execute(interaction?) {
         const globalRef = await readBackupByIdGlobal(rawRef);
         if (String(globalRef.guildId || "") !== String(guild.id)) {
           await interaction.editReply({
-            content: "<a:VC_Alert:1482706673176150077> Non puoi caricare backup di un altro server.",
+            content: `${E.VC_Alert} Non puoi caricare backup di un altro server.`,
           }).catch(() => {});
           return true;
         }
@@ -140,12 +141,12 @@ async function execute(interaction?) {
           },
           interaction,
         ).catch(() => {});
-        await interaction.editReply({ content: "<:success:1461731530333229226> Wizard di caricamento mostrato nel messaggio del pannello." }).catch(() => {});
+        await interaction.editReply({ content: `${E.success} Wizard di caricamento mostrato nel messaggio del pannello.` }).catch(() => {});
       } catch (error) {
         global.logger?.error?.("[backupPanel] load modal", error);
         const notFound =
           error?.code === "ENOENT"
-            ? `<:cancel:1461730653677551691> Backup \`${rawRef}\` non trovato.`
+            ? `${E.cancel} Backup \`${rawRef}\` non trovato.`
             : String(error?.message || error);
         await interaction.editReply({ content: notFound.slice(0, 1900) }).catch(() => {});
       }
@@ -157,7 +158,7 @@ async function execute(interaction?) {
         const globalRef = await readBackupByIdGlobal(rawRef);
         if (String(globalRef.guildId || "") !== String(guild.id)) {
           await interaction.editReply({
-            content: "<a:VC_Alert:1482706673176150077> Non puoi eliminare backup di un altro server.",
+            content: `${E.VC_Alert} Non puoi eliminare backup di un altro server.`,
           }).catch(() => {});
           return true;
         }
@@ -171,12 +172,12 @@ async function execute(interaction?) {
           },
           interaction,
         ).catch(() => {});
-        await interaction.editReply({ content: "<:success:1461731530333229226> Conferma l’eliminazione nel messaggio del pannello." }).catch(() => {});
+        await interaction.editReply({ content: `${E.success} Conferma l’eliminazione nel messaggio del pannello.` }).catch(() => {});
       } catch (error) {
         global.logger?.error?.("[backupPanel] delete modal", error);
         const notFound =
           error?.code === "ENOENT"
-            ? `<:cancel:1461730653677551691> Backup \`${rawRef}\` non trovato.`
+            ? `${E.cancel} Backup \`${rawRef}\` non trovato.`
             : String(error?.message || error);
         await interaction.editReply({ content: notFound.slice(0, 1900) }).catch(() => {});
       }

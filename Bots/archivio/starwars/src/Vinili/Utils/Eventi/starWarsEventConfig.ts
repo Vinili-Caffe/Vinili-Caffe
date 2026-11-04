@@ -1,6 +1,7 @@
 /**
  * Evento Star Wars 2026/27 — finestra globale + eventKey.
  * Calendario giorno-per-giorno: starWarsEventCalendar.js
+ * Staging: testGuildForceLive → solo server test (HS), senza aprire il pubblico.
  */
 "use strict";
 
@@ -20,6 +21,15 @@ function readBool(v?, fallback?) {
   return fallback;
 }
 
+function getTestGuildIdSafe() {
+  try {
+    const IDs = require(__eventCoreVinili("Config/ids"));
+    return String(IDs.guilds?.test || "").trim();
+  } catch (_) {
+    return "";
+  }
+}
+
 function resolveStarWarsEventConfig(client?) {
   const raw =
     (client?.config?.starWarsEvent && typeof client.config.starWarsEvent === "object"
@@ -35,9 +45,14 @@ function resolveStarWarsEventConfig(client?) {
     process.env.STARWARS_EVENT_PUBLIC_OPEN || raw.publicOpenDate || "2026-12-01T00:00:00",
   ).trim();
   const eventKey = String(process.env.STARWARS_EVENT_KEY || raw.eventKey || DEFAULT_EVENT_KEY).trim() || DEFAULT_EVENT_KEY;
+  const testGuildForceLive = readBool(
+    process.env.STARWARS_TEST_FORCE_LIVE ?? raw.testGuildForceLive,
+    false,
+  );
   return {
     enabled,
     publicEnabled,
+    testGuildForceLive,
     timezone,
     startDate,
     endDate,
@@ -47,6 +62,13 @@ function resolveStarWarsEventConfig(client?) {
     publicOpenMs: parseEventDateMs(publicOpenDate, timezone, "00:00:00"),
     eventKey,
   };
+}
+
+function isStarWarsForceLiveOnTestGuild(client?, guildId?) {
+  const testId = getTestGuildIdSafe();
+  const gid = String(guildId || "").trim();
+  if (!testId || !gid || gid !== testId) return false;
+  return Boolean(resolveStarWarsEventConfig(client)?.testGuildForceLive);
 }
 
 function isStarWarsEventEnabled(client?) {
@@ -62,9 +84,17 @@ function isStarWarsPublicWindowOpen(client?, now = new Date()) {
   return t >= cfg.publicOpenMs && t <= cfg.endMs;
 }
 
-function isStarWarsEventLive(client?, now = new Date()) {
+function isStarWarsEventLive(client?, now = new Date(), guildId = null) {
   const cfg = resolveStarWarsEventConfig(client);
   if (!cfg.enabled) return false;
+  const testId = getTestGuildIdSafe();
+  const gid = String(guildId || "").trim();
+  // Server test: solo staging esplicito (testGuildForceLive). Mai mirror automatico della finestra main.
+  if (testId && gid && gid === testId) {
+    return isStarWarsForceLiveOnTestGuild(client, guildId);
+  }
+  // Senza guildId: live se finestra main aperta OPPURE staging test attivo (plugin/API).
+  if (!gid && cfg.testGuildForceLive && testId) return true;
   const t = now instanceof Date ? now.getTime() : Date.now();
   return t >= cfg.startMs && t <= cfg.endMs;
 }
@@ -93,8 +123,10 @@ function romeYmd(now = new Date(), timeZone = "Europe/Rome") {
 export = {
   DEFAULT_EVENT_KEY,
   resolveStarWarsEventConfig,
+  isStarWarsForceLiveOnTestGuild,
   isStarWarsEventEnabled,
   isStarWarsPublicWindowOpen,
   isStarWarsEventLive,
   romeYmd,
+  getTestGuildIdSafe,
 };

@@ -5,6 +5,7 @@ const { runCaseFamily } = require("./caseCommands") as typeof import("./caseComm
 const { runModlogsOrModerations } = require("./logsCommands") as typeof import("./logsCommands");
 const { runLockOrUnlock } = require("./lockCommands") as typeof import("./lockCommands");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 async function runNamed(name?, message?, args?, client?) {
   const cmd = String(name || "").toLowerCase();
 
@@ -27,7 +28,7 @@ async function runNamed(name?, message?, args?, client?) {
     return runLockOrUnlock(cmd, message, args, client);
   }
 
-  return reply(message, client, "Moderazione", `<:VC_Lock:1482526739044368476> Comando non supportato: ${cmd}`, "Red");
+  return reply(message, client, "Moderazione", `${E.VC_Lock} Comando non supportato: ${cmd}`, "Red");
 }
 
 export = { runNamed };

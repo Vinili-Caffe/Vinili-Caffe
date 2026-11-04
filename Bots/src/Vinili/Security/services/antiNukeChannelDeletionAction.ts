@@ -4,6 +4,7 @@ const { isUnknownExecutorId, formatExecutorLine, sendAntiNukeLog } = require("./
 const { isAntiNukeScopeGuild, isAntiNukePanicActive, quarantineOutcomeLabel, quarantineExecutor } = require("./antiNukeQuarantine") as typeof import("./antiNukeQuarantine");
 const { buildChannelBackupSnapshot, queueDeletedChannelSnapshot } = require("./antiNukeRestore") as typeof import("./antiNukeRestore");
 const { enableAntiNukePanic } = require("./antiNukePanicEnable") as typeof import("./antiNukePanicEnable");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   percentToHeat,
   normalizeExecutorId,
@@ -59,12 +60,12 @@ async function handleChannelDeletionAction({ guild, executorId, channelName = ""
   await applyBurstPanicGuard(
     guild,
     actorId,
-    "<a:VC_Alert:1482706673176150077> channel delete",
+    `${E.VC_Alert} channel delete`,
     ANTINUKE_CONFIG.channelDeletionFilter.heatPerAction || 25,
   );
   await enableAntiNukePanic(
     guild,
-    "<a:VC_Alert:1482706673176150077> Channel deletion filter",
+    `${E.VC_Alert} Channel deletion filter`,
     ANTINUKE_CONFIG.channelDeletionFilter.heatPerAction,
   );
   if (
@@ -97,19 +98,19 @@ async function handleChannelDeletionAction({ guild, executorId, channelName = ""
   if (now - Number(state.lastPunishAt || 0) < 15_000) return;
   state.lastPunishAt = now;
 
-  const quarantine = await quarantineExecutor(guild, actorId, "<:VC_Lock:1482526739044368476> AntiNuke: channel deletion spam detected",);
+  const quarantine = await quarantineExecutor(guild, actorId, `${E.VC_Lock} AntiNuke: channel deletion spam detected`,);
   await sendAntiNukeLog(
     guild,
-    "<a:VC_Alert:1482706673176150077> AntiNuke: Channel Deletions Filter",
+    `${E.VC_Alert} AntiNuke: Channel Deletions Filter`,
     [
       formatExecutorLine(actorId),
       channelId
-        ? `<a:VC_Alert:1482706673176150077> **Last Deleted Channel:** ${channelName || "sconosciuto"} \`${channelId}\``
+        ? `${E.VC_Alert} **Last Deleted Channel:** ${channelName || "sconosciuto"} \`${channelId}\``
         : null,
-      `<a:VC_Alert:1482706673176150077> **Minute Count:** ${minuteCount}/${ANTINUKE_CONFIG.channelDeletionFilter.minuteLimit}`,
-      `<a:VC_Alert:1482706673176150077> **Hour Count:** ${hourCount}/${ANTINUKE_CONFIG.channelDeletionFilter.hourLimit}`,
-      `<a:VC_Alert:1482706673176150077> **Heat:** ${state.heat}/100`,
-      `<a:VC_Alert:1482706673176150077> **Result:** ${quarantineOutcomeLabel(quarantine)}`,
+      `${E.VC_Alert} **Minute Count:** ${minuteCount}/${ANTINUKE_CONFIG.channelDeletionFilter.minuteLimit}`,
+      `${E.VC_Alert} **Hour Count:** ${hourCount}/${ANTINUKE_CONFIG.channelDeletionFilter.hourLimit}`,
+      `${E.VC_Alert} **Heat:** ${state.heat}/100`,
+      `${E.VC_Alert} **Result:** ${quarantineOutcomeLabel(quarantine)}`,
     ].filter(Boolean),
   );
 }

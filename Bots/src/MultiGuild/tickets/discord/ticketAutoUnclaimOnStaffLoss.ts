@@ -5,6 +5,7 @@ const Ticket = require("../data/guildFeatureBucketTicketModel");
 const IDs = require("../../../Vinili/Config/ids") as typeof import("../../../Vinili/Config/ids");
 const { PERKS_STAFF_ROLE_IDS } = require("./ticketPerksStaffRoles") as typeof import("./ticketPerksStaffRoles");
 const { applyPartnershipTicketRoleOverwrites } = require("./ticketPartnershipStaffRoles") as typeof import("./ticketPartnershipStaffRoles");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   TICKET_STAFF_SPECTATE_OVERWRITES,
   applyHighStaffTicketWriteOverwrite,
@@ -21,8 +22,8 @@ function buildTicketPanelUnclaimedButtonRow(guildId?, ticketDoc?) {
   return (
     buildTicketControlButtons(guildId, panel) ||
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("close_ticket").setEmoji(`<:VC_Lock:1482526739044368476>`).setLabel("Chiudi").setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji(`<:VC_reason:1478517122929004544>`).setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("close_ticket").setEmoji(E.VC_Lock).setLabel("Chiudi").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("close_ticket_motivo").setEmoji(E.VC_reason).setLabel("Chiudi Con Motivo").setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId("claim_ticket").setEmoji("🙋‍♂️").setLabel("Claim").setStyle(ButtonStyle.Success),
     )
   );
@@ -72,8 +73,8 @@ async function refreshTicketPanelMessageUnclaimed(channel?, ticketDoc?) {
   const guildId = String(ticketDoc?.guildId || channel?.guild?.id || "").trim();
   const ticketButtonsOriginal = buildTicketPanelUnclaimedButtonRow(guildId, ticketDoc);
   const fallbackPayload = buildTicketFlowRich({
-    title: "<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**",
-    description: "<:VC_claim:1478517202016669887> Ticket non claimato",
+    title: `${E.VC_Ticket} • **__TICKET APERTO__**`,
+    description: `${E.VC_claim} Ticket non claimato`,
     rows: [ticketButtonsOriginal],
   });
   if (!channel?.messages?.fetch) return;
@@ -91,8 +92,8 @@ async function refreshTicketPanelMessageUnclaimed(channel?, ticketDoc?) {
     return;
   }
   const editPayload = buildTicketFlowRich({
-    title: "<:VC_Ticket:1482535175283019888> • **__TICKET APERTO__**",
-    description: "<:VC_claim:1478517202016669887> Ticket non claimato",
+    title: `${E.VC_Ticket} • **__TICKET APERTO__**`,
+    description: `${E.VC_claim} Ticket non claimato`,
     rows: [ticketButtonsOriginal],
   });
   if (isComponentsV2Message(msg)) {
@@ -140,9 +141,9 @@ async function autoUnclaimOpenTicketsClaimedByUser(guild?, formerClaimantUserId?
     await channel
       .send(
         buildTicketFlowRich({
-          title: "<:VC_Ticket:1482535175283019888> • **__CLAIM RIMOSSO__**",
+          title: `${E.VC_Ticket} • **__CLAIM RIMOSSO__**`,
           description:
-            `<:VC_claim:1478517202016669887> Il ticket non è più in carico a <@${uid}> ${reasonText}.\n\n` +
+            `${E.VC_claim} Il ticket non è più in carico a <@${uid}> ${reasonText}.\n\n` +
             "È di nuovo disponibile il pulsante **Claim**.",
         }),
       )

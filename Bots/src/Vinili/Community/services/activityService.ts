@@ -4,7 +4,7 @@ const { isExcludedActivityChannel } = require("./activityChannels") as typeof im
 const { loadDailyRows, loadHourlyRows } = require("./activityRows") as typeof import("./activityRows");
 const { hydrateProfileActivityBucketsFromGuild } = require("./activityBackfill") as typeof import("./activityBackfill");
 const { isMongoUnavailableError } = require("./activityBumps") as typeof import("./activityBumps");
-const { recordMessageActivity, handleVoiceActivity } = require("./activityRecord") as typeof import("./activityRecord");
+const { recordMessageActivity, handleVoiceActivity, startActivityMessageWriteDrainLoop } = require("./activityRecord") as typeof import("./activityRecord");
 const { loadLiveVoiceSessions, getLiveVoiceOverlay } = require("./activityAggregate") as typeof import("./activityAggregate");
 const { getChannelOverviewStats } = require("./activityStats") as typeof import("./activityStats");
 const { getServerOverviewStats, getUserOverviewStats } = require("./activityOverview") as typeof import("./activityOverview");
@@ -58,6 +58,7 @@ function suspendAllLiveVoiceExp() {
 export = {
   recordMessageActivity,
   handleVoiceActivity,
+  startActivityMessageWriteDrainLoop,
   getServerOverviewStats,
   getUserOverviewStats,
   getChannelOverviewStats,

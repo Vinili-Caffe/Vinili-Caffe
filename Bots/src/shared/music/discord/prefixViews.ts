@@ -6,11 +6,12 @@ const music = require("../services/lavalinkMusicService") as typeof import("../s
 const { resolveGuildLyrics } = require("../services/lyricsService") as typeof import("../services/lyricsService");
 const { memberDisplayName, userAvatarUrlDynamic } = require("../../discord/guildDiscordIdentity") as typeof import("../../discord/guildDiscordIdentity");
 
+const { E } = require("../../emojis/emojiCatalog") as typeof import("../../emojis/emojiCatalog");
 const PRIVATE = 1 << 6;
-const SPOTIFY = "<:VC_Spotify:1482527369477492797>";
-const CROSS = "<a:VC_Cross:1482532424570376253>";
-const ATTENTION = "<a:VC_Attention:1482534443632558151>";
-const VERIFIED = "<a:VC_Verified:1482532479637127188>";
+const SPOTIFY = E.VC_Spotify;
+const CROSS = E.VC_Cross;
+const ATTENTION = E.VC_Attention;
+const VERIFIED = E.VC_Verified;
 
 function profileOf(opts: Record<string, any> = {}) {
   return {
@@ -137,7 +138,7 @@ function createPlayCommand(opts: Record<string, any> = {}) {
           if (safeTitle) embed.setTitle(safeTitle.slice(0, 256));
           embed.setDescription(okDesc ? `${SPOTIFY} ${okDesc}` : `${SPOTIFY} In riproduzione`);
         } else {
-          embed.setDescription(`<:vegax:1443934876440068179> ${result.message}`);
+          embed.setDescription(`${E.vegax} ${result.message}`);
         }
       }
       await safeMessageReply(
@@ -375,12 +376,12 @@ function buildLyricsRows(authorId?, pageIdx?, total?, queryToken?) {
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`${base}:prev`)
-        .setEmoji("<a:vegaleftarrow:1462914743416131816>")
+        .setEmoji(E.vegaleftarrow)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx <= 0 || total <= 1),
       new ButtonBuilder()
         .setCustomId(`${base}:next`)
-        .setEmoji("<a:vegarightarrow:1443673039156936837>")
+        .setEmoji(E.vegarightarrow)
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(pageIdx >= total - 1 || total <= 1),
     ),

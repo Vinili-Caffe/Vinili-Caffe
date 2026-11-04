@@ -8,6 +8,7 @@ const IDs = require("../../../Vinili/Config/ids") as typeof import("../../../Vin
 const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached } = require("./ticketInteractionRuntime") as typeof import("./ticketInteractionRuntime");
 const { getClientChannelCached, getUserCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { findOpenTicketsForGuildUser } = require("./ticketGuildUserQueries") as typeof import("./ticketGuildUserQueries");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   closeDmFailedNote,
   TICKET_UX_COLOR,
@@ -28,13 +29,13 @@ function mergeClosedTicketDmRows(transcriptRows?, ratingRows?) {
 
 function buildTicketRatingRows(ticketId?) {
   const stylesByScore = { 1: ButtonStyle.Danger, 2: ButtonStyle.Danger, 3: ButtonStyle.Primary, 4: ButtonStyle.Success, 5: ButtonStyle.Success, };
-  const row = new ActionRowBuilder().addComponents(...[1, 2, 3, 4, 5].map((score?) => new ButtonBuilder().setCustomId(`ticket_rate:${ticketId}:${score}`).setStyle(stylesByScore[score] || ButtonStyle.Secondary).setLabel(String(score)).setEmoji("<:VC_EXP:1482534670896730143>"),),);
+  const row = new ActionRowBuilder().addComponents(...[1, 2, 3, 4, 5].map((score?) => new ButtonBuilder().setCustomId(`ticket_rate:${ticketId}:${score}`).setStyle(stylesByScore[score] || ButtonStyle.Secondary).setLabel(String(score)).setEmoji(E.VC_EXP),),);
   return [row];
 }
 
 function formatRatingStars(score?) {
   const s = Math.max(0, Math.min(5, Math.floor(Number(score) || 0)));
-  return "<:VC_EXP:1482534670896730143>".repeat(s) + "<:VC_EXP:1482534670896730143>".repeat(5 - s);
+  return E.VC_EXP.repeat(s) + E.VC_EXP.repeat(5 - s);
 }
 
 function buildTicketClosedEmbed(data?) {
@@ -43,24 +44,24 @@ function buildTicketClosedEmbed(data?) {
   const reasonText = data?.closeReason && String(data.closeReason).trim() ? String(data.closeReason).trim() : "Nessuna motivazione specificata";
 
   const fields = [
-    { name: "<:VC_id:1478517313618575419> ID Ticket", value: String(data?.ticketNumber || "N/D"), inline: true },
-    { name: "<:VC_open:1478517277279129712> Aperto da", value: data?.userId ? `<@${data.userId}>` : "Sconosciuto", inline: true },
-    { name: "<:VC_close:1478517239136256020> Chiuso da", value: data?.closedBy ? `<@${data.closedBy}>` : "Sconosciuto", inline: true },
-    { name: "<:VC_opentime:1478517163022221323> Ora Apertura", value: openedAt, inline: true },
-    { name: "<:VC_claim:1478517202016669887> Claimato da", value: data?.claimedBy ? `<@${data.claimedBy}>` : "Non claimato", inline: true },
-    { name: "<:VC_close:1478517239136256020> Ora Chiusura", value: closedAt, inline: true },
+    { name: `${E.VC_id} ID Ticket`, value: String(data?.ticketNumber || "N/D"), inline: true },
+    { name: `${E.VC_open} Aperto da`, value: data?.userId ? `<@${data.userId}>` : "Sconosciuto", inline: true },
+    { name: `${E.VC_close} Chiuso da`, value: data?.closedBy ? `<@${data.closedBy}>` : "Sconosciuto", inline: true },
+    { name: `${E.VC_opentime} Ora Apertura`, value: openedAt, inline: true },
+    { name: `${E.VC_claim} Claimato da`, value: data?.claimedBy ? `<@${data.claimedBy}>` : "Non claimato", inline: true },
+    { name: `${E.VC_close} Ora Chiusura`, value: closedAt, inline: true },
   ];
-  fields.push({ name: "<:VC_reason:1478517122929004544> Motivazione", value: reasonText, inline: true });
+  fields.push({ name: `${E.VC_reason} Motivazione`, value: reasonText, inline: true });
   if (Number.isFinite(data?.ratingScore) && data.ratingScore >= 1) {
     const stars = formatRatingStars(data.ratingScore);
     const byPart = data?.ratingBy ? ` – da <@${data.ratingBy}>` : "";
-    fields.push({ name: "<:VC_EXP:1482534670896730143> Valutazione", value: `${stars}${byPart}`, inline: true });
+    fields.push({ name: `${E.VC_EXP} Valutazione`, value: `${stars}${byPart}`, inline: true });
   }
 
   const embedColor = data?.embedColor || "#6f4e37";
   const embed = new EmbedBuilder()
     .setAuthor({ name: data?.guildName || "Ticket System", iconURL: data?.guildIconURL || undefined, })
-    .setTitle("<:VC_Ticket:1482535175283019888> Ticket Chiuso")
+    .setTitle(`${E.VC_Ticket} Ticket Chiuso`)
     .setColor(embedColor)
     .addFields(fields.slice(0, 25))
     .setTimestamp();
@@ -96,7 +97,7 @@ async function sendTranscriptWithBrowserLink(target?, payload?, hasHtml?, extraR
 
   if (attachment?.url) {
     const baseContent = typeof payload?.content === "string" ? payload.content.trim() : "";
-    const transcriptButton = new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(attachment.url).setLabel("Visualizza Trascrizione").setEmoji("<:VC_file:1478515880722698300>");
+    const transcriptButton = new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(attachment.url).setLabel("Visualizza Trascrizione").setEmoji(E.VC_file);
     const row = new ActionRowBuilder().addComponents(transcriptButton);
     await sent
       .edit({
@@ -138,7 +139,7 @@ async function closeTicket(targetInteraction?, motivo?, helpers?) {
       embeds: [
         makeErrorEmbed(
           "Attendi",
-          "<:VC_Attention:1482534443632558151> Chiusura ticket già in corso, attendi un attimo.",
+          `${E.VC_Attention} Chiusura ticket già in corso, attendi un attimo.`,
         ),
       ],
     }).catch(() => { });
@@ -150,7 +151,7 @@ async function closeTicket(targetInteraction?, motivo?, helpers?) {
     if (!targetInteraction || !targetInteraction.channel) {
       await safeReply(targetInteraction, {
         embeds: [
-          makeErrorEmbed("Errore", "<:vegax:1443934876440068179> Interazione non valida"),
+          makeErrorEmbed("Errore", `${E.vegax} Interazione non valida`),
         ],
       });
       return;
@@ -193,7 +194,7 @@ async function closeTicket(targetInteraction?, motivo?, helpers?) {
         await safeEditReply(targetInteraction, {
           embeds: [
             new EmbedBuilder()
-              .setDescription("<:VC_close:1478517239136256020> Il ticket verrà chiuso...")
+              .setDescription(`${E.VC_close} Il ticket verrà chiuso...`)
               .setColor("#6f4e37"),
           ],
         }).catch(() => { });
@@ -207,7 +208,7 @@ async function closeTicket(targetInteraction?, motivo?, helpers?) {
         embeds: [
           makeErrorEmbed(
             "Info",
-            "<:VC_Attention:1482534443632558151> Ticket già chiuso o chiusura già in corso.",
+            `${E.VC_Attention} Ticket già chiuso o chiusura già in corso.`,
           ),
         ],
       }).catch(() => { });
@@ -362,7 +363,7 @@ async function closeTicket(targetInteraction?, motivo?, helpers?) {
       embeds: [
         new EmbedBuilder()
           .setDescription(
-            "<:VC_close:1478517239136256020> Il ticket verrà chiuso..." +
+            `${E.VC_close} Il ticket verrà chiuso...` +
               (dmOk ? "" : closeDmFailedNote()),
           )
           .setColor(embedColor || TICKET_UX_COLOR),
@@ -390,7 +391,7 @@ async function closeTicket(targetInteraction?, motivo?, helpers?) {
       embeds: [
         makeErrorEmbed(
           "Errore",
-          "<:vegax:1443934876440068179> Errore durante la chiusura del ticket",
+          `${E.vegax} Errore durante la chiusura del ticket`,
         ),
       ],
     }).catch(() => { });

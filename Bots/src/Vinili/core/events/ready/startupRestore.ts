@@ -13,18 +13,26 @@ function isPrimaryScheduler(client?) {
   return !client.shard || client.shard.ids?.[0] === 0;
 }
 
-const INVITE_CACHE_CONCURRENCY = 6;
+function ensureInviteCacheInitialized(client?) {
+  if (!client.inviteCache) client.inviteCache = new Map();
+}
 
-async function primeInviteCache(client?) {
-  client.inviteCache = new Map();
-  const guilds = [...client.guilds.cache.values()];
-  for (let i = 0; i < guilds.length; i += INVITE_CACHE_CONCURRENCY) {
-    const batch = guilds.slice(i, i + INVITE_CACHE_CONCURRENCY);
-    const results = await Promise.all(batch.map(async (guild?) => { const invites = await guild.invites.fetch().catch(() => null); if (!invites) return { guildId: guild.id, inviteMap: null }; const inviteMap = new Map(); for (const invite of invites.values()) { inviteMap.set(invite.code, { uses: invite.uses || 0, inviterId: invite.inviter?.id || null, }); } return { guildId: guild.id, inviteMap }; }),);
-    for (const { guildId, inviteMap } of results) {
-      if (inviteMap) client.inviteCache.set(guildId, inviteMap);
-    }
+/** Prime one guild on demand (guildMemberAdd / invite handlers); avoids ready-time N×guild.invites.fetch. */
+async function primeInviteCacheForGuild(guild?) {
+  if (!guild?.id) return false;
+  const client = guild.client;
+  ensureInviteCacheInitialized(client);
+  const invites = await guild.invites.fetch().catch(() => null);
+  if (!invites) return false;
+  const inviteMap = new Map();
+  for (const invite of invites.values()) {
+    inviteMap.set(invite.code, {
+      uses: invite.uses || 0,
+      inviterId: invite.inviter?.id || null,
+    });
   }
+  client.inviteCache.set(guild.id, inviteMap);
+  return true;
 }
 
 async function restoreBumpReminders(client?) {
@@ -55,9 +63,9 @@ async function restoreBumpReminders(client?) {
 }
 
 async function restoreCoreStartupState(client?) {
-  const [bootstrap, inviteCache, liveVoiceSync, joinRaidRestore] = await Promise.allSettled([
+  ensureInviteCacheInitialized(client);
+  const [bootstrap, liveVoiceSync, joinRaidRestore] = await Promise.allSettled([
     bootstrapSupporter(client),
-    primeInviteCache(client),
     syncLiveVoiceSessionsFromGateway(client),
     Promise.allSettled(
       [...client.guilds.cache.values()]
@@ -68,8 +76,6 @@ async function restoreCoreStartupState(client?) {
 
   if (bootstrap.status === "rejected")
     global.logger?.error?.("[PRESENCE BOOTSTRAP ERROR]", bootstrap.reason);
-  if (inviteCache.status === "rejected")
-    global.logger?.error?.("[INVITE CACHE] Failed to prime:", inviteCache.reason);
   if (liveVoiceSync.status === "rejected")
     global.logger?.error?.("[VOICE LIVE SYNC ERROR]", liveVoiceSync.reason);
   if (joinRaidRestore.status === "rejected")
@@ -123,7 +129,8 @@ async function queueStartupSync(client?) {
 
 export = {
   isPrimaryScheduler,
-  primeInviteCache,
+  ensureInviteCacheInitialized,
+  primeInviteCacheForGuild,
   restoreBumpReminders,
   restoreCoreStartupState,
   queueStartupSync,

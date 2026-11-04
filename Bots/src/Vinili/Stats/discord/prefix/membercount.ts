@@ -1,6 +1,7 @@
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 export = {
   name: "membercount",
   allowEmptyArgs: true,
@@ -9,7 +10,7 @@ export = {
     const guild = message.guild;
     if (!guild) {
       await safeMessageReply(message, {
-        content: "<:vegax:1443934876440068179> Solo in server.",
+        content: `${E.vegax} Solo in server.`,
         allowedMentions: { repliedUser: false },
       });
       return;
@@ -19,7 +20,7 @@ export = {
     const embed = new EmbedBuilder()
       .setColor("#6f4e37")
       .addFields({
-        name: `**<:member_role_icon:1330530086792728618> Members**`,
+        name: `**${E.member_role_icon} Members**`,
         value: `${totalMembers}`,
       })
       .setTimestamp();

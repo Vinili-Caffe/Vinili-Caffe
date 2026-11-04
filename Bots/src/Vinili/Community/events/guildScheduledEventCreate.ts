@@ -3,6 +3,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { startSerataFilmSession } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
 const { handleMovieNightEventStart } = require("../../Community/services/movieNightAnnouncementService") as typeof import("../../Community/services/movieNightAnnouncementService");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 
@@ -118,31 +119,31 @@ export = {
       const endTime=toEventTimeLabel(scheduledEvent.scheduledEndAt||scheduledEvent.scheduledEndTimestamp,);
 
       const lines = [
-        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+        `${E.VC_Staff} **Responsabile:** ${responsibleText}`,
+        `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
         "",
         "**Impostazioni**",
-        `<:VC_Modifica:1478859646587633717> **Nome:** ${scheduledEvent.name || "sconosciuto"}`,
-        `<:VC_Modifica:1478859646587633717> **Livello privacy:** ${privacyLabel(scheduledEvent.privacyLevel)}`,
-        `<:VC_Modifica:1478859646587633717> **Stato:** ${statusLabel(scheduledEvent.status)}`,
-        `<:VC_Modifica:1478859646587633717> **Tipo entità:** ${entityTypeLabel(scheduledEvent.entityType)}`,
-        startTime ? `<:VC_Modifica:1478859646587633717> **Ora inizio:** ${startTime}` : null,
-        endTime ? `<:VC_Modifica:1478859646587633717> **Ora fine:** ${endTime}` : null,
+        `${E.VC_Modifica} **Nome:** ${scheduledEvent.name || "sconosciuto"}`,
+        `${E.VC_Modifica} **Livello privacy:** ${privacyLabel(scheduledEvent.privacyLevel)}`,
+        `${E.VC_Modifica} **Stato:** ${statusLabel(scheduledEvent.status)}`,
+        `${E.VC_Modifica} **Tipo entità:** ${entityTypeLabel(scheduledEvent.entityType)}`,
+        startTime ? `${E.VC_Modifica} **Ora inizio:** ${startTime}` : null,
+        endTime ? `${E.VC_Modifica} **Ora fine:** ${endTime}` : null,
       ];
 
       if (scheduledEvent.entityMetadata?.location) {
         lines.push(
-          `<:VC_Modifica:1478859646587633717> **Località:** ${scheduledEvent.entityMetadata.location}`,
+          `${E.VC_Modifica} **Località:** ${scheduledEvent.entityMetadata.location}`,
         );
       } else if (scheduledEvent.channelId) {
         lines.push(
-          `<:VC_Modifica:1478859646587633717> **Canale:** <#${scheduledEvent.channelId}>`,
+          `${E.VC_Modifica} **Canale:** <#${scheduledEvent.channelId}>`,
         );
       }
 
       const embed = new EmbedBuilder()
         .setColor("#57F287")
-        .setTitle("<a:VC_Verified:1482532479637127188> Evento programmato creato")
+        .setTitle(`${E.VC_Verified} Evento programmato creato`)
         .setDescription(lines.join("\n"));
 
       const cover = scheduledEvent.coverImageURL?.({ size: 1024 });

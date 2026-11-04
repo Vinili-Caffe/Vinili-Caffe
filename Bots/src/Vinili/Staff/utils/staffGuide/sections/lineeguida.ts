@@ -1,4 +1,4 @@
-const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
+const IDs = require("../../../../Config/ids") as typeof import("../../../../Config/ids");
 
 const build_lineeguida = () =>
     "Per avere un server attivo bisogna prima di tutto avere un legame con la community. Ecco alcuni consigli per instaurare dei discorsi con i nuovi utenti ma anche con quelli anziani.\n\n" +

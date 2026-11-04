@@ -4,6 +4,7 @@ const { resolveTopChannelEntries } = require("../prefix/top") as typeof import("
 const { renderUserActivityCanvas } = require("../../../Community/utils/Render/activityCanvas") as typeof import("../../../Community/utils/Render/activityCanvas");
 const { memberDisplayName, userAvatarUrlDynamic } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 const { getEffectiveJoinedAt } = require("../../../Community/services/effectiveMemberJoinService") as typeof import("../../../Community/services/effectiveMemberJoinService");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const USER_REFRESH_CUSTOM_ID_PREFIX = "user_refresh";
 const USER_PERIOD_OPEN_CUSTOM_ID_PREFIX = "user_period_open";
 const USER_PERIOD_SET_CUSTOM_ID_PREFIX = "user_period_set";
@@ -96,7 +97,7 @@ function buildUserComponents(ownerId?, targetUserId?, lookbackDays?, view?) {
   const o = ownerId || "";
   const base = `${USER_REFRESH_CUSTOM_ID_PREFIX}:${o}:${targetUserId}:${safeLookback}:embed`;
   const periodOpen = `${USER_PERIOD_OPEN_CUSTOM_ID_PREFIX}:${o}:${targetUserId}:${safeLookback}:embed`;
-  const row1 = new ActionRowBuilder().addComponents( new ButtonBuilder().setCustomId(base).setStyle(ButtonStyle.Secondary).setEmoji("<:VC_Refresh:1473359252276904203> "), new ButtonBuilder().setCustomId(periodOpen).setStyle(ButtonStyle.Secondary).setEmoji("<:VC_Clock:1473359204189474886>"));
+  const row1 = new ActionRowBuilder().addComponents( new ButtonBuilder().setCustomId(base).setStyle(ButtonStyle.Secondary).setEmoji(`${E.VC_Refresh} `), new ButtonBuilder().setCustomId(periodOpen).setStyle(ButtonStyle.Secondary).setEmoji(E.VC_Clock));
 
   if (view === "period") {
     const periodBack = `${USER_PERIOD_BACK_CUSTOM_ID_PREFIX}:${o}:${targetUserId}:${safeLookback}:embed`;

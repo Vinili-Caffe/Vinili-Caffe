@@ -1,6 +1,7 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { assertWebsiteStaffAccess, normalizeHeaderSecret } = require("../../site/staff/siteStaffAccessApi") as typeof import("../../site/staff/siteStaffAccessApi");
 const { memberIsPm } = require("../../site/staff/siteStaffRosterCache") as typeof import("../../site/staff/siteStaffRosterCache");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   addPartnerPoints,
   removePartnerPoints,
@@ -205,9 +206,9 @@ async function handleSiteStaffPmActionsPost(client?, req?, res?) {
                 actorUserId,
               })
             : [
-                `<:VC_PartnerManager:1494286911286808576> <@${userId}>`,
-                `<:VC_reason:1478517122929004544> ${ruleText}`,
-                `<:VC_Dot:1482532364222595303> −${removedAmount} punti (sito)`,
+                `${E.VC_PartnerManager} <@${userId}>`,
+                `${E.VC_reason} ${ruleText}`,
+                `${E.VC_Dot} −${removedAmount} punti (sito)`,
               ].join("\n");
           const entry = await logPmPointsRemoved({
             guild,

@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { findOpenCases } = require("../modCaseStore") as typeof import("../modCaseStore");
 const { closeCasePersist, formatDuration } = require("../moderation") as typeof import("../moderation");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   reasonFrom,
   reply,
@@ -37,14 +38,14 @@ async function runBan(message?, args?, client?) {
       message,
       client,
       "Ban",
-      "<:VC_Lock:1482526739044368476> Utente sconosciuto o **ID non valido** (account eliminato o ID errato).",
+      `${E.VC_Lock} Utente sconosciuto o **ID non valido** (account eliminato o ID errato).`,
       "Red",
     );
   }
   const duration = parseMaybeDuration(args[targetIndex + 1]);
   const reason = reasonFrom(args, duration ? targetIndex + 2 : targetIndex + 1, "");
   if (!reason || !reason.trim()) {
-    return reply(message, client, "Ban", "<:VC_Lock:1482526739044368476> Il motivo è obbligatorio per il ban. Uso: `+ban [utente] [durata] [motivo]`", "Red");
+    return reply(message, client, "Ban", `${E.VC_Lock} Il motivo è obbligatorio per il ban. Uso: \`+ban [utente] [durata] [motivo]\``, "Red");
   }
   const deleteSeconds = mode === "save" ? 0 : 604800;
   await sendModerationDm({
@@ -56,7 +57,7 @@ async function runBan(message?, args?, client?) {
   });
   const banOut = await executeGuildBan(message.guild, userId, { reason, deleteMessageSeconds: deleteSeconds });
   if (!banOut.ok) {
-    return reply(message, client, "Ban", `<:VC_Lock:1482526739044368476> ${banOut.error}`, "Red");
+    return reply(message, client, "Ban", `${E.VC_Lock} ${banOut.error}`, "Red");
   }
   await makeCase(client, message, "BAN", userId, reason, duration);
   return successReply(message, formatTargetLabel(resolvedUser), "was banned", reason);
@@ -76,7 +77,7 @@ async function runKick(message?, args?, client?) {
   if (!guard.ok) return reply(message, client, "Kick", guard.error, "Red");
   const reason = reasonFrom(args, 1, "");
   if (!reason || !reason.trim()) {
-    return reply(message, client, "Kick", "<:VC_Lock:1482526739044368476> Il motivo è obbligatorio per il kick. Uso: `+kick [utente] [motivo]`", "Red");
+    return reply(message, client, "Kick", `${E.VC_Lock} Il motivo è obbligatorio per il kick. Uso: \`+kick [utente] [motivo]\``, "Red");
   }
   const dmUser = user || member.user || (await message.client.users.fetch(userId).catch(() => null));
   await sendModerationDm({
@@ -111,7 +112,7 @@ async function runMute(message?, args?, client?) {
         embeds: [
           new EmbedBuilder()
             .setColor("#ED4245")
-            .setDescription("<:cancel:1461730653677551691> Devi specificare una durata per il mute."),
+            .setDescription(`${E.cancel} Devi specificare una durata per il mute.`),
         ],
       })
       .catch(() => null);
@@ -125,7 +126,7 @@ async function runMute(message?, args?, client?) {
           new EmbedBuilder()
             .setColor("#ED4245")
             .setDescription(
-              "<:cancel:1461730653677551691> Usa una durata valida inferiore a 14 giorni (esempio: 3m, 2h, 1d).",
+              `${E.cancel} Usa una durata valida inferiore a 14 giorni (esempio: 3m, 2h, 1d).`,
             ),
         ],
       })
@@ -207,7 +208,7 @@ async function runUnban(message?, args?, client?) {
     return message.channel.send({ embeds: [helpEmbed] }).catch(() => null);
   }
   const { userId: id, banInfo: resolvedBanInfo } = await resolveBanTarget(message, raw);
-  if (!id) return reply(message, client, "Unban", "<:VC_Lock:1482526739044368476> Utente bannato non trovato (usa tag, ID o username).", "Red");
+  if (!id) return reply(message, client, "Unban", `${E.VC_Lock} Utente bannato non trovato (usa tag, ID o username).`, "Red");
   const reason = reasonFrom(args, 1);
   const banInfo = resolvedBanInfo || (await message.guild.bans.fetch(id).catch(() => null));
   const ok = await message.guild.bans.remove(id, reason).then(() => true).catch(() => false);

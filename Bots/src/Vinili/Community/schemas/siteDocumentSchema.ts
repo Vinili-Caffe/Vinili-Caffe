@@ -44,7 +44,8 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
 
 const siteSuggestionCommentSchema = new Schema(
   {
-    userId: { type: String, required: true, index: true },
+    /* no index:true — budget 64 indici su sitedocuments; query commenti via parent doc */
+    userId: { type: String, required: true },
     authorName: { type: String, default: "" },
     authorAvatarUrl: { type: String, default: "" },
     /* discussionImages1: un commento può essere solo foto → testo non più obbligatorio */
@@ -81,9 +82,10 @@ const siteDocumentSchema = new Schema(
       enum: Object.values(SITE_DOCUMENT_TYPE),
     },
     guildId: { type: String, default: "" },
-    userId: { type: String, default: "", index: true },
+    /* Single-field index:true rimossi: coperto da compound docType_* (limite 64 Mongo). */
+    userId: { type: String, default: "" },
 
-        inAppNotifAggregate: { type: Boolean, default: false, index: true },
+    inAppNotifAggregate: { type: Boolean, default: false },
     inAppNotifItems: { type: [inAppNotifItemSchema], default: undefined },
 
     title: { type: String, trim: true, maxlength: 120 },
@@ -91,22 +93,22 @@ const siteDocumentSchema = new Schema(
     notifKind: { type: String, default: "info", trim: true, maxlength: 24 },
     openUrl: { type: String, default: "", trim: true, maxlength: 400 },
     dedupeKey: { type: String, default: null, trim: true, maxlength: 120 },
-    readAt: { type: Date, default: null, index: true },
+    readAt: { type: Date, default: null },
 
-    requesterId: { type: String, default: "", index: true },
-    roleId: { type: String, default: "", index: true },
-    ownerId: { type: String, default: null, index: true },
+    requesterId: { type: String, default: "" },
+    roleId: { type: String, default: "" },
+    ownerId: { type: String, default: null },
     lastRequestedAt: { type: Date, default: null },
-    cooldownUntil: { type: Date, default: null, index: true },
-        requestToken: { type: String, default: "" },
+    cooldownUntil: { type: Date, default: null },
+    requestToken: { type: String, default: "" },
     expiresAt: { type: Date, default: null },
     dmChannelId: { type: String, default: "", trim: true, maxlength: 32 },
     dmMessageId: { type: String, default: "", trim: true, maxlength: 32 },
     reason: { type: String, default: "", trim: true, maxlength: 500 },
 
     reviewKind: { type: String, default: null, trim: true, maxlength: 16 },
-        contentLang: { type: String, default: null, trim: true, maxlength: 8 },
-    staffUserId: { type: String, default: null, index: true },
+    contentLang: { type: String, default: null, trim: true, maxlength: 8 },
+    staffUserId: { type: String, default: null },
     rating: { type: Number, min: 1, max: 5 },
     /* boardsKeepMdDraft1: descrizioni bacheca fino a 8k (prima 2k tronca/rompe md) */
     content: { type: String, trim: true, maxlength: 8000 },
@@ -134,13 +136,13 @@ const siteDocumentSchema = new Schema(
     upvoterUserIds: { type: [String], default: [] },
     downvoterUserIds: { type: [String], default: [] },
 
-    provider: { type: String, default: "", trim: true, maxlength: 32, index: true },
+    provider: { type: String, default: "", trim: true, maxlength: 32 },
     createdBy: { type: String, default: "site", trim: true, maxlength: 32 },
     planKey: { type: String, default: "", trim: true, maxlength: 80 },
     description: { type: String, default: "", trim: true, maxlength: 180 },
     amount: { type: String, default: "0.00", trim: true, maxlength: 24 },
     currency: { type: String, default: "EUR", trim: true, maxlength: 12 },
-    paymentStatus: { type: String, default: "", trim: true, maxlength: 48, index: true },
+    paymentStatus: { type: String, default: "", trim: true, maxlength: 48 },
     orderId: { type: String, default: "", trim: true, maxlength: 128 },
     captureId: { type: String, default: "", trim: true, maxlength: 128 },
     approveUrl: { type: String, default: "", trim: true, maxlength: 500 },
@@ -163,15 +165,15 @@ const siteDocumentSchema = new Schema(
     pushClientDeviceClass: { type: String, default: "", trim: true, maxlength: 16 },
     pushStandalone: { type: Boolean, default: false },
 
-        workflowQueue: { type: String, default: "", trim: true, maxlength: 24, index: true },
+    workflowQueue: { type: String, default: "", trim: true, maxlength: 24 },
     workflowKind: { type: String, default: "", trim: true, maxlength: 32 },
     workflowType: { type: String, default: "", trim: true, maxlength: 32 },
-    workflowMessageId: { type: String, default: "", trim: true, maxlength: 32, index: true },
+    workflowMessageId: { type: String, default: "", trim: true, maxlength: 32 },
     workflowChannelId: { type: String, default: "", trim: true, maxlength: 32 },
-    workflowPauseId: { type: String, default: "", trim: true, maxlength: 32, index: true },
+    workflowPauseId: { type: String, default: "", trim: true, maxlength: 32 },
     workflowRoleId: { type: String, default: "", trim: true, maxlength: 32 },
     workflowActionKey: { type: String, default: "", trim: true, maxlength: 48 },
-        workflowWeekKey: { type: String, default: "", trim: true, maxlength: 16, index: true },
+    workflowWeekKey: { type: String, default: "", trim: true, maxlength: 16 },
     workflowFields: { type: Schema.Types.Mixed, default: null },
     workflowDecidedBy: { type: String, default: "", trim: true, maxlength: 32 },
     workflowDecidedByName: { type: String, default: "", trim: true, maxlength: 120 },

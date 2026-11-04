@@ -96,6 +96,7 @@ try {
     require("./Config/emergencyRoleIdRemap").applyEmergencyRoleRemapToConfig(vinylsConfig);
   } catch (_) {}
   /* perfP0: intents curati (niente Object.values di tutto il gateway) */
+  /* TODO(perf): GuildPresences — drop when worker sweep + filtered presenceUpdate no longer need broad presence cache. */
   const baseIntents = resolveGatewayIntents(discord, { includePresences: true });
   const basePartials = resolveGatewayPartials(discord);
 
@@ -346,6 +347,7 @@ initializeCommandCollections(client, { includeSnipes: true });
         client,
         [
           "Community",
+          "Voice",
           "Moderation",
           "Security",
           "Staff",
@@ -403,9 +405,11 @@ initializeCommandCollections(client, { includeSnipes: true });
           path.join(APP_ROOT, "Level", "discord", "buttons"),
           path.join(APP_ROOT, "Security", "discord", "buttons"),
           path.join(APP_ROOT, "Community", "discord", "buttons"),
+          path.join(APP_ROOT, "Voice", "discord", "buttons"),
           path.resolve(APP_ROOT, "..", "shared", "music", "discord", "buttons"),
           path.join(APP_ROOT, "Moderation", "discord", "buttons"),
           path.join(APP_ROOT, "..", "MultiGuild", "discord", "buttons"),
+          path.join(APP_ROOT, "..", "..", "archivio", "starwars", "src", "Vinili", "Buttons"),
         ],
       })(client);
 

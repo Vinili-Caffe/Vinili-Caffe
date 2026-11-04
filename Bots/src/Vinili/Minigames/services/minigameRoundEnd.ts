@@ -10,6 +10,7 @@ const { treasureHuntDisplayTexts, removeTreasureHuntReactions, getTreasureHuntMe
 const { resolveMinigameGuildIdAsync } = require("./minigameRoundStart") as typeof import("./minigameRoundStart");
 const { revealHangmanSolutionBoard } = require("./minigameRoundAdvance") as typeof import("./minigameRoundAdvance");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function purgeExpiredMinigameDbState(client?, cfg?) {
   const channelId = cfg?.channelId;
   if (!channelId) return;
@@ -367,7 +368,7 @@ async function sendMinigameTimeoutAndClose(client?, cfg?, channelId?, channel?, 
         new EmbedBuilder()
           .setColor(MINIGAME_EMBED_COLOR)
           .setDescription(
-            "<a:VC_pixeltime:1482535344103620771> Tempo scaduto! Nessuno ha vinto questo minigioco.",
+            `${E.VC_pixeltime} Tempo scaduto! Nessuno ha vinto questo minigioco.`,
           ),
       );
     }

@@ -6,6 +6,7 @@ const { TENANT_EMBED_COLOR } = require("../../../../MultiGuild/utils/tenantEmbed
 const { FALLBACK_REVIEW_CHANNEL_ID, REVIEW_REWARD_LEVELS } = require("./constants") as typeof import("./constants");
 const { displayNameForMember, normalizeRating } = require("./helpers") as typeof import("./helpers");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 function computeExpForLevelReward(currentExp?, levelsToAdd?) {
   const current = Math.max(0, Number(currentExp || 0));
   const currentLevel = getLevelInfo(current).level;
@@ -82,8 +83,8 @@ async function announceServerReview(client?, guild?, authorMember?, review?, rew
   const relativeTs = Math.floor(Date.now() / 1000);
   const rewardLine =
     rewardInfo && Number(rewardInfo.addedLevels || 0) > 0
-      ? `<a:VC_StarPink:1330194976440848500> <@${authorMember.id}>, **+${rewardInfo.addedLevels} livelli** per aver lasciato una recensione sul sito.`
-      : `<a:VC_StarPink:1330194976440848500> Grazie <@${authorMember.id}> per il supporto!`;
+      ? `${E.VC_StarPink} <@${authorMember.id}>, **+${rewardInfo.addedLevels} livelli** per aver lasciato una recensione sul sito.`
+      : `${E.VC_StarPink} Grazie <@${authorMember.id}> per il supporto!`;
 
   const embed = new EmbedBuilder()
     .setColor(TENANT_EMBED_COLOR)

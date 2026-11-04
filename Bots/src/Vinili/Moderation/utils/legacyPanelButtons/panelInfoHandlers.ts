@@ -9,6 +9,7 @@ const { MOD_RULE_DETAIL } = require("../modRegolamentoConstants") as typeof impo
 const { PRIVATE_FLAG, v2Text, v2Separator, v2PrivateFlags, logButtonErr } = require("./shared") as typeof import("./shared");
 const { sendPrivacyViewsLeaderboard } = require("./privacyViews") as typeof import("./privacyViews");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, any> = {}) {
   const levelPanelDeferred = Boolean(opts.levelPanelDeferred);
   if (!interaction.isButton()) return;
@@ -20,14 +21,14 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     const targetId = interaction.customId.split(":")[1] || "";
     if (!targetId) {
       return interaction.reply({
-        content: "<:vegax:1443934876440068179> Link non valido.",
+        content: `${E.vegax} Link non valido.`,
         flags: 1 << 6,
       }).catch((err?) => { logButtonErr(err); return null; });
     }
     if (interaction.user.id !== targetId) {
       return interaction.reply({
         content:
-          "<:vegax:1443934876440068179> Non puoi sbloccare l'avatar di un altro utente.",
+          `${E.vegax} Non puoi sbloccare l'avatar di un altro utente.`,
         flags: 1 << 6,
       }).catch((err?) => { logButtonErr(err); return null; });
     }
@@ -54,14 +55,14 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     const targetId = interaction.customId.split(":")[1] || "";
     if (!targetId) {
       return interaction.reply({
-        content: "<:vegax:1443934876440068179> Link non valido.",
+        content: `${E.vegax} Link non valido.`,
         flags: 1 << 6,
       }).catch((err?) => { logButtonErr(err); return null; });
     }
     if (interaction.user.id !== targetId) {
       return interaction.reply({
         content:
-          "<:vegax:1443934876440068179> Non puoi sbloccare il banner di un altro utente.",
+          `${E.vegax} Non puoi sbloccare il banner di un altro utente.`,
         flags: 1 << 6,
       }).catch((err?) => { logButtonErr(err); return null; });
     }
@@ -88,7 +89,7 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     const parts = String(interaction.customId || "").split(":");
     if (!parts[1]) {
       return interaction.reply({
-        content: "<:vegax:1443934876440068179> Link non valido.",
+        content: `${E.vegax} Link non valido.`,
         flags: 1 << 6,
       }).catch((err?) => { logButtonErr(err); return null; });
     }
@@ -96,7 +97,7 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     const originChannelId = parts[2] || null;
     const originMessageId = parts[3] || null;
     if (interaction.user.id !== targetId) {
-      const denied = new EmbedBuilder().setColor("#e74c3c").setTitle("<:vegax:1443934876440068179> Accesso negato").setDescription("Solo l'autore della citazione può rimuoverla.");
+      const denied = new EmbedBuilder().setColor("#e74c3c").setTitle(`${E.vegax} Accesso negato`).setDescription("Solo l'autore della citazione può rimuoverla.");
       return interaction.reply({ embeds: [denied], flags: PRIVATE_FLAG });
     }
     const now = new Date();
@@ -150,12 +151,12 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
   if (interaction.customId == "metodi") {
     await interaction.reply({
       components: [
-        v2Text("<:Money:1330544713463500970> Per effettuare una sponsor con __Vinili & Caffè__ ci sono due modalità: **pagando** oppure esponendo una **collaborazione** in un " + siteTicketsPageDiscordRef("HIGH STAFF") + "."),
+        v2Text(`${E.Money} Per effettuare una sponsor con __Vinili & Caffè__ ci sono due modalità: **pagando** oppure esponendo una **collaborazione** in un ` + siteTicketsPageDiscordRef("HIGH STAFF") + "."),
         v2Separator(),
         v2Text([
-          "<:VC_Dot:1482532364222595303> **€1,50** <a:VC_Arrow:1482706699365257397> sponsor per **2** settimane",
-          "<:VC_Dot:1482532364222595303> **€3** <a:VC_Arrow:1482706699365257397> sponsor per **1** mese",
-          "<:VC_Dot:1482532364222595303> **€5** <a:VC_Arrow:1482706699365257397> sponsor **lifetime**",
+          `${E.VC_Dot} **€1,50** ${E.VC_Arrow} sponsor per **2** settimane`,
+          `${E.VC_Dot} **€3** ${E.VC_Arrow} sponsor per **1** mese`,
+          `${E.VC_Dot} **€5** ${E.VC_Arrow} sponsor **lifetime**`,
         ].join("\n")),
       ],
       flags: v2PrivateFlags(),
@@ -164,7 +165,7 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
   if (interaction.customId == "ping") {
     await interaction.reply({
       components: [
-        v2Text("<:Discord_Mention:1329524304790028328> Quando pubblichi una **partnership** viene menzionato il ruolo <@&" + IDs.roles.Partnership + "> in fondo al messaggio."),
+        v2Text(`${E.Discord_Mention} Quando pubblichi una **partnership** viene menzionato il ruolo <@&` + IDs.roles.Partnership + "> in fondo al messaggio."),
       ],
       flags: v2PrivateFlags(),
     }).catch((err?) => { logButtonErr(err); return null; });
@@ -172,52 +173,52 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
 
   if (interaction.customId == "info_rules") {
     const generalRules = [
-      "<:rules:1443307208543703131> **`REGOLA GENERALE 1.1`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.1"]}`,
+      `${E.rules} **\`REGOLA GENERALE 1.1\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["1.1"]}`,
       "",
-      "<:rules:1443307208543703131> **`REGOLA GENERALE 1.2`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.2"]}`,
+      `${E.rules} **\`REGOLA GENERALE 1.2\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["1.2"]}`,
       "",
-      "<:rules:1443307208543703131> **`REGOLA GENERALE 1.3`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.3"]}`,
+      `${E.rules} **\`REGOLA GENERALE 1.3\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["1.3"]}`,
       "",
-      "<:rules:1443307208543703131> **`REGOLA GENERALE 1.4`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.4"]}`,
+      `${E.rules} **\`REGOLA GENERALE 1.4\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["1.4"]}`,
       "",
-      "<:rules:1443307208543703131> **`REGOLA GENERALE 1.5`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.5"]}`,
+      `${E.rules} **\`REGOLA GENERALE 1.5\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["1.5"]}`,
       "",
-      "<:rules:1443307208543703131> **`REGOLA GENERALE 1.6`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["1.6"]}`,
+      `${E.rules} **\`REGOLA GENERALE 1.6\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["1.6"]}`,
     ].join("\n");
     const textRules = [
-      "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.1`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.1"]}`,
+      `${E.rules} **\`REGOLA TESTUALE 2.1\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["2.1"]}`,
       "",
-      "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.2`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.2"]}`,
+      `${E.rules} **\`REGOLA TESTUALE 2.2\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["2.2"]}`,
       "",
-      "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.3`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.3"]}`,
+      `${E.rules} **\`REGOLA TESTUALE 2.3\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["2.3"]}`,
       "",
-      "<:rules:1443307208543703131> **`REGOLA TESTUALE 2.4`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["2.4"]}`,
+      `${E.rules} **\`REGOLA TESTUALE 2.4\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["2.4"]}`,
     ].join("\n");
     const voiceRules = [
-      "<:rules:1443307208543703131> **`REGOLA VOCALE 3.1`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.1"]}`,
+      `${E.rules} **\`REGOLA VOCALE 3.1\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["3.1"]}`,
       "",
-      "<:rules:1443307208543703131> **`REGOLA VOCALE 3.2`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.2"]}`,
+      `${E.rules} **\`REGOLA VOCALE 3.2\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["3.2"]}`,
       "",
-      "<:rules:1443307208543703131> **`REGOLA VOCALE 3.3`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.3"]}`,
+      `${E.rules} **\`REGOLA VOCALE 3.3\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["3.3"]}`,
       "",
-      "<:rules:1443307208543703131> **`REGOLA VOCALE 3.4`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.4"]}`,
+      `${E.rules} **\`REGOLA VOCALE 3.4\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["3.4"]}`,
       "",
-      "<:rules:1443307208543703131> **`REGOLA VOCALE 3.5`**",
-      `<:VC_Reply:1482532158080942191> ${MOD_RULE_DETAIL["3.5"]}`,
+      `${E.rules} **\`REGOLA VOCALE 3.5\`**`,
+      `${E.VC_Reply} ${MOD_RULE_DETAIL["3.5"]}`,
     ].join("\n");
     await interaction.reply({
       components: [
@@ -227,7 +228,7 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
         v2Separator(),
         v2Text(voiceRules),
         v2Separator(),
-        v2Text("<:5751attentionfromvega:1443651874032062505> __Lo staff si riserva il diritto di cambiare sanzioni e regole in base alla situazione.__"),
+        v2Text(`${E["5751attentionfromvega"]} __Lo staff si riserva il diritto di cambiare sanzioni e regole in base alla situazione.__`),
       ],
       flags: v2PrivateFlags(),
     }).catch((err?) => { logButtonErr(err); return null; });
@@ -235,42 +236,42 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
 
   if (interaction.customId == "info_donations") {
     const donations = [
-      "## <:VC_Sparkles:1468546911936974889> Supporta il server con l'acquisto di un VIP o una donazione!",
+      `## ${E.VC_Sparkles} Supporta il server con l'acquisto di un VIP o una donazione!`,
       "",
       "Usiamo i soldi donati per portare eventi con premi migliori, come Discord Nitro o gift card, e per cercare collaborazioni interessanti per voi utenti.",
       "Le donazioni sono completamente volontarie e contribuiscono alla nostra crescita. In anticipo, grazie.",
       "",
       "**Vuoi acquistare direttamente tutti i vantaggi permanenti e differenti dal VIP?**",
       "`5,00 €`✩",
-      "<:VC_Dot:1482532364222595303> Il ruolo <@&1544830864565735515> **permanente**",
-      "<:VC_Dot:1482532364222595303> Possibilità di allegare link e immagini in chat",
-      "<:VC_Dot:1482532364222595303> Possibilità di usare le soundboard di altri server",
-      "<:VC_Dot:1482532364222595303> Possibilità di mandare sticker ed emoji di altri server",
-      "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
-      "<:VC_Dot:1482532364222595303> Possibilità di cambiare il tuo nickname",
-      "<:VC_Dot:1482532364222595303> Sblocchi i COLORI PLUS in [Personalizza](https://www.viniliecaffe.it/personalizza/) <:VC_New:1471891729471770819>",
-      "<:VC_Dot:1482532364222595303> Sblocchi i comandi `+quote` e `+repost`",
-      "<:VC_Dot:1482532364222595303> X4 EXP boost",
+      `${E.VC_Dot} Il ruolo <@&1544830864565735515> **permanente**`,
+      `${E.VC_Dot} Possibilità di allegare link e immagini in chat`,
+      `${E.VC_Dot} Possibilità di usare le soundboard di altri server`,
+      `${E.VC_Dot} Possibilità di mandare sticker ed emoji di altri server`,
+      `${E.VC_Dot} Bypass dei requisiti nei giveaway`,
+      `${E.VC_Dot} Possibilità di cambiare il tuo nickname`,
+      `${E.VC_Dot} Sblocchi i COLORI PLUS in [Personalizza](https://www.viniliecaffe.it/personalizza/) ${E.VC_New}`,
+      `${E.VC_Dot} Sblocchi i comandi \`+quote\` e \`+repost\``,
+      `${E.VC_Dot} X4 EXP boost`,
     ].join("\n");
 
     const vip = [
-      "**Vuoi sostenere il server?** Acquista il VIP e riscatta tutti i vantaggi che hai sbloccato qui nel server! <a:VC_HeartsBlue:1468686100045369404>",
+      `**Vuoi sostenere il server?** Acquista il VIP e riscatta tutti i vantaggi che hai sbloccato qui nel server! ${E.VC_HeartsBlue}`,
       "",
-      "ACQUISTA IL <@&1544830866616754257> <a:VC_HeartsPink:1468685897389052008>",
+      `ACQUISTA IL <@&1544830866616754257> ${E.VC_HeartsPink}`,
       "`10,00 €`✩",
       "",
-      "<:sparkledred:1470064814502973591> Sbloccherai:",
-      "<:VC_Dot:1482532364222595303> Permesso di allegare link e immagini in chat",
-      "<:VC_Dot:1482532364222595303> Permesso di usare soundboard di altri server",
-      "<:VC_Dot:1482532364222595303> Possibilità di mandare sticker ed emoji di altri server",
-      "<:VC_Dot:1482532364222595303> Bypass dei requisiti nei giveaway",
-      "<:VC_Dot:1482532364222595303> Possibilità di creare una vocale privata per te e i tuoi amici",
-      "<:VC_Dot:1482532364222595303> Reazioni al messaggio quando vieni @menzionato in chat (max. 3 reazioni).",
-      `<:VC_Dot:1482532364222595303> ${MENTION_RESPONSE_PERK_BODY}`,
-      "<:VC_Dot:1482532364222595303> Potrai crearti un ruolo personalizzato con colore GRADIENTE scelto da te.",
-      "<:VC_Dot:1482532364222595303> X5 EXP boost",
+      `${E.sparkledred} Sbloccherai:`,
+      `${E.VC_Dot} Permesso di allegare link e immagini in chat`,
+      `${E.VC_Dot} Permesso di usare soundboard di altri server`,
+      `${E.VC_Dot} Possibilità di mandare sticker ed emoji di altri server`,
+      `${E.VC_Dot} Bypass dei requisiti nei giveaway`,
+      `${E.VC_Dot} Possibilità di creare una vocale privata per te e i tuoi amici`,
+      `${E.VC_Dot} Reazioni al messaggio quando vieni @menzionato in chat (max. 3 reazioni).`,
+      `${E.VC_Dot} ${MENTION_RESPONSE_PERK_BODY}`,
+      `${E.VC_Dot} Potrai crearti un ruolo personalizzato con colore GRADIENTE scelto da te.`,
+      `${E.VC_Dot} X5 EXP boost`,
       "",
-      "<:VC_Attention:1482534443632558151> DISCLAIMER / I soldi non sono rimborsabili, essendo volontari.",
+      `${E.VC_Attention} DISCLAIMER / I soldi non sono rimborsabili, essendo volontari.`,
       "I vantaggi segnati con \"✩\" vengono rimossi qualora l'utente violi il regolamento, porti un'immagine negativa al server o sia inattivo per mesi.",
     ].join("\n");
 
@@ -280,19 +281,19 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
         v2Separator(),
         v2Text(vip),
         v2Separator(),
-        v2Text("## Acquista ora!\n<:blueflash:1470064803157643468> Apri un ticket `HIGH STAFF` sul sito: " + siteTicketsPageDiscordRef("HIGH STAFF") + "."),
+        v2Text(`## Acquista ora!\n${E.blueflash} Apri un ticket \`HIGH STAFF\` sul sito: ` + siteTicketsPageDiscordRef("HIGH STAFF") + "."),
       ],
       flags: v2PrivateFlags(),
     }).catch((err?) => { logButtonErr(err); return null; });
   }
 
   if (interaction.customId == "info_sponsor") {
-    const sponsorText = "<:pinnednew:1443670849990430750> **Vinili & Caffè** offre un servizio di __sponsor__ con dei **requisiti** da rispettare. Per fare una __sponsor__ bisognerà aprire un " + siteTicketsPageDiscordRef("HIGH STAFF") + ".\n\n"
+    const sponsorText = `${E.pinnednew} **Vinili & Caffè** offre un servizio di __sponsor__ con dei **requisiti** da rispettare. Per fare una __sponsor__ bisognerà aprire un ` + siteTicketsPageDiscordRef("HIGH STAFF") + ".\n\n"
       + "> Ogni server che vorrà effettuare una **sponsor** dovrà rispettare questi 3 requisiti:\n"
-      + "> <:VC_Dot:1482532364222595303> Rispettare i [**ToS di Discord**](https://discord.com/terms)\n"
-      + "> <:VC_Dot:1482532364222595303> Rispettare le [**Linee Guida di Discord**](https://discord.com/guidelines)\n"
-      + "> <:VC_Dot:1482532364222595303> Rispettare il [**Regolamento di Vinili & Caffè**](https://discord.com/channels/1329080093599076474/1442569111119990887)";
-    const rowSponsor = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("metodi").setLabel("︲METODI").setEmoji("<:Money:1330544713463500970>").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId("ping").setLabel("︲PING").setEmoji("<:Discord_Mention:1329524304790028328>").setStyle(ButtonStyle.Secondary));
+      + `> ${E.VC_Dot} Rispettare i [**ToS di Discord**](https://discord.com/terms)\n`
+      + `> ${E.VC_Dot} Rispettare le [**Linee Guida di Discord**](https://discord.com/guidelines)\n`
+      + `> ${E.VC_Dot} Rispettare il [**Regolamento di Vinili & Caffè**](https://discord.com/channels/1329080093599076474/1442569111119990887)`;
+    const rowSponsor = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("metodi").setLabel("︲METODI").setEmoji(E.Money).setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId("ping").setLabel("︲PING").setEmoji(E.Discord_Mention).setStyle(ButtonStyle.Secondary));
     await interaction.reply({ components: [v2Text(sponsorText), rowSponsor], flags: v2PrivateFlags() }).catch((err?) => { logButtonErr(err); return null; });
   }
 
@@ -308,13 +309,13 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     const premiPartnerEmbed = new EmbedBuilder()
       .setColor("#6f4e37")
       .setDescription(
-        "<:partneredserverowner:1443651871125409812> **__Vinili & Caffè__** offre un servizio di __pagamento__ in base al numero di **partner** effettuate.\n" +
+        `${E.partneredserverowner} **__Vinili & Caffè__** offre un servizio di __pagamento__ in base al numero di **partner** effettuate.\n` +
         "> Per riscattare eventuali premi bisognerà aprire un " + siteTicketsPageDiscordRef("HIGH STAFF") + "\n\n" +
         (discountBanner ? `${discountBanner}\n\n` : "") +
         tierLines.join("\n") +
         `\n\n> Dal pannello [Personalizza](https://www.viniliecaffe.it/personalizza/) (High Staff): i riscatti **${autoRedeemCosts}** fanno in automatico **scalatura + premio** (CR+Voc/VIP 30 giorni). **Decorazione**, **Nitro** e **PayPal**: premio a mano.\n\n` +
-        `<a:VC_Winner:1482535294757507255> Inoltre, ogni mese, il miglior <@&${IDs.roles.Staff}> riceverà un **Nitro __Boost__** come premio.\n\n` +
-        "<a:flyingnitroboost:1443652205705170986> Naturalmente almeno un **boost** dovrà andare a **__Vinili & Caffè__**.",
+        `${E.VC_Winner} Inoltre, ogni mese, il miglior <@&${IDs.roles.Staff}> riceverà un **Nitro __Boost__** come premio.\n\n` +
+        `${E.flyingnitroboost} Naturalmente almeno un **boost** dovrà andare a **__Vinili & Caffè__**.`,
       )
       ;
     await interaction.reply({ embeds: [premiPartnerEmbed], flags: PRIVATE_FLAG }).catch((err?) => { logButtonErr(err); return null; });
@@ -352,11 +353,11 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
   }
 
   if (interaction.customId === "info_buttons_test_ok") {
-    await interaction.reply({ content: "Perfetto: i bottoni standard stanno funzionando <a:VC_Verified:1482532479637127188>", flags: PRIVATE_FLAG }).catch((err?) => { logButtonErr(err); return null; });
+    await interaction.reply({ content: `Perfetto: i bottoni standard stanno funzionando ${E.VC_Verified}`, flags: PRIVATE_FLAG }).catch((err?) => { logButtonErr(err); return null; });
   }
 
   if (interaction.customId === "info_buttons_test_no") {
-    await interaction.reply({ content: "Ricevuto <a:VC_Cross:1482532424570376253>: i bottoni standard non stanno rispondendo come previsto.", flags: PRIVATE_FLAG }).catch((err?) => { logButtonErr(err); return null; });
+    await interaction.reply({ content: `Ricevuto ${E.VC_Cross}: i bottoni standard non stanno rispondendo come previsto.`, flags: PRIVATE_FLAG }).catch((err?) => { logButtonErr(err); return null; });
   }
 
   if (interaction.customId === "info_buttons_test_ping") {
@@ -367,46 +368,46 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     const boostEmbed = new EmbedBuilder()
 
       .setColor("#6f4e37")
-      .setTitle("<a:VC_HeartWhite:1448673535253024860> **__Potenzia il server e sblocca vantaggi unici__**")
+      .setTitle(`${E.VC_HeartWhite} **__Potenzia il server e sblocca vantaggi unici__**`)
       .setDescription([
         "Un modo per sostenere il server è potenziarlo: se hai un Nitro Boost (quello da 9,99€) hai a disposizione 2 potenziamenti che puoi utilizzare in qualunque server tu voglia. Se deciderai di potenziare noi, __Vinili & Caffè__, sbloccherai un sacco di vantaggi.",
-        "**Non sai cos'è Discord Nitro?** <:link:1470064815899803668> [Scoprilo qui](<https://discord.com/nitro>).",
+        `**Non sai cos'è Discord Nitro?** ${E.link} [Scoprilo qui](<https://discord.com/nitro>).`,
         "",
-        "<a:VC_Boost:1482706171386269830> **Boostando il server una volta sbloccherai questi vantaggi:**",
-        `<:sparkledred:1470064814502973591> Ruolo <@&${IDs.roles.ServerBooster}> con badge speciale`,
-        "<:VC_Dot:1482532364222595303> Permesso di cambiare il nickname",
-        "<:moon:1470064812615667827> Permesso di allegare immagini e link in chat",
-        "<:pinkstar:1470064804835229768> Permesso di mandare emoji e adesivi di altri server",
-        "<:sparkle:1470064801811140866> Permesso di usare le Soundboard del server",
-        "<:blueflash:1470064803157643468> Sblocchi i COLORI PLUS in [Personalizza](https://www.viniliecaffe.it/personalizza/) <:VC_New:1471891729471770819>",
-        "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
+        `${E.VC_Boost} **Boostando il server una volta sbloccherai questi vantaggi:**`,
+        `${E.sparkledred} Ruolo <@&${IDs.roles.ServerBooster}> con badge speciale`,
+        `${E.VC_Dot} Permesso di cambiare il nickname`,
+        `${E.moon} Permesso di allegare immagini e link in chat`,
+        `${E.pinkstar} Permesso di mandare emoji e adesivi di altri server`,
+        `${E.sparkle} Permesso di usare le Soundboard del server`,
+        `${E.blueflash} Sblocchi i COLORI PLUS in [Personalizza](https://www.viniliecaffe.it/personalizza/) ${E.VC_New}`,
+        `${E.VC_CrownYellow} Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)`,
         MENTION_RESPONSE_PERK_LINE_DISCORD,
-        "<a:reddiamond:1443652837346377841> Sblocchi i comandi `+quote` e `+repost`",
-        "<:exp:1470067108543987846> X2 EXP Boost",
+        `${E.reddiamond} Sblocchi i comandi \`+quote\` e \`+repost\``,
+        `${E.exp} X2 EXP Boost`,
         "",
-        "<a:VC_Boost:1482706171386269830> **Inoltre boostando il server due volte sbloccherai altri vantaggi:**",
-        `<:sparkledred:1470064814502973591> Ruolo <@&${IDs.roles.DoubleBooster}> con badge speciale`,
-        "<:moon:1470064812615667827> Tutti i perks precedenti",
-        "<:sparkle:1470064801811140866> Permesso di usare le Soundboard esterne",
-        "<:blueflash:1470064803157643468> Possibilità di creare un ruolo **custom** e un canale **vocale privato custom**",
-        "<a:VC_CrownYellow:1482706085440651428> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
+        `${E.VC_Boost} **Inoltre boostando il server due volte sbloccherai altri vantaggi:**`,
+        `${E.sparkledred} Ruolo <@&${IDs.roles.DoubleBooster}> con badge speciale`,
+        `${E.moon} Tutti i perks precedenti`,
+        `${E.sparkle} Permesso di usare le Soundboard esterne`,
+        `${E.blueflash} Possibilità di creare un ruolo **custom** e un canale **vocale privato custom**`,
+        `${E.VC_CrownYellow} Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).`,
         MENTION_RESPONSE_PERK_LINE_DISCORD,
-        "<a:reddiamond:1443652837346377841> Bypass requisiti dei giveaway",
-        "<:exp:1470067108543987846> X3 EXP Boost",
+        `${E.reddiamond} Bypass requisiti dei giveaway`,
+        `${E.exp} X3 EXP Boost`,
       ].join("\n"))
       ;
 
     const howtoEmbed = new EmbedBuilder()
 
       .setColor("#6f4e37")
-      .setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**")
+      .setTitle(`${E.nitroboost} **__Come creare ruolo personalizzato e vocale privata__**`)
       .setDescription([
         `Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale, le reaction e la Mention Response.`,
         `Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
         "Digita \`+help\` per la lista completa dei comandi.",
       ].join("\n"));
 
-    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("info_levels").setLabel("︲INFO & VANTAGGI RUOLI").setEmoji("<:exp:1470067108543987846>").setStyle(ButtonStyle.Secondary),);
+    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("info_levels").setLabel("︲INFO & VANTAGGI RUOLI").setEmoji(E.exp).setStyle(ButtonStyle.Secondary),);
 
     return { embeds: [boostEmbed, howtoEmbed], components: [row] };
   };
@@ -415,27 +416,27 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     const levelEmbed = new EmbedBuilder()
 
       .setColor("#6f4e37")
-      .setTitle("<:exp:1470067108543987846> **__Sali di livello e sblocca vantaggi sempre migliori__**")
+      .setTitle(`${E.exp} **__Sali di livello e sblocca vantaggi sempre migliori__**`)
       .setDescription([
         "I livelli nel server rappresentano la tua attività: scrivendo in chat testuale e stando nei canali vocali, guadagnerai esperienza che verrà aggiunta al tuo livello globale.",
         "Una volta raggiunta una certa somma di esperienza, farai un **level up**!",
         "",
-        `<:VC_Dot:1482532364222595303> Per __vedere i tuoi EXP__ e le tue statistiche, usa il comando \`+rank\` in <#${IDs.channels.commands}>.`,
+        `${E.VC_Dot} Per __vedere i tuoi EXP__ e le tue statistiche, usa il comando \`+rank\` in <#${IDs.channels.commands}>.`,
         "",
-        "<:VC_Dot:1482532364222595303> ──────────────── <:exp:1470067108543987846> ──────────────── <:VC_Dot:1482532364222595303>",
+        `${E.VC_Dot} ──────────────── ${E.exp} ──────────────── ${E.VC_Dot}`,
         "",
-        "<a:VC_Arrow:1482706699365257397> **LISTA DEI LIVELLI:**",
+        `${E.VC_Arrow} **LISTA DEI LIVELLI:**`,
       ].join("\n"))
       .addFields(
         {
           name: "\`LIVELLO 10-19\`",
           value: [
             `<@&${IDs.roles.Level10}>`,
-            "<:VC_DoubleReply:1482532332509466797> Permesso di cambiare nickname",
-            "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
-            "<:VC_DoubleReply:1482532332509466797> Permesso di inviare messaggi vocali in chat",
-            "<:VC_DoubleReply:1482532332509466797> Sblocchi i comandi \`+quote\` e \`+repost\`",
-            `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv10}>`
+            `${E.VC_DoubleReply} Permesso di cambiare nickname`,
+            `${E.VC_DoubleReply} Permesso di allegare link e immagini in chat`,
+            `${E.VC_DoubleReply} Permesso di inviare messaggi vocali in chat`,
+            `${E.VC_DoubleReply} Sblocchi i comandi \\`+quote\\` e \\`+repost\\``,
+            `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv10}>`
           ].join("\n"),
           inline: true,
         },
@@ -444,8 +445,8 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
           value: [
             `<@&${IDs.roles.Level20}>`,
             "Tutte le ricompense precedenti",
-            "<:VC_DoubleReply:1482532332509466797> Possibilità di aggiungere reazioni ai messaggi in chat",
-            `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv20}>`
+            `${E.VC_DoubleReply} Possibilità di aggiungere reazioni ai messaggi in chat`,
+            `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv20}>`
           ].join("\n"),
           inline: true,
         },
@@ -454,9 +455,9 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
           value: [
             `<@&${IDs.roles.Level30}>`,
             "Tutte le ricompense precedenti",
-            "<:VC_DoubleReply:1482532332509466797> Permesso di usare soundboard di altri server",
-            "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi).",
-            `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv30}>`
+            `${E.VC_DoubleReply} Permesso di usare soundboard di altri server`,
+            `${E.VC_DoubleReply} Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi).`,
+            `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv30}>`
           ].join("\n"),
           inline: true,
         },
@@ -465,9 +466,9 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
           value: [
             `<@&${IDs.roles.Level50}>`,
             "Tutte le ricompense precedenti",
-            "<:VC_DoubleReply:1482532332509466797> Possibilità di creare un ruolo __personalizzato PERMANENTE__ e un canale vocale privato __personalizzato PERMANENTE__.",
-            "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).",
-            `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv50}>`
+            `${E.VC_DoubleReply} Possibilità di creare un ruolo __personalizzato PERMANENTE__ e un canale vocale privato __personalizzato PERMANENTE__.`,
+            `${E.VC_DoubleReply} Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).`,
+            `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv50}>`
           ].join("\n"),
           inline: true,
         },
@@ -476,9 +477,9 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
           value: [
             `<@&${IDs.roles.Level70}>`,
             "Tutte le ricompense precedenti",
-            "<:VC_DoubleReply:1482532332509466797> Permesso di usare sticker ed emoji di altri server",
-            "<:VC_DoubleReply:1482532332509466797> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)",
-            `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv70}>`
+            `${E.VC_DoubleReply} Permesso di usare sticker ed emoji di altri server`,
+            `${E.VC_DoubleReply} Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)`,
+            `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv70}>`
           ].join("\n"),
           inline: true,
         },
@@ -487,11 +488,11 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
           value: [
             `<@&${IDs.roles.Level100}>`,
             "Tutte le ricompense precedenti",
-            "<:VC_DoubleReply:1482532332509466797> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo).",
-            "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per le candidature",
-            "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +15%",
-            `<:VC_DoubleReply:1482532332509466797> ${MENTION_RESPONSE_PERK_BODY}`,
-            `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv100}>`
+            `${E.VC_DoubleReply} Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo).`,
+            `${E.VC_DoubleReply} Bypass requisiti per le candidature`,
+            `${E.VC_DoubleReply} Bonus EXP permanente +15%`,
+            `${E.VC_DoubleReply} ${MENTION_RESPONSE_PERK_BODY}`,
+            `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv100}>`
           ].join("\n"),
           inline: true,
         },
@@ -500,10 +501,10 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
           value: [
             `<@&${IDs.roles.Level120}>`,
             "Tutte le ricompense precedenti",
-            "<:VC_DoubleReply:1482532332509466797> Bypass requisiti per i giveaway",
-            "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +20%",
-            "<:VC_DoubleReply:1482532332509466797> Sblocchi il secondo custom role",
-            `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.orangeBlackPlus}>`,
+            `${E.VC_DoubleReply} Bypass requisiti per i giveaway`,
+            `${E.VC_DoubleReply} Bonus EXP permanente +20%`,
+            `${E.VC_DoubleReply} Sblocchi il secondo custom role`,
+            `${E.VC_Reply} ${E.VC_New} Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.orangeBlackPlus}>`,
           ].join("\n"),
           inline: true,
         },
@@ -512,9 +513,9 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
           value: [
             `<@&${IDs.roles.Level150}>`,
             "Tutte le ricompense precedenti",
-            "<:VC_DoubleReply:1482532332509466797> Bonus EXP permanente +25%",
-            `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.greenBlackPlus}>`,
-            "<:VC_DoubleReply:1482532332509466797> Decorazione a scelta riscattabile tramite ticket **HIGH STAFF**",
+            `${E.VC_DoubleReply} Bonus EXP permanente +25%`,
+            `${E.VC_Reply} ${E.VC_New} Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.greenBlackPlus}>`,
+            `${E.VC_DoubleReply} Decorazione a scelta riscattabile tramite ticket **HIGH STAFF**`,
           ].join("\n"),
           inline: true,
         },
@@ -523,8 +524,8 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
           value: [
             `<@&${IDs.roles.Level200}>`,
             "Tutte le ricompense precedenti",
-            `<:VC_Reply:1482532158080942191> <:VC_New:1471891729471770819> Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.aquaBlackPlus}>`,
-            "<:VC_DoubleReply:1482532332509466797> Nitro Boost mensile riscattabile tramite ticket **HIGH STAFF**",
+            `${E.VC_Reply} ${E.VC_New} Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.aquaBlackPlus}>`,
+            `${E.VC_DoubleReply} Nitro Boost mensile riscattabile tramite ticket **HIGH STAFF**`,
           ].join("\n"),
           inline: true,
         },
@@ -532,13 +533,13 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
 
       .setFooter({ text: "Se esci dal server o cambi account, i livelli ti verranno tolti e NON rimessi." });
 
-    const howtoEmbed = new EmbedBuilder().setColor("#6f4e37").setTitle("<:nitroboost:1470064881674883326> **__Come creare ruolo personalizzato e vocale privata__**").setDescription([
+    const howtoEmbed = new EmbedBuilder().setColor("#6f4e37").setTitle(`${E.nitroboost} **__Come creare ruolo personalizzato e vocale privata__**`).setDescription([
       `Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale, le reaction e la Mention Response.`,
       `Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per scegliere il colore gradiente del tuo ruolo.`,
       "Digita \`+help\` per la lista completa dei comandi.",
     ].join("\n"));
 
-    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel("︲CANALE PER I COMANDI").setEmoji(`<:VC_Bot:1482526555174604964>`).setStyle(ButtonStyle.Link).setURL("https://discord.com/channels/1329080093599076474/1442569138114662490",), new ButtonBuilder().setCustomId("torna_indietro").setLabel("︲TORNA INDIETRO").setEmoji("<a:vegaleftarrow:1462914743416131816>").setStyle(ButtonStyle.Primary),);
+    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setLabel("︲CANALE PER I COMANDI").setEmoji(E.VC_Bot).setStyle(ButtonStyle.Link).setURL("https://discord.com/channels/1329080093599076474/1442569138114662490",), new ButtonBuilder().setCustomId("torna_indietro").setLabel("︲TORNA INDIETRO").setEmoji(E.vegaleftarrow).setStyle(ButtonStyle.Primary),);
 
     return { embeds: [levelEmbed, howtoEmbed], components: [row] };
   };
@@ -560,13 +561,13 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     const badgesEmbed = new EmbedBuilder()
 
       .setColor("#6f4e37")
-      .setTitle("<:pinkstar:1470064804835229768>・**__Ottieni un ruolo speciale per il tuo profilo!__**")
+      .setTitle(`${E.pinkstar}・**__Ottieni un ruolo speciale per il tuo profilo!__**`)
       .setDescription([
         "I badge sono dei ruoli __aggiuntivi__ che ti permettono di sbloccare vantaggi e permessi all'interno del server. Possono essere ottenuti in diversi modi e tutti danno vantaggi diversi.",
         "",
-        "<:VC_Dot:1482532364222595303> ────⋆⋅☆⋅⋆──── ୨♡୧ ────⋆⋅☆⋅⋆──── <:VC_Dot:1482532364222595303>",
+        `${E.VC_Dot} ────⋆⋅☆⋅⋆──── ୨♡୧ ────⋆⋅☆⋅⋆──── ${E.VC_Dot}`,
         "",
-        "<a:VC_Arrow:1482706699365257397> **LISTA DEI BADGES:**",
+        `${E.VC_Arrow} **LISTA DEI BADGES:**`,
       ].join("\n"))
       .addFields(
         {
@@ -575,8 +576,8 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
             "<@&1544830834849087630>/<@&1544830836686200992>",
             "Ottenibile arrivando primo per exp in messaggi o exp in vocale nella [classifica settimanale](<https://discord.com/channels/1329080093599076474/1470183921236049940>).",
             "९ Tutte le ricompense precedenti",
-            "<:VC_DoubleReply:1482532332509466797> Ruolo esclusivo per 7 giorni.",
-            "<:VC_Reply:1482532158080942191> Permesso di usare soundboard esterne",
+            `${E.VC_DoubleReply} Ruolo esclusivo per 7 giorni.`,
+            `${E.VC_Reply} Permesso di usare soundboard esterne`,
           ].join("\n"),
           inline: true,
         },
@@ -586,8 +587,8 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
             `<@&${IDs.roles.Fan}>`,
             'Ottenibile mettendo ".gg/viniliecaffe", "discord.gg/viniliecaffe" o "viniliecaffe.it" nello status del tuo profilo Discord!',
             "Nello stato, non nella bio; se viene tolto o se sei offline, non ti verranno assegnati i vantaggi.",
-            "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
-            "<:VC_Reply:1482532158080942191> Permesso di cambiare il tuo nickname",
+            `${E.VC_DoubleReply} Permesso di allegare link e immagini in chat`,
+            `${E.VC_Reply} Permesso di cambiare il tuo nickname`,
           ].join("\n"),
           inline: true,
         },
@@ -596,8 +597,8 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
           value: [
             "<@&1544830805455544360>",
             "Ottenibile votando il server dalla [pagina Voti](<https://www.viniliecaffe.it/vote>) del sito (Discadia e Top.gg).",
-            "<:VC_DoubleReply:1482532332509466797> EXP casuale da 100 a 250.",
-            "<:VC_Reply:1482532158080942191> Ruolo esclusivo per 12 o 24 ore.",
+            `${E.VC_DoubleReply} EXP casuale da 100 a 250.`,
+            `${E.VC_Reply} Ruolo esclusivo per 12 o 24 ore.`,
           ].join("\n"),
           inline: true,
         },
@@ -606,8 +607,8 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
           value: [
             "<@&1544830824300417094>",
             "Ottenibile invitando 5 persone nel server, attraverso [custom link](<https://imgur.com/a/3wpDOVj>)",
-            "<:VC_DoubleReply:1482532332509466797> Permesso di allegare link e immagini in chat",
-            "<:VC_Reply:1482532158080942191> Permesso di cambiare il tuo nickname",
+            `${E.VC_DoubleReply} Permesso di allegare link e immagini in chat`,
+            `${E.VC_Reply} Permesso di cambiare il tuo nickname`,
           ].join("\n"),
           inline: true,
         },
@@ -617,8 +618,8 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
             "<@&1544830827026849872>",
             "Ottenibile invitando 25 persone nel server, attraverso [custom link](<https://imgur.com/a/3wpDOVj>)",
             "९ Tutte le ricompense precedenti",
-            "<:VC_DoubleReply:1482532332509466797> Inviare emoji e adesivi esterni",
-            "<:VC_Reply:1482532158080942191> Aggiungi reazioni ai messaggi",
+            `${E.VC_DoubleReply} Inviare emoji e adesivi esterni`,
+            `${E.VC_Reply} Aggiungi reazioni ai messaggi`,
           ].join("\n"),
           inline: true,
         },
@@ -628,7 +629,7 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
             "<@&1544830828331270282>",
             "Ottenibile invitando 100 persone nel server, attraverso [custom link](<https://imgur.com/a/3wpDOVj>)",
             "९ Tutte le ricompense precedenti",
-            "<:VC_Reply:1482532158080942191> Usare SoundBoard esterne nelle vocali",
+            `${E.VC_Reply} Usare SoundBoard esterne nelle vocali`,
           ].join("\n"),
           inline: true,
         },
@@ -672,7 +673,7 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     return sendPrivacyViewsLeaderboard(
       interaction,
       "avatar",
-      "<a:VC_CrownYellow:1482706085440651428> Classifica Visualizzazioni Avatar",
+      `${E.VC_CrownYellow} Classifica Visualizzazioni Avatar`,
     );
   }
 
@@ -680,7 +681,7 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     return sendPrivacyViewsLeaderboard(
       interaction,
       "banner",
-      "<a:VC_CrownYellow:1482706085440651428> Classifica Visualizzazioni Banner",
+      `${E.VC_CrownYellow} Classifica Visualizzazioni Banner`,
     );
   }
 }

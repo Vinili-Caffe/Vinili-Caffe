@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require("disc
 const { safeEditReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { fetchGuildMembersRespectingGatewayRateLimit } = require("../../../../shared/discord/gatewayMemberFetch") as typeof import("../../../../shared/discord/gatewayMemberFetch");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const EPHEMERAL_FLAG = 1 << 6;
 const CHUNK_SIZE = 5;
 const CHUNK_DELAY_MS = 900;
@@ -79,14 +80,14 @@ export = {
     if (!me?.permissions?.has(PermissionFlagsBits.ManageRoles)) {
       return safeEditReply(interaction, {
         content:
-          "<a:VC_Alert:1482706673176150077> Il bot non ha il permesso **Gestisci ruoli**.",
+          `${E.VC_Alert} Il bot non ha il permesso **Gestisci ruoli**.`,
         flags: EPHEMERAL_FLAG,
       });
     }
 
     if (!role || role.id === guild.id) {
       return safeEditReply(interaction, {
-        content: "<a:VC_Alert:1482706673176150077> Ruolo non valido.",
+        content: `${E.VC_Alert} Ruolo non valido.`,
         flags: EPHEMERAL_FLAG,
       });
     }
@@ -94,7 +95,7 @@ export = {
     if (role.managed) {
       return safeEditReply(interaction, {
         content:
-          "<a:VC_Alert:1482706673176150077> Non puoi assegnare un ruolo gestito da un'integrazione (bot).",
+          `${E.VC_Alert} Non puoi assegnare un ruolo gestito da un'integrazione (bot).`,
         flags: EPHEMERAL_FLAG,
       });
     }
@@ -102,14 +103,14 @@ export = {
     if (me.roles.highest.position <= role.position) {
       return safeEditReply(interaction, {
         content:
-          "<a:VC_Alert:1482706673176150077> Il ruolo del bot deve stare **sopra** il ruolo da assegnare.",
+          `${E.VC_Alert} Il ruolo del bot deve stare **sopra** il ruolo da assegnare.`,
         flags: EPHEMERAL_FLAG,
       });
     }
 
     await safeEditReply(interaction, {
       content:
-        "<a:VC_Calendar:1482706208149475358> Caricamento membri e assegnazione **in corso**…",
+        `${E.VC_Calendar} Caricamento membri e assegnazione **in corso**…`,
       flags: EPHEMERAL_FLAG,
     });
 
@@ -120,7 +121,7 @@ export = {
           .setColor("#6f4e37")
           .setDescription(
             [
-              `<:vegacheckmark:1443666279058772028> Assegnazione completata: ${role}`,
+              `${E.vegacheckmark} Assegnazione completata: ${role}`,
               "",
               `• Aggiunti: **${stats.added}**`,
               `• Già con il ruolo: **${stats.skipped}**`,
@@ -132,7 +133,7 @@ export = {
       } catch (err) {
         global.logger?.error?.("[role all]", err);
         await safeEditReply(interaction, {
-          content: `<:vegax:1443934876440068179> Errore durante l'assegnazione: ${String(err?.message || err).slice(0, 500)}`,
+          content: `${E.vegax} Errore durante l'assegnazione: ${String(err?.message || err).slice(0, 500)}`,
           flags: EPHEMERAL_FLAG,
         });
       }

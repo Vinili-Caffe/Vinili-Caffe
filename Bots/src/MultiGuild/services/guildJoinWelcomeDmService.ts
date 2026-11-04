@@ -1,6 +1,7 @@
 const { AuditLogEvent, ChannelType, EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const { isMultiGuildLayerEnabled } = require("../core/env") as typeof import("../core/env");
 const { isViniliProtectedGuild } = require("../core/viniliProtectedGuilds") as typeof import("../core/viniliProtectedGuilds");
+const { E } = require("../../shared/emojis/emojiCatalog") as typeof import("../../shared/emojis/emojiCatalog");
 const {
   TENANT_EMBED_COLOR,
   applyBrandingBannerImage,
@@ -56,7 +57,7 @@ function buildWelcomeEmbed(guild?, client?) {
 
   const embed = new EmbedBuilder()
     .setColor(TENANT_EMBED_COLOR)
-    .setTitle(`__<a:VC_Rocket:1468544312475123753> Benvenuto in ${botName}!__`)
+    .setTitle(`__${E.VC_Rocket} Benvenuto in ${botName}!__`)
     .setDescription(
       [`**Grazie** per avermi invitato in **${guildName}**!`, `Esegui \`${prefix}setup\` nel server per **configurarmi**.`].join(
         "\n",

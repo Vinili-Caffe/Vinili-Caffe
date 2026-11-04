@@ -2,6 +2,7 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { resolveCaseByGuildCaseId, appendCaseEditStore, setCaseReasonStore, setCaseDurationStore } = require("../modCaseStore") as typeof import("../modCaseStore");
 const { appendCaseEdit, closeCasePersist, formatDuration } = require("../moderation") as typeof import("../moderation");
 const { sendStaffActionToModLogs } = require("../modAuditLogUtils") as typeof import("../modAuditLogUtils");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   reasonFrom,
   reply,
@@ -52,9 +53,9 @@ async function runCaseFamily(cmd?, message?, args?, client?) {
     const hh = new Date(row.createdAt || Date.now()).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", hour12: false, });
     const caseEmbed = new EmbedBuilder().setColor("#FEE75C").setTitle(`Case ${caseId} · ${action} · ${targetUser?.username || row.userId}`)
       .addFields(
-        { name: "<:member_role_icon:1330530086792728618> Utente", value: targetUser?.username || String(row.userId || "Sconosciuto"), inline: true },
-        { name: "<:VC_Staff:1494286904089247754> Moderatore", value: modUser ? `<@${modUser.id}>` : String(row.modId || "Sconosciuto"), inline: true },
-        { name: "<:VC_reason:1478517122929004544> Motivo", value: row.reason || "Nessun motivo fornito", inline: true },
+        { name: `${E.member_role_icon} Utente`, value: targetUser?.username || String(row.userId || "Sconosciuto"), inline: true },
+        { name: `${E.VC_Staff} Moderatore`, value: modUser ? `<@${modUser.id}>` : String(row.modId || "Sconosciuto"), inline: true },
+        { name: `${E.VC_reason} Motivo`, value: row.reason || "Nessun motivo fornito", inline: true },
       )
       .setFooter({
         text: `ID: ${row.userId} • Oggi alle ${hh}${Array.isArray(row.edits) && row.edits.length ? ` | Modificato ${row.edits.length} volta/e` : ""}`,
@@ -98,7 +99,7 @@ async function runCaseFamily(cmd?, message?, args?, client?) {
         embeds: [
           new EmbedBuilder()
             .setColor("#ED4245")
-            .setDescription("<:cancel:1461730653677551691> La durata può essere modificata solo per casi mute/ban."),
+            .setDescription(`${E.cancel} La durata può essere modificata solo per casi mute/ban.`),
         ],
       })
       .catch(() => null);
@@ -111,7 +112,7 @@ async function runCaseFamily(cmd?, message?, args?, client?) {
           new EmbedBuilder()
             .setColor("#ED4245")
             .setDescription(
-              "<:cancel:1461730653677551691> Usa una durata valida inferiore a 14 giorni (esempio: 3m, 2h, 1d).",
+              `${E.cancel} Usa una durata valida inferiore a 14 giorni (esempio: 3m, 2h, 1d).`,
             ),
         ],
       })

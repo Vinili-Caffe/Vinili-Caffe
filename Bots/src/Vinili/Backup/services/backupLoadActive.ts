@@ -1,3 +1,4 @@
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   DEFAULT_MESSAGES_LIMIT,
   ACTIVE_LOAD_STALE_MS,
@@ -10,7 +11,7 @@ const {
 
 class BackupLoadCancelledError extends Error {
   declare code: any;
-  constructor(message = "<a:VC_Alert:1482706673176150077> Backup load cancelled by user.") {
+  constructor(message = `${E.VC_Alert} Backup load cancelled by user.`) {
     super(message);
     this.name = "BackupLoadCancelledError";
     this.code = "BACKUP_LOAD_CANCELLED";

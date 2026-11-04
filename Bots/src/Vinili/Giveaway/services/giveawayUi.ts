@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const GIVEAWAY_ENTER_PREFIX = "giveaway_enter:";
 const GIVEAWAY_LEAVE_PREFIX = "giveaway_leave:";
 const GIVEAWAY_COUNT_PREFIX = "giveaway_count:";
@@ -42,12 +43,12 @@ function buildGiveawayEmbed(giveaway?, options: Record<string, any> = {}) {
 
   const fields = [
     {
-      name: "<a:VC_Calendar:1482706208149475358> Tempo rimanente",
+      name: `${E.VC_Calendar} Tempo rimanente`,
       value: isCancelled ? "Annullato" : ended ? "Terminato" : discordRelativeEndTimestamp(endAt),
       inline: true,
     },
     {
-      name: "<:VC_EXP:1482534670896730143> Hosted by",
+      name: `${E.VC_EXP} Hosted by`,
       value: hostTag || hostDisplay || "—",
       inline: true,
     },
@@ -55,7 +56,7 @@ function buildGiveawayEmbed(giveaway?, options: Record<string, any> = {}) {
 
   const embed = new EmbedBuilder()
     .setColor(isCancelled ? "#992d22" : "#5865F2")
-    .setTitle(`<a:VC_Events:1482706144953897223> ${prize}`)
+    .setTitle(`${E.VC_Events} ${prize}`)
     .addFields(fields)
     .setFooter({
       text: isCancelled
@@ -76,17 +77,17 @@ function buildEnterButton(giveawayId?) {
       .setCustomId(`${GIVEAWAY_ENTER_PREFIX}${giveawayId}`)
       .setLabel("Entra")
       .setStyle(ButtonStyle.Success)
-      .setEmoji("<a:VC_Events:1482706144953897223>"),
+      .setEmoji(E.VC_Events),
     new ButtonBuilder()
       .setCustomId(`${GIVEAWAY_LEAVE_PREFIX}${giveawayId}`)
       .setLabel("Esci")
       .setStyle(ButtonStyle.Danger)
-      .setEmoji("<:cancel:1461730653677551691>"),
+      .setEmoji(E.cancel),
     new ButtonBuilder()
       .setCustomId(`${GIVEAWAY_COUNT_PREFIX}${giveawayId}`)
       .setLabel("Partecipanti")
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("<:VC_Stats:1482527532682055780>"),
+      .setEmoji(E.VC_Stats),
   );
 }
 
@@ -96,12 +97,12 @@ function buildRerollButton(giveawayId?) {
       .setCustomId(`${GIVEAWAY_COUNT_PREFIX}${giveawayId}`)
       .setLabel("Partecipanti")
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("<:VC_Stats:1482527532682055780>"),
+      .setEmoji(E.VC_Stats),
     new ButtonBuilder()
       .setCustomId(`${GIVEAWAY_REROLL_PREFIX}${giveawayId}`)
       .setLabel("Re-Roll")
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("<:VC_Refresh:1473359252276904203>"),
+      .setEmoji(E.VC_Refresh),
   );
 }
 

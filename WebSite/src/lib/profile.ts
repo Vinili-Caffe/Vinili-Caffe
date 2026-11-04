@@ -11,6 +11,8 @@ export type CustomVoice = { id: string; name: string; emoji?: string; createdAt?
 export type Birthday = { day: number; month: number; birthYear?: number; showAge?: boolean; isToday?: boolean; age?: number; label?: string };
 export type MultiplierSource = { key: string; label: string; type: string; multiplier: number; color?: string; active?: boolean; applied?: boolean };
 export type Candy = { id: string; name: string; thumbUrl: string; silhouetteUrl: string; owned: boolean };
+export type DeckItem = { id: string; name: string; thumbUrl: string; silhouetteUrl: string; owned: boolean; hasImage?: boolean };
+export type DeckCollection = { visible: boolean; kind: string; title: string; ownedCount: number; total: number; items: DeckItem[] };
 
 export type ProfileData = {
   userId: string;
@@ -25,6 +27,7 @@ export type ProfileData = {
   multiplier: number;
   multiplierSources: MultiplierSource[];
   candy: { visible: boolean; ownedCount: number; total: number; items: Candy[] } | null;
+  starWarsDecks: { visible: boolean; reliquie: DeckCollection | null; pg: DeckCollection | null } | null;
   level: { rank?: number; level: number; exp: number; currentLevelExp: number; nextLevelExp: number; progressPercent: number } | null;
   weekly: { rank?: number; weeklyExp: number } | null;
   messages: { rank?: number; messagesTotal: number; messagesWeekly: number; messagesDaily: number } | null;
@@ -40,10 +43,16 @@ export const isUserId = (s: string | null | undefined): s is string => !!s && /^
 const isSeparator = (name: string) => /^[\sㅤㅤ]*[・•·-]/.test(name) || /ㅤ{2,}/.test(name);
 export const cleanRole = (n: string) => n.replace(/^[\s ]*(?:༄|✦|✧|★|☆|◆|◇|•|·|❖|✵)+[\s ]*/u, "").trim() || n;
 
-export async function loadProfile(userId: string, origin = ""): Promise<ProfileResult> {
+export async function loadProfile(userId: string, origin = "", token = ""): Promise<ProfileResult> {
   try {
     const q = new URLSearchParams({ board: "profile", userId, perPage: "1" });
-    const r = await fetch(`${origin}/webhooks/site-users?${q}`, { cache: "no-store" });
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const r = await fetch(`${origin}/webhooks/site-users?${q}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers,
+    });
     if (!r.ok) return { status: "error" };
     const j = await r.json();
     if (!j?.ok) return { status: "error" };
@@ -52,6 +61,18 @@ export async function loadProfile(userId: string, origin = ""): Promise<ProfileR
     const rows = j.rows && typeof j.rows === "object" ? j.rows : {};
     const cp = p.customProfile || {};
     const hc = p.halloweenCandy;
+    const swd = p.starWarsDecks;
+    const mapDeck = (d: any): DeckCollection | null =>
+      d?.visible && Array.isArray(d.items)
+        ? {
+            visible: true,
+            kind: String(d.kind || ""),
+            title: String(d.title || ""),
+            ownedCount: Number(d.ownedCount) || 0,
+            total: Number(d.total) || d.items.length,
+            items: d.items,
+          }
+        : null;
     return {
       status: "ok",
       data: {
@@ -67,6 +88,7 @@ export async function loadProfile(userId: string, origin = ""): Promise<ProfileR
         multiplier: Number(rows.weekly?.expMultiplier ?? p.expMultiplierResolved ?? 1) || 1,
         multiplierSources: Array.isArray(p.weeklyMultiplierSources) ? p.weeklyMultiplierSources : [],
         candy: hc?.visible && Array.isArray(hc.items) ? { visible: true, ownedCount: Number(hc.ownedCount) || 0, total: Number(hc.total) || hc.items.length, items: hc.items } : null,
+        starWarsDecks: swd?.visible ? { visible: true, reliquie: mapDeck(swd.reliquie), pg: mapDeck(swd.pg) } : null,
         level: rows.level || null,
         weekly: rows.weekly || null,
         messages: rows.messages || null,

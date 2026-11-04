@@ -10,6 +10,7 @@ const { accountUsername, memberDisplayName, memberLabelWithUsername, guildMember
 const { isRepostDisabledInGuild } = require("../../services/repostService") as typeof import("../../services/repostService");
 const { SITE_BOARD_CHANNEL, isBachecaSiteGuild, newBachecaItemId, buildBachecaLinkButton, putBachecaMedia, broadcastBachecaChanged } = require("../../../site/bacheca/bachecaSite") as typeof import("../../../site/bacheca/bachecaSite");
 const { TENANT_EMBED_COLOR } = require("../../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../../MultiGuild/utils/tenantEmbedBranding");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   getTenantBoardsSync,
   isTenantBoardFeatureEnabledSync,
@@ -20,8 +21,8 @@ const QUOTE_DISABLED_MESSAGE = "Le quote sono disattivate su questo server.";
 function buildQuotePostEmbed({ messageAuthorId, creatorId, totalPosts }) {
   return new EmbedBuilder()
     .setColor(TENANT_EMBED_COLOR)
-    .setTitle("<a:VC_Sparkles:1468546911936974889> Nuova quotazione ✨")
-    .setDescription("<:VC_Reply:1482532158080942191> Crea un post usando il comando **+quote** rispondendo al messaggio di un utente.")
+    .setTitle(`${E.VC_Sparkles} Nuova quotazione ✨`)
+    .setDescription(`${E.VC_Reply} Crea un post usando il comando **+quote** rispondendo al messaggio di un utente.`)
     .addFields(
       { name: "Messaggio di:", value: `<@${messageAuthorId}>` },
       { name: "Creato da:", value: `<@${creatorId}>` },
@@ -39,7 +40,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Questo comando può essere usato solo in un server.",
+              `${E.vegax} Questo comando può essere usato solo in un server.`,
             ),
         ],
         allowedMentions: { repliedUser: false },
@@ -51,7 +52,7 @@ export = {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setDescription(`<:vegax:1443934876440068179> ${QUOTE_DISABLED_MESSAGE}`),
+            .setDescription(`${E.vegax} ${QUOTE_DISABLED_MESSAGE}`),
         ],
         allowedMentions: { repliedUser: false },
       });
@@ -64,7 +65,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Devi rispondere a un messaggio per usare questo comando.",
+              `${E.vegax} Devi rispondere a un messaggio per usare questo comando.`,
             ),
         ],
         allowedMentions: { repliedUser: false },
@@ -78,7 +79,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Impossibile trovare il messaggio selezionato.",
+              `${E.vegax} Impossibile trovare il messaggio selezionato.`,
             ),
         ],
         allowedMentions: { repliedUser: false },
@@ -95,7 +96,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Il messaggio selezionato non ha testo.",
+              `${E.vegax} Il messaggio selezionato non ha testo.`,
             ),
         ],
         allowedMentions: { repliedUser: false },
@@ -112,7 +113,7 @@ export = {
           embeds: [
             new EmbedBuilder()
               .setColor("#ed4245")
-              .setTitle("<a:VC_Unlock:1482532082466029608> Quote bloccate")
+              .setTitle(`${E.VC_Unlock} Quote bloccate`)
               .setDescription(
                 [
                   `**${quoteUserLabel}** ha bloccato le quote dei propri messaggi.`,
@@ -157,7 +158,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Impossibile creare il canvas.",
+              `${E.vegax} Impossibile creare il canvas.`,
             ),
         ],
         allowedMentions: { repliedUser: false },
@@ -174,7 +175,7 @@ export = {
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<:vegax:1443934876440068179> Contatore quote non disponibile. Riprova tra poco.",
+              `${E.vegax} Contatore quote non disponibile. Riprova tra poco.`,
             ),
         ],
         allowedMentions: { repliedUser: false },
@@ -187,10 +188,10 @@ export = {
     const siteItemId = siteBoard ? newBachecaItemId() : "";
     const quoteChannel = siteBoard ? null : await resolveQuotePostChannel(message.guild);
     const embedDescription = siteBoard
-      ? "<a:VC_Sparkles:1468546911936974889> La quote è appesa in **Bacheca** sul sito!"
+      ? `${E.VC_Sparkles} La quote è appesa in **Bacheca** sul sito!`
       : quoteChannel
-        ? `<a:VC_Sparkles:1468546911936974889> Puoi trovare il post creato nel canale: <#${quoteChannel.id}>!`
-        : "<a:VC_Sparkles:1468546911936974889> Quote pubblicata in questo canale.";
+        ? `${E.VC_Sparkles} Puoi trovare il post creato nel canale: <#${quoteChannel.id}>!`
+        : `${E.VC_Sparkles} Quote pubblicata in questo canale.`;
     const embed = new EmbedBuilder()
       .setColor(TENANT_EMBED_COLOR)
       .setDescription(embedDescription)

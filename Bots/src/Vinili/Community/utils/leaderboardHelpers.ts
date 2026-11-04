@@ -6,15 +6,16 @@ const { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, getLevelInfo } = require("../../Level
 const { isChannelInTicketCategory } = require("../../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../../MultiGuild/tickets/discord/ticketCategoryUtils");
 const { memberHasStaffRole } = require("./staffListUtils") as typeof import("./staffListUtils");
 const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const TOP_LIMIT = 10;
 const TIME_ZONE = "Europe/Rome";
 const LEADERBOARD_CACHE_TTL_MS = 30 * 1000;
 const leaderboardCache = new Map();
 
 function rankLabel(index?) {
-  if (index === 0) return "<:VC_Podio1:1482694399283433582>";
-  if (index === 1) return "<:VC_Podio2:1482694424411635712>";
-  if (index === 2) return "<:VC_Podio3:1482694450806259744>";
+  if (index === 0) return E.VC_Podio1;
+  if (index === 1) return E.VC_Podio2;
+  if (index === 2) return E.VC_Podio3;
   return `${index + 1}°`;
 }
 

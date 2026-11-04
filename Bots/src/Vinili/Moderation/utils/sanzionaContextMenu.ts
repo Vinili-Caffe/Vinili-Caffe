@@ -7,6 +7,7 @@ const {
 } = require("discord.js") as typeof import("discord.js");
 const { KNOWN_RULE_DOTS } = require("./staffRegolamentoSteps") as typeof import("./staffRegolamentoSteps");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const EPHEMERAL = MessageFlags.Ephemeral;
 const IN_RULE = "sanziona_regola";
 const IN_REASON = "sanziona_motivo";
@@ -15,13 +16,13 @@ const RULE_HINT = KNOWN_RULE_DOTS.slice(0, 12).join(", ") + "…";
 
 function validateSanzionaTargetUser(targetUser?, actorId?) {
   if (!targetUser?.id) {
-    return { ok: false, content: "<a:VC_Cross:1482532424570376253> Utente non valido." };
+    return { ok: false, content: `${E.VC_Cross} Utente non valido.` };
   }
   if (targetUser.bot) {
-    return { ok: false, content: "<a:VC_Cross:1482532424570376253> Non puoi sanzionare un bot." };
+    return { ok: false, content: `${E.VC_Cross} Non puoi sanzionare un bot.` };
   }
   if (String(targetUser.id) === String(actorId || "")) {
-    return { ok: false, content: "<a:VC_Cross:1482532424570376253> Non puoi sanzionare te stesso." };
+    return { ok: false, content: `${E.VC_Cross} Non puoi sanzionare te stesso.` };
   }
   return { ok: true, targetUser };
 }
@@ -70,7 +71,7 @@ function isUnknownOrUsedInteraction(err?) {
 async function executeSanzionaContextMenu(interaction?, targetUser?) {
   if (!interaction.guild) {
     await interaction.reply({
-      content: "<a:VC_Cross:1482532424570376253> Comando disponibile solo nel server.",
+      content: `${E.VC_Cross} Comando disponibile solo nel server.`,
       flags: EPHEMERAL,
     });
     return;

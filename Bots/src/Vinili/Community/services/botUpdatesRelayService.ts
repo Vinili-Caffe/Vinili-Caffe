@@ -4,6 +4,7 @@ const {
   Routes,
 } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   listTenantUpdatesTargetsSync,
   setTenantUpdatesWebhook,
@@ -252,7 +253,7 @@ function buildRelayPayload(message?, client?) {
   if (embeds.length) payload.embeds = embeds.slice(0, 10);
   if (files.length) payload.files = files.slice(0, 10);
   if (!payload.content && !payload.embeds?.length && !payload.files?.length) {
-    payload.content = "<:VC_update:1478721333096349817> Aggiornamento";
+    payload.content = `${E.VC_update} Aggiornamento`;
   }
   return payload;
 }
@@ -331,7 +332,7 @@ async function sendViaWebhookWithFiles(client?, guildId?, channelId?, webhookId?
   const slim = { ...payload };
   delete slim.files;
   if (!slim.content && !slim.embeds?.length) {
-    slim.content = String(payload.content || "<:VC_update:1478721333096349817> Aggiornamento");
+    slim.content = String(payload.content || `${E.VC_update} Aggiornamento`);
   }
   return sendViaWebhook(client, webhookId, slim);
 }

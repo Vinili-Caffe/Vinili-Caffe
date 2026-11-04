@@ -5,6 +5,7 @@ const { shouldSendPublicMemberAnnouncement } = require("./memberPublicAnnounceme
 const { memberDisplayName, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { applyPronounGenderToEmbedForMember } = require("./pronounGenderUtils") as typeof import("./pronounGenderUtils");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const MAIN_GUILD_ID = String(IDs.guilds?.main || "");
 const SUPPORTERS_CHANNEL_ID = IDs.channels?.supporters;
 const PATRON_ROLE_ID = String(IDs.roles?.Patron || "").trim();
@@ -87,16 +88,16 @@ async function sendPatronRoleAnnounce(member?, channel?) {
       name: memberDisplayName(member),
       iconURL: guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined,
     })
-    .setTitle("Nuovx Patron <a:VC_StarPink:1330194976440848500>")
+    .setTitle(`Nuovx Patron ${E.VC_StarPink}`)
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null)
     .setDescription(
       [
         `<@${member.id}>, \`hai sbloccato:\``,
-        `<:VC_Reply:1482532158080942191> Ti è stato assegnato il ruolo ${patronRoleMention}!`,
-        "<:VC_Dot:1482532364222595303> - Possibilità di **scrivere in gigante**",
+        `${E.VC_Reply} Ti è stato assegnato il ruolo ${patronRoleMention}!`,
+        `${E.VC_Dot} - Possibilità di **scrivere in gigante**`,
         "",
-        `<a:VC_Arrow:1482706699365257397> Hai completato i ruoli ${prereqMentions}.`,
-        "<a:VC_Arrow:1482706699365257397> Scopri i tuoi vantaggi sul nostro [sito](https://viniliecaffe.it/perks).",
+        `${E.VC_Arrow} Hai completato i ruoli ${prereqMentions}.`,
+        `${E.VC_Arrow} Scopri i tuoi vantaggi sul nostro [sito](https://viniliecaffe.it/perks).`,
       ].join("\n"),
     )
     .setFooter({ text: "Grazie per il tuo supporto!" });

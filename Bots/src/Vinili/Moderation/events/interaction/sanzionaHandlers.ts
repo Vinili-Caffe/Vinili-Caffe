@@ -1,4 +1,5 @@
 const { parseDuration } = require("../../../Moderation/utils/moderation") as typeof import("../../../Moderation/utils/moderation");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   normalizeRuleDot,
   countPreviousRuleCases,
@@ -38,12 +39,12 @@ async function handleSanzionaModal(interaction?, client?) {
   const parsed = parseSanzionaModalId(interaction.customId);
   if (!parsed) return false;
   if (String(interaction.user.id) !== parsed.actorId) {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il modulo può inviarlo.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Solo chi ha aperto il modulo può inviarlo.`);
     return true;
   }
   const guild = interaction.guild;
   if (!guild) {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Server non disponibile.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Server non disponibile.`);
     return true;
   }
   const ruleRaw = getModalField(interaction.fields, IN_RULE);
@@ -51,7 +52,7 @@ async function handleSanzionaModal(interaction?, client?) {
   if (!ruleDot || !KNOWN_RULE_DOTS.includes(ruleDot)) {
     await replyEphemeral(
       interaction,
-      `<a:VC_Cross:1482532424570376253> Regola non valida. Usa un numero dalla guida moderazione (es. ${KNOWN_RULE_DOTS.slice(0, 5).join(", ")}).`,
+      `${E.VC_Cross} Regola non valida. Usa un numero dalla guida moderazione (es. ${KNOWN_RULE_DOTS.slice(0, 5).join(", ")}).`,
     );
     return true;
   }
@@ -63,7 +64,7 @@ async function handleSanzionaModal(interaction?, client?) {
     if (!ms) {
       await replyEphemeral(
         interaction,
-        "<a:VC_Cross:1482532424570376253> Tempo non valido. Usa il formato `4h`, `12h`, `30m`, `2d`.",
+        `${E.VC_Cross} Tempo non valido. Usa il formato \`4h\`, \`12h\`, \`30m\`, \`2d\`.`,
       );
       return true;
     }
@@ -72,13 +73,13 @@ async function handleSanzionaModal(interaction?, client?) {
   const previousCount = await countPreviousRuleCases(guild.id, parsed.targetId, ruleDot);
   const resolved = resolveStaffRegolaSanction(ruleDot, previousCount);
   if (!resolved) {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Impossibile risolvere la sanzione per questa regola.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Impossibile risolvere la sanzione per questa regola.`);
     return true;
   }
   const reason = buildDefaultReason(ruleDot, resolved.stepIndex, customMotivo);
   const dyno = buildDynoArgs(parsed.targetId, resolved, reason, durationOverride);
   if (!dyno?.cmd || !dyno.args?.length) {
-    await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Sanzione non supportata.");
+    await replyEphemeral(interaction, `${E.VC_Cross} Sanzione non supportata.`);
     return true;
   }
   await runDynoFromInteraction(interaction, client, dyno.cmd, dyno.args, guild, {

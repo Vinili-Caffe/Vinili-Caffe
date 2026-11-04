@@ -10,6 +10,7 @@ const { resolvePermissionReference, normalizePermissionList } = require("./permR
 const { WEB_TICKET_PREFIX_ALLOWED_COMMANDS, WEB_TICKET_PREFIX_CATEGORY_LIMIT, VOICE_STANZA_PREFIX_CHANNEL_BYPASS_COMMANDS, WEB_TICKET_PREFIX_HIDDEN_COMMANDS, resolvePrefixRoles, getDevIds, peekMainDashboardCommandAcl } = require("./permWebTicket") as typeof import("./permWebTicket");
 const { loadPermissions, normalizeChannelList, channelMatchesPolicyChannelList, resolveCommandChannelPolicy, hasAnyRoleWithLiveFallback, hasAllPermissionsWithLiveFallback } = require("./permSlash") as typeof import("./permSlash");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const PM_THREAD_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["help", "profile"]);
 const TICKET_PREFIX_CHANNEL_BYPASS_COMMANDS = new Set(["sezioneproibita", "libriproibiti", "forbiddenbooks"]);
 
@@ -90,7 +91,7 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
           reason: "bot_usage_blacklisted_user",
           requiredRoles: null,
           channels: null,
-          message: "<:vegax:1443934876440068179> Non puoi usare questo bot.",
+          message: `${E.vegax} Non puoi usare questo bot.`,
           silent: true,
         };
       }
@@ -103,7 +104,7 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
           reason: "bot_usage_blacklisted_guild",
           requiredRoles: null,
           channels: null,
-          message: "<:vegax:1443934876440068179> Questo server non può usare il bot.",
+          message: `${E.vegax} Questo server non può usare il bot.`,
           silent: true,
         };
       }

@@ -8,6 +8,7 @@ const { memberHasStaffRole } = require("../../../../Community/utils/staffListUti
 const { getStaffRoleEmojiByRoleId } = require("../../../../Community/utils/staffRoleEmoji") as typeof import("../../../../Community/utils/staffRoleEmoji");
 const { clearStaffPendingPurgeAt } = require("../../../../Community/services/userLeaveBackupService") as typeof import("../../../../Community/services/userLeaveBackupService");
 const { userAvatarUrlDynamic } = require("../../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../../shared/discord/guildDiscordIdentity");
+const { E } = require("../../../../../shared/emojis/emojiCatalog") as typeof import("../../../../../shared/emojis/emojiCatalog");
 const {
   memberHasResocontoButtonAccess,
 } = require("../../../../Staff/utils/resocontoAccess") as typeof import("../../../../Staff/utils/resocontoAccess");
@@ -254,15 +255,15 @@ async function sendPexDepexLog(guild?, type?, targetUser?, oldRoleId?, newRoleId
   if (!channel?.isTextBased?.()) return;
   const oldRole = guild.roles.cache.get(String(oldRoleId || ""));
   const newRole = guild.roles.cache.get(String(newRoleId || ""));
-  const typeLabel = type === "pex" ? "**<:success:1461731530333229226> PEX**" : "**<:cancel:1461730653677551691> DEPEX**";
+  const typeLabel = type === "pex" ? `**${E.success} PEX**` : `**${E.cancel} DEPEX**`;
   const actionEmoji = type === "pex"
     ? getStaffRoleEmojiByRoleId(newRoleId)
     : getStaffRoleEmojiByRoleId(oldRoleId);
   await channel
     .send({
       content: `${typeLabel} <@${targetUser.id}>
-${actionEmoji} \`${oldRole?.name || oldRoleId}\` <a:VC_Arrow:1482706699365257397> \`${newRole?.name || newRoleId || "Nessuno"}\`
-<:VC_reason:1478517122929004544> __${reason}__`,
+${actionEmoji} \`${oldRole?.name || oldRoleId}\` ${E.VC_Arrow} \`${newRole?.name || newRoleId || "Nessuno"}\`
+${E.VC_reason} __${reason}__`,
     __skipNoticeEmbed: true,
     })
     .catch(() => null);

@@ -4,6 +4,7 @@ const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../.
 const { resolveModLogChannelId } = require("../../../MultiGuild/utils/tenantModLogChannel") as typeof import("../../../MultiGuild/utils/tenantModLogChannel");
 const { formatResponsible, nowDiscordTs } = require("../../../shared/logging/auditLogFormat") as typeof import("../../../shared/logging/auditLogFormat");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function logModLogSendFailure(guild?, channel?, err?, context?) {
   global.logger?.warn?.("[modLogs] invio fallito:", {
     guildId: guild?.id,
@@ -98,18 +99,18 @@ function buildStaffActionModLogEmbed(modCase?, options: Record<string, any> = {}
   const embed = new EmbedBuilder().setColor("#57F287").setTitle(`Case ${modCase.caseId} · ${actionLabel} · ${options.targetUsername != null ? options.targetUsername : modCase.userId}`,
   );
   const hasDuration = Number.isFinite(modCase.durationMs) && modCase.durationMs > 0;
-  const fields = [{ name: "<:member_role_icon:1330530086792728618> User", value: `<@${modCase.userId}>`, inline: true },
-  { name: "<:VC_Staff:1494286904089247754> Moderator", value: `<@${moderatorId}>`, inline: true },
+  const fields = [{ name: `${E.member_role_icon} User`, value: `<@${modCase.userId}>`, inline: true },
+  { name: `${E.VC_Staff} Moderator`, value: `<@${moderatorId}>`, inline: true },
   ];
   if (hasDuration) {
     fields.push({
-      name: "<:VC_Clock:1473359204189474886> Duration",
+      name: `${E.VC_Clock} Duration`,
       value: formatDurationForModLog(modCase.durationMs),
       inline: true,
     });
-    fields.push({ name: "<:VC_reason:1478517122929004544> Reason", value: reasonText, inline: false });
+    fields.push({ name: `${E.VC_reason} Reason`, value: reasonText, inline: false });
   } else {
-    fields.push({ name: "<:VC_reason:1478517122929004544> Reason", value: reasonText, inline: true });
+    fields.push({ name: `${E.VC_reason} Reason`, value: reasonText, inline: true });
   }
   embed.addFields(...fields.slice(0, 25));
   const sanctionDate = modCase.createdAt ? new Date(modCase.createdAt) : new Date();

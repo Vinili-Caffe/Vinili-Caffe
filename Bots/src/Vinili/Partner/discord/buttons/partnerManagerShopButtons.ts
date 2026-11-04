@@ -5,6 +5,7 @@ const { completePartnerManagerRedeemForGuild } = require("../../../Staff/utils/p
 const { parsePartnerManagerShopAckCustomId, matchPartnerManagerShopAckInteraction, memberCanAckPartnerManagerShopRedeem } = require("../../../Staff/utils/partnerManagerShopAckRuntime") as typeof import("../../../Staff/utils/partnerManagerShopAckRuntime");
 const { closeTicket } = require("../../../../MultiGuild/tickets/discord/ticketCloseRuntime") as typeof import("../../../../MultiGuild/tickets/discord/ticketCloseRuntime");
 const { safeReply: safeReplyHelper, safeEditReply: safeEditReplyHelper } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const PRIVATE_FLAG = 1 << 6;
 
 function makeErrorEmbed(title?, description?) {
@@ -29,7 +30,7 @@ async function handlePartnerManagerShopAck(interaction?) {
     interaction.client.guilds.cache.get(parsed.guildId) ||
     (await interaction.client.guilds.fetch(parsed.guildId).catch(() => null));
   if (!guild) {
-    await interaction.reply({ content: "<a:VC_Cross:1482532424570376253> Server non trovato.", flags: PRIVATE_FLAG }).catch(() => {});
+    await interaction.reply({ content: `${E.VC_Cross} Server non trovato.`, flags: PRIVATE_FLAG }).catch(() => {});
     return true;
   }
 
@@ -47,7 +48,7 @@ async function handlePartnerManagerShopAck(interaction?) {
   if (!lock) {
     await interaction
       .reply({
-        content: "<a:VC_Cross:1482532424570376253> Richiesta già risposta o ticket non valido.",
+        content: `${E.VC_Cross} Richiesta già risposta o ticket non valido.`,
         flags: PRIVATE_FLAG,
       })
       .catch(() => {});
@@ -59,7 +60,7 @@ async function handlePartnerManagerShopAck(interaction?) {
     await interaction
       .reply({
         content:
-          "<a:VC_Cross:1482532424570376253> Solo lo **staff** (High Staff o chi ha claimato il ticket) può confermare il riscatto, non il Partner Manager.",
+          `${E.VC_Cross} Solo lo **staff** (High Staff o chi ha claimato il ticket) può confermare il riscatto, non il Partner Manager.`,
         flags: PRIVATE_FLAG,
       })
       .catch(() => {});
@@ -75,7 +76,7 @@ async function handlePartnerManagerShopAck(interaction?) {
       { $set: { partnerManagerShopRedeemAckResult: "declined", partnerManagerShopRedeemAckAt: new Date() } },
     ).catch(() => {});
     await interaction
-      .followUp({ content: "<:VC_Info:1482526956703580372> Ok: **Nessun punto** è stato scalato per questo premio.", flags: PRIVATE_FLAG })
+      .followUp({ content: `${E.VC_Info} Ok: **Nessun punto** è stato scalato per questo premio.`, flags: PRIVATE_FLAG })
       .catch(() => {});
     const ticketForClose = await Ticket.findById(parsed.ticketId).catch(() => null);
     if (ticketForClose?.open) await closeTicketAfterPartnerManagerShopAck(interaction, ticketForClose);

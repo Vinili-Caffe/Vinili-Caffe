@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   refreshPartnershipConfigCache,
   getPartnershipConfigSync,
@@ -91,8 +92,8 @@ function buildLeavePartnershipNothingEmbed(lang?) {
     .setColor("#826bc2")
     .setDescription(
       isIt
-        ? "<:vegax:1443934876440068179> Questo server **non ha** una configurazione partnership da rimuovere."
-        : "<:vegax:1443934876440068179> This server has **no** partnership configuration to remove.",
+        ? `${E.vegax} Questo server **non ha** una configurazione partnership da rimuovere.`
+        : `${E.vegax} This server has **no** partnership configuration to remove.`,
     );
 }
 

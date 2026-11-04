@@ -7,6 +7,7 @@ const { computePmAction, pmActionToKey } = require("./resocontoGrades") as typeo
 const { countPmWeeklyPartners } = require("./resocontoMessages") as typeof import("./resocontoMessages");
 const { hasSiteResocontoThisWeek } = require("./resocontoSegmentPosted") as typeof import("./resocontoSegmentPosted");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function processPmResocontoMember({
   member,
   userId,
@@ -60,9 +61,9 @@ async function processPmResocontoMember({
         ? ` ${STAFF_NEW_EMOJI}`
         : "";
     const pmContentLines = [
-      `<:VC_PartnerManager:1494286911286808576> **Partner Manager:** __<@${userId}>__${pmNewBadge}`,
-      `<:partneredserverowner:1443651871125409812> **Partner:** __${weeklyPartners}__`,
-      `<:VC_BanHammer:1482534474502897795> **Azione:** __${action}__`,
+      `${E.VC_PartnerManager} **Partner Manager:** __<@${userId}>__${pmNewBadge}`,
+      `${E.partneredserverowner} **Partner:** __${weeklyPartners}__`,
+      `${E.VC_BanHammer} **Azione:** __${action}__`,
     ];
     if (pmPauseLine) pmContentLines.push(pmPauseLine);
 

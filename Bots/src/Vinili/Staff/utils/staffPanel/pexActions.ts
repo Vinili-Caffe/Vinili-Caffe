@@ -6,6 +6,7 @@ const { getGuildChannelCached } = require("../../../../shared/discord/interactio
 const { memberHasStaffRole } = require("../../../Community/utils/staffListUtils") as typeof import("../../../Community/utils/staffListUtils");
 const { clearStaffPendingPurgeAt } = require("../../../Community/services/userLeaveBackupService") as typeof import("../../../Community/services/userLeaveBackupService");
 const { resolveStaffPexDepexChannel } = require("../staffChannelUtils") as typeof import("../staffChannelUtils");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   ROLE_MEMBER,
   ROLE_PARTNER_MANAGER,
@@ -26,23 +27,23 @@ const {
 
 async function runProspectStaffPex(guild?, client?, targetUser?, actorUser?, reason?, targetRoleId = ROLE_HELPER) {
   if (String(targetUser.id) === String(actorUser.id)) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
+    return { ok: false, message: `${E.VC_Attention} Non puoi usare questa azione su te stesso.` };
   }
   const resolveMember = createMemberResolver(guild);
   const member = await resolveMember(targetUser.id);
   if (!member) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
+    return { ok: false, message: `${E.VC_Attention} Utente non trovato nel server.` };
   }
   if (getHighestLadderRole(member)) {
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> L'utente ha già un ruolo nella scala staff. Usa **Pex** da **Gestione** sul sito staff.",
+        `${E.VC_Attention} L'utente ha già un ruolo nella scala staff. Usa **Pex** da **Gestione** sul sito staff.`,
     };
   }
   const roleAfter = String(targetRoleId || "");
   if (!roleAfter || !STAFF_LADDER_ROLES.includes(roleAfter)) {
-    return { ok: false, message: "<:vegax:1443934876440068179> Ruolo target non valido per il PEX iniziale staff." };
+    return { ok: false, message: `${E.vegax} Ruolo target non valido per il PEX iniziale staff.` };
   }
   /* staffCareerRankGuard1 */
   {
@@ -52,13 +53,13 @@ async function runProspectStaffPex(guild?, client?, targetUser?, actorUser?, rea
   }
   const roleAfterName = guild.roles.cache.get(roleAfter)?.name || roleAfter;
   if (member.roles.cache.has(roleAfter)) {
-    return { ok: false, message: `<:VC_Attention:1482534443632558151> L'utente ha già il ruolo ${roleAfterName}.` };
+    return { ok: false, message: `${E.VC_Attention} L'utente ha già il ruolo ${roleAfterName}.` };
   }
   if (ROLE_MEMBER && !member.roles.cache.has(ROLE_MEMBER)) {
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> Per la prima promozione serve il ruolo **Member** sull'utente.",
+        `${E.VC_Attention} Per la prima promozione serve il ruolo **Member** sull'utente.`,
     };
   }
   const roleBeforeForHistory =
@@ -81,7 +82,7 @@ async function runProspectStaffPex(guild?, client?, targetUser?, actorUser?, rea
   await member.roles.add(roleAfter);
   const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
   if (!baseRoleVerification.ok) {
-    return { ok: false, message: `<:vegax:1443934876440068179> Pex non applicato: impossibile assegnare ${roleAfterName}.` };
+    return { ok: false, message: `${E.vegax} Pex non applicato: impossibile assegnare ${roleAfterName}.` };
   }
   try {
     await applyPexSideEffects(
@@ -94,7 +95,7 @@ async function runProspectStaffPex(guild?, client?, targetUser?, actorUser?, rea
     );
   } catch (err) {
     global.logger.error(err);
-    return { ok: false, message: "<:vegax:1443934876440068179> Pex: errore side-effect ruoli." };
+    return { ok: false, message: `${E.vegax} Pex: errore side-effect ruoli.` };
   }
   const profileDoc = staffDoc;
   const s = ensureStaff(profileDoc);
@@ -114,9 +115,9 @@ async function runProspectStaffPex(guild?, client?, targetUser?, actorUser?, rea
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
   await pexDepexChannel
     ?.send?.({
-      content: `**<:success:1461731530333229226> PEX** ${targetUser}
-${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
-<:VC_reason:1478517122929004544> __${reason}__`,
+      content: `**${E.success} PEX** ${targetUser}
+${actionEmoji} \`${rb?.name || "Member"}\` ${E.VC_Arrow} \`${ra?.name || roleAfter}\`
+${E.VC_reason} __${reason}__`,
     __skipNoticeEmbed: true,
     })
     .catch(() => null);
@@ -134,7 +135,7 @@ ${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${
 
 async function runProspectStaffPexToPartnerManager(guild?, client?, targetUser?, actorUser?, reason?) {
   if (String(targetUser.id) === String(actorUser.id)) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
+    return { ok: false, message: `${E.VC_Attention} Non puoi usare questa azione su te stesso.` };
   }
   /* staffCareerRankGuard1: PM non è scala, ma blocca se il target ha già grado >= attore */
   {
@@ -149,19 +150,19 @@ async function runProspectStaffPexToPartnerManager(guild?, client?, targetUser?,
   const resolveMember = createMemberResolver(guild);
   const member = await resolveMember(targetUser.id);
   if (!member) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
+    return { ok: false, message: `${E.VC_Attention} Utente non trovato nel server.` };
   }
   if (!ROLE_PARTNER_MANAGER) {
-    return { ok: false, message: "<:vegax:1443934876440068179> Ruolo Partner Manager non configurato negli ID." };
+    return { ok: false, message: `${E.vegax} Ruolo Partner Manager non configurato negli ID.` };
   }
   if (member.roles.cache.has(ROLE_PARTNER_MANAGER)) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente ha già il ruolo Partner Manager." };
+    return { ok: false, message: `${E.VC_Attention} L'utente ha già il ruolo Partner Manager.` };
   }
   if (ROLE_MEMBER && !member.roles.cache.has(ROLE_MEMBER)) {
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> Per questa promozione serve il ruolo **Member** sull'utente.",
+        `${E.VC_Attention} Per questa promozione serve il ruolo **Member** sull'utente.`,
     };
   }
   const roleBeforeForHistory = getHighestLadderRole(member) || (ROLE_MEMBER || "");
@@ -175,7 +176,7 @@ async function runProspectStaffPexToPartnerManager(guild?, client?, targetUser?,
   await member.roles.add(roleAfter);
   const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
   if (!baseRoleVerification.ok) {
-    return { ok: false, message: "<:vegax:1443934876440068179> Pex non applicato: impossibile assegnare Partner Manager." };
+    return { ok: false, message: `${E.vegax} Pex non applicato: impossibile assegnare Partner Manager.` };
   }
   try {
     await applyPexSideEffects(
@@ -188,7 +189,7 @@ async function runProspectStaffPexToPartnerManager(guild?, client?, targetUser?,
     );
   } catch (err) {
     global.logger.error(err);
-    return { ok: false, message: "<:vegax:1443934876440068179> Pex: errore side-effect ruoli." };
+    return { ok: false, message: `${E.vegax} Pex: errore side-effect ruoli.` };
   }
   const profileDoc = staffDoc;
   const s = ensureStaff(profileDoc);
@@ -209,9 +210,9 @@ async function runProspectStaffPexToPartnerManager(guild?, client?, targetUser?,
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
   await pexDepexChannel
     ?.send?.({
-      content: `**<:success:1461731530333229226> PEX** ${targetUser}
-${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
-<:VC_reason:1478517122929004544> __${reason}__`,
+      content: `**${E.success} PEX** ${targetUser}
+${actionEmoji} \`${rb?.name || "Member"}\` ${E.VC_Arrow} \`${ra?.name || roleAfter}\`
+${E.VC_reason} __${reason}__`,
     __skipNoticeEmbed: true,
     })
     .catch(() => null);
@@ -230,7 +231,7 @@ ${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${
 /** Pex Blogger (add-on): senza scala Staff / side-effect Helper. */
 async function runProspectStaffPexToBlogger(guild?, client?, targetUser?, actorUser?, reason?) {
   if (String(targetUser.id) === String(actorUser.id)) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
+    return { ok: false, message: `${E.VC_Attention} Non puoi usare questa azione su te stesso.` };
   }
   {
     const resolveMemberEarly = createMemberResolver(guild);
@@ -244,19 +245,19 @@ async function runProspectStaffPexToBlogger(guild?, client?, targetUser?, actorU
   const resolveMember = createMemberResolver(guild);
   const member = await resolveMember(targetUser.id);
   if (!member) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
+    return { ok: false, message: `${E.VC_Attention} Utente non trovato nel server.` };
   }
   if (!ROLE_BLOGGER) {
-    return { ok: false, message: "<:vegax:1443934876440068179> Ruolo Blogger non configurato negli ID." };
+    return { ok: false, message: `${E.vegax} Ruolo Blogger non configurato negli ID.` };
   }
   if (member.roles.cache.has(ROLE_BLOGGER)) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente ha già il ruolo Blogger." };
+    return { ok: false, message: `${E.VC_Attention} L'utente ha già il ruolo Blogger.` };
   }
   if (ROLE_MEMBER && !member.roles.cache.has(ROLE_MEMBER)) {
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> Per questa promozione serve il ruolo **Member** sull'utente.",
+        `${E.VC_Attention} Per questa promozione serve il ruolo **Member** sull'utente.`,
     };
   }
   const roleBeforeForHistory =
@@ -269,7 +270,7 @@ async function runProspectStaffPexToBlogger(guild?, client?, targetUser?, actorU
   await member.roles.add(roleAfter);
   const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
   if (!baseRoleVerification.ok) {
-    return { ok: false, message: "<:vegax:1443934876440068179> Pex non applicato: impossibile assegnare Blogger." };
+    return { ok: false, message: `${E.vegax} Pex non applicato: impossibile assegnare Blogger.` };
   }
   const profileDoc = staffDoc;
   const s = ensureStaff(profileDoc);
@@ -289,9 +290,9 @@ async function runProspectStaffPexToBlogger(guild?, client?, targetUser?, actorU
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter) || "📝";
   await pexDepexChannel
     ?.send?.({
-      content: `**<:success:1461731530333229226> PEX** ${targetUser}
-${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || "Blogger"}\`
-<:VC_reason:1478517122929004544> __${reason}__`,
+      content: `**${E.success} PEX** ${targetUser}
+${actionEmoji} \`${rb?.name || "Member"}\` ${E.VC_Arrow} \`${ra?.name || "Blogger"}\`
+${E.VC_reason} __${reason}__`,
       __skipNoticeEmbed: true,
     })
     .catch(() => null);
@@ -309,27 +310,27 @@ ${actionEmoji} \`${rb?.name || "Member"}\` <a:VC_Arrow:1482706699365257397> \`${
 
 async function runProfileStaffPex(guild?, client?, targetUser?, actorUser?, reason?) {
   if (String(targetUser.id) === String(actorUser.id)) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Non puoi usare questa azione su te stesso." };
+    return { ok: false, message: `${E.VC_Attention} Non puoi usare questa azione su te stesso.` };
   }
   const resolveMember = createMemberResolver(guild);
   const member = await resolveMember(targetUser.id);
   if (!member) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> Utente non trovato nel server." };
+    return { ok: false, message: `${E.VC_Attention} Utente non trovato nel server.` };
   }
   const roleBefore = getHighestLadderRole(member);
   if (!roleBefore) {
     return {
       ok: false,
       message:
-        "<:VC_Attention:1482534443632558151> Nessun ruolo nella scala staff (Helper→Founder) rilevato. Per casi speciali (ruoli manuali) usa **Gestione** sul sito staff.",
+        `${E.VC_Attention} Nessun ruolo nella scala staff (Helper→Founder) rilevato. Per casi speciali (ruoli manuali) usa **Gestione** sul sito staff.`,
     };
   }
   const roleAfter = getNextLadderRoleId(roleBefore);
   if (!roleAfter) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> L'utente è già al massimo della scala staff." };
+    return { ok: false, message: `${E.VC_Attention} L'utente è già al massimo della scala staff.` };
   }
   if (member.roles.cache.has(roleAfter)) {
-    return { ok: false, message: `<:VC_Attention:1482534443632558151> ${targetUser} ha già il ruolo successivo.` };
+    return { ok: false, message: `${E.VC_Attention} ${targetUser} ha già il ruolo successivo.` };
   }
   /* staffCareerRankGuard1 */
   {
@@ -346,7 +347,7 @@ async function runProfileStaffPex(guild?, client?, targetUser?, actorUser?, reas
   await member.roles.add(roleAfter);
   const baseRoleVerification = await ensureRoleState(member, roleAfter, true);
   if (!baseRoleVerification.ok) {
-    return { ok: false, message: "<:vegax:1443934876440068179> Pex non applicato: impossibile assegnare il ruolo successivo." };
+    return { ok: false, message: `${E.vegax} Pex non applicato: impossibile assegnare il ruolo successivo.` };
   }
   try {
     await applyPexSideEffects(
@@ -359,7 +360,7 @@ async function runProfileStaffPex(guild?, client?, targetUser?, actorUser?, reas
     );
   } catch (err) {
     global.logger.error(err);
-    return { ok: false, message: "<:vegax:1443934876440068179> Pex: errore side-effect ruoli." };
+    return { ok: false, message: `${E.vegax} Pex: errore side-effect ruoli.` };
   }
   const profileDoc = staffDoc;
   const s = ensureStaff(profileDoc);
@@ -380,9 +381,9 @@ async function runProfileStaffPex(guild?, client?, targetUser?, actorUser?, reas
   const actionEmoji = getStaffRoleEmojiByRoleId(roleAfter);
   await pexDepexChannel
     ?.send?.({
-      content: `**<:success:1461731530333229226> PEX** ${targetUser}
-${actionEmoji} \`${rb?.name || roleBefore}\` <a:VC_Arrow:1482706699365257397> \`${ra?.name || roleAfter}\`
-<:VC_reason:1478517122929004544> __${reason}__`,
+      content: `**${E.success} PEX** ${targetUser}
+${actionEmoji} \`${rb?.name || roleBefore}\` ${E.VC_Arrow} \`${ra?.name || roleAfter}\`
+${E.VC_reason} __${reason}__`,
     __skipNoticeEmbed: true,
     })
     .catch(() => null);

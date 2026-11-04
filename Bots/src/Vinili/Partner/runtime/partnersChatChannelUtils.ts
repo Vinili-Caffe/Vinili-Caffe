@@ -3,6 +3,7 @@ const Ticket = require("../../../MultiGuild/tickets/data/guildFeatureBucketTicke
 const { scheduleMessageDeletion, EPHEMERAL_TTL_SHORT_MS } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { getPartnersChatChannelId, getPmCommandsCategoryIds, tenantPmCommandsZoneConfigured, getPartnershipChannelId } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   isChannelOrThreadUnderStaffCmds,
   isStaffCmdsPmCommandsThread,
@@ -160,7 +161,7 @@ function partnershipPublishChannelCommandsDeniedReplyContent(channel?, options: 
     ? `usa i comandi in ${hint}`
     : "usa i comandi nel **canale Partner Manager** configurato";
   return (
-    "<:vegax:1443934876440068179> Nel **canale partnership** non puoi usare **comandi**. " +
+    `${E.vegax} Nel **canale partnership** non puoi usare **comandi**. ` +
     `Pubblica qui solo la **descrizione** della partner (con **link d'invito Discord**) oppure ${where}.`
   );
 }
@@ -173,7 +174,7 @@ async function partnersChatPartnerCommandDeniedReplyContent(channel?, options: R
     if (isChannelAllowedInTenantPmZone(channel, guildId)) return null;
     const hint = formatTenantPmCommandsZoneHint(guildId, channel?.guild);
     return (
-      `<:vegax:1443934876440068179> I comandi **Partner Manager** vanno usati solo in ${hint || "i canali configurati"} (e nei thread sotto).`
+      `${E.vegax} I comandi **Partner Manager** vanno usati solo in ${hint || "i canali configurati"} (e nei thread sotto).`
     );
   }
   if (options.allowPartnership === true && (await isOpenPartnershipTicketChannel(channel))) return null;
@@ -194,7 +195,7 @@ async function partnersChatPartnerCommandDeniedReplyContent(channel?, options: R
     ? ` Non usare i comandi PM nel thread **Chat** sotto <#${staffChatId}>.`
     : "";
   return (
-    "<:vegax:1443934876440068179> Partnership, classifica PM, blacklist e pannello profilo staff/PM vanno usati solo nel **thread Comandi Partner Manager**, non qui." +
+    `${E.vegax} Partnership, classifica PM, blacklist e pannello profilo staff/PM vanno usati solo nel **thread Comandi Partner Manager**, non qui.` +
     chatWarn +
     hint
   );

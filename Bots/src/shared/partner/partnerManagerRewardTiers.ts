@@ -1,3 +1,4 @@
+const { E } = require("../emojis/emojiCatalog") as typeof import("../emojis/emojiCatalog");
 const PARTNER_REWARD_CANONICAL_TIERS = Object.freeze([50, 100, 150, 200, 250]);
 
 const PARTNER_REWARD_LABELS = Object.freeze({
@@ -64,7 +65,7 @@ function buildPartnerRewardDiscordEmbedLines(now?) {
       isPartnerRewardDiscountActive(now) && cost < tier
         ? `**__\`${cost}\`__** partner ~~${tier}~~`
         : `**__\`${cost}\`__** partner`;
-    lines.push(`<:VC_Dot:1482532364222595303> ${costText} <a:vegarightarrow:1443673039156936837> **${label}**`);
+    lines.push(`${E.VC_Dot} ${costText} ${E.vegarightarrow} **${label}**`);
   }
   return lines;
 }

@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 
+const { E } = require("../emojis/emojiCatalog") as typeof import("../emojis/emojiCatalog");
 /**
  * @param {object} [options]
  * @param {string|number} [options.color]
@@ -8,7 +9,7 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
  */
 function createCommandErrorEmbeds(options: Record<string, any> = {}) {
   const color = options.color ?? "Red";
-  const cancel = String(options.cancelEmoji || "<a:VC_Cross:1482532424570376253>");
+  const cancel = String(options.cancelEmoji || E.VC_Cross);
 
   function buildBaseErrorEmbed(title?, description?) {
     return new EmbedBuilder().setColor(color).setTitle(title).setDescription(description);
@@ -19,21 +20,21 @@ function createCommandErrorEmbeds(options: Record<string, any> = {}) {
     const description =
       typeof options.cooldownDescription === "function"
         ? options.cooldownDescription(remaining)
-        : `<:VC_Attention:1482534443632558151> Aspetta **${remaining}s** prima di usare un altro comando.`;
+        : `${E.VC_Attention} Aspetta **${remaining}s** prima di usare un altro comando.`;
     return buildBaseErrorEmbed(`${cancel} Cooldown attivo`, description);
   }
 
   function buildBusyCommandErrorEmbed() {
     return buildBaseErrorEmbed(
       `${cancel} Comando in esecuzione`,
-      "<:VC_Attention:1482534443632558151> Hai già un comando in esecuzione, attendi un attimo.",
+      `${E.VC_Attention} Hai già un comando in esecuzione, attendi un attimo.`,
     );
   }
 
   function buildMissingArgumentsErrorEmbed() {
     return buildBaseErrorEmbed(
       `${cancel} Argomenti mancanti`,
-      "<:VC_Attention:1482534443632558151> Non hai aggiunto nessun argomento.",
+      `${E.VC_Attention} Non hai aggiunto nessun argomento.`,
     );
   }
 
@@ -42,7 +43,7 @@ function createCommandErrorEmbeds(options: Record<string, any> = {}) {
     const compact = raw.length > 900 ? `${raw.slice(0, 900)}...` : raw;
     return buildBaseErrorEmbed(
       `${cancel} Errore comando`,
-      `<:VC_Attention:1482534443632558151> C'è stato un errore nell'esecuzione del comando.\n\`\`\`${compact}\`\`\``,
+      `${E.VC_Attention} C'è stato un errore nell'esecuzione del comando.\n\`\`\`${compact}\`\`\``,
     );
   }
 

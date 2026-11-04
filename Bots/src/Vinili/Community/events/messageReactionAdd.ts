@@ -7,6 +7,7 @@ const { cacheRoleIcon } = require("../../../shared/cache/roleIconCache") as type
 const { guildMemberDisplayAvatarUrlDynamic, memberDisplayName } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { resolveCanvasDiscordMarkup } = require("../../Community/utils/Render/resolveCanvasDiscordText") as typeof import("../../Community/utils/Render/resolveCanvasDiscordText");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function isViniliFullFeatureGuild(guildId?) {
   try {
     const { isViniliFullFeatureGuild: check } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
@@ -261,12 +262,12 @@ function buildSkullEmbed(user?, message?, postImageName?) {
       iconURL: guildMemberDisplayAvatarUrlDynamic(message.member || message.author, { size: 64 }) || undefined,
     })
     .setDescription(
-      `<:VC_Skully:1331591939094614057> **Aggiungi la reazione ${SKULL_EMOJI} a un messaggio per pubblicarlo nella SkullBoard**`,
+      `${E.VC_Skully} **Aggiungi la reazione ${SKULL_EMOJI} a un messaggio per pubblicarlo nella SkullBoard**`,
     )
     .addFields(
-      { name: "<:VC_User:1482527453586002103> Autore", value: message.author.toString(), inline: true },
-      { name: "<a:VC_Channel:1482534583944871996> Canale", value: `<#${message.channel.id}>`, inline: true },
-      { name: "<:VC_Chat:1482532573002465413> Messaggio", value: `[Cliccami](${messageLink})`, inline: true },
+      { name: `${E.VC_User} Autore`, value: message.author.toString(), inline: true },
+      { name: `${E.VC_Channel} Canale`, value: `<#${message.channel.id}>`, inline: true },
+      { name: `${E.VC_Chat} Messaggio`, value: `[Cliccami](${messageLink})`, inline: true },
     )
     .setImage(`attachment://${postImageName}`)
     .setFooter({ text: formattedDate })
@@ -305,6 +306,16 @@ export = {
         if (handled) return;
       } catch (mgErr) {
         global.logger?.error?.("[ReactionAdd] event reaction handler:", mgErr?.message || mgErr);
+      }
+      try {
+        const client = reaction.client || reaction.message?.client || user?.client;
+        const { handleStarWarsReaction } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService") as any;
+        if (typeof handleStarWarsReaction === "function") {
+          const swHandled = await handleStarWarsReaction(client, reaction, user);
+          if (swHandled) return;
+        }
+      } catch (swErr) {
+        global.logger?.error?.("[ReactionAdd] starWars reaction handler:", swErr?.message || swErr);
       }
       if (!isSkullReaction(reaction)) return;
 
@@ -387,7 +398,7 @@ export = {
         await skullboardUpsert(message.guild.id, message.id, saved.itemId).catch(() => null);
         const siteConfirm = new EmbedBuilder()
           .setColor("#6f4e37")
-          .setDescription("<:VC_Skully:1331591939094614057> Il messaggio è stato appeso in **Bacheca** sul sito.");
+          .setDescription(`${E.VC_Skully} Il messaggio è stato appeso in **Bacheca** sul sito.`);
         await message.channel
           .send({ embeds: [siteConfirm], components: [bachecaSite.buildBachecaLinkRow(saved.itemId, "Vai alla Bacheca") as any] })
           .catch(() => {});
@@ -412,7 +423,7 @@ export = {
 
       await skullboardUpsert(message.guild.id, message.id, postMessage.id).catch(() => null);
 
-      const confirmEmbed=new EmbedBuilder().setColor("#6f4e37").setDescription(`<:VC_Skully:1331591939094614057> Il messaggio è stato pubblicato nel canale <#${skullChannelId}>.`);
+      const confirmEmbed=new EmbedBuilder().setColor("#6f4e37").setDescription(`${E.VC_Skully} Il messaggio è stato pubblicato nel canale <#${skullChannelId}>.`);
 
       const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Vai al Post").setEmoji(SKULL_EMOJI).setURL(postMessage.url),);
 

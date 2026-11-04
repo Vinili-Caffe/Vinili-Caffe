@@ -1,6 +1,5 @@
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
-
 const { memberIsHighStaffEligible } = require(__eventCoreVinili("Staff/utils/staffRoleHierarchy"));
 const { staffSpawn } = require("../../Services/Community/starWarsDiscordMinigamesService") as typeof import("../../Services/Community/starWarsDiscordMinigamesService");
 
@@ -15,14 +14,13 @@ const KINDS = [
   "conquista",
   "pg",
   "reliquie",
-  "scommessa",
 ];
 
 export = {
   name: "swspawn",
   aliases: ["swmg", "starwarsspawn"],
   allowEmptyArgs: true,
-  description: "High Staff: spawn minigioco Star Wars (anteprima, niente auto-pubblico).",
+  description: "Spawn minigioco Star Wars.",
   usage: "+swspawn <tipo>",
   examples: ["+swspawn podrace", "+swspawn scova"],
 

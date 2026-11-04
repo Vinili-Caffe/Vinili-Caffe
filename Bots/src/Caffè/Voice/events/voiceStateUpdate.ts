@@ -1,6 +1,5 @@
 const { handleMusicBotVoiceDisconnect, shouldDeferTtsLeaveForMusicEmptyVc } = require("../../../shared/music/services/lavalinkMusicService") as typeof import("../../../shared/music/services/lavalinkMusicService");
 const { leaveTtsGuild, handleTtsBotVoiceMove, isTtsPostJoinVoiceGraceActive } = require("../../../shared/tts/services/ttsService") as typeof import("../../../shared/tts/services/ttsService");
-const { finalizeStanzaVisitorVoiceSessionIfLeft, handleStanzaVoiceLobbyJoin, handleStanzaVoiceOccupied, handleStanzaVoiceEmpty, handleStanzaVoiceSilenceSync } = require("../../Voice/services/stanzaVoiceRoomsService") as typeof import("../../Voice/services/stanzaVoiceRoomsService");
 
 export = {
   name: "voiceStateUpdate",
@@ -8,32 +7,6 @@ export = {
     const guild = newState?.guild || oldState?.guild;
     if (!guild) return;
     if (!client?.user?.id) return;
-
-    try {
-      await finalizeStanzaVisitorVoiceSessionIfLeft(oldState, newState);
-    } catch (error) {
-      global.logger?.warn?.("[voiceStateUpdate] stanza visitor flush:", error?.message || error);
-    }
-    try {
-      await handleStanzaVoiceLobbyJoin(oldState, newState, client);
-    } catch (error) {
-      global.logger?.warn?.("[voiceStateUpdate] stanza lobby join:", error?.message || error);
-    }
-    try {
-      await handleStanzaVoiceOccupied(oldState, newState);
-    } catch (error) {
-      global.logger?.warn?.("[voiceStateUpdate] stanza occupied:", error?.message || error);
-    }
-    try {
-      await handleStanzaVoiceEmpty(oldState, newState);
-    } catch (error) {
-      global.logger?.warn?.("[voiceStateUpdate] stanza empty:", error?.message || error);
-    }
-    try {
-      await handleStanzaVoiceSilenceSync(oldState, newState);
-    } catch (error) {
-      global.logger?.warn?.("[voiceStateUpdate] stanza silence sync:", error?.message || error);
-    }
 
     if (client?.config?.tts?.stayConnected) return;
 

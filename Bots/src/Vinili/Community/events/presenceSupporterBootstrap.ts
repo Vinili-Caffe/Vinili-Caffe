@@ -29,6 +29,11 @@ const LINK_WARMUP_MS = 2 * 60 * 1000;
 let bootstrapRan = false;
 const cleanupIntervalsByGuild = new Map();
 
+function isGatewayPresenceSweepEnabled() {
+  const raw = String(process.env.PRESENCE_SUPPORTER_SWEEP_ON_GATEWAY ?? "1").trim().toLowerCase();
+  return raw !== "0" && raw !== "false" && raw !== "off";
+}
+
 function getBootstrapKey(guildId?, userId?) {
   return makeStateKey(guildId, userId);
 }
@@ -162,26 +167,48 @@ async function bootstrapSupporter(client?) {
     });
   }
 
-  await guild.members.fetch({ withPresences: true }).catch(() => null);
-  for (const member of guild.members.cache.values()) {
-    if (isBotMember(member)) continue;
-            const freshMember = member;
+  const hydrateUserIds = new Set<string>();
+  for (const doc of persisted) {
+    if (doc?.userId) hydrateUserIds.add(String(doc.userId));
+  }
+  if (ROLE_ID) {
+    const fanRole =
+      guild.roles.cache.get(ROLE_ID) || (await guild.roles.fetch(ROLE_ID).catch(() => null));
+    for (const member of fanRole?.members?.values() || []) {
+      if (member?.id) hydrateUserIds.add(String(member.id));
+    }
+  }
+
+  const idList = [...hydrateUserIds];
+  if (idList.length) {
+    /* Targeted hydrate: Fan + DB-flagged users only (full guild fetch is fallback). */
+    for (let i = 0; i < idList.length; i += 100) {
+      const chunk = idList.slice(i, i + 100);
+      await guild.members.fetch({ user: chunk, withPresences: true }).catch(() => null);
+    }
+  } else {
+    /* Fallback when no Fan/DB targets — prefer community-poll/bot-scheduler worker sweep. */
+    await guild.members.fetch({ withPresences: true }).catch(() => null);
+  }
+
+  for (const userId of hydrateUserIds) {
+    const freshMember = guild.members.cache.get(userId);
     if (!freshMember || isBotMember(freshMember)) continue;
 
     const online = !isOfflinePresence(freshMember.presence);
-        const inviteState = readInvitePresence(freshMember.presence, true);
+    const inviteState = readInvitePresence(freshMember.presence, true);
     const inviteOk = inviteState === true;
     const inviteMissing = inviteState === false;
     const hasFan = freshMember.roles.cache.has(ROLE_ID);
     const existing = getCachedState(guildId, freshMember.id) || {};
     const dueAt = Number(existing.removalDueAt || 0) || 0;
 
-        if (hasFan && dueAt > 0 && dueAt <= Date.now() && !(online && !inviteMissing)) {
+    if (hasFan && dueAt > 0 && dueAt <= Date.now() && !(online && !inviteMissing)) {
       await executeFanRemoval(freshMember, channel);
       continue;
     }
 
-        if (online && hasFan && inviteMissing) {
+    if (online && hasFan && inviteMissing) {
       setCachedState(guildId, freshMember.id, {
         hasLink: false,
         lastAnnounced: existing.lastAnnounced || 0,
@@ -213,81 +240,124 @@ async function bootstrapSupporter(client?) {
       await scheduleSupporterRoleGrantWithoutChannelEmbed(freshMember);
     }
   }
-  startCleanupClock(client, guildId);
+  if (isGatewayPresenceSweepEnabled()) {
+    startCleanupClock(client, guildId);
+  }
+}
+
+async function runPresenceSupporterSweep(client?, guildId?) {
+  const gid = String(guildId || MAIN_GUILD_ID || "");
+  if (!client || !gid) return;
+  const guild = client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
+  if (!guild) return;
+  const channel = await resolveSupportersChannel(guild);
+
+  if (ROLE_ID) {
+    for (const member of guild.members.cache.values()) {
+      if (isBotMember(member)) continue;
+      if (!member.roles?.cache?.has(ROLE_ID)) continue;
+      if (hasPendingState(gid, member.id)) continue;
+
+      const online = !isOfflinePresence(member.presence);
+      const inviteState = readInvitePresence(member.presence, true);
+      if (inviteState === true) {
+        await clearRemovalDue(gid, member.id);
+        continue;
+      }
+      if (inviteState === null) continue;
+
+      const existing = getCachedState(gid, member.id) || {};
+      const dueAt = Number(existing.removalDueAt || 0) || 0;
+
+      if (!online && dueAt > 0 && dueAt <= Date.now()) {
+        await executeFanRemoval(member, channel);
+        continue;
+      }
+      if (!online) continue;
+
+      setCachedState(gid, member.id, {
+        hasLink: false,
+        lastAnnounced: existing.lastAnnounced || 0,
+        lastMessageId: existing.lastMessageId || null,
+        lastSeenOnlineAt: Date.now(),
+        inviteMissSince: existing.inviteMissSince != null ? existing.inviteMissSince : Date.now(),
+        removalDueAt: existing.removalDueAt || null,
+      });
+      await clearPending(gid, member.id, channel);
+      scheduleRemovalConfirm(member, channel, { removalDueAt: existing.removalDueAt || null });
+    }
+  }
+
+  for (const [stateKey, info] of statusCache.entries()) {
+    if (!stateKey.startsWith(`${gid}:`)) continue;
+    const [, userId] = stateKey.split(":");
+    const shouldCheck = info?.hasLink || info?.lastMessageId;
+    if (!shouldCheck) continue;
+
+    const member = await getGuildMemberCached(guild, userId);
+    if (!member) continue;
+    if (isOfflinePresence(member.presence)) continue;
+    if (hasPendingState(gid, userId)) continue;
+
+    const { newHas, inviteMissSince: nextMiss } = computeSupporterLinkState(info, member.presence);
+    if (nextMiss !== info?.inviteMissSince) {
+      setCachedState(gid, userId, {
+        hasLink: info.hasLink,
+        lastAnnounced: info.lastAnnounced || 0,
+        lastMessageId: info.lastMessageId || null,
+        lastSeenOnlineAt: info.lastSeenOnlineAt || 0,
+        inviteMissSince: nextMiss,
+      });
+    }
+    if (!info?.hasLink || newHas || recentlyOnline(info)) continue;
+    await clearPending(gid, userId, channel);
+    scheduleRemovalConfirm(member, channel);
+  }
 }
 
 function startCleanupClock(client?, guildId?) {
   if (!client || !guildId) return;
+  if (!isGatewayPresenceSweepEnabled()) return;
   if (cleanupIntervalsByGuild.has(guildId)) return;
 
-  const interval = setInterval(async () => {
-    const guild = client.guilds.cache.get(guildId);
-    if (!guild) return;
-    const channel = await resolveSupportersChannel(guild);
-
-        if (ROLE_ID) {
-      for (const member of guild.members.cache.values()) {
-        if (isBotMember(member)) continue;
-        if (!member.roles?.cache?.has(ROLE_ID)) continue;
-        if (hasPendingState(guildId, member.id)) continue;
-
-        const online = !isOfflinePresence(member.presence);
-                const inviteState = readInvitePresence(member.presence, true);
-        if (inviteState === true) {
-          await clearRemovalDue(guildId, member.id);
-          continue;
-        }
-                if (inviteState === null) continue;
-
-        const existing = getCachedState(guildId, member.id) || {};
-        const dueAt = Number(existing.removalDueAt || 0) || 0;
-
-                if (!online && dueAt > 0 && dueAt <= Date.now()) {
-          await executeFanRemoval(member, channel);
-          continue;
-        }
-        if (!online) continue;
-
-                setCachedState(guildId, member.id, {
-          hasLink: false,
-          lastAnnounced: existing.lastAnnounced || 0,
-          lastMessageId: existing.lastMessageId || null,
-          lastSeenOnlineAt: Date.now(),
-          inviteMissSince: existing.inviteMissSince != null ? existing.inviteMissSince : Date.now(),
-          removalDueAt: existing.removalDueAt || null,
-        });
-        await clearPending(guildId, member.id, channel);
-        scheduleRemovalConfirm(member, channel, { removalDueAt: existing.removalDueAt || null });
-      }
-    }
-
-    for (const [stateKey, info] of statusCache.entries()) {
-      if (!stateKey.startsWith(`${guildId}:`)) continue;
-      const [, userId] = stateKey.split(":");
-      const shouldCheck = info?.hasLink || info?.lastMessageId;
-      if (!shouldCheck) continue;
-
-      const member = await getGuildMemberCached(guild, userId);
-      if (!member) continue;
-      if (isOfflinePresence(member.presence)) continue;
-      if (hasPendingState(guildId, userId)) continue;
-
-      const { newHas, inviteMissSince: nextMiss } = computeSupporterLinkState(info, member.presence);
-      if (nextMiss !== info?.inviteMissSince) {
-        setCachedState(guildId, userId, { hasLink: info.hasLink, lastAnnounced: info.lastAnnounced || 0, lastMessageId: info.lastMessageId || null, lastSeenOnlineAt: info.lastSeenOnlineAt || 0, inviteMissSince: nextMiss });
-      }
-      if (!info?.hasLink || newHas || recentlyOnline(info)) continue;
-      await clearPending(guildId, userId, channel);
-      scheduleRemovalConfirm(member, channel);
-    }
+  const interval = setInterval(() => {
+    void runPresenceSupporterSweep(client, guildId);
   }, CLEANUP_MS);
 
   if (typeof interval.unref === "function") interval.unref();
   cleanupIntervalsByGuild.set(guildId, interval);
 }
 
+let presenceSupporterSweepLoopStarted = false;
+
+function startPresenceSupporterSweepLoop(client?) {
+  if (!MAIN_GUILD_ID || !client) return;
+  if (presenceSupporterSweepLoopStarted) return;
+  presenceSupporterSweepLoopStarted = true;
+  let busy = false;
+  const tick = async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      await runPresenceSupporterSweep(client, MAIN_GUILD_ID);
+    } catch (err) {
+      global.logger?.warn?.("[presence-supporter-sweep]", err?.message || err);
+    } finally {
+      busy = false;
+    }
+  };
+  tick();
+  const interval = setInterval(() => {
+    void tick();
+  }, CLEANUP_MS);
+  interval.unref?.();
+}
+
 export = {
   bootstrapSupporter,
   recoverSupporterStatusAnnouncesOnStartup,
   startCleanupClock,
+  runPresenceSupporterSweep,
+  startPresenceSupporterSweepLoop,
+  isGatewayPresenceSweepEnabled,
 };

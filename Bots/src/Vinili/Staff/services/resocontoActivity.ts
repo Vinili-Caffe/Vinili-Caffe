@@ -3,6 +3,7 @@ const IDs: any = require("../../Config/ids") as typeof import("../../Config/ids"
 const { toSafeNumber } = require("./resocontoLimits") as typeof import("./resocontoLimits");
 const { wait, getCurrentResocontoPexWeekWindowUtc, dayKeyToWeekdayLabel } = require("./resocontoTime") as typeof import("./resocontoTime");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const RESOCONTO_MEMBER_FETCH_PAGE_LIMIT = 1000;
 const RESOCONTO_MEMBER_FETCH_PAGE_DELAY_MS = 400;
 
@@ -193,7 +194,7 @@ function buildCostanzaLines(overview?) {
     return `${label} ${bar}`;
   });
   return [
-    `<:VC_Clock:1473359204189474886> **Costanza:** __${activeDays}/${points.length}__ giorni attivi`,
+    `${E.VC_Clock} **Costanza:** __${activeDays}/${points.length}__ giorni attivi`,
     "```",
     ...dayLines,
     "```",

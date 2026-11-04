@@ -5,9 +5,10 @@ const { listBirthdayDue, markBirthdayCelebratedByIds } = require("./profileStore
 const { applyAgeBracketRoleFromBirthday } = require("../utils/ageBracketRoles") as typeof import("../utils/ageBracketRoles");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const DEFAULT_TIME_ZONE = "Europe/Rome";
 const BIRTHDAY_ROLE_ID = String(IDs?.roles?.birthdayFlair || "").trim();
-const BIRTHDAY_REACTIONS = ["<a:VC_Events:1482706144953897223>", "<a:VC_HelloKittyGift:1329447876857958471>",];
+const BIRTHDAY_REACTIONS = [E.VC_Events, E.VC_HelloKittyGift,];
 let birthdayCronMain = null;
 let birthdayCronBackup = null;
 let birthdayTickRunning = false;
@@ -43,12 +44,12 @@ function joinMentionsNicely(mentions?) {
 
 const BIRTHDAY_PERSONALIZZA_URL = "https://www.viniliecaffe.it/personalizza/";
 const BIRTHDAY_CTA =
-  `<a:VC_Arrow:1482706699365257397> Vuoi festeggiare anche tu? Aggiungi il compleanno su ${BIRTHDAY_PERSONALIZZA_URL} — il giorno del tuo compleanno ricevi un **multi EXP ×2** per tutta la giornata.`;
+  `${E.VC_Arrow} Vuoi festeggiare anche tu? Aggiungi il compleanno su ${BIRTHDAY_PERSONALIZZA_URL} — il giorno del tuo compleanno ricevi un **multi EXP ×2** per tutta la giornata.`;
 
 function buildBirthdayAnnouncement(docs?, currentYear?) {
   const mentions = docs.map((doc?) => `<@${doc.userId}>`);
   const who = joinMentionsNicely(mentions);
-  const intro = `<:creation:1461732905016492220> Oggi è il compleanno di ${who}.`;
+  const intro = `${E.creation} Oggi è il compleanno di ${who}.`;
 
   const visibleAges = docs
     .filter((doc?) => doc.showAge && Number.isFinite(Number(doc.birthYear)))
@@ -56,11 +57,11 @@ function buildBirthdayAnnouncement(docs?, currentYear?) {
 
   let body = "";
   if (!visibleAges.length) {
-    body = `${intro}\n<a:VC_Events:1482706144953897223> Fate gli auguri!`;
+    body = `${intro}\n${E.VC_Events} Fate gli auguri!`;
   } else if (visibleAges.length === 1) {
-    body = `${intro}\n<a:VC_Events:1482706144953897223> Oggi compie **${visibleAges[0]}** anni. Tantissimi auguri — e un **×2 EXP** per oggi.`;
+    body = `${intro}\n${E.VC_Events} Oggi compie **${visibleAges[0]}** anni. Tantissimi auguri — e un **×2 EXP** per oggi.`;
   } else {
-    body = `${intro}\n<a:VC_Events:1482706144953897223> Oggi compiono **${visibleAges.join(", ")}** anni. Tantissimi auguri — multi **×2 EXP** per tutta la giornata.`;
+    body = `${intro}\n${E.VC_Events} Oggi compiono **${visibleAges.join(", ")}** anni. Tantissimi auguri — multi **×2 EXP** per tutta la giornata.`;
   }
   return `${body}\n\n${BIRTHDAY_CTA}`;
 }

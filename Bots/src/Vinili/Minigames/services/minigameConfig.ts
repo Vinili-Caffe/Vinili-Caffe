@@ -2,12 +2,7 @@
 const { minigameRotationFindOneLean, minigameRotationFindOneAndUpdate } = require("../../../shared/botState/domainStatesStore") as typeof import("../../../shared/botState/domainStatesStore");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getMemoryEmojiBank } = require("../../Minigames/data/minigameBanks") as typeof import("../../Minigames/data/minigameBanks");
-const {
-  isHalloweenEventLiveForMinigames,
-  isHalloweenExclusiveMinigamesEnabled,
-  shouldUseHalloweenTheme,
-  getHalloweenExclusiveAvailableTypes,
-} = require("../../Minigames/utils/halloweenMinigameHooks") as typeof import("../../Minigames/utils/halloweenMinigameHooks");
+const { isHalloweenEventLiveForMinigames, isHalloweenExclusiveMinigamesEnabled, shouldUseHalloweenTheme, getHalloweenExclusiveAvailableTypes } = require("../../Minigames/utils/halloweenMinigameHooks") as typeof import("../../Minigames/utils/halloweenMinigameHooks");
 const { mergeFindBotVoiceExcludedChannelIds } = require("../../Minigames/utils/findBotVoiceChannelEligibility") as typeof import("../../Minigames/utils/findBotVoiceChannelEligibility");
 const { randomBetween } = require("./minigameSources") as typeof import("./minigameSources");
 const { getChannelCached, getRomeDateKey } = require("./minigameUtils") as typeof import("./minigameUtils");

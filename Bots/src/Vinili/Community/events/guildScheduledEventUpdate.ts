@@ -4,6 +4,7 @@ const { getGuildChannelCached } = require("../../../shared/discord/interactionEn
 const { handleSerataFilmScheduledEventUpdate } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
 const { handleMovieNightEventStart } = require("../../Community/services/movieNightAnnouncementService") as typeof import("../../Community/services/movieNightAnnouncementService");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
 const CHANGE_LABELS=new Map([["name","Name"],["description","Description"],["scheduled_start_time","Start Time"],["scheduled_end_time","End Time"],["privacy_level","Privacy Level"],["status","Status"],["entity_type","Entity Type"],["channel_id","Channel"],["location","Location"],["entity_metadata.location","Location"],]);
@@ -183,8 +184,8 @@ export = {
       if (!tracked.length) return;
 
       const lines = [
-        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+        `${E.VC_Staff} **Responsabile:** ${responsibleText}`,
+        `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
         "",
         "**Modifiche**",
       ];
@@ -192,15 +193,15 @@ export = {
       for (const change of tracked) {
         const key = String(change?.key || "");
         const label = CHANGE_LABELS.get(key) || key;
-        lines.push(`<:VC_Modifica:1478859646587633717> **${label}**`);
+        lines.push(`${E.VC_Modifica} **${label}**`);
         lines.push(
-          `  ${formatValue(key, change?.old)} <:VC_Modifica:1478859646587633717> ${formatValue(key, change?.new)}`,
+          `  ${formatValue(key, change?.old)} ${E.VC_Modifica} ${formatValue(key, change?.new)}`,
         );
       }
 
       const embed = new EmbedBuilder()
         .setColor("#F59E0B")
-        .setTitle("<a:VC_Verified:1482532479637127188> Evento programmato modificato")
+        .setTitle(`${E.VC_Verified} Evento programmato modificato`)
         .setDescription(lines.join("\n"));
 
       const payload: Record<string, any> = { embeds: [embed] };

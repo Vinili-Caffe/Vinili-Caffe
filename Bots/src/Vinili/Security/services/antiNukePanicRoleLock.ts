@@ -3,6 +3,7 @@ const { getGuildRoleCached } = require("../../../shared/discord/interactionEntit
 const { ANTINUKE_CONFIG } = require("./antiNukeConfig") as typeof import("./antiNukeConfig");
 const { incrementPanicMetric } = require("./antiNukePanicReport") as typeof import("./antiNukePanicReport");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const DANGEROUS_PERMS = [PermissionsBitField.Flags.Administrator, PermissionsBitField.Flags.ManageGuild, PermissionsBitField.Flags.ManageRoles, PermissionsBitField.Flags.ManageChannels, PermissionsBitField.Flags.ManageWebhooks, PermissionsBitField.Flags.BanMembers, PermissionsBitField.Flags.KickMembers,];
 
 function getDangerMask(flags = DANGEROUS_PERMS) {
@@ -32,7 +33,7 @@ async function lockDangerousRolesForPanic(guild?, state?) {
       const ok = await role
         .setPermissions(
           safeBits,
-          "<:VC_Lock:1482526739044368476> AntiNuke Panic: lock dangerous role permissions",
+          `${E.VC_Lock} AntiNuke Panic: lock dangerous role permissions`,
         )
         .then(() => true)
         .catch(() => false);
@@ -57,7 +58,7 @@ async function unlockDangerousRolesAfterPanic(guild?, state?) {
     if (role.position >= me.roles.highest.position) continue;
     const oldBits = BigInt(oldBitsStr || 0n);
     await role
-      .setPermissions(oldBits, "<a:VC_Unlock:1482532082466029608> AntiNuke Panic: restore role permissions")
+      .setPermissions(oldBits, `${E.VC_Unlock} AntiNuke Panic: restore role permissions`)
       .catch(() => { });
   }
   state.lockedRoles.clear();

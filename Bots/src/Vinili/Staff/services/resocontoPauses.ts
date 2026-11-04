@@ -6,6 +6,7 @@ const { normalizePauseRoleChoice, roleChoiceAppliesTo, PAUSE_ROLE_PM } = require
 const { pausesForWeeklyRules } = require("../../site/staff/pause/pauseHalfDay") as typeof import("../../site/staff/pause/pauseHalfDay");
 const { getRomeDateParts, createUtcFromRomeLocal, addDaysToRomeYmd, parseItalianDate, getRomeStartOfDayUtc } = require("./resocontoTime") as typeof import("./resocontoTime");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function pauseRoleAppliesToSection(pauseRole?, sectionRole?) {
   const section = String(sectionRole || "").trim();
   if (!section) return true;
@@ -43,10 +44,10 @@ function getStaffPauseLine(staffDoc?, sectionRole = null, member = null) {
     const end = parseItalianDate(p.dataRitorno);
     if (!start || !end) continue;
     if (today >= start && today <= end) {
-      return `<a:VC_Calendar:1482706208149475358> **In pausa** fino al ${p.dataRitorno}`;
+      return `${E.VC_Calendar} **In pausa** fino al ${p.dataRitorno}`;
     }
     if (end < today && end >= sevenDaysAgo) {
-      const line = `<a:VC_Calendar:1482706208149475358> **Rientrato/a** il ${p.dataRitorno}`;
+      const line = `${E.VC_Calendar} **Rientrato/a** il ${p.dataRitorno}`;
       return member ? applyPronounGenderToTextForMember(line, member) : line;
     }
   }

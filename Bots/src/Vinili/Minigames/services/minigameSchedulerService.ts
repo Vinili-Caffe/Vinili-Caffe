@@ -9,6 +9,7 @@ const core = require("./minigameService") as typeof import("./minigameService");
 export = {
   bootstrapMinigameScheduler: (...args) => core.bootstrapMinigameScheduler(...args),
   startMinigameLoop: (...args) => core.startMinigameLoop(...args),
+  startMinigameSlotRequestLoop: (...args) => core.startMinigameSlotRequestLoop(...args),
   processHalloweenMinigamesShowcaseForce: (...args) =>
     core.processHalloweenMinigamesShowcaseForce(...args),
 };

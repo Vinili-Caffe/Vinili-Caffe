@@ -6,13 +6,13 @@ const {
 
 const STANZA_LOBBY_VOICE_ID = String(IDs.channels?.stanzaLobbyVoice || "").trim();
 
-function isCoffeeManagedStanzaChannel(channel?) {
+function isViniliManagedStanzaChannel(channel?) {
   if (!channel) return false;
   if (/Stanza di\s+/i.test(String(channel.name || ""))) return true;
   try {
-    const coffee = require("../../../Caffè/Voice/services/stanzaVoiceRoomsService") as typeof import("../../../Caffè/Voice/services/stanzaVoiceRoomsService");
-    if (typeof coffee.isManagedStanzaRoomChannel === "function") {
-      return Boolean(coffee.isManagedStanzaRoomChannel(channel, String(channel.parentId || "")));
+    const vinili = require("../../Voice/services/stanzaVoiceRoomsService") as typeof import("../../Voice/services/stanzaVoiceRoomsService");
+    if (typeof vinili.isManagedStanzaRoomChannel === "function") {
+      return Boolean(vinili.isManagedStanzaRoomChannel(channel, String(channel.parentId || "")));
     }
   } catch (_) {}
   return false;
@@ -54,7 +54,7 @@ function isVoiceChannelEligibleForFindBotMinigame(channel?, client?, excludedCha
   if (isPublicVoiceHubId(id, client)) return false;
   if (isSpawnedHubChannel(channel, client)) return false;
   if (id === STANZA_LOBBY_VOICE_ID) return false;
-  if (isCoffeeManagedStanzaChannel(channel)) return false;
+  if (isViniliManagedStanzaChannel(channel)) return false;
 
   return true;
 }

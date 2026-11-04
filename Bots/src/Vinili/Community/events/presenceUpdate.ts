@@ -10,12 +10,12 @@ const {
   getCachedState,
   setCachedState,
   getPersistedStatus,
+  isTrackedPresenceSupporterUser,
 } = require("./presenceSupporterStateCache") as typeof import("./presenceSupporterStateCache");
 const { applyOnlineState } = require("./presenceSupporterApplyOnline") as typeof import("./presenceSupporterApplyOnline");
 const {
   bootstrapSupporter,
   recoverSupporterStatusAnnouncesOnStartup,
-  startCleanupClock,
 } = require("./presenceSupporterBootstrap") as typeof import("./presenceSupporterBootstrap");
 
 export = {
@@ -26,10 +26,12 @@ export = {
       if (!member || isBotMember(member)) return;
       if (MAIN_GUILD_ID && String(member.guild.id) !== MAIN_GUILD_ID) return;
 
-      startCleanupClock(member.client, member.guild.id);
-
       const guildId = member.guild.id;
       const userId = member.id;
+
+      /* TODO(perf): drop GuildPresences intent once sweep runs only on worker and vanity grant stays event-driven for tracked users. */
+      if (!isTrackedPresenceSupporterUser(guildId, userId, member, newPresence)) return;
+
       let prev = getCachedState(guildId, userId);
       if (!prev) {
         const persisted = await getPersistedStatus(guildId, userId);

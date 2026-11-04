@@ -46,7 +46,23 @@ function getHighestStaffLadderRoleId(member?, keys = STAFF_LADDER_KEYS_HIGH_TO_L
 
 function memberHasAnyRoleKey(member?, keys?) {
   if (!member?.roles?.cache) return false;
-  return staffLadderRoleIds(keys).some((id?) => memberHasRoleId(member, id));
+  const ids = staffLadderRoleIds(keys);
+  if (ids.some((id?) => memberHasRoleId(member, id))) return true;
+  /* Server test: i ruoli staff sono snowflake diversi (mirror remap). */
+  try {
+    const guildId = String(member.guild?.id || "").trim();
+    const {
+      isTestMirrorGuild,
+      remapRoleIdForGuild,
+    } = require("../../Config/testGuildMirrorRemap") as typeof import("../../Config/testGuildMirrorRemap");
+    if (!isTestMirrorGuild(guildId)) return false;
+    return ids.some((id?) => {
+      const mapped = remapRoleIdForGuild(guildId, id);
+      return Boolean(mapped && memberHasRoleId(member, mapped));
+    });
+  } catch (_) {
+    return false;
+  }
 }
 
 const STAFF_PROMOTION_ROLE_UP = Object.freeze({

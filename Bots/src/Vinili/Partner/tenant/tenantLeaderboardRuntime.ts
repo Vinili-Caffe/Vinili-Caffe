@@ -10,6 +10,7 @@ const { formatUserLabel, fetchMembers, rankLabel } = require("../../Community/ut
 const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { t } = require("../i18n/tenantPartnershipI18n/index") as typeof import("../i18n/tenantPartnershipI18n/index");
 const { TENANT_PARTNERSHIP_ARROWS } = require("./tenantPartnershipArrows") as typeof import("./tenantPartnershipArrows");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const PAGE_SIZE = 10;
 const PREFIX = "tlb";
 
@@ -144,10 +145,10 @@ function formatScoreLine(score?, category?, lang?) {
   const n = Math.max(0, Number(score) || 0);
   if (category === "join") {
     const unit = t(lang, "leaderboard_unitJoin");
-    return `<:VC_Reply:1482532158080942191> __${n}__ ${unit}`;
+    return `${E.VC_Reply} __${n}__ ${unit}`;
   }
   const unit = t(lang, "leaderboard_unitPartnership");
-  return `<:VC_Reply:1482532158080942191> __${n}__ ${unit} <:VC_Partner:1482527213780729896>`;
+  return `${E.VC_Reply} __${n}__ ${unit} ${E.VC_Partner}`;
 }
 
 async function buildLeaderboardLines(client?, category?, rows?, page?, guildForMembers?, lang?) {
@@ -318,13 +319,13 @@ function buildLeaderboardComponents(ownerId?, category?, period?, page?, totalPa
         .setDefault(cat === "join"),
       new StringSelectMenuOptionBuilder()
         .setLabel(t(lang, CATEGORY_KEYS.partners.label))
-        .setEmoji("<:981353partner:1524730506531311688>")
+        .setEmoji(E["981353partner"])
         .setDescription(t(lang, CATEGORY_KEYS.partners.desc))
         .setValue("partners")
         .setDefault(cat === "partners"),
       new StringSelectMenuOptionBuilder()
         .setLabel(t(lang, CATEGORY_KEYS.servers.label))
-        .setEmoji("<:510611star:1524730514156556328>")
+        .setEmoji(E["510611star"])
         .setDescription(t(lang, CATEGORY_KEYS.servers.desc))
         .setValue("servers")
         .setDefault(cat === "servers"),

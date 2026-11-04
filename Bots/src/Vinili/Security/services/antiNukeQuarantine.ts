@@ -11,6 +11,7 @@ const { ANTINUKE_CONFIG } = require("./antiNukeConfig") as typeof import("./anti
 const { UNKNOWN_EXECUTOR_ID, isWhitelistedExecutorAsync } = require("./antiNukeWhitelist") as typeof import("./antiNukeWhitelist");
 const { getPanicState, ensurePanicReport } = require("./antiNukePanicLock") as typeof import("./antiNukePanicLock");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const QUARANTINE_ROLE_TIMERS = new Map();
 const QUARANTINE_ROLE_SNAPSHOTS = new Map();
 /* rebootDurability1: quarantine role timers/snapshots → disk */
@@ -105,7 +106,7 @@ async function runQuarantineRoleRollback(guild?, userId?, roleId?, keyOverride =
         if (role.managed) return false;
         return Number(role.position || 0) < highestPosition;
       });
-    const reasonRollback = "<:cancel:1461730653677551691> AntiNuke quarantine timeout elapsed";
+    const reasonRollback = `${E.cancel} AntiNuke quarantine timeout elapsed`;
     if (restoreRoleIds.length > 0) {
       await member.roles.set(restoreRoleIds, reasonRollback).catch(async () => {
         await member.roles.remove(String(roleId), reasonRollback).catch(() => { });
@@ -209,15 +210,15 @@ function restoreAntiNukeQuarantineTimersOnStartup(client?) {
 }
 
 function quarantineOutcomeLabel(outcome?) {
-  const suspiciousSuffix = outcome?.joinGateSuspicious ? " | <:VC_right_arrow:1482459908245815296> JoinGate suspicious: YES" : "";
-  if (!outcome?.applied) return "<:cancel:1461730653677551691> Quarantine not applied";
-  if (outcome.method === "ban") return `<:VC_Lock:1482526739044368476> Banned ${suspiciousSuffix}`;
+  const suspiciousSuffix = outcome?.joinGateSuspicious ? ` | ${E.VC_right_arrow} JoinGate suspicious: YES` : "";
+  if (!outcome?.applied) return `${E.cancel} Quarantine not applied`;
+  if (outcome.method === "ban") return `${E.VC_Lock} Banned ${suspiciousSuffix}`;
   if (outcome.method === "already_role") {
-    return `<:VC_Lock:1482526739044368476> Quarantine active ${suspiciousSuffix}`;
+    return `${E.VC_Lock} Quarantine active ${suspiciousSuffix}`;
   }
-  if (outcome.method === "role") return `<:VC_Lock:1482526739044368476> Quarantined via role ${suspiciousSuffix}`;
-  if (outcome.method === "timeout") return `<:VC_Lock:1482526739044368476> Quarantined via timeout ${suspiciousSuffix}`;
-  return `<:VC_Lock:1482526739044368476> Quarantined${suspiciousSuffix}`;
+  if (outcome.method === "role") return `${E.VC_Lock} Quarantined via role ${suspiciousSuffix}`;
+  if (outcome.method === "timeout") return `${E.VC_Lock} Quarantined via timeout ${suspiciousSuffix}`;
+  return `${E.VC_Lock} Quarantined${suspiciousSuffix}`;
 }
 
 async function quarantineExecutor(guild?, executorId?, reason?) {
@@ -254,7 +255,7 @@ async function quarantineExecutor(guild?, executorId?, reason?) {
     guild?.members?.me?.permissions?.has?.(PermissionsBitField.Flags.BanMembers) &&
     String(guild?.ownerId || "") !== userId
   ) {
-    const banReason = `<:VC_Lock:1482526739044368476> AntiNuke panic: ${String(reason || "malicious executor")}`;
+    const banReason = `${E.VC_Lock} AntiNuke panic: ${String(reason || "malicious executor")}`;
     const banned = await guild.members.ban(userId, { deleteMessageSeconds: 604800, reason: banReason, }).then(() => true).catch(() => false);
     if (banned) {
       ensurePanicReport(getPanicState(guild?.id)).quarantinedUserIds.add(String(userId));

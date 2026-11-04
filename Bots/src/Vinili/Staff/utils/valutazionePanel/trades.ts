@@ -1,6 +1,7 @@
 const { accountUsername } = require("../../../../shared/discord/guildDiscordIdentity") as typeof import("../../../../shared/discord/guildDiscordIdentity");
 const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
 const { STAFF_WARN_THREE_NEGATIVES_REASON } = require("../../../Staff/services/staffWarnService") as typeof import("../../../Staff/services/staffWarnService");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   makeRemovalEmbed,
   sendChannelEmbed,
@@ -38,19 +39,19 @@ async function removeOldestPositiveValutazioni(s?, count?, actor?, staffUser?, c
   const finalPos = s.positiveCount;
   const title =
     n > 1
-      ? `<:cancel:1461730653677551691> **__${n} VALUTAZIONI POSITIVE RIMOSSE__** (scambio)`
-      : "<:cancel:1461730653677551691> **__VALUTAZIONE POSITIVA RIMOSSA__** (scambio)";
+      ? `${E.cancel} **__${n} VALUTAZIONI POSITIVE RIMOSSE__** (scambio)`
+      : `${E.cancel} **__VALUTAZIONE POSITIVA RIMOSSA__** (scambio)`;
   const body =
     n > 1
-      ? `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ sono state **rimosse** **${n}** _Valutazioni Positive_ (scambio).`
-      : `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Positiva_ (scambio).`;
+      ? `${E.VC_reason} A __${accountUsername(staffUser)}__ sono state **rimosse** **${n}** _Valutazioni Positive_ (scambio).`
+      : `${E.VC_reason} A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Positiva_ (scambio).`;
   const embed = makeRemovalEmbed(
     actor,
     staffUser,
     title,
     body,
     removalReason,
-    "<:VC_update:1478721333096349817> __Valutazioni Positive Totali__",
+    `${E.VC_update} __Valutazioni Positive Totali__`,
     finalPosLabel(finalPos),
   );
   let anyEdited = false;
@@ -114,11 +115,11 @@ async function convertOldestNegativesToStaffWarn(s?, count?, actor?, staffUser?,
   const embed = makeRemovalEmbed(
     actor,
     staffUser,
-    `<:cancel:1461730653677551691> **__${n} VALUTAZIONI NEGATIVE CONVERTITE__**`,
-    `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ sono state **convertite** **${n}** _Valutazioni Negative_ in un **warn staff**.`,
+    `${E.cancel} **__${n} VALUTAZIONI NEGATIVE CONVERTITE__**`,
+    `${E.VC_reason} A __${accountUsername(staffUser)}__ sono state **convertite** **${n}** _Valutazioni Negative_ in un **warn staff**.`,
     STAFF_WARN_THREE_NEGATIVES_REASON,
-    "<:VC_update:1478721333096349817> __Valutazioni Negative Totali__",
-    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${finalNeg}\` valutazioni negative!`,
+    `${E.VC_update} __Valutazioni Negative Totali__`,
+    `${E.VC_OnlineStatus} Ora sei a \`${finalNeg}\` valutazioni negative!`,
   );
 
   let anyEdited = false;

@@ -3,6 +3,7 @@ const BotState = require("../../../shared/schemas/botState/botStateSchema");
 const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { formatPartnershipPingDisplay } = require("../../Partner/runtime/partnershipPingUtils") as typeof import("../../Partner/runtime/partnershipPingUtils");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   getPartnershipChannelId,
   resolvePartnershipLifecycleLogChannelId,
@@ -96,15 +97,15 @@ function buildPartnershipExecuteLogEmbed({
   const botUser = client?.user;
   const embed = new EmbedBuilder()
     .setColor(LOG_COLOR)
-    .setTitle("<:250885giveaway:1524730537770746006> Partnership Eseguita!")
+    .setTitle(`${E["250885giveaway"]} Partnership Eseguita!`)
     .setDescription(
       [
-        `<:981353partner:1524730506531311688> **ID:** \`${partnershipId}\``,
-        `<:7619planet:1524730515436077187> **Server:** ${String(guild?.name || "Server").trim()}`,
-        `<:861752staff:1524730539129438258> **User:** <@${pmUserId}>`,
-        `<:945027student:1524730520276307968> **Manager:** ${managerValue}`,
-        `<:944992bell:1524730536369721404> **Ping:** ${pingValue}`,
-        `<:808239search:1524730540983582728> **Link:** ${linkValue}`,
+        `${E["981353partner"]} **ID:** \`${partnershipId}\``,
+        `${E["7619planet"]} **Server:** ${String(guild?.name || "Server").trim()}`,
+        `${E["861752staff"]} **User:** <@${pmUserId}>`,
+        `${E["945027student"]} **Manager:** ${managerValue}`,
+        `${E["944992bell"]} **Ping:** ${pingValue}`,
+        `${E["808239search"]} **Link:** ${linkValue}`,
       ].join("\n"),
     );
 
@@ -131,16 +132,16 @@ function buildPartnershipDeleteLogEmbed({
   const partnerValue = String(partnerName || "").trim() || "`N/D`";
   const embed = new EmbedBuilder()
     .setColor(DELETE_LOG_COLOR)
-    .setTitle("<a:VC_Cross:1482532424570376253> Partnership Eliminata!")
+    .setTitle(`${E.VC_Cross} Partnership Eliminata!`)
     .setDescription(
       [
-        `<:981353partner:1524730506531311688> **ID:** \`${partnershipId || "N/D"}\``,
-        `<:7619planet:1524730515436077187> **Server:** ${String(guild?.name || "Server").trim()}`,
-        `<:861752staff:1524730539129438258> **PM:** <@${pmUserId}>`,
-        `<:945027student:1524730520276307968> **Manager:** ${managerValue}`,
-        `<:808239search:1524730540983582728> **Partner:** ${partnerValue}`,
-        `<:944992bell:1524730536369721404> **Motivo:** ${resolvePartnershipDeleteReasonLabel(reason)}`,
-        `<:808239search:1524730540983582728> **Eseguita da:** ${actorValue}`,
+        `${E["981353partner"]} **ID:** \`${partnershipId || "N/D"}\``,
+        `${E["7619planet"]} **Server:** ${String(guild?.name || "Server").trim()}`,
+        `${E["861752staff"]} **PM:** <@${pmUserId}>`,
+        `${E["945027student"]} **Manager:** ${managerValue}`,
+        `${E["808239search"]} **Partner:** ${partnerValue}`,
+        `${E["944992bell"]} **Motivo:** ${resolvePartnershipDeleteReasonLabel(reason)}`,
+        `${E["808239search"]} **Eseguita da:** ${actorValue}`,
       ].join("\n"),
     );
 

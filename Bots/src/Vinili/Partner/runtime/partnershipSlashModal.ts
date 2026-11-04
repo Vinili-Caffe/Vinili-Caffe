@@ -1,6 +1,7 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require("discord.js") as typeof import("discord.js");
 const { safeReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const EPHEMERAL_FLAG = 1 << 6;
 
 function buildPartnershipModalCustomId(openerId?, managerId?, skipped?) {
@@ -35,7 +36,7 @@ async function showPartnershipSlashModal(interaction?, { managerId = null, skipp
   } catch (error) {
     if (error?.code === 10062) return;
     await safeReply(interaction, {
-      content: "<:vegax:1443934876440068179> Non riesco ad aprire il modulo, riprova.",
+      content: `${E.vegax} Non riesco ad aprire il modulo, riprova.`,
       flags: EPHEMERAL_FLAG,
     });
   }

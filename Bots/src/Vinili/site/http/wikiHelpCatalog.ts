@@ -3,6 +3,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ApplicationCommandType, ComponentType, MessageFlags, } = require("discord.js") as typeof import("discord.js");
 const { safeMessageReply, safeInteractionUpdate } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   resolveEmbedColorForGuild,
   normalizeEmbedColorInt,
@@ -41,7 +42,7 @@ const CATEGORY_LABELS = { utility: "Utility", music: "Musica", tts: "TTS", level
 const CATEGORY_ORDER = ["utility", "tts", "level", "minigames", "stats", "music", "economy", "staff", "moderation", "admin", "dev",];
 const PREFIX_MUSIC_SESSION_OWNER_COMMANDS = new Set(["skip", "stop", "pause", "resume", "volume", "shuffle", "clear", "repeat", "previous", "rewind", "restart"]);
 const PREFIX_MUSIC_SESSION_OWNER_NOTE = " *Solo chi ha avviato la riproduzione può usarlo.*";
-const HELP_NEW_EMOJI = "<:VC_New:1471891729471770819>";
+const HELP_NEW_EMOJI = E.VC_New;
 const HELP_NEW_DAYS = 14;
 const HELP_NEW_CATEGORIES = new Set(["music"]);
 const HELP_NEW_INVOKES = new Set(["invites"]);
@@ -146,14 +147,14 @@ function buildMiniHelpNotFoundEmbed(query?) {
     .setColor(ERROR_EMBED_COLOR)
     .setTitle("Mini Help")
     .setDescription(
-      `<:vegax:1443934876440068179> Nessun comando trovato per \`${query}\`.`,
+      `${E.vegax} Nessun comando trovato per \`${query}\`.`,
     );
 }
 
 function buildNoAvailableCommandsEmbed() {
   return new EmbedBuilder()
     .setColor(ERROR_EMBED_COLOR)
-    .setDescription("<:vegax:1443934876440068179> Nessun comando disponibile.");
+    .setDescription(`${E.vegax} Nessun comando disponibile.`);
 }
 
 function resolveRoleReference(value?) {
@@ -697,7 +698,7 @@ function renderPageText(page?, newUntilMap = null) {
     sections.push(`**${categoryLabel}**\n${rows.join("\n")}`);
   }
 
-  if (!page.items.length) return "<:vegax:1443934876440068179> Nessun comando disponibile in questa pagina.";
+  if (!page.items.length) return `${E.vegax} Nessun comando disponibile in questa pagina.`;
   const pageTitle = PAGE_TITLES[page.roleId] || "Comandi";
   const header = ["## Comandi Disponibili", "", ...(pageTitle !== "Comandi Disponibili" ? [`### ${pageTitle}`, ""] : []),
     "Ecco la lista dei comandi disponibili.",
@@ -815,17 +816,17 @@ function buildNavigationRow(state?) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${base}:prev`)
-      .setEmoji(`<a:vegaleftarrow:1462914743416131816>`)
+      .setEmoji(E.vegaleftarrow)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(state.currentIndex <= 0),
     new ButtonBuilder()
       .setCustomId(`${base}:next`)
-      .setEmoji(`<a:vegarightarrow:1443673039156936837>`)
+      .setEmoji(E.vegarightarrow)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(state.currentIndex >= state.total - 1),
     new ButtonBuilder()
       .setCustomId(`${base}:close`)
-      .setEmoji("<:cancel:1461730653677551691>")
+      .setEmoji(E.cancel)
       .setStyle(ButtonStyle.Danger),
   );
 }
@@ -872,7 +873,7 @@ async function handleMainHelpNavInteraction(interaction?) {
   if (String(interaction.user?.id) !== parsed.ownerId) {
     await interaction
       .reply({
-        content: "<:vegax:1443934876440068179> Puoi usare i bottoni solo sul tuo help.",
+        content: `${E.vegax} Puoi usare i bottoni solo sul tuo help.`,
         flags: PRIVATE_FLAG,
       })
       .catch(() => null);

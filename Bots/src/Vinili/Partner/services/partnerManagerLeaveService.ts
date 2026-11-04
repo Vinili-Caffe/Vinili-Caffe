@@ -1,4 +1,5 @@
 const path = require("path") as typeof import("path");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   EmbedBuilder,
   ActionRowBuilder,
@@ -105,13 +106,13 @@ async function resolveGuildInviteUrl(guild?) {
 function buildLeaveWarningEmbed(guild?, userId?) {
   return new EmbedBuilder()
     .setColor(0xed4245)
-    .setTitle("<a:VC_Alert:1482706673176150077> Attenzione!")
+    .setTitle(`${E.VC_Alert} Attenzione!`)
     .setDescription(
       [
         `Sei uscito da **${String(guild?.name || "server").trim()}**!`,
         "Hai **5 minuti** per rientrare.",
-        `<:VC_id:1478517313618575419> **Id:** \`${userId}\``,
-        "<:VC_Info:1482526956703580372> **Info:** `Avevi fatto una partner`",
+        `${E.VC_id} **Id:** \`${userId}\``,
+        `${E.VC_Info} **Info:** \`Avevi fatto una partner\``,
       ].join("\n"),
     );
 }
@@ -119,13 +120,13 @@ function buildLeaveWarningEmbed(guild?, userId?) {
 function buildLeaveWarnOnlyEmbed(guild?, userId?) {
   return new EmbedBuilder()
     .setColor(0xed4245)
-    .setTitle("<a:VC_Alert:1482706673176150077> Attenzione!")
+    .setTitle(`${E.VC_Alert} Attenzione!`)
     .setDescription(
       [
         `Sei uscito da **${String(guild?.name || "server").trim()}**!`,
         "Hai **5 minuti** per rientrare.",
-        `<:VC_id:1478517313618575419> **Id:** \`${userId}\``,
-        "<:VC_Info:1482526956703580372> **Info:** `Avevi fatto una partner`",
+        `${E.VC_id} **Id:** \`${userId}\``,
+        `${E.VC_Info} **Info:** \`Avevi fatto una partner\``,
       ].join("\n"),
     );
 }
@@ -133,17 +134,17 @@ function buildLeaveWarnOnlyEmbed(guild?, userId?) {
 function buildLeaveExpiredEmbed() {
   return new EmbedBuilder()
     .setColor(0xed4245)
-    .setDescription("<:vegax:1443934876440068179> Partner **eliminata**!\nNon sei entrato entro **5 minuti**.");
+    .setDescription(`${E.vegax} Partner **eliminata**!\nNon sei entrato entro **5 minuti**.`);
 }
 
 function buildLeaveCancelledEmbed() {
   return new EmbedBuilder()
     .setColor(0x57f287)
-    .setTitle("<a:VC_Alert:1482706673176150077> **Processo di eliminazione annullato!**")
+    .setTitle(`${E.VC_Alert} **Processo di eliminazione annullato!**`)
     .setDescription(
       [
-        "<a:VC_Verified:1482532479637127188> Perfetto, sei entrato entro i 5 minuti stabiliti.",
-        "<a:VC_ThankYou:1330186319673950401> Il processo di eliminazione della partner è stato annullato.",
+        `${E.VC_Verified} Perfetto, sei entrato entro i 5 minuti stabiliti.`,
+        `${E.VC_ThankYou} Il processo di eliminazione della partner è stato annullato.`,
       ].join("\n"),
     );
 }
@@ -151,7 +152,7 @@ function buildLeaveCancelledEmbed() {
 function buildRejoinLinkRow(inviteUrl?) {
   if (!inviteUrl) return null;
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Entra nel Server").setURL(inviteUrl).setEmoji("<:VC_Link:1482460590894088222>"),
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Entra nel Server").setURL(inviteUrl).setEmoji(E.VC_Link),
   );
 }
 

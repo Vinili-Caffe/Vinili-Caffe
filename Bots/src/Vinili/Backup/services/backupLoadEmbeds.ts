@@ -2,22 +2,23 @@
 const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { LOAD_ACTIONS, DEFAULT_MESSAGES_LIMIT, sanitizeActions, normalizeMessagesLimit, formatMessagesLimit } = require("./backupLoadSessions") as typeof import("./backupLoadSessions");
 
-const MESSAGE_LIMIT_PRESETS = [{ label: "100 messages", value: "100", description: "Ripristina max 100 messaggi", emoji: "<:VC_Chat:1482532573002465413>", }, { label: "500 messages", value: "500", description: "Ripristina max 500 messaggi", emoji: "<:VC_Chat:1482532573002465413>", }, { label: "1,000 messages", value: "1000", description: "Ripristina max 1000 messaggi", emoji: "<:VC_Chat:1482532573002465413>", }, { label: "5,000 messages", value: "5000", description: "Ripristina max 5000 messaggi", emoji: "<:VC_Chat:1482532573002465413>", }, { label: "10,000 messages", value: "10000", description: "Ripristina max 10000 messaggi", emoji: "<:VC_Chat:1482532573002465413>", }, { label: "All available", value: "ALL", description: "Ripristina tutti i messaggi nel backup", emoji: "<a:VC_Announce:1482534613568979007>", },];
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
+const MESSAGE_LIMIT_PRESETS = [{ label: "100 messages", value: "100", description: "Ripristina max 100 messaggi", emoji: E.VC_Chat, }, { label: "500 messages", value: "500", description: "Ripristina max 500 messaggi", emoji: E.VC_Chat, }, { label: "1,000 messages", value: "1000", description: "Ripristina max 1000 messaggi", emoji: E.VC_Chat, }, { label: "5,000 messages", value: "5000", description: "Ripristina max 5000 messaggi", emoji: E.VC_Chat, }, { label: "10,000 messages", value: "10000", description: "Ripristina max 10000 messaggi", emoji: E.VC_Chat, }, { label: "All available", value: "ALL", description: "Ripristina tutti i messaggi nel backup", emoji: E.VC_Announce, },];
 
 function buildLoadWarningEmbed(backupId?, messagesLimit = DEFAULT_MESSAGES_LIMIT) {
   return new EmbedBuilder()
     .setColor("#f1c40f")
-    .setTitle("<a:VC_Alert:1482706673176150077> Warning")
+    .setTitle(`${E.VC_Alert} Warning`)
     .setDescription(
       [
-        "<:VC_update:1478721333096349817> What do you want the bot to load from the backup?",
+        `${E.VC_update} What do you want the bot to load from the backup?`,
         "",
-        "<:VC_InactiveStatus:1482526984234860574> Select below what actions should be performed.",
-        "<:VC_update:1478721333096349817> In the next step the restore starts immediately.",
+        `${E.VC_InactiveStatus} Select below what actions should be performed.`,
+        `${E.VC_update} In the next step the restore starts immediately.`,
         "",
-        `<:VC_Chat:1482532573002465413> Messages limit: \`${formatMessagesLimit(messagesLimit)}\``,
+        `${E.VC_Chat} Messages limit: \`${formatMessagesLimit(messagesLimit)}\``,
         "",
-        `<:VC_id:1478517313618575419> Backup ID: \`${String(backupId || "").toUpperCase()}\``,
+        `${E.VC_id} Backup ID: \`${String(backupId || "").toUpperCase()}\``,
       ].filter(Boolean).join("\n"),
     );
 }
@@ -28,11 +29,11 @@ function buildLoadInProgressEmbed(backupId?, checkpointId = null) {
     .setTitle("Info")
     .setDescription(
       [
-        "<:VC_update:1478721333096349817> **The backup will start loading now.** Please be patient, this can take a while!",
+        `${E.VC_update} **The backup will start loading now.** Please be patient, this can take a while!`,
         "",
-        "<:VC_update:1478721333096349817> Usa **+backup** → menu **Stato caricamento** / **Annulla caricamento** per stato e stop.",
+        `${E.VC_update} Usa **+backup** → menu **Stato caricamento** / **Annulla caricamento** per stato e stop.`,
         "",
-        "<:VC_update:1478721333096349817> *This message might not be updated.*",
+        `${E.VC_update} *This message might not be updated.*`,
         "",
         checkpointId ? `Checkpoint ID: \`${String(checkpointId || "").toUpperCase()}\`` : null,
         `Backup ID: \`${String(backupId || "").toUpperCase()}\``,
@@ -97,67 +98,67 @@ function buildPreflightWarningEmbed({
   const pinnedMessages = countBackupPinnedMessages(payload);
 
   if (safeActions.has("load_roles")) {
-    lines.push(`<:VC_Mention:1482526855289634997> **${backupRoles.length}** roles will be created`);
+    lines.push(`${E.VC_Mention} **${backupRoles.length}** roles will be created`);
   }
   if (safeActions.has("delete_roles")) {
     const rolesToDelete = [...guild.roles.cache.values()].filter((r?) => r.editable && !r.managed && r.id !== guild.id,).length;
-    lines.push(`<:VC_purge:1478861828271636561> **${rolesToDelete}** roles will be deleted`);
+    lines.push(`${E.VC_purge} **${rolesToDelete}** roles will be deleted`);
   }
   if (safeActions.has("load_channels")) {
-    lines.push(`<:channeltext:1443247596922470551> **${backupChannels.length}** channels will be created`);
+    lines.push(`${E.channeltext} **${backupChannels.length}** channels will be created`);
   }
   if (safeActions.has("delete_channels")) {
-    lines.push(`<:VC_purge:1478861828271636561> **${guild.channels.cache.size}** channels will be deleted`);
+    lines.push(`${E.VC_purge} **${guild.channels.cache.size}** channels will be deleted`);
   }
   if (safeActions.has("load_settings")) {
-    lines.push("<:VC_tools:1478862265305272364> Server settings will be updated");
+    lines.push(`${E.VC_tools} Server settings will be updated`);
   }
   if (safeActions.has("load_threads")) {
-    lines.push(`<:VC_threads:1478515497569095760> **${backupThreads.length}** threads will be created`);
+    lines.push(`${E.VC_threads} **${backupThreads.length}** threads will be created`);
   }
   if (safeActions.has("load_member_info")) {
-    lines.push(`<:member_role_icon:1330530086792728618> **${backupMembers.length}** members will be updated`);
+    lines.push(`${E.member_role_icon} **${backupMembers.length}** members will be updated`);
   }
   if (safeActions.has("load_bans")) {
-    lines.push(`<:VC_BanHammer:1482534474502897795> **${backupBans.length}** bans will be loaded`);
+    lines.push(`${E.VC_BanHammer} **${backupBans.length}** bans will be loaded`);
   }
   if (safeActions.has("load_messages")) {
-    lines.push(`<:VC_Chat:1482532573002465413> **${loadableMessages}** messages will be loaded (limit: \`${formatMessagesLimit(effectiveLimit)}\`)`);
+    lines.push(`${E.VC_Chat} **${loadableMessages}** messages will be loaded (limit: \`${formatMessagesLimit(effectiveLimit)}\`)`);
   }
   if (safeActions.has("load_pinned_messages")) {
-    lines.push(`<:VC_BlackPin:1482534513400610948> **${pinnedMessages}** pinned messages will be loaded`);
+    lines.push(`${E.VC_BlackPin} **${pinnedMessages}** pinned messages will be loaded`);
   }
   if (safeActions.has("load_emojis")) {
-    lines.push(`<:VC_Reply:1482532158080942191> **${backupEmojis.length}** emojis will be loaded`);
+    lines.push(`${E.VC_Reply} **${backupEmojis.length}** emojis will be loaded`);
   }
   if (safeActions.has("load_stickers")) {
-    lines.push(`<:VC_Ticket:1482535175283019888> **${backupStickers.length}** stickers will be loaded`);
+    lines.push(`${E.VC_Ticket} **${backupStickers.length}** stickers will be loaded`);
   }
   if (safeActions.has("load_webhooks")) {
-    lines.push(`<:VC_webhooks:1478515450769047704> **${backupWebhooks.length}** webhooks will be loaded`);
+    lines.push(`${E.VC_webhooks} **${backupWebhooks.length}** webhooks will be loaded`);
   }
   if (safeActions.has("load_invites")) {
-    lines.push(`<:link:1470064815899803668> **${backupInvites.length}** invites will be loaded`);
+    lines.push(`${E.link} **${backupInvites.length}** invites will be loaded`);
   }
   if (safeActions.has("load_events")) {
     lines.push(`<:a:VC_Calendar:1448670320180592724> **${backupEvents.length}** scheduled events will be loaded`);
   }
   if (safeActions.has("load_automod_rules")) {
-    lines.push(`<:VC_AutoMod:1478861194759508039> **${backupAutomodRules.length}** AutoMod rules will be loaded`);
+    lines.push(`${E.VC_AutoMod} **${backupAutomodRules.length}** AutoMod rules will be loaded`);
   }
 
-  if (!lines.length) lines.push("<a:VC_Alert:1482706673176150077> No action selected");
+  if (!lines.length) lines.push(`${E.VC_Alert} No action selected`);
 
   return new EmbedBuilder()
     .setColor("#f1c40f")
-    .setTitle("<a:VC_Alert:1482706673176150077> Warning")
+    .setTitle(`${E.VC_Alert} Warning`)
     .setDescription(
       [
-        "<:VC_update:1478721333096349817> **Hey, be careful!** The following actions will be taken on this server and **can not be undone**:",
+        `${E.VC_update} **Hey, be careful!** The following actions will be taken on this server and **can not be undone**:`,
         "",
         ...lines,
         "",
-        `<:VC_id:1478517313618575419> Backup ID: \`${String(backupId || "").toUpperCase()}\``,
+        `${E.VC_id} Backup ID: \`${String(backupId || "").toUpperCase()}\``,
       ].filter(Boolean).join("\n"),
     );
 }
@@ -166,11 +167,11 @@ function buildPreflightButtons(sessionId?) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`backup_load_confirm:${sessionId}`)
-      .setEmoji(`<:success:1461731530333229226>`)
+      .setEmoji(E.success)
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`backup_load_cancel:${sessionId}`)
-      .setEmoji(`<:cancel:1461730653677551691>`)
+      .setEmoji(E.cancel)
       .setStyle(ButtonStyle.Danger),
   );
 }
@@ -178,47 +179,47 @@ function buildPreflightButtons(sessionId?) {
 function buildLoadDoneEmbed(backupId?, stats?) {
   return new EmbedBuilder()
     .setColor("#2ecc71")
-    .setTitle("<:VC_update:1478721333096349817> Backup loaded")
+    .setTitle(`${E.VC_update} Backup loaded`)
     .setDescription(
       [
-        `<:VC_update:1478721333096349817> Ripristino completato per \`${String(backupId || "").toUpperCase()}\`.`,
+        `${E.VC_update} Ripristino completato per \`${String(backupId || "").toUpperCase()}\`.`,
         "",
-        `<:VC_purge:1478861828271636561> Ruoli eliminati: **${stats.deletedRoles}**`,
-        `<:channeltext:1443247596922470551> Canali eliminati: **${stats.deletedChannels}**`,
-        `<:VC_Mention:1482526855289634997> Ruoli creati: **${stats.createdRoles}**`,
-        `<:channeltext:1443247596922470551> Canali creati: **${stats.createdChannels}**`,
-        `<:VC_threads:1478515497569095760> Thread creati: **${stats.createdThreads}**`,
-        `<:member_role_icon:1330530086792728618> Member aggiornati: **${stats.updatedMembers}**`,
-        `<:VC_BanHammer:1482534474502897795> Ban applicati: **${stats.loadedBans}**`,
-        `<:VC_Chat:1482532573002465413> Messaggi inviati: **${stats.loadedMessages}**`,
-        `<:VC_BlackPin:1482534513400610948> Messaggi pinnati: **${stats.loadedPinnedMessages}**`,
-        `<:VC_Reply:1482532158080942191> Emoji create: **${stats.loadedEmojis}**`,
-        `<:VC_Ticket:1482535175283019888> Sticker creati: **${stats.loadedStickers}**`,
-        `<:VC_webhooks:1478515450769047704> Webhook creati: **${stats.loadedWebhooks}**`,
-        `<:link:1470064815899803668> Inviti creati: **${stats.loadedInvites}**`,
+        `${E.VC_purge} Ruoli eliminati: **${stats.deletedRoles}**`,
+        `${E.channeltext} Canali eliminati: **${stats.deletedChannels}**`,
+        `${E.VC_Mention} Ruoli creati: **${stats.createdRoles}**`,
+        `${E.channeltext} Canali creati: **${stats.createdChannels}**`,
+        `${E.VC_threads} Thread creati: **${stats.createdThreads}**`,
+        `${E.member_role_icon} Member aggiornati: **${stats.updatedMembers}**`,
+        `${E.VC_BanHammer} Ban applicati: **${stats.loadedBans}**`,
+        `${E.VC_Chat} Messaggi inviati: **${stats.loadedMessages}**`,
+        `${E.VC_BlackPin} Messaggi pinnati: **${stats.loadedPinnedMessages}**`,
+        `${E.VC_Reply} Emoji create: **${stats.loadedEmojis}**`,
+        `${E.VC_Ticket} Sticker creati: **${stats.loadedStickers}**`,
+        `${E.VC_webhooks} Webhook creati: **${stats.loadedWebhooks}**`,
+        `${E.link} Inviti creati: **${stats.loadedInvites}**`,
         `<:a:VC_Calendar:1448670320180592724> Eventi creati: **${stats.loadedEvents}**`,
-        `<:VC_AutoMod:1478861194759508039> Regole AutoMod create: **${stats.loadedAutomodRules}**`,
+        `${E.VC_AutoMod} Regole AutoMod create: **${stats.loadedAutomodRules}**`,
       ].filter(Boolean).join("\n"),
     );
 }
 
 function buildLoadErrorEmbed(error?) {
-  const detail = String(error?.message || error || "<a:VC_Alert:1482706673176150077> Errore sconosciuto").slice(0, 700);
+  const detail = String(error?.message || error || `${E.VC_Alert} Errore sconosciuto`).slice(0, 700);
   return new EmbedBuilder()
     .setColor("Red")
-    .setTitle("<a:VC_Alert:1482706673176150077> Backup load failed")
-    .setDescription(`<a:VC_Alert:1482706673176150077> ${detail}`);
+    .setTitle(`${E.VC_Alert} Backup load failed`)
+    .setDescription(`${E.VC_Alert} ${detail}`);
 }
 
 function buildLoadCancelledEmbed(backupId?) {
   return new EmbedBuilder()
     .setColor("#3498db")
-    .setTitle("<:VC_InactiveStatus:1482526984234860574> Info")
+    .setTitle(`${E.VC_InactiveStatus} Info`)
     .setDescription(
       [
-        "<:VC_update:1478721333096349817> The loading process has been **cancelled**.",
+        `${E.VC_update} The loading process has been **cancelled**.`,
         "",
-        "<:VC_update:1478721333096349817> Riprova da **+backup** → **Carica backup**.",
+        `${E.VC_update} Riprova da **+backup** → **Carica backup**.`,
       ].filter(Boolean).join("\n"),
     );
 }
@@ -233,23 +234,23 @@ function buildLoadComponents(
   const options = LOAD_ACTIONS.map((action?) => ({ label: action.label, description: action.description, value: action.key, emoji: action.emoji, default: selected.has(action.key), }));
 
   const selectRow = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`backup_load_actions:${sessionId}`)
-    .setPlaceholder("<:VC_InactiveStatus:1482526984234860574> Select load actions")
+    .setPlaceholder(`${E.VC_InactiveStatus} Select load actions`)
     .setMinValues(1)
     .setMaxValues(options.length)
     .addOptions(options),
   );
 
   const buttonRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`backup_load_continue:${sessionId}`)
-    .setEmoji(`<:success:1461731530333229226>`)
+    .setEmoji(E.success)
     .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`backup_load_cancel:${sessionId}`)
-      .setEmoji(`<:cancel:1461730653677551691>`)
+      .setEmoji(E.cancel)
       .setStyle(ButtonStyle.Danger),
   );
 
   const limitRow = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`backup_load_messages_limit:${sessionId}`)
-    .setPlaceholder("<:VC_InactiveStatus:1482526984234860574> Select messages limit")
+    .setPlaceholder(`${E.VC_InactiveStatus} Select messages limit`)
     .setMinValues(1)
     .setMaxValues(1)
     .addOptions(

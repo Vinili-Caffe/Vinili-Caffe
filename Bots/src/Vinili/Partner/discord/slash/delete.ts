@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require("discord.js") as typeof import("discord.js");
 const { safeReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   isPartnershipOperational,
   shouldApplyMainPartnershipFilters,
@@ -39,7 +40,7 @@ export = {
     const guild = interaction.guild;
     if (!guild?.id) {
       await safeReply(interaction, {
-        content: "<a:VC_Cross:1482532424570376253> Comando disponibile solo in un server.",
+        content: `${E.VC_Cross} Comando disponibile solo in un server.`,
         flags: EPHEMERAL,
       });
       return;
@@ -48,7 +49,7 @@ export = {
     if (shouldApplyMainPartnershipFilters(guild.id)) {
       await safeReply(interaction, {
         content:
-          "<:vegax:1443934876440068179> Sul server principale usa il **sito staff** (punti PM / punti tolti) per rimuovere punti e partnership.",
+          `${E.vegax} Sul server principale usa il **sito staff** (punti PM / punti tolti) per rimuovere punti e partnership.`,
         flags: EPHEMERAL,
       });
       return;
@@ -70,7 +71,7 @@ export = {
     const partnershipId = normalizePartnershipLogId(interaction.options.getInteger("id"));
     if (!partnershipId) {
       await safeReply(interaction, {
-        content: "<a:VC_Cross:1482532424570376253> Inserisci un **ID partnership** valido.",
+        content: `${E.VC_Cross} Inserisci un **ID partnership** valido.`,
         flags: EPHEMERAL,
       });
       return;
@@ -89,19 +90,19 @@ export = {
       if (!result?.ok) {
         await interaction.editReply({
           content:
-            "<a:VC_Cross:1482532424570376253> Nessuna partnership trovata con quell'**ID** su questo server.",
+            `${E.VC_Cross} Nessuna partnership trovata con quell'**ID** su questo server.`,
         }).catch(() => null);
         return;
       }
 
       await interaction.editReply({
-        content: "<a:VC_Events:1482706144953897223> **Partner** eliminata con **successo**!",
+        content: `${E.VC_Events} **Partner** eliminata con **successo**!`,
       }).catch(() => null);
     } catch (err) {
       global.logger?.error?.("[delete partnership] failed:", err?.stack || err?.message || err);
       await interaction.editReply({
         content:
-          "<a:VC_Cross:1482532424570376253> Errore durante l'eliminazione. Riprova tra poco.",
+          `${E.VC_Cross} Errore durante l'eliminazione. Riprova tra poco.`,
       }).catch(() => null);
     }
   },

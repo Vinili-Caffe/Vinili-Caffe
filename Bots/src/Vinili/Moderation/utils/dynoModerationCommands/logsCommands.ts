@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { findActiveModerations, countModLogsForUser, findModLogsPage } = require("../modCaseStore") as typeof import("../modCaseStore");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   pickUser,
   formatRemainingWords,
@@ -31,13 +32,13 @@ async function runModlogsOrModerations(cmd?, message?, args?) {
       rows.push(row);
     }
     if (!rows.length) {
-      const msg = target.userId ? "<:cancel:1461730653677551691> Non ci sono mute/ban attivi per questo utente." : "<:cancel:1461730653677551691> Non ci sono mute/ban attive al momento.";
+      const msg = target.userId ? `${E.cancel} Non ci sono mute/ban attivi per questo utente.` : `${E.cancel} Non ci sono mute/ban attive al momento.`;
       return message.channel
         .send({
           embeds: [
             new EmbedBuilder()
               .setColor("#3498DB")
-              .setDescription(`<:VC_InactiveStatus:1482526984234860574> **${msg}**`),
+              .setDescription(`${E.VC_InactiveStatus} **${msg}**`),
           ],
         })
         .catch(() => null);
@@ -71,7 +72,7 @@ async function runModlogsOrModerations(cmd?, message?, args?) {
     return message.channel
       .send({
         embeds: [
-          new EmbedBuilder().setColor("#ED4245").setDescription("<:cancel:1461730653677551691> Nessun log trovato per quell'utente."),
+          new EmbedBuilder().setColor("#ED4245").setDescription(`${E.cancel} Nessun log trovato per quell'utente.`),
         ],
       })
       .catch(() => null);
@@ -85,7 +86,7 @@ async function runModlogsOrModerations(cmd?, message?, args?) {
     return message.channel
       .send({
         embeds: [
-          new EmbedBuilder().setColor("#ED4245").setDescription("<:cancel:1461730653677551691> Nessun log trovato per quell'utente."),
+          new EmbedBuilder().setColor("#ED4245").setDescription(`${E.cancel} Nessun log trovato per quell'utente.`),
         ],
       })
       .catch(() => null);
@@ -100,7 +101,7 @@ async function runModlogsOrModerations(cmd?, message?, args?) {
     return message.channel
       .send({
         embeds: [
-          new EmbedBuilder().setColor("#ED4245").setDescription("<:cancel:1461730653677551691> Nessun log trovato per quell'utente."),
+          new EmbedBuilder().setColor("#ED4245").setDescription(`${E.cancel} Nessun log trovato per quell'utente.`),
         ],
       })
       .catch(() => null);
@@ -112,13 +113,13 @@ async function runModlogsOrModerations(cmd?, message?, args?) {
     const createdAt = formatDynoDate(row.createdAt);
     const length = formatDurationWords(row.durationMs);
     const blockLines = [
-      `<:VC_id:1478517313618575419> **Case ${row.caseId}**`,
-      `<:VC_InactiveStatus:1482526984234860574> **Tipo:** ${type}`,
-      `<:VC_User:1482527453586002103> **Utente:** \`${target.userId}\` · ${targetUser?.username || "Sconosciuto"}`,
-      `<:VC_Staff:1494286904089247754> **Responsabile:** ${modUser?.username || row.modId || "Sconosciuto"}`,
+      `${E.VC_id} **Case ${row.caseId}**`,
+      `${E.VC_InactiveStatus} **Tipo:** ${type}`,
+      `${E.VC_User} **Utente:** \`${target.userId}\` · ${targetUser?.username || "Sconosciuto"}`,
+      `${E.VC_Staff} **Responsabile:** ${modUser?.username || row.modId || "Sconosciuto"}`,
     ];
-    if (length) blockLines.push(`<:VC_Clock:1473359204189474886> **Durata:** ${length}`);
-    blockLines.push(`<:VC_reason:1478517122929004544> **Motivo:** ${row.reason || "Nessun motivo fornito."} - ${createdAt}`);
+    if (length) blockLines.push(`${E.VC_Clock} **Durata:** ${length}`);
+    blockLines.push(`${E.VC_reason} **Motivo:** ${row.reason || "Nessun motivo fornito."} - ${createdAt}`);
     lines.push(blockLines.join("\n"));
   }
 

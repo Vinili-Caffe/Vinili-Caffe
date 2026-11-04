@@ -9,6 +9,8 @@ const getChannelSafe = async (client?, channelId?) => { if (!channelId) return n
 
 function scheduleMonthlyGif(client?) {
   try {
+    const { shouldStartExternalWorkerLoop } = require("../../../../shared/runtime/externalWorkerGate") as typeof import("../../../../shared/runtime/externalWorkerGate");
+    if (!shouldStartExternalWorkerLoop("BOT_SCHEDULER")) return;
     if (client._monthlyGifTask) return;
     client._monthlyGifTask = cron.schedule(
       "0 0 1 * *",

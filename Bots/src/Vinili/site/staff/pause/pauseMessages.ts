@@ -4,6 +4,7 @@ const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids
 const { MS_PER_DAY, parseItalianDate, getTodayUtc, getCurrentYearBoundsUtc, getMonthKeyForPauseCount, getStaffWeekKeyNow, coerceMonthKey } = require("./pauseDates") as typeof import("./pauseDates");
 const { PAUSE_ROLE_STAFF, PAUSE_ROLE_PM, PAUSE_ROLE_BOTH, computeStaffersInPauseByRoleForRange, getStaffRankLimitKey, resolvePauseStaffRankRoleId, computeStaffersInPauseByStaffRankForRange, getMemberRoleLabel, normalizePauseRoleChoice, getPauseRoleLimit, getBasePauseLimit } = require("./pauseRoles") as typeof import("./pauseRoles");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 function buildAcceptedPauseLogContent({
   roleLabel,
   effectiveUserId,
@@ -16,7 +17,7 @@ function buildAcceptedPauseLogContent({
   sameRoleActiveCount,
   roleLimitWarning,
 }) {
-  return `<a:VC_Calendar:1482706208149475358> **\`${roleLabel}\`** - **<@${effectiveUserId}>** ${pauseTimingText}.\n<:VC_Clock:1473359204189474886> Dal **\`${dataRichiesta}\`** al **\`${dataRitorno}\`**\n<:VC_update:1478721333096349817> __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - <:VC_Staff:1494286904089247754> __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning || ""}`;
+  return `${E.VC_Calendar} **\`${roleLabel}\`** - **<@${effectiveUserId}>** ${pauseTimingText}.\n${E.VC_Clock} Dal **\`${dataRichiesta}\`** al **\`${dataRitorno}\`**\n${E.VC_update} __\`${giorniUsati}/${maxGiorni}\`__ giorni utilizzati (\`${giorniRimanenti}\` rimanenti) - ${E.VC_Staff} __\`${sameRoleActiveCount}\`__ staffer in pausa in quel ruolo${roleLimitWarning || ""}`;
 }
 
 function buildCancelledPauseLogContent({
@@ -30,11 +31,11 @@ function buildCancelledPauseLogContent({
   giorniRimanenti,
 }) {
   return [
-    `<a:VC_Calendar:1482706208149475358> **\`${roleLabel}\`** - **<@${effectiveUserId}>** aveva una pausa **annullata**.`,
-    `<:VC_Clock:1473359204189474886> Dal **\`${dataRichiesta}\`** al **\`${dataRitorno}\`**`,
-    `<:VC_update:1478721333096349817> Giorni scalati: __\`${giorniScalati}\`__ · Totale usati: __\`${giorniTotaliUsati}/${maxGiorni}\`__ (\`${giorniRimanenti}\` rimanenti)`,
+    `${E.VC_Calendar} **\`${roleLabel}\`** - **<@${effectiveUserId}>** aveva una pausa **annullata**.`,
+    `${E.VC_Clock} Dal **\`${dataRichiesta}\`** al **\`${dataRitorno}\`**`,
+    `${E.VC_update} Giorni scalati: __\`${giorniScalati}\`__ · Totale usati: __\`${giorniTotaliUsati}/${maxGiorni}\`__ (\`${giorniRimanenti}\` rimanenti)`,
     "",
-    "<:cancel:1461730653677551691> **__`ANNULLATA`__**",
+    `${E.cancel} **__\`ANNULLATA\`__**`,
   ].join("\n");
 }
 
@@ -160,7 +161,7 @@ function getOnePausePerMonthWarning(staffDoc?, normalized?) {
     const k = getMonthKeyForPauseCount(p.dataRichiesta, p.dataRitorno);
     return k && k.year === newCountKey.year && k.month === newCountKey.month;
   }).length;
-  if (countSameMonth >= 1) return "<:VC_Attention:1482534443632558151> Hai già una richiesta pausa in questo mese. L’High Staff può accettare comunque.";
+  if (countSameMonth >= 1) return `${E.VC_Attention} Hai già una richiesta pausa in questo mese. L’High Staff può accettare comunque.`;
   return null;
 }
 
@@ -181,7 +182,7 @@ function getOneWeekBetweenWarning(staffDoc?, excludePauseId = null) {
   const last = withDate[0];
   if (!last) return null;
   const weekAgo = Date.now() - 7 * MS_PER_DAY;
-  if (last.at > weekAgo) return "<:VC_Attention:1482534443632558151> Meno di 1 settimana dall’ultima richiesta. L’High Staff può accettare comunque.";
+  if (last.at > weekAgo) return `${E.VC_Attention} Meno di 1 settimana dall’ultima richiesta. L’High Staff può accettare comunque.`;
   return null;
 }
 

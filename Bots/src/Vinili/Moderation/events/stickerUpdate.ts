@@ -1,6 +1,7 @@
 const { AuditLogEvent, EmbedBuilder, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const STICKER_UPDATE_ACTION = AuditLogEvent?.StickerUpdate ?? 91;
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
@@ -78,24 +79,24 @@ export = {
       if (!nameChange && !tagsChange && !fallbackNameChanged && !fallbackTagsChanged) return;
 
       const lines = [
-        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+        `${E.VC_Staff} **Responsabile:** ${responsibleText}`,
+        `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
         "",
-        "**<:VC_tools:1478862265305272364> Cambiamenti**",
+        `**${E.VC_tools} Cambiamenti**`,
       ];
 
       if (nameChange || fallbackNameChanged) {
-        lines.push(`<:VC_Modifica:1478859646587633717> **Nome**`);
-        lines.push(`  ${String(nameChange?.old ?? oldSticker?.name ?? "sconosciuto")} <a:VC_Arrow:1482706699365257397> ${String(nameChange?.new ?? newSticker?.name ?? "sconosciuto")}`);
+        lines.push(`${E.VC_Modifica} **Nome**`);
+        lines.push(`  ${String(nameChange?.old ?? oldSticker?.name ?? "sconosciuto")} ${E.VC_Arrow} ${String(nameChange?.new ?? newSticker?.name ?? "sconosciuto")}`);
       }
       if (tagsChange || fallbackTagsChanged) {
-        lines.push(`<:VC_Modifica:1478859646587633717> **Tags**`);
-        lines.push(`  ${String(tagsChange?.old ?? oldSticker?.tags ?? "-")} <a:VC_Arrow:1482706699365257397> ${String(tagsChange?.new ?? newSticker?.tags ?? "-")}`);
+        lines.push(`${E.VC_Modifica} **Tags**`);
+        lines.push(`  ${String(tagsChange?.old ?? oldSticker?.tags ?? "-")} ${E.VC_Arrow} ${String(tagsChange?.new ?? newSticker?.tags ?? "-")}`);
       }
 
       const embed = new EmbedBuilder()
         .setColor("#F59E0B")
-        .setTitle("<:VC_Color:1482532543273238569> Sticker Aggiornato")
+        .setTitle(`${E.VC_Color} Sticker Aggiornato`)
         .setDescription(lines.join("\n"));
 
       if (newSticker?.url) embed.setThumbnail(newSticker.url);

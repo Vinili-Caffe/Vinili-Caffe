@@ -1,4 +1,5 @@
 const Buttons = require("./idBarrel") as typeof import("./idBarrel");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const { SERVER_REFRESH_CUSTOM_ID_PREFIX } = Buttons.server;
 const { ME_REFRESH_CUSTOM_ID_PREFIX, ME_PERIOD_OPEN_CUSTOM_ID_PREFIX, ME_PERIOD_SET_CUSTOM_ID_PREFIX, ME_PERIOD_BACK_CUSTOM_ID_PREFIX, normalizeLookbackDays } = Buttons.me;
 const { USER_REFRESH_CUSTOM_ID_PREFIX, USER_PERIOD_OPEN_CUSTOM_ID_PREFIX, USER_PERIOD_SET_CUSTOM_ID_PREFIX, USER_PERIOD_BACK_CUSTOM_ID_PREFIX } = Buttons.user;
@@ -12,7 +13,7 @@ async function denyIfNotOwner(interaction?, ownerId?) {
   if (!safeOwnerId) return false;
   if (String(interaction?.user?.id || "") === safeOwnerId) return false;
   await interaction.reply({
-    content: "<a:VC_Alert:1482706673176150077> Questo controllo non appartiene a te.",
+    content: `${E.VC_Alert} Questo controllo non appartiene a te.`,
     flags: 1 << 6,
   }).catch(() => { });
   return true;
@@ -20,7 +21,7 @@ async function denyIfNotOwner(interaction?, ownerId?) {
 
 async function sendControlErrorFallback(interaction?) {
   const payload = {
-    content: "<a:VC_Alert:1482706673176150077> Errore durante l'aggiornamento del controllo.",
+    content: `${E.VC_Alert} Errore durante l'aggiornamento del controllo.`,
     flags: 1 << 6,
   };
   if (interaction.deferred || interaction.replied) {

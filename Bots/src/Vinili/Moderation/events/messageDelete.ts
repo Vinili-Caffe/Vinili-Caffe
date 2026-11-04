@@ -5,6 +5,7 @@ const { toDiscordTimestamp } = require("../../Moderation/utils/channelRolesLogUt
 const { handlePartnerDescriptionMessageDelete } = require("../../Partner/services/partnerDescriptionSyncService") as typeof import("../../Partner/services/partnerDescriptionSyncService");
 const { handleTenantPartnerDescriptionMessageDelete } = require("../../Partner/services/tenantPartnerDescriptionService") as typeof import("../../Partner/services/tenantPartnerDescriptionService");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function isViniliFullFeatureGuild(guildId?) {
   try {
     const { isViniliFullFeatureGuild: check } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
@@ -173,26 +174,26 @@ async function sendDeleteLog(message?) {
   const hasContent = normalizeText(content).length > 0;
   const hasAttachments = attachmentNames.length > 0;
 
-  const lines=[`<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+  const lines=[`${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
     "",
     "**Impostazioni precedenti**",
-    `<:VC_Modifica:1478859646587633717> **Canale:** ${message.channel||"#sconosciuto"}`,
-    `<:VC_Modifica:1478859646587633717> **Id:** \`${message.id||"sconosciuto"}\``,];
+    `${E.VC_Modifica} **Canale:** ${message.channel||"#sconosciuto"}`,
+    `${E.VC_Modifica} **Id:** \`${message.id||"sconosciuto"}\``,];
 
-  lines.push("<:VC_Modifica:1478859646587633717> **Contenuto:**");
+  lines.push(`${E.VC_Modifica} **Contenuto:**`);
   lines.push("```diff");
   lines.push(buildDeletedDiff(hasContent ? content : "Nessun contenuto."));
   lines.push("```");
   lines.push(
-    `<:VC_Modifica:1478859646587633717> **Attachment:** ${hasAttachments ? `[ ${attachmentNames.join(", ")} ]` : "[ nessuno ]"}`,
+    `${E.VC_Modifica} **Attachment:** ${hasAttachments ? `[ ${attachmentNames.join(", ")} ]` : "[ nessuno ]"}`,
   );
   if (message?.author) {
-    lines.push(`<:VC_Modifica:1478859646587633717> **Autore:** ${buildAuthorLabel(message)}`);
+    lines.push(`${E.VC_Modifica} **Autore:** ${buildAuthorLabel(message)}`);
   }
 
   const embed = new EmbedBuilder()
     .setColor("#ED4245")
-    .setTitle("<a:VC_Verified:1482532479637127188> Messaggio eliminato")
+    .setTitle(`${E.VC_Verified} Messaggio eliminato`)
     .setDescription(lines.join("\n"));
 
   const preview = firstImageAttachment(message);

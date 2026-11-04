@@ -9,11 +9,12 @@ const { createModCase, getModConfig, logModCase } = require("../../Moderation/ut
 const { buildUnbanRequestRow } = require("../../Moderation/utils/unbanRequestButton") as typeof import("../../Moderation/utils/unbanRequestButton");
 const { guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function buildJoinGateTriggeredEmbed(member?, reason?) {
   return new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle(`<:VC_User:1482527453586002103> ${member.user.username} ha attivato il joingate!`)
-    .setDescription([`<:VC_User:1482527453586002103> **Membro:** ${member.user.username} [\`${member.user.id}\`]`, `<:VC_reason:1478517122929004544> **Motivo:** ${reason}`,].join("\n"))
+    .setTitle(`${E.VC_User} ${member.user.username} ha attivato il joingate!`)
+    .setDescription([`${E.VC_User} **Membro:** ${member.user.username} [\`${member.user.id}\`]`, `${E.VC_reason} **Motivo:** ${reason}`,].join("\n"))
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || null);
 }
 
@@ -148,10 +149,10 @@ async function enforceJoinGatePostJoinUsername(oldMember?, newMember?) {
   let dmSent = false;
   if (punished && appliedAction !== "log" && cfg?.dmPunishedMembers !== false) {
     dmSent = await sendJoinGatePostJoinDm(newMember, reason, [
-      `<:VC_Rules:1482527309868040393> **Regola:** Filtro username`,
-      `<:VC_Info:1482526956703580372> **Tipo di match:** ${match.type}`,
-      `<:VC_Modifica:1478859646587633717> **Match:** ${match.value}`,
-      `<:VC_Modifica:1478859646587633717> **Nome:** ${newCandidate || "N/A"}`,
+      `${E.VC_Rules} **Regola:** Filtro username`,
+      `${E.VC_Info} **Tipo di match:** ${match.type}`,
+      `${E.VC_Modifica} **Match:** ${match.value}`,
+      `${E.VC_Modifica} **Nome:** ${newCandidate || "N/A"}`,
     ], appliedAction);
   }
 
@@ -178,18 +179,18 @@ async function enforceJoinGatePostJoinUsername(oldMember?, newMember?) {
   )
     .setDescription(
       [
-        `<:VC_User:1482527453586002103> **Membro:** ${newMember.user.username} [\`${newMember.user.id}\`]`,
-        `<:VC_reason:1478517122929004544> **Motivo:** Username matches blocked pattern (post-join filter).`,
-        `<:VC_Rules:1482527309868040393> **Regola:** Filtro username`,
-        `<:VC_Action:1482527453586002103> **Azione:** ${String(appliedAction || "log").toUpperCase()}`,
-        `<:VC_Info:1482526956703580372> **Tipo di match:** ${match.type}`,
-        `<:VC_Modifica:1478859646587633717> **Match:** ${match.value}`,
-        `<:VC_Modifica:1478859646587633717> **Nome vecchio:** ${oldCandidate || "N/A"}`,
-        `<:VC_Modifica:1478859646587633717> **Nome nuovo:** ${newCandidate || "N/A"}`,
+        `${E.VC_User} **Membro:** ${newMember.user.username} [\`${newMember.user.id}\`]`,
+        `${E.VC_reason} **Motivo:** Username matches blocked pattern (post-join filter).`,
+        `${E.VC_Rules} **Regola:** Filtro username`,
+        `${E.VC_Action} **Azione:** ${String(appliedAction || "log").toUpperCase()}`,
+        `${E.VC_Info} **Tipo di match:** ${match.type}`,
+        `${E.VC_Modifica} **Match:** ${match.value}`,
+        `${E.VC_Modifica} **Nome vecchio:** ${oldCandidate || "N/A"}`,
+        `${E.VC_Modifica} **Nome nuovo:** ${newCandidate || "N/A"}`,
         "",
-        "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
-        `<:VC_Info:1482526956703580372> **Membro messaggio diretto?** ${dmSent ? "<a:VC_Verified:1482532479637127188>" : "<a:VC_Cross:1482532424570376253>"}`,
-        `<:VC_Info:1482526956703580372> **Membro punito?** ${punished ? "<a:VC_Verified:1482532479637127188>" : "<a:VC_Cross:1482532424570376253>"}`,
+        `**${E.VC_tools} Informazioni aggiuntive**`,
+        `${E.VC_Info} **Membro messaggio diretto?** ${dmSent ? E.VC_Verified : E.VC_Cross}`,
+        `${E.VC_Info} **Membro punito?** ${punished ? E.VC_Verified : E.VC_Cross}`,
       ].join("\n"),
     )
     .setThumbnail(guildMemberDisplayAvatarUrlDynamic(newMember, { size: 256 }) || null)

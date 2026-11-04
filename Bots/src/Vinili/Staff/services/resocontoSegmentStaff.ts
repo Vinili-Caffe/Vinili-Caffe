@@ -11,6 +11,7 @@ const { computeActivityGrade, computeBehaviorGrade, buildStaffResocontoAzioneDis
 const { STAFF_LIMITS_POSITIVE_MULTIPLIER, shouldSkipLimitAutovalutazioniForStaffMember, shouldSkipSanctionAutovalutazioniForStaffMember, applyWeeklyStaffAutoValutazioniForMember } = require("./resocontoAutoValutazioni") as typeof import("./resocontoAutoValutazioni");
 const { appendStaffResocontoPostedId, appendStaffResocontoPostedRoleId, hadStaffRoleResocontoPostedThisCycle, hasSiteResocontoThisWeek } = require("./resocontoSegmentPosted") as typeof import("./resocontoSegmentPosted");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function processStaffResocontoMember({
   member,
   userId,
@@ -158,22 +159,22 @@ async function processStaffResocontoMember({
     const staffRoleEmoji = getStaffRoleEmojiByRoleId(staffRoleId);
     const contentLines = [
       `${staffRoleEmoji} **Staffer:** __**<@${userId}>**__${staffNewBadge}`,
-      `<:VC_Mention:1482526855289634997> **Ruolo:** __<@&${staffRoleId}>__`,
-      `<:VC_Chat:1482532573002465413> **Messaggi in una settimana:** __${weeklyMessages}__`,
-      `<:voice:1467639623735054509> **Ore in una settimana:** __${formatHoursFromSeconds(weeklyVoiceSeconds)}__`,
+      `${E.VC_Mention} **Ruolo:** __<@&${staffRoleId}>__`,
+      `${E.VC_Chat} **Messaggi in una settimana:** __${weeklyMessages}__`,
+      `${E.voice} **Ore in una settimana:** __${formatHoursFromSeconds(weeklyVoiceSeconds)}__`,
       ...buildCostanzaLines(overview),
-      `<a:VC_Exclamation:1482534702077444217>  **Attività:** __${activityGrade}__`,
-      `<:VC_Eye:1331619214410383381> **Condotta:** __${behaviorGrade}__`,
+      `${E.VC_Exclamation}  **Attività:** __${activityGrade}__`,
+      `${E.VC_Eye} **Condotta:** __${behaviorGrade}__`,
     ];
     if (sanctionLimit != null) {
-      contentLines.push(`<:VC_Dot:1443660294596329582> **Sanzioni nella settimana:** __${weeklySanctions}__ (minimo __${sanctionLimit}__)`);
+      contentLines.push(`${E.VC_Dot__329582} **Sanzioni nella settimana:** __${weeklySanctions}__ (minimo __${sanctionLimit}__)`);
     }
     const swapLine = formatStaffLimitsSwapLine(limitsEvaluation);
     if (swapLine) contentLines.push(swapLine);
     if (overviewUnavailable) {
-      contentLines.push("<a:VC_Exclamation:1482534702077444217> **Stats attività non disponibili:** controllare manualmente.");
+      contentLines.push(`${E.VC_Exclamation} **Stats attività non disponibili:** controllare manualmente.`);
     }
-    contentLines.push(`<:VC_BanHammer:1482534474502897795> **Azione:** __${action}__`);
+    contentLines.push(`${E.VC_BanHammer} **Azione:** __${action}__`);
     const pauseLine = getStaffPauseLine(staffDoc, "Staff", member);
     if (pauseLine) contentLines.push(pauseLine);
 

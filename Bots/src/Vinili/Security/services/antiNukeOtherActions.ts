@@ -8,6 +8,7 @@ const { DANGEROUS_PERMS } = require("./antiNukePanicLock") as typeof import("./a
 const { isAntiNukeScopeGuild, quarantineOutcomeLabel, quarantineExecutor } = require("./antiNukeQuarantine") as typeof import("./antiNukeQuarantine");
 const { normalizeExecutorId, enableAntiNukePanic, handleChannelCreationAction, handleChannelDeletionAction } = require("./antiNukeRoleChannelActions") as typeof import("./antiNukeRoleChannelActions");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const DANGEROUS_CHANNEL_PERMS = [PermissionsBitField.Flags.ManageChannels, PermissionsBitField.Flags.ManageRoles, PermissionsBitField.Flags.ManageWebhooks, PermissionsBitField.Flags.ManageMessages, PermissionsBitField.Flags.MentionEveryone,];
 
 function containsDangerousBits(bitfield?, dangerList = DANGEROUS_PERMS) {
@@ -34,29 +35,29 @@ async function handleRoleUpdate({ oldRole, newRole, executorId }) {
   const addedDanger = dangerousAddedBits(oldRole?.permissions?.bitfield || 0n, newRole?.permissions?.bitfield || 0n, DANGEROUS_PERMS,);
   if (!addedDanger.length) return;
   if (isUnknownExecutorId(actorId)) {
-    await logAuditMissingSkip(guild, "<a:VC_Alert:1482706673176150077> AntiNuke: Role Quarantine", [
-      `<a:VC_Alert:1482706673176150077> **Role:** ${newRole} \`${newRole.id}\``,
-      `<a:VC_Alert:1482706673176150077> **Action:** Dangerous permissions detected`,
+    await logAuditMissingSkip(guild, `${E.VC_Alert} AntiNuke: Role Quarantine`, [
+      `${E.VC_Alert} **Role:** ${newRole} \`${newRole.id}\``,
+      `${E.VC_Alert} **Action:** Dangerous permissions detected`,
     ]);
     return;
   }
   if (await isWhitelistedExecutorAsync(guild, actorId)) return;
-  await enableAntiNukePanic(guild, "<a:VC_Alert:1482706673176150077> Dangerous role permission update", 100);
+  await enableAntiNukePanic(guild, `${E.VC_Alert} Dangerous role permission update`, 100);
 
   const myMember = guild.members.me;
   if (!myMember?.permissions?.has(PermissionsBitField.Flags.ManageRoles)) return;
   if (newRole.position >= myMember.roles.highest.position) return;
 
-  await newRole.setPermissions(oldRole.permissions.bitfield, "<:VC_Lock:1482526739044368476> AntiNuke: revert dangerous role perms").catch(() => { });
-  const quarantine = await quarantineExecutor(guild, actorId, "<:VC_Lock:1482526739044368476> AntiNuke: dangerous role permission update",);
+  await newRole.setPermissions(oldRole.permissions.bitfield, `${E.VC_Lock} AntiNuke: revert dangerous role perms`).catch(() => { });
+  const quarantine = await quarantineExecutor(guild, actorId, `${E.VC_Lock} AntiNuke: dangerous role permission update`,);
   await sendAntiNukeLog(
     guild,
-    "<a:VC_Alert:1482706673176150077> AntiNuke: Role Quarantine",
+    `${E.VC_Alert} AntiNuke: Role Quarantine`,
     [
       formatExecutorLine(actorId),
-      `<a:VC_Alert:1482706673176150077> **Role:** ${newRole} \`${newRole.id}\``,
-      `<a:VC_Alert:1482706673176150077> **Action:** Dangerous permissions reverted`,
-      `<a:VC_Alert:1482706673176150077> **Result:** ${quarantineOutcomeLabel(quarantine)}`,
+      `${E.VC_Alert} **Role:** ${newRole} \`${newRole.id}\``,
+      `${E.VC_Alert} **Action:** Dangerous permissions reverted`,
+      `${E.VC_Alert} **Result:** ${quarantineOutcomeLabel(quarantine)}`,
     ],
   );
 }
@@ -68,21 +69,21 @@ async function handleMemberRoleAddition({ guild, targetMember, addedRoles, execu
   const actorId = normalizeExecutorId(executorId);
   if (isUnknownExecutorId(actorId)) {
     global.logger?.warn?.(
-      "<a:VC_Alert:1482706673176150077> [AntiNuke] Skipping dangerous member role rollback because audit executor is missing:",
+      `${E.VC_Alert} [AntiNuke] Skipping dangerous member role rollback because audit executor is missing:`,
       guild.id,
       targetMember.id,
       addedRoles.map((role?) => String(role?.id || "")).filter(Boolean),
     );
     await sendAntiNukeLog(
       guild,
-      "<a:VC_Alert:1482706673176150077> AntiNuke: Member Role Quarantine",
+      `${E.VC_Alert} AntiNuke: Member Role Quarantine`,
       [
         formatExecutorLine(actorId),
         formatAuditStatusLine(actorId),
-        `<a:VC_Alert:1482706673176150077> **Target:** ${targetMember.user} \`${targetMember.id}\``,
-        `<a:VC_Alert:1482706673176150077> **Action:** Dangerous granted role(s) detected`,
-        `<:VC_reason:1478517122929004544> **Technical Reason:** Audit log entry not available in time, automatic rollback skipped to avoid false positives`,
-        `<:VC_reason:1478517122929004544> **Result:** No rollback performed`,
+        `${E.VC_Alert} **Target:** ${targetMember.user} \`${targetMember.id}\``,
+        `${E.VC_Alert} **Action:** Dangerous granted role(s) detected`,
+        `${E.VC_reason} **Technical Reason:** Audit log entry not available in time, automatic rollback skipped to avoid false positives`,
+        `${E.VC_reason} **Result:** No rollback performed`,
       ],
       "#FEE75C",
     );
@@ -91,26 +92,26 @@ async function handleMemberRoleAddition({ guild, targetMember, addedRoles, execu
   const dangerousRoles = addedRoles.filter((role?) => containsDangerousBits(role?.permissions?.bitfield || 0n, DANGEROUS_PERMS),);
   if (!dangerousRoles.length) return;
   if (await isWhitelistedExecutorAsync(guild, actorId)) return;
-  await enableAntiNukePanic(guild, "<a:VC_Alert:1482706673176150077> Dangerous role added to member", 100);
+  await enableAntiNukePanic(guild, `${E.VC_Alert} Dangerous role added to member`, 100);
 
   const myMember = guild.members.me;
   if (!myMember?.permissions?.has(PermissionsBitField.Flags.ManageRoles)) return;
 
   const removable = dangerousRoles.filter((role?) => role.position < myMember.roles.highest.position);
   if (!removable.length) return;
-  await targetMember.roles.remove(removable, "<:VC_Lock:1482526739044368476> AntiNuke: remove dangerous role grants").catch(() => { });
+  await targetMember.roles.remove(removable, `${E.VC_Lock} AntiNuke: remove dangerous role grants`).catch(() => { });
   const refreshedTarget = await getGuildMemberCached(guild, String(targetMember.id), { ttlMs: 1 });
   if (removable.some((role?) => refreshedTarget?.roles?.cache?.has?.(role.id))) return;
-  const quarantine = await quarantineExecutor(guild, actorId, "<:VC_Lock:1482526739044368476> AntiNuke: dangerous role granted to member",);
+  const quarantine = await quarantineExecutor(guild, actorId, `${E.VC_Lock} AntiNuke: dangerous role granted to member`,);
   await sendAntiNukeLog(
     guild,
-    "<a:VC_Alert:1482706673176150077> AntiNuke: Member Role Quarantine",
+    `${E.VC_Alert} AntiNuke: Member Role Quarantine`,
     [
       formatExecutorLine(actorId),
       formatAuditStatusLine(actorId),
-      `<a:VC_Alert:1482706673176150077> **Target:** ${targetMember.user} \`${targetMember.id}\``,
-      `<a:VC_Alert:1482706673176150077> **Action:** Dangerous granted role(s) removed`,
-      `<a:VC_Alert:1482706673176150077> **Result:** ${quarantineOutcomeLabel(quarantine)}`,
+      `${E.VC_Alert} **Target:** ${targetMember.user} \`${targetMember.id}\``,
+      `${E.VC_Alert} **Action:** Dangerous granted role(s) removed`,
+      `${E.VC_Alert} **Result:** ${quarantineOutcomeLabel(quarantine)}`,
     ],
   );
 }
@@ -128,15 +129,15 @@ async function handleChannelOverwrite({ guild, channel, overwrite, beforeAllow =
   const addedDanger = dangerousAddedBits(beforeAllow, afterAllow, DANGEROUS_CHANNEL_PERMS);
   if (!addedDanger.length) return;
   if (isUnknownExecutorId(actorId)) {
-    await logAuditMissingSkip(guild, "<a:VC_Alert:1482706673176150077> AntiNuke: Channel Overwrite Quarantine", [
-      `<a:VC_Alert:1482706673176150077> **Channel:** ${channel} \`${channel.id}\``,
-      `<a:VC_Alert:1482706673176150077> **Overwrite Role:** <@&${overwrite.id}> \`${overwrite.id}\``,
-      `<a:VC_Alert:1482706673176150077> **Action:** Dangerous channel perms detected`,
+    await logAuditMissingSkip(guild, `${E.VC_Alert} AntiNuke: Channel Overwrite Quarantine`, [
+      `${E.VC_Alert} **Channel:** ${channel} \`${channel.id}\``,
+      `${E.VC_Alert} **Overwrite Role:** <@&${overwrite.id}> \`${overwrite.id}\``,
+      `${E.VC_Alert} **Action:** Dangerous channel perms detected`,
     ]);
     return;
   }
   if (await isWhitelistedExecutorAsync(guild, actorId)) return;
-  await enableAntiNukePanic(guild, "<a:VC_Alert:1482706673176150077> Dangerous channel overwrite", 100);
+  await enableAntiNukePanic(guild, `${E.VC_Alert} Dangerous channel overwrite`, 100);
 
   const me = guild.members.me;
   if (!me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) return;
@@ -144,19 +145,19 @@ async function handleChannelOverwrite({ guild, channel, overwrite, beforeAllow =
   await channel.permissionOverwrites.edit(
     overwrite.id,
     { allow: beforeAllow, deny: overwrite.deny?.bitfield ?? 0n },
-    { reason: "<:VC_Lock:1482526739044368476> AntiNuke: revert dangerous channel overwrite permissions" },
+    { reason: `${E.VC_Lock} AntiNuke: revert dangerous channel overwrite permissions` },
   ).catch(() => { });
 
-  const quarantine = await quarantineExecutor(guild, actorId, "<:VC_Lock:1482526739044368476> AntiNuke: dangerous channel overwrite",);
+  const quarantine = await quarantineExecutor(guild, actorId, `${E.VC_Lock} AntiNuke: dangerous channel overwrite`,);
   await sendAntiNukeLog(
     guild,
-    "<a:VC_Alert:1482706673176150077> AntiNuke: Channel Overwrite Quarantine",
+    `${E.VC_Alert} AntiNuke: Channel Overwrite Quarantine`,
     [
       formatExecutorLine(actorId),
-      `<a:VC_Alert:1482706673176150077> **Channel:** ${channel} \`${channel.id}\``,
-      `<a:VC_Alert:1482706673176150077> **Overwrite Role:** <@&${overwrite.id}> \`${overwrite.id}\``,
-      `<a:VC_Alert:1482706673176150077> **Action:** Dangerous channel perms reverted`,
-      `<a:VC_Alert:1482706673176150077> **Result:** ${quarantineOutcomeLabel(quarantine)}`,
+      `${E.VC_Alert} **Channel:** ${channel} \`${channel.id}\``,
+      `${E.VC_Alert} **Overwrite Role:** <@&${overwrite.id}> \`${overwrite.id}\``,
+      `${E.VC_Alert} **Action:** Dangerous channel perms reverted`,
+      `${E.VC_Alert} **Result:** ${quarantineOutcomeLabel(quarantine)}`,
     ],
   );
 }
@@ -171,32 +172,32 @@ async function handleVanityGuard({ oldGuild, newGuild, executorId }) {
   const newVanity = String(newGuild?.vanityURLCode || "");
   if (oldVanity === newVanity) return;
   if (isUnknownExecutorId(actorId)) {
-    await logAuditMissingSkip(guild, "<a:VC_Alert:1482706673176150077> AntiNuke: Vanity Guard", [
+    await logAuditMissingSkip(guild, `${E.VC_Alert} AntiNuke: Vanity Guard`, [
       oldVanity
-        ? `<a:VC_Alert:1482706673176150077> **Action:** Unauthorized vanity change detected for \`${oldVanity}\``
-        : `<a:VC_Alert:1482706673176150077> **Action:** Unauthorized vanity set detected`,
+        ? `${E.VC_Alert} **Action:** Unauthorized vanity change detected for \`${oldVanity}\``
+        : `${E.VC_Alert} **Action:** Unauthorized vanity set detected`,
     ]);
     return;
   }
   if (!newGuild?.setVanityCode) return;
   if (await isWhitelistedExecutorAsync(guild, actorId)) return;
-  await enableAntiNukePanic(guild, "<a:VC_Alert:1482706673176150077> Vanity URL unauthorized update", 100);
+  await enableAntiNukePanic(guild, `${E.VC_Alert} Vanity URL unauthorized update`, 100);
 
   if (oldVanity) {
-    await newGuild.setVanityCode(oldVanity, "<:VC_Lock:1482526739044368476> AntiNuke: restore vanity url").catch(() => { });
+    await newGuild.setVanityCode(oldVanity, `${E.VC_Lock} AntiNuke: restore vanity url`).catch(() => { });
   } else {
-    await newGuild.setVanityCode(null, "<:VC_Lock:1482526739044368476> AntiNuke: clear unauthorized vanity url").catch(() => { });
+    await newGuild.setVanityCode(null, `${E.VC_Lock} AntiNuke: clear unauthorized vanity url`).catch(() => { });
   }
-  const quarantine = await quarantineExecutor(guild, actorId, "<:VC_Lock:1482526739044368476> AntiNuke: unauthorized vanity update",);
+  const quarantine = await quarantineExecutor(guild, actorId, `${E.VC_Lock} AntiNuke: unauthorized vanity update`,);
   await sendAntiNukeLog(
     guild,
-    "<a:VC_Alert:1482706673176150077> AntiNuke: Vanity Guard",
+    `${E.VC_Alert} AntiNuke: Vanity Guard`,
     [
       formatExecutorLine(actorId),
       oldVanity
-        ? `<a:VC_Alert:1482706673176150077> **Action:** Vanity restored to \`${oldVanity}\``
-        : `<a:VC_Alert:1482706673176150077> **Action:** Unauthorized vanity removed`,
-      `<a:VC_Alert:1482706673176150077> **Result:** ${quarantineOutcomeLabel(quarantine)}`,
+        ? `${E.VC_Alert} **Action:** Vanity restored to \`${oldVanity}\``
+        : `${E.VC_Alert} **Action:** Unauthorized vanity removed`,
+      `${E.VC_Alert} **Result:** ${quarantineOutcomeLabel(quarantine)}`,
     ],
   );
 }
@@ -207,23 +208,23 @@ async function handlePruneAction({ guild, executorId, removedCount = 0 }) {
   if (!guild) return;
   const actorId = normalizeExecutorId(executorId);
   if (isUnknownExecutorId(actorId)) {
-    await logAuditMissingSkip(guild, "<a:VC_Alert:1482706673176150077> AntiNuke: Member Prune", [
-      `<a:VC_Alert:1482706673176150077> **Action:** Member prune detected`,
-      `<a:VC_Alert:1482706673176150077> **Rimossi:** ${Number(removedCount || 0)}`,
+    await logAuditMissingSkip(guild, `${E.VC_Alert} AntiNuke: Member Prune`, [
+      `${E.VC_Alert} **Action:** Member prune detected`,
+      `${E.VC_Alert} **Rimossi:** ${Number(removedCount || 0)}`,
     ]);
     return;
   }
   if (await isWhitelistedExecutorAsync(guild, actorId)) return;
-  await enableAntiNukePanic(guild, "<a:VC_Alert:1482706673176150077> Member prune detected", 100);
-  const quarantine = await quarantineExecutor(guild, actorId, "<:VC_Lock:1482526739044368476> AntiNuke: member prune detected",);
+  await enableAntiNukePanic(guild, `${E.VC_Alert} Member prune detected`, 100);
+  const quarantine = await quarantineExecutor(guild, actorId, `${E.VC_Lock} AntiNuke: member prune detected`,);
   await sendAntiNukeLog(
     guild,
-    "<a:VC_Alert:1482706673176150077> AntiNuke: Member Prune",
+    `${E.VC_Alert} AntiNuke: Member Prune`,
     [
       formatExecutorLine(actorId),
-      `<a:VC_Alert:1482706673176150077> **Action:** Member prune`,
-      `<a:VC_Alert:1482706673176150077> **Rimossi:** ${Number(removedCount || 0)}`,
-      `<a:VC_Alert:1482706673176150077> **Result:** ${quarantineOutcomeLabel(quarantine)}`,
+      `${E.VC_Alert} **Action:** Member prune`,
+      `${E.VC_Alert} **Rimossi:** ${Number(removedCount || 0)}`,
+      `${E.VC_Alert} **Result:** ${quarantineOutcomeLabel(quarantine)}`,
     ],
   );
 }

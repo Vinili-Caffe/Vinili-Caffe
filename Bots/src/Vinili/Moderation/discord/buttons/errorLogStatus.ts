@@ -1,5 +1,6 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const ERROR_STATUS_IDS = new Set(["error_pending", "error_solved", "error_unsolved"]);
 const PRIVATE = 1 << 6;
 
@@ -12,7 +13,7 @@ async function execute(interaction?) {
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
     await interaction
       .reply({
-        content: "<:vegax:1443934876440068179> Non hai i permessi per fare questo comando.",
+        content: `${E.vegax} Non hai i permessi per fare questo comando.`,
         flags: PRIVATE,
       })
       .catch(() => null);

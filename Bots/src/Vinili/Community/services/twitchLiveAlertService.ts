@@ -2,6 +2,7 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const { getClientGuildCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const STATE_KEY = "twitchLiveAlert.v1";
 /* perfP1: poll meno frequente a idle */
 const DEFAULT_POLL_INTERVAL_SEC = 120;
@@ -240,16 +241,16 @@ function buildAnnouncementContent({ streamer, stream, pingRoleId }) {
   const userMention = streamer.discordUserId ? `<@${streamer.discordUserId}>` : displayName;
 
   const lines = [
-    "# <a:VC_TwitchLive:1524066585646596106> LIVE SU TWITCH",
+    `# ${E.VC_TwitchLive} LIVE SU TWITCH`,
     "",
-    `> <a:VC_HeartsPink:1468685897389052008> **${userMention}** è in live adesso!`,
+    `> ${E.VC_HeartsPink} **${userMention}** è in live adesso!`,
     "",
-    `<:VC_Info:1482526956703580372> **${title}**`,
+    `${E.VC_Info} **${title}**`,
   ];
-  if (game) lines.push(`<:VC_CommunityManager:1494286896459681924> Categoria: **${game}**`);
-  if (viewerCount > 0) lines.push(`<:VC_Stats:1482527532682055780> Spettatori: **${viewerCount.toLocaleString("it-IT")}**`);
-  lines.push("", `<:VC_Reply:1482532158080942191> [Guarda la diretta](${url})`);
-  lines.push("", `<a:VC_Ping:1482694298687246377>︲<@&${pingRoleId}>`);
+  if (game) lines.push(`${E.VC_CommunityManager} Categoria: **${game}**`);
+  if (viewerCount > 0) lines.push(`${E.VC_Stats} Spettatori: **${viewerCount.toLocaleString("it-IT")}**`);
+  lines.push("", `${E.VC_Reply} [Guarda la diretta](${url})`);
+  lines.push("", `${E.VC_Ping}︲<@&${pingRoleId}>`);
 
   const embed = new EmbedBuilder()
     .setColor("#9146FF")

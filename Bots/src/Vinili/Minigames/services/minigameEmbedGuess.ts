@@ -3,16 +3,17 @@ const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { formatItalianMinutesBold } = require("../../../shared/utils/italianDurationLabels") as typeof import("../../../shared/utils/italianDurationLabels");
 const { MINIGAME_EMBED_COLOR, DRIVING_QUIZ_LETTERS } = require("./minigameEmbedShared") as typeof import("./minigameEmbedShared");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function buildGuessNumberEmbed(min?, max?, rewardExp?, durationMs?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina il numero <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina il numero ${E.VC_Exclamation}`)
     .setDescription(
       [
-        `<:VC_EXP:1482534670896730143> Indovina un numero tra **${min}** e **${max}** per ottenere **${rewardExp} exp**.`,
-        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinarlo!`,
-        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+        `${E.VC_EXP} Indovina un numero tra **${min}** e **${max}** per ottenere **${rewardExp} exp**.`,
+        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per indovinarlo!`,
+        `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -21,12 +22,12 @@ function buildGuessWordEmbed(scrambled?, rewardExp?, durationMs?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina la parola <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina la parola ${E.VC_Exclamation}`)
     .setDescription(
       [
-        `<:VC_EXP:1482534670896730143> Indovina la parola da queste lettere: **${scrambled}** per ottenere **${rewardExp} exp**.`,
-        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinarla!`,
-        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+        `${E.VC_EXP} Indovina la parola da queste lettere: **${scrambled}** per ottenere **${rewardExp} exp**.`,
+        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per indovinarla!`,
+        `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -35,12 +36,12 @@ function buildGuessFlagEmbed(flagUrl?, rewardExp?, durationMs?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina la bandiera <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina la bandiera ${E.VC_Exclamation}`)
     .setDescription(
       [
-        `<:VC_EXP:1482534670896730143> Indovina la nazione da questa bandiera per ottenere **${rewardExp} exp**.`,
-        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinarla!`,
-        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+        `${E.VC_EXP} Indovina la nazione da questa bandiera per ottenere **${rewardExp} exp**.`,
+        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per indovinarla!`,
+        `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     )
     .setImage(flagUrl);
@@ -50,11 +51,11 @@ function buildGuessPlayerEmbed(rewardExp?, durationMs?, imageUrl?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina il calciatore <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina il calciatore ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> Indovina il calciatore più famoso per ottenere **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinarlo!`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} Indovina il calciatore più famoso per ottenere **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per indovinarlo!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),);
   if (imageUrl) {
     embed.setImage(imageUrl);
@@ -66,11 +67,11 @@ function buildGuessSongEmbed(rewardExp?, durationMs?, artworkUrl?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina la canzone <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina la canzone ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> Indovina la canzone per ottenere **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinarla!`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} Indovina la canzone per ottenere **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per indovinarla!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),);
   if (artworkUrl) embed.setImage(artworkUrl);
   return embed;
@@ -80,11 +81,11 @@ function buildGuessCapitalEmbed(country?, rewardExp?, durationMs?, imageUrl = nu
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina la capitale <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina la capitale ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> Indovina la capitale di **${country}** per ottenere **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} Indovina la capitale di **${country}** per ottenere **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageUrl) embed.setImage(imageUrl);
@@ -95,11 +96,11 @@ function buildGuessRegionCapitalEmbed(region?, rewardExp?, durationMs?, imageUrl
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina il capoluogo <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina il capoluogo ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> Indovina il capoluogo della regione **${region}** per ottenere **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} Indovina il capoluogo della regione **${region}** per ottenere **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageName) embed.setImage(`attachment://${imageName}`);
@@ -111,11 +112,11 @@ function buildGuessReverseCapitalEmbed(capital?, rewardExp?, durationMs?, imageU
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Capitale inverso <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Capitale inverso ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> **${capital}** è la capitale di quale Stato? Indovina per **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} **${capital}** è la capitale di quale Stato? Indovina per **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageUrl) embed.setImage(imageUrl);
@@ -126,12 +127,12 @@ function buildFastTypeEmbed(phrase?, rewardExp?, durationMs?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Scrivi per primo la frase <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Scrivi per primo la frase ${E.VC_Exclamation}`)
     .setDescription(
       [
-        `<:VC_EXP:1482534670896730143> Il primo che scrive questa frase ottiene **${rewardExp} exp**.`,
-        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per scrivere la frase.`,
-        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+        `${E.VC_EXP} Il primo che scrive questa frase ottiene **${rewardExp} exp**.`,
+        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per scrivere la frase.`,
+        `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -140,11 +141,11 @@ function buildGuessTeamEmbed(rewardExp?, durationMs?, imageUrl?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina la squadra di calcio <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina la squadra di calcio ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> Indovina la squadra di calcio dal logo per ottenere **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinare la squadra.`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} Indovina la squadra di calcio dal logo per ottenere **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per indovinare la squadra.`,
+      `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageUrl) embed.setImage(imageUrl);
@@ -155,11 +156,11 @@ function buildGuessSingerEmbed(rewardExp?, durationMs?, imageUrl?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina il cantante <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina il cantante ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> Indovina il cantante dalla foto per ottenere **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinare il cantante.`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} Indovina il cantante dalla foto per ottenere **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per indovinare il cantante.`,
+      `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageUrl) embed.setImage(imageUrl);
@@ -170,11 +171,11 @@ function buildGuessAlbumEmbed(rewardExp?, durationMs?, imageUrlOrAttachment?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina l'album <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina l'album ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> Indovina l'album dalla copertina per ottenere **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinare l'album.`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} Indovina l'album dalla copertina per ottenere **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per indovinare l'album.`,
+      `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageUrlOrAttachment) embed.setImage(imageUrlOrAttachment);
@@ -185,12 +186,12 @@ function buildHangmanEmbed(maskedWord?, rewardExp?, durationMs?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Impiccato <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Impiccato ${E.VC_Exclamation}`)
     .setDescription(
       [
-        `<:VC_EXP:1482534670896730143> Scrivi una lettera o prova la parola intera per ottenere **${rewardExp} exp**.`,
-        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per indovinare la parola.`,
-        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+        `${E.VC_EXP} Scrivi una lettera o prova la parola intera per ottenere **${rewardExp} exp**.`,
+        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per indovinare la parola.`,
+        `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -199,12 +200,12 @@ function buildItalianGkEmbed(question?, rewardExp?, durationMs?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Cultura generale <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Cultura generale ${E.VC_Exclamation}`)
     .setDescription(
       [
-        `<:VC_EXP:1482534670896730143> **Domanda:** ${question} per ottenere **${rewardExp} exp**.`,
-        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere alla domanda.`,
-        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+        `${E.VC_EXP} **Domanda:** ${question} per ottenere **${rewardExp} exp**.`,
+        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere alla domanda.`,
+        `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -213,7 +214,7 @@ function buildDrivingQuizEmbed(row?, rewardExp?, durationMs?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const statement = row?.statement ?? "";
   const isMultiple = row?.questionType === "multiple" && Array.isArray(row.options) && row.options.length >= 2;
-  const lines = [`<:VC_EXP:1482534670896730143> **${isMultiple ? "Domanda" : "Affermazione"}:** ${statement}`,
+  const lines = [`${E.VC_EXP} **${isMultiple ? "Domanda" : "Affermazione"}:** ${statement}`,
   ];
   if (isMultiple) {
     row.options.forEach((opt?, i?) => {
@@ -226,11 +227,11 @@ function buildDrivingQuizEmbed(row?, rewardExp?, durationMs?) {
   }
   lines.push(
     `Ricompensa: **${rewardExp} exp**`,
-    `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)}.`,
+    `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)}.`,
   );
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Quiz patente <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Quiz patente ${E.VC_Exclamation}`)
     .setDescription(lines.join("\n"));
 }
 
@@ -238,11 +239,11 @@ function buildMathExpressionEmbed( expression?, rewardExp?, durationMs?, imageNa
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Espressione matematica <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Espressione matematica ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> Risolvi: **${expression}** per ottenere **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per risolvere l'espressione.`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} Risolvi: **${expression}** per ottenere **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per risolvere l'espressione.`,
+      `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
   if (imageName) embed.setImage(`attachment://${imageName}`);
@@ -253,12 +254,12 @@ function buildFindBotEmbed(rewardExp?, durationMs?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Trova il bot <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Trova il bot ${E.VC_Exclamation}`)
     .setDescription(
       [
-        `<:VC_EXP:1482534670896730143> Trova il messaggio del bot tra i canali del server, premi il bottone per ottenere **${rewardExp} exp**.`,
-        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per trovarlo.`,
-        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+        `${E.VC_EXP} Trova il messaggio del bot tra i canali del server, premi il bottone per ottenere **${rewardExp} exp**.`,
+        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per trovarlo.`,
+        `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -267,12 +268,12 @@ function buildFindBotButtonEmbed(rewardExp?, durationMs?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Sei vicino al bot <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Sei vicino al bot ${E.VC_Exclamation}`)
     .setDescription(
       [
-        `<:VC_EXP:1482534670896730143> Hai trovato il messaggio nascosto: clicca il bottone per ottenere **${rewardExp} exp**.`,
-        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per cliccare il bottone.`,
-        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+        `${E.VC_EXP} Hai trovato il messaggio nascosto: clicca il bottone per ottenere **${rewardExp} exp**.`,
+        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per cliccare il bottone.`,
+        `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -281,12 +282,12 @@ function buildFindBotVoiceEmbed(rewardExp?, durationMs?) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Trova il bot in vocale <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Trova il bot in vocale ${E.VC_Exclamation}`)
     .setDescription(
       [
-        `<:VC_EXP:1482534670896730143> Il bot si è nascosto in una **vocale vuota** del server: entra in quella vocale per ottenere **${rewardExp} exp**.`,
-        `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per trovarlo.`,
-        `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+        `${E.VC_EXP} Il bot si è nascosto in una **vocale vuota** del server: entra in quella vocale per ottenere **${rewardExp} exp**.`,
+        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per trovarlo.`,
+        `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
 }
@@ -296,11 +297,11 @@ function buildMemorySequenceEmbed(sequence?, rewardExp?, displayMs?) {
   const safeSequence = String(sequence || "").trim();
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Memoria <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Memoria ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> Memorizza questa sequenza e riscrivila per ottenere **${rewardExp} exp**.`,
+      `${E.VC_EXP} Memorizza questa sequenza e riscrivila per ottenere **${rewardExp} exp**.`,
       "",
-      `> <a:VC_pixeltime:1482535344103620771> La sequenza sparirà tra **${seconds} secondi**.`,
+      `> ${E.VC_pixeltime} La sequenza sparirà tra **${seconds} secondi**.`,
     ].join("\n"))
     .addFields({
       name: "Sequenza",
@@ -313,10 +314,10 @@ function buildMemoryRecallEmbed(durationMs?) {
   const minutes = Math.max(1, Math.round(Number(durationMs || 180000) / 60000));
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Sequenza svanita <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Sequenza svanita ${E.VC_Exclamation}`)
     .setDescription([
       "Riscrivi in chat la sequenza di emoji esatta.",
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per riscriverla.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per riscriverla.`,
     ].join("\n"));
 }
 
@@ -325,11 +326,11 @@ function buildGuessYearEmbed(title?, subtitle?, rewardExp?, durationMs?, imageUr
   const sub = subtitle ? ` — ${subtitle}` : "";
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina l'anno <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina l'anno ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> In che anno è uscito **${title}**${sub}? Scrivi l'anno per **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} In che anno è uscito **${title}**${sub}? Scrivi l'anno per **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -338,15 +339,15 @@ function buildGuessYearEmbed(title?, subtitle?, rewardExp?, durationMs?, imageUr
 function buildCompleteVerseEmbed(verse?, rewardExp?, durationMs?, imageUrl = null) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const promptLine = imageUrl
-    ? `<:VC_EXP:1482534670896730143> Completa il verso **nell'immagine** per **${rewardExp} exp**.`
-    : `<:VC_EXP:1482534670896730143> Completa: **${verse}** per **${rewardExp} exp**.`;
+    ? `${E.VC_EXP} Completa il verso **nell'immagine** per **${rewardExp} exp**.`
+    : `${E.VC_EXP} Completa: **${verse}** per **${rewardExp} exp**.`;
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Completa il verso <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Completa il verso ${E.VC_Exclamation}`)
     .setDescription([
       promptLine,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -356,11 +357,11 @@ function buildGuessEmojiEmbed(emojis?, rewardExp?, durationMs?, imageUrl = null)
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina da emoji <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina da emoji ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> Cosa rappresenta **${emojis}**? Scrivi film, serie o canzone per **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} Cosa rappresenta **${emojis}**? Scrivi film, serie o canzone per **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -370,11 +371,11 @@ function buildQuoteFilmEmbed(quote?, rewardExp?, durationMs?, imageUrl = null) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Citazione da film/serie <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Citazione da film/serie ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> *"${quote}"* — Da quale film o serie? **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} *"${quote}"* — Da quale film o serie? **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -383,15 +384,15 @@ function buildQuoteFilmEmbed(quote?, rewardExp?, durationMs?, imageUrl = null) {
 function buildCompleteProverbEmbed(start?, rewardExp?, durationMs?, imageUrl = null) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const promptLine = imageUrl
-    ? `<:VC_EXP:1482534670896730143> Completa il proverbio **nell'immagine** per **${rewardExp} exp**.`
-    : `<:VC_EXP:1482534670896730143> **${start}** ... Completa il proverbio per **${rewardExp} exp**.`;
+    ? `${E.VC_EXP} Completa il proverbio **nell'immagine** per **${rewardExp} exp**.`
+    : `${E.VC_EXP} **${start}** ... Completa il proverbio per **${rewardExp} exp**.`;
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Completa il proverbio <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Completa il proverbio ${E.VC_Exclamation}`)
     .setDescription([
       promptLine,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -402,11 +403,11 @@ function buildSynonymAntonymEmbed(word?, kind?, rewardExp?, durationMs?, imageUr
   const label = kind === "antonym" ? "il contrario" : "un sinonimo";
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle(kind === "antonym" ? "Trova il contrario <a:VC_Exclamation:1482534702077444217>" : "Trova il sinonimo <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(kind === "antonym" ? `Trova il contrario ${E.VC_Exclamation}` : `Trova il sinonimo ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> Scrivi ${label} di **${word}** per **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} Scrivi ${label} di **${word}** per **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -416,11 +417,11 @@ function buildGuessCityEmbed(landmark?, rewardExp?, durationMs?, imageUrl = null
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("Indovina la città <a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`Indovina la città ${E.VC_Exclamation}`)
     .setDescription([
-      `<:VC_EXP:1482534670896730143> In quale città si trova **${landmark}**? **${rewardExp} exp**.`,
-      `> <a:VC_pixeltime:1482535344103620771> Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
-      `> <a:VC_Winner:1482535294757507255> Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+      `${E.VC_EXP} In quale città si trova **${landmark}**? **${rewardExp} exp**.`,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
@@ -432,14 +433,14 @@ function buildTreasureHuntStartEmbed(decoyDisplay?, winnerDisplay?, targetCount?
   const winnerText = String(winnerDisplay || "").trim() || "quella vincente";
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle("<a:VC_Events:1482706144953897223> Caccia al tesoro<a:VC_Exclamation:1482534702077444217>")
+    .setTitle(`${E.VC_Events} Caccia al tesoro${E.VC_Exclamation}`)
     .setDescription(
       [
-        `<:VC_Stats:1482527532682055780> Sui prossimi messaggi in chat metterò la reaction ${decoyText}.`,
-        `<a:VC_Flame:1482725674711126140> Su **uno solo** comparirà ${winnerText}: trovalo e cliccaci sopra per primo!`,
+        `${E.VC_Stats} Sui prossimi messaggi in chat metterò la reaction ${decoyText}.`,
+        `${E.VC_Flame} Su **uno solo** comparirà ${winnerText}: trovalo e cliccaci sopra per primo!`,
         "",
-        `<:VC_EXP:1482534670896730143> In palio: **${rewardExp} exp**`,
-        `<a:VC_pixeltime:1482535344103620771> Hai circa **${minutes} min** prima che la caccia finisca.`,
+        `${E.VC_EXP} In palio: **${rewardExp} exp**`,
+        `${E.VC_pixeltime} Hai circa **${minutes} min** prima che la caccia finisca.`,
       ].join("\n"),
     )
     .setFooter({ text: 'Clicca la reaction "vincente" sul messaggio giusto per vincere.' });

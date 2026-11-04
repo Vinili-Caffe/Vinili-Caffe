@@ -1,5 +1,6 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getStaffChatThreadIds } = require("../../Community/services/globalSettingsBucket") as typeof import("../../Community/services/globalSettingsBucket");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   ensureStaffCmdsThreadIdsHydrated,
   isStaffCmdsManagedCommandsThread,
@@ -42,7 +43,7 @@ async function staffChatCommandsDeniedReplyContent(channel?) {
     : " Usa un thread **Comandi** sotto #staff-cmds.";
   const chatHint = staffChatId ? ` (non nei thread **Chat** sotto <#${staffChatId}>).` : ".";
   return (
-    "<:vegax:1443934876440068179> I comandi staff vanno usati solo nei thread **Comandi** sotto #staff-cmds," +
+    `${E.vegax} I comandi staff vanno usati solo nei thread **Comandi** sotto #staff-cmds,` +
     chatHint +
     hint
   );

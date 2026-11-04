@@ -1,4 +1,5 @@
 const { safeMessageReply } = require("../../../shared/discord/replyRuntime") as typeof import("../../../shared/discord/replyRuntime");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   shouldApplyMainPartnershipFilters,
   shouldBlockTenantPartnershipPrefixCommands,
@@ -16,7 +17,7 @@ async function rejectIfPartnershipToolkitBlocked(message?, commandLabel?, mentio
   const allowedMentions = mentions || { repliedUser: false };
   if (shouldApplyMainPartnershipFilters(guildId)) {
     await safeMessageReply(message, {
-      content: `<:vegax:1443934876440068179> \`${commandLabel}\` non è disponibile: toolkit partnership disabilitato su questo server.`,
+      content: `${E.vegax} \`${commandLabel}\` non è disponibile: toolkit partnership disabilitato su questo server.`,
       allowedMentions,
     });
     return true;

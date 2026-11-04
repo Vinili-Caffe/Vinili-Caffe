@@ -6,6 +6,7 @@ const { getGuildChannelCached, getClientChannelCached } = require("../../../../s
 const { hydrateGuildMembersForRolePings } = require("../../../Community/utils/threadRoleMembers") as typeof import("../../../Community/utils/threadRoleMembers");
 const { getTodayUtc: getRomeTodayUtc } = require("./pauseDates") as typeof import("./pauseDates");
 const { normalizeHalfDay, halfDayLabel, canRequestHalfDayToday, getHalfDayConflict, getHalfDayLimitWarnings } = require("./pauseHalfDay") as typeof import("./pauseHalfDay");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const IT_MONTHS = { gennaio: 1, feb: 2, febbraio: 2, mar: 3, marzo: 3, apr: 4, aprile: 4, mag: 5, maggio: 5, giu: 6, giugno: 6, lug: 7, luglio: 7, ago: 8, agosto: 8, set: 9, sett: 9, settembre: 9, ott: 10, ottobre: 10, nov: 11, novembre: 11, dic: 12, dicembre: 12 };
 const PAUSE_REQUEST_ROLE_IDS = [
@@ -120,7 +121,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   const normalizedRequestedRole = normalizePauseRoleChoice(requestedRole) || fallbackRole;
   const guildId = String(guild?.id ?? "").trim();
   const uid = String(userId ?? "").trim();
-  if (!guild || !guildId || !uid) return { ok: false, error: "<a:VC_Alert:1482706673176150077> Dati pausa non validi." };
+  if (!guild || !guildId || !uid) return { ok: false, error: `${E.VC_Alert} Dati pausa non validi.` };
   const mention =
     typeof requesterMention === "string" && /<@!?\d+>/.test(requesterMention)
       ? requesterMention
@@ -128,36 +129,36 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   const client = guild.client;
   const normalized = normalizePauseDates(rawStart, halfSlot ? rawStart : rawEnd);
   if (!normalized) {
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Date non valide. Formati supportati: `oggi`, `domani`, `GG/MM`, `GG/MM/AAAA`, `1 agosto`, `1 agosto 2027`." };
+    return { ok: false, error: `${E.VC_Alert} Date non valide. Formati supportati: \`oggi\`, \`domani\`, \`GG/MM\`, \`GG/MM/AAAA\`, \`1 agosto\`, \`1 agosto 2027\`.` };
   }
   const romeToday = getRomeTodayUtc();
   const sameDay = Boolean(halfSlot) && normalized.startDate.getTime() === romeToday.getTime();
   if (halfSlot) {
     if (normalized.startDate < romeToday) {
-      return { ok: false, error: "<a:VC_Alert:1482706673176150077> Non puoi chiedere una mezza giornata per una data già passata." };
+      return { ok: false, error: `${E.VC_Alert} Non puoi chiedere una mezza giornata per una data già passata.` };
     }
     if (sameDay && !canRequestHalfDayToday(halfSlot)) {
       return {
         ok: false,
-        error: `<a:VC_Alert:1482706673176150077> La fascia **${halfDayLabel(halfSlot)}** di oggi è già iniziata: per oggi la mattina si chiede entro le 9, il pomeriggio entro le 14.`,
+        error: `${E.VC_Alert} La fascia **${halfDayLabel(halfSlot)}** di oggi è già iniziata: per oggi la mattina si chiede entro le 9, il pomeriggio entro le 14.`,
       };
     }
   } else if (normalized.startDate <= getTodayUtc()) {
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> La pausa deve iniziare almeno da domani. Per oggi puoi chiedere solo una mezza giornata." };
+    return { ok: false, error: `${E.VC_Alert} La pausa deve iniziare almeno da domani. Per oggi puoi chiedere solo una mezza giornata.` };
   }
   if (!String(reason || "").trim()) {
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Devi specificare una motivazione valida." };
+    return { ok: false, error: `${E.VC_Alert} Devi specificare una motivazione valida.` };
   }
   const stafferDoc = await getOrCreateStaffDoc(guildId, uid);
   if (!stafferDoc) {
     global.logger?.error?.("[createPauseRequest] getOrCreateStaffDoc returned null", { guildId, userId: uid });
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Impossibile creare il record staff (guild/user non validi)." };
+    return { ok: false, error: `${E.VC_Alert} Impossibile creare il record staff (guild/user non validi).` };
   }
   if (!stafferDoc.staff) stafferDoc.staff = {};
   if (!Array.isArray(stafferDoc.staff.pauses)) stafferDoc.staff.pauses = [];
   if (halfSlot) {
     const conflict = getHalfDayConflict(stafferDoc.staff.pauses, { day: normalized.startDate, slot: halfSlot });
-    if (conflict) return { ok: false, error: `<a:VC_Alert:1482706673176150077> ${conflict}` };
+    if (conflict) return { ok: false, error: `${E.VC_Alert} ${conflict}` };
   }
   /* pauseBothSplit1: Entrambi → due richieste indipendenti (Staff + Partner Manager) */
   const roleTracks =
@@ -187,7 +188,7 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
     await stafferDoc.save();
   } catch (err) {
     global.logger?.error?.("[createPauseRequest] save failed", err);
-    return { ok: false, error: "<a:VC_Alert:1482706673176150077> Errore nel salvataggio della richiesta pausa. Riprova o contatta chi gestisce il bot." };
+    return { ok: false, error: `${E.VC_Alert} Errore nel salvataggio della richiesta pausa. Riprova o contatta chi gestisce il bot.` };
   }
   const createdPauses = stafferDoc.staff.pauses.slice(-roleTracks.length);
   const pauseIds = createdPauses.map((p?) => String(p?._id || "")).filter(Boolean);
@@ -197,13 +198,13 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
   const requisitiNonRispettati = [];
   if (halfSlot) {
     for (const w of getHalfDayLimitWarnings(stafferDoc.staff.pauses, { day: normalized.startDate, excludePauseIds: pauseIds })) {
-      requisitiNonRispettati.push(`<:VC_Attention:1482534443632558151> ${w}`);
+      requisitiNonRispettati.push(`${E.VC_Attention} ${w}`);
     }
   } else if (getOnePausePerMonthWarning(stafferDoc, { ...normalized, excludePauseIds: pauseIds })) {
-    requisitiNonRispettati.push("<:VC_Attention:1482534443632558151> **Una pausa al mese:** hai già una richiesta pausa in questo mese.");
+    requisitiNonRispettati.push(`${E.VC_Attention} **Una pausa al mese:** hai già una richiesta pausa in questo mese.`);
   }
   if (!halfSlot && getOneWeekBetweenWarning(stafferDoc, pauseIds)) {
-    requisitiNonRispettati.push("<:VC_Attention:1482534443632558151> **Almeno 1 settimana tra richieste:** l'ultima richiesta pausa è stata fatta da meno di 7 giorni.");
+    requisitiNonRispettati.push(`${E.VC_Attention} **Almeno 1 settimana tra richieste:** l'ultima richiesta pausa è stata fatta da meno di 7 giorni.`);
   }
   /* avvisi nella pratica sul sito (l'High Staff può accettare comunque) */
   if (requisitiNonRispettati.length) {

@@ -12,6 +12,7 @@ const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = req
 const { handleCustomPrivateVoiceChannelDelete } = require("../../Community/services/customVocChannelCleanupService") as typeof import("../../Community/services/customVocChannelCleanupService");
 const { ChannelType } = require("discord.js") as typeof import("discord.js");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function isViniliFullFeatureGuild(guildId?) {
   try {
     const { isViniliFullFeatureGuild: check } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
@@ -72,23 +73,23 @@ export = {
       if (logChannel?.isTextBased?.()) {
         const responsible = formatAuditActor(audit?.executor || null);
 
-        const lines = [`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+        const lines = [`${E.VC_Staff} **Responsabile:** ${responsible}`,
+        `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
         ];
 
-        if (audit.reason) lines.push(`<:VC_reason:1478517122929004544> **Motivo:** ${audit.reason}`);
+        if (audit.reason) lines.push(`${E.VC_reason} **Motivo:** ${audit.reason}`);
 
         lines.push(
           "",
-          "**<:VC_tools:1478862265305272364> Impostazioni precedenti**",
-          `<:VC_Modifica:1478859646587633717> **Nome:** ${channel.name || "sconosciuto"} \`[${channel.id}]\``,
-          `<a:VC_Channel:1482534583944871996> **Tipo:** ${channelTypeLabel(channel)}`,
+          `**${E.VC_tools} Impostazioni precedenti**`,
+          `${E.VC_Modifica} **Nome:** ${channel.name || "sconosciuto"} \`[${channel.id}]\``,
+          `${E.VC_Channel} **Tipo:** ${channelTypeLabel(channel)}`,
         );
         lines.push(...buildAuditExtraLines(audit.entry, ["name", "type"]));
 
         const embed = new EmbedBuilder()
           .setColor("#ED4245")
-          .setTitle("<a:VC_Channel:1482534583944871996> Channel Delete")
+          .setTitle(`${E.VC_Channel} Channel Delete`)
           .setDescription(lines.join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => { });

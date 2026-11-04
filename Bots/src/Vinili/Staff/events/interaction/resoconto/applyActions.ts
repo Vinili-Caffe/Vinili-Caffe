@@ -3,6 +3,7 @@ const { getOrCreateStaffDoc, ensureStaff } = require("../../../../Staff/utils/st
 const { initPartnerManagerFieldsIfMissing, syncStaffDbAndPauseChannelAfterDepex } = require("../../../../Staff/utils/staffPmUtils") as typeof import("../../../../Staff/utils/staffPmUtils");
 const { applyDepexOneLevel } = require("../../../../Staff/services/staffWarnService") as typeof import("../../../../Staff/services/staffWarnService");
 const { clearStaffPendingPurgeAt } = require("../../../../Community/services/userLeaveBackupService") as typeof import("../../../../Community/services/userLeaveBackupService");
+const { E } = require("../../../../../shared/emojis/emojiCatalog") as typeof import("../../../../../shared/emojis/emojiCatalog");
 const {
   WEEKLY_LIMITS_POSITIVE_REASON,
   WEEKLY_LIMITS_NEGATIVE_REASON,
@@ -32,11 +33,11 @@ const {
 
 async function applyStaffAction(guild?, actor?, payload?, reasonOverride = null) {
   const member = await getGuildMemberCached(guild, payload.userId);
-  if (!member) return "<a:VC_Alert:1482706673176150077> Utente non trovato nel server.";
+  if (!member) return `${E.VC_Alert} Utente non trovato nel server.`;
 
   if (payload.actionKey === "nl") {
     fireResocontoOutcomeNotif(guild, actor, payload.userId, "nl", "Nessuna azione applicata.", payload.messageId);
-    return "<a:VC_Alert:1482706673176150077> Nessuna azione applicata.";
+    return `${E.VC_Alert} Nessuna azione applicata.`;
   }
 
   const targetUser = member.user;
@@ -52,16 +53,16 @@ async function applyStaffAction(guild?, actor?, payload?, reasonOverride = null)
       staffDoc &&
       shouldSkipManualResocontoVp(staffDoc, resolveResocontoWeekKey(), payload.roleId, reason)
     ) {
-      return "<:success:1461731530333229226> Valutazione Positiva già registrata.";
+      return `${E.success} Valutazione Positiva già registrata.`;
     }
     const { resolveStaffValutazioniChannel } = require("../../../../Staff/utils/staffChannelUtils") as typeof import("../../../../Staff/utils/staffChannelUtils");
     const channel = await resolveStaffValutazioniChannel(guild);
     const { valutazionePositiveAddCore } = require("../../../../Staff/utils/valutazionePanelActions") as typeof import("../../../../Staff/utils/valutazionePanelActions");
     const result = await valutazionePositiveAddCore(profileDoc, targetUser, reason, actor, channel);
     if (!(result?.ok || result?.message)) {
-      return "<a:VC_Alert:1482706673176150077> Errore registrazione valutazione positiva.";
+      return `${E.VC_Alert} Errore registrazione valutazione positiva.`;
     }
-    return "<:thumbsup:1471292172145004768> Registrata Valutazione Positiva.";
+    return `${E.thumbsup} Registrata Valutazione Positiva.`;
   }
 
   if (payload.actionKey === "vn") {
@@ -76,31 +77,31 @@ async function applyStaffAction(guild?, actor?, payload?, reasonOverride = null)
       staffDoc &&
       shouldSkipManualResocontoVn(staffDoc, resolveResocontoWeekKey(), payload.roleId, reason)
     ) {
-      return "<:success:1461731530333229226> Valutazione Negativa già registrata.";
+      return `${E.success} Valutazione Negativa già registrata.`;
     }
     const { resolveStaffValutazioniChannel } = require("../../../../Staff/utils/staffChannelUtils") as typeof import("../../../../Staff/utils/staffChannelUtils");
     const channel = await resolveStaffValutazioniChannel(guild);
     const { valutazioneNegativeAddCore } = require("../../../../Staff/utils/valutazionePanelActions") as typeof import("../../../../Staff/utils/valutazionePanelActions");
     const result = await valutazioneNegativeAddCore(guild, profileDoc, targetUser, reason, actor, channel);
     if (!(result?.ok || result?.message)) {
-      return "<a:VC_Alert:1482706673176150077> Errore registrazione valutazione negativa.";
+      return `${E.VC_Alert} Errore registrazione valutazione negativa.`;
     }
-    return "<:thumbsdown:1471292163957457013> Registrata Valutazione Negativa.";
+    return `${E.thumbsdown} Registrata Valutazione Negativa.`;
   }
 
   const roleBeforeId = String(payload.roleId || "");
   const reason = String(reasonOverride || "").trim();
-  if (!reason) return "<a:VC_Alert:1482706673176150077> Motivazione mancante.";
+  if (!reason) return `${E.VC_Alert} Motivazione mancante.`;
 
   if (payload.actionKey === "px") {
     const roleAfterId = ROLE_UP[roleBeforeId] || null;
-    if (!roleAfterId) return "<a:VC_Alert:1482706673176150077> Pex non applicato: nessun ruolo successivo configurato.";
-    if (member.roles.cache.has(roleAfterId)) return "<a:VC_Alert:1482706673176150077> Pex non applicato: utente ha già il ruolo successivo.";
+    if (!roleAfterId) return `${E.VC_Alert} Pex non applicato: nessun ruolo successivo configurato.`;
+    if (member.roles.cache.has(roleAfterId)) return `${E.VC_Alert} Pex non applicato: utente ha già il ruolo successivo.`;
 
     const roleAdded = await ensureRoleAdded(guild, member, roleAfterId);
-    if (!roleAdded) return "<a:VC_Alert:1482706673176150077> Pex non applicato: impossibile assegnare il ruolo successivo.";
+    if (!roleAdded) return `${E.VC_Alert} Pex non applicato: impossibile assegnare il ruolo successivo.`;
     const sideEffectsApplied = await applyPexSideEffects(guild, member, roleAfterId);
-    if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Pex applicato parzialmente: side-effect ruoli non completati.";
+    if (!sideEffectsApplied) return `${E.VC_Alert} Pex applicato parzialmente: side-effect ruoli non completati.`;
     const profileDoc = await getOrCreateStaffDoc(guild.id, payload.userId);
     const s = ensureStaff(profileDoc);
     if (roleAfterId === ROLE_PARTNER_MANAGER) {
@@ -118,22 +119,22 @@ async function applyStaffAction(guild?, actor?, payload?, reasonOverride = null)
     await clearStaffPendingPurgeAt(guild.id, payload.userId);
     await sendPexDepexLog(guild, "pex", targetUser, roleBeforeId, roleAfterId, reason);
     fireResocontoPexDepexNotif(guild, actor, targetUser, "pex", roleBeforeId, roleAfterId, reason, `resoconto-pex:${payload.userId}`);
-    return "<:success:1461731530333229226> Pex applicato.";
+    return `${E.success} Pex applicato.`;
   }
 
   if (payload.actionKey === "dp") {
-    if (!member.roles.cache.has(roleBeforeId)) return "<a:VC_Alert:1482706673176150077> Depex non applicato: ruolo corrente non presente.";
+    if (!member.roles.cache.has(roleBeforeId)) return `${E.VC_Alert} Depex non applicato: ruolo corrente non presente.`;
 
     let roleAfterId = "";
     if (String(roleBeforeId) === String(ROLE_PARTNER_MANAGER)) {
       const roleRemoved = await ensureRoleRemoved(guild, member, roleBeforeId);
-      if (!roleRemoved) return "<a:VC_Alert:1482706673176150077> Depex non applicato: impossibile rimuovere il ruolo corrente.";
+      if (!roleRemoved) return `${E.VC_Alert} Depex non applicato: impossibile rimuovere il ruolo corrente.`;
       const sideEffectsApplied = await applyDepexSideEffects(guild, member, roleBeforeId);
-      if (!sideEffectsApplied) return "<a:VC_Alert:1482706673176150077> Depex applicato parzialmente: side-effect ruoli non completati.";
+      if (!sideEffectsApplied) return `${E.VC_Alert} Depex applicato parzialmente: side-effect ruoli non completati.`;
     } else {
       const step = await applyDepexOneLevel(guild, member, roleBeforeId);
       if (!step?.ok) {
-        return `<a:VC_Alert:1482706673176150077> Depex non applicato: ${String(step?.reason || "errore sconosciuto")}`;
+        return `${E.VC_Alert} Depex non applicato: ${String(step?.reason || "errore sconosciuto")}`;
       }
       roleAfterId = step.newRole != null && step.newRole !== "" ? String(step.newRole) : "";
     }
@@ -154,26 +155,26 @@ async function applyStaffAction(guild?, actor?, payload?, reasonOverride = null)
     await profileDoc.save().catch(() => null);
     await sendPexDepexLog(guild, "depex", targetUser, roleBeforeId, roleAfterId, reason);
     fireResocontoPexDepexNotif(guild, actor, targetUser, "depex", roleBeforeId, roleAfterId, reason, `resoconto-depex:${payload.userId}`);
-    return "<:success:1461731530333229226> Depex applicato.";
+    return `${E.success} Depex applicato.`;
   }
 
-  return "<a:VC_Alert:1482706673176150077> Nessuna operazione eseguita.";
+  return `${E.VC_Alert} Nessuna operazione eseguita.`;
 }
 
 async function applyPmAction(guild?, payload?, reasonOverride = null, actor = null) {
   const member = await getGuildMemberCached(guild, payload.userId);
-  if (!member) return "<a:VC_Alert:1482706673176150077> Utente non trovato nel server.";
+  if (!member) return `${E.VC_Alert} Utente non trovato nel server.`;
 
   if (payload.actionKey === "nl") {
     fireResocontoOutcomeNotif(guild, actor, payload.userId, "nl", "Nessuna azione applicata.", payload.messageId);
-    return "<a:VC_Alert:1482706673176150077> Nessuna azione applicata.";
+    return `${E.VC_Alert} Nessuna azione applicata.`;
   }
   if (payload.actionKey === "rc") {
     const reason = String(reasonOverride || "").trim() || "Richiamo resoconto PM";
     fireResocontoOutcomeNotif(guild, actor, payload.userId, "rc", reason, payload.messageId);
-    return "<a:VC_Alert:1482706673176150077> Richiamo non applica modifiche automatiche.";
+    return `${E.VC_Alert} Richiamo non applica modifiche automatiche.`;
   }
-  if (payload.actionKey !== "dp") return "<a:VC_Alert:1482706673176150077> Nessuna operazione eseguita.";
+  if (payload.actionKey !== "dp") return `${E.VC_Alert} Nessuna operazione eseguita.`;
 
   /* depexPmKeepStaff1: depex PM = SOLO Partner Manager (+ Member).
      Mai togliere scala staff / Staff / High Staff (prima wipeava dual-track a caso). */
@@ -187,10 +188,10 @@ async function applyPmAction(guild?, payload?, reasonOverride = null, actor = nu
     Boolean(ROLE_CO_OWNER && member.roles.cache.has(ROLE_CO_OWNER)) ||
     Boolean(ROLE_OWNER && member.roles.cache.has(ROLE_OWNER));
   const partnerRoleRemoved = await ensureRoleRemoved(guild, member, ROLE_PARTNER_MANAGER);
-  if (!partnerRoleRemoved) return "<a:VC_Alert:1482706673176150077> Depex PM non applicato: impossibile rimuovere il ruolo Partner Manager.";
+  if (!partnerRoleRemoved) return `${E.VC_Alert} Depex PM non applicato: impossibile rimuovere il ruolo Partner Manager.`;
   if (ROLE_MEMBER) {
     const memberRoleAdded = await ensureRoleAdded(guild, member, ROLE_MEMBER);
-    if (!memberRoleAdded) return "<a:VC_Alert:1482706673176150077> Depex PM applicato parzialmente: impossibile ripristinare il ruolo Member.";
+    if (!memberRoleAdded) return `${E.VC_Alert} Depex PM applicato parzialmente: impossibile ripristinare il ruolo Member.`;
   }
   const memberAfterPmDepex = await getGuildMemberCached(guild, payload.userId, { preferFresh: true }).catch(() => member);
   await syncStaffDbAndPauseChannelAfterDepex(guild, payload.userId, memberAfterPmDepex);
@@ -218,7 +219,7 @@ async function applyPmAction(guild?, payload?, reasonOverride = null, actor = nu
   );
   /* Solo se era PM-only (niente scala) ha senso il cooldown candidatura staff. */
   if (!hadLadderBefore) await bumpCandidatureCooldownAfterStaffRemoval(payload.userId);
-  return "<:success:1461731530333229226> Depex PM applicato.";
+  return `${E.success} Depex PM applicato.`;
 }
 
 async function applyStaffResocontoPendingValutazioni(
@@ -236,7 +237,7 @@ async function applyStaffResocontoPendingValutazioni(
   } = require("../../../../Staff/services/weeklyStaffResocontoService") as typeof import("../../../../Staff/services/weeklyStaffResocontoService");
   const actions = Array.isArray(pendingActions) ? pendingActions : [];
   if (!actions.length) {
-    return "<:success:1461731530333229226> Valutazioni già registrate dal sistema.";
+    return `${E.success} Valutazioni già registrate dal sistema.`;
   }
 
   const resocontoWeekKey = resolveResocontoWeekKey();
@@ -258,7 +259,7 @@ async function applyStaffResocontoPendingValutazioni(
       staffDoc &&
       shouldSkipManualResocontoVp(staffDoc, resocontoWeekKey, payload.roleId, action?.reason)
     ) {
-      lines.push("<:success:1461731530333229226> Valutazione Positiva già registrata.");
+      lines.push(`${E.success} Valutazione Positiva già registrata.`);
       continue;
     }
     if (
@@ -266,7 +267,7 @@ async function applyStaffResocontoPendingValutazioni(
       staffDoc &&
       shouldSkipManualResocontoVn(staffDoc, resocontoWeekKey, payload.roleId, action?.reason)
     ) {
-      lines.push("<:success:1461731530333229226> Valutazione Negativa già registrata.");
+      lines.push(`${E.success} Valutazione Negativa già registrata.`);
       continue;
     }
     const useOverride = Boolean(
@@ -284,7 +285,7 @@ async function applyStaffResocontoPendingValutazioni(
     const line = await applyStaffAction(guild, actor, { ...payload, actionKey }, reason);
     if (line) lines.push(line);
   }
-  return lines.length ? lines.join(" ") : "<a:VC_Alert:1482706673176150077> Nessuna operazione eseguita.";
+  return lines.length ? lines.join(" ") : `${E.VC_Alert} Nessuna operazione eseguita.`;
 }
 
 async function resolveStaffResocontoApplyExecution(guild?, payload?) {

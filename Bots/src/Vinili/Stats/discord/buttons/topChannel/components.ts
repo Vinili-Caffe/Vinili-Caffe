@@ -1,4 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js") as typeof import("discord.js");
+const { E } = require("../../../../../shared/emojis/emojiCatalog") as typeof import("../../../../../shared/emojis/emojiCatalog");
 const TOP_CHANNEL_REFRESH_CUSTOM_ID_PREFIX = "top_channel_refresh";
 const TOP_CHANNEL_PERIOD_OPEN_CUSTOM_ID_PREFIX = "top_channel_period_open";
 const TOP_CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX = "top_channel_period_set";
@@ -56,19 +57,19 @@ function buildTopChannelComponents(ownerId?, lookbackDays?, controlsView?, selec
   const viewSelectId = ownerId ? `${TOP_CHANNEL_VIEW_SELECT_CUSTOM_ID_PREFIX}:${ownerId}:${safeLookback}` : `${TOP_CHANNEL_VIEW_SELECT_CUSTOM_ID_PREFIX}:${safeLookback}`;
 
   const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(refreshId).setStyle(ButtonStyle.Secondary).setEmoji("<:VC_Refresh:1473359252276904203> "),
-    new ButtonBuilder().setCustomId(periodOpenId).setStyle(ButtonStyle.Secondary).setEmoji("<:VC_Clock:1473359204189474886>")
+    new ButtonBuilder().setCustomId(refreshId).setStyle(ButtonStyle.Secondary).setEmoji(`${E.VC_Refresh} `),
+    new ButtonBuilder().setCustomId(periodOpenId).setStyle(ButtonStyle.Secondary).setEmoji(E.VC_Clock)
   );
 
   const periodSetId = (days?) => (ownerId ? `${TOP_CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX}:${ownerId}:${days}:${safeView}:${safePage}` : `${TOP_CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX}:${days}:${safeView}:${safePage}`);
   const periodBackId = ownerId ? `${TOP_CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX}:${ownerId}:${safeLookback}:${safeView}:${safePage}` : `${TOP_CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX}:${safeLookback}:${safeView}:${safePage}`;
   const rowPeriod1 = new ActionRowBuilder().addComponents( ...ALLOWED_LOOKBACK.map((d?) => new ButtonBuilder().setCustomId(periodSetId(d)).setStyle(safeLookback === d ? ButtonStyle.Primary : ButtonStyle.Secondary).setLabel(`${d}d`)));
-  const rowPeriod2 = new ActionRowBuilder().addComponents( new ButtonBuilder().setCustomId(periodBackId).setStyle(ButtonStyle.Secondary).setEmoji("<a:vegaleftarrow:1462914743416131816>"));
+  const rowPeriod2 = new ActionRowBuilder().addComponents( new ButtonBuilder().setCustomId(periodBackId).setStyle(ButtonStyle.Secondary).setEmoji(E.vegaleftarrow));
 
   const rowViewSelect = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(viewSelectId)
-      .setPlaceholder("<:VC_Stats:1482527532682055780> Overview")
+      .setPlaceholder(`${E.VC_Stats} Overview`)
       .addOptions(ALLOWED_VIEWS.map((o?) => ({ value: o.value, label: o.label, default: o.value === safeView })))
   );
 
@@ -81,11 +82,11 @@ function buildTopChannelComponents(ownerId?, lookbackDays?, controlsView?, selec
   const rows = safeControls === "period" ? [row1, rowPeriod1, rowPeriod2, rowViewSelect] : [row1, rowViewSelect];
   if (safeView !== "overview") {
     const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(firstId).setStyle(ButtonStyle.Secondary).setEmoji("<:1343arrowleft:1525249879151083621>").setDisabled(safePage <= 1),
-      new ButtonBuilder().setCustomId(prevId).setStyle(ButtonStyle.Secondary).setEmoji("<:1343arrowleft:1525249879151083621>").setDisabled(safePage <= 1),
-      new ButtonBuilder().setCustomId(modalOpenId).setStyle(ButtonStyle.Primary).setEmoji("<:VC_page2:1482459724657201387>"),
-      new ButtonBuilder().setCustomId(nextId).setStyle(ButtonStyle.Secondary).setEmoji("<:1343arrowright:1525249880728145970>").setDisabled(safePage >= safeTotal),
-      new ButtonBuilder().setCustomId(lastId).setStyle(ButtonStyle.Secondary).setEmoji("<:1343arrowright:1525249880728145970>").setDisabled(safePage >= safeTotal)
+      new ButtonBuilder().setCustomId(firstId).setStyle(ButtonStyle.Secondary).setEmoji(E["1343arrowleft"]).setDisabled(safePage <= 1),
+      new ButtonBuilder().setCustomId(prevId).setStyle(ButtonStyle.Secondary).setEmoji(E["1343arrowleft"]).setDisabled(safePage <= 1),
+      new ButtonBuilder().setCustomId(modalOpenId).setStyle(ButtonStyle.Primary).setEmoji(E.VC_page2),
+      new ButtonBuilder().setCustomId(nextId).setStyle(ButtonStyle.Secondary).setEmoji(E["1343arrowright"]).setDisabled(safePage >= safeTotal),
+      new ButtonBuilder().setCustomId(lastId).setStyle(ButtonStyle.Secondary).setEmoji(E["1343arrowright"]).setDisabled(safePage >= safeTotal)
     );
     rows.push(row2);
   }

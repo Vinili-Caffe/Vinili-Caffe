@@ -29,6 +29,7 @@ const { startDbMaintenanceLoop } = require("../../Community/services/dbMaintenan
 const { startStaffGracePurgeLoop } = require("../../Community/services/userLeaveBackupService") as typeof import("../../Community/services/userLeaveBackupService");
 const { sweepExpiredPartnerManagerTimedPerks } = require("../../Staff/utils/partnerManagerTimedPerks") as typeof import("../../Staff/utils/partnerManagerTimedPerks");
 const { restoreTempBans } = require("../../Moderation/services/joinRaidService") as typeof import("../../Moderation/services/joinRaidService");
+const { startBumpDueReminderSweepLoop } = require("../../Community/services/bumpService") as typeof import("../../Community/services/bumpService");
 const { ensureMongoIndexes } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 
 loadDotEnv();
@@ -60,6 +61,53 @@ async function main(shared?: { client?: any } | null) {
 
   startModCaseLifecycleLoop(client);
   startCustomRoleExpiryLoop(client);
+
+  try {
+    const { startHourlyReminderLoop } = require("../../Community/services/chatReminderService") as typeof import("../../Community/services/chatReminderService");
+    startHourlyReminderLoop(client);
+  } catch (err) {
+    global.logger?.error?.("[BOT-SCHEDULER][CHAT REMINDER]", err?.message || err);
+  }
+
+  try {
+    const { scheduleMonthlyGif } = require("../../core/events/ready/monthlyGifAndPackages") as typeof import("../../core/events/ready/monthlyGifAndPackages");
+    scheduleMonthlyGif(client);
+  } catch (err) {
+    global.logger?.error?.("[BOT-SCHEDULER][MONTHLY GIF]", err?.message || err);
+  }
+
+  if (String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() === "1") {
+    const pexDelay = setTimeout(() => {
+      const { importOldPexDepex } = require("../staff/pexDepexImport") as typeof import("../staff/pexDepexImport");
+      importOldPexDepex(client).catch((err) => global.logger?.error?.("[BOT-SCHEDULER][PEX IMPORT]", err));
+    }, 2 * 60_000);
+    pexDelay.unref?.();
+  }
+
+  try {
+    if (String(process.env.MINIGAMES_WORKER || "").trim() === "1") {
+      /* Thin module: niente minigameService/canvas (ABI Node diverso su bot-workers). */
+      const { startMinigameSlotRequestLoop } = require("../../Minigames/services/minigameSlotRequestWorker") as typeof import("../../Minigames/services/minigameSlotRequestWorker");
+      startMinigameSlotRequestLoop(client);
+    }
+  } catch (err) {
+    global.logger?.error?.("[BOT-SCHEDULER][MINIGAMES SLOT]", err?.message || err);
+    console.error("[BOT-SCHEDULER][MINIGAMES SLOT]", err?.message || err);
+  }
+
+  try {
+    const { startOfficialAutomationBoostDrainLoop } = require("../../Community/services/officialMessageAutomationQueue") as typeof import("../../Community/services/officialMessageAutomationQueue");
+    startOfficialAutomationBoostDrainLoop(client);
+  } catch (err) {
+    global.logger?.error?.("[BOT-SCHEDULER][BOOST DRAIN]", err?.message || err);
+  }
+
+  try {
+    const { startActivityMessageWriteDrainLoop } = require("../../Community/services/activityService") as typeof import("../../Community/services/activityService");
+    startActivityMessageWriteDrainLoop(client);
+  } catch (err) {
+    global.logger?.error?.("[BOT-SCHEDULER][ACTIVITY WRITE]", err?.message || err);
+  }
 
   const giveawayTick = () =>
     runScheduledEnds(client).catch((e?) => {
@@ -96,6 +144,12 @@ async function main(shared?: { client?: any } | null) {
   reminderTick();
   const reminderTimer = setInterval(reminderTick, 30 * 1000);
   reminderTimer.unref?.();
+
+  try {
+    startBumpDueReminderSweepLoop(client);
+  } catch (err) {
+    global.logger?.error?.("[BOT-SCHEDULER][BUMP REMINDER SWEEP]", err?.message || err);
+  }
 
   let compitiBusy = false;
   const compitiTick = async () => {
@@ -150,6 +204,32 @@ async function main(shared?: { client?: any } | null) {
   ensureMongoIndexes({ reason: "bot_scheduler_worker" }).catch((err?) => {
     console.warn("[BOT-SCHEDULER] ensureMongoIndexes:", err?.message || err);
   });
+
+  if (String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() === "1") {
+    const { migrateLegacyDailyStatsCollections } = require("../../Community/services/dailyStatsStore") as typeof import("../../Community/services/dailyStatsStore");
+    migrateLegacyDailyStatsCollections()
+      .then((result?) => {
+        if (!result?.skipped) global.logger?.info?.("[BOT-SCHEDULER][DAILY STATS MIGRATION] completed.");
+      })
+      .catch((err?) => global.logger?.warn?.("[BOT-SCHEDULER][DAILY STATS MIGRATION]", err?.message || err));
+
+    const { runStartupPanels } = require("../../core/events/ready/startupPanels") as typeof import("../../core/events/ready/startupPanels");
+    const { runBotSchedulerWorkerDeferredStartup } = require("../../core/events/ready/deferredStartupTasks") as typeof import("../../core/events/ready/deferredStartupTasks");
+    const workerStartupDelayMs = Math.max(0, Number(process.env.BOT_SCHEDULER_STARTUP_DEFER_MS) || 20_000);
+    setTimeout(() => {
+      void runStartupPanels(client, "bot-scheduler-worker").catch((err?) =>
+        global.logger?.warn?.("[BOT-SCHEDULER][STARTUP PANELS]", err?.message || err),
+      );
+      void runBotSchedulerWorkerDeferredStartup(client).catch((err?) =>
+        global.logger?.warn?.("[BOT-SCHEDULER][DEFERRED STARTUP]", err?.message || err),
+      );
+    }, workerStartupDelayMs).unref?.();
+  }
+
+  if (String(process.env.PRESENCE_SUPPORTER_SWEEP_ON_GATEWAY || "1").trim() === "0") {
+    const { startPresenceSupporterSweepLoop } = require("../../Community/events/presenceSupporterBootstrap") as typeof import("../../Community/events/presenceSupporterBootstrap");
+    startPresenceSupporterSweepLoop(client);
+  }
 
   /* cleanup users-not-in-server resta su bots-vinyls (serve member list gateway; REST worker non ce l'ha) */
 

@@ -11,6 +11,7 @@ const { updateMonthlyWinnerRoles } = require("./winnersRoles") as typeof import(
 const { TROPHY_LABELS, resolvePreviousMonthTopVoters, cleanupExpiredMonthlyVoterRewards, assignMonthlyVoterRewards, buildMonthlyTopPrizeEmbedLines, buildMonthlyTopWinnerAnnounceLines, revokeActiveMonthlyTopRewardsExcept, revokeActiveMonthlyVoterRewardsExcept, cleanupExpiredMonthlyTopRewards, assignMonthlyTopRewards } = require("./winnersMonthlyRewards") as typeof import("./winnersMonthlyRewards");
 const { TARGET_CHANNEL_ID, buildEmptyLine, formatRankLine } = require("./winnersWeekly") as typeof import("./winnersWeekly");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const IT_MONTH_NAMES = [
   "Gennaio",
   "Febbraio",
@@ -111,20 +112,20 @@ async function publishMonthlyActivityWinners(client?, options: Record<string, an
         : index === 1
           ? "VIP (30g)"
           : "Donator (30g)";
-      return `${TROPHY_LABELS[index] || TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${item.userId}> <a:VC_Arrow:1482706699365257397> **${item.value}** *voti* · \`${rewardLabel}\``;
+      return `${TROPHY_LABELS[index] || TROPHY_LABELS[2] || E.VC_Podio3} <@${item.userId}> ${E.VC_Arrow} **${item.value}** *voti* · \`${rewardLabel}\``;
     })
     : [buildEmptyLine("voti del mese scorso")];
   const monthlyRewardRows = buildMonthlyTopPrizeEmbedLines(displayTopCombined, rankedYear, rankedMonth);
   const embedDescLines = [
-    `<:VC_Leaderboard:1482534806314287387> // **${monthNameLabel}** — I vantaggi che avete sbloccato sono sul [nostro sito](https://viniliecaffe.it/perks)`,
+    `${E.VC_Leaderboard} // **${monthNameLabel}** — I vantaggi che avete sbloccato sono sul [nostro sito](https://viniliecaffe.it/perks)`,
     "",
-    `<a:VC_HeartsPink:1468685897389052008> • **Classifica mensile EXP totale:**`,
+    `${E.VC_HeartsPink} • **Classifica mensile EXP totale:**`,
     ...combinedRows,
     "",
-    `<a:VC_Winner:1482535294757507255> • **Premi Top Monthly:**`,
+    `${E.VC_Winner} • **Premi Top Monthly:**`,
     ...monthlyRewardRows,
     "",
-    `<:VC_Leaderboard:1482534806314287387> • **Top Voters:**`,
+    `${E.VC_Leaderboard} • **Top Voters:**`,
     ...voterRows,
   ];
   const embed = new EmbedBuilder()
@@ -136,36 +137,36 @@ async function publishMonthlyActivityWinners(client?, options: Record<string, an
     new ButtonBuilder()
       .setLabel("Chat")
       .setStyle(ButtonStyle.Link)
-      .setEmoji("<:VC_FrogCute:1331620415185096746>")
+      .setEmoji(E.VC_FrogCute)
       .setURL("https://discord.com/channels/1329080093599076474/1442569130573303898"),
     new ButtonBuilder()
       .setLabel("Vocal")
       .setStyle(ButtonStyle.Link)
-      .setEmoji("<:VC_FrogJuice:1331620486517358613>")
+      .setEmoji(E.VC_FrogJuice)
       .setURL("https://discord.com/channels/1329080093599076474/1442569101225496819"),
     new ButtonBuilder()
       .setLabel("Vota")
       .setStyle(ButtonStyle.Link)
-      .setEmoji("<a:VC_Vote:1482535223001485473>")
+      .setEmoji(E.VC_Vote)
       .setURL("https://www.viniliecaffe.it/vote"),
   );
   if (!options.skipDiscordSends && channel) {
-    const introLine = `<a:VC_Winner:1482535294757507255> Ciao a tutti! Annunciamo i vincitori del mese.`;
+    const introLine = `${E.VC_Winner} Ciao a tutti! Annunciamo i vincitori del mese.`;
     const votersRoleTextByIndex = ["<@&1544830868575625276>", "<@&1544830866616754257>", "<@&1544830864565735515>"];
     const voter1 = monthlyVotersTop[0];
     const voter2 = monthlyVotersTop[1];
     const voter3 = monthlyVotersTop[2];
     const votersTextLine = monthlyVotersTop.length
       ? [
-        "\n<:VC_Leaderboard:1482534806314287387> **Top Voters:**",
+        `\n${E.VC_Leaderboard} **Top Voters:**`,
         voter1
-          ? `${TROPHY_LABELS[0] || "<:VC_Podio1:1482694399283433582>"} <@${voter1.userId}> <a:VC_Arrow:1482706699365257397> **${voter1.value}** *voti* · ${votersRoleTextByIndex[0]} 30 giorni`
+          ? `${TROPHY_LABELS[0] || E.VC_Podio1} <@${voter1.userId}> ${E.VC_Arrow} **${voter1.value}** *voti* · ${votersRoleTextByIndex[0]} 30 giorni`
           : null,
         voter2
-          ? `${TROPHY_LABELS[1] || "<:VC_Podio2:1482694424411635712>"} <@${voter2.userId}> <a:VC_Arrow:1482706699365257397> **${voter2.value}** *voti* · ${votersRoleTextByIndex[1]} 30 giorni`
+          ? `${TROPHY_LABELS[1] || E.VC_Podio2} <@${voter2.userId}> ${E.VC_Arrow} **${voter2.value}** *voti* · ${votersRoleTextByIndex[1]} 30 giorni`
           : null,
         voter3
-          ? `${TROPHY_LABELS[2] || "<:VC_Podio3:1482694450806259744>"} <@${voter3.userId}> <a:VC_Arrow:1482706699365257397> **${voter3.value}** *voti* · ${votersRoleTextByIndex[2]} 30 giorni`
+          ? `${TROPHY_LABELS[2] || E.VC_Podio3} <@${voter3.userId}> ${E.VC_Arrow} **${voter3.value}** *voti* · ${votersRoleTextByIndex[2]} 30 giorni`
           : null,
       ].filter(Boolean).join("\n")
       : "";
@@ -174,7 +175,7 @@ async function publishMonthlyActivityWinners(client?, options: Record<string, an
         content: `<@&1442568949605597264>
 ${introLine}
 
-<:VC_Podio1:1482694399283433582> Con un totale di **${monthlyAnnounce.winnerTotal} EXP**, ${monthlyAnnounce.winnerMention} ottiene il primo posto della **__classifica mensile__** e riceve il ruolo <@&1544830838443741194> e un **Nitro Boost** riscattabile tramite ${siteTicketsPageDiscordRef("HIGH STAFF")}.
+${E.VC_Podio1} Con un totale di **${monthlyAnnounce.winnerTotal} EXP**, ${monthlyAnnounce.winnerMention} ottiene il primo posto della **__classifica mensile__** e riceve il ruolo <@&1544830838443741194> e un **Nitro Boost** riscattabile tramite ${siteTicketsPageDiscordRef("HIGH STAFF")}.
 ${monthlyAnnounce.secondLine}
 ${monthlyAnnounce.thirdLine}
 ${votersTextLine}

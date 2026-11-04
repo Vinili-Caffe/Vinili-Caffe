@@ -19,6 +19,7 @@ const { userSuppressesManagerPing, resolveManagerSelectedBadgeEmojis } = require
 const { touchPartnershipPublishPings } = require("../core/tenantPartnershipSettings") as typeof import("../core/tenantPartnershipSettings");
 const { reserveAndPersistPartnershipLogId, sendPartnershipExecuteLog } = require("./partnershipExecuteLogService") as typeof import("./partnershipExecuteLogService");
 const { evaluateTenantObjectives } = require("./tenantObjectiveService") as typeof import("./tenantObjectiveService");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   extractInviteCode,
   hasRequiredDiscordInviteLink,
@@ -77,7 +78,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1482706673176150077> Devi indicare un **manager** per questa partnership.",
+            `${E.VC_Alert} Devi indicare un **manager** per questa partnership.`,
           ),
       ],
     });
@@ -93,7 +94,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<a:VC_Alert:1482706673176150077> Manager non trovato nel server.",
+              `${E.VC_Alert} Manager non trovato nel server.`,
             ),
         ],
       });
@@ -116,7 +117,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<a:VC_Alert:1482706673176150077> Questo utente non ha completato l'inserimento, farglielo completare prima di riprovare!",
+              `${E.VC_Alert} Questo utente non ha completato l'inserimento, farglielo completare prima di riprovare!`,
             ),
         ],
       });
@@ -128,7 +129,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
           new EmbedBuilder()
             .setColor("#6f4e37")
             .setDescription(
-              "<a:VC_Alert:1482706673176150077> Non puoi fare partner con questo manager poiché blacklistato!",
+              `${E.VC_Alert} Non puoi fare partner con questo manager poiché blacklistato!`,
             ),
         ],
       });
@@ -141,7 +142,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1482706673176150077> Devi inserire un **link d'invito Discord** valido (`discord.gg/...` o `discord.com/invite/...`).",
+            `${E.VC_Alert} Devi inserire un **link d'invito Discord** valido (\`discord.gg/...\` o \`discord.com/invite/...\`).`,
           ),
       ],
     });
@@ -172,7 +173,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1482706673176150077> Non riesco a leggere i dati di questo invito (server/membri). Controlla che il link sia valido e riprova tra poco.",
+            `${E.VC_Alert} Non riesco a leggere i dati di questo invito (server/membri). Controlla che il link sia valido e riprova tra poco.`,
           ),
       ],
     });
@@ -206,7 +207,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1482706673176150077> Invite senza nome server leggibile. Riprova con un altro invite.",
+            `${E.VC_Alert} Invite senza nome server leggibile. Riprova con un altro invite.`,
           ),
       ],
     });
@@ -226,8 +227,8 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
         name: ownGuildActorLabel,
         iconURL: guildMemberDisplayAvatarUrlDynamic(interaction.member || interaction.user) || undefined,
       })
-      .setTitle(`**<:partneredserverowner:1443651871125409812> Partnership con ${serverName} da ${ownGuildActorLabel}**`)
-      .setDescription(`<a:VC_Alert:1482706673176150077> Non puoi fare partner con il tuo server`)
+      .setTitle(`**${E.partneredserverowner} Partnership con ${serverName} da ${ownGuildActorLabel}**`)
+      .setDescription(`${E.VC_Alert} Non puoi fare partner con il tuo server`)
       .setFooter({ text: serverName, iconURL: serverIcon })
       .setColor("Red")
       .setTimestamp()
@@ -252,7 +253,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              `<a:VC_Alert:1482706673176150077> È già stata pubblicata una **partnership con questo server** nelle ultime **${windowLabel}**.\nPuoi ripetere la stessa partner a partire da **<t:${ts}:F>** (<t:${ts}:R>).`,
+              `${E.VC_Alert} È già stata pubblicata una **partnership con questo server** nelle ultime **${windowLabel}**.\nPuoi ripetere la stessa partner a partire da **<t:${ts}:F>** (<t:${ts}:R>).`,
             ),
         ],
       });
@@ -272,7 +273,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
         new EmbedBuilder()
           .setColor("Red")
           .setDescription(
-            "<a:VC_Alert:1482706673176150077> La descrizione è vuota.",
+            `${E.VC_Alert} La descrizione è vuota.`,
           ),
       ],
     });
@@ -293,7 +294,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<a:VC_Alert:1482706673176150077> Canale partnership non configurato correttamente.",
+              `${E.VC_Alert} Canale partnership non configurato correttamente.`,
             ),
         ],
       });
@@ -306,7 +307,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<a:VC_Alert:1482706673176150077> Impossibile creare il record staff. Riprova.",
+              `${E.VC_Alert} Impossibile creare il record staff. Riprova.`,
             ),
         ],
       }).catch(() => {});
@@ -387,7 +388,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
           new EmbedBuilder()
             .setColor("Red")
             .setDescription(
-              "<a:VC_Alert:1482706673176150077> Non sono riuscito a pubblicare la partner nel canale configurato.",
+              `${E.VC_Alert} Non sono riuscito a pubblicare la partner nel canale configurato.`,
             ),
         ],
       });
@@ -505,7 +506,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
         new EmbedBuilder()
           .setColor("#e74c3c")
           .setDescription(
-            `<a:VC_Alert:1482706673176150077> C'è stato un errore nell'esecuzione del comando.`,
+            `${E.VC_Alert} C'è stato un errore nell'esecuzione del comando.`,
           ),
       ],
     });

@@ -1,6 +1,7 @@
 const { TOP_CHANNEL_REFRESH_CUSTOM_ID_PREFIX, TOP_CHANNEL_PERIOD_OPEN_CUSTOM_ID_PREFIX, TOP_CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX, TOP_CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX, TOP_CHANNEL_VIEW_SELECT_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_FIRST_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_PREV_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_MODAL_OPEN_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_NEXT_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_LAST_CUSTOM_ID_PREFIX, buildTopPageJumpModal, normalizeTopView } = require("./topChannel/components") as typeof import("./topChannel/components");
 const { parseTopChannelCustomId, parseTopChannelPageCustomId, parseTopChannelViewSelectCustomId } = require("./buttonParsers") as typeof import("./buttonParsers");
 const { buildTopChannelPayload } = require("../prefix/top") as typeof import("../prefix/top");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const TOP_CHANNEL_PREFIXES = [ TOP_CHANNEL_REFRESH_CUSTOM_ID_PREFIX, TOP_CHANNEL_PERIOD_OPEN_CUSTOM_ID_PREFIX, TOP_CHANNEL_PERIOD_SET_CUSTOM_ID_PREFIX, TOP_CHANNEL_PERIOD_BACK_CUSTOM_ID_PREFIX, TOP_CHANNEL_VIEW_SELECT_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_FIRST_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_PREV_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_MODAL_OPEN_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_NEXT_CUSTOM_ID_PREFIX, TOP_CHANNEL_PAGE_LAST_CUSTOM_ID_PREFIX ];
 
 function isTopChannelInteraction(interaction?) {
@@ -88,7 +89,7 @@ async function execute(interaction?) {
 
   const effectiveOwnerId = ownerId || openModal?.ownerId || null;
   if (effectiveOwnerId && String(effectiveOwnerId) !== String(interaction.user?.id || "")) {
-    await replyDenied(interaction, "<a:VC_Cross:1482532424570376253> Questo controllo non è associato al tuo comando.");
+    await replyDenied(interaction, `${E.VC_Cross} Questo controllo non è associato al tuo comando.`);
     return true;
   }
 
@@ -148,7 +149,7 @@ async function execute(interaction?) {
       return true;
     }
     global.logger?.error?.("[topChannelHandler] execute", err);
-    await replyDenied(interaction, "<a:VC_Cross:1482532424570376253> Errore durante l'aggiornamento.");
+    await replyDenied(interaction, `${E.VC_Cross} Errore durante l'aggiornamento.`);
     return true;
   }
 }

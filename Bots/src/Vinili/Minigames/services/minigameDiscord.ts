@@ -2,9 +2,10 @@
 const { applyDefaultFooterToEmbeds } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 
-const MINIGAME_WIN_EMOJI = "<a:VC_Events:1482706144953897223>";
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
+const MINIGAME_WIN_EMOJI = E.VC_Events;
 const MINIGAME_CORRECT_FALLBACK_EMOJI = "\u2714";
-const MINIGAME_WRONG_EMOJI = "<a:VC_Cross:1482532424570376253>";
+const MINIGAME_WRONG_EMOJI = E.VC_Cross;
 
 async function sendMinigameMessage(channel?, payload?) {
   if (!channel?.send) return null;

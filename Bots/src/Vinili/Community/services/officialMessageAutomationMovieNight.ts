@@ -1,5 +1,6 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { EPHEMERAL_TTL_NORMAL_MS, scheduleMessageDeletion } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   normalizeMovieNightProposalForCompare,
   movieNightTitlesMatch,
@@ -15,7 +16,7 @@ const MOVIE_NIGHT_STATE_KEY = "movieNightAnnouncement.v1";
 const DEFAULT_VOTE_REACTION_FALLBACK = "👍";
 const MOVIE_NIGHT_THREAD_PARENT_ID = String(IDs.channels?.eventAnnouncements || "1481660281032675510");
 const MOVIE_NIGHT_THREAD_NAME = "SERATA FILM";
-const MOVIE_NIGHT_THREAD_REACTION = "<a:VC_Vote:1482535223001485473>";
+const MOVIE_NIGHT_THREAD_REACTION = E.VC_Vote;
 const MOVIE_NIGHT_THREAD_DUPLICATE_LOOKBACK_MAX = 500;
 
 function normalizePlainVoteText(raw?) {

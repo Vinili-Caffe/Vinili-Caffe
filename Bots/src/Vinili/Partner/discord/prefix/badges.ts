@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js") as typeof import("discord.js");
 const { safeMessageReply, safeInteractionUpdate } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   isPartnershipOperational,
   memberHasPartnerManagerRole,
@@ -58,7 +59,7 @@ function buildBadgesDescription(lang?, badges?, pageIndex?, options: Record<stri
   const chunks = chunkRows(badges, BADGES_PER_PAGE);
   const pageItems = chunks[pageIndex] || [];
   if (!badges.length) {
-    return `${header}\n\n<:vegax:1443934876440068179> Nessun badge sbloccato per ora.`;
+    return `${header}\n\n${E.vegax} Nessun badge sbloccato per ora.`;
   }
   const body = pageItems.map(formatBadgeEntry).join("\n\n");
   return `${header}\n\n${body}`.trim();
@@ -69,7 +70,7 @@ function buildNavigationRow(ownerId?, targetId?, currentIndex?, total?) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${base}:prev`)
-      .setEmoji("<a:vegaleftarrow:1462914743416131816>")
+      .setEmoji(E.vegaleftarrow)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(currentIndex <= 0),
     new ButtonBuilder()
@@ -79,7 +80,7 @@ function buildNavigationRow(ownerId?, targetId?, currentIndex?, total?) {
       .setDisabled(true),
     new ButtonBuilder()
       .setCustomId(`${base}:next`)
-      .setEmoji("<a:vegarightarrow:1443673039156936837>")
+      .setEmoji(E.vegarightarrow)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(currentIndex >= total - 1),
   );
@@ -149,7 +150,7 @@ async function handleBadgesNavInteraction(interaction?) {
   if (String(interaction.user?.id) !== parsed.ownerId) {
     await interaction
       .reply({
-        content: "<:vegax:1443934876440068179> Puoi usare i bottoni solo sul tuo messaggio.",
+        content: `${E.vegax} Puoi usare i bottoni solo sul tuo messaggio.`,
         flags: PRIVATE_FLAG,
       })
       .catch(() => null);

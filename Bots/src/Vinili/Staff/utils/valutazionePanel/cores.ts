@@ -5,6 +5,7 @@ const {
   appendStaffRolesHistoryEntry,
 } = require("../staffDocUtils") as typeof import("../staffDocUtils");
 const { getGuildMemberCached } = require("../../../../shared/discord/interactionEntityCache") as typeof import("../../../../shared/discord/interactionEntityCache");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   addStaffWarnFromNegatives,
   applyFullDepex,
@@ -45,7 +46,7 @@ async function valutazionePositiveAddCore(profileDoc?, staffUser?, reason?, acto
   const embed = await makeLogEmbed(
     actor,
     staffUser,
-    `<:thumbsup:1471292172145004768> **__VALUTAZIONE POSITIVA__** #${counts.sectionCount}`,
+    `${E.thumbsup} **__VALUTAZIONE POSITIVA__** #${counts.sectionCount}`,
     reason,
     counts.sectionCount,
     VALUTAZIONE_EMBED_COLOR,
@@ -81,13 +82,13 @@ async function valutazionePositiveAddCore(profileDoc?, staffUser?, reason?, acto
 async function valutazionePositiveRemoveCore(profileDoc?, staffUser?, removeId?, reason?, actor?, channel?) {
   const s = ensureStaff(profileDoc);
   if (!Number.isInteger(removeId) || removeId < 1) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> ID non valido" };
+    return { ok: false, message: `${E.VC_Attention} ID non valido` };
   }
   const index = await resolveValutazioneRemoveIndexFull(channel?.guild || null, s, "positive", removeId, staffUser?.id);
   if (index < 0 || !s.positiveReasons?.[index]) {
     return {
       ok: false,
-      message: "<:VC_Attention:1482534443632558151> ID non valido — usa il **#** nel titolo o **ID Valutazione** nel footer del messaggio",
+      message: `${E.VC_Attention} ID non valido — usa il **#** nel titolo o **ID Valutazione** nel footer del messaggio`,
     };
   }
   const removedReason = s.positiveReasons[index];
@@ -110,11 +111,11 @@ async function valutazionePositiveRemoveCore(profileDoc?, staffUser?, removeId?,
   const embed = makeRemovalEmbed(
     actor,
     staffUser,
-    "<:cancel:1461730653677551691> **__VALUTAZIONE POSITIVA RIMOSSA__**",
-    `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Positiva!_`,
+    `${E.cancel} **__VALUTAZIONE POSITIVA RIMOSSA__**`,
+    `${E.VC_reason} A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Positiva!_`,
     reason,
-    "<:VC_update:1478721333096349817> __Valutazioni Positive Totali__",
-    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.positiveCount}\` valutazioni positive!`,
+    `${E.VC_update} __Valutazioni Positive Totali__`,
+    `${E.VC_OnlineStatus} Ora sei a \`${s.positiveCount}\` valutazioni positive!`,
   );
   const edited = await editOriginalValutazioneMessage(channel?.guild || null, originalEntry, embed);
   if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });
@@ -146,7 +147,7 @@ async function valutazioneNegativeAddCore(guild?, profileDoc?, staffUser?, reaso
   const embed = await makeLogEmbed(
     actor,
     staffUser,
-    `<:thumbsdown:1471292163957457013> **__VALUTAZIONE NEGATIVA__** #${counts.sectionCount}`,
+    `${E.thumbsdown} **__VALUTAZIONE NEGATIVA__** #${counts.sectionCount}`,
     reason,
     counts.sectionCount,
     VALUTAZIONE_EMBED_COLOR,
@@ -255,13 +256,13 @@ async function valutazioneNegativeAddCore(guild?, profileDoc?, staffUser?, reaso
 async function valutazioneNegativeRemoveCore(profileDoc?, staffUser?, removeId?, reason?, actor?, channel?) {
   const s = ensureStaff(profileDoc);
   if (!Number.isInteger(removeId) || removeId < 1) {
-    return { ok: false, message: "<:VC_Attention:1482534443632558151> ID non valido" };
+    return { ok: false, message: `${E.VC_Attention} ID non valido` };
   }
   const index = await resolveValutazioneRemoveIndexFull(channel?.guild || null, s, "negative", removeId, staffUser?.id);
   if (index < 0 || !s.negativeReasons?.[index]) {
     return {
       ok: false,
-      message: "<:VC_Attention:1482534443632558151> ID non valido — usa il **#** nel titolo o **ID Valutazione** nel footer del messaggio",
+      message: `${E.VC_Attention} ID non valido — usa il **#** nel titolo o **ID Valutazione** nel footer del messaggio`,
     };
   }
   const removedReason = s.negativeReasons[index];
@@ -284,11 +285,11 @@ async function valutazioneNegativeRemoveCore(profileDoc?, staffUser?, removeId?,
   const embed = makeRemovalEmbed(
     actor,
     staffUser,
-    "<:cancel:1461730653677551691> **__VALUTAZIONE NEGATIVA RIMOSSA__**",
-    `<:VC_reason:1478517122929004544> A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Negativa!_`,
+    `${E.cancel} **__VALUTAZIONE NEGATIVA RIMOSSA__**`,
+    `${E.VC_reason} A __${accountUsername(staffUser)}__ è stata **rimossa** una _Valutazione Negativa!_`,
     reason,
-    "<:VC_update:1478721333096349817> __Valutazioni Negative Totali__",
-    `<:VC_OnlineStatus:1482527088912240650> Ora sei a \`${s.negativeCount}\` valutazioni negative!`,
+    `${E.VC_update} __Valutazioni Negative Totali__`,
+    `${E.VC_OnlineStatus} Ora sei a \`${s.negativeCount}\` valutazioni negative!`,
   );
   const edited = await editOriginalValutazioneMessage(channel?.guild || null, originalEntry, embed);
   if (!edited) await sendChannelEmbed(channel, { embeds: [embed] });

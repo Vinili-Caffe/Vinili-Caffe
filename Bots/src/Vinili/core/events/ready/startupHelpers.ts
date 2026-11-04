@@ -22,7 +22,13 @@ const LOOP_STAGGER_MS = Math.max(0, Number(process.env.LOOP_STAGGER_MS) || 400);
 const ENGAGEMENT_INTERVAL_MS = Number(process.env.ENGAGEMENT_INTERVAL_MS) || 60 * 1000;
 const JOIN_RAID_RESTORE_INTERVAL_MS = Number(process.env.JOIN_RAID_RESTORE_INTERVAL_MS) || 10 * 60 * 1000;
 const CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS = Number(process.env.CLEANUP_USERS_NOT_IN_SERVER_DELAY_MS) || 3 * 60 * 1000;
-const CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS = (() => { const v = process.env.CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS; if (v === undefined || v === "") return 24 * 60 * 60 * 1000; const n = Number(v); return Number.isFinite(n) ? n : 24 * 60 * 60 * 1000;})();
+/* Default 7d: guildMemberRemove runs incremental cleanup via runCleanupAfterMemberLeave; full scan is a safety net. */
+const CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS = (() => {
+  const v = process.env.CLEANUP_USERS_NOT_IN_SERVER_INTERVAL_MS;
+  if (v === undefined || v === "") return 7 * 24 * 60 * 60 * 1000;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 7 * 24 * 60 * 60 * 1000;
+})();
 
 function shouldRunVerificationTenureBackfill(client?) {
   const envValue = String(process.env.VERIFICATION_TENURE_BACKFILL_ON_STARTUP || "").trim().toLowerCase();

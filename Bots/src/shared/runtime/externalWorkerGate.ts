@@ -7,7 +7,7 @@ function envFlagOn(name?) {
 }
 
 /**
- * @param {"BOT_SCHEDULER"|"COMMUNITY_POLL"|"AUTO_BACKUP"|"VOTE_QUEUE"|"PARTNERSHIP_MIGRATION"} kind
+ * @param {"BOT_SCHEDULER"|"COMMUNITY_POLL"|"AUTO_BACKUP"|"VOTE_QUEUE"|"PARTNERSHIP_MIGRATION"|"MARKOV"|"MINIGAMES"} kind
  */
 function shouldStartExternalWorkerLoop(kind?) {
   const key = String(kind || "").trim().toUpperCase();

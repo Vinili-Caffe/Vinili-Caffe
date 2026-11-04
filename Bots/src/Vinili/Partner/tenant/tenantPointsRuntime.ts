@@ -13,6 +13,7 @@ const { applyPartnershipPayloadBranding } = require("../../../MultiGuild/utils/t
 const { applyDefaultFooterToEmbeds } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 const { getUserPartnershipScoresForGuild } = require("../services/tenantLeaderboardService") as typeof import("../services/tenantLeaderboardService");
 const { buildTenantLookupNotFoundPayload } = require("./tenantLookupNotFoundRuntime") as typeof import("./tenantLookupNotFoundRuntime");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   memberDisplayName,
   userAvatarUrlDynamic,
@@ -99,12 +100,12 @@ function buildTenantPointsComponents(guildId?, targetUserId?, ownerId?, lang = "
         .setCustomId(buildTenantPointsButtonId("add", guildId, targetUserId, ownerId))
         .setStyle(ButtonStyle.Success)
         .setLabel(t(lang, "points_add"))
-        .setEmoji("<:success:1461731530333229226>"),
+        .setEmoji(E.success),
       new ButtonBuilder()
         .setCustomId(buildTenantPointsButtonId("remove", guildId, targetUserId, ownerId))
         .setStyle(ButtonStyle.Danger)
         .setLabel(t(lang, "points_remove"))
-        .setEmoji("<:cancel:1461730653677551691>"),
+        .setEmoji(E.cancel),
     ),
   ];
 }
@@ -182,10 +183,10 @@ async function buildTenantPointsPayload(client?, guild?, options: Record<string,
         t(lang, "points_intro", { username, guildName: guild.name }),
         t(lang, "points_statsNote"),
         "",
-        `<:250885giveaway:1524730537770746006> **Points:** ${inlineCode(scores.points)}`,
-        `<:981353partner:1524730506531311688> **${t(lang, "count")}:** ${inlineCode(scores.total)}`,
-        `<:709897bolt:1524730543122681988> **${t(lang, "daily")}:** ${inlineCode(scores.daily)}`,
-        `<:7619planet:1524730515436077187> **${t(lang, "weekly")}:** ${inlineCode(scores.weekly)}`,
+        `${E["250885giveaway"]} **Points:** ${inlineCode(scores.points)}`,
+        `${E["981353partner"]} **${t(lang, "count")}:** ${inlineCode(scores.total)}`,
+        `${E["709897bolt"]} **${t(lang, "daily")}:** ${inlineCode(scores.daily)}`,
+        `${E["7619planet"]} **${t(lang, "weekly")}:** ${inlineCode(scores.weekly)}`,
       ].join("\n"),
     );
 
@@ -212,7 +213,7 @@ async function executeTenantPointsContextMenu(interaction?, action?) {
   const guild = interaction.guild;
   if (!guild?.id) {
     await interaction.reply({
-      content: "<a:VC_Cross:1482532424570376253> Comando disponibile solo in un server.",
+      content: `${E.VC_Cross} Comando disponibile solo in un server.`,
       flags: EPHEMERAL_FLAG,
     }).catch(() => null);
     return;
@@ -232,7 +233,7 @@ async function executeTenantPointsContextMenu(interaction?, action?) {
   const targetUser = interaction.targetUser;
   if (!targetUser?.id) {
     await interaction.reply({
-      content: "<a:VC_Cross:1482532424570376253> Indica un **utente** valido.",
+      content: `${E.VC_Cross} Indica un **utente** valido.`,
       flags: EPHEMERAL_FLAG,
     }).catch(() => null);
     return;
@@ -245,7 +246,7 @@ async function executeTenantPointsContextMenu(interaction?, action?) {
 
   if (!targetMember) {
     await interaction.reply({
-      content: "<a:VC_Cross:1482532424570376253> L'utente deve essere **membro di questo server**.",
+      content: `${E.VC_Cross} L'utente deve essere **membro di questo server**.`,
       flags: EPHEMERAL_FLAG,
     }).catch(() => null);
     return;
@@ -254,7 +255,7 @@ async function executeTenantPointsContextMenu(interaction?, action?) {
   if (!memberHasPartnerManagerRole(targetMember, guild.id)) {
     await interaction.reply({
       content:
-        "<a:VC_Cross:1482532424570376253> Puoi modificare i punti solo di utenti con il **ruolo Partner Manager** su questo server.",
+        `${E.VC_Cross} Puoi modificare i punti solo di utenti con il **ruolo Partner Manager** su questo server.`,
       flags: EPHEMERAL_FLAG,
     }).catch(() => null);
     return;
@@ -263,7 +264,7 @@ async function executeTenantPointsContextMenu(interaction?, action?) {
   if (!canManageTenantPoints(actorMember, targetMember, guild.id)) {
     await interaction.reply({
       content:
-        "<a:VC_Cross:1482532424570376253> Solo un **Amministratore** può modificare i punti di un **Partner Manager**.",
+        `${E.VC_Cross} Solo un **Amministratore** può modificare i punti di un **Partner Manager**.`,
       flags: EPHEMERAL_FLAG,
     }).catch(() => null);
     return;
@@ -274,7 +275,7 @@ async function executeTenantPointsContextMenu(interaction?, action?) {
   const modal = buildTenantPointsModal(action, guild.id, targetUser.id, interaction.user.id, lang);
   await interaction.showModal(modal).catch(async () => {
     await interaction.reply({
-      content: "<a:VC_Cross:1482532424570376253> Impossibile aprire il modulo.",
+      content: `${E.VC_Cross} Impossibile aprire il modulo.`,
       flags: EPHEMERAL_FLAG,
     }).catch(() => null);
   });

@@ -45,8 +45,18 @@ const {
   restoreCoreStartupState,
   queueStartupSync,
 } = require("./startupRestore") as typeof import("./startupRestore");
+const { envFlagOn } = require("../../../../shared/runtime/externalWorkerGate") as typeof import("../../../../shared/runtime/externalWorkerGate");
 
-function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) {
+function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?, runContext = "gateway") {
+  const isWorkerCtx = runContext === "worker";
+  const botSchedulerSplit = envFlagOn("BOT_SCHEDULER_EXTERNAL");
+  /** Gateway-only tasks stay on bots-vinyls; offloaded tasks run on bot-scheduler when BOT_SCHEDULER_EXTERNAL=1. */
+  const startupEnabled = (base?, offload = false) => {
+    if (!base) return false;
+    if (isWorkerCtx) return Boolean(offload && botSchedulerSplit);
+    if (offload && botSchedulerSplit) return false;
+    return true;
+  };
   const fullSync = isFullStartupSyncEnabled();
   const mainGuildId = IDs.guilds.main || null;
   const resolveMainGuild = async () => {
@@ -57,7 +67,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "expired mute role restore sweep",
       weight: 5,
-      enabled: primaryScheduler,
+      enabled: startupEnabled(primaryScheduler, true),
       run: () =>
         sweepExpiredCommunicationTimeoutMirrors(client, {
           limit: 100,
@@ -67,7 +77,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "incomplete active mute mirror reconcile",
       weight: 5,
-      enabled: primaryScheduler,
+      enabled: startupEnabled(primaryScheduler, true),
       run: () =>
         reconcileIncompleteActiveMuteMirrors(client, {
           limit: 80,
@@ -77,7 +87,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "stale Unverified (preMember) role sweep",
       weight: 6,
-      enabled: primaryScheduler,
+      enabled: startupEnabled(primaryScheduler, true),
       run: () =>
         sweepStalePreMemberRoles(client, {
                     fetchMembers: fullSync,
@@ -87,7 +97,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "run due channel reminders",
       weight: 8,
-      enabled: String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() !== "1",
+      enabled: startupEnabled(primaryScheduler, true),
       run: async () => {
         await runDueChannelReminders(client);
       },
@@ -95,20 +105,20 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "restore core startup state",
       weight: 10,
-      enabled: true,
+      enabled: startupEnabled(true),
       run: () => restoreCoreStartupState(client),
     },
     /* orphan ticket reconcile → archivio/codice-morto (main Discord tickets site-only) */
     {
       label: "startup sync queue",
       weight: 12,
-      enabled: true,
+      enabled: startupEnabled(true),
       run: () => queueStartupSync(client),
     },
     {
       label: "sync partner description cache",
       weight: 16,
-      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("partner-desc")),
+      enabled: startupEnabled(primaryScheduler && (fullSync || shouldRunMediumStartup("partner-desc")), true),
       run: async () => {
         await syncPartnerDescription(client);
         markMediumStartup("partner-desc");
@@ -117,7 +127,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "sync tenant partner description cache",
       weight: 16,
-      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("tenant-partner-desc")),
+      enabled: startupEnabled(primaryScheduler && (fullSync || shouldRunMediumStartup("tenant-partner-desc")), true),
       run: async () => {
         await syncAllTenantPartnerDescriptions(client);
         markMediumStartup("tenant-partner-desc");
@@ -126,14 +136,14 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "restore bump reminders",
       weight: 15,
-      enabled: primaryScheduler,
+      enabled: startupEnabled(primaryScheduler, true),
       run: () => restoreBumpReminders(client),
     },
     {
       label: "process recent automation messages (vote, bump)",
       weight: 18,
       /* rebootDurability1: anche fast path (TTL) — altrimenti miss durante downtime */
-      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("automation-recheck", STARTUP_MEDIUM_TTL_MS)),
+      enabled: startupEnabled(primaryScheduler && (fullSync || shouldRunMediumStartup("automation-recheck", STARTUP_MEDIUM_TTL_MS)), true),
       run: async () => {
         await processAllRecentAutomationMessages(client);
         markMediumStartup("automation-recheck");
@@ -142,7 +152,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "recover missed Top.gg votes (API backfill)",
       weight: 18.5,
-      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("topgg-vote-recover", STARTUP_MEDIUM_TTL_MS)),
+      enabled: startupEnabled(primaryScheduler && (fullSync || shouldRunMediumStartup("topgg-vote-recover", STARTUP_MEDIUM_TTL_MS)), true),
       run: async () => {
         await recoverMissedTopggVotesOnStartup(client);
         markMediumStartup("topgg-vote-recover");
@@ -151,19 +161,19 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "engagement tick",
       weight: 20,
-      enabled: primaryScheduler,
+      enabled: startupEnabled(primaryScheduler),
       run: () => engagementTick(),
     },
     {
       label: "discadia vote month recovery (solo se mezzanotte 1° non ha rollover)",
       weight: 25,
-      enabled: primaryScheduler && shouldRunDiscadiaVoteMonthRepairOnStartup(client),
+      enabled: startupEnabled(primaryScheduler && shouldRunDiscadiaVoteMonthRepairOnStartup(client), true),
       run: () => repairDiscadiaVoteMonthRowsForMainGuild(client, "startup"),
     },
     {
       label: "sync Discord AutoMod rules (Vinili)",
       weight: 28,
-      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("discord-automod", STARTUP_MEDIUM_TTL_MS)),
+      enabled: startupEnabled(primaryScheduler && (fullSync || shouldRunMediumStartup("discord-automod", STARTUP_MEDIUM_TTL_MS)), true),
       run: async () => {
         global.__vinylsDiscordClient = client;
         const {
@@ -202,7 +212,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "reconcile double booster roles from stored boost slots",
       weight: 35,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: () =>
         guildMemberUpdateExtras.reconcileDoubleBoosterRolesOnStartup(client, {
           maxUsers: 400,
@@ -217,7 +227,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "optional Top.gg stats digest",
       weight: 40,
-      enabled: primaryScheduler && shouldRunTopggStatsDigestOnStartup(client),
+      enabled: startupEnabled(primaryScheduler && shouldRunTopggStatsDigestOnStartup(client), true),
       run: () => postTopggStatsDigestIfConfigured(client),
     },
     {
@@ -233,8 +243,8 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "recover missed join welcome announcements",
       weight: 43,
-      /* missedJoinCatchup1: sempre al boot (anche fast path) — join offline non hanno pending Mongo */
-      enabled: primaryScheduler,
+      /* missedJoinCatchup1: sempre al boot (anche fast path) — offload su bot-scheduler */
+      enabled: startupEnabled(primaryScheduler, true),
       run: () =>
         guildMemberAddExtras.recoverJoinAnnouncementsOnStartup(client, {
           limit: fullSync ? 40 : 30,
@@ -245,7 +255,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
       label: "recover missed donation package supporter announces",
       weight: 44,
       /* boostDedup3: solo fullSync — restart medi ri-mandavano announce già postati */
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: async () => {
         await recoverDonationPackageAnnouncesOnStartup(client, {
           limit: 20,
@@ -257,7 +267,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "recover missed social role supporter announces",
       weight: 45,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: async () => {
         await recoverManualSocialRoleAnnouncesOnStartup(client, {
           limit: 20,
@@ -269,7 +279,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "revoke Discord Store Premium (migrated to credits)",
       weight: 45.1,
-      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("revoke-discord-store-premium", STARTUP_MEDIUM_TTL_MS)),
+      enabled: startupEnabled(primaryScheduler && (fullSync || shouldRunMediumStartup("revoke-discord-store-premium", STARTUP_MEDIUM_TTL_MS)), true),
       run: async () => {
         await revokeAllPremiumBySource("discord_store", {
           updatedBy: "migration:credits",
@@ -281,7 +291,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "reconcile patron roles from social prerequisites",
       weight: 45.2,
-      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("patron-reconcile", STARTUP_MEDIUM_TTL_MS)),
+      enabled: startupEnabled(primaryScheduler && (fullSync || shouldRunMediumStartup("patron-reconcile", STARTUP_MEDIUM_TTL_MS)), true),
       run: async () => {
         await reconcilePatronRolesOnStartup(client, { limit: fullSync ? 300 : 120 });
         markMediumStartup("patron-reconcile");
@@ -290,7 +300,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "recover missed patron role announces",
       weight: 45.4,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: async () => {
         await recoverPatronAnnouncesOnStartup(client, {
           limit: 15,
@@ -302,7 +312,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "recover missed level milestone supporter announces",
       weight: 46,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: async () => {
         await recoverLevelMilestoneSupportersAnnouncesOnStartup(client, {
           limit: 25,
@@ -314,7 +324,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "recover missed supporter status embeds",
       weight: 47,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: async () => {
         await recoverSupporterStatusAnnouncesOnStartup(client, {
           limit: 15,
@@ -325,7 +335,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "ensure Serata Film staff news communication",
       weight: 47,
-      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("movie-night-staff", STARTUP_PANELS_TTL_MS)),
+      enabled: startupEnabled(primaryScheduler && (fullSync || shouldRunMediumStartup("movie-night-staff", STARTUP_PANELS_TTL_MS)), true),
       run: async () => {
         await ensureMovieNightStaffCommunicationOnStartup(client);
         markMediumStartup("movie-night-staff");
@@ -334,7 +344,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "recover missed Serata Film cron announcements",
       weight: 48,
-      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("movie-night-announce", STARTUP_MEDIUM_TTL_MS)),
+      enabled: startupEnabled(primaryScheduler && (fullSync || shouldRunMediumStartup("movie-night-announce", STARTUP_MEDIUM_TTL_MS)), true),
       run: async () => {
         await recoverMovieNightAnnouncementsOnStartup(client);
         markMediumStartup("movie-night-announce");
@@ -343,20 +353,20 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "restore active Serata Film staff tracking",
       weight: 49,
-      enabled: primaryScheduler,
+      enabled: startupEnabled(primaryScheduler, true),
       run: () => restoreActiveSerataFilmSessions(client),
     },
     {
       label: "backfill boost announce slot counts from supporters history",
       weight: 50,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: () => guildMemberUpdateExtras.backfillAnnouncedBoostSlotsFromSupportersHistory(client),
     },
     {
       label: "recover unannounced boosters (member + native scan)",
       weight: 50.5,
       /* boostDedup3: SOLO fullSync — restart/pm2 ri-mandava boost dopo ~3min */
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: async () => {
         await guildMemberUpdateExtras.recoverUnannouncedBoostersOnStartup(client, {
           lookbackMs: 48 * 60 * 60 * 1000,
@@ -368,7 +378,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "recover missing second boost embeds (native vs supporters)",
       weight: 51,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: async () => {
         await guildMemberUpdateExtras.recoverMissingSecondBoostEmbedsOnStartup(client, {
           lookbackMs: 7 * 24 * 60 * 60 * 1000,
@@ -380,7 +390,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "recover last 2 native boost system messages (multi-channel scan)",
       weight: 51,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: async () => {
         await guildMemberUpdateExtras.recoverLastGlobalNativeBoostEmbedsOnStartup(client, {
           messageLimit: 5,
@@ -392,13 +402,13 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "custom role expiry sweep",
       weight: 52,
-      enabled: primaryScheduler && String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() !== "1",
+      enabled: startupEnabled(primaryScheduler, true),
       run: () => runExpiredCustomRolesSweep(client),
     },
     {
       label: "DM banned users unban link (run once)",
       weight: 55,
-      enabled: primaryScheduler && shouldRunBannedUnbanDmOnStartup(client),
+      enabled: startupEnabled(primaryScheduler && shouldRunBannedUnbanDmOnStartup(client), true),
       run: async () => {
         const result: any = await sendBannedUnbanLinkDms(client, { dryRun: false, once: true });
         if (result?.skipped) {
@@ -414,10 +424,11 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
       /* perfP2: indici anche senza FULL_STARTUP_SYNC (claim atomico settimanale) */
       label: "ensure MongoDB indexes (weekly / full sync)",
       weight: 76,
-      enabled:
+      enabled: startupEnabled(
         primaryScheduler &&
-        String(process.env.BOT_SCHEDULER_EXTERNAL || "").trim() !== "1" &&
-        (fullSync || isStartupThrottleDue(STARTUP_THROTTLE_NS, "mongo-indexes", 7 * 24 * 60 * 60 * 1000).due),
+          (fullSync || isStartupThrottleDue(STARTUP_THROTTLE_NS, "mongo-indexes", 7 * 24 * 60 * 60 * 1000).due),
+        true,
+      ),
       run: async () => {
         const { tryClaimStartupWork } = require("../../../../shared/runtime/startupThrottleCache") as typeof import("../../../../shared/runtime/startupThrottleCache");
         const claim = tryClaimStartupWork(STARTUP_THROTTLE_NS, "mongo-indexes", 7 * 24 * 60 * 60 * 1000);
@@ -430,7 +441,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
             {
       label: "custom private category empty cleanup",
       weight: 54,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: async () => {
         const guildId = String(IDs?.guilds?.main || "").trim();
         if (!guildId) return;
@@ -451,19 +462,19 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "startup sync zodiac roles from birthday profiles",
       weight: 78,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: () => syncZodiacRolesFromStoredBirthdays(client),
     },
     {
       label: "startup sync age bracket roles from birthday profiles",
       weight: 78,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: () => syncAgeBracketRolesFromStoredBirthdays(client),
     },
     {
       label: "startup sync staff auto valutazioni",
       weight: 80,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: async () => {
         await cleanupMalformedAutoValutazioni();
         await syncAllStaffAutoValutazioni(client);
@@ -472,25 +483,25 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "reconcile resoconto reviewer compito settimanale",
       weight: 81,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: () => (reconcileResocontoReviewerRewardAutoValutazioni as any)(client),
     },
     {
       label: "verification tenure backfill",
       weight: 85,
-      enabled: primaryScheduler && fullSync && shouldRunVerificationTenureBackfill(client),
+      enabled: startupEnabled(primaryScheduler && fullSync && shouldRunVerificationTenureBackfill(client), true),
       run: () => backfillVerificationTenure(client),
     },
     {
       label: "renumber categories",
       weight: 88,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: () => renumberAllCategories(client),
     },
     {
       label: "retro sync guild levels",
       weight: 90,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: async () => {
         const mainGuild = await resolveMainGuild();
         if (!mainGuild) return;
@@ -500,8 +511,8 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "heal missing level milestone roles",
       weight: 91,
-      /* levelRoleBootHeal1 / rebootDurability1: anche fast path — Level10+ senza ruolo */
-      enabled: primaryScheduler && (fullSync || shouldRunMediumStartup("level-role-heal", STARTUP_MEDIUM_TTL_MS)),
+      /* levelRoleBootHeal1 / rebootDurability1: anche fast path — Level10+ senza ruolo; offload su bot-scheduler */
+      enabled: startupEnabled(primaryScheduler && (fullSync || shouldRunMediumStartup("level-role-heal", STARTUP_MEDIUM_TTL_MS)), true),
       run: async () => {
         const mainGuild = await resolveMainGuild();
         if (!mainGuild) return;
@@ -514,7 +525,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?) 
     {
       label: "startup sync clan tag roles",
       weight: 92,
-      enabled: primaryScheduler && fullSync,
+      enabled: startupEnabled(primaryScheduler && fullSync, true),
       run: () => syncAllMembersClanTags(client),
     },
   ];
@@ -530,7 +541,20 @@ async function runDeferredStartup(client?, primaryScheduler?, engagementTick?) {
   );
 }
 
+async function runBotSchedulerWorkerDeferredStartup(client?) {
+  if (!envFlagOn("BOT_SCHEDULER_WORKER") || !envFlagOn("BOT_SCHEDULER_EXTERNAL")) return;
+  const noopTick = async () => {};
+  const startupTasks = buildDeferredStartupTasks(client, true, noopTick, "worker");
+  const hooks = createStartupHooks(client);
+  const startedAt = Date.now();
+  const summary = await runPhasedStartupTasks(startupTasks, hooks, { mediumConcurrency: 4 });
+  global.logger?.info?.(
+    `[BOT-SCHEDULER][STARTUP] deferred: fast=${summary.fastResults.length} medium=${summary.mediumResults.length} heavy=${summary.heavyCount} in ${formatDurationMs(Date.now() - startedAt)}.`,
+  );
+}
+
 export = {
   buildDeferredStartupTasks,
   runDeferredStartup,
+  runBotSchedulerWorkerDeferredStartup,
 };

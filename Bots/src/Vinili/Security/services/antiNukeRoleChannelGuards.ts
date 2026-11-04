@@ -3,6 +3,7 @@ const { formatExecutorLine, sendAntiNukeLog } = require("./antiNukeLog") as type
 const { enableAntiNukePanic } = require("./antiNukePanicEnable") as typeof import("./antiNukePanicEnable");
 const { percentToHeat } = require("./antiNukeActionHeat") as typeof import("./antiNukeActionHeat");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const ACTION_EVENT_DEDUPE = new Map();
 const ACTION_EVENT_DEDUPE_TTL_MS = 3_500;
 const ACTION_EVENT_DEDUPE_NO_TARGET_TTL_MS = 900;
@@ -117,18 +118,18 @@ async function applyBurstPanicGuard(guild?, actorId?, actionLabel?, addedHeatPer
   if (!burst.triggered) return;
   await enableAntiNukePanic(
     guild,
-    `<a:VC_Alert:1482706673176150077> Coordinated burst detected (${actionLabel || "unknown"})`,
+    `${E.VC_Alert} Coordinated burst detected (${actionLabel || "unknown"})`,
     Math.max(70, Number(addedHeatPercent || 0)),
     { force: true },
   );
   await sendAntiNukeLog(
     guild,
-    "<a:VC_Alert:1482706673176150077> AntiNuke: Coordinated Burst Guard",
+    `${E.VC_Alert} AntiNuke: Coordinated Burst Guard`,
     [
       formatExecutorLine(actorId),
-      `<a:VC_Alert:1482706673176150077> **Action:** ${actionLabel || "unknown"}`,
-      `<:VC_reason:1478517122929004544> **Burst Heat (20s):** ${Math.round(burst.totalHeat)}/${GUILD_BURST_TRIGGER_HEAT}`,
-      `<:VC_reason:1478517122929004544> **Result:** Panic mode forced`,
+      `${E.VC_Alert} **Action:** ${actionLabel || "unknown"}`,
+      `${E.VC_reason} **Burst Heat (20s):** ${Math.round(burst.totalHeat)}/${GUILD_BURST_TRIGGER_HEAT}`,
+      `${E.VC_reason} **Result:** Panic mode forced`,
     ].filter(Boolean),
     "#ED4245",
   );

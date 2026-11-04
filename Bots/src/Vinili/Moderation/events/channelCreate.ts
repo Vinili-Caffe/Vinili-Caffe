@@ -7,6 +7,7 @@ const{handleChannelCreationAction:antiNukeHandleChannelCreationAction,}=require(
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { shouldResyncAutomodForChannel, scheduleDiscordAutomodRulesResync } = require("../../Moderation/services/discordAutomodRulesService") as typeof import("../../Moderation/services/discordAutomodRulesService");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const CHANNEL_CREATE_ACTION = AuditLogEvent?.ChannelCreate ?? 10;
 const AUDIT_RETRY_ATTEMPTS = 3;
 const AUDIT_RETRY_DELAY_MS = 700;
@@ -36,7 +37,7 @@ async function forceQuarantineOverwrite(channel?) {
         CreatePublicThreads: false,
         CreatePrivateThreads: false,
       },
-      { reason: "<:vegax:1443934876440068179> Forza la quarantena per negare le autorizzazioni sul nuovo canale" },
+      { reason: `${E.vegax} Forza la quarantena per negare le autorizzazioni sul nuovo canale` },
     )
     .catch(() => {});
 }
@@ -75,15 +76,15 @@ export = {
       if (logChannel?.isTextBased?.()) {
         const responsible = formatAuditActor(audit?.executor || null);
         const lines = [
-          `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-          `<:VC_User:1482527453586002103> **Utente:** ${channelDisplay(channel)} \`${channel.id}\``,
-          `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+          `${E.VC_Staff} **Responsabile:** ${responsible}`,
+          `${E.VC_User} **Utente:** ${channelDisplay(channel)} \`${channel.id}\``,
+          `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
           "",
-          "**<:VC_tools:1478862265305272364> Impostazioni**",
-          `<:VC_Modifica:1478859646587633717> **Nome:** ${channel.name || "sconosciuto"}`,
-          `<a:VC_Channel:1482534583944871996> **Tipo:** ${channelTypeLabel(channel)}`,
-          `<a:VC_PepeEggPlant:1331622686014570588> **NSFW:** ${yesNo(Boolean(channel.nsfw))}`,
-          `<:VC_Info:1482526956703580372> **RPM utente:** ${Number(channel.rateLimitPerUser || 0) || "Nessuno"}`,
+          `**${E.VC_tools} Impostazioni**`,
+          `${E.VC_Modifica} **Nome:** ${channel.name || "sconosciuto"}`,
+          `${E.VC_Channel} **Tipo:** ${channelTypeLabel(channel)}`,
+          `${E.VC_PepeEggPlant} **NSFW:** ${yesNo(Boolean(channel.nsfw))}`,
+          `${E.VC_Info} **RPM utente:** ${Number(channel.rateLimitPerUser || 0) || "Nessuno"}`,
         ];
         lines.push(
           ...buildAuditExtraLines(audit?.entry, [
@@ -96,7 +97,7 @@ export = {
 
         const embed = new EmbedBuilder()
           .setColor("#57F287")
-          .setTitle("<a:VC_Channel:1482534583944871996> Channel Create")
+          .setTitle(`${E.VC_Channel} Channel Create`)
           .setDescription(lines.join("\n"));
 
         await logChannel.send({ embeds: [embed] }).catch(() => {});

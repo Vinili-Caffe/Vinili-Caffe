@@ -10,6 +10,7 @@ const { buildTenantLookupNotFoundPayload } = require("./tenantLookupNotFoundRunt
 const { t } = require("../i18n/tenantPartnershipI18n/index") as typeof import("../i18n/tenantPartnershipI18n/index");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isPartnershipOperational } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const SNOWFLAKE_RE = /^\d{16,20}$/;
 
 function inlineCode(value?) {
@@ -80,7 +81,7 @@ async function buildTenantServerInfoPayload(client?, sourceGuild?, options: Reco
   if (!SNOWFLAKE_RE.test(targetGuildId)) {
     return {
       content:
-        "<:vegax:1443934876440068179> Specifica un server con `+server info` o `+server info <guildId>`.",
+        `${E.vegax} Specifica un server con \`+server info\` o \`+server info <guildId>\`.`,
       allowedMentions: { repliedUser: false },
     };
   }
@@ -100,13 +101,13 @@ async function buildTenantServerInfoPayload(client?, sourceGuild?, options: Reco
     .setThumbnail(icon || null)
     .setDescription(
       [
-        `<:926683website:1524730518481141901> **${t(lang, "serverInfo_name")}:** ${inlineCode(displayName)}`,
-        `<:808239search:1524730540983582728> **${t(lang, "serverInfo_id")}:** ${inlineCode(targetGuildId)}`,
-        `<:861752staff:1524730539129438258> **${t(lang, "serverInfo_owner")}:** ${ownerMention}`,
+        `${E["926683website"]} **${t(lang, "serverInfo_name")}:** ${inlineCode(displayName)}`,
+        `${E["808239search"]} **${t(lang, "serverInfo_id")}:** ${inlineCode(targetGuildId)}`,
+        `${E["861752staff"]} **${t(lang, "serverInfo_owner")}:** ${ownerMention}`,
         "",
-        `<:981353partner:1524730506531311688> **${t(lang, "serverInfo_count")}:** ${inlineCode(scores.total)}`,
-        `<:709897bolt:1524730543122681988> **${t(lang, "serverInfo_daily")}:** ${inlineCode(scores.daily)}`,
-        `<:7619planet:1524730515436077187> **${t(lang, "serverInfo_weekly")}:** ${inlineCode(scores.weekly)}`,
+        `${E["981353partner"]} **${t(lang, "serverInfo_count")}:** ${inlineCode(scores.total)}`,
+        `${E["709897bolt"]} **${t(lang, "serverInfo_daily")}:** ${inlineCode(scores.daily)}`,
+        `${E["7619planet"]} **${t(lang, "serverInfo_weekly")}:** ${inlineCode(scores.weekly)}`,
       ].join("\n"),
     );
 
@@ -117,7 +118,7 @@ async function buildTenantServerInfoPayload(client?, sourceGuild?, options: Reco
         new ButtonBuilder()
           .setStyle(ButtonStyle.Link)
           .setLabel(t(lang, "serverInfo_join"))
-          .setEmoji("<:981353partner:1524730506531311688>")
+          .setEmoji(E["981353partner"])
           .setURL(inviteUrl),
       ),
     );

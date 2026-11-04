@@ -69,9 +69,9 @@ function isStanzaAutomodExemptChannel(channel?, guild?) {
   if (lobbyId && chId === lobbyId) return true;
   if (/Stanza di\s+/i.test(String(channel.name || ""))) return true;
   try {
-    const coffee = require("../../../Caffè/Voice/services/stanzaVoiceRoomsService") as typeof import("../../../Caffè/Voice/services/stanzaVoiceRoomsService");
-    if (typeof coffee.isManagedStanzaRoomChannel === "function") {
-      return Boolean(coffee.isManagedStanzaRoomChannel(channel, String(channel.parentId || "")));
+    const vinili = require("../../Voice/services/stanzaVoiceRoomsService") as typeof import("../../Voice/services/stanzaVoiceRoomsService");
+    if (typeof vinili.isManagedStanzaRoomChannel === "function") {
+      return Boolean(vinili.isManagedStanzaRoomChannel(channel, String(channel.parentId || "")));
     }
   } catch (_) {}
   return false;

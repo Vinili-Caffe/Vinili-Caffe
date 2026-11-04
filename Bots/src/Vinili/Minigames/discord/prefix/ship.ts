@@ -5,6 +5,7 @@ const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic, u
 const { safeMessageReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const renderShipCanvas = require("../../../Community/utils/Render/shipCanvas") as typeof import("../../../Community/utils/Render/shipCanvas");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 function extractId(raw?) {
   if (!raw) return null;
   const clean = String(raw).replace(/[<@!>]/g, "");
@@ -119,7 +120,7 @@ export = {
     if (!right) {
       const warn = new EmbedBuilder()
       .setColor("Red")
-      .setDescription("<:vegax:1443934876440068179> Non ho trovato un utente valido per la ship.",);
+      .setDescription(`${E.vegax} Non ho trovato un utente valido per la ship.`,);
       await safeMessageReply(message, {
         embeds: [warn],
         allowedMentions: { repliedUser: false },
@@ -130,7 +131,7 @@ export = {
     if (left.id === right.id) {
       const warn = new EmbedBuilder()
       .setColor("Red")
-      .setDescription("<:vegax:1443934876440068179> Scegli due utenti diversi.",);
+      .setDescription(`${E.vegax} Scegli due utenti diversi.`,);
       await safeMessageReply(message, {
         embeds: [warn],
         allowedMentions: { repliedUser: false },
@@ -172,7 +173,7 @@ export = {
       global.logger.error("[SHIP COMMAND] Render error:", error);
       const fail = new EmbedBuilder()
       .setColor("Red")
-      .setDescription("<:vegax:1443934876440068179> Non sono riuscito a generare l'immagine della ship.",);
+      .setDescription(`${E.vegax} Non sono riuscito a generare l'immagine della ship.`,);
       await safeMessageReply(message, {
         embeds: [fail],
         allowedMentions: { repliedUser: false },

@@ -1,13 +1,14 @@
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const CHANNEL_TYPE_LABEL = {
-  0: "<:channeltext:1443247596922470551>",
-  2: "<:voice:1467639623735054509>",
-  4: "<:VC_category:1478836096669581505>",
-  5: "<a:VC_Announce:1482534613568979007>",
-  13: "<:VC_stage:1478836138583134400>",
-  15: "<:forum:1470541157724328059>",
-  16: "<:link:1470064815899803668>",
+  0: E.channeltext,
+  2: E.voice,
+  4: E.VC_category,
+  5: E.VC_Announce,
+  13: E.VC_stage,
+  15: E.forum,
+  16: E.link,
 };
 
 function formatBytes(bytes?) {
@@ -33,7 +34,7 @@ function toCodeBlock(lines?) {
 function buildCreatingEmbed() {
   return new EmbedBuilder()
     .setColor("#4aa3ff")
-    .setDescription("<a:VC_Loading:1482526772862914776> **Creazione backup in corso...**");
+    .setDescription(`${E.VC_Loading} **Creazione backup in corso...**`);
 }
 
 function buildSuccessEmbed(guild?, result?) {
@@ -43,24 +44,24 @@ function buildSuccessEmbed(guild?, result?) {
     .setTitle("Completato")
     .setDescription(
       [
-        `<:success:1461731530333229226> Backup creato con successo con ID \`${result.backupId}\`.`,
+        `${E.success} Backup creato con successo con ID \`${result.backupId}\`.`,
         "",
-        "<:VC_InactiveStatus:1482526984234860574> Da qui: nel pannello **+backup** usa il menu **Info** o **Carica**.",
+        `${E.VC_InactiveStatus} Da qui: nel pannello **+backup** usa il menu **Info** o **Carica**.`,
       ].join("\n"),
     )
     .addFields([
       {
-        name: "<:success:1461731530333229226> Salvato",
+        name: `${E.success} Salvato`,
         value: [
-          `<:member_role_icon:1330530086792728618> Membri/Bot: **${result.stats.members}**`,
-          `<:VC_Mention:1482526855289634997> Ruoli: **${result.stats.roles}**`,
-          `<:channeltext:1443247596922470551> Canali: **${result.stats.channels}**`,
-          `<:VC_threads:1478515497569095760> Thread: **${result.stats.threads}**`,
-          `<:VC_Chat:1482532573002465413> Messaggi: **${result.stats.messages}**`,
-          `<:VC_BanHammer:1482534474502897795> Bans: **${result.stats.bans}**`,
-          `<:VC_Link:1482460590894088222> Invites: **${result.stats.invites}**`,
-          `<:VC_webhooks:1478515450769047704> Webhooks: **${result.stats.webhooks}**`,
-          `<:VC_file:1478515880722698300> File: \`${result.fileName}\` (${formatBytes(result.sizeBytes)})`,
+          `${E.member_role_icon} Membri/Bot: **${result.stats.members}**`,
+          `${E.VC_Mention} Ruoli: **${result.stats.roles}**`,
+          `${E.channeltext} Canali: **${result.stats.channels}**`,
+          `${E.VC_threads} Thread: **${result.stats.threads}**`,
+          `${E.VC_Chat} Messaggi: **${result.stats.messages}**`,
+          `${E.VC_BanHammer} Bans: **${result.stats.bans}**`,
+          `${E.VC_Link} Invites: **${result.stats.invites}**`,
+          `${E.VC_webhooks} Webhooks: **${result.stats.webhooks}**`,
+          `${E.VC_file} File: \`${result.fileName}\` (${formatBytes(result.sizeBytes)})`,
         ].join("\n"),
         inline: false,
       },
@@ -72,9 +73,9 @@ function buildSuccessEmbed(guild?, result?) {
     .setTimestamp();
 }
 
-function buildErrorEmbed(error?, title = "<:cancel:1461730653677551691> Backup non riuscito") {
+function buildErrorEmbed(error?, title = `${E.cancel} Backup non riuscito`) {
   const detail = String(error?.message || error || "Errore sconosciuto").slice(0, 400);
-  return new EmbedBuilder().setColor("Red").setTitle(title).setDescription(`<:vegax:1443934876440068179> ${detail}`);
+  return new EmbedBuilder().setColor("Red").setTitle(title).setDescription(`${E.vegax} ${detail}`);
 }
 
 function sortChannels(channels = []) {
@@ -158,26 +159,26 @@ function buildInfoEmbed(guild?, backupId?, backupData?, fileSize?, checksum = nu
   const embed = new EmbedBuilder()
     .setColor("#3498db")
     .setTitle(
-      `<:VC_InactiveStatus:1482526984234860574> Info Backup - ${payloadGuild.name || guild?.name || "Server sconosciuto"}`,
+      `${E.VC_InactiveStatus} Info Backup - ${payloadGuild.name || guild?.name || "Server sconosciuto"}`,
     )
     .setDescription(
       minimalBackup
-        ? "<:vegax:1443934876440068179> Questo backup non contiene messaggi, membri o ban."
-        : "<:VC_InactiveStatus:1482526984234860574> Questo backup contiene uno snapshot completo del server.",
+        ? `${E.vegax} Questo backup non contiene messaggi, membri o ban.`
+        : `${E.VC_InactiveStatus} Questo backup contiene uno snapshot completo del server.`,
     )
     .addFields([
       {
-        name: "<:VC_Clock:1473359204189474886> Creato il",
+        name: `${E.VC_Clock} Creato il`,
         value: `<t:${createdAt}:R>`,
         inline: true,
       },
       {
-        name: "<a:VC_Timer:1482527426557775954> Conservato fino a",
+        name: `${E.VC_Timer} Conservato fino a`,
         value: "per sempre",
         inline: true,
       },
       {
-        name: "<:VC_id:1478517313618575419> Backup ID",
+        name: `${E.VC_id} Backup ID`,
         value: `\`${backupId}\``,
         inline: true,
       },
@@ -194,12 +195,12 @@ function buildInfoEmbed(guild?, backupId?, backupData?, fileSize?, checksum = nu
         inline: true,
       },
       {
-        name: "<:VC_file:1478515880722698300> File backup",
+        name: `${E.VC_file} File backup`,
         value: `\`${backupId}.json.gz\` (${formatBytes(fileSize)})`,
         inline: false,
       },
       {
-        name: "<:VC_Link:1482460590894088222> Integrità",
+        name: `${E.VC_Link} Integrità`,
         value: checksum
           ? `\`SHA256\` payload: \`${String(checksum.payload || "").slice(0, 12)}...\`\n\`SHA256\` compressed: \`${String(checksum.compressed || "").slice(0, 12)}...\``
           : "N/D",
@@ -219,23 +220,23 @@ function buildLoadStatusEmbed(status?) {
   if (!status) {
     return new EmbedBuilder()
       .setColor("#3498db")
-      .setTitle("<a:VC_Loading:1482526818278969578> Stato caricamento backup")
-      .setDescription("<:cancel:1461730653677551691> Nessun backup load in corso in questo server.");
+      .setTitle(`${E.VC_Loading__969578} Stato caricamento backup`)
+      .setDescription(`${E.cancel} Nessun backup load in corso in questo server.`);
   }
   const startedAt = Math.floor(Number(status.startedAtMs || Date.now()) / 1000);
   const actions = Array.isArray(status.actions) ? status.actions : [];
   return new EmbedBuilder()
     .setColor("#3498db")
-    .setTitle("<:VC_InactiveStatus:1482526984234860574> Stato caricamento backup")
+    .setTitle(`${E.VC_InactiveStatus} Stato caricamento backup`)
     .setDescription(
       [
-        `<:VC_id:1478517313618575419> Backup ID: \`${String(status.backupId || "").toUpperCase()}\``,
-        `<:VC_Clock:1473359204189474886> Avviato: <t:${startedAt}:R>`,
-        `<a:VC_Loading:1482526772862914776> Fase: \`${String(status.phase || "avvio")}\``,
-        `<a:VC_Loading:1482526818278969578> Elementi processati: **${Number(status.processed || 0)}**`,
-        `<:cancel:1461730653677551691> Annullamento richiesto: **${status.cancelRequested ? "sì" : "no"}**`,
-        `<:VC_Link:1482460590894088222> Limite messaggi: \`${status.messagesLimit == null ? "TUTTI" : Number(status.messagesLimit || 0)}\``,
-        `<:VC_BanHammer:1482534474502897795> Azioni: ${actions.length ? `\`${actions.join("`, `")}\`` : "nessuna"}`,
+        `${E.VC_id} Backup ID: \`${String(status.backupId || "").toUpperCase()}\``,
+        `${E.VC_Clock} Avviato: <t:${startedAt}:R>`,
+        `${E.VC_Loading} Fase: \`${String(status.phase || "avvio")}\``,
+        `${E.VC_Loading__969578} Elementi processati: **${Number(status.processed || 0)}**`,
+        `${E.cancel} Annullamento richiesto: **${status.cancelRequested ? "sì" : "no"}**`,
+        `${E.VC_Link} Limite messaggi: \`${status.messagesLimit == null ? "TUTTI" : Number(status.messagesLimit || 0)}\``,
+        `${E.VC_BanHammer} Azioni: ${actions.length ? `\`${actions.join("`, `")}\`` : "nessuna"}`,
       ].join("\n"),
     );
 }
@@ -243,11 +244,11 @@ function buildLoadStatusEmbed(status?) {
 function buildLoadCancelResultEmbed(cancelled?) {
   return new EmbedBuilder()
     .setColor(cancelled ? "#2ecc71" : "#3498db")
-    .setTitle(cancelled ? "<:success:1461731530333229226> Completato" : " <:VC_InactiveStatus:1482526984234860574> Info")
+    .setTitle(cancelled ? "${E.success} Completato" : " ${E.VC_InactiveStatus} Info")
     .setDescription(
       cancelled
-        ? "<:success:1461731530333229226> Richiesta di annullamento inviata. Il processo verrà fermato appena possibile."
-        : "<:cancel:1461730653677551691> Nessun backup load attivo da annullare.",
+        ? "${E.success} Richiesta di annullamento inviata. Il processo verrà fermato appena possibile."
+        : "${E.cancel} Nessun backup load attivo da annullare.",
     );
 }
 

@@ -5,6 +5,7 @@ const { DEFAULT_OBSOLETE_SLASH_NAMES } = require("../../shared/discord/purgeObso
 const { safeMessageReply } = require("../../shared/discord/replyRuntime") as typeof import("../../shared/discord/replyRuntime");
 const { getGuildMemberCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 const { loadPermissions } = require("../Moderation/utils/commandPermissions") as typeof import("../Moderation/utils/commandPermissions");
+const { E } = require("../../shared/emojis/emojiCatalog") as typeof import("../../shared/emojis/emojiCatalog");
 const HELP_EMBED_COLOR = "#6f4e37";
 const ERROR_EMBED_COLOR = "Red";
 const PRIVATE_FLAG = 1 << 6;
@@ -89,19 +90,19 @@ function buildMiniHelpNotFoundEmbed(query?) {
     .setColor(ERROR_EMBED_COLOR)
     .setTitle("Mini Help 🔍")
     .setDescription(
-      String(`<a:VC_Cross:1482532424570376253> Nessun comando trovato per \`${query}\`.`).slice(0, 4096),
+      String(`${E.VC_Cross} Nessun comando trovato per \`${query}\`.`).slice(0, 4096),
     );
 }
 
 function buildNoAvailableCommandsEmbed() {
   return new EmbedBuilder()
     .setColor(ERROR_EMBED_COLOR)
-    .setDescription("<a:VC_Cross:1482532424570376253> Nessun comando disponibile.");
+    .setDescription(`${E.VC_Cross} Nessun comando disponibile.`);
 }
 
 function normalizeDescription(
   text?,
-  fallback = "<a:VC_Cross:1482532424570376253> Nessuna descrizione disponibile.",
+  fallback = `${E.VC_Cross} Nessuna descrizione disponibile.`,
 ) {
   const value = String(text || "").trim();
   return value.length ? value : fallback;
@@ -117,7 +118,7 @@ function getPrefixDescription(command?) {
       command?.description || command?.desc || command?.help || command?.usage || "",
       "",
     );
-    base = fromCommand || "<a:VC_Cross:1482532424570376253> Descrizione non disponibile.";
+    base = fromCommand || `${E.VC_Cross} Descrizione non disponibile.`;
   }
   if (PREFIX_MUSIC_SESSION_OWNER_COMMANDS.has(commandName)) {
     return `${base}${PREFIX_MUSIC_SESSION_OWNER_NOTE}`;
@@ -143,7 +144,7 @@ function getPrefixSubcommandDescription(command?, subcommandName?) {
   }
   const parentDescription = String(command?.description || command?.desc || command?.help || "").trim();
   if (parentDescription) return withOwnerNote(parentDescription);
-  return "<a:VC_Cross:1482532424570376253> Descrizione non disponibile.";
+  return `${E.VC_Cross} Descrizione non disponibile.`;
 }
 
 function getPrefixBase(command?, client?) {
@@ -458,7 +459,7 @@ function renderPageText(page?) {
       "",
       sections.join("\n\n"),
     ].join("\n")
-    : "<a:VC_Cross:1482532424570376253> Nessun comando disponibile in questa pagina.";
+    : `${E.VC_Cross} Nessun comando disponibile in questa pagina.`;
   return raw;
 }
 
@@ -527,17 +528,17 @@ function buildNavigationRow(state?) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`${base}:prev`)
-      .setEmoji(`<a:vegaleftarrow:1462914743416131816>`)
+      .setEmoji(E.vegaleftarrow)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(state.currentIndex <= 0),
     new ButtonBuilder()
       .setCustomId(`${base}:next`)
-      .setEmoji(`<a:vegarightarrow:1443673039156936837>`)
+      .setEmoji(E.vegarightarrow)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(state.currentIndex >= state.total - 1),
     new ButtonBuilder()
       .setCustomId(`${base}:close`)
-      .setEmoji("<a:VC_Cross:1482532424570376253>")
+      .setEmoji(E.VC_Cross)
       .setStyle(ButtonStyle.Danger),
   );
 }
@@ -578,7 +579,7 @@ async function handleCoffeeHelpNavInteraction(interaction?) {
   if (String(interaction.user?.id) !== parsed.ownerId) {
     await interaction
       .reply({
-        content: "<:vegax:1443934876440068179> Puoi usare i bottoni solo sul tuo help.",
+        content: `${E.vegax} Puoi usare i bottoni solo sul tuo help.`,
         flags: PRIVATE_FLAG,
       })
       .catch(() => null);
@@ -635,7 +636,7 @@ function buildHelpFallbackEmbed(page?) {
   return new EmbedBuilder()
     .setColor(HELP_EMBED_COLOR)
     .setTitle("Comandi Disponibili 🔍")
-    .setDescription((body || "<a:VC_Cross:1482532424570376253> Nessun comando.").slice(0, 4096));
+    .setDescription((body || `${E.VC_Cross} Nessun comando.`).slice(0, 4096));
 }
 
 function normalizeInvokeLookup(value?) {
@@ -857,7 +858,7 @@ function buildPrefixDetailedHelpEmbed(query?, entries?, context: Record<string, 
   usageLines.push(`Ruoli: ${formatRoleMentions(permConfig.roles)}`);
   if (PREFIX_MUSIC_SESSION_OWNER_COMMANDS.has(commandName)) {
     usageLines.push(
-      "<a:VC_Attention:1482534443632558151> Solo chi ha avviato la riproduzione può usarlo.",
+      "${E.VC_Attention} Solo chi ha avviato la riproduzione può usarlo.",
     );
   }
 
@@ -880,7 +881,7 @@ function buildPrefixDetailedHelpEmbed(query?, entries?, context: Record<string, 
     for (const sub of allKnownSubs) {
       const invoke = `${prefixBase}${commandName} ${sub}`;
       const isVisible = visibleInvokeSet.has(normalizeInvokeLookup(invoke));
-      const lock = isVisible ? "" : " <a:VC_Cross:1482532424570376253> Non accessibile con i tuoi ruoli.";
+      const lock = isVisible ? "" : ` ${E.VC_Cross} Non accessibile con i tuoi ruoli.`;
       const subRoleIds=Array.isArray(permConfig.subcommands?.[sub])?permConfig.subcommands[sub]:permConfig.roles;
       const subAliases = extractDirectAliasesForSubcommand(command, sub);
       const subAliasPart = subAliases.length ? ` (${subAliases.join(", ")})` : "";
@@ -1068,7 +1069,7 @@ function buildSubcommandFallbackEmbed(query?, visibleEntries?, context: Record<s
     if (subcommands.length) {
       const lines=subcommands.map((sub?) => {const invoke=`${prefixBase}${commandName} ${sub}`;
         const isVisible = visibleInvokeSet.has(normalizeInvokeLookup(invoke));
-        const lock = isVisible ? "" : " <a:VC_Cross:1482532424570376253> Non accessibile con i tuoi ruoli.";
+        const lock = isVisible ? "" : ` ${E.VC_Cross} Non accessibile con i tuoi ruoli.`;
         const subAliases = extractDirectAliasesForSubcommand(prefixCommand, sub);
         const subAliasPart = subAliases.length ? `(${subAliases.join(", ")})` : "";
         return `-\`${invoke}\`${subAliasPart}-${normalizeDescription(getPrefixSubcommandDescription(prefixCommand,sub))}${lock}`;

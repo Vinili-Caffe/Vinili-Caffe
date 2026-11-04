@@ -33,6 +33,7 @@ const { markJoinAnnouncePending, clearJoinAnnouncePending, recoverJoinAnnounceme
 
 
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function isViniliFullFeatureGuild(guildId?) {
   try {
     const { isViniliFullFeatureGuild: check } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
@@ -111,8 +112,8 @@ export = {
             member,
             "Ingresso bloccato: lockdown di sicurezza attivo.",
             [
-              `<:VC_Rules:1482527309868040393> **Regola:** Blocco di sicurezza di ingresso`,
-              `<:VC_Info:1482526956703580372> **Fonti:** ${lockState.sources.join(", ")}`,
+              `${E.VC_Rules} **Regola:** Blocco di sicurezza di ingresso`,
+              `${E.VC_Info} **Fonti:** ${lockState.sources.join(", ")}`,
             ],
             "kick",
           );
@@ -148,7 +149,7 @@ export = {
             rule: "noAvatar",
             reason: "Account senza avatar.",
             extraLines: [
-              `<:VC_Rules:1482527309868040393> **Regola:** Account senza avatar`,
+              `${E.VC_Rules} **Regola:** Account senza avatar`,
             ],
             action: joinGateConfig?.noAvatar?.action || "log",
           };
@@ -164,8 +165,8 @@ export = {
             rule: "advertising",
             reason: "Nome pubblicitario nel username.",
             extraLines: [
-              `<:VC_Rules:1482527309868040393> **Regola:** Nome pubblicitario`,
-              `<:VC_Modifica:1478859646587633717> **Nome:** ${nameCandidate || "N/A"}`,
+              `${E.VC_Rules} **Regola:** Nome pubblicitario`,
+              `${E.VC_Modifica} **Nome:** ${nameCandidate || "N/A"}`,
             ],
             action: joinGateConfig?.advertisingName?.action || "kick",
           };
@@ -176,10 +177,10 @@ export = {
             rule: "usernameFilter",
             reason: "Username corrisponde al pattern bloccato.",
             extraLines: [
-              `<:VC_Rules:1482527309868040393> **Regola:** Filtro username`,
-              `<:VC_Info:1482526956703580372> **Tipo di match:** ${usernameMatch.type}`,
-              `<:VC_Modifica:1478859646587633717> **Match:** ${usernameMatch.value}`,
-              `<:VC_Modifica:1478859646587633717> **Nome:** ${nameCandidate || "N/A"}`,
+              `${E.VC_Rules} **Regola:** Filtro username`,
+              `${E.VC_Info} **Tipo di match:** ${usernameMatch.type}`,
+              `${E.VC_Modifica} **Match:** ${usernameMatch.value}`,
+              `${E.VC_Modifica} **Nome:** ${nameCandidate || "N/A"}`,
             ],
             action: joinGateConfig?.usernameFilter?.action || "kick",
           };
@@ -196,8 +197,8 @@ export = {
             rule: "suspicious",
             reason: `Account sospetto: ${suspiciousReason}`,
             extraLines: [
-              `<:VC_Rules:1482527309868040393> **Regola:** Account sospetto`,
-              `<:VC_Reason:1478517122929004544> **Motivo:** ${suspiciousReason}`,
+              `${E.VC_Rules} **Regola:** Account sospetto`,
+              `${E.VC_Reason} **Motivo:** ${suspiciousReason}`,
             ],
             action: joinGateConfig?.suspiciousAccount?.action || "log",
           };

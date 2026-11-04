@@ -2,6 +2,7 @@ const { createProxyMessage, resolvePermChannel, replyEphemeral, runDynoFromInter
 const { checkPrefixPermission } = require("../../utils/commandPermissions") as typeof import("../../utils/commandPermissions");
 const { PANEL_PREFIX, parseNavCustomId, parseHomeCustomId, parseGoCustomId, parseCloseCustomId, parseModalCustomId, buildModerationPanelPayload, buildModalForAction, SECTION_HOME, FIELD_REASON, FIELD_DURATION, FIELD_CASE, FIELD_EXTRA } = require("../../utils/moderationPanelRuntime") as typeof import("../../utils/moderationPanelRuntime");
 const { beginPanelSelectDefer, panelSelectFollowUp } = require("../../../../shared/discord/panelSelectMenuRuntime") as typeof import("../../../../shared/discord/panelSelectMenuRuntime");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const PRIVATE_FLAG = 1 << 6;
 const GO_IMMEDIATE = new Set(["warnings", "moderations", "clearwarn"]);
 
@@ -126,14 +127,14 @@ async function dispatchGoStyleAction(interaction?, client?, guild?, ctx?, action
   if (!modal) return false;
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) {
-    await ephemeralFollowUp("<a:VC_Cross:1482532424570376253> Non trovo il tuo membro nel server.");
+    await ephemeralFollowUp(`${E.VC_Cross} Non trovo il tuo membro nel server.`);
     return true;
   }
   const permCh = resolvePermChannel(interaction, guild);
   const proxy = createProxyMessage(interaction, permCh, guild, member);
   const allowed = await checkPrefixPermission(proxy, a);
   if (!allowed) {
-    await ephemeralFollowUp("<a:VC_Cross:1482532424570376253> Non hai permesso per questa azione in questo canale.");
+    await ephemeralFollowUp(`${E.VC_Cross} Non hai permesso per questa azione in questo canale.`);
     return true;
   }
   await interaction.showModal(modal).catch(() => null);
@@ -159,12 +160,12 @@ async function execute(interaction?, client?) {
       const parsed = parseHomeCustomId(id);
       if (!parsed) return false;
       if (String(interaction.user.id) !== String(parsed.viewerId)) {
-        await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può usare il menu.");
+        await replyEphemeral(interaction, `${E.VC_Cross} Solo chi ha aperto il pannello può usare il menu.`);
         return true;
       }
       const guild = resolveGuildFromInteraction(interaction, parsed);
       if (!guild) {
-        await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
+        await replyEphemeral(interaction, `${E.VC_Cross} Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.`);
         return true;
       }
       const action = String(interaction.values?.[0] || "").toLowerCase();
@@ -183,7 +184,7 @@ async function execute(interaction?, client?) {
       const ok = await dispatchGoStyleAction(interaction, client, guild, ctx, action, { rebuildHomeComponents });
       if (!ok) {
         await panelSelectFollowUp(interaction, rebuildHomeComponents, {
-          content: "<a:VC_Cross:1482532424570376253> Azione non valida.",
+          content: `${E.VC_Cross} Azione non valida.`,
         });
       }
       return true;
@@ -191,12 +192,12 @@ async function execute(interaction?, client?) {
     const parsed = parseNavCustomId(id);
     if (!parsed) return false;
     if (String(interaction.user.id) !== String(parsed.viewerId)) {
-      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può usare il menu.");
+      await replyEphemeral(interaction, `${E.VC_Cross} Solo chi ha aperto il pannello può usare il menu.`);
       return true;
     }
     const guild = resolveGuildFromInteraction(interaction, parsed);
     if (!guild) {
-      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
+      await replyEphemeral(interaction, `${E.VC_Cross} Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.`);
       return true;
     }
     const section = String(interaction.values?.[0] || SECTION_HOME);
@@ -210,7 +211,7 @@ async function execute(interaction?, client?) {
       const parsedClose = parseCloseCustomId(id);
       if (!parsedClose) return false;
       if (String(interaction.user.id) !== String(parsedClose.viewerId)) {
-        await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può chiuderlo.");
+        await replyEphemeral(interaction, `${E.VC_Cross} Solo chi ha aperto il pannello può chiuderlo.`);
         return true;
       }
       await interaction.deferUpdate().catch(() => {});
@@ -223,12 +224,12 @@ async function execute(interaction?, client?) {
     const parsed = parseGoCustomId(id);
     if (!parsed) return false;
     if (String(interaction.user.id) !== String(parsed.viewerId)) {
-      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può usare i pulsanti.");
+      await replyEphemeral(interaction, `${E.VC_Cross} Solo chi ha aperto il pannello può usare i pulsanti.`);
       return true;
     }
     const guild = resolveGuildFromInteraction(interaction, parsed);
     if (!guild) {
-      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
+      await replyEphemeral(interaction, `${E.VC_Cross} Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.`);
       return true;
     }
     const action = String(parsed.action || "").toLowerCase();
@@ -240,18 +241,18 @@ async function execute(interaction?, client?) {
     const parsed = parseModalCustomId(id);
     if (!parsed) return false;
     if (String(interaction.user.id) !== String(parsed.viewerId)) {
-      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Solo chi ha aperto il pannello può inviare questo modulo.");
+      await replyEphemeral(interaction, `${E.VC_Cross} Solo chi ha aperto il pannello può inviare questo modulo.`);
       return true;
     }
     const guild = resolveGuildFromInteraction(interaction, parsed);
     if (!guild) {
-      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.");
+      await replyEphemeral(interaction, `${E.VC_Cross} Server non disponibile. Riapri il pannello dal messaggio staff nel canale sanzioni.`);
       return true;
     }
     const action = String(parsed.action || "").toLowerCase();
     const args = buildArgsFromModal(action, parsed.targetId, interaction.fields);
     if (!args) {
-      await replyEphemeral(interaction, "<a:VC_Cross:1482532424570376253> Modulo non valido.");
+      await replyEphemeral(interaction, `${E.VC_Cross} Modulo non valido.`);
       return true;
     }
     await runDynoFromInteraction(interaction, client, action, args, guild);

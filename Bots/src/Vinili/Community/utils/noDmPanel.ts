@@ -3,11 +3,12 @@ const { getNoDmPreferences, setNoDmCategories, DM_CATEGORIES, DM_CATEGORY_ALL, D
 // bug: i componenti Discord del pannello non erano importati (il pannello preferenze DM andava in errore)
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const PREFIX = "nodm_panel";
-const EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
-const EMOJI_ON = "<:VC_OnlineStatus:1482527088912240650>";
-const BTN_EMOJI_OFF = "<:VC_OfflineStatus:1482527117051957380>";
-const BTN_EMOJI_ON = "<:VC_OnlineStatus:1482527088912240650>";
+const EMOJI_OFF = E.VC_OfflineStatus;
+const EMOJI_ON = E.VC_OnlineStatus;
+const BTN_EMOJI_OFF = E.VC_OfflineStatus;
+const BTN_EMOJI_ON = E.VC_OnlineStatus;
 const PRIVATE = 1 << 6;
 
 function buildPanelEmbed(prefs?) {
@@ -16,7 +17,7 @@ function buildPanelEmbed(prefs?) {
     const off = isAll || prefs.disabled.has(key);
     return `• **${DM_CATEGORY_LABELS[key]}**: ${off ? `${EMOJI_OFF} Disattivato` : `${EMOJI_ON} Attivo`}`;
   });
-  const intro = "<:VC_PinkQuestionMark:1471892611026391306> Configura le tue **preferenze DM**. Clicca un pulsante per attivare/disattivare una categoria.";
+  const intro = `${E.VC_PinkQuestionMark} Configura le tue **preferenze DM**. Clicca un pulsante per attivare/disattivare una categoria.`;
   const footerText = `Usa ${siteUserProfilePagePlainRef()} per gestire i tuoi avvisi in DM.`;
   const desc = [
     `${intro}`,
@@ -24,15 +25,15 @@ function buildPanelEmbed(prefs?) {
     ...lines,
     "",
     isAll
-      ? "<:VC_Attention:1482534443632558151> **Tutti i DM sono attualmente disattivati.** Clicca una categoria per ricevere solo quella, o **Attiva tutto**."
-      : "<a:VC_Alert:1482706673176150077> Usa **Disattiva tutto** per bloccare tutti i DM, o **Attiva tutto** per riceverli tutti.",
+      ? `${E.VC_Attention} **Tutti i DM sono attualmente disattivati.** Clicca una categoria per ricevere solo quella, o **Attiva tutto**.`
+      : `${E.VC_Alert} Usa **Disattiva tutto** per bloccare tutti i DM, o **Attiva tutto** per riceverli tutti.`,
     "",
-    "<a:VC_Exclamation:1482534702077444217> Ticket, moderazione e messaggi importanti restano sempre inviati.",
+    `${E.VC_Exclamation} Ticket, moderazione e messaggi importanti restano sempre inviati.`,
   ].join("\n");
 
   return new EmbedBuilder()
     .setColor("#6f4e37")
-    .setTitle("<a:VC_Announce:1482534613568979007> Preferenze DM")
+    .setTitle(`${E.VC_Announce} Preferenze DM`)
     .setDescription(desc)
     .setFooter({ text: footerText });
 }
@@ -57,17 +58,17 @@ function buildRows(prefs?, ownerId?) {
         .setCustomId(`${PREFIX}:all:${ownerId}`)
         .setLabel("Disattiva tutto")
         .setStyle(isAll ? ButtonStyle.Danger : ButtonStyle.Secondary)
-        .setEmoji("<:cancel:1461730653677551691>"),
+        .setEmoji(E.cancel),
       new ButtonBuilder()
         .setCustomId(`${PREFIX}:none:${ownerId}`)
         .setLabel("Attiva tutto")
         .setStyle(!isAll && prefs.disabled.size === 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
-        .setEmoji("<:success:1461731530333229226>"),
+        .setEmoji(E.success),
       new ButtonBuilder()
         .setCustomId(`${PREFIX}:done:${ownerId}`)
         .setLabel("Fine")
         .setStyle(ButtonStyle.Primary)
-        .setEmoji("<:vegacheckmark:1443666279058772028>"),
+        .setEmoji(E.vegacheckmark),
     ),
   );
   return rows;
@@ -88,7 +89,7 @@ async function handleNoDmPanelInteraction(interaction?) {
   if (!parsed) return false;
   if (String(interaction.user?.id) !== String(parsed.ownerId)) {
     await interaction
-      .reply({ content: "<:vegax:1443934876440068179> Questo pannello non è tuo.", flags: PRIVATE })
+      .reply({ content: `${E.vegax} Questo pannello non è tuo.`, flags: PRIVATE })
       .catch(() => null);
     return true;
   }
@@ -102,9 +103,9 @@ async function handleNoDmPanelInteraction(interaction?) {
         embeds: [
           new EmbedBuilder()
             .setColor("#6f4e37")
-            .setTitle("<:success:1461731530333229226> Preferenze DM salvate")
+            .setTitle(`${E.success} Preferenze DM salvate`)
             .setDescription(
-              "<:VC_InactiveStatus:1482526984234860574> Le tue preferenze sono state aggiornate con successo. Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) per modificarle in futuro.",
+              `${E.VC_InactiveStatus} Le tue preferenze sono state aggiornate con successo. Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) per modificarle in futuro.`,
             ),
         ],
         components: [],

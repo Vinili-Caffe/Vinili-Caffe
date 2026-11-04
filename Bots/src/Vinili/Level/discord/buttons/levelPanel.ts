@@ -3,6 +3,7 @@ const { PRIVATE_FLAG, parseLevelPanelComponentId, parseModalId, buildSimpleEmbed
 const { runServerModalAction, handleServerButton, handleChannelSelect, handleRoleSelect, handleServerNav } = require("./levelPanelServerHelpers") as typeof import("./levelPanelServerHelpers");
 const { runUserModal, handleUserButton } = require("./levelPanelUserHelpers") as typeof import("./levelPanelUserHelpers");
 
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 function match(interaction?) {
   const id = String(interaction?.customId || "");
   const isComponent =
@@ -20,7 +21,7 @@ async function execute(interaction?) {
   const compParsed = interaction.isModalSubmit() ? null : parseLevelPanelComponentId(interaction.customId);
   const ownerId = String(interaction.isModalSubmit() ? modalParsed?.ownerId || "" : compParsed?.ownerId || "");
   if (ownerId && String(interaction.user?.id || "") !== ownerId) {
-    const denied = { embeds: [new EmbedBuilder().setColor("#e74c3c").setDescription("<:vegax:1443934876440068179> Questo pannello non è tuo.")], flags: PRIVATE_FLAG };
+    const denied = { embeds: [new EmbedBuilder().setColor("#e74c3c").setDescription(`${E.vegax} Questo pannello non è tuo.`)], flags: PRIVATE_FLAG };
     if (interaction.deferred || interaction.replied) await interaction.followUp(denied).catch(() => {});
     else await interaction.reply(denied).catch(() => {});
     return true;

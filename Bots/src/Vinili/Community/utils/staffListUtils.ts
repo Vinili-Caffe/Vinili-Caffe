@@ -1,21 +1,22 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { ActivityUserProfile } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 
-const STAFF_NEW_EMOJI = "<:VC_New:1471891729471770819>";
-const STAFF_PAUSE_EMOJI = "<:VC_PausedStatus:1482527157283455086>";
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
+const STAFF_NEW_EMOJI = E.VC_New;
+const STAFF_PAUSE_EMOJI = E.VC_PausedStatus;
 const STAFF_NEW_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Ordine inserimento: Blogger prima → reverse in roster mette Blogger in coda (dopo PM). */
 const ROLE_EMOJIS = {
   [IDs.roles.Blogger]: { emoji: "📝" },
-  [IDs.roles.PartnerManager]: { emoji: "<:VC_PartnerManager:1494286911286808576>" },
-  [IDs.roles.Helper]: { emoji: "<:VC_Helper:1502328751638450426>" },
-  [IDs.roles.Mod]: { emoji: "<:VC_Mod:1494287597952958514>" },
-  [IDs.roles.SeniorModerator]: { emoji: "<:VC_SeniorModerator:1494286913744539648>" },
-  [IDs.roles.Director]: { emoji: "<:VC_Director:1494286915778641941>" },
-  [IDs.roles.Admin]: { emoji: "<:VC_Admin:1494286848686686209>" },
-  [IDs.roles.Manager]: { emoji: "<:VC_Manager:1521629610876338307>" },
-  [IDs.roles.Founder]: { emoji: "<:VC_Founder:1494286918974963732>" },
+  [IDs.roles.PartnerManager]: { emoji: E.VC_PartnerManager },
+  [IDs.roles.Helper]: { emoji: E.VC_Helper },
+  [IDs.roles.Mod]: { emoji: E.VC_Mod },
+  [IDs.roles.SeniorModerator]: { emoji: E.VC_SeniorModerator },
+  [IDs.roles.Director]: { emoji: E.VC_Director },
+  [IDs.roles.Admin]: { emoji: E.VC_Admin },
+  [IDs.roles.Manager]: { emoji: E.VC_Manager },
+  [IDs.roles.Founder]: { emoji: E.VC_Founder },
 };
 
 const STAFF_LIST_SECTION_ROLE_IDS = Object.keys(ROLE_EMOJIS);

@@ -1,6 +1,7 @@
 const { checkButtonPermission, checkStringSelectPermission, checkModalPermission, buildGlobalPermissionDeniedEmbed, buildGlobalChannelDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../../../Moderation/utils/commandPermissions") as typeof import("../../../Moderation/utils/commandPermissions");
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { siteUserProfilePageDiscordRef, siteTicketsPageDiscordRef } = require("../../../../shared/web/siteTicketsPageRef") as typeof import("../../../../shared/web/siteTicketsPageRef");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 const {
   PRIVATE_FLAG,
   isAckError,
@@ -60,9 +61,9 @@ function buildDeniedEmbed(gate?, controlLabel?, viewer = null, customId = "") {
   if (gate.reason === "tenant_profile_not_owner") {
     return new EmbedBuilder()
       .setColor("#6f4e37")
-      .setTitle("<:VC_Lock:1482526739044368476> **Accesso negato**")
+      .setTitle(`${E.VC_Lock} **Accesso negato**`)
       .setDescription(
-        `<:VC_Attention:1482534443632558151> Puoi usare solo **il tuo** pannello profilo partner. Esegui di nuovo [Personalizza](https://www.viniliecaffe.it/personalizza/) per aprirlo.`,
+        `${E.VC_Attention} Puoi usare solo **il tuo** pannello profilo partner. Esegui di nuovo [Personalizza](https://www.viniliecaffe.it/personalizza/) per aprirlo.`,
       );
   }
 
@@ -76,9 +77,9 @@ function buildDeniedEmbed(gate?, controlLabel?, viewer = null, customId = "") {
           : " Usa solo i tuoi controlli.";
       return new EmbedBuilder()
         .setColor("#6f4e37")
-        .setTitle("<:VC_Lock:1482526739044368476> **Accesso negato**")
+        .setTitle(`${E.VC_Lock} **Accesso negato**`)
         .setDescription(
-          `<:VC_Attention:1482534443632558151> Questo ${hint.label} appartiene a <@${gate.ownerId}>.${reopen}`,
+          `${E.VC_Attention} Questo ${hint.label} appartiene a <@${gate.ownerId}>.${reopen}`,
         );
     }
     return buildGlobalNotYourControlEmbed();
@@ -88,7 +89,7 @@ function buildDeniedEmbed(gate?, controlLabel?, viewer = null, customId = "") {
     return buildGlobalPermissionDeniedEmbed(
       [],
       controlLabel,
-      "<a:VC_Alert:1482706673176150077> Non puoi inviare candidature con il tuo stato attuale.",
+      `${E.VC_Alert} Non puoi inviare candidature con il tuo stato attuale.`,
     );
   }
 
@@ -117,7 +118,7 @@ async function runPermissionGate(interaction?) {
             buildGlobalPermissionDeniedEmbed(
               [],
               "bottone",
-              "<a:VC_Alert:1482706673176150077> Devi completare la verifica per aprire un ticket. Verificati e riprova.",
+              `${E.VC_Alert} Devi completare la verifica per aprire un ticket. Verificati e riprova.`,
             ),
           ],
           flags: PRIVATE_FLAG,
@@ -148,7 +149,7 @@ async function runPermissionGate(interaction?) {
             buildGlobalPermissionDeniedEmbed(
               [],
               "menu",
-              "<a:VC_Alert:1482706673176150077> Devi completare la verifica per aprire un ticket. Verificati e riprova.",
+              `${E.VC_Alert} Devi completare la verifica per aprire un ticket. Verificati e riprova.`,
             ),
           ],
           flags: PRIVATE_FLAG,

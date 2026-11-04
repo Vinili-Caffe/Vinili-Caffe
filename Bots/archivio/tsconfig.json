@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "../.cache/tsconfig.archivio.tsbuildinfo",
+    "types": []
+  },
+  "include": [
+    "./**/*.ts",
+    "../types/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules/**",
+    "../node_modules/**",
+    "../build/**",
+    "../.cache/**"
+  ]
+}

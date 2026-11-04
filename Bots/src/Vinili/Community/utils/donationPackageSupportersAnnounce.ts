@@ -6,6 +6,7 @@ const { wasRoleRestoredByMuteMirror } = require("../../Moderation/services/muted
 const { MENTION_RESPONSE_PERK_LINE_DISCORD } = require("./mentionResponseAccessUtils") as typeof import("./mentionResponseAccessUtils");
 const { collectRecentRoleAddsFromAudit } = require("./supportersChannelEmbedRecoveryUtils") as typeof import("./supportersChannelEmbedRecoveryUtils");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const TIER_RANK = { donator: 1, vip: 2, vipPlus: 3 };
 const DONATION_ANNOUNCE_DEBOUNCE_MS = 5000;
 const DONATION_ANNOUNCE_COOLDOWN_MS = 90_000;
@@ -26,9 +27,9 @@ const TIER_PACKAGE_LABEL = {
 function buildDonationPackageHeading(tier?, member?, isPurchase = false) {
   const label = TIER_PACKAGE_LABEL[tier] || "VIP+";
   if (isPurchase) {
-    return `### <a:ThankYou:1329504268369002507> **__GRAZIE ${member.user} PER AVER ACQUISTATO IL PACCHETTO ${label}!__**`;
+    return `### ${E.ThankYou} **__GRAZIE ${member.user} PER AVER ACQUISTATO IL PACCHETTO ${label}!__**`;
   }
-  return `### <a:ThankYou:1329504268369002507> **__${member.user} HAI RICEVUTO IL RUOLO ${label}!__**`;
+  return `### ${E.ThankYou} **__${member.user} HAI RICEVUTO IL RUOLO ${label}!__**`;
 }
 
 async function resolveRoleAddWasManualPurchase(guild?, userId?, roleId?, client?) {
@@ -79,54 +80,54 @@ function buildDonationPackageEmbed(tier?, member?, isPurchase = false) {
       "\n" +
       "**Con questo ruolo hai sbloccato i seguenti vantaggi:**\n" +
       "\n" +
-      `<:sparkledred:1470064814502973591> Permesso di allegare **link e immagini** in chat\n` +
-      `<:sparkle:1470064801811140866> Permesso di usare le **Soundboard** di altri server\n` +
-      `<:pinkstar:1470064804835229768> Permesso di mandare **sticker ed emoji** di altri server\n` +
-      `<a:reddiamond:1443652837346377841> Bypass dei requisiti nei **giveaway**\n` +
-      `<:moon:1470064812615667827> Permesso di cambiare il tuo **nickname**\n` +
-      `<:blueflash:1470064803157643468> Sblocchi i **COLORI PLUS** in [Personalizza](https://www.viniliecaffe.it/personalizza/)\n` +
-      `<a:reddiamond:1443652837346377841> Sblocchi i comandi \`+quote\` e \`+repost\` (gestione dal profilo sul sito)\n` +
-      "<:exp:1470067108543987846> X4 EXP boost\n" +
+      `${E.sparkledred} Permesso di allegare **link e immagini** in chat\n` +
+      `${E.sparkle} Permesso di usare le **Soundboard** di altri server\n` +
+      `${E.pinkstar} Permesso di mandare **sticker ed emoji** di altri server\n` +
+      `${E.reddiamond} Bypass dei requisiti nei **giveaway**\n` +
+      `${E.moon} Permesso di cambiare il tuo **nickname**\n` +
+      `${E.blueflash} Sblocchi i **COLORI PLUS** in [Personalizza](https://www.viniliecaffe.it/personalizza/)\n` +
+      `${E.reddiamond} Sblocchi i comandi \`+quote\` e \`+repost\` (gestione dal profilo sul sito)\n` +
+      `${E.exp} X4 EXP boost\n` +
       "\n" +
-      `<a:flyingnitroboost:1443652205705170986> Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +
+      `${E.flyingnitroboost} Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +
       "\n" +
-      "<:VC_Link:1482460590894088222> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
+      `${E.VC_Link} Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!`;
   } else if (tier === "vip") {
     perkBlock =
       `${heading}\n` +
       "\n" +
       "**Con questo ruolo hai sbloccato i seguenti vantaggi:**\n" +
       "\n" +
-      `<:sparkledred:1470064814502973591> Tutti i perks del ruolo ${roleMention(IDs.roles.Donator)}\n` +
-      "<a:VC_Loading:1482526818278969578> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi)\n" +
-      "<a:VC_Flame:1482725674711126140> Possibilità di aggiungere reazioni ai messaggi in chat\n" +
-      "<a:VC_Winner:1482535294757507255> Possibilità di creare una vocale privata per te e i tuoi amici\n" +
-      "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)\n" +
+      `${E.sparkledred} Tutti i perks del ruolo ${roleMention(IDs.roles.Donator)}\n` +
+      `${E.VC_Loading__969578} Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi)\n` +
+      `${E.VC_Flame} Possibilità di aggiungere reazioni ai messaggi in chat\n` +
+      `${E.VC_Winner} Possibilità di creare una vocale privata per te e i tuoi amici\n` +
+      `${E.VC_CrownYellow} Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)\n` +
       `${MENTION_RESPONSE_PERK_LINE_DISCORD}\n` +
-      "<:VC_Color:1482532543273238569> Possibilità di creare un ruolo **custom** con colore **GRADIENTE** scelto da te\n" +
-      "<:exp:1470067108543987846> X5 EXP boost\n" +
+      `${E.VC_Color} Possibilità di creare un ruolo **custom** con colore **GRADIENTE** scelto da te\n` +
+      `${E.exp} X5 EXP boost\n` +
       "\n" +
-      `<a:flyingnitroboost:1443652205705170986> Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +
+      `${E.flyingnitroboost} Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +
       "\n" +
-      "<:VC_Link:1482460590894088222> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
+      `${E.VC_Link} Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!`;
   } else {
     perkBlock =
       `${heading}\n` +
       "\n" +
       "**Con questo ruolo hai sbloccato i seguenti vantaggi:**\n" +
       "\n" +
-      `<:sparkledred:1470064814502973591> Tutti i perks del ruolo ${roleMention(IDs.roles.VIP)}\n` +
+      `${E.sparkledred} Tutti i perks del ruolo ${roleMention(IDs.roles.VIP)}\n` +
       "\n" +
-      "<a:VC_Loading:1482526818278969578> Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo)\n" +
-      "<:VC_Color:1482532543273238569> Sfondo personalizzato per la tua card del comando \`+rank\` sul sito\n" +
-      "<a:VC_Winner:1482535294757507255> Possibilità di creare un secondo ruolo **custom** con colore **GRADIENTE** scelto da te\n" +
-      "<a:VC_CrownYellow:1482706085440651428> Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 5)\n" +
+      `${E.VC_Loading__969578} Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo)\n` +
+      `${E.VC_Color} Sfondo personalizzato per la tua card del comando \\`+rank\\` sul sito\n` +
+      `${E.VC_Winner} Possibilità di creare un secondo ruolo **custom** con colore **GRADIENTE** scelto da te\n` +
+      `${E.VC_CrownYellow} Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 5)\n` +
       `${MENTION_RESPONSE_PERK_LINE_DISCORD}\n` +
-      "<:exp:1470067108543987846> X6 EXP boost\n" +
+      `${E.exp} X6 EXP boost\n` +
       "\n" +
-      `<a:flyingnitroboost:1443652205705170986> Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +
+      `${E.flyingnitroboost} Tutto lo **staff** ti _ringrazia_ per averci __supportato__.\n` +
       "\n" +
-      "<:VC_Link:1482460590894088222> Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!";
+      `${E.VC_Link} Trovate tutti i vantaggi del nostro server sul nostro sito [viniliecaffe.it](<https://viniliecaffe.it>)!`;
   }
 
   return new EmbedBuilder()
@@ -191,8 +192,8 @@ async function flushDonationPackageAnnounce(key?) {
 
   const staffPing = String(IDs.roles?.Staff || "").trim();
   const content = staffPing
-    ? `<a:ThankYou:1329504268369002507> \`|\`  ${member.user} \`|\` <@&${staffPing}>`
-    : `<a:ThankYou:1329504268369002507> \`|\`  ${member.user}`;
+    ? `${E.ThankYou} \`|\`  ${member.user} \`|\` <@&${staffPing}>`
+    : `${E.ThankYou} \`|\`  ${member.user}`;
 
   await channel
     .send({
@@ -233,8 +234,8 @@ async function sendDonationPackageAnnounceNow(member?, tier?, opts: Record<strin
   }
   const staffPing = String(IDs.roles?.Staff || "").trim();
   const content = staffPing
-    ? `<a:ThankYou:1329504268369002507> \`|\`  ${member.user} \`|\` <@&${staffPing}>`
-    : `<a:ThankYou:1329504268369002507> \`|\`  ${member.user}`;
+    ? `${E.ThankYou} \`|\`  ${member.user} \`|\` <@&${staffPing}>`
+    : `${E.ThankYou} \`|\`  ${member.user}`;
   const sent = await channel
     .send({
       content,

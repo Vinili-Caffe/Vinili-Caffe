@@ -7,6 +7,7 @@ const { getClientChannelCached } = require("../../../shared/discord/interactionE
 const { getTicketSettingsSync } = require("../tenant/tenantTicketSettings") as typeof import("../tenant/tenantTicketSettings");
 const { TRANSCRIPT_VIEW_TTL_MS } = require("./ticketTranscriptSecure") as typeof import("./ticketTranscriptSecure");
 const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const BOT_ROOT = VINILI_ROOT;
 const TRANSCRIPTS_ROOT = path.join(BOT_ROOT, "local_transcripts");
 const MAX_AGE_MS = Number(TRANSCRIPT_VIEW_TTL_MS) > 0 ? Number(TRANSCRIPT_VIEW_TTL_MS) : 90 * 24 * 60 * 60 * 1000;
@@ -19,12 +20,12 @@ function buildCloseRequestRow() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("ticket_autoclose_accept")
-      .setEmoji("<:success:1461731530333229226>")
+      .setEmoji(E.success)
       .setLabel("Accetta e chiudi")
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId("ticket_autoclose_reject")
-      .setEmoji("<:cancel:1461730653677551691>")
+      .setEmoji(E.cancel)
       .setLabel("Rifiuta e mantieni aperto")
       .setStyle(ButtonStyle.Secondary),
   );
@@ -105,8 +106,8 @@ async function processTickets(client?) {
 
       const embed = new EmbedBuilder()
         .setColor("#6f4e37")
-        .setTitle("<:VC_PinkQuestionMark:1471892611026391306> Richiesta di chiusura")
-        .setDescription("<a:VC_Alert:1482706673176150077> Il ticket è aperto da troppo tempo e non ci sono messaggi recenti. È stato risolto?");
+        .setTitle(`${E.VC_PinkQuestionMark} Richiesta di chiusura`)
+        .setDescription(`${E.VC_Alert} Il ticket è aperto da troppo tempo e non ci sono messaggi recenti. È stato risolto?`);
 
       await channel
         .send({

@@ -11,6 +11,7 @@ const { readJsonSafe, writeJsonSafe } = require("./automodConfigSanitize") as ty
 const { nowMs, stripQuotedAndCodeText, extractUrls, filterUrlsForAttachmentLinkRule } = require("./automodText") as typeof import("./automodText");
 const { pickSortedViolations, firstViolationLabel } = require("./automodBadUser") as typeof import("./automodBadUser");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const ACTION_CHANNEL_LOG_COOLDOWN = new Map();
 const NATIVE_STAFF_PING_COOLDOWN = new Map();
 const GUILD_PANIC_STATE = new Map();
@@ -320,13 +321,13 @@ async function sendPanicModeLog(message?, event?, count?, activeUntil?) {
     .setColor(event === "panic_enabled" ? "#ED4245" : "#5865F2")
     .setTitle(event === "panic_enabled" ? "AutoMod Panic Mode enabled!" : "AutoMod Panic Mode update",)
     .setDescription([
-      `<a:VC_Alert:1482706673176150077> **Automod Filter:** Panic Mode`, `<:channeltext:1443247596922470551> **Channel:** ${message.channel}[\`${message.channelId}\`]`, `<:member_role_icon:1330530086792728618> **Member:** ${message.author}[\`${message.author.id}\`]`, `<a:VC_Alert:1482706673176150077> **Event:** ${event}`,
-      `<a:VC_Alert:1482706673176150077> **Panic signals (window):** ${count}/${PANIC_MODE.triggerCount}`,
+      `${E.VC_Alert} **Automod Filter:** Panic Mode`, `${E.channeltext} **Channel:** ${message.channel}[\`${message.channelId}\`]`, `${E.member_role_icon} **Member:** ${message.author}[\`${message.author.id}\`]`, `${E.VC_Alert} **Event:** ${event}`,
+      `${E.VC_Alert} **Panic signals (window):** ${count}/${PANIC_MODE.triggerCount}`,
       triggerAccountIds.length
-        ? `<a:VC_Alert:1482706673176150077> **Trigger IDs:** ${triggerAccountIds.map((id?) => `\`${id}\``).join(", ")}`
+        ? `${E.VC_Alert} **Trigger IDs:** ${triggerAccountIds.map((id?) => `\`${id}\``).join(", ")}`
         : null,
-      `<a:VC_Alert:1482706673176150077> **Duration:** ${formatItalianMinutesPlain(Math.round(PANIC_MODE.durationMs / 60_000))}`,
-      `<a:VC_Alert:1482706673176150077> **Active Until:** <t:${when}:F>`,
+      `${E.VC_Alert} **Duration:** ${formatItalianMinutesPlain(Math.round(PANIC_MODE.durationMs / 60_000))}`,
+      `${E.VC_Alert} **Active Until:** <t:${when}:F>`,
     ].join("\n"),
     )
     .setTimestamp();

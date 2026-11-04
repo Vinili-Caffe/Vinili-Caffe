@@ -1,5 +1,6 @@
 const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function isGuildOwner(member?, guild?) {
   const ownerId = String(guild?.ownerId || "").trim();
   const userId = String(member?.user?.id || member?.id || "").trim();
@@ -17,7 +18,7 @@ function memberCanManageTenantPartnershipSettings(member?, guild?) {
 }
 
 const TENANT_PARTNERSHIP_ADMIN_DENIED_MESSAGE =
-  "<:vegax:1443934876440068179> Solo il **proprietario del server**, chi ha **Amministratore** o **Gestisci server** può usare questa funzione.";
+  `${E.vegax} Solo il **proprietario del server**, chi ha **Amministratore** o **Gestisci server** può usare questa funzione.`;
 
 export = {
   isGuildOwner,

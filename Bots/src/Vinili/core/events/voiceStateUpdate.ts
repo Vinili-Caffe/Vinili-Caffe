@@ -7,6 +7,7 @@ const { handleSerataFilmVoiceState } = require("../../Staff/services/staffAutoVa
 const { handleSerataFilmAttendanceVoiceState } = require("../../Community/services/serataFilmAttendance") as typeof import("../../Community/services/serataFilmAttendance");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function isViniliFullFeatureGuild(guildId?) {
   try {
     const { isViniliFullFeatureGuild: check } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
@@ -173,14 +174,14 @@ async function sendMemberDisconnectLog(oldState?, newState?) {
 
   const embed = new EmbedBuilder()
     .setColor("#ED4245")
-    .setTitle("<:VC_User:1482527453586002103> Membro Disconnesso")
-    .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${formatActor(audit.executor)}`,
-    `<:VC_User:1482527453586002103> **Target:** ${user}\`${user.id}\``,
-    `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+    .setTitle(`${E.VC_User} Membro Disconnesso`)
+    .setDescription([`${E.VC_Staff} **Responsabile:** ${formatActor(audit.executor)}`,
+    `${E.VC_User} **Target:** ${user}\`${user.id}\``,
+    `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
       "",
-      "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
-    `<:VC_Modifica:1478859646587633717> **Canale:** ${fromChannel}\`${oldChannelId || "sconosciuto"}\``,
-    `<:VC_Modifica:1478859646587633717> **Conteggio:** ${Math.max(1, Number(audit?.count || 1))}`,
+      `**${E.VC_tools} Informazioni aggiuntive**`,
+    `${E.VC_Modifica} **Canale:** ${fromChannel}\`${oldChannelId || "sconosciuto"}\``,
+    `${E.VC_Modifica} **Conteggio:** ${Math.max(1, Number(audit?.count || 1))}`,
     ].join("\n"));
 
   await sendLogWithRetry(logChannel, { embeds: [embed] }, "[voiceStateUpdate] sendMemberDisconnectLog failed:");
@@ -202,13 +203,13 @@ async function sendMemberJoinLog(oldState?, newState?) {
 
   const embed = new EmbedBuilder()
     .setColor("#57F287")
-    .setTitle("<:VC_User:1482527453586002103> Membro Entrato")
+    .setTitle(`${E.VC_User} Membro Entrato`)
     .setDescription([
-      `<:VC_User:1482527453586002103> **Target:** ${user}\`${user.id}\``,
-      `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+      `${E.VC_User} **Target:** ${user}\`${user.id}\``,
+      `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
       "",
-      "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
-      `<:VC_Modifica:1478859646587633717> **Canale:** ${destination}\`${newChannelId || "sconosciuto"}\``,
+      `**${E.VC_tools} Informazioni aggiuntive**`,
+      `${E.VC_Modifica} **Canale:** ${destination}\`${newChannelId || "sconosciuto"}\``,
     ].join("\n"));
 
   await sendLogWithRetry(logChannel, { embeds: [embed] }, "[voiceStateUpdate] sendMemberJoinLog failed:");
@@ -233,13 +234,13 @@ async function sendMemberMoveLog(oldState?, newState?) {
 
   const embed = new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle("<:VC_User:1482527453586002103> Membro Spostato")
-    .setDescription([`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-    `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+    .setTitle(`${E.VC_User} Membro Spostato`)
+    .setDescription([`${E.VC_Staff} **Responsabile:** ${responsibleText}`,
+    `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
       "",
-    "**<:VC_tools:1478862265305272364> Informazioni aggiuntive**",
-    `<:VC_Modifica:1478859646587633717> **Canale:** ${destination}\`${newChannelId}\``,
-    `<:VC_Modifica:1478859646587633717> **Conteggio:** ${Math.max(1, Number(audit.count || 1))}`,
+    `**${E.VC_tools} Informazioni aggiuntive**`,
+    `${E.VC_Modifica} **Canale:** ${destination}\`${newChannelId}\``,
+    `${E.VC_Modifica} **Conteggio:** ${Math.max(1, Number(audit.count || 1))}`,
     ].join("\n"));
 
   await sendLogWithRetry(logChannel, { embeds: [embed] }, "[voiceStateUpdate] sendMemberMoveLog failed:");
@@ -268,35 +269,35 @@ async function sendMemberVoiceFlagsUpdateLog(oldState?, newState?) {
   const audit = auditNeeded ? await resolveMemberUpdateAuditInfo(guild, user.id) : { executor: null, reason: null };
   const responsibleText = auditNeeded ? formatActor(audit.executor) : `${user} \`${user.id}\``;
 
-  const lines = [`<:VC_Staff:1494286904089247754> **Responsabile:** ${responsibleText}`,
-  `<:VC_User:1482527453586002103> **Target:** ${user}\`${user.id}\``,
-  `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+  const lines = [`${E.VC_Staff} **Responsabile:** ${responsibleText}`,
+  `${E.VC_User} **Target:** ${user}\`${user.id}\``,
+  `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
   ];
   if (auditNeeded && audit.reason) {
-    lines.push(`<:VC_Modifica:1478859646587633717> **Motivo:** ${audit.reason}`);
+    lines.push(`${E.VC_Modifica} **Motivo:** ${audit.reason}`);
   }
-  lines.push("", "**<:VC_tools:1478862265305272364> Cambiamenti**");
+  lines.push("", `**${E.VC_tools} Cambiamenti**`);
 
   if (muteChanged) {
-    lines.push("<:VC_Modifica:1478859646587633717> **Mute**");
-    lines.push(`${yesNo(Boolean(oldState?.serverMute))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.serverMute))}`);
+    lines.push(`${E.VC_Modifica} **Mute**`);
+    lines.push(`${yesNo(Boolean(oldState?.serverMute))} ${E.VC_Arrow} ${yesNo(Boolean(newState?.serverMute))}`);
   }
   if (deafChanged) {
-    lines.push("<:VC_Modifica:1478859646587633717> **Deaf**");
-    lines.push(`${yesNo(Boolean(oldState?.serverDeaf))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.serverDeaf))}`);
+    lines.push(`${E.VC_Modifica} **Deaf**`);
+    lines.push(`${yesNo(Boolean(oldState?.serverDeaf))} ${E.VC_Arrow} ${yesNo(Boolean(newState?.serverDeaf))}`);
   }
   if (selfMuteChanged) {
-    lines.push("<:VC_Modifica:1478859646587633717> **Self Mute**");
-    lines.push(`${yesNo(Boolean(oldState?.selfMute))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.selfMute))}`);
+    lines.push(`${E.VC_Modifica} **Self Mute**`);
+    lines.push(`${yesNo(Boolean(oldState?.selfMute))} ${E.VC_Arrow} ${yesNo(Boolean(newState?.selfMute))}`);
   }
   if (selfDeafChanged) {
-    lines.push("<:VC_Modifica:1478859646587633717> **Self Deaf**");
-    lines.push(`${yesNo(Boolean(oldState?.selfDeaf))} <a:VC_Arrow:1482706699365257397> ${yesNo(Boolean(newState?.selfDeaf))}`);
+    lines.push(`${E.VC_Modifica} **Self Deaf**`);
+    lines.push(`${yesNo(Boolean(oldState?.selfDeaf))} ${E.VC_Arrow} ${yesNo(Boolean(newState?.selfDeaf))}`);
   }
 
   const embed = new EmbedBuilder()
     .setColor("#F59E0B")
-    .setTitle("<:VC_User:1482527453586002103> Membro Aggiornato")
+    .setTitle(`${E.VC_User} Membro Aggiornato`)
     .setDescription(lines.join("\n"));
 
   await sendLogWithRetry(logChannel, { embeds: [embed] }, "[voiceStateUpdate] sendMemberVoiceFlagsUpdateLog failed:");

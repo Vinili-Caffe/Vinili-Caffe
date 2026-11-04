@@ -2,6 +2,7 @@ const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.
 const { getOrCreateStaffDoc, ensureStaff } = require("../../Staff/utils/staffDocUtils") as typeof import("../../Staff/utils/staffDocUtils");
 const { initPartnerManagerFieldsIfMissing } = require("../../Staff/utils/staffPmUtils") as typeof import("../../Staff/utils/staffPmUtils");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   resolvePartnershipConfigSync,
   isPartnershipOperational,
@@ -172,7 +173,7 @@ async function schedulePendingManagerPrompt(message?, inviteMeta?) {
   const prompt = await message
     .reply({
       content:
-        "<:vegax:1443934876440068179> Devi **menzionare il Manager** entro **5 secondi** (nel messaggio o in un altro messaggio), altrimenti la partnership verrà **annullata**.",
+        `${E.vegax} Devi **menzionare il Manager** entro **5 secondi** (nel messaggio o in un altro messaggio), altrimenti la partnership verrà **annullata**.`,
       allowedMentions: { parse: [], users: [], roles: [] },
     })
     .catch(() => null);
@@ -207,19 +208,19 @@ async function finalizeManualPartnership(message?, managerId?, inviteMeta?, _opt
     contentFilters: partnershipCfg?.contentFilters,
   });
   if (!publishDescription) {
-    await notifyAuthor(message, "<:vegax:1443934876440068179> La descrizione partnership è vuota.");
+    await notifyAuthor(message, `${E.vegax} La descrizione partnership è vuota.`);
     return { handled: true, delete: true };
   }
 
   const managerMember = await getGuildMemberCached(guild, managerId).catch(() => null);
   if (!managerMember) {
-    await notifyAuthor(message, "<:vegax:1443934876440068179> Il **Manager** indicato non è nel server.");
+    await notifyAuthor(message, `${E.vegax} Il **Manager** indicato non è nel server.`);
     return { handled: true, delete: true };
   }
 
   const staffDoc = await getOrCreateStaffPartnerDoc(guildId, message.author.id);
   if (!staffDoc) {
-    await notifyAuthor(message, "<:vegax:1443934876440068179> Impossibile registrare la partnership.");
+    await notifyAuthor(message, `${E.vegax} Impossibile registrare la partnership.`);
     return { handled: true, delete: true };
   }
 
@@ -227,7 +228,7 @@ async function finalizeManualPartnership(message?, managerId?, inviteMeta?, _opt
   if (!isValidServerName(serverName)) {
     await notifyAuthor(
       message,
-      "<:vegax:1443934876440068179> Invite senza nome server leggibile. Riprova con un altro invite.",
+      `${E.vegax} Invite senza nome server leggibile. Riprova con un altro invite.`,
     );
     return { handled: true, delete: true };
   }
@@ -367,7 +368,7 @@ async function validateManualPartnershipDraft(message?) {
   if (!hasRequiredDiscordInviteLink(rawContent)) {
     await notifyAuthor(
       message,
-      "<:vegax:1443934876440068179> Devi includere un **link d'invito Discord** valido (`discord.gg/...` o `discord.com/invite/...`).",
+      `${E.vegax} Devi includere un **link d'invito Discord** valido (\`discord.gg/...\` o \`discord.com/invite/...\`).`,
     );
     return { ok: false, delete: true, handled: true };
   }
@@ -378,19 +379,19 @@ async function validateManualPartnershipDraft(message?) {
   if (!inviteMeta || !isValidServerName(inviteMeta.serverName)) {
     await notifyAuthor(
       message,
-      "<:vegax:1443934876440068179> Invito Discord non valido. Controlla il link e riprova.",
+      `${E.vegax} Invito Discord non valido. Controlla il link e riprova.`,
     );
     return { ok: false, delete: true, handled: true };
   }
   if (!inviteMeta.guildId || !(Number(inviteMeta.memberCount) > 0)) {
     await notifyAuthor(
       message,
-      "<:vegax:1443934876440068179> Non riesco a leggere i dati di questo invito (server/membri). Controlla che il link sia valido e riprova tra poco.",
+      `${E.vegax} Non riesco a leggere i dati di questo invito (server/membri). Controlla che il link sia valido e riprova tra poco.`,
     );
     return { ok: false, delete: true, handled: true };
   }
   if (inviteMeta.guildId && inviteMeta.guildId === guildId) {
-    await notifyAuthor(message, "<:vegax:1443934876440068179> Non puoi fare partner con il tuo server.");
+    await notifyAuthor(message, `${E.vegax} Non puoi fare partner con il tuo server.`);
     return { ok: false, delete: true, handled: true };
   }
 
@@ -400,7 +401,7 @@ async function validateManualPartnershipDraft(message?) {
     contentFilters: resolvePartnershipConfigSync(guildId)?.contentFilters,
   });
   if (!publishDescription) {
-    await notifyAuthor(message, "<:vegax:1443934876440068179> La descrizione partnership è vuota.");
+    await notifyAuthor(message, `${E.vegax} La descrizione partnership è vuota.`);
     return { ok: false, delete: true, handled: true };
   }
 

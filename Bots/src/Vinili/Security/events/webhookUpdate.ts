@@ -3,6 +3,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { handleWebhookCreationAction: antiNukeHandleWebhookCreationAction, handleWebhookUpdateAction: antiNukeHandleWebhookUpdateAction, handleWebhookDeletionAction: antiNukeHandleWebhookDeletionAction, } = require("../../Security/services/antiNukeService") as typeof import("../../Security/services/antiNukeService");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const WEBHOOK_CREATE_ACTION = AuditLogEvent?.WebhookCreate ?? 50;
 const WEBHOOK_UPDATE_ACTION = AuditLogEvent?.WebhookUpdate ?? 51;
 const WEBHOOK_DELETE_ACTION = AuditLogEvent?.WebhookDelete ?? 52;
@@ -147,17 +148,17 @@ export = {
       const action = Number(entry.action || 0);
       const monitorableExecutor = await shouldMonitorExecutor(guild, entry.executor);
 
-      let title = "<:VC_webhooks:1478515450769047704> Webhook Aggiornato";
+      let title = `${E.VC_webhooks} Webhook Aggiornato`;
       let color = "#F59E0B";
-      let sectionTitle = "**<:VC_tools:1478862265305272364> Cambiamenti**";
+      let sectionTitle = `**${E.VC_tools} Cambiamenti**`;
       if (action === WEBHOOK_CREATE_ACTION) {
-        title = "<:VC_webhooks:1478515450769047704> Webhook Creato";
+        title = `${E.VC_webhooks} Webhook Creato`;
         color = "#57F287";
-        sectionTitle = "**<:VC_tools:1478862265305272364> Impostazioni**";
+        sectionTitle = `**${E.VC_tools} Impostazioni**`;
       } else if (action === WEBHOOK_DELETE_ACTION) {
-        title = "<:VC_webhooks:1478515450769047704> Webhook Eliminato";
+        title = `${E.VC_webhooks} Webhook Eliminato`;
         color = "#ED4245";
-        sectionTitle = "**<:VC_tools:1478862265305272364> Impostazioni precedenti**";
+        sectionTitle = `**${E.VC_tools} Impostazioni precedenti**`;
       }
 
       const channelText = entry?.extra?.channel ? `${entry.extra.channel}`
@@ -168,9 +169,9 @@ export = {
       const typeText = webhookTypeLabel(entry?.target?.type);
 
       const lines = [
-        `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-        `<:VC_User:1482527453586002103> **Target:** ${targetName} \`${targetId}\``,
-        `<:VC_Clock:1473359204189474886> ${toDiscordTimestamp(new Date(), "F")}`,
+        `${E.VC_Staff} **Responsabile:** ${responsible}`,
+        `${E.VC_User} **Target:** ${targetName} \`${targetId}\``,
+        `${E.VC_Clock} ${toDiscordTimestamp(new Date(), "F")}`,
         "",
         sectionTitle,
       ];
@@ -181,25 +182,25 @@ export = {
         const channelChange = changes.find((c?) => String(c?.key || "") === "channel_id");
         const avatarChange = changes.find((c?) => String(c?.key || "") === "avatar_hash");
         if (nameChange) {
-          lines.push(`<:VC_Modifica:1478859646587633717> **Nome**`);
-          lines.push(`  ${String(nameChange?.old ?? "sconosciuto")} <a:VC_Arrow:1482706699365257397> ${String(nameChange?.new ?? targetName)}`);
+          lines.push(`${E.VC_Modifica} **Nome**`);
+          lines.push(`  ${String(nameChange?.old ?? "sconosciuto")} ${E.VC_Arrow} ${String(nameChange?.new ?? targetName)}`);
         } else {
-          lines.push(`<:VC_Modifica:1478859646587633717> **Nome:** ${targetName}`);
+          lines.push(`${E.VC_Modifica} **Nome:** ${targetName}`);
         }
         if (channelChange) {
-          lines.push(`<:VC_Modifica:1478859646587633717> **Canale:**`);
-          lines.push(`  ${channelChange?.old ? `<#${channelChange.old}>` : "none"} <a:VC_Arrow:1482706699365257397> ${channelChange?.new ? `<#${channelChange.new}>` : "none"}`);
+          lines.push(`${E.VC_Modifica} **Canale:**`);
+          lines.push(`  ${channelChange?.old ? `<#${channelChange.old}>` : "none"} ${E.VC_Arrow} ${channelChange?.new ? `<#${channelChange.new}>` : "none"}`);
         }
         if (avatarChange) {
-          lines.push(`<:VC_Modifica:1478859646587633717> **Avatar aggiornato:** Sì`);
+          lines.push(`${E.VC_Modifica} **Avatar aggiornato:** Sì`);
         }
       } else {
-        lines.push(`<:VC_Modifica:1478859646587633717> **Canale:** ${channelText}`);
+        lines.push(`${E.VC_Modifica} **Canale:** ${channelText}`);
         if (appId) {
-          lines.push(`<:VC_Modifica:1478859646587633717> **Application Id:** \`${appId}\``);
+          lines.push(`${E.VC_Modifica} **Application Id:** \`${appId}\``);
         }
-        lines.push(`<:VC_Modifica:1478859646587633717> **Nome:** ${targetName}`);
-        lines.push(`<:VC_Modifica:1478859646587633717> **Tipo:** ${typeText}`);
+        lines.push(`${E.VC_Modifica} **Nome:** ${targetName}`);
+        lines.push(`${E.VC_Modifica} **Tipo:** ${typeText}`);
       }
 
       if (monitorableExecutor && logChannel?.isTextBased?.()) {

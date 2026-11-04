@@ -1,6 +1,7 @@
 const { getGuildChannelCached } = require("../../../../../shared/discord/interactionEntityCache") as typeof import("../../../../../shared/discord/interactionEntityCache");
 const { deleteThreadForMessage } = require("../../../../Staff/utils/staffDocUtils") as typeof import("../../../../Staff/utils/staffDocUtils");
 
+const { E } = require("../../../../../shared/emojis/emojiCatalog") as typeof import("../../../../../shared/emojis/emojiCatalog");
 async function fetchActiveResocontoMessage(guild?, channelId?, messageId?) {
   const channel = await getGuildChannelCached(guild, channelId);
   if (!channel?.isTextBased?.()) return null;
@@ -166,8 +167,8 @@ async function appendOutcomeToMessage(guild?, channelId?, messageId?, actorId?, 
   const message = await channel.messages.fetch(messageId).catch(() => null);
   if (!message) return null;
   const existingContent = String(message.content || "");
-  const line = accepted ? `\n\n<:success:1461731530333229226> Azione confermata da <@${actorId}>:${statusText}`
-    : `\n\n<:cancel:1461730653677551691> Azione negata da <@${actorId}>`;
+  const line = accepted ? `\n\n${E.success} Azione confermata da <@${actorId}>:${statusText}`
+    : `\n\n${E.cancel} Azione negata da <@${actorId}>`;
   const content = `${existingContent}${line}`.slice(0, 1900);
   const edited = await message.edit({ content, components: [] }).catch(() => null);
   void deleteThreadForMessage(guild, message).catch(() => null);

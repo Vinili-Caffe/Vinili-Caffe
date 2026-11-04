@@ -12,19 +12,20 @@ const { sendMinigameMessage } = require("./minigameDiscord") as typeof import(".
 const { markSent, saveActiveGame, sendMinigameTimeoutAndClose, scheduleGenericHint } = require("./minigameRound") as typeof import("./minigameRound");
 const { translateToItalian } = require("./quizSources") as typeof import("./quizSources");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const DEFAULT_DRIVING_QUIZ_API_URL = "https://opentdb.com/api.php?amount=5&category=28&encode=url3986";
 
 function getDrivingQuizThematicHint(row?) {
   const s = String(row?.statement || "").toLowerCase();
   if (!s) return null;
-  if (/velocit|limite|km\/h|130|50|90/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda i **limiti di velocità**.`;
-  if (/precedenza|incrocio|destra|fermarsi/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda **precedenza** o **incroci**.`;
-  if (/semaforo|rosso|giallo|verde/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda i **semafori**.`;
-  if (/segnal|triangolo|circolare|ottagonale|stop/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda la **segnaletica stradale**.`;
-  if (/sosta|parcheggio|divieto/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda **sosta** o **parcheggio**.`;
-  if (/cintur|casco|telefono/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda **obblighi** del conducente.`;
-  if (/sorpasso|autostrada|corsia/.test(s)) return `<a:VC_Flame:1482725674711126140> La domanda riguarda **sorpasso** o **autostrada**.`;
-  return `<a:VC_Flame:1482725674711126140> La risposta è **Vero** o **Falso**: rifletti sulla normativa.`;
+  if (/velocit|limite|km\/h|130|50|90/.test(s)) return `${E.VC_Flame} La domanda riguarda i **limiti di velocità**.`;
+  if (/precedenza|incrocio|destra|fermarsi/.test(s)) return `${E.VC_Flame} La domanda riguarda **precedenza** o **incroci**.`;
+  if (/semaforo|rosso|giallo|verde/.test(s)) return `${E.VC_Flame} La domanda riguarda i **semafori**.`;
+  if (/segnal|triangolo|circolare|ottagonale|stop/.test(s)) return `${E.VC_Flame} La domanda riguarda la **segnaletica stradale**.`;
+  if (/sosta|parcheggio|divieto/.test(s)) return `${E.VC_Flame} La domanda riguarda **sosta** o **parcheggio**.`;
+  if (/cintur|casco|telefono/.test(s)) return `${E.VC_Flame} La domanda riguarda **obblighi** del conducente.`;
+  if (/sorpasso|autostrada|corsia/.test(s)) return `${E.VC_Flame} La domanda riguarda **sorpasso** o **autostrada**.`;
+  return `${E.VC_Flame} La risposta è **Vero** o **Falso**: rifletti sulla normativa.`;
 }
 
 function parseDrivingQuizFromPayload(payload?) {
@@ -247,7 +248,7 @@ async function startDrivingQuizGame(client?, cfg?) {
         client,
         channelId,
         durationMs,
-        `<a:VC_Flame:1482725674711126140> La risposta è tra **${L1}** e **${L2}**.`,
+        `${E.VC_Flame} La risposta è tra **${L1}** e **${L2}**.`,
       );
     }
   } else if (row.questionType === "trueFalse" && row.statement) {

@@ -12,6 +12,7 @@ const { hasAllPermissions } = require("./permMemberChecks") as typeof import("./
 const { resolveSlashRoles, resolveSlashPermissions } = require("./permWebTicket") as typeof import("./permWebTicket");
 const path = require("path") as typeof import("path");
 const { createPermissionsStore } = require("../../../shared/moderation/createPermissionsStore") as typeof import("../../../shared/moderation/createPermissionsStore");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const { loadPermissions } = createPermissionsStore({
   ids: IDs,
   normalizeRoles: false,
@@ -296,7 +297,7 @@ async function checkSlashPermission(interaction?, options: Record<string, any> =
           reason: "bot_usage_blacklisted_user",
           requiredRoles: null,
           channels: null,
-          message: "<:vegax:1443934876440068179> Non puoi usare questo bot.",
+          message: `${E.vegax} Non puoi usare questo bot.`,
           silent: true,
         };
       }
@@ -309,7 +310,7 @@ async function checkSlashPermission(interaction?, options: Record<string, any> =
           reason: "bot_usage_blacklisted_guild",
           requiredRoles: null,
           channels: null,
-          message: "<:vegax:1443934876440068179> Questo server non può usare il bot.",
+          message: `${E.vegax} Questo server non può usare il bot.`,
           silent: true,
         };
       }
@@ -345,7 +346,7 @@ async function checkSlashPermission(interaction?, options: Record<string, any> =
               channels: null,
               message: allowed
                 ? null
-                : "<:vegax:1443934876440068179> Ti serve **Gestisci server** (o **Amministratore**) per usare `/giveaway` su questo server.",
+                : `${E.vegax} Ti serve **Gestisci server** (o **Amministratore**) per usare \`/giveaway\` su questo server.`,
             };
           }
           return allowed;
@@ -356,7 +357,7 @@ async function checkSlashPermission(interaction?, options: Record<string, any> =
     }
     if (cmd !== "partnership" && !tenantDeleteAllowed) {
       const message =
-        "<:vegax:1443934876440068179> Su questo server sono disponibili solo i comandi **partnership**.";
+        `${E.vegax} Su questo server sono disponibili solo i comandi **partnership**.`;
       if (options.returnDetails) {
         return {
           allowed: false,

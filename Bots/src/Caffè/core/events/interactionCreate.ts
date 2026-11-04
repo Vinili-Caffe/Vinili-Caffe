@@ -2,8 +2,9 @@ const { InteractionType, EmbedBuilder } = require("discord.js") as typeof import
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { checkButtonPermission, checkStringSelectPermission, checkModalPermission, checkSlashPermission, buildGlobalPermissionDeniedEmbed, buildGlobalNotYourControlEmbed, } = require("../../Moderation/utils/commandPermissions") as typeof import("../../Moderation/utils/commandPermissions");
 const { createButtonInteractionDispatcher } = require("../../../shared/discord/createButtonInteractionDispatcher") as typeof import("../../../shared/discord/createButtonInteractionDispatcher");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const { handleButtonInteraction } = createButtonInteractionDispatcher({
-  errorEmoji: "<a:VC_Alert:1482706673176150077>",
+  errorEmoji: E.VC_Alert,
 });
 const { getCentralChannel } = require("./interactionCreateCommandLogging") as typeof import("./interactionCreateCommandLogging");
 const {
@@ -19,7 +20,7 @@ const { logInteractionError } = createInteractionErrorLogger({
     embeds: [
       new EmbedBuilder()
         .setColor("Red")
-        .setDescription("<a:VC_Cross:1482532424570376253> Errore durante l'esecuzione dell'interazione."),
+        .setDescription(`${E.VC_Cross} Errore durante l'esecuzione dell'interazione.`),
     ],
   },
   onNestedError: (nestedErr?) => {
@@ -27,7 +28,7 @@ const { logInteractionError } = createInteractionErrorLogger({
   },
 });
 const MONO_GUILD_DENIED = "Questo bot è utilizzabile solo nei server autorizzati.";
-const STANZA_BUTTON_DENIED ="<:VC_Attention:1482534443632558151> Solo il **creatore della stanza** e il **vice** possono usare questi pulsanti.";
+const STANZA_BUTTON_DENIED =`${E.VC_Attention} Solo il **creatore della stanza** e il **vice** possono usare questi pulsanti.`;
 const INTERACTION_DEDUPE_TTL_MS = 30 * 1000;
 
 function markInteractionSeen(client?, interactionId?) {

@@ -3,6 +3,7 @@ const { buildAuditExtraLines } = require("../../Moderation/utils/channelRolesLog
 const { resolveModLogChannel, fetchRecentAuditEntry, formatResponsible, nowDiscordTs, } = require("../../Moderation/utils/modAuditLogUtils") as typeof import("../../Moderation/utils/modAuditLogUtils");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 function sleep(ms?) {
   return new Promise((resolve?) => {
     const timer = setTimeout(resolve, ms);
@@ -50,11 +51,11 @@ export = {
       const targetLabel = ban.user ? `${ban.user}` : "sconosciuto";
       const embed = new EmbedBuilder()
       .setColor("#57F287")
-      .setTitle("<:VC_User:1482527453586002103> Ban Removed")
-      .setDescription([`<:VC_User:1482527453586002103> **Ban per** ${targetLabel} **è stato rimosso**`,
-            `<:VC_Staff:1494286904089247754> **Responsabile:** ${responsible}`,
-            `<:VC_Clock:1473359204189474886> ${nowDiscordTs()}`,
-            reason ? `<:VC_reason:1478517122929004544> **Motivo:** ${reason}` : null,
+      .setTitle(`${E.VC_User} Ban Removed`)
+      .setDescription([`${E.VC_User} **Ban per** ${targetLabel} **è stato rimosso**`,
+            `${E.VC_Staff} **Responsabile:** ${responsible}`,
+            `${E.VC_Clock} ${nowDiscordTs()}`,
+            reason ? `${E.VC_reason} **Motivo:** ${reason}` : null,
             ...buildAuditExtraLines(auditEntry, ["reason"]),
           ]
             .filter(Boolean)

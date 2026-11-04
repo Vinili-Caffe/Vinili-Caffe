@@ -6,6 +6,7 @@ const { isClipRepostDoc } = require("./repostClips") as typeof import("./repostC
 const { REPOST_REMOVE_PREFIX } = require("./repostEmbeds") as typeof import("./repostEmbeds");
 const { timedRepostQuery, syncBoardMessageComponents, applyBoardMessageRemovedState } = require("./repostBoardSync") as typeof import("./repostBoardSync");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const EPHEMERAL_FLAG = 1 << 6;
 
 function memberCanForceDeleteClip(member?) {
@@ -169,7 +170,7 @@ async function handleRepostRemoveButton(interaction?) {
 
   if (!anchor?._id || String(anchor.guildId) !== String(interaction.guild.id)) {
     return interaction.editReply({
-      content: "<:vegax:1443934876440068179> Repost non trovato.",
+      content: `${E.vegax} Repost non trovato.`,
     }).catch(() => null);
   }
 
@@ -180,7 +181,7 @@ async function handleRepostRemoveButton(interaction?) {
     const isAuthor = String(anchor.reposterUserId || "") === clickerId;
     if (!isAuthor && !staffForce) {
       return interaction.editReply({
-        content: "<:vegax:1443934876440068179> Solo l'autore della clip (o High Staff) può rimuoverla.",
+        content: `${E.vegax} Solo l'autore della clip (o High Staff) può rimuoverla.`,
       }).catch(() => null);
     }
 
@@ -194,18 +195,18 @@ async function handleRepostRemoveButton(interaction?) {
 
     if (!result.ok) {
       return interaction.editReply({
-        content: `<:vegax:1443934876440068179> ${result.message || "Impossibile rimuovere."}`,
+        content: `${E.vegax} ${result.message || "Impossibile rimuovere."}`,
       }).catch(() => null);
     }
     return interaction.editReply({
-      content: "<a:VC_Verified:1482532479637127188> Clip rimossa.",
+      content: `${E.VC_Verified} Clip rimossa.`,
     }).catch(() => null);
   }
 
   const own = await findClickerRepostForBoardAnchor(interaction.guild.id, anchor, clickerId);
   if (!own?._id) {
     return interaction.editReply({
-      content: "<:vegax:1443934876440068179> Non hai repostato questo messaggio.",
+      content: `${E.vegax} Non hai repostato questo messaggio.`,
     }).catch(() => null);
   }
 
@@ -218,12 +219,12 @@ async function handleRepostRemoveButton(interaction?) {
 
   if (!result.ok) {
     return interaction.editReply({
-      content: `<:vegax:1443934876440068179> ${result.message || "Impossibile rimuovere."}`,
+      content: `${E.vegax} ${result.message || "Impossibile rimuovere."}`,
     }).catch(() => null);
   }
 
   return interaction.editReply({
-    content: "<a:VC_Verified:1482532479637127188> Repost rimosso.",
+    content: `${E.VC_Verified} Repost rimosso.`,
   }).catch(() => null);
 }
 

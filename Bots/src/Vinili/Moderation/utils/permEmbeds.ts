@@ -4,6 +4,7 @@ const { HIGH_STAFF_COMMANDS_ZONE_TOKEN, PM_COMMANDS_THREAD_ZONE_TOKEN } = requir
 const { createPermissionDeniedEmbeds } = require("../../../shared/moderation/createPermissionDeniedEmbeds") as typeof import("../../../shared/moderation/createPermissionDeniedEmbeds");
 const { memberCanViewChannel } = require("../../../shared/discord/visibleChannelMentions") as typeof import("../../../shared/discord/visibleChannelMentions");
 
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   buildGlobalPermissionDeniedEmbed,
   buildGlobalChannelDeniedEmbed,
@@ -21,22 +22,22 @@ const {
 
     if (hasHighStaffZone && canSeeStaffCmds) {
       embed.addFields({
-        name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
-        value: "<a:VC_Arrow:1482706699365257397> Usa il comando nel thread **Comandi High Staff** sotto #staff-cmds.",
+        name: `${E.VC_Rocket} **Per sbloccarlo:**`,
+        value: `${E.VC_Arrow} Usa il comando nel thread **Comandi High Staff** sotto #staff-cmds.`,
       });
       return true;
     }
     if (hasPmZone && canSeeStaffCmds) {
       embed.addFields({
-        name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
-        value: "<a:VC_Arrow:1482706699365257397> Usa il comando nel thread **Comandi Partner Manager** sotto #staff-cmds.",
+        name: `${E.VC_Rocket} **Per sbloccarlo:**`,
+        value: `${E.VC_Arrow} Usa il comando nel thread **Comandi Partner Manager** sotto #staff-cmds.`,
       });
       return true;
     }
     if (hasNumericChannels || hasHighStaffZone || hasPmZone) {
       embed.addFields({
-        name: "<a:VC_Rocket:1468544312475123753> **Per sbloccarlo:**",
-        value: "<a:VC_Arrow:1482706699365257397> Usa il comando in un canale consentito a cui hai accesso.",
+        name: `${E.VC_Rocket} **Per sbloccarlo:**`,
+        value: `${E.VC_Arrow} Usa il comando in un canale consentito a cui hai accesso.`,
       });
       return true;
     }
