@@ -417,7 +417,12 @@ export function tokenFaceDataUrl(
   const dw = sw * scale;
   const dh = sh * scale;
   ctx.drawImage(img, sx, sy, sw, sh, (size - dw) / 2, (size - dh) / 2, dw, dh);
-  return canvas.toDataURL("image/jpeg", 0.82);
+  try {
+    return canvas.toDataURL("image/jpeg", 0.82);
+  } catch {
+    /* canvas “tainted” se l’img CDN è senza CORS */
+    return "";
+  }
 }
 
 export function fitBoardSize(wrapW: number, wrapH: number, aspect = PUZZLE_ASPECT, pad = 12): { w: number; h: number } {
@@ -436,6 +441,8 @@ export function fitBoardSize(wrapW: number, wrapH: number, aspect = PUZZLE_ASPEC
 export function loadPuzzleImage(src = PUZZLE_IMG): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    /* Serve per pezzi/token via canvas.toDataURL (CDN cross-origin). */
+    img.crossOrigin = "anonymous";
     img.decoding = "async";
     img.onload = () => {
       const done = () => {

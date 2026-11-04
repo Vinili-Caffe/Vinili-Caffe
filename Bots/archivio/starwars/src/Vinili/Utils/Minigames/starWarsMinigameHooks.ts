@@ -86,14 +86,12 @@ function resolveMinigameGuildIdForStarWars(client?, guildId = null) {
   const explicit = String(guildId || "").trim();
   if (explicit) return explicit;
   try {
+    const { resolveStarWarsEventConfig } = require("../Eventi/starWarsEventConfig") as typeof import("../Eventi/starWarsEventConfig");
     const IDs = require(__eventCoreVinili("Config/ids"));
-    const chatId = String(IDs.channels?.chat || "").trim();
     const testId = getTestGuildIdSafe() || String(IDs.guilds?.test || "").trim();
     const mainId = String(IDs.guilds?.main || "").trim();
-    if (testId && client?.guilds?.cache) {
-      const testGuild = client.guilds.cache.get(testId);
-      if (testGuild?.channels?.cache?.has?.(chatId)) return testId;
-    }
+    /* Staging: guild evento = test. Mai far credere che il main sia “live”. */
+    if (testId && Boolean(resolveStarWarsEventConfig(client)?.testGuildForceLive)) return testId;
     return mainId || null;
   } catch (_) {
     return null;

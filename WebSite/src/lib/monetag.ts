@@ -1,7 +1,11 @@
 /**
  * Monetag — OnClick + Vignette (tag copiati dal dashboard).
  * Zone: 12194355 OnClick (al5sm.com), 12194356 Vignette (n6wxm.com).
- * Env opzionali per override: NEXT_PUBLIC_MONETAG_ONCLICK_*, NEXT_PUBLIC_MONETAG_VIGNETTE_*.
+ *
+ * IMPORTANTE: i tag devono stare nell’HTML statico (layout <head>), non solo via React,
+ * altrimenti Installation Check di Monetag fallisce (legge il sorgente, non esegue JS).
+ *
+ * Env opzionali: NEXT_PUBLIC_MONETAG_ONCLICK_*, NEXT_PUBLIC_MONETAG_VIGNETTE_*.
  */
 
 export type MonetagTag = {
@@ -22,6 +26,12 @@ const DEFAULT_TAGS: MonetagTag[] = [
     scriptSrc: "https://n6wxm.com/vignette.min.js",
   },
 ];
+
+/** Snippet identici al dashboard Monetag → finiscono nel HTML esportato. */
+export const MONETAG_HEAD_BOOT = [
+  `(function(s){s.dataset.zone='12194355',s.src='https://al5sm.com/tag.min.js'})([document.documentElement,document.head||document.body].filter(Boolean).pop().appendChild(document.createElement('script')))`,
+  `(function(s){s.dataset.zone='12194356',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement,document.head||document.body].filter(Boolean).pop().appendChild(document.createElement('script')))`,
+].join(";");
 
 function envTag(id: string, zoneEnv: string, srcEnv: string, fallback: MonetagTag): MonetagTag {
   const zoneId = String(process.env[zoneEnv] || fallback.zoneId).trim();
@@ -74,9 +84,12 @@ export function ensureMonetagScripts(tags = readMonetagTags()): Promise<void> {
       (tag) =>
         new Promise<void>((resolve) => {
           const id = scriptElId(tag);
-          const existing = document.getElementById(id) as HTMLScriptElement | null;
+          const existing =
+            (document.getElementById(id) as HTMLScriptElement | null) ||
+            (document.querySelector(`script[data-zone="${tag.zoneId}"]`) as HTMLScriptElement | null) ||
+            (document.querySelector(`script[src="${tag.scriptSrc}"]`) as HTMLScriptElement | null);
           if (existing) {
-            if (existing.dataset.ready === "1") {
+            if (existing.dataset.ready === "1" || existing.getAttribute("src")) {
               resolve();
               return;
             }

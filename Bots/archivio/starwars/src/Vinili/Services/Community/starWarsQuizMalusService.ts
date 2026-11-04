@@ -13,7 +13,12 @@ const { SiteDocument, SITE_DOCUMENT_TYPE, ActivityUserProfile } = require(__even
 const IDs = require(__eventCoreVinili("Config/ids"));
 const { listQuizMalus, getQuizMalus, pickRandomQuizMalus } = require("../../Utils/Eventi/starWarsQuizMalusCatalog") as typeof import("../../Utils/Eventi/starWarsQuizMalusCatalog");
 const { applyMalusToQuizDisplay } = require("../../Utils/Eventi/starWarsQuizMalusTransforms") as typeof import("../../Utils/Eventi/starWarsQuizMalusTransforms");
-const { isStarWarsEventLive } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
+const {
+  isStarWarsEventLive,
+  resolveStarWarsEventConfig,
+  getTestGuildIdSafe,
+} = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
+const { canPostStarWarsToGuildChat } = require("../../Utils/Eventi/starWarsRuntimeGate") as typeof import("../../Utils/Eventi/starWarsRuntimeGate");
 const {
   SW_MALUS_INTERVAL_MS,
   isWithinStarWarsMalusHours,
@@ -58,18 +63,31 @@ function walletGuildId(client?) {
 
 function eventDiscordGuildId(client?) {
   try {
-    const { resolveStarWarsEventConfig } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
     if (resolveStarWarsEventConfig(client)?.testGuildForceLive) {
-      const test = normalizeId(IDs.guilds?.test);
+      const test = normalizeId(getTestGuildIdSafe() || IDs.guilds?.test);
       if (test) return test;
     }
   } catch (_) {}
   return normalizeId(IDs.guilds?.main);
 }
 
+function remapChannelForGuild(guildId?, channelId?) {
+  const gid = normalizeId(guildId);
+  const base = normalizeId(channelId);
+  if (!gid || !base) return base;
+  try {
+    const { remapChannelIdForGuild, isTestMirrorGuild } = require(__eventCoreVinili(
+      "Config/testGuildMirrorRemap",
+    )) as typeof import("../../../../../../src/Vinili/Config/testGuildMirrorRemap");
+    if (isTestMirrorGuild(gid)) return remapChannelIdForGuild(gid, base) || base;
+  } catch (_) {}
+  return base;
+}
+
 function chatChannelId(client?, guildId?) {
   const base = normalizeId(IDs.channels?.chat);
-  return base;
+  const gid = normalizeId(guildId) || eventDiscordGuildId(client);
+  return remapChannelForGuild(gid, base);
 }
 
 async function getActiveMalusDoc() {
@@ -275,7 +293,12 @@ function buildMalusAnnounceEmbed(def?, payload?, _durationMs?) {
 }
 
 async function announceAndActivateMalus(client?, { malusId = null, channelId = null, durationMs = DEFAULT_DURATION_MS, force = false } = {}) {
-  if (!force && !isStarWarsEventLive(client, new Date(), eventDiscordGuildId(client))) {
+  const guildId = eventDiscordGuildId(client);
+  /* Hard gate: niente malus in chat pubblica del MAIN finché publicEnabled=false. */
+  if (!canPostStarWarsToGuildChat(client, guildId)) {
+    return { ok: false, error: "main_locked" };
+  }
+  if (!force && !isStarWarsEventLive(client, new Date(), guildId)) {
     return { ok: false, error: "event_off" };
   }
   const existing = await getActiveMalusDoc();
@@ -284,11 +307,15 @@ async function announceAndActivateMalus(client?, { malusId = null, channelId = n
   const def = malusId ? getQuizMalus(malusId) : pickRandomQuizMalus(existing?.malusId);
   if (!def) return { ok: false, error: "unknown_malus" };
 
-  const guildId = eventDiscordGuildId(client);
   const chId = normalizeId(channelId) || chatChannelId(client, guildId);
   const channel =
     client?.channels?.cache?.get(chId) || (await client?.channels?.fetch?.(chId).catch(() => null));
   if (!channel?.isTextBased?.()) return { ok: false, error: "no_channel" };
+
+  const channelGuildId = normalizeId(channel.guildId || channel.guild?.id);
+  if (channelGuildId && !canPostStarWarsToGuildChat(client, channelGuildId)) {
+    return { ok: false, error: "main_locked_channel" };
+  }
 
   let freeze = { frozenUserIds: [], frozenByFaction: {}, freezeDetailByFaction: {}, focusFaction: null };
   if (def.freezesUsers) {
@@ -455,7 +482,14 @@ async function evaluateStarWarsQuizAnswerGates(message?, game?, isCorrect?) {
 }
 
 async function maybeAnnounceRandomMalus(client?) {
-  if (!isStarWarsEventLive(client, new Date(), eventDiscordGuildId(client))) return { ok: false, error: "event_off" };
+  const guildId = eventDiscordGuildId(client);
+  if (!canPostStarWarsToGuildChat(client, guildId)) {
+    /* Se un malus era partito per errore sul main, spegnilo subito. */
+    const leaked = await getActiveMalusDoc();
+    if (leaked) await clearActiveMalus("main_locked");
+    return { ok: false, error: "main_locked" };
+  }
+  if (!isStarWarsEventLive(client, new Date(), guildId)) return { ok: false, error: "event_off" };
   if (!isWithinStarWarsMalusHours()) return { ok: false, error: "outside_hours" };
   const active = await getActiveMalusDoc();
   if (active) return { ok: false, error: "already_active" };
