@@ -190,7 +190,7 @@ export function PuzzleBoard() {
         icon={<Sparkles />}
         title="Puzzle"
         accent="galassia"
-        text="Sei difficoltà · sponsor a interazione per tagliare il cooldown, guadagnare tempo e potenziare il premio."
+        text="Sei difficoltà · pubblicità (Monetag) per tagliare il cooldown, guadagnare tempo e potenziare il premio."
       />
       <Reveal className="-mt-6 mx-auto max-w-5xl px-4 pb-24 sm:-mt-10 sm:px-6">
         {active ? (
@@ -211,7 +211,7 @@ export function PuzzleBoard() {
             <div className="rounded-3xl bg-gradient-to-b from-[#1a2744]/80 to-[#05070f] p-4 ring-1 ring-[#c9a227]/30 sm:p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#e4c76b]">Scegli la rotta</p>
               <p className="mt-1 text-sm text-crema/65">
-                In cooldown? Guarda lo sponsor (−35% attesa, max 3). In partita: +45s e premio ×1.5.
+                In cooldown? Guarda un annuncio (−35% attesa, max 3). In partita: +45s e premio ×1.5.
               </p>
             </div>
             <ol className="grid gap-3 sm:grid-cols-2">

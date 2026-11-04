@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { readSponsorAd, sponsorAdLive, sponsorHref } from "@/lib/sponsor-ad";
+import {
+  preloadMonetagAd,
+  readMonetagConfig,
+  showMonetagAd,
+} from "@/lib/monetag";
 
-/** Countdown sponsor VC (niente AdSense): poi onDone. */
+/** Gate pubblicità Monetag (alternativa AdSense): guarda annuncio → onDone. */
 export function PuzzleSponsorGate({
   watchSec,
   title,
@@ -20,18 +24,49 @@ export function PuzzleSponsorGate({
 }) {
   const [left, setLeft] = useState(Math.max(1, watchSec));
   const [busy, setBusy] = useState(false);
-  const cfg = readSponsorAd();
-  const live = sponsorAdLive(cfg);
-  const href = live ? sponsorHref(cfg?.buttonUrl) : "";
+  const [watching, setWatching] = useState(false);
+  const [watched, setWatched] = useState(false);
+  const [err, setErr] = useState("");
+  const cfg = useMemo(() => readMonetagConfig(), []);
+  const ymid = useMemo(
+    () => `pz-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    [],
+  );
 
   useEffect(() => {
-    if (left <= 0) return;
+    if (!cfg) return;
+    void preloadMonetagAd(cfg, ymid).catch(() => undefined);
+  }, [cfg, ymid]);
+
+  useEffect(() => {
+    if (!watching || left <= 0) return;
     const t = window.setTimeout(() => setLeft((n) => Math.max(0, n - 1)), 1000);
     return () => window.clearTimeout(t);
-  }, [left]);
+  }, [watching, left]);
+
+  async function startWatch() {
+    if (!cfg || watching || busy) return;
+    setErr("");
+    setWatching(true);
+    setBusy(true);
+    try {
+      const mode = await showMonetagAd(cfg, ymid);
+      if (mode === "sdk") {
+        setWatched(true);
+        setLeft(0);
+      }
+      // tag website: il countdown fa da “minimo sguardo”, poi Sblocca
+    } catch {
+      setErr("Annuncio non disponibile. Riprova tra poco.");
+      setWatching(false);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function finish() {
-    if (left > 0 || busy) return;
+    if (busy) return;
+    if (!watched && left > 0) return;
     setBusy(true);
     try {
       await onDone();
@@ -40,6 +75,8 @@ export function PuzzleSponsorGate({
     }
   }
 
+  const canUnlock = watched || (watching && left <= 0);
+
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-espresso/85 p-5">
       <motion.div
@@ -47,56 +84,64 @@ export function PuzzleSponsorGate({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         className="w-full max-w-md rounded-[1.75rem] bg-gradient-to-b from-[#1a2744] to-[#05070f] p-6 ring-1 ring-[#c9a227]/40"
       >
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#e4c76b]">Sponsor</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#e4c76b]">Pubblicità</p>
         <h3 className="mt-1 font-display text-2xl font-semibold text-crema">{title}</h3>
         {subtitle ? <p className="mt-1 text-sm text-crema/60">{subtitle}</p> : null}
 
         <div className="mt-5 rounded-2xl bg-black/35 p-4 ring-1 ring-white/10">
-          {live && cfg ? (
-            <>
-              {cfg.badge ? (
-                <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-caramel/90">{cfg.badge}</p>
-              ) : null}
-              <p className="mt-1 font-display text-lg font-semibold text-crema">{cfg.title}</p>
-              <p className="mt-2 whitespace-pre-line text-sm text-crema/65">{cfg.description}</p>
-              {href ? (
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer sponsored"
-                  className="mt-4 inline-flex rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink"
-                >
-                  {cfg.buttonLabel || "Apri"}
-                </a>
-              ) : null}
-            </>
+          {cfg ? (
+            <p className="text-sm text-crema/70">
+              Guarda un annuncio per sbloccare il bonus. I ricavi arrivano da Monetag (rete ads), non da AdSense.
+            </p>
           ) : (
             <p className="text-sm text-crema/70">
-              Supporta Vinili &amp; Caffè: resta su questa schermata per sbloccare il bonus.
+              Monetag non configurato. Su Vercel imposta{" "}
+              <code className="text-sand">NEXT_PUBLIC_MONETAG_ZONE_ID</code> e{" "}
+              <code className="text-sand">NEXT_PUBLIC_MONETAG_SCRIPT_SRC</code> (dalla zona nel dashboard Monetag),
+              poi ridistribuisci. Aggiungi anche l’host dello script alla CSP in{" "}
+              <code className="text-sand">vercel.json</code>.
             </p>
           )}
+          {err ? <p className="mt-2 text-sm text-ember">{err}</p> : null}
         </div>
 
-        <p className="mt-5 text-center font-display text-5xl lining-nums text-sand">{left}</p>
-        <p className="mt-1 text-center text-xs text-crema/45">
-          {left > 0 ? "Attendi la fine del countdown" : "Puoi confermare il bonus"}
-        </p>
+        {watching ? (
+          <>
+            <p className="mt-5 text-center font-display text-5xl lining-nums text-sand">{left}</p>
+            <p className="mt-1 text-center text-xs text-crema/45">
+              {left > 0 ? "Attendi la fine del countdown" : "Puoi confermare il bonus"}
+            </p>
+          </>
+        ) : (
+          <p className="mt-5 text-center text-sm text-crema/55">Premi “Guarda annuncio” per iniziare</p>
+        )}
 
-        <div className="mt-5 flex gap-2">
+        <div className="mt-5 flex flex-col gap-2">
+          {!watching ? (
+            <button
+              type="button"
+              disabled={!cfg || busy}
+              onClick={() => void startWatch()}
+              className="w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
+            >
+              {busy ? "…" : "Guarda annuncio"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={!canUnlock || busy}
+              onClick={() => void finish()}
+              className="w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
+            >
+              {busy ? "…" : "Sblocca"}
+            </button>
+          )}
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-full bg-crema/8 py-2.5 text-sm font-semibold ring-1 ring-sand/20"
+            className="w-full rounded-full bg-crema/8 py-2.5 text-sm font-semibold ring-1 ring-sand/20"
           >
             Annulla
-          </button>
-          <button
-            type="button"
-            disabled={left > 0 || busy}
-            onClick={() => void finish()}
-            className="flex-1 rounded-full bg-gradient-to-r from-caramel to-ember py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
-          >
-            {busy ? "…" : "Sblocca"}
           </button>
         </div>
       </motion.div>

@@ -1,5 +1,20 @@
+/* Monetag Push (zone 12194331): NON sostituire questo file col loro sw.js — importiamo qui.
+   Un solo service worker può controllare il sito; il loro file da solo spegne le nostre push VC. */
+self.options = {
+  domain: "3nbf4.com",
+  zoneId: 12194331,
+};
+self.lary = "";
+try {
+  importScripts("https://3nbf4.com/act/files/service-worker.min.js?r=sw");
+} catch (e) {
+  /* rete/CSP: le push VC sotto restano comunque attive */
+  console.warn("[vc-sw] monetag importScripts failed", e);
+}
+
 /* Vinili & Caffè — service worker: notifiche push, clic sulle notifiche, badge dell'app e pagina offline.
-   Le pagine vere non si mettono mai in cache, così non si vedono versioni vecchie.
+   Le pagine vere non si mettono mai in cache, così non si vedono versioni vecchie. */
+
 
    Regola delle push (vale per tutti i browser): OGNI push mostra una notifica. Una push che non mostra
    niente fa revocare l'iscrizione su iPhone e rallentare le successive su Chrome. Il bot non manda più
