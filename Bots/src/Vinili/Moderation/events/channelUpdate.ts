@@ -226,6 +226,13 @@ export = {
     if (!isViniliFullFeatureGuild(guildId)) return;
 
     try {
+      const { handleStanzaChannelUpdate } = require("../../Voice/services/stanzaVoiceRoomsService") as typeof import("../../Voice/services/stanzaVoiceRoomsService");
+      await handleStanzaChannelUpdate(oldChannel, newChannel);
+    } catch (error) {
+      global.logger?.warn?.("[channelUpdate] stanza name enforce:", error?.message || error);
+    }
+
+    try {
       await sendChannelUpdateLog(oldChannel, newChannel);
     } catch (error) {
       global.logger?.error?.("[channelUpdate] channel log failed:", error);

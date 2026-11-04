@@ -309,6 +309,43 @@ export = {
     const guildId = String(newState?.guild?.id || oldState?.guild?.id || "").trim();
     if (guildId && !isViniliFullFeatureGuild(guildId)) return;
 
+    try {
+      const {
+        finalizeStanzaVisitorVoiceSessionIfLeft,
+        handleStanzaVoiceLobbyJoin,
+        handleStanzaVoiceOccupied,
+        handleStanzaVoiceEmpty,
+        handleStanzaVoiceSilenceSync,
+      } = require("../../Voice/services/stanzaVoiceRoomsService") as typeof import("../../Voice/services/stanzaVoiceRoomsService");
+      try {
+        await finalizeStanzaVisitorVoiceSessionIfLeft(oldState, newState);
+      } catch (error) {
+        global.logger?.warn?.("[voiceStateUpdate] stanza visitor flush:", error?.message || error);
+      }
+      try {
+        await handleStanzaVoiceLobbyJoin(oldState, newState, client);
+      } catch (error) {
+        global.logger?.warn?.("[voiceStateUpdate] stanza lobby join:", error?.message || error);
+      }
+      try {
+        await handleStanzaVoiceOccupied(oldState, newState);
+      } catch (error) {
+        global.logger?.warn?.("[voiceStateUpdate] stanza occupied:", error?.message || error);
+      }
+      try {
+        await handleStanzaVoiceEmpty(oldState, newState);
+      } catch (error) {
+        global.logger?.warn?.("[voiceStateUpdate] stanza empty:", error?.message || error);
+      }
+      try {
+        await handleStanzaVoiceSilenceSync(oldState, newState);
+      } catch (error) {
+        global.logger?.warn?.("[voiceStateUpdate] stanza silence sync:", error?.message || error);
+      }
+    } catch (error) {
+      global.logger?.warn?.("[voiceStateUpdate] stanza hooks load:", error?.message || error);
+    }
+
     /* perfP1: log audit fuori dal critical path (non bloccano activity/hub) */
     void sendMemberMoveLog(oldState, newState).catch((error?) => {
       global.logger?.error?.("[voiceStateUpdate] move log failed:", error);

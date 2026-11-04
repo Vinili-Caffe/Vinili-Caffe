@@ -287,31 +287,31 @@ async function spawnReactGame(client?, kind?, { channelId = null, force = false 
   try {
     await playF1StartLights(channel);
 
-    const embed = new EmbedBuilder()
+  const embed = new EmbedBuilder()
       .setColor(0x22c55e)
       .setTitle(meta.title)
       .setDescription(
         `**VIA!**\nPrimo a reagire con ${meta.emoji} vince **cassa ${meta.crate}** + **${meta.exp} exp**.`,
       );
     if (meta.startImage) embed.setImage(meta.startImage);
-    const msg = await channel.send({ embeds: [embed] }).catch(() => null);
+  const msg = await channel.send({ embeds: [embed] }).catch(() => null);
     if (!msg) {
       await setRound(kind, { status: "aborted", kind, guildId, channelId: channel.id });
       return { ok: false, error: "send_failed" };
     }
-    await msg.react(meta.emoji).catch(() => null);
+  await msg.react(meta.emoji).catch(() => null);
 
-    await setRound(kind, {
-      status: "active",
-      kind,
-      messageId: msg.id,
-      channelId: channel.id,
-      guildId,
-      emoji: meta.emoji,
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-    });
-    return { ok: true, messageId: msg.id, channelId: channel.id };
+  await setRound(kind, {
+    status: "active",
+    kind,
+    messageId: msg.id,
+    channelId: channel.id,
+    guildId,
+    emoji: meta.emoji,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+  });
+  return { ok: true, messageId: msg.id, channelId: channel.id };
   } catch (err) {
     await setRound(kind, {
       status: "aborted",
@@ -941,8 +941,8 @@ async function startScovaPianeta(client?, { channelId = null, force = false } = 
     expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
   });
   const embed = new EmbedBuilder()
-    .setColor(0x2f6fed)
-    .setTitle("Scova il pianeta")
+          .setColor(0x2f6fed)
+          .setTitle("Scova il pianeta")
     .setDescription(
       `Settore **\`${coord}\`** · coordinate \`${numericCoords}\`\nConsulta la mappa e scrivi in chat il **nome del pianeta**.`,
     )
@@ -1458,8 +1458,8 @@ async function handleConvoglioButton(interaction?, parts?) {
     if (!nextChannel?.isTextBased?.()) {
       await setRound("convoglio", { ...round.payload, status: "aborted", error: "no_hide_channel" });
       await interaction.reply({ content: "Nessun canale libero per la prossima tappa.", flags: 1 << 6 }).catch(() => null);
-      return true;
-    }
+    return true;
+  }
 
     const btns = buildConvoglioButtons(`${Date.now().toString(36)}${nextHop}`);
     const nextMsg = await nextChannel
@@ -1923,7 +1923,7 @@ async function handleConquistaButton(interaction?, parts?) {
     await grantStarWarsReward(interaction.client, {
       guildId: walletGuildId(interaction.client) || interaction.guildId,
       userId: interaction.user.id,
-      reason: "conquista",
+    reason: "conquista",
       grant: { exp: 100 },
     });
 
@@ -1941,7 +1941,7 @@ async function handleConquistaButton(interaction?, parts?) {
       .catch(() => null);
 
     await maybeFinalizeConquista(interaction.client, nextPayload);
-    return true;
+  return true;
   } finally {
     claimLocks.delete(lock);
   }
@@ -1963,6 +1963,7 @@ const {
   pickRandomPg,
   findPgByGuess,
   getPgById,
+  pgImageUrl,
 } = require("../../Utils/Eventi/starWarsPgCatalog") as typeof import("../../Utils/Eventi/starWarsPgCatalog");
 
 async function spawnDeckDrop(client?, kind?, { channelId = null, force = false } = {}) {
@@ -1984,7 +1985,7 @@ async function spawnDeckDrop(client?, kind?, { channelId = null, force = false }
   if (!channel?.isTextBased?.()) return { ok: false, error: "bad_channel" };
 
   const roundKind = isPg ? "deck_pg" : "deck_relic";
-  const image = isPg ? "" : reliquieImageUrl(item.id);
+  const image = isPg ? pgImageUrl(item.id) : reliquieImageUrl(item.id);
   const embed = new EmbedBuilder()
     .setColor(isPg ? 0x2f6fed : 0xc9a227)
     .setTitle(isPg ? `Colleziona PG — ${item.name}` : `Colleziona reliquie — ${item.name}`)
@@ -2066,7 +2067,7 @@ async function tryDeckMessage(message?, client?) {
           .setColor(0x22c55e)
           .setTitle(isPg ? "PG reclamato" : "Reliquia reclamata")
           .setDescription(`**${label}** — trovato da <@${message.author.id}>`);
-        const winImg = isPg ? "" : reliquieImageUrl(matched.id);
+        const winImg = isPg ? pgImageUrl(matched.id) : reliquieImageUrl(matched.id);
         if (winImg) done.setImage(winImg);
         await board.edit({ embeds: [done] }).catch(() => null);
       }
@@ -2078,7 +2079,7 @@ async function tryDeckMessage(message?, client?) {
           ? `✨ <@${message.author.id}> indovina **${label}**! (+50 exp) — già nel tuo deck.`
           : `✨ <@${message.author.id}> reclama **${label}**! (+50 exp) — aggiunta al deck profilo.`,
       )
-      .catch(() => null);
+    .catch(() => null);
     return true;
   }
   return false;

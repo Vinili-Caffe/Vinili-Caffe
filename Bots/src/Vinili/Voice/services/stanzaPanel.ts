@@ -8,6 +8,7 @@ const { MAIN_GUILD_ID, stanzaVoiceStatusByChannelId, stanzaBotRenameUntil, STANZ
 const { ownerKey, flushStanzaVisitorVoiceSessionsForChannel } = require("./stanzaVisitors") as typeof import("./stanzaVisitors");
 const { clearStanzaRenamePending, clearStanzaRenamePendingByVoiceChannel, clearStanzaEmojiPending, clearStanzaEmojiPendingByVoiceChannel, clearStanzaVicePending, clearStanzaVicePendingByVoiceChannel, clearStanzaUsersMemberPending, clearStanzaUsersMemberPendingByVoiceChannel, clearStanzaLimitPending, clearStanzaLimitPendingByVoiceChannel, clearStanzaDescPending, clearStanzaDescPendingByVoiceChannel } = require("./stanzaPending") as typeof import("./stanzaPending");
 const { getStanzaMemberRoleId, applyStanzaMemberServerMute, clearStanzaServerMuteAnywhere, isLegacyStanzaSilenceVoiceOverwrite, applyStanzaSilencedTextChat, stanzaCompanionTextChannel } = require("./stanzaPerms") as typeof import("./stanzaPerms");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 
 const STANZA_PANEL_CHANNEL_ID = String(IDs.channels?.commands || "").trim();
 const stanzaOwnerToChannel = new Map();

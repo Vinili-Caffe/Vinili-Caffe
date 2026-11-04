@@ -475,6 +475,15 @@ export = {
       }
     }
 
+    if (!isEditedPrefixExecution && message.guild) {
+      try {
+        const { handleStanzaPanelPromptMessageCreate } = require("../../Voice/services/stanzaVoiceRoomsService") as typeof import("../../Voice/services/stanzaVoiceRoomsService");
+        if (await handleStanzaPanelPromptMessageCreate(message)) return;
+      } catch (error) {
+        logEventError(resolvedClient, "STANZA PANEL PROMPT ERROR", error);
+      }
+    }
+
     if (message.guild) {
       setImmediate(() => {
         trackChannelMessage(message).catch((err?) =>

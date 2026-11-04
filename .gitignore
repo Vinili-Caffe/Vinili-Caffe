@@ -270,3 +270,5 @@ Bots/.tsbuildinfo
 # Mai ricreare: nome vecchio post-rename → solo WebSite/
 WebSiteReact/
 Assets/**
+.vercel
+.env*
