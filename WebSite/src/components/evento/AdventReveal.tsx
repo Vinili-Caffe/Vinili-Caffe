@@ -6,73 +6,11 @@ import { Sparkles, X } from "lucide-react";
 import { ADVENT_CRATE_LABELS, type AdventCrateId } from "@/lib/evento-avvento";
 import { cn } from "@/lib/cn";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
+import { EventoCrateArt } from "@/components/evento/EventoCrateArt";
 
 export type AdventGranted =
   | { type: "crate"; crateId: string; qty?: number; label?: string }
   | { type: "premium_credits"; amount: number };
-
-const CRATE_TINT: Record<string, { face: string; lid: string; glow: string }> = {
-  omega: { face: "#c9a227", lid: "#e4c76b", glow: "rgba(201,162,39,0.65)" },
-  alpha: { face: "#2ea8ff", lid: "#7dd3fc", glow: "rgba(46,168,255,0.6)" },
-  beta: { face: "#7c3aed", lid: "#a78bfa", glow: "rgba(124,58,237,0.55)" },
-  avvento: { face: "#22c55e", lid: "#86efac", glow: "rgba(34,197,94,0.55)" },
-  militare: { face: "#64748b", lid: "#94a3b8", glow: "rgba(148,163,184,0.5)" },
-  militare_plus: { face: "#94a3b8", lid: "#cbd5e1", glow: "rgba(203,213,225,0.55)" },
-  militare_op: { face: "#e11d48", lid: "#fb7185", glow: "rgba(225,29,72,0.6)" },
-  casuale: { face: "#f0b46e", lid: "#fde68a", glow: "rgba(240,180,110,0.55)" },
-};
-
-function crateTint(id: string) {
-  return CRATE_TINT[id] || CRATE_TINT.casuale!;
-}
-
-function CrateVisual({
-  crateId,
-  open,
-  qty,
-}: {
-  crateId: string;
-  open: boolean;
-  qty?: number;
-}) {
-  const t = crateTint(crateId);
-  return (
-    <div className="relative mx-auto h-28 w-28 sm:h-32 sm:w-32" style={{ perspective: 600 }}>
-      {/* corpo */}
-      <div
-        className="absolute inset-x-2 bottom-0 top-10 rounded-md shadow-2xl ring-1 ring-white/20"
-        style={{
-          background: `linear-gradient(160deg, ${t.lid} 0%, ${t.face} 45%, #0a1020 140%)`,
-          boxShadow: `0 0 28px -4px ${t.glow}`,
-        }}
-      >
-        <div className="absolute inset-x-3 top-3 h-px bg-white/25" />
-        <div className="absolute inset-x-3 bottom-3 h-px bg-black/30" />
-        <div
-          className="absolute left-1/2 top-1/2 size-8 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2"
-          style={{ borderColor: t.lid, background: "rgba(5,7,15,0.45)" }}
-        />
-        {qty && qty > 1 ? (
-          <span className="absolute bottom-1.5 right-2 font-display text-sm font-bold text-white/90">×{qty}</span>
-        ) : null}
-      </div>
-      {/* coperchio */}
-      <motion.div
-        className="absolute inset-x-1 top-2 h-12 origin-bottom rounded-t-md ring-1 ring-white/25"
-        style={{
-          background: `linear-gradient(180deg, ${t.lid}, ${t.face})`,
-          transformStyle: "preserve-3d",
-          boxShadow: `0 0 20px -2px ${t.glow}`,
-        }}
-        initial={{ rotateX: 0 }}
-        animate={{ rotateX: open ? -118 : 0 }}
-        transition={{ type: "spring", stiffness: 120, damping: 14, delay: open ? 0.15 : 0 }}
-      >
-        <div className="absolute inset-x-4 bottom-2 h-1.5 rounded-full bg-black/25" />
-      </motion.div>
-    </div>
-  );
-}
 
 function CreditsBurst({ amount }: { amount: number }) {
   return (
@@ -233,10 +171,11 @@ export function AdventReveal({
                 {current?.type === "premium_credits" ? (
                   <CreditsBurst amount={current.amount} />
                 ) : current?.type === "crate" ? (
-                  <CrateVisual
+                  <EventoCrateArt
                     crateId={String(current.crateId)}
                     open={phase === "open" || phase === "done"}
                     qty={current.qty}
+                    size="md"
                   />
                 ) : (
                   <Sparkles className="size-12 text-[#e4c76b]" />

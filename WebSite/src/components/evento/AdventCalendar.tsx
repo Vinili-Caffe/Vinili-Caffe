@@ -14,6 +14,7 @@ import { cn } from "@/lib/cn";
 import { showToast } from "@/components/ui/toast";
 import { EventoKicker, EventoPanel, EventoSkeleton } from "@/components/evento/EventoUi";
 import { AdventReveal, type AdventGranted } from "@/components/evento/AdventReveal";
+import { crateArtUrl, crateTint } from "@/components/evento/EventoCrateArt";
 
 function primaryCrateId(slot: EventoAdventDayRow): string | null {
   const c = slot.rewards?.find((r) => r.type === "crate");
@@ -77,30 +78,35 @@ function DoorFace({
 
         {/* mini cassa */}
         <span className="mx-auto my-1 flex size-9 items-end justify-center sm:size-10">
-          <span
-            className={cn(
-              "relative h-6 w-8 rounded-sm sm:h-7 sm:w-9",
-              claimed ? "opacity-100" : locked ? "opacity-40" : "opacity-90",
-            )}
-            style={{
-              background:
-                crateId === "omega"
-                  ? "linear-gradient(160deg,#e4c76b,#c9a227)"
-                  : crateId === "alpha"
-                    ? "linear-gradient(160deg,#7dd3fc,#2ea8ff)"
-                    : crateId === "beta"
-                      ? "linear-gradient(160deg,#a78bfa,#7c3aed)"
-                      : crateId === "avvento"
-                        ? "linear-gradient(160deg,#86efac,#22c55e)"
-                        : crateId?.startsWith("militare")
-                          ? "linear-gradient(160deg,#fb7185,#e11d48)"
-                          : "linear-gradient(160deg,#fde68a,#f0b46e)",
-              boxShadow: isToday ? "0 0 14px -2px rgba(46,168,255,0.55)" : "0 4px 10px rgba(0,0,0,0.35)",
-            }}
-          >
-            <span className="absolute inset-x-0 top-0 h-2 rounded-t-sm bg-white/25" />
-            <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35 ring-1 ring-white/30" />
-          </span>
+          {crateId && crateArtUrl(crateId, false) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={crateArtUrl(crateId, false)}
+              alt=""
+              className={cn(
+                "h-7 w-7 object-contain sm:h-8 sm:w-8",
+                claimed ? "opacity-100" : locked ? "opacity-40" : "opacity-90",
+              )}
+              style={{
+                filter: isToday ? "drop-shadow(0 0 8px rgba(46,168,255,0.55))" : undefined,
+              }}
+              draggable={false}
+            />
+          ) : (
+            <span
+              className={cn(
+                "relative h-6 w-8 rounded-sm sm:h-7 sm:w-9",
+                claimed ? "opacity-100" : locked ? "opacity-40" : "opacity-90",
+              )}
+              style={{
+                background: `linear-gradient(160deg, ${crateTint(crateId || "casuale").lid}, ${crateTint(crateId || "casuale").face})`,
+                boxShadow: isToday ? "0 0 14px -2px rgba(46,168,255,0.55)" : "0 4px 10px rgba(0,0,0,0.35)",
+              }}
+            >
+              <span className="absolute inset-x-0 top-0 h-2 rounded-t-sm bg-white/25" />
+              <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35 ring-1 ring-white/30" />
+            </span>
+          )}
         </span>
 
         <span

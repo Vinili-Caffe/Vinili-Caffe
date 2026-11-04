@@ -34,18 +34,36 @@ async function computeUserSearchRankMeta({
   const useHourlyBoard = Boolean(guild) && board === "weekly";
   if (useHourlyBoard) {
     const sorted = Array.isArray(weeklySorted) ? weeklySorted : [];
+    const storedWeekly = nInt(doc?.profile?.totals?.exp?.weeklyExp);
     const expFromDoc = weeklyHourlyExp != null ? nInt(weeklyHourlyExp) : null;
     if (sorted.length) {
       const idx = sorted.findIndex((r?) => String(r.userId) === searchId);
       const agg = idx >= 0 ? sorted[idx] : null;
       searchRank = idx >= 0 ? idx + 1 : 0;
-      const exp = expFromDoc != null ? expFromDoc : nInt(agg?.exp ?? 0);
+      let exp = expFromDoc != null ? expFromDoc : nInt(agg?.exp ?? 0);
+      /* compact hourly vuoto: non azzerare l’EXP realmente assegnato */
+      if (exp <= 0 && storedWeekly > 0) exp = storedWeekly;
       pageMaxSecondary = Math.max(1, exp);
       hourlySingular = { weeklyExp: exp };
+      if (searchRank <= 0 && exp > 0 && exp === storedWeekly) {
+        const higher = await ActivityUserProfile.countDocuments({
+          guildId,
+          "profile.totals.exp.weeklyExp": { $gt: exp },
+        }).catch(() => 0);
+        searchRank = higher + 1;
+      }
     } else if (expFromDoc != null && expFromDoc > 0) {
       hourlySingular = { weeklyExp: expFromDoc };
       pageMaxSecondary = Math.max(1, expFromDoc);
       searchRank = 0;
+    } else if (storedWeekly > 0) {
+      hourlySingular = { weeklyExp: storedWeekly };
+      pageMaxSecondary = Math.max(1, storedWeekly);
+      const higher = await ActivityUserProfile.countDocuments({
+        guildId,
+        "profile.totals.exp.weeklyExp": { $gt: storedWeekly },
+      }).catch(() => 0);
+      searchRank = higher + 1;
     } else {
       searchRank = 0;
       pageMaxSecondary = 1;
@@ -153,7 +171,7 @@ async function buildProfileSearchPayload(client?, guildId?, searchId?) {
   const boards = ["level", "weekly", "messages", "voice", "minigames"];
   const romeDayKey = getRomeDayKey(new Date());
   const weeklySortedPeek = peekCachedWeeklyHourlySorted(guild);
-  const weeklyHourlyExp = computeWeeklyExpFromProfileDoc(doc);
+  const weeklyHourlyExp = await computeWeeklyExpFromProfileDoc(doc, new Date(), guildId);
 
       const memberCached =
     (guild && (readCachedWebsiteMember(searchId) || guild.members?.cache?.get?.(searchId))) || null;

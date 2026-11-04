@@ -14,6 +14,11 @@ const CRATE_LABELS = Object.freeze({
   militare_plus: "Cassa Militare+",
   militare_op: "Cassa Militare OP",
   casuale: "Cassa Casuale",
+  lunare: "Cassa Lunare",
+  solare: "Cassa Solare",
+  planetario: "Cassa Planetario",
+  nebulare: "Cassa Nebulare",
+  galattico: "Cassa Galattico",
 });
 
 function crate(crateId?, qty = 1) {

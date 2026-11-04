@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { EventoBtn } from "@/components/evento/EventoUi";
+import { cdnUrl } from "@/lib/site";
 
 export type CrateTint = { face: string; lid: string; glow: string; accent: string };
+
+const CRATE_IMG_V = "20261104cr1";
 
 const CRATE_TINT: Record<string, CrateTint> = {
   omega: { face: "#c9a227", lid: "#f0d78c", glow: "rgba(201,162,39,0.75)", accent: "#ffe9a0" },
@@ -16,13 +19,26 @@ const CRATE_TINT: Record<string, CrateTint> = {
   militare_plus: { face: "#64748b", lid: "#cbd5e1", glow: "rgba(203,213,225,0.6)", accent: "#f8fafc" },
   militare_op: { face: "#be123c", lid: "#fb7185", glow: "rgba(225,29,72,0.7)", accent: "#fecdd3" },
   casuale: { face: "#c2410c", lid: "#fdba74", glow: "rgba(249,115,22,0.65)", accent: "#fed7aa" },
+  lunare: { face: "#64748b", lid: "#bfdbfe", glow: "rgba(147,197,253,0.65)", accent: "#e0f2fe" },
+  solare: { face: "#ea580c", lid: "#fbbf24", glow: "rgba(251,191,36,0.75)", accent: "#fde68a" },
+  planetario: { face: "#0f766e", lid: "#2dd4bf", glow: "rgba(45,212,191,0.65)", accent: "#99f6e4" },
+  nebulare: { face: "#9d174d", lid: "#e879f9", glow: "rgba(232,121,249,0.7)", accent: "#f5d0fe" },
+  galattico: { face: "#312e81", lid: "#a78bfa", glow: "rgba(167,139,250,0.75)", accent: "#ddd6fe" },
 };
+
+const CRATE_IDS_WITH_ART = new Set(Object.keys(CRATE_TINT));
 
 export function crateTint(id: string): CrateTint {
   return CRATE_TINT[id] || CRATE_TINT.casuale!;
 }
 
-/** Cassa 3D CSS (stile chest da gioco). */
+export function crateArtUrl(crateId: string, open = false): string {
+  const id = String(crateId || "").trim();
+  if (!id || !CRATE_IDS_WITH_ART.has(id)) return "";
+  return cdnUrl(`/images/starwars/casse/${id}-${open ? "open" : "closed"}.jpg?v=${CRATE_IMG_V}`);
+}
+
+/** Cassa: asset CDN (closed/open) con fallback CSS 3D. */
 export function EventoCrateArt({
   crateId,
   open = false,
@@ -41,6 +57,12 @@ export function EventoCrateArt({
   const t = crateTint(crateId);
   const box =
     size === "lg" ? "h-40 w-40 sm:h-48 sm:w-48" : size === "sm" ? "h-20 w-20" : "h-28 w-28 sm:h-32 sm:w-32";
+  const src = crateArtUrl(crateId, open);
+  const [imgFailed, setImgFailed] = useState(false);
+  useEffect(() => {
+    setImgFailed(false);
+  }, [crateId, open, src]);
+  const useImg = Boolean(src) && !imgFailed;
 
   return (
     <motion.div
@@ -54,55 +76,74 @@ export function EventoCrateArt({
         style={{ background: t.glow }}
         aria-hidden
       />
-      <div
-        className="absolute inset-x-[8%] bottom-0 top-[34%] rounded-lg shadow-2xl ring-1 ring-white/25"
-        style={{
-          background: `linear-gradient(155deg, ${t.lid} 0%, ${t.face} 42%, #05070f 130%)`,
-          boxShadow: `0 12px 36px -8px ${t.glow}, inset 0 1px 0 rgba(255,255,255,0.25)`,
-        }}
-      >
-        <div className="absolute inset-x-[12%] top-[14%] h-px bg-white/30" />
-        <div className="absolute inset-x-[12%] bottom-[16%] h-px bg-black/35" />
-        <div
-          className="absolute left-1/2 top-1/2 flex size-[28%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full ring-2"
-          style={{ borderColor: t.accent, background: "rgba(5,7,15,0.55)", boxShadow: `0 0 12px ${t.glow}` }}
-        >
-          <div className="h-[38%] w-[18%] rounded-sm" style={{ background: t.accent }} />
-        </div>
-      </div>
-      <motion.div
-        className="absolute inset-x-[4%] top-[4%] h-[38%] origin-bottom rounded-t-lg ring-1 ring-white/30"
-        style={{
-          background: `linear-gradient(180deg, ${t.accent} 0%, ${t.lid} 45%, ${t.face} 100%)`,
-          transformStyle: "preserve-3d",
-          boxShadow: `0 0 24px -4px ${t.glow}`,
-        }}
-        initial={false}
-        animate={{ rotateX: open ? -125 : 0 }}
-        transition={{ type: "spring", stiffness: 110, damping: 13 }}
-      >
-        <div className="absolute inset-x-[18%] bottom-[18%] h-1.5 rounded-full bg-black/30" />
-        <div
-          className="absolute left-1/2 top-[42%] size-2 -translate-x-1/2 rounded-full"
-          style={{ background: t.accent, boxShadow: `0 0 8px ${t.glow}` }}
-        />
-      </motion.div>
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            className="pointer-events-none absolute left-1/2 top-[18%] h-[70%] w-[70%] -translate-x-1/2 rounded-full"
-            style={{
-              background: `radial-gradient(circle, ${t.accent} 0%, transparent 68%)`,
-              mixBlendMode: "screen",
-            }}
-            initial={{ opacity: 0, scale: 0.4 }}
-            animate={{ opacity: [0.35, 0.9, 0.5], scale: [0.7, 1.25, 1] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.9 }}
-            aria-hidden
+      {useImg ? (
+        <AnimatePresence mode="wait">
+          <motion.img
+            key={`${crateId}-${open ? "o" : "c"}`}
+            src={src}
+            alt=""
+            className="relative z-[1] h-full w-full object-contain drop-shadow-[0_12px_28px_rgba(0,0,0,0.65)]"
+            initial={{ opacity: 0, scale: 0.92, rotate: open ? -4 : 0 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            exit={{ opacity: 0, scale: 1.04 }}
+            transition={{ type: "spring", stiffness: 220, damping: 18 }}
+            onError={() => setImgFailed(true)}
+            draggable={false}
           />
-        ) : null}
-      </AnimatePresence>
+        </AnimatePresence>
+      ) : (
+        <>
+          <div
+            className="absolute inset-x-[8%] bottom-0 top-[34%] rounded-lg shadow-2xl ring-1 ring-white/25"
+            style={{
+              background: `linear-gradient(155deg, ${t.lid} 0%, ${t.face} 42%, #05070f 130%)`,
+              boxShadow: `0 12px 36px -8px ${t.glow}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+            }}
+          >
+            <div className="absolute inset-x-[12%] top-[14%] h-px bg-white/30" />
+            <div className="absolute inset-x-[12%] bottom-[16%] h-px bg-black/35" />
+            <div
+              className="absolute left-1/2 top-1/2 flex size-[28%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full ring-2"
+              style={{ borderColor: t.accent, background: "rgba(5,7,15,0.55)", boxShadow: `0 0 12px ${t.glow}` }}
+            >
+              <div className="h-[38%] w-[18%] rounded-sm" style={{ background: t.accent }} />
+            </div>
+          </div>
+          <motion.div
+            className="absolute inset-x-[4%] top-[4%] h-[38%] origin-bottom rounded-t-lg ring-1 ring-white/30"
+            style={{
+              background: `linear-gradient(180deg, ${t.accent} 0%, ${t.lid} 45%, ${t.face} 100%)`,
+              transformStyle: "preserve-3d",
+              boxShadow: `0 0 24px -4px ${t.glow}`,
+            }}
+            initial={false}
+            animate={{ rotateX: open ? -125 : 0 }}
+            transition={{ type: "spring", stiffness: 110, damping: 13 }}
+          >
+            <div className="absolute inset-x-[18%] bottom-[18%] h-1.5 rounded-full bg-black/30" />
+            <div
+              className="absolute left-1/2 top-[42%] size-2 -translate-x-1/2 rounded-full"
+              style={{ background: t.accent, boxShadow: `0 0 8px ${t.glow}` }}
+            />
+          </motion.div>
+          <AnimatePresence>
+            {open ? (
+              <motion.div
+                className="pointer-events-none absolute left-1/2 top-[18%] h-[70%] w-[70%] -translate-x-1/2 rounded-full"
+                style={{
+                  background: `radial-gradient(circle, ${t.accent} 0%, transparent 68%)`,
+                  mixBlendMode: "screen",
+                }}
+                initial={{ opacity: 0, scale: 0.4 }}
+                animate={{ opacity: [0.35, 0.9, 0.5], scale: [0.7, 1.25, 1] }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.9 }}
+                aria-hidden
+              />
+            ) : null}
+          </AnimatePresence>
+        </>
+      )}
       {qty != null && qty > 0 ? (
         <span
           className="absolute -right-1 -top-1 z-10 flex min-w-[1.75rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-bold tabular-nums text-[#05070f] shadow-md ring-2 ring-[#05070f]/40"

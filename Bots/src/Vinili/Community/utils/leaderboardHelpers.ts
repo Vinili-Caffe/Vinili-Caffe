@@ -7,6 +7,7 @@ const { isChannelInTicketCategory } = require("../../../MultiGuild/tickets/disco
 const { memberHasStaffRole } = require("./staffListUtils") as typeof import("./staffListUtils");
 const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
+const { loadHourlyRows } = require("../services/activityRows") as typeof import("../services/activityRows");
 const TOP_LIMIT = 10;
 const TIME_ZONE = "Europe/Rome";
 const LEADERBOARD_CACHE_TTL_MS = 30 * 1000;
@@ -204,31 +205,15 @@ async function computeLeaderboardRows(guild?, mode = "alltime", maxCandidates = 
   if (mode === "weekly") {
     const startMs = weeklyStartMs;
     const hourKeys = buildHourKeysBetweenRome(startMs, Date.now());
-    const docs = [];
-    const profileDocs = await ActivityUserProfile.find({ guildId: guild.id }).select("userId profile.totals.hourly").lean().catch(() => []);
-    if (profileDocs.length) {
-      const keySet = new Set(hourKeys.map(String));
-      for (const doc of profileDocs) {
-        const hourly = toObjectMap(doc?.profile?.totals?.hourly || {});
-        const userId = String(doc?.userId || "");
-        if (!userId) continue;
-        for (const [hourKey, row] of Object.entries(hourly)) {
-          if (!keySet.has(String(hourKey))) continue;
-          docs.push({
-            userId,
-            textCount: Number(row?.textCount || 0),
-            voiceSeconds: Number(row?.voiceSeconds || 0),
-          });
-        }
-      }
-    }
+    /* compact: ActivityGuildHourly; dual/legacy: anche profile.totals.hourly via loadHourlyRows */
+    const hourlyRows = await loadHourlyRows(guild.id, hourKeys).catch(() => []);
 
     const perUser = new Map();
-    for (const doc of docs) {
-      const userId = String(doc?.userId || "");
+    for (const row of hourlyRows) {
+      const userId = String(row?.userId || "");
       if (!userId) continue;
-      const textCount = Math.max(0, Number(doc?.textCount || 0));
-      const voiceSeconds = Math.max(0, Number(doc?.voiceSeconds || 0));
+      const textCount = Math.max(0, Number(row?.textCount || 0));
+      const voiceSeconds = Math.max(0, Number(row?.voiceSeconds || 0));
       if (textCount <= 0 && voiceSeconds <= 0) continue;
       const current = perUser.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
       current.textCount += textCount;
@@ -371,20 +356,35 @@ async function computeLeaderboardRows(guild?, mode = "alltime", maxCandidates = 
   return rows;
 }
 
-function computeWeeklyExpFromProfileDoc(doc?, now = new Date()) {
+async function computeWeeklyExpFromProfileDoc(doc?, now = new Date(), guildId = null) {
   const userId = String(doc?.userId || "");
   if (!userId) return 0;
+  const gid = String(guildId || doc?.guildId || "").trim();
   const weeklyStartMs = findLastSunday21RomeMs(now);
-  const hourKeys = new Set(buildHourKeysBetweenRome(weeklyStartMs, now.getTime()));
-  if (!hourKeys.size) return 0;
-  const hourly = toObjectMap(doc?.profile?.totals?.hourly || {});
+  const hourKeyList = buildHourKeysBetweenRome(weeklyStartMs, now.getTime());
+  if (!hourKeyList.length) return 0;
+
   let textCount = 0;
   let voiceSeconds = 0;
-  for (const [hourKey, row] of Object.entries(hourly)) {
-    if (!hourKeys.has(String(hourKey))) continue;
-    textCount += Math.max(0, Number(row?.textCount || 0));
-    voiceSeconds += Math.max(0, Number(row?.voiceSeconds || 0));
+
+  if (gid) {
+    const rows = await loadHourlyRows(gid, hourKeyList, userId).catch(() => []);
+    for (const row of rows) {
+      textCount += Math.max(0, Number(row?.textCount || 0));
+      voiceSeconds += Math.max(0, Number(row?.voiceSeconds || 0));
+    }
   }
+
+  if (textCount <= 0 && voiceSeconds <= 0) {
+    const hourKeys = new Set(hourKeyList.map(String));
+    const hourly = toObjectMap(doc?.profile?.totals?.hourly || {});
+    for (const [hourKey, row] of Object.entries(hourly)) {
+      if (!hourKeys.has(String(hourKey))) continue;
+      textCount += Math.max(0, Number(row?.textCount || 0));
+      voiceSeconds += Math.max(0, Number(row?.voiceSeconds || 0));
+    }
+  }
+
   if (textCount <= 0 && voiceSeconds <= 0) return 0;
   const baseExpFromText = textCount * MESSAGE_EXP;
   const baseExpFromVoice = Math.floor((voiceSeconds * VOICE_EXP_PER_MINUTE) / 60);

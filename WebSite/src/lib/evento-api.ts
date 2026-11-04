@@ -9,7 +9,12 @@ export type EventoCrateId =
   | "militare"
   | "militare_plus"
   | "militare_op"
-  | "casuale";
+  | "casuale"
+  | "lunare"
+  | "solare"
+  | "planetario"
+  | "nebulare"
+  | "galattico";
 
 export type EventoWallet = {
   eventKey: string;

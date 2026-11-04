@@ -10,7 +10,12 @@ export type AdventCrateId =
   | "militare"
   | "militare_plus"
   | "militare_op"
-  | "casuale";
+  | "casuale"
+  | "lunare"
+  | "solare"
+  | "planetario"
+  | "nebulare"
+  | "galattico";
 
 export type AdventRewardPart =
   | { type: "crate"; crateId: AdventCrateId; qty: number }
@@ -32,6 +37,11 @@ export const ADVENT_CRATE_LABELS: Record<AdventCrateId, string> = {
   militare_plus: "Cassa Militare+",
   militare_op: "Cassa Militare OP",
   casuale: "Cassa Casuale",
+  lunare: "Cassa Lunare",
+  solare: "Cassa Solare",
+  planetario: "Cassa Planetario",
+  nebulare: "Cassa Nebulare",
+  galattico: "Cassa Galattico",
 };
 
 function crate(crateId: AdventCrateId, qty = 1): AdventRewardPart {
