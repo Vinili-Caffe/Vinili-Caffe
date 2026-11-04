@@ -99,7 +99,7 @@ export function EventoCratesPanel() {
                   type="button"
                   disabled={Boolean(busy) || Boolean(loot)}
                   onClick={() => void openOne(r.id)}
-                  className="group flex w-full flex-col items-center rounded-2xl bg-black/40 px-2 pb-3 pt-4 ring-1 ring-sand/15 transition hover:bg-black/55 hover:ring-[#c9a227]/35 disabled:opacity-60"
+                  className="group flex w-full flex-col items-center overflow-visible rounded-2xl bg-black/40 px-2 pb-3 pt-4 ring-1 ring-sand/15 transition hover:bg-black/55 hover:ring-[#c9a227]/35 disabled:opacity-60"
                 >
                   <EventoCrateArt
                     crateId={r.id}

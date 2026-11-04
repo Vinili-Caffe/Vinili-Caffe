@@ -8,7 +8,7 @@ import { cdnUrl } from "@/lib/site";
 
 export type CrateTint = { face: string; lid: string; glow: string; accent: string };
 
-const CRATE_IMG_V = "20261104cr1";
+const CRATE_IMG_V = "20261104cr8";
 
 const CRATE_TINT: Record<string, CrateTint> = {
   omega: { face: "#c9a227", lid: "#f0d78c", glow: "rgba(201,162,39,0.75)", accent: "#ffe9a0" },
@@ -35,7 +35,7 @@ export function crateTint(id: string): CrateTint {
 export function crateArtUrl(crateId: string, open = false): string {
   const id = String(crateId || "").trim();
   if (!id || !CRATE_IDS_WITH_ART.has(id)) return "";
-  return cdnUrl(`/images/starwars/casse/${id}-${open ? "open" : "closed"}.jpg?v=${CRATE_IMG_V}`);
+  return cdnUrl(`/images/starwars/casse/${id}-${open ? "open" : "closed"}.png?v=${CRATE_IMG_V}`);
 }
 
 /** Cassa: asset CDN (closed/open) con fallback CSS 3D. */
@@ -66,7 +66,7 @@ export function EventoCrateArt({
 
   return (
     <motion.div
-      className={`relative mx-auto ${box} ${className}`}
+      className={`relative mx-auto overflow-visible ${box} ${className}`}
       style={{ perspective: 700 }}
       animate={shake ? { x: [0, -6, 7, -5, 4, 0], rotate: [0, -3, 3, -2, 1, 0] } : { x: 0, rotate: 0 }}
       transition={shake ? { duration: 0.55, repeat: Infinity, repeatDelay: 0.15 } : undefined}
@@ -82,10 +82,11 @@ export function EventoCrateArt({
             key={`${crateId}-${open ? "o" : "c"}`}
             src={src}
             alt=""
+            data-vc-lightbox-ignore
             className="relative z-[1] h-full w-full object-contain drop-shadow-[0_12px_28px_rgba(0,0,0,0.65)]"
-            initial={{ opacity: 0, scale: 0.92, rotate: open ? -4 : 0 }}
+            initial={{ opacity: 0, scale: 0.94, rotate: open ? -4 : 0 }}
             animate={{ opacity: 1, scale: 1, rotate: 0 }}
-            exit={{ opacity: 0, scale: 1.04 }}
+            exit={{ opacity: 0, scale: 1.02 }}
             transition={{ type: "spring", stiffness: 220, damping: 18 }}
             onError={() => setImgFailed(true)}
             draggable={false}

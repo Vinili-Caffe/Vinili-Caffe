@@ -49,10 +49,10 @@ for (const f of [
 }
 
 // Compila siteCdnMedia se manca in build
-const srcMedia = path.join(BOTS, "src/Vinili/Web/siteCdnMedia.ts");
-const builtMedia = path.join(BOTS, "build/js/Vinili/Web/siteCdnMedia.js");
+const srcMedia = path.join(BOTS, "src/Vinili/site/http/siteCdnMedia.ts");
+const builtMedia = path.join(BOTS, "build/js/Vinili/site/http/siteCdnMedia.js");
 if (!fs.existsSync(builtMedia) || fs.statSync(srcMedia).mtimeMs > fs.statSync(builtMedia).mtimeMs) {
-  const r = spawnSync(process.execPath, [path.join(DEPLOY, "compila.mjs"), "Vinili/Web/siteCdnMedia.ts"], {
+  const r = spawnSync(process.execPath, [path.join(DEPLOY, "compila.mjs"), "Vinili/site/http/siteCdnMedia.ts"], {
     cwd: BOTS,
     stdio: "inherit",
   });

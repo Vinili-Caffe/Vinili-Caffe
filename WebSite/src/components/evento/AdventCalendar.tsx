@@ -83,6 +83,7 @@ function DoorFace({
             <img
               src={crateArtUrl(crateId, false)}
               alt=""
+              data-vc-lightbox-ignore
               className={cn(
                 "h-7 w-7 object-contain sm:h-8 sm:w-8",
                 claimed ? "opacity-100" : locked ? "opacity-40" : "opacity-90",
