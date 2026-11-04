@@ -2,13 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import {
-  preloadMonetagAd,
-  readMonetagConfig,
-  showMonetagAd,
-} from "@/lib/monetag";
+import { ensureMonetagScripts, monetagConfigured, showMonetagAd } from "@/lib/monetag";
 
-/** Gate pubblicità Monetag (alternativa AdSense): guarda annuncio → onDone. */
+/** Gate pubblicità Monetag OnClick/Vignette: click → ads + countdown → onDone. */
 export function PuzzleSponsorGate({
   watchSec,
   title,
@@ -25,18 +21,13 @@ export function PuzzleSponsorGate({
   const [left, setLeft] = useState(Math.max(1, watchSec));
   const [busy, setBusy] = useState(false);
   const [watching, setWatching] = useState(false);
-  const [watched, setWatched] = useState(false);
   const [err, setErr] = useState("");
-  const cfg = useMemo(() => readMonetagConfig(), []);
-  const ymid = useMemo(
-    () => `pz-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-    [],
-  );
+  const ready = useMemo(() => monetagConfigured(), []);
 
   useEffect(() => {
-    if (!cfg) return;
-    void preloadMonetagAd(cfg, ymid).catch(() => undefined);
-  }, [cfg, ymid]);
+    if (!ready) return;
+    void ensureMonetagScripts().catch(() => undefined);
+  }, [ready]);
 
   useEffect(() => {
     if (!watching || left <= 0) return;
@@ -45,28 +36,22 @@ export function PuzzleSponsorGate({
   }, [watching, left]);
 
   async function startWatch() {
-    if (!cfg || watching || busy) return;
+    if (!ready || watching || busy) return;
     setErr("");
     setWatching(true);
     setBusy(true);
     try {
-      const mode = await showMonetagAd(cfg, ymid);
-      if (mode === "sdk") {
-        setWatched(true);
-        setLeft(0);
-      }
-      // tag website: il countdown fa da “minimo sguardo”, poi Sblocca
+      // Il click su questo bottone è il gesto che fa partire OnClick/Vignette Monetag.
+      await showMonetagAd();
     } catch {
-      setErr("Annuncio non disponibile. Riprova tra poco.");
-      setWatching(false);
+      setErr("Annuncio non disponibile. Puoi comunque attendere il countdown.");
     } finally {
       setBusy(false);
     }
   }
 
   async function finish() {
-    if (busy) return;
-    if (!watched && left > 0) return;
+    if (busy || left > 0) return;
     setBusy(true);
     try {
       await onDone();
@@ -74,8 +59,6 @@ export function PuzzleSponsorGate({
       setBusy(false);
     }
   }
-
-  const canUnlock = watched || (watching && left <= 0);
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-espresso/85 p-5">
@@ -89,19 +72,10 @@ export function PuzzleSponsorGate({
         {subtitle ? <p className="mt-1 text-sm text-crema/60">{subtitle}</p> : null}
 
         <div className="mt-5 rounded-2xl bg-black/35 p-4 ring-1 ring-white/10">
-          {cfg ? (
-            <p className="text-sm text-crema/70">
-              Guarda un annuncio per sbloccare il bonus. I ricavi arrivano da Monetag (rete ads), non da AdSense.
-            </p>
-          ) : (
-            <p className="text-sm text-crema/70">
-              Monetag non configurato. Su Vercel imposta{" "}
-              <code className="text-sand">NEXT_PUBLIC_MONETAG_ZONE_ID</code> e{" "}
-              <code className="text-sand">NEXT_PUBLIC_MONETAG_SCRIPT_SRC</code> (dalla zona nel dashboard Monetag),
-              poi ridistribuisci. Aggiungi anche l’host dello script alla CSP in{" "}
-              <code className="text-sand">vercel.json</code>.
-            </p>
-          )}
+          <p className="text-sm text-crema/70">
+            Premi “Guarda annuncio”: può aprirsi una scheda o una vignetta Monetag. Poi attendi il countdown e
+            sblocca il bonus.
+          </p>
           {err ? <p className="mt-2 text-sm text-ember">{err}</p> : null}
         </div>
 
@@ -120,7 +94,7 @@ export function PuzzleSponsorGate({
           {!watching ? (
             <button
               type="button"
-              disabled={!cfg || busy}
+              disabled={!ready || busy}
               onClick={() => void startWatch()}
               className="w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
             >
@@ -129,7 +103,7 @@ export function PuzzleSponsorGate({
           ) : (
             <button
               type="button"
-              disabled={!canUnlock || busy}
+              disabled={left > 0 || busy}
               onClick={() => void finish()}
               className="w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
             >

@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/auth";
 import { I18nFromAuth } from "@/lib/i18n";
 import { ThemeProvider, THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { SwRegister } from "@/components/SwRegister";
+import { MonetagTags } from "@/components/MonetagTags";
 import { SPONSOR_AD_BOOT } from "@/lib/sponsor-ad";
 import { SOURCE_GUARD_BOOT } from "@/lib/source-guard-boot";
 import { BOOT_GATE_BOOT } from "@/lib/boot-gate-boot";
@@ -110,6 +111,7 @@ export default function RootLayout({
           <I18nFromAuth>
             <ThemeProvider>
               <SwRegister />
+              <MonetagTags />
               {children}
               <Analytics />
               <SpeedInsights />

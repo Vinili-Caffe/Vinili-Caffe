@@ -1,113 +1,121 @@
 /**
- * Monetag (ex-PropellerAds family) — provider scelto per il gate puzzle.
- * Motivo: rewarded/onclick adatto a “guarda e sblocca”, accetta siti piccoli/IT,
- * più realistico di Taboola/Mediavine dopo un no di AdSense.
- *
- * Dashboard: https://monetag.com → crea zona Website (OnClick / Vignette / Interstitial)
- * oppure Rewarded Interstitial se ti danno l’SDK `show_ZONE`.
- *
- * Env Vercel:
- * - NEXT_PUBLIC_MONETAG_ZONE_ID
- * - NEXT_PUBLIC_MONETAG_SCRIPT_SRC  (URL completo dello script copiato dal dashboard)
+ * Monetag — OnClick + Vignette (tag copiati dal dashboard).
+ * Zone: 12194355 OnClick (al5sm.com), 12194356 Vignette (n6wxm.com).
+ * Env opzionali per override: NEXT_PUBLIC_MONETAG_ONCLICK_*, NEXT_PUBLIC_MONETAG_VIGNETTE_*.
  */
 
-export type MonetagConfig = {
+export type MonetagTag = {
+  id: string;
   zoneId: string;
   scriptSrc: string;
-  showFn: string;
 };
 
-export function readMonetagConfig(): MonetagConfig | null {
-  const zoneId = String(process.env.NEXT_PUBLIC_MONETAG_ZONE_ID || "").trim();
-  const scriptSrc = String(process.env.NEXT_PUBLIC_MONETAG_SCRIPT_SRC || "").trim();
-  if (!zoneId || !scriptSrc) return null;
-  try {
-    const u = new URL(scriptSrc, "https://example.com");
-    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
-  } catch {
-    return null;
-  }
-  const showFn =
-    String(process.env.NEXT_PUBLIC_MONETAG_SHOW_FN || "").trim() || `show_${zoneId}`;
-  return { zoneId, scriptSrc, showFn };
+const DEFAULT_TAGS: MonetagTag[] = [
+  {
+    id: "onclick",
+    zoneId: "12194355",
+    scriptSrc: "https://al5sm.com/tag.min.js",
+  },
+  {
+    id: "vignette",
+    zoneId: "12194356",
+    scriptSrc: "https://n6wxm.com/vignette.min.js",
+  },
+];
+
+function envTag(id: string, zoneEnv: string, srcEnv: string, fallback: MonetagTag): MonetagTag {
+  const zoneId = String(process.env[zoneEnv] || fallback.zoneId).trim();
+  const scriptSrc = String(process.env[srcEnv] || fallback.scriptSrc).trim();
+  return { id, zoneId, scriptSrc };
 }
 
-export function monetagConfigured() {
-  return readMonetagConfig() != null;
-}
-
-declare global {
-  interface Window {
-    [key: `show_${string}`]: ((opts?: Record<string, unknown>) => Promise<unknown>) | undefined;
-  }
-}
-
-/** Carica il tag Monetag una sola volta. */
-export function ensureMonetagScript(cfg: MonetagConfig): Promise<void> {
-  if (typeof document === "undefined") return Promise.resolve();
-  const existing = document.getElementById("vc-monetag-sdk") as HTMLScriptElement | null;
-  if (existing) {
-    if ((existing as HTMLScriptElement & { dataset: DOMStringMap }).dataset.ready === "1") {
-      return Promise.resolve();
+export function readMonetagTags(): MonetagTag[] {
+  const onclick = envTag(
+    "onclick",
+    "NEXT_PUBLIC_MONETAG_ONCLICK_ZONE",
+    "NEXT_PUBLIC_MONETAG_ONCLICK_SRC",
+    DEFAULT_TAGS[0]!,
+  );
+  const vignette = envTag(
+    "vignette",
+    "NEXT_PUBLIC_MONETAG_VIGNETTE_ZONE",
+    "NEXT_PUBLIC_MONETAG_VIGNETTE_SRC",
+    DEFAULT_TAGS[1]!,
+  );
+  return [onclick, vignette].filter((t) => {
+    if (!t.zoneId || !t.scriptSrc) return false;
+    try {
+      const u = new URL(t.scriptSrc);
+      return u.protocol === "https:" || u.protocol === "http:";
+    } catch {
+      return false;
     }
-    return new Promise((resolve, reject) => {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("monetag_script_error")), { once: true });
-    });
-  }
-
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.id = "vc-monetag-sdk";
-    s.async = true;
-    s.src = cfg.scriptSrc;
-    s.dataset.zone = cfg.zoneId;
-    s.dataset.sdk = cfg.showFn;
-    s.onload = () => {
-      s.dataset.ready = "1";
-      resolve();
-    };
-    s.onerror = () => reject(new Error("monetag_script_error"));
-    document.head.appendChild(s);
   });
 }
 
-function getShowFn(cfg: MonetagConfig) {
-  const fn = (window as unknown as Record<string, unknown>)[cfg.showFn];
-  return typeof fn === "function" ? (fn as (opts?: Record<string, unknown>) => Promise<unknown>) : null;
+/** Config “principale” per il gate puzzle (OnClick). */
+export function readMonetagConfig(): MonetagTag | null {
+  return readMonetagTags().find((t) => t.id === "onclick") || readMonetagTags()[0] || null;
 }
 
-/** Preload se l’SDK rewarded è disponibile (no-op altrimenti). */
-export async function preloadMonetagAd(cfg: MonetagConfig, ymid?: string) {
-  await ensureMonetagScript(cfg);
-  const show = getShowFn(cfg);
-  if (!show) return false;
-  try {
-    await show({ type: "preload", timeout: 8, ymid, requestVar: "puzzle" });
-    return true;
-  } catch {
-    return false;
-  }
+export function monetagConfigured() {
+  return readMonetagTags().length > 0;
+}
+
+function scriptElId(tag: MonetagTag) {
+  return `vc-monetag-${tag.id}-${tag.zoneId}`;
+}
+
+/** Inietta OnClick + Vignette una sola volta (come i tag del dashboard). */
+export function ensureMonetagScripts(tags = readMonetagTags()): Promise<void> {
+  if (typeof document === "undefined") return Promise.resolve();
+  return Promise.all(
+    tags.map(
+      (tag) =>
+        new Promise<void>((resolve) => {
+          const id = scriptElId(tag);
+          const existing = document.getElementById(id) as HTMLScriptElement | null;
+          if (existing) {
+            if (existing.dataset.ready === "1") {
+              resolve();
+              return;
+            }
+            existing.addEventListener("load", () => resolve(), { once: true });
+            existing.addEventListener("error", () => resolve(), { once: true });
+            return;
+          }
+          const s = document.createElement("script");
+          s.id = id;
+          s.async = true;
+          s.src = tag.scriptSrc;
+          s.dataset.zone = tag.zoneId;
+          s.onload = () => {
+            s.dataset.ready = "1";
+            resolve();
+          };
+          s.onerror = () => resolve();
+          const parent = document.body || document.documentElement;
+          parent.appendChild(s);
+        }),
+    ),
+  ).then(() => undefined);
+}
+
+/** @deprecated alias — il gate usa ensureMonetagScripts */
+export async function ensureMonetagScript(_cfg?: MonetagTag) {
+  await ensureMonetagScripts();
+}
+
+export async function preloadMonetagAd(_cfg?: MonetagTag, _ymid?: string) {
+  await ensureMonetagScripts();
+  return true;
 }
 
 /**
- * Mostra l’annuncio.
- * - Se c’è `show_ZONE` (Rewarded SDK) → Promise al close/verify.
- * - Altrimenti (tag Website OnClick/Vignette) → true dopo load; il click del bottone
- *   attiva il formato OnClick del network.
+ * OnClick/Vignette: dopo il load, il click utente sul bottone “Guarda” attiva gli ads.
+ * Non c’è Promise rewarded: il gate usa il countdown.
  */
-export async function showMonetagAd(cfg: MonetagConfig, ymid?: string): Promise<"sdk" | "tag"> {
-  await ensureMonetagScript(cfg);
-  const show = getShowFn(cfg);
-  if (show) {
-    const result = (await show({ ymid, requestVar: "puzzle" })) as { reward_event_type?: string } | undefined;
-    // Con postback: premio solo se valued; senza postback resolve al close.
-    if (result && typeof result === "object" && "reward_event_type" in result) {
-      if (result.reward_event_type !== "valued") {
-        throw new Error("monetag_not_valued");
-      }
-    }
-    return "sdk";
-  }
+export async function showMonetagAd(_cfg?: MonetagTag, _ymid?: string): Promise<"tag"> {
+  await ensureMonetagScripts();
   return "tag";
 }
