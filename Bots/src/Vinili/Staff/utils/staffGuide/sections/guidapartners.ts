@@ -1,5 +1,5 @@
-const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
-const { siteWorkflowUrl } = require("../../../site/http/discordWorkflowUiGate") as typeof import("../../../site/http/discordWorkflowUiGate");
+const IDs = require("../../../../Config/ids") as typeof import("../../../../Config/ids");
+const { siteWorkflowUrl } = require("../../../../site/http/discordWorkflowUiGate") as typeof import("../../../../site/http/discordWorkflowUiGate");
 
 const { E } = require("../../../../../shared/emojis/emojiCatalog") as typeof import("../../../../../shared/emojis/emojiCatalog");
 const build_guidapartners = () => {

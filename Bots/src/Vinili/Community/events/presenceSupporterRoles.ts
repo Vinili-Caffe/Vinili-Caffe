@@ -2,6 +2,8 @@ const { PermissionsBitField } = require("discord.js") as typeof import("discord.
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { ROLE_ID, PERK_ROLE_ID, isBotMember } = require("./presenceSupporterInviteState") as typeof import("./presenceSupporterInviteState");
 const { refreshMember } = require("./presenceSupporterStateCache") as typeof import("./presenceSupporterStateCache");
+/* stesso valore di presenceSupporterBootstrap: online da poco → il link nello status può non essere ancora visibile */
+const LINK_WARMUP_MS = 2 * 60 * 1000;
 
 function canManageRoles(member?) {
   const me = member.guild.members.me;

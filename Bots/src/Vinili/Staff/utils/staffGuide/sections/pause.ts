@@ -1,4 +1,4 @@
-const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
+const IDs = require("../../../../Config/ids") as typeof import("../../../../Config/ids");
 
 const { E } = require("../../../../../shared/emojis/emojiCatalog") as typeof import("../../../../../shared/emojis/emojiCatalog");
 const build_pause = () =>

@@ -1,5 +1,5 @@
-const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
-const { MOD_RULE_DETAIL } = require("../../../Moderation/utils/modRegolamentoConstants") as typeof import("../../../Moderation/utils/modRegolamentoConstants");
+const IDs = require("../../../../Config/ids") as typeof import("../../../../Config/ids");
+const { MOD_RULE_DETAIL } = require("../../../../Moderation/utils/modRegolamentoConstants") as typeof import("../../../../Moderation/utils/modRegolamentoConstants");
 
 const { E } = require("../../../../../shared/emojis/emojiCatalog") as typeof import("../../../../../shared/emojis/emojiCatalog");
 function staffSanctionRuleIntro(ruleKey?) {
