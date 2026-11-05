@@ -1,6 +1,5 @@
 /* Vinili & Caffè — service worker: notifiche push, clic sulle notifiche, badge dell'app e pagina offline.
-   Le pagine vere non si mettono mai in cache, così non si vedono versioni vecchie. */
-
+   Le pagine vere non si mettono mai in cache, così non si vedono versioni vecchie.
 
    Regola delle push (vale per tutti i browser): OGNI push mostra una notifica. Una push che non mostra
    niente fa revocare l'iscrizione su iPhone e rallentare le successive su Chrome. Il bot non manda più
@@ -183,7 +182,7 @@ self.addEventListener("push", (event) => {
         const shown = await self.registration.getNotifications({ tag: p.tag }).catch(() => []);
         if (shown && shown.length) {
           await setOsBadge(p.badge);
-        return;
+          return;
         }
       }
       if (!p.title && !p.body) p.body = "Hai una nuova notifica.";
