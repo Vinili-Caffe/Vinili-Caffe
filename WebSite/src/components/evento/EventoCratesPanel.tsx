@@ -18,6 +18,7 @@ export function EventoCratesPanel() {
   const { token, ready, login } = useAuth();
   const [wallet, setWallet] = useState<EventoWallet | null>(null);
   const [labels, setLabels] = useState<Record<string, string>>({});
+  const [itemLabels, setItemLabels] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [loot, setLoot] = useState<CrateLootPayload | null>(null);
 
@@ -27,6 +28,7 @@ export function EventoCratesPanel() {
     if (st?.ok) {
       setWallet(st.wallet || null);
       setLabels(st.crateLabels || {});
+      setItemLabels(st.utilityLabels || {});
     }
   }, [ready, token]);
 
@@ -59,6 +61,8 @@ export function EventoCratesPanel() {
       label: name,
       credits: out.loot?.credits || 0,
       exp: out.loot?.exp || 0,
+      items: out.loot?.items || null,
+      itemLabels,
       note: out.loot?.note,
     });
     if (out.wallet) setWallet(out.wallet);

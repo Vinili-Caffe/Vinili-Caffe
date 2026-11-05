@@ -162,6 +162,8 @@ export type CrateLootPayload = {
   label: string;
   credits: number;
   exp: number;
+  items?: Record<string, number> | null;
+  itemLabels?: Record<string, string>;
   note?: string | null;
 };
 
@@ -253,6 +255,19 @@ export function EventoCrateOpenOverlay({
         value: `+${loot.exp.toLocaleString("it-IT")} EXP`,
         tone: "blue",
       });
+    }
+    if (loot.items && typeof loot.items === "object") {
+      for (const [itemId, qty] of Object.entries(loot.items)) {
+        const n = Math.max(0, Math.floor(Number(qty) || 0));
+        if (!n) continue;
+        const name = loot.itemLabels?.[itemId] || itemId;
+        out.push({
+          id: `item-${itemId}`,
+          title: "Oggetto",
+          value: n > 1 ? `${name} ×${n}` : name,
+          tone: "sand",
+        });
+      }
     }
     if (loot.note) {
       out.push({ id: "note", title: "Bonus", value: loot.note, tone: "sand" });

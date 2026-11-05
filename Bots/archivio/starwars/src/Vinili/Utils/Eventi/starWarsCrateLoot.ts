@@ -1,8 +1,11 @@
 /**
  * Tabelle loot casse (ranges da PDF). Roll crediti e/o exp.
  * Militari: truppe (qty) — gestite a parte quando economia è live.
+ * Utility (Bacta / Festival / Hutt / Sconto): drop bonus sulle casse moneta.
  */
 "use strict";
+
+const { rollUtilityItemDrop } = require("./starWarsUtilityItemsCatalog") as typeof import("./starWarsUtilityItemsCatalog");
 
 const TABLES = Object.freeze({
   alpha: { credits: [10000, 110000], exp: [5000, 55000] },
@@ -51,12 +54,12 @@ function openCrateLoot(crateId?) {
   if (id === "casuale") id = "alpha";
 
   if (id === "militare") {
-    return { ok: true, resolvedCrate: id, credits: 0, exp: 0, troops: { tier1: 2 }, note: "2 truppe TIER 1" };
+    return { ok: true, resolvedCrate: id, credits: 0, exp: 0, troops: { tier1: 2 }, items: null, note: "2 truppe TIER 1" };
   }
   if (id === "militare_plus") {
     const mode = Math.random() < 0.5 ? "t1_t2" : "t3";
-    if (mode === "t3") return { ok: true, resolvedCrate: id, troops: { tier3: 1 }, note: "1 truppa TIER 3" };
-    return { ok: true, resolvedCrate: id, troops: { tier1: 1, tier2: 1 }, note: "1 TIER1 + 1 TIER2" };
+    if (mode === "t3") return { ok: true, resolvedCrate: id, troops: { tier3: 1 }, items: null, note: "1 truppa TIER 3" };
+    return { ok: true, resolvedCrate: id, troops: { tier1: 1, tier2: 1 }, items: null, note: "1 TIER1 + 1 TIER2" };
   }
   if (id === "militare_op") {
     const modes = [
@@ -66,7 +69,7 @@ function openCrateLoot(crateId?) {
       { troops: { tier4: 1 }, note: "1 TIER4" },
     ];
     const pick = modes[Math.floor(Math.random() * modes.length)];
-    return { ok: true, resolvedCrate: id, credits: 0, exp: 0, ...pick };
+    return { ok: true, resolvedCrate: id, credits: 0, exp: 0, items: null, ...pick };
   }
 
   const table = TABLES[id];
@@ -74,7 +77,9 @@ function openCrateLoot(crateId?) {
     return { ok: false, error: "unknown_crate" };
   }
   const roll = rollCreditsExp(table);
-  return { ok: true, resolvedCrate: id, ...roll, troops: null };
+  const itemId = rollUtilityItemDrop(id);
+  const items = itemId ? { [itemId]: 1 } : null;
+  return { ok: true, resolvedCrate: id, ...roll, troops: null, items };
 }
 
 export = {

@@ -44,7 +44,7 @@ export const PUZZLE_DIFFICULTIES: readonly PuzzleDifficulty[] = Object.freeze([
     cols: 4,
     rows: 3,
     pieces: 12,
-    timeLimitSec: 80,
+    timeLimitSec: 60,
     cooldownMs: 30 * 60 * 1000,
     exp: 50,
     crateOdds: [
@@ -60,7 +60,7 @@ export const PUZZLE_DIFFICULTIES: readonly PuzzleDifficulty[] = Object.freeze([
     cols: 4,
     rows: 4,
     pieces: 16,
-    timeLimitSec: 130,
+    timeLimitSec: 90,
     cooldownMs: 30 * 60 * 1000,
     exp: 100,
     crateOdds: [
@@ -76,7 +76,7 @@ export const PUZZLE_DIFFICULTIES: readonly PuzzleDifficulty[] = Object.freeze([
     cols: 5,
     rows: 4,
     pieces: 20,
-    timeLimitSec: 210,
+    timeLimitSec: 150,
     cooldownMs: 30 * 60 * 1000,
     exp: 150,
     crateOdds: [
@@ -92,7 +92,7 @@ export const PUZZLE_DIFFICULTIES: readonly PuzzleDifficulty[] = Object.freeze([
     cols: 6,
     rows: 4,
     pieces: 24,
-    timeLimitSec: 330,
+    timeLimitSec: 240,
     cooldownMs: 80 * 60 * 1000,
     exp: 200,
     crateOdds: [
@@ -108,7 +108,7 @@ export const PUZZLE_DIFFICULTIES: readonly PuzzleDifficulty[] = Object.freeze([
     cols: 6,
     rows: 6,
     pieces: 36,
-    timeLimitSec: 420,
+    timeLimitSec: 300,
     cooldownMs: 80 * 60 * 1000,
     exp: 250,
     crateOdds: [
@@ -124,7 +124,7 @@ export const PUZZLE_DIFFICULTIES: readonly PuzzleDifficulty[] = Object.freeze([
     cols: 8,
     rows: 6,
     pieces: 48,
-    timeLimitSec: 510,
+    timeLimitSec: 360,
     cooldownMs: 2 * 60 * 60 * 1000,
     exp: 300,
     crateOdds: [

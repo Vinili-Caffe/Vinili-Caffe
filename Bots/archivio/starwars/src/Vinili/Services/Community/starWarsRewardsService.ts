@@ -36,14 +36,25 @@ function peiFromVotes(votes?) {
  * @param {object} grant { credits?, exp?, pei?, votes?, creditsVolume?, crateId?, crateQty?, troops? }
  * PEI: 50k exp → 500; 10M crediti (volume guadagnati/spesi/banca) → 100; 1 voto → 0,2
  */
-async function grantStarWarsReward(client, { guildId, userId, grant, reason = "" }) {
+async function grantStarWarsReward(client, { guildId, userId, grant, reason = "", minigameCreditBuff = false }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   const cfg = resolveStarWarsEventConfig(client);
   const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
   if (!isValidGuildUserId(g, u)) return { ok: false, error: "bad_ids" };
 
-  const gnt = grant && typeof grant === "object" ? grant : {};
+  let gnt = grant && typeof grant === "object" ? { ...grant } : {};
+  let huttApplied = false;
+  if (minigameCreditBuff && safeInt(gnt.credits) > 0) {
+    try {
+      const { applyRiciclaggioHuttToCredits } = require("./starWarsUtilityItemsService") as typeof import("./starWarsUtilityItemsService");
+      const hutt = await applyRiciclaggioHuttToCredits(g, u, gnt.credits);
+      if (hutt.buffApplied) {
+        gnt.credits = hutt.credits;
+        huttApplied = true;
+      }
+    } catch (_) {}
+  }
   const nowIso = new Date().toISOString();
   const $inc: Record<string, any> = {};
   const $set = {
@@ -108,6 +119,7 @@ async function grantStarWarsReward(client, { guildId, userId, grant, reason = ""
       crateId: crateId || null,
       crateQty: crateId ? crateQty : 0,
       troops: gnt.troops || null,
+      huttApplied,
     },
   };
 }
@@ -138,6 +150,7 @@ async function grantStarWarsGlobalMinigameWinBonus(client?, { guildId, userId } 
     userId: u,
     reason: "minigame_global_win",
     grant: { credits: GLOBAL_WIN_PERSONAL_CREDITS },
+    minigameCreditBuff: true,
   });
 
   let factionId = "";
@@ -168,7 +181,7 @@ async function grantStarWarsGlobalMinigameWinBonus(client?, { guildId, userId } 
 
 /** Premi specifici del minigame + regola globale 5/10. */
 async function grantStarWarsMinigameWinReward(client?, opts: Record<string, any> = {}) {
-  const out = await grantStarWarsReward(client, opts);
+  const out = await grantStarWarsReward(client, { ...opts, minigameCreditBuff: true });
   const side = await grantStarWarsGlobalMinigameWinBonus(client, {
     guildId: opts?.guildId,
     userId: opts?.userId,
@@ -177,12 +190,18 @@ async function grantStarWarsMinigameWinReward(client?, opts: Record<string, any>
 }
 
 async function addStarWarsVoteReward(client, { guildId, userId }) {
-  /* Smistato: 1 voto = 100 exp evento + 5 crediti + 0,2 PEI voto */
+  /* Smistato: 1 voto = 100 exp evento + 5 crediti + 0,2 PEI voto (+×2 se Festival Ancestors) */
+  let grant = { credits: 5, exp: 100, votes: 1 };
+  try {
+    const { applyFestivalAncestorsToVoteGrant } = require("./starWarsUtilityItemsService") as typeof import("./starWarsUtilityItemsService");
+    const fest = await applyFestivalAncestorsToVoteGrant(guildId, userId, grant);
+    grant = fest.grant;
+  } catch (_) {}
   return grantStarWarsReward(client, {
     guildId,
     userId,
     reason: "vote",
-    grant: { credits: 5, exp: 100, votes: 1 },
+    grant,
   });
 }
 

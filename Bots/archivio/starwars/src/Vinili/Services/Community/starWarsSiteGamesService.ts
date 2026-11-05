@@ -256,6 +256,7 @@ async function pickGaraPod(client, { guildId, userId, podId }) {
     guildId: g,
     userId: u,
     reason: "gara",
+    minigameCreditBuff: true,
     grant: won
       ? { crateId: "beta", crateQty: 1, exp: 200, credits: 50000 }
       : place <= 3
@@ -328,6 +329,7 @@ async function digMiniera(client, { guildId, userId }) {
     guildId: g,
     userId: u,
     reason: "miniera",
+    minigameCreditBuff: true,
     grant: rare
       ? { crateId: "alpha", crateQty: 1, exp: 150, credits: 25000 }
       : { exp: 50, credits: 5000 },

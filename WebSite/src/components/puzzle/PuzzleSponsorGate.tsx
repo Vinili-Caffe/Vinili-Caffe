@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ensureMonetagScripts, monetagConfigured, showMonetagAd } from "@/lib/monetag";
+import { adinplayConfigured, showAdInPlayRewarded } from "@/lib/adinplay";
 
-/** Gate pubblicità Monetag OnClick/Vignette: click → ads + countdown → onDone. */
+/** Gate bonus puzzle: AdInPlay rewarded on-demand (fallback countdown se no fill / adblock). */
 export function PuzzleSponsorGate({
   watchSec,
   title,
@@ -18,46 +18,65 @@ export function PuzzleSponsorGate({
   onCancel: () => void;
   onDone: () => void | Promise<void>;
 }) {
+  const adsOn = adinplayConfigured();
   const [left, setLeft] = useState(Math.max(1, watchSec));
   const [busy, setBusy] = useState(false);
   const [watching, setWatching] = useState(false);
-  const [err, setErr] = useState("");
-  const ready = useMemo(() => monetagConfigured(), []);
+  const [mode, setMode] = useState<"idle" | "ad" | "fallback">("idle");
+  const [hint, setHint] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!ready) return;
-    void ensureMonetagScripts().catch(() => undefined);
-  }, [ready]);
-
-  useEffect(() => {
-    if (!watching || left <= 0) return;
+    if (mode !== "fallback" || !watching || left <= 0) return;
     const t = window.setTimeout(() => setLeft((n) => Math.max(0, n - 1)), 1000);
     return () => window.clearTimeout(t);
-  }, [watching, left]);
-
-  async function startWatch() {
-    if (!ready || watching || busy) return;
-    setErr("");
-    setWatching(true);
-    setBusy(true);
-    try {
-      // Il click su questo bottone è il gesto che fa partire OnClick/Vignette Monetag.
-      await showMonetagAd();
-    } catch {
-      setErr("Annuncio non disponibile. Puoi comunque attendere il countdown.");
-    } finally {
-      setBusy(false);
-    }
-  }
+  }, [mode, watching, left]);
 
   async function finish() {
-    if (busy || left > 0) return;
+    if (busy) return;
+    if (mode === "fallback" && left > 0) return;
     setBusy(true);
     try {
       await onDone();
     } finally {
       setBusy(false);
     }
+  }
+
+  async function startAd() {
+    if (busy) return;
+    setHint(null);
+    setBusy(true);
+    setMode("ad");
+    try {
+      const result = await showAdInPlayRewarded();
+      if (result === "granted") {
+        await onDone();
+        return;
+      }
+      if (result === "canceled") {
+        setMode("idle");
+        setHint("Pubblicità interrotta — riprova o annulla.");
+        return;
+      }
+      // off / error → countdown di fallback così non resti bloccato
+      setMode("fallback");
+      setWatching(true);
+      setLeft(Math.max(1, watchSec));
+      setHint(
+        result === "off"
+          ? "AdInPlay non configurato — countdown di sblocco."
+          : "Nessuna pub disponibile (adblock/rete) — countdown di sblocco.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startFallbackOnly() {
+    setMode("fallback");
+    setWatching(true);
+    setLeft(Math.max(1, watchSec));
+    setHint(null);
   }
 
   return (
@@ -67,40 +86,46 @@ export function PuzzleSponsorGate({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         className="w-full max-w-md rounded-[1.75rem] bg-gradient-to-b from-[#1a2744] to-[#05070f] p-6 ring-1 ring-[#c9a227]/40"
       >
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#e4c76b]">Pubblicità</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#e4c76b]">Bonus</p>
         <h3 className="mt-1 font-display text-2xl font-semibold text-crema">{title}</h3>
         {subtitle ? <p className="mt-1 text-sm text-crema/60">{subtitle}</p> : null}
 
         <div className="mt-5 rounded-2xl bg-black/35 p-4 ring-1 ring-white/10">
           <p className="text-sm text-crema/70">
-            Premi “Guarda annuncio”: può aprirsi una scheda o una vignetta Monetag. Poi attendi il countdown e
-            sblocca il bonus.
+            {adsOn
+              ? "Guarda una pubblicità breve (rewarded) per sbloccare il bonus. Solo qui, mai sul resto del sito."
+              : "Attendi il countdown, poi conferma per sbloccare il bonus."}
           </p>
-          {err ? <p className="mt-2 text-sm text-ember">{err}</p> : null}
         </div>
 
-        {watching ? (
+        {hint ? <p className="mt-3 text-center text-xs text-sand/80">{hint}</p> : null}
+
+        {mode === "fallback" && watching ? (
           <>
             <p className="mt-5 text-center font-display text-5xl lining-nums text-sand">{left}</p>
             <p className="mt-1 text-center text-xs text-crema/45">
-              {left > 0 ? "Attendi la fine del countdown" : "Puoi confermare il bonus"}
+              {left > 0 ? "Attendi…" : "Puoi confermare"}
             </p>
           </>
+        ) : mode === "ad" ? (
+          <p className="mt-5 text-center text-sm text-crema/55">Caricamento pubblicità…</p>
         ) : (
-          <p className="mt-5 text-center text-sm text-crema/55">Premi “Guarda annuncio” per iniziare</p>
+          <p className="mt-5 text-center text-sm text-crema/55">
+            {adsOn ? "Premi Guarda per la pubblicità" : "Premi Avvia per il countdown"}
+          </p>
         )}
 
         <div className="mt-5 flex flex-col gap-2">
-          {!watching ? (
+          {mode === "idle" ? (
             <button
               type="button"
-              disabled={!ready || busy}
-              onClick={() => void startWatch()}
+              disabled={busy}
+              onClick={() => void (adsOn ? startAd() : startFallbackOnly())}
               className="w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
             >
-              {busy ? "…" : "Guarda annuncio"}
+              {busy ? "…" : adsOn ? "Guarda" : "Avvia"}
             </button>
-          ) : (
+          ) : mode === "fallback" ? (
             <button
               type="button"
               disabled={left > 0 || busy}
@@ -109,11 +134,12 @@ export function PuzzleSponsorGate({
             >
               {busy ? "…" : "Sblocca"}
             </button>
-          )}
+          ) : null}
           <button
             type="button"
+            disabled={busy && mode === "ad"}
             onClick={onCancel}
-            className="w-full rounded-full bg-crema/8 py-2.5 text-sm font-semibold ring-1 ring-sand/20"
+            className="w-full rounded-full bg-crema/8 py-2.5 text-sm font-semibold ring-1 ring-sand/20 disabled:opacity-40"
           >
             Annulla
           </button>

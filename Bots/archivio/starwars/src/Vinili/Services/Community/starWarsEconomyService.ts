@@ -139,7 +139,13 @@ async function buyUnit(client, { guildId, userId, unitId, qty = 1 }) {
   if (!unit.labels[wallet.factionId]) {
     return { ok: false, status: 403, error: "wrong_faction", message: "Unità non della tua fazione." };
   }
-  const cost = unit.cost * amount;
+  let discountMult = 1;
+  try {
+    const { shopDiscountMultiplier } = require("./starWarsUtilityItemsService") as typeof import("./starWarsUtilityItemsService");
+    discountMult = await shopDiscountMultiplier(g, u);
+  } catch (_) {}
+  const baseCost = unit.cost * amount;
+  const cost = Math.max(1, Math.floor(baseCost * discountMult));
   if (wallet.credits < cost) {
     return { ok: false, status: 409, error: "insufficient_credits", message: "Crediti insufficienti." };
   }
@@ -173,6 +179,8 @@ async function buyUnit(client, { guildId, userId, unitId, qty = 1 }) {
     unitId: uid,
     qty: amount,
     cost,
+    baseCost,
+    discountMult,
     pei: peiGain,
     wallet: publicWallet(updated.profile?.events?.starwars, eventKey),
     bank,
@@ -281,12 +289,35 @@ async function getEconomySnapshot(client, { guildId, userId }) {
       lastAttackAt: b.lastAttackAt,
     };
   }
+  let shopDiscountMult = 1;
+  if (userId) {
+    try {
+      const { shopDiscountMultiplier } = require("./starWarsUtilityItemsService") as typeof import("./starWarsUtilityItemsService");
+      shopDiscountMult = await shopDiscountMultiplier(guildId, userId);
+    } catch (_) {}
+  }
+  const shopRaw = publicShopCatalog(epoch, wallet?.factionId || null);
+  const shop =
+    shopDiscountMult < 1 && shopRaw?.units
+      ? {
+          ...shopRaw,
+          discountMult: shopDiscountMult,
+          units: shopRaw.units.map((u?) => ({
+            ...u,
+            cost: Math.max(1, Math.floor(Number(u.cost || 0) * shopDiscountMult)),
+            baseCost: u.cost,
+            discountMult: shopDiscountMult,
+          })),
+        }
+      : shopRaw;
+
   return {
     ok: true,
     economyOn: Boolean(features.economyOn),
     economyPhase: features.economyPhase,
     epoch,
-    shop: publicShopCatalog(epoch, wallet?.factionId || null),
+    shop,
+    shopDiscountMult,
     wallet,
     banks,
     buyEnabled: Boolean(features.economyOn) || !cfg.publicEnabled, /* HS test: buy ok while locked */

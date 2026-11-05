@@ -45,6 +45,11 @@ const {
   CRATE_LABELS,
 } = require("../Services/Community/starWarsEventWalletService") as typeof import("../Services/Community/starWarsEventWalletService");
 const {
+  useStarWarsUtilityItem,
+  publicUtilityCatalog,
+  UTILITY_ITEM_LABELS,
+} = require("../Services/Community/starWarsUtilityItemsService") as typeof import("../Services/Community/starWarsUtilityItemsService");
+const {
   getPublicQuestions,
   normalizeAnswers,
   computeFactionFromAnswers,
@@ -177,6 +182,8 @@ async function handleSiteEventoStatusGet(client?, req?, res?) {
           : null,
       calendarDays: access.canParticipate ? listCalendarDays().length : undefined,
       crateLabels: access.canParticipate ? CRATE_LABELS : undefined,
+      utilityItems: access.canParticipate ? publicUtilityCatalog() : undefined,
+      utilityLabels: access.canParticipate ? UTILITY_ITEM_LABELS : undefined,
       wallet,
     });
   } catch (err) {
@@ -193,6 +200,15 @@ async function handleSiteEventoAvventoGet(client?, req?, res?) {
     if (!requireParticipate(access, res)) return;
 
     const todayAdvent = adventSlotForRomeDate(new Date());
+    /* Dal 26 dic 2026 l'avvento è chiuso per tutti (pagina + API). */
+    if (todayAdvent == null) {
+      return res.status(410).json({
+        ok: false,
+        error: "advent_closed",
+        message: "Il calendario dell'avvento è terminato.",
+        todayAdvent: null,
+      });
+    }
     let wallet = null;
     let claimed: Record<string, any> = {};
     if (auth?.userId) {
@@ -249,12 +265,21 @@ async function handleSiteEventoAvventoClaimPost(client?, req?, res?) {
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
 
+    if (adventSlotForRomeDate(new Date()) == null) {
+      return res.status(410).json({
+        ok: false,
+        error: "advent_closed",
+        message: "Il calendario dell'avvento è terminato.",
+      });
+    }
+
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const day = Math.floor(Number(body.day));
     const out = await claimAdventDay(client, {
       guildId: mainGuildId(client),
       userId: auth.userId,
       day,
+      /* Fuori stagione già bloccato sopra; in stagione HS può ancora preview del giorno. */
       staffPreview: access.highStaff,
     });
     return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
@@ -472,6 +497,27 @@ async function handleSiteEventoCrateOpenPost(client?, req?, res?) {
     return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-evento crate open:", err);
+    return res.status(500).json({ ok: false, error: "internal" });
+  }
+}
+
+async function handleSiteEventoItemUsePost(client?, req?, res?) {
+  try {
+    const auth = await resolveAuth(client, req);
+    if (!auth?.userId) {
+      return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+    }
+    const access = accessFlags(client, auth);
+    if (!requireParticipate(access, res)) return;
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const out = await useStarWarsUtilityItem(client, {
+      guildId: mainGuildId(client),
+      userId: auth.userId,
+      itemId: body.itemId || body.item || body.id,
+    });
+    return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-evento item use:", err);
     return res.status(500).json({ ok: false, error: "internal" });
   }
 }
@@ -724,6 +770,7 @@ export = {
   handleSiteEventoShopAttackPost,
   handleSiteEventoMinigamesGet,
   handleSiteEventoCrateOpenPost,
+  handleSiteEventoItemUsePost,
   handleSiteEventoAccademiaGet,
   handleSiteEventoAccademiaPost,
   handleSiteEventoGaraGet,

@@ -8,7 +8,6 @@ import { I18nFromAuth } from "@/lib/i18n";
 import { ThemeProvider, THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { SwRegister } from "@/components/SwRegister";
 import { SPONSOR_AD_BOOT } from "@/lib/sponsor-ad";
-import { MONETAG_HEAD_BOOT } from "@/lib/monetag";
 import { SOURCE_GUARD_BOOT } from "@/lib/source-guard-boot";
 import { BOOT_GATE_BOOT } from "@/lib/boot-gate-boot";
 import { PWA_RESUME_BOOT } from "@/lib/pwa-resume-boot";
@@ -88,8 +87,6 @@ export default function RootLayout({
       className={`${inter.variable} ${cormorant.variable} ${greatVibes.variable} antialiased vc-boot-hold`}
     >
       <head>
-        {/* Monetag OnClick+Vignette: in HTML statico (Installation Check non esegue React) */}
-        <script dangerouslySetInnerHTML={{ __html: MONETAG_HEAD_BOOT }} />
         {/* prima di tutto: spegne rumore estensioni / lastError in console */}
         <script dangerouslySetInnerHTML={{ __html: EXT_CONSOLE_BOOT }} />
         {API_FETCH_BOOT ? <script dangerouslySetInnerHTML={{ __html: API_FETCH_BOOT }} /> : null}

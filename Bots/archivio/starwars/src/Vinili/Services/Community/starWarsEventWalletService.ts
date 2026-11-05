@@ -58,6 +58,26 @@ function normalizeClaimed(raw?) {
   return out;
 }
 
+function normalizePublicArmy(raw?) {
+  const out: Record<string, number> = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [k, v] of Object.entries(raw)) {
+    const id = normalizeId(k);
+    const n = safeInt(v);
+    if (id && n > 0) out[id] = n;
+  }
+  return out;
+}
+
+function normalizePublicBuffs(raw?) {
+  try {
+    const { normalizeBuffs } = require("./starWarsUtilityItemsService") as typeof import("./starWarsUtilityItemsService");
+    return normalizeBuffs(raw);
+  } catch (_) {
+    return {};
+  }
+}
+
 function readSlice(doc?) {
   return doc?.profile?.events?.starwars && typeof doc.profile.events.starwars === "object"
     ? doc.profile.events.starwars
@@ -81,6 +101,9 @@ function publicWallet(raw?, eventKey?) {
     votes: safeInt(raw?.votes),
     crates: normalizeCrates(raw?.crates),
     items: raw?.items && typeof raw.items === "object" ? { ...raw.items } : {},
+    army: normalizePublicArmy(raw?.army),
+    pendingTroops: normalizePublicArmy(raw?.pendingTroops),
+    buffs: normalizePublicBuffs(raw?.buffs),
     deckPG: Array.isArray(raw?.deckPG) ? raw.deckPG.slice(0, 200) : [],
     deckReliquie: Array.isArray(raw?.deckReliquie) ? raw.deckReliquie.slice(0, 200) : [],
     advent: {
@@ -103,6 +126,9 @@ function blankWallet(eventKey?) {
     votes: 0,
     crates: emptyCrates(),
     items: {},
+    army: {},
+    pendingTroops: {},
+    buffs: {},
     deckPG: [],
     deckReliquie: [],
     advent: { claimed: {} },
@@ -142,15 +168,16 @@ async function claimAdventDay(client, { guildId, userId, day, staffPreview = fal
   }
 
   const todaySlot = adventSlotForRomeDate(new Date());
+  /* Stagione chiusa (fuori 1–25 dic): nessuno, neanche HS. */
+  if (todaySlot == null) {
+    return {
+      ok: false,
+      status: 410,
+      error: "advent_closed",
+      message: "Il calendario dell'avvento è terminato.",
+    };
+  }
   if (!staffPreview) {
-    if (todaySlot == null) {
-      return {
-        ok: false,
-        status: 403,
-        error: "advent_closed",
-        message: "L'avvento è disponibile solo a dicembre 2026.",
-      };
-    }
     if (dayNum > todaySlot) {
       return {
         ok: false,
@@ -377,6 +404,12 @@ async function openStarWarsCrate(client, { guildId, userId, crateId }) {
       $inc[`${ROOT}.pendingTroops.${tier}`] = safeInt(qty);
     }
   }
+  if (loot.items && typeof loot.items === "object") {
+    for (const [itemId, qty] of Object.entries(loot.items)) {
+      const n = safeInt(qty);
+      if (n) $inc[`${ROOT}.items.${itemId}`] = n;
+    }
+  }
 
   const updated = await ActivityUserProfile.findOneAndUpdate(
     {
@@ -408,6 +441,7 @@ async function openStarWarsCrate(client, { guildId, userId, crateId }) {
       credits: loot.credits || 0,
       exp: loot.exp || 0,
       troops: loot.troops || null,
+      items: loot.items || null,
       note: loot.note || null,
     },
     wallet: publicWallet(readSlice(updated), eventKey),

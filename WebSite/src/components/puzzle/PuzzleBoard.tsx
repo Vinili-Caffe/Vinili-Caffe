@@ -190,7 +190,7 @@ export function PuzzleBoard() {
         icon={<Sparkles />}
         title="Puzzle"
         accent="galassia"
-        text="Sei difficoltà · pubblicità (Monetag) per tagliare il cooldown, guadagnare tempo e potenziare il premio."
+        text="Sei difficoltà · bonus per tagliare il cooldown, guadagnare tempo e potenziare il premio."
       />
       <Reveal className="-mt-6 mx-auto max-w-5xl px-4 pb-24 sm:-mt-10 sm:px-6">
         {active ? (

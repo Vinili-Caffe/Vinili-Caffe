@@ -16,6 +16,20 @@ export type EventoCrateId =
   | "nebulare"
   | "galattico";
 
+export type EventoUtilityItemId =
+  | "bacta"
+  | "festival_ancestors"
+  | "riciclaggio_hutt"
+  | "sconto_mercato_nero";
+
+export type EventoBuff = {
+  active: boolean;
+  activatedAt?: string | null;
+  expiresAt: string;
+  label?: string;
+  blurb?: string;
+};
+
 export type EventoWallet = {
   eventKey: string;
   factionId: string | null;
@@ -26,6 +40,9 @@ export type EventoWallet = {
   pei: number;
   crates: Record<string, number>;
   items: Record<string, unknown>;
+  army?: Record<string, number>;
+  pendingTroops?: Record<string, number>;
+  buffs?: Record<string, EventoBuff>;
   deckPG: unknown[];
   deckReliquie: unknown[];
   advent: { claimed: Record<string, string> };
@@ -53,6 +70,8 @@ export type EventoStatus = {
   };
   wallet?: EventoWallet | null;
   crateLabels?: Record<string, string>;
+  utilityItems?: Array<{ id: string; label: string; blurb: string; kind: string }>;
+  utilityLabels?: Record<string, string>;
   error?: string;
   message?: string;
 };
@@ -288,7 +307,36 @@ export async function openEventoCrate(token: string, crateId: string) {
       ok: boolean;
       message?: string;
       crateId?: string;
-      loot?: { credits?: number; exp?: number; troops?: Record<string, number> | null; note?: string | null };
+      loot?: {
+        credits?: number;
+        exp?: number;
+        troops?: Record<string, number> | null;
+        items?: Record<string, number> | null;
+        note?: string | null;
+      };
+      wallet?: EventoWallet;
+    } | null;
+  } catch {
+    return null;
+  }
+}
+
+export async function useEventoItem(token: string, itemId: string) {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/items/use"), {
+      method: "POST",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId }),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      message?: string;
+      itemId?: string;
+      label?: string;
+      effect?: string;
+      expiresAt?: string;
+      totalHealed?: number;
       wallet?: EventoWallet;
     } | null;
   } catch {

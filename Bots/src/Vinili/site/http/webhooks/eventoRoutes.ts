@@ -13,6 +13,7 @@ function mountEventoWebhookRoutes(app?, client?) {
     app.post("/webhooks/site-evento/shop/attack", (req?, res?) => sw.handleSiteEventoShopAttackPost(client, req, res));
     app.get("/webhooks/site-evento/minigames", (req?, res?) => sw.handleSiteEventoMinigamesGet(client, req, res));
     app.post("/webhooks/site-evento/crate/open", (req?, res?) => sw.handleSiteEventoCrateOpenPost(client, req, res));
+    app.post("/webhooks/site-evento/items/use", (req?, res?) => sw.handleSiteEventoItemUsePost(client, req, res));
     app.get("/webhooks/site-evento/accademia", (req?, res?) => sw.handleSiteEventoAccademiaGet(client, req, res));
     app.post("/webhooks/site-evento/accademia", (req?, res?) => sw.handleSiteEventoAccademiaPost(client, req, res));
     app.get("/webhooks/site-evento/gara", (req?, res?) => sw.handleSiteEventoGaraGet(client, req, res));

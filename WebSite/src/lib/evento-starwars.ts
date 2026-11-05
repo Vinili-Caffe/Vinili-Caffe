@@ -5,6 +5,7 @@
 
 import { page } from "@/lib/site";
 import type { StaffAccess } from "@/lib/staff";
+import { adventSlotForRomeDate } from "@/lib/evento-avvento";
 
 export const EVENTO_KICKER = "Una galassia lontana lontana";
 export const EVENTO_BRAND = "Star Wars";
@@ -182,9 +183,15 @@ export function isEventoPublicWindowOpen(now = new Date()): boolean {
   return stamp >= openAt;
 }
 
-/** Feature calendar (mezzogiorno) — hub/avvento sempre “on” se evento pubblico aperto. */
+/** Avvento solo 1–25 dic 2026 (Rome). Dal 26 sparisce da nav e pagine. */
+export function isEventoAvventoSeasonOpen(now = new Date()): boolean {
+  return adventSlotForRomeDate(now) != null;
+}
+
+/** Feature calendar (mezzogiorno) — hub sempre on; avvento solo in stagione. */
 export function isEventoFeatureUnlocked(pageId: EventoPageId, now = new Date()): boolean {
-  if (pageId === "hub" || pageId === "avvento") return true;
+  if (pageId === "hub") return true;
+  if (pageId === "avvento") return isEventoAvventoSeasonOpen(now);
   const windows = FEATURE_WINDOWS[pageId];
   if (!windows?.length) return true;
   const stamp = romeStamp(now);
@@ -205,6 +212,8 @@ export function canAccessEventoPage(
   access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
   now = new Date(),
 ): boolean {
+  /* Avvento chiuso: nessuno (né pubblico né HS). */
+  if (pageId === "avvento" && !isEventoAvventoSeasonOpen(now)) return false;
   if (isEventoHighStaff(access)) return true;
   if (!isEventoPublicWindowOpen(now)) return false;
   if (!isEventoPagePublic(pageId)) return false;
@@ -221,17 +230,19 @@ export function canSeeEventoInNav(
 
 export type EventoNavItemView = EventoNavItem & { locked: boolean };
 
-/** Tutte le voci evento: locked=true se feature chiusa (HS vede sbloccato). */
+/** Tutte le voci evento: locked=true se feature chiusa (HS vede sbloccato). Avvento assente fuori stagione. */
 export function eventoNavForViewer(
   access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
   now = new Date(),
 ): EventoNavItemView[] {
   const hs = isEventoHighStaff(access);
   const pub = isEventoPublicWindowOpen(now);
+  const adventOpen = isEventoAvventoSeasonOpen(now);
   return EVENTO_NAV.map((item) => {
     const unlocked = hs || (pub && isEventoPagePublic(item.id) && isEventoFeatureUnlocked(item.id, now));
     return { ...item, locked: !unlocked };
   }).filter((item) => {
+    if (item.id === "avvento" && !adventOpen) return false;
     if (hs) return true;
     if (!pub) return false;
     return Boolean(item.publicFromOpen);

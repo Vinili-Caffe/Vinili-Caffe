@@ -2409,6 +2409,10 @@ async function tickCalendarRoleSync(client?) {
     const { maybeAnnounceDuePeiStandings } = require("./starWarsPeiStandingService") as typeof import("./starWarsPeiStandingService");
     await maybeAnnounceDuePeiStandings(client);
   } catch (_) {}
+  try {
+    const { maybeAnnounceDuePhasePodiums } = require("./starWarsPhasePodiumService") as typeof import("./starWarsPhasePodiumService");
+    await maybeAnnounceDuePhasePodiums(client);
+  } catch (_) {}
 }
 
 function startStarWarsMinigamesLoop(client?) {
