@@ -30,6 +30,17 @@ export type EventoBuff = {
   blurb?: string;
 };
 
+export type EventoLevelProgress = {
+  level: number;
+  title: string;
+  exp: number;
+  expToNext: number;
+  nextLevel: number | null;
+  nextReq: number | null;
+  progressPct: number;
+  maxLevel: number;
+};
+
 export type EventoWallet = {
   eventKey: string;
   factionId: string | null;
@@ -38,15 +49,24 @@ export type EventoWallet = {
   exp: number;
   credits: number;
   pei: number;
+  creditsVolume?: number;
+  votes?: number;
+  quizCorrectTotal?: number;
   crates: Record<string, number>;
   items: Record<string, unknown>;
   army?: Record<string, number>;
   pendingTroops?: Record<string, number>;
   buffs?: Record<string, EventoBuff>;
+  level?: EventoLevelProgress;
   deckPG: unknown[];
   deckReliquie: unknown[];
   advent: { claimed: Record<string, string> };
   updatedAt: string | null;
+};
+
+export type EventoStanding = {
+  peiRank: number | null;
+  factionRank: number | null;
 };
 
 export type EventoStatus = {
@@ -72,6 +92,10 @@ export type EventoStatus = {
   crateLabels?: Record<string, string>;
   utilityItems?: Array<{ id: string; label: string; blurb: string; kind: string }>;
   utilityLabels?: Record<string, string>;
+  unitLabels?: Record<string, string>;
+  armyPower?: number;
+  factionLabel?: string | null;
+  standing?: EventoStanding | null;
   error?: string;
   message?: string;
 };

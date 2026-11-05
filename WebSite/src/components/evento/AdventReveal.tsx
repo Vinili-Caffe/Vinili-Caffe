@@ -7,6 +7,7 @@ import { ADVENT_CRATE_LABELS, type AdventCrateId } from "@/lib/evento-avvento";
 import { cn } from "@/lib/cn";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { EventoCrateArt } from "@/components/evento/EventoCrateArt";
+import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
 
 export type AdventGranted =
   | { type: "crate"; crateId: string; qty?: number; label?: string }
@@ -15,16 +16,16 @@ export type AdventGranted =
 function CreditsBurst({ amount }: { amount: number }) {
   return (
     <motion.div
-      className="relative mx-auto flex h-28 w-28 items-center justify-center sm:h-32 sm:w-32"
+      className="relative mx-auto flex h-28 w-28 flex-col items-center justify-center sm:h-32 sm:w-32"
       initial={{ scale: 0.4, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: "spring", stiffness: 200, damping: 14 }}
     >
-      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#c9a227]/50 to-[#2ea8ff]/20 blur-md" />
-      <div className="relative flex size-24 flex-col items-center justify-center rounded-full bg-gradient-to-br from-[#e4c76b] to-[#c9a227] text-ink shadow-[0_0_40px_-6px_rgba(201,162,39,0.8)] ring-2 ring-white/30">
-        <span className="font-display text-2xl font-bold leading-none">{amount.toLocaleString("it-IT")}</span>
-        <span className="text-[0.65rem] font-semibold uppercase tracking-wider">crediti</span>
-      </div>
+      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#c9a227]/45 to-[#2ea8ff]/15 blur-md" />
+      <EventoCreditsIcon size="hero" className="relative drop-shadow-[0_0_22px_rgba(201,162,39,0.75)]" />
+      <span className="relative mt-1 font-display text-xl font-bold tabular-nums text-[#e4c76b]">
+        {amount.toLocaleString("it-IT")}
+      </span>
     </motion.div>
   );
 }
@@ -192,7 +193,7 @@ export function AdventReveal({
                     >
                       <p className="font-display text-xl font-semibold text-[#e4c76b]">
                         {current.type === "premium_credits"
-                          ? `${current.amount.toLocaleString("it-IT")} crediti premium`
+                          ? `${current.amount.toLocaleString("it-IT")} crediti`
                           : current.label ||
                             ADVENT_CRATE_LABELS[current.crateId as AdventCrateId] ||
                             "Cassa"}
@@ -241,9 +242,14 @@ export function AdventReveal({
                     : "bg-white/5 text-crema/40 ring-white/10",
                 )}
               >
-                {g.type === "premium_credits"
-                  ? `${g.amount} crediti`
-                  : g.label || ADVENT_CRATE_LABELS[g.crateId as AdventCrateId] || g.crateId}
+                {g.type === "premium_credits" ? (
+                  <span className="inline-flex items-center gap-1">
+                    <EventoCreditsIcon size="xs" />
+                    {g.amount.toLocaleString("it-IT")}
+                  </span>
+                ) : (
+                  g.label || ADVENT_CRATE_LABELS[g.crateId as AdventCrateId] || g.crateId
+                )}
               </li>
             ))}
           </ul>

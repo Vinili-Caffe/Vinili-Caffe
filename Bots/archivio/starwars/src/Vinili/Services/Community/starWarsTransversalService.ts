@@ -56,6 +56,7 @@ function remapFactionId(factionId?, targetEpoch?) {
 
 /**
  * Allinea wallet.epoch + factionId all'epoca corrente del calendario.
+ * A ogni nuova fase (epoca) i crediti evento tornano a 0.
  * Idempotente; chiamato da status API / shop.
  */
 async function ensureEpochAlignment(client, { guildId, userId }) {
@@ -67,22 +68,30 @@ async function ensureEpochAlignment(client, { guildId, userId }) {
   const features = resolveFeatureStateNow(new Date());
   const targetEpoch = features.epoch || EPOCHS.CLONE_WARS;
   const wallet = await getStarWarsWallet(g, u, eventKey);
-  if (!wallet.factionId) {
-    return { ok: true, wallet, remapped: false };
+
+  const prevEpoch = normalizeId(wallet.epoch) || null;
+  /* Crediti evento a 0 a ogni cambio fase (epoca precedente → nuova). */
+  const epochChanged = Boolean(prevEpoch) && prevEpoch !== targetEpoch;
+  const nextFaction = wallet.factionId ? remapFactionId(wallet.factionId, targetEpoch) : null;
+  const factionChanged = Boolean(wallet.factionId) && nextFaction !== wallet.factionId;
+  const needEpochWrite = prevEpoch !== targetEpoch;
+
+  if (!needEpochWrite && !factionChanged) {
+    return { ok: true, wallet, remapped: false, creditsReset: false };
   }
-  const nextFaction = remapFactionId(wallet.factionId, targetEpoch);
-  if (wallet.epoch === targetEpoch && wallet.factionId === nextFaction) {
-    return { ok: true, wallet, remapped: false };
-  }
+
+  const $set: Record<string, any> = {
+    [`${ROOT}.epoch`]: targetEpoch,
+    [`${ROOT}.updatedAt`]: new Date().toISOString(),
+    [`${ROOT}.eventKey`]: eventKey,
+  };
+  if (nextFaction) $set[`${ROOT}.factionId`] = nextFaction;
+  if (epochChanged) $set[`${ROOT}.credits`] = 0;
+
   const updated = await ActivityUserProfile.findOneAndUpdate(
     { guildId: g, userId: u },
     {
-      $set: {
-        [`${ROOT}.epoch`]: targetEpoch,
-        [`${ROOT}.factionId`]: nextFaction,
-        [`${ROOT}.updatedAt`]: new Date().toISOString(),
-        [`${ROOT}.eventKey`]: eventKey,
-      },
+      $set,
       $setOnInsert: { guildId: g, userId: u },
     },
     { upsert: true, new: true },
@@ -90,7 +99,8 @@ async function ensureEpochAlignment(client, { guildId, userId }) {
   return {
     ok: true,
     wallet: publicWallet(updated?.profile?.events?.starwars, eventKey),
-    remapped: true,
+    remapped: factionChanged,
+    creditsReset: epochChanged,
     from: wallet.factionId,
     to: nextFaction,
     epoch: targetEpoch,
@@ -295,11 +305,42 @@ async function grantPhaseEndRewards(client, { guildId, phase, winningFactionId }
   return { ok: true, status: 200, phase: phaseN, granted };
 }
 
+/** Rango PEI globale + in fazione (1 = primo). */
+async function getUserPeiRanks(client?, { userId, factionId = null, pei = 0 } = {}) {
+  const cfg = resolveStarWarsEventConfig(client);
+  const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
+  const u = normalizeId(userId);
+  const peiNum = Number(pei) || 0;
+  if (!u) return { peiRank: null, factionRank: null };
+
+  const peiHigher = await ActivityUserProfile.countDocuments({
+    [`${ROOT}.eventKey`]: eventKey,
+    [`${ROOT}.pei`]: { $gt: peiNum },
+  }).catch(() => 0);
+
+  let factionRank = null;
+  const fid = normalizeId(factionId).toLowerCase();
+  if (fid) {
+    const factionHigher = await ActivityUserProfile.countDocuments({
+      [`${ROOT}.eventKey`]: eventKey,
+      [`${ROOT}.factionId`]: fid,
+      [`${ROOT}.pei`]: { $gt: peiNum },
+    }).catch(() => 0);
+    factionRank = Math.max(1, Number(factionHigher) || 0) + 1;
+  }
+
+  return {
+    peiRank: Math.max(1, Number(peiHigher) || 0) + 1,
+    factionRank,
+  };
+}
+
 export = {
   FACTION_REMAP,
   remapFactionId,
   ensureEpochAlignment,
   getPeiLeaderboard,
+  getUserPeiRanks,
   getOrSpawnTraditore,
   accuseTraditore,
   grantPhaseEndRewards,

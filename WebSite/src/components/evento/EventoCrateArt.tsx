@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { EventoBtn } from "@/components/evento/EventoUi";
+import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
+import { EventoUtilityIcon } from "@/components/evento/EventoUtilityIcon";
+import { isUtilityItemId } from "@/lib/evento-utility-art";
 import { cdnUrl } from "@/lib/site";
 
 export type CrateTint = { face: string; lid: string; glow: string; accent: string };
@@ -167,7 +170,14 @@ export type CrateLootPayload = {
   note?: string | null;
 };
 
-type LootCard = { id: string; title: string; value: string; tone: "gold" | "blue" | "sand" };
+type LootCard = {
+  id: string;
+  title: string;
+  value: string;
+  tone: "gold" | "blue" | "sand";
+  kind?: "credits" | "exp" | "item" | "note";
+  itemId?: string;
+};
 
 function lootCardStyle(tone: LootCard["tone"], glow?: boolean) {
   const bg =
@@ -211,12 +221,34 @@ function LootRewardCard({
       style={{ background: s.background, borderColor: s.borderColor, boxShadow: s.boxShadow }}
     >
       <p className="text-[0.6rem] font-bold uppercase tracking-[0.22em] text-crema/50">{card.title}</p>
-      <p
-        className={`mt-2 font-display font-semibold leading-tight ${large ? "text-2xl" : "text-xl"}`}
-        style={{ color: s.color }}
-      >
-        {card.value}
-      </p>
+      {card.kind === "credits" ? (
+        <div className="mt-2 flex flex-col items-center gap-1.5">
+          <EventoCreditsIcon size={large ? "lg" : "md"} />
+          <p
+            className={`font-display font-semibold leading-tight tabular-nums ${large ? "text-2xl" : "text-xl"}`}
+            style={{ color: s.color }}
+          >
+            {card.value}
+          </p>
+        </div>
+      ) : card.kind === "item" && card.itemId && isUtilityItemId(card.itemId) ? (
+        <div className="mt-2 flex flex-col items-center gap-1.5">
+          <EventoUtilityIcon itemId={card.itemId} size={large ? "lg" : "md"} alt={card.value} />
+          <p
+            className={`font-display font-semibold leading-tight ${large ? "text-lg" : "text-base"}`}
+            style={{ color: s.color }}
+          >
+            {card.value}
+          </p>
+        </div>
+      ) : (
+        <p
+          className={`mt-2 font-display font-semibold leading-tight ${large ? "text-2xl" : "text-xl"}`}
+          style={{ color: s.color }}
+        >
+          {card.value}
+        </p>
+      )}
     </div>
   );
 }
@@ -246,6 +278,7 @@ export function EventoCrateOpenOverlay({
         title: "Crediti",
         value: `+${loot.credits.toLocaleString("it-IT")}`,
         tone: "gold",
+        kind: "credits",
       });
     }
     if (loot.exp > 0) {
@@ -254,6 +287,7 @@ export function EventoCrateOpenOverlay({
         title: "Esperienza",
         value: `+${loot.exp.toLocaleString("it-IT")} EXP`,
         tone: "blue",
+        kind: "exp",
       });
     }
     if (loot.items && typeof loot.items === "object") {
@@ -266,11 +300,13 @@ export function EventoCrateOpenOverlay({
           title: "Oggetto",
           value: n > 1 ? `${name} ×${n}` : name,
           tone: "sand",
+          kind: "item",
+          itemId,
         });
       }
     }
     if (loot.note) {
-      out.push({ id: "note", title: "Bonus", value: loot.note, tone: "sand" });
+      out.push({ id: "note", title: "Bonus", value: loot.note, tone: "sand", kind: "note" });
     }
     if (!out.length) {
       out.push({ id: "empty", title: "Vuoto", value: "Niente questa volta", tone: "sand" });

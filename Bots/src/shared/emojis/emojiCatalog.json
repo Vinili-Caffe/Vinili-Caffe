@@ -571,6 +571,126 @@
     "id": "1482532332509466797",
     "animated": false
   },
+  "VC_crediti": {
+    "id": "1567852561543733338",
+    "animated": true
+  },
+  "VC_riciclaggio_hutt": {
+    "id": "1567864672843993110",
+    "animated": false
+  },
+  "VC_sconto_mercato_nero": {
+    "id": "1567864679647285308",
+    "animated": false
+  },
+  "VC_alphaclosed": {
+    "id": "1567858323401740379",
+    "animated": false
+  },
+  "VC_alphaopen": {
+    "id": "1567858331106672640",
+    "animated": false
+  },
+  "VC_avventoclosed": {
+    "id": "1567858352053030912",
+    "animated": false
+  },
+  "VC_avventoopen": {
+    "id": "1567858358449344512",
+    "animated": false
+  },
+  "VC_bacta": {
+    "id": "1567864630183985192",
+    "animated": false
+  },
+  "VC_betaclosed": {
+    "id": "1567858364577484871",
+    "animated": false
+  },
+  "VC_betaopen": {
+    "id": "1567858370873008228",
+    "animated": false
+  },
+  "VC_casualeclosed": {
+    "id": "1567858377340485704",
+    "animated": false
+  },
+  "VC_casualeopen": {
+    "id": "1567858385960042537",
+    "animated": false
+  },
+  "VC_galatticoclosed": {
+    "id": "1567858391622221864",
+    "animated": false
+  },
+  "VC_galatticoopen": {
+    "id": "1567858397930459216",
+    "animated": false
+  },
+  "VC_lunareclosed": {
+    "id": "1567858403756347432",
+    "animated": false
+  },
+  "VC_lunareopen": {
+    "id": "1567858413474414632",
+    "animated": false
+  },
+  "VC_militare_opclosed": {
+    "id": "1567858419434791002",
+    "animated": false
+  },
+  "VC_militare_opopen": {
+    "id": "1567858425411543141",
+    "animated": false
+  },
+  "VC_militare_plusclosed": {
+    "id": "1567858430142582834",
+    "animated": false
+  },
+  "VC_militare_plusopen": {
+    "id": "1567858436572586034",
+    "animated": false
+  },
+  "VC_militareclosed": {
+    "id": "1567858440532004884",
+    "animated": false
+  },
+  "VC_militareopen": {
+    "id": "1567858445611438120",
+    "animated": false
+  },
+  "VC_nebulareclosed": {
+    "id": "1567858453475631145",
+    "animated": false
+  },
+  "VC_nebulareopen": {
+    "id": "1567858461990068234",
+    "animated": false
+  },
+  "VC_omegaclosed": {
+    "id": "1567858280351531059",
+    "animated": false
+  },
+  "VC_omegaopen": {
+    "id": "1567858286340874321",
+    "animated": false
+  },
+  "VC_planetarioclosed": {
+    "id": "1567858293299347556",
+    "animated": false
+  },
+  "VC_planetarioopen": {
+    "id": "1567858302614769715",
+    "animated": false
+  },
+  "VC_solareclosed": {
+    "id": "1567858310751977563",
+    "animated": false
+  },
+  "VC_solareopen": {
+    "id": "1567858317517258792",
+    "animated": false
+  },
   "VC_download": {
     "id": "1478825280436175009",
     "animated": false
@@ -582,6 +702,10 @@
   "VC_Events": {
     "id": "1482706144953897223",
     "animated": true
+  },
+  "VC_festival_ancestors": {
+    "id": "1567864666657656893",
+    "animated": false
   },
   "VC_Exclamation": {
     "id": "1482534702077444217",

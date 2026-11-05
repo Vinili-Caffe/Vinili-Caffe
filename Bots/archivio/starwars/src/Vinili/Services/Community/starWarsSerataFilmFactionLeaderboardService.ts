@@ -35,6 +35,7 @@ const MIN_EXP_MS = 30 * 60 * 1000;
 const CREDITS_BY_RANK = Object.freeze([200_000, 100_000]);
 const PERSONAL_EXP = 5_000;
 const PODIUM = ["<:VC_Podio1:1482694399283433582>", "<:VC_Podio2:1482694424411635712>"];
+const CREDITI = "<a:VC_crediti:1567852561543733338>";
 
 function normalizeId(v?) {
   return String(v || "").trim();
@@ -141,7 +142,7 @@ function formatCombinedRankingLines(ranked?, epoch?) {
     const name = `**${factionDisplayName(epoch, row.factionId)}**`;
     const members = `${row.voiceMembers} ${row.voiceMembers === 1 ? "utente" : "utenti"}`;
     const avg = `media ${formatVoiceHours(row.avgVoiceMinutes)}`;
-    const prize = credits ? ` · **+${credits.toLocaleString("it-IT")}** crediti banca` : "";
+    const prize = credits ? ` · ${CREDITI} **+${credits.toLocaleString("it-IT")}** banca` : "";
     lines.push(`${label} ${name} — ${members} · ${avg}${prize}`);
   }
   return lines;

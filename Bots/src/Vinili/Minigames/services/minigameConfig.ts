@@ -27,6 +27,7 @@ const GAME_TYPE_COOLDOWN_MS = 30 * 60 * 1000;
 function getConfig(client?) {
   const cfg = client?.config?.minigames || null;
   if (!cfg) return null;
+  /* Live solo se pubblico sul main (o guild esplicita). Staging test NON attiva tema SW sulla chat main. */
   const starWarsEventLive = isStarWarsEventLiveForMinigames(client);
   const base = {
     ...cfg,

@@ -4,6 +4,7 @@ const { ActivityUserProfile } = require("../../Community/schemas/communitySchema
 const { addExpWithLevel, shouldIgnoreExpForMember, incrementMinigameWinCounters } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 const { EXP_REWARDS, buildRewardEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
@@ -219,14 +220,30 @@ function mergeStarWarsQuizRewardIntoMessage(basePayload?, award?, winnerUserId?)
   const embeds = Array.isArray(out.embeds) ? out.embeds.slice() : [];
   if (embeds[0] && typeof embeds[0].data?.description === "string") {
     const extras = [];
-    if (sw.credits > 0) extras.push(`**+${Number(sw.credits).toLocaleString("it-IT")} crediti** evento`);
+    if (sw.credits > 0) {
+      extras.push(`${E.VC_crediti} **+${Number(sw.credits).toLocaleString("it-IT")}** crediti evento`);
+    }
     if (sw.sideCredits > 0 || sw.bankCredits > 0) {
-      extras.push(`**+${Number(sw.sideCredits || 0)} crediti** personali · **+${Number(sw.bankCredits || 0)}** banca fazione`);
+      extras.push(
+        `${E.VC_crediti} **+${Number(sw.sideCredits || 0)}** personali · **+${Number(sw.bankCredits || 0)}** banca fazione`,
+      );
     }
     if (sw.crateId && sw.crateQty > 0) {
-      extras.push(`**+${sw.crateQty} Cassa Alpha** (${sw.quizCorrectTotal}ª vittoria)`);
+      try {
+        const { formatCrateMention } = require("../../../../archivio/starwars/src/Vinili/Utils/Eventi/starWarsCrateEmojis") as typeof import("../../../../archivio/starwars/src/Vinili/Utils/Eventi/starWarsCrateEmojis");
+        extras.push(
+          `+${formatCrateMention(sw.crateId, sw.crateQty, { open: true })} (${sw.quizCorrectTotal}ª vittoria)`,
+        );
+      } catch (_) {
+        extras.push(`**+${sw.crateQty} Cassa Alpha** (${sw.quizCorrectTotal}ª vittoria)`);
+      }
     } else if (sw.untilNextCrate > 0) {
-      extras.push(`Cassa Alpha tra **${sw.untilNextCrate}** vittorie`);
+      try {
+        const { formatCrateMention } = require("../../../../archivio/starwars/src/Vinili/Utils/Eventi/starWarsCrateEmojis") as typeof import("../../../../archivio/starwars/src/Vinili/Utils/Eventi/starWarsCrateEmojis");
+        extras.push(`${formatCrateMention("alpha")} tra **${sw.untilNextCrate}** vittorie`);
+      } catch (_) {
+        extras.push(`Cassa Alpha tra **${sw.untilNextCrate}** vittorie`);
+      }
     }
     if (extras.length) {
       const desc = `${embeds[0].data.description}\n\n${extras.join("\n")}`;
@@ -234,8 +251,15 @@ function mergeStarWarsQuizRewardIntoMessage(basePayload?, award?, winnerUserId?)
     }
   } else if (sw.credits > 0 || sw.crateId) {
     const bits = [];
-    if (sw.credits > 0) bits.push(`+${Number(sw.credits).toLocaleString("it-IT")} crediti`);
-    if (sw.crateId) bits.push(`+Cassa Alpha`);
+    if (sw.credits > 0) bits.push(`${E.VC_crediti} +${Number(sw.credits).toLocaleString("it-IT")} crediti`);
+    if (sw.crateId) {
+      try {
+        const { formatCrateMention } = require("../../../../archivio/starwars/src/Vinili/Utils/Eventi/starWarsCrateEmojis") as typeof import("../../../../archivio/starwars/src/Vinili/Utils/Eventi/starWarsCrateEmojis");
+        bits.push(`+${formatCrateMention(sw.crateId, 1, { open: true })}`);
+      } catch (_) {
+        bits.push(`+Cassa Alpha`);
+      }
+    }
     const line = `🌌 <@${winnerUserId}>: ${bits.join(" · ")}`;
     out.content = out.content ? `${out.content}\n${line}` : line;
   }

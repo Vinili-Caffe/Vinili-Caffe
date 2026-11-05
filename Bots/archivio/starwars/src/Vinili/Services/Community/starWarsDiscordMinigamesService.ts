@@ -21,9 +21,11 @@ const {
   grantStarWarsMinigameWinReward,
   grantStarWarsGlobalMinigameWinBonus,
 } = require("./starWarsRewardsService") as typeof import("./starWarsRewardsService");
+const { formatCrateMention } = require("../../Utils/Eventi/starWarsCrateEmojis") as typeof import("../../Utils/Eventi/starWarsCrateEmojis");
 
 const DOC_TYPE = SITE_DOCUMENT_TYPE.STARWARS_EVENT_STATE;
 const OWNER = "__starwars_mg__";
+const CREDITI = "<a:VC_crediti:1567852561543733338>";
 const loopState = new WeakSet();
 const claimLocks = new Set();
 const huntTimeouts = new Map();
@@ -301,7 +303,7 @@ async function spawnReactGame(client?, kind?, { channelId = null, force = false 
       .setColor(0x22c55e)
       .setTitle(meta.title)
       .setDescription(
-        `**VIA!**\nPrimo a reagire con ${meta.emoji} vince **cassa ${meta.crate}** + **${meta.exp} exp**.`,
+        `**VIA!**\nPrimo a reagire con ${meta.emoji} vince ${formatCrateMention(meta.crate)} + **${meta.exp} exp**.`,
       );
     if (meta.startImage) embed.setImage(meta.startImage);
   const msg = await channel.send({ embeds: [embed] }).catch(() => null);
@@ -454,7 +456,7 @@ async function spawnHuntGame(client?, kind?, { channelId = null, force = false }
     .setColor(0x2f6fed)
     .setTitle(`${meta.emoji}  ${meta.title}`)
     .setDescription(
-      `${meta.blurb}\n\nPremio: **cassa ${meta.crate}** + **${meta.exp} exp**.\nHai **${Math.round(durationMs / 60000)} minuti**.`,
+      `${meta.blurb}\n\nPremio: ${formatCrateMention(meta.crate)} + **${meta.exp} exp**.\nHai **${Math.round(durationMs / 60000)} minuti**.`,
     );
   if (meta.hubImage) hubEmbed.setImage(meta.hubImage);
   const hubMsg = await hub.send({ embeds: [hubEmbed] }).catch(() => null);
@@ -531,7 +533,9 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
       const winEmbed = new EmbedBuilder()
         .setColor(0xeab308)
         .setTitle(`${meta.title} — Arrivo!`)
-        .setDescription(`🏁 <@${user.id}> vince!\n**+${meta.crate}** + **${meta.exp} exp** (+5 crediti · +10 banca)`);
+        .setDescription(
+          `🏁 <@${user.id}> vince!\n+${formatCrateMention(meta.crate, 1, { open: true })} + **${meta.exp} exp** (${CREDITI} +5 · +10 banca)`,
+        );
       if (meta.winImage) winEmbed.setImage(meta.winImage);
       await reaction.message
         ?.edit?.({ embeds: [winEmbed] })
@@ -539,7 +543,9 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
       const ch = reaction.message?.channel;
       if (ch?.send) {
         await ch
-          .send({ content: `🏁 <@${user.id}> vince **${meta.title}**! (+${meta.crate} + ${meta.exp} exp)` })
+          .send({
+            content: `🏁 <@${user.id}> vince **${meta.title}**! (+${formatCrateMention(meta.crate, 1, { open: true })} + ${meta.exp} exp)`,
+          })
           .catch(() => null);
       }
       return true;
@@ -593,7 +599,11 @@ async function handleStarWarsButton(interaction?) {
     reason: kind,
     grant: { crateId: meta.crate, crateQty: 1, exp: meta.exp },
   });
-  await interaction.editReply({ content: `Hai vinto! (+${meta.crate} + ${meta.exp} exp · +5 crediti · +10 banca)` }).catch(() => null);
+  await interaction
+    .editReply({
+      content: `Hai vinto! (+${formatCrateMention(meta.crate, 1, { open: true })} + ${meta.exp} exp · ${CREDITI} +5 · +10 banca)`,
+    })
+    .catch(() => null);
   await deleteHuntHiddenMessage(interaction.client, round.payload);
   const hubId = normalizeId(round.payload.hubChannelId || round.payload.channelId);
   if (hubId) {
@@ -603,7 +613,7 @@ async function handleStarWarsButton(interaction?) {
     if (hub?.send) {
       await hub
         .send({
-          content: `${meta.emoji} <@${interaction.user.id}> ha vinto **${meta.title}**! (+${meta.crate} + ${meta.exp} exp)`,
+          content: `${meta.emoji} <@${interaction.user.id}> ha vinto **${meta.title}**! (+${formatCrateMention(meta.crate, 1, { open: true })} + ${meta.exp} exp)`,
         })
         .catch(() => null);
     }
@@ -837,7 +847,11 @@ async function tryOrdine66Mention(message?, client?) {
     reason: "ordine66",
     grant: { crateId: "alpha", crateQty: 1, exp: 100, troops: { tier1: 5 } },
   });
-  await message.reply(`Eseguito. <@${message.author.id}> ottiene cassa alpha + 100 exp + 5 truppe (+5 crediti · +10 banca).`).catch(() => null);
+  await message
+    .reply(
+      `Eseguito. <@${message.author.id}> ottiene ${formatCrateMention("alpha", 1, { open: true })} + 100 exp + 5 truppe (${CREDITI} +5 · +10 banca).`,
+    )
+    .catch(() => null);
   return true;
 }
 
@@ -988,7 +1002,11 @@ async function tryCacciatoreMention(message?, client?) {
     reason: "cacciatore",
     grant: { crateId: "alpha", crateQty: 1, exp: 100, troops: { tier1: 5 } },
   });
-  await message.reply(`Taglia riscossa. <@${message.author.id}> ottiene cassa alpha + 100 exp + 5 truppe (+5 crediti · +10 banca).`).catch(() => null);
+  await message
+    .reply(
+      `Taglia riscossa. <@${message.author.id}> ottiene ${formatCrateMention("alpha", 1, { open: true })} + 100 exp + 5 truppe (${CREDITI} +5 · +10 banca).`,
+    )
+    .catch(() => null);
   return true;
 }
 
@@ -1183,7 +1201,7 @@ async function tryScovaMessage(message?, client?) {
       `<@${message.author.id}> ha individuato **${guessPlanet.name}**` +
         (sector ? ` (\`${sector}\`)` : "") +
         `.\n\nPremio fazione **${factionLabel}**: **+${SCOVA_FACTION_EXP.toLocaleString("it-IT")} exp** a ${factionRewarded} smistati` +
-        ` · **+${SCOVA_BANK_CREDITS.toLocaleString("it-IT")}** crediti in banca truppe.`,
+        ` · ${CREDITI} **+${SCOVA_BANK_CREDITS.toLocaleString("it-IT")}** in banca truppe.`,
     )
     .setImage(scovaPlanetImageUrl(guessPlanet.id));
   await message.reply({ embeds: [winEmbed] }).catch(() => null);
@@ -1413,7 +1431,9 @@ async function tryAttaccaBaseMessage(message?, client?) {
           new EmbedBuilder()
             .setColor(0xef4444)
             .setTitle("Base distrutta")
-            .setDescription(`💥 <@${uid}> azzera **${winner}**!\nPremio: **cassa omega** + **100 exp**.`)
+            .setDescription(
+              `💥 <@${uid}> azzera **${winner}**!\nPremio: ${formatCrateMention("omega", 1, { open: true })} + **100 exp**.`,
+            )
             .setImage(attaccaVsImageForDestroyed(winner, skin)),
         ],
       })
@@ -1684,7 +1704,9 @@ async function handleConvoglioButton(interaction?, parts?) {
         })
         .catch(() => null);
       await interaction
-        .reply({ content: `🏁 Convoglio a destinazione! <@${interaction.user.id}> (+omega + 100 exp)` })
+        .reply({
+          content: `🏁 Convoglio a destinazione! <@${interaction.user.id}> (+${formatCrateMention("omega", 1, { open: true })} + 100 exp)`,
+        })
         .catch(() => null);
       const announce = await interaction.fetchReply().catch(() => null);
       scheduleConvoglioMessageCleanup(interaction.message, announce);
@@ -2319,8 +2341,8 @@ async function tryDeckMessage(message?, client?) {
     await message
       .reply(
         alreadyOwned
-          ? `✨ <@${message.author.id}> indovina **${label}**! (+cassa solare + 100 exp) — già nel tuo deck.`
-          : `✨ <@${message.author.id}> reclama **${label}**! (+cassa solare + 100 exp) — aggiunta al deck profilo.`,
+          ? `✨ <@${message.author.id}> indovina **${label}**! (+${formatCrateMention("solare", 1, { open: true })} + 100 exp) — già nel tuo deck.`
+          : `✨ <@${message.author.id}> reclama **${label}**! (+${formatCrateMention("solare", 1, { open: true })} + 100 exp) — aggiunta al deck profilo.`,
       )
     .catch(() => null);
     return true;

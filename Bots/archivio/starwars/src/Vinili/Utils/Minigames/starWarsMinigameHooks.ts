@@ -7,7 +7,13 @@
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
 
-const { isStarWarsEventLive, getTestGuildIdSafe } = require("../Eventi/starWarsEventConfig") as typeof import("../Eventi/starWarsEventConfig");
+const {
+  isStarWarsEventLive,
+  isStarWarsPublicWindowOpen,
+  isStarWarsForceLiveOnTestGuild,
+  getTestGuildIdSafe,
+  resolveStarWarsEventConfig,
+} = require("../Eventi/starWarsEventConfig") as typeof import("../Eventi/starWarsEventConfig");
 const { FEATURES, resolveFeatureStateNow } = require("../Eventi/starWarsEventCalendar") as typeof import("../Eventi/starWarsEventCalendar");
 const { getStarWarsQuizBank } = require("../Eventi/starWarsQuizBank") as typeof import("../Eventi/starWarsQuizBank");
 const {
@@ -82,26 +88,65 @@ const SW_MINIGAME_INTERVAL_MS = 15 * 60 * 1000;
 const SW_MINIGAME_DURATION_MS = 3 * 60 * 1000;
 const SW_MALUS_INTERVAL_MS = 45 * 60 * 1000;
 
-function resolveMinigameGuildIdForStarWars(client?, guildId = null) {
-  const explicit = String(guildId || "").trim();
-  if (explicit) return explicit;
+function getMainGuildIdSafe() {
   try {
-    const { resolveStarWarsEventConfig } = require("../Eventi/starWarsEventConfig") as typeof import("../Eventi/starWarsEventConfig");
     const IDs = require(__eventCoreVinili("Config/ids"));
-    const testId = getTestGuildIdSafe() || String(IDs.guilds?.test || "").trim();
-    const mainId = String(IDs.guilds?.main || "").trim();
-    /* Staging: guild evento = test. Mai far credere che il main sia “live”. */
-    if (testId && Boolean(resolveStarWarsEventConfig(client)?.testGuildForceLive)) return testId;
-    return mainId || null;
+    return String(IDs.guilds?.main || "").trim();
   } catch (_) {
-    return null;
+    return "";
   }
 }
 
+/**
+ * Guild della chat minigame effettiva.
+ * IMPORTANTE: NON rimappare al test quando force-live — altrimenti il main
+ * eredita starWarsEventLive=true e spawna quiz SW su IDs.channels.chat (main).
+ */
+function resolveMinigameGuildIdForStarWars(client?, guildId = null) {
+  const explicit = String(guildId || "").trim();
+  if (explicit) return explicit;
+  return getMainGuildIdSafe() || getTestGuildIdSafe() || null;
+}
+
+/**
+ * Live per rotazione chat: main SOLO con pubblico aperto; test SOLO con force-live.
+ * Mai “live sul main” solo perché staging è acceso sul test.
+ */
 function isStarWarsEventLiveForMinigames(client?, nowMs = Date.now(), guildId = null) {
+  const now = new Date(nowMs);
   const gid = resolveMinigameGuildIdForStarWars(client, guildId);
   if (!gid) return false;
-  return isStarWarsEventLive(client, new Date(nowMs), gid);
+  const testId = getTestGuildIdSafe();
+  const mainId = getMainGuildIdSafe();
+  if (testId && gid === testId) return isStarWarsForceLiveOnTestGuild(client, gid);
+  if (mainId && gid === mainId) {
+    /* Extra hard-gate: niente tema SW sul main finché non è pubblico. */
+    if (!isStarWarsPublicWindowOpen(client, now)) return false;
+    return isStarWarsEventLive(client, now, gid);
+  }
+  return false;
+}
+
+/** Channel chat dove spawnare in staging (test) vs produzione (main). */
+function resolveStarWarsMinigameChannelId(client?) {
+  try {
+    const IDs = require(__eventCoreVinili("Config/ids"));
+    const baseChat = String(IDs.channels?.chat || "").trim();
+    const cfg = resolveStarWarsEventConfig(client);
+    const testId = getTestGuildIdSafe();
+    if (!(cfg?.testGuildForceLive && testId)) return baseChat;
+    const { remapChannelIdForGuild } = require(__eventCoreVinili(
+      "Config/testGuildMirrorRemap",
+    )) as typeof import("../../../../../src/Vinili/Config/testGuildMirrorRemap");
+    return remapChannelIdForGuild(testId, baseChat) || baseChat;
+  } catch (_) {
+    try {
+      const IDs = require(__eventCoreVinili("Config/ids"));
+      return String(IDs.channels?.chat || "").trim();
+    } catch {
+      return "";
+    }
+  }
 }
 
 function shouldUseStarWarsTheme(cfg?) {
@@ -227,6 +272,8 @@ export = {
   SW_MALUS_INTERVAL_MS,
   isStarWarsEventLiveForMinigames,
   shouldUseStarWarsTheme,
+  resolveStarWarsMinigameChannelId,
+  resolveMinigameGuildIdForStarWars,
   isStarWarsQuizMinigameType,
   isStarWarsCustomMinigameType,
   isStarWarsSpecialDiscordType,

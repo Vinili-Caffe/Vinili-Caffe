@@ -134,7 +134,9 @@ async function processDiscadiaVote(guild?, user?, client?, options: Record<strin
       if (wallet?.factionId) {
         const swVote = await addStarWarsVoteReward(client, { guildId: walletGuild, userId });
         if (swVote?.ok) {
-          voteRewardExtras.push(`${E.VC_EXP} Star Wars: **+100 exp** evento · **+5 crediti**`);
+          voteRewardExtras.push(
+            `${E.VC_EXP} Star Wars: **+100 exp** evento · ${E.VC_crediti} **+${Number(swVote?.credits || 2500).toLocaleString("it-IT")}** crediti`,
+          );
         }
       }
     }

@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
 import { EventoBtn, EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
 import { EventoBattleFx, type BattleFxData } from "@/components/evento/EventoBattleFx";
+import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
 
 type Unit = { id: string; label: string; cost: number; power: number; tier: number };
 
@@ -83,8 +84,9 @@ export function EventoShopPanel() {
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <EventoKicker>Arsenale fazioni</EventoKicker>
-            <p className="mt-1 font-display text-2xl text-crema">
-              {credits.toLocaleString("it-IT")}{" "}
+            <p className="mt-1 flex items-center gap-2 font-display text-2xl text-crema">
+              <EventoCreditsIcon size="md" className="shrink-0" />
+              <span className="tabular-nums">{credits.toLocaleString("it-IT")}</span>
               <span className="text-base text-crema/55">crediti</span>
             </p>
           </div>
@@ -106,8 +108,12 @@ export function EventoShopPanel() {
             >
               <div className="min-w-0">
                 <p className="truncate font-semibold text-crema">{u.label}</p>
-                <p className="text-xs text-crema/45">
-                  Tier {u.tier} · potenza {u.power} · {u.cost.toLocaleString("it-IT")} cr
+                <p className="flex flex-wrap items-center gap-1 text-xs text-crema/45">
+                  <span>
+                    Tier {u.tier} · potenza {u.power} ·
+                  </span>
+                  <EventoCreditsIcon size="xs" className="opacity-90" />
+                  <span className="tabular-nums">{u.cost.toLocaleString("it-IT")}</span>
                 </p>
               </div>
               <EventoBtn

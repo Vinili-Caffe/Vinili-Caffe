@@ -12,6 +12,9 @@ const EventoHubStatus = dynamic(
 const EventoCratesPanel = dynamic(
   () => import("@/components/evento/EventoCratesPanel").then((m) => m.EventoCratesPanel),
 );
+const EventoArmyPanel = dynamic(
+  () => import("@/components/evento/EventoArmyPanel").then((m) => m.EventoArmyPanel),
+);
 const EventoItemsPanel = dynamic(
   () => import("@/components/evento/EventoItemsPanel").then((m) => m.EventoItemsPanel),
 );
@@ -38,12 +41,13 @@ export default function EventoHubPage() {
     <EventoPage
       pageId="hub"
       path={meta.path}
-      title="Centro comando"
+      title="Centro di comando"
       accent={EVENTO_BRAND}
-      text="Calendario attivita, shop e missioni che si sbloccano giorno per giorno."
+      text="Il tuo profilo evento: inventari, livello, fazione e missioni del giorno."
     >
       <EventoHubStatus />
       <EventoCratesPanel />
+      <EventoArmyPanel />
       <EventoItemsPanel />
       <EventoMinigamesPanel />
       <EventoShopPanel />

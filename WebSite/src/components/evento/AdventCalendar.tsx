@@ -15,10 +15,15 @@ import { showToast } from "@/components/ui/toast";
 import { EventoKicker, EventoPanel, EventoSkeleton } from "@/components/evento/EventoUi";
 import { AdventReveal, type AdventGranted } from "@/components/evento/AdventReveal";
 import { crateArtUrl, crateTint } from "@/components/evento/EventoCrateArt";
+import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
 
 function primaryCrateId(slot: EventoAdventDayRow): string | null {
   const c = slot.rewards?.find((r) => r.type === "crate");
   return c && c.type === "crate" ? c.crateId : null;
+}
+
+function hasCreditsReward(slot: EventoAdventDayRow): boolean {
+  return Boolean(slot.rewards?.some((r) => r.type === "premium_credits"));
 }
 
 function DoorFace({
@@ -30,6 +35,7 @@ function DoorFace({
   isToday,
   busy,
   crateId,
+  showCredits,
 }: {
   day: number;
   label: string;
@@ -39,6 +45,7 @@ function DoorFace({
   isToday: boolean;
   busy: boolean;
   crateId: string | null;
+  showCredits: boolean;
 }) {
   return (
     <span className="relative flex h-full min-h-[6.25rem] w-full flex-col sm:min-h-[7.25rem]">
@@ -82,8 +89,8 @@ function DoorFace({
           ) : null}
         </span>
 
-        {/* mini cassa */}
-        <span className="mx-auto my-1 flex size-9 items-end justify-center sm:size-10">
+        {/* mini cassa / crediti */}
+        <span className="mx-auto my-1 flex size-9 items-end justify-center gap-0.5 sm:size-10">
           {crateId && crateArtUrl(crateId, false) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -99,7 +106,7 @@ function DoorFace({
               }}
               draggable={false}
             />
-          ) : (
+          ) : showCredits ? null : (
             <span
               className={cn(
                 "relative h-6 w-8 rounded-sm sm:h-7 sm:w-9",
@@ -114,6 +121,14 @@ function DoorFace({
               <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35 ring-1 ring-white/30" />
             </span>
           )}
+          {showCredits ? (
+            <EventoCreditsIcon
+              size="sm"
+              className={cn(
+                claimed ? "opacity-100" : missed || locked ? "opacity-35 grayscale" : "opacity-95",
+              )}
+            />
+          ) : null}
         </span>
 
         <span
@@ -256,6 +271,7 @@ export function AdventCalendar() {
             const busy = claiming === slot.day;
             const flipping = openingDoor === slot.day;
             const crateId = primaryCrateId(slot);
+            const showCredits = hasCreditsReward(slot);
             return (
               <li key={slot.day} className="[perspective:800px]">
                 <motion.button
@@ -291,6 +307,7 @@ export function AdventCalendar() {
                     isToday={isToday}
                     busy={busy}
                     crateId={crateId}
+                    showCredits={showCredits}
                   />
                 </motion.button>
               </li>

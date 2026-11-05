@@ -79,51 +79,55 @@ export function EventoCratesPanel() {
     );
   }
 
-  if (!rows.length) return null;
-
   return (
     <div className="mx-auto mb-10 max-w-4xl px-6">
       <EventoPanel glow="gold">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0 text-center sm:text-left">
             <EventoKicker>Inventario casse</EventoKicker>
-            <p className="mt-1 text-sm text-crema/60">Tocca una cassa, poi scopri i premi uno alla volta.</p>
+            <p className="mt-1 text-sm text-crema/60">
+              {rows.length
+                ? "Tocca una cassa, poi scopri i premi uno alla volta."
+                : "Nessuna cassa in inventario. Aprine dall’avvento o dai minigames."}
+            </p>
           </div>
           <p className="mx-auto rounded-full bg-[#c9a227]/15 px-3 py-1 text-sm font-semibold tabular-nums text-[#f0d78c] ring-1 ring-[#c9a227]/35 sm:mx-0">
             {totalQty} {totalQty === 1 ? "cassa" : "casse"}
           </p>
         </div>
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-          {rows.map((r) => {
-            const name = labels[r.id] || ADVENT_CRATE_LABELS[r.id as AdventCrateId] || r.id;
-            const loading = busy === r.id;
-            return (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  disabled={Boolean(busy) || Boolean(loot)}
-                  onClick={() => void openOne(r.id)}
-                  className="group flex w-full flex-col items-center overflow-visible rounded-2xl bg-black/40 px-2 pb-3 pt-4 ring-1 ring-sand/15 transition hover:bg-black/55 hover:ring-[#c9a227]/35 disabled:opacity-60"
-                >
-                  <EventoCrateArt
-                    crateId={r.id}
-                    size="md"
-                    qty={r.qty}
-                    shake={loading}
-                    open={false}
-                  />
-                  <p className="mt-2 line-clamp-2 px-1 text-center text-xs font-semibold text-crema group-hover:text-[#f0d78c]">
-                    {name}
-                  </p>
-                  <p className="mt-1 font-display text-lg font-bold tabular-nums text-[#e4c76b]">×{r.qty}</p>
-                  <p className="mt-0.5 text-[0.65rem] uppercase tracking-wider text-crema/40">
-                    {loading ? "Apertura…" : "Apri"}
-                  </p>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        {rows.length ? (
+          <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+            {rows.map((r) => {
+              const name = labels[r.id] || ADVENT_CRATE_LABELS[r.id as AdventCrateId] || r.id;
+              const loading = busy === r.id;
+              return (
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    disabled={Boolean(busy) || Boolean(loot)}
+                    onClick={() => void openOne(r.id)}
+                    className="group flex w-full flex-col items-center overflow-visible rounded-2xl bg-black/40 px-2 pb-3 pt-4 ring-1 ring-sand/15 transition hover:bg-black/55 hover:ring-[#c9a227]/35 disabled:opacity-60"
+                  >
+                    <EventoCrateArt
+                      crateId={r.id}
+                      size="md"
+                      qty={r.qty}
+                      shake={loading}
+                      open={false}
+                    />
+                    <p className="mt-2 line-clamp-2 px-1 text-center text-xs font-semibold text-crema group-hover:text-[#f0d78c]">
+                      {name}
+                    </p>
+                    <p className="mt-1 font-display text-lg font-bold tabular-nums text-[#e4c76b]">×{r.qty}</p>
+                    <p className="mt-0.5 text-[0.65rem] uppercase tracking-wider text-crema/40">
+                      {loading ? "Apertura…" : "Apri"}
+                    </p>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
       </EventoPanel>
 
       <AnimatePresence>

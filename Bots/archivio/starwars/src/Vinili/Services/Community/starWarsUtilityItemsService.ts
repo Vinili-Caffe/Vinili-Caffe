@@ -19,6 +19,7 @@ const {
   publicUtilityCatalog,
 } = require("../../Utils/Eventi/starWarsUtilityItemsCatalog") as typeof import("../../Utils/Eventi/starWarsUtilityItemsCatalog");
 const { ROOT, publicWallet, getStarWarsWallet } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
+const { formatUtilityMention } = require("../../Utils/Eventi/starWarsUtilityEmojis") as typeof import("../../Utils/Eventi/starWarsUtilityEmojis");
 
 function normalizeId(v?) {
   return String(v || "").trim();
@@ -167,7 +168,7 @@ async function useStarWarsUtilityItem(client?, { guildId, userId, itemId } = {})
       effect: "bacta_heal",
       healed: heal.healed,
       totalHealed: heal.totalHealed,
-      message: `Bacta: +${heal.totalHealed} truppe (5% esercito).`,
+      message: `${formatUtilityMention("bacta")}: +${heal.totalHealed} truppe (5% esercito).`,
       wallet: publicWallet(readRawSw(updated), eventKey),
     };
   }
@@ -212,7 +213,7 @@ async function useStarWarsUtilityItem(client?, { guildId, userId, itemId } = {})
     label: UTILITY_ITEM_LABELS[iid],
     effect: "buff_activated",
     expiresAt,
-    message: `${UTILITY_ITEM_LABELS[iid]} attivo per 24 ore.`,
+    message: `${formatUtilityMention(iid)} attivo per 24 ore.`,
     wallet: publicWallet(readRawSw(updated), eventKey),
   };
 }

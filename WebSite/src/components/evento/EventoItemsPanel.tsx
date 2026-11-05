@@ -10,6 +10,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
 import { EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
+import { EventoUtilityIcon } from "@/components/evento/EventoUtilityIcon";
 
 const FALLBACK_LABELS: Record<string, string> = {
   bacta: "Bacta",
@@ -106,52 +107,57 @@ export function EventoItemsPanel() {
     );
   }
 
-  if (!rows.length) return null;
-
   return (
     <div className="mx-auto mb-10 max-w-4xl px-6">
       <EventoPanel glow="gold">
         <div className="mb-5 text-center sm:text-left">
-          <EventoKicker>Oggetti utility</EventoKicker>
+          <EventoKicker>Inventario oggetti</EventoKicker>
           <p className="mt-1 text-sm text-crema/60">
-            Drop dalle casse · Bacta cura subito · gli altri attivano un buff 24h.
+            {rows.length
+              ? "Drop dalle casse · Bacta cura subito · gli altri attivano un buff 24h."
+              : "Nessun oggetto utility. Aprono dalle casse."}
           </p>
         </div>
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {rows.map((r) => {
-            const loading = busy === r.id;
-            const buffOn = Boolean(r.buff?.active);
-            return (
-              <li
-                key={r.id}
-                className="rounded-2xl bg-black/40 p-4 ring-1 ring-sand/15"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-crema">{r.label}</p>
-                    <p className="mt-1 text-xs text-crema/55">{r.blurb}</p>
-                    {buffOn ? (
-                      <p className="mt-2 text-xs font-semibold text-[#86efac]">
-                        Attivo · {formatLeft(r.buff?.expiresAt)}
-                      </p>
-                    ) : null}
-                  </div>
-                  <p className="shrink-0 font-display text-xl font-bold tabular-nums text-[#e4c76b]">
-                    ×{r.qty}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={r.qty < 1 || Boolean(busy) || (buffOn && r.id !== "bacta")}
-                  onClick={() => void useOne(r.id)}
-                  className="mt-3 w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2 text-sm font-semibold text-ink disabled:opacity-40"
+        {rows.length ? (
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {rows.map((r) => {
+              const loading = busy === r.id;
+              const buffOn = Boolean(r.buff?.active);
+              return (
+                <li
+                  key={r.id}
+                  className="rounded-2xl bg-black/40 p-4 ring-1 ring-sand/15"
                 >
-                  {loading ? "…" : buffOn && r.id !== "bacta" ? "Già attivo" : "Usa"}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <EventoUtilityIcon itemId={r.id} size="md" alt={r.label} className="shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-crema">{r.label}</p>
+                        <p className="mt-1 text-xs text-crema/55">{r.blurb}</p>
+                        {buffOn ? (
+                          <p className="mt-2 text-xs font-semibold text-[#86efac]">
+                            Attivo · {formatLeft(r.buff?.expiresAt)}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <p className="shrink-0 font-display text-xl font-bold tabular-nums text-[#e4c76b]">
+                      ×{r.qty}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={r.qty < 1 || Boolean(busy) || (buffOn && r.id !== "bacta")}
+                    onClick={() => void useOne(r.id)}
+                    className="mt-3 w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2 text-sm font-semibold text-ink disabled:opacity-40"
+                  >
+                    {loading ? "…" : buffOn && r.id !== "bacta" ? "Già attivo" : "Usa"}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
       </EventoPanel>
     </div>
   );

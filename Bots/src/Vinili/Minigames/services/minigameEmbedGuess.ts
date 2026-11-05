@@ -218,7 +218,7 @@ function buildStarWarsQuizEmbed(kind?, rewardExp?, durationMs?, rewardCredits = 
   else if (k === "vf") how = "Rispondi con **vero** o **falso**.";
   const creditsLabel = Number(rewardCredits || 0).toLocaleString("it-IT");
   const lines = [
-    `${E.VC_EXP} Rispondi alla domanda sull'immagine per ottenere **${rewardExp} exp** + **${creditsLabel} crediti**.`,
+    `${E.VC_EXP} Rispondi alla domanda sull'immagine per ottenere **${rewardExp} exp** + ${E.VC_crediti} **${creditsLabel}** crediti.`,
     `Ogni **10** risposte corrette → **Cassa Alpha**.`,
     how,
   ];

@@ -156,17 +156,20 @@ async function safeStartGameByType(client?, cfg?, gameType?) {
     if (gameType === "synonymAntonym") return startSynonymAntonymGame(client, cfg);
     if (gameType === "guessCity") return startGuessCityGame(client, cfg);
     if (gameType === "treasureHunt") return startTreasureHuntGame(client, cfg);
-    if (gameType === "starWarsQuiz") {
-      const { startStarWarsQuizGame } = require("../../../../archivio/starwars/src/Vinili/Services/Minigames/minigameStarWarsQuiz") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Minigames/minigameStarWarsQuiz");
-      return startStarWarsQuizGame(client, cfg);
-    }
-    if (gameType === "starWarsGuessPlanet") {
+    if (gameType === "starWarsQuiz" || gameType === "starWarsGuessPlanet") {
+      /* Hard gate: mai sul main finché l'evento non è pubblico. */
+      if (!cfg?.starWarsEventLive) return { started: false, skipToNext: true };
+      if (gameType === "starWarsQuiz") {
+        const { startStarWarsQuizGame } = require("../../../../archivio/starwars/src/Vinili/Services/Minigames/minigameStarWarsQuiz") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Minigames/minigameStarWarsQuiz");
+        return startStarWarsQuizGame(client, cfg);
+      }
       const { startStarWarsGuessPlanetGame } = require("../../../../archivio/starwars/src/Vinili/Services/Minigames/minigameStarWarsGuessPlanet") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Minigames/minigameStarWarsGuessPlanet");
       return startStarWarsGuessPlanetGame(client, cfg);
     }
     {
       const { isStarWarsSpecialDiscordType } = require("../../Minigames/utils/starWarsMinigameHooks") as typeof import("../../Minigames/utils/starWarsMinigameHooks");
       if (isStarWarsSpecialDiscordType(gameType)) {
+        if (!cfg?.starWarsEventLive) return { started: false, skipToNext: true };
         const { startSpecialFromRotation } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService");
         const { markSent } = require("./minigameRoundStart") as typeof import("./minigameRoundStart");
         const out = await startSpecialFromRotation(client, gameType, { channelId: cfg?.channelId || null });

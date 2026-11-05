@@ -86,7 +86,7 @@ export const EVENTO_NAV: EventoNavItem[] = [
     id: "hub",
     href: page("/evento/"),
     label: "Hub",
-    teaser: "Centro dell’evento: calendario, fazioni e accessi alle attività.",
+    teaser: "Centro di comando: inventari, livello, fazione e attività.",
     publicFromOpen: true,
   },
   {

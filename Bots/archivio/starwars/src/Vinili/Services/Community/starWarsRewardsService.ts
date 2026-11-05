@@ -107,9 +107,27 @@ async function grantStarWarsReward(client, { guildId, userId, grant, reason = ""
   ).catch(() => null);
 
   if (!updated) return { ok: false, error: "persist_failed" };
+
+  let wallet = publicWallet(updated?.profile?.events?.starwars, eventKey);
+  let levelUp = null;
+  /* Solo EXP evento (non EXP profilo) fa salire i livelli SW. */
+  if (exp > 0) {
+    try {
+      const { applyStarWarsLevelProgress } = require("./starWarsLevelService") as typeof import("./starWarsLevelService");
+      const prog = await applyStarWarsLevelProgress(client, { guildId: g, userId: u });
+      if (prog?.ok) {
+        if (prog.wallet) wallet = prog.wallet;
+        if (Array.isArray(prog.leveled) && prog.leveled.length) {
+          levelUp = { from: prog.prevLevel, to: prog.level, title: prog.title, milestones: prog.leveled };
+        }
+      }
+    } catch (_) {}
+  }
+
   return {
     ok: true,
-    wallet: publicWallet(updated?.profile?.events?.starwars, eventKey),
+    wallet,
+    levelUp,
     granted: {
       credits,
       exp,
@@ -190,8 +208,8 @@ async function grantStarWarsMinigameWinReward(client?, opts: Record<string, any>
 }
 
 async function addStarWarsVoteReward(client, { guildId, userId }) {
-  /* Smistato: 1 voto = 100 exp evento + 5 crediti + 0,2 PEI voto (+×2 se Festival Ancestors) */
-  let grant = { credits: 5, exp: 100, votes: 1 };
+  /* Smistato: 1 voto = 2500 crediti + 100 exp evento + 0,2 PEI voto (+×2 se Festival Ancestors) */
+  let grant = { credits: 2500, exp: 100, votes: 1 };
   try {
     const { applyFestivalAncestorsToVoteGrant } = require("./starWarsUtilityItemsService") as typeof import("./starWarsUtilityItemsService");
     const fest = await applyFestivalAncestorsToVoteGrant(guildId, userId, grant);

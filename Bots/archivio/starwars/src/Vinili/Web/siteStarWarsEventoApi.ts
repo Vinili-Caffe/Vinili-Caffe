@@ -61,6 +61,7 @@ const {
   getEconomySnapshot,
   buyUnit,
   attackFaction,
+  unitPower,
 } = require("../Services/Community/starWarsEconomyService") as typeof import("../Services/Community/starWarsEconomyService");
 const {
   getAccademiaState,
@@ -78,10 +79,13 @@ const {
 const {
   ensureEpochAlignment,
   getPeiLeaderboard,
+  getUserPeiRanks,
   getOrSpawnTraditore,
   accuseTraditore,
   grantPhaseEndRewards,
 } = require("../Services/Community/starWarsTransversalService") as typeof import("../Services/Community/starWarsTransversalService");
+const { publicShopCatalog } = require("../Utils/Eventi/starWarsEconomyCatalog") as typeof import("../Utils/Eventi/starWarsEconomyCatalog");
+const { factionDisplayName } = require("../Services/Community/starWarsPeiStandingService") as typeof import("../Services/Community/starWarsPeiStandingService");
 
 function bearer(raw?) {
   const v = String(raw || "").trim();
@@ -147,12 +151,56 @@ async function handleSiteEventoStatusGet(client?, req?, res?) {
     const todayRow = getCalendarDay(rome.iso);
 
     let wallet = null;
+    let levelCatalog = undefined;
+    let standing = null;
+    let factionLabel = null;
+    let unitLabels = undefined;
+    let armyPower = 0;
+    if (access.canParticipate) {
+      try {
+        const { publicLevelCatalog } = require("../Services/Community/starWarsLevelService") as typeof import("../Services/Community/starWarsLevelService");
+        levelCatalog = publicLevelCatalog();
+      } catch (_) {}
+    }
     if (auth?.userId && access.canParticipate) {
       const aligned = await ensureEpochAlignment(client, {
         guildId: mainGuildId(client),
         userId: auth.userId,
       });
       wallet = aligned.wallet || (await getStarWarsWallet(mainGuildId(client), auth.userId, cfg.eventKey));
+      /* Catch-up livelli se l'utente ha già EXP evento ma non ha ancora i premi milestone. */
+      try {
+        const { applyStarWarsLevelProgress } = require("../Services/Community/starWarsLevelService") as typeof import("../Services/Community/starWarsLevelService");
+        const prog = await applyStarWarsLevelProgress(client, {
+          guildId: mainGuildId(client),
+          userId: auth.userId,
+        });
+        if (prog?.wallet) wallet = prog.wallet;
+      } catch (_) {}
+
+      const epoch = wallet?.epoch || features.epoch || EPOCHS.CLONE_WARS;
+      const factionId = wallet?.factionId || null;
+      if (factionId) {
+        try {
+          factionLabel = factionDisplayName(epoch, factionId);
+        } catch (_) {
+          factionLabel = getFactionMeta(factionId)?.label || factionId;
+        }
+      }
+      try {
+        const shop = publicShopCatalog(epoch, factionId);
+        unitLabels = Object.fromEntries((shop.units || []).map((u?) => [u.id, u.label]));
+        armyPower = unitPower(wallet?.army || {}, epoch);
+      } catch (_) {}
+      try {
+        standing = await getUserPeiRanks(client, {
+          userId: auth.userId,
+          factionId,
+          pei: wallet?.pei || 0,
+        });
+      } catch (_) {
+        standing = null;
+      }
     }
 
     return res.status(200).json({
@@ -184,6 +232,11 @@ async function handleSiteEventoStatusGet(client?, req?, res?) {
       crateLabels: access.canParticipate ? CRATE_LABELS : undefined,
       utilityItems: access.canParticipate ? publicUtilityCatalog() : undefined,
       utilityLabels: access.canParticipate ? UTILITY_ITEM_LABELS : undefined,
+      unitLabels,
+      armyPower: wallet ? armyPower : undefined,
+      factionLabel,
+      standing,
+      levelCatalog,
       wallet,
     });
   } catch (err) {

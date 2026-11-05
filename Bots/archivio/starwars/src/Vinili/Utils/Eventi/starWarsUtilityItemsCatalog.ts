@@ -28,20 +28,23 @@ const UTILITY_ITEM_BLURBS = Object.freeze({
 const BUFF_DURATION_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Chance drop oggetto bonus per cassa (dopo crediti/exp).
- * Militari esclusi.
+ * Chance di trovare ANCHE un oggetto utility (oltre a crediti/exp o truppe).
+ * Casuale: sempre 0 (solo crediti+exp).
  */
 const CRATE_ITEM_DROP_CHANCE = Object.freeze({
-  avvento: 0.08,
-  alpha: 0.08,
-  beta: 0.12,
-  omega: 0.15,
-  lunare: 0.18,
-  solare: 0.22,
-  planetario: 0.25,
-  nebulare: 0.28,
-  galattico: 0.32,
-  casuale: 0.1,
+  alpha: 0.04,
+  beta: 0.07,
+  omega: 0.1,
+  lunare: 0.12,
+  solare: 0.14,
+  planetario: 0.17,
+  nebulare: 0.2,
+  galattico: 0.22,
+  avvento: 0.01,
+  militare: 0.02,
+  militare_plus: 0.03,
+  militare_op: 0.04,
+  casuale: 0,
 });
 
 function normalizeId(v?) {
@@ -53,11 +56,17 @@ function isUtilityItemId(id?) {
 }
 
 function publicUtilityCatalog() {
+  let emojiOf = (_id?) => "";
+  try {
+    const { utilityEmoji } = require("./starWarsUtilityEmojis") as typeof import("./starWarsUtilityEmojis");
+    emojiOf = utilityEmoji;
+  } catch (_) {}
   return UTILITY_ITEM_IDS.map((id?) => ({
     id,
     label: UTILITY_ITEM_LABELS[id],
     blurb: UTILITY_ITEM_BLURBS[id],
     kind: id === "bacta" ? "instant" : "buff_24h",
+    emoji: emojiOf(id) || "",
   }));
 }
 

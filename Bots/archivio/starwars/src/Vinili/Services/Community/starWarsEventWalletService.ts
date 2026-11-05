@@ -78,6 +78,27 @@ function normalizePublicBuffs(raw?) {
   }
 }
 
+function normalizePublicLevel(raw?) {
+  try {
+    const { publicLevelProgress, levelFromEventExp } = require("../../Utils/Eventi/starWarsLevelCatalog") as typeof import("../../Utils/Eventi/starWarsLevelCatalog");
+    const exp = safeInt(raw?.exp);
+    const stored = safeInt(raw?.pgLevel);
+    const computed = levelFromEventExp(exp);
+    return publicLevelProgress(exp, Math.max(stored, computed));
+  } catch (_) {
+    return {
+      level: Math.max(0, safeInt(raw?.pgLevel)),
+      title: "Non classificato",
+      exp: safeInt(raw?.exp),
+      expToNext: 0,
+      nextLevel: null,
+      nextReq: null,
+      progressPct: 0,
+      maxLevel: 110,
+    };
+  }
+}
+
 function readSlice(doc?) {
   return doc?.profile?.events?.starwars && typeof doc.profile.events.starwars === "object"
     ? doc.profile.events.starwars
@@ -93,17 +114,19 @@ function publicWallet(raw?, eventKey?) {
     eventKey: key,
     factionId: raw?.factionId ? String(raw.factionId) : null,
     epoch: raw?.epoch ? String(raw.epoch) : null,
-    pgLevel: Math.max(1, safeInt(raw?.pgLevel, 1)),
+    pgLevel: Math.max(0, safeInt(raw?.pgLevel)),
     exp: safeInt(raw?.exp),
     credits: safeInt(raw?.credits),
     pei: Number(raw?.pei) || 0,
     creditsVolume: safeInt(raw?.creditsVolume),
     votes: safeInt(raw?.votes),
+    quizCorrectTotal: safeInt(raw?.quizCorrectTotal),
     crates: normalizeCrates(raw?.crates),
     items: raw?.items && typeof raw.items === "object" ? { ...raw.items } : {},
     army: normalizePublicArmy(raw?.army),
     pendingTroops: normalizePublicArmy(raw?.pendingTroops),
     buffs: normalizePublicBuffs(raw?.buffs),
+    level: normalizePublicLevel(raw),
     deckPG: Array.isArray(raw?.deckPG) ? raw.deckPG.slice(0, 200) : [],
     deckReliquie: Array.isArray(raw?.deckReliquie) ? raw.deckReliquie.slice(0, 200) : [],
     advent: {
@@ -118,17 +141,19 @@ function blankWallet(eventKey?) {
     eventKey: eventKey || ADVENT_EVENT_KEY,
     factionId: null,
     epoch: null,
-    pgLevel: 1,
+    pgLevel: 0,
     exp: 0,
     credits: 0,
     pei: 0,
     creditsVolume: 0,
     votes: 0,
+    quizCorrectTotal: 0,
     crates: emptyCrates(),
     items: {},
     army: {},
     pendingTroops: {},
     buffs: {},
+    level: normalizePublicLevel({ pgLevel: 0, exp: 0 }),
     deckPG: [],
     deckReliquie: [],
     advent: { claimed: {} },
@@ -432,6 +457,21 @@ async function openStarWarsCrate(client, { guildId, userId, crateId }) {
     };
   }
 
+  let wallet = publicWallet(readSlice(updated), eventKey);
+  let levelUp = null;
+  if (loot.exp) {
+    try {
+      const { applyStarWarsLevelProgress } = require("./starWarsLevelService") as typeof import("./starWarsLevelService");
+      const prog = await applyStarWarsLevelProgress(client, { guildId: g, userId: u });
+      if (prog?.ok) {
+        if (prog.wallet) wallet = prog.wallet;
+        if (Array.isArray(prog.leveled) && prog.leveled.length) {
+          levelUp = { from: prog.prevLevel, to: prog.level, title: prog.title, milestones: prog.leveled };
+        }
+      }
+    } catch (_) {}
+  }
+
   return {
     ok: true,
     status: 200,
@@ -444,7 +484,8 @@ async function openStarWarsCrate(client, { guildId, userId, crateId }) {
       items: loot.items || null,
       note: loot.note || null,
     },
-    wallet: publicWallet(readSlice(updated), eventKey),
+    levelUp,
+    wallet,
   };
 }
 

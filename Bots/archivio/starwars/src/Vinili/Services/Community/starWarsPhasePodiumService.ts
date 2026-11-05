@@ -12,7 +12,8 @@ const { SiteDocument, SITE_DOCUMENT_TYPE, ActivityUserProfile } = require(__even
 const IDs = require(__eventCoreVinili("Config/ids"));
 const { resolveStarWarsEventConfig, romeYmd } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
 const { EPOCHS } = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
-const { ADVENT_EVENT_KEY, CRATE_LABELS } = require("../../Utils/Eventi/starWarsAdventCatalog") as typeof import("../../Utils/Eventi/starWarsAdventCatalog");
+const { ADVENT_EVENT_KEY } = require("../../Utils/Eventi/starWarsAdventCatalog") as typeof import("../../Utils/Eventi/starWarsAdventCatalog");
+const { formatCrateMention } = require("../../Utils/Eventi/starWarsCrateEmojis") as typeof import("../../Utils/Eventi/starWarsCrateEmojis");
 const { ROOT } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
 const { grantStarWarsReward } = require("./starWarsRewardsService") as typeof import("./starWarsRewardsService");
 const { PEI_STANDING_CHANNEL_ID } = require("./starWarsPeiStandingService") as typeof import("./starWarsPeiStandingService");
@@ -21,6 +22,7 @@ const DOC_TYPE = SITE_DOCUMENT_TYPE.STARWARS_EVENT_STATE;
 const OWNER = "__starwars_phase_podium__";
 const BASELINE_OWNER = "__starwars_phase_podium_baseline__";
 const PODIO1 = "<:VC_Podio1:1482694399283433582>";
+const CREDITI = "<a:VC_crediti:1567852561543733338>";
 
 /** Chiusure epoca (Rome) — allineate agli snapshot PEI + fine evento. */
 const PODIUM_SNAPSHOTS = Object.freeze([
@@ -247,7 +249,7 @@ function categoryEmbed(cat?, winner?, snapshotMeta?) {
       `${PODIO1} <@${winner.userId}>`,
       `Score fase: **${formatMetric(cat.metric, winner[cat.metric])}** ${cat.metricLabel}`,
       "",
-      `Premio: **1× ${CRATE_LABELS.solare || "Cassa Solare"}** · **${cat.credits.toLocaleString("it-IT")}** crediti · **${cat.exp.toLocaleString("it-IT")}** exp`,
+      `Premio: ${formatCrateMention("solare", 1, { open: true })} · ${CREDITI} **${cat.credits.toLocaleString("it-IT")}** crediti · **${cat.exp.toLocaleString("it-IT")}** exp`,
     );
   } else {
     lines.push("_Nessun vincitore in questa fase (score 0)._");
@@ -280,6 +282,12 @@ async function announcePhasePodium(client?, snapshotMeta?) {
 
   /* Baseline PRIMA dei grant: i premi podio non entrano nella fase successiva. */
   await saveBaselineMap(eventKey, current);
+
+  /* Nuova fase: azzera crediti evento di tutti (i premi podio sotto ripartono da zero). */
+  const creditsWipe = await ActivityUserProfile.updateMany(
+    { [`${ROOT}.eventKey`]: eventKey },
+    { $set: { [`${ROOT}.credits`]: 0, [`${ROOT}.updatedAt`]: new Date().toISOString() } },
+  ).catch(() => null);
 
   const winners = [];
   const messageIds = [];
@@ -320,9 +328,10 @@ async function announcePhasePodium(client?, snapshotMeta?) {
     winners,
     closingEpoch: snapshotMeta.closingEpoch,
     title: snapshotMeta.title,
+    creditsWiped: safeInt(creditsWipe?.modifiedCount),
   });
 
-  return { ok: true, messageIds, winners };
+  return { ok: true, messageIds, winners, creditsWiped: safeInt(creditsWipe?.modifiedCount) };
 }
 
 /** Loop 60s: se oggi è una data di chiusura fase e non ancora fatto → posta + premia. */
