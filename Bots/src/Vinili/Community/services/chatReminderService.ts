@@ -211,7 +211,7 @@ const reminderPool = [
       .setColor("#6f4e37")
       .setTitle(`${E.VC_Collab} Vuoi sponsorizzare il tuo server o social network?`)
       .setDescription([
-        `${E.VC_ThankYou} Cerchi visibilità per il tuo progetto? Vinili & Caffè offre sponsorizzazioni studiati per aiutarti. Apri un \` + siteTicketsPageDiscordRef(`HIGH STAFF") + " per avere più info!",
+        `${E.VC_ThankYou} Cerchi visibilità per il tuo progetto? Vinili & Caffè offre sponsorizzazioni studiati per aiutarti. Apri un ${siteTicketsPageDiscordRef("HIGH STAFF")} per avere più info!`,
         `${E.VC_Ticket} Trovi tutte le info sulle sponsorizzazioni [sul nostro sito](https://viniliecaffe.it/sponsor).`,
       ].join("\n")),
   () =>
@@ -242,7 +242,7 @@ const reminderPool = [
       .setTitle(`${E.VC_Collab} Un bot stabile e sicuro per la gestione del tuo server!`)
       .setDescription([
         `${E.VC_Mention} Se gestire i Partner Manager, contare le partnership e controllare ping o requisiti delle tue collaborazioni ti stanca, è il momento giusto di aggiungere <@1329118940110127204> al tuo server! Fare partnership non è mai stato così facile!`,
-        `${E.VC_MilkExclaim} Per supporto alla configurazione, non esitare ad aprire un ticket \` + siteTicketsPageDiscordRef(`SUPPORTO") + "!"
+        `${E.VC_MilkExclaim} Per supporto alla configurazione, non esitare ad aprire un ticket ${siteTicketsPageDiscordRef("SUPPORTO")}!`
       ].join("\n")),
   () =>
     new EmbedBuilder()

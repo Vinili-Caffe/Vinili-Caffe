@@ -230,7 +230,7 @@ function buildStanzaManageRows(voiceChannel?) {
         .setEmoji("🔒")
         .setStyle(ButtonStyle.Danger);
   const row2 = new ActionRowBuilder().addComponents(vistaBtn, lockToggleBtn, new ButtonBuilder().setCustomId(`stanza_vice:${cid}`).setLabel("Nomina Vice").setEmoji("🌙").setStyle(ButtonStyle.Primary));
-  const row3 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`stanza_back:${cid}`).setLabel("Indietro").setEmoji(\`${E[\`1343arrowleft`]}️").setStyle(ButtonStyle.Secondary));
+  const row3 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`stanza_back:${cid}`).setLabel("Indietro").setEmoji(E["1343arrowleft"]).setStyle(ButtonStyle.Secondary));
   return [row1, row2, row3];
 }
 
@@ -278,7 +278,7 @@ function buildStanzaUsersManageRows(voiceChannel?, meta = null) {
     new ButtonBuilder()
       .setCustomId(`stanza_users_back:${cid}`)
       .setLabel("Indietro")
-      .setEmoji(`${E[`1343arrowleft"]}️")
+      .setEmoji(E["1343arrowleft"])
       .setStyle(ButtonStyle.Primary),
   );
   return [row1, row2];

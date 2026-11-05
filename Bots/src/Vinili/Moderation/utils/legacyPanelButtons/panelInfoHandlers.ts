@@ -435,7 +435,7 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
             `${E.VC_DoubleReply} Permesso di cambiare nickname`,
             `${E.VC_DoubleReply} Permesso di allegare link e immagini in chat`,
             `${E.VC_DoubleReply} Permesso di inviare messaggi vocali in chat`,
-            `${E.VC_DoubleReply} Sblocchi i comandi \\`+quote\\` e \\`+repost\\``,
+            `${E.VC_DoubleReply} Sblocchi i comandi \`+quote\` e \`+repost\``,
             `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv10}>`
           ].join("\n"),
           inline: true,

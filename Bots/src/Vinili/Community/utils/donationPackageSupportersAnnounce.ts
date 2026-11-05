@@ -119,7 +119,7 @@ function buildDonationPackageEmbed(tier?, member?, isPurchase = false) {
       `${E.sparkledred} Tutti i perks del ruolo ${roleMention(IDs.roles.VIP)}\n` +
       "\n" +
       `${E.VC_Loading__969578} Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo)\n` +
-      `${E.VC_Color} Sfondo personalizzato per la tua card del comando \\`+rank\\` sul sito\n` +
+      `${E.VC_Color} Sfondo personalizzato per la tua card del comando \`+rank\` sul sito\n` +
       `${E.VC_Winner} Possibilità di creare un secondo ruolo **custom** con colore **GRADIENTE** scelto da te\n` +
       `${E.VC_CrownYellow} Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 5)\n` +
       `${MENTION_RESPONSE_PERK_LINE_DISCORD}\n` +

@@ -476,7 +476,7 @@ async function destroyGhostMusicStateIfBotNotInVoice(client?, guild?) {
   if (!stale) return;
   endListeners.delete(gid);
   guildQueues.delete(gid);
-export = { nativeVoiceChannelId, musicHooks, musicPurgeTts, musicLeaveTts, clearActiveBotVoiceSession, guildQueues, endListeners, lastMusicEndHandledByGuild, musicIdleSince, MUSIC_QUEUE_SNAPSHOT_PATH, serializeEncodedLabelRows, mergeSessionSnapshotFromLivePlayer, getGuildMusicVoiceChannelId, guildMusicSessionBlocksOtherVoiceChannels, assertMusicCommandAllowed, guildHasMusicVoiceResumeHint, persistMusicQueueSnapshotNow, getShardIdForGuild, getShoukakuVoiceConnectionTimeoutSeconds, musicJoinVoiceChannelErrorMessage, clearBlockingNativeVoiceForMusic, markMusicVoiceLeaveIntentional, leaveMusicVoiceChannelMarked, handleMusicBotVoiceDisconnect, destroyGhostMusicStateIfBotNotInVoice };
+  try {
     if (player) await player.destroy();
   } catch (_) {}
   try {
@@ -484,4 +484,4 @@ export = { nativeVoiceChannelId, musicHooks, musicPurgeTts, musicLeaveTts, clear
   } catch (_) {}
 }
 
-export = { nativeVoiceChannelId, musicHooks, musicPurgeTts, musicLeaveTts, guildQueues, endListeners, lastMusicEndHandledByGuild, musicIdleSince, MUSIC_QUEUE_SNAPSHOT_PATH, serializeEncodedLabelRows, mergeSessionSnapshotFromLivePlayer, getGuildMusicVoiceChannelId, guildMusicSessionBlocksOtherVoiceChannels, assertMusicCommandAllowed, guildHasMusicVoiceResumeHint, persistMusicQueueSnapshotNow, getShardIdForGuild, getShoukakuVoiceConnectionTimeoutSeconds, musicJoinVoiceChannelErrorMessage, clearBlockingNativeVoiceForMusic, markMusicVoiceLeaveIntentional, leaveMusicVoiceChannelMarked, handleMusicBotVoiceDisconnect, destroyGhostMusicStateIfBotNotInVoice };
+export = { nativeVoiceChannelId, musicHooks, musicPurgeTts, musicLeaveTts, clearActiveBotVoiceSession, guildQueues, endListeners, lastMusicEndHandledByGuild, musicIdleSince, MUSIC_QUEUE_SNAPSHOT_PATH, serializeEncodedLabelRows, mergeSessionSnapshotFromLivePlayer, getGuildMusicVoiceChannelId, guildMusicSessionBlocksOtherVoiceChannels, assertMusicCommandAllowed, guildHasMusicVoiceResumeHint, persistMusicQueueSnapshotNow, getShardIdForGuild, getShoukakuVoiceConnectionTimeoutSeconds, musicJoinVoiceChannelErrorMessage, clearBlockingNativeVoiceForMusic, markMusicVoiceLeaveIntentional, leaveMusicVoiceChannelMarked, handleMusicBotVoiceDisconnect, destroyGhostMusicStateIfBotNotInVoice };
