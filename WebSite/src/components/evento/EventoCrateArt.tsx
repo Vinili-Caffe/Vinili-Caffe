@@ -225,7 +225,7 @@ function LootRewardCard({
         <div className="mt-2 flex flex-col items-center gap-1.5">
           <EventoCreditsIcon size={large ? "lg" : "md"} />
           <p
-            className={`font-display font-semibold leading-tight tabular-nums ${large ? "text-2xl" : "text-xl"}`}
+            className={`font-sans font-semibold tracking-tight leading-tight tabular-nums ${large ? "text-2xl" : "text-xl"}`}
             style={{ color: s.color }}
           >
             {card.value}
@@ -235,7 +235,7 @@ function LootRewardCard({
         <div className="mt-2 flex flex-col items-center gap-1.5">
           <EventoUtilityIcon itemId={card.itemId} size={large ? "lg" : "md"} alt={card.value} />
           <p
-            className={`font-display font-semibold leading-tight ${large ? "text-lg" : "text-base"}`}
+            className={`font-sans font-semibold tracking-tight leading-tight ${large ? "text-lg" : "text-base"}`}
             style={{ color: s.color }}
           >
             {card.value}
@@ -243,7 +243,7 @@ function LootRewardCard({
         </div>
       ) : (
         <p
-          className={`mt-2 font-display font-semibold leading-tight ${large ? "text-2xl" : "text-xl"}`}
+          className={`mt-2 font-sans font-semibold tracking-tight leading-tight ${large ? "text-2xl" : "text-xl"}`}
           style={{ color: s.color }}
         >
           {card.value}

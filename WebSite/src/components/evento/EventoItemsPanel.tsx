@@ -141,7 +141,7 @@ export function EventoItemsPanel() {
                         ) : null}
                       </div>
                     </div>
-                    <p className="shrink-0 font-display text-xl font-bold tabular-nums text-[#e4c76b]">
+                    <p className="shrink-0 font-sans text-xl font-bold tabular-nums tracking-tight text-[#e4c76b]">
                       ×{r.qty}
                     </p>
                   </div>

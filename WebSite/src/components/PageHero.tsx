@@ -71,7 +71,11 @@ export function PageHero({
         >
           <span className="text-ember [&>svg]:size-3.5">{icon}</span> {kicker}
         </motion.p>
-        <h1 className="mx-auto mt-6 max-w-4xl text-balance font-display text-5xl font-semibold leading-[1.15] text-crema sm:text-7xl">
+        <h1
+          className={`mx-auto mt-6 max-w-4xl text-balance text-5xl font-semibold leading-[1.15] text-crema sm:text-7xl ${
+            isEvento ? "font-sans tracking-tight" : "font-display"
+          }`}
+        >
           {title}
           {accent ? (
             <>

@@ -84,7 +84,7 @@ export function EventoShopPanel() {
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <EventoKicker>Arsenale fazioni</EventoKicker>
-            <p className="mt-1 flex items-center gap-2 font-display text-2xl text-crema">
+            <p className="mt-1 flex items-center gap-2 font-sans text-2xl font-semibold tracking-tight text-crema">
               <EventoCreditsIcon size="md" className="shrink-0" />
               <span className="tabular-nums">{credits.toLocaleString("it-IT")}</span>
               <span className="text-base text-crema/55">crediti</span>

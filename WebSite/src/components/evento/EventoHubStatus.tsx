@@ -22,7 +22,7 @@ function StatCell({
   return (
     <div className="rounded-2xl bg-black/35 px-3 py-3 ring-1 ring-white/10 sm:px-4">
       <p className="text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-crema/45">{label}</p>
-      <p className="mt-1.5 flex items-center gap-1.5 font-display text-xl font-semibold tabular-nums text-crema sm:text-2xl">
+      <p className="mt-1.5 flex items-center gap-1.5 font-sans text-xl font-semibold tabular-nums tracking-tight text-crema sm:text-2xl">
         {icon}
         <span className="min-w-0 truncate">{value}</span>
       </p>
@@ -88,7 +88,7 @@ export function EventoHubStatus() {
                   className="h-14 w-14 shrink-0 rounded-full ring-2 ring-[#c9a227]/40"
                 />
                 <div className="min-w-0">
-                  <p className="truncate font-display text-2xl font-semibold text-crema sm:text-3xl">
+                  <p className="truncate font-sans text-2xl font-semibold tracking-tight text-crema sm:text-3xl">
                     {displayName(user)}
                   </p>
                   <p className="mt-0.5 text-sm text-crema/60">
@@ -112,7 +112,7 @@ export function EventoHubStatus() {
               </div>
             ) : (
               <div className="mt-3">
-                <p className="font-display text-2xl font-semibold text-crema">Centro di comando</p>
+                <p className="font-sans text-2xl font-semibold tracking-tight text-crema">Centro di Comando</p>
                 <p className="mt-1 text-sm text-crema/60">
                   {token
                     ? chips.length
@@ -139,7 +139,7 @@ export function EventoHubStatus() {
 
           {w ? (
             <div className="text-right">
-              <p className="flex items-center justify-end gap-2 font-display text-3xl text-sand tabular-nums">
+              <p className="flex items-center justify-end gap-2 font-sans text-3xl font-semibold tracking-tight text-sand tabular-nums">
                 <EventoCreditsIcon size="md" className="shrink-0 drop-shadow-[0_0_10px_rgba(201,162,39,0.45)]" />
                 {fmt(w.credits)}
               </p>
@@ -192,7 +192,7 @@ export function EventoHubStatus() {
                     <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[#e4c76b]">
                       Progresso livello
                     </p>
-                    <p className="mt-1 font-display text-xl font-semibold text-crema">
+                    <p className="mt-1 font-sans text-xl font-semibold tracking-tight text-crema">
                       Lv {lv.level}
                       <span className="ml-2 text-base font-normal text-crema/70">{lv.title}</span>
                     </p>

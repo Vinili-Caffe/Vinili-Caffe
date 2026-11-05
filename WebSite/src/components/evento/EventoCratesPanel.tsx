@@ -118,7 +118,7 @@ export function EventoCratesPanel() {
                     <p className="mt-2 line-clamp-2 px-1 text-center text-xs font-semibold text-crema group-hover:text-[#f0d78c]">
                       {name}
                     </p>
-                    <p className="mt-1 font-display text-lg font-bold tabular-nums text-[#e4c76b]">×{r.qty}</p>
+                    <p className="mt-1 font-sans text-lg font-bold tabular-nums tracking-tight text-[#e4c76b]">×{r.qty}</p>
                     <p className="mt-0.5 text-[0.65rem] uppercase tracking-wider text-crema/40">
                       {loading ? "Apertura…" : "Apri"}
                     </p>

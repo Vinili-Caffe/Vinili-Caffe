@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { EventoPage } from "@/components/evento/EventoPage";
-import { EVENTO_BRAND, eventoPageMeta } from "@/lib/evento-starwars";
+import { eventoPageMeta } from "@/lib/evento-starwars";
 import { pageSocialMeta } from "@/lib/og";
 import { BoardSkeleton } from "@/components/ui/EmptyState";
 
@@ -9,14 +9,8 @@ const EventoHubStatus = dynamic(
   () => import("@/components/evento/EventoHubStatus").then((m) => m.EventoHubStatus),
   { loading: () => <BoardSkeleton className="mx-auto max-w-5xl px-6" /> },
 );
-const EventoCratesPanel = dynamic(
-  () => import("@/components/evento/EventoCratesPanel").then((m) => m.EventoCratesPanel),
-);
-const EventoArmyPanel = dynamic(
-  () => import("@/components/evento/EventoArmyPanel").then((m) => m.EventoArmyPanel),
-);
-const EventoItemsPanel = dynamic(
-  () => import("@/components/evento/EventoItemsPanel").then((m) => m.EventoItemsPanel),
+const EventoInventoryPanel = dynamic(
+  () => import("@/components/evento/EventoInventoryPanel").then((m) => m.EventoInventoryPanel),
 );
 const EventoMinigamesPanel = dynamic(
   () => import("@/components/evento/EventoMinigamesPanel").then((m) => m.EventoMinigamesPanel),
@@ -41,14 +35,11 @@ export default function EventoHubPage() {
     <EventoPage
       pageId="hub"
       path={meta.path}
-      title="Centro di comando"
-      accent={EVENTO_BRAND}
+      title="Centro di Comando"
       text="Il tuo profilo evento: inventari, livello, fazione e missioni del giorno."
     >
       <EventoHubStatus />
-      <EventoCratesPanel />
-      <EventoArmyPanel />
-      <EventoItemsPanel />
+      <EventoInventoryPanel />
       <EventoMinigamesPanel />
       <EventoShopPanel />
     </EventoPage>
