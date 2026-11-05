@@ -10,7 +10,8 @@ export type AdventCrateId =
   | "militare"
   | "militare_plus"
   | "militare_op"
-  | "casuale"
+  | "stellare"
+  | "cosmica"
   | "lunare"
   | "solare"
   | "planetario"
@@ -36,7 +37,8 @@ export const ADVENT_CRATE_LABELS: Record<AdventCrateId, string> = {
   militare: "Cassa Militare",
   militare_plus: "Cassa Militare+",
   militare_op: "Cassa Militare OP",
-  casuale: "Cassa Casuale",
+  stellare: "Cassa Stellare",
+  cosmica: "Cassa Cosmica",
   lunare: "Cassa Lunare",
   solare: "Cassa Solare",
   planetario: "Cassa Planetario",
@@ -59,9 +61,10 @@ function labelFrom(rewards: AdventRewardPart[]): string {
         return `${r.amount.toLocaleString("it-IT")} crediti`;
       }
       const name = ADVENT_CRATE_LABELS[r.crateId];
-      if (r.crateId === "casuale" && r.qty > 1) return `Casuale ${r.qty}`;
+      if (r.crateId === "cosmica") return r.qty > 1 ? `Cosmica ×${r.qty}` : "Cosmica";
+      if (r.crateId === "stellare" && r.qty > 1) return `Stellare ${r.qty}`;
       if (r.qty > 1) return `${name} ×${r.qty}`;
-      if (r.crateId === "casuale") return "Casuale";
+      if (r.crateId === "stellare") return "Stellare";
       if (r.crateId === "militare") return "Militare";
       if (r.crateId === "militare_plus") return "Militare+";
       if (r.crateId === "militare_op") return "Militare OP";
@@ -77,28 +80,28 @@ function day(n: number, rewards: AdventRewardPart[], label?: string): AdventDay 
 /** Premi in ordine (giorno 1 … 25), come da staff. */
 export const ADVENT_DAYS: readonly AdventDay[] = Object.freeze([
   day(1, [crate("omega")], "Cassa Omega"),
-  day(2, [crate("casuale")], "Casuale"),
+  day(2, [crate("stellare")], "Stellare"),
   day(3, [crate("avvento")], "Cassa Avvento"),
   day(4, [crate("beta")], "Cassa Beta"),
-  day(5, [crate("casuale", 2), crate("avvento")], "Casuale 2 + Cassa Avvento"),
-  day(6, [crate("casuale")], "Casuale"),
+  day(5, [crate("cosmica"), crate("avvento")], "Cosmica + Cassa Avvento"),
+  day(6, [crate("stellare")], "Stellare"),
   day(7, [crate("alpha")], "Cassa Alpha"),
-  day(8, [crate("casuale", 2), crate("omega")], "Casuale 2 + Cassa Omega"),
+  day(8, [crate("cosmica"), crate("omega")], "Cosmica + Cassa Omega"),
   day(9, [crate("avvento")], "Cassa Avvento"),
   day(10, [crate("beta")], "Cassa Beta"),
-  day(11, [crate("casuale")], "Casuale"),
+  day(11, [crate("stellare")], "Stellare"),
   day(12, [crate("avvento"), crate("alpha")], "Cassa Avvento + Cassa Alpha"),
-  day(13, [crate("casuale", 2)], "Casuale 2"),
+  day(13, [crate("cosmica")], "Cosmica"),
   day(14, [crate("militare")], "Militare"),
   day(15, [crate("avvento"), crate("militare_plus")], "Cassa Avvento + Cassa Militare+"),
   day(16, [crate("militare_op")], "Militare OP"),
   day(17, [crate("beta")], "Cassa Beta"),
   day(18, [crate("avvento")], "Cassa Avvento"),
   day(19, [crate("militare")], "Militare"),
-  day(20, [crate("casuale", 2)], "Casuale 2"),
+  day(20, [crate("cosmica")], "Cosmica"),
   day(21, [crate("avvento")], "Cassa Avvento"),
   day(22, [crate("militare_plus")], "Militare+"),
-  day(23, [crate("casuale", 2)], "Casuale 2"),
+  day(23, [crate("cosmica")], "Cosmica"),
   day(24, [crate("militare_op")], "Militare OP"),
   day(25, [crate("militare_op"), credits(1000)], "Cassa Militare OP + 1.000 crediti"),
 ]);

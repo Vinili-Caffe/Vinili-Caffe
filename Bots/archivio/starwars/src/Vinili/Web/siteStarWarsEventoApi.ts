@@ -117,6 +117,7 @@ const {
 } = require("../Services/Community/starWarsTransversalService") as typeof import("../Services/Community/starWarsTransversalService");
 const { publicShopCatalog } = require("../Utils/Eventi/starWarsEconomyCatalog") as typeof import("../Utils/Eventi/starWarsEconomyCatalog");
 const { factionDisplayName } = require("../Services/Community/starWarsPeiStandingService") as typeof import("../Services/Community/starWarsPeiStandingService");
+const { hasStarWarsFaction } = require("../Utils/Eventi/starWarsRuntimeGate") as typeof import("../Utils/Eventi/starWarsRuntimeGate");
 
 function bearer(raw?) {
   const v = String(raw || "").trim();
@@ -168,6 +169,21 @@ function denyNotOpen(access?) {
 function requireParticipate(access?, res?) {
   if (access.canParticipate) return true;
   res.status(403).json(denyNotOpen(access));
+  return false;
+}
+
+function denyNotSorted() {
+  return {
+    ok: false,
+    error: "not_sorted",
+    message: "Devi prima smistarti.",
+  };
+}
+
+/** Blocca azioni evento se il wallet non ha factionId (smistamento). */
+function requireSmistato(wallet?, res?) {
+  if (hasStarWarsFaction(wallet)) return true;
+  res.status(403).json(denyNotSorted());
   return false;
 }
 
@@ -234,6 +250,8 @@ async function handleSiteEventoStatusGet(client?, req?, res?) {
       }
     }
 
+    const needsSort = Boolean(auth?.userId && access.canParticipate && !hasStarWarsFaction(wallet));
+
     return res.status(200).json({
       ok: true,
       eventKey: cfg.eventKey,
@@ -245,6 +263,7 @@ async function handleSiteEventoStatusGet(client?, req?, res?) {
       highStaff: access.highStaff,
       canPreview: access.canPreview,
       canParticipate: access.canParticipate,
+      needsSort,
       romeDate: rome.iso,
       todayAdvent: access.canParticipate ? todayAdvent : null,
       features: access.canParticipate ? features : { date: rome.iso, epoch: null, economyPhase: null, economyOn: false, features: [] },
@@ -349,6 +368,9 @@ async function handleSiteEventoAvventoClaimPost(client?, req?, res?) {
     }
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
+    const cfg = resolveStarWarsEventConfig(client);
+    const walletClaim = await getStarWarsWallet(mainGuildId(client), auth.userId, cfg.eventKey);
+    if (!requireSmistato(walletClaim, res)) return;
 
     if (adventSlotForRomeDate(new Date()) == null && !access.highStaff) {
       return res.status(410).json({
@@ -507,6 +529,9 @@ async function handleSiteEventoShopBuyPost(client?, req?, res?) {
     }
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
+    const cfgBuy = resolveStarWarsEventConfig(client);
+    const walletBuy = await getStarWarsWallet(mainGuildId(client), auth.userId, cfgBuy.eventKey);
+    if (!requireSmistato(walletBuy, res)) return;
     const snap = await getEconomySnapshot(client, { guildId: mainGuildId(client), userId: auth.userId });
     if (!snap.buyEnabled) {
       return res.status(403).json({ ok: false, error: "economy_off", message: "Acquisti non attivi." });
@@ -533,6 +558,9 @@ async function handleSiteEventoShopAttackPost(client?, req?, res?) {
     }
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
+    const cfgAtk = resolveStarWarsEventConfig(client);
+    const walletAtk = await getStarWarsWallet(mainGuildId(client), auth.userId, cfgAtk.eventKey);
+    if (!requireSmistato(walletAtk, res)) return;
     const snap = await getEconomySnapshot(client, { guildId: mainGuildId(client), userId: auth.userId });
     if (!snap.attackEnabled) {
       return res.status(403).json({ ok: false, error: "economy_off", message: "Attacchi non attivi." });
@@ -542,6 +570,7 @@ async function handleSiteEventoShopAttackPost(client?, req?, res?) {
       guildId: mainGuildId(client),
       userId: auth.userId,
       defend: Boolean(body.defend),
+      useBacta: Boolean(body.useBacta),
     });
     return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
   } catch (err) {
@@ -573,6 +602,9 @@ async function handleSiteEventoCrateOpenPost(client?, req?, res?) {
     }
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
+    const cfgCrate = resolveStarWarsEventConfig(client);
+    const walletCrate = await getStarWarsWallet(mainGuildId(client), auth.userId, cfgCrate.eventKey);
+    if (!requireSmistato(walletCrate, res)) return;
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const out = await openStarWarsCrate(client, {
       guildId: mainGuildId(client),
@@ -594,6 +626,9 @@ async function handleSiteEventoItemUsePost(client?, req?, res?) {
     }
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
+    const cfgItem = resolveStarWarsEventConfig(client);
+    const walletItem = await getStarWarsWallet(mainGuildId(client), auth.userId, cfgItem.eventKey);
+    if (!requireSmistato(walletItem, res)) return;
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const out = await useStarWarsUtilityItem(client, {
       guildId: mainGuildId(client),
@@ -628,6 +663,9 @@ async function handleSiteEventoAccademiaPost(client?, req?, res?) {
     }
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
+    const cfgAcc = resolveStarWarsEventConfig(client);
+    const walletAcc = await getStarWarsWallet(mainGuildId(client), auth.userId, cfgAcc.eventKey);
+    if (!requireSmistato(walletAcc, res)) return;
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const out = await submitAccademia(client, {
       guildId: mainGuildId(client),
@@ -664,6 +702,9 @@ async function handleSiteEventoGaraPost(client?, req?, res?) {
     }
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
+    const cfgGara = resolveStarWarsEventConfig(client);
+    const walletGara = await getStarWarsWallet(mainGuildId(client), auth.userId, cfgGara.eventKey);
+    if (!requireSmistato(walletGara, res)) return;
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const out = await pickGaraPod(client, {
       guildId: mainGuildId(client),
@@ -698,6 +739,9 @@ async function handleSiteEventoMinieraPost(client?, req?, res?) {
     }
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
+    const cfgMin = resolveStarWarsEventConfig(client);
+    const walletMin = await getStarWarsWallet(mainGuildId(client), auth.userId, cfgMin.eventKey);
+    if (!requireSmistato(walletMin, res)) return;
     const out = await digMiniera(client, { guildId: mainGuildId(client), userId: auth.userId });
     return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
   } catch (err) {
@@ -727,6 +771,9 @@ async function handleSiteEventoPuzzlePost(client?, req?, res?) {
     }
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
+    const cfgPuz = resolveStarWarsEventConfig(client);
+    const walletPuz = await getStarWarsWallet(mainGuildId(client), auth.userId, cfgPuz.eventKey);
+    if (!requireSmistato(walletPuz, res)) return;
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const action = String(body.action || "start").trim().toLowerCase();
     const difficultyId = body.difficultyId || body.difficulty || body.id;
@@ -807,6 +854,9 @@ async function handleSiteEventoTraditorePost(client?, req?, res?) {
     }
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
+    const cfgTr = resolveStarWarsEventConfig(client);
+    const walletTr = await getStarWarsWallet(mainGuildId(client), auth.userId, cfgTr.eventKey);
+    if (!requireSmistato(walletTr, res)) return;
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const out = await accuseTraditore(client, {
       guildId: mainGuildId(client),
@@ -844,8 +894,10 @@ async function handleSiteEventoCollezioniGet(client?, req?, res?) {
     }
 
     let deckSlice = { deckPG: [], deckReliquie: [] };
+    let needsSort = false;
     if (auth?.userId) {
       const wallet = await getStarWarsWallet(mainGuildId(client), auth.userId);
+      needsSort = !hasStarWarsFaction(wallet);
       deckSlice = {
         deckPG: Array.isArray(wallet?.deckPG) ? wallet.deckPG : [],
         deckReliquie: Array.isArray(wallet?.deckReliquie) ? wallet.deckReliquie : [],
@@ -862,12 +914,13 @@ async function handleSiteEventoCollezioniGet(client?, req?, res?) {
       if (!unlocked || !section) return null;
       return {
         unlocked: true,
+        locked: needsSort,
         active: active.has(featureKey),
         kind: section.kind,
         title: section.title,
-        ownedCount: section.ownedCount,
+        ownedCount: needsSort ? 0 : section.ownedCount,
         total: section.total,
-        items: section.items,
+        items: needsSort ? [] : section.items,
       };
     };
 
@@ -875,6 +928,9 @@ async function handleSiteEventoCollezioniGet(client?, req?, res?) {
       ok: true,
       visible: true,
       highStaff: access.highStaff,
+      needsSort,
+      locked: needsSort,
+      message: needsSort ? "Devi prima smistarti." : undefined,
       pg: pack(decks?.pg, pgUnlocked, FEATURES.GAME_COLLEZIONA_PG),
       reliquie: pack(decks?.reliquie, relicUnlocked, FEATURES.GAME_RELIQUIE),
     });

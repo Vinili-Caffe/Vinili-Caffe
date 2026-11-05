@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { EventoPage } from "@/components/evento/EventoPage";
+import { EventoSortGate } from "@/components/evento/EventoSortGate";
 import { eventoPageMeta } from "@/lib/evento-starwars";
 import { pageSocialMeta } from "@/lib/og";
 import { BoardSkeleton } from "@/components/ui/EmptyState";
@@ -20,7 +21,9 @@ export const metadata: Metadata = {
 export default function EventoGaraPage() {
   return (
     <EventoPage pageId="gara" path={meta.path} title="Gara" text={meta.description}>
-      <GaraGame />
+      <EventoSortGate mode="redirect">
+        <GaraGame />
+      </EventoSortGate>
     </EventoPage>
   );
 }

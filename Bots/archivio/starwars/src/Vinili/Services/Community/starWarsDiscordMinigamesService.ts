@@ -2486,4 +2486,6 @@ export = {
   tryPuntaCommand,
   tryConquistaCommand,
   isHighStaffMember,
+  isStarWarsSortedParticipant,
+  UNSORTED_MG_MSG,
 };

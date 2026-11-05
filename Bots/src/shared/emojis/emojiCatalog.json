@@ -619,6 +619,34 @@
     "id": "1567858385960042537",
     "animated": false
   },
+  "VC_casuale_2closed": {
+    "id": "1567988947962040370",
+    "animated": false
+  },
+  "VC_casuale_2open": {
+    "id": "1567989009232433253",
+    "animated": false
+  },
+  "VC_stellareclosed": {
+    "id": "1567858377340485704",
+    "animated": false,
+    "name": "VC_casualeclosed"
+  },
+  "VC_stellareopen": {
+    "id": "1567858385960042537",
+    "animated": false,
+    "name": "VC_casualeopen"
+  },
+  "VC_cosmicaclosed": {
+    "id": "1567988947962040370",
+    "animated": false,
+    "name": "VC_casuale_2closed"
+  },
+  "VC_cosmicaopen": {
+    "id": "1567989009232433253",
+    "animated": false,
+    "name": "VC_casuale_2open"
+  },
   "VC_galatticoclosed": {
     "id": "1567858391622221864",
     "animated": false

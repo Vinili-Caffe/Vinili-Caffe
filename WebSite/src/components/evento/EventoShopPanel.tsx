@@ -18,6 +18,8 @@ export function EventoShopPanel() {
   const [buyEnabled, setBuyEnabled] = useState(false);
   const [attackEnabled, setAttackEnabled] = useState(false);
   const [credits, setCredits] = useState(0);
+  const [bactaQty, setBactaQty] = useState(0);
+  const [useBacta, setUseBacta] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [battle, setBattle] = useState<BattleFxData | null>(null);
@@ -33,6 +35,9 @@ export function EventoShopPanel() {
     setBuyEnabled(Boolean(st.buyEnabled));
     setAttackEnabled(Boolean(st.attackEnabled));
     setCredits(st.wallet?.credits || 0);
+    const bQty = Math.max(0, Math.floor(Number(st.wallet?.items?.bacta) || 0));
+    setBactaQty(bQty);
+    if (bQty < 1) setUseBacta(false);
   }, [ready, token]);
 
   useEffect(() => {
@@ -55,12 +60,13 @@ export function EventoShopPanel() {
   async function attack(defend: boolean) {
     if (!token || busy || !attackEnabled) return;
     setBusy(true);
-    const out = await attackEventoFaction(token, defend);
+    const out = await attackEventoFaction(token, defend, !defend && useBacta);
     setBusy(false);
     if (!out?.ok) {
       showToast(out?.message || "Azione non riuscita.", true);
       return;
     }
+    if (out.bactaUsed) setUseBacta(false);
     if (out.pending) {
       showToast(out.message || (defend ? "Difesa dichiarata." : "Attacco dichiarato: in attesa."));
       void reload({ soft: true });
@@ -100,13 +106,27 @@ export function EventoShopPanel() {
               <span className="text-base text-crema/55">crediti</span>
             </p>
           </div>
-          <div className="flex gap-2">
-            <EventoBtn variant="danger" disabled={!attackEnabled || busy} onClick={() => void attack(false)}>
-              Attacca
-            </EventoBtn>
-            <EventoBtn variant="blue" disabled={!attackEnabled || busy} onClick={() => void attack(true)}>
-              Difendi
-            </EventoBtn>
+          <div className="flex flex-col items-end gap-2">
+            {bactaQty > 0 ? (
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-crema/70">
+                <input
+                  type="checkbox"
+                  checked={useBacta}
+                  disabled={busy || !attackEnabled}
+                  onChange={(e) => setUseBacta(e.target.checked)}
+                  className="size-3.5 accent-caramel"
+                />
+                Usa Bacta in attacco (×{bactaQty})
+              </label>
+            ) : null}
+            <div className="flex gap-2">
+              <EventoBtn variant="danger" disabled={!attackEnabled || busy} onClick={() => void attack(false)}>
+                Attacca
+              </EventoBtn>
+              <EventoBtn variant="blue" disabled={!attackEnabled || busy} onClick={() => void attack(true)}>
+                Difendi
+              </EventoBtn>
+            </div>
           </div>
         </div>
 

@@ -3,14 +3,16 @@
 import { usePathname } from "next/navigation";
 import { SmartLink } from "@/components/SmartLink";
 import { useEventoStaffAccess } from "@/components/evento/EventoAccessGate";
-import { eventoNavForViewer } from "@/lib/evento-starwars";
+import { eventoEventiNavForViewer, eventoPrimaryNavForViewer } from "@/lib/evento-starwars";
 import { cn } from "@/lib/cn";
 
 /** Tab sottomenu evento Star Wars (filtrate per HS / finestra pubblica + feature calendar). */
 export function EventoNav({ className }: { className?: string }) {
   const pathname = usePathname() || "/";
   const { ready, access } = useEventoStaffAccess();
-  const items = ready ? eventoNavForViewer(access) : [];
+  const primary = ready ? eventoPrimaryNavForViewer(access) : [];
+  const eventi = ready ? eventoEventiNavForViewer(access) : [];
+  const items = [...primary, ...eventi];
 
   if (!items.length) return null;
 

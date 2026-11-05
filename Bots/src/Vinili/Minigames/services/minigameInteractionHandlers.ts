@@ -295,6 +295,20 @@ ${game.previewUrl}`,
     return false;
   }
 
+  if (cfg.starWarsEventLive) {
+    try {
+      const {
+        isStarWarsSortedParticipant,
+        UNSORTED_MG_MSG,
+      } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService");
+      const ok = await isStarWarsSortedParticipant(interaction.client, interaction.guildId, interaction.user?.id);
+      if (!ok) {
+        await interaction.reply({ content: UNSORTED_MG_MSG, flags: 1 << 6 }).catch(() => null);
+        return true;
+      }
+    } catch (_) {}
+  }
+
   const winCfg =
     liveMapKey && liveMapKey !== String(cfg.channelId || "")
       ? { ...cfg, channelId: liveMapKey }

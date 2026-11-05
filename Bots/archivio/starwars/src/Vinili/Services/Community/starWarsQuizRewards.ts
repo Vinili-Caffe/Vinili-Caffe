@@ -12,7 +12,8 @@ const { ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/com
 const { isValidGuildUserId } = require(__eventCoreVinili("../shared/db/validateWriteIds"));
 const { resolveStarWarsEventConfig } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
 const { ADVENT_EVENT_KEY, CRATE_LABELS } = require("../../Utils/Eventi/starWarsAdventCatalog") as typeof import("../../Utils/Eventi/starWarsAdventCatalog");
-const { ROOT } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
+const { hasStarWarsFaction } = require("../../Utils/Eventi/starWarsRuntimeGate") as typeof import("../../Utils/Eventi/starWarsRuntimeGate");
+const { ROOT, getStarWarsWallet } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
 
 const QUIZ_CORRECT_PATH = `${ROOT}.quizCorrectTotal`;
 const DEFAULT_CREDITS = 5000;
@@ -40,6 +41,20 @@ async function grantStarWarsQuizWinRewards(
   const u = normalizeId(userId);
   if (!isValidGuildUserId(g, u)) return { ok: false, error: "bad_ids" };
 
+  const eventCfg = resolveStarWarsEventConfig(client);
+  const eventKey = eventCfg.eventKey || ADVENT_EVENT_KEY;
+  const walletEarly = await getStarWarsWallet(g, u, eventKey);
+  if (!hasStarWarsFaction(walletEarly)) {
+    return {
+      ok: false,
+      error: "not_sorted",
+      message: "Devi prima smistarti.",
+      credits: 0,
+      crateId: null,
+      crateQty: 0,
+    };
+  }
+
   const quizCfg = cfg?.starWarsQuiz && typeof cfg.starWarsQuiz === "object" ? cfg.starWarsQuiz : {};
   const credits = Math.max(0, safeInt(quizCfg.rewardCredits ?? DEFAULT_CREDITS, DEFAULT_CREDITS));
   const crateEvery = Math.max(1, safeInt(quizCfg.crateEvery ?? DEFAULT_CRATE_EVERY, DEFAULT_CRATE_EVERY));
@@ -47,9 +62,6 @@ async function grantStarWarsQuizWinRewards(
   if (!CRATE_LABELS[crateId]) {
     return { ok: false, error: "bad_crate" };
   }
-
-  const eventCfg = resolveStarWarsEventConfig(client);
-  const eventKey = eventCfg.eventKey || ADVENT_EVENT_KEY;
   const nowIso = new Date().toISOString();
 
   const updated = await ActivityUserProfile.findOneAndUpdate(

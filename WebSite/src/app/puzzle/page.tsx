@@ -4,6 +4,7 @@ import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { SiteShell } from "@/components/SiteShell";
 import { EventoBootScroll } from "@/components/evento/EventoBootScroll";
+import { EventoSortGate } from "@/components/evento/EventoSortGate";
 import { BoardSkeleton } from "@/components/ui/EmptyState";
 
 const PuzzleBoard = dynamic(() => import("@/components/puzzle/PuzzleBoard").then((m) => m.PuzzleBoard), {
@@ -24,11 +25,13 @@ export default function PuzzlePage() {
     <SiteShell chrome="evento">
       <EventoBootScroll />
       <DiscordComponentEmbed
-        path="/puzzle/"
+        path={"/puzzle/"}
         title="Puzzle"
         description="Puzzle galassia riservato all'High Staff - pezzi da ricomporre."
       />
-      <PuzzleBoard />
+      <EventoSortGate mode="redirect">
+        <PuzzleBoard />
+      </EventoSortGate>
     </SiteShell>
   );
 }

@@ -55,8 +55,53 @@ function remapFactionId(factionId?, targetEpoch?) {
 }
 
 /**
+ * Azzera crediti + unità di tutte le banche fazione (tutte le epoche).
+ * Dedup via SiteDocument economyEpoch: una sola wipe per transizione verso targetEpoch.
+ */
+async function wipeFactionEconomyBanks(eventKey?, targetEpoch?) {
+  const key = normalizeId(eventKey) || ADVENT_EVENT_KEY;
+  const epoch = normalizeId(targetEpoch) || EPOCHS.CLONE_WARS;
+  const dedupe = `sw_economy_epoch_${key}`;
+  const existing = await SiteDocument.findOne({ docType: DOC_TYPE, ownerId: OWNER, dedupeKey: dedupe })
+    .lean()
+    .catch(() => null);
+  if (normalizeId(existing?.payload?.economyEpoch) === epoch) {
+    return { ok: true, skipped: true, economyEpoch: epoch };
+  }
+
+  const { getFactionBank, saveFactionBank } = require("./starWarsEconomyService") as typeof import("./starWarsEconomyService");
+  const factionIds = new Set<string>();
+  for (const list of Object.values(EPOCH_FACTIONS || {})) {
+    for (const fid of list || []) {
+      const f = normalizeId(fid);
+      if (f) factionIds.add(f);
+    }
+  }
+  for (const fid of factionIds) {
+    const bank = await getFactionBank(key, fid);
+    bank.credits = 0;
+    bank.units = {};
+    await saveFactionBank(key, fid, bank);
+  }
+
+  await SiteDocument.findOneAndUpdate(
+    { docType: DOC_TYPE, ownerId: OWNER, dedupeKey: dedupe },
+    {
+      $set: {
+        payload: { economyEpoch: epoch, wipedAt: new Date().toISOString() },
+        updatedAt: new Date(),
+      },
+      $setOnInsert: { docType: DOC_TYPE, ownerId: OWNER, dedupeKey: dedupe, guildId: "0" },
+    },
+    { upsert: true },
+  ).catch(() => null);
+
+  return { ok: true, skipped: false, economyEpoch: epoch, factions: [...factionIds] };
+}
+
+/**
  * Allinea wallet.epoch + factionId all'epoca corrente del calendario.
- * A ogni nuova fase (epoca) i crediti evento tornano a 0.
+ * A ogni nuova fase (epoca): crediti e esercito personale a 0; banche fazione azzerate (una volta).
  * Idempotente; chiamato da status API / shop.
  */
 async function ensureEpochAlignment(client, { guildId, userId }) {
@@ -70,7 +115,7 @@ async function ensureEpochAlignment(client, { guildId, userId }) {
   const wallet = await getStarWarsWallet(g, u, eventKey);
 
   const prevEpoch = normalizeId(wallet.epoch) || null;
-  /* Crediti evento a 0 a ogni cambio fase (epoca precedente → nuova). */
+  /* Crediti + esercito a 0 a ogni cambio fase (epoca precedente → nuova). */
   const epochChanged = Boolean(prevEpoch) && prevEpoch !== targetEpoch;
   const nextFaction = wallet.factionId ? remapFactionId(wallet.factionId, targetEpoch) : null;
   const factionChanged = Boolean(wallet.factionId) && nextFaction !== wallet.factionId;
@@ -80,13 +125,20 @@ async function ensureEpochAlignment(client, { guildId, userId }) {
     return { ok: true, wallet, remapped: false, creditsReset: false };
   }
 
+  if (epochChanged) {
+    await wipeFactionEconomyBanks(eventKey, targetEpoch).catch(() => null);
+  }
+
   const $set: Record<string, any> = {
     [`${ROOT}.epoch`]: targetEpoch,
     [`${ROOT}.updatedAt`]: new Date().toISOString(),
     [`${ROOT}.eventKey`]: eventKey,
   };
   if (nextFaction) $set[`${ROOT}.factionId`] = nextFaction;
-  if (epochChanged) $set[`${ROOT}.credits`] = 0;
+  if (epochChanged) {
+    $set[`${ROOT}.credits`] = 0;
+    $set[`${ROOT}.army`] = {};
+  }
 
   const updated = await ActivityUserProfile.findOneAndUpdate(
     { guildId: g, userId: u },
@@ -101,6 +153,7 @@ async function ensureEpochAlignment(client, { guildId, userId }) {
     wallet: publicWallet(updated?.profile?.events?.starwars, eventKey),
     remapped: factionChanged,
     creditsReset: epochChanged,
+    armyReset: epochChanged,
     from: wallet.factionId,
     to: nextFaction,
     epoch: targetEpoch,
@@ -342,6 +395,7 @@ export = {
   FACTION_REMAP,
   remapFactionId,
   ensureEpochAlignment,
+  wipeFactionEconomyBanks,
   getPeiLeaderboard,
   getUserPeiRanks,
   getOrSpawnTraditore,

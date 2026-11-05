@@ -98,6 +98,11 @@ function canParticipateMember(client?, member?) {
   return flags.publicEnabled && flags.publicOpen;
 }
 
+/** Wallet smistato = ha factionId (quiz smistamento completato). */
+function hasStarWarsFaction(wallet?) {
+  return Boolean(String(wallet?.factionId || "").trim());
+}
+
 export = {
   FEATURES,
   getRuntimeFlags,
@@ -106,5 +111,6 @@ export = {
   canAutoSpawnFeature,
   isHighStaffMember,
   canParticipateMember,
+  hasStarWarsFaction,
   getMainGuildIdSafe,
 };

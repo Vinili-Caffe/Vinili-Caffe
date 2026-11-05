@@ -11,6 +11,7 @@ const { ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/com
 const { isValidGuildUserId } = require(__eventCoreVinili("../shared/db/validateWriteIds"));
 const { resolveStarWarsEventConfig } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
 const { CRATE_LABELS, ADVENT_EVENT_KEY } = require("../../Utils/Eventi/starWarsAdventCatalog") as typeof import("../../Utils/Eventi/starWarsAdventCatalog");
+const { hasStarWarsFaction } = require("../../Utils/Eventi/starWarsRuntimeGate") as typeof import("../../Utils/Eventi/starWarsRuntimeGate");
 const {
   getStarWarsWallet,
   publicWallet,
@@ -62,6 +63,16 @@ async function grantStarWarsReward(
   const cfg = resolveStarWarsEventConfig(client);
   const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
   if (!isValidGuildUserId(g, u)) return { ok: false, error: "bad_ids" };
+
+  const sortedWallet = await getStarWarsWallet(g, u, eventKey);
+  if (!hasStarWarsFaction(sortedWallet)) {
+    return {
+      ok: false,
+      error: "not_sorted",
+      message: "Devi prima smistarti.",
+      wallet: sortedWallet,
+    };
+  }
 
   let gnt = grant && typeof grant === "object" ? { ...grant } : {};
   let huttApplied = false;

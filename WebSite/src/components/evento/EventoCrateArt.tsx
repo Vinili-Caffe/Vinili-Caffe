@@ -11,7 +11,7 @@ import { cdnUrl } from "@/lib/site";
 
 export type CrateTint = { face: string; lid: string; glow: string; accent: string };
 
-const CRATE_IMG_V = "20261104cr8";
+const CRATE_IMG_V = "20261105cr17";
 
 const CRATE_TINT: Record<string, CrateTint> = {
   omega: { face: "#c9a227", lid: "#f0d78c", glow: "rgba(201,162,39,0.75)", accent: "#ffe9a0" },
@@ -21,7 +21,8 @@ const CRATE_TINT: Record<string, CrateTint> = {
   militare: { face: "#475569", lid: "#94a3b8", glow: "rgba(148,163,184,0.55)", accent: "#e2e8f0" },
   militare_plus: { face: "#64748b", lid: "#cbd5e1", glow: "rgba(203,213,225,0.6)", accent: "#f8fafc" },
   militare_op: { face: "#be123c", lid: "#fb7185", glow: "rgba(225,29,72,0.7)", accent: "#fecdd3" },
-  casuale: { face: "#c2410c", lid: "#fdba74", glow: "rgba(249,115,22,0.65)", accent: "#fed7aa" },
+  stellare: { face: "#c2410c", lid: "#fdba74", glow: "rgba(249,115,22,0.65)", accent: "#fed7aa" },
+  cosmica: { face: "#9a3412", lid: "#f87171", glow: "rgba(220,38,38,0.7)", accent: "#fecaca" },
   lunare: { face: "#64748b", lid: "#bfdbfe", glow: "rgba(147,197,253,0.65)", accent: "#e0f2fe" },
   solare: { face: "#ea580c", lid: "#fbbf24", glow: "rgba(251,191,36,0.75)", accent: "#fde68a" },
   planetario: { face: "#0f766e", lid: "#2dd4bf", glow: "rgba(45,212,191,0.65)", accent: "#99f6e4" },
@@ -32,7 +33,7 @@ const CRATE_TINT: Record<string, CrateTint> = {
 const CRATE_IDS_WITH_ART = new Set(Object.keys(CRATE_TINT));
 
 export function crateTint(id: string): CrateTint {
-  return CRATE_TINT[id] || CRATE_TINT.casuale!;
+  return CRATE_TINT[id] || CRATE_TINT.stellare!;
 }
 
 export function crateArtUrl(crateId: string, open = false): string {

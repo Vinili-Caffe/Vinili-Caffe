@@ -5,7 +5,7 @@ import { COPYRIGHT_HREF, LEGAL, NAV_GROUPS, SOCIAL_LINKS } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { NavIcon } from "@/lib/nav-icons";
-import { EVENTO_BRAND, eventoNavForViewer } from "@/lib/evento-starwars";
+import { EVENTO_BRAND, eventoEventiNavForViewer, eventoPrimaryNavForViewer } from "@/lib/evento-starwars";
 import { DiscordButton } from "./DiscordButton";
 import { SmartLink } from "./SmartLink";
 import { Reveal } from "./Reveal";
@@ -14,6 +14,7 @@ import { FooterStatusLink } from "./FooterStatusLink";
 import { footerUnderlineClass } from "./NavUnderline";
 import { useEventoChrome } from "./evento/EventoChrome";
 import { useEventoStaffAccess } from "./evento/EventoAccessGate";
+import { useEventoSortGate } from "./evento/EventoSortContext";
 
 function pathActive(pathname: string, href: string) {
   const p = pathname.endsWith("/") ? pathname : `${pathname}/`;
@@ -54,11 +55,14 @@ export function Footer() {
   const year = new Date().getFullYear();
   const eventoChrome = useEventoChrome();
   const { ready: eventoReady, access: eventoAccess } = useEventoStaffAccess();
-  const eventoLinks = eventoChrome && eventoReady ? eventoNavForViewer(eventoAccess) : [];
+  const { needsSort: eventoNeedsSort } = useEventoSortGate();
+  const eventoPrimary = eventoChrome && eventoReady ? eventoPrimaryNavForViewer(eventoAccess) : [];
+  const eventoEventi =
+    eventoChrome && eventoReady && !eventoNeedsSort ? eventoEventiNavForViewer(eventoAccess) : [];
   const eventoCols = [
-    { title: EVENTO_BRAND, links: eventoLinks.slice(0, 4) },
-    { title: "Attività", links: eventoLinks.slice(4) },
-  ];
+    { title: EVENTO_BRAND, links: eventoPrimary },
+    { title: "Eventi", links: eventoEventi },
+  ].filter((c) => c.links.length);
   return (
     <footer
       data-vc-float-cover="footer"

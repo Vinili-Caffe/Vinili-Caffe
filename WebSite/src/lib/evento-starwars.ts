@@ -67,6 +67,8 @@ export type EventoNavItem = {
   publicFromOpen?: boolean;
   /** Se true, richiede anche la finestra feature (mezzogiorno). */
   featureGated?: boolean;
+  /** Voce sotto dropdown “Eventi” (Accademia/Gara/Miniera/Puzzle). */
+  eventiMenu?: boolean;
 };
 
 /** Finestre Rome `YYYY-MM-DDTHH:mm` — end esclusivo; null = non chiude. */
@@ -80,7 +82,8 @@ const FEATURE_WINDOWS: Partial<Record<EventoPageId, FeatureWindow[]>> = {
   puzzle: [{ start: "2027-02-03T12:00", end: "2027-02-08T12:00" }],
 };
 
-/** Nav hub evento (puzzle solo da qui → `/puzzle/`, non in menu Giochi). */
+/** Nav hub evento (puzzle solo da qui → `/puzzle/`, non in menu Giochi).
+ *  Smistamento non è più una voce: obbligatorio all’ingresso hub. */
 export const EVENTO_NAV: EventoNavItem[] = [
   {
     id: "hub",
@@ -90,20 +93,13 @@ export const EVENTO_NAV: EventoNavItem[] = [
     publicFromOpen: true,
   },
   {
-    id: "smistamento",
-    href: page("/evento/smistamento/"),
-    label: "Smistamento",
-    teaser: "Scegli la tua fazione: Repubblica o Separatisti.",
-    publicFromOpen: true,
-    featureGated: true,
-  },
-  {
     id: "accademia",
     href: page("/evento/accademia/"),
     label: "Accademia",
     teaser: "Prove a tempo: mira e colpisci i bersagli sul sito.",
     publicFromOpen: true,
     featureGated: true,
+    eventiMenu: true,
   },
   {
     id: "gara",
@@ -112,6 +108,7 @@ export const EVENTO_NAV: EventoNavItem[] = [
     teaser: "Podracing Championship — scelta sguscio e gare.",
     publicFromOpen: true,
     featureGated: true,
+    eventiMenu: true,
   },
   {
     id: "miniera",
@@ -120,6 +117,7 @@ export const EVENTO_NAV: EventoNavItem[] = [
     teaser: "Estrazione Kyber — cristalli giornalieri.",
     publicFromOpen: true,
     featureGated: true,
+    eventiMenu: true,
   },
   {
     id: "puzzle",
@@ -128,6 +126,7 @@ export const EVENTO_NAV: EventoNavItem[] = [
     teaser: "Puzzle di Kessel — pezzi da ricomporre.",
     publicFromOpen: true,
     featureGated: true,
+    eventiMenu: true,
   },
 ];
 
@@ -206,10 +205,27 @@ export function canShowEventoAvventoOnHub(
 export function isEventoFeatureUnlocked(pageId: EventoPageId, now = new Date()): boolean {
   if (pageId === "hub") return true;
   if (pageId === "avvento") return isEventoAvventoSeasonOpen(now);
+  if (pageId === "smistamento") {
+    const windows = FEATURE_WINDOWS.smistamento;
+    if (!windows?.length) return true;
+    const stamp = romeStamp(now);
+    return windows.some((w) => stamp >= w.start && (w.end == null || stamp < w.end));
+  }
   const windows = FEATURE_WINDOWS[pageId];
   if (!windows?.length) return true;
   const stamp = romeStamp(now);
   return windows.some((w) => stamp >= w.start && (w.end == null || stamp < w.end));
+}
+
+/** Feature già conclusa (niente blur: sparisce dal menu). Prima dell’apertura → false. */
+export function isEventoFeatureEnded(pageId: EventoPageId, now = new Date()): boolean {
+  if (pageId === "hub" || pageId === "smistamento") return false;
+  if (pageId === "avvento") return isEventoAvventoEnded(now);
+  const windows = FEATURE_WINDOWS[pageId];
+  if (!windows?.length) return false;
+  const stamp = romeStamp(now);
+  const activeOrUpcoming = windows.some((w) => w.end == null || stamp < w.end);
+  return !activeOrUpcoming;
 }
 
 export function isEventoPagePublic(pageId: EventoPageId): boolean {
@@ -247,7 +263,7 @@ export function canSeeEventoInNav(
 
 export type EventoNavItemView = EventoNavItem & { locked: boolean };
 
-/** Tutte le voci evento: locked=true se feature chiusa (HS vede sbloccato). */
+/** Tutte le voci evento: blur se non ancora aperte; spariscono a fine finestra (HS le tiene). */
 export function eventoNavForViewer(
   access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
   now = new Date(),
@@ -260,6 +276,24 @@ export function eventoNavForViewer(
   }).filter((item) => {
     if (hs) return true;
     if (!pub) return false;
-    return Boolean(item.publicFromOpen);
+    if (!item.publicFromOpen) return false;
+    if (isEventoFeatureEnded(item.id, now)) return false;
+    return true;
   });
+}
+
+/** Hub (+ eventuali voci top-level, senza dropdown Eventi). */
+export function eventoPrimaryNavForViewer(
+  access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
+  now = new Date(),
+): EventoNavItemView[] {
+  return eventoNavForViewer(access, now).filter((item) => !item.eventiMenu);
+}
+
+/** Accademia / Gara / Miniera / Puzzle → dropdown “Eventi”. */
+export function eventoEventiNavForViewer(
+  access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
+  now = new Date(),
+): EventoNavItemView[] {
+  return eventoNavForViewer(access, now).filter((item) => item.eventiMenu);
 }

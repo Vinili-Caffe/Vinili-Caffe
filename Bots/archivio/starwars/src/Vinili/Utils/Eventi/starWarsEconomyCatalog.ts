@@ -22,20 +22,20 @@ const CLONE_WARS_UNITS = Object.freeze([
 
 const CIVIL_WAR_UNITS = Object.freeze([
   { id: "ribelli_storm", tier: 1, type: "terra", power: 1, cost: 100000, labels: { ribellione: "Ribelli", impero: "Stormtrooper" } },
-  { id: "atte_aat_cw", tier: 1, type: "terra", power: 2, cost: 200000, labels: { ribellione: "AT-TE", impero: "AAT" } },
-  { id: "ywings_tie", tier: 1, type: "aria", power: 3, cost: 300000, labels: { ribellione: "BTL Y-Wings", impero: "TIE" } },
-  { id: "htt_itt", tier: 2, type: "terra", power: 4, cost: 400000, labels: { ribellione: "HTT", impero: "ITT" } },
-  { id: "xwing_interceptor", tier: 2, type: "aria", power: 5, cost: 500000, labels: { ribellione: "T-65 X-Wing", impero: "TIE Interceptor" } },
-  { id: "gr75_gozanti", tier: 2, type: "aria", power: 6, cost: 600000, labels: { ribellione: "GR-75", impero: "Gozanti" } },
-  { id: "mc80_imperial", tier: 3, type: "aria", power: 7, cost: 700000, labels: { ribellione: "MC80", impero: "Imperial I" } },
+  { id: "atte_aat_cw", tier: 2, type: "terra", power: 2, cost: 200000, labels: { ribellione: "AT-TE", impero: "AAT" } },
+  { id: "ywings_tie", tier: 2, type: "aria", power: 3, cost: 300000, labels: { ribellione: "BTL Y-Wings", impero: "TIE" } },
+  { id: "htt_itt", tier: 3, type: "terra", power: 4, cost: 400000, labels: { ribellione: "HTT", impero: "ITT" } },
+  { id: "xwing_interceptor", tier: 3, type: "aria", power: 5, cost: 500000, labels: { ribellione: "T-65 X-Wing", impero: "TIE Interceptor" } },
+  { id: "gr75_gozanti", tier: 4, type: "aria", power: 6, cost: 600000, labels: { ribellione: "GR-75", impero: "Gozanti" } },
+  { id: "mc80_imperial", tier: 4, type: "aria", power: 7, cost: 700000, labels: { ribellione: "MC80", impero: "Imperial I" } },
 ]);
 
 const SEQUEL_UNITS = Object.freeze([
-  { id: "ribelli_storm_sq", tier: 1, type: "terra", power: 1, cost: 100000, labels: { nuova_repubblica: "Ribelli", nuovo_ordine: "Stormtrooper" } },
-  { id: "colonnello", tier: 1, type: "terra", power: 2, cost: 200000, labels: { nuova_repubblica: "Colonnello", nuovo_ordine: "Colonnello" } },
-  { id: "generale", tier: 1, type: "terra", power: 3, cost: 300000, labels: { nuova_repubblica: "Generale", nuovo_ordine: "Generale" } },
-  { id: "ewings_tie_ssf", tier: 2, type: "aria", power: 5, cost: 500000, labels: { nuova_repubblica: "E-Wings", nuovo_ordine: "TIE SSF" } },
-  { id: "endurance_resurgent", tier: 2, type: "aria", power: 6, cost: 600000, labels: { nuova_repubblica: "Endurance", nuovo_ordine: "Resurgent" } },
+  { id: "ribelli_storm_sq", tier: 1, type: "terra", power: 1, cost: 100000, labels: { nuova_repubblica: "Repubblicano", nuovo_ordine: "Assaltatore" } },
+  { id: "colonnello", tier: 2, type: "terra", power: 2, cost: 200000, labels: { nuova_repubblica: "Colonnello", nuovo_ordine: "Capitano" } },
+  { id: "generale", tier: 3, type: "terra", power: 3, cost: 300000, labels: { nuova_repubblica: "Generale", nuovo_ordine: "Generale" } },
+  { id: "ewings_tie_ssf", tier: 4, type: "aria", power: 5, cost: 500000, labels: { nuova_repubblica: "E-Wings", nuovo_ordine: "TIE SSF" } },
+  { id: "endurance_resurgent", tier: 4, type: "aria", power: 6, cost: 600000, labels: { nuova_repubblica: "Endurance", nuovo_ordine: "Resurgent" } },
 ]);
 
 const EPOCH_FACTIONS = Object.freeze({

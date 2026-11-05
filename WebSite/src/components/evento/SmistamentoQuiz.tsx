@@ -21,7 +21,7 @@ import {
 } from "@/components/evento/EventoUi";
 
 /** Quiz smistamento Repubblica / Separatisti. */
-export function SmistamentoQuiz() {
+export function SmistamentoQuiz({ onSorted }: { onSorted?: () => void } = {}) {
   const { token, ready, login } = useAuth();
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState<EventoSortingQuestion[]>([]);
@@ -74,6 +74,7 @@ export function SmistamentoQuiz() {
     }
     setDone(out.factionMeta || null);
     showToast(`Sei stato smistato in ${out.factionMeta?.label || out.factionId}.`);
+    window.setTimeout(() => onSorted?.(), 900);
   }
 
   if (loading) return <EventoSkeleton className="mx-auto max-w-xl px-6" />;

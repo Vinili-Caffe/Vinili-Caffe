@@ -5,8 +5,7 @@ import { fetchEventoStatus, type EventoStatus } from "@/lib/evento-api";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { EventoPanel } from "@/components/evento/EventoUi";
 import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
-import { SmartLink } from "@/components/SmartLink";
-import { cdnUrl, page } from "@/lib/site";
+import { cdnUrl } from "@/lib/site";
 import { cn } from "@/lib/cn";
 
 const FACTION_ICON_V = "20261104ri2";
@@ -129,14 +128,7 @@ export function EventoHubStatus() {
                           {factionName}
                         </span>
                       </span>
-                    ) : (
-                      <SmartLink
-                        href={page("/evento/smistamento/")}
-                        className="rounded-full bg-crema/10 px-3 py-1 text-xs font-semibold text-caramel ring-1 ring-sand/25 hover:bg-crema/15"
-                      >
-                        Vai allo smistamento
-                      </SmartLink>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>

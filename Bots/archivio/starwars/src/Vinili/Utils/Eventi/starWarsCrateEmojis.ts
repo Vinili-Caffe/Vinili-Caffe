@@ -23,13 +23,17 @@ const CRATE_EMOJI_IDS = Object.freeze([
   "militare",
   "militare_plus",
   "militare_op",
-  "casuale",
+  "stellare",
+  "cosmica",
 ]);
 
 function normalizeCrateId(crateId?) {
-  return String(crateId || "")
+  const id = String(crateId || "")
     .trim()
     .toLowerCase();
+  if (id === "casuale") return "stellare";
+  if (id === "casuale_2") return "cosmica";
+  return id;
 }
 
 /** Emoji cassa: closed di default (premio da vincere / inventario); open dopo claim. */

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useLayoutEffect, type ReactNode } from "react";
+import { EventoSortProvider } from "@/components/evento/EventoSortContext";
 
 const Ctx = createContext(false);
 
@@ -13,7 +14,7 @@ export function EventoChromeProvider({ active, children }: { active: boolean; ch
     else root.removeAttribute("data-vc-evento");
     return () => root.removeAttribute("data-vc-evento");
   }, [active]);
-  return (
+  const body = (
     <Ctx.Provider value={active}>
       {active ? (
         <script
@@ -25,6 +26,7 @@ export function EventoChromeProvider({ active, children }: { active: boolean; ch
       {children}
     </Ctx.Provider>
   );
+  return active ? <EventoSortProvider>{body}</EventoSortProvider> : body;
 }
 
 export function useEventoChrome() {

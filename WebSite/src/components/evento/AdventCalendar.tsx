@@ -147,7 +147,7 @@ function DoorFace({
                 claimed ? "opacity-100" : missed ? "opacity-35" : "opacity-90",
               )}
               style={{
-                background: `linear-gradient(160deg, ${crateTint(crateId || "casuale").lid}, ${crateTint(crateId || "casuale").face})`,
+                background: `linear-gradient(160deg, ${crateTint(crateId || "stellare").lid}, ${crateTint(crateId || "stellare").face})`,
                 boxShadow: isToday ? "0 0 14px -2px rgba(46,168,255,0.55)" : "0 4px 10px rgba(0,0,0,0.35)",
               }}
             >

@@ -75,6 +75,22 @@ async function handleMinigameMessage(message?, client?) {
     await closeStaleActiveMinigameChannel(client, cfg, chId, game, message.channel);
     return false;
   }
+
+  /* Evento SW: senza smistamento non si participa ai minigame in rotazione. */
+  if (baseCfg.starWarsEventLive) {
+    try {
+      const {
+        isStarWarsSortedParticipant,
+        UNSORTED_MG_MSG,
+      } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService");
+      const ok = await isStarWarsSortedParticipant(client || message.client, message.guildId, message.author?.id);
+      if (!ok) {
+        await message.reply(UNSORTED_MG_MSG).catch(() => null);
+        return true;
+      }
+    } catch (_) {}
+  }
+
   if (game.hadParticipation === undefined) game.hadParticipation = false;
   game.hadParticipation = true;
 

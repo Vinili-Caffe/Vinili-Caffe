@@ -38,7 +38,7 @@ const FALLBACK_LABELS: Record<string, string> = {
 };
 
 const FALLBACK_BLURBS: Record<string, string> = {
-  bacta: "Cura il 5% dell'esercito personale (solo truppe).",
+  bacta: "Si usa solo in attacco: cura il 5% dell'esercito quando schieri le truppe.",
   festival_ancestors: "Crediti ed exp doppi dai voti per 24 ore.",
   riciclaggio_hutt: "+10% crediti dai minigames per 24 ore.",
   sconto_mercato_nero: "Shop al −20% per 24 ore.",
@@ -331,11 +331,22 @@ export function EventoInventoryPanel() {
                     </div>
                     <button
                       type="button"
-                      disabled={r.qty < 1 || Boolean(busy) || (buffOn && r.id !== "bacta")}
+                      disabled={
+                        r.id === "bacta" ||
+                        r.qty < 1 ||
+                        Boolean(busy) ||
+                        (buffOn && r.id !== "bacta")
+                      }
                       onClick={() => void useOne(r.id)}
                       className="mt-3 w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2 text-sm font-semibold text-ink disabled:opacity-40"
                     >
-                      {loading ? "…" : buffOn && r.id !== "bacta" ? "Già attivo" : "Usa"}
+                      {loading
+                        ? "…"
+                        : r.id === "bacta"
+                          ? "Solo in attacco"
+                          : buffOn
+                            ? "Già attivo"
+                            : "Usa"}
                     </button>
                   </li>
                 );

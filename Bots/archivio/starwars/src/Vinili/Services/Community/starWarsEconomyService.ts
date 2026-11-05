@@ -112,6 +112,8 @@ async function resolveBattleForHour(eventKey?, leftId?, rightId?, epoch?, hourKe
   const rightAttack = rightStance === "attack";
 
   if (!leftAttack && !rightAttack) {
+    left.units = {};
+    right.units = {};
     left.resolvedHour = hourKey;
     right.resolvedHour = hourKey;
     await saveFactionBank(eventKey, leftId, left);
@@ -121,7 +123,7 @@ async function resolveBattleForHour(eventKey?, leftId?, rightId?, epoch?, hourKe
       hourKey,
       mode: "standoff",
       winner: null,
-      message: "Nessuna delle due fazioni ha attaccato: niente perdite.",
+      message: "Nessuna delle due fazioni ha attaccato: le truppe di entrambe sono state perse.",
     };
   }
 
@@ -312,7 +314,7 @@ async function buyUnit(client, { guildId, userId, unitId, qty = 1 }) {
   };
 }
 
-async function attackFaction(client, { guildId, userId, defend = false }) {
+async function attackFaction(client, { guildId, userId, defend = false, useBacta = false }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   const cfg = resolveStarWarsEventConfig(client);
@@ -342,6 +344,55 @@ async function attackFaction(client, { guildId, userId, defend = false }) {
     };
   }
 
+  let bactaUsed = false;
+  let bactaHealed = null;
+  if (useBacta && !defend) {
+    const { computeBactaHeal } = require("./starWarsUtilityItemsService") as typeof import("./starWarsUtilityItemsService");
+    const itemPath = `${ROOT}.items.bacta`;
+    const bactaQty = safeInt(wallet?.items?.bacta);
+    if (bactaQty < 1) {
+      return {
+        ok: false,
+        status: 409,
+        error: "no_bacta",
+        message: "Non hai Bacta da usare in attacco.",
+      };
+    }
+    const heal = computeBactaHeal(wallet?.army);
+    if (!heal.hadArmy) {
+      return {
+        ok: false,
+        status: 409,
+        error: "no_army",
+        message: "Non hai truppe nell'esercito da curare con Bacta.",
+      };
+    }
+    const nowIso = new Date().toISOString();
+    const $set: Record<string, any> = {
+      [`${ROOT}.eventKey`]: eventKey,
+      [`${ROOT}.updatedAt`]: nowIso,
+    };
+    for (const [unitId, n] of Object.entries(heal.after)) {
+      $set[`${ROOT}.army.${unitId}`] = n;
+    }
+    const updated = await ActivityUserProfile.findOneAndUpdate(
+      { guildId: g, userId: u, [itemPath]: { $gte: 1 } },
+      { $inc: { [itemPath]: -1 }, $set },
+      { new: true },
+    ).catch(() => null);
+    if (!updated) {
+      return { ok: false, status: 409, error: "no_bacta", message: "Non hai Bacta da usare in attacco." };
+    }
+    /* Sync healed deltas into faction bank */
+    myBank = await getFactionBank(eventKey, myId);
+    for (const [unitId, gain] of Object.entries(heal.healed)) {
+      const add = safeInt(gain);
+      if (add > 0) myBank.units[unitId] = safeInt(myBank.units[unitId]) + add;
+    }
+    bactaUsed = true;
+    bactaHealed = heal.healed;
+  }
+
   const stance = defend ? "defend" : "attack";
   myBank.stance = stance;
   myBank.stanceHour = hourKey;
@@ -359,6 +410,8 @@ async function attackFaction(client, { guildId, userId, defend = false }) {
       pending: true,
       hourKey,
       stance,
+      bactaUsed,
+      bactaHealed,
       message: defend
         ? "Difesa dichiarata. Se l'avversario attacca quest'ora, terrrete il 70% delle truppe."
         : "Attacco dichiarato. In attesa della scelta avversaria quest'ora.",
@@ -396,6 +449,8 @@ async function attackFaction(client, { guildId, userId, defend = false }) {
     myPowerHidden: true,
     mySurviving: fresh.units,
     enemySurvivingHidden: true,
+    bactaUsed,
+    bactaHealed,
     message,
   };
 }

@@ -40,12 +40,14 @@ import { ThemePrefRow } from "./ThemeToggle";
 import { ViewAsLaunch, useViewAsChrome } from "./view-as/ViewAsChrome";
 import { useDeviceFx } from "./effects/DeviceFxProvider";
 import {
-  eventoNavForViewer,
+  eventoEventiNavForViewer,
+  eventoPrimaryNavForViewer,
   isEventoHighStaff,
   isEventoPublicWindowOpen,
   type EventoNavItemView,
 } from "@/lib/evento-starwars";
 import { useEventoChrome } from "./evento/EventoChrome";
+import { useEventoSortGate } from "./evento/EventoSortContext";
 import { ContestNavPill } from "./contest/ContestNavPill";
 
 function canHoverNav() {
@@ -129,6 +131,123 @@ function eventoLinkActive(pathname: string, href: string, id: string) {
   if (id === "hub" || h === "/evento/") return p === "/evento/";
   if (h === "/puzzle/") return p === "/puzzle/" || p.startsWith("/puzzle/");
   return p === h || p.startsWith(h);
+}
+
+/** Dropdown “Eventi” (Accademia / Gara / Miniera / Puzzle) — blur se locked. */
+function EventoEventiDrop({ items, soon }: { items: EventoNavItemView[]; soon: string }) {
+  const pathname = usePathname() || "/";
+  const [hover, setHover] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const uid = useId();
+  const open = hover || pinned;
+  const groupActive = items.some((l) => !l.locked && eventoLinkActive(pathname, l.href, l.id));
+
+  const collapse = useCallback(() => {
+    setHover(false);
+    setPinned(false);
+  }, []);
+
+  useExclusiveNavDrop(uid, collapse);
+
+  useEffect(() => {
+    setChromeOpen(`navdrop-${uid}`, open);
+    return () => setChromeOpen(`navdrop-${uid}`, false);
+  }, [open, uid]);
+
+  useEffect(() => {
+    if (open) claimNavDrop(uid);
+  }, [open, uid]);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) collapse();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && collapse();
+    document.addEventListener("mousedown", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, collapse]);
+
+  useCloseOnScroll(pinned, collapse);
+
+  if (!items.length) return null;
+
+  return (
+    <div
+      ref={box}
+      className="relative"
+      onMouseEnter={() => {
+        if (!canHoverNav()) return;
+        claimNavDrop(uid);
+        setHover(true);
+      }}
+      onMouseLeave={() => setHover(false)}
+    >
+      <button
+        type="button"
+        onClick={() => {
+          setPinned((p) => {
+            const next = !p;
+            if (next) claimNavDrop(uid);
+            return next;
+          });
+        }}
+        aria-expanded={open}
+        className={navUnderlineClass(groupActive)}
+      >
+        <Sparkles className="size-3.5 shrink-0 opacity-75" aria-hidden />
+        Eventi
+        <ChevronDown className={cn("size-3.5 opacity-60 transition-transform", open && "rotate-180")} aria-hidden />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-1/2 top-full z-[70] mt-1 min-w-[14rem] -translate-x-1/2 origin-top overflow-hidden rounded-2xl bg-roast/95 p-1.5 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] ring-1 ring-sand/15 backdrop-blur-xl"
+          >
+            <ul className="py-0.5">
+              {items.map((l) => {
+                const on = eventoLinkActive(pathname, l.href, l.id);
+                const ico = <EventoNavIcon id={l.id} />;
+                return (
+                  <li key={l.href}>
+                    {l.locked ? (
+                      <SoonNavItem
+                        label={l.label}
+                        soon={soon}
+                        icon={ico}
+                        className="justify-start rounded-xl px-3 py-2 text-sm font-medium text-crema/45"
+                      />
+                    ) : (
+                      <SmartLink
+                        href={l.href}
+                        onClick={collapse}
+                        className={cn(
+                          "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                          on ? "bg-caramel/12 text-ember" : "text-crema/80 hover:bg-crema/8 hover:text-crema",
+                        )}
+                      >
+                        {ico}
+                        {l.label}
+                      </SmartLink>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 function NavDrop({
@@ -439,9 +558,12 @@ export function Navbar() {
   const [highStaff, setHighStaff] = useState(false);
   const [staffAccess, setStaffAccess] = useState<StaffAccess | null>(null);
   const eventoChrome = useEventoChrome();
+  const { needsSort: eventoNeedsSort } = useEventoSortGate();
   const eventoNavOpen = isEventoPublicWindowOpen();
-  /* Dentro lo shell evento: feature chiuse → blur (HS vede tutto sbloccato). */
-  const eventoLinks: EventoNavItemView[] = eventoChrome ? eventoNavForViewer(staffAccess) : [];
+  /* Dentro lo shell evento: Hub top-level + dropdown Eventi; feature finite spariscono. */
+  const eventoPrimary: EventoNavItemView[] = eventoChrome ? eventoPrimaryNavForViewer(staffAccess) : [];
+  const eventoEventi: EventoNavItemView[] =
+    eventoChrome && !eventoNeedsSort ? eventoEventiNavForViewer(staffAccess) : [];
   const soon = t("auth.comingSoon");
   const headerRef = useRef<HTMLElement>(null);
   const navHidden = useAutoHideNav(headerRef, open);
@@ -520,7 +642,14 @@ export function Navbar() {
           <ul className="hidden items-center justify-self-center gap-0.5 lg:flex">
             {eventoChrome ? (
               <>
-                {eventoLinks.map((l) => (
+                <li>
+                  <SmartLink href={page("/")} className={navUnderlineClass(pathActive(pathname, page("/")))}>
+                    <EventoNavIcon id="sito" />
+                    Sito
+                  </SmartLink>
+                </li>
+                <li aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-crema/20" />
+                {eventoPrimary.map((l) => (
                   <li key={l.href}>
                     {l.locked ? (
                       <SoonNavItem
@@ -537,13 +666,11 @@ export function Navbar() {
                     )}
                   </li>
                 ))}
-                <li aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-crema/20" />
-                <li>
-                  <SmartLink href={page("/")} className={navUnderlineClass(pathActive(pathname, page("/")))}>
-                    <EventoNavIcon id="sito" />
-                    Sito
-                  </SmartLink>
-                </li>
+                {eventoEventi.length ? (
+                  <li>
+                    <EventoEventiDrop items={eventoEventi} soon={soon} />
+                  </li>
+                ) : null}
               </>
             ) : (
               <>
@@ -616,62 +743,109 @@ export function Navbar() {
 
             <div className="mx-auto max-w-6xl space-y-7 px-5 pb-10 pt-7 sm:px-6">
               {eventoChrome ? (
-                <motion.section
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <h3 className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">
-                    <EventoNavIcon id="hub" className="size-3 opacity-90" />
-                    Evento
-                  </h3>
-                  <ul className="grid grid-cols-2 gap-2">
-                    {eventoLinks.map((l) => {
-                      const on = eventoLinkActive(pathname, l.href, l.id);
-                      const ico = <EventoNavIcon id={l.id} />;
-                      return (
-                        <li key={l.href}>
-                          {l.locked ? (
-                            <SoonNavItem
-                              label={l.label}
-                              soon={soon}
-                              icon={ico}
-                              className="min-h-[3.1rem] flex-col gap-1 rounded-2xl bg-crema/[0.05] px-2.5 py-2.5 text-center text-sm font-semibold leading-snug text-crema/45 ring-1 ring-sand/12"
-                            />
-                          ) : (
-                            <SmartLink
-                              href={l.href}
-                              onClick={() => {
-                                window.setTimeout(() => setOpen(false), 0);
-                              }}
-                              className={cn(
-                                "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-[transform,background-color,color] duration-200 ease-out active:scale-[0.98]",
-                                on
-                                  ? "bg-caramel/15 text-ember ring-caramel/35"
-                                  : "bg-crema/[0.05] text-crema/90 ring-sand/12 hover:bg-crema/10",
+                <>
+                  <motion.section
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <h3 className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">
+                      Navigazione
+                    </h3>
+                    <ul className="grid grid-cols-2 gap-2">
+                      <li>
+                        <SmartLink
+                          href={page("/")}
+                          onClick={() => {
+                            window.setTimeout(() => setOpen(false), 0);
+                          }}
+                          className="flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl bg-crema/[0.05] px-2.5 py-2.5 text-center text-sm font-semibold leading-snug text-crema/90 ring-1 ring-sand/12 transition-[transform,background-color] duration-200 ease-out hover:bg-crema/10 active:scale-[0.98]"
+                        >
+                          <EventoNavIcon id="sito" />
+                          Sito
+                        </SmartLink>
+                      </li>
+                      {eventoPrimary.map((l) => {
+                        const on = eventoLinkActive(pathname, l.href, l.id);
+                        const ico = <EventoNavIcon id={l.id} />;
+                        return (
+                          <li key={l.href}>
+                            {l.locked ? (
+                              <SoonNavItem
+                                label={l.label}
+                                soon={soon}
+                                icon={ico}
+                                className="min-h-[3.1rem] flex-col gap-1 rounded-2xl bg-crema/[0.05] px-2.5 py-2.5 text-center text-sm font-semibold leading-snug text-crema/45 ring-1 ring-sand/12"
+                              />
+                            ) : (
+                              <SmartLink
+                                href={l.href}
+                                onClick={() => {
+                                  window.setTimeout(() => setOpen(false), 0);
+                                }}
+                                className={cn(
+                                  "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-[transform,background-color,color] duration-200 ease-out active:scale-[0.98]",
+                                  on
+                                    ? "bg-caramel/15 text-ember ring-caramel/35"
+                                    : "bg-crema/[0.05] text-crema/90 ring-sand/12 hover:bg-crema/10",
+                                )}
+                              >
+                                {ico}
+                                {l.label}
+                              </SmartLink>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </motion.section>
+                  {eventoEventi.length ? (
+                    <motion.section
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <h3 className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">
+                        <Sparkles className="size-3 opacity-90" aria-hidden />
+                        Eventi
+                      </h3>
+                      <ul className="grid grid-cols-2 gap-2">
+                        {eventoEventi.map((l) => {
+                          const on = eventoLinkActive(pathname, l.href, l.id);
+                          const ico = <EventoNavIcon id={l.id} />;
+                          return (
+                            <li key={l.href}>
+                              {l.locked ? (
+                                <SoonNavItem
+                                  label={l.label}
+                                  soon={soon}
+                                  icon={ico}
+                                  className="min-h-[3.1rem] flex-col gap-1 rounded-2xl bg-crema/[0.05] px-2.5 py-2.5 text-center text-sm font-semibold leading-snug text-crema/45 ring-1 ring-sand/12"
+                                />
+                              ) : (
+                                <SmartLink
+                                  href={l.href}
+                                  onClick={() => {
+                                    window.setTimeout(() => setOpen(false), 0);
+                                  }}
+                                  className={cn(
+                                    "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-[transform,background-color,color] duration-200 ease-out active:scale-[0.98]",
+                                    on
+                                      ? "bg-caramel/15 text-ember ring-caramel/35"
+                                      : "bg-crema/[0.05] text-crema/90 ring-sand/12 hover:bg-crema/10",
+                                  )}
+                                >
+                                  {ico}
+                                  {l.label}
+                                </SmartLink>
                               )}
-                            >
-                              {ico}
-                              {l.label}
-                            </SmartLink>
-                          )}
-                        </li>
-                      );
-                    })}
-                    <li>
-                      <SmartLink
-                        href={page("/")}
-                        onClick={() => {
-                          window.setTimeout(() => setOpen(false), 0);
-                        }}
-                        className="flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl bg-crema/[0.05] px-2.5 py-2.5 text-center text-sm font-semibold leading-snug text-crema/90 ring-1 ring-sand/12 transition-[transform,background-color] duration-200 ease-out hover:bg-crema/10 active:scale-[0.98]"
-                      >
-                        <EventoNavIcon id="sito" />
-                        Sito
-                      </SmartLink>
-                    </li>
-                  </ul>
-                </motion.section>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </motion.section>
+                  ) : null}
+                </>
               ) : (
                 NAV_MOBILE_SECTIONS.map((g, gi) => (
                 <motion.section

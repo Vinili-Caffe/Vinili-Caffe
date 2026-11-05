@@ -137,42 +137,12 @@ async function useStarWarsUtilityItem(
   const itemPath = `${ROOT}.items.${iid}`;
 
   if (iid === "bacta") {
-    const heal = computeBactaHeal(sw?.army);
-    if (!heal.hadArmy) {
-      return {
-        ok: false,
-        status: 409,
-        error: "no_army",
-        message: "Non hai truppe nell'esercito da curare.",
-        wallet: await getStarWarsWallet(g, u, eventKey),
-      };
-    }
-    const $inc = { [itemPath]: -1 };
-    const $set = {
-      [`${ROOT}.eventKey`]: eventKey,
-      [`${ROOT}.updatedAt`]: nowIso,
-    };
-    for (const [unitId, n] of Object.entries(heal.after)) {
-      $set[`${ROOT}.army.${unitId}`] = n;
-    }
-    const updated = await ActivityUserProfile.findOneAndUpdate(
-      { guildId: g, userId: u, [itemPath]: { $gte: 1 } },
-      { $inc, $set },
-      { new: true },
-    ).catch(() => null);
-    if (!updated) {
-      return { ok: false, status: 409, error: "no_item", message: "Non hai questo oggetto." };
-    }
     return {
-      ok: true,
-      status: 200,
-      itemId: iid,
-      label: UTILITY_ITEM_LABELS[iid],
-      effect: "bacta_heal",
-      healed: heal.healed,
-      totalHealed: heal.totalHealed,
-      message: `${formatUtilityMention("bacta")}: +${heal.totalHealed} truppe (5% esercito).`,
-      wallet: publicWallet(readRawSw(updated), eventKey),
+      ok: false,
+      status: 409,
+      error: "bacta_attack_only",
+      message: "Il Bacta si usa solo in attacco quando schieri le truppe.",
+      wallet: await getStarWarsWallet(g, u, eventKey),
     };
   }
 

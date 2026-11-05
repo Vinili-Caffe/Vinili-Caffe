@@ -18,7 +18,7 @@ const UTILITY_ITEM_LABELS = Object.freeze({
 });
 
 const UTILITY_ITEM_BLURBS = Object.freeze({
-  bacta: "Cura il 5% dell'esercito personale.",
+  bacta: "Si usa solo in attacco: cura il 5% dell'esercito quando schieri le truppe.",
   festival_ancestors: "Crediti ed exp doppi dai voti per 24 ore.",
   riciclaggio_hutt: "+10% crediti dai minigames per 24 ore.",
   sconto_mercato_nero: "Shop al −20% per 24 ore.",
@@ -29,7 +29,6 @@ const BUFF_DURATION_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Chance di trovare ANCHE un oggetto utility (oltre a crediti/exp o truppe).
- * Casuale: sempre 0 (solo crediti+exp).
  */
 const CRATE_ITEM_DROP_CHANCE = Object.freeze({
   alpha: 0.04,
@@ -44,7 +43,8 @@ const CRATE_ITEM_DROP_CHANCE = Object.freeze({
   militare: 0.02,
   militare_plus: 0.03,
   militare_op: 0.04,
-  casuale: 0,
+  stellare: 0.005,
+  cosmica: 0.005,
 });
 
 function normalizeId(v?) {

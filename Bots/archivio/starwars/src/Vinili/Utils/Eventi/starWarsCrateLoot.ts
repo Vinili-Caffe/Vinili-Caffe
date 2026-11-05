@@ -12,7 +12,8 @@ const TABLES = Object.freeze({
   nebulare: { credits: [460000, 500000], exp: [255000, 295000] },
   galattico: { credits: [500000, 530000], exp: [295000, 335000] },
   avvento: { credits: [5000, 55000], exp: [2500, 27500] },
-  casuale_pool: ["alpha", "beta", "omega", "avvento"],
+  stellare: { credits: [1000, 2000], exp: [100, 400] },
+  cosmica: { credits: [2000, 4000], exp: [400, 1700] },
   militare: { troopsTier1: 2 },
   militare_plus: { modes: ["t1_t2", "t3"] },
   militare_op: { modes: ["t2_t3", "t2_x2", "t1_t3", "t4"] },
@@ -43,7 +44,10 @@ function itemsFromRoll(crateId?) {
 }
 
 function resolveCrateId(crateId?) {
-  return String(crateId || "").trim();
+  const id = String(crateId || "").trim();
+  if (id === "casuale") return "stellare";
+  if (id === "casuale_2") return "cosmica";
+  return id;
 }
 
 /**
@@ -52,19 +56,16 @@ function resolveCrateId(crateId?) {
 function openCrateLoot(crateId?) {
   const id = resolveCrateId(crateId);
 
-  if (id === "casuale") {
-    const pool = TABLES.casuale_pool;
-    const tier = pool[Math.floor(Math.random() * pool.length)] || "alpha";
-    const table = TABLES[tier];
+  if (id === "stellare" || id === "cosmica") {
+    const table = TABLES[id];
     if (!table?.credits) return { ok: false, error: "unknown_crate" };
     const roll = rollCreditsAndExp(table);
     return {
       ok: true,
       resolvedCrate: id,
-      tier,
       ...roll,
       troops: null,
-      items: null,
+      items: itemsFromRoll(id),
       note: null,
     };
   }

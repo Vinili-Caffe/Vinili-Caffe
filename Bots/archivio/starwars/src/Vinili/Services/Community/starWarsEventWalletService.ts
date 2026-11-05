@@ -39,6 +39,14 @@ function normalizeId(v?) {
   return String(v || "").trim();
 }
 
+/** Legacy crate ids → current catalog ids. */
+function normalizeCrateKey(v?) {
+  const id = normalizeId(v);
+  if (id === "casuale") return "stellare";
+  if (id === "casuale_2") return "cosmica";
+  return id;
+}
+
 function safeInt(v?, fallback = 0) {
   const n = Math.floor(Number(v));
   return Number.isFinite(n) ? Math.max(0, n) : fallback;
@@ -54,6 +62,9 @@ function normalizeCrates(raw?) {
   const out = emptyCrates();
   if (!raw || typeof raw !== "object") return out;
   for (const id of CRATE_IDS) out[id] = safeInt(raw[id]);
+  // legacy rename: casuale → stellare, casuale_2 → cosmica
+  out.stellare = safeInt(out.stellare) + safeInt(raw.casuale);
+  out.cosmica = safeInt(out.cosmica) + safeInt(raw.casuale_2);
   return out;
 }
 
@@ -219,6 +230,42 @@ async function creditFactionBankUnits(eventKey?, factionId?, unitsMap?) {
   } catch (_) {}
 }
 
+/** Sposta casse legacy casuale/casuale_2 → stellare/cosmica in DB. */
+async function migrateLegacyCrateIds(guildId?, userId?) {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  if (!isValidGuildUserId(g, u)) return;
+  const casualePath = `${ROOT}.crates.casuale`;
+  const casuale2Path = `${ROOT}.crates.casuale_2`;
+  const doc = await ActivityUserProfile.findOne({
+    guildId: g,
+    userId: u,
+    $or: [{ [casualePath]: { $gt: 0 } }, { [casuale2Path]: { $gt: 0 } }],
+  })
+    .select(ROOT)
+    .lean()
+    .catch(() => null);
+  if (!doc) return;
+  const crates = readSlice(doc)?.crates || {};
+  const a = safeInt(crates.casuale);
+  const b = safeInt(crates.casuale_2);
+  if (!a && !b) return;
+  const $inc: Record<string, number> = {};
+  const $unset: Record<string, number> = {};
+  if (a) {
+    $inc[`${ROOT}.crates.stellare`] = a;
+    $unset[casualePath] = 1;
+  }
+  if (b) {
+    $inc[`${ROOT}.crates.cosmica`] = b;
+    $unset[casuale2Path] = 1;
+  }
+  await ActivityUserProfile.updateOne(
+    { guildId: g, userId: u },
+    { $inc, $unset, $set: { [`${ROOT}.updatedAt`]: new Date().toISOString() } },
+  ).catch(() => null);
+}
+
 /**
  * Converte pendingTroops.tierN → army unità vere (e banca fazione).
  * Ritorna wallet aggiornato.
@@ -271,7 +318,8 @@ async function getStarWarsWallet(guildId?, userId?, eventKey = "") {
   const u = normalizeId(userId);
   const key = normalizeId(eventKey) || ADVENT_EVENT_KEY;
   if (!isValidGuildUserId(g, u)) return blankWallet(key);
-  /* Auto-fix: tier pending → unità catalogo. */
+  await migrateLegacyCrateIds(g, u);
+  /* Auto-flush: tier pending → unità catalogo. */
   return flushPendingTierTroops(g, u, key);
 }
 
@@ -332,7 +380,7 @@ async function claimAdventDay(client, { guildId, userId, day, staffPreview = fal
   const granted = [];
   for (const part of slot.rewards) {
     if (part.type === "crate") {
-      const id = String(part.crateId || "").trim();
+      const id = normalizeCrateKey(part.crateId);
       const qty = Math.max(1, safeInt(part.qty, 1));
       if (!CRATE_LABELS[id]) continue;
       const path = `${ROOT}.crates.${id}`;
@@ -495,12 +543,14 @@ async function setStarWarsFaction(client, { guildId, userId, factionId, epoch = 
 async function openStarWarsCrate(client, { guildId, userId, crateId }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
-  const cid = normalizeId(crateId);
+  const cid = normalizeCrateKey(crateId);
   const cfg = resolveStarWarsEventConfig(client);
   const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
   if (!isValidGuildUserId(g, u) || !CRATE_LABELS[cid]) {
     return { ok: false, status: 400, error: "bad_crate", message: "Cassa non valida." };
   }
+
+  await migrateLegacyCrateIds(g, u);
 
   const loot = openCrateLoot(cid);
   if (!loot.ok) {

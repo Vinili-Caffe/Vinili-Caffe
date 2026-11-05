@@ -9,7 +9,8 @@ export type EventoCrateId =
   | "militare"
   | "militare_plus"
   | "militare_op"
-  | "casuale"
+  | "stellare"
+  | "cosmica"
   | "lunare"
   | "solare"
   | "planetario"
@@ -79,6 +80,7 @@ export type EventoStatus = {
   highStaff?: boolean;
   canPreview?: boolean;
   canParticipate?: boolean;
+  needsSort?: boolean;
   romeDate?: string;
   todayAdvent?: number | null;
   features?: {
@@ -408,12 +410,12 @@ export async function buyEventoUnit(token: string, unitId: string, qty = 1) {
   }
 }
 
-export async function attackEventoFaction(token: string, defend = false) {
+export async function attackEventoFaction(token: string, defend = false, useBacta = false) {
   try {
     const r = await fetch(apiUrl("/webhooks/site-evento/shop/attack"), {
       method: "POST",
       headers: { ...authHeaders(token), "Content-Type": "application/json" },
-      body: JSON.stringify({ defend }),
+      body: JSON.stringify({ defend, useBacta: Boolean(useBacta && !defend) }),
       cache: "no-store",
     });
     return (await r.json().catch(() => null)) as {
@@ -424,6 +426,7 @@ export async function attackEventoFaction(token: string, defend = false) {
       mode?: string;
       attackPower?: number;
       defendPower?: number;
+      bactaUsed?: boolean;
     } | null;
   } catch {
     return null;
