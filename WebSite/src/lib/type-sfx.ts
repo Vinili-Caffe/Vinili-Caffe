@@ -64,7 +64,8 @@ export function unlockTypeSfx() {
   runAfterGesturePaint(() => {
     if (!unlocked) return;
     const c = ensure();
-    if (c && c.state === "suspended") void c.resume();
+    /* contesto chiuso intanto (cambio pagina): niente errore "AudioContext closed before resume" */
+    if (c && c.state === "suspended") void c.resume().catch(() => {});
   });
 }
 
@@ -96,7 +97,7 @@ export function playTypeSfx() {
   if (c.state === "suspended") {
     void c.resume().then(() => {
       if (effectEnabled(EFFECT_KEYS.typeSfx, true) && typeSfxVolume() > 0.001) emit();
-    });
+    }).catch(() => {});
     return;
   }
   emit();
