@@ -7,7 +7,18 @@
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
 
-const LOG_DIR = path.join(__dirname, "..", "logs");
+/* sempre Vinili/logs, qualunque sia la cartella di questo file (dopo i traslochi il log finiva in posti diversi) */
+function viniliRootDir() {
+  let dir = __dirname;
+  for (let i = 0; i < 8; i += 1) {
+    if (path.basename(dir) === "Vinili") return dir;
+    const up = path.dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  return path.join(__dirname, "..");
+}
+const LOG_DIR = path.join(viniliRootDir(), "logs");
 const LOG_FILE = path.join(LOG_DIR, "site-client-errors.log");
 const MAX_BYTES = 2 * 1024 * 1024;
 const PER_MINUTE = 20;
