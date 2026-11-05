@@ -12,14 +12,13 @@ import {
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { showToast } from "@/components/ui/toast";
+import { useEventoStaffAccess } from "@/components/evento/EventoAccessGate";
 import { EventoKicker, EventoPanel, EventoSkeleton } from "@/components/evento/EventoUi";
 import { AdventReveal, type AdventGranted } from "@/components/evento/AdventReveal";
 import { crateArtUrl, crateTint } from "@/components/evento/EventoCrateArt";
 import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
 
-type ScatterSlot = { left: number; top: number; rot: number; scale: number };
-
-/** PRNG stabile (mulberry32) — layout identico a ogni render. */
+/** PRNG stabile — ordine porte fisso a ogni render. */
 function mulberry32(seed: number) {
   let a = seed >>> 0;
   return () => {
@@ -31,36 +30,20 @@ function mulberry32(seed: number) {
   };
 }
 
-/** 25 slot sparsi: griglia irregolare + jitter + rotazione leggera. */
-function buildScatterSlots(seed = 2026_12_01): ScatterSlot[] {
+/** Griglia 5×5: giorni 1–25 mischiati (forma calendario, non ordine cronologico). */
+function shuffledAdventDays(seed = 2026_12_01): number[] {
+  const days = Array.from({ length: 25 }, (_, i) => i + 1);
   const rand = mulberry32(seed);
-  const cols = 5;
-  const rows = 5;
-  const slots: ScatterSlot[] = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const cellW = 100 / cols;
-      const cellH = 100 / rows;
-      const jx = (rand() - 0.5) * cellW * 0.55;
-      const jy = (rand() - 0.5) * cellH * 0.5;
-      const left = Math.min(88, Math.max(2, c * cellW + cellW * 0.12 + jx));
-      const top = Math.min(86, Math.max(2, r * cellH + cellH * 0.1 + jy));
-      const rot = (rand() - 0.5) * 14;
-      const scale = 0.88 + rand() * 0.22;
-      slots.push({ left, top, rot, scale });
-    }
-  }
-  /* mescola l’ordine degli slot così i giorni non seguono la griglia */
-  for (let i = slots.length - 1; i > 0; i--) {
+  for (let i = days.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
-    const tmp = slots[i]!;
-    slots[i] = slots[j]!;
-    slots[j] = tmp;
+    const tmp = days[i]!;
+    days[i] = days[j]!;
+    days[j] = tmp;
   }
-  return slots;
+  return days;
 }
 
-const SCATTER_SLOTS = buildScatterSlots();
+const GRID_DAYS = shuffledAdventDays();
 
 function primaryCrateId(slot: EventoAdventDayRow): string | null {
   const c = slot.rewards?.find((r) => r.type === "crate");
@@ -68,7 +51,7 @@ function primaryCrateId(slot: EventoAdventDayRow): string | null {
 }
 
 function hasCreditsReward(slot: EventoAdventDayRow): boolean {
-  return Boolean(slot.rewards?.some((r) => r.type === "premium_credits"));
+  return Boolean(slot.rewards?.some((r) => r.type === "credits" || r.type === "premium_credits"));
 }
 
 function DoorFace({
@@ -92,8 +75,11 @@ function DoorFace({
   crateId: string | null;
   showCredits: boolean;
 }) {
+  /** Premi nascosti finché il giorno non è sbloccato (futuro). */
+  const spoilersHidden = locked && !claimed;
+
   return (
-    <span className="relative flex h-full min-h-[5.5rem] w-full flex-col sm:min-h-[6.25rem]">
+    <span className="relative flex h-full min-h-[6.5rem] w-full flex-col sm:min-h-[7rem]">
       <span
         className={cn(
           "absolute inset-0 rounded-2xl",
@@ -134,7 +120,12 @@ function DoorFace({
         </span>
 
         <span className="mx-auto my-0.5 flex size-8 items-end justify-center gap-0.5 sm:size-9">
-          {crateId && crateArtUrl(crateId, false) ? (
+          {spoilersHidden ? (
+            <Gift
+              className="size-6 text-crema/25 blur-[3px] sm:size-7"
+              aria-hidden
+            />
+          ) : crateId && crateArtUrl(crateId, false) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={crateArtUrl(crateId, false)}
@@ -142,7 +133,7 @@ function DoorFace({
               data-vc-lightbox-ignore
               className={cn(
                 "h-6 w-6 object-contain sm:h-7 sm:w-7",
-                claimed ? "opacity-100" : missed || locked ? "opacity-35 grayscale" : "opacity-90",
+                claimed ? "opacity-100" : missed ? "opacity-35 grayscale" : "opacity-90",
               )}
               style={{
                 filter: isToday ? "drop-shadow(0 0 8px rgba(46,168,255,0.55))" : undefined,
@@ -153,7 +144,7 @@ function DoorFace({
             <span
               className={cn(
                 "relative h-5 w-7 rounded-sm",
-                claimed ? "opacity-100" : missed || locked ? "opacity-35" : "opacity-90",
+                claimed ? "opacity-100" : missed ? "opacity-35" : "opacity-90",
               )}
               style={{
                 background: `linear-gradient(160deg, ${crateTint(crateId || "casuale").lid}, ${crateTint(crateId || "casuale").face})`,
@@ -164,12 +155,10 @@ function DoorFace({
               <span className="absolute left-1/2 top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35 ring-1 ring-white/30" />
             </span>
           )}
-          {showCredits ? (
+          {!spoilersHidden && showCredits ? (
             <EventoCreditsIcon
               size="sm"
-              className={cn(
-                claimed ? "opacity-100" : missed || locked ? "opacity-35 grayscale" : "opacity-95",
-              )}
+              className={cn(claimed ? "opacity-100" : missed ? "opacity-35 grayscale" : "opacity-95")}
             />
           ) : null}
         </span>
@@ -177,19 +166,35 @@ function DoorFace({
         <span
           className={cn(
             "line-clamp-2 text-center text-[0.55rem] font-medium leading-snug sm:text-[0.6rem]",
-            claimed ? "text-[#e4c76b]/90" : missed ? "text-rose-300/55" : locked ? "text-crema/35" : "text-crema/70",
+            claimed
+              ? "text-[#e4c76b]/90"
+              : missed
+                ? "text-rose-300/55"
+                : spoilersHidden
+                  ? "text-crema/30 blur-[2px] select-none"
+                  : "text-crema/70",
           )}
+          aria-hidden={spoilersHidden || undefined}
         >
-          {busy ? "Apertura…" : claimed ? "Ritirato" : missed ? "Perso" : label}
+          {busy
+            ? "Apertura…"
+            : claimed
+              ? "Ritirato"
+              : missed
+                ? "Perso"
+                : spoilersHidden
+                  ? "Segreto"
+                  : label}
         </span>
       </span>
     </span>
   );
 }
 
-/** Avvento hub: 25 porte sparse, claim → cassa che si apre subito. */
-export function AdventCalendar() {
+/** Avvento: griglia calendario 5×5 con giorni mischiati. */
+export function AdventCalendar({ embedded = false }: { embedded?: boolean }) {
   const { token, ready } = useAuth();
+  const { highStaff } = useEventoStaffAccess();
   const localToday = adventSlotForRomeDate();
   const [days, setDays] = useState<EventoAdventDayRow[] | null>(null);
   const [todayAdvent, setTodayAdvent] = useState<number | null>(localToday);
@@ -203,23 +208,26 @@ export function AdventCalendar() {
   } | null>(null);
   const [openingDoor, setOpeningDoor] = useState<number | null>(null);
 
-  const reload = useCallback(async (opts?: { soft?: boolean }) => {
-    if (!ready) return;
-    if (!opts?.soft) setLoading(true);
-    const st = await fetchEventoAvvento(token);
-    if (!st.ok) {
-      if (!opts?.soft) {
-        setGateMsg(st.message || "Avvento non disponibile.");
-        setDays(null);
-        setLoading(false);
+  const reload = useCallback(
+    async (opts?: { soft?: boolean }) => {
+      if (!ready) return;
+      if (!opts?.soft) setLoading(true);
+      const st = await fetchEventoAvvento(token);
+      if (!st.ok) {
+        if (!opts?.soft) {
+          setGateMsg(st.message || "Avvento non disponibile.");
+          setDays(null);
+          setLoading(false);
+        }
+        return;
       }
-      return;
-    }
-    setGateMsg("");
-    setTodayAdvent(st.todayAdvent ?? localToday);
-    setDays(st.days || []);
-    if (!opts?.soft) setLoading(false);
-  }, [ready, token, localToday]);
+      setGateMsg("");
+      setTodayAdvent(st.todayAdvent ?? localToday);
+      setDays(st.days || []);
+      if (!opts?.soft) setLoading(false);
+    },
+    [ready, token, localToday],
+  );
 
   useEffect(() => {
     void reload();
@@ -239,8 +247,8 @@ export function AdventCalendar() {
 
     const granted = (Array.isArray(out.granted) ? out.granted : []) as AdventGranted[];
     const fallback: AdventGranted[] = (slot.rewards || []).map((r) =>
-      r.type === "premium_credits"
-        ? { type: "premium_credits" as const, amount: r.amount }
+      r.type === "credits" || r.type === "premium_credits"
+        ? { type: "credits" as const, amount: r.amount }
         : {
             type: "crate" as const,
             crateId: r.crateId,
@@ -272,11 +280,12 @@ export function AdventCalendar() {
       rewards: slot.rewards,
       claimed: false,
       claimedAt: null,
-      canClaim: false,
-      unlocked: localToday != null && slot.day <= localToday,
-      missed: localToday != null && slot.day < localToday,
+      canClaim: Boolean(highStaff && token),
+      unlocked: highStaff || (localToday != null && slot.day <= localToday),
+      missed: !highStaff && localToday != null && slot.day < localToday,
+      activity: null,
     }));
-  }, [days, localToday]);
+  }, [days, localToday, highStaff, token]);
 
   const byDay = useMemo(() => {
     const m = new Map<number, EventoAdventDayRow>();
@@ -284,38 +293,43 @@ export function AdventCalendar() {
     return m;
   }, [rows]);
 
-  if (loading && !reveal) return <EventoSkeleton className="mx-auto max-w-4xl px-6" />;
-
-  if (gateMsg && !days) {
-    return <div className="mx-auto mb-8 max-w-lg px-6 text-center text-sm text-crema/55">{gateMsg}</div>;
+  if (loading && !reveal) {
+    return embedded ? <EventoSkeleton className="w-full" /> : <EventoSkeleton className="mx-auto max-w-4xl px-6" />;
   }
 
-  return (
-    <div className="mx-auto mb-10 max-w-4xl px-6">
-      <EventoPanel glow="gold" className="mb-4 text-center">
-        <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#c9a227]/30 to-[#2ea8ff]/15 ring-1 ring-[#c9a227]/40">
-          <Gift className="size-6 text-[#e4c76b]" aria-hidden />
-        </div>
-        <EventoKicker>Avvento</EventoKicker>
-        <p className="mt-2 text-sm text-crema/70">
-          {todayAdvent
-            ? `Giorno ${todayAdvent} — apri la porta luminosa entro mezzanotte.`
-            : "25 porte sparse · ogni giorno una ricompensa; se salti, perdi quel giorno."}
-        </p>
-        {!token ? (
-          <p className="mt-2 text-xs text-[#e4c76b]">Accedi con Discord per aprire le caselle.</p>
-        ) : null}
-      </EventoPanel>
+  if (gateMsg && !days) {
+    return <div className="text-center text-sm text-crema/55">{gateMsg}</div>;
+  }
 
-      <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-b from-[#1a2744]/95 via-[#0a1020] to-[#05070f] ring-1 ring-[#c9a227]/35">
+  const grid = (
+    <>
+      {!embedded ? (
+        <EventoPanel glow="gold" className="mb-4 text-center">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#c9a227]/30 to-[#2ea8ff]/15 ring-1 ring-[#c9a227]/40">
+            <Gift className="size-6 text-[#e4c76b]" aria-hidden />
+          </div>
+          <EventoKicker>Avvento</EventoKicker>
+          <p className="mt-2 text-sm text-crema/70">
+            {highStaff && !todayAdvent
+              ? "Anteprima High Staff — porte mischiate, claim senza limiti."
+              : todayAdvent
+                ? `Giorno ${todayAdvent} — apri la porta luminosa entro mezzanotte.`
+                : "25 porte in griglia · giorni mischiati · premi + missioni del giorno."}
+          </p>
+          {!token ? (
+            <p className="mt-2 text-xs text-[#e4c76b]">Accedi con Discord per aprire le caselle.</p>
+          ) : null}
+        </EventoPanel>
+      ) : null}
+
+      <div className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-b from-[#1a2744]/95 via-[#0a1020] to-[#05070f] ring-1 ring-[#c9a227]/35">
         <div className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(ellipse_at_30%_20%,rgba(46,168,255,0.12),transparent_45%),radial-gradient(ellipse_at_70%_80%,rgba(201,162,39,0.1),transparent_40%)]" />
         <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#e4c76b]/55 to-transparent" />
 
-        <ol className="relative mx-auto h-[38rem] w-full sm:h-[42rem] md:h-[46rem]" aria-label="Calendario dell’avvento">
-          {SCATTER_SLOTS.map((pos, idx) => {
-            const dayNum = idx + 1;
+        <div className="relative grid grid-cols-5 gap-1.5 p-2.5 sm:gap-2 sm:p-3">
+          {GRID_DAYS.map((dayNum) => {
             const slot = byDay.get(dayNum);
-            if (!slot) return null;
+            if (!slot) return <div key={dayNum} className="min-h-[6.5rem]" aria-hidden />;
             const isToday = todayAdvent === slot.day;
             const missed = Boolean(slot.missed) && !slot.claimed;
             const locked = !slot.unlocked && !slot.claimed && !missed;
@@ -323,31 +337,27 @@ export function AdventCalendar() {
             const flipping = openingDoor === slot.day;
             const crateId = primaryCrateId(slot);
             const showCredits = hasCreditsReward(slot);
-            const z = isToday ? 30 : flipping ? 40 : Math.round(10 + pos.scale * 10);
 
             return (
-              <li
-                key={slot.day}
-                className="absolute w-[4.85rem] sm:w-[5.6rem] md:w-[6.1rem] [perspective:900px]"
-                style={{
-                  left: `${pos.left}%`,
-                  top: `${pos.top}%`,
-                  zIndex: z,
-                  transform: `rotate(${pos.rot}deg) scale(${pos.scale})`,
-                }}
-              >
+              <div key={slot.day} className="relative">
                 <motion.button
                   type="button"
                   disabled={!slot.canClaim || busy}
                   onClick={() => void onClaim(slot)}
-                  title={missed ? `${slot.label} · perso` : slot.label}
-                  whileHover={slot.canClaim && !flipping ? { scale: 1.06, rotate: 0 } : undefined}
-                  whileTap={slot.canClaim && !flipping ? { scale: 0.96 } : undefined}
+                  title={
+                    missed
+                      ? `${slot.label} · perso`
+                      : locked
+                        ? `Giorno ${slot.day} · ancora chiuso`
+                        : slot.label
+                  }
+                  whileHover={slot.canClaim && !flipping ? { scale: 1.03 } : undefined}
+                  whileTap={slot.canClaim && !flipping ? { scale: 0.97 } : undefined}
                   animate={
                     flipping
-                      ? { rotateY: -72, scale: 1.05 }
+                      ? { rotateY: -72, scale: 1.04 }
                       : isToday
-                        ? { y: [0, -3, 0] }
+                        ? { y: [0, -2, 0] }
                         : { rotateY: 0, scale: 1 }
                   }
                   transition={
@@ -360,11 +370,11 @@ export function AdventCalendar() {
                   className={cn(
                     "relative w-full overflow-hidden rounded-2xl text-left ring-1 transition will-change-transform",
                     slot.claimed
-                      ? "ring-[#c9a227]/55 shadow-[0_0_22px_-6px_rgba(201,162,39,0.6)]"
+                      ? "ring-[#c9a227]/55 shadow-[0_0_18px_-6px_rgba(201,162,39,0.55)]"
                       : missed
                         ? "ring-rose-500/25 opacity-80"
                         : isToday
-                          ? "ring-[#2ea8ff]/65 shadow-[0_0_32px_-4px_rgba(46,168,255,0.7)]"
+                          ? "ring-[#2ea8ff]/65 shadow-[0_0_28px_-4px_rgba(46,168,255,0.65)]"
                           : locked
                             ? "ring-white/5"
                             : "ring-sand/20",
@@ -385,10 +395,10 @@ export function AdventCalendar() {
                     showCredits={showCredits}
                   />
                 </motion.button>
-              </li>
+              </div>
             );
           })}
-        </ol>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -404,6 +414,9 @@ export function AdventCalendar() {
           />
         ) : null}
       </AnimatePresence>
-    </div>
+    </>
   );
+
+  if (embedded) return <div className="w-full">{grid}</div>;
+  return <div className="mx-auto mb-10 max-w-4xl px-6">{grid}</div>;
 }

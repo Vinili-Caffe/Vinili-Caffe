@@ -36,7 +36,10 @@ function peiFromCredits(credits?) {
  * Dopo un grant EXP: sync pgLevel + claim automatico dei milestone raggiunti.
  * Idempotente via claimedLevelMilestones.
  */
-async function applyStarWarsLevelProgress(client?, { guildId, userId } = {}) {
+async function applyStarWarsLevelProgress(
+  client?,
+  { guildId, userId }: { guildId?: string | null; userId?: string | null } = {},
+) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   const cfg = resolveStarWarsEventConfig(client);

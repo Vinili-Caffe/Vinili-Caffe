@@ -34,8 +34,12 @@ const {
   adventSlotForRomeDate,
   listCalendarDays,
   getCalendarDay,
+  getAdventDayActivity,
+  isFeatureUnlockedPersistent,
+  FEATURES,
   EPOCHS,
 } = require("../Utils/Eventi/starWarsEventCalendar") as typeof import("../Utils/Eventi/starWarsEventCalendar");
+const { buildStarWarsDeckProfileSections } = require("../Services/Community/starWarsDeckProfileService") as typeof import("../Services/Community/starWarsDeckProfileService");
 const {
   getStarWarsWallet,
   claimAdventDay,
@@ -56,7 +60,34 @@ const {
   getFactionMeta,
   FACTION_META,
 } = require("../Utils/Eventi/starWarsSortingBank") as typeof import("../Utils/Eventi/starWarsSortingBank");
-const { listMinigamesStatus } = require("../Utils/Eventi/starWarsMinigamesRegistry") as typeof import("../Utils/Eventi/starWarsMinigamesRegistry");
+const { listMinigamesStatus, REGISTRY } = require("../Utils/Eventi/starWarsMinigamesRegistry") as typeof import("../Utils/Eventi/starWarsMinigamesRegistry");
+
+function activityPayloadForAdvent(adventDay?) {
+  const raw = getAdventDayActivity(adventDay);
+  if (!raw) return null;
+  const byFeature = new Map<string, any>((REGISTRY || []).map((r?) => [String(r.feature), r]));
+  const features = (raw.on || [])
+    .map((fid?) => {
+      const meta = byFeature.get(String(fid || ""));
+      if (!meta) return { id: fid, label: fid, href: null, kind: "feature" };
+      return {
+        id: meta.id,
+        feature: meta.feature,
+        label: meta.label,
+        href: meta.href || null,
+        kind: meta.kind,
+      };
+    })
+    .filter(Boolean);
+  return {
+    date: raw.date,
+    at: raw.at,
+    note: raw.note,
+    film: raw.film,
+    economyPhase: raw.economyPhase,
+    features,
+  };
+}
 const {
   getEconomySnapshot,
   buyUnit,
@@ -253,8 +284,8 @@ async function handleSiteEventoAvventoGet(client?, req?, res?) {
     if (!requireParticipate(access, res)) return;
 
     const todayAdvent = adventSlotForRomeDate(new Date());
-    /* Dal 26 dic 2026 l'avvento è chiuso per tutti (pagina + API). */
-    if (todayAdvent == null) {
+    /* Fuori stagione: chiuso al pubblico; High Staff tiene anteprima illimitata. */
+    if (todayAdvent == null && !access.highStaff) {
       return res.status(410).json({
         ok: false,
         error: "advent_closed",
@@ -286,6 +317,7 @@ async function handleSiteEventoAvventoGet(client?, req?, res?) {
         canClaim,
         missed,
         unlocked: access.highStaff || (todayAdvent != null && d.day <= todayAdvent),
+        activity: activityPayloadForAdvent(d.day),
       };
     });
 
@@ -318,7 +350,7 @@ async function handleSiteEventoAvventoClaimPost(client?, req?, res?) {
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
 
-    if (adventSlotForRomeDate(new Date()) == null) {
+    if (adventSlotForRomeDate(new Date()) == null && !access.highStaff) {
       return res.status(410).json({
         ok: false,
         error: "advent_closed",
@@ -332,7 +364,7 @@ async function handleSiteEventoAvventoClaimPost(client?, req?, res?) {
       guildId: mainGuildId(client),
       userId: auth.userId,
       day,
-      /* Fuori stagione già bloccato sopra; in stagione HS può ancora preview del giorno. */
+      /* HS: qualsiasi giorno, anche fuori stagione. */
       staffPreview: access.highStaff,
     });
     return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
@@ -788,6 +820,70 @@ async function handleSiteEventoTraditorePost(client?, req?, res?) {
   }
 }
 
+/** Collezioni PG + Reliquie: sblocco persistente fino a fine evento (anche se feature off). */
+async function handleSiteEventoCollezioniGet(client?, req?, res?) {
+  try {
+    const auth = await resolveAuth(client, req);
+    const access = accessFlags(client, auth);
+    if (!requireParticipate(access, res)) return;
+
+    const now = new Date();
+    const featureState = resolveFeatureStateNow(now);
+    const active = new Set(featureState.features || []);
+    const pgUnlocked = Boolean(access.highStaff || isFeatureUnlockedPersistent(FEATURES.GAME_COLLEZIONA_PG, now));
+    const relicUnlocked = Boolean(access.highStaff || isFeatureUnlockedPersistent(FEATURES.GAME_RELIQUIE, now));
+
+    if (!pgUnlocked && !relicUnlocked) {
+      return res.status(200).json({
+        ok: true,
+        visible: false,
+        highStaff: access.highStaff,
+        pg: null,
+        reliquie: null,
+      });
+    }
+
+    let deckSlice = { deckPG: [], deckReliquie: [] };
+    if (auth?.userId) {
+      const wallet = await getStarWarsWallet(mainGuildId(client), auth.userId);
+      deckSlice = {
+        deckPG: Array.isArray(wallet?.deckPG) ? wallet.deckPG : [],
+        deckReliquie: Array.isArray(wallet?.deckReliquie) ? wallet.deckReliquie : [],
+      };
+    }
+
+    const decks = buildStarWarsDeckProfileSections(
+      { profile: { events: { starwars: deckSlice } } },
+      client,
+      { forceVisible: true, guildId: mainGuildId(client) },
+    );
+
+    const pack = (section?, unlocked?, featureKey?) => {
+      if (!unlocked || !section) return null;
+      return {
+        unlocked: true,
+        active: active.has(featureKey),
+        kind: section.kind,
+        title: section.title,
+        ownedCount: section.ownedCount,
+        total: section.total,
+        items: section.items,
+      };
+    };
+
+    return res.status(200).json({
+      ok: true,
+      visible: true,
+      highStaff: access.highStaff,
+      pg: pack(decks?.pg, pgUnlocked, FEATURES.GAME_COLLEZIONA_PG),
+      reliquie: pack(decks?.reliquie, relicUnlocked, FEATURES.GAME_RELIQUIE),
+    });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-evento collezioni:", err);
+    return res.status(500).json({ ok: false, error: "internal" });
+  }
+}
+
 async function handleSiteEventoPhaseEndPost(client?, req?, res?) {
   try {
     const auth = await resolveAuth(client, req);
@@ -835,5 +931,6 @@ export = {
   handleSiteEventoPeiGet,
   handleSiteEventoTraditoreGet,
   handleSiteEventoTraditorePost,
+  handleSiteEventoCollezioniGet,
   handleSiteEventoPhaseEndPost,
 };

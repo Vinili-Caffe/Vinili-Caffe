@@ -19,7 +19,7 @@ export type AdventCrateId =
 
 export type AdventRewardPart =
   | { type: "crate"; crateId: AdventCrateId; qty: number }
-  | { type: "premium_credits"; amount: number };
+  | { type: "credits"; amount: number };
 
 export type AdventDay = {
   day: number;
@@ -49,13 +49,13 @@ function crate(crateId: AdventCrateId, qty = 1): AdventRewardPart {
 }
 
 function credits(amount: number): AdventRewardPart {
-  return { type: "premium_credits", amount };
+  return { type: "credits", amount };
 }
 
 function labelFrom(rewards: AdventRewardPart[]): string {
   return rewards
     .map((r) => {
-      if (r.type === "premium_credits") {
+      if (r.type === "credits") {
         return `${r.amount.toLocaleString("it-IT")} crediti`;
       }
       const name = ADVENT_CRATE_LABELS[r.crateId];

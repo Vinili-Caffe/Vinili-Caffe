@@ -14,6 +14,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  startTransition,
   type ReactNode,
 } from "react";
 import { useAuth } from "@/lib/auth";
@@ -1128,9 +1129,12 @@ export function I18nProvider({
       const remote = await pullChromePrefsLang(token);
       if (remote) next = remote;
       if (cancelled) return;
-      setLocaleState(next);
+      /* in transizione: niente #418 nelle parti della pagina non ancora agganciate all'HTML */
+      startTransition(() => {
+        setLocaleState(next);
+        setReady(true);
+      });
       persistLocale(next);
-      setReady(true);
     };
     void boot();
     return () => {
@@ -1145,7 +1149,7 @@ export function I18nProvider({
       return;
     }
     void loadLocalePack(locale).then((p) => {
-      if (!cancelled) setPack(p);
+      if (!cancelled) startTransition(() => setPack(p));
     });
     return () => {
       cancelled = true;

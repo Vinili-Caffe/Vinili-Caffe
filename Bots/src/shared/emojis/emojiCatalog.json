@@ -1270,5 +1270,115 @@
   "voice": {
     "id": "1467639623735054509",
     "animated": false
+  },
+  "VC_acclamator_munificent": {
+    "id": "1567923747376078929",
+    "animated": false,
+    "name": "VC_acclamator_munificent"
+  },
+  "VC_arc170_vulture": {
+    "id": "1567923767148019712",
+    "animated": false,
+    "name": "VC_arc170_vulture"
+  },
+  "VC_atot_mtt": {
+    "id": "1567923773733216296",
+    "animated": false,
+    "name": "VC_atot_mtt"
+  },
+  "VC_atte_aat": {
+    "id": "1567923780171599963",
+    "animated": false,
+    "name": "VC_atte_aat"
+  },
+  "VC_atte_aat_cw": {
+    "id": "1567923801663086632",
+    "animated": false,
+    "name": "VC_atte_aat_cw"
+  },
+  "VC_generale": {
+    "id": "1567923858286186616",
+    "animated": false,
+    "name": "VC_generale"
+  },
+  "VC_gr75_gozanti": {
+    "id": "1567923868935397576",
+    "animated": false,
+    "name": "VC_gr75_gozanti"
+  },
+  "VC_havw_ig227": {
+    "id": "1567923884169109644",
+    "animated": false,
+    "name": "VC_havw_ig227"
+  },
+  "VC_htt_itt": {
+    "id": "1567923898639581326",
+    "animated": false,
+    "name": "VC_htt_itt"
+  },
+  "VC_jedi_cacciatore": {
+    "id": "1567923913940533380",
+    "animated": false,
+    "name": "VC_jedi_cacciatore"
+  },
+  "VC_laat_hmp": {
+    "id": "1567923951848661092",
+    "animated": false,
+    "name": "VC_laat_hmp"
+  },
+  "VC_mc80_imperial": {
+    "id": "1567923987600769105",
+    "animated": false,
+    "name": "VC_mc80_imperial"
+  },
+  "VC_ribelli_storm": {
+    "id": "1567924004449292458",
+    "animated": false,
+    "name": "VC_ribelli_storm"
+  },
+  "VC_ribelli_storm_sq": {
+    "id": "1567924018726707321",
+    "animated": false,
+    "name": "VC_ribelli_storm_sq"
+  },
+  "VC_tx130_gat": {
+    "id": "1567924045838688379",
+    "animated": false,
+    "name": "VC_tx130_gat"
+  },
+  "VC_venator_providence": {
+    "id": "1567923711204524215",
+    "animated": false,
+    "name": "VC_venator_providence"
+  },
+  "VC_xwing_interceptor": {
+    "id": "1567923716472709160",
+    "animated": false,
+    "name": "VC_xwing_interceptor"
+  },
+  "VC_ywings_tie": {
+    "id": "1567923734327730257",
+    "animated": false,
+    "name": "VC_ywings_tie"
+  },
+  "VC_cloni_droidi": {
+    "id": "1567923829957853325",
+    "animated": false,
+    "name": "VC_cloni_droidi"
+  },
+  "VC_colonnello": {
+    "id": "1567923837285306590",
+    "animated": false,
+    "name": "VC_colonnello"
+  },
+  "VC_endurance_resurgent": {
+    "id": "1567923844381937916",
+    "animated": false,
+    "name": "VC_endurance_resurgent"
+  },
+  "VC_ewings_tie_ssf": {
+    "id": "1567923849373286510",
+    "animated": false,
+    "name": "VC_ewings_tie_ssf"
   }
 }

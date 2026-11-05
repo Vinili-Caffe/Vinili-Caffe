@@ -9,20 +9,12 @@ import { useAuth } from "@/lib/auth";
 import { isUserId, loadProfile, type ProfileResult } from "@/lib/profile";
 import { page } from "@/lib/site";
 import { AlbumCover } from "./AlbumCover";
-import { CandyCollection, CustomStuff, RankCard, RolesList, StarWarsDeckCollections } from "./ProfileSections";
+import { CandyCollection, CustomStuff, RankCard, RolesList } from "./ProfileSections";
 import { ProfileBoards } from "./ProfileBoards";
 import { Tracklist } from "./Tracklist";
 
 // ruoli che rendono un profilo "staff": Founder, Manager, Director, High Staff, Staff, Partner Manager
 const STAFF_ROLE_IDS = new Set(["1442568886988963923", "1521562607339704442", "1502322782602530977", "1544831228690046976", "1442568910070349985", "1544831242510270464"]);
-/** High Staff eligible (Founder / Manager / Admin / High Staff) — deck SW preview solo HS→HS */
-const HIGH_STAFF_ROLE_IDS = new Set([
-  "1442568886988963923", // Founder
-  "1521562607339704442", // Manager
-  "1442568893435478097", // Admin
-  "1544831228690046976", // High Staff
-]);
-
 function Message({ icon, title, text, children }: { icon: React.ReactNode; title: string; text: string; children?: React.ReactNode }) {
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-lg flex-col items-center justify-center px-6 pt-28 text-center">
@@ -131,9 +123,6 @@ export function ProfileView() {
   const p = r.data;
   const owns = !!user && user.id === p.userId;
   const targetIsStaff = p.roles.some((x) => STAFF_ROLE_IDS.has(x.id));
-  const targetIsHighStaff = p.roles.some((x) => HIGH_STAFF_ROLE_IDS.has(x.id));
-  const viewerIsHighStaff = Boolean(staffAccess?.isHighStaff || staffAccess?.canManage);
-  const showStarWarsDecks = Boolean(viewerIsHighStaff && targetIsHighStaff && p.starWarsDecks?.visible);
   const showStaffTab = Boolean(staffAccess && token && targetIsStaff);
   const goTab = (t: "community" | "staff", uid = p.userId) => router.push(`/user/?id=${uid}${t === "staff" ? "&tab=staff" : ""}`, { scroll: false });
 
@@ -149,7 +138,6 @@ export function ProfileView() {
             <RankCard p={p} owns={owns} />
             <CustomStuff p={p} owns={owns} />
             <CandyCollection p={p} />
-            {showStarWarsDecks ? <StarWarsDeckCollections p={p} /> : null}
             <ProfileBoards userId={p.userId} owns={owns} token={token} />
             <RolesList p={p} />
           </div>

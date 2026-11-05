@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchEventoStatus, type EventoWallet } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
 import { EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
+import { EventoTroopIcon } from "@/components/evento/EventoTroopIcon";
 
 /** Inventario arsenale personale (truppe + pending). */
 export function EventoArmyPanel() {
@@ -86,13 +87,20 @@ export function EventoArmyPanel() {
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {rows.map((r) => (
             <li key={r.id} className="rounded-2xl bg-black/40 px-3 py-3 ring-1 ring-sand/15">
-              <p className="line-clamp-2 text-xs font-semibold text-crema">{r.label}</p>
-              <p className="mt-2 font-sans text-2xl font-bold tabular-nums tracking-tight text-[#e4c76b]">×{r.qty}</p>
-              {r.pending > 0 ? (
-                <p className="mt-1 text-[0.65rem] uppercase tracking-wider text-crema/40">
-                  +{r.pending} in arrivo
-                </p>
-              ) : null}
+              <div className="flex items-start gap-2.5">
+                <EventoTroopIcon unitId={r.id} size="sm" alt={r.label} className="shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 text-xs font-semibold text-crema">{r.label}</p>
+                  <p className="mt-2 font-sans text-2xl font-bold tabular-nums tracking-tight text-[#e4c76b]">
+                    ×{r.qty}
+                  </p>
+                  {r.pending > 0 ? (
+                    <p className="mt-1 text-[0.65rem] uppercase tracking-wider text-crema/40">
+                      +{r.pending} in arrivo
+                    </p>
+                  ) : null}
+                </div>
+              </div>
             </li>
           ))}
         </ul>

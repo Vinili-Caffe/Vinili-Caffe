@@ -13,13 +13,14 @@ import { ADVENT_CRATE_LABELS, type AdventCrateId } from "@/lib/evento-avvento";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
-import { EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
+import { EventoPanel } from "@/components/evento/EventoUi";
 import {
   EventoCrateArt,
   EventoCrateOpenOverlay,
   type CrateLootPayload,
 } from "@/components/evento/EventoCrateArt";
 import { EventoUtilityIcon } from "@/components/evento/EventoUtilityIcon";
+import { EventoTroopIcon } from "@/components/evento/EventoTroopIcon";
 
 type TabId = "casse" | "arsenale" | "oggetti";
 
@@ -103,8 +104,10 @@ export function EventoInventoryPanel() {
   const armyRows = useMemo(() => {
     const army = wallet?.army || {};
     const pending = wallet?.pendingTroops || {};
+    const isTierKey = (id: string) => /^tier\s*[1-4]$/i.test(String(id || "").trim());
     const ids = new Set([...Object.keys(army), ...Object.keys(pending)]);
     return [...ids]
+      .filter((id) => !isTierKey(id))
       .map((id) => ({
         id,
         qty: Math.max(0, Math.floor(Number(army[id]) || 0)),
@@ -189,29 +192,15 @@ export function EventoInventoryPanel() {
     );
   }
 
-  const hint =
-    tab === "casse"
-      ? crateRows.length
-        ? "Tocca una cassa per aprirla."
-                : "Nessuna cassa. Aprine dall’avvento qui sotto o dai minigames."
-      : tab === "arsenale"
-        ? armyRows.length
-          ? "Truppe personali versate alla fazione."
-          : "Nessuna truppa. Compra unità dallo shop qui sotto."
-        : itemRows.length
-          ? "Bacta cura subito · gli altri attivano un buff 24h."
-          : "Nessun oggetto. Drop dalle casse.";
-
   return (
     <div className="mx-auto mb-10 max-w-4xl px-6">
       <EventoPanel glow="gold">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div className="min-w-0">
-            <EventoKicker>Inventario</EventoKicker>
-            <p className="mt-1 text-sm text-crema/60">{hint}</p>
-          </div>
+        <div className="relative mb-5 text-center">
+          <h2 className="font-display text-2xl font-semibold uppercase tracking-[0.22em] text-caramel sm:text-3xl">
+            Inventario
+          </h2>
           {tab === "arsenale" && armyRows.length ? (
-            <p className="rounded-full bg-sky-500/15 px-3 py-1 text-sm font-semibold tabular-nums text-sky-200 ring-1 ring-sky-400/30">
+            <p className="mt-2 inline-flex rounded-full bg-sky-500/15 px-3 py-1 text-sm font-semibold tabular-nums text-sky-200 ring-1 ring-sky-400/30">
               potenza {armyPower.toLocaleString("it-IT")}
             </p>
           ) : null}
@@ -295,15 +284,20 @@ export function EventoInventoryPanel() {
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
               {armyRows.map((r) => (
                 <li key={r.id} className="rounded-2xl bg-black/40 px-3 py-3 ring-1 ring-sand/15">
-                  <p className="line-clamp-2 text-xs font-semibold text-crema">{r.label}</p>
-                  <p className="mt-2 font-sans text-2xl font-bold tabular-nums tracking-tight text-[#e4c76b]">
-                    ×{r.qty}
-                  </p>
-                  {r.pending > 0 ? (
-                    <p className="mt-1 text-[0.65rem] uppercase tracking-wider text-crema/40">
-                      +{r.pending} in arrivo
-                    </p>
-                  ) : null}
+                  <div className="flex items-start gap-2.5">
+                    <EventoTroopIcon unitId={r.id} size="sm" alt={r.label} className="shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 text-xs font-semibold text-crema">{r.label}</p>
+                      <p className="mt-2 font-sans text-2xl font-bold tabular-nums tracking-tight text-[#e4c76b]">
+                        ×{r.qty}
+                      </p>
+                      {r.pending > 0 ? (
+                        <p className="mt-1 text-[0.65rem] uppercase tracking-wider text-crema/40">
+                          +{r.pending} in arrivo
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>

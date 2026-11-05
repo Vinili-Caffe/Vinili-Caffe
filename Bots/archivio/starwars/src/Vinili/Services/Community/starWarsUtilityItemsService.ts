@@ -106,7 +106,10 @@ function computeBactaHeal(army?) {
   return { before, after, healed, totalHealed, hadArmy: Object.keys(before).length > 0 };
 }
 
-async function useStarWarsUtilityItem(client?, { guildId, userId, itemId } = {}) {
+async function useStarWarsUtilityItem(
+  client?,
+  { guildId, userId, itemId }: { guildId?: string | null; userId?: string | null; itemId?: string | null } = {},
+) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   const iid = normalizeId(itemId);

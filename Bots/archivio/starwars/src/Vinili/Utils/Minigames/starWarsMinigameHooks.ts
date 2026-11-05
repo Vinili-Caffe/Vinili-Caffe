@@ -7,23 +7,10 @@
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
 
-const {
-  isStarWarsEventLive,
-  isStarWarsPublicWindowOpen,
-  isStarWarsForceLiveOnTestGuild,
-  getTestGuildIdSafe,
-  resolveStarWarsEventConfig,
-} = require("../Eventi/starWarsEventConfig") as typeof import("../Eventi/starWarsEventConfig");
+const { isStarWarsEventLive, isStarWarsPublicWindowOpen, isStarWarsForceLiveOnTestGuild, getTestGuildIdSafe, resolveStarWarsEventConfig } = require("../Eventi/starWarsEventConfig") as typeof import("../Eventi/starWarsEventConfig");
 const { FEATURES, resolveFeatureStateNow } = require("../Eventi/starWarsEventCalendar") as typeof import("../Eventi/starWarsEventCalendar");
 const { getStarWarsQuizBank } = require("../Eventi/starWarsQuizBank") as typeof import("../Eventi/starWarsQuizBank");
-const {
-  getStarWarsHangmanWords,
-  getStarWarsMemoryEmojiBank,
-  getStarWarsFastTypePhrases,
-  getStarWarsCompleteQuoteBank,
-  getStarWarsPlanetsBank,
-  maskPlanetHint,
-} = require("../Eventi/starWarsMinigameBanks") as typeof import("../Eventi/starWarsMinigameBanks");
+const { getStarWarsHangmanWords, getStarWarsMemoryEmojiBank, getStarWarsFastTypePhrases, getStarWarsCompleteQuoteBank, getStarWarsPlanetsBank, maskPlanetHint } = require("../Eventi/starWarsMinigameBanks") as typeof import("../Eventi/starWarsMinigameBanks");
 
 /** Tipi in rotazione esclusiva SW (quiz + minigames a tema). */
 const STAR_WARS_EXCLUSIVE_GAME_TYPES = Object.freeze([
@@ -137,7 +124,7 @@ function resolveStarWarsMinigameChannelId(client?) {
     if (!(cfg?.testGuildForceLive && testId)) return baseChat;
     const { remapChannelIdForGuild } = require(__eventCoreVinili(
       "Config/testGuildMirrorRemap",
-    )) as typeof import("../../../../../src/Vinili/Config/testGuildMirrorRemap");
+    )) as { remapChannelIdForGuild: (guildId: string, channelId: string) => string };
     return remapChannelIdForGuild(testId, baseChat) || baseChat;
   } catch (_) {
     try {
@@ -227,13 +214,13 @@ function getRomeParts(date?) {
     hourCycle: "h23",
   });
   const parts = formatter.formatToParts(date instanceof Date ? date : new Date(date || Date.now()));
-  const map = {};
+  const map: Partial<Record<Intl.DateTimeFormatPartTypes, string>> = {};
   for (const part of parts) {
     if (part.type !== "literal") map[part.type] = part.value;
   }
   return {
-    hour: Number(map.hour),
-    minute: Number(map.minute),
+    hour: Number(map.hour || 0),
+    minute: Number(map.minute || 0),
   };
 }
 

@@ -7,7 +7,7 @@
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
 
-const { E } = require(__eventCoreVinili("../shared/emojis/emojiCatalog")) as typeof import("../../../../../src/shared/emojis/emojiCatalog");
+const { E } = require(__eventCoreVinili("../shared/emojis/emojiCatalog")) as typeof import("../../../../../../src/shared/emojis/emojiCatalog");
 const { CRATE_LABELS } = require("./starWarsAdventCatalog") as typeof import("./starWarsAdventCatalog");
 
 const CRATE_EMOJI_IDS = Object.freeze([

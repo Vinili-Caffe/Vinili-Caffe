@@ -142,65 +142,21 @@ const STAR_WARS_QUIZ_BANK: QuizItem[] = [
   ),
   text("q19", "Che cos'è BB-8?", ["Droide"]),
   text("q20", "Chi è Yoda?", ["Jedi", "Maestro Jedi"]),
-  text("q21", "Come si chiama il grande personaggio peloso?", [
-    "Chewbecca",
-    "Chewbecca",
-  ]),
-  text("q22", "Come si chiama la gigantesca arma spaziale dell'Impero?", [
-    "Morte Nera",
-  ]),
-  text("q23", 'Come si chiama realmente "Baby Yoda"?', [
-    "Grogu",
-    "Din Grogu",
-  ]),
-  text("q24", "Come si chiamano i piccoli esseri pelosi che vivono su Endor?", [
-    "Ewok",
-    "Ewook",
-  ]),
+  text("q21", "Come si chiama il grande personaggio peloso?", ["Chewbecca", "Chewbacca"]),
+  text("q22", "Come si chiama la gigantesca arma spaziale dell'Impero?", ["Morte Nera"]),
+  text("q23", 'Come si chiama realmente "Baby Yoda"?', ["Grogu", "Din Grogu"]),
+  text("q24", "Come si chiamano i piccoli esseri pelosi che vivono su Endor?", ["Ewok", "Ewook"]),
   text("q25", "Di quale colore è la spada dei Sith?", ["Rossa", "Rosso"]),
-  text("q26", "Chi è il padre di Luke Skywalker?", [
-    "Anakin Skywalker",
-    "Anakin",
-    "Darth Vader",
-  ]),
-  text("q27", "Chi è il maestro Jedi di Luke Skywalker?", [
-    "Obi-Wan Kenobi",
-    "Obi Wan Kenobi",
-    "Obi-Wan",
-    "Obi Wan",
-    "Kenobi",
-    "Vecchio Ben",
-    "Ben Kenobi",
-  ]),
-  text("q28", "Come si chiama il famoso cattivo dall'aspetto simile a una lumaca gigante?", [
-    "Jabba",
-    "Jabba the Hutt",
-  ]),
-  text("q29", "Quale di questi oggetti permette ai Jedi di combattere?", [
-    "Spada Laser",
-    "Spada laser",
-  ]),
-  text("q30", "Qual è il nome del maestro Jedi che ha addestrato Anakin Skywalker?", [
-    "Obi-Wan Kenobi",
-    "Obi Wan Kenobi",
-    "Obi-Wan",
-    "Obi Wan",
-    "Kenobi",
-  ]),
-  text("q31", "Quale animale gigante e peloso è Chewbecca?", [
-    "Wookie",
-    "Wookiee",
-  ]),
+  text("q26", "Chi è il padre di Luke Skywalker?", ["Anakin Skywalker", "Anakin", "Darth Vader"]),
+  text("q27", "Chi è il maestro Jedi di Luke Skywalker?", ["Obi-Wan Kenobi", "Obi Wan Kenobi", "Obi-Wan", "Obi Wan", "Kenobi", "Vecchio Ben", "Ben Kenobi"]),
+  text("q28", "Come si chiama il famoso cattivo dall'aspetto simile a una lumaca gigante?", ["Jabba", "Jabba the Hutt"]),
+  text("q29", "Quale di questi oggetti permette ai Jedi di combattere?", ["Spada Laser", "Spada laser"]),
+  text("q30", "Qual è il nome del maestro Jedi che ha addestrato Anakin Skywalker?", [ "Obi-Wan Kenobi", "Obi Wan Kenobi", "Obi-Wan", "Obi Wan", "Kenobi"]),
+  text("q31", "Quale animale gigante e peloso è Chewbecca?", ["Wookie", "Wookiee"]),
   text("q32", "Quale metallo utilizzano i Mandaloriani per le loro armature?", ["Beskar"]),
   text("q33", "Chi ha scritto la saga Star Wars?", ["George Lucas"]),
-  text("q34", "Come si chiama l'ordine di monaci protettori della pace che utilizzano la Forza?", [
-    "Jedi",
-  ]),
-  text("q35", "Chi governa l'Impero Galattico?", [
-    "Palpatine",
-    "Imperatore Palpatine",
-    "Imperatore",
-  ]),
+  text("q34", "Come si chiama l'ordine di monaci protettori della pace che utilizzano la Forza?", ["Jedi"]),
+  text("q35", "Chi governa l'Impero Galattico?", [ "Palpatine", "Imperatore Palpatine", "Imperatore"]),
   text("q36", "In quale anno è uscita la prima stagione di Star Wars Rebels?", ["2014"]),
   text("q37", "In quale anno è uscita la seconda stagione di Star Wars Rebels?", ["2015"]),
   text("q38", "In quale anno è uscita la terza stagione di Star Wars Rebels?", ["2016"]),
@@ -225,10 +181,7 @@ const STAR_WARS_QUIZ_BANK: QuizItem[] = [
   text("q57", "In quale anno è uscito il film Star Wars: Il risveglio della Forza?", ["2015"]),
   text("q58", "In quale anno è uscito il film Star Wars: Gli ultimi Jedi?", ["2017"]),
   text("q59", "In quale anno è uscito il film Star Wars: L'ascesa di Skywalker?", ["2019"]),
-  text("q60", "Quale personaggio cinematografico ha una doppia spada laser rossa?", [
-    "Darth Maul",
-    "Maul",
-  ]),
+  text("q60", "Quale personaggio cinematografico ha una doppia spada laser rossa?", [ "Darth Maul", "Maul"]),
   vf("q61", "Darth Vader indossa una maschera nera.", "vero"),
   vf("q62", "Yoda è un robot.", "falso"),
   vf("q63", "I Jedi usano le spade laser.", "vero"),
@@ -298,7 +251,7 @@ function listQuizBackgroundUrls() {
 }
 
 /** Sfondo diverso a ogni chiamata (per setImage sull'embed della domanda). */
-function pickRandomQuizBackgroundUrl(excludeUrl) {
+function pickRandomQuizBackgroundUrl(excludeUrl?) {
   const all = listQuizBackgroundUrls();
   const pool = excludeUrl ? all.filter((u) => u !== excludeUrl) : all.slice();
   if (!pool.length) return all[0] || "";

@@ -4,7 +4,7 @@
  */
 "use strict";
 
-const { FEATURES, resolveFeatureStateNow } = require("./starWarsEventCalendar") as typeof import("./starWarsEventCalendar");
+const { FEATURES, resolveFeatureStateNow, featureUnlockMeta } = require("./starWarsEventCalendar") as typeof import("./starWarsEventCalendar");
 
 const REGISTRY = Object.freeze([
   {
@@ -22,7 +22,7 @@ const REGISTRY = Object.freeze([
     label: "Podracing Championship",
     channel: "site",
     href: "/evento/gara/",
-    teaser: "Scegli lo sguscio; gara random ogni 3h.",
+    teaser: "Scegli lo sguscio.",
   },
   {
     id: "scommessa",
@@ -31,7 +31,7 @@ const REGISTRY = Object.freeze([
     label: "Scommessa ai Podracer",
     channel: "site",
     href: "/gara/",
-    teaser: "Scommesse solo sul sito · /gara/.",
+    teaser: "Scommesse solo sul sito.",
   },
   {
     id: "scova_pianeta",
@@ -39,7 +39,7 @@ const REGISTRY = Object.freeze([
     kind: "minigame",
     label: "Scova il pianeta",
     channel: "discord",
-    teaser: "Mappa galattica · coordinate random → indovina il pianeta.",
+    teaser: "Mappa galattica.",
   },
   {
     id: "ordine66",
@@ -47,7 +47,7 @@ const REGISTRY = Object.freeze([
     kind: "minigame",
     label: "Ordine 66",
     channel: "discord",
-    teaser: "Ruolo Jedi random · pinga il sospetto in chat.",
+    teaser: "Ruolo Jedi random.",
   },
   {
     id: "cacciatore_taglie",
@@ -55,7 +55,7 @@ const REGISTRY = Object.freeze([
     kind: "minigame",
     label: "Cacciatore di taglie",
     channel: "discord",
-    teaser: "Come Ordine 66 · ruolo Cacciatore · pinga il bersaglio.",
+    teaser: "Come Ordine 66.",
   },
   {
     id: "accademia",
@@ -64,7 +64,7 @@ const REGISTRY = Object.freeze([
     label: "Accademia Militare",
     channel: "site",
     href: "/evento/accademia/",
-    teaser: "Mira e bersagli sul sito ogni 4h.",
+    teaser: "Mira e bersagli sul sito.",
   },
   {
     id: "kyber",
@@ -73,7 +73,7 @@ const REGISTRY = Object.freeze([
     label: "Estrazione Kyber",
     channel: "site",
     href: "/evento/miniera/",
-    teaser: "Miniera giornaliera (max 3).",
+    teaser: "Miniera giornaliera.",
   },
   {
     id: "attacca_base",
@@ -81,7 +81,7 @@ const REGISTRY = Object.freeze([
     kind: "minigame",
     label: "Attacca la base",
     channel: "discord",
-    teaser: "HP base · ogni messaggio −2 HP.",
+    teaser: "HP base.",
   },
   {
     id: "conquista",
@@ -89,7 +89,7 @@ const REGISTRY = Object.freeze([
     kind: "game",
     label: "Conquista il sistema",
     channel: "discord",
-    teaser: "Sistemi random in Community/Pinned. Max 2 a testa, vincono le fazioni.",
+    teaser: "Sistemi random in Community/Pinned.",
   },
   {
     id: "colleziona_pg",
@@ -97,7 +97,7 @@ const REGISTRY = Object.freeze([
     kind: "game",
     label: "Colleziona PG",
     channel: "discord+site",
-    teaser: "Nome in chat · primo a scriverlo · deck profilo (immagini in arrivo).",
+    teaser: "Nome in chat.",
   },
   {
     id: "caccia_ewok",
@@ -105,7 +105,7 @@ const REGISTRY = Object.freeze([
     kind: "minigame",
     label: "Caccia all'Ewok",
     channel: "discord",
-    teaser: "Messaggio random · primo click.",
+    teaser: "Messaggio random.",
   },
   {
     id: "puzzle_kessel",
@@ -114,7 +114,7 @@ const REGISTRY = Object.freeze([
     label: "Puzzle di Kessel",
     channel: "site",
     href: "/puzzle/",
-    teaser: "6 difficoltà sul sito · pezzi, tempo e casse.",
+    teaser: "6 difficoltà sul sito.",
   },
   {
     id: "reliquie",
@@ -122,7 +122,7 @@ const REGISTRY = Object.freeze([
     kind: "game",
     label: "Colleziona le reliquie",
     channel: "discord+site",
-    teaser: "Foto + nome in chat · primo a scriverlo · deck profilo.",
+    teaser: "Foto + nome in chat.",
   },
   {
     id: "proteggi_convoglio",
@@ -130,7 +130,7 @@ const REGISTRY = Object.freeze([
     kind: "minigame",
     label: "Proteggi convoglio",
     channel: "discord",
-    teaser: "3 tappe: chat → Community/Pinned. Continua scorta, Intercetta = fine senza premio.",
+    teaser: "3 tappe: chat → Community/Pinned.",
   },
   {
     id: "olocron",
@@ -169,11 +169,17 @@ function listMinigamesStatus(now = new Date()) {
     epoch: state.epoch,
     economyOn: state.economyOn,
     economyPhase: state.economyPhase,
-    items: REGISTRY.map((row?) => ({
-      ...row,
-      active: active.has(row.feature),
-      implemented: IMPLEMENTED.has(row.id),
-    })),
+    items: REGISTRY.map((row?) => {
+      const unlock = featureUnlockMeta(row.feature);
+      return {
+        ...row,
+        active: active.has(row.feature),
+        implemented: IMPLEMENTED.has(row.id),
+        unlockDate: unlock?.date || null,
+        adventDay: unlock?.advent ?? null,
+        unlockNote: unlock?.note || null,
+      };
+    }),
   };
 }
 

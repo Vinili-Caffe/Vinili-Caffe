@@ -194,7 +194,7 @@ function loadPermissions() {
   }
   try {
     const { loadPermissions: loadStorePermissions } = require("../../Moderation/utils/permSlash") as typeof import("../../Moderation/utils/permSlash");
-    const data = loadStorePermissions() || {};
+    const data: any = loadStorePermissions() || {};
     permissionsCache = {
       slash: normalizePermissionTree(data.slash || {}),
       prefix: normalizePermissionTree(data.prefix || {}),

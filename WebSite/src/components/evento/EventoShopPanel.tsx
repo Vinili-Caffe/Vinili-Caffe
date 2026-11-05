@@ -8,6 +8,7 @@ import { showToast } from "@/components/ui/toast";
 import { EventoBtn, EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
 import { EventoBattleFx, type BattleFxData } from "@/components/evento/EventoBattleFx";
 import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
+import { EventoTroopIcon } from "@/components/evento/EventoTroopIcon";
 
 type Unit = { id: string; label: string; cost: number; power: number; tier: number };
 
@@ -56,9 +57,18 @@ export function EventoShopPanel() {
     setBusy(true);
     const out = await attackEventoFaction(token, defend);
     setBusy(false);
+    if (!out?.ok) {
+      showToast(out?.message || "Azione non riuscita.", true);
+      return;
+    }
+    if (out.pending) {
+      showToast(out.message || (defend ? "Difesa dichiarata." : "Attacco dichiarato: in attesa."));
+      void reload({ soft: true });
+      return;
+    }
     setBattle({
       defend,
-      ok: Boolean(out?.ok),
+      ok: true,
       message: out?.message,
       winner: out?.winner,
       attackPower: out?.attackPower,
@@ -106,15 +116,18 @@ export function EventoShopPanel() {
               key={u.id}
               className="flex items-center justify-between gap-3 rounded-xl bg-black/35 px-3.5 py-3 ring-1 ring-sand/15"
             >
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-crema">{u.label}</p>
-                <p className="flex flex-wrap items-center gap-1 text-xs text-crema/45">
-                  <span>
-                    Tier {u.tier} · potenza {u.power} ·
-                  </span>
-                  <EventoCreditsIcon size="xs" className="opacity-90" />
-                  <span className="tabular-nums">{u.cost.toLocaleString("it-IT")}</span>
-                </p>
+              <div className="flex min-w-0 items-center gap-3">
+                <EventoTroopIcon unitId={u.id} size="sm" alt={u.label} className="shrink-0" />
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-crema">{u.label}</p>
+                  <p className="flex flex-wrap items-center gap-1 text-xs text-crema/45">
+                    <span>
+                      Tier {u.tier} · potenza {u.power} ·
+                    </span>
+                    <EventoCreditsIcon size="xs" className="opacity-90" />
+                    <span className="tabular-nums">{u.cost.toLocaleString("it-IT")}</span>
+                  </p>
+                </div>
               </div>
               <EventoBtn
                 className="!px-3 !py-1.5 !text-xs"

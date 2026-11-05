@@ -18,7 +18,7 @@ const {
   resolveStarWarsEventConfig,
   getTestGuildIdSafe,
 } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
-const { canPostStarWarsToGuildChat } = require("../../Utils/Eventi/starWarsRuntimeGate") as typeof import("../../Utils/Eventi/starWarsRuntimeGate");
+const { canPostStarWarsToGuildChat, getRuntimeFlags } = require("../../Utils/Eventi/starWarsRuntimeGate") as typeof import("../../Utils/Eventi/starWarsRuntimeGate");
 const {
   SW_MALUS_INTERVAL_MS,
   isWithinStarWarsMalusHours,
@@ -252,12 +252,12 @@ function buildMalusAnnounceEmbed(def?, payload?, _durationMs?) {
   ].filter(Boolean);
 
   if (def.id === "hansicle") {
-    lines.push(`> ${E.VC_Flame} Ambito: **per fazione** (ogni fazione)`);
+    lines.push(`> ${E.VC_Flame} Ambito: **per fazione**`);
   }
   if (payload?.focusFaction && (def.id === "sospensione" || def.id === "geonosiana")) {
     lines.push(
       def.id === "sospensione"
-        ? `> ${E.VC_Flame} Ambito: **globale** · fazione **${factionLabel(payload.focusFaction)}**`
+        ? `> ${E.VC_Flame} Ambito: **globale**`
         : `> ${E.VC_Flame} Fazione bersaglio: **${factionLabel(payload.focusFaction)}**`,
     );
   }
@@ -330,7 +330,7 @@ async function announceAndActivateMalus(client?, { malusId = null, channelId = n
 
   const dur = Math.max(60_000, Number(durationMs) || DEFAULT_DURATION_MS);
   const now = Date.now();
-  const payload = {
+  const payload: Record<string, any> = {
     status: "active",
     malusId: def.id,
     title: def.title,
@@ -340,6 +340,7 @@ async function announceAndActivateMalus(client?, { malusId = null, channelId = n
     endsAt: new Date(now + dur).toISOString(),
     oneShot: true,
     attachedToGame: false,
+    announceMessageId: null as string | null,
     frozenUserIds: freeze.frozenUserIds,
     frozenByFaction: freeze.frozenByFaction,
     freezeDetailByFaction: freeze.freezeDetailByFaction,
@@ -488,6 +489,11 @@ async function maybeAnnounceRandomMalus(client?) {
     const leaked = await getActiveMalusDoc();
     if (leaked) await clearActiveMalus("main_locked");
     return { ok: false, error: "main_locked" };
+  }
+  /* Sul test: niente auto-loop (ogni 45m). Solo +swspawn / force. */
+  const testId = normalizeId(getTestGuildIdSafe() || IDs.guilds?.test);
+  if (testId && guildId === testId && !getRuntimeFlags(client).previewAutoSpawn) {
+    return { ok: false, error: "test_manual_only" };
   }
   if (!isStarWarsEventLive(client, new Date(), guildId)) return { ok: false, error: "event_off" };
   if (!isWithinStarWarsMalusHours()) return { ok: false, error: "outside_hours" };

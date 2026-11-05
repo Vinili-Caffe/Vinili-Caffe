@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  startTransition,
   type ReactNode,
 } from "react";
 import {
@@ -118,8 +119,11 @@ export function DeviceFxProvider({ children }: { children: ReactNode }) {
         fps: cached?.fps ?? null,
       }),
     );
-    setProfile(next);
-    setReady(true);
+    /* in transizione: niente #418 nelle parti della pagina non ancora agganciate all'HTML */
+    startTransition(() => {
+      setProfile(next);
+      setReady(true);
+    });
 
     let cancelled = false;
     let mqMotion: MediaQueryList | null = null;

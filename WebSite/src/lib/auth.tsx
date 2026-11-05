@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { isGuestPreview, subscribeViewAs } from "./view-as";
 
 // Login Discord: OAuth implicit (response_type=token). Token in localStorage (fino a 180 giorni).
@@ -329,29 +329,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    /* in transizione: le parti della pagina caricate dopo (bacheca, voti, recensioni…) finiscono prima di agganciarsi
+       all'HTML e poi ricevono l'utente; altrimenti React le trova diverse dall'HTML (errore #418 per chi è loggato) */
     const t = storedToken();
-    setToken(t);
     if (!t) {
       authSet(USER_KEY, null);
-      setReady(true);
+      startTransition(() => {
+        setToken(null);
+        setReady(true);
+      });
       return;
     }
+    let cached: DiscordUser | null = null;
     try {
-      const cached = JSON.parse(authGet(USER_KEY) || "null");
-      if (cached?.id) setUser(cached);
+      const c = JSON.parse(authGet(USER_KEY) || "null");
+      if (c?.id) cached = c;
     } catch {}
+    startTransition(() => {
+      setToken(t);
+      if (cached) setUser(cached);
+    });
     fetch("/webhooks/site-discord-me", { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" })
       .then(async (r) => {
         if (r.status === 401) return logout({ toLogin: false });
         if (!r.ok) return;
         const me = (await r.json()) as DiscordUser;
         if (me?.id) {
-          setUser(me);
+          startTransition(() => setUser(me));
           authSet(USER_KEY, JSON.stringify(me));
         }
       })
       .catch(() => {})
-      .finally(() => setReady(true));
+      .finally(() => startTransition(() => setReady(true)));
   }, [logout]);
 
   const login = useCallback(() => {

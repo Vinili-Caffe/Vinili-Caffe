@@ -6,12 +6,8 @@
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
 
-const { E } = require(__eventCoreVinili("../shared/emojis/emojiCatalog")) as typeof import("../../../../../src/shared/emojis/emojiCatalog");
-const {
-  UTILITY_ITEM_IDS,
-  UTILITY_ITEM_LABELS,
-  isUtilityItemId,
-} = require("./starWarsUtilityItemsCatalog") as typeof import("./starWarsUtilityItemsCatalog");
+const { E } = require(__eventCoreVinili("../shared/emojis/emojiCatalog")) as typeof import("../../../../../../src/shared/emojis/emojiCatalog");
+const { UTILITY_ITEM_IDS, UTILITY_ITEM_LABELS, isUtilityItemId } = require("./starWarsUtilityItemsCatalog") as typeof import("./starWarsUtilityItemsCatalog");
 
 function normalizeId(v?) {
   return String(v || "").trim().toLowerCase();

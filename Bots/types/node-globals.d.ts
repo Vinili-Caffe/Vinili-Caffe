@@ -1,6 +1,10 @@
 /**
  * Shim Node per l’IDE senza node_modules/@types/node in locale.
  * Runtime e compile restano sulla VPS; qui serve solo a far stare zitto tsserver.
+ *
+ * I `declare module "…" { export = any }` (non vuoti) sono obbligatori:
+ * con `declare module "fs";` TypeScript tipizza `typeof import("fs")` come
+ * oggetto vuoto/rotto → readdirSync torna `string[]` e randomBytes ha 0 args.
  */
 declare function require(id: string): any;
 declare namespace require {
@@ -61,56 +65,56 @@ declare var EventTarget: any;
 declare var CustomEvent: any;
 declare var crypto: any;
 
-declare module "node:path";
-declare module "path";
-declare module "node:fs";
-declare module "fs";
-declare module "fs/promises";
-declare module "node:crypto";
-declare module "crypto";
-declare module "node:util";
-declare module "util";
-declare module "node:os";
-declare module "os";
-declare module "node:url";
-declare module "url";
-declare module "node:http";
-declare module "http";
-declare module "node:https";
-declare module "https";
-declare module "node:stream";
-declare module "stream";
-declare module "node:events";
-declare module "events";
-declare module "node:child_process";
-declare module "child_process";
-declare module "node:buffer";
-declare module "buffer";
-declare module "node:module";
-declare module "module";
-declare module "node:timers";
-declare module "timers";
-declare module "node:worker_threads";
-declare module "worker_threads";
-declare module "node:net";
-declare module "net";
-declare module "node:zlib";
-declare module "zlib";
-declare module "node:querystring";
-declare module "querystring";
-declare module "node:readline";
-declare module "readline";
-declare module "node:assert";
-declare module "assert";
-declare module "node:perf_hooks";
-declare module "perf_hooks";
-declare module "node:dns";
-declare module "dns";
-declare module "node:tty";
-declare module "tty";
-declare module "node:string_decoder";
-declare module "string_decoder";
-declare module "node:async_hooks";
-declare module "async_hooks";
-declare module "node:diagnostics_channel";
-declare module "diagnostics_channel";
+declare module "node:path" { const mod: any; export = mod; }
+declare module "path" { const mod: any; export = mod; }
+declare module "node:fs" { const mod: any; export = mod; }
+declare module "fs" { const mod: any; export = mod; }
+declare module "fs/promises" { const mod: any; export = mod; }
+declare module "node:crypto" { const mod: any; export = mod; }
+declare module "crypto" { const mod: any; export = mod; }
+declare module "node:util" { const mod: any; export = mod; }
+declare module "util" { const mod: any; export = mod; }
+declare module "node:os" { const mod: any; export = mod; }
+declare module "os" { const mod: any; export = mod; }
+declare module "node:url" { const mod: any; export = mod; }
+declare module "url" { const mod: any; export = mod; }
+declare module "node:http" { const mod: any; export = mod; }
+declare module "http" { const mod: any; export = mod; }
+declare module "node:https" { const mod: any; export = mod; }
+declare module "https" { const mod: any; export = mod; }
+declare module "node:stream" { const mod: any; export = mod; }
+declare module "stream" { const mod: any; export = mod; }
+declare module "node:events" { const mod: any; export = mod; }
+declare module "events" { const mod: any; export = mod; }
+declare module "node:child_process" { const mod: any; export = mod; }
+declare module "child_process" { const mod: any; export = mod; }
+declare module "node:buffer" { const mod: any; export = mod; }
+declare module "buffer" { const mod: any; export = mod; }
+declare module "node:module" { const mod: any; export = mod; }
+declare module "module" { const mod: any; export = mod; }
+declare module "node:timers" { const mod: any; export = mod; }
+declare module "timers" { const mod: any; export = mod; }
+declare module "node:worker_threads" { const mod: any; export = mod; }
+declare module "worker_threads" { const mod: any; export = mod; }
+declare module "node:net" { const mod: any; export = mod; }
+declare module "net" { const mod: any; export = mod; }
+declare module "node:zlib" { const mod: any; export = mod; }
+declare module "zlib" { const mod: any; export = mod; }
+declare module "node:querystring" { const mod: any; export = mod; }
+declare module "querystring" { const mod: any; export = mod; }
+declare module "node:readline" { const mod: any; export = mod; }
+declare module "readline" { const mod: any; export = mod; }
+declare module "node:assert" { const mod: any; export = mod; }
+declare module "assert" { const mod: any; export = mod; }
+declare module "node:perf_hooks" { const mod: any; export = mod; }
+declare module "perf_hooks" { const mod: any; export = mod; }
+declare module "node:dns" { const mod: any; export = mod; }
+declare module "dns" { const mod: any; export = mod; }
+declare module "node:tty" { const mod: any; export = mod; }
+declare module "tty" { const mod: any; export = mod; }
+declare module "node:string_decoder" { const mod: any; export = mod; }
+declare module "string_decoder" { const mod: any; export = mod; }
+declare module "node:async_hooks" { const mod: any; export = mod; }
+declare module "async_hooks" { const mod: any; export = mod; }
+declare module "node:diagnostics_channel" { const mod: any; export = mod; }
+declare module "diagnostics_channel" { const mod: any; export = mod; }

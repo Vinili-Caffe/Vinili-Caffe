@@ -11,7 +11,12 @@ const { ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/com
 const { isValidGuildUserId } = require(__eventCoreVinili("../shared/db/validateWriteIds"));
 const { resolveStarWarsEventConfig } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
 const { CRATE_LABELS, ADVENT_EVENT_KEY } = require("../../Utils/Eventi/starWarsAdventCatalog") as typeof import("../../Utils/Eventi/starWarsAdventCatalog");
-const { getStarWarsWallet, publicWallet, ROOT } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
+const {
+  getStarWarsWallet,
+  publicWallet,
+  ROOT,
+  creditFactionBankUnits,
+} = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
 
 function normalizeId(v?) {
   return String(v || "").trim();
@@ -36,7 +41,22 @@ function peiFromVotes(votes?) {
  * @param {object} grant { credits?, exp?, pei?, votes?, creditsVolume?, crateId?, crateQty?, troops? }
  * PEI: 50k exp → 500; 10M crediti (volume guadagnati/spesi/banca) → 100; 1 voto → 0,2
  */
-async function grantStarWarsReward(client, { guildId, userId, grant, reason = "", minigameCreditBuff = false }) {
+async function grantStarWarsReward(
+  client?,
+  {
+    guildId,
+    userId,
+    grant,
+    reason = "",
+    minigameCreditBuff = false,
+  }: {
+    guildId?: string | null;
+    userId?: string | null;
+    grant?: any;
+    reason?: string;
+    minigameCreditBuff?: boolean;
+  } = {},
+) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   const cfg = resolveStarWarsEventConfig(client);
@@ -85,9 +105,30 @@ async function grantStarWarsReward(client, { guildId, userId, grant, reason = ""
   }
 
   if (gnt.troops && typeof gnt.troops === "object") {
-    for (const [k, v] of Object.entries(gnt.troops)) {
-      const n = safeInt(v);
-      if (n) $inc[`${ROOT}.pendingTroops.${k}`] = n;
+    try {
+      const { materializeTroopGrants, isTroopTierKey } = require("../../Utils/Eventi/starWarsEconomyCatalog") as typeof import("../../Utils/Eventi/starWarsEconomyCatalog");
+      const { resolveFeatureStateNow, EPOCHS } = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
+      const current = await getStarWarsWallet(g, u, eventKey);
+      const factionId = current.factionId || null;
+      const epoch = current.epoch || resolveFeatureStateNow(new Date()).epoch || EPOCHS.CLONE_WARS;
+      if (factionId) {
+        const { units } = materializeTroopGrants(gnt.troops, { epoch, factionId });
+        for (const [unitId, qty] of Object.entries(units)) {
+          if (qty) $inc[`${ROOT}.army.${unitId}`] = qty;
+        }
+        gnt._resolvedTroops = units;
+      } else {
+        for (const [k, v] of Object.entries(gnt.troops)) {
+          const n = safeInt(v);
+          if (n && isTroopTierKey(k)) $inc[`${ROOT}.pendingTroops.${k}`] = n;
+          else if (n && !isTroopTierKey(k)) $inc[`${ROOT}.army.${k}`] = n;
+        }
+      }
+    } catch (_) {
+      for (const [k, v] of Object.entries(gnt.troops)) {
+        const n = safeInt(v);
+        if (n) $inc[`${ROOT}.pendingTroops.${k}`] = n;
+      }
     }
   }
 
@@ -107,6 +148,11 @@ async function grantStarWarsReward(client, { guildId, userId, grant, reason = ""
   ).catch(() => null);
 
   if (!updated) return { ok: false, error: "persist_failed" };
+
+  if (gnt._resolvedTroops && typeof gnt._resolvedTroops === "object") {
+    const fid = publicWallet(updated?.profile?.events?.starwars, eventKey)?.factionId;
+    if (fid) await creditFactionBankUnits(eventKey, fid, gnt._resolvedTroops);
+  }
 
   let wallet = publicWallet(updated?.profile?.events?.starwars, eventKey);
   let levelUp = null;
@@ -143,7 +189,15 @@ async function grantStarWarsReward(client, { guildId, userId, grant, reason = ""
 }
 
 /** PEI + volume per crediti spesi o versati in banca (senza cambiare saldo se già applicato altrove). */
-async function grantStarWarsCreditsVolumePei(client?, { guildId, userId, amount, reason = "credits_volume" } = {}) {
+async function grantStarWarsCreditsVolumePei(
+  client?,
+  { guildId, userId, amount, reason = "credits_volume" }: {
+    guildId?: string | null;
+    userId?: string | null;
+    amount?: number;
+    reason?: string;
+  } = {},
+) {
   const vol = Math.max(0, safeInt(amount));
   if (!vol) return { ok: true, skipped: true };
   return grantStarWarsReward(client, {
@@ -158,7 +212,10 @@ async function grantStarWarsCreditsVolumePei(client?, { guildId, userId, amount,
 const GLOBAL_WIN_PERSONAL_CREDITS = 5;
 const GLOBAL_WIN_FACTION_BANK_CREDITS = 10;
 
-async function grantStarWarsGlobalMinigameWinBonus(client?, { guildId, userId } = {}) {
+async function grantStarWarsGlobalMinigameWinBonus(
+  client?,
+  { guildId, userId }: { guildId?: string | null; userId?: string | null } = {},
+) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   if (!isValidGuildUserId(g, u)) return { ok: false, error: "bad_ids" };

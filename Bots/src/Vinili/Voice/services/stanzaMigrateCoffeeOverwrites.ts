@@ -11,7 +11,7 @@ function resolveCoffeeBotUserId() {
   const fromTestClient = String(process.env.DISCORD_CLIENT_ID_TEST || "").trim();
   if (/^\d{5,30}$/.test(fromTestClient)) return fromTestClient;
   try {
-    const coffeeConfig = require("../../../Caffè/config.json") as typeof import("../../../Caffè/config.json");
+    const coffeeConfig: any = require("../../../Caffè/config.json");
     const bots = coffeeConfig?.bots;
     if (bots && typeof bots === "object") {
       for (const row of Object.values(bots)) {

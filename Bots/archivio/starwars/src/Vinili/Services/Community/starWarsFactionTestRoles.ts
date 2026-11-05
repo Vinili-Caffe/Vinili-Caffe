@@ -102,7 +102,10 @@ function allFactionRoles(guild?) {
 }
 
 /** Assegna/allinea ruolo fazione su server test da factionId DB. */
-async function applyStarWarsFactionRoleOnTest(client?, { userId, factionId } = {}) {
+async function applyStarWarsFactionRoleOnTest(
+  client?,
+  { userId, factionId }: { userId?: string | null; factionId?: string | null } = {},
+) {
   const uid = normalizeId(userId);
   const fid = normalizeFactionId(factionId);
   const tg = testGuildId();

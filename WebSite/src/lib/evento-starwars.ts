@@ -181,6 +181,27 @@ export function isEventoAvventoSeasonOpen(now = new Date()): boolean {
   return adventSlotForRomeDate(now) != null;
 }
 
+/** Dal 26 dic 2026 (Rome) l’avvento è chiuso per tutti. */
+export function isEventoAvventoEnded(now = new Date()): boolean {
+  const stamp = romeStamp(now).slice(0, 10);
+  return stamp >= "2026-12-26";
+}
+
+/**
+ * Hub: avvento + switcher.
+ * - 1–25 dic: sì
+ * - prima del 1 dic: solo High Staff (anteprima)
+ * - dal 26 dic: no (solo attività)
+ */
+export function canShowEventoAvventoOnHub(
+  access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
+  now = new Date(),
+): boolean {
+  if (isEventoAvventoEnded(now)) return false;
+  if (isEventoAvventoSeasonOpen(now)) return true;
+  return isEventoHighStaff(access);
+}
+
 /** Feature calendar (mezzogiorno) — hub sempre on; avvento solo in stagione. */
 export function isEventoFeatureUnlocked(pageId: EventoPageId, now = new Date()): boolean {
   if (pageId === "hub") return true;
@@ -205,8 +226,11 @@ export function canAccessEventoPage(
   access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
   now = new Date(),
 ): boolean {
-  /* Avvento chiuso: nessuno (né pubblico né HS). */
-  if (pageId === "avvento" && !isEventoAvventoSeasonOpen(now)) return false;
+  /* Avvento: chiuso dal 26; prima del 1 dic solo HS; in stagione ok. */
+  if (pageId === "avvento") {
+    if (isEventoAvventoEnded(now)) return false;
+    if (!isEventoAvventoSeasonOpen(now) && !isEventoHighStaff(access)) return false;
+  }
   if (isEventoHighStaff(access)) return true;
   if (!isEventoPublicWindowOpen(now)) return false;
   if (!isEventoPagePublic(pageId)) return false;

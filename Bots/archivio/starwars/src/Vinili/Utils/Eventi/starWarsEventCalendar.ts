@@ -236,6 +236,77 @@ function isCalendarFeatureActive(featureKey?, now = new Date()) {
   return (state.features || []).includes(key);
 }
 
+/** Righe calendario per uno slot avvento (1–25 dic 2026). */
+function rowsForAdventDay(adventDay?) {
+  const n = Math.floor(Number(adventDay));
+  if (!Number.isFinite(n) || n < 1 || n > 25) return [];
+  const date = `2026-12-${String(n).padStart(2, "0")}`;
+  return DAY_ROWS.filter((r?) => Number(r.advent) === n || String(r.date || "") === date);
+}
+
+/** Attività del giorno avvento: note, film, feature on/off (dal calendario evento). */
+function getAdventDayActivity(adventDay?) {
+  const n = Math.floor(Number(adventDay));
+  if (!Number.isFinite(n) || n < 1 || n > 25) return null;
+  const date = `2026-12-${String(n).padStart(2, "0")}`;
+  const rows = rowsForAdventDay(n);
+  const notes: string[] = [];
+  const on: string[] = [];
+  const off: string[] = [];
+  let film: string | null = null;
+  let economyPhase: number | null = null;
+  let at: string | null = null;
+  for (const r of rows) {
+    if (r.note) notes.push(String(r.note));
+    if (r.film && !film) film = String(r.film);
+    if (r.at && !at) at = normalizeAt(r.at);
+    for (const f of (r.on || []) as readonly string[]) on.push(f);
+    for (const f of (r.off || []) as readonly string[]) off.push(f);
+    if (Object.prototype.hasOwnProperty.call(r, "economyPhase") && r.economyPhase != null) {
+      economyPhase = r.economyPhase;
+    }
+  }
+  return {
+    advent: n,
+    date,
+    at,
+    note: notes.length ? [...new Set(notes)].join(" · ") : null,
+    film,
+    on: [...new Set(on)],
+    off: [...new Set(off)],
+    economyPhase,
+  };
+}
+
+/** Prima attivazione di una feature sul calendario. */
+function featureUnlockMeta(featureKey?) {
+  const key = String(featureKey || "").trim();
+  if (!key) return null;
+  for (const row of DAY_ROWS) {
+    const ons = (row.on || []) as readonly string[];
+    if (ons.includes(key)) {
+      return {
+        date: String(row.date || ""),
+        advent: row.advent != null ? Number(row.advent) : null,
+        note: row.note ? String(row.note) : null,
+        at: row.at ? normalizeAt(row.at) : null,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Feature già sbloccata almeno una volta (resta true anche dopo off calendario).
+ * Per collezioni hub: mostra da unlock fino a fine evento.
+ */
+function isFeatureUnlockedPersistent(featureKey?, now = new Date()) {
+  const meta = featureUnlockMeta(featureKey);
+  if (!meta?.date) return false;
+  const unlockStamp = `${meta.date}T${normalizeAt(meta.at)}`;
+  return unlockStamp <= romeDateTimeStamp(now);
+}
+
 export = {
   FEATURES,
   EPOCHS,
@@ -249,4 +320,8 @@ export = {
   resolveFeatureStateAtStamp,
   romeDateTimeStamp,
   isCalendarFeatureActive,
+  getAdventDayActivity,
+  featureUnlockMeta,
+  isFeatureUnlockedPersistent,
+  rowsForAdventDay,
 };

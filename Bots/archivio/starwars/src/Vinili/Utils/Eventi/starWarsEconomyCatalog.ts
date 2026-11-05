@@ -68,6 +68,73 @@ function publicShopCatalog(epoch = EPOCHS.CLONE_WARS, factionId = null) {
   };
 }
 
+function parseTroopTierKey(key?) {
+  const m = /^tier\s*([1-4])$/i.exec(String(key || "").trim());
+  return m ? Number(m[1]) : null;
+}
+
+function isTroopTierKey(key?) {
+  return parseTroopTierKey(key) != null;
+}
+
+function unitLabelForFaction(unit?, factionId?) {
+  if (!unit) return "";
+  const fid = String(factionId || "").trim().toLowerCase();
+  if (fid && unit.labels?.[fid]) return String(unit.labels[fid]);
+  return String(Object.values(unit.labels || {})[0] || unit.id || "");
+}
+
+/** Unità random del tier (per fazione/epoca). Se manca il tier, usa il più vicino ≤ richiesto. */
+function pickUnitForTier(epoch?, factionId?, tier?) {
+  const t = Math.floor(Number(tier));
+  if (!Number.isFinite(t) || t < 1) return null;
+  const fid = String(factionId || "").trim().toLowerCase();
+  const all = unitsForEpoch(epoch).filter((u?) => !fid || u.labels?.[fid]);
+  if (!all.length) return null;
+  let pool = all.filter((u?) => u.tier === t);
+  if (!pool.length) {
+    const lower = all.filter((u?) => u.tier <= t).sort((a?, b?) => b.tier - a.tier);
+    if (lower.length) {
+      const best = lower[0].tier;
+      pool = lower.filter((u?) => u.tier === best);
+    } else {
+      pool = all.slice();
+    }
+  }
+  return pool[Math.floor(Math.random() * pool.length)] || null;
+}
+
+/**
+ * Converte mappa loot truppe (`tier2: 2` o già `cloni_droidi: 1`) → `{ unitId: qty }`.
+ * Ogni pezzo di un tier viene pescato a caso tra le unità di quel tier.
+ */
+function materializeTroopGrants(troops?, { epoch = EPOCHS.CLONE_WARS, factionId = null } = {}) {
+  const out: Record<string, number> = {};
+  const labels: Record<string, string> = {};
+  if (!troops || typeof troops !== "object") return { units: out, labels };
+
+  for (const [key, rawQty] of Object.entries(troops)) {
+    const qty = Math.max(0, Math.floor(Number(rawQty) || 0));
+    if (!qty) continue;
+    const tier = parseTroopTierKey(key);
+    if (tier != null) {
+      for (let i = 0; i < qty; i++) {
+        const unit = pickUnitForTier(epoch, factionId, tier);
+        if (!unit) continue;
+        out[unit.id] = (out[unit.id] || 0) + 1;
+        labels[unit.id] = unitLabelForFaction(unit, factionId);
+      }
+      continue;
+    }
+    const id = String(key || "").trim();
+    if (!id || isTroopTierKey(id)) continue;
+    out[id] = (out[id] || 0) + qty;
+    const known = unitsForEpoch(epoch).find((u?) => u.id === id);
+    labels[id] = known ? unitLabelForFaction(known, factionId) : id;
+  }
+  return { units: out, labels };
+}
+
 export = {
   CLONE_WARS_UNITS,
   CIVIL_WAR_UNITS,
@@ -75,4 +142,9 @@ export = {
   EPOCH_FACTIONS,
   unitsForEpoch,
   publicShopCatalog,
+  parseTroopTierKey,
+  isTroopTierKey,
+  pickUnitForTier,
+  materializeTroopGrants,
+  unitLabelForFaction,
 };

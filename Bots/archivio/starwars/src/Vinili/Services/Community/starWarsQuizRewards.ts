@@ -32,7 +32,10 @@ function normalizeId(v?) {
  * Incrementa il totale vittorie minigame SW (cumulativo) e assegna crediti + eventuale cassa Alpha.
  * L'exp profilo (50) resta sul flusso minigame standard (rewardExp).
  */
-async function grantStarWarsQuizWinRewards(client?, { guildId, userId, cfg = null } = {}) {
+async function grantStarWarsQuizWinRewards(
+  client?,
+  { guildId, userId, cfg = null }: { guildId?: string | null; userId?: string | null; cfg?: any } = {},
+) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   if (!isValidGuildUserId(g, u)) return { ok: false, error: "bad_ids" };

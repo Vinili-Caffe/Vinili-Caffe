@@ -6,7 +6,7 @@ const EMPTY_PERMISSIONS = { slash: {}, prefix: {}, channels: {}, buttons: {}, se
 let idsFallbackCache = null;
 const LIVE_MEMBER_CACHE_TTL_MS = 15_000;
 const liveMemberCache = new Map();
-/* Solo sticky #sanzioni (guida staff Discord cancellata). */
+/* Guida staff/sanzioni solo sul sito (bottoni legacy → link). */
 const STAFF_GUIDE_BUTTON_IDS = new Set([
   "regolamento",
   "moderazione_staff",

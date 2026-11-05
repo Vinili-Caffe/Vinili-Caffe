@@ -26,7 +26,7 @@ function crate(crateId?, qty = 1) {
 }
 
 function credits(amount?) {
-  return { type: "premium_credits", amount: Math.max(0, Math.floor(Number(amount) || 0)) };
+  return { type: "credits", amount: Math.max(0, Math.floor(Number(amount) || 0)) };
 }
 
 function day(n?, rewards?, label?) {

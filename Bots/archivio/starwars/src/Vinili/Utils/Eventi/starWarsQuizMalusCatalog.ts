@@ -50,7 +50,7 @@ const MALUS_CATALOG: MalusDef[] = [
     title: "Spotchka per tutti",
     short: "Lettere mischiate",
     description:
-      "Domanda e opzioni: lettere e spazi mischiati in tutta la frase (confini parola spezzati). La risposta da scrivere resta quella vera.",
+      "Domanda e opzioni: lettere e spazi mischiati in tutta la frase.",
     artUrl: malusArtUrl("spotchka"),
     transformsText: true,
     freezesUsers: false,
@@ -59,9 +59,9 @@ const MALUS_CATALOG: MalusDef[] = [
   {
     id: "hansicle",
     title: "Congelamento all'Hansicle",
-    short: "1 attivo + 2 random · per fazione",
+    short: "3 utenti congelati",
     description:
-      "Congela **per fazione**: su **ogni fazione** prende **1 più attivo + 2 a caso**. I congelati non possono rispondere ai quiz finché dura il malus.",
+      "Congelamento **per fazione**: su **ogni fazione** prende **3 utenti a caso**. I congelati non possono rispondere ai quiz finché dura il congelamento.",
     artUrl: malusArtUrl("hansicle"),
     transformsText: false,
     freezesUsers: true,
@@ -70,9 +70,9 @@ const MALUS_CATALOG: MalusDef[] = [
   {
     id: "sospensione",
     title: "Campo di sospensione temporanea",
-    short: "1 attivo + 2 random · globale",
+    short: "3 utenti congelati",
     description:
-      "Effetto **globale**: congela **3 utenti di una sola fazione** scelta a caso (**1 più attivo + 2 a caso**). I congelati non possono rispondere ai quiz finché dura il malus.",
+      "Effetto **globale**: sospesi **3 utenti di una sola fazione** scelta a caso. I sospesi non possono rispondere ai quiz finché dura la sospensione.",
     artUrl: malusArtUrl("sospensione"),
     transformsText: false,
     freezesUsers: true,
@@ -83,7 +83,7 @@ const MALUS_CATALOG: MalusDef[] = [
     title: "Cortocircuito del droide",
     short: "Frase a specchio",
     description:
-      "Tutta la domanda (e le opzioni) è scritta al contrario, come in uno specchio. La risposta da scrivere resta quella corretta.",
+      "Tutta la domanda è scritta al contrario, come in uno specchio.",
     artUrl: malusArtUrl("cortocircuito"),
     transformsText: true,
     freezesUsers: false,
@@ -92,9 +92,9 @@ const MALUS_CATALOG: MalusDef[] = [
   {
     id: "geonosiana",
     title: "Mente Geonosiana",
-    short: "3 risposte · stessa fazione",
+    short: "3 risposte dalla stessa fazione",
     description:
-      "Viene scelta una fazione: servono **3 membri diversi** di quella fazione che diano la risposta giusta. Con 1 o 2 soli non si vince.",
+      "Viene scelta una fazione: servono **3 membri diversi** di quella fazione che diano la risposta giusta.",
     artUrl: malusArtUrl("geonosiana"),
     transformsText: false,
     freezesUsers: false,
@@ -105,7 +105,7 @@ const MALUS_CATALOG: MalusDef[] = [
     title: "Jar Jar parla troppo",
     short: "Idioletto multilanguage",
     description:
-      "La domanda è piena di parole tradotte in latino, spagnolo, inglese o portoghese (anche mescolate nella stessa frase). Capisci il senso e rispondi bene.",
+      "La domanda è piena di parole tradotte in latino, spagnolo, inglese o portoghese.",
     artUrl: malusArtUrl("jarjar"),
     transformsText: true,
     freezesUsers: false,

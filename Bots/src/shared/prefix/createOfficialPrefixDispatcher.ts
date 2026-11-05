@@ -688,6 +688,14 @@ function createOfficialPrefixDispatcher(options: Record<string, any> = {}) {
     maybeSendWrongPrefixHint,
     getCachedOrFetchMember,
     hasAnyStaffBypassPermission,
+  }: {
+    message: any;
+    resolvedClient: any;
+    defaultPrefix: any;
+    overrideCommand?: any;
+    maybeSendWrongPrefixHint?: any;
+    getCachedOrFetchMember?: any;
+    hasAnyStaffBypassPermission?: any;
   }) {
     if (rewriteMessageAliases) {
       rewriteMessageAliases(message, resolvedClient, defaultPrefix);

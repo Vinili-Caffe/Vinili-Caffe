@@ -25,6 +25,7 @@ function mountEventoWebhookRoutes(app?, client?) {
     app.get("/webhooks/site-evento/pei", (req?, res?) => sw.handleSiteEventoPeiGet(client, req, res));
     app.get("/webhooks/site-evento/traditore", (req?, res?) => sw.handleSiteEventoTraditoreGet(client, req, res));
     app.post("/webhooks/site-evento/traditore", (req?, res?) => sw.handleSiteEventoTraditorePost(client, req, res));
+    app.get("/webhooks/site-evento/collezioni", (req?, res?) => sw.handleSiteEventoCollezioniGet(client, req, res));
     app.post("/webhooks/site-evento/phase-end", (req?, res?) => sw.handleSiteEventoPhaseEndPost(client, req, res));
   } catch (err) {
     global.logger?.warn?.("[WEBHOOK] starWars site-evento mount skipped:", err?.message || err);

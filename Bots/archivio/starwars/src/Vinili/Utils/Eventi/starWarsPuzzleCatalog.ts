@@ -127,13 +127,16 @@ const PUZZLE_DIFFICULTIES = Object.freeze([
   }),
 ]);
 
-const BY_ID = new Map(PUZZLE_DIFFICULTIES.map((d) => [d.id, d]));
+type PuzzleDiff = (typeof PUZZLE_DIFFICULTIES)[number];
+const BY_ID = new Map<string, PuzzleDiff>(
+  PUZZLE_DIFFICULTIES.map((d) => [String(d.id), d]),
+);
 
 function listPuzzleDifficulties() {
   return PUZZLE_DIFFICULTIES.slice();
 }
 
-function getPuzzleDifficulty(id?) {
+function getPuzzleDifficulty(id?): PuzzleDiff | null {
   return BY_ID.get(String(id || "").trim().toLowerCase()) || null;
 }
 

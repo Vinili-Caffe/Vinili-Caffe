@@ -1,9 +1,3 @@
-/**
- * Tabelle loot casse (ranges da PDF).
- * Moneta: crediti OPPURE exp (+ eventuale utility).
- * Casuale: crediti E exp, mai oggetti (range da pool alpha/beta/omega/avvento).
- * Militari: truppe (+ eventuale utility).
- */
 "use strict";
 
 const { rollUtilityItemDrop } = require("./starWarsUtilityItemsCatalog") as typeof import("./starWarsUtilityItemsCatalog");
@@ -18,7 +12,6 @@ const TABLES = Object.freeze({
   nebulare: { credits: [460000, 500000], exp: [255000, 295000] },
   galattico: { credits: [500000, 530000], exp: [295000, 335000] },
   avvento: { credits: [5000, 55000], exp: [2500, 27500] },
-  /* casuale = range roll tra alpha/beta/omega/avvento, ma sempre crediti+exp */
   casuale_pool: ["alpha", "beta", "omega", "avvento"],
   militare: { troopsTier1: 2 },
   militare_plus: { modes: ["t1_t2", "t3"] },
@@ -31,7 +24,6 @@ function randInt(a?, b?) {
   return lo + Math.floor(Math.random() * (hi - lo + 1));
 }
 
-/** Crediti OPPURE exp (50/50). */
 function rollCreditsOrExp(table?) {
   const pick = Math.random() < 0.5 ? "credits" : "exp";
   const [lo, hi] = table[pick];
@@ -39,7 +31,6 @@ function rollCreditsOrExp(table?) {
   return pick === "credits" ? { credits: amount, exp: 0 } : { credits: 0, exp: amount };
 }
 
-/** Crediti E exp (cassa casuale). */
 function rollCreditsAndExp(table?) {
   const [cLo, cHi] = table.credits;
   const [eLo, eHi] = table.exp;
@@ -61,7 +52,6 @@ function resolveCrateId(crateId?) {
 function openCrateLoot(crateId?) {
   const id = resolveCrateId(crateId);
 
-  /* Casuale: range da pool, sempre crediti+exp, mai oggetti. */
   if (id === "casuale") {
     const pool = TABLES.casuale_pool;
     const tier = pool[Math.floor(Math.random() * pool.length)] || "alpha";

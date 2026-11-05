@@ -306,7 +306,10 @@ async function grantPhaseEndRewards(client, { guildId, phase, winningFactionId }
 }
 
 /** Rango PEI globale + in fazione (1 = primo). */
-async function getUserPeiRanks(client?, { userId, factionId = null, pei = 0 } = {}) {
+async function getUserPeiRanks(
+  client?,
+  { userId, factionId = null, pei = 0 }: { userId?: string | null; factionId?: string | null; pei?: number } = {},
+) {
   const cfg = resolveStarWarsEventConfig(client);
   const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
   const u = normalizeId(userId);

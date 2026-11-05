@@ -1,52 +1,32 @@
-const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
-const { buildStaffGuideSectionMarkdown } = require("../../../Staff/utils/staffGuideContent") as typeof import("../../../Staff/utils/staffGuideContent");
-const { buildModerationGuideStickyPayload, moderationGuideEmbedColor } = require("../moderationGuidePanelComponents") as typeof import("../moderationGuidePanelComponents");
 const { PRIVATE_FLAG, logButtonErr } = require("./shared") as typeof import("./shared");
+const { siteWorkflowUrl } = require("../../../site/http/discordWorkflowUiGate") as typeof import("../../../site/http/discordWorkflowUiGate");
+const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
 
-/* Guida staff Discord rimossa (solo sito). Restano sticky #sanzioni. */
+const GUIDE_BUTTON_IDS = new Set([
+  "moderazione_staff",
+  "regolamento",
+  "generalimoderazione",
+  "testualimoderazione",
+  "vocalimoderazione",
+  "sanzioni",
+]);
+
+/* Guida sanzioni solo sul sito (sticky Discord rimosso). */
 async function handleStaffButtons(interaction?) {
   if (!interaction.isButton()) return false;
+  if (!GUIDE_BUTTON_IDS.has(String(interaction.customId || ""))) return false;
 
-  /* Sticky sanzioni utenti (#sanzioni) — resta su Discord. */
-  if (interaction.customId == "moderazione_staff" || interaction.customId == "regolamento") {
-    const payload = buildModerationGuideStickyPayload();
-    await interaction
-      .reply({ embeds: payload.embeds, components: payload.components, flags: PRIVATE_FLAG })
-      .catch((err?) => {
-        logButtonErr(err);
-        return null;
-      });
-    return true;
-  }
-
-  if (interaction.customId == "generalimoderazione") {
-    const body = buildStaffGuideSectionMarkdown("generalimoderazione");
-    const embed = new EmbedBuilder()
-      .setColor(moderationGuideEmbedColor())
-      .setDescription(body || "Sezione non disponibile.");
-    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err?) => { logButtonErr(err); return null; });
-    return true;
-  }
-
-  if (interaction.customId == "testualimoderazione") {
-    const body = buildStaffGuideSectionMarkdown("testualimoderazione");
-    const embed = new EmbedBuilder()
-      .setColor(moderationGuideEmbedColor())
-      .setDescription(body || "Sezione non disponibile.");
-    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err?) => { logButtonErr(err); return null; });
-    return true;
-  }
-
-  if (interaction.customId == "vocalimoderazione") {
-    const body = buildStaffGuideSectionMarkdown("vocalimoderazione");
-    const embed = new EmbedBuilder()
-      .setColor(moderationGuideEmbedColor())
-      .setDescription(body || "Sezione non disponibile.");
-    await interaction.reply({ embeds: [embed], flags: PRIVATE_FLAG }).catch((err?) => { logButtonErr(err); return null; });
-    return true;
-  }
-
-  return false;
+  const url = siteWorkflowUrl("guida");
+  await interaction
+    .reply({
+      content: `${E.VC_Info} La guida sanzioni è **solo sul sito**:\n${url}`,
+      flags: PRIVATE_FLAG,
+    })
+    .catch((err?) => {
+      logButtonErr(err);
+      return null;
+    });
+  return true;
 }
 
 export = { handleStaffButtons };

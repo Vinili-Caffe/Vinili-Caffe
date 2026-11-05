@@ -18,7 +18,7 @@ const UTILITY_ITEM_LABELS = Object.freeze({
 });
 
 const UTILITY_ITEM_BLURBS = Object.freeze({
-  bacta: "Cura il 5% dell'esercito personale (solo truppe).",
+  bacta: "Cura il 5% dell'esercito personale.",
   festival_ancestors: "Crediti ed exp doppi dai voti per 24 ore.",
   riciclaggio_hutt: "+10% crediti dai minigames per 24 ore.",
   sconto_mercato_nero: "Shop al −20% per 24 ore.",

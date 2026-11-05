@@ -252,7 +252,7 @@ function categoryEmbed(cat?, winner?, snapshotMeta?) {
       `Premio: ${formatCrateMention("solare", 1, { open: true })} · ${CREDITI} **${cat.credits.toLocaleString("it-IT")}** crediti · **${cat.exp.toLocaleString("it-IT")}** exp`,
     );
   } else {
-    lines.push("_Nessun vincitore in questa fase (score 0)._");
+    lines.push("_Nessun vincitore in questa fase._");
   }
   return new EmbedBuilder()
     .setColor(cat.color)

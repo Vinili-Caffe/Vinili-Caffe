@@ -147,7 +147,7 @@ function standingEmbed(factionRow?, meta?) {
       [
         meta?.title ? `**${meta.title}**` : null,
         "",
-        `Exp fazione (somma membri): **${Number(factionRow?.exp || 0).toLocaleString("it-IT")}**`,
+        `Exp fazione: **${Number(factionRow?.exp || 0).toLocaleString("it-IT")}**`,
         `PEI totali: **${Number(factionRow?.pei || 0).toLocaleString("it-IT", { maximumFractionDigits: 1 })}**`,
         `Smistati: **${Number(factionRow?.members || 0)}**`,
         "",
@@ -156,7 +156,7 @@ function standingEmbed(factionRow?, meta?) {
         .filter((x?) => x != null)
         .join("\n"),
     )
-    .setFooter({ text: "PEI: 50k exp → 500 · 10M crediti (guadagnati/spesi/banca) → 100 · 1 voto → 0,2" });
+    .setFooter({ text: "PEI: 50k exp → 500 · 10M crediti → 100 · 1 voto → 0,2" });
 }
 
 async function resolveStandingChannel(client?) {

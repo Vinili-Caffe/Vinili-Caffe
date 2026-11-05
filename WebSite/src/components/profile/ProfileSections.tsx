@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown, Ghost, Mic, Paintbrush, Sparkles, Users, Zap } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { Reveal } from "@/components/Reveal";
-import { cleanRole, dateIt, mult, multiplierRows, rankCardUrl, type CustomRole, type CustomVoice, type DeckCollection, type DiscordRole, type ProfileData, type SharedMember } from "@/lib/profile";
+import { cleanRole, dateIt, mult, multiplierRows, rankCardUrl, type CustomRole, type CustomVoice, type DiscordRole, type ProfileData, type SharedMember } from "@/lib/profile";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { EmojiText } from "@/components/discord/EmojiText";
@@ -231,85 +231,6 @@ export function CandyCollection({ p }: { p: ProfileData }) {
         </ul>
       </div>
     </Reveal>
-  );
-}
-
-function StarWarsDeckCard({ deck, accent }: { deck: DeckCollection; accent: "reliquie" | "pg" }) {
-  const pct = Math.round((deck.ownedCount / Math.max(1, deck.total)) * 100);
-  const ring = accent === "reliquie" ? "ring-[#c9a227]/30" : "ring-[#3b82f6]/30";
-  const bar = accent === "reliquie" ? "from-[#c9a227] to-[#f5e6a3]" : "from-[#3b82f6] to-[#93c5fd]";
-  const kicker = accent === "reliquie" ? "Evento Star Wars · Reliquie" : "Evento Star Wars · PG";
-  return (
-    <div className={cn("scheme-dark relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#12161f] via-roast to-[#0d1118] p-6 ring-1 sm:p-7", ring)}>
-      <div className="relative flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-crema/55">{kicker}</p>
-          <h2 className="mt-1.5 font-display text-3xl font-semibold sm:text-4xl">{deck.title}</h2>
-        </div>
-        <p className="font-display text-3xl font-bold lining-nums">
-          {deck.ownedCount}
-          <span className="text-crema/40">/{deck.total}</span>
-        </p>
-      </div>
-      <div className="relative mt-4 h-2 overflow-hidden rounded-full bg-crema/10">
-        <div className={cn("h-full rounded-full bg-gradient-to-r", bar)} style={{ width: `${pct}%` }} />
-      </div>
-      <ul className="relative mt-5 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
-        {deck.items.map((it) => (
-          <li
-            key={it.id}
-            title={it.owned ? it.name : "Non ancora trovata"}
-            className={cn(
-              "flex flex-col items-center justify-start gap-1.5 rounded-xl px-1.5 py-2 ring-1",
-              it.owned ? "bg-crema/[0.07] ring-sand/20" : "bg-black/20 ring-sand/8",
-            )}
-          >
-            <span className="flex size-10 shrink-0 items-center justify-center sm:size-11">
-              {it.thumbUrl || it.silhouetteUrl ? (
-                <img
-                  src={it.owned ? it.thumbUrl || it.silhouetteUrl : it.silhouetteUrl || it.thumbUrl}
-                  alt={it.owned ? it.name : ""}
-                  loading="lazy"
-                  className={cn("size-full object-contain", !it.owned && "opacity-25 brightness-0")}
-                />
-              ) : (
-                <span className={cn("size-8 rounded-full bg-crema/15", !it.owned && "opacity-30")} />
-              )}
-            </span>
-            <span
-              className={cn(
-                "w-full break-words hyphens-auto text-center text-[0.65rem] font-semibold leading-tight sm:text-[0.7rem]",
-                it.owned
-                  ? "text-crema/90"
-                  : "pointer-events-none select-none text-crema/75 blur-[5px] [filter:blur(5px)]",
-              )}
-              aria-hidden={!it.owned}
-            >
-              {it.name || "???"}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-export function StarWarsDeckCollections({ p }: { p: ProfileData }) {
-  const decks = p.starWarsDecks;
-  if (!decks?.visible) return null;
-  return (
-    <>
-      {decks.reliquie ? (
-        <Reveal>
-          <StarWarsDeckCard deck={decks.reliquie} accent="reliquie" />
-        </Reveal>
-      ) : null}
-      {decks.pg ? (
-        <Reveal>
-          <StarWarsDeckCard deck={decks.pg} accent="pg" />
-        </Reveal>
-      ) : null}
-    </>
   );
 }
 

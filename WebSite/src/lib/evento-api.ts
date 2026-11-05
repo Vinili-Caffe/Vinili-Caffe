@@ -100,11 +100,27 @@ export type EventoStatus = {
   message?: string;
 };
 
+export type EventoAdventActivity = {
+  date: string;
+  at?: string | null;
+  note?: string | null;
+  film?: string | null;
+  economyPhase?: number | null;
+  features?: Array<{
+    id: string;
+    feature?: string;
+    label: string;
+    href?: string | null;
+    kind?: string;
+  }>;
+};
+
 export type EventoAdventDayRow = {
   day: number;
   label: string;
   rewards: Array<
     | { type: "crate"; crateId: EventoCrateId; qty: number }
+    | { type: "credits"; amount: number }
     | { type: "premium_credits"; amount: number }
   >;
   claimed: boolean;
@@ -113,6 +129,8 @@ export type EventoAdventDayRow = {
   unlocked: boolean;
   /** Giorno passato non ritirato → premio perso. */
   missed?: boolean;
+  /** Attività dal calendario evento (stesso giorno). */
+  activity?: EventoAdventActivity | null;
 };
 
 export type EventoAvventoState = {
@@ -142,6 +160,86 @@ export async function fetchEventoStatus(token?: string | null): Promise<EventoSt
     const j = (await r.json().catch(() => null)) as EventoStatus | null;
     if (!j || typeof j !== "object") return { ok: false, error: "bad_json" };
     return j;
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
+export type EventoCollectionItem = {
+  id: string;
+  name: string;
+  imageUrl?: string;
+  thumbUrl?: string;
+  silhouetteUrl?: string;
+  owned: boolean;
+  hasImage?: boolean;
+};
+
+export type EventoCollectionDeck = {
+  unlocked: boolean;
+  active: boolean;
+  kind: "pg" | "reliquie" | string;
+  title: string;
+  ownedCount: number;
+  total: number;
+  items: EventoCollectionItem[];
+};
+
+export type EventoCollezioniState = {
+  ok: boolean;
+  visible?: boolean;
+  highStaff?: boolean;
+  pg?: EventoCollectionDeck | null;
+  reliquie?: EventoCollectionDeck | null;
+  error?: string;
+  message?: string;
+};
+
+export async function fetchEventoCollezioni(token?: string | null): Promise<EventoCollezioniState> {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/collezioni"), {
+      headers: authHeaders(token),
+      cache: "no-store",
+    });
+    const j = (await r.json().catch(() => null)) as EventoCollezioniState | null;
+    if (!j || typeof j !== "object") return { ok: false, error: "bad_json" };
+    return j;
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
+export type EventoCalendarDayRow = {
+  date: string;
+  at?: string;
+  advent?: number;
+  note?: string;
+  film?: string;
+  on?: string[];
+  off?: string[];
+  economyPhase?: number | null;
+  epoch?: string;
+};
+
+export async function fetchEventoCalendar(token?: string | null): Promise<{
+  ok: boolean;
+  days?: EventoCalendarDayRow[];
+  featuresNow?: { date?: string; epoch?: string | null; economyOn?: boolean };
+  error?: string;
+}> {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/calendar"), {
+      headers: authHeaders(token),
+      cache: "no-store",
+    });
+    const j = (await r.json().catch(() => null)) as {
+      ok?: boolean;
+      days?: EventoCalendarDayRow[];
+      featuresNow?: { date?: string; epoch?: string | null; economyOn?: boolean };
+      error?: string;
+    } | null;
+    if (!j || typeof j !== "object") return { ok: false, error: "bad_json" };
+    return { ok: Boolean(j.ok), days: j.days || [], featuresNow: j.featuresNow, error: j.error };
   } catch {
     return { ok: false, error: "network" };
   }
@@ -254,7 +352,18 @@ export async function fetchEventoMinigames(token?: string | null) {
     });
     return (await r.json().catch(() => null)) as {
       ok: boolean;
-      items?: Array<{ id: string; label: string; active: boolean; implemented: boolean; teaser: string; kind: string }>;
+      items?: Array<{
+        id: string;
+        label: string;
+        active: boolean;
+        implemented: boolean;
+        teaser: string;
+        kind: string;
+        href?: string | null;
+        unlockDate?: string | null;
+        adventDay?: number | null;
+        unlockNote?: string | null;
+      }>;
       epoch?: string | null;
       economyOn?: boolean;
     } | null;
@@ -311,6 +420,8 @@ export async function attackEventoFaction(token: string, defend = false) {
       ok: boolean;
       message?: string;
       winner?: string;
+      pending?: boolean;
+      mode?: string;
       attackPower?: number;
       defendPower?: number;
     } | null;

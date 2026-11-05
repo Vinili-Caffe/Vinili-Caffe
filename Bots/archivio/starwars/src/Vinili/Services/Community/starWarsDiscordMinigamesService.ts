@@ -1307,7 +1307,7 @@ function attaccaBaseBoardEmbed(payload?, { lastHit = null, finished = false } = 
   }
   const bothDead = finished && left <= 0 && right <= 0;
   const color = finished ? (bothDead || /pareggio|draw|tie/i.test(String(lastHit?.winnerLabel || "")) ? 0x9ca3af : 0x22c55e) : left <= 30 || right <= 30 ? 0xef4444 : 0xc9a227;
-  let image = skin.vs;
+  let image: string = skin.vs;
   if (finished) {
     if (bothDead || /pareggio|draw|tie/i.test(String(lastHit?.winnerLabel || ""))) image = skin.draw;
     else if (lastHit?.winnerLabel) image = attaccaVsImageForDestroyed(lastHit.winnerLabel, skin);
@@ -1570,7 +1570,7 @@ function convoglioEmbed({
     return new EmbedBuilder()
       .setColor(0x22c55e)
       .setTitle("Convoglio a destinazione")
-      .setDescription(`La scorta **${escortLabel}** ha portato a casa il carico (**${needHops}/${needHops}**).`)
+      .setDescription(`La scorta **${escortLabel}** ha portato a casa il carico.`)
       .setImage(CONVOGLIO_IMAGES[3]);
   }
   const titles = {
@@ -1582,7 +1582,7 @@ function convoglioEmbed({
     .setColor(0x8b1a1a)
     .setTitle(titles[hopN] || "Proteggi convoglio")
     .setDescription(
-      `Tappa **${hopN}/${needHops}**\nFazione di scorta: **${escortLabel}** (solo loro possono **Continua**).\n` +
+      `Tappa **${hopN}/${needHops}**\nFazione di scorta: **${escortLabel}**.\n` +
         `Se qualcuno **Intercetta**, la corsa finisce subito e **si perdono le ricompense**.`,
     )
     .setImage(CONVOGLIO_IMAGES[hopN] || CONVOGLIO_IMAGES[1]);
@@ -1683,7 +1683,7 @@ async function handleConvoglioButton(interaction?, parts?) {
 
   if (action === "continua") {
     if (faction !== escort) {
-      await interaction.reply({ content: "Solo la fazione di scorta può Continuare.", flags: 1 << 6 }).catch(() => null);
+      await interaction.reply({ content: "Solo la fazione di scorta può continuare.", flags: 1 << 6 }).catch(() => null);
       return true;
     }
 
@@ -1881,7 +1881,7 @@ function conquistaSystemEmbed(planet?, { claimedBy = null, claimedFaction = null
   const embed = new EmbedBuilder()
     .setColor(0xc2410c)
     .setTitle(`Sistema in bilico — ${name}`)
-    .setDescription(`${blurb}\n\nClicca **Conquista** per rivendicarlo (max **${CONQUISTA_MAX_PER_USER}** a testa).`);
+    .setDescription(`${blurb}\n\nClicca **Conquista** per rivendicarlo.`);
   if (image) embed.setImage(image);
   return embed;
 }

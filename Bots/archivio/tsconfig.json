@@ -12,6 +12,8 @@
     "node_modules/**",
     "../node_modules/**",
     "../build/**",
-    "../.cache/**"
+    "../.cache/**",
+    "codice-morto/**",
+    "config-morto/**"
   ]
 }

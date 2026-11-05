@@ -11,7 +11,12 @@ import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
 
 export type AdventGranted =
   | { type: "crate"; crateId: string; qty?: number; label?: string }
+  | { type: "credits"; amount: number }
   | { type: "premium_credits"; amount: number };
+
+function isCreditsGrant(g: AdventGranted | null | undefined): g is { type: "credits" | "premium_credits"; amount: number } {
+  return Boolean(g && (g.type === "credits" || g.type === "premium_credits"));
+}
 
 function CreditsBurst({ amount }: { amount: number }) {
   return (
@@ -166,7 +171,7 @@ export function AdventReveal({
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                {current?.type === "premium_credits" ? (
+                {isCreditsGrant(current) ? (
                   <CreditsBurst amount={current.amount} />
                 ) : current?.type === "crate" ? (
                   <EventoCrateArt
@@ -189,7 +194,7 @@ export function AdventReveal({
                       exit={{ opacity: 0, y: -8 }}
                     >
                       <p className="font-display text-xl font-semibold text-[#e4c76b]">
-                        {current.type === "premium_credits"
+                        {isCreditsGrant(current)
                           ? `${current.amount.toLocaleString("it-IT")} crediti`
                           : current.label ||
                             ADVENT_CRATE_LABELS[current.crateId as AdventCrateId] ||
@@ -239,7 +244,7 @@ export function AdventReveal({
                     : "bg-white/5 text-crema/40 ring-white/10",
                 )}
               >
-                {g.type === "premium_credits" ? (
+                {isCreditsGrant(g) ? (
                   <span className="inline-flex items-center gap-1">
                     <EventoCreditsIcon size="xs" />
                     {g.amount.toLocaleString("it-IT")}

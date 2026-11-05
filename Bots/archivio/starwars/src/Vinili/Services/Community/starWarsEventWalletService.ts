@@ -8,9 +8,10 @@
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
 
-const { ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
+const { ActivityUserProfile, SiteDocument, SITE_DOCUMENT_TYPE } = require(__eventCoreVinili(
+  "Community/schemas/communitySchemas",
+));
 const { isValidGuildUserId } = require(__eventCoreVinili("../shared/db/validateWriteIds"));
-const { addPremiumCredits } = require(__eventCoreVinili("Community/services/premiumCreditsService"));
 const { resolveStarWarsEventConfig } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
 const {
   ADVENT_EVENT_KEY,
@@ -18,11 +19,21 @@ const {
   getAdventDay,
   listAdventDays,
 } = require("../../Utils/Eventi/starWarsAdventCatalog") as typeof import("../../Utils/Eventi/starWarsAdventCatalog");
-const { adventSlotForRomeDate } = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
+const {
+  adventSlotForRomeDate,
+  resolveFeatureStateNow,
+  EPOCHS,
+} = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
 const { openCrateLoot } = require("../../Utils/Eventi/starWarsCrateLoot") as typeof import("../../Utils/Eventi/starWarsCrateLoot");
+const {
+  materializeTroopGrants,
+  isTroopTierKey,
+} = require("../../Utils/Eventi/starWarsEconomyCatalog") as typeof import("../../Utils/Eventi/starWarsEconomyCatalog");
 
 const ROOT = "profile.events.starwars";
 const CRATE_IDS = Object.freeze(Object.keys(CRATE_LABELS));
+const BANK_OWNER = "__starwars_faction_bank__";
+const BANK_DOC = SITE_DOCUMENT_TYPE.STARWARS_EVENT_STATE;
 
 function normalizeId(v?) {
   return String(v || "").trim();
@@ -161,16 +172,107 @@ function blankWallet(eventKey?) {
   };
 }
 
+async function creditFactionBankUnits(eventKey?, factionId?, unitsMap?) {
+  const fid = normalizeId(factionId).toLowerCase();
+  const ek = normalizeId(eventKey) || ADVENT_EVENT_KEY;
+  if (!fid || !unitsMap || typeof unitsMap !== "object") return;
+  const dedupe = `sw_bank_${ek}_${fid}`;
+  try {
+    const doc = await SiteDocument.findOne({
+      docType: BANK_DOC,
+      ownerId: BANK_OWNER,
+      dedupeKey: dedupe,
+    })
+      .lean()
+      .catch(() => null);
+    const payload = doc?.payload && typeof doc.payload === "object" ? { ...doc.payload } : {};
+    const units = payload.units && typeof payload.units === "object" ? { ...payload.units } : {};
+    let changed = false;
+    for (const [unitId, qty] of Object.entries(unitsMap)) {
+      const n = safeInt(qty);
+      const id = normalizeId(unitId);
+      if (!id || !n || isTroopTierKey(id)) continue;
+      units[id] = safeInt(units[id]) + n;
+      changed = true;
+    }
+    if (!changed) return;
+    const nowIso = new Date().toISOString();
+    await SiteDocument.findOneAndUpdate(
+      { docType: BANK_DOC, ownerId: BANK_OWNER, dedupeKey: dedupe },
+      {
+        $set: {
+          payload: {
+            credits: safeInt(payload.credits),
+            units,
+            lastAttackAt: payload.lastAttackAt || null,
+            stance: payload.stance || null,
+            stanceHour: payload.stanceHour || null,
+            resolvedHour: payload.resolvedHour || null,
+            updatedAt: nowIso,
+          },
+          updatedAt: new Date(),
+        },
+        $setOnInsert: { docType: BANK_DOC, ownerId: BANK_OWNER, dedupeKey: dedupe, guildId: "0" },
+      },
+      { upsert: true },
+    ).catch(() => null);
+  } catch (_) {}
+}
+
+/**
+ * Converte pendingTroops.tierN → army unità vere (e banca fazione).
+ * Ritorna wallet aggiornato.
+ */
+async function flushPendingTierTroops(guildId?, userId?, eventKey = "") {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  const key = normalizeId(eventKey) || ADVENT_EVENT_KEY;
+  if (!isValidGuildUserId(g, u)) return blankWallet(key);
+
+  const doc = await ActivityUserProfile.findOne({ guildId: g, userId: u }).select(ROOT).lean().catch(() => null);
+  const raw = readSlice(doc);
+  if (!raw) return blankWallet(key);
+  const pending = raw.pendingTroops && typeof raw.pendingTroops === "object" ? raw.pendingTroops : {};
+  const tierMap: Record<string, number> = {};
+  for (const [k, v] of Object.entries(pending)) {
+    if (!isTroopTierKey(k)) continue;
+    const n = safeInt(v);
+    if (n) tierMap[k] = n;
+  }
+  if (!Object.keys(tierMap).length) return publicWallet(raw, key);
+
+  const factionId = raw.factionId ? String(raw.factionId) : null;
+  const features = resolveFeatureStateNow(new Date());
+  const epoch = raw.epoch || features.epoch || EPOCHS.CLONE_WARS;
+  /* Senza fazione: non materializzare (resta pending finché non fa smistamento). */
+  if (!factionId) return publicWallet(raw, key);
+
+  const { units, labels } = materializeTroopGrants(tierMap, { epoch, factionId });
+  if (!Object.keys(units).length) return publicWallet(raw, key);
+
+  const nowIso = new Date().toISOString();
+  const $inc: Record<string, number> = {};
+  const $unset: Record<string, number> = {};
+  for (const [id, qty] of Object.entries(units)) $inc[`${ROOT}.army.${id}`] = qty;
+  for (const k of Object.keys(tierMap)) $unset[`${ROOT}.pendingTroops.${k}`] = 1;
+
+  const updated = await ActivityUserProfile.findOneAndUpdate(
+    { guildId: g, userId: u },
+    { $inc, $unset, $set: { [`${ROOT}.updatedAt`]: nowIso, [`${ROOT}.eventKey`]: key } },
+    { new: true },
+  ).catch(() => null);
+
+  await creditFactionBankUnits(key, factionId, units);
+  return publicWallet(readSlice(updated) || raw, key);
+}
+
 async function getStarWarsWallet(guildId?, userId?, eventKey = "") {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   const key = normalizeId(eventKey) || ADVENT_EVENT_KEY;
   if (!isValidGuildUserId(g, u)) return blankWallet(key);
-  const doc = await ActivityUserProfile.findOne({ guildId: g, userId: u })
-    .select(ROOT)
-    .lean()
-    .catch(() => null);
-  return publicWallet(readSlice(doc), key);
+  /* Auto-fix: tier pending → unità catalogo. */
+  return flushPendingTierTroops(g, u, key);
 }
 
 /**
@@ -189,12 +291,12 @@ async function claimAdventDay(client, { guildId, userId, day, staffPreview = fal
   }
   const slot = getAdventDay(dayNum);
   if (!slot) {
-    return { ok: false, status: 400, error: "bad_day", message: "Giorno avvento non valido (1–25)." };
+    return { ok: false, status: 400, error: "bad_day", message: "Giorno avvento non valido." };
   }
 
   const todaySlot = adventSlotForRomeDate(new Date());
-  /* Stagione chiusa (fuori 1–25 dic): nessuno, neanche HS. */
-  if (todaySlot == null) {
+  /* Stagione chiusa: pubblico no; High Staff (staffPreview) sì, senza limiti di giorno. */
+  if (todaySlot == null && !staffPreview) {
     return {
       ok: false,
       status: 410,
@@ -208,7 +310,7 @@ async function claimAdventDay(client, { guildId, userId, day, staffPreview = fal
         ok: false,
         status: 403,
         error: "too_early",
-        message: "Questo giorno non è ancora sbloccato (si apre a mezzanotte).",
+        message: "Questo giorno non è ancora sbloccato.",
       };
     }
     /* Solo il giorno corrente: se salti la mezzanotte, la ricompensa di quel giorno è persa. */
@@ -228,7 +330,6 @@ async function claimAdventDay(client, { guildId, userId, day, staffPreview = fal
 
   const inc: Record<string, any> = {};
   const granted = [];
-  let premiumCreditGrant = 0;
   for (const part of slot.rewards) {
     if (part.type === "crate") {
       const id = String(part.crateId || "").trim();
@@ -237,11 +338,12 @@ async function claimAdventDay(client, { guildId, userId, day, staffPreview = fal
       const path = `${ROOT}.crates.${id}`;
       inc[path] = (inc[path] || 0) + qty;
       granted.push({ type: "crate", crateId: id, qty, label: CRATE_LABELS[id] });
-    } else if (part.type === "premium_credits") {
+    } else if (part.type === "credits" || part.type === "premium_credits") {
+      /* Tutti i crediti avvento = crediti evento (mai premium sito). */
       const amount = safeInt(part.amount);
       if (amount > 0) {
-        premiumCreditGrant += amount;
-        granted.push({ type: "premium_credits", amount });
+        inc[`${ROOT}.credits`] = (inc[`${ROOT}.credits`] || 0) + amount;
+        granted.push({ type: "credits", amount });
       }
     }
   }
@@ -294,18 +396,6 @@ async function claimAdventDay(client, { guildId, userId, day, staffPreview = fal
       };
     }
     return { ok: false, status: 500, error: "persist_failed", message: "Salvataggio non riuscito." };
-  }
-
-  if (premiumCreditGrant > 0) {
-    const creditRes: any = await addPremiumCredits(u, premiumCreditGrant).catch(() => ({ ok: false }));
-    if (!creditRes?.ok) {
-      global.logger?.warn?.("[starWars] advent premium credits failed", {
-        userId: u,
-        day: dayNum,
-        amount: premiumCreditGrant,
-        error: creditRes?.error,
-      });
-    }
   }
 
   return {
@@ -388,11 +478,14 @@ async function setStarWarsFaction(client, { guildId, userId, factionId, epoch = 
     await applyStarWarsFactionRoleOnTest(client, { userId: u, factionId: fid });
   } catch (_) {}
 
+  /* Truppe tier pending dalle casse → unità della nuova fazione. */
+  const wallet = await flushPendingTierTroops(g, u, eventKey);
+
   return {
     ok: true,
     status: 200,
     factionId: fid,
-    wallet: publicWallet(readSlice(updated), eventKey),
+    wallet,
   };
 }
 
@@ -414,9 +507,33 @@ async function openStarWarsCrate(client, { guildId, userId, crateId }) {
     return { ok: false, status: 400, error: loot.error || "loot_failed", message: "Loot non disponibile." };
   }
 
+  /* Flush eventuali tier pending prima dell'apertura. */
+  await flushPendingTierTroops(g, u, eventKey);
+  const before = await ActivityUserProfile.findOne({ guildId: g, userId: u }).select(ROOT).lean().catch(() => null);
+  const beforeSlice = readSlice(before);
+  const factionId = beforeSlice?.factionId ? String(beforeSlice.factionId) : null;
+  const features = resolveFeatureStateNow(new Date());
+  const epoch = beforeSlice?.epoch || features.epoch || EPOCHS.CLONE_WARS;
+
+  let troopUnits: Record<string, number> = {};
+  let troopLabels: Record<string, string> = {};
+  if (loot.troops && typeof loot.troops === "object") {
+    if (factionId) {
+      const mat = materializeTroopGrants(loot.troops, { epoch, factionId });
+      troopUnits = mat.units;
+      troopLabels = mat.labels;
+    } else {
+      /* Senza fazione: resta pending per tier (si materializza allo smistamento). */
+      for (const [k, v] of Object.entries(loot.troops)) {
+        const n = safeInt(v);
+        if (n && isTroopTierKey(k)) troopUnits[k] = n;
+      }
+    }
+  }
+
   const cratePath = `${ROOT}.crates.${cid}`;
   const nowIso = new Date().toISOString();
-  const $inc = { [cratePath]: -1 };
+  const $inc: Record<string, number> = { [cratePath]: -1 };
   if (loot.credits) $inc[`${ROOT}.credits`] = loot.credits;
   if (loot.exp) $inc[`${ROOT}.exp`] = loot.exp;
 
@@ -424,9 +541,13 @@ async function openStarWarsCrate(client, { guildId, userId, crateId }) {
     [`${ROOT}.eventKey`]: eventKey,
     [`${ROOT}.updatedAt`]: nowIso,
   };
-  if (loot.troops && typeof loot.troops === "object") {
-    for (const [tier, qty] of Object.entries(loot.troops)) {
-      $inc[`${ROOT}.pendingTroops.${tier}`] = safeInt(qty);
+  if (factionId) {
+    for (const [unitId, qty] of Object.entries(troopUnits)) {
+      if (qty) $inc[`${ROOT}.army.${unitId}`] = qty;
+    }
+  } else {
+    for (const [tier, qty] of Object.entries(troopUnits)) {
+      if (qty) $inc[`${ROOT}.pendingTroops.${tier}`] = qty;
     }
   }
   if (loot.items && typeof loot.items === "object") {
@@ -457,6 +578,10 @@ async function openStarWarsCrate(client, { guildId, userId, crateId }) {
     };
   }
 
+  if (factionId && Object.keys(troopUnits).length) {
+    await creditFactionBankUnits(eventKey, factionId, troopUnits);
+  }
+
   let wallet = publicWallet(readSlice(updated), eventKey);
   let levelUp = null;
   if (loot.exp) {
@@ -472,6 +597,20 @@ async function openStarWarsCrate(client, { guildId, userId, crateId }) {
     } catch (_) {}
   }
 
+  let troopNote = loot.note || null;
+  if (factionId && Object.keys(troopLabels).length) {
+    try {
+      const { formatTroopMap } = require("../../Utils/Eventi/starWarsTroopEmojis") as typeof import("../../Utils/Eventi/starWarsTroopEmojis");
+      troopNote = formatTroopMap(troopUnits, { factionId, bold: true }) || Object.entries(troopUnits)
+        .map(([id, qty]) => `${qty}× ${troopLabels[id] || id}`)
+        .join(" · ");
+    } catch (_) {
+      troopNote = Object.entries(troopUnits)
+        .map(([id, qty]) => `${qty}× ${troopLabels[id] || id}`)
+        .join(" · ");
+    }
+  }
+
   return {
     ok: true,
     status: 200,
@@ -480,9 +619,10 @@ async function openStarWarsCrate(client, { guildId, userId, crateId }) {
       resolvedCrate: loot.resolvedCrate,
       credits: loot.credits || 0,
       exp: loot.exp || 0,
-      troops: loot.troops || null,
+      troops: factionId ? troopUnits : loot.troops || null,
+      troopLabels: factionId ? troopLabels : null,
       items: loot.items || null,
-      note: loot.note || null,
+      note: troopNote || loot.note || null,
     },
     levelUp,
     wallet,
@@ -496,6 +636,8 @@ export = {
   blankWallet,
   publicWallet,
   getStarWarsWallet,
+  flushPendingTierTroops,
+  creditFactionBankUnits,
   claimAdventDay,
   setStarWarsFaction,
   openStarWarsCrate,

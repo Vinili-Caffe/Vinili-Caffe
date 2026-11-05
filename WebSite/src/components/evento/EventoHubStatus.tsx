@@ -6,7 +6,31 @@ import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { EventoPanel } from "@/components/evento/EventoUi";
 import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
 import { SmartLink } from "@/components/SmartLink";
-import { page } from "@/lib/site";
+import { cdnUrl, page } from "@/lib/site";
+import { cn } from "@/lib/cn";
+
+const FACTION_ICON_V = "20261104ri2";
+
+function factionIconUrl(factionId?: string | null, epoch?: string | null): string | null {
+  const f = String(factionId || "").trim().toLowerCase();
+  if (!f) return null;
+  const ep = String(epoch || "clone_wars").trim().toLowerCase();
+  let file: string | null = null;
+  if (ep === "civil_war") {
+    if (f === "ribellione" || f === "repubblica") file = "role-icon-ribellione.png";
+    else if (f === "impero" || f === "separatisti") file = "role-icon-impero.png";
+  } else if (ep === "sequel") {
+    if (f === "nuova_repubblica" || f === "repubblica" || f === "ribellione") file = "role-icon-nuova-repubblica.png";
+    else if (f === "nuovo_ordine" || f === "primo_ordine" || f === "separatisti" || f === "impero") {
+      file = "role-icon-primo-ordine.png";
+    }
+  } else {
+    if (f === "repubblica") file = "role-icon-repubblica.png";
+    else if (f === "separatisti") file = "role-icon-separatisti.png";
+  }
+  if (!file) return null;
+  return cdnUrl(`/images/starwars/${file}?v=${FACTION_ICON_V}`);
+}
 
 function StatCell({
   label,
@@ -16,7 +40,7 @@ function StatCell({
 }: {
   label: string;
   value: ReactNode;
-  hint?: string;
+  hint: string;
   icon?: ReactNode;
 }) {
   return (
@@ -26,7 +50,7 @@ function StatCell({
         {icon}
         <span className="min-w-0 truncate">{value}</span>
       </p>
-      {hint ? <p className="mt-1 text-[0.65rem] text-crema/40">{hint}</p> : null}
+      <p className="mt-1 text-[0.65rem] text-crema/40">{hint}</p>
     </div>
   );
 }
@@ -56,8 +80,11 @@ export function EventoHubStatus() {
   const w = st.wallet;
   const lv = w?.level;
   const factionName = st.factionLabel || w?.factionId || null;
+  const factionId = w?.factionId || null;
+  const epoch = st.features?.epoch || w?.epoch || null;
   const peiRank = st.standing?.peiRank ?? null;
   const factionRank = st.standing?.factionRank ?? null;
+  const factionIcon = factionIconUrl(factionId, epoch);
 
   return (
     <div className="mx-auto mb-6 max-w-4xl px-6">
@@ -75,26 +102,42 @@ export function EventoHubStatus() {
                   className="h-14 w-14 shrink-0 rounded-full ring-2 ring-[#c9a227]/40"
                 />
                 <div className="min-w-0">
-                  <p className="truncate font-display text-2xl font-semibold text-crema sm:text-3xl">
-                    {displayName(user)}
-                  </p>
-                  <p className="mt-0.5 text-sm text-crema/60">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <p className="truncate font-display text-2xl font-semibold text-crema sm:text-3xl">
+                      {displayName(user)}
+                    </p>
                     {factionName ? (
-                      <>
-                        Fazione <span className="font-semibold text-[#e4c76b]">{factionName}</span>
-                        {factionRank != null ? (
-                          <span className="text-crema/45"> · rango #{factionRank}</span>
-                        ) : null}
-                      </>
+                      <span
+                        className={cn(
+                          "inline-flex max-w-full items-center gap-1.5 rounded-full bg-gradient-to-r from-[#c9a227]/25 to-[#2ea8ff]/15 py-1 pl-1 pr-3 ring-1 ring-[#c9a227]/45",
+                        )}
+                      >
+                        {factionIcon ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={factionIcon}
+                            alt=""
+                            width={22}
+                            height={22}
+                            className="size-[22px] shrink-0 rounded-full bg-black/40 object-cover ring-1 ring-white/15"
+                            data-vc-lightbox-ignore
+                          />
+                        ) : (
+                          <span className="size-[22px] shrink-0 rounded-full bg-[#c9a227]/35" aria-hidden />
+                        )}
+                        <span className="truncate text-xs font-semibold tracking-wide text-[#e4c76b]">
+                          {factionName}
+                        </span>
+                      </span>
                     ) : (
-                      <>
-                        Nessuna fazione ·{" "}
-                        <SmartLink href={page("/evento/smistamento/")} className="text-caramel underline-offset-2 hover:underline">
-                          Smistamento
-                        </SmartLink>
-                      </>
+                      <SmartLink
+                        href={page("/evento/smistamento/")}
+                        className="rounded-full bg-crema/10 px-3 py-1 text-xs font-semibold text-caramel ring-1 ring-sand/25 hover:bg-crema/15"
+                      >
+                        Vai allo smistamento
+                      </SmartLink>
                     )}
-                  </p>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -130,38 +173,30 @@ export function EventoHubStatus() {
         {w ? (
           <>
             <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-              <StatCell label="Exp evento" value={fmt(w.exp)} />
+              <StatCell label="Exp evento" value={fmt(w.exp)} hint="Esperienza guadagnata" />
               <StatCell
                 label="Livello"
                 value={lv ? `Lv ${lv.level}` : `Lv ${w.pgLevel || 0}`}
-                hint={lv?.title || undefined}
+                hint={lv?.title || "Grado evento"}
               />
               <StatCell
                 label="Minigames vinti"
                 value={fmt(w.quizCorrectTotal)}
                 hint="Risposte corrette totali"
               />
-              <StatCell label="Voti" value={fmt(w.votes)} />
+              <StatCell label="Voti" value={fmt(w.votes)} hint="Voti bot accumulati" />
               <StatCell
                 label="PEI"
                 value={(Number(w.pei) || 0).toLocaleString("it-IT", { maximumFractionDigits: 1 })}
-                hint={peiRank != null ? `Classifica #${peiRank}` : undefined}
+                hint={peiRank != null ? `Classifica globale #${peiRank}` : "Indice partecipazione"}
               />
               <StatCell
                 label="Rango fazione"
                 value={factionRank != null ? `#${factionRank}` : "—"}
-                hint={factionName || "Completa lo smistamento"}
+                hint={factionName ? `Nella ${factionName}` : "Completa lo smistamento"}
               />
-              <StatCell
-                label="Potenza arsenale"
-                value={fmt(st.armyPower)}
-                hint="Truppe personali"
-              />
-              <StatCell
-                label="Volume crediti"
-                value={fmt(w.creditsVolume)}
-                hint="Mosso verso la fazione"
-              />
+              <StatCell label="Potenza arsenale" value={fmt(st.armyPower)} hint="Truppe personali" />
+              <StatCell label="Volume crediti" value={fmt(w.creditsVolume)} hint="Mosso verso la fazione" />
             </div>
 
             {lv ? (

@@ -1,4 +1,4 @@
-const axios = require("axios") as typeof import("axios").default;
+const axios = require("axios") as any;
 const { AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
 const { registerCanvasFonts } = require("../Render/canvasFonts") as typeof import("../Render/canvasFonts");
 let canvasModule = null;

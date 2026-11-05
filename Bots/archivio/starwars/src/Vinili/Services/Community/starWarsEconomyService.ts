@@ -1,7 +1,8 @@
 /**
  * Economia fazioni: banca, shop truppe, attacco orario.
- * Regole PDF: potenza nascosta; vittoria → survivor 15% attaccante / 10% difensore se attacco;
- * ritiro (non attacca mentre altri attaccano) → 70% survivor, attaccante 100%.
+ * Dichiarazioni per ora UTC; lo scontro risolve quando entrambe hanno scelto (o a fine ora).
+ * Esempio 1 (entrambe attaccano): vincitore 15%, perdente 10%.
+ * Esempio 2 (una sola attacca / l'altra difende o non agisce): attaccante 100%, difensore 70%.
  */
 "use strict";
 
@@ -33,6 +34,15 @@ function bankDedupe(eventKey?, factionId?) {
 
 const DOC_TYPE = SITE_DOCUMENT_TYPE.STARWARS_EVENT_STATE;
 
+function currentHourKey(now = new Date()) {
+  return now.toISOString().slice(0, 13);
+}
+
+function normalizeStance(v?) {
+  const s = String(v || "").trim().toLowerCase();
+  return s === "attack" || s === "defend" ? s : null;
+}
+
 async function getFactionBank(eventKey?, factionId?) {
   const doc = await SiteDocument.findOne({
     docType: DOC_TYPE,
@@ -47,6 +57,9 @@ async function getFactionBank(eventKey?, factionId?) {
     credits: safeInt(payload?.credits),
     units: payload?.units && typeof payload.units === "object" ? { ...payload.units } : {},
     lastAttackAt: payload?.lastAttackAt || null,
+    stance: normalizeStance(payload?.stance),
+    stanceHour: payload?.stanceHour ? String(payload.stanceHour).slice(0, 13) : null,
+    resolvedHour: payload?.resolvedHour ? String(payload.resolvedHour).slice(0, 13) : null,
     updatedAt: payload?.updatedAt || null,
   };
 }
@@ -57,6 +70,9 @@ async function saveFactionBank(eventKey?, factionId?, bank?) {
     credits: safeInt(bank.credits),
     units: bank.units || {},
     lastAttackAt: bank.lastAttackAt || null,
+    stance: normalizeStance(bank.stance),
+    stanceHour: bank.stanceHour ? String(bank.stanceHour).slice(0, 13) : null,
+    resolvedHour: bank.resolvedHour ? String(bank.resolvedHour).slice(0, 13) : null,
     updatedAt: nowIso,
   };
   await SiteDocument.findOneAndUpdate(
@@ -68,6 +84,115 @@ async function saveFactionBank(eventKey?, factionId?, bank?) {
     { upsert: true },
   ).catch(() => null);
   return payload;
+}
+
+function stanceForHour(bank?, hourKey?) {
+  if (!bank?.stanceHour || bank.stanceHour !== hourKey) return null;
+  return normalizeStance(bank.stance);
+}
+
+function isHourResolved(bank?, hourKey?) {
+  return Boolean(hourKey && bank?.resolvedHour === hourKey);
+}
+
+/**
+ * Risolve lo scontro per un'ora: entrambi attaccano → 15%/10%; una sola attacca → 100%/70%.
+ * Stance assente = ritiro passivo (come Difendi).
+ */
+async function resolveBattleForHour(eventKey?, leftId?, rightId?, epoch?, hourKey?) {
+  let left = await getFactionBank(eventKey, leftId);
+  let right = await getFactionBank(eventKey, rightId);
+  if (isHourResolved(left, hourKey) || isHourResolved(right, hourKey)) {
+    return { ok: true, alreadyResolved: true, hourKey };
+  }
+
+  const leftStance = stanceForHour(left, hourKey);
+  const rightStance = stanceForHour(right, hourKey);
+  const leftAttack = leftStance === "attack";
+  const rightAttack = rightStance === "attack";
+
+  if (!leftAttack && !rightAttack) {
+    left.resolvedHour = hourKey;
+    right.resolvedHour = hourKey;
+    await saveFactionBank(eventKey, leftId, left);
+    await saveFactionBank(eventKey, rightId, right);
+    return {
+      ok: true,
+      hourKey,
+      mode: "standoff",
+      winner: null,
+      message: "Nessuna delle due fazioni ha attaccato: niente perdite.",
+    };
+  }
+
+  const leftPower = unitPower(left.units, epoch);
+  const rightPower = unitPower(right.units, epoch);
+  let leftFactor;
+  let rightFactor;
+  let winner;
+  let mode;
+
+  if (leftAttack && rightAttack) {
+    /* Esempio 1 — scontro pieno */
+    mode = "engagement";
+    if (leftPower >= rightPower) {
+      winner = leftId;
+      leftFactor = 0.15;
+      rightFactor = 0.1;
+    } else {
+      winner = rightId;
+      leftFactor = 0.1;
+      rightFactor = 0.15;
+    }
+  } else {
+    /* Esempio 2 — una attacca, l'altra ritira/difende: attaccante 100%, difensore 70% */
+    mode = "raid";
+    winner = leftPower >= rightPower ? leftId : rightId;
+    if (leftAttack) {
+      leftFactor = 1.0;
+      rightFactor = 0.7;
+    } else {
+      leftFactor = 0.7;
+      rightFactor = 1.0;
+    }
+  }
+
+  left.units = scaleUnits(left.units, leftFactor);
+  right.units = scaleUnits(right.units, rightFactor);
+  left.resolvedHour = hourKey;
+  right.resolvedHour = hourKey;
+  await saveFactionBank(eventKey, leftId, left);
+  await saveFactionBank(eventKey, rightId, right);
+
+  return {
+    ok: true,
+    hourKey,
+    mode,
+    winner,
+    leftId,
+    rightId,
+    leftFactor,
+    rightFactor,
+    myPowerHidden: true,
+    enemySurvivingHidden: true,
+  };
+}
+
+/** Chiude ore precedenti ancora pendenti (attacco senza risposta → raid vs ritiro). */
+async function resolveStaleHours(eventKey?, leftId?, rightId?, epoch?, currentHour?) {
+  const left = await getFactionBank(eventKey, leftId);
+  const right = await getFactionBank(eventKey, rightId);
+  const hours = new Set();
+  for (const b of [left, right]) {
+    if (b.stanceHour && b.stanceHour < currentHour && b.resolvedHour !== b.stanceHour) {
+      hours.add(b.stanceHour);
+    }
+  }
+  const results = [];
+  for (const h of [...hours].sort()) {
+    results.push(await resolveBattleForHour(eventKey, leftId, rightId, epoch, h));
+  }
+  return results;
 }
 
 /**
@@ -204,70 +329,74 @@ async function attackFaction(client, { guildId, userId, defend = false }) {
   const enemyId = factions.find((f?) => f !== myId);
   if (!enemyId) return { ok: false, status: 500, error: "no_enemy" };
 
-  const myBank = await getFactionBank(eventKey, myId);
-  const enemyBank = await getFactionBank(eventKey, enemyId);
+  const hourKey = currentHourKey();
+  await resolveStaleHours(eventKey, myId, enemyId, epoch, hourKey);
 
-  const hourKey = new Date().toISOString().slice(0, 13);
-  if (myBank.lastAttackAt && String(myBank.lastAttackAt).startsWith(hourKey)) {
-    return { ok: false, status: 429, error: "cooldown", message: "Puoi attaccare al massimo una volta ogni ora (fazione)." };
+  let myBank = await getFactionBank(eventKey, myId);
+  if (stanceForHour(myBank, hourKey) || (myBank.lastAttackAt && String(myBank.lastAttackAt).startsWith(hourKey))) {
+    return {
+      ok: false,
+      status: 429,
+      error: "cooldown",
+      message: "La fazione ha già scelto per quest'ora.",
+    };
   }
 
-  if (defend) {
-    /* Segna "ritiro / difesa" — non attacca */
-    myBank.lastAttackAt = new Date().toISOString();
-    await saveFactionBank(eventKey, myId, myBank);
-    return { ok: true, status: 200, mode: "defend", message: "La fazione resta in difesa quest'ora." };
-  }
-
-  const myPower = unitPower(myBank.units, epoch);
-  const enemyPower = unitPower(enemyBank.units, epoch);
-  const iAttack = true;
-  const enemyAttacking = false; /* semplificato: un attacco alla volta; enemy "non attacca" in questo tick */
-
-  let myFactor;
-  let enemyFactor;
-  let winner;
-  if (myPower >= enemyPower) {
-    winner = myId;
-    myFactor = 0.15;
-    enemyFactor = 0.1;
-  } else {
-    winner = enemyId;
-    myFactor = 0.1;
-    enemyFactor = 0.15;
-  }
-  /* Se il difensore non attacca (ritiro): PDF esempio 2 → difensore 70%, attaccante 100% */
-  if (!enemyAttacking && winner === myId) {
-    /* we attacked and won vs passive — enemy keeps 70%? Actually: if republic doesn't attack and separatists do, republic loses with 70% keep, sep 100% */
-  }
-  if (iAttack && !enemyAttacking) {
-    if (myPower >= enemyPower) {
-      winner = myId;
-      myFactor = 1.0;
-      enemyFactor = 0.7;
-    } else {
-      winner = enemyId;
-      myFactor = 1.0; /* attaccante perde ma PDF says attacker keeps 100% when defender retreated? esempio 2: attaccanti 100%, difensori 70% */
-      enemyFactor = 0.7;
-      myFactor = 1.0;
-    }
-  }
-
-  myBank.units = scaleUnits(myBank.units, myFactor);
-  enemyBank.units = scaleUnits(enemyBank.units, enemyFactor);
+  const stance = defend ? "defend" : "attack";
+  myBank.stance = stance;
+  myBank.stanceHour = hourKey;
   myBank.lastAttackAt = new Date().toISOString();
   await saveFactionBank(eventKey, myId, myBank);
-  await saveFactionBank(eventKey, enemyId, enemyBank);
 
+  const enemyBank = await getFactionBank(eventKey, enemyId);
+  const enemyStance = stanceForHour(enemyBank, hourKey);
+
+  if (!enemyStance) {
+    return {
+      ok: true,
+      status: 200,
+      mode: defend ? "defend_pending" : "attack_pending",
+      pending: true,
+      hourKey,
+      stance,
+      message: defend
+        ? "Difesa dichiarata. Se l'avversario attacca quest'ora, terrrete il 70% delle truppe."
+        : "Attacco dichiarato. In attesa della scelta avversaria quest'ora.",
+    };
+  }
+
+  const resolved = await resolveBattleForHour(eventKey, myId, enemyId, epoch, hourKey);
+  const myWon = resolved.winner === myId;
+  let message;
+  if (resolved.mode === "standoff") {
+    message = resolved.message;
+  } else if (resolved.mode === "engagement") {
+    message = myWon
+      ? "Scontro pieno: la tua fazione ha prevalso."
+      : "Scontro pieno: la fazione avversaria ha prevalso.";
+  } else {
+    const iAttacked = stance === "attack";
+    message = myWon
+      ? iAttacked
+        ? "Raid: avete prevalso e mantenete tutte le truppe; il difensore tiene il 70%."
+        : "Raid: avete prevalso in difesa; tenete il 70%, l'attaccante il 100%."
+      : iAttacked
+        ? "Raid: l'avversario ha prevalso; mantenete tutte le truppe, loro il 70%."
+        : "Raid: l'avversario ha prevalso; tenete il 70% delle truppe.";
+  }
+
+  const fresh = await getFactionBank(eventKey, myId);
   return {
     ok: true,
     status: 200,
-    mode: "attack",
-    winner,
+    mode: resolved.mode || (defend ? "defend" : "attack"),
+    pending: false,
+    hourKey,
+    winner: resolved.winner,
     myPowerHidden: true,
-    mySurviving: myBank.units,
+    mySurviving: fresh.units,
     enemySurvivingHidden: true,
-    message: winner === myId ? "La tua fazione ha prevalso." : "La fazione avversaria ha prevalso.",
+    message,
   };
 }
 
@@ -279,14 +408,18 @@ async function getEconomySnapshot(client, { guildId, userId }) {
   const wallet = userId ? await getStarWarsWallet(guildId, userId, eventKey) : null;
   const factions = EPOCH_FACTIONS[epoch] || [];
   const banks: Record<string, any> = {};
+  const hourKey = currentHourKey();
   for (const f of factions) {
     const b = await getFactionBank(eventKey, f);
+    const own = wallet?.factionId && f === wallet.factionId;
     banks[f] = {
       factionId: f,
-      unitCount: Object.values(b.units || {}).reduce((a?, n?) => a + safeInt(n), 0),
-      /* potenza nascosta agli altri */
+      /* conteggio/potenza solo per la propria fazione */
+      unitCount: own ? Object.values(b.units || {}).reduce((a?, n?) => a + safeInt(n), 0) : null,
       powerVisible: false,
       lastAttackAt: b.lastAttackAt,
+      stance: own ? stanceForHour(b, hourKey) : null,
+      pending: own ? Boolean(stanceForHour(b, hourKey) && b.resolvedHour !== hourKey) : null,
     };
   }
   let shopDiscountMult = 1;
@@ -333,4 +466,7 @@ export = {
   attackFaction,
   getEconomySnapshot,
   unitPower,
+  resolveBattleForHour,
+  resolveStaleHours,
+  currentHourKey,
 };
