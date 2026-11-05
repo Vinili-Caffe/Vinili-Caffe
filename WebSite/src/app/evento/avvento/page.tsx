@@ -1,31 +1,22 @@
-import type { Metadata } from "next";
-import dynamic from "next/dynamic";
-import { EventoPage } from "@/components/evento/EventoPage";
-import { eventoPageMeta } from "@/lib/evento-starwars";
-import { pageSocialMeta } from "@/lib/og";
-import { BoardSkeleton } from "@/components/ui/EmptyState";
+"use client";
 
-const AdventCalendar = dynamic(
-  () => import("@/components/evento/AdventCalendar").then((m) => m.AdventCalendar),
-  { loading: () => <BoardSkeleton className="mx-auto max-w-3xl px-6" /> },
-);
+import { useEffect } from "react";
+import { page } from "@/lib/site";
 
-const meta = eventoPageMeta("avvento");
+const HUB = page("/evento/");
 
-export const metadata: Metadata = {
-  ...pageSocialMeta({ path: meta.path, title: meta.title, description: meta.description }),
-  robots: { index: false, follow: false },
-};
+/** Avvento vive sull’hub — vecchio URL → Centro di comando. */
+export default function EventoAvventoRedirectPage() {
+  useEffect(() => {
+    window.location.replace(HUB);
+  }, []);
 
-export default function EventoAvventoPage() {
   return (
-    <EventoPage
-      pageId="avvento"
-      path={meta.path}
-      title="Avvento"
-      text="25 giorni, 25 caselle: ogni giorno una ricompensa diversa (casse e crediti)."
-    >
-      <AdventCalendar />
-    </EventoPage>
+    <main className="mx-auto flex min-h-[40vh] max-w-lg flex-col items-center justify-center px-6 text-center">
+      <p className="text-sm text-crema/70">L&apos;avvento è nel Centro di comando…</p>
+      <a href={HUB} className="mt-3 text-sm font-semibold text-caramel underline underline-offset-2">
+        Vai all&apos;hub
+      </a>
+    </main>
   );
 }

@@ -90,13 +90,6 @@ export const EVENTO_NAV: EventoNavItem[] = [
     publicFromOpen: true,
   },
   {
-    id: "avvento",
-    href: page("/evento/avvento/"),
-    label: "Avvento",
-    teaser: "Calendario dell’avvento: 25 giorni di casse e crediti.",
-    publicFromOpen: true,
-  },
-  {
     id: "smistamento",
     href: page("/evento/smistamento/"),
     label: "Smistamento",
@@ -230,19 +223,17 @@ export function canSeeEventoInNav(
 
 export type EventoNavItemView = EventoNavItem & { locked: boolean };
 
-/** Tutte le voci evento: locked=true se feature chiusa (HS vede sbloccato). Avvento assente fuori stagione. */
+/** Tutte le voci evento: locked=true se feature chiusa (HS vede sbloccato). */
 export function eventoNavForViewer(
   access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
   now = new Date(),
 ): EventoNavItemView[] {
   const hs = isEventoHighStaff(access);
   const pub = isEventoPublicWindowOpen(now);
-  const adventOpen = isEventoAvventoSeasonOpen(now);
   return EVENTO_NAV.map((item) => {
     const unlocked = hs || (pub && isEventoPagePublic(item.id) && isEventoFeatureUnlocked(item.id, now));
     return { ...item, locked: !unlocked };
   }).filter((item) => {
-    if (item.id === "avvento" && !adventOpen) return false;
     if (hs) return true;
     if (!pub) return false;
     return Boolean(item.publicFromOpen);

@@ -12,6 +12,9 @@ const EventoHubStatus = dynamic(
 const EventoInventoryPanel = dynamic(
   () => import("@/components/evento/EventoInventoryPanel").then((m) => m.EventoInventoryPanel),
 );
+const EventoAdventHub = dynamic(
+  () => import("@/components/evento/EventoAdventHub").then((m) => m.EventoAdventHub),
+);
 const EventoMinigamesPanel = dynamic(
   () => import("@/components/evento/EventoMinigamesPanel").then((m) => m.EventoMinigamesPanel),
 );
@@ -40,6 +43,7 @@ export default function EventoHubPage() {
     >
       <EventoHubStatus />
       <EventoInventoryPanel />
+      <EventoAdventHub />
       <EventoMinigamesPanel />
       <EventoShopPanel />
     </EventoPage>

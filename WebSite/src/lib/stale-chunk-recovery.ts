@@ -1,12 +1,12 @@
 /** Dopo un deploy i chunk vecchi 404ano: serve hard reload, NON unregister del SW (uccide le push iOS). */
 
 export const STALE_CHUNK =
-  /ChunkLoadError|Failed to load chunk|Loading chunk [\w.-]+ failed|Importing a module script failed|error loading dynamically imported module/i;
+  /ChunkLoadError|Failed to load chunk|Loading chunk [\w.-]+ failed|Importing a module script failed|error loading dynamically imported module|Refused to apply style from .*MIME type|MIME type \('text\/html'\) is not a supported stylesheet|_next\/static\/chunks\/.+\.(?:css|js)/i;
 
 const STALE_RELOAD_KEY = "vc_stale_chunk_reload_at";
 
 /** Cache del SW da non toccare (offline + pending click notifica iOS). */
-const KEEP_CACHES = new Set(["vc-offline-v3", "vc-notif-pending-v1"]);
+const KEEP_CACHES = new Set(["vc-offline-v4", "vc-offline-v3", "vc-notif-pending-v1"]);
 
 export function isStaleChunkMessage(text: string) {
   return STALE_CHUNK.test(String(text || ""));
@@ -49,6 +49,21 @@ export async function hardReload(path?: string) {
 
 export function recoverFromStaleChunk(message: string) {
   if (!isStaleChunkMessage(message)) return;
+  if (!canAutoRecoverStaleChunk()) return;
+  void hardReload();
+}
+
+/** link/script asset falliti (CSS 404 → HTML → MIME error in console). */
+export function recoverFromAssetLoadFailure(target: EventTarget | null) {
+  const el = target as HTMLElement | null;
+  if (!el || typeof el.tagName !== "string") return;
+  const tag = el.tagName.toUpperCase();
+  if (tag !== "LINK" && tag !== "SCRIPT") return;
+  const href =
+    tag === "LINK"
+      ? String((el as HTMLLinkElement).href || "")
+      : String((el as HTMLScriptElement).src || "");
+  if (!href.includes("/_next/static/")) return;
   if (!canAutoRecoverStaleChunk()) return;
   void hardReload();
 }

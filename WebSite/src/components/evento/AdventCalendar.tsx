@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, Gift, Lock, Sparkles, Star } from "lucide-react";
 import { ADVENT_CRATE_LABELS, ADVENT_DAYS, adventSlotForRomeDate, type AdventCrateId } from "@/lib/evento-avvento";
@@ -16,6 +16,51 @@ import { EventoKicker, EventoPanel, EventoSkeleton } from "@/components/evento/E
 import { AdventReveal, type AdventGranted } from "@/components/evento/AdventReveal";
 import { crateArtUrl, crateTint } from "@/components/evento/EventoCrateArt";
 import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
+
+type ScatterSlot = { left: number; top: number; rot: number; scale: number };
+
+/** PRNG stabile (mulberry32) — layout identico a ogni render. */
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** 25 slot sparsi: griglia irregolare + jitter + rotazione leggera. */
+function buildScatterSlots(seed = 2026_12_01): ScatterSlot[] {
+  const rand = mulberry32(seed);
+  const cols = 5;
+  const rows = 5;
+  const slots: ScatterSlot[] = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cellW = 100 / cols;
+      const cellH = 100 / rows;
+      const jx = (rand() - 0.5) * cellW * 0.55;
+      const jy = (rand() - 0.5) * cellH * 0.5;
+      const left = Math.min(88, Math.max(2, c * cellW + cellW * 0.12 + jx));
+      const top = Math.min(86, Math.max(2, r * cellH + cellH * 0.1 + jy));
+      const rot = (rand() - 0.5) * 14;
+      const scale = 0.88 + rand() * 0.22;
+      slots.push({ left, top, rot, scale });
+    }
+  }
+  /* mescola l’ordine degli slot così i giorni non seguono la griglia */
+  for (let i = slots.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    const tmp = slots[i]!;
+    slots[i] = slots[j]!;
+    slots[j] = tmp;
+  }
+  return slots;
+}
+
+const SCATTER_SLOTS = buildScatterSlots();
 
 function primaryCrateId(slot: EventoAdventDayRow): string | null {
   const c = slot.rewards?.find((r) => r.type === "crate");
@@ -48,8 +93,7 @@ function DoorFace({
   showCredits: boolean;
 }) {
   return (
-    <span className="relative flex h-full min-h-[6.25rem] w-full flex-col sm:min-h-[7.25rem]">
-      {/* texture porta */}
+    <span className="relative flex h-full min-h-[5.5rem] w-full flex-col sm:min-h-[6.25rem]">
       <span
         className={cn(
           "absolute inset-0 rounded-2xl",
@@ -66,31 +110,30 @@ function DoorFace({
       />
       <span className="pointer-events-none absolute inset-0 rounded-2xl opacity-40 [background:repeating-linear-gradient(90deg,transparent,transparent_10px,rgba(255,255,255,0.03)_10px,rgba(255,255,255,0.03)_11px)]" />
 
-      <span className="relative z-[1] flex flex-1 flex-col justify-between p-2 sm:p-2.5">
+      <span className="relative z-[1] flex flex-1 flex-col justify-between p-2">
         <span className="flex items-start justify-between gap-1">
           <span
             className={cn(
-              "font-display text-2xl font-semibold tabular-nums leading-none sm:text-3xl",
+              "font-display text-xl font-semibold tabular-nums leading-none sm:text-2xl",
               isToday || claimed ? "text-[#e4c76b]" : missed ? "text-crema/25" : locked ? "text-crema/35" : "text-crema/80",
             )}
           >
             {day}
           </span>
           {claimed ? (
-            <Check className="size-4 text-[#86efac]" aria-hidden />
+            <Check className="size-3.5 text-[#86efac]" aria-hidden />
           ) : missed ? (
-            <Lock className="size-3.5 text-rose-400/50 sm:size-4" aria-hidden />
+            <Lock className="size-3 text-rose-400/50" aria-hidden />
           ) : locked ? (
-            <Lock className="size-3.5 text-crema/30 sm:size-4" aria-hidden />
+            <Lock className="size-3 text-crema/30" aria-hidden />
           ) : isToday ? (
-            <Sparkles className="size-3.5 text-[#2ea8ff] sm:size-4" aria-hidden />
+            <Sparkles className="size-3.5 text-[#2ea8ff]" aria-hidden />
           ) : day === 25 ? (
-            <Star className="size-3.5 text-[#e4c76b] sm:size-4" aria-hidden />
+            <Star className="size-3.5 text-[#e4c76b]" aria-hidden />
           ) : null}
         </span>
 
-        {/* mini cassa / crediti */}
-        <span className="mx-auto my-1 flex size-9 items-end justify-center gap-0.5 sm:size-10">
+        <span className="mx-auto my-0.5 flex size-8 items-end justify-center gap-0.5 sm:size-9">
           {crateId && crateArtUrl(crateId, false) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -98,7 +141,7 @@ function DoorFace({
               alt=""
               data-vc-lightbox-ignore
               className={cn(
-                "h-7 w-7 object-contain sm:h-8 sm:w-8",
+                "h-6 w-6 object-contain sm:h-7 sm:w-7",
                 claimed ? "opacity-100" : missed || locked ? "opacity-35 grayscale" : "opacity-90",
               )}
               style={{
@@ -109,7 +152,7 @@ function DoorFace({
           ) : showCredits ? null : (
             <span
               className={cn(
-                "relative h-6 w-8 rounded-sm sm:h-7 sm:w-9",
+                "relative h-5 w-7 rounded-sm",
                 claimed ? "opacity-100" : missed || locked ? "opacity-35" : "opacity-90",
               )}
               style={{
@@ -117,8 +160,8 @@ function DoorFace({
                 boxShadow: isToday ? "0 0 14px -2px rgba(46,168,255,0.55)" : "0 4px 10px rgba(0,0,0,0.35)",
               }}
             >
-              <span className="absolute inset-x-0 top-0 h-2 rounded-t-sm bg-white/25" />
-              <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35 ring-1 ring-white/30" />
+              <span className="absolute inset-x-0 top-0 h-1.5 rounded-t-sm bg-white/25" />
+              <span className="absolute left-1/2 top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/35 ring-1 ring-white/30" />
             </span>
           )}
           {showCredits ? (
@@ -133,7 +176,7 @@ function DoorFace({
 
         <span
           className={cn(
-            "line-clamp-2 text-center text-[0.58rem] font-medium leading-snug sm:text-[0.65rem]",
+            "line-clamp-2 text-center text-[0.55rem] font-medium leading-snug sm:text-[0.6rem]",
             claimed ? "text-[#e4c76b]/90" : missed ? "text-rose-300/55" : locked ? "text-crema/35" : "text-crema/70",
           )}
         >
@@ -144,7 +187,7 @@ function DoorFace({
   );
 }
 
-/** Griglia 25 porte — claim + reveal animato (porta → casse che si aprono). */
+/** Avvento hub: 25 porte sparse, claim → cassa che si apre subito. */
 export function AdventCalendar() {
   const { token, ready } = useAuth();
   const localToday = adventSlotForRomeDate();
@@ -162,7 +205,6 @@ export function AdventCalendar() {
 
   const reload = useCallback(async (opts?: { soft?: boolean }) => {
     if (!ready) return;
-    // soft: non smontare griglia/overlay (altrimenti flash footer + salto scroll)
     if (!opts?.soft) setLoading(true);
     const st = await fetchEventoAvvento(token);
     if (!st.ok) {
@@ -207,7 +249,6 @@ export function AdventCalendar() {
           },
     );
 
-    // marca ritirato subito così la griglia non “salta” sotto l’overlay
     setDays((prev) =>
       (prev || []).map((d) =>
         d.day === slot.day
@@ -223,48 +264,58 @@ export function AdventCalendar() {
     void reload({ soft: true });
   }
 
+  const rows = useMemo(() => {
+    if (days && days.length) return days;
+    return ADVENT_DAYS.map((slot) => ({
+      day: slot.day,
+      label: slot.label,
+      rewards: slot.rewards,
+      claimed: false,
+      claimedAt: null,
+      canClaim: false,
+      unlocked: localToday != null && slot.day <= localToday,
+      missed: localToday != null && slot.day < localToday,
+    }));
+  }, [days, localToday]);
+
+  const byDay = useMemo(() => {
+    const m = new Map<number, EventoAdventDayRow>();
+    for (const r of rows) m.set(r.day, r);
+    return m;
+  }, [rows]);
+
   if (loading && !reveal) return <EventoSkeleton className="mx-auto max-w-4xl px-6" />;
 
   if (gateMsg && !days) {
-    return <div className="mx-auto max-w-lg px-6 pb-8 text-center text-sm text-crema/55">{gateMsg}</div>;
+    return <div className="mx-auto mb-8 max-w-lg px-6 text-center text-sm text-crema/55">{gateMsg}</div>;
   }
 
-  const rows =
-    days && days.length
-      ? days
-      : ADVENT_DAYS.map((slot) => ({
-          day: slot.day,
-          label: slot.label,
-          rewards: slot.rewards,
-          claimed: false,
-          claimedAt: null,
-          canClaim: false,
-          unlocked: localToday != null && slot.day <= localToday,
-          missed: localToday != null && slot.day < localToday,
-        }));
-
   return (
-    <div className="mx-auto max-w-4xl px-6">
-      <EventoPanel className="mb-6 text-center" glow="gold">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#c9a227]/30 to-[#2ea8ff]/15 ring-1 ring-[#c9a227]/40">
-          <Gift className="size-7 text-[#e4c76b]" aria-hidden />
+    <div className="mx-auto mb-10 max-w-4xl px-6">
+      <EventoPanel glow="gold" className="mb-4 text-center">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#c9a227]/30 to-[#2ea8ff]/15 ring-1 ring-[#c9a227]/40">
+          <Gift className="size-6 text-[#e4c76b]" aria-hidden />
         </div>
-        <EventoKicker>Calendario galattico</EventoKicker>
+        <EventoKicker>Avvento</EventoKicker>
         <p className="mt-2 text-sm text-crema/70">
           {todayAdvent
-            ? `Giorno ${todayAdvent} — apri la porta luminosa entro mezzanotte, altrimenti perdi il premio.`
-            : "25 porte, 25 premi · ogni giorno si sblocca a mezzanotte; se salti, perdi quel giorno."}
+            ? `Giorno ${todayAdvent} — apri la porta luminosa entro mezzanotte.`
+            : "25 porte sparse · ogni giorno una ricompensa; se salti, perdi quel giorno."}
         </p>
         {!token ? (
           <p className="mt-2 text-xs text-[#e4c76b]">Accedi con Discord per aprire le caselle.</p>
         ) : null}
       </EventoPanel>
 
-      {/* cornice calendario */}
-      <div className="relative rounded-[1.75rem] bg-gradient-to-b from-[#1a2744]/90 to-[#05070f] p-3 ring-1 ring-[#c9a227]/35 sm:p-4">
-        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#e4c76b]/60 to-transparent" />
-        <ol className="grid grid-cols-5 gap-2 sm:gap-2.5">
-          {rows.map((slot) => {
+      <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-b from-[#1a2744]/95 via-[#0a1020] to-[#05070f] ring-1 ring-[#c9a227]/35">
+        <div className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(ellipse_at_30%_20%,rgba(46,168,255,0.12),transparent_45%),radial-gradient(ellipse_at_70%_80%,rgba(201,162,39,0.1),transparent_40%)]" />
+        <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#e4c76b]/55 to-transparent" />
+
+        <ol className="relative mx-auto h-[38rem] w-full sm:h-[42rem] md:h-[46rem]" aria-label="Calendario dell’avvento">
+          {SCATTER_SLOTS.map((pos, idx) => {
+            const dayNum = idx + 1;
+            const slot = byDay.get(dayNum);
+            if (!slot) return null;
             const isToday = todayAdvent === slot.day;
             const missed = Boolean(slot.missed) && !slot.claimed;
             const locked = !slot.unlocked && !slot.claimed && !missed;
@@ -272,28 +323,52 @@ export function AdventCalendar() {
             const flipping = openingDoor === slot.day;
             const crateId = primaryCrateId(slot);
             const showCredits = hasCreditsReward(slot);
+            const z = isToday ? 30 : flipping ? 40 : Math.round(10 + pos.scale * 10);
+
             return (
-              <li key={slot.day} className="[perspective:800px]">
+              <li
+                key={slot.day}
+                className="absolute w-[4.85rem] sm:w-[5.6rem] md:w-[6.1rem] [perspective:900px]"
+                style={{
+                  left: `${pos.left}%`,
+                  top: `${pos.top}%`,
+                  zIndex: z,
+                  transform: `rotate(${pos.rot}deg) scale(${pos.scale})`,
+                }}
+              >
                 <motion.button
                   type="button"
                   disabled={!slot.canClaim || busy}
                   onClick={() => void onClaim(slot)}
                   title={missed ? `${slot.label} · perso` : slot.label}
-                  whileTap={slot.canClaim && !flipping ? { scale: 0.98 } : undefined}
-                  animate={flipping ? { rotateY: -55, scale: 0.98 } : { rotateY: 0, scale: 1 }}
-                  transition={{ type: "tween", duration: 0.28, ease: "easeOut" }}
+                  whileHover={slot.canClaim && !flipping ? { scale: 1.06, rotate: 0 } : undefined}
+                  whileTap={slot.canClaim && !flipping ? { scale: 0.96 } : undefined}
+                  animate={
+                    flipping
+                      ? { rotateY: -72, scale: 1.05 }
+                      : isToday
+                        ? { y: [0, -3, 0] }
+                        : { rotateY: 0, scale: 1 }
+                  }
+                  transition={
+                    flipping
+                      ? { type: "tween", duration: 0.32, ease: "easeOut" }
+                      : isToday
+                        ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" }
+                        : { type: "tween", duration: 0.25 }
+                  }
                   className={cn(
                     "relative w-full overflow-hidden rounded-2xl text-left ring-1 transition will-change-transform",
                     slot.claimed
-                      ? "ring-[#c9a227]/55 shadow-[0_0_20px_-8px_rgba(201,162,39,0.55)]"
+                      ? "ring-[#c9a227]/55 shadow-[0_0_22px_-6px_rgba(201,162,39,0.6)]"
                       : missed
                         ? "ring-rose-500/25 opacity-80"
                         : isToday
-                          ? "ring-[#2ea8ff]/60 shadow-[0_0_28px_-6px_rgba(46,168,255,0.65)]"
+                          ? "ring-[#2ea8ff]/65 shadow-[0_0_32px_-4px_rgba(46,168,255,0.7)]"
                           : locked
                             ? "ring-white/5"
-                            : "ring-sand/15",
-                    slot.canClaim && "cursor-pointer hover:ring-[#e4c76b]/70",
+                            : "ring-sand/20",
+                    slot.canClaim && "cursor-pointer hover:ring-[#e4c76b]/75",
                     !slot.canClaim && "cursor-default",
                   )}
                   style={{ transformStyle: "preserve-3d" }}

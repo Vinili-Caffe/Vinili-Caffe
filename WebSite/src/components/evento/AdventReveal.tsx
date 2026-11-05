@@ -30,7 +30,7 @@ function CreditsBurst({ amount }: { amount: number }) {
   );
 }
 
-/** Overlay: porta → casse che si aprono → oggetti. */
+/** Overlay: cassa che si apre subito → premio (porta già flippata sulla casella). */
 export function AdventReveal({
   day,
   label,
@@ -47,17 +47,14 @@ export function AdventReveal({
     return [] as AdventGranted[];
   }, [granted]);
 
-  const [phase, setPhase] = useState<"door" | "crates" | "open" | "done">("door");
+  const [phase, setPhase] = useState<"door" | "crates" | "open" | "done">("crates");
   const [openIdx, setOpenIdx] = useState(-1);
   useBodyScrollLock(true);
 
   useEffect(() => {
-    const t1 = window.setTimeout(() => setPhase("crates"), 700);
-    const t2 = window.setTimeout(() => setPhase("open"), 1400);
-    return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-    };
+    /* Skip porta: la casella hub ha già flippato → cassa chiusa → apre subito. */
+    const t = window.setTimeout(() => setPhase("open"), 420);
+    return () => window.clearTimeout(t);
   }, []);
 
   useEffect(() => {

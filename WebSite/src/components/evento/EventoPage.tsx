@@ -5,14 +5,14 @@ import { SiteShell } from "@/components/SiteShell";
 import { EventoAccessGate } from "@/components/evento/EventoAccessGate";
 import { EventoBootScroll } from "@/components/evento/EventoBootScroll";
 import { EventoHero } from "@/components/evento/EventoHero";
-import { EVENTO_BRAND, type EventoPageId } from "@/lib/evento-starwars";
+import type { EventoPageId } from "@/lib/evento-starwars";
 
 /** Shell `/evento/*`: navbar/footer sito con link evento + hero galassia. */
 export function EventoPage({
   pageId,
   path,
   title,
-  accent = EVENTO_BRAND,
+  accent,
   text,
   children,
   icon,
@@ -20,6 +20,7 @@ export function EventoPage({
   pageId: EventoPageId;
   path: string;
   title: string;
+  /** Opzionale: parola in corsivo dopo il titolo. Non defaultare a “Star Wars”. */
   accent?: string;
   text: string;
   children: ReactNode;

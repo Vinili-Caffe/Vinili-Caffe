@@ -193,7 +193,7 @@ export function EventoInventoryPanel() {
     tab === "casse"
       ? crateRows.length
         ? "Tocca una cassa per aprirla."
-        : "Nessuna cassa. Aprine dall’avvento o dai minigames."
+                : "Nessuna cassa. Aprine dall’avvento qui sotto o dai minigames."
       : tab === "arsenale"
         ? armyRows.length
           ? "Truppe personali versate alla fazione."

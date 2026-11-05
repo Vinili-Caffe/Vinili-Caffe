@@ -71,7 +71,6 @@ export const REACT_PAGES = new Set([
   "/wordle/",
   "/puzzle/",
   "/evento/",
-  "/evento/avvento/",
   "/evento/smistamento/",
   "/evento/accademia/",
   "/evento/gara/",

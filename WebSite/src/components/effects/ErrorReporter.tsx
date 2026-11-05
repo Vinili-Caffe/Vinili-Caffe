@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { describeHydrationDiff, isHydrationMismatch } from "@/lib/hydration-diff";
-import { recoverFromStaleChunk } from "@/lib/stale-chunk-recovery";
+import { recoverFromAssetLoadFailure, recoverFromStaleChunk } from "@/lib/stale-chunk-recovery";
 
 /** Rumore che non dipende dal sito: estensioni, richieste annullate, avvisi innocui del browser. */
 const IGNORE = [
@@ -43,6 +43,11 @@ export function ErrorReporter() {
       }
     };
     const onError = (e: ErrorEvent) => {
+      /* CSS/JS chunk 404 dopo deploy: capture sul target link/script */
+      if (e.target && e.target !== window) {
+        recoverFromAssetLoadFailure(e.target);
+        return;
+      }
       const message = e.message || String(e.error);
       /* #418: al posto dello stack (inutile, minificato) il punto dove server e browser differiscono */
       const diff = isHydrationMismatch(message) ? describeHydrationDiff() : null;
@@ -55,10 +60,10 @@ export function ErrorReporter() {
       send("promise", msg, typeof r === "object" ? r?.stack : undefined);
       recoverFromStaleChunk(`${msg} ${typeof r === "object" ? (r as { name?: string })?.name || "" : ""}`);
     };
-    window.addEventListener("error", onError);
+    window.addEventListener("error", onError, true);
     window.addEventListener("unhandledrejection", onRejection);
     return () => {
-      window.removeEventListener("error", onError);
+      window.removeEventListener("error", onError, true);
       window.removeEventListener("unhandledrejection", onRejection);
     };
   }, []);

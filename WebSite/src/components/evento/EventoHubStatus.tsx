@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { fetchEventoStatus, type EventoStatus } from "@/lib/evento-api";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
-import { EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
+import { EventoPanel } from "@/components/evento/EventoUi";
 import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
 import { SmartLink } from "@/components/SmartLink";
 import { page } from "@/lib/site";
@@ -53,16 +53,8 @@ export function EventoHubStatus() {
 
   if (!st?.ok) return null;
 
-  const feat = st.features;
   const w = st.wallet;
   const lv = w?.level;
-  const chips: string[] = [];
-  if (!(st as { publicEnabled?: boolean }).publicEnabled) chips.push("Chiuso al pubblico");
-  if (feat?.epoch) chips.push(String(feat.epoch).replace(/_/g, " "));
-  if (feat?.economyOn) chips.push(`Economia fase ${feat.economyPhase ?? "?"}`);
-  else if (st.canParticipate) chips.push("Economia off");
-  if (st.todayAdvent) chips.push(`Avvento giorno ${st.todayAdvent}`);
-
   const factionName = st.factionLabel || w?.factionId || null;
   const peiRank = st.standing?.peiRank ?? null;
   const factionRank = st.standing?.factionRank ?? null;
@@ -72,13 +64,8 @@ export function EventoHubStatus() {
       <EventoPanel glow="blue">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <EventoKicker>
-              {st.publicOpen ? "Live pubblico" : st.canPreview ? "Anteprima High Staff" : "Chiuso"}
-              {st.romeDate ? ` · ${st.romeDate}` : ""}
-            </EventoKicker>
-
             {user && w ? (
-              <div className="mt-3 flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={avatarUrl(user, 96)}
@@ -88,7 +75,7 @@ export function EventoHubStatus() {
                   className="h-14 w-14 shrink-0 rounded-full ring-2 ring-[#c9a227]/40"
                 />
                 <div className="min-w-0">
-                  <p className="truncate font-sans text-2xl font-semibold tracking-tight text-crema sm:text-3xl">
+                  <p className="truncate font-display text-2xl font-semibold text-crema sm:text-3xl">
                     {displayName(user)}
                   </p>
                   <p className="mt-0.5 text-sm text-crema/60">
@@ -111,14 +98,10 @@ export function EventoHubStatus() {
                 </div>
               </div>
             ) : (
-              <div className="mt-3">
-                <p className="font-sans text-2xl font-semibold tracking-tight text-crema">Centro di Comando</p>
+              <div>
+                <p className="font-display text-2xl font-semibold text-crema">Centro di Comando</p>
                 <p className="mt-1 text-sm text-crema/60">
-                  {token
-                    ? chips.length
-                      ? chips.join(" · ")
-                      : "Stato evento"
-                    : "Accedi per vedere inventario, livello e rango."}
+                  {token ? "Profilo evento in caricamento…" : "Accedi per vedere inventario, livello e rango."}
                 </p>
                 {!token ? (
                   <button
@@ -131,10 +114,6 @@ export function EventoHubStatus() {
                 ) : null}
               </div>
             )}
-
-            {chips.length && user && w ? (
-              <p className="mt-3 text-[0.7rem] uppercase tracking-[0.18em] text-crema/40">{chips.join(" · ")}</p>
-            ) : null}
           </div>
 
           {w ? (
@@ -151,7 +130,7 @@ export function EventoHubStatus() {
         {w ? (
           <>
             <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-              <StatCell label="Exp evento" value={fmt(w.exp)} hint="Solo Star Wars" />
+              <StatCell label="Exp evento" value={fmt(w.exp)} />
               <StatCell
                 label="Livello"
                 value={lv ? `Lv ${lv.level}` : `Lv ${w.pgLevel || 0}`}
