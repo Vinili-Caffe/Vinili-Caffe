@@ -196,6 +196,7 @@ export function EventoClassifiche() {
   const [boards, setBoards] = useState<EventoClassificheBoards | null>(null);
   const [me, setMe] = useState<{
     displayName?: string;
+    avatarUrl?: string | null;
     peiRank?: number | null;
     expRank?: number | null;
     pei?: number;
