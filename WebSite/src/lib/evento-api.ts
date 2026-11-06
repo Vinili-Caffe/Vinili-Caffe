@@ -689,6 +689,7 @@ export async function openEventoCrate(token: string, crateId: string) {
         credits?: number;
         exp?: number;
         troops?: Record<string, number> | null;
+        troopLabels?: Record<string, string> | null;
         items?: Record<string, number> | null;
         note?: string | null;
       };

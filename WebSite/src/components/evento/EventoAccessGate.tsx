@@ -12,6 +12,7 @@ import {
   type EventoPageId,
 } from "@/lib/evento-starwars";
 import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
+import { EventoLiveWalletPoller } from "@/lib/evento-faction-sync";
 
 /** Cache solo esiti “sicuri”: accesso HS o 403 esplicito. Mai cache di errori rete. */
 let accessCache: { token: string; access: StaffAccess | null; denied: boolean; at: number } | null = null;
@@ -184,7 +185,12 @@ export function EventoAccessGate({
   }
 
   if (verdict === "allow" || canAccessEventoPage(pageId, access)) {
-    return <>{children}</>;
+    return (
+      <>
+        <EventoLiveWalletPoller />
+        {children}
+      </>
+    );
   }
 
   return <AccessHomeRedirect active />;

@@ -13,6 +13,7 @@ import { ADVENT_CRATE_LABELS, type AdventCrateId } from "@/lib/evento-avvento";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
+import { useEventoFactionSync } from "@/lib/evento-faction-sync";
 import { EventoPanel } from "@/components/evento/EventoUi";
 import {
   EventoCrateArt,
@@ -84,6 +85,13 @@ export function EventoInventoryPanel() {
     void reload();
   }, [reload]);
 
+  const softReload = useCallback(() => {
+    if (loot) return; /* non disturbare l'overlay apertura cassa */
+    void reload();
+  }, [loot, reload]);
+
+  useEventoFactionSync(softReload, { pollMs: 0 });
+
   const crateRows = useMemo(() => {
     const crates = wallet?.crates || {};
     return Object.entries(crates)
@@ -135,6 +143,8 @@ export function EventoInventoryPanel() {
       exp: out.loot?.exp || 0,
       items: out.loot?.items || null,
       itemLabels: utilityLabels,
+      troops: out.loot?.troops || null,
+      troopLabels: out.loot?.troopLabels || null,
       note: out.loot?.note,
     });
     if (out.wallet) setWallet(out.wallet);

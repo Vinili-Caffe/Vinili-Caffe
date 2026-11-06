@@ -579,7 +579,7 @@ export function MinieraGame() {
             {busy ? (phase === "reveal" ? "Kyber trovato!" : "Scavo…") : "Scava Kyber"}
           </EventoBtn>
           <p className="mt-2 text-xs text-crema/45">
-            Fine evento: fazione 1ª → cassa Beta · 2ª → cassa Alpha (solo chi ha scavato).
+            Fine evento: 1ª → Beta · 2ª → Alpha · pareggio → Beta a entrambe (solo chi ha scavato).
           </p>
         </div>
       </EventoPanel>

@@ -76,6 +76,7 @@ export function EventoShopPanel({
   }, [refreshKey, softReload]);
 
   /* Promote/demote (anche da altro tab) + poll: shop appare/scompare col rango. */
+  /* Live economy + backup lento per caveau/guerre non riflesse nel solo wallet. */
   useEventoFactionSync(softReload, { pollMs: 8_000 });
 
   const deployUnits: WarDeployUnit[] = useMemo(() => {

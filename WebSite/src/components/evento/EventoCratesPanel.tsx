@@ -6,6 +6,7 @@ import { fetchEventoStatus, openEventoCrate, type EventoWallet } from "@/lib/eve
 import { ADVENT_CRATE_LABELS, type AdventCrateId } from "@/lib/evento-avvento";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
+import { useEventoFactionSync } from "@/lib/evento-faction-sync";
 import { EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
 import {
   EventoCrateArt,
@@ -36,6 +37,13 @@ export function EventoCratesPanel() {
     void reload();
   }, [reload]);
 
+  const softReload = useCallback(() => {
+    if (loot) return;
+    void reload();
+  }, [loot, reload]);
+
+  useEventoFactionSync(softReload, { pollMs: 0 });
+
   const rows = useMemo(() => {
     const crates = wallet?.crates || {};
     return Object.entries(crates)
@@ -63,6 +71,8 @@ export function EventoCratesPanel() {
       exp: out.loot?.exp || 0,
       items: out.loot?.items || null,
       itemLabels,
+      troops: out.loot?.troops || null,
+      troopLabels: out.loot?.troopLabels || null,
       note: out.loot?.note,
     });
     if (out.wallet) setWallet(out.wallet);

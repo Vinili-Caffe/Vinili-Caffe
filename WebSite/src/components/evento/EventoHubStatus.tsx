@@ -75,7 +75,8 @@ export function EventoHubStatus() {
     reload();
   }, [reload]);
 
-  useEventoFactionSync(reload, { pollMs: 12_000 });
+  /* Live: EventoLiveWalletPoller notifica dopo comandi economy Discord. */
+  useEventoFactionSync(reload, { pollMs: 0 });
 
   if (!st?.ok) return null;
 

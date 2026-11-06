@@ -104,6 +104,7 @@ export function EventoFactionHub() {
     void reload();
   }, [reload]);
 
+  /* Live economy (+deposita/income) + backup lento per caveau/arsenale banca. */
   useEventoFactionSync(softReload, { pollMs: 8_000 });
 
   const onRanksChanged = useCallback(() => {

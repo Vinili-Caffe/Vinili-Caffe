@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchEventoStatus, type EventoWallet } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
+import { useEventoFactionSync } from "@/lib/evento-faction-sync";
 import { EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
 import { EventoTroopIcon } from "@/components/evento/EventoTroopIcon";
 
@@ -26,6 +27,8 @@ export function EventoArmyPanel() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEventoFactionSync(reload, { pollMs: 0 });
 
   const rows = useMemo(() => {
     const army = wallet?.army || {};

@@ -800,18 +800,18 @@ async function openStarWarsCrate(client, { guildId, userId, crateId }) {
     } catch (_) {}
   }
 
+  /* Nota sito: solo testo pulito (le card truppe usano troopLabels + icone CDN). */
   let troopNote = loot.note || null;
-  if (factionId && Object.keys(troopLabels).length) {
-    try {
-      const { formatTroopMap } = require("../../Utils/Eventi/starWarsTroopEmojis") as typeof import("../../Utils/Eventi/starWarsTroopEmojis");
-      troopNote = formatTroopMap(troopUnits, { factionId, bold: true }) || Object.entries(troopUnits)
-        .map(([id, qty]) => `${qty}× ${troopLabels[id] || id}`)
-        .join(" · ");
-    } catch (_) {
-      troopNote = Object.entries(troopUnits)
-        .map(([id, qty]) => `${qty}× ${troopLabels[id] || id}`)
-        .join(" · ");
-    }
+  if (factionId && Object.keys(troopUnits).length) {
+    troopNote = Object.entries(troopUnits)
+      .map(([id, qty]) => {
+        const n = Math.max(0, Math.floor(Number(qty) || 0));
+        if (!n) return "";
+        const label = troopLabels[id] || id;
+        return n > 1 ? `${n}× ${label}` : label;
+      })
+      .filter(Boolean)
+      .join(" · ");
   }
 
   return {

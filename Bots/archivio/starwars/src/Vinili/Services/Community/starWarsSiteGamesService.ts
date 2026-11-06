@@ -427,7 +427,7 @@ function minieraKyberOffStamp() {
 
 /**
  * Fine EVENT_KYBER: 1ª fazione (più cristalli) → cassa beta ai partecipanti;
- * 2ª → cassa alpha. Pareggio → alpha a entrambe. Idempotente.
+ * 2ª → cassa alpha. Pareggio → beta a entrambe. Idempotente.
  * Parte solo dopo lo spegnimento calendario (non prima dell'apertura).
  */
 async function settleMinieraKyberIfDue(client?) {
@@ -564,8 +564,8 @@ async function settleMinieraKyberIfDue(client?) {
   }
 
   if (tie) {
-    await grantCrateToParticipants(ranked[0]?.factionId, "alpha", grantedAlpha);
-    await grantCrateToParticipants(ranked[1]?.factionId, "alpha", grantedAlpha);
+    await grantCrateToParticipants(ranked[0]?.factionId, "beta", grantedBeta);
+    await grantCrateToParticipants(ranked[1]?.factionId, "beta", grantedBeta);
   } else {
     if (winner) await grantCrateToParticipants(winner, "beta", grantedBeta);
     if (loser) await grantCrateToParticipants(loser, "alpha", grantedAlpha);

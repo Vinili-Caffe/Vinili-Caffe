@@ -9,6 +9,7 @@ import {
 } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
+import { useEventoFactionSync } from "@/lib/evento-faction-sync";
 import { EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
 import { EventoUtilityIcon } from "@/components/evento/EventoUtilityIcon";
 
@@ -61,6 +62,8 @@ export function EventoItemsPanel() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEventoFactionSync(reload, { pollMs: 0 });
 
   const rows = useMemo(() => {
     const fromCatalog = catalog

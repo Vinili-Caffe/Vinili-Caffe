@@ -6,7 +6,9 @@ import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { EventoBtn } from "@/components/evento/EventoUi";
 import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
 import { EventoUtilityIcon } from "@/components/evento/EventoUtilityIcon";
+import { EventoTroopIcon } from "@/components/evento/EventoTroopIcon";
 import { isUtilityItemId } from "@/lib/evento-utility-art";
+import { isTroopUnitId } from "@/lib/evento-troop-art";
 import { cdnUrl } from "@/lib/site";
 
 export type CrateTint = { face: string; lid: string; glow: string; accent: string };
@@ -168,6 +170,8 @@ export type CrateLootPayload = {
   exp: number;
   items?: Record<string, number> | null;
   itemLabels?: Record<string, string>;
+  troops?: Record<string, number> | null;
+  troopLabels?: Record<string, string> | null;
   note?: string | null;
 };
 
@@ -176,9 +180,21 @@ type LootCard = {
   title: string;
   value: string;
   tone: "gold" | "blue" | "sand";
-  kind?: "credits" | "exp" | "item" | "note";
+  kind?: "credits" | "exp" | "item" | "troop" | "note";
   itemId?: string;
+  unitId?: string;
 };
+
+/** Nota Discord (emoji custom / markdown) → testo sito leggibile. */
+function cleanLootNote(raw?: string | null): string {
+  return String(raw || "")
+    .replace(/<a?:[\w~]+:\d+>/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/__/g, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s*,\s*/g, " · ")
+    .trim();
+}
 
 function lootCardStyle(tone: LootCard["tone"], glow?: boolean) {
   const bg =
@@ -227,6 +243,16 @@ function LootRewardCard({
           <EventoCreditsIcon size={large ? "lg" : "md"} />
           <p
             className={`font-sans font-semibold tracking-tight leading-tight tabular-nums ${large ? "text-2xl" : "text-xl"}`}
+            style={{ color: s.color }}
+          >
+            {card.value}
+          </p>
+        </div>
+      ) : card.kind === "troop" && card.unitId && isTroopUnitId(card.unitId) ? (
+        <div className="mt-2 flex flex-col items-center gap-1.5">
+          <EventoTroopIcon unitId={card.unitId} size={large ? "lg" : "md"} alt={card.value} />
+          <p
+            className={`font-sans font-semibold tracking-tight leading-tight ${large ? "text-lg" : "text-base"}`}
             style={{ color: s.color }}
           >
             {card.value}
@@ -306,8 +332,27 @@ export function EventoCrateOpenOverlay({
         });
       }
     }
-    if (loot.note) {
-      out.push({ id: "note", title: "Bonus", value: loot.note, tone: "sand", kind: "note" });
+    let hasTroops = false;
+    if (loot.troops && typeof loot.troops === "object") {
+      for (const [unitId, qty] of Object.entries(loot.troops)) {
+        const n = Math.max(0, Math.floor(Number(qty) || 0));
+        if (!n) continue;
+        hasTroops = true;
+        const name = loot.troopLabels?.[unitId] || unitId.replace(/_/g, " ");
+        out.push({
+          id: `troop-${unitId}`,
+          title: "Truppa",
+          value: n > 1 ? `${name} ×${n}` : name,
+          tone: "sand",
+          kind: "troop",
+          unitId,
+        });
+      }
+    }
+    /* Nota testuale solo se non è già coperto dalle card truppe (evita emoji Discord grezze). */
+    const noteClean = cleanLootNote(loot.note);
+    if (noteClean && !hasTroops) {
+      out.push({ id: "note", title: "Bonus", value: noteClean, tone: "sand", kind: "note" });
     }
     if (!out.length) {
       out.push({ id: "empty", title: "Vuoto", value: "Niente questa volta", tone: "sand" });
