@@ -592,11 +592,11 @@ export function GaraGame() {
           }
           const raw = Math.min(1, (now - t0) / DURATION_MS);
 
-          if (raw < 0.22) setLapHint("Settore 1");
-          else if (raw < 0.48) setLapHint("Settore 2 — sorpassi");
-          else if (raw < 0.7) setLapHint("Settore 3");
-          else if (raw < 0.88) setLapHint("Ultimo tratto");
-          else setLapHint("Arrivi al traguardo");
+          if (raw < 0.22) setLapHint("Stretto delle Dune");
+          else if (raw < 0.48) setLapHint("Canyon dei Tusken");
+          else if (raw < 0.7) setLapHint("Terra dei Jawa");
+          else if (raw < 0.88) setLapHint("Valle dei due Soli");
+          else setLapHint("Arrivo al traguardo");
 
           const next: RaceLane[] = field.map((lane, i) => {
             const ft = finishAt.get(lane.id) ?? 0.9;
@@ -708,7 +708,7 @@ export function GaraGame() {
     if (crateLabel) {
       showToast(`${place}° posto · ${crateLabel}${reward?.exp ? ` + ${reward.exp} exp` : ""}`);
     } else {
-      showToast(won ? "Hai vinto la gara!" : `${place}° posto · nessun premio`);
+      showToast(won ? "Gara terminata!" : `${place}° posto`);
     }
     void reload({ soft: true });
   }
@@ -717,7 +717,7 @@ export function GaraGame() {
   if (!token) {
     return (
       <div className="mx-auto max-w-lg px-6">
-        <EventoLoginGate label="Accedi per scegliere lo sguscio e lanciare la gara su Tatooine." onLogin={login} />
+        <EventoLoginGate label="Accedi per scegliere lo sguscio e gareggiare." onLogin={login} />
       </div>
     );
   }
@@ -741,7 +741,7 @@ export function GaraGame() {
                   <p className="mt-1 text-sm text-crema/70">{lapHint}</p>
                 </div>
                 <span className="rounded-full bg-[#c9a227]/15 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wider text-[#e4c76b] ring-1 ring-[#c9a227]/35">
-                  Mos Espa GP
+                  Circuito di Mos Espa
                 </span>
               </div>
               <CircuitRace lanes={lanes} youId={pick} racing lights={lights} />
@@ -762,7 +762,7 @@ export function GaraGame() {
                   Sguscio: {pods.find((p) => p.id === pick)?.label || pick}
                 </p>
               ) : null}
-              <p className="mt-3 text-xs text-crema/45">Prossimo slot tra circa 3 ore.</p>
+              <p className="mt-3 text-xs text-crema/45">Prossimo gara fra 3 ore.</p>
             </EventoPanel>
             {lanes.length ? (
               <div className="mt-4">
@@ -774,9 +774,9 @@ export function GaraGame() {
           <motion.div key="pick" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <EventoPanel glow="none" className="text-center">
               <Rocket className="mx-auto size-8 text-[#2ea8ff]" aria-hidden />
-              <h2 className="mt-2 font-display text-2xl font-semibold text-crema">Podracing Championship</h2>
+              <h2 className="mt-2 font-display text-2xl font-semibold text-crema">Gran premio di Mos Espa</h2>
               <p className="mt-2 text-sm text-crema/65">
-                Scegli lo sguscio — gara ~30s. Podio: Omega / Beta / Alpha. Cooldown ogni 3 ore.
+                Scegli lo sguscio e vinci tra: Cassa Omega, Cassa Beta, Cassa Alpha.
               </p>
             </EventoPanel>
           </motion.div>
@@ -814,13 +814,6 @@ export function GaraGame() {
             );
           })}
         </ul>
-      ) : null}
-
-      {!canPick && !result && !racing ? (
-        <p className="text-center text-sm text-crema/55">Gara non selezionabile in questo slot.</p>
-      ) : null}
-      {canPick && !racing ? (
-        <p className="text-center text-xs text-crema/45">La scelta è definitiva per lo slot corrente.</p>
       ) : null}
     </div>
   );

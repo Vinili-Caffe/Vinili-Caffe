@@ -7,7 +7,7 @@ import { page } from "@/lib/site";
 import type { StaffAccess } from "@/lib/staff";
 import { adventSlotForRomeDate } from "@/lib/evento-avvento";
 
-export const EVENTO_KICKER = "Una galassia lontana lontana";
+export const EVENTO_KICKER = "In una galassia lontana lontana";
 export const EVENTO_BRAND = "Star Wars";
 
 /**
@@ -111,7 +111,7 @@ export const EVENTO_NAV: EventoNavItem[] = [
     id: "fazione",
     href: page("/evento/fazione/"),
     label: "Fazione",
-    teaser: "Hub della tua fazione: banca, arsenale e inventario condiviso.",
+    teaser: "Hub della tua fazione: banca, arsenale e inventario.",
     publicFromOpen: true,
   },
   {
@@ -125,7 +125,7 @@ export const EVENTO_NAV: EventoNavItem[] = [
     id: "accademia",
     href: page("/evento/accademia/"),
     label: "Accademia",
-    teaser: "Prove a tempo: mira e colpisci i bersagli sul sito.",
+    teaser: "",
     publicFromOpen: true,
     featureGated: true,
     eventiMenu: true,
