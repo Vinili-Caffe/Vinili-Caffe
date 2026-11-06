@@ -12,6 +12,7 @@ import {
   readPathScroll,
   readViewState,
   chaseScroll,
+  isEventoOrPuzzlePath,
   resumePathFromLocation,
   shouldRestore,
   writePwaResume,
@@ -63,9 +64,9 @@ export function ViewState() {
     markPwaShell();
     const path = normalizePath(pathname);
     DOC.lastPath = path;
-    /* Evento/puzzle: mai ripartire a meta pagina (restore → "carica dal fondo"). */
-    const eventoPath = path === "/evento/" || path.startsWith("/evento/") || path === "/puzzle/" || path.startsWith("/puzzle/");
-    if (eventoPath) {
+    /* Evento/puzzle: mai ripartire a meta pagina (restore → "carica dal fondo").
+       normalizePath toglie lo slash finale → confrontare "/evento", non "/evento/". */
+    if (isEventoOrPuzzlePath(path)) {
       forceScrollTop();
       writeViewState({ path, y: 0, hash: "" });
       return;
@@ -125,13 +126,11 @@ export function ViewState() {
     }
     if (DOC.lastPath === path) return;
     DOC.lastPath = path;
-    const eventoPath =
-      path === "/evento/" || path.startsWith("/evento/") || path === "/puzzle/" || path.startsWith("/puzzle/");
     const key = navEntryKey();
     const traverse = key ? DOC.seen.has(key) : DOC.pop;
     if (key) DOC.seen.add(key);
     DOC.pop = false;
-    if (eventoPath) {
+    if (isEventoOrPuzzlePath(path)) {
       window.__vcViewStateRestoring = false;
       forceScrollTop();
       writeViewState({ path, y: 0, hash: "" });

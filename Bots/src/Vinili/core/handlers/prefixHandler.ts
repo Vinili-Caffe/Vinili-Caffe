@@ -195,6 +195,13 @@ export = (client?) => {
       newAliases,
       statusMap,
     );
+    loadPrefixFilesFromDir(
+      path.resolve(__dirname, "..", "..", "..", "..", "archivio", "starwars", "src", "Vinili", "Prefix", "Economy"),
+      "StarWars",
+      newPcommands,
+      newAliases,
+      statusMap,
+    );
 
     // Backup prefix (+backup)
     loadPrefixFilesFromDir(

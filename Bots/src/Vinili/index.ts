@@ -170,6 +170,7 @@ client.reloadScope = async (scope?) => {
     clearCacheByDir(path.join("..", "shared", "music", "discord"));
     clearCacheByDir(path.join("Moderation", "discord", "prefix"));
     clearCacheByDir(path.join("..", "MultiGuild", "discord", "prefix"));
+    clearCacheByDir(path.join("..", "..", "archivio", "starwars", "src", "Vinili", "Prefix"));
     const folders = listFoldersIfExists(path.join(APP_ROOT, "Prefix"));
     await client.prefixCommands(folders, path.join(APP_ROOT, "Prefix"));
   };

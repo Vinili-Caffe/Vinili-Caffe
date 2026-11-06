@@ -12,18 +12,16 @@ import { showToast } from "@/components/ui/toast";
 import { EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
 import { EventoUtilityIcon } from "@/components/evento/EventoUtilityIcon";
 
+const PERSONAL_ITEM_IDS: EventoUtilityItemId[] = ["festival_ancestors", "riciclaggio_hutt"];
+
 const FALLBACK_LABELS: Record<string, string> = {
-  bacta: "Bacta",
   festival_ancestors: "Festival Ancestors",
   riciclaggio_hutt: "Riciclaggio degli Hutt",
-  sconto_mercato_nero: "Sconto mercato nero",
 };
 
 const FALLBACK_BLURBS: Record<string, string> = {
-  bacta: "Si usa solo in attacco: cura il 5% delle truppe nell'arsenale della fazione.",
   festival_ancestors: "Crediti ed exp doppi dai voti per 24 ore.",
   riciclaggio_hutt: "+10% crediti dai minigames per 24 ore.",
-  sconto_mercato_nero: "Shop al −20% per tutta la fazione, per 24 ore.",
 };
 
 function utilityQty(items: Record<string, unknown> | undefined, id: string) {
@@ -42,7 +40,7 @@ function formatLeft(expiresAt?: string) {
   return `${Math.max(1, m)}m`;
 }
 
-/** Inventario utility: Bacta / Festival / Hutt / Sconto. */
+/** Inventario utility personale (Festival / Hutt). Bacta e sconto → pagina Fazione. */
 export function EventoItemsPanel() {
   const { token, ready, login } = useAuth();
   const [wallet, setWallet] = useState<EventoWallet | null>(null);
@@ -65,10 +63,10 @@ export function EventoItemsPanel() {
   }, [reload]);
 
   const rows = useMemo(() => {
-    const ids =
-      catalog.length > 0
-        ? catalog.map((c) => c.id)
-        : (Object.keys(FALLBACK_LABELS) as EventoUtilityItemId[]);
+    const fromCatalog = catalog
+      .map((c) => c.id)
+      .filter((id): id is EventoUtilityItemId => PERSONAL_ITEM_IDS.includes(id as EventoUtilityItemId));
+    const ids = fromCatalog.length > 0 ? fromCatalog : PERSONAL_ITEM_IDS;
     return ids
       .map((id) => {
         const meta = catalog.find((c) => c.id === id);
@@ -114,8 +112,8 @@ export function EventoItemsPanel() {
           <EventoKicker>Inventario oggetti</EventoKicker>
           <p className="mt-1 text-sm text-crema/60">
             {rows.length
-              ? "Drop dalle casse · Bacta solo in attacco shop · gli altri attivano un buff 24h."
-              : "Nessun oggetto utility. Aprono dalle casse."}
+              ? "Buff personali 24h dalle casse. Bacta e sconti sono nella pagina Fazione."
+              : "Nessun oggetto personale. Aprono dalle casse."}
           </p>
         </div>
         {rows.length ? (
@@ -147,22 +145,11 @@ export function EventoItemsPanel() {
                   </div>
                   <button
                     type="button"
-                    disabled={
-                      r.id === "bacta" ||
-                      r.qty < 1 ||
-                      Boolean(busy) ||
-                      (buffOn && r.id !== "bacta")
-                    }
+                    disabled={r.qty < 1 || Boolean(busy) || buffOn}
                     onClick={() => void useOne(r.id)}
                     className="mt-3 w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2 text-sm font-semibold text-ink disabled:opacity-40"
                   >
-                    {loading
-                      ? "…"
-                      : r.id === "bacta"
-                        ? "Solo in attacco"
-                        : buffOn
-                          ? "Già attivo"
-                          : "Usa"}
+                    {loading ? "…" : buffOn ? "Già attivo" : "Usa"}
                   </button>
                 </li>
               );

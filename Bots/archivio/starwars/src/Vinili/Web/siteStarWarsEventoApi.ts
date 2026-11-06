@@ -90,6 +90,7 @@ function activityPayloadForAdvent(adventDay?) {
 }
 const {
   getEconomySnapshot,
+  getFactionHubSnapshot,
   buyUnit,
   attackFaction,
   unitPower,
@@ -528,6 +529,26 @@ async function handleSiteEventoShopGet(client?, req?, res?) {
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-evento shop:", err);
     return res.status(500).json({ ok: false, error: "internal" });
+  }
+}
+
+async function handleSiteEventoFactionGet(client?, req?, res?) {
+  try {
+    const auth = await resolveAuth(client, req);
+    if (!auth?.userId) {
+      return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+    }
+    const access = accessFlags(client, auth);
+    if (!requireParticipate(access, res)) return;
+    await ensureEpochAlignment(client, { guildId: mainGuildId(client), userId: auth.userId });
+    const out = await getFactionHubSnapshot(client, {
+      guildId: mainGuildId(client),
+      userId: auth.userId,
+    });
+    return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-evento faction:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
   }
 }
 
@@ -981,6 +1002,7 @@ export = {
   handleSiteEventoSmistamentoGet,
   handleSiteEventoSmistamentoPost,
   handleSiteEventoShopGet,
+  handleSiteEventoFactionGet,
   handleSiteEventoShopBuyPost,
   handleSiteEventoShopAttackPost,
   handleSiteEventoMinigamesGet,

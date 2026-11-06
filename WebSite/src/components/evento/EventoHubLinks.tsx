@@ -7,6 +7,7 @@ import { eventoNavForViewer } from "@/lib/evento-starwars";
 import { cn } from "@/lib/cn";
 
 const ACCENTS: Record<string, string> = {
+  fazione: "from-[#c9a227]/35 to-transparent",
   avvento: "from-caramel/30 to-transparent",
   smistamento: "from-sky-500/25 to-transparent",
   accademia: "from-emerald-500/20 to-transparent",

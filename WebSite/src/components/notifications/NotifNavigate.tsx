@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { forceScrollTop, notifPathKey } from "@/lib/view-state";
 
 const PENDING_CACHE = "vc-notif-pending-v1";
 const PENDING_REQ = "/__vc_notif_pending";
@@ -21,9 +22,30 @@ export function NotifNavigate() {
           location.assign(u.href);
           return;
         }
-        const next = u.pathname + u.search + u.hash;
-        const here = location.pathname + location.search + location.hash;
-        if (next === here) return;
+        /* stesso pathKey dello SW (trailing slash) — evita skip/false mismatch */
+        const next = notifPathKey(u.href);
+        const here = notifPathKey(location.href);
+        if (!next) return;
+        if (next === here) {
+          try {
+            sessionStorage.setItem("vc-pwa-left-start", "1");
+            sessionStorage.removeItem("vc-pwa-want-home");
+            (window as unknown as { __vcNotifNavDone?: number }).__vcNotifNavDone = 1;
+            (window as unknown as { __vcPwaResumeSkip?: number }).__vcPwaResumeSkip = 1;
+          } catch {
+            /* ignore */
+          }
+          forceScrollTop();
+          if (u.hash) {
+            const id = decodeURIComponent(u.hash.slice(1));
+            if (id) {
+              window.setTimeout(() => {
+                document.getElementById(id)?.scrollIntoView({ block: "start" });
+              }, 80);
+            }
+          }
+          return;
+        }
         try {
           sessionStorage.setItem("vc-pwa-left-start", "1");
           sessionStorage.removeItem("vc-pwa-want-home");
@@ -33,6 +55,7 @@ export function NotifNavigate() {
         } catch {
           /* ignore */
         }
+        forceScrollTop();
         location.assign(next);
       } catch {
         /* ignore */
@@ -61,9 +84,15 @@ export function NotifNavigate() {
       try {
         const pending = sessionStorage.getItem("vc-notif-pending-nav");
         if (!pending) return;
+        const here = notifPathKey(location.href);
+        const want = notifPathKey(pending) || pending;
+        if (want === here) {
+          sessionStorage.removeItem("vc-notif-pending-nav");
+          forceScrollTop();
+          return;
+        }
         sessionStorage.removeItem("vc-notif-pending-nav");
-        const here = location.pathname + location.search + location.hash;
-        if (pending !== here) go(pending);
+        go(pending);
       } catch {
         /* ignore */
       }

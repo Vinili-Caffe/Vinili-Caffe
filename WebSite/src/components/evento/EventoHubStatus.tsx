@@ -127,6 +127,13 @@ export function EventoHubStatus() {
                         </span>
                       </span>
                     ) : null}
+                    {w?.factionRank?.label ? (
+                      <span className="inline-flex max-w-full items-center rounded-full bg-black/45 py-1 px-3 ring-1 ring-sand/25">
+                        <span className="truncate text-xs font-semibold tracking-wide text-crema/90">
+                          {w.factionRank.label}
+                        </span>
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </div>

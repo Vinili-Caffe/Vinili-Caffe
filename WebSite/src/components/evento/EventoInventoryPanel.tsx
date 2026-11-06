@@ -20,28 +20,25 @@ import {
   type CrateLootPayload,
 } from "@/components/evento/EventoCrateArt";
 import { EventoUtilityIcon } from "@/components/evento/EventoUtilityIcon";
-import { EventoTroopIcon } from "@/components/evento/EventoTroopIcon";
 
-type TabId = "casse" | "arsenale" | "oggetti";
+type TabId = "casse" | "oggetti";
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "casse", label: "Casse" },
-  { id: "arsenale", label: "Arsenale" },
   { id: "oggetti", label: "Oggetti" },
 ];
 
+/** Solo inventario personale — Bacta/Sconto vivono nella pagina Fazione. */
+const PERSONAL_ITEM_IDS: EventoUtilityItemId[] = ["festival_ancestors", "riciclaggio_hutt"];
+
 const FALLBACK_LABELS: Record<string, string> = {
-  bacta: "Bacta",
   festival_ancestors: "Festival Ancestors",
   riciclaggio_hutt: "Riciclaggio degli Hutt",
-  sconto_mercato_nero: "Sconto mercato nero",
 };
 
 const FALLBACK_BLURBS: Record<string, string> = {
-  bacta: "Si usa solo in attacco: cura il 5% delle truppe nell'arsenale della fazione.",
   festival_ancestors: "Crediti ed exp doppi dai voti per 24 ore.",
   riciclaggio_hutt: "+10% crediti dai minigames per 24 ore.",
-  sconto_mercato_nero: "Shop al −20% per tutta la fazione, per 24 ore.",
 };
 
 function utilityQty(items: Record<string, unknown> | undefined, id: string) {
@@ -60,18 +57,16 @@ function formatLeft(expiresAt?: string) {
   return `${Math.max(1, m)}m`;
 }
 
-/** Inventario unico hub: switch Casse / Arsenale / Oggetti. */
+/** Inventario hub personale: solo Casse / Oggetti (niente arsenale né stock fazione). */
 export function EventoInventoryPanel() {
   const { token, ready, login } = useAuth();
   const [tab, setTab] = useState<TabId>("casse");
   const [wallet, setWallet] = useState<EventoWallet | null>(null);
   const [crateLabels, setCrateLabels] = useState<Record<string, string>>({});
-  const [unitLabels, setUnitLabels] = useState<Record<string, string>>({});
   const [utilityLabels, setUtilityLabels] = useState<Record<string, string>>({});
   const [utilityCatalog, setUtilityCatalog] = useState<
     Array<{ id: string; label: string; blurb: string; kind: string }>
   >([]);
-  const [armyPower, setArmyPower] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [loot, setLoot] = useState<CrateLootPayload | null>(null);
 
@@ -81,10 +76,8 @@ export function EventoInventoryPanel() {
     if (!st?.ok) return;
     setWallet(st.wallet || null);
     setCrateLabels(st.crateLabels || {});
-    setUnitLabels(st.unitLabels || {});
     setUtilityLabels(st.utilityLabels || {});
     setUtilityCatalog(Array.isArray(st.utilityItems) ? st.utilityItems : []);
-    setArmyPower(Math.max(0, Math.floor(Number(st.armyPower) || 0)));
   }, [ready, token]);
 
   useEffect(() => {
@@ -101,30 +94,11 @@ export function EventoInventoryPanel() {
 
   const crateTotal = useMemo(() => crateRows.reduce((s, r) => s + r.qty, 0), [crateRows]);
 
-  const armyRows = useMemo(() => {
-    const army = wallet?.army || {};
-    const pending = wallet?.pendingTroops || {};
-    const isTierKey = (id: string) => /^tier\s*[1-4]$/i.test(String(id || "").trim());
-    const ids = new Set([...Object.keys(army), ...Object.keys(pending)]);
-    return [...ids]
-      .filter((id) => !isTierKey(id))
-      .map((id) => ({
-        id,
-        qty: Math.max(0, Math.floor(Number(army[id]) || 0)),
-        pending: Math.max(0, Math.floor(Number(pending[id]) || 0)),
-        label: unitLabels[id] || id.replace(/_/g, " "),
-      }))
-      .filter((r) => r.qty > 0 || r.pending > 0)
-      .sort((a, b) => a.label.localeCompare(b.label, "it"));
-  }, [wallet, unitLabels]);
-
-  const armyTotal = useMemo(() => armyRows.reduce((s, r) => s + r.qty, 0), [armyRows]);
-
   const itemRows = useMemo(() => {
-    const ids =
-      utilityCatalog.length > 0
-        ? utilityCatalog.map((c) => c.id)
-        : (Object.keys(FALLBACK_LABELS) as EventoUtilityItemId[]);
+    const fromCatalog = utilityCatalog
+      .map((c) => c.id)
+      .filter((id): id is EventoUtilityItemId => PERSONAL_ITEM_IDS.includes(id as EventoUtilityItemId));
+    const ids = fromCatalog.length > 0 ? fromCatalog : PERSONAL_ITEM_IDS;
     return ids
       .map((id) => {
         const meta = utilityCatalog.find((c) => c.id === id);
@@ -141,7 +115,6 @@ export function EventoInventoryPanel() {
 
   const counts: Record<TabId, number> = {
     casse: crateTotal,
-    arsenale: armyTotal,
     oggetti: itemRows.reduce((s, r) => s + r.qty, 0),
   };
 
@@ -199,17 +172,15 @@ export function EventoInventoryPanel() {
           <h2 className="font-display text-2xl font-semibold uppercase tracking-[0.22em] text-caramel sm:text-3xl">
             Inventario
           </h2>
-          {tab === "arsenale" && armyRows.length ? (
-            <p className="mt-2 inline-flex rounded-full bg-sky-500/15 px-3 py-1 text-sm font-semibold tabular-nums text-sky-200 ring-1 ring-sky-400/30">
-              potenza {armyPower.toLocaleString("it-IT")}
-            </p>
-          ) : null}
+          <p className="mt-2 text-sm text-crema/50">
+            Arsenale e rifornimenti fazione sono nella pagina Fazione.
+          </p>
         </div>
 
         <div
           role="tablist"
           aria-label="Sezioni inventario"
-          className="mb-5 grid grid-cols-3 gap-1 rounded-2xl bg-black/40 p-1 ring-1 ring-white/10"
+          className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-black/40 p-1 ring-1 ring-white/10"
         >
           {TABS.map((t) => {
             const active = tab === t.id;
@@ -276,33 +247,8 @@ export function EventoInventoryPanel() {
                 );
               })}
             </ul>
-          ) : null
-        ) : null}
-
-        {tab === "arsenale" ? (
-          armyRows.length ? (
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {armyRows.map((r) => (
-                <li key={r.id} className="rounded-2xl bg-black/40 px-3 py-3 ring-1 ring-sand/15">
-                  <div className="flex items-start gap-2.5">
-                    <EventoTroopIcon unitId={r.id} size="sm" alt={r.label} className="shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-xs font-semibold text-crema">{r.label}</p>
-                      <p className="mt-2 font-sans text-2xl font-bold tabular-nums tracking-tight text-[#e4c76b]">
-                        ×{r.qty}
-                      </p>
-                      {r.pending > 0 ? (
-                        <p className="mt-1 text-[0.65rem] uppercase tracking-wider text-crema/40">
-                          +{r.pending} in arrivo
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
           ) : (
-            <p className="text-center text-sm text-crema/55">Arsenale fazione vuoto.</p>
+            <p className="text-center text-sm text-crema/55">Nessuna cassa nell&apos;inventario.</p>
           )
         ) : null}
 
@@ -333,28 +279,21 @@ export function EventoInventoryPanel() {
                     </div>
                     <button
                       type="button"
-                      disabled={
-                        r.id === "bacta" ||
-                        r.qty < 1 ||
-                        Boolean(busy) ||
-                        (buffOn && r.id !== "bacta")
-                      }
+                      disabled={r.qty < 1 || Boolean(busy) || buffOn}
                       onClick={() => void useOne(r.id)}
                       className="mt-3 w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2 text-sm font-semibold text-ink disabled:opacity-40"
                     >
-                      {loading
-                        ? "…"
-                        : r.id === "bacta"
-                          ? "Solo in attacco"
-                          : buffOn
-                            ? "Già attivo"
-                            : "Usa"}
+                      {loading ? "…" : buffOn ? "Già attivo" : "Usa"}
                     </button>
                   </li>
                 );
               })}
             </ul>
-          ) : null
+          ) : (
+            <p className="text-center text-sm text-crema/55">
+              Nessun oggetto personale. Bacta e sconti sono nella pagina Fazione.
+            </p>
+          )
         ) : null}
       </EventoPanel>
 

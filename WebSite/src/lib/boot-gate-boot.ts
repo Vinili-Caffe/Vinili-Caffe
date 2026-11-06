@@ -21,7 +21,7 @@ function ensureCurtain(){
   return c;
 }
 ensureCurtain();
-function pin(){try{if(root.classList.contains("vc-boot-hold")||document.getElementById("vc-boot-curtain"))window.scrollTo(0,0);}catch(e3){}}
+function pin(){try{if(root.classList.contains("vc-boot-hold")||document.getElementById("vc-boot-curtain")){try{window.scrollTo({top:0,left:0,behavior:"instant"})}catch(eI){window.scrollTo(0,0)}}}catch(e3){}}
 window.addEventListener("scroll",pin,{passive:true,capture:true});
 window.__vcBootUnlock=function(){
 try{window.removeEventListener("scroll",pin,true);}catch(e4){}

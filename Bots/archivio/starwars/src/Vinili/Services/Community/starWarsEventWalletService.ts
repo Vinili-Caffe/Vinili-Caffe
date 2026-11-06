@@ -127,20 +127,34 @@ function readSlice(doc?) {
     : null;
 }
 
+function publicFactionRank(raw?) {
+  try {
+    const { publicRank } = require("../../Utils/Eventi/starWarsFactionRanksCatalog") as typeof import("../../Utils/Eventi/starWarsFactionRanksCatalog");
+    if (!raw?.factionId) return null;
+    return publicRank(raw.factionId, raw.factionRankTier || 1, raw.epoch);
+  } catch (_) {
+    return null;
+  }
+}
+
 function publicWallet(raw?, eventKey?) {
   const key = normalizeId(raw?.eventKey) || eventKey || ADVENT_EVENT_KEY;
   if (raw && normalizeId(raw.eventKey) && normalizeId(raw.eventKey) !== key) {
     return blankWallet(key);
   }
+  const factionRankTier = Math.max(1, Math.min(4, safeInt(raw?.factionRankTier, 1) || 1));
   return {
     eventKey: key,
     factionId: raw?.factionId ? String(raw.factionId) : null,
     epoch: raw?.epoch ? String(raw.epoch) : null,
+    factionRankTier: raw?.factionId ? factionRankTier : null,
+    factionRank: publicFactionRank(raw),
     pgLevel: Math.max(0, safeInt(raw?.pgLevel)),
     exp: safeInt(raw?.exp),
     credits: safeInt(raw?.credits),
     pei: Number(raw?.pei) || 0,
     creditsVolume: safeInt(raw?.creditsVolume),
+    factionBankGiven: safeInt(raw?.factionBankGiven),
     votes: safeInt(raw?.votes),
     quizCorrectTotal: safeInt(raw?.quizCorrectTotal),
     crates: normalizeCrates(raw?.crates),
@@ -163,11 +177,14 @@ function blankWallet(eventKey?) {
     eventKey: eventKey || ADVENT_EVENT_KEY,
     factionId: null,
     epoch: null,
+    factionRankTier: null,
+    factionRank: null,
     pgLevel: 0,
     exp: 0,
     credits: 0,
     pei: 0,
     creditsVolume: 0,
+    factionBankGiven: 0,
     votes: 0,
     quizCorrectTotal: 0,
     crates: emptyCrates(),
@@ -591,6 +608,7 @@ async function setStarWarsFaction(client, { guildId, userId, factionId, epoch = 
     [`${ROOT}.eventKey`]: eventKey,
     [factionPath]: fid,
     [`${ROOT}.epoch`]: String(epoch || "clone_wars"),
+    [`${ROOT}.factionRankTier`]: 1,
     [`${ROOT}.sortedAt`]: nowIso,
     [`${ROOT}.updatedAt`]: nowIso,
   };

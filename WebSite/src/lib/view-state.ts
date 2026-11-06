@@ -305,10 +305,33 @@ export function forceScrollTop() {
   try {
     window.__vcDiscardScrollRestore = 1;
     window.__vcViewStateRestoring = false;
-    window.scrollTo(0, 0);
+    /* instant: con html{scroll-behavior:smooth} scrollTo(0,0) animava dal footer → “pagina apre dal basso”. */
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
     if (document.documentElement) document.documentElement.scrollTop = 0;
     if (document.body) document.body.scrollTop = 0;
   } catch {
-    /* ignore */
+    try {
+      window.scrollTo(0, 0);
+    } catch {
+      /* ignore */
+    }
   }
+}
+
+/** Path confrontabile con lo SW (trailing slash + search + hash). */
+export function notifPathKey(href = ""): string {
+  try {
+    const u = new URL(String(href || ""), typeof location !== "undefined" ? location.origin : "https://www.viniliecaffe.it");
+    if (typeof location !== "undefined" && u.origin !== location.origin) return "";
+    let p = u.pathname || "/";
+    if (p !== "/" && !p.endsWith("/")) p += "/";
+    return `${p}${u.search || ""}${u.hash || ""}`;
+  } catch {
+    return "";
+  }
+}
+
+export function isEventoOrPuzzlePath(path = ""): boolean {
+  const p = normalizePath(path);
+  return p === "/evento" || p.startsWith("/evento/") || p === "/puzzle" || p.startsWith("/puzzle/");
 }

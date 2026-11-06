@@ -61,6 +61,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
 /** Icone distinte per le voci nav dell’evento Star Wars. */
 export const EVENTO_NAV_ICONS: Record<EventoPageId | "sito", LucideIcon> = {
   hub: LayoutDashboard,
+  fazione: Shield,
   avvento: CalendarDays,
   smistamento: Swords,
   accademia: GraduationCap,

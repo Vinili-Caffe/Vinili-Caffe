@@ -258,24 +258,30 @@ self.addEventListener("notificationclick", (event) => {
     (async () => {
       await stashNotifNav(abs);
       const list = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      const same = list.find((c) => String(c.url || "").startsWith(self.location.origin));
-      if (!same) {
+      const originClients = (list || []).filter((c) => String(c.url || "").startsWith(self.location.origin));
+      if (!originClients.length) {
         if (self.clients.openWindow) await self.clients.openWindow(abs).catch(() => null);
         return;
       }
-        await same.focus().catch(() => null);
-        try {
-          same.postMessage({ type: "vc:notif-navigate", url: abs });
-        } catch {
-          /* ignore */
-        }
-      if (pathKey(same.url) === pathKey(abs)) return;
-      // iOS: navigate() sulla PWA spesso non va, si apre direttamente la destinazione
+      const want = pathKey(abs);
+      /* preferisci tab già sulla destinazione, poi quella in focus (evita aprire “pagina sbagliata”) */
+      const same =
+        originClients.find((c) => pathKey(c.url) === want) ||
+        originClients.find((c) => c.focused) ||
+        originClients[0];
+      await same.focus().catch(() => null);
+      try {
+        same.postMessage({ type: "vc:notif-navigate", url: abs });
+      } catch {
+        /* ignore */
+      }
+      if (pathKey(same.url) === want) return;
+      // navigate() spesso ok su desktop/Android; se fallisce (o iOS) apri la destinazione
       if (!isIos() && typeof same.navigate === "function") {
         const ok = await same.navigate(abs).then(() => true, () => false);
         if (ok) return;
       }
-      if (isIos() && self.clients.openWindow) await self.clients.openWindow(abs).catch(() => null);
+      if (self.clients.openWindow) await self.clients.openWindow(abs).catch(() => null);
     })(),
   );
 });

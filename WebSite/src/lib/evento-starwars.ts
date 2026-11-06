@@ -50,6 +50,7 @@ export type EventoFactionId = (typeof EVENTO_FACTIONS)[number]["id"];
 
 export type EventoPageId =
   | "hub"
+  | "fazione"
   | "avvento"
   | "smistamento"
   | "accademia"
@@ -90,6 +91,13 @@ export const EVENTO_NAV: EventoNavItem[] = [
     href: page("/evento/"),
     label: "Hub",
     teaser: "Centro di comando: inventari, livello, fazione e attività.",
+    publicFromOpen: true,
+  },
+  {
+    id: "fazione",
+    href: page("/evento/fazione/"),
+    label: "Fazione",
+    teaser: "Hub della tua fazione: banca, arsenale e inventario condiviso.",
     publicFromOpen: true,
   },
   {
@@ -203,7 +211,7 @@ export function canShowEventoAvventoOnHub(
 
 /** Feature calendar (mezzogiorno) — hub sempre on; avvento solo in stagione. */
 export function isEventoFeatureUnlocked(pageId: EventoPageId, now = new Date()): boolean {
-  if (pageId === "hub") return true;
+  if (pageId === "hub" || pageId === "fazione") return true;
   if (pageId === "avvento") return isEventoAvventoSeasonOpen(now);
   if (pageId === "smistamento") {
     const windows = FEATURE_WINDOWS.smistamento;
@@ -219,7 +227,7 @@ export function isEventoFeatureUnlocked(pageId: EventoPageId, now = new Date()):
 
 /** Feature già conclusa (niente blur: sparisce dal menu). Prima dell’apertura → false. */
 export function isEventoFeatureEnded(pageId: EventoPageId, now = new Date()): boolean {
-  if (pageId === "hub" || pageId === "smistamento") return false;
+  if (pageId === "hub" || pageId === "fazione" || pageId === "smistamento") return false;
   if (pageId === "avvento") return isEventoAvventoEnded(now);
   const windows = FEATURE_WINDOWS[pageId];
   if (!windows?.length) return false;

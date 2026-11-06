@@ -259,8 +259,9 @@ async function resolveStaleHours(eventKey?, leftId?, rightId?, epoch?, currentHo
 }
 
 /**
- * Aggiunge crediti alla banca fazione.
- * Se passa userId, conta il versamento nel volume PEI dell'utente.
+ * Crediti di sistema → banca fazione (minigame, premi, ecc.).
+ * Non scala il wallet personale e non conta come contributo utente (+deposita).
+ * Se passa userId, aggiorna solo volume PEI.
  */
 async function addFactionBankCredits(client?, factionId?, amount?, { guildId = null, userId = null } = {}) {
   const fid = normalizeId(factionId).toLowerCase();
@@ -280,11 +281,115 @@ async function addFactionBankCredits(client?, factionId?, amount?, { guildId = n
         guildId: gid,
         userId: uid,
         amount: add,
-        reason: "faction_bank_deposit",
+        reason: "faction_bank_system",
       });
     } catch (_) {}
   }
   return { ok: true, credits: bank.credits, added: add, factionId: fid };
+}
+
+/**
+ * Unico modo per versare crediti personali → banca fazione (+deposita).
+ * Scala wallet, incrementa banca e factionBankGiven.
+ */
+async function depositPersonalCreditsToFaction(
+  client?,
+  { guildId, userId, amount }: { guildId?: string | null; userId?: string | null; amount?: number | null } = {},
+) {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  const add = safeInt(amount);
+  if (!isValidGuildUserId(g, u)) {
+    return { ok: false, status: 400, error: "bad_ids", message: "Utente non valido." };
+  }
+  if (add < 1) {
+    return { ok: false, status: 400, error: "bad_amount", message: "Indica un importo intero almeno di 1 credito." };
+  }
+
+  const cfg = resolveStarWarsEventConfig(client);
+  const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
+  const features = resolveFeatureStateNow(new Date());
+  const economyOk = Boolean(features.economyOn) || !cfg.publicEnabled;
+  if (!economyOk) {
+    return { ok: false, status: 403, error: "economy_off", message: "L'economia fazioni non è attiva." };
+  }
+
+  const wallet = await getStarWarsWallet(g, u, eventKey);
+  if (!wallet.factionId) {
+    return {
+      ok: false,
+      status: 403,
+      error: "no_faction",
+      message: "Devi prima completare lo smistamento.",
+    };
+  }
+  if (safeInt(wallet.credits) < add) {
+    return {
+      ok: false,
+      status: 409,
+      error: "insufficient_credits",
+      message: `Crediti insufficienti (hai ${safeInt(wallet.credits).toLocaleString("it-IT")}).`,
+      wallet,
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  const updated = await ActivityUserProfile.findOneAndUpdate(
+    { guildId: g, userId: u, [`${ROOT}.credits`]: { $gte: add } },
+    {
+      $inc: {
+        [`${ROOT}.credits`]: -add,
+        [`${ROOT}.factionBankGiven`]: add,
+        [`${ROOT}.creditsVolume`]: add,
+      },
+      $set: { [`${ROOT}.updatedAt`]: nowIso, [`${ROOT}.eventKey`]: eventKey },
+    },
+    { new: true },
+  ).catch(() => null);
+
+  if (!updated) {
+    return {
+      ok: false,
+      status: 409,
+      error: "insufficient_credits",
+      message: "Crediti insufficienti.",
+    };
+  }
+
+  const bank = await getFactionBank(eventKey, wallet.factionId);
+  bank.credits = safeInt(bank.credits) + add;
+  await saveFactionBank(eventKey, wallet.factionId, bank);
+
+  /* PEI da volume già incluso via $inc creditsVolume: sync pei come buyUnit */
+  const peiGain = add / 100000;
+  if (peiGain > 0) {
+    await ActivityUserProfile.updateOne(
+      { guildId: g, userId: u },
+      { $inc: { [`${ROOT}.pei`]: peiGain } },
+    ).catch(() => null);
+  }
+
+  let pub = publicWallet(updated.profile?.events?.starwars, eventKey);
+  try {
+    pub = await attachFactionArsenalToWallet(pub, eventKey);
+  } catch (_) {}
+  /* factionBankGiven già incrementato sul doc; publicWallet da updated potrebbe essere pre-refresh pei */
+  pub = {
+    ...pub,
+    credits: safeInt(pub.credits),
+    factionBankGiven: safeInt(pub.factionBankGiven) || safeInt(wallet.factionBankGiven) + add,
+  };
+
+  return {
+    ok: true,
+    status: 200,
+    deposited: add,
+    factionId: wallet.factionId,
+    bankCredits: bank.credits,
+    factionBankGiven: pub.factionBankGiven,
+    wallet: pub,
+    bank,
+  };
 }
 
 function unitPower(unitsMap?, epoch?) {
@@ -320,6 +425,17 @@ async function buyUnit(client, { guildId, userId, unitId, qty = 1 }) {
   if (!wallet.factionId) {
     return { ok: false, status: 403, error: "no_faction", message: "Devi prima fare lo smistamento." };
   }
+  try {
+    const { permissionsForTier } = require("../../Utils/Eventi/starWarsFactionRanksCatalog") as typeof import("../../Utils/Eventi/starWarsFactionRanksCatalog");
+    if (!permissionsForTier(wallet.factionRankTier).buyTroops) {
+      return {
+        ok: false,
+        status: 403,
+        error: "rank_forbidden",
+        message: "Il tuo rango non può acquistare truppe.",
+      };
+    }
+  } catch (_) {}
   const epoch = features.epoch || wallet.epoch || EPOCHS.CLONE_WARS;
   const catalog = unitsForEpoch(epoch);
   const unit = catalog.find((x?) => x.id === uid);
@@ -391,6 +507,17 @@ async function attackFaction(client, { guildId, userId, defend = false, useBacta
   if (!wallet.factionId || !factions.includes(wallet.factionId)) {
     return { ok: false, status: 403, error: "no_faction", message: "Fazione non valida per questa epoca." };
   }
+  try {
+    const { permissionsForTier } = require("../../Utils/Eventi/starWarsFactionRanksCatalog") as typeof import("../../Utils/Eventi/starWarsFactionRanksCatalog");
+    if (!permissionsForTier(wallet.factionRankTier).war) {
+      return {
+        ok: false,
+        status: 403,
+        error: "rank_forbidden",
+        message: "Il tuo rango non può dichiarare attacco o difesa.",
+      };
+    }
+  } catch (_) {}
   const myId = wallet.factionId;
   const enemyId = factions.find((f?) => f !== myId);
   if (!enemyId) return { ok: false, status: 500, error: "no_enemy" };
@@ -546,6 +673,15 @@ async function getEconomySnapshot(client, { guildId, userId }) {
       : shopRaw;
 
   const walletOut = wallet ? await attachFactionArsenalToWallet(wallet, eventKey) : null;
+  let canBuyTroops = false;
+  let canWar = false;
+  try {
+    const { permissionsForTier } = require("../../Utils/Eventi/starWarsFactionRanksCatalog") as typeof import("../../Utils/Eventi/starWarsFactionRanksCatalog");
+    const perms = permissionsForTier(walletOut?.factionRankTier);
+    canBuyTroops = Boolean(perms.buyTroops);
+    canWar = Boolean(perms.war);
+  } catch (_) {}
+  const economyGate = Boolean(features.economyOn) || !cfg.publicEnabled;
 
   return {
     ok: true,
@@ -556,8 +692,143 @@ async function getEconomySnapshot(client, { guildId, userId }) {
     shopDiscountMult,
     wallet: walletOut,
     banks,
-    buyEnabled: Boolean(features.economyOn) || !cfg.publicEnabled, /* HS test: buy ok while locked */
-    attackEnabled: Boolean(features.economyOn) || !cfg.publicEnabled,
+    canBuyTroops,
+    canWar,
+    buyEnabled: economyGate && canBuyTroops,
+    attackEnabled: economyGate && canWar,
+  };
+}
+
+/** Hub pagina Fazione: banca + arsenale + oggetti + contributo personale. */
+async function getFactionHubSnapshot(client, { guildId, userId }) {
+  const cfg = resolveStarWarsEventConfig(client);
+  const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
+  const features = resolveFeatureStateNow(new Date());
+  const epoch = features.epoch || EPOCHS.CLONE_WARS;
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  if (!u) {
+    return { ok: false, status: 401, error: "missing_user", message: "Accedi con Discord." };
+  }
+
+  let wallet = await getStarWarsWallet(g, u, eventKey);
+  wallet = await attachFactionArsenalToWallet(wallet, eventKey);
+  if (!wallet.factionId) {
+    return {
+      ok: false,
+      status: 403,
+      error: "no_faction",
+      message: "Devi prima completare lo smistamento.",
+      wallet,
+    };
+  }
+
+  const bank = await getFactionBank(eventKey, wallet.factionId);
+  const hourKey = currentHourKey();
+  const power = unitPower(bank.units, epoch);
+  const unitCount = Object.values(bank.units || {}).reduce((a?, n?) => a + safeInt(n), 0);
+  const shopCatalog = publicShopCatalog(epoch, wallet.factionId);
+  const unitLabels = Object.fromEntries((shopCatalog.units || []).map((x?) => [x.id, x.label]));
+
+  let utilityItems = [];
+  let utilityLabels = {};
+  try {
+    const {
+      publicUtilityCatalog,
+      UTILITY_ITEM_LABELS,
+      FACTION_UTILITY_ITEM_IDS,
+    } = require("../../Utils/Eventi/starWarsUtilityItemsCatalog") as typeof import("../../Utils/Eventi/starWarsUtilityItemsCatalog");
+    utilityLabels = { ...UTILITY_ITEM_LABELS };
+    utilityItems = publicUtilityCatalog().filter((row?) => FACTION_UTILITY_ITEM_IDS.includes(row.id));
+  } catch (_) {}
+
+  let factionLabel = wallet.factionId;
+  try {
+    const { factionDisplayName } = require("./starWarsPeiStandingService") as typeof import("./starWarsPeiStandingService");
+    factionLabel = factionDisplayName(epoch, wallet.factionId) || wallet.factionId;
+  } catch (_) {
+    try {
+      const { getFactionMeta } = require("../../Utils/Eventi/starWarsSortingBank") as typeof import("../../Utils/Eventi/starWarsSortingBank");
+      factionLabel = getFactionMeta(wallet.factionId)?.label || wallet.factionId;
+    } catch (_) {}
+  }
+
+  let buffs = {};
+  try {
+    const { normalizeBuffs } = require("./starWarsUtilityItemsService") as typeof import("./starWarsUtilityItemsService");
+    buffs = normalizeBuffs(bank.buffs);
+  } catch (_) {
+    buffs = {};
+  }
+
+  const myGiven = safeInt(wallet.factionBankGiven);
+  const bankCredits = safeInt(bank.credits);
+  const rank = wallet.factionRank || null;
+  const canBuyTroops = Boolean(rank?.canBuyTroops);
+  const canWar = Boolean(rank?.canWar);
+  const canManageRanks = Boolean(rank?.canManageRanks);
+  const economyGate = Boolean(features.economyOn) || !cfg.publicEnabled;
+
+  let shop = null;
+  let shopDiscountMult = 1;
+  if (canBuyTroops) {
+    try {
+      const { shopDiscountMultiplier } = require("./starWarsUtilityItemsService") as typeof import("./starWarsUtilityItemsService");
+      shopDiscountMult = await shopDiscountMultiplier(g, u);
+    } catch (_) {}
+    const shopRaw = publicShopCatalog(epoch, wallet.factionId);
+    shop =
+      shopDiscountMult < 1 && shopRaw?.units
+        ? {
+            ...shopRaw,
+            discountMult: shopDiscountMult,
+            units: shopRaw.units.map((x?) => ({
+              ...x,
+              cost: Math.max(1, Math.floor(Number(x.cost || 0) * shopDiscountMult)),
+              baseCost: x.cost,
+              discountMult: shopDiscountMult,
+            })),
+          }
+        : shopRaw;
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    eventKey,
+    epoch,
+    economyOn: Boolean(features.economyOn),
+    economyPhase: features.economyPhase,
+    factionId: wallet.factionId,
+    factionLabel,
+    factionRank: rank,
+    canBuyTroops,
+    canWar,
+    canManageRanks,
+    buyEnabled: economyGate && canBuyTroops,
+    attackEnabled: economyGate && canWar,
+    shop,
+    shopDiscountMult,
+    hourKey,
+    stance: stanceForHour(bank, hourKey),
+    pendingStance: Boolean(stanceForHour(bank, hourKey) && bank.resolvedHour !== hourKey),
+    bank: {
+      credits: bankCredits,
+      units: bank.units || {},
+      items: bank.items || {},
+      buffs,
+      power,
+      unitCount,
+      lastAttackAt: bank.lastAttackAt || null,
+    },
+    contribution: {
+      given: myGiven,
+      sharePct: bankCredits > 0 ? Math.min(100, Math.round((myGiven / bankCredits) * 1000) / 10) : 0,
+    },
+    unitLabels,
+    utilityItems,
+    utilityLabels,
+    wallet,
   };
 }
 
@@ -565,10 +836,12 @@ export = {
   getFactionBank,
   saveFactionBank,
   addFactionBankCredits,
+  depositPersonalCreditsToFaction,
   attachFactionArsenalToWallet,
   buyUnit,
   attackFaction,
   getEconomySnapshot,
+  getFactionHubSnapshot,
   unitPower,
   resolveBattleForHour,
   resolveStaleHours,

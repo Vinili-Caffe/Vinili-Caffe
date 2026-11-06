@@ -54,6 +54,55 @@
         "roles.Member"
       ]
     },
+    "deposita": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "promuovi": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "declassa": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "nomina": {
+      "roles": [
+        "roles.Member"
+      ],
+      "channels": [
+        "channels.commands",
+        "channels.staffCmds",
+        "channels.highCmds"
+      ]
+    },
+    "swrango": {
+      "roles": [
+        "roles.HighStaff"
+      ],
+      "channels": [
+        "channels.highCmds",
+        "channels.staffCmds"
+      ]
+    },
     "avatar": {
       "roles": [
         "roles.Member"

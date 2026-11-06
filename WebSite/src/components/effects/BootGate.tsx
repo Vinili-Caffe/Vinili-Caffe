@@ -16,9 +16,13 @@ export function BootGate() {
       if (done) return;
       done = true;
       try {
-        window.scrollTo(0, 0);
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
       } catch {
-        /* ignore */
+        try {
+          window.scrollTo(0, 0);
+        } catch {
+          /* ignore */
+        }
       }
       try {
         window.__vcBootUnlock?.();
@@ -68,9 +72,13 @@ export function BootGate() {
       frames += 1;
       tries += 1;
       try {
-        window.scrollTo(0, 0);
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
       } catch {
-        /* ignore */
+        try {
+          window.scrollTo(0, 0);
+        } catch {
+          /* ignore */
+        }
       }
       const main = document.querySelector("main");
       const mainH = main ? (main as HTMLElement).offsetHeight : 0;

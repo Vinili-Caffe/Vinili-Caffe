@@ -42,15 +42,34 @@ export type EventoLevelProgress = {
   maxLevel: number;
 };
 
+export type EventoFactionRank = {
+  tier: number;
+  maxTier: number;
+  label: string;
+  factionId?: string | null;
+  epoch?: string | null;
+  canBuyTroops?: boolean;
+  canWar?: boolean;
+  canManageRanks?: boolean;
+  permissions?: {
+    buyTroops?: boolean;
+    war?: boolean;
+    manageRanks?: boolean;
+  };
+};
+
 export type EventoWallet = {
   eventKey: string;
   factionId: string | null;
   epoch: string | null;
+  factionRankTier?: number | null;
+  factionRank?: EventoFactionRank | null;
   pgLevel: number;
   exp: number;
   credits: number;
   pei: number;
   creditsVolume?: number;
+  factionBankGiven?: number;
   votes?: number;
   quizCorrectTotal?: number;
   crates: Record<string, number>;
@@ -384,6 +403,8 @@ export async function fetchEventoShop(token?: string | null) {
       ok: boolean;
       buyEnabled?: boolean;
       attackEnabled?: boolean;
+      canBuyTroops?: boolean;
+      canWar?: boolean;
       economyOn?: boolean;
       epoch?: string;
       shop?: { units: Array<{ id: string; label: string; cost: number; power: number; tier: number }> };
@@ -391,6 +412,57 @@ export async function fetchEventoShop(token?: string | null) {
       error?: string;
       message?: string;
     } | null;
+  } catch {
+    return null;
+  }
+}
+
+export type EventoFactionHub = {
+  ok: boolean;
+  status?: number;
+  eventKey?: string;
+  epoch?: string | null;
+  economyOn?: boolean;
+  factionId?: string | null;
+  factionLabel?: string | null;
+  factionRank?: EventoFactionRank | null;
+  canBuyTroops?: boolean;
+  canWar?: boolean;
+  canManageRanks?: boolean;
+  buyEnabled?: boolean;
+  attackEnabled?: boolean;
+  shop?: { units: Array<{ id: string; label: string; cost: number; power: number; tier: number }> } | null;
+  hourKey?: string;
+  stance?: "attack" | "defend" | null;
+  pendingStance?: boolean;
+  bank?: {
+    credits: number;
+    units: Record<string, number>;
+    items: Record<string, number>;
+    buffs?: Record<string, EventoBuff>;
+    power: number;
+    unitCount: number;
+    lastAttackAt?: string | null;
+  };
+  contribution?: {
+    given: number;
+    sharePct: number;
+  };
+  unitLabels?: Record<string, string>;
+  utilityItems?: Array<{ id: string; label: string; blurb: string; kind: string }>;
+  utilityLabels?: Record<string, string>;
+  wallet?: EventoWallet | null;
+  error?: string;
+  message?: string;
+};
+
+export async function fetchEventoFaction(token?: string | null) {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/faction"), {
+      headers: authHeaders(token),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as EventoFactionHub | null;
   } catch {
     return null;
   }

@@ -19,9 +19,6 @@ const EventoCollectionsHub = dynamic(
 const EventoCalendarHub = dynamic(
   () => import("@/components/evento/EventoCalendarHub").then((m) => m.EventoCalendarHub),
 );
-const EventoShopPanel = dynamic(
-  () => import("@/components/evento/EventoShopPanel").then((m) => m.EventoShopPanel),
-);
 
 const meta = eventoPageMeta("hub");
 
@@ -47,7 +44,6 @@ export default function EventoHubPage() {
         <EventoInventoryPanel />
         <EventoCollectionsHub />
         <EventoCalendarHub />
-        <EventoShopPanel />
       </EventoSortGate>
     </EventoPage>
   );
