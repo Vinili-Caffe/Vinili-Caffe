@@ -87,6 +87,8 @@ function wrapChannel(raw?, guild?, clientRef?) {
     defaultSortOrder: raw.default_sort_order ?? null,
     availableTags: Array.isArray(raw.available_tags) ? raw.available_tags : [],
     parentId: raw.parent_id ? String(raw.parent_id) : null,
+    archived: Boolean(raw.archived),
+    locked: Boolean(raw.locked),
     guild,
     guildId: guild?.id || (raw.guild_id ? String(raw.guild_id) : null),
     permissionOverwrites: {
@@ -233,11 +235,55 @@ function wrapChannel(raw?, guild?, clientRef?) {
             body.allowed_mentions.replied_user = Boolean(payload.allowedMentions.repliedUser);
           }
         }
+        if (payload.reply?.messageReference || payload.messageReference) {
+          const ref = payload.reply?.messageReference || payload.messageReference;
+          body.message_reference = {
+            message_id: String(ref?.messageId || ref?.id || ref),
+            fail_if_not_exists: payload.reply?.failIfNotExists !== false,
+          };
+        }
+        if (payload.poll && typeof payload.poll === "object") {
+          const answers = Array.isArray(payload.poll.answers) ? payload.poll.answers : [];
+          body.poll = {
+            question: {
+              text: String(payload.poll.question?.text || payload.poll.question || "").slice(0, 300),
+            },
+            answers: answers
+              .map((a?) => ({
+                poll_media: {
+                  text: String(a?.text || a?.poll_media?.text || "").trim().slice(0, 55),
+                },
+              }))
+              .filter((a?) => a.poll_media.text),
+            duration: Math.max(1, Math.min(768, Number(payload.poll.duration) || 24)),
+            allow_multiselect: Boolean(payload.poll.allowMultiselect),
+          };
+        }
         const files = await normalizeRestMessageFiles(payload.files);
         if (files?.length) body.files = files;
       }
       const created = await rest.post(Routes.channelMessages(channelId), { body });
       return wrapMessage(created, restClient, { channelId, channel });
+    },
+    setArchived: async (archived?, reason?) => {
+      const rest = restClient?._rest;
+      if (!rest) throw new Error("REST unavailable");
+      const updated = await rest.patch(Routes.channel(channelId), {
+        body: { archived: Boolean(archived) },
+        reason: reason ? String(reason).slice(0, 512) : undefined,
+      });
+      channel.archived = Boolean(updated?.archived);
+      return channel;
+    },
+    setLocked: async (locked?, reason?) => {
+      const rest = restClient?._rest;
+      if (!rest) throw new Error("REST unavailable");
+      const updated = await rest.patch(Routes.channel(channelId), {
+        body: { locked: Boolean(locked) },
+        reason: reason ? String(reason).slice(0, 512) : undefined,
+      });
+      channel.locked = Boolean(updated?.locked);
+      return channel;
     },
     /* boardsGenInvite5: site-api REST client — createInvite via POST /channels/{id}/invites */
     createInvite: async (options: Record<string, any> = {}) => {

@@ -187,9 +187,10 @@ async function loadPhaseStats(eventKey?) {
       { [`${ROOT}.quizCorrectTotal`]: { $gt: 0 } },
       { [`${ROOT}.votes`]: { $gt: 0 } },
       { [`${ROOT}.pei`]: { $gt: 0 } },
+      { [`${ROOT}.exp`]: { $gt: 0 } },
     ],
   })
-    .select(`userId ${ROOT}.quizCorrectTotal ${ROOT}.votes ${ROOT}.pei`)
+    .select(`userId ${ROOT}.quizCorrectTotal ${ROOT}.votes ${ROOT}.pei ${ROOT}.exp`)
     .lean()
     .catch(() => []);
 
@@ -202,6 +203,7 @@ async function loadPhaseStats(eventKey?) {
       quizCorrectTotal: safeInt(sw.quizCorrectTotal),
       votes: safeInt(sw.votes),
       pei: safeNum(sw.pei),
+      exp: safeInt(sw.exp),
     };
   }
   return current;
@@ -218,6 +220,7 @@ function phaseDelta(current?, baseline?) {
       quizCorrectTotal: Math.max(0, safeInt(cur.quizCorrectTotal) - safeInt(base.quizCorrectTotal)),
       votes: Math.max(0, safeInt(cur.votes) - safeInt(base.votes)),
       pei: Math.max(0, safeNum(cur.pei) - safeNum(base.pei)),
+      exp: Math.max(0, safeInt(cur.exp) - safeInt(base.exp)),
     });
   }
   return out;

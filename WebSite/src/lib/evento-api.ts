@@ -1025,3 +1025,61 @@ export async function finishEventoPuzzleAd(token: string, adSessionId: string) {
     return null;
   }
 }
+
+export type EventoClassificheFactionRow = {
+  rank: number;
+  factionId: string;
+  label: string;
+  value: number;
+  members: number;
+};
+
+export type EventoClassificheUserRow = {
+  rank: number;
+  userId: string;
+  factionId?: string | null;
+  value: number;
+  exp?: number;
+  pei?: number;
+  displayName?: string;
+  avatarUrl?: string | null;
+};
+
+export type EventoClassificheBoards = {
+  factionExpPeriod: EventoClassificheFactionRow[];
+  factionExpPhase: EventoClassificheFactionRow[];
+  peiPeriod: EventoClassificheUserRow[];
+  peiPhase: EventoClassificheUserRow[];
+  expPeriod: EventoClassificheUserRow[];
+  expPhase: EventoClassificheUserRow[];
+};
+
+export async function fetchEventoClassifiche(token?: string | null) {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/classifiche"), {
+      headers: authHeaders(token),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      eventKey?: string;
+      epoch?: string | null;
+      epochLabel?: string | null;
+      boards?: EventoClassificheBoards;
+      me?: {
+        userId: string;
+        factionId?: string | null;
+        exp?: number;
+        pei?: number;
+        peiRank?: number | null;
+        expRank?: number | null;
+        displayName?: string;
+        avatarUrl?: string | null;
+      } | null;
+      error?: string;
+      message?: string;
+    } | null;
+  } catch {
+    return null;
+  }
+}

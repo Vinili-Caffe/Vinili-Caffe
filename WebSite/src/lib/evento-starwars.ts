@@ -61,6 +61,7 @@ export type EventoFactionId = (typeof EVENTO_FACTIONS)[number]["id"];
 export type EventoPageId =
   | "hub"
   | "fazione"
+  | "classifiche"
   | "avvento"
   | "smistamento"
   | "accademia"
@@ -89,6 +90,7 @@ const FEATURE_WINDOWS: Partial<Record<EventoPageId, FeatureWindow[]>> = {
   smistamento: [{ start: "2026-12-01T12:00", end: "2027-02-28T21:00" }],
   hub: [{ start: "2026-12-01T00:00", end: "2027-02-28T21:00" }],
   fazione: [{ start: "2026-12-01T00:00", end: "2027-02-28T21:00" }],
+  classifiche: [{ start: "2026-12-01T00:00", end: "2027-02-28T21:00" }],
   gara: [{ start: "2026-12-04T12:00", end: "2026-12-09T12:00" }],
   miniera: [{ start: "2027-01-03T12:00", end: "2027-01-05T12:00" }],
   accademia: [{ start: "2027-01-13T12:00", end: "2027-01-22T12:00" }],
@@ -113,6 +115,13 @@ export const EVENTO_NAV: EventoNavItem[] = [
     publicFromOpen: true,
   },
   {
+    id: "classifiche",
+    href: page("/evento/classifiche/"),
+    label: "Classifiche",
+    teaser: "Ologrammi di guerra: EXP fazione, PEI e top piloti della stagione.",
+    publicFromOpen: true,
+  },
+  {
     id: "accademia",
     href: page("/evento/accademia/"),
     label: "Accademia",
@@ -124,8 +133,8 @@ export const EVENTO_NAV: EventoNavItem[] = [
   {
     id: "gara",
     href: page("/evento/gara/"),
-    label: "Gara",
-    teaser: "Podracing Championship — scelta sguscio e gare.",
+    label: "Podracing Championship",
+    teaser: "",
     publicFromOpen: true,
     featureGated: true,
     eventiMenu: true,
@@ -133,8 +142,8 @@ export const EVENTO_NAV: EventoNavItem[] = [
   {
     id: "miniera",
     href: page("/evento/miniera/"),
-    label: "Miniera",
-    teaser: "Estrazione Kyber — cristalli giornalieri.",
+    label: "Estrazione Kyber",
+    teaser: "",
     publicFromOpen: true,
     featureGated: true,
     eventiMenu: true,
@@ -142,8 +151,8 @@ export const EVENTO_NAV: EventoNavItem[] = [
   {
     id: "puzzle",
     href: page("/puzzle/"),
-    label: "Puzzle",
-    teaser: "Puzzle di Kessel — pezzi da ricomporre.",
+    label: "Puzzle di Kessel",
+    teaser: "",
     publicFromOpen: true,
     featureGated: true,
     eventiMenu: true,

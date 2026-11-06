@@ -91,7 +91,13 @@ export function EventoArmyPanel() {
           {rows.map((r) => (
             <li key={r.id} className="rounded-2xl bg-black/40 px-3 py-3 ring-1 ring-sand/15">
               <div className="flex items-start gap-2.5">
-                <EventoTroopIcon unitId={r.id} size="sm" alt={r.label} className="shrink-0" />
+                <EventoTroopIcon
+                  unitId={r.id}
+                  factionId={wallet?.factionId}
+                  size="sm"
+                  alt={r.label}
+                  className="shrink-0"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="line-clamp-2 text-xs font-semibold text-crema">{r.label}</p>
                   <p className="mt-2 font-sans text-2xl font-bold tabular-nums tracking-tight text-[#e4c76b]">

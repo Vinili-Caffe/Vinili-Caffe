@@ -173,6 +173,7 @@ export type CrateLootPayload = {
   troops?: Record<string, number> | null;
   troopLabels?: Record<string, string> | null;
   note?: string | null;
+  factionId?: string | null;
 };
 
 type LootCard = {
@@ -226,10 +227,12 @@ function LootRewardCard({
   card,
   glow,
   large,
+  factionId,
 }: {
   card: LootCard;
   glow?: boolean;
   large?: boolean;
+  factionId?: string | null;
 }) {
   const s = lootCardStyle(card.tone, glow);
   return (
@@ -250,7 +253,12 @@ function LootRewardCard({
         </div>
       ) : card.kind === "troop" && card.unitId && isTroopUnitId(card.unitId) ? (
         <div className="mt-2 flex flex-col items-center gap-1.5">
-          <EventoTroopIcon unitId={card.unitId} size={large ? "lg" : "md"} alt={card.value} />
+          <EventoTroopIcon
+            unitId={card.unitId}
+            factionId={factionId}
+            size={large ? "lg" : "md"}
+            alt={card.value}
+          />
           <p
             className={`font-sans font-semibold tracking-tight leading-tight ${large ? "text-lg" : "text-base"}`}
             style={{ color: s.color }}
@@ -433,7 +441,7 @@ export function EventoCrateOpenOverlay({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{ type: "spring", stiffness: 240, damping: 16 }}
                   >
-                    <LootRewardCard card={c} large glow />
+                    <LootRewardCard card={c} large glow factionId={loot.factionId} />
                   </motion.div>
                 ))
               : null}
@@ -450,7 +458,11 @@ export function EventoCrateOpenOverlay({
                         animate={{ opacity: 1, y: 0, scale: 1, rotateY: 0 }}
                         transition={{ type: "spring", stiffness: 260, damping: 16 }}
                       >
-                        <LootRewardCard card={c} glow={i === revealed - 1} />
+                        <LootRewardCard
+                          card={c}
+                          glow={i === revealed - 1}
+                          factionId={loot.factionId}
+                        />
                       </motion.div>
                     );
                   }

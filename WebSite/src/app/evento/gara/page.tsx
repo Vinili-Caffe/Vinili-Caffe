@@ -14,13 +14,13 @@ const GaraGame = dynamic(
 const meta = eventoPageMeta("gara");
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: meta.path, title: meta.title, description: meta.description }),
+  ...pageSocialMeta({ path: meta.path, title: "Podracing Championship", description: meta.description }),
   robots: { index: false, follow: false },
 };
 
 export default function EventoGaraPage() {
   return (
-    <EventoPage pageId="gara" path={meta.path} title="Gara" text={meta.description}>
+    <EventoPage pageId="gara" path={meta.path} title="Podracing Championship" text={meta.description}>
       <EventoSortGate mode="redirect">
         <GaraGame />
       </EventoSortGate>

@@ -514,4 +514,12 @@ function startMovieNightAnnouncementLoop(client?) {
   });
 }
 
-export = { ensureMovieNightStaffCommunicationOnStartup, handleMovieNightEventStart, handleMovieNightStageClose, recoverMovieNightAnnouncementsOnStartup, startMovieNightAnnouncementLoop };
+export = {
+  ensureMovieNightStaffCommunicationOnStartup,
+  handleMovieNightEventStart,
+  handleMovieNightStageClose,
+  recoverMovieNightAnnouncementsOnStartup,
+  startMovieNightAnnouncementLoop,
+  runMovieNightFinalAnnouncementCheck,
+  runMovieNightThreadCloseCheck,
+};

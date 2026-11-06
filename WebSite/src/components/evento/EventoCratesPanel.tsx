@@ -74,6 +74,7 @@ export function EventoCratesPanel() {
       troops: out.loot?.troops || null,
       troopLabels: out.loot?.troopLabels || null,
       note: out.loot?.note,
+      factionId: out.wallet?.factionId || wallet?.factionId || null,
     });
     if (out.wallet) setWallet(out.wallet);
     else void reload();

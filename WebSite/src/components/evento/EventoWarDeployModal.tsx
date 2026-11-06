@@ -19,12 +19,21 @@ type Props = {
   mode: "attack" | "defend";
   units: WarDeployUnit[];
   bactaQty: number;
+  factionId?: string | null;
   busy?: boolean;
   onClose: () => void;
   onConfirm: (payload: { deploy: Record<string, number>; useBacta: boolean }) => void;
 };
 
-export function EventoWarDeployModal({ mode, units, bactaQty, busy, onClose, onConfirm }: Props) {
+export function EventoWarDeployModal({
+  mode,
+  units,
+  bactaQty,
+  factionId = null,
+  busy,
+  onClose,
+  onConfirm,
+}: Props) {
   const attack = mode === "attack";
   const [qty, setQty] = useState<Record<string, number>>({});
   const [useBacta, setUseBacta] = useState(false);
@@ -244,7 +253,13 @@ export function EventoWarDeployModal({ mode, units, bactaQty, busy, onClose, onC
                       )}
                     >
                       <div className="flex items-start gap-3">
-                        <EventoTroopIcon unitId={u.id} size="md" alt={u.label} className="shrink-0" />
+                        <EventoTroopIcon
+                          unitId={u.id}
+                          factionId={factionId}
+                          size="md"
+                          alt={u.label}
+                          className="shrink-0"
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold text-crema">{u.label}</p>
                           <p className="mt-0.5 text-xs text-crema/50">
@@ -294,36 +309,47 @@ export function EventoWarDeployModal({ mode, units, bactaQty, busy, onClose, onC
               </ul>
             )}
 
-            {attack && bactaQty > 0 ? (
+            {attack ? (
               <button
                 type="button"
-                disabled={busy}
-                onClick={() => setUseBacta((v) => !v)}
-                aria-pressed={useBacta}
+                disabled={busy || bactaQty < 1}
+                onClick={() => {
+                  if (bactaQty < 1) return;
+                  setUseBacta((v) => !v);
+                }}
+                aria-pressed={useBacta && bactaQty > 0}
                 className={cn(
                   "mt-4 flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left ring-1 transition",
-                  useBacta
-                    ? "bg-emerald-500/15 ring-emerald-400/40 shadow-[0_12px_28px_rgba(52,211,153,0.18)]"
-                    : "bg-black/45 ring-crema/10 hover:bg-black/60",
+                  bactaQty < 1
+                    ? "cursor-not-allowed bg-black/35 ring-crema/10 opacity-70"
+                    : useBacta
+                      ? "bg-emerald-500/15 ring-emerald-400/40 shadow-[0_12px_28px_rgba(52,211,153,0.18)]"
+                      : "bg-black/45 ring-crema/10 hover:bg-black/60",
                 )}
               >
                 <EventoUtilityIcon itemId="bacta" size="md" alt="Bacta" className="shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-2 font-semibold text-crema">
                     <Sparkles className="size-3.5 text-emerald-300" aria-hidden />
-                    Inietta Bacta prima dell&apos;assalto
+                    {bactaQty < 1 ? "Bacta esaurito" : "Inietta Bacta prima dell'assalto"}
                   </p>
                   <p className="mt-0.5 text-xs text-crema/55">
-                    Cura l&apos;arsenale (×{bactaQty} disponibili), poi schieri le forze scelte.
+                    {bactaQty < 1
+                      ? "Nessuna fiala in deposito. Recupera Bacta dalle casse."
+                      : `Cura ~5% dell'arsenale (×${bactaQty} disponibili), poi schieri le forze scelte.`}
                   </p>
                 </div>
                 <span
                   className={cn(
                     "shrink-0 rounded-full px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider",
-                    useBacta ? "bg-emerald-400/20 text-emerald-200" : "bg-crema/5 text-crema/45",
+                    bactaQty < 1
+                      ? "bg-gradient-to-r from-caramel/80 to-ember/80 text-ink"
+                      : useBacta
+                        ? "bg-emerald-400/20 text-emerald-200"
+                        : "bg-crema/5 text-crema/45",
                   )}
                 >
-                  {useBacta ? "Attivo" : "Off"}
+                  {bactaQty < 1 ? "Esaurito" : useBacta ? "Attivo" : "Off"}
                 </span>
               </button>
             ) : null}

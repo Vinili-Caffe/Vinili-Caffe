@@ -272,3 +272,5 @@ WebSiteReact/
 Assets/**
 .vercel
 .env*
+.agents
+skills-lock.json

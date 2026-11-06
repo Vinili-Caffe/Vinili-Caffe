@@ -6,13 +6,15 @@ const {
   collectBlockedSystemRoleIds,
   isCustomRolePurgeDryRun,
 } = require("../utils/userCustomRoleFilter") as typeof import("../utils/userCustomRoleFilter");
-const { getClientGuildCached, getGuildChannelCached, getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { getClientGuildCached, getGuildChannelCached, getGuildMemberCached, getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const CUSTOM_VOICE_CATEGORY_ID = IDs.categories.categoryPrivate;
 const CHECK_INTERVAL_MS = 60 * 1000;
 let expiryLoopHandle = null;
 const CUSTOM_PERK_ELIGIBILITY_GRACE_DAYS = 7;
 const CUSTOM_VOC_GRACE_MS = CUSTOM_PERK_ELIGIBILITY_GRACE_DAYS * 24 * 60 * 60 * 1000;
 const CUSTOM_ROLE_GRACE_MS = CUSTOM_PERK_ELIGIBILITY_GRACE_DAYS * 24 * 60 * 60 * 1000;
+const ELIGIBILITY_RECONCILE_BATCH = 40;
+let eligibilityReconcileCursor = "";
 
 async function execLean(queryOrValue?, fallback = null) {
   if (queryOrValue && typeof queryOrValue.lean === "function") {
@@ -204,6 +206,36 @@ async function runExpiredCustomRolesSweep(client?) {
       ).catch(() => {});
     } catch {
     }
+  }
+
+  /* Riallinea chi ha ancora il custom ma non i ruoli slot (bug lista VOC vs slot Personalizza). */
+  try {
+    const { syncCustomRoleEligibilityWindow } = require("./memberPerks") as typeof import("./memberPerks");
+    const q: Record<string, any> = {
+      $or: [{ roleId: { $ne: null } }, { secondaryRoleId: { $ne: null } }],
+      customRoleEligibilityLostAt: null,
+    };
+    if (eligibilityReconcileCursor) q._id = { $gt: eligibilityReconcileCursor };
+    const pending = await execLean(
+      CustomRole.find(q).sort({ _id: 1 }).limit(ELIGIBILITY_RECONCILE_BATCH),
+      [],
+    ).catch(() => []);
+    if (!pending.length) {
+      eligibilityReconcileCursor = "";
+    } else {
+      for (const doc of pending) {
+        eligibilityReconcileCursor = String(doc?._id || eligibilityReconcileCursor);
+        const guild = client.guilds.cache.get(doc.guildId) || (await getClientGuildCached(client, doc.guildId).catch(() => null));
+        if (!guild) continue;
+        const member =
+          guild.members.cache.get(doc.userId) ||
+          (await getGuildMemberCached(guild, doc.userId).catch(() => null));
+        if (!member) continue;
+        await syncCustomRoleEligibilityWindow(member).catch(() => {});
+      }
+    }
+  } catch (err) {
+    global.logger?.warn?.("[CUSTOM ROLE EXPIRY] eligibility reconcile failed:", err?.message || err);
   }
 
   const roleCutoff = new Date(Date.now() - CUSTOM_ROLE_GRACE_MS);

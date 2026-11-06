@@ -38,7 +38,15 @@ function formatWhen(iso?: string | null, hourKey?: string | null) {
   });
 }
 
-function UnitTable({ rows, empty }: { rows?: EventoWarUnitRow[]; empty: string }) {
+function UnitTable({
+  rows,
+  empty,
+  factionId,
+}: {
+  rows?: EventoWarUnitRow[];
+  empty: string;
+  factionId?: string | null;
+}) {
   if (!rows?.length) {
     return <p className="text-xs text-crema/45">{empty}</p>;
   }
@@ -49,7 +57,13 @@ function UnitTable({ rows, empty }: { rows?: EventoWarUnitRow[]; empty: string }
           key={r.id}
           className="flex items-center gap-2.5 rounded-xl bg-black/35 px-2.5 py-2 ring-1 ring-white/10"
         >
-          <EventoTroopIcon unitId={r.id} size="sm" alt={r.label} className="shrink-0" />
+          <EventoTroopIcon
+            unitId={r.id}
+            factionId={factionId}
+            size="sm"
+            alt={r.label}
+            className="shrink-0"
+          />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-crema">{r.label}</p>
             <p className="text-[0.65rem] text-crema/45">
@@ -101,25 +115,37 @@ function SideColumn({ side, tone }: { side?: EventoWarSide | null; tone: "sky" |
           <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/45">
             In campo
           </p>
-          <UnitTable rows={side.before?.rows} empty="Nessuna truppa in campo." />
+          <UnitTable
+            rows={side.before?.rows}
+            empty="Nessuna truppa in campo."
+            factionId={side.factionId}
+          />
         </div>
         <div>
           <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-rose-200/70">
             Cadute
           </p>
-          <UnitTable rows={side.dead?.rows} empty="Nessuna perdita." />
+          <UnitTable rows={side.dead?.rows} empty="Nessuna perdita." factionId={side.factionId} />
         </div>
         <div>
           <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-emerald-200/70">
             Sopravvissute
           </p>
-          <UnitTable rows={side.survivors?.rows} empty="Nessuna sopravvissuta." />
+          <UnitTable
+            rows={side.survivors?.rows}
+            empty="Nessuna sopravvissuta."
+            factionId={side.factionId}
+          />
         </div>
         <div>
           <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-[#e4c76b]/80">
             Hangar dopo la guerra
           </p>
-          <UnitTable rows={side.hangarAfter?.rows} empty="Hangar vuoto." />
+          <UnitTable
+            rows={side.hangarAfter?.rows}
+            empty="Hangar vuoto."
+            factionId={side.factionId}
+          />
         </div>
       </div>
     </div>

@@ -360,7 +360,13 @@ export function EventoFactionHub() {
                   className="rounded-2xl bg-black/45 px-3 py-3 ring-1 ring-sand/15"
                 >
                   <div className="flex items-start gap-2.5">
-                    <EventoTroopIcon unitId={r.id} size="sm" alt={r.label} className="shrink-0" />
+                    <EventoTroopIcon
+                      unitId={r.id}
+                      factionId={data?.factionId}
+                      size="sm"
+                      alt={r.label}
+                      className="shrink-0"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 text-xs font-semibold text-crema">{r.label}</p>
                       <p className="mt-2 font-sans text-2xl font-bold tabular-nums tracking-tight text-[#e4c76b]">
@@ -448,9 +454,19 @@ export function EventoFactionHub() {
                     </p>
                   </div>
                   {r.id === "bacta" ? (
-                    <p className="mt-3 rounded-full bg-black/35 px-3 py-2 text-center text-xs text-crema/50 ring-1 ring-white/10">
-                      Si usa dallo shop in attacco
-                    </p>
+                    r.qty < 1 ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="mt-3 w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2 text-sm font-semibold text-ink disabled:opacity-40"
+                      >
+                        Esaurito
+                      </button>
+                    ) : (
+                      <p className="mt-3 rounded-full bg-black/35 px-3 py-2 text-center text-xs text-crema/50 ring-1 ring-white/10">
+                        Si usa nello schieramento in attacco
+                      </p>
+                    )
                   ) : (
                     <button
                       type="button"

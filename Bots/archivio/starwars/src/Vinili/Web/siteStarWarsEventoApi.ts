@@ -120,6 +120,9 @@ const {
   accuseTraditore,
   grantPhaseEndRewards,
 } = require("../Services/Community/starWarsTransversalService") as typeof import("../Services/Community/starWarsTransversalService");
+const {
+  getClassificheBoard,
+} = require("../Services/Community/starWarsClassificheService") as typeof import("../Services/Community/starWarsClassificheService");
 const { publicShopCatalog } = require("../Utils/Eventi/starWarsEconomyCatalog") as typeof import("../Utils/Eventi/starWarsEconomyCatalog");
 const { factionDisplayName } = require("../Services/Community/starWarsPeiStandingService") as typeof import("../Services/Community/starWarsPeiStandingService");
 const { hasStarWarsFaction } = require("../Utils/Eventi/starWarsRuntimeGate") as typeof import("../Utils/Eventi/starWarsRuntimeGate");
@@ -985,6 +988,19 @@ async function handleSiteEventoPeiGet(client?, req?, res?) {
   }
 }
 
+async function handleSiteEventoClassificheGet(client?, req?, res?) {
+  try {
+    const auth = await resolveAuth(client, req);
+    const access = accessFlags(client, auth);
+    if (!requireParticipate(access, res)) return;
+    const board = await getClassificheBoard(client, { viewerUserId: auth?.userId || null });
+    return res.status(200).json(board);
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-evento classifiche:", err);
+    return res.status(500).json({ ok: false, error: "internal" });
+  }
+}
+
 async function handleSiteEventoTraditoreGet(client?, req?, res?) {
   try {
     const auth = await resolveAuth(client, req);
@@ -1144,6 +1160,7 @@ export = {
   handleSiteEventoPuzzleGet,
   handleSiteEventoPuzzlePost,
   handleSiteEventoPeiGet,
+  handleSiteEventoClassificheGet,
   handleSiteEventoTraditoreGet,
   handleSiteEventoTraditorePost,
   handleSiteEventoCollezioniGet,

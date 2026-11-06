@@ -36,17 +36,23 @@ function getMovieVoteReaction(message?) {
 async function countReactionVotes(reaction?, botUserId?) {
   if (!reaction) return 0;
   const voterIds = new Set();
+  let fetchedAny = false;
   let after;
   while (true) {
-    const users = await reaction.users.fetch({ limit: 100, ...(after ? { after } : {}) }).catch(() => null);
+    const users = await reaction.users?.fetch?.({ limit: 100, ...(after ? { after } : {}) }).catch(() => null);
     if (!users?.size) break;
+    fetchedAny = true;
     for (const user of users.values()) {
       if (!user?.bot && String(user.id || "") !== String(botUserId || "")) voterIds.add(String(user.id));
     }
     after = users.last()?.id;
     if (users.size < 100) break;
   }
-  return voterIds.size;
+  if (fetchedAny) return voterIds.size;
+  /* Fallback: client REST / cache senza users.fetch → usa count meno la reaction del bot. */
+  let n = Math.max(0, Number(reaction.count) || 0);
+  if (reaction.me) n = Math.max(0, n - 1);
+  return n;
 }
 
 async function collectMovieNightVoteResults(thread?, client?) {
@@ -89,17 +95,62 @@ async function maybePublishTieBreakerPoll(client?, thread?, state?) {
     return { skipped: true, reason: "announcement_channel_unavailable" };
   }
 
-  const pollMessage = await channel.send({
-    content: buildTieBreakerAnnouncementMessage(thread.id, options.map((option?) => option.title)),
-    allowedMentions: { roles: [...new Set([EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID].filter(Boolean))] },
+  const answerTexts = [];
+  const seenAnswers = new Set();
+  for (const option of options) {
+    const text = String(option?.title || "").trim().slice(0, 55);
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (seenAnswers.has(key)) continue;
+    seenAnswers.add(key);
+    answerTexts.push(text);
+  }
+  if (answerTexts.length < 2) {
+    return { skipped: true, reason: "tie_answers_collapsed", topVotes, voteResults: results };
+  }
+
+  const pollPayload = {
+    question: { text: `Quale film guardiamo domani alle ${MOVIE_NIGHT_DISPLAY_TIME}?`.slice(0, 300) },
+    answers: answerTexts.map((text) => ({ text })),
+    duration: MOVIE_NIGHT_TIE_POLL_DURATION_HOURS,
+    allowMultiselect: false,
+  };
+  const mentionRoles = [...new Set([EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID].filter(Boolean))];
+  const announceContent = buildTieBreakerAnnouncementMessage(
+    thread.id,
+    options.map((option?) => option.title)
+  );
+
+  let pollMessage = await channel.send({
+    content: announceContent,
+    allowedMentions: { roles: mentionRoles },
     __skipNoticeEmbed: true,
-    poll: {
-      question: { text: `Quale film guardiamo domani alle ${MOVIE_NIGHT_DISPLAY_TIME}?` },
-      answers: options.map((option?) => ({ text: option.title })),
-      duration: MOVIE_NIGHT_TIE_POLL_DURATION_HOURS,
-      allowMultiselect: false,
-    },
+    poll: pollPayload,
   });
+
+  /* Discord a volte accetta il messaggio ma non allega il poll: ritenta solo il sondaggio. */
+  if (!pollMessage?.poll) {
+    global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] tie poll missing on announce message, retrying poll-only follow-up", {
+      messageId: String(pollMessage?.id || ""),
+    });
+    pollMessage = await channel.send({
+      content: [
+        `## SONDAGGIO SERATA FILM`,
+        "",
+        `__Votate il sondaggio in basso__`,
+        "",
+        mentionRoles.map((id) => `<@&${id}>`).join(" "),
+      ].join("\n"),
+      allowedMentions: { roles: mentionRoles },
+      __skipNoticeEmbed: true,
+      reply: { messageReference: pollMessage?.id, failIfNotExists: false },
+      poll: pollPayload,
+    });
+  }
+  if (!pollMessage?.poll) {
+    throw new Error("tie_poll_not_attached_after_retry");
+  }
+
   return {
     ok: true,
     tieBreakerPollMessageId: String(pollMessage.id || ""),

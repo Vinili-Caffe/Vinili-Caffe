@@ -62,6 +62,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
 export const EVENTO_NAV_ICONS: Record<EventoPageId | "sito", LucideIcon> = {
   hub: LayoutDashboard,
   fazione: Shield,
+  classifiche: Trophy,
   avvento: CalendarDays,
   smistamento: Swords,
   accademia: GraduationCap,

@@ -38,6 +38,7 @@ export function EventoShopPanel({
   const [canWar, setCanWar] = useState(false);
   const [credits, setCredits] = useState(0);
   const [bactaQty, setBactaQty] = useState(0);
+  const [factionId, setFactionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [battle, setBattle] = useState<BattleFxData | null>(null);
@@ -61,6 +62,7 @@ export function EventoShopPanel({
     setArmy(armyMap);
     const bQty = Math.max(0, Math.floor(Number(st.wallet?.items?.bacta) || 0));
     setBactaQty(bQty);
+    setFactionId(st.wallet?.factionId || null);
   }, [ready, token]);
 
   const softReload = useCallback(() => {
@@ -135,10 +137,23 @@ export function EventoShopPanel({
       return;
     }
     setWarMode(null);
+    const healed =
+      out.bactaUsed && out.bactaHealed && typeof out.bactaHealed === "object" ? out.bactaHealed : null;
+    const healedN = healed
+      ? Object.values(healed).reduce((a, n) => a + Math.max(0, Math.floor(Number(n) || 0)), 0)
+      : 0;
+    const bactaBit =
+      out.bactaUsed && healedN > 0
+        ? ` Bacta: +${healedN.toLocaleString("it-IT")} truppe recuperate.`
+        : out.bactaUsed
+          ? " Bacta iniettato."
+          : "";
     if (out.pending) {
-      showToast(out.message || (defend ? "Difesa dichiarata." : "Attacco dichiarato: in attesa."));
+      showToast(
+        `${out.message || (defend ? "Difesa dichiarata." : "Attacco dichiarato: in attesa.")}${bactaBit}`,
+      );
       void reload({ soft: true });
-      notifyEventoFactionSync("war_pending");
+      notifyEventoFactionSync(out.bactaUsed ? "war_bacta" : "war_pending");
       return;
     }
     setBattle({
@@ -149,8 +164,9 @@ export function EventoShopPanel({
       attackPower: out?.attackPower ?? out?.deployPower,
       defendPower: out?.defendPower,
     });
+    if (bactaBit) showToast(bactaBit.trim());
     void reload({ soft: true });
-    notifyEventoFactionSync("war_resolved");
+    notifyEventoFactionSync(out.bactaUsed ? "war_bacta" : "war_resolved");
   }
 
   if (loading && !battle) {
@@ -227,7 +243,13 @@ export function EventoShopPanel({
                   className="flex items-center justify-between gap-3 rounded-xl bg-black/35 px-3.5 py-3 ring-1 ring-sand/15"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <EventoTroopIcon unitId={u.id} size="sm" alt={u.label} className="shrink-0" />
+                    <EventoTroopIcon
+                      unitId={u.id}
+                      factionId={factionId}
+                      size="sm"
+                      alt={u.label}
+                      className="shrink-0"
+                    />
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-crema">{u.label}</p>
                       <p className="flex flex-wrap items-center gap-1 text-xs text-crema/45">
@@ -264,6 +286,7 @@ export function EventoShopPanel({
             mode={warMode}
             units={deployUnits}
             bactaQty={bactaQty}
+            factionId={factionId}
             busy={busy}
             onClose={() => {
               if (!busy) setWarMode(null);

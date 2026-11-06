@@ -532,22 +532,15 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
       });
       const winEmbed = new EmbedBuilder()
         .setColor(0xeab308)
-        .setTitle(`${meta.title} — Arrivo!`)
+        .setTitle(`${meta.title} terminata!`)
         .setDescription(
-          `🏁 <@${user.id}> vince!\n+${formatCrateMention(meta.crate, 1, { open: true })} + **${meta.exp} exp** (${CREDITI} +5 · +10 banca)`,
+          `🏁 <@${user.id}> vince e si porta a casa: ${formatCrateMention(meta.crate, 1, { open: true })} + **${meta.exp} exp**+ 15 ${CREDITI}`,
         );
       if (meta.winImage) winEmbed.setImage(meta.winImage);
       await reaction.message
         ?.edit?.({ embeds: [winEmbed] })
         .catch(() => null);
       const ch = reaction.message?.channel;
-      if (ch?.send) {
-        await ch
-          .send({
-            content: `🏁 <@${user.id}> vince **${meta.title}**! (+${formatCrateMention(meta.crate, 1, { open: true })} + ${meta.exp} exp)`,
-          })
-          .catch(() => null);
-      }
       return true;
     } finally {
       claimLocks.delete(lock);

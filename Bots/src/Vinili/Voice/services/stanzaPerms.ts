@@ -12,7 +12,8 @@ function getStanzaMemberRoleId() {
 }
 
 const STANZA_VOICE_MEMBER_ROLE_PUBLIC = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, UseEmbeddedActivities: true, UseExternalApps: true };
-const STANZA_VOICE_MEMBER_ROLE_LOCKED = { ViewChannel: false, Connect: false };
+/* Blocca solo Connect: non toccare ViewChannel (nascondi resta un bottone a parte). */
+const STANZA_VOICE_MEMBER_ROLE_LOCKED = { Connect: false };
 const STANZA_VOICE_OWNER_OVERWRITE = { ViewChannel: true, Connect: true, Speak: true, UseVAD: true, Stream: true, UseEmbeddedActivities: true, UseExternalApps: true, MoveMembers: true, MuteMembers: true, DeafenMembers: true, ManageChannels: true };
 const STANZA_VOICE_BOT_OVERWRITE = { ViewChannel: true, Connect: true, Speak: true, ManageChannels: true, MoveMembers: true, MuteMembers: true, DeafenMembers: true };
 
@@ -27,7 +28,8 @@ function stanzaPermissionAllowArrayFromObject(obj?) {
   return out;
 }
 const STANZA_TEXT_MEMBER_ROLE_PUBLIC = { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true };
-const STANZA_TEXT_MEMBER_ROLE_LOCKED = { ViewChannel: false, SendMessages: false };
+/* Blocca solo scrittura chat: non nascondere la chat companion. */
+const STANZA_TEXT_MEMBER_ROLE_LOCKED = { SendMessages: false };
 const STANZA_TEXT_OWNER_OVERWRITE = { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true, ManageChannels: true, ManageMessages: true };
 const STANZA_TEXT_BOT_OVERWRITE = { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, ManageMessages: true, ManageChannels: true };
 const STANZA_TEXT_MEMBER_SILENCE = { ViewChannel: true, SendMessages: false, ReadMessageHistory: true, EmbedLinks: true, AttachFiles: true, AddReactions: true };

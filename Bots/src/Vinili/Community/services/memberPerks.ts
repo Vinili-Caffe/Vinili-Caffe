@@ -6,6 +6,8 @@ const { ensureStaff } = require("../../Staff/utils/staffDocUtils") as typeof imp
 const { ActivityUserProfile, CustomRole } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 const { hasEventWeekWinnerGrant } = require("./weekWinnerGrantsService") as typeof import("./weekWinnerGrantsService");
 const { hasExtraCustomPerksUnlock } = require("../utils/customPerksUnlock") as typeof import("../utils/customPerksUnlock");
+const { getCustomRoleSlotCapFromRoles, getCustomRoleSlotCapWithContest } = require("../utils/customRoleSlots") as typeof import("../utils/customRoleSlots");
+const { fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLean } = require("../../Staff/utils/partnerManagerTimedPerks") as typeof import("../../Staff/utils/partnerManagerTimedPerks");
 const { wasRoleRestoredByMuteMirror } = require("../../Moderation/utils/muteRestoreAnnounceSuppress") as typeof import("../../Moderation/utils/muteRestoreAnnounceSuppress");
 
 const PERK_ROLE_ID = IDs.roles.PicPerms;
@@ -191,6 +193,35 @@ async function syncCustomVocEligibilityWindow(newMember?) {
   }
 }
 
+async function resolveCustomRolePrimarySlotUnlock(guildId?, userId?) {
+  const gid = String(guildId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return false;
+  const [hasExtraUnlock, eventWeek2Grant, eventWeek3Grant, pmPerkLean] = await Promise.all([
+    hasExtraCustomPerksUnlock(gid, uid).catch(() => false),
+    hasEventWeekWinnerGrant(gid, uid, 2).catch(() => false),
+    hasEventWeekWinnerGrant(gid, uid, 3).catch(() => false),
+    fetchPartnerManagerTimedPerkLean(gid, uid).catch(() => null),
+  ]);
+  return Boolean(
+    hasExtraUnlock || eventWeek2Grant || eventWeek3Grant || partnerManagerCustomBundleActiveFromLean(pmPerkLean),
+  );
+}
+
+async function stripSecondaryCustomRoleIfNeeded(guild?, userId?, secondaryRoleId?) {
+  const rid = String(secondaryRoleId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!guild || !rid || !uid) return;
+  const role = guild.roles.cache.get(rid) || (await guild.roles.fetch(rid).catch(() => null));
+  if (role) {
+    await role.delete(`Secondary custom role removed: slot cap < 2 for user ${uid}`).catch(() => {});
+  }
+  await CustomRole.updateOne(
+    { guildId: String(guild.id), userId: uid },
+    { $set: { secondaryRoleId: null } },
+  ).catch(() => {});
+}
+
 async function syncCustomRoleEligibilityWindow(newMember?) {
   const guild = newMember?.guild;
   if (!guild || !newMember?.id) return;
@@ -200,11 +231,15 @@ async function syncCustomRoleEligibilityWindow(newMember?) {
   const doc = await CustomRole.findOne({ guildId, userId }).lean().catch(() => null);
   if (!doc?.roleId && !doc?.secondaryRoleId) return;
 
-  const hasRequiredRole = CUSTOM_ROLE_VOC_ELIGIBLE_ROLE_IDS.some((roleId?) => newMember.roles.cache.has(roleId));
-  const hasEventWeek2Grant = await hasEventWeekWinnerGrant(guildId, userId, 2).catch(() => false);
-  const hasEventWeek3Grant = await hasEventWeekWinnerGrant(guildId, userId, 3).catch(() => false);
-  const hasContestExtraUnlock = await hasExtraCustomPerksUnlock(guildId, userId).catch(() => false);
-  const eligible = hasRequiredRole || hasEventWeek2Grant || hasEventWeek3Grant || hasContestExtraUnlock;
+  /* Stessa regola di Personalizza / createCustomRole (non la lista VOC Level70/Donator). */
+  const primarySlotUnlock = await resolveCustomRolePrimarySlotUnlock(guildId, userId);
+  const slotCap = getCustomRoleSlotCapWithContest(newMember, primarySlotUnlock);
+  const roleSlotCap = getCustomRoleSlotCapFromRoles(newMember);
+  const eligible = slotCap >= 1;
+
+  if (doc.secondaryRoleId && roleSlotCap < 2) {
+    await stripSecondaryCustomRoleIfNeeded(guild, userId, doc.secondaryRoleId);
+  }
 
   if (eligible) {
     if (doc.customRoleEligibilityLostAt) {

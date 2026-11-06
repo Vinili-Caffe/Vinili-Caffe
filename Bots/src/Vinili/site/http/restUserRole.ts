@@ -252,11 +252,67 @@ function wrapRole(raw?, guild = null, existingMembers = null) {
 }
 
 function encodeReactionEmoji(emoji?) {
+  if (emoji && typeof emoji === "object") {
+    const id = String(emoji.id || "").trim();
+    const name = String(emoji.name || "").trim();
+    if (id && name) return encodeURIComponent(`${name}:${id}`);
+    if (name) return encodeURIComponent(name);
+    return "";
+  }
   const raw = String(emoji || "").trim();
   if (!raw) return "";
   const custom = raw.match(/^<a?:([a-zA-Z0-9_]+):(\d{17,22})>$/);
   if (custom) return encodeURIComponent(`${custom[1]}:${custom[2]}`);
+  /* name:id già pronto */
+  if (/^[a-zA-Z0-9_]+:\d{17,22}$/.test(raw)) return encodeURIComponent(raw);
   return encodeURIComponent(raw);
+}
+
+function wrapMessageReactions(rawReactions?, clientRef?, channelId?, messageId?) {
+  const botId = String(clientRef?.user?.id || "").trim();
+  const entries = (Array.isArray(rawReactions) ? rawReactions : [])
+    .map((r?) => {
+      const emojiId = r?.emoji?.id ? String(r.emoji.id) : null;
+      const emojiName = String(r?.emoji?.name || "").trim();
+      if (!emojiId && !emojiName) return null;
+      const key = emojiId || emojiName;
+      const encoded = encodeReactionEmoji(emojiId ? { id: emojiId, name: emojiName || "emoji" } : emojiName);
+      const reaction = {
+        count: Number(r?.count) || 0,
+        me: Boolean(r?.me),
+        emoji: { id: emojiId, name: emojiName },
+        users: {
+          fetch: async (opts: Record<string, any> = {}) => {
+            const rest = clientRef?._rest;
+            if (!rest || !channelId || !messageId || !encoded) {
+              return asCacheMap();
+            }
+            const query = new URLSearchParams({
+              limit: String(Math.min(100, Math.max(1, Number(opts.limit) || 100))),
+            });
+            if (opts.after) query.set("after", String(opts.after));
+            const list = await rest
+              .get(`${Routes.channelMessageReaction(channelId, messageId, encoded)}?${query.toString()}`)
+              .catch(() => []);
+            return asCacheMap(
+              (Array.isArray(list) ? list : [])
+                .map((u?) => {
+                  const user = wrapUser(u, clientRef);
+                  return user?.id ? [user.id, user] : null;
+                })
+                .filter(Boolean)
+            );
+          },
+        },
+      };
+      /* count fallback helpers for callers that skip users.fetch */
+      if (botId && reaction.me) {
+        reaction._botId = botId;
+      }
+      return [key, reaction];
+    })
+    .filter(Boolean);
+  return { cache: asCacheMap(entries) };
 }
 
 function wrapMessage(raw?, clientRef?, meta: Record<string, any> = {}) {
@@ -302,6 +358,8 @@ function wrapMessage(raw?, clientRef?, meta: Record<string, any> = {}) {
     embeds: Array.isArray(raw.embeds) ? raw.embeds : [],
     components: Array.isArray(raw.components) ? raw.components : [],
     attachments: asCacheMap(attachmentEntries),
+    reactions: wrapMessageReactions(raw.reactions, clientRef, channelId, messageId),
+    poll: raw.poll || null,
     author,
     createdTimestamp,
     createdAt: new Date(createdTimestamp),
