@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
 import { EventoTroopIcon } from "@/components/evento/EventoTroopIcon";
 
-/** Inventario arsenale personale (truppe + pending). */
+/** Inventario arsenale fazione (truppe in banca + pending). */
 export function EventoArmyPanel() {
   const { token, ready, login } = useAuth();
   const [wallet, setWallet] = useState<EventoWallet | null>(null);
@@ -60,7 +60,7 @@ export function EventoArmyPanel() {
         <EventoPanel glow="gold">
           <EventoKicker>Inventario arsenale</EventoKicker>
           <p className="mt-2 text-sm text-crema/60">
-            Nessuna truppa personale. Compra unità dallo shop fazioni qui sotto.
+            Arsenale fazione vuoto. Compra unità dallo shop qui sotto.
           </p>
         </EventoPanel>
       </div>
@@ -72,8 +72,8 @@ export function EventoArmyPanel() {
       <EventoPanel glow="gold">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0 text-center sm:text-left">
-            <EventoKicker>Inventario arsenale</EventoKicker>
-            <p className="mt-1 text-sm text-crema/60">Truppe personali versate alla fazione.</p>
+            <EventoKicker>Arsenale fazione</EventoKicker>
+            <p className="mt-1 text-sm text-crema/60">Truppe della tua fazione.</p>
           </div>
           <div className="mx-auto flex gap-2 sm:mx-0">
             <p className="rounded-full bg-[#c9a227]/15 px-3 py-1 text-sm font-semibold tabular-nums text-[#f0d78c] ring-1 ring-[#c9a227]/35">

@@ -10,6 +10,9 @@ const UTILITY_ITEM_IDS = Object.freeze([
   "sconto_mercato_nero",
 ]);
 
+/** Arsenale fazione (non inventario personale). */
+const FACTION_UTILITY_ITEM_IDS = Object.freeze(["bacta", "sconto_mercato_nero"]);
+
 const UTILITY_ITEM_LABELS = Object.freeze({
   bacta: "Bacta",
   festival_ancestors: "Festival Ancestors",
@@ -18,10 +21,10 @@ const UTILITY_ITEM_LABELS = Object.freeze({
 });
 
 const UTILITY_ITEM_BLURBS = Object.freeze({
-  bacta: "Si usa solo in attacco: cura il 5% dell'esercito quando schieri le truppe.",
+  bacta: "Si usa solo in attacco: cura il 5% delle truppe nell'arsenale della fazione.",
   festival_ancestors: "Crediti ed exp doppi dai voti per 24 ore.",
   riciclaggio_hutt: "+10% crediti dai minigames per 24 ore.",
-  sconto_mercato_nero: "Shop al −20% per 24 ore.",
+  sconto_mercato_nero: "Shop al −20% per tutta la fazione, per 24 ore.",
 });
 
 /** Durata buff attivabili (ms). Bacta è istantaneo. */
@@ -55,6 +58,10 @@ function isUtilityItemId(id?) {
   return UTILITY_ITEM_IDS.includes(normalizeId(id));
 }
 
+function isFactionUtilityItemId(id?) {
+  return FACTION_UTILITY_ITEM_IDS.includes(normalizeId(id));
+}
+
 function publicUtilityCatalog() {
   let emojiOf = (_id?) => "";
   try {
@@ -81,11 +88,13 @@ function rollUtilityItemDrop(resolvedCrateId?) {
 
 export = {
   UTILITY_ITEM_IDS,
+  FACTION_UTILITY_ITEM_IDS,
   UTILITY_ITEM_LABELS,
   UTILITY_ITEM_BLURBS,
   BUFF_DURATION_MS,
   CRATE_ITEM_DROP_CHANCE,
   isUtilityItemId,
+  isFactionUtilityItemId,
   publicUtilityCatalog,
   rollUtilityItemDrop,
 };

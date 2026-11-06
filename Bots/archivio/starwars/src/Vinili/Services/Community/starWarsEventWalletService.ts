@@ -183,20 +183,65 @@ function blankWallet(eventKey?) {
   };
 }
 
-async function creditFactionBankUnits(eventKey?, factionId?, unitsMap?) {
+function normalizeFactionBankItems(raw?) {
+  const out: Record<string, number> = {};
+  const src = raw && typeof raw === "object" ? raw : {};
+  for (const id of ["bacta", "sconto_mercato_nero"]) {
+    const n = safeInt(src[id]);
+    if (n > 0) out[id] = n;
+  }
+  return out;
+}
+
+function writeFactionBankPayload(payload?, patch?) {
+  const nowIso = new Date().toISOString();
+  const base = payload && typeof payload === "object" ? payload : {};
+  return {
+    credits: safeInt(patch?.credits != null ? patch.credits : base.credits),
+    units: patch?.units != null ? patch.units : base.units && typeof base.units === "object" ? { ...base.units } : {},
+    items: normalizeFactionBankItems(patch?.items != null ? patch.items : base.items),
+    buffs: patch?.buffs != null ? patch.buffs : base.buffs && typeof base.buffs === "object" ? { ...base.buffs } : {},
+    lastAttackAt: patch?.lastAttackAt !== undefined ? patch.lastAttackAt : base.lastAttackAt || null,
+    stance: patch?.stance !== undefined ? patch.stance : base.stance || null,
+    stanceHour: patch?.stanceHour !== undefined ? patch.stanceHour : base.stanceHour || null,
+    resolvedHour: patch?.resolvedHour !== undefined ? patch.resolvedHour : base.resolvedHour || null,
+    updatedAt: nowIso,
+  };
+}
+
+async function loadFactionBankPayload(eventKey?, factionId?) {
   const fid = normalizeId(factionId).toLowerCase();
   const ek = normalizeId(eventKey) || ADVENT_EVENT_KEY;
-  if (!fid || !unitsMap || typeof unitsMap !== "object") return;
+  if (!fid) return { dedupe: "", payload: {} };
   const dedupe = `sw_bank_${ek}_${fid}`;
+  const doc = await SiteDocument.findOne({
+    docType: BANK_DOC,
+    ownerId: BANK_OWNER,
+    dedupeKey: dedupe,
+  })
+    .lean()
+    .catch(() => null);
+  const payload = doc?.payload && typeof doc.payload === "object" ? { ...doc.payload } : {};
+  return { dedupe, payload };
+}
+
+async function persistFactionBankPayload(dedupe?, payload?) {
+  if (!dedupe) return;
+  await SiteDocument.findOneAndUpdate(
+    { docType: BANK_DOC, ownerId: BANK_OWNER, dedupeKey: dedupe },
+    {
+      $set: { payload, updatedAt: new Date() },
+      $setOnInsert: { docType: BANK_DOC, ownerId: BANK_OWNER, dedupeKey: dedupe, guildId: "0" },
+    },
+    { upsert: true },
+  ).catch(() => null);
+}
+
+async function creditFactionBankUnits(eventKey?, factionId?, unitsMap?) {
+  const fid = normalizeId(factionId).toLowerCase();
+  if (!fid || !unitsMap || typeof unitsMap !== "object") return;
   try {
-    const doc = await SiteDocument.findOne({
-      docType: BANK_DOC,
-      ownerId: BANK_OWNER,
-      dedupeKey: dedupe,
-    })
-      .lean()
-      .catch(() => null);
-    const payload = doc?.payload && typeof doc.payload === "object" ? { ...doc.payload } : {};
+    const { dedupe, payload } = await loadFactionBankPayload(eventKey, fid);
     const units = payload.units && typeof payload.units === "object" ? { ...payload.units } : {};
     let changed = false;
     for (const [unitId, qty] of Object.entries(unitsMap)) {
@@ -207,26 +252,26 @@ async function creditFactionBankUnits(eventKey?, factionId?, unitsMap?) {
       changed = true;
     }
     if (!changed) return;
-    const nowIso = new Date().toISOString();
-    await SiteDocument.findOneAndUpdate(
-      { docType: BANK_DOC, ownerId: BANK_OWNER, dedupeKey: dedupe },
-      {
-        $set: {
-          payload: {
-            credits: safeInt(payload.credits),
-            units,
-            lastAttackAt: payload.lastAttackAt || null,
-            stance: payload.stance || null,
-            stanceHour: payload.stanceHour || null,
-            resolvedHour: payload.resolvedHour || null,
-            updatedAt: nowIso,
-          },
-          updatedAt: new Date(),
-        },
-        $setOnInsert: { docType: BANK_DOC, ownerId: BANK_OWNER, dedupeKey: dedupe, guildId: "0" },
-      },
-      { upsert: true },
-    ).catch(() => null);
+    await persistFactionBankPayload(dedupe, writeFactionBankPayload(payload, { units }));
+  } catch (_) {}
+}
+
+async function creditFactionBankItems(eventKey?, factionId?, itemsMap?) {
+  const fid = normalizeId(factionId).toLowerCase();
+  if (!fid || !itemsMap || typeof itemsMap !== "object") return;
+  try {
+    const { dedupe, payload } = await loadFactionBankPayload(eventKey, fid);
+    const items = normalizeFactionBankItems(payload.items);
+    let changed = false;
+    for (const [itemId, qty] of Object.entries(itemsMap)) {
+      const id = normalizeId(itemId);
+      const n = safeInt(qty);
+      if (!id || !n || (id !== "bacta" && id !== "sconto_mercato_nero")) continue;
+      items[id] = safeInt(items[id]) + n;
+      changed = true;
+    }
+    if (!changed) return;
+    await persistFactionBankPayload(dedupe, writeFactionBankPayload(payload, { items }));
   } catch (_) {}
 }
 
@@ -267,7 +312,69 @@ async function migrateLegacyCrateIds(guildId?, userId?) {
 }
 
 /**
- * Converte pendingTroops.tierN → army unità vere (e banca fazione).
+ * Sposta truppe/oggetti arsenale ancora sul wallet personale → banca fazione (one-shot).
+ */
+async function migratePersonalArsenalToFaction(guildId?, userId?, eventKey = "") {
+  const g = normalizeId(guildId);
+  const u = normalizeId(userId);
+  const key = normalizeId(eventKey) || ADVENT_EVENT_KEY;
+  if (!isValidGuildUserId(g, u)) return;
+
+  const doc = await ActivityUserProfile.findOne({ guildId: g, userId: u }).select(ROOT).lean().catch(() => null);
+  const raw = readSlice(doc);
+  const factionId = raw?.factionId ? String(raw.factionId) : null;
+  if (!factionId) return;
+
+  const army = normalizePublicArmy(raw?.army);
+  const factionItems: Record<string, number> = {};
+  for (const id of ["bacta", "sconto_mercato_nero"]) {
+    const n = safeInt(raw?.items?.[id]);
+    if (n) factionItems[id] = n;
+  }
+  const personalSconto = raw?.buffs?.sconto_mercato_nero;
+  const hasArmy = Object.keys(army).length > 0;
+  const hasItems = Object.keys(factionItems).length > 0;
+  const hasScontoBuff =
+    personalSconto &&
+    typeof personalSconto === "object" &&
+    Number.isFinite(Date.parse(String(personalSconto.expiresAt || ""))) &&
+    Date.parse(String(personalSconto.expiresAt || "")) > Date.now();
+
+  if (!hasArmy && !hasItems && !hasScontoBuff) return;
+
+  if (hasArmy) await creditFactionBankUnits(key, factionId, army);
+  if (hasItems) await creditFactionBankItems(key, factionId, factionItems);
+  if (hasScontoBuff) {
+    try {
+      const { dedupe, payload } = await loadFactionBankPayload(key, factionId);
+      const buffs = payload.buffs && typeof payload.buffs === "object" ? { ...payload.buffs } : {};
+      const existingExp = Date.parse(String(buffs.sconto_mercato_nero?.expiresAt || ""));
+      const personalExp = Date.parse(String(personalSconto.expiresAt || ""));
+      if (!Number.isFinite(existingExp) || existingExp < personalExp) {
+        buffs.sconto_mercato_nero = {
+          active: true,
+          activatedAt: personalSconto.activatedAt || new Date().toISOString(),
+          expiresAt: personalSconto.expiresAt,
+        };
+        await persistFactionBankPayload(dedupe, writeFactionBankPayload(payload, { buffs }));
+      }
+    } catch (_) {}
+  }
+
+  const $unset: Record<string, number> = {
+    [`${ROOT}.army`]: 1,
+    [`${ROOT}.items.bacta`]: 1,
+    [`${ROOT}.items.sconto_mercato_nero`]: 1,
+    [`${ROOT}.buffs.sconto_mercato_nero`]: 1,
+  };
+  await ActivityUserProfile.updateOne(
+    { guildId: g, userId: u },
+    { $unset, $set: { [`${ROOT}.updatedAt`]: new Date().toISOString(), [`${ROOT}.eventKey`]: key } },
+  ).catch(() => null);
+}
+
+/**
+ * Converte pendingTroops.tierN → unità vere nella banca fazione (niente army personale).
  * Ritorna wallet aggiornato.
  */
 async function flushPendingTierTroops(guildId?, userId?, eventKey = "") {
@@ -275,6 +382,8 @@ async function flushPendingTierTroops(guildId?, userId?, eventKey = "") {
   const u = normalizeId(userId);
   const key = normalizeId(eventKey) || ADVENT_EVENT_KEY;
   if (!isValidGuildUserId(g, u)) return blankWallet(key);
+
+  await migratePersonalArsenalToFaction(g, u, key);
 
   const doc = await ActivityUserProfile.findOne({ guildId: g, userId: u }).select(ROOT).lean().catch(() => null);
   const raw = readSlice(doc);
@@ -294,18 +403,16 @@ async function flushPendingTierTroops(guildId?, userId?, eventKey = "") {
   /* Senza fazione: non materializzare (resta pending finché non fa smistamento). */
   if (!factionId) return publicWallet(raw, key);
 
-  const { units, labels } = materializeTroopGrants(tierMap, { epoch, factionId });
+  const { units } = materializeTroopGrants(tierMap, { epoch, factionId });
   if (!Object.keys(units).length) return publicWallet(raw, key);
 
   const nowIso = new Date().toISOString();
-  const $inc: Record<string, number> = {};
   const $unset: Record<string, number> = {};
-  for (const [id, qty] of Object.entries(units)) $inc[`${ROOT}.army.${id}`] = qty;
   for (const k of Object.keys(tierMap)) $unset[`${ROOT}.pendingTroops.${k}`] = 1;
 
   const updated = await ActivityUserProfile.findOneAndUpdate(
     { guildId: g, userId: u },
-    { $inc, $unset, $set: { [`${ROOT}.updatedAt`]: nowIso, [`${ROOT}.eventKey`]: key } },
+    { $unset, $set: { [`${ROOT}.updatedAt`]: nowIso, [`${ROOT}.eventKey`]: key } },
     { new: true },
   ).catch(() => null);
 
@@ -319,7 +426,7 @@ async function getStarWarsWallet(guildId?, userId?, eventKey = "") {
   const key = normalizeId(eventKey) || ADVENT_EVENT_KEY;
   if (!isValidGuildUserId(g, u)) return blankWallet(key);
   await migrateLegacyCrateIds(g, u);
-  /* Auto-flush: tier pending → unità catalogo. */
+  /* Auto-flush: tier pending → arsenale fazione + migrazione legacy personale. */
   return flushPendingTierTroops(g, u, key);
 }
 
@@ -591,19 +698,28 @@ async function openStarWarsCrate(client, { guildId, userId, crateId }) {
     [`${ROOT}.eventKey`]: eventKey,
     [`${ROOT}.updatedAt`]: nowIso,
   };
-  if (factionId) {
-    for (const [unitId, qty] of Object.entries(troopUnits)) {
-      if (qty) $inc[`${ROOT}.army.${unitId}`] = qty;
-    }
-  } else {
+  /* Truppe: solo pending senza fazione; con fazione → banca (niente army personale). */
+  if (!factionId) {
     for (const [tier, qty] of Object.entries(troopUnits)) {
       if (qty) $inc[`${ROOT}.pendingTroops.${tier}`] = qty;
     }
   }
+  const factionItemGains: Record<string, number> = {};
   if (loot.items && typeof loot.items === "object") {
+    let isFactionItem = (_id?) => false;
+    try {
+      const { isFactionUtilityItemId } = require("../../Utils/Eventi/starWarsUtilityItemsCatalog") as typeof import("../../Utils/Eventi/starWarsUtilityItemsCatalog");
+      isFactionItem = isFactionUtilityItemId;
+    } catch (_) {}
     for (const [itemId, qty] of Object.entries(loot.items)) {
       const n = safeInt(qty);
-      if (n) $inc[`${ROOT}.items.${itemId}`] = n;
+      if (!n) continue;
+      if (isFactionItem(itemId)) {
+        if (factionId) factionItemGains[itemId] = safeInt(factionItemGains[itemId]) + n;
+        else $inc[`${ROOT}.items.${itemId}`] = n; /* pending personale → migrazione allo smistamento */
+      } else {
+        $inc[`${ROOT}.items.${itemId}`] = n;
+      }
     }
   }
 
@@ -631,15 +747,28 @@ async function openStarWarsCrate(client, { guildId, userId, crateId }) {
   if (factionId && Object.keys(troopUnits).length) {
     await creditFactionBankUnits(eventKey, factionId, troopUnits);
   }
+  if (factionId && Object.keys(factionItemGains).length) {
+    await creditFactionBankItems(eventKey, factionId, factionItemGains);
+  }
 
   let wallet = publicWallet(readSlice(updated), eventKey);
+  try {
+    const { attachFactionArsenalToWallet } = require("./starWarsEconomyService") as typeof import("./starWarsEconomyService");
+    wallet = await attachFactionArsenalToWallet(wallet, eventKey);
+  } catch (_) {}
   let levelUp = null;
   if (loot.exp) {
     try {
       const { applyStarWarsLevelProgress } = require("./starWarsLevelService") as typeof import("./starWarsLevelService");
       const prog = await applyStarWarsLevelProgress(client, { guildId: g, userId: u });
       if (prog?.ok) {
-        if (prog.wallet) wallet = prog.wallet;
+        if (prog.wallet) {
+          wallet = prog.wallet;
+          try {
+            const { attachFactionArsenalToWallet } = require("./starWarsEconomyService") as typeof import("./starWarsEconomyService");
+            wallet = await attachFactionArsenalToWallet(wallet, eventKey);
+          } catch (_) {}
+        }
         if (Array.isArray(prog.leveled) && prog.leveled.length) {
           levelUp = { from: prog.prevLevel, to: prog.level, title: prog.title, milestones: prog.leveled };
         }
@@ -688,6 +817,7 @@ export = {
   getStarWarsWallet,
   flushPendingTierTroops,
   creditFactionBankUnits,
+  creditFactionBankItems,
   claimAdventDay,
   setStarWarsFaction,
   openStarWarsCrate,

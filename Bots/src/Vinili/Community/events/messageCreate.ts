@@ -13,6 +13,7 @@ const {
 } = require("../../core/officialPrefixDispatcher") as typeof import("../../core/officialPrefixDispatcher");
 const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleSanzioniChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../../Community/services/officialMessageAutomationHandlers") as typeof import("../../Community/services/officialMessageAutomationHandlers");
 const { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../../Community/services/officialMessageCommunityHandlers") as typeof import("../../Community/services/officialMessageCommunityHandlers");
+const { handleBirthdayAuguriReactions } = require("../../Community/services/birthdayService") as typeof import("../../Community/services/birthdayService");
 const { runAutoModMessage } = require("../../Moderation/services/automodService") as typeof import("../../Moderation/services/automodService");
 const { handleTicketMemberPromptMessage } = require("../../../MultiGuild/tickets/discord/ticketMemberPrompt") as typeof import("../../../MultiGuild/tickets/discord/ticketMemberPrompt");
 const { handleUntrustedBotMessage, handleUntrustedApplicationMessage } = require("../../Moderation/services/trustedBotGuardService") as typeof import("../../Moderation/services/trustedBotGuardService");
@@ -523,6 +524,7 @@ export = {
           handleMentionAutoReactions(message),
           handleMentionAutoResponses(message),
           handleWordReactions(message),
+          handleBirthdayAuguriReactions(message),
         ]).then((results?) => {
           const labels = [
             "MINIGAME ERROR",
@@ -530,6 +532,7 @@ export = {
             "MENTION REACTION ERROR",
             "MENTION RESPONSE ERROR",
             "WORD REACTIONS ERROR",
+            "BIRTHDAY AUGURI REACT ERROR",
           ];
           for (let i = 0; i < results.length; i += 1) {
             if (results[i].status === "rejected") {

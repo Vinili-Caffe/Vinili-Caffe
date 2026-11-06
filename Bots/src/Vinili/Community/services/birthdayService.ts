@@ -8,7 +8,11 @@ const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/exter
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const DEFAULT_TIME_ZONE = "Europe/Rome";
 const BIRTHDAY_ROLE_ID = String(IDs?.roles?.birthdayFlair || "").trim();
-const BIRTHDAY_REACTIONS = [E.VC_Events, E.VC_HelloKittyGift,];
+const BIRTHDAY_REACTIONS = [E.VC_Events, E.VC_HelloKittyGift, E.VC_bluparty].filter(Boolean);
+/** “auguri” / “auguriiiiii” (anche in mezzo al messaggio). */
+const AUGURI_RE = /\baugur+i+\b/iu;
+/** Cache Rome giorno → guildId → c’è almeno un compleanno oggi. */
+const birthdayDayCache = new Map();
 let birthdayCronMain = null;
 let birthdayCronBackup = null;
 let birthdayTickRunning = false;
@@ -150,6 +154,18 @@ async function deliverBirthdayAnnouncementsForGuild(guild?, guildDocs?, today?) 
     await sent.react(reaction).catch(() => {});
   }
 
+  /* Segna cache giorno: oggi in questa guild c’è compleanno (per react “auguri”). */
+  {
+    const day = romeDayKey();
+    let byGuild = birthdayDayCache.get(day);
+    if (!byGuild) {
+      birthdayDayCache.clear();
+      byGuild = new Map();
+      birthdayDayCache.set(day, byGuild);
+    }
+    byGuild.set(String(guild.id), true);
+  }
+
   for (const doc of guildDocs) {
     const uid = String(doc.userId || "");
     const b = doc?.profile?.birthday || doc;
@@ -268,6 +284,62 @@ async function runBirthdayTick(client?, opts: Record<string, any> = {}) {
   }
 }
 
+function romeDayKey(now = new Date()) {
+  const t = getRomeDateParts(now);
+  return `${t.year}-${String(t.month).padStart(2, "0")}-${String(t.day).padStart(2, "0")}`;
+}
+
+function guildHasBirthdayFlairToday(guild?) {
+  if (!guild || !BIRTHDAY_ROLE_ID) return false;
+  const role = guild.roles?.cache?.get?.(BIRTHDAY_ROLE_ID);
+  if (!role) return false;
+  return role.members?.size > 0;
+}
+
+async function guildHasBirthdayTodayCached(guild?) {
+  const guildId = String(guild?.id || "").trim();
+  if (!guildId) return false;
+  if (guildHasBirthdayFlairToday(guild)) return true;
+
+  const day = romeDayKey();
+  let byGuild = birthdayDayCache.get(day);
+  if (!byGuild) {
+    /* Nuovo giorno Rome: svuota cache vecchia. */
+    birthdayDayCache.clear();
+    byGuild = new Map();
+    birthdayDayCache.set(day, byGuild);
+  }
+  if (byGuild.has(guildId)) return Boolean(byGuild.get(guildId));
+
+  const today = getRomeDateParts();
+  const docs = await listBirthdayDue(today.day, today.month, today.year).catch(() => []);
+  const hit = Array.isArray(docs) && docs.some((d?) => String(d.guildId || "") === guildId);
+  byGuild.set(guildId, hit);
+  return hit;
+}
+
+/**
+ * Se oggi c’è un compleanno in guild e il messaggio contiene “auguri” (+ i extra),
+ * aggiunge le react festive.
+ */
+async function handleBirthdayAuguriReactions(message?) {
+  try {
+    if (!message?.guild || !message?.content || typeof message.react !== "function") return;
+    if (message.author?.bot || message.webhookId || message.system) return;
+    if (!AUGURI_RE.test(String(message.content || ""))) return;
+    if (!BIRTHDAY_REACTIONS.length) return;
+
+    const hasBday = await guildHasBirthdayTodayCached(message.guild);
+    if (!hasBday) return;
+
+    for (const reaction of BIRTHDAY_REACTIONS) {
+      await message.react(reaction).catch(() => {});
+    }
+  } catch (err) {
+    global.logger?.warn?.("[BIRTHDAY] auguri react failed:", err?.message || err);
+  }
+}
+
 function startBirthdayLoop(client?) {
   if (!shouldStartExternalWorkerLoop("COMMUNITY_POLL")) return null;
   if (!client || birthdayCronMain) return birthdayCronMain;
@@ -308,4 +380,5 @@ export = {
   inferBirthYearFromAge,
   tryCelebrateBirthdayAfterProfileSave,
   isBirthdayDayChangeLocked,
+  handleBirthdayAuguriReactions,
 };

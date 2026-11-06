@@ -20,10 +20,10 @@ const FALLBACK_LABELS: Record<string, string> = {
 };
 
 const FALLBACK_BLURBS: Record<string, string> = {
-  bacta: "Si usa solo in attacco: cura il 5% dell'esercito quando schieri le truppe.",
+  bacta: "Si usa solo in attacco: cura il 5% delle truppe nell'arsenale della fazione.",
   festival_ancestors: "Crediti ed exp doppi dai voti per 24 ore.",
   riciclaggio_hutt: "+10% crediti dai minigames per 24 ore.",
-  sconto_mercato_nero: "Shop al −20% per 24 ore.",
+  sconto_mercato_nero: "Shop al −20% per tutta la fazione, per 24 ore.",
 };
 
 function utilityQty(items: Record<string, unknown> | undefined, id: string) {

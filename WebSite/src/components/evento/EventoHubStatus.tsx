@@ -81,8 +81,6 @@ export function EventoHubStatus() {
   const factionName = st.factionLabel || w?.factionId || null;
   const factionId = w?.factionId || null;
   const epoch = st.features?.epoch || w?.epoch || null;
-  const peiRank = st.standing?.peiRank ?? null;
-  const factionRank = st.standing?.factionRank ?? null;
   const factionIcon = factionIconUrl(factionId, epoch);
 
   return (
@@ -164,31 +162,14 @@ export function EventoHubStatus() {
 
         {w ? (
           <>
-            <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
               <StatCell label="Exp evento" value={fmt(w.exp)} hint="Esperienza guadagnata" />
-              <StatCell
-                label="Livello"
-                value={lv ? `Lv ${lv.level}` : `Lv ${w.pgLevel || 0}`}
-                hint={lv?.title || "Grado evento"}
-              />
               <StatCell
                 label="Minigames vinti"
                 value={fmt(w.quizCorrectTotal)}
                 hint="Risposte corrette totali"
               />
               <StatCell label="Voti" value={fmt(w.votes)} hint="Voti bot accumulati" />
-              <StatCell
-                label="PEI"
-                value={(Number(w.pei) || 0).toLocaleString("it-IT", { maximumFractionDigits: 1 })}
-                hint={peiRank != null ? `Classifica globale #${peiRank}` : "Indice partecipazione"}
-              />
-              <StatCell
-                label="Rango fazione"
-                value={factionRank != null ? `#${factionRank}` : "—"}
-                hint={factionName ? `Nella ${factionName}` : "Completa lo smistamento"}
-              />
-              <StatCell label="Potenza arsenale" value={fmt(st.armyPower)} hint="Truppe personali" />
-              <StatCell label="Volume crediti" value={fmt(w.creditsVolume)} hint="Mosso verso la fazione" />
             </div>
 
             {lv ? (

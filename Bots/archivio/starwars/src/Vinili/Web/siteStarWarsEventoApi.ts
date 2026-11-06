@@ -93,6 +93,8 @@ const {
   buyUnit,
   attackFaction,
   unitPower,
+  getFactionBank,
+  attachFactionArsenalToWallet,
 } = require("../Services/Community/starWarsEconomyService") as typeof import("../Services/Community/starWarsEconomyService");
 const {
   getAccademiaState,
@@ -237,7 +239,15 @@ async function handleSiteEventoStatusGet(client?, req?, res?) {
       try {
         const shop = publicShopCatalog(epoch, factionId);
         unitLabels = Object.fromEntries((shop.units || []).map((u?) => [u.id, u.label]));
-        armyPower = unitPower(wallet?.army || {}, epoch);
+        if (factionId) {
+          const bank = await getFactionBank(cfg.eventKey || wallet?.eventKey, factionId);
+          armyPower = unitPower(bank.units || {}, epoch);
+        } else {
+          armyPower = 0;
+        }
+      } catch (_) {}
+      try {
+        wallet = await attachFactionArsenalToWallet(wallet, cfg.eventKey || wallet?.eventKey);
       } catch (_) {}
       try {
         standing = await getUserPeiRanks(client, {

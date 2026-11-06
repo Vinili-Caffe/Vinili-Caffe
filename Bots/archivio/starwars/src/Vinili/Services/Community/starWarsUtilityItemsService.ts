@@ -1,5 +1,6 @@
 /**
  * Utility SW: inventario, attivazione buff, Bacta heal, helper per voti/minigame/shop.
+ * Bacta + Sconto mercato nero vivono nell'arsenale fazione; Festival/Hutt restano personali.
  */
 "use strict";
 
@@ -16,6 +17,7 @@ const {
   UTILITY_ITEM_BLURBS,
   BUFF_DURATION_MS,
   isUtilityItemId,
+  isFactionUtilityItemId,
   publicUtilityCatalog,
 } = require("../../Utils/Eventi/starWarsUtilityItemsCatalog") as typeof import("../../Utils/Eventi/starWarsUtilityItemsCatalog");
 const { ROOT, publicWallet, getStarWarsWallet } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
@@ -89,8 +91,7 @@ async function loadRawWalletDoc(guildId?, userId?) {
 }
 
 /**
- * Bacta: +5% ceil su ogni unità dell'esercito personale.
- * Non tocca pendingTroops né banca fazione.
+ * Bacta: +5% ceil su ogni unità dell'arsenale (tipicamente banca fazione).
  */
 function computeBactaHeal(army?) {
   const before = normalizeArmy(army);
@@ -106,6 +107,15 @@ function computeBactaHeal(army?) {
   return { before, after, healed, totalHealed, hadArmy: Object.keys(before).length > 0 };
 }
 
+async function enrichedWallet(guildId?, userId?, eventKey?) {
+  let wallet = await getStarWarsWallet(guildId, userId, eventKey);
+  try {
+    const { attachFactionArsenalToWallet } = require("./starWarsEconomyService") as typeof import("./starWarsEconomyService");
+    wallet = await attachFactionArsenalToWallet(wallet, eventKey);
+  } catch (_) {}
+  return wallet;
+}
+
 async function useStarWarsUtilityItem(
   client?,
   { guildId, userId, itemId }: { guildId?: string | null; userId?: string | null; itemId?: string | null } = {},
@@ -119,6 +129,75 @@ async function useStarWarsUtilityItem(
     return { ok: false, status: 400, error: "bad_item", message: "Oggetto non valido." };
   }
 
+  if (iid === "bacta") {
+    return {
+      ok: false,
+      status: 409,
+      error: "bacta_attack_only",
+      message: "Il Bacta si usa solo in attacco quando schieri le truppe della fazione.",
+      wallet: await enrichedWallet(g, u, eventKey),
+    };
+  }
+
+  const now = Date.now();
+  const nowIso = new Date().toISOString();
+
+  /* Sconto: stock + buff sulla banca fazione. */
+  if (isFactionUtilityItemId(iid) && iid === "sconto_mercato_nero") {
+    const wallet = await getStarWarsWallet(g, u, eventKey);
+    if (!wallet.factionId) {
+      return {
+        ok: false,
+        status: 403,
+        error: "no_faction",
+        message: "Devi prima fare lo smistamento.",
+        wallet: await enrichedWallet(g, u, eventKey),
+      };
+    }
+    const { getFactionBank, saveFactionBank, attachFactionArsenalToWallet } = require("./starWarsEconomyService") as typeof import("./starWarsEconomyService");
+    const bank = await getFactionBank(eventKey, wallet.factionId);
+    const qty = safeInt(bank.items?.sconto_mercato_nero);
+    if (qty < 1) {
+      return {
+        ok: false,
+        status: 409,
+        error: "no_item",
+        message: "La fazione non ha questo oggetto.",
+        wallet: await attachFactionArsenalToWallet(wallet, eventKey),
+      };
+    }
+    if (isBuffActiveOnWallet({ buffs: bank.buffs }, iid, now)) {
+      return {
+        ok: false,
+        status: 409,
+        error: "buff_active",
+        message: "Lo sconto della fazione è già attivo.",
+        wallet: await attachFactionArsenalToWallet(wallet, eventKey),
+      };
+    }
+    const expiresAt = new Date(now + BUFF_DURATION_MS).toISOString();
+    const items = { ...(bank.items || {}) };
+    const left = qty - 1;
+    if (left > 0) items.sconto_mercato_nero = left;
+    else delete items.sconto_mercato_nero;
+    bank.items = items;
+    bank.buffs = {
+      ...(bank.buffs || {}),
+      [iid]: { active: true, activatedAt: nowIso, expiresAt },
+    };
+    await saveFactionBank(eventKey, wallet.factionId, bank);
+    return {
+      ok: true,
+      status: 200,
+      itemId: iid,
+      label: UTILITY_ITEM_LABELS[iid],
+      effect: "buff_activated",
+      expiresAt,
+      message: `${formatUtilityMention(iid)} attivo per la fazione per 24 ore.`,
+      wallet: await attachFactionArsenalToWallet(wallet, eventKey),
+    };
+  }
+
   const doc = await loadRawWalletDoc(g, u);
   const sw = readRawSw(doc);
   const qty = safeInt(sw?.items?.[iid]);
@@ -128,36 +207,23 @@ async function useStarWarsUtilityItem(
       status: 409,
       error: "no_item",
       message: "Non hai questo oggetto.",
-      wallet: await getStarWarsWallet(g, u, eventKey),
+      wallet: await enrichedWallet(g, u, eventKey),
     };
   }
 
-  const now = Date.now();
-  const nowIso = new Date().toISOString();
-  const itemPath = `${ROOT}.items.${iid}`;
-
-  if (iid === "bacta") {
-    return {
-      ok: false,
-      status: 409,
-      error: "bacta_attack_only",
-      message: "Il Bacta si usa solo in attacco quando schieri le truppe.",
-      wallet: await getStarWarsWallet(g, u, eventKey),
-    };
-  }
-
-  /* Buff 24h: blocca se già attivo */
+  /* Buff 24h personali: blocca se già attivo */
   if (isBuffActiveOnWallet(sw, iid, now)) {
     return {
       ok: false,
       status: 409,
       error: "buff_active",
       message: "Questo buff è già attivo.",
-      wallet: await getStarWarsWallet(g, u, eventKey),
+      wallet: await enrichedWallet(g, u, eventKey),
     };
   }
 
   const expiresAt = new Date(now + BUFF_DURATION_MS).toISOString();
+  const itemPath = `${ROOT}.items.${iid}`;
   const updated = await ActivityUserProfile.findOneAndUpdate(
     { guildId: g, userId: u, [itemPath]: { $gte: 1 } },
     {
@@ -187,13 +253,26 @@ async function useStarWarsUtilityItem(
     effect: "buff_activated",
     expiresAt,
     message: `${formatUtilityMention(iid)} attivo per 24 ore.`,
-    wallet: publicWallet(readRawSw(updated), eventKey),
+    wallet: await enrichedWallet(g, u, eventKey),
   };
 }
 
 async function hasActiveBuff(guildId?, userId?, buffId?) {
+  const bid = normalizeId(buffId);
+  if (bid === "sconto_mercato_nero") {
+    try {
+      const wallet = await getStarWarsWallet(guildId, userId, ADVENT_EVENT_KEY);
+      if (!wallet.factionId) return false;
+      const eventKey = wallet.eventKey || ADVENT_EVENT_KEY;
+      const { getFactionBank } = require("./starWarsEconomyService") as typeof import("./starWarsEconomyService");
+      const bank = await getFactionBank(eventKey, wallet.factionId);
+      return isBuffActiveOnWallet({ buffs: bank.buffs }, bid);
+    } catch (_) {
+      return false;
+    }
+  }
   const doc = await loadRawWalletDoc(guildId, userId);
-  return isBuffActiveOnWallet(readRawSw(doc), buffId);
+  return isBuffActiveOnWallet(readRawSw(doc), bid);
 }
 
 /** Festival Ancestors: ×2 crediti+exp voto se buff attivo. */
@@ -216,7 +295,7 @@ async function applyRiciclaggioHuttToCredits(guildId?, userId?, credits?) {
   return { credits: boosted, buffApplied: true, bonus: boosted - base };
 }
 
-/** Sconto mercato nero: moltiplicatore costo shop (0.8 se attivo). */
+/** Sconto mercato nero: moltiplicatore costo shop (0.8 se buff fazione attivo). */
 async function shopDiscountMultiplier(guildId?, userId?) {
   const active = await hasActiveBuff(guildId, userId, "sconto_mercato_nero");
   return active ? 0.8 : 1;

@@ -124,15 +124,12 @@ async function grantStarWarsReward(
       const epoch = current.epoch || resolveFeatureStateNow(new Date()).epoch || EPOCHS.CLONE_WARS;
       if (factionId) {
         const { units } = materializeTroopGrants(gnt.troops, { epoch, factionId });
-        for (const [unitId, qty] of Object.entries(units)) {
-          if (qty) $inc[`${ROOT}.army.${unitId}`] = qty;
-        }
+        /* Solo banca fazione — niente army personale. */
         gnt._resolvedTroops = units;
       } else {
         for (const [k, v] of Object.entries(gnt.troops)) {
           const n = safeInt(v);
           if (n && isTroopTierKey(k)) $inc[`${ROOT}.pendingTroops.${k}`] = n;
-          else if (n && !isTroopTierKey(k)) $inc[`${ROOT}.army.${k}`] = n;
         }
       }
     } catch (_) {
@@ -143,29 +140,43 @@ async function grantStarWarsReward(
     }
   }
 
-  if (!Object.keys($inc).length) {
+  const hasResolvedTroops =
+    gnt._resolvedTroops && typeof gnt._resolvedTroops === "object" && Object.keys(gnt._resolvedTroops).length > 0;
+
+  if (!Object.keys($inc).length && !hasResolvedTroops) {
     return { ok: true, wallet: await getStarWarsWallet(g, u, eventKey), granted: {} };
   }
 
-  const updated = await ActivityUserProfile.findOneAndUpdate(
-    { guildId: g, userId: u },
-    { $inc, $set, $setOnInsert: { guildId: g, userId: u }, $push: {
+  const updateOps: Record<string, any> = {
+    $set,
+    $setOnInsert: { guildId: g, userId: u },
+    $push: {
       [`${ROOT}.rewardLog`]: {
         $each: [{ at: nowIso, reason: String(reason || "").slice(0, 80), ...gnt }],
         $slice: -40,
       },
-    } },
+    },
+  };
+  if (Object.keys($inc).length) updateOps.$inc = $inc;
+
+  const updated = await ActivityUserProfile.findOneAndUpdate(
+    { guildId: g, userId: u },
+    updateOps,
     { upsert: true, new: true },
   ).catch(() => null);
 
   if (!updated) return { ok: false, error: "persist_failed" };
 
-  if (gnt._resolvedTroops && typeof gnt._resolvedTroops === "object") {
+  if (hasResolvedTroops) {
     const fid = publicWallet(updated?.profile?.events?.starwars, eventKey)?.factionId;
     if (fid) await creditFactionBankUnits(eventKey, fid, gnt._resolvedTroops);
   }
 
   let wallet = publicWallet(updated?.profile?.events?.starwars, eventKey);
+  try {
+    const { attachFactionArsenalToWallet } = require("./starWarsEconomyService") as typeof import("./starWarsEconomyService");
+    wallet = await attachFactionArsenalToWallet(wallet, eventKey);
+  } catch (_) {}
   let levelUp = null;
   /* Solo EXP evento (non EXP profilo) fa salire i livelli SW. */
   if (exp > 0) {
@@ -173,7 +184,13 @@ async function grantStarWarsReward(
       const { applyStarWarsLevelProgress } = require("./starWarsLevelService") as typeof import("./starWarsLevelService");
       const prog = await applyStarWarsLevelProgress(client, { guildId: g, userId: u });
       if (prog?.ok) {
-        if (prog.wallet) wallet = prog.wallet;
+        if (prog.wallet) {
+          wallet = prog.wallet;
+          try {
+            const { attachFactionArsenalToWallet } = require("./starWarsEconomyService") as typeof import("./starWarsEconomyService");
+            wallet = await attachFactionArsenalToWallet(wallet, eventKey);
+          } catch (_) {}
+        }
         if (Array.isArray(prog.leveled) && prog.leveled.length) {
           levelUp = { from: prog.prevLevel, to: prog.level, title: prog.title, milestones: prog.leveled };
         }

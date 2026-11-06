@@ -43,6 +43,30 @@ function normalizeStance(v?) {
   return s === "attack" || s === "defend" ? s : null;
 }
 
+function normalizeBankItems(raw?) {
+  const out: Record<string, number> = {};
+  const src = raw && typeof raw === "object" ? raw : {};
+  for (const id of ["bacta", "sconto_mercato_nero"]) {
+    const n = safeInt(src[id]);
+    if (n > 0) out[id] = n;
+  }
+  return out;
+}
+
+function normalizeBankBuffs(raw?) {
+  const out: Record<string, any> = {};
+  const src = raw && typeof raw === "object" ? raw : {};
+  const row = src.sconto_mercato_nero;
+  if (row && typeof row === "object") {
+    out.sconto_mercato_nero = {
+      active: true,
+      activatedAt: row.activatedAt ? String(row.activatedAt) : null,
+      expiresAt: row.expiresAt ? String(row.expiresAt) : null,
+    };
+  }
+  return out;
+}
+
 async function getFactionBank(eventKey?, factionId?) {
   const doc = await SiteDocument.findOne({
     docType: DOC_TYPE,
@@ -56,6 +80,8 @@ async function getFactionBank(eventKey?, factionId?) {
     factionId,
     credits: safeInt(payload?.credits),
     units: payload?.units && typeof payload.units === "object" ? { ...payload.units } : {},
+    items: normalizeBankItems(payload?.items),
+    buffs: normalizeBankBuffs(payload?.buffs),
     lastAttackAt: payload?.lastAttackAt || null,
     stance: normalizeStance(payload?.stance),
     stanceHour: payload?.stanceHour ? String(payload.stanceHour).slice(0, 13) : null,
@@ -69,6 +95,8 @@ async function saveFactionBank(eventKey?, factionId?, bank?) {
   const payload = {
     credits: safeInt(bank.credits),
     units: bank.units || {},
+    items: normalizeBankItems(bank.items),
+    buffs: normalizeBankBuffs(bank.buffs),
     lastAttackAt: bank.lastAttackAt || null,
     stance: normalizeStance(bank.stance),
     stanceHour: bank.stanceHour ? String(bank.stanceHour).slice(0, 13) : null,
@@ -84,6 +112,39 @@ async function saveFactionBank(eventKey?, factionId?, bank?) {
     { upsert: true },
   ).catch(() => null);
   return payload;
+}
+
+/** Overlay arsenale fazione su wallet pubblico (truppe + bacta/sconto). */
+async function attachFactionArsenalToWallet(wallet?, eventKey?) {
+  if (!wallet?.factionId) return wallet;
+  const bank = await getFactionBank(eventKey, wallet.factionId);
+  let factionBuffs: Record<string, any> = {};
+  try {
+    const { normalizeBuffs } = require("./starWarsUtilityItemsService") as typeof import("./starWarsUtilityItemsService");
+    const {
+      UTILITY_ITEM_LABELS,
+      UTILITY_ITEM_BLURBS,
+    } = require("../../Utils/Eventi/starWarsUtilityItemsCatalog") as typeof import("../../Utils/Eventi/starWarsUtilityItemsCatalog");
+    factionBuffs = normalizeBuffs(bank.buffs) || {};
+    if (factionBuffs.sconto_mercato_nero) {
+      factionBuffs.sconto_mercato_nero.label = UTILITY_ITEM_LABELS.sconto_mercato_nero;
+      factionBuffs.sconto_mercato_nero.blurb = UTILITY_ITEM_BLURBS.sconto_mercato_nero;
+    }
+  } catch (_) {
+    factionBuffs = {};
+  }
+  const items = { ...(wallet.items || {}) };
+  items.bacta = safeInt(bank.items?.bacta);
+  items.sconto_mercato_nero = safeInt(bank.items?.sconto_mercato_nero);
+  const buffs = { ...(wallet.buffs || {}) };
+  if (factionBuffs.sconto_mercato_nero) buffs.sconto_mercato_nero = factionBuffs.sconto_mercato_nero;
+  else delete buffs.sconto_mercato_nero;
+  return {
+    ...wallet,
+    army: bank.units && typeof bank.units === "object" ? { ...bank.units } : {},
+    items,
+    buffs,
+  };
 }
 
 function stanceForHour(bank?, hourKey?) {
@@ -284,7 +345,6 @@ async function buyUnit(client, { guildId, userId, unitId, qty = 1 }) {
     {
       $inc: {
         [`${ROOT}.credits`]: -cost,
-        [`${ROOT}.army.${uid}`]: amount,
         [`${ROOT}.creditsVolume`]: cost,
         [`${ROOT}.pei`]: peiGain,
       },
@@ -300,6 +360,10 @@ async function buyUnit(client, { guildId, userId, unitId, qty = 1 }) {
   bank.units[uid] = safeInt(bank.units[uid]) + amount;
   await saveFactionBank(eventKey, wallet.factionId, bank);
 
+  const pub = await attachFactionArsenalToWallet(
+    publicWallet(updated.profile?.events?.starwars, eventKey),
+    eventKey,
+  );
   return {
     ok: true,
     status: 200,
@@ -309,7 +373,7 @@ async function buyUnit(client, { guildId, userId, unitId, qty = 1 }) {
     baseCost,
     discountMult,
     pei: peiGain,
-    wallet: publicWallet(updated.profile?.events?.starwars, eventKey),
+    wallet: pub,
     bank,
   };
 }
@@ -348,47 +412,29 @@ async function attackFaction(client, { guildId, userId, defend = false, useBacta
   let bactaHealed = null;
   if (useBacta && !defend) {
     const { computeBactaHeal } = require("./starWarsUtilityItemsService") as typeof import("./starWarsUtilityItemsService");
-    const itemPath = `${ROOT}.items.bacta`;
-    const bactaQty = safeInt(wallet?.items?.bacta);
+    const bactaQty = safeInt(myBank.items?.bacta);
     if (bactaQty < 1) {
       return {
         ok: false,
         status: 409,
         error: "no_bacta",
-        message: "Non hai Bacta da usare in attacco.",
+        message: "La fazione non ha Bacta da usare in attacco.",
       };
     }
-    const heal = computeBactaHeal(wallet?.army);
+    const heal = computeBactaHeal(myBank.units);
     if (!heal.hadArmy) {
       return {
         ok: false,
         status: 409,
         error: "no_army",
-        message: "Non hai truppe nell'esercito da curare con Bacta.",
+        message: "Non ci sono truppe nell'arsenale della fazione da curare con Bacta.",
       };
     }
-    const nowIso = new Date().toISOString();
-    const $set: Record<string, any> = {
-      [`${ROOT}.eventKey`]: eventKey,
-      [`${ROOT}.updatedAt`]: nowIso,
-    };
-    for (const [unitId, n] of Object.entries(heal.after)) {
-      $set[`${ROOT}.army.${unitId}`] = n;
-    }
-    const updated = await ActivityUserProfile.findOneAndUpdate(
-      { guildId: g, userId: u, [itemPath]: { $gte: 1 } },
-      { $inc: { [itemPath]: -1 }, $set },
-      { new: true },
-    ).catch(() => null);
-    if (!updated) {
-      return { ok: false, status: 409, error: "no_bacta", message: "Non hai Bacta da usare in attacco." };
-    }
-    /* Sync healed deltas into faction bank */
-    myBank = await getFactionBank(eventKey, myId);
-    for (const [unitId, gain] of Object.entries(heal.healed)) {
-      const add = safeInt(gain);
-      if (add > 0) myBank.units[unitId] = safeInt(myBank.units[unitId]) + add;
-    }
+    myBank.items = { ...(myBank.items || {}) };
+    const left = bactaQty - 1;
+    if (left > 0) myBank.items.bacta = left;
+    else delete myBank.items.bacta;
+    myBank.units = heal.after;
     bactaUsed = true;
     bactaHealed = heal.healed;
   }
@@ -499,6 +545,8 @@ async function getEconomySnapshot(client, { guildId, userId }) {
         }
       : shopRaw;
 
+  const walletOut = wallet ? await attachFactionArsenalToWallet(wallet, eventKey) : null;
+
   return {
     ok: true,
     economyOn: Boolean(features.economyOn),
@@ -506,7 +554,7 @@ async function getEconomySnapshot(client, { guildId, userId }) {
     epoch,
     shop,
     shopDiscountMult,
-    wallet,
+    wallet: walletOut,
     banks,
     buyEnabled: Boolean(features.economyOn) || !cfg.publicEnabled, /* HS test: buy ok while locked */
     attackEnabled: Boolean(features.economyOn) || !cfg.publicEnabled,
@@ -517,6 +565,7 @@ export = {
   getFactionBank,
   saveFactionBank,
   addFactionBankCredits,
+  attachFactionArsenalToWallet,
   buyUnit,
   attackFaction,
   getEconomySnapshot,
