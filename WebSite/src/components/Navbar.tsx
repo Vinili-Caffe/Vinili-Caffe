@@ -560,8 +560,11 @@ export function Navbar() {
   const eventoChrome = useEventoChrome();
   const { needsSort: eventoNeedsSort } = useEventoSortGate();
   const eventoNavOpen = isEventoPublicWindowOpen();
-  /* Dentro lo shell evento: Hub top-level + dropdown Eventi; feature finite spariscono. */
-  const eventoPrimary: EventoNavItemView[] = eventoChrome ? eventoPrimaryNavForViewer(staffAccess) : [];
+  /* Dentro lo shell evento: Hub top-level + dropdown Eventi; feature finite spariscono.
+   * Non smistati: solo Hub (niente Fazione / Eventi). */
+  const eventoPrimary: EventoNavItemView[] = eventoChrome
+    ? eventoPrimaryNavForViewer(staffAccess).filter((l) => !eventoNeedsSort || l.id === "hub")
+    : [];
   const eventoEventi: EventoNavItemView[] =
     eventoChrome && !eventoNeedsSort ? eventoEventiNavForViewer(staffAccess) : [];
   const soon = t("auth.comingSoon");

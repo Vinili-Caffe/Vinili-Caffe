@@ -58,30 +58,28 @@ function strokeRoundRect(ctx?, x?, y?, w?, h?, r?, strokeStyle?, lineWidth = 2) 
 }
 
 function drawBg(ctx?, width?, height?, frameIndex?) {
+  try {
+    const { drawStarWarsBg } = require("./starWarsEconomyTheme") as typeof import("./starWarsEconomyTheme");
+    drawStarWarsBg(ctx, width, height, { frameIndex, panel: false });
+    return;
+  } catch (_) {}
   const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, "#180d18");
-  bg.addColorStop(0.48, "#32161f");
+  bg.addColorStop(0, "#020617");
+  bg.addColorStop(0.48, "#0b1224");
   bg.addColorStop(1, "#09070d");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, width, height);
-
   ctx.save();
   ctx.globalAlpha = 0.22;
   for (let i = 0; i < 24; i += 1) {
     const x = (i * 83 + frameIndex * 7) % (width + 80) - 40;
     const y = 34 + ((i * 47) % (height - 80));
-    ctx.fillStyle = i % 3 === 0 ? "#f7d56d" : "#ffffff";
+    ctx.fillStyle = i % 3 === 0 ? "#FFE81F" : "#ffffff";
     ctx.beginPath();
     ctx.arc(x, y, i % 3 === 0 ? 2.4 : 1.5, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
-
-  const glow = ctx.createRadialGradient(width / 2, height / 2, 60, width / 2, height / 2, width * 0.62);
-  glow.addColorStop(0, "rgba(212,175,55,0.22)");
-  glow.addColorStop(1, "rgba(212,175,55,0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, width, height);
 }
 
 function drawText(ctx?, text?, x?, y?, opts: Record<string, any> = {}) {
@@ -323,7 +321,7 @@ function drawMachine(ctx?, params?) {
     footerText = frameIndex <= 11 ? "Tira la manopola..." : "I rulli stanno girando...";
     footerColor = "#f8d875";
   } else if (hasResult) {
-    footerText = params.win ? `Vincita ${params.payout} Galeoni` : "Nessuna vincita";
+    footerText = params.win ? `Vincita ${formatGaleoni(params.payout)}` : "Nessuna vincita";
     footerColor = params.win ? "#71f3a1" : "#f87171";
   }
   const footerY = machineTop + machineH - 60;

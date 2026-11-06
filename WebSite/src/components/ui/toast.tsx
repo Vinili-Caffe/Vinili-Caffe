@@ -22,7 +22,7 @@ export type ToastOptions = {
   sticky?: boolean;
   /** Caricamento di boot: non si rimonta se è già visibile; failsafe 8s. */
   bootLoad?: boolean;
-  /** Durata in ms. Default 1400, errore 2800. Ignorata se pending. */
+  /** Durata in ms. Default 4500, errore 5500. Ignorata se pending. */
   ms?: number;
   /** CTA opzionale (es. Annulla soft-delete). */
   action?: ToastAction;
@@ -112,7 +112,7 @@ export function showToast(message: string, isError = false, opts: ToastOptions =
     return;
   }
   const ms = Number(opts.ms);
-  const delay = Number.isFinite(ms) && ms > 0 ? ms : isError ? 2800 : 1400;
+  const delay = Number.isFinite(ms) && ms > 0 ? ms : isError ? 5500 : 4500;
   hideTimer = window.setTimeout(() => hideToast(), delay);
 }
 

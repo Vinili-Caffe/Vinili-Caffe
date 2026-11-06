@@ -13,7 +13,6 @@ const FEATURE_SHORT: Record<string, string> = {
   avvento: "Avvento",
   economy: "Economia",
   minigame_podrace: "Podrace",
-  minigame_scommessa: "Scommessa",
   minigame_scova_pianeta: "Scova pianeta",
   minigame_ordine66: "Ordine 66",
   minigame_cacciatore_taglie: "Cacciatore",

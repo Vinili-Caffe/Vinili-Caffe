@@ -25,24 +25,10 @@ const REMOVED_PREFIX_COMMANDS = new Set([
   "duel",
   "bal",
   "balance",
-  "work",
-  "daily",
-  "weekly",
-  "monthly",
-  "rob",
   "shop",
   "negozio",
   "store",
-  "roulette",
-  "rps",
-  "slots",
-  "slot",
-  "blackjack",
-  "bj",
-  "coinflip",
-  "cf",
   "tris",
-  "scratch",
 ]);
 let prefixPermissionsCache = { filePath: null, mtimeMs: 0, data: {} };
 
@@ -202,6 +188,64 @@ export = (client?) => {
       newAliases,
       statusMap,
     );
+
+    /* Economia Discord (archivio): attiva solo nelle fasi SW / anteprima HS */
+    const econPrefixDir = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "archivio",
+      "giochi-economia",
+      "src",
+      "Vinili",
+      "Prefix",
+      "Economy",
+    );
+    const SW_ECONOMY_PREFIX_ALLOW = new Set([
+      "blackjack",
+      "coinflip",
+      "daily",
+      "monthly",
+      "rob",
+      "roulette",
+      "rps",
+      "scratch",
+      "slots",
+      "weekly",
+      "work",
+    ]);
+    if (fs.existsSync(econPrefixDir)) {
+      for (const file of fs
+        .readdirSync(econPrefixDir)
+        .filter((f?) => /\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) && !f.endsWith(".d.ts"))) {
+        const base = file.replace(/\.(cjs|mjs|js|cts|mts|ts)$/i, "").toLowerCase();
+        if (!SW_ECONOMY_PREFIX_ALLOW.has(base)) continue;
+        const fullPath = path.join(econPrefixDir, file);
+        const key = `Economy/${file}`;
+        try {
+          delete require.cache[require.resolve(fullPath)];
+          const command = require(fullPath);
+          if (!command?.name) {
+            statusMap.set(key, "Missing name");
+            continue;
+          }
+          if (command.skipLoad || command.skipPrefix) continue;
+          command.folder = command.folder || "Economy";
+          ensurePrefixSubcommandMetadata(command);
+          ensurePrefixUsageMetadata(command, "+");
+          newPcommands.set(command.name, command);
+          statusMap.set(key, "Loaded");
+          if (Array.isArray(command.aliases)) {
+            for (const alias of command.aliases) newAliases.set(alias, command.name);
+          }
+        } catch (err) {
+          statusMap.set(key, "Error loading");
+          global.logger.error(`[PREFIX_COMMANDS] Failed to load ${key}:`, err);
+        }
+      }
+    }
 
     // Backup prefix (+backup)
     loadPrefixFilesFromDir(

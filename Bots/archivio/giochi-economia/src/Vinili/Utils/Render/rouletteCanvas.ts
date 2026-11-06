@@ -67,9 +67,14 @@ function drawText(ctx?, text?, x?, y?, opts: Record<string, any> = {}) {
 }
 
 function drawBg(ctx?, width?, height?, frameIndex?, lite = false) {
+  try {
+    const { drawStarWarsBg } = require("./starWarsEconomyTheme") as typeof import("./starWarsEconomyTheme");
+    drawStarWarsBg(ctx, width, height, { frameIndex, panel: false });
+    return;
+  } catch (_) {}
   const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, "#0c0a10");
-  bg.addColorStop(0.45, "#1a1018");
+  bg.addColorStop(0, "#020617");
+  bg.addColorStop(0.45, "#0b1224");
   bg.addColorStop(1, "#06050a");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, width, height);
@@ -79,7 +84,7 @@ function drawBg(ctx?, width?, height?, frameIndex?, lite = false) {
   for (let i = 0; i < sparkCount; i += 1) {
     const x = (i * 97 + frameIndex * 5) % (width + 60) - 30;
     const y = 28 + ((i * 53) % (height - 70));
-    ctx.fillStyle = i % 2 === 0 ? "#d4af37" : "#f8fafc";
+    ctx.fillStyle = i % 2 === 0 ? "#FFE81F" : "#f8fafc";
     ctx.beginPath();
     ctx.arc(x, y, i % 2 === 0 ? 2.2 : 1.4, 0, Math.PI * 2);
     ctx.fill();

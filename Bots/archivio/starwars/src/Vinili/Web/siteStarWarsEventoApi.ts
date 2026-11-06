@@ -96,6 +96,8 @@ const {
   unitPower,
   getFactionBank,
   attachFactionArsenalToWallet,
+  listWarReports,
+  getWarReport,
 } = require("../Services/Community/starWarsEconomyService") as typeof import("../Services/Community/starWarsEconomyService");
 const {
   getAccademiaState,
@@ -144,8 +146,9 @@ function accessFlags(client?, auth?) {
   const publicOpen = isStarWarsPublicWindowOpen(client);
   const live = isStarWarsEventLive(client);
   const highStaff = Boolean(auth?.member && memberIsHighStaffEligible(auth.member));
-  const canPreview = highStaff;
-  const canParticipate = publicOpen || canPreview;
+  /* Dopo endDate (28 feb 21:00): chiusura totale, anche anteprima HS. */
+  const canPreview = highStaff && live;
+  const canParticipate = live && (publicOpen || canPreview);
   return {
     publicEnabled: Boolean(cfg.publicEnabled),
     publicOpen,
@@ -153,19 +156,23 @@ function accessFlags(client?, auth?) {
     highStaff,
     canPreview,
     canParticipate,
+    ended: !live && Number.isFinite(cfg.endMs) && Date.now() > cfg.endMs,
   };
 }
 
 function denyNotOpen(access?) {
   return {
     ok: false,
-    error: "not_open",
-    message: access.publicEnabled
-      ? "L'evento non è ancora aperto al pubblico."
-      : "Evento in anteprima High Staff — non pubblico.",
+    error: access?.ended ? "event_ended" : "not_open",
+    message: access?.ended
+      ? "L'evento Star Wars è terminato."
+      : access.publicEnabled
+        ? "L'evento non è ancora aperto al pubblico."
+        : "Evento in anteprima High Staff — non pubblico.",
     publicEnabled: access.publicEnabled,
     publicOpen: access.publicOpen,
     highStaff: access.highStaff,
+    ended: Boolean(access?.ended),
   };
 }
 
@@ -552,6 +559,96 @@ async function handleSiteEventoFactionGet(client?, req?, res?) {
   }
 }
 
+async function handleSiteEventoFactionRanksGet(client?, req?, res?) {
+  try {
+    const auth = await resolveAuth(client, req);
+    if (!auth?.userId) {
+      return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+    }
+    const access = accessFlags(client, auth);
+    if (!requireParticipate(access, res)) return;
+    const { listFactionRankRoster } = require("../Services/Community/starWarsFactionRankService") as typeof import("../Services/Community/starWarsFactionRankService");
+    const out = await listFactionRankRoster(client, {
+      guildId: mainGuildId(client),
+      actorUserId: auth.userId,
+    });
+    return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-evento faction ranks get:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+/** Registro guerre — visibile a tutti i ranghi smistati. */
+async function handleSiteEventoWarsGet(client?, req?, res?) {
+  try {
+    const auth = await resolveAuth(client, req);
+    if (!auth?.userId) {
+      return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+    }
+    const access = accessFlags(client, auth);
+    if (!requireParticipate(access, res)) return;
+    const cfg = resolveStarWarsEventConfig(client);
+    const wallet = await getStarWarsWallet(mainGuildId(client), auth.userId, cfg.eventKey);
+    if (!requireSmistato(wallet, res)) return;
+    const warId = String(req.query?.id || req.query?.warId || "").trim();
+    if (warId) {
+      const out = await getWarReport(client, {
+        warId,
+        viewerFactionId: wallet.factionId || null,
+      });
+      return res.status(Number(out.status) || (out.ok ? 200 : 404)).json(out);
+    }
+    const out = await listWarReports(client, {
+      limit: Number(req.query?.limit) || 40,
+      viewerFactionId: wallet.factionId || null,
+    });
+    return res.status(200).json(out);
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-evento wars get:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+async function handleSiteEventoFactionRanksPost(client?, req?, res?) {
+  try {
+    const auth = await resolveAuth(client, req);
+    if (!auth?.userId) {
+      return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+    }
+    const access = accessFlags(client, auth);
+    if (!requireParticipate(access, res)) return;
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const action = String(body.action || "").trim().toLowerCase();
+    const targetUserId = String(body.userId || body.targetUserId || "").trim();
+    const guildId = mainGuildId(client);
+    const ranks = require("../Services/Community/starWarsFactionRankService") as typeof import("../Services/Community/starWarsFactionRankService");
+
+    let out: any = null;
+    if (action === "claim") {
+      out = await ranks.claimMarshalIfVacant(client, { guildId, actorUserId: auth.userId });
+    } else if (action === "promote") {
+      out = await ranks.promoteFactionMember(client, {
+        guildId,
+        actorUserId: auth.userId,
+        targetUserId,
+      });
+    } else if (action === "demote") {
+      out = await ranks.demoteFactionMember(client, {
+        guildId,
+        actorUserId: auth.userId,
+        targetUserId,
+      });
+    } else {
+      return res.status(400).json({ ok: false, error: "bad_action", message: "Azione non valida." });
+    }
+    return res.status(Number(out?.status) || (out?.ok ? 200 : 500)).json(out || { ok: false });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-evento faction ranks post:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
 async function handleSiteEventoShopBuyPost(client?, req?, res?) {
   try {
     const auth = await resolveAuth(client, req);
@@ -597,11 +694,14 @@ async function handleSiteEventoShopAttackPost(client?, req?, res?) {
       return res.status(403).json({ ok: false, error: "economy_off", message: "Attacchi non attivi." });
     }
     const body = req.body && typeof req.body === "object" ? req.body : {};
+    const deploy =
+      body.deploy && typeof body.deploy === "object" && !Array.isArray(body.deploy) ? body.deploy : null;
     const out = await attackFaction(client, {
       guildId: mainGuildId(client),
       userId: auth.userId,
       defend: Boolean(body.defend),
       useBacta: Boolean(body.useBacta),
+      deploy,
     });
     return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
   } catch (err) {
@@ -678,7 +778,11 @@ async function handleSiteEventoAccademiaGet(client?, req?, res?) {
     const auth = await resolveAuth(client, req);
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
-    const st = await getAccademiaState(client, { guildId: mainGuildId(client), userId: auth?.userId || null });
+    const st = await getAccademiaState(client, {
+      guildId: mainGuildId(client),
+      userId: auth?.userId || null,
+      highStaff: access.highStaff,
+    });
     return res.status(200).json(st);
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-evento accademia get:", err);
@@ -704,6 +808,7 @@ async function handleSiteEventoAccademiaPost(client?, req?, res?) {
       hits: body.hits,
       playToken: body.playToken,
       startedAt: body.startedAt,
+      highStaff: access.highStaff,
     });
     return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
   } catch (err) {
@@ -717,7 +822,11 @@ async function handleSiteEventoGaraGet(client?, req?, res?) {
     const auth = await resolveAuth(client, req);
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
-    const st = await getGaraState(client, { guildId: mainGuildId(client), userId: auth?.userId || null });
+    const st = await getGaraState(client, {
+      guildId: mainGuildId(client),
+      userId: auth?.userId || null,
+      highStaff: access.highStaff,
+    });
     return res.status(200).json(st);
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-evento gara get:", err);
@@ -741,6 +850,7 @@ async function handleSiteEventoGaraPost(client?, req?, res?) {
       guildId: mainGuildId(client),
       userId: auth.userId,
       podId: body.podId || body.pod,
+      highStaff: access.highStaff,
     });
     return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
   } catch (err) {
@@ -754,7 +864,11 @@ async function handleSiteEventoMinieraGet(client?, req?, res?) {
     const auth = await resolveAuth(client, req);
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
-    const st = await getMinieraState(client, { guildId: mainGuildId(client), userId: auth?.userId || null });
+    const st = await getMinieraState(client, {
+      guildId: mainGuildId(client),
+      userId: auth?.userId || null,
+      highStaff: access.highStaff,
+    });
     return res.status(200).json(st);
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-evento miniera get:", err);
@@ -773,7 +887,11 @@ async function handleSiteEventoMinieraPost(client?, req?, res?) {
     const cfgMin = resolveStarWarsEventConfig(client);
     const walletMin = await getStarWarsWallet(mainGuildId(client), auth.userId, cfgMin.eventKey);
     if (!requireSmistato(walletMin, res)) return;
-    const out = await digMiniera(client, { guildId: mainGuildId(client), userId: auth.userId });
+    const out = await digMiniera(client, {
+      guildId: mainGuildId(client),
+      userId: auth.userId,
+      highStaff: access.highStaff,
+    });
     return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-evento miniera post:", err);
@@ -786,7 +904,11 @@ async function handleSiteEventoPuzzleGet(client?, req?, res?) {
     const auth = await resolveAuth(client, req);
     const access = accessFlags(client, auth);
     if (!requireParticipate(access, res)) return;
-    const st = await getPuzzleState(client, { guildId: mainGuildId(client), userId: auth?.userId || null });
+    const st = await getPuzzleState(client, {
+      guildId: mainGuildId(client),
+      userId: auth?.userId || null,
+      highStaff: access.highStaff,
+    });
     return res.status(200).json(st);
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-evento puzzle get:", err);
@@ -815,6 +937,7 @@ async function handleSiteEventoPuzzlePost(client?, req?, res?) {
         difficultyId,
         attemptId: body.attemptId,
         elapsedMs: body.elapsedMs,
+        highStaff: access.highStaff,
       });
       return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
     }
@@ -840,6 +963,7 @@ async function handleSiteEventoPuzzlePost(client?, req?, res?) {
       guildId: mainGuildId(client),
       userId: auth.userId,
       difficultyId,
+      highStaff: access.highStaff,
     });
     return res.status(Number(out.status) || (out.ok ? 200 : 500)).json(out);
   } catch (err) {
@@ -1003,6 +1127,9 @@ export = {
   handleSiteEventoSmistamentoPost,
   handleSiteEventoShopGet,
   handleSiteEventoFactionGet,
+  handleSiteEventoFactionRanksGet,
+  handleSiteEventoFactionRanksPost,
+  handleSiteEventoWarsGet,
   handleSiteEventoShopBuyPost,
   handleSiteEventoShopAttackPost,
   handleSiteEventoMinigamesGet,

@@ -4,10 +4,10 @@ const { formatEconomyAmountShort } = require("../Economy/economyDisplayHelpers")
 const { registerCanvasFonts } = require("./canvasFonts") as typeof import("./canvasFonts");
 const { createCanvas } = canvasModule;
 const TYPE_META = {
-  daily: { title: "GIORNALIERA", sub: "Ricompensa giornaliera", accent: "#fbbf24", glow: "rgba(251,191,36,0.4)", label: "Giornaliera" },
-  weekly: { title: "SETTIMANALE", sub: "Ricompensa settimanale", accent: "#60a5fa", glow: "rgba(96,165,250,0.4)", label: "Settimanale" },
-  monthly: { title: "MENSILE", sub: "Ricompensa mensile", accent: "#c084fc", glow: "rgba(192,132,252,0.4)", label: "Mensile" },
-  work: { title: "LAVORO", sub: "Turno di lavoro", accent: "#34d399", glow: "rgba(52,211,153,0.35)", label: "Lavoro", titleOnHeader: "#ecfdf5", subOnHeader: "#bbf7d0" },
+  daily: { title: "GIORNALIERA", sub: "Razione giornaliera · Crediti", accent: "#FFE81F", glow: "rgba(255,232,31,0.4)", label: "Giornaliera" },
+  weekly: { title: "SETTIMANALE", sub: "Razione settimanale · Crediti", accent: "#38bdf8", glow: "rgba(56,189,248,0.4)", label: "Settimanale" },
+  monthly: { title: "MENSILE", sub: "Razione mensile · Crediti", accent: "#a78bfa", glow: "rgba(167,139,250,0.4)", label: "Mensile" },
+  work: { title: "MISSIONE", sub: "Turno operativo · Crediti", accent: "#38bdf8", glow: "rgba(56,189,248,0.35)", label: "Missione", titleOnHeader: "#e0f2fe", subOnHeader: "#bae6fd" },
 };
 let fontsReady = false;
 
@@ -22,7 +22,11 @@ function formatRewardShort(amount?, client = null) {
 }
 
 function currencyUnitShort(_client = null) {
-  return "Caffè";
+  try {
+    return require("../Economy/economyDisplayHelpers").currencyUnitLabel(_client);
+  } catch (_) {
+    return "Crediti";
+  }
 }
 
 function roundRect(ctx?, x?, y?, w?, h?, r?) {
@@ -240,18 +244,23 @@ function drawArena(ctx?, params?) {
   const canClaim = Boolean(params.canClaim);
   const claimed = Boolean(params.claimed);
   const cx = Math.floor(width / 2);
-  const bg = ctx.createLinearGradient(0, 0, 0, height);
-  bg.addColorStop(0, "#0f172a");
-  bg.addColorStop(0.55, "#1e293b");
-  bg.addColorStop(1, "#020617");
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, width, height);
+  try {
+    const { drawStarWarsBg } = require("./starWarsEconomyTheme") as typeof import("./starWarsEconomyTheme");
+    drawStarWarsBg(ctx, width, height, { panel: false });
+  } catch (_) {
+    const bg = ctx.createLinearGradient(0, 0, 0, height);
+    bg.addColorStop(0, "#0f172a");
+    bg.addColorStop(0.55, "#1e293b");
+    bg.addColorStop(1, "#020617");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+  }
   const fx = 36;
   const fy = 40;
   const fw = width - 72;
   const fh = height - 80;
   const frameBottom = fy + fh;
-  fillRoundRect(ctx, fx, fy, fw, fh, 18, "rgba(0,0,0,0.3)");
+  fillRoundRect(ctx, fx, fy, fw, fh, 18, "rgba(8,15,32,0.72)");
   strokeRoundRect(ctx, fx, fy, fw, fh, 18, meta.accent, 2);
   const isWork = incomeType === "work";
   const bandH = isWork ? 50 : 44;

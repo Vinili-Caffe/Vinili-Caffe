@@ -32,6 +32,16 @@ export const EVENTO_PUBLIC_OPEN = {
   minute: 0,
 } as const;
 
+/** Chiusura totale evento (Rome): 28 febbraio 2027 21:00 — anche HS / nav / pagine. */
+export const EVENTO_PUBLIC_CLOSE = {
+  timeZone: "Europe/Rome",
+  year: 2027,
+  month: 2,
+  day: 28,
+  hour: 21,
+  minute: 0,
+} as const;
+
 /** Fazioni smistamento (analoghe alle case Hogwarts). */
 export const EVENTO_FACTIONS = [
   {
@@ -76,7 +86,9 @@ export type EventoNavItem = {
 type FeatureWindow = { start: string; end: string | null };
 
 const FEATURE_WINDOWS: Partial<Record<EventoPageId, FeatureWindow[]>> = {
-  smistamento: [{ start: "2026-12-01T12:00", end: null }],
+  smistamento: [{ start: "2026-12-01T12:00", end: "2027-02-28T21:00" }],
+  hub: [{ start: "2026-12-01T00:00", end: "2027-02-28T21:00" }],
+  fazione: [{ start: "2026-12-01T00:00", end: "2027-02-28T21:00" }],
   gara: [{ start: "2026-12-04T12:00", end: "2026-12-09T12:00" }],
   miniera: [{ start: "2027-01-03T12:00", end: "2027-01-05T12:00" }],
   accademia: [{ start: "2027-01-13T12:00", end: "2027-01-22T12:00" }],
@@ -175,12 +187,24 @@ function romeStamp(now = new Date()): string {
   return `${parts.year}-${parts.month}-${parts.day}T${hour}:${parts.minute}`;
 }
 
-/** Pubblico solo se master switch ON + dopo il 1° dic 12:00 Rome. */
+function eventoCloseStamp(): string {
+  return `${EVENTO_PUBLIC_CLOSE.year}-${String(EVENTO_PUBLIC_CLOSE.month).padStart(2, "0")}-${String(EVENTO_PUBLIC_CLOSE.day).padStart(2, "0")}T${String(EVENTO_PUBLIC_CLOSE.hour).padStart(2, "0")}:${String(EVENTO_PUBLIC_CLOSE.minute).padStart(2, "0")}`;
+}
+
+function eventoOpenStamp(): string {
+  return `${EVENTO_PUBLIC_OPEN.year}-${String(EVENTO_PUBLIC_OPEN.month).padStart(2, "0")}-${String(EVENTO_PUBLIC_OPEN.day).padStart(2, "0")}T${String(EVENTO_PUBLIC_OPEN.hour).padStart(2, "0")}:${String(EVENTO_PUBLIC_OPEN.minute).padStart(2, "0")}`;
+}
+
+/** Stagione evento ancora attiva (prima della chiusura 28 feb 21:00 Rome). */
+export function isEventoSeasonOpen(now = new Date()): boolean {
+  return romeStamp(now) < eventoCloseStamp();
+}
+
+/** Pubblico solo se master switch ON + dopo il 1° dic 12:00 Rome e prima della chiusura. */
 export function isEventoPublicWindowOpen(now = new Date()): boolean {
   if (!EVENTO_PUBLIC_ENABLED) return false;
-  const stamp = romeStamp(now);
-  const openAt = `${EVENTO_PUBLIC_OPEN.year}-${String(EVENTO_PUBLIC_OPEN.month).padStart(2, "0")}-${String(EVENTO_PUBLIC_OPEN.day).padStart(2, "0")}T${String(EVENTO_PUBLIC_OPEN.hour).padStart(2, "0")}:${String(EVENTO_PUBLIC_OPEN.minute).padStart(2, "0")}`;
-  return stamp >= openAt;
+  if (!isEventoSeasonOpen(now)) return false;
+  return romeStamp(now) >= eventoOpenStamp();
 }
 
 /** Avvento solo 1–25 dic 2026 (Rome). Dal 26 sparisce da nav e pagine. */
@@ -209,25 +233,19 @@ export function canShowEventoAvventoOnHub(
   return isEventoHighStaff(access);
 }
 
-/** Feature calendar (mezzogiorno) — hub sempre on; avvento solo in stagione. */
+/** Feature calendar (mezzogiorno) — hub/fazione fino a chiusura evento; avvento solo in stagione. */
 export function isEventoFeatureUnlocked(pageId: EventoPageId, now = new Date()): boolean {
-  if (pageId === "hub" || pageId === "fazione") return true;
+  if (!isEventoSeasonOpen(now)) return false;
   if (pageId === "avvento") return isEventoAvventoSeasonOpen(now);
-  if (pageId === "smistamento") {
-    const windows = FEATURE_WINDOWS.smistamento;
-    if (!windows?.length) return true;
-    const stamp = romeStamp(now);
-    return windows.some((w) => stamp >= w.start && (w.end == null || stamp < w.end));
-  }
   const windows = FEATURE_WINDOWS[pageId];
-  if (!windows?.length) return true;
+  if (!windows?.length) return pageId === "hub" || pageId === "fazione";
   const stamp = romeStamp(now);
   return windows.some((w) => stamp >= w.start && (w.end == null || stamp < w.end));
 }
 
 /** Feature già conclusa (niente blur: sparisce dal menu). Prima dell’apertura → false. */
 export function isEventoFeatureEnded(pageId: EventoPageId, now = new Date()): boolean {
-  if (pageId === "hub" || pageId === "fazione" || pageId === "smistamento") return false;
+  if (!isEventoSeasonOpen(now)) return true;
   if (pageId === "avvento") return isEventoAvventoEnded(now);
   const windows = FEATURE_WINDOWS[pageId];
   if (!windows?.length) return false;
@@ -250,6 +268,8 @@ export function canAccessEventoPage(
   access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
   now = new Date(),
 ): boolean {
+  /* Chiusura totale 28 feb 21:00 — anche High Staff. */
+  if (!isEventoSeasonOpen(now)) return false;
   /* Avvento: chiuso dal 26; prima del 1 dic solo HS; in stagione ok. */
   if (pageId === "avvento") {
     if (isEventoAvventoEnded(now)) return false;
@@ -266,6 +286,7 @@ export function canSeeEventoInNav(
   access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
   now = new Date(),
 ): boolean {
+  if (!isEventoSeasonOpen(now)) return false;
   return isEventoHighStaff(access) || isEventoPublicWindowOpen(now);
 }
 
@@ -276,16 +297,18 @@ export function eventoNavForViewer(
   access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
   now = new Date(),
 ): EventoNavItemView[] {
+  if (!isEventoSeasonOpen(now)) return [];
   const hs = isEventoHighStaff(access);
   const pub = isEventoPublicWindowOpen(now);
   return EVENTO_NAV.map((item) => {
     const unlocked = hs || (pub && isEventoPagePublic(item.id) && isEventoFeatureUnlocked(item.id, now));
     return { ...item, locked: !unlocked };
   }).filter((item) => {
+    /* HS: tutte le voci evento sbloccate (anche fuori calendario). */
     if (hs) return true;
+    if (isEventoFeatureEnded(item.id, now)) return false;
     if (!pub) return false;
     if (!item.publicFromOpen) return false;
-    if (isEventoFeatureEnded(item.id, now)) return false;
     return true;
   });
 }

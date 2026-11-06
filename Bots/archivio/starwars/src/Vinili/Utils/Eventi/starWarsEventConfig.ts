@@ -40,7 +40,7 @@ function resolveStarWarsEventConfig(client?) {
   const publicEnabled = readBool(process.env.STARWARS_EVENT_PUBLIC ?? raw.publicEnabled, false);
   const timezone = String(process.env.STARWARS_EVENT_TZ || raw.timezone || "Europe/Rome").trim() || "Europe/Rome";
   const startDate = String(process.env.STARWARS_EVENT_START || raw.startDate || "2026-12-01T00:00:00").trim();
-  const endDate = String(process.env.STARWARS_EVENT_END || raw.endDate || "2027-02-28T23:59:59").trim();
+  const endDate = String(process.env.STARWARS_EVENT_END || raw.endDate || "2027-02-28T21:00:00").trim();
   const publicOpenDate = String(
     process.env.STARWARS_EVENT_PUBLIC_OPEN || raw.publicOpenDate || "2026-12-01T00:00:00",
   ).trim();
@@ -58,10 +58,17 @@ function resolveStarWarsEventConfig(client?) {
     endDate,
     publicOpenDate,
     startMs: parseEventDateMs(startDate, timezone, "00:00:00"),
-    endMs: parseEventDateMs(endDate, timezone, "23:59:59"),
+    endMs: parseEventDateMs(endDate, timezone, "21:00:00"),
     publicOpenMs: parseEventDateMs(publicOpenDate, timezone, "00:00:00"),
     eventKey,
   };
+}
+
+/** Dopo endDate (28 feb 21:00 Rome) l'evento è chiuso per tutti (anche HS / test force). */
+function isPastStarWarsEventEnd(client?, now = new Date()) {
+  const cfg = resolveStarWarsEventConfig(client);
+  const t = now instanceof Date ? now.getTime() : Date.now();
+  return Number.isFinite(cfg.endMs) && t > cfg.endMs;
 }
 
 function isStarWarsForceLiveOnTestGuild(client?, guildId?) {
@@ -79,14 +86,16 @@ function isStarWarsEventEnabled(client?) {
 function isStarWarsPublicWindowOpen(client?, now = new Date()) {
   const cfg = resolveStarWarsEventConfig(client);
   if (!cfg.enabled || !cfg.publicEnabled) return false;
+  if (isPastStarWarsEventEnd(client, now)) return false;
   const t = now instanceof Date ? now.getTime() : Date.now();
-  if (!Number.isFinite(cfg.publicOpenMs)) return false;
+  if (!Number.isFinite(cfg.publicOpenMs) || !Number.isFinite(cfg.endMs)) return false;
   return t >= cfg.publicOpenMs && t <= cfg.endMs;
 }
 
 function isStarWarsEventLive(client?, now = new Date(), guildId = null) {
   const cfg = resolveStarWarsEventConfig(client);
   if (!cfg.enabled) return false;
+  if (isPastStarWarsEventEnd(client, now)) return false;
   const testId = getTestGuildIdSafe();
   const gid = String(guildId || "").trim();
   // Server test: solo staging esplicito (testGuildForceLive). Mai mirror automatico della finestra main.
@@ -123,6 +132,7 @@ function romeYmd(now = new Date(), timeZone = "Europe/Rome") {
 export = {
   DEFAULT_EVENT_KEY,
   resolveStarWarsEventConfig,
+  isPastStarWarsEventEnd,
   isStarWarsForceLiveOnTestGuild,
   isStarWarsEventEnabled,
   isStarWarsPublicWindowOpen,

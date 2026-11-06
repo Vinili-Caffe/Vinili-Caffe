@@ -69,31 +69,36 @@ function truncateName(name?, max = 16) {
 }
 
 function drawBg(ctx?, width?, height?) {
-  const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, "#120a06");
-  bg.addColorStop(0.35, "#2a1a0e");
-  bg.addColorStop(0.7, "#1a1008");
-  bg.addColorStop(1, "#080504");
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, width, height);
+  try {
+    const { drawStarWarsBg } = require("./starWarsEconomyTheme") as typeof import("./starWarsEconomyTheme");
+    drawStarWarsBg(ctx, width, height, { panel: false });
+  } catch (_) {
+    const bg = ctx.createLinearGradient(0, 0, width, height);
+    bg.addColorStop(0, "#020617");
+    bg.addColorStop(0.35, "#0b1224");
+    bg.addColorStop(0.7, "#111827");
+    bg.addColorStop(1, "#080504");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+  }
   const torchL = ctx.createRadialGradient(90, 140, 8, 90, 140, 160);
-  torchL.addColorStop(0, "rgba(255,180,80,0.22)");
-  torchL.addColorStop(1, "rgba(255,120,40,0)");
+  torchL.addColorStop(0, "rgba(56,189,248,0.2)");
+  torchL.addColorStop(1, "rgba(56,189,248,0)");
   ctx.fillStyle = torchL;
   ctx.fillRect(0, 0, width * 0.45, height);
   const torchR = ctx.createRadialGradient(width - 90, 140, 8, width - 90, 140, 160);
-  torchR.addColorStop(0, "rgba(255,180,80,0.22)");
-  torchR.addColorStop(1, "rgba(255,120,40,0)");
+  torchR.addColorStop(0, "rgba(255,232,31,0.18)");
+  torchR.addColorStop(1, "rgba(255,232,31,0)");
   ctx.fillStyle = torchR;
   ctx.fillRect(width * 0.55, 0, width * 0.45, height);
-  fillRoundRect(ctx, 32, 44, width - 64, height - 68, 22, "rgba(0,0,0,0.25)");
-  strokeRoundRect(ctx, 32, 44, width - 64, height - 68, 22, "rgba(212,175,55,0.45)", 2);
+  fillRoundRect(ctx, 32, 44, width - 64, height - 68, 22, "rgba(8,15,32,0.55)");
+  strokeRoundRect(ctx, 32, 44, width - 64, height - 68, 22, "rgba(255,232,31,0.45)", 2);
   const foil = ctx.createLinearGradient(40, 48, width - 40, 78);
-  foil.addColorStop(0, "rgba(184,134,11,0.65)");
-  foil.addColorStop(0.5, "rgba(255,220,140,0.35)");
-  foil.addColorStop(1, "rgba(139,105,20,0.65)");
+  foil.addColorStop(0, "rgba(56,189,248,0.55)");
+  foil.addColorStop(0.5, "rgba(255,232,31,0.4)");
+  foil.addColorStop(1, "rgba(56,189,248,0.55)");
   fillRoundRect(ctx, 48, 50, width - 96, 32, 10, foil);
-  strokeRoundRect(ctx, 48, 50, width - 96, 32, 10, "rgba(45,34,8,0.5)", 1);
+  strokeRoundRect(ctx, 48, 50, width - 96, 32, 10, "rgba(15,23,42,0.5)", 1);
   const floor = ctx.createLinearGradient(0, height - 120, 0, height);
   floor.addColorStop(0, "rgba(60,45,30,0)");
   floor.addColorStop(0.4, "rgba(90,70,45,0.35)");
@@ -190,7 +195,7 @@ function drawTargetBadge(ctx?, x?, y?, name?) {
 }
 
 function drawBankBadge(ctx?, x?, y?, bankName?) {
-  const label = truncateName(bankName || "Gringott", 14);
+  const label = truncateName(bankName || "Caveau", 14);
   fillRoundRect(ctx, x, y, 200, 52, 12, "rgba(15,10,6,0.72)");
   strokeRoundRect(ctx, x, y, 200, 52, 12, "rgba(212,175,55,0.65)", 2);
   drawGaleone(ctx, x + 28, y + 28, 18);
@@ -369,7 +374,7 @@ function drawThief(ctx?, x?, y?, progress?, frameIndex?) {
 }
 
 function buildStatus(params?) {
-  const bankLabel = String(params.targetName || params.bankLabel || "Gringott").trim() || "Gringott";
+  const bankLabel = String(params.targetName || params.bankLabel || "Caveau").trim() || "Caveau";
   if (params.statusLine) return { right: params.statusLine, color: "#f8d875" };
   if (params.animating) return { right: "Infiltrazione in corso…", color: "#f8d875" };
   if (params.phase === "done" && params.hasResult) {
@@ -394,7 +399,7 @@ function drawArena(ctx?, params?) {
   const success = Boolean(params.success);
   const failed = params.phase === "done" && !success && params.hasResult;
   const animating = Boolean(params.animating);
-  const bankLabel = String(params.targetName || params.bankLabel || "Gringott").trim() || "Gringott";
+  const bankLabel = String(params.targetName || params.bankLabel || "Caveau").trim() || "Caveau";
   drawBg(ctx, width, height);
   drawText(
     ctx,
@@ -520,7 +525,7 @@ async function renderRobCanvas(params: Record<string, any> = {}) {
   const normalized = {
     phase: String(params.phase || "idle"),
     targetName: String(params.targetName || ""),
-    bankLabel: String(params.bankLabel || params.targetName || "Gringott"),
+    bankLabel: String(params.bankLabel || params.targetName || "Caveau"),
     successChance: Math.max(1, Math.min(99, Math.floor(Number(params.successChance) || 35))),
     success: Boolean(params.success),
     hasResult: Boolean(params.hasResult),
@@ -552,7 +557,7 @@ renderRobCanvas.warmup = function warmup() {
   if (!canvasModule) return;
   ensureFonts();
   try {
-    renderPng({ phase: "idle", targetName: "Gringott", bankLabel: "Gringott", isBank: true });
+    renderPng({ phase: "idle", targetName: "Caveau", bankLabel: "Caveau", isBank: true });
   } catch (_) {}
 };
 

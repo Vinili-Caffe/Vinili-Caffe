@@ -56,7 +56,10 @@ export function Footer() {
   const eventoChrome = useEventoChrome();
   const { ready: eventoReady, access: eventoAccess } = useEventoStaffAccess();
   const { needsSort: eventoNeedsSort } = useEventoSortGate();
-  const eventoPrimary = eventoChrome && eventoReady ? eventoPrimaryNavForViewer(eventoAccess) : [];
+  const eventoPrimary =
+    eventoChrome && eventoReady
+      ? eventoPrimaryNavForViewer(eventoAccess).filter((l) => !eventoNeedsSort || l.id === "hub")
+      : [];
   const eventoEventi =
     eventoChrome && eventoReady && !eventoNeedsSort ? eventoEventiNavForViewer(eventoAccess) : [];
   const eventoCols = [

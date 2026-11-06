@@ -651,6 +651,12 @@ async function setStarWarsFaction(client, { guildId, userId, factionId, epoch = 
     await applyStarWarsFactionRoleOnTest(client, { userId: u, factionId: fid });
   } catch (_) {}
 
+  /* Primo smistato della fazione → rango massimo (bootstrap senza comandi HS). */
+  try {
+    const { maybeBootstrapMarshal } = require("./starWarsFactionRankService") as typeof import("./starWarsFactionRankService");
+    await maybeBootstrapMarshal(g, u, fid, eventKey);
+  } catch (_) {}
+
   /* Truppe tier pending dalle casse → unità della nuova fazione. */
   const wallet = await flushPendingTierTroops(g, u, eventKey);
 

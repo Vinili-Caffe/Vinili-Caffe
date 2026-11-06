@@ -1,14 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { attackEventoFaction, buyEventoUnit, fetchEventoShop } from "@/lib/evento-api";
+import { notifyEventoFactionSync, useEventoFactionSync } from "@/lib/evento-faction-sync";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
 import { EventoBtn, EventoKicker, EventoPanel } from "@/components/evento/EventoUi";
 import { EventoBattleFx, type BattleFxData } from "@/components/evento/EventoBattleFx";
 import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
 import { EventoTroopIcon } from "@/components/evento/EventoTroopIcon";
+import {
+  EventoWarDeployModal,
+  type WarDeployUnit,
+} from "@/components/evento/EventoWarDeployModal";
 import { cn } from "@/lib/cn";
 
 type Unit = { id: string; label: string; cost: number; power: number; tier: number };
@@ -17,22 +22,26 @@ type Unit = { id: string; label: string; cost: number; power: number; tier: numb
 export function EventoShopPanel({
   embedded = false,
   className,
+  refreshKey = 0,
 }: {
   embedded?: boolean;
   className?: string;
+  /** Incrementa dopo promote/demote per ricalcolare i permessi subito. */
+  refreshKey?: number;
 }) {
   const { token, ready, login } = useAuth();
   const [units, setUnits] = useState<Unit[]>([]);
+  const [army, setArmy] = useState<Record<string, number>>({});
   const [buyEnabled, setBuyEnabled] = useState(false);
   const [attackEnabled, setAttackEnabled] = useState(false);
   const [canBuyTroops, setCanBuyTroops] = useState(false);
   const [canWar, setCanWar] = useState(false);
   const [credits, setCredits] = useState(0);
   const [bactaQty, setBactaQty] = useState(0);
-  const [useBacta, setUseBacta] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [battle, setBattle] = useState<BattleFxData | null>(null);
+  const [warMode, setWarMode] = useState<"attack" | "defend" | null>(null);
 
   const reload = useCallback(async (opts?: { soft?: boolean }) => {
     if (!ready) return;
@@ -45,15 +54,47 @@ export function EventoShopPanel({
     setAttackEnabled(Boolean(st.attackEnabled));
     setCanBuyTroops(Boolean((st as { canBuyTroops?: boolean }).canBuyTroops ?? st.buyEnabled));
     setCanWar(Boolean((st as { canWar?: boolean }).canWar ?? st.attackEnabled));
-    setCredits(st.wallet?.credits || 0);
+    /* Shop paga dalla banca fazione, non dai crediti personali. */
+    setCredits(Math.max(0, Math.floor(Number(st.bankCredits) || 0)));
+    const armyMap =
+      st.wallet?.army && typeof st.wallet.army === "object" ? { ...st.wallet.army } : {};
+    setArmy(armyMap);
     const bQty = Math.max(0, Math.floor(Number(st.wallet?.items?.bacta) || 0));
     setBactaQty(bQty);
-    if (bQty < 1) setUseBacta(false);
   }, [ready, token]);
+
+  const softReload = useCallback(() => {
+    void reload({ soft: true });
+  }, [reload]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (refreshKey > 0) softReload();
+  }, [refreshKey, softReload]);
+
+  /* Promote/demote (anche da altro tab) + poll: shop appare/scompare col rango. */
+  useEventoFactionSync(softReload, { pollMs: 8_000 });
+
+  const deployUnits: WarDeployUnit[] = useMemo(() => {
+    const byId = new Map(units.map((u) => [u.id, u]));
+    const rows: WarDeployUnit[] = [];
+    for (const [id, raw] of Object.entries(army || {})) {
+      const available = Math.max(0, Math.floor(Number(raw) || 0));
+      if (available < 1) continue;
+      const cat = byId.get(id);
+      rows.push({
+        id,
+        label: cat?.label || id,
+        power: Math.max(0, Math.floor(Number(cat?.power) || 0)),
+        available,
+      });
+    }
+    rows.sort((a, b) => b.power - a.power || a.label.localeCompare(b.label, "it"));
+    return rows;
+  }, [army, units]);
 
   async function buy(unitId: string) {
     if (!token || busy || !buyEnabled) return;
@@ -64,23 +105,39 @@ export function EventoShopPanel({
       showToast(out?.message || "Acquisto fallito.", true);
       return;
     }
-    showToast("Unita acquistata.");
+    showToast("Unità acquistata dalla banca fazione.");
     void reload({ soft: true });
+    notifyEventoFactionSync("shop_buy");
   }
 
-  async function attack(defend: boolean) {
+  function openWar(mode: "attack" | "defend") {
     if (!token || busy || !attackEnabled) return;
+    if (!deployUnits.length) {
+      showToast("Hangar vuoto: non ci sono truppe da schierare.", true);
+      return;
+    }
+    setWarMode(mode);
+  }
+
+  async function confirmWar(payload: { deploy: Record<string, number>; useBacta: boolean }) {
+    if (!token || busy || !warMode) return;
+    const defend = warMode === "defend";
     setBusy(true);
-    const out = await attackEventoFaction(token, defend, !defend && useBacta);
+    const out = await attackEventoFaction(token, {
+      defend,
+      useBacta: !defend && payload.useBacta,
+      deploy: payload.deploy,
+    });
     setBusy(false);
     if (!out?.ok) {
       showToast(out?.message || "Azione non riuscita.", true);
       return;
     }
-    if (out.bactaUsed) setUseBacta(false);
+    setWarMode(null);
     if (out.pending) {
       showToast(out.message || (defend ? "Difesa dichiarata." : "Attacco dichiarato: in attesa."));
       void reload({ soft: true });
+      notifyEventoFactionSync("war_pending");
       return;
     }
     setBattle({
@@ -88,10 +145,11 @@ export function EventoShopPanel({
       ok: true,
       message: out?.message,
       winner: out?.winner,
-      attackPower: out?.attackPower,
+      attackPower: out?.attackPower ?? out?.deployPower,
       defendPower: out?.defendPower,
     });
     void reload({ soft: true });
+    notifyEventoFactionSync("war_resolved");
   }
 
   if (loading && !battle) {
@@ -134,28 +192,20 @@ export function EventoShopPanel({
             <p className="mt-1 flex items-center gap-2 font-sans text-2xl font-semibold tracking-tight text-crema">
               <EventoCreditsIcon size="md" className="shrink-0" />
               <span className="tabular-nums">{credits.toLocaleString("it-IT")}</span>
-              <span className="text-base text-crema/55">crediti personali</span>
+              <span className="text-base text-crema/55">crediti banca fazione</span>
             </p>
           </div>
           {showWar ? (
             <div className="flex flex-col items-end gap-2">
-              {bactaQty > 0 ? (
-                <label className="flex cursor-pointer items-center gap-2 text-xs text-crema/70">
-                  <input
-                    type="checkbox"
-                    checked={useBacta}
-                    disabled={busy || !attackEnabled}
-                    onChange={(e) => setUseBacta(e.target.checked)}
-                    className="size-3.5 accent-caramel"
-                  />
-                  Usa Bacta in attacco (×{bactaQty})
-                </label>
-              ) : null}
+              <p className="text-xs text-crema/50">
+                Hangar · {deployUnits.reduce((a, u) => a + u.available, 0).toLocaleString("it-IT")} unità
+                {bactaQty > 0 ? ` · Bacta ×${bactaQty}` : ""}
+              </p>
               <div className="flex gap-2">
-                <EventoBtn variant="danger" disabled={!attackEnabled || busy} onClick={() => void attack(false)}>
+                <EventoBtn variant="danger" disabled={!attackEnabled || busy} onClick={() => openWar("attack")}>
                   Attacca
                 </EventoBtn>
-                <EventoBtn variant="blue" disabled={!attackEnabled || busy} onClick={() => void attack(true)}>
+                <EventoBtn variant="blue" disabled={!attackEnabled || busy} onClick={() => openWar("defend")}>
                   Difendi
                 </EventoBtn>
               </div>
@@ -208,6 +258,18 @@ export function EventoShopPanel({
       </EventoPanel>
 
       <AnimatePresence>
+        {warMode ? (
+          <EventoWarDeployModal
+            mode={warMode}
+            units={deployUnits}
+            bactaQty={bactaQty}
+            busy={busy}
+            onClose={() => {
+              if (!busy) setWarMode(null);
+            }}
+            onConfirm={(payload) => void confirmWar(payload)}
+          />
+        ) : null}
         {battle ? <EventoBattleFx data={battle} onClose={() => setBattle(null)} /> : null}
       </AnimatePresence>
     </div>

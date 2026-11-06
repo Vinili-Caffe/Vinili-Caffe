@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Shield } from "lucide-react";
 import {
   fetchEventoSmistamento,
@@ -19,6 +19,14 @@ import {
   EventoSkeleton,
   EventoTitle,
 } from "@/components/evento/EventoUi";
+import { AccademiaArena, makeGateTargets } from "@/components/evento/AccademiaArena";
+
+/** Dopo la 4ª domanda inseriamo la prova Accademia (nessun peso sulla fazione). */
+const ACADEMY_AFTER_Q = 4;
+
+type Step =
+  | { kind: "question"; qIndex: number }
+  | { kind: "academy" };
 
 /** Quiz smistamento Repubblica / Separatisti. */
 export function SmistamentoQuiz({ onSorted }: { onSorted?: () => void } = {}) {
@@ -27,10 +35,22 @@ export function SmistamentoQuiz({ onSorted }: { onSorted?: () => void } = {}) {
   const [questions, setQuestions] = useState<EventoSortingQuestion[]>([]);
   const [factions, setFactions] = useState<EventoFactionMeta[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [idx, setIdx] = useState(0);
+  const [stepIdx, setStepIdx] = useState(0);
+  const [academyDone, setAcademyDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<EventoFactionMeta | null>(null);
   const [gate, setGate] = useState("");
+  const gatePool = useMemo(() => makeGateTargets(10), []);
+
+  const steps: Step[] = useMemo(() => {
+    if (!questions.length) return [];
+    const out: Step[] = [];
+    questions.forEach((_, qIndex) => {
+      out.push({ kind: "question", qIndex });
+      if (qIndex + 1 === ACADEMY_AFTER_Q) out.push({ kind: "academy" });
+    });
+    return out;
+  }, [questions]);
 
   const reload = useCallback(async () => {
     if (!ready) return;
@@ -62,6 +82,10 @@ export function SmistamentoQuiz({ onSorted }: { onSorted?: () => void } = {}) {
     }));
     if (payload.some((p) => !p.choiceId)) {
       showToast("Rispondi a tutte le domande.", true);
+      return;
+    }
+    if (!academyDone) {
+      showToast("Completa anche la prova di riflessi.", true);
       return;
     }
     setSubmitting(true);
@@ -121,19 +145,75 @@ export function SmistamentoQuiz({ onSorted }: { onSorted?: () => void } = {}) {
     );
   }
 
-  const q = questions[idx]!;
+  const step = steps[stepIdx] || steps[0]!;
+  const totalSteps = steps.length;
+  const progress = ((stepIdx + 0.2) / totalSteps) * 100;
+
+  if (step.kind === "academy") {
+    return (
+      <div className="mx-auto max-w-xl px-6">
+        <div className="mb-4">
+          <div className="mb-2 flex items-center justify-between text-[0.7rem] uppercase tracking-[0.22em] text-crema/45">
+            <span>
+              Prova {stepIdx + 1} / {totalSteps}
+            </span>
+            <span>Riflessi</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#c9a227] to-[#2ea8ff] transition-[width] duration-300"
+              style={{ width: `${Math.min(100, progress)}%` }}
+            />
+          </div>
+        </div>
+
+        <EventoPanel glow="gold" className="!overflow-hidden !p-0">
+          <div className="border-b border-sand/15 px-4 py-3 sm:px-5">
+            <EventoKicker>Prova di riflessi</EventoKicker>
+            <p className="mt-1 text-sm text-crema/65">
+              Come in Accademia: colpisci i bersagli. Non assegna punti alla fazione.
+            </p>
+          </div>
+          {academyDone ? (
+            <div className="px-4 py-8 text-center sm:px-5">
+              <p className="text-sm text-crema/70">Prova completata.</p>
+              <EventoBtn className="mt-4" onClick={() => setStepIdx((i) => Math.min(totalSteps - 1, i + 1))}>
+                Continua le domande
+              </EventoBtn>
+            </div>
+          ) : (
+            <AccademiaArena
+              pool={gatePool}
+              sessionSec={25}
+              hint="Uno alla volta, lontani — a volte due di fila. Nessun vantaggio sulla fazione: solo riflessi."
+              startLabel="Inizia la prova"
+              onComplete={() => setAcademyDone(true)}
+            />
+          )}
+        </EventoPanel>
+
+        <div className="mt-4 flex justify-start">
+          <EventoBtn variant="ghost" disabled={stepIdx === 0} onClick={() => setStepIdx((i) => Math.max(0, i - 1))}>
+            Indietro
+          </EventoBtn>
+        </div>
+      </div>
+    );
+  }
+
+  const q = questions[step.qIndex]!;
   const picked = answers[q.id];
-  const last = idx >= questions.length - 1;
-  const progress = ((idx + (picked ? 0.35 : 0)) / questions.length) * 100;
+  const lastQuestion = step.qIndex >= questions.length - 1;
+  const lastStep = stepIdx >= totalSteps - 1;
 
   return (
     <div className="mx-auto max-w-xl px-6">
       <div className="mb-4">
         <div className="mb-2 flex items-center justify-between text-[0.7rem] uppercase tracking-[0.22em] text-crema/45">
           <span>
-            Domanda {idx + 1} / {questions.length}
+            Domanda {step.qIndex + 1} / {questions.length}
           </span>
-          <span>{Math.round((idx / questions.length) * 100)}%</span>
+          <span>{Math.round((stepIdx / totalSteps) * 100)}%</span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
           <div
@@ -164,15 +244,15 @@ export function SmistamentoQuiz({ onSorted }: { onSorted?: () => void } = {}) {
           ))}
         </ul>
         <div className="mt-6 flex items-center justify-between gap-3">
-          <EventoBtn variant="ghost" disabled={idx === 0} onClick={() => setIdx((i) => Math.max(0, i - 1))}>
+          <EventoBtn variant="ghost" disabled={stepIdx === 0} onClick={() => setStepIdx((i) => Math.max(0, i - 1))}>
             Indietro
           </EventoBtn>
-          {last ? (
-            <EventoBtn disabled={!picked || submitting} onClick={() => void finish()}>
+          {lastStep && lastQuestion ? (
+            <EventoBtn disabled={!picked || !academyDone || submitting} onClick={() => void finish()}>
               {submitting ? "…" : "Scopri la fazione"}
             </EventoBtn>
           ) : (
-            <EventoBtn disabled={!picked} onClick={() => setIdx((i) => Math.min(questions.length - 1, i + 1))}>
+            <EventoBtn disabled={!picked} onClick={() => setStepIdx((i) => Math.min(totalSteps - 1, i + 1))}>
               Avanti
             </EventoBtn>
           )}

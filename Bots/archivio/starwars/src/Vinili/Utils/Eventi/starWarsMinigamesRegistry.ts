@@ -25,15 +25,6 @@ const REGISTRY = Object.freeze([
     teaser: "Scegli lo sguscio.",
   },
   {
-    id: "scommessa",
-    feature: FEATURES.MINIGAME_SCOMMESSA,
-    kind: "minigame",
-    label: "Scommessa ai Podracer",
-    channel: "site",
-    href: "/gara/",
-    teaser: "Scommesse solo sul sito.",
-  },
-  {
     id: "scova_pianeta",
     feature: FEATURES.MINIGAME_SCOVA,
     kind: "minigame",
@@ -145,7 +136,6 @@ const REGISTRY = Object.freeze([
 const IMPLEMENTED = new Set([
   "podrace",
   "podracing_championship",
-  "scommessa",
   "scova_pianeta",
   "ordine66",
   "cacciatore_taglie",

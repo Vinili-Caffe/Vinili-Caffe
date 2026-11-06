@@ -65,14 +65,24 @@ function drawPlainText(ctx?, text?, x?, y?, opts: Record<string, any> = {}) {
 }
 
 function drawBg(ctx?, width?, height?) {
+  try {
+    const { drawStarWarsBg, SW } = require("./starWarsEconomyTheme") as typeof import("./starWarsEconomyTheme");
+    drawStarWarsBg(ctx, width, height, {
+      pad: 40,
+      radius: 22,
+      panelFill: "rgba(8,15,32,0.5)",
+      panelStroke: SW.panelStroke,
+    });
+    return;
+  } catch (_) {}
   const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, "#0a2618");
-  bg.addColorStop(0.5, "#14532d");
-  bg.addColorStop(1, "#052e16");
+  bg.addColorStop(0, "#020617");
+  bg.addColorStop(0.5, "#0b1224");
+  bg.addColorStop(1, "#111827");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, width, height);
   fillRoundRect(ctx, 40, 54, width - 80, height - 72, 22, "rgba(0,0,0,0.2)");
-  strokeRoundRect(ctx, 40, 54, width - 80, height - 72, 22, "rgba(212,175,55,0.4)", 2);
+  strokeRoundRect(ctx, 40, 54, width - 80, height - 72, 22, "rgba(255,232,31,0.4)", 2);
 }
 
 function visibleSideForFrame(params?) {

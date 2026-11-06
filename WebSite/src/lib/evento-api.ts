@@ -409,6 +409,7 @@ export async function fetchEventoShop(token?: string | null) {
       epoch?: string;
       shop?: { units: Array<{ id: string; label: string; cost: number; power: number; tier: number }> };
       wallet?: EventoWallet | null;
+      bankCredits?: number;
       error?: string;
       message?: string;
     } | null;
@@ -468,6 +469,157 @@ export async function fetchEventoFaction(token?: string | null) {
   }
 }
 
+export type EventoFactionRankMember = {
+  userId: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  tier: number;
+  rank?: EventoFactionRank | null;
+  isSelf?: boolean;
+  isMarshal?: boolean;
+};
+
+export type EventoFactionRanksSnapshot = {
+  ok: boolean;
+  status?: number;
+  factionId?: string | null;
+  marshalUserId?: string | null;
+  canManageRanks?: boolean;
+  canClaimMarshal?: boolean;
+  ranksCatalog?: EventoFactionRank[];
+  members?: EventoFactionRankMember[];
+  selfRank?: EventoFactionRank | null;
+  error?: string;
+  message?: string;
+};
+
+export async function fetchEventoFactionRanks(token?: string | null) {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/faction/ranks"), {
+      headers: authHeaders(token),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as EventoFactionRanksSnapshot | null;
+  } catch {
+    return null;
+  }
+}
+
+export async function postEventoFactionRankAction(
+  token: string,
+  action: "promote" | "demote" | "claim",
+  userId?: string,
+) {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-evento/faction/ranks"), {
+      method: "POST",
+      headers: { ...authHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ action, userId }),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      message?: string;
+      error?: string;
+      rank?: EventoFactionRank | null;
+    } | null;
+  } catch {
+    return null;
+  }
+}
+
+export type EventoWarUnitRow = {
+  id: string;
+  label: string;
+  qty: number;
+  powerEach?: number;
+  power?: number;
+  tier?: number;
+  type?: string | null;
+};
+
+export type EventoWarSideBlock = {
+  units?: Record<string, number>;
+  count?: number;
+  power?: number;
+  rows?: EventoWarUnitRow[];
+};
+
+export type EventoWarSide = {
+  factionId?: string | null;
+  factionLabel?: string | null;
+  stance?: "attack" | "defend" | null;
+  deployed?: boolean;
+  surviveFactor?: number;
+  beforeCount?: number;
+  deadCount?: number;
+  survivorsCount?: number;
+  before?: EventoWarSideBlock;
+  survivors?: EventoWarSideBlock;
+  dead?: EventoWarSideBlock;
+  hangarAfter?: EventoWarSideBlock;
+};
+
+export type EventoWarSummary = {
+  id: string;
+  hourKey?: string;
+  resolvedAt?: string | null;
+  epoch?: string | null;
+  mode?: string | null;
+  modeLabel?: string | null;
+  winner?: string | null;
+  winnerLabel?: string | null;
+  youWon?: boolean | null;
+  message?: string | null;
+  left?: EventoWarSide;
+  right?: EventoWarSide;
+};
+
+export type EventoWarReport = EventoWarSummary & {
+  eventKey?: string;
+  totals?: {
+    troopsDeployed?: number;
+    troopsDead?: number;
+    troopsSurvived?: number;
+    powerDeployed?: number;
+    powerLost?: number;
+  };
+};
+
+export async function fetchEventoWars(token?: string | null, limit = 40) {
+  try {
+    const r = await fetch(apiUrl(`/webhooks/site-evento/wars?limit=${Math.max(1, Math.min(80, limit))}`), {
+      headers: authHeaders(token),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      wars?: EventoWarSummary[];
+      count?: number;
+      message?: string;
+    } | null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchEventoWarReport(token: string, warId: string) {
+  try {
+    const r = await fetch(apiUrl(`/webhooks/site-evento/wars?id=${encodeURIComponent(warId)}`), {
+      headers: authHeaders(token),
+      cache: "no-store",
+    });
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      war?: EventoWarReport;
+      message?: string;
+      error?: string;
+    } | null;
+  } catch {
+    return null;
+  }
+}
+
 export async function buyEventoUnit(token: string, unitId: string, qty = 1) {
   try {
     const r = await fetch(apiUrl("/webhooks/site-evento/shop/buy"), {
@@ -482,12 +634,24 @@ export async function buyEventoUnit(token: string, unitId: string, qty = 1) {
   }
 }
 
-export async function attackEventoFaction(token: string, defend = false, useBacta = false) {
+export async function attackEventoFaction(
+  token: string,
+  opts: {
+    defend?: boolean;
+    useBacta?: boolean;
+    deploy?: Record<string, number>;
+  } = {},
+) {
+  const defend = Boolean(opts.defend);
   try {
     const r = await fetch(apiUrl("/webhooks/site-evento/shop/attack"), {
       method: "POST",
       headers: { ...authHeaders(token), "Content-Type": "application/json" },
-      body: JSON.stringify({ defend, useBacta: Boolean(useBacta && !defend) }),
+      body: JSON.stringify({
+        defend,
+        useBacta: Boolean(opts.useBacta && !defend),
+        deploy: opts.deploy && typeof opts.deploy === "object" ? opts.deploy : undefined,
+      }),
       cache: "no-store",
     });
     return (await r.json().catch(() => null)) as {
@@ -498,7 +662,11 @@ export async function attackEventoFaction(token: string, defend = false, useBact
       mode?: string;
       attackPower?: number;
       defendPower?: number;
+      deploy?: Record<string, number>;
+      deployCount?: number;
+      deployPower?: number;
       bactaUsed?: boolean;
+      bactaHealed?: Record<string, number> | null;
     } | null;
   } catch {
     return null;
@@ -591,7 +759,16 @@ export async function submitEventoAccademia(
       }),
       cache: "no-store",
     });
-    return (await r.json().catch(() => null)) as { ok: boolean; score?: number; message?: string } | null;
+    return (await r.json().catch(() => null)) as {
+      ok: boolean;
+      score?: number;
+      hits?: number;
+      elapsedMs?: number;
+      elapsedSec?: number;
+      crateId?: string;
+      exp?: number;
+      message?: string;
+    } | null;
   } catch {
     return null;
   }
@@ -608,8 +785,15 @@ export async function fetchEventoGara(token?: string | null) {
       playable?: boolean;
       pods?: Array<{ id: string; label: string }>;
       pick?: string | null;
-      result?: { place: number; won: boolean } | null;
+      result?: {
+        place: number;
+        won: boolean;
+        finishOrder?: string[];
+        reward?: { crateId?: string; crateQty?: number; exp?: number } | null;
+      } | null;
       canPick?: boolean;
+      cooldownHours?: number;
+      rewardHint?: string;
       message?: string;
     } | null;
   } catch {
@@ -627,13 +811,32 @@ export async function pickEventoGara(token: string, podId: string) {
     });
     return (await r.json().catch(() => null)) as {
       ok: boolean;
-      result?: { place: number; won: boolean };
+      result?: {
+        place: number;
+        won: boolean;
+        finishOrder?: string[];
+        reward?: { crateId?: string; crateQty?: number; exp?: number } | null;
+      };
       message?: string;
     } | null;
   } catch {
     return null;
   }
 }
+
+export type EventoMinieraStanding = {
+  factionId: string;
+  label: string;
+  crystals: number;
+  participants: number;
+};
+
+export type EventoMinieraStandings = {
+  eventKey?: string | null;
+  settled?: boolean;
+  result?: unknown;
+  factions?: EventoMinieraStanding[];
+};
 
 export async function fetchEventoMiniera(token?: string | null) {
   try {
@@ -648,6 +851,7 @@ export async function fetchEventoMiniera(token?: string | null) {
       canDig?: boolean;
       finds?: Array<{ color: string; rare: boolean }>;
       colors?: string[];
+      standings?: EventoMinieraStandings;
       message?: string;
     } | null;
   } catch {
@@ -667,6 +871,7 @@ export async function digEventoMiniera(token: string) {
       ok: boolean;
       find?: { color: string; rare: boolean };
       remaining?: number;
+      standings?: EventoMinieraStandings;
       message?: string;
     } | null;
   } catch {

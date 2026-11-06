@@ -171,6 +171,10 @@ client.reloadScope = async (scope?) => {
     clearCacheByDir(path.join("Moderation", "discord", "prefix"));
     clearCacheByDir(path.join("..", "MultiGuild", "discord", "prefix"));
     clearCacheByDir(path.join("..", "..", "archivio", "starwars", "src", "Vinili", "Prefix"));
+    clearCacheByDir(path.join("..", "..", "archivio", "giochi-economia", "src", "Vinili", "Prefix"));
+    clearCacheByDir(path.join("..", "..", "archivio", "giochi-economia", "src", "Vinili", "Buttons"));
+    clearCacheByDir(path.join("..", "..", "archivio", "giochi-economia", "src", "Vinili", "Services"));
+    clearCacheByDir(path.join("..", "..", "archivio", "giochi-economia", "src", "Vinili", "Utils"));
     const folders = listFoldersIfExists(path.join(APP_ROOT, "Prefix"));
     await client.prefixCommands(folders, path.join(APP_ROOT, "Prefix"));
   };
@@ -367,18 +371,11 @@ initializeCommandCollections(client, { includeSnipes: true });
       );
 
       const { createButtonHandlersLoader } = require("../shared/runtime/createButtonHandlersLoader") as typeof import("../shared/runtime/createButtonHandlersLoader");
+      /* Economia Discord: GUI allowlist (no shop/tris/bal/duel) */
       const REMOVED_BUTTON_HANDLER_NAMES = new Set([
         "balGui",
-        "incomeClaimGui",
-        "blackjackGui",
-        "coinflipGui",
         "duelGui",
-        "robGui",
-        "rouletteGui",
-        "rpsGui",
-        "scratchGui",
         "shopGui",
-        "slotsGui",
         "trisGui",
         "classificaToggle",
         "myquoteDelete",
@@ -411,6 +408,7 @@ initializeCommandCollections(client, { includeSnipes: true });
           path.join(APP_ROOT, "Moderation", "discord", "buttons"),
           path.join(APP_ROOT, "..", "MultiGuild", "discord", "buttons"),
           path.join(APP_ROOT, "..", "..", "archivio", "starwars", "src", "Vinili", "Buttons"),
+          path.join(APP_ROOT, "..", "..", "archivio", "giochi-economia", "src", "Vinili", "Buttons"),
         ],
       })(client);
 

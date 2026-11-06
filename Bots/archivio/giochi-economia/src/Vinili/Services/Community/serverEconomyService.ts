@@ -17,6 +17,7 @@ async function resolveMainGuildMember(client?, userId?, member = null) {
 const { formatEconomyAmount } = require("../../Utils/Economy/economyDisplayHelpers") as typeof import("../../Utils/Economy/economyDisplayHelpers");
 const {
   CURRENCY_CAFFE,
+  CURRENCY_CREDITI,
   CURRENCY_VINILI,
   addDualReward,
   formatCaffe,
@@ -25,6 +26,18 @@ const {
   normalizeCurrency,
   splitDualReward,
 } = require("./serverWalletService") as typeof import("./serverWalletService");
+
+/** Parametri economia Discord durante evento SW (crediti). */
+const SW_CREDIT_TUNING = Object.freeze({
+  minBet: 50,
+  maxBet: 5000,
+  dailyBetCap: 50000,
+  work: { minReward: 100, maxReward: 400 },
+  daily: { reward: 750 },
+  weekly: { reward: 4000 },
+  monthly: { reward: 15000 },
+  rob: { minTargetBalance: 500, minSteal: 100, maxSteal: 1500, failPenalty: 250 },
+});
 
 const SERVER_ECONOMY_PATH = "profile.economy.server";
 
@@ -81,14 +94,51 @@ function mergeConfig(raw: Record<string, any> = {}) {
   };
 }
 
+function isStarWarsEconomyLive(client?) {
+  try {
+    const {
+      resolveFeatureStateNow,
+    } = require("../../../../../starwars/src/Vinili/Utils/Eventi/starWarsEventCalendar") as typeof import("../../../../../starwars/src/Vinili/Utils/Eventi/starWarsEventCalendar");
+    const {
+      resolveStarWarsEventConfig,
+      isPastStarWarsEventEnd,
+    } = require("../../../../../starwars/src/Vinili/Utils/Eventi/starWarsEventConfig") as typeof import("../../../../../starwars/src/Vinili/Utils/Eventi/starWarsEventConfig");
+    if (isPastStarWarsEventEnd(client)) return false;
+    const cfg = resolveStarWarsEventConfig(client);
+    const st = resolveFeatureStateNow(new Date());
+    return Boolean(st?.economyOn) || !cfg?.publicEnabled;
+  } catch (_) {
+    return false;
+  }
+}
+
 function economyConfig(client?) {
   const raw: any = mergeConfig(client?.config?.serverEconomy);
-  raw.enabled = (raw as any).enabled !== false;
+  /* Gate SW: on solo in fasi economia / anteprima HS (ignora default statico). */
+  const swLive = isStarWarsEconomyLive(client);
+  raw.enabled = swLive;
+  raw.currency = swLive ? CURRENCY_CREDITI : CURRENCY_CAFFE;
   raw.earnSplitMinPct = int(raw.earnSplitMinPct, DEFAULT_CONFIG.earnSplitMinPct, 1, 99);
   raw.earnSplitMaxPct = int(raw.earnSplitMaxPct, DEFAULT_CONFIG.earnSplitMaxPct, raw.earnSplitMinPct, 99);
-  raw.minBet = int(raw.minBet, DEFAULT_CONFIG.minBet, 1, 100000);
-  raw.maxBet = int(raw.maxBet, DEFAULT_CONFIG.maxBet, raw.minBet, 100000);
-  raw.dailyBetCap = int(raw.dailyBetCap, DEFAULT_CONFIG.dailyBetCap, raw.maxBet, 1000000);
+  if (swLive) {
+    /* Forza tuning crediti (i default caffe del merge restano troppo bassi). */
+    raw.minBet = SW_CREDIT_TUNING.minBet;
+    raw.maxBet = SW_CREDIT_TUNING.maxBet;
+    raw.dailyBetCap = SW_CREDIT_TUNING.dailyBetCap;
+    raw.work.minReward = SW_CREDIT_TUNING.work.minReward;
+    raw.work.maxReward = SW_CREDIT_TUNING.work.maxReward;
+    raw.daily.reward = SW_CREDIT_TUNING.daily.reward;
+    raw.weekly.reward = SW_CREDIT_TUNING.weekly.reward;
+    raw.monthly.reward = SW_CREDIT_TUNING.monthly.reward;
+    raw.rob.minTargetBalance = SW_CREDIT_TUNING.rob.minTargetBalance;
+    raw.rob.minSteal = SW_CREDIT_TUNING.rob.minSteal;
+    raw.rob.maxSteal = SW_CREDIT_TUNING.rob.maxSteal;
+    raw.rob.failPenalty = SW_CREDIT_TUNING.rob.failPenalty;
+  } else {
+    raw.minBet = int(raw.minBet, DEFAULT_CONFIG.minBet, 1, 100000);
+    raw.maxBet = int(raw.maxBet, DEFAULT_CONFIG.maxBet, raw.minBet, 100000);
+    raw.dailyBetCap = int(raw.dailyBetCap, DEFAULT_CONFIG.dailyBetCap, raw.maxBet, 1000000);
+  }
   for (const action of ["work", "daily", "weekly", "monthly", "rob", "roulette", "rps", "slots", "blackjack", "coinflip", "tris", "scratch"]) {
     raw[action].cooldownMs = int(raw[action].cooldownMs, DEFAULT_CONFIG[action].cooldownMs, 0, 365 * 24 * 60 * 60 * 1000);
   }
@@ -105,11 +155,13 @@ function economyConfig(client?) {
   for (const action of GAMBLING_ACTIONS) {
     raw[action].enabled = raw[action].enabled !== false;
   }
-  raw.work.minReward = int(raw.work.minReward, DEFAULT_CONFIG.work.minReward, 1, 100000);
-  raw.work.maxReward = int(raw.work.maxReward, DEFAULT_CONFIG.work.maxReward, raw.work.minReward, 100000);
-  raw.daily.reward = int(raw.daily.reward, DEFAULT_CONFIG.daily.reward, 1, 100000);
-  raw.weekly.reward = int(raw.weekly.reward, DEFAULT_CONFIG.weekly.reward, 1, 100000);
-  raw.monthly.reward = int(raw.monthly.reward, DEFAULT_CONFIG.monthly.reward, 1, 100000);
+  if (!swLive) {
+    raw.work.minReward = int(raw.work.minReward, DEFAULT_CONFIG.work.minReward, 1, 100000);
+    raw.work.maxReward = int(raw.work.maxReward, DEFAULT_CONFIG.work.maxReward, raw.work.minReward, 100000);
+    raw.daily.reward = int(raw.daily.reward, DEFAULT_CONFIG.daily.reward, 1, 100000);
+    raw.weekly.reward = int(raw.weekly.reward, DEFAULT_CONFIG.weekly.reward, 1, 100000);
+    raw.monthly.reward = int(raw.monthly.reward, DEFAULT_CONFIG.monthly.reward, 1, 100000);
+  }
   for (const action of ["work", "daily", "weekly", "monthly"]) {
     raw[action].streakStepPct = int(raw[action].streakStepPct, DEFAULT_CONFIG[action].streakStepPct, 0, 1000);
     raw[action].streakMaxBonusPct = int(raw[action].streakMaxBonusPct, DEFAULT_CONFIG[action].streakMaxBonusPct, 0, 1000);
@@ -152,26 +204,53 @@ async function isHighStaff(member?, client?, userId?) {
   return hasAnyRole(mainMember, SERVER_BAL_STAFF_ROLE_IDS);
 }
 
-async function isMember(member?) {
-  return hasRole(member, IDs.roles?.Member);
+async function isMember(member?, guildId?) {
+  const base = normalizeId(IDs.roles?.Member);
+  if (!base) return false;
+  if (hasRole(member, base)) return true;
+  try {
+    const {
+      remapRoleIdForGuild,
+      isTestMirrorGuild,
+    } = require("../../../../../../src/Vinili/Config/testGuildMirrorRemap") as typeof import("../../../../../../src/Vinili/Config/testGuildMirrorRemap");
+    const gid = normalizeId(guildId || member?.guild?.id);
+    if (gid && isTestMirrorGuild(gid)) {
+      const mapped = remapRoleIdForGuild(gid, base);
+      if (mapped && hasRole(member, mapped)) return true;
+    }
+  } catch (_) {}
+  return false;
 }
 
 async function assertServerEconomyAccess(message?, client?) {
   const cfg = economyConfig(client);
   if (!cfg.enabled) return { ok: false, message: "L'economia Vinili & Caffè è disattivata." };
   if (!message?.guild || !message?.member || message.author?.bot) return { ok: false, message: "Comando disponibile solo nel server." };
-  if (!await isMember(message.member)) {
-    return { ok: false, message: "Devi essere Member per usare l'economia del server." };
-  }
-  return { ok: true, cfg };
+  if (await isHighStaff(message.member, client, message.author?.id)) return { ok: true, cfg };
+  if (await isMember(message.member, message.guild.id)) return { ok: true, cfg };
+  const mainMember = await resolveMainGuildMember(client, message.author?.id, message.member);
+  if (mainMember && (await isMember(mainMember, IDs.guilds?.main))) return { ok: true, cfg };
+  return { ok: false, message: "Devi essere Member per usare l'economia del server." };
 }
 
-function defaultBetCurrency() {
-  return CURRENCY_CAFFE;
+function defaultBetCurrency(client?) {
+  return isStarWarsEconomyLive(client) ? CURRENCY_CREDITI : CURRENCY_CAFFE;
 }
 
-function parseCurrencyArg(raw?, fallback = defaultBetCurrency()) {
+function parseCurrencyArg(raw?, fallback = defaultBetCurrency(), client?) {
   const cur = normalizeCurrency(raw);
+  if (isStarWarsEconomyLive(client)) {
+    /* Durante SW solo crediti (alias caffe/vinili/galeoni → crediti). */
+    if (!raw) return { ok: true, currency: CURRENCY_CREDITI };
+    if (cur === CURRENCY_CREDITI || cur === CURRENCY_CAFFE || cur === CURRENCY_VINILI) {
+      return { ok: true, currency: CURRENCY_CREDITI };
+    }
+    const alias = String(raw || "").trim().toLowerCase();
+    if (["galeoni", "galeone", "galleon", "galleons"].includes(alias)) {
+      return { ok: true, currency: CURRENCY_CREDITI };
+    }
+    return { ok: false, message: "Durante l'evento Star Wars la valuta è solo i crediti." };
+  }
   if (cur) return { ok: true, currency: cur };
   if (!raw) return { ok: true, currency: fallback };
   return { ok: false, message: "Valuta non valida: usa `vinili` o `caffe`." };
@@ -311,6 +390,8 @@ async function creditIncome(client?, message?, action?, amount?, reason?) {
     rewardKey: key,
     splitMinPct: access.cfg.earnSplitMinPct,
     splitMaxPct: access.cfg.earnSplitMaxPct,
+    client,
+    asCredits: true,
   });
   if (!out?.ok) {
     await releaseCooldown(message.guild.id, message.author.id, action);
@@ -320,7 +401,11 @@ async function creditIncome(client?, message?, action?, amount?, reason?) {
       guildId: message.guild.id,
       rewardKey: key,
     });
-    return { ok: false, code: out?.code, message: incomeCreditErrorMessage(action, out) };
+    const msg =
+      out?.code === "not_sorted"
+        ? "Devi prima smistarti in una fazione per usare l'economia."
+        : incomeCreditErrorMessage(action, out);
+    return { ok: false, code: out?.code, message: msg };
   }
   await saveIncomeStreak(message.guild.id, message.author.id, action, streak);
   return {
@@ -331,6 +416,7 @@ async function creditIncome(client?, message?, action?, amount?, reason?) {
     split: out.split,
     streak,
     state: out.state,
+    currency: CURRENCY_CREDITI,
   };
 }
 
@@ -433,6 +519,7 @@ module.exports = {
   parseCurrencyArg,
   peekFixedClaim,
   peekWorkClaim,
+  resolveMainGuildMember,
   splitDualReward,
 };
 

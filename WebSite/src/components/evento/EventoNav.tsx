@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { SmartLink } from "@/components/SmartLink";
 import { useEventoStaffAccess } from "@/components/evento/EventoAccessGate";
+import { useEventoSortGate } from "@/components/evento/EventoSortContext";
 import { eventoEventiNavForViewer, eventoPrimaryNavForViewer } from "@/lib/evento-starwars";
 import { cn } from "@/lib/cn";
 
@@ -10,8 +11,11 @@ import { cn } from "@/lib/cn";
 export function EventoNav({ className }: { className?: string }) {
   const pathname = usePathname() || "/";
   const { ready, access } = useEventoStaffAccess();
-  const primary = ready ? eventoPrimaryNavForViewer(access) : [];
-  const eventi = ready ? eventoEventiNavForViewer(access) : [];
+  const { needsSort } = useEventoSortGate();
+  const primary = ready
+    ? eventoPrimaryNavForViewer(access).filter((l) => !needsSort || l.id === "hub")
+    : [];
+  const eventi = ready && !needsSort ? eventoEventiNavForViewer(access) : [];
   const items = [...primary, ...eventi];
 
   if (!items.length) return null;

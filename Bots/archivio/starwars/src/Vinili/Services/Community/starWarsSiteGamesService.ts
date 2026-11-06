@@ -64,10 +64,10 @@ function garaSlot(d = new Date()) {
   return `${d.toISOString().slice(0, 10)}T${String(h).padStart(2, "0")}`;
 }
 
-function featurePlayable(client?, featureKey?) {
+function featurePlayable(client?, featureKey?, highStaff = false) {
   const flags = getRuntimeFlags(client);
   if (!flags.enabled) return false;
-  if (!flags.publicEnabled) return true; /* HS anteprima: playable */
+  if (highStaff || !flags.publicEnabled) return true; /* HS / anteprima: tutte le feature */
   const state = resolveFeatureStateNow(new Date());
   return Boolean(state.features?.includes(featureKey));
 }
@@ -102,8 +102,8 @@ function buildTargets(seed?) {
   return targets;
 }
 
-async function getAccademiaState(client, { guildId, userId }) {
-  const playable = featurePlayable(client, FEATURES.EVENT_ACCADEMIA);
+async function getAccademiaState(client, { guildId, userId, highStaff = false }) {
+  const playable = featurePlayable(client, FEATURES.EVENT_ACCADEMIA, highStaff);
   const slot = accademiaSlot();
   const seed = Number(slot.replace(/\D/g, "").slice(-8)) || 1;
   const targets = buildTargets(seed);
@@ -113,9 +113,9 @@ async function getAccademiaState(client, { guildId, userId }) {
   if (userId) {
     const dedupe = `accademia_${slot}_${userId}`;
     const doc = await getDoc(dedupe);
-    played = Boolean(doc?.payload?.done);
+    played = Boolean(doc?.payload?.done) && !highStaff;
     lastScore = doc?.payload?.score ?? null;
-    if (!played && playable) {
+    if ((!played || highStaff) && playable) {
       playToken = cryptoRandomToken();
       await setDoc(
         dedupe,
@@ -124,6 +124,7 @@ async function getAccademiaState(client, { guildId, userId }) {
           playToken,
           issuedAt: Date.now(),
           at: new Date().toISOString(),
+          staffBypass: Boolean(highStaff),
         },
         normalizeId(guildId),
       );
@@ -138,7 +139,13 @@ async function getAccademiaState(client, { guildId, userId }) {
     lastScore,
     playToken,
     durationSec: 30,
-    rewardHint: "cassa militare + exp in base al punteggio",
+    staffBypass: Boolean(highStaff),
+    rewardHint: "in base al tempo: Omega+300exp · Beta+200exp · Alpha+100exp",
+    rewardTiers: [
+      { maxSec: 12, crateId: "omega", exp: 300 },
+      { maxSec: 22, crateId: "beta", exp: 200 },
+      { maxSec: 30, crateId: "alpha", exp: 100 },
+    ],
   };
 }
 
@@ -150,17 +157,17 @@ function cryptoRandomToken() {
   }
 }
 
-async function submitAccademia(client, { guildId, userId, hits = [], playToken = null, startedAt = null }) {
+async function submitAccademia(client, { guildId, userId, hits = [], playToken = null, startedAt = null, highStaff = false }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   if (!isValidGuildUserId(g, u)) return { ok: false, status: 400, error: "bad_ids" };
-  if (!featurePlayable(client, FEATURES.EVENT_ACCADEMIA)) {
+  if (!featurePlayable(client, FEATURES.EVENT_ACCADEMIA, highStaff)) {
     return { ok: false, status: 403, error: "feature_off", message: "Accademia non attiva." };
   }
   const slot = accademiaSlot();
   const dedupe = `accademia_${slot}_${u}`;
   const existing = await getDoc(dedupe);
-  if (existing?.payload?.done) {
+  if (existing?.payload?.done && !highStaff) {
     return { ok: false, status: 409, error: "already_played", message: "Hai già fatto questa prova." };
   }
   const sessionToken = String(existing?.payload?.playToken || "").trim();
@@ -170,8 +177,13 @@ async function submitAccademia(client, { guildId, userId, hits = [], playToken =
   }
   const issuedAt = Number(existing?.payload?.issuedAt) || 0;
   const clientStart = Number(startedAt) || 0;
-  const startMs = issuedAt > 0 ? issuedAt : clientStart;
-  const elapsedMs = Math.max(0, Date.now() - startMs);
+  const now = Date.now();
+  /* tempo di prova = click Inizia (non il load pagina), se coerente con la sessione */
+  let startMs = issuedAt > 0 ? issuedAt : clientStart;
+  if (clientStart >= issuedAt && clientStart <= now && (issuedAt <= 0 || clientStart - issuedAt < 30 * 60 * 1000)) {
+    startMs = clientStart;
+  }
+  const elapsedMs = Math.min(35_000, Math.max(0, now - startMs));
   // Anti-cheat: niente max score istantaneo; cap hit credibili ~1 ogni 400ms
   if (elapsedMs < 2500) {
     return { ok: false, status: 429, error: "too_fast", message: "Troppo veloce — riprova giocando la prova." };
@@ -189,28 +201,60 @@ async function submitAccademia(client, { guildId, userId, hits = [], playToken =
     seen.add(id);
     score += byId.get(id).points;
   }
-  await setDoc(dedupe, { done: true, score, hits: seen.size, elapsedMs, at: new Date().toISOString() }, g);
-  const crateId = score >= 80 ? "militare_op" : score >= 40 ? "militare_plus" : "militare";
-  const exp = Math.min(500, 50 + score * 2);
+  /* Ricompense per tempo impiegato (più veloce → meglio). */
+  const elapsedSec = elapsedMs / 1000;
+  let crateId = "alpha";
+  let exp = 100;
+  if (elapsedSec <= 12) {
+    crateId = "omega";
+    exp = 300;
+  } else if (elapsedSec <= 22) {
+    crateId = "beta";
+    exp = 200;
+  }
+  await setDoc(
+    dedupe,
+    {
+      done: true,
+      score,
+      hits: seen.size,
+      elapsedMs,
+      crateId,
+      exp,
+      at: new Date().toISOString(),
+    },
+    g,
+  );
   const grant = await grantStarWarsReward(client, {
     guildId: g,
     userId: u,
     reason: "accademia",
     grant: { crateId, crateQty: 1, exp },
   });
-  return { ok: true, status: 200, score, hits: seen.size, grant: grant.granted, wallet: grant.wallet };
+  return {
+    ok: true,
+    status: 200,
+    score,
+    hits: seen.size,
+    elapsedMs,
+    elapsedSec: Math.round(elapsedSec * 10) / 10,
+    crateId,
+    exp,
+    grant: grant.granted,
+    wallet: grant.wallet,
+  };
 }
 
 /* ——— Gara (Podracing Championship) ——— */
-async function getGaraState(client, { guildId, userId }) {
-  const playable = featurePlayable(client, FEATURES.EVENT_PODRACING_CHAMP);
+async function getGaraState(client, { guildId, userId, highStaff = false }) {
+  const playable = featurePlayable(client, FEATURES.EVENT_PODRACING_CHAMP, highStaff);
   const slot = garaSlot();
   let pick = null;
   let result = null;
   if (userId) {
     const doc = await getDoc(`gara_${slot}_${userId}`);
-    pick = doc?.payload?.podId || null;
-    result = doc?.payload?.result || null;
+    pick = highStaff ? null : doc?.payload?.podId || null;
+    result = highStaff ? null : doc?.payload?.result || null;
   }
   return {
     ok: true,
@@ -219,16 +263,19 @@ async function getGaraState(client, { guildId, userId }) {
     pods: PODS.map((p?) => ({ id: p.id, label: p.label })),
     pick,
     result,
-    canPick: playable && !pick,
+    canPick: playable && (!pick || highStaff),
+    cooldownHours: highStaff ? 0 : 3,
+    staffBypass: Boolean(highStaff),
+    rewardHint: "1° Omega+300 · 2° Beta+200 · 3° Alpha+100 · 4°/5° niente",
   };
 }
 
-async function pickGaraPod(client, { guildId, userId, podId }) {
+async function pickGaraPod(client, { guildId, userId, podId, highStaff = false }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   const pid = normalizeId(podId);
   if (!isValidGuildUserId(g, u)) return { ok: false, status: 400, error: "bad_ids" };
-  if (!featurePlayable(client, FEATURES.EVENT_PODRACING_CHAMP)) {
+  if (!featurePlayable(client, FEATURES.EVENT_PODRACING_CHAMP, highStaff)) {
     return { ok: false, status: 403, error: "feature_off", message: "Gara non attiva." };
   }
   const pod = PODS.find((p?) => p.id === pid);
@@ -236,7 +283,7 @@ async function pickGaraPod(client, { guildId, userId, podId }) {
   const slot = garaSlot();
   const dedupe = `gara_${slot}_${u}`;
   const existing = await getDoc(dedupe);
-  if (existing?.payload?.podId) {
+  if (existing?.payload?.podId && !highStaff) {
     return { ok: false, status: 409, error: "already_picked", pick: existing.payload.podId, result: existing.payload.result };
   }
 
@@ -252,59 +299,350 @@ async function pickGaraPod(client, { guildId, userId, podId }) {
   const result = { place, won, finishOrder: scores.map((s?) => s.id) };
   await setDoc(dedupe, { podId: pid, result, at: new Date().toISOString() }, g);
 
-  const grant = await grantStarWarsReward(client, {
-    guildId: g,
-    userId: u,
-    reason: "gara",
-    minigameCreditBuff: true,
-    grant: won
-      ? { crateId: "beta", crateQty: 1, exp: 200, credits: 50000 }
-      : place <= 3
-        ? { exp: 100, credits: 15000 }
-        : { exp: 40 },
-  });
-  return { ok: true, status: 200, pick: pid, result, grant: grant.granted, wallet: grant.wallet };
+  /* Premi podio: 1° Omega+300 · 2° Beta+200 · 3° Alpha+100 · 4°/5° niente */
+  let rewardGrant: { crateId?: string; crateQty?: number; exp?: number } | null = null;
+  if (place === 1) rewardGrant = { crateId: "omega", crateQty: 1, exp: 300 };
+  else if (place === 2) rewardGrant = { crateId: "beta", crateQty: 1, exp: 200 };
+  else if (place === 3) rewardGrant = { crateId: "alpha", crateQty: 1, exp: 100 };
+
+  let grantOut = null;
+  let walletOut = null;
+  if (rewardGrant) {
+    const grant = await grantStarWarsReward(client, {
+      guildId: g,
+      userId: u,
+      reason: "gara",
+      minigameCreditBuff: true,
+      grant: rewardGrant,
+    });
+    grantOut = grant.granted;
+    walletOut = grant.wallet;
+  } else {
+    try {
+      const cfg = resolveStarWarsEventConfig(client);
+      walletOut = await getStarWarsWallet(g, u, cfg.eventKey || ADVENT_EVENT_KEY);
+    } catch (_) {}
+  }
+  return {
+    ok: true,
+    status: 200,
+    pick: pid,
+    result: { ...result, reward: rewardGrant },
+    grant: grantOut,
+    wallet: walletOut,
+  };
 }
 
 /* ——— Miniera Kyber ——— */
 /** Solo blu/verde — Kyber naturali Jedi (canon). */
 const KYBER_COLORS = Object.freeze(["blu", "verde"]);
 
-async function getMinieraState(client, { guildId, userId }) {
-  const playable = featurePlayable(client, FEATURES.EVENT_KYBER);
+function minieraEventDocKey(eventKey?) {
+  return `miniera_kyber_event_${normalizeId(eventKey) || ADVENT_EVENT_KEY}`;
+}
+
+function factionLabelFallback(factionId?) {
+  const f = normalizeId(factionId).toLowerCase();
+  const map: Record<string, string> = {
+    repubblica: "Repubblica",
+    separatisti: "Separatisti",
+    ribellione: "Ribellione",
+    impero: "Impero",
+    nuova_repubblica: "Nuova Repubblica",
+    nuovo_ordine: "Primo Ordine",
+  };
+  return map[f] || (f ? f.replace(/_/g, " ") : "Fazione");
+}
+
+async function readMinieraEventStandings(client?) {
+  const cfg = resolveStarWarsEventConfig(client);
+  const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
+  const doc = await getDoc(minieraEventDocKey(eventKey));
+  const factionsRaw = doc?.payload?.factions && typeof doc.payload.factions === "object" ? doc.payload.factions : {};
+  const rows = [];
+  for (const [fid, raw] of Object.entries(factionsRaw)) {
+    const id = normalizeId(fid).toLowerCase();
+    if (!id) continue;
+    const crystals = safeInt((raw as any)?.crystals);
+    const participants = Array.isArray((raw as any)?.participants)
+      ? (raw as any).participants.map((x) => normalizeId(x)).filter(Boolean)
+      : [];
+    rows.push({
+      factionId: id,
+      label: factionLabelFallback(id),
+      crystals,
+      participants: participants.length,
+    });
+  }
+  rows.sort((a, b) => b.crystals - a.crystals || a.factionId.localeCompare(b.factionId));
+  return {
+    eventKey,
+    settled: Boolean(doc?.payload?.settled),
+    result: doc?.payload?.result || null,
+    factions: rows,
+  };
+}
+
+async function bumpMinieraFactionScore(guildId?, eventKey?, factionId?, userId?) {
+  const g = normalizeId(guildId) || "0";
+  const fid = normalizeId(factionId).toLowerCase();
+  const u = normalizeId(userId);
+  if (!fid || !u) return;
+  const dedupe = minieraEventDocKey(eventKey);
+  await SiteDocument.findOneAndUpdate(
+    { docType: DOC_TYPE, ownerId: OWNER, dedupeKey: dedupe },
+    {
+      $inc: { [`payload.factions.${fid}.crystals`]: 1 },
+      $addToSet: { [`payload.factions.${fid}.participants`]: u },
+      $set: {
+        updatedAt: new Date(),
+        "payload.eventKey": normalizeId(eventKey) || ADVENT_EVENT_KEY,
+      },
+      $setOnInsert: {
+        docType: DOC_TYPE,
+        ownerId: OWNER,
+        dedupeKey: dedupe,
+        guildId: g,
+        "payload.settled": false,
+      },
+    },
+    { upsert: true },
+  ).catch(() => null);
+}
+
+/** Stamp Rome della riga calendario che spegne EVENT_KYBER (es. 2027-01-05T12:00). */
+function minieraKyberOffStamp() {
+  try {
+    const { listCalendarDays } = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
+    for (const row of listCalendarDays() || []) {
+      if ((row.off || []).includes(FEATURES.EVENT_KYBER)) {
+        const date = String(row.date || "").trim();
+        const at = String(row.at || "00:00").trim();
+        if (date) return `${date}T${at.length === 5 ? at : "00:00"}`;
+      }
+    }
+  } catch (_) {}
+  return "2027-01-05T12:00";
+}
+
+/**
+ * Fine EVENT_KYBER: 1ª fazione (più cristalli) → cassa beta ai partecipanti;
+ * 2ª → cassa alpha. Pareggio → alpha a entrambe. Idempotente.
+ * Parte solo dopo lo spegnimento calendario (non prima dell'apertura).
+ */
+async function settleMinieraKyberIfDue(client?) {
+  const flags = getRuntimeFlags(client);
+  if (!flags.enabled) return { ok: true, skipped: true, reason: "runtime_off" };
+
+  const nowStamp = (() => {
+    try {
+      const { romeDateTimeStamp } = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
+      return romeDateTimeStamp(new Date());
+    } catch (_) {
+      return new Date().toISOString().slice(0, 16);
+    }
+  })();
+  const offStamp = minieraKyberOffStamp();
+  if (String(nowStamp) < String(offStamp)) {
+    return { ok: true, skipped: true, reason: "not_ended_yet" };
+  }
+
+  const featureState = resolveFeatureStateNow(new Date());
+  if ((featureState.features || []).includes(FEATURES.EVENT_KYBER)) {
+    return { ok: true, skipped: true, reason: "still_active" };
+  }
+
+  const cfg = resolveStarWarsEventConfig(client);
+  const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
+  const dedupe = minieraEventDocKey(eventKey);
+
+  let mainG = normalizeId(client?.config?.mainGuildId);
+  if (!mainG) {
+    try {
+      const IDs = require(__eventCoreVinili("Config/ids"));
+      mainG = normalizeId(IDs.guilds?.main);
+    } catch (_) {}
+  }
+
+  const existing = await getDoc(dedupe);
+  if (existing?.payload?.settled) {
+    return { ok: true, skipped: true, reason: "already_settled", result: existing.payload.result || null };
+  }
+
+  const claim = await SiteDocument.findOneAndUpdate(
+    {
+      docType: DOC_TYPE,
+      ownerId: OWNER,
+      dedupeKey: dedupe,
+      "payload.settled": { $ne: true },
+    },
+    {
+      $set: {
+        "payload.settled": true,
+        "payload.settlingAt": new Date().toISOString(),
+        updatedAt: new Date(),
+      },
+    },
+    { new: false },
+  )
+    .lean()
+    .catch(() => null);
+
+  if (!claim) {
+    /* Nessun dig in evento: marca settled vuoto (no upsert race). */
+    if (!existing) {
+      await setDoc(
+        dedupe,
+        {
+          settled: true,
+          eventKey,
+          factions: {},
+          result: {
+            winner: null,
+            loser: null,
+            tie: false,
+            scores: {},
+            betaGranted: 0,
+            alphaGranted: 0,
+            at: new Date().toISOString(),
+            empty: true,
+          },
+        },
+        mainG || "0",
+      );
+      return { ok: true, settled: true, result: { empty: true } };
+    }
+    return { ok: true, skipped: true, reason: "claim_lost" };
+  }
+
+  if (claim?.payload?.settled) {
+    return { ok: true, skipped: true, reason: "already_settled", result: claim.payload.result || null };
+  }
+
+  const factionsRaw =
+    claim?.payload?.factions && typeof claim.payload.factions === "object" ? claim.payload.factions : {};
+  const ranked = Object.entries(factionsRaw)
+    .map(([fid, raw]) => ({
+      factionId: normalizeId(fid).toLowerCase(),
+      crystals: safeInt((raw as any)?.crystals),
+      participants: Array.isArray((raw as any)?.participants)
+        ? [...new Set((raw as any).participants.map((x) => normalizeId(x)).filter(Boolean))]
+        : [],
+    }))
+    .filter((r) => r.factionId)
+    .sort((a, b) => b.crystals - a.crystals || a.factionId.localeCompare(b.factionId));
+
+  let winner: string | null = null;
+  let loser: string | null = null;
+  let tie = false;
+  if (ranked.length >= 2) {
+    if (ranked[0].crystals === ranked[1].crystals) {
+      tie = true;
+    } else {
+      winner = ranked[0].factionId;
+      loser = ranked[1].factionId;
+    }
+  } else if (ranked.length === 1 && ranked[0].crystals > 0) {
+    winner = ranked[0].factionId;
+  }
+
+  const grantedBeta = [];
+  const grantedAlpha = [];
+
+  async function grantCrateToParticipants(factionId?, crateId?, bucket?) {
+    const row = ranked.find((r) => r.factionId === factionId);
+    if (!row || !mainG) return;
+    for (const uid of row.participants) {
+      const out = await grantStarWarsReward(client, {
+        guildId: mainG,
+        userId: uid,
+        reason: `miniera_end_${crateId}`,
+        grant: { crateId, crateQty: 1 },
+      });
+      bucket.push({ userId: uid, factionId, ok: Boolean(out?.ok) });
+    }
+  }
+
+  if (tie) {
+    await grantCrateToParticipants(ranked[0]?.factionId, "alpha", grantedAlpha);
+    await grantCrateToParticipants(ranked[1]?.factionId, "alpha", grantedAlpha);
+  } else {
+    if (winner) await grantCrateToParticipants(winner, "beta", grantedBeta);
+    if (loser) await grantCrateToParticipants(loser, "alpha", grantedAlpha);
+  }
+
+  const result = {
+    winner,
+    loser,
+    tie,
+    scores: Object.fromEntries(ranked.map((r) => [r.factionId, r.crystals])),
+    betaGranted: grantedBeta.length,
+    alphaGranted: grantedAlpha.length,
+    at: new Date().toISOString(),
+  };
+
+  await SiteDocument.findOneAndUpdate(
+    { docType: DOC_TYPE, ownerId: OWNER, dedupeKey: dedupe },
+    {
+      $set: {
+        "payload.settled": true,
+        "payload.result": result,
+        "payload.grants": { beta: grantedBeta, alpha: grantedAlpha },
+        updatedAt: new Date(),
+      },
+    },
+  ).catch(() => null);
+
+  global.logger?.info?.(
+    `[SW Miniera] settled event=${eventKey} winner=${winner || "-"} loser=${loser || "-"} tie=${tie} beta=${grantedBeta.length} alpha=${grantedAlpha.length}`,
+  );
+  return { ok: true, settled: true, result };
+}
+
+async function getMinieraState(client, { guildId, userId, highStaff = false }) {
+  void settleMinieraKyberIfDue(client).catch(() => null);
+  const playable = featurePlayable(client, FEATURES.EVENT_KYBER, highStaff);
   const day = dayBucketRome();
   let digs = 0;
   let finds = [];
   if (userId) {
     const doc = await getDoc(`miniera_${day}_${userId}`);
-    digs = safeInt(doc?.payload?.digs);
+    digs = highStaff ? 0 : safeInt(doc?.payload?.digs);
     finds = Array.isArray(doc?.payload?.finds) ? doc.payload.finds : [];
   }
+  const standings = await readMinieraEventStandings(client).catch(() => ({
+    eventKey: null,
+    settled: false,
+    result: null,
+    factions: [],
+  }));
   return {
     ok: true,
     playable,
     day,
     digs,
-    maxDigs: 3,
-    remaining: Math.max(0, 3 - digs),
+    maxDigs: highStaff ? 999 : 3,
+    remaining: highStaff ? 999 : Math.max(0, 3 - digs),
     finds,
     colors: KYBER_COLORS.slice(),
-    canDig: playable && digs < 3,
+    canDig: playable && (highStaff || digs < 3),
+    staffBypass: Boolean(highStaff),
+    standings,
   };
 }
 
-async function digMiniera(client, { guildId, userId }) {
+async function digMiniera(client, { guildId, userId, highStaff = false }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   if (!isValidGuildUserId(g, u)) return { ok: false, status: 400, error: "bad_ids" };
-  if (!featurePlayable(client, FEATURES.EVENT_KYBER)) {
+  if (!featurePlayable(client, FEATURES.EVENT_KYBER, highStaff)) {
     return { ok: false, status: 403, error: "feature_off", message: "Miniera non attiva." };
   }
   const day = dayBucketRome();
   const dedupe = `miniera_${day}_${u}`;
   const existing = await getDoc(dedupe);
   const digs = safeInt(existing?.payload?.digs);
-  if (digs >= 3) {
+  if (digs >= 3 && !highStaff) {
     return { ok: false, status: 429, error: "daily_limit", message: "Massimo 3 estrazioni al giorno." };
   }
   const color = KYBER_COLORS[Math.floor(Math.random() * KYBER_COLORS.length)];
@@ -325,6 +663,12 @@ async function digMiniera(client, { guildId, userId }) {
     { upsert: true },
   ).catch(() => null);
 
+  try {
+    const wallet = await getStarWarsWallet(g, u, eventKey);
+    const factionId = normalizeId(wallet?.factionId).toLowerCase();
+    if (factionId) await bumpMinieraFactionScore(g, eventKey, factionId, u);
+  } catch (_) {}
+
   const grant = await grantStarWarsReward(client, {
     guildId: g,
     userId: u,
@@ -334,6 +678,7 @@ async function digMiniera(client, { guildId, userId }) {
       ? { crateId: "alpha", crateQty: 1, exp: 150, credits: 25000 }
       : { exp: 50, credits: 5000 },
   });
+  const standings = await readMinieraEventStandings(client).catch(() => null);
   return {
     ok: true,
     status: 200,
@@ -342,6 +687,7 @@ async function digMiniera(client, { guildId, userId }) {
     remaining: Math.max(0, 2 - digs),
     grant: grant.granted,
     wallet: grant.wallet,
+    standings,
   };
 }
 
@@ -378,8 +724,8 @@ function puzzleCooldownRemainingMs(claimsBlob?, difficultyId?, cooldownMs?, now 
   return Math.max(0, last + Math.max(0, Number(cooldownMs) || 0) - now);
 }
 
-async function getPuzzleState(client, { guildId, userId }) {
-  const playable = featurePlayable(client, FEATURES.EVENT_PUZZLE_KESSEL);
+async function getPuzzleState(client, { guildId, userId, highStaff = false }) {
+  const playable = featurePlayable(client, FEATURES.EVENT_PUZZLE_KESSEL, highStaff);
   const claimsPayload =
     userId ? ((await getDoc(puzzleClaimsDocKey(userId)))?.payload as Record<string, any>) || {} : {};
   const blob = readClaimsBlob(claimsPayload);
@@ -387,7 +733,7 @@ async function getPuzzleState(client, { guildId, userId }) {
   const adBoosts = publicPuzzleAdBoosts();
   const difficulties = listPuzzleDifficulties().map((d?) => {
     const lastClaimAt = blob.claims[d.id] ? String(blob.claims[d.id]) : null;
-    const remainingMs = userId ? puzzleCooldownRemainingMs(blob, d.id, d.cooldownMs, now) : 0;
+    const remainingMs = highStaff ? 0 : userId ? puzzleCooldownRemainingMs(blob, d.id, d.cooldownMs, now) : 0;
     const cdUsed = safeInt(blob.cdAdsUsed[d.id]);
     return {
       ...publicPuzzleDifficulty(d),
@@ -397,7 +743,7 @@ async function getPuzzleState(client, { guildId, userId }) {
       canPlayGuest: Boolean(playable),
       cdAdsUsed: cdUsed,
       cdAdsLeft: Math.max(0, adBoosts.cooldown.max - cdUsed),
-      canCutCooldown: Boolean(userId && remainingMs > 0 && cdUsed < adBoosts.cooldown.max),
+      canCutCooldown: Boolean(!highStaff && userId && remainingMs > 0 && cdUsed < adBoosts.cooldown.max),
     };
   });
   return {
@@ -405,15 +751,16 @@ async function getPuzzleState(client, { guildId, userId }) {
     playable,
     difficulties,
     adBoosts,
+    staffBypass: Boolean(highStaff),
     serverNow: new Date(now).toISOString(),
   };
 }
 
-async function startPuzzleAttempt(client, { guildId, userId, difficultyId }) {
+async function startPuzzleAttempt(client, { guildId, userId, difficultyId, highStaff = false }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   if (!isValidGuildUserId(g, u)) return { ok: false, status: 400, error: "bad_ids" };
-  if (!featurePlayable(client, FEATURES.EVENT_PUZZLE_KESSEL)) {
+  if (!featurePlayable(client, FEATURES.EVENT_PUZZLE_KESSEL, highStaff)) {
     return { ok: false, status: 403, error: "feature_off", message: "Puzzle non attivo." };
   }
   const diff = getPuzzleDifficulty(difficultyId);
@@ -421,7 +768,7 @@ async function startPuzzleAttempt(client, { guildId, userId, difficultyId }) {
 
   const claimsDoc = await getDoc(puzzleClaimsDocKey(u));
   const blob = readClaimsBlob(claimsDoc?.payload);
-  const remainingMs = puzzleCooldownRemainingMs(blob, diff.id, diff.cooldownMs);
+  const remainingMs = highStaff ? 0 : puzzleCooldownRemainingMs(blob, diff.id, diff.cooldownMs);
   if (remainingMs > 0) {
     return {
       ok: false,
@@ -617,11 +964,11 @@ async function finishPuzzleAdSession(client, { guildId, userId, adSessionId }) {
   };
 }
 
-async function completePuzzleAttempt(client, { guildId, userId, difficultyId, attemptId, elapsedMs }) {
+async function completePuzzleAttempt(client, { guildId, userId, difficultyId, attemptId, elapsedMs, highStaff = false }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   if (!isValidGuildUserId(g, u)) return { ok: false, status: 400, error: "bad_ids" };
-  if (!featurePlayable(client, FEATURES.EVENT_PUZZLE_KESSEL)) {
+  if (!featurePlayable(client, FEATURES.EVENT_PUZZLE_KESSEL, highStaff)) {
     return { ok: false, status: 403, error: "feature_off", message: "Puzzle non attivo." };
   }
   const diff = getPuzzleDifficulty(difficultyId);
@@ -657,7 +1004,7 @@ async function completePuzzleAttempt(client, { guildId, userId, difficultyId, at
 
   const claimsDoc = await getDoc(puzzleClaimsDocKey(u));
   const blob = readClaimsBlob(claimsDoc?.payload);
-  const remainingMs = puzzleCooldownRemainingMs(blob, diff.id, diff.cooldownMs, now);
+  const remainingMs = highStaff ? 0 : puzzleCooldownRemainingMs(blob, diff.id, diff.cooldownMs, now);
   if (remainingMs > 0) {
     return {
       ok: false,
@@ -686,9 +1033,14 @@ async function completePuzzleAttempt(client, { guildId, userId, difficultyId, at
 
   const claimedAt = new Date(now).toISOString();
   blob.claims[diff.id] = claimedAt;
-  blob.cdEndsAt[diff.id] = new Date(now + diff.cooldownMs).toISOString();
-  blob.cdAdsUsed[diff.id] = 0;
-  await setDoc(puzzleClaimsDocKey(u), { claims: blob.claims, cdEndsAt: blob.cdEndsAt, cdAdsUsed: blob.cdAdsUsed }, g);
+  if (!highStaff) {
+    blob.cdEndsAt[diff.id] = new Date(now + diff.cooldownMs).toISOString();
+    blob.cdAdsUsed[diff.id] = 0;
+    await setDoc(puzzleClaimsDocKey(u), { claims: blob.claims, cdEndsAt: blob.cdEndsAt, cdAdsUsed: blob.cdAdsUsed }, g);
+  } else {
+    /* HS: niente cooldown persistito */
+    await setDoc(puzzleClaimsDocKey(u), { claims: blob.claims, cdEndsAt: {}, cdAdsUsed: {} }, g);
+  }
   await setDoc(attemptKey, { ...attempt, claimed: true, claimedAt, elapsedMs: elapsed }, g);
 
   return {
@@ -699,8 +1051,9 @@ async function completePuzzleAttempt(client, { guildId, userId, difficultyId, at
     rewardBoosted,
     grant: grant.granted,
     wallet: grant.wallet,
-    cooldownRemainingMs: diff.cooldownMs,
-    nextAvailableAt: new Date(now + diff.cooldownMs).toISOString(),
+    cooldownRemainingMs: highStaff ? 0 : diff.cooldownMs,
+    nextAvailableAt: highStaff ? claimedAt : new Date(now + diff.cooldownMs).toISOString(),
+    staffBypass: Boolean(highStaff),
   };
 }
 
@@ -711,6 +1064,7 @@ export = {
   pickGaraPod,
   getMinieraState,
   digMiniera,
+  settleMinieraKyberIfDue,
   getPuzzleState,
   startPuzzleAttempt,
   completePuzzleAttempt,

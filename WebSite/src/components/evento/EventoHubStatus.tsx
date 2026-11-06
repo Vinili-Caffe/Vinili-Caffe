@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { fetchEventoStatus, type EventoStatus } from "@/lib/evento-api";
+import { useEventoFactionSync } from "@/lib/evento-faction-sync";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { EventoPanel } from "@/components/evento/EventoUi";
 import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
@@ -63,16 +64,18 @@ export function EventoHubStatus() {
   const { token, ready, user, login } = useAuth();
   const [st, setSt] = useState<EventoStatus | null>(null);
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     if (!ready) return;
-    let alive = true;
-    fetchEventoStatus(token).then((r) => {
-      if (alive) setSt(r);
+    void fetchEventoStatus(token).then((r) => {
+      if (r) setSt(r);
     });
-    return () => {
-      alive = false;
-    };
   }, [ready, token]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  useEventoFactionSync(reload, { pollMs: 12_000 });
 
   if (!st?.ok) return null;
 

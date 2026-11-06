@@ -368,6 +368,113 @@ html.vc-phone-preview body {
   }
 }
 
+/* Gara: linea tratteggiata che “corre” sul tracciato */
+@keyframes vc-gara-dash {
+  to {
+    stroke-dashoffset: -44;
+  }
+}
+.vc-gara-dash {
+  animation: vc-gara-dash 0.55s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vc-gara-dash {
+    animation: none !important;
+  }
+}
+
+/* Accademia: comparsa / vita / miss / hit */
+@keyframes vc-accademia-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.15);
+    box-shadow: 0 0 0 rgba(201, 162, 39, 0);
+  }
+  55% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.18);
+    box-shadow: 0 0 34px rgba(201, 162, 39, 0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow: 0 0 18px rgba(201, 162, 39, 0.7);
+  }
+}
+@keyframes vc-accademia-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow: 0 0 16px rgba(201, 162, 39, 0.65);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.06);
+    box-shadow: 0 0 26px rgba(232, 200, 96, 0.9);
+  }
+}
+@keyframes vc-accademia-out {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.35);
+    filter: blur(4px);
+  }
+}
+@keyframes vc-accademia-hit {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow: 0 0 18px rgba(201, 162, 39, 0.7);
+  }
+  35% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.35);
+    box-shadow: 0 0 40px rgba(255, 240, 180, 1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+    box-shadow: 0 0 0 rgba(201, 162, 39, 0);
+  }
+}
+.vc-accademia-in {
+  animation: vc-accademia-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.vc-accademia-live {
+  transform: translate(-50%, -50%);
+  animation: vc-accademia-pulse 720ms ease-in-out infinite;
+  box-shadow: 0 0 18px rgba(201, 162, 39, 0.7);
+}
+.vc-accademia-out {
+  pointer-events: none;
+  animation: vc-accademia-out 240ms ease-in both;
+}
+.vc-accademia-hit {
+  pointer-events: none;
+  animation: vc-accademia-hit 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vc-accademia-in,
+  .vc-accademia-live,
+  .vc-accademia-out,
+  .vc-accademia-hit {
+    animation: none !important;
+  }
+  .vc-accademia-in,
+  .vc-accademia-live {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+  .vc-accademia-out,
+  .vc-accademia-hit {
+    opacity: 0;
+  }
+}
+
 /* Star Wars evento: twinkle stelle */
 @keyframes vcSwTwinkle {
   from {

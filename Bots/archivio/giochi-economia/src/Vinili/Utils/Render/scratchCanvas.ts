@@ -92,27 +92,32 @@ function cellXY(index?) {
 }
 
 function drawTicketBg(ctx?, width?, height?) {
-  const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, "#1a0f08");
-  bg.addColorStop(0.35, "#3d2814");
-  bg.addColorStop(1, "#120a06");
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, width, height);
-  fillRoundRect(ctx, 28, 40, width - 56, height - 58, 20, "#f3e8d4");
-  strokeRoundRect(ctx, 28, 40, width - 56, height - 58, 20, "#b8860b", 3);
-  fillRoundRect(ctx, 36, 48, width - 72, height - 74, 16, "#faf6ee");
+  try {
+    const { drawStarWarsBg } = require("./starWarsEconomyTheme") as typeof import("./starWarsEconomyTheme");
+    drawStarWarsBg(ctx, width, height, { panel: false });
+  } catch (_) {
+    const bg = ctx.createLinearGradient(0, 0, width, height);
+    bg.addColorStop(0, "#020617");
+    bg.addColorStop(0.35, "#0b1224");
+    bg.addColorStop(1, "#111827");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+  }
+  fillRoundRect(ctx, 28, 40, width - 56, height - 58, 20, "#0f172a");
+  strokeRoundRect(ctx, 28, 40, width - 56, height - 58, 20, "#FFE81F", 3);
+  fillRoundRect(ctx, 36, 48, width - 72, height - 74, 16, "#111827");
   const foil = ctx.createLinearGradient(36, 48, width - 36, 80);
-  foil.addColorStop(0, "rgba(212,175,55,0.55)");
-  foil.addColorStop(0.5, "rgba(255,248,220,0.35)");
-  foil.addColorStop(1, "rgba(184,134,11,0.5)");
+  foil.addColorStop(0, "rgba(56,189,248,0.45)");
+  foil.addColorStop(0.5, "rgba(255,232,31,0.35)");
+  foil.addColorStop(1, "rgba(56,189,248,0.4)");
   fillRoundRect(ctx, 40, 52, width - 80, 36, 8, foil);
-  drawText(ctx, "GRATTA E VINCI", width / 2, 62, { size: 17, color: "#5c4510", weight: "900", forcePrimaryFont: true });
-  drawPlainText(ctx, "Trova 3 simboli uguali", width / 2, 80, { size: 11, color: "rgba(92,69,16,0.72)", weight: "700" });
+  drawText(ctx, "GRATTA E VINCI", width / 2, 62, { size: 17, color: "#020617", weight: "900", forcePrimaryFont: true });
+  drawPlainText(ctx, "Trova 3 simboli uguali · Crediti", width / 2, 80, { size: 11, color: "rgba(15,23,42,0.85)", weight: "700" });
   const shine = ctx.createLinearGradient(50, 90, width - 50, height - 70);
-  shine.addColorStop(0, "rgba(255,255,255,0.35)");
+  shine.addColorStop(0, "rgba(255,255,255,0.2)");
   shine.addColorStop(0.15, "rgba(255,255,255,0)");
   ctx.fillStyle = shine;
-  fillRoundRect(ctx, 44, 88, width - 88, height - 130, 12, "rgba(255,255,255,0.08)");
+  fillRoundRect(ctx, 44, 88, width - 88, height - 130, 12, "rgba(255,255,255,0.06)");
 }
 
 function drawSymbolIcon(ctx?, sym?, cx?, cy?, size?) {

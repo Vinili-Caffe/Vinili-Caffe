@@ -10,6 +10,9 @@ function mountEventoWebhookRoutes(app?, client?) {
     app.post("/webhooks/site-evento/smistamento", (req?, res?) => sw.handleSiteEventoSmistamentoPost(client, req, res));
     app.get("/webhooks/site-evento/shop", (req?, res?) => sw.handleSiteEventoShopGet(client, req, res));
     app.get("/webhooks/site-evento/faction", (req?, res?) => sw.handleSiteEventoFactionGet(client, req, res));
+    app.get("/webhooks/site-evento/faction/ranks", (req?, res?) => sw.handleSiteEventoFactionRanksGet(client, req, res));
+    app.post("/webhooks/site-evento/faction/ranks", (req?, res?) => sw.handleSiteEventoFactionRanksPost(client, req, res));
+    app.get("/webhooks/site-evento/wars", (req?, res?) => sw.handleSiteEventoWarsGet(client, req, res));
     app.post("/webhooks/site-evento/shop/buy", (req?, res?) => sw.handleSiteEventoShopBuyPost(client, req, res));
     app.post("/webhooks/site-evento/shop/attack", (req?, res?) => sw.handleSiteEventoShopAttackPost(client, req, res));
     app.get("/webhooks/site-evento/minigames", (req?, res?) => sw.handleSiteEventoMinigamesGet(client, req, res));

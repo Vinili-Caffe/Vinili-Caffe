@@ -67,14 +67,24 @@ function cardInkColor(suit?) {
 }
 
 function drawBg(ctx?, width?, height?) {
+  try {
+    const { drawStarWarsBg, SW } = require("./starWarsEconomyTheme") as typeof import("./starWarsEconomyTheme");
+    drawStarWarsBg(ctx, width, height, {
+      pad: 36,
+      radius: 28,
+      panelFill: "rgba(8,15,32,0.55)",
+      panelStroke: SW.panelStroke,
+    });
+    return;
+  } catch (_) {}
   const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, "#0a2618");
-  bg.addColorStop(0.5, "#14532d");
-  bg.addColorStop(1, "#052e16");
+  bg.addColorStop(0, "#020617");
+  bg.addColorStop(0.5, "#0b1224");
+  bg.addColorStop(1, "#111827");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, width, height);
   fillRoundRect(ctx, 36, 56, width - 72, height - 76, 28, "rgba(0,0,0,0.22)");
-  strokeRoundRect(ctx, 36, 56, width - 72, height - 76, 28, "rgba(212,175,55,0.35)", 2);
+  strokeRoundRect(ctx, 36, 56, width - 72, height - 76, 28, "rgba(255,232,31,0.35)", 2);
 }
 
 function drawCardBack(ctx?, x?, y?) {

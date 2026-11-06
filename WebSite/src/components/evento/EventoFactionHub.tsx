@@ -16,6 +16,9 @@ import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
 import { EventoTroopIcon } from "@/components/evento/EventoTroopIcon";
 import { EventoUtilityIcon } from "@/components/evento/EventoUtilityIcon";
 import { EventoShopPanel } from "@/components/evento/EventoShopPanel";
+import { EventoFactionRanksPanel } from "@/components/evento/EventoFactionRanksPanel";
+import { EventoWarRegistryPanel } from "@/components/evento/EventoWarRegistryPanel";
+import { useEventoFactionSync } from "@/lib/evento-faction-sync";
 import { SmartLink } from "@/components/SmartLink";
 
 const FACTION_ICON_V = "20261104ri2";
@@ -83,18 +86,30 @@ export function EventoFactionHub() {
   const [data, setData] = useState<FactionPayload | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rankTick, setRankTick] = useState(0);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (opts?: { soft?: boolean }) => {
     if (!ready) return;
-    setLoading(true);
+    if (!opts?.soft) setLoading(true);
     const out = await fetchEventoFaction(token);
-    setData(out);
-    setLoading(false);
+    if (!opts?.soft) setLoading(false);
+    if (out) setData(out);
   }, [ready, token]);
+
+  const softReload = useCallback(() => {
+    void reload({ soft: true });
+  }, [reload]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEventoFactionSync(softReload, { pollMs: 8_000 });
+
+  const onRanksChanged = useCallback(() => {
+    setRankTick((n) => n + 1);
+    softReload();
+  }, [softReload]);
 
   const light = isLightSide(data?.factionId);
   const crest = factionIconUrl(data?.factionId, data?.epoch);
@@ -369,13 +384,25 @@ export function EventoFactionHub() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
       >
-        <EventoShopPanel embedded />
-        {data.canManageRanks ? (
-          <p className="mt-3 text-center text-xs text-crema/45">
-            Comandi Discord: <span className="text-crema/70">+promuovi</span> ·{" "}
-            <span className="text-crema/70">+declassa</span> · <span className="text-crema/70">+nomina</span>
-          </p>
-        ) : null}
+        <EventoShopPanel embedded refreshKey={rankTick} />
+      </motion.section>
+
+      {/* Registro guerre — tutti i ranghi */}
+      <motion.section
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, delay: 0.19, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <EventoWarRegistryPanel enabled={Boolean(data.factionId)} />
+      </motion.section>
+
+      {/* Ranghi — gestione solo dal rango massimo */}
+      <motion.section
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <EventoFactionRanksPanel enabled={Boolean(data.factionId)} onChanged={onRanksChanged} />
       </motion.section>
 
       {/* Inventario oggetti fazione */}

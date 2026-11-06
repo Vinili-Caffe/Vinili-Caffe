@@ -5,7 +5,12 @@
  */
 "use strict";
 
-const { resolveStarWarsEventConfig, isStarWarsEventLive, isStarWarsPublicWindowOpen } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
+const {
+  resolveStarWarsEventConfig,
+  isPastStarWarsEventEnd,
+  isStarWarsEventLive,
+  isStarWarsPublicWindowOpen,
+} = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
 
 function readRuntimeOverride(client?) {
   try {
@@ -21,6 +26,10 @@ function readRuntimeOverride(client?) {
 function isStarWarsRuntimeDisabled(client?) {
   const override = readRuntimeOverride(client);
   if (override === "force_off") return true;
+  try {
+    /* Fine evento (28 feb 21:00): chiusura totale, anche force_on / test force. */
+    if (typeof isPastStarWarsEventEnd === "function" && isPastStarWarsEventEnd(client)) return true;
+  } catch (_) {}
   if (override === "force_on") return false;
   try {
     const cfg = resolveStarWarsEventConfig(client);

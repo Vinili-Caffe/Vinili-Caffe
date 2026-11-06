@@ -2350,7 +2350,7 @@ async function tryDeckMessage(message?, client?) {
   return false;
 }
 
-/** Scommesse solo sul sito (/gara/) — niente spawn Discord / +punta. */
+/** Scommesse Podracer rimosse — niente +punta. */
 async function tryPuntaCommand() {
   return false;
 }
@@ -2381,8 +2381,6 @@ async function staffSpawn(client?, kind?, channelId?) {
       return spawnDeckDrop(client, "pg", { channelId, force: true });
     case "reliquie":
       return spawnDeckDrop(client, "relic", { channelId, force: true });
-    case "scommessa":
-      return { ok: false, error: "site_only_gara" };
     default:
       return { ok: false, error: "unknown_kind" };
   }
@@ -2434,6 +2432,10 @@ async function tickCalendarRoleSync(client?) {
   try {
     const { maybeAnnounceDuePhasePodiums } = require("./starWarsPhasePodiumService") as typeof import("./starWarsPhasePodiumService");
     await maybeAnnounceDuePhasePodiums(client);
+  } catch (_) {}
+  try {
+    const { settleMinieraKyberIfDue } = require("./starWarsSiteGamesService") as typeof import("./starWarsSiteGamesService");
+    await settleMinieraKyberIfDue(client);
   } catch (_) {}
 }
 

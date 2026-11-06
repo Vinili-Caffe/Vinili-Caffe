@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { SmartLink } from "@/components/SmartLink";
 import { useEventoStaffAccess } from "@/components/evento/EventoAccessGate";
+import { useEventoSortGate } from "@/components/evento/EventoSortContext";
 import {
   EVENTO_BRAND,
   eventoEventiNavForViewer,
@@ -99,8 +100,11 @@ function EventiMenu({ items }: { items: EventoNavItemView[] }) {
 export function EventoTopNav() {
   const pathname = usePathname() || "/";
   const { ready, access } = useEventoStaffAccess();
-  const primary = ready ? eventoPrimaryNavForViewer(access) : [];
-  const eventi = ready ? eventoEventiNavForViewer(access) : [];
+  const { needsSort } = useEventoSortGate();
+  const primary = ready
+    ? eventoPrimaryNavForViewer(access).filter((l) => !needsSort || l.id === "hub")
+    : [];
+  const eventi = ready && !needsSort ? eventoEventiNavForViewer(access) : [];
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#f0e6c8]/10 bg-[#05070f]/75 backdrop-blur-xl">

@@ -8,6 +8,7 @@ const REWARD_KEYS_PATH = `${WALLET_PATH}.rewardKeys`;
 const MAX_LEDGER_ENTRIES = 100;
 const CURRENCY_VINILI = "vinili";
 const CURRENCY_CAFFE = "caffe";
+const CURRENCY_CREDITI = "crediti";
 const CURRENCY_ALIASES = Object.freeze({
   vinili: CURRENCY_VINILI,
   vinilo: CURRENCY_VINILI,
@@ -16,7 +17,13 @@ const CURRENCY_ALIASES = Object.freeze({
   caffe: CURRENCY_CAFFE,
   caffè: CURRENCY_CAFFE,
   coffee: CURRENCY_CAFFE,
+  crediti: CURRENCY_CREDITI,
+  credito: CURRENCY_CREDITI,
+  credits: CURRENCY_CREDITI,
+  credit: CURRENCY_CREDITI,
+  cr: CURRENCY_CREDITI,
 });
+const creditsBridge = () => require("./starWarsCreditsBridge");
 
 function normalizeId(value?) {
   return String(value ?? "").trim();
@@ -132,8 +139,14 @@ function formatCaffe(amount?) {
   return `${n} ${n === 1 ? "Caffè" : "Caffè"}`;
 }
 
-function formatCurrency(currency?, amount?) {
-  return normalizeCurrency(currency) === CURRENCY_CAFFE ? formatCaffe(amount) : formatVinili(amount);
+function formatCurrency(currency?, amount?, opts: Record<string, any> = {}) {
+  const cur = normalizeCurrency(currency);
+  if (cur === CURRENCY_CREDITI) {
+    return opts.discord
+      ? creditsBridge().formatCreditsDiscord(amount)
+      : creditsBridge().formatCreditsPlain(amount);
+  }
+  return cur === CURRENCY_CAFFE ? formatCaffe(amount) : formatVinili(amount);
 }
 
 function isMongoDuplicateKeyError(err?) {
@@ -168,12 +181,15 @@ async function getServerWallet(guildId?, userId?) {
   return resolveServerWalletState(doc);
 }
 
-async function addCurrency({ guildId, userId, currency, amount, reason, actorId = null, source = "manual", rewardKey = "" }) {
+async function addCurrency({ guildId, userId, currency, amount, reason, actorId = null, source = "manual", rewardKey = "", client = null }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   const cur = normalizeCurrency(currency);
   const creditAmt = normalizeAmount(amount);
   if (!isValidGuildUserId(g, u) || !cur || creditAmt < 1) return { ok: false, code: "bad_input" };
+  if (cur === CURRENCY_CREDITI) {
+    return creditsBridge().addCredits({ client, guildId: g, userId: u, amount: creditAmt, reason: reason || source });
+  }
 
   let rewardKeyNorm = String(rewardKey || "").trim();
   if (rewardKeyNorm && (await hasServerRewardKey(g, u, rewardKeyNorm))) {
@@ -229,12 +245,15 @@ async function addCurrency({ guildId, userId, currency, amount, reason, actorId 
   return { ok: true, currency: cur, before, state, entry, amount: creditAmt };
 }
 
-async function spendCurrency({ guildId, userId, currency, amount, reason, actorId = null, source = "manual" }) {
+async function spendCurrency({ guildId, userId, currency, amount, reason, actorId = null, source = "manual", client = null }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   const cur = normalizeCurrency(currency);
   const amt = normalizeAmount(amount);
   if (!isValidGuildUserId(g, u) || !cur || amt < 1) return { ok: false, code: "bad_input" };
+  if (cur === CURRENCY_CREDITI) {
+    return creditsBridge().spendCredits({ client, guildId: g, userId: u, amount: amt, reason: reason || source });
+  }
 
   const before = await getServerWallet(g, u);
   const bucketBefore = before?.[cur] || emptyCurrencyState();
@@ -262,11 +281,27 @@ async function spendCurrency({ guildId, userId, currency, amount, reason, actorI
   return { ok: true, currency: cur, before, state: resolveServerWalletState(doc), entry, amount: amt };
 }
 
-async function addDualReward({ guildId, userId, totalAmount, reason, actorId = null, source = "manual", rewardKey = "", splitMinPct = 30, splitMaxPct = 70 }) {
+async function addDualReward({ guildId, userId, totalAmount, reason, actorId = null, source = "manual", rewardKey = "", splitMinPct = 30, splitMaxPct = 70, client = null, asCredits = false }) {
   const g = normalizeId(guildId);
   const u = normalizeId(userId);
   const split = splitDualReward(totalAmount, splitMinPct, splitMaxPct);
   if (!isValidGuildUserId(g, u) || split.total < 1) return { ok: false, code: "bad_input" };
+  if (asCredits) {
+    const out = await creditsBridge().addCredits({
+      client,
+      guildId: g,
+      userId: u,
+      amount: split.total,
+      reason: reason || source,
+    });
+    if (!out?.ok) return { ...out, split: { vinili: 0, caffe: 0, crediti: split.total, total: split.total } };
+    return {
+      ok: true,
+      split: { vinili: 0, caffe: 0, crediti: split.total, total: split.total },
+      state: out.state,
+      amount: split.total,
+    };
+  }
 
   const rewardKeyNorm = String(rewardKey || "").trim();
   if (rewardKeyNorm && (await hasServerRewardKey(g, u, rewardKeyNorm))) {
@@ -341,6 +376,7 @@ async function addDualReward({ guildId, userId, totalAmount, reason, actorId = n
 
 export = {
   CURRENCY_CAFFE,
+  CURRENCY_CREDITI,
   CURRENCY_VINILI,
   MAX_LEDGER_ENTRIES,
   addCurrency,

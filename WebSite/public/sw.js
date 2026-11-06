@@ -1,4 +1,5 @@
 /* Vinili & Caffè — service worker: notifiche push, clic sulle notifiche, badge dell'app e pagina offline.
+   build: pushClickNavIos3-20261106
    Le pagine vere non si mettono mai in cache, così non si vedono versioni vecchie.
 
    Regola delle push (vale per tutti i browser): OGNI push mostra una notifica. Una push che non mostra

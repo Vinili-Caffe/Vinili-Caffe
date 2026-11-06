@@ -67,28 +67,17 @@ function strokeFill(ctx?, fill?, stroke = "#4a2c1a", lineWidth = 4) {
 }
 
 function drawBg(ctx?, width?, height?, frameIndex?) {
+  try {
+    const { drawStarWarsBg } = require("./starWarsEconomyTheme") as typeof import("./starWarsEconomyTheme");
+    drawStarWarsBg(ctx, width, height, { frameIndex, panel: false });
+    return;
+  } catch (_) {}
   const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, "#140a14");
-  bg.addColorStop(0.42, "#2a1420");
+  bg.addColorStop(0, "#020617");
+  bg.addColorStop(0.42, "#0b1224");
   bg.addColorStop(1, "#08060c");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, width, height);
-  const glow = ctx.createRadialGradient(width / 2, height * 0.42, 40, width / 2, height * 0.42, width * 0.55);
-  glow.addColorStop(0, "rgba(212,175,55,0.12)");
-  glow.addColorStop(1, "rgba(212,175,55,0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, width, height);
-  ctx.save();
-  ctx.globalAlpha = 0.2;
-  for (let i = 0; i < 18; i += 1) {
-    const x = (i * 91 + frameIndex * 4) % (width + 50) - 25;
-    const y = 24 + ((i * 61) % (height - 90));
-    ctx.fillStyle = i % 2 === 0 ? "#f7d56d" : "#c4b5fd";
-    ctx.beginPath();
-    ctx.arc(x, y, i % 2 === 0 ? 2 : 1.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
 }
 
 function normalizeChoice(value?) {

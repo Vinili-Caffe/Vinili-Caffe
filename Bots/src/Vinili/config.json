@@ -477,7 +477,7 @@
     "eventKey": "starwars_2026",
     "timezone": "Europe/Rome",
     "startDate": "2026-12-01T00:00:00",
-    "endDate": "2027-02-28T23:59:59",
+    "endDate": "2027-02-28T21:00:00",
     "publicOpenDate": "2026-12-01T00:00:00"
   },
   "gameNewsAlerts": {

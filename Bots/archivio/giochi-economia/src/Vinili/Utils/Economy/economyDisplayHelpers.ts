@@ -31,7 +31,7 @@ function resolveDisplayMode(client = null) {
     const mode = resolveEconomyMode(client?.config ? client : { config: loadBotConfig(client) });
     if (mode === "server") return mode;
   } catch {
-      }
+  }
   const config = loadBotConfig(client);
   if (!config) return null;
   if (config.serverEconomy?.enabled === true) return "server";
@@ -40,26 +40,32 @@ function resolveDisplayMode(client = null) {
 
 function formatEconomyAmount(amount?, client = null) {
   const n = intAmount(amount);
-  const mode = resolveDisplayMode(client);
-  if (mode === "server") {
-    try {
-      const { formatCurrency } = require("../../Services/Community/serverWalletService") as typeof import("../../Services/Community/serverWalletService");
-      return formatCurrency("caffe", n);
-    } catch {
-      return `${n} Caffè`;
-    }
+  try {
+    const bridge = require("../../Services/Community/starWarsCreditsBridge") as typeof import("../../Services/Community/starWarsCreditsBridge");
+    return bridge.formatCreditsDiscord(n);
+  } catch {
+    return `${n} Crediti`;
   }
-  return `${n} Caffè`;
 }
 
 function formatEconomyAmountShort(amount?, client = null) {
   const n = intAmount(amount);
-  const mode = resolveDisplayMode(client);
-  return `${n} Caffè`;
+  try {
+    const bridge = require("../../Services/Community/starWarsCreditsBridge") as typeof import("../../Services/Community/starWarsCreditsBridge");
+    return bridge.formatCreditsShort(n);
+  } catch {
+    return `${n} Crediti`;
+  }
+}
+
+function currencyUnitLabel(_client = null) {
+  return "Crediti";
 }
 
 export = {
+  currencyUnitLabel,
   economyUsername,
   formatEconomyAmount,
   formatEconomyAmountShort,
+  resolveDisplayMode,
 };
