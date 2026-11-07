@@ -20,22 +20,22 @@ type LiveTarget = {
   phase: TargetPhase;
 };
 
-/** Max bersagli contemporanei (solo durante un burst gemello). */
-const LIVE_MAX = 2;
+/** Max bersagli contemporanei. */
+const LIVE_MAX = 3;
 /** Vita breve: più difficile da colpire. */
-const LIFE_MS_MIN = 980;
-const LIFE_MS_MAX = 1480;
-const EXIT_MS = 240;
+const LIFE_MS_MIN = 900;
+const LIFE_MS_MAX = 1320;
+const EXIT_MS = 200;
 /** Distanza minima tra due bersagli (% arena). */
-const MIN_SEP = 46;
-/** Gap dopo uno spawn singolo / fine burst. */
-const SOLO_GAP_MIN = 720;
-const SOLO_GAP_MAX = 1280;
-/** Secondo del burst: ravvicinato nel tempo. */
-const PAIR_GAP_MIN = 160;
-const PAIR_GAP_MAX = 280;
-/** Probabilità che lo spawn successivo sia un burst da 2. */
-const PAIR_CHANCE = 0.42;
+const MIN_SEP = 34;
+/** Gap se l'arena è vuota (prossima ondata). */
+const SOLO_GAP_MIN = 220;
+const SOLO_GAP_MAX = 420;
+/** Gap per aggiungere un altro bersaglio mentre ce n'è già uno live. */
+const PAIR_GAP_MIN = 70;
+const PAIR_GAP_MAX = 160;
+/** Probabilità di tenere lo spawn “a pompa” verso LIVE_MAX. */
+const MULTI_CHANCE = 0.78;
 
 function rand(min: number, max: number) {
   return min + Math.random() * (max - min);
@@ -72,15 +72,15 @@ type Props = {
 };
 
 /**
- * Arena Accademia: spawn uno alla volta, lontani; a volte un burst da 2
- * ravvicinato nel tempo. Comparsa/scomparsa animate; vita breve.
+ * Arena Accademia: spawn rapido, fino a 3 contemporanei, spesso in overlap.
+ * Comparsa/scomparsa animate; vita breve.
  */
 export function AccademiaArena({
   pool,
   sessionSec = 30,
   showChrome = true,
   autoStart = false,
-  hint = "I bersagli compaiono uno alla volta, lontani tra loro — a volte due di fila. Colpiscili prima che spariscano.",
+  hint = "I bersagli spawmano in fretta — anche più di uno insieme. Colpiscili prima che spariscano.",
   startLabel = "Inizia la prova",
   onStart,
   onComplete,
@@ -100,7 +100,6 @@ export function AccademiaArena({
   const liveRef = useRef<LiveTarget[]>([]);
   const runningRef = useRef(false);
   const finishingRef = useRef(false);
-  const pairPendingRef = useRef(false);
   const arenaRef = useRef<HTMLDivElement>(null);
   const hitLockRef = useRef<Set<string>>(new Set());
   const onCompleteRef = useRef(onComplete);
@@ -163,33 +162,29 @@ export function AccademiaArena({
     return liveRef.current.filter((t) => t.phase === "in" || t.phase === "live").length;
   }
 
-  function scheduleNextAfterSpawn() {
-    if (queueRef.current.length < 1) return;
-    if (pairPendingRef.current) {
-      pairPendingRef.current = false;
-      scheduleSpawn(rand(PAIR_GAP_MIN, PAIR_GAP_MAX));
-      return;
-    }
-    /* prossima ondata solo quando lo slot è libero (dopo exit) */
-  }
-
-  function scheduleWaveIfIdle() {
+  /** Tiene la pipeline piena fino a LIVE_MAX (spawn anche in contemporanea). */
+  function pumpSpawns() {
     if (!runningRef.current) return;
     if (queueRef.current.length < 1) {
       maybeEnd();
       return;
     }
-    if (activeCount() > 0) return;
-    if (liveRef.current.length > 0) return; /* ancora in exit */
-    if (spawnRef.current) return; /* spawn già schedulato (burst / prossima ondata) */
-    /* Dopo hit/miss: nuova ondata appena l’arena è libera. */
-    scheduleSpawn(rand(SOLO_GAP_MIN, SOLO_GAP_MAX));
+    if (spawnRef.current) return;
+    const liveN = activeCount();
+    if (liveN >= LIVE_MAX) return;
+    const delay =
+      liveN === 0
+        ? rand(SOLO_GAP_MIN, SOLO_GAP_MAX)
+        : Math.random() < MULTI_CHANCE
+          ? rand(PAIR_GAP_MIN, PAIR_GAP_MAX)
+          : rand(SOLO_GAP_MIN, SOLO_GAP_MAX);
+    scheduleSpawn(delay);
   }
 
   function spawnOne() {
     if (!runningRef.current) return;
     if (activeCount() >= LIVE_MAX) {
-      scheduleSpawn(260);
+      scheduleSpawn(180);
       return;
     }
     const next = queueRef.current.shift();
@@ -219,21 +214,13 @@ export function AccademiaArena({
       const cur = liveRef.current.find((t) => t.id === liveT.id);
       if (!cur || cur.phase !== "in") return;
       syncLive(liveRef.current.map((t) => (t.id === liveT.id ? { ...t, phase: "live" as const } : t)));
-    }, 160);
+    }, 110);
 
     const missT = setTimeout(() => beginExit(liveT.id, "out"), lifeMs);
     missTimersRef.current.set(liveT.id, missT);
 
-    if (queueRef.current.length > 0) {
-      if (pairPendingRef.current) {
-        scheduleNextAfterSpawn();
-      } else if (activeCount() === 1 && Math.random() < PAIR_CHANCE) {
-        /* burst: secondo quasi subito, lontano nello spazio */
-        pairPendingRef.current = true;
-        scheduleNextAfterSpawn();
-      }
-      /* altrimenti aspetta idle dopo exit */
-    }
+    /* subito dopo: prova ad aggiungerne un altro in overlap */
+    pumpSpawns();
   }
 
   function clearMiss(id: string) {
@@ -252,7 +239,7 @@ export function AccademiaArena({
       finish(hitsRef.current);
       return;
     }
-    scheduleWaveIfIdle();
+    pumpSpawns();
   }
 
   function beginExit(id: string, phase: "out" | "hit") {
@@ -304,7 +291,6 @@ export function AccademiaArena({
   function start() {
     if (!pool.length || runningRef.current) return;
     finishingRef.current = false;
-    pairPendingRef.current = false;
     clearTimers();
     const shuffled = [...pool].sort(() => Math.random() - 0.5);
     queueRef.current = shuffled;
@@ -320,8 +306,8 @@ export function AccademiaArena({
     } catch {
       /* ignore */
     }
-    /* primo dopo un attimo di tensione */
-    scheduleSpawn(380 + Math.random() * 220);
+    /* primo subito, poi la pipeline riempie fino a LIVE_MAX */
+    scheduleSpawn(120 + Math.random() * 160);
     timerRef.current = setInterval(() => {
       setLeft((s) => {
         if (s <= 1) {
@@ -429,7 +415,7 @@ export function AccademiaArena({
 }
 
 /** Pool locale per lo step smistamento (nessun punteggio fazione). */
-export function makeGateTargets(count = 10): AccademiaPoolTarget[] {
+export function makeGateTargets(count = 15): AccademiaPoolTarget[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `gate-${i + 1}`,
     points: 1,

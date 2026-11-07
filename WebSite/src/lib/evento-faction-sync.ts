@@ -3,11 +3,13 @@
 import { useEffect, useRef } from "react";
 import { fetchEventoStatus, type EventoWallet } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
+import { subscribeSiteRealtime } from "@/lib/site-realtime";
 
 /**
  * Sync live economia/fazione sul sito.
  * I comandi Discord (+daily, +work, +deposita, gambling, …) aggiornano il wallet in DB;
  * il poller confronta un fingerprint e notifica tutte le UI in ascolto.
+ * In più: WS `evento_wallet_changed` dopo i grant minigame Discord.
  */
 export const EVENTO_FACTION_SYNC = "vc-evento-faction-sync";
 
@@ -81,9 +83,10 @@ export function useEventoFactionSync(onSync: () => void, opts?: { pollMs?: numbe
  * e notifica tutti i pannelli in ascolto. Non ascolta il proprio notify (evita loop).
  */
 export function EventoLiveWalletPoller({ pollMs = EVENTO_LIVE_POLL_MS }: { pollMs?: number } = {}) {
-  const { token, ready } = useAuth();
+  const { user, token, ready } = useAuth();
   const lastFp = useRef("");
   const interval = Math.max(1_500, Number(pollMs) || EVENTO_LIVE_POLL_MS);
+  const selfId = String(user?.id || "").trim();
 
   useEffect(() => {
     if (!ready || !token) {
@@ -92,7 +95,7 @@ export function EventoLiveWalletPoller({ pollMs = EVENTO_LIVE_POLL_MS }: { pollM
     }
     let alive = true;
 
-    const tick = async () => {
+    const tick = async (reason = "poll") => {
       if (!alive) return;
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       const st = await fetchEventoStatus(token);
@@ -101,11 +104,15 @@ export function EventoLiveWalletPoller({ pollMs = EVENTO_LIVE_POLL_MS }: { pollM
       if (!fp) return;
       if (!lastFp.current) {
         lastFp.current = fp;
+        if (reason === "ws") notifyEventoFactionSync("wallet_ws");
         return;
       }
       if (fp !== lastFp.current) {
         lastFp.current = fp;
-        notifyEventoFactionSync("wallet");
+        notifyEventoFactionSync(reason === "ws" ? "wallet_ws" : "wallet");
+      } else if (reason === "ws") {
+        /* Grant appena arrivato: forza reload UI anche se fingerprint non è ancora cambiato. */
+        notifyEventoFactionSync("wallet_ws");
       }
     };
 
@@ -121,13 +128,19 @@ export function EventoLiveWalletPoller({ pollMs = EVENTO_LIVE_POLL_MS }: { pollM
     };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVis);
+    const offWs = subscribeSiteRealtime((ping) => {
+      if (ping?.type !== "evento_wallet_changed") return;
+      if (ping.userId && selfId && ping.userId !== selfId) return;
+      void tick("ws");
+    });
     return () => {
       alive = false;
       window.clearInterval(poll);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVis);
+      offWs();
     };
-  }, [ready, token, interval]);
+  }, [ready, token, interval, selfId]);
 
   return null;
 }

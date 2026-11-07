@@ -48,7 +48,7 @@ const DAY_ROWS = Object.freeze([
   { date: "2026-12-07", at: "00:00", advent: 7 },
   { date: "2026-12-08", at: "00:00", advent: 8 },
   { date: "2026-12-09", at: "12:00", advent: 9, off: [FEATURES.EVENT_PODRACING_CHAMP], note: "Termine Podracing Championship" },
-  { date: "2026-12-10", at: "12:00", advent: 10, on: [FEATURES.MINIGAME_CACCIATORE], note: "Cacciatore di taglie" },
+  { date: "2026-12-10", at: "12:00", advent: 10, on: [FEATURES.MINIGAME_CACCIATORE], note: "Cacciatore di taglie · 2 truppe potenza 1" },
   { date: "2026-12-11", at: "00:00", advent: 11 },
   { date: "2026-12-12", at: "21:00", advent: 12, film: "Star Wars: L'attacco dei cloni" },
   { date: "2026-12-13", at: "12:00", advent: 13, economyPhase: ECONOMY_PHASE.I, note: "Economia I attiva" },

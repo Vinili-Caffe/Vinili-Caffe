@@ -97,7 +97,7 @@ export function SiteShell({
               <NotifLiveToasts />
               <BackToTopFab />
               {evento ? <EventoMusic /> : <VinylMusicRoot />}
-              {/* easter egg: "It's time" all'apertura, poi la musica del giradischi */}
+              {/* easter egg: "It's time" 1×/giorno alla prima pagina, poi stop */}
               {!evento ? <ItsTimeIntro /> : null}
               <SiteEffects />
             </EventoChromeProvider>

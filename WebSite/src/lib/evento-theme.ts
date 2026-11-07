@@ -49,5 +49,6 @@ export function isEventoChromePath(pathname: string): boolean {
   const p = String(pathname || "").replace(/\/+$/, "") || "/";
   if (p === "/evento" || p.startsWith("/evento/")) return true;
   if (p === "/puzzle" || p.startsWith("/puzzle/")) return true;
+  if (p === "/seratafilm" || p.startsWith("/seratafilm/")) return true;
   return false;
 }

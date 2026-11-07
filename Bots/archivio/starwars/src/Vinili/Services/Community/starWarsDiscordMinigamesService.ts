@@ -1,27 +1,19 @@
 "use strict";
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ChannelType,
-  PermissionsBitField,
-} = require("discord.js") as typeof import("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const { SiteDocument, SITE_DOCUMENT_TYPE, ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
 const IDs = require(__eventCoreVinili("Config/ids"));
 const { FEATURES, canAutoSpawnFeature, getRuntimeFlags, isHighStaffMember } = require("../../Utils/Eventi/starWarsRuntimeGate") as typeof import("../../Utils/Eventi/starWarsRuntimeGate");
-const {
-  EPOCHS,
-  resolveFeatureStateNow,
-} = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
-const {
-  grantStarWarsReward,
-  grantStarWarsMinigameWinReward,
-  grantStarWarsGlobalMinigameWinBonus,
-} = require("./starWarsRewardsService") as typeof import("./starWarsRewardsService");
+const { EPOCHS, resolveFeatureStateNow } = require("../../Utils/Eventi/starWarsEventCalendar") as typeof import("../../Utils/Eventi/starWarsEventCalendar");
+const { grantStarWarsReward, grantStarWarsMinigameWinReward, grantStarWarsGlobalMinigameWinBonus } = require("./starWarsRewardsService") as typeof import("./starWarsRewardsService");
 const { formatCrateMention } = require("../../Utils/Eventi/starWarsCrateEmojis") as typeof import("../../Utils/Eventi/starWarsCrateEmojis");
+const { getConfig } = require(__eventCoreVinili("Minigames/services/minigameConfig")) as typeof import("../../../../../../src/Vinili/Minigames/services/minigameConfig");
+const { sendMinigameRolePing } = require(__eventCoreVinili("Minigames/services/minigameRolePing")) as typeof import("../../../../../../src/Vinili/Minigames/services/minigameRolePing");
+const {
+  reactMinigameWin,
+  reactMinigameWrongEmoji,
+} = require(__eventCoreVinili("Minigames/services/minigameDiscord")) as typeof import("../../../../../../src/Vinili/Minigames/services/minigameDiscord");
 
 const DOC_TYPE = SITE_DOCUMENT_TYPE.STARWARS_EVENT_STATE;
 const OWNER = "__starwars_mg__";
@@ -57,6 +49,23 @@ function sleep(ms?) {
   return new Promise((resolve?) => setTimeout(resolve, n));
 }
 
+/** Ping ruolo Minigames prima dell'annuncio (stesso anti-doppione del pool normale). */
+async function pingMinigamesRole(client?, channel?) {
+  if (!channel?.send) return;
+  try {
+    const cfg = getConfig(client);
+    await sendMinigameRolePing(channel, cfg);
+  } catch (_) {}
+}
+
+async function reactSwWin(message?) {
+  await reactMinigameWin(message).catch(() => null);
+}
+
+async function reactSwWrong(message?) {
+  await reactMinigameWrongEmoji(message).catch(() => null);
+}
+
 function randomF1HoldMs() {
   return F1_HOLD_MIN_MS + Math.floor(Math.random() * (F1_HOLD_MAX_MS - F1_HOLD_MIN_MS + 1));
 }
@@ -64,13 +73,14 @@ function randomF1HoldMs() {
 function podracerLightsEmbed(stage?) {
   const s = String(stage || "1");
   const map = {
-    "1": { title: "Semaforo — 1", image: PODRACE_IMAGES.lights1, color: 0xb91c1c },
-    "2": { title: "Semaforo — 2", image: PODRACE_IMAGES.lights2, color: 0xb91c1c },
-    "3": { title: "Semaforo — 3", image: PODRACE_IMAGES.lights3, color: 0xb91c1c },
-    go: { title: "VIA!", image: PODRACE_IMAGES.lightsGo, color: 0x16a34a },
+    "1": { image: PODRACE_IMAGES.lights1, color: 0xb91c1c },
+    "2": { image: PODRACE_IMAGES.lights2, color: 0xb91c1c },
+    "3": { image: PODRACE_IMAGES.lights3, color: 0xb91c1c },
+    go: { image: PODRACE_IMAGES.lightsGo, color: 0x16a34a },
   };
   const meta = map[s] || map["1"];
-  return new EmbedBuilder().setColor(meta.color).setTitle(meta.title).setImage(meta.image);
+  /* Solo colore + immagine: niente setTitle (undefined crasha shapeshift). */
+  return new EmbedBuilder().setColor(meta.color).setImage(meta.image);
 }
 
 /** Countdown semaforo podracer: embed grafico 1→2→3 rossi, poi verde, poi delete. */
@@ -177,7 +187,7 @@ function walletGuildId(client?) {
   return normalizeId(IDs.guilds?.main);
 }
 
-const UNSORTED_MG_MSG = "Devi essere **smistato** nell'evento Star Wars per partecipare.";
+const UNSORTED_MG_MSG = "<a:VC_Alert:1482706673176150077> Devi essere **smistato** nell'evento Star Wars per partecipare.";
 
 /** Legge factionId dal DB (wallet main, fallback guild Discord). */
 async function resolveStarWarsFactionId(client?, discordGuildId?, userId?) {
@@ -297,13 +307,14 @@ async function spawnReactGame(client?, kind?, { channelId = null, force = false 
   });
 
   try {
+    await pingMinigamesRole(client, channel);
     await playF1StartLights(channel);
 
   const embed = new EmbedBuilder()
       .setColor(0x22c55e)
       .setTitle(meta.title)
       .setDescription(
-        `**VIA!**\nPrimo a reagire con ${meta.emoji} vince ${formatCrateMention(meta.crate)} + **${meta.exp} exp**.`,
+        `<a:VC_Events:1482706144953897223> **VIA!**\nPrimo a reagire con ${meta.emoji} vince ${formatCrateMention(meta.crate)} + **${meta.exp} exp**.`,
       );
     if (meta.startImage) embed.setImage(meta.startImage);
   const msg = await channel.send({ embeds: [embed] }).catch(() => null);
@@ -400,8 +411,8 @@ async function finalizeHuntTimeout(client?, kind?) {
         embeds: [
           new EmbedBuilder()
             .setColor(0x6b7280)
-            .setTitle(`${meta.emoji}  ${meta.title}`)
-            .setDescription("Tempo scaduto: nessuno ha trovato il messaggio nascosto."),
+            .setTitle(`${meta.emoji} ${meta.title}`)
+            .setDescription("<a:VC_pixeltime:1482535344103620771> Tempo scaduto: nessuno ha trovato il messaggio nascosto."),
         ],
       })
       .catch(() => null);
@@ -452,6 +463,7 @@ async function spawnHuntGame(client?, kind?, { channelId = null, force = false }
 
   const durationMs = HUNT_DURATION_MS;
   const customId = `sw_mg:${kind}:${Date.now().toString(36)}`;
+  await pingMinigamesRole(client, hub);
   const hubEmbed = new EmbedBuilder()
     .setColor(0x2f6fed)
     .setTitle(`${meta.emoji}  ${meta.title}`)
@@ -525,7 +537,7 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
       const claimed = await claimRound(kind, user.id);
       if (!claimed) return true;
       await grantStarWarsMinigameWinReward(client, {
-        guildId,
+        guildId: walletGuildId(client) || guildId,
         userId: user.id,
         reason: kind,
         grant: { crateId: meta.crate, crateQty: 1, exp: meta.exp },
@@ -540,7 +552,7 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
       await reaction.message
         ?.edit?.({ embeds: [winEmbed] })
         .catch(() => null);
-      const ch = reaction.message?.channel;
+      await reactSwWin(reaction.message).catch(() => null);
       return true;
     } finally {
       claimLocks.delete(lock);
@@ -572,29 +584,28 @@ async function handleStarWarsButton(interaction?) {
   }
   const round = await getActiveRound(kind);
   if (!round?.payload || round.payload.status !== "active") {
-    await interaction.editReply({ content: "Round già chiuso." }).catch(() => null);
+    await interaction.editReply({ content: "<a:VC_Alert:1482706673176150077>Round già chiuso." }).catch(() => null);
     return true;
   }
   if (normalizeId(round.payload.customId) && normalizeId(round.payload.customId) !== id) {
-    await interaction.editReply({ content: "Questo messaggio non è più valido." }).catch(() => null);
+    await interaction.editReply({ content: "<a:VC_Alert:1482706673176150077> Questo messaggio non è più valido." }).catch(() => null);
     return true;
   }
   const claimed = await claimRound(kind, interaction.user.id);
   if (!claimed) {
-    await interaction.editReply({ content: "Qualcun altro è stato più veloce." }).catch(() => null);
+    await interaction.editReply({ content: "<a:VC_Alert:1482706673176150077> Qualcun altro è stato più veloce." }).catch(() => null);
     return true;
   }
   clearHuntTimeout(kind);
-  const guildId = normalizeId(interaction.guildId) || normalizeId(round.payload.guildId) || mainGuildId();
   await grantStarWarsMinigameWinReward(interaction.client, {
-    guildId,
+    guildId: walletGuildId(interaction.client) || normalizeId(interaction.guildId) || normalizeId(round.payload.guildId),
     userId: interaction.user.id,
     reason: kind,
     grant: { crateId: meta.crate, crateQty: 1, exp: meta.exp },
   });
   await interaction
     .editReply({
-      content: `Hai vinto! (+${formatCrateMention(meta.crate, 1, { open: true })} + ${meta.exp} exp · ${CREDITI} +5 · +10 banca)`,
+      content: `<a:VC_Events:1482706144953897223> Hai vinto! +${formatCrateMention(meta.crate, 1, { open: true })} + ${meta.exp} exp + 15 ${CREDITI}`,
     })
     .catch(() => null);
   await deleteHuntHiddenMessage(interaction.client, round.payload);
@@ -606,7 +617,7 @@ async function handleStarWarsButton(interaction?) {
     if (hub?.send) {
       await hub
         .send({
-          content: `${meta.emoji} <@${interaction.user.id}> ha vinto **${meta.title}**! (+${formatCrateMention(meta.crate, 1, { open: true })} + ${meta.exp} exp)`,
+          content: `${meta.emoji} <@${interaction.user.id}> ha vinto **${meta.title}**! +${formatCrateMention(meta.crate, 1, { open: true })} + ${meta.exp} exp`,
         })
         .catch(() => null);
     }
@@ -698,7 +709,7 @@ async function finalizeOrdine66Timeout(client?) {
           new EmbedBuilder()
             .setColor(0x6b7280)
             .setTitle("Ordine 66")
-            .setDescription("Tempo scaduto: il Jedi è fuggito."),
+            .setDescription("<a:VC_pixeltime:1482535344103620771> Tempo scaduto: il Jedi è fuggito."),
         ],
       })
       .catch(() => null);
@@ -779,6 +790,7 @@ async function startOrdine66(client?, { channelId = null, force = false } = {}) 
     expiresAt,
   });
   scheduleOrdine66Timeout(client, ORDINE66_DURATION_MS);
+  await pingMinigamesRole(client, channel);
   await channel
     .send({
       embeds: [
@@ -816,12 +828,14 @@ async function tryOrdine66Mention(message?, client?) {
 
   const hit = mentioned.some((u?) => normalizeId(u.id) === targetId);
   if (!hit) {
+    await reactSwWrong(message);
     await message.reply("Non è quello lo Jedi.").catch(() => null);
     return true;
   }
 
   const claimed = await claimRound("ordine66", message.author.id);
   if (!claimed) {
+    await reactSwWrong(message);
     await message.reply("Qualcun altro ha già eseguito l'Ordine 66.").catch(() => null);
     return true;
   }
@@ -835,11 +849,12 @@ async function tryOrdine66Mention(message?, client?) {
     resolveJediRole(guild);
   await clearJediRoleFromMember(guild, role, targetId, "Ordine 66 eseguito");
   await grantStarWarsMinigameWinReward(client, {
-    guildId: message.guildId,
+    guildId: walletGuildId(client) || message.guildId,
     userId: message.author.id,
     reason: "ordine66",
     grant: { crateId: "alpha", crateQty: 1, exp: 100, troops: { tier1: 5 } },
   });
+  await reactSwWin(message);
   await message
     .reply(
       `Eseguito. <@${message.author.id}> ottiene ${formatCrateMention("alpha", 1, { open: true })} + 100 exp + 5 truppe (${CREDITI} +5 · +10 banca).`,
@@ -849,6 +864,61 @@ async function tryOrdine66Mention(message?, client?) {
 }
 
 /* ——— Cacciatore di taglie (come Ordine 66, ruolo rinominato) ——— */
+const CACCIATORE_CDN = "https://cdn.viniliecaffe.it/images/starwars";
+const CACCIATORE_IMG_V = "20261106ct1";
+const CACCIATORE_HUB_IMAGE = `${CACCIATORE_CDN}/cacciatore-taglie-hub.jpg?v=${CACCIATORE_IMG_V}`;
+const CACCIATORE_WIN_IMAGE = `${CACCIATORE_CDN}/cacciatore-taglie-win.jpg?v=${CACCIATORE_IMG_V}`;
+/** 2 unità a potenza 1 (non tier): Cloni/Droidi, Ribelli/Stormtrooper, Repubblicano/Assaltatore. */
+const CACCIATORE_TROOP_POWER = 1;
+const CACCIATORE_TROOP_QTY = 2;
+
+/** Stesso stile del win embed (`**2 Cloni**`), con entrambe le fazioni dell'epoca. */
+function cacciatorePower1PrizeBlurb(now = new Date()) {
+  try {
+    const { pickUnitForPower, unitLabelForFaction, EPOCH_FACTIONS } = require("../../Utils/Eventi/starWarsEconomyCatalog") as typeof import("../../Utils/Eventi/starWarsEconomyCatalog");
+    const epoch = resolveFeatureStateNow(now).epoch || EPOCHS.CLONE_WARS;
+    const unit = pickUnitForPower(epoch, null, CACCIATORE_TROOP_POWER);
+    if (!unit) throw new Error("no_unit");
+    const factions = EPOCH_FACTIONS[epoch] || Object.keys(unit.labels || {});
+    const parts = [];
+    const seen = new Set();
+    for (const fid of factions) {
+      const label = unitLabelForFaction(unit, fid);
+      if (!label || seen.has(label)) continue;
+      seen.add(label);
+      parts.push(`**${CACCIATORE_TROOP_QTY} ${label}**`);
+    }
+    if (parts.length) return parts.join(" / ");
+  } catch (_) {}
+  return `**${CACCIATORE_TROOP_QTY} truppe potenza ${CACCIATORE_TROOP_POWER}**`;
+}
+
+async function resolveCacciatoreTroopGrant(client?, guildId?, userId?) {
+  const { getStarWarsWallet } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
+  const {
+    pickUnitForPower,
+    unitLabelForFaction,
+  } = require("../../Utils/Eventi/starWarsEconomyCatalog") as typeof import("../../Utils/Eventi/starWarsEconomyCatalog");
+  const g = normalizeId(guildId) || walletGuildId(client) || mainGuildId(client);
+  const u = normalizeId(userId);
+  const wallet = await getStarWarsWallet(g, u);
+  const factionId = normalizeId(wallet?.factionId).toLowerCase() || null;
+  const epoch = wallet?.epoch || resolveFeatureStateNow().epoch || EPOCHS.CLONE_WARS;
+  const unit = pickUnitForPower(epoch, factionId, CACCIATORE_TROOP_POWER);
+  if (!unit?.id) {
+    return {
+      troops: null,
+      label: `truppe potenza ${CACCIATORE_TROOP_POWER}`,
+      qty: CACCIATORE_TROOP_QTY,
+    };
+  }
+  return {
+    troops: { [unit.id]: CACCIATORE_TROOP_QTY },
+    label: unitLabelForFaction(unit, factionId),
+    qty: CACCIATORE_TROOP_QTY,
+  };
+}
+
 function clearCacciatoreTimeout() {
   const t = cacciatoreTimeouts.get("cacciatore");
   if (t) clearTimeout(t);
@@ -875,7 +945,8 @@ async function finalizeCacciatoreTimeout(client?) {
           new EmbedBuilder()
             .setColor(0x6b7280)
             .setTitle("Cacciatore di taglie")
-            .setDescription("Tempo scaduto: il bersaglio è fuggito."),
+            .setDescription("<a:VC_pixeltime:1482535344103620771> Tempo scaduto: il bersaglio è fuggito.")
+            .setImage(CACCIATORE_HUB_IMAGE),
         ],
       })
       .catch(() => null);
@@ -920,7 +991,7 @@ async function startCacciatoreTaglie(client?, { channelId = null, force = false 
   if (!channel?.isTextBased?.()) return { ok: false, error: "bad_channel" };
 
   await clearAllJediRoleHolders(guild, huntRole, "Cacciatore di taglie nuovo round");
-  const roleOk = await target.roles.add(huntRole, "Cacciatore di taglie — bersaglio").then(() => true).catch(() => false);
+  const roleOk = await target.roles.add(huntRole, "Cacciatore di taglie").then(() => true).catch(() => false);
   if (!roleOk) return { ok: false, error: "role_assign_failed" };
 
   const expiresAt = new Date(Date.now() + CACCIATORE_DURATION_MS).toISOString();
@@ -935,6 +1006,7 @@ async function startCacciatoreTaglie(client?, { channelId = null, force = false 
     expiresAt,
   });
   scheduleCacciatoreTimeout(client, CACCIATORE_DURATION_MS);
+  await pingMinigamesRole(client, channel);
   await channel
     .send({
       embeds: [
@@ -942,8 +1014,9 @@ async function startCacciatoreTaglie(client?, { channelId = null, force = false 
           .setColor(0xb45309)
           .setTitle("Cacciatore di taglie")
           .setDescription(
-            `Un bersaglio è tra gli utenti **smistati online**… **Pingalo** in chat per riscuotere la taglia.\nVince chi lo menziona per primo.\nHai **${Math.round(CACCIATORE_DURATION_MS / 60000)} minuti**.`,
-          ),
+            `Un bersaglio è tra gli utenti **smistati online**… taggalo in chat per riscuotere la taglia.\nAvete **${Math.round(CACCIATORE_DURATION_MS / 60000)} minuti** per trovare l'obiettivo. Vince chi lo menziona per primo.\n\n<a:VC_Events:1482706144953897223> Premio: ${formatCrateMention("alpha", 1, { open: true })} + 100 exp + ${cacciatorePower1PrizeBlurb()}.`,
+          )
+          .setImage(CACCIATORE_HUB_IMAGE),
       ],
     })
     .catch(() => null);
@@ -957,12 +1030,17 @@ async function tryCacciatoreMention(message?, client?) {
   if (guildId && normalizeId(message.guildId) !== guildId) return false;
   const targetId = normalizeId(round.payload.targetId);
   if (!targetId) return false;
-  if (normalizeId(message.author?.id) === targetId) return false;
 
+  const authorId = normalizeId(message.author?.id);
+  const selfIsTarget = Boolean(authorId && authorId === targetId);
   const mentionColl = message.mentions?.users;
-  const mentioned = [...(mentionColl?.values?.() || mentionColl?.cache?.values?.() || [])].filter(
-    (u?) => u && !u.bot && normalizeId(u.id) !== normalizeId(message.author?.id),
-  );
+  const mentioned = [...(mentionColl?.values?.() || mentionColl?.cache?.values?.() || [])].filter((u?) => {
+    if (!u || u.bot) return false;
+    const id = normalizeId(u.id);
+    /* Auto-tag del bersaglio: vale come taglia riscossa. */
+    if (id === authorId) return selfIsTarget;
+    return true;
+  });
   if (!mentioned.length) return false;
 
   if (!(await isStarWarsSortedParticipant(client || message.client, message.guildId, message.author.id))) {
@@ -971,13 +1049,15 @@ async function tryCacciatoreMention(message?, client?) {
 
   const hit = mentioned.some((u?) => normalizeId(u.id) === targetId);
   if (!hit) {
-    await message.reply("Non è quello il bersaglio.").catch(() => null);
+    await reactSwWrong(message);
+    await message.reply("<a:VC_Alert:1482706673176150077> Non è quello il bersaglio.").catch(() => null);
     return true;
   }
 
   const claimed = await claimRound("cacciatore", message.author.id);
   if (!claimed) {
-    await message.reply("Qualcun altro ha già riscosso la taglia.").catch(() => null);
+    await reactSwWrong(message);
+    await message.reply("<a:VC_Alert:1482706673176150077> Qualcun altro ha già riscosso la taglia.").catch(() => null);
     return true;
   }
   clearCacciatoreTimeout();
@@ -989,16 +1069,32 @@ async function tryCacciatoreMention(message?, client?) {
     (normalizeId(round.payload.roleId) && guild?.roles?.cache?.get(normalizeId(round.payload.roleId))) ||
     resolveJediRole(guild);
   await clearJediRoleFromMember(guild, role, targetId, "Cacciatore di taglie eseguito");
+  const troopGrant = await resolveCacciatoreTroopGrant(client, message.guildId, message.author.id);
+  const troopLine = `**${troopGrant.qty} ${troopGrant.label}**`;
   await grantStarWarsMinigameWinReward(client, {
-    guildId: message.guildId,
+    guildId: walletGuildId(client) || message.guildId,
     userId: message.author.id,
     reason: "cacciatore",
-    grant: { crateId: "alpha", crateQty: 1, exp: 100, troops: { tier1: 5 } },
+    grant: {
+      crateId: "alpha",
+      crateQty: 1,
+      exp: 100,
+      ...(troopGrant.troops ? { troops: troopGrant.troops } : {}),
+    },
   });
+  await reactSwWin(message);
   await message
-    .reply(
-      `Taglia riscossa. <@${message.author.id}> ottiene ${formatCrateMention("alpha", 1, { open: true })} + 100 exp + 5 truppe (${CREDITI} +5 · +10 banca).`,
-    )
+    .reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xb45309)
+          .setTitle("<a:VC_Events:1482706144953897223> Obiettivo trovato!")
+          .setDescription(
+            `<@${message.author.id}> ha riscosso la taglia guadagnando: ${formatCrateMention("alpha", 1, { open: true })} + 100 exp + ${troopLine}.`,
+          )
+          .setImage(CACCIATORE_WIN_IMAGE),
+      ],
+    })
     .catch(() => null);
   return true;
 }
@@ -1118,11 +1214,12 @@ async function startScovaPianeta(client?, { channelId = null, force = false } = 
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
   });
+  await pingMinigamesRole(client, channel);
   const embed = new EmbedBuilder()
           .setColor(0x2f6fed)
           .setTitle("Scova il pianeta")
     .setDescription(
-      `Settore **\`${coord}\`** · coordinate \`${numericCoords}\`\nConsulta la mappa e scrivi in chat il **nome del pianeta**.`,
+      `La mappa galattica non risulta aggiornata. Cerca il pianeta nel settore **\`${coord}\`** alle coordinate \`${numericCoords}\`\nConsulta la mappa e scrivi in chat il nome del pianeta.`,
     )
     .setImage(SCOVA_MAP_IMAGE);
   await channel.send({ embeds: [embed] }).catch(() => null);
@@ -1136,21 +1233,26 @@ async function tryScovaMessage(message?, client?) {
   const guessPlanet = findScovaPlanetByGuess(message.content);
   if (!guessPlanet) return false;
   const answerId = normalizeId(round.payload.planetId || round.payload.answer).toLowerCase();
-  if (guessPlanet.id !== answerId) return false;
+  if (guessPlanet.id !== answerId) {
+    await reactSwWrong(message);
+    return true;
+  }
   if (!(await isStarWarsSortedParticipant(client || message.client, message.guildId, message.author.id))) {
     return false;
   }
 
   const claimed = await claimRound("scova", message.author.id);
-  if (!claimed) return true;
+  if (!claimed) {
+    await reactSwWrong(message);
+    return true;
+  }
 
   const clientRef = client || message.client;
   const walletGid = walletGuildId(clientRef) || normalizeId(message.guildId);
   const factionId = await resolveStarWarsFactionId(clientRef, message.guildId, message.author.id);
   const SCOVA_FACTION_EXP = 1000;
-  const SCOVA_BANK_CREDITS = 250_000;
+  const SCOVA_BANK_CREDITS = 200_000;
 
-  let factionRewarded = 0;
   if (factionId) {
     const { listFactionMembers } = require("./starWarsQuizMalusService") as typeof import("./starWarsQuizMalusService");
     const members = await listFactionMembers(clientRef, [factionId]);
@@ -1163,7 +1265,6 @@ async function tryScovaMessage(message?, client?) {
         reason: "scova_faction",
         grant: { exp: SCOVA_FACTION_EXP },
       }).catch(() => null);
-      factionRewarded += 1;
     }
     const { addFactionBankCredits } = require("./starWarsEconomyService") as typeof import("./starWarsEconomyService");
     await addFactionBankCredits(clientRef, factionId, SCOVA_BANK_CREDITS, {
@@ -1177,7 +1278,6 @@ async function tryScovaMessage(message?, client?) {
       reason: "scova",
       grant: { exp: SCOVA_FACTION_EXP },
     }).catch(() => null);
-    factionRewarded = 1;
   }
   await grantStarWarsGlobalMinigameWinBonus(clientRef, {
     guildId: walletGid,
@@ -1185,18 +1285,37 @@ async function tryScovaMessage(message?, client?) {
   }).catch(() => null);
 
   const sector = round.payload.coord ? formatScovaGridCoord(round.payload.coord) : "";
-  const factionLabel =
-    factionId === "repubblica" ? "Repubblica" : factionId === "separatisti" ? "Separatisti" : "fazione";
+  const bankName =
+    factionId === "repubblica"
+      ? "della Repubblica"
+      : factionId === "separatisti"
+        ? "della Confederazione dei Sistemi Indipendenti"
+        : factionId === "ribellione"
+          ? "della Ribellione"
+          : factionId === "impero"
+            ? "dell'Impero"
+            : factionId === "nuova_repubblica"
+              ? "della Nuova Repubblica"
+              : factionId === "nuovo_ordine"
+                ? "del Nuovo Ordine"
+                : null;
+  const winColor =
+    factionId === "repubblica" || factionId === "ribellione" || factionId === "nuova_repubblica"
+      ? 0x2f6fed
+      : factionId === "separatisti" || factionId === "impero" || factionId === "nuovo_ordine"
+        ? 0xb45309
+        : 0x22c55e;
+  const foundLine =
+    `<@${message.author.id}> ha individuato **${guessPlanet.name}**` + (sector ? ` (\`${sector}\`)` : "") + ".";
+  const rewardLine = bankName
+    ? ` Per il suo contributo ha guadagnato **${SCOVA_FACTION_EXP.toLocaleString("it-IT")} exp** e ha aggiunto **${SCOVA_BANK_CREDITS.toLocaleString("it-IT")}** ${CREDITI} nella banca ${bankName}.`
+    : ` Per il suo contributo ha guadagnato **${SCOVA_FACTION_EXP.toLocaleString("it-IT")} exp**.`;
   const winEmbed = new EmbedBuilder()
-    .setColor(0x22c55e)
-    .setTitle("Pianeta trovato!")
-    .setDescription(
-      `<@${message.author.id}> ha individuato **${guessPlanet.name}**` +
-        (sector ? ` (\`${sector}\`)` : "") +
-        `.\n\nPremio fazione **${factionLabel}**: **+${SCOVA_FACTION_EXP.toLocaleString("it-IT")} exp** a ${factionRewarded} smistati` +
-        ` · ${CREDITI} **+${SCOVA_BANK_CREDITS.toLocaleString("it-IT")}** in banca truppe.`,
-    )
+    .setColor(winColor)
+    .setTitle("Mappa aggiornata!")
+    .setDescription(foundLine + rewardLine)
     .setImage(scovaPlanetImageUrl(guessPlanet.id));
+  await reactSwWin(message);
   await message.reply({ embeds: [winEmbed] }).catch(() => null);
   return true;
 }
@@ -1339,6 +1458,7 @@ async function startAttaccaBase(client?, { channelId = null, force = false } = {
   const hp = ATTACCA_MAX_HP;
   const skinKey = resolveFeatureStateNow().epoch === EPOCHS.SEQUEL ? "sequel" : "civil";
   const boardPayload = { hpYavin: hp, hpDeathStar: hp, skin: skinKey };
+  await pingMinigamesRole(client, channel);
   const boardMsg = await channel
     .send({
       embeds: [attaccaBaseBoardEmbed(boardPayload)],
@@ -1413,11 +1533,12 @@ async function tryAttaccaBaseMessage(message?, client?) {
 
   if (winner) {
     await grantStarWarsMinigameWinReward(client || message.client, {
-      guildId: message.guildId,
+      guildId: walletGuildId(client || message.client) || message.guildId,
       userId: uid,
       reason: "attacca_base",
       grant: { crateId: "omega", crateQty: 1, exp: 100 },
     });
+    await reactSwWin(message);
     await message.channel
       .send({
         embeds: [
@@ -1596,6 +1717,7 @@ async function startConvoglio(client?, { channelId = null, force = false } = {})
   const escort = Math.random() < 0.5 ? "repubblica" : "separatisti";
   const hop = 1;
   const btns = buildConvoglioButtons();
+  await pingMinigamesRole(client, channel);
   const msg = await channel
     .send({
       embeds: [convoglioEmbed({ escort, hop, mode: "active" })],
@@ -1685,7 +1807,7 @@ async function handleConvoglioButton(interaction?, parts?) {
     if (currentHop >= needHops) {
       await claimRound("convoglio", interaction.user.id);
       await grantStarWarsMinigameWinReward(interaction.client, {
-        guildId: interaction.guildId,
+        guildId: walletGuildId(interaction.client) || interaction.guildId,
         userId: interaction.user.id,
         reason: "convoglio_escort",
         grant: { crateId: "omega", crateQty: 1, exp: 100 },
@@ -2047,6 +2169,7 @@ async function startConquista(client?, { channelId = null, force = false } = {})
   const pairCount = Math.min(channels.length, planets.length);
   if (!pairCount) return { ok: false, error: "no_planets" };
 
+  await pingMinigamesRole(client, hub);
   const hubMsg = await hub
     .send({
       embeds: [
@@ -2244,6 +2367,7 @@ async function spawnDeckDrop(client?, kind?, { channelId = null, force = false }
 
   const roundKind = isPg ? "deck_pg" : "deck_relic";
   const image = isPg ? pgImageUrl(item.id) : reliquieImageUrl(item.id);
+  await pingMinigamesRole(client, channel);
   const embed = new EmbedBuilder()
     .setColor(isPg ? 0x2f6fed : 0xc9a227)
     .setTitle(isPg ? `Colleziona PG — ${item.name}` : `Colleziona reliquie — ${item.name}`)
@@ -2279,7 +2403,11 @@ async function tryDeckMessage(message?, client?) {
     const matched = isPg
       ? findPgByGuess(message.content)
       : findReliquieByGuess(message.content);
-    if (!matched || matched.id !== round.payload.itemId) continue;
+    if (!matched) continue;
+    if (matched.id !== round.payload.itemId) {
+      await reactSwWrong(message);
+      return true;
+    }
 
     if (!(await isStarWarsSortedParticipant(client || message.client, message.guildId, message.author.id))) {
       await message.reply(UNSORTED_MG_MSG).catch(() => null);
@@ -2288,6 +2416,7 @@ async function tryDeckMessage(message?, client?) {
 
     const claimed = await claimRound(kind, message.author.id);
     if (!claimed) {
+      await reactSwWrong(message);
       await message.reply("Qualcun altro è stato più veloce.").catch(() => null);
       return true;
     }
@@ -2331,6 +2460,7 @@ async function tryDeckMessage(message?, client?) {
       }
     }
 
+    await reactSwWin(message);
     await message
       .reply(
         alreadyOwned

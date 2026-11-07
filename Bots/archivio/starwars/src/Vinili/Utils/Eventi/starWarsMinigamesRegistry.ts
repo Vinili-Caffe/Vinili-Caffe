@@ -46,7 +46,7 @@ const REGISTRY = Object.freeze([
     kind: "minigame",
     label: "Cacciatore di taglie",
     channel: "discord",
-    teaser: "Come Ordine 66.",
+    teaser: "Pinga il bersaglio · Alpha + 100 exp + 2 truppe potenza 1 (nome fazione).",
   },
   {
     id: "accademia",

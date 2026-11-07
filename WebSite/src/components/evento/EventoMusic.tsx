@@ -5,6 +5,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { MusicDock } from "@/components/MusicDock";
 import { useAuth } from "@/lib/auth";
 import {
@@ -16,6 +17,12 @@ import {
   EVENTO_YT_FALLBACKS,
 } from "@/lib/evento-theme";
 import { loadYtApi, type YtNamespace, type YtPlayer } from "@/lib/youtube-player";
+
+/** Serata film ha BGM/countdown propri: silenzia la colonna SW. */
+function pathSuppressesEventoMusic(pathname: string) {
+  const p = String(pathname || "").replace(/\/+$/, "") || "/";
+  return p === "/seratafilm" || p.startsWith("/seratafilm/");
+}
 
 const BC = "vc-evento-bgm-v2";
 const CHROME_PREFS = "/webhooks/site-chrome-prefs";
@@ -105,6 +112,8 @@ function broadcast(msg: Record<string, unknown>) {
 
 export function EventoMusic() {
   const { token } = useAuth();
+  const pathname = usePathname() || "/";
+  const suppress = pathSuppressesEventoMusic(pathname);
   const host = useRef<HTMLDivElement>(null);
   const yt = useRef<YtPlayer | null>(null);
   const readyRef = useRef(false);
@@ -130,6 +139,17 @@ export function EventoMusic() {
   useEffect(() => {
     volumeRef.current = volume;
   }, [volume]);
+
+  /* /seratafilm: pausa BGM SW (SerataBoard ha colonna/countdown propri). */
+  useEffect(() => {
+    if (!suppress) return;
+    try {
+      yt.current?.pauseVideo?.();
+      yt.current?.mute?.();
+    } catch {
+      /* ignore */
+    }
+  }, [suppress]);
 
   const schedulePush = useCallback(() => {
     if (pushTimer.current) clearTimeout(pushTimer.current);
@@ -407,6 +427,7 @@ export function EventoMusic() {
   );
 
   useEffect(() => {
+    if (suppress) return;
     if (booting.current) return;
     let cancelled = false;
     const start = () => {
@@ -440,8 +461,10 @@ export function EventoMusic() {
       }
       yt.current = null;
       readyRef.current = false;
+      booting.current = false;
+      setReady(false);
     };
-  }, [mountPlayer, savePos]);
+  }, [mountPlayer, savePos, suppress]);
 
   useEffect(() => {
     if (!ready) return;
@@ -571,6 +594,8 @@ export function EventoMusic() {
     },
     [],
   );
+
+  if (suppress) return null;
 
   return (
     <>

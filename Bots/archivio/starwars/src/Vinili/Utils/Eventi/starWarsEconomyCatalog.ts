@@ -104,6 +104,26 @@ function pickUnitForTier(epoch?, factionId?, tier?) {
   return pool[Math.floor(Math.random() * pool.length)] || null;
 }
 
+/** Unità con potenza esatta (per fazione/epoca). Una sola per epoca nei cataloghi attuali. */
+function pickUnitForPower(epoch?, factionId?, power?) {
+  const p = Math.floor(Number(power));
+  if (!Number.isFinite(p) || p < 1) return null;
+  const fid = String(factionId || "").trim().toLowerCase();
+  const pool = unitsForEpoch(epoch).filter((u?) => u.power === p && (!fid || u.labels?.[fid]));
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)] || null;
+}
+
+/** Etichette potenza (tutte le fazioni dell'epoca), es. `Cloni/Droidi`. */
+function powerUnitLabelsForEpoch(epoch?, power = 1) {
+  const unit = pickUnitForPower(epoch, null, power);
+  if (!unit) return "";
+  const names = Object.values(unit.labels || {})
+    .map((n?) => String(n || "").trim())
+    .filter(Boolean);
+  return [...new Set(names)].join("/") || unitLabelForFaction(unit, null);
+}
+
 /**
  * Converte mappa loot truppe (`tier2: 2` o già `cloni_droidi: 1`) → `{ unitId: qty }`.
  * Ogni pezzo di un tier viene pescato a caso tra le unità di quel tier.
@@ -145,6 +165,8 @@ export = {
   parseTroopTierKey,
   isTroopTierKey,
   pickUnitForTier,
+  pickUnitForPower,
+  powerUnitLabelsForEpoch,
   materializeTroopGrants,
   unitLabelForFaction,
 };

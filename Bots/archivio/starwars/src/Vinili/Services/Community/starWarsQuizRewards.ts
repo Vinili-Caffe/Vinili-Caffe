@@ -33,11 +33,25 @@ function normalizeId(v?) {
  * Incrementa il totale vittorie minigame SW (cumulativo) e assegna crediti + eventuale cassa Alpha.
  * L'exp profilo (50) resta sul flusso minigame standard (rewardExp).
  */
+function walletGuildId(client?, fallbackGuildId?) {
+  try {
+    const fromCfg = normalizeId(client?.config?.mainGuildId);
+    if (fromCfg) return fromCfg;
+  } catch (_) {}
+  try {
+    const IDs = require(__eventCoreVinili("Config/ids"));
+    const main = normalizeId(IDs.guilds?.main);
+    if (main) return main;
+  } catch (_) {}
+  return normalizeId(fallbackGuildId);
+}
+
 async function grantStarWarsQuizWinRewards(
   client?,
   { guildId, userId, cfg = null }: { guildId?: string | null; userId?: string | null; cfg?: any } = {},
 ) {
-  const g = normalizeId(guildId);
+  /* Sempre main: i minigame chat possono girare sul test guild in force-live. */
+  const g = walletGuildId(client, guildId);
   const u = normalizeId(userId);
   if (!isValidGuildUserId(g, u)) return { ok: false, error: "bad_ids" };
 

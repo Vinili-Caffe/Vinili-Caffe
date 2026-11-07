@@ -27,6 +27,34 @@ function safeInt(v?, fb = 0) {
   return Number.isFinite(n) ? Math.max(0, n) : fb;
 }
 
+/**
+ * Wallet SW / sito vivono sempre sul main ufficiale.
+ * I minigame possono spawnare sul test (force-live): non usare message.guildId per i grant.
+ */
+function walletGuildId(client?, fallbackGuildId?) {
+  try {
+    const fromCfg = normalizeId(client?.config?.mainGuildId);
+    if (fromCfg) return fromCfg;
+  } catch (_) {}
+  try {
+    const IDs = require(__eventCoreVinili("Config/ids"));
+    const main = normalizeId(IDs.guilds?.main);
+    if (main) return main;
+  } catch (_) {}
+  return normalizeId(fallbackGuildId);
+}
+
+function notifyEventoWalletLive(userId?, reason = "") {
+  const uid = normalizeId(userId);
+  if (!/^\d{17,22}$/.test(uid)) return;
+  try {
+    const { broadcastSiteEventoWalletChanged } = require(__eventCoreVinili(
+      "site/suggestions/siteSuggestionsBroadcast",
+    ));
+    broadcastSiteEventoWalletChanged(uid, { reason: String(reason || "").slice(0, 80) });
+  } catch (_) {}
+}
+
 /** PEI: 50k exp = 500 PEI → 100 exp = 1 PEI; 10M crediti = 100 PEI → 100k crediti = 1 PEI; 1 voto = 0.2 PEI */
 function peiFromExp(exp?) {
   return (safeInt(exp) / 100) * 1; // 100 exp → 1 PEI? PDF: 50000 exp = 500 PEI → 100 exp = 1 PEI
@@ -58,7 +86,7 @@ async function grantStarWarsReward(
     minigameCreditBuff?: boolean;
   } = {},
 ) {
-  const g = normalizeId(guildId);
+  const g = walletGuildId(client, guildId);
   const u = normalizeId(userId);
   const cfg = resolveStarWarsEventConfig(client);
   const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
@@ -198,6 +226,8 @@ async function grantStarWarsReward(
     } catch (_) {}
   }
 
+  notifyEventoWalletLive(u, reason);
+
   return {
     ok: true,
     wallet,
@@ -244,7 +274,7 @@ async function grantStarWarsGlobalMinigameWinBonus(
   client?,
   { guildId, userId }: { guildId?: string | null; userId?: string | null } = {},
 ) {
-  const g = normalizeId(guildId);
+  const g = walletGuildId(client, guildId);
   const u = normalizeId(userId);
   if (!isValidGuildUserId(g, u)) return { ok: false, error: "bad_ids" };
 
@@ -312,6 +342,7 @@ export = {
   peiFromExp,
   peiFromCreditsMoved,
   peiFromVotes,
+  walletGuildId,
   GLOBAL_WIN_PERSONAL_CREDITS,
   GLOBAL_WIN_FACTION_BANK_CREDITS,
   grantStarWarsReward,

@@ -90,10 +90,11 @@ async function setDoc(dedupeKey?, payload?, guildId = "0") {
 }
 
 /* ——— Accademia ——— */
+const ACCADEMIA_TARGET_COUNT = 15;
+
 function buildTargets(seed?) {
-  const count = 8 + (seed % 5);
   const targets = [];
-  for (let i = 0; i < count; i += 1) {
+  for (let i = 0; i < ACCADEMIA_TARGET_COUNT; i += 1) {
     const x = ((seed * 37 + i * 53) % 90) + 5;
     const y = ((seed * 19 + i * 41) % 70) + 10;
     const r = 4 + ((seed + i) % 6);
@@ -184,7 +185,7 @@ async function submitAccademia(client, { guildId, userId, hits = [], playToken =
     startMs = clientStart;
   }
   const elapsedMs = Math.min(35_000, Math.max(0, now - startMs));
-  // Anti-cheat: niente max score istantaneo; cap hit credibili ~1 ogni 400ms
+  // Anti-cheat: niente max score istantaneo; con spawn multipli ~1 hit / 280ms
   if (elapsedMs < 2500) {
     return { ok: false, status: 429, error: "too_fast", message: "Troppo veloce — riprova giocando la prova." };
   }
@@ -193,7 +194,7 @@ async function submitAccademia(client, { guildId, userId, hits = [], playToken =
   const byId = new Map(targets.map((t?) => [t.id, t]));
   let score = 0;
   const seen = new Set();
-  const maxCredibleHits = Math.min(targets.length, Math.max(1, Math.floor(elapsedMs / 400)));
+  const maxCredibleHits = Math.min(targets.length, Math.max(1, Math.floor(elapsedMs / 280)));
   for (const h of Array.isArray(hits) ? hits : []) {
     if (seen.size >= maxCredibleHits) break;
     const id = normalizeId(h?.id || h);

@@ -322,6 +322,21 @@ function broadcastSiteSerataChanged(extras: Record<string, any> = {}) {
   notifyExternalSiteRealtime(payload);
 }
 
+/** Wallet evento SW aggiornato (minigame Discord / economy) → refresh hub sito. */
+function broadcastSiteEventoWalletChanged(userId?, extras: Record<string, any> = {}) {
+  const uid = String(userId || (extras && extras.userId) || "").trim();
+  if (!/^\d{17,22}$/.test(uid)) return;
+  const ex = extras && typeof extras === "object" ? extras : {};
+  const payload = {
+    type: "evento_wallet_changed",
+    userId: uid,
+    reason: String(ex.reason || "").trim() || undefined,
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
 function broadcastSiteWebTicketsEvent(payload?) {
   if (!payload || typeof payload !== "object") return;
   const body = { ...payload };
@@ -396,6 +411,7 @@ export = {
   broadcastSitePartnershipChanged,
   broadcastSiteRankCardChanged,
   broadcastSiteSerataChanged,
+  broadcastSiteEventoWalletChanged,
   broadcastSiteWebTicketsEvent,
   broadcastSiteMemberLeft,
   invalidateLeftMemberSiteCaches,

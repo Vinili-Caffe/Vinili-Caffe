@@ -40,7 +40,7 @@ export function SmistamentoQuiz({ onSorted }: { onSorted?: () => void } = {}) {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<EventoFactionMeta | null>(null);
   const [gate, setGate] = useState("");
-  const gatePool = useMemo(() => makeGateTargets(10), []);
+  const gatePool = useMemo(() => makeGateTargets(15), []);
 
   const steps: Step[] = useMemo(() => {
     if (!questions.length) return [];
@@ -170,9 +170,6 @@ export function SmistamentoQuiz({ onSorted }: { onSorted?: () => void } = {}) {
         <EventoPanel glow="gold" className="!overflow-hidden !p-0">
           <div className="border-b border-sand/15 px-4 py-3 sm:px-5">
             <EventoKicker>Prova di riflessi</EventoKicker>
-            <p className="mt-1 text-sm text-crema/65">
-              Come in Accademia: colpisci i bersagli. Non assegna punti alla fazione.
-            </p>
           </div>
           {academyDone ? (
             <div className="px-4 py-8 text-center sm:px-5">
@@ -185,7 +182,7 @@ export function SmistamentoQuiz({ onSorted }: { onSorted?: () => void } = {}) {
             <AccademiaArena
               pool={gatePool}
               sessionSec={25}
-              hint="Uno alla volta, lontani — a volte due di fila. Nessun vantaggio sulla fazione: solo riflessi."
+              hint="Mira e spara agli obiettivi che compariranno sul campo."
               startLabel="Inizia la prova"
               onComplete={() => setAcademyDone(true)}
             />

@@ -5,13 +5,7 @@ import { Trophy } from "lucide-react";
 import { fetchEventoAccademia, submitEventoAccademia } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
-import {
-  EventoKicker,
-  EventoLoginGate,
-  EventoPanel,
-  EventoSkeleton,
-  EventoTitle,
-} from "@/components/evento/EventoUi";
+import { EventoKicker, EventoLoginGate, EventoPanel, EventoSkeleton, EventoTitle } from "@/components/evento/EventoUi";
 import { AccademiaArena, type AccademiaPoolTarget } from "@/components/evento/AccademiaArena";
 
 export function AccademiaGame() {
@@ -93,18 +87,14 @@ export function AccademiaGame() {
           <Trophy className="mx-auto size-10 text-sand" aria-hidden />
           <EventoKicker>Prova completata</EventoKicker>
           <EventoTitle>{score ?? 0} punti</EventoTitle>
-          <p className="mt-3 text-sm text-crema/65">Prossimo slot tra circa 4 ore. La Forza è con te.</p>
+          <p className="mt-3 text-sm text-crema/65">Prossimo addestramento fra 4 ore. Che la Forza sia con te.</p>
         </EventoPanel>
       </div>
     );
   }
 
   if (!playable && !pool.length) {
-    return (
-      <p className="mx-auto max-w-lg px-6 text-center text-sm text-crema/55">
-        Accademia fuori calendario — in anteprima HS resta giocabile quando il backend la espone.
-      </p>
-    );
+    return (null);
   }
 
   return (
@@ -114,7 +104,9 @@ export function AccademiaGame() {
           key={playToken || "accademia"}
           pool={pool}
           sessionSec={30}
-          hint="Uno alla volta, lontani — a volte due di fila. Più sei veloce, meglio è: ≤12s Omega+300 · ≤22s Beta+200 · altrimenti Alpha+100."
+          hint="Mira e spara agli obiettivi che compariranno sul campo. Più sei veloce e maggiore sarà la ricompensa:
+          
+          ≤12s Cassa Omega + 300 exp | ≤22s Cassa Beta + 200 exp | ≥22s Cassa Alpha + 100 exp"
           startLabel="Inizia la prova"
           onStart={() => {
             startedAtRef.current = Date.now();

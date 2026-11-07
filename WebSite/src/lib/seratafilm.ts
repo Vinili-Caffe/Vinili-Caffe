@@ -1,6 +1,8 @@
 /** Serata film: accesso high-staff + stream firmato. API /webhooks/site-seratafilm-access|film */
 
 import { cdnUrl } from "@/lib/site";
+import { isEventoImmersionActive } from "@/lib/evento-starwars";
+import { EVENTO_YT } from "@/lib/evento-theme";
 import { isHalloweenSeason } from "@/lib/site-effects";
 import { VINYL_YT_HALLOWEEN } from "@/lib/youtube-player";
 
@@ -30,8 +32,12 @@ export const FILM_POSTER =
 /** BGM attesa default (YouTube id). */
 export const SERATA_BGM_YT_ID = "7wnVYIJipzU";
 
-/** In stagione Halloween (15 ott → 2 nov Rome): stesso mix spooky del giradischi. */
+/**
+ * BGM attesa: SW Main Title in immersione evento; Halloween in stagione;
+ * altrimenti default serata.
+ */
 export function resolveSerataBgmYtId(now = new Date()): string {
+  if (isEventoImmersionActive(now)) return EVENTO_YT.id;
   return isHalloweenSeason(now) ? VINYL_YT_HALLOWEEN.id : SERATA_BGM_YT_ID;
 }
 

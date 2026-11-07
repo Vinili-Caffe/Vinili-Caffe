@@ -47,6 +47,7 @@ const TYPE_TO_TOPIC: Record<string, string> = {
   partnership_changed: "partnership",
   rank_card_changed: "rank_card",
   serata_changed: "serata",
+  evento_wallet_changed: "evento",
   member_left: "live_stats",
 };
 

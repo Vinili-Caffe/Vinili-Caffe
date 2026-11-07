@@ -209,6 +209,15 @@ export function isEventoSeasonOpen(now = new Date()): boolean {
   return romeStamp(now) < eventoCloseStamp();
 }
 
+/**
+ * Immersione UI SW (token/hero/chrome): dall’apertura Rome (1 dic 12:00) fino alla chiusura stagione.
+ * Indipendente da `EVENTO_PUBLIC_ENABLED` — serve anche a HS in anteprima dicembre.
+ */
+export function isEventoImmersionActive(now = new Date()): boolean {
+  if (!isEventoSeasonOpen(now)) return false;
+  return romeStamp(now) >= eventoOpenStamp();
+}
+
 /** Pubblico solo se master switch ON + dopo il 1° dic 12:00 Rome e prima della chiusura. */
 export function isEventoPublicWindowOpen(now = new Date()): boolean {
   if (!EVENTO_PUBLIC_ENABLED) return false;
