@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { motion } from "motion/react";
-import { Crown, Swords, Trophy, Zap } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Crown, Radio, Swords, Trophy, Zap } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import {
   fetchEventoClassifiche,
@@ -12,9 +12,12 @@ import {
 } from "@/lib/evento-api";
 import { avatarUrl, useAuth } from "@/lib/auth";
 import { useEventoFactionSync } from "@/lib/evento-faction-sync";
+import { EventoLoginGate } from "@/components/evento/EventoUi";
 import { cn } from "@/lib/cn";
 
 type Scope = "period" | "phase";
+
+const EASE = [0.22, 1, 0.36, 1] as const;
 
 function fmt(n?: number | null, digits = 0) {
   const v = Number(n) || 0;
@@ -25,107 +28,187 @@ function fmt(n?: number | null, digits = 0) {
 }
 
 function saberTone(rank: number) {
-  if (rank === 1) return "from-[#ffe08a] via-[#f0c14a] to-[#c9891a]";
-  if (rank === 2) return "from-[#d7e7ff] via-[#8eb7ff] to-[#3d6fd6]";
-  if (rank === 3) return "from-[#ffb4a8] via-[#e85d4c] to-[#9e2f24]";
-  return "from-cyan-200/80 via-sky-400/70 to-cyan-600/50";
+  if (rank === 1) return { bar: "from-[#fff6c8] via-[#f0c14a] to-[#a86a12]", glow: "rgba(240,193,74,0.75)" };
+  if (rank === 2) return { bar: "from-[#e8f1ff] via-[#7eb0ff] to-[#2a5fd4]", glow: "rgba(126,176,255,0.7)" };
+  if (rank === 3) return { bar: "from-[#ffd0c8] via-[#e85d4c] to-[#8a241c]", glow: "rgba(232,93,76,0.65)" };
+  return { bar: "from-cyan-100 via-sky-400 to-cyan-700", glow: "rgba(56,189,248,0.45)" };
 }
 
+function factionAccent(factionId?: string | null) {
+  const f = String(factionId || "").toLowerCase();
+  if (f.includes("repubblica") || f.includes("ribellione") || f.includes("nuova")) {
+    return { ring: "ring-sky-400/35", wash: "from-sky-500/20" };
+  }
+  if (f.includes("impero") || f.includes("separat") || f.includes("ordine") || f.includes("primo")) {
+    return { ring: "ring-rose-400/30", wash: "from-rose-500/18" };
+  }
+  return { ring: "ring-cyan-300/25", wash: "from-cyan-500/15" };
+}
+
+/** Angoli HUD + scanline CRT su pannello ologramma. */
 function Holopad({
   title,
   subtitle,
   icon,
   children,
   delay = 0,
+  wide,
 }: {
   title: string;
   subtitle: string;
   icon: ReactNode;
-  children: React.ReactNode;
+  children: ReactNode;
   delay?: number;
+  wide?: boolean;
 }) {
+  const reduce = useReducedMotion();
   return (
     <motion.section
-      initial={{ opacity: 0, y: 18, filter: "blur(6px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
-      className="relative overflow-hidden rounded-[1.75rem] p-px"
-      style={{
-        background:
-          "linear-gradient(145deg, rgba(125,211,252,0.55), rgba(56,189,248,0.08) 40%, rgba(14,165,233,0.35))",
-      }}
+      initial={reduce ? false : { opacity: 0, y: 22, rotateX: 6, filter: "blur(8px)" }}
+      animate={{ opacity: 1, y: 0, rotateX: 0, filter: "blur(0px)" }}
+      transition={{ duration: 0.65, delay, ease: EASE }}
+      style={{ transformPerspective: 900 }}
+      className={cn("relative", wide && "lg:col-span-2")}
     >
-      <div className="relative overflow-hidden rounded-[1.7rem] bg-[linear-gradient(165deg,rgba(8,24,40,0.92),rgba(4,10,18,0.96)_55%,rgba(2,8,16,0.98))] px-4 py-5 sm:px-5 sm:py-6">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.14]"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(125,211,252,0.08) 2px, rgba(125,211,252,0.08) 3px)",
-          }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -left-10 top-1/2 h-40 w-40 -translate-y-1/2 rounded-full bg-cyan-400/15 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-sky-300/10 blur-3xl"
-        />
-        <header className="relative mb-4 flex items-start gap-3">
-          <span className="mt-0.5 inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200 ring-1 ring-cyan-300/30 shadow-[0_0_24px_rgba(56,189,248,0.25)]">
-            {icon}
-          </span>
-          <div className="min-w-0">
-            <h3 className="font-display text-xl font-semibold tracking-tight text-cyan-50 sm:text-2xl">
-              {title}
-            </h3>
-            <p className="mt-1 text-sm text-sky-100/65">{subtitle}</p>
-          </div>
-        </header>
-        <div className="relative">{children}</div>
+      <div
+        className="relative overflow-hidden rounded-[1.35rem] p-[1px]"
+        style={{
+          background:
+            "linear-gradient(145deg, rgba(125,211,252,0.7), rgba(56,189,248,0.12) 38%, rgba(240,193,74,0.28) 72%, rgba(14,165,233,0.45))",
+        }}
+      >
+        <div className="relative overflow-hidden rounded-[1.3rem] bg-[linear-gradient(168deg,rgba(6,18,32,0.94),rgba(3,8,16,0.98)_52%,rgba(2,6,12,0.99))] px-4 py-5 sm:px-5 sm:py-6">
+          {/* scanlines */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.16]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(125,211,252,0.09) 2px, rgba(125,211,252,0.09) 3px)",
+            }}
+          />
+          {/* sweep */}
+          {!reduce ? (
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 h-16 bg-gradient-to-b from-cyan-300/0 via-cyan-200/12 to-cyan-300/0"
+              initial={{ top: "-20%" }}
+              animate={{ top: ["-20%", "120%"] }}
+              transition={{ duration: 5.5, repeat: Infinity, ease: "linear", delay: delay + 0.4 }}
+            />
+          ) : null}
+          {/* corner brackets */}
+          <span aria-hidden className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 border-l-2 border-t-2 border-cyan-300/55" />
+          <span aria-hidden className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 border-r-2 border-t-2 border-cyan-300/55" />
+          <span aria-hidden className="pointer-events-none absolute bottom-2.5 left-2.5 h-4 w-4 border-b-2 border-l-2 border-amber-300/40" />
+          <span aria-hidden className="pointer-events-none absolute bottom-2.5 right-2.5 h-4 w-4 border-b-2 border-r-2 border-amber-300/40" />
+
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-12 top-1/3 h-44 w-44 rounded-full bg-cyan-400/15 blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-amber-300/10 blur-3xl"
+          />
+
+          <header className="relative mb-5 flex items-start gap-3">
+            <span className="mt-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-300/35 shadow-[0_0_28px_rgba(56,189,248,0.28)]">
+              {icon}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.32em] text-cyan-300/70">
+                Proiezione olografica
+              </p>
+              <h3 className="mt-1 font-display text-xl font-semibold tracking-tight text-[#eaf6ff] sm:text-2xl">
+                {title}
+              </h3>
+              <p className="mt-1.5 text-sm leading-snug text-sky-100/60">{subtitle}</p>
+            </div>
+          </header>
+          <div className="relative">{children}</div>
+        </div>
       </div>
     </motion.section>
   );
 }
 
+function Lightsaber({ rank, tall }: { rank: number; tall?: boolean }) {
+  const tone = saberTone(rank);
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "relative shrink-0 rounded-full bg-gradient-to-b shadow-[0_0_16px_var(--saber-glow)]",
+        tall ? "h-12 w-[3px] sm:h-14" : "h-10 w-[3px]",
+        tone.bar,
+      )}
+      style={{ ["--saber-glow" as string]: tone.glow }}
+    >
+      <span className="absolute inset-x-[-2px] top-0 h-2 rounded-full bg-white/80 blur-[1px]" />
+      <span className="absolute -inset-x-1 inset-y-1 rounded-full bg-inherit opacity-40 blur-[3px]" />
+    </span>
+  );
+}
+
 function FactionRows({ rows }: { rows: EventoClassificheFactionRow[] }) {
   if (!rows.length) {
-    return <p className="py-6 text-center text-sm text-sky-100/50">Nessuna fazione in classifica.</p>;
+    return <p className="py-8 text-center text-sm text-sky-100/45">Nessuna fazione in classifica.</p>;
   }
   const max = Math.max(...rows.map((r) => r.value), 1);
   return (
-    <ul className="space-y-2.5">
-      {rows.map((r) => (
-        <li key={r.factionId} className="relative">
-          <div className="flex items-center gap-3 rounded-2xl bg-black/35 px-3 py-3 ring-1 ring-cyan-300/15">
-            <span
-              aria-hidden
-              className={cn("h-10 w-1.5 shrink-0 rounded-full bg-gradient-to-b shadow-[0_0_14px_rgba(125,211,252,0.55)]", saberTone(r.rank))}
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="truncate font-semibold text-crema">
-                  <span className="mr-2 tabular-nums text-cyan-200/70">#{r.rank}</span>
-                  {r.label}
-                </p>
-                <p className="shrink-0 font-sans text-lg font-bold tabular-nums tracking-tight text-[#e4c76b]">
-                  {fmt(r.value)}
+    <ul className="space-y-3">
+      {rows.map((r, i) => {
+        const accent = factionAccent(r.factionId);
+        return (
+          <motion.li
+            key={r.factionId}
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.05 * i, duration: 0.45, ease: EASE }}
+            className="relative"
+          >
+            <div
+              className={cn(
+                "relative flex items-center gap-3 overflow-hidden rounded-2xl bg-black/40 px-3 py-3 ring-1 backdrop-blur-sm",
+                accent.ring,
+                r.rank === 1 && "shadow-[0_0_32px_rgba(240,193,74,0.16)]",
+              )}
+            >
+              <div
+                aria-hidden
+                className={cn("pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r to-transparent opacity-60", accent.wash)}
+              />
+              <Lightsaber rank={r.rank} tall />
+              <div className="relative min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="truncate font-semibold text-crema">
+                    <span className="mr-2 font-mono text-[0.75rem] tabular-nums text-cyan-200/65">
+                      {String(r.rank).padStart(2, "0")}
+                    </span>
+                    {r.label}
+                  </p>
+                  <p className="shrink-0 font-mono text-lg font-bold tabular-nums tracking-tight text-[#f0d78c]">
+                    {fmt(r.value)}
+                  </p>
+                </div>
+                <div className="mt-2.5 h-[3px] overflow-hidden rounded-full bg-cyan-950/90 ring-1 ring-cyan-400/15">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.max(10, (r.value / max) * 100)}%` }}
+                    transition={{ duration: 0.95, delay: 0.08 * i, ease: EASE }}
+                    className="h-full rounded-full bg-gradient-to-r from-cyan-200 via-sky-400 to-amber-300"
+                    style={{ boxShadow: "0 0 12px rgba(125,211,252,0.55)" }}
+                  />
+                </div>
+                <p className="mt-1.5 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-sky-100/40">
+                  {r.members} smistati
                 </p>
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-cyan-950/80 ring-1 ring-cyan-400/10">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.max(8, (r.value / max) * 100)}%` }}
-                  transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                  className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-400 to-amber-300/80"
-                />
-              </div>
-              <p className="mt-1.5 text-[0.7rem] text-sky-100/45">{r.members} smistati</p>
             </div>
-          </div>
-        </li>
-      ))}
+          </motion.li>
+        );
+      })}
     </ul>
   );
 }
@@ -140,60 +223,76 @@ function UserRows({
   digits?: number;
 }) {
   if (!rows.length) {
-    return <p className="py-6 text-center text-sm text-sky-100/50">Ancora nessuno in classifica.</p>;
+    return <p className="py-8 text-center text-sm text-sky-100/45">Ancora nessuno in classifica.</p>;
   }
   return (
-    <ol className="space-y-2">
-      {rows.map((r) => (
-        <li
+    <ol className="space-y-2.5">
+      {rows.map((r, i) => (
+        <motion.li
           key={`${r.userId}-${r.rank}`}
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.05 * i, duration: 0.4, ease: EASE }}
           className={cn(
-            "flex items-center gap-3 rounded-2xl px-3 py-2.5 ring-1",
+            "relative flex items-center gap-3 overflow-hidden rounded-2xl px-3 py-2.5 ring-1 backdrop-blur-sm",
             r.rank === 1
-              ? "bg-[linear-gradient(110deg,rgba(240,193,74,0.16),rgba(0,0,0,0.35))] ring-[#e4c76b]/35 shadow-[0_0_28px_rgba(201,162,39,0.18)]"
-              : "bg-black/35 ring-cyan-300/15",
+              ? "bg-[linear-gradient(115deg,rgba(240,193,74,0.18),rgba(0,0,0,0.42))] ring-[#e4c76b]/40 shadow-[0_0_30px_rgba(201,162,39,0.2)]"
+              : "bg-black/40 ring-cyan-300/15",
           )}
         >
-          <span
-            aria-hidden
-            className={cn("h-11 w-1.5 shrink-0 rounded-full bg-gradient-to-b shadow-[0_0_14px_rgba(125,211,252,0.45)]", saberTone(r.rank))}
-          />
-          <Avatar
-            userId={r.userId}
-            src={r.avatarUrl || undefined}
-            name={r.displayName || r.userId}
-            className="size-10 shrink-0 ring-1 ring-cyan-200/25"
-          />
+          <Lightsaber rank={r.rank} />
+          <div className="relative shrink-0">
+            <Avatar
+              userId={r.userId}
+              src={r.avatarUrl || undefined}
+              name={r.displayName || r.userId}
+              className={cn(
+                "size-10 ring-1",
+                r.rank === 1 ? "ring-[#e4c76b]/50" : "ring-cyan-200/25",
+              )}
+            />
+            {r.rank <= 3 ? (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute -inset-1 rounded-full opacity-50 blur-md"
+                style={{ background: saberTone(r.rank).glow }}
+              />
+            ) : null}
+          </div>
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-crema">
-              <span className="mr-1.5 tabular-nums text-cyan-200/70">#{r.rank}</span>
+              <span className="mr-1.5 font-mono text-[0.75rem] tabular-nums text-cyan-200/65">
+                #{r.rank}
+              </span>
               {r.displayName || r.userId}
             </p>
             {r.factionId ? (
-              <p className="truncate text-[0.7rem] uppercase tracking-wider text-sky-100/40">
+              <p className="truncate font-mono text-[0.62rem] uppercase tracking-[0.16em] text-sky-100/40">
                 {r.factionId.replace(/_/g, " ")}
               </p>
             ) : null}
           </div>
           <div className="shrink-0 text-right">
-            <p className="font-sans text-lg font-bold tabular-nums tracking-tight text-cyan-100">
+            <p className="font-mono text-lg font-bold tabular-nums tracking-tight text-cyan-50">
               {fmt(r.value, digits)}
             </p>
-            <p className="text-[0.65rem] uppercase tracking-wider text-sky-100/40">{unit}</p>
+            <p className="font-mono text-[0.58rem] uppercase tracking-[0.2em] text-sky-100/40">{unit}</p>
           </div>
-        </li>
+        </motion.li>
       ))}
     </ol>
   );
 }
 
-/** Classifiche olografiche evento SW. */
+/** Classifiche olografiche — sala comando SW. */
 export function EventoClassifiche() {
   const { token, ready, login, user } = useAuth();
+  const reduce = useReducedMotion();
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<Scope>("period");
   const [epochLabel, setEpochLabel] = useState<string | null>(null);
   const [boards, setBoards] = useState<EventoClassificheBoards | null>(null);
+  const [livePulse, setLivePulse] = useState(true);
   const [me, setMe] = useState<{
     displayName?: string;
     avatarUrl?: string | null;
@@ -213,6 +312,7 @@ export function EventoClassifiche() {
       setBoards(st.boards);
       setEpochLabel(st.epochLabel || st.epoch || null);
       setMe(st.me || null);
+      setLivePulse(true);
     },
     [ready, token],
   );
@@ -224,6 +324,12 @@ export function EventoClassifiche() {
   useEventoFactionSync(() => {
     void reload({ soft: true });
   }, { pollMs: 12_000 });
+
+  useEffect(() => {
+    if (!livePulse) return;
+    const t = window.setTimeout(() => setLivePulse(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [livePulse, boards]);
 
   const factionRows = useMemo(() => {
     if (!boards) return [];
@@ -240,40 +346,74 @@ export function EventoClassifiche() {
 
   if (!token) {
     return (
-      <div className="mx-auto max-w-4xl px-6 text-center">
-        <button type="button" onClick={login} className="text-sm text-caramel underline underline-offset-2">
-          Accedi con Discord per vedere le classifiche
-        </button>
+      <div className="mx-auto max-w-4xl px-6">
+        <EventoLoginGate label="Accedi con Discord per sintonizzare le proiezioni di comando." onLogin={login} />
       </div>
     );
   }
 
   if (loading && !boards) {
-    return <div className="mx-auto h-64 max-w-5xl animate-pulse rounded-[1.75rem] bg-crema/8 px-6" />;
+    return (
+      <div className="mx-auto max-w-5xl px-6">
+        <div className="h-72 animate-pulse rounded-[1.35rem] bg-[linear-gradient(145deg,rgba(56,189,248,0.08),rgba(0,0,0,0.35))] ring-1 ring-cyan-300/20" />
+      </div>
+    );
   }
 
   if (!boards) {
     return (
       <div className="mx-auto max-w-4xl px-6 text-center text-sm text-crema/55">
-        Classifiche non disponibili al momento.
+        Trasmissione interrotta. Riprova tra poco.
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-6">
-      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="font-display text-3xl font-semibold text-crema sm:text-4xl">Proiezioni di comando</h2>
-          <p className="mt-2 max-w-xl text-sm text-crema/60">
-            Ologrammi live{epochLabel ? ` · fase ${epochLabel}` : ""}. Periodo = stagione intera · Fase =
+    <div className="relative mx-auto max-w-5xl px-6">
+      {/* ambient stars wash */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-x-8 -top-16 h-64 opacity-70"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 55% at 50% 0%, rgba(56,189,248,0.16), transparent 70%)",
+        }}
+      />
+
+      <div className="relative mb-7 flex flex-col gap-5 sm:mb-9 sm:flex-row sm:items-end sm:justify-between">
+        <motion.div
+          initial={reduce ? false : { opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, ease: EASE }}
+        >
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 ring-1 ring-cyan-300/30">
+            <span
+              className={cn(
+                "size-1.5 rounded-full bg-cyan-300",
+                livePulse && !reduce && "animate-pulse shadow-[0_0_10px_rgba(125,211,252,0.9)]",
+              )}
+            />
+            <span className="font-mono text-[0.62rem] font-semibold uppercase tracking-[0.28em] text-cyan-200/80">
+              Canale · comando
+            </span>
+            <Radio className="size-3 text-cyan-300/70" aria-hidden />
+          </div>
+          <h2 className="font-display text-3xl font-semibold tracking-tight text-crema sm:text-[2.35rem]">
+            Sala delle{" "}
+            <span className="bg-gradient-to-r from-cyan-200 via-[#f0d78c] to-cyan-200 bg-clip-text italic text-transparent">
+              classifiche
+            </span>
+          </h2>
+          <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-crema/60">
+            Ologrammi live{epochLabel ? ` · epoca ${epochLabel}` : ""}. Periodo = stagione intera · Fase =
             guadagni dall&apos;inizio dell&apos;epoca corrente.
           </p>
-        </div>
+        </motion.div>
+
         <div
           role="tablist"
           aria-label="Ambito classifica"
-          className="inline-flex rounded-full bg-black/45 p-1 ring-1 ring-cyan-300/25"
+          className="relative inline-flex self-start overflow-hidden rounded-full bg-black/55 p-1 ring-1 ring-cyan-300/30 backdrop-blur-md"
         >
           {(
             [
@@ -288,52 +428,84 @@ export function EventoClassifiche() {
               aria-selected={scope === t.id}
               onClick={() => setScope(t.id)}
               className={cn(
-                "rounded-full px-4 py-2 text-sm font-semibold transition",
-                scope === t.id
-                  ? "bg-gradient-to-r from-cyan-300 to-sky-400 text-ink shadow-[0_0_22px_rgba(56,189,248,0.35)]"
-                  : "text-sky-100/65 hover:text-crema",
+                "relative z-10 rounded-full px-4 py-2 text-sm font-semibold transition",
+                scope === t.id ? "text-ink" : "text-sky-100/65 hover:text-crema",
               )}
             >
+              {scope === t.id ? (
+                <motion.span
+                  layoutId="classifiche-scope-pill"
+                  className="absolute inset-0 -z-10 rounded-full bg-gradient-to-r from-cyan-200 via-sky-300 to-amber-200 shadow-[0_0_24px_rgba(56,189,248,0.4)]"
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                />
+              ) : null}
               {t.label}
             </button>
           ))}
         </div>
       </div>
 
-      {me ? (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 overflow-hidden rounded-3xl bg-[linear-gradient(120deg,rgba(56,189,248,0.14),rgba(0,0,0,0.45))] p-4 ring-1 ring-cyan-300/25 sm:p-5"
-        >
-          <div className="flex flex-wrap items-center gap-4">
-            <Avatar
-              userId={user?.id || me.displayName || "me"}
-              src={user ? avatarUrl(user, 96) : me.avatarUrl || undefined}
-              name={me.displayName || "Tu"}
-              className="size-12 ring-1 ring-cyan-200/30"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold text-crema">{me.displayName || "Il tuo standing"}</p>
-              <p className="mt-1 text-sm text-sky-100/60">
-                PEI #{me.peiRank || "—"} · EXP #{me.expRank || "—"}
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <div className="rounded-2xl bg-black/40 px-3 py-2 text-center ring-1 ring-cyan-300/20">
-                <p className="text-[0.65rem] uppercase tracking-wider text-sky-100/45">PEI</p>
-                <p className="font-sans text-lg font-bold tabular-nums text-cyan-100">{fmt(me.pei, 1)}</p>
+      <AnimatePresence mode="wait">
+        {me ? (
+          <motion.div
+            key="me-holo"
+            initial={reduce ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="relative mb-6 overflow-hidden rounded-[1.35rem] p-[1px]"
+            style={{
+              background:
+                "linear-gradient(120deg, rgba(125,211,252,0.55), rgba(240,193,74,0.35), rgba(56,189,248,0.25))",
+            }}
+          >
+            <div className="relative overflow-hidden rounded-[1.3rem] bg-[linear-gradient(115deg,rgba(8,24,40,0.95),rgba(0,0,0,0.72))] px-4 py-4 sm:px-5 sm:py-5">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 opacity-[0.12]"
+                style={{
+                  backgroundImage:
+                    "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(125,211,252,0.1) 2px, rgba(125,211,252,0.1) 3px)",
+                }}
+              />
+              <div className="relative flex flex-wrap items-center gap-4">
+                <div className="relative">
+                  <Avatar
+                    userId={user?.id || me.displayName || "me"}
+                    src={user ? avatarUrl(user, 96) : me.avatarUrl || undefined}
+                    name={me.displayName || "Tu"}
+                    className="size-12 ring-2 ring-cyan-300/40"
+                  />
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute -inset-1 rounded-full bg-cyan-400/25 blur-md"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono text-[0.62rem] uppercase tracking-[0.28em] text-cyan-300/65">
+                    Il tuo standing
+                  </p>
+                  <p className="mt-0.5 font-semibold text-crema">{me.displayName || "Pilota"}</p>
+                  <p className="mt-1 font-mono text-sm text-sky-100/55">
+                    PEI #{me.peiRank || "—"} · EXP #{me.expRank || "—"}
+                  </p>
+                </div>
+                <div className="flex gap-2.5">
+                  <div className="min-w-[4.5rem] rounded-2xl bg-black/50 px-3 py-2 text-center ring-1 ring-cyan-300/25">
+                    <p className="font-mono text-[0.58rem] uppercase tracking-[0.2em] text-sky-100/45">PEI</p>
+                    <p className="font-mono text-lg font-bold tabular-nums text-cyan-100">{fmt(me.pei, 1)}</p>
+                  </div>
+                  <div className="min-w-[4.5rem] rounded-2xl bg-black/50 px-3 py-2 text-center ring-1 ring-amber-300/25">
+                    <p className="font-mono text-[0.58rem] uppercase tracking-[0.2em] text-sky-100/45">EXP</p>
+                    <p className="font-mono text-lg font-bold tabular-nums text-[#f0d78c]">{fmt(me.exp)}</p>
+                  </div>
+                </div>
               </div>
-              <div className="rounded-2xl bg-black/40 px-3 py-2 text-center ring-1 ring-amber-300/20">
-                <p className="text-[0.65rem] uppercase tracking-wider text-sky-100/45">EXP</p>
-                <p className="font-sans text-lg font-bold tabular-nums text-[#e4c76b]">{fmt(me.exp)}</p>
-              </div>
             </div>
-          </div>
-        </motion.div>
-      ) : null}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="relative grid gap-5 lg:grid-cols-2">
         <Holopad
           title="EXP fazione"
           subtitle={
@@ -342,7 +514,8 @@ export function EventoClassifiche() {
               : "EXP guadagnata dalle fazioni in questa epoca"
           }
           icon={<Swords className="size-5" aria-hidden />}
-          delay={0.05}
+          delay={0.04}
+          wide
         >
           <FactionRows rows={factionRows} />
         </Holopad>
@@ -351,7 +524,7 @@ export function EventoClassifiche() {
           title="Top 5 PEI"
           subtitle={scope === "period" ? "I più influenti di tutta la stagione" : "Chi sta dominando questa epoca"}
           icon={<Crown className="size-5" aria-hidden />}
-          delay={0.12}
+          delay={0.1}
         >
           <UserRows rows={peiRows} unit="PEI" digits={1} />
         </Holopad>
@@ -360,7 +533,7 @@ export function EventoClassifiche() {
           title="Top 5 EXP"
           subtitle={scope === "period" ? "I piloti con più esperienza accumulata" : "Chi sta grindando di più ora"}
           icon={<Zap className="size-5" aria-hidden />}
-          delay={0.18}
+          delay={0.16}
         >
           <UserRows rows={expRows} unit="EXP" />
         </Holopad>
@@ -369,21 +542,34 @@ export function EventoClassifiche() {
           title="Codex di guerra"
           subtitle="Come si leggono queste proiezioni"
           icon={<Trophy className="size-5" aria-hidden />}
-          delay={0.24}
+          delay={0.22}
+          wide
         >
-          <ul className="space-y-3 text-sm leading-relaxed text-sky-100/70">
-            <li>
-              <span className="font-semibold text-cyan-100">EXP fazione</span> — somma dell&apos;esperienza di ogni
-              membro smistato. Vince la flotta più attiva.
-            </li>
-            <li>
-              <span className="font-semibold text-cyan-100">PEI</span> — punteggio influenza (exp, volume crediti,
-              voti). Decide i podi di fine fase.
-            </li>
-            <li>
-              <span className="font-semibold text-cyan-100">Fase</span> — solo i guadagni dall&apos;inizio
-              dell&apos;epoca corrente (Clone Wars / Guerra Civile / Sequel).
-            </li>
+          <ul className="grid gap-3 sm:grid-cols-3">
+            {[
+              {
+                k: "EXP fazione",
+                v: "Somma dell'esperienza di ogni membro smistato. Vince la flotta più attiva.",
+              },
+              {
+                k: "PEI",
+                v: "Punteggio influenza (exp, crediti, voti). Decide i podi di fine fase.",
+              },
+              {
+                k: "Fase",
+                v: "Solo i guadagni dall'inizio dell'epoca corrente (Clone Wars / Guerra Civile / Sequel).",
+              },
+            ].map((item) => (
+              <li
+                key={item.k}
+                className="rounded-2xl bg-black/35 px-3.5 py-3 ring-1 ring-cyan-300/15"
+              >
+                <p className="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-cyan-200/80">
+                  {item.k}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-sky-100/65">{item.v}</p>
+              </li>
+            ))}
           </ul>
         </Holopad>
       </div>

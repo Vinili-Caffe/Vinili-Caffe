@@ -278,3 +278,4 @@ Assets/**
 .env*
 .agents
 skills-lock.json
+AGENTS.md

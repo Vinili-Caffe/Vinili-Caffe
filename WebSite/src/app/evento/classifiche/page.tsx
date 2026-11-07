@@ -24,9 +24,9 @@ export default function EventoClassifichePage() {
     <EventoPage
       pageId="classifiche"
       path={meta.path}
-      title="Classifiche"
-      accent="ologrammi"
-      text={meta.description}
+      title="Sala"
+      accent="classifiche"
+      text="Proiezioni olografiche live: fazioni, PEI e EXP. Periodo o sola fase — scegli il canale di comando."
       icon={<Trophy />}
     >
       <EventoSortGate mode="redirect">
