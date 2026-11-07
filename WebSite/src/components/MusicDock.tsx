@@ -72,7 +72,7 @@ export function MusicDock({
     <div
       ref={wrap}
       className={cn(
-        "pointer-events-auto fixed left-3 z-[60] w-[min(15rem,calc(100vw-1.5rem))] sm:left-4",
+        "pointer-events-auto fixed right-3 z-[60] w-[min(15rem,calc(100vw-1.5rem))] sm:right-4",
         BOTTOM,
       )}
       role="region"
