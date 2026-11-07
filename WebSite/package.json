@@ -30,7 +30,7 @@
     "web-vitals": "6.2.3"
   },
   "devDependencies": {
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-next": "16.4.2"
   },
   "allowScripts": {
