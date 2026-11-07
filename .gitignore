@@ -199,15 +199,14 @@ restart.json
 Lavalink/Lavalink.jar
 Lavalink/plugins/
 
-# Deploy
+# Deploy local junk / secrets (keep Deploy/*.sh and docs tracked)
 .deploy/**
-Deploy/**
+Deploy/backups/
+Deploy/atlas-dump/
+Deploy/_tmp_*
 
 # VSCode
 .vscode/**
-
-# Scripts
-Scripts/**
 
 # Bot runtime state (rigenerato a ogni avvio / sul VPS)
 **/Data/*Snapshot*.json

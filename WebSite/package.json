@@ -33,6 +33,9 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.2"
   },
+  "overrides": {
+    "minimatch": "^11.0.1"
+  },
   "allowScripts": {
     "unrs-resolver@1.12.2": true
   }

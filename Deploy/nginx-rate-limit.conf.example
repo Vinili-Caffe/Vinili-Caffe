@@ -1,0 +1,23 @@
+# Rate limiting nginx per viniliecaffe.it (origin dietro Cloudflare).
+# Copiare come /etc/nginx/conf.d/vc-rate-limit.conf
+# oppure: python3 /opt/bot/deploy/patch-nginx-rate-limit.py
+#
+# Richiede real_ip da Cloudflare (CF-Connecting-IP) già in nginx.conf.
+# limit_req usa $binary_remote_addr = IP visitatore reale.
+
+limit_req_zone $binary_remote_addr zone=vc_site_general:16m rate=25r/s;
+limit_req_zone $binary_remote_addr zone=vc_site_api:16m rate=8r/s;
+limit_req_zone $binary_remote_addr zone=vc_site_static:16m rate=60r/s;
+limit_conn_zone $binary_remote_addr zone=vc_site_conn:16m;
+
+# Nel server www.viniliecaffe.it (dopo server_name):
+#   limit_conn vc_site_conn 50;
+#   limit_req_status 429;
+#   limit_conn_status 429;
+#
+# location ^~ /js/  { limit_req zone=vc_site_static burst=120 nodelay; ... }
+# location ^~ /css/ { limit_req zone=vc_site_static burst=120 nodelay; ... }
+# location ^~ /images/ { limit_req zone=vc_site_static burst=80 nodelay; ... }
+# location ^~ /webhooks/site- { limit_req zone=vc_site_api burst=24 nodelay; ... }
+# location /webhooks/ { limit_req zone=vc_site_api burst=24 nodelay; ... }
+# location / { limit_req zone=vc_site_general burst=50 nodelay; ... }
