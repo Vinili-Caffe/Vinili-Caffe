@@ -68,13 +68,11 @@ function CollectionGrid({ deck, accent }: { deck: EventoCollectionDeck; accent: 
             <span
               className={cn(
                 "w-full break-words hyphens-auto text-center text-[0.65rem] font-semibold leading-tight",
-                it.owned
-                  ? "text-crema/90"
-                  : "pointer-events-none select-none text-crema/75 blur-[5px] [filter:blur(5px)]",
+                it.owned ? "text-crema/90" : "pointer-events-none select-none text-transparent",
               )}
               aria-hidden={!it.owned}
             >
-              {it.name || "???"}
+              {it.owned ? it.name || "???" : "••••"}
             </span>
           </li>
         ))}

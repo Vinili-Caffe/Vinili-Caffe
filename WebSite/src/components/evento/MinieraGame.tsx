@@ -59,9 +59,9 @@ function KyberCrystal({
       width={size}
       height={size * 1.4}
       viewBox="0 0 44 62"
-      className={cn("drop-shadow-lg", className)}
+      className={cn(className)}
       aria-hidden
-      style={{ filter: `drop-shadow(0 0 ${rare ? 16 : 9}px ${s.glow})` }}
+      style={rare ? { filter: `drop-shadow(0 0 8px ${s.glow})` } : undefined}
     >
       <defs>
         <linearGradient id={`${id}-body`} x1="0.15" y1="0" x2="0.9" y2="1">

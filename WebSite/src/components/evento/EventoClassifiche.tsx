@@ -45,7 +45,7 @@ function factionAccent(factionId?: string | null) {
   return { ring: "ring-cyan-300/25", wash: "from-cyan-500/15" };
 }
 
-/** Angoli HUD + scanline CRT su pannello ologramma. */
+/** Board classifiche — vetro comando SW, senza sweep/blur continui. */
 function Holopad({
   title,
   subtitle,
@@ -64,66 +64,35 @@ function Holopad({
   const reduce = useReducedMotion();
   return (
     <motion.section
-      initial={reduce ? false : { opacity: 0, y: 22, rotateX: 6, filter: "blur(8px)" }}
-      animate={{ opacity: 1, y: 0, rotateX: 0, filter: "blur(0px)" }}
-      transition={{ duration: 0.65, delay, ease: EASE }}
-      style={{ transformPerspective: 900 }}
+      initial={reduce ? false : { opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, delay, ease: EASE }}
       className={cn("relative", wide && "lg:col-span-2")}
     >
       <div
-        className="relative overflow-hidden rounded-[1.35rem] p-[1px]"
+        className="relative rounded-2xl p-px"
         style={{
           background:
-            "linear-gradient(145deg, rgba(125,211,252,0.7), rgba(56,189,248,0.12) 38%, rgba(240,193,74,0.28) 72%, rgba(14,165,233,0.45))",
+            "linear-gradient(160deg, rgba(228,199,107,0.5), rgba(56,189,248,0.16) 48%, rgba(14,165,233,0.3))",
         }}
       >
-        <div className="relative overflow-hidden rounded-[1.3rem] bg-[linear-gradient(168deg,rgba(6,18,32,0.94),rgba(3,8,16,0.98)_52%,rgba(2,6,12,0.99))] px-4 py-5 sm:px-5 sm:py-6">
-          {/* scanlines */}
+        <div className="relative rounded-[0.95rem] bg-[#070d18]/92 px-4 py-5 sm:rounded-[1.05rem] sm:px-5 sm:py-6">
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 opacity-[0.16]"
-            style={{
-              backgroundImage:
-                "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(125,211,252,0.09) 2px, rgba(125,211,252,0.09) 3px)",
-            }}
+            className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#e4c76b]/40 to-transparent"
           />
-          {/* sweep */}
-          {!reduce ? (
-            <motion.div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 h-16 bg-gradient-to-b from-cyan-300/0 via-cyan-200/12 to-cyan-300/0"
-              initial={{ top: "-20%" }}
-              animate={{ top: ["-20%", "120%"] }}
-              transition={{ duration: 5.5, repeat: Infinity, ease: "linear", delay: delay + 0.4 }}
-            />
-          ) : null}
-          {/* corner brackets */}
-          <span aria-hidden className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 border-l-2 border-t-2 border-cyan-300/55" />
-          <span aria-hidden className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 border-r-2 border-t-2 border-cyan-300/55" />
-          <span aria-hidden className="pointer-events-none absolute bottom-2.5 left-2.5 h-4 w-4 border-b-2 border-l-2 border-amber-300/40" />
-          <span aria-hidden className="pointer-events-none absolute bottom-2.5 right-2.5 h-4 w-4 border-b-2 border-r-2 border-amber-300/40" />
-
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -left-12 top-1/3 h-44 w-44 rounded-full bg-cyan-400/15 blur-3xl"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-amber-300/10 blur-3xl"
-          />
-
           <header className="relative mb-5 flex items-start gap-3">
-            <span className="mt-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-100 ring-1 ring-cyan-300/35 shadow-[0_0_28px_rgba(56,189,248,0.28)]">
+            <span className="mt-0.5 inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#2ea8ff]/12 text-[#7dd3fc] ring-1 ring-[#2ea8ff]/30">
               {icon}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.32em] text-cyan-300/70">
-                Proiezione olografica
+              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.26em] text-[#e4c76b]/80">
+                Sala comando
               </p>
-              <h3 className="mt-1 font-display text-xl font-semibold tracking-tight text-[#eaf6ff] sm:text-2xl">
+              <h3 className="mt-1 font-display text-xl font-semibold tracking-tight text-[#f0e6c8] sm:text-2xl">
                 {title}
               </h3>
-              <p className="mt-1.5 text-sm leading-snug text-sky-100/60">{subtitle}</p>
+              <p className="mt-1.5 text-sm leading-snug text-[#f0e6c8]/55">{subtitle}</p>
             </div>
           </header>
           <div className="relative">{children}</div>
@@ -139,14 +108,13 @@ function Lightsaber({ rank, tall }: { rank: number; tall?: boolean }) {
     <span
       aria-hidden
       className={cn(
-        "relative shrink-0 rounded-full bg-gradient-to-b shadow-[0_0_16px_var(--saber-glow)]",
+        "relative shrink-0 rounded-full bg-gradient-to-b shadow-[0_0_10px_var(--saber-glow)]",
         tall ? "h-12 w-[3px] sm:h-14" : "h-10 w-[3px]",
         tone.bar,
       )}
       style={{ ["--saber-glow" as string]: tone.glow }}
     >
-      <span className="absolute inset-x-[-2px] top-0 h-2 rounded-full bg-white/80 blur-[1px]" />
-      <span className="absolute -inset-x-1 inset-y-1 rounded-full bg-inherit opacity-40 blur-[3px]" />
+      <span className="absolute inset-x-[-1px] top-0 h-1.5 rounded-full bg-white/70" />
     </span>
   );
 }
@@ -170,14 +138,14 @@ function FactionRows({ rows }: { rows: EventoClassificheFactionRow[] }) {
           >
             <div
               className={cn(
-                "relative flex items-center gap-3 overflow-hidden rounded-2xl bg-black/40 px-3 py-3 ring-1 backdrop-blur-sm",
+                "relative flex items-center gap-3 overflow-hidden rounded-2xl bg-black/35 px-3 py-3 ring-1",
                 accent.ring,
-                r.rank === 1 && "shadow-[0_0_32px_rgba(240,193,74,0.16)]",
+                r.rank === 1 && "ring-[#e4c76b]/35",
               )}
             >
               <div
                 aria-hidden
-                className={cn("pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r to-transparent opacity-60", accent.wash)}
+                className={cn("pointer-events-none absolute inset-y-0 left-0 w-20 bg-gradient-to-r to-transparent opacity-50", accent.wash)}
               />
               <Lightsaber rank={r.rank} tall />
               <div className="relative min-w-0 flex-1">
@@ -197,8 +165,7 @@ function FactionRows({ rows }: { rows: EventoClassificheFactionRow[] }) {
                     initial={{ width: 0 }}
                     animate={{ width: `${Math.max(10, (r.value / max) * 100)}%` }}
                     transition={{ duration: 0.95, delay: 0.08 * i, ease: EASE }}
-                    className="h-full rounded-full bg-gradient-to-r from-cyan-200 via-sky-400 to-amber-300"
-                    style={{ boxShadow: "0 0 12px rgba(125,211,252,0.55)" }}
+                    className="h-full rounded-full bg-gradient-to-r from-[#2ea8ff] via-[#7dd3fc] to-[#e4c76b]"
                   />
                 </div>
                 <p className="mt-1.5 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-sky-100/40">
@@ -234,10 +201,10 @@ function UserRows({
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.05 * i, duration: 0.4, ease: EASE }}
           className={cn(
-            "relative flex items-center gap-3 overflow-hidden rounded-2xl px-3 py-2.5 ring-1 backdrop-blur-sm",
+            "relative flex items-center gap-3 overflow-hidden rounded-2xl px-3 py-2.5 ring-1",
             r.rank === 1
-              ? "bg-[linear-gradient(115deg,rgba(240,193,74,0.18),rgba(0,0,0,0.42))] ring-[#e4c76b]/40 shadow-[0_0_30px_rgba(201,162,39,0.2)]"
-              : "bg-black/40 ring-cyan-300/15",
+              ? "bg-[linear-gradient(115deg,rgba(240,193,74,0.16),rgba(0,0,0,0.4))] ring-[#e4c76b]/40"
+              : "bg-black/35 ring-white/10",
           )}
         >
           <Lightsaber rank={r.rank} />
@@ -248,16 +215,9 @@ function UserRows({
               name={r.displayName || r.userId}
               className={cn(
                 "size-10 ring-1",
-                r.rank === 1 ? "ring-[#e4c76b]/50" : "ring-cyan-200/25",
+                r.rank === 1 ? "ring-[#e4c76b]/50" : "ring-white/15",
               )}
             />
-            {r.rank <= 3 ? (
-              <span
-                aria-hidden
-                className="pointer-events-none absolute -inset-1 rounded-full opacity-50 blur-md"
-                style={{ background: saberTone(r.rank).glow }}
-              />
-            ) : null}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-crema">
@@ -386,26 +346,23 @@ export function EventoClassifiche() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, ease: EASE }}
         >
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 ring-1 ring-cyan-300/30">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 ring-1 ring-[#c9a227]/30">
             <span
               className={cn(
-                "size-1.5 rounded-full bg-cyan-300",
-                livePulse && !reduce && "animate-pulse shadow-[0_0_10px_rgba(125,211,252,0.9)]",
+                "size-1.5 rounded-full bg-[#2ea8ff]",
+                livePulse && !reduce && "animate-pulse",
               )}
             />
-            <span className="font-mono text-[0.62rem] font-semibold uppercase tracking-[0.28em] text-cyan-200/80">
+            <span className="text-[0.62rem] font-semibold uppercase tracking-[0.26em] text-[#e4c76b]/85">
               Canale · comando
             </span>
-            <Radio className="size-3 text-cyan-300/70" aria-hidden />
+            <Radio className="size-3 text-[#e4c76b]/70" aria-hidden />
           </div>
           <h2 className="font-display text-3xl font-semibold tracking-tight text-crema sm:text-[2.35rem]">
-            Sala delle{" "}
-            <span className="bg-gradient-to-r from-cyan-200 via-[#f0d78c] to-cyan-200 bg-clip-text italic text-transparent">
-              classifiche
-            </span>
+            Sala delle <span className="italic text-[#e4c76b]">classifiche</span>
           </h2>
           <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-crema/60">
-            Ologrammi live{epochLabel ? ` · epoca ${epochLabel}` : ""}. Periodo = stagione intera · Fase =
+            Rank live{epochLabel ? ` · epoca ${epochLabel}` : ""}. Periodo = stagione intera · Fase =
             guadagni dall&apos;inizio dell&apos;epoca corrente.
           </p>
         </motion.div>
@@ -413,7 +370,7 @@ export function EventoClassifiche() {
         <div
           role="tablist"
           aria-label="Ambito classifica"
-          className="relative inline-flex self-start overflow-hidden rounded-full bg-black/55 p-1 ring-1 ring-cyan-300/30 backdrop-blur-md"
+          className="relative inline-flex self-start overflow-hidden rounded-full bg-black/55 p-1 ring-1 ring-white/12"
         >
           {(
             [
@@ -429,13 +386,13 @@ export function EventoClassifiche() {
               onClick={() => setScope(t.id)}
               className={cn(
                 "relative z-10 rounded-full px-4 py-2 text-sm font-semibold transition",
-                scope === t.id ? "text-ink" : "text-sky-100/65 hover:text-crema",
+                scope === t.id ? "text-ink" : "text-crema/60 hover:text-crema",
               )}
             >
               {scope === t.id ? (
                 <motion.span
                   layoutId="classifiche-scope-pill"
-                  className="absolute inset-0 -z-10 rounded-full bg-gradient-to-r from-cyan-200 via-sky-300 to-amber-200 shadow-[0_0_24px_rgba(56,189,248,0.4)]"
+                  className="absolute inset-0 -z-10 rounded-full bg-gradient-to-r from-[#c9a227] to-[#e4c76b]"
                   transition={{ type: "spring", stiffness: 380, damping: 32 }}
                 />
               ) : null}
@@ -452,50 +409,38 @@ export function EventoClassifiche() {
             initial={reduce ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="relative mb-6 overflow-hidden rounded-[1.35rem] p-[1px]"
+            className="relative mb-6 overflow-hidden rounded-2xl p-px"
             style={{
               background:
-                "linear-gradient(120deg, rgba(125,211,252,0.55), rgba(240,193,74,0.35), rgba(56,189,248,0.25))",
+                "linear-gradient(120deg, rgba(201,162,39,0.45), rgba(46,168,255,0.22))",
             }}
           >
-            <div className="relative overflow-hidden rounded-[1.3rem] bg-[linear-gradient(115deg,rgba(8,24,40,0.95),rgba(0,0,0,0.72))] px-4 py-4 sm:px-5 sm:py-5">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 opacity-[0.12]"
-                style={{
-                  backgroundImage:
-                    "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(125,211,252,0.1) 2px, rgba(125,211,252,0.1) 3px)",
-                }}
-              />
+            <div className="relative rounded-[0.95rem] bg-[#070d18]/92 px-4 py-4 sm:px-5 sm:py-5">
               <div className="relative flex flex-wrap items-center gap-4">
                 <div className="relative">
                   <Avatar
                     userId={user?.id || me.displayName || "me"}
                     src={user ? avatarUrl(user, 96) : me.avatarUrl || undefined}
                     name={me.displayName || "Tu"}
-                    className="size-12 ring-2 ring-cyan-300/40"
-                  />
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute -inset-1 rounded-full bg-cyan-400/25 blur-md"
+                    className="size-12 ring-2 ring-[#c9a227]/40"
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-mono text-[0.62rem] uppercase tracking-[0.28em] text-cyan-300/65">
+                  <p className="text-[0.62rem] font-semibold uppercase tracking-[0.26em] text-[#e4c76b]/80">
                     Il tuo standing
                   </p>
                   <p className="mt-0.5 font-semibold text-crema">{me.displayName || "Pilota"}</p>
-                  <p className="mt-1 font-mono text-sm text-sky-100/55">
+                  <p className="mt-1 text-sm text-crema/55">
                     PEI #{me.peiRank || "—"} · EXP #{me.expRank || "—"}
                   </p>
                 </div>
                 <div className="flex gap-2.5">
-                  <div className="min-w-[4.5rem] rounded-2xl bg-black/50 px-3 py-2 text-center ring-1 ring-cyan-300/25">
-                    <p className="font-mono text-[0.58rem] uppercase tracking-[0.2em] text-sky-100/45">PEI</p>
-                    <p className="font-mono text-lg font-bold tabular-nums text-cyan-100">{fmt(me.pei, 1)}</p>
+                  <div className="min-w-[4.5rem] rounded-2xl bg-black/45 px-3 py-2 text-center ring-1 ring-white/10">
+                    <p className="text-[0.58rem] uppercase tracking-[0.2em] text-crema/45">PEI</p>
+                    <p className="font-mono text-lg font-bold tabular-nums text-crema">{fmt(me.pei, 1)}</p>
                   </div>
-                  <div className="min-w-[4.5rem] rounded-2xl bg-black/50 px-3 py-2 text-center ring-1 ring-amber-300/25">
-                    <p className="font-mono text-[0.58rem] uppercase tracking-[0.2em] text-sky-100/45">EXP</p>
+                  <div className="min-w-[4.5rem] rounded-2xl bg-black/45 px-3 py-2 text-center ring-1 ring-[#c9a227]/25">
+                    <p className="text-[0.58rem] uppercase tracking-[0.2em] text-crema/45">EXP</p>
                     <p className="font-mono text-lg font-bold tabular-nums text-[#f0d78c]">{fmt(me.exp)}</p>
                   </div>
                 </div>

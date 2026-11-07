@@ -372,11 +372,8 @@ export function EventoWarDeployModal({
                     ? `Lancia l'attacco · ${selectedCount} unità`
                     : `Conferma difesa · ${selectedCount} unità`}
               </span>
-              <motion.span
-                className="pointer-events-none absolute inset-y-0 w-1/3 bg-crema/30"
-                style={{ filter: "blur(14px)" }}
-                animate={{ x: ["-130%", "340%"] }}
-                transition={{ duration: 2.6, repeat: Infinity, ease: "linear" }}
+              <span
+                className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-crema/25 to-transparent opacity-60"
                 aria-hidden
               />
             </button>

@@ -6,14 +6,18 @@ import { cn } from "@/lib/cn";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-const GLOW_EDGE: Record<"gold" | "blue" | "red" | "none", string> = {
-  gold: "linear-gradient(145deg, rgba(125,211,252,0.7), rgba(56,189,248,0.12) 38%, rgba(240,193,74,0.32) 72%, rgba(14,165,233,0.45))",
-  blue: "linear-gradient(145deg, rgba(125,211,252,0.78), rgba(56,189,248,0.18) 42%, rgba(14,165,233,0.5))",
-  red: "linear-gradient(145deg, rgba(251,113,133,0.65), rgba(244,63,94,0.12) 40%, rgba(240,193,74,0.22) 78%, rgba(225,29,72,0.4))",
-  none: "linear-gradient(145deg, rgba(125,211,252,0.28), rgba(56,189,248,0.06) 50%, rgba(14,165,233,0.2))",
+/** Bordo SW: navy + accento fazione — statico (niente sweep/blur animati). */
+const EDGE: Record<"gold" | "blue" | "red" | "none", string> = {
+  gold: "linear-gradient(160deg, rgba(228,199,107,0.55), rgba(56,189,248,0.18) 45%, rgba(14,165,233,0.28))",
+  blue: "linear-gradient(160deg, rgba(125,211,252,0.55), rgba(56,189,248,0.12) 55%, rgba(14,165,233,0.35))",
+  red: "linear-gradient(160deg, rgba(251,113,133,0.5), rgba(244,63,94,0.12) 50%, rgba(225,29,72,0.32))",
+  none: "linear-gradient(160deg, rgba(148,163,184,0.22), rgba(30,41,59,0.35))",
 };
 
-/** Pannello ologramma — stesso materiale delle classifiche, riusato su tutto `/evento`. */
+/**
+ * Pannello comando Star Wars — vetro scuro quieto.
+ * Niente scanline/sweep/orb blur: su hub con N pannelli facevano framelag.
+ */
 export function EventoPanel({
   children,
   className,
@@ -28,43 +32,24 @@ export function EventoPanel({
   const reduce = useReducedMotion();
   return (
     <motion.div
-      initial={reduce ? false : { opacity: 0, y: 18, filter: "blur(6px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      transition={{ duration: 0.55, delay, ease: EASE }}
+      initial={reduce ? false : { opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, delay, ease: EASE }}
       className="relative"
     >
-      <div className="relative overflow-hidden rounded-[1.35rem] p-[1px]" style={{ background: GLOW_EDGE[glow] }}>
-        {/* className qui: `!p-0` / overflow dei giochi e hub devono colpire lo shell interno */}
+      <div className="relative rounded-2xl p-px" style={{ background: EDGE[glow] }}>
         <div
           className={cn(
-            "relative overflow-hidden rounded-[1.3rem] bg-[linear-gradient(168deg,rgba(6,18,32,0.94),rgba(3,8,16,0.98)_52%,rgba(2,6,12,0.99))] px-4 py-5 sm:px-5 sm:py-6",
+            "relative rounded-[0.95rem] bg-[#070d18]/92 px-4 py-5 sm:rounded-[1.05rem] sm:px-5 sm:py-6",
             className,
           )}
         >
+          {/* highlight statico in alto — depth senza compositing continuo */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 opacity-[0.14]"
-            style={{
-              backgroundImage:
-                "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(125,211,252,0.09) 2px, rgba(125,211,252,0.09) 3px)",
-            }}
+            className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/35 to-transparent"
           />
-          {!reduce ? (
-            <motion.div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 h-14 bg-gradient-to-b from-cyan-300/0 via-cyan-200/10 to-cyan-300/0"
-              initial={{ top: "-18%" }}
-              animate={{ top: ["-18%", "118%"] }}
-              transition={{ duration: 5.8, repeat: Infinity, ease: "linear", delay: delay + 0.3 }}
-            />
-          ) : null}
-          <span aria-hidden className="pointer-events-none absolute left-2.5 top-2.5 z-[1] h-3.5 w-3.5 border-l-2 border-t-2 border-cyan-300/55" />
-          <span aria-hidden className="pointer-events-none absolute right-2.5 top-2.5 z-[1] h-3.5 w-3.5 border-r-2 border-t-2 border-cyan-300/55" />
-          <span aria-hidden className="pointer-events-none absolute bottom-2.5 left-2.5 z-[1] h-3.5 w-3.5 border-b-2 border-l-2 border-amber-300/40" />
-          <span aria-hidden className="pointer-events-none absolute bottom-2.5 right-2.5 z-[1] h-3.5 w-3.5 border-b-2 border-r-2 border-amber-300/40" />
-          <div aria-hidden className="pointer-events-none absolute -left-10 top-1/4 h-36 w-36 rounded-full bg-cyan-400/12 blur-3xl" />
-          <div aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-amber-300/10 blur-3xl" />
-          <div className="relative z-[1]">{children}</div>
+          <div className="relative">{children}</div>
         </div>
       </div>
     </motion.div>
@@ -73,7 +58,7 @@ export function EventoPanel({
 
 export function EventoKicker({ children }: { children: ReactNode }) {
   return (
-    <p className="font-mono text-[0.62rem] font-semibold uppercase tracking-[0.32em] text-cyan-300/70">
+    <p className="text-[0.65rem] font-semibold uppercase tracking-[0.26em] text-[#e4c76b]/85">
       {children}
     </p>
   );
@@ -81,7 +66,7 @@ export function EventoKicker({ children }: { children: ReactNode }) {
 
 export function EventoTitle({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <h2 className={cn("mt-1 font-display text-3xl font-semibold tracking-tight text-[#eaf6ff] sm:text-4xl", className)}>
+    <h2 className={cn("mt-1 font-display text-3xl font-semibold tracking-tight text-[#f0e6c8] sm:text-4xl", className)}>
       {children}
     </h2>
   );
@@ -97,14 +82,14 @@ export function EventoBtn({
 }) {
   const styles =
     variant === "ghost"
-      ? "bg-black/40 text-cyan-50 ring-1 ring-cyan-300/25 hover:bg-cyan-400/10 hover:ring-cyan-300/40"
+      ? "bg-white/[0.06] text-[#f0e6c8] ring-1 ring-white/15 hover:bg-white/[0.1]"
       : variant === "danger"
-        ? "bg-gradient-to-r from-rose-600 to-rose-500 text-crema shadow-[0_0_22px_rgba(244,63,94,0.28)] hover:brightness-110"
+        ? "bg-[#a83a2c] text-[#f0e6c8] hover:brightness-110"
         : variant === "blue"
-          ? "bg-gradient-to-r from-sky-400 to-cyan-300 text-ink shadow-[0_0_22px_rgba(56,189,248,0.35)] hover:brightness-105"
+          ? "bg-[#2ea8ff] text-[#05070f] hover:brightness-110"
           : variant === "discord"
             ? "bg-[#5865f2] text-white hover:brightness-110"
-            : "bg-gradient-to-r from-cyan-300 via-sky-400 to-amber-300 text-ink shadow-[0_0_24px_rgba(56,189,248,0.32)] hover:brightness-105";
+            : "bg-gradient-to-r from-[#c9a227] to-[#e4c76b] text-[#05070f] hover:brightness-105";
   return (
     <button
       type="button"
@@ -130,9 +115,9 @@ export function EventoLoginGate({
   return (
     <div className="mx-auto max-w-md">
       <EventoPanel className="text-center" glow="blue">
-        <EventoKicker>Canale · accesso</EventoKicker>
+        <EventoKicker>Accesso flotta</EventoKicker>
         <EventoTitle className="text-2xl sm:text-3xl">Entra nella flotta</EventoTitle>
-        <p className="mt-3 text-sm leading-relaxed text-sky-100/65">{label}</p>
+        <p className="mt-3 text-sm leading-relaxed text-[#f0e6c8]/70">{label}</p>
         <EventoBtn className="mt-6" variant="discord" onClick={onLogin}>
           Accedi con Discord
         </EventoBtn>
@@ -144,23 +129,20 @@ export function EventoLoginGate({
 export function EventoSkeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn(
-        "mx-auto h-48 max-w-2xl animate-pulse rounded-[1.35rem] bg-[linear-gradient(145deg,rgba(56,189,248,0.08),rgba(0,0,0,0.35))] ring-1 ring-cyan-300/20",
-        className,
-      )}
+      className={cn("mx-auto h-48 max-w-2xl animate-pulse rounded-2xl bg-white/[0.06] ring-1 ring-white/10", className)}
       aria-busy="true"
     />
   );
 }
 
-/** Barra progresso ologramma (livello, missioni, …). */
+/** Barra progresso — gradient CSS statico, niente box-shadow animati. */
 export function EventoProgressBar({ pct, className }: { pct: number; className?: string }) {
   const w = Math.max(0, Math.min(100, pct));
   return (
-    <div className={cn("h-2 overflow-hidden rounded-full bg-cyan-950/90 ring-1 ring-cyan-400/15", className)}>
+    <div className={cn("h-2 overflow-hidden rounded-full bg-black/50 ring-1 ring-white/10", className)}>
       <div
-        className="h-full rounded-full bg-gradient-to-r from-cyan-200 via-sky-400 to-amber-300 transition-[width] duration-500"
-        style={{ width: `${w}%`, boxShadow: "0 0 12px rgba(125,211,252,0.55)" }}
+        className="h-full rounded-full bg-gradient-to-r from-[#2ea8ff] via-[#7dd3fc] to-[#e4c76b] transition-[width] duration-500"
+        style={{ width: `${w}%` }}
       />
     </div>
   );

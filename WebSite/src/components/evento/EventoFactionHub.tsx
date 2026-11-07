@@ -226,19 +226,8 @@ export function EventoFactionHub() {
           className={cn("pointer-events-none absolute inset-0 bg-gradient-to-br", accentGlow)}
           aria-hidden
         />
-        <div
-          className="pointer-events-none absolute -right-16 -top-20 size-72 rounded-full bg-[#c9a227]/10 blur-3xl"
-          aria-hidden
-        />
         <div className="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:items-end sm:text-left">
           <div className="relative shrink-0">
-            <div
-              className={cn(
-                "absolute inset-0 rounded-full blur-xl",
-                light ? "bg-sky-400/30" : "bg-rose-500/30",
-              )}
-              aria-hidden
-            />
             {crest ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img

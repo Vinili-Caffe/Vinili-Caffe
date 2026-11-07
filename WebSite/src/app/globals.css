@@ -446,8 +446,8 @@ html.vc-phone-preview body {
 }
 .vc-accademia-live {
   transform: translate(-50%, -50%);
-  animation: vc-accademia-pulse 720ms ease-in-out infinite;
-  box-shadow: 0 0 18px rgba(201, 162, 39, 0.7);
+  /* niente pulse infinito + glow grosso: lagga su mobile */
+  box-shadow: 0 0 10px rgba(201, 162, 39, 0.45);
 }
 .vc-accademia-out {
   pointer-events: none;
@@ -526,32 +526,28 @@ html[data-vc-live-pip] .vc-hw-pumpkins {
   display: none !important;
 }
 
-/* Evento Star Wars: remappa token → navbar/footer/UI ologramma cyan/ambra */
+/* Evento Star Wars: palette galassia (oro + void), senza effetti pesanti */
 html[data-vc-evento="1"] {
   color-scheme: dark;
   --color-espresso: #05070f;
   --color-roast: #0a1020;
   --color-mocha: #121a32;
-  --color-crema: #eaf6ff;
-  /* sand/ember restano oro (crediti, rank); caramel → cyan comando */
+  --color-crema: #f0e6c8;
   --color-sand: #e4c76b;
-  --color-caramel: #38bdf8;
+  --color-caramel: #c9a227;
   --color-ember: #f0d78c;
-  --color-paper: #eaf6ff;
+  --color-paper: #f0e6c8;
   --color-ink: #05070f;
-  --vc-holo-cyan: #7dd3fc;
-  --vc-holo-amber: #f0d78c;
 }
 html[data-vc-evento="1"] body {
   background-color: #05070f;
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(56, 189, 248, 0.16), transparent 55%),
-    radial-gradient(ellipse 55% 40% at 100% 75%, rgba(240, 215, 140, 0.08), transparent 50%),
-    radial-gradient(ellipse 40% 30% at 0% 90%, rgba(14, 165, 233, 0.07), transparent 55%);
+    radial-gradient(ellipse 70% 45% at 50% -8%, rgba(46, 168, 255, 0.1), transparent 58%),
+    radial-gradient(ellipse 50% 35% at 100% 80%, rgba(201, 162, 39, 0.06), transparent 52%);
 }
 html[data-vc-evento="1"] ::selection {
-  background: rgba(56, 189, 248, 0.35);
-  color: #eaf6ff;
+  background: rgba(201, 162, 39, 0.35);
+  color: #f0e6c8;
 }
 html[data-vc-evento="1"] .vc-hw-fog,
 html[data-vc-evento="1"] .vc-hw-eyes,
@@ -569,8 +565,8 @@ html[data-vc-evento="1"][data-vc-theme="light"] .scheme-dark {
   --color-espresso: #05070f;
   --color-roast: #0a1020;
   --color-mocha: #121a32;
-  --color-crema: #eaf6ff;
+  --color-crema: #f0e6c8;
   --color-sand: #e4c76b;
-  --color-caramel: #38bdf8;
+  --color-caramel: #c9a227;
   --color-ember: #f0d78c;
 }

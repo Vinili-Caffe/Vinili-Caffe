@@ -59,12 +59,12 @@ function Lightsaber({
           className="absolute inset-0 rounded-full"
           style={{
             background: `linear-gradient(180deg, ${blade.core} 0%, ${blade.mid} 35%, ${blade.glow} 100%)`,
-            boxShadow: `0 0 18px 4px ${blade.glow}, 0 0 42px 10px ${blade.glow}99, 0 0 80px 18px ${blade.glow}55`,
+            boxShadow: `0 0 14px 3px ${blade.glow}, 0 0 28px 6px ${blade.glow}66`,
           }}
         />
         <div
           className="absolute inset-x-[28%] inset-y-[4%] rounded-full opacity-90"
-          style={{ background: blade.core, filter: "blur(0.5px)" }}
+          style={{ background: blade.core }}
         />
       </div>
       {/* elsa */}
@@ -128,27 +128,14 @@ export function EventoBattleFx({ data, onClose }: { data: BattleFxData; onClose:
         onClick={() => phase === "result" && onClose()}
       />
 
-      {/* stelle */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-        {Array.from({ length: 40 }).map((_, i) => (
-          <span
-            key={i}
-            className="absolute size-0.5 rounded-full bg-white"
-            style={{
-              left: `${(i * 17) % 100}%`,
-              top: `${(i * 29) % 100}%`,
-              opacity: 0.15 + (i % 5) * 0.12,
-            }}
-          />
-        ))}
-        <div
-          className="absolute inset-x-0 bottom-0 h-[45%]"
-          style={{
-            background:
-              "radial-gradient(ellipse 70% 55% at 50% 100%, rgba(201,162,39,0.18), transparent 70%)",
-          }}
-        />
-      </div>
+      <div
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        aria-hidden
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 50% at 50% 100%, rgba(201,162,39,0.16), transparent 70%), radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.35), transparent), radial-gradient(1px 1px at 70% 20%, rgba(255,255,255,0.28), transparent), radial-gradient(1px 1px at 45% 60%, rgba(255,255,255,0.22), transparent)",
+        }}
+      />
 
       {/* arena duello */}
       <div className="pointer-events-none relative z-[1] h-[min(62vh,420px)] w-full max-w-xl">
@@ -205,7 +192,7 @@ export function EventoBattleFx({ data, onClose }: { data: BattleFxData; onClose:
       <AnimatePresence>
         {phase === "result" ? (
           <motion.div
-            className="absolute inset-x-4 bottom-[8%] z-10 mx-auto w-full max-w-md rounded-3xl bg-gradient-to-b from-[#121a32]/95 to-[#05070f] p-6 text-center ring-1 ring-[#c9a227]/40 backdrop-blur-md sm:inset-x-auto"
+            className="absolute inset-x-4 bottom-[8%] z-10 mx-auto w-full max-w-md rounded-3xl bg-[#0a1020]/96 p-6 text-center ring-1 ring-[#c9a227]/40 sm:inset-x-auto"
             initial={{ opacity: 0, y: 28, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12 }}

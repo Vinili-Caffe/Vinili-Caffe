@@ -74,12 +74,12 @@ export function EventoCrateArt({
     <motion.div
       className={`relative mx-auto overflow-visible ${box} ${className}`}
       style={{ perspective: 700 }}
-      animate={shake ? { x: [0, -6, 7, -5, 4, 0], rotate: [0, -3, 3, -2, 1, 0] } : { x: 0, rotate: 0 }}
-      transition={shake ? { duration: 0.55, repeat: Infinity, repeatDelay: 0.15 } : undefined}
+      animate={shake ? { x: [0, -5, 5, -3, 0], rotate: [0, -2, 2, 0] } : { x: 0, rotate: 0 }}
+      transition={shake ? { duration: 0.45 } : undefined}
     >
       <div
-        className="pointer-events-none absolute -inset-4 rounded-full opacity-70 blur-2xl"
-        style={{ background: t.glow }}
+        className="pointer-events-none absolute inset-2 rounded-full opacity-40"
+        style={{ background: `radial-gradient(circle, ${t.glow} 0%, transparent 70%)` }}
         aria-hidden
       />
       {useImg ? (

@@ -121,10 +121,7 @@ function DoorFace({
 
         <span className="mx-auto my-0.5 flex size-8 items-end justify-center gap-0.5 sm:size-9">
           {spoilersHidden ? (
-            <Gift
-              className="size-6 text-crema/25 blur-[3px] sm:size-7"
-              aria-hidden
-            />
+            <Gift className="size-6 text-crema/25 sm:size-7" aria-hidden />
           ) : crateId && crateArtUrl(crateId, false) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -135,9 +132,6 @@ function DoorFace({
                 "h-6 w-6 object-contain sm:h-7 sm:w-7",
                 claimed ? "opacity-100" : missed ? "opacity-35 grayscale" : "opacity-90",
               )}
-              style={{
-                filter: isToday ? "drop-shadow(0 0 8px rgba(46,168,255,0.55))" : undefined,
-              }}
               draggable={false}
             />
           ) : showCredits ? null : (
@@ -148,7 +142,7 @@ function DoorFace({
               )}
               style={{
                 background: `linear-gradient(160deg, ${crateTint(crateId || "stellare").lid}, ${crateTint(crateId || "stellare").face})`,
-                boxShadow: isToday ? "0 0 14px -2px rgba(46,168,255,0.55)" : "0 4px 10px rgba(0,0,0,0.35)",
+                boxShadow: "0 4px 10px rgba(0,0,0,0.35)",
               }}
             >
               <span className="absolute inset-x-0 top-0 h-1.5 rounded-t-sm bg-white/25" />
@@ -171,7 +165,7 @@ function DoorFace({
               : missed
                 ? "text-rose-300/55"
                 : spoilersHidden
-                  ? "text-crema/30 blur-[2px] select-none"
+                  ? "select-none text-transparent"
                   : "text-crema/70",
           )}
           aria-hidden={spoilersHidden || undefined}
@@ -353,35 +347,26 @@ export function AdventCalendar({ embedded = false }: { embedded?: boolean }) {
                   }
                   whileHover={slot.canClaim && !flipping ? { scale: 1.03 } : undefined}
                   whileTap={slot.canClaim && !flipping ? { scale: 0.97 } : undefined}
-                  animate={
-                    flipping
-                      ? { rotateY: -72, scale: 1.04 }
-                      : isToday
-                        ? { y: [0, -2, 0] }
-                        : { rotateY: 0, scale: 1 }
-                  }
+                  animate={flipping ? { rotateY: -72, scale: 1.04 } : { rotateY: 0, scale: 1 }}
                   transition={
                     flipping
                       ? { type: "tween", duration: 0.32, ease: "easeOut" }
-                      : isToday
-                        ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" }
-                        : { type: "tween", duration: 0.25 }
+                      : { type: "tween", duration: 0.25 }
                   }
                   className={cn(
-                    "relative w-full overflow-hidden rounded-2xl text-left ring-1 transition will-change-transform",
+                    "relative w-full overflow-hidden rounded-2xl text-left ring-1 transition",
                     slot.claimed
-                      ? "ring-[#c9a227]/55 shadow-[0_0_18px_-6px_rgba(201,162,39,0.55)]"
+                      ? "ring-[#c9a227]/50"
                       : missed
                         ? "ring-rose-500/25 opacity-80"
                         : isToday
-                          ? "ring-[#2ea8ff]/65 shadow-[0_0_28px_-4px_rgba(46,168,255,0.65)]"
+                          ? "ring-[#2ea8ff]/60"
                           : locked
                             ? "ring-white/5"
                             : "ring-sand/20",
-                    slot.canClaim && "cursor-pointer hover:ring-[#e4c76b]/75",
+                    slot.canClaim && "cursor-pointer hover:ring-[#e4c76b]/70",
                     !slot.canClaim && "cursor-default",
                   )}
-                  style={{ transformStyle: "preserve-3d" }}
                 >
                   <DoorFace
                     day={slot.day}
