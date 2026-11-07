@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import { useChromeOpenListener } from "@/lib/chrome-open";
 import { Range } from "@/components/ui";
 
-const BOTTOM = "bottom-[max(0.65rem,env(safe-area-inset-bottom))]";
+const BOTTOM = "bottom-[max(0.75rem,env(safe-area-inset-bottom))]";
 
 function fmtTime(sec: number) {
   if (!Number.isFinite(sec) || sec < 0) return "0:00";
@@ -30,7 +30,7 @@ type Props = {
   failed?: string | null;
 };
 
-/** Mini-player compatto: titolo, play/pause, seek, volume. */
+/** Mini-player: titolo, play/pause, seek, volume. */
 export function MusicDock({
   label = "Musica",
   on,
@@ -72,33 +72,33 @@ export function MusicDock({
     <div
       ref={wrap}
       className={cn(
-        "pointer-events-auto fixed left-3 z-[60] w-[min(13.25rem,calc(100vw-1.5rem))] sm:left-4",
+        "pointer-events-auto fixed left-3 z-[60] w-[min(15rem,calc(100vw-1.5rem))] sm:left-4",
         BOTTOM,
       )}
       role="region"
       aria-label="Lettore musica"
     >
-      <div className="overflow-hidden rounded-lg bg-espresso/95 shadow-[0_10px_24px_-12px_rgba(0,0,0,0.85)] ring-1 ring-sand/20">
-        <div className="flex items-center gap-1.5 px-2 py-1.5">
+      <div className="overflow-hidden rounded-xl bg-espresso/95 shadow-[0_12px_28px_-14px_rgba(0,0,0,0.85)] ring-1 ring-sand/20">
+        <div className="flex items-center gap-2 px-2.5 py-2">
           <button
             type="button"
             onClick={onToggle}
             aria-pressed={on}
             aria-label={on ? "Pausa" : "Play"}
-            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-caramel text-ink transition hover:brightness-105 active:scale-[0.97]"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-caramel text-ink transition hover:brightness-105 active:scale-[0.97]"
           >
-            {on ? <Pause className="size-3 fill-current" /> : <Play className="size-3 fill-current pl-px" />}
+            {on ? <Pause className="size-3.5 fill-current" /> : <Play className="size-3.5 fill-current pl-px" />}
           </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[0.7rem] font-medium leading-tight text-crema" title={label}>
+            <p className="truncate text-[0.8rem] font-medium leading-tight text-crema" title={label}>
               {label}
             </p>
             {status ? (
-              <p className={cn("truncate text-[0.58rem] leading-tight", failed ? "text-ember/90" : "text-crema/50")}>
+              <p className={cn("truncate text-[0.65rem] leading-tight", failed ? "text-ember/90" : "text-crema/50")}>
                 {status}
               </p>
             ) : (
-              <p className="text-[0.55rem] uppercase tracking-[0.12em] text-crema/40">
+              <p className="text-[0.6rem] uppercase tracking-[0.14em] text-crema/40">
                 {on ? "In play" : "In pausa"}
               </p>
             )}
@@ -106,7 +106,7 @@ export function MusicDock({
         </div>
 
         {showSeek ? (
-          <div className="px-2 pb-0.5">
+          <div className="px-2.5 pb-1">
             <Range
               min={0}
               max={1000}
@@ -114,20 +114,20 @@ export function MusicDock({
               value={seekPct}
               aria-label="Posizione brano"
               onChange={(n) => onSeek?.(n / 1000)}
-              className="h-1.5 w-full"
+              className="w-full"
             />
-            <div className="-mt-0.5 flex justify-between font-mono text-[0.52rem] tabular-nums text-crema/40">
+            <div className="-mt-0.5 flex justify-between font-mono text-[0.58rem] tabular-nums text-crema/40">
               <span>{fmtTime(curSec)}</span>
               <span>{duration > 0 ? fmtTime(duration) : "—:—"}</span>
             </div>
           </div>
         ) : null}
 
-        <div className="flex items-center gap-1 border-t border-sand/10 px-2 py-1">
+        <div className="flex items-center gap-1.5 border-t border-sand/10 px-2.5 py-1.5">
           <button
             type="button"
             aria-label={mutedUi || volume < 0.001 ? "Riattiva audio" : "Disattiva audio"}
-            className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-crema/65 transition hover:bg-crema/8 hover:text-crema"
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-crema/65 transition hover:bg-crema/8 hover:text-crema"
             onClick={() => {
               if (mutedUi || volume < 0.001) {
                 onVolume(volBeforeMute.current || 0.5);
@@ -138,11 +138,11 @@ export function MusicDock({
             }}
           >
             {mutedUi || volume < 0.001 ? (
-              <VolumeX className="size-2.5" />
+              <VolumeX className="size-3" />
             ) : volume < 0.45 ? (
-              <Volume1 className="size-2.5" />
+              <Volume1 className="size-3" />
             ) : (
-              <Volume2 className="size-2.5" />
+              <Volume2 className="size-3" />
             )}
           </button>
           <Range
@@ -152,9 +152,9 @@ export function MusicDock({
             value={volPct}
             aria-label="Volume"
             onChange={(n) => onVolume(n / 100)}
-            className="h-1.5 min-w-0 flex-1"
+            className="min-w-0 flex-1"
           />
-          <span className="w-5 shrink-0 text-right font-mono text-[0.52rem] tabular-nums text-crema/40">
+          <span className="w-6 shrink-0 text-right font-mono text-[0.58rem] tabular-nums text-crema/40">
             {volPct}
           </span>
         </div>
