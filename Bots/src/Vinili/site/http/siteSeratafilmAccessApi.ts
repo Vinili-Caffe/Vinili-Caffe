@@ -98,7 +98,7 @@ function buildFilmStreamUrl(userId?) {
 
 /** Default CDN; override: VC_SERATAFILM_FILM_URL (http/s) o VC_SERATAFILM_FILM_FILE (path locale). */
 const DEFAULT_SERATAFILM_LINK_FILM =
-  "https://cdn.viniliecaffe.it/images/seratafilm/nightmare-before-christmas.mp4";
+  "https://cdn.viniliecaffe.it/images/seratafilm/perfetti-sconosciuti.mp4";
 
 function readSeratafilmLinkFilm() {
   const envUrl = String(process.env.VC_SERATAFILM_FILM_URL || "").trim();

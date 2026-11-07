@@ -1,5 +1,5 @@
 /* Vinili & Caffè — service worker: notifiche push, clic sulle notifiche, badge dell'app e pagina offline.
-   build: pushClickNavIos3-20261106
+   build: pushClickNavIos4-20261107
    Le pagine vere non si mettono mai in cache, così non si vedono versioni vecchie.
 
    Regola delle push (vale per tutti i browser): OGNI push mostra una notifica. Una push che non mostra
@@ -265,24 +265,33 @@ self.addEventListener("notificationclick", (event) => {
         return;
       }
       const want = pathKey(abs);
-      /* preferisci tab già sulla destinazione, poi quella in focus (evita aprire “pagina sbagliata”) */
+      /* preferisci tab già sulla destinazione, poi quella in focus */
       const same =
         originClients.find((c) => pathKey(c.url) === want) ||
         originClients.find((c) => c.focused) ||
         originClients[0];
-      await same.focus().catch(() => null);
-      try {
-        same.postMessage({ type: "vc:notif-navigate", url: abs });
-      } catch {
-        /* ignore */
+      /* iOS: avvisa TUTTI i client — il focused può essere sospeso e perdere il messaggio */
+      for (const c of originClients) {
+        try {
+          c.postMessage({ type: "vc:notif-navigate", url: abs, t: Date.now() });
+        } catch {
+          /* ignore */
+        }
       }
+      await same.focus().catch(() => null);
       if (pathKey(same.url) === want) return;
-      // navigate() spesso ok su desktop/Android; se fallisce (o iOS) apri la destinazione
+      /* Desktop/Android: Client.navigate se c'è */
       if (!isIos() && typeof same.navigate === "function") {
         const ok = await same.navigate(abs).then(() => true, () => false);
         if (ok) return;
       }
-      if (self.clients.openWindow) await self.clients.openWindow(abs).catch(() => null);
+      /*
+       * iOS: con un client già aperto openWindow spesso apre Safari / start_url
+       * invece di navigare in-app. La nav vera è stash + postMessage → NotifNavigate.
+       */
+      if (!isIos() && self.clients.openWindow) {
+        await self.clients.openWindow(abs).catch(() => null);
+      }
     })(),
   );
 });

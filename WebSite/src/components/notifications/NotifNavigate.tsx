@@ -9,10 +9,23 @@ const PENDING_REQ = "/__vc_notif_pending";
 /**
  * SW notificationclick → postMessage { type:"vc:notif-navigate", url }
  * + cache pending (se il messaggio arriva prima dell’hydrate).
- * Su iOS client.navigate() / start_url sono inaffidabili: location.assign + poll cache.
+ * Su iOS client.navigate() / openWindow con PWA già aperta sono inaffidabili:
+ * stash + location.assign/replace + drain ripetuti (anche al resume).
  */
 export function NotifNavigate() {
   useEffect(() => {
+    const markNavFlags = (next: string) => {
+      try {
+        sessionStorage.setItem("vc-pwa-left-start", "1");
+        sessionStorage.removeItem("vc-pwa-want-home");
+        sessionStorage.setItem("vc-notif-pending-nav", next);
+        (window as unknown as { __vcNotifNavDone?: number }).__vcNotifNavDone = 1;
+        (window as unknown as { __vcPwaResumeSkip?: number }).__vcPwaResumeSkip = 1;
+      } catch {
+        /* ignore */
+      }
+    };
+
     const go = (url: string) => {
       const raw = String(url || "").trim();
       if (!raw) return;
@@ -22,16 +35,13 @@ export function NotifNavigate() {
           location.assign(u.href);
           return;
         }
-        /* stesso pathKey dello SW (trailing slash) — evita skip/false mismatch */
         const next = notifPathKey(u.href);
         const here = notifPathKey(location.href);
         if (!next) return;
         if (next === here) {
+          markNavFlags(next);
           try {
-            sessionStorage.setItem("vc-pwa-left-start", "1");
-            sessionStorage.removeItem("vc-pwa-want-home");
-            (window as unknown as { __vcNotifNavDone?: number }).__vcNotifNavDone = 1;
-            (window as unknown as { __vcPwaResumeSkip?: number }).__vcPwaResumeSkip = 1;
+            sessionStorage.removeItem("vc-notif-pending-nav");
           } catch {
             /* ignore */
           }
@@ -46,17 +56,14 @@ export function NotifNavigate() {
           }
           return;
         }
-        try {
-          sessionStorage.setItem("vc-pwa-left-start", "1");
-          sessionStorage.removeItem("vc-pwa-want-home");
-          sessionStorage.setItem("vc-notif-pending-nav", next);
-          (window as unknown as { __vcNotifNavDone?: number }).__vcNotifNavDone = 1;
-          (window as unknown as { __vcPwaResumeSkip?: number }).__vcPwaResumeSkip = 1;
-        } catch {
-          /* ignore */
-        }
+        markNavFlags(next);
         forceScrollTop();
-        location.assign(next);
+        /* iOS: replace più stabile di assign su tap ripetuti da Notification Center */
+        try {
+          location.replace(next);
+        } catch {
+          location.assign(next);
+        }
       } catch {
         /* ignore */
       }
@@ -69,10 +76,25 @@ export function NotifNavigate() {
         const res = await cache.match(PENDING_REQ);
         if (!res) return false;
         const data = (await res.json().catch(() => null)) as { url?: string; t?: number } | null;
-        await cache.delete(PENDING_REQ);
         const url = String(data?.url || "").trim();
         const at = Number(data?.t || 0);
-        if (!url || (at > 0 && Date.now() - at > 120_000)) return false;
+        if (!url || (at > 0 && Date.now() - at > 120_000)) {
+          await cache.delete(PENDING_REQ).catch(() => null);
+          return false;
+        }
+        const next = notifPathKey(url);
+        const here = notifPathKey(location.href);
+        /* Cancella solo dopo che siamo già a destinazione, altrimenti iOS perde il target. */
+        if (next && next === here) {
+          await cache.delete(PENDING_REQ).catch(() => null);
+          try {
+            sessionStorage.removeItem("vc-notif-pending-nav");
+          } catch {
+            /* ignore */
+          }
+          forceScrollTop();
+          return true;
+        }
         go(url);
         return true;
       } catch {
@@ -91,25 +113,33 @@ export function NotifNavigate() {
           forceScrollTop();
           return;
         }
-        sessionStorage.removeItem("vc-notif-pending-nav");
         go(pending);
       } catch {
         /* ignore */
       }
     };
 
-    drainSession();
-    void drainCache();
-    /* iOS: click → start_url → hydrate tardi; ripeti drain un paio di volte. */
-    const t1 = window.setTimeout(() => void drainCache(), 400);
-    const t2 = window.setTimeout(() => void drainCache(), 1200);
-    const t3 = window.setTimeout(() => void drainCache(), 2800);
+    const poke = () => {
+      drainSession();
+      void drainCache();
+    };
+
+    poke();
+    /* iOS: click → start_url / wake tardivo; ripeti drain. */
+    const timers = [200, 500, 1000, 1800, 3200, 5500].map((ms) => window.setTimeout(poke, ms));
+
+    const onVis = () => {
+      if (document.visibilityState === "visible") poke();
+    };
+    const onShow = () => poke();
+    window.addEventListener("pageshow", onShow);
+    document.addEventListener("visibilitychange", onVis);
 
     if (!("serviceWorker" in navigator)) {
       return () => {
-        window.clearTimeout(t1);
-        window.clearTimeout(t2);
-        window.clearTimeout(t3);
+        for (const t of timers) window.clearTimeout(t);
+        window.removeEventListener("pageshow", onShow);
+        document.removeEventListener("visibilitychange", onVis);
       };
     }
 
@@ -118,14 +148,17 @@ export function NotifNavigate() {
       if (!d || typeof d !== "object") return;
       if (String((d as { type?: string }).type || "") !== "vc:notif-navigate") return;
       go(String((d as { url?: string }).url || ""));
+      /* riesegui drain: stash può arrivare dopo il messaggio su iOS */
+      window.setTimeout(poke, 50);
+      window.setTimeout(poke, 400);
     };
 
     navigator.serviceWorker.addEventListener("message", onMsg);
     return () => {
       navigator.serviceWorker.removeEventListener("message", onMsg);
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-      window.clearTimeout(t3);
+      for (const t of timers) window.clearTimeout(t);
+      window.removeEventListener("pageshow", onShow);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
 

@@ -1,3 +1,8 @@
+# Film / media locali (CDN R2, non in deploy Vercel)
+*.mp4
+*.mkv
+Watch *.mp4
+
 # Logs
 logs
 *.log

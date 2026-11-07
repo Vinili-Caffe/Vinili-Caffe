@@ -106,6 +106,11 @@ function sanitizeChromePrefs(raw?) {
     if (Number.isFinite(at) && at > 0) bgm.at = at;
     if (Object.keys(bgm).length) out.eventoBgm = bgm;
   }
+  /* itsTimeDaySync1: "It's time" 1×/giorno cross-device (YYYY-MM-DD Europe/Rome) */
+  if (typeof src.itsTimeDay === "string") {
+    const day = String(src.itsTimeDay || "").trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(day)) out.itsTimeDay = day;
+  }
   out.updatedAt = Number(src.updatedAt) || Date.now();
   return out;
 }
@@ -145,6 +150,12 @@ function deepMergeChrome(base?, patch?) {
       map[k] = Math.max(Number(map[k]) || 0, Number(b.navFeatSeen[k]) || 0);
     });
     out.navFeatSeen = map;
+  }
+  /* giorno più recente (lessicale YYYY-MM-DD) vince */
+  if (a.itsTimeDay || b.itsTimeDay) {
+    const da = String(a.itsTimeDay || "");
+    const db = String(b.itsTimeDay || "");
+    out.itsTimeDay = db >= da ? db || da : da || db;
   }
   return sanitizeChromePrefs(out);
 }

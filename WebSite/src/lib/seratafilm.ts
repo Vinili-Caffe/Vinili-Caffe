@@ -21,13 +21,13 @@ export const SERATA_EVENT: SerataEvent = {
   recurring: { weekday: 6, hour: 21, minute: 0 },
   /** Vuoto = sabato 21:00 Europe/Rome (recurring). Imposta ISO solo per una data fissa. */
   overrideIso: "",
-  filmTitle: "Nightmare Before Christmas",
+  filmTitle: "Perfetti sconosciuti",
   nextFilmTitle: "",
 };
 
 /** Locandina sul player — sempre da CDN (`vc-media`). */
 export const FILM_POSTER =
-  "https://cdn.viniliecaffe.it/images/seratafilm/nightmare-before-christmas-poster.jpg?v=20261030cdn2";
+  "https://cdn.viniliecaffe.it/images/seratafilm/perfetti-sconosciuti-poster.jpg?v=20261107ps1";
 
 /** BGM attesa default (YouTube id). */
 export const SERATA_BGM_YT_ID = "7wnVYIJipzU";

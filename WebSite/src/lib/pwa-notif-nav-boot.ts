@@ -1,7 +1,7 @@
 /**
  * Boot async (head): se lo SW ha stashato una URL da notificationclick,
  * vai lì PRIMA del resume PWA (altrimenti iOS resta su start_url/home).
- * Marker: pushClickNavIos2
+ * Marker: pushClickNavIos4
  */
 export const PWA_NOTIF_NAV_BOOT = `(async function(){try{
 if(window.__vcNotifNavBoot)return;window.__vcNotifNavBoot=1;
@@ -22,10 +22,12 @@ var res=await cache.match(REQ);
 if(!res)return;
 var data=null;
 try{data=await res.json()}catch(eJ){data=null}
-await cache.delete(REQ).catch(function(){});
 var url=String(data&&data.url||"").trim();
 var at=Number(data&&data.t||0)||0;
-if(!url||(at>0&&Date.now()-at>120000))return;
+if(!url||(at>0&&Date.now()-at>120000)){
+  await cache.delete(REQ).catch(function(){});
+  return;
+}
 var u=null;
 try{u=new URL(url,location.origin)}catch(eU){return}
 if(u.origin!==location.origin)return;
@@ -33,10 +35,12 @@ var next=pathKey(u.href);
 if(!next)return;
 var here=pathKey(location.href);
 if(next===here){
-  try{sessionStorage.setItem("vc-pwa-left-start","1");sessionStorage.removeItem("vc-pwa-want-home")}catch(eS){}
+  await cache.delete(REQ).catch(function(){});
+  try{sessionStorage.setItem("vc-pwa-left-start","1");sessionStorage.removeItem("vc-pwa-want-home");sessionStorage.removeItem("vc-notif-pending-nav")}catch(eS){}
   window.__vcNotifNavDone=1;
   return;
 }
+/* Non cancellare lo stash finché non siamo arrivati: iOS può riaprire start_url. */
 try{
   sessionStorage.setItem("vc-pwa-left-start","1");
   sessionStorage.removeItem("vc-pwa-want-home");
