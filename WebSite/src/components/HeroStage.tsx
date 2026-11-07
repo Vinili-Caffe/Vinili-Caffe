@@ -122,29 +122,18 @@ export function HeroStage({ className }: { className?: string }) {
 
   useEffect(() => {
     let alive = true;
-    fetch("/discord-invite.json", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!alive || !j) return;
-        const guild = j.guild || j;
-        const id = String(guild?.id || "").trim();
-        const hash = String(guild?.icon || "").trim();
-        if (!id || !hash) return;
-        /* WebP animato a 64px: la GIF a 128px pesava ~400 KB per un cerchio di 50px */
-        const animated = hash.startsWith("a_") ? "&animated=true" : "";
-        setGuildIcon(`https://cdn.discordapp.com/icons/${id}/${hash}.webp?size=64${animated}`);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let alive = true;
+    /* Un solo bundle (condiviso con LiveStats): invite + extra, niente 2° round-trip. */
     loadStatsBundle("")
-      .then(({ extra }) => {
-        if (!alive || !extra) return;
+      .then(({ extra, invite }) => {
+        if (!alive) return;
+        const g = invite?.guild || invite;
+        const id = String(g?.id || "").trim();
+        const hash = String(g?.icon || "").trim();
+        if (id && hash) {
+          const animated = hash.startsWith("a_") ? "&animated=true" : "";
+          setGuildIcon(`https://cdn.discordapp.com/icons/${id}/${hash}.webp?size=64${animated}`);
+        }
+        if (!extra) return;
         const seen = new Set<string>();
         const out: { name: string; avatarUrl?: string }[] = [];
         const push = (name: string, avatarUrl?: string) => {

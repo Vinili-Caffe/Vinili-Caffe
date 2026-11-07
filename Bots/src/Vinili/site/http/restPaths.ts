@@ -35,6 +35,13 @@ function guildAutoModerationRulesPath(guildId?) {
     return `/guilds/${guildId}/auto-moderation/rules`;
   }
 }
+function guildAutoModerationRulePath(guildId?, ruleId?) {
+  try {
+    return routeCall("guildAutoModerationRule", guildId, ruleId);
+  } catch {
+    return `/guilds/${guildId}/auto-moderation/rules/${ruleId}`;
+  }
+}
 function guildAuditLogPath(guildId?) {
   try {
     return routeCall("guildAuditLog", guildId);
@@ -78,4 +85,4 @@ function channelPermissionPath(channelId?, overwriteId?) {
   }
 }
 
-export = { guildActiveThreadsPath, channelThreadsArchivedPublicPath, channelThreadsArchivedPrivatePath, guildAutoModerationRulesPath, guildAuditLogPath, guildWebhooksPath, guildBansPath, guildIntegrationsPath, userGuildsPath, channelPermissionPath };
+export = { guildActiveThreadsPath, channelThreadsArchivedPublicPath, channelThreadsArchivedPrivatePath, guildAutoModerationRulesPath, guildAutoModerationRulePath, guildAuditLogPath, guildWebhooksPath, guildBansPath, guildIntegrationsPath, userGuildsPath, channelPermissionPath };

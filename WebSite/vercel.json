@@ -33,6 +33,27 @@
   ],
   "headers": [
     {
+      "source": "/live-stats-extra.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=30, s-maxage=45, stale-while-revalidate=60" },
+        { "key": "CDN-Cache-Control", "value": "public, max-age=45" }
+      ]
+    },
+    {
+      "source": "/discord-invite.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=60, s-maxage=90, stale-while-revalidate=60" },
+        { "key": "CDN-Cache-Control", "value": "public, max-age=90" }
+      ]
+    },
+    {
+      "source": "/site-analytics.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=300, s-maxage=300, stale-while-revalidate=120" },
+        { "key": "CDN-Cache-Control", "value": "public, max-age=300" }
+      ]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         {

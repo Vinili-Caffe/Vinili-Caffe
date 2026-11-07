@@ -51,7 +51,13 @@ export type StatsExtra = {
 
 export const FALLBACK_STATS: Stats = { members: 2300, online: 150, boosts: 45, staff: 11 };
 
-type Invite = { approximate_member_count?: number; approximate_presence_count?: number };
+type Invite = {
+  approximate_member_count?: number;
+  approximate_presence_count?: number;
+  id?: string;
+  icon?: string;
+  guild?: { id?: string; icon?: string };
+};
 
 function merge(invite: Invite | null, extra: StatsExtra | null, base: Stats): Stats {
   return {
@@ -64,31 +70,45 @@ function merge(invite: Invite | null, extra: StatsExtra | null, base: Stats): St
 
 async function getJson<T>(url: string): Promise<T | null> {
   try {
-    const r = await fetch(url, { cache: "no-store" });
+    /* Preferisci cache HTTP/CDN (CF edge) invece di no-store: meno round-trip verso Canada. */
+    const r = await fetch(url, { cache: "default" });
     return r.ok ? ((await r.json()) as T) : null;
   } catch {
     return null;
   }
 }
 
-/** origin "" = stesso sito (beta → proxy al sito vero); in build si usa l'origine del sito vero */
-export async function loadStats(origin = "", base: Stats = FALLBACK_STATS): Promise<Stats> {
+type StatsBundle = { stats: Stats; extra: StatsExtra | null; invite: Invite | null };
+
+/** Dedup in-flight: Hero + LiveStats sulla home condividono un solo fetch. */
+const inflightBundles = new Map<string, Promise<StatsBundle>>();
+
+async function fetchStatsBundle(origin: string, base: Stats): Promise<StatsBundle> {
   const [invite, extra] = await Promise.all([
     getJson<Invite>(`${origin}/discord-invite.json`),
     getJson<StatsExtra>(`${origin}/live-stats-extra.json`),
   ]);
-  return merge(invite, extra, base);
+  return { stats: merge(invite, extra, base), extra, invite };
+}
+
+/** origin "" = stesso sito (beta → proxy al sito vero); in build si usa l'origine del sito vero */
+export async function loadStats(origin = "", base: Stats = FALLBACK_STATS): Promise<Stats> {
+  const b = await loadStatsBundle(origin, base);
+  return b.stats;
 }
 
 export async function loadStatsBundle(
   origin = "",
   base: Stats = FALLBACK_STATS,
-): Promise<{ stats: Stats; extra: StatsExtra | null }> {
-  const [invite, extra] = await Promise.all([
-    getJson<Invite>(`${origin}/discord-invite.json`),
-    getJson<StatsExtra>(`${origin}/live-stats-extra.json`),
-  ]);
-  return { stats: merge(invite, extra, base), extra };
+): Promise<StatsBundle> {
+  const key = `${origin}::${base.members}:${base.online}:${base.boosts}:${base.staff}`;
+  const hit = inflightBundles.get(key);
+  if (hit) return hit;
+  const p = fetchStatsBundle(origin, base).finally(() => {
+    inflightBundles.delete(key);
+  });
+  inflightBundles.set(key, p);
+  return p;
 }
 
 /** Valori reali al momento della build: la pagina nasce già con numeri veri, poi il client li aggiorna. */

@@ -1,8 +1,117 @@
 /** Client REST del sito: webhook, invite, audit, eventi, automod e ban. */
 const { Routes } = require("discord.js") as typeof import("discord.js");
-const { guildAuditLogPath, guildWebhooksPath, guildBansPath, guildIntegrationsPath, guildAutoModerationRulesPath } = require("./restPaths") as typeof import("./restPaths");
+const {
+  guildAuditLogPath,
+  guildWebhooksPath,
+  guildBansPath,
+  guildIntegrationsPath,
+  guildAutoModerationRulesPath,
+  guildAutoModerationRulePath,
+} = require("./restPaths") as typeof import("./restPaths");
 const { asCacheMap, snowflakeCreatedAt } = require("./restPermissions") as typeof import("./restPermissions");
 const { wrapUser } = require("./restUserRole") as typeof import("./restUserRole");
+
+function toAutomodTriggerMetadataApi(meta?) {
+  if (!meta || typeof meta !== "object") return undefined;
+  const out: Record<string, any> = {};
+  if (Array.isArray(meta.keywordFilter) || Array.isArray(meta.keyword_filter)) {
+    out.keyword_filter = [...(meta.keywordFilter || meta.keyword_filter)].map(String);
+  }
+  if (Array.isArray(meta.regexPatterns) || Array.isArray(meta.regex_patterns)) {
+    out.regex_patterns = [...(meta.regexPatterns || meta.regex_patterns)].map(String);
+  }
+  if (Array.isArray(meta.allowList) || Array.isArray(meta.allow_list)) {
+    out.allow_list = [...(meta.allowList || meta.allow_list)].map(String);
+  }
+  if (Array.isArray(meta.presets)) out.presets = [...meta.presets].map(Number);
+  const mentionLimit = meta.mentionTotalLimit ?? meta.mention_total_limit;
+  if (mentionLimit != null) out.mention_total_limit = Number(mentionLimit);
+  const raid =
+    meta.mentionRaidProtectionEnabled ?? meta.mention_raid_protection_enabled;
+  if (raid != null) out.mention_raid_protection_enabled = Boolean(raid);
+  return Object.keys(out).length ? out : undefined;
+}
+
+function toAutomodActionsApi(actions?) {
+  if (!Array.isArray(actions)) return undefined;
+  return actions.map((a?) => {
+    const type = Number(a?.type);
+    const md = a?.metadata || {};
+    const metadata: Record<string, any> = {};
+    const channelId = md.channelId ?? md.channel_id ?? md.channel;
+    if (channelId != null) metadata.channel_id = String(channelId);
+    const customMessage = md.customMessage ?? md.custom_message;
+    if (customMessage != null) metadata.custom_message = String(customMessage);
+    const duration = md.durationSeconds ?? md.duration_seconds;
+    if (duration != null) metadata.duration_seconds = Number(duration);
+    return Object.keys(metadata).length ? { type, metadata } : { type };
+  });
+}
+
+function toAutomodRuleBodyApi(input: Record<string, any> = {}) {
+  const body: Record<string, any> = {};
+  if (input.name != null) body.name = String(input.name);
+  if (input.eventType != null || input.event_type != null) {
+    body.event_type = Number(input.eventType ?? input.event_type);
+  }
+  if (input.triggerType != null || input.trigger_type != null) {
+    body.trigger_type = Number(input.triggerType ?? input.trigger_type);
+  }
+  const triggerMetadata = toAutomodTriggerMetadataApi(
+    input.triggerMetadata ?? input.trigger_metadata,
+  );
+  if (triggerMetadata) body.trigger_metadata = triggerMetadata;
+  const actions = toAutomodActionsApi(input.actions);
+  if (actions) body.actions = actions;
+  if (input.enabled != null) body.enabled = Boolean(input.enabled);
+  if (input.exemptRoles != null || input.exempt_roles != null) {
+    body.exempt_roles = [...(input.exemptRoles || input.exempt_roles || [])].map(String);
+  }
+  if (input.exemptChannels != null || input.exempt_channels != null) {
+    body.exempt_channels = [...(input.exemptChannels || input.exempt_channels || [])].map(String);
+  }
+  return body;
+}
+
+function wrapAutomodRule(raw?, guild?, client?) {
+  const id = String(raw?.id || "");
+  const rule: Record<string, any> = {
+    id,
+    name: raw?.name,
+    creatorId: raw?.creator_id ? String(raw.creator_id) : raw?.creatorId || null,
+    eventType: raw?.event_type ?? raw?.eventType,
+    triggerType: raw?.trigger_type ?? raw?.triggerType,
+    triggerMetadata: raw?.trigger_metadata ?? raw?.triggerMetadata ?? null,
+    enabled: Boolean(raw?.enabled),
+    exemptChannels: Array.isArray(raw?.exempt_channels)
+      ? raw.exempt_channels.map(String)
+      : Array.isArray(raw?.exemptChannels)
+        ? raw.exemptChannels.map(String)
+        : [],
+    exemptRoles: Array.isArray(raw?.exempt_roles)
+      ? raw.exempt_roles.map(String)
+      : Array.isArray(raw?.exemptRoles)
+        ? raw.exemptRoles.map(String)
+        : [],
+    actions: Array.isArray(raw?.actions) ? raw.actions : [],
+    guild,
+    edit: async (data: Record<string, any> = {}) => {
+      const reason = data.reason ? String(data.reason).slice(0, 512) : undefined;
+      const updated = await client._rest.patch(guildAutoModerationRulePath(guild.id, id), {
+        body: toAutomodRuleBodyApi(data),
+        reason,
+      });
+      return wrapAutomodRule(updated, guild, client);
+    },
+    delete: async (reason?) => {
+      await client._rest.delete(guildAutoModerationRulePath(guild.id, id), {
+        reason: reason ? String(reason).slice(0, 512) : undefined,
+      });
+      return rule;
+    },
+  };
+  return rule;
+}
 
 function attachGuildLookupApis(guild?, client?) {
   guild.fetchWebhooks = async () => {
@@ -160,26 +269,18 @@ function attachGuildCollectionApis(guild?, client?) {
       const list = await client._rest.get(guildAutoModerationRulesPath(guild.id)).catch(() => []);
       return asCacheMap(
         (list || []).map((rule?) => {
-          const id = String(rule.id);
-          return [
-            id,
-            {
-              id,
-              name: rule.name,
-              creatorId: rule.creator_id ? String(rule.creator_id) : null,
-              eventType: rule.event_type,
-              triggerType: rule.trigger_type,
-              triggerMetadata: rule.trigger_metadata || null,
-              enabled: Boolean(rule.enabled),
-              exemptChannels: Array.isArray(rule.exempt_channels)
-                ? rule.exempt_channels.map(String)
-                : [],
-              exemptRoles: Array.isArray(rule.exempt_roles) ? rule.exempt_roles.map(String) : [],
-              actions: Array.isArray(rule.actions) ? rule.actions : [],
-            },
-          ];
+          const wrapped = wrapAutomodRule(rule, guild, client);
+          return [wrapped.id, wrapped];
         }),
       );
+    },
+    create: async (data: Record<string, any> = {}) => {
+      const reason = data.reason ? String(data.reason).slice(0, 512) : undefined;
+      const created = await client._rest.post(guildAutoModerationRulesPath(guild.id), {
+        body: toAutomodRuleBodyApi(data),
+        reason,
+      });
+      return wrapAutomodRule(created, guild, client);
     },
   };
 
