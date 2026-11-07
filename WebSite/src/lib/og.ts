@@ -201,9 +201,11 @@ export function pageSocialMeta(opts: {
     : opts.description ||
       "Vinili & Caffè: community Discord italiana chill dove parlare di tutto.";
   const title = notFound ? "Pagina non trovata" : opts.title;
+  const canonicalPath = notFound ? "/" : path === "/" ? "/" : path;
   return {
     ...(title ? { title } : {}),
     description,
+    alternates: { canonical: canonicalPath },
     other: {
       // Accent caffè nell’unfurl classico; PWA resta su viewport.themeColor roast.
       "theme-color": notFound ? "#e07a5f" : SITE_EMBED_COLOR,
@@ -211,7 +213,7 @@ export function pageSocialMeta(opts: {
     openGraph: {
       ...(title ? { title } : {}),
       description,
-      url: `${SITE_ORIGIN}${notFound ? "/" : path === "/" ? "/" : path}`,
+      url: `${SITE_ORIGIN}${canonicalPath}`,
       siteName: "Vinili & Caffè",
       locale: "it_IT",
       type: "website" as const,

@@ -39,6 +39,7 @@ export const metadata: Metadata = {
   description:
     "Vinili & Caffè: Community Discord Italiana chill dove parlare di tutto. Ruoli, eventi, giveaway, bot esclusivi.",
   metadataBase: new URL("https://www.viniliecaffe.it"),
+  // default home; le sottopagine override via pageSocialMeta.alternates.canonical
   alternates: { canonical: "/" },
   openGraph: {
     // niente title qui: eredita il <title> risolto (template brand ǀ pagina), come il sito vecchio
