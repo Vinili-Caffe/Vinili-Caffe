@@ -1,11 +1,6 @@
 /** Serata film: accesso high-staff + stream firmato. API /webhooks/site-seratafilm-access|film */
 
 import { cdnUrl } from "@/lib/site";
-import { isEventoImmersionActive } from "@/lib/evento-starwars";
-import { EVENTO_YT } from "@/lib/evento-theme";
-import { isHalloweenSeason } from "@/lib/site-effects";
-import { VINYL_YT_HALLOWEEN } from "@/lib/youtube-player";
-
 
 export type SerataEvent = {
   timezone: string;
@@ -28,18 +23,6 @@ export const SERATA_EVENT: SerataEvent = {
 /** Locandina sul player — sempre da CDN (`vc-media`). */
 export const FILM_POSTER =
   "https://cdn.viniliecaffe.it/images/seratafilm/perfetti-sconosciuti-poster.jpg?v=20261107ps1";
-
-/** BGM attesa default (YouTube id). */
-export const SERATA_BGM_YT_ID = "7wnVYIJipzU";
-
-/**
- * BGM attesa: SW Main Title in immersione evento; Halloween in stagione;
- * altrimenti default serata.
- */
-export function resolveSerataBgmYtId(now = new Date()): string {
-  if (isEventoImmersionActive(now)) return EVENTO_YT.id;
-  return isHalloweenSeason(now) ? VINYL_YT_HALLOWEEN.id : SERATA_BGM_YT_ID;
-}
 
 /** Skip titoli di coda (disattivato). */
 export const CREDITS_SKIP = {

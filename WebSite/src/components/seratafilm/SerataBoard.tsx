@@ -20,25 +20,10 @@ import {
   loadSerataAccess,
   liveFilmStartMs,
   nextFilmAtMs,
-  resolveSerataBgmYtId,
 } from "@/lib/seratafilm";
 import { page } from "@/lib/site";
-import { loadYtApi, VINYL_YT_HALLOWEEN, type YtPlayer } from "@/lib/youtube-player";
-import { EVENTO_YT } from "@/lib/evento-theme";
+import { setSerataMuteBgm } from "@/lib/serata-mute-bgm";
 import { cn } from "@/lib/cn";
-import { MusicDock } from "@/components/MusicDock";
-
-const VOL_KEY = "vc_seratafilm_bgm_volume_v1";
-
-function readVol() {
-  try {
-    const n = Number(localStorage.getItem(VOL_KEY));
-    if (Number.isFinite(n) && n >= 0 && n <= 1) return n;
-  } catch {
-    /* ignore */
-  }
-  return 0.34;
-}
 
 function Countdown({ now, target }: { now: number | null; target: number }) {
   const c = now == null ? { live: false, days: 0, hours: 0, minutes: 0, seconds: 0 } : countdownParts(target, now);
@@ -60,199 +45,6 @@ function Countdown({ now, target }: { now: number | null; target: number }) {
         </div>
       ))}
     </div>
-  );
-}
-
-/** BGM YouTube: volume + seek; stop a inizio film. */
-function SerataBgm({ armed, stop }: { armed: boolean; stop: boolean }) {
-  const host = useRef<HTMLDivElement>(null);
-  const yt = useRef<YtPlayer | null>(null);
-  const videoId = resolveSerataBgmYtId();
-  const [on, setOn] = useState(false);
-  const [hint, setHint] = useState(true);
-  const [volume, setVolume] = useState(0.34);
-  const [seek, setSeek] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const seeking = useRef(false);
-  const trackTitle =
-    videoId === EVENTO_YT.id
-      ? EVENTO_YT.title
-      : videoId === VINYL_YT_HALLOWEEN.id
-        ? VINYL_YT_HALLOWEEN.title
-        : "Colonna sonora · serata";
-
-  useEffect(() => {
-    setVolume(readVol());
-  }, []);
-
-  useEffect(() => {
-    if (!armed || stop) return;
-    let cancelled = false;
-    loadYtApi()
-      .then((YT) => {
-        if (cancelled || !host.current || yt.current) return;
-        host.current.innerHTML = "";
-        const slot = document.createElement("div");
-        host.current.appendChild(slot);
-        new YT.Player(slot, {
-          videoId,
-          width: 1,
-          height: 1,
-          host: "https://www.youtube-nocookie.com",
-          playerVars: { autoplay: 0, controls: 0, loop: 1, playlist: videoId, playsinline: 1, modestbranding: 1 },
-          events: {
-            onReady: (e) => {
-              yt.current = e.target;
-              try {
-                e.target.setVolume(Math.round(readVol() * 100));
-              } catch {
-                /* ignore */
-              }
-            },
-            onStateChange: (e) => {
-              if (e.data === YT.PlayerState.ENDED) {
-                try {
-                  e.target.seekTo(0, true);
-                  e.target.playVideo();
-                } catch {
-                  /* ignore */
-                }
-              }
-            },
-          },
-        });
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-      try {
-        yt.current?.destroy();
-      } catch {
-        /* ignore */
-      }
-      yt.current = null;
-      try {
-        if (host.current) host.current.innerHTML = "";
-      } catch {
-        /* ignore */
-      }
-    };
-  }, [armed, videoId, stop]);
-
-  useEffect(() => {
-    if (!stop) return;
-    try {
-      yt.current?.pauseVideo();
-    } catch {
-      /* ignore */
-    }
-    setOn(false);
-  }, [stop]);
-
-  useEffect(() => {
-    if (!hint) return;
-    const t = window.setTimeout(() => setHint(false), 4500);
-    return () => window.clearTimeout(t);
-  }, [hint]);
-
-  useEffect(() => {
-    const p = yt.current;
-    if (!p) return;
-    try {
-      p.setVolume(Math.round(Math.min(1, Math.max(0, volume)) * 100));
-    } catch {
-      /* ignore */
-    }
-  }, [volume]);
-
-  useEffect(() => {
-    if (!on || stop) return;
-    const id = window.setInterval(() => {
-      if (seeking.current) return;
-      const p = yt.current;
-      if (!p) return;
-      try {
-        const dur = p.getDuration() || 0;
-        const cur = p.getCurrentTime() || 0;
-        if (dur > 0) {
-          setDuration(dur);
-          setSeek(Math.min(1, Math.max(0, cur / dur)));
-        }
-      } catch {
-        /* ignore */
-      }
-    }, 500);
-    return () => window.clearInterval(id);
-  }, [on, stop]);
-
-  const setVol = (v: number) => {
-    const next = Math.min(1, Math.max(0, v));
-    setVolume(next);
-    try {
-      localStorage.setItem(VOL_KEY, String(next));
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const onSeek = (ratio: number) => {
-    seeking.current = true;
-    setSeek(ratio);
-    const p = yt.current;
-    if (!p) {
-      seeking.current = false;
-      return;
-    }
-    try {
-      const dur = p.getDuration() || 0;
-      if (dur > 0) p.seekTo(ratio * dur, true);
-    } catch {
-      /* ignore */
-    }
-    window.setTimeout(() => {
-      seeking.current = false;
-    }, 200);
-  };
-
-  const toggle = () => {
-    const p = yt.current;
-    if (!p) return;
-    try {
-      if (on) {
-        p.pauseVideo();
-        setOn(false);
-      } else {
-        p.unMute();
-        p.setVolume(Math.round(volume * 100));
-        p.playVideo();
-        setOn(true);
-        setHint(false);
-      }
-    } catch {
-      setOn(false);
-    }
-  };
-
-  if (!armed || stop) {
-    return <div ref={host} className="pointer-events-none absolute size-px overflow-hidden opacity-0" aria-hidden />;
-  }
-
-  return (
-    <>
-      <div ref={host} className="pointer-events-none absolute size-px overflow-hidden opacity-0" aria-hidden />
-      <MusicDock
-        label={trackTitle}
-        on={on}
-        onToggle={toggle}
-        volume={volume}
-        onVolume={setVol}
-        seek={seek}
-        onSeek={onSeek}
-        seekEnabled
-        duration={duration}
-        hint={hint && !on ? "Tocca play per avviare" : null}
-      />
-    </>
   );
 }
 
@@ -559,11 +351,16 @@ export function SerataBoard() {
 
   const showPlayer = Boolean(stream && token && !err);
   const coverVisible = showPlayer && !filmPlaying;
+  const muteSiteBgm = filmPlaying || isLive || inCountdownLead || inFinal10;
+
+  /* Usa musica globale (sito / evento SW): silenziala solo in countdown o durante il film. */
+  useEffect(() => {
+    setSerataMuteBgm(muteSiteBgm);
+    return () => setSerataMuteBgm(false);
+  }, [muteSiteBgm]);
 
   return (
     <section className="mx-auto max-w-4xl px-6 pb-24">
-      <SerataBgm armed={Boolean(ready)} stop={filmPlaying || isLive || inCountdownLead || inFinal10} />
-
       {inFinal10 ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/95" aria-live="assertive">
           <p className="font-display text-[min(40vw,12rem)] font-semibold leading-none text-sand tabular-nums drop-shadow-[0_0_40px_rgba(212,145,80,0.45)]">

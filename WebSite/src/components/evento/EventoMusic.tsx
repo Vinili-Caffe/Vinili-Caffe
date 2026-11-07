@@ -5,8 +5,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import { MusicDock } from "@/components/MusicDock";
+import { readSerataMuteBgm, subscribeSerataMuteBgm } from "@/lib/serata-mute-bgm";
 import { useAuth } from "@/lib/auth";
 import {
   EVENTO_BGM_ON_KEY,
@@ -17,12 +17,6 @@ import {
   EVENTO_YT_FALLBACKS,
 } from "@/lib/evento-theme";
 import { loadYtApi, type YtNamespace, type YtPlayer } from "@/lib/youtube-player";
-
-/** Serata film ha BGM/countdown propri: silenzia la colonna SW. */
-function pathSuppressesEventoMusic(pathname: string) {
-  const p = String(pathname || "").replace(/\/+$/, "") || "/";
-  return p === "/seratafilm" || p.startsWith("/seratafilm/");
-}
 
 const BC = "vc-evento-bgm-v2";
 const CHROME_PREFS = "/webhooks/site-chrome-prefs";
@@ -112,8 +106,6 @@ function broadcast(msg: Record<string, unknown>) {
 
 export function EventoMusic() {
   const { token } = useAuth();
-  const pathname = usePathname() || "/";
-  const suppress = pathSuppressesEventoMusic(pathname);
   const host = useRef<HTMLDivElement>(null);
   const yt = useRef<YtPlayer | null>(null);
   const readyRef = useRef(false);
@@ -135,17 +127,28 @@ export function EventoMusic() {
   const [label, setLabel] = useState(EVENTO_YT.title);
   const [seek, setSeek] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [suppress, setSuppress] = useState(false);
 
   useEffect(() => {
     volumeRef.current = volume;
   }, [volume]);
 
-  /* /seratafilm: pausa BGM SW (SerataBoard ha colonna/countdown propri). */
+  useEffect(() => subscribeSerataMuteBgm(setSuppress), []);
+
+  /* Pausa in countdown/film serata; riprendi al termine se era attiva. */
   useEffect(() => {
-    if (!suppress) return;
+    const p = yt.current;
+    if (!p || !readyRef.current) return;
     try {
-      yt.current?.pauseVideo?.();
-      yt.current?.mute?.();
+      if (suppress) {
+        p.pauseVideo?.();
+        p.mute?.();
+      } else if (wantOn.current) {
+        p.unMute?.();
+        p.setVolume?.(Math.round(volumeRef.current * 100));
+        p.playVideo?.();
+        setOn(true);
+      }
     } catch {
       /* ignore */
     }
@@ -380,7 +383,7 @@ export function EventoMusic() {
                 setDuration(d);
                 setSeek(Math.min(1, resumeAt / d));
               }
-              if (wantOn.current) {
+              if (wantOn.current && !readSerataMuteBgm()) {
                 e.target.unMute?.();
                 e.target.playVideo();
               } else {
@@ -427,7 +430,6 @@ export function EventoMusic() {
   );
 
   useEffect(() => {
-    if (suppress) return;
     if (booting.current) return;
     let cancelled = false;
     const start = () => {
@@ -464,7 +466,7 @@ export function EventoMusic() {
       booting.current = false;
       setReady(false);
     };
-  }, [mountPlayer, savePos, suppress]);
+  }, [mountPlayer, savePos]);
 
   useEffect(() => {
     if (!ready) return;
@@ -595,24 +597,24 @@ export function EventoMusic() {
     [],
   );
 
-  if (suppress) return null;
-
   return (
     <>
       <div ref={host} className="pointer-events-none fixed left-0 top-0 z-0 overflow-hidden" aria-hidden />
-      <MusicDock
-        label={label}
-        on={on}
-        onToggle={toggle}
-        volume={volume}
-        onVolume={onVolume}
-        seek={seek}
-        onSeek={duration > 0 ? onSeek : undefined}
-        seekEnabled={duration > 0 && ready}
-        duration={duration}
-        hint={hint && !ready && !failed ? "Caricamento colonna sonora…" : null}
-        failed={failed ? "Musica non disponibile" : null}
-      />
+      {!suppress ? (
+        <MusicDock
+          label={label}
+          on={on}
+          onToggle={toggle}
+          volume={volume}
+          onVolume={onVolume}
+          seek={seek}
+          onSeek={duration > 0 ? onSeek : undefined}
+          seekEnabled={duration > 0 && ready}
+          duration={duration}
+          hint={hint && !ready && !failed ? "Caricamento colonna sonora…" : null}
+          failed={failed ? "Musica non disponibile" : null}
+        />
+      ) : null}
     </>
   );
 }

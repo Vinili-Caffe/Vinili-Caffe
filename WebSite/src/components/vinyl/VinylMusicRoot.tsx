@@ -2,7 +2,7 @@
 
 /**
  * Musica giradischi globale (SiteShell): minutaggio/volume su disco + MusicDock.
- * Confessionale / seratafilm: pausa (hanno il loro BGM).
+ * Pausa su confessionale, /evento, /puzzle; su /seratafilm resta attiva (mute solo in countdown/film).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,14 +19,15 @@ import {
   resumeTimeFromSaved,
   writeVinylMusic,
 } from "@/lib/vinyl-music-store";
+import { subscribeSerataMuteBgm } from "@/lib/serata-mute-bgm";
 
 function pathSuppressesSiteMusic(pathname: string) {
   const p = String(pathname || "").replace(/\/+$/, "") || "/";
   if (p === "/confessionale") return true;
-  if (p === "/seratafilm" || p.startsWith("/seratafilm/")) return true;
   /* Evento Star Wars: BGM dedicato (EventoMusic). */
   if (p === "/evento" || p.startsWith("/evento/")) return true;
   if (p === "/puzzle" || p.startsWith("/puzzle/")) return true;
+  /* /seratafilm resta sulla musica sito (o EventoMusic se immersione SW). */
   return false;
 }
 
@@ -60,16 +61,24 @@ export function VinylMusicRoot() {
   }, [suppress]);
 
   useEffect(() => {
-    const syncPath = () => {
+    let serataMute = false;
+    const sync = () => {
       try {
-        setSuppress(pathSuppressesSiteMusic(location.pathname));
+        setSuppress(pathSuppressesSiteMusic(location.pathname) || serataMute);
       } catch {
-        setSuppress(false);
+        setSuppress(serataMute);
       }
     };
-    syncPath();
-    window.addEventListener("popstate", syncPath);
-    return () => window.removeEventListener("popstate", syncPath);
+    sync();
+    window.addEventListener("popstate", sync);
+    const unsub = subscribeSerataMuteBgm((on) => {
+      serataMute = on;
+      sync();
+    });
+    return () => {
+      window.removeEventListener("popstate", sync);
+      unsub();
+    };
   }, []);
 
   const persistNow = useCallback((extra?: { wantPlay?: boolean; t?: number }) => {
