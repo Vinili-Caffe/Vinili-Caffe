@@ -16,7 +16,7 @@
     "axios": "^1.21.0",
     "discord-api-types": "^0.38.57",
     "discord.js": "^14.25.1",
-    "mongoose": "^8.9.5",
+    "mongoose": "^9.11.4",
     "typescript": "^6.0.3",
     "ws": "^8.22.0"
   },
