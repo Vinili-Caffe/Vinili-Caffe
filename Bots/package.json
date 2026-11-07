@@ -17,7 +17,7 @@
     "discord-api-types": "^0.38.57",
     "discord.js": "^14.25.1",
     "mongoose": "^8.9.5",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "ws": "^8.22.0"
   },
   "author": "terronizzarsi",
