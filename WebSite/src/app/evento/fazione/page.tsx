@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { Shield } from "lucide-react";
 import { EventoPage } from "@/components/evento/EventoPage";
 import { EventoSortGate } from "@/components/evento/EventoSortGate";
 import { eventoPageMeta } from "@/lib/evento-starwars";
@@ -20,7 +21,14 @@ export const metadata: Metadata = {
 
 export default function EventoFazionePage() {
   return (
-    <EventoPage pageId="fazione" path={meta.path} title="Fazione" text={meta.description}>
+    <EventoPage
+      pageId="fazione"
+      path={meta.path}
+      title="Ponte"
+      accent="di fazione"
+      text="Caveau, hangar e catena di comando della tua flotta. Solo chi ha superato lo smistamento entra sul ponte."
+      icon={<Shield />}
+    >
       <EventoSortGate mode="redirect">
         <EventoFactionHub />
       </EventoSortGate>

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { fetchEventoStatus, type EventoStatus } from "@/lib/evento-api";
 import { useEventoFactionSync } from "@/lib/evento-faction-sync";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
-import { EventoPanel } from "@/components/evento/EventoUi";
+import { EventoBtn, EventoPanel, EventoProgressBar } from "@/components/evento/EventoUi";
 import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
 import { cdnUrl } from "@/lib/site";
 import { cn } from "@/lib/cn";
@@ -44,7 +44,7 @@ function StatCell({
   icon?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl bg-black/35 px-3 py-3 ring-1 ring-white/10 sm:px-4">
+    <div className="rounded-2xl bg-black/40 px-3 py-3 ring-1 ring-cyan-300/20 sm:px-4">
       <p className="text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-crema/45">{label}</p>
       <p className="mt-1.5 flex items-center gap-1.5 font-sans text-xl font-semibold tabular-nums tracking-tight text-crema sm:text-2xl">
         {icon}
@@ -100,7 +100,7 @@ export function EventoHubStatus() {
                   alt=""
                   width={56}
                   height={56}
-                  className="h-14 w-14 shrink-0 rounded-full ring-2 ring-[#c9a227]/40"
+                  className="h-14 w-14 shrink-0 rounded-full ring-2 ring-cyan-300/35"
                 />
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2.5">
@@ -148,13 +148,9 @@ export function EventoHubStatus() {
                   {token ? "Profilo evento in caricamento…" : "Accedi per vedere inventario, livello e rango."}
                 </p>
                 {!token ? (
-                  <button
-                    type="button"
-                    onClick={login}
-                    className="mt-3 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2 text-sm font-semibold text-ink"
-                  >
+                  <EventoBtn className="mt-3" variant="discord" onClick={login}>
                     Accedi con Discord
-                  </button>
+                  </EventoBtn>
                 ) : null}
               </div>
             )}
@@ -184,7 +180,7 @@ export function EventoHubStatus() {
             </div>
 
             {lv ? (
-              <div className="mt-5 rounded-2xl bg-black/35 p-4 ring-1 ring-white/10">
+              <div className="mt-5 rounded-2xl bg-black/40 p-4 ring-1 ring-cyan-300/15">
                 <div className="flex flex-wrap items-end justify-between gap-2">
                   <div>
                     <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[#e4c76b]">
@@ -201,12 +197,7 @@ export function EventoHubStatus() {
                       : "Livello massimo"}
                   </p>
                 </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-crema/10">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-caramel to-ember transition-[width] duration-500"
-                    style={{ width: `${Math.max(0, Math.min(100, lv.progressPct))}%` }}
-                  />
-                </div>
+                <EventoProgressBar className="mt-3" pct={lv.progressPct} />
               </div>
             ) : null}
           </>

@@ -14,7 +14,7 @@ import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { useEventoFactionSync } from "@/lib/evento-faction-sync";
-import { EventoPanel } from "@/components/evento/EventoUi";
+import { EventoBtn, EventoKicker, EventoPanel, EventoTitle } from "@/components/evento/EventoUi";
 import {
   EventoCrateArt,
   EventoCrateOpenOverlay,
@@ -169,7 +169,11 @@ export function EventoInventoryPanel() {
   if (!token) {
     return (
       <div className="mx-auto mb-8 max-w-4xl px-6 text-center">
-        <button type="button" onClick={login} className="text-sm text-caramel underline underline-offset-2">
+        <button
+          type="button"
+          onClick={login}
+          className="text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-100"
+        >
           Accedi per vedere l&apos;inventario
         </button>
       </div>
@@ -180,9 +184,8 @@ export function EventoInventoryPanel() {
     <div className="mx-auto mb-10 max-w-4xl px-6">
       <EventoPanel glow="gold">
         <div className="relative mb-5 text-center">
-          <h2 className="font-display text-2xl font-semibold uppercase tracking-[0.22em] text-caramel sm:text-3xl">
-            Inventario
-          </h2>
+          <EventoKicker>Deposito · personale</EventoKicker>
+          <EventoTitle className="text-center text-2xl uppercase tracking-[0.22em] sm:text-3xl">Inventario</EventoTitle>
           <p className="mt-2 text-sm text-crema/50">
             Arsenale e rifornimenti fazione sono nella pagina Fazione.
           </p>
@@ -191,7 +194,7 @@ export function EventoInventoryPanel() {
         <div
           role="tablist"
           aria-label="Sezioni inventario"
-          className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-black/40 p-1 ring-1 ring-white/10"
+          className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-black/40 p-1 ring-1 ring-cyan-300/20"
         >
           {TABS.map((t) => {
             const active = tab === t.id;
@@ -205,15 +208,15 @@ export function EventoInventoryPanel() {
                 className={cn(
                   "rounded-xl px-2 py-2.5 text-center text-sm font-semibold transition",
                   active
-                    ? "bg-gradient-to-r from-caramel to-ember text-ink shadow-sm"
-                    : "text-crema/65 hover:bg-crema/8 hover:text-crema",
+                    ? "bg-cyan-400/15 text-cyan-100 ring-1 ring-cyan-300/35 shadow-[0_0_18px_-6px_rgba(56,189,248,0.45)]"
+                    : "text-crema/65 hover:bg-cyan-400/8 hover:text-crema",
                 )}
               >
                 <span className="block truncate">{t.label}</span>
                 <span
                   className={cn(
                     "mt-0.5 block font-sans text-[0.7rem] tabular-nums tracking-tight",
-                    active ? "text-ink/70" : "text-crema/40",
+                    active ? "text-cyan-100/70" : "text-crema/40",
                   )}
                 >
                   {counts[t.id]}
@@ -235,7 +238,7 @@ export function EventoInventoryPanel() {
                       type="button"
                       disabled={Boolean(busy) || Boolean(loot)}
                       onClick={() => void openOne(r.id)}
-                      className="group flex w-full flex-col items-center overflow-visible rounded-2xl bg-black/40 px-2 pb-3 pt-4 ring-1 ring-sand/15 transition hover:bg-black/55 hover:ring-[#c9a227]/35 disabled:opacity-60"
+                      className="group flex w-full flex-col items-center overflow-visible rounded-2xl bg-black/40 px-2 pb-3 pt-4 ring-1 ring-cyan-300/15 transition hover:bg-black/55 hover:ring-cyan-300/35 disabled:opacity-60"
                     >
                       <EventoCrateArt
                         crateId={r.id}
@@ -270,7 +273,7 @@ export function EventoInventoryPanel() {
                 const loading = busy === r.id;
                 const buffOn = Boolean(r.buff?.active);
                 return (
-                  <li key={r.id} className="rounded-2xl bg-black/40 p-4 ring-1 ring-sand/15">
+                  <li key={r.id} className="rounded-2xl bg-black/40 p-4 ring-1 ring-cyan-300/15">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-start gap-3">
                         <EventoUtilityIcon itemId={r.id} size="md" alt={r.label} className="shrink-0" />
@@ -288,14 +291,13 @@ export function EventoInventoryPanel() {
                         ×{r.qty}
                       </p>
                     </div>
-                    <button
-                      type="button"
+                    <EventoBtn
+                      className="mt-3 w-full"
                       disabled={r.qty < 1 || Boolean(busy) || buffOn}
                       onClick={() => void useOne(r.id)}
-                      className="mt-3 w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2 text-sm font-semibold text-ink disabled:opacity-40"
                     >
                       {loading ? "…" : buffOn ? "Già attivo" : "Usa"}
-                    </button>
+                    </EventoBtn>
                   </li>
                 );
               })}

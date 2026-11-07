@@ -211,7 +211,7 @@ function EventoEventiDrop({ items, soon }: { items: EventoNavItemView[]; soon: s
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-1/2 top-full z-[70] mt-1 min-w-[14rem] -translate-x-1/2 origin-top overflow-hidden rounded-2xl bg-roast/95 p-1.5 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] ring-1 ring-sand/15 backdrop-blur-xl"
+            className="absolute left-1/2 top-full z-[70] mt-1 min-w-[14rem] -translate-x-1/2 origin-top overflow-hidden rounded-2xl bg-[#060f1c]/95 p-1.5 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] ring-1 ring-cyan-300/25 backdrop-blur-xl"
           >
             <ul className="py-0.5">
               {items.map((l) => {
@@ -232,7 +232,9 @@ function EventoEventiDrop({ items, soon }: { items: EventoNavItemView[]; soon: s
                         onClick={collapse}
                         className={cn(
                           "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-                          on ? "bg-caramel/12 text-ember" : "text-crema/80 hover:bg-crema/8 hover:text-crema",
+                          on
+                            ? "bg-cyan-400/15 text-cyan-100 ring-1 ring-cyan-300/35"
+                            : "text-crema/80 hover:bg-cyan-400/10 hover:text-crema",
                         )}
                       >
                         {ico}
@@ -623,12 +625,12 @@ export function Navbar() {
             ? cn(
                 "border-b border-sand/15 shadow-[0_12px_40px_-18px_rgba(0,0,0,0.85)]",
                 softBlur ? "bg-roast/80 backdrop-blur-xl vc-ui-blur" : "bg-roast/95",
-                eventoChrome && "border-[#c9a227]/20 shadow-[0_12px_40px_-18px_rgba(5,7,15,0.9)]",
+                eventoChrome && "border-cyan-300/20 shadow-[0_12px_40px_-18px_rgba(5,7,15,0.9)]",
               )
             : cn(
                 "border-b border-transparent bg-transparent",
                 softBlur ? "light:bg-roast/80 light:backdrop-blur-xl light:vc-ui-blur" : "light:bg-roast/95",
-                eventoChrome && softBlur && "bg-[#0a1020]/70 backdrop-blur-xl",
+                eventoChrome && softBlur && "bg-[#060f1c]/72 backdrop-blur-xl",
               ),
         )}
       >
@@ -752,7 +754,7 @@ export function Navbar() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                   >
-                    <h3 className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">
+                    <h3 className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-cyan-300/75">
                       Navigazione
                     </h3>
                     <ul className="grid grid-cols-2 gap-2">
@@ -789,7 +791,7 @@ export function Navbar() {
                                 className={cn(
                                   "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-[transform,background-color,color] duration-200 ease-out active:scale-[0.98]",
                                   on
-                                    ? "bg-caramel/15 text-ember ring-caramel/35"
+                                    ? "bg-cyan-400/15 text-cyan-100 ring-cyan-300/35"
                                     : "bg-crema/[0.05] text-crema/90 ring-sand/12 hover:bg-crema/10",
                                 )}
                               >
@@ -808,7 +810,7 @@ export function Navbar() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                     >
-                      <h3 className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">
+                      <h3 className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-cyan-300/75">
                         <Sparkles className="size-3 opacity-90" aria-hidden />
                         Eventi
                       </h3>
@@ -834,7 +836,7 @@ export function Navbar() {
                                   className={cn(
                                     "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-[transform,background-color,color] duration-200 ease-out active:scale-[0.98]",
                                     on
-                                      ? "bg-caramel/15 text-ember ring-caramel/35"
+                                      ? "bg-cyan-400/15 text-cyan-100 ring-cyan-300/35"
                                       : "bg-crema/[0.05] text-crema/90 ring-sand/12 hover:bg-crema/10",
                                   )}
                                 >
@@ -905,7 +907,12 @@ export function Navbar() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.22, duration: 0.4 }}
               >
-                <h3 className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">
+                <h3
+                  className={cn(
+                    "mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.22em]",
+                    eventoChrome ? "text-cyan-300/75" : "text-caramel",
+                  )}
+                >
                   {t("auth.account")}
                 </h3>
                 <MobileDrawerAccount onClose={() => setOpen(false)} />

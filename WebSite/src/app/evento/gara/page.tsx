@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { Flag } from "lucide-react";
 import { EventoPage } from "@/components/evento/EventoPage";
 import { EventoSortGate } from "@/components/evento/EventoSortGate";
 import { eventoPageMeta } from "@/lib/evento-starwars";
@@ -20,7 +21,14 @@ export const metadata: Metadata = {
 
 export default function EventoGaraPage() {
   return (
-    <EventoPage pageId="gara" path={meta.path} title="Podracing Championship" text={meta.description}>
+    <EventoPage
+      pageId="gara"
+      path={meta.path}
+      title="Podracing"
+      accent="Championship"
+      text="Mos Espa in proiezione olografica: scegli lo sguscio, completa il giro e conquista Omega, Beta o Alpha."
+      icon={<Flag />}
+    >
       <EventoSortGate mode="redirect">
         <GaraGame />
       </EventoSortGate>

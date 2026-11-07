@@ -16,6 +16,7 @@ import {
   EventoKicker,
   EventoLoginGate,
   EventoPanel,
+  EventoProgressBar,
   EventoSkeleton,
   EventoTitle,
 } from "@/components/evento/EventoUi";
@@ -159,16 +160,11 @@ export function SmistamentoQuiz({ onSorted }: { onSorted?: () => void } = {}) {
             </span>
             <span>Riflessi</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[#c9a227] to-[#2ea8ff] transition-[width] duration-300"
-              style={{ width: `${Math.min(100, progress)}%` }}
-            />
-          </div>
+          <EventoProgressBar className="!h-1.5" pct={progress} />
         </div>
 
         <EventoPanel glow="gold" className="!overflow-hidden !p-0">
-          <div className="border-b border-sand/15 px-4 py-3 sm:px-5">
+          <div className="border-b border-cyan-300/15 px-4 py-3 sm:px-5">
             <EventoKicker>Prova di riflessi</EventoKicker>
           </div>
           {academyDone ? (
@@ -212,12 +208,7 @@ export function SmistamentoQuiz({ onSorted }: { onSorted?: () => void } = {}) {
           </span>
           <span>{Math.round((stepIdx / totalSteps) * 100)}%</span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-[#c9a227] to-[#2ea8ff] transition-[width] duration-300"
-            style={{ width: `${Math.min(100, progress)}%` }}
-          />
-        </div>
+        <EventoProgressBar className="!h-1.5" pct={progress} />
       </div>
 
       <EventoPanel glow="gold">
@@ -231,8 +222,8 @@ export function SmistamentoQuiz({ onSorted }: { onSorted?: () => void } = {}) {
                 className={cn(
                   "w-full rounded-xl px-4 py-3.5 text-left text-sm ring-1 transition",
                   picked === c.id
-                    ? "bg-[#c9a227]/20 text-crema ring-[#c9a227]/55"
-                    : "bg-black/30 text-crema/80 ring-sand/12 hover:ring-[#2ea8ff]/35",
+                    ? "bg-cyan-400/15 text-cyan-50 ring-cyan-300/40"
+                    : "bg-black/40 text-crema/80 ring-cyan-300/12 hover:ring-cyan-300/35",
                 )}
               >
                 {c.text}

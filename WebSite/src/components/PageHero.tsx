@@ -64,28 +64,45 @@ export function PageHero({
 
       <div className="scheme-dark mx-auto max-w-4xl px-6 text-center">
         <motion.p
-          initial={reduce ? false : { y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={reduce ? false : { y: 14, opacity: 0, filter: "blur(6px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           transition={{ duration: 0.55, ease }}
-          className="inline-flex items-center gap-2 rounded-full bg-crema/10 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.25em] text-sand shadow-[inset_0_1px_0_rgba(244,233,216,0.08)] ring-1 ring-sand/30 backdrop-blur-md"
+          className={
+            isEvento
+              ? "inline-flex items-center gap-2 rounded-full bg-black/45 px-4 py-1.5 font-mono text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-cyan-200/85 ring-1 ring-cyan-300/35 backdrop-blur-md shadow-[0_0_24px_rgba(56,189,248,0.18)]"
+              : "inline-flex items-center gap-2 rounded-full bg-crema/10 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.25em] text-sand shadow-[inset_0_1px_0_rgba(244,233,216,0.08)] ring-1 ring-sand/30 backdrop-blur-md"
+          }
         >
-          <span className="text-ember [&>svg]:size-3.5">{icon}</span> {kicker}
+          <span className={isEvento ? "text-cyan-300 [&>svg]:size-3.5" : "text-ember [&>svg]:size-3.5"}>
+            {icon}
+          </span>{" "}
+          {kicker}
         </motion.p>
-        <h1 className="mx-auto mt-6 max-w-4xl text-balance font-display text-5xl font-semibold leading-[1.15] text-crema sm:text-7xl">
+        <h1
+          className={
+            isEvento
+              ? "mx-auto mt-6 max-w-4xl text-balance font-display text-5xl font-semibold leading-[1.12] tracking-tight text-[#eaf6ff] sm:text-7xl"
+              : "mx-auto mt-6 max-w-4xl text-balance font-display text-5xl font-semibold leading-[1.15] text-crema sm:text-7xl"
+          }
+        >
           {title}
           {accent ? (
             <>
               {" "}
-              <span className="italic text-sand">{accent}</span>
+              <span className={isEvento ? "italic text-[#f0d78c]" : "italic text-sand"}>{accent}</span>
             </>
           ) : null}
         </h1>
         {text ? (
           <motion.p
-            initial={reduce ? false : { y: 10 }}
+            initial={reduce ? false : { y: 10, opacity: 0 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08, duration: 0.55, ease }}
-            className="mx-auto mt-5 max-w-[38rem] text-pretty text-lg leading-relaxed text-crema/80"
+            className={
+              isEvento
+                ? "mx-auto mt-5 max-w-[38rem] text-pretty text-lg leading-relaxed text-sky-100/70"
+                : "mx-auto mt-5 max-w-[38rem] text-pretty text-lg leading-relaxed text-crema/80"
+            }
           >
             {text}
           </motion.p>

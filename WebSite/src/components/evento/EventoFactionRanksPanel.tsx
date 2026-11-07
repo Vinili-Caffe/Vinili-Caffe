@@ -11,7 +11,7 @@ import {
 import { notifyEventoFactionSync } from "@/lib/evento-faction-sync";
 import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
-import { EventoPanel } from "@/components/evento/EventoUi";
+import { EventoBtn, EventoPanel } from "@/components/evento/EventoUi";
 import { cn } from "@/lib/cn";
 
 function stripMd(s?: string | null) {
@@ -117,14 +117,9 @@ export function EventoFactionRanksPanel({
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              disabled={Boolean(busy)}
-              onClick={() => void act("claim")}
-              className="rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40"
-            >
+            <EventoBtn disabled={Boolean(busy)} onClick={() => void act("claim")}>
               {busy === "claim:self" ? "…" : "Reclama il comando"}
-            </button>
+            </EventoBtn>
           </div>
         </div>
       ) : null}
@@ -141,7 +136,7 @@ export function EventoFactionRanksPanel({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: Math.min(0.35, i * 0.03), duration: 0.35 }}
               className={cn(
-                "flex flex-wrap items-center gap-3 rounded-2xl bg-black/40 px-3 py-3 ring-1 ring-white/10 sm:px-4",
+                "flex flex-wrap items-center gap-3 rounded-2xl bg-black/40 px-3 py-3 ring-1 ring-cyan-300/15 sm:px-4",
                 m.isMarshal && "ring-[#c9a227]/40",
                 m.isSelf && "bg-[#c9a227]/8",
               )}
@@ -202,7 +197,7 @@ export function EventoFactionRanksPanel({
       </ul>
 
       {!members.length ? (
-        <p className="rounded-2xl bg-black/35 px-4 py-8 text-center text-sm text-crema/55 ring-1 ring-white/10">
+        <p className="rounded-2xl bg-black/40 px-4 py-8 text-center text-sm text-crema/55 ring-1 ring-cyan-300/15">
           Nessun membro in fazione.
         </p>
       ) : null}

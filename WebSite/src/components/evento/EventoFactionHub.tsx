@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { showToast } from "@/components/ui/toast";
 import { cdnUrl } from "@/lib/site";
 import { cn } from "@/lib/cn";
-import { EventoPanel, EventoLoginGate } from "@/components/evento/EventoUi";
+import { EventoBtn, EventoLoginGate, EventoPanel, EventoProgressBar } from "@/components/evento/EventoUi";
 import { EventoCreditsIcon } from "@/components/evento/EventoCreditsIcon";
 import { EventoTroopIcon } from "@/components/evento/EventoTroopIcon";
 import { EventoUtilityIcon } from "@/components/evento/EventoUtilityIcon";
@@ -194,7 +194,7 @@ export function EventoFactionHub() {
           </p>
           <SmartLink
             href="/evento/"
-            className="mt-5 inline-flex rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink"
+            className="mt-5 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-cyan-300 via-sky-400 to-amber-300 px-5 py-2.5 text-sm font-semibold text-ink shadow-[0_0_24px_rgba(56,189,248,0.32)] transition hover:brightness-105"
           >
             Torna all&apos;hub
           </SmartLink>
@@ -316,14 +316,7 @@ export function EventoFactionHub() {
                   <span>Quota sul caveau</span>
                   <span className="tabular-nums text-[#e4c76b]">{sharePct.toLocaleString("it-IT")}%</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-crema/10">
-                  <motion.div
-                    className="h-full rounded-full bg-gradient-to-r from-caramel to-ember"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.max(0, Math.min(100, sharePct))}%` }}
-                    transition={{ duration: 0.8, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                  />
-                </div>
+                <EventoProgressBar pct={sharePct} />
               </div>
             </div>
           </div>
@@ -357,7 +350,7 @@ export function EventoFactionHub() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.18 + i * 0.03, duration: 0.4 }}
-                  className="rounded-2xl bg-black/45 px-3 py-3 ring-1 ring-sand/15"
+                  className="rounded-2xl bg-black/40 px-3 py-3 ring-1 ring-cyan-300/15"
                 >
                   <div className="flex items-start gap-2.5">
                     <EventoTroopIcon
@@ -378,7 +371,7 @@ export function EventoFactionHub() {
               ))}
             </ul>
           ) : (
-            <p className="rounded-2xl bg-black/35 px-4 py-8 text-center text-sm text-crema/55 ring-1 ring-white/10">
+            <p className="rounded-2xl bg-black/40 px-4 py-8 text-center text-sm text-crema/55 ring-1 ring-cyan-300/15">
               Hangar vuoto. Compra unità dallo shop sull&apos;hub per armare la fazione.
             </p>
           )}
@@ -435,7 +428,7 @@ export function EventoFactionHub() {
               const buffOn = Boolean(r.buff?.active);
               const canUse = r.id === "sconto_mercato_nero" && r.qty > 0 && !buffOn && !busy;
               return (
-                <li key={r.id} className="rounded-2xl bg-black/40 p-4 ring-1 ring-sand/15">
+                <li key={r.id} className="rounded-2xl bg-black/40 p-4 ring-1 ring-cyan-300/15">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
                       <EventoUtilityIcon itemId={r.id} size="md" alt={r.label} className="shrink-0" />
@@ -455,27 +448,22 @@ export function EventoFactionHub() {
                   </div>
                   {r.id === "bacta" ? (
                     r.qty < 1 ? (
-                      <button
-                        type="button"
-                        disabled
-                        className="mt-3 w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2 text-sm font-semibold text-ink disabled:opacity-40"
-                      >
+                      <EventoBtn className="mt-3 w-full" disabled>
                         Esaurito
-                      </button>
+                      </EventoBtn>
                     ) : (
-                      <p className="mt-3 rounded-full bg-black/35 px-3 py-2 text-center text-xs text-crema/50 ring-1 ring-white/10">
+                      <p className="mt-3 rounded-full bg-black/40 px-3 py-2 text-center text-xs text-crema/50 ring-1 ring-cyan-300/15">
                         Si usa nello schieramento in attacco
                       </p>
                     )
                   ) : (
-                    <button
-                      type="button"
+                    <EventoBtn
+                      className="mt-3 w-full"
                       disabled={!canUse}
                       onClick={() => void useOne(r.id)}
-                      className="mt-3 w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2 text-sm font-semibold text-ink disabled:opacity-40"
                     >
                       {loadingItem ? "…" : buffOn ? "Già attivo" : r.qty < 1 ? "Esaurito" : "Attiva per la fazione"}
-                    </button>
+                    </EventoBtn>
                   )}
                 </li>
               );

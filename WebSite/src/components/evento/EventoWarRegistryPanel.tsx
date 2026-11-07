@@ -75,7 +75,7 @@ export function EventoWarRegistryPanel({ enabled }: { enabled?: boolean }) {
         {loading && !wars.length ? (
           <div className="h-28 animate-pulse rounded-2xl bg-crema/8" />
         ) : !wars.length ? (
-          <p className="rounded-2xl bg-black/35 px-4 py-8 text-center text-sm text-crema/55 ring-1 ring-white/10">
+          <p className="rounded-2xl bg-black/40 px-4 py-8 text-center text-sm text-crema/55 ring-1 ring-cyan-300/15">
             Nessuna guerra registrata ancora. Gli scontri orari appariranno qui a risoluzione.
           </p>
         ) : (
@@ -102,7 +102,7 @@ export function EventoWarRegistryPanel({ enabled }: { enabled?: boolean }) {
                     type="button"
                     onClick={() => setOpenId(w.id)}
                     className={cn(
-                      "group flex w-full flex-wrap items-center gap-3 rounded-2xl bg-black/40 px-3 py-3 text-left ring-1 ring-white/10 transition hover:bg-black/55 hover:ring-sky-400/35 sm:px-4",
+                      "group flex w-full flex-wrap items-center gap-3 rounded-2xl bg-black/40 px-3 py-3 text-left ring-1 ring-cyan-300/15 transition hover:bg-black/55 hover:ring-cyan-300/35 sm:px-4",
                       w.youWon === true && "ring-emerald-400/25",
                       w.youWon === false && "ring-rose-400/25",
                     )}

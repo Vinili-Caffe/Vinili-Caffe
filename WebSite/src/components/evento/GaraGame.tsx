@@ -798,7 +798,7 @@ export function GaraGame() {
                     "group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl px-4 py-4 text-left ring-1 transition",
                     selected
                       ? "bg-gradient-to-r from-[#c9a227]/25 to-[#2ea8ff]/15 ring-[#c9a227]/55"
-                      : "bg-roast/80 ring-sand/15 hover:ring-sky-400/40",
+                      : "bg-black/40 ring-cyan-300/15 backdrop-blur-sm hover:ring-cyan-300/40",
                     "disabled:opacity-45",
                   )}
                 >

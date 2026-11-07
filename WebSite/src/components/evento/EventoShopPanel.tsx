@@ -176,7 +176,11 @@ export function EventoShopPanel({
     if (embedded) return null;
     return (
       <div className="mx-auto mb-10 max-w-4xl px-6 text-center">
-        <button type="button" onClick={login} className="text-sm text-caramel underline underline-offset-2">
+        <button
+          type="button"
+          onClick={login}
+          className="text-sm text-cyan-300 underline underline-offset-2 hover:text-cyan-100"
+        >
           Accedi per lo shop fazioni
         </button>
       </div>
@@ -240,7 +244,7 @@ export function EventoShopPanel({
               {units.map((u) => (
                 <li
                   key={u.id}
-                  className="flex items-center justify-between gap-3 rounded-xl bg-black/35 px-3.5 py-3 ring-1 ring-sand/15"
+                  className="flex items-center justify-between gap-3 rounded-xl bg-black/40 px-3.5 py-3 ring-1 ring-cyan-300/15"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <EventoTroopIcon

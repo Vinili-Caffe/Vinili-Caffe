@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
+// Niente banner telemetry nei log di build (locale + Vercel).
+process.env.NEXT_TELEMETRY_DISABLED = "1";
+
 // Export statico: nginx serve out/ così com'è (beta.viniliecaffe.it), niente server Node sulla VPS.
 // cacheComponents/partialPrefetching richiedono il runtime Node → non usabili con output: "export".
 // `rewrites` vale solo in `next dev` (l'export statico le ignora); serve-out.mjs fa da proxy in anteprima.

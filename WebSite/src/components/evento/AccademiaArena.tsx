@@ -329,13 +329,13 @@ export function AccademiaArena({
   return (
     <div className={className}>
       {showChrome ? (
-        <div className="flex items-center justify-between gap-3 border-b border-sand/15 px-4 py-3 sm:px-5">
+        <div className="flex items-center justify-between gap-3 border-b border-cyan-300/15 px-4 py-3 sm:px-5">
           <div className="flex items-center gap-2 text-sm text-crema/75">
             <Timer className="size-4 text-[#2ea8ff]" aria-hidden />
             <span className="font-display text-xl tabular-nums text-crema">{running ? `${left}s` : `${sessionSec}s`}</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-crema/75">
-            <Zap className="size-4 text-caramel" aria-hidden />
+            <Zap className="size-4 text-cyan-300" aria-hidden />
             <span className="tabular-nums">
               {hits.length}/{pool.length || "—"} colpi
             </span>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { Gem } from "lucide-react";
 import { EventoPage } from "@/components/evento/EventoPage";
 import { EventoSortGate } from "@/components/evento/EventoSortGate";
 import { eventoPageMeta } from "@/lib/evento-starwars";
@@ -20,7 +21,14 @@ export const metadata: Metadata = {
 
 export default function EventoMinieraPage() {
   return (
-    <EventoPage pageId="miniera" path={meta.path} title="Miniera" text={meta.description}>
+    <EventoPage
+      pageId="miniera"
+      path={meta.path}
+      title="Estrazione"
+      accent="Kyber"
+      text="Scava le vene di Ilum: cristalli per la fazione, classifica live e scarti rari nel registro di settore."
+      icon={<Gem />}
+    >
       <EventoSortGate mode="redirect">
         <MinieraGame />
       </EventoSortGate>

@@ -574,7 +574,7 @@ export function MinieraGame() {
           </AnimatePresence>
         </motion.div>
 
-        <div className="border-t border-sand/10 px-4 py-4 text-center sm:px-5">
+        <div className="border-t border-cyan-300/15 px-4 py-4 text-center sm:px-5">
           <EventoBtn className="w-full sm:w-auto" disabled={!canDig || busy} onClick={() => void dig()}>
             {busy ? (phase === "reveal" ? "Kyber trovato!" : "Scavo…") : "Scava Kyber"}
           </EventoBtn>

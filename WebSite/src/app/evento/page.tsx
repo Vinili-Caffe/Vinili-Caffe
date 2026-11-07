@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { Radio } from "lucide-react";
 import { EventoPage } from "@/components/evento/EventoPage";
 import { EventoSortGate } from "@/components/evento/EventoSortGate";
 import { eventoPageMeta } from "@/lib/evento-starwars";
@@ -36,8 +37,10 @@ export default function EventoHubPage() {
     <EventoPage
       pageId="hub"
       path={meta.path}
-      title="Centro di Comando"
-      text="Il tuo profilo evento: inventari, livello, fazione e missioni del giorno."
+      title="Centro"
+      accent="di comando"
+      text="Allacciati al ponte olografico: profilo pilota, inventario personale, collezioni e finestra sul calendario stagione."
+      icon={<Radio />}
     >
       <EventoSortGate mode="hub">
         <EventoHubStatus />

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { Crosshair } from "lucide-react";
 import { EventoPage } from "@/components/evento/EventoPage";
 import { EventoSortGate } from "@/components/evento/EventoSortGate";
 import { eventoPageMeta } from "@/lib/evento-starwars";
@@ -20,7 +21,14 @@ export const metadata: Metadata = {
 
 export default function EventoAccademiaPage() {
   return (
-    <EventoPage pageId="accademia" path={meta.path} title="Accademia" text={meta.description}>
+    <EventoPage
+      pageId="accademia"
+      path={meta.path}
+      title="Accademia"
+      accent="Jedi"
+      text="Prove a tempo sul campo: mira, reazione e ricompense in casse. Un addestramento ogni quattro ore."
+      icon={<Crosshair />}
+    >
       <EventoSortGate mode="redirect">
         <AccademiaGame />
       </EventoSortGate>
