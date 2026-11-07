@@ -96,8 +96,10 @@ function resolveMinigameGuildIdForStarWars(client?, guildId = null) {
 }
 
 /**
- * Live per rotazione chat: main SOLO con pubblico aperto; test SOLO con force-live.
- * Mai “live sul main” solo perché staging è acceso sul test.
+ * Live per rotazione chat minigame:
+ * - guild test: solo con testGuildForceLive
+ * - guild main: SOLO con finestra pubblica aperta (1 dic 12:00+)
+ * Mai “live sul main” solo perché lo staging test è acceso.
  */
 function isStarWarsEventLiveForMinigames(client?, nowMs = Date.now(), guildId = null) {
   const now = new Date(nowMs);
@@ -107,7 +109,7 @@ function isStarWarsEventLiveForMinigames(client?, nowMs = Date.now(), guildId = 
   const mainId = getMainGuildIdSafe();
   if (testId && gid === testId) return isStarWarsForceLiveOnTestGuild(client, gid);
   if (mainId && gid === mainId) {
-    /* Extra hard-gate: niente tema SW sul main finché non è pubblico. */
+    /* Hard-gate: niente pool SW sulla chat main prima del pubblico. */
     if (!isStarWarsPublicWindowOpen(client, now)) return false;
     return isStarWarsEventLive(client, now, gid);
   }

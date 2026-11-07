@@ -42,7 +42,7 @@ function resolveStarWarsEventConfig(client?) {
   const startDate = String(process.env.STARWARS_EVENT_START || raw.startDate || "2026-12-01T00:00:00").trim();
   const endDate = String(process.env.STARWARS_EVENT_END || raw.endDate || "2027-02-28T21:00:00").trim();
   const publicOpenDate = String(
-    process.env.STARWARS_EVENT_PUBLIC_OPEN || raw.publicOpenDate || "2026-12-01T00:00:00",
+    process.env.STARWARS_EVENT_PUBLIC_OPEN || raw.publicOpenDate || "2026-12-01T12:00:00",
   ).trim();
   const eventKey = String(process.env.STARWARS_EVENT_KEY || raw.eventKey || DEFAULT_EVENT_KEY).trim() || DEFAULT_EVENT_KEY;
   const testGuildForceLive = readBool(
@@ -59,7 +59,8 @@ function resolveStarWarsEventConfig(client?) {
     publicOpenDate,
     startMs: parseEventDateMs(startDate, timezone, "00:00:00"),
     endMs: parseEventDateMs(endDate, timezone, "21:00:00"),
-    publicOpenMs: parseEventDateMs(publicOpenDate, timezone, "00:00:00"),
+    /* Apertura pubblica: 1 dicembre 12:00 Rome (non mezzanotte). */
+    publicOpenMs: parseEventDateMs(publicOpenDate, timezone, "12:00:00"),
     eventKey,
   };
 }

@@ -27,8 +27,16 @@ const GAME_TYPE_COOLDOWN_MS = 30 * 60 * 1000;
 function getConfig(client?) {
   const cfg = client?.config?.minigames || null;
   if (!cfg) return null;
-  /* Live solo se pubblico sul main (o guild esplicita). Staging test NON attiva tema SW sulla chat main. */
-  const starWarsEventLive = isStarWarsEventLiveForMinigames(client);
+  /*
+   * Chat minigame = sempre canale main.
+   * Tema/pool SW sul main SOLO con finestra pubblica (1 dic 12:00+, publicEnabled).
+   * testGuildForceLive NON attiva mai SW sulla chat main: lo staging resta sul server test
+   * (spawn staff / mainGuildId remappato nei minigame Discord speciali).
+   */
+  const { isStarWarsPublicWindowOpen } = require("../../../../archivio/starwars/src/Vinili/Utils/Eventi/starWarsEventConfig") as typeof import("../../../../archivio/starwars/src/Vinili/Utils/Eventi/starWarsEventConfig");
+  const starWarsEventLive =
+    Boolean(isStarWarsPublicWindowOpen(client)) &&
+    isStarWarsEventLiveForMinigames(client, Date.now(), IDs.guilds?.main || null);
   const base = {
     ...cfg,
     halloweenEventLive: isHalloweenEventLiveForMinigames(client),

@@ -17,10 +17,12 @@ export const EVENTO_BRAND = "Star Wars";
 export const EVENTO_CHROME_BYPASS = true;
 
 /**
- * Master switch sito: false = NESSUN accesso pubblico (né menu, né gate pagine).
- * Allineato a `starWarsEvent.publicEnabled` sul bot (default false).
+ * Master switch sito: con true la finestra pubblica si apre da sola
+ * il 1° dic 12:00 Rome (`EVENTO_PUBLIC_OPEN`) e chiude il 28 feb 21:00.
+ * Prima di quella data resta chiuso al pubblico (solo High Staff).
+ * Allineato a `starWarsEvent.publicEnabled` sul bot.
  */
-export const EVENTO_PUBLIC_ENABLED = false;
+export const EVENTO_PUBLIC_ENABLED = true;
 
 /** Apertura pubblica evento (Rome): 1 dicembre 2026 12:00. */
 export const EVENTO_PUBLIC_OPEN = {
