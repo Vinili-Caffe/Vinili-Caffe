@@ -17,6 +17,8 @@ REPO_ROOT="$(cd "$DEPLOY_DIR/.." && pwd)"
 BOTS_DIR="$REPO_ROOT/Bots"
 cd "$BOTS_DIR"
 
+# Post-migrate: default = CA. Override: VC_SSH_HOST=vinili bash Deploy/pubblica.sh …
+SSH_HOST="${VC_SSH_HOST:-vinili-ca}"
 BOTS_TS_REMOTE="/opt/bot/bots-ts"
 tmp_name() { echo "$1" | tr '/' '_'; }
 
@@ -34,28 +36,30 @@ for f in $FILES; do
   fi
 done
 
-ssh vinili "[ ! -f $BOTS_TS_REMOTE/src/wait-for-lavalink.ts ]" || {
+ssh "$SSH_HOST" "[ ! -f $BOTS_TS_REMOTE/src/wait-for-lavalink.ts ]" || {
   echo "la VPS gira ancora con tsx sui .ts: migrazione .ts→.js incompleta" >&2
   exit 1
 }
 
 # Tooling compile sulla VPS (idempotente)
-ssh vinili "mkdir -p $BOTS_TS_REMOTE/tools"
-scp -q "$DEPLOY_DIR/compila.mjs" "vinili:$BOTS_TS_REMOTE/tools/compila.mjs"
-scp -q "$BOTS_DIR/tsconfig.json" "vinili:$BOTS_TS_REMOTE/tsconfig.json"
-scp -q "$BOTS_DIR/package.json" "vinili:$BOTS_TS_REMOTE/package.json"
+ssh "$SSH_HOST" "mkdir -p $BOTS_TS_REMOTE/tools"
+scp -q "$DEPLOY_DIR/compila.mjs" "$SSH_HOST:$BOTS_TS_REMOTE/tools/compila.mjs"
+scp -q "$BOTS_DIR/tsconfig.json" "$SSH_HOST:$BOTS_TS_REMOTE/tsconfig.json"
+scp -q "$BOTS_DIR/package.json" "$SSH_HOST:$BOTS_TS_REMOTE/package.json"
 
 for f in $TS_LIST; do
-  scp -q "src/$f" "vinili:/tmp/vcbot_$(tmp_name "$f")"
+  scp -q "src/$f" "$SSH_HOST:/tmp/vcbot_$(tmp_name "$f")"
 done
 for f in $OTHER_LIST; do
-  scp -q "src/$f" "vinili:/tmp/vcbot_$(tmp_name "$f")"
+  scp -q "src/$f" "$SSH_HOST:/tmp/vcbot_$(tmp_name "$f")"
 done
 
 if [ -n "${PROVA:-}" ]; then
-  ssh vinili "TS_LIST='$TS_LIST' OTHER_LIST='$OTHER_LIST' BOTS_TS='$BOTS_TS_REMOTE' bash -s" <<'REMOTE'
+  ssh "$SSH_HOST" "TS_LIST='$TS_LIST' OTHER_LIST='$OTHER_LIST' BOTS_TS='$BOTS_TS_REMOTE' bash -s" <<'REMOTE'
 set -euo pipefail
 tmp_name() { echo "$1" | tr '/' '_'; }
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 STAGE=$(mktemp -d /tmp/vc_pubblica_prova.XXXXXX)
 cleanup() { rm -rf "$STAGE"; }
 trap cleanup EXIT
@@ -85,11 +89,13 @@ REMOTE
   exit 0
 fi
 
-echo "carico su $BOTS_TS_REMOTE/src e riavvio: $PROCS"
-ssh vinili "TS_LIST='$TS_LIST' OTHER_LIST='$OTHER_LIST' PROCS='$PROCS' BOTS_TS='$BOTS_TS_REMOTE' bash -s" <<'REMOTE'
+echo "carico su $SSH_HOST:$BOTS_TS_REMOTE/src e riavvio: $PROCS"
+ssh "$SSH_HOST" "TS_LIST='$TS_LIST' OTHER_LIST='$OTHER_LIST' PROCS='$PROCS' BOTS_TS='$BOTS_TS_REMOTE' bash -s" <<'REMOTE'
 set -euo pipefail
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 tmp_name() { echo "$1" | tr '/' '_'; }
-B=/root/vc_bot_bak_$(date +%Y%m%d-%H%M%S)
+B="$HOME/vc_bot_bak_$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$B"
 
 if [ -n "${TS_LIST// /}" ]; then

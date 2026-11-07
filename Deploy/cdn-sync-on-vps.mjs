@@ -26,11 +26,12 @@ function loadEnvFile(file) {
 loadEnvFile("/opt/bot/.env");
 loadEnvFile("/opt/bot/.env.r2");
 
-const mediaPath = process.env.VC_CDN_MEDIA_JS || path.resolve(__dirname, "../Vinili/Web/siteCdnMedia.js");
-const alt = path.resolve(__dirname, "../build/js/Vinili/Web/siteCdnMedia.js");
-const modPath = fs.existsSync(mediaPath) ? mediaPath : alt;
-if (!fs.existsSync(modPath)) {
-  console.error("manca siteCdnMedia.js (pubblica Vinili/Web/siteCdnMedia.ts prima)");
+const mediaPath = process.env.VC_CDN_MEDIA_JS || path.resolve(__dirname, "../src/Vinili/site/http/siteCdnMedia.js");
+const alt = path.resolve(__dirname, "../build/js/Vinili/site/http/siteCdnMedia.js");
+const legacy = path.resolve(__dirname, "../src/Vinili/Web/siteCdnMedia.js");
+const modPath = [mediaPath, alt, legacy].find((p) => fs.existsSync(p));
+if (!modPath) {
+  console.error("manca siteCdnMedia.js (pubblica Vinili/site/http/siteCdnMedia.ts prima)");
   process.exit(1);
 }
 const cdn = require(modPath);

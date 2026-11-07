@@ -1,0 +1,7 @@
+services:
+  yt-cipher:
+    image: ghcr.io/kikkia/yt-cipher:master
+    container_name: yt-cipher
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8001:8001"
