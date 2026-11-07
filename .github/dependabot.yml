@@ -1,0 +1,92 @@
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+version: 2
+updates:
+  # Sito (Next.js)
+  - package-ecosystem: npm
+    directory: /WebSite
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - website
+    groups:
+      website-production:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      website-development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  # Bots (workspace principale)
+  - package-ecosystem: npm
+    directory: /Bots
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - bots
+    groups:
+      bots-production:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      bots-development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  # Package bot nested (se ancora usati con lockfile proprio)
+  - package-ecosystem: npm
+    directory: /Bots/src/Vinili
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - bots
+
+  - package-ecosystem: npm
+    directory: /Bots/src/Caffè
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - bots
+
+  # GitHub Actions (workflow futuri / esistenti)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      github-actions:
+        patterns:
+          - "*"
