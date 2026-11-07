@@ -46,9 +46,11 @@ export function VinylMusicRoot() {
   const [on, setOn] = useState(false);
   const [volume, setVolumeState] = useState(0.5);
   const [seek, setSeek] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [hint, setHint] = useState(false);
   const [suppress, setSuppress] = useState(false);
   const [failed, setFailed] = useState(false);
+  const trackTitle = resolveVinylYt().title;
 
   useEffect(() => {
     volumeRef.current = volume;
@@ -154,6 +156,7 @@ export function VinylMusicRoot() {
               try {
                 e.target.setVolume(Math.round(volumeRef.current * 100));
                 const dur = e.target.getDuration() || 0;
+                if (dur > 0) setDuration(dur);
                 const sameTrack = !saved.trackId || saved.trackId === track.id;
                 const t = sameTrack ? resumeTimeFromSaved(saved, dur) : 0;
                 if (t > 0.4) e.target.seekTo(t, true);
@@ -264,7 +267,10 @@ export function VinylMusicRoot() {
       try {
         const dur = p.getDuration() || 0;
         const cur = p.getCurrentTime() || 0;
-        if (dur > 0) setSeek(Math.min(1, Math.max(0, cur / dur)));
+        if (dur > 0) {
+          setDuration(dur);
+          setSeek(Math.min(1, Math.max(0, cur / dur)));
+        }
         if (wantPlay.current) persistNow({ t: cur, wantPlay: true });
         notifyVinylMusic();
       } catch {
@@ -429,7 +435,7 @@ export function VinylMusicRoot() {
       <div ref={host} className="pointer-events-none fixed size-px overflow-hidden opacity-0" aria-hidden />
       {!suppress ? (
         <MusicDock
-          label="Musica"
+          label={trackTitle}
           on={on}
           onToggle={toggle}
           volume={volume}
@@ -437,7 +443,8 @@ export function VinylMusicRoot() {
           seek={seek}
           onSeek={seekRatio}
           seekEnabled
-          hint={hint && !on ? "Tocca per riprendere la musica" : null}
+          duration={duration}
+          hint={hint && !on ? "Tocca play per riprendere" : null}
           failed={failed && !on ? "Musica non disponibile" : null}
         />
       ) : null}

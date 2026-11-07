@@ -23,7 +23,8 @@ import {
   resolveSerataBgmYtId,
 } from "@/lib/seratafilm";
 import { page } from "@/lib/site";
-import { loadYtApi, type YtPlayer } from "@/lib/youtube-player";
+import { loadYtApi, VINYL_YT_HALLOWEEN, type YtPlayer } from "@/lib/youtube-player";
+import { EVENTO_YT } from "@/lib/evento-theme";
 import { cn } from "@/lib/cn";
 import { MusicDock } from "@/components/MusicDock";
 
@@ -62,7 +63,7 @@ function Countdown({ now, target }: { now: number | null; target: number }) {
   );
 }
 
-/** BGM YouTube: volume + seek; dock sale solo con freccia torna-su; stop a inizio film. */
+/** BGM YouTube: volume + seek; stop a inizio film. */
 function SerataBgm({ armed, stop }: { armed: boolean; stop: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const yt = useRef<YtPlayer | null>(null);
@@ -71,7 +72,14 @@ function SerataBgm({ armed, stop }: { armed: boolean; stop: boolean }) {
   const [hint, setHint] = useState(true);
   const [volume, setVolume] = useState(0.34);
   const [seek, setSeek] = useState(0);
+  const [duration, setDuration] = useState(0);
   const seeking = useRef(false);
+  const trackTitle =
+    videoId === EVENTO_YT.id
+      ? EVENTO_YT.title
+      : videoId === VINYL_YT_HALLOWEEN.id
+        ? VINYL_YT_HALLOWEEN.title
+        : "Colonna sonora · serata";
 
   useEffect(() => {
     setVolume(readVol());
@@ -166,7 +174,10 @@ function SerataBgm({ armed, stop }: { armed: boolean; stop: boolean }) {
       try {
         const dur = p.getDuration() || 0;
         const cur = p.getCurrentTime() || 0;
-        if (dur > 0) setSeek(Math.min(1, Math.max(0, cur / dur)));
+        if (dur > 0) {
+          setDuration(dur);
+          setSeek(Math.min(1, Math.max(0, cur / dur)));
+        }
       } catch {
         /* ignore */
       }
@@ -230,6 +241,7 @@ function SerataBgm({ armed, stop }: { armed: boolean; stop: boolean }) {
     <>
       <div ref={host} className="pointer-events-none absolute size-px overflow-hidden opacity-0" aria-hidden />
       <MusicDock
+        label={trackTitle}
         on={on}
         onToggle={toggle}
         volume={volume}
@@ -237,7 +249,8 @@ function SerataBgm({ armed, stop }: { armed: boolean; stop: boolean }) {
         seek={seek}
         onSeek={onSeek}
         seekEnabled
-        hint={hint && !on ? "Tocca per avviare la musica" : null}
+        duration={duration}
+        hint={hint && !on ? "Tocca play per avviare" : null}
       />
     </>
   );
@@ -584,7 +597,7 @@ export function SerataBoard() {
             <AuthGateCard
               title="Sblocca l’accesso"
               text="Accedi con Discord per verificare l’accesso alla serata film."
-              why="Serve il login Discord (High Staff) per lo streaming."
+              why="Serve il login Discord per lo streaming."
             />
           ) : err ? (
             <div className="rounded-2xl bg-ember/10 p-6 text-center ring-1 ring-ember/25">
@@ -631,16 +644,6 @@ export function SerataBoard() {
                 >
                   <img src={FILM_POSTER} alt="" className="absolute inset-0 size-full object-cover" />
                   <span className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/40 to-ink/30" />
-                  {isLive ? (
-                    <span className="relative z-10 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-semibold text-ink shadow-lg">
-                      Avvia proiezione
-                    </span>
-                  ) : (
-                    <span className="relative z-10 rounded-full bg-espresso/80 px-5 py-2 text-sm font-semibold text-crema/80 ring-1 ring-sand/20">
-                      In attesa del countdown
-                    </span>
-                  )}
-                  <span className="relative z-10 mt-3 font-display text-2xl text-sand sm:text-3xl">{title}</span>
                 </div>
               ) : null}
 

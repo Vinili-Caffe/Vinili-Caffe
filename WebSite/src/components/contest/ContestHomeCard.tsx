@@ -6,7 +6,6 @@ import { Ghost, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { fetchContestHighlight, type ContestHighlight } from "@/lib/contest";
 import { SmartLink } from "@/components/SmartLink";
-import { cn } from "@/lib/cn";
 
 const CONTEST_CARD_ATTR = "data-vc-contest-card-on";
 
@@ -18,20 +17,11 @@ function setContestCardOn(on: boolean) {
   }
 }
 
-function readBackTopOn() {
-  try {
-    return document.documentElement.hasAttribute("data-vc-back-top-on");
-  } catch {
-    return false;
-  }
-}
-
 /** Card contest in home: chiudi con X, ma ricompare a ogni visita home (solo state locale). */
 export function ContestHomeCard() {
   const { token } = useAuth();
   const [item, setItem] = useState<ContestHighlight | null>(null);
   const [closed, setClosed] = useState(false);
-  const [backTop, setBackTop] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -50,14 +40,6 @@ export function ContestHomeCard() {
     return () => setContestCardOn(false);
   }, [show]);
 
-  useEffect(() => {
-    const sync = () => setBackTop(readBackTopOn());
-    sync();
-    const mo = new MutationObserver(sync);
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-vc-back-top-on"] });
-    return () => mo.disconnect();
-  }, []);
-
   return (
     <AnimatePresence>
       {show && item && (
@@ -66,13 +48,7 @@ export function ContestHomeCard() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 16, scale: 0.96 }}
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-          className={cn(
-            "pointer-events-auto fixed right-3 z-[56] w-[min(20.5rem,calc(100vw-1.5rem))] transition-[bottom] duration-200 sm:right-5",
-            /* Sopra il FAB Musica (resta in basso a destra). */
-            backTop
-              ? "bottom-[calc(max(1.25rem,env(safe-area-inset-bottom))+3.25rem+3.6rem)]"
-              : "bottom-[calc(max(1.25rem,env(safe-area-inset-bottom))+3.6rem)]",
-          )}
+          className="pointer-events-auto fixed right-3 bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-[56] w-[min(20.5rem,calc(100vw-1.5rem))] sm:right-5"
           role="dialog"
           aria-label={item.title}
         >

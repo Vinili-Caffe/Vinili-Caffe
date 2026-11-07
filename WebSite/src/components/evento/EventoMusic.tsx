@@ -609,6 +609,7 @@ export function EventoMusic() {
         seek={seek}
         onSeek={duration > 0 ? onSeek : undefined}
         seekEnabled={duration > 0 && ready}
+        duration={duration}
         hint={hint && !ready && !failed ? "Caricamento colonna sonora…" : null}
         failed={failed ? "Musica non disponibile" : null}
       />

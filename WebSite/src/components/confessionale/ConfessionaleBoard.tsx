@@ -46,7 +46,7 @@ function Candle({ className }: { className?: string }) {
   );
 }
 
-/** Musica confessionale: dock con volume; sale solo se c’è la freccia torna-su. */
+/** Musica confessionale: dock con volume. */
 function Bgm() {
   const ref = useRef<HTMLAudioElement>(null);
   const [on, setOn] = useState(false);
@@ -104,11 +104,12 @@ function Bgm() {
     <>
       <audio ref={ref} loop preload="metadata" playsInline onError={() => setFailed(true)} />
       <MusicDock
+        label="Ambiente · confessionale"
         on={on}
         onToggle={() => void toggle()}
         volume={volume}
         onVolume={setVol}
-        hint={hint && !on ? "Tocca per la musica" : null}
+        hint={hint && !on ? "Tocca play per avviare" : null}
         failed={failed && !on ? "Audio non disponibile" : null}
       />
     </>

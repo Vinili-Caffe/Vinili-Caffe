@@ -37,7 +37,6 @@ const NotifPageRead = dynamic(() => import("./notifications/NotifPageRead").then
 const PushSync = dynamic(() => import("./notifications/PushSync").then((m) => m.PushSync), { ssr: false });
 const NotifNavigate = dynamic(() => import("./notifications/NotifNavigate").then((m) => m.NotifNavigate), { ssr: false });
 const PwaKeepLinks = dynamic(() => import("./effects/PwaKeepLinks").then((m) => m.PwaKeepLinks), { ssr: false });
-const BackToTopFab = dynamic(() => import("./BackToTopFab").then((m) => m.BackToTopFab), { ssr: false });
 const VinylMusicRoot = dynamic(() => import("./vinyl/VinylMusicRoot").then((m) => m.VinylMusicRoot), { ssr: false });
 const ItsTimeIntro = dynamic(() => import("./effects/ItsTimeIntro").then((m) => m.ItsTimeIntro), { ssr: false });
 const EventoMusic = dynamic(() => import("./evento/EventoMusic").then((m) => m.EventoMusic), { ssr: false });
@@ -95,7 +94,6 @@ export function SiteShell({
               <Footer />
               <CookieConsent />
               <NotifLiveToasts />
-              <BackToTopFab />
               {evento ? <EventoMusic /> : <VinylMusicRoot />}
               {/* easter egg: "It's time" 1×/giorno alla prima pagina, poi stop */}
               {!evento ? <ItsTimeIntro /> : null}
