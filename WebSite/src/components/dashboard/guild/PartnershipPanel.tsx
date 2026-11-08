@@ -23,25 +23,11 @@ import {
   type PartnershipManager,
   type PartnershipMigration,
 } from "@/lib/dashboard-guild";
-import { confirmDialog } from "@/components/ui";
+import { confirmDialog, Disclosure } from "@/components/ui";
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
-import {
-  Field,
-  Notice,
-  Panel,
-  SectionHead,
-  SettingRow,
-  SettingsGroup,
-  Subnav,
-  Toggle,
-  dangerBtn,
-  dashPrimaryBtn,
-  fieldClass,
-  miniBtn,
-  primaryMini,
-} from "./bits";
+import { Field, Notice, Subnav, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "./bits";
 
 type Tab = "setup" | "filtri" | "blacklist" | "manager" | "storia" | "migrazione";
 
@@ -247,291 +233,237 @@ export function PartnershipPanel({
   };
 
   return (
-    <div className="space-y-5">
-      <section className="flex flex-wrap items-center gap-3 rounded-2xl bg-roast/90 px-4 py-3.5 ring-1 ring-sand/[0.09] sm:px-5">
+    <div className="space-y-4">
+      {/* stato del modulo partnership */}
+      <div
+        className={cn(
+          "-mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b px-4 py-3.5 sm:-mx-5 sm:px-5",
+          draft.setupCompleted ? "border-[#5f9a6a]/20 bg-[#5f9a6a]/[0.06]" : "border-caramel/20 bg-caramel/[0.06]",
+        )}
+      >
         <span
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.72rem] font-semibold ring-1",
+            "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold ring-1",
             draft.setupCompleted
-              ? "bg-[#5f9a6a]/14 text-[#9fd0a8] ring-[#5f9a6a]/28 light:text-[#2f6b3f]"
-              : "bg-caramel/12 text-ember ring-caramel/25",
+              ? "bg-[#5f9a6a]/15 text-[#9fd0a8] ring-[#5f9a6a]/30 light:text-[#2f6b3f]"
+              : "bg-caramel/15 text-ember ring-caramel/30",
           )}
         >
           <span className={cn("size-1.5 rounded-full", draft.setupCompleted ? "bg-[#7fc48c]" : "bg-ember")} aria-hidden />
           {draft.setupCompleted ? "Setup completo" : "Setup da completare"}
         </span>
         {bundle.premiumActive ? (
-          <span className="rounded-full bg-caramel/12 px-2.5 py-1 text-[0.72rem] font-semibold text-ember ring-1 ring-caramel/25">
-            Premium
-          </span>
+          <span className="rounded-md bg-caramel/15 px-2 py-1 text-xs font-semibold text-ember ring-1 ring-caramel/30">Premium</span>
         ) : null}
         {draft.inviteUrl ? (
           <a
             href={draft.inviteUrl}
             target="_blank"
             rel="noreferrer"
-            className="ml-auto inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-crema/65 ring-1 ring-sand/12 transition hover:text-crema"
+            className="ml-auto inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-crema/70 ring-1 ring-sand/15 transition hover:text-crema"
           >
             Invito del server ↗
           </a>
         ) : null}
-      </section>
-
+      </div>
       <Subnav tabs={TABS} value={tab} onChange={setTab} label="Partnership" />
 
       {tab === "setup" ? (
-        <div className="space-y-5">
-          <div>
-            <SectionHead title="Canali e ruoli" description="Dove pubblicare e chi gestisce le partnership." />
-            <SettingsGroup>
-              <div className="grid gap-0 sm:grid-cols-2 sm:divide-x sm:divide-sand/[0.07]">
-                <div className="px-4 py-4 sm:px-5">
-                  <ChannelSelect label="Canale partnership" value={draft.partnershipsChannelId} channels={channels} onChange={(id) => set({ partnershipsChannelId: id })} />
-                </div>
-                <div className="px-4 py-4 sm:px-5">
-                  <ChannelSelect label="Canale log" value={draft.logsChannelId} channels={channels} onChange={(id) => set({ logsChannelId: id })} />
-                </div>
-                <div className="px-4 py-4 sm:px-5">
-                  <ChannelSelect label="Canale comandi PM" value={draft.pmCommandsChannelId} channels={channels} onChange={(id) => set({ pmCommandsChannelId: id })} />
-                </div>
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Ruolo manager">
-                    <Select
-                      value={draft.partnerManagerRoleId || ""}
-                      onChange={(v) => set({ partnerManagerRoleId: v || null })}
-                      className={fieldClass}
-                      options={[
-                        { value: "", label: "— Nessuno —" },
-                        ...roles.map((r) => ({ value: r.id, label: `@${r.name}` })),
-                      ]}
-                    />
-                  </Field>
-                </div>
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Badge manager">
-                    <Select
-                      value={draft.managerBadgeRoleId || ""}
-                      onChange={(v) => set({ managerBadgeRoleId: v || null })}
-                      className={fieldClass}
-                      options={[
-                        { value: "", label: "— Nessuno —" },
-                        ...roles.map((r) => ({ value: r.id, label: `@${r.name}` })),
-                      ]}
-                    />
-                  </Field>
-                </div>
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Manager fuori dal server">
-                    <Select
-                      value={draft.managerLeaveAction || ""}
-                      onChange={(v) => set({ managerLeaveAction: v === "warn" || v === "delete" ? v : null })}
-                      className={fieldClass}
-                      options={[
-                        { value: "", label: "Nessuna" },
-                        { value: "warn", label: "Avvisa" },
-                        { value: "delete", label: "Elimina (5m)" },
-                      ]}
-                    />
-                  </Field>
-                </div>
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Rate limit stesso server">
-                    <input
-                      name="same-server-cooldown"
-                      value={draft.sameServerCooldownInput}
-                      placeholder="12h"
-                      onChange={(e) => set({ sameServerCooldownInput: e.target.value })}
-                      className={fieldClass}
-                    />
-                  </Field>
-                </div>
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Categorie comandi PM">
-                    <MultiSelect
-                      value={draft.pmCommandsCategoryIds}
-                      onChange={(ids) => set({ pmCommandsCategoryIds: ids })}
-                      className={fieldClass}
-                      options={categories.map((c) => ({ value: c.id, label: c.name }))}
-                    />
-                  </Field>
-                </div>
-              </div>
-              <SettingRow title="Salta conferma manager" description="Pubblica senza passare dal manager.">
-                <Toggle checked={draft.skipManager} label="Salta conferma manager" onChange={(v) => set({ skipManager: v })} />
-              </SettingRow>
-              <SettingRow title="Partnership manuale" description="Consenti inserimenti a mano dallo staff.">
-                <Toggle
-                  checked={draft.manualPartnershipEnabled}
-                  label="Partnership manuale"
-                  onChange={(v) => set({ manualPartnershipEnabled: v })}
-                />
-              </SettingRow>
-            </SettingsGroup>
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ChannelSelect label="Canale partnership" value={draft.partnershipsChannelId} channels={channels} onChange={(id) => set({ partnershipsChannelId: id })} />
+            <ChannelSelect label="Canale log" value={draft.logsChannelId} channels={channels} onChange={(id) => set({ logsChannelId: id })} />
+            <ChannelSelect label="Canale comandi PM" value={draft.pmCommandsChannelId} channels={channels} onChange={(id) => set({ pmCommandsChannelId: id })} />
+            <Field label="Ruolo manager">
+              <Select
+                value={draft.partnerManagerRoleId || ""}
+                onChange={(v) => set({ partnerManagerRoleId: v || null })}
+                className={fieldClass}
+                options={[
+                  { value: "", label: "— Nessuno —" },
+                  ...roles.map((r) => ({ value: r.id, label: `@${r.name}` })),
+                ]}
+              />
+            </Field>
+            <Field label="Badge manager">
+              <Select
+                value={draft.managerBadgeRoleId || ""}
+                onChange={(v) => set({ managerBadgeRoleId: v || null })}
+                className={fieldClass}
+                options={[
+                  { value: "", label: "— Nessuno —" },
+                  ...roles.map((r) => ({ value: r.id, label: `@${r.name}` })),
+                ]}
+              />
+            </Field>
+            <Field label="Manager fuori dal server">
+              <Select
+                value={draft.managerLeaveAction || ""}
+                onChange={(v) => set({ managerLeaveAction: v === "warn" || v === "delete" ? v : null })}
+                className={fieldClass}
+                options={[
+                  { value: "", label: "Nessuna" },
+                  { value: "warn", label: "Avvisa" },
+                  { value: "delete", label: "Elimina (5m)" },
+                ]}
+              />
+            </Field>
+            <Field label="Rate limit stesso server">
+              <input name="same-server-cooldown"
+                value={draft.sameServerCooldownInput}
+                placeholder="12h"
+                onChange={(e) => set({ sameServerCooldownInput: e.target.value })}
+                className={fieldClass}
+              />
+            </Field>
           </div>
-
-          <div>
-            <SectionHead title="Ping" description="Soglie e delay per @here, @everyone e ruolo custom." />
-            <SettingsGroup>
-              <div className="grid gap-0 sm:grid-cols-2 sm:divide-x sm:divide-sand/[0.07]">
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Ping @here da N membri">
-                    <input
-                      name="ping-here-members"
-                      type="number"
-                      min={0}
-                      value={draft.pings.hereMembers ?? ""}
-                      onChange={(e) =>
-                        set({
-                          pings: { ...draft.pings, hereMembers: e.target.value === "" ? null : Number(e.target.value) },
-                        })
-                      }
-                      className={fieldClass}
-                    />
-                  </Field>
-                </div>
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Delay @here">
-                    <input
-                      name="ping-here-delay"
-                      value={draft.pings.hereDelayInput}
-                      placeholder="5m"
-                      onChange={(e) => set({ pings: { ...draft.pings, hereDelayInput: e.target.value } })}
-                      className={fieldClass}
-                    />
-                  </Field>
-                </div>
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Ping @everyone da N membri">
-                    <input
-                      name="ping-everyone-members"
-                      type="number"
-                      min={0}
-                      value={draft.pings.everyoneMembers ?? ""}
-                      onChange={(e) =>
-                        set({
-                          pings: {
-                            ...draft.pings,
-                            everyoneMembers: e.target.value === "" ? null : Number(e.target.value),
-                          },
-                        })
-                      }
-                      className={fieldClass}
-                    />
-                  </Field>
-                </div>
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Delay @everyone">
-                    <input
-                      name="ping-everyone-delay"
-                      value={draft.pings.everyoneDelayInput}
-                      placeholder="5m"
-                      onChange={(e) => set({ pings: { ...draft.pings, everyoneDelayInput: e.target.value } })}
-                      className={fieldClass}
-                    />
-                  </Field>
-                </div>
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Ruolo ping custom">
-                    <Select
-                      value={draft.pings.customRoleId || ""}
-                      onChange={(v) => set({ pings: { ...draft.pings, customRoleId: v || null } })}
-                      className={fieldClass}
-                      options={[
-                        { value: "", label: "— Nessuno —" },
-                        ...roles.map((r) => ({ value: r.id, label: `@${r.name}` })),
-                      ]}
-                    />
-                  </Field>
-                </div>
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Soglia ruolo custom">
-                    <input
-                      name="ping-custom-members"
-                      type="number"
-                      min={0}
-                      value={draft.pings.customRoleMembers ?? ""}
-                      onChange={(e) =>
-                        set({
-                          pings: {
-                            ...draft.pings,
-                            customRoleMembers: e.target.value === "" ? null : Number(e.target.value),
-                          },
-                        })
-                      }
-                      className={fieldClass}
-                    />
-                  </Field>
-                </div>
-              </div>
-            </SettingsGroup>
+          <Field label="Categorie comandi PM">
+            <MultiSelect
+              value={draft.pmCommandsCategoryIds}
+              onChange={(ids) => set({ pmCommandsCategoryIds: ids })}
+              className={fieldClass}
+              options={categories.map((c) => ({ value: c.id, label: c.name }))}
+            />
+          </Field>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex items-center gap-2 text-sm text-crema/75">
+              <span>Salta conferma manager</span>
+              <Toggle checked={draft.skipManager} label="Salta conferma manager" onChange={(v) => set({ skipManager: v })} />
+            </div>
+            <div className="flex items-center gap-2 text-sm text-crema/75">
+              <span>Partnership manuale</span>
+              <Toggle
+                checked={draft.manualPartnershipEnabled}
+                label="Partnership manuale"
+                onChange={(v) => set({ manualPartnershipEnabled: v })}
+              />
+            </div>
           </div>
-
-          <div>
-            <SectionHead title="Descrizione partner" description="Testo usato nelle partnership pubblicate." />
-            <SettingsGroup>
-              <div className="grid gap-0 sm:grid-cols-2 sm:divide-x sm:divide-sand/[0.07]">
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Modalità">
-                    <Select
-                      value={draft.partnerDesc.mode || ""}
-                      onChange={(v) => set({ partnerDesc: { ...draft.partnerDesc, mode: v || null } })}
-                      className={fieldClass}
-                      options={[
-                        { value: "", label: "Nessuna" },
-                        { value: "channel", label: "Da canale" },
-                        { value: "static", label: "Testo fisso" },
-                      ]}
-                    />
-                  </Field>
-                </div>
-                {draft.partnerDesc.mode === "channel" ? (
-                  <div className="px-4 py-4 sm:px-5">
-                    <ChannelSelect
-                      label="Canale descrizione"
-                      value={draft.partnerDesc.channelId}
-                      channels={channels}
-                      onChange={(id) => set({ partnerDesc: { ...draft.partnerDesc, channelId: id } })}
-                    />
-                  </div>
-                ) : null}
-              </div>
-              {draft.partnerDesc.mode === "static" ? (
-                <div className="px-4 py-4 sm:px-5">
-                  <Field label="Testo descrizione">
-                    <textarea
-                      name="partner-description"
-                      value={draft.partnerDesc.staticText || ""}
-                      maxLength={4000}
-                      rows={4}
-                      onChange={(e) => set({ partnerDesc: { ...draft.partnerDesc, staticText: e.target.value } })}
-                      className={fieldClass}
-                    />
-                  </Field>
-                </div>
-              ) : null}
-            </SettingsGroup>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Ping @here da N membri">
+              <input name="ping-here-members"
+                type="number"
+                min={0}
+                value={draft.pings.hereMembers ?? ""}
+                onChange={(e) =>
+                  set({
+                    pings: { ...draft.pings, hereMembers: e.target.value === "" ? null : Number(e.target.value) },
+                  })
+                }
+                className={fieldClass}
+              />
+            </Field>
+            <Field label="Delay @here">
+              <input name="ping-here-delay"
+                value={draft.pings.hereDelayInput}
+                placeholder="5m"
+                onChange={(e) => set({ pings: { ...draft.pings, hereDelayInput: e.target.value } })}
+                className={fieldClass}
+              />
+            </Field>
+            <Field label="Ping @everyone da N membri">
+              <input name="ping-everyone-members"
+                type="number"
+                min={0}
+                value={draft.pings.everyoneMembers ?? ""}
+                onChange={(e) =>
+                  set({
+                    pings: {
+                      ...draft.pings,
+                      everyoneMembers: e.target.value === "" ? null : Number(e.target.value),
+                    },
+                  })
+                }
+                className={fieldClass}
+              />
+            </Field>
+            <Field label="Delay @everyone">
+              <input name="ping-everyone-delay"
+                value={draft.pings.everyoneDelayInput}
+                placeholder="5m"
+                onChange={(e) => set({ pings: { ...draft.pings, everyoneDelayInput: e.target.value } })}
+                className={fieldClass}
+              />
+            </Field>
+            <Field label="Ruolo ping custom">
+              <Select
+                value={draft.pings.customRoleId || ""}
+                onChange={(v) => set({ pings: { ...draft.pings, customRoleId: v || null } })}
+                className={fieldClass}
+                options={[
+                  { value: "", label: "— Nessuno —" },
+                  ...roles.map((r) => ({ value: r.id, label: `@${r.name}` })),
+                ]}
+              />
+            </Field>
+            <Field label="Soglia ruolo custom">
+              <input name="ping-custom-members"
+                type="number"
+                min={0}
+                value={draft.pings.customRoleMembers ?? ""}
+                onChange={(e) =>
+                  set({
+                    pings: {
+                      ...draft.pings,
+                      customRoleMembers: e.target.value === "" ? null : Number(e.target.value),
+                    },
+                  })
+                }
+                className={fieldClass}
+              />
+            </Field>
           </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Descrizione partner">
+              <Select
+                value={draft.partnerDesc.mode || ""}
+                onChange={(v) => set({ partnerDesc: { ...draft.partnerDesc, mode: v || null } })}
+                className={fieldClass}
+                options={[
+                  { value: "", label: "Nessuna" },
+                  { value: "channel", label: "Da canale" },
+                  { value: "static", label: "Testo fisso" },
+                ]}
+              />
+            </Field>
+            {draft.partnerDesc.mode === "channel" ? (
+              <ChannelSelect
+                label="Canale descrizione"
+                value={draft.partnerDesc.channelId}
+                channels={channels}
+                onChange={(id) => set({ partnerDesc: { ...draft.partnerDesc, channelId: id } })}
+              />
+            ) : null}
+          </div>
+          {draft.partnerDesc.mode === "static" ? (
+            <Field label="Testo descrizione">
+              <textarea name="partner-description"
+                value={draft.partnerDesc.staticText || ""}
+                maxLength={4000}
+                rows={4}
+                onChange={(e) => set({ partnerDesc: { ...draft.partnerDesc, staticText: e.target.value } })}
+                className={fieldClass}
+              />
+            </Field>
+          ) : null}
 
-          <Panel title="Messaggio di ringraziamento" description="Richiede Vinili Premium se è attivo.">
-            <div className="space-y-3">
-              <SettingRow title="Ringraziamento attivo" description="Invia un embed dopo la partnership.">
-                <Toggle
-                  checked={draft.thankYouEmbed.enabled}
-                  label="Ringraziamento attivo"
-                  onChange={(v) => set({ thankYouEmbed: { ...draft.thankYouEmbed, enabled: v } })}
-                />
-              </SettingRow>
+          <Disclosure title="Messaggio di ringraziamento">
+            <p className="text-xs text-crema/40">Richiede Vinili Premium se è attivo.</p>
+            <div className="mt-3 space-y-2">
+              <Toggle
+                checked={draft.thankYouEmbed.enabled}
+                label="Ringraziamento attivo"
+                onChange={(v) => set({ thankYouEmbed: { ...draft.thankYouEmbed, enabled: v } })}
+              />
               <Field label="Titolo">
-                <input
-                  name="thank-you-title"
+                <input name="thank-you-title"
                   value={draft.thankYouEmbed.title || ""}
                   onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, title: e.target.value || null } })}
                   className={fieldClass}
                 />
               </Field>
               <Field label="Descrizione">
-                <textarea
-                  name="thank-you-description"
+                <textarea name="thank-you-description"
                   value={draft.thankYouEmbed.description || ""}
                   rows={3}
                   onChange={(e) =>
@@ -560,11 +492,11 @@ export function PartnershipPanel({
                 Salva ringraziamento
               </button>
             </div>
-          </Panel>
+          </Disclosure>
 
           <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={busy} className={dashPrimaryBtn} onClick={saveSetup}>
-              Salva setup
+            <button type="button" disabled={busy} className={primaryMini} onClick={saveSetup}>
+              Salva
             </button>
             <button
               type="button"
@@ -594,25 +526,26 @@ export function PartnershipPanel({
       ) : null}
 
       {tab === "filtri" ? (
-        <div className="space-y-4">
-          <SectionHead
-            title="Filtri contenuto"
-            description="Pulizia della descrizione pubblicata. L'invito Discord non viene rimosso."
-          />
-          <SettingsGroup>
-            {FILTERS.map((row) => (
-              <SettingRow key={row.key} title={row.title} description={row.hint}>
-                <Toggle
-                  checked={draft.contentFilters[row.key]}
-                  label={row.title}
-                  onChange={(v) => set({ contentFilters: { ...draft.contentFilters, [row.key]: v } })}
-                />
-              </SettingRow>
-            ))}
-          </SettingsGroup>
+        <div className="space-y-2">
+          <p className="text-xs text-crema/45">
+            Regole di pulizia sulla descrizione partnership. L&apos;invito Discord non viene rimosso.
+          </p>
+          {FILTERS.map((row) => (
+            <div key={row.key} className="flex items-center justify-between gap-3 py-1.5">
+              <div>
+                <p className="text-sm text-crema">{row.title}</p>
+                <p className="text-xs text-crema/40">{row.hint}</p>
+              </div>
+              <Toggle
+                checked={draft.contentFilters[row.key]}
+                label={row.title}
+                onChange={(v) => set({ contentFilters: { ...draft.contentFilters, [row.key]: v } })}
+              />
+            </div>
+          ))}
           <button
             type="button"
-            className={dashPrimaryBtn}
+            className={primaryMini}
             disabled={busy}
             onClick={async () => {
               setBusy(true);

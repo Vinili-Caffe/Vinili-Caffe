@@ -6,9 +6,11 @@ import {
   Clock3,
   ExternalLink,
   FileText,
+  Hash,
   Inbox,
   Lock,
   MessageSquareText,
+  SlidersHorizontal,
   Star,
   Ticket,
   UserCheck,
@@ -26,7 +28,7 @@ import {
 } from "@/lib/dashboard-guild";
 import { cn } from "@/lib/cn";
 import { Select } from "@/components/ui/Select";
-import { Field, ModuleBanner, Notice, Panel, SectionHead, SettingRow, SettingsGroup, StatTile, Subnav, Toggle, fieldClass } from "./bits";
+import { Field, Notice, Panel, SettingRow, StatTile, Subnav, Toggle, fieldClass } from "./bits";
 import { TicketBlacklist } from "./TicketBlacklist";
 import { TicketForms } from "./TicketForms";
 import { TicketPanels } from "./TicketPanels";
@@ -136,7 +138,7 @@ export function TicketDesk({
 
   const markClosed = async (row: TicketListBundle["tickets"][number]) => {
     const ok = await confirmDialog({
-      message: `Segnare chiuso il ticket #${row.ticketNumber ?? "?"}? Lo chiude nel database e, se esiste ancora, elimina anche il canale Discord.`,
+      message: `Segnare chiuso il ticket #${row.ticketNumber ?? "?"}? Si chiude solo qui (nel database), su Discord non succede niente: usalo per i ticket rimasti aperti senza canale.`,
       danger: true,
     });
     if (!ok) return;
@@ -159,23 +161,40 @@ export function TicketDesk({
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {error && !summary && !mod ? <Notice>{error}</Notice> : null}
       {modError && !mod ? <Notice>{modError}</Notice> : null}
 
-      <ModuleBanner
-        icon={<Ticket />}
-        title="Modulo ticket"
-        active={enabled}
-        status={enabled ? "Gli utenti possono aprire ticket dai pannelli" : "I pannelli non aprono ticket"}
-        control={<Toggle checked={enabled} disabled={busy} label="Attiva ticket" onChange={(next) => save({ enabled: next })} />}
-      />
+      {/* modulo: stato + interruttore principale, sempre in vista */}
+      <section
+        className={cn(
+          "flex flex-wrap items-center gap-4 rounded-2xl p-4 ring-1 sm:p-5",
+          enabled ? "bg-gradient-to-r from-caramel/[0.12] via-roast/80 to-roast/80 ring-caramel/25" : "bg-roast/80 ring-sand/10",
+        )}
+      >
+        <span
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-xl ring-1",
+            enabled ? "bg-caramel/15 text-ember ring-caramel/30" : "bg-crema/[0.05] text-crema/40 ring-sand/15",
+          )}
+        >
+          <Ticket className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-crema">Modulo ticket</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-crema/50">
+            <span className={cn("size-1.5 rounded-full", enabled ? "bg-[#7fc48c]" : "bg-crema/30")} aria-hidden />
+            {enabled ? "Attivo: gli utenti possono aprire ticket dai pannelli" : "Spento: i pannelli non aprono ticket"}
+          </p>
+        </div>
+        <Toggle checked={enabled} disabled={busy} label="Attiva ticket" onChange={(next) => save({ enabled: next })} />
+      </section>
 
       <Subnav tabs={TABS} value={tab} onChange={setTab} label="Ticket" />
 
       {tab === "overview" && overview ? (
-        <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
             <StatTile icon={<Inbox />} label="Aperti" value={overview.open} tone="accent" />
             <StatTile icon={<UserCheck />} label="Presi in carico" value={overview.claimed} tone="ok" />
             <StatTile icon={<Clock3 />} label="In attesa" value={overview.unclaimed} hint="senza staffer" />
@@ -183,79 +202,67 @@ export function TicketDesk({
           </div>
 
           {mod ? (
-            <div className="grid gap-5 xl:grid-cols-2">
-              <div>
-                <SectionHead title="Canali" description="Pannello, transcript e overflow quando la categoria è piena." />
-                <SettingsGroup>
-                  <div className="grid gap-0 sm:grid-cols-2 sm:divide-x sm:divide-sand/[0.07]">
-                    <div className="px-4 py-4 sm:px-5">
-                      <Field label="Canale pannello">
-                        <Select
-                          value={mod.settings.panelChannelId || ""}
-                          disabled={busy}
-                          onChange={(v) => save({ panelChannelId: v || null })}
-                          className={fieldClass}
-                          options={channelOptions("— Nessuno —")}
-                        />
-                      </Field>
-                    </div>
-                    <div className="px-4 py-4 sm:px-5">
-                      <Field label="Canale transcript">
-                        <Select
-                          value={mod.settings.transcriptChannelId || ""}
-                          disabled={busy}
-                          onChange={(v) => save({ transcriptChannelId: v || null })}
-                          className={fieldClass}
-                          options={channelOptions("— Nessuno —")}
-                        />
-                      </Field>
-                    </div>
-                    <div className="px-4 py-4 sm:px-5">
-                      <Field label="Categoria overflow">
-                        <Select
-                          value={mod.settings.overflowCategoryId || ""}
-                          disabled={busy}
-                          onChange={(v) => save({ overflowCategoryId: v || null })}
-                          className={fieldClass}
-                          options={[
-                            { value: "", label: mod.settings.categoryName || "Automatica" },
-                            ...mod.pickers.categories.map((c) => ({ value: c.id, label: c.name })),
-                          ]}
-                        />
-                      </Field>
-                    </div>
-                    <div className="px-4 py-4 sm:px-5">
-                      <Field label="Ticket aperti per utente">
-                        <input
-                          name="max-open-tickets"
-                          type="number"
-                          min={1}
-                          max={25}
-                          disabled={busy}
-                          value={mod.settings.maxOpenTicketsPerUser}
-                          onBlur={(e) => {
-                            const n = Number(e.target.value);
-                            if (Number.isFinite(n) && n !== mod.settings.maxOpenTicketsPerUser) {
-                              save({ maxOpenTicketsPerUser: n });
-                            }
-                          }}
-                          onChange={(e) =>
-                            setMod({
-                              ...mod,
-                              settings: { ...mod.settings, maxOpenTicketsPerUser: Number(e.target.value) || 1 },
-                            })
-                          }
-                          className={fieldClass}
-                        />
-                      </Field>
-                    </div>
-                  </div>
-                </SettingsGroup>
-              </div>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <Panel icon={<Hash />} title="Canali" description="Dove stanno pannello e transcript, e dove si aprono i ticket quando la categoria è piena.">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Canale pannello">
+                    <Select
+                      value={mod.settings.panelChannelId || ""}
+                      disabled={busy}
+                      onChange={(v) => save({ panelChannelId: v || null })}
+                      className={fieldClass}
+                      options={channelOptions("— Nessuno —")}
+                    />
+                  </Field>
+                  <Field label="Canale transcript">
+                    <Select
+                      value={mod.settings.transcriptChannelId || ""}
+                      disabled={busy}
+                      onChange={(v) => save({ transcriptChannelId: v || null })}
+                      className={fieldClass}
+                      options={channelOptions("— Nessuno —")}
+                    />
+                  </Field>
+                  <Field label="Categoria overflow">
+                    <Select
+                      value={mod.settings.overflowCategoryId || ""}
+                      disabled={busy}
+                      onChange={(v) => save({ overflowCategoryId: v || null })}
+                      className={fieldClass}
+                      options={[
+                        { value: "", label: mod.settings.categoryName || "Automatica" },
+                        ...mod.pickers.categories.map((c) => ({ value: c.id, label: c.name })),
+                      ]}
+                    />
+                  </Field>
+                  <Field label="Ticket aperti per utente">
+                    <input
+                      name="max-open-tickets"
+                      type="number"
+                      min={1}
+                      max={25}
+                      disabled={busy}
+                      value={mod.settings.maxOpenTicketsPerUser}
+                      onBlur={(e) => {
+                        const n = Number(e.target.value);
+                        if (Number.isFinite(n) && n !== mod.settings.maxOpenTicketsPerUser) {
+                          save({ maxOpenTicketsPerUser: n });
+                        }
+                      }}
+                      onChange={(e) =>
+                        setMod({
+                          ...mod,
+                          settings: { ...mod.settings, maxOpenTicketsPerUser: Number(e.target.value) || 1 },
+                        })
+                      }
+                      className={fieldClass}
+                    />
+                  </Field>
+                </div>
+              </Panel>
 
-              <div>
-                <SectionHead title="Comportamento" description="Pulsanti e passaggi del ticket su Discord." />
-                <SettingsGroup>
+              <Panel icon={<SlidersHorizontal />} title="Comportamento" description="Pulsanti e passaggi del ticket su Discord.">
+                <div className="divide-y divide-sand/[0.07]">
                   {BEHAVIOUR.map((b) => (
                     <SettingRow key={b.key} title={b.title} description={b.description} icon={b.icon}>
                       <Toggle
@@ -266,8 +273,8 @@ export function TicketDesk({
                       />
                     </SettingRow>
                   ))}
-                </SettingsGroup>
-              </div>
+                </div>
+              </Panel>
             </div>
           ) : null}
 
