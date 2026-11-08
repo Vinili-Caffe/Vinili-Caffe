@@ -2,19 +2,17 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
+import { Bot } from "lucide-react";
+import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
-import { VetrinaHero } from "@/components/bacheca/VetrinaHero";
 
-const BoardsBrowse = dynamic(() => import("@/components/bacheca/BoardsBrowse").then((m) => m.BoardsBrowse), {
-  loading: () => null,
-});
+const BoardsBrowse = dynamic(
+  () => import("@/components/bacheca/BoardsBrowse").then((m) => m.BoardsBrowse),
+  { loading: () => null },
+);
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({
-    path: "/vetrina/bot/",
-    title: "Bot in Vetrina",
-    description: "Bot Discord in Vetrina su Vinili & Caffè.",
-  }),
+  ...pageSocialMeta({ path: "/vetrina/bot/", title: "Bot in Vetrina", description: "Bot Discord in Vetrina Vinili & Caffè." }),
 };
 
 export default function Page() {
@@ -23,18 +21,14 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/bot/"
         title="Bot in Vetrina"
-        description="Bot Discord in Vetrina su Vinili & Caffè."
+        description="Bot Discord in Vetrina Vinili & Caffè."
       />
-      <VetrinaHero
-        kicker="Solo bot"
-        title={
-          <>
-            Automazioni
-            <br />
-            in fila
-          </>
-        }
-        text="Tool e bot della community, messi sullo stesso ripiano. Apri la scheda prima di invitare."
+      <PageHero
+        icon={<Bot />}
+        kicker="Vetrina"
+        title="Scaffale"
+        accent="bot"
+        text="I bot in vetrina: cerca, filtra e apri la scheda."
       />
       <BoardsBrowse initialKind="bot" />
     </SiteShell>

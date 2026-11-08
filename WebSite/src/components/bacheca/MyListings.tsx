@@ -46,7 +46,7 @@ export function MyListings() {
     return (
       <section className="mx-auto max-w-xl px-6 pb-24 text-center">
         <p className="font-display text-3xl">Le tue schede</p>
-        <p className="mt-2 text-crema/60">Accedi per vedere bozze, revisioni e schede già fuori.</p>
+        <p className="mt-2 text-crema/60">Accedi per vedere bozze e pubblicazioni.</p>
         <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink">
           <LogIn className="size-4" /> Accedi
         </button>

@@ -67,8 +67,8 @@ export function SubmitListing() {
   if (ready && !token) {
     return (
       <section className="mx-auto max-w-xl px-6 pb-24 text-center">
-        <p className="font-display text-3xl">Prima il login</p>
-        <p className="mt-2 text-crema/60">Per mettere una scheda in vetrina serve Discord collegato.</p>
+        <p className="font-display text-3xl">Serve il login</p>
+        <p className="mt-2 text-crema/60">Per inviare una scheda in vetrina accedi con Discord.</p>
         <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink">
           <LogIn className="size-4" /> Accedi
         </button>
@@ -125,19 +125,19 @@ export function SubmitListing() {
   }
 
   return (
-    <section className="mx-auto max-w-2xl px-6 pb-28 sm:px-10">
-      <div className="mb-6 flex gap-3 border border-caramel/25 bg-caramel/[0.07] px-4 py-3.5">
-        <Info className="mt-0.5 size-5 shrink-0 text-caramel" />
+    <section className="mx-auto max-w-2xl px-6 pb-24">
+      <div className="mb-6 flex gap-3 rounded-2xl bg-caramel/10 p-4 ring-1 ring-caramel/25">
+        <Info className="mt-0.5 size-5 shrink-0 text-ember" />
         <p className="text-sm text-crema/75">
-          Tagline e descrizione contano: dopo l’invio passa dalla revisione.{" "}
-          <SmartLink href={page("/vetrina/linee-guida-recensioni/")} className="text-caramel underline underline-offset-2">
+          Compila tagline e descrizione come sul sito attuale. Dopo l’invio la scheda va in revisione staff.{" "}
+          <SmartLink href={page("/vetrina/linee-guida-recensioni/")} className="text-caramel underline">
             Linee guida
           </SmartLink>
         </p>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-6 border border-crema/[0.1] bg-[#0c0907] p-6 sm:p-8">
-        <div className="flex gap-2 border-b border-crema/[0.1] pb-4">
+      <form onSubmit={onSubmit} className="space-y-6 rounded-[2rem] bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12 sm:p-8">
+        <div className="flex gap-2">
           {(["server", "bot"] as BoardKind[]).map((k) => (
             <button
               key={k}
@@ -148,8 +148,8 @@ export function SubmitListing() {
                 setDiscordId("");
               }}
               className={cn(
-                "inline-flex flex-1 items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors",
-                kind === k ? "border-b-2 border-caramel text-crema" : "text-crema/45 hover:text-crema/75",
+                "inline-flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold",
+                kind === k ? "bg-caramel text-ink" : "bg-crema/6 text-crema/65 ring-1 ring-sand/15",
               )}
             >
               {k === "bot" ? <Bot className="size-4" /> : <Server className="size-4" />}
@@ -231,7 +231,7 @@ export function SubmitListing() {
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-full bg-crema py-3.5 font-semibold text-ink transition-[filter,transform] hover:brightness-105 active:scale-[0.99] disabled:opacity-50"
+          className="w-full rounded-full bg-gradient-to-r from-caramel to-ember py-3.5 font-semibold text-ink disabled:opacity-50"
         >
           {busy ? "Invio…" : "Invia in revisione"}
         </button>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Info, LogIn, Plus, Search, X } from "lucide-react";
+import { Disc3, Info, LogIn, Plus, Search, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   SORTS,
@@ -32,7 +32,7 @@ type Props = {
   initialList?: ListingsPage | null;
 };
 
-/** Directory Vetrina — scaffali illuminati. La logica resta quella di sempre. */
+/** Directory bacheca: bot e server per genere. */
 export function BoardsBrowse({ initialKind = "", initialConfig = null, initialList = null }: Props) {
   const { ready, token, login } = useAuth();
   const [cfg, setCfg] = useState(initialConfig);
@@ -64,7 +64,7 @@ export function BoardsBrowse({ initialKind = "", initialConfig = null, initialLi
       ]);
       if (c) setCfg(c);
       if (l) setList(l);
-      else if (!quiet) setErr("La vetrina non risponde. Riprova tra un attimo.");
+      else if (!quiet) setErr("Non riesco a caricare la vetrina.");
       if (token) setStaff(await checkStaffAccess(token));
       else setStaff(false);
       if (!quiet) setLoading(false);
@@ -99,111 +99,90 @@ export function BoardsBrowse({ initialKind = "", initialConfig = null, initialLi
   }, [listings]);
 
   return (
-    <section className="relative mx-auto max-w-6xl px-6 pb-32 sm:px-10">
-      {/* barra controllo — etichette da museo, non chip pastello */}
-      <div className="border-y border-crema/[0.1] py-5">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <nav aria-label="Tipo scheda" className="flex flex-wrap gap-x-6 gap-y-2">
-            {(["", "server", "bot"] as const).map((k) => {
-              const on = kind === k;
-              return (
-                <button
-                  key={k || "all"}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setKind(k)}
-                  className={cn(
-                    "relative pb-1 text-sm font-semibold tracking-wide transition-colors",
-                    on ? "text-crema" : "text-crema/40 hover:text-crema/75",
-                  )}
-                >
-                  {k === "" ? "Tutto" : kindLabel(k)}
-                  {on ? (
-                    <span className="absolute inset-x-0 -bottom-px h-px bg-caramel" aria-hidden />
-                  ) : null}
-                </button>
-              );
-            })}
-          </nav>
-          <div className="flex flex-wrap items-center gap-3">
-            <SmartLink
-              href={page("/vetrina/le-mie/")}
-              className="text-sm font-semibold text-crema/55 underline-offset-4 transition-colors hover:text-crema hover:underline"
-            >
-              Le mie schede
-            </SmartLink>
-            <SmartLink
-              href={page("/vetrina/invia/")}
-              className="inline-flex items-center gap-2 rounded-full bg-crema px-4 py-2 text-sm font-semibold text-ink transition-[transform,filter] hover:brightness-105 active:scale-[0.97]"
-            >
-              <Plus className="size-4" /> Metti una scheda
-            </SmartLink>
-          </div>
+    <section className="mx-auto max-w-6xl px-6 pb-24">
+      <div className="flex flex-wrap items-center gap-3">
+        {(["", "server", "bot"] as const).map((k) => (
+          <button
+            key={k || "all"}
+            type="button"
+            aria-pressed={kind === k}
+            onClick={() => setKind(k)}
+            className={cn(
+              "rounded-full px-4 py-2 text-sm font-semibold transition-colors",
+              kind === k ? "bg-caramel text-ink" : "bg-crema/6 text-crema/65 ring-1 ring-sand/15 hover:text-crema",
+            )}
+          >
+            {k === "" ? "Tutto lo shop" : kindLabel(k)}
+          </button>
+        ))}
+        <div className="ml-auto flex flex-wrap gap-2">
+          <SmartLink
+            href={page("/vetrina/le-mie/")}
+            className="inline-flex items-center gap-2 rounded-full bg-crema/8 px-4 py-2 text-sm font-semibold text-crema ring-1 ring-sand/25"
+          >
+            Le mie
+          </SmartLink>
+          <SmartLink
+            href={page("/vetrina/invia/")}
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink"
+          >
+            <Plus className="size-4" /> Invia scheda
+          </SmartLink>
         </div>
-
-        <form
-          className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setQ(draftQ.trim());
-          }}
-        >
-          <label htmlFor="listing-search" className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-0 top-1/2 size-4 -translate-y-1/2 text-crema/35" />
-            <input
-              id="listing-search"
-              name="listing-search"
-              value={draftQ}
-              onChange={(e) => setDraftQ(e.target.value)}
-              placeholder="Cerca nome, tag, pezzo di descrizione…"
-              className="w-full border-b border-crema/15 bg-transparent py-3 pl-7 pr-8 text-crema outline-none placeholder:text-crema/30 focus:border-caramel/50"
-            />
-            {draftQ ? (
-              <button
-                type="button"
-                aria-label="Pulisci"
-                className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-crema/40 hover:text-crema"
-                onClick={() => {
-                  setDraftQ("");
-                  setQ("");
-                }}
-              >
-                <X className="size-4" />
-              </button>
-            ) : null}
-          </label>
-          <div className="flex flex-wrap gap-x-4 gap-y-2 lg:justify-end">
-            {SORTS.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                aria-pressed={sort === s.id}
-                onClick={() => setSort(s.id)}
-                className={cn(
-                  "text-xs font-semibold uppercase tracking-[0.18em] transition-colors",
-                  sort === s.id ? "text-caramel" : "text-crema/35 hover:text-crema/70",
-                )}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </form>
       </div>
 
+      <form
+        className="mt-6 flex flex-col gap-3 sm:flex-row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setQ(draftQ.trim());
+        }}
+      >
+        <label htmlFor="listing-search" className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-crema/40" />
+          <input id="listing-search" name="listing-search"
+            value={draftQ}
+            onChange={(e) => setDraftQ(e.target.value)}
+            placeholder="Cerca un bot, un server, un tag…"
+            className="w-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast py-3.5 pl-11 pr-11 text-crema outline-none ring-1 ring-sand/15 placeholder:text-crema/35 focus:ring-caramel/40"
+          />
+          {draftQ && (
+            <button type="button" aria-label="Pulisci" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-crema/45 hover:text-crema" onClick={() => { setDraftQ(""); setQ(""); }}>
+              <X className="size-4" />
+            </button>
+          )}
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {SORTS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              aria-pressed={sort === s.id}
+              onClick={() => setSort(s.id)}
+              className={cn(
+                "rounded-full px-3.5 py-2 text-sm font-semibold",
+                sort === s.id ? "bg-crema/15 text-crema ring-1 ring-sand/30" : "bg-crema/5 text-crema/50 ring-1 ring-sand/10 hover:text-crema/80",
+              )}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </form>
+
       {closedGate && (
-        <div className="mt-8 flex gap-3 border border-caramel/25 bg-caramel/[0.07] px-5 py-4">
-          <Info className="mt-0.5 size-5 shrink-0 text-caramel" />
+        <div className="mt-8 flex gap-3 rounded-2xl bg-caramel/10 p-5 ring-1 ring-caramel/25">
+          <Info className="mt-0.5 size-5 shrink-0 text-ember" />
           <div className="min-w-0">
-            <p className="font-semibold text-crema">Ancora chiusa al pubblico</p>
-            <p className="mt-1 text-sm text-crema/65">
-              {list?.message || cfg?.message || "Per ora la vedono solo gli staff. Se sei staff, accedi."}
+            <p className="font-semibold text-crema">Vetrina in anteprima staff</p>
+            <p className="mt-1 text-sm text-crema/70">
+              {list?.message || cfg?.message || "La Vetrina è in anteprima. Accedi con un account staff per vedere l’elenco."}
             </p>
             {!token && ready && (
               <button
                 type="button"
                 onClick={login}
-                className="mt-3 inline-flex items-center gap-2 rounded-full bg-crema px-4 py-2 text-sm font-semibold text-ink"
+                className="mt-3 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink"
               >
                 <LogIn className="size-4" /> Accedi con Discord
               </button>
@@ -215,7 +194,7 @@ export function BoardsBrowse({ initialKind = "", initialConfig = null, initialLi
       {err && <p className="mt-6 text-sm text-ember">{err}</p>}
 
       {loading && (
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <VinylCardSkeleton key={i} i={i} />
           ))}
@@ -223,22 +202,15 @@ export function BoardsBrowse({ initialKind = "", initialConfig = null, initialLi
       )}
 
       {!loading && !closedGate && listings.length === 0 && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mt-24 max-w-md">
-          <p className="font-display text-4xl leading-none text-crema/90">Niente qui</p>
-          <p className="mt-4 text-crema/50">
-            Con questi filtri lo scaffale è vuoto. Cambia ricerca, oppure metti tu una scheda.
-          </p>
-          <SmartLink
-            href={page("/vetrina/invia/")}
-            className="mt-7 inline-flex items-center gap-2 rounded-full bg-crema px-5 py-2.5 text-sm font-semibold text-ink"
-          >
-            <Plus className="size-4" /> Metti una scheda
-          </SmartLink>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mt-16 text-center">
+          <Disc3 className="mx-auto size-12 text-sand/40" />
+          <p className="mt-4 font-display text-3xl text-crema/80">Scaffale vuoto</p>
+          <p className="mt-2 text-crema/50">Nessuna scheda corrisponde ai filtri. Prova un’altra ricerca o manda la tua.</p>
         </motion.div>
       )}
 
       {!loading && listings.length > 0 && (
-        <div className="mt-14 space-y-16">
+        <div className="mt-10 space-y-12">
           <AnimatePresence mode="popLayout">
             {(shelves.length ? shelves : [["in vetrina", listings] as const]).map(([cat, items]) => {
               const catKey = String(cat);
@@ -246,58 +218,46 @@ export function BoardsBrowse({ initialKind = "", initialConfig = null, initialLi
               const shown = items.length > SHELF_INITIAL ? items.slice(0, cap) : items;
               const remaining = items.length > SHELF_INITIAL ? Math.max(0, items.length - cap) : 0;
               return (
-                <div key={catKey}>
-                  {/* ripiano: listello luce + titolo */}
-                  <div className="mb-6">
-                    <div
-                      aria-hidden
-                      className="mb-4 h-[3px] w-full rounded-full bg-gradient-to-r from-caramel/80 via-caramel/25 to-transparent shadow-[0_0_18px_rgba(217,154,91,0.35)]"
-                    />
-                    <div className="flex items-baseline justify-between gap-4">
-                      <h2 className="font-display text-3xl font-semibold capitalize tracking-[-0.03em] text-crema sm:text-[2.35rem]">
-                        {catKey.replace(/-/g, " ")}
-                      </h2>
-                      <span className="shrink-0 font-mono text-[0.7rem] uppercase tracking-[0.22em] text-crema/35">
-                        {String(items.length).padStart(2, "0")}
-                      </span>
-                    </div>
+              <div key={catKey}>
+                <div className="mb-4 flex items-end justify-between gap-3">
+                  <div>
+                    <p className="font-script text-2xl text-caramel/80">scaffale</p>
+                    <h2 className="font-display text-3xl font-semibold capitalize sm:text-4xl">{catKey.replace(/-/g, " ")}</h2>
                   </div>
-                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                    {shown.map((item, i) => (
-                      <VinylCard
-                        key={item.id}
-                        listing={item}
-                        query={q}
-                        i={i}
-                        onOpen={() => {
-                          window.location.href = page(
-                            `/vetrina/scheda/?slug=${encodeURIComponent(item.slug || item.id)}`,
-                          );
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <ShowMoreButton
-                    variant="plain"
-                    remaining={remaining}
-                    onClick={() =>
-                      setShelfVisible((prev) => ({
-                        ...prev,
-                        [catKey]: (prev[catKey] ?? SHELF_INITIAL) + SHELF_STEP,
-                      }))
-                    }
-                  />
+                  <span className="text-xs uppercase tracking-[0.2em] text-crema/40">{items.length} dischi</span>
                 </div>
-              );
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {shown.map((item, i) => (
+                    <VinylCard
+                      key={item.id}
+                      listing={item}
+                      query={q}
+                      i={i}
+                      onOpen={() => {
+                        window.location.href = page(`/vetrina/scheda/?slug=${encodeURIComponent(item.slug || item.id)}`);
+                      }}
+                    />
+                  ))}
+                </div>
+                <ShowMoreButton
+                  variant="plain"
+                  remaining={remaining}
+                  onClick={() =>
+                    setShelfVisible((prev) => ({
+                      ...prev,
+                      [catKey]: (prev[catKey] ?? SHELF_INITIAL) + SHELF_STEP,
+                    }))
+                  }
+                />
+              </div>
+            );
             })}
           </AnimatePresence>
         </div>
       )}
 
       {staff && !cfg?.publicOpen && (
-        <p className="mt-14 text-center text-xs text-crema/35">
-          Anteprima staff — fuori da qui la gente vede solo il messaggio di chiusura.
-        </p>
+        <p className="mt-10 text-center text-xs text-crema/40">Anteprima staff attiva — il pubblico vedrà il messaggio di chiusura.</p>
       )}
     </section>
   );

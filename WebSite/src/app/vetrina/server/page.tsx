@@ -2,19 +2,17 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
+import { Server } from "lucide-react";
+import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
-import { VetrinaHero } from "@/components/bacheca/VetrinaHero";
 
-const BoardsBrowse = dynamic(() => import("@/components/bacheca/BoardsBrowse").then((m) => m.BoardsBrowse), {
-  loading: () => null,
-});
+const BoardsBrowse = dynamic(
+  () => import("@/components/bacheca/BoardsBrowse").then((m) => m.BoardsBrowse),
+  { loading: () => null },
+);
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({
-    path: "/vetrina/server/",
-    title: "Vetrina · Server",
-    description: "Server Discord in Vetrina su Vinili & Caffè.",
-  }),
+  ...pageSocialMeta({ path: "/vetrina/server/", title: "Vetrina · Server", description: "Server Discord in Vetrina Vinili & Caffè." }),
 };
 
 export default function Page() {
@@ -23,18 +21,14 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/server/"
         title="Vetrina · Server"
-        description="Server Discord in Vetrina su Vinili & Caffè."
+        description="Server Discord in Vetrina Vinili & Caffè."
       />
-      <VetrinaHero
-        kicker="Solo server"
-        title={
-          <>
-            Comunità
-            <br />
-            in mostra
-          </>
-        }
-        text="Non un elenco infinito: schede con un perché, voti, e spazio per entrare se ti piace l’aria."
+      <PageHero
+        icon={<Server />}
+        kicker="Vetrina"
+        title="Scaffale"
+        accent="server"
+        text="I server in vetrina: cerca, filtra e apri la scheda."
       />
       <BoardsBrowse initialKind="server" />
     </SiteShell>

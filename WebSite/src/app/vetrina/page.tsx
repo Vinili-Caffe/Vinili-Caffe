@@ -2,19 +2,15 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
+import { Disc3 } from "lucide-react";
+import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
-import { VetrinaHero, VetrinaHubActions } from "@/components/bacheca/VetrinaHero";
 
-const BoardsBrowse = dynamic(() => import("@/components/bacheca/BoardsBrowse").then((m) => m.BoardsBrowse), {
-  loading: () => null,
+const BoardsBrowse = dynamic(() => import("@/components/bacheca/BoardsBrowse").then((m) => m.BoardsBrowse), { loading: () => null,
 });
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({
-    path: "/vetrina/",
-    title: "Vetrina",
-    description: "Server e bot Discord in mostra su Vinili & Caffè.",
-  }),
+  ...pageSocialMeta({ path: "/vetrina/", title: "Vetrina", description: "Directory di bot e server Discord della community Vinili & Caffè." }),
 };
 
 export default function Page() {
@@ -23,20 +19,14 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/"
         title="Vetrina"
-        description="Server e bot Discord in mostra su Vinili & Caffè."
+        description="Directory di bot e server Discord della community Vinili & Caffè."
       />
-      <VetrinaHero
-        size="hub"
-        kicker="Vinili & Caffè"
-        title={
-          <>
-            Guardala
-            <br />
-            dalla strada
-          </>
-        }
-        text="Server e bot dietro il vetro. Sfoglia gli scaffali, apri una scheda, vota se ti convince — o metti la tua."
-        actions={<VetrinaHubActions />}
+      <PageHero
+        icon={<Disc3 />}
+        kicker="Vetrina"
+        title="La vetrina"
+        accent="community"
+        text="Bot e server Discord ordinati per genere: sfoglia, apri la scheda, vota."
       />
       <BoardsBrowse />
     </SiteShell>

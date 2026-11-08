@@ -7,7 +7,7 @@ import { kindLabel } from "@/lib/boards";
 import { cn } from "@/lib/cn";
 import { Highlight } from "../Highlight";
 
-/** Pezzo in vetrina: cartellino da display, non card “dashboard”. */
+/** Card bacheca: icona + nome del bot o server. */
 export function VinylCard({
   listing,
   query = "",
@@ -19,77 +19,73 @@ export function VinylCard({
   i?: number;
   onOpen: () => void;
 }) {
-  const accent = listing.accent || "#d99a5b";
+  const accent = listing.accent || "#d49150";
   return (
     <motion.button
       type="button"
       layout="position"
       onClick={onOpen}
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(i, 12) * 0.035, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className={cn(
-        "group relative flex h-full flex-col overflow-hidden text-left",
-        "rounded-sm border border-crema/[0.1] bg-[#0c0907]",
-        "transition-[border-color,transform,box-shadow] duration-300 ease-out",
-        "hover:-translate-y-1 hover:border-caramel/40 hover:shadow-[0_24px_48px_-28px_rgba(0,0,0,0.95)]",
-      )}
+      transition={{ delay: Math.min(i, 14) * 0.03, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      whileHover="hover"
+      className="group relative flex flex-col overflow-hidden rounded-3xl bg-gradient-to-br from-mocha/80 to-roast p-4 text-left ring-1 ring-sand/12 transition-colors hover:ring-sand/30 sm:p-5"
     >
-      {/* fascia luce sopra — come farebbe una vetrina */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-gradient-to-r from-transparent via-caramel/70 to-transparent opacity-70"
-      />
-      <span aria-hidden className="absolute left-0 top-0 z-10 h-full w-[2px]" style={{ background: accent }} />
+      <span className="pointer-events-none absolute -right-8 -top-8 size-36 rounded-full opacity-30 blur-2xl" style={{ background: accent }} />
 
-      <span className="relative aspect-[5/4] overflow-hidden bg-[#14100c]">
-        <span
-          aria-hidden
-          className="absolute inset-0 opacity-40 transition-opacity duration-500 group-hover:opacity-55"
-          style={{
-            background: `radial-gradient(ellipse 70% 60% at 50% 35%, ${accent}55, transparent 65%)`,
-          }}
-        />
-        {listing.iconUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={listing.iconUrl}
-            alt=""
-            className="absolute inset-[18%] size-[64%] rounded-[18%] object-cover shadow-[0_18px_40px_-18px_rgba(0,0,0,0.9)] ring-1 ring-crema/15 transition-transform duration-500 ease-out group-hover:scale-[1.04]"
-          />
-        ) : (
-          <span className="absolute inset-0 flex items-center justify-center text-crema/35">
-            {listing.kind === "bot" ? <Bot className="size-14" strokeWidth={1.25} /> : <Server className="size-14" strokeWidth={1.25} />}
+      <span className="relative flex items-start gap-4">
+        <motion.span
+          variants={{ hover: { rotate: -18 } }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
+          className="relative shrink-0"
+        >
+          <span className="absolute inset-0 translate-x-2 translate-y-1 rounded-full bg-espresso/80" aria-hidden />
+          <span
+            className="relative flex size-20 items-center justify-center overflow-hidden rounded-full ring-2 ring-sand/20 sm:size-24"
+            style={{ background: `radial-gradient(circle at 35% 30%, ${accent}55, #1a100c 70%)` }}
+          >
+            {listing.iconUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={listing.iconUrl} alt="" className="size-full object-cover" />
+            ) : listing.kind === "bot" ? (
+              <Bot className="size-8 text-sand/70" />
+            ) : (
+              <Server className="size-8 text-sand/70" />
+            )}
+            <span className="absolute inset-[38%] rounded-full bg-espresso/90 ring-1 ring-sand/25" />
           </span>
-        )}
-        <span className="absolute left-3 top-3 rounded-full border border-crema/15 bg-black/45 px-2.5 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-crema/75 backdrop-blur-sm">
-          {kindLabel(listing.kind)}
+        </motion.span>
+
+        <span className="min-w-0 flex-1 pt-1">
+          <span className="flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">
+            {listing.kind === "bot" ? <Bot className="size-3" /> : <Server className="size-3" />}
+            {kindLabel(listing.kind)}
+          </span>
+          <span className="mt-1 block truncate font-display text-xl font-semibold text-crema sm:text-2xl">
+            <Highlight text={listing.name || "Senza titolo"} query={query} />
+          </span>
+          {listing.tagline && (
+            <span className="mt-1 line-clamp-2 text-sm leading-snug text-crema/55">
+              <Highlight text={listing.tagline} query={query} />
+            </span>
+          )}
         </span>
       </span>
 
-      <span className="flex flex-1 flex-col gap-2 px-4 pb-4 pt-3.5">
-        <span className="line-clamp-2 font-display text-[1.35rem] font-semibold leading-[1.05] tracking-[-0.02em] text-crema sm:text-[1.45rem]">
-          <Highlight text={listing.name || "Senza titolo"} query={query} />
-        </span>
-        {listing.tagline ? (
-          <span className="line-clamp-2 text-[0.84rem] leading-snug text-crema/50">
-            <Highlight text={listing.tagline} query={query} />
+      <span className="relative mt-4 flex flex-wrap items-center gap-2 text-xs text-crema/50">
+        {listing.ratingAvg > 0 && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-crema/6 px-2 py-0.5 ring-1 ring-sand/15">
+            <Star className="size-3 fill-caramel text-caramel" />
+            {listing.ratingAvg.toFixed(1)}
+            <span className="text-crema/35">({listing.reviewsCount})</span>
           </span>
-        ) : null}
-
-        <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-crema/[0.08] pt-3 text-[0.72rem] text-crema/45">
-          {listing.ratingAvg > 0 ? (
-            <span className="inline-flex items-center gap-1 text-crema/70">
-              <Star className="size-3 fill-caramel text-caramel" />
-              {listing.ratingAvg.toFixed(1)}
-              <span className="text-crema/30">· {listing.reviewsCount}</span>
-            </span>
-          ) : (
-            <span>Ancora senza stelle</span>
-          )}
-          {listing.votesMonth > 0 ? <span>{listing.votesMonth} voti/mese</span> : null}
-          {listing.categories[0] ? <span className="ml-auto truncate text-crema/35">{listing.categories[0]}</span> : null}
-        </span>
+        )}
+        {listing.votesMonth > 0 && <span className="rounded-full bg-crema/6 px-2 py-0.5 ring-1 ring-sand/15">{listing.votesMonth} voti/mese</span>}
+        {listing.categories.slice(0, 2).map((c) => (
+          <span key={c} className="rounded-full bg-crema/6 px-2 py-0.5 ring-1 ring-sand/15">
+            {c}
+          </span>
+        ))}
       </span>
     </motion.button>
   );
@@ -98,7 +94,7 @@ export function VinylCard({
 export function VinylCardSkeleton({ i = 0 }: { i?: number }) {
   return (
     <div
-      className="aspect-[4/5] animate-pulse rounded-sm border border-crema/[0.07] bg-[#0c0907]"
+      className={cn("h-40 animate-pulse rounded-3xl bg-roast/50 ring-1 ring-sand/10")}
       style={{ animationDelay: `${i * 60}ms` }}
     />
   );

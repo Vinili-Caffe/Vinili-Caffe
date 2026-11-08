@@ -95,10 +95,10 @@ export function ListingDetail() {
   if (err || !listing) {
     return (
       <section className="mx-auto max-w-3xl px-6 pb-24 text-center">
-        <p className="font-display text-3xl text-crema/80">Scheda introvabile</p>
-        <p className="mt-2 text-crema/55">{err || "Questa scheda non c’è più, o il link è sbagliato."}</p>
+        <p className="font-display text-3xl text-crema/80">Disco non trovato</p>
+        <p className="mt-2 text-crema/55">{err || "Questa scheda non è disponibile."}</p>
         <SmartLink href={page("/vetrina/")} className="mt-6 inline-flex rounded-full bg-crema/8 px-5 py-2.5 text-sm font-semibold ring-1 ring-sand/25">
-          Torna allo scaffale
+          Torna alla vetrina
         </SmartLink>
       </section>
     );
@@ -107,26 +107,21 @@ export function ListingDetail() {
   const accent = listing.accent || "#d49150";
 
   return (
-    <section className="mx-auto max-w-4xl px-6 pb-28 sm:px-10">
+    <section className="mx-auto max-w-4xl px-6 pb-24">
       <motion.article
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden border border-crema/[0.1] bg-[#0c0907]"
+        className="overflow-hidden rounded-[2rem] bg-gradient-to-b from-caramel/15 to-roast ring-1 ring-sand/15 shadow-[0_30px_80px_-30px_rgba(212,145,80,0.35)]"
       >
-        <span aria-hidden className="absolute left-0 top-0 h-full w-[2px]" style={{ background: accent }} />
-        <span
-          aria-hidden
-          className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-caramel/60 to-transparent"
-        />
         {listing.bannerUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={listing.bannerUrl} alt="" className="h-40 w-full object-cover sm:h-52" />
         )}
-        <div className="relative p-6 sm:p-9">
+        <div className="relative p-6 sm:p-8">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
             <div
-              className="mx-auto flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-crema/15 sm:mx-0 sm:size-32"
-              style={{ background: `radial-gradient(circle at 35% 30%, ${accent}55, #100c09 72%)` }}
+              className="mx-auto flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 ring-sand/25 sm:mx-0 sm:size-32"
+              style={{ background: `radial-gradient(circle at 35% 30%, ${accent}66, #1a100c 72%)` }}
             >
               {listing.iconUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -168,14 +163,14 @@ export function ListingDetail() {
                 href={invite}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-crema px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:brightness-105 active:scale-[0.97]"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
               >
                 {listing.kind === "bot" ? "Invita il bot" : "Entra nel server"} <ArrowUpRight className="size-4" />
               </a>
             )}
             <SmartLink
               href={page(`/vetrina/vota/?slug=${encodeURIComponent(listing.slug)}&id=${encodeURIComponent(listing.id)}`)}
-              className="inline-flex items-center gap-2 rounded-full border border-crema/20 px-5 py-2.5 text-sm font-semibold text-crema hover:border-crema/40"
+              className="inline-flex items-center gap-2 rounded-full bg-crema/10 px-5 py-2.5 text-sm font-semibold ring-1 ring-sand/25"
             >
               <ThumbsUp className="size-4" /> Vota
             </SmartLink>
@@ -183,7 +178,7 @@ export function ListingDetail() {
               type="button"
               disabled={busy === "bump"}
               onClick={onBump}
-              className="inline-flex items-center gap-2 rounded-full border border-crema/15 px-5 py-2.5 text-sm font-semibold text-crema/80 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full bg-crema/8 px-5 py-2.5 text-sm font-semibold ring-1 ring-sand/20 disabled:opacity-50"
             >
               Riposiziona
             </button>
@@ -204,21 +199,21 @@ export function ListingDetail() {
 
           {message && <p className="mt-4 text-sm text-sand">{message}</p>}
 
-          <div className="mt-10 border-t border-crema/[0.08] pt-8">
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-caramel">Descrizione</p>
+          <div className="mt-10 border-t border-sand/10 pt-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Sul retro</p>
             <div className="prose-vc mt-4 text-crema/80 leading-relaxed">
               {listing.description ? <DiscordContent text={listing.description} /> : <p className="text-crema/45">Nessuna descrizione.</p>}
             </div>
             {listing.visitorNotes && (
-              <div className="mt-6 border border-crema/[0.1] bg-crema/[0.03] p-4">
-                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-crema/45">Note per i visitatori</p>
+              <div className="mt-6 rounded-2xl bg-crema/5 p-4 ring-1 ring-sand/12">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">Note per i visitatori</p>
                 <p className="mt-2 text-sm text-crema/70">{listing.visitorNotes}</p>
               </div>
             )}
             {listing.tags.length > 0 && (
               <div className="mt-6 flex flex-wrap gap-2">
                 {listing.tags.map((t) => (
-                  <span key={t} className="border border-crema/10 px-3 py-1 text-xs text-crema/55">
+                  <span key={t} className="rounded-full bg-mocha/60 px-3 py-1 text-xs text-crema/60 ring-1 ring-sand/12">
                     #{t}
                   </span>
                 ))}
