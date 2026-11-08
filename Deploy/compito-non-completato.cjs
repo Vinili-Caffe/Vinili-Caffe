@@ -25,7 +25,20 @@ const mongoose = req("mongoose");
 const boot = req(`${SRC}/Vinili/site/workers/workerAppBootstrap.js`);
 const { createSiteApiRestClient } = req(`${SRC}/Vinili/site/http/siteApiRestClient.js`);
 
+/* .env: sulla VPS sta nella cartella del progetto (la carica pm2), non in src/ */
+function loadEnvFiles() {
+  const fs = require("fs");
+  for (const p of ["/opt/bot/.env", `${BOTS}/.env`, `${SRC}/.env`, `${process.env.HOME || ""}/.env`]) {
+    if (!p || !fs.existsSync(p)) continue;
+    for (const line of fs.readFileSync(p, "utf8").split(/\r?\n/)) {
+      const m = /^\s*(?:export\s+)?([A-Za-z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
+      if (m && process.env[m[1]] == null) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+    }
+  }
+}
+
 (async () => {
+  loadEnvFiles();
   boot.loadDotEnv();
   try {
     boot.installConsoleLogger();
