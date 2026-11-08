@@ -159,12 +159,14 @@ body {
   background-image: linear-gradient(180deg, #120c08 0%, #0e0906 45%, #120d09 100%);
 }
 
-/* Aria sotto PageHero: evita contenuto attaccato / tagliato (ombre, hover, decorazioni). */
-.vc-page-hero + * {
+/* Aria sotto PageHero / VetrinaHero: evita contenuto attaccato / tagliato. */
+.vc-page-hero + *,
+.vc-vetrina-hero + * {
   padding-top: 2.75rem;
 }
 @media (min-width: 640px) {
-  .vc-page-hero + * {
+  .vc-page-hero + *,
+  .vc-vetrina-hero + * {
     padding-top: 3.75rem;
   }
 }

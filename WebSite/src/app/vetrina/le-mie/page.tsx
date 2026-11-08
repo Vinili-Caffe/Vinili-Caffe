@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
-import { Library } from "lucide-react";
-import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
+import { VetrinaHero } from "@/components/bacheca/VetrinaHero";
 
-const MyListings = dynamic(
-  () => import("@/components/bacheca/MyListings").then((m) => m.MyListings),
-  { loading: () => null },
-);
+const MyListings = dynamic(() => import("@/components/bacheca/MyListings").then((m) => m.MyListings), {
+  loading: () => null,
+});
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/vetrina/le-mie/", title: "Vetrina · Le mie schede", description: "Le tue schede in Vetrina Vinili & Caffè." }),
+  ...pageSocialMeta({
+    path: "/vetrina/le-mie/",
+    title: "Vetrina · Le mie schede",
+    description: "Le tue schede in Vetrina: bozze, in revisione, pubblicate.",
+  }),
 };
 
 export default function Page() {
@@ -21,14 +23,18 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/le-mie/"
         title="Vetrina · Le mie schede"
-        description="Le tue schede in Vetrina Vinili & Caffè."
+        description="Le tue schede in Vetrina: bozze, in revisione, pubblicate."
       />
-      <PageHero
-        icon={<Library />}
-        kicker="Vetrina"
-        title="I tuoi"
-        accent="dischi"
-        text="Bozze, in revisione e pubblicate."
+      <VetrinaHero
+        kicker="Vetrina · Le mie"
+        title={
+          <>
+            Le tue
+            <br />
+            <span className="text-caramel/90">schede</span>
+          </>
+        }
+        text="Bozze da finire, cose in revisione, e quelle già dietro il vetro."
       />
       <MyListings />
     </SiteShell>

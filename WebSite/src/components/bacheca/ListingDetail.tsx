@@ -95,10 +95,10 @@ export function ListingDetail() {
   if (err || !listing) {
     return (
       <section className="mx-auto max-w-3xl px-6 pb-24 text-center">
-        <p className="font-display text-3xl text-crema/80">Disco non trovato</p>
-        <p className="mt-2 text-crema/55">{err || "Questa scheda non è disponibile."}</p>
+        <p className="font-display text-3xl text-crema/80">Scheda introvabile</p>
+        <p className="mt-2 text-crema/55">{err || "Questa scheda non c’è più, o il link è sbagliato."}</p>
         <SmartLink href={page("/vetrina/")} className="mt-6 inline-flex rounded-full bg-crema/8 px-5 py-2.5 text-sm font-semibold ring-1 ring-sand/25">
-          Torna alla vetrina
+          Torna allo scaffale
         </SmartLink>
       </section>
     );
@@ -107,11 +107,11 @@ export function ListingDetail() {
   const accent = listing.accent || "#d49150";
 
   return (
-    <section className="mx-auto max-w-4xl px-6 pb-24">
+    <section className="mx-auto max-w-4xl px-6 pb-28">
       <motion.article
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
-        className="overflow-hidden rounded-[2rem] bg-gradient-to-b from-caramel/15 to-roast ring-1 ring-sand/15 shadow-[0_30px_80px_-30px_rgba(212,145,80,0.35)]"
+        className="overflow-hidden rounded-[1.75rem] bg-[linear-gradient(165deg,rgba(255,235,210,0.07)_0%,rgba(42,28,20,0.55)_36%,rgba(20,13,10,0.94)_100%)] ring-1 ring-sand/14 shadow-[0_28px_70px_-32px_rgba(0,0,0,0.9)]"
       >
         {listing.bannerUrl && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -120,8 +120,11 @@ export function ListingDetail() {
         <div className="relative p-6 sm:p-8">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
             <div
-              className="mx-auto flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 ring-sand/25 sm:mx-0 sm:size-32"
-              style={{ background: `radial-gradient(circle at 35% 30%, ${accent}66, #1a100c 72%)` }}
+              className="mx-auto flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl ring-1 ring-sand/22 sm:mx-0 sm:size-32"
+              style={{
+                background: `linear-gradient(145deg, ${accent}44, rgba(14,9,6,0.92) 72%)`,
+                boxShadow: `inset 0 1px 0 rgba(255,240,220,0.12), 0 16px 36px -18px ${accent}99`,
+              }}
             >
               {listing.iconUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element

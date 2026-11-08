@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
-import { PlusCircle } from "lucide-react";
-import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
+import { VetrinaHero } from "@/components/bacheca/VetrinaHero";
 
-const SubmitListing = dynamic(
-  () => import("@/components/bacheca/SubmitListing").then((m) => m.SubmitListing),
-  { loading: () => null },
-);
+const SubmitListing = dynamic(() => import("@/components/bacheca/SubmitListing").then((m) => m.SubmitListing), {
+  loading: () => null,
+});
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/vetrina/invia/", title: "Vetrina · Invia", description: "Invia una scheda bot o server alla Vetrina." }),
+  ...pageSocialMeta({
+    path: "/vetrina/invia/",
+    title: "Vetrina · Invia",
+    description: "Invia la scheda del tuo server o bot alla Vetrina.",
+  }),
 };
 
 export default function Page() {
@@ -21,14 +23,18 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/invia/"
         title="Vetrina · Invia"
-        description="Invia una scheda bot o server alla Vetrina."
+        description="Invia la scheda del tuo server o bot alla Vetrina."
       />
-      <PageHero
-        icon={<PlusCircle />}
-        kicker="Vetrina"
-        title="Invia"
-        accent="una scheda"
-        text="Compila la scheda del tuo server o bot e mandala in revisione."
+      <VetrinaHero
+        kicker="Vetrina · Invia"
+        title={
+          <>
+            Metti
+            <br />
+            <span className="text-caramel/90">la tua scheda</span>
+          </>
+        }
+        text="Compili, mandi, aspetti la revisione. Se passa, entri in vetrina — niente scorciatoie."
       />
       <SubmitListing />
     </SiteShell>

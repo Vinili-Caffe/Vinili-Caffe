@@ -37,19 +37,22 @@ const SECTIONS: { title: string; body: string }[] = [
   },
 ];
 
-/** Carta delle regole sulle recensioni in bacheca (testi dal sito vecchio). */
+/** Carta delle regole sulle recensioni in vetrina. */
 export function Guidelines() {
   return (
-    <section className="mx-auto max-w-3xl px-6 pb-24">
-      <p className="text-crema/65 leading-relaxed">
-        Le recensioni aiutano chi sceglie un server o un bot. Queste regole valgono per ogni testo pubblicato sulle schede della Vetrina.
+    <section className="mx-auto max-w-3xl px-6 pb-28">
+      <p className="max-w-2xl text-crema/65 leading-relaxed">
+        Vale per ogni testo sotto una scheda: se aiuta chi sceglie, resta. Se è rumore, offesa o trucco, via.
       </p>
-      <div className="mt-10 space-y-5">
+      <div className="mt-10 space-y-4">
         {SECTIONS.map((s, i) => (
           <Reveal key={s.title} delay={Math.min(i, 8) * 0.04}>
-            <article className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12">
-              <h2 className="font-display text-2xl font-semibold text-crema">{s.title}</h2>
-              <p className="mt-3 text-sm leading-relaxed text-crema/70 sm:text-base">{s.body}</p>
+            <article className="rounded-[1.35rem] bg-[linear-gradient(165deg,rgba(255,235,210,0.05)_0%,rgba(42,28,20,0.5)_40%,rgba(20,13,10,0.9)_100%)] p-6 ring-1 ring-sand/12">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-caramel/70">
+                {String(i + 1).padStart(2, "0")}
+              </p>
+              <h2 className="mt-2 font-display text-2xl font-semibold text-crema">{s.title}</h2>
+              <p className="mt-3 text-sm leading-relaxed text-crema/68 sm:text-base">{s.body}</p>
             </article>
           </Reveal>
         ))}

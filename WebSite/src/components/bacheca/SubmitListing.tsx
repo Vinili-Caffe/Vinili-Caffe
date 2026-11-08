@@ -67,8 +67,8 @@ export function SubmitListing() {
   if (ready && !token) {
     return (
       <section className="mx-auto max-w-xl px-6 pb-24 text-center">
-        <p className="font-display text-3xl">Serve il login</p>
-        <p className="mt-2 text-crema/60">Per inviare una scheda in vetrina accedi con Discord.</p>
+        <p className="font-display text-3xl">Prima il login</p>
+        <p className="mt-2 text-crema/60">Per mettere una scheda in vetrina serve Discord collegato.</p>
         <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink">
           <LogIn className="size-4" /> Accedi
         </button>

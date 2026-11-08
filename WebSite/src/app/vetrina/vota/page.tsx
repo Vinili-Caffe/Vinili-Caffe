@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
-import { ThumbsUp } from "lucide-react";
-import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
+import { VetrinaHero } from "@/components/bacheca/VetrinaHero";
 
-const VoteListing = dynamic(
-  () => import("@/components/bacheca/VoteListing").then((m) => m.VoteListing),
-  { loading: () => null },
-);
+const VoteListing = dynamic(() => import("@/components/bacheca/VoteListing").then((m) => m.VoteListing), {
+  loading: () => null,
+});
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/vetrina/vota/", title: "Vetrina · Vota", description: "Vota una scheda della Vetrina." }),
+  ...pageSocialMeta({
+    path: "/vetrina/vota/",
+    title: "Vetrina · Vota",
+    description: "Vota una scheda della Vetrina Vinili & Caffè.",
+  }),
 };
 
 export default function Page() {
@@ -21,14 +23,18 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/vota/"
         title="Vetrina · Vota"
-        description="Vota una scheda della Vetrina."
+        description="Vota una scheda della Vetrina Vinili & Caffè."
       />
-      <PageHero
-        icon={<ThumbsUp />}
-        kicker="Vetrina"
-        title="Voto"
-        accent="voto"
-        text="Sostieni una scheda completando il percorso di voto."
+      <VetrinaHero
+        kicker="Vetrina · Voto"
+        title={
+          <>
+            Un voto
+            <br />
+            <span className="text-caramel/90">alla scheda</span>
+          </>
+        }
+        text="Segui i passaggi, conferma, e la scheda sale. Niente altro: un sostegno chiaro."
       />
       <VoteListing />
     </SiteShell>
