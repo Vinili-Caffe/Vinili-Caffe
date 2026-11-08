@@ -107,9 +107,11 @@ async function closeOrphanOpenTickets(client?, guildId?) {
     if (!/^\d{17,22}$/.test(channelId) || guild.channels.cache.has(channelId)) continue;
     let gone = false;
     try {
-      gone = !(await guild.channels.fetch(channelId));
+      const ch = await guild.channels.fetch(channelId);
+      gone = !ch || String(ch.guildId || ch.guild?.id || gid) !== gid;
     } catch (err) {
-      gone = Number(err?.code) === 10003;
+      /* 10003 = canale cancellato; GuildChannelUnowned = il canale sta in un altro server (non è un ticket aperto qui) */
+      gone = Number(err?.code) === 10003 || String(err?.code || "") === "GuildChannelUnowned";
     }
     if (!gone) continue;
     const done = await Ticket.findOneAndUpdate(

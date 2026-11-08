@@ -74,9 +74,6 @@ async function recoverPublicVoiceHubOnStartup(client?) {
     }
   }
 
-  if (lobbies > 0 || spawned > 0) {
-    global.logger?.info?.(`[publicVoiceHub] recovery: lobbies=${lobbies} spawned=${spawned}`);
-  }
   return { lobbies, spawned };
 }
 
