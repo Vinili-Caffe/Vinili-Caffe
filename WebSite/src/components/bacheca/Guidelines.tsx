@@ -37,26 +37,28 @@ const SECTIONS: { title: string; body: string }[] = [
   },
 ];
 
-/** Carta delle regole sulle recensioni in vetrina. */
+/** Regole recensioni — stessa sostanza, cornice da vetrina. */
 export function Guidelines() {
   return (
-    <section className="mx-auto max-w-3xl px-6 pb-28">
-      <p className="max-w-2xl text-crema/65 leading-relaxed">
-        Vale per ogni testo sotto una scheda: se aiuta chi sceglie, resta. Se è rumore, offesa o trucco, via.
+    <section className="mx-auto max-w-3xl px-6 pb-28 sm:px-10">
+      <p className="max-w-xl text-crema/55 leading-relaxed">
+        Se aiuta chi sceglie, resta. Se è rumore, offesa o trucco, via.
       </p>
-      <div className="mt-10 space-y-4">
+      <ol className="mt-12 space-y-0 border-t border-crema/[0.1]">
         {SECTIONS.map((s, i) => (
-          <Reveal key={s.title} delay={Math.min(i, 8) * 0.04}>
-            <article className="rounded-[1.35rem] bg-[linear-gradient(165deg,rgba(255,235,210,0.05)_0%,rgba(42,28,20,0.5)_40%,rgba(20,13,10,0.9)_100%)] p-6 ring-1 ring-sand/12">
-              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-caramel/70">
+          <Reveal key={s.title} delay={Math.min(i, 8) * 0.03}>
+            <li className="grid gap-3 border-b border-crema/[0.1] py-7 sm:grid-cols-[4rem_1fr] sm:gap-8">
+              <span className="font-mono text-sm tracking-widest text-caramel/80">
                 {String(i + 1).padStart(2, "0")}
-              </p>
-              <h2 className="mt-2 font-display text-2xl font-semibold text-crema">{s.title}</h2>
-              <p className="mt-3 text-sm leading-relaxed text-crema/68 sm:text-base">{s.body}</p>
-            </article>
+              </span>
+              <div>
+                <h2 className="font-display text-2xl font-semibold tracking-[-0.02em] text-crema">{s.title}</h2>
+                <p className="mt-3 text-sm leading-relaxed text-crema/60 sm:text-base">{s.body}</p>
+              </div>
+            </li>
           </Reveal>
         ))}
-      </div>
+      </ol>
     </section>
   );
 }

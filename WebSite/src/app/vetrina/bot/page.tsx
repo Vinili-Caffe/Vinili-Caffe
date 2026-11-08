@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/vetrina/bot/",
     title: "Bot in Vetrina",
-    description: "Bot Discord selezionati nella Vetrina di Vinili & Caffè.",
+    description: "Bot Discord in Vetrina su Vinili & Caffè.",
   }),
 };
 
@@ -23,18 +23,18 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/bot/"
         title="Bot in Vetrina"
-        description="Bot Discord selezionati nella Vetrina di Vinili & Caffè."
+        description="Bot Discord in Vetrina su Vinili & Caffè."
       />
       <VetrinaHero
-        kicker="Vetrina · Bot"
+        kicker="Solo bot"
         title={
           <>
-            I bot
+            Automazioni
             <br />
-            <span className="text-caramel/90">sullo scaffale</span>
+            in fila
           </>
         }
-        text="Automazioni, tool e compagnia da server. Filtra, leggi la scheda, invita se ti convince."
+        text="Tool e bot della community, messi sullo stesso ripiano. Apri la scheda prima di invitare."
       />
       <BoardsBrowse initialKind="bot" />
     </SiteShell>

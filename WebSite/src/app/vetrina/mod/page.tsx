@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/vetrina/mod/",
     title: "Mod Vetrina",
-    description: "Coda moderazione della Vetrina.",
+    description: "Coda moderazione Vetrina.",
   }),
 };
 
@@ -23,18 +23,18 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/mod/"
         title="Mod Vetrina"
-        description="Coda moderazione della Vetrina."
+        description="Coda moderazione Vetrina."
       />
       <VetrinaHero
-        kicker="Staff · Vetrina"
+        kicker="Staff"
         title={
           <>
-            Coda
+            Cosa entra
             <br />
-            <span className="text-caramel/90">in revisione</span>
+            dietro il vetro
           </>
         }
-        text="Qui si decide cosa entra dietro il vetro. Approva, rimanda, o chiudi con un motivo."
+        text="Coda di revisione: approva, rimanda, o chiudi con un motivo chiaro."
       />
       <ModQueue />
     </SiteShell>

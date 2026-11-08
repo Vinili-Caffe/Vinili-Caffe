@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/vetrina/",
     title: "Vetrina",
-    description: "Server e bot Discord in mostra nella community Vinili & Caffè.",
+    description: "Server e bot Discord in mostra su Vinili & Caffè.",
   }),
 };
 
@@ -23,19 +23,19 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/"
         title="Vetrina"
-        description="Server e bot Discord in mostra nella community Vinili & Caffè."
+        description="Server e bot Discord in mostra su Vinili & Caffè."
       />
       <VetrinaHero
         size="hub"
         kicker="Vinili & Caffè"
         title={
           <>
-            Dietro il vetro,
+            Guardala
             <br />
-            <span className="text-caramel/90">server e bot</span>
+            dalla strada
           </>
         }
-        text="Uno scaffale curato: schede vere, voti e recensioni. Sfoglia, apri quella che ti interessa, oppure metti la tua."
+        text="Server e bot dietro il vetro. Sfoglia gli scaffali, apri una scheda, vota se ti convince — o metti la tua."
         actions={<VetrinaHubActions />}
       />
       <BoardsBrowse />

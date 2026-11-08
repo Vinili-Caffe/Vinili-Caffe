@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/vetrina/linee-guida-recensioni/",
     title: "Vetrina · Linee guida recensioni",
-    description: "Come scrivere recensioni utili nella Vetrina.",
+    description: "Regole per le recensioni in Vetrina.",
   }),
 };
 
@@ -23,18 +23,18 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/linee-guida-recensioni/"
         title="Vetrina · Linee guida recensioni"
-        description="Come scrivere recensioni utili nella Vetrina."
+        description="Regole per le recensioni in Vetrina."
       />
       <VetrinaHero
-        kicker="Vetrina · Recensioni"
+        kicker="Recensioni"
         title={
           <>
-            Scrivi
+            Regole
             <br />
-            <span className="text-caramel/90">cose utili</span>
+            corte
           </>
         }
-        text="Le regole sono poche e chiare: recensioni vere, senza spam, senza attacchi. Il resto lo fa lo staff."
+        text="Utile, onesta, senza spam. Il resto lo legge lo staff."
       />
       <Guidelines />
     </SiteShell>

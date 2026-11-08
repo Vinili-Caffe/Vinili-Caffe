@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/vetrina/le-mie/",
     title: "Vetrina · Le mie schede",
-    description: "Le tue schede in Vetrina: bozze, in revisione, pubblicate.",
+    description: "Le tue schede in Vetrina.",
   }),
 };
 
@@ -23,18 +23,18 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/le-mie/"
         title="Vetrina · Le mie schede"
-        description="Le tue schede in Vetrina: bozze, in revisione, pubblicate."
+        description="Le tue schede in Vetrina."
       />
       <VetrinaHero
-        kicker="Vetrina · Le mie"
+        kicker="Le mie"
         title={
           <>
-            Le tue
+            Quello
             <br />
-            <span className="text-caramel/90">schede</span>
+            che hai messo
           </>
         }
-        text="Bozze da finire, cose in revisione, e quelle già dietro il vetro."
+        text="Bozze, in revisione, già fuori. Tutto il tuo pezzo di scaffale."
       />
       <MyListings />
     </SiteShell>

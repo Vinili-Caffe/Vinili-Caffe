@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/vetrina/scheda/",
     title: "Vetrina · Scheda",
-    description: "Dettaglio di un bot o server in Vetrina.",
+    description: "Dettaglio scheda in Vetrina.",
   }),
 };
 
@@ -23,18 +23,16 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/scheda/"
         title="Vetrina · Scheda"
-        description="Dettaglio di un bot o server in Vetrina."
+        description="Dettaglio scheda in Vetrina."
       />
       <VetrinaHero
-        kicker="Vetrina · Scheda"
+        kicker="Scheda"
         title={
           <>
-            Dentro
-            <br />
-            <span className="text-caramel/90">la scheda</span>
+            Da vicino
           </>
         }
-        text="Descrizione, link, voti e recensioni. Quello che serve per decidere se entrare o invitare."
+        text="Descrizione, link, voti e recensioni. Abbastanza per decidere se entrare o invitare."
       />
       <ListingDetail />
     </SiteShell>
