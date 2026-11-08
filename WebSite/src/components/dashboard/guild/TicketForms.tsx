@@ -250,7 +250,7 @@ export function TicketForms({
           </Field>
           <ul className="space-y-3">
             {fields.map((field, index) => (
-              <li key={field.id} className="space-y-2 rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/12">
+              <li key={field.id} className="space-y-3 rounded-xl bg-espresso/50 p-4 ring-1 ring-sand/10">
                 <div className="flex items-center justify-between gap-2">
                   <span className={labelClass}>Campo {index + 1}</span>
                   <button

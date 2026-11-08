@@ -196,7 +196,7 @@ export function TicketTeams({
           </Field>
 
           <div>
-            <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/45">Ruoli</p>
+            <p className="mb-1.5 text-xs font-semibold text-crema/70">Ruoli</p>
             <MultiCheck
               options={roleOptions}
               selected={selectedRoles}
@@ -219,7 +219,7 @@ export function TicketTeams({
             />
           </Field>
           {hits.length ? (
-            <ul className="max-h-36 overflow-y-auto rounded-xl bg-espresso/40 ring-1 ring-sand/12">
+            <ul className="max-h-48 overflow-y-auto rounded-xl bg-espresso/50 ring-1 ring-sand/10">
               {hits.map((hit) => (
                 <li key={hit.id}>
                   <button
@@ -247,12 +247,12 @@ export function TicketTeams({
             </ul>
           ) : null}
 
-          <ul className="divide-y divide-sand/10 rounded-xl bg-espresso/40 ring-1 ring-sand/12">
+          <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
             {members.length === 0 ? (
-              <li className="px-3 py-3 text-sm text-crema/40">Nessun membro</li>
+              <li className="px-4 py-8 text-center text-sm text-crema/40">Nessun membro</li>
             ) : (
               members.map((m) => (
-                <li key={`${m.type}:${m.id}`} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                <li key={`${m.type}:${m.id}`} className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm">
                   <span className="truncate text-crema/80">{labels[`${m.type}:${m.id}`] || m.id}</span>
                   <button
                     type="button"
@@ -273,7 +273,7 @@ export function TicketTeams({
           {team.isDefault ? (
             <p className="text-xs text-crema/40">Il team Default non può essere eliminato.</p>
           ) : (
-            <div className="space-y-2 rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/12">
+            <div className="space-y-3 rounded-xl bg-espresso/50 p-4 ring-1 ring-sand/10">
               {keys.map((key) => (
                 <div key={key} className="flex items-center justify-between gap-3">
                   <span className="text-sm text-crema/80">{PERM_LABELS[key] || key}</span>

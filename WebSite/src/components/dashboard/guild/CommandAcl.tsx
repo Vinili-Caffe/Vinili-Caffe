@@ -81,7 +81,7 @@ export function CommandAcl({
   }));
 
   return (
-    <div className="mt-2 space-y-3 rounded-xl bg-espresso/35 p-3 ring-1 ring-sand/10">
+    <div className="mt-2 space-y-3 rounded-xl bg-espresso/50 p-4 ring-1 ring-sand/10">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Ruoli">
           <Select

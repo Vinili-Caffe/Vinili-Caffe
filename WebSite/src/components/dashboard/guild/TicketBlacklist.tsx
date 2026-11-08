@@ -166,7 +166,7 @@ export function TicketBlacklist({
           />
         </Field>
         {type === "user" && hits.length ? (
-          <ul className="max-h-36 overflow-y-auto rounded-xl bg-espresso/40 ring-1 ring-sand/12 sm:col-span-2">
+          <ul className="max-h-48 overflow-y-auto rounded-xl bg-espresso/50 ring-1 ring-sand/10 sm:col-span-2">
             {hits.map((hit) => (
               <li key={hit.id}>
                 <button
@@ -192,12 +192,12 @@ export function TicketBlacklist({
         </div>
       </form>
 
-      <ul className="divide-y divide-sand/10 rounded-xl bg-espresso/40 ring-1 ring-sand/12">
+      <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
         {bundle.entries.length === 0 ? (
-          <li className="px-3 py-4 text-sm text-crema/40">Nessuna entry</li>
+          <li className="px-4 py-8 text-center text-sm text-crema/40">Nessuna entry</li>
         ) : (
           bundle.entries.map((entry) => (
-            <li key={entry.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+            <li key={entry.id} className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-crema">{entry.label}</p>
                 <p className="truncate text-xs text-crema/40">

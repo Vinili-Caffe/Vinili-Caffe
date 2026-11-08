@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Bot,
+  CalendarDays,
+  Gem,
+  Shapes,
   Clock3,
   Diamond,
   Hash,
@@ -101,42 +104,44 @@ function readSectionFromSearch(search: string): Section | null {
   }
 }
 
-/** Testata del server: copertina sfocata, icona, badge e numeri principali. */
-function GuildHero({
-  guild,
-  premiumActive,
-  tickets,
-  prefix,
-  onTickets,
-}: {
-  guild: GuildOverview;
-  premiumActive: boolean;
-  tickets: TicketsSummary | null;
-  prefix: string | null;
-  onTickets: () => void;
-}) {
+/* data di creazione del server dall'ID Discord (snowflake) */
+function guildCreatedAt(id: string): Date | null {
+  try {
+    return new Date(Number((BigInt(id) >> BigInt(22)) + BigInt(1420070400000)));
+  } catch {
+    return null;
+  }
+}
+
+function fmtNum(n: number | null) {
+  return n != null ? n.toLocaleString("it-IT") : "—";
+}
+
+/** Testata del server: copertina (banner o icona sfocata), icona, badge e dati generali del server. */
+function GuildHero({ guild, premiumActive, prefix }: { guild: GuildOverview; premiumActive: boolean; prefix: string | null }) {
   const initial = (guild.name.trim().charAt(0) || "?").toUpperCase();
+  const created = guildCreatedAt(guild.id);
+  const years = created ? Math.floor((Date.now() - created.getTime()) / (365.25 * 24 * 3600 * 1000)) : null;
+  const onlinePct =
+    guild.memberCount && guild.onlineCount != null ? Math.round((guild.onlineCount / guild.memberCount) * 100) : null;
   return (
     <section className="overflow-hidden rounded-2xl bg-roast/80 ring-1 ring-sand/10">
-      <div className="relative h-24 overflow-hidden bg-mocha sm:h-28" aria-hidden>
-        {guild.iconUrl ? (
+      <div className={cn("relative overflow-hidden bg-mocha", guild.bannerUrl ? "h-32 sm:h-40" : "h-24 sm:h-28")} aria-hidden>
+        {guild.bannerUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={guild.bannerUrl} alt="" className="size-full object-cover" />
+        ) : guild.iconUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={guild.iconUrl} alt="" className="size-full scale-125 object-cover opacity-40 blur-2xl" />
         ) : (
           <span className="absolute inset-0 bg-gradient-to-br from-caramel/25 via-mocha to-roast" />
         )}
-        <span className="absolute inset-0 bg-gradient-to-t from-roast to-transparent" />
+        <span className="absolute inset-0 bg-gradient-to-t from-roast via-roast/30 to-transparent" />
       </div>
       <div className="relative -mt-12 flex flex-wrap items-end gap-4 px-4 sm:px-6">
         {guild.iconUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={guild.iconUrl}
-            alt=""
-            width={80}
-            height={80}
-            className="size-20 shrink-0 rounded-2xl object-cover ring-4 ring-roast"
-          />
+          <img src={guild.iconUrl} alt="" width={80} height={80} className="size-20 shrink-0 rounded-2xl object-cover ring-4 ring-roast" />
         ) : (
           <span className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-mocha font-display text-3xl font-semibold text-crema/70 ring-4 ring-roast">
             {initial}
@@ -151,9 +156,7 @@ function GuildHero({
               </span>
             ) : null}
             {guild.isMainGuild ? (
-              <span className="rounded-md bg-crema/10 px-2 py-0.5 text-[0.7rem] font-semibold text-crema/80 ring-1 ring-sand/25">
-                Principale
-              </span>
+              <span className="rounded-md bg-crema/10 px-2 py-0.5 text-[0.7rem] font-semibold text-crema/80 ring-1 ring-sand/25">Principale</span>
             ) : null}
           </div>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-crema/45">
@@ -161,33 +164,42 @@ function GuildHero({
               <span className={cn("size-1.5 rounded-full", guild.botPresent ? "bg-[#7fc48c]" : "bg-[#e0735f]")} aria-hidden />
               {guild.botPresent ? "Vinili è nel server" : "Vinili non è nel server"}
             </span>
+            {prefix ? (
+              <span className="inline-flex items-center gap-1">
+                Prefisso <span className="rounded bg-espresso/70 px-1.5 font-mono text-crema/80">{prefix}</span>
+              </span>
+            ) : null}
             <span className="font-mono text-[0.65rem] text-crema/30">{guild.id}</span>
           </p>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2.5 p-4 sm:grid-cols-4 sm:px-6 sm:pb-5">
+      {guild.description ? <p className="mx-4 mt-3 max-w-3xl text-sm leading-relaxed text-crema/55 sm:mx-6">{guild.description}</p> : null}
+      <div className="grid grid-cols-2 gap-2.5 p-4 sm:px-6 sm:pb-5 lg:grid-cols-4">
         <StatTile
           icon={<Users />}
           label="Membri"
-          value={guild.memberCount != null ? guild.memberCount.toLocaleString("it-IT") : "—"}
-          hint={guild.onlineCount != null ? `${guild.onlineCount.toLocaleString("it-IT")} online` : undefined}
+          value={fmtNum(guild.memberCount)}
+          hint={guild.onlineCount != null ? `${fmtNum(guild.onlineCount)} online${onlinePct != null ? ` · ${onlinePct}%` : ""}` : undefined}
         />
         <StatTile
-          icon={<Ticket />}
-          label="Ticket aperti"
-          value={tickets ? tickets.overview.open : "—"}
-          hint={tickets ? `${tickets.overview.closed24h} chiusi nelle 24h` : undefined}
+          icon={<Gem />}
+          label="Boost"
+          value={fmtNum(guild.boostCount)}
+          hint={guild.boostTier != null ? (guild.boostTier > 0 ? `Livello ${guild.boostTier}` : "Nessun livello") : undefined}
           tone="accent"
-          onClick={tickets ? onTickets : undefined}
         />
         <StatTile
-          icon={<Clock3 />}
-          label="In attesa"
-          value={tickets ? tickets.overview.unclaimed : "—"}
-          hint={tickets ? "senza staffer" : undefined}
-          onClick={tickets ? onTickets : undefined}
+          icon={<Shapes />}
+          label="Ruoli e canali"
+          value={guild.roleCount != null ? `${fmtNum(guild.roleCount)} ruoli` : "—"}
+          hint={[guild.channelCount != null ? `${fmtNum(guild.channelCount)} canali` : "", guild.emojiCount != null ? `${fmtNum(guild.emojiCount)} emoji` : ""].filter(Boolean).join(" · ") || undefined}
         />
-        <StatTile icon={<Hash />} label="Prefisso" value={<span className="font-mono">{prefix ?? "—"}</span>} hint="comandi testuali" />
+        <StatTile
+          icon={<CalendarDays />}
+          label="Creato"
+          value={created ? created.toLocaleDateString("it-IT", { month: "short", year: "numeric" }) : "—"}
+          hint={years != null ? (years >= 1 ? `${years} ${years === 1 ? "anno" : "anni"} fa` : "meno di un anno fa") : undefined}
+        />
       </div>
     </section>
   );
@@ -967,9 +979,7 @@ export function GuildPanel() {
             <GuildHero
               guild={overview}
               premiumActive={premiumActive}
-              tickets={overview.botPresent ? tickets : null}
               prefix={overview.botPresent ? settings?.prefix ?? commands?.prefix ?? null : null}
-              onTickets={() => setSection("tickets")}
             />
 
             {!overview.botPresent ? (
@@ -1058,20 +1068,18 @@ export function GuildPanel() {
                       />
                     ) : null}
                     {section === "tickets" && guildId && token ? (
-                      <Panel>
-                        <TicketDesk
-                          guildId={guildId}
-                          token={token}
-                          summary={tickets}
-                          error={ticketsError}
-                          isMainGuild={overview.isMainGuild}
-                          onSummary={(next) => {
-                            setTickets(next);
-                            setTicketsError(null);
-                          }}
-                          onToast={showToast}
-                        />
-                      </Panel>
+                      <TicketDesk
+                        guildId={guildId}
+                        token={token}
+                        summary={tickets}
+                        error={ticketsError}
+                        isMainGuild={overview.isMainGuild}
+                        onSummary={(next) => {
+                          setTickets(next);
+                          setTicketsError(null);
+                        }}
+                        onToast={showToast}
+                      />
                     ) : null}
                     {section === "partnership" && guildId && token ? (
                       <Panel>

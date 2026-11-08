@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { useEffect, useState } from "react";
 import {
   addPartnershipBlacklist,
@@ -233,14 +234,35 @@ export function PartnershipPanel({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 text-xs text-crema/45">
-        <span className={draft.setupCompleted ? "text-[#9fd0a8] light:text-[#2f6b3f]" : "text-crema/55"}>
-          {draft.setupCompleted ? "Setup completo" : "Setup incompleto"}
+      {/* stato del modulo partnership */}
+      <div
+        className={cn(
+          "-mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b px-4 py-3.5 sm:-mx-5 sm:px-5",
+          draft.setupCompleted ? "border-[#5f9a6a]/20 bg-[#5f9a6a]/[0.06]" : "border-caramel/20 bg-caramel/[0.06]",
+        )}
+      >
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold ring-1",
+            draft.setupCompleted
+              ? "bg-[#5f9a6a]/15 text-[#9fd0a8] ring-[#5f9a6a]/30 light:text-[#2f6b3f]"
+              : "bg-caramel/15 text-ember ring-caramel/30",
+          )}
+        >
+          <span className={cn("size-1.5 rounded-full", draft.setupCompleted ? "bg-[#7fc48c]" : "bg-ember")} aria-hidden />
+          {draft.setupCompleted ? "Setup completo" : "Setup da completare"}
         </span>
-        {bundle.premiumActive ? <span className="text-ember">Premium</span> : null}
+        {bundle.premiumActive ? (
+          <span className="rounded-md bg-caramel/15 px-2 py-1 text-xs font-semibold text-ember ring-1 ring-caramel/30">Premium</span>
+        ) : null}
         {draft.inviteUrl ? (
-          <a href={draft.inviteUrl} target="_blank" rel="noreferrer" className="underline decoration-sand/30">
-            Invito
+          <a
+            href={draft.inviteUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-auto inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-crema/70 ring-1 ring-sand/15 transition hover:text-crema"
+          >
+            Invito del server ↗
           </a>
         ) : null}
       </div>
@@ -576,12 +598,12 @@ export function PartnershipPanel({
               Aggiungi
             </button>
           </form>
-          <ul className="divide-y divide-sand/10 rounded-xl bg-espresso/40 ring-1 ring-sand/12">
+          <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
             {!blacklist?.length ? (
-              <li className="px-3 py-4 text-sm text-crema/40">Nessun server in blacklist</li>
+              <li className="px-4 py-8 text-center text-sm text-crema/40">Nessun server in blacklist</li>
             ) : (
               blacklist.map((row) => (
-                <li key={row.guildId} className="flex items-center justify-between gap-2 px-3 py-2.5">
+                <li key={row.guildId} className="flex items-center justify-between gap-2 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
                   <div className="min-w-0">
                     <p className="truncate text-sm text-crema">{row.guildName || row.guildId}</p>
                     <p className="truncate text-xs text-crema/40">
@@ -611,12 +633,12 @@ export function PartnershipPanel({
       ) : null}
 
       {tab === "manager" ? (
-        <ul className="divide-y divide-sand/10 rounded-xl bg-espresso/40 ring-1 ring-sand/12">
+        <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
           {managers.length === 0 ? (
-            <li className="px-3 py-4 text-sm text-crema/40">Nessun partner manager</li>
+            <li className="px-4 py-8 text-center text-sm text-crema/40">Nessun partner manager</li>
           ) : (
             managers.map((m) => (
-              <li key={m.userId} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+              <li key={m.userId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
                 <div>
                   <p className="text-sm text-crema">{m.displayName}</p>
                   <p className="text-xs text-crema/40">
@@ -649,7 +671,7 @@ export function PartnershipPanel({
                       value={points[m.userId] || ""}
                       onChange={(e) => setPoints((cur) => ({ ...cur, [m.userId]: e.target.value }))}
                       inputMode="numeric"
-                      className="w-16 rounded-lg bg-espresso/70 px-2 py-1 text-sm text-crema ring-1 ring-sand/20"
+                      className="w-16 rounded-lg bg-espresso/70 px-2 py-1 text-sm text-crema ring-1 ring-sand/15"
                     />
                     <button type="submit" data-act="add" className={miniBtn}>
                       +
@@ -685,12 +707,12 @@ export function PartnershipPanel({
               <span className="lining-nums">{history.uniqueServers}</span> server
             </p>
           ) : null}
-          <ul className="divide-y divide-sand/10 rounded-xl bg-espresso/40 ring-1 ring-sand/12">
+          <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
             {!history?.entries.length ? (
-              <li className="px-3 py-4 text-sm text-crema/40">Nessuna partnership nel periodo</li>
+              <li className="px-4 py-8 text-center text-sm text-crema/40">Nessuna partnership nel periodo</li>
             ) : (
               history.entries.map((row, i) => (
-                <li key={`${row.guildId || row.invite || i}`} className="px-3 py-2.5">
+                <li key={`${row.guildId || row.invite || i}`} className="px-4 py-3">
                   <p className="text-sm text-crema">{row.guildName || row.invite || "Server"}</p>
                   <p className="text-xs text-crema/40">
                     <span className="lining-nums">{row.count}</span>

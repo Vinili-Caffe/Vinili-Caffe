@@ -21,6 +21,14 @@ export type GuildOverview = {
   inviteUrl: string | null;
   memberCount: number | null;
   onlineCount: number | null;
+  /* dati generali per la testata (null = non disponibile) */
+  boostCount: number | null;
+  boostTier: number | null;
+  roleCount: number | null;
+  channelCount: number | null;
+  emojiCount: number | null;
+  bannerUrl: string | null;
+  description: string | null;
 };
 
 export type ChannelPicker = {
@@ -258,7 +266,20 @@ function mapOverview(data: Record<string, unknown>): GuildOverview | null {
     inviteUrl: typeof g.inviteUrl === "string" && g.inviteUrl.trim() ? g.inviteUrl.trim() : null,
     memberCount,
     onlineCount,
+    boostCount: numOrNull(g.boostCount),
+    boostTier: numOrNull(g.boostTier),
+    roleCount: numOrNull(g.roleCount),
+    channelCount: numOrNull(g.channelCount),
+    emojiCount: numOrNull(g.emojiCount),
+    bannerUrl: typeof g.bannerUrl === "string" && g.bannerUrl.startsWith("https://") ? g.bannerUrl : null,
+    description: typeof g.description === "string" && g.description.trim() ? g.description.trim() : null,
   };
+}
+
+function numOrNull(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
 function defaultBoards(): GuildBoards {

@@ -305,7 +305,7 @@ export function TicketPanels({
           <button type="button" className={miniBtn} onClick={() => setSingle(null)}>
             Elenco
           </button>
-          <p className="text-sm font-semibold text-crema">{editing ? "Modifica pannello" : "Crea pannello"}</p>
+          <p className="text-[0.95rem] font-semibold text-crema">{editing ? "Modifica pannello" : "Crea pannello"}</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Tipo">
@@ -388,11 +388,11 @@ export function TicketPanels({
           Disabilita pannello
         </label>
         <div>
-          <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/45">Menzioni all&apos;apertura</p>
+          <p className="mb-1.5 text-xs font-semibold text-crema/70">Menzioni all&apos;apertura</p>
           <MultiCheck options={mentionOptions} selected={single.mentionOnOpen} onChange={(ids) => set({ mentionOnOpen: ids })} />
         </div>
         <div>
-          <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/45">Team di supporto</p>
+          <p className="mb-1.5 text-xs font-semibold text-crema/70">Team di supporto</p>
           <MultiCheck
             options={bundle.teams.map((t) => ({ id: t.id, label: t.isDefault ? `${t.name} (Default)` : t.name }))}
             selected={single.supportTeamIds}
@@ -538,14 +538,14 @@ export function TicketPanels({
                       aria-label={`${DAY_LABEL[day]} inizio`}
                       value={row?.start || "09:00"}
                       onChange={(e) => patchDay({ start: e.target.value })}
-                      className="w-16 rounded-lg bg-espresso/70 px-1.5 py-1 text-xs text-crema ring-1 ring-sand/20"
+                      className="w-16 rounded-lg bg-espresso/70 px-1.5 py-1 text-xs text-crema ring-1 ring-sand/15"
                     />
                     <input
                       name={`hours-end-${day}`}
                       aria-label={`${DAY_LABEL[day]} fine`}
                       value={row?.end || "17:00"}
                       onChange={(e) => patchDay({ end: e.target.value })}
-                      className="w-16 rounded-lg bg-espresso/70 px-1.5 py-1 text-xs text-crema ring-1 ring-sand/20"
+                      className="w-16 rounded-lg bg-espresso/70 px-1.5 py-1 text-xs text-crema ring-1 ring-sand/15"
                     />
                   </div>
                 </div>
@@ -721,7 +721,7 @@ export function TicketPanels({
         <button type="button" className={miniBtn} onClick={() => setMulti(null)}>
           Elenco
         </button>
-        <p className="text-sm font-semibold text-crema">{editing ? "Modifica multi-panel" : "Crea multi-panel"}</p>
+        <p className="text-[0.95rem] font-semibold text-crema">{editing ? "Modifica multi-panel" : "Crea multi-panel"}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Canale">
             <Select
@@ -779,7 +779,7 @@ export function TicketPanels({
           Menu a tendina
         </label>
         <div>
-          <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/45">Pannelli</p>
+          <p className="mb-1.5 text-xs font-semibold text-crema/70">Pannelli</p>
           <MultiCheck
             options={bundle.singles.map((p) => ({ id: p.id, label: p.title || p.id }))}
             selected={multi.panelIds}
@@ -868,12 +868,12 @@ export function TicketPanels({
         </div>
       </div>
 
-      <ul className="divide-y divide-sand/10 rounded-xl bg-espresso/40 ring-1 ring-sand/12">
+      <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
         {bundle.singles.length === 0 ? (
-          <li className="px-3 py-4 text-sm text-crema/40">Nessun pannello</li>
+          <li className="px-4 py-8 text-center text-sm text-crema/40">Nessun pannello</li>
         ) : (
           bundle.singles.map((panel) => (
-            <li key={panel.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+            <li key={panel.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
               <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setSingle(panel)}>
                 <p className="truncate text-sm font-medium text-crema">{panel.title || panel.id}</p>
                 <p className="truncate text-xs text-crema/40">
@@ -891,12 +891,12 @@ export function TicketPanels({
         )}
       </ul>
 
-      <ul className="divide-y divide-sand/10 rounded-xl bg-espresso/40 ring-1 ring-sand/12">
+      <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
         {bundle.multis.length === 0 ? (
-          <li className="px-3 py-4 text-sm text-crema/40">Nessun multi-panel</li>
+          <li className="px-4 py-8 text-center text-sm text-crema/40">Nessun multi-panel</li>
         ) : (
           bundle.multis.map((panel) => (
-            <li key={panel.id} className="flex items-center justify-between gap-2 px-3 py-2.5">
+            <li key={panel.id} className="flex items-center justify-between gap-2 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
               <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setMulti(panel)}>
                 <p className="truncate text-sm font-medium text-crema">{panel.title || "Multi-panel"}</p>
                 <p className="truncate text-xs text-crema/40">

@@ -5,9 +5,9 @@ import { Checkbox } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 export const fieldClass =
-  "mt-1.5 w-full rounded-xl bg-espresso/70 px-3 py-2 text-sm text-crema ring-1 ring-sand/20 outline-none focus:ring-caramel/40 disabled:opacity-50";
+  "mt-1.5 w-full rounded-lg bg-espresso/70 px-3 py-2.5 text-sm text-crema ring-1 ring-sand/15 outline-none transition placeholder:text-crema/30 hover:ring-sand/25 focus:ring-2 focus:ring-caramel/45 disabled:opacity-50";
 
-export const labelClass = "text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/45";
+export const labelClass = "text-xs font-semibold text-crema/70";
 
 export function Toggle({
   checked,
@@ -29,15 +29,15 @@ export function Toggle({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative h-6 w-10 shrink-0 rounded-full transition-colors",
-        checked ? "bg-caramel" : "bg-crema/15 ring-1 ring-sand/25",
+        "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200",
+        checked ? "bg-gradient-to-r from-caramel to-ember shadow-[0_0_14px_-4px_rgba(217,154,91,0.8)]" : "bg-crema/12 ring-1 ring-inset ring-sand/20",
         disabled && "cursor-not-allowed opacity-45",
       )}
     >
       <span
         className={cn(
-          "absolute top-0.5 size-5 rounded-full bg-espresso shadow transition-transform",
-          checked ? "left-[1.15rem]" : "left-0.5",
+          "absolute top-0.5 size-5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.45)] transition-[left,background-color] duration-200 ease-out",
+          checked ? "left-[1.375rem] bg-paper" : "left-0.5 bg-crema/70",
         )}
         aria-hidden
       />
@@ -70,27 +70,28 @@ export function Subnav<T extends string>({
   label: string;
 }) {
   return (
-    <div className="flex gap-1 overflow-x-auto pb-0.5" role="tablist" aria-label={label}>
-      {tabs.map((tab) => {
-        const on = tab.id === value;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            onClick={() => onChange(tab.id)}
-            className={cn(
-              "shrink-0 rounded-lg px-2.5 py-1 text-[0.7rem] font-semibold transition-colors",
-              on
-                ? "bg-caramel/20 text-ember ring-1 ring-caramel/35"
-                : "bg-crema/5 text-crema/55 ring-1 ring-sand/12 hover:text-crema",
-            )}
-          >
-            {tab.label}
-          </button>
-        );
-      })}
+    <div className="max-w-full overflow-x-auto">
+      <div className="inline-flex gap-1 rounded-xl bg-espresso/70 p-1 ring-1 ring-sand/10" role="tablist" aria-label={label}>
+        {tabs.map((tab) => {
+          const on = tab.id === value;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => onChange(tab.id)}
+              className={cn(
+                "relative shrink-0 whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors",
+                on ? "bg-mocha text-crema shadow-[0_6px_18px_-10px_rgba(0,0,0,0.9)] ring-1 ring-sand/15" : "text-crema/50 hover:text-crema",
+              )}
+            >
+              {tab.label}
+              {on ? <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-caramel to-ember" aria-hidden /> : null}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -118,12 +119,12 @@ export function MultiCheck({
   if (!options.length) return <p className="text-xs text-crema/40">{empty}</p>;
   const set = new Set(selected);
   return (
-    <ul className="max-h-40 space-y-1 overflow-y-auto rounded-xl bg-espresso/40 p-2 ring-1 ring-sand/12">
+    <ul className="mt-1.5 max-h-48 space-y-0.5 overflow-y-auto rounded-lg bg-espresso/60 p-1.5 ring-1 ring-sand/12">
       {options.map((opt) => {
         const on = set.has(opt.id);
         return (
           <li key={opt.id}>
-            <label className="flex items-center gap-2 rounded-lg px-1.5 py-1 text-sm text-crema/80 hover:bg-crema/5">
+            <label className={cn("flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-crema/[0.05]", on ? "text-crema" : "text-crema/65")}>
               <Checkbox
                 checked={on}
                 className="size-3.5"
@@ -143,18 +144,44 @@ export function MultiCheck({
   );
 }
 
+/** Riga di impostazione: titolo, spiegazione e controllo a destra (interruttori, select…). */
+export function SettingRow({
+  title,
+  description,
+  children,
+  icon,
+}: {
+  title: string;
+  description?: React.ReactNode;
+  children: React.ReactNode;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+      {icon ? (
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-crema/[0.05] text-crema/55 [&>svg]:size-4">{icon}</span>
+      ) : null}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-crema">{title}</p>
+        {description ? <p className="mt-0.5 text-xs leading-relaxed text-crema/40">{description}</p> : null}
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
 export function RowActions({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-wrap gap-2">{children}</div>;
 }
 
 export const miniBtn =
-  "rounded-full bg-crema/8 px-3 py-1.5 text-xs font-semibold text-crema/80 ring-1 ring-sand/20 transition hover:ring-sand/40 disabled:opacity-45";
+  "inline-flex items-center justify-center gap-1.5 rounded-lg bg-crema/[0.06] px-3 py-1.5 text-xs font-semibold text-crema/85 ring-1 ring-sand/15 transition hover:bg-crema/[0.1] hover:text-crema disabled:opacity-45";
 
 export const dangerBtn =
-  "rounded-full bg-[#a83a2c]/15 px-3 py-1.5 text-xs font-semibold text-[#f0a493] light:text-[#a83a2c] ring-1 ring-[#a83a2c]/30 disabled:opacity-45";
+  "inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#a83a2c]/12 px-3 py-1.5 text-xs font-semibold text-[#f0a493] light:text-[#a83a2c] ring-1 ring-[#a83a2c]/30 transition hover:bg-[#a83a2c]/20 disabled:opacity-45";
 
 export const primaryMini =
-  "rounded-full bg-gradient-to-r from-caramel to-ember px-3 py-1.5 text-xs font-semibold text-ink disabled:opacity-45";
+  "inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-caramel to-ember px-3 py-1.5 text-xs font-semibold text-ink shadow-[0_8px_20px_-12px_rgba(217,154,91,0.9)] transition hover:brightness-105 disabled:opacity-45";
 
 /* ── Mattoncini grafici della dashboard (card modulo, statistiche, pulsanti) ── */
 
