@@ -48,6 +48,7 @@ import {
   patchGuildSettings,
   readGuildIdFromSearch,
   type BoardFeatures,
+  type BoardsMode,
   type CatalogCategory,
   type CommandAcl,
   type CommandsPayload,
@@ -60,7 +61,9 @@ import dynamic from "next/dynamic";
 import { DashboardShell, GUILD_SECTIONS, isGuildSection, type GuildSectionId } from "./DashboardShell";
 import {
   DashToast,
+  Field,
   Panel,
+  SettingRow,
   StateCard,
   StatTile,
   Toggle,
@@ -77,6 +80,10 @@ const PartnershipPanel = dynamic(() => import("./guild/PartnershipPanel").then((
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
+const QuoteStyleEditor = dynamic(() => import("./guild/QuoteStyleEditor").then((m) => m.QuoteStyleEditor), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
 const TicketDesk = dynamic(() => import("./guild/TicketDesk").then((m) => m.TicketDesk), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
@@ -86,7 +93,8 @@ type Gate = "loading" | "login" | "locked" | "noid" | "ready";
 type Section = GuildSectionId;
 
 const SECTION_LEAD: Record<Section, string> = {
-  settings: "Prefisso, canale aggiornamenti e moduli della bacheca.",
+  settings: "Prefisso, canale aggiornamenti e nickname del bot.",
+  bacheca: "Quote, repost, clip e skullboard: funzioni, canali e stile delle citazioni.",
   commands: "Attiva o disattiva i comandi e scegli chi può usarli e dove.",
   tickets: "Ticket aperti, pannelli, moduli, team e blacklist.",
   partnership: "Configurazione e gestione delle partnership del server.",
@@ -336,18 +344,12 @@ function SettingsSection({
 }) {
   const [prefix, setPrefix] = useState(settings?.prefix ?? "+");
   const [updatesChannelId, setUpdatesChannelId] = useState(settings?.updatesChannelId ?? "");
-  const [features, setFeatures] = useState<BoardFeatures>(
-    settings?.boards.features ?? { quote: true, repost: true, clip: true, skull: true },
-  );
-  const [boardsEnabled, setBoardsEnabled] = useState(settings?.boards.enabled !== false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!settings) return;
     setPrefix(settings.prefix);
     setUpdatesChannelId(settings.updatesChannelId ?? "");
-    setFeatures(settings.boards.features);
-    setBoardsEnabled(settings.boards.enabled !== false);
   }, [settings]);
 
   const save = async (body: Record<string, unknown>, okMsg: string) => {
@@ -374,7 +376,6 @@ function SettingsSection({
 
   const prefixLocked = settings.prefixLocked;
   const updatesLocked = settings.updatesLocked;
-  const activeFeatures = BOARD_FEATURES.filter((f) => features[f.id]).length;
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
@@ -439,59 +440,6 @@ function SettingsSection({
             </label>
           </div>
         </Panel>
-
-        <Panel
-          icon={<Pin />}
-          title="Bacheca"
-          description={
-            boardsEnabled
-              ? `Modulo attivo · ${activeFeatures} di ${BOARD_FEATURES.length} funzioni accese`
-              : "Modulo spento: citazioni, repost, clip e skullboard non funzionano."
-          }
-          aside={
-            <Toggle
-              checked={boardsEnabled}
-              disabled={saving}
-              label="Attiva bacheca"
-              onChange={async (next) => {
-                setBoardsEnabled(next);
-                const ok = await save({ boards: { enabled: next, features } }, next ? "Bacheca attiva." : "Bacheca disattivata.");
-                if (!ok) setBoardsEnabled(settings.boards.enabled !== false);
-              }}
-            />
-          }
-        >
-          <ul className={cn("grid gap-2.5 sm:grid-cols-2", !boardsEnabled && "opacity-50")}>
-            {BOARD_FEATURES.map((feat) => (
-              <li
-                key={feat.id}
-                className={cn(
-                  "flex items-start gap-3 rounded-xl bg-espresso/55 p-3 ring-1 transition-colors",
-                  features[feat.id] && boardsEnabled ? "ring-caramel/25" : "ring-sand/10",
-                )}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-crema">{feat.title}</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-crema/60">{feat.hint}</p>
-                </div>
-                <Toggle
-                  checked={features[feat.id]}
-                  disabled={saving || !boardsEnabled}
-                  label={`Attiva ${feat.title}`}
-                  onChange={async (next) => {
-                    const nextFeats = { ...features, [feat.id]: next };
-                    setFeatures(nextFeats);
-                    const ok = await save(
-                      { boards: { enabled: boardsEnabled, features: nextFeats } },
-                      "Funzioni bacheca salvate.",
-                    );
-                    if (!ok) setFeatures(settings.boards.features);
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
-        </Panel>
       </div>
 
       {settings.botUsername ? (
@@ -501,6 +449,280 @@ function SettingsSection({
           saving={saving}
           onSaveNick={(nick) => save({ botNickname: nick }, nick ? "Nickname del bot aggiornato." : "Nickname del bot ripristinato.")}
         />
+      ) : null}
+    </div>
+  );
+}
+
+const BOARD_CHANNEL_LABELS: {
+  id: keyof BoardFeatures;
+  channelKey: "quoteChannelId" | "repostChannelId" | "clipChannelId" | "skullChannelId";
+  label: string;
+}[] = [
+  { id: "quote", channelKey: "quoteChannelId", label: "Canale Quote" },
+  { id: "repost", channelKey: "repostChannelId", label: "Canale Repost" },
+  { id: "clip", channelKey: "clipChannelId", label: "Canale Clip" },
+  { id: "skull", channelKey: "skullChannelId", label: "Canale Skullboard" },
+];
+
+/** Bacheca: sezione a sé (funzioni, canali, trascrizione clip, stile quote). Si salva a ogni modifica. */
+function BoardsSection({
+  guildId,
+  token,
+  settings,
+  pickers,
+  error,
+  canCustomizeQuoteStyle,
+  onUpdated,
+  onToast,
+}: {
+  guildId: string;
+  token: string;
+  settings: GuildSettings | null;
+  pickers: SettingsPickers;
+  error: string | null;
+  canCustomizeQuoteStyle: boolean;
+  onUpdated: (next: GuildSettings, pickers?: SettingsPickers) => void;
+  onToast: (msg: string, err?: boolean) => void;
+}) {
+  const [features, setFeatures] = useState<BoardFeatures>(settings?.boards.features ?? { quote: true, repost: true, clip: true, skull: true });
+  const [boardsEnabled, setBoardsEnabled] = useState(settings?.boards.enabled !== false);
+  const [boardsMode, setBoardsMode] = useState<BoardsMode>(settings?.boards.mode ?? "shared");
+  const [sharedChannelId, setSharedChannelId] = useState(settings?.boards.sharedChannelId ?? "");
+  const [quoteChannelId, setQuoteChannelId] = useState(settings?.boards.quoteChannelId ?? "");
+  const [repostChannelId, setRepostChannelId] = useState(settings?.boards.repostChannelId ?? "");
+  const [clipChannelId, setClipChannelId] = useState(settings?.boards.clipChannelId ?? "");
+  const [skullChannelId, setSkullChannelId] = useState(settings?.boards.skullChannelId ?? "");
+  const [clipTranscription, setClipTranscription] = useState(settings?.boards.clipTranscription !== false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!settings) return;
+    setFeatures(settings.boards.features);
+    setBoardsEnabled(settings.boards.enabled !== false);
+    setBoardsMode(settings.boards.mode === "split" ? "split" : "shared");
+    setSharedChannelId(settings.boards.sharedChannelId ?? "");
+    setQuoteChannelId(settings.boards.quoteChannelId ?? "");
+    setRepostChannelId(settings.boards.repostChannelId ?? "");
+    setClipChannelId(settings.boards.clipChannelId ?? "");
+    setSkullChannelId(settings.boards.skullChannelId ?? "");
+    setClipTranscription(settings.boards.clipTranscription !== false);
+  }, [settings]);
+
+  const channelState = { sharedChannelId, quoteChannelId, repostChannelId, clipChannelId, skullChannelId } as const;
+  const setChannelState = {
+    sharedChannelId: setSharedChannelId,
+    quoteChannelId: setQuoteChannelId,
+    repostChannelId: setRepostChannelId,
+    clipChannelId: setClipChannelId,
+    skullChannelId: setSkullChannelId,
+  } as const;
+
+  const channelOptions = useMemo(
+    () => [{ value: "", label: "— Nessuno —" }, ...pickers.textChannels.map((ch) => ({ value: ch.id, label: `#${ch.name}` }))],
+    [pickers.textChannels],
+  );
+
+  const save = async (body: Record<string, unknown>, okMsg: string) => {
+    setSaving(true);
+    const res = await patchGuildSettings(token, guildId, body);
+    setSaving(false);
+    if (!res.ok) {
+      onToast(res.message, true);
+      return false;
+    }
+    onUpdated(res.data.settings, res.data.pickers);
+    onToast(okMsg);
+    return true;
+  };
+
+  if (error && !settings) {
+    return <p className="rounded-xl bg-caramel/10 px-3 py-2.5 text-sm text-crema/75 ring-1 ring-caramel/25">{error}</p>;
+  }
+  if (!settings) return null;
+
+  const channelsLocked = settings.updatesLocked;
+  const activeFeatures = BOARD_FEATURES.filter((f) => features[f.id]).length;
+  const off = saving || !boardsEnabled;
+
+  const saveBoardChannel = async (key: keyof typeof channelState, next: string, label: string) => {
+    const prev = channelState[key];
+    setChannelState[key](next);
+    if (channelsLocked) return;
+    const ok = await save({ boards: { [key]: next || null } }, `${label} salvato.`);
+    if (!ok) setChannelState[key](prev);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* modulo: stato + interruttore principale */}
+      <section
+        className={cn(
+          "flex flex-wrap items-center gap-4 rounded-2xl p-4 ring-1 sm:p-5",
+          boardsEnabled ? "bg-gradient-to-r from-caramel/[0.12] via-roast/80 to-roast/80 ring-caramel/25" : "bg-roast/80 ring-sand/10",
+        )}
+      >
+        <span
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-xl ring-1",
+            boardsEnabled ? "bg-caramel/15 text-ember ring-caramel/30" : "bg-crema/[0.05] text-crema/60 ring-sand/15",
+          )}
+        >
+          <Pin className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-crema">Bacheca</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-crema/60">
+            <span className={cn("size-1.5 rounded-full", boardsEnabled ? "bg-[#7fc48c]" : "bg-crema/40")} aria-hidden />
+            {boardsEnabled
+              ? `Attiva · ${activeFeatures} di ${BOARD_FEATURES.length} funzioni accese`
+              : "Spenta: quote, repost, clip e skullboard non pubblicano"}
+          </p>
+        </div>
+        <Toggle
+          checked={boardsEnabled}
+          disabled={saving}
+          label="Attiva bacheca"
+          onChange={async (next) => {
+            setBoardsEnabled(next);
+            const ok = await save({ boards: { enabled: next, features } }, next ? "Bacheca attiva." : "Bacheca disattivata.");
+            if (!ok) setBoardsEnabled(settings.boards.enabled !== false);
+          }}
+        />
+      </section>
+
+      <div className={cn("grid gap-4 transition-opacity xl:grid-cols-2", !boardsEnabled && "opacity-50")}>
+        <Panel icon={<SlidersHorizontal />} title="Funzioni" description="Accendi solo quello che usate sul server.">
+          <div className="divide-y divide-sand/[0.07]">
+            {BOARD_FEATURES.map((feat) => (
+              <SettingRow key={feat.id} title={feat.title} description={feat.hint}>
+                <Toggle
+                  size="sm"
+                  checked={features[feat.id]}
+                  disabled={off}
+                  label={`Attiva ${feat.title}`}
+                  onChange={async (next) => {
+                    const nextFeats = { ...features, [feat.id]: next };
+                    setFeatures(nextFeats);
+                    const ok = await save({ boards: { enabled: boardsEnabled, features: nextFeats } }, "Funzioni bacheca salvate.");
+                    if (!ok) setFeatures(settings.boards.features);
+                  }}
+                />
+              </SettingRow>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel
+          icon={<Hash />}
+          title="Dove si pubblica"
+          description={channelsLocked ? "Sul server Vinili i contenuti vanno sulla Bacheca del sito." : "Un canale per tutto, oppure uno per funzione."}
+          aside={channelsLocked ? <Lock className="size-3.5 text-crema/60" aria-label="Bloccato" /> : null}
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-espresso/70 p-1 ring-1 ring-sand/10" role="radiogroup" aria-label="Modalità canali">
+              {(["shared", "split"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={boardsMode === mode}
+                  disabled={off || channelsLocked}
+                  onClick={async () => {
+                    if (mode === boardsMode) return;
+                    const prev = boardsMode;
+                    setBoardsMode(mode);
+                    if (channelsLocked) return;
+                    const patch: Record<string, unknown> = { mode };
+                    if (mode === "split" && sharedChannelId) {
+                      /* parte dal canale unico: ogni funzione eredita quello finché non lo cambi */
+                      if (!quoteChannelId) (setQuoteChannelId(sharedChannelId), (patch.quoteChannelId = sharedChannelId));
+                      if (!repostChannelId) (setRepostChannelId(sharedChannelId), (patch.repostChannelId = sharedChannelId));
+                      if (!clipChannelId) (setClipChannelId(sharedChannelId), (patch.clipChannelId = sharedChannelId));
+                      if (!skullChannelId) (setSkullChannelId(sharedChannelId), (patch.skullChannelId = sharedChannelId));
+                    }
+                    const ok = await save({ boards: patch }, "Modalità bacheca salvata.");
+                    if (!ok) {
+                      setBoardsMode(prev);
+                      setQuoteChannelId(settings.boards.quoteChannelId ?? "");
+                      setRepostChannelId(settings.boards.repostChannelId ?? "");
+                      setClipChannelId(settings.boards.clipChannelId ?? "");
+                      setSkullChannelId(settings.boards.skullChannelId ?? "");
+                    }
+                  }}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed",
+                    boardsMode === mode ? "bg-mocha text-crema ring-1 ring-sand/15" : "text-crema/60 hover:text-crema",
+                  )}
+                >
+                  {mode === "shared" ? "Un canale unico" : "Un canale per funzione"}
+                </button>
+              ))}
+            </div>
+            {boardsMode === "shared" ? (
+              <Field label="Canale della bacheca">
+                <Select
+                  value={sharedChannelId}
+                  disabled={off || channelsLocked}
+                  onChange={(next) => void saveBoardChannel("sharedChannelId", next, "Canale bacheca")}
+                  className={cn(fieldCls, "mt-1.5")}
+                  options={channelOptions}
+                />
+              </Field>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {BOARD_CHANNEL_LABELS.filter((row) => features[row.id]).map((row) => (
+                  <Field key={row.channelKey} label={row.label}>
+                    <Select
+                      value={channelState[row.channelKey]}
+                      disabled={off || channelsLocked}
+                      onChange={(next) => void saveBoardChannel(row.channelKey, next, row.label)}
+                      className={cn(fieldCls, "mt-1.5")}
+                      options={channelOptions}
+                    />
+                  </Field>
+                ))}
+              </div>
+            )}
+            {features.clip ? (
+              <div className="divide-y divide-sand/[0.07] border-t border-sand/[0.07] pt-3">
+                <SettingRow title="Trascrizione delle clip" description="Scrive il testo automatico quando viene pubblicata una clip vocale.">
+                  <Toggle
+                    size="sm"
+                    checked={clipTranscription}
+                    disabled={off}
+                    label="Trascrizione delle clip"
+                    onChange={async (next) => {
+                      setClipTranscription(next);
+                      const ok = await save({ boards: { clipTranscription: next } }, next ? "Trascrizione clip attiva." : "Trascrizione clip disattivata.");
+                      if (!ok) setClipTranscription(settings.boards.clipTranscription !== false);
+                    }}
+                  />
+                </SettingRow>
+              </div>
+            ) : null}
+          </div>
+        </Panel>
+      </div>
+
+      {features.quote ? (
+        <Panel icon={<Pin />} title="Stile delle quote" description="Come appare l'immagine delle citazioni: anteprima e personalizzazione.">
+          <QuoteStyleEditor
+            guildId={guildId}
+            token={token}
+            value={settings.boards.quoteStyle}
+            disabled={off}
+            locked={!canCustomizeQuoteStyle}
+            saving={saving}
+            onSave={async (next) => {
+              if (!canCustomizeQuoteStyle) {
+                onToast("Lo stile delle quote è riservato a Premium e ai server protetti.", true);
+                return false;
+              }
+              return save({ boards: { quoteStyle: next } }, "Stile quote salvato.");
+            }}
+          />
+        </Panel>
       ) : null}
     </div>
   );
@@ -1063,6 +1285,22 @@ export function GuildPanel() {
                         onUpdated={(next) => {
                           setCommands(next);
                           setCommandsError(null);
+                        }}
+                        onToast={showToast}
+                      />
+                    ) : null}
+                    {section === "bacheca" && guildId && token ? (
+                      <BoardsSection
+                        guildId={guildId}
+                        token={token}
+                        settings={settings}
+                        pickers={pickers}
+                        error={settingsError}
+                        canCustomizeQuoteStyle={premiumActive || overview.isMainGuild || overview.isProtectedGuild}
+                        onUpdated={(next, nextPickers) => {
+                          setSettings(next);
+                          if (nextPickers) setPickers(nextPickers);
+                          setSettingsError(null);
                         }}
                         onToast={showToast}
                       />
