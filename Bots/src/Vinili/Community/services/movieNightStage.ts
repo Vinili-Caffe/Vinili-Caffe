@@ -51,7 +51,27 @@ async function isSerataFilmStageLive(guild?) {
   const cached = guild.stageInstances?.cache?.find?.((row?) => String(row?.channelId || "") === MOVIE_NIGHT_EVENT_CHANNEL_ID);
   if (cached) return true;
   const fetched = await guild.stageInstances?.fetch?.().catch(() => null);
-  return Boolean(fetched?.find?.((row?) => String(row?.channelId || "") === MOVIE_NIGHT_EVENT_CHANNEL_ID));
+  if (fetched?.find?.((row?) => String(row?.channelId || "") === MOVIE_NIGHT_EVENT_CHANNEL_ID)) return true;
+  // Serata spesso senza Stage Instance API: se c'è gente in canale, è ancora in corso.
+  const members = channel?.members;
+  if (members?.size) {
+    for (const member of members.values()) {
+      if (!member?.user?.bot) return true;
+    }
+  }
+  return false;
 }
 
-export = { openMovieNightStagePermissions, closeMovieNightStagePermissions, isSerataFilmStageLive };
+async function isSerataFilmScheduledEventActive(guild?) {
+  if (!guild?.scheduledEvents?.fetch) return false;
+  const { findCurrentWeekMovieNightEvent } = require("./movieNightEvents") as typeof import("./movieNightEvents");
+  const event = await findCurrentWeekMovieNightEvent(guild, new Date()).catch(() => null);
+  return Number(event?.status || 0) === 2;
+}
+
+export = {
+  openMovieNightStagePermissions,
+  closeMovieNightStagePermissions,
+  isSerataFilmStageLive,
+  isSerataFilmScheduledEventActive,
+};

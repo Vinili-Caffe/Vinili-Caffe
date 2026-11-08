@@ -1045,9 +1045,11 @@ function startPartnershipHistoryMigrationWorker(client?) {
   setTimeout(() => {
     processQueueTick().catch(() => {});
   }, 4000).unref?.();
-  global.logger?.info?.(
-    `[partnershipHistoryMigration] worker avviato (${dedicated ? "pm2 dedicato" : "gateway"}) id=${workerId} (code small+large)`,
-  );
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    global.logger?.info?.(
+      `[partnershipHistoryMigration] worker avviato (${dedicated ? "pm2 dedicato" : "gateway"}) id=${workerId} (code small+large)`,
+    );
+  }
 }
 
 async function enqueuePartnershipHistoryMigration({

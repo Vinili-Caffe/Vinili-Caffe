@@ -70,7 +70,9 @@ function startMarkovKeeperHttpServer(client?) {
     });
   });
   keeperServer.listen(port, host, () => {
-    global.logger?.info?.(`[MARKOV] keeper HTTP listening on http://${host}:${port}/keeper`);
+    if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+      global.logger?.info?.(`[MARKOV] keeper HTTP listening on http://${host}:${port}/keeper`);
+    }
   });
   keeperServer.on("error", (err?) => {
     global.logger?.error?.("[MARKOV] keeper HTTP error:", err?.message || err);

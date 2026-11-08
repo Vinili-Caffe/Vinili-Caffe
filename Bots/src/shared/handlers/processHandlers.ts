@@ -57,7 +57,7 @@ function installProcessHandlers(options: Record<string, any> = {}) {
     logWarn(`[PROCESS WARNING] ${msg}${stack}`);
   });
 
-  logInfo("[PROCESS] Process handlers loaded.");
+  /* boot quiet: niente log dedicato — finisce nel summary [BOOT] ready */
 }
 
 export = { installProcessHandlers };

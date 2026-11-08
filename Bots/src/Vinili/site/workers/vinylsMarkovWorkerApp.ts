@@ -36,7 +36,6 @@ async function main() {
       maxPoolSize: 4,
       serverSelectionTimeoutMS: 12_000,
     });
-    console.log("[MARKOV-WORKER] Mongo connected");
   }
 
   const client = await createSiteApiRestClient(config, token, {
@@ -50,7 +49,7 @@ async function main() {
   startMarkovAutoSendWorkerLoop(client);
 
   console.log(
-    `[MARKOV-WORKER] online as ${client.user?.tag || client.user?.username || "bot"} (keeper HTTP + corpus backfill + auto-send)`,
+    `[MARKOV-WORKER] ready as ${client.user?.tag || client.user?.username || "bot"}`,
   );
 }
 

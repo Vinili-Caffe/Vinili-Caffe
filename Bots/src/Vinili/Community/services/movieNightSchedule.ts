@@ -195,13 +195,18 @@ function shouldAttemptMovieNightEventStartRecovery(now = new Date()) {
   return false;
 }
 
+/** Recovery chiusura: solo tardi (dopo il film), non alle 21:00 all'inizio serata.
+ *  La chiusura primaria resta stageInstanceDelete; lo sweep è un fallback notturno. */
+const MOVIE_NIGHT_STAGE_CLOSE_RECOVERY_HOUR = 23;
+const MOVIE_NIGHT_STAGE_CLOSE_RECOVERY_MINUTE = 30;
+
 function shouldAttemptMovieNightStageCloseRecovery(now = new Date()) {
   const parts = getRomeParts(now);
   const hm = parts.hour * 60 + parts.minute;
-  const filmStart = MOVIE_NIGHT_FILM_HOUR * 60 + MOVIE_NIGHT_FILM_MINUTE;
-  if (parts.weekday === TARGET_WEEKDAY) return hm >= filmStart;
+  const recoveryFrom = MOVIE_NIGHT_STAGE_CLOSE_RECOVERY_HOUR * 60 + MOVIE_NIGHT_STAGE_CLOSE_RECOVERY_MINUTE;
+  if (parts.weekday === TARGET_WEEKDAY) return hm >= recoveryFrom;
   if (parts.weekday === 7) return hm < 4 * 60;
-  if (getExtraFixedMovieNight(now) && hm >= filmStart) return true;
+  if (getExtraFixedMovieNight(now) && hm >= recoveryFrom) return true;
   if (parts.hour < 4) {
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     if (getExtraFixedMovieNight(yesterday)) return true;

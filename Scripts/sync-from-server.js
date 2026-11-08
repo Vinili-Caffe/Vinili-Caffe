@@ -36,8 +36,11 @@ const FILES = [
 ];
 
 if (!fs.existsSync(LOCAL_SRC)) {
-  console.error("Manca Bots/src — sync-from-server va lanciato dalla repo Vinili & Caffè.");
-  process.exit(1);
+  /* Sulla VPS non c’è Bots/src: lo script è solo per sync verso la repo locale. */
+  if (String(process.env.SYNC_VERBOSE || "").trim() === "1") {
+    console.error("Manca Bots/src — sync-from-server va lanciato dalla repo Vinili & Caffè.");
+  }
+  process.exit(0);
 }
 
 for (const rel of FILES) {
@@ -79,6 +82,8 @@ for (const rel of FILES) {
   }
 }
 
-console.log("Sync completato.");
-console.log(`  locale: ${LOCAL_SRC}`);
-console.log(`  remoto: ${SYNC_SERVER}:${SYNC_REMOTE_PATH}`);
+if (String(process.env.SYNC_VERBOSE || "").trim() === "1") {
+  console.log("Sync completato.");
+  console.log(`  locale: ${LOCAL_SRC}`);
+  console.log(`  remoto: ${SYNC_SERVER}:${SYNC_REMOTE_PATH}`);
+}

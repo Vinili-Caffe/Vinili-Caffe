@@ -100,7 +100,7 @@ async function main() {
 
   const server = http.createServer(app);
   server.listen(port, "0.0.0.0", () => {
-    console.log(`[TOPGG INTAKE] listening on 0.0.0.0:${port}`);
+    if (require.main === module) console.log(`[VOTE-INTAKE] top.gg :${port}`);
   });
 }
 

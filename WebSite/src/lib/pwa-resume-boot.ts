@@ -51,16 +51,22 @@ var data=null;
 try{data=JSON.parse(localStorage.getItem(RESUME_KEY)||"null")}catch(eJ){}
 var dest=safePath(data&&data.p);
 if(!dest||pathOnly(dest)==="/")return;
-/* pushClickNavIos2: aspetta il boot notif (cache SW) — altrimenti resume vince su start_url. */
+/* pushClickNavIos5: aspetta __vcNotifNavReady (boot notif async) prima del resume. */
 try{sessionStorage.setItem(UI_RESTORE_KEY,"1");window.__vcPwaResumePending=1;window.__vcPwaResumeCandidate=dest}catch(eF){}
 try{document.documentElement.style.background="#0e0906"}catch(eBg){}
-setTimeout(function(){
+function tryResume(attempt){
   try{
     if(window.__vcPwaResumeSkip||window.__vcNotifNavDone)return;
     if(sessionStorage.getItem("vc-notif-pending-nav"))return;
   }catch(eSkip){}
+  /* max ~900ms: caches.open su iOS cold wake può essere lento */
+  if(!window.__vcNotifNavReady&&attempt<18){
+    setTimeout(function(){tryResume(attempt+1)},50);
+    return;
+  }
   var hereNow=pathOnly(location.pathname||"/");
   if(hereNow!=="/")return;
   try{location.replace(dest)}catch(eNav){try{location.href=dest}catch(e2){}}
-},180);
+}
+setTimeout(function(){tryResume(0)},40);
 }catch(eAll){}})();`;

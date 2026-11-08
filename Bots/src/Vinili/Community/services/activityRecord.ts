@@ -238,7 +238,9 @@ function startActivityMessageWriteDrainLoop(client?) {
     Math.max(400, Number(process.env.VC_ACTIVITY_WRITE_DRAIN_MS || 800) || 800),
   );
   client._activityWriteDrainTimer = timer;
-  console.log("[BOT-SCHEDULER] activity/EXP write drain loop started");
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    console.log("[BOT-SCHEDULER] activity/EXP write drain loop started");
+  }
   return timer;
 }
 

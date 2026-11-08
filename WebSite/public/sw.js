@@ -1,5 +1,5 @@
 /* Vinili & Caffè — service worker: notifiche push, clic sulle notifiche, badge dell'app e pagina offline.
-   build: pushClickNavIos4-20261107
+   build: pushClickNavIos5-20261108
    Le pagine vere non si mettono mai in cache, così non si vedono versioni vecchie.
 
    Regola delle push (vale per tutti i browser): OGNI push mostra una notifica. Una push che non mostra
@@ -280,14 +280,18 @@ self.addEventListener("notificationclick", (event) => {
       }
       await same.focus().catch(() => null);
       if (pathKey(same.url) === want) return;
-      /* Desktop/Android: Client.navigate se c'è */
-      if (!isIos() && typeof same.navigate === "function") {
+      /*
+       * Client.navigate: su Safari/iOS recenti spesso funziona in-PWA.
+       * Prima era saltato su iOS → solo postMessage, perso se il JS era frozen.
+       */
+      if (typeof same.navigate === "function") {
         const ok = await same.navigate(abs).then(() => true, () => false);
         if (ok) return;
       }
       /*
-       * iOS: con un client già aperto openWindow spesso apre Safari / start_url
-       * invece di navigare in-app. La nav vera è stash + postMessage → NotifNavigate.
+       * iOS: con un client già aperto openWindow spesso apre Safari / start_url.
+       * Fallback solo se nessun client ha ricevuto il messaggio (lista vuota già gestita sopra).
+       * Qui: desktop/Android openWindow; iOS resta su stash+postMessage+navigate.
        */
       if (!isIos() && self.clients.openWindow) {
         await self.clients.openWindow(abs).catch(() => null);

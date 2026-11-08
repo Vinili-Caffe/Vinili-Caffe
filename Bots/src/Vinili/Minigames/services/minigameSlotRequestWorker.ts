@@ -72,9 +72,11 @@ function startMinigameSlotRequestLoop(client?) {
   loopStarted = true;
 
   const cfg = getWorkerMinigameCfg(client);
-  console.log(
-    `[BOT-SCHEDULER] minigame slot-request loop started channel=${cfg?.channelId || "n/a"} enabled=${Boolean(cfg?.enabled)}`,
-  );
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    console.log(
+      `[BOT-SCHEDULER] minigame slot-request loop started channel=${cfg?.channelId || "n/a"} enabled=${Boolean(cfg?.enabled)}`,
+    );
+  }
 
   const schedule = () => {
     const ms = computeMsUntilNextRomeSlotStart(client);

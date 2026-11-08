@@ -133,8 +133,16 @@ export = (client?) => {
       }
       global.logger?.info?.(table.toString());
     }
-    global.logger?.info?.(
-      `[PREFIX] Loaded ${client.pcommands.size} prefix command(s).`,
-    );
+    try {
+      const { noteBoot } = require("../../../shared/runtime/bootSummary") as typeof import("../../../shared/runtime/bootSummary");
+      noteBoot(client, { prefix: client.pcommands.size });
+    } catch (_) {
+      /* ignore */
+    }
+    if (LOG_PREFIX || String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+      global.logger?.info?.(
+        `[PREFIX] Loaded ${client.pcommands.size} prefix command(s).`,
+      );
+    }
   };
 };

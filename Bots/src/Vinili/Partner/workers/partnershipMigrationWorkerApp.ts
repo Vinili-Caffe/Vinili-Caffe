@@ -63,16 +63,16 @@ async function main(shared?: { client?: any } | null) {
     maxPoolSize: 4,
     serverSelectionTimeoutMS: 12_000,
   });
-  console.log("[PARTNERSHIP-MIGRATION] Mongo connected");
-
   await refreshPartnershipConfigCache().catch(() => null);
 
   const client = shared?.client || (await createSiteApiRestClient(config, token));
   global.botClient = client;
   startPartnershipHistoryMigrationWorker(client);
-  console.log(
-    `[PARTNERSHIP-MIGRATION] worker online as ${client.user?.tag || client.user?.username || "bot"}`,
-  );
+  if (require.main === module) {
+    console.log(
+      `[PARTNERSHIP-MIGRATION] ready as ${client.user?.tag || client.user?.username || "bot"}`,
+    );
+  }
 
   const keepAlive = setInterval(() => {}, 60_000);
   keepAlive.unref?.();

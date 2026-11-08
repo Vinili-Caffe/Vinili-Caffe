@@ -536,9 +536,11 @@ async function runDeferredStartup(client?, primaryScheduler?, engagementTick?) {
   const hooks = createStartupHooks(client);
   const startedAt = Date.now();
   const summary = await runPhasedStartupTasks(startupTasks, hooks, { mediumConcurrency: 4 });
-  global.logger?.info?.(
-    `[STARTUP] ready: fast=${summary.fastResults.length} medium=${summary.mediumResults.length} heavy=${summary.heavyCount} in ${formatDurationMs(Date.now() - startedAt)}${isFullStartupSyncEnabled() ? " (full sync)" : ""}.`,
-  );
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    global.logger?.info?.(
+      `[STARTUP] ready: fast=${summary.fastResults.length} medium=${summary.mediumResults.length} heavy=${summary.heavyCount} in ${formatDurationMs(Date.now() - startedAt)}${isFullStartupSyncEnabled() ? " (full sync)" : ""}.`,
+    );
+  }
 }
 
 async function runBotSchedulerWorkerDeferredStartup(client?) {
@@ -548,9 +550,11 @@ async function runBotSchedulerWorkerDeferredStartup(client?) {
   const hooks = createStartupHooks(client);
   const startedAt = Date.now();
   const summary = await runPhasedStartupTasks(startupTasks, hooks, { mediumConcurrency: 4 });
-  global.logger?.info?.(
-    `[BOT-SCHEDULER][STARTUP] deferred: fast=${summary.fastResults.length} medium=${summary.mediumResults.length} heavy=${summary.heavyCount} in ${formatDurationMs(Date.now() - startedAt)}.`,
-  );
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    global.logger?.info?.(
+      `[BOT-SCHEDULER][STARTUP] deferred: fast=${summary.fastResults.length} medium=${summary.mediumResults.length} heavy=${summary.heavyCount} in ${formatDurationMs(Date.now() - startedAt)}.`,
+    );
+  }
 }
 
 export = {

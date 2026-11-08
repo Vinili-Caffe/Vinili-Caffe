@@ -363,7 +363,9 @@ function startBirthdayLoop(client?) {
     { timezone: DEFAULT_TIME_ZONE },
   );
 
-  global.logger?.info?.("[BIRTHDAY] cron Europe/Rome 00:00+00:15");
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    global.logger?.info?.("[BIRTHDAY] cron Europe/Rome 00:00+00:15");
+  }
 
   setImmediate(() => {
     runBirthdayTick(client, { stripFlairFirst: false }).catch((err?) =>

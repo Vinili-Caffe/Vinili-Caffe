@@ -639,9 +639,11 @@ function startTwitchLiveAlertLoop(client?) {
   const timer = setInterval(tick, intervalMs);
   timer.unref?.();
   client._twitchLiveAlertInterval = timer;
-  global.logger?.info?.(
-    `[TWITCH LIVE] loop started (${cfg.pollIntervalSec}s) for: ${cfg.streamers.map((s?) => s.login).join(", ")}`,
-  );
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    global.logger?.info?.(
+      `[TWITCH LIVE] loop started (${cfg.pollIntervalSec}s) for: ${cfg.streamers.map((s?) => s.login).join(", ")}`,
+    );
+  }
 }
 
 export = {

@@ -47,9 +47,11 @@ function attachSiteSuggestionsWsServer(server?) {
     ws.on("error", () => {});
   });
   wssSingleton = wss;
-  global.logger?.info?.(
-    `[WEBHOOK] WebSocket realtime: ${SITE_REALTIME_WS_PATH} (alias ${LEGACY_SUGGESTIONS_WS_PATH})`,
-  );
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    global.logger?.info?.(
+      `[WEBHOOK] WebSocket realtime: ${SITE_REALTIME_WS_PATH} (alias ${LEGACY_SUGGESTIONS_WS_PATH})`,
+    );
+  }
   return true;
 }
 

@@ -199,7 +199,7 @@ async function main() {
 
   const server = http.createServer(app);
   server.listen(port, bindHost, () => {
-    console.log(`[DISCADIA INTAKE] listening on ${bindHost}:${port}`);
+    if (require.main === module) console.log(`[VOTE-INTAKE] discadia ${bindHost}:${port}`);
   });
 }
 

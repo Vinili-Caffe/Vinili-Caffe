@@ -296,9 +296,11 @@ function startTenantOfflineRecoveryLoop(client?, opts: Record<string, any> = {})
   timer.unref?.();
   client.__tenantOfflineRecoveryTimer = timer;
 
-  global.logger?.info?.(
-    `[tenantOfflineRecovery] loop started interval=${Math.round(intervalMs / 1000)}s`,
-  );
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    global.logger?.info?.(
+      `[tenantOfflineRecovery] loop started interval=${Math.round(intervalMs / 1000)}s`,
+    );
+  }
   return { ok: true, intervalMs };
 }
 

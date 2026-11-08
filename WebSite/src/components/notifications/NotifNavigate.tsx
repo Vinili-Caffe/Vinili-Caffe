@@ -78,7 +78,7 @@ export function NotifNavigate() {
         const data = (await res.json().catch(() => null)) as { url?: string; t?: number } | null;
         const url = String(data?.url || "").trim();
         const at = Number(data?.t || 0);
-        if (!url || (at > 0 && Date.now() - at > 120_000)) {
+        if (!url || (at > 0 && Date.now() - at > 180_000)) {
           await cache.delete(PENDING_REQ).catch(() => null);
           return false;
         }
@@ -125,13 +125,20 @@ export function NotifNavigate() {
     };
 
     poke();
-    /* iOS: click → start_url / wake tardivo; ripeti drain. */
-    const timers = [200, 500, 1000, 1800, 3200, 5500].map((ms) => window.setTimeout(poke, ms));
+    /* iOS: click → start_url / wake tardivo; ripeti drain (più lunghi dopo resume). */
+    const timers = [120, 350, 700, 1200, 2000, 3500, 5500, 9000].map((ms) => window.setTimeout(poke, ms));
 
     const onVis = () => {
-      if (document.visibilityState === "visible") poke();
+      if (document.visibilityState === "visible") {
+        poke();
+        window.setTimeout(poke, 300);
+        window.setTimeout(poke, 1200);
+      }
     };
-    const onShow = () => poke();
+    const onShow = () => {
+      poke();
+      window.setTimeout(poke, 250);
+    };
     window.addEventListener("pageshow", onShow);
     document.addEventListener("visibilitychange", onVis);
 

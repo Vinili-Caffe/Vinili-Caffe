@@ -492,9 +492,24 @@ initializeCommandCollections(client, { includeSnipes: true });
       }
       if (!loggedIn) process.exit(1);
     }
-    global.logger?.info?.(
-      `[BOOT] pre_ready ${Date.now() - bootStartedAt}ms (mongo=${mongoMs} handlers=${handlersMs} prefix=${prefixMs} cmds=${cmdsMs} login=${Date.now() - loginStartedAt})`,
-    );
+    try {
+      const { noteBoot } = require("../shared/runtime/bootSummary") as typeof import("../shared/runtime/bootSummary");
+      noteBoot(client, {
+        preReadyMs: Date.now() - bootStartedAt,
+        mongoMs,
+        handlersMs,
+        prefixLoadMs: prefixMs,
+        cmdsMs,
+        loginMs: Date.now() - loginStartedAt,
+      });
+    } catch (_) {
+      /* ignore */
+    }
+    if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+      global.logger?.info?.(
+        `[BOOT] pre_ready ${Date.now() - bootStartedAt}ms (mongo=${mongoMs} handlers=${handlersMs} prefix=${prefixMs} cmds=${cmdsMs} login=${Date.now() - loginStartedAt})`,
+      );
+    }
   } catch (err) {
     if (global.logger && typeof global.logger.error === "function") {
       global.logger.error("[STARTUP]", err);

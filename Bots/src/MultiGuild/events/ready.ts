@@ -50,9 +50,17 @@ export = {
     }
     const protectedIds = getProtectedGuildIds();
     const tenantIds = listTenantGuildIds();
-    global.logger?.info?.(
-      `[MultiGuild] protette=${protectedIds.length} tenant=${tenantIds.length}`,
-    );
+    try {
+      const { noteBoot } = require("../../shared/runtime/bootSummary") as typeof import("../../shared/runtime/bootSummary");
+      noteBoot(client, { protectedGuilds: protectedIds.length, tenants: tenantIds.length });
+    } catch (_) {
+      /* ignore */
+    }
+    if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+      global.logger?.info?.(
+        `[MultiGuild] protette=${protectedIds.length} tenant=${tenantIds.length}`,
+      );
+    }
     client._multiGuildReadyAt = Date.now();
 
             setTimeout(() => {

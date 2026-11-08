@@ -11,7 +11,12 @@ const {
   findRecentMovieNightEndAnnouncementInChannel,
   ensureReviewThreadForEndMessage,
 } = require("./movieNightReviewThread") as typeof import("./movieNightReviewThread");
-const { closeMovieNightStagePermissions, isSerataFilmStageLive } = require("./movieNightStage") as typeof import("./movieNightStage");
+const {
+  closeMovieNightStagePermissions,
+  isSerataFilmStageLive,
+  isSerataFilmScheduledEventActive,
+} = require("./movieNightStage") as typeof import("./movieNightStage");
+const MOVIE_NIGHT_MIN_RUNTIME_BEFORE_RECOVERY_MS = 75 * 60 * 1000;
 const { COMPACT_BOTSTATE_KEY } = BotState;
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
@@ -120,8 +125,20 @@ async function runMovieNightStageCloseRecoveryCheck(client?, opts: Record<string
         return { ok: true, skipped: true, reason: "close_already_done" };
       }
     }
-    if (await isSerataFilmStageLive(guild)) {
+    if (!opts.force && (await isSerataFilmStageLive(guild))) {
       return { skipped: true, reason: "stage_still_live" };
+    }
+    if (!opts.force && (await isSerataFilmScheduledEventActive(guild))) {
+      return { skipped: true, reason: "event_still_active" };
+    }
+    const startedAtMs = Date.parse(String(state?.eventStartAnnouncedAt || state?.stagePermissionsOpenedAt || ""));
+    if (
+      !opts.force
+      && Number.isFinite(startedAtMs)
+      && startedAtMs > 0
+      && now.getTime() - startedAtMs < MOVIE_NIGHT_MIN_RUNTIME_BEFORE_RECOVERY_MS
+    ) {
+      return { skipped: true, reason: "too_early_after_start" };
     }
     return await handleMovieNightStageClose(
       { guild, channelId: MOVIE_NIGHT_EVENT_CHANNEL_ID, client: guild.client },
@@ -342,8 +359,13 @@ async function handleMovieNightStageClose(stageInstance?, opts: Record<string, a
     };
   });
 
+  if (result?.nextState && typeof result.nextState === "object") {
+    await setBotState(STATE_KEY, result.nextState).catch((err?) => {
+      global.logger?.warn?.("[MOVIE NIGHT ANNOUNCE] stage close state persist failed:", err?.message || err);
+    });
+  }
   clearSerataFilmAttendanceSession(guild.id);
-  return result;
+  return { ...result, staffAuto };
 }
 
 export = {

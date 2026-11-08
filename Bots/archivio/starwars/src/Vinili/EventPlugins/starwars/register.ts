@@ -22,7 +22,9 @@ function registerStarWarsPlugin(client?) {
   } catch (err) {
     global.logger?.warn?.("[EventPlugin:starwars] quiz malus loop:", err?.message || err);
   }
-  global.logger?.info?.("[EventPlugin:starwars] registered");
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    global.logger?.info?.("[EventPlugin:starwars] registered");
+  }
   return { ok: true, enabled: true };
 }
 

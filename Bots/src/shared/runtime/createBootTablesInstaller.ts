@@ -11,6 +11,13 @@ function installBootTables(client?, categories = [], appRoot?) {
   client.logBootTables = () => {
     const base = root || path.resolve(__dirname, "..", "..");
     logBootTable(cats, base);
+    try {
+      const { noteBoot } = require("./bootSummary") as typeof import("./bootSummary");
+      const pending = (global as any).__vcBootPending || {};
+      if (Number.isFinite(pending.modules)) noteBoot(client, { modules: pending.modules, moduleSummary: pending.moduleSummary });
+    } catch (_) {
+      /* ignore */
+    }
   };
 }
 

@@ -75,9 +75,11 @@ function startVoteQueueLoop(client?, intervalMs = 15000) {
     return null;
   }
 
-  global.logger?.info?.(
-    `[VOTE QUEUE] Starting inbox drain (interval: ${intervalMs}ms, ${dedicated ? "pm2 dedicato" : "gateway"})...`,
-  );
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    global.logger?.info?.(
+      `[VOTE QUEUE] Starting inbox drain (interval: ${intervalMs}ms, ${dedicated ? "pm2 dedicato" : "gateway"})...`,
+    );
+  }
   processVoteQueue(client).catch(() => {});
   const interval = setInterval(() => {
     processVoteQueue(client).catch(() => {});

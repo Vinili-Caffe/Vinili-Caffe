@@ -11,6 +11,12 @@ import { cn } from "@/lib/cn";
 import { sizedDiscordCdn } from "@/lib/discord-cdn";
 import { useFxCap } from "@/components/effects/DeviceFxProvider";
 import { useTilt } from "@/components/ui/tilted-card";
+import {
+  HeroBackdrop,
+  HERO_ATMO_BAND,
+  HERO_ATMO_VIDEO,
+  HERO_ATMO_VIDEO_MOBILE,
+} from "@/components/HeroBackdrop";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -69,11 +75,28 @@ export function AlbumCover({
 
   return (
     <section className={cn("relative isolate overflow-x-clip pb-16 sm:pb-24", showStaffTab ? "pt-20 sm:pt-24" : "pt-16 sm:pt-20")}>
+      {/* stessa atmosfera café delle altre pagine interne */}
+      <HeroBackdrop
+        priority
+        poster={HERO_ATMO_BAND}
+        videoSrc={HERO_ATMO_VIDEO}
+        videoSrcMobile={HERO_ATMO_VIDEO_MOBILE}
+        imgClassName="size-full object-cover opacity-55 sm:opacity-60"
+        objectPosition="50% 42%"
+      />
+      <div
+        className="absolute inset-0 -z-10"
+        style={{
+          background: [
+            "radial-gradient(ellipse 90% 45% at 50% 0%, rgba(217,154,91,0.16), transparent 55%)",
+            "linear-gradient(to bottom, rgba(14,9,6,0.5) 0%, rgba(14,9,6,0.78) 42%, rgba(14,9,6,0.94) 78%, var(--color-espresso) 100%)",
+          ].join(", "),
+        }}
+      />
       {/* blur-3xl solo su device rich; altrimenti alone statico (meno GPU) */}
       {p.avatarUrl ? (
         <AlbumCoverGlow src={staticImageUrl(p.avatarUrl)} />
       ) : null}
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,rgba(14,9,6,0.4),rgba(14,9,6,0.85)_60%,rgba(14,9,6,0.92)_85%,var(--color-espresso))]" />
 
       {showStaffTab && onTab && (
         <div className="relative z-20 mx-auto mb-5 flex max-w-5xl justify-center px-6 sm:mb-6">

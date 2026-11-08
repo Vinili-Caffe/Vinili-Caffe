@@ -286,8 +286,6 @@ async function runConnectMongo(client?, mongoUrl?) {
   const urlsToTry = [mongoUrl];
   if (fallbackUrl && fallbackUrl !== mongoUrl) urlsToTry.push(fallbackUrl);
 
-  logDb(client, "info", "[DATABASE] Connecting to: " + maskMongoUrlForLog(mongoUrl));
-
   for (let attempt = 1; attempt <= MONGO_RETRY_ATTEMPTS; attempt += 1) {
     for (const url of urlsToTry) {
       if (isMongoReady()) return true;
@@ -296,10 +294,18 @@ async function runConnectMongo(client?, mongoUrl?) {
         await mongoose.connect(url, buildConnectOptions(url));
         installMongoDisconnectHook(client);
         reconnectBackoffAttempt = 0;
+        const connectMs = Date.now() - connectStarted;
+        const totalMs = Date.now() - startedAt;
+        try {
+          const { noteBoot } = require("../runtime/bootSummary") as typeof import("../runtime/bootSummary");
+          noteBoot(client, { mongoMs: totalMs });
+        } catch (_) {
+          /* optional */
+        }
         logDb(
           client,
           "info",
-          `[DATABASE] Connected to MongoDB successfully (${Date.now() - connectStarted}ms, total ${Date.now() - startedAt}ms).`,
+          `[DATABASE] Connected ${maskMongoUrlForLog(url)} (${connectMs}ms, total ${totalMs}ms)`,
         );
         return true;
       } catch (err) {
@@ -407,9 +413,9 @@ async function ensureMongoIndexes({ reason = "manual" } = {}) {
       }
     }
   }
-  global.logger?.info?.(
-    `[DATABASE] ensureIndexes (${reason}): models=${models.length} ok=${ok} skipped=${skipped} failed=${failed} in ${Date.now() - startedAt}ms.`,
-  );
+  const msg = `[DATABASE] ensureIndexes (${reason}): models=${models.length} ok=${ok} skipped=${skipped} failed=${failed} in ${Date.now() - startedAt}ms.`;
+  if (failed > 0) global.logger?.warn?.(msg);
+  else if (String(process.env.BOOT_VERBOSE || "").trim() === "1") global.logger?.info?.(msg);
   return { ok: failed === 0, models: models.length, createdOk: ok, skipped, failed };
 }
 

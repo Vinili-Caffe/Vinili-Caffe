@@ -877,10 +877,14 @@ function startMarkovAutoSendWorkerLoop(client?) {
       },
       Math.max(500, Number(process.env.VC_MARKOV_REPLY_DRAIN_MS || 1000) || 1000),
     );
-    console.log("[MARKOV-WORKER] reply drain loop started");
+    if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+      console.log("[MARKOV-WORKER] reply drain loop started");
+    }
   }
 
-  global.logger?.info?.(`[MARKOV] auto-send worker loop every ${tickMs}ms`);
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    global.logger?.info?.(`[MARKOV] auto-send worker loop every ${tickMs}ms`);
+  }
   return timer;
 }
 

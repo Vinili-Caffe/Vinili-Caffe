@@ -207,9 +207,11 @@ async function main() {
         await client.handleCommands(cmdFolders, cmdRoot || path.join(ROOT, "Vinili", "Commands"));
         client.__slashCommandsReady = true;
       }
-      console.log(
-        `[SITE-API] commands ready (bg) prefix=${client.pcommands?.size || 0} slash=${client.commands?.size || 0}`,
-      );
+      if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+        console.log(
+          `[SITE-API] commands ready (bg) prefix=${client.pcommands?.size || 0} slash=${client.commands?.size || 0}`,
+        );
+      }
     } catch (err) {
       console.warn("[SITE-API] prefix commands load:", err?.message || err);
     }
@@ -413,8 +415,7 @@ async function main() {
     console.warn("[SITE-API] WebSocket init:", err?.message || err);
   }
   server.listen(port, "0.0.0.0", () => {
-    console.log(`[SITE-API] listening on 0.0.0.0:${port} as ${client.user?.tag || client.user?.username}`);
-    console.log("[SITE-API] siteApiDeviceEverywhere1 timeouts on");
+    console.log(`[SITE-API] ready on 0.0.0.0:${port} as ${client.user?.tag || client.user?.username}`);
     setImmediate(() => {
       loadSiteApiCommandsBg();
     });

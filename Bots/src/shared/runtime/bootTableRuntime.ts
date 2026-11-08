@@ -16,7 +16,20 @@ function logBootTable(categories = [], baseDir = process.cwd()) {
   }
 
   if (!summary.length) return;
-  global.logger?.info?.(`[BOOT] Loaded ${total} modules (${summary.join(", ")})`);
+  try {
+    const { noteBoot } = require("./bootSummary") as typeof import("./bootSummary");
+    /* client non passato qui: salva su global per il ready successivo */
+    const g: any = global;
+    if (!g.__vcBootPending) g.__vcBootPending = {};
+    g.__vcBootPending.modules = total;
+    g.__vcBootPending.moduleSummary = summary.join(", ");
+  } catch (_) {
+    /* ignore */
+  }
+  /* dettaglio moduli solo se BOOT_VERBOSE=1 */
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    global.logger?.info?.(`[BOOT] Loaded ${total} modules (${summary.join(", ")})`);
+  }
 }
 
 export = { logBootTable };

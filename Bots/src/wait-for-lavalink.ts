@@ -110,7 +110,9 @@ function runLoader() {
   loaderStarted = true;
   const node = process.execPath || "node";
   const { bin, args, label } = resolveLoaderSpawn(node);
-  console.log("[wait-for-lavalink] Esecuzione: " + label);
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    console.log("[wait-for-lavalink] Esecuzione: " + label);
+  }
   loaderChild = spawn(bin, args, {
     cwd: __dirname,
     stdio: ["inherit", "pipe", "pipe"],
@@ -165,7 +167,6 @@ function checkLavalinkStatus() {
     if (settleMs <= 0) {
       lavalinkReady = true;
       lavalinkUnavailableLogged = false;
-      console.log("[wait-for-lavalink] Lavalink raggiungibile.");
       if (!loaderStarted) runLoader();
       scheduleNextCheck(intervalMs);
       return;
@@ -180,7 +181,7 @@ function checkLavalinkStatus() {
         }
         lavalinkReady = true;
         lavalinkUnavailableLogged = false;
-        console.log("[wait-for-lavalink] Lavalink pronto.");
+        /* quiet: niente "pronto" a ogni settle — solo warn se non raggiungibile */
         if (!loaderStarted) runLoader();
         scheduleNextCheck(intervalMs);
       });

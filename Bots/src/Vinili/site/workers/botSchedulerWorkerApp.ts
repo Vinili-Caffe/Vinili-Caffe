@@ -54,8 +54,6 @@ async function main(shared?: { client?: any } | null) {
     maxPoolSize: 6,
     serverSelectionTimeoutMS: 12_000,
   });
-  console.log("[BOT-SCHEDULER] Mongo connected");
-
   const client = shared?.client || (await createSiteApiRestClient(config, token));
   global.botClient = client;
 
@@ -233,9 +231,11 @@ async function main(shared?: { client?: any } | null) {
 
   /* cleanup users-not-in-server resta su bots-vinyls (serve member list gateway; REST worker non ce l'ha) */
 
-  console.log(
-    `[BOT-SCHEDULER] online as ${client.user?.tag || client.user?.username || "bot"} (giveaway/reminders/compiti/tickets/maintenance)`,
-  );
+  if (require.main === module) {
+    console.log(
+      `[BOT-SCHEDULER] ready as ${client.user?.tag || client.user?.username || "bot"}`,
+    );
+  }
 }
 
 /* Avvio da solo oppure dentro un processo condiviso (backgroundWorkersApp / voteIntakeApp) che passa il client. */

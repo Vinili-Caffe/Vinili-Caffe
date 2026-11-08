@@ -312,7 +312,9 @@ function startOfficialAutomationBoostDrainLoop(client?) {
     Math.max(1000, Number(process.env.VC_BOOST_DRAIN_MS || 2000) || 2000),
   );
   client._officialBoostDrainTimer = timer;
-  console.log("[BOT-SCHEDULER] boost recovery drain loop started");
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    console.log("[BOT-SCHEDULER] boost recovery drain loop started");
+  }
   return timer;
 }
 

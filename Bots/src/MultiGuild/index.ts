@@ -58,7 +58,15 @@ function attachToClient(client?) {
     return api;
   }
   const loaded = loadMultiGuildEvents(client);
-  global.logger?.info?.(`[MultiGuild] API collegata — eventi layer: ${loaded}`);
+  try {
+    const { noteBoot } = require("../shared/runtime/bootSummary") as typeof import("../shared/runtime/bootSummary");
+    noteBoot(client, { multiGuildEvents: loaded });
+  } catch (_) {
+    /* ignore */
+  }
+  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+    global.logger?.info?.(`[MultiGuild] API collegata — eventi layer: ${loaded}`);
+  }
   return api;
 }
 

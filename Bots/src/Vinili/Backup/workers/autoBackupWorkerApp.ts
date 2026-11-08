@@ -56,7 +56,7 @@ async function main() {
 
   startAutoBackupLoop(client);
   console.log(
-    `[AUTO-BACKUP] online as ${client.user?.tag || client.user?.username || "bot"} protected=${targetIds.length} cached=${client.guilds.cache.size}`,
+    `[AUTO-BACKUP] ready as ${client.user?.tag || client.user?.username || "bot"} · protected=${targetIds.length}`,
   );
 }
 

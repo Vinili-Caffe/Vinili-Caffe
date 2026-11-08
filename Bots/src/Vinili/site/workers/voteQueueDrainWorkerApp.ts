@@ -32,14 +32,14 @@ async function main(shared?: { client?: any } | null) {
     maxPoolSize: 4,
     serverSelectionTimeoutMS: 12_000,
   });
-  console.log("[VOTE-DRAIN] Mongo connected");
-
   const client = shared?.client || (await createSiteApiRestClient(config, token));
   global.botClient = client;
   startVoteQueueLoop(client, 15_000);
-  console.log(
-    `[VOTE-DRAIN] online as ${client.user?.tag || client.user?.username || "bot"}`,
-  );
+  if (require.main === module) {
+    console.log(
+      `[VOTE-DRAIN] ready as ${client.user?.tag || client.user?.username || "bot"}`,
+    );
+  }
 }
 
 /* Avvio da solo oppure dentro un processo condiviso (backgroundWorkersApp / voteIntakeApp) che passa il client. */

@@ -16,6 +16,7 @@ const {
   buildLiveMirrorMaps,
   loadMaps,
   channelKey,
+  categoryCoreLabel,
   remapDeepConfigForTestGuild,
 } = require("../../Config/testGuildMirrorRemap") as typeof import("../../Config/testGuildMirrorRemap");
 
@@ -75,6 +76,139 @@ async function reorderTestRolesLikeMain(main?, test?, me?) {
   if (!positions.length) return { ok: true, moved: 0 };
   await test.roles.setPositions(positions);
   return { ok: true, moved: positions.length };
+}
+
+async function syncMirroredCategoryFields(src?, dest?, roleMap?, test?, stats?) {
+  if (!src || !dest) return;
+  try {
+    if (String(dest.name || "") !== String(src.name || "")) {
+      await dest.setName(src.name, { reason: "testGuildMirrorSync: rename category like main" });
+      stats.channelsUpdated = (stats.channelsUpdated || 0) + 1;
+      await sleep(180);
+    }
+  } catch (e) {
+    stats.errors.push(`catRename:${src.name}:${e.message || e}`);
+  }
+  try {
+    const overs = mapOverwrites(src.permissionOverwrites, roleMap, test);
+    if (overs.length && typeof dest.permissionOverwrites?.set === "function") {
+      await dest.permissionOverwrites.set(overs, "testGuildMirrorSync: category overwrites");
+    }
+  } catch (e) {
+    stats.errors.push(`catOw:${src.name}:${e.message || e}`);
+  }
+}
+
+/** Allinea posizioni canali/categorie test a quelle del main (rawPosition). */
+async function reorderTestChannelsLikeMain(main?, test?, channelMap?) {
+  const pairs = [];
+  for (const [mainId, testId] of channelMap.entries()) {
+    const src = main.channels.cache.get(String(mainId));
+    const dest = test.channels.cache.get(String(testId));
+    if (!src || !dest) continue;
+    pairs.push({ dest, position: Number(src.rawPosition) || 0 });
+  }
+  pairs.sort((a?, b?) => a.position - b.position);
+  if (!pairs.length) return { ok: true, moved: 0 };
+  const positions = pairs.map((row?) => ({
+    channel: row.dest.id,
+    position: row.position,
+  }));
+  let setPosErr = null;
+  try {
+    if (typeof test.channels?.setPositions === "function") {
+      await test.channels.setPositions(positions);
+      return { ok: true, moved: positions.length };
+    }
+  } catch (e) {
+    setPosErr = e;
+  }
+  let moved = 0;
+  for (const row of pairs) {
+    try {
+      await row.dest.setPosition(row.position, { reason: "testGuildMirrorSync: position like main" });
+      moved += 1;
+      await sleep(100);
+    } catch (_) {
+      /* ignore single */
+    }
+  }
+  return {
+    ok: true,
+    moved,
+    fallback: true,
+    error: setPosErr ? String(setPosErr?.message || setPosErr) : "no_setPositions",
+  };
+}
+
+/**
+ * Se sul test ci sono categorie doppie (stesso core label) dopo un renumber sul main,
+ * tiene quella mappata dal mirror e sposta i figli sull'altra prima di cancellare i residui.
+ */
+async function pruneDuplicateMirroredCategories(main?, test?, channelMap?, stats?) {
+  const mirroredCatIds = new Set();
+  for (const [mainId, testId] of channelMap.entries()) {
+    const src = main.channels.cache.get(String(mainId));
+    if (src?.type === ChannelType.GuildCategory) mirroredCatIds.add(String(testId));
+  }
+  const byCore = new Map();
+  for (const ch of test.channels.cache.values()) {
+    if (ch.type !== ChannelType.GuildCategory) continue;
+    const core = categoryCoreLabel(ch.name);
+    if (!core) continue;
+    if (!byCore.has(core)) byCore.set(core, []);
+    byCore.get(core).push(ch);
+  }
+  let deleted = 0;
+  for (const [, list] of byCore.entries()) {
+    if (list.length < 2) continue;
+    const mirrored = list.filter((ch?) => mirroredCatIds.has(String(ch.id)));
+    if (!mirrored.length) continue; // categorie test-only: non toccare
+    const keep =
+      mirrored.find((ch?) => {
+        const mainPair = [...channelMap.entries()].find(([, tid]) => String(tid) === String(ch.id));
+        if (!mainPair) return false;
+        const src = main.channels.cache.get(String(mainPair[0]));
+        return src && String(src.name || "") === String(ch.name || "");
+      }) ||
+      mirrored[0] ||
+      list.slice().sort((a?, b?) => b.rawPosition - a.rawPosition)[0];
+    if (!keep) continue;
+    for (const dup of list) {
+      if (String(dup.id) === String(keep.id)) continue;
+      /* Cancella sia residui non mappati sia vecchie copie ancora in remap stale. */
+      try {
+        const children = [...test.channels.cache.values()].filter(
+          (c?) => String(c.parentId || "") === String(dup.id),
+        );
+        for (const child of children) {
+          try {
+            await child.setParent(keep.id, {
+              lockPermissions: false,
+              reason: "testGuildMirrorSync: move under kept category",
+            });
+            await sleep(160);
+          } catch (moveErr) {
+            stats.errors.push(`catDupMove:${child.name}:${moveErr.message || moveErr}`);
+          }
+        }
+        const stillChildren = [...test.channels.cache.values()].filter(
+          (c?) => String(c.parentId || "") === String(dup.id),
+        );
+        if (stillChildren.length) {
+          stats.errors.push(`catDupDel:${dup.name}:still_has_${stillChildren.length}_children`);
+          continue;
+        }
+        await dup.delete("testGuildMirrorSync: duplicate category after main renumber");
+        deleted += 1;
+        stats.channelsDeleted = (stats.channelsDeleted || 0) + 1;
+        await sleep(220);
+      } catch (e) {
+        stats.errors.push(`catDupDel:${dup.name}:${e.message || e}`);
+      }
+    }
+  }
+  return { deleted };
 }
 
 function buildRoleMapForSync(main?, test?) {
@@ -235,11 +369,36 @@ function canBotDeleteTestRole(me?, role?) {
   if (!me || !role) return false;
   if (role.id === role.guild?.id || role.managed) return false;
   try {
+    /* editable = ManageRoles + !managed + highest sopra il target (fonte di verità d.js) */
+    if (typeof role.editable === "boolean") return role.editable;
     if (!me.permissions.has(PermissionsBitField.Flags.ManageRoles)) return false;
     return me.roles.highest.comparePositionTo(role) > 0;
   } catch {
     return false;
   }
+}
+
+/** Colori ruolo: sul test spesso manca ENHANCED_ROLE_COLORS → niente secondary/tertiary. */
+function mirrorRoleColorsPayload(src?, guild?) {
+  const features = guild?.features;
+  const enhanced =
+    (features && typeof features.has === "function" && features.has("ENHANCED_ROLE_COLORS")) ||
+    (Array.isArray(features) && features.includes("ENHANCED_ROLE_COLORS"));
+  const c = src?.colors;
+  if (c && typeof c === "object") {
+    const out: Record<string, any> = {};
+    const p = Number(c.primaryColor ?? c.primary ?? c.primary_color ?? NaN);
+    const s = Number(c.secondaryColor ?? c.secondary ?? c.secondary_color ?? NaN);
+    const t = Number(c.tertiaryColor ?? c.tertiary ?? c.tertiary_color ?? NaN);
+    if (Number.isFinite(p)) out.primaryColor = p;
+    if (enhanced) {
+      if (Number.isFinite(s)) out.secondaryColor = s;
+      if (Number.isFinite(t)) out.tertiaryColor = t;
+    }
+    if (Object.keys(out).length) return out;
+  }
+  const n = Number(src?.color);
+  return Number.isFinite(n) ? { primaryColor: n } : undefined;
 }
 
 function canBotDeleteTestChannel(me?) {
@@ -261,6 +420,7 @@ async function pruneDeletedMainMirrors(main?, test?, me?, stats?) {
   const channelRemap = maps?.channelRemap || {};
   const dropRoleMainIds = [];
   const dropChannelMainIds = [];
+  let botMember = me;
 
   for (const [mainRoleId, testRoleId] of Object.entries(roleRemap)) {
     if (String(mainRoleId) === String(main.id)) continue;
@@ -270,9 +430,27 @@ async function pruneDeletedMainMirrors(main?, test?, me?, stats?) {
       dropRoleMainIds.push(mainRoleId);
       continue;
     }
-    if (!canBotDeleteTestRole(me, dest)) {
-      out.errors.push(`roleKeep:${dest.name}:hierarchy`);
-      continue;
+    if (!canBotDeleteTestRole(botMember, dest)) {
+      /* Cache posizioni a volte stantia: riprova dopo fetch, poi tenta delete e leggi errore reale. */
+      try {
+        await test.roles.fetch(dest.id).catch(() => null);
+        const fresh = await test.members.fetchMe().catch(() => null);
+        if (fresh) botMember = fresh;
+      } catch (_) {
+        /* ignore */
+      }
+      if (!canBotDeleteTestRole(botMember, dest)) {
+        try {
+          await dest.delete("testGuildMirrorSync: deleted on main (force after hierarchy miss)");
+          out.rolesDeleted += 1;
+          dropRoleMainIds.push(mainRoleId);
+          await sleep(180);
+          continue;
+        } catch (e) {
+          out.errors.push(`roleKeep:${dest.name}:${e?.code || e?.message || "hierarchy"}`);
+          continue;
+        }
+      }
     }
     try {
       await dest.delete("testGuildMirrorSync: deleted on main");
@@ -416,6 +594,7 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
     rolesDeleted: 0,
     channelsCreated: 0,
     channelsMatched: 0,
+    channelsUpdated: 0,
     channelsDeleted: 0,
     errors: [],
   };
@@ -466,29 +645,29 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
         continue;
       }
       try {
-        dest = await test.roles.create({
+        const createOpts: Record<string, any> = {
           name: src.name,
-          /* discord.js: RoleManager#create "color" deprecated → "colors" */
-          colors: (() => {
-            const c = src.colors;
-            if (c && typeof c === "object") {
-              const out: Record<string, any> = {};
-              const p = Number(c.primaryColor ?? c.primary ?? NaN);
-              const s = Number(c.secondaryColor ?? c.secondary ?? NaN);
-              const t = Number(c.tertiaryColor ?? c.tertiary ?? NaN);
-              if (Number.isFinite(p)) out.primaryColor = p;
-              if (Number.isFinite(s)) out.secondaryColor = s;
-              if (Number.isFinite(t)) out.tertiaryColor = t;
-              if (Object.keys(out).length) return out;
-            }
-            const n = Number(src.color);
-            return Number.isFinite(n) ? { primaryColor: n } : undefined;
-          })(),
+          colors: mirrorRoleColorsPayload(src, test),
           hoist: src.hoist,
           mentionable: src.mentionable,
           permissions: src.permissions,
           reason: "testGuildMirrorSync: create role",
-        });
+        };
+        try {
+          dest = await test.roles.create(createOpts);
+        } catch (e1) {
+          /* Fallback: API a volte richiede feature anche con un solo secondary strisciato */
+          const msg = String(e1?.message || e1 || "");
+          if (/Missing guild feature|ENHANCED_ROLE/i.test(msg) || Number(e1?.code) === 50035 || Number(e1?.code) === 670006) {
+            const solid = mirrorRoleColorsPayload(
+              { color: src.color, colors: { primaryColor: src.colors?.primaryColor ?? src.colors?.primary ?? src.color } },
+              { features: [] },
+            );
+            dest = await test.roles.create({ ...createOpts, colors: solid });
+          } else {
+            throw e1;
+          }
+        }
         testByName.set(dest.name, dest);
         roleMap.set(src.id, dest.id);
         stats.rolesCreated += 1;
@@ -499,8 +678,38 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
     }
 
     const channelMap = new Map();
+    const persistedChannelRemap = loadMaps()?.channelRemap || {};
     const testByKey = new Map();
-    for (const ch of test.channels.cache.values()) testByKey.set(channelKey(ch), ch);
+    const usedTestChannelIds = new Set();
+    for (const ch of test.channels.cache.values()) {
+      const key = channelKey(ch);
+      if (!testByKey.has(key)) testByKey.set(key, ch);
+    }
+
+    function claimTestChannel(candidate?) {
+      if (!candidate) return null;
+      const id = String(candidate.id || "");
+      if (!id || usedTestChannelIds.has(id)) return null;
+      usedTestChannelIds.add(id);
+      return candidate;
+    }
+
+    function resolveExistingTestChannel(src?) {
+      const remapId = String(persistedChannelRemap[String(src.id)] || "").trim();
+      if (remapId) {
+        const hit = claimTestChannel(test.channels.cache.get(remapId));
+        if (hit) return hit;
+      }
+      const key = channelKey(src);
+      /* Preferisci nome uguale al main (dopo renumber), altrimenti prima key libera. */
+      const candidates = [...test.channels.cache.values()].filter(
+        (ch?) => channelKey(ch) === key && !usedTestChannelIds.has(String(ch.id)),
+      );
+      const exact = candidates.find((ch?) => String(ch.name || "") === String(src.name || ""));
+      if (exact) return claimTestChannel(exact);
+      if (candidates.length) return claimTestChannel(candidates[0]);
+      return claimTestChannel(testByKey.get(key));
+    }
 
     const mainChannels = [...main.channels.cache.values()].sort((a?, b?) => {
       const ap = a.type === ChannelType.GuildCategory ? 0 : 1;
@@ -510,11 +719,12 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
     });
 
     for (const src of mainChannels.filter((c?) => c.type === ChannelType.GuildCategory)) {
-      const key = channelKey(src);
-      let dest = testByKey.get(key);
+      let dest = resolveExistingTestChannel(src);
       if (dest) {
         channelMap.set(src.id, dest.id);
         stats.channelsMatched += 1;
+        await syncMirroredCategoryFields(src, dest, roleMap, test, stats);
+        testByKey.set(channelKey(dest), dest);
         continue;
       }
       try {
@@ -525,6 +735,7 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
           reason: "testGuildMirrorSync: create category",
           position: src.rawPosition,
         });
+        usedTestChannelIds.add(String(dest.id));
         testByKey.set(channelKey(dest), dest);
         channelMap.set(src.id, dest.id);
         stats.channelsCreated += 1;
@@ -543,11 +754,27 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
       ChannelType.GuildMedia,
     ]);
     for (const src of mainChannels.filter((c?) => allowed.has(c.type))) {
-      const key = channelKey(src);
-      let dest = testByKey.get(key);
+      let dest = resolveExistingTestChannel(src);
       if (dest) {
         channelMap.set(src.id, dest.id);
         stats.channelsMatched += 1;
+        try {
+          if (String(dest.name || "") !== String(src.name || "")) {
+            await dest.setName(src.name, { reason: "testGuildMirrorSync: rename channel like main" });
+            stats.channelsUpdated = (stats.channelsUpdated || 0) + 1;
+            await sleep(120);
+          }
+          const wantParent = src.parentId ? channelMap.get(src.parentId) || null : null;
+          if (String(dest.parentId || "") !== String(wantParent || "")) {
+            await dest.setParent(wantParent, {
+              lockPermissions: false,
+              reason: "testGuildMirrorSync: parent like main",
+            });
+            await sleep(120);
+          }
+        } catch (e) {
+          stats.errors.push(`chUpdate:${src.name}:${e.message || e}`);
+        }
         continue;
       }
       try {
@@ -572,6 +799,7 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
           }
         }
         dest = await test.channels.create(createOpts);
+        usedTestChannelIds.add(String(dest.id));
         testByKey.set(channelKey(dest), dest);
         channelMap.set(src.id, dest.id);
         stats.channelsCreated += 1;
@@ -583,15 +811,27 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
 
     await test.roles.fetch();
     await test.channels.fetch();
+    try {
+      await pruneDuplicateMirroredCategories(main, test, channelMap, stats);
+      await test.channels.fetch().catch(() => null);
+    } catch (e) {
+      stats.errors.push(`catPrune:${e.message || e}`);
+    }
     const live = buildLiveMirrorMaps(main, test);
     for (const [k, v] of live.roleMap) roleMap.set(k, v);
     for (const [k, v] of live.channelMap) channelMap.set(k, v);
 
     let order = { moved: 0 };
+    let channelOrder = { moved: 0 };
     try {
       order = await reorderTestRolesLikeMain(main, test, me);
     } catch (e) {
       stats.errors.push(`order:${e.message || e}`);
+    }
+    try {
+      channelOrder = await reorderTestChannelsLikeMain(main, test, channelMap);
+    } catch (e) {
+      stats.errors.push(`chOrder:${e.message || e}`);
     }
 
     const members = await syncMemberRoles(main, test, roleMap, me);
@@ -606,6 +846,7 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
       ok: true,
       stats,
       order,
+      channelOrder,
       members,
       roleMapSize: roleMap.size,
       channelMapSize: channelMap.size,
@@ -629,11 +870,21 @@ function startTestGuildMirrorSyncLoop(client?, intervalMs = DEFAULT_INTERVAL_MS)
         const rC = Number(out.stats?.rolesCreated || 0);
         const rD = Number(out.stats?.rolesDeleted || 0);
         const cC = Number(out.stats?.channelsCreated || 0);
+        const cU = Number(out.stats?.channelsUpdated || 0);
         const cD = Number(out.stats?.channelsDeleted || 0);
         const members = Number(out.members?.synced || 0);
-        if (rC || rD || cC || cD || members) {
+        const errN = Array.isArray(out.stats?.errors) ? out.stats.errors.length : 0;
+        const movedCh = Number(out.channelOrder?.moved || 0);
+        const matched = Number(out.stats?.channelsMatched || 0);
+        const changed = Boolean(rC || rD || cC || cU || cD || members || movedCh);
+        if (changed || errN || String(process.env.BOOT_VERBOSE || "").trim() === "1") {
           global.logger?.info?.(
-            `[TEST MIRROR] sync +r${rC}/-${rD} +c${cC}/-${cD} members=${members}`,
+            `[TEST MIRROR] sync +r${rC}/-${rD} +c${cC}/~${cU}/-${cD} match=${matched} map=${out.channelMapSize || 0} members=${members} chPos=${movedCh} err=${errN}`,
+          );
+        }
+        if (errN) {
+          global.logger?.warn?.(
+            `[TEST MIRROR] sync errors: ${(out.stats.errors || []).slice(0, 8).join(" | ")}`,
           );
         }
       } else if (out?.reason && out.reason !== "in_flight") {
@@ -641,7 +892,9 @@ function startTestGuildMirrorSyncLoop(client?, intervalMs = DEFAULT_INTERVAL_MS)
       }
     });
   };
-  setTimeout(tick, 90_000);
+  /* Community-poll worker: sync subito; altrimenti delay soft dopo ready. */
+  const firstDelayMs = shouldStartExternalWorkerLoop("COMMUNITY_POLL") ? 8_000 : 90_000;
+  setTimeout(tick, firstDelayMs);
   mirrorTimer = setInterval(tick, ms);
   if (typeof mirrorTimer.unref === "function") mirrorTimer.unref();
   return mirrorTimer;
@@ -649,6 +902,7 @@ function startTestGuildMirrorSyncLoop(client?, intervalMs = DEFAULT_INTERVAL_MS)
 
 export = {
   startTestGuildMirrorSyncLoop,
+  runTestGuildMirrorSync,
   syncTestMemberRolesFromMain,
   mirrorMainRoleDeleteToTest,
   mirrorMainChannelDeleteToTest,

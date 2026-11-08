@@ -67,3 +67,37 @@ export function recoverFromAssetLoadFailure(target: EventTarget | null) {
   if (!canAutoRecoverStaleChunk()) return;
   void hardReload();
 }
+
+/**
+ * iOS PWA dopo background lungo: a volte resta il DOM senza fogli stile
+ * (link.sheet null / nessun CSS Next). Soft-check, non durante il primo paint.
+ */
+export function isCssShellBroken() {
+  try {
+    if (document.readyState !== "complete") return false;
+    const links = [...document.querySelectorAll('link[rel="stylesheet"]')].filter((node) => {
+      const href = String((node as HTMLLinkElement).href || "");
+      return href.includes("/_next/static/") || href.includes("/_next/static/css/");
+    }) as HTMLLinkElement[];
+    if (!links.length) {
+      /* App Next di solito ha almeno un CSS; se manca dopo complete → rotto */
+      return Boolean(document.getElementById("__next") || document.querySelector("main"));
+    }
+    return links.some((l) => !l.disabled && !l.sheet);
+  } catch {
+    return false;
+  }
+}
+
+/** bfcache / freeze iOS: reload duro preservando stash notifica (KEEP_CACHES). */
+export function recoverPwaShellIfBroken(reason: "bfcache" | "css" | "resume" = "css") {
+  if (reason === "bfcache") {
+    if (!canAutoRecoverStaleChunk(45_000)) return false;
+    void hardReload();
+    return true;
+  }
+  if (!isCssShellBroken()) return false;
+  if (!canAutoRecoverStaleChunk(45_000)) return false;
+  void hardReload();
+  return true;
+}

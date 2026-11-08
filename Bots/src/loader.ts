@@ -110,9 +110,11 @@ function splitStartPath(bot?) {
     const shardingEnabled = ['1', 'true', 'yes', 'on'].includes(shardingFlag);
     /* perfP1: sharding solo se esplicitamente on + file presente (default off = 1 guild) */
     const file = pickBotEntry(workingDir, shardingEnabled);
-    console.log(
-        `[Loader] ${bot.label} ENABLE_SHARDING=${String(process.env.ENABLE_SHARDING || process.env.SHARDING || '')} -> ${file}`
-    );
+    if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+      console.log(
+        `[Loader] ${bot.label} ENABLE_SHARDING=${String(process.env.ENABLE_SHARDING || process.env.SHARDING || "")} -> ${file}`,
+      );
+    }
     return {
         workingDir,
         file,
@@ -146,27 +148,33 @@ function resolveNodeExecutable() {
 function runSyncFromServerIfConfigured() {
     const syncServer = process.env.SYNC_SERVER || '';
     if (!syncServer.trim() || syncStarted) return;
+    /* Solo da PC/dev (repo con Bots/src). Sulla VPS non esiste quel path: skip silenzioso. */
+    const localSrc = path.join(repoRoot, 'Bots', 'src');
+    if (!fs.existsSync(localSrc)) return;
     const scriptPath = path.join(repoRoot, 'scripts', 'sync-from-server.js');
     if (!fs.existsSync(scriptPath)) return;
     syncStarted = true;
     try {
-        console.log('[Loader] Sync da server in background...');
         const child = child_process.spawn(process.execPath, [scriptPath], {
             cwd: repoRoot,
-            stdio: 'inherit',
-            env: process.env,
+            stdio: 'ignore',
+            env: { ...process.env, SYNC_VERBOSE: process.env.SYNC_VERBOSE || "0" },
             shell: false,
         });
         child.on('error', (err?) => {
-            console.warn('[Loader] Sync da server fallito:', err?.message || err);
+            if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+                console.warn('[Loader] Sync da server fallito:', err?.message || err);
+            }
         });
         child.on('exit', (code?) => {
-            if (code && code !== 0) {
+            if (code && code !== 0 && String(process.env.BOOT_VERBOSE || "").trim() === "1") {
                 console.warn(`[Loader] Sync da server terminato con code ${code}`);
             }
         });
     } catch (err) {
-        console.warn('[Loader] Sync da server fallito:', err?.message || err);
+        if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+            console.warn('[Loader] Sync da server fallito:', err?.message || err);
+        }
     }
 }
 
@@ -375,16 +383,15 @@ function spawnBotProcess(bot?, workingDir?, file?, resolve?) {
         return;
     }
 
-    console.log(`[Loader] Avvio ${bot.label}: ${bot.folderSuffix} (${file})`);
-
     const nodeBin = resolveNodeExecutable();
     const scriptPath = path.resolve(workingDir, file);
     const shardEnv = String(file).startsWith("run-sharded") ? { ENABLE_SHARDING: "1" } : {};
     const nodePath = buildNodePath(workingDir);
-    if (nodePath) {
-        console.log(`[Loader] ${bot.label} NODE_PATH=${nodePath}`);
+    if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+      console.log(`[Loader] Avvio ${bot.label}`);
+      if (nodePath) console.log(`[Loader] ${bot.label} NODE_PATH=${nodePath}`);
+      console.log(`[Loader] Runtime ${bot.label}: ${nodeBin} (${file})`);
     }
-    console.log(`[Loader] Runtime ${bot.label}: ${nodeBin} (loader execPath: ${process.execPath})`);
     const wantTsx = String(file).endsWith(".ts");
     const nodeArgs = [];
     if (process.env.SHOW_NODE_WARNINGS !== "1") nodeArgs.push("--disable-warning=ExperimentalWarning");
@@ -441,7 +448,6 @@ function runfile(bot?, options: Record<string, any> = {}) {
                 ((resolve as any)() as any);
                 return;
             }
-            console.log(`[Loader] Trigger avvio ${bot.label}`);
             cleanupStalePid(bot.key);runSyncFromServerIfConfigured();if(!skipGitPull&&ENABLE_LOADER_GIT_PULL){updateRepo(repoRoot);} const depTask=ENABLE_LOADER_NPM_INSTALL?ensureDependencies(workingDir,false):Promise.resolve();depTask.finally(()=>spawnBotProcess(bot,workingDir,file,resolve));
         };const delay=bypassDelay?0 : Number(bot.startupDelayMs || 0);
         if (delay > 0) {
@@ -470,7 +476,6 @@ async function bootBots() {
     const { buildMongoUrl, waitForMongoReachable } = require("./shared/db/mongoConnect") as typeof import("./shared/db/mongoConnect");
     const mongoUrl = buildMongoUrl(null);
     if (mongoUrl) {
-      console.log("[Loader] Attesa MongoDB...");
       const ready = await waitForMongoReachable(mongoUrl, 8_000);
       if (!ready) {
         console.warn("[Loader] MongoDB non raggiungibile entro 30s, avvio bot comunque.");

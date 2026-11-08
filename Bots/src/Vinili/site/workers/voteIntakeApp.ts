@@ -9,6 +9,9 @@ const { startDiscadiaIntake } = require("./discadiaVoteIntakeApp") as typeof imp
 async function main() {
   await startTopggIntake();
   await startDiscadiaIntake();
+  const topggPort = Number(process.env.TOPGG_WEBHOOK_PORT || 3014);
+  const discadiaPort = Number(process.env.DISCADIA_WEBHOOK_PORT || 3010);
+  console.log(`[VOTE-INTAKE] ready top.gg :${topggPort} · discadia :${discadiaPort}`);
 }
 
 main().catch((err?) => {

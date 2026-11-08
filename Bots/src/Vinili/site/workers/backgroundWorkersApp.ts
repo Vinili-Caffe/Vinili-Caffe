@@ -47,23 +47,25 @@ async function main() {
     maxPoolSize: 10,
     serverSelectionTimeoutMS: 12_000,
   });
-  console.log("[BG-WORKERS] Mongo connected");
-
   const client = await createSiteApiRestClient(config, token, {
     restTimeoutMs: 12_000,
     meAttempts: 5,
   });
   global.botClient = client;
 
+  const started = [];
   // uno che fallisce all'avvio non deve fermare gli altri
   for (const [name, load] of WORKERS) {
     try {
       await load()({ client });
+      started.push(name);
     } catch (err) {
       console.error(`[BG-WORKERS] ${name} non avviato:`, err?.message || err);
     }
   }
-  console.log(`[BG-WORKERS] online: ${WORKERS.map(([n]) => n).join(", ")}`);
+  console.log(
+    `[BG-WORKERS] ready — ${started.join(", ") || "none"} as ${client.user?.tag || client.user?.username || "bot"}`,
+  );
 }
 
 main().catch((err?) => {

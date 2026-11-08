@@ -53,8 +53,6 @@ async function main(shared?: { client?: any } | null) {
     maxPoolSize: 4,
     serverSelectionTimeoutMS: 12_000,
   });
-  console.log("[COMMUNITY-POLL] Mongo connected");
-
   const client = shared?.client || await createSiteApiRestClient(config, token, {
     restTimeoutMs: 12_000,
     meAttempts: 5,
@@ -89,9 +87,11 @@ async function main(shared?: { client?: any } | null) {
     startPresenceSupporterSweepLoop(client);
   }
 
-  console.log(
-    `[COMMUNITY-POLL] online as ${client.user?.tag || client.user?.username || "bot"} (twitch/gamenews/fullState/movieNight/partnerAudit/stats/cron)`,
-  );
+  if (require.main === module) {
+    console.log(
+      `[COMMUNITY-POLL] ready as ${client.user?.tag || client.user?.username || "bot"}`,
+    );
+  }
 }
 
 /* Avvio da solo oppure dentro un processo condiviso (backgroundWorkersApp / voteIntakeApp) che passa il client. */

@@ -213,9 +213,34 @@ function remapDeepConfigForTestGuild(guildId?, cfg?) {
   return out;
 }
 
+/** Label categoria senza apici/padding (¹ Info → Info): evita doppioni quando il main rinumera. */
+function categoryCoreLabel(name?) {
+  try {
+    const { extractCoreCategoryLabel } = require("../Community/services/communityOpsCategoryNames") as typeof import("../Community/services/communityOpsCategoryNames");
+    const core = extractCoreCategoryLabel(name);
+    if (core) return String(core).trim().toLowerCase();
+  } catch (_) {
+    /* optional at boot */
+  }
+  return String(name || "")
+    .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, "")
+    .replace(/[\u3000\u3164\u2800\u115F\u1160\u200B\u200C\u200D\uFEFF]/g, " ")
+    .replace(/^[・·•‧.\s]+/, "")
+    .replace(/[・·•‧.\s]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function channelKey(ch?) {
-  const parent = ch.parentId ? String(ch.parent?.name || "") : "";
-  return `${parent}::${Number(ch.type)}::${String(ch.name || "")}`;
+  const type = Number(ch?.type);
+  // GuildCategory = 4
+  if (type === 4) {
+    return `::4::${categoryCoreLabel(ch?.name)}`;
+  }
+  const parentName = ch?.parentId ? String(ch.parent?.name || "") : "";
+  const parent = parentName ? categoryCoreLabel(parentName) : "";
+  return `${parent}::${type}::${String(ch?.name || "").trim().toLowerCase()}`;
 }
 
 /** Build maps from two live guilds (name match). */
@@ -261,4 +286,5 @@ export = {
   remapDeepConfigForTestGuild,
   buildLiveMirrorMaps,
   channelKey,
+  categoryCoreLabel,
 };

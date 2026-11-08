@@ -80,7 +80,17 @@ async function restoreSerataFilmAttendanceSession(guild?) {
   if (!guild?.id || getAttendanceSession(guild.id)) return;
   const channel = guild.channels.cache.get(SERATA_FILM_VOICE_CHANNEL_ID)
     || (await getGuildChannelCached(guild, SERATA_FILM_VOICE_CHANNEL_ID).catch(() => null));
-  if (!channel?.stageInstance) return;
+  const hasStageInstance = Boolean(channel?.stageInstance);
+  let hasHumans = false;
+  if (channel?.members?.size) {
+    for (const member of channel.members.values()) {
+      if (!member?.user?.bot) {
+        hasHumans = true;
+        break;
+      }
+    }
+  }
+  if (!hasStageInstance && !hasHumans) return;
   await startSerataFilmAttendanceSession(guild);
 }
 

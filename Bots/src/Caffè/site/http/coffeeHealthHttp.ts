@@ -86,7 +86,9 @@ function startCoffeeHealthHttpServer(client?) {
     });
   });
   server.listen(port, host, () => {
-    global.logger?.info?.(`[HEALTH] Coffee listening on http://${host}:${port}/health`);
+    if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+      global.logger?.info?.(`[HEALTH] Coffee listening on http://${host}:${port}/health`);
+    }
   });
   server.on("error", (err?) => {
     global.logger?.error?.("[HEALTH] Coffee HTTP error:", err?.message || err);

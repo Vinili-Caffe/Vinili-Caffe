@@ -141,10 +141,9 @@ async function waitForLavalinkTcpThenInitShoukaku(client?) {
       refusedLogged = false;
       global.logger?.warn?.(`[MUSIC] Shoukaku node ${name}:`, err?.message || err);
     });
-    shoukaku.on("ready", (name?) => {
+    shoukaku.on("ready", () => {
       refusedLogged = false;
-      logMusic(`Lavalink collegato (nodo ${name})`);
-            scheduleMusicPlaybackResume(client);
+      scheduleMusicPlaybackResume(client);
     });
     startMusicInactivityWatcher(client);
     startMusicQueueSnapshotLoop(client);

@@ -105,7 +105,9 @@ function startGatewayHealthOnlyHttp(client?) {
     global.logger?.error?.("[WEBHOOK] health-only listen failed:", err);
   });
   server.listen(port, "0.0.0.0", () => {
-    global.logger?.info?.(`[WEBHOOK] gateway health-only on 0.0.0.0:${port} (SITE_API_EXTERNAL)`);
+    if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
+      global.logger?.info?.(`[WEBHOOK] gateway health-only on 0.0.0.0:${port} (SITE_API_EXTERNAL)`);
+    }
   });
 }
 
