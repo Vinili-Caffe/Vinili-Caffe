@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui";
 import { useEffect, useState } from "react";
 import {
   BLACKLIST_MAX_REASON,
@@ -67,7 +68,7 @@ export function TicketBlacklist({
     return () => window.clearTimeout(timer);
   }, [query, type, token, guildId]);
 
-  if (loading) return <p className="text-sm text-crema/45">Caricamento blacklist…</p>;
+  if (loading) return <p className="text-sm text-crema/60">Caricamento blacklist…</p>;
   if (error && !bundle) return <Notice>{error}</Notice>;
   if (!bundle) return null;
 
@@ -75,7 +76,7 @@ export function TicketBlacklist({
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-crema/40">
+      <p className="text-xs text-crema/60">
         <span className="lining-nums">
           {bundle.entries.length}/{bundle.quotas.maxEntries}
         </span>{" "}
@@ -179,7 +180,7 @@ export function TicketBlacklist({
                   }}
                 >
                   <span className={userId === hit.id ? "text-ember" : "text-crema/80"}>{hit.label}</span>
-                  <span className="font-mono text-[0.65rem] text-crema/35">{hit.id}</span>
+                  <span className="font-mono text-[0.65rem] text-crema/50">{hit.id}</span>
                 </button>
               </li>
             ))}
@@ -194,13 +195,13 @@ export function TicketBlacklist({
 
       <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
         {bundle.entries.length === 0 ? (
-          <li className="px-4 py-8 text-center text-sm text-crema/40">Nessuna entry</li>
+          <li className="px-4 py-8 text-center text-sm text-crema/60">Nessuna entry</li>
         ) : (
           bundle.entries.map((entry) => (
             <li key={entry.id} className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-crema">{entry.label}</p>
-                <p className="truncate text-xs text-crema/40">
+                <p className="truncate text-xs text-crema/60">
                   {entry.type === "role" ? "Ruolo" : "Utente"}
                   {entry.panelTitle ? ` · ${entry.panelTitle}` : " · tutti i pannelli"}
                   {entry.reason ? ` · ${entry.reason}` : ""}
@@ -211,6 +212,7 @@ export function TicketBlacklist({
                 className={dangerBtn}
                 disabled={busy}
                 onClick={async () => {
+                  if (!(await confirmDialog({ message: "Togliere questa voce dalla blacklist? Potrà di nuovo aprire ticket.", danger: true }))) return;
                   setBusy(true);
                   const res = await deleteTicketBlacklist(token, guildId, entry.id);
                   setBusy(false);

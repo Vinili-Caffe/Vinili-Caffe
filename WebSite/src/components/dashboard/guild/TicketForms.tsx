@@ -12,7 +12,7 @@ import {
   type FormFieldType,
   type TicketFormsBundle,
 } from "@/lib/dashboard-guild";
-import { Checkbox } from "@/components/ui";
+import { Checkbox, confirmDialog } from "@/components/ui";
 import { Select } from "@/components/ui/Select";
 import { Field, Notice, dangerBtn, fieldClass, labelClass, miniBtn, primaryMini } from "./bits";
 
@@ -175,7 +175,7 @@ export function TicketForms({
     onToast("Form aggiornato.");
   };
 
-  if (loading) return <p className="text-sm text-crema/45">Caricamento form…</p>;
+  if (loading) return <p className="text-sm text-crema/60">Caricamento form…</p>;
   if (error && !bundle) return <Notice>{error}</Notice>;
   if (!bundle) return null;
 
@@ -231,7 +231,7 @@ export function TicketForms({
           </button>
         </form>
       </div>
-      <p className="text-xs text-crema/40">
+      <p className="text-xs text-crema/60">
         <span className="lining-nums">
           {bundle.forms.length}/{maxForms}
         </span>{" "}
@@ -310,8 +310,8 @@ export function TicketForms({
                         }}
                         className={fieldClass}
                         options={[
-                          { value: "short", label: "Short" },
-                          { value: "paragraph", label: "Paragraph" },
+                          { value: "short", label: "Risposta breve" },
+                          { value: "paragraph", label: "Risposta lunga" },
                         ]}
                       />
                     </Field>
@@ -437,6 +437,7 @@ export function TicketForms({
               disabled={busy}
               onClick={async () => {
                 if (!selected) return;
+                if (!(await confirmDialog({ message: "Eliminare questo form? I pannelli che lo usano non faranno più domande. Non si può annullare.", danger: true }))) return;
                 setBusy(true);
                 const res = await deleteTicketForm(token, guildId, selected);
                 setBusy(false);
@@ -454,7 +455,7 @@ export function TicketForms({
           </div>
         </div>
       ) : (
-        <p className="text-sm text-crema/45">Seleziona un form…</p>
+        <p className="text-sm text-crema/60">Seleziona un form…</p>
       )}
     </div>
   );

@@ -122,7 +122,7 @@ export function TranscriptViewer() {
               {gate.status === 403 || /negato/i.test(gate.title) ? "Cambia account Discord" : "Accedi con Discord"}
             </button>
             {user && (
-              <p className="text-xs text-crema/45">
+              <p className="text-xs text-crema/60">
                 Sessione: {user.global_name || user.username}
               </p>
             )}

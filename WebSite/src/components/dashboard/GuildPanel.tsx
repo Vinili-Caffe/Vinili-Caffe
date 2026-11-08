@@ -159,7 +159,7 @@ function GuildHero({ guild, premiumActive, prefix }: { guild: GuildOverview; pre
               <span className="rounded-md bg-crema/10 px-2 py-0.5 text-[0.7rem] font-semibold text-crema/80 ring-1 ring-sand/25">Principale</span>
             ) : null}
           </div>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-crema/45">
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-crema/60">
             <span className={cn("inline-flex items-center gap-1.5", guild.botPresent ? "text-[#9fd0a8] light:text-[#2f6b3f]" : "text-[#f0a493] light:text-[#a83a2c]")}>
               <span className={cn("size-1.5 rounded-full", guild.botPresent ? "bg-[#7fc48c]" : "bg-[#e0735f]")} aria-hidden />
               {guild.botPresent ? "Vinili è nel server" : "Vinili non è nel server"}
@@ -169,7 +169,7 @@ function GuildHero({ guild, premiumActive, prefix }: { guild: GuildOverview; pre
                 Prefisso <span className="rounded bg-espresso/70 px-1.5 font-mono text-crema/80">{prefix}</span>
               </span>
             ) : null}
-            <span className="font-mono text-[0.65rem] text-crema/30">{guild.id}</span>
+            <span className="font-mono text-[0.65rem] text-crema/50">{guild.id}</span>
           </p>
         </div>
       </div>
@@ -262,7 +262,7 @@ function BotIdentityCard({
               <span className="truncate">{shownName}</span>
               <span className="shrink-0 rounded bg-[#5865f2] px-1 py-px text-[0.55rem] font-bold uppercase text-white">Bot</span>
             </p>
-            <p className="truncate text-xs text-crema/45" title={settings.botPresence?.text || presence.label}>
+            <p className="truncate text-xs text-crema/60" title={settings.botPresence?.text || presence.label}>
               {settings.botPresence?.text || presence.label}
             </p>
           </div>
@@ -272,7 +272,7 @@ function BotIdentityCard({
       <label htmlFor="bot-nick" className="mt-4 block">
         <span className="flex items-center gap-1.5 text-xs font-semibold text-crema/70">
           Nickname nel server
-          {!canCustomize ? <Lock className="size-3 text-crema/35" aria-label="Premium" /> : null}
+          {!canCustomize ? <Lock className="size-3 text-crema/50" aria-label="Premium" /> : null}
         </span>
         <input
           id="bot-nick"
@@ -309,7 +309,7 @@ function BotIdentityCard({
           ) : null}
         </div>
       ) : (
-        <p className="mt-1.5 text-xs text-crema/40">Per cambiare il nickname del bot serve Vinili Premium.</p>
+        <p className="mt-1.5 text-xs text-crema/60">Per cambiare il nickname del bot serve Vinili Premium.</p>
       )}
     </Panel>
   );
@@ -383,8 +383,8 @@ function SettingsSection({
           <div className="grid gap-4 sm:grid-cols-2">
             <label htmlFor="prefix" className="block">
               <span className="flex items-center gap-1.5 text-xs font-semibold text-crema/70">
-                <Hash className="size-3.5 text-crema/40" aria-hidden /> Prefisso comandi
-                {prefixLocked ? <Lock className="size-3 text-crema/35" aria-label="Bloccato" /> : null}
+                <Hash className="size-3.5 text-crema/60" aria-hidden /> Prefisso comandi
+                {prefixLocked ? <Lock className="size-3 text-crema/50" aria-label="Bloccato" /> : null}
               </span>
               <input
                 id="prefix"
@@ -406,15 +406,15 @@ function SettingsSection({
                 }}
                 className={cn(fieldCls, "mt-1.5 font-mono")}
               />
-              <span className="mt-1 block text-xs text-crema/35">
+              <span className="mt-1 block text-xs text-crema/50">
                 {prefixLocked ? "Bloccato sul server Vinili." : "Si salva quando esci dal campo."}
               </span>
             </label>
 
             <label className="block">
               <span className="flex items-center gap-1.5 text-xs font-semibold text-crema/70">
-                <Megaphone className="size-3.5 text-crema/40" aria-hidden /> Canale aggiornamenti
-                {updatesLocked ? <Lock className="size-3 text-crema/35" aria-label="Bloccato" /> : null}
+                <Megaphone className="size-3.5 text-crema/60" aria-hidden /> Canale aggiornamenti
+                {updatesLocked ? <Lock className="size-3 text-crema/50" aria-label="Bloccato" /> : null}
               </span>
               <Select
                 value={updatesChannelId}
@@ -431,7 +431,7 @@ function SettingsSection({
                   ...pickers.textChannels.map((ch) => ({ value: ch.id, label: `#${ch.name}` })),
                 ]}
               />
-              <span className="mt-1 block text-xs text-crema/35">
+              <span className="mt-1 block text-xs text-crema/50">
                 {updatesLocked
                   ? "Sul server principale Vinili questo canale non si configura da dashboard."
                   : "Inoltro degli aggiornamenti dal canale news di Vinili."}
@@ -472,7 +472,7 @@ function SettingsSection({
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-crema">{feat.title}</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-crema/40">{feat.hint}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-crema/60">{feat.hint}</p>
                 </div>
                 <Toggle
                   checked={features[feat.id]}
@@ -645,13 +645,13 @@ function CommandsSection({
         <div className="space-y-3 px-4 pt-4 sm:px-5">
           <label className="relative block">
             <span className="sr-only">Cerca comando</span>
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-crema/35" aria-hidden />
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-crema/50" aria-hidden />
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Cerca un comando…"
-              className={cn(fieldCls, "pl-9 placeholder:text-crema/30")}
+              className={cn(fieldCls, "pl-9 placeholder:text-crema/50")}
             />
           </label>
           <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Categorie comandi">
@@ -675,7 +675,7 @@ function CommandsSection({
 
         <ul className="divide-y divide-sand/[0.07] border-t border-sand/[0.08]">
           {rows.length === 0 ? (
-            <li className="px-4 py-8 text-center text-sm text-crema/45">
+            <li className="px-4 py-8 text-center text-sm text-crema/60">
               {query ? "Nessun comando con questo nome." : "Nessun comando in questa categoria."}
             </li>
           ) : (
@@ -698,7 +698,7 @@ function CommandsSection({
                     <span
                       className={cn(
                         "hidden size-8 shrink-0 items-center justify-center rounded-lg font-mono text-sm font-bold sm:flex",
-                        on ? "bg-caramel/12 text-ember" : "bg-crema/[0.04] text-crema/30",
+                        on ? "bg-caramel/12 text-ember" : "bg-crema/[0.04] text-crema/50",
                       )}
                       aria-hidden
                     >
@@ -706,10 +706,10 @@ function CommandsSection({
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className={cn("text-sm font-semibold", !context && "font-mono", on ? "text-crema" : "text-crema/45")}>
+                        <span className={cn("text-sm font-semibold", !context && "font-mono", on ? "text-crema" : "text-crema/60")}>
                           {shownName}
                         </span>
-                        <span className="rounded bg-crema/[0.06] px-1.5 py-px text-[0.58rem] font-semibold uppercase tracking-wider text-crema/40">
+                        <span className="rounded bg-crema/[0.06] px-1.5 py-px text-[0.58rem] font-semibold uppercase tracking-wider text-crema/60">
                           {badge}
                         </span>
                         {restricted ? (
@@ -718,7 +718,7 @@ function CommandsSection({
                           </span>
                         ) : null}
                       </div>
-                      {cmd.description ? <p className="mt-0.5 truncate text-xs text-crema/40">{cmd.description}</p> : null}
+                      {cmd.description ? <p className="mt-0.5 truncate text-xs text-crema/60">{cmd.description}</p> : null}
                       {locked ? <p className="mt-0.5 text-[0.68rem] text-caramel/85">Bloccato da funzione bacheca</p> : null}
                     </div>
                     <button

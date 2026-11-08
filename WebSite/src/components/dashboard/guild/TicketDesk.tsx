@@ -175,7 +175,7 @@ export function TicketDesk({
         <span
           className={cn(
             "flex size-11 shrink-0 items-center justify-center rounded-xl ring-1",
-            enabled ? "bg-caramel/15 text-ember ring-caramel/30" : "bg-crema/[0.05] text-crema/40 ring-sand/15",
+            enabled ? "bg-caramel/15 text-ember ring-caramel/30" : "bg-crema/[0.05] text-crema/60 ring-sand/15",
           )}
         >
           <Ticket className="size-5" />
@@ -299,10 +299,10 @@ export function TicketDesk({
           >
             {!list?.tickets.length ? (
               <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-                <span className="flex size-11 items-center justify-center rounded-xl bg-crema/[0.05] text-crema/35">
+                <span className="flex size-11 items-center justify-center rounded-xl bg-crema/[0.05] text-crema/50">
                   <Inbox className="size-5" />
                 </span>
-                <p className="text-sm text-crema/45">{status === "open" ? "Nessun ticket aperto. Tutto tranquillo." : "Nessun ticket."}</p>
+                <p className="text-sm text-crema/60">{status === "open" ? "Nessun ticket aperto. Tutto tranquillo." : "Nessun ticket."}</p>
               </div>
             ) : (
               <ul className="divide-y divide-sand/[0.07]">
@@ -314,7 +314,7 @@ export function TicketDesk({
                       <span
                         className={cn(
                           "flex size-9 shrink-0 items-center justify-center rounded-lg font-mono text-[0.7rem] font-bold tabular-nums",
-                          row.open ? "bg-caramel/12 text-ember" : "bg-crema/[0.05] text-crema/40",
+                          row.open ? "bg-caramel/12 text-ember" : "bg-crema/[0.05] text-crema/60",
                         )}
                       >
                         {row.ticketNumber ?? "—"}
@@ -332,12 +332,12 @@ export function TicketDesk({
                               {claimed ? "in carico" : "in attesa"}
                             </span>
                           ) : (
-                            <span className="rounded bg-crema/[0.06] px-1.5 py-px text-[0.58rem] font-bold uppercase tracking-wider text-crema/40">
+                            <span className="rounded bg-crema/[0.06] px-1.5 py-px text-[0.58rem] font-bold uppercase tracking-wider text-crema/60">
                               chiuso
                             </span>
                           )}
                         </p>
-                        <p className="mt-0.5 truncate text-xs text-crema/45">
+                        <p className="mt-0.5 truncate text-xs text-crema/60">
                           {who}
                           {row.claimedByUsername ? ` · gestito da ${row.claimedByUsername}` : ""}
                         </p>

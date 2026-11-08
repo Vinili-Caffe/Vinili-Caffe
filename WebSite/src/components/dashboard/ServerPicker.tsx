@@ -111,7 +111,7 @@ function GuildCard({ guild, last }: { guild: DashboardGuild; last?: boolean }) {
 
       <span className="flex flex-1 flex-col px-4 pb-4 pt-3">
         <span className="block truncate font-semibold text-crema">{guild.name}</span>
-        <span className="mt-0.5 block truncate text-xs text-crema/45">{guildMeta(guild)}</span>
+        <span className="mt-0.5 block truncate text-xs text-crema/60">{guildMeta(guild)}</span>
         <span
           className={cn(
             "mt-4 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition",
@@ -391,19 +391,19 @@ export function ServerPicker() {
                 {guilds.length > 6 ? (
                   <label className="relative block sm:max-w-sm">
                     <span className="sr-only">Cerca server</span>
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-crema/35" aria-hidden />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-crema/50" aria-hidden />
                     <input
                       type="search"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Cerca un server…"
-                      className="w-full rounded-lg bg-roast/80 py-2 pl-9 pr-3 text-sm text-crema ring-1 ring-sand/15 outline-none placeholder:text-crema/30 focus:ring-caramel/40"
+                      className="w-full rounded-lg bg-roast/80 py-2 pl-9 pr-3 text-sm text-crema ring-1 ring-sand/15 outline-none placeholder:text-crema/50 focus:ring-caramel/40"
                     />
                   </label>
                 ) : null}
 
                 {shownGuilds.length === 0 ? (
-                  <p className="rounded-xl bg-roast/60 px-4 py-6 text-center text-sm text-crema/45 ring-1 ring-sand/10">Nessun server con questo nome.</p>
+                  <p className="rounded-xl bg-roast/60 px-4 py-6 text-center text-sm text-crema/60 ring-1 ring-sand/10">Nessun server con questo nome.</p>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-live="polite">
                     {shownGuilds.map((g) => (

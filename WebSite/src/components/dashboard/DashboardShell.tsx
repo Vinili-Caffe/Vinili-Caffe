@@ -136,7 +136,7 @@ function NavItem({
       ) : active ? (
         <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-to-b from-ember to-caramel" aria-hidden />
       ) : null}
-      <Icon className={cn("size-[1.05rem] shrink-0", active ? "text-ember" : "text-crema/40 group-hover:text-crema/70")} />
+      <Icon className={cn("size-[1.05rem] shrink-0", active ? "text-ember" : "text-crema/60 group-hover:text-crema/70")} />
       <span className="min-w-0 flex-1 truncate text-left">{label}</span>
       {badge ? (
         <span className="rounded-md bg-caramel px-1.5 py-px text-[0.65rem] font-bold tabular-nums text-ink">{badge > 99 ? "99+" : badge}</span>
@@ -160,7 +160,7 @@ function NavItem({
 function NavGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-1 px-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-crema/30">{title}</p>
+      <p className="mb-1 px-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-crema/50">{title}</p>
       <div className="space-y-0.5">{children}</div>
     </div>
   );
@@ -211,10 +211,10 @@ function ServerSwitcher({ current }: { current: ShellGuild | null }) {
           </span>
         )}
         <span className="min-w-0 flex-1">
-          <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-crema/35">Server</span>
+          <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-crema/50">Server</span>
           <span className="block truncate text-sm font-semibold text-crema">{shown ? shown.name : "Scegli un server"}</span>
         </span>
-        <ChevronsUpDown className="size-4 shrink-0 text-crema/35" aria-hidden />
+        <ChevronsUpDown className="size-4 shrink-0 text-crema/50" aria-hidden />
       </button>
 
       <AnimatePresence>
@@ -229,7 +229,7 @@ function ServerSwitcher({ current }: { current: ShellGuild | null }) {
           >
             <div className="max-h-72 overflow-y-auto p-1">
               {guilds.length === 0 ? (
-                <p className="px-2.5 py-3 text-xs text-crema/45">L&apos;elenco compare dopo aver aperto &quot;I miei server&quot;.</p>
+                <p className="px-2.5 py-3 text-xs text-crema/60">L&apos;elenco compare dopo aver aperto &quot;I miei server&quot;.</p>
               ) : (
                 guilds.map((g) => {
                   const on = shown?.id === g.id;
@@ -253,7 +253,7 @@ function ServerSwitcher({ current }: { current: ShellGuild | null }) {
                       <GuildIcon guild={g} className="size-7 rounded-lg" />
                       <span className="min-w-0 flex-1 truncate">{g.name}</span>
                       {g.premiumActive ? <Diamond className="size-3.5 shrink-0 text-ember" aria-label="Premium" /> : null}
-                      {!g.botPresent ? <span className="shrink-0 text-[0.6rem] font-semibold uppercase text-crema/35">invita</span> : null}
+                      {!g.botPresent ? <span className="shrink-0 text-[0.6rem] font-semibold uppercase text-crema/50">invita</span> : null}
                     </button>
                   );
                 })
@@ -293,7 +293,7 @@ function UserCard() {
       <img src={avatarUrl(user, 64)} alt="" width={32} height={32} className="size-8 shrink-0 rounded-full" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold text-crema">{displayName(user)}</span>
-        <span className="block truncate text-[0.7rem] text-crema/40">@{user.username}</span>
+        <span className="block truncate text-[0.7rem] text-crema/60">@{user.username}</span>
       </span>
     </div>
   );
@@ -372,7 +372,7 @@ function Sidebar({ guild, guildNav, onNavigate }: { guild: ShellGuild | null; gu
         <UserCard />
         <SmartLink
           href="/"
-          className="flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-crema/45 transition hover:text-crema"
+          className="flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-crema/60 transition hover:text-crema"
         >
           <House className="size-3.5" aria-hidden /> Torna al sito
         </SmartLink>
@@ -479,13 +479,13 @@ export function DashboardShell({
               <Menu className="size-[1.1rem]" />
             </button>
             <nav aria-label="Percorso" className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
-              <SmartLink href={page("/dashboard/")} className="shrink-0 text-crema/45 transition hover:text-crema">
+              <SmartLink href={page("/dashboard/")} className="shrink-0 text-crema/60 transition hover:text-crema">
                 Dashboard
               </SmartLink>
               {guild ? (
                 <>
                   <ChevronRight className="size-3.5 shrink-0 text-crema/25" aria-hidden />
-                  <span className="max-w-[10rem] truncate text-crema/45 sm:max-w-[16rem]">{guild.name}</span>
+                  <span className="max-w-[10rem] truncate text-crema/60 sm:max-w-[16rem]">{guild.name}</span>
                 </>
               ) : null}
               <ChevronRight className="size-3.5 shrink-0 text-crema/25" aria-hidden />

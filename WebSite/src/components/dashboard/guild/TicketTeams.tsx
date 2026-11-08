@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui";
 import { useEffect, useState } from "react";
 import {
   TEAM_PERM_KEYS,
@@ -115,7 +116,7 @@ export function TicketTeams({
     applyBundle(res.data, team.id);
   };
 
-  if (loading) return <p className="text-sm text-crema/45">Caricamento team…</p>;
+  if (loading) return <p className="text-sm text-crema/60">Caricamento team…</p>;
   if (error && !bundle) return <Notice>{error}</Notice>;
   if (!bundle) return null;
 
@@ -134,7 +135,7 @@ export function TicketTeams({
             className={fieldClass}
             options={bundle.teams.map((t) => ({
               value: t.id,
-              label: t.isDefault ? `${t.name} (Default)` : t.name,
+              label: t.isDefault ? `${t.name} (predefinito)` : t.name,
             }))}
           />
         </Field>
@@ -172,7 +173,7 @@ export function TicketTeams({
           </button>
         </form>
       </div>
-      <p className="text-xs text-crema/40">
+      <p className="text-xs text-crema/60">
         <span className="lining-nums">
           {bundle.teams.length}/{bundle.quotas.maxTeams}
         </span>{" "}
@@ -240,7 +241,7 @@ export function TicketTeams({
                     }}
                   >
                     <span>{hit.label}</span>
-                    <span className="font-mono text-[0.65rem] text-crema/35">{hit.id}</span>
+                    <span className="font-mono text-[0.65rem] text-crema/50">{hit.id}</span>
                   </button>
                 </li>
               ))}
@@ -249,7 +250,7 @@ export function TicketTeams({
 
           <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
             {members.length === 0 ? (
-              <li className="px-4 py-8 text-center text-sm text-crema/40">Nessun membro</li>
+              <li className="px-4 py-8 text-center text-sm text-crema/60">Nessun membro</li>
             ) : (
               members.map((m) => (
                 <li key={`${m.type}:${m.id}`} className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm">
@@ -271,7 +272,7 @@ export function TicketTeams({
           </ul>
 
           {team.isDefault ? (
-            <p className="text-xs text-crema/40">Il team Default non può essere eliminato.</p>
+            <p className="text-xs text-crema/60">Il team predefinito non si può eliminare.</p>
           ) : (
             <div className="space-y-3 rounded-xl bg-espresso/50 p-4 ring-1 ring-sand/10">
               {keys.map((key) => (
@@ -298,6 +299,7 @@ export function TicketTeams({
               className={dangerBtn}
               disabled={busy}
               onClick={async () => {
+                if (!(await confirmDialog({ message: `Eliminare il team «${team.name}»? I pannelli che lo usano passano al team predefinito.`, danger: true }))) return;
                 setBusy(true);
                 const res = await deleteTicketTeam(token, guildId, team.id);
                 setBusy(false);

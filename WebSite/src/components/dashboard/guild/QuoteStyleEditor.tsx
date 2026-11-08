@@ -192,11 +192,11 @@ export function QuoteStyleEditor({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-crema">Stile quote</p>
-          <p className="mt-0.5 text-xs text-crema/40">
+          <p className="mt-0.5 text-xs text-crema/60">
             Anteprima dal canvas reale di <code className="text-crema/55">+quote</code> (stesso render del bot).
           </p>
         </div>
-        {locked ? <Lock className="size-3.5 text-crema/35" aria-label="Richiede premium" /> : null}
+        {locked ? <Lock className="size-3.5 text-crema/50" aria-label="Richiede premium" /> : null}
       </div>
 
       {locked ? (
@@ -210,7 +210,7 @@ export function QuoteStyleEditor({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={previewUrl} alt="Anteprima quote" className="mx-auto max-h-[320px] w-full object-contain" />
         ) : (
-          <div className="flex min-h-[160px] items-center justify-center px-4 py-8 text-sm text-crema/45">
+          <div className="flex min-h-[160px] items-center justify-center px-4 py-8 text-sm text-crema/60">
             {previewLoading ? "Generazione anteprima…" : previewFailed ? "Anteprima non disponibile." : "Anteprima quote"}
           </div>
         )}
@@ -302,14 +302,14 @@ export function QuoteStyleEditor({
         <div className="flex items-center justify-between gap-3 rounded-xl bg-espresso/55 p-3 ring-1 ring-sand/10">
           <div>
             <p className="text-sm font-semibold text-crema">Grassetto</p>
-            <p className="mt-0.5 text-xs text-crema/40">Testo in bold.</p>
+            <p className="mt-0.5 text-xs text-crema/60">Testo in bold.</p>
           </div>
           <Toggle checked={draft.bold} disabled={busy} label="Grassetto" onChange={(next) => patch({ bold: next })} />
         </div>
         <div className="flex items-center justify-between gap-3 rounded-xl bg-espresso/55 p-3 ring-1 ring-sand/10">
           <div>
             <p className="text-sm font-semibold text-crema">Specchio</p>
-            <p className="mt-0.5 text-xs text-crema/40">Inverte il layout orizzontale.</p>
+            <p className="mt-0.5 text-xs text-crema/60">Inverte il layout orizzontale.</p>
           </div>
           <Toggle checked={draft.flip} disabled={busy} label="Specchio" onChange={(next) => patch({ flip: next })} />
         </div>

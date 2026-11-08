@@ -176,7 +176,7 @@ export function PartnershipPanel({
     { intervalMs: 90_000, enabled: tab === "migrazione", boot: false, topics: ["partnership"] },
   );
 
-  if (loading) return <p className="text-sm text-crema/45">Caricamento partnership…</p>;
+  if (loading) return <p className="text-sm text-crema/60">Caricamento partnership…</p>;
   if (error && !bundle) return <Notice>{error}</Notice>;
   if (!bundle || !draft) return null;
 
@@ -448,7 +448,7 @@ export function PartnershipPanel({
           ) : null}
 
           <Disclosure title="Messaggio di ringraziamento">
-            <p className="text-xs text-crema/40">Richiede Vinili Premium se è attivo.</p>
+            <p className="text-xs text-crema/60">Richiede Vinili Premium se è attivo.</p>
             <div className="mt-3 space-y-2">
               <Toggle
                 checked={draft.thankYouEmbed.enabled}
@@ -527,14 +527,14 @@ export function PartnershipPanel({
 
       {tab === "filtri" ? (
         <div className="space-y-2">
-          <p className="text-xs text-crema/45">
+          <p className="text-xs text-crema/60">
             Regole di pulizia sulla descrizione partnership. L&apos;invito Discord non viene rimosso.
           </p>
           {FILTERS.map((row) => (
             <div key={row.key} className="flex items-center justify-between gap-3 py-1.5">
               <div>
                 <p className="text-sm text-crema">{row.title}</p>
-                <p className="text-xs text-crema/40">{row.hint}</p>
+                <p className="text-xs text-crema/60">{row.hint}</p>
               </div>
               <Toggle
                 checked={draft.contentFilters[row.key]}
@@ -600,13 +600,13 @@ export function PartnershipPanel({
           </form>
           <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
             {!blacklist?.length ? (
-              <li className="px-4 py-8 text-center text-sm text-crema/40">Nessun server in blacklist</li>
+              <li className="px-4 py-8 text-center text-sm text-crema/60">Nessun server in blacklist</li>
             ) : (
               blacklist.map((row) => (
                 <li key={row.guildId} className="flex items-center justify-between gap-2 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
                   <div className="min-w-0">
                     <p className="truncate text-sm text-crema">{row.guildName || row.guildId}</p>
-                    <p className="truncate text-xs text-crema/40">
+                    <p className="truncate text-xs text-crema/60">
                       {row.invite || row.guildId}
                       {row.note ? ` · ${row.note}` : ""}
                     </p>
@@ -615,6 +615,7 @@ export function PartnershipPanel({
                     type="button"
                     className={dangerBtn}
                     onClick={async () => {
+                      if (!(await confirmDialog({ message: "Togliere questo server dalla blacklist partnership?", danger: true }))) return;
                       const res = await deletePartnershipBlacklistEntry(token, guildId, row.guildId);
                       if (!res.ok) {
                         onToast(res.message, true);
@@ -635,13 +636,13 @@ export function PartnershipPanel({
       {tab === "manager" ? (
         <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
           {managers.length === 0 ? (
-            <li className="px-4 py-8 text-center text-sm text-crema/40">Nessun partner manager</li>
+            <li className="px-4 py-8 text-center text-sm text-crema/60">Nessun partner manager</li>
           ) : (
             managers.map((m) => (
               <li key={m.userId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
                 <div>
                   <p className="text-sm text-crema">{m.displayName}</p>
-                  <p className="text-xs text-crema/40">
+                  <p className="text-xs text-crema/60">
                     <span className="lining-nums">{m.points}</span> punti · giorno {m.daily} · settimana {m.weekly}
                   </p>
                 </div>
@@ -702,19 +703,19 @@ export function PartnershipPanel({
             />
           </Field>
           {history ? (
-            <p className="text-xs text-crema/45">
+            <p className="text-xs text-crema/60">
               <span className="lining-nums">{history.totalPartnerships}</span> partnership ·{" "}
               <span className="lining-nums">{history.uniqueServers}</span> server
             </p>
           ) : null}
           <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
             {!history?.entries.length ? (
-              <li className="px-4 py-8 text-center text-sm text-crema/40">Nessuna partnership nel periodo</li>
+              <li className="px-4 py-8 text-center text-sm text-crema/60">Nessuna partnership nel periodo</li>
             ) : (
               history.entries.map((row, i) => (
                 <li key={`${row.guildId || row.invite || i}`} className="px-4 py-3">
                   <p className="text-sm text-crema">{row.guildName || row.invite || "Server"}</p>
-                  <p className="text-xs text-crema/40">
+                  <p className="text-xs text-crema/60">
                     <span className="lining-nums">{row.count}</span>
                     {row.lastAt ? ` · ${row.lastAt.slice(0, 10)}` : ""}
                   </p>
