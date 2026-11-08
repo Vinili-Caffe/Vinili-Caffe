@@ -192,17 +192,129 @@ function GuildHero({
   );
 }
 
+const PRESENCE: Record<string, { label: string; dot: string }> = {
+  online: { label: "Online", dot: "bg-[#23a55a]" },
+  idle: { label: "Inattivo", dot: "bg-[#f0b232]" },
+  dnd: { label: "Non disturbare", dot: "bg-[#f23f43]" },
+  offline: { label: "Offline", dot: "bg-[#80848e]" },
+  invisible: { label: "Offline", dot: "bg-[#80848e]" },
+};
+
+/** Il bot come appare su Discord in questo server, con lo stato attuale e il cambio del nickname. */
+function BotIdentityCard({
+  settings,
+  canCustomize,
+  saving,
+  onSaveNick,
+}: {
+  settings: GuildSettings;
+  canCustomize: boolean;
+  saving: boolean;
+  onSaveNick: (nick: string | null) => Promise<boolean>;
+}) {
+  const [nick, setNick] = useState(settings.botNickname ?? "");
+  useEffect(() => setNick(settings.botNickname ?? ""), [settings.botNickname]);
+
+  const presence = PRESENCE[settings.botPresence?.status || "online"] ?? PRESENCE.online;
+  const shownName = nick.trim() || settings.botUsername || "Vinili";
+  const changed = nick.trim() !== (settings.botNickname ?? "").trim();
+
+  const submit = async () => {
+    if (!changed || saving || !canCustomize) return;
+    const ok = await onSaveNick(nick.trim() || null);
+    if (!ok) setNick(settings.botNickname ?? "");
+  };
+
+  return (
+    <Panel icon={<Bot />} title="Il bot in questo server" description="Anteprima live" className="h-fit">
+      <div className="rounded-xl bg-espresso/60 p-3 ring-1 ring-sand/10">
+        <div className="flex items-center gap-3">
+          <span className="relative shrink-0">
+            {settings.botAvatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={settings.botAvatarUrl} alt="" width={44} height={44} className="size-11 rounded-full" />
+            ) : (
+              <span className="flex size-11 items-center justify-center rounded-full bg-mocha text-crema/50">
+                <Bot className="size-5" aria-hidden />
+              </span>
+            )}
+            <span
+              className={cn("absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full ring-[3px] ring-espresso", presence.dot)}
+              title={presence.label}
+              aria-hidden
+            />
+          </span>
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 font-semibold text-crema">
+              <span className="truncate">{shownName}</span>
+              <span className="shrink-0 rounded bg-[#5865f2] px-1 py-px text-[0.55rem] font-bold uppercase text-white">Bot</span>
+            </p>
+            <p className="truncate text-xs text-crema/45" title={settings.botPresence?.text || presence.label}>
+              {settings.botPresence?.text || presence.label}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <label htmlFor="bot-nick" className="mt-4 block">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-crema/70">
+          Nickname nel server
+          {!canCustomize ? <Lock className="size-3 text-crema/35" aria-label="Premium" /> : null}
+        </span>
+        <input
+          id="bot-nick"
+          name="bot-nick"
+          value={nick}
+          maxLength={32}
+          disabled={saving || !canCustomize}
+          placeholder={settings.botUsername || "Vinili"}
+          onChange={(e) => setNick(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void submit();
+          }}
+          className={cn(fieldCls, "mt-1.5")}
+        />
+      </label>
+      {canCustomize ? (
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" disabled={!changed || saving} onClick={() => void submit()} className={cn(dashPrimaryBtn, "px-3 py-1.5 text-xs")}>
+            Salva
+          </button>
+          {settings.botNickname ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={async () => {
+                setNick("");
+                const ok = await onSaveNick(null);
+                if (!ok) setNick(settings.botNickname ?? "");
+              }}
+              className={cn(dashSecondaryBtn, "px-3 py-1.5 text-xs")}
+            >
+              Ripristina
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-1.5 text-xs text-crema/40">Per cambiare il nickname del bot serve Vinili Premium.</p>
+      )}
+    </Panel>
+  );
+}
+
 function SettingsSection({
   guildId,
   token,
   settings,
   pickers,
   error,
+  canCustomize,
   onUpdated,
   onToast,
 }: {
   guildId: string;
   token: string;
+  canCustomize: boolean;
   settings: GuildSettings | null;
   pickers: SettingsPickers;
   error: string | null;
@@ -370,27 +482,12 @@ function SettingsSection({
       </div>
 
       {settings.botUsername ? (
-        <Panel icon={<Bot />} title="Il bot in questo server" className="h-fit">
-          <div className="flex items-center gap-3">
-            {settings.botAvatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={settings.botAvatarUrl} alt="" width={44} height={44} className="size-11 rounded-full ring-1 ring-sand/20" />
-            ) : (
-              <span className="flex size-11 items-center justify-center rounded-full bg-mocha text-crema/50">
-                <Bot className="size-5" aria-hidden />
-              </span>
-            )}
-            <div className="min-w-0">
-              <p className="flex items-center gap-1.5 truncate font-semibold text-crema">
-                {settings.botNickname || settings.botUsername}
-                <span className="rounded bg-[#5865f2] px-1 py-px text-[0.55rem] font-bold uppercase text-white">Bot</span>
-              </p>
-              <p className="truncate text-xs text-crema/40">
-                {settings.botNickname ? `${settings.botUsername} · nick nel server` : settings.botUsername}
-              </p>
-            </div>
-          </div>
-        </Panel>
+        <BotIdentityCard
+          settings={settings}
+          canCustomize={canCustomize}
+          saving={saving}
+          onSaveNick={(nick) => save({ botNickname: nick }, nick ? "Nickname del bot aggiornato." : "Nickname del bot ripristinato.")}
+        />
       ) : null}
     </div>
   );
@@ -932,6 +1029,7 @@ export function GuildPanel() {
                         settings={settings}
                         pickers={pickers}
                         error={settingsError}
+                        canCustomize={premiumActive || overview.isMainGuild || overview.isProtectedGuild}
                         onUpdated={(next, nextPickers) => {
                           setSettings(next);
                           if (nextPickers) setPickers(nextPickers);

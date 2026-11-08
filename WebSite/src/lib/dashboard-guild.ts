@@ -58,6 +58,8 @@ export type GuildSettings = {
   botNickname: string | null;
   botAvatarUrl: string | null;
   botUsername: string | null;
+  /** stato del bot ora su Discord (online/idle/dnd/offline) e attività */
+  botPresence: { status: string; text: string } | null;
   prefixLocked: boolean;
   rolesLocked: boolean;
   updatesLocked: boolean;
@@ -315,6 +317,13 @@ function mapSettings(data: Record<string, unknown>): { settings: GuildSettings; 
       botNickname: s.botNickname != null ? String(s.botNickname) : null,
       botAvatarUrl: s.botAvatarUrl ? String(s.botAvatarUrl) : null,
       botUsername: s.botUsername ? String(s.botUsername) : null,
+      botPresence:
+        s.botPresence && typeof s.botPresence === "object"
+          ? {
+              status: String((s.botPresence as Record<string, unknown>).status || "online"),
+              text: String((s.botPresence as Record<string, unknown>).text || ""),
+            }
+          : null,
       prefixLocked: protectedGuild || s.prefixLocked === true,
       rolesLocked: s.rolesLocked === true,
       updatesLocked: protectedGuild || s.updatesLocked === true,
