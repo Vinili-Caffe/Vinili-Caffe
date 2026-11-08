@@ -12,19 +12,20 @@ import {
   type FormFieldType,
   type TicketFormsBundle,
 } from "@/lib/dashboard-guild";
-import { Checkbox, confirmDialog } from "@/components/ui";
+import { confirmDialog } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { Select } from "@/components/ui/Select";
-import { Field, Notice, dangerBtn, fieldClass, labelClass, miniBtn, primaryMini } from "./bits";
+import { EditorHeader, Field, FormGroup, Notice, SettingRow, Toggle, dangerBtn, fieldClass, labelClass, miniBtn, primaryMini } from "./bits";
 
 const TYPE_LABELS: Record<FormFieldType, string> = {
-  text_input: "Text Input",
-  string_select: "String Select",
-  user_select: "User Select",
-  role_select: "Role Select",
-  mentionable_select: "Mentionable Select",
-  channel_select: "Channel Select",
-  radio_group: "Radio Group",
-  checkbox_group: "Checkbox Group",
+  text_input: "Testo libero",
+  string_select: "Menu di opzioni",
+  user_select: "Scelta di un utente",
+  role_select: "Scelta di un ruolo",
+  mentionable_select: "Utente o ruolo",
+  channel_select: "Scelta di un canale",
+  radio_group: "Una sola opzione",
+  checkbox_group: "Più opzioni (caselle)",
 };
 
 function needsOptions(type: FormFieldType) {
@@ -135,14 +136,14 @@ export function TicketForms({
     if (!selected) return;
     const cleanTitle = title.trim().slice(0, FORM_LIMITS.maxTitle);
     if (!cleanTitle) {
-      onToast("Titolo form non valido.", true);
+      onToast("Il form deve avere un titolo.", true);
       return;
     }
     const clean: FormField[] = [];
     for (const field of fields.slice(0, maxFields)) {
       const label = field.label.trim().slice(0, FORM_LIMITS.maxLabel);
       if (!label) {
-        onToast("Titolo form non valido.", true);
+        onToast("Ogni domanda deve avere un testo.", true);
         return;
       }
       const options = field.options
@@ -179,284 +180,373 @@ export function TicketForms({
   if (error && !bundle) return <Notice>{error}</Notice>;
   if (!bundle) return null;
 
+  const current = bundle.forms.find((f) => f.id === selected) || null;
+  const moveField = (from: number, to: number) =>
+    setFields((rows) => {
+      if (to < 0 || to >= rows.length) return rows;
+      const next = rows.slice();
+      const [it] = next.splice(from, 1);
+      next.splice(to, 0, it);
+      return next;
+    });
+
+  const createForm = async () => {
+    const name = createName.trim().slice(0, FORM_LIMITS.maxTitle);
+    if (!name) {
+      onToast("Scrivi il titolo del nuovo form.", true);
+      return;
+    }
+    if (bundle.forms.length >= maxForms) {
+      onToast(`Hai già ${maxForms} form, il massimo.`, true);
+      return;
+    }
+    setBusy(true);
+    const res = await createTicketForm(token, guildId, name);
+    setBusy(false);
+    if (!res.ok) {
+      onToast(res.message || "Creazione form non riuscita.", true);
+      return;
+    }
+    setBundle(res.data);
+    setCreateName("");
+    const created = res.data.forms.find((f) => f.title === name);
+    if (created) setSelected(created.id);
+    onToast("Form creato.");
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-2">
-        <Field label="Form">
-          <Select
-            value={selected}
-            onChange={setSelected}
-            placeholder="Seleziona un form…"
-            className={fieldClass}
-            options={bundle.forms.map((f) => ({ value: f.id, label: f.title }))}
-          />
-        </Field>
+    <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)]">
+      {/* elenco dei form (colonna a sinistra, come una barra laterale) */}
+      <aside className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          <h3 className="text-sm font-semibold text-crema">Form</h3>
+          <span className="text-xs tabular-nums text-crema/60">
+            {bundle.forms.length}/{maxForms}
+          </span>
+        </div>
+        {bundle.forms.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-sand/20 px-3 py-4 text-center text-xs text-crema/60">
+            Nessun form. Le domande che il bot fa prima di aprire un ticket.
+          </p>
+        ) : (
+          <ul className="space-y-1" role="listbox" aria-label="Form">
+            {bundle.forms.map((f) => {
+              const on = f.id === selected;
+              return (
+                <li key={f.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={on}
+                    onClick={() => setSelected(f.id)}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                      on ? "bg-caramel/12 font-semibold text-crema ring-1 ring-caramel/25" : "text-crema/75 hover:bg-crema/[0.04] hover:text-crema",
+                    )}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{f.title}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-crema/60">{f.fields.length}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
         <form
-          className="flex flex-1 flex-wrap items-end gap-2"
-          onSubmit={async (e) => {
+          className="flex gap-2"
+          onSubmit={(e) => {
             e.preventDefault();
-            const name = createName.trim().slice(0, FORM_LIMITS.maxTitle);
-            if (!name) {
-              onToast("Titolo form non valido.", true);
-              return;
-            }
-            if (bundle.forms.length >= maxForms) {
-              onToast(`Quota form raggiunta (max ${maxForms}).`, true);
-              return;
-            }
-            setBusy(true);
-            const res = await createTicketForm(token, guildId, name);
-            setBusy(false);
-            if (!res.ok) {
-              onToast(res.message || "Creazione form non riuscita.", true);
-              return;
-            }
-            setBundle(res.data);
-            setCreateName("");
-            const created = res.data.forms.find((f) => f.title === name);
-            if (created) setSelected(created.id);
-            onToast("Form creato.");
+            void createForm();
           }}
         >
-          <Field label="Nuovo titolo">
-            <input name="create-form-title"
+          <label className="min-w-0 flex-1">
+            <span className="sr-only">Titolo del nuovo form</span>
+            <input
+              name="create-form-title"
               value={createName}
               maxLength={FORM_LIMITS.maxTitle}
+              placeholder="Nuovo form…"
               onChange={(e) => setCreateName(e.target.value)}
-              className={fieldClass}
+              className={cn(fieldClass, "mt-0 py-2")}
             />
-          </Field>
-          <button type="submit" disabled={busy} className={primaryMini}>
+          </label>
+          <button type="submit" disabled={busy || !createName.trim()} className={primaryMini} aria-label="Crea form">
             Crea
           </button>
         </form>
-      </div>
-      <p className="text-xs text-crema/60">
-        <span className="lining-nums">
-          {bundle.forms.length}/{maxForms}
-        </span>{" "}
-        form · max {maxFields} campi
-      </p>
+      </aside>
 
-      {selected ? (
-        <div className="space-y-3">
-          <Field label="Titolo">
-            <input name="title"
-              value={title}
-              maxLength={FORM_LIMITS.maxTitle}
-              onChange={(e) => setTitle(e.target.value)}
-              className={fieldClass}
-            />
-          </Field>
-          <ul className="space-y-3">
-            {fields.map((field, index) => (
-              <li key={field.id} className="space-y-3 rounded-xl bg-espresso/50 p-4 ring-1 ring-sand/10">
-                <div className="flex items-center justify-between gap-2">
-                  <span className={labelClass}>Campo {index + 1}</span>
+      <div className="min-w-0">
+        {current ? (
+          <div className="space-y-4">
+            <EditorHeader
+              inColumn
+              backLabel="Form"
+              onBack={() => setSelected("")}
+              title={title || "Form senza titolo"}
+              subtitle={`${fields.length} ${fields.length === 1 ? "domanda" : "domande"} · massimo ${maxFields}`}
+              actions={
+                <>
                   <button
                     type="button"
                     className={dangerBtn}
-                    onClick={() => setFields((rows) => rows.filter((f) => f.id !== field.id))}
+                    disabled={busy}
+                    onClick={async () => {
+                      if (!selected) return;
+                      if (!(await confirmDialog({ message: "Eliminare questo form? I pannelli che lo usano non faranno più domande. Non si può annullare.", danger: true }))) return;
+                      setBusy(true);
+                      const res = await deleteTicketForm(token, guildId, selected);
+                      setBusy(false);
+                      if (!res.ok) {
+                        onToast(res.message || "Eliminazione non riuscita.", true);
+                        return;
+                      }
+                      setBundle(res.data);
+                      setSelected(res.data.forms[0]?.id || "");
+                      onToast("Form eliminato.");
+                    }}
                   >
-                    Rimuovi
+                    Elimina
                   </button>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Field label="Tipo">
-                    <Select
-                      value={field.type}
-                      onChange={(type) => {
-                        const next = type as FormFieldType;
-                        patchField(field.id, {
-                          type: next,
-                          style: next === "text_input" ? field.style || "short" : null,
-                          minValues: next === "radio_group" ? 1 : next === "string_select" ? 1 : 0,
-                          maxValues: next === "radio_group" || next === "string_select" ? 1 : 25,
-                        });
-                      }}
-                      className={fieldClass}
-                      options={FORM_FIELD_TYPES.map((t) => ({ value: t, label: TYPE_LABELS[t] }))}
-                    />
-                  </Field>
-                  <Field label="Etichetta">
-                    <input name="label"
-                      value={field.label}
-                      maxLength={FORM_LIMITS.maxLabel}
-                      onChange={(e) => patchField(field.id, { label: e.target.value })}
-                      className={fieldClass}
-                    />
-                  </Field>
-                </div>
-                <label className="flex items-center gap-2 text-sm text-crema/75">
-                  <Checkbox
-                    checked={field.required}
-                    className="size-3.5"
-                    onChange={(v) => patchField(field.id, { required: v })}
-                  />
-                  Obbligatorio
-                </label>
-                {field.type === "text_input" ? (
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <Field label="Stile">
-                      <Select
-                        value={field.style === "paragraph" ? "paragraph" : "short"}
-                        onChange={(v) => {
-                          const style = v === "paragraph" ? "paragraph" : "short";
-                          const cap = style === "paragraph" ? 1024 : 255;
-                          patchField(field.id, {
-                            style,
-                            maxLength: Math.min(field.maxLength ?? cap, cap),
-                          });
-                        }}
-                        className={fieldClass}
-                        options={[
-                          { value: "short", label: "Risposta breve" },
-                          { value: "paragraph", label: "Risposta lunga" },
-                        ]}
-                      />
-                    </Field>
-                    <Field label="Min">
-                      <input name="field-min-length"
-                        type="number"
-                        min={0}
-                        max={field.style === "paragraph" ? 1024 : 255}
-                        value={field.minLength ?? 0}
-                        onChange={(e) => patchField(field.id, { minLength: Number(e.target.value) || 0 })}
-                        className={fieldClass}
-                      />
-                    </Field>
-                    <Field label="Max">
-                      <input name="field-max-length"
-                        type="number"
-                        min={1}
-                        max={field.style === "paragraph" ? 1024 : 255}
-                        value={field.maxLength ?? 255}
-                        onChange={(e) => patchField(field.id, { maxLength: Number(e.target.value) || 1 })}
-                        className={fieldClass}
-                      />
-                    </Field>
-                  </div>
-                ) : null}
-                {field.type === "text_input" ? (
-                  <Field label="Placeholder">
-                    <input name="field-placeholder"
-                      value={field.placeholder || ""}
-                      maxLength={FORM_LIMITS.maxPlaceholder}
-                      onChange={(e) => patchField(field.id, { placeholder: e.target.value || null })}
-                      className={fieldClass}
-                    />
-                  </Field>
-                ) : null}
-                {supportsMinMax(field.type) ? (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <Field label="Min selezioni">
-                      <input name="field-min-values"
-                        type="number"
-                        min={0}
-                        max={25}
-                        value={field.minValues ?? 0}
-                        onChange={(e) => patchField(field.id, { minValues: Number(e.target.value) || 0 })}
-                        className={fieldClass}
-                      />
-                    </Field>
-                    <Field label="Max selezioni">
-                      <input name="field-max-values"
-                        type="number"
-                        min={1}
-                        max={25}
-                        value={field.maxValues ?? 1}
-                        onChange={(e) => patchField(field.id, { maxValues: Number(e.target.value) || 1 })}
-                        className={fieldClass}
-                      />
-                    </Field>
-                  </div>
-                ) : null}
-                {needsOptions(field.type) ? (
-                  <div className="space-y-2">
-                    <p className={labelClass}>{TYPE_LABELS[field.type]} Options</p>
-                    {field.options.map((opt, oi) => (
-                      <div key={`${field.id}-${oi}`} className="flex gap-2">
-                        <input name="option-label"
-                          value={opt.label}
-                          placeholder="Label"
-                          maxLength={100}
-                          onChange={(e) => {
-                            const options = field.options.slice();
-                            options[oi] = { ...opt, label: e.target.value, value: e.target.value };
-                            patchField(field.id, { options });
-                          }}
-                          className={fieldClass}
-                        />
-                        <button
-                          type="button"
-                          className={dangerBtn}
-                          onClick={() =>
-                            patchField(field.id, { options: field.options.filter((_, i) => i !== oi) })
-                          }
-                        >
-                          ×
-                        </button>
+                  <button type="button" className={primaryMini} disabled={busy} onClick={save}>
+                    Salva modifiche
+                  </button>
+                </>
+              }
+            />
+
+            <FormGroup title="Titolo del form" description="Compare in cima alla finestra con le domande su Discord.">
+              <input
+                name="title"
+                aria-label="Titolo del form"
+                value={title}
+                maxLength={FORM_LIMITS.maxTitle}
+                onChange={(e) => setTitle(e.target.value)}
+                className={cn(fieldClass, "mt-0")}
+              />
+            </FormGroup>
+
+            {fields.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-sand/20 px-4 py-8 text-center text-sm text-crema/60">
+                Nessuna domanda: aggiungi la prima qui sotto.
+              </p>
+            ) : (
+              <ol className="space-y-3">
+                {fields.map((field, index) => (
+                  <li key={field.id} className="rounded-xl bg-espresso/45 ring-1 ring-sand/10">
+                    <div className="flex items-center gap-2 border-b border-sand/[0.08] px-4 py-2.5">
+                      <span className="flex size-6 items-center justify-center rounded-md bg-caramel/15 text-xs font-bold tabular-nums text-ember">{index + 1}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-crema">{field.label || "Domanda senza titolo"}</span>
+                      <span className="hidden text-xs text-crema/60 sm:inline">{TYPE_LABELS[field.type]}</span>
+                      <button
+                        type="button"
+                        className="rounded-md px-1.5 py-1 text-crema/60 transition hover:bg-crema/[0.06] hover:text-crema disabled:opacity-30"
+                        disabled={index === 0}
+                        onClick={() => moveField(index, index - 1)}
+                        aria-label={`Sposta su la domanda ${index + 1}`}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-md px-1.5 py-1 text-crema/60 transition hover:bg-crema/[0.06] hover:text-crema disabled:opacity-30"
+                        disabled={index === fields.length - 1}
+                        onClick={() => moveField(index, index + 1)}
+                        aria-label={`Sposta giù la domanda ${index + 1}`}
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-md px-2 py-1 text-xs font-semibold text-[#f0a493] transition hover:bg-[#a83a2c]/15 light:text-[#a83a2c]"
+                        onClick={() => setFields((rows) => rows.filter((f) => f.id !== field.id))}
+                      >
+                        Rimuovi
+                      </button>
+                    </div>
+                    <div className="space-y-4 p-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Domanda">
+                          <input
+                            name="label"
+                            value={field.label}
+                            maxLength={FORM_LIMITS.maxLabel}
+                            onChange={(e) => patchField(field.id, { label: e.target.value })}
+                            className={fieldClass}
+                          />
+                        </Field>
+                        <Field label="Tipo di risposta">
+                          <Select
+                            value={field.type}
+                            onChange={(type) => {
+                              const next = type as FormFieldType;
+                              patchField(field.id, {
+                                type: next,
+                                style: next === "text_input" ? field.style || "short" : null,
+                                minValues: next === "radio_group" ? 1 : next === "string_select" ? 1 : 0,
+                                maxValues: next === "radio_group" || next === "string_select" ? 1 : 25,
+                              });
+                            }}
+                            className={fieldClass}
+                            options={FORM_FIELD_TYPES.map((t) => ({ value: t, label: TYPE_LABELS[t] }))}
+                          />
+                        </Field>
                       </div>
-                    ))}
-                    <button
-                      type="button"
-                      className={miniBtn}
-                      onClick={() => {
-                        const cap = maxOptions(field.type);
-                        if (field.options.length >= cap) {
-                          onToast(`Massimo ${cap} opzioni.`, true);
-                          return;
-                        }
-                        patchField(field.id, {
-                          options: [...field.options, { label: "", value: "", description: null }],
-                        });
-                      }}
-                    >
-                      Aggiungi opzione
-                    </button>
-                  </div>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-          <div className="flex flex-wrap gap-2">
+
+                      {field.type === "text_input" ? (
+                        <div className="grid gap-4 sm:grid-cols-[1fr_7rem_7rem]">
+                          <Field label="Testo di esempio" hint="Si vede in grigio nel campo vuoto">
+                            <input
+                              name="field-placeholder"
+                              value={field.placeholder || ""}
+                              maxLength={FORM_LIMITS.maxPlaceholder}
+                              onChange={(e) => patchField(field.id, { placeholder: e.target.value || null })}
+                              className={fieldClass}
+                            />
+                          </Field>
+                          <Field label="Min caratteri">
+                            <input
+                              name="field-min-length"
+                              type="number"
+                              min={0}
+                              max={field.style === "paragraph" ? 1024 : 255}
+                              value={field.minLength ?? 0}
+                              onChange={(e) => patchField(field.id, { minLength: Number(e.target.value) || 0 })}
+                              className={fieldClass}
+                            />
+                          </Field>
+                          <Field label="Max caratteri">
+                            <input
+                              name="field-max-length"
+                              type="number"
+                              min={1}
+                              max={field.style === "paragraph" ? 1024 : 255}
+                              value={field.maxLength ?? 255}
+                              onChange={(e) => patchField(field.id, { maxLength: Number(e.target.value) || 1 })}
+                              className={fieldClass}
+                            />
+                          </Field>
+                        </div>
+                      ) : null}
+
+                      {supportsMinMax(field.type) ? (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <Field label="Scelte minime">
+                            <input
+                              name="field-min-values"
+                              type="number"
+                              min={0}
+                              max={25}
+                              value={field.minValues ?? 0}
+                              onChange={(e) => patchField(field.id, { minValues: Number(e.target.value) || 0 })}
+                              className={fieldClass}
+                            />
+                          </Field>
+                          <Field label="Scelte massime">
+                            <input
+                              name="field-max-values"
+                              type="number"
+                              min={1}
+                              max={25}
+                              value={field.maxValues ?? 1}
+                              onChange={(e) => patchField(field.id, { maxValues: Number(e.target.value) || 1 })}
+                              className={fieldClass}
+                            />
+                          </Field>
+                        </div>
+                      ) : null}
+
+                      {needsOptions(field.type) ? (
+                        <div>
+                          <p className={labelClass}>
+                            Opzioni · {field.options.length}/{maxOptions(field.type)}
+                          </p>
+                          <ul className="mt-1.5 space-y-1.5">
+                            {field.options.map((opt, oi) => (
+                              <li key={`${field.id}-${oi}`} className="flex items-center gap-2">
+                                <span className="w-5 shrink-0 text-right text-xs tabular-nums text-crema/60">{oi + 1}.</span>
+                                <input
+                                  name="option-label"
+                                  aria-label={`Opzione ${oi + 1}`}
+                                  value={opt.label}
+                                  placeholder="Testo dell'opzione"
+                                  maxLength={100}
+                                  onChange={(e) => {
+                                    const options = field.options.slice();
+                                    options[oi] = { ...opt, label: e.target.value, value: e.target.value };
+                                    patchField(field.id, { options });
+                                  }}
+                                  className={cn(fieldClass, "mt-0 py-2")}
+                                />
+                                <button
+                                  type="button"
+                                  className="rounded-md px-2 py-1.5 text-sm text-crema/60 transition hover:bg-[#a83a2c]/15 hover:text-[#f0a493]"
+                                  aria-label={`Rimuovi opzione ${oi + 1}`}
+                                  onClick={() => patchField(field.id, { options: field.options.filter((_, i) => i !== oi) })}
+                                >
+                                  ✕
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                          <button
+                            type="button"
+                            className={cn(miniBtn, "mt-2")}
+                            onClick={() => {
+                              const cap = maxOptions(field.type);
+                              if (field.options.length >= cap) {
+                                onToast(`Massimo ${cap} opzioni.`, true);
+                                return;
+                              }
+                              patchField(field.id, { options: [...field.options, { label: "", value: "", description: null }] });
+                            }}
+                          >
+                            + Aggiungi opzione
+                          </button>
+                        </div>
+                      ) : null}
+
+                      <div className="divide-y divide-sand/[0.07] border-t border-sand/[0.07] pt-3">
+                        <SettingRow title="Risposta obbligatoria">
+                          <Toggle size="sm" checked={field.required} label="Risposta obbligatoria" onChange={(v) => patchField(field.id, { required: v })} />
+                        </SettingRow>
+                        {field.type === "text_input" ? (
+                          <SettingRow title="Risposta lunga" description="Campo su più righe, fino a 1024 caratteri.">
+                            <Toggle
+                              size="sm"
+                              checked={field.style === "paragraph"}
+                              label="Risposta lunga"
+                              onChange={(on) => {
+                                const style = on ? "paragraph" : "short";
+                                const cap = on ? 1024 : 255;
+                                patchField(field.id, { style, maxLength: Math.min(field.maxLength ?? cap, cap) });
+                              }}
+                            />
+                          </SettingRow>
+                        ) : null}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+
             <button
               type="button"
-              className={miniBtn}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-sand/25 px-4 py-3 text-sm font-semibold text-crema/75 transition hover:border-caramel/40 hover:text-crema disabled:opacity-40"
               disabled={fields.length >= maxFields}
               onClick={() => setFields((rows) => [...rows, blankField()])}
             >
-              Aggiungi campo
-            </button>
-            <button type="button" className={primaryMini} disabled={busy} onClick={save}>
-              Salva
-            </button>
-            <button
-              type="button"
-              className={dangerBtn}
-              disabled={busy}
-              onClick={async () => {
-                if (!selected) return;
-                if (!(await confirmDialog({ message: "Eliminare questo form? I pannelli che lo usano non faranno più domande. Non si può annullare.", danger: true }))) return;
-                setBusy(true);
-                const res = await deleteTicketForm(token, guildId, selected);
-                setBusy(false);
-                if (!res.ok) {
-                  onToast(res.message || "Eliminazione non riuscita.", true);
-                  return;
-                }
-                setBundle(res.data);
-                setSelected(res.data.forms[0]?.id || "");
-                onToast("Form eliminato.");
-              }}
-            >
-              Elimina {title || "form"}
+              + Aggiungi domanda {fields.length >= maxFields ? `(massimo ${maxFields})` : ""}
             </button>
           </div>
-        </div>
-      ) : (
-        <p className="text-sm text-crema/60">Seleziona un form…</p>
-      )}
+        ) : (
+          <div className="flex h-full min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-sand/20 px-4 py-10 text-center">
+            <p className="text-sm font-semibold text-crema">Scegli un form a sinistra</p>
+            <p className="mt-1 text-xs text-crema/60">oppure creane uno nuovo: puoi collegarlo a un pannello in Pannelli → Dove si apre.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

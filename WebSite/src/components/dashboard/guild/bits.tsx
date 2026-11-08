@@ -139,7 +139,10 @@ export function EditorHeader({
   title,
   subtitle,
   actions,
+  inColumn = false,
 }: {
+  /** dentro una colonna (accanto a un elenco): niente margini negativi, angoli arrotondati */
+  inColumn?: boolean;
   backLabel: string;
   onBack: () => void;
   title: string;
@@ -147,7 +150,12 @@ export function EditorHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="sticky top-14 z-20 -mx-4 -mt-4 mb-1 flex flex-wrap items-center gap-3 border-b border-sand/10 bg-roast/95 px-4 py-3 backdrop-blur-md sm:-mx-5 sm:px-5">
+    <div
+      className={cn(
+        "sticky top-14 z-20 flex flex-wrap items-center gap-3 bg-roast/95 px-4 py-3 backdrop-blur-md",
+        inColumn ? "rounded-xl ring-1 ring-sand/10" : "-mx-4 -mt-4 mb-1 border-b border-sand/10 sm:-mx-5 sm:px-5",
+      )}
+    >
       <button
         type="button"
         onClick={onBack}

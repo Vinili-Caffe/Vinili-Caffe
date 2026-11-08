@@ -27,17 +27,17 @@ import { confirmDialog, Disclosure } from "@/components/ui";
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
-import { Field, Notice, Subnav, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "./bits";
+import { Field, FormGroup, Notice, SettingRow, StatusBadge, Subnav, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "./bits";
 
 type Tab = "setup" | "filtri" | "blacklist" | "manager" | "storia" | "migrazione";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "setup", label: "Setup" },
+  { id: "setup", label: "Impostazioni" },
   { id: "filtri", label: "Filtri" },
   { id: "blacklist", label: "Blacklist" },
   { id: "manager", label: "Manager" },
   { id: "storia", label: "Cronologia" },
-  { id: "migrazione", label: "Migrazione" },
+  { id: "migrazione", label: "Importazione" },
 ];
 
 const FILTERS: { key: keyof ContentFilters; title: string; hint: string }[] = [
@@ -46,7 +46,7 @@ const FILTERS: { key: keyof ContentFilters; title: string; hint: string }[] = [
   { key: "stripNonInviteLinks", title: "Rimuovi link esterni", hint: "Toglie URL che non sono invite Discord" },
   { key: "stripCustomEmojis", title: "Rimuovi emoji custom", hint: "Cancella emoji del server" },
   { key: "stripInvisibleChars", title: "Rimuovi caratteri invisibili", hint: "Toglie zero-width e altri caratteri nascosti" },
-  { key: "stripSpoilers", title: "Rimuovi spoilers", hint: "Toglie la formattazione ||spoiler||" },
+  { key: "stripSpoilers", title: "Rimuovi spoiler", hint: "Toglie la formattazione ||spoiler||" },
   { key: "stripExtraInvites", title: "Un solo invite", hint: "Se ci sono più link Discord, tiene solo il primo" },
 ];
 
@@ -232,6 +232,21 @@ export function PartnershipPanel({
     onToast("Configurazione partnership salvata.");
   };
 
+  const saveFilters = async () => {
+    setBusy(true);
+    const res = await patchPartnership(token, guildId, { contentFilters: draft.contentFilters });
+    setBusy(false);
+    if (!res.ok) {
+      onToast(res.message, true);
+      return;
+    }
+    setBundle(res.data);
+    setDraft(res.data.config);
+    onToast("Filtri salvati.");
+  };
+
+  const roleOptions = (none: string) => [{ value: "", label: none }, ...roles.map((r) => ({ value: r.id, label: `@${r.name}` }))];
+
   return (
     <div className="space-y-4">
       {/* stato del modulo partnership */}
@@ -250,17 +265,15 @@ export function PartnershipPanel({
           )}
         >
           <span className={cn("size-1.5 rounded-full", draft.setupCompleted ? "bg-[#7fc48c]" : "bg-ember")} aria-hidden />
-          {draft.setupCompleted ? "Setup completo" : "Setup da completare"}
+          {draft.setupCompleted ? "Setup completo" : "Setup da completare: servono canale partnership e ruolo manager"}
         </span>
-        {bundle.premiumActive ? (
-          <span className="rounded-md bg-caramel/15 px-2 py-1 text-xs font-semibold text-ember ring-1 ring-caramel/30">Premium</span>
-        ) : null}
+        {bundle.premiumActive ? <StatusBadge tone="accent">Premium</StatusBadge> : null}
         {draft.inviteUrl ? (
           <a
             href={draft.inviteUrl}
             target="_blank"
             rel="noreferrer"
-            className="ml-auto inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-crema/70 ring-1 ring-sand/15 transition hover:text-crema"
+            className="ml-auto inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-crema/75 ring-1 ring-sand/15 transition hover:text-crema"
           >
             Invito del server ↗
           </a>
@@ -269,241 +282,14 @@ export function PartnershipPanel({
       <Subnav tabs={TABS} value={tab} onChange={setTab} label="Partnership" />
 
       {tab === "setup" ? (
-        <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <ChannelSelect label="Canale partnership" value={draft.partnershipsChannelId} channels={channels} onChange={(id) => set({ partnershipsChannelId: id })} />
-            <ChannelSelect label="Canale log" value={draft.logsChannelId} channels={channels} onChange={(id) => set({ logsChannelId: id })} />
-            <ChannelSelect label="Canale comandi PM" value={draft.pmCommandsChannelId} channels={channels} onChange={(id) => set({ pmCommandsChannelId: id })} />
-            <Field label="Ruolo manager">
-              <Select
-                value={draft.partnerManagerRoleId || ""}
-                onChange={(v) => set({ partnerManagerRoleId: v || null })}
-                className={fieldClass}
-                options={[
-                  { value: "", label: "— Nessuno —" },
-                  ...roles.map((r) => ({ value: r.id, label: `@${r.name}` })),
-                ]}
-              />
-            </Field>
-            <Field label="Badge manager">
-              <Select
-                value={draft.managerBadgeRoleId || ""}
-                onChange={(v) => set({ managerBadgeRoleId: v || null })}
-                className={fieldClass}
-                options={[
-                  { value: "", label: "— Nessuno —" },
-                  ...roles.map((r) => ({ value: r.id, label: `@${r.name}` })),
-                ]}
-              />
-            </Field>
-            <Field label="Manager fuori dal server">
-              <Select
-                value={draft.managerLeaveAction || ""}
-                onChange={(v) => set({ managerLeaveAction: v === "warn" || v === "delete" ? v : null })}
-                className={fieldClass}
-                options={[
-                  { value: "", label: "Nessuna" },
-                  { value: "warn", label: "Avvisa" },
-                  { value: "delete", label: "Elimina (5m)" },
-                ]}
-              />
-            </Field>
-            <Field label="Rate limit stesso server">
-              <input name="same-server-cooldown"
-                value={draft.sameServerCooldownInput}
-                placeholder="12h"
-                onChange={(e) => set({ sameServerCooldownInput: e.target.value })}
-                className={fieldClass}
-              />
-            </Field>
-          </div>
-          <Field label="Categorie comandi PM">
-            <MultiSelect
-              value={draft.pmCommandsCategoryIds}
-              onChange={(ids) => set({ pmCommandsCategoryIds: ids })}
-              className={fieldClass}
-              options={categories.map((c) => ({ value: c.id, label: c.name }))}
-            />
-          </Field>
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center gap-2 text-sm text-crema/75">
-              <span>Salta conferma manager</span>
-              <Toggle checked={draft.skipManager} label="Salta conferma manager" onChange={(v) => set({ skipManager: v })} />
-            </div>
-            <div className="flex items-center gap-2 text-sm text-crema/75">
-              <span>Partnership manuale</span>
-              <Toggle
-                checked={draft.manualPartnershipEnabled}
-                label="Partnership manuale"
-                onChange={(v) => set({ manualPartnershipEnabled: v })}
-              />
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Ping @here da N membri">
-              <input name="ping-here-members"
-                type="number"
-                min={0}
-                value={draft.pings.hereMembers ?? ""}
-                onChange={(e) =>
-                  set({
-                    pings: { ...draft.pings, hereMembers: e.target.value === "" ? null : Number(e.target.value) },
-                  })
-                }
-                className={fieldClass}
-              />
-            </Field>
-            <Field label="Delay @here">
-              <input name="ping-here-delay"
-                value={draft.pings.hereDelayInput}
-                placeholder="5m"
-                onChange={(e) => set({ pings: { ...draft.pings, hereDelayInput: e.target.value } })}
-                className={fieldClass}
-              />
-            </Field>
-            <Field label="Ping @everyone da N membri">
-              <input name="ping-everyone-members"
-                type="number"
-                min={0}
-                value={draft.pings.everyoneMembers ?? ""}
-                onChange={(e) =>
-                  set({
-                    pings: {
-                      ...draft.pings,
-                      everyoneMembers: e.target.value === "" ? null : Number(e.target.value),
-                    },
-                  })
-                }
-                className={fieldClass}
-              />
-            </Field>
-            <Field label="Delay @everyone">
-              <input name="ping-everyone-delay"
-                value={draft.pings.everyoneDelayInput}
-                placeholder="5m"
-                onChange={(e) => set({ pings: { ...draft.pings, everyoneDelayInput: e.target.value } })}
-                className={fieldClass}
-              />
-            </Field>
-            <Field label="Ruolo ping custom">
-              <Select
-                value={draft.pings.customRoleId || ""}
-                onChange={(v) => set({ pings: { ...draft.pings, customRoleId: v || null } })}
-                className={fieldClass}
-                options={[
-                  { value: "", label: "— Nessuno —" },
-                  ...roles.map((r) => ({ value: r.id, label: `@${r.name}` })),
-                ]}
-              />
-            </Field>
-            <Field label="Soglia ruolo custom">
-              <input name="ping-custom-members"
-                type="number"
-                min={0}
-                value={draft.pings.customRoleMembers ?? ""}
-                onChange={(e) =>
-                  set({
-                    pings: {
-                      ...draft.pings,
-                      customRoleMembers: e.target.value === "" ? null : Number(e.target.value),
-                    },
-                  })
-                }
-                className={fieldClass}
-              />
-            </Field>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Descrizione partner">
-              <Select
-                value={draft.partnerDesc.mode || ""}
-                onChange={(v) => set({ partnerDesc: { ...draft.partnerDesc, mode: v || null } })}
-                className={fieldClass}
-                options={[
-                  { value: "", label: "Nessuna" },
-                  { value: "channel", label: "Da canale" },
-                  { value: "static", label: "Testo fisso" },
-                ]}
-              />
-            </Field>
-            {draft.partnerDesc.mode === "channel" ? (
-              <ChannelSelect
-                label="Canale descrizione"
-                value={draft.partnerDesc.channelId}
-                channels={channels}
-                onChange={(id) => set({ partnerDesc: { ...draft.partnerDesc, channelId: id } })}
-              />
-            ) : null}
-          </div>
-          {draft.partnerDesc.mode === "static" ? (
-            <Field label="Testo descrizione">
-              <textarea name="partner-description"
-                value={draft.partnerDesc.staticText || ""}
-                maxLength={4000}
-                rows={4}
-                onChange={(e) => set({ partnerDesc: { ...draft.partnerDesc, staticText: e.target.value } })}
-                className={fieldClass}
-              />
-            </Field>
-          ) : null}
-
-          <Disclosure title="Messaggio di ringraziamento">
-            <p className="text-xs text-crema/60">Richiede Vinili Premium se è attivo.</p>
-            <div className="mt-3 space-y-2">
-              <Toggle
-                checked={draft.thankYouEmbed.enabled}
-                label="Ringraziamento attivo"
-                onChange={(v) => set({ thankYouEmbed: { ...draft.thankYouEmbed, enabled: v } })}
-              />
-              <Field label="Titolo">
-                <input name="thank-you-title"
-                  value={draft.thankYouEmbed.title || ""}
-                  onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, title: e.target.value || null } })}
-                  className={fieldClass}
-                />
-              </Field>
-              <Field label="Descrizione">
-                <textarea name="thank-you-description"
-                  value={draft.thankYouEmbed.description || ""}
-                  rows={3}
-                  onChange={(e) =>
-                    set({ thankYouEmbed: { ...draft.thankYouEmbed, description: e.target.value || null } })
-                  }
-                  className={fieldClass}
-                />
-              </Field>
-              <button
-                type="button"
-                className={miniBtn}
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  const res = await patchPartnership(token, guildId, { thankYouEmbed: draft.thankYouEmbed });
-                  setBusy(false);
-                  if (!res.ok) {
-                    onToast(res.message, true);
-                    return;
-                  }
-                  setBundle(res.data);
-                  setDraft(res.data.config);
-                  onToast("Configurazione partnership salvata.");
-                }}
-              >
-                Salva ringraziamento
-              </button>
-            </div>
-          </Disclosure>
-
-          <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={busy} className={primaryMini} onClick={saveSetup}>
-              Salva
-            </button>
+        <div className="space-y-4">
+          <SaveBar text="Le modifiche del setup si applicano quando salvi.">
             <button
               type="button"
               disabled={busy}
               className={dangerBtn}
               onClick={async () => {
-                if (!(await confirmDialog({ message: "Azzerare la configurazione partnership?", danger: true }))) return;
+                if (!(await confirmDialog({ message: "Azzerare tutta la configurazione partnership? Canali, ruoli e regole tornano vuoti.", danger: true }))) return;
                 setBusy(true);
                 const res = await deletePartnership(token, guildId);
                 setBusy(false);
@@ -521,220 +307,513 @@ export function PartnershipPanel({
             >
               Azzera setup
             </button>
+            <button type="button" disabled={busy} className={primaryMini} onClick={saveSetup}>
+              Salva setup
+            </button>
+          </SaveBar>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <FormGroup title="Canali e ruoli" description="Dove escono le partnership e chi le gestisce.">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ChannelSelect label="Canale partnership" value={draft.partnershipsChannelId} channels={channels} onChange={(id) => set({ partnershipsChannelId: id })} />
+                <ChannelSelect label="Canale log" value={draft.logsChannelId} channels={channels} onChange={(id) => set({ logsChannelId: id })} />
+                <Field label="Ruolo dei partner manager">
+                  <Select value={draft.partnerManagerRoleId || ""} onChange={(v) => set({ partnerManagerRoleId: v || null })} className={fieldClass} options={roleOptions("— Nessuno —")} />
+                </Field>
+                <Field label="Ruolo badge" hint="Dato in più ai manager, facoltativo">
+                  <Select value={draft.managerBadgeRoleId || ""} onChange={(v) => set({ managerBadgeRoleId: v || null })} className={fieldClass} options={roleOptions("— Nessuno —")} />
+                </Field>
+              </div>
+            </FormGroup>
+
+            <FormGroup title="Comandi dei manager" description="Dove i partner manager possono usare i comandi partnership.">
+              <div className="grid gap-4">
+                <ChannelSelect label="Canale comandi" value={draft.pmCommandsChannelId} channels={channels} onChange={(id) => set({ pmCommandsChannelId: id })} />
+                <Field label="Anche nelle categorie">
+                  <MultiSelect
+                    value={draft.pmCommandsCategoryIds}
+                    onChange={(ids) => set({ pmCommandsCategoryIds: ids })}
+                    className={fieldClass}
+                    options={categories.map((c) => ({ value: c.id, label: c.name }))}
+                  />
+                </Field>
+              </div>
+            </FormGroup>
+
+            <FormGroup title="Regole" description="Come si comporta il bot con le richieste di partnership.">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Attesa per lo stesso server" hint="Es. 12h, 3d">
+                  <input
+                    name="same-server-cooldown"
+                    value={draft.sameServerCooldownInput}
+                    placeholder="12h"
+                    onChange={(e) => set({ sameServerCooldownInput: e.target.value })}
+                    className={fieldClass}
+                  />
+                </Field>
+                <Field label="Se il manager esce dal server">
+                  <Select
+                    value={draft.managerLeaveAction || ""}
+                    onChange={(v) => set({ managerLeaveAction: v === "warn" || v === "delete" ? v : null })}
+                    className={fieldClass}
+                    options={[
+                      { value: "", label: "Non fare niente" },
+                      { value: "warn", label: "Avvisa nel log" },
+                      { value: "delete", label: "Elimina la partnership (dopo 5 min)" },
+                    ]}
+                  />
+                </Field>
+              </div>
+              <div className="mt-3 divide-y divide-sand/[0.07]">
+                <SettingRow title="Salta la conferma del manager" description="La partnership esce subito, senza approvazione.">
+                  <Toggle size="sm" checked={draft.skipManager} label="Salta la conferma del manager" onChange={(v) => set({ skipManager: v })} />
+                </SettingRow>
+                <SettingRow title="Partnership manuale" description="I manager possono pubblicarle anche a mano.">
+                  <Toggle size="sm" checked={draft.manualPartnershipEnabled} label="Partnership manuale" onChange={(v) => set({ manualPartnershipEnabled: v })} />
+                </SettingRow>
+              </div>
+            </FormGroup>
+
+            <FormGroup title="Descrizione del vostro server" description="Il testo che il bot manda al server partner.">
+              <div className="grid gap-4">
+                <Field label="Da dove prenderla">
+                  <Select
+                    value={draft.partnerDesc.mode || ""}
+                    onChange={(v) => set({ partnerDesc: { ...draft.partnerDesc, mode: v || null } })}
+                    className={fieldClass}
+                    options={[
+                      { value: "", label: "Nessuna descrizione" },
+                      { value: "channel", label: "Dall'ultimo messaggio di un canale" },
+                      { value: "static", label: "Testo scritto qui" },
+                    ]}
+                  />
+                </Field>
+                {draft.partnerDesc.mode === "channel" ? (
+                  <ChannelSelect
+                    label="Canale della descrizione"
+                    value={draft.partnerDesc.channelId}
+                    channels={channels}
+                    onChange={(id) => set({ partnerDesc: { ...draft.partnerDesc, channelId: id } })}
+                  />
+                ) : null}
+                {draft.partnerDesc.mode === "static" ? (
+                  <Field label="Testo">
+                    <textarea
+                      name="partner-description"
+                      value={draft.partnerDesc.staticText || ""}
+                      maxLength={4000}
+                      rows={5}
+                      onChange={(e) => set({ partnerDesc: { ...draft.partnerDesc, staticText: e.target.value } })}
+                      className={fieldClass}
+                    />
+                  </Field>
+                ) : null}
+              </div>
+            </FormGroup>
           </div>
+
+          <FormGroup title="Ping automatici" description="Quando il server partner ha abbastanza membri, il bot menziona chi deve vedere la partnership.">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[32rem] text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-crema/60">
+                    <th className="pb-2 font-semibold">Menzione</th>
+                    <th className="pb-2 font-semibold">Dai membri</th>
+                    <th className="pb-2 font-semibold">Dopo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-sand/[0.07]">
+                  <tr>
+                    <td className="py-2 pr-3 font-medium text-crema">@here</td>
+                    <td className="py-2 pr-3">
+                      <input
+                        name="ping-here-members"
+                        aria-label="@here dai membri"
+                        type="number"
+                        min={0}
+                        value={draft.pings.hereMembers ?? ""}
+                        placeholder="mai"
+                        onChange={(e) => set({ pings: { ...draft.pings, hereMembers: e.target.value === "" ? null : Number(e.target.value) } })}
+                        className={cn(fieldClass, "mt-0 py-2")}
+                      />
+                    </td>
+                    <td className="py-2">
+                      <input
+                        name="ping-here-delay"
+                        aria-label="@here dopo"
+                        value={draft.pings.hereDelayInput}
+                        placeholder="5m"
+                        onChange={(e) => set({ pings: { ...draft.pings, hereDelayInput: e.target.value } })}
+                        className={cn(fieldClass, "mt-0 py-2")}
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 pr-3 font-medium text-crema">@everyone</td>
+                    <td className="py-2 pr-3">
+                      <input
+                        name="ping-everyone-members"
+                        aria-label="@everyone dai membri"
+                        type="number"
+                        min={0}
+                        value={draft.pings.everyoneMembers ?? ""}
+                        placeholder="mai"
+                        onChange={(e) => set({ pings: { ...draft.pings, everyoneMembers: e.target.value === "" ? null : Number(e.target.value) } })}
+                        className={cn(fieldClass, "mt-0 py-2")}
+                      />
+                    </td>
+                    <td className="py-2">
+                      <input
+                        name="ping-everyone-delay"
+                        aria-label="@everyone dopo"
+                        value={draft.pings.everyoneDelayInput}
+                        placeholder="5m"
+                        onChange={(e) => set({ pings: { ...draft.pings, everyoneDelayInput: e.target.value } })}
+                        className={cn(fieldClass, "mt-0 py-2")}
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 pr-3">
+                      <Select
+                        value={draft.pings.customRoleId || ""}
+                        onChange={(v) => set({ pings: { ...draft.pings, customRoleId: v || null } })}
+                        className={cn(fieldClass, "mt-0 py-2")}
+                        options={roleOptions("Un ruolo…")}
+                      />
+                    </td>
+                    <td className="py-2 pr-3">
+                      <input
+                        name="ping-custom-members"
+                        aria-label="Ruolo dai membri"
+                        type="number"
+                        min={0}
+                        value={draft.pings.customRoleMembers ?? ""}
+                        placeholder="mai"
+                        onChange={(e) => set({ pings: { ...draft.pings, customRoleMembers: e.target.value === "" ? null : Number(e.target.value) } })}
+                        className={cn(fieldClass, "mt-0 py-2")}
+                      />
+                    </td>
+                    <td className="py-2 text-xs text-crema/60">subito</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-xs text-crema/60">Vuoto = quella menzione non viene mai fatta. Ruolo e soglia del ruolo vanno impostati insieme.</p>
+          </FormGroup>
+
+          <Disclosure title="Messaggio di ringraziamento">
+            <p className="text-xs text-crema/60">Il bot lo manda al server partner dopo la pubblicazione. Richiede Vinili Premium.</p>
+            <div className="mt-3 space-y-4">
+              <div className="divide-y divide-sand/[0.07]">
+                <SettingRow title="Ringraziamento attivo">
+                  <Toggle
+                    size="sm"
+                    checked={draft.thankYouEmbed.enabled}
+                    label="Ringraziamento attivo"
+                    onChange={(v) => set({ thankYouEmbed: { ...draft.thankYouEmbed, enabled: v } })}
+                  />
+                </SettingRow>
+              </div>
+              <Field label="Titolo">
+                <input
+                  name="thank-you-title"
+                  value={draft.thankYouEmbed.title || ""}
+                  onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, title: e.target.value || null } })}
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label="Testo">
+                <textarea
+                  name="thank-you-description"
+                  value={draft.thankYouEmbed.description || ""}
+                  rows={3}
+                  onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, description: e.target.value || null } })}
+                  className={fieldClass}
+                />
+              </Field>
+              <button
+                type="button"
+                className={primaryMini}
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  const res = await patchPartnership(token, guildId, { thankYouEmbed: draft.thankYouEmbed });
+                  setBusy(false);
+                  if (!res.ok) {
+                    onToast(res.message, true);
+                    return;
+                  }
+                  setBundle(res.data);
+                  setDraft(res.data.config);
+                  onToast("Ringraziamento salvato.");
+                }}
+              >
+                Salva ringraziamento
+              </button>
+            </div>
+          </Disclosure>
         </div>
       ) : null}
 
       {tab === "filtri" ? (
-        <div className="space-y-2">
-          <p className="text-xs text-crema/60">
-            Regole di pulizia sulla descrizione partnership. L&apos;invito Discord non viene rimosso.
-          </p>
-          {FILTERS.map((row) => (
-            <div key={row.key} className="flex items-center justify-between gap-3 py-1.5">
-              <div>
-                <p className="text-sm text-crema">{row.title}</p>
-                <p className="text-xs text-crema/60">{row.hint}</p>
-              </div>
-              <Toggle
-                checked={draft.contentFilters[row.key]}
-                label={row.title}
-                onChange={(v) => set({ contentFilters: { ...draft.contentFilters, [row.key]: v } })}
-              />
+        <div className="space-y-4">
+          <SaveBar text="Pulizia automatica della descrizione dei server partner. L'invito Discord resta sempre.">
+            <button type="button" className={primaryMini} disabled={busy} onClick={saveFilters}>
+              Salva filtri
+            </button>
+          </SaveBar>
+          <FormGroup title="Cosa togliere dalla descrizione" description={`${FILTERS.filter((f) => draft.contentFilters[f.key]).length} filtri attivi su ${FILTERS.length}`}>
+            <div className="divide-y divide-sand/[0.07]">
+              {FILTERS.map((row) => (
+                <SettingRow key={row.key} title={row.title} description={row.hint}>
+                  <Toggle
+                    size="sm"
+                    checked={draft.contentFilters[row.key]}
+                    label={row.title}
+                    onChange={(v) => set({ contentFilters: { ...draft.contentFilters, [row.key]: v } })}
+                  />
+                </SettingRow>
+              ))}
             </div>
-          ))}
-          <button
-            type="button"
-            className={primaryMini}
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              const res = await patchPartnership(token, guildId, { contentFilters: draft.contentFilters });
-              setBusy(false);
-              if (!res.ok) {
-                onToast(res.message, true);
-                return;
-              }
-              setBundle(res.data);
-              setDraft(res.data.config);
-              onToast("Configurazione partnership salvata.");
-            }}
-          >
-            Salva filtri
-          </button>
+          </FormGroup>
         </div>
       ) : null}
 
       {tab === "blacklist" ? (
-        <div className="space-y-3">
-          <form
-            className="flex flex-wrap items-end gap-2"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const target = blTarget.trim();
-              if (!target) {
-                onToast("Inserisci un ID server Discord valido oppure un invite.", true);
-                return;
-              }
-              setBusy(true);
-              const res = await addPartnershipBlacklist(token, guildId, target, blNote.trim().slice(0, 500));
-              setBusy(false);
-              if (!res.ok) {
-                onToast(res.message, true);
-                return;
-              }
-              setBlacklist(res.data);
-              setBlTarget("");
-              setBlNote("");
-            }}
-          >
-            <Field label="Server o invite">
-              <input name="blacklist-target" value={blTarget} onChange={(e) => setBlTarget(e.target.value)} className={fieldClass} />
-            </Field>
-            <Field label="Nota">
-              <input name="blacklist-note" value={blNote} maxLength={500} onChange={(e) => setBlNote(e.target.value)} className={fieldClass} />
-            </Field>
-            <button type="submit" disabled={busy} className={primaryMini}>
-              Aggiungi
-            </button>
-          </form>
-          <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+          <FormGroup title="Blocca un server" description="Il bot rifiuta le partnership dei server in blacklist.">
+            <form
+              className="space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const target = blTarget.trim();
+                if (!target) {
+                  onToast("Scrivi l'ID del server o un suo invito.", true);
+                  return;
+                }
+                setBusy(true);
+                const res = await addPartnershipBlacklist(token, guildId, target, blNote.trim().slice(0, 500));
+                setBusy(false);
+                if (!res.ok) {
+                  onToast(res.message, true);
+                  return;
+                }
+                setBlacklist(res.data);
+                setBlTarget("");
+                setBlNote("");
+                onToast("Server aggiunto alla blacklist.");
+              }}
+            >
+              <Field label="Server" hint="ID del server oppure link d'invito">
+                <input name="blacklist-target" value={blTarget} onChange={(e) => setBlTarget(e.target.value)} placeholder="discord.gg/… o 1234…" className={fieldClass} />
+              </Field>
+              <Field label="Nota" hint="Facoltativa, la vede solo lo staff">
+                <input name="blacklist-note" value={blNote} maxLength={500} onChange={(e) => setBlNote(e.target.value)} className={fieldClass} />
+              </Field>
+              <button type="submit" disabled={busy} className={cn(primaryMini, "w-full py-2")}>
+                Aggiungi alla blacklist
+              </button>
+            </form>
+          </FormGroup>
+          <section className="min-w-0">
+            <div className="mb-2 flex items-baseline justify-between">
+              <h3 className="text-sm font-semibold text-crema">Server bloccati</h3>
+              <span className="text-xs tabular-nums text-crema/60">{blacklist?.length ?? 0}</span>
+            </div>
             {!blacklist?.length ? (
-              <li className="px-4 py-8 text-center text-sm text-crema/60">Nessun server in blacklist</li>
+              <p className="rounded-xl border border-dashed border-sand/20 px-4 py-10 text-center text-sm text-crema/60">Nessun server in blacklist.</p>
             ) : (
-              blacklist.map((row) => (
-                <li key={row.guildId} className="flex items-center justify-between gap-2 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-crema">{row.guildName || row.guildId}</p>
-                    <p className="truncate text-xs text-crema/60">
-                      {row.invite || row.guildId}
-                      {row.note ? ` · ${row.note}` : ""}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className={dangerBtn}
-                    onClick={async () => {
-                      if (!(await confirmDialog({ message: "Togliere questo server dalla blacklist partnership?", danger: true }))) return;
-                      const res = await deletePartnershipBlacklistEntry(token, guildId, row.guildId);
-                      if (!res.ok) {
-                        onToast(res.message, true);
-                        return;
-                      }
-                      setBlacklist(res.data);
-                    }}
-                  >
-                    Rimuovi
-                  </button>
-                </li>
-              ))
+              <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10">
+                {blacklist.map((row) => (
+                  <li key={row.guildId} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.08] text-sm font-bold text-crema/80" aria-hidden>
+                      {(String(row.guildName || "?").trim().charAt(0) || "?").toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-crema">{row.guildName || "Server sconosciuto"}</p>
+                      <p className="truncate text-xs text-crema/60">
+                        <span className="font-mono">{row.invite || row.guildId}</span>
+                        {row.note ? ` · ${row.note}` : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className={dangerBtn}
+                      onClick={async () => {
+                        if (!(await confirmDialog({ message: "Togliere questo server dalla blacklist partnership?", danger: true }))) return;
+                        const res = await deletePartnershipBlacklistEntry(token, guildId, row.guildId);
+                        if (!res.ok) {
+                          onToast(res.message, true);
+                          return;
+                        }
+                        setBlacklist(res.data);
+                      }}
+                    >
+                      Togli
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
-          </ul>
+          </section>
         </div>
       ) : null}
 
       {tab === "manager" ? (
-        <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
-          {managers.length === 0 ? (
-            <li className="px-4 py-8 text-center text-sm text-crema/60">Nessun partner manager</li>
-          ) : (
-            managers.map((m) => (
-              <li key={m.userId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
-                <div>
-                  <p className="text-sm text-crema">{m.displayName}</p>
-                  <p className="text-xs text-crema/60">
-                    <span className="lining-nums">{m.points}</span> punti · giorno {m.daily} · settimana {m.weekly}
-                  </p>
-                </div>
-                {canPoints ? (
-                  <form
-                    className="flex items-center gap-1"
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const amount = Number.parseInt(points[m.userId] || "", 10);
-                      const action = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("data-act");
-                      if (action !== "add" && action !== "remove") return;
-                      if (!Number.isInteger(amount) || amount < 1 || amount > 10000) {
-                        onToast("Inserisci un numero valido tra 1 e 10000.", true);
-                        return;
-                      }
-                      const res = await adjustPartnershipManagerPoints(token, guildId, m.userId, action, amount);
-                      if (!res.ok) {
-                        onToast(res.message, true);
-                        return;
-                      }
-                      onToast(res.data.message);
-                      const fresh = await loadPartnershipManagers(token, guildId);
-                      if (fresh.ok) setManagers(fresh.data.managers);
-                    }}
+        managers.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-sand/20 px-4 py-10 text-center text-sm text-crema/60">
+            Nessun partner manager: chi ha il ruolo dei manager compare qui con i suoi punti.
+          </p>
+        ) : (
+          <ul className="grid gap-2.5 md:grid-cols-2">
+            {[...managers]
+              .sort((a, b) => b.points - a.points)
+              .map((m, i) => (
+                <li key={m.userId} className="flex flex-wrap items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+                  <span
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold tabular-nums",
+                      i === 0 ? "bg-caramel/20 text-ember" : "bg-crema/[0.06] text-crema/70",
+                    )}
+                    aria-label={`Posizione ${i + 1}`}
                   >
-                    <input name="manager-points"
-                      value={points[m.userId] || ""}
-                      onChange={(e) => setPoints((cur) => ({ ...cur, [m.userId]: e.target.value }))}
-                      inputMode="numeric"
-                      className="w-16 rounded-lg bg-espresso/70 px-2 py-1 text-sm text-crema ring-1 ring-sand/15"
-                    />
-                    <button type="submit" data-act="add" className={miniBtn}>
-                      +
-                    </button>
-                    <button type="submit" data-act="remove" className={miniBtn}>
-                      −
-                    </button>
-                  </form>
-                ) : null}
-              </li>
-            ))
-          )}
-        </ul>
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-crema">{m.displayName}</p>
+                    <p className="text-xs text-crema/60">
+                      oggi <span className="tabular-nums text-crema/80">{m.daily}</span> · settimana{" "}
+                      <span className="tabular-nums text-crema/80">{m.weekly}</span>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-display text-xl font-semibold leading-none tabular-nums text-crema">{m.points}</p>
+                    <p className="text-[0.65rem] text-crema/60">punti</p>
+                  </div>
+                  {canPoints ? (
+                    <form
+                      className="flex w-full items-center gap-1.5 border-t border-sand/[0.08] pt-2.5"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const amount = Number.parseInt(points[m.userId] || "", 10);
+                        const action = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("data-act");
+                        if (action !== "add" && action !== "remove") return;
+                        if (!Number.isInteger(amount) || amount < 1 || amount > 10000) {
+                          onToast("Scrivi un numero da 1 a 10000.", true);
+                          return;
+                        }
+                        const res = await adjustPartnershipManagerPoints(token, guildId, m.userId, action, amount);
+                        if (!res.ok) {
+                          onToast(res.message, true);
+                          return;
+                        }
+                        onToast(res.data.message);
+                        setPoints((cur) => ({ ...cur, [m.userId]: "" }));
+                        const fresh = await loadPartnershipManagers(token, guildId);
+                        if (fresh.ok) setManagers(fresh.data.managers);
+                      }}
+                    >
+                      <span className="text-xs text-crema/60">Correggi punti</span>
+                      <input
+                        name="manager-points"
+                        aria-label={`Punti da aggiungere o togliere a ${m.displayName}`}
+                        value={points[m.userId] || ""}
+                        onChange={(e) => setPoints((cur) => ({ ...cur, [m.userId]: e.target.value }))}
+                        inputMode="numeric"
+                        placeholder="0"
+                        className="ml-auto w-20 rounded-lg bg-espresso/70 px-2 py-1.5 text-center text-sm tabular-nums text-crema ring-1 ring-sand/15"
+                      />
+                      <button type="submit" data-act="add" className={miniBtn} aria-label="Aggiungi punti">
+                        + Aggiungi
+                      </button>
+                      <button type="submit" data-act="remove" className={miniBtn} aria-label="Togli punti">
+                        − Togli
+                      </button>
+                    </form>
+                  ) : null}
+                </li>
+              ))}
+          </ul>
+        )
       ) : null}
 
       {tab === "storia" ? (
-        <div className="space-y-3">
-          <Field label="Periodo">
-            <Select
-              value={days}
-              onChange={setDays}
-              className={fieldClass}
-              options={[
-                { value: "7", label: "7 giorni" },
-                { value: "30", label: "30 giorni" },
-                { value: "all", label: "Tutto" },
-              ]}
-            />
-          </Field>
-          {history ? (
-            <p className="text-xs text-crema/60">
-              <span className="lining-nums">{history.totalPartnerships}</span> partnership ·{" "}
-              <span className="lining-nums">{history.uniqueServers}</span> server
-            </p>
-          ) : null}
-          <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/50 ring-1 ring-sand/10">
-            {!history?.entries.length ? (
-              <li className="px-4 py-8 text-center text-sm text-crema/60">Nessuna partnership nel periodo</li>
-            ) : (
-              history.entries.map((row, i) => (
-                <li key={`${row.guildId || row.invite || i}`} className="px-4 py-3">
-                  <p className="text-sm text-crema">{row.guildName || row.invite || "Server"}</p>
-                  <p className="text-xs text-crema/60">
-                    <span className="lining-nums">{row.count}</span>
-                    {row.lastAt ? ` · ${row.lastAt.slice(0, 10)}` : ""}
-                  </p>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-grid grid-cols-3 gap-1 rounded-lg bg-espresso/70 p-1 ring-1 ring-sand/10" role="radiogroup" aria-label="Periodo">
+              {[
+                { v: "7", l: "7 giorni" },
+                { v: "30", l: "30 giorni" },
+                { v: "all", l: "Sempre" },
+              ].map((p) => (
+                <button
+                  key={p.v}
+                  type="button"
+                  role="radio"
+                  aria-checked={days === p.v}
+                  onClick={() => setDays(p.v)}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
+                    days === p.v ? "bg-mocha text-crema ring-1 ring-sand/15" : "text-crema/60 hover:text-crema",
+                  )}
+                >
+                  {p.l}
+                </button>
+              ))}
+            </div>
+            {history ? (
+              <p className="text-sm text-crema/70">
+                <span className="font-semibold tabular-nums text-crema">{history.totalPartnerships}</span> partnership con{" "}
+                <span className="font-semibold tabular-nums text-crema">{history.uniqueServers}</span> server
+              </p>
+            ) : null}
+          </div>
+          {!history?.entries.length ? (
+            <p className="rounded-xl border border-dashed border-sand/20 px-4 py-10 text-center text-sm text-crema/60">Nessuna partnership in questo periodo.</p>
+          ) : (
+            <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10">
+              {history.entries.map((row, i) => (
+                <li key={`${row.guildId || row.invite || i}`} className="flex items-center gap-3 px-4 py-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.08] text-sm font-bold text-crema/80" aria-hidden>
+                    {(String(row.guildName || row.invite || "?").trim().charAt(0) || "?").toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-crema">{row.guildName || row.invite || "Server"}</p>
+                    {row.lastAt ? <p className="text-xs text-crema/60">ultima il {new Date(row.lastAt).toLocaleDateString("it-IT")}</p> : null}
+                  </div>
+                  <span className="rounded-md bg-crema/[0.07] px-2 py-1 text-xs font-semibold tabular-nums text-crema/85">
+                    {row.count} {row.count === 1 ? "volta" : "volte"}
+                  </span>
                 </li>
-              ))
-            )}
-          </ul>
+              ))}
+            </ul>
+          )}
         </div>
       ) : null}
 
       {tab === "migrazione" ? (
-        <div className="space-y-3">
-          <p className="text-sm text-crema/70">
-            Stato: {migration?.job ? migration.job.status : "nessuna"}
-            {migration?.job?.queuePosition ? ` · coda ${migration.job.queuePosition}` : ""}
-            {migration?.job?.imported ? ` · importate ${migration.job.imported}` : ""}
-          </p>
-          {migration?.job?.error ? <Notice error>{migration.job.error}</Notice> : null}
-          <div className="flex flex-wrap gap-2">
+        <FormGroup
+          title="Importa le partnership vecchie"
+          description="Legge il canale partnership e registra le partnership già pubblicate, con i punti dei manager."
+        >
+          <div className="flex flex-wrap items-center gap-3 rounded-lg bg-espresso/50 p-3 ring-1 ring-sand/10">
+            <StatusBadge tone={migration?.job?.status === "done" || migration?.job?.status === "completed" ? "ok" : migration?.job?.error ? "warn" : migration?.job ? "accent" : "muted"}>
+              {migration?.job ? MIGRATION_STATUS[migration.job.status] || migration.job.status : "mai avviata"}
+            </StatusBadge>
+            {migration?.job?.queuePosition ? <span className="text-sm text-crema/70">in coda: posizione {migration.job.queuePosition}</span> : null}
+            {migration?.job?.imported ? (
+              <span className="text-sm text-crema/70">
+                <span className="font-semibold tabular-nums text-crema">{migration.job.imported}</span> importate
+              </span>
+            ) : null}
+          </div>
+          {migration?.job?.error ? (
+            <div className="mt-3">
+              <Notice error>{migration.job.error}</Notice>
+            </div>
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
               className={primaryMini}
@@ -752,7 +831,7 @@ export function PartnershipPanel({
                 if (fresh.ok) setMigration(fresh.data);
               }}
             >
-              Avvia con la configurazione attuale
+              Avvia importazione
             </button>
             {migration?.job?.canUndo ? (
               <button
@@ -760,6 +839,7 @@ export function PartnershipPanel({
                 className={dangerBtn}
                 disabled={busy}
                 onClick={async () => {
+                  if (!(await confirmDialog({ message: "Annullare l'ultima importazione? Le partnership importate e i loro punti vengono tolti.", danger: true }))) return;
                   setBusy(true);
                   const res = await undoPartnershipMigration(token, guildId);
                   setBusy(false);
@@ -772,12 +852,32 @@ export function PartnershipPanel({
                   if (fresh.ok) setMigration(fresh.data);
                 }}
               >
-                Annulla ultima migrazione
+                Annulla ultima importazione
               </button>
             ) : null}
           </div>
-        </div>
+        </FormGroup>
       ) : null}
+    </div>
+  );
+}
+
+const MIGRATION_STATUS: Record<string, string> = {
+  queued: "in coda",
+  running: "in corso",
+  done: "completata",
+  completed: "completata",
+  pending: "in attesa",
+  failed: "non riuscita",
+  undone: "annullata",
+};
+
+/** Barra in alto con le azioni della sezione (sempre in vista mentre scorri). */
+function SaveBar({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <div className="sticky top-14 z-20 flex flex-wrap items-center gap-3 rounded-xl bg-roast/95 px-4 py-3 ring-1 ring-sand/10 backdrop-blur-md">
+      <p className="min-w-0 flex-1 text-xs text-crema/70">{text}</p>
+      <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
 }
