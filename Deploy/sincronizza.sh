@@ -2,7 +2,8 @@
 # Allinea TUTTO il codice dei bot sulla VPS a quello compilato qui (dopo spostamenti/archiviazioni di file):
 # carica ogni .js di build/js e toglie dal server i .js che in locale non esistono più.
 # Non tocca: node_modules, Vinili/Data, Caffè/Data, font/cache binari, log, idsCatalog.js (lo rigenera il bot).
-# Backup completo del codice e ripristino in /root/vc_bot_bak_<data>-sync.
+# Backup completo del codice e ripristino in ~/vc_bot_bak_<data>-sync (home dell'utente SSH).
+# VPS: di default quella nuova (vinili-ca), come pubblica.sh. Vecchia: VC_SSH_HOST=vinili bash Deploy/sincronizza.sh
 # Uso:
 #   bash Deploy/sincronizza.sh                       → riavvia tutti i processi dei bot
 #   PROVA=1 bash Deploy/sincronizza.sh               → mostra cosa farebbe, niente sulla VPS
@@ -14,6 +15,8 @@ BOTS_DIR="$REPO_ROOT/Bots"
 cd "$BOTS_DIR"
 
 PROCS="${PROCS:-bots-vinyls bots-coffee site-api bot-workers vote-intake}"
+SSH_HOST="${VC_SSH_HOST:-vinili-ca}"
+echo "VPS: $SSH_HOST"
 # Sync completo ancora compila in locale: serve Bots/node_modules (esbuild).
 # Per publish normali usa Deploy/pubblica.sh (compile sulla VPS, zero node_modules locale).
 if ! node -e "require('esbuild')" >/dev/null 2>&1; then
@@ -52,7 +55,7 @@ check_js_list build/archivio "$TMP/lista-archivio.txt"
 
 PRUNE='\( -path "*/node_modules" -o -path ./Vinili/Data -o -path ./Caffè/Data -o -path ./Vinili/Community/utils/Render/Fonts -o -path ./shared/cache/RoleIcons -o -path ./Vinili/Moderation/config/grabbedScamRefs -o -path "*/logs" \) -prune -o'
 mkdir -p "$TMP"
-ssh vinili "cd /opt/bot/bots-ts/src && find . $PRUNE -name '*.js' -print | sed 's#^\./##' | LC_ALL=C sort" > "$TMP/vps.txt"
+ssh "$SSH_HOST" "cd /opt/bot/bots-ts/src && find . $PRUNE -name '*.js' -print | sed 's#^\./##' | LC_ALL=C sort" > "$TMP/vps.txt"
 # Stesso ordinamento qui e sulla VPS (LC_ALL=C): con locale diversi `comm` segna da togliere file che esistono.
 LC_ALL=C comm -13 --check-order "$TMP/lista.txt" "$TMP/vps.txt" | grep -v '^Vinili/Config/idsCatalog\.js$' > "$TMP/da-togliere.txt" || true
 echo "$(wc -l < "$TMP/lista.txt") js src, $(wc -l < "$TMP/lista-archivio.txt") js archivio, $(wc -l < "$TMP/da-togliere.txt") da togliere dal server:"
@@ -66,15 +69,18 @@ fi
 
 tar -czf "$TMP/js.tgz" -C build/js -T "$TMP/lista.txt"
 tar -czf "$TMP/archivio.tgz" -C build/archivio -T "$TMP/lista-archivio.txt" 2>/dev/null || tar -czf "$TMP/archivio.tgz" -T /dev/null
-scp -q "$TMP/js.tgz" vinili:/tmp/vc_sync_js.tgz
-scp -q "$TMP/archivio.tgz" vinili:/tmp/vc_sync_archivio.tgz
-scp -q "$TMP/da-togliere.txt" vinili:/tmp/vc_sync_togliere.txt
+scp -q "$TMP/js.tgz" "$SSH_HOST":/tmp/vc_sync_js.tgz
+scp -q "$TMP/archivio.tgz" "$SSH_HOST":/tmp/vc_sync_archivio.tgz
+scp -q "$TMP/da-togliere.txt" "$SSH_HOST":/tmp/vc_sync_togliere.txt
 # config/permissions (non sono .js ma servono al runtime)
-scp -q src/Vinili/permissions.json vinili:/tmp/vc_sync_permissions.json
-scp -q src/Vinili/config.json vinili:/tmp/vc_sync_config.json
-ssh vinili "PROCS='$PROCS' bash -s" <<'REMOTE'
+scp -q src/Vinili/permissions.json "$SSH_HOST":/tmp/vc_sync_permissions.json
+scp -q src/Vinili/config.json "$SSH_HOST":/tmp/vc_sync_config.json
+ssh "$SSH_HOST" "PROCS='$PROCS' bash -s" <<'REMOTE'
 set -euo pipefail
-B=/root/vc_bot_bak_$(date +%Y%m%d-%H%M%S)-sync
+# pm2/node installati con nvm sulla VPS nuova (utente ubuntu)
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+B="$HOME/vc_bot_bak_$(date +%Y%m%d-%H%M%S)-sync"
 mkdir -p "$B"
 cd /opt/bot/bots-ts/src
 find . \( -path "*/node_modules" -o -path ./Vinili/Data -o -path ./Caffè/Data -o -path ./Vinili/Community/utils/Render/Fonts -o -path ./shared/cache/RoleIcons -o -path ./Vinili/Moderation/config/grabbedScamRefs -o -path "*/logs" \) -prune -o -name "*.js" -print > "$B/js-prima.txt"
