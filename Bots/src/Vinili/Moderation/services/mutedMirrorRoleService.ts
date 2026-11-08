@@ -217,7 +217,7 @@ async function runSweepExpiredCommunicationTimeoutMirrors(client?, options: Reco
 
                 const member = await getGuildMemberCached(guild, cachedMember.id, { preferFresh: true }).catch(() => null);
         if (!member?.roles?.cache) {
-          await clearSnapshot(guild.id, cachedMember.id);
+          /* uscito dal server: la foto dei ruoli resta, serve quando rientra (prima veniva cancellata) */
           mutedRole.members?.delete?.(cachedMember.id);
           continue;
         }

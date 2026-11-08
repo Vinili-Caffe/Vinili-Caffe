@@ -657,13 +657,20 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId?, userId?, client?
   const keepEventWeekWinners =
     Array.isArray(doc?.profile?.totals?.exp?.event?.weekWinners) && doc.profile.totals.exp.event.weekWinners.length > 0;
   const keepCustomPerksCleanup = Boolean(pendingCustomPerksCleanup);
+  /* ruoli salvati al mute: se esce da mutato e rientra, servono per ridargli i ruoli a fine mute */
+  const muteRoleSnapshot =
+    Array.isArray(doc?.profile?.muteRoleSnapshot?.roleIds) && doc.profile.muteRoleSnapshot.roleIds.length > 0
+      ? doc.profile.muteRoleSnapshot
+      : null;
+  const keepMuteSnapshot = Boolean(muteRoleSnapshot);
 
   if (
     !keepModeration &&
     !keepEventWeekWinners &&
     !keepStaffGrace &&
     !keepCustomPerksCleanup &&
-    !keepRolesHistoryRetention
+    !keepRolesHistoryRetention &&
+    !keepMuteSnapshot
   ) {
     await ActivityUserProfile.deleteOne({ _id: doc._id }).catch(() => { });
     return;
@@ -688,6 +695,9 @@ async function cleanupActivityUserProfileOnGuildLeave(guildId?, userId?, client?
   }
   if (keepCustomPerksCleanup) {
     profile.customPerksDiscordCleanup = pendingCustomPerksCleanup;
+  }
+  if (keepMuteSnapshot) {
+    profile.muteRoleSnapshot = muteRoleSnapshot;
   }
   if (Object.keys(profile).length) payload.profile = profile;
 
