@@ -37,6 +37,15 @@ function romeDayKey(d) {
   const p = Object.fromEntries(f.formatToParts(d).filter((x) => x.type !== "literal").map((x) => [x.type, x.value]));
   return `${p.year}-${p.month}-${p.day}`;
 }
+function isoWeekKey(d) {
+  const [y, m, day] = romeDayKey(d).split("-").map(Number);
+  const u = new Date(Date.UTC(y, m - 1, day));
+  const n = (u.getUTCDay() + 6) % 7;
+  u.setUTCDate(u.getUTCDate() - n + 3);
+  const first = new Date(Date.UTC(u.getUTCFullYear(), 0, 4));
+  const w = 1 + Math.round((u - first) / (7 * 86400000));
+  return `${u.getUTCFullYear()}-W${String(w).padStart(2, "0")}`;
+}
 function weekDayKeys() {
   const today = new Date();
   const wd = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Rome", weekday: "short" }).format(today);
@@ -59,15 +68,19 @@ function weekDayKeys() {
     console.log(`  settimana ${wk}: compito=${e.taskId || "-"} stato=${e.status || "-"} auto=${Boolean(e.autoSubmitted)}`);
   }
   const keys = weekDayKeys();
+  const weekKey = isoWeekKey(new Date());
+  console.log("Settimana:", weekKey);
   console.log("Giorni conteggiati:", keys[0], "→", keys[6]);
   const invitees = await col
-    .find({ guildId, "profile.inviteTrack.inviterId": staffId }, { projection: { userId: 1, "profile.inviteTrack": 1, "profile.totals.daily": 1 } })
+    .find({ guildId, "profile.inviteTrack.inviterId": staffId }, { projection: { userId: 1, "profile.inviteTrack": 1, "profile.totals": 1 } })
     .toArray();
   console.log(`Utenti che risultano invitati da lui: ${invitees.length}`);
   for (const doc of invitees) {
-    const daily = doc?.profile?.totals?.daily || {};
-    let text = 0;
-    let voice = 0;
+    const tot = doc?.profile?.totals || {};
+    const daily = tot.daily || {};
+    /* contatori settimanali (modalità compact) + eventuali giornalieri vecchi */
+    let text = tot.messagesWeeklyKey === weekKey ? Number(tot.messagesWeekly || 0) : 0;
+    let voice = tot.voiceWeeklyKey === weekKey ? Number(tot.voiceWeeklySeconds || 0) : 0;
     for (const k of keys) {
       text += Number(daily[k]?.textCount || 0);
       voice += Number(daily[k]?.voiceSeconds || 0);

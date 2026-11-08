@@ -317,21 +317,35 @@ async function tickInviteActiveCompiti(client?, opts: Record<string, any> = {}) 
       "profile.inviteTrack.inviterId": staffId,
       "profile.inviteTrack.active": { $ne: false },
     })
-      .select("userId profile.totals.daily")
+      .select(
+        "userId profile.totals.daily profile.totals.messagesWeekly profile.totals.messagesWeeklyKey profile.totals.voiceWeeklySeconds profile.totals.voiceWeeklyKey",
+      )
       .lean()
       .catch(() => []);
 
     let best = null;
     for (const doc of invitees || []) {
-      const daily = doc?.profile?.totals?.daily;
-      if (!daily || typeof daily !== "object") continue;
-      let text = 0;
-      let voice = 0;
-      for (const dk of dateKeys) {
-        const row = daily[dk];
-        if (!row || typeof row !== "object") continue;
-        text += Math.max(0, Number(row.textCount || row.text || 0));
-        voice += Math.max(0, Number(row.voiceSeconds || row.voice || 0));
+      const totals = doc?.profile?.totals || {};
+      /*
+       * Fonte principale: contatori settimanali (settimana ISO, ora di Roma, stesso formato dei compiti).
+       * Con l'attività in modalità "compact" (default) profile.totals.daily non viene più scritto:
+       * leggere solo quello dava sempre 0 messaggi / 0 ore e il compito non scattava mai.
+       */
+      let text = String(totals.messagesWeeklyKey || "") === weekKey ? Math.max(0, Number(totals.messagesWeekly || 0)) : 0;
+      let voice = String(totals.voiceWeeklyKey || "") === weekKey ? Math.max(0, Number(totals.voiceWeeklySeconds || 0)) : 0;
+      /* riserva: dati giornalieri vecchio formato, se presenti */
+      const daily = totals.daily;
+      if (daily && typeof daily === "object") {
+        let dText = 0;
+        let dVoice = 0;
+        for (const dk of dateKeys) {
+          const row = daily[dk];
+          if (!row || typeof row !== "object") continue;
+          dText += Math.max(0, Number(row.textCount || row.text || 0));
+          dVoice += Math.max(0, Number(row.voiceSeconds || row.voice || 0));
+        }
+        text = Math.max(text, dText);
+        voice = Math.max(voice, dVoice);
       }
       if (text >= 100 || voice >= 2 * 3600) {
         best = { userId: String(doc.userId || ""), text, voice };
