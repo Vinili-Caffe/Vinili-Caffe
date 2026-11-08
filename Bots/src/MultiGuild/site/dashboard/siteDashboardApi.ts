@@ -461,9 +461,27 @@ async function fetchUserGuilds(accessToken?) {
   }
 }
 
+/* dati generali del server per la testata della dashboard (boost, ruoli, banner…) */
+function guildExtrasFromRaw(raw?) {
+  const id = String(raw?.id || "").trim();
+  const banner = String(raw?.banner || "").trim();
+  const boosts = Number(raw?.premium_subscription_count);
+  const tier = Number(raw?.premium_tier);
+  const verification = Number(raw?.verification_level);
+  return {
+    boostCount: raw && Number.isFinite(boosts) && boosts >= 0 ? boosts : null,
+    boostTier: raw && Number.isFinite(tier) && tier >= 0 ? tier : null,
+    roleCount: Array.isArray(raw?.roles) ? raw.roles.length : null,
+    emojiCount: Array.isArray(raw?.emojis) ? raw.emojis.length : null,
+    bannerUrl: id && banner ? `https://cdn.discordapp.com/banners/${id}/${banner}.${banner.startsWith("a_") ? "gif" : "webp"}?size=1024` : null,
+    description: raw?.description ? String(raw.description).slice(0, 300) : null,
+    verificationLevel: raw && Number.isFinite(verification) ? verification : null,
+  };
+}
+
 async function fetchGuildCounts(client?, guildId?) {
   const rest = client?._rest || client?.rest;
-  if (!rest) return { memberCount: null, onlineCount: null };
+  if (!rest) return { memberCount: null, onlineCount: null, extras: null };
   try {
     const raw = await withTimeout(
       rest.get(Routes.guild(String(guildId)), {
@@ -477,9 +495,10 @@ async function fetchGuildCounts(client?, guildId?) {
     return {
       memberCount: Number.isFinite(members) && members >= 0 ? members : null,
       onlineCount: Number.isFinite(online) && online >= 0 ? online : null,
+      extras: guildExtrasFromRaw(raw),
     };
   } catch {
-    return { memberCount: null, onlineCount: null };
+    return { memberCount: null, onlineCount: null, extras: null };
   }
 }
 
@@ -891,11 +910,12 @@ async function getDashboardGuildOverview(client?, accessToken?, guildId?) {
     memberCount = guild.memberCount ?? guild.approximateMemberCount ?? null;
     onlineCount = guild.approximatePresenceCount ?? null;
   }
-    if (memberCount == null || onlineCount == null) {
-    const counts = await fetchGuildCounts(client, gid);
-    if (memberCount == null) memberCount = counts.memberCount;
-    if (onlineCount == null) onlineCount = counts.onlineCount;
-  }
+  /* una sola chiamata a Discord: conteggi + dati generali per la testata */
+  const counts = await fetchGuildCounts(client, gid);
+  if (memberCount == null) memberCount = counts.memberCount;
+  if (onlineCount == null) onlineCount = counts.onlineCount;
+  const extras = counts.extras || guildExtrasFromRaw(null);
+  const channelCount = Number(guild?.channels?.cache?.size) > 0 ? Number(guild.channels.cache.size) : null;
 
   return {
     ok: true,
@@ -913,6 +933,8 @@ async function getDashboardGuildOverview(client?, accessToken?, guildId?) {
       inviteUrl: null,
       memberCount,
       onlineCount,
+      ...extras,
+      channelCount,
     },
     access: {
       managed: Boolean(accessInfo?.managed) || isProtected,
