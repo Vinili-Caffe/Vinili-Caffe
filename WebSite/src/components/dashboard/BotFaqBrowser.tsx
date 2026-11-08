@@ -1,90 +1,57 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import {
+  Compass,
+  Crown,
+  Database,
+  Handshake,
+  LayoutDashboard,
+  LifeBuoy,
+  MessageSquarePlus,
+  SlidersHorizontal,
+  Terminal,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+import { FaqBrowser } from "@/components/faq/FaqBrowser";
+import { SmartLink } from "@/components/SmartLink";
 import { BOT_FAQ_CATEGORIES, BOT_FAQ_ITEMS } from "@/lib/bot-faq";
-import { cn } from "@/lib/cn";
+import { page } from "@/lib/site";
+import { dashPrimaryBtn } from "./guild/bits";
 
-/** FAQ dashboard: categorie a linguette + una risposta alla volta (come bot-faq-page.js). */
+const BOT_FAQ_ICONS: Record<string, LucideIcon> = {
+  faq_start: Compass,
+  faq_dashboard: LayoutDashboard,
+  faq_settings: SlidersHorizontal,
+  faq_commands: Terminal,
+  faq_partnership: Handshake,
+  faq_team: Users,
+  faq_premium: Crown,
+  faq_data: Database,
+  faq_help: LifeBuoy,
+};
+
+/** FAQ del bot: stessa pagina delle FAQ del sito (ricerca, categorie, domande a fisarmonica). */
 export function BotFaqBrowser() {
-  const [cat, setCat] = useState(BOT_FAQ_CATEGORIES[0]?.id ?? "");
-  const inCat = useMemo(() => BOT_FAQ_ITEMS.filter((i) => i.category === cat), [cat]);
-  const [qi, setQi] = useState(0);
-  const item = inCat[Math.min(qi, Math.max(0, inCat.length - 1))] ?? null;
-
-  const pickCat = (id: string) => {
-    setCat(id);
-    setQi(0);
-  };
-
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-crema/45">
-        Scegli una categoria con le linguette qui sotto. Se ci sono più domande, scegli con lo switcher sotto e leggi la risposta.
-      </p>
-
-      <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Categorie FAQ">
-        {BOT_FAQ_CATEGORIES.map((c) => {
-          const on = c.id === cat;
-          return (
-            <button
-              key={c.id}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => pickCat(c.id)}
-              className={cn(
-                "shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-                on ? "bg-caramel/20 text-ember ring-1 ring-caramel/35" : "bg-crema/5 text-crema/60 ring-1 ring-sand/12 hover:text-crema",
-              )}
-            >
-              {c.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {inCat.length > 1 && (
-        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Domande">
-          {inCat.map((q, i) => (
-            <button
-              key={q.id}
-              type="button"
-              role="tab"
-              aria-selected={i === qi}
-              onClick={() => setQi(i)}
-              className={cn(
-                "max-w-full truncate rounded-md px-2.5 py-1 text-left text-[0.7rem] font-medium transition-colors sm:max-w-xs",
-                i === qi ? "bg-crema/12 text-crema ring-1 ring-sand/20" : "text-crema/50 hover:bg-crema/6 hover:text-crema/80",
-              )}
-              title={q.title}
-            >
-              {q.title}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <AnimatePresence mode="wait">
-        {item ? (
-          <motion.article
-            key={item.id}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.2 }}
-            className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast p-4 ring-1 ring-sand/12 sm:p-5"
-          >
-            <h2 className="font-display text-xl font-semibold leading-snug text-crema sm:text-2xl">{item.title}</h2>
-            <p className="mt-3 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">Risposta</p>
-            <div className="mt-2 min-w-0 whitespace-pre-wrap break-words text-sm leading-relaxed text-crema/75 [overflow-wrap:anywhere]">{item.body}</div>
-          </motion.article>
-        ) : (
-          <p className="rounded-2xl bg-roast/50 px-4 py-8 text-center text-sm text-crema/50 ring-1 ring-sand/10">
-            Nessuna domanda in questa categoria.
-          </p>
-        )}
-      </AnimatePresence>
+    <div className="space-y-6">
+      <FaqBrowser
+        items={BOT_FAQ_ITEMS}
+        categories={BOT_FAQ_CATEGORIES}
+        icons={BOT_FAQ_ICONS}
+        placeholder="Cerca: prefisso, comandi, partnership…"
+        className="pb-2"
+      />
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-mocha to-roast p-6 ring-1 ring-sand/12 sm:p-8">
+        <div className="absolute -right-16 -top-16 size-56 rounded-full bg-caramel/15 blur-3xl" aria-hidden />
+        <h2 className="relative font-display text-2xl font-semibold sm:text-3xl">Non hai trovato risposta?</h2>
+        <p className="relative mt-2 max-w-xl text-sm text-crema/65">
+          Scrivilo nei feedback del bot: se è un problema lo sistemiamo, se è un&apos;idea la valutiamo.
+        </p>
+        <SmartLink href={page("/dashboard/feedback/")} className={`${dashPrimaryBtn} relative mt-5`}>
+          <MessageSquarePlus className="size-4" aria-hidden /> Vai ai feedback
+        </SmartLink>
+      </section>
     </div>
   );
 }

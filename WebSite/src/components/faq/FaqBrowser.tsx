@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { Calendar, ChevronDown, Gamepad2, Link2, Music, Search, TrendingUp, Users, X, type LucideIcon } from "lucide-react";
-import { FAQ_CATEGORIES, FAQ_ITEMS, type FaqItem } from "@/lib/faq";
+import { FAQ_CATEGORIES, FAQ_ITEMS, type FaqCategory, type FaqItem } from "@/lib/faq";
 import { getFaqUsefulVote, setFaqUsefulVote, type FaqUsefulVote } from "@/lib/faq-useful";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { Highlight, norm } from "../Highlight";
 import { SmartLink } from "../SmartLink";
 
-const ICONS: Record<string, LucideIcon> = {
+export const FAQ_ICONS: Record<string, LucideIcon> = {
   livelli: TrendingUp,
   voce: Music,
   giochi: Gamepad2,
@@ -42,8 +42,20 @@ function RichBody({ body, query }: { body: string; query: string }) {
   );
 }
 
-function Question({ item, open, onToggle, query }: { item: FaqItem; open: boolean; onToggle: () => void; query: string }) {
-  const Icon = ICONS[item.category] ?? Search;
+function Question({
+  item,
+  open,
+  onToggle,
+  query,
+  icons,
+}: {
+  item: FaqItem;
+  open: boolean;
+  onToggle: () => void;
+  query: string;
+  icons: Record<string, LucideIcon>;
+}) {
+  const Icon = icons[item.category] ?? Search;
   const [copied, setCopied] = useState(false);
   const [useful, setUseful] = useState<FaqUsefulVote | null>(null);
 
@@ -111,7 +123,7 @@ function Question({ item, open, onToggle, query }: { item: FaqItem; open: boolea
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className="px-5 pb-5 pl-[4.75rem] sm:px-6 sm:pb-6 sm:pl-[5rem]">
-              <p className="leading-relaxed text-crema/75">
+              <p className="whitespace-pre-line leading-relaxed text-crema/75">
                 <RichBody body={item.body} query={query} />
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -156,16 +168,32 @@ function Question({ item, open, onToggle, query }: { item: FaqItem; open: boolea
   );
 }
 
-export function FaqBrowser() {
+/**
+ * FAQ con ricerca, categorie e domande a fisarmonica.
+ * Di default quelle del sito; la dashboard del bot passa le sue domande, categorie e icone.
+ */
+export function FaqBrowser({
+  items = FAQ_ITEMS,
+  categories = FAQ_CATEGORIES,
+  icons = FAQ_ICONS,
+  placeholder = "Cerca: EXP, staff, eventi…",
+  className = "mx-auto max-w-4xl px-6 pb-20",
+}: {
+  items?: FaqItem[];
+  categories?: FaqCategory[];
+  icons?: Record<string, LucideIcon>;
+  placeholder?: string;
+  className?: string;
+} = {}) {
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState<string>("tutte");
-  const [openId, setOpenId] = useState<string | null>(FAQ_ITEMS[0].id);
+  const [openId, setOpenId] = useState<string | null>(items[0]?.id ?? null);
 
   // /faq/#id → apre e scorre a quella domanda
   useEffect(() => {
     const fromHash = () => {
       const id = decodeURIComponent(location.hash.slice(1));
-      if (!FAQ_ITEMS.some((q) => q.id === id)) return;
+      if (!items.some((q) => q.id === id)) return;
       setCat("tutte");
       setQuery("");
       setOpenId(id);
@@ -178,12 +206,12 @@ export function FaqBrowser() {
 
   const results = useMemo(() => {
     const q = norm(query.trim());
-    return FAQ_ITEMS.filter((it) => {
+    return items.filter((it) => {
       if (cat !== "tutte" && it.category !== cat) return false;
       if (!q) return true;
       return norm(`${it.title} ${plain(it.body)}`).includes(q);
     });
-  }, [query, cat]);
+  }, [query, cat, items]);
 
   // cercando, apri la prima domanda trovata
   useEffect(() => {
@@ -191,15 +219,15 @@ export function FaqBrowser() {
   }, [query, results, openId]);
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { tutte: FAQ_ITEMS.length };
-    for (const it of FAQ_ITEMS) c[it.category] = (c[it.category] ?? 0) + 1;
+    const c: Record<string, number> = { tutte: items.length };
+    for (const it of items) c[it.category] = (c[it.category] ?? 0) + 1;
     return c;
-  }, []);
+  }, [items]);
 
-  const chips = [{ id: "tutte", label: "Tutte" }, ...FAQ_CATEGORIES];
+  const chips = [{ id: "tutte", label: "Tutte" }, ...categories];
 
   return (
-    <div className="mx-auto max-w-4xl px-6 pb-20">
+    <div className={className}>
       {/* ricerca */}
       <div className="relative">
         <Search className="pointer-events-none absolute left-5 top-1/2 z-10 size-5 -translate-y-1/2 text-crema/40" />
@@ -207,7 +235,7 @@ export function FaqBrowser() {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Cerca: EXP, staff, eventi…"
+          placeholder={placeholder}
           aria-label="Cerca nelle FAQ"
           className="w-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast py-4 pl-14 pr-12 text-base text-crema ring-1 ring-sand/15 backdrop-blur transition-shadow placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60 [&::-webkit-search-cancel-button]:appearance-none"
         />
@@ -233,7 +261,7 @@ export function FaqBrowser() {
         <div className="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="Categorie">
           {chips.map((c) => {
             const active = cat === c.id;
-            const Icon = ICONS[c.id];
+            const Icon = icons[c.id];
             return (
               <button
                 key={c.id}
@@ -274,6 +302,7 @@ export function FaqBrowser() {
               item={it}
               query={query}
               open={openId === it.id}
+              icons={icons}
               onToggle={() => setOpenId((o) => (o === it.id ? null : it.id))}
             />
           ))}
