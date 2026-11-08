@@ -405,6 +405,20 @@ async function applyWeeklyStaffAutoValutazioniForMember({
     } catch (err) {
       global.logger?.warn?.("[WEEKLY STAFF RESOCONTO] compiti limits_triple:", err?.message || err);
     }
+  } else if (canEvaluateWeeklyLimits && !reachedTripleWeeklyLimits && !inPauseAtLeastOneDay && guild?.id && userId) {
+    /* resoconto fatto e triplo NON raggiunto: se era il compito della settimana, è fallito subito */
+    try {
+      const { tryAutoFailCompito } = require("../../site/staff/siteStaffCompitiAutoComplete") as typeof import("../../site/staff/siteStaffCompitiAutoComplete");
+      await tryAutoFailCompito(global.botClient || guild?.client, {
+        guildId: guild.id,
+        userId,
+        member,
+        taskId: "limits_triple",
+        reason: `${weeklyMessages} msg / ${weeklyVoiceHours.toFixed(1)}h in settimana`,
+      });
+    } catch (err) {
+      global.logger?.warn?.("[WEEKLY STAFF RESOCONTO] compiti limits_triple fail:", err?.message || err);
+    }
   }
 
   return {

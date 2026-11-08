@@ -165,6 +165,27 @@ async function notifyCompitiAutoFailed(opts: Record<string, any> = {}) {
   });
 }
 
+/** Compito automatico non raggiunto (es. triplo dei limiti verificato dai resoconti). */
+async function notifyCompitiAutoNotReached(opts: Record<string, any> = {}) {
+  const guild = opts.guild;
+  const guildId = String(guild?.id || opts.guildId || IDs.guilds?.main || "").trim();
+  const workerUserId = String(opts.workerUserId || "").trim();
+  const weekKey = String(opts.weekKey || "").trim();
+  if (!guild || !guildId || !/^\d{17,20}$/.test(workerUserId) || !weekKey) return 0;
+  const detail = String(opts.detail || "").trim();
+  return notifyUsers(guild, [workerUserId], {
+    title: "Compito non raggiunto",
+    body: `«${String(opts.taskLabel || "compito").trim()}» (${weekKey}) non è stato raggiunto${detail ? ` (${detail})` : ""}. ${
+      opts.skipNegative ? "Nessuna valutazione negativa." : "Valutazione negativa applicata."
+    }`,
+    kind: STAFF_KIND,
+    channel: "inbox",
+    openUrl: OPEN_URL,
+    dedupeKey: `compiti:autonotreached:${weekKey}:${workerUserId}`,
+    dedupeWindowMs: DEDUPE_DAY_MS * 14,
+  });
+}
+
 /** Worker: reminder within 24h of Sunday 18 if still draft/rejected. */
 async function notifyCompitiDeadlineSoon(opts: Record<string, any> = {}) {
   const guild = opts.guild;
@@ -190,5 +211,6 @@ export = {
   notifyCompitiRejected,
   notifyCompitiMissed,
   notifyCompitiAutoFailed,
+  notifyCompitiAutoNotReached,
   notifyCompitiDeadlineSoon,
 };

@@ -1,7 +1,7 @@
 /** Compiti staff: controlli periodici (scadenze, assegnazioni, invio automatico, inviti). */
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-const { notifyCompitiSubmitted, notifyCompitiMissed, notifyCompitiAutoFailed, notifyCompitiDeadlineSoon, taskLabelFromMeta } = require("./siteStaffCompitiNotifications") as typeof import("./siteStaffCompitiNotifications");
+const { notifyCompitiSubmitted, notifyCompitiMissed, notifyCompitiAutoFailed, notifyCompitiAutoNotReached, notifyCompitiDeadlineSoon, taskLabelFromMeta } = require("./siteStaffCompitiNotifications") as typeof import("./siteStaffCompitiNotifications");
 const { TASKS_META, ALLOWED_TASK_IDS, isAutoTask, taskById } = require("./siteStaffCompitiCatalog") as typeof import("./siteStaffCompitiCatalog");
 const { currentRomeIsoWeekKey, sundaySubmitDeadlineMs, sundayReviewDeadlineMs, compitiActiveMonthKey, dateKeysForIsoWeekKey, deadlinesPayload } = require("./compitiCalendar") as typeof import("./compitiCalendar");
 const { MAX_NOTE, shouldSkipNegativeValutazione, STATUS, emptyWeek, sanitizeWeekEntry, pruneWeekMap, loadMap, saveMap, applyValutazione } = require("./compitiWeeks") as typeof import("./compitiWeeks");
@@ -235,6 +235,60 @@ async function tryAutoSubmitCompito(client?, opts: Record<string, any> = {}) {
 }
 
 /**
+ * Compito automatico verificato e NON raggiunto (es. resoconti: triplo dei limiti mancato):
+ * se lo staffer l'aveva scelto per la settimana ed è ancora da fare, diventa subito "non completato"
+ * invece di restare "da fare" fino alla scadenza delle 18.
+ */
+async function tryAutoFailCompito(client?, opts: Record<string, any> = {}) {
+  const guildId = String(opts.guildId || resolveGuildId(client) || "").trim();
+  const userId = String(opts.userId || "").trim();
+  const taskId = String(opts.taskId || "").trim();
+  const weekKey = String(opts.weekKey || currentRomeIsoWeekKey()).trim();
+  if (!guildId || !/^\d{17,20}$/.test(userId) || !ALLOWED_TASK_IDS.has(taskId) || !/^\d{4}-W\d{2}$/.test(weekKey)) {
+    return { ok: false, error: "invalid" };
+  }
+  if (!isAutoTask(taskId)) return { ok: false, error: "not_auto" };
+  const map = await loadMap(guildId, userId);
+  const entry = sanitizeWeekEntry(map[weekKey] || emptyWeek());
+  if (String(entry.taskId || "") !== taskId) return { ok: false, error: "not_selected_this_week" };
+  if (entry.status !== STATUS.DRAFT && entry.status !== STATUS.REJECTED) {
+    return { ok: false, error: "already_locked", status: entry.status };
+  }
+  const now = Date.now();
+  const grace = await isNewStaffCompitiGrace({ guildId, userId, member: opts.member || null, now: new Date(now) }).catch(() => false);
+  const skipNegative = Boolean(grace || shouldSkipNegativeValutazione(weekKey));
+  entry.status = STATUS.MISSED;
+  entry.updatedAt = now;
+  entry.note = entry.note || String(opts.reason || "Obiettivo automatico non raggiunto.").slice(0, MAX_NOTE);
+  if (!entry.valutazioneApplied) {
+    if (skipNegative) {
+      entry.valutazioneApplied = true;
+    } else {
+      const ok = await applyValutazione(client, guildId, userId, "negative", weekKey);
+      entry.valutazioneApplied = Boolean(ok);
+    }
+  }
+  map[weekKey] = entry;
+  await saveMap(guildId, userId, pruneWeekMap(map, weekKey));
+  try {
+    const guild =
+      client?.guilds?.cache?.get?.(guildId) || (await client?.guilds?.fetch?.(guildId).catch(() => null));
+    await notifyCompitiAutoNotReached({
+      guild,
+      guildId,
+      workerUserId: userId,
+      weekKey,
+      taskLabel: taskLabelFromMeta(TASKS_META, taskId),
+      detail: String(opts.reason || ""),
+      skipNegative,
+    });
+  } catch (err) {
+    global.logger?.warn?.("[COMPITI] auto-fail notif", err?.message || err);
+  }
+  return { ok: true, weekKey, taskId, status: STATUS.MISSED };
+}
+
+/**
  * invite_active: invitato dallo staff con ≥100 msg o ≥2h vocali nella settimana ISO corrente.
  */
 async function tickInviteActiveCompiti(client?, opts: Record<string, any> = {}) {
@@ -298,4 +352,4 @@ async function tickInviteActiveCompiti(client?, opts: Record<string, any> = {}) 
   return hits;
 }
 
-export = { resolveGuildId, tickStaffCompitiDeadlines, tickStaffCompitiAssignments, tryAutoSubmitCompito };
+export = { resolveGuildId, tickStaffCompitiDeadlines, tickStaffCompitiAssignments, tryAutoSubmitCompito, tryAutoFailCompito };

@@ -4,10 +4,12 @@
  */
 const {
   tryAutoSubmitCompito,
+  tryAutoFailCompito,
   currentRomeIsoWeekKey,
 } = require("./siteStaffCompitiApi") as typeof import("./siteStaffCompitiApi");
 
 export = {
   tryAutoSubmitCompito,
+  tryAutoFailCompito,
   currentRomeIsoWeekKey,
 };

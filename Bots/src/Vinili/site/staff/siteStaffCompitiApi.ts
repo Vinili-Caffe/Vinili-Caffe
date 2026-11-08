@@ -14,7 +14,7 @@ const { UPLOAD_ROOT, verifyFileToken } = require("./compitiProofs") as typeof im
 const { emptyWeek, sanitizeWeekEntry, loadMap, clearGhostDraftPicks, revertUnreviewedRandomAutoPicks } = require("./compitiWeeks") as typeof import("./compitiWeeks");
 const { lockedTaskIdsForMonth, grantCompitiSwapBonus, ensureStafferCompitiSwapBonus, isNewStaffCompitiGrace, ensureMonthPlanForUser } = require("./compitiPlan") as typeof import("./compitiPlan");
 const { buildIdentityFromMember, publicProgress, buildPublicPlan, buildMonthEntries, workerMembersCache, scanWorkerMembers, listWorkerMembers, resolveCompitiRoles, warmSiteStaffCompitiWorkersCache } = require("./compitiPeople") as typeof import("./compitiPeople");
-const { resolveGuildId, tickStaffCompitiDeadlines, tickStaffCompitiAssignments, tryAutoSubmitCompito } = require("./compitiTicks") as typeof import("./compitiTicks");
+const { resolveGuildId, tickStaffCompitiDeadlines, tickStaffCompitiAssignments, tryAutoSubmitCompito, tryAutoFailCompito } = require("./compitiTicks") as typeof import("./compitiTicks");
 const { handleSiteStaffCompitiPost } = require("./compitiPost") as typeof import("./compitiPost");
 
 
@@ -233,6 +233,7 @@ export = {
   tickStaffCompitiDeadlines,
   tickStaffCompitiAssignments,
   tryAutoSubmitCompito,
+  tryAutoFailCompito,
   ensureMonthPlanForUser,
   grantCompitiSwapBonus,
   isNewStaffCompitiGrace,
