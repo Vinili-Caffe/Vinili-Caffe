@@ -55,4 +55,4 @@ try{
 markReady();
 try{location.replace(next)}catch(eR){try{location.href=next}catch(e2){}}
 }catch(eInner){markReady()}
-}catch(eAll){try{window.__vcNotifNavReady=1}catch(eZ){}})();`;
+}catch(eAll){try{window.__vcNotifNavReady=1}catch(eZ){}}})();`;
