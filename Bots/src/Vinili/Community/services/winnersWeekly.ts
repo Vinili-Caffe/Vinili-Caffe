@@ -5,7 +5,8 @@ const { VOICE_EXP_PER_MINUTE } = require("../../Level/services/expService") as t
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getClientChannelCached, getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
-const { getLastSunday21BoundaryMsAtOrBefore, getWeekKey, getMinigameRankWeekKeyForPublish, buildAnchorDateFromWeekKey } = require("./winnersTime") as typeof import("./winnersTime");
+const { setBotState, tryClaimBotStateOnce } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+const { getLastSunday21BoundaryMsAtOrBefore, getWeekKey, getMinigameRankWeekKeyForPublish, getNextWeekKeyAfterSunday21Boundary, buildAnchorDateFromWeekKey } = require("./winnersTime") as typeof import("./winnersTime");
 const { WEEKLY_WINNERS_EXCLUDED_ROLE_IDS, wasStaffDuringWeeklyActivityWindow, effectiveMinigameWeeklyScoreForRankWeek, loadWeeklyRowsFromHourlyWindow, loadDailyRowsFromHourlyWindow, resolveTopThreeUsers, resolveMinigameTopForced, uniqueRankingByUserId, deduplicateTopTwoLists } = require("./winnersRows") as typeof import("./winnersRows");
 const { MINIGAME_WINNER_ROLE_ID, pickFirstAvailable, updateWeeklyWinnerRoles, syncRoyaleMinigameTotalRole } = require("./winnersRoles") as typeof import("./winnersRoles");
 const { TROPHY_LABELS } = require("./winnersMonthlyRewards") as typeof import("./winnersMonthlyRewards");
@@ -88,6 +89,23 @@ async function publishWeeklyActivityWinners(client?, options: Record<string, any
       options.anchorDate instanceof Date && !Number.isNaN(options.anchorDate.getTime())
         ? options.anchorDate
         : new Date();
+  const publishClaimKey =
+    mode === "weekly" && guild?.id
+      ? `weeklyActivityWinners:${guild.id}:${String(options.weekKey || getMinigameRankWeekKeyForPublish(now) || "").trim()}`
+      : "";
+  if (
+    publishClaimKey &&
+    !options.force &&
+    !options.dryRunLogger &&
+    !options.skipDiscordSends &&
+    !editMessage
+  ) {
+    const won = await tryClaimBotStateOnce(publishClaimKey, { source: "weeklyActivity" });
+    if (!won) {
+      global.logger?.warn?.("[WEEKLY ACTIVITY] Skip duplicate publish:", publishClaimKey);
+      return;
+    }
+  }
   let displayTopMessages = [];
   let displayTopVoice = [];
   let displayTopMinigame = [];
@@ -338,7 +356,22 @@ _ _`,
       } else {
         await channel.send(payload);
       }
+      if (publishClaimKey) {
+        await setBotState(publishClaimKey, {
+          done: true,
+          at: Date.now(),
+          awarded: {
+            messageWinner: awarded?.messageWinner?.userId || null,
+            voiceWinner: awarded?.voiceWinner?.userId || null,
+            minigameWinner: awarded?.minigameWinner?.userId || null,
+          },
+        }).catch(() => false);
+      }
     } catch (error) {
+      if (publishClaimKey && !options.force) {
+        /* rilascia claim se l'invio fallisce, così può ritentare */
+        await setBotState(publishClaimKey, { done: false, failedAt: Date.now() }).catch(() => false);
+      }
       global.logger.error(
         editMessage ? "[WEEKLY ACTIVITY] Failed to edit winners message:" : "[WEEKLY ACTIVITY] Failed to send winners message:",
         error,
@@ -355,7 +388,9 @@ async function resetWeeklyActivityCounters(client?, options: Record<string, any>
     return;
   }
   const now = new Date();
-  const nextWeekKey = String(options.nextWeekKey != null ? options.nextWeekKey : getWeekKey(now));
+  const nextWeekKey = String(
+    options.nextWeekKey != null ? options.nextWeekKey : getNextWeekKeyAfterSunday21Boundary(now),
+  );
   await ActivityUserProfile.updateMany(
     { guildId },
     [

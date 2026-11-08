@@ -99,6 +99,12 @@ function getMinigameRankWeekKeyForPublish(now = new Date()) {
   return getWeekKey(anchor);
 }
 
+/** Chiave ISO della settimana successiva al boundary domenica 21:00 Rome (non getWeekKey(now): di domenica è ancora la settimana chiusa). */
+function getNextWeekKeyAfterSunday21Boundary(now = new Date()) {
+  const boundaryEnd = getLastSunday21BoundaryMsAtOrBefore(now);
+  return getWeekKey(new Date(boundaryEnd + 24 * 60 * 60 * 1000));
+}
+
 function getDateKeysForWeekKey(weekKey?) {
   const match = String(weekKey || "").match(/^(\d{4})-W(\d{2})$/);
   if (!match) return [];
@@ -215,4 +221,4 @@ function previousMonthKeyRome(now = new Date()) {
   return `${p.year}-${pad2(p.month)}`;
 }
 
-export = { TIME_ZONE, createUtcFromRomeLocal, getLastSunday21BoundaryMsAtOrBefore, getWeekKey, getMinigameRankWeekKeyForPublish, buildLast7DaysHourKeys, buildCalendarMonthHourKeys, getPreviousRomeCalendarMonth, buildLastHoursHourKeys, buildHourKeysBetweenMs, hourKeyToBoundsMs, overlapRangeMs, buildAnchorDateFromWeekKey, previousMonthKeyRome };
+export = { TIME_ZONE, createUtcFromRomeLocal, getLastSunday21BoundaryMsAtOrBefore, getWeekKey, getMinigameRankWeekKeyForPublish, getNextWeekKeyAfterSunday21Boundary, buildLast7DaysHourKeys, buildCalendarMonthHourKeys, getPreviousRomeCalendarMonth, buildLastHoursHourKeys, buildHourKeysBetweenMs, hourKeyToBoundsMs, overlapRangeMs, buildAnchorDateFromWeekKey, previousMonthKeyRome };

@@ -4,6 +4,7 @@ const { ActivityUserProfile, UserLeaveBackup } = require("../schemas/communitySc
 const { getClientChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 const {
+  claimDailyStatsReport,
   findDailyStats,
   getOrCreateDailyStats,
   getSeenUser,
@@ -146,26 +147,30 @@ async function sendDailyMemberStatsReport(client?, dateKey?, opts: Record<string
       : await findDailyStats("memberDaily", guildId, dateKey);
     if (!doc) return null;
     const stats = doc.value || {};
-    if (stats.reportedAt || stats.reportMessageId) return doc;
+    if (stats.reportedAt || stats.reportMessageId || stats.reportClaimAt) return doc;
+
+    const claimed = await claimDailyStatsReport("memberDaily", guildId, dateKey);
+    if (!claimed) return doc;
+    const claimedStats = claimed.value || stats;
 
     const channel = await resolveReportChannel(client);
     if (!channel?.isTextBased?.()) {
       global.logger?.warn?.("[DAILY MEMBER STATS] report channel not found:", DAILY_STATS_CHANNEL_ID);
-      return stats;
+      return claimedStats;
     }
 
-    const sent = await channel.send({ content: buildReportContent(stats) }).catch((err?) => {
+    const sent = await channel.send({ content: buildReportContent(claimedStats) }).catch((err?) => {
       global.logger?.error?.("[DAILY MEMBER STATS] report send failed:", err?.message || err);
       return null;
     });
-    if (!sent) return stats;
+    if (!sent) return claimed;
 
-    doc.value = { ...(doc.value || {}), reportMessageId: sent.id, reportedAt: new Date() };
-    doc.markModified("value");
-    await doc.save().catch((err?) => {
+    claimed.value = { ...(claimed.value || {}), reportMessageId: sent.id, reportedAt: new Date() };
+    claimed.markModified("value");
+    await claimed.save().catch((err?) => {
       global.logger?.warn?.("[DAILY MEMBER STATS] report mark failed:", err?.message || err);
     });
-    return doc;
+    return claimed;
   } finally {
     reportRunning = false;
   }
@@ -183,7 +188,7 @@ function startDailyMemberStatsLoop(client?) {
         global.logger?.error?.("[DAILY MEMBER STATS] scheduled report failed:", err);
       });
     },
-    { timezone: TIME_ZONE },
+    { timezone: TIME_ZONE, noOverlap: true },
   );
 
   setImmediate(() => {

@@ -61,22 +61,58 @@ function reasonToMessage(reason?) {
 
 /* stato del bot com'è ora su Discord (anteprima live in dashboard): online/assente/occupato + attività */
 const ACTIVITY_PREFIX: Record<number, string> = { 0: "Gioca a ", 1: "In diretta: ", 2: "Ascolta ", 3: "Guarda ", 5: "Compete in " };
+const VALID_DASH_PRESENCE = new Set(["online", "idle", "dnd", "invisible", "offline"]);
+
+function formatPresenceActivityText(act?) {
+  if (!act || typeof act !== "object") return "";
+  const type = Number(act.type);
+  let text = "";
+  if (type === 4) text = String(act.state || act.name || "").trim();
+  else text = `${ACTIVITY_PREFIX[type] || ""}${String(act.name || "").trim()}`.trim();
+  if (type !== 4 && act.state) text = `${text} · ${String(act.state).trim()}`;
+  return text.slice(0, 128);
+}
+
+function readConfiguredBotPresence(client?) {
+  try {
+    const {
+      resolveBotPresenceStatus,
+      buildBotPresenceActivities,
+    } = require("../../../shared/discord/botPresenceActivity") as typeof import("../../../shared/discord/botPresenceActivity");
+    const status = resolveBotPresenceStatus(client);
+    const acts = buildBotPresenceActivities(client);
+    return { status, text: formatPresenceActivityText(acts?.[0]) };
+  } catch {
+    const raw = String(client?.config?.status || "idle").trim().toLowerCase();
+    const status = VALID_DASH_PRESENCE.has(raw) ? raw : "idle";
+    const name = String(client?.config?.presence?.activityName || "").trim();
+    return { status, text: name ? `Guarda ${name}`.slice(0, 128) : "" };
+  }
+}
+
 function readBotPresence(client?) {
   try {
-    const presence = client?.user?.presence;
-    const status = String(presence?.status || (client?.isReady?.() ? "online" : "offline"));
-    const acts = Array.isArray(presence?.activities) ? presence.activities : [];
-    const act = acts[0];
-    let text = "";
-    if (act) {
-      const type = Number(act.type);
-      if (type === 4) text = String(act.state || act.name || "").trim();
-      else text = `${ACTIVITY_PREFIX[type] || ""}${String(act.name || "").trim()}`.trim();
-      if (type !== 4 && act.state) text = `${text} · ${String(act.state).trim()}`;
+    /* site-api è REST-only: non ha Gateway → client.user.presence è sempre offline.
+       L'anteprima usa allora lo status/attività configurati (quelli applicati da bots-vinyls). */
+    if (client?._isSiteApiRestClient === true) {
+      return readConfiguredBotPresence(client);
     }
-    return { status, text: text.slice(0, 128) };
+    const presence = client?.presence || client?.user?.presence;
+    let status = String(presence?.status || "").trim().toLowerCase();
+    if (!VALID_DASH_PRESENCE.has(status)) {
+      status = client?.isReady?.() ? "online" : "offline";
+    }
+    const acts = Array.isArray(presence?.activities) ? presence.activities : [];
+    const text = formatPresenceActivityText(acts[0]);
+    if ((status === "offline" || status === "invisible") && client?.user) {
+      const configured = readConfiguredBotPresence(client);
+      if (configured.status && configured.status !== "offline" && configured.status !== "invisible") {
+        return configured;
+      }
+    }
+    return { status, text };
   } catch (_) {
-    return { status: "online", text: "" };
+    return readConfiguredBotPresence(client);
   }
 }
 
@@ -629,7 +665,61 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
   };
 }
 
+async function previewDashboardQuoteStyle(client?, accessToken?, guildId?, quoteStyle?) {
+  const access = await verifyDashboardGuildAccess(client, accessToken, guildId);
+  if (!access.ok) return access;
+
+  const { normalizeQuoteStyle } = require("../../../Vinili/Community/utils/Quote/quoteStyle") as typeof import("../../../Vinili/Community/utils/Quote/quoteStyle");
+  const renderQuoteCanvas = require("../../../Vinili/Community/utils/Render/quoteCanvas") as typeof import("../../../Vinili/Community/utils/Render/quoteCanvas");
+  const {
+    guildMemberDisplayAvatarUrlStatic,
+    memberDisplayName,
+  } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+
+  const style = normalizeQuoteStyle({
+    ...(quoteStyle && typeof quoteStyle === "object" ? quoteStyle : {}),
+    /* anteprima dashboard: sempre PNG statico (niente GIF lente) */
+    avatarMode: "static",
+  });
+
+  const guild =
+    client?.guilds?.cache?.get?.(access.guildId) ||
+    (await client?.guilds?.fetch?.(access.guildId).catch(() => null));
+  const member =
+    (guild &&
+      (guild.members?.cache?.get?.(access.userId) ||
+        (await guild.members?.fetch?.(access.userId).catch(() => null)))) ||
+    null;
+  const coverImageUrl = member ? guildMemberDisplayAvatarUrlStatic(member, { size: 512 }) || "" : "";
+  const username = member
+    ? memberDisplayName(member, member.user) || String(access.userId)
+    : "Anteprima";
+
+  try {
+    const out = await renderQuoteCanvas({
+      coverImageUrl,
+      message: "Esempio di citazione sul server.",
+      username,
+      style,
+    });
+    const buffer = out?.buffer;
+    if (!buffer || !Buffer.isBuffer(buffer) && !(buffer instanceof Uint8Array)) {
+      return { ok: false, status: 500, error: "preview_failed", message: "Impossibile generare anteprima quote." };
+    }
+    return {
+      ok: true,
+      status: 200,
+      image: Buffer.from(buffer),
+      mimeType: out?.format === "gif" ? "image/gif" : "image/png",
+    };
+  } catch (err) {
+    global.logger?.warn?.("[dashboard quote preview]", err?.message || err);
+    return { ok: false, status: 500, error: "preview_failed", message: "Impossibile generare anteprima quote." };
+  }
+}
+
 export = {
   getDashboardGuildSettings,
   patchDashboardGuildSettings,
+  previewDashboardQuoteStyle,
 };

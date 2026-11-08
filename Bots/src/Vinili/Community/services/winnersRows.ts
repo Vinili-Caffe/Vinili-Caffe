@@ -1,5 +1,4 @@
 /** Vincitori attività: righe di attività del periodo e classifiche. */
-const { ActivityUserProfile } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 const { VOICE_EXP_PER_MINUTE } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { isChannelInTicketCategory } = require("../../../MultiGuild/tickets/discord/ticketCategoryUtils") as typeof import("../../../MultiGuild/tickets/discord/ticketCategoryUtils");
@@ -53,21 +52,21 @@ function effectiveMinigameWeeklyScoreForRankWeek(doc?, rankWeekKey?) {
   const rk = String(rankWeekKey || "").trim();
   if (!rk) return 0;
   const mg = doc?.profile?.totals?.exp?.minigame || {};
-  if (String(mg.weeklyKey || "") === rk) return Math.max(0, Math.floor(Number(mg.weeklyExp || 0)));
-  if (String(mg.prevWeekKey || "") === rk) return Math.max(0, Math.floor(Number(mg.prevWeekExp || 0)));
+  const weekKey = String(mg.weeklyKey || "").trim();
+  const prevKey = String(mg.prevWeekKey || "").trim();
+  const weekExp = Math.max(0, Math.floor(Number(mg.weeklyExp || 0)));
+  const prevExp = Math.max(0, Math.floor(Number(mg.prevWeekExp || 0)));
+  /* Dopo resetWeekly: weeklyKey può restare/coincidere con la settimana chiusa e weeklyExp
+     è 0 o punti della settimana nuova. Il podio della settimana annunciata è in prevWeek*. */
+  if (prevKey === rk && prevExp > 0) return prevExp;
+  if (weekKey === rk && weekExp > 0) return weekExp;
+  if (prevKey === rk) return prevExp;
+  if (weekKey === rk) return weekExp;
   return 0;
-}
-
-function toObjectMap(raw?) {
-  if (!raw) return {};
-  if (raw instanceof Map) return Object.fromEntries(raw.entries());
-  if (typeof raw === "object") return raw;
-  return {};
 }
 
 async function loadMonthlyRowsFromRomeCalendarMonth(guild?, year?, month1to12?) {
   const eligible = await getEligibleChannelSets(guild);
-  if (!eligible.text.size && !eligible.voice.size) return [];
   const hourKeys = buildCalendarMonthHourKeys(year, month1to12);
   return loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys);
 }
@@ -81,7 +80,18 @@ async function resolveMemberRole(guild?) {
   return guild.roles.everyone || null;
 }
 
+async function ensureGuildChannelsCached(guild?) {
+  if (!guild?.channels?.cache) return;
+  if (guild.channels.cache.size > 0) return;
+  if (typeof guild.channels.fetch !== "function") return;
+  /* bot-workers / site-api: guild lite senza canali → senza fetch la top weekly resta a 0 */
+  await guild.channels.fetch().catch((err?) => {
+    global.logger?.warn?.("[HOURLY WINDOW] guild.channels.fetch failed:", err?.message || err);
+  });
+}
+
 async function getEligibleChannelSets(guild?) {
+  await ensureGuildChannelsCached(guild);
   const role = await resolveMemberRole(guild);
   if (!role) return { text: new Set(), voice: new Set() };
   const excludedChannelIds = new Set(
@@ -111,7 +121,7 @@ async function getEligibleChannelSets(guild?) {
 
 async function loadWeeklyRowsFromHourlyWindow(guild?, anchorDate = new Date()) {
   const eligible = await getEligibleChannelSets(guild);
-  if (!eligible.text.size && !eligible.voice.size) return [];
+  /* eligible vuoto → loadRows usa totali riga (niente early return a zero) */
   const endMs = getLastSunday21BoundaryMsAtOrBefore(anchorDate);
   const hourKeys = buildLast7DaysHourKeys(endMs);
   return loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys);
@@ -119,59 +129,51 @@ async function loadWeeklyRowsFromHourlyWindow(guild?, anchorDate = new Date()) {
 
 async function loadRowsFromHourlyWindowByHourKeys(guild?, eligible?, hourKeys?, clipRange = null) {
   const keys = [...new Set((hourKeys || []).map((k?) => String(k || "").trim()).filter(Boolean))];
-  if (!keys.length) return [];
+  if (!keys.length || !guild?.id) return [];
   const clipStart = Number(clipRange?.startMs);
   const clipEnd = Number(clipRange?.endMs);
   const hasClip = Number.isFinite(clipStart) && Number.isFinite(clipEnd) && clipEnd > clipStart;
   const wanted = new Set(keys);
-  const projection = { _id: 0, userId: 1 };
-  for (const k of keys) projection[`profile.totals.hourly.${k}`] = 1;
-      const perUser = new Map();
-  /* weeklyCountFix1: ogni chunk deve sommare SOLO le ore del chunk.
-     Prima sommava tutte le ore wanted a ogni hit → moltiplicava x(~7) i top attivi. */
+  const filterByChannel = Boolean(eligible?.text?.size || eligible?.voice?.size);
+  const perUser = new Map();
   try {
-    for (let i = 0; i < keys.length; i += 24) {
-      const chunk = keys.slice(i, i + 24);
-      const chunkWanted = new Set(chunk);
-      const orHourly = chunk.map((k?) => ({ [`profile.totals.hourly.${k}`]: { $exists: true } }));
-      const cursor = ActivityUserProfile.find({ guildId: guild.id, $or: orHourly })
-        .select(projection)
-        .lean()
-        .cursor({ batchSize: 250 });
-      for await (const doc of cursor) {
-        const userId = String(doc?.userId || "");
-        const hourly = toObjectMap(doc?.profile?.totals?.hourly || {});
-        if (!userId) continue;
-        let messageCount = 0;
-        let voiceSeconds = 0;
-        for (const [hourKey, value] of Object.entries(hourly)) {
-          if (!chunkWanted.has(String(hourKey))) continue;
-          if (!wanted.has(String(hourKey))) continue;
-          if (shouldSkipBackfillRow(String(hourKey), wanted)) continue;
-          let scale = 1;
-          if (hasClip) {
-            const bounds = hourKeyToBoundsMs(hourKey);
-            const overlap = overlapRangeMs(bounds.startMs, bounds.endMs, clipStart, clipEnd);
-            if (overlap <= 0) continue;
-            scale = overlap / (60 * 60 * 1000);
-          }
-          const textChannels = toObjectMap(value?.textChannels || {});
-          const voiceChannels = toObjectMap(value?.voiceChannels || {});
-          for (const [channelId, raw] of extractMapEntries(textChannels)) {
-            if (!eligible.text.has(String(channelId))) continue;
-            messageCount += Math.max(0, Number(raw || 0)) * scale;
-          }
-          for (const [channelId, raw] of extractMapEntries(voiceChannels)) {
-            if (!eligible.voice.has(String(channelId))) continue;
-            voiceSeconds += Math.max(0, Number(raw || 0)) * scale;
-          }
-        }
-        if (messageCount <= 0 && voiceSeconds <= 0) continue;
-        const current = perUser.get(userId) || { userId, messageCount: 0, voiceSeconds: 0 };
-        current.messageCount += messageCount;
-        current.voiceSeconds += voiceSeconds;
-        perUser.set(userId, current);
+    /* compact (prod): ActivityGuildHourly; dual/legacy: anche profile.totals.hourly */
+    const { loadHourlyRows } = require("./activityRows") as typeof import("./activityRows");
+    const hourlyRows = await loadHourlyRows(guild.id, keys);
+    for (const row of hourlyRows || []) {
+      const userId = String(row?.userId || "");
+      if (!userId) continue;
+      const hourKey = String(row?.hourKey || "");
+      if (hourKey && !wanted.has(hourKey)) continue;
+      if (hourKey && shouldSkipBackfillRow(hourKey, wanted)) continue;
+      let scale = 1;
+      if (hasClip && hourKey) {
+        const bounds = hourKeyToBoundsMs(hourKey);
+        const overlap = overlapRangeMs(bounds.startMs, bounds.endMs, clipStart, clipEnd);
+        if (overlap <= 0) continue;
+        scale = overlap / (60 * 60 * 1000);
       }
+      let messageCount = 0;
+      let voiceSeconds = 0;
+      if (filterByChannel) {
+        for (const [channelId, raw] of extractMapEntries(row?.textChannels)) {
+          if (!eligible.text.has(String(channelId))) continue;
+          messageCount += Math.max(0, Number(raw || 0)) * scale;
+        }
+        for (const [channelId, raw] of extractMapEntries(row?.voiceChannels)) {
+          if (!eligible.voice.has(String(channelId))) continue;
+          voiceSeconds += Math.max(0, Number(raw || 0)) * scale;
+        }
+      } else {
+        /* canali non disponibili (REST senza cache): come leaderboard weekly, usa i totali riga */
+        messageCount = Math.max(0, Number(row?.textCount || 0)) * scale;
+        voiceSeconds = Math.max(0, Number(row?.voiceSeconds || 0)) * scale;
+      }
+      if (messageCount <= 0 && voiceSeconds <= 0) continue;
+      const current = perUser.get(userId) || { userId, messageCount: 0, voiceSeconds: 0 };
+      current.messageCount += messageCount;
+      current.voiceSeconds += voiceSeconds;
+      perUser.set(userId, current);
     }
   } catch (eLoad) {
     global.logger?.error?.("[HOURLY WINDOW] loadRows failed:", eLoad?.message || eLoad);
@@ -186,7 +188,6 @@ async function loadRowsFromHourlyWindowByHourKeys(guild?, eligible?, hourKeys?, 
 
 async function loadDailyRowsFromHourlyWindow(guild?, anchorDate = new Date()) {
   const eligible = await getEligibleChannelSets(guild);
-  if (!eligible.text.size && !eligible.voice.size) return [];
   const endMs = anchorDate instanceof Date ? anchorDate.getTime() : Date.now();
   const hourKeys = buildLastHoursHourKeys(endMs, 24);
   return loadRowsFromHourlyWindowByHourKeys(guild, eligible, hourKeys);

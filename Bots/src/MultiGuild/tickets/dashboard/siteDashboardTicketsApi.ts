@@ -99,11 +99,12 @@ async function closeOrphanOpenTickets(client?, guildId?) {
   const last = orphanCheckedAt.get(gid) || 0;
   if (Date.now() - last < ORPHAN_CHECK_MS) return 0;
   orphanCheckedAt.set(gid, Date.now());
-  const guild = client?.guilds?.cache?.get?.(gid);
-  if (!guild) return 0;
+  const guild = client?.guilds?.cache?.get?.(gid) || null;
   /*
    * Si chiede sempre a Discord (REST), mai alla memoria: site-api non riceve gli eventi del gateway e
    * la sua lista canali è quella dell'avvio, quindi un canale cancellato dopo restava "esistente".
+   * Non serve la guild in cache: basta il REST client (altrimenti dopo un restart i ticket orfani
+   * restavano aperti e in dashboard "tornavano" a ogni apertura).
    */
   const rest = typeof client?.rest?.get === "function" ? client.rest : client?._rest;
   if (typeof rest?.get !== "function") return 0;
@@ -111,7 +112,16 @@ async function closeOrphanOpenTickets(client?, guildId?) {
   let closed = 0;
   for (const t of Array.isArray(rows) ? rows : []) {
     const channelId = String(t?.channelId || "").trim();
-    if (!/^\d{17,22}$/.test(channelId)) continue;
+    if (!/^\d{17,22}$/.test(channelId)) {
+      /* channelId assente/corrotto: non è un ticket Discord vivo */
+      const done = await Ticket.findOneAndUpdate(
+        { _id: t._id, open: true },
+        { $set: { open: false, closedAt: new Date(), closedBy: null, closeReason: "Canale Discord non più esistente" } },
+        { new: true },
+      ).catch(() => null);
+      if (done) closed += 1;
+      continue;
+    }
     let gone = false;
     try {
       const raw = await rest.get(Routes.channel(channelId));
@@ -123,7 +133,7 @@ async function closeOrphanOpenTickets(client?, guildId?) {
     }
     if (!gone) continue;
     try {
-      guild.channels?.cache?.delete?.(channelId);
+      guild?.channels?.cache?.delete?.(channelId);
     } catch (_) {}
     const done = await Ticket.findOneAndUpdate(
       { _id: t._id, open: true },
@@ -652,8 +662,8 @@ async function listDashboardTickets(client?, accessToken?, guildId?, query: Reco
 }
 
 /**
- * "Segna chiuso" dalla dashboard: chiude il ticket solo nel database (nessuna azione su Discord).
- * Per i ticket rimasti aperti senza un canale vero (cancellato, spostato, di un altro server).
+ * "Segna chiuso" dalla dashboard: chiude nel DB e, se il canale Discord c'è ancora, lo elimina.
+ * Evita che il ticket "torni" aperto (o resti vivo su Discord) alla prossima apertura dashboard.
  */
 async function forceCloseDashboardTicket(client?, accessToken?, guildId?, ticketId?) {
   const access = await verifyDashboardGuildAccess(client, accessToken, guildId);
@@ -663,21 +673,49 @@ async function forceCloseDashboardTicket(client?, accessToken?, guildId?, ticket
   const gid = String(guildId || "").trim();
   const tid = String(ticketId || "").trim();
   if (!tid) return fail(400, "invalid_ticket", "Ticket non valido.");
-  const done = await Ticket.findOneAndUpdate(
+  const closedBy = String(access.userId || "").trim() || null;
+  let done = await Ticket.findOneAndUpdate(
     { _id: tid, guildId: gid, open: true },
     {
       $set: {
         open: false,
         closedAt: new Date(),
-        closedBy: String(access.userId || "").trim() || null,
+        closedBy,
         closeReason: "Segnato chiuso dalla dashboard",
       },
     },
     { new: true },
   ).catch(() => null);
-  if (!done) return fail(404, "not_found", "Ticket non trovato o già chiuso.");
+  let alreadyClosed = false;
+  if (!done) {
+    /* già chiuso: idempotente (niente 404 a ogni riapertura dashboard) */
+    done = await Ticket.findOne({ _id: tid, guildId: gid }).lean().catch(() => null);
+    if (!done || coerceOpen(done.open) === true) {
+      return fail(404, "not_found", "Ticket non trovato o già chiuso.");
+    }
+    alreadyClosed = true;
+  }
+  const channelId = String(done.channelId || "").trim();
+  if (/^\d{17,22}$/.test(channelId)) {
+    const rest = typeof client?.rest?.delete === "function" ? client.rest : client?._rest;
+    if (typeof rest?.delete === "function") {
+      await rest.delete(Routes.channel(channelId)).catch((err?) => {
+        const code = Number(err?.code);
+        if (code !== 10003) {
+          global.logger?.warn?.(
+            `[dashboard tickets] delete channel ${channelId} failed: ${err?.message || err}`,
+          );
+        }
+      });
+    }
+    try {
+      client?.guilds?.cache?.get?.(gid)?.channels?.cache?.delete?.(channelId);
+    } catch (_) {}
+  }
   invalidateSlimClosedTicketsCache(gid);
-  global.logger?.info?.(`[dashboard tickets] segnato chiuso ${tid} (guild ${gid}) da ${String(access.userId || "?")}`);
+  if (!alreadyClosed) {
+    global.logger?.info?.(`[dashboard tickets] segnato chiuso ${tid} (guild ${gid}) da ${String(access.userId || "?")}`);
+  }
   return { ok: true, status: 200, overview: await computeTicketOverview(gid) };
 }
 

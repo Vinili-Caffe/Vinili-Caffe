@@ -5,9 +5,9 @@ import { Checkbox } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 export const fieldClass =
-  "mt-1.5 w-full rounded-lg bg-espresso/70 px-3 py-2.5 text-sm text-crema ring-1 ring-sand/15 outline-none transition placeholder:text-crema/30 hover:ring-sand/25 focus:ring-2 focus:ring-caramel/45 disabled:opacity-50";
+  "mt-1.5 w-full rounded-[0.7rem] bg-espresso/80 px-3.5 py-2.5 text-sm text-crema ring-1 ring-sand/12 outline-none transition placeholder:text-crema/28 hover:ring-sand/22 focus:ring-2 focus:ring-caramel/40 disabled:opacity-50";
 
-export const labelClass = "text-xs font-semibold text-crema/70";
+export const labelClass = "text-[0.7rem] font-medium tracking-[0.01em] text-crema/55";
 
 export function Toggle({
   checked,
@@ -29,15 +29,15 @@ export function Toggle({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200",
-        checked ? "bg-gradient-to-r from-caramel to-ember shadow-[0_0_14px_-4px_rgba(217,154,91,0.8)]" : "bg-crema/12 ring-1 ring-inset ring-sand/20",
+        "relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+        checked ? "bg-caramel" : "bg-crema/14 ring-1 ring-inset ring-sand/18",
         disabled && "cursor-not-allowed opacity-45",
       )}
     >
       <span
         className={cn(
-          "absolute top-0.5 size-5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.45)] transition-[left,background-color] duration-200 ease-out",
-          checked ? "left-[1.375rem] bg-paper" : "left-0.5 bg-crema/70",
+          "absolute top-0.5 size-6 rounded-full bg-paper shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-[left] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          checked ? "left-[1.35rem]" : "left-0.5",
         )}
         aria-hidden
       />
@@ -49,8 +49,10 @@ export function Notice({ children, error = false }: { children: React.ReactNode;
   return (
     <p
       className={cn(
-        "rounded-xl px-3 py-2.5 text-sm ring-1",
-        error ? "bg-[#a83a2c]/15 text-[#f0a493] light:text-[#a83a2c] ring-[#a83a2c]/30" : "bg-caramel/10 text-crema/75 ring-caramel/25",
+        "rounded-xl px-3.5 py-2.5 text-sm ring-1",
+        error
+          ? "bg-[#a83a2c]/12 text-[#f0a493] ring-[#a83a2c]/28 light:text-[#a83a2c]"
+          : "bg-crema/[0.04] text-crema/70 ring-sand/12",
       )}
     >
       {children}
@@ -70,8 +72,12 @@ export function Subnav<T extends string>({
   label: string;
 }) {
   return (
-    <div className="max-w-full overflow-x-auto">
-      <div className="inline-flex gap-1 rounded-xl bg-espresso/70 p-1 ring-1 ring-sand/10" role="tablist" aria-label={label}>
+    <div className="max-w-full overflow-x-auto pb-0.5">
+      <div
+        className="inline-flex min-w-full gap-0.5 rounded-2xl bg-espresso/55 p-1 ring-1 ring-sand/[0.08] sm:min-w-0"
+        role="tablist"
+        aria-label={label}
+      >
         {tabs.map((tab) => {
           const on = tab.id === value;
           return (
@@ -82,12 +88,17 @@ export function Subnav<T extends string>({
               aria-selected={on}
               onClick={() => onChange(tab.id)}
               className={cn(
-                "relative shrink-0 whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                on ? "bg-mocha text-crema shadow-[0_6px_18px_-10px_rgba(0,0,0,0.9)] ring-1 ring-sand/15" : "text-crema/50 hover:text-crema",
+                "relative shrink-0 whitespace-nowrap rounded-xl px-3.5 py-2 text-[0.8125rem] font-medium transition-colors duration-200",
+                on ? "bg-mocha text-crema shadow-[0_8px_24px_-16px_rgba(0,0,0,0.9)]" : "text-crema/45 hover:text-crema/80",
               )}
             >
               {tab.label}
-              {on ? <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-caramel to-ember" aria-hidden /> : null}
+              {on ? (
+                <span
+                  className="absolute inset-x-3.5 -bottom-px h-px rounded-full bg-caramel/80"
+                  aria-hidden
+                />
+              ) : null}
             </button>
           );
         })}
@@ -119,12 +130,17 @@ export function MultiCheck({
   if (!options.length) return <p className="text-xs text-crema/40">{empty}</p>;
   const set = new Set(selected);
   return (
-    <ul className="mt-1.5 max-h-48 space-y-0.5 overflow-y-auto rounded-lg bg-espresso/60 p-1.5 ring-1 ring-sand/12">
+    <ul className="mt-1.5 max-h-48 space-y-0.5 overflow-y-auto rounded-xl bg-espresso/55 p-1.5 ring-1 ring-sand/10">
       {options.map((opt) => {
         const on = set.has(opt.id);
         return (
           <li key={opt.id}>
-            <label className={cn("flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-crema/[0.05]", on ? "text-crema" : "text-crema/65")}>
+            <label
+              className={cn(
+                "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-crema/[0.04]",
+                on ? "text-crema" : "text-crema/60",
+              )}
+            >
               <Checkbox
                 checked={on}
                 className="size-3.5"
@@ -144,7 +160,7 @@ export function MultiCheck({
   );
 }
 
-/** Riga di impostazione: titolo, spiegazione e controllo a destra (interruttori, select…). */
+/** Riga di impostazione: titolo, spiegazione e controllo a destra. */
 export function SettingRow({
   title,
   description,
@@ -157,16 +173,90 @@ export function SettingRow({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+    <div className="flex items-center gap-3.5 px-4 py-3.5 first:pt-3.5 last:pb-3.5 sm:px-5">
       {icon ? (
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-crema/[0.05] text-crema/55 [&>svg]:size-4">{icon}</span>
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-[0.65rem] bg-crema/[0.045] text-crema/50 [&>svg]:size-4">
+          {icon}
+        </span>
       ) : null}
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-crema">{title}</p>
-        {description ? <p className="mt-0.5 text-xs leading-relaxed text-crema/40">{description}</p> : null}
+        <p className="text-[0.9rem] font-medium leading-snug text-crema">{title}</p>
+        {description ? <p className="mt-0.5 text-[0.75rem] leading-relaxed text-crema/42">{description}</p> : null}
       </div>
       <div className="shrink-0">{children}</div>
     </div>
+  );
+}
+
+/** Lista raggruppata stile Settings: una superficie, divider sottili. */
+export function SettingsGroup({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("overflow-hidden rounded-2xl bg-espresso/40 ring-1 ring-sand/[0.08]", className)}>
+      <div className="divide-y divide-sand/[0.07]">{children}</div>
+    </div>
+  );
+}
+
+/** Intestazione di blocco dentro una tab (senza eyebrow). */
+export function SectionHead({
+  title,
+  description,
+  aside,
+}: {
+  title: string;
+  description?: React.ReactNode;
+  aside?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+      <div className="min-w-0">
+        <h3 className="text-[0.95rem] font-semibold tracking-[-0.01em] text-crema">{title}</h3>
+        {description ? <p className="mt-0.5 max-w-prose text-[0.75rem] leading-relaxed text-crema/42">{description}</p> : null}
+      </div>
+      {aside ? <div className="shrink-0">{aside}</div> : null}
+    </div>
+  );
+}
+
+/** Banner modulo on/off: quiet status, non una card marketing. */
+export function ModuleBanner({
+  icon,
+  title,
+  status,
+  active,
+  control,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  status: string;
+  active: boolean;
+  control: React.ReactNode;
+}) {
+  return (
+    <section className="flex flex-wrap items-center gap-4 rounded-2xl bg-roast/90 px-4 py-4 ring-1 ring-sand/[0.09] sm:px-5">
+      <span
+        className={cn(
+          "flex size-11 shrink-0 items-center justify-center rounded-2xl ring-1 [&>svg]:size-5",
+          active ? "bg-caramel/12 text-ember ring-caramel/22" : "bg-crema/[0.04] text-crema/40 ring-sand/12",
+        )}
+      >
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[0.95rem] font-semibold tracking-[-0.01em] text-crema">{title}</p>
+        <p className="mt-1 flex items-center gap-2 text-[0.75rem] text-crema/48">
+          <span className={cn("size-1.5 rounded-full", active ? "bg-[#7fc48c]" : "bg-crema/28")} aria-hidden />
+          {status}
+        </p>
+      </div>
+      {control}
+    </section>
   );
 }
 
@@ -175,24 +265,22 @@ export function RowActions({ children }: { children: React.ReactNode }) {
 }
 
 export const miniBtn =
-  "inline-flex items-center justify-center gap-1.5 rounded-lg bg-crema/[0.06] px-3 py-1.5 text-xs font-semibold text-crema/85 ring-1 ring-sand/15 transition hover:bg-crema/[0.1] hover:text-crema disabled:opacity-45";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-crema/[0.05] px-3 py-1.5 text-xs font-semibold text-crema/85 ring-1 ring-sand/12 transition hover:bg-crema/[0.09] hover:text-crema disabled:opacity-45";
 
 export const dangerBtn =
-  "inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#a83a2c]/12 px-3 py-1.5 text-xs font-semibold text-[#f0a493] light:text-[#a83a2c] ring-1 ring-[#a83a2c]/30 transition hover:bg-[#a83a2c]/20 disabled:opacity-45";
+  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#a83a2c]/12 px-3 py-1.5 text-xs font-semibold text-[#f0a493] light:text-[#a83a2c] ring-1 ring-[#a83a2c]/28 transition hover:bg-[#a83a2c]/20 disabled:opacity-45";
 
 export const primaryMini =
-  "inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-caramel to-ember px-3 py-1.5 text-xs font-semibold text-ink shadow-[0_8px_20px_-12px_rgba(217,154,91,0.9)] transition hover:brightness-105 disabled:opacity-45";
-
-/* ── Mattoncini grafici della dashboard (card modulo, statistiche, pulsanti) ── */
+  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-caramel px-3 py-1.5 text-xs font-semibold text-ink shadow-[0_10px_24px_-14px_rgba(217,154,91,0.75)] transition hover:brightness-105 disabled:opacity-45";
 
 export const dashPrimaryBtn =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink shadow-[0_10px_24px_-14px_rgba(217,154,91,0.9)] transition-[transform,filter] duration-200 ease-out hover:brightness-105 active:scale-[0.97] disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-caramel px-4 py-2 text-sm font-semibold text-ink shadow-[0_12px_28px_-16px_rgba(217,154,91,0.8)] transition-[transform,filter] duration-200 ease-out hover:brightness-105 active:scale-[0.97] disabled:opacity-50";
 
 export const dashSecondaryBtn =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-crema/[0.06] px-4 py-2 text-sm font-semibold text-crema/85 ring-1 ring-sand/20 transition hover:bg-crema/[0.09] hover:text-crema disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-crema/[0.05] px-4 py-2 text-sm font-semibold text-crema/85 ring-1 ring-sand/14 transition hover:bg-crema/[0.08] hover:text-crema disabled:opacity-50";
 
 export const discordBtn =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-[#5865f2] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.97]";
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-[#5865f2] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.97]";
 
 /** Card della dashboard: intestazione con icona, titolo, descrizione e controlli a destra. */
 export function Panel({
@@ -213,17 +301,17 @@ export function Panel({
   bodyClassName?: string;
 }) {
   return (
-    <section className={cn("rounded-2xl bg-roast/80 ring-1 ring-sand/10", className)}>
+    <section className={cn("overflow-hidden rounded-2xl bg-roast/85 ring-1 ring-sand/[0.09]", className)}>
       {title ? (
-        <header className={cn("flex items-start gap-3 px-4 py-3.5 sm:px-5", children && "border-b border-sand/[0.08]")}>
+        <header className={cn("flex items-start gap-3.5 px-4 py-4 sm:px-5", children && "border-b border-sand/[0.07]")}>
           {icon ? (
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-caramel/12 text-ember ring-1 ring-caramel/20 [&>svg]:size-[1.05rem]">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.045] text-crema/55 ring-1 ring-sand/10 [&>svg]:size-[1.05rem]">
               {icon}
             </span>
           ) : null}
           <div className="min-w-0 flex-1">
-            <h2 className="text-[0.95rem] font-semibold text-crema">{title}</h2>
-            {description ? <div className="mt-0.5 text-xs leading-relaxed text-crema/45">{description}</div> : null}
+            <h2 className="text-[0.95rem] font-semibold tracking-[-0.01em] text-crema">{title}</h2>
+            {description ? <div className="mt-0.5 text-[0.75rem] leading-relaxed text-crema/42">{description}</div> : null}
           </div>
           {aside ? <div className="flex shrink-0 items-center gap-2">{aside}</div> : null}
         </header>
@@ -254,24 +342,26 @@ export function StatTile({
     <Tag
       {...(onClick ? { type: "button" as const, onClick } : {})}
       className={cn(
-        "flex min-w-0 items-center gap-3 rounded-xl bg-espresso/55 p-3 text-left ring-1 ring-sand/10",
-        onClick && "transition hover:ring-sand/25",
+        "flex min-w-0 items-center gap-3 rounded-2xl bg-espresso/45 p-3.5 text-left ring-1 ring-sand/[0.08]",
+        onClick && "transition hover:ring-sand/20",
       )}
     >
       <span
         className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-lg [&>svg]:size-4",
-          tone === "accent" && "bg-caramel/15 text-ember",
-          tone === "ok" && "bg-[#5f9a6a]/15 text-[#9fd0a8] light:text-[#2f6b3f]",
-          tone === "default" && "bg-crema/[0.06] text-crema/60",
+          "flex size-9 shrink-0 items-center justify-center rounded-xl [&>svg]:size-4",
+          tone === "accent" && "bg-caramel/12 text-ember",
+          tone === "ok" && "bg-[#5f9a6a]/14 text-[#9fd0a8] light:text-[#2f6b3f]",
+          tone === "default" && "bg-crema/[0.045] text-crema/55",
         )}
       >
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/40">{label}</span>
-        <span className="block truncate font-display text-xl font-semibold leading-tight tabular-nums text-crema">{value}</span>
-        {hint ? <span className="block truncate text-[0.68rem] text-crema/35">{hint}</span> : null}
+        <span className="block text-[0.68rem] font-medium text-crema/42">{label}</span>
+        <span className="mt-0.5 block truncate font-display text-[1.35rem] font-semibold leading-none tabular-nums tracking-[-0.02em] text-crema">
+          {value}
+        </span>
+        {hint ? <span className="mt-1 block truncate text-[0.68rem] text-crema/32">{hint}</span> : null}
       </span>
     </Tag>
   );
@@ -290,12 +380,12 @@ export function StateCard({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto max-w-lg rounded-2xl bg-roast/80 px-6 py-10 text-center ring-1 ring-sand/10">
-      <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-caramel/12 text-ember ring-1 ring-caramel/20 [&>svg]:size-5">
+    <div className="mx-auto max-w-lg rounded-2xl bg-roast/85 px-6 py-10 text-center ring-1 ring-sand/[0.09]">
+      <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-crema/[0.045] text-crema/55 ring-1 ring-sand/10 [&>svg]:size-5">
         {icon}
       </span>
-      <h2 className="mt-4 font-display text-2xl font-semibold text-crema">{title}</h2>
-      {children ? <div className="mt-2 text-sm leading-relaxed text-crema/55">{children}</div> : null}
+      <h2 className="mt-4 font-display text-2xl font-semibold tracking-[-0.02em] text-crema">{title}</h2>
+      {children ? <div className="mt-2 text-sm leading-relaxed text-crema/52">{children}</div> : null}
       {actions ? <div className="mt-6 flex flex-wrap justify-center gap-2">{actions}</div> : null}
     </div>
   );
@@ -310,12 +400,13 @@ export function DashToast({ toast }: { toast: { msg: string; err: boolean } | nu
           <motion.div
             key={toast.msg}
             role="status"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, y: 8, filter: "blur(4px)" }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             className={cn(
-              "pointer-events-auto flex max-w-sm items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-[0_18px_40px_-16px_rgba(0,0,0,0.8)]",
-              toast.err ? "bg-[#a83a2c] text-[#fff0ec]" : "bg-mocha text-crema ring-1 ring-caramel/35",
+              "pointer-events-auto flex max-w-sm items-center gap-2.5 rounded-2xl px-4 py-2.5 text-sm font-medium shadow-[0_18px_40px_-18px_rgba(0,0,0,0.85)]",
+              toast.err ? "bg-[#a83a2c] text-[#fff0ec]" : "bg-mocha text-crema ring-1 ring-sand/14",
             )}
           >
             <span className={cn("size-2 shrink-0 rounded-full", toast.err ? "bg-[#fff0ec]" : "bg-[#7fc48c]")} aria-hidden />

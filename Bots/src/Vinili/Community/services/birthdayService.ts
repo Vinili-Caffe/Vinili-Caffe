@@ -5,6 +5,7 @@ const { listBirthdayDue, markBirthdayCelebratedByIds } = require("./profileStore
 const { applyAgeBracketRoleFromBirthday } = require("../utils/ageBracketRoles") as typeof import("../utils/ageBracketRoles");
 const { getGuildMemberCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+const { setBotState, tryClaimBotStateOnce } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const DEFAULT_TIME_ZONE = "Europe/Rome";
 const BIRTHDAY_ROLE_ID = String(IDs?.roles?.birthdayFlair || "").trim();
@@ -132,6 +133,13 @@ async function deliverBirthdayAnnouncementsForGuild(guild?, guildDocs?, today?) 
     return;
   }
 
+  const claimKey = `birthdayAnnounce:${guild.id}:${today.year}-${String(today.month).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
+  const won = await tryClaimBotStateOnce(claimKey, { source: "birthday" });
+  if (!won) {
+    global.logger?.warn?.("[BIRTHDAY] Skip duplicate announce:", claimKey);
+    return;
+  }
+
   const content = buildBirthdayAnnouncement(guildDocs, today.year);
   let sendErr = null;
   const sent = await channel.send({ content }).catch((e?) => {
@@ -139,6 +147,7 @@ async function deliverBirthdayAnnouncementsForGuild(guild?, guildDocs?, today?) 
     return null;
   });
   if (!sent) {
+    await setBotState(claimKey, { done: false, failedAt: Date.now() }).catch(() => false);
     global.logger?.error?.(
       "[BIRTHDAY] Invio messaggio fallito:",
       guild.id,
@@ -350,7 +359,7 @@ function startBirthdayLoop(client?) {
         global.logger?.error?.("[BIRTHDAY] Scheduled tick failed:", error),
       );
     },
-    { timezone: DEFAULT_TIME_ZONE },
+    { timezone: DEFAULT_TIME_ZONE, noOverlap: true },
   );
 
   birthdayCronBackup = cron.schedule(
@@ -360,7 +369,7 @@ function startBirthdayLoop(client?) {
         global.logger?.error?.("[BIRTHDAY] Backup tick (00:15) failed:", error),
       );
     },
-    { timezone: DEFAULT_TIME_ZONE },
+    { timezone: DEFAULT_TIME_ZONE, noOverlap: true },
   );
 
   if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {

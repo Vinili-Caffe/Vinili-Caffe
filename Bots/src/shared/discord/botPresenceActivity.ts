@@ -214,6 +214,8 @@ function installBotPresenceHooks(client?) {
 
 export = {
   buildInitialClientPresenceOptions,
+  buildBotPresenceActivities,
+  resolveBotPresenceStatus,
   patchClientPresenceGuard,
   applyBotPresence,
   schedulePresenceStabilization,

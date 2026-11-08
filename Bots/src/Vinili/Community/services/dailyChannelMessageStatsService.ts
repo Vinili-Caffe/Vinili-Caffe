@@ -3,6 +3,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getClientChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 const {
+  claimDailyStatsReport,
   findDailyStats,
   getOrCreateDailyStats,
   incrementDailyStatsValue,
@@ -160,28 +161,32 @@ async function sendDailyChannelMessageReport(client?, dateKey?, opts: Record<str
       : await findDailyStats("channelMessagesDaily", guildId, dateKey);
     if (!doc) return null;
     const stats = doc.value || {};
-    if (stats.reportedAt || stats.reportMessageId) return doc;
+    if (stats.reportedAt || stats.reportMessageId || stats.reportClaimAt) return doc;
+
+    const claimed = await claimDailyStatsReport("channelMessagesDaily", guildId, dateKey);
+    if (!claimed) return doc;
+    const claimedStats = claimed.value || stats;
 
     if (!reportChannel?.isTextBased?.()) {
       global.logger?.warn?.(
         "[DAILY CHANNEL MESSAGE STATS] report channel not found:",
         resolveDailyChannelMessageReportChannelId(client),
       );
-      return stats;
+      return claimedStats;
     }
 
-    const sent = await reportChannel.send({ content: buildReportContent(stats) }).catch((err?) => {
+    const sent = await reportChannel.send({ content: buildReportContent(claimedStats) }).catch((err?) => {
       global.logger?.error?.("[DAILY CHANNEL MESSAGE STATS] report send failed:", err?.message || err);
       return null;
     });
-    if (!sent) return doc;
+    if (!sent) return claimed;
 
-    doc.value = { ...(doc.value || {}), reportMessageId: sent.id, reportedAt: new Date() };
-    doc.markModified("value");
-    await doc.save().catch((err?) => {
+    claimed.value = { ...(claimed.value || {}), reportMessageId: sent.id, reportedAt: new Date() };
+    claimed.markModified("value");
+    await claimed.save().catch((err?) => {
       global.logger?.warn?.("[DAILY CHANNEL MESSAGE STATS] report mark failed:", err?.message || err);
     });
-    return doc;
+    return claimed;
   } finally {
     reportRunning = false;
   }
@@ -204,7 +209,7 @@ function startDailyChannelMessageStatsLoop(client?) {
         global.logger?.error?.("[DAILY CHANNEL MESSAGE STATS] scheduled report failed:", err);
       });
     },
-    { timezone: TIME_ZONE },
+    { timezone: TIME_ZONE, noOverlap: true },
   );
 
   setImmediate(() => {

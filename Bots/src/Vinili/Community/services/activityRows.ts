@@ -276,15 +276,76 @@ function mergeGuildPreferHourlyRows(profileRows?, guildRows?) {
   return out;
 }
 
+function resolveNativeActivityGuildHourlyCollection() {
+  try {
+    /* Model.collection è il wrapper Mongoose; .collection sotto è il driver nativo */
+    const nested = ActivityGuildHourly?.collection?.collection;
+    if (nested && typeof nested.find === "function") return nested;
+  } catch (_) {}
+  try {
+    const db = ActivityGuildHourly?.db?.db || mongoose.connection?.db;
+    if (db && typeof db.collection === "function") return db.collection("activityguildhourlys");
+  } catch (_) {}
+  return null;
+}
+
+function activityGuildHourlyConnReady() {
+  try {
+    const state = Number(ActivityGuildHourly?.db?.readyState ?? mongoose.connection?.readyState ?? 0);
+    return state === 1;
+  } catch (_) {
+    return Number(mongoose.connection?.readyState || 0) === 1;
+  }
+}
+
+async function loadGuildHourlyDocsRaw(guildId?, hourKeys = null) {
+  const gid = String(guildId || "");
+  if (!gid) return [];
+  const keys = Array.isArray(hourKeys)
+    ? [...new Set(hourKeys.map((k?) => String(k || "").trim()).filter(Boolean))]
+    : [];
+  const projection: Record<string, any> = { guildId: 1, hourKey: 1, users: 1 };
+  if (keys.length) {
+    /* rollup hours.* può essere enorme: proietta solo le ore richieste */
+    for (const k of keys) projection[`hours.${k}`] = 1;
+  } else {
+    projection.hours = 1;
+  }
+
+  if (activityGuildHourlyConnReady()) {
+    try {
+      let q = ActivityGuildHourly.find({ guildId: gid }).select(projection).lean();
+      if (ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS > 0) q = q.maxTimeMS(ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS);
+      return await q;
+    } catch (err) {
+      global.logger?.warn?.("[activityRows] loadGuildHourlyDocsRaw mongoose:", err?.message || err);
+    }
+  }
+
+  const native = resolveNativeActivityGuildHourlyCollection();
+  if (native) {
+    try {
+      const opts: Record<string, any> = { projection };
+      if (ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS > 0) opts.maxTimeMS = ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS;
+      return await native.find({ guildId: gid }, opts).toArray();
+    } catch (err) {
+      global.logger?.warn?.("[activityRows] loadGuildHourlyDocsRaw native:", err?.message || err);
+    }
+  } else {
+    global.logger?.warn?.(
+      "[activityRows] loadGuildHourlyDocsRaw: no collection (readyState=",
+      ActivityGuildHourly?.db?.readyState ?? mongoose.connection?.readyState,
+      ")",
+    );
+  }
+  return [];
+}
+
 async function loadGuildHourlyRows(guildId?, hourKeys = null) {
   const gid = String(guildId || "");
   if (!gid) return [];
   const wanted = Array.isArray(hourKeys) && hourKeys.length ? new Set(hourKeys.map(String)) : null;
-  let q = ActivityGuildHourly.find({ guildId: gid }).lean();
-  if (ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS > 0) {
-    q = q.maxTimeMS(ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS);
-  }
-  const docs = await q.catch(() => []);
+  const docs = await loadGuildHourlyDocsRaw(gid, hourKeys);
   const byRowKey = new Map();
   for (const doc of docs) {
     const legacyHourKey = typeof doc?.hourKey === "string" && String(doc.hourKey).trim() !== "";

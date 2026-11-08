@@ -66,7 +66,14 @@ function createStopCommand(opts: Record<string, any> = {}) {
     async execute(message?) {
       const result: any = await music.stopGuild(message);
       if (result.ok) {
-        await replyOk(message, p.coffee ? "**Musica fermata** ⏹️" : String(result.message || "Musica fermata."));
+        await replyOk(
+          message,
+          p.coffee
+            ? "**Musica fermata** ⏹️"
+            : typeof result.embedDescription === "string" && result.embedDescription.trim()
+              ? result.embedDescription.trim()
+              : String(result.message || "Musica fermata."),
+        );
         return;
       }
       await replyErr(message, p.err(result.message));

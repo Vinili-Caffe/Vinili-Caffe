@@ -11,6 +11,7 @@ const { loadMonthlyRowsFromRomeCalendarMonth, resolveTopThreeUsers, uniqueRankin
 const { updateMonthlyWinnerRoles } = require("./winnersRoles") as typeof import("./winnersRoles");
 const { TROPHY_LABELS, resolvePreviousMonthTopVoters, cleanupExpiredMonthlyVoterRewards, assignMonthlyVoterRewards, buildMonthlyTopPrizeEmbedLines, buildMonthlyTopWinnerAnnounceLines, revokeActiveMonthlyTopRewardsExcept, revokeActiveMonthlyVoterRewardsExcept, cleanupExpiredMonthlyTopRewards, assignMonthlyTopRewards } = require("./winnersMonthlyRewards") as typeof import("./winnersMonthlyRewards");
 const { TARGET_CHANNEL_ID, buildEmptyLine, formatRankLine } = require("./winnersWeekly") as typeof import("./winnersWeekly");
+const { setBotState, tryClaimBotStateOnce } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 
 /** Durante SW i premi mensili sono sostituiti dai podi di fine fase. */
 function isRankedMonthCoveredByStarWarsEvent(client?, rankedYear?, rankedMonth?) {
@@ -94,6 +95,17 @@ async function publishMonthlyActivityWinners(client?, options: Record<string, an
       `[MONTHLY ACTIVITY] Skip ${rankedYear}-${String(rankedMonth).padStart(2, "0")}: sostituito dai podi fine fase Star Wars.`,
     );
     return;
+  }
+  const publishClaimKey =
+    guild?.id && !options.force && !options.skipDiscordSends
+      ? `monthlyActivityWinners:${guild.id}:${rankedYear}-${String(rankedMonth).padStart(2, "0")}`
+      : "";
+  if (publishClaimKey) {
+    const won = await tryClaimBotStateOnce(publishClaimKey, { source: "monthlyActivity" });
+    if (!won) {
+      global.logger?.warn?.("[MONTHLY ACTIVITY] Skip duplicate publish:", publishClaimKey);
+      return;
+    }
   }
   const monthNameLabel = `${IT_MONTH_NAMES[rankedMonth - 1] || ""} ${rankedYear}`.trim();
   const rows = await loadMonthlyRowsFromRomeCalendarMonth(guild, rankedYear, rankedMonth);
@@ -214,7 +226,13 @@ _ _`,
         embeds: [embed],
         components: [button],
       });
+      if (publishClaimKey) {
+        await setBotState(publishClaimKey, { done: true, at: Date.now() }).catch(() => false);
+      }
     } catch (error) {
+      if (publishClaimKey) {
+        await setBotState(publishClaimKey, { done: false, failedAt: Date.now() }).catch(() => false);
+      }
       global.logger.error("[MONTHLY ACTIVITY] Failed to send winners message:", error);
     }
   }

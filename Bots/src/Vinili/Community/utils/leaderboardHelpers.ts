@@ -7,7 +7,8 @@ const { isChannelInTicketCategory } = require("../../../MultiGuild/tickets/disco
 const { memberHasStaffRole } = require("./staffListUtils") as typeof import("./staffListUtils");
 const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
-const { loadHourlyRows } = require("../services/activityRows") as typeof import("../services/activityRows");
+const { loadHourlyRows, loadDailyRows } = require("../services/activityRows") as typeof import("../services/activityRows");
+const { buildCalendarMonthHourKeys } = require("../services/winnersTime") as typeof import("../services/winnersTime");
 const TOP_LIMIT = 10;
 const TIME_ZONE = "Europe/Rome";
 const LEADERBOARD_CACHE_TTL_MS = 30 * 1000;
@@ -246,40 +247,36 @@ async function computeLeaderboardRows(guild?, mode = "alltime", maxCandidates = 
   }
 
   if (mode === "monthly") {
-    /* site-api spesso ha channels.cache vuoto: senza fallback il mensile tornava sempre []. */
+    /* compact: ActivityGuildHourly via loadHourlyRows (profile.totals.daily non più scritto) */
     const eligibleChannels = await getEligibleChannelIdSet(guild);
     const filterByChannel = eligibleChannels.size > 0;
-    const { prefix: monthDayKeyPrefix } = getRomeMonthKeyPrefix(new Date());
+    const { year, month } = getRomeMonthKeyPrefix(new Date());
+    const hourKeys = buildCalendarMonthHourKeys(year, month);
+    const hourlyRows = await loadHourlyRows(guild.id, hourKeys).catch(() => []);
     const perUserMonthly = new Map();
-    const profileDocsMonthly = await ActivityUserProfile.find({ guildId: guild.id })
-      .select("userId profile.totals.daily")
-      .lean()
-      .catch(() => []);
-    if (profileDocsMonthly.length) {
-      for (const doc of profileDocsMonthly) {
-        const userId = String(doc?.userId || "");
-        if (!userId) continue;
-        const daily = toObjectMap(doc?.profile?.totals?.daily || {});
-        for (const [dayKey, dayRow] of Object.entries(daily)) {
-          if (!String(dayKey).startsWith(monthDayKeyPrefix)) continue;
-          if (!dayRow || typeof dayRow !== "object") continue;
-          let textCount = 0;
-          let voiceSeconds = 0;
-          for (const [channelId, value] of extractChannelEntries(dayRow?.textChannels)) {
-            if (filterByChannel && !eligibleChannels.has(String(channelId))) continue;
-            textCount += Math.max(0, Number(value || 0));
-          }
-          for (const [channelId, value] of extractChannelEntries(dayRow?.voiceChannels)) {
-            if (filterByChannel && !eligibleChannels.has(String(channelId))) continue;
-            voiceSeconds += Math.max(0, Number(value || 0));
-          }
-          if (textCount <= 0 && voiceSeconds <= 0) continue;
-          const current = perUserMonthly.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
-          current.textCount += textCount;
-          current.voiceSeconds += voiceSeconds;
-          perUserMonthly.set(userId, current);
+    for (const row of hourlyRows || []) {
+      const userId = String(row?.userId || "");
+      if (!userId) continue;
+      let textCount = 0;
+      let voiceSeconds = 0;
+      if (filterByChannel) {
+        for (const [channelId, value] of extractChannelEntries(row?.textChannels)) {
+          if (!eligibleChannels.has(String(channelId))) continue;
+          textCount += Math.max(0, Number(value || 0));
         }
+        for (const [channelId, value] of extractChannelEntries(row?.voiceChannels)) {
+          if (!eligibleChannels.has(String(channelId))) continue;
+          voiceSeconds += Math.max(0, Number(value || 0));
+        }
+      } else {
+        textCount = Math.max(0, Number(row?.textCount || 0));
+        voiceSeconds = Math.max(0, Number(row?.voiceSeconds || 0));
       }
+      if (textCount <= 0 && voiceSeconds <= 0) continue;
+      const current = perUserMonthly.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
+      current.textCount += textCount;
+      current.voiceSeconds += voiceSeconds;
+      perUserMonthly.set(userId, current);
     }
 
     const rowsMonthly = Array.from(perUserMonthly.values())
@@ -306,48 +303,74 @@ async function computeLeaderboardRows(guild?, mode = "alltime", maxCandidates = 
     return rowsMonthly;
   }
 
+  /* alltime: in compact usa totalExp profilo (fonte di verità lifetime), non nested daily */
+  if (mode === "alltime") {
+    const profileDocs = await ActivityUserProfile.find({ guildId: guild.id })
+      .select("userId profile.totals.exp.totalExp profile.totals.exp.level")
+      .lean()
+      .catch(() => []);
+    const rows = (profileDocs || [])
+      .map((d?) => {
+        const userId = String(d?.userId || "");
+        const totalExp = Math.max(0, Math.floor(Number(d?.profile?.totals?.exp?.totalExp || 0)));
+        const levelRaw = Math.max(0, Math.floor(Number(d?.profile?.totals?.exp?.level || 0)));
+        if (!userId || totalExp <= 0) return null;
+        return {
+          userId,
+          exp: totalExp,
+          level: levelRaw > 0 ? levelRaw : getLevelInfo(totalExp).level,
+        };
+      })
+      .filter(Boolean)
+      .sort((a?, b?) => b.exp - a.exp)
+      .slice(0, Math.max(TOP_LIMIT * 5, maxCandidates));
+
+    leaderboardCache.set(key, {
+      rows,
+      expiresAt: Date.now() + LEADERBOARD_CACHE_TTL_MS,
+    });
+    return rows;
+  }
+
   const eligibleChannels = await getEligibleChannelIdSet(guild);
-  if (!eligibleChannels.size) return [];
-
-  const filter = { guildId: guild.id };
+  const filterByChannel = eligibleChannels.size > 0;
+  const dailyRows = await loadDailyRows(guild.id, null).catch(() => []);
   const perUser = new Map();
-  const profileDocs = await ActivityUserProfile.find(filter).select("userId profile.totals.daily").lean().catch(() => []);
-  if (profileDocs.length) {
-    for (const doc of profileDocs) {
-      for (const row of extractProfileBucketRows(doc, "profile.totals.daily")) {
-        const userId = String(row?.userId || "");
-        if (!userId) continue;
-        let textCount = 0;
-        let voiceSeconds = 0;
-        for (const [channelId, value] of extractChannelEntries(row?.textChannels)) {
-          if (!eligibleChannels.has(String(channelId))) continue;
-          textCount += Math.max(0, Number(value || 0));
-        }
-        for (const [channelId, value] of extractChannelEntries(row?.voiceChannels)) {
-          if (!eligibleChannels.has(String(channelId))) continue;
-          voiceSeconds += Math.max(0, Number(value || 0));
-        }
-        if (textCount <= 0 && voiceSeconds <= 0) continue;
-        const current = perUser.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
-        current.textCount += textCount;
-        current.voiceSeconds += voiceSeconds;
-        perUser.set(userId, current);
+  for (const row of dailyRows || []) {
+    const userId = String(row?.userId || "");
+    if (!userId) continue;
+    let textCount = 0;
+    let voiceSeconds = 0;
+    if (filterByChannel) {
+      for (const [channelId, value] of extractChannelEntries(row?.textChannels)) {
+        if (!eligibleChannels.has(String(channelId))) continue;
+        textCount += Math.max(0, Number(value || 0));
       }
+      for (const [channelId, value] of extractChannelEntries(row?.voiceChannels)) {
+        if (!eligibleChannels.has(String(channelId))) continue;
+        voiceSeconds += Math.max(0, Number(value || 0));
+      }
+    } else {
+      textCount = Math.max(0, Number(row?.textCount || 0));
+      voiceSeconds = Math.max(0, Number(row?.voiceSeconds || 0));
     }
+    if (textCount <= 0 && voiceSeconds <= 0) continue;
+    const current = perUser.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
+    current.textCount += textCount;
+    current.voiceSeconds += voiceSeconds;
+    perUser.set(userId, current);
   }
 
-  const rows = Array.from(perUser.values()).map((entry?) => { const baseExpFromText = entry.textCount * MESSAGE_EXP; const baseExpFromVoice = Math.floor((entry.voiceSeconds * VOICE_EXP_PER_MINUTE) / 60,); const exp = Math.max(0, Math.floor(baseExpFromText + baseExpFromVoice)); return { userId: entry.userId, exp, level: getLevelInfo(exp).level, }; }).filter((entry?) => entry.exp > 0).sort((a?, b?) => b.exp - a.exp).slice(0, Math.max(TOP_LIMIT * 5, maxCandidates)); if (mode === "alltime" && rows.length > 0) {
-    const userIds = rows.map((r?) => r.userId);
-    const profileExpUsers = await ActivityUserProfile.find({ guildId: guild.id, userId: { $in: userIds } }).select("userId profile.totals.exp.totalExp profile.totals.exp.level").lean().catch(() => []);
-    const expUsers = profileExpUsers.map((d?) => ({ userId: d?.userId, totalExp: d?.profile?.totals?.exp?.totalExp, level: d?.profile?.totals?.exp?.level }));
-    const expByUser = new Map(expUsers.map((d?) => [String(d.userId), { totalExp: Number(d.totalExp || 0), level: Number(d.level || 0) }]),);
-    for (const row of rows) {
-      const eu: any = expByUser.get(row.userId);
-      if (eu != null) {
-        row.level = eu.level > 0 ? eu.level : getLevelInfo(eu.totalExp).level;
-      }
-    }
-  }
+  const rows = Array.from(perUser.values())
+    .map((entry?) => {
+      const baseExpFromText = entry.textCount * MESSAGE_EXP;
+      const baseExpFromVoice = Math.floor((entry.voiceSeconds * VOICE_EXP_PER_MINUTE) / 60);
+      const exp = Math.max(0, Math.floor(baseExpFromText + baseExpFromVoice));
+      return { userId: entry.userId, exp, level: getLevelInfo(exp).level };
+    })
+    .filter((entry?) => entry.exp > 0)
+    .sort((a?, b?) => b.exp - a.exp)
+    .slice(0, Math.max(TOP_LIMIT * 5, maxCandidates));
 
   leaderboardCache.set(key, {
     rows,

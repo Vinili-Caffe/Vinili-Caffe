@@ -393,43 +393,51 @@ function compactTicketTranscriptFields(ticket?) {
 }
 
 async function compactBucketTicketBloat(bucketId?) {
+  /*
+   * Non riscrivere l'array `tickets` intero: una close/force-close concorrente
+   * verrebbe sovrascritta e il ticket tornerebbe `open: true` in dashboard.
+   * Si aggiornano solo i campi gonfi, ticket per ticket.
+   */
   const col = GuildFeatureBucket.collection;
   const raw = await col.findOne(
     { _id: bucketId },
-    { projection: { tickets: 1 } },
+    { projection: { "tickets._id": 1, "tickets.transcriptHtmlInline": 1, "tickets.transcript": 1, "tickets.descriptionText": 1 } },
   ).catch((err?) => {
     global.logger?.warn?.("[Ticket.compactBucket.read]", err?.message || err);
     return null;
   });
   if (!raw || !Array.isArray(raw.tickets) || !raw.tickets.length) return false;
 
-  let changed = false;
-  const tickets = raw.tickets.map((t?) => {
+  let modified = 0;
+  for (const t of raw.tickets) {
+    if (!t?._id) continue;
     const beforeInline = typeof t.transcriptHtmlInline === "string" ? t.transcriptHtmlInline.length : 0;
     const beforeTxt = typeof t.transcript === "string" ? t.transcript.length : 0;
+    const beforeDesc = typeof t.descriptionText === "string" ? t.descriptionText.length : 0;
+    if (beforeInline <= 0 && beforeTxt <= TRANSCRIPT_TXT_COMPACT_MAX && beforeDesc <= 4_000) continue;
     const next = compactTicketTranscriptFields(t);
-    if (
-      beforeInline > 0 ||
-      beforeTxt > TRANSCRIPT_TXT_COMPACT_MAX ||
-      (typeof t.descriptionText === "string" && t.descriptionText.length > 4_000)
-    ) {
-      changed = true;
-    }
-    return next;
-  });
-  if (!changed) return false;
-
-  const res = await col
-    .updateOne({ _id: bucketId }, { $set: { tickets } })
-    .catch((err?) => {
-      global.logger?.warn?.("[Ticket.compactBucket.write]", err?.message || err);
-      return null;
-    });
-  if (!res) return false;
+    const $set: Record<string, any> = {
+      "tickets.$[t].transcriptHtmlInline": next.transcriptHtmlInline ?? null,
+      "tickets.$[t].transcript": next.transcript ?? "",
+      "tickets.$[t].descriptionText": next.descriptionText ?? "",
+    };
+    const res = await col
+      .updateOne(
+        { _id: bucketId },
+        { $set },
+        { arrayFilters: [{ "t._id": ticketIdArrayFilterClause(t._id) }] },
+      )
+      .catch((err?) => {
+        global.logger?.warn?.("[Ticket.compactBucket.write]", err?.message || err);
+        return null;
+      });
+    if (res && Number(res.modifiedCount || 0) > 0) modified += 1;
+  }
+  if (!modified) return false;
   global.logger?.warn?.(
-    `[Ticket.compactBucket] bucket=${String(bucketId)} tickets=${tickets.length} modified=${Number(res.modifiedCount || 0)}`,
+    `[Ticket.compactBucket] bucket=${String(bucketId)} compacted=${modified}`,
   );
-  return Number(res.modifiedCount || 0) > 0;
+  return true;
 }
 
 function slimTicketSetForBsonLimit($set?) {

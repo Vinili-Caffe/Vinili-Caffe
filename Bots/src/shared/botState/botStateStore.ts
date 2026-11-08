@@ -56,4 +56,36 @@ async function setBotState(key?, value?) {
   }
 }
 
-export = { getBotState, setBotState };
+/** Claim atomico one-shot (doc dedicato, non compact). true = questo processo ha vinto. */
+async function tryClaimBotStateOnce(key?, meta: Record<string, any> = {}) {
+  const k = String(key || "").trim();
+  if (!k || !isMongoReady()) return false;
+  try {
+    const existing = await BotState.findOne({ key: k }).lean();
+    if (existing?.value?.done === true) return false;
+    const payload = { done: true, claimedAt: Date.now(), ...meta };
+    if (!existing) {
+      try {
+        await BotState.create({ key: k, value: payload });
+        return true;
+      } catch (err: any) {
+        if (err?.code === 11000) return false;
+        throw err;
+      }
+    }
+    const updated = await BotState.findOneAndUpdate(
+      {
+        key: k,
+        $or: [{ "value.done": { $exists: false } }, { "value.done": { $ne: true } }],
+      },
+      { $set: { value: payload } },
+      { new: false },
+    );
+    return Boolean(updated);
+  } catch (err) {
+    global.logger?.warn?.("[botState] claim:", key, err?.message ?? err);
+    return false;
+  }
+}
+
+export = { getBotState, setBotState, tryClaimBotStateOnce };

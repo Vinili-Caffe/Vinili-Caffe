@@ -20,7 +20,6 @@ import {
   Plus,
   Search,
   Server,
-  SlidersHorizontal,
   Ticket,
   Users,
 } from "lucide-react";
@@ -48,6 +47,7 @@ import {
   patchGuildSettings,
   readGuildIdFromSearch,
   type BoardFeatures,
+  type BoardsMode,
   type CatalogCategory,
   type CommandAcl,
   type CommandsPayload,
@@ -60,13 +60,19 @@ import dynamic from "next/dynamic";
 import { DashboardShell, GUILD_SECTIONS, isGuildSection, type GuildSectionId } from "./DashboardShell";
 import {
   DashToast,
+  Field,
+  ModuleBanner,
   Panel,
+  SectionHead,
+  SettingRow,
+  SettingsGroup,
   StateCard,
   StatTile,
   Toggle,
   dashPrimaryBtn,
   dashSecondaryBtn,
   discordBtn,
+  fieldClass,
 } from "./guild/bits";
 
 const CommandAclEditor = dynamic(() => import("./guild/CommandAcl").then((m) => m.CommandAcl), {
@@ -81,16 +87,28 @@ const TicketDesk = dynamic(() => import("./guild/TicketDesk").then((m) => m.Tick
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
+const QuoteStyleEditor = dynamic(() => import("./guild/QuoteStyleEditor").then((m) => m.QuoteStyleEditor), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
 
 type Gate = "loading" | "login" | "locked" | "noid" | "ready";
 type Section = GuildSectionId;
 
 const SECTION_LEAD: Record<Section, string> = {
-  settings: "Prefisso, canale aggiornamenti e moduli della bacheca.",
+  settings: "Prefisso, canale aggiornamenti e identità del bot.",
   commands: "Attiva o disattiva i comandi e scegli chi può usarli e dove.",
+  bacheca: "Funzioni, canali, trascrizione clip e stile delle quote.",
   tickets: "Ticket aperti, pannelli, moduli, team e blacklist.",
   partnership: "Configurazione e gestione delle partnership del server.",
 };
+
+const BOARD_CHANNEL_LABELS: { id: keyof BoardFeatures; channelKey: "quoteChannelId" | "repostChannelId" | "clipChannelId" | "skullChannelId"; label: string }[] = [
+  { id: "quote", channelKey: "quoteChannelId", label: "Canale Quote" },
+  { id: "repost", channelKey: "repostChannelId", label: "Canale Repost" },
+  { id: "clip", channelKey: "clipChannelId", label: "Canale Clip" },
+  { id: "skull", channelKey: "skullChannelId", label: "Canale Skullboard" },
+];
 
 const fieldCls =
   "w-full rounded-lg bg-espresso/70 px-3 py-2 text-sm text-crema ring-1 ring-sand/15 outline-none transition focus:ring-caramel/45 disabled:opacity-50";
@@ -239,15 +257,15 @@ function BotIdentityCard({
   };
 
   return (
-    <Panel icon={<Bot />} title="Il bot in questo server" description="Anteprima live" className="h-fit">
-      <div className="rounded-xl bg-espresso/60 p-3 ring-1 ring-sand/10">
-        <div className="flex items-center gap-3">
+    <Panel icon={<Bot />} title="Identità sul server" description="Come appare il bot in questa guild." className="h-fit">
+      <div className="rounded-2xl bg-espresso/50 p-4 ring-1 ring-sand/[0.08]">
+        <div className="flex items-center gap-3.5">
           <span className="relative shrink-0">
             {settings.botAvatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={settings.botAvatarUrl} alt="" width={44} height={44} className="size-11 rounded-full" />
+              <img src={settings.botAvatarUrl} alt="" width={48} height={48} className="size-12 rounded-full" />
             ) : (
-              <span className="flex size-11 items-center justify-center rounded-full bg-mocha text-crema/50">
+              <span className="flex size-12 items-center justify-center rounded-full bg-mocha text-crema/50">
                 <Bot className="size-5" aria-hidden />
               </span>
             )}
@@ -258,11 +276,13 @@ function BotIdentityCard({
             />
           </span>
           <div className="min-w-0">
-            <p className="flex items-center gap-1.5 font-semibold text-crema">
+            <p className="flex items-center gap-1.5 text-[0.95rem] font-semibold tracking-[-0.01em] text-crema">
               <span className="truncate">{shownName}</span>
-              <span className="shrink-0 rounded bg-[#5865f2] px-1 py-px text-[0.55rem] font-bold uppercase text-white">Bot</span>
+              <span className="shrink-0 rounded-md bg-[#5865f2] px-1.5 py-px text-[0.55rem] font-bold uppercase tracking-wide text-white">
+                Bot
+              </span>
             </p>
-            <p className="truncate text-xs text-crema/45" title={settings.botPresence?.text || presence.label}>
+            <p className="mt-0.5 truncate text-[0.75rem] text-crema/42" title={settings.botPresence?.text || presence.label}>
               {settings.botPresence?.text || presence.label}
             </p>
           </div>
@@ -270,7 +290,7 @@ function BotIdentityCard({
       </div>
 
       <label htmlFor="bot-nick" className="mt-4 block">
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-crema/70">
+        <span className="flex items-center gap-1.5 text-[0.7rem] font-medium text-crema/55">
           Nickname nel server
           {!canCustomize ? <Lock className="size-3 text-crema/35" aria-label="Premium" /> : null}
         </span>
@@ -285,11 +305,11 @@ function BotIdentityCard({
           onKeyDown={(e) => {
             if (e.key === "Enter") void submit();
           }}
-          className={cn(fieldCls, "mt-1.5")}
+          className={cn(fieldClass, "mt-1.5")}
         />
       </label>
       {canCustomize ? (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" disabled={!changed || saving} onClick={() => void submit()} className={cn(dashPrimaryBtn, "px-3 py-1.5 text-xs")}>
             Salva
           </button>
@@ -309,7 +329,7 @@ function BotIdentityCard({
           ) : null}
         </div>
       ) : (
-        <p className="mt-1.5 text-xs text-crema/40">Per cambiare il nickname del bot serve Vinili Premium.</p>
+        <p className="mt-2 text-[0.75rem] text-crema/40">Per cambiare il nickname del bot serve Vinili Premium.</p>
       )}
     </Panel>
   );
@@ -336,19 +356,21 @@ function SettingsSection({
 }) {
   const [prefix, setPrefix] = useState(settings?.prefix ?? "+");
   const [updatesChannelId, setUpdatesChannelId] = useState(settings?.updatesChannelId ?? "");
-  const [features, setFeatures] = useState<BoardFeatures>(
-    settings?.boards.features ?? { quote: true, repost: true, clip: true, skull: true },
-  );
-  const [boardsEnabled, setBoardsEnabled] = useState(settings?.boards.enabled !== false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!settings) return;
     setPrefix(settings.prefix);
     setUpdatesChannelId(settings.updatesChannelId ?? "");
-    setFeatures(settings.boards.features);
-    setBoardsEnabled(settings.boards.enabled !== false);
   }, [settings]);
+
+  const channelOptions = useMemo(
+    () => [
+      { value: "", label: "— Nessuno —" },
+      ...pickers.textChannels.map((ch) => ({ value: ch.id, label: `#${ch.name}` })),
+    ],
+    [pickers.textChannels],
+  );
 
   const save = async (body: Record<string, unknown>, okMsg: string) => {
     setSaving(true);
@@ -374,106 +396,225 @@ function SettingsSection({
 
   const prefixLocked = settings.prefixLocked;
   const updatesLocked = settings.updatesLocked;
-  const activeFeatures = BOARD_FEATURES.filter((f) => features[f.id]).length;
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-      <div className="min-w-0 space-y-4">
-        <Panel icon={<SlidersHorizontal />} title="Generale" description="Come si chiamano i comandi e dove arrivano le novità del bot.">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label htmlFor="prefix" className="block">
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-crema/70">
-                <Hash className="size-3.5 text-crema/40" aria-hidden /> Prefisso comandi
-                {prefixLocked ? <Lock className="size-3 text-crema/35" aria-label="Bloccato" /> : null}
-              </span>
-              <input
-                id="prefix"
-                name="prefix"
-                value={prefix}
-                maxLength={settings.prefixMaxLength}
-                disabled={prefixLocked || saving}
-                onChange={(e) => setPrefix(e.target.value)}
-                onBlur={async () => {
-                  if (prefixLocked || prefix === settings.prefix) return;
-                  const parsed = normalizePrefixInput(prefix, settings.prefixMaxLength);
-                  if (!parsed.ok) {
-                    onToast(parsed.message, true);
-                    setPrefix(settings.prefix);
-                    return;
-                  }
-                  const ok = await save({ prefix: parsed.prefix }, "Prefisso salvato.");
-                  if (!ok) setPrefix(settings.prefix);
-                }}
-                className={cn(fieldCls, "mt-1.5 font-mono")}
-              />
-              <span className="mt-1 block text-xs text-crema/35">
-                {prefixLocked ? "Bloccato sul server Vinili." : "Si salva quando esci dal campo."}
-              </span>
-            </label>
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
+      <div className="min-w-0 space-y-5">
+        <div>
+          <SectionHead
+            title="Generale"
+            description="Prefisso dei comandi e canale dove arrivano le novità del bot."
+          />
+          <SettingsGroup>
+            <div className="px-4 py-4 sm:px-5">
+              <label htmlFor="prefix" className="block">
+                <span className="flex items-center gap-1.5 text-[0.7rem] font-medium text-crema/55">
+                  <Hash className="size-3.5 text-crema/35" aria-hidden /> Prefisso comandi
+                  {prefixLocked ? <Lock className="size-3 text-crema/35" aria-label="Bloccato" /> : null}
+                </span>
+                <input
+                  id="prefix"
+                  name="prefix"
+                  value={prefix}
+                  maxLength={settings.prefixMaxLength}
+                  disabled={prefixLocked || saving}
+                  onChange={(e) => setPrefix(e.target.value)}
+                  onBlur={async () => {
+                    if (prefixLocked || prefix === settings.prefix) return;
+                    const parsed = normalizePrefixInput(prefix, settings.prefixMaxLength);
+                    if (!parsed.ok) {
+                      onToast(parsed.message, true);
+                      setPrefix(settings.prefix);
+                      return;
+                    }
+                    const ok = await save({ prefix: parsed.prefix }, "Prefisso salvato.");
+                    if (!ok) setPrefix(settings.prefix);
+                  }}
+                  className={cn(fieldClass, "font-mono")}
+                />
+                <span className="mt-1.5 block text-[0.75rem] text-crema/35">
+                  {prefixLocked ? "Bloccato sul server Vinili." : "Si salva quando esci dal campo."}
+                </span>
+              </label>
+            </div>
+            <div className="px-4 py-4 sm:px-5">
+              <label className="block">
+                <span className="flex items-center gap-1.5 text-[0.7rem] font-medium text-crema/55">
+                  <Megaphone className="size-3.5 text-crema/35" aria-hidden /> Canale aggiornamenti
+                  {updatesLocked ? <Lock className="size-3 text-crema/35" aria-label="Bloccato" /> : null}
+                </span>
+                <Select
+                  value={updatesChannelId}
+                  disabled={updatesLocked || saving}
+                  onChange={async (next) => {
+                    setUpdatesChannelId(next);
+                    if (updatesLocked) return;
+                    const ok = await save({ updatesChannelId: next || null }, "Canale aggiornamenti salvato.");
+                    if (!ok) setUpdatesChannelId(settings.updatesChannelId ?? "");
+                  }}
+                  className={fieldClass}
+                  options={channelOptions}
+                />
+                <span className="mt-1.5 block text-[0.75rem] text-crema/35">
+                  {updatesLocked
+                    ? "Sul server principale Vinili questo canale non si configura da dashboard."
+                    : "Inoltro degli aggiornamenti dal canale news di Vinili."}
+                </span>
+              </label>
+            </div>
+          </SettingsGroup>
+        </div>
+      </div>
 
-            <label className="block">
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-crema/70">
-                <Megaphone className="size-3.5 text-crema/40" aria-hidden /> Canale aggiornamenti
-                {updatesLocked ? <Lock className="size-3 text-crema/35" aria-label="Bloccato" /> : null}
-              </span>
-              <Select
-                value={updatesChannelId}
-                disabled={updatesLocked || saving}
-                onChange={async (next) => {
-                  setUpdatesChannelId(next);
-                  if (updatesLocked) return;
-                  const ok = await save({ updatesChannelId: next || null }, "Canale aggiornamenti salvato.");
-                  if (!ok) setUpdatesChannelId(settings.updatesChannelId ?? "");
-                }}
-                className={cn(fieldCls, "mt-1.5")}
-                options={[
-                  { value: "", label: "— Nessuno —" },
-                  ...pickers.textChannels.map((ch) => ({ value: ch.id, label: `#${ch.name}` })),
-                ]}
-              />
-              <span className="mt-1 block text-xs text-crema/35">
-                {updatesLocked
-                  ? "Sul server principale Vinili questo canale non si configura da dashboard."
-                  : "Inoltro degli aggiornamenti dal canale news di Vinili."}
-              </span>
-            </label>
-          </div>
-        </Panel>
+      {settings.botUsername ? (
+        <BotIdentityCard
+          settings={settings}
+          canCustomize={canCustomize}
+          saving={saving}
+          onSaveNick={(nick) => save({ botNickname: nick }, nick ? "Nickname del bot aggiornato." : "Nickname del bot ripristinato.")}
+        />
+      ) : null}
+    </div>
+  );
+}
 
-        <Panel
-          icon={<Pin />}
-          title="Bacheca"
-          description={
-            boardsEnabled
-              ? `Modulo attivo · ${activeFeatures} di ${BOARD_FEATURES.length} funzioni accese`
-              : "Modulo spento: citazioni, repost, clip e skullboard non funzionano."
-          }
-          aside={
-            <Toggle
-              checked={boardsEnabled}
-              disabled={saving}
-              label="Attiva bacheca"
-              onChange={async (next) => {
-                setBoardsEnabled(next);
-                const ok = await save({ boards: { enabled: next, features } }, next ? "Bacheca attiva." : "Bacheca disattivata.");
-                if (!ok) setBoardsEnabled(settings.boards.enabled !== false);
-              }}
-            />
-          }
-        >
-          <ul className={cn("grid gap-2.5 sm:grid-cols-2", !boardsEnabled && "opacity-50")}>
+function BoardsSection({
+  guildId,
+  token,
+  settings,
+  pickers,
+  error,
+  canCustomizeQuoteStyle,
+  onUpdated,
+  onToast,
+}: {
+  guildId: string;
+  token: string;
+  settings: GuildSettings | null;
+  pickers: SettingsPickers;
+  error: string | null;
+  canCustomizeQuoteStyle: boolean;
+  onUpdated: (next: GuildSettings, pickers?: SettingsPickers) => void;
+  onToast: (msg: string, err?: boolean) => void;
+}) {
+  const [features, setFeatures] = useState<BoardFeatures>(
+    settings?.boards.features ?? { quote: true, repost: true, clip: true, skull: true },
+  );
+  const [boardsEnabled, setBoardsEnabled] = useState(settings?.boards.enabled !== false);
+  const [boardsMode, setBoardsMode] = useState<BoardsMode>(settings?.boards.mode ?? "shared");
+  const [sharedChannelId, setSharedChannelId] = useState(settings?.boards.sharedChannelId ?? "");
+  const [quoteChannelId, setQuoteChannelId] = useState(settings?.boards.quoteChannelId ?? "");
+  const [repostChannelId, setRepostChannelId] = useState(settings?.boards.repostChannelId ?? "");
+  const [clipChannelId, setClipChannelId] = useState(settings?.boards.clipChannelId ?? "");
+  const [skullChannelId, setSkullChannelId] = useState(settings?.boards.skullChannelId ?? "");
+  const [clipTranscription, setClipTranscription] = useState(settings?.boards.clipTranscription !== false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!settings) return;
+    setFeatures(settings.boards.features);
+    setBoardsEnabled(settings.boards.enabled !== false);
+    setBoardsMode(settings.boards.mode === "split" ? "split" : "shared");
+    setSharedChannelId(settings.boards.sharedChannelId ?? "");
+    setQuoteChannelId(settings.boards.quoteChannelId ?? "");
+    setRepostChannelId(settings.boards.repostChannelId ?? "");
+    setClipChannelId(settings.boards.clipChannelId ?? "");
+    setSkullChannelId(settings.boards.skullChannelId ?? "");
+    setClipTranscription(settings.boards.clipTranscription !== false);
+  }, [settings]);
+
+  const channelState = {
+    sharedChannelId,
+    quoteChannelId,
+    repostChannelId,
+    clipChannelId,
+    skullChannelId,
+  } as const;
+
+  const setChannelState = {
+    sharedChannelId: setSharedChannelId,
+    quoteChannelId: setQuoteChannelId,
+    repostChannelId: setRepostChannelId,
+    clipChannelId: setClipChannelId,
+    skullChannelId: setSkullChannelId,
+  } as const;
+
+  const channelOptions = useMemo(
+    () => [
+      { value: "", label: "— Nessuno —" },
+      ...pickers.textChannels.map((ch) => ({ value: ch.id, label: `#${ch.name}` })),
+    ],
+    [pickers.textChannels],
+  );
+
+  const save = async (body: Record<string, unknown>, okMsg: string) => {
+    setSaving(true);
+    const res = await patchGuildSettings(token, guildId, body);
+    setSaving(false);
+    if (!res.ok) {
+      onToast(res.message, true);
+      return false;
+    }
+    onUpdated(res.data.settings, res.data.pickers);
+    onToast(okMsg);
+    return true;
+  };
+
+  if (error && !settings) {
+    return (
+      <p className="rounded-xl bg-caramel/10 px-3 py-2.5 text-sm text-crema/75 ring-1 ring-caramel/25">
+        {error}
+      </p>
+    );
+  }
+  if (!settings) return null;
+
+  const boardsChannelsLocked = settings.updatesLocked;
+  const activeFeatures = BOARD_FEATURES.filter((f) => features[f.id]).length;
+
+  const saveBoardChannel = async (
+    key: keyof typeof channelState,
+    next: string,
+    label: string,
+  ) => {
+    const prev = channelState[key];
+    setChannelState[key](next);
+    if (boardsChannelsLocked) return;
+    const ok = await save({ boards: { [key]: next || null } }, `${label} salvato.`);
+    if (!ok) setChannelState[key](prev);
+  };
+
+  return (
+    <div className="space-y-5">
+      <ModuleBanner
+        icon={<Pin />}
+        title="Bacheca"
+        active={boardsEnabled}
+        status={
+          boardsEnabled
+            ? `${activeFeatures} di ${BOARD_FEATURES.length} funzioni attive`
+            : "Spenta: quote, repost, clip e skullboard non pubblicano"
+        }
+        control={
+          <Toggle
+            checked={boardsEnabled}
+            disabled={saving}
+            label="Attiva bacheca"
+            onChange={async (next) => {
+              setBoardsEnabled(next);
+              const ok = await save({ boards: { enabled: next, features } }, next ? "Bacheca attiva." : "Bacheca disattivata.");
+              if (!ok) setBoardsEnabled(settings.boards.enabled !== false);
+            }}
+          />
+        }
+      />
+
+      <div className={cn("space-y-5 transition-opacity", !boardsEnabled && "opacity-45")}>
+        <div>
+          <SectionHead title="Funzioni" description="Accendi solo ciò che usi sul server." />
+          <SettingsGroup>
             {BOARD_FEATURES.map((feat) => (
-              <li
-                key={feat.id}
-                className={cn(
-                  "flex items-start gap-3 rounded-xl bg-espresso/55 p-3 ring-1 transition-colors",
-                  features[feat.id] && boardsEnabled ? "ring-caramel/25" : "ring-sand/10",
-                )}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-crema">{feat.title}</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-crema/40">{feat.hint}</p>
-                </div>
+              <SettingRow key={feat.id} title={feat.title} description={feat.hint}>
                 <Toggle
                   checked={features[feat.id]}
                   disabled={saving || !boardsEnabled}
@@ -488,20 +629,141 @@ function SettingsSection({
                     if (!ok) setFeatures(settings.boards.features);
                   }}
                 />
-              </li>
+              </SettingRow>
             ))}
-          </ul>
-        </Panel>
-      </div>
+          </SettingsGroup>
+        </div>
 
-      {settings.botUsername ? (
-        <BotIdentityCard
-          settings={settings}
-          canCustomize={canCustomize}
-          saving={saving}
-          onSaveNick={(nick) => save({ botNickname: nick }, nick ? "Nickname del bot aggiornato." : "Nickname del bot ripristinato.")}
-        />
-      ) : null}
+        <div>
+          <SectionHead
+            title="Pubblicazione"
+            description={
+              boardsChannelsLocked
+                ? "Sul server Vinili i contenuti vanno sulla Bacheca del sito."
+                : "Dove finiscono citazioni, repost, clip e skullboard."
+            }
+            aside={boardsChannelsLocked ? <Lock className="size-3.5 text-crema/35" aria-label="Bloccato" /> : null}
+          />
+          <SettingsGroup>
+            <div className="px-4 py-4 sm:px-5">
+              <Field label="Modalità canali">
+                <Select
+                  value={boardsMode}
+                  disabled={saving || !boardsEnabled || boardsChannelsLocked}
+                  onChange={async (next) => {
+                    const mode = (next === "split" ? "split" : "shared") as BoardsMode;
+                    const prev = boardsMode;
+                    setBoardsMode(mode);
+                    if (boardsChannelsLocked) return;
+                    const patch: Record<string, unknown> = { mode };
+                    if (mode === "split") {
+                      const seed = sharedChannelId || "";
+                      if (!quoteChannelId && seed) {
+                        setQuoteChannelId(seed);
+                        patch.quoteChannelId = seed;
+                      }
+                      if (!repostChannelId && seed) {
+                        setRepostChannelId(seed);
+                        patch.repostChannelId = seed;
+                      }
+                      if (!clipChannelId && seed) {
+                        setClipChannelId(seed);
+                        patch.clipChannelId = seed;
+                      }
+                      if (!skullChannelId && seed) {
+                        setSkullChannelId(seed);
+                        patch.skullChannelId = seed;
+                      }
+                    }
+                    const ok = await save({ boards: patch }, "Modalità bacheca salvata.");
+                    if (!ok) {
+                      setBoardsMode(prev);
+                      setQuoteChannelId(settings.boards.quoteChannelId ?? "");
+                      setRepostChannelId(settings.boards.repostChannelId ?? "");
+                      setClipChannelId(settings.boards.clipChannelId ?? "");
+                      setSkullChannelId(settings.boards.skullChannelId ?? "");
+                    }
+                  }}
+                  className={fieldClass}
+                  options={[
+                    { value: "shared", label: "Canale unico (condiviso)" },
+                    { value: "split", label: "Canali separati per funzione" },
+                  ]}
+                />
+              </Field>
+            </div>
+            {boardsMode === "shared" ? (
+              <div className="px-4 py-4 sm:px-5">
+                <Field label="Canale bacheca">
+                  <Select
+                    value={sharedChannelId}
+                    disabled={saving || !boardsEnabled || boardsChannelsLocked}
+                    onChange={(next) => void saveBoardChannel("sharedChannelId", next, "Canale bacheca")}
+                    className={fieldClass}
+                    options={channelOptions}
+                  />
+                </Field>
+              </div>
+            ) : (
+              <div className="grid gap-0 sm:grid-cols-2 sm:divide-x sm:divide-sand/[0.07]">
+                {BOARD_CHANNEL_LABELS.filter((row) => features[row.id]).map((row) => (
+                  <div key={row.channelKey} className="px-4 py-4 sm:px-5">
+                    <Field label={row.label}>
+                      <Select
+                        value={channelState[row.channelKey]}
+                        disabled={saving || !boardsEnabled || boardsChannelsLocked}
+                        onChange={(next) => void saveBoardChannel(row.channelKey, next, row.label)}
+                        className={fieldClass}
+                        options={channelOptions}
+                      />
+                    </Field>
+                  </div>
+                ))}
+              </div>
+            )}
+            {features.clip ? (
+              <SettingRow
+                title="Trascrizione clip"
+                description="Genera il testo automatico quando viene pubblicata una clip vocale."
+              >
+                <Toggle
+                  checked={clipTranscription}
+                  disabled={saving || !boardsEnabled}
+                  label="Trascrizione clip"
+                  onChange={async (next) => {
+                    setClipTranscription(next);
+                    const ok = await save(
+                      { boards: { clipTranscription: next } },
+                      next ? "Trascrizione clip attiva." : "Trascrizione clip disattivata.",
+                    );
+                    if (!ok) setClipTranscription(settings.boards.clipTranscription !== false);
+                  }}
+                />
+              </SettingRow>
+            ) : null}
+          </SettingsGroup>
+        </div>
+
+        {features.quote ? (
+          <Panel title="Stile quote" description="Anteprima e personalizzazione del canvas delle citazioni.">
+            <QuoteStyleEditor
+              guildId={guildId}
+              token={token}
+              value={settings.boards.quoteStyle}
+              disabled={saving || !boardsEnabled}
+              locked={!canCustomizeQuoteStyle}
+              saving={saving}
+              onSave={async (next) => {
+                if (!canCustomizeQuoteStyle) {
+                  onToast("Stile quote riservato a Premium / server protetti.", true);
+                  return false;
+                }
+                return save({ boards: { quoteStyle: next } }, "Stile quote salvato.");
+              }}
+            />
+          </Panel>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -757,7 +1019,7 @@ function CommandsSection({
   );
 }
 
-/** Pannello server: impostazioni, comandi con ACL, ticket e partnership. */
+/** Pannello server: impostazioni, comandi con ACL, bacheca, ticket e partnership. */
 export function GuildPanel() {
   const { ready, token, login } = useAuth();
   const [gate, setGate] = useState<Gate>("loading");
@@ -891,7 +1153,7 @@ export function GuildPanel() {
     <DashboardShell
       title={showSections ? sectionMeta.label : "Pannello server"}
       crumb={showSections ? sectionMeta.label : "Pannello"}
-      lead={showSections ? SECTION_LEAD[section] : "Impostazioni, comandi, ticket e partnership del server selezionato."}
+      lead={showSections ? SECTION_LEAD[section] : "Impostazioni, comandi, bacheca, ticket e partnership del server selezionato."}
       guild={overview ? { id: overview.id, name: overview.name, iconUrl: overview.iconUrl } : null}
       guildNav={
         showSections
@@ -1063,6 +1325,22 @@ export function GuildPanel() {
                         onUpdated={(next) => {
                           setCommands(next);
                           setCommandsError(null);
+                        }}
+                        onToast={showToast}
+                      />
+                    ) : null}
+                    {section === "bacheca" && guildId && token ? (
+                      <BoardsSection
+                        guildId={guildId}
+                        token={token}
+                        settings={settings}
+                        pickers={pickers}
+                        error={settingsError}
+                        canCustomizeQuoteStyle={premiumActive || overview.isMainGuild || overview.isProtectedGuild}
+                        onUpdated={(next, nextPickers) => {
+                          setSettings(next);
+                          if (nextPickers) setPickers(nextPickers);
+                          setSettingsError(null);
                         }}
                         onToast={showToast}
                       />

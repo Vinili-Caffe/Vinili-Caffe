@@ -78,6 +78,26 @@ async function getOrCreateDailyStats(scope?, guildId?, dateKey = "", defaultValu
   });
 }
 
+/** Claim atomico prima di channel.send: evita doppio report (cron + recovery). */
+async function claimDailyStatsReport(scope?, guildId?, dateKey = "") {
+  if (!isMongoReady()) return null;
+  return DailyStats.findOneAndUpdate(
+    {
+      scope: String(scope || ""),
+      guildId: String(guildId || ""),
+      dateKey: String(dateKey || ""),
+      "value.reportedAt": { $exists: false },
+      "value.reportMessageId": { $exists: false },
+      "value.reportClaimAt": { $exists: false },
+    },
+    { $set: { "value.reportClaimAt": new Date() } },
+    { new: true },
+  ).catch((err?) => {
+    global.logger?.warn?.("[DAILY STATS STORE] claim report failed:", err?.message || err);
+    return null;
+  });
+}
+
 async function incrementDailyStatsValue(scope?, guildId?, dateKey?, increment: Record<string, any> = {}, defaultValue: Record<string, any> = {}) {
   if (!isMongoReady()) return null;
   const inc: Record<string, any> = {};
@@ -334,6 +354,7 @@ async function migrateLegacyDailyStatsCollections(opts: Record<string, any> = {}
 
 export = {
   addToSetDailyStatsValue,
+  claimDailyStatsReport,
   findDailyStats,
   getOrCreateDailyStats,
   getSeenUser,

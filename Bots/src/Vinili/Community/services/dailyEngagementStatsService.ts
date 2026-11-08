@@ -1,16 +1,18 @@
 const cron = require("node-cron") as typeof import("node-cron");
 const { ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
-const { ActivityUserProfile } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 const { getClientChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 const {
   addToSetDailyStatsValue,
+  claimDailyStatsReport,
   findDailyStats,
   getOrCreateDailyStats,
   getSeenUser,
   setSeenUser,
 } = require("./dailyStatsStore") as typeof import("./dailyStatsStore");
+const { loadHourlyRows } = require("./activityRows") as typeof import("./activityRows");
+const { getLastNDaysKeys, expandDateKeysToHourKeys } = require("./activityTime") as typeof import("./activityTime");
 const TIME_ZONE = "Europe/Rome";
 const DAILY_ENGAGEMENT_CHANNEL_ID = "1502241673512620074";
 
@@ -118,23 +120,24 @@ async function hasPriorEngagement(guild?, userId?, kind?, beforeDateKey?) {
   const guildId = String(guild?.id || "");
   const uid = String(userId || "");
   if (!guildId || !uid) return false;
-  const doc = await ActivityUserProfile.findOne({ guildId, userId: uid })
-    .select("profile.totals.daily")
-    .lean()
-    .catch(() => null);
-  if (!doc) return false;
-
-  const daily = doc?.profile?.totals?.daily;
-  if (daily && typeof daily === "object") {
-    const trackedText = getTrackedTextChannelIds();
-    for (const [dateKey, value] of Object.entries(daily)) {
-      if (!dateKey || String(dateKey) >= String(beforeDateKey)) continue;
-      const row = value && typeof value === "object" ? value : {};
-      if (kind === "chat" && hasTrackedTextInMap(guild, row.textChannels || {}, trackedText)) return true;
-      if (kind === "voice" && hasTrackedVoiceInMap(guild, row.voiceChannels || {})) return true;
+  const before = String(beforeDateKey || "");
+  const dayKeys = getLastNDaysKeys(45).filter((dk?) => String(dk) < before);
+  if (!dayKeys.length) return false;
+  const hourKeys = expandDateKeysToHourKeys(dayKeys);
+  const rows = await loadHourlyRows(guildId, hourKeys, uid).catch(() => []);
+  const trackedText = getTrackedTextChannelIds();
+  for (const row of rows || []) {
+    const dk = String(row?.hourKey || "").slice(0, 10);
+    if (!dk || dk >= before) continue;
+    if (kind === "chat") {
+      if (hasTrackedTextInMap(guild, row.textChannels || {}, trackedText)) return true;
+      if (Number(row.textCount || 0) > 0 && trackedText.size === 0) return true;
+    }
+    if (kind === "voice") {
+      if (hasTrackedVoiceInMap(guild, row.voiceChannels || {})) return true;
+      if (Number(row.voiceSeconds || 0) > 0) return true;
     }
   }
-
   return false;
 }
 
@@ -251,26 +254,30 @@ async function sendDailyEngagementReport(client?, dateKey?, opts: Record<string,
       : await findDailyStats("engagementDaily", guildId, dateKey);
     if (!doc) return null;
     const stats = doc.value || {};
-    if (stats.reportedAt || stats.reportMessageId) return doc;
+    if (stats.reportedAt || stats.reportMessageId || stats.reportClaimAt) return doc;
+
+    const claimed = await claimDailyStatsReport("engagementDaily", guildId, dateKey);
+    if (!claimed) return doc;
+    const claimedStats = claimed.value || stats;
 
     const channel = await resolveReportChannel(client);
     if (!channel?.isTextBased?.()) {
       global.logger?.warn?.("[DAILY ENGAGEMENT] report channel not found:", DAILY_ENGAGEMENT_CHANNEL_ID);
-      return stats;
+      return claimedStats;
     }
 
-    const sent = await channel.send({ content: buildReportContent(stats) }).catch((err?) => {
+    const sent = await channel.send({ content: buildReportContent(claimedStats) }).catch((err?) => {
       global.logger?.error?.("[DAILY ENGAGEMENT] report send failed:", err?.message || err);
       return null;
     });
-    if (!sent) return doc;
+    if (!sent) return claimed;
 
-    doc.value = { ...(doc.value || {}), reportMessageId: sent.id, reportedAt: new Date() };
-    doc.markModified("value");
-    await doc.save().catch((err?) => {
+    claimed.value = { ...(claimed.value || {}), reportMessageId: sent.id, reportedAt: new Date() };
+    claimed.markModified("value");
+    await claimed.save().catch((err?) => {
       global.logger?.warn?.("[DAILY ENGAGEMENT] report mark failed:", err?.message || err);
     });
-    return doc;
+    return claimed;
   } finally {
     reportRunning = false;
   }
@@ -288,7 +295,7 @@ function startDailyEngagementStatsLoop(client?) {
         global.logger?.error?.("[DAILY ENGAGEMENT] scheduled report failed:", err);
       });
     },
-    { timezone: TIME_ZONE },
+    { timezone: TIME_ZONE, noOverlap: true },
   );
 
   setImmediate(() => {

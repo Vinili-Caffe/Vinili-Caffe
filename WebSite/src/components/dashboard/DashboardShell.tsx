@@ -16,6 +16,7 @@ import {
   Menu,
   MessageSquarePlus,
   NotebookPen,
+  Pin,
   Settings2,
   Terminal,
   Ticket,
@@ -34,6 +35,7 @@ import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 export const GUILD_SECTIONS = [
   { id: "settings", label: "Impostazioni", icon: Settings2 },
   { id: "commands", label: "Comandi", icon: Terminal },
+  { id: "bacheca", label: "Bacheca", icon: Pin },
   { id: "tickets", label: "Ticket", icon: Ticket },
   { id: "partnership", label: "Partnership", icon: Handshake },
 ] as const;

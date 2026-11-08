@@ -52,10 +52,37 @@ export type BoardFeatures = {
   skull: boolean;
 };
 
+export type BoardsMode = "shared" | "split";
+
+export type QuoteStyle = {
+  bg: string;
+  bgColor: string | null;
+  fgColor: string | null;
+  bgGradTo: string | null;
+  bgGradAngle: number;
+  fgGradTo: string | null;
+  fgGradAngle: number;
+  font: string;
+  bold: boolean;
+  flip: boolean;
+  orientation: "horizontal" | "vertical";
+  avatarMode: "static" | "dynamic";
+  footer: string;
+  fadeDepth: number;
+  fadeOpacity: number;
+};
+
 export type GuildBoards = {
   enabled: boolean;
+  mode: BoardsMode;
+  sharedChannelId: string | null;
+  quoteChannelId: string | null;
+  repostChannelId: string | null;
+  clipChannelId: string | null;
+  skullChannelId: string | null;
   features: BoardFeatures;
   clipTranscription: boolean;
+  quoteStyle: QuoteStyle;
 };
 
 export type GuildSettings = {
@@ -152,11 +179,21 @@ type Fail = { ok: false; message: string; error?: string; status?: number };
 type Ok<T> = { ok: true; data: T };
 
 export const BOARD_FEATURES: { id: keyof BoardFeatures; title: string; hint: string }[] = [
-  { id: "quote", title: "Quote", hint: "+quote e bacheca citazioni (gestione sul profilo sito)" },
-  { id: "repost", title: "Repost", hint: "+repost e bottone Reposta (gestione sul profilo sito)" },
-  { id: "clip", title: "Clip", hint: "+clip e pubblicazione clip vocali (gestione sul profilo sito)" },
+  { id: "quote", title: "Quote", hint: "+quote e pubblicazione citazioni" },
+  { id: "repost", title: "Repost", hint: "+repost e bottone Reposta" },
+  { id: "clip", title: "Clip", hint: "+clip e pubblicazione clip vocali" },
   { id: "skull", title: "Skullboard", hint: "Reazione 💀 e pubblicazione in bacheca" },
 ];
+
+export const BOARD_CHANNEL_KEYS = [
+  "sharedChannelId",
+  "quoteChannelId",
+  "repostChannelId",
+  "clipChannelId",
+  "skullChannelId",
+] as const;
+
+export type BoardChannelKey = (typeof BOARD_CHANNEL_KEYS)[number];
 
 function authHeaders(token: string, json = false): HeadersInit {
   return {
@@ -282,11 +319,104 @@ function numOrNull(v: unknown): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+function channelIdOrNull(v: unknown): string | null {
+  if (v == null || v === "") return null;
+  const id = String(v).trim();
+  return /^\d{16,20}$/.test(id) ? id : null;
+}
+
+function clampPct(raw: unknown, fallback: number): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function clampAngle(raw: unknown, fallback: number): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return ((Math.round(n) % 360) + 360) % 360;
+}
+
+function hexOrNull(raw: unknown): string | null {
+  const s = String(raw || "").trim();
+  const m = s.match(/^#?([0-9a-f]{6})$/i);
+  return m ? `#${m[1].toLowerCase()}` : null;
+}
+
+export function defaultQuoteStyle(): QuoteStyle {
+  return {
+    bg: "black",
+    bgColor: null,
+    fgColor: null,
+    bgGradTo: null,
+    bgGradAngle: 135,
+    fgGradTo: null,
+    fgGradAngle: 90,
+    font: "sans",
+    bold: true,
+    flip: false,
+    orientation: "horizontal",
+    avatarMode: "dynamic",
+    footer: "discord.gg/viniliecaffe",
+    fadeDepth: 22,
+    fadeOpacity: 100,
+  };
+}
+
+function mapQuoteStyle(raw: unknown): QuoteStyle {
+  const base = defaultQuoteStyle();
+  if (!raw || typeof raw !== "object") return base;
+  const s = raw as Record<string, unknown>;
+  const bgRaw = String(s.bg || base.bg).trim().toLowerCase() || base.bg;
+  const custom = hexOrNull(s.bgColor);
+  const bg = bgRaw === "custom" || (custom && bgRaw === "custom") ? "custom" : bgRaw;
+  const orient = String(s.orientation || "").trim().toLowerCase() === "vertical" ? "vertical" : "horizontal";
+  const avatarRaw = String(s.avatarMode || "").trim().toLowerCase();
+  const avatarMode =
+    avatarRaw === "static" || avatarRaw === "s" || avatarRaw === "png" ? "static" : "dynamic";
+  return {
+    bg,
+    bgColor: bg === "custom" ? custom || "#070707" : null,
+    fgColor: Object.prototype.hasOwnProperty.call(s, "fgColor")
+      ? s.fgColor == null || s.fgColor === "" || s.fgColor === "auto"
+        ? null
+        : hexOrNull(s.fgColor)
+      : base.fgColor,
+    bgGradTo: Object.prototype.hasOwnProperty.call(s, "bgGradTo")
+      ? s.bgGradTo == null || s.bgGradTo === "" || s.bgGradTo === "none"
+        ? null
+        : hexOrNull(s.bgGradTo)
+      : base.bgGradTo,
+    bgGradAngle: clampAngle(s.bgGradAngle, base.bgGradAngle),
+    fgGradTo: Object.prototype.hasOwnProperty.call(s, "fgGradTo")
+      ? s.fgGradTo == null || s.fgGradTo === "" || s.fgGradTo === "none"
+        ? null
+        : hexOrNull(s.fgGradTo)
+      : base.fgGradTo,
+    fgGradAngle: clampAngle(s.fgGradAngle, base.fgGradAngle),
+    font: String(s.font || base.font).trim() || base.font,
+    bold: s.bold !== false,
+    flip: s.flip === true,
+    orientation: orient,
+    avatarMode,
+    footer: s.footer != null ? String(s.footer) : base.footer,
+    fadeDepth: clampPct(s.fadeDepth, base.fadeDepth),
+    fadeOpacity: clampPct(s.fadeOpacity, base.fadeOpacity),
+  };
+}
+
 function defaultBoards(): GuildBoards {
   return {
     enabled: true,
+    mode: "shared",
+    sharedChannelId: null,
+    quoteChannelId: null,
+    repostChannelId: null,
+    clipChannelId: null,
+    skullChannelId: null,
     features: { quote: true, repost: true, clip: true, skull: true },
     clipTranscription: true,
+    quoteStyle: defaultQuoteStyle(),
   };
 }
 
@@ -297,6 +427,12 @@ function mapBoards(raw: unknown): GuildBoards {
   const feats = b.features && typeof b.features === "object" ? (b.features as Record<string, unknown>) : {};
   return {
     enabled: b.enabled !== false,
+    mode: String(b.mode || "").trim().toLowerCase() === "split" ? "split" : "shared",
+    sharedChannelId: channelIdOrNull(b.sharedChannelId),
+    quoteChannelId: channelIdOrNull(b.quoteChannelId),
+    repostChannelId: channelIdOrNull(b.repostChannelId),
+    clipChannelId: channelIdOrNull(b.clipChannelId),
+    skullChannelId: channelIdOrNull(b.skullChannelId),
     features: {
       quote: feats.quote !== false,
       repost: feats.repost !== false,
@@ -304,6 +440,7 @@ function mapBoards(raw: unknown): GuildBoards {
       skull: feats.skull !== false,
     },
     clipTranscription: b.clipTranscription !== false,
+    quoteStyle: mapQuoteStyle(b.quoteStyle),
   };
 }
 
@@ -497,6 +634,31 @@ export async function patchGuildSettings(
     return { ok: true, data: mapSettings(data) };
   } catch {
     return { ok: false, message: "Errore di rete durante il salvataggio impostazioni." };
+  }
+}
+
+/** Anteprima canvas quote reale (object URL da revocare). */
+export async function previewGuildQuoteStyle(
+  token: string,
+  guildId: string,
+  quoteStyle: QuoteStyle,
+  signal?: AbortSignal,
+): Promise<string | null> {
+  try {
+    const res = await fetch(`${BASE}/guilds/${encodeURIComponent(guildId)}/boards/quote-preview`, {
+      method: "POST",
+      headers: authHeaders(token, true),
+      body: JSON.stringify({ quoteStyle }),
+      credentials: "omit",
+      signal,
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    if (!blob?.size) return null;
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
   }
 }
 

@@ -136,7 +136,7 @@
     "secondReminderMinMessages30m": 20
   },
   "voiceTranscription": {
-    "enabled": true,
+    "enabled": false,
     "maxDurationSec": 120,
     "language": "it",
     "invite": ".gg/viniliecaffe",
@@ -216,7 +216,7 @@
     "enabled": true,
     "translateApiToItalian": true,
     "spawnFreshActivity": {
-      "enabled": true,
+      "enabled": false,
       "windowMs": 300000,
       "minMessages": 5
     },
@@ -225,7 +225,7 @@
     "activityWindowMs": 1800000,
     "minMessages": 25,
     "activityThreshold": {
-      "enabled": true,
+      "enabled": false,
       "hardMin": 15,
       "hardMax": 100,
       "memberReference": 200,
@@ -256,11 +256,11 @@
     },
     "timeWindow": {
       "start": {
-        "hour": 8,
+        "hour": 7,
         "minute": 0
       },
       "end": {
-        "hour": 24,
+        "hour": 1,
         "minute": 0
       }
     },

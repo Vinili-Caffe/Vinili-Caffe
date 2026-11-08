@@ -8,9 +8,10 @@ const { getBotState, setBotState } = require("../../../shared/botState/botStateS
 const { getMinigameRomeTime } = require("./minigameUtils") as typeof import("./minigameUtils");
 
 const MINIGAME_SPAWN_REQUEST_KEY = "minigameSpawnRequest";
-const MINIGAME_FIRST_HOUR = 8;
-const MINIGAME_LAST_HOUR = 23;
-const MINIGAME_LAST_MINUTE = 45;
+/* Slot fissi Europe/Rome: dalle 7:00 all’1:00 (overnight). */
+const MINIGAME_FIRST_HOUR = 7;
+const MINIGAME_LAST_HOUR = 1;
+const MINIGAME_LAST_MINUTE = 0;
 const MINIGAME_SLOT_MINUTES = [0, 15, 30, 45];
 
 let lastMinigameSlotKey = null;
@@ -20,8 +21,13 @@ let loopTimer = null;
 function isMinigameFixedSlot(rome?) {
   const { hour, minute } = rome || {};
   if (!MINIGAME_SLOT_MINUTES.includes(minute)) return false;
-  if (hour < MINIGAME_FIRST_HOUR || hour > MINIGAME_LAST_HOUR) return false;
-  if (hour === MINIGAME_LAST_HOUR && minute > MINIGAME_LAST_MINUTE) return false;
+  const startMin = MINIGAME_FIRST_HOUR * 60;
+  const endMin = MINIGAME_LAST_HOUR * 60 + MINIGAME_LAST_MINUTE;
+  const cur = hour * 60 + minute;
+  if (endMin < startMin) {
+    return cur >= startMin || cur <= endMin;
+  }
+  if (cur < startMin || cur > endMin) return false;
   return true;
 }
 
@@ -31,7 +37,7 @@ function minigameSlotKeyFromRome(rome?) {
 
 function computeMsUntilNextRomeSlotStart(client?) {
   const now = Date.now();
-  const maxAhead = 4 * 60 * 60 * 1000;
+  const maxAhead = 8 * 60 * 60 * 1000;
   for (let ms = 0; ms <= maxAhead; ms += 1000) {
     const t = new Date(now + ms);
     const rome = getMinigameRomeTime(t, client);

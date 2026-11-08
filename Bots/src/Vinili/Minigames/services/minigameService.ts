@@ -40,9 +40,10 @@ const spawnConsumerTimers = new WeakMap();
 const loopState = new WeakSet();
 const loopIntervals = new WeakMap();
 const expireSweepTimers = new WeakMap();
-const MINIGAME_FIRST_HOUR = 8;
-const MINIGAME_LAST_HOUR = 23;
-const MINIGAME_LAST_MINUTE = 45;
+/* Slot fissi Europe/Rome: dalle 7:00 all’1:00 (overnight). */
+const MINIGAME_FIRST_HOUR = 7;
+const MINIGAME_LAST_HOUR = 1;
+const MINIGAME_LAST_MINUTE = 0;
 const MINIGAME_SLOT_MINUTES = [0, 15, 30, 45];
 let lastMinigameSlotKey = null;
 const MINIGAME_INTERVAL_SLOT_SLACK_MS = Math.max(0, Math.min(5 * 60 * 1000, Number(process.env.MINIGAME_INTERVAL_SLOT_SLACK_MS ?? 90_000)));
@@ -64,8 +65,14 @@ async function processHalloweenMinigamesShowcaseForce(_client?) {}
 function isMinigameFixedSlot(rome?, client = null) {
   const { hour, minute } = rome;
   if (!MINIGAME_SLOT_MINUTES.includes(minute)) return false;
-  if (hour < MINIGAME_FIRST_HOUR || hour > MINIGAME_LAST_HOUR) return false;
-  if (hour === MINIGAME_LAST_HOUR && minute > MINIGAME_LAST_MINUTE) return false;
+  const startMin = MINIGAME_FIRST_HOUR * 60;
+  const endMin = MINIGAME_LAST_HOUR * 60 + MINIGAME_LAST_MINUTE;
+  const cur = hour * 60 + minute;
+  /* Overnight (7:00 → 1:00): fuori dalle 01:00+ fino alle 07:00- */
+  if (endMin < startMin) {
+    return cur >= startMin || cur <= endMin;
+  }
+  if (cur < startMin || cur > endMin) return false;
   return true;
 }
 
@@ -75,7 +82,8 @@ function minigameSlotKeyFromRome(rome?) {
 
 function computeMsUntilNextRomeSlotStart(client?) {
   const now = Date.now();
-  const maxAhead = 4 * 60 * 60 * 1000;
+  /* Gap massimo fuori finestra ~6h (01→07): cerca un po’ oltre. */
+  const maxAhead = 8 * 60 * 60 * 1000;
   for (let ms = 0; ms <= maxAhead; ms += 1000) {
     const t = new Date(now + ms);
     const rome = getMinigameRomeTime(t, client);

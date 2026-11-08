@@ -100,8 +100,9 @@ lavalink:
       http: true
       soundcloud: true
   plugins:
-    # 1.18.2: fix itag=18 + ResponseStatusException (ex snapshot post-1.18.1).
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
-      repository: "https://maven.lavalink.dev/releases"
+    # Snapshot post-1.18.2: TVHTML5 UA PlayStation 4 (Cobalt → "The page needs to be reloaded").
+    # Vedi lavalink-devs/youtube-source#226 / #233. Rilasciare 1.18.3 quando esce.
+    - dependency: "dev.lavalink.youtube:youtube-plugin:2be8e542d3f6f178e048dca565892684c2e40177"
+      repository: "https://maven.lavalink.dev/snapshots"
     - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
       repository: "https://maven.lavalink.dev/releases"

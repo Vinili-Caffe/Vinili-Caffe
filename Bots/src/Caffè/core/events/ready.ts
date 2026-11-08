@@ -24,6 +24,14 @@ export = {
       return;
     }
     await restoreTtsState(activeClient);
+    void (async () => {
+      try {
+        const { restorePendingVoiceTranscriptions } = require("../../../Vinili/Voice/services/voiceTranscriptionService") as typeof import("../../../Vinili/Voice/services/voiceTranscriptionService");
+        await restorePendingVoiceTranscriptions(activeClient);
+      } catch (err) {
+        global.logger?.warn?.("[VOICE TRANSCRIBE] restore failed:", err?.message || err);
+      }
+    })();
     const { applyBotPresence, schedulePresenceStabilization, installBotPresenceKeeper } = require("../../../shared/discord/botPresenceActivity") as typeof import("../../../shared/discord/botPresenceActivity");
     await applyBotPresence(activeClient);
     installBotPresenceKeeper(activeClient);

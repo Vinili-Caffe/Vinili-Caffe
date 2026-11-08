@@ -25,6 +25,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
   const {
     getDashboardGuildSettings,
     patchDashboardGuildSettings,
+    previewDashboardQuoteStyle,
   } = require("./siteDashboardGuildSettingsApi") as typeof import("./siteDashboardGuildSettingsApi");
   const {
     getDashboardGuildCommands,
@@ -860,6 +861,30 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-dashboard settings patch:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+
+  app.post("/webhooks/site-dashboard/guilds/:guildId/boards/quote-preview", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await previewDashboardQuoteStyle(client, accessToken, req.params?.guildId, body.quoteStyle);
+      if (!out || out.ok !== true || !out.image) {
+        return res.status(Number(out?.status) || 500).json(out || { ok: false, error: "preview_failed" });
+      }
+      res.setHeader("Content-Type", String(out.mimeType || "image/png"));
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      return res.status(200).send(out.image);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard quote-preview:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

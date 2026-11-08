@@ -17,5 +17,16 @@
     "includeUsername": false,
     "stayConnected": false,
     "restoreVoiceOnRestart": true
+  },
+  "voiceTranscription": {
+    "enabled": true,
+    "channelIds": [],
+    "maxDurationSec": 120,
+    "language": "it",
+    "invite": ".gg/viniliecaffe",
+    "provider": "auto",
+    "restoreOnRestart": true,
+    "restoreLookbackMs": 7200000,
+    "restoreFetchLimit": 50
   }
 }

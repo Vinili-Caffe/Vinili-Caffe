@@ -145,7 +145,11 @@ async function stopGuild(interaction?) {
   try {
     clearActiveBotVoiceSession(guildId);
   } catch (_) {}
-  return { ok: true, message: "Musica fermata e coda svuotata." };
+  return {
+    ok: true,
+    message: "Musica fermata e coda svuotata.",
+    embedDescription: `La riproduzione è stata fermata da <@${requester.id}>`,
+  };
 }
 
 async function pauseGuildTrack(interaction?) {

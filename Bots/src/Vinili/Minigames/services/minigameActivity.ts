@@ -120,6 +120,8 @@ function passesUniqueAuthorsGate(cfg?, stats?, effectiveMin?) {
 }
 
 function isReadyByActivity(cfg?, client?) {
+  const at = getActivityThresholdCfg(cfg);
+  if (at.enabled === false) return true;
   const activityScopeKey = getActivityScopeKey(cfg);
   if (!activityScopeKey) return false;
   const windowMs = getActivityWindowMs(cfg);

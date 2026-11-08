@@ -312,7 +312,7 @@ async function getSiteWrapped(client?, payload?) {
   }
 
   const member = resolved.member;
-  const [doc, ranks, pool] = await Promise.all([
+  const [docRaw, ranks, pool] = await Promise.all([
     ActivityUserProfile.findOne({ guildId, userId })
       .select(
         [
@@ -340,6 +340,15 @@ async function getSiteWrapped(client?, payload?) {
     getUserRanks(guildId, userId),
     countActivePool(guildId),
   ]);
+
+  /* compact: nested daily/hourly vuoti → idrata da ActivityGuildHourly */
+  let doc = docRaw;
+  try {
+    const { hydrateProfileActivityBucketsFromGuild } = require("../../Community/services/activityBackfill") as typeof import("../../Community/services/activityBackfill");
+    doc = await hydrateProfileActivityBucketsFromGuild(guildId, userId, docRaw);
+  } catch (_) {
+    doc = docRaw;
+  }
 
   const totals = doc?.profile?.totals || {};
   const exp = totals.exp || {};
