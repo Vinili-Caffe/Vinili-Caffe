@@ -1,7 +1,7 @@
 /** Compiti staff: controlli periodici (scadenze, assegnazioni, invio automatico, inviti). */
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-const { notifyCompitiSubmitted, notifyCompitiMissed, notifyCompitiAutoFailed, notifyCompitiAutoNotReached, notifyCompitiDeadlineSoon, taskLabelFromMeta } = require("./siteStaffCompitiNotifications") as typeof import("./siteStaffCompitiNotifications");
+const { notifyCompitiApproved, notifyCompitiSubmitted, notifyCompitiMissed, notifyCompitiAutoFailed, notifyCompitiAutoNotReached, notifyCompitiDeadlineSoon, taskLabelFromMeta } = require("./siteStaffCompitiNotifications") as typeof import("./siteStaffCompitiNotifications");
 const { TASKS_META, ALLOWED_TASK_IDS, isAutoTask, taskById } = require("./siteStaffCompitiCatalog") as typeof import("./siteStaffCompitiCatalog");
 const { romeWallTimeToUtcMs, currentRomeIsoWeekKey, sundaySubmitDeadlineMs, sundayReviewDeadlineMs, compitiActiveMonthKey, dateKeysForIsoWeekKey, deadlinesPayload } = require("./compitiCalendar") as typeof import("./compitiCalendar");
 const { MAX_NOTE, shouldSkipNegativeValutazione, STATUS, emptyWeek, sanitizeWeekEntry, pruneWeekMap, loadMap, saveMap, applyValutazione } = require("./compitiWeeks") as typeof import("./compitiWeeks");
@@ -152,7 +152,6 @@ async function tickStaffCompitiAssignments(client?) {
   } catch (err) {
     global.logger?.warn?.("[COMPITI] invite auto", err?.message || err);
   }
-
   return { ok: true, monthKey, weekKey, assigned, skipped, inviteHits };
 }
 
@@ -203,35 +202,53 @@ async function tryAutoSubmitCompito(client?, opts: Record<string, any> = {}) {
   if (locked.includes(taskId) && entry.taskId !== taskId) {
     return { ok: false, error: "task_used" };
   }
+  /*
+   * Compito automatico verificato dal bot: COMPLETATO subito (niente attesa dell'High Staff),
+   * con la stessa valutazione positiva e notifica di un'approvazione manuale.
+   */
+  const now = Date.now();
   entry.taskId = taskId;
   entry.note = evidence || entry.note || `Completamento automatico: ${taskById(taskId)?.label || taskId}`;
   entry.proofs = entry.proofs || [];
-  entry.status = STATUS.SUBMITTED;
+  entry.status = STATUS.APPROVED;
   entry.done = true;
   entry.autoSubmitted = true;
-  entry.submittedAt = Date.now();
-  entry.reviewedAt = 0;
-  entry.reviewedBy = "";
-  entry.updatedAt = Date.now();
+  entry.submittedAt = now;
+  entry.reviewedAt = now;
+  entry.reviewedBy = "system";
+  entry.updatedAt = now;
   map[weekKey] = entry;
   await saveMap(guildId, userId, pruneWeekMap(map, weekKey));
+
+  if (!entry.valutazioneApplied) {
+    const ok = await applyValutazione(client, guildId, userId, "positive", weekKey);
+    if (ok) {
+      entry.valutazioneApplied = true;
+      map[weekKey] = entry;
+      await saveMap(guildId, userId, pruneWeekMap(map, weekKey));
+    }
+  }
 
   try {
     const guild =
       client?.guilds?.cache?.get?.(guildId) || (await client?.guilds?.fetch?.(guildId).catch(() => null));
-    await notifyCompitiSubmitted({
+    await notifyCompitiApproved({
       guild,
       guildId,
       workerUserId: userId,
       weekKey,
       taskLabel: taskLabelFromMeta(TASKS_META, taskId),
-      auto: true,
+      reviewerName: "Il controllo automatico",
     });
   } catch (err) {
-    global.logger?.warn?.("[COMPITI] auto-submit notif", err?.message || err);
+    global.logger?.warn?.("[COMPITI] auto-complete notif", err?.message || err);
   }
+  try {
+    const { broadcastSiteStaffCompitiChanged } = require("../suggestions/siteSuggestionsBroadcast") as typeof import("../suggestions/siteSuggestionsBroadcast");
+    broadcastSiteStaffCompitiChanged({ userId, weekKey, action: "approve" });
+  } catch (_) {}
 
-  return { ok: true, weekKey, taskId, status: STATUS.SUBMITTED };
+  return { ok: true, weekKey, taskId, status: STATUS.APPROVED };
 }
 
 /**
