@@ -84,6 +84,48 @@ function serializeTicketSettings(config?) {
   };
 }
 
+/*
+ * Ticket rimasti "aperti" nel database ma col canale Discord ormai cancellato (es. eliminato a bot spento):
+ * contavano come aperti in dashboard per sempre. Se Discord risponde "canale inesistente" (10003) li chiude.
+ * Errori temporanei o permessi mancanti: non si tocca niente. Al massimo un controllo ogni 5 minuti per server.
+ */
+const ORPHAN_CHECK_MS = 5 * 60 * 1000;
+const orphanCheckedAt = new Map<string, number>();
+
+async function closeOrphanOpenTickets(client?, guildId?) {
+  const gid = String(guildId || "").trim();
+  if (!gid) return 0;
+  const last = orphanCheckedAt.get(gid) || 0;
+  if (Date.now() - last < ORPHAN_CHECK_MS) return 0;
+  orphanCheckedAt.set(gid, Date.now());
+  const guild = client?.guilds?.cache?.get?.(gid);
+  if (!guild) return 0;
+  const rows = await Ticket.find({ guildId: gid, open: true }, { _id: 1, channelId: 1 }).lean().catch(() => []);
+  let closed = 0;
+  for (const t of Array.isArray(rows) ? rows : []) {
+    const channelId = String(t?.channelId || "").trim();
+    if (!/^\d{17,22}$/.test(channelId) || guild.channels.cache.has(channelId)) continue;
+    let gone = false;
+    try {
+      gone = !(await guild.channels.fetch(channelId));
+    } catch (err) {
+      gone = Number(err?.code) === 10003;
+    }
+    if (!gone) continue;
+    const done = await Ticket.findOneAndUpdate(
+      { _id: t._id, open: true },
+      { $set: { open: false, closedAt: new Date(), closedBy: null, closeReason: "Canale Discord non più esistente" } },
+      { new: true },
+    ).catch(() => null);
+    if (done) closed += 1;
+  }
+  if (closed) {
+    invalidateSlimClosedTicketsCache(gid);
+    global.logger?.info?.(`[dashboard tickets] chiusi ${closed} ticket senza canale (guild ${gid})`);
+  }
+  return closed;
+}
+
 async function computeTicketOverview(guildId?) {
   const gid = String(guildId || "").trim();
   const rows = await Ticket.find({ guildId: gid }).lean().catch(() => []);
@@ -192,6 +234,7 @@ async function getDashboardTickets(client?, accessToken?, guildId?) {
     return fail(access.status || 403, access.error || "forbidden", access.message || "Accesso negato.");
   }
   const gid = String(guildId || "").trim();
+  await closeOrphanOpenTickets(client, gid).catch(() => 0);
   const [settings, overview, pickers] = await Promise.all([
     getTicketSettingsForGuild(gid),
     computeTicketOverview(gid),
@@ -409,6 +452,7 @@ async function listDashboardTickets(client?, accessToken?, guildId?, query: Reco
   );
   const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? offsetRaw : 0;
 
+  await closeOrphanOpenTickets(client, gid).catch(() => 0);
   const filter: Record<string, any> = { guildId: gid };
   if (status === "open") filter.open = true;
   else if (status === "closed") filter.open = false;
