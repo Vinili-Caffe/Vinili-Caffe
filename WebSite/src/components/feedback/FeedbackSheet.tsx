@@ -11,22 +11,16 @@ import {
   COMMENT_MAX,
   COMMENT_MIN,
   REASON_MIN,
-  addComment,
-  decideFeedback,
-  deleteComment,
-  deleteOwnFeedback,
-  editComment,
   kindLabel,
-  staffDeleteFeedback,
   timeAgo,
   topicLabel,
-  voteComment,
   type Comment,
   type Status,
   type Suggestion,
   type Viewer,
 } from "@/lib/feedback";
 import { cn } from "@/lib/cn";
+import { useFeedbackApi } from "@/lib/feedback-api";
 import { onComposerEnterSend } from "@/lib/composer-keys";
 import { CommentImages, ImageAttachButton, ImageAttachPreview, useImageAttach } from "@/components/ui/image-attach";
 import { DiscordContent } from "@/components/discord/DiscordContent";
@@ -48,6 +42,7 @@ type Props = {
 
 /** Il biglietto staccato dalla lavagna: testo intero, foto, discussione e azioni. */
 export function FeedbackSheet({ s, token, viewer, onClose, onLogin, onUpdate, onRemoved, onRestored, onEdit, onVote }: Props) {
+  const api = useFeedbackApi();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<"own" | "staff" | null>(null);
@@ -85,7 +80,7 @@ export function FeedbackSheet({ s, token, viewer, onClose, onLogin, onUpdate, on
     if (!token) return;
     if (status !== "pending" && reason.trim().length < REASON_MIN) return setMsg({ ok: false, text: `Inserisci un motivo di almeno ${REASON_MIN} caratteri.` });
     const label = status === "accepted" ? "Suggerimento accettato." : status === "rejected" ? "Suggerimento rifiutato." : "Rimesso in valutazione.";
-    run(decideFeedback(token, s.id, status, reason.trim()), label, (d) => (onUpdate(d), setReason("")));
+    run(api.decide(token, s.id, status, reason.trim()), label, (d) => (onUpdate(d), setReason("")));
   };
 
   const remove = () => {
@@ -96,7 +91,7 @@ export function FeedbackSheet({ s, token, viewer, onClose, onLogin, onUpdate, on
     scheduleDeferredDelete({
       onRemove: () => onRemoved(s.id),
       onRestore: () => onRestored(s),
-      commit: () => (mode === "own" ? deleteOwnFeedback(token, s.id) : staffDeleteFeedback(token, s.id)),
+      commit: () => (mode === "own" ? api.deleteOwn(token, s.id) : api.staffDelete(token, s.id)),
     });
   };
 
@@ -120,7 +115,7 @@ export function FeedbackSheet({ s, token, viewer, onClose, onLogin, onUpdate, on
       >
         <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-sand/10 bg-roast px-5 py-4 sm:px-7">
           <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.15em] text-crema/60">
-            <Icon className="size-4 text-caramel" /> {kindLabel(s.kind)} · {topicLabel(s.tag)}
+            <Icon className="size-4 text-caramel" /> {kindLabel(s.kind)}{api.topics ? ` · ${topicLabel(s.tag)}` : ""}
           </span>
           <button type="button" onClick={onClose} aria-label="Chiudi" className="ml-auto rounded-full p-2 text-crema/60 hover:bg-crema/8 hover:text-crema">
             <X className="size-5" />
@@ -288,6 +283,7 @@ function CommentBox({
   onUpdate: (s: Suggestion) => void;
   onDone?: () => void;
 }) {
+  const api = useFeedbackApi();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -298,7 +294,7 @@ function CommentBox({
     if (text.trim().length < COMMENT_MIN && !hasImages) return setErr("Il commento è troppo breve.");
     setBusy(true);
     setErr("");
-    const r = await addComment(token, s.id, text.trim(), parent, attach.images);
+    const r = await api.addComment(token, s.id, text.trim(), parent, attach.images);
     setBusy(false);
     if (!r.ok) return setErr(r.message);
     setText("");
@@ -318,7 +314,7 @@ function CommentBox({
           placeholder={replyToName ? `Rispondi a ${replyToName}…` : parent ? "Scrivi una risposta..." : "Scrivi un commento..."}
           className="min-h-10 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-crema/35"
         />
-        <ImageAttachButton attach={attach} className="mb-0.5 px-2.5 text-crema/60 ring-transparent hover:bg-crema/8 hover:text-crema" />
+        {api.commentImages ? <ImageAttachButton attach={attach} className="mb-0.5 px-2.5 text-crema/60 ring-transparent hover:bg-crema/8 hover:text-crema" /> : null}
         <button type="button" onClick={send} disabled={busy || attach.busy || (!text.trim() && !hasImages)} aria-label="Pubblica" className="rounded-full bg-gradient-to-r from-caramel to-ember p-2.5 text-ink disabled:opacity-40">
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
         </button>
@@ -330,6 +326,7 @@ function CommentBox({
 }
 
 function CommentItem({ c, s, token, viewer, onUpdate, replies, isReply }: { c: Comment; s: Suggestion; token: string | null; viewer: Viewer; onUpdate: (s: Suggestion) => void; replies?: Comment[]; isReply?: boolean }) {
+  const api = useFeedbackApi();
   const [replying, setReplying] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(c.content);
@@ -337,7 +334,7 @@ function CommentItem({ c, s, token, viewer, onUpdate, replies, isReply }: { c: C
   const [err, setErr] = useState("");
   const open = s.status === "pending";
   const mine = !!viewer && viewer.id === c.userId;
-  const canDelete = mine || !!viewer?.canModerateSuggestions;
+  const canDelete = api.commentActions && (mine || !!viewer?.canModerateSuggestions);
 
   const act = async (p: Promise<{ ok: true; data: Suggestion } | { ok: false; message: string }>) => {
     setBusy(true);
@@ -368,14 +365,14 @@ function CommentItem({ c, s, token, viewer, onUpdate, replies, isReply }: { c: C
                 onKeyDown={(e) =>
                   onComposerEnterSend(e, () => {
                     if (!token || busy) return;
-                    void act(editComment(token, s.id, c.id, draft.trim())).then((ok) => ok && setEditing(false));
+                    void act(api.editComment(token, s.id, c.id, draft.trim())).then((ok) => ok && setEditing(false));
                   })
                 }
                 rows={2}
                 className="w-full rounded-xl bg-espresso/60 p-2.5 text-sm outline-none ring-1 ring-sand/15 focus:ring-caramel/60"
               />
               <div className="mt-1.5 flex gap-2 text-sm">
-                <button type="button" disabled={busy} onClick={async () => token && (await act(editComment(token, s.id, c.id, draft.trim()))) && setEditing(false)} className="font-semibold text-caramel">
+                <button type="button" disabled={busy} onClick={async () => token && (await act(api.editComment(token, s.id, c.id, draft.trim()))) && setEditing(false)} className="font-semibold text-caramel">
                   Salva
                 </button>
                 <button type="button" onClick={() => (setEditing(false), setDraft(c.content))} className="text-crema/55">
@@ -396,15 +393,15 @@ function CommentItem({ c, s, token, viewer, onUpdate, replies, isReply }: { c: C
               down={c.downvoteCount}
               mineUp={c.upvotedByViewer}
               mineDown={c.downvotedByViewer}
-              disabled={!open || !token || mine || busy}
-              onVote={(d) => token && act(voteComment(token, s.id, c.id, d))}
+              disabled={!api.commentActions || !open || !token || mine || busy}
+              onVote={(d) => token && act(api.voteComment(token, s.id, c.id, d))}
             />
             {open && token && (
               <button type="button" onClick={() => setReplying((r) => !r)} className="inline-flex items-center gap-1 rounded-full px-2 py-1 font-semibold text-crema/55 hover:text-crema">
                 <CornerDownRight className="size-3.5" /> Rispondi
               </button>
             )}
-            {open && mine && !editing && (
+            {api.commentActions && open && mine && !editing && (
               <button type="button" onClick={() => setEditing(true)} className="rounded-full px-2 py-1 font-semibold text-crema/55 hover:text-crema">
                 Modifica
               </button>
@@ -415,7 +412,7 @@ function CommentItem({ c, s, token, viewer, onUpdate, replies, isReply }: { c: C
                 disabled={busy}
                 onClick={async () => {
                   if (!(await confirmDialog({ message: "Eliminare questo commento?", danger: true }))) return;
-                  act(deleteComment(token, s.id, c.id));
+                  act(api.deleteComment(token, s.id, c.id));
                 }}
                 className="rounded-full px-2 py-1 font-semibold text-[#e2836f]/80 hover:text-[#e2836f]"
               >

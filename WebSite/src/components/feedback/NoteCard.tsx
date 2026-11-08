@@ -5,6 +5,7 @@ import { Bug, ChevronDown, ChevronUp, Image as ImageIcon, Lightbulb, MessageCirc
 import { Avatar } from "@/components/Avatar";
 import { STATUS, kindLabel, timeAgo, topicLabel, type Status, type Suggestion } from "@/lib/feedback";
 import { cn } from "@/lib/cn";
+import { useFeedbackApi } from "@/lib/feedback-api";
 import { DiscordContent } from "@/components/discord/DiscordContent";
 
 /** Timbro dello stato, come quelli a inchiostro. */
@@ -77,6 +78,7 @@ export function Votes({
 
 /** Il biglietto appeso alla lavagna. */
 export function NoteCard({ s, i, onOpen, onVote }: { s: Suggestion; i: number; onOpen: () => void; onVote: (d: "up" | "down") => void }) {
+  const api = useFeedbackApi();
   const tilt = ["-rotate-1", "rotate-1", "rotate-0", "-rotate-[0.6deg]", "rotate-[0.8deg]"][i % 5];
   const Icon = s.kind === "bug" ? Bug : Lightbulb;
   return (
@@ -103,7 +105,7 @@ export function NoteCard({ s, i, onOpen, onVote }: { s: Suggestion; i: number; o
         <span className="absolute left-1/2 top-2 size-3.5 -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_35%_30%,#f0b46e,#9a5a24)] shadow-[0_2px_3px_rgba(0,0,0,0.5)]" />
         <div className="flex items-start justify-between gap-3">
           <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.15em] text-ink/60">
-            <Icon className="size-3.5" /> {kindLabel(s.kind)} · {topicLabel(s.tag)}
+            <Icon className="size-3.5" /> {kindLabel(s.kind)}{api.topics ? ` · ${topicLabel(s.tag)}` : ""}
           </span>
           <Stamp status={s.status} className="-rotate-6" />
         </div>

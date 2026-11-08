@@ -136,7 +136,7 @@ export function ReviewCard({
       {r.serverReply?.content && !replying && (
         <div className="mt-4 rounded-2xl bg-caramel/[0.08] p-4 ring-1 ring-caramel/20">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-caramel">
-            <Coffee className="size-3.5" /> {r.kind === "staff" ? "Risposta dello staffer" : "Risposta del server"}
+            <Coffee className="size-3.5" /> {r.kind === "staff" ? "Risposta dello staffer" : r.kind === "bot" ? "Risposta di Vinili" : "Risposta del server"}
           </p>
           <DiscordContent text={r.serverReply.content} className="mt-2 text-sm leading-relaxed text-crema/75" />
         </div>
@@ -149,7 +149,9 @@ export function ReviewCard({
             ? "Modifica la risposta"
             : r.kind === "staff"
               ? "Rispondi come staffer"
-              : "Rispondi come server"}
+              : r.kind === "bot"
+                ? "Rispondi come Vinili"
+                : "Rispondi come server"}
         </button>
       )}
       <AnimatePresence>

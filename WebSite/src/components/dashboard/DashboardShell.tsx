@@ -16,7 +16,6 @@ import {
   Menu,
   MessageSquarePlus,
   NotebookPen,
-  ScrollText,
   Settings2,
   Terminal,
   Ticket,
@@ -48,7 +47,6 @@ const BOT_NAV = [
   { href: "/dashboard/faq/", label: "FAQ", icon: HelpCircle },
   { href: "/dashboard/feedback/", label: "Feedback", icon: MessageSquarePlus },
   { href: "/dashboard/recensioni/", label: "Recensioni", icon: NotebookPen },
-  { href: "/dashboard/transcript/", label: "Transcript", icon: ScrollText },
 ] as const;
 
 const ACCOUNT_NAV = [
@@ -57,6 +55,23 @@ const ACCOUNT_NAV = [
 ] as const;
 
 const LOGO = cdnUrl("/images/logo-disco.png");
+/* avatar del bot com'è adesso su Discord (il bot fa redirect al CDN Discord) */
+const BOT_AVATAR = "/webhooks/site-bot-avatar?size=128";
+
+function BotLogo() {
+  const [src, setSrc] = useState(BOT_AVATAR);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      width={34}
+      height={34}
+      onError={() => setSrc(LOGO)}
+      className="size-[2.1rem] rounded-full object-cover ring-1 ring-caramel/30"
+    />
+  );
+}
 
 type ShellGuild = { id: string; name: string; iconUrl: string | null };
 
@@ -296,8 +311,7 @@ function Sidebar({ guild, guildNav, onNavigate }: { guild: ShellGuild | null; gu
       if ((e.target as HTMLElement).closest("a")) onNavigate?.();
     }}>
       <SmartLink href={page("/dashboard/")} className="flex items-center gap-2.5 px-1.5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={LOGO} alt="" width={34} height={34} className="size-[2.1rem] rounded-full ring-1 ring-caramel/30" />
+        <BotLogo />
         <span className="min-w-0">
           <span className="block font-display text-lg font-semibold leading-none text-crema">Vinili</span>
           <span className="mt-1 block text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-caramel">Dashboard bot</span>
@@ -477,12 +491,6 @@ export function DashboardShell({
               <ChevronRight className="size-3.5 shrink-0 text-crema/25" aria-hidden />
               <span className="truncate font-semibold text-crema">{crumb || title}</span>
             </nav>
-            <SmartLink
-              href="/"
-              className="hidden shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-crema/50 ring-1 ring-sand/12 transition hover:text-crema sm:inline-flex"
-            >
-              <House className="size-3.5" aria-hidden /> Sito
-            </SmartLink>
           </header>
 
           <main className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">

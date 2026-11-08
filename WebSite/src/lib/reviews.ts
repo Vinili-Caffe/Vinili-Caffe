@@ -2,13 +2,17 @@
 // Regole del bot: testo 12–1200 caratteri, voto 1–5, una recensione per tipo (e per staffer) che si può aggiornare,
 // niente like alla propria, risposta "del locale" solo con il permesso (o lo staffer recensito).
 
-// (il bot ha anche un tipo "bot", ma sul sito pubblico ci sono solo server e staff)
-export type ReviewKind = "server" | "staff";
+// sul sito pubblico server e staff; il tipo "bot" (recensioni di Vinili) sta nella dashboard del bot
+export type ReviewKind = "server" | "staff" | "bot";
 
-export const KINDS: { id: ReviewKind; label: string; hint: string }[] = [
+export type ReviewKindInfo = { id: ReviewKind; label: string; hint: string };
+
+export const KINDS: ReviewKindInfo[] = [
   { id: "server", label: "Il server", hint: "Com'è stare nel server" },
   { id: "staff", label: "Lo staff", hint: "Chi ti ha aiutato" },
 ];
+
+export const BOT_KINDS: ReviewKindInfo[] = [{ id: "bot", label: "Il bot", hint: "Com'è usare Vinili" }];
 
 export type Review = {
   id: string;

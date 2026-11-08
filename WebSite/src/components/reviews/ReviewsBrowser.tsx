@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { ArrowUpRight, Loader2, Store, Users, type LucideIcon } from "lucide-react";
-import { KINDS, loadReviews, type ReviewKind, type ReviewsData } from "@/lib/reviews";
+import { ArrowUpRight, Bot, Loader2, Store, Users, type LucideIcon } from "lucide-react";
+import { KINDS, loadReviews, type ReviewKind, type ReviewKindInfo, type ReviewsData } from "@/lib/reviews";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { readDeepLink } from "@/lib/deeplink";
@@ -16,7 +16,7 @@ import { Stars } from "./Stars";
 
 const PAGE_SIZE = 12;
 
-const KIND_ICONS: Record<ReviewKind, LucideIcon> = { server: Store, staff: Users };
+const KIND_ICONS: Record<ReviewKind, LucideIcon> = { server: Store, staff: Users, bot: Bot };
 type Sort = "recent" | "liked" | "high" | "low";
 const SORTS: { id: Sort; label: string }[] = [
   { id: "recent", label: "Più recenti" },
@@ -25,9 +25,21 @@ const SORTS: { id: Sort; label: string }[] = [
   { id: "low", label: "Voto più basso" },
 ];
 
-export function ReviewsBrowser({ initial }: { initial: ReviewsData | null }) {
+/**
+ * Recensioni con media, distribuzione, composer ed elenco.
+ * `kinds`: tipi mostrati (sito: server e staff; dashboard del bot: solo "bot", senza schede).
+ */
+export function ReviewsBrowser({
+  initial,
+  kinds = KINDS,
+  className = "mx-auto max-w-5xl px-6 pb-16",
+}: {
+  initial: ReviewsData | null;
+  kinds?: ReviewKindInfo[];
+  className?: string;
+}) {
   const { ready, token, login } = useAuth();
-  const [kind, setKind] = useState<ReviewKind>("server");
+  const [kind, setKind] = useState<ReviewKind>(kinds[0]?.id ?? "server");
   const [data, setData] = useState<ReviewsData | null>(initial);
   const [loading, setLoading] = useState(false);
   const [sort, setSort] = useState<Sort>("recent");
@@ -43,7 +55,7 @@ export function ReviewsBrowser({ initial }: { initial: ReviewsData | null }) {
   useEffect(() => {
     const read = () => {
       const d = readDeepLink();
-      if (d.boardStaff) setKind("staff");
+      if (d.boardStaff && kinds.some((k) => k.id === "staff")) setKind("staff");
       if (d.reviewId) setFocusId(d.reviewId);
     };
     read();
@@ -110,11 +122,12 @@ export function ReviewsBrowser({ initial }: { initial: ReviewsData | null }) {
   }, [focusId, sorted]);
 
   return (
-    <div className="mx-auto max-w-5xl px-6 pb-16">
-      {/* tipo di recensione */}
+    <div className={className}>
+      {/* tipo di recensione (solo se ce n'è più di uno) */}
+      {kinds.length > 1 ? (
       <LayoutGroup id="review-kinds">
         <div className="grid gap-2 sm:grid-cols-2" role="tablist" aria-label="Tipo di recensioni">
-          {KINDS.map((k) => {
+          {kinds.map((k) => {
             const active = kind === k.id;
             const Icon = KIND_ICONS[k.id];
             return (
@@ -143,9 +156,10 @@ export function ReviewsBrowser({ initial }: { initial: ReviewsData | null }) {
           })}
         </div>
       </LayoutGroup>
+      ) : null}
 
       {/* media + composer */}
-      <div className="mt-8 grid gap-4 lg:grid-cols-[18rem_1fr]">
+      <div className={cn("grid gap-4 lg:grid-cols-[18rem_1fr]", kinds.length > 1 && "mt-8")}>
         <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12">
           <AnimatePresence mode="wait">
             <motion.div key={`${kind}-${reviews.length}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>

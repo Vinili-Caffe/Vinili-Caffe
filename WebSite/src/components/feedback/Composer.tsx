@@ -11,8 +11,6 @@ import {
   MAX_LEN,
   MIN_LEN,
   TOPICS,
-  createFeedback,
-  editFeedback,
   imageToDataUrl,
   type Board,
   type Kind,
@@ -20,6 +18,7 @@ import {
   type Topic,
 } from "@/lib/feedback";
 import { cn } from "@/lib/cn";
+import { useFeedbackApi } from "@/lib/feedback-api";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 
 type FeedbackDraft = { kind: Kind; tag: Topic | null; content: string };
@@ -46,6 +45,7 @@ export function Composer({
   onClose: () => void;
   onSaved: (s: Suggestion, isNew: boolean) => void;
 }) {
+  const api = useFeedbackApi();
   const [form, setForm] = useState<FeedbackDraft>({
     kind: editing?.kind ?? "suggestion",
     tag: editing?.tag ?? null,
@@ -63,7 +63,7 @@ export function Composer({
   const fileRef = useRef<HTMLInputElement>(null);
   const len = text.trim().length;
 
-  const draft = useFormDraft("suggestions:new", form, setForm, {
+  const draft = useFormDraft(api.draftKey, form, setForm, {
     watch: true,
     enabled: !editing,
     debounceMs: 280,
@@ -102,11 +102,15 @@ export function Composer({
   };
 
   const submit = async () => {
-    if (!tag) return setErr("Scegli un argomento prima di inviare.");
+    /* feedback del bot: niente argomenti, sono tutti sul bot */
+    const useTag: Topic | null = api.topics ? tag : "bots";
+    if (!useTag) return setErr("Scegli un argomento prima di inviare.");
     if (len < MIN_LEN) return setErr(`Scrivi almeno ${MIN_LEN} caratteri.`);
     setBusy(true);
     setErr("");
-    const res = editing ? await editFeedback(token, editing.id, { kind, tag, content: text.trim() }) : await createFeedback(token, { board, kind, tag, content: text.trim(), images });
+    const res = editing
+      ? await api.edit(token, editing.id, { kind, tag: useTag, content: text.trim() })
+      : await api.create(token, { board, kind, tag: useTag, content: text.trim(), images });
     setBusy(false);
     if (!res.ok) return setErr(res.message);
     if (!editing) draft.clear();
@@ -153,6 +157,8 @@ export function Composer({
           })}
         </div>
 
+        {api.topics ? (
+        <>
         <p className="mt-5 text-xs font-bold uppercase tracking-[0.2em] text-ink/50">Argomento</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {TOPICS.map((t) => {
@@ -175,6 +181,8 @@ export function Composer({
             );
           })}
         </div>
+        </>
+        ) : null}
 
         <label htmlFor="message" className="mt-5 block">
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-ink/50">Messaggio</span>

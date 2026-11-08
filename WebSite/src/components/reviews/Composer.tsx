@@ -37,6 +37,7 @@ export function Composer({
   const existing: Review | null = useMemo(() => {
     if (!viewer) return null;
     if (kind === "server") return viewer.serverReview;
+    if (kind === "bot") return viewer.botReview;
     return viewer.staffReviews.find((r) => r.staffUserId === staffId) ?? null;
   }, [viewer, kind, staffId]);
 
@@ -147,7 +148,13 @@ export function Composer({
         value={text}
         onChange={(e) => setText(e.target.value.slice(0, MAX_LEN))}
         rows={4}
-        placeholder={kind === "server" ? "Racconta com'è stare nel server…" : "Com'è stato il tuo incontro con questo staffer?"}
+        placeholder={
+          kind === "server"
+            ? "Racconta com'è stare nel server…"
+            : kind === "bot"
+              ? "Racconta come ti trovi con Vinili…"
+              : "Com'è stato il tuo incontro con questo staffer?"
+        }
         className="mt-4 w-full resize-y rounded-2xl bg-espresso px-4 py-3 text-crema ring-1 ring-sand/15 placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/50"
       />
       <div className="mt-3 flex flex-wrap items-center gap-3">

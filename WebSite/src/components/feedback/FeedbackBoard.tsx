@@ -5,7 +5,8 @@ import { AnimatePresence } from "motion/react";
 import { HeartHandshake, Info, LogIn, PenLine, RotateCcw, Shield, Users } from "lucide-react";
 import { Reveal } from "@/components/Reveal";
 import { useAuth } from "@/lib/auth";
-import { KINDS, STATUS, TOPICS, loadFeedback, voteFeedback, type Board, type Kind, type Status, type Suggestion, type Topic, type Viewer } from "@/lib/feedback";
+import { useFeedbackApi } from "@/lib/feedback-api";
+import { KINDS, STATUS, TOPICS, type Board, type Kind, type Status, type Suggestion, type Topic, type Viewer } from "@/lib/feedback";
 import { cn } from "@/lib/cn";
 import { readDeepLink } from "@/lib/deeplink";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
@@ -39,8 +40,15 @@ function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   );
 }
 
-/** La lavagna del bar: ogni idea o problema è un biglietto appeso. */
-export function FeedbackBoard() {
+/**
+ * La lavagna del bar: ogni idea o problema è un biglietto appeso.
+ * Archivio dal contesto (FeedbackApiProvider): sito di default, feedback del bot nella dashboard.
+ */
+export function FeedbackBoard({
+  className = "mx-auto max-w-6xl px-6 pb-20",
+  title = "Idee e feedback",
+}: { className?: string; title?: string } = {}) {
+  const api = useFeedbackApi();
   const { ready, token, login } = useAuth();
   const { t } = useI18n();
   const [board, setBoard] = useState<Board>(() => (readDeepLink().boardStaff ? "staff" : "community"));
@@ -60,7 +68,7 @@ export function FeedbackBoard() {
 
   const pull = useCallback(async () => {
     if (!ready) return;
-    const r = await loadFeedback(board, token);
+    const r = await api.load(board, token);
     if (!r.ok) {
       setError(r.message);
       setList([]);
@@ -70,7 +78,7 @@ export function FeedbackBoard() {
     setError("");
     setList(r.data.suggestions);
     setViewer(r.data.viewer);
-  }, [ready, token, board]);
+  }, [ready, token, board, api]);
 
   useEffect(() => {
     void pull();
@@ -107,7 +115,7 @@ export function FeedbackBoard() {
     }
   }, [openId]);
 
-  useLiveRefresh(pull, { intervalMs: 90_000, enabled: ready, boot: false, topics: ["suggestions"] });
+  useLiveRefresh(pull, { intervalMs: 90_000, enabled: ready, boot: false, topics: api.liveTopics });
 
   const replace = useCallback((s: Suggestion) => setList((l) => (l ? l.map((x) => (x.id === s.id ? s : x)) : l)), []);
   const flash = (t: string) => {
@@ -121,7 +129,7 @@ export function FeedbackBoard() {
     const up = d === "up" ? !s.upvotedByViewer : false;
     const down = d === "down" ? !s.downvotedByViewer : false;
     replace({ ...s, upvotedByViewer: up, downvotedByViewer: down, upvoteCount: s.upvoteCount - +s.upvotedByViewer + +up, downvoteCount: s.downvoteCount - +s.downvotedByViewer + +down });
-    const r = await voteFeedback(token, s.id, d);
+    const r = await api.vote(token, s.id, d);
     if (r.ok) replace(r.data);
     else (replace(s), flash(r.message));
   };
@@ -178,7 +186,7 @@ export function FeedbackBoard() {
   const newNote = () => (token ? setComposer({}) : login());
 
   return (
-    <div className="mx-auto max-w-6xl px-6 pb-20">
+    <div className={className}>
       {/* come funziona */}
       <Reveal>
         <div className="grid gap-3 md:grid-cols-[1.3fr_1fr]">
@@ -202,7 +210,7 @@ export function FeedbackBoard() {
       <section className="scheme-dark mt-12 rounded-[2rem] bg-[#1b1d19] p-4 shadow-[inset_0_0_80px_rgba(0,0,0,0.6)] ring-8 ring-[#5a3a22] sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="font-script text-4xl text-crema/80">Idee e feedback</p>
+            <p className="font-script text-4xl text-crema/80">{title}</p>
             <p className="text-sm text-crema/45 lining-nums">
               {counts.pending} in valutazione · {counts.accepted} accettati · {counts.rejected} rifiutati
             </p>
@@ -216,7 +224,7 @@ export function FeedbackBoard() {
           </button>
         </div>
 
-        {viewer?.canAccessStaffBoard && (
+        {api.boards && viewer?.canAccessStaffBoard && (
           <div className="mt-5 inline-flex rounded-full bg-black/30 p-1 ring-1 ring-crema/10">
             {(["community", "staff"] as Board[]).map((b) => (
               <button
@@ -258,7 +266,7 @@ export function FeedbackBoard() {
           </div>
           <div className="flex items-center gap-2">
             <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-1">
-              {TOPICS.map((t) => (
+              {(api.topics ? TOPICS : []).map((t) => (
                 <Pill key={t.id} on={topic === t.id} onClick={() => (setTopic(topic === t.id ? "all" : t.id), setPageNum(1))}>
                   {t.label}
                 </Pill>
