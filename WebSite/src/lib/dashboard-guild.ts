@@ -691,6 +691,7 @@ export {
   searchTicketMembers,
   startPartnershipMigration,
   syncTicketPanels,
+  forceCloseTicket,
   undoPartnershipMigration,
   updateTicketMulti,
   updateTicketPanel,

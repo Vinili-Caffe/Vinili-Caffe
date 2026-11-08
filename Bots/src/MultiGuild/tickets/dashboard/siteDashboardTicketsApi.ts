@@ -651,7 +651,38 @@ async function listDashboardTickets(client?, accessToken?, guildId?, query: Reco
   };
 }
 
+/**
+ * "Segna chiuso" dalla dashboard: chiude il ticket solo nel database (nessuna azione su Discord).
+ * Per i ticket rimasti aperti senza un canale vero (cancellato, spostato, di un altro server).
+ */
+async function forceCloseDashboardTicket(client?, accessToken?, guildId?, ticketId?) {
+  const access = await verifyDashboardGuildAccess(client, accessToken, guildId);
+  if (!access.ok) {
+    return fail(access.status || 403, access.error || "forbidden", access.message || "Accesso negato.");
+  }
+  const gid = String(guildId || "").trim();
+  const tid = String(ticketId || "").trim();
+  if (!tid) return fail(400, "invalid_ticket", "Ticket non valido.");
+  const done = await Ticket.findOneAndUpdate(
+    { _id: tid, guildId: gid, open: true },
+    {
+      $set: {
+        open: false,
+        closedAt: new Date(),
+        closedBy: String(access.userId || "").trim() || null,
+        closeReason: "Segnato chiuso dalla dashboard",
+      },
+    },
+    { new: true },
+  ).catch(() => null);
+  if (!done) return fail(404, "not_found", "Ticket non trovato o già chiuso.");
+  invalidateSlimClosedTicketsCache(gid);
+  global.logger?.info?.(`[dashboard tickets] segnato chiuso ${tid} (guild ${gid}) da ${String(access.userId || "?")}`);
+  return { ok: true, status: 200, overview: await computeTicketOverview(gid) };
+}
+
 export = {
+  forceCloseDashboardTicket,
   getDashboardTickets,
   patchDashboardTickets,
   listDashboardTickets,

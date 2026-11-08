@@ -1116,6 +1116,18 @@ export async function listTicketList(
   }
 }
 
+/** Chiude il ticket solo nel database (ticket rimasti aperti senza canale vero). */
+export async function forceCloseTicket(token: string, guildId: string, ticketId: string): Promise<Ok<TicketOverview> | Fail> {
+  try {
+    const { status, data } = await request("POST", gpath(guildId, `/tickets/${encodeURIComponent(ticketId)}/force-close`), token, {});
+    const blocked = gate(status, data, "Impossibile chiudere il ticket.");
+    if (blocked) return blocked;
+    return { ok: true, data: mapOverview(data.overview) };
+  } catch {
+    return { ok: false, message: "Errore di rete durante la chiusura del ticket." };
+  }
+}
+
 export async function loadTicketPanels(token: string, guildId: string): Promise<Ok<TicketPanelsBundle> | Fail> {
   try {
     const { status, data } = await request("GET", gpath(guildId, "/tickets/panels"), token);

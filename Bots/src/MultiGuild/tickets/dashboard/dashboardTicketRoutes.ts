@@ -5,6 +5,7 @@ function mountDashboardTicketRoutes(app?, client?, ctx: Record<string, any> = {}
     getDashboardTickets,
     patchDashboardTickets,
     listDashboardTickets,
+    forceCloseDashboardTicket,
     listDashboardTranscripts,
     getDashboardTranscriptHtml,
   } = require("./siteDashboardTicketsApi") as typeof import("./siteDashboardTicketsApi");
@@ -89,6 +90,24 @@ function mountDashboardTicketRoutes(app?, client?, ctx: Record<string, any> = {}
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-dashboard tickets list:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+
+  app.post("/webhooks/site-dashboard/guilds/:guildId/tickets/:ticketId/force-close", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await forceCloseDashboardTicket(client, accessToken, req.params?.guildId, req.params?.ticketId);
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard tickets force-close:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

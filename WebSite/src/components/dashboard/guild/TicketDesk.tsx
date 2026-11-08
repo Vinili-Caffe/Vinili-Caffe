@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { confirmDialog } from "@/components/ui";
 import {
+  forceCloseTicket,
   listTicketList,
   loadTicketModule,
   patchGuildTickets,
@@ -256,6 +258,33 @@ export function TicketDesk({
                       <a href={row.channelUrl} target="_blank" rel="noreferrer" className="text-ember underline decoration-caramel/40">
                         Canale
                       </a>
+                    ) : null}
+                    {row.open !== false && status !== "closed" ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={async () => {
+                          const ok = await confirmDialog({
+                            message: `Segnare chiuso il ticket #${row.ticketNumber ?? "?"}? Si chiude solo qui (nel database), su Discord non succede niente: usalo per i ticket rimasti aperti senza canale.`,
+                            danger: true,
+                          });
+                          if (!ok) return;
+                          setBusy(true);
+                          const res = await forceCloseTicket(token, guildId, row.id);
+                          setBusy(false);
+                          if (!res.ok) {
+                            onToast(res.message, true);
+                            return;
+                          }
+                          setList((l) => (l ? { ...l, tickets: l.tickets.filter((t) => t.id !== row.id) } : l));
+                          setMod((m) => (m ? { ...m, overview: res.data } : m));
+                          onSummary({ enabled, overview: res.data });
+                          onToast(`Ticket #${row.ticketNumber ?? ""} segnato chiuso.`);
+                        }}
+                        className="text-[#f0a493] underline decoration-[#a83a2c]/40 disabled:opacity-50 light:text-[#a83a2c]"
+                      >
+                        Segna chiuso
+                      </button>
                     ) : null}
                     {row.transcriptUrl ? (
                       <a href={row.transcriptUrl} target="_blank" rel="noreferrer" className="text-crema/70 underline decoration-sand/30">
