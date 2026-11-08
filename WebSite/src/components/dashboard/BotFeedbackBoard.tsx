@@ -57,7 +57,7 @@ export function BotFeedbackBoard() {
 
   if (ready && !token) {
     return (
-      <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 text-center ring-1 ring-sand/12">
+      <div className="rounded-2xl bg-roast/80 p-6 text-center ring-1 ring-sand/10">
         <p className="font-display text-2xl">Feedback sul bot</p>
         <p className="mt-2 text-sm text-crema/60">Accedi per leggere e inviare idee o problemi.</p>
         <button type="button" onClick={login} className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink">
@@ -89,7 +89,7 @@ export function BotFeedbackBoard() {
 
   return (
     <div className="space-y-8">
-      <form onSubmit={onSubmit} className="space-y-3 rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-5 ring-1 ring-sand/12">
+      <form onSubmit={onSubmit} className="space-y-3 rounded-2xl bg-roast/80 p-5 ring-1 ring-sand/10">
         <div className="flex gap-2">
           {KINDS.map((k) => (
             <button

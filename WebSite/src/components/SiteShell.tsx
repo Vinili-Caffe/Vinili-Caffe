@@ -49,11 +49,13 @@ function ShellMotion({ children }: { children: React.ReactNode }) {
   return <MotionConfig reducedMotion={reducedMotion}>{children}</MotionConfig>;
 }
 
-type SiteShellChrome = "site" | "evento";
+type SiteShellChrome = "site" | "evento" | "app";
 
 /**
  * Navbar + footer del sito.
  * `chrome="evento"`: stesse shell, link nav/footer = pagine evento + BGM SW.
+ * `chrome="app"`: solo i servizi del sito (login, notifiche, errori…), senza navbar, footer, sponsor e musica:
+ * la pagina disegna da sé il proprio guscio (dashboard del bot).
  */
 export function SiteShell({
   children,
@@ -63,6 +65,7 @@ export function SiteShell({
   chrome?: SiteShellChrome;
 }) {
   const evento = chrome === "evento" && EVENTO_CHROME_BYPASS;
+  const app = chrome === "app";
   return (
     <DeviceFxProvider>
       <ShellMotion>
@@ -89,16 +92,22 @@ export function SiteShell({
               </Suspense>
               <PresenceRoot />
               <ApiOutageBanner />
-              {!evento ? <SponsorAd /> : null}
-              <Navbar />
-              {/* alto almeno quanto lo schermo: il footer parte sotto e non "salta" mentre la pagina carica (CLS) */}
-              <main className="min-h-dvh">{children}</main>
-              <Footer />
+              {app ? (
+                children
+              ) : (
+                <>
+                  {!evento ? <SponsorAd /> : null}
+                  <Navbar />
+                  {/* alto almeno quanto lo schermo: il footer parte sotto e non "salta" mentre la pagina carica (CLS) */}
+                  <main className="min-h-dvh">{children}</main>
+                  <Footer />
+                </>
+              )}
               <CookieConsent />
               <NotifLiveToasts />
-              {evento ? <EventoMusic /> : <VinylMusicRoot />}
+              {evento ? <EventoMusic /> : app ? null : <VinylMusicRoot />}
               {/* easter egg: "It's time" 1×/giorno alla prima pagina, poi stop */}
-              {!evento ? <ItsTimeIntro /> : null}
+              {!evento && !app ? <ItsTimeIntro /> : null}
               <SiteEffects />
             </EventoChromeProvider>
           </ViewAsProvider>

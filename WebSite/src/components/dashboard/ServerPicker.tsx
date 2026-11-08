@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, Diamond, Info, Lock, LogIn, Server, ShieldAlert } from "lucide-react";
+import { ArrowRight, Bot, Diamond, Info, LayoutGrid, Lock, LogIn, Plus, Search, Server, Settings2, ShieldAlert } from "lucide-react";
 import { Reveal } from "@/components/Reveal";
 import { SmartLink } from "@/components/SmartLink";
 import { useAuth } from "@/lib/auth";
@@ -20,6 +20,7 @@ import {
   type DashboardGuild,
 } from "@/lib/dashboard";
 import { DashboardShell } from "./DashboardShell";
+import { StateCard, StatTile, dashPrimaryBtn, dashSecondaryBtn, discordBtn } from "./guild/bits";
 
 type Gate = "loading" | "login" | "locked" | "scope" | "ready";
 
@@ -27,7 +28,7 @@ function Badge({ tone, label }: { tone: "premium" | "ok" | "warn" | "main"; labe
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[0.7rem] font-semibold ring-1",
+        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.65rem] font-semibold ring-1",
         tone === "premium" && "bg-caramel/15 text-ember ring-caramel/35",
         tone === "ok" && "bg-[#5f9a6a]/15 text-[#9fd0a8] light:text-[#2f6b3f] ring-[#5f9a6a]/30",
         tone === "warn" && "bg-[#a83a2c]/15 text-[#f0a493] light:text-[#a83a2c] ring-[#a83a2c]/30",
@@ -35,12 +36,14 @@ function Badge({ tone, label }: { tone: "premium" | "ok" | "warn" | "main"; labe
       )}
     >
       {tone === "premium" ? <Diamond className="size-3" aria-hidden /> : null}
+      {tone === "ok" ? <span className="size-1.5 rounded-full bg-[#7fc48c]" aria-hidden /> : null}
       {label}
     </span>
   );
 }
 
-function GuildCard({ guild }: { guild: DashboardGuild }) {
+/** Card server stile dashboard bot: copertina sfocata dall'icona, icona grande, stato e pulsante. */
+function GuildCard({ guild, last }: { guild: DashboardGuild; last?: boolean }) {
   const status = guildStatusBadge(guild);
   const href = guildPageHref(guild.id);
   const initial = (guild.name.trim().charAt(0) || "?").toUpperCase();
@@ -52,79 +55,84 @@ function GuildCard({ guild }: { guild: DashboardGuild }) {
         selectGuild(guild.id);
       }}
       className={cn(
-        "group flex items-center gap-3 rounded-2xl bg-espresso/55 p-3.5 ring-1 ring-sand/12 transition",
-        "hover:-translate-y-0.5 hover:ring-sand/30",
-        guild.premiumActive && "ring-caramel/35 shadow-[0_18px_40px_-28px_rgba(212,145,80,0.55)]",
+        "group relative flex flex-col overflow-hidden rounded-2xl bg-roast/80 ring-1 ring-sand/10 transition duration-200",
+        "hover:-translate-y-0.5 hover:ring-sand/30 hover:shadow-[0_24px_50px_-30px_rgba(0,0,0,0.9)]",
+        guild.premiumActive && "ring-caramel/30",
       )}
     >
-      <span className="relative shrink-0">
+      <span className="relative block h-20 overflow-hidden bg-mocha" aria-hidden>
         {guild.iconUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={guild.iconUrl}
-            alt=""
-            width={48}
-            height={48}
-            className="size-12 rounded-xl object-cover ring-1 ring-sand/20"
-            loading="lazy"
-            decoding="async"
-          />
+          <img src={guild.iconUrl} alt="" className="size-full scale-125 object-cover opacity-45 blur-xl" loading="lazy" decoding="async" />
         ) : (
-          <span
-            className="flex size-12 items-center justify-center rounded-xl bg-roast font-display text-lg font-semibold text-crema/70 ring-1 ring-sand/20"
-            aria-hidden
-          >
-            {initial}
-          </span>
+          <span className="absolute inset-0 bg-gradient-to-br from-caramel/25 via-mocha to-roast" />
         )}
-        {guild.premiumActive ? (
-          <span
-            className="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-full bg-caramel text-ink ring-2 ring-espresso"
-            title="Vinili Premium attivo"
-            aria-hidden
-          >
-            <Diamond className="size-2.5" />
+        <span className="absolute inset-0 bg-gradient-to-t from-roast/90 to-transparent" />
+        {last ? (
+          <span className="absolute right-2.5 top-2.5 rounded-md bg-espresso/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-crema/70 ring-1 ring-sand/15">
+            Ultimo aperto
           </span>
         ) : null}
       </span>
 
-      <span className="min-w-0 flex-1">
-        <span className="block truncate font-semibold text-crema">{guild.name}</span>
-        <span className="mt-0.5 block truncate text-xs text-crema/50">{guildMeta(guild)}</span>
-        <span className="mt-2 flex flex-wrap gap-1.5">
+      <span className="relative -mt-8 flex items-end gap-3 px-4">
+        <span className="relative shrink-0">
+          {guild.iconUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={guild.iconUrl}
+              alt=""
+              width={64}
+              height={64}
+              className="size-16 rounded-2xl object-cover ring-4 ring-roast"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <span className="flex size-16 items-center justify-center rounded-2xl bg-mocha font-display text-2xl font-semibold text-crema/70 ring-4 ring-roast" aria-hidden>
+              {initial}
+            </span>
+          )}
+          {guild.premiumActive ? (
+            <span
+              className="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-full bg-caramel text-ink ring-2 ring-roast"
+              title="Vinili Premium attivo"
+              aria-hidden
+            >
+              <Diamond className="size-2.5" />
+            </span>
+          ) : null}
+        </span>
+        <span className="mb-1 flex flex-wrap gap-1">
           {guild.premiumActive ? <Badge tone="premium" label="Premium" /> : null}
           <Badge tone={status.tone} label={status.label} />
         </span>
       </span>
 
-      <ArrowRight
-        className="size-4 shrink-0 text-crema/30 transition group-hover:translate-x-0.5 group-hover:text-ember"
-        aria-hidden
-      />
-    </SmartLink>
-  );
-}
-
-function PanelCard({
-  icon,
-  title,
-  children,
-  actions,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  children: React.ReactNode;
-  actions?: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 text-center ring-1 ring-sand/12 sm:p-8">
-      <span className="mx-auto flex size-11 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25 [&>svg]:size-5">
-        {icon}
+      <span className="flex flex-1 flex-col px-4 pb-4 pt-3">
+        <span className="block truncate font-semibold text-crema">{guild.name}</span>
+        <span className="mt-0.5 block truncate text-xs text-crema/45">{guildMeta(guild)}</span>
+        <span
+          className={cn(
+            "mt-4 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition",
+            guild.botPresent
+              ? "bg-crema/[0.06] text-crema/85 ring-1 ring-sand/15 group-hover:bg-gradient-to-r group-hover:from-caramel group-hover:to-ember group-hover:text-ink group-hover:ring-transparent"
+              : "bg-[#5865f2]/90 text-white group-hover:bg-[#5865f2]",
+          )}
+        >
+          {guild.botPresent ? (
+            <>
+              <Settings2 className="size-4" aria-hidden /> Configura
+            </>
+          ) : (
+            <>
+              <Plus className="size-4" aria-hidden /> Invita il bot
+            </>
+          )}
+          <ArrowRight className="size-3.5 transition group-hover:translate-x-0.5" aria-hidden />
+        </span>
       </span>
-      <h2 className="mt-4 font-display text-2xl font-semibold sm:text-3xl">{title}</h2>
-      <div className="mt-2 text-sm leading-relaxed text-crema/60">{children}</div>
-      {actions ? <div className="mt-5 flex flex-wrap justify-center gap-2">{actions}</div> : null}
-    </div>
+    </SmartLink>
   );
 }
 
@@ -225,13 +233,20 @@ export function ServerPicker() {
   }, [guilds, lastGuildId]);
   const resumeGuild = lastGuildId ? guilds.find((g) => g.id === lastGuildId) : undefined;
 
-  const primaryBtn =
-    "inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]";
-  const secondaryBtn =
-    "inline-flex items-center justify-center gap-2 rounded-full bg-crema/8 px-5 py-2.5 text-sm font-semibold text-crema ring-1 ring-sand/25 transition hover:ring-sand/40";
+  const [query, setQuery] = useState("");
+  const shownGuilds = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? sortedGuilds.filter((g) => g.name.toLowerCase().includes(q)) : sortedGuilds;
+  }, [sortedGuilds, query]);
+  const withBot = guilds.filter((g) => g.botPresent).length;
+  const resumeName = resumeGuild ? (resumeGuild.name.length > 22 ? `${resumeGuild.name.slice(0, 21)}…` : resumeGuild.name) : "";
 
   return (
-    <DashboardShell title="I tuoi server" lead="Gestisci configurazione e moduli per ogni server.">
+    <DashboardShell
+      title="I miei server"
+      crumb="Server"
+      lead="Scegli un server per configurare Vinili: impostazioni, comandi, ticket e partnership."
+    >
       <AnimatePresence mode="wait">
         {(gate === "loading" || !ready) && (
           <motion.div
@@ -239,80 +254,71 @@ export function ServerPicker() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="rounded-2xl bg-roast/60 p-8 ring-1 ring-sand/12"
+            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
             role="status"
             aria-live="polite"
+            aria-label="Caricamento"
           >
-            <div className="mx-auto max-w-sm space-y-3">
-              <div className="h-3 animate-pulse rounded-full bg-crema/10" />
-              <div className="h-3 w-4/5 animate-pulse rounded-full bg-crema/10" />
-              <div className="mt-6 grid gap-2">
-                <div className="h-16 animate-pulse rounded-2xl bg-espresso/50" />
-                <div className="h-16 animate-pulse rounded-2xl bg-espresso/50" />
-                <div className="h-16 animate-pulse rounded-2xl bg-espresso/50" />
-              </div>
-              <p className="pt-2 text-center text-sm text-crema/45">Caricamento…</p>
-            </div>
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="h-[13.5rem] animate-pulse rounded-2xl bg-roast/70 ring-1 ring-sand/10" />
+            ))}
           </motion.div>
         )}
 
         {gate === "login" && (
           <motion.div key="login" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <PanelCard
+            <StateCard
               icon={<Server />}
               title="Accedi per continuare"
               actions={
                 <>
-                  <button type="button" onClick={login} className={primaryBtn}>
+                  <button type="button" onClick={login} className={discordBtn}>
                     <LogIn className="size-4" /> Accedi con Discord
                   </button>
-                  <SmartLink href="/" className={secondaryBtn}>
+                  <SmartLink href="/" className={dashSecondaryBtn}>
                     Torna alla Home
                   </SmartLink>
                 </>
               }
             >
               <p>Per usare la dashboard accedi con Discord.</p>
-              <p className="mt-3 flex items-start gap-2 rounded-xl bg-caramel/10 px-3 py-2.5 text-left text-crema/75 ring-1 ring-caramel/25">
+              <p className="mt-4 flex items-start gap-2 rounded-xl bg-caramel/10 px-3 py-2.5 text-left text-crema/75 ring-1 ring-caramel/25">
                 <Info className="mt-0.5 size-4 shrink-0 text-caramel" aria-hidden />
                 Se non riesci ad entrare, prova ad accedere di nuovo con Discord.
               </p>
-            </PanelCard>
+            </StateCard>
           </motion.div>
         )}
 
         {gate === "locked" && (
           <motion.div key="locked" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <PanelCard
+            <StateCard
               icon={<Lock />}
               title="Non disponibile"
               actions={
-                <SmartLink href="/" className={primaryBtn}>
+                <SmartLink href="/" className={dashPrimaryBtn}>
                   Torna alla Home
                 </SmartLink>
               }
             >
               Questa sezione non è disponibile con il tuo account.
-            </PanelCard>
+            </StateCard>
           </motion.div>
         )}
 
         {gate === "scope" && (
           <motion.div key="scope" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <div className="rounded-2xl bg-caramel/10 p-5 ring-1 ring-caramel/25 sm:p-6">
-              <div className="flex gap-3">
-                <ShieldAlert className="mt-0.5 size-5 shrink-0 text-caramel" aria-hidden />
-                <div>
-                  <p className="font-semibold text-crema">Serve un nuovo login.</p>
-                  <p className="mt-1 text-sm text-crema/65">
-                    Per mostrare i tuoi server serve un nuovo accesso con Discord.
-                  </p>
-                  <button type="button" onClick={login} className={cn(primaryBtn, "mt-4")}>
-                    <LogIn className="size-4" /> Accedi di nuovo con Discord
-                  </button>
-                </div>
-              </div>
-            </div>
+            <StateCard
+              icon={<ShieldAlert />}
+              title="Serve un nuovo login"
+              actions={
+                <button type="button" onClick={login} className={discordBtn}>
+                  <LogIn className="size-4" /> Accedi di nuovo con Discord
+                </button>
+              }
+            >
+              Per mostrare i tuoi server serve un nuovo accesso con Discord.
+            </StateCard>
           </motion.div>
         )}
 
@@ -339,49 +345,72 @@ export function ServerPicker() {
             </AnimatePresence>
 
             {loadingList ? (
-              <div className="grid gap-2 sm:grid-cols-2" aria-busy="true">
-                {Array.from({ length: 4 }, (_, i) => (
-                  <div key={i} className="h-[4.75rem] animate-pulse rounded-2xl bg-roast/50 ring-1 ring-sand/10" />
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <div key={i} className="h-[13.5rem] animate-pulse rounded-2xl bg-roast/70 ring-1 ring-sand/10" />
                 ))}
               </div>
             ) : guilds.length === 0 ? (
               <Reveal>
-                <PanelCard
+                <StateCard
                   icon={<Server />}
                   title="Nessun server trovato"
                   actions={
                     <>
-                      <button type="button" onClick={login} className={primaryBtn}>
+                      <button type="button" onClick={login} className={discordBtn}>
                         Collega Discord
                       </button>
-                      <SmartLink href={dashHref("/dashboard/profilo/")} className={secondaryBtn}>
+                      <SmartLink href={dashHref("/dashboard/profilo/")} className={dashSecondaryBtn}>
                         Apri profilo
                       </SmartLink>
                     </>
                   }
                 >
                   Non abbiamo trovato server disponibili, oppure Vinili non è ancora presente.
-                </PanelCard>
+                </StateCard>
               </Reveal>
             ) : (
-              <div className="space-y-3">
-                {resumeGuild ? (
-                  <SmartLink
-                    href={guildPageHref(resumeGuild.id)}
-                    onClick={() => selectGuild(resumeGuild.id)}
-                    className="flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-caramel/10 px-4 py-3 text-sm text-crema/75 ring-1 ring-caramel/30 transition hover:ring-caramel/45 sm:justify-between"
-                  >
-                    <span>
-                      Riprendi da <strong className="text-crema">{resumeGuild.name}</strong>
-                    </span>
-                    <ArrowRight className="size-4 text-caramel" aria-hidden />
-                  </SmartLink>
-                ) : null}
-                <div className="grid gap-2 sm:grid-cols-2" aria-live="polite">
-                  {sortedGuilds.map((g) => (
-                    <GuildCard key={g.id} guild={g} />
-                  ))}
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="grid flex-1 grid-cols-2 gap-3 sm:max-w-md">
+                    <StatTile icon={<LayoutGrid />} label="Server gestibili" value={guilds.length} />
+                    <StatTile icon={<Bot />} label="Con Vinili" value={withBot} tone="ok" />
+                  </div>
+                  {resumeGuild ? (
+                    <SmartLink
+                      href={guildPageHref(resumeGuild.id)}
+                      onClick={() => selectGuild(resumeGuild.id)}
+                      className={cn(dashPrimaryBtn, "w-full sm:ml-auto sm:w-auto")}
+                    >
+                      Riprendi da {resumeName}
+                      <ArrowRight className="size-4" aria-hidden />
+                    </SmartLink>
+                  ) : null}
                 </div>
+
+                {guilds.length > 6 ? (
+                  <label className="relative block sm:max-w-sm">
+                    <span className="sr-only">Cerca server</span>
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-crema/35" aria-hidden />
+                    <input
+                      type="search"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Cerca un server…"
+                      className="w-full rounded-lg bg-roast/80 py-2 pl-9 pr-3 text-sm text-crema ring-1 ring-sand/15 outline-none placeholder:text-crema/30 focus:ring-caramel/40"
+                    />
+                  </label>
+                ) : null}
+
+                {shownGuilds.length === 0 ? (
+                  <p className="rounded-xl bg-roast/60 px-4 py-6 text-center text-sm text-crema/45 ring-1 ring-sand/10">Nessun server con questo nome.</p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-live="polite">
+                    {shownGuilds.map((g) => (
+                      <GuildCard key={g.id} guild={g} last={g.id === lastGuildId && guilds.length > 1} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </motion.div>

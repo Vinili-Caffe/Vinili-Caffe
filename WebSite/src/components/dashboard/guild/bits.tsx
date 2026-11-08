@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import { Checkbox } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
@@ -154,3 +155,147 @@ export const dangerBtn =
 
 export const primaryMini =
   "rounded-full bg-gradient-to-r from-caramel to-ember px-3 py-1.5 text-xs font-semibold text-ink disabled:opacity-45";
+
+/* ── Mattoncini grafici della dashboard (card modulo, statistiche, pulsanti) ── */
+
+export const dashPrimaryBtn =
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink shadow-[0_10px_24px_-14px_rgba(217,154,91,0.9)] transition-[transform,filter] duration-200 ease-out hover:brightness-105 active:scale-[0.97] disabled:opacity-50";
+
+export const dashSecondaryBtn =
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-crema/[0.06] px-4 py-2 text-sm font-semibold text-crema/85 ring-1 ring-sand/20 transition hover:bg-crema/[0.09] hover:text-crema disabled:opacity-50";
+
+export const discordBtn =
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-[#5865f2] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.97]";
+
+/** Card della dashboard: intestazione con icona, titolo, descrizione e controlli a destra. */
+export function Panel({
+  icon,
+  title,
+  description,
+  aside,
+  children,
+  className,
+  bodyClassName,
+}: {
+  icon?: React.ReactNode;
+  title?: string;
+  description?: React.ReactNode;
+  aside?: React.ReactNode;
+  children?: React.ReactNode;
+  className?: string;
+  bodyClassName?: string;
+}) {
+  return (
+    <section className={cn("rounded-2xl bg-roast/80 ring-1 ring-sand/10", className)}>
+      {title ? (
+        <header className={cn("flex items-start gap-3 px-4 py-3.5 sm:px-5", children && "border-b border-sand/[0.08]")}>
+          {icon ? (
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-caramel/12 text-ember ring-1 ring-caramel/20 [&>svg]:size-[1.05rem]">
+              {icon}
+            </span>
+          ) : null}
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[0.95rem] font-semibold text-crema">{title}</h2>
+            {description ? <div className="mt-0.5 text-xs leading-relaxed text-crema/45">{description}</div> : null}
+          </div>
+          {aside ? <div className="flex shrink-0 items-center gap-2">{aside}</div> : null}
+        </header>
+      ) : null}
+      {children ? <div className={cn("px-4 py-4 sm:px-5", bodyClassName)}>{children}</div> : null}
+    </section>
+  );
+}
+
+/** Riquadro numero (membri, ticket aperti…). */
+export function StatTile({
+  icon,
+  label,
+  value,
+  hint,
+  tone = "default",
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  hint?: string;
+  tone?: "default" | "accent" | "ok";
+  onClick?: () => void;
+}) {
+  const Tag = onClick ? "button" : "div";
+  return (
+    <Tag
+      {...(onClick ? { type: "button" as const, onClick } : {})}
+      className={cn(
+        "flex min-w-0 items-center gap-3 rounded-xl bg-espresso/55 p-3 text-left ring-1 ring-sand/10",
+        onClick && "transition hover:ring-sand/25",
+      )}
+    >
+      <span
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-lg [&>svg]:size-4",
+          tone === "accent" && "bg-caramel/15 text-ember",
+          tone === "ok" && "bg-[#5f9a6a]/15 text-[#9fd0a8] light:text-[#2f6b3f]",
+          tone === "default" && "bg-crema/[0.06] text-crema/60",
+        )}
+      >
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/40">{label}</span>
+        <span className="block truncate font-display text-xl font-semibold leading-tight tabular-nums text-crema">{value}</span>
+        {hint ? <span className="block truncate text-[0.68rem] text-crema/35">{hint}</span> : null}
+      </span>
+    </Tag>
+  );
+}
+
+/** Schermata di stato (login, accesso negato, vuoto…). */
+export function StateCard({
+  icon,
+  title,
+  children,
+  actions,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  children?: React.ReactNode;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <div className="mx-auto max-w-lg rounded-2xl bg-roast/80 px-6 py-10 text-center ring-1 ring-sand/10">
+      <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-caramel/12 text-ember ring-1 ring-caramel/20 [&>svg]:size-5">
+        {icon}
+      </span>
+      <h2 className="mt-4 font-display text-2xl font-semibold text-crema">{title}</h2>
+      {children ? <div className="mt-2 text-sm leading-relaxed text-crema/55">{children}</div> : null}
+      {actions ? <div className="mt-6 flex flex-wrap justify-center gap-2">{actions}</div> : null}
+    </div>
+  );
+}
+
+/** Notifica in basso (salvato / errore). */
+export function DashToast({ toast }: { toast: { msg: string; err: boolean } | null }) {
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-5 z-[70] flex justify-center px-4 lg:pl-64" aria-live="polite">
+      <AnimatePresence>
+        {toast ? (
+          <motion.div
+            key={toast.msg}
+            role="status"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            className={cn(
+              "pointer-events-auto flex max-w-sm items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-[0_18px_40px_-16px_rgba(0,0,0,0.8)]",
+              toast.err ? "bg-[#a83a2c] text-[#fff0ec]" : "bg-mocha text-crema ring-1 ring-caramel/35",
+            )}
+          >
+            <span className={cn("size-2 shrink-0 rounded-full", toast.err ? "bg-[#fff0ec]" : "bg-[#7fc48c]")} aria-hidden />
+            {toast.msg}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
