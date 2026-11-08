@@ -312,25 +312,87 @@ function folderToCategoryId(folderName?) {
     return raw;
 }
 
-function loadPrefixCommandMeta() {
-  if (prefixMetaCache) return prefixMetaCache;
-  const map: Record<string, any> = {};
-  const aliasNames = new Set();
-  try {
-    const root = path.resolve(__dirname, "../../Vinili/Prefix");
-    if (!fs.existsSync(root)) {
-      prefixMetaCache = map;
-      prefixAliasNamesCache = aliasNames;
-      return map;
+/*
+ * Catalogo comandi della dashboard: si legge da quello che il bot ha caricato davvero (client.pcommands /
+ * client.commands). Le vecchie cartelle Vinili/Prefix e Commands non esistono più dopo la riorganizzazione
+ * (i comandi ora stanno in tante cartelle "discord/prefix" e "discord/slash") e il catalogo risultava vuoto.
+ */
+let catalogClient = null;
+
+function setCommandCatalogClient(client?) {
+  if (!client || client === catalogClient) return;
+  catalogClient = client;
+  prefixMetaCache = null;
+  prefixAliasNamesCache = null;
+  slashMetaCache = null;
+}
+
+const COMMAND_FILE_RE = /\.(cjs|mjs|js|cts|mts|ts)$/i;
+
+function listPrefixCommandSources() {
+  const out: { mod: any; file: string; category: string }[] = [];
+  const reg = catalogClient?.pcommands;
+  if (reg && typeof reg.values === "function" && reg.size > 0) {
+    for (const mod of reg.values()) {
+      if (!mod?.name) continue;
+      out.push({ mod, file: `${String(mod.name)}.ts`, category: folderToCategoryId(mod.folder) });
     }
+    return out;
+  }
+  const root = path.resolve(__dirname, "../../Vinili/Prefix");
+  if (!fs.existsSync(root)) return out;
+  for (const folder of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!folder.isDirectory()) continue;
+    const category = folderToCategoryId(folder.name);
+    const dir = path.join(root, folder.name);
+    for (const file of fs.readdirSync(dir)) {
+      if (!COMMAND_FILE_RE.test(file) || file.endsWith(".d.ts")) continue;
+      try {
+        out.push({ mod: require(path.join(dir, file)), file, category });
+      } catch (_) {}
+    }
+  }
+  return out;
+}
+
+function listSlashCommandSources(roots?) {
+  const out: { mod: any; category: string }[] = [];
+  const reg = catalogClient?.commands;
+  if (reg && typeof reg.values === "function" && reg.size > 0) {
+    for (const mod of reg.values()) {
+      if (mod?.data) out.push({ mod, category: folderToCategoryId(mod.category) });
+    }
+    return out;
+  }
+  for (const root of Array.isArray(roots) ? roots : []) {
+    if (!fs.existsSync(root)) continue;
     for (const folder of fs.readdirSync(root, { withFileTypes: true })) {
       if (!folder.isDirectory()) continue;
       const category = folderToCategoryId(folder.name);
       const dir = path.join(root, folder.name);
       for (const file of fs.readdirSync(dir)) {
-        if (!/\.(cjs|mjs|js|cts|mts|ts)$/i.test(file) || file.endsWith(".d.ts")) continue;
+        if (!COMMAND_FILE_RE.test(file) || file.endsWith(".d.ts")) continue;
+        if (file.replace(COMMAND_FILE_RE, "").endsWith("Helpers")) continue;
         try {
-          const mod = require(path.join(dir, file));
+          out.push({ mod: require(path.join(dir, file)), category });
+        } catch (_) {}
+      }
+    }
+  }
+  return out;
+}
+
+function loadPrefixCommandMeta() {
+  if (prefixMetaCache) return prefixMetaCache;
+  const map: Record<string, any> = {};
+  const aliasNames = new Set();
+  try {
+    for (const src of listPrefixCommandSources()) {
+      const category = src.category;
+      {
+        const file = src.file;
+        try {
+          const mod = src.mod;
           if (mod?.skipLoad || mod?.skipPrefix) continue;
           const name = normalizeCommandName(mod?.name || path.basename(file).replace(/\.(cjs|mjs|js|cts|mts|ts)$/i, ""));
           if (!name) continue;
@@ -368,8 +430,13 @@ function loadPrefixCommandMeta() {
       }
     }
   } catch (_) {}
-  prefixMetaCache = map;
-  prefixAliasNamesCache = aliasNames;
+  /* vuoto = bot non ancora pronto: niente cache, si riprova alla prossima richiesta */
+  if (Object.keys(map).length) {
+    prefixMetaCache = map;
+    prefixAliasNamesCache = aliasNames;
+  } else {
+    prefixAliasNamesCache = aliasNames;
+  }
   return map;
 }
 
@@ -405,18 +472,12 @@ function loadSlashCommandMeta() {
     path.resolve(__dirname, "../Commands"),
   ];
   try {
-    for (const root of roots) {
-      if (!fs.existsSync(root)) continue;
-      for (const folder of fs.readdirSync(root, { withFileTypes: true })) {
-        if (!folder.isDirectory()) continue;
-        const category = folderToCategoryId(folder.name);
-        const dir = path.join(root, folder.name);
-        for (const file of fs.readdirSync(dir)) {
-          if (!/\.(cjs|mjs|js|cts|mts|ts)$/i.test(file) || file.endsWith(".d.ts")) continue;
-          const baseName = file.replace(/\.(cjs|mjs|js|cts|mts|ts)$/i, "");
-          if (baseName.endsWith("Helpers")) continue;
+    for (const src of listSlashCommandSources(roots)) {
+      {
+        const category = src.category;
+        {
           try {
-            const mod = require(path.join(dir, file));
+            const mod = src.mod;
             if (mod?.skipDeploy === true) continue;
             const data = mod?.data;
             if (!data || typeof data.toJSON !== "function") continue;
@@ -462,7 +523,7 @@ function loadSlashCommandMeta() {
   items.sort((a?, b?) =>
     String(a.displayName || a.name).localeCompare(String(b.displayName || b.name), "it"),
   );
-  slashMetaCache = items;
+  if (items.length) slashMetaCache = items;
   return items;
 }
 
@@ -875,6 +936,7 @@ function resolveTenantCommandAcl(message?, commandName?, options: Record<string,
 }
 
 export = {
+  setCommandCatalogClient,
   normalizeCommandName,
   normalizeCommandAclKey,
   isSlashCommandAclKey,

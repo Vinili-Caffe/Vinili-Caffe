@@ -59,6 +59,27 @@ function reasonToMessage(reason?) {
   return REASON_MESSAGES[String(reason || "")] || "Operazione non riuscita.";
 }
 
+/* stato del bot com'è ora su Discord (anteprima live in dashboard): online/assente/occupato + attività */
+const ACTIVITY_PREFIX: Record<number, string> = { 0: "Gioca a ", 1: "In diretta: ", 2: "Ascolta ", 3: "Guarda ", 5: "Compete in " };
+function readBotPresence(client?) {
+  try {
+    const presence = client?.user?.presence;
+    const status = String(presence?.status || (client?.isReady?.() ? "online" : "offline"));
+    const acts = Array.isArray(presence?.activities) ? presence.activities : [];
+    const act = acts[0];
+    let text = "";
+    if (act) {
+      const type = Number(act.type);
+      if (type === 4) text = String(act.state || act.name || "").trim();
+      else text = `${ACTIVITY_PREFIX[type] || ""}${String(act.name || "").trim()}`.trim();
+      if (type !== 4 && act.state) text = `${text} · ${String(act.state).trim()}`;
+    }
+    return { status, text: text.slice(0, 128) };
+  } catch (_) {
+    return { status: "online", text: "" };
+  }
+}
+
 function fail(status?, error?, message?) {
   return { ok: false, status, error, message };
 }
@@ -322,6 +343,7 @@ async function getDashboardGuildSettings(client?, accessToken?, guildId?) {
         ? Boolean(savedIdentity.banner)
         : identity.hasGuildBanner,
       botUsername: identity.botUsername,
+      botPresence: readBotPresence(client),
       identitySuspended: showSavedWhileSuspended,
             prefixLocked: protectedGuild,
       rolesLocked: false,
@@ -597,6 +619,7 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
         ? Boolean(savedIdentity.banner)
         : identity.hasGuildBanner,
       botUsername: identity.botUsername,
+      botPresence: readBotPresence(client),
       identitySuspended: showSavedWhileSuspended,
       prefixLocked: protectedGuild,
       rolesLocked: false,

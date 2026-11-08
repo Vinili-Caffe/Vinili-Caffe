@@ -9,6 +9,7 @@ const {
 } = require("../../core/tenantGuildSettings") as typeof import("../../core/tenantGuildSettings");
 const {
   buildTenantCommandCatalog,
+  setCommandCatalogClient,
   listTenantSlashCatalogItems,
   normalizeCommandAclKey,
   isSlashCommandAclKey,
@@ -144,6 +145,7 @@ function mergePermissionsJsonIntoCommands(guildId?, commands?, catalog?) {
 }
 
 async function buildCommandsResponse(client?, accessToken?, guildId?) {
+  setCommandCatalogClient(client);
   const applicationId = resolveBotApplicationId(client);
   const botToken = resolveBotToken(client);
   let commands = getTenantCommandAclMapSync(guildId);
@@ -258,6 +260,7 @@ async function getDashboardGuildCommands(client?, accessToken?, guildId?) {
 }
 
 async function patchDashboardGuildCommands(client?, accessToken?, guildId?, body?) {
+  setCommandCatalogClient(client);
   const access = await verifyDashboardGuildAccess(client, accessToken, guildId);
   if (!access.ok) return access;
   if (!access.botPresent) {
