@@ -3,7 +3,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { notifyCompitiSubmitted, notifyCompitiMissed, notifyCompitiAutoFailed, notifyCompitiAutoNotReached, notifyCompitiDeadlineSoon, taskLabelFromMeta } = require("./siteStaffCompitiNotifications") as typeof import("./siteStaffCompitiNotifications");
 const { TASKS_META, ALLOWED_TASK_IDS, isAutoTask, taskById } = require("./siteStaffCompitiCatalog") as typeof import("./siteStaffCompitiCatalog");
-const { currentRomeIsoWeekKey, sundaySubmitDeadlineMs, sundayReviewDeadlineMs, compitiActiveMonthKey, dateKeysForIsoWeekKey, deadlinesPayload } = require("./compitiCalendar") as typeof import("./compitiCalendar");
+const { romeWallTimeToUtcMs, currentRomeIsoWeekKey, sundaySubmitDeadlineMs, sundayReviewDeadlineMs, compitiActiveMonthKey, dateKeysForIsoWeekKey, deadlinesPayload } = require("./compitiCalendar") as typeof import("./compitiCalendar");
 const { MAX_NOTE, shouldSkipNegativeValutazione, STATUS, emptyWeek, sanitizeWeekEntry, pruneWeekMap, loadMap, saveMap, applyValutazione } = require("./compitiWeeks") as typeof import("./compitiWeeks");
 const { planPoolIds, lockedTaskIdsForMonth, loadPlanMap, isNewStaffCompitiGrace, ensureMonthPlanForUser } = require("./compitiPlan") as typeof import("./compitiPlan");
 const { listWorkerMembers } = require("./compitiPeople") as typeof import("./compitiPeople");
@@ -312,10 +312,14 @@ async function tickInviteActiveCompiti(client?, opts: Record<string, any> = {}) 
       continue;
     }
 
+    /* valgono solo gli utenti ENTRATI in questa settimana (da lunedì 00:00, ora di Roma) col suo invito */
+    const weekStartMs = romeWallTimeToUtcMs(dateKeys[0], 0, 0);
+    if (!Number.isFinite(weekStartMs)) continue;
     const invitees = await ActivityUserProfile.find({
       guildId,
       "profile.inviteTrack.inviterId": staffId,
       "profile.inviteTrack.active": { $ne: false },
+      "profile.inviteTrack.joinedAt": { $gte: new Date(weekStartMs) },
     })
       .select(
         "userId profile.totals.daily profile.totals.messagesWeekly profile.totals.messagesWeeklyKey profile.totals.voiceWeeklySeconds profile.totals.voiceWeeklyKey",

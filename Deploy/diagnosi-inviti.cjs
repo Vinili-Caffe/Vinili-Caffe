@@ -86,7 +86,9 @@ function weekDayKeys() {
       voice += Number(daily[k]?.voiceSeconds || 0);
     }
     const t = doc.profile?.inviteTrack || {};
-    const ok = text >= 100 || voice >= 7200;
+    const joinedKey = t.joinedAt ? romeDayKey(new Date(t.joinedAt)) : "";
+    const thisWeek = Boolean(joinedKey && joinedKey >= keys[0]);
+    const ok = thisWeek && (text >= 100 || voice >= 7200);
     console.log(
       `  ${doc.userId}: attivo=${t.active !== false} entrato=${t.joinedAt ? new Date(t.joinedAt).toISOString().slice(0, 10) : "?"} codice=${t.inviteCode || "?"} → ${text} msg, ${(voice / 3600).toFixed(1)}h ${ok ? "✔ basterebbe" : ""}`,
     );

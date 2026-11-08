@@ -174,4 +174,4 @@ function deadlinesPayload(now = new Date()) {
   };
 }
 
-export = { isoWeeksInMonthKey, currentRomeIsoWeekKey, romeMonthKey, sundaySubmitDeadlineMs, sundayReviewDeadlineMs, weekKeysInRomeMonth, prevRomeMonthKey, monthKeyForWeekKey, compitiActiveMonthKey, dateKeysForIsoWeekKey, deadlinesPayload };
+export = { romeWallTimeToUtcMs, isoWeeksInMonthKey, currentRomeIsoWeekKey, romeMonthKey, sundaySubmitDeadlineMs, sundayReviewDeadlineMs, weekKeysInRomeMonth, prevRomeMonthKey, monthKeyForWeekKey, compitiActiveMonthKey, dateKeysForIsoWeekKey, deadlinesPayload };
