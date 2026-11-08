@@ -1,3 +1,4 @@
+const { Routes } = require("discord.js") as typeof import("discord.js");
 const Ticket = require("../data/guildFeatureBucketTicketModel");
 const { verifyDashboardGuildAccess } = require("../../site/dashboard/siteDashboardApi") as typeof import("../../site/dashboard/siteDashboardApi");
 const {
@@ -100,20 +101,30 @@ async function closeOrphanOpenTickets(client?, guildId?) {
   orphanCheckedAt.set(gid, Date.now());
   const guild = client?.guilds?.cache?.get?.(gid);
   if (!guild) return 0;
+  /*
+   * Si chiede sempre a Discord (REST), mai alla memoria: site-api non riceve gli eventi del gateway e
+   * la sua lista canali è quella dell'avvio, quindi un canale cancellato dopo restava "esistente".
+   */
+  const rest = typeof client?.rest?.get === "function" ? client.rest : client?._rest;
+  if (typeof rest?.get !== "function") return 0;
   const rows = await Ticket.find({ guildId: gid, open: true }, { _id: 1, channelId: 1 }).lean().catch(() => []);
   let closed = 0;
   for (const t of Array.isArray(rows) ? rows : []) {
     const channelId = String(t?.channelId || "").trim();
-    if (!/^\d{17,22}$/.test(channelId) || guild.channels.cache.has(channelId)) continue;
+    if (!/^\d{17,22}$/.test(channelId)) continue;
     let gone = false;
     try {
-      const ch = await guild.channels.fetch(channelId);
-      gone = !ch || String(ch.guildId || ch.guild?.id || gid) !== gid;
+      const raw = await rest.get(Routes.channel(channelId));
+      /* il canale c'è ma sta in un altro server: non è un ticket aperto qui */
+      gone = !raw || String(raw.guild_id || "") !== gid;
     } catch (err) {
-      /* 10003 = canale cancellato; GuildChannelUnowned = il canale sta in un altro server (non è un ticket aperto qui) */
-      gone = Number(err?.code) === 10003 || String(err?.code || "") === "GuildChannelUnowned";
+      /* 10003 = canale cancellato; altri errori (permessi, rete) = non si tocca */
+      gone = Number(err?.code) === 10003;
     }
     if (!gone) continue;
+    try {
+      guild.channels?.cache?.delete?.(channelId);
+    } catch (_) {}
     const done = await Ticket.findOneAndUpdate(
       { _id: t._id, open: true },
       { $set: { open: false, closedAt: new Date(), closedBy: null, closeReason: "Canale Discord non più esistente" } },
