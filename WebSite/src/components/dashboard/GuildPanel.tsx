@@ -12,6 +12,7 @@ import {
   Lock,
   LogIn,
   Megaphone,
+  MousePointerClick,
   Pin,
   Plus,
   Search,
@@ -641,7 +642,7 @@ function CommandsSection({
               className={cn(fieldCls, "pl-9 placeholder:text-crema/30")}
             />
           </label>
-          <div className="flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Categorie comandi">
+          <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Categorie comandi">
             <button type="button" role="tab" aria-selected={cat === "all"} onClick={() => setCat("all")} className={chip(cat === "all")}>
               Tutti <span className="ml-1 tabular-nums opacity-60">{totals.all}</span>
             </button>
@@ -654,7 +655,7 @@ function CommandsSection({
                 onClick={() => setCat(c.id)}
                 className={chip(cat === c.id)}
               >
-                {c.label} <span className="ml-1 tabular-nums opacity-60">{c.commands.length}</span>
+                {c.label.charAt(0).toUpperCase() + c.label.slice(1)} <span className="ml-1 tabular-nums opacity-60">{c.commands.length}</span>
               </button>
             ))}
           </div>
@@ -673,6 +674,11 @@ function CommandsSection({
               const category = categories.find((c) => c.commands.some((x) => x.name === cmd.name));
               const categoryNames = category?.commands.map((x) => x.name) || [cmd.name];
               const restricted = Boolean(acl && ((acl.roleIds?.length ?? 0) > 0 || (acl.channelIds?.length ?? 0) > 0));
+              /* menu contestuali (tasto destro su utente/messaggio): niente "/" e badge proprio */
+              const context = cmd.kind === "slash" && (cmd.slashType === "user" || cmd.slashType === "message");
+              const baseName = String(cmd.displayName || cmd.name).replace(/^\//, "");
+              const shownName = context ? baseName : `${cmd.kind === "slash" ? "/" : commands.prefix}${baseName}`;
+              const badge = context ? (cmd.slashType === "user" ? "menu utente" : "menu messaggio") : cmd.kind === "slash" ? "slash" : "prefix";
               const openAcl = aclName === cmd.name;
               return (
                 <li key={cmd.name} className={cn("px-4 py-3 transition-colors sm:px-5", openAcl && "bg-espresso/40")}>
@@ -684,16 +690,15 @@ function CommandsSection({
                       )}
                       aria-hidden
                     >
-                      {cmd.kind === "slash" ? "/" : commands.prefix.slice(0, 2)}
+                      {context ? <MousePointerClick className="size-4" /> : cmd.kind === "slash" ? "/" : commands.prefix.slice(0, 2)}
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className={cn("font-mono text-sm font-semibold", on ? "text-crema" : "text-crema/45")}>
-                          {cmd.kind === "slash" ? "/" : commands.prefix}
-                          {cmd.displayName || cmd.name}
+                        <span className={cn("text-sm font-semibold", !context && "font-mono", on ? "text-crema" : "text-crema/45")}>
+                          {shownName}
                         </span>
                         <span className="rounded bg-crema/[0.06] px-1.5 py-px text-[0.58rem] font-semibold uppercase tracking-wider text-crema/40">
-                          {cmd.kind === "slash" ? "slash" : "prefix"}
+                          {badge}
                         </span>
                         {restricted ? (
                           <span className="rounded bg-caramel/12 px-1.5 py-px text-[0.58rem] font-semibold uppercase tracking-wider text-ember/90">

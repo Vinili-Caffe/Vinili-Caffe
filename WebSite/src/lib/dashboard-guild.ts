@@ -92,6 +92,8 @@ export type CatalogCommand = {
   name: string;
   displayName: string;
   kind: "prefix" | "slash" | string;
+  /** solo slash: "chat" (comando /), "user" o "message" (menu contestuale) */
+  slashType?: "chat" | "user" | "message";
   description: string;
   alwaysAvailable?: boolean;
   syncsToDiscord?: boolean;
@@ -374,6 +376,7 @@ function mapCommands(data: Record<string, unknown>): CommandsPayload {
           name,
           displayName: String(x.displayName || name).trim() || name,
           kind: String(x.kind || "prefix"),
+          slashType: x.type === "user" || x.type === "message" ? x.type : x.kind === "slash" ? "chat" : undefined,
           description: String(x.description || "").trim(),
           alwaysAvailable: x.alwaysAvailable === true,
           syncsToDiscord: x.syncsToDiscord === true,
