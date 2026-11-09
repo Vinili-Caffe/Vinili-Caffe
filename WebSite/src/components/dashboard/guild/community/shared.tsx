@@ -253,9 +253,9 @@ export function DraftEditor({
               <Field label="Titolo">
                 <input value={e.title} maxLength={256} onChange={(ev) => setEmbed({ title: ev.target.value })} className={fieldClass} />
               </Field>
-              <div>
-                <span className={labelClass}>Colore</span>
-                <ColorPicker value={e.color} onChange={(color) => setEmbed({ color })} className="mt-1.5" />
+              <div className="min-w-0">
+                <span className={cn(labelClass, "block")}>Colore</span>
+                <ColorPicker value={e.color} onChange={(color) => setEmbed({ color })} className="mt-1.5 flex" />
               </div>
             </div>
             <RichTextArea label="Descrizione" value={e.description} onChange={(description) => setEmbed({ description })} max={4096} rows={5} emojis={emojis} placeholders={placeholders} />
