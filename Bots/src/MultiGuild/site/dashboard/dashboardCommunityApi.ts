@@ -83,6 +83,15 @@ function reservedCommandNames(gid: string): Set<string> {
   return out;
 }
 
+/* emoji, canali e ruoli ripresi da Discord al massimo ogni 60s per server (la cache del processo API resta indietro) */
+const pickerRefreshAt = new Map<string, number>();
+function shouldRefreshPickers(gid: string) {
+  const last = pickerRefreshAt.get(gid) || 0;
+  if (Date.now() - last < 60_000) return false;
+  pickerRefreshAt.set(gid, Date.now());
+  return true;
+}
+
 async function getDashboardCommunity(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
@@ -92,7 +101,7 @@ async function getDashboardCommunity(client?, token?, guildId?) {
     T.listCommands(gid, true),
     T.listRolePanels(gid, true),
     T.getWelcome(gid, true),
-    listGuildPickerData(client, gid).catch(() => ({ textChannels: [], roles: [], categories: [], emojis: [] })),
+    listGuildPickerData(client, gid, { force: shouldRefreshPickers(gid) }).catch(() => ({ textChannels: [], roles: [], categories: [], emojis: [] })),
     guildInfo(client, gid),
   ]);
   let prefix = "+";

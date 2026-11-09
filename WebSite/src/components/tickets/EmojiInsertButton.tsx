@@ -6,17 +6,22 @@ import { toggleEmojiPicker, type EmojiPick, type GuildEmoji } from "@/components
 import { cn } from "@/lib/cn";
 import { loadGuildEmojis } from "@/lib/personalizza";
 
-/* le emoji del server si scaricano una volta sola per visita */
+/* le emoji del server restano in memoria 2 minuti, poi si riprendono fresche da Discord (così compaiono quelle nuove) */
+const EMOJI_TTL_MS = 120_000;
 let guildEmojiCache: GuildEmoji[] | null = null;
+let guildEmojiAt = 0;
 let guildEmojiLoading: Promise<GuildEmoji[]> | null = null;
 
 function getGuildEmojis(token: string | null): Promise<GuildEmoji[]> {
-  if (guildEmojiCache) return Promise.resolve(guildEmojiCache);
-  if (!token) return Promise.resolve([]);
+  const fresh = guildEmojiCache && Date.now() - guildEmojiAt < EMOJI_TTL_MS;
+  if (fresh && guildEmojiCache) return Promise.resolve(guildEmojiCache);
+  if (!token) return Promise.resolve(guildEmojiCache || []);
   if (!guildEmojiLoading) {
-    guildEmojiLoading = loadGuildEmojis(token)
+    guildEmojiLoading = loadGuildEmojis(token, true)
       .then((list) => {
-        guildEmojiCache = Array.isArray(list) ? list : [];
+        if (Array.isArray(list) && list.length) guildEmojiCache = list;
+        else guildEmojiCache = guildEmojiCache || [];
+        guildEmojiAt = Date.now();
         return guildEmojiCache;
       })
       .catch(() => [])
