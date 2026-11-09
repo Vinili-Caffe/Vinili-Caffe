@@ -5,6 +5,8 @@ import { Lock } from "lucide-react";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { defaultQuoteStyle, previewGuildQuoteStyle, type QuoteStyle } from "@/lib/dashboard-guild";
+import { ColorPicker } from "@/components/ui/color-picker";
+import { Range } from "@/components/ui/Range";
 import { Field, PremiumLock, Toggle, fieldClass } from "./bits";
 
 const BG_PRESETS: { value: string; label: string; swatch: string }[] = [
@@ -86,33 +88,17 @@ function ColorInput({
   label: string;
   allowEmpty?: boolean;
 }) {
-  const hex = value || "#070707";
   return (
-    <div className="flex items-center gap-2">
-      <input
-        type="color"
-        aria-label={label}
-        value={hex}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className="size-9 shrink-0 cursor-pointer rounded-lg border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-50"
-      />
-      <input
-        type="text"
-        value={value ?? ""}
-        disabled={disabled}
-        placeholder={allowEmpty ? "auto" : "#070707"}
-        onChange={(e) => {
-          const raw = e.target.value.trim();
-          if (!raw) {
-            onChange(allowEmpty ? null : "#070707");
-            return;
-          }
-          onChange(raw.startsWith("#") ? raw : `#${raw}`);
-        }}
-        className={cn(fieldClass, "mt-0 font-mono uppercase")}
-      />
-    </div>
+    <ColorPicker
+      value={value ?? ""}
+      defaultHex="#070707"
+      allowEmpty={allowEmpty}
+      placeholder={allowEmpty ? "auto" : "#070707"}
+      ariaLabel={label}
+      disabled={disabled}
+      onChange={(hex) => onChange(hex ? hex : allowEmpty ? null : "#070707")}
+      className="mt-1.5"
+    />
   );
 }
 
@@ -322,37 +308,37 @@ export function QuoteStyleEditor({
           />
         </Field>
         <Field label={`Angolo gradiente sfondo (${draft.bgGradAngle}°)`}>
-          <input
-            type="range"
+          <Range
+            aria-label="Angolo gradiente sfondo"
             min={0}
             max={359}
             value={draft.bgGradAngle}
             disabled={busy || !draft.bgGradTo}
-            onChange={(e) => patch({ bgGradAngle: Number(e.target.value) })}
-            className="mt-3 w-full accent-caramel disabled:opacity-40"
-          />
+            onChange={(v) => patch({ bgGradAngle: v })}
+            className="mt-3"
+            />
         </Field>
         <Field label={`Fade profondità (${draft.fadeDepth}%)`}>
-          <input
-            type="range"
+          <Range
+            aria-label="Fade profondità"
             min={0}
             max={100}
             value={draft.fadeDepth}
             disabled={busy}
-            onChange={(e) => patch({ fadeDepth: Number(e.target.value) })}
-            className="mt-3 w-full accent-caramel"
-          />
+            onChange={(v) => patch({ fadeDepth: v })}
+            className="mt-3"
+            />
         </Field>
         <Field label={`Fade opacità (${draft.fadeOpacity}%)`}>
-          <input
-            type="range"
+          <Range
+            aria-label="Fade opacità"
             min={0}
             max={100}
             value={draft.fadeOpacity}
             disabled={busy}
-            onChange={(e) => patch({ fadeOpacity: Number(e.target.value) })}
-            className="mt-3 w-full accent-caramel"
-          />
+            onChange={(v) => patch({ fadeOpacity: v })}
+            className="mt-3"
+            />
         </Field>
       </div>
 

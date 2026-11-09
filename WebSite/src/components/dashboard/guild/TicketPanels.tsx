@@ -1,5 +1,6 @@
 "use client";
 
+import { NumberField } from "@/components/ui/NumberField";
 import { useEffect, useState } from "react";
 import {
   SUPPORT_DAYS,
@@ -470,14 +471,14 @@ export function TicketPanels({
                   />
                 </Field>
                 <Field label="Attesa tra due aperture" hint="In secondi, 0 = nessuna attesa">
-                  <input
+                  <NumberField
                     name="open-cooldown-seconds"
-                    type="number"
+                    aria-label="Attesa tra due aperture in secondi"
                     min={0}
                     max={86400}
+                    step={5}
                     value={single.openCooldownSeconds}
-                    onChange={(e) => set({ openCooldownSeconds: Number(e.target.value) || 0 })}
-                    className={fieldClass}
+                    onChange={(n) => set({ openCooldownSeconds: n ?? 0 })}
                   />
                 </Field>
               </div>

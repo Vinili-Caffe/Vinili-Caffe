@@ -39,7 +39,7 @@ import {
 } from "@/lib/contest";
 import { AccessHomeRedirect } from "@/components/AccessHomeRedirect";
 import { PageHero } from "@/components/PageHero";
-import { confirmDialog, showToast } from "@/components/ui";
+import { Disclosure, confirmDialog, showToast } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 type Tab = "submit" | "vote" | "board";
@@ -609,9 +609,8 @@ export function ContestBoard({
       {showMain ? (
         <>
           {status?.staffPreview && status.phase !== "after" && token ? (
-            <details className="mt-4 rounded-2xl bg-ink/30 px-3 py-2 text-xs text-crema/45 ring-1 ring-crema/10">
-              <summary className="cursor-pointer select-none py-1 text-crema/55 hover:text-crema/75">Strumenti test</summary>
-              <div className="flex flex-wrap gap-2 pb-1 pt-2">
+            <Disclosure title="Strumenti test" className="mt-4 rounded-2xl bg-ink/30 text-xs text-crema/60 ring-crema/10" titleClassName="text-xs text-crema/60">
+              <div className="flex flex-wrap gap-2 pb-1">
                 <button
                   type="button"
                   disabled={busy}
@@ -662,7 +661,7 @@ export function ContestBoard({
                   Pulisci demo
                 </button>
               </div>
-            </details>
+            </Disclosure>
           ) : null}
 
           <div className="mt-5 flex gap-1 rounded-2xl bg-espresso p-1 ring-1 ring-crema/10">

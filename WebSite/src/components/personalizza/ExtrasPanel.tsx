@@ -1,5 +1,6 @@
 "use client";
 
+import { NumberField } from "@/components/ui/NumberField";
 import { useEffect, useRef, useState } from "react";
 import {
   Cake,
@@ -288,35 +289,41 @@ export function ExtrasPanel({
             <div className="mt-4 grid grid-cols-3 gap-2">
               <label htmlFor="day" className="block">
                 <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/45">Giorno</span>
-                <input id="day" name="day"
-                  type="number"
+                <NumberField
+                  id="day"
+                  name="day"
                   min={1}
                   max={31}
-                  value={day}
-                  onChange={(e) => setDay(e.target.value)}
-                  className="mt-1 w-full rounded-xl bg-espresso/70 px-3 py-2.5 text-sm outline-none ring-1 ring-sand/15 focus:ring-caramel/60"
+                  nullable
+                  value={day === "" ? null : Number(day)}
+                  onChange={(n) => setDay(n == null ? "" : String(n))}
+                  className="mt-1 h-11 rounded-xl"
                 />
               </label>
               <label htmlFor="month" className="block">
                 <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/45">Mese</span>
-                <input id="month" name="month"
-                  type="number"
+                <NumberField
+                  id="month"
+                  name="month"
                   min={1}
                   max={12}
-                  value={month}
-                  onChange={(e) => setMonth(e.target.value)}
-                  className="mt-1 w-full rounded-xl bg-espresso/70 px-3 py-2.5 text-sm outline-none ring-1 ring-sand/15 focus:ring-caramel/60"
+                  nullable
+                  value={month === "" ? null : Number(month)}
+                  onChange={(n) => setMonth(n == null ? "" : String(n))}
+                  className="mt-1 h-11 rounded-xl"
                 />
               </label>
               <label htmlFor="year" className="block">
                 <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/45">Anno</span>
-                <input id="year" name="year"
-                  type="number"
+                <NumberField
+                  id="year"
+                  name="year"
                   min={1900}
                   max={new Date().getFullYear()}
-                  value={year}
-                  onChange={(e) => setYear(e.target.value)}
-                  className="mt-1 w-full rounded-xl bg-espresso/70 px-3 py-2.5 text-sm outline-none ring-1 ring-sand/15 focus:ring-caramel/60"
+                  nullable
+                  value={year === "" ? null : Number(year)}
+                  onChange={(n) => setYear(n == null ? "" : String(n))}
+                  className="mt-1 h-11 rounded-xl"
                 />
               </label>
             </div>

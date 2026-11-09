@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/Select";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, ExternalLink, FileText, Search, Star, X } from "lucide-react";
@@ -271,23 +272,24 @@ export function TicketArchive({ guildId, token }: { guildId: string; token: stri
             className={cn(fieldClass, "mt-0 pl-9")}
           />
         </label>
-        <select name="archive-type" aria-label="Tipo di ticket" value={type} onChange={(e) => setType(e.target.value)} className={cn(fieldClass, "mt-0 lg:w-44")}>
-          <option value="">Tutti i tipi</option>
-          {meta.panels.map((p) => (
-            <option key={p} value={p}>
-              {typeLabel(p)}
-            </option>
-          ))}
-        </select>
-        <select name="archive-rating" aria-label="Valutazione" value={rating} onChange={(e) => setRating(e.target.value)} className={cn(fieldClass, "mt-0 lg:w-44")}>
-          <option value="">Ogni valutazione</option>
-          {[5, 4, 3, 2, 1].map((n) => (
-            <option key={n} value={String(n)}>
-              {n} stelle
-            </option>
-          ))}
-          <option value="none">Senza voto</option>
-        </select>
+        <Select
+          aria-label="Tipo di ticket"
+          value={type}
+          onChange={setType}
+          options={[{ value: "", label: "Tutti i tipi" }, ...meta.panels.map((p) => ({ value: p, label: typeLabel(p) }))]}
+          className="lg:w-44"
+        />
+        <Select
+          aria-label="Valutazione"
+          value={rating}
+          onChange={setRating}
+          options={[
+            { value: "", label: "Ogni valutazione" },
+            ...[5, 4, 3, 2, 1].map((n) => ({ value: String(n), label: `${n} stelle` })),
+            { value: "none", label: "Senza voto" },
+          ]}
+          className="lg:w-44"
+        />
       </div>
 
       <p className="text-xs text-crema/60">

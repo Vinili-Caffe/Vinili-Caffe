@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/Select";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { motion } from "motion/react";
 import { Award, Coins, Database, Diamond, Download, Eye, Handshake, LogIn, LogOut, Settings2, ShieldAlert, Target, Trash2, UserRound } from "lucide-react";
@@ -130,20 +131,15 @@ function PartnerProfile({ token, onToast }: { token: string; onToast: (m: string
             </SettingRow>
             {profile.languages.length ? (
               <SettingRow title="Lingua del bot" description="Lingua dei messaggi che il bot ti manda.">
-                <select
-                  name="profile-language"
+                <Select
                   aria-label="Lingua del bot"
+                  size="sm"
                   value={profile.prefs.language}
                   disabled={busy}
-                  onChange={(e) => void patch({ language: e.target.value }, "Lingua salvata.")}
-                  className={cn(fieldClass, "mt-0 w-auto py-1.5")}
-                >
-                  {profile.languages.map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.flag} {l.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => void patch({ language: v }, "Lingua salvata.")}
+                  options={profile.languages.map((l) => ({ value: l.code, label: `${l.flag} ${l.label}`.trim() }))}
+                  className="min-w-36"
+                />
               </SettingRow>
             ) : null}
           </div>

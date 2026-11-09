@@ -177,6 +177,33 @@ body::-webkit-scrollbar,
   display: none !important;
 }
 
+/* Niente pezzi del sistema nei campi: X della ricerca, frecce dei numeri, sfondo dell'autocompletamento. */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-results-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill {
+  -webkit-text-fill-color: var(--color-crema, #f4e9d8);
+  caret-color: var(--color-crema, #f4e9d8);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-espresso, #1a120d) inset;
+  transition: background-color 9999s ease-out 0s;
+}
+
 /* Range custom: track + thumb brand (niente look OS). */
 .vc-range {
   background-image: linear-gradient(to right, var(--color-caramel, #d49150) 0 var(--vc-range, 0%), rgba(244, 233, 216, 0.1) var(--vc-range, 0%) 100%);

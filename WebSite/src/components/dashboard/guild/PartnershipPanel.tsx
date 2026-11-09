@@ -1,5 +1,6 @@
 "use client";
 
+import { NumberField } from "@/components/ui/NumberField";
 import { cn } from "@/lib/cn";
 import { useEffect, useState } from "react";
 import {
@@ -426,15 +427,16 @@ export function PartnershipPanel({
                   <tr>
                     <td className="py-2 pr-3 font-medium text-crema">@here</td>
                     <td className="py-2 pr-3">
-                      <input
+                      <NumberField
                         name="ping-here-members"
                         aria-label="@here dai membri"
-                        type="number"
+                        size="sm"
                         min={0}
-                        value={draft.pings.hereMembers ?? ""}
+                        nullable
+                        value={draft.pings.hereMembers ?? null}
                         placeholder="mai"
-                        onChange={(e) => set({ pings: { ...draft.pings, hereMembers: e.target.value === "" ? null : Number(e.target.value) } })}
-                        className={cn(fieldClass, "mt-0 py-2")}
+                        onChange={(n) => set({ pings: { ...draft.pings, hereMembers: n } })}
+                        className="mt-0"
                       />
                     </td>
                     <td className="py-2">
@@ -451,15 +453,16 @@ export function PartnershipPanel({
                   <tr>
                     <td className="py-2 pr-3 font-medium text-crema">@everyone</td>
                     <td className="py-2 pr-3">
-                      <input
+                      <NumberField
                         name="ping-everyone-members"
                         aria-label="@everyone dai membri"
-                        type="number"
+                        size="sm"
                         min={0}
-                        value={draft.pings.everyoneMembers ?? ""}
+                        nullable
+                        value={draft.pings.everyoneMembers ?? null}
                         placeholder="mai"
-                        onChange={(e) => set({ pings: { ...draft.pings, everyoneMembers: e.target.value === "" ? null : Number(e.target.value) } })}
-                        className={cn(fieldClass, "mt-0 py-2")}
+                        onChange={(n) => set({ pings: { ...draft.pings, everyoneMembers: n } })}
+                        className="mt-0"
                       />
                     </td>
                     <td className="py-2">
@@ -483,15 +486,16 @@ export function PartnershipPanel({
                       />
                     </td>
                     <td className="py-2 pr-3">
-                      <input
+                      <NumberField
                         name="ping-custom-members"
                         aria-label="Ruolo dai membri"
-                        type="number"
+                        size="sm"
                         min={0}
-                        value={draft.pings.customRoleMembers ?? ""}
+                        nullable
+                        value={draft.pings.customRoleMembers ?? null}
                         placeholder="mai"
-                        onChange={(e) => set({ pings: { ...draft.pings, customRoleMembers: e.target.value === "" ? null : Number(e.target.value) } })}
-                        className={cn(fieldClass, "mt-0 py-2")}
+                        onChange={(n) => set({ pings: { ...draft.pings, customRoleMembers: n } })}
+                        className="mt-0"
                       />
                     </td>
                     <td className="py-2 text-xs text-crema/60">subito</td>

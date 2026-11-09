@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/Select";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Ban, Coins, DoorOpen, History, Lock, LogIn, RotateCcw, Search, Server, ShieldBan, UserX, Users, Wrench } from "lucide-react";
@@ -130,14 +131,14 @@ function OverviewTab({ token, overview }: { token: string; overview: DevOverview
         title="Eventi dei server"
         description="Entrate, uscite e azioni fatte da qui (ultimi 100)."
         aside={
-          <select name="dev-event-type" aria-label="Tipo di evento" value={type} onChange={(e) => setType(e.target.value)} className={cn(fieldClass, "mt-0 w-auto py-1.5 text-xs")}>
-            <option value="all">Tutti</option>
-            {Object.entries(EVENT_TEXT).map(([id, t]) => (
-              <option key={id} value={id}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+          <Select
+            aria-label="Tipo di evento"
+            size="sm"
+            value={type}
+            onChange={setType}
+            options={[{ value: "all", label: "Tutti" }, ...Object.entries(EVENT_TEXT).map(([id, t]) => ({ value: id, label: t.label }))]}
+            className="min-w-32"
+          />
         }
       >
         {events ? <EventList events={events} /> : <div className="h-40 animate-pulse rounded-xl bg-crema/[0.04]" />}

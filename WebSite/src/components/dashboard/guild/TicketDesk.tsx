@@ -1,5 +1,6 @@
 "use client";
 
+import { NumberField } from "@/components/ui/NumberField";
 import { useEffect, useRef, useState } from "react";
 import {
   CheckCheck,
@@ -238,26 +239,17 @@ export function TicketDesk({
                     />
                   </Field>
                   <Field label="Ticket aperti per utente">
-                    <input
+                    <NumberField
                       name="max-open-tickets"
-                      type="number"
+                      aria-label="Ticket aperti per utente"
                       min={1}
                       max={25}
                       disabled={busy}
                       value={mod.settings.maxOpenTicketsPerUser}
-                      onBlur={(e) => {
-                        const n = Number(e.target.value);
-                        if (Number.isFinite(n) && n !== mod.settings.maxOpenTicketsPerUser) {
-                          save({ maxOpenTicketsPerUser: n });
-                        }
+                      onChange={(n) => setMod({ ...mod, settings: { ...mod.settings, maxOpenTicketsPerUser: n ?? 1 } })}
+                      onCommit={(n) => {
+                        if (n != null) save({ maxOpenTicketsPerUser: n });
                       }}
-                      onChange={(e) =>
-                        setMod({
-                          ...mod,
-                          settings: { ...mod.settings, maxOpenTicketsPerUser: Number(e.target.value) || 1 },
-                        })
-                      }
-                      className={fieldClass}
                     />
                   </Field>
                 </div>

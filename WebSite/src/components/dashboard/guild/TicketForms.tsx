@@ -1,5 +1,6 @@
 "use client";
 
+import { NumberField } from "@/components/ui/NumberField";
 import { useEffect, useState } from "react";
 import {
   FORM_FIELD_TYPES,
@@ -405,25 +406,23 @@ export function TicketForms({
                             />
                           </Field>
                           <Field label="Min caratteri">
-                            <input
+                            <NumberField
                               name="field-min-length"
-                              type="number"
+                              aria-label="Min caratteri"
                               min={0}
                               max={field.style === "paragraph" ? 1024 : 255}
                               value={field.minLength ?? 0}
-                              onChange={(e) => patchField(field.id, { minLength: Number(e.target.value) || 0 })}
-                              className={fieldClass}
+                              onChange={(n) => patchField(field.id, { minLength: n ?? 0 })}
                             />
                           </Field>
                           <Field label="Max caratteri">
-                            <input
+                            <NumberField
                               name="field-max-length"
-                              type="number"
+                              aria-label="Max caratteri"
                               min={1}
                               max={field.style === "paragraph" ? 1024 : 255}
                               value={field.maxLength ?? 255}
-                              onChange={(e) => patchField(field.id, { maxLength: Number(e.target.value) || 1 })}
-                              className={fieldClass}
+                              onChange={(n) => patchField(field.id, { maxLength: n ?? 1 })}
                             />
                           </Field>
                         </div>
@@ -432,25 +431,23 @@ export function TicketForms({
                       {supportsMinMax(field.type) ? (
                         <div className="grid gap-4 sm:grid-cols-2">
                           <Field label="Scelte minime">
-                            <input
+                            <NumberField
                               name="field-min-values"
-                              type="number"
+                              aria-label="Scelte minime"
                               min={0}
                               max={25}
                               value={field.minValues ?? 0}
-                              onChange={(e) => patchField(field.id, { minValues: Number(e.target.value) || 0 })}
-                              className={fieldClass}
+                              onChange={(n) => patchField(field.id, { minValues: n ?? 0 })}
                             />
                           </Field>
                           <Field label="Scelte massime">
-                            <input
+                            <NumberField
                               name="field-max-values"
-                              type="number"
+                              aria-label="Scelte massime"
                               min={1}
                               max={25}
                               value={field.maxValues ?? 1}
-                              onChange={(e) => patchField(field.id, { maxValues: Number(e.target.value) || 1 })}
-                              className={fieldClass}
+                              onChange={(n) => patchField(field.id, { maxValues: n ?? 1 })}
                             />
                           </Field>
                         </div>
