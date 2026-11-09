@@ -4,6 +4,11 @@ import {
   Handshake,
   History,
   HeartPulse,
+  Gauge,
+  Gift,
+  MessageSquareReply,
+  ScrollText,
+  Vote,
   Megaphone,
   PartyPopper,
   Tags,
@@ -24,6 +29,11 @@ export type GuildSectionId =
   | "comandipers"
   | "ruoli"
   | "benvenuto"
+  | "risposte"
+  | "contatori"
+  | "logserver"
+  | "giveaway"
+  | "sondaggi"
   | "settings"
   | "commands"
   | "bacheca"
@@ -142,6 +152,11 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "comandipers", label: "Comandi personalizzati", icon: TerminalSquare, tabs: [] as const },
   { id: "ruoli", label: "Ruoli con pulsanti", icon: Tags, tabs: [] as const },
   { id: "benvenuto", label: "Annunci", icon: PartyPopper, tabs: ANNUNCI_MODULE_TABS },
+  { id: "risposte", label: "Risposte automatiche", icon: MessageSquareReply, tabs: [] as const },
+  { id: "contatori", label: "Contatori", icon: Gauge, tabs: [] as const },
+  { id: "logserver", label: "Log del server", icon: ScrollText, tabs: [] as const },
+  { id: "giveaway", label: "Giveaway", icon: Gift, tabs: [] as const },
+  { id: "sondaggi", label: "Sondaggi", icon: Vote, tabs: [] as const },
 ] as const satisfies readonly GuildNavItem[];
 
 /** Elenco piatto (URL, mobile chip, lookup). Ordine: server poi moduli. */

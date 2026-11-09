@@ -14,10 +14,14 @@ const KEYS = {
   commands: "multiGuildCustomCommands.v1",
   rolePanels: "multiGuildRolePanels.v1",
   welcome: "multiGuildWelcome.v1",
+  autoResponders: "multiGuildAutoResponders.v1",
+  counters: "multiGuildCounters.v1",
+  serverLogs: "multiGuildServerLogs.v1",
+  polls: "multiGuildPolls.v1",
 } as const;
 type Kind = keyof typeof KEYS;
 
-const LIMITS = { messages: 50, commands: 50, rolePanels: 15, panelRoles: 25, buttons: 5 };
+const LIMITS = { messages: 50, commands: 50, rolePanels: 15, panelRoles: 25, buttons: 5, autoResponders: 50, counters: 6, polls: 50 };
 const CACHE_TTL_MS = 15_000;
 
 /* ───────────── messaggio (testo + embed + pulsanti link) ───────────── */
@@ -241,8 +245,28 @@ type SavedMessage = {
   scheduledAt: number | null;
   status: "draft" | "scheduled" | "sent" | "failed";
   error: string | null;
+  /** ripetizione dopo ogni invio programmato */
+  repeat: "none" | "daily" | "weekly" | "monthly";
+  /** a ogni ripetizione cancella il messaggio precedente */
+  repeatDeletePrevious: boolean;
   updatedAt: number;
 };
+
+const REPEATS = ["none", "daily", "weekly", "monthly"] as const;
+
+/** Prossima data dopo `at` secondo la ripetizione (sempre nel futuro). */
+function nextRepeatAt(at: number, repeat: string) {
+  const d = new Date(at);
+  const step = () => {
+    if (repeat === "daily") d.setDate(d.getDate() + 1);
+    else if (repeat === "weekly") d.setDate(d.getDate() + 7);
+    else if (repeat === "monthly") d.setMonth(d.getMonth() + 1);
+  };
+  if (!["daily", "weekly", "monthly"].includes(repeat)) return null;
+  step();
+  while (d.getTime() <= Date.now()) step();
+  return d.getTime();
+}
 
 function normalizeMessage(raw?, prev?: SavedMessage | null): SavedMessage {
   const r = raw && typeof raw === "object" ? raw : {};
@@ -258,6 +282,8 @@ function normalizeMessage(raw?, prev?: SavedMessage | null): SavedMessage {
     scheduledAt: Number.isFinite(at) && at > 0 ? at : null,
     status: prev?.status === "sent" || prev?.status === "failed" ? prev.status : "draft",
     error: prev?.error ?? null,
+    repeat: REPEATS.includes(r.repeat) ? r.repeat : prev?.repeat || "none",
+    repeatDeletePrevious: Object.prototype.hasOwnProperty.call(r, "repeatDeletePrevious") ? r.repeatDeletePrevious === true : prev?.repeatDeletePrevious === true,
     updatedAt: Date.now(),
   };
 }
@@ -569,8 +595,137 @@ async function writeWelcome(guildId: string, value: WelcomeSettings) {
   return saveGuild("welcome", guildId, value);
 }
 
+/* ───────────── liste/oggetti generici per le altre funzioni ───────────── */
+
+async function listRows(kind: "autoResponders" | "counters" | "polls", guildId: string, fresh = false): Promise<any[]> {
+  const map = await loadMap(kind, fresh);
+  return Array.isArray(map[guildId]) ? map[guildId] : [];
+}
+
+async function writeRows(kind: "autoResponders" | "counters" | "polls", guildId: string, rows: any[]) {
+  return saveGuild(kind, guildId, rows);
+}
+
+/** Tutti i server con dati per una funzione (scheduler). */
+async function allGuildRows(kind: "counters" | "polls", fresh = true): Promise<Record<string, any[]>> {
+  const map = await loadMap(kind, fresh);
+  const out: Record<string, any[]> = {};
+  for (const [gid, v] of Object.entries(map)) if (Array.isArray(v) && v.length) out[gid] = v;
+  return out;
+}
+
+/* risposte automatiche */
+const AR_MATCH = ["contains", "exact", "startsWith", "word"] as const;
+function normalizeAutoResponder(raw?, prev?) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const triggers = [...new Set<string>((Array.isArray(r.triggers) ? r.triggers : []).map((t) => str(t, 100).trim().toLowerCase()).filter(Boolean))].slice(0, 10);
+  const reactions = [...new Set<string>((Array.isArray(r.reactions) ? r.reactions : []).map((t) => str(t, 80).trim()).filter(Boolean))].slice(0, 5);
+  const ids = (v: unknown, max = 50) => [...new Set<string>((Array.isArray(v) ? v : []).filter(isId).map(String))].slice(0, max);
+  return {
+    id: prev?.id || newId(),
+    name: str(r.name, 80).trim() || triggers[0] || "Risposta",
+    enabled: r.enabled !== false,
+    triggers,
+    match: AR_MATCH.includes(r.match) ? r.match : "contains",
+    replyEnabled: r.replyEnabled !== false,
+    reply: r.reply !== false,
+    draft: normalizeDraft(r.draft),
+    reactions,
+    channelIds: ids(r.channelIds),
+    ignoredRoleIds: ids(r.ignoredRoleIds, 20),
+    cooldownSeconds: Math.max(0, Math.min(3600, Math.floor(Number(r.cooldownSeconds) || 10))),
+    deleteTrigger: r.deleteTrigger === true,
+    updatedAt: Date.now(),
+  };
+}
+
+function matchesAutoResponder(ar?, content?: string) {
+  const text = String(content || "").toLowerCase().trim();
+  if (!text) return false;
+  return (ar?.triggers || []).some((t: string) => {
+    if (ar.match === "exact") return text === t;
+    if (ar.match === "startsWith") return text.startsWith(t);
+    if (ar.match === "word") {
+      const esc = t.replace(/[.*+?^${}()|[\]\\]/g, (ch) => `\\${ch}`);
+      return new RegExp(`(^|[^\\p{L}\\p{N}])${esc}($|[^\\p{L}\\p{N}])`, "u").test(text);
+    }
+    return text.includes(t);
+  });
+}
+
+/* contatori */
+const COUNTER_TYPES = ["members", "online", "boosts", "boostTier", "channels", "roles", "emojis"] as const;
+function normalizeCounter(raw?, prev?) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  return {
+    id: prev?.id || newId(),
+    type: COUNTER_TYPES.includes(r.type) ? r.type : prev?.type || "members",
+    template: str(r.template, 90).trim() || prev?.template || "Membri: {count}",
+    channelId: prev?.channelId || idOrNull(r.channelId),
+    lastName: prev?.lastName || null,
+    updatedAt: Date.now(),
+  };
+}
+
+/* log del server */
+const LOG_EVENTS = [
+  "messageDelete",
+  "messageUpdate",
+  "memberJoin",
+  "memberLeave",
+  "memberRoles",
+  "memberNick",
+  "ban",
+  "unban",
+  "channelCreate",
+  "channelDelete",
+  "roleCreate",
+  "roleDelete",
+] as const;
+const DEFAULT_SERVER_LOGS = {
+  enabled: false,
+  channelId: null as string | null,
+  events: Object.fromEntries(LOG_EVENTS.map((e) => [e, true])) as Record<string, boolean>,
+  ignoredChannelIds: [] as string[],
+  ignoreBots: true,
+  updatedAt: 0,
+};
+function normalizeServerLogs(raw?, prev = DEFAULT_SERVER_LOGS) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(r, k);
+  const ev = r.events && typeof r.events === "object" ? r.events : {};
+  return {
+    enabled: has("enabled") ? r.enabled === true : prev.enabled,
+    channelId: has("channelId") ? idOrNull(r.channelId) : prev.channelId,
+    events: Object.fromEntries(LOG_EVENTS.map((e) => [e, Object.prototype.hasOwnProperty.call(ev, e) ? ev[e] === true : prev.events?.[e] !== false])),
+    ignoredChannelIds: has("ignoredChannelIds") ? [...new Set<string>((Array.isArray(r.ignoredChannelIds) ? r.ignoredChannelIds : []).filter(isId).map(String))].slice(0, 50) : prev.ignoredChannelIds,
+    ignoreBots: has("ignoreBots") ? r.ignoreBots !== false : prev.ignoreBots,
+    updatedAt: Date.now(),
+  };
+}
+async function getServerLogs(guildId: string, fresh = false) {
+  const map = await loadMap("serverLogs", fresh);
+  const row = map[guildId];
+  return row && typeof row === "object" ? normalizeServerLogs(row, DEFAULT_SERVER_LOGS) : DEFAULT_SERVER_LOGS;
+}
+async function writeServerLogs(guildId: string, value) {
+  return saveGuild("serverLogs", guildId, value);
+}
+
 export = {
   LIMITS,
+  nextRepeatAt,
+  listRows,
+  writeRows,
+  allGuildRows,
+  normalizeAutoResponder,
+  matchesAutoResponder,
+  normalizeCounter,
+  COUNTER_TYPES,
+  LOG_EVENTS,
+  normalizeServerLogs,
+  getServerLogs,
+  writeServerLogs,
   normalizeDraft,
   draftIsEmpty,
   buildMessageBody,

@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { communityApi, emptyDraft, type SavedMessage } from "@/lib/dashboard-community";
-import { EditorHeader, Field, FormGroup, Notice, RowsSkeleton, StatusBadge, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
+import { EditorHeader, Field, FormGroup, Notice, RowsSkeleton, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, formatWhen, sampleVars, useCommunity } from "./shared";
 
 const TIMES = Array.from({ length: 96 }, (_, i) => {
@@ -30,8 +30,21 @@ function toLocalParts(ms: number | null) {
   return { date, time: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}` };
 }
 
+const REPEAT_OPTIONS = [
+  { value: "none", label: "Una volta sola" },
+  { value: "daily", label: "Ogni giorno" },
+  { value: "weekly", label: "Ogni settimana" },
+  { value: "monthly", label: "Ogni mese" },
+];
+const REPEAT_SHORT: Record<string, string> = { daily: "ogni giorno", weekly: "ogni settimana", monthly: "ogni mese" };
+
 function statusBadge(m: SavedMessage) {
-  if (m.status === "scheduled") return <StatusBadge tone="accent">Programmato · {formatWhen(m.scheduledAt)}</StatusBadge>;
+  if (m.status === "scheduled")
+    return (
+      <StatusBadge tone="accent">
+        {m.repeat && m.repeat !== "none" ? `Ripete ${REPEAT_SHORT[m.repeat]}` : "Programmato"} · {formatWhen(m.scheduledAt)}
+      </StatusBadge>
+    );
   if (m.status === "sent") return <StatusBadge tone="ok">Pubblicato · {formatWhen(m.sentAt)}</StatusBadge>;
   if (m.status === "failed") return <StatusBadge tone="warn">Non inviato</StatusBadge>;
   return <StatusBadge>Bozza</StatusBadge>;
@@ -111,7 +124,7 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
     const [h, mi] = when.time.split(":").map(Number);
     const at = off ? null : new Date(y, mo - 1, d, h, mi).getTime();
     setBusy("schedule");
-    const r = await communityApi.scheduleMessage(token, guildId, saved.id, at);
+    const r = await communityApi.scheduleMessage(token, guildId, saved.id, at, off ? "none" : edit?.repeat || "none", edit?.repeatDeletePrevious === true);
     setBusy(null);
     if (!r.ok) return onToast(r.message, true);
     upsertLocal(r.data.message);
@@ -175,6 +188,15 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
                   <div className="w-28">
                     <Select value={when.time} onChange={(time) => setWhen((w) => ({ ...w, time }))} options={TIMES} className={cn(fieldClass, "mt-0")} aria-label="Ora" />
                   </div>
+                  <div className="w-44">
+                    <Select
+                      value={edit.repeat || "none"}
+                      onChange={(v) => setEdit({ ...edit, repeat: v as SavedMessage["repeat"] })}
+                      options={REPEAT_OPTIONS}
+                      className={cn(fieldClass, "mt-0")}
+                      aria-label="Ripeti"
+                    />
+                  </div>
                   <button type="button" className={primaryMini} disabled={!!busy} onClick={() => void schedule(false)}>
                     <CalendarClock className="size-3.5" />
                     {edit.status === "scheduled" ? "Cambia orario" : "Programma"}
@@ -185,6 +207,13 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
                     </button>
                   ) : null}
                 </div>
+                {edit.repeat && edit.repeat !== "none" ? (
+                  <div className="mt-3">
+                    <SettingRow title="Cancella il messaggio precedente" description="A ogni ripetizione toglie quello della volta prima, così nel canale ne resta uno solo.">
+                      <Toggle size="sm" checked={edit.repeatDeletePrevious === true} onChange={(v) => setEdit({ ...edit, repeatDeletePrevious: v })} label="Cancella il messaggio precedente" />
+                    </SettingRow>
+                  </div>
+                ) : null}
               </FormGroup>
               <div className="flex flex-wrap gap-2">
                 {published ? (

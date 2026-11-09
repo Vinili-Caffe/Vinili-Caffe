@@ -180,6 +180,12 @@ async function main(shared?: { client?: any } | null) {
     } catch (err) {
       global.logger?.warn?.("[COMMUNITY MSG] loop start:", err?.message || err);
     }
+    try {
+      const { startCountersLoop } = require("../../../MultiGuild/site/dashboard/dashboardCommunityExtraApi") as typeof import("../../../MultiGuild/site/dashboard/dashboardCommunityExtraApi");
+      startCountersLoop(client);
+    } catch (err) {
+      global.logger?.warn?.("[COUNTERS] loop start:", err?.message || err);
+    }
     startTranscriptCleanupLoop();
   }
 

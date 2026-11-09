@@ -28,6 +28,8 @@ export type SavedMessage = {
   scheduledAt: number | null;
   status: "draft" | "scheduled" | "sent" | "failed";
   error: string | null;
+  repeat?: "none" | "daily" | "weekly" | "monthly";
+  repeatDeletePrevious?: boolean;
   updatedAt: number;
 };
 
@@ -72,14 +74,17 @@ export type CommunityData = {
   guild: { id: string; name: string; icon?: string | null; banner?: string | null; memberCount: number | null };
   welcomeSaved?: boolean;
   bot?: { id: string; name: string; avatarUrl: string } | null;
+  autoResponders?: AutoResponder[];
+  counters?: Counter[];
+  serverLogs?: ServerLogs;
   isMainGuild?: boolean;
   prefix: string;
-  limits: { messages: number; commands: number; rolePanels: number; panelRoles: number; buttons: number };
+  limits: { messages: number; commands: number; rolePanels: number; panelRoles: number; buttons: number; autoResponders: number; counters: number; polls: number };
   messages: SavedMessage[];
   commands: CustomCommand[];
   rolePanels: RolePanel[];
   welcome: WelcomeSettings;
-  pickers: { textChannels: PickerChannel[]; roles: PickerRole[]; emojis: PickerEmoji[] };
+  pickers: { textChannels: PickerChannel[]; roles: PickerRole[]; emojis: PickerEmoji[]; categories: PickerChannel[] };
 };
 
 export function emptyDraft(over: Partial<MsgDraft> = {}): MsgDraft {
@@ -127,19 +132,101 @@ export async function loadCommunity(token: string, guildId: string): Promise<{ o
         textChannels: Array.isArray(d.pickers?.textChannels) ? d.pickers.textChannels : [],
         roles: Array.isArray(d.pickers?.roles) ? d.pickers.roles : [],
         emojis: Array.isArray(d.pickers?.emojis) ? d.pickers.emojis : [],
+        categories: Array.isArray(d.pickers?.categories) ? d.pickers.categories : [],
       },
     },
   };
 }
 
+export type AutoResponder = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  triggers: string[];
+  match: "contains" | "exact" | "startsWith" | "word";
+  replyEnabled: boolean;
+  reply: boolean;
+  draft: MsgDraft;
+  reactions: string[];
+  channelIds: string[];
+  ignoredRoleIds: string[];
+  cooldownSeconds: number;
+  deleteTrigger: boolean;
+};
+
+export type CounterType = "members" | "online" | "boosts" | "boostTier" | "channels" | "roles" | "emojis";
+export type Counter = { id: string; type: CounterType; template: string; channelId: string | null; lastName: string | null };
+
+export const LOG_EVENT_LABELS: { id: string; label: string; hint: string }[] = [
+  { id: "messageDelete", label: "Messaggi eliminati", hint: "testo, autore e canale" },
+  { id: "messageUpdate", label: "Messaggi modificati", hint: "prima e dopo" },
+  { id: "memberJoin", label: "Membri entrati", hint: "con l'età dell'account" },
+  { id: "memberLeave", label: "Membri usciti", hint: "con i ruoli che avevano" },
+  { id: "memberRoles", label: "Ruoli dei membri", hint: "aggiunti e tolti" },
+  { id: "memberNick", label: "Nickname", hint: "prima e dopo" },
+  { id: "ban", label: "Ban", hint: "con il motivo" },
+  { id: "unban", label: "Ban revocati", hint: "" },
+  { id: "channelCreate", label: "Canali creati", hint: "" },
+  { id: "channelDelete", label: "Canali eliminati", hint: "" },
+  { id: "roleCreate", label: "Ruoli creati", hint: "" },
+  { id: "roleDelete", label: "Ruoli eliminati", hint: "" },
+];
+export type ServerLogs = { enabled: boolean; channelId: string | null; events: Record<string, boolean>; ignoredChannelIds: string[]; ignoreBots: boolean };
+
+export type Giveaway = {
+  id: string;
+  messageId: string | null;
+  channelId: string;
+  prize: string;
+  endAt: number;
+  winnerCount: number;
+  participants: number;
+  ended: boolean;
+  cancelled: boolean;
+  winnerIds: string[];
+  hostId: string | null;
+};
+
+export type Poll = {
+  id: string;
+  question: string;
+  channelId: string;
+  messageId: string;
+  answers: { answerId: number; text: string; emoji: string; votes: number }[];
+  multiselect: boolean;
+  durationHours: number;
+  createdAt: number;
+  endsAt: number;
+  ended: boolean;
+  deleted?: boolean;
+};
+
 export const communityApi = {
+  saveAutoResponder: (t: string, g: string, a: Partial<AutoResponder>) => call<{ autoResponder: AutoResponder }>(t, g, "/auto-responders", "PUT", a),
+  deleteAutoResponder: (t: string, g: string, id: string) => call(t, g, `/auto-responders/${encodeURIComponent(id)}`, "DELETE"),
+  createCounter: (t: string, g: string, c: { type: CounterType; template: string; categoryId?: string | null }) => call<{ counter: Counter }>(t, g, "/counters", "POST", c),
+  updateCounter: (t: string, g: string, id: string, c: Partial<Counter>) => call<{ counter: Counter }>(t, g, `/counters/${encodeURIComponent(id)}`, "PATCH", c),
+  deleteCounter: (t: string, g: string, id: string) => call(t, g, `/counters/${encodeURIComponent(id)}`, "DELETE"),
+  saveServerLogs: (t: string, g: string, l: ServerLogs) => call<{ serverLogs: ServerLogs }>(t, g, "/server-logs", "PATCH", l),
+  listGiveaways: (t: string, g: string) => call<{ giveaways: Giveaway[] }>(t, g, `/giveaways?_=${Date.now()}`),
+  createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number }) =>
+    call<{ giveaway: Giveaway }>(t, g, "/giveaways", "POST", body),
+  giveawayAction: (t: string, g: string, messageId: string, action: "end" | "reroll" | "delete") =>
+    action === "delete"
+      ? call(t, g, `/giveaways/${encodeURIComponent(messageId)}`, "DELETE")
+      : call(t, g, `/giveaways/${encodeURIComponent(messageId)}/${action}`, "POST", {}),
+  listPolls: (t: string, g: string) => call<{ polls: Poll[] }>(t, g, `/polls?_=${Date.now()}`),
+  createPoll: (t: string, g: string, body: { channelId: string; question: string; answers: { text: string; emoji: string }[]; durationHours: number; multiselect: boolean }) =>
+    call<{ poll: Poll }>(t, g, "/polls", "POST", body),
+  endPoll: (t: string, g: string, id: string) => call<{ poll: Poll }>(t, g, `/polls/${encodeURIComponent(id)}/end`, "POST", {}),
+  deletePoll: (t: string, g: string, id: string, alsoDiscord: boolean) => call(t, g, `/polls/${encodeURIComponent(id)}${alsoDiscord ? "?discord=1" : ""}`, "DELETE"),
   saveMessage: (t: string, g: string, m: Partial<SavedMessage>) => call<{ message: SavedMessage }>(t, g, "/messages", "PUT", m),
   deleteMessage: (t: string, g: string, id: string, alsoDiscord = false) =>
     call<{ discordDeleted?: boolean }>(t, g, `/messages/${encodeURIComponent(id)}${alsoDiscord ? "?discord=1" : ""}`, "DELETE"),
   sendMessage: (t: string, g: string, id: string, asNew = false) =>
     call<{ message: SavedMessage; edited?: boolean }>(t, g, `/messages/${encodeURIComponent(id)}/send`, "POST", { asNew }),
-  scheduleMessage: (t: string, g: string, id: string, scheduledAt: number | null) =>
-    call<{ message: SavedMessage }>(t, g, `/messages/${encodeURIComponent(id)}/schedule`, "POST", { scheduledAt }),
+  scheduleMessage: (t: string, g: string, id: string, scheduledAt: number | null, repeat?: SavedMessage["repeat"], repeatDeletePrevious?: boolean) =>
+    call<{ message: SavedMessage }>(t, g, `/messages/${encodeURIComponent(id)}/schedule`, "POST", { scheduledAt, repeat, repeatDeletePrevious }),
   saveCommand: (t: string, g: string, c: Partial<CustomCommand>) => call<{ command: CustomCommand }>(t, g, "/commands", "PUT", c),
   deleteCommand: (t: string, g: string, id: string) => call(t, g, `/commands/${encodeURIComponent(id)}`, "DELETE"),
   saveRolePanel: (t: string, g: string, p: Partial<RolePanel>) => call<{ panel: RolePanel }>(t, g, "/role-panels", "PUT", p),

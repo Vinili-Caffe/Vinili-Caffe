@@ -85,6 +85,11 @@ function startPrimaryLoops(client?, engagementTick?) {
       const { startScheduledMessagesLoop } = require("../../../../MultiGuild/site/dashboard/dashboardCommunityApi") as typeof import("../../../../MultiGuild/site/dashboard/dashboardCommunityApi");
       startScheduledMessagesLoop(client);
     }],
+    ["[COUNTERS] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
+      const { startCountersLoop } = require("../../../../MultiGuild/site/dashboard/dashboardCommunityExtraApi") as typeof import("../../../../MultiGuild/site/dashboard/dashboardCommunityExtraApi");
+      startCountersLoop(client);
+    }],
     ["[TRANSCRIPT CLEANUP] Failed to start loop", () => {
       if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
       const { startTranscriptCleanupLoop } = require("../../../../MultiGuild/tickets/transcript/ticketMaintenanceService") as typeof import("../../../../MultiGuild/tickets/transcript/ticketMaintenanceService");

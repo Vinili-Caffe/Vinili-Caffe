@@ -117,6 +117,11 @@ async function getDashboardCommunity(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   const gid = a.guildId;
+  const [autoResponders, counters, serverLogs] = await Promise.all([
+    T.listRows("autoResponders", gid, true),
+    T.listRows("counters", gid, true),
+    T.getServerLogs(gid, true),
+  ]);
   const [messages, commands, rolePanels, welcome, pickers, guild, bot] = await Promise.all([
     T.listMessages(gid, true),
     T.listCommands(gid, true),
@@ -139,6 +144,9 @@ async function getDashboardCommunity(client?, token?, guildId?) {
     guildId: gid,
     guild,
     bot,
+    autoResponders,
+    counters,
+    serverLogs,
     prefix,
     limits: T.LIMITS,
     messages,
@@ -240,6 +248,9 @@ async function scheduleMessage(client?, token?, guildId?, id?, body?) {
     if (!rows[idx].channelId) return fail(400, "no_channel", "Scegli il canale dove pubblicarlo.");
     rows[idx] = { ...rows[idx], scheduledAt: at, status: "scheduled", error: null };
   }
+  const REP = ["none", "daily", "weekly", "monthly"];
+  if (REP.includes(body?.repeat)) rows[idx] = { ...rows[idx], repeat: body.repeat };
+  if (body && Object.prototype.hasOwnProperty.call(body, "repeatDeletePrevious")) rows[idx] = { ...rows[idx], repeatDeletePrevious: body.repeatDeletePrevious === true };
   await T.writeMessages(gid, rows);
   return { ok: true, status: 200, message: rows[idx] };
 }
@@ -254,14 +265,26 @@ async function runScheduledMessages(client?) {
     if (!due.length) continue;
     const guild = await guildInfo(client, gid);
     for (const msg of due) {
-      const out: any = await deliverSavedMessage(client, gid, msg, guild).catch((err?) => ({ ok: false, message: discordError(err) }));
+      const repeat = msg.repeat && msg.repeat !== "none" ? String(msg.repeat) : "";
+      /* ripetizione: ogni volta un messaggio nuovo (se richiesto, il precedente si cancella) */
+      if (repeat && msg.repeatDeletePrevious && msg.messageId && msg.sentChannelId) {
+        await restOf(client)?.delete(Routes.channelMessage(msg.sentChannelId, msg.messageId)).catch(() => null);
+      }
+      const toSend = repeat ? { ...msg, messageId: null } : msg;
+      const out: any = await deliverSavedMessage(client, gid, toSend, guild).catch((err?) => ({ ok: false, message: discordError(err) }));
       /* rilegge subito prima di scrivere: la dashboard potrebbe aver cambiato altro nel frattempo */
       const rows = await T.listMessages(gid, true);
       const i = rows.findIndex((r) => r.id === msg.id);
       if (i < 0 || rows[i].status !== "scheduled") continue;
-      rows[i] = out.ok
-        ? { ...rows[i], status: "sent", error: null, messageId: out.messageId, sentChannelId: rows[i].channelId, sentAt: Date.now(), scheduledAt: null }
-        : { ...rows[i], status: "failed", error: out.message, scheduledAt: null };
+      const next = repeat ? T.nextRepeatAt(Number(rows[i].scheduledAt) || Date.now(), repeat) : null;
+      if (out.ok) {
+        rows[i] = next
+          ? { ...rows[i], status: "scheduled", error: null, messageId: out.messageId, sentChannelId: rows[i].channelId, sentAt: Date.now(), scheduledAt: next }
+          : { ...rows[i], status: "sent", error: null, messageId: out.messageId, sentChannelId: rows[i].channelId, sentAt: Date.now(), scheduledAt: null };
+      } else {
+        /* se ricorrente riprova alla prossima scadenza, segnando l'errore */
+        rows[i] = next ? { ...rows[i], status: "scheduled", error: out.message, scheduledAt: next } : { ...rows[i], status: "failed", error: out.message, scheduledAt: null };
+      }
       await T.writeMessages(gid, rows);
       if (!out.ok) global.logger?.warn?.(`[COMMUNITY MSG] ${gid}/${msg.id}: ${out.message}`);
     }

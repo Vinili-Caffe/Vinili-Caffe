@@ -206,6 +206,22 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     app.post(`${base}/role-panels/:id/publish`, wrap("roles publish", (t, req) => C().publishRolePanel(client, t, gid(req), req.params?.id)));
     app.patch(`${base}/welcome`, wrap("welcome patch", (t, req) => C().patchWelcome(client, t, gid(req), req.body)));
     app.post(`${base}/welcome/test`, wrap("welcome test", (t, req) => C().testWelcome(client, t, gid(req), req.body)));
+    const X = () => require("./dashboardCommunityExtraApi") as typeof import("./dashboardCommunityExtraApi");
+    app.put(`${base}/auto-responders`, wrap("ar put", (t, req) => X().putAutoResponder(client, t, gid(req), req.body)));
+    app.delete(`${base}/auto-responders/:id`, wrap("ar del", (t, req) => X().deleteAutoResponder(client, t, gid(req), req.params?.id)));
+    app.post(`${base}/counters`, wrap("counter new", (t, req) => X().createCounter(client, t, gid(req), req.body)));
+    app.patch(`${base}/counters/:id`, wrap("counter patch", (t, req) => X().patchCounter(client, t, gid(req), req.params?.id, req.body)));
+    app.delete(`${base}/counters/:id`, wrap("counter del", (t, req) => X().deleteCounter(client, t, gid(req), req.params?.id)));
+    app.patch(`${base}/server-logs`, wrap("logs patch", (t, req) => X().patchServerLogs(client, t, gid(req), req.body)));
+    app.get(`${base}/giveaways`, wrap("gw list", (t, req) => X().listGiveaways(client, t, gid(req))));
+    app.post(`${base}/giveaways`, wrap("gw new", (t, req) => X().createGiveaway(client, t, gid(req), req.body)));
+    app.post(`${base}/giveaways/:messageId/end`, wrap("gw end", (t, req) => X().giveawayAction(client, t, gid(req), req.params?.messageId, "end")));
+    app.post(`${base}/giveaways/:messageId/reroll`, wrap("gw reroll", (t, req) => X().giveawayAction(client, t, gid(req), req.params?.messageId, "reroll")));
+    app.delete(`${base}/giveaways/:messageId`, wrap("gw del", (t, req) => X().giveawayAction(client, t, gid(req), req.params?.messageId, "delete")));
+    app.get(`${base}/polls`, wrap("poll list", (t, req) => X().listPolls(client, t, gid(req))));
+    app.post(`${base}/polls`, wrap("poll new", (t, req) => X().createPoll(client, t, gid(req), req.body)));
+    app.post(`${base}/polls/:id/end`, wrap("poll end", (t, req) => X().endPoll(client, t, gid(req), req.params?.id)));
+    app.delete(`${base}/polls/:id`, wrap("poll del", (t, req) => X().deletePoll(client, t, gid(req), req.params?.id, String(req.query?.discord || "") === "1")));
   }
 
   app.get("/webhooks/site-dashboard/guilds/:guildId/health", async (req?, res?) => {

@@ -137,6 +137,31 @@ const WelcomePanel = dynamic(() => import("./guild/community/WelcomePanel").then
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
 
+const AutoRespondersPanel = dynamic(() => import("./guild/community/AutoRespondersPanel").then((m) => m.AutoRespondersPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
+const CountersPanel = dynamic(() => import("./guild/community/CountersPanel").then((m) => m.CountersPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
+const ServerLogsPanel = dynamic(() => import("./guild/community/ServerLogsPanel").then((m) => m.ServerLogsPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
+const GiveawaysPanel = dynamic(() => import("./guild/community/GiveawaysPanel").then((m) => m.GiveawaysPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
+const PollsPanel = dynamic(() => import("./guild/community/PollsPanel").then((m) => m.PollsPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
 const HealthPanel = dynamic(() => import("./guild/HealthPanel").then((m) => m.HealthPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
@@ -187,6 +212,11 @@ const SECTION_LEAD: Record<Section, string> = {
   comandipers: "Comandi con una risposta fissa, tipo +regole o +ip, creati da te.",
   ruoli: "Pannelli con pulsanti o menu per prendersi i ruoli da soli.",
   benvenuto: "Benvenuto, addio, messaggio privato a chi entra e ruoli automatici.",
+  risposte: "Il bot risponde da solo quando qualcuno scrive certe parole.",
+  contatori: "Canali vocali che mostrano membri, boost e altri numeri, aggiornati da soli.",
+  logserver: "Un canale dove il bot registra messaggi cancellati, entrate, uscite, ruoli e ban.",
+  giveaway: "Crea giveaway, guarda chi partecipa ed estrai i vincitori.",
+  sondaggi: "Sondaggi di Discord pubblicati dalla dashboard, con i risultati.",
 };
 
 const fieldCls =
@@ -2078,6 +2108,36 @@ export function GuildPanel() {
                     {section === "benvenuto" && guildId && token ? (
                       <Panel>
                         <WelcomePanel guildId={guildId} token={token} onToast={showToast} tab={moduleTab && isAnnunciModuleTab(moduleTab) ? moduleTab : "welcome"} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "risposte" && guildId && token ? (
+                      <Panel>
+                        <AutoRespondersPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "contatori" && guildId && token ? (
+                      <Panel>
+                        <CountersPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "logserver" && guildId && token ? (
+                      <Panel>
+                        <ServerLogsPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "giveaway" && guildId && token ? (
+                      <Panel>
+                        <GiveawaysPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "sondaggi" && guildId && token ? (
+                      <Panel>
+                        <PollsPanel guildId={guildId} token={token} onToast={showToast} />
                       </Panel>
                     ) : null}
 
