@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { createStore } from "./store";
+import { EmojiText } from "@/components/discord/EmojiText";
 
 /**
  * Emoji picker (E8). Pannello controllato `EmojiPicker` oppure
@@ -204,7 +205,7 @@ export function EmojiPickerProvider({ children }: { children: React.ReactNode })
             {session ? (
               <EmojiPickerPanel
                 ref={panelRef}
-                className="fixed z-[110] w-[min(20rem,calc(100vw-1rem))]"
+                className="fixed z-[110] w-[min(23rem,calc(100vw-1rem))]"
                 guildEmojis={session.guildEmojis}
                 unicodeOnly={session.unicodeOnly}
                 preferCustom={session.preferCustom}
@@ -266,7 +267,7 @@ export function EmojiPicker({
       {open ? (
         <EmojiPickerPanel
           ref={root}
-          className={cn("absolute z-40 mt-2 w-[min(20rem,calc(100vw-2rem))]", className)}
+          className={cn("absolute z-40 mt-2 w-[min(23rem,calc(100vw-2rem))]", className)}
           guildEmojis={guildEmojis}
           unicodeOnly={unicodeOnly}
           preferCustom={preferCustom}
@@ -279,6 +280,74 @@ export function EmojiPicker({
       ) : null}
     </AnimatePresence>
   );
+}
+
+/* ───────────── elenco completo delle emoji (caricato alla prima apertura) ───────────── */
+
+type UnicodeRow = [emoji: string, group: number, name: string, search: string, skins?: string[]];
+type UnicodeData = { groups: { id: number; key: string; label: string }[]; emojis: UnicodeRow[] };
+
+let unicodeData: UnicodeData | null = null;
+let unicodeLoading: Promise<UnicodeData> | null = null;
+
+function loadUnicodeData(): Promise<UnicodeData> {
+  if (unicodeData) return Promise.resolve(unicodeData);
+  if (!unicodeLoading) {
+    unicodeLoading = import("@/lib/data/unicodeEmoji.json")
+      .then((m) => {
+        unicodeData = ((m as { default?: unknown }).default ?? m) as UnicodeData;
+        return unicodeData;
+      })
+      .finally(() => {
+        unicodeLoading = null;
+      });
+  }
+  return unicodeLoading;
+}
+
+const normSearch = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[’']/g, "'")
+    .trim();
+
+const GROUP_ICON: Record<string, string> = {
+  "smileys-emotion": "😀",
+  "people-body": "👋",
+  "animals-nature": "🐶",
+  "food-drink": "🍕",
+  "travel-places": "🚗",
+  activities: "⚽",
+  objects: "💡",
+  symbols: "❤️",
+  flags: "🏳️",
+};
+
+const TONES = ["✋", "✋🏻", "✋🏼", "✋🏽", "✋🏾", "✋🏿"];
+const TONE_KEY = "vc_emoji_tone";
+const RECENT_KEY = "vc_emoji_recent";
+
+function readLocal(key: string) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function writeLocal(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* archivio pieno o bloccato */
+  }
+}
+
+/** Le bandiere su Windows non si vedono come emoji: le disegniamo come immagini. */
+function Glyph({ text, flag }: { text: string; flag?: boolean }) {
+  if (flag) return <EmojiText text={text} emojiClassName="size-6" />;
+  return <>{text}</>;
 }
 
 const EmojiPickerPanel = function EmojiPickerPanel({
@@ -300,13 +369,102 @@ const EmojiPickerPanel = function EmojiPickerPanel({
 }) {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<"custom" | "unicode">(preferCustom && !unicodeOnly && guildEmojis.length ? "custom" : "unicode");
-  const needle = q.trim().toLowerCase();
+  const [data, setData] = useState<UnicodeData | null>(unicodeData);
+  const [tone, setTone] = useState(() => Math.max(0, Math.min(5, Number(readLocal(TONE_KEY)) || 0)));
+  const [toneOpen, setToneOpen] = useState(false);
+  const [recent, setRecent] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(readLocal(RECENT_KEY) || "[]");
+      return Array.isArray(v) ? v.filter((x) => typeof x === "string").slice(0, 24) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [hover, setHover] = useState<{ glyph: string; name: string; flag?: boolean; url?: string } | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (data) return;
+    let alive = true;
+    void loadUnicodeData()
+      .then((d) => {
+        if (alive) setData(d);
+      })
+      .catch(() => null);
+    return () => {
+      alive = false;
+    };
+  }, [data]);
+
+  const needle = normSearch(q);
   const customs = useMemo(
-    () => guildEmojis.filter((e) => e.id && (!needle || e.name.toLowerCase().includes(needle) || e.id.includes(needle))),
+    () => guildEmojis.filter((e) => e.id && (!needle || normSearch(e.name).includes(needle.replace(/:/g, "")) || e.id.includes(needle))),
     [guildEmojis, needle],
   );
-  const unis = useMemo(() => UNICODE_EMOJI.filter((u) => !needle || u.includes(needle)), [needle]);
+  const flagGroup = data?.groups.find((g) => g.key === "flags")?.id;
+  const withTone = (row: UnicodeRow) => (tone > 0 && row[4] ? row[4][tone - 1] : row[0]);
+
+  /* ricerca: tutte le parole devono comparire (nome, parole chiave italiane e inglesi, :shortcode:) */
+  const results = useMemo(() => {
+    const words = needle.split(/\s+/).filter(Boolean);
+    if (!data || !words.length) return null;
+    const scored: { row: UnicodeRow; score: number }[] = [];
+    for (const row of data.emojis) {
+      const hay = row[3];
+      if (!words.every((w) => hay.includes(w))) continue;
+      const name = normSearch(row[2]);
+      const score = name === needle ? 0 : name.startsWith(needle) ? 1 : hay.split("|").some((t) => t === needle || t === `:${needle}:`) ? 2 : 3;
+      scored.push({ row, score });
+    }
+    return scored.sort((a, b) => a.score - b.score).map((x) => x.row);
+  }, [data, needle]);
+
+  const byGroup = useMemo(() => {
+    if (!data) return [];
+    return data.groups.map((g) => ({ ...g, rows: data.emojis.filter((r) => r[1] === g.id) }));
+  }, [data]);
+  const recentRows = useMemo(() => {
+    if (!data) return recent.map((e) => [e, -1, e, ""] as UnicodeRow);
+    const byChar = new Map<string, UnicodeRow>();
+    for (const r of data.emojis) {
+      byChar.set(r[0], r);
+      for (const s of r[4] || []) byChar.set(s, [s, r[1], r[2], r[3]]);
+    }
+    return recent.map((e) => byChar.get(e) || ([e, -1, e, ""] as UnicodeRow));
+  }, [data, recent]);
+
+  const pickUnicode = (text: string) => {
+    const next = [text, ...recent.filter((x) => x !== text)].slice(0, 24);
+    setRecent(next);
+    writeLocal(RECENT_KEY, JSON.stringify(next));
+    onPick({ type: "unicode", text });
+  };
+
   const showCustom = tab === "custom" && !unicodeOnly;
+  const cell = "flex size-9 items-center justify-center rounded-lg text-[1.35rem] leading-none hover:bg-crema/10 focus-visible:bg-crema/10 focus-visible:outline-none";
+
+  const emojiButton = (row: UnicodeRow, key: string) => {
+    const glyph = withTone(row);
+    const flag = row[1] === flagGroup;
+    return (
+      <button
+        key={key}
+        type="button"
+        aria-label={row[2]}
+        onMouseEnter={() => setHover({ glyph, name: row[2], flag })}
+        onFocus={() => setHover({ glyph, name: row[2], flag })}
+        onClick={() => pickUnicode(glyph)}
+        className={cell}
+      >
+        <Glyph text={glyph} flag={flag} />
+      </button>
+    );
+  };
+
+  const jumpTo = (id: number | "recent") => {
+    const el = scroller.current?.querySelector<HTMLElement>(`[data-group="${id}"]`);
+    if (el && scroller.current) scroller.current.scrollTo({ top: el.offsetTop - 4, behavior: "smooth" });
+  };
 
   return (
     <motion.div
@@ -318,82 +476,162 @@ const EmojiPickerPanel = function EmojiPickerPanel({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 6, scale: 0.98 }}
       transition={{ duration: 0.18 }}
-      className={cn(
-        "overflow-hidden rounded-2xl bg-roast shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-sand/20",
-        className,
-      )}
+      className={cn("overflow-hidden rounded-2xl bg-roast shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-sand/20", className)}
     >
       <div className="flex items-center gap-2 border-b border-sand/10 px-3 py-2">
         <Search className="size-3.5 shrink-0 text-crema/40" />
-        <input name="emoji-search"
+        <input
+          name="emoji-search"
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Cerca…"
+          placeholder={showCustom ? "Cerca tra le emoji del server…" : "Cerca: cuore, risata, :fire:…"}
           className="min-w-0 flex-1 bg-transparent text-sm text-crema outline-none placeholder:text-crema/35"
         />
+        {!showCustom ? (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setToneOpen((v) => !v)}
+              aria-label="Tonalità della pelle"
+              title="Tonalità della pelle"
+              className="rounded-lg p-1 text-lg leading-none hover:bg-crema/8"
+            >
+              {TONES[tone]}
+            </button>
+            {toneOpen ? (
+              <div className="absolute right-0 top-full z-10 mt-1 flex gap-0.5 rounded-xl bg-espresso p-1 shadow-lg ring-1 ring-sand/20">
+                {TONES.map((t, i) => (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-label={i === 0 ? "Tonalità predefinita" : `Tonalità ${i}`}
+                    onClick={() => {
+                      setTone(i);
+                      writeLocal(TONE_KEY, String(i));
+                      setToneOpen(false);
+                    }}
+                    className={cn("rounded-lg p-1 text-lg leading-none hover:bg-crema/10", tone === i && "bg-caramel/20")}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <button type="button" onClick={onClose} className="rounded-lg p-1 text-crema/50 hover:bg-crema/8 hover:text-crema" aria-label="Chiudi">
           <X className="size-3.5" />
         </button>
       </div>
+
       {!unicodeOnly && (
         <div className="flex gap-1 border-b border-sand/10 px-2 py-1.5">
           {(
             [
               ["unicode", "Emoji"],
-              ["custom", "Discord"],
+              ["custom", "Del server"],
             ] as const
           ).map(([id, label]) => (
             <button
               key={id}
               type="button"
               onClick={() => setTab(id)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
-                tab === id ? "bg-caramel/20 text-ember" : "text-crema/55 hover:text-crema",
-              )}
+              className={cn("rounded-full px-3 py-1 text-xs font-semibold transition-colors", tab === id ? "bg-caramel/20 text-ember" : "text-crema/55 hover:text-crema")}
             >
               {label}
+              {id === "custom" && guildEmojis.length ? <span className="ml-1 text-crema/40">{guildEmojis.length}</span> : null}
             </button>
           ))}
         </div>
       )}
-      <div className="grid max-h-56 grid-cols-8 gap-0.5 overflow-y-auto p-2">
-        {showCustom
-          ? customs.map((e) => (
-              <button
-                key={e.id}
-                type="button"
-                title={e.name}
-                onClick={() =>
-                  onPick({
-                    type: "custom",
-                    id: e.id,
-                    name: e.name,
-                    animated: e.animated,
-                    markup: formatCustomEmoji(e),
-                  })
-                }
-                className="flex size-9 items-center justify-center rounded-lg hover:bg-crema/10"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={e.url || customEmojiUrl(e.id, e.animated)} alt="" className="size-6 object-contain" />
-              </button>
-            ))
-          : unis.map((u) => (
-              <button
-                key={u}
-                type="button"
-                onClick={() => onPick({ type: "unicode", text: u })}
-                className="flex size-9 items-center justify-center rounded-lg text-lg hover:bg-crema/10"
-              >
+
+      {!showCustom && !results && data ? (
+        <div className="flex justify-between border-b border-sand/10 px-1.5 py-1">
+          {recentRows.length ? (
+            <button type="button" title="Usate di recente" aria-label="Usate di recente" onClick={() => jumpTo("recent")} className="rounded-md px-1 py-0.5 text-base hover:bg-crema/10">
+              🕘
+            </button>
+          ) : null}
+          {byGroup.map((g) => (
+            <button key={g.id} type="button" title={g.label} aria-label={g.label} onClick={() => jumpTo(g.id)} className="rounded-md px-1 py-0.5 text-base hover:bg-crema/10">
+              <Glyph text={GROUP_ICON[g.key] || g.rows[0]?.[0] || "•"} flag={g.key === "flags"} />
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div ref={scroller} className="relative max-h-72 overflow-y-auto p-2" onMouseLeave={() => setHover(null)}>
+        {showCustom ? (
+          customs.length ? (
+            <div className="grid grid-cols-8 gap-0.5">
+              {customs.map((e) => (
+                <button
+                  key={e.id}
+                  type="button"
+                  aria-label={e.name}
+                  onMouseEnter={() => setHover({ glyph: "", name: `:${e.name}:`, url: e.url || customEmojiUrl(e.id, e.animated) })}
+                  onClick={() => onPick({ type: "custom", id: e.id, name: e.name, animated: e.animated, markup: formatCustomEmoji(e) })}
+                  className={cell}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={e.url || customEmojiUrl(e.id, e.animated)} alt="" loading="lazy" className="size-7 object-contain" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="py-6 text-center text-xs text-crema/45">{guildEmojis.length ? "Nessuna emoji trovata." : "Questo server non ha emoji sue."}</p>
+          )
+        ) : !data ? (
+          /* elenco breve mentre arriva quello completo */
+          <div className="grid grid-cols-8 gap-0.5">
+            {UNICODE_EMOJI.filter((u) => !needle || u.includes(needle)).map((u) => (
+              <button key={u} type="button" onClick={() => pickUnicode(u)} className={cell}>
                 {u}
               </button>
             ))}
+          </div>
+        ) : results ? (
+          results.length ? (
+            <div className="grid grid-cols-8 gap-0.5">{results.slice(0, 400).map((r, i) => emojiButton(r, `${r[0]}-${i}`))}</div>
+          ) : (
+            <p className="py-6 text-center text-xs text-crema/45">Nessuna emoji per “{q.trim()}”.</p>
+          )
+        ) : (
+          <>
+            {recentRows.length ? (
+              <section data-group="recent">
+                <p className="sticky top-0 z-[1] -mx-2 bg-roast/95 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/50 backdrop-blur">Usate di recente</p>
+                <div className="grid grid-cols-8 gap-0.5">{recentRows.map((r, i) => emojiButton([r[0], r[1], r[2], r[3]], `recent-${i}`))}</div>
+              </section>
+            ) : null}
+            {byGroup.map((g) => (
+              <section key={g.id} data-group={g.id} className="mt-1">
+                <p className="sticky top-0 z-[1] -mx-2 bg-roast/95 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/50 backdrop-blur">{g.label}</p>
+                <div className="grid grid-cols-8 gap-0.5">{g.rows.map((r, i) => emojiButton(r, `${g.id}-${i}`))}</div>
+              </section>
+            ))}
+          </>
+        )}
       </div>
-      {((showCustom && !customs.length) || (!showCustom && !unis.length)) && (
-        <p className="px-3 pb-3 text-center text-xs text-crema/45">Nessuna emoji trovata.</p>
-      )}
+
+      <div className="flex h-11 items-center gap-2.5 border-t border-sand/10 px-3">
+        {hover ? (
+          <>
+            <span className="flex size-7 items-center justify-center text-2xl leading-none">
+              {hover.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={hover.url} alt="" className="size-7 object-contain" />
+              ) : (
+                <Glyph text={hover.glyph} flag={hover.flag} />
+              )}
+            </span>
+            <span className="truncate text-sm font-medium text-crema/85">{hover.name}</span>
+          </>
+        ) : (
+          <span className="text-xs text-crema/40">{showCustom ? "Emoji del server" : data ? `${data.emojis.length} emoji · cerca anche in inglese o con :nome:` : "Carico tutte le emoji…"}</span>
+        )}
+      </div>
     </motion.div>
   );
 };
