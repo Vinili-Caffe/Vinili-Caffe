@@ -27,7 +27,7 @@ export function MessagePreview({
   color?: string;
   className?: string;
 }) {
-  const fill = (s: string) => s.replace(/\{([a-zA-Z_]+)\}/g, (m, k: string) => samples[k] ?? m);
+  const fill = (s: string) => s.replace(/\{([a-zA-Z_.]+)\}/g, (m, k: string) => samples[k] ?? m);
   const t = fill(String(title || "").trim());
   const body = fill(String(text || "").trim());
   if (!t && !body) return null;

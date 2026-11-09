@@ -18,6 +18,7 @@ import {
   MessageSquarePlus,
   NotebookPen,
   Pin,
+  PinOff,
   Settings2,
   Sparkles,
   Terminal,
@@ -342,14 +343,26 @@ function UserCard() {
   );
 }
 
-function Sidebar({ guild, guildNav, onNavigate }: { guild: ShellGuild | null; guildNav?: GuildNav; onNavigate?: () => void }) {
+function Sidebar({
+  guild,
+  guildNav,
+  onNavigate,
+  pinned,
+  onTogglePin,
+}: {
+  guild: ShellGuild | null;
+  guildNav?: GuildNav;
+  onNavigate?: () => void;
+  pinned?: boolean;
+  onTogglePin?: () => void;
+}) {
   const pathname = usePathname() || "/";
   const [lastId, setLastId] = useState("");
   useEffect(() => setLastId(readLastGuildId()), []);
   const guildId = guild?.id || lastId;
 
   return (
-    <div className="flex h-full flex-col gap-5 overflow-y-auto px-3 pb-3 pt-4" onClickCapture={(e) => {
+    <div className="relative flex h-full flex-col gap-5 overflow-y-auto px-3 pb-3 pt-4" onClickCapture={(e) => {
       /* telefono: chiudi il menu quando si sceglie una voce */
       if ((e.target as HTMLElement).closest("a")) onNavigate?.();
     }}>
@@ -360,6 +373,20 @@ function Sidebar({ guild, guildNav, onNavigate }: { guild: ShellGuild | null; gu
           <span className="mt-1 block text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-caramel">Dashboard bot</span>
         </span>
       </SmartLink>
+      {onTogglePin ? (
+        <button
+          type="button"
+          onClick={onTogglePin}
+          aria-pressed={pinned}
+          title={pinned ? "Lascia che si nasconda da sola" : "Tienila sempre aperta"}
+          className={cn(
+            "absolute right-3 top-5 inline-flex size-8 items-center justify-center rounded-lg ring-1 transition",
+            pinned ? "bg-caramel/15 text-ember ring-caramel/30" : "text-crema/50 ring-sand/15 hover:text-crema",
+          )}
+        >
+          {pinned ? <Pin className="size-4" aria-hidden /> : <PinOff className="size-4" aria-hidden />}
+        </button>
+      ) : null}
 
       <ServerSwitcher current={guild} />
 
@@ -457,6 +484,70 @@ export function DashboardShell({
   useBodyScrollLock(open);
 
   useEffect(() => setOpen(false), [pathname]);
+
+  /* Desktop: la sidebar si nasconde da sola se non la usi e ricompare portando il mouse sul bordo sinistro
+     (come la navbar delle altre pagine). Con la puntina resta sempre aperta. */
+  const [sideHidden, setSideHidden] = useState(false);
+  const [sidePeek, setSidePeek] = useState(false);
+  const [sidePinned, setSidePinned] = useState(false);
+  const hideTimer = useRef<number | null>(null);
+  const overSide = useRef(false);
+  const clearHide = () => {
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    hideTimer.current = null;
+  };
+  const scheduleHide = (ms: number) => {
+    clearHide();
+    hideTimer.current = window.setTimeout(() => {
+      if (overSide.current) return;
+      setSidePeek(false);
+      setSideHidden(true);
+      try {
+        sessionStorage.setItem("vc-dash-side", "hidden");
+      } catch {
+        /* ignore */
+      }
+    }, ms);
+  };
+  useEffect(() => {
+    const raf = window.requestAnimationFrame(() => {
+      let pin = false;
+      let wasHidden = false;
+      try {
+        pin = localStorage.getItem("vc-dash-side-pin") === "1";
+        wasHidden = sessionStorage.getItem("vc-dash-side") === "hidden";
+      } catch {
+        /* ignore */
+      }
+      setSidePinned(pin);
+      if (pin) return;
+      /* già nascosta in questa visita: le pagine dopo partono nascoste, niente salto del contenuto */
+      if (wasHidden) setSideHidden(true);
+      else scheduleHide(4000);
+    });
+    return () => {
+      window.cancelAnimationFrame(raf);
+      clearHide();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const toggleSidePin = () => {
+    const next = !sidePinned;
+    setSidePinned(next);
+    try {
+      localStorage.setItem("vc-dash-side-pin", next ? "1" : "0");
+      if (next) sessionStorage.removeItem("vc-dash-side");
+    } catch {
+      /* ignore */
+    }
+    clearHide();
+    if (next) {
+      setSideHidden(false);
+      setSidePeek(false);
+    }
+  };
+  const sideShown = sidePinned || !sideHidden || sidePeek;
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
@@ -473,8 +564,38 @@ export function DashboardShell({
           aria-hidden
         />
 
-        <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-sand/10 bg-roast lg:block" aria-label="Menu dashboard">
-          <Sidebar guild={guild} guildNav={guildNav} />
+        {/* bordo sinistro: avvicinando il mouse la sidebar ricompare */}
+        {!sidePinned && sideHidden && !sidePeek ? (
+          <div
+            className="fixed inset-y-0 left-0 z-40 hidden w-3 lg:block"
+            aria-hidden
+            onMouseEnter={() => {
+              clearHide();
+              setSidePeek(true);
+            }}
+          />
+        ) : null}
+        <aside
+          className={cn(
+            "fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-sand/10 bg-roast transition-[transform,box-shadow] duration-300 ease-out lg:block",
+            sideShown ? "translate-x-0" : "-translate-x-full",
+            sideHidden && sidePeek && !sidePinned && "shadow-[24px_0_60px_-20px_rgba(0,0,0,0.85)]",
+          )}
+          aria-label="Menu dashboard"
+          onMouseEnter={() => {
+            overSide.current = true;
+            clearHide();
+          }}
+          onMouseLeave={() => {
+            overSide.current = false;
+            if (!sidePinned) scheduleHide(sideHidden ? 700 : 2500);
+          }}
+          onFocusCapture={() => {
+            clearHide();
+            if (sideHidden) setSidePeek(true);
+          }}
+        >
+          <Sidebar guild={guild} guildNav={guildNav} pinned={sidePinned} onTogglePin={toggleSidePin} />
         </aside>
 
         <AnimatePresence>
@@ -511,7 +632,7 @@ export function DashboardShell({
           ) : null}
         </AnimatePresence>
 
-        <div className="relative lg:pl-64">
+        <div className={cn("relative transition-[padding] duration-300 ease-out", !sidePinned && sideHidden ? "lg:pl-0" : "lg:pl-64")}>
           <header className="sticky top-[var(--vc-view-as-h,0px)] z-30 flex h-14 items-center gap-3 border-b border-sand/10 bg-espresso/85 px-4 backdrop-blur-md sm:px-6">
             <button
               type="button"

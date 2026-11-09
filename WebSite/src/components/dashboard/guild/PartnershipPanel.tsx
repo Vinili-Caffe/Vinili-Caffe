@@ -2,7 +2,7 @@
 
 import { NumberField } from "@/components/ui/NumberField";
 import { cn } from "@/lib/cn";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   addPartnershipBlacklist,
   adjustPartnershipManagerPoints,
@@ -27,6 +27,7 @@ import {
 import { confirmDialog, Disclosure } from "@/components/ui";
 import { Pagination } from "@/components/ui/Pagination";
 import { MessagePreview } from "./MessagePreview";
+import { PARTNERSHIP_SAMPLES, PlaceholderList } from "./PlaceholderList";
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
@@ -89,6 +90,10 @@ export function PartnershipPanel({
   onToast: (msg: string, err?: boolean) => void;
 }) {
   const [tab, setTab] = useState<Tab>("setup");
+  /* segnaposto: si inseriscono nell'ultimo campo del ringraziamento dove hai scritto */
+  const tyTitleRef = useRef<HTMLInputElement>(null);
+  const tyTextRef = useRef<HTMLTextAreaElement>(null);
+  const tyLastField = useRef<"title" | "description">("description");
   const [bundle, setBundle] = useState<PartnershipBundle | null>(null);
   const [draft, setDraft] = useState<PartnershipConfig | null>(null);
   const [error, setError] = useState("");
@@ -541,6 +546,8 @@ export function PartnershipPanel({
               </div>
               <Field label="Titolo">
                 <input
+                  ref={tyTitleRef}
+                  onFocus={() => (tyLastField.current = "title")}
                   name="thank-you-title"
                   value={draft.thankYouEmbed.title || ""}
                   onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, title: e.target.value || null } })}
@@ -549,6 +556,8 @@ export function PartnershipPanel({
               </Field>
               <Field label="Testo">
                 <textarea
+                  ref={tyTextRef}
+                  onFocus={() => (tyLastField.current = "description")}
                   name="thank-you-description"
                   value={draft.thankYouEmbed.description || ""}
                   rows={3}
@@ -561,7 +570,22 @@ export function PartnershipPanel({
                 text={draft.thankYouEmbed.description}
                 roles={roles}
                 channels={channels}
-                samples={{ guild: "Server Partner", points: "12", user: "@manager", manager: "@manager" }}
+                samples={PARTNERSHIP_SAMPLES}
+              />
+              <PlaceholderList
+                onInsert={(token) => {
+                  const field = tyLastField.current;
+                  const el = field === "title" ? tyTitleRef.current : tyTextRef.current;
+                  const cur = String((field === "title" ? draft.thankYouEmbed.title : draft.thankYouEmbed.description) || "");
+                  const start = el?.selectionStart ?? cur.length;
+                  const end = el?.selectionEnd ?? start;
+                  const next = cur.slice(0, start) + token + cur.slice(end);
+                  set({ thankYouEmbed: { ...draft.thankYouEmbed, [field]: next } });
+                  requestAnimationFrame(() => {
+                    el?.focus();
+                    el?.setSelectionRange(start + token.length, start + token.length);
+                  });
+                }}
               />
               <button
                 type="button"
