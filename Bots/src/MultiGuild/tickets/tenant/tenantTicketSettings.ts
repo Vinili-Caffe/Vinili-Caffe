@@ -138,6 +138,10 @@ function defaultBehaviorOptions() {
     autoCloseOnUserLeave: true,
     autoCloseSinceOpenMs: 24 * 60 * 60 * 1000,
     autoCloseSinceLastMessageMs: 2 * 60 * 60 * 1000,
+    staleAlertEnabled: false,
+    staleAlertMinutes: 120,
+    staleAlertChannelId: null,
+    quickReplies: [],
     embedColor: DEFAULT_EMBED_COLOR,
     ticketPerms: defaultTicketPerms(),
   };
@@ -189,9 +193,32 @@ function normalizeBehaviorOptions(raw?) {
       src.autoCloseSinceLastMessageMs ?? src.autoCloseSinceLastMessage ?? src.acslm,
       base.autoCloseSinceLastMessageMs,
     ),
+    staleAlertEnabled: asBool(src.staleAlertEnabled ?? src.sae, base.staleAlertEnabled),
+    staleAlertMinutes: asInt(src.staleAlertMinutes ?? src.sam, base.staleAlertMinutes, 15, 1440),
+    staleAlertChannelId: normalizeId(src.staleAlertChannelId ?? src.sac),
+    quickReplies: normalizeQuickReplies(src.quickReplies ?? src.qr),
     embedColor: normalizeEmbedColor(src.embedColor ?? src.ec, base.embedColor),
     ticketPerms: normalizeTicketPerms(src.ticketPerms ?? src.tp),
   };
+}
+
+/** Risposte rapide: [{ id, title, content }] (salvate compatte come { id, t, c }). Max 25. */
+function normalizeQuickReplies(raw?) {
+  const list = Array.isArray(raw) ? raw : [];
+  const out = [];
+  const seen = new Set();
+  for (const r of list) {
+    if (!r || typeof r !== "object") continue;
+    const title = String(r.title ?? r.t ?? "").trim().slice(0, 60);
+    const content = String(r.content ?? r.c ?? "").trim().slice(0, 2000);
+    if (!title || !content) continue;
+    let id = String(r.id || "").trim().slice(0, 24) || title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || `r${out.length + 1}`;
+    while (seen.has(id)) id = `${id}-${out.length + 1}`;
+    seen.add(id);
+    out.push({ id, title, content });
+    if (out.length >= 25) break;
+  }
+  return out;
 }
 
 function behaviorToRow(behavior?) {
@@ -219,6 +246,10 @@ function behaviorToRow(behavior?) {
     acol: b.autoCloseOnUserLeave,
     acso: b.autoCloseSinceOpenMs,
     acslm: b.autoCloseSinceLastMessageMs,
+    sae: b.staleAlertEnabled,
+    sam: b.staleAlertMinutes,
+    sac: b.staleAlertChannelId,
+    qr: b.quickReplies.map((r?) => ({ id: r.id, t: r.title, c: r.content })),
     ec: b.embedColor,
     tp: {
       ar: b.ticketPerms.addReactions,
@@ -448,6 +479,10 @@ function pickBehaviorPatch(patch?) {
     "autoCloseSinceLastMessageMs",
     "autoCloseSinceOpen",
     "autoCloseSinceLastMessage",
+    "staleAlertEnabled",
+    "staleAlertMinutes",
+    "staleAlertChannelId",
+    "quickReplies",
     "ticketPerms",
   ];
   const out: Record<string, any> = {};

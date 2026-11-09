@@ -63,6 +63,8 @@ const ticketEntrySchema = new Schema(
     descriptionText: { type: String, default: "" },
     descriptionSubmittedAt: { type: Date, default: null },
     autoClosePromptSentAt: { type: Date, default: null },
+    /* avviso "ticket fermo": id dell'ultimo messaggio dell'utente già segnalato (uno per messaggio) */
+    staleAlertMessageId: { type: String, default: null },
     closeReason: { type: String, default: null },
     closeRequestedBy: { type: String, default: null },
     closeRequestedAt: { type: Date, default: null },

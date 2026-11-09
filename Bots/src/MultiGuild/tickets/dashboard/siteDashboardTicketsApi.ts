@@ -73,6 +73,10 @@ function serializeTicketSettings(config?) {
       const n = Number(cfg.autoCloseSinceLastMessageMs);
       return Number.isFinite(n) ? Math.max(0, n) : 2 * 60 * 60 * 1000;
     })(),
+    staleAlertEnabled: cfg.staleAlertEnabled === true,
+    staleAlertMinutes: Number(cfg.staleAlertMinutes) || 120,
+    staleAlertChannelId: cfg.staleAlertChannelId || null,
+    quickReplies: Array.isArray(cfg.quickReplies) ? cfg.quickReplies : [],
     ticketPerms: {
       addReactions: cfg.ticketPerms?.addReactions !== false,
       sendTtsMessages: cfg.ticketPerms?.sendTtsMessages === true,
@@ -320,6 +324,10 @@ async function patchDashboardTickets(client?, accessToken?, guildId?, body?) {
     "autoCloseSinceLastMessageMs",
     "autoCloseSinceOpen",
     "autoCloseSinceLastMessage",
+    "staleAlertEnabled",
+    "staleAlertMinutes",
+    "staleAlertChannelId",
+    "quickReplies",
     "ticketPerms",
   ]) {
     if (Object.prototype.hasOwnProperty.call(src, key)) patch[key] = src[key];

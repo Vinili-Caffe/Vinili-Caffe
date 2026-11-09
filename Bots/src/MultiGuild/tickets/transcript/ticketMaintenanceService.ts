@@ -135,10 +135,69 @@ async function processTickets(client?) {
   }
 }
 
+/**
+ * Avvisi "ticket fermo": se l'ultimo messaggio di un ticket aperto è dell'utente che l'ha aperto e nessuno
+ * gli risponde da staleAlertMinutes, avvisa lo staff (nel canale scelto o nel ticket stesso, menzionando chi
+ * l'ha preso in carico). Un solo avviso per messaggio dell'utente.
+ */
+async function processStaleAlerts(client?) {
+  const now = Date.now();
+  const tickets = await Ticket.find(
+    { open: true },
+    { _id: 1, guildId: 1, userId: 1, claimedBy: 1, channelId: 1, ticketNumber: 1, staleAlertMessageId: 1 },
+  )
+    .limit(200)
+    .lean()
+    .catch(() => []);
+  for (const ticket of tickets) {
+    try {
+      const settings: any = getTicketSettingsSync(ticket.guildId);
+      if (settings?.staleAlertEnabled !== true) continue;
+      const waitMs = Math.max(15, Number(settings.staleAlertMinutes) || 120) * 60 * 1000;
+      const channel = client.channels?.cache?.get(ticket.channelId) || (await getClientChannelCached(client, ticket.channelId));
+      if (!channel || !channel.isTextBased?.()) continue;
+      const recent = await channel.messages.fetch({ limit: 15 }).catch(() => null);
+      if (!recent || recent.size === 0) continue;
+      const latestHuman = recent.find((m?) => !m.author?.bot);
+      if (!latestHuman) continue;
+      /* ha risposto qualcuno dello staff: niente avviso */
+      if (String(latestHuman.author?.id || "") !== String(ticket.userId || "")) continue;
+      if (now - latestHuman.createdTimestamp < waitMs) continue;
+      if (String(ticket.staleAlertMessageId || "") === String(latestHuman.id)) continue;
+
+      const saved = await Ticket.findOneAndUpdate(
+        { _id: ticket._id, open: true },
+        { $set: { staleAlertMessageId: String(latestHuman.id) } },
+        { new: true },
+      ).catch(() => null);
+      if (!saved) continue;
+
+      const waited = Math.round((now - latestHuman.createdTimestamp) / 60000);
+      const waitedText = waited >= 120 ? `${Math.round(waited / 60)} ore` : `${waited} minuti`;
+      const label = ticket.ticketNumber ? `#${ticket.ticketNumber}` : "";
+      const embed = new EmbedBuilder()
+        .setColor("#d99a5b")
+        .setTitle(`${E.VC_Alert} Ticket ${label} in attesa di risposta`.replace("  ", " "))
+        .setDescription(`<#${ticket.channelId}>: <@${ticket.userId}> aspetta una risposta da **${waitedText}**.`);
+      const mention = ticket.claimedBy ? `<@${ticket.claimedBy}>` : null;
+      const alertChannelId = String(settings.staleAlertChannelId || "").trim();
+      const target = alertChannelId
+        ? client.channels?.cache?.get(alertChannelId) || (await getClientChannelCached(client, alertChannelId))
+        : channel;
+      if (!target || !target.isTextBased?.()) continue;
+      await target
+        .send({ content: mention, embeds: [embed], allowedMentions: { users: ticket.claimedBy ? [String(ticket.claimedBy)] : [] } })
+        .catch((err?) => global.logger?.warn?.("[TICKET STALE ALERT] send failed", ticket?.channelId, err?.message || err));
+    } catch (err) {
+      global.logger?.warn?.("[TICKET STALE ALERT] ticket", ticket?.channelId, err?.message || err);
+    }
+  }
+}
+
 function startTicketAutoClosePromptLoop(client?) {
   if (!shouldStartExternalWorkerLoop("BOT_SCHEDULER")) return null;
   if (promptLoopHandle) return promptLoopHandle;
-  const tick = async () => { if (promptLoopRunning) return; promptLoopRunning = true; try { await processTickets(client); } catch (err) { global.logger.error("[TICKET AUTO CLOSE PROMPT] Loop error", err); } finally { promptLoopRunning = false; } };
+  const tick = async () => { if (promptLoopRunning) return; promptLoopRunning = true; try { await processTickets(client); } catch (err) { global.logger.error("[TICKET AUTO CLOSE PROMPT] Loop error", err); } try { await processStaleAlerts(client); } catch (err) { global.logger.error("[TICKET STALE ALERT] Loop error", err); } finally { promptLoopRunning = false; } };
   tick();
   promptLoopHandle = setInterval(tick, 10 * 60 * 1000);
   promptLoopHandle.unref?.();
