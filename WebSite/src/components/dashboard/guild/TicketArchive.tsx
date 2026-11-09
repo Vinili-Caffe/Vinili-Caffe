@@ -90,6 +90,7 @@ async function loadTranscriptHtml(token: string, guildId: string, id: string): P
       credentials: "omit",
       headers: { Accept: "text/html,application/json", Authorization: `Bearer ${token}` },
     });
+    if (r.status === 404) return { ok: false, message: "Il transcript di questo ticket non è più salvato: il bot l'ha già eliminato." };
     const type = r.headers.get("content-type") || "";
     if (type.includes("application/json")) {
       const d = (await r.json().catch(() => ({}))) as Record<string, unknown>;
