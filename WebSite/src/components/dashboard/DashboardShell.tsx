@@ -460,39 +460,162 @@ function CreditsChip() {
   );
 }
 
-/** Voce "Sviluppatore": compare solo a chi il bot riconosce come sviluppatore. */
-function DevNavItem({ animated, pathname }: { animated: boolean; pathname: string }) {
-  const { token } = useAuth();
+/** FAQ, Feedback e Recensioni nella barra in alto (da tablet in su; su telefono stanno nel menu account). */
+function TopNavLinks() {
+  const pathname = usePathname() || "";
+  return (
+    <nav aria-label="Bot" className="hidden shrink-0 items-center gap-0.5 lg:flex">
+      {BOT_NAV.map((n) => {
+        const active = samePath(pathname, n.href);
+        const Icon = n.icon;
+        return (
+          <SmartLink
+            key={n.href}
+            href={page(n.href)}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold transition",
+              active ? "bg-caramel/15 text-ember" : "text-crema/65 hover:bg-crema/[0.05] hover:text-crema",
+            )}
+          >
+            <Icon className="size-4" aria-hidden />
+            {n.label}
+          </SmartLink>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** Menu account in alto a destra: nome utente, voci dell'account e ritorno al sito. */
+function AccountMenu() {
+  const { user, ready, login, token } = useAuth();
+  const pathname = usePathname() || "";
   const isDev = useSyncExternalStore(subscribeDev, getIsDev, () => null);
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (token) void ensureIsDev(token);
   }, [token]);
-  if (!isDev) return null;
-  return <NavItem animated={animated} href="/dashboard/sviluppatore/" label="Sviluppatore" icon={Wrench} active={samePath(pathname, "/dashboard/sviluppatore/")} />;
-}
 
-function UserCard() {
-  const { user, ready, login } = useAuth();
-  if (!ready) return <div className="h-12 animate-pulse rounded-xl bg-crema/[0.04]" />;
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  /* chiudi quando cambi pagina */
+  const [seenPath, setSeenPath] = useState(pathname);
+  if (seenPath !== pathname) {
+    setSeenPath(pathname);
+    if (open) setOpen(false);
+  }
+
+  if (!ready) return <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-crema/[0.06] sm:w-36 sm:rounded-xl" />;
   if (!user) {
     return (
       <button
         type="button"
         onClick={login}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#5865f2] px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+        className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#5865f2] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-110"
       >
-        <LogIn className="size-4" aria-hidden /> Accedi con Discord
+        <LogIn className="size-4" aria-hidden /> <span className="hidden sm:inline">Accedi</span>
       </button>
     );
   }
+
+  const items = [...ACCOUNT_NAV, ...(isDev ? [{ href: "/dashboard/sviluppatore/", label: "Sviluppatore", icon: Wrench }] : [])];
+  const itemClass = (active: boolean) =>
+    cn(
+      "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition",
+      active ? "bg-caramel/15 text-ember" : "text-crema/80 hover:bg-crema/[0.06] hover:text-crema",
+    );
+  const isActive = (href: string) => samePath(pathname, href) && !items.some((o) => o.href.length > href.length && samePath(pathname, o.href));
+
   return (
-    <div className="flex items-center gap-2.5 rounded-xl bg-espresso/60 p-2 ring-1 ring-sand/10">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={avatarUrl(user, 64)} alt="" width={32} height={32} className="size-8 shrink-0 rounded-full" />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-crema">{displayName(user)}</span>
-        <span className="block truncate text-[0.7rem] text-crema/60">@{user.username}</span>
-      </span>
+    <div ref={root} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Menu account"
+        className={cn(
+          "flex items-center gap-2 rounded-xl p-1 ring-1 transition sm:py-1 sm:pl-1 sm:pr-2",
+          open ? "bg-crema/[0.07] ring-sand/25" : "ring-sand/10 hover:bg-crema/[0.05] hover:ring-sand/20",
+        )}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={avatarUrl(user, 64)} alt="" width={28} height={28} className="size-7 shrink-0 rounded-full" />
+        <span className="hidden min-w-0 text-left leading-tight sm:block">
+          <span className="block max-w-[9rem] truncate text-[0.8rem] font-semibold text-crema">{displayName(user)}</span>
+          <span className="block max-w-[9rem] truncate text-[0.68rem] text-crema/55">@{user.username}</span>
+        </span>
+        <ChevronDown className={cn("hidden size-3.5 text-crema/50 transition sm:block", open && "rotate-180")} aria-hidden />
+      </button>
+
+      <AnimatePresence>
+        {open ? (
+          <motion.div
+            role="menu"
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right overflow-hidden rounded-2xl bg-roast p-1.5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.75)] ring-1 ring-sand/20"
+          >
+            <div className="flex items-center gap-2.5 px-2.5 pb-2.5 pt-1.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={avatarUrl(user, 64)} alt="" width={36} height={36} className="size-9 shrink-0 rounded-full" />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-crema">{displayName(user)}</span>
+                <span className="block truncate text-xs text-crema/55">@{user.username}</span>
+              </span>
+            </div>
+            <div className="border-t border-sand/10 pt-1.5">
+              <p className="px-2.5 pb-1 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Account</p>
+              {items.map((n) => {
+                const Icon = n.icon;
+                return (
+                  <SmartLink key={n.href} href={page(n.href)} role="menuitem" className={itemClass(isActive(n.href))}>
+                    <Icon className="size-4 shrink-0" aria-hidden />
+                    {n.label}
+                  </SmartLink>
+                );
+              })}
+            </div>
+            <div className="mt-1.5 border-t border-sand/10 pt-1.5 lg:hidden">
+              <p className="px-2.5 pb-1 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Bot</p>
+              {BOT_NAV.map((n) => {
+                const Icon = n.icon;
+                return (
+                  <SmartLink key={n.href} href={page(n.href)} role="menuitem" className={itemClass(samePath(pathname, n.href))}>
+                    <Icon className="size-4 shrink-0" aria-hidden />
+                    {n.label}
+                  </SmartLink>
+                );
+              })}
+            </div>
+            <div className="mt-1.5 border-t border-sand/10 pt-1.5">
+              <SmartLink href="/" role="menuitem" className={itemClass(false)}>
+                <House className="size-4 shrink-0" aria-hidden />
+                Torna al sito
+              </SmartLink>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -618,29 +741,7 @@ function Sidebar({
           </>
         ) : null}
 
-        <NavGroup title="Bot">
-          {BOT_NAV.map((n) => (
-            <NavItem animated={!onNavigate} key={n.href} href={n.href} label={n.label} icon={n.icon} active={samePath(pathname, n.href)} />
-          ))}
-        </NavGroup>
-
-        <NavGroup title="Account">
-          {ACCOUNT_NAV.map((n) => (
-            <NavItem animated={!onNavigate} key={n.href} href={n.href} label={n.label} icon={n.icon} active={samePath(pathname, n.href) && !ACCOUNT_NAV.some((o) => o.href.length > n.href.length && samePath(pathname, o.href))} />
-          ))}
-          <DevNavItem animated={!onNavigate} pathname={pathname} />
-        </NavGroup>
       </nav>
-
-      <div className="space-y-2">
-        <UserCard />
-        <SmartLink
-          href="/"
-          className="flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-crema/60 transition hover:text-crema"
-        >
-          <House className="size-3.5" aria-hidden /> Torna al sito
-        </SmartLink>
-      </div>
     </div>
   );
 }
@@ -849,8 +950,10 @@ export function DashboardShell({
               <ChevronRight className="size-3.5 shrink-0 text-crema/25" aria-hidden />
               <span className="truncate font-semibold text-crema">{crumb || title}</span>
             </nav>
+            <TopNavLinks />
             <CreditsChip />
             <NotificationsBell />
+            <AccountMenu />
           </header>
 
           <main className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
