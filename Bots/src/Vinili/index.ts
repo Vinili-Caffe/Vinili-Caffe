@@ -193,7 +193,14 @@ client.reloadScope = async (scope?) => {
     }
     clearCacheByDir(path.join("Community", "services"));
     clearCacheByDir(path.join("..", "MultiGuild", "events"));
+    clearCacheByDir(path.join("..", "MultiGuild", "services"));
     client.handleEvents(APP_ROOT);
+    /* handleEvents azzera _eventHandlers: riaggancia il layer MultiGuild (AR, welcome, log…). */
+    try {
+      require("../MultiGuild/index").attachToClient(client);
+    } catch (err) {
+      global.logger?.warn?.("[MultiGuild] re-attach after reloadEvents failed:", err?.message || err);
+    }
   };
 
   const reloadTriggers = () => {

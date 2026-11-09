@@ -159,6 +159,11 @@ export function ModerationPanel({
   const [casesData, setCasesData] = useState<ModerationCasesPage | null>(null);
   const [casesLoading, setCasesLoading] = useState(false);
   const [casesError, setCasesError] = useState("");
+  const [caseUserId, setCaseUserId] = useState("");
+  const [caseAction, setCaseAction] = useState("ALL");
+  const [caseFrom, setCaseFrom] = useState("");
+  const [caseTo, setCaseTo] = useState("");
+  const [caseFilters, setCaseFilters] = useState({ userId: "", action: "ALL", from: "", to: "" });
   const [msgDraft, setMsgDraft] = useState<ModerationMessages | null>(null);
   const [apWarnCount, setApWarnCount] = useState("3");
   const [apAction, setApAction] = useState<AutoPunishAction>("mute");
@@ -200,7 +205,16 @@ export function ModerationPanel({
     (async () => {
       setCasesLoading(true);
       setCasesError("");
-      const res = await loadModerationCases(token, guildId, { page: casesPage, pageSize: CASES_PAGE_SIZE });
+      const fromMs = caseFilters.from ? Date.parse(`${caseFilters.from}T00:00:00`) : undefined;
+      const toMs = caseFilters.to ? Date.parse(`${caseFilters.to}T23:59:59`) : undefined;
+      const res = await loadModerationCases(token, guildId, {
+        page: casesPage,
+        pageSize: CASES_PAGE_SIZE,
+        userId: caseFilters.userId || undefined,
+        action: caseFilters.action !== "ALL" ? caseFilters.action : undefined,
+        from: Number.isFinite(fromMs) ? fromMs : undefined,
+        to: Number.isFinite(toMs) ? toMs : undefined,
+      });
       if (cancel) return;
       setCasesLoading(false);
       if (!res.ok) {
@@ -214,10 +228,15 @@ export function ModerationPanel({
     return () => {
       cancel = true;
     };
-  }, [token, guildId, activeTab, casesPage]);
+  }, [token, guildId, activeTab, casesPage, caseFilters]);
 
   useEffect(() => {
     setCasesPage(1);
+    setCaseUserId("");
+    setCaseAction("ALL");
+    setCaseFrom("");
+    setCaseTo("");
+    setCaseFilters({ userId: "", action: "ALL", from: "", to: "" });
   }, [guildId]);
 
   const save = async (body: Record<string, unknown>, okMsg = "Moderazione salvata.") => {
@@ -847,10 +866,74 @@ export function ModerationPanel({
           }
         >
           <div id="dash-mod-cases" className="scroll-mt-24 space-y-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="ID utente">
+                <input
+                  value={caseUserId}
+                  inputMode="numeric"
+                  placeholder="es. 123456789012345678"
+                  onChange={(e) => setCaseUserId(e.target.value.replace(/\D/g, "").slice(0, 22))}
+                  className={controlClass}
+                />
+              </Field>
+              <Field label="Azione">
+                <Select
+                  value={caseAction}
+                  onChange={setCaseAction}
+                  options={[
+                    { value: "ALL", label: "Tutte" },
+                    { value: "BAN", label: "Ban" },
+                    { value: "SOFTBAN", label: "Softban" },
+                    { value: "KICK", label: "Kick" },
+                    { value: "MUTE", label: "Mute" },
+                    { value: "WARN", label: "Warn" },
+                    { value: "UNBAN", label: "Unban" },
+                    { value: "UNMUTE", label: "Unmute" },
+                  ]}
+                  className={controlClass}
+                />
+              </Field>
+              <Field label="Dal">
+                <input type="date" value={caseFrom} onChange={(e) => setCaseFrom(e.target.value)} className={controlClass} />
+              </Field>
+              <Field label="Al">
+                <input type="date" value={caseTo} onChange={(e) => setCaseTo(e.target.value)} className={controlClass} />
+              </Field>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={primaryMini}
+                onClick={() => {
+                  setCasesPage(1);
+                  setCaseFilters({ userId: caseUserId.trim(), action: caseAction, from: caseFrom, to: caseTo });
+                }}
+              >
+                Cerca
+              </button>
+              <button
+                type="button"
+                className={miniBtn}
+                onClick={() => {
+                  setCaseUserId("");
+                  setCaseAction("ALL");
+                  setCaseFrom("");
+                  setCaseTo("");
+                  setCasesPage(1);
+                  setCaseFilters({ userId: "", action: "ALL", from: "", to: "" });
+                }}
+              >
+                Reset
+              </button>
+            </div>
             {casesLoading && !casesData ? <div className="h-32 animate-pulse rounded-xl bg-crema/6" /> : null}
             {casesError ? <Notice>{casesError}</Notice> : null}
             {!casesLoading && casesData && casesData.recentCases.length === 0 ? (
-              <p className="text-sm text-crema/60">Ancora nessun caso. Appaiono qui dopo ban, kick, mute, warn, ecc.</p>
+              <p className="text-sm text-crema/60">
+                {caseFilters.userId || caseFilters.action !== "ALL" || caseFilters.from || caseFilters.to
+                  ? "Nessun caso con questi filtri."
+                  : "Ancora nessun caso. Appaiono qui dopo ban, kick, mute, warn, ecc."}
+              </p>
             ) : null}
             {casesData && casesData.recentCases.length > 0 ? (
               <ul

@@ -7,7 +7,6 @@ import {
   Gauge,
   Gift,
   MessageSquareReply,
-  ScrollText,
   Vote,
   Megaphone,
   PartyPopper,
@@ -31,7 +30,6 @@ export type GuildSectionId =
   | "benvenuto"
   | "risposte"
   | "contatori"
-  | "logserver"
   | "giveaway"
   | "sondaggi"
   | "settings"
@@ -102,6 +100,7 @@ export const MODERATION_MODULE_TABS = [
   { id: "punizioni", label: "Punizione automatica" },
   { id: "ricorsi", label: "Ricorsi" },
   { id: "casi", label: "Casi" },
+  { id: "log", label: "Log del server" },
 ] as const satisfies readonly GuildModuleTab[];
 
 export type ModerationModuleTabId = (typeof MODERATION_MODULE_TABS)[number]["id"];
@@ -154,7 +153,6 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "benvenuto", label: "Annunci", icon: PartyPopper, tabs: ANNUNCI_MODULE_TABS },
   { id: "risposte", label: "Risposte automatiche", icon: MessageSquareReply, tabs: [] as const },
   { id: "contatori", label: "Contatori", icon: Gauge, tabs: [] as const },
-  { id: "logserver", label: "Log del server", icon: ScrollText, tabs: [] as const },
   { id: "giveaway", label: "Giveaway", icon: Gift, tabs: [] as const },
   { id: "sondaggi", label: "Sondaggi", icon: Vote, tabs: [] as const },
 ] as const satisfies readonly GuildNavItem[];

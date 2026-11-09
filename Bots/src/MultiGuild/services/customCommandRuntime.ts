@@ -38,6 +38,18 @@ async function runCustomCommand(message?, cmd?): Promise<boolean> {
   const rest = message.client?.rest;
   try {
     await rest.post(Routes.channelMessages(message.channelId), { body });
+    /* incrementa usi dopo risposta ok (best-effort) */
+    void (async () => {
+      try {
+        const rows = await T.listCommands(gid, true);
+        const idx = rows.findIndex((r) => r.id === command.id);
+        if (idx < 0) return;
+        rows[idx] = { ...rows[idx], uses: Math.max(0, Number(rows[idx].uses) || 0) + 1 };
+        await T.writeCommands(gid, rows);
+      } catch (_) {
+        /* ignore */
+      }
+    })();
   } catch (err) {
     global.logger?.warn?.(`[CUSTOM CMD] ${gid} ${command.name}:`, err?.message || err);
   }

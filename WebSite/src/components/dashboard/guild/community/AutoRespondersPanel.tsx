@@ -30,6 +30,7 @@ const blank = (): AutoResponder => ({
   draft: emptyDraft({ embed: { ...emptyDraft().embed, enabled: false } }),
   reactions: [],
   channelIds: [],
+  requiredRoleIds: [],
   ignoredRoleIds: [],
   cooldownSeconds: 10,
   deleteTrigger: false,
@@ -203,7 +204,16 @@ export function AutoRespondersPanel({ guildId, token, onToast }: { guildId: stri
                       className={fieldClass}
                     />
                   </Field>
-                  <Field label="Ignora chi ha questi ruoli">
+                  <Field label="Solo chi ha questi ruoli" hint="Vuoto = tutti. Basta averne uno.">
+                    <MultiSelect
+                      value={edit.requiredRoleIds || []}
+                      onChange={(requiredRoleIds) => setEdit({ ...edit, requiredRoleIds })}
+                      options={roleOptions(data.pickers.roles, guildId)}
+                      placeholder="Tutti"
+                      className={fieldClass}
+                    />
+                  </Field>
+                  <Field label="Ignora chi ha questi ruoli" hint="Ha priorità sui ruoli richiesti.">
                     <MultiSelect value={edit.ignoredRoleIds} onChange={(ignoredRoleIds) => setEdit({ ...edit, ignoredRoleIds })} options={roleOptions(data.pickers.roles, guildId)} placeholder="Nessuno" className={fieldClass} />
                   </Field>
                 </div>

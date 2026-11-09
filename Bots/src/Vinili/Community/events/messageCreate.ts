@@ -47,6 +47,15 @@ function isViniliFullFeatureGuild(guildId?) {
 async function executeTenantPartnershipMessageFlow(message?, resolvedClient?, defaultPrefix?, isEditedPrefixExecution?) {
   if (message.author?.bot || message.system || message.webhookId) return;
 
+  if (!isEditedPrefixExecution) {
+    try {
+      const { runAutoResponders } = require("../../../MultiGuild/services/autoResponderRuntime") as typeof import("../../../MultiGuild/services/autoResponderRuntime");
+      await runAutoResponders(message);
+    } catch (error) {
+      logEventError(resolvedClient, "AUTO RESPONDER ERROR", error);
+    }
+  }
+
   if (isHumanPartnershipChannelMessage(message)) {
     const manualResult: any = await tryProcessManualPartnershipMessage(message).catch(() => ({ handled: false }));
     if (manualResult?.handled) return;
@@ -229,6 +238,16 @@ export = {
     if (message.guild && !isViniliFullFeatureGuild(message.guild.id)) {
       await executeTenantPartnershipMessageFlow(message, resolvedClient, defaultPrefix, isEditedPrefixExecution);
       return;
+    }
+
+    /* main/test: stesse AR della dashboard (non solo nei side-effect in setImmediate). */
+    if (!isEditedPrefixExecution && message.guild && !isAutomatedMessage) {
+      try {
+        const { runAutoResponders } = require("../../../MultiGuild/services/autoResponderRuntime") as typeof import("../../../MultiGuild/services/autoResponderRuntime");
+        await runAutoResponders(message);
+      } catch (error) {
+        logEventError(resolvedClient, "AUTO RESPONDER ERROR", error);
+      }
     }
 
     if (!isAutomatedMessage && !isEditedPrefixExecution && message?.guild) {

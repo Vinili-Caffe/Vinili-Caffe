@@ -6,6 +6,7 @@ const { normalizeModConfigFromGlobal } = require("../../../Vinili/Community/serv
 const {
   findActiveModerations,
   listRecentGuildCases,
+  countGuildCases,
   aggregateGuildModerationOverview,
 } = require("../../../Vinili/Moderation/utils/modCaseStore") as typeof import("../../../Vinili/Moderation/utils/modCaseStore");
 const IDs = require("../../../Vinili/Config/ids") as typeof import("../../../Vinili/Config/ids");
@@ -359,6 +360,12 @@ async function getDashboardModerationCases(client?, accessToken?, guildId?, quer
   if (!access.botPresent) return fail(400, "bot_missing", "Il bot non è presente in questo server.");
   const pageSize = Math.max(1, Math.min(50, Math.floor(Number(query.pageSize || query.limit) || 20)));
   const requestedPage = Math.max(1, Math.floor(Number(query.page) || 1));
+  const filters = {
+    userId: String(query.userId || "").trim(),
+    action: String(query.action || "").trim().toUpperCase(),
+    from: query.from,
+    to: query.to,
+  };
   const overview = await aggregateGuildModerationOverview(access.guildId).catch(() => ({
     totalCases: 0,
     cases7d: 0,
@@ -366,11 +373,11 @@ async function getDashboardModerationCases(client?, accessToken?, guildId?, quer
     activeTimed: 0,
     byAction: { BAN: 0, SOFTBAN: 0, KICK: 0, MUTE: 0, WARN: 0, UNBAN: 0, UNMUTE: 0, other: 0 },
   }));
-  const total = Math.max(0, Number(overview.totalCases) || 0);
+  const total = Math.max(0, Number(await countGuildCases(access.guildId, filters).catch(() => overview.totalCases)) || 0);
   const pages = Math.max(1, Math.ceil(total / pageSize) || 1);
   const page = Math.min(pages, requestedPage);
   const skip = (page - 1) * pageSize;
-  const recentRaw = await listRecentGuildCases(access.guildId, pageSize, skip).catch(() => []);
+  const recentRaw = await listRecentGuildCases(access.guildId, pageSize, skip, filters).catch(() => []);
   return {
     ok: true,
     status: 200,
@@ -379,6 +386,7 @@ async function getDashboardModerationCases(client?, accessToken?, guildId?, quer
     pages,
     pageSize,
     total,
+    filters,
     recentCases: (Array.isArray(recentRaw) ? recentRaw : []).map(serializeCase).filter(Boolean),
     overview,
   };

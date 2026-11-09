@@ -869,18 +869,64 @@ async function setCaseDurationStore(guildId?, userId?, caseId?, durationMs?, exp
   }
 }
 
-async function listRecentGuildCases(guildId?, limit = 40, skip = 0) {
+function normalizeCaseQueryFilters(raw?) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const userId = String(r.userId || "").trim();
+  const action = String(r.action || "").trim().toUpperCase();
+  const fromMs = Number(r.from);
+  const toMs = Number(r.to);
+  return {
+    userId: /^\d{16,22}$/.test(userId) ? userId : "",
+    action: action && action !== "ALL" && action !== "ANY" ? action : "",
+    from: Number.isFinite(fromMs) && fromMs > 0 ? fromMs : 0,
+    to: Number.isFinite(toMs) && toMs > 0 ? toMs : 0,
+  };
+}
+
+function buildCompactCaseMatch(filters?) {
+  const f = filters || normalizeCaseQueryFilters();
+  const match: Record<string, any> = {};
+  if (f.userId) match.$expr = { $eq: [{ $ifNull: ["$cases.userId", "$userId"] }, f.userId] };
+  if (f.action) match["cases.action"] = f.action;
+  if (f.from || f.to) {
+    match["cases.createdAt"] = {};
+    if (f.from) match["cases.createdAt"].$gte = new Date(f.from);
+    if (f.to) match["cases.createdAt"].$lte = new Date(f.to);
+  }
+  return match;
+}
+
+function buildLegacyCaseQuery(guildId?, filters?) {
+  const f = filters || normalizeCaseQueryFilters();
+  const q: Record<string, any> = { guildId: String(guildId || "") };
+  if (f.userId) q.userId = f.userId;
+  if (f.action) q.action = f.action;
+  if (f.from || f.to) {
+    q.createdAt = {};
+    if (f.from) q.createdAt.$gte = new Date(f.from);
+    if (f.to) q.createdAt.$lte = new Date(f.to);
+  }
+  return q;
+}
+
+async function listRecentGuildCases(guildId?, limit = 40, skip = 0, filtersRaw?) {
   const gid = String(guildId || "").trim();
   const lim = Math.max(1, Math.min(100, Math.floor(Number(limit) || 40)));
   const off = Math.max(0, Math.floor(Number(skip) || 0));
+  const filters = normalizeCaseQueryFilters(filtersRaw);
   if (!gid) return [];
   const byCase = new Map();
+  const hasFilters = Boolean(filters.userId || filters.action || filters.from || filters.to);
+  const compactMatch = buildCompactCaseMatch(filters);
 
   if (useCompactModCase() && !useLegacyModCase()) {
-    const rows = await ActivityUserProfile.aggregate([
+    const pipeline: any[] = [
       { $match: { guildId: gid, "moderation.modCases.0": { $exists: true } } },
       { $project: { userId: 1, cases: "$moderation.modCases" } },
       { $unwind: "$cases" },
+    ];
+    if (hasFilters && Object.keys(compactMatch).length) pipeline.push({ $match: compactMatch });
+    pipeline.push(
       { $sort: { "cases.createdAt": -1, "cases.caseId": -1 } },
       { $skip: off },
       { $limit: lim },
@@ -903,17 +949,21 @@ async function listRecentGuildCases(guildId?, limit = 40, skip = 0) {
           _id: "$cases._id",
         },
       },
-    ]).catch(() => []);
+    );
+    const rows = await ActivityUserProfile.aggregate(pipeline).catch(() => []);
     return (Array.isArray(rows) ? rows : [])
       .map((c?) => plainFromCompactCase(gid, c.userId, c))
       .filter(Boolean);
   }
 
   if (useCompactModCase()) {
-    const rows = await ActivityUserProfile.aggregate([
+    const pipeline: any[] = [
       { $match: { guildId: gid, "moderation.modCases.0": { $exists: true } } },
       { $project: { userId: 1, cases: "$moderation.modCases" } },
       { $unwind: "$cases" },
+    ];
+    if (hasFilters && Object.keys(compactMatch).length) pipeline.push({ $match: compactMatch });
+    pipeline.push(
       { $sort: { "cases.createdAt": -1, "cases.caseId": -1 } },
       { $limit: off + lim },
       {
@@ -935,7 +985,8 @@ async function listRecentGuildCases(guildId?, limit = 40, skip = 0) {
           _id: "$cases._id",
         },
       },
-    ]).catch(() => []);
+    );
+    const rows = await ActivityUserProfile.aggregate(pipeline).catch(() => []);
     for (const c of Array.isArray(rows) ? rows : []) {
       const plain = plainFromCompactCase(gid, c.userId, c);
       if (plain) byCase.set(Number(plain.caseId), plain);
@@ -943,7 +994,7 @@ async function listRecentGuildCases(guildId?, limit = 40, skip = 0) {
   }
 
   if (useLegacyModCase()) {
-    const legacy = await ModCase.find({ guildId: gid })
+    const legacy = await ModCase.find(buildLegacyCaseQuery(gid, filters))
       .sort({ createdAt: -1, caseId: -1 })
       .skip(useCompactModCase() ? 0 : off)
       .limit(useCompactModCase() ? off + lim : lim)
@@ -957,6 +1008,56 @@ async function listRecentGuildCases(guildId?, limit = 40, skip = 0) {
   }
 
   return sortCasesDesc(Array.from(byCase.values())).slice(off, off + lim);
+}
+
+async function countGuildCases(guildId?, filtersRaw?) {
+  const gid = String(guildId || "").trim();
+  const filters = normalizeCaseQueryFilters(filtersRaw);
+  if (!gid) return 0;
+  const hasFilters = Boolean(filters.userId || filters.action || filters.from || filters.to);
+  if (!hasFilters) {
+    const overview = await aggregateGuildModerationOverview(gid).catch(() => null);
+    return Math.max(0, Number(overview?.totalCases) || 0);
+  }
+
+  let total = 0;
+  if (useCompactModCase()) {
+    const compactMatch = buildCompactCaseMatch(filters);
+    const pipeline: any[] = [
+      { $match: { guildId: gid, "moderation.modCases.0": { $exists: true } } },
+      { $project: { userId: 1, cases: "$moderation.modCases" } },
+      { $unwind: "$cases" },
+    ];
+    if (Object.keys(compactMatch).length) pipeline.push({ $match: compactMatch });
+    pipeline.push({ $count: "total" });
+    const rows = await ActivityUserProfile.aggregate(pipeline).catch(() => []);
+    total += Math.max(0, Number(rows?.[0]?.total) || 0);
+  }
+  if (useLegacyModCase() && !useCompactModCase()) {
+    total += Math.max(0, Number(await ModCase.countDocuments(buildLegacyCaseQuery(gid, filters)).catch(() => 0)) || 0);
+  } else if (useLegacyModCase() && useCompactModCase()) {
+    /* hybrid raro: conta legacy filtrati e sottrai overlap è costoso → usa list merge size-capped */
+    const legacy = await ModCase.find(buildLegacyCaseQuery(gid, filters)).select({ caseId: 1 }).lean().catch(() => []);
+    const compactIds = new Set();
+    if (useCompactModCase()) {
+      const compactMatch = buildCompactCaseMatch(filters);
+      const pipeline: any[] = [
+        { $match: { guildId: gid, "moderation.modCases.0": { $exists: true } } },
+        { $project: { cases: "$moderation.modCases" } },
+        { $unwind: "$cases" },
+      ];
+      if (Object.keys(compactMatch).length) pipeline.push({ $match: compactMatch });
+      pipeline.push({ $project: { caseId: "$cases.caseId" } });
+      const rows = await ActivityUserProfile.aggregate(pipeline).catch(() => []);
+      for (const r of Array.isArray(rows) ? rows : []) compactIds.add(Number(r.caseId));
+    }
+    let extra = 0;
+    for (const row of Array.isArray(legacy) ? legacy : []) {
+      if (!compactIds.has(Number(row.caseId))) extra += 1;
+    }
+    total += extra;
+  }
+  return total;
 }
 
 async function aggregateGuildModerationOverview(guildId?) {
@@ -1113,6 +1214,7 @@ export = {
   summarizeModActionsByModWindows,
   aggregateSanctionsByModInWeek,
   listRecentGuildCases,
+  countGuildCases,
   aggregateGuildModerationOverview,
   findLifecycleCandidates,
   appendCaseEditStore,

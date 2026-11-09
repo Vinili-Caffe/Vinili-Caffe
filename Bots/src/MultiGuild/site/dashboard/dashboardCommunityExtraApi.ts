@@ -225,7 +225,9 @@ async function patchServerLogs(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   const next = T.normalizeServerLogs(body, await T.getServerLogs(a.guildId, true));
-  if (next.enabled && !next.channelId) return fail(400, "no_channel", "Scegli il canale dei log.");
+  if (next.enabled && !next.channelId && !Object.keys(next.channels || {}).length) {
+    return fail(400, "no_channel", "Scegli il canale generale dei log o almeno un canale per un evento.");
+  }
   await T.writeServerLogs(a.guildId, next);
   return { ok: true, status: 200, serverLogs: next };
 }
@@ -302,6 +304,43 @@ async function giveawayAction(client?, token?, guildId?, messageId?, action?: "e
         : await svc.deleteGiveawayByMessageId(messageId, client, { deleteMessage: true });
   if (!out?.ok) return fail(400, "action_failed", String(out?.error || "Operazione non riuscita.").replace(/<a?:\w+:\d+>\s*/g, ""));
   return { ok: true, status: 200, ...out };
+}
+
+async function editGiveaway(client?, token?, guildId?, messageId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const g: any = await GiveawayModel().findOne({ messageId: String(messageId || "") }).lean();
+  if (!g || String(g.guildId) !== a.guildId) return fail(404, "not_found", "Giveaway non trovato.");
+  if (g.ended || g.cancelled) return fail(400, "ended", "Non puoi modificare un giveaway già terminato o annullato.");
+
+  const patch: Record<string, any> = {};
+  if (body?.prize != null) {
+    const prize = String(body.prize || "").trim().slice(0, 200);
+    if (!prize) return fail(400, "no_prize", "Scrivi il premio.");
+    patch.prize = prize;
+  }
+  if (body?.winnerCount != null) {
+    patch.winnerCount = Math.max(1, Math.min(20, Math.floor(Number(body.winnerCount) || 1)));
+  }
+  if (body?.durationMs != null) {
+    const durationMs = Number(body.durationMs);
+    if (!Number.isFinite(durationMs) || durationMs < 60_000 || durationMs > 60 * 86_400_000) {
+      return fail(400, "bad_duration", "Durata tra 1 minuto e 60 giorni.");
+    }
+    patch.durationMs = durationMs;
+  }
+  if (body?.hostId != null && String(body.hostId).trim()) {
+    const hostId = String(body.hostId).trim();
+    if (!T.isId(hostId)) return fail(400, "bad_host", "Host non valido.");
+    patch.hostId = hostId;
+    const user: any = await restOf(client).get(Routes.user(hostId)).catch(() => null);
+    patch.hostTag = user?.username || "";
+  }
+  if (!Object.keys(patch).length) return fail(400, "empty", "Specifica premio, durata, vincitori o host.");
+
+  const out: any = await G().editGiveawayByMessageId(messageId, client, patch);
+  if (!out?.ok) return fail(400, "edit_failed", String(out?.error || "Modifica non riuscita.").replace(/<a?:\w+:\d+>\s*/g, ""));
+  return { ok: true, status: 200, giveaway: serializeGiveaway(out.giveaway || { ...g, ...patch }) };
 }
 
 /* ───────────── sondaggi (sondaggi nativi di Discord) ───────────── */
@@ -429,6 +468,7 @@ export = {
   patchServerLogs,
   listGiveaways,
   createGiveaway,
+  editGiveaway,
   giveawayAction,
   listPolls,
   createPoll,

@@ -24,6 +24,7 @@ const blank = (): CustomCommand => ({
   reply: true,
   allowedRoleIds: [],
   draft: emptyDraft({ embed: { ...emptyDraft().embed, enabled: false }, content: "" }),
+  uses: 0,
 });
 
 export function CustomCommandsPanel({ guildId, token, onToast }: { guildId: string; token: string; onToast: (msg: string, err?: boolean) => void }) {
@@ -82,9 +83,12 @@ export function CustomCommandsPanel({ guildId, token, onToast }: { guildId: stri
           onBack={() => setEdit(null)}
           title={edit.name ? `${prefix}${edit.name}` : "Nuovo comando"}
           actions={
-            <button type="button" className={primaryMini} disabled={busy} onClick={() => void save()}>
-              Salva
-            </button>
+            <div className="flex items-center gap-2">
+              {edit.id ? <StatusBadge>{Number(edit.uses) || 0} usi</StatusBadge> : null}
+              <button type="button" className={primaryMini} disabled={busy} onClick={() => void save()}>
+                Salva
+              </button>
+            </div>
           }
         />
         <EditorWithPreview
@@ -175,6 +179,7 @@ export function CustomCommandsPanel({ guildId, token, onToast }: { guildId: stri
                 <span className="block truncate text-xs text-crema/55">{c.description || c.draft.embed.title || c.draft.content || "—"}</span>
               </button>
               {c.allowedRoleIds.length ? <StatusBadge>Ruoli limitati</StatusBadge> : null}
+              <StatusBadge>{Number(c.uses) || 0} usi</StatusBadge>
               <Toggle size="sm" checked={c.enabled} onChange={(v) => void toggle(c, v)} label={`Attiva ${c.name}`} />
               <button type="button" className={miniBtn} onClick={() => open(c)}>
                 Modifica

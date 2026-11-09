@@ -632,6 +632,7 @@ function normalizeAutoResponder(raw?, prev?) {
     draft: normalizeDraft(r.draft),
     reactions,
     channelIds: ids(r.channelIds),
+    requiredRoleIds: ids(r.requiredRoleIds, 20),
     ignoredRoleIds: ids(r.ignoredRoleIds, 20),
     cooldownSeconds: Math.max(0, Math.min(3600, Math.floor(Number(r.cooldownSeconds) || 10))),
     deleteTrigger: r.deleteTrigger === true,
@@ -681,10 +682,33 @@ const LOG_EVENTS = [
   "channelDelete",
   "roleCreate",
   "roleDelete",
+  "voiceJoin",
+  "voiceLeave",
+  "voiceMove",
+  "threadCreate",
+  "threadDelete",
+  "inviteCreate",
+  "inviteDelete",
+  "messageBulkDelete",
+  "memberTimeout",
+  "memberBoost",
+  "channelUpdate",
+  "roleUpdate",
+  "emojiCreate",
+  "emojiDelete",
+  "emojiUpdate",
+  "stickerCreate",
+  "stickerDelete",
+  "serverUpdate",
+  "eventCreate",
+  "eventDelete",
+  "automodAction",
 ] as const;
 const DEFAULT_SERVER_LOGS = {
   enabled: false,
   channelId: null as string | null,
+  /** canale per singolo evento (se manca: quello generale) */
+  channels: {} as Record<string, string>,
   events: Object.fromEntries(LOG_EVENTS.map((e) => [e, true])) as Record<string, boolean>,
   ignoredChannelIds: [] as string[],
   ignoreBots: true,
@@ -697,6 +721,11 @@ function normalizeServerLogs(raw?, prev = DEFAULT_SERVER_LOGS) {
   return {
     enabled: has("enabled") ? r.enabled === true : prev.enabled,
     channelId: has("channelId") ? idOrNull(r.channelId) : prev.channelId,
+    channels: has("channels")
+      ? Object.fromEntries(
+          LOG_EVENTS.filter((e) => r.channels && typeof r.channels === "object" && isId(r.channels[e])).map((e) => [e, String(r.channels[e])]),
+        )
+      : prev.channels || {},
     events: Object.fromEntries(LOG_EVENTS.map((e) => [e, Object.prototype.hasOwnProperty.call(ev, e) ? ev[e] === true : prev.events?.[e] !== false])),
     ignoredChannelIds: has("ignoredChannelIds") ? [...new Set<string>((Array.isArray(r.ignoredChannelIds) ? r.ignoredChannelIds : []).filter(isId).map(String))].slice(0, 50) : prev.ignoredChannelIds,
     ignoreBots: has("ignoreBots") ? r.ignoreBots !== false : prev.ignoreBots,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Dices, Gift, Plus, Square, Trash2, Trophy, Users } from "lucide-react";
+import { Dices, Gift, Pencil, Plus, Square, Trash2, Trophy, Users } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { NumberField } from "@/components/ui/NumberField";
 import { Select } from "@/components/ui/Select";
@@ -20,6 +20,8 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
   const [list, setList] = useState<Giveaway[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [form, setForm] = useState({ prize: "", channelId: null as string | null, amount: 1, unit: "86400000", winners: 1 });
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ prize: "", amount: 1, unit: "86400000", winners: 1, hostId: "" });
   const [busy, setBusy] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
@@ -41,8 +43,6 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
   if (error && !data) return <Notice error>{error}</Notice>;
   if (!data) return <RowsSkeleton rows={4} />;
   const chName = (id: string) => data.pickers.textChannels.find((c) => c.id === id)?.name || "canale";
-  const userName = (id: string) => `<@${id}>`;
-  void userName;
 
   const create = async () => {
     if (!form.prize.trim()) return onToast("Scrivi il premio.", true);
@@ -71,46 +71,123 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
     reload();
   };
 
+  const openEdit = (g: Giveaway) => {
+    setEditId(g.id);
+    setEditForm({
+      prize: g.prize,
+      amount: 1,
+      unit: "86400000",
+      winners: g.winnerCount || 1,
+      hostId: g.hostId || "",
+    });
+  };
+
+  const saveEdit = async (g: Giveaway) => {
+    if (!g.messageId) return;
+    if (!editForm.prize.trim()) return onToast("Scrivi il premio.", true);
+    setBusy(`${g.id}:edit`);
+    const body: { prize: string; winnerCount: number; durationMs?: number; hostId?: string } = {
+      prize: editForm.prize.trim(),
+      winnerCount: editForm.winners,
+    };
+    if (editForm.amount > 0) body.durationMs = Math.max(1, editForm.amount) * Number(editForm.unit);
+    if (editForm.hostId.trim()) body.hostId = editForm.hostId.trim();
+    const r = await communityApi.editGiveaway(token, guildId, g.messageId, body);
+    setBusy(null);
+    if (!r.ok) return onToast(r.message, true);
+    setEditId(null);
+    onToast("Giveaway aggiornato.");
+    reload();
+  };
+
   const active = (list || []).filter((g) => !g.ended);
   const past = (list || []).filter((g) => g.ended);
 
   const row = (g: Giveaway) => (
-    <li key={g.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-caramel/12 text-ember">
-        <Gift className="size-4" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-crema">{g.prize}</p>
-        <p className="flex flex-wrap items-center gap-x-2 text-xs text-crema/55">
-          <span>#{chName(g.channelId)}</span>
-          <span className="inline-flex items-center gap-1">
-            <Users className="size-3" /> {g.participants}
-          </span>
-          <span>
-            {g.winnerCount} {g.winnerCount === 1 ? "vincitore" : "vincitori"}
-          </span>
-          <span>{g.ended ? `finito ${formatWhen(g.endAt)}` : `finisce ${formatWhen(g.endAt)}`}</span>
-        </p>
-        {g.ended && !g.cancelled && g.winnerIds.length ? (
-          <p className="mt-1 inline-flex items-center gap-1 text-xs text-crema/70">
-            <Trophy className="size-3 text-ember" /> {g.winnerIds.length} {g.winnerIds.length === 1 ? "vincitore estratto" : "vincitori estratti"} (li vedi su Discord)
+    <li key={g.id} className="space-y-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-caramel/12 text-ember">
+          <Gift className="size-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold text-crema">{g.prize}</p>
+          <p className="flex flex-wrap items-center gap-x-2 text-xs text-crema/55">
+            <span>#{chName(g.channelId)}</span>
+            <span className="inline-flex items-center gap-1">
+              <Users className="size-3" /> {g.participants}
+            </span>
+            <span>
+              {g.winnerCount} {g.winnerCount === 1 ? "vincitore" : "vincitori"}
+            </span>
+            <span>{g.ended ? `finito ${formatWhen(g.endAt)}` : `finisce ${formatWhen(g.endAt)}`}</span>
           </p>
+          {g.ended && !g.cancelled && g.winnerIds.length ? (
+            <p className="mt-1 inline-flex items-center gap-1 text-xs text-crema/70">
+              <Trophy className="size-3 text-ember" /> {g.winnerIds.length} {g.winnerIds.length === 1 ? "vincitore estratto" : "vincitori estratti"} (li vedi su Discord)
+            </p>
+          ) : null}
+        </div>
+        {g.cancelled ? <StatusBadge>Annullato</StatusBadge> : g.ended ? <StatusBadge tone="ok">Finito</StatusBadge> : <StatusBadge tone="accent">In corso</StatusBadge>}
+        {!g.ended ? (
+          <>
+            <button type="button" className={miniBtn} disabled={!!busy} onClick={() => openEdit(g)}>
+              <Pencil className="size-3.5" /> Modifica
+            </button>
+            <button type="button" className={miniBtn} disabled={!!busy} onClick={() => void act(g, "end")}>
+              <Square className="size-3.5" /> Termina ora
+            </button>
+            <button type="button" aria-label="Annulla giveaway" className={dangerBtn} disabled={!!busy} onClick={() => void act(g, "delete")}>
+              <Trash2 className="size-3.5" />
+            </button>
+          </>
+        ) : !g.cancelled ? (
+          <button type="button" className={miniBtn} disabled={!!busy} onClick={() => void act(g, "reroll")}>
+            <Dices className="size-3.5" /> Nuovo vincitore
+          </button>
         ) : null}
       </div>
-      {g.cancelled ? <StatusBadge>Annullato</StatusBadge> : g.ended ? <StatusBadge tone="ok">Finito</StatusBadge> : <StatusBadge tone="accent">In corso</StatusBadge>}
-      {!g.ended ? (
-        <>
-          <button type="button" className={miniBtn} disabled={!!busy} onClick={() => void act(g, "end")}>
-            <Square className="size-3.5" /> Termina ora
-          </button>
-          <button type="button" aria-label="Annulla giveaway" className={dangerBtn} disabled={!!busy} onClick={() => void act(g, "delete")}>
-            <Trash2 className="size-3.5" />
-          </button>
-        </>
-      ) : !g.cancelled ? (
-        <button type="button" className={miniBtn} disabled={!!busy} onClick={() => void act(g, "reroll")}>
-          <Dices className="size-3.5" /> Nuovo vincitore
-        </button>
+      {editId === g.id && !g.ended ? (
+        <div className="rounded-lg bg-crema/[0.04] p-3 ring-1 ring-sand/10">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Premio">
+              <input value={editForm.prize} maxLength={200} onChange={(e) => setEditForm({ ...editForm, prize: e.target.value })} className={fieldClass} />
+            </Field>
+            <Field label="Host (ID Discord, opzionale)">
+              <input
+                value={editForm.hostId}
+                inputMode="numeric"
+                placeholder="lascia vuoto per non cambiare"
+                onChange={(e) => setEditForm({ ...editForm, hostId: e.target.value.replace(/\D/g, "").slice(0, 22) })}
+                className={fieldClass}
+              />
+            </Field>
+          </div>
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <div>
+              <span className="text-[0.8rem] font-semibold text-crema/80">Nuova durata da ora</span>
+              <div className="mt-1.5 flex gap-2">
+                <div className="w-24">
+                  <NumberField value={editForm.amount} min={1} max={1440} onChange={(v) => setEditForm({ ...editForm, amount: Number(v) || 1 })} aria-label="Durata" />
+                </div>
+                <div className="w-28">
+                  <Select value={editForm.unit} onChange={(unit) => setEditForm({ ...editForm, unit })} options={UNITS} className={fieldClass + " mt-0"} aria-label="Unità" />
+                </div>
+              </div>
+            </div>
+            <div>
+              <span className="text-[0.8rem] font-semibold text-crema/80">Vincitori</span>
+              <div className="mt-1.5 w-24">
+                <NumberField value={editForm.winners} min={1} max={20} onChange={(v) => setEditForm({ ...editForm, winners: Number(v) || 1 })} aria-label="Vincitori" />
+              </div>
+            </div>
+            <button type="button" className={primaryMini} disabled={!!busy} onClick={() => void saveEdit(g)}>
+              Salva modifiche
+            </button>
+            <button type="button" className={miniBtn} disabled={!!busy} onClick={() => setEditId(null)}>
+              Annulla
+            </button>
+          </div>
+        </div>
       ) : null}
     </li>
   );

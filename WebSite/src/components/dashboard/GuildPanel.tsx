@@ -214,7 +214,6 @@ const SECTION_LEAD: Record<Section, string> = {
   benvenuto: "Benvenuto, addio, messaggio privato a chi entra e ruoli automatici.",
   risposte: "Il bot risponde da solo quando qualcuno scrive certe parole.",
   contatori: "Canali vocali che mostrano membri, boost e altri numeri, aggiornati da soli.",
-  logserver: "Un canale dove il bot registra messaggi cancellati, entrate, uscite, ruoli e ban.",
   giveaway: "Crea giveaway, guarda chi partecipa ed estrai i vincitori.",
   sondaggi: "Sondaggi di Discord pubblicati dalla dashboard, con i risultati.",
 };
@@ -768,12 +767,18 @@ function SettingsSection({
   pickers,
   error,
   canCustomize,
+  premiumActive,
+  premiumUntil,
+  isProtectedGuild,
   onUpdated,
   onToast,
 }: {
   guildId: string;
   token: string;
   canCustomize: boolean;
+  premiumActive: boolean;
+  premiumUntil: number | null;
+  isProtectedGuild: boolean;
   settings: GuildSettings | null;
   pickers: SettingsPickers;
   error: string | null;
@@ -925,8 +930,40 @@ function SettingsSection({
     if (!ok) setDashboardUserIds(settings.dashboardUserIds ?? []);
   };
 
+  const premiumUntilLabel =
+    premiumUntil && premiumUntil > Date.now()
+      ? new Date(premiumUntil).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })
+      : null;
+
   return (
     <div className="space-y-4">
+      <Panel
+        icon={<Diamond />}
+        title="Premium"
+        description={
+          isProtectedGuild
+            ? "Server ufficiale: le funzioni Premium sono sempre disponibili."
+            : premiumActive
+              ? premiumUntilLabel
+                ? `Attivo su questo server fino al ${premiumUntilLabel}.`
+                : "Attivo su questo server."
+              : "Sblocca personalizzazione del bot, bacheca avanzata e altro."
+        }
+        aside={<PremiumBadge active={premiumActive || isProtectedGuild} />}
+      >
+        {premiumActive || isProtectedGuild ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <SmartLink href={dashHref("/dashboard/premium/")} className={dashSecondaryBtn}>
+              Gestisci Premium
+            </SmartLink>
+            <SmartLink href={dashHref("/dashboard/premium/vantaggi/")} className={miniBtnCls}>
+              Cosa include
+            </SmartLink>
+          </div>
+        ) : (
+          <PremiumLock feature="Le funzioni avanzate di questo server" note="Attiva Premium con i crediti per nickname, avatar, banner e altro." />
+        )}
+      </Panel>
       {settings.botUsername ? (
         <BotIdentityCard settings={settings} canCustomize={canCustomize} saving={saving} onSave={save} onToast={onToast} />
       ) : null}
@@ -1080,7 +1117,7 @@ function SettingsSection({
         <Panel
           icon={<Download />}
           title="Backup e ripristino"
-          description="Esporta o importa impostazioni, bacheca, comandi, partnership e ticket (solo config)."
+          description="Esporta o importa impostazioni, bacheca, comandi, partnership, ticket, community (benvenuto, messaggi, risposte, ruoli, log…) e moderazione."
         >
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={configBusy} onClick={() => void downloadBackup()} className={dashSecondaryBtn}>
@@ -1633,6 +1670,7 @@ export function GuildPanel() {
   const [tickets, setTickets] = useState<TicketsSummary | null>(null);
   const [ticketsError, setTicketsError] = useState<string | null>(null);
   const [premiumActive, setPremiumActive] = useState(false);
+  const [premiumUntil, setPremiumUntil] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [toast, setToast] = useState<{ msg: string; err: boolean } | null>(null);
 
@@ -1765,6 +1803,7 @@ export function GuildPanel() {
       setTickets(d.tickets);
       setTicketsError(d.ticketsError);
       setPremiumActive(d.premiumActive);
+      setPremiumUntil(d.premiumUntil ?? null);
       setGate("ready");
     })();
 
@@ -2008,6 +2047,9 @@ export function GuildPanel() {
                         pickers={pickers}
                         error={settingsError}
                         canCustomize={premiumActive || overview.isMainGuild || overview.isProtectedGuild}
+                        premiumActive={premiumActive}
+                        premiumUntil={premiumUntil}
+                        isProtectedGuild={overview.isProtectedGuild || overview.isMainGuild}
                         onUpdated={(next, nextPickers) => {
                           setSettings(next);
                           if (nextPickers) setPickers(nextPickers);
@@ -2062,7 +2104,12 @@ export function GuildPanel() {
                         onToast={showToast}
                       />
                     ) : null}
-                    {section === "moderation" && guildId && token ? (
+                    {section === "moderation" && guildId && token && moduleTab === "log" ? (
+                      <Panel>
+                        <ServerLogsPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+                    {section === "moderation" && guildId && token && moduleTab !== "log" ? (
                       <ModerationPanel
                         guildId={guildId}
                         token={token}
@@ -2120,12 +2167,6 @@ export function GuildPanel() {
                     {section === "contatori" && guildId && token ? (
                       <Panel>
                         <CountersPanel guildId={guildId} token={token} onToast={showToast} />
-                      </Panel>
-                    ) : null}
-
-                    {section === "logserver" && guildId && token ? (
-                      <Panel>
-                        <ServerLogsPanel guildId={guildId} token={token} onToast={showToast} />
                       </Panel>
                     ) : null}
 

@@ -11,13 +11,19 @@ type LogEvent = (typeof T.LOG_EVENTS)[number];
 async function sendServerLog(guild: any, event: LogEvent, embed: Record<string, any>, opts: { channelId?: string | null; isBot?: boolean } = {}) {
   if (!guild?.id) return;
   const cfg = await T.getServerLogs(guild.id);
-  if (!cfg.enabled || !cfg.channelId || cfg.events?.[event] === false) return;
+  if (!cfg.enabled || cfg.events?.[event] === false) return;
+  /* canale dell'evento, altrimenti quello generale */
+  const target = (cfg.channels && cfg.channels[event]) || cfg.channelId;
+  if (!target) return;
   if (opts.isBot && cfg.ignoreBots) return;
-  if (opts.channelId && (cfg.ignoredChannelIds.includes(opts.channelId) || opts.channelId === cfg.channelId)) return;
+  if (opts.channelId) {
+    const logChannels = new Set<string>([cfg.channelId, ...Object.values(cfg.channels || {})].filter(Boolean).map(String));
+    if (cfg.ignoredChannelIds.includes(opts.channelId) || logChannels.has(opts.channelId)) return;
+  }
   const rest = guild.client?.rest;
   if (!rest) return;
   await rest
-    .post(Routes.channelMessages(cfg.channelId), {
+    .post(Routes.channelMessages(target), {
       body: { embeds: [{ timestamp: new Date().toISOString(), ...embed }], allowed_mentions: { parse: [] } },
     })
     .catch((err?) => global.logger?.warn?.("[SERVER LOG]", guild.id, event, err?.message || err));

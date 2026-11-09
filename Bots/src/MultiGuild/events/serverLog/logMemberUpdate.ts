@@ -36,5 +36,29 @@ export = {
         { isBot: Boolean(newMember.user?.bot) },
       );
     }
+    /* timeout dato o tolto */
+    const tBefore = Number(oldMember?.communicationDisabledUntilTimestamp || 0);
+    const tAfter = Number(newMember?.communicationDisabledUntilTimestamp || 0);
+    const activeBefore = tBefore > Date.now();
+    const activeAfter = tAfter > Date.now();
+    if (activeBefore !== activeAfter || (activeAfter && tBefore !== tAfter)) {
+      await L.sendServerLog(guild, "memberTimeout", {
+        color: activeAfter ? L.COLORS.orange : L.COLORS.green,
+        author: L.authorOf(newMember.user),
+        title: activeAfter ? "Timeout dato" : "Timeout tolto",
+        description: [L.userLine(newMember.user), activeAfter ? `**Fino a:** <t:${Math.floor(tAfter / 1000)}:f> (<t:${Math.floor(tAfter / 1000)}:R>)` : ""].filter(Boolean).join("\n"),
+      });
+    }
+    /* boost iniziato o finito */
+    const boostBefore = Boolean(oldMember?.premiumSinceTimestamp);
+    const boostAfter = Boolean(newMember?.premiumSinceTimestamp);
+    if (boostBefore !== boostAfter) {
+      await L.sendServerLog(guild, "memberBoost", {
+        color: boostAfter ? 0xf47fff : L.COLORS.grey,
+        author: L.authorOf(newMember.user),
+        title: boostAfter ? "Nuovo boost" : "Boost terminato",
+        description: [L.userLine(newMember.user), `**Boost del server ora:** ${guild.premiumSubscriptionCount ?? "?"}`].join("\n"),
+      });
+    }
   },
 };

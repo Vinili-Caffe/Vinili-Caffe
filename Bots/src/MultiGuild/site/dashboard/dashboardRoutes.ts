@@ -215,6 +215,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     app.patch(`${base}/server-logs`, wrap("logs patch", (t, req) => X().patchServerLogs(client, t, gid(req), req.body)));
     app.get(`${base}/giveaways`, wrap("gw list", (t, req) => X().listGiveaways(client, t, gid(req))));
     app.post(`${base}/giveaways`, wrap("gw new", (t, req) => X().createGiveaway(client, t, gid(req), req.body)));
+    app.patch(`${base}/giveaways/:messageId`, wrap("gw edit", (t, req) => X().editGiveaway(client, t, gid(req), req.params?.messageId, req.body)));
     app.post(`${base}/giveaways/:messageId/end`, wrap("gw end", (t, req) => X().giveawayAction(client, t, gid(req), req.params?.messageId, "end")));
     app.post(`${base}/giveaways/:messageId/reroll`, wrap("gw reroll", (t, req) => X().giveawayAction(client, t, gid(req), req.params?.messageId, "reroll")));
     app.delete(`${base}/giveaways/:messageId`, wrap("gw del", (t, req) => X().giveawayAction(client, t, gid(req), req.params?.messageId, "delete")));

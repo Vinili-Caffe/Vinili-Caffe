@@ -192,6 +192,7 @@ export type GuildPanelBundle = {
   tickets: TicketsSummary | null;
   ticketsError: string | null;
   premiumActive: boolean;
+  premiumUntil: number | null;
   protectedGuild: boolean;
 };
 
@@ -481,7 +482,14 @@ function mapBoards(raw: unknown): GuildBoards {
   };
 }
 
-function mapSettings(data: Record<string, unknown>): { settings: GuildSettings; pickers: SettingsPickers; premiumActive: boolean; protectedGuild: boolean } {
+function mapSettings(data: Record<string, unknown>): {
+  settings: GuildSettings;
+  pickers: SettingsPickers;
+  premiumActive: boolean;
+  premiumUntil: number | null;
+  premiumPlan: string | null;
+  protectedGuild: boolean;
+} {
   const s = (data.settings && typeof data.settings === "object" ? data.settings : {}) as Record<string, unknown>;
   const pickersRaw = (data.pickers && typeof data.pickers === "object" ? data.pickers : {}) as Record<string, unknown>;
   const channels = mapChannelList(pickersRaw.textChannels);
@@ -544,6 +552,8 @@ function mapSettings(data: Record<string, unknown>): { settings: GuildSettings; 
       roles,
     },
     premiumActive: premium?.active === true || protectedGuild,
+    premiumUntil: premium?.until != null ? Number(premium.until) || null : null,
+    premiumPlan: premium?.plan ? String(premium.plan) : null,
     protectedGuild,
   };
 }
@@ -875,6 +885,7 @@ export async function loadGuildPanel(token: string, guildId: string): Promise<Ok
         tickets: null,
         ticketsError: null,
         premiumActive: false,
+        premiumUntil: null,
         protectedGuild: overview.isProtectedGuild,
       },
     };
@@ -894,6 +905,7 @@ export async function loadGuildPanel(token: string, guildId: string): Promise<Ok
       tickets: ticketsRes.ok ? ticketsRes.data : null,
       ticketsError: ticketsRes.ok ? null : ticketsRes.message,
       premiumActive: settingsRes.ok ? settingsRes.data.premiumActive : overview.isProtectedGuild,
+      premiumUntil: settingsRes.ok ? settingsRes.data.premiumUntil : null,
       protectedGuild: settingsRes.ok
         ? settingsRes.data.protectedGuild
         : overview.isProtectedGuild || (commandsRes.ok && commandsRes.data.protectedGuild),

@@ -1891,7 +1891,7 @@ export async function patchModeration(token: string, guildId: string, body: Reco
 export async function loadModerationCases(
   token: string,
   guildId: string,
-  opts: { page?: number; pageSize?: number } = {},
+  opts: { page?: number; pageSize?: number; userId?: string; action?: string; from?: string | number; to?: string | number } = {},
 ): Promise<Ok<ModerationCasesPage> | Fail> {
   try {
     const qs = new URLSearchParams();
@@ -1899,6 +1899,10 @@ export async function loadModerationCases(
     const reqPageSize = Math.max(1, Math.min(50, Math.floor(Number(opts.pageSize) || 20)));
     qs.set("page", String(reqPage));
     qs.set("pageSize", String(reqPageSize));
+    if (opts.userId) qs.set("userId", String(opts.userId).trim());
+    if (opts.action && opts.action !== "ALL") qs.set("action", String(opts.action).trim().toUpperCase());
+    if (opts.from != null && String(opts.from)) qs.set("from", String(opts.from));
+    if (opts.to != null && String(opts.to)) qs.set("to", String(opts.to));
     const { status, data } = await request("GET", gpath(guildId, `/moderation/cases?${qs}`), token);
     const blocked = gate(status, data, "Impossibile caricare i casi di moderazione.");
     if (blocked) return blocked;

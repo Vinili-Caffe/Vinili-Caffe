@@ -43,6 +43,7 @@ export type CustomCommand = {
   reply: boolean;
   allowedRoleIds: string[];
   draft: MsgDraft;
+  uses?: number;
 };
 
 export type RoleOption = { roleId: string; label: string; emoji: string; description: string; style: 1 | 2 | 3 | 4 };
@@ -149,6 +150,7 @@ export type AutoResponder = {
   draft: MsgDraft;
   reactions: string[];
   channelIds: string[];
+  requiredRoleIds: string[];
   ignoredRoleIds: string[];
   cooldownSeconds: number;
   deleteTrigger: boolean;
@@ -157,21 +159,92 @@ export type AutoResponder = {
 export type CounterType = "members" | "online" | "boosts" | "boostTier" | "channels" | "roles" | "emojis";
 export type Counter = { id: string; type: CounterType; template: string; channelId: string | null; lastName: string | null };
 
-export const LOG_EVENT_LABELS: { id: string; label: string; hint: string }[] = [
-  { id: "messageDelete", label: "Messaggi eliminati", hint: "testo, autore e canale" },
-  { id: "messageUpdate", label: "Messaggi modificati", hint: "prima e dopo" },
-  { id: "memberJoin", label: "Membri entrati", hint: "con l'età dell'account" },
-  { id: "memberLeave", label: "Membri usciti", hint: "con i ruoli che avevano" },
-  { id: "memberRoles", label: "Ruoli dei membri", hint: "aggiunti e tolti" },
-  { id: "memberNick", label: "Nickname", hint: "prima e dopo" },
-  { id: "ban", label: "Ban", hint: "con il motivo" },
-  { id: "unban", label: "Ban revocati", hint: "" },
-  { id: "channelCreate", label: "Canali creati", hint: "" },
-  { id: "channelDelete", label: "Canali eliminati", hint: "" },
-  { id: "roleCreate", label: "Ruoli creati", hint: "" },
-  { id: "roleDelete", label: "Ruoli eliminati", hint: "" },
+export type LogEventGroup = { id: string; label: string; events: { id: string; label: string; hint: string }[] };
+
+/** Eventi del log del server, raggruppati come nella dashboard. */
+export const LOG_EVENT_GROUPS: LogEventGroup[] = [
+  {
+    id: "messages",
+    label: "Messaggi",
+    events: [
+      { id: "messageDelete", label: "Messaggi eliminati", hint: "testo, autore e canale" },
+      { id: "messageUpdate", label: "Messaggi modificati", hint: "prima e dopo" },
+      { id: "messageBulkDelete", label: "Cancellazioni in blocco", hint: "es. /purge: quanti e di chi" },
+    ],
+  },
+  {
+    id: "members",
+    label: "Membri",
+    events: [
+      { id: "memberJoin", label: "Membri entrati", hint: "con l'età dell'account" },
+      { id: "memberLeave", label: "Membri usciti", hint: "con i ruoli che avevano" },
+      { id: "memberRoles", label: "Ruoli dei membri", hint: "aggiunti e tolti" },
+      { id: "memberNick", label: "Nickname", hint: "prima e dopo" },
+      { id: "memberTimeout", label: "Timeout", hint: "dati e tolti, con la scadenza" },
+      { id: "memberBoost", label: "Boost", hint: "nuovi boost e boost finiti" },
+    ],
+  },
+  {
+    id: "moderation",
+    label: "Moderazione",
+    events: [
+      { id: "ban", label: "Ban", hint: "con il motivo" },
+      { id: "unban", label: "Ban revocati", hint: "" },
+      { id: "automodAction", label: "AutoMod di Discord", hint: "messaggi bloccati e timeout automatici" },
+    ],
+  },
+  {
+    id: "voice",
+    label: "Vocali",
+    events: [
+      { id: "voiceJoin", label: "Ingressi in vocale", hint: "chi è entrato e dove" },
+      { id: "voiceLeave", label: "Uscite dalla vocale", hint: "chi è uscito e da dove" },
+      { id: "voiceMove", label: "Spostamenti in vocale", hint: "da un canale all'altro" },
+    ],
+  },
+  {
+    id: "server",
+    label: "Server",
+    events: [
+      { id: "channelCreate", label: "Canali creati", hint: "" },
+      { id: "channelUpdate", label: "Canali modificati", hint: "nome, argomento, lentezza, categoria" },
+      { id: "channelDelete", label: "Canali eliminati", hint: "" },
+      { id: "roleCreate", label: "Ruoli creati", hint: "" },
+      { id: "roleUpdate", label: "Ruoli modificati", hint: "nome, colore e permessi" },
+      { id: "roleDelete", label: "Ruoli eliminati", hint: "" },
+      { id: "threadCreate", label: "Thread creati", hint: "" },
+      { id: "threadDelete", label: "Thread eliminati", hint: "" },
+      { id: "serverUpdate", label: "Impostazioni del server", hint: "nome, icona, banner, verifica, link" },
+    ],
+  },
+  {
+    id: "extra",
+    label: "Emoji, inviti ed eventi",
+    events: [
+      { id: "emojiCreate", label: "Emoji aggiunte", hint: "" },
+      { id: "emojiUpdate", label: "Emoji rinominate", hint: "" },
+      { id: "emojiDelete", label: "Emoji eliminate", hint: "" },
+      { id: "stickerCreate", label: "Sticker aggiunti", hint: "" },
+      { id: "stickerDelete", label: "Sticker eliminati", hint: "" },
+      { id: "inviteCreate", label: "Inviti creati", hint: "codice, canale e autore" },
+      { id: "inviteDelete", label: "Inviti eliminati", hint: "codice e canale" },
+      { id: "eventCreate", label: "Eventi creati", hint: "nome, data e canale" },
+      { id: "eventDelete", label: "Eventi eliminati", hint: "" },
+    ],
+  },
 ];
-export type ServerLogs = { enabled: boolean; channelId: string | null; events: Record<string, boolean>; ignoredChannelIds: string[]; ignoreBots: boolean };
+
+export const LOG_EVENT_LABELS = LOG_EVENT_GROUPS.flatMap((g) => g.events);
+
+export type ServerLogs = {
+  enabled: boolean;
+  channelId: string | null;
+  /** canale per singolo evento (se manca, quello generale) */
+  channels?: Record<string, string>;
+  events: Record<string, boolean>;
+  ignoredChannelIds: string[];
+  ignoreBots: boolean;
+};
 
 export type Giveaway = {
   id: string;
@@ -211,6 +284,12 @@ export const communityApi = {
   listGiveaways: (t: string, g: string) => call<{ giveaways: Giveaway[] }>(t, g, `/giveaways?_=${Date.now()}`),
   createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number }) =>
     call<{ giveaway: Giveaway }>(t, g, "/giveaways", "POST", body),
+  editGiveaway: (
+    t: string,
+    g: string,
+    messageId: string,
+    body: { prize?: string; durationMs?: number; winnerCount?: number; hostId?: string },
+  ) => call<{ giveaway: Giveaway }>(t, g, `/giveaways/${encodeURIComponent(messageId)}`, "PATCH", body),
   giveawayAction: (t: string, g: string, messageId: string, action: "end" | "reroll" | "delete") =>
     action === "delete"
       ? call(t, g, `/giveaways/${encodeURIComponent(messageId)}`, "DELETE")

@@ -1,7 +1,8 @@
 /**
  * Backup / ripristino configurazione dashboard di un server.
- * Include: impostazioni (prefisso, canali, bacheca), ACL comandi, partnership (config), ticket (impostazioni).
- * Esclude: ticket aperti/chiusi, transcript, storia partnership, punti manager, audit, media bot.
+ * Include: impostazioni, ACL comandi, partnership, ticket, community (benvenuto, messaggi,
+ * comandi personalizzati, ruoli, risposte, contatori, log) e impostazioni moderazione.
+ * Esclude: ticket aperti/chiusi, transcript, storia partnership, punti, audit, casi, giveaway/poll attivi.
  */
 const { verifyDashboardGuildAccess } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
 const {
@@ -19,8 +20,13 @@ const {
   getDashboardTickets,
   patchDashboardTickets,
 } = require("../../tickets/dashboard/siteDashboardTicketsApi") as typeof import("../../tickets/dashboard/siteDashboardTicketsApi");
+const T = require("../../core/tenantCommunityTools") as typeof import("../../core/tenantCommunityTools");
+const {
+  getTenantModerationExtras,
+  patchTenantModerationExtras,
+} = require("../../core/tenantModerationSettings") as typeof import("../../core/tenantModerationSettings");
 
-const CONFIG_VERSION = 1;
+const CONFIG_VERSION = 2;
 
 function fail(status?, error?, message?) {
   return { ok: false, status: status || 400, error: error || "bad_request", message: message || "Operazione non riuscita." };
@@ -60,10 +66,20 @@ async function exportDashboardGuildConfig(client?, accessToken?, guildId?) {
   ]);
 
   const snapshot = getTenantSettingsSnapshotSync(access.guildId);
-  const [partnershipRes, ticketsRes] = await Promise.all([
-    getDashboardPartnership(client, accessToken, access.guildId).catch(() => null),
-    getDashboardTickets(client, accessToken, access.guildId).catch(() => null),
-  ]);
+  const gid = access.guildId;
+  const [partnershipRes, ticketsRes, welcome, messages, commands, rolePanels, autoResponders, counters, serverLogs, moderation] =
+    await Promise.all([
+      getDashboardPartnership(client, accessToken, gid).catch(() => null),
+      getDashboardTickets(client, accessToken, gid).catch(() => null),
+      T.getWelcome(gid, true).catch(() => null),
+      T.listMessages(gid, true).catch(() => []),
+      T.listCommands(gid, true).catch(() => []),
+      T.listRolePanels(gid, true).catch(() => []),
+      T.listRows("autoResponders", gid, true).catch(() => []),
+      T.listRows("counters", gid, true).catch(() => []),
+      T.getServerLogs(gid, true).catch(() => null),
+      getTenantModerationExtras(gid).catch(() => null),
+    ]);
 
   const partnership =
     partnershipRes?.ok === true ? pickPartnershipConfig(partnershipRes.partnership) : null;
@@ -87,6 +103,16 @@ async function exportDashboardGuildConfig(client?, accessToken?, guildId?) {
       commands: snapshot.commands && typeof snapshot.commands === "object" ? snapshot.commands : {},
       partnership,
       tickets,
+      community: {
+        welcome: welcome || null,
+        messages: Array.isArray(messages) ? messages : [],
+        customCommands: Array.isArray(commands) ? commands : [],
+        rolePanels: Array.isArray(rolePanels) ? rolePanels : [],
+        autoResponders: Array.isArray(autoResponders) ? autoResponders : [],
+        counters: Array.isArray(counters) ? counters : [],
+        serverLogs: serverLogs || null,
+      },
+      moderation: moderation && typeof moderation === "object" ? moderation : null,
     },
   };
 }
@@ -105,8 +131,16 @@ async function importDashboardGuildConfig(client?, accessToken?, guildId?, body?
     return fail(400, "invalid_config", "Backup non valido o versione non supportata.");
   }
 
-  const applied = { settings: false, commands: false, partnership: false, tickets: false };
+  const applied: Record<string, boolean> = {
+    settings: false,
+    commands: false,
+    partnership: false,
+    tickets: false,
+    community: false,
+    moderation: false,
+  };
   const errors = [];
+  const gid = access.guildId;
 
   if (config.settings && typeof config.settings === "object") {
     const settingsBody: Record<string, any> = {};
@@ -162,7 +196,72 @@ async function importDashboardGuildConfig(client?, accessToken?, guildId?, body?
     else errors.push(out?.message || "Ticket non ripristinati.");
   }
 
-  if (!applied.settings && !applied.commands && !applied.partnership && !applied.tickets) {
+  const community = config.community && typeof config.community === "object" ? config.community : null;
+  if (community) {
+    let communityOk = false;
+    try {
+      if (community.welcome && typeof community.welcome === "object") {
+        await T.writeWelcome(gid, T.normalizeWelcome(community.welcome));
+        communityOk = true;
+      }
+      if (Array.isArray(community.messages)) {
+        await T.writeMessages(
+          gid,
+          community.messages.map((row) => T.normalizeMessage(row, null)).slice(0, T.LIMITS.messages),
+        );
+        communityOk = true;
+      }
+      if (Array.isArray(community.customCommands)) {
+        await T.writeCommands(
+          gid,
+          community.customCommands.map((row) => T.normalizeCommand(row, null)).slice(0, T.LIMITS.commands),
+        );
+        communityOk = true;
+      }
+      if (Array.isArray(community.rolePanels)) {
+        await T.writeRolePanels(
+          gid,
+          community.rolePanels.map((row) => T.normalizeRolePanel(row, null)).slice(0, T.LIMITS.rolePanels),
+        );
+        communityOk = true;
+      }
+      if (Array.isArray(community.autoResponders)) {
+        await T.writeRows(
+          "autoResponders",
+          gid,
+          community.autoResponders.map((row) => T.normalizeAutoResponder(row, null)).slice(0, T.LIMITS.autoResponders),
+        );
+        communityOk = true;
+      }
+      if (Array.isArray(community.counters)) {
+        await T.writeRows(
+          "counters",
+          gid,
+          community.counters.map((row) => T.normalizeCounter(row, null)).slice(0, T.LIMITS.counters),
+        );
+        communityOk = true;
+      }
+      if (community.serverLogs && typeof community.serverLogs === "object") {
+        await T.writeServerLogs(gid, T.normalizeServerLogs(community.serverLogs));
+        communityOk = true;
+      }
+      if (communityOk) applied.community = true;
+    } catch (err: any) {
+      errors.push(err?.message || "Community non ripristinata.");
+    }
+  }
+
+  if (config.moderation && typeof config.moderation === "object") {
+    try {
+      const out: any = await patchTenantModerationExtras(gid, config.moderation);
+      if (out?.ok === true) applied.moderation = true;
+      else errors.push(out?.reason || "Moderazione non ripristinata.");
+    } catch (err: any) {
+      errors.push(err?.message || "Moderazione non ripristinata.");
+    }
+  }
+
+  if (!Object.values(applied).some(Boolean)) {
     return fail(400, "nothing_applied", errors[0] || "Nessuna sezione da ripristinare nel backup.");
   }
 
