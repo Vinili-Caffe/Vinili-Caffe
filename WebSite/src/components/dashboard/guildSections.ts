@@ -4,6 +4,10 @@ import {
   Handshake,
   History,
   HeartPulse,
+  Megaphone,
+  PartyPopper,
+  Tags,
+  TerminalSquare,
   Pin,
   Settings2,
   Terminal,
@@ -16,6 +20,10 @@ import {
 export type GuildSectionId =
   | "stats"
   | "salute"
+  | "messaggi"
+  | "comandipers"
+  | "ruoli"
+  | "benvenuto"
   | "settings"
   | "commands"
   | "bacheca"
@@ -95,6 +103,7 @@ export const REGISTRO_MODULE_TABS = [
   { id: "moderation", label: "Moderazione" },
   { id: "tickets", label: "Ticket" },
   { id: "partnership", label: "Partnership" },
+  { id: "community", label: "Community" },
   { id: "premium", label: "Premium" },
 ] as const satisfies readonly GuildModuleTab[];
 
@@ -116,6 +125,10 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "tickets", label: "Ticket", icon: Ticket, tabs: TICKET_MODULE_TABS },
   { id: "moderation", label: "Moderazione", icon: Gavel, tabs: MODERATION_MODULE_TABS },
   { id: "partnership", label: "Partnership", icon: Handshake, tabs: PARTNERSHIP_MODULE_TABS },
+  { id: "messaggi", label: "Messaggi", icon: Megaphone, tabs: [] as const },
+  { id: "comandipers", label: "Comandi personalizzati", icon: TerminalSquare, tabs: [] as const },
+  { id: "ruoli", label: "Ruoli con pulsanti", icon: Tags, tabs: [] as const },
+  { id: "benvenuto", label: "Benvenuto e addio", icon: PartyPopper, tabs: [] as const },
 ] as const satisfies readonly GuildNavItem[];
 
 /** Elenco piatto (URL, mobile chip, lookup). Ordine: server poi moduli. */

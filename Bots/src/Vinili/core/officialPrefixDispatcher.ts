@@ -162,7 +162,13 @@ const official = createOfficialPrefixDispatcher({
   allowDmQueueLock: true,
   shouldDeleteCommandMessage: (command?) => !command?.keepCommandMessage,
 
-  onCommandNotFound: async ({ message, resolvedClient, sendTemporaryMessage }) => {
+  onCommandNotFound: async ({ message, resolvedClient, sendTemporaryMessage, cmd }) => {
+    try {
+      const { runCustomCommand } = require("../../MultiGuild/services/customCommandRuntime") as typeof import("../../MultiGuild/services/customCommandRuntime");
+      if (await runCustomCommand(message, cmd)) return true;
+    } catch (err) {
+      global.logger?.warn?.("[CUSTOM CMD]", err?.message || err);
+    }
     if (resolvedClient.__prefixCommandsReady === false) {
       await sendTemporaryMessage(
         message.channel,

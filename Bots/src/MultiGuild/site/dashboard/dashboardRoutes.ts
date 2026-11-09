@@ -177,6 +177,37 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
+  {
+    const C = () => require("./dashboardCommunityApi") as typeof import("./dashboardCommunityApi");
+    const base = "/webhooks/site-dashboard/guilds/:guildId/community";
+    const wrap = (label: string, fn: (token: string, req?) => Promise<any>) => async (req?, res?) => {
+      try {
+        const accessToken = normalizeHeaderSecret(req.headers.authorization);
+        if (!accessToken) {
+          return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
+        }
+        const out: any = await fn(accessToken, req);
+        return res.status(Number(out?.status) || 500).json(out);
+      } catch (err) {
+        global.logger?.error?.(`[WEBHOOK] site-dashboard community ${label}:`, err);
+        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+      }
+    };
+    const gid = (req?) => req.params?.guildId;
+    app.get(base, wrap("get", (t, req) => C().getDashboardCommunity(client, t, gid(req))));
+    app.put(`${base}/messages`, wrap("msg put", (t, req) => C().putMessage(client, t, gid(req), req.body)));
+    app.delete(`${base}/messages/:id`, wrap("msg del", (t, req) => C().deleteMessage(client, t, gid(req), req.params?.id)));
+    app.post(`${base}/messages/:id/send`, wrap("msg send", (t, req) => C().sendMessageNow(client, t, gid(req), req.params?.id, req.body)));
+    app.post(`${base}/messages/:id/schedule`, wrap("msg schedule", (t, req) => C().scheduleMessage(client, t, gid(req), req.params?.id, req.body)));
+    app.put(`${base}/commands`, wrap("cmd put", (t, req) => C().putCommand(client, t, gid(req), req.body)));
+    app.delete(`${base}/commands/:id`, wrap("cmd del", (t, req) => C().deleteCommand(client, t, gid(req), req.params?.id)));
+    app.put(`${base}/role-panels`, wrap("roles put", (t, req) => C().putRolePanel(client, t, gid(req), req.body)));
+    app.delete(`${base}/role-panels/:id`, wrap("roles del", (t, req) => C().deleteRolePanel(client, t, gid(req), req.params?.id)));
+    app.post(`${base}/role-panels/:id/publish`, wrap("roles publish", (t, req) => C().publishRolePanel(client, t, gid(req), req.params?.id)));
+    app.patch(`${base}/welcome`, wrap("welcome patch", (t, req) => C().patchWelcome(client, t, gid(req), req.body)));
+    app.post(`${base}/welcome/test`, wrap("welcome test", (t, req) => C().testWelcome(client, t, gid(req), req.body)));
+  }
+
   app.get("/webhooks/site-dashboard/guilds/:guildId/health", async (req?, res?) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);

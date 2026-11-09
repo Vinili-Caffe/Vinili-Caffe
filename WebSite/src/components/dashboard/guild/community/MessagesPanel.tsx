@@ -1,0 +1,242 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { CalendarClock, Megaphone, Plus, Send, Trash2 } from "lucide-react";
+import { DateField } from "@/components/ui/DateField";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Select } from "@/components/ui/Select";
+import { cn } from "@/lib/cn";
+import { communityApi, emptyDraft, type SavedMessage } from "@/lib/dashboard-community";
+import { EditorHeader, Field, FormGroup, Notice, RowsSkeleton, StatusBadge, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
+import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, formatWhen, sampleVars, useCommunity } from "./shared";
+
+const TIMES = Array.from({ length: 96 }, (_, i) => {
+  const h = String(Math.floor(i / 4)).padStart(2, "0");
+  const m = String((i % 4) * 15).padStart(2, "0");
+  return { value: `${h}:${m}`, label: `${h}:${m}` };
+});
+
+const PLACEHOLDERS = [
+  { token: "{server}", hint: "nome del server" },
+  { token: "{membercount}", hint: "numero di membri" },
+];
+
+function toLocalParts(ms: number | null) {
+  const d = ms ? new Date(ms) : new Date(Date.now() + 3_600_000);
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const mins = Math.ceil((d.getHours() * 60 + d.getMinutes()) / 15) * 15;
+  const h = Math.min(23, Math.floor(mins / 60));
+  const m = mins >= 24 * 60 ? 45 : mins % 60;
+  return { date, time: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}` };
+}
+
+function statusBadge(m: SavedMessage) {
+  if (m.status === "scheduled") return <StatusBadge tone="accent">Programmato · {formatWhen(m.scheduledAt)}</StatusBadge>;
+  if (m.status === "sent") return <StatusBadge tone="ok">Pubblicato · {formatWhen(m.sentAt)}</StatusBadge>;
+  if (m.status === "failed") return <StatusBadge tone="warn">Non inviato</StatusBadge>;
+  return <StatusBadge>Bozza</StatusBadge>;
+}
+
+export function MessagesPanel({ guildId, token, onToast }: { guildId: string; token: string; onToast: (msg: string, err?: boolean) => void }) {
+  const { data, setData, error } = useCommunity(guildId, token);
+  const [edit, setEdit] = useState<SavedMessage | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [when, setWhen] = useState(() => toLocalParts(null));
+  const [today] = useState(() => toLocalParts(Date.now()).date);
+
+  const vars = useMemo(() => sampleVars(data), [data]);
+
+  if (error && !data) return <Notice error>{error}</Notice>;
+  if (!data) return <RowsSkeleton rows={4} />;
+
+  const channels = data.pickers.textChannels;
+  const chName = (id: string | null) => channels.find((c) => c.id === id)?.name;
+
+  const upsertLocal = (m: SavedMessage) =>
+    setData((d) => (d ? { ...d, messages: d.messages.some((x) => x.id === m.id) ? d.messages.map((x) => (x.id === m.id ? m : x)) : [m, ...d.messages] } : d));
+
+  const open = (m: SavedMessage | null) => {
+    const base: SavedMessage = m || {
+      id: "",
+      name: "Nuovo messaggio",
+      channelId: null,
+      draft: emptyDraft({ embed: { ...emptyDraft().embed, title: "Annuncio", description: "Scrivi qui il tuo messaggio…" } }),
+      messageId: null,
+      sentChannelId: null,
+      sentAt: null,
+      scheduledAt: null,
+      status: "draft",
+      error: null,
+      updatedAt: 0,
+    };
+    setEdit(base);
+    setWhen(toLocalParts(base.scheduledAt));
+  };
+
+  const save = async (quiet = false): Promise<SavedMessage | null> => {
+    if (!edit) return null;
+    setBusy("save");
+    const r = await communityApi.saveMessage(token, guildId, { id: edit.id || undefined, name: edit.name, channelId: edit.channelId, draft: edit.draft, scheduledAt: edit.scheduledAt });
+    setBusy(null);
+    if (!r.ok) {
+      onToast(r.message, true);
+      return null;
+    }
+    upsertLocal(r.data.message);
+    setEdit(r.data.message);
+    if (!quiet) onToast("Messaggio salvato.");
+    return r.data.message;
+  };
+
+  const send = async (asNew = false) => {
+    if (!edit?.channelId) return onToast("Scegli prima il canale.", true);
+    const saved = await save(true);
+    if (!saved) return;
+    setBusy("send");
+    const r = await communityApi.sendMessage(token, guildId, saved.id, asNew);
+    setBusy(null);
+    if (!r.ok) return onToast(r.message, true);
+    upsertLocal(r.data.message);
+    setEdit(r.data.message);
+    onToast(r.data.edited ? "Messaggio aggiornato su Discord." : `Pubblicato in #${chName(r.data.message.channelId) || "canale"}.`);
+  };
+
+  const schedule = async (off = false) => {
+    if (!off && !edit?.channelId) return onToast("Scegli prima il canale.", true);
+    const saved = await save(true);
+    if (!saved) return;
+    const [y, mo, d] = when.date.split("-").map(Number);
+    const [h, mi] = when.time.split(":").map(Number);
+    const at = off ? null : new Date(y, mo - 1, d, h, mi).getTime();
+    setBusy("schedule");
+    const r = await communityApi.scheduleMessage(token, guildId, saved.id, at);
+    setBusy(null);
+    if (!r.ok) return onToast(r.message, true);
+    upsertLocal(r.data.message);
+    setEdit(r.data.message);
+    onToast(off ? "Programmazione annullata." : `Verrà pubblicato ${formatWhen(at)}.`);
+  };
+
+  const remove = async (m: SavedMessage) => {
+    if (!m.id) return setEdit(null);
+    setBusy("delete");
+    const r = await communityApi.deleteMessage(token, guildId, m.id);
+    setBusy(null);
+    if (!r.ok) return onToast(r.message, true);
+    setData((d) => (d ? { ...d, messages: d.messages.filter((x) => x.id !== m.id) } : d));
+    setEdit(null);
+    onToast("Messaggio eliminato (quello su Discord resta).");
+  };
+
+  if (edit) {
+    const published = Boolean(edit.messageId);
+    return (
+      <div className="space-y-4">
+        <EditorHeader
+          backLabel="Messaggi"
+          onBack={() => setEdit(null)}
+          title={edit.name || "Messaggio"}
+          subtitle={edit.id ? statusBadge(edit) : "Non ancora salvato"}
+          actions={
+            <>
+              <button type="button" className={miniBtn} disabled={!!busy} onClick={() => void save()}>
+                Salva
+              </button>
+              <button type="button" className={primaryMini} disabled={!!busy} onClick={() => void send(false)}>
+                <Send className="size-3.5" />
+                {published && edit.channelId === edit.sentChannelId ? "Aggiorna su Discord" : "Pubblica ora"}
+              </button>
+            </>
+          }
+        />
+        {edit.status === "failed" && edit.error ? <Notice error>Ultimo invio non riuscito: {edit.error}</Notice> : null}
+        <EditorWithPreview
+          editor={
+            <div className="space-y-4">
+              <FormGroup title="Dove">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Nome (solo per te)">
+                    <input value={edit.name} maxLength={80} onChange={(e) => setEdit({ ...edit, name: e.target.value })} className={fieldClass} />
+                  </Field>
+                  <ChannelField label="Canale" value={edit.channelId} channels={channels} onChange={(channelId) => setEdit({ ...edit, channelId })} />
+                </div>
+              </FormGroup>
+              <FormGroup title="Contenuto">
+                <DraftEditor value={edit.draft} onChange={(draft) => setEdit({ ...edit, draft })} emojis={data.pickers.emojis} placeholders={PLACEHOLDERS} maxButtons={data.limits.buttons} />
+              </FormGroup>
+              <FormGroup title="Programma" description="Il bot lo pubblica da solo all'ora scelta (ora italiana).">
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="w-44">
+                    <DateField value={when.date} onChange={(date) => setWhen((w) => ({ ...w, date }))} min={today} aria-label="Giorno" />
+                  </div>
+                  <div className="w-28">
+                    <Select value={when.time} onChange={(time) => setWhen((w) => ({ ...w, time }))} options={TIMES} className={cn(fieldClass, "mt-0")} aria-label="Ora" />
+                  </div>
+                  <button type="button" className={primaryMini} disabled={!!busy} onClick={() => void schedule(false)}>
+                    <CalendarClock className="size-3.5" />
+                    {edit.status === "scheduled" ? "Cambia orario" : "Programma"}
+                  </button>
+                  {edit.status === "scheduled" ? (
+                    <button type="button" className={miniBtn} disabled={!!busy} onClick={() => void schedule(true)}>
+                      Annulla programmazione
+                    </button>
+                  ) : null}
+                </div>
+              </FormGroup>
+              <div className="flex flex-wrap gap-2">
+                {published ? (
+                  <button type="button" className={miniBtn} disabled={!!busy} onClick={() => void send(true)}>
+                    Pubblica come nuovo messaggio
+                  </button>
+                ) : null}
+                {edit.id ? (
+                  <button type="button" className={dangerBtn} disabled={!!busy} onClick={() => void remove(edit)}>
+                    <Trash2 className="size-3.5" /> Elimina
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          }
+          preview={<DiscordMessagePreview draft={edit.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-crema/60">
+          Annunci, regolamenti e avvisi: scrivi il messaggio, scegli il canale e pubblicalo subito o a un&apos;ora precisa. Poi puoi modificarlo quando vuoi.
+        </p>
+        <button type="button" className={primaryMini} disabled={data.messages.length >= data.limits.messages} onClick={() => open(null)}>
+          <Plus className="size-3.5" /> Nuovo messaggio
+        </button>
+      </div>
+      {data.messages.length ? (
+        <ul className="space-y-2">
+          {data.messages.map((m) => (
+            <li key={m.id}>
+              <button
+                type="button"
+                onClick={() => open(m)}
+                className="flex w-full items-center gap-3 rounded-xl bg-espresso/45 p-3 text-left ring-1 ring-sand/10 transition hover:ring-sand/25"
+              >
+                <span className="h-9 w-1 shrink-0 rounded-full" style={{ background: m.draft.embed.enabled ? m.draft.embed.color : "#4e5058" }} aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold text-crema">{m.name}</span>
+                  <span className="block truncate text-xs text-crema/55">
+                    {m.channelId ? `#${chName(m.channelId) || "canale"}` : "Nessun canale"} · {m.draft.embed.title || m.draft.content || "—"}
+                  </span>
+                </span>
+                {statusBadge(m)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <EmptyState icon={Megaphone} title="Nessun messaggio" text="Crea il primo annuncio o regolamento: lo vedi in anteprima prima di pubblicarlo." />
+      )}
+    </div>
+  );
+}

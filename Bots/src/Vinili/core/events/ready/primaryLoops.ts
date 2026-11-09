@@ -80,6 +80,11 @@ function startPrimaryLoops(client?, engagementTick?) {
       const { startWebTicketSlaNotifLoop } = require("../../../site/tickets/siteWebTicketsApi") as typeof import("../../../site/tickets/siteWebTicketsApi");
       startWebTicketSlaNotifLoop(client);
     }],
+    ["[COMMUNITY MSG] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
+      const { startScheduledMessagesLoop } = require("../../../../MultiGuild/site/dashboard/dashboardCommunityApi") as typeof import("../../../../MultiGuild/site/dashboard/dashboardCommunityApi");
+      startScheduledMessagesLoop(client);
+    }],
     ["[TRANSCRIPT CLEANUP] Failed to start loop", () => {
       if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
       const { startTranscriptCleanupLoop } = require("../../../../MultiGuild/tickets/transcript/ticketMaintenanceService") as typeof import("../../../../MultiGuild/tickets/transcript/ticketMaintenanceService");

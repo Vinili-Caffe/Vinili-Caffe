@@ -116,6 +116,26 @@ const StatsPanel = dynamic(() => import("./guild/StatsPanel").then((m) => m.Stat
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
 
+const MessagesPanel = dynamic(() => import("./guild/community/MessagesPanel").then((m) => m.MessagesPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
+const CustomCommandsPanel = dynamic(() => import("./guild/community/CustomCommandsPanel").then((m) => m.CustomCommandsPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
+const RolePanelsPanel = dynamic(() => import("./guild/community/RolePanelsPanel").then((m) => m.RolePanelsPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
+const WelcomePanel = dynamic(() => import("./guild/community/WelcomePanel").then((m) => m.WelcomePanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
 const HealthPanel = dynamic(() => import("./guild/HealthPanel").then((m) => m.HealthPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
@@ -162,6 +182,10 @@ const SECTION_LEAD: Record<Section, string> = {
   stats: "Ticket e partnership del server: andamento, voti, staff più attivo.",
   registro: "Chi ha cambiato cosa dalla dashboard, e quando.",
   salute: "Cosa non funziona nel server e come sistemarlo: permessi del bot, canali e ruoli.",
+  messaggi: "Annunci e regolamenti con embed e pulsanti: pubblicali subito o a un'ora precisa.",
+  comandipers: "Comandi con una risposta fissa, tipo +regole o +ip, creati da te.",
+  ruoli: "Pannelli con pulsanti o menu per prendersi i ruoli da soli.",
+  benvenuto: "Messaggi quando qualcuno entra o esce e ruoli automatici all'ingresso.",
 };
 
 const fieldCls =
@@ -2028,6 +2052,30 @@ export function GuildPanel() {
                     {section === "stats" && guildId && token ? (
                       <Panel>
                         <StatsPanel guildId={guildId} token={token} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "messaggi" && guildId && token ? (
+                      <Panel>
+                        <MessagesPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "comandipers" && guildId && token ? (
+                      <Panel>
+                        <CustomCommandsPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "ruoli" && guildId && token ? (
+                      <Panel>
+                        <RolePanelsPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "benvenuto" && guildId && token ? (
+                      <Panel>
+                        <WelcomePanel guildId={guildId} token={token} onToast={showToast} />
                       </Panel>
                     ) : null}
 

@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 import { loadGuildAudit, type AuditRow } from "@/lib/dashboard-insights";
 import { Notice, RowsSkeleton } from "./bits";
 
-type Area = "all" | "settings" | "commands" | "moderation" | "tickets" | "partnership" | "premium";
+type Area = "all" | "settings" | "commands" | "moderation" | "tickets" | "partnership" | "premium" | "community";
 
 const AREA_LABEL: Record<string, string> = {
   settings: "Impostazioni",
@@ -17,6 +17,7 @@ const AREA_LABEL: Record<string, string> = {
   tickets: "Ticket",
   partnership: "Partnership",
   premium: "Premium",
+  community: "Community",
   altro: "Altro",
 };
 

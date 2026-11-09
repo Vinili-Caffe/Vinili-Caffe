@@ -174,6 +174,12 @@ async function main(shared?: { client?: any } | null) {
     });
     startPremiumExpiryReminderLoop(client);
     startTicketAutoClosePromptLoop(client);
+    try {
+      const { startScheduledMessagesLoop } = require("../../../MultiGuild/site/dashboard/dashboardCommunityApi") as typeof import("../../../MultiGuild/site/dashboard/dashboardCommunityApi");
+      startScheduledMessagesLoop(client);
+    } catch (err) {
+      global.logger?.warn?.("[COMMUNITY MSG] loop start:", err?.message || err);
+    }
     startTranscriptCleanupLoop();
   }
 
