@@ -1,5 +1,7 @@
 "use client";
 
+import { MessagePreview } from "./MessagePreview";
+import { EmojiText } from "@/components/discord/EmojiText";
 import { NumberField } from "@/components/ui/NumberField";
 import { useEffect, useState } from "react";
 import {
@@ -552,6 +554,13 @@ export function TicketPanels({
                     className={fieldClass}
                   />
                 </Field>
+                <MessagePreview
+                  title={single.welcome.title}
+                  text={single.welcome.description}
+                  roles={roles}
+                  channels={channels}
+                  samples={{ user: "@utente", mention: "@utente", panel: single.title || "Pannello", ticket: "#ticket-1" }}
+                />
               </div>
             </Disclosure>
 
@@ -934,7 +943,7 @@ export function TicketPanels({
                 >
                   <span className="h-10 w-1 shrink-0 rounded-full" style={{ background: panel.color || "#5865f2" }} aria-hidden />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-crema">{panel.title || "Pannello senza titolo"}</span>
+                    <span className="block truncate text-sm font-semibold text-crema"><EmojiText text={panel.title || "Pannello senza titolo"} /></span>
                     <span className="mt-0.5 block truncate text-xs text-crema/60">
                       {panel.ticketTypeLabel || TYPE_LABEL[panel.ticketType] || panel.ticketType}
                       {panel.channelName ? ` · #${String(panel.channelName).replace(/^#/, "")}` : ""}
@@ -972,7 +981,7 @@ export function TicketPanels({
                 >
                   <span className="h-10 w-1 shrink-0 rounded-full" style={{ background: panel.color || "#5865f2" }} aria-hidden />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-crema">{panel.title || "Multi-panel"}</span>
+                    <span className="block truncate text-sm font-semibold text-crema"><EmojiText text={panel.title || "Multi-panel"} /></span>
                     <span className="mt-0.5 block truncate text-xs text-crema/60">
                       {panel.panelIds.length} pannelli{panel.channelName ? ` · #${String(panel.channelName).replace(/^#/, "")}` : ""}
                     </span>

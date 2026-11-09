@@ -25,7 +25,6 @@ function formatDate(timestamp?) {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      second: "2-digit",
       hour12: false,
     }).format(value);
   } catch {
@@ -53,19 +52,19 @@ function getUserMentionLabel(message?, userId?) {
   const user = message.client?.users?.cache?.get(userId) || message.mentions?.users?.get?.(userId);
   if (user?.username) return `@${user.username}`;
 
-  return `@user-${userId}`;
+  return "@utente";
 }
 
 function getRoleMentionLabel(message?, roleId?) {
   const role = message.guild?.roles?.cache?.get(roleId) || message.mentions?.roles?.get?.(roleId);
   if (role?.name) return `@${role.name}`;
-  return `@role-${roleId}`;
+  return "@ruolo";
 }
 
 function getChannelMentionLabel(message?, channelId?) {
   const channel = message.guild?.channels?.cache?.get(channelId) || message.mentions?.channels?.get?.(channelId);
   if (channel?.name) return `#${channel.name}`;
-  return `#channel-${channelId}`;
+  return "#canale";
 }
 
 function isLikelyImageUrl(url?, contentType?) {
@@ -178,6 +177,13 @@ function renderMarkdownSegment(raw?) {
   };
 
   let s = input.replace(/`([^`\n]+)`/g, (_?, code?) => park(`<code class="inline-code">${escapeHtml(code)}</code>`));
+  /* link mascherati [testo](url) e link nudi */
+  s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (_?, label?, url?) =>
+    park(`<a class="md-link" href="${escapeHtml(url)}" target="_blank" rel="noreferrer noopener">${escapeHtml(label)}</a>`),
+  );
+  s = s.replace(/<?(https?:\/\/[^\s<>]+[^\s<>.,;:!?)'"\]])>?/g, (_?, url?) =>
+    park(`<a class="md-link" href="${escapeHtml(url)}" target="_blank" rel="noreferrer noopener">${escapeHtml(url)}</a>`),
+  );
 
   const apply = (re?, open?, close?) => {
     s = s.replace(re, (_?, inner?) => park(`${open}${renderMarkdownSegment(inner)}${close}`));
@@ -185,6 +191,8 @@ function renderMarkdownSegment(raw?) {
   apply(/\*\*(.+?)\*\*/gs, "<strong>", "</strong>");
   apply(/__(.+?)__/gs, "<u>", "</u>");
   apply(/~~(.+?)~~/gs, "<s>", "</s>");
+  apply(/\|\|(.+?)\|\|/gs, '<span class="spoiler" title="Spoiler">', "</span>");
+  s = s.replace(/(^|[^\w_])_([^_\n]+)_(?![\w_])/g, (_?, pre?, inner?) => `${pre}${park(`<em>${renderMarkdownSegment(inner)}</em>`)}`);
   s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, (_?, pre?, inner?) => `${pre}${park(`<em>${renderMarkdownSegment(inner)}</em>`)}`);
 
   s = escapeHtml(s).replace(/\u0000(\d+)\u0000/g, (_?, idx?) => slots[Number(idx)] || "");
@@ -192,6 +200,91 @@ function renderMarkdownSegment(raw?) {
 }
 
 function renderRichTextHtml(message?, text?, options: Record<string, any> = {}) {
+  const input = String(text || "");
+  const out = [];
+  const fence = /```(?:([a-zA-Z0-9_+.-]{1,20})\n)?([\s\S]*?)```/g;
+  let last = 0;
+  let m;
+  while ((m = fence.exec(input)) !== null) {
+    out.push(renderBlocksHtml(message, input.slice(last, m.index), options));
+    const code = String(m[2] || "").replace(/^\n+|\n+$/g, "");
+    out.push(`<pre class="codeblock"${m[1] ? ` data-lang="${escapeHtml(m[1])}"` : ""}><code>${escapeHtml(code)}</code></pre>`);
+    last = fence.lastIndex;
+  }
+  out.push(renderBlocksHtml(message, input.slice(last), options));
+  return out.filter(Boolean).join("");
+}
+
+/** Righe con significato in Discord: > citazione, >>> citazione lunga, # titoli, -# piccolo, - elenchi. */
+function renderBlocksHtml(message?, text?, options: Record<string, any> = {}) {
+  const src = String(text || "");
+  if (!src.trim()) return "";
+  const lines = src.replace(/^\n+|\n+$/g, "").split("\n");
+  const html = [];
+  let quote = [];
+  let list = [];
+  const inline = (t?) => renderInlineRichTextHtml(message, t, options);
+  const flushQuote = () => {
+    if (!quote.length) return;
+    html.push(`<blockquote class="md-quote">${quote.map(inline).join("<br>")}</blockquote>`);
+    quote = [];
+  };
+  const flushList = () => {
+    if (!list.length) return;
+    html.push(`<ul class="md-list">${list.map((li?) => `<li>${inline(li)}</li>`).join("")}</ul>`);
+    list = [];
+  };
+  let plain = [];
+  const flushPlain = () => {
+    if (!plain.length) return;
+    html.push(plain.map(inline).join("<br>"));
+    plain = [];
+  };
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (/^>>> ?/.test(line)) {
+      flushPlain();
+      flushList();
+      quote.push(line.replace(/^>>> ?/, ""), ...lines.slice(i + 1));
+      break;
+    }
+    if (/^> ?/.test(line) && line.trim() !== ">") {
+      flushPlain();
+      flushList();
+      quote.push(line.replace(/^> ?/, ""));
+      continue;
+    }
+    flushQuote();
+    const h = line.match(/^(#{1,3}) (.+)$/);
+    if (h) {
+      flushPlain();
+      flushList();
+      html.push(`<div class="md-h md-h${h[1].length}">${inline(h[2])}</div>`);
+      continue;
+    }
+    const sub = line.match(/^-# (.+)$/);
+    if (sub) {
+      flushPlain();
+      flushList();
+      html.push(`<div class="md-sub">${inline(sub[1])}</div>`);
+      continue;
+    }
+    const li = line.match(/^\s*[-*] (.+)$/);
+    if (li) {
+      flushPlain();
+      list.push(li[1]);
+      continue;
+    }
+    flushList();
+    plain.push(line);
+  }
+  flushQuote();
+  flushList();
+  flushPlain();
+  return html.join("");
+}
+
+function renderInlineRichTextHtml(message?, text?, options: Record<string, any> = {}) {
   const input = String(text || "");
   const jumbo = options.jumbo === true;
   let out = "";
@@ -228,7 +321,7 @@ function renderRichTextHtml(message?, text?, options: Record<string, any> = {}) 
   }
 
   out += renderMarkdownSegment(input.slice(last));
-  return out.replace(/\n/g, "<br>");
+  return out;
 }
 
 function renderRichTextPlain(message?, text?) {

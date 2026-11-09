@@ -1,5 +1,6 @@
 "use client";
 
+import { EmojiText } from "@/components/discord/EmojiText";
 import { useCallback, useEffect, useState } from "react";
 import { Check, LogIn, Shield, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -101,7 +102,7 @@ export function ModQueue() {
                   {kindLabel(item.kind)} · {statusLabel(item.status)}
                 </p>
                 <p className="font-display text-2xl font-semibold">{item.name}</p>
-                <p className="mt-1 line-clamp-2 text-sm text-crema/55">{item.tagline || item.description}</p>
+                <p className="mt-1 line-clamp-2 text-sm text-crema/55"><EmojiText text={item.tagline || item.description} /></p>
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">

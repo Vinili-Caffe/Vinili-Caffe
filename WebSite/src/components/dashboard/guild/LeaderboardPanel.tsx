@@ -144,7 +144,8 @@ export function LeaderboardPanel({ guildId, token }: { guildId: string; token: s
   const pick = <T,>(set: (v: T) => void) => (v: T) => {
     set(v);
     setPage(1);
-    setState((s) => ({ ...s, loading: true }));
+    /* cambio tab o periodo: skeleton al posto della classifica vecchia */
+    setState({ loading: true, error: "", board: null });
   };
 
   const board = state.board;
@@ -180,11 +181,19 @@ export function LeaderboardPanel({ guildId, token }: { guildId: string; token: s
       {state.error ? (
         <Notice>{state.error}</Notice>
       ) : state.loading && !board ? (
-        <div className="space-y-1.5" aria-busy>
-          {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="h-14 animate-pulse rounded-lg bg-crema/[0.04]" />
+        <ol className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10" aria-busy aria-label="Caricamento classifica">
+          {Array.from({ length: 8 }, (_, i) => (
+            <li key={i} className="flex items-center gap-3 px-4 py-2.5">
+              <span className="h-5 w-7 shrink-0 animate-pulse rounded bg-crema/[0.06]" />
+              <span className="size-9 shrink-0 animate-pulse rounded-full bg-crema/[0.07]" />
+              <span className="min-w-0 flex-1 space-y-2">
+                <span className="block h-3.5 animate-pulse rounded bg-crema/[0.08]" style={{ width: `${60 - i * 4}%` }} />
+                <span className="block h-1 animate-pulse rounded-full bg-crema/[0.05]" style={{ width: `${90 - i * 9}%` }} />
+              </span>
+              <span className="h-5 w-10 shrink-0 animate-pulse rounded bg-crema/[0.06]" />
+            </li>
           ))}
-        </div>
+        </ol>
       ) : board && board.rows.length === 0 ? (
         <p className="rounded-xl border border-dashed border-sand/20 px-4 py-10 text-center text-sm text-crema/60">
           {category === "partners" ? "Nessun partner manager in classifica per questo periodo." : "Nessun dato per questo periodo."}

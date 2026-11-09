@@ -1,10 +1,12 @@
 "use client";
 
+import { EmojiText } from "@/components/discord/EmojiText";
 import { Select } from "@/components/ui/Select";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, ExternalLink, FileText, Search, Star, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { Pagination } from "@/components/ui/Pagination";
 import { Notice, fieldClass, miniBtn } from "./bits";
 
 // API: GET /webhooks/site-dashboard/guilds/:id/tickets/transcripts?username=&ticketId=&ticketType=&rating=&offset=&limit=
@@ -181,7 +183,7 @@ function TranscriptReader({ token, guildId, row, onClose }: { token: string; gui
             </p>
             <p className="truncate text-xs text-crema/60">
               {row.username || row.userId || "Utente nascosto"} · chiuso {fmtDate(row.closedAt)}
-              {row.closeReason ? ` · ${row.closeReason}` : ""}
+              {row.closeReason ? <> · <EmojiText text={row.closeReason} /></> : ""}
             </p>
           </div>
           {state.src ? (
@@ -232,10 +234,15 @@ export function TicketArchive({ guildId, token }: { guildId: string; token: stri
   }, [q]);
 
   const filters = useMemo(() => ({ q: query, type, rating }), [query, type, rating]);
+  /* cambiando filtri si torna alla prima pagina */
+  const [pageState, setPageState] = useState<{ key: typeof filters; page: number }>({ key: filters, page: 1 });
+  const page = pageState.key === filters ? pageState.page : 1;
+  const setPage = (n: number) => setPageState({ key: filters, page: n });
+  const totalPages = Math.max(1, Math.ceil(meta.total / PAGE));
 
   useEffect(() => {
     let cancelled = false;
-    void loadArchive(token, guildId, filters, 0).then((res) => {
+    void loadArchive(token, guildId, filters, (page - 1) * PAGE).then((res) => {
       if (cancelled) return;
       if (!res.ok) return setStatus({ loading: false, more: false, error: res.message });
       setRows(res.page.rows);
@@ -245,22 +252,12 @@ export function TicketArchive({ guildId, token }: { guildId: string; token: stri
     return () => {
       cancelled = true;
     };
-  }, [token, guildId, filters]);
-
-  const loadMore = async () => {
-    if (meta.nextOffset == null) return;
-    setStatus((s) => ({ ...s, more: true }));
-    const res = await loadArchive(token, guildId, filters, meta.nextOffset);
-    if (!res.ok) return setStatus({ loading: false, more: false, error: res.message });
-    setRows((cur) => [...cur, ...res.page.rows]);
-    setMeta((m) => ({ ...m, total: res.page.total, nextOffset: res.page.nextOffset }));
-    setStatus({ loading: false, more: false, error: "" });
-  };
+  }, [token, guildId, filters, page]);
 
   const filtered = Boolean(query.trim() || type || rating);
 
   return (
-    <div className="space-y-4">
+    <div id="ticket-archive" className="scroll-mt-24 space-y-4">
       <div className="flex flex-col gap-2 lg:flex-row">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">Cerca nei ticket chiusi</span>
@@ -311,7 +308,7 @@ export function TicketArchive({ guildId, token }: { guildId: string; token: stri
         </p>
       ) : (
         <>
-          <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10">
+          <ul className={cn("divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10 transition-opacity", status.more && "opacity-50")}>
             {rows.map((r) => (
               <li key={r.id}>
                 <button
@@ -332,7 +329,7 @@ export function TicketArchive({ guildId, token }: { guildId: string; token: stri
                     </span>
                     <span className="mt-0.5 block truncate text-xs text-crema/60">
                       Chiuso {fmtDate(r.closedAt)}
-                      {r.closeReason ? ` · ${r.closeReason}` : ""}
+                      {r.closeReason ? <> · <EmojiText text={r.closeReason} /></> : ""}
                     </span>
                   </span>
                   <span className="hidden shrink-0 text-xs font-semibold text-ember sm:block">Leggi</span>
@@ -340,10 +337,21 @@ export function TicketArchive({ guildId, token }: { guildId: string; token: stri
               </li>
             ))}
           </ul>
-          {meta.nextOffset != null ? (
-            <button type="button" onClick={() => void loadMore()} disabled={status.more} className={cn(miniBtn, "w-full py-2")}>
-              {status.more ? "Carico…" : `Mostra altri (${rows.length} di ${meta.total})`}
-            </button>
+          {totalPages > 1 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs tabular-nums text-crema/60">
+                {(page - 1) * PAGE + 1}–{Math.min(page * PAGE, meta.total)} di {meta.total.toLocaleString("it-IT")}
+              </span>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                onChange={(n) => {
+                  setStatus((s) => ({ ...s, more: true }));
+                  setPage(n);
+                }}
+                scrollToId="ticket-archive"
+              />
+            </div>
           ) : null}
         </>
       )}

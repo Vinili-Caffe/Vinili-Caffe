@@ -1,5 +1,6 @@
 "use client";
 
+import { DiscordContent } from "@/components/discord/DiscordContent";
 import { useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
@@ -92,7 +93,7 @@ export function SponsorAd() {
                 {badge}
               </p>
               <h2 className="mt-2 font-display text-xl font-semibold leading-tight text-crema">{title}</h2>
-              {description ? <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-crema/75">{description}</p> : null}
+              {description ? <DiscordContent text={description} className="mt-1.5 text-sm leading-relaxed text-crema/75" /> : null}
               {href ? (
                 <a
                   href={href}

@@ -1,5 +1,6 @@
 "use client";
 
+import { EmojiText } from "@/components/discord/EmojiText";
 import { AnimatePresence, motion } from "motion/react";
 import { Diamond } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
@@ -233,7 +234,7 @@ export function MultiCheck({
                   onChange([...next]);
                 }}
               />
-              <span className="truncate">{opt.label}</span>
+              <span className="truncate"><EmojiText text={opt.label} /></span>
             </label>
           </li>
         );

@@ -1,5 +1,6 @@
 "use client";
 
+import { EmojiText } from "@/components/discord/EmojiText";
 import { NumberField } from "@/components/ui/NumberField";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -315,7 +316,7 @@ export function TicketDesk({
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-crema">
-                          <span className="truncate">{row.panelTitle || row.ticketType}</span>
+                          <span className="truncate"><EmojiText text={row.panelTitle || row.ticketType} /></span>
                           {row.open ? (
                             <span
                               className={cn(

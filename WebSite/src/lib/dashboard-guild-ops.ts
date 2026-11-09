@@ -1508,11 +1508,12 @@ export async function adjustPartnershipManagerPoints(
 export async function listPartnershipHistory(
   token: string,
   guildId: string,
-  query: { days?: number; page?: number } = {},
+  query: { days?: number; page?: number; pageSize?: number } = {},
 ): Promise<Ok<PartnershipHistory> | Fail> {
   const params = new URLSearchParams();
   if (query.days) params.set("days", String(query.days));
   if (query.page) params.set("page", String(query.page));
+  if (query.pageSize) params.set("pageSize", String(query.pageSize));
   const q = params.toString();
   try {
     const { status, data } = await request("GET", gpath(guildId, `/partnership/history${q ? `?${q}` : ""}`), token);

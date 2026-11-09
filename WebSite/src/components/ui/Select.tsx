@@ -1,5 +1,6 @@
 "use client";
 
+import { EmojiText } from "@/components/discord/EmojiText";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -181,7 +182,7 @@ function MenuList({
                   {on ? <Check className="size-3" /> : null}
                 </span>
               ) : null}
-              <span className="min-w-0 flex-1 truncate">{o.label}</span>
+              <span className="min-w-0 flex-1 truncate"><EmojiText text={o.label} /></span>
               {!multi && on ? <Check className="size-3.5 shrink-0 text-caramel" aria-hidden /> : null}
             </button>
           </li>
@@ -233,7 +234,7 @@ export function Select({
         )}
       >
         <span className={cn("min-w-0 truncate text-left", !selected && "font-medium text-crema/45")}>
-          {selected?.label ?? placeholder}
+          {selected ? <EmojiText text={selected.label} /> : placeholder}
         </span>
         <ChevronDown className={cn("size-4 shrink-0 text-crema/50 transition", open && "rotate-180")} aria-hidden />
       </button>
@@ -311,7 +312,7 @@ export function MultiSelect({
           className,
         )}
       >
-        <span className={cn("min-w-0 truncate text-left", !selected.length && "font-medium text-crema/45")}>{label}</span>
+        <span className={cn("min-w-0 truncate text-left", !selected.length && "font-medium text-crema/45")}><EmojiText text={label} /></span>
         <ChevronDown className={cn("size-4 shrink-0 text-crema/50 transition", open && "rotate-180")} aria-hidden />
       </button>
 

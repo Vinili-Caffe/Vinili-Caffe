@@ -1,5 +1,6 @@
 "use client";
 
+import { EmojiText } from "@/components/discord/EmojiText";
 import { NumberField } from "@/components/ui/NumberField";
 import { useEffect, useState } from "react";
 import {
@@ -245,7 +246,7 @@ export function TicketForms({
                       on ? "bg-caramel/12 font-semibold text-crema ring-1 ring-caramel/25" : "text-crema/75 hover:bg-crema/[0.04] hover:text-crema",
                     )}
                   >
-                    <span className="min-w-0 flex-1 truncate">{f.title}</span>
+                    <span className="min-w-0 flex-1 truncate"><EmojiText text={f.title} /></span>
                     <span className="shrink-0 text-xs tabular-nums text-crema/60">{f.fields.length}</span>
                   </button>
                 </li>

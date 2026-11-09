@@ -1,5 +1,6 @@
 "use client";
 
+import { DiscordContent } from "@/components/discord/DiscordContent";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
@@ -217,7 +218,7 @@ function Card({
         <BoardAudioPlayer src={item.previewAudioUrl} id={item.id} />
       ) : (
         <div className="flex aspect-[2.2/1] w-full items-center justify-center bg-crema/[0.03] px-4 text-center text-sm text-crema/45">
-          {item.content ? <p className="line-clamp-4 text-crema/70">{item.content}</p> : "Anteprima non disponibile"}
+          {item.content ? <DiscordContent text={item.content} className="line-clamp-4 text-crema/70" /> : "Anteprima non disponibile"}
         </div>
       )}
       <div className="flex flex-1 flex-col gap-2 p-3.5 sm:p-4">
@@ -238,7 +239,7 @@ function Card({
             </button>
           )}
         </div>
-        {item.content && item.previewImageUrl ? <p className="line-clamp-2 text-sm text-crema/60">{item.content}</p> : null}
+        {item.content && item.previewImageUrl ? <DiscordContent text={item.content} className="line-clamp-2 text-sm text-crema/60" /> : null}
         <div className="mt-auto flex flex-wrap gap-2 pt-1">
           {item.boardUrl ? (
             <a

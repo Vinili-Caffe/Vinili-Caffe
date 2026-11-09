@@ -59,6 +59,20 @@ body, body * {
 `;
 
 const TRANSCRIPT_MOBILE_CSS = `
+/* markdown Discord: citazioni, codice, spoiler, titoli, elenchi, link */
+.md-quote { margin: 4px 0; padding: 0 0 0 12px; border-left: 4px solid #4e5058; color: #dbdee1; }
+pre.codeblock { margin: 6px 0; padding: 8px 10px; max-width: 100%; overflow-x: auto; background: #2b2d31; border: 1px solid #1e1f22; border-radius: 6px; }
+pre.codeblock code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85em; line-height: 1.45; color: #dbdee1; white-space: pre; }
+.spoiler { background: #1e1f22; color: transparent; border-radius: 4px; padding: 0 2px; cursor: pointer; transition: color .15s, background .15s; }
+.spoiler:hover, .spoiler:focus { background: rgba(255,255,255,0.08); color: inherit; }
+.md-h { font-weight: 700; color: #f2f3f5; margin: 8px 0 2px; line-height: 1.25; }
+.md-h1 { font-size: 1.5em; } .md-h2 { font-size: 1.25em; } .md-h3 { font-size: 1.05em; }
+.md-sub { font-size: 0.78em; color: #949ba4; }
+ul.md-list { margin: 2px 0; padding-left: 22px; }
+ul.md-list li { margin: 1px 0; }
+a.md-link { color: #00a8fc; text-decoration: none; word-break: break-all; }
+a.md-link:hover { text-decoration: underline; }
+.mention { border-radius: 3px; padding: 0 2px; font-weight: 500; background: rgba(88,101,242,0.3); color: #c9cdfb; }
 html, body, body * {
   letter-spacing: normal !important;
   word-spacing: normal !important;

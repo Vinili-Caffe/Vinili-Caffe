@@ -25,6 +25,8 @@ import {
   type PartnershipMigration,
 } from "@/lib/dashboard-guild";
 import { confirmDialog, Disclosure } from "@/components/ui";
+import { Pagination } from "@/components/ui/Pagination";
+import { MessagePreview } from "./MessagePreview";
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
@@ -95,11 +97,14 @@ export function PartnershipPanel({
   const [blacklist, setBlacklist] = useState<PartnershipBlacklistEntry[] | null>(null);
   const [blTarget, setBlTarget] = useState("");
   const [blNote, setBlNote] = useState("");
-  const [managers, setManagers] = useState<PartnershipManager[]>([]);
+  /* null = non ancora caricati (skeleton), [] = davvero nessun manager */
+  const [managers, setManagers] = useState<PartnershipManager[] | null>(null);
   const [canPoints, setCanPoints] = useState(false);
   const [points, setPoints] = useState<Record<string, string>>({});
   const [history, setHistory] = useState<PartnershipHistory | null>(null);
   const [days, setDays] = useState("30");
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [migration, setMigration] = useState<PartnershipMigration | null>(null);
 
   useEffect(() => {
@@ -144,12 +149,18 @@ export function PartnershipPanel({
 
   useEffect(() => {
     if (tab !== "storia") return;
-    const query = days === "all" ? {} : { days: Number(days) || 30, page: 1 };
+    let cancel = false;
+    const query = days === "all" ? { page: historyPage, pageSize: 20 } : { days: Number(days) || 30, page: historyPage, pageSize: 20 };
     listPartnershipHistory(token, guildId, query).then((res) => {
+      if (cancel) return;
+      setHistoryLoading(false);
       if (res.ok) setHistory(res.data);
       else onToast(res.message, true);
     });
-  }, [tab, days, token, guildId, onToast]);
+    return () => {
+      cancel = true;
+    };
+  }, [tab, days, historyPage, token, guildId, onToast]);
 
   useEffect(() => {
     if (tab !== "migrazione") return;
@@ -407,6 +418,7 @@ export function PartnershipPanel({
                       onChange={(e) => set({ partnerDesc: { ...draft.partnerDesc, staticText: e.target.value } })}
                       className={fieldClass}
                     />
+                    <MessagePreview text={draft.partnerDesc.staticText} roles={roles} channels={channels} />
                   </Field>
                 ) : null}
               </div>
@@ -544,6 +556,13 @@ export function PartnershipPanel({
                   className={fieldClass}
                 />
               </Field>
+              <MessagePreview
+                title={draft.thankYouEmbed.title}
+                text={draft.thankYouEmbed.description}
+                roles={roles}
+                channels={channels}
+                samples={{ guild: "Server Partner", points: "12", user: "@manager", manager: "@manager" }}
+              />
               <button
                 type="button"
                 className={primaryMini}
@@ -673,7 +692,20 @@ export function PartnershipPanel({
       ) : null}
 
       {tab === "manager" ? (
-        managers.length === 0 ? (
+        managers === null ? (
+          <ul className="grid gap-2.5 md:grid-cols-2" aria-busy>
+            {Array.from({ length: 6 }, (_, i) => (
+              <li key={i} className="flex items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+                <span className="size-9 shrink-0 animate-pulse rounded-lg bg-crema/[0.06]" />
+                <span className="min-w-0 flex-1 space-y-1.5">
+                  <span className="block h-3.5 w-2/5 animate-pulse rounded bg-crema/[0.08]" />
+                  <span className="block h-3 w-3/5 animate-pulse rounded bg-crema/[0.05]" />
+                </span>
+                <span className="h-6 w-10 animate-pulse rounded bg-crema/[0.06]" />
+              </li>
+            ))}
+          </ul>
+        ) : managers.length === 0 ? (
           <p className="rounded-xl border border-dashed border-sand/20 px-4 py-10 text-center text-sm text-crema/60">
             Nessun partner manager: chi ha il ruolo dei manager compare qui con i suoi punti.
           </p>
@@ -764,7 +796,12 @@ export function PartnershipPanel({
                   type="button"
                   role="radio"
                   aria-checked={days === p.v}
-                  onClick={() => setDays(p.v)}
+                  onClick={() => {
+                    if (p.v === days) return;
+                    setHistoryLoading(true);
+                    setHistoryPage(1);
+                    setDays(p.v);
+                  }}
                   className={cn(
                     "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
                     days === p.v ? "bg-mocha text-crema ring-1 ring-sand/15" : "text-crema/60 hover:text-crema",
@@ -781,15 +818,33 @@ export function PartnershipPanel({
               </p>
             ) : null}
           </div>
-          {!history?.entries.length ? (
+          {!history || (historyLoading && !history.entries.length) ? (
+            <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10" aria-busy>
+              {Array.from({ length: 8 }, (_, i) => (
+                <li key={i} className="flex items-center gap-3 px-4 py-3">
+                  <span className="size-9 shrink-0 animate-pulse rounded-xl bg-crema/[0.06]" />
+                  <span className="min-w-0 flex-1 space-y-1.5">
+                    <span className="block h-3.5 w-1/3 animate-pulse rounded bg-crema/[0.08]" />
+                    <span className="block h-3 w-1/4 animate-pulse rounded bg-crema/[0.05]" />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : !history.entries.length ? (
             <p className="rounded-xl border border-dashed border-sand/20 px-4 py-10 text-center text-sm text-crema/60">Nessuna partnership in questo periodo.</p>
           ) : (
-            <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10">
+            <>
+            <ul className={cn("divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10 transition-opacity", historyLoading && "opacity-50")}>
               {history.entries.map((row, i) => (
                 <li key={`${row.guildId || row.invite || i}`} className="flex items-center gap-3 px-4 py-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.08] text-sm font-bold text-crema/80" aria-hidden>
-                    {(String(row.guildName || row.invite || "?").trim().charAt(0) || "?").toUpperCase()}
-                  </span>
+                  {row.iconUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={row.iconUrl} alt="" width={36} height={36} className="size-9 shrink-0 rounded-xl object-cover ring-1 ring-sand/15" />
+                  ) : (
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.08] text-sm font-bold text-crema/80" aria-hidden>
+                      {(String(row.guildName || row.invite || "?").trim().charAt(0) || "?").toUpperCase()}
+                    </span>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-crema">{row.guildName || row.invite || "Server"}</p>
                     {row.lastAt ? <p className="text-xs text-crema/60">ultima il {new Date(row.lastAt).toLocaleDateString("it-IT")}</p> : null}
@@ -800,6 +855,22 @@ export function PartnershipPanel({
                 </li>
               ))}
             </ul>
+            {history.totalPages > 1 ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs tabular-nums text-crema/60">
+                  Pagina {history.page} di {history.totalPages}
+                </span>
+                <Pagination
+                  page={history.page}
+                  totalPages={history.totalPages}
+                  onChange={(n) => {
+                    setHistoryLoading(true);
+                    setHistoryPage(n);
+                  }}
+                />
+              </div>
+            ) : null}
+            </>
           )}
         </div>
       ) : null}

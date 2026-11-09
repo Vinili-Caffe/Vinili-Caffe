@@ -1,5 +1,6 @@
 "use client";
 
+import { DiscordContent } from "@/components/discord/DiscordContent";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -426,7 +427,7 @@ export function StatusBoard({ initial }: { initial: StatusData | null }) {
           <CircleAlert className="mt-0.5 size-5 shrink-0 text-red-300" />
           <div>
             <p className="font-semibold">{data.incident.title}</p>
-            {data.incident.content && <p className="mt-1 min-w-0 break-words text-sm text-crema/70 [overflow-wrap:anywhere]">{data.incident.content}</p>}
+            {data.incident.content && <DiscordContent text={data.incident.content} className="mt-1 text-sm text-crema/70" />}
           </div>
         </div>
       )}
@@ -435,7 +436,7 @@ export function StatusBoard({ initial }: { initial: StatusData | null }) {
           <Wrench className="mt-0.5 size-5 shrink-0 text-sky-300" />
           <div>
             <p className="font-semibold">{m.title}</p>
-            {m.description && <p className="mt-1 text-sm text-crema/70">{m.description}</p>}
+            {m.description && <DiscordContent text={m.description} className="mt-1 text-sm text-crema/70" />}
           </div>
         </div>
       ))}

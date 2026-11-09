@@ -1,5 +1,6 @@
 "use client";
 
+import { EmojiText } from "@/components/discord/EmojiText";
 import { confirmDialog } from "@/components/ui";
 import { useEffect, useState } from "react";
 import {
@@ -228,7 +229,7 @@ export function TicketBlacklist({
                     <StatusBadge tone={entry.type === "role" ? "accent" : "muted"}>{entry.type === "role" ? "ruolo" : "persona"}</StatusBadge>
                   </p>
                   <p className="mt-0.5 truncate text-xs text-crema/60">
-                    {entry.panelTitle ? `Solo «${entry.panelTitle}»` : "Tutti i pannelli"}
+                    {entry.panelTitle ? <>Solo «<EmojiText text={entry.panelTitle} />»</> : "Tutti i pannelli"}
                     {entry.reason ? ` · ${entry.reason}` : ""}
                   </p>
                 </div>
