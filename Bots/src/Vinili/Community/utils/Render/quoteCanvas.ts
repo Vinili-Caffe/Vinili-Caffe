@@ -16,6 +16,7 @@ const {
   tokenizeEmojiText,
   getEmojiImage,
   emojiDrawSizeForFont,
+  preloadCanvasEmojis,
 } = require("./canvasEmojiRichText") as typeof import("./canvasEmojiRichText");
 const {
   normalizeQuoteStyle,
@@ -936,6 +937,8 @@ export = async function renderQuoteCanvas(params?) {
   const normalized = normalizeQuoteStyle(style);
   const layout: any = measureQuoteLayout(message, username, footerText, normalized);
   layout.emojiAssets = await loadEmojiAssets(layout.mainText);
+  /* nome e footer: emoji come immagini (Twemoji), non col font di sistema */
+  await preloadCanvasEmojis([username, footerText, resolveQuoteFooterText(normalized)].filter(Boolean)).catch(() => null);
 
   const allowAnimated = normalized.avatarMode === "dynamic";
   const gifBuf = allowAnimated ? await tryRenderAnimatedQuoteGif(url, layout) : null;

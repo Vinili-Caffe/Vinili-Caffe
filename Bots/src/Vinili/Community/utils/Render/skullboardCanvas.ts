@@ -8,6 +8,7 @@ const {
   wrapRichTextToLines,
   textWidth,
   measureRichTextWidth,
+  preloadCanvasEmojis,
 } = require("./canvasEmojiRichText") as typeof import("./canvasEmojiRichText");
 
 function cleanDisplayText(value?, maxLength = 0) {
@@ -142,6 +143,8 @@ export = async function renderSkullboardCanvas({
 }) {
   if (!canvasModule) throw new Error("Canvas module not available");
   registerCanvasFonts(canvasModule);
+  /* nomi, risposta, ruolo e canale: emoji come immagini */
+  await preloadCanvasEmojis([username, reply?.author, reply?.content, roleName, channelName].filter((t?) => typeof t === "string")).catch(() => null);
 
   const width = 600;
   const outerPad = 14;

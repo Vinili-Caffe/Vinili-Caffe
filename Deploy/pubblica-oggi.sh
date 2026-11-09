@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pubblica sulla VPS tutti i fix del bot dell'8-9/11 (dashboard, ticket, mute, compiti, Premium, pannello sviluppatore) in un colpo solo.
+# Pubblica sulla VPS tutti i fix del bot dell'8-9/11 (dashboard, ticket, mute, compiti, Premium, pannello sviluppatore, emoji nei canvas) in un colpo solo.
 # Gli argomenti sono qui dentro: da PowerShell non servono virgolette annidate (che PowerShell rovina).
 # Uso (PowerShell):
 #   & "C:\Program Files\Git\bin\bash.exe" -lc 'cd /c/Users/corva/Desktop/Vinili*/Deploy && bash pubblica-oggi.sh'
@@ -17,6 +17,11 @@ MultiGuild/tickets/dashboard/dashboardTicketRoutes.ts
 MultiGuild/tickets/dashboard/siteDashboardTicketsApi.ts
 Vinili/Community/events/guildMemberRemove.ts
 Vinili/Community/services/premiumCreditsService.ts
+Vinili/Community/utils/Render/canvasEmojiRichText.ts
+Vinili/Community/utils/Render/canvasFonts.ts
+Vinili/Community/utils/Render/quoteCanvas.ts
+Vinili/Community/utils/Render/shipCanvas.ts
+Vinili/Community/utils/Render/skullboardCanvas.ts
 Vinili/Community/services/publicVoiceHubService.ts
 Vinili/Moderation/services/botGuildLifecycleLogService.ts
 Vinili/Moderation/services/botUsageBlacklistService.ts

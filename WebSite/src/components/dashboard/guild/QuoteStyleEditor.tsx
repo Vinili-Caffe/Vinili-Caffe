@@ -97,7 +97,7 @@ function ColorInput({
       ariaLabel={label}
       disabled={disabled}
       onChange={(hex) => onChange(hex ? hex : allowEmpty ? null : "#070707")}
-      className="mt-1.5"
+      className="mt-1.5 flex w-full [&>input]:w-0 [&>input]:min-w-0 [&>input]:flex-1"
     />
   );
 }

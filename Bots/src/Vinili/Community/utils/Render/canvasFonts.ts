@@ -142,6 +142,56 @@ function fontStackPrimaryOnly(size?, weight?) {
   return `${prefix}${size}px ${PRIMARY_ONLY_STACK}`;
 }
 
+/* Emoji come immagini (Twemoji) anche qui: canvasEmojiRichText registra il tokenizer e la cache
+   delle immagini già scaricate. Senza immagine in cache resta il font (come prima). */
+let canvasEmojiHook: { tokenize: (text: string) => any[]; cached: (token: any) => any } | null = null;
+function registerCanvasEmojiHook(hook?) {
+  canvasEmojiHook = hook || null;
+}
+
+function drawTextRunsWithEmojiImages(ctx?, value?, x?, y?, font?, align?, baseline?, size?) {
+  if (!canvasEmojiHook || !value) return false;
+  let tokens;
+  try {
+    tokens = canvasEmojiHook.tokenize(value);
+  } catch {
+    return false;
+  }
+  if (!Array.isArray(tokens) || !tokens.some((t?) => t && t.type !== "text")) return false;
+  const parts = tokens.map((t?) => {
+    if (t.type === "text") return { kind: "text", value: String(t.value || "") };
+    const img = canvasEmojiHook.cached(t.type === "emoji" ? t.value : t);
+    return img ? { kind: "img", img } : { kind: "text", value: String(t.value || t.name || "") };
+  });
+  if (!parts.some((p?) => p.kind === "img")) return false;
+  const emojiSize = Math.round(size * 1.08);
+  const gap = Math.max(1, Math.round(size * 0.06));
+  ctx.font = font;
+  let total = 0;
+  for (const part of parts) total += part.kind === "img" ? emojiSize + gap * 2 : ctx.measureText(part.value).width;
+  let cursorX = x;
+  if (align === "center") cursorX = x - total / 2;
+  else if (align === "right" || align === "end") cursorX = x - total;
+  let top;
+  if (baseline === "middle") top = y - emojiSize / 2;
+  else if (baseline === "top" || baseline === "hanging") top = y;
+  else if (baseline === "bottom" || baseline === "ideographic") top = y - emojiSize;
+  else top = y - size * 0.84;
+  ctx.textAlign = "left";
+  for (const part of parts) {
+    if (part.kind === "img") {
+      try {
+        ctx.drawImage(part.img, cursorX + gap, top, emojiSize, emojiSize);
+      } catch {}
+      cursorX += emojiSize + gap * 2;
+    } else if (part.value) {
+      ctx.fillText(part.value, cursorX, y);
+      cursorX += ctx.measureText(part.value).width;
+    }
+  }
+  return true;
+}
+
 function drawTextWithSpecialFallback(ctx?, text?, x?, y?, options: Record<string, any> = {}) {
   const rawValue = text == null ? "" : String(text);
   let value = options.skipNormalize ? rawValue : normalizeTextForCanvas(rawValue);
@@ -166,6 +216,10 @@ function drawTextWithSpecialFallback(ctx?, text?, x?, y?, options: Record<string
   ctx.fillStyle = color;
   ctx.textBaseline = baseline;
   if (!hasTibetan) {
+    if (options.noEmojiImages !== true && drawTextRunsWithEmojiImages(ctx, value, x, y, normalFont, align, baseline, size)) {
+      ctx.restore();
+      return;
+    }
     ctx.font = normalFont;
     ctx.textAlign = align;
     ctx.fillText(value, x, y);
@@ -209,4 +263,4 @@ function drawTextWithSpecialFallback(ctx?, text?, x?, y?, options: Record<string
   ctx.restore();
 }
 
-export = { registerCanvasFonts, fontStack, fontStackPrimaryOnly, fontStackWithPrimary, drawTextWithSpecialFallback };
+export = { registerCanvasFonts, fontStack, fontStackPrimaryOnly, fontStackWithPrimary, drawTextWithSpecialFallback, registerCanvasEmojiHook };

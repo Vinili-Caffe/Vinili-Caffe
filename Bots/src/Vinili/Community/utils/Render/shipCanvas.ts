@@ -6,6 +6,7 @@ const { spawnSync } = require("child_process") as typeof import("child_process")
 const ffmpegPath = require("ffmpeg-static") as typeof import("ffmpeg-static");
 const { createCanvas } = canvasModule;
 const { registerCanvasFonts, drawTextWithSpecialFallback } = require("./canvasFonts") as typeof import("./canvasFonts");
+const { preloadCanvasEmojis } = require("./canvasEmojiRichText") as typeof import("./canvasEmojiRichText");
 const { sanitizeCanvasDisplayName } = require("./canvasUtils") as typeof import("./canvasUtils");
 const {
   safeLoadImage,
@@ -646,6 +647,7 @@ async function renderSinglePngBuffer(params?) {
   const ctx = canvas.getContext("2d");
   const finalPercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
   const topText = pickMessage(finalPercent, `${leftId}:${rightId}:${messageSeed || ""}`);
+  await preloadCanvasEmojis([topText, leftName, rightName]).catch(() => null);
   let tmpDir = "";
   let leftAvatarFrames = [];
   let rightAvatarFrames = [];
@@ -717,6 +719,7 @@ export = async function renderShipCanvas(params?) {
   const height = 540;
   const finalPercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
   const topText = pickMessage(finalPercent, `${leftId}:${rightId}:${messageSeed || ""}`);
+  await preloadCanvasEmojis([topText, leftName, rightName]).catch(() => null);
 
   if (!ffmpegPath) {
     const buf = await renderSinglePngBuffer({

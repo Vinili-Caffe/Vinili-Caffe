@@ -1,5 +1,5 @@
 declare const createCanvas: any; // usato solo dopo typeof createCanvas === "function"
-const { drawTextWithSpecialFallback, fontStack, fontStackWithPrimary } = require("./canvasFonts") as typeof import("./canvasFonts");
+const { drawTextWithSpecialFallback, fontStack, fontStackWithPrimary, registerCanvasEmojiHook } = require("./canvasFonts") as typeof import("./canvasFonts");
 const { normalizeTextForCanvas, replaceCanvasCompatChars } = require("./canvasUtils") as typeof import("./canvasUtils");
 const { safeLoadImage } = require("./safeLoadImage") as typeof import("./safeLoadImage");
 
@@ -650,7 +650,39 @@ function atomicLineToString(units?) {
     .join("");
 }
 
+function emojiCacheKey(token?) {
+  if (typeof token === "string") return token;
+  return `custom:${token?.id}:${token?.animated ? 1 : 0}`;
+}
+
+/* drawTextWithSpecialFallback (nomi, footer, titoli…) disegna le emoji già in cache come immagini */
+registerCanvasEmojiHook({
+  tokenize: (text?) => tokenizeEmojiText(text),
+  cached: (token?) => emojiImageCache.get(emojiCacheKey(token)) || null,
+});
+
+/**
+ * Scarica prima le immagini delle emoji presenti nei testi, così i canvas che usano
+ * drawTextWithSpecialFallback le disegnano come Twemoji invece che col font di sistema.
+ */
+async function preloadCanvasEmojis(texts?, timeoutMs = 3000) {
+  const list = (Array.isArray(texts) ? texts : [texts]).filter((t?) => typeof t === "string" && t.trim());
+  const jobs = [];
+  for (const text of list) {
+    for (const token of tokenizeEmojiText(text)) {
+      if (token.type === "emoji") jobs.push(getEmojiImage(token.value));
+      else if (token.type === "custom_emoji") jobs.push(getEmojiImage(token));
+    }
+  }
+  if (!jobs.length) return;
+  await Promise.race([
+    Promise.allSettled(jobs),
+    new Promise((resolve?) => setTimeout(resolve, timeoutMs)),
+  ]);
+}
+
 export = {
+  preloadCanvasEmojis,
   prepareVisibleText,
   tokenizeEmojiText,
   drawLabelWithEmoji,
