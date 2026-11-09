@@ -66,6 +66,7 @@ import {
   DashToast,
   Field,
   Panel,
+  PremiumBadge,
   PremiumLock,
   SettingRow,
   StateCard,
@@ -342,7 +343,7 @@ function BotIdentityCard({
   };
 
   return (
-    <Panel icon={<Bot />} title="Il bot in questo server" description="Nickname, avatar e banner che vedono solo i membri di qui." className="h-fit" bodyClassName="space-y-4">
+    <Panel icon={<Bot />} title="Il bot in questo server" description="Nickname, avatar e banner che vedono solo i membri di qui." aside={<PremiumBadge active={canCustomize} />} className="h-fit" bodyClassName="space-y-4">
       {/* anteprima stile profilo Discord */}
       <div className="overflow-hidden rounded-xl bg-espresso/60 ring-1 ring-sand/10">
         <div className="relative h-20 bg-gradient-to-br from-mocha to-caramel/40">
@@ -831,7 +832,7 @@ function BoardsSection({
       </div>
 
       {features.quote ? (
-        <Panel icon={<Pin />} title="Stile delle quote" description="Come appare l'immagine delle citazioni: anteprima e personalizzazione.">
+        <Panel icon={<Pin />} title="Stile delle quote" description="Come appare l'immagine delle citazioni: anteprima e personalizzazione." aside={<PremiumBadge active={canCustomizeQuoteStyle} />}>
           <QuoteStyleEditor
             guildId={guildId}
             token={token}

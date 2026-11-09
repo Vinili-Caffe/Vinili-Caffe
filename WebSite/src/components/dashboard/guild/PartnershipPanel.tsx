@@ -27,7 +27,7 @@ import { confirmDialog, Disclosure } from "@/components/ui";
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
-import { Field, FormGroup, Notice, PremiumLock, SettingRow, StatusBadge, Subnav, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "./bits";
+import { Field, FormGroup, Notice, PremiumBadge, PremiumLock, SettingRow, StatusBadge, Subnav, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "./bits";
 
 type Tab = "setup" | "filtri" | "blacklist" | "manager" | "storia" | "migrazione";
 
@@ -502,7 +502,13 @@ export function PartnershipPanel({
             <p className="mt-2 text-xs text-crema/60">Vuoto = quella menzione non viene mai fatta. Ruolo e soglia del ruolo vanno impostati insieme.</p>
           </FormGroup>
 
-          <Disclosure title="Messaggio di ringraziamento">
+          <Disclosure
+            title={
+              <span className="inline-flex items-center gap-2">
+                Messaggio di ringraziamento <PremiumBadge active={bundle.premiumActive} />
+              </span>
+            }
+          >
             <p className="text-xs text-crema/60">Il bot lo manda al server partner dopo la pubblicazione.</p>
             {!bundle.premiumActive ? <PremiumLock className="mt-3" feature="Il messaggio di ringraziamento" note="Puoi scriverlo adesso: parte solo quando il server ha Premium." /> : null}
             <div className="mt-3 space-y-4">

@@ -425,6 +425,22 @@ export function DashToast({ toast }: { toast: { msg: string; err: boolean } | nu
   );
 }
 
+/** Etichetta sulle funzioni Premium: sempre visibile, anche quando il server ce l'ha. */
+export function PremiumBadge({ active }: { active?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.65rem] font-semibold ring-1",
+        active ? "bg-caramel/15 text-ember ring-caramel/35" : "bg-crema/[0.06] text-crema/70 ring-sand/20",
+      )}
+      title={active ? "Funzione Premium: attiva su questo server" : "Funzione Premium: non attiva su questo server"}
+    >
+      <Diamond className="size-3" aria-hidden />
+      Premium
+    </span>
+  );
+}
+
 /** Funzione riservata a Premium: spiega cosa manca e porta ad attivarlo. */
 export function PremiumLock({ feature, note, className }: { feature: string; note?: string; className?: string }) {
   return (
