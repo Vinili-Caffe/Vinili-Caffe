@@ -4,6 +4,11 @@
   "installCommand": "env -u npm_config_cache_dir -u NPM_CONFIG_CACHE_DIR npm ci --omit=dev",
   "buildCommand": "NEXT_TELEMETRY_DISABLED=1 env -u npm_config_cache_dir -u NPM_CONFIG_CACHE_DIR npm run build",
   "outputDirectory": "out",
+  "git": {
+    "deploymentEnabled": {
+      "dependabot/**": false
+    }
+  },
   "redirects": [
     {
       "source": "/evento/avvento",
