@@ -62,11 +62,59 @@ export function subscribeViewAs(cb: () => void) {
   return () => listeners.delete(cb);
 }
 
+/* Anteprima per ruoli veri del server (come "Visualizza come ruolo" di Discord): "roles:<id>,<id>". */
+const ROLES_RE = /^roles:((\d{16,22})(,\d{16,22})*)?$/;
+const ROLE_NAMES_KEY = "vc_view_as_role_names";
+
+export function viewAsRoleIds(mode = readViewAs()): string[] | null {
+  const m = String(mode || "").match(ROLES_RE);
+  if (!m) return null;
+  return m[1] ? m[1].split(",") : [];
+}
+
+export function rolesViewAsMode(ids: string[]) {
+  return `roles:${[...new Set(ids.filter((id) => /^\d{16,22}$/.test(id)))].join(",")}`;
+}
+
+/** Nomi dei ruoli scelti (per l'etichetta della barra), salvati quando si applica l'anteprima. */
+export function rememberRoleNames(names: Record<string, string>) {
+  try {
+    sessionStorage.setItem(ROLE_NAMES_KEY, JSON.stringify(names));
+  } catch {
+    /* ignore */
+  }
+}
+
+function roleNames(): Record<string, string> {
+  try {
+    return JSON.parse(sessionStorage.getItem(ROLE_NAMES_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+export type ViewAsRole = { id: string; name: string; color: string | null; position: number };
+
+/** GET /webhooks/site-view-as/roles: ruoli del server (solo Founder; il bot controlla coi ruoli veri). */
+export async function loadViewAsRoles(): Promise<{ ok: true; roles: ViewAsRole[]; realRoleIds: string[] } | { ok: false; message: string }> {
+  const t = readRealToken();
+  if (!t) return { ok: false, message: "Accedi con Discord." };
+  try {
+    const r = await fetch(`/webhooks/site-view-as/roles?_=${Date.now()}`, { headers: { Authorization: `Bearer ${t}`, Accept: "application/json" }, cache: "no-store" });
+    const d = (await r.json().catch(() => ({}))) as { ok?: boolean; roles?: ViewAsRole[]; realRoleIds?: string[]; message?: string };
+    if (!r.ok || d.ok === false) return { ok: false, message: d.message || (r.status === 404 ? "Serve l'aggiornamento del bot." : "Ruoli non disponibili.") };
+    return { ok: true, roles: Array.isArray(d.roles) ? d.roles : [], realRoleIds: Array.isArray(d.realRoleIds) ? d.realRoleIds.map(String) : [] };
+  } catch {
+    return { ok: false, message: "Errore di rete." };
+  }
+}
+
 export function normalizeViewAs(raw: unknown) {
   const v = String(raw || "")
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "");
+  if (ROLES_RE.test(v)) return v;
   if (!v || v === "real" || v === "none" || v === "off") return "";
   if (v === "seniormoderator" || v === "seniormod") return "senior";
   if (v === "hs" || v === "high") return "highstaff";
@@ -91,6 +139,14 @@ export function isGuestPreview() {
 }
 
 export function viewAsLabel(mode = readViewAs()) {
+  const ids = viewAsRoleIds(mode);
+  if (ids) {
+    if (!ids.length) return "Solo @everyone";
+    const names = roleNames();
+    const shown = ids.map((id) => names[id]).filter(Boolean);
+    if (shown.length === ids.length && ids.length <= 2) return shown.map((n) => `@${n}`).join(", ");
+    return `${ids.length} ruoli`;
+  }
   return VIEW_AS_PRESETS.find((p) => p.id === mode)?.label || "Reale";
 }
 
