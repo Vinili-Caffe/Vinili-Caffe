@@ -38,6 +38,27 @@ function discordError(err?) {
   return String(err?.rawError?.message || err?.message || "Discord non ha accettato il messaggio.").slice(0, 200);
 }
 
+/** Nome e avatar del bot come li vedono i membri di quel server (nickname e avatar per server se impostati). */
+let botUserCache: { at: number; user: any } | null = null;
+async function botIdentity(client?, gid?) {
+  const rest = restOf(client);
+  if (!rest) return null;
+  if (!botUserCache || Date.now() - botUserCache.at > 600_000) {
+    const u = client?.user?.id ? client.user : await rest.get(Routes.user()).catch(() => null);
+    if (u) botUserCache = { at: Date.now(), user: { id: String(u.id), username: u.username, global_name: u.globalName ?? u.global_name ?? null, avatar: u.avatar ?? null } };
+  }
+  const u = botUserCache?.user;
+  if (!u) return null;
+  const m: any = await rest.get(Routes.guildMember(gid, u.id)).catch(() => null);
+  const userAvatar = u.avatar
+    ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.${String(u.avatar).startsWith("a_") ? "gif" : "png"}?size=128`
+    : `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(u.id) >> 22n) % 6}.png`;
+  const guildAvatar = m?.avatar
+    ? `https://cdn.discordapp.com/guilds/${gid}/users/${u.id}/avatars/${m.avatar}.${String(m.avatar).startsWith("a_") ? "gif" : "png"}?size=128`
+    : null;
+  return { id: u.id, name: String(m?.nick || u.global_name || u.username || "Bot"), avatarUrl: guildAvatar || userAvatar };
+}
+
 async function guildInfo(client?, gid?) {
   const rest = restOf(client);
   const g: any = await rest?.get(Routes.guild(gid), { query: new URLSearchParams({ with_counts: "true" }) }).catch(() => null);
@@ -96,13 +117,14 @@ async function getDashboardCommunity(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   const gid = a.guildId;
-  const [messages, commands, rolePanels, welcome, pickers, guild] = await Promise.all([
+  const [messages, commands, rolePanels, welcome, pickers, guild, bot] = await Promise.all([
     T.listMessages(gid, true),
     T.listCommands(gid, true),
     T.listRolePanels(gid, true),
     T.getWelcome(gid, true),
     listGuildPickerData(client, gid, { force: shouldRefreshPickers(gid) }).catch(() => ({ textChannels: [], roles: [], categories: [], emojis: [] })),
     guildInfo(client, gid),
+    botIdentity(client, gid).catch(() => null),
   ]);
   let prefix = "+";
   try {
@@ -116,6 +138,7 @@ async function getDashboardCommunity(client?, token?, guildId?) {
     status: 200,
     guildId: gid,
     guild,
+    bot,
     prefix,
     limits: T.LIMITS,
     messages,

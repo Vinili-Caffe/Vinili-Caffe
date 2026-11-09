@@ -77,7 +77,7 @@ export function WelcomePanel({ guildId, token, onToast }: { guildId: string; tok
             <DraftEditor value={p.draft} onChange={(draft) => set({ draft })} emojis={data.pickers.emojis} placeholders={MEMBER_PLACEHOLDERS} maxButtons={data.limits.buttons} />
           </div>
         }
-        preview={<DiscordMessagePreview draft={p.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
+        preview={<DiscordMessagePreview bot={data.bot} draft={p.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
       />
     );
   };
@@ -132,7 +132,7 @@ export function WelcomePanel({ guildId, token, onToast }: { guildId: string; tok
               <DraftEditor value={cfg.dm.draft} onChange={(draft) => setCfg({ ...cfg, dm: { ...cfg.dm, draft } })} emojis={data.pickers.emojis} placeholders={MEMBER_PLACEHOLDERS} maxButtons={data.limits.buttons} />
             </div>
           }
-          preview={<DiscordMessagePreview draft={cfg.dm.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
+          preview={<DiscordMessagePreview bot={data.bot} draft={cfg.dm.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
         />
       ) : null}
       {tab === "roles" ? (

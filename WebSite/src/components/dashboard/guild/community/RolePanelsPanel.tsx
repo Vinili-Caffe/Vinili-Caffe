@@ -238,7 +238,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
               ) : null}
             </div>
           }
-          preview={<DiscordMessagePreview draft={edit.draft} vars={vars} roles={roles} channels={data.pickers.textChannels} rows={rows} />}
+          preview={<DiscordMessagePreview bot={data.bot} draft={edit.draft} vars={vars} roles={roles} channels={data.pickers.textChannels} rows={rows} />}
         />
       </div>
     );

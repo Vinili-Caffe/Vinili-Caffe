@@ -71,6 +71,7 @@ export type PickerEmoji = { id: string; name: string; animated?: boolean; url?: 
 export type CommunityData = {
   guild: { id: string; name: string; icon?: string | null; memberCount: number | null };
   welcomeSaved?: boolean;
+  bot?: { id: string; name: string; avatarUrl: string } | null;
   isMainGuild?: boolean;
   prefix: string;
   limits: { messages: number; commands: number; rolePanels: number; panelRoles: number; buttons: number };

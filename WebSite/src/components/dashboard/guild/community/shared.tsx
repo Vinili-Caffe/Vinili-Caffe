@@ -357,7 +357,7 @@ export function DiscordMessagePreview({
   roles = [],
   channels = [],
   rows = [],
-  botName = "Vinili & Caffè",
+  bot,
   className,
 }: {
   draft: MsgDraft;
@@ -365,7 +365,7 @@ export function DiscordMessagePreview({
   roles?: PickerRole[];
   channels?: PickerChannel[];
   rows?: PreviewRow[];
-  botName?: string;
+  bot?: { name: string; avatarUrl: string } | null;
   className?: string;
 }) {
   const names = {
@@ -393,10 +393,15 @@ export function DiscordMessagePreview({
   return (
     <div className={cn("rounded-xl bg-[#313338] p-3 ring-1 ring-sand/10", className)}>
       <div className="flex gap-3">
-        <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-caramel to-ember text-xs font-bold text-ink">VC</span>
+        {bot?.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={bot.avatarUrl} alt="" className="mt-0.5 size-10 shrink-0 rounded-full object-cover" />
+        ) : (
+          <span className="mt-0.5 size-10 shrink-0 animate-pulse rounded-full bg-crema/10" aria-hidden />
+        )}
         <div className="min-w-0 flex-1">
           <p className="text-sm">
-            <span className="font-semibold text-white">{botName}</span>
+            <span className="font-semibold text-white">{bot?.name || "Bot"}</span>
             <span className="ml-1.5 rounded bg-[#5865f2] px-1 py-px align-[1px] text-[0.6rem] font-semibold text-white">APP</span>
             <span className="ml-1.5 text-[0.7rem] text-[#949ba4]">Oggi</span>
           </p>

@@ -146,7 +146,7 @@ export function CustomCommandsPanel({ guildId, token, onToast }: { guildId: stri
               ) : null}
             </div>
           }
-          preview={<DiscordMessagePreview draft={edit.draft} vars={vars} roles={data.pickers.roles} channels={data.pickers.textChannels} />}
+          preview={<DiscordMessagePreview bot={data.bot} draft={edit.draft} vars={vars} roles={data.pickers.roles} channels={data.pickers.textChannels} />}
         />
       </div>
     );
