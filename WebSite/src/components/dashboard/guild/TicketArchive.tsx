@@ -1,6 +1,6 @@
 "use client";
 
-import { TextTranscriptView } from "@/components/dashboard/TextTranscriptView";
+import { TextTranscriptView, TranscriptSkeleton } from "@/components/dashboard/TextTranscriptView";
 import { extractTextTranscriptFromHtml } from "@/lib/transcript-text";
 import { EmojiText } from "@/components/discord/EmojiText";
 import { Select } from "@/components/ui/Select";
@@ -202,7 +202,7 @@ function TranscriptReader({ token, guildId, row, onClose }: { token: string; gui
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#313338]">
           {state.loading ? (
-            <p className="p-8 text-center text-sm text-crema/60">Carico il transcript…</p>
+            <TranscriptSkeleton />
           ) : state.error ? (
             <div className="p-6">
               <Notice>{state.error}</Notice>

@@ -108,7 +108,9 @@ function PartnerProfile({ token, onToast }: { token: string; onToast: (m: string
         <StatTile icon={<Handshake />} label="Oggi" value={profile.scores.daily.toLocaleString("it-IT")} />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      {/* sinistra: preferenze + obiettivi; destra: badge (più lunghi) — niente riquadro vuoto accanto */}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+        <div className="min-w-0 space-y-5">
         <Panel icon={<Settings2 />} title="Preferenze del bot" description="Valgono quando usi Vinili sul server principale.">
           <div className="divide-y divide-sand/[0.07]">
             <SettingRow title="Niente ping nelle mie partnership" description="Quando sei tu il manager, il messaggio di partnership non ti menziona.">
@@ -144,6 +146,40 @@ function PartnerProfile({ token, onToast }: { token: string; onToast: (m: string
             ) : null}
           </div>
         </Panel>
+          {profile.qualifiesForMissions && profile.objectives.length ? (
+            <Panel
+              icon={<Target />}
+              title="Obiettivi"
+              description="Completandoli sblocchi i badge."
+              aside={<span className="text-xs tabular-nums text-crema/60">{Math.round(profile.awardsPercent)}% fatto</span>}
+            >
+              <ul className="grid gap-2">
+                {profile.objectives.map((o) => {
+                  const pct = Math.min(100, Math.round((o.current / o.target) * 100));
+                  return (
+                    <li key={o.id} className="flex items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-crema/[0.06]">
+                        <Emoji e={o.emoji} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="flex items-center justify-between gap-2 text-sm font-semibold text-crema">
+                          <span className="truncate">{o.title}</span>
+                          <span className={cn("shrink-0 text-xs tabular-nums", o.done ? "text-[#9fd0a8] light:text-[#2f6b3f]" : "text-crema/60")}>
+                            {o.done ? "Fatto" : `${Math.min(o.current, o.target)}/${o.target}`}
+                          </span>
+                        </p>
+                        {o.desc ? <p className="truncate text-xs text-crema/60">{o.desc}</p> : null}
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-crema/[0.08]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={o.title}>
+                          <div className={cn("h-full rounded-full", o.done ? "bg-[#7fc48c]" : "bg-caramel")} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Panel>
+          ) : null}
+        </div>
 
         <Panel
           icon={<Award />}
@@ -184,39 +220,6 @@ function PartnerProfile({ token, onToast }: { token: string; onToast: (m: string
         </Panel>
       </div>
 
-      {profile.qualifiesForMissions && profile.objectives.length ? (
-        <Panel
-          icon={<Target />}
-          title="Obiettivi"
-          description="Completandoli sblocchi i badge."
-          aside={<span className="text-xs tabular-nums text-crema/60">{Math.round(profile.awardsPercent)}% fatto</span>}
-        >
-          <ul className="grid gap-2 md:grid-cols-2">
-            {profile.objectives.map((o) => {
-              const pct = Math.min(100, Math.round((o.current / o.target) * 100));
-              return (
-                <li key={o.id} className="flex items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-crema/[0.06]">
-                    <Emoji e={o.emoji} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center justify-between gap-2 text-sm font-semibold text-crema">
-                      <span className="truncate">{o.title}</span>
-                      <span className={cn("shrink-0 text-xs tabular-nums", o.done ? "text-[#9fd0a8] light:text-[#2f6b3f]" : "text-crema/60")}>
-                        {o.done ? "Fatto" : `${Math.min(o.current, o.target)}/${o.target}`}
-                      </span>
-                    </p>
-                    {o.desc ? <p className="truncate text-xs text-crema/60">{o.desc}</p> : null}
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-crema/[0.08]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={o.title}>
-                      <div className={cn("h-full rounded-full", o.done ? "bg-[#7fc48c]" : "bg-caramel")} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </Panel>
-      ) : null}
     </>
   );
 }

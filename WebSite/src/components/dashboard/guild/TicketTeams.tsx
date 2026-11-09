@@ -14,7 +14,7 @@ import {
   type TicketTeamsBundle,
 } from "@/lib/dashboard-guild";
 import { cn } from "@/lib/cn";
-import { EditorHeader, FormGroup, MultiCheck, Notice, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, labelClass, primaryMini } from "./bits";
+import { EditorHeader, FormGroup, MultiCheck, Notice, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, labelClass, primaryMini, EditorSkeleton } from "./bits";
 
 const PERM_LABELS: Record<string, string> = {
   addReactions: "Aggiungere reazioni",
@@ -116,7 +116,7 @@ export function TicketTeams({
     applyBundle(res.data, team.id);
   };
 
-  if (loading) return <p className="text-sm text-crema/60">Caricamento team…</p>;
+  if (loading) return <EditorSkeleton items={3} />;
   if (error && !bundle) return <Notice>{error}</Notice>;
   if (!bundle) return null;
 

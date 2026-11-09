@@ -17,7 +17,7 @@ import {
 import { confirmDialog } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { Select } from "@/components/ui/Select";
-import { EditorHeader, Field, FormGroup, Notice, SettingRow, Toggle, dangerBtn, fieldClass, labelClass, miniBtn, primaryMini } from "./bits";
+import { EditorHeader, Field, FormGroup, Notice, SettingRow, Toggle, dangerBtn, fieldClass, labelClass, miniBtn, primaryMini, EditorSkeleton } from "./bits";
 
 const TYPE_LABELS: Record<FormFieldType, string> = {
   text_input: "Testo libero",
@@ -178,7 +178,7 @@ export function TicketForms({
     onToast("Form aggiornato.");
   };
 
-  if (loading) return <p className="text-sm text-crema/60">Caricamento form…</p>;
+  if (loading) return <EditorSkeleton />;
   if (error && !bundle) return <Notice>{error}</Notice>;
   if (!bundle) return null;
 

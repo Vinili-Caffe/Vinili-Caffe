@@ -30,7 +30,7 @@ import {
 } from "@/lib/dashboard-guild";
 import { cn } from "@/lib/cn";
 import { Select } from "@/components/ui/Select";
-import { Field, Notice, Panel, SettingRow, StatTile, Subnav, Toggle, fieldClass } from "./bits";
+import { Field, Notice, Panel, SettingRow, StatTile, Subnav, Toggle, fieldClass, RowsSkeleton } from "./bits";
 import { TicketArchive } from "./TicketArchive";
 import { TicketBlacklist } from "./TicketBlacklist";
 import { TicketForms } from "./TicketForms";
@@ -196,6 +196,22 @@ export function TicketDesk({
 
       <Subnav tabs={TABS} value={tab} onChange={setTab} label="Ticket" />
 
+      {tab === "overview" && !overview && !(modError && !mod) && !(error && !summary) ? (
+        <div className="space-y-4" aria-busy aria-label="Caricamento ticket">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-xl bg-espresso/55 p-3 ring-1 ring-sand/10">
+                <span className="size-9 animate-pulse rounded-lg bg-crema/[0.07]" />
+                <span className="flex-1 space-y-1.5">
+                  <span className="block h-2.5 w-1/2 animate-pulse rounded bg-crema/[0.06]" />
+                  <span className="block h-5 w-1/3 animate-pulse rounded bg-crema/[0.09]" />
+                </span>
+              </div>
+            ))}
+          </div>
+          <RowsSkeleton rows={4} />
+        </div>
+      ) : null}
       {tab === "overview" && overview ? (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">

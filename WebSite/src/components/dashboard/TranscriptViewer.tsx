@@ -1,6 +1,6 @@
 "use client";
 
-import { TextTranscriptView } from "./TextTranscriptView";
+import { TextTranscriptView, TranscriptSkeleton } from "./TextTranscriptView";
 import { extractTextTranscriptFromHtml } from "@/lib/transcript-text";
 import { useEffect, useMemo, useState } from "react";
 import { FileText, Loader2, LogIn } from "lucide-react";
@@ -93,10 +93,13 @@ export function TranscriptViewer() {
 
   if (!ready || loading) {
     return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-crema/60" role="status">
-        <Loader2 className="size-8 animate-spin text-caramel" />
-        <p className="text-sm">Caricamento…</p>
-      </div>
+      <section className="overflow-hidden rounded-2xl ring-1 ring-sand/15" role="status">
+        <div className="flex items-center gap-3 bg-roast px-4 py-3">
+          <span className="h-4 w-40 animate-pulse rounded bg-crema/[0.08]" />
+          <span className="ml-auto h-7 w-24 animate-pulse rounded-lg bg-crema/[0.06]" />
+        </div>
+        <TranscriptSkeleton />
+      </section>
     );
   }
 

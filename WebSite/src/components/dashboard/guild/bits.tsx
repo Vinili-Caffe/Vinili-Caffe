@@ -464,3 +464,75 @@ export function PremiumLock({ feature, note, className }: { feature: string; not
     </div>
   );
 }
+
+/* ── Skeleton di caricamento (stessa forma del contenuto che arriva) ── */
+
+function Bone({ className }: { className?: string }) {
+  return <span className={cn("block animate-pulse rounded bg-crema/[0.07]", className)} aria-hidden />;
+}
+
+/** Righe di un elenco: icona/avatar + due righe di testo + azione. */
+export function RowsSkeleton({ rows = 5, className }: { rows?: number; className?: string }) {
+  return (
+    <ul className={cn("divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10", className)} aria-busy aria-label="Caricamento">
+      {Array.from({ length: rows }, (_, i) => (
+        <li key={i} className="flex items-center gap-3 px-4 py-3">
+          <Bone className="size-9 shrink-0 rounded-lg" />
+          <span className="min-w-0 flex-1 space-y-1.5">
+            <Bone className="h-3.5" />
+            <Bone className="h-3 w-2/5 bg-crema/[0.05]" />
+          </span>
+          <Bone className="h-7 w-16 shrink-0 rounded-lg" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Elenco a sinistra + editor a destra (Pannelli, Form, Team). */
+export function EditorSkeleton({ items = 4 }: { items?: number }) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)]" aria-busy aria-label="Caricamento">
+      <div className="space-y-2">
+        <Bone className="h-4 w-20" />
+        {Array.from({ length: items }, (_, i) => (
+          <Bone key={i} className="h-10 rounded-lg" />
+        ))}
+        <Bone className="h-10 rounded-lg bg-crema/[0.04]" />
+      </div>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <span className="w-1/2 space-y-2">
+            <Bone className="h-5" />
+            <Bone className="h-3 w-2/3 bg-crema/[0.05]" />
+          </span>
+          <Bone className="h-8 w-24 rounded-lg" />
+        </div>
+        {[0, 1].map((g) => (
+          <div key={g} className="space-y-3 rounded-xl bg-espresso/45 p-4 ring-1 ring-sand/10">
+            <Bone className="h-4 w-1/4" />
+            <Bone className="h-10 rounded-lg" />
+            <Bone className="h-10 rounded-lg" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Modulo a sinistra + elenco a destra (Blacklist) o gruppi di impostazioni (Partnership). */
+export function FormSkeleton({ withList = false }: { withList?: boolean }) {
+  return (
+    <div className={cn("grid gap-4", withList && "xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]")} aria-busy aria-label="Caricamento">
+      <div className="space-y-3 rounded-xl bg-espresso/45 p-4 ring-1 ring-sand/10">
+        <Bone className="h-4 w-1/3" />
+        <Bone className="h-3 w-2/3 bg-crema/[0.05]" />
+        <Bone className="h-10 rounded-lg" />
+        <Bone className="h-10 rounded-lg" />
+        <Bone className="h-10 rounded-lg" />
+        <Bone className="h-9 rounded-lg bg-caramel/15" />
+      </div>
+      {withList ? <RowsSkeleton rows={5} /> : null}
+    </div>
+  );
+}

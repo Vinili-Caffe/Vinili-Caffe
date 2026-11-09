@@ -30,7 +30,7 @@ import {
 import { Checkbox, Disclosure, confirmDialog } from "@/components/ui";
 import { Select } from "@/components/ui/Select";
 import { DiscordPanelPreview } from "./DiscordPanelPreview";
-import { EditorHeader, Field, FormGroup, MultiCheck, Notice, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, labelClass, miniBtn, primaryMini } from "./bits";
+import { EditorHeader, Field, FormGroup, MultiCheck, Notice, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, labelClass, miniBtn, primaryMini, EditorSkeleton } from "./bits";
 
 const TYPE_LABEL: Record<string, string> = {
   supporto: "Supporto",
@@ -286,7 +286,7 @@ export function TicketPanels({
     await reload();
   };
 
-  if (loading) return <p className="text-sm text-crema/60">Caricamento pannelli…</p>;
+  if (loading) return <EditorSkeleton />;
   if (error && !bundle) return <Notice>{error}</Notice>;
   if (!bundle) return null;
 

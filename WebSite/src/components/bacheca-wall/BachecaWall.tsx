@@ -343,8 +343,16 @@ export function BachecaWall() {
       <div className="rounded-2xl bg-gradient-to-b from-[#7a5230] to-[#4e331d] p-3 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.9)] sm:p-4">
         <div className={cn("min-h-[60vh] rounded-lg px-4 pb-4 pt-10 shadow-[inset_0_2px_14px_rgba(0,0,0,0.55)] sm:px-6", CORK)}>
           {loading ? (
-            <div className="flex min-h-[50vh] items-center justify-center">
-              <Loader2 className="size-8 animate-spin text-paper/80" />
+            /* skeleton: biglietti appesi al sughero mentre arrivano quelli veri */
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-busy aria-label="Caricamento del muro">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className={`animate-pulse rounded-sm bg-[#f6efe0]/70 p-4 shadow-lg`} style={{ transform: `rotate(${[-2, 1.5, -1, 2, -1.5, 1][i]}deg)` }}>
+                  <div className="h-3 w-1/3 rounded bg-ink/15" />
+                  <div className="mt-3 h-3 rounded bg-ink/10" />
+                  <div className="mt-2 h-3 w-4/5 rounded bg-ink/10" />
+                  <div className="mt-2 h-3 w-3/5 rounded bg-ink/10" />
+                </div>
+              ))}
             </div>
           ) : err ? (
             <div className="mx-auto max-w-md rotate-[-1deg] bg-[#fbe68a] p-6 text-center text-ink shadow-lg">

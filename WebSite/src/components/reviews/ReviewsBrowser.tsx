@@ -226,7 +226,24 @@ export function ReviewsBrowser({
             <Loader2 className="size-5 animate-spin text-crema/50" />
           </div>
         )}
-        {sorted.length === 0 && !loading ? (
+        {sorted.length === 0 && loading ? (
+          <div className="columns-1 gap-4 md:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid" aria-busy aria-label="Caricamento recensioni">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="rounded-3xl bg-roast/70 p-6 ring-1 ring-sand/10">
+                <div className="flex items-center gap-3">
+                  <span className="animate-pulse size-10 rounded-full bg-crema/[0.08]" />
+                  <span className="flex-1 space-y-1.5">
+                    <span className="animate-pulse block h-3.5 w-1/3 rounded bg-crema/[0.08]" />
+                    <span className="animate-pulse block h-3 w-1/4 rounded bg-crema/[0.05]" />
+                  </span>
+                </div>
+                <span className="animate-pulse mt-5 block h-3 rounded bg-crema/[0.06]" />
+                <span className="animate-pulse mt-2 block h-3 w-5/6 rounded bg-crema/[0.06]" />
+                <span className="animate-pulse mt-2 block h-3 w-2/3 rounded bg-crema/[0.06]" />
+              </div>
+            ))}
+          </div>
+        ) : sorted.length === 0 && !loading ? (
           <EmptyState icon={Store} title="Ancora nessuna recensione" text="Scrivi la prima recensione per questo tipo." />
         ) : (
           <div className={cn("columns-1 gap-4 transition-opacity md:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid", loading && "opacity-50")}>

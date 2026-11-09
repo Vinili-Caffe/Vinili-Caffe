@@ -204,7 +204,8 @@ function OwnerCard({ token, userId }: { token: string; userId: string }) {
   }
   const u = current.user;
   if (!u) return <p className="font-mono text-sm text-crema">{userId} <span className="font-sans text-xs text-crema/60">· {current.error}</span></p>;
-  const accent = u.accentColor != null ? `#${u.accentColor.toString(16).padStart(6, "0")}` : null;
+  /* colore 0 = nero pieno: meglio il gradiente del sito */
+  const accent = u.accentColor ? `#${u.accentColor.toString(16).padStart(6, "0")}` : null;
   return (
     <div className="overflow-hidden rounded-xl bg-[#232428] ring-1 ring-sand/10">
       <div className="relative h-14" style={{ background: accent || "linear-gradient(135deg, #3a2a1f, #6b4a2e)" }}>
@@ -215,7 +216,7 @@ function OwnerCard({ token, userId }: { token: string; userId: string }) {
       </div>
       <div className="flex items-end gap-3 px-3 pb-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={u.avatarUrl} alt="" width={56} height={56} className="-mt-7 size-14 shrink-0 rounded-full object-cover ring-4 ring-[#232428]" />
+        <img src={u.avatarUrl} alt="" width={56} height={56} className="relative z-[1] -mt-7 size-14 shrink-0 rounded-full object-cover ring-4 ring-[#232428]" />
         <div className="min-w-0 flex-1 pt-1.5">
           <p className="flex items-center gap-1.5 truncate font-semibold text-white">
             <span className="truncate">{u.displayName}</span>

@@ -365,8 +365,14 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
       <div className="relative mt-12 min-h-[18rem]">
         <AnimatePresence mode="wait">
           {podiumLoading ? (
-            <motion.div key="load" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex h-72 items-center justify-center text-crema/50">
-              <Loader2 className="size-6 animate-spin" />
+            <motion.div key="load" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid h-72 grid-cols-3 items-end gap-2 sm:gap-8" aria-busy aria-label="Caricamento podio">
+              {[1, 0, 2].map((place) => (
+                <div key={place} className="flex flex-col items-center gap-3">
+                  <span className={`animate-pulse rounded-full bg-crema/[0.08] ${place === 0 ? "size-24 sm:size-28" : "size-20 sm:size-24"}`} />
+                  <span className="animate-pulse h-3.5 w-20 rounded bg-crema/[0.08]" />
+                  <span className={`animate-pulse w-full rounded-t-2xl bg-crema/[0.05] ${place === 0 ? "h-24" : place === 1 ? "h-16" : "h-12"}`} />
+                </div>
+              ))}
             </motion.div>
           ) : top.length ? (
             <motion.div key={`${board}-${viewPeriod}`} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-3 items-end gap-2 sm:gap-8">
@@ -458,8 +464,18 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
       {/* classifica paginata (podio resta fisso sopra) */}
       <div id="lb-list" className="scroll-mt-28">
         {listLoading ? (
-          <div className="mt-6 flex h-40 items-center justify-center text-crema/45">
-            <Loader2 className="size-5 animate-spin" />
+          <div className="mt-6 overflow-hidden rounded-3xl bg-roast/85 ring-1 ring-sand/12" aria-busy aria-label="Caricamento classifica">
+            {Array.from({ length: 7 }, (_, i) => (
+              <div key={i} className="flex items-center gap-3 border-b border-sand/10 px-4 py-3 last:border-0 sm:px-6">
+                <span className="animate-pulse h-4 w-6 rounded bg-crema/[0.07]" />
+                <span className="animate-pulse size-10 rounded-full bg-crema/[0.08]" />
+                <span className="flex-1 space-y-1.5">
+                  <span className="animate-pulse block h-3.5 rounded bg-crema/[0.08]" style={{ width: `${55 - i * 4}%` }} />
+                  <span className="animate-pulse block h-3 w-1/4 rounded bg-crema/[0.05]" />
+                </span>
+                <span className="animate-pulse h-5 w-14 rounded bg-crema/[0.07]" />
+              </div>
+            ))}
           </div>
         ) : rest.length > 0 ? (
           <div className="mt-6 overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">

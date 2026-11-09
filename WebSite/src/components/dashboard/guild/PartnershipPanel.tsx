@@ -30,7 +30,7 @@ import { MessagePreview } from "./MessagePreview";
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
-import { Field, FormGroup, Notice, PremiumBadge, PremiumLock, SettingRow, StatusBadge, Subnav, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "./bits";
+import { Field, FormGroup, Notice, PremiumBadge, PremiumLock, SettingRow, StatusBadge, Subnav, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, FormSkeleton } from "./bits";
 
 type Tab = "setup" | "filtri" | "blacklist" | "manager" | "storia" | "migrazione";
 
@@ -188,7 +188,7 @@ export function PartnershipPanel({
     { intervalMs: 90_000, enabled: tab === "migrazione", boot: false, topics: ["partnership"] },
   );
 
-  if (loading) return <p className="text-sm text-crema/60">Caricamento partnership…</p>;
+  if (loading) return <FormSkeleton />;
   if (error && !bundle) return <Notice>{error}</Notice>;
   if (!bundle || !draft) return null;
 

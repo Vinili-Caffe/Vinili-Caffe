@@ -57,7 +57,7 @@ export function MyListings() {
   return (
     <section className="mx-auto max-w-5xl px-6 pb-24">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-crema/55">{list ? `${list.length} schede` : "Caricamento…"}</p>
+        {list ? <p className="text-sm text-crema/55">{`${list.length} schede`}</p> : <span className="animate-pulse h-4 w-20 rounded bg-crema/[0.07]" aria-label="Caricamento" />}
         <SmartLink href={page("/vetrina/invia/")} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink">
           <Plus className="size-4" /> Nuova
         </SmartLink>

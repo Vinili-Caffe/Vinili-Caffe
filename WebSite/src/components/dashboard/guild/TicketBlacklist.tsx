@@ -14,7 +14,7 @@ import {
 } from "@/lib/dashboard-guild";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
-import { Field, FormGroup, Notice, StatusBadge, dangerBtn, fieldClass, labelClass, primaryMini } from "./bits";
+import { Field, FormGroup, Notice, StatusBadge, dangerBtn, fieldClass, labelClass, primaryMini, FormSkeleton } from "./bits";
 
 export function TicketBlacklist({
   guildId,
@@ -70,7 +70,7 @@ export function TicketBlacklist({
     return () => window.clearTimeout(timer);
   }, [query, type, token, guildId]);
 
-  if (loading) return <p className="text-sm text-crema/60">Caricamento blacklist…</p>;
+  if (loading) return <FormSkeleton withList />;
   if (error && !bundle) return <Notice>{error}</Notice>;
   if (!bundle) return null;
 

@@ -163,3 +163,21 @@ function MessageRow({ m, prev, fix }: { m: TextMessage; prev?: TextMessage; fix:
     </li>
   );
 }
+
+/** Skeleton di un transcript: messaggi stile Discord che arrivano. */
+export function TranscriptSkeleton({ rows = 6 }: { rows?: number }) {
+  return (
+    <ol className="space-y-5 bg-[#313338] px-4 py-5" aria-busy aria-label="Caricamento transcript">
+      {Array.from({ length: rows }, (_, i) => (
+        <li key={i} className="flex gap-4">
+          <span className="size-10 shrink-0 animate-pulse rounded-full bg-white/[0.07]" />
+          <span className="min-w-0 flex-1 space-y-2">
+            <span className="block h-3.5 w-40 animate-pulse rounded bg-white/[0.09]" />
+            <span className="block h-3 animate-pulse rounded bg-white/[0.05]" style={{ width: `${85 - ((i * 17) % 40)}%` }} />
+            {i % 2 === 0 ? <span className="block h-16 w-full max-w-md animate-pulse rounded bg-white/[0.04]" /> : null}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}

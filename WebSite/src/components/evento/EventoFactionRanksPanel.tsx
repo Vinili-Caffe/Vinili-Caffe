@@ -66,7 +66,15 @@ export function EventoFactionRanksPanel({
   if (loading && !data) {
     return (
       <EventoPanel glow="gold">
-        <p className="text-sm text-crema/50">Carico organico fazione…</p>
+        <div className="space-y-2" aria-busy aria-label="Caricamento organico fazione">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <span className="animate-pulse size-9 rounded-full bg-crema/[0.08]" />
+              <span className="animate-pulse h-3.5 flex-1 rounded bg-crema/[0.07]" />
+              <span className="animate-pulse h-5 w-12 rounded bg-crema/[0.06]" />
+            </div>
+          ))}
+        </div>
       </EventoPanel>
     );
   }
