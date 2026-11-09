@@ -29,15 +29,17 @@ import {
 import { cn } from "@/lib/cn";
 import { Select } from "@/components/ui/Select";
 import { Field, Notice, Panel, SettingRow, StatTile, Subnav, Toggle, fieldClass } from "./bits";
+import { TicketArchive } from "./TicketArchive";
 import { TicketBlacklist } from "./TicketBlacklist";
 import { TicketForms } from "./TicketForms";
 import { TicketPanels } from "./TicketPanels";
 import { TicketTeams } from "./TicketTeams";
 
-type Tab = "overview" | "panels" | "forms" | "teams" | "blacklist";
+type Tab = "overview" | "archive" | "panels" | "forms" | "teams" | "blacklist";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Panoramica" },
+  { id: "archive", label: "Archivio" },
   { id: "panels", label: "Pannelli" },
   { id: "forms", label: "Form" },
   { id: "teams", label: "Team" },
@@ -405,6 +407,11 @@ export function TicketDesk({
       {tab === "teams" ? (
         <Panel>
           <TicketTeams guildId={guildId} token={token} onToast={onToast} />
+        </Panel>
+      ) : null}
+      {tab === "archive" ? (
+        <Panel>
+          <TicketArchive guildId={guildId} token={token} />
         </Panel>
       ) : null}
       {tab === "blacklist" ? (
