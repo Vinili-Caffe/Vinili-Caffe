@@ -14,6 +14,9 @@ export type DashboardGuild = {
   isMainGuild: boolean;
   isProtectedGuild: boolean;
   premiumActive: boolean;
+  /** Scadenza Premium in ms; null = per sempre o non attivo. undefined = il bot non la manda (versione vecchia). */
+  premiumUntil?: number | null;
+  premiumLifetime?: boolean;
 };
 
 export type DashboardAccess = {
@@ -153,6 +156,12 @@ function mapGuild(row: Record<string, unknown>): DashboardGuild | null {
     isMainGuild: row?.isMainGuild === true,
     isProtectedGuild: row?.isProtectedGuild === true,
     premiumActive: row?.premiumActive === true,
+    ...("premiumUntil" in (row || {})
+      ? {
+          premiumUntil: Number(row.premiumUntil) > 0 ? Number(row.premiumUntil) : null,
+          premiumLifetime: row.premiumLifetime === true,
+        }
+      : {}),
   };
 }
 

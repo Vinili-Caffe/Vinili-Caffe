@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { motion } from "motion/react";
-import { CalendarClock, Check, Coins, Diamond, Lock, LogIn, Server, Sparkles, Ticket } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, CalendarClock, Check, Coins, Diamond, History, Lock, LogIn, Server, Sparkles, Ticket } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
 import { confirmDialog } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -10,14 +10,18 @@ import { cn } from "@/lib/cn";
 import { checkDashboardAccess, listManageableGuilds, readGuildsCache, type DashboardGuild } from "@/lib/dashboard";
 import {
   PREMIUM_PLANS,
+  describeMove,
+  ensureCreditsBalance,
   formatUntil,
-  loadCredits,
-  loadPremiumGuilds,
+  getCreditsBalance,
+  loadCreditsHistory,
   monthsLabel,
   planPerMonth,
   planSaving,
+  setCreditsBalance,
   spendCredits,
-  type PremiumGuild,
+  subscribeCredits,
+  type CreditsMove,
 } from "@/lib/dashboard-premium";
 import { page } from "@/lib/site";
 import { DashboardShell } from "./DashboardShell";
@@ -28,24 +32,22 @@ type View = "premium" | "crediti" | "abbonamento";
 
 const VIEW_TEXT: Record<View, { title: string; lead: string; crumb?: string }> = {
   premium: { title: "Premium", lead: "Usa i tuoi crediti per attivare Vinili Premium sui server che gestisci." },
-  crediti: { title: "Crediti", crumb: "Crediti", lead: "Quanti crediti hai, quanto valgono e come averne altri." },
+  crediti: { title: "Crediti", crumb: "Crediti", lead: "Il tuo saldo, dove l'hai usato e come averne altri." },
   abbonamento: { title: "Abbonamento", crumb: "Abbonamento", lead: "I server con Premium attivo e quando scade." },
 };
 
-/** Stato condiviso dalle tre pagine: accesso, saldo, server e scadenze. */
+/** Saldo crediti condiviso (lo legge anche la topbar). */
+export function useCreditsBalance(): number | null {
+  return useSyncExternalStore(subscribeCredits, getCreditsBalance, () => null);
+}
+
+/** Accesso + lista server (con scadenze Premium) per le tre pagine. */
 function usePremiumData() {
   const { ready, token, login } = useAuth();
   const [gate, setGate] = useState<Gate>("loading");
-  const [credits, setCredits] = useState<number | null>(null);
   /* la cache si legge solo nel browser; durante il caricamento la lista non si mostra */
   const [guilds, setGuilds] = useState<DashboardGuild[]>(() => readGuildsCache() || []);
-  const [details, setDetails] = useState<PremiumGuild[] | null>(null);
   const [error, setError] = useState("");
-
-  const refreshDetails = useCallback(async (tk: string) => {
-    const res = await loadPremiumGuilds(tk);
-    setDetails(res.ok ? res.guilds : null);
-  }, []);
 
   useEffect(() => {
     if (!ready || !token) return;
@@ -58,21 +60,19 @@ function usePremiumData() {
       if (!access.ok && access.status === 401) return setGate("login");
       if (access.ok && (access.access.blacklisted || !access.access.allowed)) return setGate("locked");
 
-      const [bal, list] = await Promise.all([loadCredits(token), listManageableGuilds(token)]);
+      const [, list] = await Promise.all([ensureCreditsBalance(token, true), listManageableGuilds(token)]);
       if (cancelled) return;
-      if (bal.ok) setCredits(bal.credits);
-      else setError(bal.message);
       if (list.ok) setGuilds(list.guilds);
-      else if (!bal.ok || list.status === 401) setError((e) => e || list.message);
+      else if (list.status === 401) return setGate("login");
+      else setError(list.message);
       setGate("ready");
-      void refreshDetails(token);
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, token, refreshDetails]);
+  }, [ready, token]);
 
-  return { token, login, gate: ready && !token ? ("login" as Gate) : gate, credits, setCredits, guilds, setGuilds, details, refreshDetails, error };
+  return { token, login, gate: ready && !token ? ("login" as Gate) : gate, guilds, setGuilds, error };
 }
 
 function GuildIcon({ name, iconUrl, size = "md" }: { name: string; iconUrl: string | null; size?: "sm" | "md" }) {
@@ -120,55 +120,66 @@ function Gates({ gate, login }: { gate: Gate; login: () => void }) {
   );
 }
 
-/** Riga riassunto in alto: saldo, server con Premium, prossima scadenza. */
-function Summary({ credits, premiumCount, nextExpiry }: { credits: number | null; premiumCount: number; nextExpiry: string }) {
+/** Stato Premium di un server in parole: "fino al 3 marzo 2027", "per sempre", "attivo". */
+function premiumText(g: DashboardGuild): string {
+  if (!g.premiumActive) return "Senza Premium";
+  if (g.premiumLifetime) return "Premium per sempre";
+  if (g.premiumUntil) return `Premium fino al ${formatUntil(g.premiumUntil, false)}`;
+  return "Premium attivo";
+}
+
+function daysLeft(until: number): number {
+  return Math.max(0, Math.ceil((until - Date.now()) / 86_400_000));
+}
+
+function nextExpiryLabel(rows: DashboardGuild[]): string {
+  if (!rows.length) return "—";
+  const dated = rows.filter((r) => !r.premiumLifetime && r.premiumUntil).sort((a, b) => (a.premiumUntil || 0) - (b.premiumUntil || 0));
+  if (dated.length) return new Date(dated[0].premiumUntil as number).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+  return rows.some((r) => r.premiumLifetime) ? "Per sempre" : "—";
+}
+
+function Summary({ credits, rows }: { credits: number | null; rows: DashboardGuild[] }) {
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       <StatTile icon={<Coins />} tone="accent" label="Crediti" value={credits == null ? "—" : credits.toLocaleString("it-IT")} hint="Restano sul tuo account" />
-      <StatTile icon={<Diamond />} tone={premiumCount ? "ok" : "default"} label="Server Premium" value={premiumCount} hint={premiumCount ? "Attivi adesso" : "Nessuno ancora"} />
-      <StatTile icon={<CalendarClock />} label="Prossima scadenza" value={nextExpiry} />
+      <StatTile icon={<Diamond />} tone={rows.length ? "ok" : "default"} label="Server Premium" value={rows.length} hint={rows.length ? "Attivi adesso" : "Nessuno ancora"} />
+      <StatTile icon={<CalendarClock />} label="Prossima scadenza" value={nextExpiryLabel(rows)} />
     </div>
   );
 }
 
-function premiumRows(guilds: DashboardGuild[], details: PremiumGuild[] | null): PremiumGuild[] {
-  if (details) return details;
-  return guilds
-    .filter((g) => g.premiumActive)
-    .map((g) => ({ id: g.id, name: g.name, iconUrl: g.iconUrl, botPresent: g.botPresent, until: null, lifetime: false, ownedByYou: false }));
-}
-
-function nextExpiryLabel(rows: PremiumGuild[], hasDetails: boolean): string {
-  if (!rows.length) return "—";
-  if (!hasDetails) return "Vedi server";
-  const dated = rows.filter((r) => !r.lifetime && r.until).sort((a, b) => (a.until || 0) - (b.until || 0));
-  if (!dated.length) return "Per sempre";
-  return new Date(dated[0].until as number).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
-}
-
-function PremiumList({ rows, hasDetails }: { rows: PremiumGuild[]; hasDetails: boolean }) {
+function PremiumList({ rows }: { rows: DashboardGuild[] }) {
   if (!rows.length) {
     return (
       <p className="rounded-xl border border-dashed border-sand/20 px-4 py-8 text-center text-sm text-crema/60">
-        Nessun server ha Premium attivo. Scegline uno qui sotto e attivalo con i crediti.
+        Nessun server ha Premium attivo. Scegline uno e attivalo con i crediti.
       </p>
     );
   }
   return (
     <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10">
-      {rows.map((g) => (
-        <li key={g.id} className="flex items-center gap-3 px-4 py-3">
-          <GuildIcon name={g.name} iconUrl={g.iconUrl} size="sm" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-crema">{g.name}</p>
-            <p className="truncate text-xs text-crema/60">
-              {hasDetails ? (g.lifetime ? "Premium per sempre" : `Scade il ${formatUntil(g.until, g.lifetime)}`) : "Premium attivo"}
-              {g.ownedByYou ? " · attivato da te" : ""}
-            </p>
-          </div>
-          {g.botPresent ? <StatusBadge tone="ok">attivo</StatusBadge> : <StatusBadge tone="warn">bot assente</StatusBadge>}
-        </li>
-      ))}
+      {rows.map((g) => {
+        const left = !g.premiumLifetime && g.premiumUntil ? daysLeft(g.premiumUntil) : null;
+        return (
+          <li key={g.id} className="flex items-center gap-3 px-4 py-3">
+            <GuildIcon name={g.name} iconUrl={g.iconUrl} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-crema">{g.name}</p>
+              <p className="truncate text-xs text-crema/60">{premiumText(g)}</p>
+            </div>
+            {!g.botPresent ? (
+              <StatusBadge tone="warn">bot assente</StatusBadge>
+            ) : left != null && left <= 7 ? (
+              <StatusBadge tone="warn">{left === 0 ? "scade oggi" : `${left} giorni`}</StatusBadge>
+            ) : left != null ? (
+              <StatusBadge tone="ok">{left} giorni</StatusBadge>
+            ) : (
+              <StatusBadge tone="ok">attivo</StatusBadge>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -178,15 +189,13 @@ function ActivatePremium({
   token,
   credits,
   guilds,
-  details,
   onDone,
   onToast,
 }: {
   token: string;
   credits: number | null;
   guilds: DashboardGuild[];
-  details: PremiumGuild[] | null;
-  onDone: (credits: number, guildId: string) => void;
+  onDone: (guildId: string, until: number | null, lifetime: boolean) => void;
   onToast: (msg: string, err?: boolean) => void;
 }) {
   const candidates = useMemo(() => guilds.filter((g) => g.botPresent), [guilds]);
@@ -200,13 +209,12 @@ function ActivatePremium({
   const plan = PREMIUM_PLANS.find((p) => p.months === months) || PREMIUM_PLANS[1];
   const balance = credits ?? 0;
   const enough = balance >= plan.credits;
-  const detail = details?.find((d) => d.id === guildId) || null;
 
   const activate = async () => {
     if (!guild) return onToast("Scegli prima un server.", true);
+    if (guild.premiumLifetime) return onToast("Questo server ha già Premium per sempre.", true);
     if (!enough) return onToast(`Ti mancano ${plan.credits - balance} crediti per questo piano.`, true);
     const extend = guild.premiumActive;
-    if (detail?.lifetime) return onToast("Questo server ha già Premium per sempre.", true);
     const ok = await confirmDialog({
       title: extend ? "Allungare Premium?" : "Attivare Premium?",
       message: (
@@ -222,29 +230,39 @@ function ActivatePremium({
     const res = await spendCredits(token, guild.id, plan.months);
     setBusy(false);
     if (!res.ok) {
-      if (typeof res.credits === "number") onDone(res.credits, "");
+      if (typeof res.credits === "number") setCreditsBalance(res.credits);
       return onToast(res.message, true);
     }
-    onDone(res.credits, guild.id);
-    onToast(
-      res.lifetime ? `Premium attivo su ${guild.name}.` : `Premium attivo su ${guild.name} fino al ${formatUntil(res.until, false)}.`,
-    );
+    onDone(guild.id, res.until, res.lifetime);
+    onToast(res.lifetime ? `Premium attivo su ${guild.name}.` : `Premium attivo su ${guild.name} fino al ${formatUntil(res.until, false)}.`);
   };
 
   return (
-    <Panel icon={<Sparkles />} title="Attiva o allunga Premium" description="Due scelte: il server e per quanto tempo. Se il server ha già Premium, il tempo si aggiunge alla scadenza.">
+    <Panel
+      icon={<Sparkles />}
+      title="Attiva o allunga Premium"
+      description="Due scelte: il server e per quanto tempo. Se il server ha già Premium, il tempo si aggiunge alla scadenza."
+      aside={
+        <SmartLink href={page("/dashboard/premium/vantaggi/")} className="text-xs font-semibold text-ember underline-offset-2 hover:underline">
+          Cosa include?
+        </SmartLink>
+      }
+    >
       <div className="space-y-6">
         <fieldset>
           <legend className="text-[0.8rem] font-semibold text-crema/80">1 · Server</legend>
           {candidates.length === 0 ? (
             <p className="mt-2 rounded-xl border border-dashed border-sand/20 px-4 py-6 text-center text-sm text-crema/60">
-              Il bot non è in nessuno dei server che gestisci. <SmartLink href={page("/dashboard/")} className="font-semibold text-ember underline-offset-2 hover:underline">Aggiungilo</SmartLink> e torna qui.
+              Il bot non è in nessuno dei server che gestisci.{" "}
+              <SmartLink href={page("/dashboard/")} className="font-semibold text-ember underline-offset-2 hover:underline">
+                Aggiungilo
+              </SmartLink>{" "}
+              e torna qui.
             </p>
           ) : (
             <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3" role="radiogroup" aria-label="Server">
               {candidates.map((g) => {
                 const on = g.id === guildId;
-                const d = details?.find((x) => x.id === g.id);
                 return (
                   <button
                     key={g.id}
@@ -260,9 +278,7 @@ function ActivatePremium({
                     <GuildIcon name={g.name} iconUrl={g.iconUrl} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-crema">{g.name}</span>
-                      <span className="block truncate text-xs text-crema/60">
-                        {g.premiumActive ? (d ? (d.lifetime ? "Premium per sempre" : `Premium fino al ${formatUntil(d.until, false)}`) : "Premium attivo") : "Senza Premium"}
-                      </span>
+                      <span className={cn("block truncate text-xs", g.premiumActive ? "text-ember" : "text-crema/60")}>{premiumText(g)}</span>
                     </span>
                     <span
                       className={cn(
@@ -339,7 +355,7 @@ function ActivatePremium({
   );
 }
 
-function HowToGetCredits() {
+export function HowToGetCredits() {
   return (
     <Panel icon={<Coins />} title="Come avere crediti" description="I crediti si legano al tuo account Discord, non a un server.">
       <ul className="space-y-2.5 text-sm text-crema/75">
@@ -365,38 +381,96 @@ function HowToGetCredits() {
   );
 }
 
-function PlansTable() {
+function dayLabel(at: number | null): string {
+  if (!at) return "Data sconosciuta";
+  return new Date(at).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
+}
+
+/** Storico movimenti: raggruppato per giorno, entrate in verde e uscite in neutro. */
+function CreditsHistory({ token, guilds }: { token: string; guilds: DashboardGuild[] }) {
+  const [state, setState] = useState<{ loading: boolean; error: string; moves: CreditsMove[] }>({ loading: true, error: "", moves: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadCreditsHistory(token).then((res) => {
+      if (cancelled) return;
+      setState(res.ok ? { loading: false, error: "", moves: res.history } : { loading: false, error: res.message, moves: [] });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const names = useMemo(() => new Map(guilds.map((g) => [g.id, g.name])), [guilds]);
+  const groups = useMemo(() => {
+    const out: { day: string; moves: CreditsMove[] }[] = [];
+    for (const m of state.moves) {
+      const day = dayLabel(m.at);
+      const last = out[out.length - 1];
+      if (last && last.day === day) last.moves.push(m);
+      else out.push({ day, moves: [m] });
+    }
+    return out;
+  }, [state.moves]);
+
   return (
-    <Panel icon={<Diamond />} title="Quanto costa Premium" description="Più lungo è il piano, meno costa al mese.">
-      <div className="overflow-hidden rounded-xl ring-1 ring-sand/10">
-        <table className="w-full text-sm">
-          <thead className="bg-espresso/60 text-left text-[0.65rem] uppercase tracking-[0.14em] text-crema/60">
-            <tr>
-              <th className="px-4 py-2 font-semibold">Durata</th>
-              <th className="px-4 py-2 font-semibold">Crediti</th>
-              <th className="px-4 py-2 font-semibold">Al mese</th>
-              <th className="px-4 py-2 text-right font-semibold">Risparmio</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-sand/[0.07] bg-espresso/30">
-            {PREMIUM_PLANS.map((p) => (
-              <tr key={p.months}>
-                <td className="px-4 py-2.5 font-semibold text-crema">{monthsLabel(p.months)}</td>
-                <td className="px-4 py-2.5 tabular-nums text-crema/85">{p.credits}</td>
-                <td className="px-4 py-2.5 tabular-nums text-crema/70">{planPerMonth(p)}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-crema/70">{planSaving(p) > 0 ? `−${planSaving(p)}%` : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <Panel icon={<History />} title="Movimenti" description="Gli ultimi 50: crediti ricevuti, spesi e rimborsati.">
+      {state.loading ? (
+        <div className="space-y-2" aria-busy>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-12 animate-pulse rounded-lg bg-crema/[0.04]" />
+          ))}
+        </div>
+      ) : state.error ? (
+        <p className="text-sm text-crema/60">{state.error}</p>
+      ) : groups.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-sand/20 px-4 py-8 text-center text-sm text-crema/60">
+          Ancora nessun movimento. Quando lo staff ti assegna crediti o li spendi, compaiono qui.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {groups.map((g) => (
+            <section key={g.day}>
+              <h3 className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/60">{g.day}</h3>
+              <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10">
+                {g.moves.map((m, i) => {
+                  const plus = m.delta > 0;
+                  return (
+                    <li key={`${m.at}-${i}`} className="flex items-center gap-3 px-4 py-2.5">
+                      <span
+                        className={cn(
+                          "flex size-8 shrink-0 items-center justify-center rounded-full",
+                          plus ? "bg-[#5f9a6a]/15 text-[#9fd0a8] light:text-[#2f6b3f]" : "bg-crema/[0.07] text-crema/70",
+                        )}
+                        aria-hidden
+                      >
+                        {plus ? <ArrowDownLeft className="size-4" /> : <ArrowUpRight className="size-4" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-crema">{describeMove(m, m.guildId ? names.get(m.guildId) || null : null)}</span>
+                        {m.at ? (
+                          <span className="block text-xs text-crema/60">{new Date(m.at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</span>
+                        ) : null}
+                      </span>
+                      <span className={cn("shrink-0 font-semibold tabular-nums", plus ? "text-[#9fd0a8] light:text-[#2f6b3f]" : "text-crema/80")}>
+                        {plus ? "+" : "−"}
+                        {Math.abs(m.delta)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
     </Panel>
   );
 }
 
 export function PremiumBoard({ view = "premium" }: { view?: View }) {
-  const data = usePremiumData();
-  const { token, login, gate, credits, setCredits, guilds, setGuilds, details, refreshDetails, error } = data;
+  const { token, login, gate, guilds, setGuilds, error } = usePremiumData();
+  const credits = useCreditsBalance();
   const [toast, setToast] = useState<{ msg: string; err: boolean } | null>(null);
   const text = VIEW_TEXT[view];
 
@@ -406,7 +480,7 @@ export function PremiumBoard({ view = "premium" }: { view?: View }) {
     return () => window.clearTimeout(t);
   }, [toast]);
 
-  const rows = premiumRows(guilds, details);
+  const rows = guilds.filter((g) => g.premiumActive);
   const onToast = (msg: string, err = false) => setToast({ msg, err });
 
   return (
@@ -416,7 +490,7 @@ export function PremiumBoard({ view = "premium" }: { view?: View }) {
       ) : (
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="space-y-5">
           {error ? <p className="rounded-xl bg-[#a83a2c]/12 px-4 py-3 text-sm text-[#f0a493] ring-1 ring-[#a83a2c]/30 light:text-[#a83a2c]">{error}</p> : null}
-          <Summary credits={credits} premiumCount={rows.length} nextExpiry={nextExpiryLabel(rows, Boolean(details))} />
+          <Summary credits={credits} rows={rows} />
 
           {view === "premium" ? (
             <>
@@ -424,19 +498,14 @@ export function PremiumBoard({ view = "premium" }: { view?: View }) {
                 token={token}
                 credits={credits}
                 guilds={guilds}
-                details={details}
                 onToast={onToast}
-                onDone={(left, gid) => {
-                  setCredits(left);
-                  if (gid) {
-                    setGuilds((cur) => cur.map((g) => (g.id === gid ? { ...g, premiumActive: true } : g)));
-                    void refreshDetails(token);
-                  }
-                }}
+                onDone={(gid, until, lifetime) =>
+                  setGuilds((cur) => cur.map((g) => (g.id === gid ? { ...g, premiumActive: true, premiumUntil: until, premiumLifetime: lifetime } : g)))
+                }
               />
               <div className="grid gap-5 lg:grid-cols-2">
                 <Panel icon={<Server />} title="Server con Premium">
-                  <PremiumList rows={rows} hasDetails={Boolean(details)} />
+                  <PremiumList rows={rows} />
                 </Panel>
                 <HowToGetCredits />
               </div>
@@ -444,21 +513,26 @@ export function PremiumBoard({ view = "premium" }: { view?: View }) {
           ) : null}
 
           {view === "crediti" ? (
-            <>
-              <div className="grid gap-5 lg:grid-cols-2">
-                <PlansTable />
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+              <CreditsHistory token={token} guilds={guilds} />
+              <div className="space-y-5">
                 <HowToGetCredits />
+                <div className="flex flex-wrap gap-2">
+                  <SmartLink href={page("/dashboard/premium/")} className={dashPrimaryBtn}>
+                    <Diamond className="size-4" aria-hidden /> Usa i crediti
+                  </SmartLink>
+                  <SmartLink href={page("/dashboard/premium/vantaggi/")} className={dashSecondaryBtn}>
+                    <Sparkles className="size-4" aria-hidden /> Piani e vantaggi
+                  </SmartLink>
+                </div>
               </div>
-              <SmartLink href={page("/dashboard/premium/")} className={dashPrimaryBtn}>
-                <Diamond className="size-4" aria-hidden /> Usa i crediti
-              </SmartLink>
-            </>
+            </div>
           ) : null}
 
           {view === "abbonamento" ? (
             <>
-              <Panel icon={<Server />} title="Server con Premium" description={details ? undefined : "Le date di scadenza si vedono quando le rende disponibili il bot."}>
-                <PremiumList rows={rows} hasDetails={Boolean(details)} />
+              <Panel icon={<Server />} title="Server con Premium" description="Il bot ti avvisa in DM 7, 3 e 1 giorno prima della scadenza.">
+                <PremiumList rows={rows} />
               </Panel>
               <div className="flex flex-wrap gap-2">
                 <SmartLink href={page("/dashboard/premium/")} className={dashPrimaryBtn}>

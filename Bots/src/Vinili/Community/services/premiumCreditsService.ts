@@ -89,6 +89,24 @@ async function getPremiumCredits(userId?) {
   return normalizeRow(map[uid]).c;
 }
 
+/** Movimenti del saldo (più recenti prima) per la dashboard: niente note dello staff né chi l'ha fatto. */
+async function getPremiumCreditsHistory(userId?, limit = MAX_OPS) {
+  const uid = normalizeUserId(userId);
+  if (!uid) return [];
+  const map = await loadCreditsMap();
+  const max = Math.min(Math.max(1, Math.floor(Number(limit) || MAX_OPS)), MAX_OPS);
+  return normalizeRow(map[uid]).ops
+    .filter((op?) => op && typeof op === "object" && Number.isFinite(Number(op.delta)) && Number(op.delta) !== 0)
+    .map((op?) => ({
+      delta: Math.trunc(Number(op.delta)),
+      at: Number(op.at) || null,
+      reason: op.reason ? String(op.reason) : String(op.type || "adjust"),
+      guildId: op.guildId != null && /^\d{16,20}$/.test(String(op.guildId)) ? String(op.guildId) : null,
+    }))
+    .sort((a?, b?) => (b.at || 0) - (a.at || 0))
+    .slice(0, max);
+}
+
 async function listPremiumCreditHolders(opts: Record<string, any> = {}) {
   const map = await loadCreditsMap();
   const q = String(opts.q || "").trim().toLowerCase();
@@ -331,6 +349,7 @@ async function findLastPremiumSpendForGuild(guildId?, preferredUserId = null) {
 export = {
   BOT_STATE_KEY,
   getPremiumCredits,
+  getPremiumCreditsHistory,
   listPremiumCreditHolders,
   addPremiumCredits,
   adjustPremiumCredits,

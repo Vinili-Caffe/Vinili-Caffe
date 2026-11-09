@@ -1,6 +1,6 @@
 // Dashboard: crediti Premium e attivazione per server.
 // API (bot): GET /webhooks/site-dashboard/credits, POST /webhooks/site-dashboard/credits/spend,
-// GET /webhooks/site-dashboard/account (solo alto staff: altrimenti 403, gestito).
+// GET /webhooks/site-dashboard/credits/history (storico). Scadenze: campi premiumUntil della lista server.
 // Handler: MultiGuild/site/dashboard/dashboardRoutes.ts + premiumCreditsService.ts.
 
 const BASE = "/webhooks/site-dashboard";
@@ -14,16 +14,6 @@ export const PREMIUM_PLANS = [
 ] as const;
 
 export type PremiumPlan = (typeof PREMIUM_PLANS)[number];
-
-export type PremiumGuild = {
-  id: string;
-  name: string;
-  iconUrl: string | null;
-  botPresent: boolean;
-  until: number | null;
-  lifetime: boolean;
-  ownedByYou: boolean;
-};
 
 type Fail = { ok: false; message: string; error?: string; status?: number };
 
@@ -69,6 +59,7 @@ export async function loadCredits(token: string): Promise<{ ok: true; credits: n
     const { status, data } = await call("GET", `${BASE}/credits`, token);
     if (status === 401) return fail(status, data, "Sessione scaduta: accedi di nuovo.");
     if (status !== 200 || data.ok === false) return fail(status, data, "Impossibile leggere i crediti.");
+    setCreditsBalance(num(data.credits));
     return { ok: true, credits: num(data.credits) };
   } catch {
     return { ok: false, message: "Errore di rete durante la lettura dei crediti." };
@@ -88,43 +79,97 @@ export async function spendCredits(
     }
     const premium = (data.premium && typeof data.premium === "object" ? data.premium : {}) as Record<string, unknown>;
     const until = premium.until == null ? null : num(premium.until) || null;
+    setCreditsBalance(num(data.credits));
     return { ok: true, credits: num(data.credits), until, lifetime: premium.lifetime === true || until == null };
   } catch {
     return { ok: false, message: "Errore di rete durante l'attivazione." };
   }
 }
 
-/**
- * GET /account — server con Premium e scadenze. Disponibile solo per l'alto staff:
- * per gli altri torna `{ ok: false, status: 403 }` e la pagina usa i dati dei server.
- */
-export async function loadPremiumGuilds(token: string): Promise<{ ok: true; guilds: PremiumGuild[] } | Fail> {
+export type CreditsMove = {
+  delta: number;
+  at: number | null;
+  reason: string;
+  guildId: string | null;
+};
+
+/** GET /credits/history — saldo e ultimi 50 movimenti, più recenti prima. */
+export async function loadCreditsHistory(
+  token: string,
+): Promise<{ ok: true; credits: number; history: CreditsMove[] } | Fail> {
   try {
-    const { status, data } = await call("GET", `${BASE}/account`, token);
-    if (status !== 200 || data.ok === false) return fail(status, data, "Dettagli Premium non disponibili.");
-    const premium = (data.premium && typeof data.premium === "object" ? data.premium : {}) as Record<string, unknown>;
-    const rows = Array.isArray(premium.guilds) ? premium.guilds : [];
-    const guilds = rows
+    const { status, data } = await call("GET", `${BASE}/credits/history`, token);
+    if (status === 404) return { ok: false, status, message: "Lo storico arriva col prossimo aggiornamento del bot." };
+    if (status !== 200 || data.ok === false) return fail(status, data, "Impossibile leggere lo storico.");
+    const rows = Array.isArray(data.history) ? data.history : [];
+    const history = rows
       .map((raw) => {
-        const row = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-        const id = String(row.id || "").trim();
-        if (!/^\d{16,22}$/.test(id)) return null;
-        const until = row.until == null ? null : num(row.until) || null;
+        const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+        const delta = Math.trunc(num(r.delta));
+        if (!delta) return null;
+        const gid = String(r.guildId || "");
         return {
-          id,
-          name: String(row.name || "Server").trim() || "Server",
-          iconUrl: String(row.iconUrl || "").trim() || null,
-          botPresent: row.botPresent !== false,
-          until,
-          lifetime: row.lifetime === true,
-          ownedByYou: row.ownedByYou === true,
-        } satisfies PremiumGuild;
+          delta,
+          at: num(r.at) || null,
+          reason: String(r.reason || "adjust"),
+          guildId: /^d{16,22}$/.test(gid) ? gid : null,
+        } satisfies CreditsMove;
       })
-      .filter((g): g is PremiumGuild => Boolean(g));
-    return { ok: true, guilds };
+      .filter((m): m is CreditsMove => Boolean(m));
+    setCreditsBalance(num(data.credits));
+    return { ok: true, credits: num(data.credits), history };
   } catch {
-    return { ok: false, message: "Errore di rete." };
+    return { ok: false, message: "Errore di rete durante la lettura dello storico." };
   }
+}
+
+/** Testo leggibile di un movimento (i motivi vengono dal bot: premiumCreditsService). */
+export function describeMove(m: CreditsMove, guildName: string | null): string {
+  const where = guildName ? ` su ${guildName}` : m.guildId ? " su un server" : "";
+  if (m.delta < 0 && m.reason === "tenant_premium") {
+    const plan = PREMIUM_PLANS.find((p) => p.credits === -m.delta);
+    return `Premium ${plan ? monthsLabel(plan.months) : ""}${where}`.replace("  ", " ");
+  }
+  if (m.delta > 0 && m.reason.includes("refund")) {
+    return m.reason === "refund_failed_grant" ? "Rimborso: attivazione non riuscita" : `Rimborso Premium${where}`;
+  }
+  if (m.delta > 0) return "Aggiunti dallo staff";
+  return "Tolti dallo staff";
+}
+
+/* ── saldo condiviso: la topbar e le pagine leggono lo stesso numero ── */
+
+let balance: number | null = null;
+let loading: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+
+export function setCreditsBalance(n: number) {
+  balance = n;
+  listeners.forEach((fn) => fn());
+}
+
+export function subscribeCredits(fn: () => void) {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+
+export function getCreditsBalance() {
+  return balance;
+}
+
+/** Carica il saldo una volta per visita (poi lo aggiornano spese e storico). */
+export function ensureCreditsBalance(token: string, force = false): Promise<void> {
+  if (!force && (balance != null || loading)) return loading || Promise.resolve();
+  loading = loadCredits(token)
+    .then((res) => {
+      if (res.ok) setCreditsBalance(res.credits);
+    })
+    .finally(() => {
+      loading = null;
+    });
+  return loading;
 }
 
 export function planPerMonth(plan: PremiumPlan): string {

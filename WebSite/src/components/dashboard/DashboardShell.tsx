@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ChevronRight,
   ChevronsUpDown,
+  Coins,
   CreditCard,
   Diamond,
   Handshake,
@@ -18,6 +19,7 @@ import {
   NotebookPen,
   Pin,
   Settings2,
+  Sparkles,
   Terminal,
   Ticket,
   UserRound,
@@ -28,6 +30,7 @@ import { SmartLink } from "@/components/SmartLink";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { readGuildsCache, readLastGuildId, selectGuild, type DashboardGuild } from "@/lib/dashboard";
+import { ensureCreditsBalance, getCreditsBalance, subscribeCredits } from "@/lib/dashboard-premium";
 import { cdnUrl, page } from "@/lib/site";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 
@@ -53,6 +56,7 @@ const BOT_NAV = [
 
 const ACCOUNT_NAV = [
   { href: "/dashboard/premium/", label: "Premium", icon: CreditCard },
+  { href: "/dashboard/premium/vantaggi/", label: "Vantaggi Premium", icon: Sparkles },
   { href: "/dashboard/profilo/", label: "Profilo", icon: UserRound },
 ] as const;
 
@@ -275,6 +279,27 @@ function ServerSwitcher({ current }: { current: ShellGuild | null }) {
   );
 }
 
+/** Saldo crediti sempre in vista nella barra in alto (si aggiorna quando spendi). */
+function CreditsChip() {
+  const { token } = useAuth();
+  const credits = useSyncExternalStore(subscribeCredits, getCreditsBalance, () => null);
+  useEffect(() => {
+    if (token) void ensureCreditsBalance(token);
+  }, [token]);
+  if (!token || credits == null) return null;
+  return (
+    <SmartLink
+      href={page("/dashboard/premium/crediti/")}
+      title="I tuoi crediti Premium"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-caramel/12 py-1 pl-2 pr-3 text-sm font-semibold text-crema ring-1 ring-caramel/30 transition hover:bg-caramel/20 hover:ring-caramel/50"
+    >
+      <Coins className="size-4 text-ember" aria-hidden />
+      <span className="tabular-nums">{credits.toLocaleString("it-IT")}</span>
+      <span className="hidden text-crema/60 sm:inline">crediti</span>
+    </SmartLink>
+  );
+}
+
 function UserCard() {
   const { user, ready, login } = useAuth();
   if (!ready) return <div className="h-12 animate-pulse rounded-xl bg-crema/[0.04]" />;
@@ -365,7 +390,7 @@ function Sidebar({ guild, guildNav, onNavigate }: { guild: ShellGuild | null; gu
 
         <NavGroup title="Account">
           {ACCOUNT_NAV.map((n) => (
-            <NavItem animated={!onNavigate} key={n.href} href={n.href} label={n.label} icon={n.icon} active={samePath(pathname, n.href)} />
+            <NavItem animated={!onNavigate} key={n.href} href={n.href} label={n.label} icon={n.icon} active={samePath(pathname, n.href) && !ACCOUNT_NAV.some((o) => o.href.length > n.href.length && samePath(pathname, o.href))} />
           ))}
         </NavGroup>
       </nav>
@@ -493,6 +518,7 @@ export function DashboardShell({
               <ChevronRight className="size-3.5 shrink-0 text-crema/25" aria-hidden />
               <span className="truncate font-semibold text-crema">{crumb || title}</span>
             </nav>
+            <CreditsChip />
           </header>
 
           <main className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">

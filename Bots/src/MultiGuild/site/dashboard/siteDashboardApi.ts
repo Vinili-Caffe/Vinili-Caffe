@@ -16,6 +16,8 @@ const {
 const {
   ensureTenantPremiumCacheFresh,
   isTenantPremiumActiveSync,
+  getTenantPremiumSync,
+  serializePremiumPublic,
 } = require("../../core/tenantPremium") as typeof import("../../core/tenantPremium");
 const { resolveWebsiteGuildMember } = require("../../../Vinili/site/http/siteRoleRequestApi") as typeof import("../../../Vinili/site/http/siteRoleRequestApi");
 const {
@@ -222,6 +224,14 @@ async function userHasGuildManageAccessViaBot(client?, guildId?, userId?) {
 
 function oauthRowHasManageAccess(row?) {
   return Boolean(row && (row.owner === true || hasManageServerPermission(row.permissions, row.owner === true)));
+}
+
+/** Scadenza Premium per la lista server (null + lifetime = per sempre). */
+function premiumDates(id?) {
+  const pub = serializePremiumPublic(getTenantPremiumSync(id));
+  if (!pub.active) return { premiumUntil: null, premiumLifetime: false };
+  const until = Number(pub.until) || null;
+  return { premiumUntil: until, premiumLifetime: until == null };
 }
 
 function guildIconUrlFromPartial(guild?) {
@@ -769,7 +779,7 @@ async function listDashboardGuildsUncached(client?, accessToken?) {
       botPresent: knownBotGuilds.has(id),
       isMainGuild: isMain,
       isProtectedGuild: isProtected,
-      premiumActive: isTenantPremiumActiveSync(id),
+      premiumActive: isTenantPremiumActiveSync(id), ...premiumDates(id),
     });
   }
 
@@ -792,7 +802,7 @@ async function listDashboardGuildsUncached(client?, accessToken?) {
       botPresent: true,
       isMainGuild: isMain,
       isProtectedGuild: isProtected,
-      premiumActive: isTenantPremiumActiveSync(id),
+      premiumActive: isTenantPremiumActiveSync(id), ...premiumDates(id),
     });
   }
 
@@ -818,7 +828,7 @@ async function listDashboardGuildsUncached(client?, accessToken?) {
       botPresent: true,
       isMainGuild: isMain,
       isProtectedGuild: isProtected,
-      premiumActive: isTenantPremiumActiveSync(id),
+      premiumActive: isTenantPremiumActiveSync(id), ...premiumDates(id),
     });
   }
 

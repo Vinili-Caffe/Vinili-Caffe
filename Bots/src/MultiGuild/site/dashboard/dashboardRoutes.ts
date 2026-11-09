@@ -58,7 +58,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
   } = require("./siteDashboardTenantProfileApi") as typeof import("./siteDashboardTenantProfileApi");
   const { getDashboardAccountSummary } = require("./siteDashboardAccountApi") as typeof import("./siteDashboardAccountApi");
   const { exportSelfGdprData, eraseSelfGdprData } = require("./siteDashboardGdprApi") as typeof import("./siteDashboardGdprApi");
-  const { getPremiumCredits, spendCreditsForTenantPremium } = require("../../../Vinili/Community/services/premiumCreditsService") as typeof import("../../../Vinili/Community/services/premiumCreditsService");
+  const { getPremiumCredits, getPremiumCreditsHistory, spendCreditsForTenantPremium } = require("../../../Vinili/Community/services/premiumCreditsService") as typeof import("../../../Vinili/Community/services/premiumCreditsService");
   const { fetchDiscordUser } = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
   app.get("/webhooks/site-dashboard/access", async (req?, res?) => {
     try {
@@ -466,6 +466,30 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
       });
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-dashboard credits:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-dashboard/credits/history", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const user = await fetchDiscordUser(accessToken);
+      if (!user.ok) {
+        return res.status(Number(user.status) || 401).json(user);
+      }
+      const [credits, history] = await Promise.all([
+        getPremiumCredits(user.userId),
+        getPremiumCreditsHistory(user.userId, 50),
+      ]);
+      return res.status(200).json({ ok: true, credits, history });
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard credits history:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
