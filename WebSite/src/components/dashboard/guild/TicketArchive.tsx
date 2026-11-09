@@ -1,5 +1,7 @@
 "use client";
 
+import { TextTranscriptView } from "@/components/dashboard/TextTranscriptView";
+import { extractTextTranscriptFromHtml } from "@/lib/transcript-text";
 import { EmojiText } from "@/components/discord/EmojiText";
 import { Select } from "@/components/ui/Select";
 import { useEffect, useMemo, useState } from "react";
@@ -129,7 +131,7 @@ function Stars({ n }: { n: number }) {
 
 /** Lettura del transcript dentro la dashboard (iframe isolato, niente script). */
 function TranscriptReader({ token, guildId, row, onClose }: { token: string; guildId: string; row: ArchiveRow; onClose: () => void }) {
-  const [state, setState] = useState<{ loading: boolean; error: string; src: string | null; external: string | null }>({ loading: true, error: "", src: null, external: null });
+  const [state, setState] = useState<{ loading: boolean; error: string; src: string | null; external: string | null; text?: string | null }>({ loading: true, error: "", src: null, external: null });
 
   useEffect(() => {
     let url: string | null = null;
@@ -138,6 +140,9 @@ function TranscriptReader({ token, guildId, row, onClose }: { token: string; gui
       if (cancelled) return;
       if (!res.ok) return setState({ loading: false, error: res.message, src: null, external: null });
       if ("url" in res) return setState({ loading: false, error: "", src: null, external: res.url });
+      /* ticket vecchi salvati solo come testo: vista chat invece del blocco di testo */
+      const plain = extractTextTranscriptFromHtml(res.html);
+      if (plain) return setState({ loading: false, error: "", src: null, external: null, text: plain });
       url = URL.createObjectURL(new Blob([res.html], { type: "text/html" }));
       setState({ loading: false, error: "", src: url, external: null });
     });
@@ -160,7 +165,7 @@ function TranscriptReader({ token, guildId, row, onClose }: { token: string; gui
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] flex items-stretch justify-center bg-ink/75 p-0 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-[60] flex items-stretch justify-center bg-ink/75 p-0 backdrop-blur-sm sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -171,7 +176,7 @@ function TranscriptReader({ token, guildId, row, onClose }: { token: string; gui
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 10, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="flex w-full max-w-5xl flex-col overflow-hidden bg-roast ring-1 ring-sand/15 sm:rounded-2xl"
+        className="flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden bg-roast ring-1 ring-sand/15 sm:h-[88vh] sm:rounded-2xl"
       >
         <header className="flex items-center gap-3 border-b border-sand/[0.08] px-4 py-3">
           <button type="button" onClick={onClose} className={cn(miniBtn, "sm:hidden")} aria-label="Torna all'archivio">
@@ -195,7 +200,7 @@ function TranscriptReader({ token, guildId, row, onClose }: { token: string; gui
             <X className="size-3.5" />
           </button>
         </header>
-        <div className="min-h-0 flex-1 bg-[#1e1f22]">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#313338]">
           {state.loading ? (
             <p className="p-8 text-center text-sm text-crema/60">Carico il transcript…</p>
           ) : state.error ? (
@@ -208,8 +213,10 @@ function TranscriptReader({ token, guildId, row, onClose }: { token: string; gui
                 <ExternalLink className="size-3.5" aria-hidden /> Apri il transcript
               </a>
             </div>
+          ) : state.text ? (
+            <TextTranscriptView text={state.text} token={token} />
           ) : state.src ? (
-            <iframe title={title} src={state.src} className="h-[calc(100dvh-4rem)] w-full border-0 sm:h-[75vh]" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" />
+            <iframe title={title} src={state.src} className="block h-full w-full border-0" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" />
           ) : null}
         </div>
       </motion.section>

@@ -1,5 +1,7 @@
 "use client";
 
+import { TextTranscriptView } from "./TextTranscriptView";
+import { extractTextTranscriptFromHtml } from "@/lib/transcript-text";
 import { useEffect, useMemo, useState } from "react";
 import { FileText, Loader2, LogIn } from "lucide-react";
 import { DiscordContent } from "@/components/discord/DiscordContent";
@@ -18,7 +20,7 @@ export function TranscriptViewer() {
   const [meta, setMeta] = useState<TranscriptMeta | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
-  const plain = useMemo(() => (html ? extractPlainTranscript(html) : null), [html]);
+  const plain = useMemo(() => (html ? extractPlainTranscript(html) ?? extractTextTranscriptFromHtml(html) : null), [html]);
 
   useEffect(() => {
     setTokenParam(readTranscriptToken(typeof window !== "undefined" ? window.location.search : ""));
@@ -145,8 +147,8 @@ export function TranscriptViewer() {
       </header>
 
       {plain ? (
-        <div className="max-h-[70vh] overflow-y-auto px-4 py-4 sm:px-5">
-          <DiscordContent text={plain} className="text-sm leading-relaxed text-crema/85" />
+        <div className="max-h-[75vh] overflow-y-auto">
+          <TextTranscriptView text={plain} token={token} />
         </div>
       ) : (
         <iframe
