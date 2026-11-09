@@ -27,7 +27,7 @@ import { confirmDialog, Disclosure } from "@/components/ui";
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
-import { Field, FormGroup, Notice, SettingRow, StatusBadge, Subnav, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "./bits";
+import { Field, FormGroup, Notice, PremiumLock, SettingRow, StatusBadge, Subnav, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "./bits";
 
 type Tab = "setup" | "filtri" | "blacklist" | "manager" | "storia" | "migrazione";
 
@@ -503,13 +503,15 @@ export function PartnershipPanel({
           </FormGroup>
 
           <Disclosure title="Messaggio di ringraziamento">
-            <p className="text-xs text-crema/60">Il bot lo manda al server partner dopo la pubblicazione. Richiede Vinili Premium.</p>
+            <p className="text-xs text-crema/60">Il bot lo manda al server partner dopo la pubblicazione.</p>
+            {!bundle.premiumActive ? <PremiumLock className="mt-3" feature="Il messaggio di ringraziamento" note="Puoi scriverlo adesso: parte solo quando il server ha Premium." /> : null}
             <div className="mt-3 space-y-4">
               <div className="divide-y divide-sand/[0.07]">
                 <SettingRow title="Ringraziamento attivo">
                   <Toggle
                     size="sm"
                     checked={draft.thankYouEmbed.enabled}
+                    disabled={!bundle.premiumActive && !draft.thankYouEmbed.enabled}
                     label="Ringraziamento attivo"
                     onChange={(v) => set({ thankYouEmbed: { ...draft.thankYouEmbed, enabled: v } })}
                   />

@@ -92,6 +92,12 @@ export type GuildSettings = {
   boards: GuildBoards;
   botNickname: string | null;
   botAvatarUrl: string | null;
+  /** true = avatar/banner solo per questo server (altrimenti è quello globale del bot) */
+  hasGuildAvatar: boolean;
+  botBannerUrl: string | null;
+  hasGuildBanner: boolean;
+  /** Premium scaduto: personalizzazioni salvate ma in pausa */
+  identitySuspended: boolean;
   botUsername: string | null;
   /** stato del bot ora su Discord (online/idle/dnd/offline) e attività */
   botPresence: { status: string; text: string } | null;
@@ -476,6 +482,10 @@ function mapSettings(data: Record<string, unknown>): { settings: GuildSettings; 
       boards: mapBoards(s.boards),
       botNickname: s.botNickname != null ? String(s.botNickname) : null,
       botAvatarUrl: s.botAvatarUrl ? String(s.botAvatarUrl) : null,
+      hasGuildAvatar: s.hasGuildAvatar === true,
+      botBannerUrl: s.botBannerUrl ? String(s.botBannerUrl) : null,
+      hasGuildBanner: s.hasGuildBanner === true,
+      identitySuspended: s.identitySuspended === true,
       botUsername: s.botUsername ? String(s.botUsername) : null,
       botPresence:
         s.botPresence && typeof s.botPresence === "object"

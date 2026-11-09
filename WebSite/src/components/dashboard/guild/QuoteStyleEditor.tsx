@@ -5,7 +5,7 @@ import { Lock } from "lucide-react";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { defaultQuoteStyle, previewGuildQuoteStyle, type QuoteStyle } from "@/lib/dashboard-guild";
-import { Field, Toggle, fieldClass } from "./bits";
+import { Field, PremiumLock, Toggle, fieldClass } from "./bits";
 
 const BG_PRESETS: { value: string; label: string; swatch: string }[] = [
   { value: "black", label: "Nero", swatch: "#070707" },
@@ -188,7 +188,7 @@ export function QuoteStyleEditor({
   const busy = Boolean(disabled || locked || saving);
 
   return (
-    <div className={cn("space-y-4", (disabled || locked) && "opacity-50")}>
+    <div className={cn("space-y-4", disabled && "opacity-50")}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-crema">Stile quote</p>
@@ -199,11 +199,7 @@ export function QuoteStyleEditor({
         {locked ? <Lock className="size-3.5 text-crema/50" aria-label="Richiede premium" /> : null}
       </div>
 
-      {locked ? (
-        <p className="rounded-xl bg-caramel/10 px-3 py-2.5 text-sm text-crema/75 ring-1 ring-caramel/25">
-          Lo stile personalizzato delle quote richiede Premium (o un server protetto Vinili).
-        </p>
-      ) : null}
+      {locked ? <PremiumLock feature="Lo stile delle quote" note="Senza Premium le quote usano lo stile base. Con Premium scegli colori, font e impaginazione." /> : null}
 
       <div className="relative overflow-hidden rounded-xl bg-espresso/80 ring-1 ring-sand/15">
         {previewUrl ? (

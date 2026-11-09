@@ -33,6 +33,7 @@ import { readGuildsCache, readLastGuildId, selectGuild, type DashboardGuild } fr
 import { ensureCreditsBalance, getCreditsBalance, subscribeCredits } from "@/lib/dashboard-premium";
 import { cdnUrl, page } from "@/lib/site";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
+import { NotificationsBell } from "./NotificationsBell";
 
 /** Sezioni del pannello server: nella sidebar, sotto "Server". */
 export const GUILD_SECTIONS = [
@@ -519,6 +520,7 @@ export function DashboardShell({
               <span className="truncate font-semibold text-crema">{crumb || title}</span>
             </nav>
             <CreditsChip />
+            <NotificationsBell />
           </header>
 
           <main className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">

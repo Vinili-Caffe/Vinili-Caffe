@@ -18,13 +18,16 @@ import {
   MousePointerClick,
   Pin,
   Plus,
+  RotateCcw,
   Search,
   Server,
   SlidersHorizontal,
   Ticket,
+  Upload,
   Users,
 } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
+import { confirmDialog } from "@/components/ui";
 import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
@@ -63,6 +66,7 @@ import {
   DashToast,
   Field,
   Panel,
+  PremiumLock,
   SettingRow,
   StateCard,
   StatTile,
@@ -70,6 +74,7 @@ import {
   dashPrimaryBtn,
   dashSecondaryBtn,
   discordBtn,
+  miniBtn as miniBtnCls,
 } from "./guild/bits";
 
 const CommandAclEditor = dynamic(() => import("./guild/CommandAcl").then((m) => m.CommandAcl), {
@@ -222,50 +227,143 @@ const PRESENCE: Record<string, { label: string; dot: string }> = {
 };
 
 /** Il bot come appare su Discord in questo server, con lo stato attuale e il cambio del nickname. */
+const IDENTITY_MAX_BYTES = 4 * 1024 * 1024;
+const IDENTITY_TYPES = ["image/png", "image/jpeg", "image/gif"];
+
+function readImageFile(file: File): Promise<{ ok: true; dataUri: string } | { ok: false; message: string }> {
+  if (!IDENTITY_TYPES.includes(file.type)) return Promise.resolve({ ok: false, message: "Usa un'immagine PNG, JPG o GIF." });
+  if (file.size > IDENTITY_MAX_BYTES) return Promise.resolve({ ok: false, message: "L'immagine supera 4 MB: scegline una più leggera." });
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ ok: true, dataUri: String(reader.result || "") });
+    reader.onerror = () => resolve({ ok: false, message: "Non riesco a leggere il file." });
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Riga "Avatar" / "Banner": carica un file o torna a quello globale del bot. */
+function IdentityImageRow({
+  label,
+  hint,
+  custom,
+  disabled,
+  onPick,
+  onReset,
+}: {
+  label: string;
+  hint: string;
+  custom: boolean;
+  disabled: boolean;
+  onPick: (file: File) => void;
+  onReset: () => void;
+}) {
+  const id = `bot-${label.toLowerCase()}-file`;
+  return (
+    <div className="flex items-center gap-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-crema">{label}</p>
+        <p className="text-xs text-crema/60">{custom ? "Personalizzato per questo server" : hint}</p>
+      </div>
+      <label htmlFor={id} className={cn(miniBtnCls, disabled ? "pointer-events-none opacity-45" : "cursor-pointer")} aria-disabled={disabled}>
+        <Upload className="size-3.5" aria-hidden /> {custom ? "Cambia" : "Carica"}
+      </label>
+      <input
+        id={id}
+        name={id}
+        type="file"
+        accept="image/png,image/jpeg,image/gif"
+        className="sr-only"
+        disabled={disabled}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) onPick(file);
+        }}
+      />
+      {custom ? (
+        <button type="button" disabled={disabled} onClick={onReset} className={miniBtnCls} aria-label={`Togli ${label.toLowerCase()} personalizzato`}>
+          <RotateCcw className="size-3.5" aria-hidden />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function BotIdentityCard({
   settings,
   canCustomize,
   saving,
-  onSaveNick,
+  onSave,
+  onToast,
 }: {
   settings: GuildSettings;
   canCustomize: boolean;
   saving: boolean;
-  onSaveNick: (nick: string | null) => Promise<boolean>;
+  onSave: (body: Record<string, unknown>, okMsg: string) => Promise<boolean>;
+  onToast: (msg: string, err?: boolean) => void;
 }) {
   const [nick, setNick] = useState(settings.botNickname ?? "");
   useEffect(() => setNick(settings.botNickname ?? ""), [settings.botNickname]);
+  /* anteprima immediata mentre il bot salva (Discord ci mette qualche secondo) */
+  const [pending, setPending] = useState<{ avatar?: string; banner?: string }>({});
 
   const presence = PRESENCE[settings.botPresence?.status || "online"] ?? PRESENCE.online;
   const shownName = nick.trim() || settings.botUsername || "Vinili";
   const changed = nick.trim() !== (settings.botNickname ?? "").trim();
+  const avatar = pending.avatar || settings.botAvatarUrl;
+  const banner = pending.banner || settings.botBannerUrl;
+  const locked = !canCustomize || saving;
 
   const submit = async () => {
-    if (!changed || saving || !canCustomize) return;
-    const ok = await onSaveNick(nick.trim() || null);
+    if (!changed || locked) return;
+    const ok = await onSave({ botNickname: nick.trim() || null }, nick.trim() ? "Nickname del bot aggiornato." : "Nickname del bot ripristinato.");
     if (!ok) setNick(settings.botNickname ?? "");
   };
 
+  const upload = async (kind: "avatar" | "banner", file: File) => {
+    const read = await readImageFile(file);
+    if (!read.ok) return onToast(read.message, true);
+    setPending((p) => ({ ...p, [kind]: read.dataUri }));
+    await onSave(
+      kind === "avatar" ? { botAvatar: read.dataUri } : { botBanner: read.dataUri },
+      kind === "avatar" ? "Avatar del bot aggiornato." : "Banner del bot aggiornato.",
+    );
+    setPending((p) => ({ ...p, [kind]: undefined }));
+  };
+
+  const reset = async (kind: "avatar" | "banner") => {
+    const ok = await confirmDialog({
+      title: kind === "avatar" ? "Togliere l'avatar?" : "Togliere il banner?",
+      message: "In questo server il bot torna a quello di sempre.",
+      confirmLabel: "Togli",
+    });
+    if (!ok) return;
+    await onSave(kind === "avatar" ? { botAvatar: null } : { botBanner: null }, kind === "avatar" ? "Avatar ripristinato." : "Banner ripristinato.");
+  };
+
   return (
-    <Panel icon={<Bot />} title="Il bot in questo server" description="Anteprima live" className="h-fit">
-      <div className="rounded-xl bg-espresso/60 p-3 ring-1 ring-sand/10">
-        <div className="flex items-center gap-3">
-          <span className="relative shrink-0">
-            {settings.botAvatarUrl ? (
+    <Panel icon={<Bot />} title="Il bot in questo server" description="Nickname, avatar e banner che vedono solo i membri di qui." className="h-fit" bodyClassName="space-y-4">
+      {/* anteprima stile profilo Discord */}
+      <div className="overflow-hidden rounded-xl bg-espresso/60 ring-1 ring-sand/10">
+        <div className="relative h-20 bg-gradient-to-br from-mocha to-caramel/40">
+          {banner ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={banner} alt="" className="absolute inset-0 size-full object-cover" />
+          ) : null}
+        </div>
+        <div className="flex items-end gap-3 px-3 pb-3">
+          <span className="relative -mt-7 shrink-0">
+            {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={settings.botAvatarUrl} alt="" width={44} height={44} className="size-11 rounded-full" />
+              <img src={avatar} alt="" width={56} height={56} className="size-14 rounded-full object-cover ring-4 ring-espresso" />
             ) : (
-              <span className="flex size-11 items-center justify-center rounded-full bg-mocha text-crema/50">
-                <Bot className="size-5" aria-hidden />
+              <span className="flex size-14 items-center justify-center rounded-full bg-mocha text-crema/60 ring-4 ring-espresso">
+                <Bot className="size-6" aria-hidden />
               </span>
             )}
-            <span
-              className={cn("absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full ring-[3px] ring-espresso", presence.dot)}
-              title={presence.label}
-              aria-hidden
-            />
+            <span className={cn("absolute bottom-0 right-0 size-4 rounded-full ring-[3px] ring-espresso", presence.dot)} title={presence.label} aria-hidden />
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 pb-0.5">
             <p className="flex items-center gap-1.5 font-semibold text-crema">
               <span className="truncate">{shownName}</span>
               <span className="shrink-0 rounded bg-[#5865f2] px-1 py-px text-[0.55rem] font-bold uppercase text-white">Bot</span>
@@ -277,48 +375,74 @@ function BotIdentityCard({
         </div>
       </div>
 
-      <label htmlFor="bot-nick" className="mt-4 block">
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-crema/70">
-          Nickname nel server
-          {!canCustomize ? <Lock className="size-3 text-crema/50" aria-label="Premium" /> : null}
-        </span>
-        <input
-          id="bot-nick"
-          name="bot-nick"
-          value={nick}
-          maxLength={32}
-          disabled={saving || !canCustomize}
-          placeholder={settings.botUsername || "Vinili"}
-          onChange={(e) => setNick(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void submit();
-          }}
-          className={cn(fieldCls, "mt-1.5")}
+      {!canCustomize ? (
+        <PremiumLock
+          feature="L'identità del bot"
+          note={
+            settings.identitySuspended
+              ? "Premium è scaduto: nickname, avatar e banner sono salvati e tornano appena lo rinnovi."
+              : "Con Premium il bot ha nickname, avatar e banner diversi solo in questo server."
+          }
         />
-      </label>
-      {canCustomize ? (
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button type="button" disabled={!changed || saving} onClick={() => void submit()} className={cn(dashPrimaryBtn, "px-3 py-1.5 text-xs")}>
-            Salva
-          </button>
-          {settings.botNickname ? (
+      ) : null}
+
+      <label htmlFor="bot-nick" className="block">
+        <span className="text-xs font-semibold text-crema/80">Nickname</span>
+        <span className="mt-1.5 flex gap-2">
+          <input
+            id="bot-nick"
+            name="bot-nick"
+            value={nick}
+            maxLength={32}
+            disabled={locked}
+            placeholder={settings.botUsername || "Vinili"}
+            onChange={(e) => setNick(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void submit();
+            }}
+            className={cn(fieldCls, "mt-0 min-w-0 flex-1")}
+          />
+          {canCustomize && changed ? (
+            <button type="button" disabled={saving} onClick={() => void submit()} className={cn(dashPrimaryBtn, "px-3 py-1.5 text-xs")}>
+              Salva
+            </button>
+          ) : null}
+          {canCustomize && !changed && settings.botNickname ? (
             <button
               type="button"
               disabled={saving}
+              aria-label="Ripristina il nickname"
               onClick={async () => {
                 setNick("");
-                const ok = await onSaveNick(null);
+                const ok = await onSave({ botNickname: null }, "Nickname del bot ripristinato.");
                 if (!ok) setNick(settings.botNickname ?? "");
               }}
-              className={cn(dashSecondaryBtn, "px-3 py-1.5 text-xs")}
+              className={miniBtnCls}
             >
-              Ripristina
+              <RotateCcw className="size-3.5" aria-hidden />
             </button>
           ) : null}
-        </div>
-      ) : (
-        <p className="mt-1.5 text-xs text-crema/60">Per cambiare il nickname del bot serve Vinili Premium.</p>
-      )}
+        </span>
+      </label>
+
+      <div className="divide-y divide-sand/[0.07] border-t border-sand/[0.07]">
+        <IdentityImageRow
+          label="Avatar"
+          hint="Quadrato, almeno 128×128. PNG, JPG o GIF fino a 4 MB."
+          custom={settings.hasGuildAvatar}
+          disabled={locked}
+          onPick={(f) => void upload("avatar", f)}
+          onReset={() => void reset("avatar")}
+        />
+        <IdentityImageRow
+          label="Banner"
+          hint="Orizzontale, circa 680×240. PNG, JPG o GIF fino a 4 MB."
+          custom={settings.hasGuildBanner}
+          disabled={locked}
+          onPick={(f) => void upload("banner", f)}
+          onReset={() => void reset("banner")}
+        />
+      </div>
     </Panel>
   );
 }
@@ -447,7 +571,8 @@ function SettingsSection({
           settings={settings}
           canCustomize={canCustomize}
           saving={saving}
-          onSaveNick={(nick) => save({ botNickname: nick }, nick ? "Nickname del bot aggiornato." : "Nickname del bot ripristinato.")}
+          onSave={save}
+          onToast={onToast}
         />
       ) : null}
     </div>

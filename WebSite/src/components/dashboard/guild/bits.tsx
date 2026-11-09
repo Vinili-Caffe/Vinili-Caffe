@@ -1,8 +1,11 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
+import { Diamond } from "lucide-react";
+import { SmartLink } from "@/components/SmartLink";
 import { Checkbox } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { page } from "@/lib/site";
 
 export const fieldClass =
   "mt-1.5 w-full rounded-lg bg-espresso/70 px-3 py-2.5 text-sm text-crema ring-1 ring-sand/15 outline-none transition placeholder:text-crema/50 hover:ring-sand/25 focus:ring-2 focus:ring-caramel/45 disabled:opacity-50";
@@ -418,6 +421,29 @@ export function DashToast({ toast }: { toast: { msg: string; err: boolean } | nu
           </motion.div>
         ) : null}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/** Funzione riservata a Premium: spiega cosa manca e porta ad attivarlo. */
+export function PremiumLock({ feature, note, className }: { feature: string; note?: string; className?: string }) {
+  return (
+    <div className={cn("flex flex-col gap-3 rounded-xl bg-caramel/[0.09] p-3.5 ring-1 ring-caramel/30 sm:flex-row sm:items-center", className)}>
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-caramel/15 text-ember ring-1 ring-caramel/25" aria-hidden>
+        <Diamond className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-crema">{feature} è una funzione Premium</p>
+        <p className="mt-0.5 text-xs text-crema/65">{note || "Attiva Premium su questo server con i tuoi crediti per usarla."}</p>
+      </div>
+      <div className="flex shrink-0 flex-wrap gap-2">
+        <SmartLink href={page("/dashboard/premium/")} className={cn(primaryMini, "inline-flex items-center gap-1.5")}>
+          Attiva Premium
+        </SmartLink>
+        <SmartLink href={page("/dashboard/premium/vantaggi/")} className={miniBtn}>
+          Cosa include
+        </SmartLink>
+      </div>
     </div>
   );
 }
