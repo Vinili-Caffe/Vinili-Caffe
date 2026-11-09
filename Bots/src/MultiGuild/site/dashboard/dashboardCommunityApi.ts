@@ -354,10 +354,20 @@ async function putRolePanel(client?, token?, guildId?, body?) {
   const idx = id ? rows.findIndex((r) => r.id === id) : -1;
   if (idx < 0 && rows.length >= T.LIMITS.rolePanels) return fail(400, "limit", `Puoi creare al massimo ${T.LIMITS.rolePanels} pannelli.`);
   const next = T.normalizeRolePanel(body, idx >= 0 ? rows[idx] : null);
+  const problem = T.validateRolePanel(next, next.draft.buttons.length ? 1 : 0);
+  if (problem) return fail(400, "invalid_panel", problem);
+  const nameClash = rows.find((r, i) => i !== idx && r.name.trim().toLowerCase() === next.name.trim().toLowerCase());
+  if (nameClash) return fail(400, "duplicate_name", "Esiste già un pannello con questo nome.");
+  /* stesso ruolo in un altro pannello: permesso, ma lo segnaliamo */
+  const warnings: string[] = [];
+  for (const o of next.roles) {
+    const other = rows.find((r, i) => i !== idx && r.roles.some((x) => x.roleId === o.roleId));
+    if (other) warnings.push(`<@&${o.roleId}> è anche nel pannello «${other.name}».`);
+  }
   if (idx >= 0) rows[idx] = next;
   else rows.push(next);
   await T.writeRolePanels(gid, rows);
-  return { ok: true, status: 200, panel: next };
+  return { ok: true, status: 200, panel: next, warnings: warnings.slice(0, 5) };
 }
 
 async function deleteRolePanel(client?, token?, guildId?, id?) {
@@ -393,6 +403,8 @@ async function publishRolePanel(client?, token?, guildId?, id?) {
     return r?.managed || String(r?.id) === gid;
   });
   if (unsafe) return fail(400, "role_unsafe", `@${roleById.get(unsafe.roleId)?.name || "ruolo"} non si può assegnare (ruolo di un bot o @everyone).`);
+  const problem = T.validateRolePanel(panel, panel.draft.buttons.length ? 1 : 0);
+  if (problem) return fail(400, "invalid_panel", problem);
   if (panel.mode === "reactions") {
     const noEmoji = panel.roles.find((o) => !T.emojiKey(o.emoji));
     if (noEmoji) return fail(400, "no_emoji", `Con le reazioni ogni ruolo ha bisogno di un'emoji: manca a @${roleById.get(noEmoji.roleId)?.name || "ruolo"}.`);

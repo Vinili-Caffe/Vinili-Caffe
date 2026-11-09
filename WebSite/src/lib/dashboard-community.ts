@@ -52,6 +52,15 @@ export type RolePanel = {
   name: string;
   channelId: string | null;
   mode: "buttons" | "menu" | "reactions";
+  behavior: "toggle" | "give" | "remove";
+  maxRoles: number;
+  requiredRoleIds: string[];
+  blockedRoleIds: string[];
+  replyEphemeral: boolean;
+  buttonsPerRow: number;
+  menuMin: number;
+  menuMax: number;
+  clearReaction: boolean;
   unique: boolean;
   placeholder: string;
   roles: RoleOption[];
@@ -308,7 +317,7 @@ export const communityApi = {
     call<{ message: SavedMessage }>(t, g, `/messages/${encodeURIComponent(id)}/schedule`, "POST", { scheduledAt, repeat, repeatDeletePrevious }),
   saveCommand: (t: string, g: string, c: Partial<CustomCommand>) => call<{ command: CustomCommand }>(t, g, "/commands", "PUT", c),
   deleteCommand: (t: string, g: string, id: string) => call(t, g, `/commands/${encodeURIComponent(id)}`, "DELETE"),
-  saveRolePanel: (t: string, g: string, p: Partial<RolePanel>) => call<{ panel: RolePanel }>(t, g, "/role-panels", "PUT", p),
+  saveRolePanel: (t: string, g: string, p: Partial<RolePanel>) => call<{ panel: RolePanel; warnings?: string[] }>(t, g, "/role-panels", "PUT", p),
   deleteRolePanel: (t: string, g: string, id: string) => call(t, g, `/role-panels/${encodeURIComponent(id)}`, "DELETE"),
   publishRolePanel: (t: string, g: string, id: string) => call<{ panel: RolePanel; edited?: boolean; reactionWarning?: string | null }>(t, g, `/role-panels/${encodeURIComponent(id)}/publish`, "POST", {}),
   saveWelcome: (t: string, g: string, w: WelcomeSettings) => call<{ welcome: WelcomeSettings }>(t, g, "/welcome", "PATCH", w),

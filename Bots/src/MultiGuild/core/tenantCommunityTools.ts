@@ -365,8 +365,27 @@ type RolePanel = {
   draft: MsgDraft;
   messageId: string | null;
   sentChannelId: string | null;
+  /** toggle = dà e toglie · give = dà soltanto (es. verifica) · remove = toglie soltanto */
+  behavior: "toggle" | "give" | "remove";
+  /** quanti ruoli di questo pannello si possono avere insieme (0 = nessun limite) */
+  maxRoles: number;
+  /** solo chi ha uno di questi ruoli può usare il pannello */
+  requiredRoleIds: string[];
+  /** chi ha uno di questi ruoli non può usarlo */
+  blockedRoleIds: string[];
+  /** pulsanti/menu: risposta privata con cosa è cambiato */
+  replyEphemeral: boolean;
+  /** pulsanti: quanti per riga (1-5) */
+  buttonsPerRow: number;
+  /** menu: scelte minime e massime (max 0 = tutte) */
+  menuMin: number;
+  menuMax: number;
+  /** reazioni: toglie la reazione dell'utente dopo averla gestita */
+  clearReaction: boolean;
   updatedAt: number;
 };
+
+const PANEL_BEHAVIORS = ["toggle", "give", "remove"] as const;
 
 function normalizeRolePanel(raw?, prev?: RolePanel | null): RolePanel {
   const r = raw && typeof raw === "object" ? raw : {};
@@ -397,8 +416,107 @@ function normalizeRolePanel(raw?, prev?: RolePanel | null): RolePanel {
     draft: normalizeDraft(r.draft),
     messageId: prev?.messageId ?? null,
     sentChannelId: prev?.sentChannelId ?? null,
+    ...normalizeRolePanelExtras(r, roles.length),
     updatedAt: Date.now(),
   };
+}
+
+function normalizeRolePanelExtras(r: Record<string, any>, roleCount: number) {
+  const ids = (v: unknown) => [...new Set<string>((Array.isArray(v) ? v : []).filter(isId).map(String))].slice(0, 20);
+  const int = (v: unknown, min: number, max: number, fb: number) => {
+    const n = Math.floor(Number(v));
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fb;
+  };
+  const menuMin = int(r.menuMin, 0, Math.max(0, roleCount), 0);
+  const menuMaxRaw = int(r.menuMax, 0, Math.max(0, roleCount), 0);
+  return {
+    behavior: (PANEL_BEHAVIORS as readonly string[]).includes(r.behavior) ? (r.behavior as RolePanel["behavior"]) : "toggle",
+    maxRoles: int(r.maxRoles, 0, 25, 0),
+    requiredRoleIds: ids(r.requiredRoleIds),
+    blockedRoleIds: ids(r.blockedRoleIds),
+    replyEphemeral: r.replyEphemeral !== false,
+    buttonsPerRow: int(r.buttonsPerRow, 1, 5, 5),
+    menuMin,
+    menuMax: menuMaxRaw && menuMaxRaw < menuMin ? menuMin : menuMaxRaw,
+    clearReaction: r.clearReaction === true,
+  };
+}
+
+/** Controlli anti-duplicati e di coerenza: ritorna il primo problema (o null). */
+function validateRolePanel(p: RolePanel, linkRows = 0): string | null {
+  if (!p.roles.length) return null;
+  const roleIds = p.roles.map((o) => o.roleId);
+  if (new Set(roleIds).size !== roleIds.length) return "Lo stesso ruolo è stato aggiunto due volte.";
+  const overlap = p.requiredRoleIds.find((id) => p.blockedRoleIds.includes(id));
+  if (overlap) return "Un ruolo non può essere sia richiesto sia bloccato.";
+  const inPanelBlocked = p.blockedRoleIds.find((id) => roleIds.includes(id));
+  if (inPanelBlocked) return "Un ruolo del pannello è anche tra quelli bloccati.";
+  if (p.mode === "reactions") {
+    if (p.roles.length > 20) return "Con le reazioni puoi mettere al massimo 20 ruoli (limite di Discord).";
+    const keys = p.roles.map((o) => emojiKey(o.emoji)).filter(Boolean);
+    if (new Set(keys).size !== keys.length) return "Due ruoli hanno la stessa reazione: ogni ruolo deve avere un'emoji diversa.";
+  }
+  if (p.mode === "buttons") {
+    const labels = p.roles.map((o) => `${(o.label || "").toLowerCase()}|${emojiKey(o.emoji)}`).filter((l) => l !== "|");
+    if (new Set(labels).size !== labels.length) return "Due pulsanti hanno lo stesso testo ed emoji: i membri non li distinguerebbero.";
+    const rows = Math.ceil(p.roles.length / p.buttonsPerRow) + linkRows;
+    if (rows > 5) {
+      return `Troppe righe di pulsanti: Discord ne permette 5 (con ${p.buttonsPerRow} per riga e ${linkRows ? "i pulsanti link" : "nessun link"} ci stanno al massimo ${p.buttonsPerRow * (5 - linkRows)} ruoli).`;
+    }
+  }
+  if (p.mode === "menu") {
+    const labels = p.roles.map((o) => (o.label || o.roleId).toLowerCase());
+    if (new Set(labels).size !== labels.length) return "Due voci del menu hanno lo stesso testo.";
+    if (linkRows + 1 > 5) return "Troppi componenti nel messaggio.";
+  }
+  return null;
+}
+
+type RolePanelAction = { type: "click"; roleId: string } | { type: "unclick"; roleId: string } | { type: "select"; values: string[] };
+
+/** Chi può usare il pannello (ruoli richiesti / bloccati). */
+function rolePanelAccessError(panel: RolePanel, held: Set<string>): string | null {
+  const req = panel.requiredRoleIds || [];
+  const blk = panel.blockedRoleIds || [];
+  if (req.length && !req.some((id) => held.has(id))) return `Questo pannello è riservato a chi ha ${req.map((id) => `<@&${id}>`).join(" o ")}.`;
+  if (blk.length && blk.some((id) => held.has(id))) return "Non puoi usare questo pannello.";
+  return null;
+}
+
+/** Quali ruoli del pannello deve avere il membro dopo un clic / scelta / reazione. */
+function decideRolePanel(panel: RolePanel, held: Set<string>, action: RolePanelAction): { want: Set<string>; error: string | null } {
+  const ids = panel.roles.map((o) => o.roleId);
+  const cur = new Set(ids.filter((id) => held.has(id)));
+  const limit = panel.unique ? 1 : panel.maxRoles || 0;
+  const behavior = panel.behavior || "toggle";
+  const tooMany = `Puoi avere al massimo ${limit} ${limit === 1 ? "ruolo" : "ruoli"} di questo pannello: togline uno prima.`;
+  if (action.type === "click") {
+    const id = action.roleId;
+    const want = new Set(cur);
+    if (behavior === "remove") {
+      want.delete(id);
+      return { want, error: cur.has(id) ? null : "Non hai questo ruolo: questo pannello serve solo a toglierlo." };
+    }
+    if (cur.has(id)) {
+      if (behavior === "give") return { want, error: "Hai già questo ruolo." };
+      want.delete(id);
+      return { want, error: null };
+    }
+    if (panel.unique) want.clear();
+    want.add(id);
+    if (limit && want.size > limit) return { want: cur, error: tooMany };
+    return { want, error: null };
+  }
+  if (action.type === "unclick") {
+    const want = new Set(cur);
+    if (behavior === "toggle") want.delete(action.roleId);
+    return { want, error: null };
+  }
+  const sel = new Set(action.values.filter((v) => ids.includes(v)));
+  const next =
+    behavior === "give" ? new Set([...cur, ...sel]) : behavior === "remove" ? new Set([...cur].filter((id) => !sel.has(id))) : sel;
+  if (limit && next.size > limit) return { want: cur, error: tooMany };
+  return { want: next, error: null };
 }
 
 async function listRolePanels(guildId: string, fresh = false): Promise<RolePanel[]> {
@@ -423,8 +541,10 @@ function rolePanelComponents(panel: RolePanel, roleNames: Record<string, string>
             type: 3,
             custom_id: `${ROLE_CID}:${panel.id}`,
             placeholder: (panel.placeholder || "Scegli i tuoi ruoli").slice(0, 150),
-            min_values: 0,
-            max_values: panel.unique ? 1 : panel.roles.length,
+            min_values: Math.min(panel.menuMin || 0, panel.roles.length),
+            max_values: panel.unique
+              ? 1
+              : Math.max(1, Math.min(panel.roles.length, panel.menuMax || panel.maxRoles || panel.roles.length)),
             options: panel.roles.map((o) => {
               const opt: Record<string, any> = { label: label(o).slice(0, 100), value: o.roleId };
               if (o.description) opt.description = o.description;
@@ -438,8 +558,9 @@ function rolePanelComponents(panel: RolePanel, roleNames: Record<string, string>
     ];
   }
   const rows: any[] = [];
+  const perRow = Math.max(1, Math.min(5, panel.buttonsPerRow || 5));
   panel.roles.forEach((o, i) => {
-    if (i % 5 === 0) rows.push({ type: 1, components: [] });
+    if (i % perRow === 0) rows.push({ type: 1, components: [] });
     const c: Record<string, any> = { type: 2, style: o.style, custom_id: `${ROLE_CID}:${panel.id}:${o.roleId}`, label: label(o) };
     const em = parseEmoji(o.emoji);
     if (em) c.emoji = em;
@@ -793,6 +914,9 @@ export = {
   normalizeRolePanel,
   rolePanelComponents,
   parseRolePanelCustomId,
+  validateRolePanel,
+  decideRolePanel,
+  rolePanelAccessError,
   emojiKey,
   emojiForReactionApi,
   getWelcome,
