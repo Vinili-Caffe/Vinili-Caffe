@@ -17,6 +17,7 @@ MultiGuild/tickets/dashboard/dashboardTicketRoutes.ts
 MultiGuild/tickets/dashboard/siteDashboardTicketsApi.ts
 MultiGuild/tickets/transcript/transcriptRender.ts
 MultiGuild/tickets/transcript/transcriptStyles.ts
+MultiGuild/tickets/transcript/ticketMaintenanceService.ts
 Vinili/Community/events/guildMemberRemove.ts
 Vinili/Community/services/premiumCreditsService.ts
 Vinili/Community/utils/Render/canvasEmojiRichText.ts

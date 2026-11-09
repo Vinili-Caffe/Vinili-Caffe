@@ -5,12 +5,14 @@ const { VINILI_ROOT } = require("../../../Vinili/paths") as typeof import("../..
 const Ticket = require("../data/guildFeatureBucketTicketModel");
 const { getClientChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { getTicketSettingsSync } = require("../tenant/tenantTicketSettings") as typeof import("../tenant/tenantTicketSettings");
-const { TRANSCRIPT_VIEW_TTL_MS } = require("./ticketTranscriptSecure") as typeof import("./ticketTranscriptSecure");
 const { shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const BOT_ROOT = VINILI_ROOT;
 const TRANSCRIPTS_ROOT = path.join(BOT_ROOT, "local_transcripts");
-const MAX_AGE_MS = Number(TRANSCRIPT_VIEW_TTL_MS) > 0 ? Number(TRANSCRIPT_VIEW_TTL_MS) : 90 * 24 * 60 * 60 * 1000;
+/* I transcript HTML completi NON si cancellano più (prima sparivano dopo 90 giorni e nel database restavano
+   solo i primi 2000 caratteri). Solo se serve spazio: TRANSCRIPT_MAX_AGE_DAYS=<giorni> nel .env. */
+const MAX_AGE_DAYS = Number(process.env.TRANSCRIPT_MAX_AGE_DAYS || 0);
+const MAX_AGE_MS = Number.isFinite(MAX_AGE_DAYS) && MAX_AGE_DAYS > 0 ? MAX_AGE_DAYS * 24 * 60 * 60 * 1000 : 0;
 const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let promptLoopHandle = null;
 let promptLoopRunning = false;
@@ -163,6 +165,7 @@ function walkTranscriptFiles(dir?, out = []) {
 }
 
 function cleanupOldTranscripts() {
+  if (!MAX_AGE_MS) return;
   if (!fs.existsSync(TRANSCRIPTS_ROOT)) return;
   const now = Date.now();
   const files = walkTranscriptFiles(TRANSCRIPTS_ROOT, []);
@@ -179,6 +182,7 @@ function cleanupOldTranscripts() {
 }
 
 function startTranscriptCleanupLoop() {
+  if (!MAX_AGE_MS) return null;
   if (!shouldStartExternalWorkerLoop("BOT_SCHEDULER")) return null;
   if (cleanupHandle) return cleanupHandle;
   cleanupOldTranscripts();
