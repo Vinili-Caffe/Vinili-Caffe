@@ -210,7 +210,7 @@ const SECTION_LEAD: Record<Section, string> = {
   salute: "Cosa non funziona nel server e come sistemarlo: permessi del bot, canali e ruoli.",
   messaggi: "Annunci e regolamenti con embed e pulsanti: pubblicali subito o a un'ora precisa.",
   comandipers: "Comandi con una risposta fissa, tipo +regole o +ip, creati da te.",
-  ruoli: "Pannelli con pulsanti o menu per prendersi i ruoli da soli.",
+  ruoli: "Pannelli dove i membri si prendono i ruoli da soli: con pulsanti, menu o reazioni.",
   benvenuto: "Benvenuto, addio, messaggio privato a chi entra e ruoli automatici.",
   risposte: "Il bot risponde da solo quando qualcuno scrive certe parole.",
   contatori: "Canali vocali che mostrano membri, boost e altri numeri, aggiornati da soli.",

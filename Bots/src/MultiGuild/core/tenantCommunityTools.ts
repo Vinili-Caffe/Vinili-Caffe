@@ -358,7 +358,7 @@ type RolePanel = {
   id: string;
   name: string;
   channelId: string | null;
-  mode: "buttons" | "menu";
+  mode: "buttons" | "menu" | "reactions";
   unique: boolean;
   placeholder: string;
   roles: RoleOption[];
@@ -390,7 +390,7 @@ function normalizeRolePanel(raw?, prev?: RolePanel | null): RolePanel {
     id: prev?.id || newId(),
     name: str(r.name, 80).trim() || prev?.name || "Ruoli",
     channelId: idOrNull(r.channelId),
-    mode: r.mode === "menu" ? "menu" : "buttons",
+    mode: r.mode === "menu" ? "menu" : r.mode === "reactions" ? "reactions" : "buttons",
     unique: r.unique === true,
     placeholder: str(r.placeholder, 150).trim(),
     roles,
@@ -413,7 +413,7 @@ async function writeRolePanels(guildId: string, rows: RolePanel[]) {
 const ROLE_CID = "vcrp";
 function rolePanelComponents(panel: RolePanel, roleNames: Record<string, string> = {}) {
   const label = (o: RoleOption) => (o.label || roleNames[o.roleId] || "Ruolo").slice(0, 80);
-  if (!panel.roles.length) return [];
+  if (!panel.roles.length || panel.mode === "reactions") return [];
   if (panel.mode === "menu") {
     return [
       {
@@ -446,6 +446,22 @@ function rolePanelComponents(panel: RolePanel, roleNames: Record<string, string>
     rows[rows.length - 1].components.push(c);
   });
   return rows;
+}
+
+/** Chiave confrontabile di un'emoji: id per quelle del server, il carattere per quelle normali. */
+function emojiKey(raw?) {
+  const em = parseEmoji(raw);
+  if (!em) return "";
+  if (em.id) return String(em.id);
+  return String(em.name || "").replace(/\uFE0F/g, "");
+}
+
+/** Emoji nel formato che vuole l'API delle reazioni. */
+function emojiForReactionApi(raw?) {
+  const em = parseEmoji(raw);
+  if (!em) return "";
+  if (em.id) return `${em.name || "e"}:${em.id}`;
+  return encodeURIComponent(String(em.name || ""));
 }
 
 function parseRolePanelCustomId(customId?) {
@@ -777,6 +793,8 @@ export = {
   normalizeRolePanel,
   rolePanelComponents,
   parseRolePanelCustomId,
+  emojiKey,
+  emojiForReactionApi,
   getWelcome,
   hasSavedWelcome,
   isMainGuild,

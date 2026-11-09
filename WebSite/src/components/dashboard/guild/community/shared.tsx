@@ -368,7 +368,8 @@ const fillVars = (s: string, vars: Record<string, string>) => s.replace(/\{([a-z
 
 export type PreviewRow =
   | { kind: "buttons"; items: { label: string; emoji?: string; style: 1 | 2 | 3 | 4 | 5 }[] }
-  | { kind: "select"; placeholder: string };
+  | { kind: "select"; placeholder: string }
+  | { kind: "reactions"; emojis: string[] };
 
 /* Misure prese da Discord (desktop): embed max 516px, miniatura 80×80, immagine max 400×300,
    testo messaggio 16/22px, embed 14/18px, titolo 16px, piè di pagina 12px, pulsanti alti 32px. */
@@ -510,7 +511,15 @@ export function DiscordMessagePreview({
             {allRows.length ? (
               <div className="mt-1 flex flex-col gap-2 py-1">
                 {allRows.map((row, i) =>
-                  row.kind === "select" ? (
+                  row.kind === "reactions" ? (
+                    <div key={i} className="flex flex-wrap gap-1">
+                      {row.emojis.map((em, j) => (
+                        <span key={j} className="inline-flex h-6 items-center gap-1.5 rounded-[8px] border border-[#3f4147] bg-[#2b2d31] px-1.5 text-[14px] font-medium text-[#dbdee1]">
+                          <EmojiGlyph value={em} className="size-4" />1
+                        </span>
+                      ))}
+                    </div>
+                  ) : row.kind === "select" ? (
                     <div key={i} className="flex h-10 w-full max-w-[400px] items-center justify-between rounded-[8px] border border-[#1e1f22] bg-[#1e1f22] px-3 text-[16px] text-[#949ba4]">
                       <span className="truncate">{row.placeholder}</span>
                       <span aria-hidden className="ml-2 text-[#b5bac1]">⌄</span>

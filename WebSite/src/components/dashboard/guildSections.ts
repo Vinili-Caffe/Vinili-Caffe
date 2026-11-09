@@ -149,7 +149,7 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "partnership", label: "Partnership", icon: Handshake, tabs: PARTNERSHIP_MODULE_TABS },
   { id: "messaggi", label: "Messaggi", icon: Megaphone, tabs: [] as const },
   { id: "comandipers", label: "Comandi personalizzati", icon: TerminalSquare, tabs: [] as const },
-  { id: "ruoli", label: "Ruoli con pulsanti", icon: Tags, tabs: [] as const },
+  { id: "ruoli", label: "Ruoli automatici", icon: Tags, tabs: [] as const },
   { id: "benvenuto", label: "Annunci", icon: PartyPopper, tabs: ANNUNCI_MODULE_TABS },
   { id: "risposte", label: "Risposte automatiche", icon: MessageSquareReply, tabs: [] as const },
   { id: "contatori", label: "Contatori", icon: Gauge, tabs: [] as const },

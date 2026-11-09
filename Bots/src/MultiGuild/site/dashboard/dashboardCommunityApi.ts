@@ -393,13 +393,40 @@ async function publishRolePanel(client?, token?, guildId?, id?) {
     return r?.managed || String(r?.id) === gid;
   });
   if (unsafe) return fail(400, "role_unsafe", `@${roleById.get(unsafe.roleId)?.name || "ruolo"} non si può assegnare (ruolo di un bot o @everyone).`);
+  if (panel.mode === "reactions") {
+    const noEmoji = panel.roles.find((o) => !T.emojiKey(o.emoji));
+    if (noEmoji) return fail(400, "no_emoji", `Con le reazioni ogni ruolo ha bisogno di un'emoji: manca a @${roleById.get(noEmoji.roleId)?.name || "ruolo"}.`);
+    const keys = panel.roles.map((o) => T.emojiKey(o.emoji));
+    if (new Set(keys).size !== keys.length) return fail(400, "dup_emoji", "Ogni ruolo deve avere un'emoji diversa.");
+    if (panel.roles.length > 20) return fail(400, "too_many", "Con le reazioni puoi mettere al massimo 20 ruoli (limite di Discord).");
+  }
   const names = Object.fromEntries([...roleById.values()].map((r?) => [String(r.id), String(r.name)]));
   const body = T.buildMessageBody(panel.draft, T.memberVars(guild, null), T.rolePanelComponents(panel, names));
   const out: any = await sendOrEdit(client, panel.channelId, { messageId: panel.messageId, channelId: panel.sentChannelId }, body);
   if (!out.ok) return fail(400, "publish_failed", out.message);
   rows[idx] = { ...panel, messageId: out.messageId, sentChannelId: panel.channelId };
+  let reactionWarning: string | null = null;
+  if (panel.mode === "reactions") {
+    /* il bot mette le reazioni (una per ruolo) e toglie le sue che non servono più */
+    const wanted = new Set(panel.roles.map((o) => T.emojiKey(o.emoji)));
+    const msg: any = await rest.get(Routes.channelMessage(panel.channelId, out.messageId)).catch(() => null);
+    for (const r of Array.isArray(msg?.reactions) ? msg.reactions : []) {
+      const key = r?.emoji?.id ? String(r.emoji.id) : String(r?.emoji?.name || "").replace(/️/g, "");
+      if (r?.me && !wanted.has(key)) {
+        const api = r.emoji.id ? `${r.emoji.name || "e"}:${r.emoji.id}` : encodeURIComponent(String(r.emoji.name || ""));
+        await rest.delete(Routes.channelMessageOwnReaction(panel.channelId, out.messageId, api)).catch(() => null);
+      }
+    }
+    for (const o of panel.roles) {
+      try {
+        await rest.put(Routes.channelMessageOwnReaction(panel.channelId, out.messageId, T.emojiForReactionApi(o.emoji)));
+      } catch (err) {
+        reactionWarning = `Non sono riuscito a mettere una reazione (${discordError(err)}). Le emoji di altri server non si possono usare.`;
+      }
+    }
+  }
   await T.writeRolePanels(gid, rows);
-  return { ok: true, status: 200, panel: rows[idx], edited: out.edited };
+  return { ok: true, status: 200, panel: rows[idx], edited: out.edited, reactionWarning };
 }
 
 /* ───────────── benvenuto / addio ───────────── */

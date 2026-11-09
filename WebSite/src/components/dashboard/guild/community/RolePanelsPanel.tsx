@@ -82,7 +82,8 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
     if (!r.ok) return onToast(r.message, true);
     upsertLocal(r.data.panel);
     setEdit(r.data.panel);
-    onToast(r.data.edited ? "Pannello aggiornato su Discord." : `Pannello pubblicato in #${chName(r.data.panel.channelId) || "canale"}.`);
+    if (r.data.reactionWarning) onToast(r.data.reactionWarning, true);
+    else onToast(r.data.edited ? "Pannello aggiornato su Discord." : `Pannello pubblicato in #${chName(r.data.panel.channelId) || "canale"}.`);
   };
 
   const remove = async (p: RolePanel) => {
@@ -107,7 +108,11 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
     };
     const unused = assignable.filter((r) => !edit.roles.some((o) => o.roleId === r.id));
     const rows: PreviewRow[] =
-      edit.mode === "menu"
+      edit.mode === "reactions"
+        ? edit.roles.some((o) => o.emoji)
+          ? [{ kind: "reactions", emojis: edit.roles.map((o) => o.emoji).filter(Boolean) }]
+          : []
+        : edit.mode === "menu"
         ? edit.roles.length
           ? [{ kind: "select", placeholder: edit.placeholder || "Scegli i tuoi ruoli" }]
           : []
@@ -119,7 +124,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
     return (
       <div className="space-y-4">
         <EditorHeader
-          backLabel="Pannelli ruoli"
+          backLabel="Ruoli automatici"
           onBack={() => setEdit(null)}
           title={edit.name}
           subtitle={published ? <StatusBadge tone="ok">Pubblicato in #{chName(edit.sentChannelId) || "canale"}</StatusBadge> : "Non pubblicato"}
@@ -149,14 +154,20 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
                   <Field label="Tipo">
                     <Select
                       value={edit.mode}
-                      onChange={(v) => setEdit({ ...edit, mode: v === "menu" ? "menu" : "buttons" })}
+                      onChange={(v) => setEdit({ ...edit, mode: v === "menu" ? "menu" : v === "reactions" ? "reactions" : "buttons" })}
                       options={[
                         { value: "buttons", label: "Pulsanti (fino a 25)" },
                         { value: "menu", label: "Menu a tendina" },
+                        { value: "reactions", label: "Reazioni (fino a 20)" },
                       ]}
                       className={fieldClass}
                     />
                   </Field>
+                  {edit.mode === "reactions" ? (
+                    <p className="self-end pb-2 text-xs leading-relaxed text-crema/60">
+                      Il bot mette una reazione per ogni ruolo: chi la clicca prende il ruolo, chi la toglie lo perde. Scrivi nel messaggio quale emoji dà quale ruolo.
+                    </p>
+                  ) : null}
                   {edit.mode === "menu" ? (
                     <Field label="Testo del menu">
                       <input value={edit.placeholder} maxLength={150} placeholder="Scegli i tuoi ruoli" onChange={(e) => setEdit({ ...edit, placeholder: e.target.value })} className={fieldClass} />
@@ -191,16 +202,26 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
                             </button>
                           </div>
                           <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <EmojiButton emojis={data.pickers.emojis} onPick={(emoji) => setRole(i, { emoji })} label="Emoji">
+                            <EmojiButton
+                              emojis={data.pickers.emojis}
+                              onPick={(emoji) => setRole(i, { emoji })}
+                              label={edit.mode === "reactions" ? "Reazione (obbligatoria)" : "Emoji"}
+                              className={edit.mode === "reactions" && !o.emoji ? "ring-[#a83a2c]/50 text-[#f0a493]" : undefined}
+                            >
                               {o.emoji ? <EmojiGlyph value={o.emoji} /> : <Smile className="size-3.5" />}
+                              {edit.mode === "reactions" && !o.emoji ? <span>Scegli reazione</span> : null}
                             </EmojiButton>
                             {o.emoji ? (
                               <button type="button" className="text-xs text-crema/50 hover:text-crema" onClick={() => setRole(i, { emoji: "" })}>
                                 togli
                               </button>
                             ) : null}
-                            <input value={o.label} maxLength={80} placeholder={r?.name || "Testo"} onChange={(e) => setRole(i, { label: e.target.value })} className={cn(fieldClass, "mt-0 w-40 flex-1 py-1.5")} />
-                            {edit.mode === "buttons" ? (
+                            {edit.mode === "reactions" ? (
+                              <span className="text-xs text-crema/55">{o.emoji ? <>reazione → @{r?.name || "ruolo"}</> : "ogni ruolo ha bisogno della sua reazione"}</span>
+                            ) : (
+                              <input value={o.label} maxLength={80} placeholder={r?.name || "Testo"} onChange={(e) => setRole(i, { label: e.target.value })} className={cn(fieldClass, "mt-0 w-40 flex-1 py-1.5")} />
+                            )}
+                            {edit.mode === "reactions" ? null : edit.mode === "buttons" ? (
                               <div className="w-28">
                                 <Select size="sm" value={String(o.style)} onChange={(v) => setRole(i, { style: Number(v) as RoleOption["style"] })} options={STYLES} aria-label="Colore del pulsante" />
                               </div>
@@ -247,7 +268,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-crema/60">Pannelli con pulsanti o menu dove i membri si prendono da soli i ruoli: notifiche, colori, giochi…</p>
+        <p className="text-sm text-crema/60">Pannelli con pulsanti, menu o reazioni dove i membri si prendono da soli i ruoli: notifiche, colori, giochi…</p>
         <button type="button" className={primaryMini} disabled={data.rolePanels.length >= data.limits.rolePanels} onClick={() => setEdit(blank())}>
           <Plus className="size-3.5" /> Nuovo pannello
         </button>
@@ -263,7 +284,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold text-crema">{p.name}</span>
                   <span className="block truncate text-xs text-crema/55">
-                    {p.roles.length} ruoli · {p.mode === "menu" ? "menu" : "pulsanti"}
+                    {p.roles.length} ruoli · {p.mode === "menu" ? "menu" : p.mode === "reactions" ? "reazioni" : "pulsanti"}
                     {p.unique ? " · uno solo" : ""}
                   </span>
                 </span>
