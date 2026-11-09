@@ -11,7 +11,7 @@ function emptyStore() {
 function normalizeEvent(raw?) {
   if (!raw || typeof raw !== "object") return null;
   const type = String(raw.type || "").trim().toLowerCase();
-  if (!["join", "leave", "kick", "botban_leave", "reset", "manual_leave"].includes(type)) return null;
+  if (!["join", "leave", "kick", "botban_leave", "reset", "manual_leave", "premium_revoke"].includes(type)) return null;
   const guildId = String(raw.guildId || "").trim();
   if (!/^\d{16,22}$/.test(guildId)) return null;
   return {

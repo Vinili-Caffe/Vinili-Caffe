@@ -18,6 +18,7 @@ const {
 const { loadTenantRegistryMap } = require("../../core/tenantRegistryStore") as typeof import("../../core/tenantRegistryStore");
 const { handleTenantGuildBotRemoved } = require("../../../Vinili/Partner/services/tenantPartnershipLeaveService") as typeof import("../../../Vinili/Partner/services/tenantPartnershipLeaveService");
 const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+const { Routes } = require("discord.js") as typeof import("discord.js");
 const {
   getPremiumCredits,
   adjustPremiumCredits,
@@ -57,11 +58,79 @@ function reasonMessage(reason?) {
   return map[String(reason || "")] || "Operazione non riuscita.";
 }
 
+/* site-api gira con un client solo REST: la sua cache dei server non è aggiornata.
+   La lista vera dei server la dà Discord (/users/@me/guilds); i dettagli mancanti
+   (membri, proprietario) si chiedono a parte e restano in memoria 10 minuti. */
+const DEV_GUILD_META_TTL_MS = 10 * 60 * 1000;
+const devGuildMetaCache = new Map();
+
+async function listBotGuildsFromRest(client?) {
+  const rest = client?._rest || client?.rest;
+  if (!rest) return null;
+  const out = [];
+  try {
+    let after = "";
+    for (let page = 0; page < 25; page += 1) {
+      const query = new URLSearchParams({ limit: "200" });
+      if (after) query.set("after", after);
+      const batch = await rest.get(`${Routes.userGuilds()}?${query.toString()}`);
+      if (!Array.isArray(batch) || !batch.length) break;
+      for (const row of batch) {
+        const id = String(row?.id || "").trim();
+        if (/^\d{16,22}$/.test(id)) out.push({ id, name: String(row?.name || "").trim() || id, icon: row?.icon || null });
+      }
+      after = String(batch[batch.length - 1]?.id || "").trim();
+      if (!after || batch.length < 200) break;
+    }
+  } catch (err) {
+    global.logger?.warn?.("[DEV GUILDS] lista REST non riuscita:", err?.message || err);
+    return out.length ? out : null;
+  }
+  return out;
+}
+
+async function fetchDevGuildMeta(client?, guildId?) {
+  const hit = devGuildMetaCache.get(guildId);
+  if (hit && Date.now() - hit.at < DEV_GUILD_META_TTL_MS) return hit.meta;
+  const rest = client?._rest || client?.rest;
+  if (!rest) return null;
+  try {
+    const raw: any = await rest.get(Routes.guild(String(guildId)), { query: new URLSearchParams({ with_counts: "true" }) });
+    const members = Number(raw?.approximate_member_count ?? raw?.member_count);
+    const meta = {
+      ownerId: raw?.owner_id ? String(raw.owner_id) : null,
+      memberCount: Number.isFinite(members) && members >= 0 ? members : 0,
+    };
+    devGuildMetaCache.set(guildId, { at: Date.now(), meta });
+    return meta;
+  } catch {
+    return null;
+  }
+}
+
+/** Server dove sta il bot: Discord via REST se possibile, altrimenti la cache del client. */
+async function collectDevGuilds(client?) {
+  const cache = client?.guilds?.cache;
+  const fromRest = await listBotGuildsFromRest(client);
+  if (!fromRest) {
+    return Array.from(cache?.values?.() || []).map((guild: any) => ({ id: String(guild.id), guild, partial: false }));
+  }
+  return fromRest.map((row?) => {
+    const cached = cache?.get?.(row.id) || null;
+    const full = cached && cached.partial !== true && Number(cached.memberCount) > 0;
+    return {
+      id: row.id,
+      guild: full ? cached : { id: row.id, name: row.name, icon: row.icon, partial: true },
+      partial: !full,
+    };
+  });
+}
+
 async function getDashboardBotDevOverview(client?, accessToken?) {
   const gate = await assertDashboardBotDevAccess(client, accessToken);
   if (!gate.ok) return gate;
 
-  const guilds = Array.from(client?.guilds?.cache?.values?.() || []);
+  const guilds = await collectDevGuilds(client);
   const blacklist = await listBotUsageBlacklist("all").catch(() => []);
   const events = await listBotGuildLifecycleEvents({ limit: 8 }).catch(() => []);
   let registrySize = 0;
@@ -102,18 +171,31 @@ async function listDashboardBotDevGuilds(client?, accessToken?, query: Record<st
   }
 
   await ensureTenantPremiumCacheFresh().catch(() => null);
+  const all = await collectDevGuilds(client);
+  /* dettagli REST solo per i server che finiscono in pagina (con la ricerca sul nome prima) */
+  const candidates = q
+    ? all.filter(({ id, guild }) => `${guild.name || ""} ${id} ${guild.ownerId || ""}`.toLowerCase().includes(q) || guild.partial === true)
+    : all;
+  const metaById = new Map();
+  const needMeta = candidates.filter((c?) => c.partial).slice(0, limit);
+  for (let i = 0; i < needMeta.length; i += 8) {
+    const chunk = needMeta.slice(i, i + 8);
+    const metas = await Promise.all(chunk.map((c?) => fetchDevGuildMeta(client, c.id)));
+    chunk.forEach((c?, j?) => metaById.set(c.id, metas[j]));
+  }
   const rows = [];
-  for (const guild of client?.guilds?.cache?.values?.() || []) {
-    const id = String(guild.id || "").trim();
+  for (const { id: gid, guild, partial } of candidates) {
+    const id = String(gid || "").trim();
     if (!id) continue;
+    const meta = partial ? metaById.get(id) || null : null;
     const name = String(guild.name || "").trim() || id;
-    const ownerId = String(guild.ownerId || "").trim() || null;
+    const ownerId = String((partial ? meta?.ownerId : guild.ownerId) || "").trim() || null;
     if (q) {
       const hay = `${name} ${id} ${ownerId || ""}`.toLowerCase();
       if (!hay.includes(q)) continue;
     }
     const reg = registry[id] || null;
-    const joinedMs = Number(guild.joinedTimestamp) || 0;
+    const joinedMs = Number(guild.joinedTimestamp) || Number(reg?.t) || 0;
     rows.push({
       id,
       name,
@@ -125,7 +207,7 @@ async function listDashboardBotDevGuilds(client?, accessToken?, query: Record<st
         }
       })(),
       ownerId,
-      memberCount: Math.max(0, Math.floor(Number(guild.memberCount) || 0)),
+      memberCount: Math.max(0, Math.floor(Number(partial ? meta?.memberCount : guild.memberCount) || 0)),
       protected: isViniliProtectedGuild(id),
       premiumActive: isTenantPremiumActiveSync(id),
       registeredAt: reg?.t ? new Date(reg.t).toISOString() : null,

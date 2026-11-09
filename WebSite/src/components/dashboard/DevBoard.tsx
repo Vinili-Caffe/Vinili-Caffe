@@ -63,6 +63,7 @@ const EVENT_TEXT: Record<string, { label: string; tone: "ok" | "warn" | "muted" 
   manual_leave: { label: "Fatto uscire", tone: "warn" },
   botban_leave: { label: "Bloccato", tone: "warn" },
   reset: { label: "Azzerato", tone: "accent" },
+  premium_revoke: { label: "Premium tolto", tone: "accent" },
 };
 
 function when(iso: string | null) {

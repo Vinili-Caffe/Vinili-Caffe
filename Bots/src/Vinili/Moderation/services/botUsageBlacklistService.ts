@@ -164,9 +164,26 @@ async function leaveGuildIfPresent(client?, guildId?) {
   if (!guild && client?.guilds?.fetch) {
     guild = await client.guilds.fetch(gid).catch(() => null);
   }
-  if (!guild) return { ok: true, left: false, reason: "not_in_guild", id: gid };
-  const name = String(guild.name || "").trim() || null;
-  await guild.leave();
+  const name = String(guild?.name || "").trim() || null;
+  if (guild && typeof guild.leave === "function") {
+    await guild.leave();
+  } else {
+    /* client solo REST (site-api): cache vecchia o server "parziale" senza .leave() → DELETE /users/@me/guilds/:id */
+    const rest = client?._rest || client?.rest;
+    if (!rest || typeof rest.delete !== "function") {
+      return guild ? { ok: false, reason: "leave_failed", id: gid } : { ok: true, left: false, reason: "not_in_guild", id: gid };
+    }
+    try {
+      await rest.delete(`/users/@me/guilds/${gid}`);
+    } catch (err) {
+      const code = Number(err?.status || err?.code);
+      if (code === 404 || code === 10004) return { ok: true, left: false, reason: "not_in_guild", id: gid };
+      return { ok: false, reason: "leave_failed", id: gid };
+    }
+    try {
+      client?.guilds?.cache?.delete?.(gid);
+    } catch (_) {}
+  }
   try {
     const { unregisterTenantGuild } = require("../../../MultiGuild/core/tenantRegistryStore") as typeof import("../../../MultiGuild/core/tenantRegistryStore");
     await unregisterTenantGuild(gid).catch(() => null);
