@@ -6,7 +6,7 @@ import { DiscordContent } from "@/components/discord/DiscordContent";
 import type { GuildEmoji } from "@/components/ui/emoji-picker";
 import { cn } from "@/lib/cn";
 import { loadGuildEmojis } from "@/lib/personalizza";
-import { parseTextTranscript, restoreEmojiNames, type TextMessage } from "@/lib/transcript-text";
+import { buildEmojiNameMap, parseTextTranscript, restoreEmojiNames, type TextMessage } from "@/lib/transcript-text";
 
 const PALETTE = ["#e8a87c", "#85c1e9", "#a3d9a5", "#f5b7b1", "#c39bd3", "#f9e79f", "#76d7c4", "#f0b27a"];
 function colorFor(name: string) {
@@ -23,15 +23,85 @@ function fmtTime(d: Date | null) {
 }
 
 let emojiCache: GuildEmoji[] | null = null;
+const BOT_AVATAR = "/webhooks/site-bot-avatar?size=64";
+
+async function loadTranscriptAvatars(transcriptToken: string, accessToken: string): Promise<Record<string, string>> {
+  try {
+    const r = await fetch(`/ticket-transcript/${encodeURIComponent(transcriptToken)}/avatars`, {
+      headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
+      credentials: "omit",
+      cache: "no-store",
+    });
+    if (!r.ok) return {};
+    const d = (await r.json().catch(() => ({}))) as { ok?: boolean; byName?: Record<string, string> };
+    if (!d?.ok || !d.byName || typeof d.byName !== "object") return {};
+    return d.byName;
+  } catch {
+    return {};
+  }
+}
+
+function AuthorAvatar({ author, bot, avatarUrl, color }: { author: string; bot: boolean; avatarUrl: string | null; color: string }) {
+  const [src, setSrc] = useState<string | null>(avatarUrl);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setSrc(avatarUrl);
+    setFailed(false);
+  }, [avatarUrl]);
+
+  const fallbackBot = bot && /vinili/i.test(author) ? BOT_AVATAR : null;
+  const show = !failed && (src || fallbackBot);
+
+  if (show) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src || fallbackBot || ""}
+        alt=""
+        width={40}
+        height={40}
+        className="size-10 rounded-full object-cover"
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={() => {
+          if (src && fallbackBot && src !== fallbackBot) {
+            setSrc(fallbackBot);
+            return;
+          }
+          setFailed(true);
+        }}
+      />
+    );
+  }
+
+  return (
+    <span className="flex size-10 items-center justify-center rounded-full text-sm font-bold text-[#1e1f22]" style={{ background: color }} aria-hidden>
+      {(author.replace(/^[^a-zA-Z0-9]+/, "").charAt(0) || "?").toUpperCase()}
+    </span>
+  );
+}
 
 /**
  * Transcript salvato solo come testo (ticket vecchi), mostrato come una chat Discord:
  * autore, ora, markdown, embed con la barra colorata, allegati. Le emoji salvate come `:nome:`
  * tornano immagini se esistono ancora nel server.
  */
-export function TextTranscriptView({ text, token, className }: { text: string; token?: string | null; className?: string }) {
+export function TextTranscriptView({
+  text,
+  token,
+  transcriptToken,
+  className,
+}: {
+  text: string;
+  token?: string | null;
+  /** Token del link transcript (per risolvere gli avatar dal server). */
+  transcriptToken?: string | null;
+  className?: string;
+}) {
   const parsed = useMemo(() => parseTextTranscript(text), [text]);
   const [emojis, setEmojis] = useState<GuildEmoji[]>(() => emojiCache || []);
+  const [avatarsByName, setAvatarsByName] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (emojiCache || !token) return;
@@ -45,15 +115,20 @@ export function TextTranscriptView({ text, token, className }: { text: string; t
     };
   }, [token]);
 
-  const byName = useMemo(() => {
-    const m = new Map<string, { id: string; animated?: boolean }>();
-    for (const e of emojis) {
-      if (!e?.id || !e.name) continue;
-      m.set(e.name, e);
-      if (!m.has(e.name.toLowerCase())) m.set(e.name.toLowerCase(), e);
-    }
-    return m;
-  }, [emojis]);
+  useEffect(() => {
+    if (!token || !transcriptToken || !parsed?.messages.length) return;
+    const needs = parsed.messages.some((m) => !m.avatarUrl);
+    if (!needs) return;
+    let off = false;
+    void loadTranscriptAvatars(transcriptToken, token).then((map) => {
+      if (!off) setAvatarsByName(map);
+    });
+    return () => {
+      off = true;
+    };
+  }, [token, transcriptToken, parsed]);
+
+  const byName = useMemo(() => buildEmojiNameMap(emojis), [emojis]);
 
   if (!parsed) {
     return (
@@ -64,6 +139,11 @@ export function TextTranscriptView({ text, token, className }: { text: string; t
   }
 
   const fix = (s: string) => restoreEmojiNames(s, byName);
+  const resolveAvatar = (m: TextMessage) =>
+    m.avatarUrl ||
+    avatarsByName[m.author] ||
+    avatarsByName[m.author.toLowerCase()] ||
+    (m.bot && /vinili/i.test(m.author) ? BOT_AVATAR : null);
 
   return (
     <div className={cn("bg-[#313338] text-[#dbdee1]", className)}>
@@ -80,7 +160,7 @@ export function TextTranscriptView({ text, token, className }: { text: string; t
       ) : null}
       <ol className="py-2">
         {parsed.messages.map((m, i) => (
-          <MessageRow key={m.id} m={m} prev={parsed.messages[i - 1]} fix={fix} />
+          <MessageRow key={m.id} m={m} prev={parsed.messages[i - 1]} fix={fix} avatarUrl={resolveAvatar(m)} />
         ))}
       </ol>
       {parsed.truncated ? (
@@ -97,7 +177,7 @@ export function TextTranscriptView({ text, token, className }: { text: string; t
   );
 }
 
-function MessageRow({ m, prev, fix }: { m: TextMessage; prev?: TextMessage; fix: (s: string) => string }) {
+function MessageRow({ m, prev, fix, avatarUrl }: { m: TextMessage; prev?: TextMessage; fix: (s: string) => string; avatarUrl: string | null }) {
   /* come Discord: messaggi dello stesso autore a pochi minuti di distanza stanno nello stesso gruppo */
   const grouped = Boolean(prev && prev.author === m.author && m.at && prev.at && m.at.getTime() - prev.at.getTime() < 7 * 60 * 1000);
   const color = colorFor(m.author);
@@ -105,9 +185,7 @@ function MessageRow({ m, prev, fix }: { m: TextMessage; prev?: TextMessage; fix:
     <li className={cn("group flex gap-4 px-4 py-0.5 hover:bg-black/[0.06]", !grouped && "mt-3")}>
       <div className="w-10 shrink-0">
         {!grouped ? (
-          <span className="flex size-10 items-center justify-center rounded-full text-sm font-bold text-[#1e1f22]" style={{ background: color }} aria-hidden>
-            {(m.author.replace(/^[^a-zA-Z0-9]+/, "").charAt(0) || "?").toUpperCase()}
-          </span>
+          <AuthorAvatar author={m.author} bot={m.bot} avatarUrl={avatarUrl} color={color} />
         ) : (
           <span className="block pt-1 text-right text-[0.62rem] text-[#949ba4] opacity-0 group-hover:opacity-100">
             {m.at ? m.at.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : ""}

@@ -10,6 +10,14 @@ const BASE = "/webhooks/site-dashboard";
 export const PREFIX_MAX_LEN = 5;
 export const DEFAULT_PREFIX = "+";
 
+export type GuildSetupStatus = {
+  kind: "main" | "managed" | string;
+  complete: boolean;
+  partnershipsChannelId: string | null;
+  partnerManagerRoleId: string | null;
+  legacy: boolean;
+};
+
 export type GuildOverview = {
   id: string;
   name: string;
@@ -29,6 +37,8 @@ export type GuildOverview = {
   emojiCount: number | null;
   bannerUrl: string | null;
   description: string | null;
+  /** Setup partnership / first-run (null se bot assente). */
+  setup: GuildSetupStatus | null;
 };
 
 export type ChannelPicker = {
@@ -89,6 +99,10 @@ export type GuildSettings = {
   prefix: string;
   prefixMaxLength: number;
   updatesChannelId: string | null;
+  /** Ruoli che possono usare la dashboard anche senza Gestisci server */
+  dashboardRoleIds: string[];
+  /** Utenti singoli abilitati alla dashboard */
+  dashboardUserIds: string[];
   boards: GuildBoards;
   botNickname: string | null;
   botAvatarUrl: string | null;
@@ -298,6 +312,22 @@ function mapOverview(data: Record<string, unknown>): GuildOverview | null {
     : Number.isFinite(Number(stats?.onlineCount))
       ? Number(stats?.onlineCount)
       : null;
+  const setupRaw = data.setup && typeof data.setup === "object" ? (data.setup as Record<string, unknown>) : null;
+  const setup: GuildSetupStatus | null = setupRaw
+    ? {
+        kind: String(setupRaw.kind || "managed"),
+        complete: setupRaw.complete === true,
+        partnershipsChannelId:
+          typeof setupRaw.partnershipsChannelId === "string" && setupRaw.partnershipsChannelId.trim()
+            ? setupRaw.partnershipsChannelId.trim()
+            : null,
+        partnerManagerRoleId:
+          typeof setupRaw.partnerManagerRoleId === "string" && setupRaw.partnerManagerRoleId.trim()
+            ? setupRaw.partnerManagerRoleId.trim()
+            : null,
+        legacy: setupRaw.legacy === true,
+      }
+    : null;
   return {
     id,
     name: String(g.name || "Server").trim() || "Server",
@@ -316,6 +346,7 @@ function mapOverview(data: Record<string, unknown>): GuildOverview | null {
     emojiCount: numOrNull(g.emojiCount),
     bannerUrl: typeof g.bannerUrl === "string" && g.bannerUrl.startsWith("https://") ? g.bannerUrl : null,
     description: typeof g.description === "string" && g.description.trim() ? g.description.trim() : null,
+    setup,
   };
 }
 
@@ -413,7 +444,7 @@ function mapQuoteStyle(raw: unknown): QuoteStyle {
 
 function defaultBoards(): GuildBoards {
   return {
-    enabled: true,
+    enabled: false,
     mode: "shared",
     sharedChannelId: null,
     quoteChannelId: null,
@@ -432,7 +463,7 @@ function mapBoards(raw: unknown): GuildBoards {
   const b = raw as Record<string, unknown>;
   const feats = b.features && typeof b.features === "object" ? (b.features as Record<string, unknown>) : {};
   return {
-    enabled: b.enabled !== false,
+    enabled: b.enabled === true,
     mode: String(b.mode || "").trim().toLowerCase() === "split" ? "split" : "shared",
     sharedChannelId: channelIdOrNull(b.sharedChannelId),
     quoteChannelId: channelIdOrNull(b.quoteChannelId),
@@ -479,6 +510,14 @@ function mapSettings(data: Record<string, unknown>): { settings: GuildSettings; 
       prefix: String(s.prefix || DEFAULT_PREFIX) || DEFAULT_PREFIX,
       prefixMaxLength: Number.isFinite(maxLen) && maxLen > 0 ? maxLen : PREFIX_MAX_LEN,
       updatesChannelId: s.updatesChannelId ? String(s.updatesChannelId) : null,
+      dashboardRoleIds: Array.isArray(s.dashboardRoleIds)
+        ? s.dashboardRoleIds.map((id) => String(id || "").trim()).filter(Boolean)
+        : s.dashboardRoleId
+          ? [String(s.dashboardRoleId).trim()].filter(Boolean)
+          : [],
+      dashboardUserIds: Array.isArray(s.dashboardUserIds)
+        ? s.dashboardUserIds.map((id) => String(id || "").trim()).filter(Boolean)
+        : [],
       boards: mapBoards(s.boards),
       botNickname: s.botNickname != null ? String(s.botNickname) : null,
       botAvatarUrl: s.botAvatarUrl ? String(s.botAvatarUrl) : null,
@@ -644,6 +683,75 @@ export async function patchGuildSettings(
     return { ok: true, data: mapSettings(data) };
   } catch {
     return { ok: false, message: "Errore di rete durante il salvataggio impostazioni." };
+  }
+}
+
+/** Scarica il JSON di backup della configurazione del server. */
+export async function exportGuildConfig(
+  token: string,
+  guildId: string,
+): Promise<{ ok: true; filename: string } | Fail> {
+  try {
+    const res = await fetch(`${BASE}/guilds/${encodeURIComponent(guildId)}/config/export`, {
+      method: "GET",
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      credentials: "omit",
+    });
+    const disp = String(res.headers.get("content-disposition") || "");
+    if (!res.ok || !/attachment/i.test(disp)) {
+      const data = await res.json().catch(() => null);
+      return failFrom(res.status, data, data?.message || "Export configurazione non riuscito.");
+    }
+    const blob = await res.blob();
+    const match = /filename="?([^";]+)"?/i.exec(disp);
+    const filename = (match && match[1]) || `vinili-config-${guildId}.json`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    return { ok: true, filename };
+  } catch {
+    return { ok: false, message: "Errore di rete durante l'export configurazione." };
+  }
+}
+
+/** Ripristina un backup JSON (oggetto config o file già parsato). */
+export async function importGuildConfig(
+  token: string,
+  guildId: string,
+  config: Record<string, unknown>,
+): Promise<Ok<{ message: string; warnings: string[] }> | Fail> {
+  try {
+    const res = await fetch(`${BASE}/guilds/${encodeURIComponent(guildId)}/config/import`, {
+      method: "POST",
+      headers: authHeaders(token, true),
+      body: JSON.stringify({ config }),
+      credentials: "omit",
+      cache: "no-store",
+    });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (res.status === 401) return failFrom(res.status, data, "Sessione scaduta: accedi di nuovo.");
+    if (!data || data.ok === false) return failFrom(res.status, data, "Ripristino configurazione non riuscito.");
+    const warnings = Array.isArray(data.warnings)
+      ? data.warnings.map((w: unknown) => String(w || "").trim()).filter(Boolean)
+      : [];
+    return {
+      ok: true,
+      data: {
+        message:
+          typeof data.message === "string" && data.message.trim()
+            ? data.message.trim()
+            : "Configurazione ripristinata.",
+        warnings,
+      },
+    };
+  } catch {
+    return { ok: false, message: "Errore di rete durante il ripristino configurazione." };
   }
 }
 
@@ -871,6 +979,8 @@ export {
   loadPartnership,
   loadPartnershipBlacklist,
   loadPartnershipManagers,
+  loadModeration,
+  loadModerationCases,
   loadPartnershipMigration,
   loadTicketBlacklist,
   loadTicketForms,
@@ -878,6 +988,7 @@ export {
   loadTicketPanels,
   loadTicketTeams,
   patchGuildTickets,
+  patchModeration,
   patchPartnership,
   publishTicketMulti,
   publishTicketPanel,
@@ -899,6 +1010,15 @@ export type {
   FormField,
   FormFieldType,
   MemberHit,
+  AutoPunishAction,
+  AutoPunishRule,
+  ModerationAppeals,
+  ModerationBundle,
+  ModerationCase,
+  ModerationCasesPage,
+  ModerationMessages,
+  ModerationOverview,
+  ModerationSettings,
   PartnershipBundle,
   PartnershipBlacklistEntry,
   PartnershipConfig,
@@ -913,6 +1033,7 @@ export type {
   TicketListBundle,
   TicketListRow,
   TicketModule,
+  TicketQuickReply,
   TicketMulti,
   TicketPanelsBundle,
   TicketPerms,

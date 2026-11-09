@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Clock, Coffee, Handshake, Loader2, PenLine, Send, Shield } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Clock, Gift, Handshake, Loader2, PenLine, Send, Shield, Sparkles } from "lucide-react";
 import { AuthGateCard } from "@/components/AuthGateCard";
 import { Reveal } from "@/components/Reveal";
 import { RichText } from "@/components/RichText";
@@ -10,7 +10,18 @@ import { SubjectWorkflowChats } from "@/components/staff/SubjectWorkflowChats";
 import { Radio } from "@/components/ui";
 import { clearDraft, loadDraft, saveDraft, useFormDraft } from "@/components/ui/form-drafts";
 import { useAuth } from "@/lib/auth";
-import { REQUIREMENTS, ROLES, dateTimeIt, encodeMulti, loadEligibility, submitApplication, type Eligibility, type Question, type RoleType } from "@/lib/applications";
+import {
+  REQUIREMENTS,
+  ROLE_INTROS,
+  ROLES,
+  dateTimeIt,
+  encodeMulti,
+  loadEligibility,
+  submitApplication,
+  type Eligibility,
+  type Question,
+  type RoleType,
+} from "@/lib/applications";
 import { cn } from "@/lib/cn";
 
 const STEP = 4;
@@ -370,6 +381,62 @@ export function CandidatureBoard() {
           })}
         </div>
       </section>
+
+      {/* intro ruolo: Nitro staff del mese (Helper) / catalogo shop (PM) */}
+      {ROLE_INTROS[type] ? (
+        <Reveal>
+          <aside
+            className={cn(
+              "rounded-3xl p-6 ring-1 sm:p-7",
+              type === "partnermanager"
+                ? "bg-gradient-to-br from-mocha/80 via-roast to-roast ring-sand/15"
+                : "bg-gradient-to-b from-caramel/[0.12] via-roast/90 to-roast ring-caramel/25",
+            )}
+          >
+            <div className="flex items-center gap-2.5">
+              <span
+                className={cn(
+                  "flex size-9 items-center justify-center rounded-xl ring-1",
+                  type === "partnermanager" ? "bg-crema/8 text-sand ring-sand/20" : "bg-caramel/15 text-ember ring-caramel/30",
+                )}
+              >
+                {type === "partnermanager" ? <Gift className="size-4" /> : <Sparkles className="size-4" />}
+              </span>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">{ROLE_INTROS[type]!.title}</p>
+            </div>
+
+            {ROLE_INTROS[type]!.body ? (
+              <p className="mt-4 text-sm leading-relaxed text-crema/75">{ROLE_INTROS[type]!.body}</p>
+            ) : null}
+
+            {ROLE_INTROS[type]!.highlight ? (
+              <p className="mt-4 flex gap-2.5 rounded-2xl bg-caramel/12 px-4 py-3 text-sm font-medium leading-relaxed text-crema ring-1 ring-caramel/30">
+                <Gift className="mt-0.5 size-4 shrink-0 text-ember" aria-hidden />
+                <span>{ROLE_INTROS[type]!.highlight}</span>
+              </p>
+            ) : null}
+
+            {ROLE_INTROS[type]!.tiers?.length ? (
+              <ul className="mt-5 space-y-2">
+                {ROLE_INTROS[type]!.tiers!.map((tier) => (
+                  <li
+                    key={tier.points}
+                    className="flex items-center gap-3 rounded-xl bg-espresso/50 px-3.5 py-2.5 ring-1 ring-sand/12"
+                  >
+                    <span className="shrink-0 rounded-md bg-caramel/15 px-2 py-1 font-mono text-[0.7rem] font-bold tabular-nums text-ember ring-1 ring-caramel/25">
+                      {tier.points}
+                    </span>
+                    <span className="min-w-0 flex-1 text-sm text-crema/85">
+                      <span className="text-crema/45">partner → </span>
+                      {tier.reward}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </aside>
+        </Reveal>
+      ) : null}
 
       {/* modulo */}
       <section id="modulo" className="scroll-mt-28">

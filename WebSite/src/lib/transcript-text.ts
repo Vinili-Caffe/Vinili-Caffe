@@ -7,23 +7,69 @@
 //   [Embed image] url | [Embed thumb] url | [Attachment] url | [Sticker] nome url
 // Qui diventano messaggi strutturati da mostrare come una chat.
 
+import emojiCatalogJson from "./data/emojiCatalog.json";
+
 export type TextEmbed = { title: string; description: string; image: string | null; thumbnail: string | null };
 export type TextMessage = {
   id: string;
   at: Date | null;
   author: string;
   bot: boolean;
+  userId: string | null;
+  avatarUrl: string | null;
   content: string;
   embeds: TextEmbed[];
   attachments: string[];
   stickers: string[];
 };
 
+/** Nuovo: `[data] Nome#tag <id|hash>: testo` — vecchio: `[data] Nome#tag: testo`. */
+const HEADER_RICH = /^\[(\d{1,2}\/\d{1,2}\/\d{4},?\s+[^\]]+)\]\s(.+?)\s<(\d{16,22})(?:\|([A-Za-z0-9_]+))?>:\s?(.*)$/;
 const HEADER = /^\[(\d{1,2}\/\d{1,2}\/\d{4},?\s+[^\]]+)\]\s(.+?):\s?(.*)$/;
 
 function parseDate(raw: string): Date | null {
   const d = new Date(raw.replace(",", ""));
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export function discordAvatarUrlFromParts(userId?: string | null, hash?: string | null, size = 64): string | null {
+  const id = String(userId || "").trim();
+  const h = String(hash || "").trim();
+  if (h && /^\d{16,22}$/.test(id)) {
+    const ext = h.startsWith("a_") ? "gif" : "png";
+    return `https://cdn.discordapp.com/avatars/${id}/${h}.${ext}?size=${size}`;
+  }
+  if (/^\d{16,22}$/.test(id)) {
+    try {
+      const index = Number((BigInt(id) >> BigInt(22)) % BigInt(6));
+      return `https://cdn.discordapp.com/embed/avatars/${index}.png?size=${size}`;
+    } catch {
+      return `https://cdn.discordapp.com/embed/avatars/0.png?size=${size}`;
+    }
+  }
+  return null;
+}
+
+function parseAuthorHead(line: string): { date: string; authorRaw: string; firstLine: string; userId: string | null; avatarHash: string | null } | null {
+  const rich = line.match(HEADER_RICH);
+  if (rich) {
+    return {
+      date: rich[1],
+      authorRaw: rich[2].trim(),
+      userId: rich[3],
+      avatarHash: rich[4] || null,
+      firstLine: rich[5] ?? "",
+    };
+  }
+  const plain = line.match(HEADER);
+  if (!plain) return null;
+  return {
+    date: plain[1],
+    authorRaw: plain[2].trim(),
+    userId: null,
+    avatarHash: null,
+    firstLine: plain[3] ?? "",
+  };
 }
 
 function parseBody(lines: string[]): Pick<TextMessage, "content" | "embeds" | "attachments" | "stickers"> {
@@ -101,24 +147,26 @@ export function parseTextTranscript(text: string): { channel: string | null; mes
     lines.shift();
   }
   const messages: TextMessage[] = [];
-  let cur: { head: RegExpMatchArray; body: string[] } | null = null;
+  let cur: { head: ReturnType<typeof parseAuthorHead>; body: string[] } | null = null;
   const flush = () => {
-    if (!cur) return;
-    const [, date, author, firstLine] = cur.head;
+    if (!cur?.head) return;
+    const { date, authorRaw, firstLine, userId, avatarHash } = cur.head;
     const body = parseBody([firstLine, ...cur.body]);
-    const tag = author.trim();
+    const tag = authorRaw.trim();
     messages.push({
       id: `${messages.length}`,
       at: parseDate(date),
       author: tag.replace(/#\d{1,4}$/, ""),
       /* i bot hanno ancora il discriminatore (#1234); gli utenti no */
       bot: /#\d{4}$/.test(tag) && !/#0000$/.test(tag),
+      userId,
+      avatarUrl: discordAvatarUrlFromParts(userId, avatarHash),
       ...body,
       content: body.content === "*Nessun contenuto messaggio*" ? "" : body.content,
     });
   };
   for (const line of lines) {
-    const head = line.match(HEADER);
+    const head = parseAuthorHead(line);
     if (head) {
       flush();
       cur = { head, body: [] };
@@ -130,10 +178,44 @@ export function parseTextTranscript(text: string): { channel: string | null; mes
   return messages.length ? { channel, messages, truncated } : null;
 }
 
-/** `:nome:` (emoji salvate senza id) → `<:nome:id>` se l'emoji esiste nel server, così si vede l'immagine. */
-export function restoreEmojiNames(text: string, byName: Map<string, { id: string; animated?: boolean }>): string {
+type EmojiRef = { id: string; animated?: boolean };
+
+const CATALOG_BY_NAME: Map<string, EmojiRef> = (() => {
+  const m = new Map<string, EmojiRef>();
+  const raw = emojiCatalogJson as Record<string, { id?: string; animated?: boolean; name?: string }>;
+  for (const [key, entry] of Object.entries(raw || {})) {
+    const id = String(entry?.id || "").trim();
+    if (!/^\d{15,22}$/.test(id)) continue;
+    const ref: EmojiRef = { id, animated: Boolean(entry?.animated) };
+    const names = [key, entry?.name].map((n) => String(n || "").trim()).filter(Boolean);
+    for (const name of names) {
+      m.set(name, ref);
+      const lower = name.toLowerCase();
+      if (!m.has(lower)) m.set(lower, ref);
+    }
+  }
+  return m;
+})();
+
+/** Mappa nome→id: catalogo bot + emoji del server (le guild vincono sul catalogo). */
+export function buildEmojiNameMap(guildEmojis: Iterable<{ id: string; name?: string | null; animated?: boolean }> = []): Map<string, EmojiRef> {
+  const m = new Map<string, EmojiRef>(CATALOG_BY_NAME);
+  for (const e of guildEmojis) {
+    const id = String(e?.id || "").trim();
+    const name = String(e?.name || "").trim();
+    if (!id || !name) continue;
+    const ref: EmojiRef = { id, animated: Boolean(e.animated) };
+    m.set(name, ref);
+    const lower = name.toLowerCase();
+    if (!m.has(lower)) m.set(lower, ref);
+  }
+  return m;
+}
+
+/** `:nome:` (emoji salvate senza id) → `<:nome:id>` se l'emoji esiste nel catalogo/server. */
+export function restoreEmojiNames(text: string, byName: Map<string, EmojiRef>): string {
   if (!byName.size) return text;
-  return text.replace(/(^|[^<a-zA-Z0-9_]):([a-zA-Z0-9_~]{2,32}):(?!\d)/g, (m, pre: string, name: string) => {
+  return text.replace(/(^|[^<a-zA-Z0-9_]):([a-zA-Z0-9_~]{2,64}):(?!\d)/g, (m, pre: string, name: string) => {
     const e = byName.get(name) || byName.get(name.toLowerCase());
     return e ? `${pre}<${e.animated ? "a" : ""}:${name}:${e.id}>` : m;
   });

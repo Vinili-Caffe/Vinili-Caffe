@@ -151,7 +151,7 @@ export function TranscriptViewer() {
 
       {plain ? (
         <div className="max-h-[75vh] overflow-y-auto">
-          <TextTranscriptView text={plain} token={token} />
+          <TextTranscriptView text={plain} token={token} transcriptToken={tokenParam} />
         </div>
       ) : (
         <iframe

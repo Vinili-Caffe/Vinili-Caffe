@@ -208,33 +208,46 @@ export function MultiCheck({
   options,
   selected,
   onChange,
+  lockedIds,
   empty = "Nessuna opzione disponibile.",
 }: {
   options: { id: string; label: string }[];
   selected: string[];
   onChange: (next: string[]) => void;
+  lockedIds?: string[];
   empty?: string;
 }) {
   if (!options.length) return <p className="text-xs text-crema/60">{empty}</p>;
   const set = new Set(selected);
+  const locked = new Set((lockedIds || []).map(String));
   return (
-    <ul className="mt-1.5 max-h-48 space-y-0.5 overflow-y-auto rounded-lg bg-espresso/60 p-1.5 ring-1 ring-sand/12">
+    <ul className="mt-1.5 max-h-48 min-h-0 flex-1 space-y-0.5 overflow-y-auto rounded-lg bg-espresso/60 p-1.5 ring-1 ring-sand/12">
       {options.map((opt) => {
         const on = set.has(opt.id);
+        const isLocked = locked.has(opt.id);
         return (
           <li key={opt.id}>
-            <label className={cn("flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-crema/[0.05]", on ? "text-crema" : "text-crema/65")}>
+            <label
+              className={cn(
+                "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+                isLocked ? "cursor-default text-crema/75" : "cursor-pointer hover:bg-crema/[0.05]",
+                on ? "text-crema" : "text-crema/65",
+              )}
+            >
               <Checkbox
                 checked={on}
+                disabled={isLocked}
                 className="size-3.5"
                 onChange={() => {
+                  if (isLocked) return;
                   const next = new Set(set);
                   if (on) next.delete(opt.id);
                   else next.add(opt.id);
                   onChange([...next]);
                 }}
               />
-              <span className="truncate"><EmojiText text={opt.label} /></span>
+              <span className="min-w-0 flex-1 truncate"><EmojiText text={opt.label} /></span>
+              {isLocked ? <span className="shrink-0 text-[0.65rem] uppercase tracking-wide text-crema/40">sistema</span> : null}
             </label>
           </li>
         );
@@ -256,15 +269,15 @@ export function SettingRow({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+    <div className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
       {icon ? (
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-crema/[0.05] text-crema/55 [&>svg]:size-4">{icon}</span>
       ) : null}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 pr-1">
         <p className="text-sm font-medium text-crema">{title}</p>
         {description ? <p className="mt-0.5 text-xs leading-relaxed text-crema/60">{description}</p> : null}
       </div>
-      <div className="shrink-0">{children}</div>
+      <div className="shrink-0 pl-1">{children}</div>
     </div>
   );
 }
@@ -400,10 +413,10 @@ export function StateCard({
   );
 }
 
-/** Notifica in basso (salvato / errore). */
+/** Notifica in basso (salvato / errore), centrata sullo schermo. */
 export function DashToast({ toast }: { toast: { msg: string; err: boolean } | null }) {
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-5 z-[70] flex justify-center px-4 lg:pl-64" aria-live="polite">
+    <div className="pointer-events-none fixed inset-x-0 bottom-5 z-[70] flex justify-center px-4" aria-live="polite">
       <AnimatePresence>
         {toast ? (
           <motion.div
@@ -413,12 +426,12 @@ export function DashToast({ toast }: { toast: { msg: string; err: boolean } | nu
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
             className={cn(
-              "pointer-events-auto flex max-w-sm items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-[0_18px_40px_-16px_rgba(0,0,0,0.8)]",
+              "pointer-events-auto inline-flex max-w-sm items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-[0_18px_40px_-16px_rgba(0,0,0,0.8)]",
               toast.err ? "bg-[#a83a2c] text-[#fff0ec]" : "bg-mocha text-crema ring-1 ring-caramel/35",
             )}
           >
             <span className={cn("size-2 shrink-0 rounded-full", toast.err ? "bg-[#fff0ec]" : "bg-[#7fc48c]")} aria-hidden />
-            {toast.msg}
+            <span className="text-center">{toast.msg}</span>
           </motion.div>
         ) : null}
       </AnimatePresence>

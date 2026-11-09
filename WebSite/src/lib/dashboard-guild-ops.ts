@@ -85,6 +85,12 @@ export type TicketListRow = {
   anonymised: boolean;
 };
 
+export type TicketQuickReply = {
+  id: string;
+  title: string;
+  content: string;
+};
+
 export type TicketModuleSettings = {
   enabled: boolean;
   panelChannelId: string | null;
@@ -102,6 +108,10 @@ export type TicketModuleSettings = {
   closeConfirmation: boolean;
   openCommandEnabled: boolean;
   anonymiseDashboardResponses: boolean;
+  staleAlertEnabled: boolean;
+  staleAlertMinutes: number;
+  staleAlertChannelId: string | null;
+  quickReplies: TicketQuickReply[];
 };
 
 export type TicketModule = {
@@ -626,9 +636,26 @@ function mapOverview(raw: unknown): TicketOverview {
   };
 }
 
+function mapQuickReplies(raw: unknown): TicketQuickReply[] {
+  if (!Array.isArray(raw)) return [];
+  const out: TicketQuickReply[] = [];
+  for (const row of raw) {
+    const r = rec(row);
+    if (!r) continue;
+    const id = str(r.id).trim();
+    const title = str(r.title ?? r.t).trim();
+    const content = str(r.content ?? r.c).trim();
+    if (!id || !title || !content) continue;
+    out.push({ id, title, content });
+    if (out.length >= 25) break;
+  }
+  return out;
+}
+
 function mapModuleSettings(raw: unknown): TicketModuleSettings {
   const s = rec(raw) || {};
   const maxOpen = Number(s.maxOpenTicketsPerUser);
+  const staleMinutes = Number(s.staleAlertMinutes);
   return {
     enabled: s.enabled === true,
     panelChannelId: strOrNull(s.panelChannelId),
@@ -646,6 +673,10 @@ function mapModuleSettings(raw: unknown): TicketModuleSettings {
     closeConfirmation: s.closeConfirmation === true,
     openCommandEnabled: s.openCommandEnabled !== false,
     anonymiseDashboardResponses: s.anonymiseDashboardResponses === true,
+    staleAlertEnabled: s.staleAlertEnabled === true,
+    staleAlertMinutes: Number.isFinite(staleMinutes) && staleMinutes >= 15 ? Math.min(1440, Math.floor(staleMinutes)) : 120,
+    staleAlertChannelId: strOrNull(s.staleAlertChannelId),
+    quickReplies: mapQuickReplies(s.quickReplies),
   };
 }
 
@@ -1609,5 +1640,299 @@ export async function undoPartnershipMigration(token: string, guildId: string) {
     return note(data, "Migrazione annullata.");
   } catch {
     return { ok: false as const, message: "Errore di rete durante l'annullamento migrazione." };
+  }
+}
+
+/* -- Moderazione ----------------------------------------------- */
+
+export type ModerationMessages = {
+  ban: string;
+  softban: string;
+  mute: string;
+  unban: string;
+  kick: string;
+  unmute: string;
+};
+
+export type AutoPunishAction = "mute" | "kick" | "ban" | "add_role" | "remove_role";
+
+export type AutoPunishRule = {
+  id: string;
+  warnCount: number;
+  action: AutoPunishAction;
+  durationMinutes: number;
+  roleId: string | null;
+};
+
+export type ModerationAppeals = {
+  formId: string | null;
+  allowBanned: boolean;
+  allowMuted: boolean;
+  waitDaysBan: number;
+  waitDaysMute: number;
+  dmOnApproveBan: boolean;
+  dmOnApproveMute: boolean;
+  dmOnReject: boolean;
+  inviteUrl: string;
+};
+
+export type ModerationSettings = {
+  modLogsChannelId: string | null;
+  dmOnAction: boolean;
+  exemptRoleIds: string[];
+  exemptChannelIds: string[];
+  systemExemptRoleIds: string[];
+  systemExemptChannelIds: string[];
+  requireReason: boolean;
+  banDeleteDays: number;
+  logCommandUsage: boolean;
+  replyWithReason: boolean;
+  useDiscordTimeout: boolean;
+  keepMessagesOnBan: boolean;
+  deleteModCommands: boolean;
+  moderatorRoleIds: string[];
+  protectedRoleIds: string[];
+  messages: ModerationMessages;
+  autoPunishRules: AutoPunishRule[];
+  appeals: ModerationAppeals;
+};
+
+export type ModerationCase = {
+  caseId: number;
+  action: string;
+  userId: string;
+  modId: string;
+  reason: string | null;
+  durationMs: number | null;
+  expiresAt: string | null;
+  active: boolean;
+  createdAt: string | null;
+};
+
+export type ModerationOverview = {
+  totalCases: number;
+  cases7d: number;
+  activeWarns: number;
+  activeTimed: number;
+  byAction: Record<string, number>;
+};
+
+export type ModerationBundle = {
+  enabled: boolean;
+  protectedGuild: boolean;
+  settings: ModerationSettings;
+  overview: ModerationOverview;
+  recentCases: ModerationCase[];
+  activeModerations: ModerationCase[];
+  pickers: {
+    textChannels: { id: string; name: string }[];
+    roles: { id: string; name: string; managed?: boolean }[];
+    forms: { id: string; title: string }[];
+  };
+};
+
+export type ModerationCasesPage = {
+  page: number;
+  pages: number;
+  pageSize: number;
+  total: number;
+  recentCases: ModerationCase[];
+};
+
+function mapModeration(data: Record<string, unknown>): ModerationBundle {
+  const s = rec(data.settings) || {};
+  const o = rec(data.overview) || {};
+  const pickers = rec(data.pickers) || {};
+  const byActionRaw = rec(o.byAction) || {};
+  const byAction: Record<string, number> = {};
+  for (const [k, v] of Object.entries(byActionRaw)) byAction[k] = n0(v);
+  const mapCase = (row: unknown): ModerationCase | null => {
+    const c = rec(row);
+    if (!c) return null;
+    return {
+      caseId: n0(c.caseId),
+      action: str(c.action).toUpperCase() || "UNKNOWN",
+      userId: str(c.userId),
+      modId: str(c.modId),
+      reason: strOrNull(c.reason),
+      durationMs: c.durationMs == null ? null : n0(c.durationMs),
+      expiresAt: strOrNull(c.expiresAt),
+      active: c.active !== false,
+      createdAt: strOrNull(c.createdAt),
+    };
+  };
+  return {
+    enabled: data.enabled === true,
+    protectedGuild: data.protectedGuild === true,
+    settings: {
+      modLogsChannelId: strOrNull(s.modLogsChannelId),
+      dmOnAction: s.dmOnAction !== false,
+      exemptRoleIds: Array.isArray(s.exemptRoleIds) ? s.exemptRoleIds.map(String) : [],
+      exemptChannelIds: Array.isArray(s.exemptChannelIds) ? s.exemptChannelIds.map(String) : [],
+      systemExemptRoleIds: Array.isArray(s.systemExemptRoleIds) ? s.systemExemptRoleIds.map(String) : [],
+      systemExemptChannelIds: Array.isArray(s.systemExemptChannelIds) ? s.systemExemptChannelIds.map(String) : [],
+      requireReason: s.requireReason !== false,
+      banDeleteDays: Math.max(0, Math.min(7, n0(s.banDeleteDays) || 7)),
+      logCommandUsage: s.logCommandUsage !== false,
+      replyWithReason: s.replyWithReason !== false,
+      useDiscordTimeout: s.useDiscordTimeout !== false,
+      keepMessagesOnBan: s.keepMessagesOnBan === true,
+      deleteModCommands: s.deleteModCommands === true,
+      moderatorRoleIds: Array.isArray(s.moderatorRoleIds) ? s.moderatorRoleIds.map(String) : [],
+      protectedRoleIds: Array.isArray(s.protectedRoleIds) ? s.protectedRoleIds.map(String) : [],
+      messages: (() => {
+        const m = rec(s.messages) || {};
+        return {
+          ban: str(m.ban) || "***{user} è stato bannato***",
+          softban: str(m.softban) || "***{user} è stato sottoposto a softban***",
+          mute: str(m.mute) || "***{user} è stato silenziato***",
+          unban: str(m.unban) || "***Il ban di {user} è stato revocato***",
+          kick: str(m.kick) || "***{user} è stato espulso***",
+          unmute: str(m.unmute) || "***{user} è stato riattivato***",
+        };
+      })(),
+      autoPunishRules: Array.isArray(s.autoPunishRules)
+        ? s.autoPunishRules.flatMap((row) => {
+            const r = rec(row);
+            if (!r) return [];
+            const action = str(r.action) as AutoPunishAction;
+            if (!["mute", "kick", "ban", "add_role", "remove_role"].includes(action)) return [];
+            return [
+              {
+                id: str(r.id) || `ap_${n0(r.warnCount)}_${action}`,
+                warnCount: Math.max(1, n0(r.warnCount)),
+                action,
+                durationMinutes: Math.max(0, n0(r.durationMinutes)),
+                roleId: strOrNull(r.roleId),
+              },
+            ];
+          })
+        : [],
+      appeals: (() => {
+        const a = rec(s.appeals) || {};
+        return {
+          formId: strOrNull(a.formId),
+          allowBanned: a.allowBanned !== false,
+          allowMuted: a.allowMuted !== false,
+          waitDaysBan: Math.max(0, Math.min(365, n0(a.waitDaysBan))),
+          waitDaysMute: Math.max(0, Math.min(365, n0(a.waitDaysMute))),
+          dmOnApproveBan: a.dmOnApproveBan !== false,
+          dmOnApproveMute: a.dmOnApproveMute !== false,
+          dmOnReject: a.dmOnReject !== false,
+          inviteUrl: str(a.inviteUrl),
+        };
+      })(),
+    },
+    overview: {
+      totalCases: n0(o.totalCases),
+      cases7d: n0(o.cases7d),
+      activeWarns: n0(o.activeWarns),
+      activeTimed: n0(o.activeTimed),
+      byAction,
+    },
+    recentCases: Array.isArray(data.recentCases) ? (data.recentCases.map(mapCase).filter(Boolean) as ModerationCase[]) : [],
+    activeModerations: Array.isArray(data.activeModerations)
+      ? (data.activeModerations.map(mapCase).filter(Boolean) as ModerationCase[])
+      : [],
+    pickers: {
+      textChannels: Array.isArray(pickers.textChannels)
+        ? pickers.textChannels.flatMap((row) => {
+            const c = rec(row);
+            if (!c) return [];
+            const id = str(c.id).trim();
+            if (!id) return [];
+            return [{ id, name: str(c.name) || id }];
+          })
+        : [],
+      roles: Array.isArray(pickers.roles)
+        ? pickers.roles.flatMap((row) => {
+            const r = rec(row);
+            if (!r) return [];
+            const id = str(r.id).trim();
+            if (!id) return [];
+            return [{ id, name: str(r.name) || id, managed: r.managed === true }];
+          })
+        : [],
+      forms: Array.isArray(pickers.forms)
+        ? pickers.forms.flatMap((row) => {
+            const f = rec(row);
+            if (!f) return [];
+            const id = str(f.id).trim();
+            if (!id) return [];
+            return [{ id, title: str(f.title) || id }];
+          })
+        : [],
+    },
+  };
+}
+
+export async function loadModeration(token: string, guildId: string): Promise<Ok<ModerationBundle> | Fail> {
+  try {
+    const { status, data } = await request("GET", gpath(guildId, "/moderation"), token);
+    const blocked = gate(status, data, "Impossibile caricare la moderazione.");
+    if (blocked) return blocked;
+    return { ok: true, data: mapModeration(data) };
+  } catch {
+    return { ok: false, message: "Errore di rete durante il caricamento moderazione." };
+  }
+}
+
+export async function patchModeration(token: string, guildId: string, body: Record<string, unknown>): Promise<Ok<ModerationBundle> | Fail> {
+  try {
+    const { status, data } = await request("PATCH", gpath(guildId, "/moderation"), token, body);
+    const blocked = gate(status, data, "Salvataggio moderazione non riuscito.");
+    if (blocked) return blocked;
+    return { ok: true, data: mapModeration(data) };
+  } catch {
+    return { ok: false, message: "Errore di rete durante il salvataggio moderazione." };
+  }
+}
+
+export async function loadModerationCases(
+  token: string,
+  guildId: string,
+  opts: { page?: number; pageSize?: number } = {},
+): Promise<Ok<ModerationCasesPage> | Fail> {
+  try {
+    const qs = new URLSearchParams();
+    const reqPage = Math.max(1, Math.floor(Number(opts.page) || 1));
+    const reqPageSize = Math.max(1, Math.min(50, Math.floor(Number(opts.pageSize) || 20)));
+    qs.set("page", String(reqPage));
+    qs.set("pageSize", String(reqPageSize));
+    const { status, data } = await request("GET", gpath(guildId, `/moderation/cases?${qs}`), token);
+    const blocked = gate(status, data, "Impossibile caricare i casi di moderazione.");
+    if (blocked) return blocked;
+    const mapCase = (row: unknown): ModerationCase | null => {
+      const c = rec(row);
+      if (!c) return null;
+      return {
+        caseId: n0(c.caseId),
+        action: str(c.action).toUpperCase() || "UNKNOWN",
+        userId: str(c.userId),
+        modId: str(c.modId),
+        reason: strOrNull(c.reason),
+        durationMs: c.durationMs == null ? null : n0(c.durationMs),
+        expiresAt: strOrNull(c.expiresAt),
+        active: c.active !== false,
+        createdAt: strOrNull(c.createdAt),
+      };
+    };
+    const pageSize = Math.max(1, n0(data.pageSize) || reqPageSize);
+    const total = Math.max(0, n0(data.total));
+    const pages = Math.max(1, n0(data.pages) || Math.ceil(total / pageSize) || 1);
+    return {
+      ok: true,
+      data: {
+        page: Math.min(pages, Math.max(1, n0(data.page) || reqPage)),
+        pages,
+        pageSize,
+        total,
+        recentCases: Array.isArray(data.recentCases)
+          ? (data.recentCases.map(mapCase).filter(Boolean) as ModerationCase[])
+          : [],
+      },
+    };
+  } catch {
+    return { ok: false, message: "Errore di rete durante il caricamento casi." };
   }
 }

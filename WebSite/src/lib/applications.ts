@@ -92,6 +92,36 @@ export const REQUIREMENTS = [
   "Non essere mai stato sanzionato nel server",
 ];
 
+/** Intro ruolo (come la vecchia pagina statica): info + incentivi. */
+export const ROLE_INTROS: Partial<
+  Record<
+    RoleType,
+    {
+      title: string;
+      body?: string;
+      highlight?: string;
+      /** Catalogo premi PM (allineato a partnerManagerRewardTiers). */
+      tiers?: { points: number; reward: string }[];
+    }
+  >
+> = {
+  helper: {
+    title: "Info Helper",
+    body: "Candidandoti come Helper effettuerai una prova di 1-2 settimane. È richiesta la massima priorità per essere staffer.",
+    highlight: "Ogni mese viene premiato uno staffer con un Nitro Boost.",
+  },
+  partnermanager: {
+    title: "Staff pagato",
+    tiers: [
+      { points: 50, reward: "Custom Role e Custom Voc per 30 giorni" },
+      { points: 100, reward: "Ruolo VIP per 30 giorni" },
+      { points: 150, reward: "Decorazione a scelta (max 15,99 €)" },
+      { points: 200, reward: "Nitro Boost" },
+      { points: 250, reward: "5 € PayPal" },
+    ],
+  },
+};
+
 /** Le scelte multiple vanno al bot come elenco puntato, come sul sito attuale. */
 export const encodeMulti = (vals: string[]) => vals.map((v) => `• ${v}`).join("\n");
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import { cdnUrl } from "@/lib/site";
 import { getVinylMusicApi } from "@/lib/vinyl-music-bus";
@@ -18,6 +18,11 @@ function introAudio() {
     shared = new Audio(SRC);
     shared.preload = "auto";
     shared.volume = 0.8;
+    try {
+      shared.load();
+    } catch {
+      /* ignore */
+    }
   }
   return shared;
 }
@@ -79,7 +84,7 @@ async function pullRemoteDay(token: string | null): Promise<string> {
   try {
     const r = await fetch(CHROME_PREFS, {
       headers: { Authorization: `Bearer ${token}` },
-      credentials: "same-origin",
+      credentials: "omit",
       cache: "no-store",
     });
     const j = (await r.json().catch(() => null)) as { ok?: boolean; prefs?: { itsTimeDay?: string } } | null;
@@ -98,20 +103,28 @@ function pushRemoteDay(token: string | null, day: string) {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    credentials: "same-origin",
+    credentials: "omit",
     body: JSON.stringify({ prefs: { itsTimeDay: day } }),
   }).catch(() => null);
 }
 
+/** Stopper della sessione play attiva (stesso tab, sync remote → locale). */
+let stopActiveIntro: (() => void) | null = null;
+
 /**
  * Easter egg: "It's time" 1×/giorno sulla prima pagina.
  * Sync cross-device via chrome-prefs (loggato) + cookie/BroadcastChannel in locale.
+ *
+ * Armiamo i gesture subito (senza aspettare auth/remote): altrimenti il primo click
+ * della visita (cookie banner, nav…) si perde e l'autoplay resta bloccato.
  */
 export function ItsTimeIntro() {
   const { token, ready } = useAuth();
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
 
+  // Play locale: monta una sola volta, non si resetta al cambio token.
   useEffect(() => {
-    if (!ready) return;
     if (alreadyPlayedToday()) return;
 
     let cancelled = false;
@@ -121,7 +134,7 @@ export function ItsTimeIntro() {
     const audio = introAudio();
     const today = romeDayKey();
 
-    const cleanup = () => {
+    const cleanupGestures = () => {
       for (const g of GESTURES) window.removeEventListener(g, onGesture, true);
     };
 
@@ -132,9 +145,40 @@ export function ItsTimeIntro() {
       if (api && !api.on) api.setPlaying(true);
     };
 
-    const markAll = () => {
+    const confirmPlayed = () => {
+      if (cancelled || done) return;
+      /* Segna solo se sta davvero riproducendo (evita mark su play() “vuoto”). */
+      if (!Number.isFinite(audio.currentTime) || audio.currentTime < 0.2) return;
+      done = true;
       markPlayedTodayLocal();
-      pushRemoteDay(token, today);
+      pushRemoteDay(tokenRef.current, today);
+      cleanupGestures();
+      audio.removeEventListener("timeupdate", confirmPlayed);
+      audio.removeEventListener("playing", onPlaying);
+    };
+
+    const onPlaying = () => {
+      /* alcuni browser aggiornano currentTime solo al timeupdate successivo */
+      if (audio.currentTime >= 0.2) confirmPlayed();
+    };
+
+    const stopWithoutPlay = () => {
+      if (done) return;
+      done = true;
+      cleanupGestures();
+      audio.removeEventListener("timeupdate", confirmPlayed);
+      audio.removeEventListener("playing", onPlaying);
+      try {
+        audio.pause();
+      } catch {
+        /* ignore */
+      }
+      onEnded();
+    };
+
+    stopActiveIntro = () => {
+      markPlayedTodayLocal();
+      stopWithoutPlay();
     };
 
     const play = () => {
@@ -144,17 +188,15 @@ export function ItsTimeIntro() {
         resumeMusic = true;
         api.setPlaying(false);
       }
-      audio.currentTime = 0;
-      audio
-        .play()
-        .then(() => {
-          done = true;
-          markAll();
-          cleanup();
-        })
-        .catch(() => {
-          onEnded();
-        });
+      try {
+        if (audio.currentTime > 0.05) audio.currentTime = 0;
+      } catch {
+        /* ignore */
+      }
+      void audio.play().catch(() => {
+        /* autoplay bloccato: si riprova al prossimo gesto */
+        onEnded();
+      });
     };
 
     function onGesture() {
@@ -167,46 +209,65 @@ export function ItsTimeIntro() {
         const d = ev?.data;
         if (!d || d.type !== "played") return;
         if (String(d.day || "") !== today) return;
-        done = true;
         markPlayedTodayLocal();
-        cleanup();
-        try {
-          audio.pause();
-        } catch {
-          /* ignore */
-        }
-        onEnded();
+        stopWithoutPlay();
       };
     } catch {
       bc = null;
     }
 
-    void (async () => {
-      const remote = await pullRemoteDay(token);
-      if (cancelled) return;
-      if (remote === today) {
-        markPlayedTodayLocal();
-        return;
-      }
-      if (alreadyPlayedToday()) return;
-      audio.addEventListener("ended", onEnded);
-      for (const g of GESTURES) window.addEventListener(g, onGesture, { capture: true, passive: true });
-      play();
-    })();
+    audio.addEventListener("timeupdate", confirmPlayed);
+    audio.addEventListener("playing", onPlaying);
+    audio.addEventListener("ended", onEnded);
+    for (const g of GESTURES) window.addEventListener(g, onGesture, { capture: true, passive: true });
+    play();
 
     return () => {
       cancelled = true;
-      cleanup();
+      if (stopActiveIntro) stopActiveIntro = null;
+      cleanupGestures();
+      audio.removeEventListener("timeupdate", confirmPlayed);
+      audio.removeEventListener("playing", onPlaying);
       audio.removeEventListener("ended", onEnded);
       try {
         bc?.close();
       } catch {
         /* ignore */
       }
+      /* Navigazione SPA: non tagliare l'intro se è già partita. */
       if (!done) {
-        audio.pause();
+        try {
+          audio.pause();
+        } catch {
+          /* ignore */
+        }
         onEnded();
       }
+    };
+  }, []);
+
+  // Sync account: se un altro device ha già suonato oggi → stop locale; se noi abbiamo già
+  // suonato offline → push del giorno sul profilo.
+  useEffect(() => {
+    if (!ready || !token) return;
+    const today = romeDayKey();
+    let cancelled = false;
+
+    void (async () => {
+      if (alreadyPlayedToday()) {
+        pushRemoteDay(token, today);
+        return;
+      }
+      const remote = await pullRemoteDay(token);
+      if (cancelled) return;
+      if (remote === today) {
+        markPlayedTodayLocal();
+        stopActiveIntro?.();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
     };
   }, [ready, token]);
 

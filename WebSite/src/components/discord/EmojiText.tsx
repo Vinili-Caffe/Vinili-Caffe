@@ -16,7 +16,7 @@ export function plainEmojiText(text: string | null | undefined): string {
 
 /* Bandiere (due "regional indicator"): Windows le mostra come lettere (IT, GB…), quindi immagine Twemoji. */
 const FLAG = /[🇦-🇿]{2}/u;
-const TOKENS = /<(a?):([A-Za-z0-9_~]{1,64}):(d{15,22})>|([🇦-🇿]{2})/gu;
+const TOKENS = /<(a?):([A-Za-z0-9_~]{1,64}):(\d{15,22})>|([🇦-🇿]{2})/gu;
 
 export function twemojiUrl(emoji: string) {
   const cps = Array.from(emoji)

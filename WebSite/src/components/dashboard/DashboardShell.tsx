@@ -4,15 +4,13 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  BarChart3,
+  ChevronDown,
   ChevronRight,
   ChevronsUpDown,
   Coins,
   CreditCard,
   Diamond,
-  Handshake,
   HelpCircle,
-  History,
   House,
   LayoutGrid,
   LogIn,
@@ -21,11 +19,7 @@ import {
   NotebookPen,
   Pin,
   PinOff,
-  Settings2,
   Sparkles,
-  Terminal,
-  Trophy,
-  Ticket,
   UserRound,
   Wrench,
   X,
@@ -40,22 +34,27 @@ import { ensureCreditsBalance, getCreditsBalance, subscribeCredits } from "@/lib
 import { cdnUrl, page } from "@/lib/site";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { NotificationsBell } from "./NotificationsBell";
+import {
+  GUILD_MODULE_SECTIONS,
+  GUILD_SERVER_SECTIONS,
+  defaultModuleTab,
+  sectionTabs,
+  type GuildSectionId,
+} from "./guildSections";
 
-/** Sezioni del pannello server: nella sidebar, sotto "Server". */
-export const GUILD_SECTIONS = [
-  { id: "stats", label: "Statistiche", icon: BarChart3 },
-  { id: "settings", label: "Impostazioni", icon: Settings2 },
-  { id: "commands", label: "Comandi", icon: Terminal },
-  { id: "bacheca", label: "Bacheca", icon: Pin },
-  { id: "tickets", label: "Ticket", icon: Ticket },
-  { id: "partnership", label: "Partnership", icon: Handshake },
-  { id: "classifica", label: "Classifica", icon: Trophy },
-  { id: "registro", label: "Registro modifiche", icon: History },
-] as const;
-export type GuildSectionId = (typeof GUILD_SECTIONS)[number]["id"];
+export {
+  GUILD_MODULE_SECTIONS,
+  GUILD_SECTIONS,
+  GUILD_SERVER_SECTIONS,
+  isGuildSection,
+  type GuildSectionId,
+} from "./guildSections";
 
-export function isGuildSection(v: string): v is GuildSectionId {
-  return GUILD_SECTIONS.some((s) => s.id === v);
+function guildSectionHref(guildId: string, sectionId: GuildSectionId, tab?: string | null) {
+  const qs = new URLSearchParams({ id: guildId, s: sectionId });
+  const t = tab || defaultModuleTab(sectionId);
+  if (t) qs.set("t", t);
+  return `/dashboard/guild/?${qs.toString()}`;
 }
 
 const BOT_NAV = [
@@ -94,6 +93,11 @@ type ShellGuild = { id: string; name: string; iconUrl: string | null };
 export type GuildNav = {
   active: GuildSectionId;
   onSelect: (id: GuildSectionId) => void;
+  /** Tab attiva della sezione corrente (comandi/classifica/ticket/…). */
+  moduleTab?: string | null;
+  onModuleTab?: (section: GuildSectionId, tab: string) => void;
+  /** Sotto-voci dinamiche (es. categorie comandi dal catalogo). */
+  tabsBySection?: Partial<Record<GuildSectionId, readonly { id: string; label: string }[]>>;
   /** numeretto accanto alla voce (es. ticket in attesa) */
   badges?: Partial<Record<GuildSectionId, number>>;
 };
@@ -178,6 +182,152 @@ function NavGroup({ title, children }: { title: string; children: React.ReactNod
     <div>
       <p className="mb-1 px-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-crema/50">{title}</p>
       <div className="space-y-0.5">{children}</div>
+    </div>
+  );
+}
+
+/** Modulo con sotto-voci (sostituisce le tab orizzontali Ticket/Partnership). */
+function ModuleNavItem({
+  item,
+  active,
+  moduleTab,
+  badge,
+  animated,
+  tabsOverride,
+  guildId,
+  onSelect,
+  onModuleTab,
+  onNavigate,
+}: {
+  item: { id: GuildSectionId; label: string; icon: React.ComponentType<{ className?: string }>; tabs?: readonly { id: string; label: string }[] };
+  active: boolean;
+  moduleTab?: string | null;
+  badge?: number;
+  animated: boolean;
+  tabsOverride?: readonly { id: string; label: string }[];
+  /** Senza callback in-page: naviga a /dashboard/guild/?id=&s=&t= */
+  guildId?: string;
+  onSelect?: (id: GuildSectionId) => void;
+  onModuleTab?: (section: GuildSectionId, tab: string) => void;
+  onNavigate?: () => void;
+}) {
+  const tabs =
+    (tabsOverride && tabsOverride.length > 0 ? tabsOverride : null) ||
+    (item.tabs && item.tabs.length > 0 ? item.tabs : null) ||
+    sectionTabs(item.id);
+  const hasTabs = tabs.length > 0;
+  const [open, setOpen] = useState(active);
+  useEffect(() => {
+    if (active) setOpen(true);
+  }, [active]);
+
+  const Icon = item.icon;
+  const go = (tabId?: string) => {
+    if (onSelect) {
+      if (tabId && onModuleTab) onModuleTab(item.id, tabId);
+      else onSelect(item.id);
+      onNavigate?.();
+      return;
+    }
+    if (guildId) {
+      window.location.assign(page(guildSectionHref(guildId, item.id, tabId || null)));
+    }
+  };
+
+  if (!hasTabs) {
+    return (
+      <NavItem
+        animated={animated}
+        label={item.label}
+        icon={Icon}
+        active={active}
+        badge={badge}
+        onClick={onSelect ? () => go() : undefined}
+        href={!onSelect && guildId ? guildSectionHref(guildId, item.id) : undefined}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-current={active ? "page" : undefined}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
+          active ? "bg-caramel/12 text-crema" : "text-crema/55 hover:bg-crema/[0.04] hover:text-crema",
+        )}
+      >
+        {active && animated ? (
+          <motion.span
+            layoutId="dash-nav-pill"
+            className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-to-b from-ember to-caramel"
+            transition={{ type: "spring", stiffness: 500, damping: 40 }}
+            aria-hidden
+          />
+        ) : active ? (
+          <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-to-b from-ember to-caramel" aria-hidden />
+        ) : null}
+        <Icon className={cn("size-[1.05rem] shrink-0", active ? "text-ember" : "text-crema/60 group-hover:text-crema/70")} />
+        <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+        {badge ? (
+          <span className="rounded-md bg-caramel px-1.5 py-px text-[0.65rem] font-bold tabular-nums text-ink">{badge > 99 ? "99+" : badge}</span>
+        ) : null}
+        <ChevronDown
+          className={cn("size-3.5 shrink-0 text-crema/40 transition-transform", open && "rotate-180")}
+          aria-hidden
+        />
+      </button>
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            key="tabs"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="mb-1 ml-3 mt-0.5 space-y-0.5 border-l border-sand/12 py-0.5 pl-2">
+              {tabs.map((tab) => {
+                const on = active && moduleTab === tab.id;
+                if (!onSelect && guildId) {
+                  return (
+                    <SmartLink
+                      key={tab.id}
+                      href={page(guildSectionHref(guildId, item.id, tab.id))}
+                      aria-current={on ? "page" : undefined}
+                      onClick={() => onNavigate?.()}
+                      className={cn(
+                        "flex w-full rounded-md px-2.5 py-1.5 text-left text-[0.8rem] font-medium transition-colors",
+                        on ? "bg-caramel/10 text-crema" : "text-crema/50 hover:bg-crema/[0.04] hover:text-crema/80",
+                      )}
+                    >
+                      {tab.label}
+                    </SmartLink>
+                  );
+                }
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    aria-current={on ? "page" : undefined}
+                    onClick={() => go(tab.id)}
+                    className={cn(
+                      "flex w-full rounded-md px-2.5 py-1.5 text-left text-[0.8rem] font-medium transition-colors",
+                      on ? "bg-caramel/10 text-crema" : "text-crema/50 hover:bg-crema/[0.04] hover:text-crema/80",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -400,33 +550,72 @@ function Sidebar({
         </NavGroup>
 
         {guildId ? (
-          <NavGroup title="Server">
-            {GUILD_SECTIONS.map((s) =>
-              guildNav ? (
-                <NavItem
-                  animated={!onNavigate}
+          <>
+            <NavGroup title="Server">
+              {GUILD_SERVER_SECTIONS.map((s) => {
+                const override = guildNav?.tabsBySection?.[s.id];
+                const hasTabs = sectionTabs(s.id).length > 0 || Boolean(override?.length);
+                if (hasTabs) {
+                  return (
+                    <ModuleNavItem
+                      key={s.id}
+                      item={s}
+                      active={guildNav?.active === s.id}
+                      moduleTab={guildNav?.moduleTab}
+                      badge={guildNav?.badges?.[s.id]}
+                      animated={!onNavigate}
+                      tabsOverride={override}
+                      guildId={guildId}
+                      onSelect={guildNav?.onSelect}
+                      onModuleTab={guildNav?.onModuleTab}
+                      onNavigate={onNavigate}
+                    />
+                  );
+                }
+                return guildNav ? (
+                  <NavItem
+                    animated={!onNavigate}
+                    key={s.id}
+                    label={s.label}
+                    icon={s.icon}
+                    active={guildNav.active === s.id}
+                    badge={guildNav.badges?.[s.id]}
+                    onClick={() => {
+                      guildNav.onSelect(s.id);
+                      onNavigate?.();
+                    }}
+                  />
+                ) : (
+                  <NavItem
+                    animated={!onNavigate}
+                    key={s.id}
+                    href={guildSectionHref(guildId, s.id)}
+                    label={s.label}
+                    icon={s.icon}
+                    active={false}
+                  />
+                );
+              })}
+            </NavGroup>
+
+            <NavGroup title="Moduli">
+              {GUILD_MODULE_SECTIONS.map((s) => (
+                <ModuleNavItem
                   key={s.id}
-                  label={s.label}
-                  icon={s.icon}
-                  active={guildNav.active === s.id}
-                  badge={guildNav.badges?.[s.id]}
-                  onClick={() => {
-                    guildNav.onSelect(s.id);
-                    onNavigate?.();
-                  }}
-                />
-              ) : (
-                <NavItem
+                  item={s}
+                  active={guildNav?.active === s.id}
+                  moduleTab={guildNav?.moduleTab}
+                  badge={guildNav?.badges?.[s.id]}
                   animated={!onNavigate}
-                  key={s.id}
-                  href={`/dashboard/guild/?id=${encodeURIComponent(guildId)}&s=${s.id}`}
-                  label={s.label}
-                  icon={s.icon}
-                  active={false}
+                  tabsOverride={guildNav?.tabsBySection?.[s.id]}
+                  guildId={guildId}
+                  onSelect={guildNav?.onSelect}
+                  onModuleTab={guildNav?.onModuleTab}
+                  onNavigate={onNavigate}
                 />
-              ),
-            )}
-          </NavGroup>
+              ))}
+            </NavGroup>
+          </>
         ) : null}
 
         <NavGroup title="Bot">

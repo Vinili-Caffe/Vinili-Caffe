@@ -6,6 +6,9 @@ import {
   Bot,
   Camera,
   CalendarDays,
+  CheckCircle2,
+  Circle,
+  Download,
   Gem,
   Shapes,
   Clock3,
@@ -17,6 +20,7 @@ import {
   LogIn,
   Megaphone,
   MousePointerClick,
+  Pencil,
   Pin,
   Plus,
   RotateCcw,
@@ -25,7 +29,9 @@ import {
   SlidersHorizontal,
   Ticket,
   Upload,
+  UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
 import { confirmDialog } from "@/components/ui";
@@ -43,6 +49,8 @@ import {
   BOARD_FEATURES,
   EMPTY_SETTINGS_PICKERS,
   buildCommandAclBody,
+  exportGuildConfig,
+  importGuildConfig,
   isCommandEnabled,
   loadGuildPanel,
   normalizePrefixInput,
@@ -58,14 +66,32 @@ import {
   type CommandsPayload,
   type GuildOverview,
   type GuildSettings,
+  type MemberHit,
   type SettingsPickers,
   type TicketsSummary,
+  searchTicketMembers,
 } from "@/lib/dashboard-guild";
 import dynamic from "next/dynamic";
-import { DashboardShell, GUILD_SECTIONS, isGuildSection, type GuildSectionId } from "./DashboardShell";
+import { DashboardShell, type GuildSectionId } from "./DashboardShell";
+import {
+  COMMAND_SECTION_TABS,
+  GUILD_MODULE_SECTIONS,
+  GUILD_SERVER_SECTIONS,
+  defaultModuleTab,
+  findGuildSection,
+  isClassificaSectionTab,
+  isCommandSectionTab,
+  isGuildSection,
+  isModerationModuleTab,
+  isPartnershipModuleTab,
+  isRegistroModuleTab,
+  isTicketModuleTab,
+  sectionTabs,
+} from "./guildSections";
 import {
   DashToast,
   Field,
+  MultiCheck,
   Panel,
   PremiumBadge,
   PremiumLock,
@@ -83,7 +109,14 @@ const CommandAclEditor = dynamic(() => import("./guild/CommandAcl").then((m) => 
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
+const SetupWizard = dynamic(() => import("./guild/SetupWizard").then((m) => m.SetupWizard), { ssr: false });
+
 const StatsPanel = dynamic(() => import("./guild/StatsPanel").then((m) => m.StatsPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
+const HealthPanel = dynamic(() => import("./guild/HealthPanel").then((m) => m.HealthPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
@@ -110,6 +143,10 @@ const TicketDesk = dynamic(() => import("./guild/TicketDesk").then((m) => m.Tick
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
+const ModerationPanel = dynamic(() => import("./guild/ModerationPanel").then((m) => m.ModerationPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
 
 type Gate = "loading" | "login" | "locked" | "noid" | "ready";
 type Section = GuildSectionId;
@@ -119,10 +156,12 @@ const SECTION_LEAD: Record<Section, string> = {
   bacheca: "Quote, repost, clip e skullboard: funzioni, canali e stile delle citazioni.",
   commands: "Attiva o disattiva i comandi e scegli chi può usarli e dove.",
   tickets: "Ticket aperti, pannelli, moduli, team e blacklist.",
+  moderation: "Ban, mute, warn, mod logs, ricorsi, punizioni automatiche e casi.",
   partnership: "Configurazione e gestione delle partnership del server.",
   classifica: "Classifiche partnership: server, partner manager e ingressi.",
   stats: "Ticket e partnership del server: andamento, voti, staff più attivo.",
   registro: "Chi ha cambiato cosa dalla dashboard, e quando.",
+  salute: "Cosa non funziona nel server e come sistemarlo: permessi del bot, canali e ruoli.",
 };
 
 const fieldCls =
@@ -134,6 +173,32 @@ function readSectionFromSearch(search: string): Section | null {
     return isGuildSection(v) ? v : null;
   } catch {
     return null;
+  }
+}
+
+function sanitizeModuleTab(section: Section, raw: string | null | undefined): string | null {
+  const v = String(raw || "").trim();
+  const fallback = defaultModuleTab(section);
+  if (!fallback) return null;
+  if (!v) return fallback;
+  if (section === "tickets") return isTicketModuleTab(v) ? v : "overview";
+  if (section === "moderation") return isModerationModuleTab(v) ? v : "overview";
+  if (section === "partnership") return isPartnershipModuleTab(v) ? v : "setup";
+  if (section === "commands") {
+    if (v === "all" || isCommandSectionTab(v)) return v;
+    /* categorie dinamiche dal catalogo API */
+    return /^[a-z0-9_-]{1,40}$/i.test(v) ? v : "all";
+  }
+  if (section === "classifica") return isClassificaSectionTab(v) ? v : "servers";
+  if (section === "registro") return isRegistroModuleTab(v) ? v : "all";
+  return fallback;
+}
+
+function readModuleTabFromSearch(search: string, section: Section): string | null {
+  try {
+    return sanitizeModuleTab(section, new URLSearchParams(search).get("t"));
+  } catch {
+    return defaultModuleTab(section);
   }
 }
 
@@ -151,6 +216,103 @@ function fmtNum(n: number | null) {
 }
 
 /** Testata del server: copertina (banner o icona sfocata), icona, badge e dati generali del server. */
+function setupDismissKey(guildId: string) {
+  return `dash-setup-dismissed:${guildId}`;
+}
+
+function SetupGuideBanner({
+  overview,
+  ticketsEnabled,
+  onGo,
+}: {
+  overview: GuildOverview;
+  ticketsEnabled: boolean;
+  onGo: (section: Section) => void;
+}) {
+  const setup = overview.setup;
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setDismissed(localStorage.getItem(setupDismissKey(overview.id)) === "1");
+    } catch {
+      setDismissed(false);
+    }
+  }, [overview.id]);
+
+  if (!setup || setup.complete || dismissed || overview.isMainGuild) return null;
+
+  const steps = [
+    {
+      id: "partnership-channel" as const,
+      done: Boolean(setup.partnershipsChannelId),
+      label: "Canale partnership",
+      section: "partnership" as Section,
+    },
+    {
+      id: "partnership-role" as const,
+      done: Boolean(setup.partnerManagerRoleId),
+      label: "Ruolo partner manager",
+      section: "partnership" as Section,
+    },
+    {
+      id: "tickets" as const,
+      done: ticketsEnabled,
+      label: "Attiva i ticket (opzionale)",
+      section: "tickets" as Section,
+      optional: true,
+    },
+  ];
+
+  const dismiss = () => {
+    try {
+      localStorage.setItem(setupDismissKey(overview.id), "1");
+    } catch {
+      /* ignore */
+    }
+    setDismissed(true);
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-caramel/[0.14] via-roast/85 to-roast/85 p-4 ring-1 ring-caramel/25 sm:p-5">
+      <button
+        type="button"
+        onClick={dismiss}
+        className="absolute right-3 top-3 rounded-lg p-1.5 text-crema/50 transition hover:bg-crema/10 hover:text-crema"
+        aria-label="Nascondi guida"
+      >
+        <X className="size-4" />
+      </button>
+      <p className="pr-8 text-sm font-semibold text-crema">Configurazione iniziale</p>
+      <p className="mt-1 max-w-xl text-xs leading-relaxed text-crema/65">
+        Completa questi passaggi per far funzionare partnership (e, se vuoi, i ticket) su questo server.
+      </p>
+      <ul className="mt-3 space-y-2">
+        {steps.map((step) => (
+          <li key={step.id}>
+            <button
+              type="button"
+              onClick={() => onGo(step.section)}
+              className="flex w-full items-center gap-2.5 rounded-xl bg-espresso/40 px-3 py-2 text-left text-sm text-crema/85 ring-1 ring-sand/10 transition hover:bg-espresso/55"
+            >
+              {step.done ? (
+                <CheckCircle2 className="size-4 shrink-0 text-[#9fd0a8]" aria-hidden />
+              ) : (
+                <Circle className="size-4 shrink-0 text-crema/40" aria-hidden />
+              )}
+              <span className="min-w-0 flex-1 font-medium">
+                {step.label}
+                {step.optional ? <span className="ml-1 text-xs font-normal text-crema/45">opzionale</span> : null}
+              </span>
+              <span className="text-xs font-semibold text-ember">Apri</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function GuildHero({ guild, premiumActive, prefix }: { guild: GuildOverview; premiumActive: boolean; prefix: string | null }) {
   const initial = (guild.name.trim().charAt(0) || "?").toUpperCase();
   const created = guildCreatedAt(guild.id);
@@ -261,26 +423,6 @@ function readImageFile(file: File): Promise<{ ok: true; dataUri: string } | { ok
   });
 }
 
-/** Riga di stato sotto il nickname: "Avatar · personalizzato  [Togli]". */
-function IdentityStatusRow({ label, custom, busy, disabled, onPick, onReset }: { label: string; custom: boolean; busy: boolean; disabled: boolean; onPick: () => void; onReset: () => void }) {
-  return (
-    <div className="flex items-center gap-3 py-2.5">
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-crema">{label}</p>
-        <p className="text-xs text-crema/60">{busy ? "Caricamento…" : custom ? "Solo per questo server" : "Quello di sempre del bot"}</p>
-      </div>
-      <button type="button" disabled={disabled} onClick={onPick} className={miniBtnCls}>
-        <Upload className="size-3.5" aria-hidden /> {custom ? "Cambia" : "Carica"}
-      </button>
-      {custom ? (
-        <button type="button" disabled={disabled} onClick={onReset} className={miniBtnCls} aria-label={`Togli ${label.toLowerCase()} personalizzato`} title="Torna a quello di sempre">
-          <RotateCcw className="size-3.5" aria-hidden />
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
 function BotIdentityCard({
   settings,
   canCustomize,
@@ -295,11 +437,13 @@ function BotIdentityCard({
   onToast: (msg: string, err?: boolean) => void;
 }) {
   const [nick, setNick] = useState(settings.botNickname ?? "");
+  const [editingNick, setEditingNick] = useState(false);
   useEffect(() => setNick(settings.botNickname ?? ""), [settings.botNickname]);
   /* anteprima immediata mentre il bot salva (Discord ci mette qualche secondo) */
   const [pending, setPending] = useState<{ avatar?: string; banner?: string }>({});
   const avatarInput = useRef<HTMLInputElement>(null);
   const bannerInput = useRef<HTMLInputElement>(null);
+  const nickInput = useRef<HTMLInputElement>(null);
 
   const presence = PRESENCE[settings.botPresence?.status || "online"] ?? PRESENCE.online;
   const shownName = nick.trim() || settings.botUsername || "Vinili";
@@ -308,10 +452,31 @@ function BotIdentityCard({
   const banner = pending.banner || settings.botBannerUrl;
   const locked = !canCustomize || saving;
 
-  const submit = async () => {
-    if (!changed || locked) return;
-    const ok = await onSave({ botNickname: nick.trim() || null }, nick.trim() ? "Nickname del bot aggiornato." : "Nickname del bot ripristinato.");
+  useEffect(() => {
+    if (!editingNick) return;
+    const el = nickInput.current;
+    if (!el) return;
+    el.focus();
+    el.select();
+  }, [editingNick]);
+
+  const submitNick = async () => {
+    setEditingNick(false);
+    if (!changed || locked) {
+      setNick(settings.botNickname ?? "");
+      return;
+    }
+    const ok = await onSave(
+      { botNickname: nick.trim() || null },
+      nick.trim() ? "Nickname del bot aggiornato." : "Nickname del bot ripristinato.",
+    );
     if (!ok) setNick(settings.botNickname ?? "");
+  };
+
+  const startEditNick = () => {
+    if (!canCustomize) return onToast("Il nickname del bot per server è una funzione Premium.", true);
+    if (saving) return;
+    setEditingNick(true);
   };
 
   const upload = async (kind: "avatar" | "banner", file: File) => {
@@ -359,18 +524,32 @@ function BotIdentityCard({
     />
   );
 
-  /* velo "Cambia" che compare al passaggio, come su Discord */
-  const editVeil = (text: string, round?: boolean) =>
+  /* velo "Cambia" + ripristino se personalizzato */
+  const mediaOverlay = (kind: "avatar" | "banner", custom: boolean, round?: boolean) =>
     canCustomize ? (
       <span
         className={cn(
           "pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-ink/55 text-[0.7rem] font-bold uppercase tracking-wider text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100",
           round && "rounded-full",
         )}
-        aria-hidden
       >
-        <Camera className="size-5" />
-        {text}
+        <Camera className="size-5" aria-hidden />
+        {kind === "avatar" ? "Cambia" : custom ? "Cambia banner" : "Aggiungi banner"}
+        {custom ? (
+          <button
+            type="button"
+            disabled={saving}
+            title="Torna a quello di sempre"
+            aria-label={kind === "avatar" ? "Ripristina avatar" : "Ripristina banner"}
+            onClick={(e) => {
+              e.stopPropagation();
+              void reset(kind);
+            }}
+            className="pointer-events-auto mt-0.5 inline-flex items-center gap-1 rounded-md bg-ink/50 px-2 py-0.5 text-[0.65rem] font-semibold normal-case tracking-normal text-white/90 ring-1 ring-white/20 hover:bg-ink/70"
+          >
+            <RotateCcw className="size-3" aria-hidden /> Ripristina
+          </button>
+        ) : null}
       </span>
     ) : null;
 
@@ -378,136 +557,150 @@ function BotIdentityCard({
     <Panel
       icon={<Bot />}
       title="Il bot in questo server"
-      description="Nickname, avatar e banner che vedono solo i membri di qui. Clicca su foto o banner per cambiarli."
+      description="Clicca sul nome, sulla foto o sul banner per cambiarli. Solo i membri di questo server li vedono."
       aside={<PremiumBadge active={canCustomize} />}
     >
       {fileInput("avatar")}
       {fileInput("banner")}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-        {/* anteprima profilo Discord */}
-        <div className="overflow-hidden rounded-2xl bg-[#232428] ring-1 ring-sand/10">
+
+      {!canCustomize ? (
+        <div className="mb-4">
+          <PremiumLock
+            feature="L'identità del bot"
+            note={
+              settings.identitySuspended
+                ? "Premium è scaduto: nickname, avatar e banner sono salvati e tornano appena lo rinnovi."
+                : "Con Premium il bot ha nickname, avatar e banner diversi solo in questo server."
+            }
+          />
+        </div>
+      ) : null}
+
+      <div className="overflow-hidden rounded-2xl bg-[#232428] ring-1 ring-sand/10">
+        <button
+          type="button"
+          onClick={() => pick("banner")}
+          disabled={saving}
+          aria-label={canCustomize ? "Cambia il banner del bot" : "Banner del bot"}
+          className={cn("group relative block h-36 w-full overflow-hidden sm:h-44", canCustomize ? "cursor-pointer" : "cursor-default")}
+        >
+          {banner ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={banner} alt="" className="absolute inset-0 size-full object-cover" />
+          ) : (
+            <span className="absolute inset-0 bg-gradient-to-br from-mocha via-roast to-caramel/45" aria-hidden />
+          )}
+          {mediaOverlay("banner", settings.hasGuildBanner)}
+          {pending.banner ? <span className="absolute inset-0 animate-pulse bg-ink/40" aria-hidden /> : null}
+        </button>
+
+        <div className="relative px-5 pb-5 sm:px-6 sm:pb-6">
           <button
             type="button"
-            onClick={() => pick("banner")}
+            onClick={() => pick("avatar")}
             disabled={saving}
-            aria-label={canCustomize ? "Cambia il banner del bot" : "Banner del bot"}
-            className={cn("group relative block h-32 w-full overflow-hidden sm:h-40", canCustomize ? "cursor-pointer" : "cursor-default")}
-          >
-            {banner ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={banner} alt="" className="absolute inset-0 size-full object-cover" />
-            ) : (
-              <span className="absolute inset-0 bg-gradient-to-br from-mocha via-roast to-caramel/45" aria-hidden />
+            aria-label={canCustomize ? "Cambia l'avatar del bot" : "Avatar del bot"}
+            className={cn(
+              "group absolute -top-14 left-5 size-28 rounded-full ring-[6px] ring-[#232428] sm:left-6",
+              canCustomize ? "cursor-pointer" : "cursor-default",
             )}
-            {editVeil(banner ? "Cambia banner" : "Aggiungi banner")}
-            {pending.banner ? <span className="absolute inset-0 animate-pulse bg-ink/40" aria-hidden /> : null}
+          >
+            {avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatar} alt="" width={112} height={112} className="size-28 rounded-full object-cover" />
+            ) : (
+              <span className="flex size-28 items-center justify-center rounded-full bg-mocha text-crema/60">
+                <Bot className="size-10" aria-hidden />
+              </span>
+            )}
+            {mediaOverlay("avatar", settings.hasGuildAvatar, true)}
+            {pending.avatar ? <span className="absolute inset-0 animate-pulse rounded-full bg-ink/40" aria-hidden /> : null}
+            <span
+              className={cn("absolute bottom-1.5 right-1.5 size-5 rounded-full ring-[4px] ring-[#232428]", presence.dot)}
+              title={presence.label}
+              aria-hidden
+            />
           </button>
 
-          <div className="relative px-4 pb-4">
-            <button
-              type="button"
-              onClick={() => pick("avatar")}
-              disabled={saving}
-              aria-label={canCustomize ? "Cambia l'avatar del bot" : "Avatar del bot"}
-              className={cn(
-                "group absolute -top-12 left-4 size-24 rounded-full ring-[6px] ring-[#232428]",
-                canCustomize ? "cursor-pointer" : "cursor-default",
-              )}
-            >
-              {avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatar} alt="" width={96} height={96} className="size-24 rounded-full object-cover" />
+          <div className="pt-16 sm:pt-[4.25rem]">
+            <div className="flex min-w-0 items-center gap-2">
+              {editingNick ? (
+                <input
+                  ref={nickInput}
+                  id="bot-nick-inline"
+                  name="bot-nick-inline"
+                  value={nick}
+                  maxLength={32}
+                  disabled={saving}
+                  placeholder={settings.botUsername || "Vinili"}
+                  aria-label="Nickname del bot in questo server"
+                  onChange={(e) => setNick(e.target.value)}
+                  onBlur={() => void submitNick()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void submitNick();
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setNick(settings.botNickname ?? "");
+                      setEditingNick(false);
+                    }
+                  }}
+                  className="min-w-0 flex-1 rounded-md bg-[#111214] px-2 py-1 text-xl font-bold text-white outline-none ring-2 ring-[#5865f2]/placeholder:text-[#b5bac1]"
+                />
               ) : (
-                <span className="flex size-24 items-center justify-center rounded-full bg-mocha text-crema/60">
-                  <Bot className="size-9" aria-hidden />
-                </span>
-              )}
-              {editVeil("Cambia", true)}
-              {pending.avatar ? <span className="absolute inset-0 animate-pulse rounded-full bg-ink/40" aria-hidden /> : null}
-              <span
-                className={cn("absolute bottom-1 right-1 size-5 rounded-full ring-[4px] ring-[#232428]", presence.dot)}
-                title={presence.label}
-                aria-hidden
-              />
-            </button>
-
-            <div className="pt-14">
-              <p className="flex items-center gap-2 text-xl font-bold text-white">
-                <span className="truncate">{shownName}</span>
-                <span className="shrink-0 rounded bg-[#5865f2] px-1.5 py-px text-[0.6rem] font-bold uppercase text-white">Bot</span>
-              </p>
-              <p className="truncate text-sm text-[#b5bac1]">{settings.botUsername || "vinili"}</p>
-              <div className="mt-3 rounded-lg bg-[#111214] px-3 py-2.5">
-                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#b5bac1]">Stato</p>
-                <p className="mt-0.5 truncate text-sm text-[#dbdee1]" title={settings.botPresence?.text || presence.label}>
-                  {settings.botPresence?.text || presence.label}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* controlli */}
-        <div className="min-w-0 space-y-4">
-          {!canCustomize ? (
-            <PremiumLock
-              feature="L'identità del bot"
-              note={
-                settings.identitySuspended
-                  ? "Premium è scaduto: nickname, avatar e banner sono salvati e tornano appena lo rinnovi."
-                  : "Con Premium il bot ha nickname, avatar e banner diversi solo in questo server."
-              }
-            />
-          ) : null}
-
-          <label htmlFor="bot-nick" className="block">
-            <span className="text-xs font-semibold text-crema/80">Nickname</span>
-            <span className="mt-1.5 flex gap-2">
-              <input
-                id="bot-nick"
-                name="bot-nick"
-                value={nick}
-                maxLength={32}
-                disabled={locked}
-                placeholder={settings.botUsername || "Vinili"}
-                onChange={(e) => setNick(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void submit();
-                }}
-                className={cn(fieldCls, "mt-0 min-w-0 flex-1")}
-              />
-              {canCustomize && changed ? (
-                <button type="button" disabled={saving} onClick={() => void submit()} className={cn(dashPrimaryBtn, "px-3 py-1.5 text-xs")}>
-                  Salva
-                </button>
-              ) : null}
-              {canCustomize && !changed && settings.botNickname ? (
                 <button
                   type="button"
                   disabled={saving}
-                  aria-label="Ripristina il nickname"
+                  onClick={startEditNick}
+                  title={canCustomize ? "Clicca per cambiare il nickname" : undefined}
+                  className={cn(
+                    "group/name flex min-w-0 max-w-full items-center gap-1.5 rounded-md text-left text-xl font-bold text-white",
+                    canCustomize && "hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-caramel",
+                    canCustomize ? "cursor-pointer px-1.5 py-0.5 -ml-1.5" : "cursor-default",
+                  )}
+                >
+                  <span className="truncate">{shownName}</span>
+                  {canCustomize ? (
+                    <Pencil className="size-3.5 shrink-0 text-white/40 opacity-0 transition-opacity group-hover/name:opacity-100" aria-hidden />
+                  ) : null}
+                </button>
+              )}
+              <span className="shrink-0 rounded bg-[#5865f2] px-1.5 py-px text-[0.6rem] font-bold uppercase text-white">Bot</span>
+              {canCustomize && settings.botNickname && !editingNick ? (
+                <button
+                  type="button"
+                  disabled={saving}
                   title="Torna al nome di sempre"
+                  aria-label="Ripristina nickname"
                   onClick={async () => {
                     setNick("");
                     const ok = await onSave({ botNickname: null }, "Nickname del bot ripristinato.");
                     if (!ok) setNick(settings.botNickname ?? "");
                   }}
-                  className={miniBtnCls}
+                  className="ml-auto inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-[#b5bac1] transition hover:bg-white/[0.06] hover:text-white"
                 >
                   <RotateCcw className="size-3.5" aria-hidden />
                 </button>
               ) : null}
-            </span>
-            <span className="mt-1 block text-xs text-crema/60">Massimo 32 caratteri. Vuoto = il nome di sempre.</span>
-          </label>
-
-          <div className="divide-y divide-sand/[0.07] border-t border-sand/[0.07]">
-            <IdentityStatusRow label="Avatar" custom={settings.hasGuildAvatar} busy={Boolean(pending.avatar)} disabled={locked} onPick={() => pick("avatar")} onReset={() => void reset("avatar")} />
-            <IdentityStatusRow label="Banner" custom={settings.hasGuildBanner} busy={Boolean(pending.banner)} disabled={locked} onPick={() => pick("banner")} onReset={() => void reset("banner")} />
+            </div>
+            <p className="mt-0.5 truncate text-sm text-[#b5bac1]">{settings.botUsername || "vinili"}</p>
+            <div className="mt-4 rounded-lg bg-[#111214] px-3 py-2.5">
+              <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#b5bac1]">Stato</p>
+              <p className="mt-0.5 truncate text-sm text-[#dbdee1]" title={settings.botPresence?.text || presence.label}>
+                {settings.botPresence?.text || presence.label}
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-crema/60">Avatar quadrato (almeno 128×128), banner orizzontale (circa 680×240). PNG, JPG o GIF fino a 4 MB.</p>
         </div>
       </div>
+
+      {canCustomize ? (
+        <p className="mt-3 text-xs text-crema/55">
+          Avatar quadrato (almeno 128×128), banner orizzontale (circa 680×240). PNG, JPG o GIF fino a 4 MB. Nickname max 32 caratteri.
+        </p>
+      ) : null}
     </Panel>
   );
 }
@@ -533,13 +726,60 @@ function SettingsSection({
 }) {
   const [prefix, setPrefix] = useState(settings?.prefix ?? "+");
   const [updatesChannelId, setUpdatesChannelId] = useState(settings?.updatesChannelId ?? "");
+  const [dashboardRoleIds, setDashboardRoleIds] = useState<string[]>(settings?.dashboardRoleIds ?? []);
+  const [dashboardUserIds, setDashboardUserIds] = useState<string[]>(settings?.dashboardUserIds ?? []);
+  const [userLabels, setUserLabels] = useState<Record<string, string>>({});
+  const [userQuery, setUserQuery] = useState("");
+  const [userHits, setUserHits] = useState<MemberHit[]>([]);
   const [saving, setSaving] = useState(false);
+  const [configBusy, setConfigBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!settings) return;
     setPrefix(settings.prefix);
     setUpdatesChannelId(settings.updatesChannelId ?? "");
+    setDashboardRoleIds(settings.dashboardRoleIds ?? []);
+    setDashboardUserIds(settings.dashboardUserIds ?? []);
   }, [settings]);
+
+  useEffect(() => {
+    const ids = settings?.dashboardUserIds ?? [];
+    if (!ids.length || !token || !guildId) return;
+    let cancel = false;
+    (async () => {
+      const next: Record<string, string> = {};
+      for (const id of ids) {
+        const res = await searchTicketMembers(token, guildId, id);
+        if (cancel) return;
+        if (res.ok) {
+          const hit = res.data.find((h) => h.id === id) || res.data[0];
+          if (hit) next[id] = hit.label;
+        }
+      }
+      if (!cancel) setUserLabels((cur) => ({ ...cur, ...next }));
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [settings?.dashboardUserIds, token, guildId]);
+
+  useEffect(() => {
+    const q = userQuery.trim();
+    if (q.length < 2 && !/^\d{16,22}$/.test(q)) {
+      setUserHits([]);
+      return;
+    }
+    const timer = window.setTimeout(async () => {
+      const res = await searchTicketMembers(token, guildId, q);
+      if (!res.ok) {
+        setUserHits([]);
+        return;
+      }
+      setUserHits(res.data.filter((h) => !dashboardUserIds.includes(h.id)).slice(0, 8));
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [userQuery, token, guildId, dashboardUserIds]);
 
   const save = async (body: Record<string, unknown>, okMsg: string) => {
     setSaving(true);
@@ -554,6 +794,49 @@ function SettingsSection({
     return true;
   };
 
+  const downloadBackup = async () => {
+    setConfigBusy(true);
+    const res = await exportGuildConfig(token, guildId);
+    setConfigBusy(false);
+    if (!res.ok) {
+      onToast(res.message, true);
+      return;
+    }
+    onToast(`Backup scaricato: ${res.filename}`);
+  };
+
+  const restoreBackup = async (file: File | null) => {
+    if (!file) return;
+    const ok = await confirmDialog({
+      message:
+        "Ripristinare questo backup? Sovrascrive impostazioni, comandi, partnership e ticket (non i ticket aperti né la storia).",
+      danger: true,
+    });
+    if (!ok) return;
+    setConfigBusy(true);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as Record<string, unknown>;
+      const config =
+        parsed.config && typeof parsed.config === "object"
+          ? (parsed.config as Record<string, unknown>)
+          : parsed;
+      const res = await importGuildConfig(token, guildId, config);
+      if (!res.ok) {
+        onToast(res.message, true);
+        return;
+      }
+      onToast(res.data.message);
+      for (const w of res.data.warnings) onToast(w, true);
+      window.location.reload();
+    } catch {
+      onToast("File backup non valido (serve un JSON).", true);
+    } finally {
+      setConfigBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   if (error && !settings) {
     return (
       <p className="rounded-xl bg-caramel/10 px-3 py-2.5 text-sm text-crema/75 ring-1 ring-caramel/25">
@@ -565,6 +848,26 @@ function SettingsSection({
 
   const prefixLocked = settings.prefixLocked;
   const updatesLocked = settings.updatesLocked;
+  const rolesLocked = settings.rolesLocked;
+  const roleOptions = pickers.roles
+    .filter((r) => !r.managed)
+    .map((r) => ({ id: r.id, label: r.name }));
+
+  const saveRoles = async (next: string[]) => {
+    setDashboardRoleIds(next);
+    const ok = await save({ dashboardRoleIds: next }, "Ruoli dashboard salvati.");
+    if (!ok) setDashboardRoleIds(settings.dashboardRoleIds ?? []);
+  };
+
+  const saveUsers = async (next: string[]) => {
+    if (next.length > 25) {
+      onToast("Puoi aggiungere al massimo 25 utenti.", true);
+      return;
+    }
+    setDashboardUserIds(next);
+    const ok = await save({ dashboardUserIds: next }, "Utenti dashboard salvati.");
+    if (!ok) setDashboardUserIds(settings.dashboardUserIds ?? []);
+  };
 
   return (
     <div className="space-y-4">
@@ -632,6 +935,121 @@ function SettingsSection({
             </label>
           </div>
         </Panel>
+
+        <Panel
+          icon={<UserPlus />}
+          title="Accesso dashboard"
+          description="Oltre a Gestisci server: scegli ruoli o persone che possono aprire la dashboard di questo server."
+        >
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold text-crema/70">Ruoli</p>
+              <MultiCheck
+                options={roleOptions}
+                selected={dashboardRoleIds}
+                onChange={(ids) => {
+                  if (rolesLocked || saving) return;
+                  void saveRoles(ids);
+                }}
+                empty="Nessun ruolo disponibile."
+              />
+              {rolesLocked ? (
+                <p className="mt-1 text-xs text-crema/50">Bloccato su questo server.</p>
+              ) : (
+                <p className="mt-1 text-xs text-crema/50">Chi ha uno di questi ruoli può usare la dashboard.</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-crema/70">Persone</p>
+              <label className="relative mt-1.5 block">
+                <span className="sr-only">Cerca una persona</span>
+                <input
+                  name="dashboard-user-search"
+                  value={userQuery}
+                  disabled={rolesLocked || saving}
+                  onChange={(e) => setUserQuery(e.target.value)}
+                  placeholder="Cerca per nome o ID…"
+                  className={cn(fieldCls, "mt-0")}
+                />
+                {userHits.length ? (
+                  <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-lg bg-mocha p-1 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.85)] ring-1 ring-sand/20">
+                    {userHits.map((hit) => (
+                      <li key={hit.id}>
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-crema/85 hover:bg-crema/[0.06]"
+                          onClick={() => {
+                            if (dashboardUserIds.includes(hit.id)) return;
+                            setUserLabels((cur) => ({ ...cur, [hit.id]: hit.label }));
+                            setUserQuery("");
+                            setUserHits([]);
+                            void saveUsers([...dashboardUserIds, hit.id]);
+                          }}
+                        >
+                          <span className="truncate">{hit.label}</span>
+                          <span className="shrink-0 font-mono text-[0.65rem] text-crema/60">{hit.id}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </label>
+              {dashboardUserIds.length === 0 ? (
+                <p className="mt-2 text-xs text-crema/60">Nessuna persona aggiunta singolarmente.</p>
+              ) : (
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {dashboardUserIds.map((id) => (
+                    <li
+                      key={id}
+                      className="inline-flex items-center gap-1 rounded-full bg-crema/[0.07] py-1 pl-3 pr-1 text-sm text-crema ring-1 ring-sand/15"
+                    >
+                      <span className="max-w-[12rem] truncate">{userLabels[id] || id}</span>
+                      <button
+                        type="button"
+                        aria-label={`Togli ${userLabels[id] || id} dall’accesso dashboard`}
+                        disabled={rolesLocked || saving}
+                        className="flex size-5 items-center justify-center rounded-full text-crema/60 transition hover:bg-[#a83a2c]/25 hover:text-[#f0a493] disabled:opacity-45"
+                        onClick={() => void saveUsers(dashboardUserIds.filter((x) => x !== id))}
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </Panel>
+
+        <Panel
+          icon={<Download />}
+          title="Backup e ripristino"
+          description="Esporta o importa impostazioni, bacheca, comandi, partnership e ticket (solo config)."
+        >
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={configBusy} onClick={() => void downloadBackup()} className={dashSecondaryBtn}>
+              <Download className="size-4" aria-hidden /> Scarica backup
+            </button>
+            <button
+              type="button"
+              disabled={configBusy}
+              onClick={() => fileRef.current?.click()}
+              className={dashPrimaryBtn}
+            >
+              <Upload className="size-4" aria-hidden /> Ripristina da file
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => void restoreBackup(e.target.files?.[0] || null)}
+            />
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-crema/55">
+            Non include ticket aperti, transcript, storia partnership né punti manager.
+          </p>
+        </Panel>
       </div>
     </div>
   );
@@ -669,7 +1087,7 @@ function BoardsSection({
   onToast: (msg: string, err?: boolean) => void;
 }) {
   const [features, setFeatures] = useState<BoardFeatures>(settings?.boards.features ?? { quote: true, repost: true, clip: true, skull: true });
-  const [boardsEnabled, setBoardsEnabled] = useState(settings?.boards.enabled !== false);
+  const [boardsEnabled, setBoardsEnabled] = useState(settings?.boards.enabled === true);
   const [boardsMode, setBoardsMode] = useState<BoardsMode>(settings?.boards.mode ?? "shared");
   const [sharedChannelId, setSharedChannelId] = useState(settings?.boards.sharedChannelId ?? "");
   const [quoteChannelId, setQuoteChannelId] = useState(settings?.boards.quoteChannelId ?? "");
@@ -682,7 +1100,7 @@ function BoardsSection({
   useEffect(() => {
     if (!settings) return;
     setFeatures(settings.boards.features);
-    setBoardsEnabled(settings.boards.enabled !== false);
+    setBoardsEnabled(settings.boards.enabled === true);
     setBoardsMode(settings.boards.mode === "split" ? "split" : "shared");
     setSharedChannelId(settings.boards.sharedChannelId ?? "");
     setQuoteChannelId(settings.boards.quoteChannelId ?? "");
@@ -769,7 +1187,7 @@ function BoardsSection({
           onChange={async (next) => {
             setBoardsEnabled(next);
             const ok = await save({ boards: { enabled: next, features } }, next ? "Bacheca attiva." : "Bacheca disattivata.");
-            if (!ok) setBoardsEnabled(settings.boards.enabled !== false);
+            if (!ok) setBoardsEnabled(settings.boards.enabled === true);
           }}
         />
       </section>
@@ -919,6 +1337,7 @@ function CommandsSection({
   error,
   onUpdated,
   onToast,
+  category: categoryProp,
 }: {
   guildId: string;
   token: string;
@@ -927,8 +1346,10 @@ function CommandsSection({
   error: string | null;
   onUpdated: (next: CommandsPayload) => void;
   onToast: (msg: string, err?: boolean) => void;
+  /** Categoria dalla sidebar (senza chip orizzontali). */
+  category?: string;
 }) {
-  const [cat, setCat] = useState("all");
+  const cat = categoryProp && String(categoryProp).trim() ? String(categoryProp) : "all";
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [aclName, setAclName] = useState<string | null>(null);
@@ -1020,11 +1441,6 @@ function CommandsSection({
   };
 
   const aclChannels = [...pickers.textChannels, ...pickers.voiceChannels];
-  const chip = (on: boolean) =>
-    cn(
-      "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors",
-      on ? "bg-caramel/20 text-ember ring-1 ring-caramel/35" : "bg-crema/[0.04] text-crema/55 ring-1 ring-sand/10 hover:text-crema",
-    );
 
   return (
     <div className="space-y-4">
@@ -1059,23 +1475,6 @@ function CommandsSection({
               className={cn(fieldCls, "pl-9 placeholder:text-crema/50")}
             />
           </label>
-          <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Categorie comandi">
-            <button type="button" role="tab" aria-selected={cat === "all"} onClick={() => setCat("all")} className={chip(cat === "all")}>
-              Tutti <span className="ml-1 tabular-nums opacity-60">{totals.all}</span>
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                role="tab"
-                aria-selected={cat === c.id}
-                onClick={() => setCat(c.id)}
-                className={chip(cat === c.id)}
-              >
-                {c.label.charAt(0).toUpperCase() + c.label.slice(1)} <span className="ml-1 tabular-nums opacity-60">{c.commands.length}</span>
-              </button>
-            ))}
-          </div>
         </div>
 
         <ul className="divide-y divide-sand/[0.07] border-t border-sand/[0.08]">
@@ -1168,6 +1567,7 @@ export function GuildPanel() {
   const [gate, setGate] = useState<Gate>("loading");
   const [guildId, setGuildId] = useState("");
   const [section, setSectionState] = useState<Section>("settings");
+  const [moduleTab, setModuleTabState] = useState<string | null>(null);
   const [overview, setOverview] = useState<GuildOverview | null>(null);
   const [settings, setSettings] = useState<GuildSettings | null>(null);
   const [pickers, setPickers] = useState<SettingsPickers>(EMPTY_SETTINGS_PICKERS);
@@ -1184,22 +1584,47 @@ export function GuildPanel() {
     setToast({ msg, err });
   }, []);
 
-  /* sezione anche nell'indirizzo (?s=…): ricaricando o condividendo il link si riapre la stessa */
-  const setSection = useCallback((next: Section) => {
-    setSectionState(next);
+  /* sezione (+ tab modulo) anche nell'indirizzo (?s=…&t=…): ricaricando si riapre la stessa */
+  const writeNavUrl = useCallback((nextSection: Section, nextTab: string | null) => {
     try {
       const url = new URL(window.location.href);
-      url.searchParams.set("s", next);
+      url.searchParams.set("s", nextSection);
+      if (nextTab) url.searchParams.set("t", nextTab);
+      else url.searchParams.delete("t");
       window.history.replaceState(window.history.state, "", url.toString());
     } catch {
       /* ignore */
     }
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
+
+  const setSection = useCallback(
+    (next: Section) => {
+      const nextTab = defaultModuleTab(next);
+      setSectionState(next);
+      setModuleTabState(nextTab);
+      writeNavUrl(next, nextTab);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [writeNavUrl],
+  );
+
+  const setModuleTab = useCallback(
+    (nextSection: Section, tab: string) => {
+      const safe = sanitizeModuleTab(nextSection, tab);
+      setSectionState(nextSection);
+      setModuleTabState(safe);
+      writeNavUrl(nextSection, safe);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [writeNavUrl],
+  );
 
   useEffect(() => {
     const fromUrl = readSectionFromSearch(window.location.search);
-    if (fromUrl) setSectionState(fromUrl);
+    if (fromUrl) {
+      setSectionState(fromUrl);
+      setModuleTabState(readModuleTabFromSearch(window.location.search, fromUrl));
+    }
   }, []);
 
   useEffect(() => {
@@ -1292,18 +1717,43 @@ export function GuildPanel() {
     };
   }, [ready, token]);
 
-  const sectionMeta = GUILD_SECTIONS.find((s) => s.id === section) ?? GUILD_SECTIONS[0];
+  const sectionMeta = findGuildSection(section);
+  const commandTabsForNav = useMemo(() => {
+    const cats = commands?.catalog || [];
+    if (!cats.length) return [...COMMAND_SECTION_TABS];
+    return [
+      { id: "all", label: "Tutti" },
+      ...cats.map((c) => ({
+        id: c.id,
+        label: c.label.charAt(0).toUpperCase() + c.label.slice(1),
+      })),
+    ];
+  }, [commands]);
+  const activeSectionTabs =
+    section === "commands" ? commandTabsForNav : sectionTabs(section);
+  const activeTabLabel =
+    activeSectionTabs.length && moduleTab
+      ? activeSectionTabs.find((t) => t.id === moduleTab)?.label || null
+      : null;
   const showSections = gate === "ready" && overview?.botPresent;
+  const heading = activeTabLabel ? `${sectionMeta.label} · ${activeTabLabel}` : sectionMeta.label;
 
   return (
     <DashboardShell
-      title={showSections ? sectionMeta.label : "Pannello server"}
-      crumb={showSections ? sectionMeta.label : "Pannello"}
+      title={showSections ? heading : "Pannello server"}
+      crumb={showSections ? heading : "Pannello"}
       lead={showSections ? SECTION_LEAD[section] : "Impostazioni, comandi, ticket e partnership del server selezionato."}
       guild={overview ? { id: overview.id, name: overview.name, iconUrl: overview.iconUrl } : null}
       guildNav={
         showSections
-          ? { active: section, onSelect: setSection, badges: { tickets: tickets?.overview.unclaimed || undefined } }
+          ? {
+              active: section,
+              onSelect: setSection,
+              moduleTab,
+              onModuleTab: setModuleTab,
+              tabsBySection: { commands: commandTabsForNav },
+              badges: { tickets: tickets?.overview.unclaimed || undefined },
+            }
           : undefined
       }
     >
@@ -1390,6 +1840,10 @@ export function GuildPanel() {
               prefix={overview.botPresent ? settings?.prefix ?? commands?.prefix ?? null : null}
             />
 
+            {overview.botPresent ? (
+              <SetupGuideBanner overview={overview} ticketsEnabled={tickets?.enabled === true} onGo={setSection} />
+            ) : null}
+
             {!overview.botPresent ? (
               <StateCard
                 icon={<Plus />}
@@ -1406,36 +1860,81 @@ export function GuildPanel() {
               </StateCard>
             ) : (
               <>
-                {/* telefono e tablet: le sezioni anche qui (su pc sono nella sidebar) */}
-                <div
-                  className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 lg:hidden"
-                  role="tablist"
-                  aria-label="Sezioni pannello"
-                >
-                  {GUILD_SECTIONS.map((s) => {
-                    const Icon = s.icon;
-                    const on = section === s.id;
-                    return (
-                      <button
-                        key={s.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={on}
-                        onClick={() => setSection(s.id)}
-                        className={cn(
-                          "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
-                          on ? "bg-caramel/15 text-ember ring-1 ring-caramel/30" : "bg-roast/70 text-crema/55 ring-1 ring-sand/10",
-                        )}
-                      >
-                        <Icon className="size-4" aria-hidden />
-                        {s.label}
-                        {s.id === "tickets" && tickets?.overview.unclaimed ? (
-                          <span className="rounded bg-caramel px-1 text-[0.6rem] font-bold tabular-nums text-ink">{tickets.overview.unclaimed}</span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
+                {/* telefono/tablet: chip sezioni (su pc c’è la sidebar SERVER / MODULI) */}
+                <div className="space-y-2 lg:hidden">
+                  <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5" role="tablist" aria-label="Server">
+                    {GUILD_SERVER_SECTIONS.map((s) => {
+                      const Icon = s.icon;
+                      const on = section === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={on}
+                          onClick={() => setSection(s.id)}
+                          className={cn(
+                            "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
+                            on ? "bg-caramel/15 text-ember ring-1 ring-caramel/30" : "bg-roast/70 text-crema/55 ring-1 ring-sand/10",
+                          )}
+                        >
+                          <Icon className="size-4" aria-hidden />
+                          {s.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5" role="tablist" aria-label="Moduli">
+                    {GUILD_MODULE_SECTIONS.map((s) => {
+                      const Icon = s.icon;
+                      const on = section === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={on}
+                          onClick={() => setSection(s.id)}
+                          className={cn(
+                            "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
+                            on ? "bg-caramel/15 text-ember ring-1 ring-caramel/30" : "bg-roast/70 text-crema/55 ring-1 ring-sand/10",
+                          )}
+                        >
+                          <Icon className="size-4" aria-hidden />
+                          {s.label}
+                          {s.id === "tickets" && tickets?.overview.unclaimed ? (
+                            <span className="rounded bg-caramel px-1 text-[0.6rem] font-bold tabular-nums text-ink">{tickets.overview.unclaimed}</span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {activeSectionTabs.length > 0 ? (
+                    <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-0.5" role="tablist" aria-label={`Sezioni ${sectionMeta.label}`}>
+                      {activeSectionTabs.map((t) => {
+                        const on = moduleTab === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={on}
+                            onClick={() => setModuleTab(section, t.id)}
+                            className={cn(
+                              "inline-flex shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                              on ? "bg-caramel/12 text-crema ring-1 ring-caramel/25" : "text-crema/50 ring-1 ring-sand/10 hover:text-crema/80",
+                            )}
+                          >
+                            {t.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </div>
+
+                {/* primo avvio guidato: compare finché manca un passo (si può nascondere) */}
+                {guildId && token && overview.botPresent ? <SetupWizard guildId={guildId} token={token} /> : null}
 
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -1468,6 +1967,7 @@ export function GuildPanel() {
                         commands={commands}
                         pickers={pickers}
                         error={commandsError}
+                        category={moduleTab || "all"}
                         onUpdated={(next) => {
                           setCommands(next);
                           setCommandsError(null);
@@ -1498,6 +1998,7 @@ export function GuildPanel() {
                         summary={tickets}
                         error={ticketsError}
                         isMainGuild={overview.isMainGuild}
+                        tab={moduleTab && isTicketModuleTab(moduleTab) ? moduleTab : "overview"}
                         onSummary={(next) => {
                           setTickets(next);
                           setTicketsError(null);
@@ -1505,9 +2006,22 @@ export function GuildPanel() {
                         onToast={showToast}
                       />
                     ) : null}
+                    {section === "moderation" && guildId && token ? (
+                      <ModerationPanel
+                        guildId={guildId}
+                        token={token}
+                        tab={moduleTab && isModerationModuleTab(moduleTab) ? moduleTab : "overview"}
+                        onToast={showToast}
+                      />
+                    ) : null}
                     {section === "partnership" && guildId && token ? (
                       <Panel>
-                        <PartnershipPanel guildId={guildId} token={token} onToast={showToast} />
+                        <PartnershipPanel
+                          guildId={guildId}
+                          token={token}
+                          onToast={showToast}
+                          tab={moduleTab && isPartnershipModuleTab(moduleTab) ? moduleTab : "setup"}
+                        />
                       </Panel>
                     ) : null}
 
@@ -1517,15 +2031,29 @@ export function GuildPanel() {
                       </Panel>
                     ) : null}
 
+                    {section === "salute" && guildId && token ? (
+                      <Panel>
+                        <HealthPanel guildId={guildId} token={token} />
+                      </Panel>
+                    ) : null}
+
                     {section === "registro" && guildId && token ? (
                       <Panel>
-                        <AuditPanel guildId={guildId} token={token} />
+                        <AuditPanel
+                          guildId={guildId}
+                          token={token}
+                          area={moduleTab && isRegistroModuleTab(moduleTab) ? moduleTab : "all"}
+                        />
                       </Panel>
                     ) : null}
 
                     {section === "classifica" && guildId && token ? (
                       <Panel>
-                        <LeaderboardPanel guildId={guildId} token={token} />
+                        <LeaderboardPanel
+                          guildId={guildId}
+                          token={token}
+                          category={moduleTab && isClassificaSectionTab(moduleTab) ? moduleTab : "servers"}
+                        />
                       </Panel>
                     ) : null}
                   </motion.div>

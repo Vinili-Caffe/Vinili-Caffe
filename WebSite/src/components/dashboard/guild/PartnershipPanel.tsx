@@ -31,18 +31,10 @@ import { PARTNERSHIP_SAMPLES, PlaceholderList } from "./PlaceholderList";
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
-import { Field, FormGroup, Notice, PremiumBadge, PremiumLock, SettingRow, StatusBadge, Subnav, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, FormSkeleton } from "./bits";
+import { Field, FormGroup, Notice, PremiumBadge, PremiumLock, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, FormSkeleton } from "./bits";
+import { isPartnershipModuleTab, type PartnershipModuleTabId } from "../guildSections";
 
-type Tab = "setup" | "filtri" | "blacklist" | "manager" | "storia" | "migrazione";
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: "setup", label: "Impostazioni" },
-  { id: "filtri", label: "Filtri" },
-  { id: "blacklist", label: "Blacklist" },
-  { id: "manager", label: "Manager" },
-  { id: "storia", label: "Cronologia" },
-  { id: "migrazione", label: "Importazione" },
-];
+type Tab = PartnershipModuleTabId;
 
 const FILTERS: { key: keyof ContentFilters; title: string; hint: string }[] = [
   { key: "stripMentions", title: "Rimuovi menzioni", hint: "Cancella menzioni a utenti, ruoli e canali" },
@@ -84,12 +76,15 @@ export function PartnershipPanel({
   guildId,
   token,
   onToast,
+  tab: tabProp,
 }: {
   guildId: string;
   token: string;
   onToast: (msg: string, err?: boolean) => void;
+  /** Tab dalla sidebar (senza Subnav orizzontale). */
+  tab?: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>("setup");
+  const tab: Tab = tabProp && isPartnershipModuleTab(tabProp) ? tabProp : "setup";
   /* segnaposto: si inseriscono nell'ultimo campo del ringraziamento dove hai scritto */
   const tyTitleRef = useRef<HTMLInputElement>(null);
   const tyTextRef = useRef<HTMLTextAreaElement>(null);
@@ -296,8 +291,6 @@ export function PartnershipPanel({
           </a>
         ) : null}
       </div>
-      <Subnav tabs={TABS} value={tab} onChange={setTab} label="Partnership" />
-
       {tab === "setup" ? (
         <div className="space-y-4">
           <SaveBar text="Le modifiche del setup si applicano quando salvi.">

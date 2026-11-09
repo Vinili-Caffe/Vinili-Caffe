@@ -101,126 +101,121 @@ function PartnerProfile({ token, onToast }: { token: string; onToast: (m: string
   const selectedCount = profile.badges.filter((b) => b.selected).length;
 
   return (
-    <>
+    <div className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-3">
         <StatTile icon={<Handshake />} tone="accent" label="Partnership totali" value={profile.scores.total.toLocaleString("it-IT")} />
         <StatTile icon={<Handshake />} label="Questa settimana" value={profile.scores.weekly.toLocaleString("it-IT")} />
         <StatTile icon={<Handshake />} label="Oggi" value={profile.scores.daily.toLocaleString("it-IT")} />
       </div>
 
-      {/* sinistra: preferenze + obiettivi; destra: badge (più lunghi) — niente riquadro vuoto accanto */}
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-        <div className="min-w-0 space-y-5">
-        <Panel icon={<Settings2 />} title="Preferenze del bot" description="Valgono quando usi Vinili sul server principale.">
-          <div className="divide-y divide-sand/[0.07]">
-            <SettingRow title="Niente ping nelle mie partnership" description="Quando sei tu il manager, il messaggio di partnership non ti menziona.">
-              <Toggle
+      <Panel icon={<Settings2 />} title="Preferenze del bot" description="Valgono quando usi Vinili sul server principale.">
+        <div className="divide-y divide-sand/[0.07] sm:grid sm:grid-cols-2 sm:gap-x-6 sm:divide-y-0 lg:grid-cols-3">
+          <SettingRow title="Niente ping nelle mie partnership" description="Quando sei tu il manager, il messaggio di partnership non ti menziona.">
+            <Toggle
+              size="sm"
+              checked={profile.prefs.suppressManagerPing}
+              disabled={busy}
+              label="Niente ping nelle mie partnership"
+              onChange={(v) => void patch({ suppressManagerPing: v }, "Preferenza salvata.")}
+            />
+          </SettingRow>
+          <SettingRow title="Risposte dei comandi solo per me" description="Le risposte dei comandi partnership le vedi solo tu.">
+            <Toggle
+              size="sm"
+              checked={profile.prefs.ephemeralCommands}
+              disabled={busy}
+              label="Risposte dei comandi solo per me"
+              onChange={(v) => void patch({ ephemeralCommands: v }, "Preferenza salvata.")}
+            />
+          </SettingRow>
+          {profile.languages.length ? (
+            <SettingRow title="Lingua del bot" description="Lingua dei messaggi che il bot ti manda.">
+              <Select
+                aria-label="Lingua del bot"
                 size="sm"
-                checked={profile.prefs.suppressManagerPing}
+                value={profile.prefs.language}
                 disabled={busy}
-                label="Niente ping nelle mie partnership"
-                onChange={(v) => void patch({ suppressManagerPing: v }, "Preferenza salvata.")}
+                onChange={(v) => void patch({ language: v }, "Lingua salvata.")}
+                options={profile.languages.map((l) => ({ value: l.code, label: `${l.flag} ${l.label}`.trim() }))}
+                className="min-w-36"
               />
             </SettingRow>
-            <SettingRow title="Risposte dei comandi solo per me" description="Le risposte dei comandi partnership le vedi solo tu.">
-              <Toggle
-                size="sm"
-                checked={profile.prefs.ephemeralCommands}
-                disabled={busy}
-                label="Risposte dei comandi solo per me"
-                onChange={(v) => void patch({ ephemeralCommands: v }, "Preferenza salvata.")}
-              />
-            </SettingRow>
-            {profile.languages.length ? (
-              <SettingRow title="Lingua del bot" description="Lingua dei messaggi che il bot ti manda.">
-                <Select
-                  aria-label="Lingua del bot"
-                  size="sm"
-                  value={profile.prefs.language}
-                  disabled={busy}
-                  onChange={(v) => void patch({ language: v }, "Lingua salvata.")}
-                  options={profile.languages.map((l) => ({ value: l.code, label: `${l.flag} ${l.label}`.trim() }))}
-                  className="min-w-36"
-                />
-              </SettingRow>
-            ) : null}
-          </div>
-        </Panel>
-          {profile.qualifiesForMissions && profile.objectives.length ? (
-            <Panel
-              icon={<Target />}
-              title="Obiettivi"
-              description="Completandoli sblocchi i badge."
-              aside={<span className="text-xs tabular-nums text-crema/60">{Math.round(profile.awardsPercent)}% fatto</span>}
-            >
-              <ul className="grid gap-2">
-                {profile.objectives.map((o) => {
-                  const pct = Math.min(100, Math.round((o.current / o.target) * 100));
-                  return (
-                    <li key={o.id} className="flex items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-crema/[0.06]">
-                        <Emoji e={o.emoji} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="flex items-center justify-between gap-2 text-sm font-semibold text-crema">
-                          <span className="truncate">{o.title}</span>
-                          <span className={cn("shrink-0 text-xs tabular-nums", o.done ? "text-[#9fd0a8] light:text-[#2f6b3f]" : "text-crema/60")}>
-                            {o.done ? "Fatto" : `${Math.min(o.current, o.target)}/${o.target}`}
-                          </span>
-                        </p>
-                        {o.desc ? <p className="truncate text-xs text-crema/60">{o.desc}</p> : null}
-                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-crema/[0.08]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={o.title}>
-                          <div className={cn("h-full rounded-full", o.done ? "bg-[#7fc48c]" : "bg-caramel")} style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Panel>
           ) : null}
         </div>
+      </Panel>
 
+      <Panel
+        icon={<Award />}
+        title="Badge in vetrina"
+        description={`Scegline fino a ${profile.maxSelectedBadges}: compaiono accanto al tuo nome nelle partnership.`}
+        aside={<span className="text-xs tabular-nums text-crema/60">{selectedCount}/{profile.maxSelectedBadges}</span>}
+      >
+        {unlocked.length === 0 ? (
+          <p className="text-sm text-crema/60">Nessun badge sbloccato: completa gli obiettivi per averne.</p>
+        ) : (
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {profile.badges.map((b) => (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  disabled={!b.unlocked || busy}
+                  aria-pressed={b.selected}
+                  onClick={() => void patch({ toggleBadgeId: b.id }, b.selected ? "Badge tolto dalla vetrina." : "Badge in vetrina.")}
+                  title={b.desc || b.title}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left ring-1 transition",
+                    b.selected ? "bg-caramel/12 ring-caramel/45" : "bg-espresso/45 ring-sand/10 hover:ring-sand/25",
+                    !b.unlocked && "opacity-45",
+                  )}
+                >
+                  <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg bg-crema/[0.06]", !b.unlocked && "grayscale")}>
+                    <Emoji e={b.emoji} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-crema">{b.unlocked ? b.title : "Bloccato"}</span>
+                    <span className="block truncate text-xs text-crema/60">{b.unlocked ? b.desc || "Sbloccato" : "Completa un obiettivo"}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      {profile.qualifiesForMissions && profile.objectives.length ? (
         <Panel
-          icon={<Award />}
-          title="Badge in vetrina"
-          description={`Scegline fino a ${profile.maxSelectedBadges}: compaiono accanto al tuo nome nelle partnership.`}
-          aside={<span className="text-xs tabular-nums text-crema/60">{selectedCount}/{profile.maxSelectedBadges}</span>}
+          icon={<Target />}
+          title="Obiettivi"
+          description="Completandoli sblocchi i badge."
+          aside={<span className="text-xs tabular-nums text-crema/60">{Math.round(profile.awardsPercent)}% fatto</span>}
         >
-          {unlocked.length === 0 ? (
-            <p className="text-sm text-crema/60">Nessun badge sbloccato: completa gli obiettivi per averne.</p>
-          ) : (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {profile.badges.map((b) => (
-                <li key={b.id}>
-                  <button
-                    type="button"
-                    disabled={!b.unlocked || busy}
-                    aria-pressed={b.selected}
-                    onClick={() => void patch({ toggleBadgeId: b.id }, b.selected ? "Badge tolto dalla vetrina." : "Badge in vetrina.")}
-                    title={b.desc || b.title}
-                    className={cn(
-                      "flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left ring-1 transition",
-                      b.selected ? "bg-caramel/12 ring-caramel/45" : "bg-espresso/45 ring-sand/10 hover:ring-sand/25",
-                      !b.unlocked && "opacity-45",
-                    )}
-                  >
-                    <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg bg-crema/[0.06]", !b.unlocked && "grayscale")}>
-                      <Emoji e={b.emoji} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-crema">{b.unlocked ? b.title : "Bloccato"}</span>
-                      <span className="block truncate text-xs text-crema/60">{b.unlocked ? b.desc || "Sbloccato" : "Completa un obiettivo"}</span>
-                    </span>
-                  </button>
+          <ul className="grid gap-2 md:grid-cols-2">
+            {profile.objectives.map((o) => {
+              const pct = Math.min(100, Math.round((o.current / o.target) * 100));
+              return (
+                <li key={o.id} className="flex items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-crema/[0.06]">
+                    <Emoji e={o.emoji} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center justify-between gap-2 text-sm font-semibold text-crema">
+                      <span className="truncate">{o.title}</span>
+                      <span className={cn("shrink-0 text-xs tabular-nums", o.done ? "text-[#9fd0a8] light:text-[#2f6b3f]" : "text-crema/60")}>
+                        {o.done ? "Fatto" : `${Math.min(o.current, o.target)}/${o.target}`}
+                      </span>
+                    </p>
+                    {o.desc ? <p className="truncate text-xs text-crema/60">{o.desc}</p> : null}
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-crema/[0.08]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={o.title}>
+                      <div className={cn("h-full rounded-full", o.done ? "bg-[#7fc48c]" : "bg-caramel")} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
                 </li>
-              ))}
-            </ul>
-          )}
+              );
+            })}
+          </ul>
         </Panel>
-      </div>
-
-    </>
+      ) : null}
+    </div>
   );
 }
 

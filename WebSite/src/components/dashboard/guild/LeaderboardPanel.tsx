@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Crown, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { Notice, Subnav, miniBtn } from "./bits";
+import { Notice, miniBtn } from "./bits";
+import { isClassificaSectionTab, type ClassificaSectionTabId } from "../guildSections";
 
 // API: GET /webhooks/site-dashboard/guilds/:id/leaderboard?category=&period=&page=
 // Handler: MultiGuild/site/dashboard/siteDashboardLeaderboardApi.ts
@@ -124,11 +125,26 @@ function RankRow({ row, unit, max }: { row: Row; unit: string; max: number }) {
   );
 }
 
-export function LeaderboardPanel({ guildId, token }: { guildId: string; token: string }) {
-  const [category, setCategory] = useState<Category>("servers");
+export function LeaderboardPanel({
+  guildId,
+  token,
+  category: categoryProp,
+}: {
+  guildId: string;
+  token: string;
+  /** Categoria dalla sidebar (senza Subnav orizzontale). */
+  category?: ClassificaSectionTabId | string;
+}) {
+  const category: Category =
+    categoryProp && isClassificaSectionTab(categoryProp) ? categoryProp : "servers";
   const [period, setPeriod] = useState<Period>("total");
   const [page, setPage] = useState(1);
   const [state, setState] = useState<{ loading: boolean; error: string; board: Board | null }>({ loading: true, error: "", board: null });
+
+  useEffect(() => {
+    setPage(1);
+    setState({ loading: true, error: "", board: null });
+  }, [category]);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,10 +157,9 @@ export function LeaderboardPanel({ guildId, token }: { guildId: string; token: s
     };
   }, [token, guildId, category, period, page]);
 
-  const pick = <T,>(set: (v: T) => void) => (v: T) => {
-    set(v);
+  const pickPeriod = (v: Period) => {
+    setPeriod(v);
     setPage(1);
-    /* cambio tab o periodo: skeleton al posto della classifica vecchia */
     setState({ loading: true, error: "", board: null });
   };
 
@@ -155,8 +170,6 @@ export function LeaderboardPanel({ guildId, token }: { guildId: string; token: s
 
   return (
     <div className="space-y-4">
-      <Subnav tabs={CATEGORIES.map((c) => ({ id: c.id, label: c.label }))} value={category} onChange={pick(setCategory)} label="Tipo di classifica" />
-
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-crema/70">{cat.hint}</p>
         <div className="grid grid-cols-3 gap-1 rounded-lg bg-espresso/70 p-1 ring-1 ring-sand/10" role="radiogroup" aria-label="Periodo">
@@ -166,7 +179,7 @@ export function LeaderboardPanel({ guildId, token }: { guildId: string; token: s
               type="button"
               role="radio"
               aria-checked={period === p.id}
-              onClick={() => pick(setPeriod)(p.id)}
+              onClick={() => pickPeriod(p.id)}
               className={cn(
                 "rounded-md px-3 py-1 text-xs font-semibold transition-colors",
                 period === p.id ? "bg-mocha text-crema ring-1 ring-sand/15" : "text-crema/60 hover:text-crema",

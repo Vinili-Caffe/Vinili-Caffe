@@ -1,15 +1,21 @@
-// Dashboard: notifiche staff (campanella nella barra in alto).
+// Dashboard: centro notifiche (campanella).
 // API: GET /webhooks/site-dashboard/notifications, POST /webhooks/site-dashboard/notifications/read
-// Handler: MultiGuild/site/dashboard/siteDashboardStaffNotificationsApi.ts (solo alto staff: agli altri 403).
+// Handler: MultiGuild/site/dashboard/siteDashboardStaffNotificationsApi.ts
+// Mix: avvisi live (premium, bot assente, ticket fermi) + eventi (bot uscito) + staff (solo alto staff).
 
 const BASE = "/webhooks/site-dashboard/notifications";
 
 export type DashNotification = {
   id: string;
+  type: string;
   title: string;
   body: string;
   at: number;
   read: boolean;
+  href: string | null;
+  guildId: string | null;
+  guildName: string | null;
+  source: "live" | "event" | "staff" | string;
 };
 
 export type NotificationsResult =
@@ -22,13 +28,19 @@ function mapItems(raw: unknown): DashNotification[] {
     if (!row || typeof row !== "object") return [];
     const r = row as Record<string, unknown>;
     const body = String(r.body || "").trim();
+    const title = String(r.title || body || "Notifica").trim();
     return [
       {
         id: String(r.id || r.at || Math.random()),
-        title: String(r.title || body || "Notifica").trim(),
-        body,
+        type: String(r.type || "info").trim() || "info",
+        title,
+        body: body || title,
         at: Number(r.at) || Date.now(),
         read: r.read === true,
+        href: r.href ? String(r.href) : null,
+        guildId: r.guildId ? String(r.guildId) : null,
+        guildName: r.guildName ? String(r.guildName) : null,
+        source: String(r.source || "live"),
       },
     ];
   });

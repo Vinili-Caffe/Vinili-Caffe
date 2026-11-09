@@ -4,6 +4,7 @@ import { EmojiText } from "@/components/discord/EmojiText";
 import { NumberField } from "@/components/ui/NumberField";
 import { useEffect, useRef, useState } from "react";
 import {
+  BellRing,
   CheckCheck,
   Clock3,
   ExternalLink,
@@ -12,11 +13,14 @@ import {
   Inbox,
   Lock,
   MessageSquareText,
+  Plus,
   SlidersHorizontal,
   Star,
   Ticket,
+  Trash2,
   UserCheck,
   X,
+  Zap,
 } from "lucide-react";
 import { confirmDialog } from "@/components/ui";
 import {
@@ -26,27 +30,24 @@ import {
   patchGuildTickets,
   type TicketListBundle,
   type TicketModule,
+  type TicketQuickReply,
   type TicketsSummary,
 } from "@/lib/dashboard-guild";
 import { cn } from "@/lib/cn";
 import { Select } from "@/components/ui/Select";
-import { Field, Notice, Panel, SettingRow, StatTile, Subnav, Toggle, fieldClass, RowsSkeleton } from "./bits";
+import { Field, Notice, Panel, SettingRow, StatTile, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, RowsSkeleton } from "./bits";
 import { TicketArchive } from "./TicketArchive";
 import { TicketBlacklist } from "./TicketBlacklist";
 import { TicketForms } from "./TicketForms";
 import { TicketPanels } from "./TicketPanels";
 import { TicketTeams } from "./TicketTeams";
+import { isTicketModuleTab, type TicketModuleTabId } from "../guildSections";
 
-type Tab = "overview" | "archive" | "panels" | "forms" | "teams" | "blacklist";
+type Tab = TicketModuleTabId;
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "overview", label: "Panoramica" },
-  { id: "archive", label: "Archivio" },
-  { id: "panels", label: "Pannelli" },
-  { id: "forms", label: "Form" },
-  { id: "teams", label: "Team" },
-  { id: "blacklist", label: "Blacklist" },
-];
+function newQuickReplyId() {
+  return `r${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`.slice(0, 24);
+}
 
 type ToggleKey =
   | "hideCloseButton"
@@ -75,6 +76,7 @@ export function TicketDesk({
   isMainGuild,
   onSummary,
   onToast,
+  tab: tabProp,
 }: {
   guildId: string;
   token: string;
@@ -83,8 +85,10 @@ export function TicketDesk({
   isMainGuild: boolean;
   onSummary: (next: TicketsSummary) => void;
   onToast: (msg: string, err?: boolean) => void;
+  /** Tab dalla sidebar (senza Subnav orizzontale). */
+  tab?: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>("overview");
+  const tab: Tab = tabProp && isTicketModuleTab(tabProp) ? tabProp : "overview";
   const [mod, setMod] = useState<TicketModule | null>(null);
   const [modError, setModError] = useState("");
   const [list, setList] = useState<TicketListBundle | null>(null);
@@ -194,8 +198,6 @@ export function TicketDesk({
         <Toggle checked={enabled} disabled={busy} label="Attiva ticket" onChange={(next) => save({ enabled: next })} />
       </section>
 
-      <Subnav tabs={TABS} value={tab} onChange={setTab} label="Ticket" />
-
       {tab === "overview" && !overview && !(modError && !mod) && !(error && !summary) ? (
         <div className="space-y-4" aria-busy aria-label="Caricamento ticket">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -222,55 +224,109 @@ export function TicketDesk({
           </div>
 
           {mod ? (
-            <div className="grid gap-4 xl:grid-cols-2">
-              <Panel icon={<Hash />} title="Canali" description="Dove stanno pannello e transcript, e dove si aprono i ticket quando la categoria è piena.">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Canale pannello">
-                    <Select
-                      value={mod.settings.panelChannelId || ""}
-                      disabled={busy}
-                      onChange={(v) => save({ panelChannelId: v || null })}
-                      className={fieldClass}
-                      options={channelOptions("— Nessuno —")}
-                    />
-                  </Field>
-                  <Field label="Canale transcript">
-                    <Select
-                      value={mod.settings.transcriptChannelId || ""}
-                      disabled={busy}
-                      onChange={(v) => save({ transcriptChannelId: v || null })}
-                      className={fieldClass}
-                      options={channelOptions("— Nessuno —")}
-                    />
-                  </Field>
-                  <Field label="Categoria overflow">
-                    <Select
-                      value={mod.settings.overflowCategoryId || ""}
-                      disabled={busy}
-                      onChange={(v) => save({ overflowCategoryId: v || null })}
-                      className={fieldClass}
-                      options={[
-                        { value: "", label: mod.settings.categoryName || "Automatica" },
-                        ...mod.pickers.categories.map((c) => ({ value: c.id, label: c.name })),
-                      ]}
-                    />
-                  </Field>
-                  <Field label="Ticket aperti per utente">
-                    <NumberField
-                      name="max-open-tickets"
-                      aria-label="Ticket aperti per utente"
-                      min={1}
-                      max={25}
-                      disabled={busy}
-                      value={mod.settings.maxOpenTicketsPerUser}
-                      onChange={(n) => setMod({ ...mod, settings: { ...mod.settings, maxOpenTicketsPerUser: n ?? 1 } })}
-                      onCommit={(n) => {
-                        if (n != null) save({ maxOpenTicketsPerUser: n });
-                      }}
-                    />
-                  </Field>
-                </div>
-              </Panel>
+            <div className="grid items-start gap-4 xl:grid-cols-2">
+              {/* Sinistra: Canali + Avvisi impilati (altezza al contenuto). Destra: Comportamento. */}
+              <div className="min-w-0 space-y-4">
+                <Panel icon={<Hash />} title="Canali" description="Dove stanno pannello e transcript, e dove si aprono i ticket quando la categoria è piena.">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Canale pannello">
+                      <Select
+                        value={mod.settings.panelChannelId || ""}
+                        disabled={busy}
+                        onChange={(v) => save({ panelChannelId: v || null })}
+                        className={fieldClass}
+                        options={channelOptions("— Nessuno —")}
+                      />
+                    </Field>
+                    <Field label="Canale transcript">
+                      <Select
+                        value={mod.settings.transcriptChannelId || ""}
+                        disabled={busy}
+                        onChange={(v) => save({ transcriptChannelId: v || null })}
+                        className={fieldClass}
+                        options={channelOptions("— Nessuno —")}
+                      />
+                    </Field>
+                    <Field label="Categoria overflow">
+                      <Select
+                        value={mod.settings.overflowCategoryId || ""}
+                        disabled={busy}
+                        onChange={(v) => save({ overflowCategoryId: v || null })}
+                        className={fieldClass}
+                        options={[
+                          { value: "", label: mod.settings.categoryName || "Automatica" },
+                          ...mod.pickers.categories.map((c) => ({ value: c.id, label: c.name })),
+                        ]}
+                      />
+                    </Field>
+                    <Field label="Ticket aperti per utente">
+                      <NumberField
+                        name="max-open-tickets"
+                        aria-label="Ticket aperti per utente"
+                        min={1}
+                        max={25}
+                        disabled={busy}
+                        value={mod.settings.maxOpenTicketsPerUser}
+                        onChange={(n) => setMod({ ...mod, settings: { ...mod.settings, maxOpenTicketsPerUser: n ?? 1 } })}
+                        onCommit={(n) => {
+                          if (n != null) save({ maxOpenTicketsPerUser: n });
+                        }}
+                      />
+                    </Field>
+                  </div>
+                </Panel>
+
+                <Panel
+                  icon={<BellRing />}
+                  title="Avvisi ticket fermi"
+                  description="Se l'utente scrive e lo staff non risponde entro X minuti, avvisa una sola volta."
+                >
+                  <div className="space-y-3">
+                    <SettingRow
+                      title="Attiva avvisi"
+                      description="Controlla i ticket aperti ogni ~10 minuti. Un avviso per messaggio dell'utente."
+                      icon={<BellRing />}
+                    >
+                      <Toggle
+                        checked={mod.settings.staleAlertEnabled === true}
+                        disabled={busy}
+                        label="Avvisi ticket fermi"
+                        onChange={(next) => save({ staleAlertEnabled: next })}
+                      />
+                    </SettingRow>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Minuti di attesa" hint="Da 15 a 1440 (24 ore). Predefinito 120.">
+                        <NumberField
+                          name="stale-alert-minutes"
+                          aria-label="Minuti di attesa prima dell'avviso"
+                          min={15}
+                          max={1440}
+                          disabled={busy || !mod.settings.staleAlertEnabled}
+                          value={mod.settings.staleAlertMinutes}
+                          onChange={(n) =>
+                            setMod({
+                              ...mod,
+                              settings: { ...mod.settings, staleAlertMinutes: n ?? 120 },
+                            })
+                          }
+                          onCommit={(n) => {
+                            if (n != null) save({ staleAlertMinutes: n });
+                          }}
+                        />
+                      </Field>
+                      <Field label="Canale avvisi" hint="Vuoto = messaggio nel ticket stesso (con menzione a chi l'ha preso in carico).">
+                        <Select
+                          value={mod.settings.staleAlertChannelId || ""}
+                          disabled={busy || !mod.settings.staleAlertEnabled}
+                          onChange={(v) => save({ staleAlertChannelId: v || null })}
+                          className={fieldClass}
+                          options={channelOptions("— Nel ticket —")}
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                </Panel>
+              </div>
 
               <Panel icon={<SlidersHorizontal />} title="Comportamento" description="Pulsanti e passaggi del ticket su Discord.">
                 <div className="divide-y divide-sand/[0.07]">
@@ -418,6 +474,23 @@ export function TicketDesk({
           <TicketTeams guildId={guildId} token={token} onToast={onToast} />
         </Panel>
       ) : null}
+      {tab === "replies" ? (
+        <Panel
+          icon={<Zap />}
+          title="Risposte rapide"
+          description="Modelli pronti per lo staff. Su Discord: /risposta nel canale del ticket."
+        >
+          {!mod ? (
+            <Notice>Carica prima la panoramica ticket.</Notice>
+          ) : (
+            <QuickRepliesEditor
+              replies={mod.settings.quickReplies}
+              busy={busy}
+              onSave={async (next) => save({ quickReplies: next }, "Risposte rapide salvate.")}
+            />
+          )}
+        </Panel>
+      ) : null}
       {tab === "archive" ? (
         <Panel>
           <TicketArchive guildId={guildId} token={token} />
@@ -428,6 +501,124 @@ export function TicketDesk({
           <TicketBlacklist guildId={guildId} token={token} onToast={onToast} />
         </Panel>
       ) : null}
+    </div>
+  );
+}
+
+function QuickRepliesEditor({
+  replies,
+  busy,
+  onSave,
+}: {
+  replies: TicketQuickReply[];
+  busy: boolean;
+  onSave: (next: TicketQuickReply[]) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<TicketQuickReply[]>(replies);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    setDraft(replies);
+    setDirty(false);
+  }, [replies]);
+
+  const patchAt = (index: number, partial: Partial<TicketQuickReply>) => {
+    setDraft((cur) => cur.map((row, i) => (i === index ? { ...row, ...partial } : row)));
+    setDirty(true);
+  };
+
+  const add = () => {
+    if (draft.length >= 25) return;
+    setDraft((cur) => [...cur, { id: newQuickReplyId(), title: "", content: "" }]);
+    setDirty(true);
+  };
+
+  const remove = async (index: number) => {
+    const row = draft[index];
+    const ok = await confirmDialog({
+      message: row?.title ? `Eliminare la risposta «${row.title}»?` : "Eliminare questa risposta?",
+      danger: true,
+    });
+    if (!ok) return;
+    const next = draft.filter((_, i) => i !== index);
+    setDraft(next);
+    setDirty(false);
+    await onSave(next);
+  };
+
+  const persist = async () => {
+    const cleaned = draft
+      .map((r) => ({
+        id: String(r.id || newQuickReplyId()).slice(0, 24),
+        title: String(r.title || "").trim().slice(0, 60),
+        content: String(r.content || "").trim().slice(0, 2000),
+      }))
+      .filter((r) => r.title && r.content);
+    await onSave(cleaned);
+    setDirty(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      {!draft.length ? (
+        <div className="rounded-xl bg-crema/[0.03] px-4 py-8 text-center ring-1 ring-sand/10">
+          <p className="text-sm text-crema/65">Nessuna risposta ancora. Aggiungine una per usarla con /risposta.</p>
+          <button type="button" disabled={busy} onClick={add} className={cn(primaryMini, "mt-4")}>
+            <Plus className="size-3.5" aria-hidden /> Aggiungi risposta
+          </button>
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {draft.map((row, index) => (
+            <li key={row.id || index} className="rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10 sm:p-4">
+              <div className="flex flex-wrap items-start gap-3">
+                <div className="min-w-0 flex-1 space-y-3">
+                  <Field label="Titolo">
+                    <input
+                      value={row.title}
+                      disabled={busy}
+                      maxLength={60}
+                      placeholder="Es. Ciao e benvenuto"
+                      className={fieldClass}
+                      onChange={(e) => patchAt(index, { title: e.target.value })}
+                    />
+                  </Field>
+                  <Field label="Messaggio" hint="Testo inviato nel ticket (max 2000).">
+                    <textarea
+                      value={row.content}
+                      disabled={busy}
+                      maxLength={2000}
+                      rows={3}
+                      placeholder="Ciao! Grazie per aver aperto un ticket…"
+                      className={cn(fieldClass, "min-h-[5.5rem] resize-y")}
+                      onChange={(e) => patchAt(index, { content: e.target.value })}
+                    />
+                  </Field>
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void remove(index)}
+                  className={dangerBtn}
+                  aria-label="Elimina risposta"
+                >
+                  <Trash2 className="size-3.5" aria-hidden />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <button type="button" disabled={busy || draft.length >= 25} onClick={add} className={miniBtn}>
+          <Plus className="size-3.5" aria-hidden /> Aggiungi
+        </button>
+        <button type="button" disabled={busy || !dirty} onClick={() => void persist()} className={primaryMini}>
+          Salva risposte
+        </button>
+        {draft.length >= 25 ? <span className="self-center text-xs text-crema/50">Massimo 25 risposte.</span> : null}
+      </div>
     </div>
   );
 }
