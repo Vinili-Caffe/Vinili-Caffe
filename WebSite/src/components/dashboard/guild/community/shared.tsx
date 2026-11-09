@@ -45,7 +45,38 @@ export const MEMBER_PLACEHOLDERS = [
 ];
 
 /** Si possono usare al posto di un link nelle immagini dell'embed. */
-export const IMAGE_PLACEHOLDERS = "{avatar} = foto profilo dell'utente, {servericon} = icona del server";
+export const IMAGE_PLACEHOLDERS = [
+  { token: "{avatar}", label: "Foto utente", hint: "foto profilo di chi entra o usa il comando" },
+  { token: "{servericon}", label: "Icona server", hint: "icona del server" },
+  { token: "{serverbanner}", label: "Banner server", hint: "banner del server (se ne ha uno)" },
+];
+
+/** Campo immagine: link oppure uno dei segnaposto con un clic. */
+export function ImageUrlField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const active = IMAGE_PLACEHOLDERS.find((p) => p.token === value);
+  return (
+    <div className="min-w-0">
+      <span className={cn(labelClass, "block")}>{label}</span>
+      <input value={value} onChange={(ev) => onChange(ev.target.value)} placeholder="https://…" aria-label={label} className={fieldClass} />
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {IMAGE_PLACEHOLDERS.map((p) => (
+          <button
+            key={p.token}
+            type="button"
+            title={p.hint}
+            onClick={() => onChange(active?.token === p.token ? "" : p.token)}
+            className={cn(
+              "rounded-md px-2 py-1 text-[0.72rem] font-semibold ring-1 transition",
+              active?.token === p.token ? "bg-caramel/20 text-ember ring-caramel/40" : "bg-crema/[0.06] text-crema/70 ring-sand/10 hover:bg-crema/[0.1] hover:text-crema",
+            )}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function sampleVars(data: CommunityData | null, extra: Record<string, string> = {}) {
   return {
@@ -56,6 +87,9 @@ export function sampleVars(data: CommunityData | null, extra: Record<string, str
     server: data?.guild.name || "Il tuo server",
     avatar: "https://cdn.discordapp.com/embed/avatars/0.png",
     servericon: data?.guild.icon ? `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png?size=256` : "https://cdn.discordapp.com/embed/avatars/1.png",
+    serverbanner: data?.guild.banner
+      ? `https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.${data.guild.banner.startsWith("a_") ? "gif" : "png"}?size=1024`
+      : "",
     benvenuto: "benvenuto",
     Benvenuto: "Benvenuto",
     membercount: String(data?.guild.memberCount ?? 128),
@@ -272,19 +306,12 @@ export function DraftEditor({
               <Field label="Autore (facoltativo)">
                 <input value={e.authorName || ""} maxLength={256} placeholder="es. {username}" onChange={(ev) => setEmbed({ authorName: ev.target.value })} className={fieldClass} />
               </Field>
-              <Field label="Icona dell'autore (link)">
-                <input value={e.authorIconUrl || ""} placeholder="https://… o {avatar}" onChange={(ev) => setEmbed({ authorIconUrl: ev.target.value })} className={fieldClass} />
-              </Field>
+              <ImageUrlField label="Icona dell'autore" value={e.authorIconUrl || ""} onChange={(authorIconUrl) => setEmbed({ authorIconUrl })} />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Immagine grande (link)">
-                <input value={e.imageUrl} onChange={(ev) => setEmbed({ imageUrl: ev.target.value })} placeholder="https://…" className={fieldClass} />
-              </Field>
-              <Field label="Miniatura (link)">
-                <input value={e.thumbnailUrl} onChange={(ev) => setEmbed({ thumbnailUrl: ev.target.value })} placeholder="https://… o {avatar}" className={fieldClass} />
-              </Field>
+              <ImageUrlField label="Immagine grande" value={e.imageUrl} onChange={(imageUrl) => setEmbed({ imageUrl })} />
+              <ImageUrlField label="Miniatura" value={e.thumbnailUrl} onChange={(thumbnailUrl) => setEmbed({ thumbnailUrl })} />
             </div>
-            <p className="-mt-1 text-xs text-crema/50">Al posto di un link: {IMAGE_PLACEHOLDERS}.</p>
             <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
               <Field label="Piè di pagina">
                 <input value={e.footerText} maxLength={2048} onChange={(ev) => setEmbed({ footerText: ev.target.value })} className={fieldClass} />

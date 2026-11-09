@@ -69,7 +69,7 @@ export type PickerRole = { id: string; name: string; color: string | null; posit
 export type PickerEmoji = { id: string; name: string; animated?: boolean; url?: string };
 
 export type CommunityData = {
-  guild: { id: string; name: string; icon?: string | null; memberCount: number | null };
+  guild: { id: string; name: string; icon?: string | null; banner?: string | null; memberCount: number | null };
   welcomeSaved?: boolean;
   bot?: { id: string; name: string; avatarUrl: string } | null;
   isMainGuild?: boolean;

@@ -168,11 +168,22 @@ function guildIconOf(guild?) {
   return guild?.id && guild?.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=256` : "";
 }
 
+function guildBannerOf(guild?) {
+  try {
+    if (typeof guild?.bannerURL === "function") return String(guild.bannerURL({ size: 1024 }) || "");
+  } catch {
+    /* oggetto REST */
+  }
+  const b = guild?.banner ? String(guild.banner) : "";
+  return guild?.id && b ? `https://cdn.discordapp.com/banners/${guild.id}/${b}.${b.startsWith("a_") ? "gif" : "png"}?size=1024` : "";
+}
+
 function memberVars(guild?, user?, extra: FillVars = {}): FillVars {
   const uid = user?.id ? String(user.id) : "";
   return {
     avatar: avatarUrlOf(user),
     servericon: guildIconOf(guild),
+    serverbanner: guildBannerOf(guild),
     benvenuto: "benvenuto",
     Benvenuto: "Benvenuto",
     user: uid ? `<@${uid}>` : "",
