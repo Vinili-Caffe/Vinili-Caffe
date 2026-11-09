@@ -24,6 +24,7 @@ import {
   Trophy,
   Ticket,
   UserRound,
+  Wrench,
   X,
 } from "lucide-react";
 import { SiteShell } from "@/components/SiteShell";
@@ -31,6 +32,7 @@ import { SmartLink } from "@/components/SmartLink";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { readGuildsCache, readLastGuildId, selectGuild, type DashboardGuild } from "@/lib/dashboard";
+import { ensureIsDev, getIsDev, subscribeDev } from "@/lib/dashboard-dev";
 import { ensureCreditsBalance, getCreditsBalance, subscribeCredits } from "@/lib/dashboard-premium";
 import { cdnUrl, page } from "@/lib/site";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
@@ -303,6 +305,17 @@ function CreditsChip() {
   );
 }
 
+/** Voce "Sviluppatore": compare solo a chi il bot riconosce come sviluppatore. */
+function DevNavItem({ animated, pathname }: { animated: boolean; pathname: string }) {
+  const { token } = useAuth();
+  const isDev = useSyncExternalStore(subscribeDev, getIsDev, () => null);
+  useEffect(() => {
+    if (token) void ensureIsDev(token);
+  }, [token]);
+  if (!isDev) return null;
+  return <NavItem animated={animated} href="/dashboard/sviluppatore/" label="Sviluppatore" icon={Wrench} active={samePath(pathname, "/dashboard/sviluppatore/")} />;
+}
+
 function UserCard() {
   const { user, ready, login } = useAuth();
   if (!ready) return <div className="h-12 animate-pulse rounded-xl bg-crema/[0.04]" />;
@@ -395,6 +408,7 @@ function Sidebar({ guild, guildNav, onNavigate }: { guild: ShellGuild | null; gu
           {ACCOUNT_NAV.map((n) => (
             <NavItem animated={!onNavigate} key={n.href} href={n.href} label={n.label} icon={n.icon} active={samePath(pathname, n.href) && !ACCOUNT_NAV.some((o) => o.href.length > n.href.length && samePath(pathname, o.href))} />
           ))}
+          <DevNavItem animated={!onNavigate} pathname={pathname} />
         </NavGroup>
       </nav>
 
