@@ -32,6 +32,8 @@ type MsgEmbed = {
   thumbnailUrl: string;
   footerText: string;
   timestamp: boolean;
+  authorName: string;
+  authorIconUrl: string;
 };
 type MsgDraft = { content: string; embed: MsgEmbed; buttons: MsgButton[] };
 
@@ -41,6 +43,11 @@ const idOrNull = (v: unknown) => (isId(v) ? String(v) : null);
 const httpUrl = (v: unknown) => {
   const s = String(v || "").trim();
   return /^https?:\/\/\S+$/i.test(s) ? s.slice(0, 2000) : "";
+};
+/** Link http(s) oppure un solo segnaposto ({avatar}, {servericon}). */
+const urlOrToken = (v: unknown) => {
+  const s = String(v || "").trim();
+  return /^\{[a-zA-Z_.]+\}$/.test(s) ? s : httpUrl(s);
 };
 const hex = (v: unknown, fb = "#d49150") => {
   const s = String(v || "").trim();
@@ -62,10 +69,12 @@ function normalizeDraft(raw?): MsgDraft {
       title: str(e.title, 256),
       description: str(e.description, 4096),
       color: hex(e.color),
-      imageUrl: httpUrl(e.imageUrl),
-      thumbnailUrl: httpUrl(e.thumbnailUrl),
+      imageUrl: urlOrToken(e.imageUrl),
+      thumbnailUrl: urlOrToken(e.thumbnailUrl),
       footerText: str(e.footerText, 2048),
       timestamp: e.timestamp === true,
+      authorName: str(e.authorName, 256),
+      authorIconUrl: urlOrToken(e.authorIconUrl),
     },
     buttons,
   };
@@ -110,7 +119,13 @@ function buildMessageBody(draft: MsgDraft, vars: FillVars = {}, extraRows: any[]
     const footer = fill(e.footerText, vars).trim();
     if (footer) embed.footer = { text: footer.slice(0, 2048) };
     if (e.timestamp) embed.timestamp = new Date().toISOString();
-    if (embed.title || embed.description || embed.image || embed.thumbnail) body.embeds = [embed];
+    const authorName = fill(e.authorName, vars).trim();
+    if (authorName) {
+      embed.author = { name: authorName.slice(0, 256) };
+      const icon = httpUrl(fill(e.authorIconUrl, vars));
+      if (icon) embed.author.icon_url = icon;
+    }
+    if (embed.title || embed.description || embed.image || embed.thumbnail || embed.author) body.embeds = [embed];
   }
   const rows: any[] = [];
   if (draft.buttons.length) {
@@ -127,14 +142,39 @@ function buildMessageBody(draft: MsgDraft, vars: FillVars = {}, extraRows: any[]
   }
   rows.push(...extraRows);
   body.components = rows.slice(0, 5);
-  body.allowed_mentions = opts.mentionUserId ? { parse: [], users: [opts.mentionUserId] } : { parse: [] };
+  /* menziona davvero solo l'utente indicato e i ruoli scritti a mano nel testo (es. ping Staff) */
+  const roleIds = [...new Set([...String(body.content || "").matchAll(/<@&(\d{16,22})>/g)].map((m) => m[1]))].slice(0, 20);
+  body.allowed_mentions = { parse: [], ...(opts.mentionUserId ? { users: [opts.mentionUserId] } : {}), ...(roleIds.length ? { roles: roleIds } : {}) };
   if (!body.content && !body.embeds) body.content = "​";
   return body;
+}
+
+function avatarUrlOf(user?) {
+  try {
+    if (typeof user?.displayAvatarURL === "function") return String(user.displayAvatarURL({ size: 256 }) || "");
+  } catch {
+    /* oggetto REST */
+  }
+  if (user?.id && user?.avatar) return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${String(user.avatar).startsWith("a_") ? "gif" : "png"}?size=256`;
+  return user?.id ? `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(user.id) >> 22n) % 6}.png` : "";
+}
+
+function guildIconOf(guild?) {
+  try {
+    if (typeof guild?.iconURL === "function") return String(guild.iconURL({ size: 256 }) || "");
+  } catch {
+    /* oggetto REST */
+  }
+  return guild?.id && guild?.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=256` : "";
 }
 
 function memberVars(guild?, user?, extra: FillVars = {}): FillVars {
   const uid = user?.id ? String(user.id) : "";
   return {
+    avatar: avatarUrlOf(user),
+    servericon: guildIconOf(guild),
+    benvenuto: "benvenuto",
+    Benvenuto: "Benvenuto",
     user: uid ? `<@${uid}>` : "",
     username: String(user?.globalName || user?.global_name || user?.username || ""),
     "user.name": String(user?.username || ""),
@@ -433,7 +473,85 @@ function normalizeWelcome(raw?, prev: WelcomeSettings = DEFAULT_WELCOME): Welcom
 async function getWelcome(guildId: string, fresh = false): Promise<WelcomeSettings> {
   const map = await loadMap("welcome", fresh);
   const row = map[guildId];
-  return row && typeof row === "object" ? normalizeWelcome(row, DEFAULT_WELCOME) : DEFAULT_WELCOME;
+  if (row && typeof row === "object") return normalizeWelcome(row, DEFAULT_WELCOME);
+  return isMainGuild(guildId) ? mainGuildWelcomeSeed() : DEFAULT_WELCOME;
+}
+
+/** true se il server ha salvato benvenuto/addio dalla dashboard (nel principale: la dashboard sostituisce quello nel codice). */
+async function hasSavedWelcome(guildId: string, fresh = false) {
+  const map = await loadMap("welcome", fresh);
+  return Boolean(map[guildId] && typeof map[guildId] === "object");
+}
+
+function isMainGuild(guildId?) {
+  try {
+    const IDs = require("../../Vinili/Config/ids") as any;
+    return String(IDs?.guilds?.main || "") === String(guildId || "");
+  } catch {
+    return false;
+  }
+}
+
+/** Il benvenuto che il bot usava nel codice per il server principale, come punto di partenza. */
+function mainGuildWelcomeSeed(): WelcomeSettings {
+  let IDs: any = {};
+  let E: any = {};
+  let divider = "";
+  try {
+    IDs = require("../../Vinili/Config/ids");
+    E = (require("../../shared/emojis/emojiCatalog") as any).E || {};
+    divider = String((require("../../shared/discord/constants") as any).DIVIDER_URL || "");
+  } catch {
+    /* valori vuoti */
+  }
+  const e = (k: string) => String(E?.[k] || "");
+  const staff = IDs?.roles?.Staff ? ` <@&${IDs.roles.Staff}>` : "";
+  const mainId = String(IDs?.guilds?.main || "");
+  return normalizeWelcome(
+    {
+      welcome: {
+        enabled: true,
+        channelId: IDs?.channels?.chat || null,
+        draft: {
+          content: `Ciao {user}, {benvenuto}!${staff} ${e("VC_heartfinger")}`.trim(),
+          embed: {
+            enabled: true,
+            authorName: "{username}",
+            authorIconUrl: "{avatar}",
+            title: `${e("VC_HeartsPink")} {Benvenuto} su Vinili & Caffè ${e("VC_HeartsPink")}`.trim(),
+            description: `__{username}__ {benvenuto} nella nostra community ${e("VC_Sparkles")}\n${e("VC_addperson")} [Vai sul sito](https://www.viniliecaffe.it/personalizza/) per **personalizzare il tuo profilo**`,
+            color: "#6f4e37",
+            thumbnailUrl: "{avatar}",
+            imageUrl: divider,
+            footerText: "Ora siamo in {membercount} membri",
+          },
+        },
+      },
+      dm: {
+        enabled: true,
+        draft: {
+          embed: {
+            enabled: true,
+            title: `${e("VC_RightWing")} Benvenuto in Vinili & Caffè!`.trim(),
+            description: [
+              "Ciao **{username}**, grazie per esserti unito a noi!",
+              "",
+              "Entrando nel server accetti automaticamente le nostre regole.",
+              `${e("VC_Arrow")} <https://discord.com/channels/${mainId}/1442569111119990887/1470102236527853661>`,
+              "------------------------------",
+              `${e("VC_Dot")} Metti la nostra GUILD TAG **V&C** sul tuo profilo`,
+              `${e("VC_Arrow")} <https://discord.com/channels/${mainId}/1442569111119990887/1470102239094767699>`,
+            ].join("\n"),
+            color: "#6f4e37",
+            thumbnailUrl: "{servericon}",
+            footerText: "{server} • Ora siamo in {membercount} membri",
+            timestamp: true,
+          },
+        },
+      },
+    },
+    DEFAULT_WELCOME,
+  );
 }
 
 async function writeWelcome(guildId: string, value: WelcomeSettings) {
@@ -465,6 +583,8 @@ export = {
   rolePanelComponents,
   parseRolePanelCustomId,
   getWelcome,
+  hasSavedWelcome,
+  isMainGuild,
   writeWelcome,
   normalizeWelcome,
   DEFAULT_WELCOME,

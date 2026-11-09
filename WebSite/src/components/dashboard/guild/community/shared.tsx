@@ -40,7 +40,12 @@ export const MEMBER_PLACEHOLDERS = [
   { token: "{username}", hint: "nome visualizzato" },
   { token: "{server}", hint: "nome del server" },
   { token: "{membercount}", hint: "numero di membri" },
+  { token: "{benvenuto}", hint: "benvenuto/benvenuta in base ai pronomi" },
+  { token: "{Benvenuto}", hint: "come sopra, con la maiuscola" },
 ];
+
+/** Si possono usare al posto di un link nelle immagini dell'embed. */
+export const IMAGE_PLACEHOLDERS = "{avatar} = foto profilo dell'utente, {servericon} = icona del server";
 
 export function sampleVars(data: CommunityData | null, extra: Record<string, string> = {}) {
   return {
@@ -49,6 +54,10 @@ export function sampleVars(data: CommunityData | null, extra: Record<string, str
     "user.name": "mario",
     "user.id": "123456789012345678",
     server: data?.guild.name || "Il tuo server",
+    avatar: "https://cdn.discordapp.com/embed/avatars/0.png",
+    servericon: data?.guild.icon ? `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png?size=256` : "https://cdn.discordapp.com/embed/avatars/1.png",
+    benvenuto: "benvenuto",
+    Benvenuto: "Benvenuto",
     membercount: String(data?.guild.memberCount ?? 128),
     channel: "#generale",
     args: "",
@@ -260,13 +269,22 @@ export function DraftEditor({
             </div>
             <RichTextArea label="Descrizione" value={e.description} onChange={(description) => setEmbed({ description })} max={4096} rows={5} emojis={emojis} placeholders={placeholders} />
             <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Autore (facoltativo)">
+                <input value={e.authorName || ""} maxLength={256} placeholder="es. {username}" onChange={(ev) => setEmbed({ authorName: ev.target.value })} className={fieldClass} />
+              </Field>
+              <Field label="Icona dell'autore (link)">
+                <input value={e.authorIconUrl || ""} placeholder="https://… o {avatar}" onChange={(ev) => setEmbed({ authorIconUrl: ev.target.value })} className={fieldClass} />
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Immagine grande (link)">
                 <input value={e.imageUrl} onChange={(ev) => setEmbed({ imageUrl: ev.target.value })} placeholder="https://…" className={fieldClass} />
               </Field>
               <Field label="Miniatura (link)">
-                <input value={e.thumbnailUrl} onChange={(ev) => setEmbed({ thumbnailUrl: ev.target.value })} placeholder="https://…" className={fieldClass} />
+                <input value={e.thumbnailUrl} onChange={(ev) => setEmbed({ thumbnailUrl: ev.target.value })} placeholder="https://… o {avatar}" className={fieldClass} />
               </Field>
             </div>
+            <p className="-mt-1 text-xs text-crema/50">Al posto di un link: {IMAGE_PLACEHOLDERS}.</p>
             <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
               <Field label="Piè di pagina">
                 <input value={e.footerText} maxLength={2048} onChange={(ev) => setEmbed({ footerText: ev.target.value })} className={fieldClass} />
@@ -359,7 +377,15 @@ export function DiscordMessagePreview({
   const title = fillVars(e.title, vars).trim();
   const desc = fillVars(e.description, vars).trim();
   const footer = fillVars(e.footerText, vars).trim();
-  const showEmbed = e.enabled && (title || desc || e.imageUrl || e.thumbnailUrl);
+  const author = fillVars(e.authorName || "", vars).trim();
+  const urlOf = (u: string) => {
+    const v = fillVars(u || "", vars).trim();
+    return /^https?:\/\//i.test(v) ? v : "";
+  };
+  const imageUrl = urlOf(e.imageUrl);
+  const thumbUrl = urlOf(e.thumbnailUrl);
+  const authorIcon = urlOf(e.authorIconUrl || "");
+  const showEmbed = e.enabled && (title || desc || imageUrl || thumbUrl || author);
   const linkRow: PreviewRow | null = draft.buttons.length
     ? { kind: "buttons", items: draft.buttons.map((b) => ({ label: fillVars(b.label, vars), emoji: b.emoji, style: 5 as const })) }
     : null;
@@ -381,17 +407,26 @@ export function DiscordMessagePreview({
               <div className="min-w-0 flex-1 p-3">
                 <div className="flex gap-3">
                   <div className="min-w-0 flex-1 space-y-1">
+                    {author ? (
+                      <p className="flex items-center gap-2 text-[0.8rem] font-semibold text-white">
+                        {authorIcon ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={authorIcon} alt="" className="size-6 rounded-full object-cover" />
+                        ) : null}
+                        {author}
+                      </p>
+                    ) : null}
                     {title ? <DiscordContent text={title} names={names} className="text-[0.95rem] font-semibold text-white" /> : null}
                     {desc ? <DiscordContent text={desc} names={names} className="text-sm leading-relaxed text-[#dbdee1]" /> : null}
                   </div>
-                  {e.thumbnailUrl ? (
+                  {thumbUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={e.thumbnailUrl} alt="" className="size-16 shrink-0 rounded object-cover" />
+                    <img src={thumbUrl} alt="" className="size-16 shrink-0 rounded object-cover" />
                   ) : null}
                 </div>
-                {e.imageUrl ? (
+                {imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={e.imageUrl} alt="" className="mt-2 max-h-64 w-full rounded object-cover" />
+                  <img src={imageUrl} alt="" className="mt-2 max-h-64 w-full rounded object-cover" />
                 ) : null}
                 {footer || e.timestamp ? (
                   <p className="mt-2 text-[0.72rem] text-[#949ba4]">

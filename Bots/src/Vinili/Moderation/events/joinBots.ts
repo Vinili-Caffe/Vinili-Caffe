@@ -88,6 +88,19 @@ function buildWelcomeChannelContent(member?) {
 
 async function sendWelcomeChannelAnnouncement(channel?, member?) {
   if (!channel?.send || !member) return null;
+  /* benvenuto salvato dalla dashboard: testi e canale da lì (anche spento) */
+  try {
+    const { hasSavedWelcome } = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+    if (member.guild?.id && (await hasSavedWelcome(member.guild.id))) {
+      const { sendDashboardWelcome } = require("../../../MultiGuild/services/welcomeRuntime") as typeof import("../../../MultiGuild/services/welcomeRuntime");
+      const sent = await sendDashboardWelcome(member);
+      refreshWelcomeContextForGuild(member.guild.id, member.id);
+      await markJoinAnnounceSent(member);
+      return sent || null;
+    }
+  } catch (err) {
+    global.logger?.warn?.("[guildMemberAdd] dashboard welcome:", err?.message || err);
+  }
   const staffId = String(IDs.roles?.Staff || "").trim();
   const sent = await channel
     .send(

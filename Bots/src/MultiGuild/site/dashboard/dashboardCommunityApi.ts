@@ -41,7 +41,7 @@ function discordError(err?) {
 async function guildInfo(client?, gid?) {
   const rest = restOf(client);
   const g: any = await rest?.get(Routes.guild(gid), { query: new URLSearchParams({ with_counts: "true" }) }).catch(() => null);
-  return { id: gid, name: g?.name || "", memberCount: g?.approximate_member_count ?? null };
+  return { id: gid, name: g?.name || "", icon: g?.icon || null, memberCount: g?.approximate_member_count ?? null };
 }
 
 /** Pubblica o aggiorna un messaggio. Se il vecchio non esiste più (o il canale è cambiato) ne manda uno nuovo. */
@@ -113,6 +113,8 @@ async function getDashboardCommunity(client?, token?, guildId?) {
     commands,
     rolePanels,
     welcome,
+    welcomeSaved: await T.hasSavedWelcome(gid, true),
+    isMainGuild: T.isMainGuild(gid),
     pickers,
   };
 }

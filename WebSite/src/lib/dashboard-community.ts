@@ -12,6 +12,8 @@ export type MsgEmbed = {
   thumbnailUrl: string;
   footerText: string;
   timestamp: boolean;
+  authorName: string;
+  authorIconUrl: string;
 };
 export type MsgDraft = { content: string; embed: MsgEmbed; buttons: MsgButton[] };
 
@@ -67,7 +69,9 @@ export type PickerRole = { id: string; name: string; color: string | null; posit
 export type PickerEmoji = { id: string; name: string; animated?: boolean; url?: string };
 
 export type CommunityData = {
-  guild: { id: string; name: string; memberCount: number | null };
+  guild: { id: string; name: string; icon?: string | null; memberCount: number | null };
+  welcomeSaved?: boolean;
+  isMainGuild?: boolean;
   prefix: string;
   limits: { messages: number; commands: number; rolePanels: number; panelRoles: number; buttons: number };
   messages: SavedMessage[];
@@ -80,7 +84,7 @@ export type CommunityData = {
 export function emptyDraft(over: Partial<MsgDraft> = {}): MsgDraft {
   return {
     content: "",
-    embed: { enabled: true, title: "", description: "", color: "#d49150", imageUrl: "", thumbnailUrl: "", footerText: "", timestamp: false },
+    embed: { enabled: true, title: "", description: "", color: "#d49150", imageUrl: "", thumbnailUrl: "", footerText: "", timestamp: false, authorName: "", authorIconUrl: "" },
     buttons: [],
     ...over,
   };

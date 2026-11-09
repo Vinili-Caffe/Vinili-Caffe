@@ -63,6 +63,18 @@ async function maybeNotifyDiscordPrivacyBlockForMember(member?) {
 
 async function sendDmWelcome(member?) {
   if (!isMainGuildJoin(member?.guild?.id)) return;
+  /* DM salvato dalla dashboard: usa quello (anche spento) */
+  try {
+    const { hasSavedWelcome } = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+    if (await hasSavedWelcome(member.guild.id)) {
+      const { sendDashboardWelcomeDm } = require("../../../MultiGuild/services/welcomeRuntime") as typeof import("../../../MultiGuild/services/welcomeRuntime");
+      const out = await sendDashboardWelcomeDm(member);
+      if (out.dmClosed) await maybeNotifyDiscordPrivacyBlockForMember(member);
+      return;
+    }
+  } catch (err) {
+    global.logger?.warn?.("[guildMemberAdd] dashboard DM:", err?.message || err);
+  }
   const dmEmbed = buildDmWelcomeEmbed(member);
   const payload = { embeds: [dmEmbed] };
 

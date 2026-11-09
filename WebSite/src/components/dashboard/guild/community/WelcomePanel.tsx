@@ -35,7 +35,7 @@ export function WelcomePanel({ guildId, token, onToast }: { guildId: string; tok
   if (error && !data) return <Notice error>{error}</Notice>;
   if (!data || !cfg) return <RowsSkeleton rows={4} />;
 
-  const dirty = JSON.stringify(cfg) !== saved;
+  const dirty = JSON.stringify(cfg) !== saved || Boolean(data.isMainGuild && !data.welcomeSaved);
   const channels = data.pickers.textChannels;
 
   const save = async () => {
@@ -84,6 +84,11 @@ export function WelcomePanel({ guildId, token, onToast }: { guildId: string; tok
 
   return (
     <div className="space-y-4">
+      {data.isMainGuild && !data.welcomeSaved ? (
+        <Notice>
+          Questi sono il benvenuto e il messaggio privato che il bot usa adesso in questo server. Quando salvi, li gestisci da qui: il bot userà i testi della dashboard al posto di quelli vecchi. Invite tracker e controlli d&apos;ingresso restano uguali.
+        </Notice>
+      ) : null}
       <div className="grid gap-2 sm:grid-cols-4">
         {[
           { icon: <PartyPopper className="size-4" />, label: "Benvenuto", on: cfg.welcome.enabled },

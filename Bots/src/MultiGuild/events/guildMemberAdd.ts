@@ -1,17 +1,17 @@
 /**
  * Benvenuto, DM di benvenuto e ruoli automatici configurati dalla dashboard.
+ * Nel server principale benvenuto e DM li manda il flusso di Vinili (dopo i controlli d'ingresso):
+ * qui solo i ruoli automatici.
  */
-const { Routes } = require("discord.js") as typeof import("discord.js");
 const T = require("../core/tenantCommunityTools") as typeof import("../core/tenantCommunityTools");
+const { sendDashboardWelcome, sendDashboardWelcomeDm } = require("../services/welcomeRuntime") as typeof import("../services/welcomeRuntime");
 
 export = {
   name: "guildMemberAdd",
-  async execute(member?, client?) {
+  async execute(member?) {
     const guild = member?.guild;
     if (!guild || member.user?.bot) return;
     const cfg = await T.getWelcome(guild.id);
-    const rest = (client || member.client)?.rest;
-    const vars = T.memberVars(guild, member.user);
 
     if (cfg.autoRoleIds.length) {
       const me = guild.members.me;
@@ -22,16 +22,8 @@ export = {
       if (ok.length) await member.roles.add(ok, "Ruoli automatici all'ingresso").catch((err?) => global.logger?.warn?.("[WELCOME] autorole:", guild.id, err?.message || err));
     }
 
-    if (cfg.welcome.enabled && cfg.welcome.channelId) {
-      const body = T.buildMessageBody(cfg.welcome.draft, vars, [], { mentionUserId: member.id });
-      await rest.post(Routes.channelMessages(cfg.welcome.channelId), { body }).catch((err?) => global.logger?.warn?.("[WELCOME] send:", guild.id, err?.message || err));
-    }
-
-    if (cfg.dm.enabled) {
-      await member.user
-        .createDM()
-        .then((dm?) => rest.post(Routes.channelMessages(dm.id), { body: T.buildMessageBody(cfg.dm.draft, vars) }))
-        .catch(() => null);
-    }
+    if (T.isMainGuild(guild.id)) return;
+    await sendDashboardWelcome(member);
+    await sendDashboardWelcomeDm(member);
   },
 };
