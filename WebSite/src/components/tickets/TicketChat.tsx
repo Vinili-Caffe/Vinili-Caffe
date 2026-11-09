@@ -1,5 +1,6 @@
 "use client";
 
+import { EmojiInsertButton, emojiPickText, insertAtCaret } from "./EmojiInsertButton";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, Copy, CornerUpLeft, ImagePlus, Link2, Loader2, Lock, Pencil, Search, Send, SmilePlus, Star, Trash2, X } from "lucide-react";
@@ -787,6 +788,14 @@ export function TicketChat({
                 <ImagePlus className="size-5" />
               </button>
             )}
+            <EmojiInsertButton
+              token={token}
+              onPick={(pick) => {
+                const { next, caret: at } = insertAtCaret(text, emojiPickText(pick), taRef.current, MAX_CONTENT);
+                setText(next);
+                setCaret(at);
+              }}
+            />
             <input name="attachments" ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
             <div className="relative min-w-0 flex-1">
               {!editing && (

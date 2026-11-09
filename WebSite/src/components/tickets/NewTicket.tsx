@@ -1,5 +1,6 @@
 "use client";
 
+import { EmojiInsertButton, emojiPickText, insertAtCaret } from "./EmojiInsertButton";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { BellRing, Check, Crown, Gem, Handshake, ImagePlus, LifeBuoy, Loader2, Send, X } from "lucide-react";
@@ -39,6 +40,7 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const messageRef = useRef<HTMLTextAreaElement>(null);
 
   const draft = useFormDraft("web_ticket_new", form, setForm, {
     watch: true,
@@ -140,6 +142,7 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
       <label htmlFor="message" className="mt-6 block">
         <span className="text-sm font-semibold text-crema/70">Il tuo messaggio</span>
         <textarea id="message" name="message"
+          ref={messageRef}
           value={text}
           onChange={(e) => setText(e.target.value.slice(0, MAX_CONTENT))}
           rows={5}
@@ -161,6 +164,15 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
             <ImagePlus className="size-4" /> Allega immagini
           </button>
         )}
+        <EmojiInsertButton
+          token={token}
+          preferAbove={false}
+          label="Aggiungi un'emoji"
+          onPick={(pick) => setText(insertAtCaret(text, emojiPickText(pick), messageRef.current, MAX_CONTENT).next)}
+          className="inline-flex items-center gap-2 rounded-full bg-crema/6 px-3.5 py-2 text-sm font-semibold text-crema/70 ring-1 ring-sand/15 hover:text-crema [&>svg]:size-4"
+        >
+          Emoji
+        </EmojiInsertButton>
         <input name="attachments" ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
         <span className="ml-auto text-xs text-crema/40 lining-nums">
           {text.length} / {MAX_CONTENT}

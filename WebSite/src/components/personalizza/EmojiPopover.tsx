@@ -109,8 +109,8 @@ export function EmojiPopover({
             <div className="flex gap-1 border-b border-sand/10 px-2 py-1.5">
               {(
                 [
-                  ["custom", "Server"],
-                  ["unicode", "Unicode"],
+                  ["unicode", "Emoji"],
+                  ["custom", "Discord"],
                 ] as const
               ).map(([id, label]) => (
                 <button
