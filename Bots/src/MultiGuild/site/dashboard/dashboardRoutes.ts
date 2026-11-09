@@ -168,6 +168,34 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
+  app.get("/webhooks/site-dashboard/guilds/:guildId/stats", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
+      }
+      const { getDashboardStats } = require("./dashboardStatsApi") as typeof import("./dashboardStatsApi");
+      const out: any = await getDashboardStats(client, accessToken, req.params?.guildId, req.query || {});
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard stats:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-dashboard/guilds/:guildId/audit", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
+      }
+      const { getDashboardAudit } = require("./dashboardAuditLog") as typeof import("./dashboardAuditLog");
+      const out: any = await getDashboardAudit(client, accessToken, req.params?.guildId, req.query || {});
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard audit:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
   app.get("/webhooks/site-dashboard/dev/user", async (req?, res?) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);

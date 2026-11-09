@@ -83,6 +83,16 @@ const CommandAclEditor = dynamic(() => import("./guild/CommandAcl").then((m) => 
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
+const StatsPanel = dynamic(() => import("./guild/StatsPanel").then((m) => m.StatsPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
+const AuditPanel = dynamic(() => import("./guild/AuditPanel").then((m) => m.AuditPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
 const LeaderboardPanel = dynamic(() => import("./guild/LeaderboardPanel").then((m) => m.LeaderboardPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
@@ -111,6 +121,8 @@ const SECTION_LEAD: Record<Section, string> = {
   tickets: "Ticket aperti, pannelli, moduli, team e blacklist.",
   partnership: "Configurazione e gestione delle partnership del server.",
   classifica: "Classifiche partnership: server, partner manager e ingressi.",
+  stats: "Ticket e partnership del server: andamento, voti, staff più attivo.",
+  registro: "Chi ha cambiato cosa dalla dashboard, e quando.",
 };
 
 const fieldCls =
@@ -1496,6 +1508,18 @@ export function GuildPanel() {
                     {section === "partnership" && guildId && token ? (
                       <Panel>
                         <PartnershipPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "stats" && guildId && token ? (
+                      <Panel>
+                        <StatsPanel guildId={guildId} token={token} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "registro" && guildId && token ? (
+                      <Panel>
+                        <AuditPanel guildId={guildId} token={token} />
                       </Panel>
                     ) : null}
 

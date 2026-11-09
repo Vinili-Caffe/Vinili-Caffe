@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  BarChart3,
   ChevronRight,
   ChevronsUpDown,
   Coins,
@@ -11,6 +12,7 @@ import {
   Diamond,
   Handshake,
   HelpCircle,
+  History,
   House,
   LayoutGrid,
   LogIn,
@@ -41,12 +43,14 @@ import { NotificationsBell } from "./NotificationsBell";
 
 /** Sezioni del pannello server: nella sidebar, sotto "Server". */
 export const GUILD_SECTIONS = [
+  { id: "stats", label: "Statistiche", icon: BarChart3 },
   { id: "settings", label: "Impostazioni", icon: Settings2 },
   { id: "commands", label: "Comandi", icon: Terminal },
   { id: "bacheca", label: "Bacheca", icon: Pin },
   { id: "tickets", label: "Ticket", icon: Ticket },
   { id: "partnership", label: "Partnership", icon: Handshake },
   { id: "classifica", label: "Classifica", icon: Trophy },
+  { id: "registro", label: "Registro modifiche", icon: History },
 ] as const;
 export type GuildSectionId = (typeof GUILD_SECTIONS)[number]["id"];
 

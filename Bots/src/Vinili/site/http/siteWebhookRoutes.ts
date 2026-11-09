@@ -8,6 +8,7 @@ const { mountWorkflowRoutes } = require("../../site/workflow/workflowRoutes") as
 const { mountNotificationsRoutes } = require("../../site/notifications/notificationsRoutes") as typeof import("../../site/notifications/notificationsRoutes");
 const { mountStaffRoutes } = require("../../site/staff/staffRoutes") as typeof import("../../site/staff/staffRoutes");
 const { mountDashboardRoutes } = require("../../../MultiGuild/site/dashboard/dashboardRoutes") as typeof import("../../../MultiGuild/site/dashboard/dashboardRoutes");
+const { mountDashboardAuditMiddleware } = require("../../../MultiGuild/site/dashboard/dashboardAuditLog") as typeof import("../../../MultiGuild/site/dashboard/dashboardAuditLog");
 
 const { replyJsonEtag } = require("./webhooks/replyJsonEtag") as typeof import("./webhooks/replyJsonEtag");
 const { mountStaffApiNoStore } = require("./webhooks/staffApiNoStore") as typeof import("./webhooks/staffApiNoStore");
@@ -77,6 +78,8 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   mountDiscussionImagesWebhookRoutes(app);
   mountSuggestionsRoutes(app, client, { normalizeHeaderSecret, replyJsonEtag });
   mountBotFeedbackWebhookRoutes(app, client, ctx);
+  /* registro modifiche: prima delle rotte della dashboard, così vede ogni scrittura */
+  mountDashboardAuditMiddleware(app, { normalizeHeaderSecret });
   mountDashboardRoutes(app, client, { normalizeHeaderSecret });
   mountDashboardTicketRoutes(app, client, { normalizeHeaderSecret });
 }
