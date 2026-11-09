@@ -19,7 +19,7 @@
     "i18n:tenant": "node Partner/i18n/tenantPartnershipI18n/scripts/generate-tenant-i18n.cjs"
   },
   "dependencies": {
-    "@discordjs/opus": "^0.10.0",
+    "@discordjs/opus": "^0.11.0",
     "@discordjs/rest": "^2.4.0",
     "@discordjs/voice": "0.19.0",
     "@snazzah/davey": "^0.1.9",
