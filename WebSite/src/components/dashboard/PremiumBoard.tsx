@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { CalendarClock, Check, Coins, Diamond, Lock, LogIn, Server, Sparkles } from "lucide-react";
+import { CalendarClock, Check, Coins, Diamond, Lock, LogIn, Server, Sparkles, Ticket } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
 import { confirmDialog } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -19,7 +19,7 @@ import {
   spendCredits,
   type PremiumGuild,
 } from "@/lib/dashboard-premium";
-import { DISCORD_INVITE, page } from "@/lib/site";
+import { page } from "@/lib/site";
 import { DashboardShell } from "./DashboardShell";
 import { DashToast, Panel, StateCard, StatTile, StatusBadge, dashPrimaryBtn, dashSecondaryBtn, discordBtn } from "./guild/bits";
 
@@ -345,7 +345,7 @@ function HowToGetCredits() {
       <ul className="space-y-2.5 text-sm text-crema/75">
         <li className="flex gap-2.5">
           <span className="mt-2 size-1.5 shrink-0 rounded-full bg-caramel" aria-hidden />
-          Li assegna lo staff di Vinili & Caffè: chiedi nel server di supporto aprendo un ticket.
+          Li assegna lo staff di Vinili & Caffè: chiedili aprendo un ticket qui sul sito.
         </li>
         <li className="flex gap-2.5">
           <span className="mt-2 size-1.5 shrink-0 rounded-full bg-caramel" aria-hidden />
@@ -357,9 +357,9 @@ function HowToGetCredits() {
         </li>
       </ul>
       <div className="mt-4 flex flex-wrap gap-2">
-        <a href={DISCORD_INVITE} target="_blank" rel="noreferrer" className={discordBtn}>
-          Server di supporto
-        </a>
+        <SmartLink href={page("/tickets/")} className={dashPrimaryBtn}>
+          <Ticket className="size-4" aria-hidden /> Apri un ticket
+        </SmartLink>
       </div>
     </Panel>
   );
