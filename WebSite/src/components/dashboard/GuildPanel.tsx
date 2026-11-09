@@ -1227,6 +1227,9 @@ export function GuildPanel() {
       setGate("loading");
       setError("");
 
+      /* accesso e pannello partono insieme (il pannello si scarta se l'accesso è negato) */
+      const panelPromise = loadGuildPanel(token, id);
+      panelPromise.catch(() => null);
       const access = await checkDashboardAccess(token);
       if (cancelled) return;
       if (!access.ok) {
@@ -1243,7 +1246,7 @@ export function GuildPanel() {
         return;
       }
 
-      const panel = await loadGuildPanel(token, id);
+      const panel = await panelPromise;
       if (cancelled) return;
       if (!panel.ok) {
         if (panel.status === 401) {

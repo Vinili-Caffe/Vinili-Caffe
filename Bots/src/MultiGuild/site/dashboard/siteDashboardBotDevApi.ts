@@ -545,6 +545,47 @@ async function listDashboardBotDevCredits(client?, accessToken?, query: Record<s
   };
 }
 
+/** Profilo Discord di un utente (anteprima del proprietario nel pannello sviluppatore). */
+const devUserCache = new Map();
+async function getDashboardBotDevUser(client?, accessToken?, query: Record<string, any> = {}) {
+  const gate = await assertDashboardBotDevAccess(client, accessToken);
+  if (!gate.ok) return gate;
+  const userId = normalizeSnowflake(query?.userId || query?.id || "");
+  if (!userId) return fail(400, "invalid_id", "ID utente non valido.");
+  const hit = devUserCache.get(userId);
+  if (hit && Date.now() - hit.at < 10 * 60 * 1000) return { ok: true, status: 200, user: hit.user };
+  let raw: any = null;
+  try {
+    const rest = client?._rest || client?.rest;
+    if (rest) raw = await rest.get(Routes.user(userId));
+  } catch {
+    raw = null;
+  }
+  if (!raw?.id) {
+    const u: any = await client?.users?.fetch?.(userId).catch(() => null);
+    if (u) raw = { id: u.id, username: u.username, global_name: u.globalName, avatar: u.avatar, bot: u.bot, banner: u.banner, accent_color: u.accentColor };
+  }
+  if (!raw?.id) return fail(404, "not_found", "Utente non trovato su Discord.");
+  const avatar = raw.avatar
+    ? `https://cdn.discordapp.com/avatars/${raw.id}/${raw.avatar}.${String(raw.avatar).startsWith("a_") ? "gif" : "png"}?size=128`
+    : `https://cdn.discordapp.com/embed/avatars/${Number((BigInt(raw.id) >> 22n) % 6n)}.png`;
+  const banner = raw.banner
+    ? `https://cdn.discordapp.com/banners/${raw.id}/${raw.banner}.${String(raw.banner).startsWith("a_") ? "gif" : "png"}?size=480`
+    : null;
+  const user = {
+    id: String(raw.id),
+    username: String(raw.username || ""),
+    displayName: String(raw.global_name || raw.username || raw.id),
+    avatarUrl: avatar,
+    bannerUrl: banner,
+    accentColor: raw.accent_color != null ? Number(raw.accent_color) : null,
+    bot: raw.bot === true,
+    createdAt: new Date(Number(BigInt(raw.id) >> 22n) + 1420070400000).toISOString(),
+  };
+  devUserCache.set(userId, { at: Date.now(), user });
+  return { ok: true, status: 200, user };
+}
+
 async function getDashboardBotDevCredits(client?, accessToken?, query: Record<string, any> = {}) {
   const gate = await assertDashboardBotDevAccess(client, accessToken);
   if (!gate.ok) return gate;
@@ -594,4 +635,5 @@ export = {
   postDashboardBotDevRevokePremium,
   getDashboardBotDevCredits,
   postDashboardBotDevCredits,
+  getDashboardBotDevUser,
 };

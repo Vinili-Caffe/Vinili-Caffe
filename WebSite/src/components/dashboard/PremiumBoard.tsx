@@ -55,12 +55,14 @@ function usePremiumData() {
     (async () => {
       setGate("loading");
       setError("");
+      const restPromise = Promise.all([ensureCreditsBalance(token, true), listManageableGuilds(token)]);
+      restPromise.catch(() => null);
       const access = await checkDashboardAccess(token);
       if (cancelled) return;
       if (!access.ok && access.status === 401) return setGate("login");
       if (access.ok && (access.access.blacklisted || !access.access.allowed)) return setGate("locked");
 
-      const [, list] = await Promise.all([ensureCreditsBalance(token, true), listManageableGuilds(token)]);
+      const [, list] = await restPromise;
       if (cancelled) return;
       if (list.ok) setGuilds(list.guilds);
       else if (list.status === 401) return setGate("login");

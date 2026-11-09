@@ -741,6 +741,13 @@ export async function loadGuildTickets(token: string, guildId: string): Promise<
 
 /** Carica overview + (in parallelo) settings, commands, tickets. */
 export async function loadGuildPanel(token: string, guildId: string): Promise<Ok<GuildPanelBundle> | Fail> {
+  /* tutte e quattro insieme: prima si aspettava la panoramica e solo dopo partivano le altre tre */
+  const restPromise = Promise.all([
+    loadGuildSettings(token, guildId),
+    loadGuildCommands(token, guildId),
+    loadGuildTickets(token, guildId),
+  ]);
+  restPromise.catch(() => null);
   const overviewRes = await loadGuildOverview(token, guildId);
   if (!overviewRes.ok) return overviewRes;
 
@@ -765,11 +772,7 @@ export async function loadGuildPanel(token: string, guildId: string): Promise<Ok
     };
   }
 
-  const [settingsRes, commandsRes, ticketsRes] = await Promise.all([
-    loadGuildSettings(token, guildId),
-    loadGuildCommands(token, guildId),
-    loadGuildTickets(token, guildId),
-  ]);
+  const [settingsRes, commandsRes, ticketsRes] = await restPromise;
 
   return {
     ok: true,

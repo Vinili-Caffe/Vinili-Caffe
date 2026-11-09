@@ -2,6 +2,7 @@
 
 import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { EmojiText } from "./EmojiText";
 
 // Markdown di Discord reso con elementi React (niente HTML grezzo): **grassetto**, *corsivo*, __sottolineato__,
 // ~~barrato~~, `codice`, ```blocchi```, ||spoiler||, > citazioni, link, <@utente>, <@&ruolo>, <#canale>, <:emoji:id>.
@@ -166,7 +167,7 @@ function inline(text: string, names: Names, key = "i"): ReactNode[] {
           {p}
         </a>
       );
-    return <Fragment key={k}>{p}</Fragment>;
+    return <EmojiText key={k} text={p} />;
   });
 }
 

@@ -51,6 +51,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     postDashboardBotDevRevokePremium,
     getDashboardBotDevCredits,
     postDashboardBotDevCredits,
+    getDashboardBotDevUser,
   } = require("./siteDashboardBotDevApi") as typeof import("./siteDashboardBotDevApi");
   const {
     getDashboardTenantProfile,
@@ -164,6 +165,19 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-dashboard botban remove:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-dashboard/dev/user", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
+      }
+      const out = await getDashboardBotDevUser(client, accessToken, req.query || {});
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard dev user:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

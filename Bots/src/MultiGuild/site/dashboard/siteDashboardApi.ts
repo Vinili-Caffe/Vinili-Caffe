@@ -612,7 +612,33 @@ async function isBotInGuild(client?, guildId?, opts: Record<string, any> = {}) {
   return false;
 }
 
+/* Ogni richiesta della dashboard rifaceva tutto il controllo (profilo, server, ruoli staff su Discord).
+   Per 30 s si riusa l'esito positivo dello stesso token sullo stesso server; richieste in parallelo
+   aspettano lo stesso controllo invece di farne uno a testa. Gli esiti negativi non si ricordano. */
+const GUILD_ACCESS_TTL_MS = 30_000;
+const guildAccessCache = new Map();
+const guildAccessInflight = new Map();
+
 async function verifyDashboardGuildAccess(client?, accessToken?, guildId?) {
+  const key = `${String(accessToken || "")}:${String(guildId || "").trim()}`;
+  const hit = guildAccessCache.get(key);
+  if (hit && Date.now() - hit.at < GUILD_ACCESS_TTL_MS) return hit.result;
+  const pending = guildAccessInflight.get(key);
+  if (pending) return pending;
+  const job = verifyDashboardGuildAccessUncached(client, accessToken, guildId)
+    .then((result?) => {
+      if (result?.ok) {
+        guildAccessCache.set(key, { at: Date.now(), result });
+        if (guildAccessCache.size > 500) guildAccessCache.delete(guildAccessCache.keys().next().value);
+      }
+      return result;
+    })
+    .finally(() => guildAccessInflight.delete(key));
+  guildAccessInflight.set(key, job);
+  return job;
+}
+
+async function verifyDashboardGuildAccessUncached(client?, accessToken?, guildId?) {
   const gid = String(guildId || "").trim();
   if (!/^\d{17,22}$/.test(gid)) {
     return { ok: false, status: 400, error: "invalid_guild", message: "Server non valido." };

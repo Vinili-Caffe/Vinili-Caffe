@@ -162,6 +162,9 @@ export function ServerPicker() {
       setError("");
       setLoadingList(true);
 
+      /* accesso e lista server insieme */
+      const listPromise = listManageableGuilds(token);
+      listPromise.catch(() => null);
       const access = await checkDashboardAccess(token);
       if (cancelled) return;
       if (!access.ok) {
@@ -180,7 +183,7 @@ export function ServerPicker() {
         return;
       }
 
-      const list = await listManageableGuilds(token);
+      const list = await listPromise;
       if (cancelled) return;
       setLoadingList(false);
 

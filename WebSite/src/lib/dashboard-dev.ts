@@ -63,7 +63,7 @@ export const loadDevOverview = (token: string) =>
   }));
 
 export const loadDevEvents = (token: string, type = "all") =>
-  call<{ events: DevEvent[] }>("GET", `/dev/events?limit=100&type=${encodeURIComponent(type)}`, token, (d) => ({ events: list(d.events).map(mapEvent) }));
+  call<{ events: DevEvent[] }>("GET", `/dev/events?limit=250&type=${encodeURIComponent(type)}`, token, (d) => ({ events: list(d.events).map(mapEvent) }));
 
 export type DevGuild = { id: string; name: string; iconUrl: string | null; ownerId: string | null; memberCount: number; protected: boolean; premiumActive: boolean; joinedAt: string | null };
 
@@ -91,6 +91,25 @@ export const devBanOwner = (token: string, guildId: string, note: string) => cal
 export const devResetGuild = (token: string, guildId: string, leave: boolean, note: string) => call("POST", "/dev/reset-guild", token, msg, { guildId, leave, note });
 export const devRevokePremium = (token: string, guildId: string, refundCredits: boolean, note: string) =>
   call("POST", "/dev/revoke-premium", token, msg, { guildId, refundCredits, note });
+
+export type DevUser = { id: string; username: string; displayName: string; avatarUrl: string; bannerUrl: string | null; accentColor: number | null; bot: boolean; createdAt: string };
+
+export const loadDevUser = (token: string, userId: string) =>
+  call<{ user: DevUser }>("GET", `/dev/user?userId=${encodeURIComponent(userId)}`, token, (d) => {
+    const u = (d.user && typeof d.user === "object" ? d.user : {}) as Record<string, unknown>;
+    return {
+      user: {
+        id: String(u.id || userId),
+        username: String(u.username || ""),
+        displayName: String(u.displayName || u.username || userId),
+        avatarUrl: String(u.avatarUrl || ""),
+        bannerUrl: str(u.bannerUrl),
+        accentColor: u.accentColor != null ? Number(u.accentColor) : null,
+        bot: u.bot === true,
+        createdAt: String(u.createdAt || ""),
+      },
+    };
+  });
 
 export type CreditHolder = { userId: string; credits: number; updatedAt: number | null; username: string | null; displayName: string | null; avatarUrl: string | null };
 

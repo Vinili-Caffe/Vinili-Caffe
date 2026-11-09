@@ -20,6 +20,7 @@ import {
   loadDevEvents,
   loadDevGuilds,
   loadDevOverview,
+  loadDevUser,
   loadUserCredits,
   removeBotban,
   type BotbanEntry,
@@ -27,7 +28,9 @@ import {
   type DevEvent,
   type DevGuild,
   type DevOverview,
+  type DevUser,
 } from "@/lib/dashboard-dev";
+import { Pagination } from "@/components/ui/Pagination";
 import { DashboardShell } from "./DashboardShell";
 import {
   DashToast,
@@ -108,12 +111,19 @@ function EventList({ events }: { events: DevEvent[] }) {
   );
 }
 
+const EVENTS_PER_PAGE = 15;
+
 function OverviewTab({ token, overview }: { token: string; overview: DevOverview }) {
   const [type, setType] = useState("all");
   const [events, setEvents] = useState<DevEvent[] | null>(null);
+  const [page, setPage] = useState(1);
   useEffect(() => {
     let off = false;
-    void loadDevEvents(token, type).then((r) => !off && setEvents(r.ok ? r.events : []));
+    void loadDevEvents(token, type).then((r) => {
+      if (off) return;
+      setEvents(r.ok ? r.events : []);
+      setPage(1);
+    });
     return () => {
       off = true;
     };
@@ -135,14 +145,97 @@ function OverviewTab({ token, overview }: { token: string; overview: DevOverview
             aria-label="Tipo di evento"
             size="sm"
             value={type}
-            onChange={setType}
+            onChange={(v) => {
+              setEvents(null);
+              setType(v);
+            }}
             options={[{ value: "all", label: "Tutti" }, ...Object.entries(EVENT_TEXT).map(([id, t]) => ({ value: id, label: t.label }))]}
             className="min-w-32"
           />
         }
       >
-        {events ? <EventList events={events} /> : <div className="h-40 animate-pulse rounded-xl bg-crema/[0.04]" />}
+        {events ? (
+          <div className="space-y-3">
+            <EventList events={events.slice((page - 1) * EVENTS_PER_PAGE, page * EVENTS_PER_PAGE)} />
+            {events.length > EVENTS_PER_PAGE ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs tabular-nums text-crema/60">
+                  {(page - 1) * EVENTS_PER_PAGE + 1}–{Math.min(page * EVENTS_PER_PAGE, events.length)} di {events.length}
+                </span>
+                <Pagination page={page} totalPages={Math.ceil(events.length / EVENTS_PER_PAGE)} onChange={setPage} />
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="space-y-1.5" aria-busy>
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="h-12 animate-pulse rounded-lg bg-crema/[0.04]" />
+            ))}
+          </div>
+        )}
       </Panel>
+    </div>
+  );
+}
+
+/** Anteprima del proprietario come un mini profilo Discord. */
+function OwnerCard({ token, userId }: { token: string; userId: string }) {
+  const [state, setState] = useState<{ id: string; user: DevUser | null; error: string } | null>(null);
+  useEffect(() => {
+    let off = false;
+    void loadDevUser(token, userId).then((r) => {
+      if (!off) setState({ id: userId, user: r.ok ? r.user : null, error: r.ok ? "" : r.message });
+    });
+    return () => {
+      off = true;
+    };
+  }, [token, userId]);
+  const current = state && state.id === userId ? state : null;
+  if (!current) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl bg-[#232428] p-3 ring-1 ring-sand/10" aria-busy>
+        <span className="size-12 shrink-0 animate-pulse rounded-full bg-crema/[0.08]" />
+        <span className="flex-1 space-y-1.5">
+          <span className="block h-3.5 w-1/3 animate-pulse rounded bg-crema/[0.08]" />
+          <span className="block h-3 w-1/4 animate-pulse rounded bg-crema/[0.05]" />
+        </span>
+      </div>
+    );
+  }
+  const u = current.user;
+  if (!u) return <p className="font-mono text-sm text-crema">{userId} <span className="font-sans text-xs text-crema/60">· {current.error}</span></p>;
+  const accent = u.accentColor != null ? `#${u.accentColor.toString(16).padStart(6, "0")}` : null;
+  return (
+    <div className="overflow-hidden rounded-xl bg-[#232428] ring-1 ring-sand/10">
+      <div className="relative h-14" style={{ background: accent || "linear-gradient(135deg, #3a2a1f, #6b4a2e)" }}>
+        {u.bannerUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={u.bannerUrl} alt="" className="absolute inset-0 size-full object-cover" />
+        ) : null}
+      </div>
+      <div className="flex items-end gap-3 px-3 pb-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={u.avatarUrl} alt="" width={56} height={56} className="-mt-7 size-14 shrink-0 rounded-full object-cover ring-4 ring-[#232428]" />
+        <div className="min-w-0 flex-1 pt-1.5">
+          <p className="flex items-center gap-1.5 truncate font-semibold text-white">
+            <span className="truncate">{u.displayName}</span>
+            {u.bot ? <span className="shrink-0 rounded bg-[#5865f2] px-1 py-px text-[0.55rem] font-bold uppercase text-white">Bot</span> : null}
+          </p>
+          <p className="truncate text-xs text-[#b5bac1]">
+            @{u.username} · account del {u.createdAt ? new Date(u.createdAt).toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+          </p>
+        </div>
+        <button
+          type="button"
+          className={miniBtn}
+          onClick={() => {
+            void navigator.clipboard?.writeText(u.id).catch(() => null);
+          }}
+          title="Copia l'ID"
+        >
+          ID
+        </button>
+      </div>
     </div>
   );
 }
@@ -310,9 +403,9 @@ function ServersTab({ token, onToast }: { token: string; onToast: OnToast }) {
                 <dt className="text-xs text-crema/60">ID server</dt>
                 <dd className="font-mono text-crema">{guild.id}</dd>
               </div>
-              <div>
-                <dt className="text-xs text-crema/60">Proprietario</dt>
-                <dd className="font-mono text-crema">{guild.ownerId || "—"}</dd>
+              <div className="sm:col-span-2">
+                <dt className="mb-1.5 text-xs text-crema/60">Proprietario</dt>
+                <dd>{guild.ownerId ? <OwnerCard token={token} userId={guild.ownerId} /> : <span className="text-crema">—</span>}</dd>
               </div>
               <div>
                 <dt className="text-xs text-crema/60">Premium</dt>
@@ -532,11 +625,17 @@ function BlacklistTab({ token, onToast }: { token: string; onToast: OnToast }) {
     if (!r.ok) return onToast(r.message, true);
     setId("");
     setNote("");
+    setView(kind);
     setReload((n) => n + 1);
     onToast(r.message);
   };
 
-  const sorted = useMemo(() => (entries || []).slice().sort((a, b) => String(b.addedAt || "").localeCompare(String(a.addedAt || ""))), [entries]);
+  const [view, setView] = useState<"user" | "guild">("user");
+  const counts = useMemo(() => ({ user: (entries || []).filter((e) => e.type === "user").length, guild: (entries || []).filter((e) => e.type === "guild").length }), [entries]);
+  const sorted = useMemo(
+    () => (entries || []).filter((e) => e.type === view).sort((a, b) => String(b.addedAt || "").localeCompare(String(a.addedAt || ""))),
+    [entries, view],
+  );
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
@@ -573,12 +672,23 @@ function BlacklistTab({ token, onToast }: { token: string; onToast: OnToast }) {
           <h3 className="text-sm font-semibold text-crema">Bloccati</h3>
           <span className="text-xs tabular-nums text-crema/60">{entries?.length ?? 0}</span>
         </div>
+        <div className="mb-3">
+          <Subnav
+            tabs={[
+              { id: "user" as const, label: `Utenti (${counts.user})` },
+              { id: "guild" as const, label: `Server (${counts.guild})` },
+            ]}
+            value={view}
+            onChange={setView}
+            label="Tipo di blocco"
+          />
+        </div>
         {error ? (
           <Notice>{error}</Notice>
         ) : !entries ? (
           <div className="h-40 animate-pulse rounded-xl bg-crema/[0.04]" />
         ) : sorted.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-sand/20 px-4 py-8 text-center text-sm text-crema/60">Nessuno è bloccato.</p>
+          <p className="rounded-xl border border-dashed border-sand/20 px-4 py-8 text-center text-sm text-crema/60">{view === "user" ? "Nessun utente bloccato." : "Nessun server bloccato."}</p>
         ) : (
           <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10">
             {sorted.map((e) => (

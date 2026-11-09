@@ -13,8 +13,10 @@ import { BOOT_GATE_BOOT } from "@/lib/boot-gate-boot";
 import { PWA_RESUME_BOOT } from "@/lib/pwa-resume-boot";
 import { PWA_NOTIF_NAV_BOOT } from "@/lib/pwa-notif-nav-boot";
 import { STORAGE_GC_BOOT } from "@/lib/storage-gc-boot";
+import { PWA_HEALTH_BOOT } from "@/lib/pwa-health-boot";
 import { EXT_CONSOLE_BOOT } from "@/lib/ext-console-boot";
 import { API_FETCH_BOOT } from "@/lib/api";
+import { API_CACHE_BOOT } from "@/lib/api-cache-boot";
 import { SSR_TEXT_SNAPSHOT_BOOT } from "@/lib/hydration-diff";
 import { SITE_TITLE_BRAND, SITE_TITLE_TEMPLATE } from "@/lib/page-title";
 import { SITE_EMBED_COLOR, SITE_THEME_COLOR, siteLogoOgImage } from "@/lib/og";
@@ -91,6 +93,8 @@ export default function RootLayout({
         {/* prima di tutto: spegne rumore estensioni / lastError in console */}
         <script dangerouslySetInnerHTML={{ __html: EXT_CONSOLE_BOOT }} />
         {API_FETCH_BOOT ? <script dangerouslySetInnerHTML={{ __html: API_FETCH_BOOT }} /> : null}
+        {/* letture API: richieste uguali condivise e memoria breve (svuotata a ogni salvataggio) */}
+        <script dangerouslySetInnerHTML={{ __html: API_CACHE_BOOT }} />
         {/* avatar, emoji e media di Discord arrivano da qui: collegamento aperto in anticipo */}
         <link rel="preconnect" href="https://cdn.discordapp.com" crossOrigin="" />
         <link rel="dns-prefetch" href="https://media.discordapp.net" />
@@ -99,6 +103,8 @@ export default function RootLayout({
         {API_FETCH_BOOT ? <link rel="preconnect" href="https://api.viniliecaffe.it" crossOrigin="" /> : null}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: SPONSOR_AD_BOOT }} />
+        {/* PWA riaperta dopo tanto: se il CSS del deploy vecchio non c'è più, ricarica */}
+        <script dangerouslySetInnerHTML={{ __html: PWA_HEALTH_BOOT }} />
         <script dangerouslySetInnerHTML={{ __html: STORAGE_GC_BOOT }} />
         {/* notif pending PRIMA del resume: iOS apre start_url al tap push */}
         <script dangerouslySetInnerHTML={{ __html: PWA_NOTIF_NAV_BOOT }} />
