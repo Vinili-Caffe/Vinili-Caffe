@@ -10,7 +10,7 @@ import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { setChromeOpen } from "@/lib/chrome-open";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
-import { viewAsAllowedSticky } from "@/lib/view-as";
+import { readViewAs, viewAsAllowedSticky } from "@/lib/view-as";
 import { isEventoHighStaff, isEventoPublicWindowOpen } from "@/lib/evento-starwars";
 import { Avatar } from "@/components/Avatar";
 import { HeaderNameMarquee } from "./effects/HeaderNameMarquee";
@@ -19,6 +19,8 @@ import { SmartLink } from "./SmartLink";
 
 /** Come sito vecchio: Dashboard/Bacheca sbloccate solo a founder (o view-as). */
 function canOpenDashBacheca(staff: StaffAccess | null, stickyOk: boolean) {
+  /* in anteprima "Visualizza come" si vede il sito come quel ruolo: niente link da Founder */
+  if (readViewAs()) return false;
   if (stickyOk) return true;
   return Boolean(staff?.isFounder || staff?.viewAsAllowed);
 }

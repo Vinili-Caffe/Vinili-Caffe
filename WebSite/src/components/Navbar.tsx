@@ -28,7 +28,7 @@ import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { EventoNavIcon, NavIcon } from "@/lib/nav-icons";
 import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
 import { useAutoHideNav } from "@/lib/use-auto-hide-nav";
-import { viewAsAllowedSticky } from "@/lib/view-as";
+import { readViewAs, viewAsAllowedSticky } from "@/lib/view-as";
 import { Avatar } from "@/components/Avatar";
 import { SmartLink } from "./SmartLink";
 import { UserMenu } from "./UserMenu";
@@ -382,6 +382,8 @@ function NavDrop({
 }
 
 function canOpenDashBacheca(staff: StaffAccess | null, stickyOk: boolean) {
+  /* in anteprima "Visualizza come" si vede il sito come quel ruolo: niente link da Founder */
+  if (readViewAs()) return false;
   if (stickyOk) return true;
   return Boolean(staff?.isFounder || staff?.viewAsAllowed);
 }
