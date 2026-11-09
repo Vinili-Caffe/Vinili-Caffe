@@ -82,6 +82,11 @@ const CommandAclEditor = dynamic(() => import("./guild/CommandAcl").then((m) => 
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
+const LeaderboardPanel = dynamic(() => import("./guild/LeaderboardPanel").then((m) => m.LeaderboardPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
 const PartnershipPanel = dynamic(() => import("./guild/PartnershipPanel").then((m) => m.PartnershipPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
@@ -104,6 +109,7 @@ const SECTION_LEAD: Record<Section, string> = {
   commands: "Attiva o disattiva i comandi e scegli chi può usarli e dove.",
   tickets: "Ticket aperti, pannelli, moduli, team e blacklist.",
   partnership: "Configurazione e gestione delle partnership del server.",
+  classifica: "Classifiche partnership: server, partner manager e ingressi.",
 };
 
 const fieldCls =
@@ -1448,6 +1454,12 @@ export function GuildPanel() {
                     {section === "partnership" && guildId && token ? (
                       <Panel>
                         <PartnershipPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "classifica" && guildId && token ? (
+                      <Panel>
+                        <LeaderboardPanel guildId={guildId} token={token} />
                       </Panel>
                     ) : null}
                   </motion.div>

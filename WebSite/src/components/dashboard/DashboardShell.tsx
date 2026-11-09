@@ -21,6 +21,7 @@ import {
   Settings2,
   Sparkles,
   Terminal,
+  Trophy,
   Ticket,
   UserRound,
   X,
@@ -42,6 +43,7 @@ export const GUILD_SECTIONS = [
   { id: "bacheca", label: "Bacheca", icon: Pin },
   { id: "tickets", label: "Ticket", icon: Ticket },
   { id: "partnership", label: "Partnership", icon: Handshake },
+  { id: "classifica", label: "Classifica", icon: Trophy },
 ] as const;
 export type GuildSectionId = (typeof GUILD_SECTIONS)[number]["id"];
 
