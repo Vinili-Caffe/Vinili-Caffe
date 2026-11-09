@@ -83,6 +83,16 @@ export function TextTranscriptView({ text, token, className }: { text: string; t
           <MessageRow key={m.id} m={m} prev={parsed.messages[i - 1]} fix={fix} />
         ))}
       </ol>
+      {parsed.truncated ? (
+        <div className="mx-4 mb-4 mt-2 flex items-start gap-3 rounded-lg bg-[#2b2d31] px-4 py-3 text-sm text-[#dbdee1] ring-1 ring-[#f0b232]/40">
+          <span className="mt-0.5 text-[#f0b232]" aria-hidden>
+            ⚠
+          </span>
+          <span>
+            <strong className="text-white">Il transcript finisce qui.</strong> Di questo ticket il bot ha conservato solo l&apos;inizio: il file completo non è più disponibile.
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

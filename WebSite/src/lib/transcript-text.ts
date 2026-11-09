@@ -83,8 +83,17 @@ function parseBody(lines: string[]): Pick<TextMessage, "content" | "embeds" | "a
   return { content: content.join("\n").replace(/^\n+|\n+$/g, ""), embeds, attachments, stickers };
 }
 
-export function parseTextTranscript(text: string): { channel: string | null; messages: TextMessage[] } | null {
-  const lines = String(text || "").replace(/\r\n/g, "\n").split("\n");
+/** Il bot salva nel database solo i primi 2000 caratteri del testo e aggiunge "…[troncato]". */
+export function isTruncatedTranscript(text: string): boolean {
+  return /…\[troncato\]\s*$/.test(String(text || "").trim());
+}
+
+export function parseTextTranscript(text: string): { channel: string | null; messages: TextMessage[]; truncated: boolean } | null {
+  const truncated = isTruncatedTranscript(text);
+  const lines = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n?…\[troncato\]\s*$/, "")
+    .split("\n");
   let channel: string | null = null;
   const first = lines[0]?.match(/^Transcript del canale:\s*(.+)$/);
   if (first) {
@@ -118,7 +127,7 @@ export function parseTextTranscript(text: string): { channel: string | null; mes
     if (cur) cur.body.push(line);
   }
   flush();
-  return messages.length ? { channel, messages } : null;
+  return messages.length ? { channel, messages, truncated } : null;
 }
 
 /** `:nome:` (emoji salvate senza id) → `<:nome:id>` se l'emoji esiste nel server, così si vede l'immagine. */
