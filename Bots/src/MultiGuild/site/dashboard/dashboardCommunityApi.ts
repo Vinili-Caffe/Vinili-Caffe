@@ -140,14 +140,26 @@ async function putMessage(client?, token?, guildId?, body?) {
   return { ok: true, status: 200, message: next };
 }
 
-async function deleteMessage(client?, token?, guildId?, id?) {
+/** `alsoDiscord`: cancella anche il messaggio pubblicato (se non esiste più va bene lo stesso). */
+async function deleteMessage(client?, token?, guildId?, id?, alsoDiscord = false) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   const rows = await T.listMessages(a.guildId, true);
-  const next = rows.filter((r) => r.id !== String(id));
-  if (next.length === rows.length) return fail(404, "not_found", "Messaggio non trovato.");
-  await T.writeMessages(a.guildId, next);
-  return { ok: true, status: 200 };
+  const msg = rows.find((r) => r.id === String(id));
+  if (!msg) return fail(404, "not_found", "Messaggio non trovato.");
+  let discordDeleted = false;
+  if (alsoDiscord && msg.messageId && msg.sentChannelId) {
+    try {
+      await restOf(client).delete(Routes.channelMessage(msg.sentChannelId, msg.messageId));
+      discordDeleted = true;
+    } catch (err) {
+      const code = Number(err?.code || err?.rawError?.code);
+      if (code === 10008 || code === 10003) discordDeleted = true;
+      else return fail(400, "discord_delete_failed", `Non sono riuscito a cancellarlo da Discord: ${discordError(err)}`);
+    }
+  }
+  await T.writeMessages(a.guildId, rows.filter((r) => r.id !== msg.id));
+  return { ok: true, status: 200, discordDeleted };
 }
 
 async function deliverSavedMessage(client?, gid?: string, msg?, guild?) {

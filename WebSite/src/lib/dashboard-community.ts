@@ -129,7 +129,8 @@ export async function loadCommunity(token: string, guildId: string): Promise<{ o
 
 export const communityApi = {
   saveMessage: (t: string, g: string, m: Partial<SavedMessage>) => call<{ message: SavedMessage }>(t, g, "/messages", "PUT", m),
-  deleteMessage: (t: string, g: string, id: string) => call(t, g, `/messages/${encodeURIComponent(id)}`, "DELETE"),
+  deleteMessage: (t: string, g: string, id: string, alsoDiscord = false) =>
+    call<{ discordDeleted?: boolean }>(t, g, `/messages/${encodeURIComponent(id)}${alsoDiscord ? "?discord=1" : ""}`, "DELETE"),
   sendMessage: (t: string, g: string, id: string, asNew = false) =>
     call<{ message: SavedMessage; edited?: boolean }>(t, g, `/messages/${encodeURIComponent(id)}/send`, "POST", { asNew }),
   scheduleMessage: (t: string, g: string, id: string, scheduledAt: number | null) =>

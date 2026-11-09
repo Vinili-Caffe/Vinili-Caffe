@@ -43,6 +43,7 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
   const [busy, setBusy] = useState<string | null>(null);
   const [when, setWhen] = useState(() => toLocalParts(null));
   const [today] = useState(() => toLocalParts(Date.now()).date);
+  const [confirmDel, setConfirmDel] = useState(false);
 
   const vars = useMemo(() => sampleVars(data), [data]);
 
@@ -70,6 +71,7 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
       updatedAt: 0,
     };
     setEdit(base);
+    setConfirmDel(false);
     setWhen(toLocalParts(base.scheduledAt));
   };
 
@@ -117,15 +119,16 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
     onToast(off ? "Programmazione annullata." : `Verrà pubblicato ${formatWhen(at)}.`);
   };
 
-  const remove = async (m: SavedMessage) => {
+  const remove = async (m: SavedMessage, alsoDiscord: boolean) => {
     if (!m.id) return setEdit(null);
     setBusy("delete");
-    const r = await communityApi.deleteMessage(token, guildId, m.id);
+    const r = await communityApi.deleteMessage(token, guildId, m.id, alsoDiscord);
     setBusy(null);
     if (!r.ok) return onToast(r.message, true);
     setData((d) => (d ? { ...d, messages: d.messages.filter((x) => x.id !== m.id) } : d));
     setEdit(null);
-    onToast("Messaggio eliminato (quello su Discord resta).");
+    setConfirmDel(false);
+    onToast(alsoDiscord ? "Messaggio eliminato, anche da Discord." : m.messageId ? "Messaggio eliminato dalla dashboard (su Discord resta)." : "Messaggio eliminato.");
   };
 
   if (edit) {
@@ -189,12 +192,29 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
                     Pubblica come nuovo messaggio
                   </button>
                 ) : null}
-                {edit.id ? (
-                  <button type="button" className={dangerBtn} disabled={!!busy} onClick={() => void remove(edit)}>
+                {edit.id && !confirmDel ? (
+                  <button type="button" className={dangerBtn} disabled={!!busy} onClick={() => (published ? setConfirmDel(true) : void remove(edit, false))}>
                     <Trash2 className="size-3.5" /> Elimina
                   </button>
                 ) : null}
               </div>
+              {edit.id && confirmDel ? (
+                <div className="rounded-xl bg-[#a83a2c]/[0.07] p-3 ring-1 ring-[#a83a2c]/30">
+                  <p className="text-sm font-semibold text-crema">Eliminare il messaggio?</p>
+                  <p className="mt-0.5 text-xs text-crema/60">È pubblicato in #{chName(edit.sentChannelId) || "canale"}. Puoi toglierlo anche da Discord o lasciarlo lì.</p>
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    <button type="button" className={dangerBtn} disabled={!!busy} onClick={() => void remove(edit, true)}>
+                      <Trash2 className="size-3.5" /> Elimina anche da Discord
+                    </button>
+                    <button type="button" className={miniBtn} disabled={!!busy} onClick={() => void remove(edit, false)}>
+                      Solo dalla dashboard
+                    </button>
+                    <button type="button" className={miniBtn} disabled={!!busy} onClick={() => setConfirmDel(false)}>
+                      Annulla
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           }
           preview={<DiscordMessagePreview draft={edit.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}

@@ -196,7 +196,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     const gid = (req?) => req.params?.guildId;
     app.get(base, wrap("get", (t, req) => C().getDashboardCommunity(client, t, gid(req))));
     app.put(`${base}/messages`, wrap("msg put", (t, req) => C().putMessage(client, t, gid(req), req.body)));
-    app.delete(`${base}/messages/:id`, wrap("msg del", (t, req) => C().deleteMessage(client, t, gid(req), req.params?.id)));
+    app.delete(`${base}/messages/:id`, wrap("msg del", (t, req) => C().deleteMessage(client, t, gid(req), req.params?.id, String(req.query?.discord || "") === "1")));
     app.post(`${base}/messages/:id/send`, wrap("msg send", (t, req) => C().sendMessageNow(client, t, gid(req), req.params?.id, req.body)));
     app.post(`${base}/messages/:id/schedule`, wrap("msg schedule", (t, req) => C().scheduleMessage(client, t, gid(req), req.params?.id, req.body)));
     app.put(`${base}/commands`, wrap("cmd put", (t, req) => C().putCommand(client, t, gid(req), req.body)));
