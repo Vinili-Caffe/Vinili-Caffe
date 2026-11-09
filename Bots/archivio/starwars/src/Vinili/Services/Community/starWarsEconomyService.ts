@@ -48,7 +48,7 @@ function unitsDiff(before?, after?) {
 
 function labeledUnitRows(unitsMap?, factionId?, epoch?) {
   const catalog = unitsForEpoch(epoch);
-  const byId = new Map(catalog.map((u?) => [u.id, u]));
+  const byId = new Map<string, any>(catalog.map((u?) => [u.id, u] as [string, any]));
   const rows = [];
   for (const [id, raw] of Object.entries(unitsMap || {})) {
     const qty = safeInt(raw);
@@ -457,7 +457,7 @@ async function listWarReports(client?, { limit = 40, viewerFactionId = null } = 
   return { ok: true, eventKey, wars, count: wars.length };
 }
 
-async function getWarReport(client?, { warId, viewerFactionId = null } = {}) {
+async function getWarReport(client?, { warId, viewerFactionId = null }: { warId?: any; viewerFactionId?: any } = {}) {
   const cfg = resolveStarWarsEventConfig(client);
   const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
   const rawId = String(warId || "").trim();

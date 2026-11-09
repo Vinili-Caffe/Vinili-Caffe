@@ -527,7 +527,7 @@ async function settleMinieraKyberIfDue(client?) {
       factionId: normalizeId(fid).toLowerCase(),
       crystals: safeInt((raw as any)?.crystals),
       participants: Array.isArray((raw as any)?.participants)
-        ? [...new Set((raw as any).participants.map((x) => normalizeId(x)).filter(Boolean))]
+        ? [...new Set<string>((raw as any).participants.map((x) => String(normalizeId(x))).filter(Boolean))]
         : [],
     }))
     .filter((r) => r.factionId)

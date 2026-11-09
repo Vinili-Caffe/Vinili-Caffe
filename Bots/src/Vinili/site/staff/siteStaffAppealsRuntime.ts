@@ -31,7 +31,7 @@ async function notifyAppealSubject(guildId, userId, { title, body, dedupeKey, me
   });
 }
 
-async function sendAppealDecisionDm(guild?, userId?, { title, body, inviteUrl = "" } = {}) {
+async function sendAppealDecisionDm(guild?, userId?, { title, body, inviteUrl = "" }: { title?: string; body?: string; inviteUrl?: string } = {}) {
   const uid = String(userId || "").trim();
   if (!uid || !guild?.client) return false;
   let user = guild.client.users.cache.get(uid) || null;

@@ -152,7 +152,7 @@ async function importDashboardGuildConfig(client?, accessToken?, guildId?, body?
   }
 
   if (config.tickets && typeof config.tickets === "object") {
-    const out = await patchDashboardTickets(
+    const out: any = await patchDashboardTickets(
       client,
       accessToken,
       access.guildId,

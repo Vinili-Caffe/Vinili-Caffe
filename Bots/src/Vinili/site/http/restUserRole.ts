@@ -277,7 +277,7 @@ function wrapMessageReactions(rawReactions?, clientRef?, channelId?, messageId?)
       if (!emojiId && !emojiName) return null;
       const key = emojiId || emojiName;
       const encoded = encodeReactionEmoji(emojiId ? { id: emojiId, name: emojiName || "emoji" } : emojiName);
-      const reaction = {
+      const reaction: any = {
         count: Number(r?.count) || 0,
         me: Boolean(r?.me),
         emoji: { id: emojiId, name: emojiName },
