@@ -5,23 +5,25 @@ import { DoorOpen, Mail, PartyPopper, Send, UserPlus } from "lucide-react";
 import { MultiSelect } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { communityApi, type WelcomeSettings } from "@/lib/dashboard-community";
-import { Field, Notice, RowsSkeleton, Subnav, Toggle, fieldClass, miniBtn, primaryMini } from "../bits";
+import { Field, Notice, RowsSkeleton, Toggle, fieldClass, miniBtn, primaryMini } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, MEMBER_PLACEHOLDERS, roleOptions, sampleVars, useCommunity } from "./shared";
 
 type Tab = "welcome" | "goodbye" | "dm" | "roles";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "welcome", label: "Benvenuto" },
-  { id: "goodbye", label: "Addio" },
-  { id: "dm", label: "Messaggio privato" },
-  { id: "roles", label: "Ruoli automatici" },
-];
-
-export function WelcomePanel({ guildId, token, onToast }: { guildId: string; token: string; onToast: (msg: string, err?: boolean) => void }) {
+export function WelcomePanel({
+  guildId,
+  token,
+  onToast,
+  tab = "welcome",
+}: {
+  guildId: string;
+  token: string;
+  onToast: (msg: string, err?: boolean) => void;
+  tab?: Tab;
+}) {
   const { data, error } = useCommunity(guildId, token);
   const [cfg, setCfg] = useState<WelcomeSettings | null>(null);
   const [saved, setSaved] = useState<string>("");
-  const [tab, setTab] = useState<Tab>("welcome");
   const [busy, setBusy] = useState<string | null>(null);
   const vars = useMemo(() => sampleVars(data), [data]);
 
@@ -106,8 +108,7 @@ export function WelcomePanel({ guildId, token, onToast }: { guildId: string; tok
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Subnav value={tab} onChange={setTab} tabs={TABS} label="Benvenuto e addio" />
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <button type="button" className={primaryMini} disabled={!dirty || !!busy} onClick={() => void save()}>
           {dirty ? "Salva modifiche" : "Salvato"}
         </button>

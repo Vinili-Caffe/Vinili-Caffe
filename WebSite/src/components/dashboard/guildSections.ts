@@ -109,6 +109,19 @@ export const REGISTRO_MODULE_TABS = [
 
 export type RegistroModuleTabId = (typeof REGISTRO_MODULE_TABS)[number]["id"];
 
+export const ANNUNCI_MODULE_TABS = [
+  { id: "welcome", label: "Benvenuto" },
+  { id: "goodbye", label: "Addio" },
+  { id: "dm", label: "Messaggio privato" },
+  { id: "roles", label: "Ruoli automatici" },
+] as const satisfies readonly GuildModuleTab[];
+
+export type AnnunciModuleTabId = (typeof ANNUNCI_MODULE_TABS)[number]["id"];
+
+export function isAnnunciModuleTab(v: string): v is AnnunciModuleTabId {
+  return ANNUNCI_MODULE_TABS.some((t) => t.id === v);
+}
+
 /** Core del server: sotto SERVER (Comandi/Classifica con sotto-menù). */
 export const GUILD_SERVER_SECTIONS = [
   { id: "settings", label: "Impostazioni", icon: Settings2 },
@@ -128,7 +141,7 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "messaggi", label: "Messaggi", icon: Megaphone, tabs: [] as const },
   { id: "comandipers", label: "Comandi personalizzati", icon: TerminalSquare, tabs: [] as const },
   { id: "ruoli", label: "Ruoli con pulsanti", icon: Tags, tabs: [] as const },
-  { id: "benvenuto", label: "Benvenuto e addio", icon: PartyPopper, tabs: [] as const },
+  { id: "benvenuto", label: "Annunci", icon: PartyPopper, tabs: ANNUNCI_MODULE_TABS },
 ] as const satisfies readonly GuildNavItem[];
 
 /** Elenco piatto (URL, mobile chip, lookup). Ordine: server poi moduli. */
@@ -169,6 +182,7 @@ export function defaultModuleTab(section: GuildSectionId): string | null {
   if (section === "commands") return "all";
   if (section === "classifica") return "servers";
   if (section === "registro") return "all";
+  if (section === "benvenuto") return "welcome";
   return null;
 }
 

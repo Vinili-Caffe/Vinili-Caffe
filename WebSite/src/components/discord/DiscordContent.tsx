@@ -24,7 +24,7 @@ function DiscordEmojiImg({ id, name, animated }: { id: string; name: string; ani
       src={discordEmojiSrc(id, animated)}
       alt={`:${name}:`}
       title={`:${name}:`}
-      className="inline size-5 align-text-bottom object-contain"
+      className="inline size-[1.375em] align-bottom object-contain"
       loading="lazy"
       decoding="async"
       draggable={false}

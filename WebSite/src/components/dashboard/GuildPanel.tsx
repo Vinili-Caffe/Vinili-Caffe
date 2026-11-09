@@ -85,6 +85,7 @@ import {
   isModerationModuleTab,
   isPartnershipModuleTab,
   isRegistroModuleTab,
+  isAnnunciModuleTab,
   isTicketModuleTab,
   sectionTabs,
 } from "./guildSections";
@@ -185,7 +186,7 @@ const SECTION_LEAD: Record<Section, string> = {
   messaggi: "Annunci e regolamenti con embed e pulsanti: pubblicali subito o a un'ora precisa.",
   comandipers: "Comandi con una risposta fissa, tipo +regole o +ip, creati da te.",
   ruoli: "Pannelli con pulsanti o menu per prendersi i ruoli da soli.",
-  benvenuto: "Messaggi quando qualcuno entra o esce e ruoli automatici all'ingresso.",
+  benvenuto: "Benvenuto, addio, messaggio privato a chi entra e ruoli automatici.",
 };
 
 const fieldCls =
@@ -215,6 +216,7 @@ function sanitizeModuleTab(section: Section, raw: string | null | undefined): st
   }
   if (section === "classifica") return isClassificaSectionTab(v) ? v : "servers";
   if (section === "registro") return isRegistroModuleTab(v) ? v : "all";
+  if (section === "benvenuto") return isAnnunciModuleTab(v) ? v : "welcome";
   return fallback;
 }
 
@@ -2075,7 +2077,7 @@ export function GuildPanel() {
 
                     {section === "benvenuto" && guildId && token ? (
                       <Panel>
-                        <WelcomePanel guildId={guildId} token={token} onToast={showToast} />
+                        <WelcomePanel guildId={guildId} token={token} onToast={showToast} tab={moduleTab && isAnnunciModuleTab(moduleTab) ? moduleTab : "welcome"} />
                       </Panel>
                     ) : null}
 

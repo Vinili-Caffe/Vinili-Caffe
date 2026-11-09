@@ -370,6 +370,8 @@ export type PreviewRow =
   | { kind: "buttons"; items: { label: string; emoji?: string; style: 1 | 2 | 3 | 4 | 5 }[] }
   | { kind: "select"; placeholder: string };
 
+/* Misure prese da Discord (desktop): embed max 516px, miniatura 80×80, immagine max 400×300,
+   testo messaggio 16/22px, embed 14/18px, titolo 16px, piè di pagina 12px, pulsanti alti 32px. */
 const BTN_STYLE: Record<number, string> = {
   1: "bg-[#5865f2] text-white",
   2: "bg-[#4e5058] text-white",
@@ -377,6 +379,36 @@ const BTN_STYLE: Record<number, string> = {
   4: "bg-[#da373c] text-white",
   5: "bg-[#4e5058] text-white",
 };
+
+/** Larghezza della chat su cui è disegnata l'anteprima: sotto, si rimpicciolisce tutta in proporzione. */
+const CHAT_WIDTH = 600;
+
+function ScaleToFit({ width, children }: { width: number; children: React.ReactNode }) {
+  const outer = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ scale: 1, height: 0 });
+  useEffect(() => {
+    const o = outer.current;
+    const i = inner.current;
+    if (!o || !i) return;
+    const measure = () => {
+      const scale = Math.min(1, o.clientWidth / width);
+      setBox({ scale, height: i.offsetHeight * scale });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(o);
+    ro.observe(i);
+    return () => ro.disconnect();
+  }, [width]);
+  return (
+    <div ref={outer} className="relative w-full overflow-hidden" style={{ height: box.height || undefined }}>
+      <div ref={inner} style={{ width, transform: `scale(${box.scale})`, transformOrigin: "top left" }} className="absolute left-0 top-0">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function DiscordMessagePreview({
   draft,
@@ -417,80 +449,92 @@ export function DiscordMessagePreview({
     ? { kind: "buttons", items: draft.buttons.map((b) => ({ label: fillVars(b.label, vars), emoji: b.emoji, style: 5 as const })) }
     : null;
   const allRows = [...(linkRow ? [linkRow] : []), ...rows];
+  const time = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+
   return (
-    <div className={cn("rounded-xl bg-[#313338] p-3 ring-1 ring-sand/10", className)}>
-      <div className="flex gap-3">
-        {bot?.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={bot.avatarUrl} alt="" className="mt-0.5 size-10 shrink-0 rounded-full object-cover" />
-        ) : (
-          <span className="mt-0.5 size-10 shrink-0 animate-pulse rounded-full bg-crema/10" aria-hidden />
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="text-sm">
-            <span className="font-semibold text-white">{bot?.name || "Bot"}</span>
-            <span className="ml-1.5 rounded bg-[#5865f2] px-1 py-px align-[1px] text-[0.6rem] font-semibold text-white">APP</span>
-            <span className="ml-1.5 text-[0.7rem] text-[#949ba4]">Oggi</span>
-          </p>
-          {content ? <DiscordContent text={content} names={names} className="mt-0.5 text-sm leading-relaxed text-[#dbdee1]" /> : null}
-          {showEmbed ? (
-            <div className="mt-1.5 flex max-w-[32rem] overflow-hidden rounded bg-[#2b2d31]">
-              <span className="w-1 shrink-0" style={{ background: e.color }} aria-hidden />
-              <div className="min-w-0 flex-1 p-3">
-                <div className="flex gap-3">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    {author ? (
-                      <p className="flex items-center gap-2 text-[0.8rem] font-semibold text-white">
-                        {authorIcon ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={authorIcon} alt="" className="size-6 rounded-full object-cover" />
-                        ) : null}
-                        {author}
-                      </p>
-                    ) : null}
-                    {title ? <DiscordContent text={title} names={names} className="text-[0.95rem] font-semibold text-white" /> : null}
-                    {desc ? <DiscordContent text={desc} names={names} className="text-sm leading-relaxed text-[#dbdee1]" /> : null}
-                  </div>
-                  {thumbUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={thumbUrl} alt="" className="size-16 shrink-0 rounded object-cover" />
+    <div className={cn("overflow-hidden rounded-xl bg-[#313338] py-3 ring-1 ring-sand/10", className)}>
+      <ScaleToFit width={CHAT_WIDTH}>
+        <div className="flex gap-4 pl-4 pr-4 font-sans text-[16px] leading-[22px] text-[#dbdee1] antialiased">
+          {bot?.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={bot.avatarUrl} alt="" className="mt-[2px] size-10 shrink-0 rounded-full object-cover" />
+          ) : (
+            <span className="mt-[2px] size-10 shrink-0 animate-pulse rounded-full bg-white/10" aria-hidden />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center leading-[22px]">
+              <span className="text-[16px] font-medium text-[#f2f3f5]">{bot?.name || "Bot"}</span>
+              <span className="ml-1 inline-flex h-[15px] items-center rounded-[3px] bg-[#5865f2] px-1 text-[10px] font-semibold leading-none text-white">APP</span>
+              <span className="ml-2 text-[12px] leading-[22px] text-[#949ba4]">Oggi alle {time}</span>
+            </p>
+            {content ? <DiscordContent text={content} names={names} className="whitespace-pre-line text-[16px] leading-[22px]" /> : null}
+
+            {showEmbed ? (
+              <div
+                className="mt-[2px] grid w-fit max-w-[516px] rounded-[4px] border-l-4 bg-[#2b2d31] pb-4 pl-3 pr-4 pt-2"
+                style={{ borderLeftColor: e.color, gridTemplateColumns: thumbUrl ? "minmax(0,1fr) auto" : "minmax(0,1fr)" }}
+              >
+                <div className="min-w-0">
+                  {author ? (
+                    <p className="mt-2 flex items-center gap-2 text-[14px] font-semibold leading-[22px] text-[#f2f3f5]">
+                      {authorIcon ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={authorIcon} alt="" className="size-6 rounded-full object-cover" />
+                      ) : null}
+                      <span className="min-w-0 break-words">{author}</span>
+                    </p>
                   ) : null}
+                  {title ? <DiscordContent text={title} names={names} className="mt-2 text-[16px] font-semibold leading-[22px] text-[#f2f3f5]" /> : null}
+                  {desc ? <DiscordContent text={desc} names={names} className="mt-2 whitespace-pre-line text-[14px] leading-[18px] text-[#dbdee1]" /> : null}
                 </div>
+                {thumbUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumbUrl} alt="" className="ml-4 mt-2 max-h-20 max-w-20 justify-self-end rounded-[3px] object-contain" />
+                ) : null}
                 {imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={imageUrl} alt="" className="mt-2 max-h-64 w-full rounded object-cover" />
+                  <img src={imageUrl} alt="" className="col-span-full mt-4 h-auto max-h-[300px] w-auto max-w-[400px] rounded-[4px] object-contain" />
                 ) : null}
                 {footer || e.timestamp ? (
-                  <p className="mt-2 text-[0.72rem] text-[#949ba4]">
+                  <p className="col-span-full mt-2 text-[12px] font-medium leading-4 text-[#dbdee1]">
                     {footer}
                     {footer && e.timestamp ? " • " : ""}
-                    {e.timestamp ? "Oggi alle " + new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : ""}
+                    {e.timestamp ? `Oggi alle ${time}` : ""}
                   </p>
                 ) : null}
               </div>
-            </div>
-          ) : null}
-          {!content && !showEmbed ? <p className="mt-0.5 text-sm italic text-[#949ba4]">Messaggio vuoto</p> : null}
-          {allRows.map((row, i) =>
-            row.kind === "select" ? (
-              <div key={i} className="mt-1.5 flex max-w-[24rem] items-center justify-between rounded bg-[#1e1f22] px-3 py-2 text-sm text-[#949ba4]">
-                {row.placeholder}
-                <span aria-hidden>▾</span>
+            ) : null}
+
+            {!content && !showEmbed ? <p className="italic text-[#949ba4]">Messaggio vuoto</p> : null}
+
+            {allRows.length ? (
+              <div className="mt-1 flex flex-col gap-2 py-1">
+                {allRows.map((row, i) =>
+                  row.kind === "select" ? (
+                    <div key={i} className="flex h-10 w-full max-w-[400px] items-center justify-between rounded-[8px] border border-[#1e1f22] bg-[#1e1f22] px-3 text-[16px] text-[#949ba4]">
+                      <span className="truncate">{row.placeholder}</span>
+                      <span aria-hidden className="ml-2 text-[#b5bac1]">⌄</span>
+                    </div>
+                  ) : (
+                    <div key={i} className="flex flex-wrap gap-2">
+                      {row.items.map((b, j) => (
+                        <span
+                          key={j}
+                          className={cn("inline-flex h-8 min-w-[60px] items-center justify-center gap-1.5 rounded-[8px] px-4 text-[14px] font-medium leading-4", BTN_STYLE[b.style])}
+                        >
+                          {b.emoji ? <EmojiGlyph value={b.emoji} className="size-[18px]" /> : null}
+                          {b.label}
+                          {b.style === 5 ? <ExternalLink className="size-4" /> : null}
+                        </span>
+                      ))}
+                    </div>
+                  ),
+                )}
               </div>
-            ) : (
-              <div key={i} className="mt-1.5 flex flex-wrap gap-1.5">
-                {row.items.map((b, j) => (
-                  <span key={j} className={cn("inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium", BTN_STYLE[b.style])}>
-                    {b.emoji ? <EmojiGlyph value={b.emoji} /> : null}
-                    {b.label}
-                    {b.style === 5 ? <ExternalLink className="size-3.5 opacity-80" /> : null}
-                  </span>
-                ))}
-              </div>
-            ),
-          )}
+            ) : null}
+          </div>
         </div>
-      </div>
+      </ScaleToFit>
     </div>
   );
 }
@@ -498,7 +542,7 @@ export function DiscordMessagePreview({
 /** Colonne editor + anteprima fissa a destra su desktop. */
 export function EditorWithPreview({ editor, preview }: { editor: React.ReactNode; preview: React.ReactNode }) {
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
       <div className="min-w-0">{editor}</div>
       <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
         <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/60">Anteprima</p>
