@@ -2,7 +2,7 @@
   "version": 1,
   "features": {
     "utility": {
-      "label": "Utility (help, ping, avatar, afk, snipe, quote, repost, clip, invites)",
+      "label": "Utility (help, ping, avatar, afk, snipe, invites)",
       "tier": 1
     },
     "music": {

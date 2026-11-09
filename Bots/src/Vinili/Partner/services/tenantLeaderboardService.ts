@@ -2,7 +2,11 @@ const { ActivityUserProfile } = require("../../Community/schemas/communitySchema
 const { listOperationalPartnershipGuildIds } = require("../core/partnershipConfigResolver") as typeof import("../core/partnershipConfigResolver");
 const { getPartnerLeaderboardWeekBoundsUtc } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
 const { resolvePartnerPointsShown, resolvePartnerTotalEarned, resolvePartnerHistoryAttributed, getPartnerServerResetMs, countPartnerCreateActions, legacyPartnerCountFloor } = require("../../Staff/utils/partnerPointsDisplayUtils") as typeof import("../../Staff/utils/partnerPointsDisplayUtils");
-const { listJoinLeaderboardScores, getRomeDayKey } = require("./tenantPartnershipJoinStatsService") as typeof import("./tenantPartnershipJoinStatsService");
+const {
+  listJoinLeaderboardScores,
+  syncPartnershipJoinTotalsFromClient,
+  getRomeDayKey,
+} = require("./tenantPartnershipJoinStatsService") as typeof import("./tenantPartnershipJoinStatsService");
 const {
   listConfiguredPartnershipGuildIds,
   refreshPartnershipConfigCache,
@@ -242,7 +246,15 @@ async function aggregatePartnersScores(period?, targetGuildId = null) {
   return out;
 }
 
-async function aggregateJoinScores(period?) {
+async function aggregateJoinScores(period?, client = null) {
+  if (client) {
+    try {
+      const sync = await syncPartnershipJoinTotalsFromClient(client);
+      if (sync?.updated > 0) invalidateLeaderboardCache();
+    } catch (err) {
+      global.logger?.warn?.("[LEADERBOARD] join uses sync failed:", err?.message || err);
+    }
+  }
   const key = cacheKey({ kind: "join", period });
   const cached = readCache(key);
   if (cached) return cached;
@@ -251,10 +263,10 @@ async function aggregateJoinScores(period?) {
   return out;
 }
 
-async function fetchLeaderboardRows(category?, period?, targetGuildId = null) {
+async function fetchLeaderboardRows(category?, period?, targetGuildId = null, client = null) {
   const cat = normalizeCategory(category);
   const per = normalizePeriod(period);
-  if (cat === "join") return aggregateJoinScores(per);
+  if (cat === "join") return aggregateJoinScores(per, client);
   if (cat === "partners") return aggregatePartnersScores(per, targetGuildId);
   return aggregateServerPartnershipScores(per);
 }

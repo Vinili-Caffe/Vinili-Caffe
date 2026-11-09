@@ -22,6 +22,10 @@ function mountStaffRoutes(app?, client?, ctx: Record<string, any> = {}) {
     handleSiteStaffSerataFilmPost,
   } = require("./siteStaffToolsApi") as typeof import("./siteStaffToolsApi");
   app.get("/webhooks/site-staff-access", (req?, res?) => handleSiteStaffAccessGet(client, req, res));
+  app.get("/webhooks/site-view-as/roles", (req?, res?) => {
+    const { handleViewAsRolesGet } = require("../http/siteViewAsPreview") as typeof import("../http/siteViewAsPreview");
+    return handleViewAsRolesGet(client, req, res);
+  });
   app.get("/webhooks/site-staff-dashboard", (req?, res?) => handleSiteStaffDashboardGet(client, req, res));
   app.get("/webhooks/site-staff-manage", (req?, res?) => handleSiteStaffManageGet(client, req, res));
   app.post("/webhooks/site-staff-manage", (req?, res?) => handleSiteStaffManagePost(client, req, res));

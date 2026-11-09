@@ -433,7 +433,18 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
     }
     return false;
   }
-  const hasRole = !Array.isArray(roles) ? true : await hasAnyRoleWithLiveFallback(message, roles);
+  let hasRole = !Array.isArray(roles) ? true : await hasAnyRoleWithLiveFallback(message, roles);
+  if (!hasRole && message.member) {
+    try {
+      const {
+        isTenantModerationPrefixCommand,
+        memberHasModeratorRole,
+      } = require("../../../MultiGuild/core/tenantModerationPermissions") as typeof import("../../../MultiGuild/core/tenantModerationPermissions");
+      if (isTenantModerationPrefixCommand(safeCommand) && memberHasModeratorRole(message.member)) {
+        hasRole = true;
+      }
+    } catch (_) {}
+  }
   const hasPermissions = !Array.isArray(permissions) ? true : await hasAllPermissionsWithLiveFallback(message, permissions);
   const allowed = hasRole && hasPermissions;
   if (allowed) {

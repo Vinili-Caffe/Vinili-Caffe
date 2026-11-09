@@ -146,6 +146,11 @@ async function startWebhookServer(client?) {
     }),
   );
   app.use(express.urlencoded({ extended: true, limit: "256kb" }));
+  /* anteprima "visualizza come ruolo" (header X-VC-View-As): contesto per tutta la richiesta */
+  {
+    const { mountViewAsContext } = require("../../../shared/runtime/viewAsContext") as typeof import("../../../shared/runtime/viewAsContext");
+    mountViewAsContext(app);
+  }
 
   try {
     const { mountTicketTranscriptRoutes } = require("../../../MultiGuild/tickets/transcript/ticketTranscriptHttp") as typeof import("../../../MultiGuild/tickets/transcript/ticketTranscriptHttp");

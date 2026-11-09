@@ -84,8 +84,10 @@ function ensurePrefixSubcommandMetadata(command?) {
   });
 }
 
-function loadPrefixFilesFromDir(dirPath?, folderLabel?, newPcommands?, newAliases?, statusMap?) {
+function loadPrefixFilesFromDir(dirPath?, folderLabel?, newPcommands?, newAliases?, statusMap?, options?) {
   if (!dirPath || !fs.existsSync(dirPath)) return;
+  const skipNames = options?.skipNames instanceof Set ? options.skipNames : null;
+  const forceFolder = options?.forceFolder === true;
   const files = fs
     .readdirSync(dirPath)
     .filter((f?) => /\.(cjs|mjs|js|cts|mts|ts)$/i.test(f) && !f.endsWith(".d.ts"));
@@ -99,13 +101,18 @@ function loadPrefixFilesFromDir(dirPath?, folderLabel?, newPcommands?, newAliase
         statusMap.set(key, "Missing name");
         continue;
       }
-      if (REMOVED_PREFIX_COMMANDS.has(String(command.name || "").trim().toLowerCase())) {
+      const commandName = String(command.name || "").trim().toLowerCase();
+      if (REMOVED_PREFIX_COMMANDS.has(commandName)) {
+        continue;
+      }
+      if (skipNames?.has(commandName)) {
+        statusMap.set(key, "Skipped (MultiGuild)");
         continue;
       }
       if (command.skipLoad || command.skipPrefix) {
         continue;
       }
-      command.folder = command.folder || folderLabel;
+      command.folder = forceFolder ? folderLabel : command.folder || folderLabel;
       ensurePrefixSubcommandMetadata(command);
       ensurePrefixUsageMetadata(command, "+");
       newPcommands.set(command.name, command);
@@ -137,23 +144,36 @@ export = (client?) => {
       );
     }
 
-    // Community utility prefix (+afk, +avatar, +repost, …) — niente facade sotto Prefix/Utility
+    // Community utility (+afk, +avatar, …). quote/repost/clip → MultiGuild/discord/prefix/Bacheca
     loadPrefixFilesFromDir(
       path.resolve(__dirname, "..", "..", "Community", "discord", "prefix"),
       "Utility",
       newPcommands,
       newAliases,
       statusMap,
+      { skipNames: new Set(["quote", "repost", "clip"]) },
     );
 
-    // Partnership prefix vive in Partner/discord/prefix (niente facade sotto Prefix/)
-    loadPrefixFilesFromDir(
-      path.resolve(__dirname, "..", "..", "Partner", "discord", "prefix"),
+    // Partnership prefix: esposto da MultiGuild/discord/prefix/Partnership (re-export Vinili/Partner)
+    const mgPartnershipPrefix = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "MultiGuild",
+      "discord",
+      "prefix",
       "Partnership",
-      newPcommands,
-      newAliases,
-      statusMap,
     );
+    if (!fs.existsSync(mgPartnershipPrefix)) {
+      loadPrefixFilesFromDir(
+        path.resolve(__dirname, "..", "..", "Partner", "discord", "prefix"),
+        "Partnership",
+        newPcommands,
+        newAliases,
+        statusMap,
+      );
+    }
 
     // Stats prefix vive in Stats/discord/prefix (niente facade sotto Prefix/Stats)
     loadPrefixFilesFromDir(
@@ -164,13 +184,14 @@ export = (client?) => {
       statusMap,
     );
 
-    // Minigames prefix (es. +ship)
+    // Minigames prefix. +ship → MultiGuild/discord/prefix/Minigames
     loadPrefixFilesFromDir(
       path.resolve(__dirname, "..", "..", "Minigames", "discord", "prefix"),
       "Minigames",
       newPcommands,
       newAliases,
       statusMap,
+      { skipNames: new Set(["ship"]) },
     );
 
     // Star Wars prefix (archivio) — HS-only staging su server test
@@ -337,7 +358,7 @@ export = (client?) => {
       statusMap,
     );
 
-    // Prefix MultiGuild (es. +help tenant-only)
+    // Prefix MultiGuild (Bacheca, Partnership, +help tenant-only, …)
     const mgPrefixBase = path.resolve(__dirname, "..", "..", "..", "MultiGuild", "discord", "prefix");
     if (fs.existsSync(mgPrefixBase)) {
       const mgFolders = fs
@@ -351,6 +372,7 @@ export = (client?) => {
           newPcommands,
           newAliases,
           statusMap,
+          { forceFolder: true },
         );
       }
     }

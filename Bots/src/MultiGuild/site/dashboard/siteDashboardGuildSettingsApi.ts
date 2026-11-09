@@ -1,4 +1,4 @@
-const { PermissionFlagsBits, Routes } = require("discord.js") as typeof import("discord.js");
+const { Routes } = require("discord.js") as typeof import("discord.js");
 const { isViniliFullFeatureGuild } = require("../../core/guildFeatureScope") as typeof import("../../core/guildFeatureScope");
 const { isViniliProtectedGuild } = require("../../core/viniliProtectedGuilds") as typeof import("../../core/viniliProtectedGuilds");
 const {
@@ -8,11 +8,13 @@ const {
   refreshTenantGuildSettingsCache,
   setTenantPrefix,
   setTenantDashboardRoles,
+  setTenantDashboardUsers,
   setTenantUpdatesChannel,
   setTenantBoards,
   normalizePrefix,
   normalizeRoleId,
   normalizeRoleIdList,
+  normalizeUserIdList,
   normalizeChannelId,
   normalizeBoardsMode,
 } = require("../../core/tenantGuildSettings") as typeof import("../../core/tenantGuildSettings");
@@ -37,10 +39,10 @@ const REASON_MESSAGES = {
   persist_failed: "Salvataggio non riuscito. Riprova.",
   invalid_channel: "Canale non valido.",
   invalid_role: "Ruolo non valido.",
-  role_not_admin:
-    "Puoi selezionare solo ruoli con il permesso Amministratore (non gestiti da bot).",
   role_managed:
     "Non puoi selezionare ruoli gestiti da un bot o da un’integrazione.",
+  invalid_user: "Utente non valido.",
+  too_many_users: "Puoi aggiungere al massimo 25 utenti per l’accesso dashboard.",
   invalid_prefix: `Prefix non valido (1–${PREFIX_MAX_LEN} caratteri, senza spazi).`,
   invalid_boards: "Configurazione bacheca non valida.",
   main_guild: "Il server principale non usa queste impostazioni.",
@@ -347,9 +349,10 @@ async function getDashboardGuildSettings(client?, accessToken?, guildId?) {
       prefixMaxLength: PREFIX_MAX_LEN,
       dashboardRoleId: snapshot.dashboardRoleId,
       dashboardRoleIds: Array.isArray(snapshot.dashboardRoleIds) ? snapshot.dashboardRoleIds : [],
+      dashboardUserIds: Array.isArray(snapshot.dashboardUserIds) ? snapshot.dashboardUserIds : [],
       updatesChannelId: snapshot.updatesChannelId,
       boards: snapshot.boards || {
-        enabled: true,
+        enabled: false,
         mode: "shared",
         sharedChannelId: null,
         quoteChannelId: null,
@@ -446,14 +449,24 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
         if (role.managed) {
           return fail(400, "role_managed", reasonToMessage("role_managed"));
         }
-        const isAdmin = Boolean(role.permissions?.has?.(PermissionFlagsBits.Administrator));
-        if (!isAdmin) {
-          return fail(400, "role_not_admin", reasonToMessage("role_not_admin"));
-        }
       }
     }
     const saved: any = await setTenantDashboardRoles(gid, roleIds);
     if (!saved.ok) return fail(400, saved.reason || "persist_failed", reasonToMessage(saved.reason));
+  }
+
+  if (Object.prototype.hasOwnProperty.call(patch, "dashboardUserIds")) {
+    const userIds = normalizeUserIdList(patch.dashboardUserIds);
+    if (Array.isArray(patch.dashboardUserIds) && patch.dashboardUserIds.length && !userIds.length) {
+      return fail(400, "invalid_user", reasonToMessage("invalid_user"));
+    }
+    if (userIds.length > 25) {
+      return fail(400, "too_many_users", reasonToMessage("too_many_users"));
+    }
+    const savedUsers: any = await setTenantDashboardUsers(gid, userIds);
+    if (!savedUsers.ok) {
+      return fail(400, savedUsers.reason || "persist_failed", reasonToMessage(savedUsers.reason));
+    }
   }
 
   if (!protectedGuild && Object.prototype.hasOwnProperty.call(patch, "updatesChannelId")) {
@@ -623,9 +636,10 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
       prefixMaxLength: PREFIX_MAX_LEN,
       dashboardRoleId: snapshot.dashboardRoleId,
       dashboardRoleIds: Array.isArray(snapshot.dashboardRoleIds) ? snapshot.dashboardRoleIds : [],
+      dashboardUserIds: Array.isArray(snapshot.dashboardUserIds) ? snapshot.dashboardUserIds : [],
       updatesChannelId: snapshot.updatesChannelId,
       boards: snapshot.boards || {
-        enabled: true,
+        enabled: false,
         mode: "shared",
         sharedChannelId: null,
         quoteChannelId: null,

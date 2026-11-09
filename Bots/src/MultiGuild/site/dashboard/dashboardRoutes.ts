@@ -28,9 +28,18 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     previewDashboardQuoteStyle,
   } = require("./siteDashboardGuildSettingsApi") as typeof import("./siteDashboardGuildSettingsApi");
   const {
+    exportDashboardGuildConfig,
+    importDashboardGuildConfig,
+  } = require("./siteDashboardGuildConfigApi") as typeof import("./siteDashboardGuildConfigApi");
+  const {
     getDashboardGuildCommands,
     patchDashboardGuildCommands,
   } = require("./siteDashboardGuildCommandsApi") as typeof import("./siteDashboardGuildCommandsApi");
+  const {
+    getDashboardModeration,
+    patchDashboardModeration,
+    getDashboardModerationCases,
+  } = require("./siteDashboardModerationApi") as typeof import("./siteDashboardModerationApi");
   const {
     listDashboardStaffNotifications,
     markDashboardStaffNotificationsRead,
@@ -165,6 +174,20 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-dashboard botban remove:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-dashboard/guilds/:guildId/health", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
+      }
+      const { getDashboardHealth } = require("./dashboardHealthApi") as typeof import("./dashboardHealthApi");
+      const out: any = await getDashboardHealth(client, accessToken, req.params?.guildId);
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard health:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
@@ -931,6 +954,49 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     }
   });
 
+  app.get("/webhooks/site-dashboard/guilds/:guildId/config/export", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await exportDashboardGuildConfig(client, accessToken, req.params?.guildId);
+      if (!out || out.ok !== true) {
+        return res.status(Number(out?.status) || 500).json(out || { ok: false, error: "export_failed" });
+      }
+      const filename = String(out.filename || `vinili-config-${req.params?.guildId || "guild"}.json`);
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename.replace(/"/g, "")}"`);
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(200).send(JSON.stringify(out.config, null, 2));
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard config export:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+
+  app.post("/webhooks/site-dashboard/guilds/:guildId/config/import", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await importDashboardGuildConfig(client, accessToken, req.params?.guildId, req.body);
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard config import:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+
   app.post("/webhooks/site-dashboard/guilds/:guildId/boards/quote-preview", async (req?, res?) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -992,6 +1058,60 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-dashboard commands patch:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+
+  app.get("/webhooks/site-dashboard/guilds/:guildId/moderation", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await getDashboardModeration(client, accessToken, req.params?.guildId);
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard moderation get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+
+  app.patch("/webhooks/site-dashboard/guilds/:guildId/moderation", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await patchDashboardModeration(client, accessToken, req.params?.guildId, req.body);
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard moderation patch:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+
+  app.get("/webhooks/site-dashboard/guilds/:guildId/moderation/cases", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await getDashboardModerationCases(client, accessToken, req.params?.guildId, req.query || {});
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard moderation cases:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

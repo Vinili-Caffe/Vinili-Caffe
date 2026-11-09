@@ -210,14 +210,80 @@ function buildPlainTranscriptFallbackHtml(ticketDoc?) {
   );
 }
 
+async function buildTranscriptAvatarMap(client?, ticketDoc?) {
+  const { userAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+  const byName: Record<string, string> = {};
+  const put = (name?, url?) => {
+    const n = String(name || "").trim();
+    const u = String(url || "").trim();
+    if (!n || !u) return;
+    byName[n] = u;
+    byName[n.toLowerCase()] = u;
+    const noHash = n.replace(/#\d{1,4}$/, "");
+    if (noHash && noHash !== n) {
+      byName[noHash] = u;
+      byName[noHash.toLowerCase()] = u;
+    }
+  };
+
+  try {
+    const botUser = client?.user || null;
+    if (botUser) {
+      const botUrl = userAvatarUrlDynamic(botUser, { size: 64 }) || "";
+      put(botUser.username, botUrl);
+      put(botUser.globalName, botUrl);
+      put(botUser.tag, botUrl);
+      put("Vinili", botUrl);
+    }
+  } catch {
+    /* ignore */
+  }
+
+  const guildId = String(ticketDoc?.guildId || "").trim();
+  const guild =
+    (/^\d{16,22}$/.test(guildId) && client?.guilds?.cache?.get?.(guildId)) ||
+    (typeof client?.guilds?.fetch === "function" && /^\d{16,22}$/.test(guildId)
+      ? await client.guilds.fetch(guildId).catch(() => null)
+      : null);
+
+  if (guild?.members?.fetch) {
+    await guild.members.fetch().catch(() => null);
+    for (const member of guild.members.cache.values()) {
+      const url = userAvatarUrlDynamic(member, { size: 64 }) || userAvatarUrlDynamic(member.user, { size: 64 }) || "";
+      if (!url) continue;
+      put(member.displayName, url);
+      put(member.nickname, url);
+      put(member.user?.username, url);
+      put(member.user?.globalName, url);
+      put(member.user?.tag, url);
+    }
+  }
+
+  const openerId = String(ticketDoc?.userId || "").trim();
+  if (/^\d{16,22}$/.test(openerId) && client?.users?.fetch) {
+    const user = await client.users.fetch(openerId).catch(() => null);
+    if (user) {
+      const url = userAvatarUrlDynamic(user, { size: 64 }) || "";
+      put(user.username, url);
+      put(user.globalName, url);
+      put(user.tag, url);
+      put(ticketDoc?.userTag, url);
+    }
+  }
+
+  return byName;
+}
+
 function sendTranscriptHtmlResponse(ticketDoc?, res?) {
   const { upgradeLegacyTranscriptHtml, resolveExistingTranscriptHtmlPath } = require("./transcriptUtils") as typeof import("./transcriptUtils");
   const num = ticketDoc?.ticketNumber != null ? String(ticketDoc.ticketNumber) : "";
   const tag = String(ticketDoc?.userTag || "").trim();
   const type = String(ticketDoc?.ticketType || "").trim();
+  const guildId = String(ticketDoc?.guildId || "").trim();
   if (num) res.setHeader("X-Ticket-Number", num);
   if (tag) res.setHeader("X-Ticket-User-Tag", encodeURIComponent(tag));
   if (type) res.setHeader("X-Ticket-Type", type);
+  if (guildId) res.setHeader("X-Ticket-Guild-Id", guildId);
 
   const inline = typeof ticketDoc.transcriptHtmlInline === "string" ? ticketDoc.transcriptHtmlInline : "";
   if (inline) {
@@ -333,7 +399,46 @@ function mountTicketTranscriptRoutes(app?, client?) {
     return sendTranscriptHtmlResponse(ticketDoc, res);
   };
 
+  const handleTicketTranscriptAvatarsGet = async (req?, res?) => {
+    const ip = transcriptClientIp(req);
+    if (!allowTranscriptRate(ip)) {
+      res.setHeader("Retry-After", "60");
+      return res.status(429).json({ ok: false, error: "rate_limited" });
+    }
+
+    const param = normalizeTranscriptViewTokenParam(req.params?.token);
+    if (!param) return res.status(404).json({ ok: false, error: "not_found" });
+
+    let ticketDoc;
+    try {
+      ticketDoc = await Ticket.findOneByTranscriptViewToken(param);
+    } catch (err) {
+      global.logger?.warn?.("[TICKET TRANSCRIPT AVATARS] lookup:", err?.message || err);
+      return res.status(500).json({ ok: false, error: "internal" });
+    }
+    if (!ticketDoc) return res.status(404).json({ ok: false, error: "not_found" });
+
+    const storedTok = String(ticketDoc.transcriptViewToken || "").toLowerCase();
+    if (!timingSafeHexEq(storedTok, param)) return res.status(404).json({ ok: false, error: "not_found" });
+
+    const bearer = parseAuthorizationBearer(req);
+    if (!bearer) return res.status(401).json({ ok: false, error: "login_required" });
+    const who = await fetchDiscordUserIdFromUserAccessToken(bearer);
+    if (!who.ok) return res.status(who.status || 401).json(who);
+
+    const access = await canUserViewTicketTranscript(client, who.userId, ticketDoc);
+    if (!access.ok) return res.status(access.status || 403).json(access);
+
+    const byName = await buildTranscriptAvatarMap(client, ticketDoc).catch(() => ({}));
+    res.setHeader("Cache-Control", "private, no-store");
+    return res.status(200).json({ ok: true, byName });
+  };
+
   app.get(["/ticket-transcript/:token", "/ticket_transcript/:token"], handleTicketTranscriptGet);
+  app.get(
+    ["/ticket-transcript/:token/avatars", "/ticket_transcript/:token/avatars"],
+    handleTicketTranscriptAvatarsGet,
+  );
 }
 
 export = { mountTicketTranscriptRoutes };

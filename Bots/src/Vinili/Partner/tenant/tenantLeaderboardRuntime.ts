@@ -229,7 +229,7 @@ async function buildLeaderboardPayload(client?, guild?, state?, viewerUserId?) {
   const categoryMeta = CATEGORY_KEYS[category] || CATEGORY_KEYS.servers;
   const periodMeta = PERIOD_KEYS[period] || PERIOD_KEYS.total;
 
-  let rows = await fetchLeaderboardRows(category, period, partnerGuildId);
+  let rows = await fetchLeaderboardRows(category, period, partnerGuildId, client);
   let partnerGuild = guild;
   if (category === "partners" && partnerGuildId) {
     partnerGuild =

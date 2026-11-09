@@ -1,9 +1,9 @@
 const crypto = require("crypto") as typeof import("crypto");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const {
-  resolveWebsiteCandidatureMember,
   memberHasCandidatureReviewAccess,
 } = require("../../site/staff/candidature/candidatureApplicationHandlers") as typeof import("../../site/staff/candidature/candidatureApplicationHandlers");
+const { resolveWebsiteCandidatureMemberReal } = require("../../site/staff/candidature/candidatureWebsite") as typeof import("../../site/staff/candidature/candidatureWebsite");
 const { memberHasStaffRole } = require("../../Community/utils/staffListUtils") as typeof import("../../Community/utils/staffListUtils");
 const {
   STAFF_HIGH_STAFF_ELIGIBLE_KEYS,
@@ -27,6 +27,8 @@ const {
   applyViewAsToStaffAccessPayload,
   normalizeViewAs,
   applyViewAsToResolvedMember,
+  applyViewAsContextToMember,
+  viewAsContextActive,
   flagsForPreset,
 } = require("../../site/http/siteViewAsPreview") as typeof import("../../site/http/siteViewAsPreview");
 
@@ -94,6 +96,8 @@ function readCachedAccess(token?) {
 }
 
 function writeCachedAccess(token?, payload?) {
+  /* in anteprima ruoli non si salva niente: la cache contiene solo i permessi veri */
+  if (viewAsContextActive()) return;
   pruneAccessCache();
   accessCache.set(accessCacheKey(token), {
     ...payload,
@@ -240,6 +244,25 @@ async function assertWebsiteStaffAccess(client?, accessToken?, opts: Record<stri
     if (accessInflight.get(cacheKey) === run) accessInflight.delete(cacheKey);
   }
 
+  /* anteprima "visualizza come ruolo": il vero Founder passa il controllo, poi si ricontrolla coi ruoli scelti */
+  if (out?.ok && out.member && viewAsContextActive()) {
+    const shim = applyViewAsContextToMember(out.member);
+    if (shim && shim !== out.member) {
+      if (!memberHasMainServerStaffAccess(shim)) {
+        return {
+          ok: false,
+          status: 403,
+          error: "view_as_preview",
+          message: "Con i ruoli dell'anteprima non hai accesso all'area staff.",
+          viewAs: "roles",
+          viewAsActive: true,
+          viewAsAllowed: true,
+        };
+      }
+      return { ...out, member: shim, viewAs: "roles", viewAsActive: true };
+    }
+  }
+
   /* viewAsRoleHard1: remap / deny after real staff assert so preview never keeps Founder powers. */
   const viewAs = normalizeViewAs(opts.viewAs || (opts.req ? parseViewAsFromReq(opts.req) : ""));
   if (!out?.ok || !viewAs || !out.member) return out;
@@ -317,7 +340,8 @@ async function doAssertWebsiteStaffAccess(client?, token?) {
     // guild offline / member missing: fall through to full resolve (no synth privilege)
   }
 
-  const resolved: any = await resolveWebsiteCandidatureMember(client, token);
+  /* sempre i ruoli veri qui: l'anteprima si applica dopo, senza sporcare la cache degli accessi */
+  const resolved: any = await resolveWebsiteCandidatureMemberReal(client, token);
   if (!resolved.ok) {
     const deny = {
       ok: false,
@@ -429,7 +453,7 @@ async function handleSiteStaffAccessGet(client?, req?, res?) {
       accessCache.delete(accessCacheKey(accessToken));
     }
 
-    if (cached && cached.ok === true && cached.payload) {
+    if (cached && cached.ok === true && cached.payload && !viewAsContextActive()) {
       const stubMember = buildCachedStaffMember(null, cached);
       return respondStaffAccessPayload(res, { ...cached.payload, cached: true }, req, stubMember, {
         userId: cached.userId,
@@ -437,12 +461,13 @@ async function handleSiteStaffAccessGet(client?, req?, res?) {
       });
     }
 
-    const out = await assertWebsiteStaffAccess(client, accessToken);
+    const out: any = await assertWebsiteStaffAccess(client, accessToken);
     if (!out.ok) {
       return res.status(out.status).json({
         ok: false,
         error: out.error,
         message: out.message,
+        ...(out.viewAsActive ? { viewAs: out.viewAs, viewAsActive: true, viewAsAllowed: true, isFounder: false } : {}),
       });
     }
 

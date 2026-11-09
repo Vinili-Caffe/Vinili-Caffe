@@ -176,7 +176,16 @@ function formatDateTimeIt(value?) {
   }
 }
 
+/** Come resolveWebsiteGuildMemberReal, ma in anteprima "visualizza come ruolo" il membro ha solo i ruoli scelti. */
 async function resolveWebsiteGuildMember(client?, accessToken?) {
+  const out: any = await resolveWebsiteGuildMemberReal(client, accessToken);
+  if (!out?.ok || !out.member) return out;
+  const { applyViewAsContextToMember } = require("./siteViewAsPreview") as typeof import("./siteViewAsPreview");
+  const shim = applyViewAsContextToMember(out.member);
+  return shim === out.member ? out : { ...out, member: shim, viewAsActive: true };
+}
+
+async function resolveWebsiteGuildMemberReal(client?, accessToken?) {
   const token = String(accessToken || "").trim();
   if (!token) {
     return { ok: false, status: 401, error: "missing_token", message: "Sessione Discord mancante: effettua il login." };

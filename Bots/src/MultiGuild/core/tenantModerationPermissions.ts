@@ -2,6 +2,7 @@ const { PermissionFlagsBits } = require("discord.js") as typeof import("discord.
 
 const MODERATION_PREFIX_COMMANDS = new Set([
   "ban",
+  "softban",
   "unban",
   "kick",
   "mute",
@@ -22,6 +23,7 @@ const MODERATION_PREFIX_COMMANDS = new Set([
 
 const COMMAND_PERMISSION_GROUPS = {
   ban: [PermissionFlagsBits.BanMembers],
+  softban: [PermissionFlagsBits.BanMembers],
   unban: [PermissionFlagsBits.BanMembers],
   kick: [PermissionFlagsBits.KickMembers],
   mute: [PermissionFlagsBits.ModerateMembers],
@@ -48,9 +50,25 @@ function isTenantModerationPrefixCommand(commandName?) {
   return MODERATION_PREFIX_COMMANDS.has(normalizeCommandName(commandName));
 }
 
+function memberHasModeratorRole(member?) {
+  try {
+    const {
+      getTenantModerationExtrasSync,
+      ensureTenantModerationCacheFresh,
+    } = require("./tenantModerationSettings") as typeof import("./tenantModerationSettings");
+    ensureTenantModerationCacheFresh().catch(() => null);
+    const ids = getTenantModerationExtrasSync(member?.guild?.id)?.moderatorRoleIds || [];
+    if (!ids.length || !member?.roles?.cache) return false;
+    return ids.some((id?) => member.roles.cache.has(String(id)));
+  } catch (_) {
+    return false;
+  }
+}
+
 function memberHasTenantModerationPermission(member?, commandName?) {
   if (!member?.permissions) return false;
   if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+  if (memberHasModeratorRole(member)) return true;
   const cmd = normalizeCommandName(commandName);
   const required = COMMAND_PERMISSION_GROUPS[cmd];
   if (!required?.length) return false;
@@ -74,5 +92,8 @@ function resolveTenantModerationMemberCheck(member?, commandName?, options: Reco
 
 export = {
   MODERATION_PREFIX_COMMANDS,
+  isTenantModerationPrefixCommand,
+  memberHasModeratorRole,
+  memberHasTenantModerationPermission,
   resolveTenantModerationMemberCheck,
 };

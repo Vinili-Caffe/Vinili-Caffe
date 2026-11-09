@@ -4,13 +4,11 @@ const { canInvokePrefixCommand, mapCategoryToFeature } = require("./accessPolicy
 const { resolveGuildAccess } = require("./guildRegistry") as typeof import("./guildRegistry");
 const MUSIC_PREFIX_COMMANDS = new Set(["play", "pause", "resume", "skip", "stop", "volume", "shuffle", "clear", "repeat", "previous", "rewind", "restart", "now", "next", "queue", "lyrics", "requested", "upcoming"]);
 const TTS_PREFIX_COMMANDS = new Set(["join", "leave", "set", "voices"]);
-const UTILITY_PREFIX_COMMANDS = new Set(["avatar", "banner", "afk", "snipe", "quote", "repost", "clip", "invite", "invites"]);
-const TENANT_ALWAYS_PREFIX_COMMANDS = new Set([
-  "invite",
-  "quote",
-  "repost",
-  "clip",
-]);
+const UTILITY_PREFIX_COMMANDS = new Set(["avatar", "banner", "afk", "snipe", "invite", "invites"]);
+const BACHECA_PREFIX_COMMANDS = new Set(["quote", "repost", "clip"]);
+/* Nessun prefix “sempre on”: sui tenant valgono solo le feature registry (partnership/utility)
+   e la Bacheca se attiva dalla dashboard (boards.enabled). */
+const TENANT_ALWAYS_PREFIX_COMMANDS = new Set([]);
 const MINIGAMES_PREFIX_COMMANDS = new Set(["ship"]);
 const PARTNERSHIP_PREFIX_COMMANDS = new Set([
   "help",
@@ -37,6 +35,7 @@ function resolveTenantPrefixFeatureCategory(commandName?) {
   const cmd = normalizeCommandName(commandName);
   if (MUSIC_PREFIX_COMMANDS.has(cmd)) return "music";
   if (TTS_PREFIX_COMMANDS.has(cmd)) return "tts";
+  if (BACHECA_PREFIX_COMMANDS.has(cmd)) return "bacheca";
   if (UTILITY_PREFIX_COMMANDS.has(cmd)) return "utility";
   if (MINIGAMES_PREFIX_COMMANDS.has(cmd)) return "minigames";
   if (MODERATION_PREFIX_COMMANDS.has(cmd)) return "moderation";
@@ -62,6 +61,15 @@ function buildDenyResult(options?, reason?) {
   return false;
 }
 
+function isTenantBoardsEnabled(guildId?) {
+  try {
+    const { getTenantBoardsSync } = require("./tenantGuildSettings") as typeof import("./tenantGuildSettings");
+    return getTenantBoardsSync(guildId)?.enabled === true;
+  } catch {
+    return false;
+  }
+}
+
 function resolveTenantFeaturePrefixBypass(guildId?, commandName?, options: Record<string, any> = {}) {
   if (!isMultiGuildLayerEnabled()) return null;
   const gid = String(guildId || "").trim();
@@ -81,6 +89,19 @@ function resolveTenantFeaturePrefixBypass(guildId?, commandName?, options: Recor
   const category = resolveTenantPrefixFeatureCategory(commandName);
   if (!category) return null;
 
+  /* Bacheca: non è feature registry — si attiva solo dalla dashboard. */
+  if (category === "bacheca") {
+    const access = resolveGuildAccess(gid);
+    if (!access?.managed) return null;
+    if (!access.allowed) {
+      return buildDenyResult(options, access.reason || "tenant_disabled");
+    }
+    if (!isTenantBoardsEnabled(gid)) {
+      return buildDenyResult(options, "board_disabled");
+    }
+    return buildAllowResult(options, "multi_guild_tenant_boards");
+  }
+
   const gate = canInvokePrefixCommand(gid, category);
   if (!gate.managed) {
     return buildAllowResult(options, "multi_guild_tenant_feature");
@@ -95,4 +116,16 @@ function resolveOpenMediaPrefixBypass(guildId?, commandName?, options: Record<st
   return resolveTenantFeaturePrefixBypass(guildId, commandName, options);
 }
 
-export = { MUSIC_PREFIX_COMMANDS, TTS_PREFIX_COMMANDS, UTILITY_PREFIX_COMMANDS, TENANT_ALWAYS_PREFIX_COMMANDS, MINIGAMES_PREFIX_COMMANDS, PARTNERSHIP_PREFIX_COMMANDS, MODERATION_PREFIX_COMMANDS, resolveTenantPrefixFeatureCategory, isTenantFeaturePrefixCommand, resolveOpenMediaPrefixBypass };
+export = {
+  MUSIC_PREFIX_COMMANDS,
+  TTS_PREFIX_COMMANDS,
+  UTILITY_PREFIX_COMMANDS,
+  BACHECA_PREFIX_COMMANDS,
+  TENANT_ALWAYS_PREFIX_COMMANDS,
+  MINIGAMES_PREFIX_COMMANDS,
+  PARTNERSHIP_PREFIX_COMMANDS,
+  MODERATION_PREFIX_COMMANDS,
+  resolveTenantPrefixFeatureCategory,
+  isTenantFeaturePrefixCommand,
+  resolveOpenMediaPrefixBypass,
+};

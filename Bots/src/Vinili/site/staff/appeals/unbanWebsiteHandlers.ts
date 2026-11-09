@@ -2,6 +2,11 @@ const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids
 const { newSiteWorkflowMessageId } = require("../../http/discordWorkflowUiGate") as typeof import("../../http/discordWorkflowUiGate");
 const { getBotState, setBotState } = require("../../../../shared/botState/botStateStore") as typeof import("../../../../shared/botState/botStateStore");
 const { fetchDiscordOAuthMe } = require("../../http/discordOauthMe") as typeof import("../../http/discordOauthMe");
+const {
+  assertAppealAllowed,
+  appealResubmitCooldownMs,
+  getAppealsSettingsFresh,
+} = require("../../../../MultiGuild/core/tenantAppealsRuntime") as typeof import("../../../../MultiGuild/core/tenantAppealsRuntime");
 const UNBAN_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;
 const cooldownByUser = new Map();
 let cooldownLoaded = false;
@@ -126,6 +131,17 @@ async function resolveWebsiteUser(client?, accessToken?) {
 async function getWebsiteUnbanEligibility(client?, accessToken?) {
   const resolved = await resolveWebsiteUser(client, accessToken);
   if (!resolved.ok) return resolved;
+  const allowed: any = await assertAppealAllowed(resolved.guild.id, "unban", resolved.userId);
+  if (!allowed.ok) {
+    return {
+      ok: true,
+      status: 200,
+      is_banned: resolved.isBanned,
+      can_submit: false,
+      cooldown_until_ms: Number(allowed.cooldown_until_ms) || 0,
+      message: allowed.message || "Ricorsi unban non disponibili.",
+    };
+  }
   const until = await getCooldownUntil(resolved.userId);
   return {
     ok: true,
@@ -135,7 +151,7 @@ async function getWebsiteUnbanEligibility(client?, accessToken?) {
     cooldown_until_ms: until || 0,
     message: resolved.isBanned
       ? until
-        ? "Hai già inviato una richiesta unban di recente: attendi il cooldown di 15 giorni."
+        ? "Hai già inviato una richiesta unban di recente: attendi il periodo di attesa configurato."
         : "Puoi inviare una richiesta unban."
       : "Non risulti bannato.",
   };
@@ -153,6 +169,9 @@ async function submitWebsiteUnban(client?, payload?) {
     return { ok: false, status: 403, error: "not_banned", message: "Non risulti bannato: non puoi inviare richiesta unban." };
   }
 
+  const allowed: any = await assertAppealAllowed(resolved.guild.id, "unban", resolved.userId);
+  if (!allowed.ok) return allowed;
+
   const cooldownUntil = await getCooldownUntil(resolved.userId);
   if (cooldownUntil) {
     return {
@@ -160,7 +179,7 @@ async function submitWebsiteUnban(client?, payload?) {
       status: 429,
       error: "cooldown",
       cooldown_until_ms: cooldownUntil,
-      message: "Hai già inviato una richiesta unban: puoi inviarne una ogni 15 giorni.",
+      message: "Hai già inviato una richiesta unban: attendi il periodo di attesa configurato.",
     };
   }
 
@@ -215,7 +234,8 @@ async function submitWebsiteUnban(client?, payload?) {
       message: "Impossibile salvare la richiesta unban. Riprova più tardi.",
     };
   }
-  const nextAt = Date.now() + UNBAN_COOLDOWN_MS;
+  const appeals = await getAppealsSettingsFresh(resolved.guild.id).catch(() => null);
+  const nextAt = Date.now() + (appealResubmitCooldownMs(appeals, "unban") || UNBAN_COOLDOWN_MS);
   await setCooldownUntil(resolved.userId, nextAt);
   try {
     const { notifyInboxStaffNewItem } = require("../../workflow/siteStaffWorkflowNotifications") as typeof import("../../workflow/siteStaffWorkflowNotifications");

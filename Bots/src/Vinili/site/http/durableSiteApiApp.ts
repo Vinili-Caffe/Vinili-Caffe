@@ -231,6 +231,11 @@ async function main() {
     }),
   );
   app.use(express.urlencoded({ extended: true, limit: "256kb" }));
+  /* anteprima "visualizza come ruolo" (header X-VC-View-As): contesto per tutta la richiesta */
+  {
+    const { mountViewAsContext } = require("../../../shared/runtime/viewAsContext") as typeof import("../../../shared/runtime/viewAsContext");
+    mountViewAsContext(app);
+  }
 
   const candidatureCorsAllowlist = expandCorsOriginAllowlist(
     parseCorsOriginAllowlist(

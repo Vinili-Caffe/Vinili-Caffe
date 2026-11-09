@@ -11,6 +11,11 @@ const {
   isOnNegativeCache,
 } = require("../../http/websiteGuildMemberFetch") as typeof import("../../http/websiteGuildMemberFetch");
 const { fetchDiscordOAuthMe } = require("../../http/discordOauthMe") as typeof import("../../http/discordOauthMe");
+const {
+  assertAppealAllowed,
+  appealResubmitCooldownMs,
+  getAppealsSettingsFresh,
+} = require("../../../../MultiGuild/core/tenantAppealsRuntime") as typeof import("../../../../MultiGuild/core/tenantAppealsRuntime");
 
 const UNMUTE_COOLDOWN_MS = 15 * 24 * 60 * 60 * 1000;
 const cooldownByUser = new Map();
@@ -161,6 +166,17 @@ async function resolveWebsiteMutedUser(client?, accessToken?) {
 async function getWebsiteUnmuteEligibility(client?, accessToken?) {
   const resolved = await resolveWebsiteMutedUser(client, accessToken);
   if (!resolved.ok) return resolved;
+  const allowed: any = await assertAppealAllowed(resolved.guild.id, "unmute", resolved.userId);
+  if (!allowed.ok) {
+    return {
+      ok: true,
+      status: 200,
+      is_muted: resolved.isMuted,
+      can_submit: false,
+      cooldown_until_ms: Number(allowed.cooldown_until_ms) || 0,
+      message: allowed.message || "Ricorsi unmute non disponibili.",
+    };
+  }
   const until = await getCooldownUntil(resolved.userId);
   return {
     ok: true,
@@ -170,7 +186,7 @@ async function getWebsiteUnmuteEligibility(client?, accessToken?) {
     cooldown_until_ms: until || 0,
     message: resolved.isMuted
       ? until
-        ? "Hai già inviato una richiesta unmute di recente: attendi il cooldown di 15 giorni."
+        ? "Hai già inviato una richiesta unmute di recente: attendi il periodo di attesa configurato."
         : "Puoi inviare una richiesta unmute."
       : resolved.inGuild
         ? "Non risulti mutato."
@@ -197,6 +213,9 @@ async function submitWebsiteUnmute(client?, payload?) {
     };
   }
 
+  const allowed: any = await assertAppealAllowed(resolved.guild.id, "unmute", resolved.userId);
+  if (!allowed.ok) return allowed;
+
   const cooldownUntil = await getCooldownUntil(resolved.userId);
   if (cooldownUntil) {
     return {
@@ -204,7 +223,7 @@ async function submitWebsiteUnmute(client?, payload?) {
       status: 429,
       error: "cooldown",
       cooldown_until_ms: cooldownUntil,
-      message: "Hai già inviato una richiesta unmute: puoi inviarne una ogni 15 giorni.",
+      message: "Hai già inviato una richiesta unmute: attendi il periodo di attesa configurato.",
     };
   }
 
@@ -264,7 +283,8 @@ async function submitWebsiteUnmute(client?, payload?) {
       message: "Impossibile salvare la richiesta unmute. Riprova più tardi.",
     };
   }
-  const nextAt = Date.now() + UNMUTE_COOLDOWN_MS;
+  const appeals = await getAppealsSettingsFresh(resolved.guild.id).catch(() => null);
+  const nextAt = Date.now() + (appealResubmitCooldownMs(appeals, "unmute") || UNMUTE_COOLDOWN_MS);
   await setCooldownUntil(resolved.userId, nextAt);
   try {
     const { notifyInboxStaffNewItem } = require("../../workflow/siteStaffWorkflowNotifications") as typeof import("../../workflow/siteStaffWorkflowNotifications");

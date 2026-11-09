@@ -45,10 +45,17 @@ function readBoardsBlob(row?) {
 }
 
 function boardsEnabledFromBlob(b?) {
-  if (!b || typeof b !== "object") return true;
+  /* Default OFF: sui tenant la Bacheca si attiva solo dalla dashboard. */
+  if (!b || typeof b !== "object") return false;
   if (b.e === false || b.enabled === false) return false;
   if (b.e === true || b.enabled === true) return true;
-    return true;
+  /* Legacy: col vecchio default-on bastava impostare un canale senza salvare `e`. */
+  const shared = normalizeChannelId(b.s ?? b.sharedChannelId);
+  const quote = normalizeChannelId(b.q ?? b.quoteChannelId);
+  const repost = normalizeChannelId(b.r ?? b.repostChannelId);
+  const clip = normalizeChannelId(b.cl ?? b.clipChannelId);
+  const skull = normalizeChannelId(b.sk ?? b.skullChannelId);
+  return Boolean(shared || quote || repost || clip || skull);
 }
 
 const BOARD_FEATURE_KINDS = Object.freeze(["quote", "repost", "clip", "skull"]);
@@ -240,7 +247,7 @@ function rowToChannelMap(row?, guildId = null) {
     ? getTenantBoardsSync(guildId)
     : rowToBoards(row);
   const quotes =
-    boards.enabled === false
+    boards.enabled !== true
       ? null
       : boards.mode === "split"
         ? boards.quoteChannelId || boards.sharedChannelId
@@ -300,7 +307,7 @@ function getTenantBoardsSync(guildId?) {
   const gid = normalizeGuildId(guildId);
   if (!gid) {
     return {
-      enabled: true,
+      enabled: false,
       mode: "shared",
       sharedChannelId: null,
       quoteChannelId: null,
@@ -322,17 +329,17 @@ function isTenantClipTranscriptionEnabledSync(guildId?) {
 
 function isTenantBoardFeatureEnabledSync(guildId?, kind?) {
   const feature = normalizeBoardFeatureKind(kind);
-  if (!feature) return true;
+  if (!feature) return false;
   const gid = normalizeGuildId(guildId);
-  if (!gid) return true;
+  if (!gid) return false;
   const boards = getTenantBoardsSync(gid);
-  if (boards.enabled === false) return false;
+  if (boards.enabled !== true) return false;
   return boards.features?.[feature] !== false;
 }
 
 function resolveTenantBoardChannelIdSync(guildId?, kind = "quote") {
   const boards = getTenantBoardsSync(guildId);
-  if (boards.enabled === false) return null;
+  if (boards.enabled !== true) return null;
   const k = normalizeBoardFeatureKind(kind) || "quote";
   if (!isTenantBoardFeatureEnabledSync(guildId, k)) return null;
   if (boards.mode === "split") {
@@ -425,12 +432,25 @@ function normalizeRoleIdList(value?) {
   return single ? [single] : [];
 }
 
+/** Stessi snowflake dei ruoli: lista utenti Discord ammessi alla dashboard. */
+function normalizeUserIdList(value?) {
+  return normalizeRoleIdList(value);
+}
+
 function getTenantDashboardRoleIdsSync(guildId?) {
   const gid = normalizeGuildId(guildId);
   if (!gid) return [];
   const row = settingsCache[gid];
   if (!row || typeof row !== "object") return [];
   return normalizeRoleIdList(row.dr ?? row.dashboardRoleIds ?? row.dashboardRoleId);
+}
+
+function getTenantDashboardUserIdsSync(guildId?) {
+  const gid = normalizeGuildId(guildId);
+  if (!gid) return [];
+  const row = settingsCache[gid];
+  if (!row || typeof row !== "object") return [];
+  return normalizeUserIdList(row.du ?? row.dashboardUserIds ?? row.dashboardUserId);
 }
 
 function getTenantUpdatesChannelIdSync(guildId?) {
@@ -499,16 +519,19 @@ function getTenantSettingsSnapshotSync(guildId?) {
       prefix: DEFAULT_PREFIX,
       dashboardRoleId: null,
       dashboardRoleIds: [],
+      dashboardUserIds: [],
       updatesChannelId: null,
       commands: {},
       boards: getTenantBoardsSync(null),
     };
   }
   const dashboardRoleIds = getTenantDashboardRoleIdsSync(gid);
+  const dashboardUserIds = getTenantDashboardUserIdsSync(gid);
   return {
     prefix: getTenantPrefixSync(gid, DEFAULT_PREFIX),
     dashboardRoleId: dashboardRoleIds[0] || null,
     dashboardRoleIds,
+    dashboardUserIds,
     updatesChannelId: getTenantUpdatesChannelIdSync(gid),
     commands: getTenantCommandAclMapSync(gid),
     boards: getTenantBoardsSync(gid),
@@ -604,7 +627,7 @@ async function setTenantBoards(guildId?, patch?) {
         const prevB = { ...readBoardsBlob(row) };
         if (hasEnabled) {
           if (enabledNext === false) prevB.e = false;
-          else delete prevB.e;
+          else prevB.e = true;
           delete prevB.enabled;
         }
         if (featuresPatch) {
@@ -701,11 +724,8 @@ async function setTenantBoards(guildId?, patch?) {
   const result = await persistGuildRow(gid, (row?) => {
     const prevB = { ...readBoardsBlob(row) };
     if (enabledPresent) {
-      if (enabledNext === false) {
-        prevB.e = false;
-      } else {
-        delete prevB.e;
-      }
+      if (enabledNext === false) prevB.e = false;
+      else prevB.e = true;
       delete prevB.enabled;
     }
     if (modePresent) prevB.m = mode;
@@ -816,6 +836,44 @@ async function setTenantPrefix(guildId?, prefix?) {
   return { ok: true, prefix: getTenantPrefixSync(guildId, DEFAULT_PREFIX) };
 }
 
+async function setTenantModLogsChannel(guildId?, channelId?) {
+  // allowProtected: la dashboard deve poter settare/leggere il canale anche sul main Vinili.
+  if (channelId != null && String(channelId).trim() !== "") {
+    const id = normalizeChannelId(channelId);
+    if (!id) return { ok: false, reason: "invalid_channel" };
+    const result = await persistGuildRow(
+      guildId,
+      (row?) => {
+        row.ml = id;
+        delete row.modLogs;
+        if (row.cm && typeof row.cm === "object") {
+          delete row.cm.modLogs;
+          if (!Object.keys(row.cm).length) delete row.cm;
+        }
+        return row;
+      },
+      { allowProtected: true },
+    );
+    if (!result.ok) return result;
+    return { ok: true, modLogsChannelId: id };
+  }
+  const result = await persistGuildRow(
+    guildId,
+    (row?) => {
+      delete row.ml;
+      delete row.modLogs;
+      if (row.cm && typeof row.cm === "object") {
+        delete row.cm.modLogs;
+        if (!Object.keys(row.cm).length) delete row.cm;
+      }
+      return row;
+    },
+    { allowProtected: true },
+  );
+  if (!result.ok) return result;
+  return { ok: true, modLogsChannelId: null };
+}
+
 async function setTenantDashboardRoles(guildId?, roleIds?) {
   const ids = normalizeRoleIdList(roleIds);
     const result = await persistGuildRow(
@@ -831,6 +889,23 @@ async function setTenantDashboardRoles(guildId?, roleIds?) {
   );
   if (!result.ok) return result;
   return { ok: true, dashboardRoleIds: ids, dashboardRoleId: ids[0] || null };
+}
+
+async function setTenantDashboardUsers(guildId?, userIds?) {
+  const ids = normalizeUserIdList(userIds);
+  const result = await persistGuildRow(
+    guildId,
+    (row?) => {
+      delete row.dashboardUserId;
+      delete row.dashboardUserIds;
+      if (ids.length) row.du = ids;
+      else delete row.du;
+      return row;
+    },
+    { allowProtected: true },
+  );
+  if (!result.ok) return result;
+  return { ok: true, dashboardUserIds: ids };
 }
 
 async function setTenantUpdatesChannel(guildId?, channelId?) {
@@ -897,7 +972,9 @@ export = {
   resolveCommandPrefixForGuildFresh,
   rewriteDefaultCommandPrefix,
   getTenantDashboardRoleIdsSync,
+  getTenantDashboardUserIdsSync,
   normalizeRoleIdList,
+  normalizeUserIdList,
   listTenantUpdatesTargetsSync,
   getTenantSettingsSnapshotSync,
   getTenantCommandAclMapSync,
@@ -908,6 +985,8 @@ export = {
   setTenantBoards,
   setTenantPrefix,
   setTenantDashboardRoles,
+  setTenantDashboardUsers,
+  setTenantModLogsChannel,
   setTenantUpdatesChannel,
   setTenantUpdatesWebhook,
   normalizePrefix,

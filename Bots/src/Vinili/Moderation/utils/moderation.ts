@@ -3,7 +3,6 @@ const { GlobalSettings } = require("../../Community/schemas/communitySchemas") a
 const { normalizeModConfigFromGlobal } = require("../../Community/services/globalSettingsGuildStores") as typeof import("../../Community/services/globalSettingsGuildStores");
 const { sendStaffActionToModLogs } = require("./modAuditLogUtils") as typeof import("./modAuditLogUtils");
 const { createModCaseStore, closeCaseByRef } = require("./modCaseStore") as typeof import("./modCaseStore");
-
 async function getModConfig(guildId?) {
   const g = String(guildId || "");
   const doc = await GlobalSettings.findOneAndUpdate(
@@ -20,6 +19,34 @@ const MODERATION_HIERARCHY_IGNORED_ROLE_IDS = new Set(
     .filter(Boolean),
 );
 
+/**
+ * Canali AutoMod/zone staff: NON sono esenzioni dei comandi +warn/+ban.
+ * (#sanzioni = warnStaff è dove lo staff sanziona: non va mai bloccato).
+ */
+function getMistakenAutoCommandExemptChannelIds() {
+  return [
+    IDs?.channels?.staffChat,
+    IDs?.channels?.staffCmds,
+    IDs?.channels?.modLogs,
+    IDs?.channels?.activityLogs,
+    IDs?.channels?.midChat,
+    IDs?.channels?.streamerChat,
+    IDs?.channels?.automodExemptExtra,
+    IDs?.channels?.moderazioneStaff,
+    IDs?.channels?.warnStaff,
+    IDs?.channels?.sanzioniUtenti,
+  ]
+    .map((id?) => String(id || "").trim())
+    .filter((id?) => /^\d{16,22}$/.test(id));
+}
+
+function sanitizeCommandExemptChannelIds(channelIds?) {
+  const block = new Set(getMistakenAutoCommandExemptChannelIds());
+  return (Array.isArray(channelIds) ? channelIds : [])
+    .map((id?) => String(id || "").trim())
+    .filter((id?) => /^\d{16,22}$/.test(id) && !block.has(id));
+}
+
 function getHighestModerationRelevantRolePosition(member?) {
   if (!member?.roles?.cache) return -1;
   let highest = -1;
@@ -33,16 +60,13 @@ function getHighestModerationRelevantRolePosition(member?) {
 
 function isExempt(member?, config?, channelId?) {
   if (!member) return true;
-  if (Array.isArray(config?.exemptRoles) && config.exemptRoles.length > 0) {
-    if (member.roles.cache.some((r?) => config.exemptRoles.includes(r.id)))
-      return true;
-  }
-  if (
-    Array.isArray(config?.exemptChannels) &&
-    config.exemptChannels.length > 0
-  ) {
-    if (channelId && config.exemptChannels.includes(channelId)) return true;
-  }
+  // Solo quanto scelto in dashboard (stesso comportamento tenant / main).
+  const roleIds = new Set(
+    (Array.isArray(config?.exemptRoles) ? config.exemptRoles : []).map(String).filter(Boolean),
+  );
+  const channelIds = new Set(sanitizeCommandExemptChannelIds(config?.exemptChannels));
+  if (roleIds.size && member.roles.cache.some((r?) => roleIds.has(r.id))) return true;
+  if (channelId && channelIds.size && channelIds.has(String(channelId))) return true;
   return false;
 }
 
@@ -111,4 +135,16 @@ async function logModCase({ guild, modCase }: any) {
   await sendStaffActionToModLogs(guild, modCase).catch(() => null);
 }
 
-export = { getModConfig, isExempt, getHighestModerationRelevantRolePosition, createModCase, appendCaseEdit, closeCasePersist, logModCase, formatDuration, parseDuration };
+export = {
+  getModConfig,
+  isExempt,
+  getHighestModerationRelevantRolePosition,
+  createModCase,
+  appendCaseEdit,
+  closeCasePersist,
+  logModCase,
+  formatDuration,
+  parseDuration,
+  sanitizeCommandExemptChannelIds,
+  getMistakenAutoCommandExemptChannelIds,
+};

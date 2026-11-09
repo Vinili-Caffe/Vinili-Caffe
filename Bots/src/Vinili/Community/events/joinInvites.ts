@@ -128,10 +128,23 @@ async function resolveInviteInfo(member?) {
   ensureInviteCache(member.client);
 
   const invites = await guild.invites.fetch().catch(() => null);
-  const cache = member.client.inviteCache.get(guild.id);
+  let cache = member.client.inviteCache.get(guild.id);
   let usedInvite = null;
 
-  if (invites && cache) {
+  /* Cache fredda (es. tenant dopo restart): senza snapshot precedente non si può
+     attribuire QUESTO join; si semina e si lascia usedInvite = null.
+     I totali partnership si recuperano con syncPartnershipJoinTotalForGuild. */
+  if (invites && !cache) {
+    const seed = new Map();
+    for (const invite of invites.values()) {
+      seed.set(invite.code, {
+        uses: invite.uses || 0,
+        inviterId: invite.inviter?.id || null,
+      });
+    }
+    member.client.inviteCache.set(guild.id, seed);
+    cache = seed;
+  } else if (invites && cache) {
     for (const invite of invites.values()) {
       const cached = cache.get(invite.code);
       if (
@@ -198,8 +211,13 @@ async function tryRecordTenantPartnershipInviteJoin(member?, inviteInfo?) {
   if (!guildId || shouldApplyMainPartnershipFilters(guildId)) return;
   const usedCode = inviteCodeFromInfo(inviteInfo);
   const expectedCode = String(getPartnershipConfigSync(guildId)?.invite?.code || "").trim().toLowerCase();
-  if (!usedCode || !expectedCode || usedCode.toLowerCase() !== expectedCode) return;
-  await recordPartnershipInviteJoin(guildId).catch(() => {});
+  if (usedCode && expectedCode && usedCode.toLowerCase() === expectedCode) {
+    await recordPartnershipInviteJoin(guildId).catch(() => {});
+    return;
+  }
+  /* Cache fredda / invito non rilevato: allinea comunque il totale agli uses Discord. */
+  const { syncPartnershipJoinTotalForGuild } = require("../../Partner/services/tenantPartnershipJoinStatsService") as typeof import("../../Partner/services/tenantPartnershipJoinStatsService");
+  await syncPartnershipJoinTotalForGuild(member.guild).catch(() => {});
 }
 
 async function trackInviteJoin(member?, inviterId?, inviteCode = null) {

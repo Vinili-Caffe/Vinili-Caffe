@@ -1,7 +1,14 @@
-const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { resolveSubmissionChannel } = require("../../site/staff/candidature/candidatureApplicationHandlers") as typeof import("../../site/staff/candidature/candidatureApplicationHandlers");
 const { enqueueSiteInAppNotification } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
 const { applyWebsiteUnmute } = require("../../site/staff/appeals/unmuteWebsiteHandlers") as typeof import("../../site/staff/appeals/unmuteWebsiteHandlers");
+const { sendDm } = require("../../Community/utils/noDmList") as typeof import("../../Community/utils/noDmList");
+const {
+  getAppealsSettingsFresh,
+  resolveAppealInviteUrl,
+} = require("../../../MultiGuild/core/tenantAppealsRuntime") as typeof import("../../../MultiGuild/core/tenantAppealsRuntime");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 
 function appealSubjectOpenUrl(messageId?) {
   const mid = String(messageId || "").trim();
@@ -22,6 +29,34 @@ async function notifyAppealSubject(guildId, userId, { title, body, dedupeKey, me
     dedupeWindowMs: 86_400_000,
     replaceDedupe: true,
   });
+}
+
+async function sendAppealDecisionDm(guild?, userId?, { title, body, inviteUrl = "" } = {}) {
+  const uid = String(userId || "").trim();
+  if (!uid || !guild?.client) return false;
+  let user = guild.client.users.cache.get(uid) || null;
+  if (!user) user = await guild.client.users.fetch(uid).catch(() => null);
+  if (!user) return false;
+  const embed = new EmbedBuilder()
+    .setColor("#ED4245")
+    .setTitle(String(title || "Aggiornamento ricorso").slice(0, 250))
+    .setDescription(String(body || "").slice(0, 4000));
+  let components = undefined;
+  const url = String(inviteUrl || "").trim();
+  if (url && /^https?:\/\//i.test(url)) {
+    components = [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setStyle(ButtonStyle.Link)
+          .setLabel("Rientra nel server")
+          .setEmoji(E.link)
+          .setURL(url),
+      ),
+    ];
+  }
+  return Boolean(
+    await sendDm(user, { embeds: [embed], components }, { guildId: guild.id, bypassNoDm: true }).catch(() => false),
+  );
 }
 const UNBAN_ACC = "website_unban_acc";
 const UNBAN_REJ = "website_unban_rej";
@@ -484,26 +519,47 @@ async function decideUnbanAppeal(guild?, userId?, messageId?, accept?, actorMemb
       }
     }
     if (unbannedOk) {
+      const body =
+        staffNote === "L'utente non risultava bannato."
+          ? "Lo staff ha accettato la tua richiesta: puoi rientrare nel server con l'invito ufficiale o tramite il sito."
+          : "Lo staff ha accettato la tua richiesta unban: puoi rientrare nel server con l'invito ufficiale o tramite il sito.";
       await notifyAppealSubject(guild.id, userId, {
         title: "Richiesta unban accettata",
-        body:
-          staffNote === "L'utente non risultava bannato."
-            ? "Lo staff ha accettato la tua richiesta: puoi rientrare nel server con l'invito ufficiale o tramite il sito."
-            : "Lo staff ha accettato la tua richiesta unban: puoi rientrare nel server con l'invito ufficiale o tramite il sito.",
+        body,
         dedupeKey: `unban-acc:${userId}:${messageId}`,
         messageId,
       }).catch(() => null);
+      const appeals = await getAppealsSettingsFresh(guild.id).catch(() => null);
+      if (appeals?.dmOnApproveBan !== false) {
+        const inviteUrl = resolveAppealInviteUrl(appeals, IDs?.links?.invite);
+        await sendAppealDecisionDm(guild, userId, {
+          title: "Richiesta unban accettata",
+          body,
+          inviteUrl,
+        }).catch(() => null);
+      }
     }
     await syncWorkflow(true);
     return { ok: true, status: 200, message: staffNote || "Unban completato." };
   }
 
+  const rejectBody =
+    "Lo staff ha rifiutato la tua richiesta unban. Puoi inviare una nuova richiesta dopo il periodo di attesa configurato sul sito.";
   await notifyAppealSubject(guild.id, userId, {
     title: "Richiesta unban rifiutata",
-    body: "Lo staff ha rifiutato la tua richiesta unban. Puoi inviare una nuova richiesta dopo il cooldown di 15 giorni sul sito.",
+    body: rejectBody,
     dedupeKey: `unban-rej:${userId}:${messageId}`,
     messageId,
   }).catch(() => null);
+  {
+    const appeals = await getAppealsSettingsFresh(guild.id).catch(() => null);
+    if (appeals?.dmOnReject !== false) {
+      await sendAppealDecisionDm(guild, userId, {
+        title: "Richiesta unban rifiutata",
+        body: rejectBody,
+      }).catch(() => null);
+    }
+  }
   await syncWorkflow(false);
   return { ok: true, status: 200, message: "Richiesta unban rifiutata." };
 }
@@ -536,22 +592,43 @@ async function decideUnmuteAppeal(guild?, userId?, messageId?, accept?, actorMem
     if (!out?.ok) {
       return { ok: false, status: 400, message: out?.message || "Impossibile completare l'unmute." };
     }
+    const unmuteBody = "Lo staff ha accettato la tua richiesta unmute: il timeout/mute è stato rimosso.";
     await notifyAppealSubject(guild.id, userId, {
       title: "Richiesta unmute accettata",
-      body: "Lo staff ha accettato la tua richiesta unmute: il timeout/mute è stato rimosso.",
+      body: unmuteBody,
       dedupeKey: `unmute-acc:${userId}:${messageId}`,
       messageId,
     });
+    {
+      const appeals = await getAppealsSettingsFresh(guild.id).catch(() => null);
+      if (appeals?.dmOnApproveMute !== false) {
+        await sendAppealDecisionDm(guild, userId, {
+          title: "Richiesta unmute accettata",
+          body: unmuteBody,
+        }).catch(() => null);
+      }
+    }
     await syncWorkflow(true);
     return { ok: true, status: 200, message: "Unmute completato." };
   }
 
+  const unmuteRejectBody =
+    "Lo staff ha rifiutato la tua richiesta unmute. Puoi inviare una nuova richiesta dopo il periodo di attesa sul sito.";
   await notifyAppealSubject(guild.id, userId, {
     title: "Richiesta unmute rifiutata",
-    body: "Lo staff ha rifiutato la tua richiesta unmute. Puoi inviare una nuova richiesta dopo il cooldown sul sito.",
+    body: unmuteRejectBody,
     dedupeKey: `unmute-rej:${userId}:${messageId}`,
     messageId,
   });
+  {
+    const appeals = await getAppealsSettingsFresh(guild.id).catch(() => null);
+    if (appeals?.dmOnReject !== false) {
+      await sendAppealDecisionDm(guild, userId, {
+        title: "Richiesta unmute rifiutata",
+        body: unmuteRejectBody,
+      }).catch(() => null);
+    }
+  }
   await syncWorkflow(false);
   return { ok: true, status: 200, message: "Richiesta unmute rifiutata." };
 }

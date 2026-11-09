@@ -99,6 +99,20 @@ function describeBanError(err?) {
   return "Discord ha rifiutato il ban senza ulteriori dettagli.";
 }
 
+/** Ruolo mute locale al server (non forzare l’ID Vinili su tenant). */
+function resolveGuildMutedRoleId(guild?) {
+  if (!guild?.roles?.cache) return null;
+  const configured = String(IDs?.roles?.Muted || "").trim();
+  if (configured && guild.roles.cache.has(configured)) return configured;
+  const byName = guild.roles.cache.find((role?) => {
+    const name = String(role?.name || "")
+      .trim()
+      .toLowerCase();
+    return name === "muted" || name === "mute" || name === "silenziato" || name === "silenziati";
+  });
+  return byName?.id ? String(byName.id) : null;
+}
+
 async function executeGuildBan(guild?, userId?, options?) {
   const id = String(userId || "").trim();
   if (!/^\d{17,20}$/.test(id)) return { ok: false, error: "ID utente non valido." };
@@ -131,6 +145,14 @@ async function validateModerationTarget(message?, member?, actionLabel?, targetU
     targetMember = await message.guild.members.fetch(fallbackId).catch(() => null);
   }
   if (!targetMember) return { ok: true };
+  try {
+    const { isExempt } = require("../moderation") as typeof import("../moderation");
+    const cfg = await getModConfig(message.guild?.id);
+    const channelId = message.invokeChannel?.id || message.channel?.id;
+    if (isExempt(targetMember, cfg, channelId)) {
+      return { ok: false, error: `${E.VC_Lock} Questo utente (o questo canale) è escluso dalla moderazione.` };
+    }
+  } catch (_) {}
   if (String(targetMember.id) === String(message.author.id)) {
     return { ok: false, error: `${E.VC_Lock} Non puoi usare \`${actionLabel}\` su te stesso.` };
   }
@@ -159,6 +181,12 @@ async function validateModerationTarget(message?, member?, actionLabel?, targetU
     };
   }
   const protectedRoleIds = [ IDs?.roles?.Staff, IDs?.roles?.Helper, IDs?.roles?.Mod, IDs?.roles?.SeniorModerator, IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Manager, IDs?.roles?.Founder,].map((id?) => String(id || "").trim()).filter(Boolean);
+  let configuredProtected = [];
+  try {
+    const { getTenantModerationExtrasSync } = require("../../../../MultiGuild/core/tenantModerationSettings") as typeof import("../../../../MultiGuild/core/tenantModerationSettings");
+    configuredProtected = getTenantModerationExtrasSync(message.guild?.id)?.protectedRoleIds || [];
+  } catch (_) {}
+  const allProtected = [...new Set([...protectedRoleIds, ...configuredProtected.map(String)])];
   const actorHighStaffBypass = [IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Manager, IDs?.roles?.Founder,].map((id?) => String(id || "").trim()).filter(Boolean).some((roleId?) => message.member?.roles?.cache?.has(roleId));
   const targetHasStaffRole = String(IDs?.roles?.Staff || "").trim() && targetMember.roles?.cache?.has(String(IDs?.roles?.Staff || "").trim());
   const targetHasCoreProtectedRole = [IDs?.roles?.HighStaff, IDs?.roles?.Director, IDs?.roles?.Admin, IDs?.roles?.Manager, IDs?.roles?.Founder,].map((id?) => String(id || "").trim()).filter(Boolean).some((roleId?) => targetMember.roles?.cache?.has(roleId));
@@ -166,21 +194,52 @@ async function validateModerationTarget(message?, member?, actionLabel?, targetU
   if (actorHighStaffBypass && targetHasStaffRole && !targetHasCoreProtectedRole) {
     return { ok: true };
   }
-  if (protectedRoleIds.some((roleId?) => targetMember.roles?.cache?.has(roleId))) {
+  if (allProtected.some((roleId?) => targetMember.roles?.cache?.has(roleId))) {
     return {
       ok: false,
-      error: `${E.VC_Lock} Non puoi moderare un utente con ruolo Staff o superiore.`,
+      error: `${E.VC_Lock} Non puoi moderare un utente con un ruolo protetto.`,
     };
   }
   return { ok: true };
 }
 
-async function successReply(message?, subject?, verb?, reason = "") {
-  const description = successText(subject, verb, String(reason || "").trim());
+function inferActionKeyFromVerb(verb?) {
+  const v = String(verb || "").toLowerCase();
+  if (v.includes("softban")) return "softban";
+  if (v.includes("banned") || v.includes("ban")) return "ban";
+  if (v.includes("kicked") || v.includes("kick") || v.includes("espuls")) return "kick";
+  if (v.includes("unmuted") || v.includes("unmute") || v.includes("riattivat")) return "unmute";
+  if (v.includes("muted") || v.includes("mute") || v.includes("silenziat")) return "mute";
+  if (v.includes("unbanned") || v.includes("unban") || v.includes("revocat")) return "unban";
+  return "";
+}
+
+async function successReply(message?, subject?, verb?, reason = "", actionKey = "") {
+  let replyWithReason = true;
+  let deleteModCommands = false;
+  let template = "";
+  const key = String(actionKey || inferActionKeyFromVerb(verb) || "").toLowerCase();
+  try {
+    const { getTenantModerationExtras } = require("../../../../MultiGuild/core/tenantModerationSettings") as typeof import("../../../../MultiGuild/core/tenantModerationSettings");
+    const extras = await getTenantModerationExtras(message?.guild?.id);
+    replyWithReason = extras?.replyWithReason !== false;
+    deleteModCommands = extras?.deleteModCommands === true;
+    template = String(extras?.messages?.[key] || "").trim();
+  } catch (_) {}
+
+  let description = "";
+  if (template) {
+    description = `${E.success} ${template.replace(/\{user\}/gi, String(subject || "utente"))}`;
+  } else {
+    description = successText(subject, verb, "");
+  }
+  const safeReason = String(reason || "").trim();
+  if (replyWithReason && safeReason) description = `${description} • ${safeReason}`;
+
   const { PREFIX_DISPATCH_BRANDING_DONE_KEY } = require("../../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../../MultiGuild/utils/tenantEmbedBranding");
   const embed = new EmbedBuilder()
     .setColor("#57F287")
-    .setDescription(description);
+    .setDescription(description.slice(0, 4096));
   if (message?.fromSanzionaAppCommand && message?.author) {
     const authorLabel = String(
       message.member?.displayName || message.author.globalName || message.author.username || "Staff",
@@ -189,20 +248,28 @@ async function successReply(message?, subject?, verb?, reason = "") {
   }
   const payload = {
     embeds: [embed],
-        includeAuthor: false,
+    includeAuthor: false,
     includeBanner: false,
     includeThumbnail: false,
     [PREFIX_DISPATCH_BRANDING_DONE_KEY]: true,
   };
-      if (typeof message?.reply === "function") {
-    const replied = await message.reply(payload).catch(() => null);
-    if (replied) return replied;
+  let out = null;
+  if (typeof message?.reply === "function") {
+    out = await message.reply(payload).catch(() => null);
   }
-  return message?.channel?.send?.(payload)?.catch?.(() => null) ?? null;
+  if (!out) out = (await message?.channel?.send?.(payload)?.catch?.(() => null)) ?? null;
+  if (deleteModCommands && message?.deletable) {
+    await message.delete().catch(() => null);
+  }
+  return out;
 }
 
 async function sendModerationDm({ user, guildId, guildName, action, reason = "", durationText = "" }) {
   if (!user) return false;
+  try {
+    const cfg = await getModConfig(guildId);
+    if (cfg && cfg.dmOnAction === false) return false;
+  } catch (_) {}
   const safeReason = String(reason || "").trim();
   const safeDuration = String(durationText || "").trim();
       const safeGuildName = String(guildName || "").replace(/\|/g, "•").trim() || "questo server";
@@ -237,8 +304,16 @@ async function sendModerationDm({ user, guildId, guildName, action, reason = "",
     components = [buildUnbanRequestRow()];
   } else if (actionKey === "mute" && viniliGuild) {
     components = [buildUnmuteRequestRow()];
-  } else if (actionKey === "unban" && viniliGuild) {
-    const rawInvite = String(IDs?.links?.invite || "").trim();
+  } else if (actionKey === "unban") {
+    let rawInvite = viniliGuild ? String(IDs?.links?.invite || "").trim() : "";
+    try {
+      const {
+        getAppealsSettingsFresh,
+        resolveAppealInviteUrl,
+      } = require("../../../../MultiGuild/core/tenantAppealsRuntime") as typeof import("../../../../MultiGuild/core/tenantAppealsRuntime");
+      const appeals = await getAppealsSettingsFresh(guildId).catch(() => null);
+      rawInvite = resolveAppealInviteUrl(appeals, rawInvite) || rawInvite;
+    } catch (_) {}
     const inviteUrl = /^https?:\/\//i.test(rawInvite) ? rawInvite : rawInvite ? `https://${rawInvite.replace(/^\/+/, "")}` : "";
     if (inviteUrl) {
       components = [
@@ -382,6 +457,7 @@ export = {
   successText,
   resolveCaseDurationChange,
   formatTargetLabel,
+  resolveGuildMutedRoleId,
   isServerOwner,
   describeBanError,
   executeGuildBan,

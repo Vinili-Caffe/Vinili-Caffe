@@ -29,6 +29,22 @@ async function fetchAllMessages(channel?, maxMessages = 2000) {
   return results.sort((a?, b?) => a.createdTimestamp - b.createdTimestamp).slice(0, maxMessages);
 }
 
+function authorMetaForTextTranscript(msg?) {
+  const tag = String(msg?.author?.tag || msg?.author?.username || "Utente").trim() || "Utente";
+  const id = String(msg?.author?.id || "").trim();
+  if (!/^\d{16,22}$/.test(id)) return tag;
+  let hash = "";
+  try {
+    const url = userAvatarUrlDynamic(msg.author, { size: 64 }) || "";
+    const m = String(url).match(/\/avatars\/\d+\/([^./?#]+)\./);
+    if (m?.[1]) hash = m[1];
+  } catch {
+    hash = "";
+  }
+  /* Formato: Nome <@id|avatarHash> così il viewer può ricostruire l'immagine. */
+  return hash ? `${tag} <${id}|${hash}>` : `${tag} <${id}>`;
+}
+
 async function createTranscript(channel?) {
   const sorted = await fetchAllMessages(channel);
   let txt = `Transcript del canale: ${channel.name}\n\n`;
@@ -59,7 +75,7 @@ async function createTranscript(channel?) {
       });
     }
     if (!content) content = "*Nessun contenuto messaggio*";
-    txt += `[${new Date(msg.createdTimestamp).toLocaleString()}] ${msg.author.tag}: ${content}\n\n`;
+    txt += `[${new Date(msg.createdTimestamp).toLocaleString()}] ${authorMetaForTextTranscript(msg)}: ${content}\n\n`;
   });
   return txt;
 }

@@ -25,10 +25,16 @@ async function runWarn(message?, args?, client?) {
   const guard = await validateModerationTarget(message, warnMember, "warn", userId);
   if (!guard.ok) return reply(message, client, "Warn", guard.error, "Red");
   const content = String(args.slice(1).join(" ") || "").trim();
-  if (!content) {
+  let requireReason = true;
+  try {
+    const { getTenantModerationExtras } = require("../../../../MultiGuild/core/tenantModerationSettings") as typeof import("../../../../MultiGuild/core/tenantModerationSettings");
+    const extras = await getTenantModerationExtras(message.guild.id);
+    requireReason = extras?.requireReason !== false;
+  } catch (_) {}
+  if (requireReason && !content) {
     return reply(message, client, "Warn", `${E.VC_Lock} Il motivo è obbligatorio per il warn. Uso: \`+warn [utente] [motivo]\``, "Red");
   }
-  const reasonContent = content.slice(0, 512);
+  const reasonContent = (content || "Nessun motivo fornito").slice(0, 512);
   await makeCase(client, message, "WARN", userId, reasonContent);
   await sendModerationDm({
     user,
@@ -37,6 +43,19 @@ async function runWarn(message?, args?, client?) {
     action: "warn",
     reason: reasonContent,
   });
+  try {
+    const { applyAutoPunishAfterWarn } = require("../../services/autoPunishService") as typeof import("../../services/autoPunishService");
+    await applyAutoPunishAfterWarn({
+      guild: message.guild,
+      member: warnMember,
+      userId,
+      modId: message.author?.id,
+      client,
+      channel: message.invokeChannel || message.channel,
+    });
+  } catch (err) {
+    global.logger?.warn?.("[warn] autoPunish:", err?.message || err);
+  }
   const targetUser = await message.client.users.fetch(userId).catch(() => null);
   const label = formatTargetLabel(targetUser || { id: userId });
   return successReply(message, label, "was warned", reasonContent);

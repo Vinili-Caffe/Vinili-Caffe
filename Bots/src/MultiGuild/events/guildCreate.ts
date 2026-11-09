@@ -76,6 +76,10 @@ export = {
     }
 
     if (!isMultiGuildLayerEnabled()) return;
+    try {
+      const { clearBotLeftAlertsForGuild } = require("../site/dashboard/dashboardAlertsService") as typeof import("../site/dashboard/dashboardAlertsService");
+      await clearBotLeftAlertsForGuild(guild.id).catch(() => null);
+    } catch (_) {}
     if (autoRegisterGuildsOnJoin()) {
       await registerTenantGuild(guild.id, guild.name);
     }

@@ -82,7 +82,11 @@ export = {
 
       if (!client.inviteCache) client.inviteCache = new Map();
       if (!client.inviteCache.has(guild.id)) {
-        client.inviteCache.set(guild.id, new Map());
+        /* Evita cache parziale (solo questo invito): altrimenti i join sugli altri
+           codici non vengono rilevati finché non c'è uno snapshot completo. */
+        const { primeInviteCacheForGuild } = require("../../core/events/ready/startupRestore") as typeof import("../../core/events/ready/startupRestore");
+        const primed = await primeInviteCacheForGuild(guild).catch(() => false);
+        if (!primed) client.inviteCache.set(guild.id, new Map());
       }
       client.inviteCache.get(guild.id).set(code, {
         uses: normalizeCount(invite.uses, 0),

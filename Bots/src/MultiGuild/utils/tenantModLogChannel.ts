@@ -10,12 +10,13 @@ function normalizeModLogChannelId(value?) {
 function resolveModLogChannelId(guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid) return null;
-  const mainId = String(IDs.guilds?.main || "").trim();
-    if (mainId && gid === mainId) {
-    return normalizeModLogChannelId(IDs.channels?.modLogs);
-  }
+  // Override dashboard / settings tenant ha priorità anche sul main Vinili.
   const fromTenantSettings = normalizeModLogChannelId((getTenantChannelMapSync(gid) as any).modLogs);
   if (fromTenantSettings) return fromTenantSettings;
+  const mainId = String(IDs.guilds?.main || "").trim();
+  if (mainId && gid === mainId) {
+    return normalizeModLogChannelId(IDs.channels?.modLogs);
+  }
   try {
     const access: any = resolveGuildAccess(gid);
     return normalizeModLogChannelId(access?.entry?.channelMap?.modLogs);

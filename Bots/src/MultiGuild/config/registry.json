@@ -7,7 +7,7 @@
       "utility": true,
       "music": false,
       "tts": false,
-      "minigames": false,
+      "minigames": true,
       "moderation": false,
       "partnership": true,
       "level": false,

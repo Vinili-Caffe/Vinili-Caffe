@@ -55,10 +55,11 @@ function resolveCommandLoadRoots(commandFolders?, basePath?) {
   if (!alreadyMg && fs.existsSync(mgBase)) {
     roots.push({ basePath: mgBase, folders: listFoldersIfExists(mgBase) });
   }
-  // Slash partnership in Partner/discord/slash (file flat → categoria Partnership)
+  // Slash partnership: preferisci MultiGuild/discord/slash/Partnership (re-export); fallback Vinili/Partner
+  const mgPartnershipSlash = path.join(mgBase, "Partnership");
   const partnerSlash = path.resolve(__dirname, "..", "..", "Partner", "discord", "slash");
   const alreadyPartner = roots.some((r?) => path.resolve(r.basePath) === partnerSlash);
-  if (!alreadyPartner && fs.existsSync(partnerSlash)) {
+  if (!fs.existsSync(mgPartnershipSlash) && !alreadyPartner && fs.existsSync(partnerSlash)) {
     roots.push({
       basePath: partnerSlash,
       folders: [""],

@@ -869,6 +869,237 @@ async function setCaseDurationStore(guildId?, userId?, caseId?, durationMs?, exp
   }
 }
 
+async function listRecentGuildCases(guildId?, limit = 40, skip = 0) {
+  const gid = String(guildId || "").trim();
+  const lim = Math.max(1, Math.min(100, Math.floor(Number(limit) || 40)));
+  const off = Math.max(0, Math.floor(Number(skip) || 0));
+  if (!gid) return [];
+  const byCase = new Map();
+
+  if (useCompactModCase() && !useLegacyModCase()) {
+    const rows = await ActivityUserProfile.aggregate([
+      { $match: { guildId: gid, "moderation.modCases.0": { $exists: true } } },
+      { $project: { userId: 1, cases: "$moderation.modCases" } },
+      { $unwind: "$cases" },
+      { $sort: { "cases.createdAt": -1, "cases.caseId": -1 } },
+      { $skip: off },
+      { $limit: lim },
+      {
+        $project: {
+          caseId: "$cases.caseId",
+          action: "$cases.action",
+          userId: { $ifNull: ["$cases.userId", "$userId"] },
+          modId: "$cases.modId",
+          reason: "$cases.reason",
+          durationMs: "$cases.durationMs",
+          expiresAt: "$cases.expiresAt",
+          active: "$cases.active",
+          createdAt: "$cases.createdAt",
+          context: "$cases.context",
+          edits: "$cases.edits",
+          closedAt: "$cases.closedAt",
+          closeReason: "$cases.closeReason",
+          updatedAt: "$cases.updatedAt",
+          _id: "$cases._id",
+        },
+      },
+    ]).catch(() => []);
+    return (Array.isArray(rows) ? rows : [])
+      .map((c?) => plainFromCompactCase(gid, c.userId, c))
+      .filter(Boolean);
+  }
+
+  if (useCompactModCase()) {
+    const rows = await ActivityUserProfile.aggregate([
+      { $match: { guildId: gid, "moderation.modCases.0": { $exists: true } } },
+      { $project: { userId: 1, cases: "$moderation.modCases" } },
+      { $unwind: "$cases" },
+      { $sort: { "cases.createdAt": -1, "cases.caseId": -1 } },
+      { $limit: off + lim },
+      {
+        $project: {
+          caseId: "$cases.caseId",
+          action: "$cases.action",
+          userId: { $ifNull: ["$cases.userId", "$userId"] },
+          modId: "$cases.modId",
+          reason: "$cases.reason",
+          durationMs: "$cases.durationMs",
+          expiresAt: "$cases.expiresAt",
+          active: "$cases.active",
+          createdAt: "$cases.createdAt",
+          context: "$cases.context",
+          edits: "$cases.edits",
+          closedAt: "$cases.closedAt",
+          closeReason: "$cases.closeReason",
+          updatedAt: "$cases.updatedAt",
+          _id: "$cases._id",
+        },
+      },
+    ]).catch(() => []);
+    for (const c of Array.isArray(rows) ? rows : []) {
+      const plain = plainFromCompactCase(gid, c.userId, c);
+      if (plain) byCase.set(Number(plain.caseId), plain);
+    }
+  }
+
+  if (useLegacyModCase()) {
+    const legacy = await ModCase.find({ guildId: gid })
+      .sort({ createdAt: -1, caseId: -1 })
+      .skip(useCompactModCase() ? 0 : off)
+      .limit(useCompactModCase() ? off + lim : lim)
+      .lean()
+      .catch(() => []);
+    for (const row of legacy) {
+      const k = Number(row.caseId);
+      if (useCompactModCase() && byCase.has(k)) continue;
+      byCase.set(k, { ...row, _caseSource: "legacy" });
+    }
+  }
+
+  return sortCasesDesc(Array.from(byCase.values())).slice(off, off + lim);
+}
+
+async function aggregateGuildModerationOverview(guildId?) {
+  const gid = String(guildId || "").trim();
+  const emptyByAction = { BAN: 0, SOFTBAN: 0, KICK: 0, MUTE: 0, WARN: 0, UNBAN: 0, UNMUTE: 0, other: 0 };
+  const empty = {
+    totalCases: 0,
+    cases7d: 0,
+    activeWarns: 0,
+    activeTimed: 0,
+    byAction: { ...emptyByAction },
+  };
+  if (!gid) return empty;
+
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const byAction = { ...emptyByAction };
+  let totalCases = 0;
+  let cases7d = 0;
+  let activeWarns = 0;
+  let activeTimed = 0;
+  const seenCaseIds = new Set();
+
+  function bumpCase(caseId?, action?, createdAt?, active?, expiresAt?) {
+    const cid = String(Number(caseId) || 0);
+    if (cid !== "0") {
+      if (seenCaseIds.has(cid)) return;
+      seenCaseIds.add(cid);
+    }
+    totalCases += 1;
+    const act = normalizeAction(action);
+    const t = createdAt ? new Date(createdAt).getTime() : 0;
+    if (Number.isFinite(t) && t >= weekAgo.getTime()) {
+      cases7d += 1;
+      if (Object.prototype.hasOwnProperty.call(byAction, act)) byAction[act] += 1;
+      else byAction.other += 1;
+    }
+    if (act === "WARN" && active !== false) activeWarns += 1;
+    if ((act === "MUTE" || act === "BAN") && active !== false) {
+      const exp = expiresAt ? new Date(expiresAt).getTime() : 0;
+      if (Number.isFinite(exp) && exp > now.getTime()) activeTimed += 1;
+    }
+  }
+
+  // Percorso veloce: solo compact (modalità default) → aggregazione Mongo su tutti i casi.
+  if (useCompactModCase() && !useLegacyModCase()) {
+    const [facet] = await ActivityUserProfile.aggregate([
+      { $match: { guildId: gid, "moderation.modCases.0": { $exists: true } } },
+      { $unwind: "$moderation.modCases" },
+      {
+        $group: {
+          _id: null,
+          totalCases: { $sum: 1 },
+          cases7d: {
+            $sum: {
+              $cond: [{ $gte: ["$moderation.modCases.createdAt", weekAgo] }, 1, 0],
+            },
+          },
+          activeWarns: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: [{ $toUpper: "$moderation.modCases.action" }, "WARN"] },
+                    { $ne: ["$moderation.modCases.active", false] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          activeTimed: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $in: [{ $toUpper: "$moderation.modCases.action" }, ["MUTE", "BAN"]] },
+                    { $ne: ["$moderation.modCases.active", false] },
+                    { $gt: ["$moderation.modCases.expiresAt", now] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]).catch(() => []);
+
+    if (facet) {
+      totalCases = Number(facet.totalCases) || 0;
+      cases7d = Number(facet.cases7d) || 0;
+      activeWarns = Number(facet.activeWarns) || 0;
+      activeTimed = Number(facet.activeTimed) || 0;
+    }
+
+    const weekActions = await ActivityUserProfile.aggregate([
+      { $match: { guildId: gid, "moderation.modCases.0": { $exists: true } } },
+      { $unwind: "$moderation.modCases" },
+      { $match: { "moderation.modCases.createdAt": { $gte: weekAgo } } },
+      {
+        $group: {
+          _id: { $toUpper: "$moderation.modCases.action" },
+          n: { $sum: 1 },
+        },
+      },
+    ]).catch(() => []);
+    for (const row of Array.isArray(weekActions) ? weekActions : []) {
+      const act = normalizeAction(row?._id);
+      if (Object.prototype.hasOwnProperty.call(byAction, act)) byAction[act] = Number(row.n) || 0;
+      else byAction.other += Number(row.n) || 0;
+    }
+    return { totalCases, cases7d, activeWarns, activeTimed, byAction };
+  }
+
+  if (useCompactModCase()) {
+    const parents = await ActivityUserProfile.find({
+      guildId: gid,
+      "moderation.modCases.0": { $exists: true },
+    })
+      .select(MOD_CASES_PATH)
+      .lean()
+      .catch(() => []);
+    for (const p of parents) {
+      for (const c of p.moderation?.modCases || []) {
+        bumpCase(c.caseId, c.action, c.createdAt, c.active, c.expiresAt);
+      }
+    }
+  }
+
+  if (useLegacyModCase()) {
+    const legacy = await ModCase.find({ guildId: gid })
+      .select("caseId action createdAt active expiresAt")
+      .lean()
+      .catch(() => []);
+    for (const row of legacy) bumpCase(row.caseId, row.action, row.createdAt, row.active, row.expiresAt);
+  }
+
+  return { totalCases, cases7d, activeWarns, activeTimed, byAction };
+}
+
 export = {
   createModCaseStore,
   resolveCaseByGuildCaseId,
@@ -881,6 +1112,8 @@ export = {
   findModLogsPage,
   summarizeModActionsByModWindows,
   aggregateSanctionsByModInWeek,
+  listRecentGuildCases,
+  aggregateGuildModerationOverview,
   findLifecycleCandidates,
   appendCaseEditStore,
   setCaseReasonStore,

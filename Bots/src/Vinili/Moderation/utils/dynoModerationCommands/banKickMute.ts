@@ -15,6 +15,7 @@ const {
   parseMaybeDuration,
   parseDynoMuteDuration,
   resolveBanTarget,
+  resolveGuildMutedRoleId,
 } = require("./helpers") as typeof import("./helpers");
 
 async function runBan(message?, args?, client?) {
@@ -47,7 +48,17 @@ async function runBan(message?, args?, client?) {
   if (!reason || !reason.trim()) {
     return reply(message, client, "Ban", `${E.VC_Lock} Il motivo è obbligatorio per il ban. Uso: \`+ban [utente] [durata] [motivo]\``, "Red");
   }
-  const deleteSeconds = mode === "save" ? 0 : 604800;
+  let banDeleteDays = 7;
+  try {
+    const { getTenantModerationExtras } = require("../../../../MultiGuild/core/tenantModerationSettings") as typeof import("../../../../MultiGuild/core/tenantModerationSettings");
+    const extras = await getTenantModerationExtras(message.guild.id);
+    if (extras?.keepMessagesOnBan === true) banDeleteDays = 0;
+    else {
+      banDeleteDays = Number(extras?.banDeleteDays);
+      if (!Number.isFinite(banDeleteDays)) banDeleteDays = 7;
+    }
+  } catch (_) {}
+  const deleteSeconds = mode === "save" ? 0 : Math.max(0, Math.min(7, banDeleteDays)) * 86400;
   await sendModerationDm({
     user: resolvedUser,
     guildId: message.guild.id,
@@ -60,7 +71,85 @@ async function runBan(message?, args?, client?) {
     return reply(message, client, "Ban", `${E.VC_Lock} ${banOut.error}`, "Red");
   }
   await makeCase(client, message, "BAN", userId, reason, duration);
-  return successReply(message, formatTargetLabel(resolvedUser), "was banned", reason);
+  return successReply(message, formatTargetLabel(resolvedUser), "was banned", reason, "ban");
+}
+
+/** Softban Dyno-like: ban (cancella messaggi) + unban immediato. */
+async function runSoftban(message?, args?, client?) {
+  const { user, member, userId } = await pickUser(message, args, 0);
+  if (!userId) {
+    const helpEmbed = new EmbedBuilder()
+      .setColor("#3498DB")
+      .setDescription(
+        [
+          "**Comando: +softban**",
+          "",
+          "**Descrizione:** Banna e sbanna subito per cancellare i messaggi recenti.",
+          "**Cooldown:** 3 secondi",
+          "**Uso:**",
+          "+softban [utente] [motivo]",
+          "**Esempio:**",
+          "+softban @utente Spam in chat",
+        ].join("\n"),
+      );
+    return message.channel.send({ embeds: [helpEmbed] }).catch(() => null);
+  }
+  const guard = await validateModerationTarget(message, member, "softban", userId);
+  if (!guard.ok) return reply(message, client, "Softban", guard.error, "Red");
+  const resolvedUser = user || (await message.client.users.fetch(userId).catch(() => null));
+  if (!resolvedUser) {
+    return reply(
+      message,
+      client,
+      "Softban",
+      `${E.VC_Lock} Utente sconosciuto o **ID non valido**.`,
+      "Red",
+    );
+  }
+  const reason = reasonFrom(args, 1, "");
+  if (!reason || !reason.trim()) {
+    return reply(
+      message,
+      client,
+      "Softban",
+      `${E.VC_Lock} Il motivo è obbligatorio. Uso: \`+softban [utente] [motivo]\``,
+      "Red",
+    );
+  }
+  let banDeleteDays = 7;
+  try {
+    const { getTenantModerationExtras } = require("../../../../MultiGuild/core/tenantModerationSettings") as typeof import("../../../../MultiGuild/core/tenantModerationSettings");
+    const extras = await getTenantModerationExtras(message.guild.id);
+    if (extras?.keepMessagesOnBan === true) banDeleteDays = 1;
+    else {
+      banDeleteDays = Number(extras?.banDeleteDays);
+      if (!Number.isFinite(banDeleteDays) || banDeleteDays <= 0) banDeleteDays = 7;
+    }
+  } catch (_) {}
+  const deleteSeconds = Math.max(1, Math.min(7, banDeleteDays)) * 86400;
+  await sendModerationDm({
+    user: resolvedUser,
+    guildId: message.guild.id,
+    guildName: message.guild.name,
+    action: "ban",
+    reason: `Softban: ${reason}`,
+  });
+  const banOut = await executeGuildBan(message.guild, userId, { reason: `Softban: ${reason}`, deleteMessageSeconds: deleteSeconds });
+  if (!banOut.ok) {
+    return reply(message, client, "Softban", `${E.VC_Lock} ${banOut.error}`, "Red");
+  }
+  const unbanned = await message.guild.bans.remove(userId, `Softban: ${reason}`).then(() => true).catch(() => false);
+  if (!unbanned) {
+    return reply(
+      message,
+      client,
+      "Softban",
+      `${E.VC_Lock} Bannato ma unban immediato fallito: togli il ban manualmente.`,
+      "Red",
+    );
+  }
+  await makeCase(client, message, "SOFTBAN", userId, reason, null);
+  return successReply(message, formatTargetLabel(resolvedUser), "was softbanned", reason, "softban");
 }
 
 async function runKick(message?, args?, client?) {
@@ -90,7 +179,7 @@ async function runKick(message?, args?, client?) {
   const ok = await member.kick(reason).then(() => true).catch(() => false);
   if (!ok) return reply(message, client, "Kick", "Operazione fallita.", "Red");
   await makeCase(client, message, "KICK", userId, reason);
-  return successReply(message, formatTargetLabel(member.user || { id: userId }), "was kicked", reason);
+  return successReply(message, formatTargetLabel(member.user || { id: userId }), "was kicked", reason, "kick");
 }
 
 async function runMute(message?, args?, client?) {
@@ -133,16 +222,39 @@ async function runMute(message?, args?, client?) {
       .catch(() => null);
   }
   const reason = reasonFrom(args, 2, "");
-  if (!reason || !reason.trim()) {
+  let requireReason = true;
+  try {
+    const { getTenantModerationExtras } = require("../../../../MultiGuild/core/tenantModerationSettings") as typeof import("../../../../MultiGuild/core/tenantModerationSettings");
+    const extras = await getTenantModerationExtras(message.guild.id);
+    requireReason = extras?.requireReason !== false;
+  } catch (_) {}
+  if (requireReason && (!reason || !reason.trim())) {
     return reply(message, client, "Mute", "Il motivo è obbligatorio per il mute. Uso: `+mute [utente] [durata] [motivo]`", "Red");
   }
-      try {
+  let useDiscordTimeout = true;
+  try {
+    const { getTenantModerationExtras } = require("../../../../MultiGuild/core/tenantModerationSettings") as typeof import("../../../../MultiGuild/core/tenantModerationSettings");
+    const extras = await getTenantModerationExtras(message.guild.id);
+    useDiscordTimeout = extras?.useDiscordTimeout !== false;
+  } catch (_) {}
+  try {
     const { captureMuteRoleSnapshot } = require("../../services/mutedMirrorRoleService") as typeof import("../../services/mutedMirrorRoleService");
     await captureMuteRoleSnapshot(member, { reason: "Timeout Discord / +mute (pre-timeout)" });
   } catch (err) {
     global.logger?.warn?.("[mute] pre-timeout snapshot:", err?.message || err);
   }
-  const ok = await member.timeout(duration, reason).then(() => true).catch(() => false);
+  let ok = false;
+  if (useDiscordTimeout) {
+    ok = await member.timeout(duration, reason).then(() => true).catch(() => false);
+  } else {
+    const mutedRoleId = resolveGuildMutedRoleId(message.guild);
+    if (mutedRoleId) {
+      ok = await member.roles.add(mutedRoleId, reason).then(() => true).catch(() => false);
+    }
+    if (!ok) {
+      ok = await member.timeout(duration, reason).then(() => true).catch(() => false);
+    }
+  }
   if (!ok) return reply(message, client, "Mute", "Operazione fallita.", "Red");
   try {
     const { applyActiveMuteMirror } = require("../../services/mutedMirrorRoleService") as typeof import("../../services/mutedMirrorRoleService");
@@ -160,7 +272,7 @@ async function runMute(message?, args?, client?) {
     durationText: formatDuration(duration),
   });
   await makeCase(client, message, "MUTE", userId, reason, duration);
-  return successReply(message, formatTargetLabel(member.user || { id: userId }), "was muted", reason);
+  return successReply(message, formatTargetLabel(member.user || { id: userId }), "was muted", reason, "mute");
 }
 
 async function runUnmute(message?, args?, client?) {
@@ -169,7 +281,12 @@ async function runUnmute(message?, args?, client?) {
   const guard = await validateModerationTarget(message, member, "unmute", userId);
   if (!guard.ok) return reply(message, client, "Unmute", guard.error, "Red");
   const reason = reasonFrom(args, 1);
-  const ok = await member.timeout(null, reason).then(() => true).catch(() => false);
+  let ok = await member.timeout(null, reason).then(() => true).catch(() => false);
+  const mutedRoleId = resolveGuildMutedRoleId(message.guild);
+  if (mutedRoleId && member.roles.cache.has(mutedRoleId)) {
+    const roleRemoved = await member.roles.remove(mutedRoleId, reason).then(() => true).catch(() => false);
+    ok = ok || roleRemoved;
+  }
   if (!ok) return reply(message, client, "Unmute", "Operazione fallita.", "Red");
   try {
     const { restoreRolesAfterCommunicationTimeoutEnd } = require("../../services/mutedMirrorRoleService") as typeof import("../../services/mutedMirrorRoleService");
@@ -194,7 +311,7 @@ async function runUnmute(message?, args?, client?) {
     await closeCasePersist(item, `Unmute manuale da ${message.author.id}`);
   }
   await makeCase(client, message, "UNMUTE", userId, reason);
-  return successReply(message, formatTargetLabel(member.user || { id: userId }), "was unmuted", reason);
+  return successReply(message, formatTargetLabel(member.user || { id: userId }), "was unmuted", reason, "unmute");
 }
 
 async function runUnban(message?, args?, client?) {
@@ -227,7 +344,7 @@ async function runUnban(message?, args?, client?) {
   }
   await makeCase(client, message, "UNBAN", id, reason);
   const subject = formatTargetLabel(banInfo?.user || { id });
-  return successReply(message, subject, "was unbanned");
+  return successReply(message, subject, "was unbanned", reason, "unban");
 }
 
-export = { runBan, runKick, runMute, runUnmute, runUnban };
+export = { runBan, runSoftban, runKick, runMute, runUnmute, runUnban };

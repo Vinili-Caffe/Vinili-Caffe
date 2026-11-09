@@ -165,6 +165,16 @@ function flagsForPreset(preset?) {
 }
 
 function applyViewAsToStaffAccessPayload(realPayload?, preset?, member?) {
+  if (member?.__vcViewAsReal || (viewAsContextActive() && !normalizeViewAs(preset))) {
+    return {
+      ...realPayload,
+      isFounder: false,
+      viewAs: "roles",
+      viewAsActive: true,
+      viewAsAllowed: true,
+      roleIds: Array.isArray(member?.__vcViewAsRoleIds) ? member.__vcViewAsRoleIds : realPayload?.roleIds,
+    };
+  }
   const p = normalizeViewAs(preset);
   const allowed = canUseViewAs(member, {
     userId: realPayload?.identity?.userId || member?.id,
@@ -322,7 +332,14 @@ function shimMemberRolesForViewAs(member?, preset?) {
   if (!p || !member) return member;
   const fakeIds = roleIdsForViewAsPreset(p);
   if (!Array.isArray(fakeIds)) return member;
-  const idSet = new Set(fakeIds.map(String));
+  return shimMemberWithRoleIds(member, fakeIds, p);
+}
+
+/** Membro con SOLO i ruoli indicati (anteprima "visualizza come ruolo"); il resto del membro resta vero. */
+function shimMemberWithRoleIds(member?, roleIds?, tag = "roles") {
+  if (!member || !Array.isArray(roleIds)) return member;
+  const p = tag;
+  const idSet = new Set(roleIds.map(String));
   const guild = member.guild || null;
   const roleObjs = [];
   for (const rid of idSet) {
@@ -368,9 +385,46 @@ function shimMemberRolesForViewAs(member?, preset?) {
       }
       if (prop === "__vcViewAsShim") return p;
       if (prop === "__vcViewAsRoleIds") return [...idSet];
+      if (prop === "__vcViewAsReal") return true;
+      /* niente permessi da amministratore del vero account durante l'anteprima */
+      if (prop === "permissions") {
+        return {
+          has: (perm?) => roleObjs.some((r?) => {
+            try {
+              return Boolean(r?.permissions?.has?.(perm));
+            } catch {
+              return false;
+            }
+          }),
+        };
+      }
       return Reflect.get(target, prop, receiver);
     },
   });
+}
+
+/** Se la richiesta è in anteprima ruoli e il vero utente può usarla, restituisce il membro coi ruoli scelti. */
+function applyViewAsContextToMember(member?) {
+  if (!member || member.__vcViewAsReal) return member;
+  let ids = null;
+  try {
+    const { getViewAsRoleIds } = require("../../../shared/runtime/viewAsContext") as typeof import("../../../shared/runtime/viewAsContext");
+    ids = getViewAsRoleIds();
+  } catch {
+    ids = null;
+  }
+  if (!Array.isArray(ids)) return member;
+  if (!canUseViewAs(member, { userId: member.id })) return member;
+  return shimMemberWithRoleIds(member, ids, "roles");
+}
+
+function viewAsContextActive() {
+  try {
+    const { getViewAsRoleIds } = require("../../../shared/runtime/viewAsContext") as typeof import("../../../shared/runtime/viewAsContext");
+    return Array.isArray(getViewAsRoleIds());
+  } catch {
+    return false;
+  }
 }
 
 function applyViewAsToResolvedMember(member?, preset?, opts: Record<string, any> = {}) {
@@ -398,4 +452,54 @@ export = {
   compitiRoleOverride,
   roleIdsForViewAsPreset,
   applyViewAsToResolvedMember,
+  applyViewAsContextToMember,
+  shimMemberWithRoleIds,
+  viewAsContextActive,
+  handleViewAsRolesGet,
 };
+
+/**
+ * GET /webhooks/site-view-as/roles — ruoli del server principale per il selettore dell'anteprima.
+ * Solo per chi può usare l'anteprima; il controllo usa SEMPRE i ruoli veri (anche se l'anteprima è attiva).
+ */
+async function handleViewAsRolesGet(client?, req?, res?) {
+  res.setHeader("Cache-Control", "private, no-store");
+  try {
+    const raw = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim();
+    if (!raw) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+    const { withoutViewAs } = require("../../../shared/runtime/viewAsContext") as typeof import("../../../shared/runtime/viewAsContext");
+    const { resolveWebsiteGuildMember } = require("./siteRoleRequestApi") as typeof import("./siteRoleRequestApi");
+    const resolved: any = await withoutViewAs(() => resolveWebsiteGuildMember(client, raw));
+    if (!resolved?.ok) return res.status(Number(resolved?.status) || 403).json({ ok: false, error: resolved?.error, message: resolved?.message });
+    if (!canUseViewAs(resolved.member, { userId: resolved.userId })) {
+      return res.status(403).json({ ok: false, error: "forbidden", message: "Anteprima riservata al Founder." });
+    }
+    const guildId = String(resolved.guild?.id || IDs?.guilds?.main || "").trim();
+    let rows: any[] = [];
+    try {
+      const { Routes } = require("discord.js") as typeof import("discord.js");
+      const rest = client?._rest || client?.rest;
+      if (rest) rows = await rest.get(Routes.guildRoles(guildId));
+    } catch {
+      rows = [];
+    }
+    if (!Array.isArray(rows) || !rows.length) {
+      rows = [...(resolved.guild?.roles?.cache?.values?.() || [])].map((r?) => ({ id: r.id, name: r.name, color: r.color, position: r.position, managed: r.managed }));
+    }
+    const roles = rows
+      .filter((r?) => r && String(r.id) !== guildId && !r.managed)
+      .map((r?) => ({
+        id: String(r.id),
+        name: String(r.name || r.id),
+        color: Number(r.color) ? `#${Number(r.color).toString(16).padStart(6, "0")}` : null,
+        position: Number(r.position) || 0,
+      }))
+      .sort((a, b) => b.position - a.position);
+    const realRoleIds = [...(resolved.member?.roles?.cache?.keys?.() || [])].map(String);
+    return res.status(200).json({ ok: true, guildId, roles, realRoleIds });
+  } catch (err) {
+    global.logger?.warn?.("[VIEW AS] roles:", err?.message || err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+

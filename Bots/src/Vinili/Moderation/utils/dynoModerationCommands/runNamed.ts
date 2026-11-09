@@ -1,5 +1,5 @@
 const { reply } = require("./helpers") as typeof import("./helpers");
-const { runBan, runKick, runMute, runUnmute, runUnban } = require("./banKickMute") as typeof import("./banKickMute");
+const { runBan, runSoftban, runKick, runMute, runUnmute, runUnban } = require("./banKickMute") as typeof import("./banKickMute");
 const { runWarn, runWarnings, runDelwarn, runClearwarn } = require("./warnCommands") as typeof import("./warnCommands");
 const { runCaseFamily } = require("./caseCommands") as typeof import("./caseCommands");
 const { runModlogsOrModerations } = require("./logsCommands") as typeof import("./logsCommands");
@@ -10,6 +10,7 @@ async function runNamed(name?, message?, args?, client?) {
   const cmd = String(name || "").toLowerCase();
 
   if (cmd === "ban") return runBan(message, args, client);
+  if (cmd === "softban") return runSoftban(message, args, client);
   if (cmd === "kick") return runKick(message, args, client);
   if (cmd === "mute") return runMute(message, args, client);
   if (cmd === "unmute") return runUnmute(message, args, client);

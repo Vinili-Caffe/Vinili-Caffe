@@ -9,7 +9,16 @@ const { findQuestionLabel } = require("../../../Community/utils/candidatureAppli
  // rolesPrefetchNoise1: UA + slightly longer; was bare abort@2800
 let lastDiscordMeWarnAt = 0;
 
+/** In anteprima "visualizza come ruolo" il membro ha solo i ruoli scelti (vedi viewAsContext). */
 async function resolveWebsiteCandidatureMember(client?, accessToken?) {
+  const out: any = await resolveWebsiteCandidatureMemberReal(client, accessToken);
+  if (!out?.ok || !out.member) return out;
+  const { applyViewAsContextToMember } = require("../../http/siteViewAsPreview") as typeof import("../../http/siteViewAsPreview");
+  const shim = applyViewAsContextToMember(out.member);
+  return shim === out.member ? out : { ...out, member: shim, viewAsActive: true };
+}
+
+async function resolveWebsiteCandidatureMemberReal(client?, accessToken?) {
   const token = String(accessToken || "").trim();
   if (!token) {
     return { ok: false, status: 401, error: "missing_token", message: "Token mancante." };
@@ -250,4 +259,4 @@ async function submitCandidatureWebsite(client?, payload?) {
   };
 }
 
-export = { resolveWebsiteCandidatureMember, getCandidatureEligibilitySummary, submitCandidatureWebsite };
+export = { resolveWebsiteCandidatureMember, resolveWebsiteCandidatureMemberReal, getCandidatureEligibilitySummary, submitCandidatureWebsite };

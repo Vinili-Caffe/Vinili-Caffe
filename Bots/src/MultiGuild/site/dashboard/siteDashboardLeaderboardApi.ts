@@ -182,7 +182,7 @@ async function getDashboardPartnershipLeaderboard(client?, accessToken?, guildId
             if (category === "servers") {
       await refreshPartnershipConfigCache().catch(() => null);
     }
-    rows = await fetchLeaderboardRows(category, period, partnerScopeGuildId);
+    rows = await fetchLeaderboardRows(category, period, partnerScopeGuildId, client);
     if (category === "partners") {
       rows = await filterRowsToPartnerManagers(client, access.guildId, rows);
     }

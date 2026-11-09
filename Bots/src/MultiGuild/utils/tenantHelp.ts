@@ -17,7 +17,7 @@ const PRIVATE_FLAG = 1 << 6;
 const COMMANDS_PER_PAGE = 4;
 const MUSIC_OWNER_NOTE = " *Solo chi ha avviato la riproduzione può usarlo.*";
 const MUSIC_OWNER_COMMANDS = new Set(["skip", "stop", "pause", "resume", "volume", "shuffle", "clear", "repeat", "previous", "rewind", "restart"]);
-const CATEGORY_ORDER = ["partnership", "utility", "music", "tts", "minigames", "moderation"];
+const CATEGORY_ORDER = ["partnership", "bacheca", "utility", "music", "tts", "minigames", "moderation"];
 
 const TENANT_PARTNERSHIP_CATALOG = [
   { id: "invite", invoke: "+invite", example: "+invite", permissions: null },
@@ -50,12 +50,15 @@ const TENANT_PARTNERSHIP_CATALOG = [
 
 const TENANT_COMMAND_CATALOG = {
   partnership: TENANT_PARTNERSHIP_CATALOG,
+  bacheca: [
+    { invoke: "+quote", syntax: "(messaggio)", description: "Genera una quote da un messaggio (o rispondendo a uno).", example: "+quote", permissions: null },
+    { invoke: "+repost", description: "Condivide un messaggio sulla bacheca (rispondi al messaggio).", example: "+repost", permissions: null },
+    { invoke: "+clip", description: "Pubblica una clip vocale sulla bacheca (allegato o risposta).", example: "+clip", permissions: null },
+  ],
   utility: [
     { invoke: "+afk", syntax: "(messaggio)", description: "Imposta il tuo stato AFK con un messaggio personalizzato.", example: "+afk sono via", permissions: null },
     { invoke: "+avatar", syntax: "(utente)", description: "Mostra l'avatar di un utente.", example: "+avatar", permissions: null },
     { invoke: "+banner", syntax: "(utente)", description: "Mostra il banner di un utente.", example: "+banner", permissions: null },
-    { invoke: "+quote", syntax: "(messaggio)", description: "Genera una quote da un messaggio (o rispondendo a uno).", example: "+quote", permissions: null },
-    { invoke: "+repost", description: "Condivide un messaggio sulla bacheca (rispondi al messaggio).", example: "+repost", permissions: null },
     { invoke: "+snipe", description: "Recupera l'ultimo messaggio eliminato nel canale.", example: "+snipe", permissions: null },
   ],
   music: [
@@ -92,6 +95,7 @@ const TENANT_COMMAND_CATALOG = {
     { invoke: "+ban", syntax: "[utente] (durata) [motivo]", description: "Banna un utente (motivo obbligatorio).", example: "+ban @utente 1d spam", permissions: "BanMembers" },
     { invoke: "+case", syntax: "[id]", description: "Dettaglio di un case moderazione.", example: "+case 42", permissions: "ModerateMembers" },
     { invoke: "+kick", syntax: "[utente] [motivo]", description: "Espelle un utente dal server.", example: "+kick @utente motivo", permissions: "KickMembers" },
+    { invoke: "+softban", syntax: "[utente] [motivo]", description: "Ban + unban per cancellare i messaggi recenti.", example: "+softban @utente spam", permissions: "BanMembers" },
     { invoke: "+lock", syntax: "(#canale)", description: "Blocca la scrittura in un canale.", example: "+lock #generale", permissions: "ManageChannels" },
     { invoke: "+modlogs", syntax: "[utente]", description: "Storico moderazione di un utente.", example: "+modlogs @utente", permissions: "ModerateMembers" },
     { invoke: "+mute", syntax: "[utente] [durata] [motivo]", description: "Silenzia un utente per un periodo (es. 10m, 2h, 1d).", example: "+mute @utente 30m flood", permissions: "ModerateMembers" },
@@ -216,10 +220,18 @@ function resolveTenantHelpFeatures(guildId?) {
   const features = access.entry?.features && typeof access.entry.features === "object"
     ? access.entry.features
     : {};
+  let boardsEnabled = false;
+  try {
+    const { getTenantBoardsSync } = require("../core/tenantGuildSettings") as typeof import("../core/tenantGuildSettings");
+    boardsEnabled = getTenantBoardsSync(guildId)?.enabled === true;
+  } catch {
+    boardsEnabled = false;
+  }
   const out: Record<string, any> = {};
   for (const category of CATEGORY_ORDER) {
     const featureKey = mapCategoryToFeature(category);
-    out[category] = featureKey ? features[featureKey] === true : false;
+    /* Bacheca: solo se attiva dalla dashboard (boards.enabled). */
+    out[category] = featureKey ? features[featureKey] === true : category === "bacheca" && boardsEnabled;
   }
   return out;
 }

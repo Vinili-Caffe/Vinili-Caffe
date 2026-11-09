@@ -1,0 +1,2 @@
+/** Re-export MultiGuild: /partnership (runtime Vinili/Partner). */
+export = require("../../../../Vinili/Partner/discord/slash/partnership");

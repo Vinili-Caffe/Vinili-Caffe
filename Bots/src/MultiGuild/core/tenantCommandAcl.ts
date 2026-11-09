@@ -4,6 +4,7 @@ const {
   MUSIC_PREFIX_COMMANDS,
   TTS_PREFIX_COMMANDS,
   UTILITY_PREFIX_COMMANDS,
+  BACHECA_PREFIX_COMMANDS,
   TENANT_ALWAYS_PREFIX_COMMANDS,
   MINIGAMES_PREFIX_COMMANDS,
   PARTNERSHIP_PREFIX_COMMANDS,
@@ -22,6 +23,7 @@ const {
 
 const CATEGORY_META = {
   utility: { label: "Utility", order: 10 },
+  bacheca: { label: "Bacheca", order: 15 },
   music: { label: "Musica", order: 20 },
   tts: { label: "TTS", order: 30 },
   minigames: { label: "Minigames", order: 40 },
@@ -287,6 +289,7 @@ function decodeCommandsMap(raw?) {
 function categoryCommandsSeed() {
   return {
     utility: [...UTILITY_PREFIX_COMMANDS],
+    bacheca: [...BACHECA_PREFIX_COMMANDS],
     music: [...MUSIC_PREFIX_COMMANDS],
     tts: [...TTS_PREFIX_COMMANDS],
     minigames: [...MINIGAMES_PREFIX_COMMANDS],
@@ -713,6 +716,14 @@ function buildTenantCommandCatalog(guildId?) {
     const featureKey = mapCategoryToFeature(category);
     if (featureKey && features[featureKey] !== true) {
       if (category !== "utility") continue;
+    }
+    if (category === "bacheca" && !isDashboardFullCommandCatalogGuild(gid)) {
+      try {
+        const { getTenantBoardsSync } = require("./tenantGuildSettings") as typeof import("./tenantGuildSettings");
+        if (getTenantBoardsSync(gid)?.enabled !== true) continue;
+      } catch {
+        continue;
+      }
     }
 
     const items = [];

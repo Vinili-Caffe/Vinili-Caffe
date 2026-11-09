@@ -11,6 +11,7 @@ const {
 } = require("../../../Vinili/Partner/core/tenantPartnershipSettings") as typeof import("../../../Vinili/Partner/core/tenantPartnershipSettings");
 const {
   getTenantDashboardRoleIdsSync,
+  getTenantDashboardUserIdsSync,
   refreshTenantGuildSettingsCache,
 } = require("../../core/tenantGuildSettings") as typeof import("../../core/tenantGuildSettings");
 const {
@@ -39,6 +40,15 @@ function highStaffOnlyDenied() {
     status: 403,
     error: "high_staff_only",
     message: "Questa sezione non è disponibile.",
+  };
+}
+
+function dashboardAccessDenied() {
+  return {
+    ok: false,
+    status: 403,
+    error: "dashboard_access_denied",
+    message: "Non hai accesso a questo server nella dashboard.",
   };
 }
 
@@ -620,7 +630,8 @@ const guildAccessCache = new Map();
 const guildAccessInflight = new Map();
 
 async function verifyDashboardGuildAccess(client?, accessToken?, guildId?) {
-  const key = `${String(accessToken || "")}:${String(guildId || "").trim()}`;
+  const { viewAsCacheSuffix } = require("../../../shared/runtime/viewAsContext") as typeof import("../../../shared/runtime/viewAsContext");
+  const key = `${String(accessToken || "")}:${String(guildId || "").trim()}:${viewAsCacheSuffix()}`;
   const hit = guildAccessCache.get(key);
   if (hit && Date.now() - hit.at < GUILD_ACCESS_TTL_MS) return hit.result;
   const pending = guildAccessInflight.get(key);
@@ -661,30 +672,73 @@ async function verifyDashboardGuildAccessUncached(client?, accessToken?, guildId
   if (!manageServer) {
     manageServer = await userHasGuildManageAccessViaBot(client, gid, user.userId);
   }
-    const staffFlag = await resolveDashboardHighStaffFlag(client, accessToken);
-  if (!staffFlag.ok) return staffFlag;
-  if (!staffFlag.highStaff) {
-    return highStaffOnlyDenied();
-  }
 
-  return {
-    ok: true,
+  const staffFlag = await resolveDashboardHighStaffFlag(client, accessToken);
+  if (!staffFlag.ok) return staffFlag;
+
+  const base = {
+    ok: true as const,
     status: 200,
     guildId: gid,
     userId: user.userId,
     guildPartial: match || { id: gid, name: "" },
     botPresent,
-    accessVia: "high_staff",
     manageServer,
   };
+
+  if (staffFlag.highStaff) {
+    return { ...base, accessVia: "high_staff" };
+  }
+  if (manageServer) {
+    return { ...base, accessVia: "manage_guild" };
+  }
+
+  const roleIds = getTenantDashboardRoleIdsSync(gid);
+  if (roleIds.length && (await guildMemberHasAnyRole(client, gid, user.userId, roleIds))) {
+    return { ...base, accessVia: "dashboard_role" };
+  }
+
+  const allowedUsers = getTenantDashboardUserIdsSync(gid);
+  if (allowedUsers.includes(String(user.userId))) {
+    return { ...base, accessVia: "dashboard_user" };
+  }
+
+  return dashboardAccessDenied();
 }
 
-async function userHasAnyDashboardEntry(client?, accessToken?, _userId?) {
+async function userHasAnyDashboardEntry(client?, accessToken?, userId?) {
   const staffFlag = await resolveDashboardHighStaffFlag(client, accessToken);
   if (!staffFlag.ok) return staffFlag;
   if (staffFlag.highStaff) {
     return { ok: true, status: 200, allowed: true, via: "high_staff" };
   }
+
+  const uid = String(userId || "").trim();
+  const guildsRes = await fetchUserGuilds(accessToken);
+  if (!guildsRes.ok) return guildsRes;
+
+  await Promise.all([
+    refreshTenantGuildSettingsCache().catch(() => null),
+    syncKnownBotGuildIdsFromRest(client).catch(() => null),
+  ]);
+  const knownBotGuilds = buildKnownBotGuildIdSet(client);
+
+  for (const row of guildsRes.guilds) {
+    const id = String(row?.id || "").trim();
+    if (!id || !knownBotGuilds.has(id)) continue;
+    if (oauthRowHasManageAccess(row)) {
+      return { ok: true, status: 200, allowed: true, via: "manage_guild" };
+    }
+    const roleIds = getTenantDashboardRoleIdsSync(id);
+    if (roleIds.length && uid && (await guildMemberHasAnyRole(client, id, uid, roleIds))) {
+      return { ok: true, status: 200, allowed: true, via: "dashboard_role" };
+    }
+    const allowedUsers = getTenantDashboardUserIdsSync(id);
+    if (uid && allowedUsers.includes(uid)) {
+      return { ok: true, status: 200, allowed: true, via: "dashboard_user" };
+    }
+  }
+
   return { ok: true, status: 200, allowed: false, via: null };
 }
 
@@ -717,7 +771,8 @@ const listDashboardGuildsInflight = new Map();
 
 async function listDashboardGuilds(client?, accessToken?) {
   const token = String(accessToken || "").trim();
-  const cacheKey = token ? `guilds:${token}` : "";
+  const { viewAsCacheSuffix } = require("../../../shared/runtime/viewAsContext") as typeof import("../../../shared/runtime/viewAsContext");
+  const cacheKey = token ? `guilds:${token}:${viewAsCacheSuffix()}` : "";
   const now = Date.now();
   if (cacheKey) {
     const hit = listDashboardGuildsCache.get(cacheKey);
@@ -763,7 +818,14 @@ async function listDashboardGuildsUncached(client?, accessToken?) {
 
   const entry = await userHasAnyDashboardEntry(client, accessToken, user.userId);
   if (!entry.ok) return entry;
-  if (!entry.allowed) return highStaffOnlyDenied();
+  if (!entry.allowed) {
+    return {
+      ok: false,
+      status: 403,
+      error: "dashboard_access_denied",
+      message: "Non hai accesso alla dashboard.",
+    };
+  }
 
   const staffFlag = await resolveDashboardHighStaffFlag(client, accessToken);
   if (!staffFlag.ok) return staffFlag;
@@ -809,7 +871,7 @@ async function listDashboardGuildsUncached(client?, accessToken?) {
     });
   }
 
-    for (const row of guildsRes.guilds) {
+  for (const row of guildsRes.guilds) {
     const id = String(row?.id || "").trim();
     if (!id || seen.has(id) || !knownBotGuilds.has(id)) continue;
     if (blacklistedGuildIds.has(id)) continue;
@@ -817,6 +879,27 @@ async function listDashboardGuildsUncached(client?, accessToken?) {
     if (!roleIds.length) continue;
     const hasRole = await guildMemberHasAnyRole(client, id, user.userId, roleIds);
     if (!hasRole) continue;
+    seen.add(id);
+    const isProtected = isViniliProtectedGuild(id) || isViniliFullFeatureGuild(id);
+    const isMain = String(IDs.guilds?.main || "").trim() === id;
+    items.push({
+      id,
+      name: String(row?.name || "Server").trim() || "Server",
+      iconUrl: guildIconUrlFromPartial(row),
+      owner: row?.owner === true,
+      botPresent: true,
+      isMainGuild: isMain,
+      isProtectedGuild: isProtected,
+      premiumActive: isTenantPremiumActiveSync(id), ...premiumDates(id),
+    });
+  }
+
+  for (const row of guildsRes.guilds) {
+    const id = String(row?.id || "").trim();
+    if (!id || seen.has(id) || !knownBotGuilds.has(id)) continue;
+    if (blacklistedGuildIds.has(id)) continue;
+    const allowedUsers = getTenantDashboardUserIdsSync(id);
+    if (!allowedUsers.includes(String(user.userId))) continue;
     seen.add(id);
     const isProtected = isViniliProtectedGuild(id) || isViniliFullFeatureGuild(id);
     const isMain = String(IDs.guilds?.main || "").trim() === id;
@@ -998,6 +1081,7 @@ export = {
   assertDashboardHighStaffAccess,
   assertDashboardBotDevAccess,
   isDashboardBotDevUser,
+  resolveDashboardHighStaffFlag,
   getDashboardAccess,
   fetchDiscordUser,
   buildKnownBotGuildIdSet,

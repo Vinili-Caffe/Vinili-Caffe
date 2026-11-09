@@ -328,7 +328,8 @@ function renderRichTextPlain(message?, text?) {
   return String(text || "").replace(
     RICH_TOKEN_REGEX,
     (full?, emojiName?, emojiId?, userId?, roleId?, channelId?) => {
-            if (emojiId) return `:${emojiName}:`;
+      /* Mantieni <:nome:id> così il viewer può renderizzare l'immagine (non solo :nome:). */
+      if (emojiId) return full;
       if (userId) return `<@${userId}>`;
       if (roleId) return `<@&${roleId}>`;
       if (channelId) return `<#${channelId}>`;
