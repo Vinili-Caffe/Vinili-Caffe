@@ -215,6 +215,12 @@ export = {
       resolved = await resolveMessage(message);
       if (!resolved?.guild) return;
 
+      /* repostOrphan1: originale cancellato → via i repost collegati */
+      void (async () => {
+        const { purgeRepostsOfDeletedSource } = require("../../Community/services/repostRemove") as typeof import("../../Community/services/repostRemove");
+        await purgeRepostsOfDeletedSource(resolved.guild, resolved.channelId || resolved.channel?.id, resolved.id);
+      })().catch(() => null);
+
       if (!isViniliFullFeatureGuild(resolved.guild.id)) {
         void handleTenantPartnerDescriptionMessageDelete(resolvedClient, resolved).catch(() => null);
         return;

@@ -224,14 +224,28 @@ async function playMusicRequest(ctx?, query?) {
 
   let player = shoukaku.players.get(guildId);
   if (!player) {
-    try {
-      player = await shoukaku.joinVoiceChannel({
+    const joinOnce = () =>
+      shoukaku.joinVoiceChannel({
         guildId,
         shardId: getShardIdForGuild(guild),
         channelId: voiceChannel.id,
         /* clipAllVoices3: undeaf obbligatorio per ricevere TUTTE le voci */
         deaf: false,
       });
+    try {
+      try {
+        player = await joinOnce();
+      } catch (firstErr) {
+        /* joinRetry1: connessione rimasta appesa o Lavalink appena riavviato → pulisci, aspetta il nodo e riprova una volta */
+        global.logger?.warn?.("[MUSIC] joinVoiceChannel (riprovo):", firstErr?.message || firstErr);
+        await Promise.resolve(shoukaku.leaveVoiceChannel?.(guildId)).catch(() => {});
+        await clearBlockingNativeVoiceForMusic(guildId, client).catch(() => false);
+        const waitUntil = Date.now() + 20_000;
+        while (!isLavalinkUsable(client) && Date.now() < waitUntil) {
+          await new Promise((r?) => setTimeout(r, 500));
+        }
+        player = await joinOnce();
+      }
       notifyBotPresenceVoiceActivity(client);
       await musicStartCapture({
         guildId,

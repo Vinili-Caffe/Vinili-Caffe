@@ -240,6 +240,16 @@ export = {
       return;
     }
 
+    /* trascrizione dei messaggi vocali (prima la faceva Caffè): fuori dal percorso critico */
+    if (!isEditedPrefixExecution && message.guild && !isAutomatedMessage) {
+      setImmediate(() => {
+        const { handleVoiceTranscriptionMessage } = require("../../Voice/services/voiceTranscriptionService") as typeof import("../../Voice/services/voiceTranscriptionService");
+        handleVoiceTranscriptionMessage(message, resolvedClient).catch((error?) => {
+          logEventError(resolvedClient, "VOICE TRANSCRIBE ERROR", error);
+        });
+      });
+    }
+
     /* main/test: stesse AR della dashboard (non solo nei side-effect in setImmediate). */
     if (!isEditedPrefixExecution && message.guild && !isAutomatedMessage) {
       try {

@@ -136,14 +136,15 @@
     "secondReminderMinMessages30m": 20
   },
   "voiceTranscription": {
-    "enabled": false,
+    "enabled": true,
     "maxDurationSec": 120,
     "language": "it",
     "invite": ".gg/viniliecaffe",
     "provider": "auto",
     "restoreOnRestart": true,
     "restoreLookbackMs": 7200000,
-    "restoreFetchLimit": 50
+    "restoreFetchLimit": 50,
+    "channelIds": []
   },
   "markov": {
     "enabled": true,

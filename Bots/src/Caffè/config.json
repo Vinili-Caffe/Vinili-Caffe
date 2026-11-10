@@ -19,7 +19,7 @@
     "restoreVoiceOnRestart": true
   },
   "voiceTranscription": {
-    "enabled": true,
+    "enabled": false,
     "channelIds": [],
     "maxDurationSec": 120,
     "language": "it",

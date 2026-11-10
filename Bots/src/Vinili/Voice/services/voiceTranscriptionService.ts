@@ -300,15 +300,27 @@ async function processVoiceTranscriptionMessage(message?, client?, cfg?, options
   }
 }
 
+/* solo server principale e di test: Vinili è anche nei server tenant */
+function isTranscriptionGuild(guildId?) {
+  try {
+    const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+    return isViniliFullFeatureGuild(String(guildId || ""));
+  } catch {
+    return false;
+  }
+}
+
 async function handleVoiceTranscriptionMessage(message?, client?) {
   const cfg = resolveTranscriptionConfig(client);
   if (!cfg) return false;
+  if (!isTranscriptionGuild(message?.guild?.id)) return false;
   return processVoiceTranscriptionMessage(message, client, cfg, { catchup: false });
 }
 
 function listTranscriptionChannels(client?, cfg?) {
   const rows = [];
   for (const guild of client.guilds.cache.values()) {
+    if (!isTranscriptionGuild(guild.id)) continue;
     for (const channel of guild.channels.cache.values()) {
       if (!channel?.isTextBased?.() || channel.isDMBased?.()) continue;
       if (!isChannelAllowed(channel.id, cfg)) continue;

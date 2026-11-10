@@ -96,12 +96,40 @@ async function pickRandomRepostForGuild(guildId?) {
   return doc;
 }
 
+/** L'originale esiste ancora? Solo "messaggio/canale sconosciuto" conta come sparito (non i permessi o gli errori di rete). */
+async function repostSourceStillExists(guild?, doc?) {
+  const sc = String(doc?.sourceChannelId || "").trim();
+  const sm = String(doc?.sourceMessageId || "").trim();
+  if (!sc || !sm) return true;
+  try {
+    const channel = guild.channels.cache.get(sc) || (await guild.channels.fetch(sc));
+    if (!channel?.isTextBased?.()) return true;
+    await channel.messages.fetch(sm);
+    return true;
+  } catch (err) {
+    const code = Number(err?.code || err?.rawError?.code);
+    return !(code === 10008 || code === 10003);
+  }
+}
+
 async function sendRepostRoulette(client?, guildId?) {
   if (isRepostDisabledInGuild(guildId)) return false;
   const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
   if (!guild) return false;
 
-  const doc = await pickRandomRepostForGuild(guildId);
+  /* repostOrphan1: niente repost di messaggi che non esistono più */
+  const { isSiteBoardChannel: isSiteSource } = require("../../site/bacheca/bachecaSite") as typeof import("../../site/bacheca/bachecaSite");
+  let doc = null;
+  for (let tries = 0; tries < 6 && !doc; tries += 1) {
+    const pick = await pickRandomRepostForGuild(guildId);
+    if (!pick) return false;
+    if (isSiteSource(pick.sourceChannelId) || (await repostSourceStillExists(guild, pick))) {
+      doc = pick;
+      break;
+    }
+    const { purgeRepostsOfDeletedSource } = require("./repostRemove") as typeof import("./repostRemove");
+    await purgeRepostsOfDeletedSource(guild, pick.sourceChannelId, pick.sourceMessageId).catch(() => null);
+  }
   if (!doc) return false;
 
   const rouletteChannel = await resolveRoulettePostChannel(guild);

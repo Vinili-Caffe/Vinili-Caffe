@@ -107,6 +107,50 @@ async function deleteUserRepostEntry({ guild, client, repostId, userId }) {
   return { ok: true, isClip: false, boardRemoved: false };
 }
 
+/**
+ * Il messaggio originale non esiste più: via i repost collegati (database, sito, bacheca su Discord).
+ * Le clip non c'entrano (la loro sorgente non è un messaggio Discord).
+ */
+async function purgeRepostsOfDeletedSource(guild?, sourceChannelId?, sourceMessageId?) {
+  const gid = String(guild?.id || "").trim();
+  const sc = String(sourceChannelId || "").trim();
+  const sm = String(sourceMessageId || "").trim();
+  if (!gid || !sc || !sm) return 0;
+  const docs = await timedRepostQuery(
+    GuildRepost.find({ guildId: gid, sourceChannelId: sc, sourceMessageId: sm }).lean(),
+    "repost orphan find",
+  ).catch(() => []);
+  const reposts = (Array.isArray(docs) ? docs : []).filter((d?) => d?._id && !isClipRepostDoc(d));
+  if (!reposts.length) return 0;
+  await timedRepostQuery(
+    GuildRepost.deleteMany({ _id: { $in: reposts.map((d?) => d._id) } }),
+    "repost orphan delete",
+  ).catch(() => null);
+  /* un messaggio in bacheca per ogni repost di quell'originale: si toglie se non ne resta nessun altro */
+  const boards = new Map();
+  for (const d of reposts) {
+    const bc = String(d.boardChannelId || "").trim();
+    const bm = String(d.boardMessageId || "").trim();
+    if (bc && bm) boards.set(`${bc}:${bm}`, { bc, bm });
+  }
+  for (const { bc, bm } of boards.values()) {
+    const remaining = await timedRepostQuery(
+      GuildRepost.countDocuments({ guildId: gid, boardChannelId: bc, boardMessageId: bm }),
+      "repost orphan board remaining",
+    ).catch(() => 0);
+    if (remaining > 0) {
+      await syncBoardMessageComponents(guild, bc, bm).catch(() => null);
+      continue;
+    }
+    const channel = guild.channels?.cache?.get(bc) || (await guild.channels?.fetch?.(bc).catch(() => null));
+    const boardMsg = channel?.isTextBased?.() ? await channel.messages.fetch(bm).catch(() => null) : null;
+    if (boardMsg) await boardMsg.delete().catch(() => null);
+    await decrementRepostCount(gid).catch(() => null);
+  }
+  global.logger?.info?.(`[REPOST] originale cancellato ${sc}/${sm}: rimossi ${reposts.length} repost`);
+  return reposts.length;
+}
+
 function parseRepostRemoveButton(customId?) {
   const id = String(customId || "");
   const modern = id.match(/^repost_remove:([a-f0-9]{24})$/i);
@@ -228,4 +272,4 @@ async function handleRepostRemoveButton(interaction?) {
   }).catch(() => null);
 }
 
-export = { EPHEMERAL_FLAG, deleteUserRepostEntry, isRepostRemoveButton, handleRepostRemoveButton };
+export = { EPHEMERAL_FLAG, deleteUserRepostEntry, isRepostRemoveButton, handleRepostRemoveButton, purgeRepostsOfDeletedSource };

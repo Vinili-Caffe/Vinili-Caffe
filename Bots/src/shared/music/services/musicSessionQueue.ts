@@ -261,6 +261,48 @@ function getIdealMusicNode(client?) {
   );
 }
 
+/** Nodo Lavalink collegato? Se no, un brano che non parte non è colpa del brano. */
+function musicNodeReady(node?) {
+  if (!node) return false;
+  let connected: unknown = undefined;
+  try {
+    connected = (require("shoukaku") as any)?.Constants?.State?.CONNECTED;
+  } catch (_) {}
+  if (connected !== undefined && node.state === connected) return true;
+  return String(node.state || "").toUpperCase() === "CONNECTED";
+}
+
+/** Avvisa nel canale dei brani saltati perché non si riescono a riprodurre. */
+async function sendSkippedTracksNotice(client?, session?, guildId?, labels: string[] = []) {
+  const cid = String(session?.textChannelId || "").trim();
+  if (!cid || !client || !labels.length) return;
+  try {
+    const ch = client.channels.cache.get(cid) || (await client.channels.fetch(cid).catch(() => null));
+    if (!ch?.isTextBased?.() || ch.isDMBased?.()) return;
+    const shown = labels.slice(0, 5).map((l) => `• ${String(l).slice(0, 90)}`);
+    if (labels.length > 5) shown.push(`…e altri ${labels.length - 5}`);
+    const embed = new EmbedBuilder()
+      .setColor(0xfaa61a)
+      .setDescription([`**${labels.length === 1 ? "Brano saltato" : `${labels.length} brani saltati`}**: non si riesce a riprodurli.`, ...shown].join("\n"));
+    const guild = client.guilds.cache.get(String(guildId || "")) || ch.guild || null;
+    await ch.send(applyDefaultFooterToEmbeds({ embeds: [embed] }, guild)).catch(() => {});
+  } catch (_) {}
+}
+
+/** Lavalink giù: la coda resta com'è e lo si dice nel canale. */
+async function sendNodeDownNotice(client?, session?) {
+  const cid = String(session?.textChannelId || "").trim();
+  if (!cid || !client) return;
+  try {
+    const ch = client.channels.cache.get(cid) || (await client.channels.fetch(cid).catch(() => null));
+    if (!ch?.isTextBased?.() || ch.isDMBased?.()) return;
+    const embed = new EmbedBuilder()
+      .setColor(0xfaa61a)
+      .setDescription("Il server della musica si sta riavviando: la coda è ferma ma non l'ho persa. Tra poco usa `+skip` o `+play` per ripartire.");
+    await ch.send(applyDefaultFooterToEmbeds({ embeds: [embed] }, ch.guild || null)).catch(() => {});
+  } catch (_) {}
+}
+
 /**
  * Avvia un brano in coda con gli stessi mirror della prima play.
  * Se lo stream non parte, prova i brani successivi invece di lasciare la coda bloccata.
@@ -270,12 +312,27 @@ async function playSessionTrackNow(client?, player?, session?, guildId?, track?,
   const maxAttempts = Math.max(1, Math.min(80, Number(opts.maxAttempts) || 40));
   const node = getIdealMusicNode(client);
   if (!node?.rest || !player || !session) {
+    /* il brano non è stato provato: torna in testa alla coda */
+    if (session && track?.encoded && Array.isArray(session.tracks)) session.tracks.unshift(track);
+    if (session) {
+      session.nowPlaying = null;
+      session.playingEncoded = null;
+    }
     return { ok: false, interrupted: false, reason: "no_node" };
   }
   session._playAdvanceLock = true;
+  const skipped: string[] = [];
+  let result: Record<string, any> | null = null;
   try {
     let cand = track;
     for (let attempt = 0; attempt < maxAttempts && cand; attempt += 1) {
+      /* Lavalink scollegato (riavvio): non è colpa dei brani, non consumare la coda */
+      if (!musicNodeReady(getIdealMusicNode(client))) {
+        if (Array.isArray(session.tracks)) session.tracks.unshift(cand);
+        logMusic("queue paused: lavalink node not ready", { guildId: String(guildId || ""), left: session.tracks?.length || 0 });
+        result = { ok: false, interrupted: false, reason: "node_down" };
+        break;
+      }
       session.nowPlaying = describeTrack(cand);
       session.currentRequesterUserId = cand?.vcRequestedByUserId || session.currentRequesterUserId || null;
       session.currentRequesterUserTag = cand?.vcRequestedByUserTag || session.currentRequesterUserTag || null;
@@ -295,8 +352,10 @@ async function playSessionTrackNow(client?, player?, session?, guildId?, track?,
         try {
           persistMusicQueueSnapshotNow(client);
         } catch (_) {}
-        return { ok: true, track: started.track };
+        result = { ok: true, track: started.track };
+        break;
       }
+      skipped.push(describeTrack(cand));
       logMusic("queue advance after failed start", {
         guildId: String(guildId || ""),
         attempt: attempt + 1,
@@ -305,15 +364,28 @@ async function playSessionTrackNow(client?, player?, session?, guildId?, track?,
       });
       cand = shiftNextQueueTrack(session, null);
     }
-    return {
-      ok: false,
-      interrupted: false,
-      reason: "exhausted",
-      left: Array.isArray(session.tracks) ? session.tracks.length : 0,
-    };
+    if (!result) {
+      result = {
+        ok: false,
+        interrupted: false,
+        reason: "exhausted",
+        left: Array.isArray(session.tracks) ? session.tracks.length : 0,
+      };
+    }
   } finally {
     session._playAdvanceLock = false;
   }
+  if (!result.ok && !result.interrupted) {
+    /* niente in riproduzione: senza questo il prossimo +play crede che stia ancora suonando e accoda soltanto */
+    session.nowPlaying = null;
+    session.playingEncoded = null;
+    try {
+      persistMusicQueueSnapshotNow(client);
+    } catch (_) {}
+  }
+  if (skipped.length) void sendSkippedTracksNotice(client, session, guildId, skipped);
+  if (result.reason === "node_down") void sendNodeDownNotice(client, session);
+  return result;
 }
 
 function sessionPlayingEncoded(guildId?) {

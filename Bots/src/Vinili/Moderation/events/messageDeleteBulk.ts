@@ -199,6 +199,14 @@ export = {
     try {
       void client;
       if (!messages?.size) return;
+      /* repostOrphan1: anche le cancellazioni in blocco tolgono i repost collegati */
+      void (async () => {
+        const { purgeRepostsOfDeletedSource } = require("../../Community/services/repostRemove") as typeof import("../../Community/services/repostRemove");
+        for (const msg of messages.values()) {
+          if (!msg?.guild) continue;
+          await purgeRepostsOfDeletedSource(msg.guild, msg.channelId || msg.channel?.id, msg.id).catch(() => null);
+        }
+      })().catch(() => null);
       const guildProbe = messages.first()?.guild;
       if (guildProbe?.id && !isViniliFullFeatureGuild(guildProbe.id)) return;
       const meaningful = messages.filter((msg?) => isMeaningfulDeletedMessage(msg));
