@@ -445,6 +445,14 @@ function getTenantDashboardRoleIdsSync(guildId?) {
   return normalizeRoleIdList(row.dr ?? row.dashboardRoleIds ?? row.dashboardRoleId);
 }
 
+/** true dopo il primo salvataggio dei ruoli dashboard (prima la dashboard propone i ruoli Amministratore) */
+function getTenantDashboardRolesConfiguredSync(guildId?) {
+  const gid = normalizeGuildId(guildId);
+  const row = gid ? settingsCache[gid] : null;
+  if (!row || typeof row !== "object") return false;
+  return row.drc === 1 || getTenantDashboardRoleIdsSync(gid).length > 0;
+}
+
 function getTenantDashboardUserIdsSync(guildId?) {
   const gid = normalizeGuildId(guildId);
   if (!gid) return [];
@@ -597,6 +605,7 @@ function getTenantSettingsSnapshotSync(guildId?) {
     dashboardRoleId: dashboardRoleIds[0] || null,
     dashboardRoleIds,
     dashboardUserIds,
+    dashboardRolesConfigured: getTenantDashboardRolesConfiguredSync(gid),
     updatesChannelId: getTenantUpdatesChannelIdSync(gid),
     language: getTenantLanguageSync(gid),
     timezone: getTenantTimezoneSync(gid),
@@ -950,6 +959,7 @@ async function setTenantDashboardRoles(guildId?, roleIds?) {
       delete row.dashboardRoleIds;
       if (ids.length) row.dr = ids;
       else delete row.dr;
+      row.drc = 1;
       return row;
     },
     { allowProtected: true },

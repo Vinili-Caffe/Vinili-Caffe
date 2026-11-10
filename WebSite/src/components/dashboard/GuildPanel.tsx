@@ -958,9 +958,10 @@ function SettingsSection({
   const prefixLocked = settings.prefixLocked;
   const updatesLocked = settings.updatesLocked;
   const rolesLocked = settings.rolesLocked;
-  /* ruoli con Amministratore: hanno già accesso, si mostrano spuntati e fissi */
+  /* ruoli con Amministratore (non dei bot): proposti già spuntati finché i ruoli non vengono salvati */
   const autoRoleIds = pickers.roles
     .filter((r) => {
+      if (r.managed || /\bbots?\b/i.test(r.name)) return false;
       try {
         const p = BigInt(r.permissions || "0");
         return (p & BigInt(8)) !== BigInt(0);
@@ -969,10 +970,8 @@ function SettingsSection({
       }
     })
     .map((r) => r.id);
-  const roleOptions = pickers.roles
-    .filter((r) => !r.managed || autoRoleIds.includes(r.id))
-    .map((r) => ({ id: r.id, label: autoRoleIds.includes(r.id) ? `${r.name} · automatico` : r.name }))
-    .sort((a, b) => Number(autoRoleIds.includes(b.id)) - Number(autoRoleIds.includes(a.id)));
+  const roleOptions = pickers.roles.filter((r) => !r.managed).map((r) => ({ id: r.id, label: r.name }));
+  const shownRoleIds = settings.dashboardRolesConfigured ? dashboardRoleIds : [...new Set([...autoRoleIds, ...dashboardRoleIds])];
   const guildOwner = settings.guildOwner;
 
   const saveRoles = async (next: string[]) => {
@@ -1104,18 +1103,17 @@ function SettingsSection({
               <p className="text-xs font-semibold text-crema/70">Ruoli</p>
               <MultiCheck
                 options={roleOptions}
-                selected={[...new Set([...autoRoleIds, ...dashboardRoleIds])]}
-                lockedIds={autoRoleIds}
+                selected={shownRoleIds}
                 onChange={(ids) => {
                   if (rolesLocked || saving) return;
-                  void saveRoles(ids.filter((id) => !autoRoleIds.includes(id)));
+                  void saveRoles(ids);
                 }}
                 empty="Nessun ruolo disponibile."
               />
               {rolesLocked ? (
                 <p className="mt-1 text-xs text-crema/50">Bloccato su questo server.</p>
               ) : (
-                <p className="mt-1 text-xs text-crema/50">Chi ha uno di questi ruoli può usare la dashboard. Quelli con Amministratore sono inclusi in automatico.</p>
+                <p className="mt-1 text-xs text-crema/50">Chi ha uno di questi ruoli può usare la dashboard. All'inizio sono spuntati quelli con Amministratore.</p>
               )}
             </div>
             <div>

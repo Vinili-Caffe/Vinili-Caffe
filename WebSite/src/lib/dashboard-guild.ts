@@ -107,6 +107,8 @@ export type GuildSettings = {
   dashboardRoleIds: string[];
   /** Utenti singoli abilitati alla dashboard */
   dashboardUserIds: string[];
+  /** I ruoli dashboard sono già stati salvati almeno una volta */
+  dashboardRolesConfigured: boolean;
   /** Proprietario del server (accesso sempre, mostrato come voce fissa) */
   guildOwner: { id: string; label: string } | null;
   boards: GuildBoards;
@@ -534,6 +536,7 @@ function mapSettings(data: Record<string, unknown>): {
       dashboardUserIds: Array.isArray(s.dashboardUserIds)
         ? s.dashboardUserIds.map((id) => String(id || "").trim()).filter(Boolean)
         : [],
+      dashboardRolesConfigured: s.dashboardRolesConfigured === true,
       guildOwner: (() => {
         const o = s.guildOwner as { id?: unknown; label?: unknown } | null | undefined;
         const id = o && typeof o === "object" ? String(o.id || "").trim() : "";

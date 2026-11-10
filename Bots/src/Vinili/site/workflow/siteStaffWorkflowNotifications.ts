@@ -106,6 +106,12 @@ async function collectIdsForRoleIds(guild?, roleIds?) {
       logTag: "[siteStaffWorkflowNotifications]",
     }).catch(() => []);
     for (const id of members || []) ids.add(String(id));
+    /* elenco salvato dal bot principale (ha tutti i membri): copre i casi in cui qui
+       l'elenco dei membri non si riesce a scaricare e si perderebbero destinatari */
+    try {
+      const { getSnapshotMemberIds } = require("./staffRoleMembersSnapshot") as typeof import("./staffRoleMembersSnapshot");
+      for (const id of await getSnapshotMemberIds(String(guild?.id || ""), String(roleId))) ids.add(String(id));
+    } catch (_) {}
   }
   return [...ids];
 }
