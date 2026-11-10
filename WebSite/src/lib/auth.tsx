@@ -11,6 +11,9 @@ import { isGuestPreview, subscribeViewAs } from "./view-as";
 // - click login → prompt=none; soft error → consent
 // - logout utente → Discord authorize (consent)
 // - sessione locale max 180 giorni; Discord può invalidare prima → 401 → logout
+// - oauthAutoRenew1: il token di Discord scade molto prima (login implicito, niente refresh):
+//   a meno di 1 giorno dalla scadenza, o al primo 401, rinnovo silenzioso con prompt=none
+//   (nessuna domanda se si è ancora collegati a Discord nel browser); se Discord chiede conferma → solo logout
 
 const CLIENT_ID = "1329118940110127204";
 const SCOPES = "identify guilds";
@@ -25,6 +28,12 @@ const OAUTH_HASH_CAPTURE_KEY = "vc_oauth_hash_capture_v1";
 const STATE_MAX_AGE_MS = 30 * 60 * 1000;
 /** Sessione sito in localStorage: fino a 180 giorni (policy cookie/privacy). */
 const SESSION_MAX_MS = 180 * 24 * 60 * 60 * 1000;
+/** Scadenza vera del token secondo Discord (expires_in). */
+const DISCORD_EXP_KEY = "vc_discord_token_expires_at";
+/** Ultimo rinnovo automatico tentato (evita giri continui verso Discord). */
+const AUTO_RENEW_AT_KEY = "vc_oauth_auto_renew_at_v1";
+const AUTO_RENEW_BEFORE_MS = 24 * 60 * 60 * 1000;
+const AUTO_RENEW_MIN_GAP_MS = 10 * 60 * 1000;
 
 export type DiscordUser = { id: string; username: string; global_name?: string | null; avatar?: string | null };
 
@@ -45,7 +54,8 @@ type AuthState = {
   logout: (opts?: LogoutOpts) => void;
 };
 
-type OAuthStatePayload = { n: string; r: string; t: number };
+/** a = rinnovo automatico (se Discord chiede conferma non si insiste) */
+type OAuthStatePayload = { n: string; r: string; t: number; a?: 1 };
 
 const AuthContext = createContext<AuthState | null>(null);
 
@@ -80,7 +90,7 @@ const ssSet = (k: string, v: string | null) => {
 };
 
 /** Token/user in localStorage (persistono tra tab/chiusure, max SESSION_MAX_MS). */
-const AUTH_PERSIST_KEYS = new Set([TOKEN_KEY, EXPIRES_KEY, USER_KEY]);
+const AUTH_PERSIST_KEYS = new Set([TOKEN_KEY, EXPIRES_KEY, USER_KEY, DISCORD_EXP_KEY]);
 
 function authGet(k: string): string | null {
   if (AUTH_PERSIST_KEYS.has(k)) {
@@ -118,6 +128,7 @@ function clearLocalSession() {
   authSet(TOKEN_KEY, null);
   authSet(EXPIRES_KEY, null);
   authSet(USER_KEY, null);
+  authSet(DISCORD_EXP_KEY, null);
   ssSet(TOKEN_KEY, null);
   ssSet(EXPIRES_KEY, null);
   ssSet(USER_KEY, null);
@@ -158,6 +169,7 @@ function parseStateRaw(raw: string | null): Partial<OAuthStatePayload> {
       n: String(obj?.n || "").trim(),
       r: normalizeReturnPath(obj?.r),
       t: Number(obj?.t || 0),
+      ...(obj?.a === 1 ? { a: 1 as const } : {}),
     };
   } catch {
     return { r: normalizeReturnPath(s) };
@@ -176,14 +188,21 @@ function buildAuthorizeUrl(prompt: OAuthPrompt, statePayload: OAuthStatePayload)
   return `https://discord.com/oauth2/authorize?${q}`;
 }
 
-function startOAuth(prompt: OAuthPrompt, returnTo?: string) {
+/** Rinnovo automatico possibile? (non più di uno ogni 10 minuti) */
+function canAutoRenew() {
+  const last = Number(read(AUTO_RENEW_AT_KEY) || 0);
+  return !last || Date.now() - last > AUTO_RENEW_MIN_GAP_MS;
+}
+
+function startOAuth(prompt: OAuthPrompt, returnTo?: string, auto = false) {
   const n = crypto.getRandomValues(new Uint32Array(4)).join("");
   const r =
     normalizeReturnPath(returnTo) ||
     normalizeReturnPath(location.pathname + location.search) ||
     "/";
   const t = Date.now();
-  const payload: OAuthStatePayload = { n, r, t };
+  const payload: OAuthStatePayload = auto ? { n, r, t, a: 1 } : { n, r, t };
+  if (auto) write(AUTO_RENEW_AT_KEY, String(t));
   // session + local: local sopravvive quando Discord apre un contesto in-app diverso
   ssSet(STATE_KEY, JSON.stringify(payload));
   write(STATE_KEY, JSON.stringify(payload));
@@ -297,15 +316,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const ret = resolveReturnPath(got, expected);
         history.replaceState(null, "", location.pathname + location.search);
 
-        // oauthPromptNone1: soft error dopo prompt=none → ripeti con consent (stesso return path)
-        if (attemptedNone && SOFT_OAUTH_ERRORS.has(err)) {
+        const autoRenew = got.a === 1 || expected?.a === 1;
+        if (autoRenew) {
+          /* rinnovo automatico non riuscito senza interazione: sessione chiusa, niente schermata di Discord */
+          clearOAuthTransient();
+          clearLocalSession();
+        } else if (attemptedNone && SOFT_OAUTH_ERRORS.has(err)) {
+          // oauthPromptNone1: soft error dopo prompt=none → ripeti con consent (stesso return path)
           clearOAuthTransient();
           startOAuth("consent", ret);
           return;
+        } else {
+          clearOAuthTransient();
+          setError(err === "access_denied" ? "Accesso annullato." : "Login non riuscito, riprova.");
         }
-
-        clearOAuthTransient();
-        setError(err === "access_denied" ? "Accesso annullato." : "Login non riuscito, riprova.");
       } else if (!acceptOAuthState(got, expected)) {
         clearOAuthTransient();
         setError("Login non valido (sessione scaduta), riprova.");
@@ -315,6 +339,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         /* Sessione locale fino a 180gg (policy); Discord può invalidare prima → 401 → logout. */
         authSet(TOKEN_KEY, t);
         authSet(EXPIRES_KEY, String(Date.now() + SESSION_MAX_MS));
+        /* scadenza vera di Discord: serve per rinnovarlo prima che scada */
+        const expiresIn = Number(hash.get("expires_in") || 0);
+        authSet(DISCORD_EXP_KEY, expiresIn > 0 ? String(Date.now() + expiresIn * 1000) : null);
         setToken(t);
         returnTo = resolveReturnPath(got, expected);
         clearOAuthTransient();
@@ -340,6 +367,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       return;
     }
+    /* oauthAutoRenew1: token vicino alla scadenza di Discord → rinnovalo ora, in silenzio */
+    const discordExp = Number(authGet(DISCORD_EXP_KEY) || 0);
+    if (discordExp && discordExp - Date.now() < AUTO_RENEW_BEFORE_MS && canAutoRenew() && window.top === window.self) {
+      startOAuth("none", location.pathname + location.search, true);
+      return;
+    }
     let cached: DiscordUser | null = null;
     try {
       const c = JSON.parse(authGet(USER_KEY) || "null");
@@ -351,7 +384,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     fetch("/webhooks/site-discord-me", { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" })
       .then(async (r) => {
-        if (r.status === 401) return logout({ toLogin: false });
+        if (r.status === 401) {
+          /* token scaduto per Discord: prima prova a rinnovarlo da solo, poi eventualmente esci */
+          if (canAutoRenew() && window.top === window.self) {
+            startOAuth("none", location.pathname + location.search, true);
+            return;
+          }
+          return logout({ toLogin: false });
+        }
         if (!r.ok) return;
         const me = (await r.json()) as DiscordUser;
         if (me?.id) {
