@@ -148,6 +148,11 @@ export function AnnouncementsPanel({
   }
 
   const rules = cfg.roles.rules;
+  /* anteprima: il primo ruolo scelto nella regola (non uno a caso) */
+  const ruleVars = (r: RoleAnnounceRule) => {
+    const role = data.pickers.roles.find((x) => x.id === r.roleIds[0]);
+    return role ? { ...vars, role: `<@&${role.id}>`, "role.name": role.name } : vars;
+  };
   const setRule = (id: string, p: Partial<RoleAnnounceRule>) => set({ ...cfg, roles: { ...cfg.roles, rules: rules.map((r) => (r.id === id ? { ...r, ...p } : r)) } });
   const addRule = () => {
     const id = `r${Date.now().toString(36)}`;
@@ -210,7 +215,7 @@ export function AnnouncementsPanel({
                     </div>
                     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
                       <DraftEditor value={r.draft} onChange={(draft) => setRule(r.id, { draft })} emojis={data.pickers.emojis} placeholders={ROLE_PLACEHOLDERS} maxButtons={data.limits.buttons} />
-                      <DiscordMessagePreview bot={data.bot} draft={r.draft} vars={vars} roles={data.pickers.roles} channels={channels} />
+                      <DiscordMessagePreview bot={data.bot} draft={r.draft} vars={ruleVars(r)} roles={data.pickers.roles} channels={channels} />
                     </div>
                     <button type="button" className={dangerBtn} onClick={() => set({ ...cfg, roles: { ...cfg.roles, rules: rules.filter((x) => x.id !== r.id) } })}>
                       <Trash2 className="size-3.5" /> Elimina la regola
