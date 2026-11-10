@@ -1,5 +1,6 @@
 "use client";
 
+import { MainAutomationsSection } from "./MainAutomationsSection";
 import { useMemo, useState } from "react";
 import { MessageSquareReply, Plus, Smile, Trash2, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -302,6 +303,7 @@ export function AutoRespondersPanel({ guildId, token, onToast }: { guildId: stri
       ) : (
         <EmptyState icon={MessageSquareReply} title="Nessuna risposta automatica" text="Es. quando qualcuno scrive “ip” il bot risponde con l'indirizzo del server." />
       )}
+      {data.isMainGuild ? <div className="pt-4"><MainAutomationsSection guildId={guildId} token={token} onToast={onToast} /></div> : null}
     </div>
   );
 }

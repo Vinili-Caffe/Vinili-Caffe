@@ -7,7 +7,6 @@ import { Select } from "@/components/ui/Select";
 import { communityApi, type BumpVotesConfig, type BumpVotesLeaderboard } from "@/lib/dashboard-community";
 import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, roleOptions, sampleVars, useCommunity } from "./shared";
-import { MainAutomationsSection } from "./MainAutomationsSection";
 
 const BUMP_PLACEHOLDERS = [
   { token: "{user}", hint: "chi ha bumpato" },
@@ -56,14 +55,6 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
 
   if (loadError && isMain == null) return <Notice error>{loadError}</Notice>;
   if (isMain == null) return <RowsSkeleton rows={4} />;
-  if (isMain) {
-    return (
-      <div className="space-y-4">
-        <Notice>Sul server principale bump e voti usano il sistema del bot, con EXP, serie e promemoria già pronti. Qui puoi accendere e spegnere le singole parti.</Notice>
-        <MainAutomationsSection guildId={guildId} token={token} onToast={onToast} />
-      </div>
-    );
-  }
   if (error && !data) return <Notice error>{error}</Notice>;
   if (!data || !cfg) return <RowsSkeleton rows={4} />;
 
@@ -128,6 +119,12 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
           Salva
         </button>
       </div>
+
+      {isMain ? (
+        <Notice>
+          Server principale: finché qui i bump sono spenti resta attivo il sistema classico del bot (EXP, serie e promemoria). Accendendo un servizio qui, quello classico si ferma per quel servizio. I voti passano al modulo quando incolli i nuovi indirizzi su Top.gg e Discadia.
+        </Notice>
+      ) : null}
 
       <FormGroup title="Bump" description="Quando qualcuno usa /bump di Disboard o Discadia in questo server.">
         <SettingRow title="Attiva i bump" description="Ringraziamento, ricompensa e promemoria.">

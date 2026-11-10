@@ -12,6 +12,12 @@ function gated<F extends (...args: any[]) => any>(key: string, fn: F): F {
     try {
       const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
       if (gid && !(await T.isAutomationEnabled(gid, key))) return false;
+      /* modulo "Bump e voti" acceso per questo servizio: ci pensa lui */
+      const service = key === "bumpDisboard" ? "disboard" : key === "bumpDiscadia" ? "discadia" : null;
+      if (gid && service) {
+        const { moduleHandlesBump } = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
+        if (await moduleHandlesBump(gid, service)) return false;
+      }
     } catch (_) {}
     return fn(...args);
   }) as unknown as F;

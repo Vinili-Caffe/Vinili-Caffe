@@ -1,5 +1,5 @@
 /**
- * Bump e voti per i server tenant (il server principale ha il suo sistema con EXP).
+ * Bump e voti per tutti i server (anche il principale: lì, per i servizi accesi qui, si ferma il sistema classico con EXP).
  * - bump: riconosce Disboard/Discadia, ringrazia, ruolo a tempo, promemoria quando si può ribumpare
  * - voti: webhook Top.gg/Discadia per server (URL con token), ringraziamento e ruolo a tempo
  * - classifica: conteggio bump e voti per utente
@@ -173,7 +173,7 @@ function detectBump(message?): Service | null {
 /** Chiamato su ogni messaggio dei server tenant. */
 async function handleTenantBumpMessage(message?) {
   const guildId = String(message?.guild?.id || "");
-  if (!guildId || !message?.author?.bot || T.isMainGuild(guildId)) return false;
+  if (!guildId || !message?.author?.bot) return false;
   const service = detectBump(message);
   if (!service) return false;
   const cfg = await getConfig(guildId);
@@ -273,6 +273,12 @@ function startBumpVotesLoop(client?) {
   setTimeout(tick, 20_000).unref?.();
 }
 
+/** Sul server principale: il modulo gestisce già questo servizio? (allora il sistema classico si ferma) */
+async function moduleHandlesBump(guildId: string, service: Service) {
+  const cfg = await getConfig(guildId).catch(() => null);
+  return Boolean(cfg?.enabled && cfg.services[service]?.enabled);
+}
+
 /* ───────────── classifica ───────────── */
 
 const nameCache = new Map<string, { at: number; name: string }>();
@@ -304,6 +310,7 @@ async function resetLeaderboard(guildId: string, which: "bumps" | "votes") {
 }
 
 export = {
+  moduleHandlesBump,
   SERVICES,
   getConfig,
   saveConfig,

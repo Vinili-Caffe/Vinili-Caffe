@@ -75,15 +75,13 @@ const voteUrls = (gid: string, token: string) => ({
 async function getBumpVotes(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
-  if (T.isMainGuild(a.guildId)) return { ok: true, status: 200, isMainGuild: true };
   const config = await BV().getConfig(a.guildId, true);
-  return { ok: true, status: 200, isMainGuild: false, config, urls: voteUrls(a.guildId, config.votes.token) };
+  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), config, urls: voteUrls(a.guildId, config.votes.token) };
 }
 
 async function patchBumpVotes(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
-  if (T.isMainGuild(a.guildId)) return fail(400, "main", "Sul server principale bump e voti usano il sistema del bot.");
   const config = await BV().saveConfig(a.guildId, body?.config || body);
   return { ok: true, status: 200, config, urls: voteUrls(a.guildId, config.votes.token) };
 }
@@ -91,7 +89,6 @@ async function patchBumpVotes(client?, token?, guildId?, body?) {
 async function regenBumpVotesToken(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
-  if (T.isMainGuild(a.guildId)) return fail(400, "main", "Non disponibile sul server principale.");
   const config = await BV().regenerateToken(a.guildId);
   return { ok: true, status: 200, config, urls: voteUrls(a.guildId, config.votes.token) };
 }
@@ -113,9 +110,6 @@ async function resetBumpVotesLeaderboard(client?, token?, guildId?, body?) {
 /* ───────────── automazioni del server principale ───────────── */
 
 const MAIN_AUTOMATIONS = [
-  { key: "bumpDisboard", name: "Bump di Disboard", description: "Quando qualcuno fa /bump su Disboard il bot ringrazia, dà la ricompensa e programma il promemoria." },
-  { key: "bumpDiscadia", name: "Bump di Discadia", description: "Come sopra, per i bump su Discadia." },
-  { key: "votes", name: "Voti del server", description: "Riconosce i voti su Top.gg e Discadia: EXP, ruolo Voter e messaggio di ringraziamento." },
   { key: "movieNight", name: "Proposte serata film", description: "Nel thread delle proposte toglie i film già proposti e quelli scritti male." },
   { key: "headingBlock", name: "Blocco titoli markdown", description: "Toglie i messaggi scritti con i titoli grandi (# Titolo) di Discord." },
 ];
