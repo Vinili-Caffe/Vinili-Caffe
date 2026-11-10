@@ -215,7 +215,7 @@ export function Select({
   const pos = useMenuPos(open, trigger, minW);
 
   return (
-    <div ref={box} className="relative min-w-0">
+    <div ref={box} className="relative flex min-w-0">
       <button
         ref={trigger}
         type="button"
@@ -294,7 +294,7 @@ export function MultiSelect({
   const pos = useMenuPos(open, trigger, 0);
 
   return (
-    <div ref={box} className="relative min-w-0">
+    <div ref={box} className="relative flex min-w-0">
       <button
         ref={trigger}
         type="button"

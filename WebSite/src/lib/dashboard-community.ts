@@ -165,7 +165,7 @@ export type AutoResponder = {
   deleteTrigger: boolean;
 };
 
-export type CounterType = "members" | "humans" | "bots" | "online" | "boosts" | "boostTier" | "channels" | "roles" | "emojis";
+export type CounterType = "members" | "humans" | "bots" | "online" | "statusOnline" | "idle" | "dnd" | "offline" | "boosts" | "boostTier" | "channels" | "roles" | "emojis";
 export type Counter = { id: string; type: CounterType; template: string; channelId: string | null; lastName: string | null };
 
 export type LogEventGroup = { id: string; label: string; events: { id: string; label: string; hint: string }[] };

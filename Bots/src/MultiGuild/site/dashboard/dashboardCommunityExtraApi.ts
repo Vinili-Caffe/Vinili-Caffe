@@ -71,6 +71,10 @@ const COUNTER_LABEL: Record<string, string> = {
   humans: "Membri senza bot",
   bots: "Bot",
   online: "Online",
+  statusOnline: "Online (verde)",
+  idle: "Inattivi",
+  dnd: "Non disturbare",
+  offline: "Offline",
   boosts: "Boost",
   boostTier: "Livello boost",
   channels: "Canali",
@@ -117,8 +121,18 @@ async function guildCounts(client?, gid?, withSplit = false) {
   if (!g) return null;
   const split = withSplit ? await memberSplit(client, gid).catch(() => null) : null;
   const members = Number(g.approximate_member_count) || 0;
+  const pres = await (require("../../services/presenceCounts") as typeof import("../../services/presenceCounts")).getPresenceTotals(String(gid)).catch(() => null);
+  const active = Number(g.approximate_presence_count) || 0;
   return {
     members,
+    ...(pres
+      ? {
+          statusOnline: pres.online,
+          idle: pres.idle,
+          dnd: pres.dnd,
+          offline: Math.max(0, members - (pres.online + pres.idle + pres.dnd)),
+        }
+      : { offline: Math.max(0, members - active) }),
     ...(split ? { bots: split.bots, humans: Math.max(0, members - split.bots) } : {}),
     online: Number(g.approximate_presence_count) || 0,
     boosts: Number(g.premium_subscription_count) || 0,

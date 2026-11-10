@@ -113,6 +113,12 @@ try {
   });
   client.config = vinylsConfig;
   patchClientPresenceGuard(client);
+  try {
+    /* contatori per stato (online/inattivo/dnd/offline) della dashboard */
+    (require("../MultiGuild/services/presenceCounts") as typeof import("../MultiGuild/services/presenceCounts")).installPresenceCounts(client);
+  } catch (err) {
+    global.logger?.warn?.("[PRESENCE COUNTS] install:", err?.message || err);
+  }
 } catch (error) {
   global.logger.error("[ERROR] Error while creating the client.", error);
   process.exit(1);
