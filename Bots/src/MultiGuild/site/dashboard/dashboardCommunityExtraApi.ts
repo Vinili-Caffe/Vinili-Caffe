@@ -68,6 +68,8 @@ async function deleteAutoResponder(client?, token?, guildId?, id?) {
 
 const COUNTER_LABEL: Record<string, string> = {
   members: "Membri",
+  humans: "Membri senza bot",
+  bots: "Bot",
   online: "Online",
   boosts: "Boost",
   boostTier: "Livello boost",
@@ -76,7 +78,35 @@ const COUNTER_LABEL: Record<string, string> = {
   emojis: "Emoji",
 };
 
-async function guildCounts(client?, gid?) {
+/* bot e persone: servono tutti i membri, quindi si contano al massimo ogni 9 minuti per server */
+const MEMBER_SPLIT_TTL = 9 * 60_000;
+const memberSplitCache = new Map<string, { at: number; bots: number; humans: number }>();
+async function memberSplit(client?, gid?) {
+  const hit = memberSplitCache.get(String(gid));
+  if (hit && Date.now() - hit.at < MEMBER_SPLIT_TTL) return hit;
+  const rest = restOf(client);
+  let after = "0";
+  let bots = 0;
+  let humans = 0;
+  for (let page = 0; page < 100; page++) {
+    const list: any = await rest.get(Routes.guildMembers(gid), { query: new URLSearchParams({ limit: "1000", after }) }).catch(() => null);
+    if (!Array.isArray(list)) {
+      if (page === 0) return null;
+      break;
+    }
+    for (const m of list) {
+      if (m?.user?.bot) bots++;
+      else humans++;
+    }
+    if (list.length < 1000) break;
+    after = String(list[list.length - 1]?.user?.id || after);
+  }
+  const out = { at: Date.now(), bots, humans };
+  memberSplitCache.set(String(gid), out);
+  return out;
+}
+
+async function guildCounts(client?, gid?, withSplit = false) {
   const rest = restOf(client);
   const [g, channels, roles, emojis]: any[] = await Promise.all([
     rest.get(Routes.guild(gid), { query: new URLSearchParams({ with_counts: "true" }) }).catch(() => null),
@@ -85,8 +115,11 @@ async function guildCounts(client?, gid?) {
     rest.get(Routes.guildEmojis(gid)).catch(() => null),
   ]);
   if (!g) return null;
+  const split = withSplit ? await memberSplit(client, gid).catch(() => null) : null;
+  const members = Number(g.approximate_member_count) || 0;
   return {
-    members: Number(g.approximate_member_count) || 0,
+    members,
+    ...(split ? { bots: split.bots, humans: Math.max(0, members - split.bots) } : {}),
     online: Number(g.approximate_presence_count) || 0,
     boosts: Number(g.premium_subscription_count) || 0,
     boostTier: Number(g.premium_tier) || 0,
@@ -97,9 +130,20 @@ async function guildCounts(client?, gid?) {
 }
 
 function counterName(counter?, counts?: Record<string, number> | null) {
-  const n = counts ? counts[counter.type] : 0;
+  const n = counts ? counts[counter.type] : NaN;
   const value = Number.isFinite(n) ? n.toLocaleString("it-IT") : "?";
   return String(counter.template || "{count}").replace(/\{count\}/g, value).slice(0, 100) || value;
+}
+
+const needsSplit = (rows: any[]) => rows.some((r) => r?.type === "humans" || r?.type === "bots");
+
+/** Valori attuali per l'anteprima nella dashboard. */
+async function counterValues(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const counts = await guildCounts(client, a.guildId, true);
+  if (!counts) return fail(400, "no_guild", "Impossibile leggere i numeri del server.");
+  return { ok: true, status: 200, values: counts };
 }
 
 async function createCounter(client?, token?, guildId?, body?) {
@@ -109,7 +153,7 @@ async function createCounter(client?, token?, guildId?, body?) {
   const rows = await T.listRows("counters", gid, true);
   if (rows.length >= T.LIMITS.counters) return fail(400, "limit", `Puoi creare al massimo ${T.LIMITS.counters} contatori.`);
   const counter = T.normalizeCounter({ type: body?.type, template: body?.template });
-  const counts = await guildCounts(client, gid);
+  const counts = await guildCounts(client, gid, needsSplit([counter]));
   const name = counterName(counter, counts);
   const parent = T.isId(body?.categoryId) ? String(body.categoryId) : undefined;
   try {
@@ -140,7 +184,7 @@ async function patchCounter(client?, token?, guildId?, id?, body?) {
   const idx = rows.findIndex((r) => r.id === String(id));
   if (idx < 0) return fail(404, "not_found", "Contatore non trovato.");
   const next = T.normalizeCounter({ ...rows[idx], ...body, channelId: rows[idx].channelId }, rows[idx]);
-  const name = counterName(next, await guildCounts(client, gid));
+  const name = counterName(next, await guildCounts(client, gid, needsSplit([next])));
   if (next.channelId && name !== rows[idx].lastName) {
     try {
       await restOf(client).patch(Routes.channel(next.channelId), { body: { name }, reason: "Contatore aggiornato dalla dashboard" });
@@ -169,7 +213,7 @@ async function deleteCounter(client?, token?, guildId?, id?) {
 async function runCounters(client?) {
   const all = await T.allGuildRows("counters");
   for (const [gid, rows] of Object.entries(all)) {
-    const counts = await guildCounts(client, gid).catch(() => null);
+    const counts = await guildCounts(client, gid, needsSplit(rows)).catch(() => null);
     if (!counts) continue;
     let changed = false;
     for (const c of rows) {
@@ -272,9 +316,17 @@ async function createGiveaway(client?, token?, guildId?, body?) {
   if (!channelId) return fail(400, "no_channel", "Scegli il canale.");
   if (!Number.isFinite(durationMs) || durationMs < 60_000 || durationMs > 60 * 86_400_000) return fail(400, "bad_duration", "Durata tra 1 minuto e 60 giorni.");
   const rest = restOf(client);
-  const user: any = await rest.get(Routes.user(a.userId)).catch(() => null);
+  let hostId = String(a.userId);
+  if (body?.hostId != null && String(body.hostId).trim()) {
+    const wanted = String(body.hostId).trim();
+    if (!T.isId(wanted)) return fail(400, "bad_host", "Host non valido.");
+    const member: any = await rest.get(Routes.guildMember(a.guildId, wanted)).catch(() => null);
+    if (!member?.user?.id) return fail(400, "bad_host", "L'host scelto non è nel server.");
+    hostId = wanted;
+  }
+  const user: any = await rest.get(Routes.user(hostId)).catch(() => null);
   const svc = G();
-  const g: any = await svc.createGiveaway({ guildId: a.guildId, channelId, hostId: a.userId, hostTag: user?.username || "", prize, durationMs, winnerCount });
+  const g: any = await svc.createGiveaway({ guildId: a.guildId, channelId, hostId, hostTag: user?.username || "", prize, durationMs, winnerCount });
   try {
     const embed: any = svc.buildGiveawayEmbed(g);
     const row: any = svc.buildEnterButton(String(g._id));
@@ -459,6 +511,7 @@ async function deletePoll(client?, token?, guildId?, id?, alsoDiscord = false) {
 export = {
   putAutoResponder,
   deleteAutoResponder,
+  counterValues,
   createCounter,
   patchCounter,
   deleteCounter,

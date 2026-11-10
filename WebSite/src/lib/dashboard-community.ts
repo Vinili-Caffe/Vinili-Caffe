@@ -165,7 +165,7 @@ export type AutoResponder = {
   deleteTrigger: boolean;
 };
 
-export type CounterType = "members" | "online" | "boosts" | "boostTier" | "channels" | "roles" | "emojis";
+export type CounterType = "members" | "humans" | "bots" | "online" | "boosts" | "boostTier" | "channels" | "roles" | "emojis";
 export type Counter = { id: string; type: CounterType; template: string; channelId: string | null; lastName: string | null };
 
 export type LogEventGroup = { id: string; label: string; events: { id: string; label: string; hint: string }[] };
@@ -286,12 +286,13 @@ export type Poll = {
 export const communityApi = {
   saveAutoResponder: (t: string, g: string, a: Partial<AutoResponder>) => call<{ autoResponder: AutoResponder }>(t, g, "/auto-responders", "PUT", a),
   deleteAutoResponder: (t: string, g: string, id: string) => call(t, g, `/auto-responders/${encodeURIComponent(id)}`, "DELETE"),
+  counterValues: (t: string, g: string) => call<{ values: Partial<Record<CounterType, number>> }>(t, g, `/counters/values?_=${Date.now()}`),
   createCounter: (t: string, g: string, c: { type: CounterType; template: string; categoryId?: string | null }) => call<{ counter: Counter }>(t, g, "/counters", "POST", c),
   updateCounter: (t: string, g: string, id: string, c: Partial<Counter>) => call<{ counter: Counter }>(t, g, `/counters/${encodeURIComponent(id)}`, "PATCH", c),
   deleteCounter: (t: string, g: string, id: string) => call(t, g, `/counters/${encodeURIComponent(id)}`, "DELETE"),
   saveServerLogs: (t: string, g: string, l: ServerLogs) => call<{ serverLogs: ServerLogs }>(t, g, "/server-logs", "PATCH", l),
   listGiveaways: (t: string, g: string) => call<{ giveaways: Giveaway[] }>(t, g, `/giveaways?_=${Date.now()}`),
-  createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number }) =>
+  createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number; hostId?: string }) =>
     call<{ giveaway: Giveaway }>(t, g, "/giveaways", "POST", body),
   editGiveaway: (
     t: string,

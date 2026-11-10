@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Gauge, Plus, Trash2, Volume2 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Select } from "@/components/ui/Select";
@@ -10,7 +10,9 @@ import { Field, FormGroup, Notice, RowsSkeleton, dangerBtn, fieldClass, miniBtn,
 import { useCommunity } from "./shared";
 
 const TYPES: { value: CounterType; label: string; template: string }[] = [
-  { value: "members", label: "Membri", template: "👥 Membri: {count}" },
+  { value: "members", label: "Membri (bot compresi)", template: "👥 Membri: {count}" },
+  { value: "humans", label: "Membri senza bot", template: "👤 Membri: {count}" },
+  { value: "bots", label: "Solo bot", template: "🤖 Bot: {count}" },
   { value: "online", label: "Online adesso", template: "🟢 Online: {count}" },
   { value: "boosts", label: "Boost", template: "🚀 Boost: {count}" },
   { value: "boostTier", label: "Livello boost", template: "💎 Livello: {count}" },
@@ -27,6 +29,21 @@ export function CountersPanel({ guildId, token, onToast }: { guildId: string; to
   const [categoryId, setCategoryId] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [editing, setEditing] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Partial<Record<CounterType, number>> | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void communityApi.counterValues(token, guildId).then((r) => {
+      if (alive && r.ok) setValues(r.data.values);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [guildId, token]);
+  const preview = (tpl: string, t: CounterType) => {
+    const n = values?.[t];
+    return tpl.replace(/\{count\}/g, typeof n === "number" ? n.toLocaleString("it-IT") : "…");
+  };
 
   if (error && !data) return <Notice error>{error}</Notice>;
   if (!data) return <RowsSkeleton rows={3} />;
@@ -83,7 +100,7 @@ export function CountersPanel({ guildId, token, onToast }: { guildId: string; to
                 <Volume2 className="size-4" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-crema">{c.lastName || "—"}</p>
+                <p className="truncate font-semibold text-crema" translate="no">{values ? preview(editing[c.id] ?? c.template, c.type) : c.lastName || "—"}</p>
                 <p className="text-xs text-crema/55">{c.channelId ? typeLabel(c.type) : "Canale cancellato su Discord"}</p>
               </div>
               <input
@@ -120,24 +137,24 @@ export function CountersPanel({ guildId, token, onToast }: { guildId: string; to
                   setType(t.value);
                 }}
                 options={TYPES.map((t) => ({ value: t.value, label: t.label }))}
-                className={fieldClass}
+                className="mt-1.5 h-11 rounded-lg"
               />
             </Field>
             <Field label="Testo del canale">
-              <input value={template} maxLength={90} onChange={(e) => setTemplate(e.target.value)} className={fieldClass} />
+              <input value={template} maxLength={90} onChange={(e) => setTemplate(e.target.value)} className={cn(fieldClass, "h-11 py-0")} />
             </Field>
             <Field label="Categoria (facoltativa)">
               <Select
                 value={categoryId}
                 onChange={setCategoryId}
                 options={[{ value: "", label: "— In cima, fuori dalle categorie —" }, ...data.pickers.categories.map((c) => ({ value: c.id, label: c.name }))]}
-                className={fieldClass}
+                className="mt-1.5 h-11 rounded-lg"
               />
             </Field>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <p className="text-xs text-crema/55">
-              Anteprima: <span className="font-semibold text-crema/85">{template.replace(/\{count\}/g, "2.364")}</span>
+              Anteprima: <span className="font-semibold text-crema/85" translate="no">{preview(template, type)}</span>
             </p>
             <button type="button" className={primaryMini} disabled={!!busy} onClick={() => void create()}>
               <Plus className="size-3.5" /> Crea contatore

@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { communityApi, type Poll } from "@/lib/dashboard-community";
-import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
+import { Field, FormGroup, Notice, RowsSkeleton, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
 import { ChannelField, EmojiButton, EmojiGlyph, formatWhen, useCommunity } from "./shared";
 
 const DURATIONS = [
@@ -120,18 +120,20 @@ export function PollsPanel({ guildId, token, onToast }: { guildId: string; token
             </button>
           ) : null}
         </div>
-        <div className="mt-3 flex flex-wrap items-end gap-4">
+        <div className="mt-3 flex flex-wrap items-end gap-3">
           <div className="w-40">
             <Field label="Durata">
-              <Select value={form.hours} onChange={(hours) => setForm({ ...form, hours })} options={DURATIONS} className={fieldClass} />
+              <Select value={form.hours} onChange={(hours) => setForm({ ...form, hours })} options={DURATIONS} className="mt-1.5 h-11 rounded-lg" />
             </Field>
           </div>
-          <div className="min-w-56 flex-1">
-            <SettingRow title="Più risposte" description="Ogni membro può votarne più di una.">
-              <Toggle size="sm" checked={form.multiselect} onChange={(multiselect) => setForm({ ...form, multiselect })} label="Più risposte" />
-            </SettingRow>
+          <div className="flex h-11 min-w-56 flex-1 items-center justify-between gap-3 rounded-lg bg-espresso/45 px-3 ring-1 ring-sand/10">
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-crema">Più risposte</span>
+              <span className="block truncate text-xs text-crema/55">Ogni membro può votarne più di una.</span>
+            </span>
+            <Toggle size="sm" checked={form.multiselect} onChange={(multiselect) => setForm({ ...form, multiselect })} label="Più risposte" />
           </div>
-          <button type="button" className={primaryMini} disabled={!!busy} onClick={() => void create()}>
+          <button type="button" className={primaryMini + " h-11"} disabled={!!busy} onClick={() => void create()}>
             <Plus className="size-3.5" /> Pubblica sondaggio
           </button>
         </div>

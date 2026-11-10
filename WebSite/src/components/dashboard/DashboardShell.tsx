@@ -37,7 +37,6 @@ import { cdnUrl, page } from "@/lib/site";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { NotificationsBell } from "./NotificationsBell";
 import { LangMenu } from "@/components/LangMenu";
-import { UiTextTranslator } from "@/components/UiTextTranslator";
 import { ThemePrefRow } from "@/components/ThemeToggle";
 import {
   GUILD_MODULE_SECTIONS,
@@ -910,7 +909,6 @@ export function DashboardShell({
 
   return (
     <SiteShell chrome="app">
-      <UiTextTranslator />
       <div className="relative min-h-dvh bg-espresso text-crema">
         {/* bagliore caldo dietro al contenuto */}
         <div

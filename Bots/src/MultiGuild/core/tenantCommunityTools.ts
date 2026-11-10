@@ -792,7 +792,7 @@ function matchesAutoResponder(ar?, content?: string) {
 }
 
 /* contatori */
-const COUNTER_TYPES = ["members", "online", "boosts", "boostTier", "channels", "roles", "emojis"] as const;
+const COUNTER_TYPES = ["members", "humans", "bots", "online", "boosts", "boostTier", "channels", "roles", "emojis"] as const;
 function normalizeCounter(raw?, prev?) {
   const r = raw && typeof raw === "object" ? raw : {};
   return {

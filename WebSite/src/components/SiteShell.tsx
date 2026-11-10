@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { MotionConfig } from "motion/react";
 import { ApiOutageBanner } from "./ApiOutageBanner";
 import { Footer } from "./Footer";
+import { UiTextTranslator } from "./UiTextTranslator";
 import { Navbar } from "./Navbar";
 import { ScrollToTop } from "./ScrollToTop";
 import { SponsorAd } from "./SponsorAd";
@@ -73,6 +74,7 @@ export function SiteShell({
           <ViewAsProvider>
             <EventoChromeProvider active={evento}>
               <ErrorReporter />
+              <UiTextTranslator />
               <VitalsReporter />
               <DeepLinkFocus />
               <BootGate />
