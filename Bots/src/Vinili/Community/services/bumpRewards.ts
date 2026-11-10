@@ -23,13 +23,14 @@ function getRewardConfig(client?, source?) {
   return base;
 }
 
-async function awardBumpVoteExp(client?, guild?, userId?, source?, previousLastAt?, cooldownMs?, baseExpOverride?, fastSinceAt = null, previousLastUserId = null) {
+async function awardBumpVoteExp(client?, guild?, userId?, source?, previousLastAt?, cooldownMs?, baseExpOverride?, fastSinceAt = null, previousLastUserId = null, rewardOverride = null) {
   if (String(source || "") === "discadia_bump") return null;
   if (!guild?.id || !userId) return null;
   const now = Date.now();
   const lastSlotAt = previousLastAt ? new Date(previousLastAt).getTime() : 0;
   const fastRefAt = fastSinceAt ? new Date(fastSinceAt).getTime() : lastSlotAt;
-  const cfg = getRewardConfig(client, source);
+  /* modulo "Bump e voti" della dashboard: usa le sue impostazioni */
+  const cfg = rewardOverride && typeof rewardOverride === "object" ? rewardOverride : getRewardConfig(client, source);
   const baseExp = Number(baseExpOverride) > 0 ? Number(baseExpOverride) : (Number(cfg?.baseExp ?? 100) || 100);
   const fastCfg = cfg?.fastGuess ?? {};
   const windowMs = Number(fastCfg.windowMs ?? 15 * 60 * 1000) || 0;

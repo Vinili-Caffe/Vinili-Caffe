@@ -57,8 +57,21 @@ export type SavedMessage = {
 export type BumpReward = { roleId: string | null; hours: number };
 export type BumpService = "disboard" | "discadia";
 export type VoteService = "topgg" | "discadia";
+/** EXP di bump e voti (solo server principale) */
+export type BumpExpKey = "disboard" | "discadia" | "topgg" | "discadiaVote";
+export type BumpExp = {
+  enabled: boolean;
+  minExp: number;
+  maxExp: number;
+  firstTimeExp: number;
+  fastWindowMinutes: number;
+  fastMultiplier: number;
+  streakPercent: number;
+  streakMaxPercent: number;
+};
 export type BumpVotesConfig = {
   enabled: boolean;
+  exp?: Record<BumpExpKey, BumpExp>;
   /** per servizio: attesa, ringraziamento e promemoria */
   services: Record<BumpService, { enabled: boolean; cooldownMinutes: number; thanksDraft: MsgDraft; reminderDraft: MsgDraft }>;
   thanks: { enabled: boolean };

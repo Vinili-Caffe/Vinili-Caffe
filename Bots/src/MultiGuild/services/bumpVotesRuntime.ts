@@ -38,6 +38,43 @@ const hoursOr = (v?, fb = 12) => {
   return Number.isFinite(h) && h >= 1 && h <= 720 ? h : fb;
 };
 
+/* EXP (solo server principale, dove ci sono i livelli): stessi calcoli del sistema classico */
+type ExpKey = "disboard" | "discadia" | "topgg" | "discadiaVote";
+const EXP_KEYS: ExpKey[] = ["disboard", "discadia", "topgg", "discadiaVote"];
+const EXP_DEFAULTS: Record<ExpKey, any> = {
+  disboard: { enabled: true, minExp: 100, maxExp: 100, firstTimeExp: 0, fastWindowMinutes: 5, fastMultiplier: 1.5, streakPercent: 10, streakMaxPercent: 50 },
+  discadia: { enabled: false, minExp: 100, maxExp: 100, firstTimeExp: 0, fastWindowMinutes: 5, fastMultiplier: 1.5, streakPercent: 10, streakMaxPercent: 50 },
+  topgg: { enabled: true, minExp: 100, maxExp: 250, firstTimeExp: 250, fastWindowMinutes: 15, fastMultiplier: 1.5, streakPercent: 10, streakMaxPercent: 50 },
+  discadiaVote: { enabled: true, minExp: 100, maxExp: 250, firstTimeExp: 250, fastWindowMinutes: 15, fastMultiplier: 1.5, streakPercent: 10, streakMaxPercent: 50 },
+};
+function numIn(v?, min = 0, max = 100000, fb = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= min && n <= max ? n : fb;
+}
+function normalizeExp(raw?) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  return Object.fromEntries(
+    EXP_KEYS.map((k) => {
+      const x = r[k] && typeof r[k] === "object" ? r[k] : {};
+      const d = EXP_DEFAULTS[k];
+      const minExp = Math.round(numIn(x.minExp, 0, 100000, d.minExp));
+      return [
+        k,
+        {
+          enabled: typeof x.enabled === "boolean" ? x.enabled : d.enabled,
+          minExp,
+          maxExp: Math.max(minExp, Math.round(numIn(x.maxExp, 0, 100000, d.maxExp))),
+          firstTimeExp: Math.round(numIn(x.firstTimeExp, 0, 100000, d.firstTimeExp)),
+          fastWindowMinutes: Math.round(numIn(x.fastWindowMinutes, 0, 1440, d.fastWindowMinutes)),
+          fastMultiplier: numIn(x.fastMultiplier, 1, 10, d.fastMultiplier),
+          streakPercent: Math.round(numIn(x.streakPercent, 0, 1000, d.streakPercent)),
+          streakMaxPercent: Math.round(numIn(x.streakMaxPercent, 0, 10000, d.streakMaxPercent)),
+        },
+      ];
+    }),
+  ) as Record<ExpKey, typeof EXP_DEFAULTS.disboard>;
+}
+
 /* ogni servizio ha i suoi testi (e le sue ore per i voti); i vecchi testi unici fanno da base */
 function normalizeConfig(raw?) {
   const r = raw && typeof raw === "object" ? raw : {};
@@ -89,6 +126,7 @@ function normalizeConfig(raw?) {
       rewardRoleId: T.isId(v.rewardRoleId ?? v.reward?.roleId) ? String(v.rewardRoleId ?? v.reward?.roleId) : null,
       perService,
     },
+    exp: normalizeExp(r.exp),
     /* import dal sistema del server principale */
     seedVersion: Number.isInteger(r.seedVersion) ? r.seedVersion : 0,
     userSaved: r.userSaved === true,
@@ -121,6 +159,7 @@ type State = {
   last: Partial<Record<Service, LastBump>>;
   bumps: Record<string, number>;
   votes: Record<string, number>;
+  voteLast: Partial<Record<"topgg" | "discadia", Record<string, number>>>;
   roleExpiry: { userId: string; roleId: string; until: number }[];
 };
 
@@ -130,6 +169,7 @@ async function getState(guildId: string): Promise<State> {
     last: s.last && typeof s.last === "object" ? s.last : {},
     bumps: s.bumps && typeof s.bumps === "object" ? s.bumps : {},
     votes: s.votes && typeof s.votes === "object" ? s.votes : {},
+    voteLast: s.voteLast && typeof s.voteLast === "object" ? s.voteLast : {},
     roleExpiry: Array.isArray(s.roleExpiry) ? s.roleExpiry.slice(-500) : [],
   };
 }
@@ -173,6 +213,50 @@ function userVars(guild?, userId?: string | null) {
   };
 }
 
+/* ───────────── EXP (solo server principale) ───────────── */
+
+const EXP_SOURCE: Record<ExpKey, string> = { disboard: "disboard", discadia: "discadia_bump_module", topgg: "discadia_vote", discadiaVote: "discadia_vote" };
+const NO_EXP = { exp: "0", fast: "0", streak: "0", bonus: "" };
+
+async function giveExp(client?, guild?, userId?: string | null, key?: ExpKey, cfg?: BumpConfig, ctx: { previousLastAt?: number | null; cooldownMs?: number; fastSinceAt?: number | null; previousUserId?: string | null; firstTime?: boolean } = {}) {
+  if (!guild?.id || !userId || !key || !cfg || !T.isMainGuild(String(guild.id))) return NO_EXP;
+  const x = cfg.exp[key];
+  if (!x?.enabled) return NO_EXP;
+  const step = 5;
+  const span = Math.max(0, Math.floor((x.maxExp - x.minExp) / step));
+  const base = ctx.firstTime && x.firstTimeExp > 0 ? x.firstTimeExp : x.minExp + Math.floor(Math.random() * (span + 1)) * step;
+  if (base <= 0) return NO_EXP;
+  try {
+    const { awardBumpVoteExp } = require("../../Vinili/Community/services/bumpRewards") as typeof import("../../Vinili/Community/services/bumpRewards");
+    const reward: any = await awardBumpVoteExp(
+      client,
+      guild,
+      userId,
+      EXP_SOURCE[key],
+      ctx.previousLastAt ? new Date(ctx.previousLastAt) : null,
+      ctx.cooldownMs || 0,
+      base,
+      ctx.fastSinceAt ? new Date(ctx.fastSinceAt) : null,
+      ctx.previousUserId || null,
+      {
+        baseExp: base,
+        fastGuess: { windowMs: x.fastWindowMinutes * 60_000, multiplier: x.fastMultiplier },
+        streak: { bonusPercentPerWin: x.streakPercent, maxBonusPercent: x.streakMaxPercent },
+      },
+    );
+    if (!reward || reward.effectiveExp == null) return NO_EXP;
+    const { E } = require("../../shared/emojis/emojiCatalog") as any;
+    const flame = String(E?.VC_Flame || "🔥");
+    const lines: string[] = [];
+    if (reward.fastBonus > 0) lines.push(`${flame} Risposta rapida **+${reward.fastBonus} exp**`);
+    if (reward.streakBonus > 0) lines.push(`${flame} Streak ${reward.newStreak} **+${reward.streakBonus} exp**`);
+    return { exp: String(reward.effectiveExp), fast: String(reward.fastBonus || 0), streak: String(reward.newStreak || 1), bonus: lines.join("\n") };
+  } catch (err) {
+    global.logger?.warn?.("[BUMP VOTES] exp:", (err as any)?.message || err);
+    return NO_EXP;
+  }
+}
+
 /* ───────────── riconoscimento bump ───────────── */
 
 const DISBOARD_OK = ["bump done", "bump successful", "has been bumped", "successfully bumped", "was bumped", "server bumped", "bump effettuato"];
@@ -209,6 +293,14 @@ async function handleTenantBumpMessage(message?) {
   if (st.last[service]?.messageId === String(message.id)) return true;
   const userId = String(message.interactionMetadata?.user?.id || message.interaction?.user?.id || "") || null;
   const now = Date.now();
+  const prev = st.last[service];
+  const expOut = await giveExp(message.client, message.guild, userId, service, cfg, {
+    previousLastAt: prev?.at || null,
+    cooldownMs: cfg.services[service].cooldownMinutes * 60_000,
+    /* "risposta rapida": bump entro poco dal promemoria */
+    fastSinceAt: prev?.reminded ? prev.remindAt : null,
+    previousUserId: prev?.userId || null,
+  });
   st.last[service] = {
     at: now,
     userId,
@@ -221,12 +313,22 @@ async function handleTenantBumpMessage(message?) {
   await giveTimedRole(message.client, guildId, userId, cfg.reward, st);
   await saveState(guildId, st);
   if (cfg.thanks.enabled) {
-    await sendDraft(message.client, String(message.channelId), cfg.services[service].thanksDraft, { ...userVars(message.guild, userId), service: SERVICE_LABEL[service], count: String(userId ? st.bumps[userId] : 0) }, userId);
+    await sendDraft(message.client, String(message.channelId), cfg.services[service].thanksDraft, { ...userVars(message.guild, userId), ...expOut, service: SERVICE_LABEL[service], count: String(userId ? st.bumps[userId] : 0) }, userId);
   }
   return true;
 }
 
 /* ───────────── voti (webhook) ───────────── */
+
+async function resolveGuild(client?, gid?: string) {
+  const cached = client?.guilds?.cache?.get?.(String(gid));
+  if (cached) return cached;
+  try {
+    return (await client?.guilds?.fetch?.(String(gid))) || null;
+  } catch {
+    return null;
+  }
+}
 
 async function handleVoteWebhook(client?, guildId?: string, service?: string, token?: string, body?) {
   const gid = String(guildId || "");
@@ -244,12 +346,20 @@ async function handleVoteWebhook(client?, guildId?: string, service?: string, to
   } catch (_) {}
   if (!userId || !T.isId(userId)) return { status: 400, text: "User ID missing" };
   const st = await getState(gid);
+  const firstTime = !st.votes[userId];
+  const lastMap = (st.voteLast[service] = st.voteLast[service] || {});
+  const expOut = await giveExp(client, await resolveGuild(client, gid), userId, service === "topgg" ? "topgg" : "discadiaVote", cfg, {
+    previousLastAt: lastMap[userId] || null,
+    cooldownMs: cfg.votes.perService[service].hours * 3_600_000,
+    firstTime,
+  });
+  lastMap[userId] = Date.now();
   st.votes[userId] = (st.votes[userId] || 0) + 1;
   await giveTimedRole(client, gid, userId, { roleId: cfg.votes.rewardRoleId, hours: cfg.votes.perService[service].hours }, st);
   await saveState(gid, st);
   if (cfg.votes.thanks.enabled && cfg.votes.channelId) {
     const label = VOTE_LABEL[service];
-    await sendDraft(client, cfg.votes.channelId, cfg.votes.perService[service].draft, { ...userVars(null, userId), service: label, count: String(st.votes[userId]) }, userId);
+    await sendDraft(client, cfg.votes.channelId, cfg.votes.perService[service].draft, { ...userVars(null, userId), ...expOut, service: label, count: String(st.votes[userId]) }, userId);
   }
   return { status: 200, text: "OK" };
 }
@@ -304,7 +414,7 @@ function startBumpVotesLoop(client?) {
  * Server principale: le impostazioni di adesso (attese, ringraziamento, promemoria, voti, ruolo Voter)
  * portate nel modulo, spente: si accende quando si vuole passare al modulo.
  */
-const MAIN_SEED_VERSION = 2;
+const MAIN_SEED_VERSION = 3;
 function mainSeedConfig(client?) {
   const IDs = require("../../Vinili/Config/ids") as any;
   const { E } = require("../../shared/emojis/emojiCatalog") as any;
@@ -317,7 +427,7 @@ function mainSeedConfig(client?) {
     discadia: Math.max(1, Math.round(Number(cfgMain?.discadiaVoteReminder?.cooldownHours) || 24)),
   };
   const bumpThanks = {
-    content: `${e("VC_ThankYou")} **__Grazie {user} per aver \`bumpato\` il server!__** Bump fatti: {count}`,
+    content: `${e("VC_ThankYou")} **__Grazie {user} per aver \`bumpato\` il server!__**\n${e("VC_EXP")} **{exp} exp** guadagnati!\n{bonus}`,
     embed: { enabled: false },
     buttons: [],
   };
@@ -337,9 +447,12 @@ function mainSeedConfig(client?) {
         description: [
           `${e("VC_ThankYou")} Grazie {user} per aver votato su **${VOTE_LABEL[s]}**!`,
           "",
+          "`Hai guadagnato:`",
+          `${e("VC_EXP")} ${e("VC_Arrow")} **{exp} EXP** per il tuo **{count}° voto** su **${VOTE_LABEL[s]}**`,
+          "{bonus}",
           `${e("VC_Money")} ${e("VC_Arrow")} ${voterRole ? `Il ruolo <@&${voterRole}> per ${label}` : `Ricompensa per ${label}`}`,
           "",
-          `${e("VC_update")} Vota di nuovo tra __${label}__ dal **bottone sottostante**. Voti fatti: {count}`,
+          `${e("VC_update")} Vota di nuovo tra __${label}__ per ottenere **altri exp** dal **bottone sottostante**.`,
         ].join("\n"),
         color: "#6f4e37",
       },
@@ -373,6 +486,24 @@ function mainSeedConfig(client?) {
       thanks: { enabled: true },
       rewardRoleId: voterRole,
       perService: { topgg: { draft: voteThanks("topgg"), hours: hours.topgg }, discadia: { draft: voteThanks("discadia"), hours: hours.discadia } },
+    },
+    exp: {
+      disboard: {
+        enabled: true,
+        minExp: Number(cfgMain?.disboard?.reward?.baseExp) || 100,
+        maxExp: Number(cfgMain?.disboard?.reward?.baseExp) || 100,
+        fastWindowMinutes: Math.round((Number(cfgMain?.disboard?.reward?.fastGuess?.windowMs) || 300000) / 60000),
+        fastMultiplier: Number(cfgMain?.disboard?.reward?.fastGuess?.multiplier) || 1.5,
+        streakPercent: Number(cfgMain?.disboard?.reward?.streak?.bonusPercentPerWin) || 10,
+        streakMaxPercent: Number(cfgMain?.disboard?.reward?.streak?.maxBonusPercent) || 50,
+      },
+      discadia: { enabled: false },
+      topgg: { enabled: true },
+      discadiaVote: {
+        enabled: true,
+        fastWindowMinutes: Math.round((Number(cfgMain?.discadiaVoteReminder?.reward?.fastGuess?.windowMs) || 900000) / 60000),
+        fastMultiplier: Number(cfgMain?.discadiaVoteReminder?.reward?.fastGuess?.multiplier) || 1.5,
+      },
     },
     seedVersion: MAIN_SEED_VERSION,
   });

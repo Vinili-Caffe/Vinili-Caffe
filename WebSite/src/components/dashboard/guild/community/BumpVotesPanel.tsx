@@ -5,7 +5,7 @@ import { Copy, RefreshCw, Rocket, Star, Trophy } from "lucide-react";
 import { NumberField } from "@/components/ui/NumberField";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
-import { communityApi, type BumpService, type BumpVotesConfig, type BumpVotesLeaderboard, type VoteService } from "@/lib/dashboard-community";
+import { communityApi, type BumpExp, type BumpExpKey, type BumpService, type BumpVotesConfig, type BumpVotesLeaderboard, type VoteService } from "@/lib/dashboard-community";
 import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, roleOptions, sampleVars, useCommunity } from "./shared";
 
@@ -18,6 +18,14 @@ const REMINDER_PLACEHOLDERS = [
   { token: "{role}", hint: "il ruolo da avvisare" },
   { token: "{service}", hint: "Disboard o Discadia" },
 ];
+/* segnaposto in più sul server principale, dove c'è l'EXP */
+const EXP_PLACEHOLDERS = [
+  { token: "{exp}", hint: "EXP guadagnati" },
+  { token: "{bonus}", hint: "righe dei bonus (rapida, streak)" },
+  { token: "{streak}", hint: "serie attuale" },
+];
+const EXP_LABEL: Record<BumpExpKey, string> = { disboard: "Bump su Disboard", discadia: "Bump su Discadia", topgg: "Voto su Top.gg", discadiaVote: "Voto su Discadia" };
+
 const VOTE_PLACEHOLDERS = [
   { token: "{user}", hint: "chi ha votato" },
   { token: "{service}", hint: "Top.gg o Discadia" },
@@ -60,7 +68,7 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
   const [thanksTab, setThanksTab] = useState<BumpService>("disboard");
   const [reminderTab, setReminderTab] = useState<BumpService>("disboard");
   const [voteTab, setVoteTab] = useState<VoteService>("topgg");
-  const vars = useMemo(() => ({ ...sampleVars(data), service: "Disboard", count: "12", role: "@Bumper" }), [data]);
+  const vars = useMemo(() => ({ ...sampleVars(data), service: "Disboard", count: "12", role: "@Bumper", exp: "150", streak: "3", bonus: "🔥 Streak 3 **+20 exp**" }), [data]);
 
   useEffect(() => {
     let alive = true;
@@ -129,6 +137,9 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
 
   const setService = (s: BumpService, p: Partial<BumpVotesConfig["services"][BumpService]>) =>
     set({ ...cfg, services: { ...cfg.services, [s]: { ...cfg.services[s], ...p } } });
+  const setExp = (k: BumpExpKey, p: Partial<BumpExp>) => cfg.exp && set({ ...cfg, exp: { ...cfg.exp, [k]: { ...cfg.exp[k], ...p } } });
+  const bumpPh = isMain ? [...BUMP_PLACEHOLDERS, ...EXP_PLACEHOLDERS] : BUMP_PLACEHOLDERS;
+  const votePh = isMain ? [...VOTE_PLACEHOLDERS, ...EXP_PLACEHOLDERS] : VOTE_PLACEHOLDERS;
   const setVoteService = (s: VoteService, p: Partial<BumpVotesConfig["votes"]["perService"][VoteService]>) =>
     set({ ...cfg, votes: { ...cfg.votes, perService: { ...cfg.votes.perService, [s]: { ...cfg.votes.perService[s], ...p } } } });
 
@@ -189,7 +200,7 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
                 <div className="mt-3 space-y-3">
                   <ServiceTabs value={thanksTab} onChange={setThanksTab} labels={SERVICE_LABEL} />
                   <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-                    <DraftEditor key={`thanks-${thanksTab}`} value={cfg.services[thanksTab].thanksDraft} onChange={(thanksDraft) => setService(thanksTab, { thanksDraft })} emojis={data.pickers.emojis} placeholders={BUMP_PLACEHOLDERS} maxButtons={data.limits.buttons} />
+                    <DraftEditor key={`thanks-${thanksTab}`} value={cfg.services[thanksTab].thanksDraft} onChange={(thanksDraft) => setService(thanksTab, { thanksDraft })} emojis={data.pickers.emojis} placeholders={bumpPh} maxButtons={data.limits.buttons} />
                     <DiscordMessagePreview bot={data.bot} draft={cfg.services[thanksTab].thanksDraft} vars={{ ...vars, service: SERVICE_LABEL[thanksTab] }} roles={data.pickers.roles} channels={channels} />
                   </div>
                 </div>
@@ -269,7 +280,7 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
                   <div className="mt-3 space-y-3">
                     <ServiceTabs value={voteTab} onChange={setVoteTab} labels={VOTE_LABEL} />
                     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-                      <DraftEditor key={`vote-${voteTab}`} value={cfg.votes.perService[voteTab].draft} onChange={(draft) => setVoteService(voteTab, { draft })} emojis={data.pickers.emojis} placeholders={VOTE_PLACEHOLDERS} maxButtons={data.limits.buttons} />
+                      <DraftEditor key={`vote-${voteTab}`} value={cfg.votes.perService[voteTab].draft} onChange={(draft) => setVoteService(voteTab, { draft })} emojis={data.pickers.emojis} placeholders={votePh} maxButtons={data.limits.buttons} />
                       <DiscordMessagePreview bot={data.bot} draft={cfg.votes.perService[voteTab].draft} vars={{ ...vars, service: VOTE_LABEL[voteTab] }} roles={data.pickers.roles} channels={channels} />
                     </div>
                   </div>
@@ -292,6 +303,61 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
           </div>
         ) : null}
       </FormGroup>
+
+      {isMain && cfg.exp ? (
+        <FormGroup title="EXP" description="Solo sul server principale, dove ci sono i livelli. Stessi calcoli del sistema classico: EXP di base, bonus se si risponde subito al promemoria e bonus per la serie.">
+          <div className="grid gap-3 lg:grid-cols-2">
+            {(Object.keys(EXP_LABEL) as BumpExpKey[]).map((k) => {
+              const x = cfg.exp![k];
+              const isVote = k === "topgg" || k === "discadiaVote";
+              return (
+                <div key={k} className="rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-crema">{EXP_LABEL[k]}</span>
+                    <Toggle size="sm" checked={x.enabled} onChange={(enabled) => setExp(k, { enabled })} label={EXP_LABEL[k]} />
+                  </div>
+                  {x.enabled ? (
+                    <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+                      <Field label="EXP minimi">
+                        <NumberField value={x.minExp} min={0} max={100000} onChange={(v) => setExp(k, { minExp: Number(v) || 0 })} aria-label="EXP minimi" />
+                      </Field>
+                      <Field label="EXP massimi" hint="Uguale ai minimi = sempre gli stessi.">
+                        <NumberField value={x.maxExp} min={0} max={100000} onChange={(v) => setExp(k, { maxExp: Number(v) || 0 })} aria-label="EXP massimi" />
+                      </Field>
+                      {isVote ? (
+                        <Field label="Primo voto" hint="0 = come gli altri.">
+                          <NumberField value={x.firstTimeExp} min={0} max={100000} onChange={(v) => setExp(k, { firstTimeExp: Number(v) || 0 })} aria-label="EXP primo voto" />
+                        </Field>
+                      ) : null}
+                      <Field label="Rapida: entro minuti" hint="0 = niente bonus.">
+                        <NumberField value={x.fastWindowMinutes} min={0} max={1440} onChange={(v) => setExp(k, { fastWindowMinutes: Number(v) || 0 })} aria-label="Minuti risposta rapida" />
+                      </Field>
+                      <Field label="Rapida: moltiplicatore">
+                        <input
+                          type="number"
+                          step={0.1}
+                          min={1}
+                          max={10}
+                          value={x.fastMultiplier}
+                          onChange={(e) => setExp(k, { fastMultiplier: Math.max(1, Number(e.target.value) || 1) })}
+                          className={`${fieldClass} h-10 py-0`}
+                          aria-label="Moltiplicatore risposta rapida"
+                        />
+                      </Field>
+                      <Field label="Serie: % per volta">
+                        <NumberField value={x.streakPercent} min={0} max={1000} onChange={(v) => setExp(k, { streakPercent: Number(v) || 0 })} aria-label="Percentuale serie" />
+                      </Field>
+                      <Field label="Serie: % massima">
+                        <NumberField value={x.streakMaxPercent} min={0} max={10000} onChange={(v) => setExp(k, { streakMaxPercent: Number(v) || 0 })} aria-label="Percentuale massima serie" />
+                      </Field>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </FormGroup>
+      ) : null}
 
       <FormGroup title="Classifica" description="Chi ha bumpato e votato di più su questo server.">
         <div className="grid gap-4 md:grid-cols-2">
