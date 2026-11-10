@@ -26,6 +26,8 @@ export type MsgEmbed = {
   authorName: string;
   authorIconUrl: string;
   fields?: MsgField[];
+  /** link sul titolo */
+  url?: string;
 };
 export type MsgDraft = { content: string; embed: MsgEmbed; buttons: MsgButton[]; v2?: MsgV2 };
 /** Promemoria a rotazione in chat (solo server principale) */
@@ -53,11 +55,14 @@ export type SavedMessage = {
 
 /** Bump e voti (server tenant) */
 export type BumpReward = { roleId: string | null; hours: number };
+export type BumpService = "disboard" | "discadia";
+export type VoteService = "topgg" | "discadia";
 export type BumpVotesConfig = {
   enabled: boolean;
-  services: Record<"disboard" | "discadia", { enabled: boolean; cooldownMinutes: number }>;
-  thanks: { enabled: boolean; draft: MsgDraft };
-  reminder: { enabled: boolean; channelId: string | null; roleId: string | null; draft: MsgDraft };
+  /** per servizio: attesa, ringraziamento e promemoria */
+  services: Record<BumpService, { enabled: boolean; cooldownMinutes: number; thanksDraft: MsgDraft; reminderDraft: MsgDraft }>;
+  thanks: { enabled: boolean };
+  reminder: { enabled: boolean; channelId: string | null; roleId: string | null };
   reward: BumpReward;
   votes: {
     enabled: boolean;
@@ -65,8 +70,10 @@ export type BumpVotesConfig = {
     topgg: boolean;
     discadia: boolean;
     channelId: string | null;
-    thanks: { enabled: boolean; draft: MsgDraft };
-    reward: BumpReward;
+    thanks: { enabled: boolean };
+    rewardRoleId: string | null;
+    /** per servizio: ringraziamento e ore del ruolo */
+    perService: Record<VoteService, { draft: MsgDraft; hours: number }>;
   };
 };
 export type BumpVotesLeaderboard = { bumps: { id: string; name: string; count: number }[]; votes: { id: string; name: string; count: number }[] };

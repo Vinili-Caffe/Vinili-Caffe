@@ -25,32 +25,58 @@ function normalizeReward(r?) {
   return { roleId: T.isId(r?.roleId) ? String(r.roleId) : null, hours: Number.isFinite(hours) && hours >= 1 && hours <= 720 ? hours : 12 };
 }
 
+type VoteService = "topgg" | "discadia";
+const VOTE_SERVICES: VoteService[] = ["topgg", "discadia"];
+const VOTE_LABEL: Record<VoteService, string> = { topgg: "Top.gg", discadia: "Discadia" };
+const DEFAULT_VOTE_HOURS: Record<VoteService, number> = { topgg: 12, discadia: 24 };
+const DEFAULT_BUMP_THANKS = "{user} grazie per il bump su **{service}**! 💙 Hai fatto {count} bump.";
+const DEFAULT_REMINDER = "{role} si può di nuovo bumpare su **{service}**! Usa il comando `/bump`.";
+const DEFAULT_VOTE_THANKS = "{user} grazie per il voto su **{service}**! ⭐ Voti totali: {count}.";
+
+const hoursOr = (v?, fb = 12) => {
+  const h = Math.floor(Number(v));
+  return Number.isFinite(h) && h >= 1 && h <= 720 ? h : fb;
+};
+
+/* ogni servizio ha i suoi testi (e le sue ore per i voti); i vecchi testi unici fanno da base */
 function normalizeConfig(raw?) {
   const r = raw && typeof raw === "object" ? raw : {};
   const svc = r.services && typeof r.services === "object" ? r.services : {};
-  const services = Object.fromEntries(
-    SERVICES.map((s) => {
-      const x = svc[s] && typeof svc[s] === "object" ? svc[s] : {};
-      const cd = Math.floor(Number(x.cooldownMinutes));
-      return [s, { enabled: x.enabled !== false, cooldownMinutes: Number.isFinite(cd) && cd >= 5 && cd <= 10080 ? cd : DEFAULT_COOLDOWN_MIN[s] }];
-    }),
-  ) as Record<Service, { enabled: boolean; cooldownMinutes: number }>;
   const th = r.thanks && typeof r.thanks === "object" ? r.thanks : {};
   const rem = r.reminder && typeof r.reminder === "object" ? r.reminder : {};
   const v = r.votes && typeof r.votes === "object" ? r.votes : {};
   const vth = v.thanks && typeof v.thanks === "object" ? v.thanks : {};
+  const vps = v.perService && typeof v.perService === "object" ? v.perService : {};
+  const draftOr = (d?, fallback?, text = "") => (d ? T.normalizeDraft(d) : fallback ? T.normalizeDraft(fallback) : textDraft(text));
+  const services = Object.fromEntries(
+    SERVICES.map((s) => {
+      const x = svc[s] && typeof svc[s] === "object" ? svc[s] : {};
+      const cd = Math.floor(Number(x.cooldownMinutes));
+      return [
+        s,
+        {
+          enabled: x.enabled !== false,
+          cooldownMinutes: Number.isFinite(cd) && cd >= 5 && cd <= 10080 ? cd : DEFAULT_COOLDOWN_MIN[s],
+          thanksDraft: draftOr(x.thanksDraft, th.draft, DEFAULT_BUMP_THANKS),
+          reminderDraft: draftOr(x.reminderDraft, rem.draft, DEFAULT_REMINDER),
+        },
+      ];
+    }),
+  ) as Record<Service, { enabled: boolean; cooldownMinutes: number; thanksDraft: any; reminderDraft: any }>;
+  const perService = Object.fromEntries(
+    VOTE_SERVICES.map((s) => {
+      const x = vps[s] && typeof vps[s] === "object" ? vps[s] : {};
+      return [s, { draft: draftOr(x.draft, vth.draft, DEFAULT_VOTE_THANKS), hours: hoursOr(x.hours, v.reward?.hours ? hoursOr(v.reward.hours) : DEFAULT_VOTE_HOURS[s]) }];
+    }),
+  ) as Record<VoteService, { draft: any; hours: number }>;
   return {
     enabled: r.enabled === true,
     services,
-    thanks: {
-      enabled: th.enabled !== false,
-      draft: th.draft ? T.normalizeDraft(th.draft) : textDraft("{user} grazie per il bump su **{service}**! 💙 Hai fatto {count} bump."),
-    },
+    thanks: { enabled: th.enabled !== false },
     reminder: {
       enabled: rem.enabled !== false,
       channelId: T.isId(rem.channelId) ? String(rem.channelId) : null,
       roleId: T.isId(rem.roleId) ? String(rem.roleId) : null,
-      draft: rem.draft ? T.normalizeDraft(rem.draft) : textDraft("{role} si può di nuovo bumpare su **{service}**! Usa il comando `/bump`."),
     },
     reward: normalizeReward(r.reward),
     votes: {
@@ -59,12 +85,13 @@ function normalizeConfig(raw?) {
       topgg: v.topgg !== false,
       discadia: v.discadia !== false,
       channelId: T.isId(v.channelId) ? String(v.channelId) : null,
-      thanks: {
-        enabled: vth.enabled !== false,
-        draft: vth.draft ? T.normalizeDraft(vth.draft) : textDraft("{user} grazie per il voto su **{service}**! ⭐ Voti totali: {count}."),
-      },
-      reward: normalizeReward(v.reward),
+      thanks: { enabled: vth.enabled !== false },
+      rewardRoleId: T.isId(v.rewardRoleId ?? v.reward?.roleId) ? String(v.rewardRoleId ?? v.reward?.roleId) : null,
+      perService,
     },
+    /* import dal sistema del server principale */
+    seedVersion: Number.isInteger(r.seedVersion) ? r.seedVersion : 0,
+    userSaved: r.userSaved === true,
   };
 }
 type BumpConfig = ReturnType<typeof normalizeConfig>;
@@ -75,7 +102,7 @@ async function getConfig(guildId: string, fresh = false): Promise<BumpConfig> {
 
 async function saveConfig(guildId: string, raw?) {
   const prev = await getConfig(guildId, true);
-  const next = normalizeConfig({ ...raw, votes: { ...(raw?.votes || {}), token: prev.votes.token } });
+  const next = normalizeConfig({ ...raw, votes: { ...(raw?.votes || {}), token: prev.votes.token }, seedVersion: prev.seedVersion, userSaved: true });
   await T.setGuildBlob("bumpVotes", guildId, next);
   return next;
 }
@@ -194,7 +221,7 @@ async function handleTenantBumpMessage(message?) {
   await giveTimedRole(message.client, guildId, userId, cfg.reward, st);
   await saveState(guildId, st);
   if (cfg.thanks.enabled) {
-    await sendDraft(message.client, String(message.channelId), cfg.thanks.draft, { ...userVars(message.guild, userId), service: SERVICE_LABEL[service], count: String(userId ? st.bumps[userId] : 0) }, userId);
+    await sendDraft(message.client, String(message.channelId), cfg.services[service].thanksDraft, { ...userVars(message.guild, userId), service: SERVICE_LABEL[service], count: String(userId ? st.bumps[userId] : 0) }, userId);
   }
   return true;
 }
@@ -218,11 +245,11 @@ async function handleVoteWebhook(client?, guildId?: string, service?: string, to
   if (!userId || !T.isId(userId)) return { status: 400, text: "User ID missing" };
   const st = await getState(gid);
   st.votes[userId] = (st.votes[userId] || 0) + 1;
-  await giveTimedRole(client, gid, userId, cfg.votes.reward, st);
+  await giveTimedRole(client, gid, userId, { roleId: cfg.votes.rewardRoleId, hours: cfg.votes.perService[service].hours }, st);
   await saveState(gid, st);
   if (cfg.votes.thanks.enabled && cfg.votes.channelId) {
-    const label = service === "topgg" ? "Top.gg" : "Discadia";
-    await sendDraft(client, cfg.votes.channelId, cfg.votes.thanks.draft, { ...userVars(null, userId), service: label, count: String(st.votes[userId]) }, userId);
+    const label = VOTE_LABEL[service];
+    await sendDraft(client, cfg.votes.channelId, cfg.votes.perService[service].draft, { ...userVars(null, userId), service: label, count: String(st.votes[userId]) }, userId);
   }
   return { status: 200, text: "OK" };
 }
@@ -247,7 +274,7 @@ async function runBumpVotesTick(client?) {
       last.reminded = true;
       if (cfg.enabled && cfg.services[s].enabled && cfg.reminder.enabled) {
         const roleId = cfg.reminder.roleId;
-        await sendDraft(client, cfg.reminder.channelId || last.channelId, cfg.reminder.draft, { role: roleId ? `<@&${roleId}>` : "", service: SERVICE_LABEL[s], server: "" }, null, roleId);
+        await sendDraft(client, cfg.reminder.channelId || last.channelId, cfg.services[s].reminderDraft, { role: roleId ? `<@&${roleId}>` : "", service: SERVICE_LABEL[s], server: "" }, null, roleId);
       }
     }
     const keep: State["roleExpiry"] = [];
@@ -277,65 +304,77 @@ function startBumpVotesLoop(client?) {
  * Server principale: le impostazioni di adesso (attese, ringraziamento, promemoria, voti, ruolo Voter)
  * portate nel modulo, spente: si accende quando si vuole passare al modulo.
  */
+const MAIN_SEED_VERSION = 2;
 function mainSeedConfig(client?) {
   const IDs = require("../../Vinili/Config/ids") as any;
   const { E } = require("../../shared/emojis/emojiCatalog") as any;
   const e = (k: string) => String(E?.[k] || "");
   const cfgMain = client?.config || {};
-  const voteHours = Math.max(1, Math.round(Number(cfgMain?.topgg?.voteReminderCooldownHours) || 12));
   const voterRole = String(IDs?.roles?.Voter || "") || null;
+  const voteUrl = String(cfgMain?.topgg?.votePageUrl || "https://www.viniliecaffe.it/vote");
+  const hours: Record<VoteService, number> = {
+    topgg: Math.max(1, Math.round(Number(cfgMain?.topgg?.voteReminderCooldownHours) || 12)),
+    discadia: Math.max(1, Math.round(Number(cfgMain?.discadiaVoteReminder?.cooldownHours) || 24)),
+  };
+  const bumpThanks = {
+    content: `${e("VC_ThankYou")} **__Grazie {user} per aver \`bumpato\` il server!__** Bump fatti: {count}`,
+    embed: { enabled: false },
+    buttons: [],
+  };
+  const reminder = (title: string, url: string) => ({
+    content: "{role}",
+    embed: { enabled: true, title, url, description: `${e("VC_bump")} **Per bumpare scrivi __\`/bump\` in chat__**!`, color: "#6f4e37" },
+    buttons: [],
+  });
+  const voteThanks = (s: VoteService) => {
+    const h = hours[s];
+    const label = h === 1 ? "1 ora" : `${h} ore`;
+    return {
+      content: "{user}",
+      embed: {
+        enabled: true,
+        title: `${e("VC_Vote")} **Un nuovo voto!**`,
+        description: [
+          `${e("VC_ThankYou")} Grazie {user} per aver votato su **${VOTE_LABEL[s]}**!`,
+          "",
+          `${e("VC_Money")} ${e("VC_Arrow")} ${voterRole ? `Il ruolo <@&${voterRole}> per ${label}` : `Ricompensa per ${label}`}`,
+          "",
+          `${e("VC_update")} Vota di nuovo tra __${label}__ dal **bottone sottostante**. Voti fatti: {count}`,
+        ].join("\n"),
+        color: "#6f4e37",
+      },
+      buttons: [{ label: "Vota cliccando qui", url: voteUrl, emoji: e("VC_HeartPink"), row: 0 }],
+    };
+  };
   return normalizeConfig({
     enabled: false,
     services: {
-      disboard: { enabled: true, cooldownMinutes: Number(cfgMain?.disboard?.cooldownMinutes) || 120 },
-      discadia: { enabled: true, cooldownMinutes: Number(cfgMain?.discadia?.cooldownMinutes) || 1440 },
-    },
-    thanks: {
-      enabled: true,
-      draft: { content: `${e("VC_ThankYou")} **__Grazie {user} per aver \`bumpato\` il server su {service}!__** Bump fatti: {count}`, embed: { enabled: false }, buttons: [] },
-    },
-    reminder: {
-      enabled: true,
-      channelId: String(cfgMain?.disboard?.reminderChannelId || IDs?.channels?.commands || "") || null,
-      roleId: "1544830661637046303",
-      draft: {
-        content: "{role}",
-        embed: {
-          enabled: true,
-          title: `${e("VC_Eye")} **È L'ORA DEL \`BUMP\` SU {service}!**`,
-          description: `${e("VC_bump")} **Per bumpare scrivi __\`/bump\` in chat__**!`,
-          color: "#6f4e37",
-        },
-        buttons: [],
+      disboard: {
+        enabled: true,
+        cooldownMinutes: Number(cfgMain?.disboard?.cooldownMinutes) || 120,
+        thanksDraft: bumpThanks,
+        reminderDraft: reminder(`${e("VC_Eye")} **È L'ORA DEL \`BUMP\`!**`, "https://disboard.org/it/server/1329080093599076474"),
+      },
+      discadia: {
+        enabled: true,
+        cooldownMinutes: Number(cfgMain?.discadia?.cooldownMinutes) || 1440,
+        thanksDraft: bumpThanks,
+        reminderDraft: reminder(`${e("VC_Eye")} **È L'ORA DEL \`BUMP\` SU DISCADIA!**`, "https://discadia.com/server/viniliecaffe/"),
       },
     },
+    thanks: { enabled: true },
+    reminder: { enabled: true, channelId: String(cfgMain?.disboard?.reminderChannelId || IDs?.channels?.commands || "") || null, roleId: "1544830661637046303" },
     reward: { roleId: null, hours: 12 },
     votes: {
       enabled: false,
       topgg: true,
       discadia: true,
       channelId: String(IDs?.channels?.supporters || "") || null,
-      thanks: {
-        enabled: true,
-        draft: {
-          content: "{user}",
-          embed: {
-            enabled: true,
-            title: `${e("VC_Vote")} **Un nuovo voto!**`,
-            description: [
-              `${e("VC_ThankYou")} Grazie {user} per aver votato su **{service}**!`,
-              "",
-              `${e("VC_Money")} ${e("VC_Arrow")} ${voterRole ? `Il ruolo <@&${voterRole}> per ${voteHours} ore` : `Ricompensa per ${voteHours} ore`}`,
-              "",
-              `${e("VC_update")} Vota di nuovo tra __${voteHours} ore__ dal **bottone sottostante**. Voti fatti: {count}`,
-            ].join("\n"),
-            color: "#6f4e37",
-          },
-          buttons: [{ label: "Vota cliccando qui", url: String(cfgMain?.topgg?.votePageUrl || "https://www.viniliecaffe.it/vote"), emoji: e("VC_HeartPink"), row: 0 }],
-        },
-      },
-      reward: { roleId: voterRole, hours: voteHours },
+      thanks: { enabled: true },
+      rewardRoleId: voterRole,
+      perService: { topgg: { draft: voteThanks("topgg"), hours: hours.topgg }, discadia: { draft: voteThanks("discadia"), hours: hours.discadia } },
     },
+    seedVersion: MAIN_SEED_VERSION,
   });
 }
 
@@ -343,8 +382,12 @@ function mainSeedConfig(client?) {
 async function ensureMainSeed(client?, guildId?: string) {
   const gid = String(guildId || "");
   if (!T.isMainGuild(gid)) return false;
-  if (await T.getGuildBlob("bumpVotes", gid, true)) return false;
-  await T.setGuildBlob("bumpVotes", gid, mainSeedConfig(client));
+  const prev = await T.getGuildBlob("bumpVotes", gid, true);
+  /* si reimporta solo se non l'hai ancora toccato e l'import è di una versione vecchia */
+  if (prev && (prev.userSaved === true || Number(prev.seedVersion || 1) >= MAIN_SEED_VERSION)) return false;
+  const seed = mainSeedConfig(client);
+  if (prev?.votes?.token) seed.votes.token = prev.votes.token;
+  await T.setGuildBlob("bumpVotes", gid, seed);
   return true;
 }
 

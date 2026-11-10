@@ -46,6 +46,8 @@ type MsgEmbed = {
   authorName: string;
   authorIconUrl: string;
   fields: MsgField[];
+  /** link sul titolo */
+  url: string;
 };
 /* Components V2: blocchi al posto di testo+embed */
 type V2Block =
@@ -125,6 +127,7 @@ function normalizeDraft(raw?): MsgDraft {
       authorName: str(e.authorName, 256),
       authorIconUrl: urlOrToken(e.authorIconUrl),
       fields,
+      url: httpUrl(e.url),
     },
     buttons,
     v2: { enabled: v.enabled === true, container: v.container !== false, accentColor: hex(v.accentColor, ""), blocks },
@@ -216,6 +219,7 @@ function buildMessageBody(draft: MsgDraft, vars: FillVars = {}, extraRows: any[]
     const title = fill(e.title, vars).trim();
     const desc = fill(e.description, vars).trim();
     if (title) embed.title = title.slice(0, 256);
+    if (title && e.url) embed.url = e.url;
     if (desc) embed.description = desc.slice(0, 4096);
     const img = httpUrl(fill(e.imageUrl, vars));
     const thumb = httpUrl(fill(e.thumbnailUrl, vars));

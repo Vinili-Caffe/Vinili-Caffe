@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Copy, RefreshCw, Rocket, Star, Trophy } from "lucide-react";
 import { NumberField } from "@/components/ui/NumberField";
 import { Select } from "@/components/ui/Select";
-import { communityApi, type BumpVotesConfig, type BumpVotesLeaderboard } from "@/lib/dashboard-community";
+import { cn } from "@/lib/cn";
+import { communityApi, type BumpService, type BumpVotesConfig, type BumpVotesLeaderboard, type VoteService } from "@/lib/dashboard-community";
 import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, roleOptions, sampleVars, useCommunity } from "./shared";
 
@@ -23,6 +24,27 @@ const VOTE_PLACEHOLDERS = [
   { token: "{count}", hint: "voti totali di quella persona" },
 ];
 const SERVICE_LABEL = { disboard: "Disboard", discadia: "Discadia" } as const;
+const VOTE_LABEL = { topgg: "Top.gg", discadia: "Discadia" } as const;
+
+/** Scelta del servizio di cui modificare il messaggio. */
+function ServiceTabs<K extends string>({ value, onChange, labels }: { value: K; onChange: (k: K) => void; labels: Record<K, string> }) {
+  return (
+    <div className="inline-grid grid-flow-col gap-1 rounded-lg bg-espresso/70 p-1 ring-1 ring-sand/10" role="tablist">
+      {(Object.keys(labels) as K[]).map((k) => (
+        <button
+          key={k}
+          type="button"
+          role="tab"
+          aria-selected={value === k}
+          onClick={() => onChange(k)}
+          className={cn("rounded-md px-3 py-1 text-sm font-semibold transition-colors", value === k ? "bg-mocha text-crema ring-1 ring-sand/15" : "text-crema/60 hover:text-crema")}
+        >
+          {labels[k]}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /** Pagina "Bump e voti": sui server tenant tutto personalizzabile; sul principale le automazioni del bot. */
 export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; token: string; onToast: (msg: string, err?: boolean) => void }) {
@@ -35,6 +57,9 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [imported, setImported] = useState(false);
+  const [thanksTab, setThanksTab] = useState<BumpService>("disboard");
+  const [reminderTab, setReminderTab] = useState<BumpService>("disboard");
+  const [voteTab, setVoteTab] = useState<VoteService>("topgg");
   const vars = useMemo(() => ({ ...sampleVars(data), service: "Disboard", count: "12", role: "@Bumper" }), [data]);
 
   useEffect(() => {
@@ -102,6 +127,11 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
     );
   };
 
+  const setService = (s: BumpService, p: Partial<BumpVotesConfig["services"][BumpService]>) =>
+    set({ ...cfg, services: { ...cfg.services, [s]: { ...cfg.services[s], ...p } } });
+  const setVoteService = (s: VoteService, p: Partial<BumpVotesConfig["votes"]["perService"][VoteService]>) =>
+    set({ ...cfg, votes: { ...cfg.votes, perService: { ...cfg.votes.perService, [s]: { ...cfg.votes.perService[s], ...p } } } });
+
   const rewardFields = (reward: BumpVotesConfig["reward"], onChange: (r: BumpVotesConfig["reward"]) => void) => (
     <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
       <Field label="Ruolo di ricompensa" hint="Vuoto = nessun ruolo.">
@@ -156,9 +186,12 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
                 <Toggle size="sm" checked={cfg.thanks.enabled} onChange={(enabled) => set({ ...cfg, thanks: { ...cfg.thanks, enabled } })} label="Ringraziamento" />
               </SettingRow>
               {cfg.thanks.enabled ? (
-                <div className="mt-3 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-                  <DraftEditor value={cfg.thanks.draft} onChange={(draft) => set({ ...cfg, thanks: { ...cfg.thanks, draft } })} emojis={data.pickers.emojis} placeholders={BUMP_PLACEHOLDERS} maxButtons={data.limits.buttons} />
-                  <DiscordMessagePreview bot={data.bot} draft={cfg.thanks.draft} vars={vars} roles={data.pickers.roles} channels={channels} />
+                <div className="mt-3 space-y-3">
+                  <ServiceTabs value={thanksTab} onChange={setThanksTab} labels={SERVICE_LABEL} />
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+                    <DraftEditor key={`thanks-${thanksTab}`} value={cfg.services[thanksTab].thanksDraft} onChange={(thanksDraft) => setService(thanksTab, { thanksDraft })} emojis={data.pickers.emojis} placeholders={BUMP_PLACEHOLDERS} maxButtons={data.limits.buttons} />
+                    <DiscordMessagePreview bot={data.bot} draft={cfg.services[thanksTab].thanksDraft} vars={{ ...vars, service: SERVICE_LABEL[thanksTab] }} roles={data.pickers.roles} channels={channels} />
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -175,9 +208,10 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
                       <Select value={cfg.reminder.roleId || ""} onChange={(v) => set({ ...cfg, reminder: { ...cfg.reminder, roleId: v || null } })} options={roles} className="mt-1.5 h-11 rounded-lg" />
                     </Field>
                   </div>
+                  <ServiceTabs value={reminderTab} onChange={setReminderTab} labels={SERVICE_LABEL} />
                   <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-                    <DraftEditor value={cfg.reminder.draft} onChange={(draft) => set({ ...cfg, reminder: { ...cfg.reminder, draft } })} emojis={data.pickers.emojis} placeholders={REMINDER_PLACEHOLDERS} maxButtons={data.limits.buttons} />
-                    <DiscordMessagePreview bot={data.bot} draft={cfg.reminder.draft} vars={vars} roles={data.pickers.roles} channels={channels} />
+                    <DraftEditor key={`rem-${reminderTab}`} value={cfg.services[reminderTab].reminderDraft} onChange={(reminderDraft) => setService(reminderTab, { reminderDraft })} emojis={data.pickers.emojis} placeholders={REMINDER_PLACEHOLDERS} maxButtons={data.limits.buttons} />
+                    <DiscordMessagePreview bot={data.bot} draft={cfg.services[reminderTab].reminderDraft} vars={{ ...vars, service: SERVICE_LABEL[reminderTab] }} roles={data.pickers.roles} channels={channels} />
                   </div>
                 </div>
               ) : null}
@@ -232,16 +266,28 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
                   <Toggle size="sm" checked={cfg.votes.thanks.enabled} onChange={(enabled) => set({ ...cfg, votes: { ...cfg.votes, thanks: { ...cfg.votes.thanks, enabled } } })} label="Ringraziamento voti" />
                 </SettingRow>
                 {cfg.votes.thanks.enabled ? (
-                  <div className="mt-3 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-                    <DraftEditor value={cfg.votes.thanks.draft} onChange={(draft) => set({ ...cfg, votes: { ...cfg.votes, thanks: { ...cfg.votes.thanks, draft } } })} emojis={data.pickers.emojis} placeholders={VOTE_PLACEHOLDERS} maxButtons={data.limits.buttons} />
-                    <DiscordMessagePreview bot={data.bot} draft={cfg.votes.thanks.draft} vars={{ ...vars, service: "Top.gg" }} roles={data.pickers.roles} channels={channels} />
+                  <div className="mt-3 space-y-3">
+                    <ServiceTabs value={voteTab} onChange={setVoteTab} labels={VOTE_LABEL} />
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+                      <DraftEditor key={`vote-${voteTab}`} value={cfg.votes.perService[voteTab].draft} onChange={(draft) => setVoteService(voteTab, { draft })} emojis={data.pickers.emojis} placeholders={VOTE_PLACEHOLDERS} maxButtons={data.limits.buttons} />
+                      <DiscordMessagePreview bot={data.bot} draft={cfg.votes.perService[voteTab].draft} vars={{ ...vars, service: VOTE_LABEL[voteTab] }} roles={data.pickers.roles} channels={channels} />
+                    </div>
                   </div>
                 ) : null}
               </div>
             ) : null}
             <div className="rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10">
               <p className="mb-2 text-sm font-semibold text-crema">Ricompensa per il voto</p>
-              {rewardFields(cfg.votes.reward, (reward) => set({ ...cfg, votes: { ...cfg.votes, reward } }))}
+              <Field label="Ruolo di ricompensa" hint="Vuoto = nessun ruolo.">
+                <Select value={cfg.votes.rewardRoleId || ""} onChange={(v) => set({ ...cfg, votes: { ...cfg.votes, rewardRoleId: v || null } })} options={roles} className="mt-1.5 h-11 rounded-lg" />
+              </Field>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {(["topgg", "discadia"] as const).map((s) => (
+                  <Field key={s} label={`Ore dopo un voto su ${VOTE_LABEL[s]}`}>
+                    <NumberField value={cfg.votes.perService[s].hours} min={1} max={720} onChange={(v) => setVoteService(s, { hours: Number(v) || 1 })} aria-label={`Ore ${VOTE_LABEL[s]}`} />
+                  </Field>
+                ))}
+              </div>
             </div>
           </div>
         ) : null}

@@ -328,6 +328,7 @@ export function DraftEditor({
             <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
               <Field label="Titolo">
                 <input value={e.title} maxLength={256} onChange={(ev) => setEmbed({ title: ev.target.value })} className={fieldClass} />
+                <input value={e.url || ""} placeholder="Link del titolo (facoltativo), https://…" onChange={(ev) => setEmbed({ url: ev.target.value })} className={cn(fieldClass, "mt-2 py-1.5 text-xs")} aria-label="Link del titolo" />
               </Field>
               <div className="min-w-0">
                 <span className={cn(labelClass, "block")}>Colore</span>
@@ -500,7 +501,7 @@ export function DiscordMessagePreview({
                       <span className="min-w-0 break-words">{author}</span>
                     </p>
                   ) : null}
-                  {title ? <DiscordContent text={title} names={names} className="mt-2 text-[16px] font-semibold leading-[22px] text-[#f2f3f5]" /> : null}
+                  {title ? <DiscordContent text={title} names={names} className={cn("mt-2 text-[16px] font-semibold leading-[22px]", /^https?:\/\//i.test(e.url || "") ? "text-[#00a8fc]" : "text-[#f2f3f5]")} /> : null}
                   {desc ? <DiscordContent text={desc} names={names} className="mt-2 whitespace-pre-line text-[14px] leading-[18px] text-[#dbdee1]" /> : null}
                   <EmbedFieldsPreview fields={fields} vars={vars} names={names} fill={fillVars} />
                 </div>
