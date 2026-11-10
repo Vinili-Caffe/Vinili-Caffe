@@ -184,6 +184,15 @@ function wrapChannel(raw?, guild?, clientRef?) {
             .filter(Boolean),
         );
       },
+      /* come discord.js: messages.delete(messaggio | id) */
+      delete: async (target?) => {
+        const rest = restClient?._rest;
+        if (!rest) throw new Error("REST unavailable");
+        const mid = String(target?.id || target || "").trim();
+        if (!mid) throw new Error("invalid_message");
+        await rest.delete(Routes.channelMessage(channelId, mid));
+        return true;
+      },
     },
     threads: {
       fetchArchived: async (opts: Record<string, any> = {}) => {
