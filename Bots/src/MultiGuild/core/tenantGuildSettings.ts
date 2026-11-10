@@ -450,7 +450,9 @@ function getTenantDashboardRolesConfiguredSync(guildId?) {
   const gid = normalizeGuildId(guildId);
   const row = gid ? settingsCache[gid] : null;
   if (!row || typeof row !== "object") return false;
-  return row.drc === 1 || getTenantDashboardRoleIdsSync(gid).length > 0;
+  /* solo i salvataggi fatti con la scelta dei ruoli Amministratore: le liste salvate prima
+     vengono ancora proposte insieme ai ruoli Amministratore */
+  return row.drc === 1;
 }
 
 function getTenantDashboardUserIdsSync(guildId?) {
