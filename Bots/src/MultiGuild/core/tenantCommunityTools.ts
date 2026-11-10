@@ -18,10 +18,13 @@ const KEYS = {
   counters: "multiGuildCounters.v1",
   serverLogs: "multiGuildServerLogs.v1",
   polls: "multiGuildPolls.v1",
+  chatReminders: "multiGuildChatReminders.v1",
+  mainAutomations: "multiGuildMainAutomations.v1",
+  importedPanels: "multiGuildImportedPanels.v1",
 } as const;
 type Kind = keyof typeof KEYS;
 
-const LIMITS = { messages: 50, commands: 50, rolePanels: 15, panelRoles: 25, buttons: 5, autoResponders: 50, counters: 6, polls: 50 };
+const LIMITS = { messages: 50, commands: 50, rolePanels: 15, panelRoles: 25, buttons: 10, autoResponders: 50, counters: 6, polls: 50 };
 const CACHE_TTL_MS = 15_000;
 
 /* ───────────── messaggio (testo + embed + pulsanti link) ───────────── */
@@ -132,10 +135,11 @@ function buildMessageBody(draft: MsgDraft, vars: FillVars = {}, extraRows: any[]
     if (embed.title || embed.description || embed.image || embed.thumbnail || embed.author) body.embeds = [embed];
   }
   const rows: any[] = [];
-  if (draft.buttons.length) {
+  /* pulsanti link: 5 per riga */
+  for (let i = 0; i < draft.buttons.length; i += 5) {
     rows.push({
       type: 1,
-      components: draft.buttons.map((b) => {
+      components: draft.buttons.slice(i, i + 5).map((b) => {
         const c: Record<string, any> = { type: 2, style: 5, url: b.url };
         if (b.label) c.label = fill(b.label, vars).slice(0, 80);
         const em = parseEmoji(b.emoji);
@@ -249,6 +253,10 @@ type SavedMessage = {
   repeat: "none" | "daily" | "weekly" | "monthly";
   /** a ogni ripetizione cancella il messaggio precedente */
   repeatDeletePrevious: boolean;
+  /** pannello del bot importato (es. "info"): finché non lo pubblichi dalla dashboard lo gestisce il codice */
+  panelKey?: string | null;
+  /** true dopo la prima pubblicazione dalla dashboard: il codice non lo ripubblica più */
+  managed?: boolean;
   updatedAt: number;
 };
 
@@ -284,6 +292,8 @@ function normalizeMessage(raw?, prev?: SavedMessage | null): SavedMessage {
     error: prev?.error ?? null,
     repeat: REPEATS.includes(r.repeat) ? r.repeat : prev?.repeat || "none",
     repeatDeletePrevious: Object.prototype.hasOwnProperty.call(r, "repeatDeletePrevious") ? r.repeatDeletePrevious === true : prev?.repeatDeletePrevious === true,
+    panelKey: prev?.panelKey ?? null,
+    managed: prev?.managed === true,
     updatedAt: Date.now(),
   };
 }
@@ -732,6 +742,73 @@ async function writeWelcome(guildId: string, value: WelcomeSettings) {
   return saveGuild("welcome", guildId, value);
 }
 
+/* ───────────── promemoria in chat (a rotazione) ───────────── */
+
+const CHAT_REMINDERS_MAX = 40;
+type ChatReminder = { id: string; name: string; enabled: boolean; draft: MsgDraft };
+
+function normalizeChatReminder(raw?, prev?): ChatReminder {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const draft = normalizeDraft(r.draft);
+  return {
+    id: prev?.id || (typeof r.id === "string" && /^[a-z0-9]{4,40}$/i.test(r.id) ? r.id : newId()),
+    name: str(r.name, 80).trim() || draft.embed.title.replace(/<a?:\w+:\d+>/g, "").trim().slice(0, 80) || "Promemoria",
+    enabled: r.enabled !== false,
+    draft,
+  };
+}
+
+/** null = mai salvati (si usano i testi del codice). */
+async function getChatReminders(guildId: string, fresh = false): Promise<ChatReminder[] | null> {
+  const map = await loadMap("chatReminders", fresh);
+  const v = map[String(guildId)];
+  if (!v || typeof v !== "object" || !Array.isArray(v.items)) return null;
+  return v.items.map((x: any) => normalizeChatReminder(x, x));
+}
+
+async function writeChatReminders(guildId: string, items: ChatReminder[]) {
+  const clean = (Array.isArray(items) ? items : []).slice(0, CHAT_REMINDERS_MAX).map((x) => normalizeChatReminder(x, x));
+  return saveGuild("chatReminders", String(guildId), { items: clean, updatedAt: Date.now() });
+}
+
+/* ───────────── automazioni del server principale (interruttori) ───────────── */
+
+async function getDisabledAutomations(guildId: string, fresh = false): Promise<string[]> {
+  const map = await loadMap("mainAutomations", fresh);
+  const v = map[String(guildId)];
+  return Array.isArray(v?.disabled) ? v.disabled.map(String) : [];
+}
+
+async function writeDisabledAutomations(guildId: string, disabled: string[]) {
+  const clean = [...new Set((disabled || []).map((x) => String(x).trim()).filter((x) => /^[a-zA-Z]{2,40}$/.test(x)))];
+  return saveGuild("mainAutomations", String(guildId), clean.length ? { disabled: clean } : null);
+}
+
+/** Per i gestori dei messaggi: spenta dalla dashboard? (cache breve) */
+async function isAutomationEnabled(guildId: string, key: string): Promise<boolean> {
+  if (!guildId) return true;
+  const off = await getDisabledAutomations(guildId).catch(() => [] as string[]);
+  return !off.includes(key);
+}
+
+/* pannelli importati una volta sola (anche se poi li elimini dalla dashboard) */
+async function wasPanelImported(guildId: string, key: string): Promise<boolean> {
+  const map = await loadMap("importedPanels", true);
+  return Array.isArray(map[String(guildId)]) && map[String(guildId)].includes(key);
+}
+
+async function markPanelImported(guildId: string, key: string) {
+  const map = await loadMap("importedPanels", true);
+  const list = Array.isArray(map[String(guildId)]) ? map[String(guildId)] : [];
+  if (!list.includes(key)) await saveGuild("importedPanels", String(guildId), [...list, key]);
+}
+
+/** Il codice deve lasciar stare questo pannello? (pubblicato almeno una volta dalla dashboard) */
+async function isPanelManagedByDashboard(guildId: string, key: string): Promise<boolean> {
+  const rows = await listMessages(String(guildId)).catch(() => [] as SavedMessage[]);
+  return rows.some((r) => r.panelKey === key && r.managed === true);
+}
+
 /* ───────────── liste/oggetti generici per le altre funzioni ───────────── */
 
 async function listRows(kind: "autoResponders" | "counters" | "polls", guildId: string, fresh = false): Promise<any[]> {
@@ -879,6 +956,16 @@ async function writeServerLogs(guildId: string, value) {
 }
 
 export = {
+  getDisabledAutomations,
+  writeDisabledAutomations,
+  isAutomationEnabled,
+  wasPanelImported,
+  markPanelImported,
+  isPanelManagedByDashboard,
+  CHAT_REMINDERS_MAX,
+  normalizeChatReminder,
+  getChatReminders,
+  writeChatReminders,
   LIMITS,
   nextRepeatAt,
   listRows,

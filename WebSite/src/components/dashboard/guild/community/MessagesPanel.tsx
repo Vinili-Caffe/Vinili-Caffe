@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import { communityApi, emptyDraft, type SavedMessage } from "@/lib/dashboard-community";
 import { EditorHeader, Field, FormGroup, Notice, RowsSkeleton, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, formatWhen, sampleVars, useCommunity } from "./shared";
+import { ChatRemindersSection } from "./ChatRemindersSection";
 
 const TIMES = Array.from({ length: 96 }, (_, i) => {
   const h = String(Math.floor(i / 4)).padStart(2, "0");
@@ -57,6 +58,7 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
   const [when, setWhen] = useState(() => toLocalParts(null));
   const [today] = useState(() => toLocalParts(Date.now()).date);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [reminderEditing, setReminderEditing] = useState(false);
 
   const vars = useMemo(() => sampleVars(data), [data]);
 
@@ -166,6 +168,11 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
           }
         />
         {edit.status === "failed" && edit.error ? <Notice error>Ultimo invio non riuscito: {edit.error}</Notice> : null}
+        {edit.panelKey && !edit.managed ? (
+          <Notice>
+            Questo è il pannello del bot, importato com&apos;è adesso. Finché non lo pubblichi da qui lo gestisce ancora il bot; dopo la prima pubblicazione lo gestisci solo dalla dashboard. Sarà un embed classico al posto del layout a blocchi attuale.
+          </Notice>
+        ) : null}
         <EditorWithPreview
           editor={
             <div className="space-y-4">
@@ -252,8 +259,14 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
     );
   }
 
+  const reminders = data.isMainGuild ? (
+    <ChatRemindersSection guildId={guildId} token={token} data={data} onToast={onToast} onEditingChange={setReminderEditing} />
+  ) : null;
   return (
     <div className="space-y-3">
+      {/* la sezione promemoria resta sempre nello stesso punto: mentre la modifichi il resto si nasconde */}
+      {reminderEditing ? null : (
+      <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-crema/60">
           Annunci, regolamenti e avvisi: scrivi il messaggio, scegli il canale e pubblicalo subito o a un&apos;ora precisa. Poi puoi modificarlo quando vuoi.
@@ -286,6 +299,9 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
       ) : (
         <EmptyState icon={Megaphone} title="Nessun messaggio" text="Crea il primo annuncio o regolamento: lo vedi in anteprima prima di pubblicarlo." />
       )}
+      </>
+      )}
+      {reminders ? <div className={reminderEditing ? undefined : "pt-4"}>{reminders}</div> : null}
     </div>
   );
 }

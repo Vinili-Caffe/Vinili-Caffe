@@ -17,12 +17,7 @@ async function deleteMessageIfPresent(channel?, messageId?) {
   if (msg) await msg.delete().catch(() => null);
 }
 
-async function run(client?) {
-  const channel = await getClientChannelCached(client, INFO_CHANNEL_ID);
-  if (!channel?.isTextBased?.()) {
-    global.logger?.warn?.("[embeds] info: channel missing or not text");
-    return;
-  }
+function infoTexts() {
   const infoIntroText = [
     `${E.VC_HeartsBlue} Benvenut* su **Vinili & Caffè**, l'unico server in Italia non tossico e __incentrato sulla socializzazione__.`,
     "",
@@ -41,6 +36,64 @@ async function run(client?) {
     `${E.moon} Fondazione: ||<t:1765382400:F>||`,
     `${E.nitroboost} Invite: https://discord.gg/viniliecaffe`,
   ].join("\n");
+  const links = [
+    { label: "︲REGOLAMENTO", emoji: E.VC_Rule, url: "https://viniliecaffe.it/regole" },
+    { label: "︲DONAZIONI", emoji: E.VC_Sparkles, url: "https://viniliecaffe.it/donazioni" },
+    { label: "︲SPONSOR", emoji: E.pinnednew, url: "https://viniliecaffe.it/sponsor" },
+    { label: "︲PERKS", emoji: E.VC_PurpleFlower, url: "https://viniliecaffe.it/perks" },
+    { label: "︲CANDIDATURE", emoji: E.VC_Collab, url: "https://viniliecaffe.it/candidature" },
+    { label: "︲TICKETS", emoji: E.VC_Ticket, url: "https://viniliecaffe.it/tickets" },
+  ];
+  return {
+    title: "Ti diamo il benvenuto nella nostra community!",
+    infoIntroText,
+    infoLinksText,
+    infoMetaText,
+    linksHeading: `${E.VC_Link} Links`,
+    metaHeading: `${E.VC_Info} Informazioni`,
+    footer: "Usa i bottoni sottostanti per accedere ad altre categorie del server.",
+    links,
+  };
+}
+
+/** Il pannello come messaggio della dashboard (embed + pulsanti link). */
+function buildInfoDraft() {
+  const t = infoTexts();
+  let imageUrl = "";
+  try {
+    const { botPhotoCdnUrl } = require("../../../../shared/discord/botPhotosCdn") as typeof import("../../../../shared/discord/botPhotosCdn");
+    imageUrl = String(botPhotoCdnUrl(INFO_MEDIA_NAME) || "");
+  } catch (_) {}
+  return {
+    content: "",
+    embed: {
+      enabled: true,
+      title: t.title,
+      description: [t.infoIntroText, "", `**${t.linksHeading}**`, t.infoLinksText, "", `**${t.metaHeading}**`, t.infoMetaText].join("\n"),
+      color: "#6f4e37",
+      imageUrl: /^https?:\/\//.test(imageUrl) ? imageUrl : "",
+      thumbnailUrl: "",
+      footerText: t.footer,
+      timestamp: false,
+      authorName: "",
+      authorIconUrl: "",
+    },
+    buttons: t.links.map((l) => ({ label: l.label, url: l.url, emoji: String(l.emoji || "") })),
+  };
+}
+
+async function run(client?) {
+  const channel = await getClientChannelCached(client, INFO_CHANNEL_ID);
+  if (!channel?.isTextBased?.()) {
+    global.logger?.warn?.("[embeds] info: channel missing or not text");
+    return;
+  }
+  /* pubblicato dalla dashboard: da lì in poi lo gestisce lei, il codice non lo tocca */
+  try {
+    const T = require("../../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../../MultiGuild/core/tenantCommunityTools");
+    if (channel.guild?.id && (await T.isPanelManagedByDashboard(channel.guild.id, "info"))) return;
+  } catch (_) {}
+  const { infoIntroText, infoLinksText, infoMetaText } = infoTexts();
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setLabel("︲REGOLAMENTO")
@@ -138,4 +191,14 @@ async function run(client?) {
   });
 }
 
-export = { name: "info", order: 20, section: "embedWithButtons", run };
+/** ID del messaggio info pubblicato dal codice (per l'import nella dashboard). */
+async function currentInfoMessageId(guildId?) {
+  const panel: any = await personalityPanelFindOneAndUpdate(
+    { guildId, channelId: INFO_CHANNEL_ID },
+    { $setOnInsert: { guildId, channelId: INFO_CHANNEL_ID } },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => null);
+  return String(panel?.infoMessageId1 || "").trim() || null;
+}
+
+export = { name: "info", order: 20, section: "embedWithButtons", run, buildInfoDraft, currentInfoMessageId, INFO_CHANNEL_ID };

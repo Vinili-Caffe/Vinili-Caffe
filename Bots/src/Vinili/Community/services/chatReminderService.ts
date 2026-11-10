@@ -253,6 +253,44 @@ const reminderPool = [
       ].join("\n")),
 ];
 
+/** I promemoria del codice come bozze per la dashboard (import iniziale). */
+function defaultReminderDrafts() {
+  return reminderPool.map((build, i) => {
+    const e: any = build().toJSON();
+    const color = typeof e.color === "number" ? `#${e.color.toString(16).padStart(6, "0")}` : "#6f4e37";
+    return {
+      id: `rem${i + 1}`,
+      name: String(e.title || `Promemoria ${i + 1}`).replace(/<a?:\w+:\d+>/g, "").trim().slice(0, 80),
+      enabled: true,
+      draft: {
+        content: "",
+        embed: { enabled: true, title: String(e.title || ""), description: String(e.description || ""), color },
+        buttons: [],
+      },
+    };
+  });
+}
+
+/* promemoria in uso: quelli salvati dalla dashboard (attivi) oppure quelli del codice */
+let activePool: Array<() => any> = reminderPool.map((build) => () => ({ embeds: [build()] }));
+async function refreshActivePool(guildId?) {
+  const gid = String(guildId || IDs.guilds?.main || "").trim();
+  try {
+    const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+    const saved = gid ? await T.getChatReminders(gid) : null;
+    if (saved) {
+      const on = saved.filter((r) => r.enabled && !T.draftIsEmpty(r.draft));
+      activePool = on.map((r) => () => {
+        const body: any = T.buildMessageBody(r.draft);
+        return { content: body.content, embeds: body.embeds, components: body.components, allowedMentions: { parse: [] } };
+      });
+      return activePool;
+    }
+  } catch (_) {}
+  activePool = reminderPool.map((build) => () => ({ embeds: [build()] }));
+  return activePool;
+}
+
 function getDateKey(parts?) {
   const y = parts.year;
   const m = String(parts.month).padStart(2, "0");
@@ -329,14 +367,14 @@ function shuffleArray(arr?) {
 }
 
 function buildShuffledQueueAvoiding(avoidCommaKey?) {
-  const base = reminderPool.map((_?, idx?) => idx);
+  const base = activePool.map((_?, idx?) => idx);
   const avoid = String(avoidCommaKey || "").trim();
   let out = shuffleArray(base);
   let guard = 0;
   while (
     avoid &&
     out.join(",") === avoid &&
-    reminderPool.length > 1 &&
+    activePool.length > 1 &&
     guard < 64
   ) {
     out = shuffleArray(base);
@@ -350,7 +388,7 @@ async function loadRotationState(guildId?, dateKey?) {
   const doc = await chatReminderRotationFindOneLean({ guildId }).catch(() => null);
   const normDate = dateKey ? String(dateKey) : "";
   if (doc && normDate && String(doc.dateKey || "") === normDate && Array.isArray(doc.queue)) {
-    const filtered = doc.queue.filter((i?) => Number.isInteger(i) && i >= 0 && i < reminderPool.length);
+    const filtered = doc.queue.filter((i?) => Number.isInteger(i) && i >= 0 && i < activePool.length);
     if (filtered.length > 0) {
       rotationDate = doc.dateKey;
       lastSentAt = doc.lastSentAt ? new Date(doc.lastSentAt).getTime() : null;
@@ -368,6 +406,8 @@ async function loadRotationState(guildId?, dateKey?) {
 async function nextReminderEmbed(parts?, guildId?) {
   const key = getDateKey(parts);
   const gid = guildId || rotationGuildId;
+  await refreshActivePool(gid);
+  if (!activePool.length) return null;
   if (gid) await loadRotationState(gid, key);
 
   if (rotationDate !== key) {
@@ -393,12 +433,13 @@ async function nextReminderEmbed(parts?, guildId?) {
     await saveRotationState();
   }
   if (rotationQueue.length === 0) {
-    const next = reminderPool[0];
+    const next = activePool[0];
     return next ? next() : null;
   }
   const index = rotationQueue.shift();
   await saveRotationState();
-  const next = Number.isFinite(index) ? reminderPool[index] : reminderPool[0];
+  /* elenco cambiato dalla dashboard: un indice fuori misura prende il primo */
+  const next = Number.isInteger(index) && index < activePool.length ? activePool[index] : activePool[0];
   return next ? next() : null;
 }
 
@@ -579,8 +620,9 @@ async function sendReminder(client?, scheduleId?, kind = "first") {
     return;
   }
   const parts = getRomeParts(new Date(), client);
-  const embed = await nextReminderEmbed(parts, guildId);
-  await channel.send({ embeds: [embed] }).catch(() => { });
+  const payload = await nextReminderEmbed(parts, guildId);
+  if (!payload) return;
+  await channel.send(payload).catch(() => { });
   recordChatHubBotPost(channelId, CHAT_HUB_SOURCES.VINILI, CHAT_HUB_KINDS.REMINDER);
   extendChatHubQuietForMs(channelId, 45_000);
   lastSentAt = Date.now();
@@ -604,8 +646,9 @@ async function sendReminderAtFixedSlot(client?, parts?, slotKey?) {
   const guildId = client.guilds?.cache?.first()?.id ?? null;
   const ready = await canPostReminderNow(client, channelId);
   if (!ready) return;
-  const embed = await nextReminderEmbed(parts, guildId);
-  await channel.send({ embeds: [embed] }).catch(() => { });
+  const payload = await nextReminderEmbed(parts, guildId);
+  if (!payload) return;
+  await channel.send(payload).catch(() => { });
   recordChatHubBotPost(channelId, CHAT_HUB_SOURCES.VINILI, CHAT_HUB_KINDS.REMINDER);
   extendChatHubQuietForMs(channelId, 45_000);
   lastSentAt = Date.now();
@@ -661,4 +704,4 @@ function startHourlyReminderLoop(client?) {
   return hourlyLoopHandle;
 }
 
-export = { startHourlyReminderLoop, recordReminderActivity };
+export = { startHourlyReminderLoop, recordReminderActivity, defaultReminderDrafts };

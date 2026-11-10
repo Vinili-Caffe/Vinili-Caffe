@@ -64,6 +64,75 @@ async function deleteAutoResponder(client?, token?, guildId?, id?) {
   return { ok: true, status: 200 };
 }
 
+/* ───────────── automazioni del server principale ───────────── */
+
+const MAIN_AUTOMATIONS = [
+  { key: "bumpDisboard", name: "Bump di Disboard", description: "Quando qualcuno fa /bump su Disboard il bot ringrazia, dà la ricompensa e programma il promemoria." },
+  { key: "bumpDiscadia", name: "Bump di Discadia", description: "Come sopra, per i bump su Discadia." },
+  { key: "votes", name: "Voti del server", description: "Riconosce i voti su Top.gg e Discadia: EXP, ruolo Voter e messaggio di ringraziamento." },
+  { key: "movieNight", name: "Proposte serata film", description: "Nel thread delle proposte toglie i film già proposti e quelli scritti male." },
+  { key: "pauseChannel", name: "Canale pause", description: "Gestisce i messaggi scritti nel canale delle richieste di pausa." },
+  { key: "sanzioniChannel", name: "Canale sanzioni", description: "Gestisce i messaggi scritti nel canale delle sanzioni." },
+  { key: "headingBlock", name: "Blocco titoli markdown", description: "Toglie i messaggi scritti con i titoli grandi (# Titolo) di Discord." },
+];
+
+async function listMainAutomations(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (!T.isMainGuild(a.guildId)) return fail(404, "unsupported", "Le automazioni ci sono solo sul server principale.");
+  const off = await T.getDisabledAutomations(a.guildId, true);
+  return { ok: true, status: 200, automations: MAIN_AUTOMATIONS.map((x) => ({ ...x, enabled: !off.includes(x.key) })) };
+}
+
+async function setMainAutomation(client?, token?, guildId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (!T.isMainGuild(a.guildId)) return fail(404, "unsupported", "Le automazioni ci sono solo sul server principale.");
+  const key = String(body?.key || "");
+  if (!MAIN_AUTOMATIONS.some((x) => x.key === key)) return fail(400, "invalid", "Automazione sconosciuta.");
+  const off = new Set(await T.getDisabledAutomations(a.guildId, true));
+  if (body?.enabled === false) off.add(key);
+  else off.delete(key);
+  await T.writeDisabledAutomations(a.guildId, [...off]);
+  return listMainAutomations(client, token, guildId);
+}
+
+/* ───────────── promemoria in chat ───────────── */
+
+function chatRemindersSupported(guildId?) {
+  return T.isMainGuild(guildId);
+}
+
+async function listChatReminders(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (!chatRemindersSupported(a.guildId)) return fail(404, "unsupported", "I promemoria in chat ci sono solo sul server principale.");
+  let items = await T.getChatReminders(a.guildId, true);
+  let imported = false;
+  if (!items) {
+    /* prima apertura: importa i promemoria che il bot usa adesso */
+    const { defaultReminderDrafts } = require("../../../Vinili/Community/services/chatReminderService") as typeof import("../../../Vinili/Community/services/chatReminderService");
+    items = defaultReminderDrafts().map((x) => T.normalizeChatReminder(x, x));
+    await T.writeChatReminders(a.guildId, items);
+    imported = true;
+  }
+  return { ok: true, status: 200, items, imported, max: T.CHAT_REMINDERS_MAX };
+}
+
+async function putChatReminders(client?, token?, guildId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (!chatRemindersSupported(a.guildId)) return fail(404, "unsupported", "I promemoria in chat ci sono solo sul server principale.");
+  const raw = Array.isArray(body?.items) ? body.items : null;
+  if (!raw) return fail(400, "invalid", "Elenco non valido.");
+  if (raw.length > T.CHAT_REMINDERS_MAX) return fail(400, "limit", `Al massimo ${T.CHAT_REMINDERS_MAX} promemoria.`);
+  const items = raw.map((x?) => T.normalizeChatReminder(x, x && typeof x.id === "string" ? { id: x.id } : null));
+  const empty = items.find((x) => x.enabled && T.draftIsEmpty(x.draft));
+  if (empty) return fail(400, "empty", `"${empty.name}" è vuoto: scrivi un testo o disattivalo.`);
+  await T.writeChatReminders(a.guildId, items);
+  return { ok: true, status: 200, items };
+}
+
 /* ───────────── contatori ───────────── */
 
 const COUNTER_LABEL: Record<string, string> = {
@@ -525,6 +594,10 @@ async function deletePoll(client?, token?, guildId?, id?, alsoDiscord = false) {
 export = {
   putAutoResponder,
   deleteAutoResponder,
+  listChatReminders,
+  putChatReminders,
+  listMainAutomations,
+  setMainAutomation,
   counterValues,
   createCounter,
   patchCounter,

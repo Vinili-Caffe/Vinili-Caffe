@@ -446,10 +446,12 @@ export function DiscordMessagePreview({
   const thumbUrl = urlOf(e.thumbnailUrl);
   const authorIcon = urlOf(e.authorIconUrl || "");
   const showEmbed = e.enabled && (title || desc || imageUrl || thumbUrl || author);
-  const linkRow: PreviewRow | null = draft.buttons.length
-    ? { kind: "buttons", items: draft.buttons.map((b) => ({ label: fillVars(b.label, vars), emoji: b.emoji, style: 5 as const })) }
-    : null;
-  const allRows = [...(linkRow ? [linkRow] : []), ...rows];
+  /* pulsanti link: 5 per riga, come su Discord */
+  const linkRows: PreviewRow[] = [];
+  for (let i = 0; i < draft.buttons.length; i += 5) {
+    linkRows.push({ kind: "buttons", items: draft.buttons.slice(i, i + 5).map((b) => ({ label: fillVars(b.label, vars), emoji: b.emoji, style: 5 as const })) });
+  }
+  const allRows = [...linkRows, ...rows];
   const time = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 
   return (

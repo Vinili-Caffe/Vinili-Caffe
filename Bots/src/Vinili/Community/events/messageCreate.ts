@@ -429,7 +429,8 @@ export = {
       if (message.guild && !message.system) {
         try {
           const { maybeBlockDiscordHeadingMarkdown } = require("../../Moderation/services/discordHeadingMarkdownBlock") as typeof import("../../Moderation/services/discordHeadingMarkdownBlock");
-          if (await maybeBlockDiscordHeadingMarkdown(message)) return;
+          const { isAutomationEnabled } = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+          if ((await isAutomationEnabled(String(message.guild?.id || ""), "headingBlock").catch(() => true)) && (await maybeBlockDiscordHeadingMarkdown(message))) return;
         } catch (error) {
           logEventError(resolvedClient, "HEADING MARKDOWN BLOCK ERROR", error);
         }

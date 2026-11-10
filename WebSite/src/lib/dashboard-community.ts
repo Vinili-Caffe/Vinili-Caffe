@@ -16,6 +16,8 @@ export type MsgEmbed = {
   authorIconUrl: string;
 };
 export type MsgDraft = { content: string; embed: MsgEmbed; buttons: MsgButton[] };
+/** Promemoria a rotazione in chat (solo server principale) */
+export type ChatReminder = { id: string; name: string; enabled: boolean; draft: MsgDraft };
 
 export type SavedMessage = {
   id: string;
@@ -30,8 +32,15 @@ export type SavedMessage = {
   error: string | null;
   repeat?: "none" | "daily" | "weekly" | "monthly";
   repeatDeletePrevious?: boolean;
+  /** pannello del bot importato (es. "info") */
+  panelKey?: string | null;
+  /** già pubblicato dalla dashboard: il bot non lo ripubblica più */
+  managed?: boolean;
   updatedAt: number;
 };
+
+/** Automazione fissa del server principale (bump, voti…) */
+export type MainAutomation = { key: string; name: string; description: string; enabled: boolean };
 
 export type CustomCommand = {
   id: string;
@@ -286,6 +295,11 @@ export type Poll = {
 export const communityApi = {
   saveAutoResponder: (t: string, g: string, a: Partial<AutoResponder>) => call<{ autoResponder: AutoResponder }>(t, g, "/auto-responders", "PUT", a),
   deleteAutoResponder: (t: string, g: string, id: string) => call(t, g, `/auto-responders/${encodeURIComponent(id)}`, "DELETE"),
+  listMainAutomations: (t: string, g: string) => call<{ automations: MainAutomation[] }>(t, g, `/main-automations?_=${Date.now()}`),
+  setMainAutomation: (t: string, g: string, key: string, enabled: boolean) => call<{ automations: MainAutomation[] }>(t, g, "/main-automations", "PUT", { key, enabled }),
+  listChatReminders: (t: string, g: string) =>
+    call<{ items: ChatReminder[]; imported?: boolean; max?: number }>(t, g, `/chat-reminders?_=${Date.now()}`),
+  saveChatReminders: (t: string, g: string, items: ChatReminder[]) => call<{ items: ChatReminder[] }>(t, g, "/chat-reminders", "PUT", { items }),
   counterValues: (t: string, g: string) => call<{ values: Partial<Record<CounterType, number>> }>(t, g, `/counters/values?_=${Date.now()}`),
   createCounter: (t: string, g: string, c: { type: CounterType; template: string; categoryId?: string | null }) => call<{ counter: Counter }>(t, g, "/counters", "POST", c),
   updateCounter: (t: string, g: string, id: string, c: Partial<Counter>) => call<{ counter: Counter }>(t, g, `/counters/${encodeURIComponent(id)}`, "PATCH", c),

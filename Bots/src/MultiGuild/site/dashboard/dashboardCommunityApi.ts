@@ -75,7 +75,16 @@ async function sendOrEdit(client?, channelId?: string, prev?: { messageId: strin
       return { ok: true, messageId: String(m?.id || prev.messageId), edited: true };
     } catch (err) {
       const code = Number(err?.code || err?.rawError?.code);
-      if (code !== 10008) return { ok: false, message: discordError(err) };
+      if (code !== 10008 && code !== 50035) return { ok: false, message: discordError(err) };
+      if (code === 50035) {
+        try {
+          const m: any = await rest.post(Routes.channelMessages(channelId), { body });
+          await rest.delete(Routes.channelMessage(channelId, prev.messageId)).catch(() => null);
+          return { ok: true, messageId: String(m?.id || ""), edited: false };
+        } catch (err2) {
+          return { ok: false, message: discordError(err2) };
+        }
+      }
     }
   }
   try {
@@ -84,6 +93,30 @@ async function sendOrEdit(client?, channelId?: string, prev?: { messageId: strin
   } catch (err) {
     return { ok: false, message: discordError(err) };
   }
+}
+
+/* ───────────── pannelli del server principale ───────────── */
+
+/** Una volta sola: porta il pannello info del bot tra i messaggi della dashboard (stesso messaggio su Discord). */
+async function importMainPanels(client?, gid?: string) {
+  if (await T.wasPanelImported(gid, "info")) return;
+  const info = require("../../../Vinili/Community/discord/panels/info") as any;
+  const rows = await T.listMessages(gid, true);
+  if (rows.length >= T.LIMITS.messages) return;
+  const messageId = await info.currentInfoMessageId(gid).catch(() => null);
+  const channelId = String(info.INFO_CHANNEL_ID || "") || null;
+  const base = T.normalizeMessage({ name: "Pannello info", channelId, draft: info.buildInfoDraft() }, null);
+  const row = {
+    ...base,
+    panelKey: "info",
+    managed: false,
+    messageId: messageId || null,
+    sentChannelId: messageId ? channelId : null,
+    sentAt: messageId ? Date.now() : null,
+    status: (messageId ? "sent" : "draft") as any,
+  };
+  await T.writeMessages(gid, [row, ...rows]);
+  await T.markPanelImported(gid, "info");
 }
 
 /* ───────────── lettura ───────────── */
@@ -122,6 +155,7 @@ async function getDashboardCommunity(client?, token?, guildId?) {
     T.listRows("counters", gid, true),
     T.getServerLogs(gid, true),
   ]);
+  if (T.isMainGuild(gid)) await importMainPanels(client, gid).catch(() => null);
   const [messages, commands, rolePanels, welcome, pickers, guild, bot] = await Promise.all([
     T.listMessages(gid, true),
     T.listCommands(gid, true),
@@ -227,7 +261,17 @@ async function sendMessageNow(client?, token?, guildId?, id?, opts?) {
     await T.writeMessages(gid, rows);
     return fail(400, "send_failed", out.message);
   }
-  rows[idx] = { ...rows[idx], status: "sent", error: null, messageId: out.messageId, sentChannelId: msg.channelId, sentAt: Date.now(), scheduledAt: null };
+  rows[idx] = {
+    ...rows[idx],
+    status: "sent",
+    error: null,
+    messageId: out.messageId,
+    sentChannelId: msg.channelId,
+    sentAt: Date.now(),
+    scheduledAt: null,
+    /* pannello importato pubblicato dalla dashboard: da ora non lo ripubblica più il codice */
+    ...(rows[idx].panelKey ? { managed: true } : {}),
+  };
   await T.writeMessages(gid, rows);
   return { ok: true, status: 200, message: rows[idx], edited: out.edited };
 }

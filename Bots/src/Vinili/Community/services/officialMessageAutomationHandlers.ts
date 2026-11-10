@@ -6,4 +6,32 @@ const { handleVoteManagerMessage, processDiscadiaVote } = require("./officialMes
 const { handlePauseChannelMessage, handleSanzioniChannelMessage } = require("./officialMessageAutomationModChannels") as typeof import("./officialMessageAutomationModChannels");
 const { processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processAllRecentAutomationMessages } = require("./officialMessageAutomationStartup") as typeof import("./officialMessageAutomationStartup");
 
-export = { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handlePauseChannelMessage, handleSanzioniChannelMessage, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processAllRecentAutomationMessages, processDiscadiaVote };
+/* interruttori dalla dashboard (Risposte automatiche → Automazioni del server): spenta = il messaggio passa oltre */
+function gated<F extends (...args: any[]) => any>(key: string, fn: F): F {
+  return (async (...args: any[]) => {
+    const gid = String(args[0]?.guild?.id || args[0]?.guildId || "");
+    try {
+      const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+      if (gid && !(await T.isAutomationEnabled(gid, key))) return false;
+    } catch (_) {}
+    return fn(...args);
+  }) as unknown as F;
+}
+
+export = {
+  channelAllowsMedia,
+  getCachedOrFetchMember,
+  handleDisboardBump: gated("bumpDisboard", handleDisboardBump),
+  handleDiscadiaBump: gated("bumpDiscadia", handleDiscadiaBump),
+  handlePauseChannelMessage: gated("pauseChannel", handlePauseChannelMessage),
+  handleSanzioniChannelMessage: gated("sanzioniChannel", handleSanzioniChannelMessage),
+  handleMovieNightVoteMessage: gated("movieNight", handleMovieNightVoteMessage),
+  handleVoteManagerMessage: gated("votes", handleVoteManagerMessage),
+  hasMediaPermission,
+  isDiscordInviteLinkMessage,
+  isMediaMessage,
+  processRecentVoteChannelMessages,
+  processRecentCommandsChannelMessages,
+  processAllRecentAutomationMessages,
+  processDiscadiaVote,
+};

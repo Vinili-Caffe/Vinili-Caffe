@@ -209,6 +209,10 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     const X = () => require("./dashboardCommunityExtraApi") as typeof import("./dashboardCommunityExtraApi");
     app.put(`${base}/auto-responders`, wrap("ar put", (t, req) => X().putAutoResponder(client, t, gid(req), req.body)));
     app.delete(`${base}/auto-responders/:id`, wrap("ar del", (t, req) => X().deleteAutoResponder(client, t, gid(req), req.params?.id)));
+    app.get(`${base}/main-automations`, wrap("main automations", (t, req) => X().listMainAutomations(client, t, gid(req))));
+    app.put(`${base}/main-automations`, wrap("main automations put", (t, req) => X().setMainAutomation(client, t, gid(req), req.body)));
+    app.get(`${base}/chat-reminders`, wrap("chat reminders", (t, req) => X().listChatReminders(client, t, gid(req))));
+    app.put(`${base}/chat-reminders`, wrap("chat reminders put", (t, req) => X().putChatReminders(client, t, gid(req), req.body)));
     app.get(`${base}/counters/values`, wrap("counter values", (t, req) => X().counterValues(client, t, gid(req))));
     app.post(`${base}/counters`, wrap("counter new", (t, req) => X().createCounter(client, t, gid(req), req.body)));
     app.patch(`${base}/counters/:id`, wrap("counter patch", (t, req) => X().patchCounter(client, t, gid(req), req.params?.id, req.body)));
