@@ -11,9 +11,9 @@ const DAY = 24 * 60 * 60 * 1000;
 const cache = new Map();
 const CACHE_MS = 60_000;
 
-function dayKey(ms?) {
-  /* giorno in ora italiana, così i grafici combaciano con quello che vede lo staff */
-  return new Date(ms).toLocaleDateString("sv-SE", { timeZone: "Europe/Rome" });
+function dayKey(ms?, timeZone = "Europe/Rome") {
+  /* giorno nel fuso del server (impostazioni dashboard), così i grafici combaciano con quello che vede lo staff */
+  return new Date(ms).toLocaleDateString("sv-SE", { timeZone });
 }
 
 function isOpen(t?) {
@@ -26,7 +26,9 @@ async function getDashboardStats(client?, accessToken?, guildId?, query: Record<
   if (!access.ok) return access;
   const gid = access.guildId;
   const days = [7, 30, 90].includes(Number(query.days)) ? Number(query.days) : 30;
-  const key = `${gid}:${days}`;
+  const { getTenantTimezoneSync } = require("../../core/tenantGuildSettings") as typeof import("../../core/tenantGuildSettings");
+  const tz = getTenantTimezoneSync(gid);
+  const key = `${gid}:${days}:${tz}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.out;
 
@@ -36,7 +38,7 @@ async function getDashboardStats(client?, accessToken?, guildId?, query: Record<
 
   /* asse dei giorni: tutti presenti anche se a zero */
   const axis = [];
-  for (let i = days - 1; i >= 0; i -= 1) axis.push(dayKey(now - i * DAY));
+  for (let i = days - 1; i >= 0; i -= 1) axis.push(dayKey(now - i * DAY, tz));
   const series = () => Object.fromEntries(axis.map((d) => [d, 0]));
 
   /* ── ticket ── */
@@ -73,14 +75,14 @@ async function getDashboardStats(client?, accessToken?, guildId?, query: Record<
     const x = t?.closedAt ? new Date(t.closedAt).getTime() : 0;
     if (c >= since) {
       openedPeriod += 1;
-      const k = dayKey(c);
+      const k = dayKey(c, tz);
       if (k in opened) opened[k] += 1;
       const ty = String(t.ticketType || "supporto");
       types[ty] = (types[ty] || 0) + 1;
     } else if (c >= prevSince) openedPrev += 1;
     if (x >= since && !isOpen(t)) {
       closedPeriod += 1;
-      const k = dayKey(x);
+      const k = dayKey(x, tz);
       if (k in closed) closed[k] += 1;
       if (c && x > c) {
         durSum += x - c;
@@ -116,7 +118,7 @@ async function getDashboardStats(client?, accessToken?, guildId?, query: Record<
       if (!Number.isFinite(ms)) continue;
       if (ms >= since) {
         partnersPeriod += 1;
-        const k = dayKey(ms);
+        const k = dayKey(ms, tz);
         if (k in partnersDay) partnersDay[k] += 1;
         const uid = String(r.userId || "");
         if (uid) managers[uid] = (managers[uid] || 0) + 1;

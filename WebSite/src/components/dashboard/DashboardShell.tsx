@@ -460,7 +460,7 @@ function CreditsChip() {
     >
       <Coins className="size-4 text-ember" aria-hidden />
       <span className="tabular-nums">{credits.toLocaleString("it-IT")}</span>
-      <span className="hidden text-crema/60 sm:inline">crediti</span>
+      <span className="hidden text-crema/60 2xl:inline">crediti</span>
     </SmartLink>
   );
 }
@@ -509,13 +509,16 @@ function TopNavLinks({ guild, guildNav }: { guild: ShellGuild | null; guildNav?:
                 : undefined
             }
             aria-current={active ? "page" : undefined}
+            aria-label={n.label}
+            title={n.label}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold transition",
+              "inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold transition 2xl:px-2.5",
               active ? "bg-caramel/15 text-ember" : "text-crema/65 hover:bg-crema/[0.05] hover:text-crema",
             )}
           >
             <Icon className="size-4" aria-hidden />
-            {n.label}
+            {/* testo solo sugli schermi larghi, sotto resta l'icona (nome nel suggerimento) */}
+            <span className="hidden 2xl:inline">{n.label}</span>
           </SmartLink>
         );
       })}
@@ -524,7 +527,7 @@ function TopNavLinks({ guild, guildNav }: { guild: ShellGuild | null; guildNav?:
 }
 
 /** Menu account in alto a destra: nome utente, voci dell'account e ritorno al sito. */
-function AccountMenu({ guild, guildNav }: { guild: ShellGuild | null; guildNav?: GuildNav }) {
+function AccountMenu({ guild, guildNav, inline = false }: { guild: ShellGuild | null; guildNav?: GuildNav; inline?: boolean }) {
   const { user, ready, login, token } = useAuth();
   const pathname = usePathname() || "";
   const isDev = useSyncExternalStore(subscribeDev, getIsDev, () => null);
@@ -558,15 +561,18 @@ function AccountMenu({ guild, guildNav }: { guild: ShellGuild | null; guildNav?:
     if (open) setOpen(false);
   }
 
-  if (!ready) return <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-crema/[0.06] sm:w-36 sm:rounded-xl" />;
+  if (!ready) return <div className={cn("shrink-0 animate-pulse bg-crema/[0.06]", inline ? "h-12 w-full rounded-xl" : "h-9 w-9 rounded-full sm:w-36 sm:rounded-xl")} />;
   if (!user) {
     return (
       <button
         type="button"
         onClick={login}
-        className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#5865f2] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-110"
+        className={cn(
+          "inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#5865f2] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-110",
+          inline && "w-full justify-center py-2.5",
+        )}
       >
-        <LogIn className="size-4" aria-hidden /> <span className="hidden sm:inline">Accedi</span>
+        <LogIn className="size-4" aria-hidden /> <span className={inline ? undefined : "hidden sm:inline"}>Accedi</span>
       </button>
     );
   }
@@ -580,7 +586,7 @@ function AccountMenu({ guild, guildNav }: { guild: ShellGuild | null; guildNav?:
   const isActive = (href: string) => samePath(pathname, href) && !samePath(pathname, PERKS_HREF) && !items.some((o) => o.href.length > href.length && samePath(pathname, o.href));
 
   return (
-    <div ref={root} className="relative shrink-0">
+    <div ref={root} className={cn("relative", inline ? "w-full" : "shrink-0")}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -588,30 +594,35 @@ function AccountMenu({ guild, guildNav }: { guild: ShellGuild | null; guildNav?:
         aria-expanded={open}
         aria-label="Menu account"
         className={cn(
-          "flex items-center gap-2 rounded-xl p-1 ring-1 transition sm:py-1 sm:pl-1 sm:pr-2",
+          "flex items-center gap-2 rounded-xl ring-1 transition",
+          inline ? "w-full px-2 py-2" : "p-1 sm:py-1 sm:pl-1 sm:pr-2",
           open ? "bg-crema/[0.07] ring-sand/25" : "ring-sand/10 hover:bg-crema/[0.05] hover:ring-sand/20",
         )}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={avatarUrl(user, 64)} alt="" width={28} height={28} className="size-7 shrink-0 rounded-full" />
-        <span className="hidden min-w-0 text-left leading-tight sm:block">
-          <span className="block max-w-[9rem] truncate text-[0.8rem] font-semibold text-crema">{displayName(user)}</span>
-          <span className="block max-w-[9rem] truncate text-[0.68rem] text-crema/55">@{user.username}</span>
+        <img src={avatarUrl(user, 64)} alt="" width={28} height={28} className={cn("shrink-0 rounded-full", inline ? "size-8" : "size-7")} />
+        <span className={cn("min-w-0 text-left leading-tight", inline ? "block flex-1" : "hidden sm:block")}>
+          <span className={cn("block truncate text-[0.8rem] font-semibold text-crema", !inline && "max-w-[9rem]")}>{displayName(user)}</span>
+          <span className={cn("block truncate text-[0.68rem] text-crema/55", !inline && "max-w-[9rem]")}>@{user.username}</span>
         </span>
-        <ChevronDown className={cn("hidden size-3.5 text-crema/50 transition sm:block", open && "rotate-180")} aria-hidden />
+        <ChevronDown className={cn("size-3.5 text-crema/50 transition", inline ? "rotate-180" : "hidden sm:block", open && (inline ? "rotate-0" : "rotate-180"))} aria-hidden />
       </button>
 
       <AnimatePresence>
         {open ? (
           <motion.div
             role="menu"
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            initial={inline ? { opacity: 0, y: 6 } : { opacity: 0, y: -6, scale: 0.98 }}
+            animate={inline ? { opacity: 1, y: 0 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={inline ? { opacity: 0, y: 4 } : { opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right overflow-hidden rounded-2xl bg-roast p-1.5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.75)] ring-1 ring-sand/20"
+            className={cn(
+              "z-50 overflow-hidden rounded-2xl bg-roast p-1.5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.75)] ring-1 ring-sand/20",
+              /* nel menu laterale si apre sopra il pulsante, che sta in fondo */
+              inline ? "absolute inset-x-0 bottom-full mb-2 max-h-[70vh] origin-bottom overflow-y-auto" : "absolute right-0 top-full mt-2 w-64 origin-top-right",
+            )}
           >
-            <div className="flex items-center gap-2.5 px-2.5 pb-2.5 pt-1.5">
+            <div className={cn("flex items-center gap-2.5 px-2.5 pb-2.5 pt-1.5", inline && "hidden")}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={avatarUrl(user, 64)} alt="" width={36} height={36} className="size-9 shrink-0 rounded-full" />
               <span className="min-w-0">
@@ -619,7 +630,7 @@ function AccountMenu({ guild, guildNav }: { guild: ShellGuild | null; guildNav?:
                 <span className="block truncate text-xs text-crema/55">@{user.username}</span>
               </span>
             </div>
-            <div className="border-t border-sand/10 pt-1.5">
+            <div className={cn("pt-1.5", !inline && "border-t border-sand/10")}>
               <p className="px-2.5 pb-1 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Account</p>
               {items.map((n) => {
                 const Icon = n.icon;
@@ -963,7 +974,7 @@ export function DashboardShell({
                 onClick={() => setOpen(false)}
               />
               <motion.aside
-                className="fixed inset-y-0 left-0 z-50 w-[17rem] max-w-[85vw] border-r border-sand/12 bg-roast shadow-2xl lg:hidden"
+                className="fixed inset-y-0 left-0 z-50 flex w-full flex-col bg-roast shadow-2xl sm:w-[20rem] sm:border-r sm:border-sand/12 lg:hidden"
                 initial={{ x: "-100%" }}
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
@@ -978,7 +989,17 @@ export function DashboardShell({
                 >
                   <X className="size-4.5" />
                 </button>
-                <Sidebar guild={guild} guildNav={guildNav} onNavigate={() => setOpen(false)} />
+                <div className="min-h-0 flex-1">
+                  <Sidebar guild={guild} guildNav={guildNav} onNavigate={() => setOpen(false)} />
+                </div>
+                <div
+                  className="relative shrink-0 border-t border-sand/10 p-3"
+                  onClickCapture={(e) => {
+                    if ((e.target as HTMLElement).closest("a")) setOpen(false);
+                  }}
+                >
+                  <AccountMenu guild={guild} guildNav={guildNav} inline />
+                </div>
               </motion.aside>
             </>
           ) : null}
@@ -995,24 +1016,23 @@ export function DashboardShell({
             >
               <Menu className="size-[1.1rem]" />
             </button>
+            {/* il server è già nella barra laterale: qui solo Dashboard › pagina (su telefono solo la pagina) */}
             <nav aria-label="Percorso" className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
-              <SmartLink href={page("/dashboard/")} className="shrink-0 text-crema/60 transition hover:text-crema">
+              <SmartLink href={page("/dashboard/")} className="hidden shrink-0 text-crema/60 transition hover:text-crema sm:inline">
                 Dashboard
               </SmartLink>
-              {guild ? (
-                <>
-                  <ChevronRight className="size-3.5 shrink-0 text-crema/25" aria-hidden />
-                  <span className="max-w-[10rem] truncate text-crema/60 sm:max-w-[16rem]">{guild.name}</span>
-                </>
-              ) : null}
-              <ChevronRight className="size-3.5 shrink-0 text-crema/25" aria-hidden />
-              <span className="truncate font-semibold text-crema">{crumb || title}</span>
+              <ChevronRight className="hidden size-3.5 shrink-0 text-crema/25 sm:block" aria-hidden />
+              <span className="min-w-0 truncate font-semibold text-crema" title={guild ? `${guild.name} · ${crumb || title}` : undefined}>
+                {crumb || title}
+              </span>
             </nav>
             <TopNavLinks guild={guild} guildNav={guildNav} />
             <CreditsChip />
             <LangMenu />
             <NotificationsBell />
-            <AccountMenu guild={guild} guildNav={guildNav} />
+            <div className="hidden sm:block">
+              <AccountMenu guild={guild} guildNav={guildNav} />
+            </div>
           </header>
 
           <main className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">

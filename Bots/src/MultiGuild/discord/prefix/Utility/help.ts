@@ -1,7 +1,6 @@
 const { executeTenantHelp } = require("../../../utils/tenantHelp") as typeof import("../../../utils/tenantHelp");
-const { isViniliFullFeatureGuild } = require("../../../core/guildFeatureScope") as typeof import("../../../core/guildFeatureScope");
 
-/** +help solo tenant (partnership). Sul main Vinili non risponde (wiki sul sito). */
+/** +help: guida ai comandi, uguale su tutti i server (main compreso). */
 export = {
   name: "help",
   allowEmptyArgs: true,
@@ -10,7 +9,6 @@ export = {
   examples: ["+help", "+help setup", "+help points"],
   async execute(message?, args?) {
     if (!message?.guild || !message?.member) return;
-    if (isViniliFullFeatureGuild(message.guild.id)) return;
     return executeTenantHelp(message, args);
   },
 };

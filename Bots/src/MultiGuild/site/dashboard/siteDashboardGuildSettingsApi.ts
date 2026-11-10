@@ -173,6 +173,23 @@ async function resolveGuildOrFail(client?, guildId?) {
   );
 }
 
+/** Proprietario del server: ha sempre accesso alla dashboard, la mostra come voce fissa. */
+async function readGuildOwner(client?, guildId?) {
+  const gid = String(guildId || "");
+  const rest = client?._rest || client?.rest;
+  let ownerId = String(client?.guilds?.cache?.get?.(gid)?.ownerId || "");
+  if (!ownerId && rest) {
+    const g: any = await rest.get(Routes.guild(gid)).catch(() => null);
+    ownerId = String(g?.owner_id || "");
+  }
+  if (!ownerId) return null;
+  let label = ownerId;
+  const cached = client?.users?.cache?.get?.(ownerId);
+  const u: any = cached || (rest ? await rest.get(Routes.user(ownerId)).catch(() => null) : null);
+  if (u) label = String(u.globalName || u.global_name || u.username || ownerId);
+  return { id: ownerId, label };
+}
+
 async function readBotGuildIdentity(client?, guildId?) {
   const botId = String(client?.user?.id || "").trim();
   let nickname = null;
@@ -332,6 +349,7 @@ async function getDashboardGuildSettings(client?, accessToken?, guildId?) {
     identityHasCustom(savedIdentity);
 
   let pickers = { textChannels: [], categories: [], roles: [] };
+  const guildOwner = await readGuildOwner(client, access.guildId).catch(() => null);
   try {
     pickers = await listGuildPickerData(client, access.guildId);
   } catch (err) {
@@ -350,7 +368,10 @@ async function getDashboardGuildSettings(client?, accessToken?, guildId?) {
       dashboardRoleId: snapshot.dashboardRoleId,
       dashboardRoleIds: Array.isArray(snapshot.dashboardRoleIds) ? snapshot.dashboardRoleIds : [],
       dashboardUserIds: Array.isArray(snapshot.dashboardUserIds) ? snapshot.dashboardUserIds : [],
+      guildOwner,
       updatesChannelId: snapshot.updatesChannelId,
+      language: snapshot.language ?? null,
+      timezone: snapshot.timezone || "Europe/Rome",
       boards: snapshot.boards || {
         enabled: false,
         mode: "shared",
@@ -466,6 +487,18 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
     const savedUsers: any = await setTenantDashboardUsers(gid, userIds);
     if (!savedUsers.ok) {
       return fail(400, savedUsers.reason || "persist_failed", reasonToMessage(savedUsers.reason));
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(patch, "language") || Object.prototype.hasOwnProperty.call(patch, "timezone")) {
+    const { setTenantLocaleSettings } = require("../../core/tenantGuildSettings") as typeof import("../../core/tenantGuildSettings");
+    const localePatch: { language?: unknown; timezone?: unknown } = {};
+    if (Object.prototype.hasOwnProperty.call(patch, "language")) localePatch.language = patch.language;
+    if (Object.prototype.hasOwnProperty.call(patch, "timezone")) localePatch.timezone = patch.timezone;
+    const saved: any = await setTenantLocaleSettings(gid, localePatch);
+    if (!saved.ok) {
+      const msg = saved.reason === "invalid_language" ? "Lingua non valida." : saved.reason === "invalid_timezone" ? "Fuso orario non valido." : reasonToMessage(saved.reason);
+      return fail(400, saved.reason || "persist_failed", msg);
     }
   }
 
@@ -638,6 +671,8 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
       dashboardRoleIds: Array.isArray(snapshot.dashboardRoleIds) ? snapshot.dashboardRoleIds : [],
       dashboardUserIds: Array.isArray(snapshot.dashboardUserIds) ? snapshot.dashboardUserIds : [],
       updatesChannelId: snapshot.updatesChannelId,
+      language: snapshot.language ?? null,
+      timezone: snapshot.timezone || "Europe/Rome",
       boards: snapshot.boards || {
         enabled: false,
         mode: "shared",

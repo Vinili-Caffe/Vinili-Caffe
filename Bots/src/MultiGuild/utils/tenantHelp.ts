@@ -215,7 +215,8 @@ function chunkEntries(entries?, size?) {
 
 function resolveTenantHelpFeatures(guildId?) {
   const access = resolveGuildAccess(guildId);
-  if (access?.protected) return null;
+  /* server principale/protetti: hanno tutte le funzioni, quindi la guida le mostra tutte */
+  if (access?.protected) return Object.fromEntries(CATEGORY_ORDER.map((c) => [c, true]));
   if (!access?.allowed) return {};
   const features = access.entry?.features && typeof access.entry.features === "object"
     ? access.entry.features

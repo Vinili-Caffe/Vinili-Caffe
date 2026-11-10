@@ -25,6 +25,8 @@ const SKIP = [
 const FIELD_LABELS: Record<string, string> = {
   prefix: "prefisso",
   updatesChannelId: "canale aggiornamenti",
+  language: "lingua del server",
+  timezone: "fuso orario",
   dashboardRoleIds: "ruoli dashboard",
   dashboardUserIds: "utenti dashboard",
   modLogsChannelId: "canale mod logs",

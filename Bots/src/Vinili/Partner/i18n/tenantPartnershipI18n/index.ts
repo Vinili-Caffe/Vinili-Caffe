@@ -67,7 +67,13 @@ function resolveLanguageFromPrefs(prefs?, discordLocale?, guildPreferredLocale?)
 
 async function resolveTenantLanguage(guildId?, userId?, options: Record<string, any> = {}) {
   const discordLocale = resolveDiscordLocale({ ...options, userId });
-  const guildPreferredLocale = options.guildPreferredLocale ?? null;
+  let guildPreferredLocale = options.guildPreferredLocale ?? null;
+  /* lingua impostata dalla dashboard: prende il posto di quella del server Discord */
+  try {
+    const { getTenantLanguageSync } = require("../../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../../MultiGuild/core/tenantGuildSettings");
+    const chosen = guildId ? getTenantLanguageSync(guildId) : null;
+    if (chosen) guildPreferredLocale = chosen;
+  } catch (_) {}
   if (!guildId || !userId) {
     return (
       mapDiscordLocaleToTenantLanguage(guildPreferredLocale) ||

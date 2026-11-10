@@ -99,6 +99,11 @@ function resolveTicketBotLanguage(guildId?, guild = null) {
       return normalizeTenantLanguage(raw);
     }
   } catch (_) {}
+  try {
+    const { getTenantLanguageSync } = require("../../core/tenantGuildSettings") as typeof import("../../core/tenantGuildSettings");
+    const chosen = getTenantLanguageSync(guildId);
+    if (chosen) return normalizeTenantLanguage(chosen);
+  } catch (_) {}
   const fromGuild = mapDiscordLocaleToTenantLanguage(guild?.preferredLocale);
   if (fromGuild) return fromGuild;
   return DEFAULT_LANGUAGE;

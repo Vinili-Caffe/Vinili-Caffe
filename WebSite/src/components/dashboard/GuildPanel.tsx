@@ -32,6 +32,7 @@ import {
   UserPlus,
   Users,
   X,
+  Languages,
 } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
 import { confirmDialog } from "@/components/ui";
@@ -75,8 +76,6 @@ import dynamic from "next/dynamic";
 import { DashboardShell, type GuildSectionId } from "./DashboardShell";
 import {
   COMMAND_SECTION_TABS,
-  GUILD_MODULE_SECTIONS,
-  GUILD_SERVER_SECTIONS,
   defaultModuleTab,
   findGuildSection,
   isClassificaSectionTab,
@@ -105,7 +104,6 @@ import {
   dashPrimaryBtn,
   dashSecondaryBtn,
   discordBtn,
-  miniBtn as miniBtnCls,
 } from "./guild/bits";
 
 const CommandAclEditor = dynamic(() => import("./guild/CommandAcl").then((m) => m.CommandAcl), {
@@ -762,6 +760,53 @@ function BotIdentityCard({
   );
 }
 
+/* lingue dei messaggi del bot (stesse del bot) */
+const SERVER_LANGUAGES = [
+  ["it", "🇮🇹 Italiano"],
+  ["en", "🇬🇧 English"],
+  ["es", "🇪🇸 Español"],
+  ["fr", "🇫🇷 Français"],
+  ["de", "🇩🇪 Deutsch"],
+  ["pt", "🇧🇷 Português"],
+  ["ru", "🇷🇺 Русский"],
+  ["zh", "🇨🇳 中文"],
+  ["ja", "🇯🇵 日本語"],
+  ["ko", "🇰🇷 한국어"],
+  ["ar", "🇸🇦 العربية"],
+  ["nl", "🇳🇱 Nederlands"],
+  ["pl", "🇵🇱 Polski"],
+  ["tr", "🇹🇷 Türkçe"],
+  ["hi", "🇮🇳 हिन्दी"],
+  ["id", "🇮🇩 Indonesia"],
+  ["uk", "🇺🇦 Українська"],
+  ["vi", "🇻🇳 Tiếng Việt"],
+  ["ro", "🇷🇴 Română"],
+  ["sv", "🇸🇪 Svenska"],
+].map(([value, label]) => ({ value, label }));
+
+/* fusi orari IANA del browser, con lo scarto da UTC (es. "Europe/Rome · UTC+1") */
+function timezoneOptions(current: string) {
+  let zones: string[] = [];
+  try {
+    zones = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.("timeZone") || [];
+  } catch {
+    zones = [];
+  }
+  if (!zones.length) zones = ["Europe/Rome", "Europe/London", "Europe/Madrid", "Europe/Paris", "Europe/Berlin", "America/New_York", "America/Los_Angeles", "Asia/Tokyo", "UTC"];
+  if (!zones.includes("UTC")) zones = [...zones, "UTC"];
+  if (current && !zones.includes(current)) zones = [current, ...zones];
+  const now = new Date();
+  return zones.map((z) => {
+    let off = "";
+    try {
+      off = new Intl.DateTimeFormat("en-US", { timeZone: z, timeZoneName: "shortOffset" }).formatToParts(now).find((p) => p.type === "timeZoneName")?.value || "";
+    } catch {
+      off = "";
+    }
+    return { value: z, label: off ? `${z.replace(/_/g, " ")} · ${off.replace("GMT", "UTC")}` : z.replace(/_/g, " ") };
+  });
+}
+
 function SettingsSection({
   guildId,
   token,
@@ -769,9 +814,6 @@ function SettingsSection({
   pickers,
   error,
   canCustomize,
-  premiumActive,
-  premiumUntil,
-  isProtectedGuild,
   onUpdated,
   onToast,
 }: {
@@ -789,6 +831,8 @@ function SettingsSection({
 }) {
   const [prefix, setPrefix] = useState(settings?.prefix ?? "+");
   const [updatesChannelId, setUpdatesChannelId] = useState(settings?.updatesChannelId ?? "");
+  const [language, setLanguage] = useState(settings?.language ?? "");
+  const [timezone, setTimezone] = useState(settings?.timezone ?? "Europe/Rome");
   const [dashboardRoleIds, setDashboardRoleIds] = useState<string[]>(settings?.dashboardRoleIds ?? []);
   const [dashboardUserIds, setDashboardUserIds] = useState<string[]>(settings?.dashboardUserIds ?? []);
   const [userLabels, setUserLabels] = useState<Record<string, string>>({});
@@ -802,6 +846,8 @@ function SettingsSection({
     if (!settings) return;
     setPrefix(settings.prefix);
     setUpdatesChannelId(settings.updatesChannelId ?? "");
+    setLanguage(settings.language ?? "");
+    setTimezone(settings.timezone ?? "Europe/Rome");
     setDashboardRoleIds(settings.dashboardRoleIds ?? []);
     setDashboardUserIds(settings.dashboardUserIds ?? []);
   }, [settings]);
@@ -912,9 +958,22 @@ function SettingsSection({
   const prefixLocked = settings.prefixLocked;
   const updatesLocked = settings.updatesLocked;
   const rolesLocked = settings.rolesLocked;
+  /* ruoli con Amministratore: hanno già accesso, si mostrano spuntati e fissi */
+  const autoRoleIds = pickers.roles
+    .filter((r) => {
+      try {
+        const p = BigInt(r.permissions || "0");
+        return (p & BigInt(8)) !== BigInt(0);
+      } catch {
+        return false;
+      }
+    })
+    .map((r) => r.id);
   const roleOptions = pickers.roles
-    .filter((r) => !r.managed)
-    .map((r) => ({ id: r.id, label: r.name }));
+    .filter((r) => !r.managed || autoRoleIds.includes(r.id))
+    .map((r) => ({ id: r.id, label: autoRoleIds.includes(r.id) ? `${r.name} · automatico` : r.name }))
+    .sort((a, b) => Number(autoRoleIds.includes(b.id)) - Number(autoRoleIds.includes(a.id)));
+  const guildOwner = settings.guildOwner;
 
   const saveRoles = async (next: string[]) => {
     setDashboardRoleIds(next);
@@ -932,40 +991,8 @@ function SettingsSection({
     if (!ok) setDashboardUserIds(settings.dashboardUserIds ?? []);
   };
 
-  const premiumUntilLabel =
-    premiumUntil && premiumUntil > Date.now()
-      ? new Date(premiumUntil).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })
-      : null;
-
   return (
     <div className="space-y-4">
-      <Panel
-        icon={<Diamond />}
-        title="Premium"
-        description={
-          isProtectedGuild
-            ? "Server ufficiale: le funzioni Premium sono sempre disponibili."
-            : premiumActive
-              ? premiumUntilLabel
-                ? `Attivo su questo server fino al ${premiumUntilLabel}.`
-                : "Attivo su questo server."
-              : "Sblocca personalizzazione del bot, bacheca avanzata e altro."
-        }
-        aside={<PremiumBadge active={premiumActive || isProtectedGuild} />}
-      >
-        {premiumActive || isProtectedGuild ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <SmartLink href={dashHref("/dashboard/premium/")} className={dashSecondaryBtn}>
-              Gestisci Premium
-            </SmartLink>
-            <SmartLink href={dashHref("/dashboard/premium/vantaggi/")} className={miniBtnCls}>
-              Cosa include
-            </SmartLink>
-          </div>
-        ) : (
-          <PremiumLock feature="Le funzioni avanzate di questo server" note="Attiva Premium con i crediti per nickname, avatar, banner e altro." />
-        )}
-      </Panel>
       {settings.botUsername ? (
         <BotIdentityCard settings={settings} canCustomize={canCustomize} saving={saving} onSave={save} onToast={onToast} />
       ) : null}
@@ -1028,6 +1055,42 @@ function SettingsSection({
                   : "Inoltro degli aggiornamenti dal canale news di Vinili."}
               </span>
             </label>
+
+            <label className="block">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-crema/70">
+                <Languages className="size-3.5 text-crema/60" aria-hidden /> Lingua del server
+              </span>
+              <Select
+                value={language}
+                disabled={saving}
+                onChange={async (next) => {
+                  setLanguage(next);
+                  const ok = await save({ language: next || null }, "Lingua salvata.");
+                  if (!ok) setLanguage(settings.language ?? "");
+                }}
+                className={cn(fieldCls, "mt-1.5")}
+                options={[{ value: "", label: "Automatica (lingua del server Discord)" }, ...SERVER_LANGUAGES]}
+              />
+              <span className="mt-1 block text-xs text-crema/50">Lingua dei messaggi del bot su questo server.</span>
+            </label>
+
+            <label className="block">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-crema/70">
+                <Clock3 className="size-3.5 text-crema/60" aria-hidden /> Fuso orario
+              </span>
+              <Select
+                value={timezone}
+                disabled={saving}
+                onChange={async (next) => {
+                  setTimezone(next);
+                  const ok = await save({ timezone: next }, "Fuso orario salvato.");
+                  if (!ok) setTimezone(settings.timezone ?? "Europe/Rome");
+                }}
+                className={cn(fieldCls, "mt-1.5")}
+                options={timezoneOptions(timezone)}
+              />
+              <span className="mt-1 block text-xs text-crema/50">Usato per orari e giorni delle statistiche.</span>
+            </label>
           </div>
         </Panel>
 
@@ -1041,17 +1104,18 @@ function SettingsSection({
               <p className="text-xs font-semibold text-crema/70">Ruoli</p>
               <MultiCheck
                 options={roleOptions}
-                selected={dashboardRoleIds}
+                selected={[...new Set([...autoRoleIds, ...dashboardRoleIds])]}
+                lockedIds={autoRoleIds}
                 onChange={(ids) => {
                   if (rolesLocked || saving) return;
-                  void saveRoles(ids);
+                  void saveRoles(ids.filter((id) => !autoRoleIds.includes(id)));
                 }}
                 empty="Nessun ruolo disponibile."
               />
               {rolesLocked ? (
                 <p className="mt-1 text-xs text-crema/50">Bloccato su questo server.</p>
               ) : (
-                <p className="mt-1 text-xs text-crema/50">Chi ha uno di questi ruoli può usare la dashboard.</p>
+                <p className="mt-1 text-xs text-crema/50">Chi ha uno di questi ruoli può usare la dashboard. Quelli con Amministratore sono inclusi in automatico.</p>
               )}
             </div>
             <div>
@@ -1089,11 +1153,22 @@ function SettingsSection({
                   </ul>
                 ) : null}
               </label>
-              {dashboardUserIds.length === 0 ? (
+              {guildOwner ? (
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  <li
+                    className="inline-flex items-center gap-1.5 rounded-full bg-caramel/12 px-3 py-1 text-sm text-crema ring-1 ring-caramel/30"
+                    title="Il proprietario del server ha sempre accesso"
+                  >
+                    <span className="max-w-[12rem] truncate" translate="no">{guildOwner.label}</span>
+                    <span className="text-xs text-crema/55">· proprietario</span>
+                  </li>
+                </ul>
+              ) : null}
+              {dashboardUserIds.filter((id) => id !== guildOwner?.id).length === 0 ? (
                 <p className="mt-2 text-xs text-crema/60">Nessuna persona aggiunta singolarmente.</p>
               ) : (
                 <ul className="mt-2 flex flex-wrap gap-1.5">
-                  {dashboardUserIds.map((id) => (
+                  {dashboardUserIds.filter((id) => id !== guildOwner?.id).map((id) => (
                     <li
                       key={id}
                       className="inline-flex items-center gap-1 rounded-full bg-crema/[0.07] py-1 pl-3 pr-1 text-sm text-crema ring-1 ring-sand/15"
@@ -1959,55 +2034,8 @@ export function GuildPanel() {
               </StateCard>
             ) : (
               <>
-                {/* telefono/tablet: chip sezioni (su pc c’è la sidebar SERVER / MODULI) */}
+                {/* telefono/tablet: sotto-schede della sezione (le sezioni stanno nel menu laterale) */}
                 <div className="space-y-2 lg:hidden">
-                  <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5" role="tablist" aria-label="Server">
-                    {GUILD_SERVER_SECTIONS.map((s) => {
-                      const Icon = s.icon;
-                      const on = section === s.id;
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          role="tab"
-                          aria-selected={on}
-                          onClick={() => setSection(s.id)}
-                          className={cn(
-                            "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
-                            on ? "bg-caramel/15 text-ember ring-1 ring-caramel/30" : "bg-roast/70 text-crema/55 ring-1 ring-sand/10",
-                          )}
-                        >
-                          <Icon className="size-4" aria-hidden />
-                          {s.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5" role="tablist" aria-label="Moduli">
-                    {GUILD_MODULE_SECTIONS.map((s) => {
-                      const Icon = s.icon;
-                      const on = section === s.id;
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          role="tab"
-                          aria-selected={on}
-                          onClick={() => setSection(s.id)}
-                          className={cn(
-                            "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
-                            on ? "bg-caramel/15 text-ember ring-1 ring-caramel/30" : "bg-roast/70 text-crema/55 ring-1 ring-sand/10",
-                          )}
-                        >
-                          <Icon className="size-4" aria-hidden />
-                          {s.label}
-                          {s.id === "tickets" && tickets?.overview.unclaimed ? (
-                            <span className="rounded bg-caramel px-1 text-[0.6rem] font-bold tabular-nums text-ink">{tickets.overview.unclaimed}</span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
                   {activeSectionTabs.length > 0 ? (
                     <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-0.5" role="tablist" aria-label={`Sezioni ${sectionMeta.label}`}>
                       {activeSectionTabs.map((t) => {

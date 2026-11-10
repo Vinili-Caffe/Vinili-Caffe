@@ -87,7 +87,20 @@ function cacheSet(key?, ids?) {
 
 async function collectIdsForRoleIds(guild?, roleIds?) {
   const ids = new Set();
-  const roles = [...new Set((roleIds || []).map((id?) => String(id || "").trim()).filter(Boolean))];
+  /* ruoli ricreati in emergenza: chi ha ancora l'ID vecchio (o il nuovo) va contato lo stesso */
+  let expand = (id: string) => [id];
+  try {
+    const { expandRemappedRoleIds } = require("../../Config/emergencyRoleIdRemap") as typeof import("../../Config/emergencyRoleIdRemap");
+    expand = (id: string) => (expandRemappedRoleIds(id) as string[]).map(String);
+  } catch (_) {}
+  const roles = [
+    ...new Set(
+      (roleIds || [])
+        .map((id?) => String(id || "").trim())
+        .filter(Boolean)
+        .flatMap((id) => expand(id)),
+    ),
+  ];
   for (const roleId of roles) {
     const members = await collectHumanMemberIdsWithRole(guild, roleId, {
       logTag: "[siteStaffWorkflowNotifications]",
@@ -137,6 +150,12 @@ async function getInboxRecipientUserIds(guild?, queue?, opts: Record<string, any
     const alwaysRoles = getResocontoButtonAllowedRoleIds({ kind: kindHint, roleId: roleIdHint });
     const extras = await collectIdsForRoleIds(guild, alwaysRoles);
     ids = [...new Set([...reviewers, ...extras])];
+  }
+
+  /* il proprietario del server vede sempre le richieste dello staff */
+  if (q === "pause" || q === "appelli" || q === "revisione") {
+    const ownerId = String(guild.ownerId || "").trim();
+    if (/^\d{16,22}$/.test(ownerId)) ids.push(ownerId);
   }
 
   ids = [...new Set(ids.map((id?) => String(id || "").trim()).filter((id?) => /^\d{16,22}$/.test(id)))];

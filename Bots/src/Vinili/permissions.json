@@ -85,9 +85,6 @@
         "channels.highCmds"
       ]
     },
-    "profile": [
-      "roles.PartnerManager"
-    ],
     "description": [
       "roles.PartnerManager"
     ],
@@ -112,16 +109,6 @@
           "roles.PartnerManager"
         ]
       }
-    },
-    "help": {
-      "roles": [
-        "roles.Member"
-      ],
-      "channels": [
-        "channels.commands",
-        "channels.staffCmds",
-        "channels.highCmds"
-      ]
     },
     "info": {
       "roles": [

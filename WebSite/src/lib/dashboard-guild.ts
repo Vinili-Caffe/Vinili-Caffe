@@ -99,10 +99,16 @@ export type GuildSettings = {
   prefix: string;
   prefixMaxLength: number;
   updatesChannelId: string | null;
+  /** Lingua dei messaggi del bot (null = quella del server Discord) */
+  language: string | null;
+  /** Fuso orario IANA del server (predefinito Europe/Rome) */
+  timezone: string;
   /** Ruoli che possono usare la dashboard anche senza Gestisci server */
   dashboardRoleIds: string[];
   /** Utenti singoli abilitati alla dashboard */
   dashboardUserIds: string[];
+  /** Proprietario del server (accesso sempre, mostrato come voce fissa) */
+  guildOwner: { id: string; label: string } | null;
   boards: GuildBoards;
   botNickname: string | null;
   botAvatarUrl: string | null;
@@ -518,6 +524,8 @@ function mapSettings(data: Record<string, unknown>): {
       prefix: String(s.prefix || DEFAULT_PREFIX) || DEFAULT_PREFIX,
       prefixMaxLength: Number.isFinite(maxLen) && maxLen > 0 ? maxLen : PREFIX_MAX_LEN,
       updatesChannelId: s.updatesChannelId ? String(s.updatesChannelId) : null,
+      language: typeof s.language === "string" && /^[a-z]{2}$/.test(s.language) ? s.language : null,
+      timezone: typeof s.timezone === "string" && s.timezone.trim() ? s.timezone.trim() : "Europe/Rome",
       dashboardRoleIds: Array.isArray(s.dashboardRoleIds)
         ? s.dashboardRoleIds.map((id) => String(id || "").trim()).filter(Boolean)
         : s.dashboardRoleId
@@ -526,6 +534,11 @@ function mapSettings(data: Record<string, unknown>): {
       dashboardUserIds: Array.isArray(s.dashboardUserIds)
         ? s.dashboardUserIds.map((id) => String(id || "").trim()).filter(Boolean)
         : [],
+      guildOwner: (() => {
+        const o = s.guildOwner as { id?: unknown; label?: unknown } | null | undefined;
+        const id = o && typeof o === "object" ? String(o.id || "").trim() : "";
+        return /^\d{16,22}$/.test(id) ? { id, label: String(o?.label || id) } : null;
+      })(),
       boards: mapBoards(s.boards),
       botNickname: s.botNickname != null ? String(s.botNickname) : null,
       botAvatarUrl: s.botAvatarUrl ? String(s.botAvatarUrl) : null,

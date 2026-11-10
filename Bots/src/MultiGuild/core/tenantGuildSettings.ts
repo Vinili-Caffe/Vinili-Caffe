@@ -512,6 +512,69 @@ function getTenantCommandAclMapSync(guildId?) {
   }
 }
 
+/* lingua del server (codice a 2 lettere) e fuso orario IANA; null = automatico/predefinito */
+function normalizeServerLanguage(value?) {
+  const v = String(value ?? "").trim().toLowerCase();
+  return /^[a-z]{2}$/.test(v) ? v : null;
+}
+
+function normalizeServerTimezone(value?) {
+  const v = String(value ?? "").trim().slice(0, 64);
+  if (!v) return null;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: v });
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+function getTenantLanguageSync(guildId?) {
+  const gid = normalizeGuildId(guildId);
+  const row = gid ? settingsCache[gid] : null;
+  return row && typeof row === "object" ? normalizeServerLanguage(row.lng) : null;
+}
+
+const DEFAULT_SERVER_TIMEZONE = "Europe/Rome";
+function getTenantTimezoneSync(guildId?) {
+  const gid = normalizeGuildId(guildId);
+  const row = gid ? settingsCache[gid] : null;
+  return (row && typeof row === "object" ? normalizeServerTimezone(row.tz) : null) || DEFAULT_SERVER_TIMEZONE;
+}
+
+async function setTenantLocaleSettings(guildId?, patch: { language?: unknown; timezone?: unknown } = {}) {
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(patch, k);
+  let language: string | null | undefined;
+  let timezone: string | null | undefined;
+  if (has("language")) {
+    const raw = String(patch.language ?? "").trim();
+    language = raw && raw !== "auto" ? normalizeServerLanguage(raw) : null;
+    if (raw && raw !== "auto" && !language) return { ok: false, reason: "invalid_language" };
+  }
+  if (has("timezone")) {
+    const raw = String(patch.timezone ?? "").trim();
+    timezone = raw ? normalizeServerTimezone(raw) : null;
+    if (raw && !timezone) return { ok: false, reason: "invalid_timezone" };
+  }
+  const result = await persistGuildRow(
+    guildId,
+    (row?) => {
+      if (language !== undefined) {
+        if (language) row.lng = language;
+        else delete row.lng;
+      }
+      if (timezone !== undefined) {
+        if (timezone && timezone !== DEFAULT_SERVER_TIMEZONE) row.tz = timezone;
+        else delete row.tz;
+      }
+      return row;
+    },
+    { allowProtected: true },
+  );
+  if (!result.ok) return result;
+  return { ok: true };
+}
+
 function getTenantSettingsSnapshotSync(guildId?) {
   const gid = normalizeGuildId(guildId);
   if (!gid) {
@@ -521,6 +584,8 @@ function getTenantSettingsSnapshotSync(guildId?) {
       dashboardRoleIds: [],
       dashboardUserIds: [],
       updatesChannelId: null,
+      language: null,
+      timezone: DEFAULT_SERVER_TIMEZONE,
       commands: {},
       boards: getTenantBoardsSync(null),
     };
@@ -533,6 +598,8 @@ function getTenantSettingsSnapshotSync(guildId?) {
     dashboardRoleIds,
     dashboardUserIds,
     updatesChannelId: getTenantUpdatesChannelIdSync(gid),
+    language: getTenantLanguageSync(gid),
+    timezone: getTenantTimezoneSync(gid),
     commands: getTenantCommandAclMapSync(gid),
     boards: getTenantBoardsSync(gid),
   };
@@ -958,6 +1025,10 @@ async function setTenantUpdatesWebhook(guildId?, webhookId?) {
 }
 
 export = {
+  getTenantLanguageSync,
+  getTenantTimezoneSync,
+  setTenantLocaleSettings,
+  DEFAULT_SERVER_TIMEZONE,
   BOT_STATE_KEY,
   DEFAULT_PREFIX,
   PREFIX_MAX_LEN,
