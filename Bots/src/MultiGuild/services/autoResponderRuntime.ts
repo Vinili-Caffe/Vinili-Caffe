@@ -22,6 +22,9 @@ async function runAutoResponders(message?): Promise<boolean> {
 
   const parentId = message.channel?.parentId ? String(message.channel.parentId) : "";
   const roles = message.member?.roles?.cache;
+  /* scattano tutte quelle che corrispondono (es. "grazie lol" → due reazioni) */
+  let handledAny = false;
+  let deleteTrigger = false;
 
   for (const ar of rows) {
     if (!ar?.enabled) continue;
@@ -39,6 +42,7 @@ async function runAutoResponders(message?): Promise<boolean> {
       continue;
     }
     if (!T.matchesAutoResponder(ar, content)) continue;
+    if (!T.inTimeWindow(ar.timeWindow, message.guild.id)) continue;
 
     const key = `${message.guild.id}:${ar.id}:${message.channelId}`;
     const cd = Math.max(0, Number(ar.cooldownSeconds) || 0) * 1000;
@@ -76,12 +80,13 @@ async function runAutoResponders(message?): Promise<boolean> {
       }
     }
 
-    /* cancella il trigger solo se abbiamo davvero risposto/reagito */
-    if (ar.deleteTrigger && didSomething) await message.delete().catch(() => null);
-    return didSomething;
+    if (didSomething) handledAny = true;
+    if (ar.deleteTrigger && didSomething) deleteTrigger = true;
   }
 
-  return false;
+  /* cancella il trigger solo se abbiamo davvero risposto/reagito */
+  if (deleteTrigger) await message.delete().catch(() => null);
+  return handledAny;
 }
 
 export = { runAutoResponders };

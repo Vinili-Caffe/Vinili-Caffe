@@ -567,6 +567,36 @@ function matchesWelcomeGreetingForExp(message?, options: Record<string, any> = {
   });
 }
 
+/** Le regole (tranne il benvenuto, legato all'EXP) come risposte automatiche della dashboard. */
+function wordReactionRulesForImport() {
+  const LAUGH = ["lol", "haha", "ahah"];
+  return getWordReactionsConfig()
+    .filter((r?) => r && r.onlyInWelcomeContext !== true && Array.isArray(r.words) && r.words.length)
+    .map((r?) => {
+      const words = r.words.map((w?) => String(w || "").trim().toLowerCase()).filter(Boolean);
+      const channelIds = (Array.isArray(r.channelIds) ? r.channelIds : [])
+        .map((k?) => String(IDs.channels?.[String(k)] ?? k ?? "").trim())
+        .filter((id?) => /^\d{16,22}$/.test(id));
+      const tw = r.timeWindow && typeof r.timeWindow === "object" ? { startHour: Number(r.timeWindow.startHour), endHour: Number(r.timeWindow.endHour) } : null;
+      return {
+        name: words[0] ? words[0].charAt(0).toUpperCase() + words[0].slice(1) : "Reazione",
+        enabled: true,
+        triggers: words.slice(0, 10),
+        /* le risate valgono anche allungate (ahahah, hahaha) */
+        match: words.every((w?) => LAUGH.includes(w)) ? "contains" : "word",
+        replyEnabled: false,
+        reply: false,
+        reactions: (Array.isArray(r.reactions) ? r.reactions : []).map(String).slice(0, 5),
+        channelIds,
+        requiredRoleIds: [],
+        ignoredRoleIds: [],
+        cooldownSeconds: 0,
+        deleteTrigger: false,
+        timeWindow: tw,
+      };
+    });
+}
+
 function getWordReactionsConfig() {
   if (wordReactionsConfigCache) return wordReactionsConfigCache;
   try {
@@ -964,8 +994,13 @@ async function handleWordReactions(message?) {
   const content = String(message.content || "").trim();
   if (!content || content.startsWith("+")) return;
 
-  const rules = getWordReactionsConfig();
+  let rules = getWordReactionsConfig();
   if (!Array.isArray(rules) || !rules.length) return;
+  try {
+    const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+    if (await T.wasPanelImported(String(message.guild.id), "wordReactions", false)) rules = rules.filter((r?) => r?.onlyInWelcomeContext === true);
+  } catch (_) {}
+  if (!rules.length) return;
 
   const seen = new Set();
   const toReact = [];
@@ -1029,4 +1064,5 @@ function logEventError(client?, label?, error?) {
 }
 
 
-export = { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, setWelcomeContextActive, activateWelcomeContextForGuild, refreshWelcomeContextForGuild, restoreWelcomeSessionsFromDb, ensureWelcomeContextHydratedForGreeting, normalizeWelcomeJoinTargetUserId, isValidWelcomeJoinTargetUserId, resolveWelcomeGreetingSessionId, resolveWelcomeGreetingSessionIdAsync, isMessageInWelcomeExpChannel, matchesWelcomeGreetingForExp };
+export = {
+  wordReactionRulesForImport, handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, setWelcomeContextActive, activateWelcomeContextForGuild, refreshWelcomeContextForGuild, restoreWelcomeSessionsFromDb, ensureWelcomeContextHydratedForGreeting, normalizeWelcomeJoinTargetUserId, isValidWelcomeJoinTargetUserId, resolveWelcomeGreetingSessionId, resolveWelcomeGreetingSessionIdAsync, isMessageInWelcomeExpChannel, matchesWelcomeGreetingForExp };

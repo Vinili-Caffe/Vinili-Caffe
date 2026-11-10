@@ -3,7 +3,6 @@ const { getCachedOrFetchMember } = require("./officialMessageAutomationMemberCac
 const { handleMovieNightVoteMessage } = require("./officialMessageAutomationMovieNight") as typeof import("./officialMessageAutomationMovieNight");
 const { handleDisboardBump, handleDiscadiaBump } = require("./officialMessageAutomationBumps") as typeof import("./officialMessageAutomationBumps");
 const { handleVoteManagerMessage, processDiscadiaVote } = require("./officialMessageAutomationVotes") as typeof import("./officialMessageAutomationVotes");
-const { handlePauseChannelMessage, handleSanzioniChannelMessage } = require("./officialMessageAutomationModChannels") as typeof import("./officialMessageAutomationModChannels");
 const { processRecentVoteChannelMessages, processRecentCommandsChannelMessages, processAllRecentAutomationMessages } = require("./officialMessageAutomationStartup") as typeof import("./officialMessageAutomationStartup");
 
 /* interruttori dalla dashboard (Risposte automatiche → Automazioni del server): spenta = il messaggio passa oltre */
@@ -23,8 +22,6 @@ export = {
   getCachedOrFetchMember,
   handleDisboardBump: gated("bumpDisboard", handleDisboardBump),
   handleDiscadiaBump: gated("bumpDiscadia", handleDiscadiaBump),
-  handlePauseChannelMessage: gated("pauseChannel", handlePauseChannelMessage),
-  handleSanzioniChannelMessage: gated("sanzioniChannel", handleSanzioniChannelMessage),
   handleMovieNightVoteMessage: gated("movieNight", handleMovieNightVoteMessage),
   handleVoteManagerMessage: gated("votes", handleVoteManagerMessage),
   hasMediaPermission,

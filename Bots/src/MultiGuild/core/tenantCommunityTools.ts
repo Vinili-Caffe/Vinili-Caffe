@@ -895,8 +895,8 @@ async function isAutomationEnabled(guildId: string, key: string): Promise<boolea
 }
 
 /* pannelli importati una volta sola (anche se poi li elimini dalla dashboard) */
-async function wasPanelImported(guildId: string, key: string): Promise<boolean> {
-  const map = await loadMap("importedPanels", true);
+async function wasPanelImported(guildId: string, key: string, fresh = true): Promise<boolean> {
+  const map = await loadMap("importedPanels", fresh);
   return Array.isArray(map[String(guildId)]) && map[String(guildId)].includes(key);
 }
 
@@ -951,10 +951,32 @@ function normalizeAutoResponder(raw?, prev?) {
     channelIds: ids(r.channelIds),
     requiredRoleIds: ids(r.requiredRoleIds, 20),
     ignoredRoleIds: ids(r.ignoredRoleIds, 20),
-    cooldownSeconds: Math.max(0, Math.min(3600, Math.floor(Number(r.cooldownSeconds) || 10))),
+    cooldownSeconds: Math.max(0, Math.min(3600, Math.floor(Number.isFinite(Number(r.cooldownSeconds)) ? Number(r.cooldownSeconds) : 10))),
     deleteTrigger: r.deleteTrigger === true,
+    timeWindow: normalizeTimeWindow(r.timeWindow),
     updatedAt: Date.now(),
   };
+}
+
+/** Fascia oraria {startHour, endHour} (ore 0-23, fine esclusa; può passare la mezzanotte). null = sempre. */
+function normalizeTimeWindow(raw?) {
+  if (!raw || typeof raw !== "object") return null;
+  const s = Number(raw.startHour);
+  const e = Number(raw.endHour);
+  if (!Number.isInteger(s) || !Number.isInteger(e) || s < 0 || s > 23 || e < 0 || e > 24 || s === e) return null;
+  return { startHour: s, endHour: e };
+}
+
+/** Ora attuale dentro la fascia, nel fuso del server. */
+function inTimeWindow(win?, guildId?: string) {
+  if (!win) return true;
+  let tz = "Europe/Rome";
+  try {
+    const { getTenantTimezoneSync } = require("./tenantGuildSettings") as typeof import("./tenantGuildSettings");
+    tz = getTenantTimezoneSync(guildId) || tz;
+  } catch (_) {}
+  const h = Number(new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+  return win.startHour < win.endHour ? h >= win.startHour && h < win.endHour : h >= win.startHour || h < win.endHour;
 }
 
 function matchesAutoResponder(ar?, content?: string) {
@@ -1059,6 +1081,7 @@ async function writeServerLogs(guildId: string, value) {
 }
 
 export = {
+  inTimeWindow,
   getDisabledAutomations,
   writeDisabledAutomations,
   isAutomationEnabled,

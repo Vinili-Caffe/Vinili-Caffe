@@ -71,8 +71,6 @@ const MAIN_AUTOMATIONS = [
   { key: "bumpDiscadia", name: "Bump di Discadia", description: "Come sopra, per i bump su Discadia." },
   { key: "votes", name: "Voti del server", description: "Riconosce i voti su Top.gg e Discadia: EXP, ruolo Voter e messaggio di ringraziamento." },
   { key: "movieNight", name: "Proposte serata film", description: "Nel thread delle proposte toglie i film già proposti e quelli scritti male." },
-  { key: "pauseChannel", name: "Canale pause", description: "Gestisce i messaggi scritti nel canale delle richieste di pausa." },
-  { key: "sanzioniChannel", name: "Canale sanzioni", description: "Gestisce i messaggi scritti nel canale delle sanzioni." },
   { key: "headingBlock", name: "Blocco titoli markdown", description: "Toglie i messaggi scritti con i titoli grandi (# Titolo) di Discord." },
 ];
 

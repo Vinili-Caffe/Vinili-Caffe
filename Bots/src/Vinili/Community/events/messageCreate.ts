@@ -11,7 +11,7 @@ const {
   maybeSendWrongPrefixHint,
   hasAnyStaffBypassPermission,
 } = require("../../core/officialPrefixDispatcher") as typeof import("../../core/officialPrefixDispatcher");
-const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handlePauseChannelMessage, handleSanzioniChannelMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../../Community/services/officialMessageAutomationHandlers") as typeof import("../../Community/services/officialMessageAutomationHandlers");
+const { channelAllowsMedia, getCachedOrFetchMember, handleDisboardBump, handleDiscadiaBump, handleMovieNightVoteMessage, handleVoteManagerMessage, hasMediaPermission, isDiscordInviteLinkMessage, isMediaMessage, } = require("../../Community/services/officialMessageAutomationHandlers") as typeof import("../../Community/services/officialMessageAutomationHandlers");
 const { handleAfk, handleMentionAutoReactions, handleMentionAutoResponses, handleWordReactions, logEventError, } = require("../../Community/services/officialMessageCommunityHandlers") as typeof import("../../Community/services/officialMessageCommunityHandlers");
 const { handleBirthdayAuguriReactions } = require("../../Community/services/birthdayService") as typeof import("../../Community/services/birthdayService");
 const { runAutoModMessage } = require("../../Moderation/services/automodService") as typeof import("../../Moderation/services/automodService");
@@ -468,8 +468,6 @@ export = {
           return;
         }
         if (await handleMovieNightVoteMessage(message)) return;
-        if (await handlePauseChannelMessage(message)) return;
-        if (await handleSanzioniChannelMessage(message)) return;
       }
     } catch (error) {
       logEventError(resolvedClient, "DISBOARD REMINDER ERROR", error);

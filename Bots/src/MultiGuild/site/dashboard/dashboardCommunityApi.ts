@@ -119,6 +119,18 @@ async function importMainPanels(client?, gid?: string) {
   await T.markPanelImported(gid, "info");
 }
 
+/** Una volta sola: le reazioni alle parole del bot diventano risposte automatiche della dashboard. */
+async function importMainWordReactions(gid: string) {
+  if (await T.wasPanelImported(gid, "wordReactions")) return;
+  const { wordReactionRulesForImport } = require("../../../Vinili/Community/services/officialMessageCommunityHandlers") as any;
+  const rules = typeof wordReactionRulesForImport === "function" ? wordReactionRulesForImport() : [];
+  const rows = await T.listRows("autoResponders", gid, true);
+  const room = Math.max(0, T.LIMITS.autoResponders - rows.length);
+  const imported = rules.slice(0, room).map((r: any) => T.normalizeAutoResponder(r, null));
+  await T.writeRows("autoResponders", gid, [...rows, ...imported]);
+  await T.markPanelImported(gid, "wordReactions");
+}
+
 /* ───────────── lettura ───────────── */
 
 function reservedCommandNames(gid: string): Set<string> {
@@ -155,7 +167,10 @@ async function getDashboardCommunity(client?, token?, guildId?) {
     T.listRows("counters", gid, true),
     T.getServerLogs(gid, true),
   ]);
-  if (T.isMainGuild(gid)) await importMainPanels(client, gid).catch(() => null);
+  if (T.isMainGuild(gid)) {
+    await importMainPanels(client, gid).catch(() => null);
+    await importMainWordReactions(gid).catch(() => null);
+  }
   const [messages, commands, rolePanels, welcome, pickers, guild, bot] = await Promise.all([
     T.listMessages(gid, true),
     T.listCommands(gid, true),

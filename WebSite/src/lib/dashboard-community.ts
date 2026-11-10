@@ -186,6 +186,8 @@ export type AutoResponder = {
   ignoredRoleIds: string[];
   cooldownSeconds: number;
   deleteTrigger: boolean;
+  /** solo in queste ore (fuso del server); null = sempre */
+  timeWindow?: { startHour: number; endHour: number } | null;
 };
 
 export type CounterType = "members" | "humans" | "bots" | "online" | "statusOnline" | "idle" | "dnd" | "offline" | "boosts" | "boostTier" | "channels" | "roles" | "emojis";

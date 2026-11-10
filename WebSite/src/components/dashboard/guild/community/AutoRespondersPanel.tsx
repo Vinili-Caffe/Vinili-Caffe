@@ -37,6 +37,8 @@ const blank = (): AutoResponder => ({
   deleteTrigger: false,
 });
 
+const HOURS = Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: `${String(h).padStart(2, "0")}:00` }));
+
 export function AutoRespondersPanel({ guildId, token, onToast }: { guildId: string; token: string; onToast: (msg: string, err?: boolean) => void }) {
   const { data, setData, error } = useCommunity(guildId, token);
   const [edit, setEdit] = useState<AutoResponder | null>(null);
@@ -194,6 +196,26 @@ export function AutoRespondersPanel({ guildId, token, onToast }: { guildId: stri
                       <NumberField value={edit.cooldownSeconds} min={0} max={3600} onChange={(v) => setEdit({ ...edit, cooldownSeconds: Number(v) || 0 })} aria-label="Secondi di attesa" />
                     </div>
                   </SettingRow>
+                  <SettingRow title="Solo in certe ore" description="Es. dalle 5 alle 12 per il buongiorno. Usa il fuso orario del server; può passare la mezzanotte.">
+                    <Toggle
+                      size="sm"
+                      checked={Boolean(edit.timeWindow)}
+                      onChange={(on) => setEdit({ ...edit, timeWindow: on ? { startHour: 8, endHour: 20 } : null })}
+                      label="Solo in certe ore"
+                    />
+                  </SettingRow>
+                  {edit.timeWindow ? (
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-crema/75">
+                      dalle
+                      <div className="w-28">
+                        <Select size="sm" value={String(edit.timeWindow.startHour)} onChange={(v) => setEdit({ ...edit, timeWindow: { ...edit.timeWindow!, startHour: Number(v) } })} options={HOURS} aria-label="Dalle ore" />
+                      </div>
+                      alle
+                      <div className="w-28">
+                        <Select size="sm" value={String(edit.timeWindow.endHour)} onChange={(v) => setEdit({ ...edit, timeWindow: { ...edit.timeWindow!, endHour: Number(v) } })} options={HOURS} aria-label="Alle ore" />
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <Field label="Solo in questi canali" hint="Vuoto = tutti. Puoi scegliere anche una categoria.">
