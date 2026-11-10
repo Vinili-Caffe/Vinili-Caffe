@@ -39,8 +39,9 @@ function logBumpDetectionOnce(tag?, guildId?, details?) {
   void details;
 }
 
+/* BUMP_DETECT_DEBUG=1 nel .env: scrive nei log perché un messaggio non è stato preso per un bump */
 function isBumpDetectDebugEnabled() {
-  return false;
+  return String(process.env.BUMP_DETECT_DEBUG || "").trim() === "1";
 }
 
 function logBumpSkipDebug(tag?, message?, reason?, details = "") {
@@ -103,6 +104,16 @@ function isMessageFromDisboardBot(message?, client?) {
   return Boolean(message.author?.bot && /disboard/i.test(name));
 }
 
+/* bumpV2Text1: Discadia/Disboard possono rispondere con messaggi a blocchi: il testo sta nei componenti */
+function componentsBumpText(message?) {
+  try {
+    const { collectComponentText } = require("../../../shared/discord/messageText") as typeof import("../../../shared/discord/messageText");
+    return collectComponentText(message?.components || []).join("\n");
+  } catch {
+    return "";
+  }
+}
+
 function collectDisboardBumpHaystacks(message?) {
   const haystacks = [];
   if (message.content) haystacks.push(message.content);
@@ -112,6 +123,8 @@ function collectDisboardBumpHaystacks(message?) {
       if (flat) haystacks.push(flat);
     }
   }
+  const comp = componentsBumpText(message);
+  if (comp) haystacks.push(comp);
   return haystacks;
 }
 
@@ -311,6 +324,8 @@ async function handleDiscadiaBump(message?, client?) {
       }
     }
   }
+  const compText = componentsBumpText(message);
+  if (compText) haystacks.push(compText);
   const normalized = haystacks.map((text?) => String(text).toLowerCase()).map((text?) => text.replace(/\s+/g, " ").trim());
   const joined = normalized.join("\n");
   if (/already bumped recently/i.test(joined)) {

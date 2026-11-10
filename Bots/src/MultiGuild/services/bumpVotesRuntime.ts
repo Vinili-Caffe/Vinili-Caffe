@@ -263,13 +263,9 @@ const DISBOARD_OK = ["bump done", "bump successful", "has been bumped", "success
 const DISCADIA_OK = ["has been successfully bumped", "successfully bumped", "bumped successfully", "boost earned", "bump done", "thanks for bumping"];
 
 function messageText(message?) {
-  const parts: string[] = [];
-  if (message?.content) parts.push(message.content);
-  for (const e of message?.embeds || []) {
-    for (const t of [e?.title, e?.description, e?.footer?.text, e?.author?.name]) if (t) parts.push(String(t));
-    for (const f of e?.fields || []) parts.push(String(f?.name || ""), String(f?.value || ""));
-  }
-  return parts.join("\n").toLowerCase().replace(/\s+/g, " ");
+  /* contenuto, embed e messaggi a blocchi (Components V2: Discadia ora risponde così) */
+  const { messageTextParts } = require("../../shared/discord/messageText") as typeof import("../../shared/discord/messageText");
+  return messageTextParts(message).join("\n").toLowerCase().replace(/\s+/g, " ");
 }
 
 function detectBump(message?): Service | null {
@@ -282,11 +278,25 @@ function detectBump(message?): Service | null {
 }
 
 /** Chiamato su ogni messaggio dei server tenant. */
-async function handleTenantBumpMessage(message?) {
+async function handleTenantBumpMessage(message?, opts: { recheck?: boolean } = {}) {
   const guildId = String(message?.guild?.id || "");
   if (!guildId || !message?.author?.bot) return false;
   const service = detectBump(message);
-  if (!service) return false;
+  if (!service) {
+    /* bot del bump senza testo ancora (risposta in arrivo): riprova sul messaggio aggiornato */
+    const author = String(message?.author?.id || "");
+    if (!opts.recheck && (author === BOT_IDS.disboard || author === BOT_IDS.discadia) && !messageText(message)) {
+      for (const delay of [2500, 7000]) {
+        setTimeout(() => {
+          void (async () => {
+            const fresh = await message.channel?.messages?.fetch?.(message.id).catch(() => null);
+            if (fresh) await handleTenantBumpMessage(fresh, { recheck: true }).catch(() => null);
+          })();
+        }, delay).unref?.();
+      }
+    }
+    return false;
+  }
   const cfg = await getConfig(guildId);
   if (!cfg.enabled || !cfg.services[service].enabled) return false;
   const st = await getState(guildId);

@@ -11,7 +11,9 @@ function gated<F extends (...args: any[]) => any>(key: string, fn: F): F {
     const gid = String(args[0]?.guild?.id || args[0]?.guildId || "");
     try {
       const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
-      if (gid && !(await T.isAutomationEnabled(gid, key))) return false;
+      /* interruttori della dashboard solo per le automazioni ancora mostrate lì (serata film, titoli):
+         per bump e voti uno stato vecchio rimasto salvato non deve più spegnerli */
+      if (gid && (key === "movieNight" || key === "headingBlock") && !(await T.isAutomationEnabled(gid, key))) return false;
       /* modulo "Bump e voti" acceso per questo servizio: ci pensa lui */
       const service = key === "bumpDisboard" ? "disboard" : key === "bumpDiscadia" ? "discadia" : null;
       if (gid && service) {
