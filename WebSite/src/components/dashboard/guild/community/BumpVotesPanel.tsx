@@ -21,7 +21,7 @@ const REMINDER_PLACEHOLDERS = [
 /* segnaposto in più sul server principale, dove c'è l'EXP */
 const EXP_PLACEHOLDERS = [
   { token: "{exp}", hint: "EXP guadagnati" },
-  { token: "{bonus}", hint: "righe dei bonus (rapida, streak)" },
+  { token: "{bonus}", hint: "righe dei bonus (rapida, streak): mettilo a fine riga" },
   { token: "{streak}", hint: "serie attuale" },
 ];
 const EXP_LABEL: Record<BumpExpKey, string> = { disboard: "Bump su Disboard", discadia: "Bump su Discadia", topgg: "Voto su Top.gg", discadiaVote: "Voto su Discadia" };

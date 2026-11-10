@@ -250,7 +250,7 @@ async function giveExp(client?, guild?, userId?: string | null, key?: ExpKey, cf
     const lines: string[] = [];
     if (reward.fastBonus > 0) lines.push(`${flame} Risposta rapida **+${reward.fastBonus} exp**`);
     if (reward.streakBonus > 0) lines.push(`${flame} Streak ${reward.newStreak} **+${reward.streakBonus} exp**`);
-    return { exp: String(reward.effectiveExp), fast: String(reward.fastBonus || 0), streak: String(reward.newStreak || 1), bonus: lines.join("\n") };
+    return { exp: String(reward.effectiveExp), fast: String(reward.fastBonus || 0), streak: String(reward.newStreak || 1), bonus: lines.map((l) => `\n${l}`).join("") };
   } catch (err) {
     global.logger?.warn?.("[BUMP VOTES] exp:", (err as any)?.message || err);
     return NO_EXP;
@@ -414,7 +414,7 @@ function startBumpVotesLoop(client?) {
  * Server principale: le impostazioni di adesso (attese, ringraziamento, promemoria, voti, ruolo Voter)
  * portate nel modulo, spente: si accende quando si vuole passare al modulo.
  */
-const MAIN_SEED_VERSION = 3;
+const MAIN_SEED_VERSION = 4;
 function mainSeedConfig(client?) {
   const IDs = require("../../Vinili/Config/ids") as any;
   const { E } = require("../../shared/emojis/emojiCatalog") as any;
@@ -426,11 +426,16 @@ function mainSeedConfig(client?) {
     topgg: Math.max(1, Math.round(Number(cfgMain?.topgg?.voteReminderCooldownHours) || 12)),
     discadia: Math.max(1, Math.round(Number(cfgMain?.discadiaVoteReminder?.cooldownHours) || 24)),
   };
-  const bumpThanks = {
-    content: `${e("VC_ThankYou")} **__Grazie {user} per aver \`bumpato\` il server!__**\n${e("VC_EXP")} **{exp} exp** guadagnati!\n{bonus}`,
+  const bumpThanks = (again: string, withExp: boolean) => ({
+    content: [
+      `${e("VC_ThankYou")} **__Grazie per aver \`bumpato\` il server!__**`,
+      ...(withExp ? [`${e("VC_EXP")} **{exp} exp** guadagnati!{bonus}`] : []),
+      `${e("VC_HelloKittyGun")} Ci __vediamo__ nuovamente tra **${again}!**`,
+      "{user}",
+    ].join("\n"),
     embed: { enabled: false },
     buttons: [],
-  };
+  });
   const reminder = (title: string, url: string) => ({
     content: "{role}",
     embed: { enabled: true, title, url, description: `${e("VC_bump")} **Per bumpare scrivi __\`/bump\` in chat__**!`, color: "#6f4e37" },
@@ -448,8 +453,7 @@ function mainSeedConfig(client?) {
           `${e("VC_ThankYou")} Grazie {user} per aver votato su **${VOTE_LABEL[s]}**!`,
           "",
           "`Hai guadagnato:`",
-          `${e("VC_EXP")} ${e("VC_Arrow")} **{exp} EXP** per il tuo **{count}° voto** su **${VOTE_LABEL[s]}**`,
-          "{bonus}",
+          `${e("VC_EXP")} ${e("VC_Arrow")} **{exp} EXP** per il tuo **{count}° voto** su **${VOTE_LABEL[s]}**{bonus}`,
           `${e("VC_Money")} ${e("VC_Arrow")} ${voterRole ? `Il ruolo <@&${voterRole}> per ${label}` : `Ricompensa per ${label}`}`,
           "",
           `${e("VC_update")} Vota di nuovo tra __${label}__ per ottenere **altri exp** dal **bottone sottostante**.`,
@@ -465,13 +469,13 @@ function mainSeedConfig(client?) {
       disboard: {
         enabled: true,
         cooldownMinutes: Number(cfgMain?.disboard?.cooldownMinutes) || 120,
-        thanksDraft: bumpThanks,
+        thanksDraft: bumpThanks("due ore", true),
         reminderDraft: reminder(`${e("VC_Eye")} **È L'ORA DEL \`BUMP\`!**`, "https://disboard.org/it/server/1329080093599076474"),
       },
       discadia: {
         enabled: true,
         cooldownMinutes: Number(cfgMain?.discadia?.cooldownMinutes) || 1440,
-        thanksDraft: bumpThanks,
+        thanksDraft: bumpThanks("24 ore", false),
         reminderDraft: reminder(`${e("VC_Eye")} **È L'ORA DEL \`BUMP\` SU DISCADIA!**`, "https://discadia.com/server/viniliecaffe/"),
       },
     },
