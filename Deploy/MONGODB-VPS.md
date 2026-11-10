@@ -160,17 +160,17 @@ Oppure: `./fix-env-mongo-crlf.sh` in deploy.
 
 Sulla VPS Mongo deve essere su (start-mongo.sh). Sul PC hai tre modi:
 
-### A) Automatico con `ssh vinili` (consigliato)
+### A) Automatico con `ssh vinili-ca` (consigliato)
 
-In `~/.ssh/config` sotto `Host vinili`:
+In `~/.ssh/config` sotto `Host vinili-ca` (la VPS attuale; `vinili` è quella vecchia):
 
 ```sshconfig
 LocalForward 27018 127.0.0.1:27017
 ```
 
-Ogni sessione `ssh vinili` (anche quella che tieni aperta per il deploy) espone Mongo su `127.0.0.1:27018` — **non serve un terminale tunnel separato**.
+Ogni sessione `ssh vinili-ca` (anche quella che tieni aperta per il deploy) espone Mongo su `127.0.0.1:27018` — **non serve un terminale tunnel separato**.
 
-Dopo aver aggiunto la riga, riconnetti `ssh vinili` (o avvia `ssh -N -f -L 27018:127.0.0.1:27017 vinili` in background).
+Dopo aver aggiunto la riga, riconnetti `ssh vinili-ca` (o avvia `ssh -N vinili-ca` e lascialo aperto).
 
 ### B) Script dedicato
 
@@ -178,11 +178,11 @@ Dopo aver aggiunto la riga, riconnetti `ssh vinili` (o avvia `ssh -N -f -L 27018
 ./deploy/compass-tunnel.sh
 ```
 
-PowerShell: `.\deploy\compass-tunnel.ps1 -VpsHost IP_O_DOMINIO`
+PowerShell: `.\deploy\compass-tunnel.ps1` (di default usa `vinili-ca`)
 
 ### C) Tunnel SSH integrato in Compass
 
-In Compass → Edit connection → **SSH Tunnel**: host `vinili` (o IP VPS), user `root`, chiave `~/.ssh/vinili`.  
+In Compass → Edit connection → **SSH Tunnel**: host `vinili-ca` (167.114.71.27), user `ubuntu`, chiave `~/.ssh/vinili`.  
 Hostname Mongo: `127.0.0.1`, porta `27017` (lato VPS). Nessun tunnel esterno.
 
 Compass URI (stessi user/password di `MONGO_INITDB_*` nel `.env`):

@@ -4,10 +4,13 @@
 # Uso:
 #   bash Deploy/cdn-push-vps.sh
 #   PROVA=1 bash Deploy/cdn-push-vps.sh
+# VPS: di default quella nuova (vinili-ca), come pubblica.sh. Vecchia: VC_SSH_HOST=vinili bash Deploy/cdn-push-vps.sh
 set -euo pipefail
 
 DEPLOY_DIR="$(cd "$(dirname "$0")" && pwd)"
-bash "$DEPLOY_DIR/pubblica.sh" "Vinili/Web/siteCdnMedia.ts Vinili/features/contest/siteContestApi.ts Vinili/features/boards/siteBoardsApi.ts" "site-api bot-workers"
-ssh vinili "mkdir -p /opt/bot/bots-ts/tools"
-scp -q "$DEPLOY_DIR/cdn-sync-on-vps.mjs" vinili:/opt/bot/bots-ts/tools/cdn-sync-on-vps.mjs
-ssh vinili "PROVA=${PROVA:-} VC_CDN_MEDIA_JS=/opt/bot/bots-ts/src/Vinili/Web/siteCdnMedia.js node /opt/bot/bots-ts/tools/cdn-sync-on-vps.mjs"
+SSH_HOST="${VC_SSH_HOST:-vinili-ca}"
+export VC_SSH_HOST="$SSH_HOST"
+bash "$DEPLOY_DIR/pubblica.sh" "Vinili/site/http/siteCdnMedia.ts Vinili/site/contest/siteContestApi.ts Vinili/site/boards/siteBoardsApi.ts" "site-api bot-workers"
+ssh "$SSH_HOST" "mkdir -p /opt/bot/bots-ts/tools"
+scp -q "$DEPLOY_DIR/cdn-sync-on-vps.mjs" "$SSH_HOST:/opt/bot/bots-ts/tools/cdn-sync-on-vps.mjs"
+ssh "$SSH_HOST" "PROVA=${PROVA:-} VC_CDN_MEDIA_JS=/opt/bot/bots-ts/src/Vinili/site/http/siteCdnMedia.js node /opt/bot/bots-ts/tools/cdn-sync-on-vps.mjs"
