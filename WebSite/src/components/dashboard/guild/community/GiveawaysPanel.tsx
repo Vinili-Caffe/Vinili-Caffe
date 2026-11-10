@@ -164,7 +164,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
                   <NumberField value={editForm.amount} min={1} max={1440} onChange={(v) => setEditForm({ ...editForm, amount: Number(v) || 1 })} aria-label="Durata" />
                 </div>
                 <div className="w-28">
-                  <Select value={editForm.unit} onChange={(unit) => setEditForm({ ...editForm, unit })} options={UNITS} className="h-10 rounded-lg" aria-label="Unità" />
+                  <Select value={editForm.unit} onChange={(unit) => setEditForm({ ...editForm, unit })} options={UNITS} className="mt-1.5 h-10 rounded-lg" aria-label="Unità" />
                 </div>
               </div>
             </div>
@@ -203,7 +203,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
                 <NumberField value={form.amount} min={1} max={1440} onChange={(v) => setForm({ ...form, amount: Number(v) || 1 })} aria-label="Durata" />
               </div>
               <div className="w-28">
-                <Select value={form.unit} onChange={(unit) => setForm({ ...form, unit })} options={UNITS} className="h-10 rounded-lg" aria-label="Unità" />
+                <Select value={form.unit} onChange={(unit) => setForm({ ...form, unit })} options={UNITS} className="mt-1.5 h-10 rounded-lg" aria-label="Unità" />
               </div>
             </div>
           </div>
