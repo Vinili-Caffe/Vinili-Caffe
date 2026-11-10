@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Copy, RefreshCw, Rocket, Star, Trophy } from "lucide-react";
+import { Copy, RefreshCw } from "lucide-react";
 import { NumberField } from "@/components/ui/NumberField";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
-import { communityApi, type BumpExp, type BumpExpKey, type BumpService, type BumpVotesConfig, type BumpVotesLeaderboard, type VoteService } from "@/lib/dashboard-community";
-import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
+import { communityApi, type BumpExp, type BumpExpKey, type BumpService, type BumpVotesConfig, type VoteService } from "@/lib/dashboard-community";
+import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, fieldClass, miniBtn, primaryMini } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, roleOptions, sampleVars, useCommunity } from "./shared";
 
 const BUMP_PLACEHOLDERS = [
@@ -61,7 +61,6 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
   const [urls, setUrls] = useState<{ topgg: string; discadia: string } | null>(null);
   const [isMain, setIsMain] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [board, setBoard] = useState<BumpVotesLeaderboard | null>(null);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [imported, setImported] = useState(false);
@@ -79,9 +78,6 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
       setImported(r.data.imported === true);
       if (r.data.config) setCfg(r.data.config);
       if (r.data.urls) setUrls(r.data.urls);
-    });
-    void communityApi.bumpVotesLeaderboard(token, guildId).then((r) => {
-      if (alive && r.ok) setBoard({ bumps: r.data.bumps || [], votes: r.data.votes || [] });
     });
     return () => {
       alive = false;
@@ -121,13 +117,6 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
     onToast("Nuovo indirizzo creato: aggiornalo su Top.gg e Discadia.");
   };
 
-  const reset = async (which: "bumps" | "votes") => {
-    const r = await communityApi.resetBumpVotesLeaderboard(token, guildId, which);
-    if (!r.ok) return onToast(r.message, true);
-    setBoard((b) => (b ? { ...b, [which]: [] } : b));
-    onToast("Classifica azzerata.");
-  };
-
   const copy = (text: string) => {
     void navigator.clipboard?.writeText(text).then(
       () => onToast("Copiato."),
@@ -165,11 +154,6 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
 
       {imported ? (
         <Notice>Ho importato le impostazioni di adesso del server principale: attese, ringraziamento, promemoria con il ruolo dei bump, canale e testo dei voti, ruolo Voter. Sono spente: accendile quando vuoi passare al modulo.</Notice>
-      ) : null}
-      {isMain ? (
-        <Notice>
-          Server principale: finché qui i bump sono spenti resta attivo il sistema classico del bot (EXP, serie e promemoria). Accendendo un servizio qui, quello classico si ferma per quel servizio. I voti passano al modulo quando incolli i nuovi indirizzi su Top.gg e Discadia.
-        </Notice>
       ) : null}
 
       <FormGroup title="Bump" description="Quando qualcuno usa /bump di Disboard o Discadia in questo server.">
@@ -359,46 +343,6 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
         </FormGroup>
       ) : null}
 
-      <FormGroup title="Classifica" description="Chi ha bumpato e votato di più su questo server.">
-        <div className="grid gap-4 md:grid-cols-2">
-          {(["bumps", "votes"] as const).map((which) => {
-            const list = board?.[which] || [];
-            return (
-              <div key={which} className="rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-crema">
-                    {which === "bumps" ? <Rocket className="size-4 text-ember" /> : <Star className="size-4 text-ember" />}
-                    {which === "bumps" ? "Bump" : "Voti"}
-                  </span>
-                  {list.length ? (
-                    <button type="button" className={dangerBtn} onClick={() => void reset(which)}>
-                      Azzera
-                    </button>
-                  ) : null}
-                </div>
-                {!board ? (
-                  <RowsSkeleton rows={3} />
-                ) : list.length ? (
-                  <ol className="space-y-1">
-                    {list.map((row, i) => (
-                      <li key={row.id} className="flex items-center gap-2 text-sm">
-                        <span className="w-6 text-right tabular-nums text-crema/50">{i + 1}.</span>
-                        {i === 0 ? <Trophy className="size-3.5 text-ember" /> : null}
-                        <span className="min-w-0 flex-1 truncate text-crema" translate="no">
-                          {row.name}
-                        </span>
-                        <span className="tabular-nums font-semibold text-crema/80">{row.count}</span>
-                      </li>
-                    ))}
-                  </ol>
-                ) : (
-                  <p className="text-xs text-crema/50">Ancora nessuno.</p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </FormGroup>
 
       {dirty ? (
         <div className="sticky bottom-3 z-10 flex justify-end">
