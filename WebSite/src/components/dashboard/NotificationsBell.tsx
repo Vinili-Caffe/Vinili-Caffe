@@ -33,7 +33,7 @@ function typeTone(type: string) {
       return "bg-caramel/15 text-caramel";
     case "bot_missing":
     case "bot_left":
-      return "bg-[#a83a2c]/20 text-[#f0a493]";
+      return "bg-[#a83a2c]/20 text-[#f0a493] light:text-[#a83a2c]";
     case "tickets_stale":
       return "bg-ember/15 text-ember";
     case "staff":

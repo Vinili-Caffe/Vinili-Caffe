@@ -102,7 +102,7 @@ function actionTone(action: string) {
     case "BAN":
     case "SOFTBAN":
     case "UNBAN":
-      return "bg-[#a83a2c]/20 text-[#f0a493]";
+      return "bg-[#a83a2c]/20 text-[#f0a493] light:text-[#a83a2c]";
     case "KICK":
       return "bg-caramel/15 text-caramel";
     case "MUTE":

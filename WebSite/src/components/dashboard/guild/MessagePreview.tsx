@@ -38,7 +38,7 @@ export function MessagePreview({
   return (
     <div className={cn("mt-2", className)}>
       <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/60">Anteprima</p>
-      <div className="rounded-xl bg-[#313338] p-3 ring-1 ring-sand/10">
+      <div translate="no" className="rounded-xl bg-[#313338] p-3 ring-1 ring-sand/10">
         <div className="flex overflow-hidden rounded-md bg-[#2b2d31]">
           <span className="w-1 shrink-0" style={{ background: color }} aria-hidden />
           <div className="min-w-0 flex-1 space-y-1 px-3 py-2.5">

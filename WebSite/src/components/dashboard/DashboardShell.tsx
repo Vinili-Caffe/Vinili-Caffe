@@ -20,11 +20,13 @@ import {
   Pin,
   PinOff,
   Sparkles,
+  Trophy,
   UserRound,
   Wrench,
   X,
 } from "lucide-react";
 import { SiteShell } from "@/components/SiteShell";
+import { Footer } from "@/components/Footer";
 import { SmartLink } from "@/components/SmartLink";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
@@ -34,6 +36,9 @@ import { ensureCreditsBalance, getCreditsBalance, subscribeCredits } from "@/lib
 import { cdnUrl, page } from "@/lib/site";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { NotificationsBell } from "./NotificationsBell";
+import { LangMenu } from "@/components/LangMenu";
+import { UiTextTranslator } from "@/components/UiTextTranslator";
+import { ThemePrefRow } from "@/components/ThemeToggle";
 import {
   GUILD_MODULE_SECTIONS,
   GUILD_SERVER_SECTIONS,
@@ -64,10 +69,11 @@ const BOT_NAV = [
 ] as const;
 
 const ACCOUNT_NAV = [
-  { href: "/dashboard/premium/", label: "Premium", icon: CreditCard },
-  { href: "/dashboard/premium/vantaggi/", label: "Vantaggi Premium", icon: Sparkles },
   { href: "/dashboard/profilo/", label: "Profilo", icon: UserRound },
+  { href: "/dashboard/premium/", label: "Premium", icon: CreditCard },
 ] as const;
+
+const PERKS_HREF = "/dashboard/premium/vantaggi/";
 
 const LOGO = cdnUrl("/images/logo-disco.png");
 /* avatar del bot com'è adesso su Discord (il bot fa redirect al CDN Discord) */
@@ -461,17 +467,48 @@ function CreditsChip() {
 }
 
 /** FAQ, Feedback e Recensioni nella barra in alto (da tablet in su; su telefono stanno nel menu account). */
-function TopNavLinks() {
+function topLinks(guild: ShellGuild | null, guildNav: GuildNav | undefined, pathname: string) {
+  const rankHref = (id: string) => `/dashboard/guild/?id=${encodeURIComponent(id)}&s=classifica&t=servers`;
+  return [
+    {
+      href: guild?.id ? rankHref(guild.id) : "/dashboard/",
+      label: "Classifica",
+      icon: Trophy,
+      active: guildNav?.active === "classifica",
+      /* nel pannello del server cambia sezione senza ricaricare; altrove apre l'ultimo server usato */
+      onClick: guildNav
+        ? () => guildNav.onSelect("classifica")
+        : guild?.id
+          ? undefined
+          : () => {
+              const last = readLastGuildId();
+              window.location.href = page(last ? rankHref(last) : "/dashboard/");
+            },
+    },
+    { href: PERKS_HREF, label: "Vantaggi", icon: Sparkles, active: samePath(pathname, PERKS_HREF), onClick: undefined },
+    ...BOT_NAV.map((n) => ({ href: n.href as string, label: n.label as string, icon: n.icon, active: samePath(pathname, n.href), onClick: undefined })),
+  ];
+}
+
+function TopNavLinks({ guild, guildNav }: { guild: ShellGuild | null; guildNav?: GuildNav }) {
   const pathname = usePathname() || "";
   return (
-    <nav aria-label="Bot" className="hidden shrink-0 items-center gap-0.5 lg:flex">
-      {BOT_NAV.map((n) => {
-        const active = samePath(pathname, n.href);
+    <nav aria-label="Dashboard" className="hidden shrink-0 items-center gap-0.5 lg:flex">
+      {topLinks(guild, guildNav, pathname).map((n) => {
+        const active = n.active;
         const Icon = n.icon;
         return (
           <SmartLink
-            key={n.href}
+            key={n.label}
             href={page(n.href)}
+            onClick={
+              n.onClick
+                ? (e: React.MouseEvent) => {
+                    e.preventDefault();
+                    n.onClick?.();
+                  }
+                : undefined
+            }
             aria-current={active ? "page" : undefined}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold transition",
@@ -488,7 +525,7 @@ function TopNavLinks() {
 }
 
 /** Menu account in alto a destra: nome utente, voci dell'account e ritorno al sito. */
-function AccountMenu() {
+function AccountMenu({ guild, guildNav }: { guild: ShellGuild | null; guildNav?: GuildNav }) {
   const { user, ready, login, token } = useAuth();
   const pathname = usePathname() || "";
   const isDev = useSyncExternalStore(subscribeDev, getIsDev, () => null);
@@ -535,13 +572,13 @@ function AccountMenu() {
     );
   }
 
-  const items = [...ACCOUNT_NAV, ...(isDev ? [{ href: "/dashboard/sviluppatore/", label: "Sviluppatore", icon: Wrench }] : [])];
+  const items = [ACCOUNT_NAV[0], ...(isDev ? [{ href: "/dashboard/sviluppatore/", label: "Sviluppatore", icon: Wrench }] : []), ACCOUNT_NAV[1]];
   const itemClass = (active: boolean) =>
     cn(
       "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition",
       active ? "bg-caramel/15 text-ember" : "text-crema/80 hover:bg-crema/[0.06] hover:text-crema",
     );
-  const isActive = (href: string) => samePath(pathname, href) && !items.some((o) => o.href.length > href.length && samePath(pathname, o.href));
+  const isActive = (href: string) => samePath(pathname, href) && !samePath(pathname, PERKS_HREF) && !items.some((o) => o.href.length > href.length && samePath(pathname, o.href));
 
   return (
     <div ref={root} className="relative shrink-0">
@@ -596,19 +633,41 @@ function AccountMenu() {
               })}
             </div>
             <div className="mt-1.5 border-t border-sand/10 pt-1.5 lg:hidden">
-              <p className="px-2.5 pb-1 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Bot</p>
-              {BOT_NAV.map((n) => {
+              <p className="px-2.5 pb-1 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Dashboard</p>
+              {topLinks(guild, guildNav, pathname).map((n) => {
                 const Icon = n.icon;
                 return (
-                  <SmartLink key={n.href} href={page(n.href)} role="menuitem" className={itemClass(samePath(pathname, n.href))}>
+                  <SmartLink
+                    key={n.label}
+                    href={page(n.href)}
+                    role="menuitem"
+                    onClick={
+                      n.onClick
+                        ? (e: React.MouseEvent) => {
+                            e.preventDefault();
+                            setOpen(false);
+                            n.onClick?.();
+                          }
+                        : undefined
+                    }
+                    className={itemClass(n.active)}
+                  >
                     <Icon className="size-4 shrink-0" aria-hidden />
                     {n.label}
                   </SmartLink>
                 );
               })}
             </div>
+            <div className="mt-1.5 border-t border-sand/10 px-1 pb-1 pt-2">
+              <p className="px-1.5 pb-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Tema</p>
+              <ThemePrefRow />
+            </div>
             <div className="mt-1.5 border-t border-sand/10 pt-1.5">
-              <SmartLink href="/" role="menuitem" className={itemClass(false)}>
+              <SmartLink
+                href="/"
+                role="menuitem"
+                className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-caramel to-ember px-2.5 py-2 text-sm font-semibold text-ink shadow-[0_8px_20px_-12px_rgba(217,154,91,0.9)] transition hover:brightness-110"
+              >
                 <House className="size-4 shrink-0" aria-hidden />
                 Torna al sito
               </SmartLink>
@@ -851,6 +910,7 @@ export function DashboardShell({
 
   return (
     <SiteShell chrome="app">
+      <UiTextTranslator />
       <div className="relative min-h-dvh bg-espresso text-crema">
         {/* bagliore caldo dietro al contenuto */}
         <div
@@ -950,10 +1010,11 @@ export function DashboardShell({
               <ChevronRight className="size-3.5 shrink-0 text-crema/25" aria-hidden />
               <span className="truncate font-semibold text-crema">{crumb || title}</span>
             </nav>
-            <TopNavLinks />
+            <TopNavLinks guild={guild} guildNav={guildNav} />
             <CreditsChip />
+            <LangMenu />
             <NotificationsBell />
-            <AccountMenu />
+            <AccountMenu guild={guild} guildNav={guildNav} />
           </header>
 
           <main className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
@@ -968,6 +1029,7 @@ export function DashboardShell({
             ) : null}
             {children}
           </main>
+          <Footer />
         </div>
       </div>
     </SiteShell>

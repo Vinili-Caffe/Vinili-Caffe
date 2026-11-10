@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import { FaqBrowser } from "@/components/faq/FaqBrowser";
 import { SmartLink } from "@/components/SmartLink";
-import { BOT_FAQ_CATEGORIES, BOT_FAQ_ITEMS } from "@/lib/bot-faq";
+import { botFaqFor } from "@/lib/bot-faq";
+import { useI18n } from "@/lib/i18n";
 import { page } from "@/lib/site";
 import { dashPrimaryBtn } from "./guild/bits";
 
@@ -33,11 +34,13 @@ const BOT_FAQ_ICONS: Record<string, LucideIcon> = {
 
 /** FAQ del bot: stessa pagina delle FAQ del sito (ricerca, categorie, domande a fisarmonica). */
 export function BotFaqBrowser() {
+  const { locale } = useI18n();
+  const faq = botFaqFor(locale);
   return (
     <div className="space-y-6">
       <FaqBrowser
-        items={BOT_FAQ_ITEMS}
-        categories={BOT_FAQ_CATEGORIES}
+        items={faq.items}
+        categories={faq.categories}
         icons={BOT_FAQ_ICONS}
         placeholder="Cerca: prefisso, comandi, partnership…"
         className="pb-2"

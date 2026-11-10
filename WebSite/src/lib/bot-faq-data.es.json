@@ -1,0 +1,235 @@
+{
+ "categories": [
+  {
+   "id": "faq_start",
+   "label": "Inicio",
+   "description": "Acceso, invitar al bot y primeros pasos",
+   "tabIcon": "fa-rocket"
+  },
+  {
+   "id": "faq_dashboard",
+   "label": "Panel",
+   "description": "Cómo moverse por el panel",
+   "tabIcon": "fa-th-large"
+  },
+  {
+   "id": "faq_settings",
+   "label": "Ajustes",
+   "description": "Identidad del bot, accesos y avisos",
+   "tabIcon": "fa-cog"
+  },
+  {
+   "id": "faq_commands",
+   "label": "Comandos",
+   "description": "Activación y límites por canal o rol",
+   "tabIcon": "fa-terminal"
+  },
+  {
+   "id": "faq_partnership",
+   "label": "Partnership",
+   "description": "Configuración y publicación de partners",
+   "tabIcon": "fa-handshake-o"
+  },
+  {
+   "id": "faq_team",
+   "label": "Equipo y puntos",
+   "description": "Managers, puntos, historial y clasificaciones",
+   "tabIcon": "fa-trophy"
+  },
+  {
+   "id": "faq_premium",
+   "label": "Premium",
+   "description": "Qué desbloquea Premium en el panel",
+   "tabIcon": "fa-diamond"
+  },
+  {
+   "id": "faq_data",
+   "label": "Datos",
+   "description": "Migración, restablecimiento y seguridad",
+   "tabIcon": "fa-database"
+  },
+  {
+   "id": "faq_help",
+   "label": "Ayuda",
+   "description": "Problemas, estado y asistencia",
+   "tabIcon": "fa-heartbeat"
+  }
+ ],
+ "items": [
+  {
+   "category": "faq_start",
+   "title": "¿Qué es Vinili y para qué sirve el panel?",
+   "tag": "Inicio",
+   "icon": "fa-info-circle",
+   "body": "Vinili es un bot de Discord pensado para gestionar tu servidor de forma ordenada: partnerships, comandos, personalizaciones y herramientas de equipo.\n\nEl panel web es el centro de control oficial. Desde ahí configuras el bot en el servidor, activas o limitas los comandos, gestionas las partnerships y consultas puntos, historial y clasificaciones — sin tener que recordar atajos en Discord."
+  },
+  {
+   "category": "faq_start",
+   "title": "¿Por qué no veo un servidor en la lista?",
+   "tag": "Inicio",
+   "icon": "fa-server",
+   "body": "Si ya estás en el panel pero falta un servidor en la lista, normalmente es por una de estas razones: el bot no está en ese servidor, tu cuenta no tiene los permisos necesarios para gestionarlo, o Discord aún no ha actualizado los permisos tras un nuevo inicio de sesión.\n\nPrueba a salir y volver a entrar con Discord, y luego recarga la página. Si el servidor sigue sin aparecer, comprueba que Vinili sigue en el servidor y que tu rol tiene los permisos necesarios (o está entre los roles habilitados en Ajustes)."
+  },
+  {
+   "category": "faq_start",
+   "title": "¿Cómo añado el bot a mi servidor?",
+   "tag": "Inicio",
+   "icon": "fa-plus-circle",
+   "body": "Desde el inicio del panel (o desde el enlace de invitación oficial) invita a Vinili eligiendo el servidor correcto en la pantalla de Discord.\n\nEl bot necesita poder leer y escribir en los canales que usarás, gestionar mensajes donde publica contenido y — para las partnerships — crear o gestionar invitaciones si tu proceso lo requiere. Si los permisos son demasiado estrictos, algunas acciones fallan en silencio o con un error claro: en ese caso sube los permisos del rol del bot en ese canal.\n\nTras la invitación, vuelve al panel, selecciona el servidor y completa la configuración inicial."
+  },
+  {
+   "category": "faq_start",
+   "title": "¿Quién puede gestionar el panel de un servidor?",
+   "tag": "Inicio",
+   "icon": "fa-shield",
+   "body": "En general pueden abrir y modificar el panel quienes tienen permisos de administración en el servidor de Discord, o quienes han sido habilitados mediante los roles de acceso al panel que configuras en los Ajustes del servidor.\n\nPuedes limitar el acceso a unos pocos roles de confianza (staff, equipo owner, etc.). Quien no entra ve el servidor bloqueado o directamente no lo ve en la lista.\n\nLos miembros normales del servidor no configuran el bot desde el panel: usan los comandos y funciones que tú has hecho disponibles."
+  },
+  {
+   "category": "faq_dashboard",
+   "title": "¿Cómo está organizado el panel de un servidor?",
+   "tag": "Panel",
+   "icon": "fa-th-large",
+   "body": "Tras elegir un servidor entras en el resumen: estado general, acceso rápido a los módulos e información sobre Premium si está activo.\n\nDesde el menú lateral (o desde las pestañas de módulos) puedes abrir:\n\n• Ajustes — identidad del bot en el servidor, roles que pueden usar el panel, canal de novedades.\n• Comandos — lista de comandos, on/off y límites por canal o rol.\n• Partnership — configuración, canales, filtros, lista negra, equipo, historial, clasificaciones y herramientas de datos.\n• Equipo y puntos — managers, puntos, historial y clasificaciones.\n\nArriba quedan los enlaces útiles del sitio (FAQ, Status, Premium, Feedback, Reseñas) y el selector de idioma."
+  },
+  {
+   "category": "faq_dashboard",
+   "title": "¿Cómo paso de un servidor a otro?",
+   "tag": "Panel",
+   "icon": "fa-exchange",
+   "body": "Desde el inicio del Panel vuelves a la lista de servidores y abres otro. En muchas vistas de servidor también hay un selector para cambiar de servidor sin empezar de cero.\n\nCada servidor tiene su propia configuración: canales, roles, comandos y partnerships no se comparten entre servidores distintos."
+  },
+  {
+   "category": "faq_dashboard",
+   "title": "¿Los cambios se aplican enseguida?",
+   "tag": "Panel",
+   "icon": "fa-floppy-o",
+   "body": "Sí, en la mayoría de los casos guardar en el panel actualiza enseguida la configuración que usa el bot.\n\nExcepciones típicas: sincronización de los permisos slash con Discord (puede tardar unos segundos), caché del navegador (recargar ayuda), o acciones en cola como migraciones de datos que muestran su progreso.\n\nSi algo no cuadra, revisa el Status del servicio y que el bot esté en línea en el servidor."
+  },
+  {
+   "category": "faq_settings",
+   "title": "¿Qué puedo cambiar en los Ajustes del servidor?",
+   "tag": "Ajustes",
+   "icon": "fa-cog",
+   "body": "En la sección Ajustes gestionas cómo se presenta el bot y quién puede administrarlo desde la web.\n\nIdentidad en el servidor (algunas opciones requieren Premium): apodo del bot en el servidor, avatar y banner del bot en el servidor. El prefijo de los comandos de texto se puede configurar también sin Premium.\n\nAcceso al panel: elige uno o más roles de Discord autorizados a usar el panel de ese servidor, además de quienes ya tienen permisos de administración.\n\nCanal de novedades / noticias: si está configurado, el bot puede reenviar ahí comunicaciones útiles (novedades, avisos técnicos). Dejarlo vacío desactiva el reenvío."
+  },
+  {
+   "category": "faq_settings",
+   "title": "¿Qué significa personalizar el apodo, el avatar o el banner?",
+   "tag": "Ajustes",
+   "icon": "fa-paint-brush",
+   "body": "Son personalizaciones del bot en ese servidor, no de tu cuenta de Discord. Sirven para que la comunidad reconozca a Vinili (estilo, branding, coherencia con el tema del servidor).\n\nSi una opción está reservada a Premium, en el panel aparece el bloqueo o la insignia correspondiente: sin Premium siguen disponibles los ajustes básicos."
+  },
+  {
+   "category": "faq_commands",
+   "title": "¿Cómo funciona la sección Comandos?",
+   "tag": "Comandos",
+   "icon": "fa-terminal",
+   "body": "Aquí encuentras el catálogo de comandos disponibles, agrupados por categoría (utilidades, partnership, música, moderación, etc.).\n\nPara cada comando normalmente puedes:\n\n• activarlo o desactivarlo en el servidor;\n• limitar su uso a canales permitidos o excluir canales;\n• limitar su uso a roles permitidos o excluir roles;\n• abrir la ayuda del comando para entender para qué sirve.\n\nRegla práctica: si configuras listas «permitidas», las listas «ignoradas» del mismo tipo deben considerarse una alternativa — no mezcles lógicas opuestas sin un motivo claro. El panel te guía en esto."
+  },
+  {
+   "category": "faq_commands",
+   "title": "Comandos slash y permisos de Discord: ¿qué debo saber?",
+   "tag": "Comandos",
+   "icon": "fa-link",
+   "body": "Los comandos slash y los menús contextuales (Apps en un mensaje o usuario) también viven en las integraciones de Discord del servidor.\n\nDesde el panel puedes sincronizar o alinear los permisos con Discord. Si un comando aparece en el panel pero en Discord sale gris o no está, comprueba: bot en línea, sincronización hecha y permisos del rol del bot en el canal.\n\nAlgunos comandos de partnership pueden heredar los límites del comando de partnership principal si no tienen reglas propias: útil para mantenerlo todo coherente sin repetir la misma configuración."
+  },
+  {
+   "category": "faq_commands",
+   "title": "¿Qué hago si un comando no aparece o no se puede usar?",
+   "tag": "Comandos",
+   "icon": "fa-exclamation-triangle",
+   "body": "Comprueba en este orden: comando activado en el panel → límites de canal/rol → permisos de Discord del miembro y del bot → si esa función necesita Premium.\n\nSi es un comando slash, prueba a reabrir Discord o a repetir la sincronización de permisos. Si sigue bloqueado, revisa la página Status y usa el Feedback del sitio para avisarnos."
+  },
+  {
+   "category": "faq_partnership",
+   "title": "¿Cómo configuro las partnerships la primera vez?",
+   "tag": "Partnership",
+   "icon": "fa-rocket",
+   "body": "Abre Partnership en el servidor y sigue el proceso guiado de inicio (si el servidor aún no está listo).\n\nEn resumen se te pedirá configurar:\n\n• el canal de partnership donde salen los mensajes publicados;\n• (opcional) un canal de logs/actividad;\n• el rol del equipo que gestiona las partnerships;\n• posibles avisos automáticos con umbrales (pings masivos o a un rol), más un posible retraso entre un aviso “real” y el siguiente.\n\nUna vez terminado, los cambios posteriores se hacen desde las subsecciones de Partnership (General, Filtros, Embed, etc.), siempre desde el panel."
+  },
+  {
+   "category": "faq_partnership",
+   "title": "¿Qué configuro en Partnership → General?",
+   "tag": "Partnership",
+   "icon": "fa-sliders",
+   "body": "Canales: dónde publicar, dónde registrar la actividad y (si procede) en qué canales o categorías el equipo puede usar las herramientas de partnership.\n\nEquipo / roles: el rol que identifica a quien gestiona los partners; un posible rol de insignia para el manager del partner.\n\nAvisos automáticos: umbrales y retrasos para las notificaciones. Si el retraso está activo, una mención puede aparecer en el mensaje sin enviar una notificación inmediata cada vez.\n\nOpciones: si el manager es obligatorio al ejecutarlo; si se admite la partnership manual en el canal; qué hacer si el manager sale del servidor; posibles límites de repetición con el mismo servidor partner.\n\nDescripción de tu servidor: puedes tomarla del último mensaje de un canal o usar un texto fijo. Si la dejas vacía, esa parte queda desactivada."
+  },
+  {
+   "category": "faq_partnership",
+   "title": "¿Para qué sirven los Filtros de las descripciones?",
+   "tag": "Partnership",
+   "icon": "fa-filter",
+   "body": "Los filtros limpian automáticamente los textos de las partnerships entrantes, para mantener los mensajes ordenados y seguros.\n\nPuedes activar reglas como: quitar menciones a usuarios/roles/canales, quitar menciones masivas, quitar enlaces externos (normalmente dejando la invitación de Discord), quitar emojis personalizados, caracteres invisibles o spoilers, y dejar una sola invitación útil.\n\nActívalos según lo estricto que quieras el canal de partnership."
+  },
+  {
+   "category": "faq_partnership",
+   "title": "¿Cómo se publica o elimina una partnership en Discord?",
+   "tag": "Partnership",
+   "icon": "fa-handshake-o",
+   "body": "En Discord usas las herramientas de partnership del bot (comandos slash o el menú Apps del mensaje), según lo que hayas activado en el panel.\n\nEn una publicación típica indicas la descripción y la invitación del servidor partner y, si tu configuración lo requiere, el manager. Con un partner válido el equipo recibe el punto.\n\nPara quitar un partner ya publicado, usa la acción contextual de eliminar en el mensaje de la partnership (si está disponible y tienes los permisos).\n\nSi los puntos no llegan, normalmente el partner no se considera válido: faltan datos, el servidor está en la lista de bloqueados, o hay un error que muestra el bot. Lee siempre el mensaje de resultado."
+  },
+  {
+   "category": "faq_partnership",
+   "title": "¿Cómo funciona la Lista negra de partnership?",
+   "tag": "Partnership",
+   "icon": "fa-ban",
+   "body": "Desde la subsección Lista negra puedes bloquear servidores partner (por invitación o ID) y añadir una nota opcional.\n\nLos servidores en la lista negra no deben generar partnerships válidas. Puedes listar, actualizar y quitar entradas desde la misma pantalla.\n\nÚsala para evitar partners repetidos no deseados, servidores problemáticos o acuerdos que no quieres aceptar."
+  },
+  {
+   "category": "faq_partnership",
+   "title": "¿Qué hay en Partnership → Embed?",
+   "tag": "Partnership",
+   "icon": "fa-picture-o",
+   "body": "Aquí personalizas el embed de agradecimiento (o mensaje estructurado) ligado a las partnerships: colores, título, autor, imágenes, pie, descripción y marca de tiempo.\n\nNormalmente esta área es Premium. Sin Premium se quedan los valores predeterminados; con Premium puedes adaptar el estilo al branding del servidor y volver a los valores por defecto cuando haga falta."
+  },
+  {
+   "category": "faq_team",
+   "title": "¿Cómo funcionan los puntos de partnership?",
+   "tag": "Equipo y puntos",
+   "icon": "fa-trophy",
+   "body": "Los puntos cuentan las partnerships válidas hechas en ese servidor. En resumen: un partner válido equivale a un punto para quien lo completa según las reglas del servidor.\n\nLos puntos pertenecen al servidor de Vinili que estás gestionando: no son un saldo global del sitio, sino una medida de la actividad de partnership en esa comunidad."
+  },
+  {
+   "category": "faq_team",
+   "title": "¿Qué puedo hacer en Partner Manager, Historial y Clasificaciones?",
+   "tag": "Equipo y puntos",
+   "icon": "fa-users",
+   "body": "Partner Manager: lista de quienes tienen el rol del equipo, con vistas de puntos gastables/estadísticas (día, semana, total) y herramientas de administración para añadir o quitar puntos cuando haga falta.\n\nHistorial: registro de los servidores con los que habéis hecho partnership, cuántas veces, última fecha, filtros de periodo y paginación. Donde esté disponible también puedes abrir la invitación.\n\nClasificaciones: clasificaciones por servidor partner, manager y entradas, con periodos total/diario/semanal y tu posición cuando corresponda.\n\nEstas vistas evitan tener que “ir de memoria”: todo se puede consultar desde el panel."
+  },
+  {
+   "category": "faq_premium",
+   "title": "¿Qué desbloquea Premium en el panel?",
+   "tag": "Premium",
+   "icon": "fa-diamond",
+   "body": "Premium activa personalizaciones avanzadas en el servidor (identidad del bot, embed de partnership personalizado y otras opciones marcadas con la insignia Premium en las pestañas).\n\nPuedes gestionar o comprar créditos/planes desde las páginas Premium y Créditos del sitio. El estado Premium del servidor aparece en el resumen.\n\nSi una función es Premium y el servidor no lo es, el panel lo indica claramente en lugar de dejar que la acción falle sin explicación."
+  },
+  {
+   "category": "faq_data",
+   "title": "¿Para qué sirve la sección Datos (migración)?",
+   "tag": "Datos",
+   "icon": "fa-database",
+   "body": "Si ya tenías un historial de partnerships en Discord, puedes importarlo al panel para reconstruir recuentos e historial.\n\nLa migración muestra el progreso, la cola, los recuentos (mensajes leídos, encontrados, importados, omitidos) y permite reintentar o deshacer la importación según las opciones disponibles.\n\nPuedes basarte en la configuración actual o indicar a mano los canales/roles de origen. Es una herramienta potente: lee las instrucciones de la página antes de iniciarla."
+  },
+  {
+   "category": "faq_data",
+   "title": "¿Qué hace el borrado / restablecimiento de los datos de partnership?",
+   "tag": "Datos",
+   "icon": "fa-trash",
+   "body": "La acción de restablecer en la sección Datos borra la configuración de partnership del servidor (canales, roles, pings, opciones, descripción, embed, lista negra, notificaciones/estadísticas ligadas a la configuración).\n\nNormalmente no borra el historial de las partnerships ya hechas: sirve para empezar limpio con la configuración, no para fingir que los partners pasados nunca existieron.\n\nEs una acción irreversible sobre la configuración: úsala solo si estás seguro, idealmente tras apuntar los canales y roles que quieres volver a configurar."
+  },
+  {
+   "category": "faq_help",
+   "title": "El bot no responde o la interacción falla: ¿qué compruebo?",
+   "tag": "Ayuda",
+   "icon": "fa-heartbeat",
+   "body": "1) Comprueba que Vinili esté en línea en el servidor y en la página Status del sitio.\n2) Revisa los permisos del bot en el canal donde estás actuando.\n3) Comprueba en el panel que el comando o la función esté activado y no limitado por tu rol/canal.\n4) Si usas menús Apps o comandos slash, vuelve a intentarlo tras unos segundos o repite la sincronización de permisos.\n\nMensajes como «La interacción ha fallado» suelen indicar un tiempo de espera en Discord, un bot reiniciado o una respuesta demasiado lenta — no siempre un error de configuración permanente."
+  },
+  {
+   "category": "faq_help",
+   "title": "¿Dónde pido ayuda o informo de un problema?",
+   "tag": "Ayuda",
+   "icon": "fa-life-ring",
+   "body": "Para ideas y errores del panel o del bot usa la sección Feedback del sitio.\n\nPara el estado de los servicios consulta Status. Para opiniones sobre el bot puedes dejar una Reseña.\n\nSi el problema es solo de tu servidor (permisos, canales, roles), normalmente lo resuelve quien administra ese servidor desde el panel — no hace falta una intervención global."
+  }
+ ]
+}

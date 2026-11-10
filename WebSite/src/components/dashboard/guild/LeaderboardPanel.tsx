@@ -86,7 +86,7 @@ async function loadBoard(token: string, guildId: string, category: Category, per
   }
 }
 
-const MEDAL = ["text-[#f2c14e]", "text-[#c9ced6]", "text-[#d08a52]"];
+const MEDAL = ["text-[#f2c14e] light:text-[#9a7212]", "text-[#c9ced6]", "text-[#d08a52]"];
 
 function RankRow({ row, unit, max }: { row: Row; unit: string; max: number }) {
   const pct = max > 0 ? Math.max(4, Math.round((row.score / max) * 100)) : 0;

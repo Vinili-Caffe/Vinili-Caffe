@@ -209,7 +209,7 @@ export function SetupWizard({ guildId, token, onChanged }: { guildId: string; to
                   <span
                     className={cn(
                       "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                      done ? "bg-[#5f9a6a]/25 text-[#9fd0a8]" : on ? "bg-caramel text-espresso" : "bg-crema/[0.08] text-crema/70",
+                      done ? "bg-[#5f9a6a]/25 text-[#9fd0a8] light:text-[#2f6b3f]" : on ? "bg-caramel text-espresso" : "bg-crema/[0.08] text-crema/70",
                     )}
                   >
                     {done ? <Check className="size-3.5" strokeWidth={3} /> : i + 1}
@@ -227,7 +227,7 @@ export function SetupWizard({ guildId, token, onChanged }: { guildId: string; to
               <p className="flex items-center gap-2 font-semibold text-crema">
                 <span className="text-ember">{current.icon}</span>
                 {current.title}
-                {status[current.id] ? <span className="rounded bg-[#5f9a6a]/20 px-1.5 py-0.5 text-[0.65rem] font-semibold text-[#9fd0a8]">fatto</span> : null}
+                {status[current.id] ? <span className="rounded bg-[#5f9a6a]/20 px-1.5 py-0.5 text-[0.65rem] font-semibold text-[#9fd0a8] light:text-[#2f6b3f]">fatto</span> : null}
               </p>
               <p className="mt-0.5 text-sm text-crema/70">{current.text}</p>
             </div>

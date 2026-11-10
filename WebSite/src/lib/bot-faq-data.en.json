@@ -1,0 +1,235 @@
+{
+ "categories": [
+  {
+   "id": "faq_start",
+   "label": "Start",
+   "description": "Access, inviting the bot and first steps",
+   "tabIcon": "fa-rocket"
+  },
+  {
+   "id": "faq_dashboard",
+   "label": "Dashboard",
+   "description": "How to move around the dashboard",
+   "tabIcon": "fa-th-large"
+  },
+  {
+   "id": "faq_settings",
+   "label": "Settings",
+   "description": "Bot identity, access and notices",
+   "tabIcon": "fa-cog"
+  },
+  {
+   "id": "faq_commands",
+   "label": "Commands",
+   "description": "Enabling and limits per channel or role",
+   "tabIcon": "fa-terminal"
+  },
+  {
+   "id": "faq_partnership",
+   "label": "Partnership",
+   "description": "Partner setup and publishing",
+   "tabIcon": "fa-handshake-o"
+  },
+  {
+   "id": "faq_team",
+   "label": "Team and points",
+   "description": "Managers, points, history and leaderboards",
+   "tabIcon": "fa-trophy"
+  },
+  {
+   "id": "faq_premium",
+   "label": "Premium",
+   "description": "What Premium unlocks in the dashboard",
+   "tabIcon": "fa-diamond"
+  },
+  {
+   "id": "faq_data",
+   "label": "Data",
+   "description": "Migration, reset and safety",
+   "tabIcon": "fa-database"
+  },
+  {
+   "id": "faq_help",
+   "label": "Help",
+   "description": "Problems, status and support",
+   "tabIcon": "fa-heartbeat"
+  }
+ ],
+ "items": [
+  {
+   "category": "faq_start",
+   "title": "What is Vinili and what is the dashboard for?",
+   "tag": "Start",
+   "icon": "fa-info-circle",
+   "body": "Vinili is a Discord bot designed to keep your server organised: partnerships, commands, customisation and team tools.\n\nThe web dashboard is the official control panel. From there you set up the bot on the server, enable or limit commands, manage partnerships and check points, history and leaderboards — without having to remember shortcuts on Discord."
+  },
+  {
+   "category": "faq_start",
+   "title": "Why don't I see a server in the list?",
+   "tag": "Start",
+   "icon": "fa-server",
+   "body": "If you're already in the dashboard but a server is missing from the list, it's usually one of these: the bot isn't in that server, your account doesn't have the permissions needed to manage it, or Discord hasn't refreshed the scopes yet after a new login.\n\nTry logging out and back in with Discord, then reload the page. If the server is still missing, check that Vinili is still in the server and that your role has the required permissions (or is among the roles enabled in Settings)."
+  },
+  {
+   "category": "faq_start",
+   "title": "How do I add the bot to my server?",
+   "tag": "Start",
+   "icon": "fa-plus-circle",
+   "body": "From the dashboard home (or the official invite link) invite Vinili, choosing the right server on the Discord screen.\n\nThe bot needs to read and write in the channels you'll use, manage messages where it posts content and — for partnerships — create or manage invites if your process requires it. If permissions are too strict, some actions fail silently or with a clear error: in that case raise the bot role's permissions in that channel.\n\nAfter the invite, go back to the dashboard, select the server and complete the initial setup."
+  },
+  {
+   "category": "faq_start",
+   "title": "Who can manage a server's dashboard?",
+   "tag": "Start",
+   "icon": "fa-shield",
+   "body": "In general, people with administrator permissions on the Discord server can open and edit the dashboard, as well as anyone enabled through the dashboard access roles you set in the server Settings.\n\nYou can restrict access to a few trusted roles (staff, owner team, etc.). Anyone else sees the server as locked or doesn't see it in the list at all.\n\nRegular server members don't configure the bot from the dashboard: they use the commands and features you've made available."
+  },
+  {
+   "category": "faq_dashboard",
+   "title": "How is a server's dashboard organised?",
+   "tag": "Dashboard",
+   "icon": "fa-th-large",
+   "body": "After choosing a server you land on the overview: general status, quick access to the modules and Premium info if active.\n\nFrom the side menu (or the module tabs) you can open:\n\n• Settings — the bot's identity on the server, roles that can use the dashboard, updates channel.\n• Commands — command list, on/off and limits per channel or role.\n• Partnership — setup, channels, filters, blacklist, team, history, leaderboards and data tools.\n• Team and points — managers, points, history and leaderboards.\n\nAt the top you'll find the site's useful links (FAQ, Status, Premium, Feedback, Reviews) and the language picker."
+  },
+  {
+   "category": "faq_dashboard",
+   "title": "How do I switch from one server to another?",
+   "tag": "Dashboard",
+   "icon": "fa-exchange",
+   "body": "From the Dashboard home you go back to the server list and open another one. In many server views there's also a switcher to change server without starting over.\n\nEach server has its own setup: channels, roles, commands and partnerships are not shared between different servers."
+  },
+  {
+   "category": "faq_dashboard",
+   "title": "Do changes apply right away?",
+   "tag": "Dashboard",
+   "icon": "fa-floppy-o",
+   "body": "Yes, in most cases saving in the dashboard immediately updates the setup the bot uses.\n\nTypical exceptions: syncing slash permissions with Discord (may take a few seconds), browser cache (a refresh helps), or queued actions like data migrations that show their progress.\n\nIf something doesn't add up, check the service Status and that the bot is online in the server."
+  },
+  {
+   "category": "faq_settings",
+   "title": "What can I change in the server Settings?",
+   "tag": "Settings",
+   "icon": "fa-cog",
+   "body": "In the Settings section you manage how the bot presents itself and who can administer it from the web.\n\nIdentity on the server (some items require Premium): the bot's nickname in the server, the bot's avatar and banner on the server. The text command prefix can be set even without Premium.\n\nDashboard access: choose one or more Discord roles allowed to use that server's dashboard, besides those who already have administrator permissions.\n\nUpdates / news channel: if set, the bot can forward useful communications there (news, technical notices). Leaving it empty turns forwarding off."
+  },
+  {
+   "category": "faq_settings",
+   "title": "What does customising the nickname, avatar or banner mean?",
+   "tag": "Settings",
+   "icon": "fa-paint-brush",
+   "body": "These are customisations of the bot on that server, not of your Discord account. They help the community recognise Vinili (style, branding, consistency with the server's theme).\n\nIf an item is reserved for Premium, the dashboard shows the matching lock or badge: without Premium the basic settings remain available."
+  },
+  {
+   "category": "faq_commands",
+   "title": "How does the Commands section work?",
+   "tag": "Commands",
+   "icon": "fa-terminal",
+   "body": "Here you'll find the catalogue of available commands, grouped by category (utility, partnership, music, moderation and so on).\n\nFor each command you can typically:\n\n• turn it on or off on the server;\n• limit it to allowed channels or exclude channels;\n• limit it to allowed roles or exclude roles;\n• open the command help to understand what it does.\n\nRule of thumb: if you set «allowed» lists, the «ignored» lists of the same type should be considered as an alternative — don't mix opposite logics without a clear reason. The dashboard guides you on this."
+  },
+  {
+   "category": "faq_commands",
+   "title": "Slash commands and Discord permissions: what should I know?",
+   "tag": "Commands",
+   "icon": "fa-link",
+   "body": "Slash commands and context menus (Apps on a message or user) also live in the server's Discord integrations.\n\nFrom the dashboard you can sync or align permissions to Discord. If a command shows in the dashboard but is greyed out or missing in Discord, check: bot online, sync done, and the bot role's permissions in the channel.\n\nSome partnership commands can inherit the limits of the main partnership command if they have no rules of their own: handy to keep everything consistent without repeating the same setup."
+  },
+  {
+   "category": "faq_commands",
+   "title": "What if a command doesn't show up or can't be used?",
+   "tag": "Commands",
+   "icon": "fa-exclamation-triangle",
+   "body": "Check in this order: command enabled in the dashboard → channel/role limits → Discord permissions of the member and the bot → whether that feature needs Premium.\n\nIf it's a slash command, try reopening Discord or running the permission sync again. If it stays blocked, check the Status page and use the site's Feedback to report it."
+  },
+  {
+   "category": "faq_partnership",
+   "title": "How do I set up partnerships the first time?",
+   "tag": "Partnership",
+   "icon": "fa-rocket",
+   "body": "Open Partnership on the server and follow the guided startup (if the server isn't ready yet).\n\nIn short you'll be asked to set:\n\n• the partnership channel where published messages go;\n• (optional) a log/activity channel;\n• the role of the team that manages partnerships;\n• any automatic notices with thresholds (mass pings or to a role), plus an optional delay between one “real” notice and the next.\n\nOnce done, later changes are made from the Partnership subsections (General, Filters, Embed, etc.), always from the dashboard."
+  },
+  {
+   "category": "faq_partnership",
+   "title": "What do I set in Partnership → General?",
+   "tag": "Partnership",
+   "icon": "fa-sliders",
+   "body": "Channels: where to publish, where to log activity, and (if applicable) in which channels or categories the team can use the partnership tools.\n\nTeam / roles: the role that identifies who manages partners; an optional badge role given to the partner's manager.\n\nAutomatic notices: thresholds and delays for notifications. If the delay is on, a mention can appear in the message without sending an immediate notification every time.\n\nOptions: whether the manager is required when running it; whether manual partnerships are allowed in the channel; what to do if the manager leaves the server; any repeat limits on the same partner server.\n\nYour server's description: you can take it from the last message in a channel or use fixed text. If you leave it empty, that part stays off."
+  },
+  {
+   "category": "faq_partnership",
+   "title": "What are the description Filters for?",
+   "tag": "Partnership",
+   "icon": "fa-filter",
+   "body": "Filters automatically clean up incoming partnership texts, to keep messages tidy and safe.\n\nYou can turn on rules like: remove mentions of users/roles/channels, remove mass mentions, strip external links (usually keeping the Discord invite), remove custom emoji, invisible characters or spoilers, and keep a single useful invite.\n\nTurn them on based on how strict you want the partnership channel to be."
+  },
+  {
+   "category": "faq_partnership",
+   "title": "How do I publish or delete a partnership on Discord?",
+   "tag": "Partnership",
+   "icon": "fa-handshake-o",
+   "body": "On the Discord side you use the bot's partnership tools (slash commands or the Apps menu on the message), according to what you've enabled in the dashboard.\n\nIn a typical publication you provide the partner server's description and invite and, if your setup requires it, the manager. For a valid partner the team gets the point.\n\nTo remove a partner that's already published, use the delete context action on the partnership message (if available and if you have the permissions).\n\nIf points don't arrive, the partner usually isn't considered valid: missing data, server on the block list, or an error shown by the bot. Always read the result message."
+  },
+  {
+   "category": "faq_partnership",
+   "title": "How does the partnership Blacklist work?",
+   "tag": "Partnership",
+   "icon": "fa-ban",
+   "body": "From the Blacklist subsection you can block partner servers (by invite or ID) and add an optional note.\n\nBlacklisted servers shouldn't generate valid partnerships. You can list, update and remove entries from the same screen.\n\nUse it to avoid unwanted repeated partners, problematic servers or deals you don't want to accept."
+  },
+  {
+   "category": "faq_partnership",
+   "title": "What's in Partnership → Embed?",
+   "tag": "Partnership",
+   "icon": "fa-picture-o",
+   "body": "Here you customise the thank-you embed (or structured message) tied to partnerships: colours, title, author, images, footer, description and timestamp.\n\nThis area is usually Premium. Without Premium the defaults remain; with Premium you can match the style to the server's branding and reset to defaults when needed."
+  },
+  {
+   "category": "faq_team",
+   "title": "How do partnership points work?",
+   "tag": "Team and points",
+   "icon": "fa-trophy",
+   "body": "Points count the valid partnerships made on that server. In short: one valid partner equals one point for whoever completes it according to the server's rules.\n\nPoints belong to the Vinili server you're managing: they're not a global site balance, but a measure of partnership activity in that community."
+  },
+  {
+   "category": "faq_team",
+   "title": "What can I do in Partner Manager, History and Leaderboards?",
+   "tag": "Team and points",
+   "icon": "fa-users",
+   "body": "Partner Manager: list of those with the team role, with views of spendable points/stats (day, week, total) and admin tools to add or remove points when needed.\n\nHistory: record of the servers you've partnered with, how many times, last date, period filters and pagination. Where available you can also open the invite.\n\nLeaderboards: leaderboards by partner server, manager and joins, with total/daily/weekly periods and your position when applicable.\n\nThese views replace the need to “go from memory”: everything can be checked from the dashboard."
+  },
+  {
+   "category": "faq_premium",
+   "title": "What does Premium unlock in the dashboard?",
+   "tag": "Premium",
+   "icon": "fa-diamond",
+   "body": "Premium enables advanced customisation on the server (bot identity, custom partnership embed, and other items marked with the Premium badge in the tabs).\n\nYou can manage or buy credits/plans from the site's Premium and Credits pages. The server's Premium status shows in the overview.\n\nIf a feature is Premium and the server isn't, the dashboard says so clearly instead of letting the action fail without explanation."
+  },
+  {
+   "category": "faq_data",
+   "title": "What is the Data (migration) section for?",
+   "tag": "Data",
+   "icon": "fa-database",
+   "body": "If you already had a partnership history on Discord, you can import it into the dashboard to rebuild counts and history.\n\nThe migration shows progress, queue, counts (messages read, found, imported, skipped) and lets you retry or undo the import according to the available options.\n\nYou can base it on the current setup or manually set the source channels/roles. It's a powerful tool: read the instructions on the page before starting it."
+  },
+  {
+   "category": "faq_data",
+   "title": "What does deleting / resetting partnership data do?",
+   "tag": "Data",
+   "icon": "fa-trash",
+   "body": "The reset action in the Data section clears the server's partnership setup (channels, roles, pings, options, description, embed, blacklist, notifications/stats tied to the setup).\n\nIt usually doesn't delete the history of partnerships already made: it's for starting clean on the setup, not for pretending past partners never existed.\n\nIt's irreversible for the setup: use it only if you're sure, ideally after noting down the channels and roles you want to set again."
+  },
+  {
+   "category": "faq_help",
+   "title": "The bot doesn't reply or the interaction fails: what should I check?",
+   "tag": "Help",
+   "icon": "fa-heartbeat",
+   "body": "1) Check that Vinili is online in the server and on the site's Status page.\n2) Check the bot's permissions in the channel where you're acting.\n3) Check in the dashboard that the command or feature is enabled and not limited by your role/channel.\n4) If you're using Apps menus or slash commands, try again after a few seconds or run the permission sync again.\n\nMessages like «Interaction failed» often mean a Discord-side timeout, a restarted bot or a reply that was too slow — not always a permanent setup error."
+  },
+  {
+   "category": "faq_help",
+   "title": "Where do I ask for help or report a problem?",
+   "tag": "Help",
+   "icon": "fa-life-ring",
+   "body": "For ideas and bugs about the dashboard or the bot, use the site's Feedback section.\n\nFor service status check Status. For opinions about the bot you can leave a Review.\n\nIf the problem is only on your server (permissions, channels, roles), it's usually solved by whoever manages that server from the dashboard — no global fix is needed."
+  }
+ ]
+}

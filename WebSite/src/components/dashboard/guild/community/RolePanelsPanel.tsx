@@ -228,7 +228,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
         {problems.length ? (
           <div className="rounded-xl bg-[#a83a2c]/[0.08] p-3 ring-1 ring-[#a83a2c]/30">
             <p className="flex items-center gap-2 text-sm font-semibold text-crema">
-              <AlertTriangle className="size-4 text-[#f0a493]" /> Da sistemare prima di pubblicare
+              <AlertTriangle className="size-4 text-[#f0a493] light:text-[#a83a2c]" /> Da sistemare prima di pubblicare
             </p>
             <ul className="mt-1 list-disc space-y-0.5 pl-6 text-xs text-crema/75">
               {problems.map((p) => (
@@ -383,7 +383,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
                               emojis={data.pickers.emojis}
                               onPick={(emoji) => setRole(i, { emoji })}
                               label={edit.mode === "reactions" ? "Reazione (obbligatoria)" : "Emoji"}
-                              className={edit.mode === "reactions" && !o.emoji ? "text-[#f0a493] ring-[#a83a2c]/50" : undefined}
+                              className={edit.mode === "reactions" && !o.emoji ? "text-[#f0a493] light:text-[#a83a2c] ring-[#a83a2c]/50" : undefined}
                             >
                               {o.emoji ? <EmojiGlyph value={o.emoji} /> : <Smile className="size-3.5" />}
                               {edit.mode === "reactions" && !o.emoji ? <span>Scegli reazione</span> : null}

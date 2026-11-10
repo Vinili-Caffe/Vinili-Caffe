@@ -360,7 +360,7 @@ export function TicketForms({
                       </button>
                       <button
                         type="button"
-                        className="rounded-md px-2 py-1 text-xs font-semibold text-[#f0a493] transition hover:bg-[#a83a2c]/15 light:text-[#a83a2c]"
+                        className="rounded-md px-2 py-1 text-xs font-semibold text-[#f0a493] light:text-[#a83a2c] transition hover:bg-[#a83a2c]/15 light:text-[#a83a2c]"
                         onClick={() => setFields((rows) => rows.filter((f) => f.id !== field.id))}
                       >
                         Rimuovi
@@ -478,7 +478,7 @@ export function TicketForms({
                                 />
                                 <button
                                   type="button"
-                                  className="rounded-md px-2 py-1.5 text-sm text-crema/60 transition hover:bg-[#a83a2c]/15 hover:text-[#f0a493]"
+                                  className="rounded-md px-2 py-1.5 text-sm text-crema/60 transition hover:bg-[#a83a2c]/15 hover:text-[#f0a493] hover:light:text-[#a83a2c]"
                                   aria-label={`Rimuovi opzione ${oi + 1}`}
                                   onClick={() => patchField(field.id, { options: field.options.filter((_, i) => i !== oi) })}
                                 >

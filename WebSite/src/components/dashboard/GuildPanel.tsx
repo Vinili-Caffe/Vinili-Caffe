@@ -80,6 +80,7 @@ import {
   defaultModuleTab,
   findGuildSection,
   isClassificaSectionTab,
+  CLASSIFICA_SECTION_TABS,
   isCommandSectionTab,
   isGuildSection,
   isModerationModuleTab,
@@ -98,6 +99,7 @@ import {
   PremiumLock,
   SettingRow,
   StateCard,
+  Subnav,
   StatTile,
   Toggle,
   dashPrimaryBtn,
@@ -351,7 +353,7 @@ function SetupGuideBanner({
               className="flex w-full items-center gap-2.5 rounded-xl bg-espresso/40 px-3 py-2 text-left text-sm text-crema/85 ring-1 ring-sand/10 transition hover:bg-espresso/55"
             >
               {step.done ? (
-                <CheckCircle2 className="size-4 shrink-0 text-[#9fd0a8]" aria-hidden />
+                <CheckCircle2 className="size-4 shrink-0 text-[#9fd0a8] light:text-[#2f6b3f]" aria-hidden />
               ) : (
                 <Circle className="size-4 shrink-0 text-crema/40" aria-hidden />
               )}
@@ -1101,7 +1103,7 @@ function SettingsSection({
                         type="button"
                         aria-label={`Togli ${userLabels[id] || id} dall’accesso dashboard`}
                         disabled={rolesLocked || saving}
-                        className="flex size-5 items-center justify-center rounded-full text-crema/60 transition hover:bg-[#a83a2c]/25 hover:text-[#f0a493] disabled:opacity-45"
+                        className="flex size-5 items-center justify-center rounded-full text-crema/60 transition hover:bg-[#a83a2c]/25 hover:text-[#f0a493] hover:light:text-[#a83a2c] disabled:opacity-45"
                         onClick={() => void saveUsers(dashboardUserIds.filter((x) => x !== id))}
                       >
                         ✕
@@ -1929,11 +1931,13 @@ export function GuildPanel() {
               </p>
             ) : null}
 
-            <GuildHero
-              guild={overview}
-              premiumActive={premiumActive}
-              prefix={overview.botPresent ? settings?.prefix ?? commands?.prefix ?? null : null}
-            />
+            {section === "settings" || !showSections ? (
+              <GuildHero
+                guild={overview}
+                premiumActive={premiumActive}
+                prefix={overview.botPresent ? settings?.prefix ?? commands?.prefix ?? null : null}
+              />
+            ) : null}
 
             {overview.botPresent ? (
               <SetupGuideBanner overview={overview} ticketsEnabled={tickets?.enabled === true} onGo={setSection} />
@@ -2200,6 +2204,14 @@ export function GuildPanel() {
 
                     {section === "classifica" && guildId && token ? (
                       <Panel>
+                        <div className="mb-4">
+                          <Subnav
+                            label="Classifiche"
+                            tabs={CLASSIFICA_SECTION_TABS.map((t) => ({ id: t.id, label: t.label }))}
+                            value={moduleTab && isClassificaSectionTab(moduleTab) ? moduleTab : "servers"}
+                            onChange={(t) => setModuleTab("classifica", t)}
+                          />
+                        </div>
                         <LeaderboardPanel
                           guildId={guildId}
                           token={token}

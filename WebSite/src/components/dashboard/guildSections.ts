@@ -135,7 +135,6 @@ export function isAnnunciModuleTab(v: string): v is AnnunciModuleTabId {
 export const GUILD_SERVER_SECTIONS = [
   { id: "settings", label: "Impostazioni", icon: Settings2 },
   { id: "commands", label: "Comandi", icon: Terminal, tabs: COMMAND_SECTION_TABS },
-  { id: "classifica", label: "Classifica", icon: Trophy, tabs: CLASSIFICA_SECTION_TABS },
   { id: "stats", label: "Statistiche", icon: BarChart3 },
   { id: "salute", label: "Salute del bot", icon: HeartPulse },
   { id: "registro", label: "Registro modifiche", icon: History, tabs: REGISTRO_MODULE_TABS },
@@ -157,8 +156,13 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "sondaggi", label: "Sondaggi", icon: Vote, tabs: [] as const },
 ] as const satisfies readonly GuildNavItem[];
 
+/** Sezioni che non stanno nel menu laterale: si aprono dalla barra in alto. */
+export const GUILD_TOPBAR_SECTIONS = [
+  { id: "classifica", label: "Classifica", icon: Trophy, tabs: CLASSIFICA_SECTION_TABS },
+] as const satisfies readonly GuildNavItem[];
+
 /** Elenco piatto (URL, mobile chip, lookup). Ordine: server poi moduli. */
-export const GUILD_SECTIONS = [...GUILD_SERVER_SECTIONS, ...GUILD_MODULE_SECTIONS] as const;
+export const GUILD_SECTIONS = [...GUILD_SERVER_SECTIONS, ...GUILD_MODULE_SECTIONS, ...GUILD_TOPBAR_SECTIONS] as const;
 
 export function isGuildSection(v: string): v is GuildSectionId {
   return GUILD_SECTIONS.some((s) => s.id === v);

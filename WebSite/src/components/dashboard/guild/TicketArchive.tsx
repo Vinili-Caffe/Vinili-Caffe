@@ -121,7 +121,7 @@ function typeLabel(t: string) {
 
 function Stars({ n }: { n: number }) {
   return (
-    <span className="inline-flex items-center gap-0.5 text-[#f2c14e]" aria-label={`${n} stelle su 5`}>
+    <span className="inline-flex items-center gap-0.5 text-[#f2c14e] light:text-[#9a7212]" aria-label={`${n} stelle su 5`}>
       {Array.from({ length: 5 }, (_, i) => (
         <Star key={i} className={cn("size-3", i < n ? "fill-current" : "opacity-25")} aria-hidden />
       ))}
@@ -200,7 +200,7 @@ function TranscriptReader({ token, guildId, row, onClose }: { token: string; gui
             <X className="size-3.5" />
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#313338]">
+        <div translate="no" className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#313338]">
           {state.loading ? (
             <TranscriptSkeleton />
           ) : state.error ? (

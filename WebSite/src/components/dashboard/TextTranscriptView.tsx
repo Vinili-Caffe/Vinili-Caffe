@@ -146,7 +146,7 @@ export function TextTranscriptView({
     (m.bot && /vinili/i.test(m.author) ? BOT_AVATAR : null);
 
   return (
-    <div className={cn("bg-[#313338] text-[#dbdee1]", className)}>
+    <div translate="no" className={cn("bg-[#313338] text-[#dbdee1]", className)}>
       {parsed.channel ? (
         <div className="sticky top-0 z-[1] flex items-center gap-2 border-b border-black/30 bg-[#313338]/95 px-4 py-3 backdrop-blur">
           <Hash className="size-4 shrink-0 text-[#80848e]" aria-hidden />

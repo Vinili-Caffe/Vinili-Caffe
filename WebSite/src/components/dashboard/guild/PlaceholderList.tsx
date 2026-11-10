@@ -112,7 +112,7 @@ export function PlaceholderList({ onInsert }: { onInsert: (token: string) => voi
                     }}
                     className="flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left transition hover:bg-crema/[0.05]"
                   >
-                    <code className={cn("shrink-0 rounded bg-espresso/80 px-1.5 py-0.5 font-mono text-xs ring-1 ring-sand/15", last === it.token ? "text-[#9fd0a8]" : "text-ember")}>
+                    <code className={cn("shrink-0 rounded bg-espresso/80 px-1.5 py-0.5 font-mono text-xs ring-1 ring-sand/15", last === it.token ? "text-[#9fd0a8] light:text-[#2f6b3f]" : "text-ember")}>
                       {last === it.token ? <Check className="inline size-3" aria-hidden /> : null} {it.token}
                     </code>
                     <span className="min-w-0 text-xs leading-relaxed text-crema/70">{it.hint}</span>

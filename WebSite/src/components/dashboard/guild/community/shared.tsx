@@ -453,7 +453,7 @@ export function DiscordMessagePreview({
   const time = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className={cn("overflow-hidden rounded-xl bg-[#313338] py-3 ring-1 ring-sand/10", className)}>
+    <div translate="no" className={cn("overflow-hidden rounded-xl bg-[#313338] py-3 ring-1 ring-sand/10", className)}>
       <ScaleToFit width={CHAT_WIDTH}>
         <div className="flex gap-4 pl-4 pr-4 font-sans text-[16px] leading-[22px] text-[#dbdee1] antialiased">
           {bot?.avatarUrl ? (

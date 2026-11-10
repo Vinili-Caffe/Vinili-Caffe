@@ -45,7 +45,7 @@ export function DiscordPanelPreview({
   const emojiLooksCustom = /^<a?:\w+:\d+>$/.test(emoji);
 
   return (
-    <div className={cn("rounded-xl bg-[#313338] p-3 ring-1 ring-white/10", className)}>
+    <div translate="no" className={cn("rounded-xl bg-[#313338] p-3 ring-1 ring-white/10", className)}>
       <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-white/40">
         Anteprima Discord
       </p>

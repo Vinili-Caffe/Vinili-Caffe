@@ -328,7 +328,7 @@ export function TicketTeams({
                           <button
                             type="button"
                             aria-label={`Togli ${labels[`user:${m.id}`] || m.id} dal team`}
-                            className="flex size-5 items-center justify-center rounded-full text-crema/60 transition hover:bg-[#a83a2c]/25 hover:text-[#f0a493]"
+                            className="flex size-5 items-center justify-center rounded-full text-crema/60 transition hover:bg-[#a83a2c]/25 hover:text-[#f0a493] hover:light:text-[#a83a2c]"
                             onClick={() => {
                               const next = members.filter((x) => !(x.type === "user" && x.id === m.id));
                               setMembers(next);
