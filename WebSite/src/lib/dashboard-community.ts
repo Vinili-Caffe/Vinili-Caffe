@@ -2,7 +2,18 @@
 // API: /webhooks/site-dashboard/guilds/:id/community/…
 // Handler: MultiGuild/site/dashboard/dashboardCommunityApi.ts
 
-export type MsgButton = { label: string; url: string; emoji: string };
+/** row = fila 0-4 (se manca: 5 per fila in ordine) */
+export type MsgButton = { label: string; url: string; emoji: string; row?: number };
+export type MsgField = { name: string; value: string; inline: boolean };
+export type V2LinkButton = { label: string; url: string; emoji: string };
+/** Components V2: blocchi al posto di testo + embed */
+export type V2Block =
+  | { type: "text"; content: string }
+  | { type: "separator"; divider: boolean; spacing: "small" | "large" }
+  | { type: "media"; urls: string[] }
+  | { type: "section"; content: string; accessory: "thumbnail" | "button"; thumbnailUrl: string; button: V2LinkButton }
+  | { type: "buttons"; buttons: V2LinkButton[] };
+export type MsgV2 = { enabled: boolean; container: boolean; accentColor: string; blocks: V2Block[] };
 export type MsgEmbed = {
   enabled: boolean;
   title: string;
@@ -14,8 +25,9 @@ export type MsgEmbed = {
   timestamp: boolean;
   authorName: string;
   authorIconUrl: string;
+  fields?: MsgField[];
 };
-export type MsgDraft = { content: string; embed: MsgEmbed; buttons: MsgButton[] };
+export type MsgDraft = { content: string; embed: MsgEmbed; buttons: MsgButton[]; v2?: MsgV2 };
 /** Promemoria a rotazione in chat (solo server principale) */
 export type ChatReminder = { id: string; name: string; enabled: boolean; draft: MsgDraft };
 
@@ -87,7 +99,8 @@ export type WelcomeSettings = {
 
 export type PickerChannel = { id: string; name: string };
 export type PickerRole = { id: string; name: string; color: string | null; position: number; managed?: boolean };
-export type PickerEmoji = { id: string; name: string; animated?: boolean; url?: string };
+/** guildName presente = emoji di un altro server del bot */
+export type PickerEmoji = { id: string; name: string; animated?: boolean; url?: string; guildId?: string; guildName?: string };
 
 export type CommunityData = {
   guild: { id: string; name: string; icon?: string | null; banner?: string | null; memberCount: number | null };
@@ -109,8 +122,9 @@ export type CommunityData = {
 export function emptyDraft(over: Partial<MsgDraft> = {}): MsgDraft {
   return {
     content: "",
-    embed: { enabled: true, title: "", description: "", color: "#d49150", imageUrl: "", thumbnailUrl: "", footerText: "", timestamp: false, authorName: "", authorIconUrl: "" },
+    embed: { enabled: true, title: "", description: "", color: "#d49150", imageUrl: "", thumbnailUrl: "", footerText: "", timestamp: false, authorName: "", authorIconUrl: "", fields: [] },
     buttons: [],
+    v2: { enabled: false, container: true, accentColor: "", blocks: [] },
     ...over,
   };
 }

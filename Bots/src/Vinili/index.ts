@@ -117,6 +117,8 @@ try {
     /* contatori per stato (online/inattivo/dnd/offline) della dashboard */
     (require("../MultiGuild/services/presenceCounts") as typeof import("../MultiGuild/services/presenceCounts")).installPresenceCounts(client);
     /* chi ha i ruoli staff, per le notifiche dell'inbox mandate dall'API del sito */
+    /* emoji di tutti i server del bot, per i picker della dashboard */
+    (require("../MultiGuild/services/allGuildEmojis") as typeof import("../MultiGuild/services/allGuildEmojis")).startAllGuildEmojisSnapshot(client);
     (require("./site/workflow/staffRoleMembersSnapshot") as typeof import("./site/workflow/staffRoleMembersSnapshot")).startStaffRoleMembersSnapshot(client);
   } catch (err) {
     global.logger?.warn?.("[PRESENCE COUNTS] install:", err?.message || err);

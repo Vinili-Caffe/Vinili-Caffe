@@ -29,7 +29,9 @@ const CACHE_TTL_MS = 15_000;
 
 /* ───────────── messaggio (testo + embed + pulsanti link) ───────────── */
 
-type MsgButton = { label: string; url: string; emoji: string };
+/** row = fila (0-4) in cui sta il pulsante */
+type MsgButton = { label: string; url: string; emoji: string; row: number };
+type MsgField = { name: string; value: string; inline: boolean };
 type MsgEmbed = {
   enabled: boolean;
   title: string;
@@ -41,8 +43,17 @@ type MsgEmbed = {
   timestamp: boolean;
   authorName: string;
   authorIconUrl: string;
+  fields: MsgField[];
 };
-type MsgDraft = { content: string; embed: MsgEmbed; buttons: MsgButton[] };
+/* Components V2: blocchi al posto di testo+embed */
+type V2Block =
+  | { type: "text"; content: string }
+  | { type: "separator"; divider: boolean; spacing: "small" | "large" }
+  | { type: "media"; urls: string[] }
+  | { type: "section"; content: string; accessory: "thumbnail" | "button"; thumbnailUrl: string; button: { label: string; url: string; emoji: string } }
+  | { type: "buttons"; buttons: { label: string; url: string; emoji: string }[] };
+type MsgV2 = { enabled: boolean; container: boolean; accentColor: string; blocks: V2Block[] };
+type MsgDraft = { content: string; embed: MsgEmbed; buttons: MsgButton[]; v2: MsgV2 };
 
 const str = (v: unknown, max: number) => String(v ?? "").slice(0, max);
 const isId = (v: unknown) => /^\d{16,22}$/.test(String(v || ""));
@@ -65,10 +76,39 @@ const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slic
 function normalizeDraft(raw?): MsgDraft {
   const r = raw && typeof raw === "object" ? raw : {};
   const e = r.embed && typeof r.embed === "object" ? r.embed : {};
+  /* fila scelta dall'utente; senza fila: 5 per riga in ordine */
   const buttons = (Array.isArray(r.buttons) ? r.buttons : [])
-    .map((b?) => ({ label: str(b?.label, 80).trim(), url: httpUrl(b?.url), emoji: str(b?.emoji, 80).trim() }))
+    .map((b?, i?: number) => {
+      const row = Number(b?.row);
+      return { label: str(b?.label, 80).trim(), url: httpUrl(b?.url), emoji: str(b?.emoji, 80).trim(), row: Number.isInteger(row) && row >= 0 && row <= 4 ? row : Math.min(4, Math.floor((i || 0) / 5)) };
+    })
     .filter((b) => (b.label || b.emoji) && b.url)
     .slice(0, LIMITS.buttons);
+  const fields = (Array.isArray(e.fields) ? e.fields : [])
+    .map((f?) => ({ name: str(f?.name, 256), value: str(f?.value, 1024), inline: f?.inline === true }))
+    .filter((f) => f.name.trim() || f.value.trim())
+    .slice(0, 25);
+  const v = r.v2 && typeof r.v2 === "object" ? r.v2 : {};
+  const linkBtn = (b?) => ({ label: str(b?.label, 80).trim(), url: httpUrl(b?.url), emoji: str(b?.emoji, 80).trim() });
+  const blocks: V2Block[] = (Array.isArray(v.blocks) ? v.blocks : [])
+    .map((x?): V2Block | null => {
+      const t = String(x?.type || "");
+      if (t === "text") return { type: "text", content: str(x.content, 4000) };
+      if (t === "separator") return { type: "separator", divider: x.divider !== false, spacing: x.spacing === "large" ? "large" : "small" };
+      if (t === "media") return { type: "media", urls: (Array.isArray(x.urls) ? x.urls : []).map((u?) => urlOrToken(u)).filter(Boolean).slice(0, 10) };
+      if (t === "section")
+        return {
+          type: "section",
+          content: str(x.content, 4000),
+          accessory: x.accessory === "button" ? "button" : "thumbnail",
+          thumbnailUrl: urlOrToken(x.thumbnailUrl),
+          button: linkBtn(x.button),
+        };
+      if (t === "buttons") return { type: "buttons", buttons: (Array.isArray(x.buttons) ? x.buttons : []).map(linkBtn).filter((b) => (b.label || b.emoji) && b.url).slice(0, 5) };
+      return null;
+    })
+    .filter((x): x is V2Block => x !== null)
+    .slice(0, 30);
   return {
     content: str(r.content, 2000),
     embed: {
@@ -82,12 +122,19 @@ function normalizeDraft(raw?): MsgDraft {
       timestamp: e.timestamp === true,
       authorName: str(e.authorName, 256),
       authorIconUrl: urlOrToken(e.authorIconUrl),
+      fields,
     },
     buttons,
+    v2: { enabled: v.enabled === true, container: v.container !== false, accentColor: hex(v.accentColor, ""), blocks },
   };
 }
 
 function draftIsEmpty(d: MsgDraft) {
+  if (d.v2?.enabled) {
+    return !d.v2.blocks.some((b) =>
+      b.type === "text" || b.type === "section" ? b.content.trim() : b.type === "media" ? b.urls.length : b.type === "buttons" ? b.buttons.length : false,
+    );
+  }
   const embedEmpty = !d.embed.enabled || (!d.embed.title.trim() && !d.embed.description.trim() && !d.embed.imageUrl);
   return !d.content.trim() && embedEmpty;
 }
@@ -108,7 +155,56 @@ function fill(text?, vars: FillVars = {}) {
 }
 
 /** Corpo REST di un messaggio Discord. `extraRows` = componenti aggiuntivi (es. pulsanti ruolo). */
+/** Pulsante link per i componenti Discord. */
+function linkButtonComponent(b: { label: string; url: string; emoji: string }, vars: FillVars) {
+  const c: Record<string, any> = { type: 2, style: 5, url: b.url };
+  if (b.label) c.label = fill(b.label, vars).slice(0, 80);
+  const em = parseEmoji(b.emoji);
+  if (em) c.emoji = em;
+  return c;
+}
+
+/** Components V2: blocchi (testo, sezioni, immagini, separatori, pulsanti), dentro un contenitore se richiesto. */
+function buildV2Body(draft: MsgDraft, vars: FillVars, extraRows: any[], opts: { mentionUserId?: string | null }) {
+  const out: any[] = [];
+  for (const b of draft.v2.blocks) {
+    if (b.type === "text") {
+      const content = fill(b.content, vars).trim();
+      if (content) out.push({ type: 10, content: content.slice(0, 4000) });
+    } else if (b.type === "separator") {
+      out.push({ type: 14, divider: b.divider, spacing: b.spacing === "large" ? 2 : 1 });
+    } else if (b.type === "media") {
+      const items = b.urls.map((u) => httpUrl(fill(u, vars))).filter(Boolean).map((url) => ({ media: { url } }));
+      if (items.length) out.push({ type: 12, items });
+    } else if (b.type === "section") {
+      const content = fill(b.content, vars).trim();
+      if (!content) continue;
+      let accessory: Record<string, any> | null = null;
+      if (b.accessory === "button" && b.button.url && (b.button.label || b.button.emoji)) accessory = linkButtonComponent(b.button, vars);
+      if (b.accessory === "thumbnail") {
+        const url = httpUrl(fill(b.thumbnailUrl, vars));
+        if (url) accessory = { type: 11, media: { url } };
+      }
+      /* una sezione senza accessorio non è valida: diventa testo semplice */
+      out.push(accessory ? { type: 9, components: [{ type: 10, content: content.slice(0, 4000) }], accessory } : { type: 10, content: content.slice(0, 4000) });
+    } else if (b.type === "buttons" && b.buttons.length) {
+      out.push({ type: 1, components: b.buttons.map((x) => linkButtonComponent(x, vars)) });
+    }
+  }
+  if (!out.length) out.push({ type: 10, content: "​" });
+  const accent = draft.v2.accentColor ? parseInt(draft.v2.accentColor.slice(1), 16) : null;
+  const components = draft.v2.container ? [{ type: 17, ...(accent != null ? { accent_color: accent } : {}), components: out }, ...extraRows] : [...out, ...extraRows];
+  const text = draft.v2.blocks.map((b) => (b.type === "text" || b.type === "section" ? b.content : "")).join("\n");
+  const roleIds = [...new Set([...fill(text, vars).matchAll(/<@&(\d{16,22})>/g)].map((m) => m[1]))].slice(0, 20);
+  return {
+    flags: 1 << 15,
+    components,
+    allowed_mentions: { parse: [], ...(opts.mentionUserId ? { users: [opts.mentionUserId] } : {}), ...(roleIds.length ? { roles: roleIds } : {}) },
+  };
+}
+
 function buildMessageBody(draft: MsgDraft, vars: FillVars = {}, extraRows: any[] = [], opts: { mentionUserId?: string | null } = {}) {
+  if (draft.v2?.enabled) return buildV2Body(draft, vars, extraRows, opts);
   const body: Record<string, any> = {};
   const content = fill(draft.content, vars).trim();
   if (content) body.content = content.slice(0, 2000);
@@ -132,14 +228,21 @@ function buildMessageBody(draft: MsgDraft, vars: FillVars = {}, extraRows: any[]
       const icon = httpUrl(fill(e.authorIconUrl, vars));
       if (icon) embed.author.icon_url = icon;
     }
-    if (embed.title || embed.description || embed.image || embed.thumbnail || embed.author) body.embeds = [embed];
+    const fields = (e.fields || [])
+      .map((f) => ({ name: fill(f.name, vars).trim().slice(0, 256) || "​", value: fill(f.value, vars).trim().slice(0, 1024) || "​", inline: f.inline }))
+      .slice(0, 25);
+    if (fields.length) embed.fields = fields;
+    if (embed.title || embed.description || embed.image || embed.thumbnail || embed.author || embed.fields) body.embeds = [embed];
   }
   const rows: any[] = [];
-  /* pulsanti link: 5 per riga */
-  for (let i = 0; i < draft.buttons.length; i += 5) {
+  /* pulsanti link raggruppati per fila (max 5 per fila, file vuote saltate) */
+  const byRow = new Map<number, MsgButton[]>();
+  for (const b of draft.buttons) byRow.set(b.row ?? 0, [...(byRow.get(b.row ?? 0) || []), b]);
+  for (const r of [...byRow.keys()].sort((a, b) => a - b)) {
+    const group = byRow.get(r) || [];
     rows.push({
       type: 1,
-      components: draft.buttons.slice(i, i + 5).map((b) => {
+      components: group.slice(0, 5).map((b) => {
         const c: Record<string, any> = { type: 2, style: 5, url: b.url };
         if (b.label) c.label = fill(b.label, vars).slice(0, 80);
         const em = parseEmoji(b.emoji);

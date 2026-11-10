@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ExternalLink, Plus, Smile, Trash2 } from "lucide-react";
+import { ExternalLink, Smile } from "lucide-react";
 import { DiscordContent } from "@/components/discord/DiscordContent";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { toggleEmojiPicker, customEmojiUrl, type EmojiPick } from "@/components/ui/emoji-picker";
@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { loadCommunity, type CommunityData, type MsgDraft, type PickerChannel, type PickerEmoji, type PickerRole } from "@/lib/dashboard-community";
 import { Field, Toggle, fieldClass, labelClass, miniBtn } from "../bits";
+import { EmbedFieldsPreview, FieldsEditor, LinkButtonsEditor, V2Editor, V2Preview, blocksFromClassic, v2Of } from "./draftExtras";
 
 /* ───────────── dati ───────────── */
 
@@ -173,7 +174,7 @@ export function EmojiButton({
       onClick={() =>
         toggleEmojiPicker({
           anchor: ref.current,
-          guildEmojis: emojis.map((e) => ({ id: e.id, name: e.name, animated: e.animated, url: e.url })),
+          guildEmojis: emojis.map((e) => ({ id: e.id, name: e.name, animated: e.animated, url: e.url, guildName: e.guildName })),
           onPick: (p: EmojiPick) => onPick(p.type === "unicode" ? p.text : p.markup),
         })
       }
@@ -276,10 +277,42 @@ export function DraftEditor({
 }) {
   const e = value.embed;
   const setEmbed = (p: Partial<MsgDraft["embed"]>) => onChange({ ...value, embed: { ...e, ...p } });
-  const setBtn = (i: number, p: Partial<MsgDraft["buttons"][number]>) =>
-    onChange({ ...value, buttons: value.buttons.map((b, j) => (j === i ? { ...b, ...p } : b)) });
+  const v2 = v2Of(value);
   return (
     <div className="space-y-4">
+      {/* scelta del formato: classico (testo + embed) o Components V2 (blocchi) */}
+      <div className="grid grid-cols-2 gap-1 rounded-lg bg-espresso/70 p-1 ring-1 ring-sand/10" role="radiogroup" aria-label="Formato del messaggio">
+        {[
+          { on: false, label: "Testo + embed" },
+          { on: true, label: "Components V2" },
+        ].map((opt) => (
+          <button
+            key={opt.label}
+            type="button"
+            role="radio"
+            aria-checked={v2.enabled === opt.on}
+            onClick={() => {
+              if (v2.enabled === opt.on) return;
+              onChange({ ...value, v2: { ...v2, enabled: opt.on, blocks: opt.on && !v2.blocks.length ? blocksFromClassic(value) : v2.blocks } });
+            }}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
+              v2.enabled === opt.on ? "bg-mocha text-crema ring-1 ring-sand/15" : "text-crema/60 hover:text-crema",
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {v2.enabled ? (
+        <>
+          <p className="text-xs text-crema/55">
+            Il nuovo formato di Discord: blocchi di testo, sezioni con miniatura o pulsante, gallerie di immagini, separatori e pulsanti, anche dentro un contenitore colorato. Al posto di testo ed embed.
+          </p>
+          <V2Editor value={v2} onChange={(next) => onChange({ ...value, v2: next })} emojis={emojis} placeholders={placeholders} />
+        </>
+      ) : (
+      <>
       <RichTextArea label="Testo del messaggio" value={value.content} onChange={(content) => onChange({ ...value, content })} max={2000} rows={3} emojis={emojis} placeholders={placeholders} placeholder="Facoltativo se usi l'embed" />
 
       <div className="rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10">
@@ -302,6 +335,7 @@ export function DraftEditor({
               </div>
             </div>
             <RichTextArea label="Descrizione" value={e.description} onChange={(description) => setEmbed({ description })} max={4096} rows={5} emojis={emojis} placeholders={placeholders} />
+            <FieldsEditor fields={e.fields ?? []} onChange={(fields) => setEmbed({ fields })} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Autore (facoltativo)">
                 <input value={e.authorName || ""} maxLength={256} placeholder="es. {username}" onChange={(ev) => setEmbed({ authorName: ev.target.value })} className={fieldClass} />
@@ -325,39 +359,9 @@ export function DraftEditor({
         ) : null}
       </div>
 
-      {allowButtons ? (
-        <div>
-          <div className="flex items-center justify-between gap-2">
-            <span className={labelClass}>Pulsanti link</span>
-            <button
-              type="button"
-              className={miniBtn}
-              disabled={value.buttons.length >= maxButtons}
-              onClick={() => onChange({ ...value, buttons: [...value.buttons, { label: "", url: "", emoji: "" }] })}
-            >
-              <Plus className="size-3.5" /> Aggiungi
-            </button>
-          </div>
-          {value.buttons.length ? (
-            <ul className="mt-2 space-y-2">
-              {value.buttons.map((b, i) => (
-                <li key={i} className="flex flex-wrap items-center gap-2 rounded-lg bg-espresso/40 p-2 ring-1 ring-sand/10">
-                  <EmojiButton emojis={emojis} onPick={(emoji) => setBtn(i, { emoji })} label="Emoji del pulsante">
-                    {b.emoji ? <EmojiGlyph value={b.emoji} /> : <Smile className="size-3.5" />}
-                  </EmojiButton>
-                  <input value={b.label} maxLength={80} placeholder="Testo" onChange={(ev) => setBtn(i, { label: ev.target.value })} className={cn(fieldClass, "mt-0 w-36 flex-1 py-1.5")} />
-                  <input value={b.url} placeholder="https://…" onChange={(ev) => setBtn(i, { url: ev.target.value })} className={cn(fieldClass, "mt-0 min-w-40 flex-[2] py-1.5")} />
-                  <button type="button" aria-label="Togli il pulsante" className={miniBtn} onClick={() => onChange({ ...value, buttons: value.buttons.filter((_, j) => j !== i) })}>
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-1 text-xs text-crema/50">Fino a {maxButtons} pulsanti che aprono un link.</p>
-          )}
-        </div>
-      ) : null}
+      {allowButtons ? <LinkButtonsEditor buttons={value.buttons} onChange={(buttons) => onChange({ ...value, buttons })} emojis={emojis} max={maxButtons} /> : null}
+      </>
+      )}
     </div>
   );
 }
@@ -445,12 +449,20 @@ export function DiscordMessagePreview({
   const imageUrl = urlOf(e.imageUrl);
   const thumbUrl = urlOf(e.thumbnailUrl);
   const authorIcon = urlOf(e.authorIconUrl || "");
-  const showEmbed = e.enabled && (title || desc || imageUrl || thumbUrl || author);
-  /* pulsanti link: 5 per riga, come su Discord */
-  const linkRows: PreviewRow[] = [];
-  for (let i = 0; i < draft.buttons.length; i += 5) {
-    linkRows.push({ kind: "buttons", items: draft.buttons.slice(i, i + 5).map((b) => ({ label: fillVars(b.label, vars), emoji: b.emoji, style: 5 as const })) });
-  }
+  const showEmbed = !v2Of(draft).enabled && e.enabled && (title || desc || imageUrl || thumbUrl || author || (e.fields ?? []).length);
+  const v2 = v2Of(draft);
+  const fields = e.fields ?? [];
+  /* pulsanti link raggruppati per fila, come su Discord (in V2 stanno nei blocchi) */
+  const byRow = new Map<number, typeof draft.buttons>();
+  draft.buttons.forEach((b, i) => {
+    const r = typeof b.row === "number" ? b.row : Math.min(4, Math.floor(i / 5));
+    byRow.set(r, [...(byRow.get(r) || []), b]);
+  });
+  const linkRows: PreviewRow[] = v2.enabled
+    ? []
+    : [...byRow.keys()]
+        .sort((a, b) => a - b)
+        .map((r) => ({ kind: "buttons" as const, items: (byRow.get(r) || []).slice(0, 5).map((b) => ({ label: fillVars(b.label, vars), emoji: b.emoji, style: 5 as const })) }));
   const allRows = [...linkRows, ...rows];
   const time = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 
@@ -470,7 +482,8 @@ export function DiscordMessagePreview({
               <span className="ml-1 inline-flex h-[15px] items-center rounded-[3px] bg-[#5865f2] px-1 text-[10px] font-semibold leading-none text-white">APP</span>
               <span className="ml-2 text-[12px] leading-[22px] text-[#949ba4]">Oggi alle {time}</span>
             </p>
-            {content ? <DiscordContent text={content} names={names} className="whitespace-pre-line text-[16px] leading-[22px]" /> : null}
+            {v2.enabled ? <V2Preview v2={v2} vars={vars} names={names} fill={fillVars} /> : null}
+            {!v2.enabled && content ? <DiscordContent text={content} names={names} className="whitespace-pre-line text-[16px] leading-[22px]" /> : null}
 
             {showEmbed ? (
               <div
@@ -489,6 +502,7 @@ export function DiscordMessagePreview({
                   ) : null}
                   {title ? <DiscordContent text={title} names={names} className="mt-2 text-[16px] font-semibold leading-[22px] text-[#f2f3f5]" /> : null}
                   {desc ? <DiscordContent text={desc} names={names} className="mt-2 whitespace-pre-line text-[14px] leading-[18px] text-[#dbdee1]" /> : null}
+                  <EmbedFieldsPreview fields={fields} vars={vars} names={names} fill={fillVars} />
                 </div>
                 {thumbUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -508,7 +522,7 @@ export function DiscordMessagePreview({
               </div>
             ) : null}
 
-            {!content && !showEmbed ? <p className="italic text-[#949ba4]">Messaggio vuoto</p> : null}
+            {!v2.enabled && !content && !showEmbed ? <p className="italic text-[#949ba4]">Messaggio vuoto</p> : null}
 
             {allRows.length ? (
               <div className="mt-1 flex flex-col gap-2 py-1">

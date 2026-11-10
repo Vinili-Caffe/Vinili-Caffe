@@ -17,7 +17,8 @@ export type EmojiPick =
   | { type: "unicode"; text: string }
   | { type: "custom"; id: string; name: string; animated?: boolean; markup: string };
 
-export type GuildEmoji = { id: string; name: string; animated?: boolean; url?: string };
+/** guildName = emoji di un altro server del bot (senza: server attuale) */
+export type GuildEmoji = { id: string; name: string; animated?: boolean; url?: string; guildName?: string };
 
 const RAW_UNICODE = [
   "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "😉", "😊", "😇", "🥰", "😍", "🤩", "😘",
@@ -401,6 +402,15 @@ const EmojiPickerPanel = function EmojiPickerPanel({
     () => guildEmojis.filter((e) => e.id && (!needle || normSearch(e.name).includes(needle.replace(/:/g, "")) || e.id.includes(needle))),
     [guildEmojis, needle],
   );
+  /* emoji custom divise per server: prima quelle del server attuale */
+  const customGroups = useMemo(() => {
+    const groups = new Map<string, GuildEmoji[]>();
+    for (const e of customs) {
+      const key = e.guildName || "";
+      groups.set(key, [...(groups.get(key) || []), e]);
+    }
+    return [...groups.entries()].sort((a, b) => (a[0] === "" ? -1 : b[0] === "" ? 1 : a[0].localeCompare(b[0], "it", { sensitivity: "base" })));
+  }, [customs]);
   const flagGroup = data?.groups.find((g) => g.key === "flags")?.id;
   const withTone = (row: UnicodeRow) => (tone > 0 && row[4] ? row[4][tone - 1] : row[0]);
 
@@ -485,7 +495,7 @@ const EmojiPickerPanel = function EmojiPickerPanel({
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder={showCustom ? "Cerca tra le emoji del server…" : "Cerca: cuore, risata, :fire:…"}
+          placeholder={showCustom ? "Cerca tra le emoji dei server…" : "Cerca: cuore, risata, :fire:…"}
           className="min-w-0 flex-1 bg-transparent text-sm text-crema outline-none placeholder:text-crema/35"
         />
         {!showCustom ? (
@@ -530,7 +540,7 @@ const EmojiPickerPanel = function EmojiPickerPanel({
           {(
             [
               ["unicode", "Emoji"],
-              ["custom", "Del server"],
+              ["custom", "Dei server"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -564,19 +574,30 @@ const EmojiPickerPanel = function EmojiPickerPanel({
       <div ref={scroller} className="relative max-h-72 overflow-y-auto p-2" onMouseLeave={() => setHover(null)}>
         {showCustom ? (
           customs.length ? (
-            <div className="grid grid-cols-8 gap-0.5">
-              {customs.map((e) => (
-                <button
-                  key={e.id}
-                  type="button"
-                  aria-label={e.name}
-                  onMouseEnter={() => setHover({ glyph: "", name: `:${e.name}:`, url: e.url || customEmojiUrl(e.id, e.animated) })}
-                  onClick={() => onPick({ type: "custom", id: e.id, name: e.name, animated: e.animated, markup: formatCustomEmoji(e) })}
-                  className={cell}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={e.url || customEmojiUrl(e.id, e.animated)} alt="" loading="lazy" className="size-7 object-contain" />
-                </button>
+            <div className="space-y-2">
+              {customGroups.map(([server, list]) => (
+                <div key={server || "this"}>
+                  {customGroups.length > 1 ? (
+                    <p className="sticky top-0 z-10 bg-roast/95 px-1 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-crema/50" translate={server ? "no" : undefined}>
+                      {server || "Questo server"} <span className="text-crema/35">{list.length}</span>
+                    </p>
+                  ) : null}
+                  <div className="grid grid-cols-8 gap-0.5">
+                    {list.map((e) => (
+                      <button
+                        key={e.id}
+                        type="button"
+                        aria-label={e.name}
+                        onMouseEnter={() => setHover({ glyph: "", name: `:${e.name}:${e.guildName ? ` · ${e.guildName}` : ""}`, url: e.url || customEmojiUrl(e.id, e.animated) })}
+                        onClick={() => onPick({ type: "custom", id: e.id, name: e.name, animated: e.animated, markup: formatCustomEmoji(e) })}
+                        className={cell}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={e.url || customEmojiUrl(e.id, e.animated)} alt="" loading="lazy" className="size-7 object-contain" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
@@ -629,7 +650,7 @@ const EmojiPickerPanel = function EmojiPickerPanel({
             <span className="truncate text-sm font-medium text-crema/85">{hover.name}</span>
           </>
         ) : (
-          <span className="text-xs text-crema/40">{showCustom ? "Emoji del server" : data ? `${data.emojis.length} emoji · cerca anche in inglese o con :nome:` : "Carico tutte le emoji…"}</span>
+          <span className="text-xs text-crema/40">{showCustom ? "Emoji di tutti i server del bot" : data ? `${data.emojis.length} emoji · cerca anche in inglese o con :nome:` : "Carico tutte le emoji…"}</span>
         )}
       </div>
     </motion.div>

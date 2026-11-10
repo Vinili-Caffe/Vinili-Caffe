@@ -165,6 +165,14 @@ async function getDashboardCommunity(client?, token?, guildId?) {
     guildInfo(client, gid),
     botIdentity(client, gid).catch(() => null),
   ]);
+  /* emoji degli altri server del bot: si possono usare ovunque */
+  try {
+    const { getOtherGuildEmojis } = require("../../services/allGuildEmojis") as typeof import("../../services/allGuildEmojis");
+    const others = await getOtherGuildEmojis(gid);
+    const own = Array.isArray((pickers as any).emojis) ? (pickers as any).emojis : [];
+    const seen = new Set(own.map((e: any) => String(e.id)));
+    (pickers as any).emojis = [...own, ...others.filter((e) => !seen.has(e.id))];
+  } catch (_) {}
   let prefix = "+";
   try {
     const { resolveCommandPrefixForGuild } = require("../../core/tenantGuildSettings") as typeof import("../../core/tenantGuildSettings");
