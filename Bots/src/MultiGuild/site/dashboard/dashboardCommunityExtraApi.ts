@@ -75,8 +75,9 @@ const voteUrls = (gid: string, token: string) => ({
 async function getBumpVotes(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
+  const imported = await BV().ensureMainSeed(client, a.guildId).catch(() => false);
   const config = await BV().getConfig(a.guildId, true);
-  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), config, urls: voteUrls(a.guildId, config.votes.token) };
+  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), imported, config, urls: voteUrls(a.guildId, config.votes.token) };
 }
 
 async function patchBumpVotes(client?, token?, guildId?, body?) {

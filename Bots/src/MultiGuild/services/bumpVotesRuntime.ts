@@ -273,6 +273,81 @@ function startBumpVotesLoop(client?) {
   setTimeout(tick, 20_000).unref?.();
 }
 
+/**
+ * Server principale: le impostazioni di adesso (attese, ringraziamento, promemoria, voti, ruolo Voter)
+ * portate nel modulo, spente: si accende quando si vuole passare al modulo.
+ */
+function mainSeedConfig(client?) {
+  const IDs = require("../../Vinili/Config/ids") as any;
+  const { E } = require("../../shared/emojis/emojiCatalog") as any;
+  const e = (k: string) => String(E?.[k] || "");
+  const cfgMain = client?.config || {};
+  const voteHours = Math.max(1, Math.round(Number(cfgMain?.topgg?.voteReminderCooldownHours) || 12));
+  const voterRole = String(IDs?.roles?.Voter || "") || null;
+  return normalizeConfig({
+    enabled: false,
+    services: {
+      disboard: { enabled: true, cooldownMinutes: Number(cfgMain?.disboard?.cooldownMinutes) || 120 },
+      discadia: { enabled: true, cooldownMinutes: Number(cfgMain?.discadia?.cooldownMinutes) || 1440 },
+    },
+    thanks: {
+      enabled: true,
+      draft: { content: `${e("VC_ThankYou")} **__Grazie {user} per aver \`bumpato\` il server su {service}!__** Bump fatti: {count}`, embed: { enabled: false }, buttons: [] },
+    },
+    reminder: {
+      enabled: true,
+      channelId: String(cfgMain?.disboard?.reminderChannelId || IDs?.channels?.commands || "") || null,
+      roleId: "1544830661637046303",
+      draft: {
+        content: "{role}",
+        embed: {
+          enabled: true,
+          title: `${e("VC_Eye")} **È L'ORA DEL \`BUMP\` SU {service}!**`,
+          description: `${e("VC_bump")} **Per bumpare scrivi __\`/bump\` in chat__**!`,
+          color: "#6f4e37",
+        },
+        buttons: [],
+      },
+    },
+    reward: { roleId: null, hours: 12 },
+    votes: {
+      enabled: false,
+      topgg: true,
+      discadia: true,
+      channelId: String(IDs?.channels?.supporters || "") || null,
+      thanks: {
+        enabled: true,
+        draft: {
+          content: "{user}",
+          embed: {
+            enabled: true,
+            title: `${e("VC_Vote")} **Un nuovo voto!**`,
+            description: [
+              `${e("VC_ThankYou")} Grazie {user} per aver votato su **{service}**!`,
+              "",
+              `${e("VC_Money")} ${e("VC_Arrow")} ${voterRole ? `Il ruolo <@&${voterRole}> per ${voteHours} ore` : `Ricompensa per ${voteHours} ore`}`,
+              "",
+              `${e("VC_update")} Vota di nuovo tra __${voteHours} ore__ dal **bottone sottostante**. Voti fatti: {count}`,
+            ].join("\n"),
+            color: "#6f4e37",
+          },
+          buttons: [{ label: "Vota cliccando qui", url: String(cfgMain?.topgg?.votePageUrl || "https://www.viniliecaffe.it/vote"), emoji: e("VC_HeartPink"), row: 0 }],
+        },
+      },
+      reward: { roleId: voterRole, hours: voteHours },
+    },
+  });
+}
+
+/** Prima apertura sul principale: importa le impostazioni attuali. */
+async function ensureMainSeed(client?, guildId?: string) {
+  const gid = String(guildId || "");
+  if (!T.isMainGuild(gid)) return false;
+  if (await T.getGuildBlob("bumpVotes", gid, true)) return false;
+  await T.setGuildBlob("bumpVotes", gid, mainSeedConfig(client));
+  return true;
+}
+
 /** Sul server principale: il modulo gestisce già questo servizio? (allora il sistema classico si ferma) */
 async function moduleHandlesBump(guildId: string, service: Service) {
   const cfg = await getConfig(guildId).catch(() => null);
@@ -310,6 +385,7 @@ async function resetLeaderboard(guildId: string, which: "bumps" | "votes") {
 }
 
 export = {
+  ensureMainSeed,
   moduleHandlesBump,
   SERVICES,
   getConfig,

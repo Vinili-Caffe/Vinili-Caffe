@@ -332,7 +332,7 @@ export const communityApi = {
   saveAutoResponder: (t: string, g: string, a: Partial<AutoResponder>) => call<{ autoResponder: AutoResponder }>(t, g, "/auto-responders", "PUT", a),
   deleteAutoResponder: (t: string, g: string, id: string) => call(t, g, `/auto-responders/${encodeURIComponent(id)}`, "DELETE"),
   getBumpVotes: (t: string, g: string) =>
-    call<{ isMainGuild?: boolean; config?: BumpVotesConfig; urls?: { topgg: string; discadia: string } }>(t, g, `/bump-votes?_=${Date.now()}`),
+    call<{ isMainGuild?: boolean; imported?: boolean; config?: BumpVotesConfig; urls?: { topgg: string; discadia: string } }>(t, g, `/bump-votes?_=${Date.now()}`),
   saveBumpVotes: (t: string, g: string, config: BumpVotesConfig) =>
     call<{ config: BumpVotesConfig; urls: { topgg: string; discadia: string } }>(t, g, "/bump-votes", "PATCH", { config }),
   regenBumpVotesToken: (t: string, g: string) => call<{ config: BumpVotesConfig; urls: { topgg: string; discadia: string } }>(t, g, "/bump-votes/token", "POST", {}),

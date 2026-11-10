@@ -34,6 +34,7 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
   const [board, setBoard] = useState<BumpVotesLeaderboard | null>(null);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [imported, setImported] = useState(false);
   const vars = useMemo(() => ({ ...sampleVars(data), service: "Disboard", count: "12", role: "@Bumper" }), [data]);
 
   useEffect(() => {
@@ -42,6 +43,7 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
       if (!alive) return;
       if (!r.ok) return setLoadError(r.message);
       setIsMain(r.data.isMainGuild === true);
+      setImported(r.data.imported === true);
       if (r.data.config) setCfg(r.data.config);
       if (r.data.urls) setUrls(r.data.urls);
     });
@@ -120,6 +122,9 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
         </button>
       </div>
 
+      {imported ? (
+        <Notice>Ho importato le impostazioni di adesso del server principale: attese, ringraziamento, promemoria con il ruolo dei bump, canale e testo dei voti, ruolo Voter. Sono spente: accendile quando vuoi passare al modulo.</Notice>
+      ) : null}
       {isMain ? (
         <Notice>
           Server principale: finché qui i bump sono spenti resta attivo il sistema classico del bot (EXP, serie e promemoria). Accendendo un servizio qui, quello classico si ferma per quel servizio. I voti passano al modulo quando incolli i nuovi indirizzi su Top.gg e Discadia.
