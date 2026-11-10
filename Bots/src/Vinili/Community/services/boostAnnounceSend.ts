@@ -11,6 +11,25 @@ async function sendBoostEmbeds(channel?, member?, times?, boostCount?, priorAnno
   const start = Math.max(0, Math.floor(Number(priorAnnouncedSlots || 0)));
   if (safeTimes <= 0) return 0;
 
+  /* annunciBoost1: annuncio acceso nella dashboard → stessi controlli di sempre, testi e canale della dashboard */
+  try {
+    const A = require("../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../MultiGuild/services/announcementsRuntime");
+    if (member?.guild?.id && (await A.boostModuleEnabled(member.guild.id))) {
+      const collapse = Boolean(opts.confirmedDoubleBurst) && start < 2 && start + safeTimes >= 2;
+      const sends = collapse ? [{ slot: 1, count: Math.max(1, Number(boostCount || 0)) }] : Array.from({ length: safeTimes }, (_, i) => ({ slot: start + i, count: Math.max(1, Number(boostCount || 0) - (safeTimes - i - 1)) }));
+      let sentCount = 0;
+      for (const [i, x] of sends.entries()) {
+        const sent = await A.sendBoostAnnouncement(member.client, member.guild, member, { repeat: x.slot >= 1, boostCount: x.count, channelId: String(channel.id) });
+        if (!sent) break;
+        sentCount += collapse ? Math.max(0, 2 - start) : 1;
+        if (i + 1 < sends.length) await sleep(350);
+      }
+      return sentCount;
+    }
+  } catch (err) {
+    global.logger?.warn?.("[guildMemberUpdate] boost dashboard:", err?.message || err);
+  }
+
   const endExclusive = start + safeTimes;
   /* boostFalseDouble3: collapse a un solo DOPPIO SOLO se il nativo è davvero "2 volte"
      (altrimenti start=0+times=2 mandava DOPPIO e bloccava il 2° boost reale). */

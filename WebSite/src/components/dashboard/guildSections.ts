@@ -125,6 +125,8 @@ export const ANNUNCI_MODULE_TABS = [
   { id: "goodbye", label: "Addio" },
   { id: "dm", label: "Messaggio privato" },
   { id: "roles", label: "Ruoli automatici" },
+  { id: "boost", label: "Boost" },
+  { id: "ruolinuovi", label: "Ruolo ottenuto" },
 ] as const satisfies readonly GuildModuleTab[];
 
 export type AnnunciModuleTabId = (typeof ANNUNCI_MODULE_TABS)[number]["id"];

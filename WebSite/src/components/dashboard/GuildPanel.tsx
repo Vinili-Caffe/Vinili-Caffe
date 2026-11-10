@@ -142,6 +142,11 @@ const AutoRespondersPanel = dynamic(() => import("./guild/community/AutoResponde
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
 
+const AnnouncementsPanel = dynamic(() => import("./guild/community/AnnouncementsPanel").then((m) => m.AnnouncementsPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
 const BumpVotesPanel = dynamic(() => import("./guild/community/BumpVotesPanel").then((m) => m.BumpVotesPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
@@ -2190,7 +2195,11 @@ export function GuildPanel() {
 
                     {section === "benvenuto" && guildId && token ? (
                       <Panel>
-                        <WelcomePanel guildId={guildId} token={token} onToast={showToast} tab={moduleTab && isAnnunciModuleTab(moduleTab) ? moduleTab : "welcome"} />
+                        {moduleTab === "boost" || moduleTab === "ruolinuovi" ? (
+                          <AnnouncementsPanel key={moduleTab} guildId={guildId} token={token} onToast={showToast} tab={moduleTab} />
+                        ) : (
+                          <WelcomePanel guildId={guildId} token={token} onToast={showToast} tab={moduleTab && isAnnunciModuleTab(moduleTab) ? (moduleTab as "welcome" | "goodbye" | "dm" | "roles") : "welcome"} />
+                        )}
                       </Panel>
                     ) : null}
 

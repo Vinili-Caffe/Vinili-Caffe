@@ -23,6 +23,8 @@ const KEYS = {
   importedPanels: "multiGuildImportedPanels.v1",
   bumpVotes: "multiGuildBumpVotes.v1",
   bumpVotesState: "multiGuildBumpVotesState.v1",
+  announcements: "multiGuildAnnouncements.v1",
+  announcementsState: "multiGuildAnnouncementsState.v1",
 } as const;
 type Kind = keyof typeof KEYS;
 
@@ -880,19 +882,21 @@ async function writeChatReminders(guildId: string, items: ChatReminder[]) {
   return saveGuild("chatReminders", String(guildId), { items: clean, updatedAt: Date.now() });
 }
 
-/* ───────────── oggetti generici per server (bump e voti) ───────────── */
+/* ───────────── oggetti generici per server (bump e voti, annunci) ───────────── */
 
-async function getGuildBlob(kind: "bumpVotes" | "bumpVotesState", guildId: string, fresh = false): Promise<any | null> {
+type BlobKind = "bumpVotes" | "bumpVotesState" | "announcements" | "announcementsState";
+
+async function getGuildBlob(kind: BlobKind, guildId: string, fresh = false): Promise<any | null> {
   const map = await loadMap(kind, fresh);
   const v = map[String(guildId)];
   return v && typeof v === "object" ? v : null;
 }
 
-async function setGuildBlob(kind: "bumpVotes" | "bumpVotesState", guildId: string, value: any) {
+async function setGuildBlob(kind: BlobKind, guildId: string, value: any) {
   return saveGuild(kind, String(guildId), value);
 }
 
-async function allGuildBlobs(kind: "bumpVotes" | "bumpVotesState", fresh = true): Promise<Record<string, any>> {
+async function allGuildBlobs(kind: BlobKind, fresh = true): Promise<Record<string, any>> {
   return { ...(await loadMap(kind, fresh)) };
 }
 

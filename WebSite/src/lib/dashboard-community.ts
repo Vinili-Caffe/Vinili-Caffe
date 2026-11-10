@@ -53,6 +53,13 @@ export type SavedMessage = {
   updatedAt: number;
 };
 
+/** Annunci: boost e ruolo ottenuto */
+export type RoleAnnounceRule = { id: string; name: string; enabled: boolean; roleIds: string[]; channelId: string | null; cooldownHours: number; draft: MsgDraft };
+export type AnnouncementsConfig = {
+  boost: { enabled: boolean; channelId: string | null; firstDraft: MsgDraft; repeatDraft: MsgDraft };
+  roles: { enabled: boolean; rules: RoleAnnounceRule[] };
+};
+
 /** Bump e voti (server tenant) */
 export type BumpReward = { roleId: string | null; hours: number };
 export type BumpService = "disboard" | "discadia";
@@ -351,6 +358,9 @@ export type Poll = {
 export const communityApi = {
   saveAutoResponder: (t: string, g: string, a: Partial<AutoResponder>) => call<{ autoResponder: AutoResponder }>(t, g, "/auto-responders", "PUT", a),
   deleteAutoResponder: (t: string, g: string, id: string) => call(t, g, `/auto-responders/${encodeURIComponent(id)}`, "DELETE"),
+  getAnnouncements: (t: string, g: string) =>
+    call<{ isMainGuild?: boolean; imported?: boolean; config: AnnouncementsConfig; maxRules?: number }>(t, g, `/announcements?_=${Date.now()}`),
+  saveAnnouncements: (t: string, g: string, config: AnnouncementsConfig) => call<{ config: AnnouncementsConfig }>(t, g, "/announcements", "PATCH", { config }),
   getBumpVotes: (t: string, g: string) =>
     call<{ isMainGuild?: boolean; imported?: boolean; config?: BumpVotesConfig; urls?: { topgg: string; discadia: string } }>(t, g, `/bump-votes?_=${Date.now()}`),
   saveBumpVotes: (t: string, g: string, config: BumpVotesConfig) =>

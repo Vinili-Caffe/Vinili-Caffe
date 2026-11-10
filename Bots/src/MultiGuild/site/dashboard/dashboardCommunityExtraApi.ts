@@ -64,6 +64,28 @@ async function deleteAutoResponder(client?, token?, guildId?, id?) {
   return { ok: true, status: 200 };
 }
 
+/* ───────────── annunci (boost, ruolo ottenuto) ───────────── */
+
+const ANN = () => require("../../services/announcementsRuntime") as typeof import("../../services/announcementsRuntime");
+
+async function getAnnouncements(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const imported = await ANN().ensureMainSeed(a.guildId).catch(() => false);
+  const config = await ANN().getConfig(a.guildId, true);
+  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), imported, config, maxRules: ANN().ROLE_RULES_MAX };
+}
+
+async function patchAnnouncements(client?, token?, guildId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const raw = body?.config || body;
+  const empty = (raw?.roles?.rules || []).find((r?) => r?.enabled !== false && (!Array.isArray(r?.roleIds) || !r.roleIds.length || !r?.channelId));
+  if (empty) return fail(400, "incomplete", `"${String(empty.name || "Regola")}": scegli almeno un ruolo e il canale, oppure spegnila.`);
+  const config = await ANN().saveConfig(a.guildId, raw);
+  return { ok: true, status: 200, config };
+}
+
 /* ───────────── bump e voti ───────────── */
 
 const BV = () => require("../../services/bumpVotesRuntime") as typeof import("../../services/bumpVotesRuntime");
@@ -637,6 +659,8 @@ export = {
   putChatReminders,
   listMainAutomations,
   setMainAutomation,
+  getAnnouncements,
+  patchAnnouncements,
   getBumpVotes,
   patchBumpVotes,
   regenBumpVotesToken,
