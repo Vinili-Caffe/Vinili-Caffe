@@ -181,6 +181,12 @@ async function main(shared?: { client?: any } | null) {
       global.logger?.warn?.("[COMMUNITY MSG] loop start:", err?.message || err);
     }
     try {
+      const { startBumpVotesLoop } = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
+      startBumpVotesLoop(client);
+    } catch (err) {
+      global.logger?.warn?.("[BUMP VOTES] loop start:", err?.message || err);
+    }
+    try {
       const { startCountersLoop } = require("../../../MultiGuild/site/dashboard/dashboardCommunityExtraApi") as typeof import("../../../MultiGuild/site/dashboard/dashboardCommunityExtraApi");
       startCountersLoop(client);
     } catch (err) {

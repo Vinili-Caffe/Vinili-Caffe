@@ -142,6 +142,11 @@ const AutoRespondersPanel = dynamic(() => import("./guild/community/AutoResponde
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
 
+const BumpVotesPanel = dynamic(() => import("./guild/community/BumpVotesPanel").then((m) => m.BumpVotesPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
 const CountersPanel = dynamic(() => import("./guild/community/CountersPanel").then((m) => m.CountersPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
@@ -214,6 +219,7 @@ const SECTION_LEAD: Record<Section, string> = {
   benvenuto: "Benvenuto, addio, messaggio privato a chi entra e ruoli automatici.",
   risposte: "Il bot risponde da solo quando qualcuno scrive certe parole.",
   contatori: "Canali vocali che mostrano membri, boost e altri numeri, aggiornati da soli.",
+  bumpvoti: "Bump di Disboard e Discadia e voti su Top.gg e Discadia: ringraziamenti, ricompense, promemoria e classifica.",
   giveaway: "Crea giveaway, guarda chi partecipa ed estrai i vincitori.",
   sondaggi: "Sondaggi di Discord pubblicati dalla dashboard, con i risultati.",
 };
@@ -2197,6 +2203,12 @@ export function GuildPanel() {
                     {section === "contatori" && guildId && token ? (
                       <Panel>
                         <CountersPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "bumpvoti" && guildId && token ? (
+                      <Panel>
+                        <BumpVotesPanel guildId={guildId} token={token} onToast={showToast} />
                       </Panel>
                     ) : null}
 

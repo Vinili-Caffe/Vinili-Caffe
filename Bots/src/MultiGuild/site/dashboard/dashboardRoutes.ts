@@ -209,6 +209,22 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     const X = () => require("./dashboardCommunityExtraApi") as typeof import("./dashboardCommunityExtraApi");
     app.put(`${base}/auto-responders`, wrap("ar put", (t, req) => X().putAutoResponder(client, t, gid(req), req.body)));
     app.delete(`${base}/auto-responders/:id`, wrap("ar del", (t, req) => X().deleteAutoResponder(client, t, gid(req), req.params?.id)));
+    app.get(`${base}/bump-votes`, wrap("bump votes", (t, req) => X().getBumpVotes(client, t, gid(req))));
+    app.patch(`${base}/bump-votes`, wrap("bump votes patch", (t, req) => X().patchBumpVotes(client, t, gid(req), req.body)));
+    app.post(`${base}/bump-votes/token`, wrap("bump votes token", (t, req) => X().regenBumpVotesToken(client, t, gid(req))));
+    app.get(`${base}/bump-votes/leaderboard`, wrap("bump votes board", (t, req) => X().bumpVotesLeaderboard(client, t, gid(req))));
+    app.post(`${base}/bump-votes/leaderboard/reset`, wrap("bump votes reset", (t, req) => X().resetBumpVotesLeaderboard(client, t, gid(req), req.body)));
+    /* webhook dei voti per server (URL con token, da incollare su Top.gg / Discadia) */
+    app.post("/webhooks/guild-votes/:guildId/:service/:token", async (req?, res?) => {
+      try {
+        const { handleVoteWebhook } = require("../../services/bumpVotesRuntime") as typeof import("../../services/bumpVotesRuntime");
+        const out = await handleVoteWebhook(client, req.params?.guildId, req.params?.service, req.params?.token, req.body);
+        return res.status(out.status).send(out.text);
+      } catch (err) {
+        global.logger?.error?.("[WEBHOOK] guild votes:", err);
+        return res.status(500).send("Internal Server Error");
+      }
+    });
     app.get(`${base}/main-automations`, wrap("main automations", (t, req) => X().listMainAutomations(client, t, gid(req))));
     app.put(`${base}/main-automations`, wrap("main automations put", (t, req) => X().setMainAutomation(client, t, gid(req), req.body)));
     app.get(`${base}/chat-reminders`, wrap("chat reminders", (t, req) => X().listChatReminders(client, t, gid(req))));

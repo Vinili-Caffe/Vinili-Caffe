@@ -64,6 +64,52 @@ async function deleteAutoResponder(client?, token?, guildId?, id?) {
   return { ok: true, status: 200 };
 }
 
+/* ───────────── bump e voti ───────────── */
+
+const BV = () => require("../../services/bumpVotesRuntime") as typeof import("../../services/bumpVotesRuntime");
+const voteUrls = (gid: string, token: string) => ({
+  topgg: `https://api.viniliecaffe.it/webhooks/guild-votes/${gid}/topgg/${token}`,
+  discadia: `https://api.viniliecaffe.it/webhooks/guild-votes/${gid}/discadia/${token}`,
+});
+
+async function getBumpVotes(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (T.isMainGuild(a.guildId)) return { ok: true, status: 200, isMainGuild: true };
+  const config = await BV().getConfig(a.guildId, true);
+  return { ok: true, status: 200, isMainGuild: false, config, urls: voteUrls(a.guildId, config.votes.token) };
+}
+
+async function patchBumpVotes(client?, token?, guildId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (T.isMainGuild(a.guildId)) return fail(400, "main", "Sul server principale bump e voti usano il sistema del bot.");
+  const config = await BV().saveConfig(a.guildId, body?.config || body);
+  return { ok: true, status: 200, config, urls: voteUrls(a.guildId, config.votes.token) };
+}
+
+async function regenBumpVotesToken(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (T.isMainGuild(a.guildId)) return fail(400, "main", "Non disponibile sul server principale.");
+  const config = await BV().regenerateToken(a.guildId);
+  return { ok: true, status: 200, config, urls: voteUrls(a.guildId, config.votes.token) };
+}
+
+async function bumpVotesLeaderboard(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  return { ok: true, status: 200, ...(await BV().leaderboard(client, a.guildId)) };
+}
+
+async function resetBumpVotesLeaderboard(client?, token?, guildId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const which = body?.which === "votes" ? "votes" : "bumps";
+  await BV().resetLeaderboard(a.guildId, which);
+  return { ok: true, status: 200 };
+}
+
 /* ───────────── automazioni del server principale ───────────── */
 
 const MAIN_AUTOMATIONS = [
@@ -596,6 +642,11 @@ export = {
   putChatReminders,
   listMainAutomations,
   setMainAutomation,
+  getBumpVotes,
+  patchBumpVotes,
+  regenBumpVotesToken,
+  bumpVotesLeaderboard,
+  resetBumpVotesLeaderboard,
   counterValues,
   createCounter,
   patchCounter,

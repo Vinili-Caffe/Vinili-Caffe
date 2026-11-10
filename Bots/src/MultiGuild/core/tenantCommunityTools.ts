@@ -21,6 +21,8 @@ const KEYS = {
   chatReminders: "multiGuildChatReminders.v1",
   mainAutomations: "multiGuildMainAutomations.v1",
   importedPanels: "multiGuildImportedPanels.v1",
+  bumpVotes: "multiGuildBumpVotes.v1",
+  bumpVotesState: "multiGuildBumpVotesState.v1",
 } as const;
 type Kind = keyof typeof KEYS;
 
@@ -874,6 +876,22 @@ async function writeChatReminders(guildId: string, items: ChatReminder[]) {
   return saveGuild("chatReminders", String(guildId), { items: clean, updatedAt: Date.now() });
 }
 
+/* ───────────── oggetti generici per server (bump e voti) ───────────── */
+
+async function getGuildBlob(kind: "bumpVotes" | "bumpVotesState", guildId: string, fresh = false): Promise<any | null> {
+  const map = await loadMap(kind, fresh);
+  const v = map[String(guildId)];
+  return v && typeof v === "object" ? v : null;
+}
+
+async function setGuildBlob(kind: "bumpVotes" | "bumpVotesState", guildId: string, value: any) {
+  return saveGuild(kind, String(guildId), value);
+}
+
+async function allGuildBlobs(kind: "bumpVotes" | "bumpVotesState", fresh = true): Promise<Record<string, any>> {
+  return { ...(await loadMap(kind, fresh)) };
+}
+
 /* ───────────── automazioni del server principale (interruttori) ───────────── */
 
 async function getDisabledAutomations(guildId: string, fresh = false): Promise<string[]> {
@@ -1081,6 +1099,9 @@ async function writeServerLogs(guildId: string, value) {
 }
 
 export = {
+  getGuildBlob,
+  setGuildBlob,
+  allGuildBlobs,
   inTimeWindow,
   getDisabledAutomations,
   writeDisabledAutomations,

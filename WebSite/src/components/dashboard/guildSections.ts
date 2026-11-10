@@ -13,6 +13,7 @@ import {
   Tags,
   TerminalSquare,
   Pin,
+  Rocket,
   Settings2,
   Terminal,
   Ticket,
@@ -30,6 +31,7 @@ export type GuildSectionId =
   | "benvenuto"
   | "risposte"
   | "contatori"
+  | "bumpvoti"
   | "giveaway"
   | "sondaggi"
   | "settings"
@@ -152,6 +154,7 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "benvenuto", label: "Annunci", icon: PartyPopper, tabs: ANNUNCI_MODULE_TABS },
   { id: "risposte", label: "Risposte automatiche", icon: MessageSquareReply, tabs: [] as const },
   { id: "contatori", label: "Contatori", icon: Gauge, tabs: [] as const },
+  { id: "bumpvoti", label: "Bump e voti", icon: Rocket, tabs: [] as const },
   { id: "giveaway", label: "Giveaway", icon: Gift, tabs: [] as const },
   { id: "sondaggi", label: "Sondaggi", icon: Vote, tabs: [] as const },
 ] as const satisfies readonly GuildNavItem[];

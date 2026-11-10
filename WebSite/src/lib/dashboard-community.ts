@@ -51,6 +51,26 @@ export type SavedMessage = {
   updatedAt: number;
 };
 
+/** Bump e voti (server tenant) */
+export type BumpReward = { roleId: string | null; hours: number };
+export type BumpVotesConfig = {
+  enabled: boolean;
+  services: Record<"disboard" | "discadia", { enabled: boolean; cooldownMinutes: number }>;
+  thanks: { enabled: boolean; draft: MsgDraft };
+  reminder: { enabled: boolean; channelId: string | null; roleId: string | null; draft: MsgDraft };
+  reward: BumpReward;
+  votes: {
+    enabled: boolean;
+    token: string;
+    topgg: boolean;
+    discadia: boolean;
+    channelId: string | null;
+    thanks: { enabled: boolean; draft: MsgDraft };
+    reward: BumpReward;
+  };
+};
+export type BumpVotesLeaderboard = { bumps: { id: string; name: string; count: number }[]; votes: { id: string; name: string; count: number }[] };
+
 /** Automazione fissa del server principale (bump, voti…) */
 export type MainAutomation = { key: string; name: string; description: string; enabled: boolean };
 
@@ -311,6 +331,13 @@ export type Poll = {
 export const communityApi = {
   saveAutoResponder: (t: string, g: string, a: Partial<AutoResponder>) => call<{ autoResponder: AutoResponder }>(t, g, "/auto-responders", "PUT", a),
   deleteAutoResponder: (t: string, g: string, id: string) => call(t, g, `/auto-responders/${encodeURIComponent(id)}`, "DELETE"),
+  getBumpVotes: (t: string, g: string) =>
+    call<{ isMainGuild?: boolean; config?: BumpVotesConfig; urls?: { topgg: string; discadia: string } }>(t, g, `/bump-votes?_=${Date.now()}`),
+  saveBumpVotes: (t: string, g: string, config: BumpVotesConfig) =>
+    call<{ config: BumpVotesConfig; urls: { topgg: string; discadia: string } }>(t, g, "/bump-votes", "PATCH", { config }),
+  regenBumpVotesToken: (t: string, g: string) => call<{ config: BumpVotesConfig; urls: { topgg: string; discadia: string } }>(t, g, "/bump-votes/token", "POST", {}),
+  bumpVotesLeaderboard: (t: string, g: string) => call<BumpVotesLeaderboard>(t, g, `/bump-votes/leaderboard?_=${Date.now()}`),
+  resetBumpVotesLeaderboard: (t: string, g: string, which: "bumps" | "votes") => call(t, g, "/bump-votes/leaderboard/reset", "POST", { which }),
   listMainAutomations: (t: string, g: string) => call<{ automations: MainAutomation[] }>(t, g, `/main-automations?_=${Date.now()}`),
   setMainAutomation: (t: string, g: string, key: string, enabled: boolean) => call<{ automations: MainAutomation[] }>(t, g, "/main-automations", "PUT", { key, enabled }),
   listChatReminders: (t: string, g: string) =>
