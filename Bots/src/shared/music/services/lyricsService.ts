@@ -120,7 +120,7 @@ async function resolveGuildLyrics(client?, guild?, query?) {
 
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "La musica non è disponibile in questo momento: riprova tra poco." };
   }
   const player = client.shoukaku?.players?.get(guildId);
   if (!player?.track) {

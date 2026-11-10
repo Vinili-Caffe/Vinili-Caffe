@@ -279,12 +279,9 @@ function getShoukakuVoiceConnectionTimeoutSeconds() {
 function musicJoinVoiceChannelErrorMessage(err?) {
   const m = String(err?.message || err || "");
   if (/not established|voice connection/i.test(m)) {
-    return (
-      "Connessione musica non pronta in tempo. Se il bot era in **TTS** nello stesso server, la musica (Lavalink) non può condividere quella sessione: usa prima il **leave** del TTS, poi `+play`. " +
-      "Altrimenti verifica permessi nel canale vocale, firewall/UDP dal server **Lavalink** verso Discord, e opzionalmente `SHOUKAKU_VOICE_CONNECTION_TIMEOUT` (secondi) nel .env."
-    );
+    return "Non riesco a entrare nel canale vocale in questo momento. Se il bot sta leggendo i messaggi con il TTS, fallo prima uscire; altrimenti controlla che possa entrare e parlare nel canale e riprova tra poco.";
   }
-  return `Entrata in vocale fallita: ${m || "errore sconosciuto"}`;
+  return "Non riesco a entrare nel canale vocale. Riprova tra poco.";
 }
 
 function guildHasBlockingNativeVoiceConnection(guildId?) {

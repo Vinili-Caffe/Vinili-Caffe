@@ -49,7 +49,7 @@ async function toggleRepeatOneGuild(interaction?, keyword?) {
   if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "La musica non è disponibile in questo momento: riprova tra poco." };
   }
   const player = client.shoukaku?.players?.get(guild.id);
   if (!player?.track) {
@@ -128,7 +128,7 @@ async function previousGuildTrack(interaction?) {
   if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "La musica non è disponibile in questo momento: riprova tra poco." };
   }
   const guildId = guild.id;
   const player = client.shoukaku?.players?.get(guildId);
@@ -167,7 +167,7 @@ async function previousGuildTrack(interaction?) {
     session.history.push(prev);
     if (currentEnc) session.tracks.shift();
     session.nowPlaying = oldNowLabel;
-    return { ok: false, message: err?.message || "Impossibile tornare al brano precedente." };
+    return { ok: false, message: "Non sono riuscito a tornare al brano precedente. Riprova." };
   }
   let embedDescription = `**${safeDiscordLinkLabel(session.nowPlaying)}**`;
   if (node?.rest?.decode) {
@@ -197,7 +197,7 @@ async function shuffleGuildQueue(interaction?) {
   if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "La musica non è disponibile in questo momento: riprova tra poco." };
   }
   const guildId = guild.id;
   const session = guildQueues.get(guildId);
@@ -224,7 +224,7 @@ async function rewindGuildTrack(interaction?) {
   if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "La musica non è disponibile in questo momento: riprova tra poco." };
   }
   const player = client.shoukaku?.players?.get(guild.id);
   if (!player?.track) {
@@ -259,7 +259,7 @@ async function rewindGuildTrack(interaction?) {
   try {
     await player.playTrack({ track: { encoded: enc } });
   } catch (err) {
-    return { ok: false, message: err?.message || "Riavvolgimento non riuscito." };
+    return { ok: false, message: "Non sono riuscito a riavvolgere il brano. Riprova." };
   }
   return { ok: true };
 }
@@ -272,7 +272,7 @@ async function restartQueueGuild(interaction?) {
   if (!requester?.id) return { ok: false, message: "Utente non disponibile." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "La musica non è disponibile in questo momento: riprova tra poco." };
   }
   const guildId = guild.id;
   const player = client.shoukaku?.players?.get(guildId);
@@ -298,7 +298,7 @@ async function restartQueueGuild(interaction?) {
   try {
     await playEncodedFromStart(player, snap[0].encoded);
   } catch (err) {
-    return { ok: false, message: err?.message || "Restart coda non riuscito." };
+    return { ok: false, message: "Non sono riuscito a far ripartire la coda. Riprova." };
   }
   return { ok: true };
 }

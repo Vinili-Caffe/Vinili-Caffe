@@ -3,6 +3,7 @@ const { readBackupByIdGlobal, deleteBackupByIdGlobal } = require("../../services
 const { createLoadSession, buildLoadWarningEmbed, buildLoadComponents } = require("../../services/backupLoadService") as typeof import("../../services/backupLoadService");
 const { safeEditReply } = require("../../../../shared/discord/replyRuntime") as typeof import("../../../../shared/discord/replyRuntime");
 const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
+const { friendlyError } = require("../../../../shared/discord/friendlyError") as typeof import("../../../../shared/discord/friendlyError");
 const PREFIX_LOAD = "backup_info_load:";
 const PREFIX_DELETE = "backup_info_delete:";
 const PREFIX_CONFIRM = "backup_delete_confirm:";
@@ -44,7 +45,7 @@ async function execute(interaction?) {
     } catch (err) {
       global.logger?.error?.("[Buttons/backupInfo] load", err);
       await safeEditReply(interaction, {
-        content: `${E.vegax} ${String(err?.message || err).slice(0, 300)}`,
+        content: `${E.vegax} ${friendlyError(err)}`,
       });
     }
     return true;
@@ -119,7 +120,7 @@ async function execute(interaction?) {
         embeds: [
           new EmbedBuilder()
             .setColor("Red")
-            .setDescription(`${E.vegax} ${String(err?.message || err).slice(0, 300)}`),
+            .setDescription(`${E.vegax} ${friendlyError(err)}`),
         ],
         components: [],
       });

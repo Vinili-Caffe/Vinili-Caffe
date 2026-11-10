@@ -9,7 +9,7 @@ async function fetchGuildQueueEntryRows(client?, guild?) {
   if (!guild?.id) return { ok: false, message: "Solo in server." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "La musica non è disponibile in questo momento: riprova tra poco." };
   }
   const guildId = guild.id;
   const sh = client.shoukaku;
@@ -135,7 +135,7 @@ async function fetchGuildUpcomingQueueRows(client?, guild?) {
   if (!guild?.id) return { ok: false, message: "Solo in server." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "La musica non è disponibile in questo momento: riprova tra poco." };
   }
   const guildId = guild.id;
   const sh = client.shoukaku;
@@ -204,7 +204,7 @@ async function fetchGuildRequestedSessionRows(client?, guild?) {
   if (!guild?.id) return { ok: false, message: "Solo in server." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "La musica non è disponibile in questo momento: riprova tra poco." };
   }
   const guildId = guild.id;
   const sh = client.shoukaku;
@@ -321,7 +321,7 @@ async function fetchGuildNextUpDetails(client?, guild?) {
   if (!guild?.id) return { ok: false, message: "Solo in server." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "La musica non è disponibile in questo momento: riprova tra poco." };
   }
   const guildId = guild.id;
   const sh = client.shoukaku;
@@ -404,7 +404,7 @@ async function fetchGuildNowPlayingDetails(client?, guild?) {
   if (!guild?.id) return { ok: false, message: "Solo in server." };
   initLavalinkMusicIfEnabled(client);
   if (!isLavalinkUsable(client)) {
-    return { ok: false, message: "Lavalink non disponibile." };
+    return { ok: false, message: "La musica non è disponibile in questo momento: riprova tra poco." };
   }
   const guildId = guild.id;
   const sh = client.shoukaku;

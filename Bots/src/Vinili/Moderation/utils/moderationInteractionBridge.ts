@@ -4,6 +4,7 @@ const { executeDynoModerationCommand } = require("./dynoModerationCommands") as 
 const { checkPrefixPermission } = require("./commandPermissions") as typeof import("./commandPermissions");
 
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
+const { friendlyError } = require("../../../shared/discord/friendlyError") as typeof import("../../../shared/discord/friendlyError");
 const PRIVATE_FLAG = 1 << 6;
 const SANCTIONS_OUTPUT_TO_SANZIONI = new Set(["warn", "kick", "mute", "ban", "unmute", "unban", "delwarn", "clearwarn"]);
 
@@ -111,7 +112,7 @@ async function runDynoFromInteraction(interaction?, client?, cmd?, args?, guild?
     return { ok: true, usedSanzioni };
   } catch (err) {
     global.logger?.error?.("[moderationInteractionBridge]", err);
-    await interaction.editReply({ content: `${E.VC_Cross} ${String(err?.message || err).slice(0, 500)}` }).catch(() => {});
+    await interaction.editReply({ content: `${E.VC_Cross} ${friendlyError(err, "Non sono riuscito a completare la sanzione. Riprova tra poco.")}` }).catch(() => {});
     return { ok: false };
   }
 }

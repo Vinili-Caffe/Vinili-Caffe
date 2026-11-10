@@ -3,6 +3,7 @@ const { safeEditReply } = require("../../../../shared/discord/replyRuntime") as 
 const { fetchGuildMembersRespectingGatewayRateLimit } = require("../../../../shared/discord/gatewayMemberFetch") as typeof import("../../../../shared/discord/gatewayMemberFetch");
 
 const { E } = require("../../../../shared/emojis/emojiCatalog") as typeof import("../../../../shared/emojis/emojiCatalog");
+const { friendlyError } = require("../../../../shared/discord/friendlyError") as typeof import("../../../../shared/discord/friendlyError");
 const EPHEMERAL_FLAG = 1 << 6;
 const CHUNK_SIZE = 5;
 const CHUNK_DELAY_MS = 900;
@@ -133,7 +134,7 @@ export = {
       } catch (err) {
         global.logger?.error?.("[role all]", err);
         await safeEditReply(interaction, {
-          content: `${E.vegax} Errore durante l'assegnazione: ${String(err?.message || err).slice(0, 500)}`,
+          content: `${E.vegax} Non sono riuscito ad assegnare il ruolo a tutti. ${friendlyError(err, "")}`,
           flags: EPHEMERAL_FLAG,
         });
       }

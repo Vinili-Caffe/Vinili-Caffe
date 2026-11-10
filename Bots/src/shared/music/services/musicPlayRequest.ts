@@ -87,7 +87,7 @@ async function playMusicRequest(ctx?, query?) {
     return {
       ok: false,
       message:
-        "Musica non disponibile: Lavalink non è collegato. Controlla che il processo **lavalink** sia online (`pm2 list`) e che `LAVALINK_HOST` / `LAVALINK_PASSWORD` coincidano con `application.yml`.",
+        "La musica non è disponibile in questo momento: riprova tra poco.",
     };
   }
   const voiceChannel = member.voice?.channel;
@@ -154,7 +154,7 @@ async function playMusicRequest(ctx?, query?) {
     shoukaku.getIdealNode() ||
     shoukaku.nodes.values().next().value;
   if (!node?.rest) {
-    return { ok: false, message: "Nessun nodo Lavalink disponibile." };
+    return { ok: false, message: "La musica non è disponibile in questo momento: riprova tra poco." };
   }
 
   const trimmedInput = String(query || "").trim();
@@ -187,7 +187,7 @@ async function playMusicRequest(ctx?, query?) {
     global.logger?.warn?.("[MUSIC] resolve:", err?.message || err);
     return {
       ok: false,
-      message: `Ricerca fallita: ${err?.message || "errore Lavalink"}`,
+      message: "Non riesco a cercare il brano in questo momento: riprova tra poco.",
     };
   }
 
@@ -196,19 +196,13 @@ async function playMusicRequest(ctx?, query?) {
     const noResultsEmbed = new EmbedBuilder()
       .setColor(0xff0000)
       .setDescription("**Nessun risultato** ⛔");
-    let msg = hint
-      ? `Nessun risultato. (${hint})`
-      : "Nessun risultato per questa ricerca o URL.";
-    if (!hint && isPlainTextMusicQuery(trimmed)) {
-      msg += " Prova con **titolo e artista** o un link **open.spotify.com** / YouTube (se consentito dalla modalità).";
-    }
+    /* il dettaglio tecnico (hint) va nei log, non all'utente */
+    if (hint) logMusic("no results", { query: trimmed.slice(0, 120), hint });
+    let msg = "Non ho trovato niente per questa ricerca o questo link.";
     if (isOpenSpotifyMusicUrlInput(trimmed)) {
-      const needsLavasrcHint =
-        !hint || /unknown file format|file format/i.test(String(hint || ""));
-      if (needsLavasrcHint) {
-        msg +=
-          " Per **Spotify** il nodo **Lavalink** deve avere il plugin **LavaSrc** con **clientId** e **clientSecret** in `application.yml` (altrimenti spesso nei log compare `Unknown file format`: viene scaricata la pagina web al posto dei brani). Poi riavvia Lavalink.";
-      }
+      msg += " Se il link di Spotify non funziona, prova a scrivere **titolo e artista**.";
+    } else if (isPlainTextMusicQuery(trimmed)) {
+      msg += " Prova con **titolo e artista**, oppure incolla un link.";
     }
     return {
       ok: false,
