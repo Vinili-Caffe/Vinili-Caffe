@@ -3,7 +3,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBi
 const { isVoiceChannelEligibleForFindBotMinigame } = require("../../Minigames/utils/findBotVoiceChannelEligibility") as typeof import("../../Minigames/utils/findBotVoiceChannelEligibility");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 const { resolveMinigamePromptAttachment } = require("./minigameImages") as typeof import("./minigameImages");
-const { buildFindBotEmbed, buildFindBotButtonEmbed, buildFindBotVoiceEmbed, buildWinEmbed, buildTimeoutFindBotEmbed, buildTimeoutFindBotVoiceEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
+const { buildFindBotEmbed, buildFindBotButtonEmbed, buildFindBotVoiceEmbed, buildWinEmbed, resolveWinEmbedImageUrl, buildTimeoutFindBotEmbed, buildTimeoutFindBotVoiceEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { getChannelCached, pickRandomItem } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { normalizeRewardExp } = require("./minigameText") as typeof import("./minigameText");
 const { activeGames, clearNoParticipationDelay, clearActiveGame, beginMinigameWinClose, endMinigameWinClose } = require("./minigameState") as typeof import("./minigameState");
@@ -12,6 +12,7 @@ const { sendMinigameMessage } = require("./minigameDiscord") as typeof import(".
 const { handleExpReward, mergeHalloweenCandyDropIntoMessage, mergeStarWarsQuizRewardIntoMessage, awardMinigameWinToUser } = require("./minigameRewards") as typeof import("./minigameRewards");
 const { markSent, saveActiveGame, deleteFindMinigameRemoteMessage, sendMinigameTimeoutAndClose, scheduleMinuteHint, findBotVoiceSessionByGuild, leaveFindBotVoiceChannel } = require("./minigameRound") as typeof import("./minigameRound");
 const { getConfig } = require("./minigameConfig") as typeof import("./minigameConfig");
+const { shouldUseStarWarsTheme } = require("../utils/starWarsMinigameHooks") as typeof import("../utils/starWarsMinigameHooks");
 
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function finalizeFindMinigameTimeout(client?, cfg?, mainChannelId?, mainChannel?, game?, buildTimeoutEmbed?) {
@@ -232,7 +233,14 @@ async function startFindBotGame(client?, cfg?) {
 
   const customId = `minigame_findbot:${Date.now()}`;
   const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(customId).setEmoji(E.VC_Heart).setLabel("Clicca qui per vincere!").setStyle(ButtonStyle.Primary),);
-  const gameMessage = await sendMinigameMessage(targetChannel, { embeds: [buildFindBotButtonEmbed(rewardExp, durationMs)], components: [row] }).catch((err?) => {
+  let findBotNearImage = null;
+  if (shouldUseStarWarsTheme(cfg)) {
+    try {
+      const { STAR_WARS_CLASSIC_EMBED_ART } = require("../utils/starWarsMinigameHooks") as typeof import("../utils/starWarsMinigameHooks");
+      findBotNearImage = STAR_WARS_CLASSIC_EMBED_ART?.findBotNear || null;
+    } catch (_) {}
+  }
+  const gameMessage = await sendMinigameMessage(targetChannel, { embeds: [buildFindBotButtonEmbed(rewardExp, durationMs, findBotNearImage)], components: [row] }).catch((err?) => {
     global.logger?.error?.("[MINIGAMES] FindBot: send to target channel failed", { channelId: targetChannel.id, channelName: targetChannel.name, err: err?.message || err });
     return null;
   });
@@ -365,7 +373,13 @@ async function handleFindBotVoiceWin(client?, guild?, member?, game?, cfg?) {
       rewardExp: game.rewardExp,
       channelId,
     });
-    const winEmbed = buildWinEmbed(member.id, award.effectiveExp, award.nextTotal, award.details);
+    const winEmbed = buildWinEmbed(
+      member.id,
+      award.effectiveExp,
+      award.nextTotal,
+      award.details,
+      await resolveWinEmbedImageUrl(cfg, member.id),
+    );
     const mainChannel = await getChannelCached(client, channelId);
     if (mainChannel) {
       await sendMinigameMessage(

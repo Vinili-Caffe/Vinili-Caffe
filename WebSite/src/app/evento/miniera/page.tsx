@@ -26,7 +26,7 @@ export default function EventoMinieraPage() {
       path={meta.path}
       title="Estrazione"
       accent="Kyber"
-      text="Scava le vene di Ilum: cristalli per la fazione, classifica live e scarti rari nel registro di settore."
+      text="Scava nei geodi di Ilum alla ricerca di cristalli Kyber."
       icon={<Gem />}
     >
       <EventoSortGate mode="redirect">

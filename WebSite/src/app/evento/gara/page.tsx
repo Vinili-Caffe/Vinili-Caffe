@@ -26,7 +26,7 @@ export default function EventoGaraPage() {
       path={meta.path}
       title="Podracing"
       accent="Championship"
-      text="Mos Espa in proiezione olografica: scegli lo sguscio, completa il giro e conquista Omega, Beta o Alpha."
+      text="Mos Espa ti aspetta. Scegli il pilota e punta a vincere il Gran Premio di Tatooine."
       icon={<Flag />}
     >
       <EventoSortGate mode="redirect">

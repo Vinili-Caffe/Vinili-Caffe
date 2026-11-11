@@ -1,7 +1,7 @@
 /** Musica: uscita automatica per inattività (coda vuota / VC vuoto). */
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { applyDefaultFooterToEmbeds } = require("../../embeds/defaultFooter") as typeof import("../../embeds/defaultFooter");
-const { guildQueues, endListeners, musicIdleSince, leaveMusicVoiceChannelMarked, musicLeaveTts } = require("./musicVoice") as typeof import("./musicVoice");
+const { guildQueues, endListeners, musicIdleSince, leaveMusicVoiceChannelMarked, musicLeaveTts, persistMusicQueueSnapshotNow } = require("./musicVoice") as typeof import("./musicVoice");
 
 const _musicIdleRawMs = Number(process.env.MUSIC_INACTIVITY_IDLE_MS || 180_000);
 const MUSIC_INACTIVITY_MS = Math.max(
@@ -90,6 +90,8 @@ async function tickMusicInactivity(client?) {
     const textChannelId = session?.textChannelId || null;
     guildQueues.delete(gid);
     endListeners.delete(gid);
+    /* senza flush lo snapshot ripristina canzoni già finite / sessione chiusa */
+    persistMusicQueueSnapshotNow(client);
     try {
       const pl = sh.players.get(gid);
       if (pl) await pl.destroy();

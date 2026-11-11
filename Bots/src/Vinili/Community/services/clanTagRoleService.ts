@@ -316,10 +316,14 @@ async function announceNewGuildedMember(member?, tag?, roleIdAssigned = null) {
   if (isSocialRoleAnnounceGloballySuppressed()) return;
   const mentionRoleId = roleIdAssigned || GLOBAL_GUILDED_ROLE_ID;
   if (wasRoleRestoredByMuteMirror(member.guild?.id, member.id, mentionRoleId)) return;
-  /* annunciRuoli1: regola accesa nella dashboard per questo ruolo → ci pensa lei */
+  /* Annunci dashboard: regola accesa → handleRoleAdded; draft presente → usalo al posto dell'hardcoded */
   try {
     const A = require("../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../MultiGuild/services/announcementsRuntime");
     if (await A.roleRuleHandles(member.guild?.id, mentionRoleId)) return;
+    if (await A.trySendConfiguredRoleAnnounce(member.client, member, mentionRoleId, { fallbackChannelId: ANNOUNCE_CHANNEL_ID })) {
+      lastGuildedChannelAnnounceByUserId.set(uid, Date.now());
+      return;
+    }
   } catch (_) {}
 
   const prev = guildedAnnounceTailByUserId.get(uid) || Promise.resolve();

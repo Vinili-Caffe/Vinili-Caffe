@@ -169,7 +169,12 @@ export function AnnouncementsPanel({
             roleIds: [],
             channelId: null,
             cooldownHours: 24,
-            draft: emptyDraft({ content: "{user}", embed: { ...emptyDraft().embed, title: "Nuovo ruolo!", description: "{user} ha ottenuto il ruolo {role}!" } }),
+            draft: emptyDraft({
+              content: "{user}",
+              mentionUsers: true,
+              mentionRoles: true,
+              embed: { ...emptyDraft().embed, title: "Nuovo ruolo!", description: "{user} ha ottenuto il ruolo {role}!" },
+            }),
           },
         ],
       },
@@ -179,7 +184,11 @@ export function AnnouncementsPanel({
 
   return (
     <div className="space-y-4">
-      {imported ? <Notice>Ho importato l&apos;annuncio del ruolo Guilded del server principale. È spento: accendilo quando vuoi usarlo.</Notice> : null}
+      {imported ? (
+        <Notice>
+          Ho importato gli annunci ruolo del server principale (Guilded, Follower, Supporter, Fan, Verified, Patron, Promoter/Propulsor/Catalyst, Donator/VIP). Sono spenti: i draft valgono già in chat; accendi la regola se vuoi gestirli solo da qui.
+        </Notice>
+      ) : null}
       {saveBar}
       <FormGroup title="Annunci dei ruoli">
         <SettingRow title="Annuncia i ruoli" description="Accende o spegne tutte le regole qui sotto.">
@@ -214,7 +223,7 @@ export function AnnouncementsPanel({
                       </Field>
                     </div>
                     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-                      <DraftEditor value={r.draft} onChange={(draft) => setRule(r.id, { draft })} emojis={data.pickers.emojis} placeholders={ROLE_PLACEHOLDERS} maxButtons={data.limits.buttons} />
+                      <DraftEditor key={r.id} value={r.draft} onChange={(draft) => setRule(r.id, { draft })} emojis={data.pickers.emojis} placeholders={ROLE_PLACEHOLDERS} maxButtons={data.limits.buttons} />
                       <DiscordMessagePreview bot={data.bot} draft={r.draft} vars={ruleVars(r)} roles={data.pickers.roles} channels={channels} />
                     </div>
                     <button type="button" className={dangerBtn} onClick={() => set({ ...cfg, roles: { ...cfg.roles, rules: rules.filter((x) => x.id !== r.id) } })}>

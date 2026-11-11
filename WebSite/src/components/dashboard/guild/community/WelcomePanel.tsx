@@ -76,7 +76,7 @@ export function WelcomePanel({
               </button>
             </div>
             <ChannelField label="Canale" value={p.channelId} channels={channels} onChange={(channelId) => set({ channelId })} />
-            <DraftEditor value={p.draft} onChange={(draft) => set({ draft })} emojis={data.pickers.emojis} placeholders={MEMBER_PLACEHOLDERS} maxButtons={data.limits.buttons} />
+            <DraftEditor key={k} value={p.draft} onChange={(draft) => set({ draft })} emojis={data.pickers.emojis} placeholders={MEMBER_PLACEHOLDERS} maxButtons={data.limits.buttons} />
           </div>
         }
         preview={<DiscordMessagePreview bot={data.bot} draft={p.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
@@ -130,7 +130,7 @@ export function WelcomePanel({
                   <Send className="size-3.5" /> Mandalo a me
                 </button>
               </div>
-              <DraftEditor value={cfg.dm.draft} onChange={(draft) => setCfg({ ...cfg, dm: { ...cfg.dm, draft } })} emojis={data.pickers.emojis} placeholders={MEMBER_PLACEHOLDERS} maxButtons={data.limits.buttons} />
+              <DraftEditor key="dm" value={cfg.dm.draft} onChange={(draft) => setCfg({ ...cfg, dm: { ...cfg.dm, draft } })} emojis={data.pickers.emojis} placeholders={MEMBER_PLACEHOLDERS} maxButtons={data.limits.buttons} />
             </div>
           }
           preview={<DiscordMessagePreview bot={data.bot} draft={cfg.dm.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}

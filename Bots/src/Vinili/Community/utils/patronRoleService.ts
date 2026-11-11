@@ -75,6 +75,13 @@ async function resolveSupportersChannel(guild?) {
 
 async function sendPatronRoleAnnounce(member?, channel?) {
   if (!PATRON_ROLE_ID || !channel?.isTextBased?.()) return false;
+  try {
+    const A = require("../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../MultiGuild/services/announcementsRuntime");
+    if (await A.roleRuleHandles(member?.guild?.id, PATRON_ROLE_ID)) return true;
+    if (await A.trySendConfiguredRoleAnnounce(member?.client || member?.guild?.client, member, PATRON_ROLE_ID, { fallbackChannelId: channel.id })) {
+      return true;
+    }
+  } catch (_) {}
   const guild = member?.guild;
   const patronRoleMention = guild?.roles?.cache?.get(PATRON_ROLE_ID)
     ? `<@&${PATRON_ROLE_ID}>`

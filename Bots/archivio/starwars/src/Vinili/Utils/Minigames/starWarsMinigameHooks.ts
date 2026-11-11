@@ -75,6 +75,67 @@ const SW_MINIGAME_INTERVAL_MS = 15 * 60 * 1000;
 const SW_MINIGAME_DURATION_MS = 3 * 60 * 1000;
 const SW_MALUS_INTERVAL_MS = 45 * 60 * 1000;
 
+/** Art CDN per embed classici SW che altrimenti restano senza immagine. */
+const SW_CLASSIC_ART_CDN = "https://cdn.viniliecaffe.it/images/starwars";
+const SW_CLASSIC_ART_V = "20261111c3";
+const STAR_WARS_CLASSIC_EMBED_ART = Object.freeze({
+  findBotNear: `${SW_CLASSIC_ART_CDN}/sw-findbot-near.jpg?v=${SW_CLASSIC_ART_V}`,
+  memoryRecall: `${SW_CLASSIC_ART_CDN}/sw-memory-recall.jpg?v=${SW_CLASSIC_ART_V}`,
+  pgEscaped: `${SW_CLASSIC_ART_CDN}/sw-pg-escaped.jpg?v=${SW_CLASSIC_ART_V}`,
+  reliquiaPerduta: `${SW_CLASSIC_ART_CDN}/sw-reliquia-perduta.jpg?v=${SW_CLASSIC_ART_V}`,
+  /** vittoria pool classici SW — blu (Repubblica / light) */
+  classicWin: `${SW_CLASSIC_ART_CDN}/sw-classic-win-repubblica.jpg?v=${SW_CLASSIC_ART_V}`,
+  classicWinRepubblica: `${SW_CLASSIC_ART_CDN}/sw-classic-win-repubblica.jpg?v=${SW_CLASSIC_ART_V}`,
+  /** vittoria pool classici SW — rosso (Separatisti / dark) */
+  classicWinSeparatisti: `${SW_CLASSIC_ART_CDN}/sw-classic-win-separatisti.jpg?v=${SW_CLASSIC_ART_V}`,
+  /** timeout / sconfitta pool classici SW */
+  classicLose: `${SW_CLASSIC_ART_CDN}/sw-classic-lose.jpg?v=${SW_CLASSIC_ART_V}`,
+});
+
+const CLASSIC_WIN_DARK_FACTIONS = new Set(["separatisti", "impero", "nuovo_ordine"]);
+
+function classicWinSideFromFaction(factionId?) {
+  const f = String(factionId || "").trim().toLowerCase();
+  return CLASSIC_WIN_DARK_FACTIONS.has(f) ? "separatisti" : "repubblica";
+}
+
+async function resolveWinnerFactionIdForClassicWin(cfg?, winnerId?) {
+  const uid = String(winnerId || cfg?.winnerId || "").trim();
+  if (!uid) return "";
+  try {
+    const { getStarWarsWallet } = require("../../Services/Community/starWarsEventWalletService") as typeof import("../../Services/Community/starWarsEventWalletService");
+    const ids = [
+      ...new Set(
+        [
+          resolveMinigameGuildIdForStarWars(cfg?.client || null, cfg?.guildId || null),
+          getMainGuildIdSafe(),
+          String(cfg?.guildId || "").trim(),
+        ].filter(Boolean),
+      ),
+    ];
+    for (const gid of ids) {
+      const wallet = await getStarWarsWallet(gid, uid);
+      const fid = String(wallet?.factionId || "").trim().toLowerCase();
+      if (fid) return fid;
+    }
+  } catch (_) {}
+  return "";
+}
+
+async function resolveStarWarsClassicWinImageUrl(cfg?, winnerId?) {
+  if (!shouldUseStarWarsTheme(cfg)) return null;
+  const factionId = await resolveWinnerFactionIdForClassicWin(cfg, winnerId);
+  if (classicWinSideFromFaction(factionId) === "separatisti") {
+    return STAR_WARS_CLASSIC_EMBED_ART.classicWinSeparatisti || null;
+  }
+  return STAR_WARS_CLASSIC_EMBED_ART.classicWinRepubblica || STAR_WARS_CLASSIC_EMBED_ART.classicWin || null;
+}
+
+function resolveStarWarsClassicLoseImageUrl(cfg?) {
+  if (!shouldUseStarWarsTheme(cfg)) return null;
+  return STAR_WARS_CLASSIC_EMBED_ART.classicLose || null;
+}
+
 function getMainGuildIdSafe() {
   try {
     const IDs = require(__eventCoreVinili("Config/ids"));
@@ -254,6 +315,9 @@ export = {
   STAR_WARS_CUSTOM_GAME_TYPES,
   STAR_WARS_SPECIAL_DISCORD_TYPES,
   SPECIAL_TYPE_FEATURE,
+  STAR_WARS_CLASSIC_EMBED_ART,
+  resolveStarWarsClassicWinImageUrl,
+  resolveStarWarsClassicLoseImageUrl,
   SW_MINIGAME_WINDOW,
   SW_MALUS_WINDOW,
   SW_MINIGAME_INTERVAL_MS,

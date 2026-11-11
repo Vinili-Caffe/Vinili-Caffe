@@ -13,7 +13,7 @@ export function EventoHero({
   icon,
 }: {
   title: string;
-  text: string;
+  text?: string;
   accent?: string;
   icon?: ReactNode;
 }) {

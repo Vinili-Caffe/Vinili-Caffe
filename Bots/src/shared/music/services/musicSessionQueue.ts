@@ -1,4 +1,4 @@
-﻿/** Musica: sessione/coda, avanzamento brani, handler fine traccia, snapshot restore. */
+/** Musica: sessione/coda, avanzamento brani, handler fine traccia, snapshot restore. */
 const { EmbedBuilder } = require("discord.js") as typeof import("discord.js");
 const { applyDefaultFooterToEmbeds } = require("../../embeds/defaultFooter") as typeof import("../../embeds/defaultFooter");
 const { logMusic } = require("./musicSearch") as typeof import("./musicSearch");
@@ -59,6 +59,15 @@ function restoreSessionSnapshotRow(row?) {
   };
 }
 
+function musicSessionHasPlayableResume(session?) {
+  if (!session || typeof session !== "object") return false;
+  if (String(session.playingEncoded || "").trim() && String(session.voiceChannelId || "").trim()) return true;
+  if (Array.isArray(session.tracks) && session.tracks.length > 0) return true;
+  if (session.repeatOne && String(session.repeatEncoded || session.playingEncoded || "").trim()) return true;
+  if (session.repeatQueue && Array.isArray(session.repeatQueueSnapshot) && session.repeatQueueSnapshot.length) return true;
+  return false;
+}
+
 function restoreMusicQueueSnapshot() {
   try {
     const raw = readSnapshotWithMeta({
@@ -69,12 +78,21 @@ function restoreMusicQueueSnapshot() {
       fallback: { sessions: {} },
     });
     const sessions = raw?.sessions && typeof raw.sessions === "object" ? raw.sessions : {};
+    let pruned = 0;
     for (const [guildId, row] of Object.entries(sessions)) {
       const gid = String(guildId || "").trim();
       if (!gid) continue;
       const restored = restoreSessionSnapshotRow(row);
       if (!restored) continue;
+      /* history-only / sessione già vuota → non riprendere brani finiti */
+      if (!musicSessionHasPlayableResume(restored)) {
+        pruned += 1;
+        continue;
+      }
       guildQueues.set(gid, restored);
+    }
+    if (pruned > 0) {
+      global.logger?.info?.(`[MUSIC RESTORE] pruned ${pruned} finished/empty session(s)`);
     }
   } catch (err) {
     global.logger?.warn?.("[MUSIC] queue snapshot restore failed:", err?.message || err);

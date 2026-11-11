@@ -265,9 +265,21 @@ async function resolveSupportersChannel(guild?) {
   return guild.channels.cache.get(SUPPORTERS_CHANNEL_ID) || (await getGuildChannelCached(guild, SUPPORTERS_CHANNEL_ID));
 }
 
+async function tryDashboardRoleAnnounce(member?, roleId?, fallbackChannelId?) {
+  try {
+    const A = require("../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../MultiGuild/services/announcementsRuntime");
+    if (await A.roleRuleHandles(member?.guild?.id, roleId)) return true;
+    if (await A.trySendConfiguredRoleAnnounce(member?.client || member?.guild?.client, member, roleId, { fallbackChannelId })) {
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
 async function sendFollowerRoleAnnounce(member?, channel?) {
   const followerId = IDs.roles.Follower;
   if (!followerId || !channel?.isTextBased?.()) return false;
+  if (await tryDashboardRoleAnnounce(member, followerId, channel.id)) return true;
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({ name: accountUsername(member), iconURL: guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined })
@@ -290,6 +302,7 @@ async function sendFollowerRoleAnnounce(member?, channel?) {
 async function sendSocialSupporterRoleAnnounce(member?, channel?) {
   const socialSupId = IDs.roles.SocialSupporter;
   if (!socialSupId || !channel?.isTextBased?.()) return false;
+  if (await tryDashboardRoleAnnounce(member, socialSupId, channel.id)) return true;
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setAuthor({ name: accountUsername(member), iconURL: guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined })
@@ -311,6 +324,7 @@ async function sendSocialSupporterRoleAnnounce(member?, channel?) {
 
 async function sendSelfieVerifiedRoleAnnounce(member?, channel?, roleId?, title?) {
   if (!channel?.isTextBased?.()) return false;
+  if (await tryDashboardRoleAnnounce(member, roleId, channel.id)) return true;
   const embed = buildSelfieVerifiedGuildedStyleEmbed(member, roleId, title);
   const sent = await channel.send({ content: `<@${member.id}>`, embeds: [embed] }).catch(() => null);
   return Boolean(sent?.id);

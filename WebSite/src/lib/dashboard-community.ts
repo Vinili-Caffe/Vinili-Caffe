@@ -29,7 +29,16 @@ export type MsgEmbed = {
   /** link sul titolo */
   url?: string;
 };
-export type MsgDraft = { content: string; embed: MsgEmbed; buttons: MsgButton[]; v2?: MsgV2 };
+export type MsgDraft = {
+  content: string;
+  embed: MsgEmbed;
+  buttons: MsgButton[];
+  v2?: MsgV2;
+  /** se true, le menzioni utente nel testo (e {user} / mentionUserId) pingano */
+  mentionUsers?: boolean;
+  /** se true, le menzioni ruolo <@&…> nel testo pingano */
+  mentionRoles?: boolean;
+};
 /** Promemoria a rotazione in chat (solo server principale) */
 export type ChatReminder = { id: string; name: string; enabled: boolean; draft: MsgDraft };
 
@@ -172,6 +181,8 @@ export function emptyDraft(over: Partial<MsgDraft> = {}): MsgDraft {
     embed: { enabled: true, title: "", description: "", color: "#d49150", imageUrl: "", thumbnailUrl: "", footerText: "", timestamp: false, authorName: "", authorIconUrl: "", fields: [] },
     buttons: [],
     v2: { enabled: false, container: true, accentColor: "", blocks: [] },
+    mentionUsers: false,
+    mentionRoles: true,
     ...over,
   };
 }

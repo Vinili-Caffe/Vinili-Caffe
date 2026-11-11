@@ -55,10 +55,34 @@ async function ensureMemoryEmojiRecallPrompt(client?, cfg?, channel?, game?, rem
     const existing = await channel.messages.fetch(existingId).catch(() => null);
     if (existing) return existing;
   }
+  let recallImageUrl = null;
+  let recallFiles = [];
+  if (shouldUseStarWarsTheme(cfg)) {
+    try {
+      const { STAR_WARS_CLASSIC_EMBED_ART } = require("../utils/starWarsMinigameHooks") as typeof import("../utils/starWarsMinigameHooks");
+      recallImageUrl = STAR_WARS_CLASSIC_EMBED_ART?.memoryRecall || null;
+    } catch (_) {}
+    /* allegato locale: Discord a volte non mostra solo l'URL CDN sull'embed di recall */
+    if (recallImageUrl) {
+      try {
+        const { fetchRawImageAttachment } = require("./minigameImages") as typeof import("./minigameImages");
+        const att = await fetchRawImageAttachment(recallImageUrl, "memory_recall.jpg");
+        if (att) {
+          recallFiles = [att];
+          recallImageUrl = `attachment://${att.name}`;
+        }
+      } catch (_) {}
+    }
+  }
   const prompt = await sendMinigameMessage(channel, {
     embeds: [
-      buildMemoryRecallEmbed(Math.max(60000, Number(remainingMs) || 60000)),
+      buildMemoryRecallEmbed(
+        Math.max(60000, Number(remainingMs) || 60000),
+        recallImageUrl,
+        game?.rewardExp ?? cfg?.memoryEmoji?.rewardExp ?? null,
+      ),
     ],
+    files: recallFiles,
   }).catch(() => null);
   if (prompt) {
     game.promptMessageId = prompt.id;

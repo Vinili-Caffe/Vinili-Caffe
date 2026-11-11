@@ -144,62 +144,88 @@ async function processDiscadiaVote(guild?, user?, client?, options: Record<strin
     global.logger?.warn?.("[officialMessageAutomation] SW vote reward: ", err?.message || err);
   }
 
-  const { DIVIDER_URL: dividerUrl } = require("../../../shared/discord/constants") as typeof import("../../../shared/discord/constants");
-  const { userAvatarUrlStatic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
   const voteCooldownHours = Math.max(1, Math.round(voteCooldownMs / (60 * 60 * 1000)));
   const voteAgainHoursLabel = voteCooldownHours === 1 ? "1 ora" : `${voteCooldownHours} ore`;
   const voteLabel = typeof resolvedVoteCount === "number" ? `${resolvedVoteCount}°` : "";
   const votePlatformLabel = voteListing === "topgg" ? "Top.gg" : "Discadia";
   const resolvedVoteRoleId = await resolveVoteRoleIdForGuild(guild).catch(() => "");
-  const voteRoleText = resolvedVoteRoleId
-    ? `${E.VC_Money} ${E.VC_Arrow} Il ruolo <@&${resolvedVoteRoleId}> per ${voteAgainHoursLabel}`
-    : `${E.VC_Money} ${E.VC_Arrow} Reward voto assegnata per ${voteAgainHoursLabel}`;
-  const thankLine =
-    voteListing === "topgg"
-      ? `${E.VC_ThankYou} Grazie ${userMention} per aver votato su **Top.gg**!`
-      : `${E.VC_ThankYou} Grazie ${userMention} per aver votato su **Discadia**!`;
-  const descriptionLines = [
-    thankLine,
-    "",
-    "`Hai guadagnato:`",
-    `${E.VC_EXP} ${E.VC_Arrow} **${expValue} EXP** per il tuo ${voteLabel ? `**${voteLabel} voto** su **${votePlatformLabel}**` : `**voto** su **${votePlatformLabel}**`}`,
-    ...(voteRewardExtras.length > 0 ? voteRewardExtras : []),
-    voteRoleText,
-    "",
-    `${E.VC_update} Vota di nuovo tra __${voteAgainHoursLabel}__ per ottenere **altri exp** dal **bottone sottostante**.`,
-  ];
-  const botFooterIcon =
-    userAvatarUrlStatic(client?.user, { size: 64 }) ||
-    (typeof client?.user?.displayAvatarURL === "function"
-      ? client.user.displayAvatarURL({ size: 64, extension: "png", forceStatic: true })
-      : null);
-  const embed = new EmbedBuilder()
-    .setColor(TENANT_EMBED_COLOR)
-    .setTitle(`${E.VC_Vote} **Un nuovo voto!**`)
-    .setDescription(descriptionLines.join("\n"))
-    .setFooter({
-      text: "Ogni volta che voterai il valore dell'exp guadagnata varierà",
-      iconURL: botFooterIcon || undefined,
-    })
-    .setImage(dividerUrl);
+  const bonusText = voteRewardExtras.length ? voteRewardExtras.map((l?) => `\n${l}`).join("") : "";
 
-  const components = [];
-  const linkVoteUrl = resolvePublicVoteHubUrl(client) || VOTE_URL;
-  if (linkVoteUrl) {
-    components.push(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setStyle(ButtonStyle.Link)
-          .setEmoji(E.VC_HeartPink)
-          .setLabel("Vota cliccando qui")
-          .setURL(linkVoteUrl),
-      ),
+  /* Preferisci i draft «Bump e voti» della dashboard (main incluso). */
+  let sentConfigured = false;
+  try {
+    const { trySendConfiguredVoteThanks } = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
+    sentConfigured = await trySendConfiguredVoteThanks(
+      client,
+      guild,
+      userId,
+      voteListing,
+      {
+        exp: String(expValue),
+        count: voteLabel ? String(resolvedVoteCount) : "?",
+        bonus: bonusText,
+        fast: "0",
+        streak: "0",
+      },
+      VOTE_CHANNEL_ID,
     );
+  } catch (err) {
+    global.logger?.warn?.("[officialMessageAutomation] vote draft: ", err?.message || err);
   }
 
-  const channel = client.channels.cache.get(VOTE_CHANNEL_ID) || await client.channels.fetch(VOTE_CHANNEL_ID).catch(() => null);
-  if (channel?.isTextBased?.()) {
-    await channel.send({ content: userMention, embeds: [embed], components, }).catch(() => { });
+  if (!sentConfigured) {
+    const { DIVIDER_URL: dividerUrl } = require("../../../shared/discord/constants") as typeof import("../../../shared/discord/constants");
+    const { userAvatarUrlStatic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+    const voteRoleText = resolvedVoteRoleId
+      ? `${E.VC_Money} ${E.VC_Arrow} Il ruolo <@&${resolvedVoteRoleId}> per ${voteAgainHoursLabel}`
+      : `${E.VC_Money} ${E.VC_Arrow} Reward voto assegnata per ${voteAgainHoursLabel}`;
+    const thankLine =
+      voteListing === "topgg"
+        ? `${E.VC_ThankYou} Grazie ${userMention} per aver votato su **Top.gg**!`
+        : `${E.VC_ThankYou} Grazie ${userMention} per aver votato su **Discadia**!`;
+    const descriptionLines = [
+      thankLine,
+      "",
+      "`Hai guadagnato:`",
+      `${E.VC_EXP} ${E.VC_Arrow} **${expValue} EXP** per il tuo ${voteLabel ? `**${voteLabel} voto** su **${votePlatformLabel}**` : `**voto** su **${votePlatformLabel}**`}`,
+      ...(voteRewardExtras.length > 0 ? voteRewardExtras : []),
+      voteRoleText,
+      "",
+      `${E.VC_update} Vota di nuovo tra __${voteAgainHoursLabel}__ per ottenere **altri exp** dal **bottone sottostante**.`,
+    ];
+    const botFooterIcon =
+      userAvatarUrlStatic(client?.user, { size: 64 }) ||
+      (typeof client?.user?.displayAvatarURL === "function"
+        ? client.user.displayAvatarURL({ size: 64, extension: "png", forceStatic: true })
+        : null);
+    const embed = new EmbedBuilder()
+      .setColor(TENANT_EMBED_COLOR)
+      .setTitle(`${E.VC_Vote} **Un nuovo voto!**`)
+      .setDescription(descriptionLines.join("\n"))
+      .setFooter({
+        text: "Ogni volta che voterai il valore dell'exp guadagnata varierà",
+        iconURL: botFooterIcon || undefined,
+      })
+      .setImage(dividerUrl);
+
+    const components = [];
+    const linkVoteUrl = resolvePublicVoteHubUrl(client) || VOTE_URL;
+    if (linkVoteUrl) {
+      components.push(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setStyle(ButtonStyle.Link)
+            .setEmoji(E.VC_HeartPink)
+            .setLabel("Vota cliccando qui")
+            .setURL(linkVoteUrl),
+        ),
+      );
+    }
+
+    const channel = client.channels.cache.get(VOTE_CHANNEL_ID) || await client.channels.fetch(VOTE_CHANNEL_ID).catch(() => null);
+    if (channel?.isTextBased?.()) {
+      await channel.send({ content: userMention, embeds: [embed], components, }).catch(() => { });
+    }
   }
 
   void (async () => {

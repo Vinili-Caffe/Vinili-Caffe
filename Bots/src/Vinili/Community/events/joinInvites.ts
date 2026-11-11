@@ -318,13 +318,38 @@ async function announceInviteInfo(member?, channel?, info?) {
 async function maybeSendInviteReward(member?, info?) {
   const inviteChannel = await resolveGuildChannel(member.guild, THANKS_CHANNEL_ID,);
   const rewardResult = await tryAwardInviteRole(member, info).catch(() => ({ awarded: false, roleIds: [], targets: [], }));
-  if (!inviteChannel || !rewardResult?.awarded || !info?.inviterId) return;
+  if (!rewardResult?.awarded || !info?.inviterId) return;
 
   const inviterMember = await getGuildMemberCached(member.guild, info.inviterId);
   if (!inviterMember) return;
 
   const tierChunks = splitAwardedRolesByTier(rewardResult.roleIds);
-  const milestoneEmbeds = buildInviteMilestoneEmbeds(inviterMember, info.totalInvites, tierChunks);
+  if (!tierChunks.length) return;
+
+  const picPermsId = String(IDs.roles.PicPerms || "1544830789760454759");
+  const remaining = [];
+  try {
+    const A = require("../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../MultiGuild/services/announcementsRuntime");
+    for (const chunk of tierChunks) {
+      const announceRoleId =
+        (chunk.roleIds || []).map(String).find((id?) => id && id !== picPermsId) || String(chunk.roleIds?.[0] || "");
+      if (!announceRoleId) continue;
+      if (await A.roleRuleHandles(member.guild.id, announceRoleId)) continue;
+      if (
+        await A.trySendConfiguredRoleAnnounce(member.client, inviterMember, announceRoleId, {
+          fallbackChannelId: THANKS_CHANNEL_ID,
+        })
+      ) {
+        continue;
+      }
+      remaining.push(chunk);
+    }
+  } catch (_) {
+    remaining.push(...tierChunks);
+  }
+
+  if (!remaining.length || !inviteChannel) return;
+  const milestoneEmbeds = buildInviteMilestoneEmbeds(inviterMember, info.totalInvites, remaining);
   if (!milestoneEmbeds.length) return;
 
   await inviteChannel

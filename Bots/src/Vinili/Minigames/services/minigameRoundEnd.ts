@@ -398,18 +398,20 @@ async function sendMinigameTimeoutAndClose(client?, cfg?, channelId?, channel?, 
       const boardChannel = channel?.send ? channel : await getChannelCached(client, chId);
       if (boardChannel) await revealHangmanSolutionBoard(boardChannel, game).catch(() => { });
     }
-    const embeds = [];
-    if (timeoutEmbed) {
-      embeds.push(timeoutEmbed);
-    } else {
-            embeds.push(
-        new EmbedBuilder()
-          .setColor(MINIGAME_EMBED_COLOR)
-          .setDescription(
-            `${E.VC_pixeltime} Tempo scaduto! Nessuno ha vinto questo minigioco.`,
-          ),
-      );
+    let loseEmbed = timeoutEmbed;
+    if (!loseEmbed) {
+      loseEmbed = new EmbedBuilder()
+        .setColor(MINIGAME_EMBED_COLOR)
+        .setDescription(`${E.VC_pixeltime} Tempo scaduto! Nessuno ha vinto questo minigioco.`);
     }
+    try {
+      const { resolveStarWarsClassicLoseImageUrl } = require("../utils/starWarsMinigameHooks") as typeof import("../utils/starWarsMinigameHooks");
+      const loseImg = resolveStarWarsClassicLoseImageUrl(cfg);
+      if (loseImg && loseEmbed && typeof loseEmbed.setImage === "function" && !loseEmbed.data?.image) {
+        loseEmbed.setImage(String(loseImg));
+      }
+    } catch (_) {}
+    const embeds = loseEmbed ? [loseEmbed] : [];
     activeGames.delete(chId);
     if (embeds.length) {
       let targetChannel = channel?.send ? channel : null;

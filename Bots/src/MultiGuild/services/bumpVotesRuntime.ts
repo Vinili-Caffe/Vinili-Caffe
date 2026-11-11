@@ -374,6 +374,52 @@ async function handleVoteWebhook(client?, guildId?: string, service?: string, to
   return { status: 200, text: "OK" };
 }
 
+/**
+ * Ringraziamento voto del percorso classico MAIN: usa i draft della dashboard
+ * (Bump e voti → Voti), anche se il modulo webhook voti non è ancora acceso.
+ */
+async function trySendConfiguredVoteThanks(
+  client?,
+  guild?,
+  userId?: string | null,
+  voteListing?: string,
+  vars: Record<string, string> = {},
+  fallbackChannelId?: string | null,
+) {
+  const gid = String(guild?.id || "");
+  const service: VoteService | null = voteListing === "topgg" ? "topgg" : voteListing === "discadia" ? "discadia" : null;
+  if (!client || !gid || !service || !userId) return false;
+  try {
+    const raw = await T.getGuildBlob("bumpVotes", gid, true);
+    if (!raw || typeof raw !== "object") return false;
+    const cfg = normalizeConfig(raw);
+    /* Solo draft davvero configurati (dashboard o seed main), non il default vuoto. */
+    if (!cfg.userSaved && !(T.isMainGuild(gid) && Number(cfg.seedVersion) >= 1)) return false;
+    if (!cfg.votes.thanks.enabled) return false;
+    if (service === "topgg" && cfg.votes.topgg === false) return false;
+    if (service === "discadia" && cfg.votes.discadia === false) return false;
+    const draft = cfg.votes.perService[service]?.draft;
+    if (T.draftIsEmpty(draft)) return false;
+    const channelId = cfg.votes.channelId || (T.isId(fallbackChannelId) ? String(fallbackChannelId) : null);
+    if (!channelId) return false;
+    const label = VOTE_LABEL[service];
+    return await sendDraft(
+      client,
+      channelId,
+      draft,
+      {
+        ...userVars(guild, userId),
+        service: label,
+        ...vars,
+      },
+      userId,
+    );
+  } catch (err) {
+    global.logger?.warn?.("[BUMP VOTES] classic vote draft:", (err as any)?.message || err);
+    return false;
+  }
+}
+
 /* ───────────── scheduler: promemoria e ruoli scaduti ───────────── */
 
 async function runBumpVotesTick(client?) {
@@ -581,6 +627,7 @@ export = {
   regenerateToken,
   handleTenantBumpMessage,
   handleVoteWebhook,
+  trySendConfiguredVoteThanks,
   startBumpVotesLoop,
   runBumpVotesTick,
   leaderboard,

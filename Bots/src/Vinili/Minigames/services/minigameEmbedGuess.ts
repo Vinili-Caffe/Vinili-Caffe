@@ -311,9 +311,9 @@ function buildFindBotEmbed(rewardExp?, durationMs?) {
     );
 }
 
-function buildFindBotButtonEmbed(rewardExp?, durationMs?) {
+function buildFindBotButtonEmbed(rewardExp?, durationMs?, imageUrl = null) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setTitle(`Sei vicino al bot ${E.VC_Exclamation}`)
     .setDescription(
@@ -323,6 +323,8 @@ function buildFindBotButtonEmbed(rewardExp?, durationMs?) {
         `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
+  if (imageUrl) embed.setImage(String(imageUrl));
+  return embed;
 }
 
 function buildFindBotVoiceEmbed(rewardExp?, durationMs?) {
@@ -357,15 +359,23 @@ function buildMemorySequenceEmbed(sequence?, rewardExp?, displayMs?) {
     });
 }
 
-function buildMemoryRecallEmbed(durationMs?) {
+function buildMemoryRecallEmbed(durationMs?, imageUrl = null, rewardExp = null) {
   const minutes = Math.max(1, Math.round(Number(durationMs || 180000) / 60000));
-  return new EmbedBuilder()
+  const exp = Math.max(0, Math.floor(Number(rewardExp) || 0));
+  const lead =
+    exp > 0
+      ? `${E.VC_EXP} Ora riscrivi la sequenza per ottenere **${exp} exp**.`
+      : "Riscrivi in chat la sequenza di emoji esatta.";
+  const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setTitle(`Sequenza svanita ${E.VC_Exclamation}`)
     .setDescription([
-      "Riscrivi in chat la sequenza di emoji esatta.",
-      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per riscriverla.`,
+      lead,
+      `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+      `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
+  if (imageUrl) embed.setImage(String(imageUrl));
+  return embed;
 }
 
 function buildGuessYearEmbed(title?, subtitle?, rewardExp?, durationMs?, imageUrl = null) {

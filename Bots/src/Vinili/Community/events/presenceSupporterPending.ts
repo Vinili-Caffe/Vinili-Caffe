@@ -110,12 +110,42 @@ async function startPendingFlow(member?, channel?) {
   if (!sent) {
     setPendingState(guildId, userId, { timeout: null, messageId: null, inFlight: true });
 
-    sent = await channel
-      .send({
-        content: `<@${userId}>`,
-        embeds: [buildPendingEmbed(member)],
-      })
-      .catch(() => null);
+    let usedDashboard = false;
+    try {
+      const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+      const fanId = String(IDs.roles?.Fan || "");
+      const A = require("../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../MultiGuild/services/announcementsRuntime");
+      if (fanId && (await A.roleRuleHandles(guildId, fanId))) {
+        deletePendingState(guildId, userId);
+        await scheduleSupporterRoleGrantWithoutChannelEmbed(member);
+        return;
+      }
+      if (fanId && (await A.trySendConfiguredRoleAnnounce(member.client, member, fanId, { fallbackChannelId: channel?.id }))) {
+        usedDashboard = true;
+        /* draft già inviato: programma solo il grant, senza messaggio cancellabile */
+        deletePendingState(guildId, userId);
+        await scheduleSupporterRoleGrantWithoutChannelEmbed(member);
+        const current = getCachedState(guildId, userId);
+        setCachedState(guildId, userId, {
+          hasLink: true,
+          lastAnnounced: Date.now(),
+          lastMessageId: null,
+          lastSeenOnlineAt: current?.lastSeenOnlineAt || Date.now(),
+          inviteMissSince: null,
+        });
+        await persistStatus(guildId, userId, { hasLink: true, lastMessageId: null, lastSentAt: new Date() });
+        return;
+      }
+    } catch (_) {}
+
+    if (!usedDashboard) {
+      sent = await channel
+        .send({
+          content: `<@${userId}>`,
+          embeds: [buildPendingEmbed(member)],
+        })
+        .catch(() => null);
+    }
   } else {
     await sent
       .edit({

@@ -25,8 +25,8 @@ import { EventoUtilityIcon } from "@/components/evento/EventoUtilityIcon";
 type TabId = "casse" | "oggetti";
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "casse", label: "Casse" },
-  { id: "oggetti", label: "Oggetti" },
+  { id: "casse", label: "Arsenale" },
+  { id: "oggetti", label: "Rifornimenti" },
 ];
 
 /** Solo inventario personale — Bacta/Sconto vivono nella pagina Fazione. */
@@ -186,9 +186,6 @@ export function EventoInventoryPanel() {
         <div className="relative mb-5 text-center">
           <EventoKicker>Deposito · personale</EventoKicker>
           <EventoTitle className="text-center text-2xl uppercase tracking-[0.22em] sm:text-3xl">Inventario</EventoTitle>
-          <p className="mt-2 text-sm text-crema/50">
-            Arsenale e rifornimenti fazione sono nella pagina Fazione.
-          </p>
         </div>
 
         <div
@@ -303,9 +300,7 @@ export function EventoInventoryPanel() {
               })}
             </ul>
           ) : (
-            <p className="text-center text-sm text-crema/55">
-              Nessun oggetto personale. Bacta e sconti sono nella pagina Fazione.
-            </p>
+            <p className="text-center text-sm text-crema/55">Nessun oggetto personale.</p>
           )
         ) : null}
       </EventoPanel>

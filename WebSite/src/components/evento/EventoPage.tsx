@@ -22,14 +22,14 @@ export function EventoPage({
   title: string;
   /** Opzionale: parola in corsivo dopo il titolo. Non defaultare a “Star Wars”. */
   accent?: string;
-  text: string;
+  text?: string;
   children: ReactNode;
   icon?: ReactNode;
 }) {
   return (
     <SiteShell chrome="evento">
       <EventoBootScroll />
-      <DiscordComponentEmbed path={path} title={title} description={text} pageLabel="Apri l'evento" />
+      <DiscordComponentEmbed path={path} title={title} description={text || title} pageLabel="Apri l'evento" />
       {/* Hero fuori dal gate: LCP non aspetta auth/staff (speedRes1). */}
       <EventoHero icon={icon ?? <Sparkles />} title={title} accent={accent} text={text} />
       <EventoAccessGate pageId={pageId}>

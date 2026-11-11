@@ -189,8 +189,8 @@ export function PuzzleBoard() {
       <EventoHero
         icon={<Sparkles />}
         title="Puzzle"
-        accent="galassia"
-        text="Sei difficoltà · bonus per tagliare il cooldown, guadagnare tempo e potenziare il premio."
+        accent="galattico"
+        text="Ricomponi le rappresentazioni artistiche galattiche in 6 difficoltà differenti. Meno tempo ci impieghi, maggiore sarà il premio."
       />
       <Reveal className="-mt-6 mx-auto max-w-5xl px-4 pb-24 sm:-mt-10 sm:px-6">
         {active ? (

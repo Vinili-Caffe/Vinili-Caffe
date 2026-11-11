@@ -59,7 +59,7 @@ function fmt(n: number | null | undefined) {
   return Math.max(0, Math.floor(Number(n) || 0)).toLocaleString("it-IT");
 }
 
-/** Profilo hub: Centro di comando — stats evento + fazione. */
+/** Profilo hub: Centro di controllo — stats evento + fazione. */
 export function EventoHubStatus() {
   const { token, ready, user, login } = useAuth();
   const [st, setSt] = useState<EventoStatus | null>(null);
@@ -143,7 +143,7 @@ export function EventoHubStatus() {
               </div>
             ) : (
               <div>
-                <p className="font-display text-2xl font-semibold text-crema">Centro di Comando</p>
+                <p className="font-display text-2xl font-semibold text-crema">Centro di controllo</p>
                 <p className="mt-1 text-sm text-crema/60">
                   {token ? "Profilo evento in caricamento…" : "Accedi per vedere inventario, livello e rango."}
                 </p>

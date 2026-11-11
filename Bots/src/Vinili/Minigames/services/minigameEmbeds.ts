@@ -33,6 +33,7 @@ export = {
   buildHintEmbed: shared.buildHintEmbed,
   buildYearHintEmbed: shared.buildYearHintEmbed,
   buildWinEmbed: shared.buildWinEmbed,
+  resolveWinEmbedImageUrl: shared.resolveWinEmbedImageUrl,
   buildRewardEmbed: shared.buildRewardEmbed,
   buildTimeoutNumberEmbed: timeout.buildTimeoutNumberEmbed,
   buildTimeoutWordEmbed: timeout.buildTimeoutWordEmbed,

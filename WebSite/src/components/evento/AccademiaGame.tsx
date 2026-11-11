@@ -75,7 +75,7 @@ export function AccademiaGame() {
   if (!token) {
     return (
       <div className="mx-auto max-w-lg px-6">
-        <EventoLoginGate label="Accedi per le prove a tempo dell'Accademia Jedi." onLogin={login} />
+        <EventoLoginGate label="Accedi per le prove a tempo dell'Accademia militare." onLogin={login} />
       </div>
     );
   }

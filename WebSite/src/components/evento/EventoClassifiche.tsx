@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Crown, Radio, Swords, Trophy, Zap } from "lucide-react";
+import { Crown, Radio, Trophy, Zap } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import {
   fetchEventoClassifiche,
   type EventoClassificheBoards,
-  type EventoClassificheFactionRow,
   type EventoClassificheUserRow,
 } from "@/lib/evento-api";
 import { avatarUrl, useAuth } from "@/lib/auth";
@@ -32,17 +31,6 @@ function saberTone(rank: number) {
   if (rank === 2) return { bar: "from-[#e8f1ff] via-[#7eb0ff] to-[#2a5fd4]", glow: "rgba(126,176,255,0.7)" };
   if (rank === 3) return { bar: "from-[#ffd0c8] via-[#e85d4c] to-[#8a241c]", glow: "rgba(232,93,76,0.65)" };
   return { bar: "from-cyan-100 via-sky-400 to-cyan-700", glow: "rgba(56,189,248,0.45)" };
-}
-
-function factionAccent(factionId?: string | null) {
-  const f = String(factionId || "").toLowerCase();
-  if (f.includes("repubblica") || f.includes("ribellione") || f.includes("nuova")) {
-    return { ring: "ring-sky-400/35", wash: "from-sky-500/20" };
-  }
-  if (f.includes("impero") || f.includes("separat") || f.includes("ordine") || f.includes("primo")) {
-    return { ring: "ring-rose-400/30", wash: "from-rose-500/18" };
-  }
-  return { ring: "ring-cyan-300/25", wash: "from-cyan-500/15" };
 }
 
 /** Board classifiche — vetro comando SW, senza sweep/blur continui. */
@@ -86,10 +74,7 @@ function Holopad({
               {icon}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.26em] text-[#e4c76b]/80">
-                Sala comando
-              </p>
-              <h3 className="mt-1 font-display text-xl font-semibold tracking-tight text-[#f0e6c8] sm:text-2xl">
+              <h3 className="font-display text-xl font-semibold tracking-tight text-[#f0e6c8] sm:text-2xl">
                 {title}
               </h3>
               <p className="mt-1.5 text-sm leading-snug text-[#f0e6c8]/55">{subtitle}</p>
@@ -116,67 +101,6 @@ function Lightsaber({ rank, tall }: { rank: number; tall?: boolean }) {
     >
       <span className="absolute inset-x-[-1px] top-0 h-1.5 rounded-full bg-white/70" />
     </span>
-  );
-}
-
-function FactionRows({ rows }: { rows: EventoClassificheFactionRow[] }) {
-  if (!rows.length) {
-    return <p className="py-8 text-center text-sm text-sky-100/45">Nessuna fazione in classifica.</p>;
-  }
-  const max = Math.max(...rows.map((r) => r.value), 1);
-  return (
-    <ul className="space-y-3">
-      {rows.map((r, i) => {
-        const accent = factionAccent(r.factionId);
-        return (
-          <motion.li
-            key={r.factionId}
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.05 * i, duration: 0.45, ease: EASE }}
-            className="relative"
-          >
-            <div
-              className={cn(
-                "relative flex items-center gap-3 overflow-hidden rounded-2xl bg-black/35 px-3 py-3 ring-1",
-                accent.ring,
-                r.rank === 1 && "ring-[#e4c76b]/35",
-              )}
-            >
-              <div
-                aria-hidden
-                className={cn("pointer-events-none absolute inset-y-0 left-0 w-20 bg-gradient-to-r to-transparent opacity-50", accent.wash)}
-              />
-              <Lightsaber rank={r.rank} tall />
-              <div className="relative min-w-0 flex-1">
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="truncate font-semibold text-crema">
-                    <span className="mr-2 font-mono text-[0.75rem] tabular-nums text-cyan-200/65">
-                      {String(r.rank).padStart(2, "0")}
-                    </span>
-                    {r.label}
-                  </p>
-                  <p className="shrink-0 font-mono text-lg font-bold tabular-nums tracking-tight text-[#f0d78c]">
-                    {fmt(r.value)}
-                  </p>
-                </div>
-                <div className="mt-2.5 h-[3px] overflow-hidden rounded-full bg-cyan-950/90 ring-1 ring-cyan-400/15">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.max(10, (r.value / max) * 100)}%` }}
-                    transition={{ duration: 0.95, delay: 0.08 * i, ease: EASE }}
-                    className="h-full rounded-full bg-gradient-to-r from-[#2ea8ff] via-[#7dd3fc] to-[#e4c76b]"
-                  />
-                </div>
-                <p className="mt-1.5 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-sky-100/40">
-                  {r.members} smistati
-                </p>
-              </div>
-            </div>
-          </motion.li>
-        );
-      })}
-    </ul>
   );
 }
 
@@ -250,7 +174,6 @@ export function EventoClassifiche() {
   const reduce = useReducedMotion();
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<Scope>("period");
-  const [epochLabel, setEpochLabel] = useState<string | null>(null);
   const [boards, setBoards] = useState<EventoClassificheBoards | null>(null);
   const [livePulse, setLivePulse] = useState(true);
   const [me, setMe] = useState<{
@@ -270,7 +193,6 @@ export function EventoClassifiche() {
       if (!opts?.soft) setLoading(false);
       if (!st?.ok || !st.boards) return;
       setBoards(st.boards);
-      setEpochLabel(st.epochLabel || st.epoch || null);
       setMe(st.me || null);
       setLivePulse(true);
     },
@@ -291,10 +213,6 @@ export function EventoClassifiche() {
     return () => window.clearTimeout(t);
   }, [livePulse, boards]);
 
-  const factionRows = useMemo(() => {
-    if (!boards) return [];
-    return scope === "period" ? boards.factionExpPeriod : boards.factionExpPhase;
-  }, [boards, scope]);
   const peiRows = useMemo(() => {
     if (!boards) return [];
     return scope === "period" ? boards.peiPeriod : boards.peiPhase;
@@ -359,12 +277,8 @@ export function EventoClassifiche() {
             <Radio className="size-3 text-[#e4c76b]/70" aria-hidden />
           </div>
           <h2 className="font-display text-3xl font-semibold tracking-tight text-crema sm:text-[2.35rem]">
-            Sala delle <span className="italic text-[#e4c76b]">classifiche</span>
+            Miglior <span className="italic text-[#e4c76b]">schieramento</span>
           </h2>
-          <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-crema/60">
-            Rank live{epochLabel ? ` · epoca ${epochLabel}` : ""}. Periodo = stagione intera · Fase =
-            guadagni dall&apos;inizio dell&apos;epoca corrente.
-          </p>
         </motion.div>
 
         <div
@@ -426,10 +340,7 @@ export function EventoClassifiche() {
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.62rem] font-semibold uppercase tracking-[0.26em] text-[#e4c76b]/80">
-                    Il tuo standing
-                  </p>
-                  <p className="mt-0.5 font-semibold text-crema">{me.displayName || "Pilota"}</p>
+                  <p className="font-semibold text-crema">{me.displayName || "Pilota"}</p>
                   <p className="mt-1 text-sm text-crema/55">
                     PEI #{me.peiRank || "—"} · EXP #{me.expRank || "—"}
                   </p>
@@ -452,24 +363,10 @@ export function EventoClassifiche() {
 
       <div className="relative grid gap-5 lg:grid-cols-2">
         <Holopad
-          title="EXP fazione"
-          subtitle={
-            scope === "period"
-              ? "Somma EXP di tutti gli smistati · stagione"
-              : "EXP guadagnata dalle fazioni in questa epoca"
-          }
-          icon={<Swords className="size-5" aria-hidden />}
-          delay={0.04}
-          wide
-        >
-          <FactionRows rows={factionRows} />
-        </Holopad>
-
-        <Holopad
           title="Top 5 PEI"
           subtitle={scope === "period" ? "I più influenti di tutta la stagione" : "Chi sta dominando questa epoca"}
           icon={<Crown className="size-5" aria-hidden />}
-          delay={0.1}
+          delay={0.04}
         >
           <UserRows rows={peiRows} unit="PEI" digits={1} />
         </Holopad>
@@ -478,7 +375,7 @@ export function EventoClassifiche() {
           title="Top 5 EXP"
           subtitle={scope === "period" ? "I piloti con più esperienza accumulata" : "Chi sta grindando di più ora"}
           icon={<Zap className="size-5" aria-hidden />}
-          delay={0.16}
+          delay={0.1}
         >
           <UserRows rows={expRows} unit="EXP" />
         </Holopad>
@@ -487,22 +384,18 @@ export function EventoClassifiche() {
           title="Codex di guerra"
           subtitle="Come si leggono queste proiezioni"
           icon={<Trophy className="size-5" aria-hidden />}
-          delay={0.22}
+          delay={0.16}
           wide
         >
-          <ul className="grid gap-3 sm:grid-cols-3">
+          <ul className="grid gap-3 sm:grid-cols-2">
             {[
-              {
-                k: "EXP fazione",
-                v: "Somma dell'esperienza di ogni membro smistato. Vince la flotta più attiva.",
-              },
               {
                 k: "PEI",
                 v: "Punteggio influenza (exp, crediti, voti). Decide i podi di fine fase.",
               },
               {
                 k: "Fase",
-                v: "Solo i guadagni dall'inizio dell'epoca corrente (Clone Wars / Guerra Civile / Sequel).",
+                v: "Solo i guadagni dall'inizio dell'epoca corrente.",
               },
             ].map((item) => (
               <li

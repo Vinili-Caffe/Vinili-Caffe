@@ -178,7 +178,7 @@ export function AutoRespondersPanel({ guildId, token, onToast }: { guildId: stri
                 </SettingRow>
                 {edit.replyEnabled ? (
                   <div className="mt-3">
-                    <DraftEditor value={edit.draft} onChange={(draft) => setEdit({ ...edit, draft })} emojis={data.pickers.emojis} placeholders={PLACEHOLDERS} maxButtons={data.limits.buttons} />
+                    <DraftEditor key={edit.id || "new"} value={edit.draft} onChange={(draft) => setEdit({ ...edit, draft })} emojis={data.pickers.emojis} placeholders={PLACEHOLDERS} maxButtons={data.limits.buttons} />
                   </div>
                 ) : null}
               </FormGroup>

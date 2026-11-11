@@ -113,7 +113,7 @@ export function ChatRemindersSection({
                 </div>
               </FormGroup>
               <FormGroup title="Contenuto">
-                <DraftEditor value={draftItem.draft} onChange={(draft) => setDraftItem({ ...draftItem, draft })} emojis={data.pickers.emojis} maxButtons={data.limits.buttons} />
+                <DraftEditor key={draftItem.id || `idx-${editIdx}`} value={draftItem.draft} onChange={(draft) => setDraftItem({ ...draftItem, draft })} emojis={data.pickers.emojis} maxButtons={data.limits.buttons} />
               </FormGroup>
               {!isNew ? (
                 <button

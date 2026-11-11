@@ -1027,9 +1027,14 @@ async function buildStarWarsThemedPromptImage(row?) {
     const usableW = panelW - 100;
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = "#e4c76b";
-    ctx.font = fontStackPrimaryOnly(40, "700");
-    ctx.fillText(title.slice(0, 48), W / 2, panelY + 58);
+    await drawLabelWithEmoji(ctx, title.slice(0, 48), W / 2, panelY + 58, {
+      size: 40,
+      weight: "700",
+      color: "#e4c76b",
+      align: "center",
+      baseline: "alphabetic",
+      forcePrimaryFont: true,
+    });
 
     let contentTop = panelY + 110;
     if (heroUrl) {
@@ -1055,22 +1060,40 @@ async function buildStarWarsThemedPromptImage(row?) {
       }
     }
 
-    ctx.fillStyle = "#f4e9d8";
-    ctx.font = fontStackPrimaryOnly(heroUrl ? 32 : 42, "700");
-    const lineH = heroUrl ? 42 : 56;
+    const textSize = heroUrl ? 32 : 42;
+    const emojiSize = heroUrl ? 56 : 72;
+    ctx.font = fontStackPrimaryOnly(textSize, "700");
     const wrapped = [];
     for (const raw of lines) {
-      wrapped.push(...wrapPromptText(ctx, raw, usableW));
+      /* sequenze emoji: non spezzare con wrap “a parole” (niente spazi) */
+      if (promptLineHasEmoji(raw) && !/\s/.test(String(raw || "").trim())) {
+        wrapped.push(raw);
+      } else {
+        wrapped.push(...wrapPromptText(ctx, raw, usableW));
+      }
     }
-    const blockH = wrapped.length * lineH;
+    const lineHeights = wrapped.map((line?) =>
+      promptLineHasEmoji(line) ? emojiSize + 16 : heroUrl ? 42 : 56,
+    );
+    const blockH = lineHeights.reduce((sum?, h?) => sum + h, 0);
     const areaBottom = panelY + panelH - 36;
     let y =
       contentTop +
       Math.max(0, (areaBottom - contentTop - blockH) / 2) +
-      (heroUrl ? lineH * 0.7 : lineH * 0.85);
-    for (const line of wrapped) {
-      if (y > areaBottom) break;
-      ctx.fillText(line, W / 2, y, usableW);
+      (heroUrl ? 28 : 40);
+    for (let i = 0; i < wrapped.length; i += 1) {
+      const line = wrapped[i];
+      const lineH = lineHeights[i];
+      if (y + lineH * 0.35 > areaBottom) break;
+      const isEmoji = promptLineHasEmoji(line);
+      await drawLabelWithEmoji(ctx, line, W / 2, y + lineH * 0.45, {
+        size: isEmoji ? emojiSize : textSize,
+        weight: "700",
+        color: "#f4e9d8",
+        align: "center",
+        baseline: "middle",
+        forcePrimaryFont: !isEmoji,
+      });
       y += lineH;
     }
 

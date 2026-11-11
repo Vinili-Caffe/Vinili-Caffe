@@ -73,13 +73,6 @@ function formatLeft(expiresAt?: string) {
   return `${Math.max(1, m)}m`;
 }
 
-function epochLabel(epoch?: string | null) {
-  const e = String(epoch || "").toLowerCase();
-  if (e === "civil_war") return "Guerre Civili";
-  if (e === "sequel") return "Era Sequel";
-  return "Guerre dei Cloni";
-}
-
 /** Hub comando fazione: banca, arsenale, inventario condiviso. */
 export function EventoFactionHub() {
   const { token, ready, login } = useAuth();
@@ -208,7 +201,11 @@ export function EventoFactionHub() {
     ? "from-sky-500/25 via-transparent to-[#c9a227]/15"
     : "from-rose-600/25 via-transparent to-[#c9a227]/15";
   const stanceLabel =
-    data.stance === "attack" ? "In attacco" : data.stance === "defend" ? "In difesa" : "In attesa";
+    data.stance === "attack"
+      ? "Stato battaglia: in attacco"
+      : data.stance === "defend"
+        ? "Stato battaglia: in difesa"
+        : "Stato battaglia: in attesa";
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-6 pb-4">
@@ -244,7 +241,7 @@ export function EventoFactionHub() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-[#e4c76b]">
-              Ponte di comando · {epochLabel(data.epoch)}
+              Ponte di comando
             </p>
             <h2 className="mt-2 font-display text-4xl font-semibold tracking-wide text-crema sm:text-5xl">
               {data.factionLabel || data.factionId}
@@ -261,9 +258,6 @@ export function EventoFactionHub() {
               </span>
               <span className="rounded-full bg-sky-500/15 px-3 py-1 text-xs font-semibold tabular-nums text-sky-200 ring-1 ring-sky-400/30">
                 potenza {fmt(bank?.power)}
-              </span>
-              <span className="rounded-full bg-[#c9a227]/15 px-3 py-1 text-xs font-semibold tabular-nums text-[#f0d78c] ring-1 ring-[#c9a227]/35">
-                {fmt(bank?.unitCount)} unità
               </span>
             </div>
           </div>
@@ -297,7 +291,8 @@ export function EventoFactionHub() {
                   {fmt(given)}
                 </p>
                 <p className="mt-1 text-xs text-crema/50">
-                  Solo con <span className="text-crema/80">+deposita</span> su Discord
+                  Puoi depositare solo con il comando{" "}
+                  <span className="text-crema/80">+deposita</span> su Discord.
                 </p>
               </div>
               <div>
@@ -324,10 +319,8 @@ export function EventoFactionHub() {
               <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-[#e4c76b]">
                 Hangar · Arsenale
               </p>
-              <h3 className="mt-1 font-display text-2xl text-crema sm:text-3xl">Truppe della fazione</h3>
-              <p className="mt-1 text-sm text-crema/55">
-                Acquisti e loot finiscono qui — niente esercito personale.
-              </p>
+              <h3 className="mt-1 font-display text-2xl text-crema sm:text-3xl">Truppe</h3>
+              <p className="mt-1 text-sm text-crema/55">Acquisti e loot finiscono qui.</p>
             </div>
           </div>
 

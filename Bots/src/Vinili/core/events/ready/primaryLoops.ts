@@ -90,6 +90,11 @@ function startPrimaryLoops(client?, engagementTick?) {
       const { startBumpVotesLoop } = require("../../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../../MultiGuild/services/bumpVotesRuntime");
       startBumpVotesLoop(client);
     }],
+    ["[ANNUNCI] Failed to seed main role drafts", async () => {
+      const IDs = require("../../../Config/ids") as typeof import("../../../Config/ids");
+      const { ensureMainSeed } = require("../../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../../MultiGuild/services/announcementsRuntime");
+      await ensureMainSeed(IDs.guilds?.main);
+    }],
     ["[COUNTERS] Failed to start loop", () => {
       if (skipExternalWorkerLoop("BOT_SCHEDULER")) return;
       const { startCountersLoop } = require("../../../../MultiGuild/site/dashboard/dashboardCommunityExtraApi") as typeof import("../../../../MultiGuild/site/dashboard/dashboardCommunityExtraApi");

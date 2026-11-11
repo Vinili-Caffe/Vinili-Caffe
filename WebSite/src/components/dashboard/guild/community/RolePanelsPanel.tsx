@@ -441,7 +441,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
               </FormGroup>
 
               <FormGroup title="Messaggio del pannello">
-                <DraftEditor value={edit.draft} onChange={(draft) => setEdit({ ...edit, draft })} emojis={data.pickers.emojis} maxButtons={data.limits.buttons} />
+                <DraftEditor key={edit.id || "new"} value={edit.draft} onChange={(draft) => setEdit({ ...edit, draft })} emojis={data.pickers.emojis} maxButtons={data.limits.buttons} />
               </FormGroup>
 
               {edit.id ? (

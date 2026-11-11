@@ -8,7 +8,7 @@ import { toggleEmojiPicker, customEmojiUrl, type EmojiPick } from "@/components/
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { loadCommunity, type CommunityData, type MsgDraft, type PickerChannel, type PickerEmoji, type PickerRole } from "@/lib/dashboard-community";
-import { Field, Toggle, fieldClass, labelClass, miniBtn } from "../bits";
+import { Field, SettingRow, Toggle, fieldClass, labelClass, miniBtn } from "../bits";
 import { EmbedFieldsPreview, FieldsEditor, LinkButtonsEditor, V2Editor, V2Preview, blocksFromClassic, v2Of } from "./draftExtras";
 
 /* ───────────── dati ───────────── */
@@ -260,6 +260,10 @@ export function RichTextArea({
 
 /* ───────────── editor messaggio ───────────── */
 
+function cloneDraft(d: MsgDraft): MsgDraft {
+  return JSON.parse(JSON.stringify(d)) as MsgDraft;
+}
+
 export function DraftEditor({
   value,
   onChange,
@@ -276,44 +280,103 @@ export function DraftEditor({
   maxButtons?: number;
 }) {
   const e = value.embed;
-  const setEmbed = (p: Partial<MsgDraft["embed"]>) => onChange({ ...value, embed: { ...e, ...p } });
+  const pastRef = useRef<MsgDraft[]>([]);
+  const applyingUndo = useRef(false);
+  const [canUndo, setCanUndo] = useState(false);
+
+  const setDraft = useCallback(
+    (next: MsgDraft) => {
+      if (!applyingUndo.current) {
+        pastRef.current.push(cloneDraft(value));
+        if (pastRef.current.length > 40) pastRef.current.shift();
+        setCanUndo(true);
+      }
+      onChange(next);
+    },
+    [onChange, value],
+  );
+
+  const undo = useCallback(() => {
+    const prev = pastRef.current.pop();
+    if (!prev) return;
+    applyingUndo.current = true;
+    setCanUndo(pastRef.current.length > 0);
+    onChange(prev);
+    queueMicrotask(() => {
+      applyingUndo.current = false;
+    });
+  }, [onChange]);
+
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (!(ev.ctrlKey || ev.metaKey) || ev.key.toLowerCase() !== "z" || ev.shiftKey) return;
+      const t = ev.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
+        /* in input nativo Ctrl+Z resta quello del browser; qui solo se non c'è selezione da annullare… lasciamo entrambi: usiamo il bottone + Ctrl+Z fuori dai campi */
+        return;
+      }
+      if (!pastRef.current.length) return;
+      ev.preventDefault();
+      undo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo]);
+
+  const setEmbed = (p: Partial<MsgDraft["embed"]>) => setDraft({ ...value, embed: { ...e, ...p } });
   const v2 = v2Of(value);
+  const mentionUsers = value.mentionUsers === true;
+  const mentionRoles = value.mentionRoles !== false;
   return (
     <div className="space-y-4">
-      {/* scelta del formato: classico (testo + embed) o Components V2 (blocchi) */}
-      <div className="grid grid-cols-2 gap-1 rounded-lg bg-espresso/70 p-1 ring-1 ring-sand/10" role="radiogroup" aria-label="Formato del messaggio">
-        {[
-          { on: false, label: "Testo + embed" },
-          { on: true, label: "Components V2" },
-        ].map((opt) => (
-          <button
-            key={opt.label}
-            type="button"
-            role="radio"
-            aria-checked={v2.enabled === opt.on}
-            onClick={() => {
-              if (v2.enabled === opt.on) return;
-              onChange({ ...value, v2: { ...v2, enabled: opt.on, blocks: opt.on && !v2.blocks.length ? blocksFromClassic(value) : v2.blocks } });
-            }}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
-              v2.enabled === opt.on ? "bg-mocha text-crema ring-1 ring-sand/15" : "text-crema/60 hover:text-crema",
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-lg bg-espresso/70 p-1 ring-1 ring-sand/10" role="radiogroup" aria-label="Formato del messaggio">
+          {[
+            { on: false, label: "Testo + embed" },
+            { on: true, label: "Components V2" },
+          ].map((opt) => (
+            <button
+              key={opt.label}
+              type="button"
+              role="radio"
+              aria-checked={v2.enabled === opt.on}
+              onClick={() => {
+                if (v2.enabled === opt.on) return;
+                setDraft({ ...value, v2: { ...v2, enabled: opt.on, blocks: opt.on && !v2.blocks.length ? blocksFromClassic(value) : v2.blocks } });
+              }}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
+                v2.enabled === opt.on ? "bg-mocha text-crema ring-1 ring-sand/15" : "text-crema/60 hover:text-crema",
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <button type="button" className={miniBtn} disabled={!canUndo} onClick={undo} title="Annulla l'ultima modifica (Ctrl+Z fuori dai campi)">
+          Annulla modifica
+        </button>
       </div>
+
+      <div className="space-y-2 rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10">
+        <SettingRow title="Ping utenti" description="Se attivo, le menzioni utente nel testo (e {user} nel benvenuto) notificano davvero.">
+          <Toggle size="sm" checked={mentionUsers} onChange={(v) => setDraft({ ...value, mentionUsers: v })} label="Ping utenti" />
+        </SettingRow>
+        <SettingRow title="Ping ruoli" description="Se attivo, le menzioni <@&ruolo> nel testo notificano i membri di quel ruolo.">
+          <Toggle size="sm" checked={mentionRoles} onChange={(v) => setDraft({ ...value, mentionRoles: v })} label="Ping ruoli" />
+        </SettingRow>
+      </div>
+
       {v2.enabled ? (
         <>
           <p className="text-xs text-crema/55">
             Il nuovo formato di Discord: blocchi di testo, sezioni con miniatura o pulsante, gallerie di immagini, separatori e pulsanti, anche dentro un contenitore colorato. Al posto di testo ed embed.
           </p>
-          <V2Editor value={v2} onChange={(next) => onChange({ ...value, v2: next })} emojis={emojis} placeholders={placeholders} />
+          <V2Editor value={v2} onChange={(next) => setDraft({ ...value, v2: next })} emojis={emojis} placeholders={placeholders} />
         </>
       ) : (
       <>
-      <RichTextArea label="Testo del messaggio" value={value.content} onChange={(content) => onChange({ ...value, content })} max={2000} rows={3} emojis={emojis} placeholders={placeholders} placeholder="Facoltativo se usi l'embed" />
+      <RichTextArea label="Testo del messaggio" value={value.content} onChange={(content) => setDraft({ ...value, content })} max={2000} rows={3} emojis={emojis} placeholders={placeholders} placeholder="Facoltativo se usi l'embed" />
 
       <div className="rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10">
         <div className="flex items-center justify-between gap-3">
@@ -360,7 +423,7 @@ export function DraftEditor({
         ) : null}
       </div>
 
-      {allowButtons ? <LinkButtonsEditor buttons={value.buttons} onChange={(buttons) => onChange({ ...value, buttons })} emojis={emojis} max={maxButtons} /> : null}
+      {allowButtons ? <LinkButtonsEditor buttons={value.buttons} onChange={(buttons) => setDraft({ ...value, buttons })} emojis={emojis} max={maxButtons} /> : null}
       </>
       )}
     </div>

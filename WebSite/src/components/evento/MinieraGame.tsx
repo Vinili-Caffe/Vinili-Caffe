@@ -15,8 +15,8 @@ import {
 } from "@/components/evento/EventoUi";
 
 const KYBER_HEX: Record<string, { glow: string; core: string; deep: string; label: string }> = {
-  blu: { glow: "#3aa0ff", core: "#9ad4ff", deep: "#0c3d8a", label: "Blu" },
-  verde: { glow: "#1ad97a", core: "#7dffb8", deep: "#0a5c36", label: "Verde" },
+  blu: { glow: "#3aa0ff", core: "#9ad4ff", deep: "#0c3d8a", label: "Mephite" },
+  verde: { glow: "#1ad97a", core: "#7dffb8", deep: "#0a5c36", label: "Pontite" },
 };
 
 type Find = { color: string; rare: boolean };

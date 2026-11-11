@@ -1,7 +1,7 @@
 "use strict";
 const __path = require("path") as typeof import("path");
 const __eventCoreVinili = (rel: string) => __path.join(__path.resolve(__dirname, "../../../../../../src/Vinili"), rel);
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
+const { EmbedBuilder, ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const { SiteDocument, SITE_DOCUMENT_TYPE, ActivityUserProfile } = require(__eventCoreVinili("Community/schemas/communitySchemas"));
 const IDs = require(__eventCoreVinili("Config/ids"));
 const { FEATURES, canAutoSpawnFeature, getRuntimeFlags, isHighStaffMember } = require("../../Utils/Eventi/starWarsRuntimeGate") as typeof import("../../Utils/Eventi/starWarsRuntimeGate");
@@ -22,11 +22,24 @@ const loopState = new WeakSet();
 const claimLocks = new Set();
 const huntTimeouts = new Map();
 const ordine66Timeouts = new Map();
-const HUNT_DURATION_MS = 5 * 60 * 1000;
-const ORDINE66_DURATION_MS = 15 * 60 * 1000;
+const scovaTimeouts = new Map();
+const reactTimeouts = new Map();
+const deckTimeouts = new Map();
+const conquistaTimeouts = new Map();
+const convoglioTimeouts = new Map();
+const attaccaTimeouts = new Map();
+/** Stessa durata dei minigames classici SW (quiz / guess / findbot). */
+const SW_EXTRA_DURATION_MS = 3 * 60 * 1000;
+const CONVOGLIO_DURATION_MS = SW_EXTRA_DURATION_MS;
+const ATTACCA_DURATION_MS = SW_EXTRA_DURATION_MS;
+const HUNT_DURATION_MS = SW_EXTRA_DURATION_MS;
+const ORDINE66_DURATION_MS = SW_EXTRA_DURATION_MS;
 const JEDI_ROLE_NAME = "༄ Jedi"; /* legacy alias; resolve via starWarsCalendarRoleSync */
 const cacciatoreTimeouts = new Map();
-const CACCIATORE_DURATION_MS = ORDINE66_DURATION_MS;
+const CACCIATORE_DURATION_MS = SW_EXTRA_DURATION_MS;
+const SCOVA_DURATION_MS = SW_EXTRA_DURATION_MS;
+const REACT_DURATION_MS = SW_EXTRA_DURATION_MS;
+const DECK_DURATION_MS = SW_EXTRA_DURATION_MS;
 const SW_FACTION_PATH = "profile.events.starwars.factionId";
 
 const F1_STEP_MS = 2400;
@@ -34,7 +47,7 @@ const F1_HOLD_MIN_MS = 1800;
 const F1_HOLD_MAX_MS = 3200;
 const F1_GO_HOLD_MS = 1800;
 const PODRACE_CDN = "https://cdn.viniliecaffe.it/images/starwars";
-const PODRACE_IMG_V = "20261104pr1";
+const PODRACE_IMG_V = "20261110pr2";
 const PODRACE_IMAGES = Object.freeze({
   lights1: `${PODRACE_CDN}/podrace-lights-1.jpg?v=${PODRACE_IMG_V}`,
   lights2: `${PODRACE_CDN}/podrace-lights-2.jpg?v=${PODRACE_IMG_V}`,
@@ -42,6 +55,7 @@ const PODRACE_IMAGES = Object.freeze({
   lightsGo: `${PODRACE_CDN}/podrace-lights-go.jpg?v=${PODRACE_IMG_V}`,
   start: `${PODRACE_CDN}/podrace-start.jpg?v=${PODRACE_IMG_V}`,
   win: `${PODRACE_CDN}/podrace-win.jpg?v=${PODRACE_IMG_V}`,
+  lose: `${PODRACE_CDN}/podrace-lose.jpg?v=${PODRACE_IMG_V}`,
 });
 
 function sleep(ms?) {
@@ -49,13 +63,73 @@ function sleep(ms?) {
   return new Promise((resolve?) => setTimeout(resolve, n));
 }
 
+/**
+ * Claim solo via reazione (persistono al riavvio; i click ai bottoni Discord no).
+ */
+const CONQUISTA_CLAIM_REACT = "🛰️";
+const CONVOGLIO_CONTINUE_REACT = "✅";
+const CONVOGLIO_INTERCEPT_REACT = "💥";
+
+function emojiNameMatches(reactionOrEmoji?, wanted?) {
+  const want = String(wanted || "").replace(/\ufe0f/g, "");
+  if (!want) return false;
+  const name = String(reactionOrEmoji?.emoji?.name || reactionOrEmoji?.name || reactionOrEmoji || "").replace(/\ufe0f/g, "");
+  if (name === want) return true;
+  if (want === "🏁" && (name === "checkered_flag" || name === "🏁")) return true;
+  if (want === "🐾" && (name === "paw_prints" || name === "🐾")) return true;
+  if (want === "📜" && (name === "scroll" || name === "📜")) return true;
+  if (want === "🛰️" && (name === "artificial_satellite" || name === "🛰️")) return true;
+  if (want === "✅" && (name === "white_check_mark" || name === "✅")) return true;
+  if (want === "💥" && (name === "boom" || name === "💥")) return true;
+  return false;
+}
+
+async function seedClaimReaction(message?, emoji?) {
+  if (!message?.react || !emoji) return;
+  await message.react(emoji).catch(() => null);
+}
+
+function makeSwButtonShim({ client, guildId, user, message, customId }) {
+  return {
+    client,
+    guildId: normalizeId(guildId) || normalizeId(message?.guildId),
+    user,
+    message,
+    customId: String(customId || ""),
+    deferred: true,
+    replied: true,
+    deferReply: async () => {},
+    editReply: async () => {},
+    reply: async () => {},
+  };
+}
+
 /** Ping ruolo Minigames prima dell'annuncio (stesso anti-doppione del pool normale). */
 async function pingMinigamesRole(client?, channel?) {
-  if (!channel?.send) return;
+  if (!channel?.send) return null;
   try {
     const cfg = getConfig(client);
-    await sendMinigameRolePing(channel, cfg);
-  } catch (_) {}
+    return (await sendMinigameRolePing(channel, cfg)) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function deleteSwChannelMessage(client?, channelId?, messageId?) {
+  const chId = normalizeId(channelId);
+  const msgId = normalizeId(messageId);
+  if (!client || !chId || !msgId) return;
+  const ch = client.channels.cache.get(chId) || (await client.channels.fetch(chId).catch(() => null));
+  if (!ch?.messages?.fetch) return;
+  const msg = await ch.messages.fetch(msgId).catch(() => null);
+  if (msg?.deletable) await msg.delete().catch(() => null);
+  else if (msg?.edit) await msg.edit({ components: [], content: null }).catch(() => null);
+}
+
+function msUntilExpiresAt(expiresAt?, fallbackMs = SW_EXTRA_DURATION_MS) {
+  const end = expiresAt ? new Date(expiresAt).getTime() : NaN;
+  if (!Number.isFinite(end)) return Math.max(1000, Number(fallbackMs) || SW_EXTRA_DURATION_MS);
+  return Math.max(0, end - Date.now());
 }
 
 async function reactSwWin(message?) {
@@ -112,12 +186,13 @@ const REACT_GAMES = Object.freeze({
     exp: 100,
     startImage: PODRACE_IMAGES.start,
     winImage: PODRACE_IMAGES.win,
+    loseImage: PODRACE_IMAGES.lose,
   },
 });
 
-/** Hide-and-seek stile “trova il bot”: hub + messaggio/bottone nascosto in un canale a caso. */
+/** Hide-and-seek stile “trova il bot”: hub + messaggio nascosto con reazione. */
 const HUNT_CDN = "https://cdn.viniliecaffe.it/images/starwars";
-const HUNT_IMG_V = "20261103it1";
+const HUNT_IMG_V = "20261110h2";
 
 const HUNT_GAMES = Object.freeze({
   ewok: {
@@ -127,10 +202,12 @@ const HUNT_GAMES = Object.freeze({
     exp: 100,
     emoji: "🐾",
     btn: "Ho trovato l'Ewok!",
-    blurb: "Un Ewok si è nascosto in **un canale a caso** del server. Trova il messaggio e clicca il pulsante!",
-    hiddenBlurb: "Shh… l'Ewok è qui. Chi clicca per primo vince!",
+    blurb: "Un Ewok si è nascosto in **un canale a caso** del server. Trova il messaggio e reagisci!",
+    hiddenBlurb: "Shh… l'Ewok è qui. Chi reagisce per primo vince!",
     hubImage: `${HUNT_CDN}/sw-ewok-hunt-hub.jpg?v=${HUNT_IMG_V}`,
     hiddenImage: `${HUNT_CDN}/sw-ewok-hunt-hidden.jpg?v=${HUNT_IMG_V}`,
+    winImage: `${HUNT_CDN}/sw-ewok-hunt-win.jpg?v=${HUNT_IMG_V}`,
+    loseImage: `${HUNT_CDN}/sw-ewok-hunt-lose.jpg?v=${HUNT_IMG_V}`,
   },
   olocron: {
     feature: FEATURES.GAME_OLOCRON,
@@ -139,10 +216,12 @@ const HUNT_GAMES = Object.freeze({
     exp: 100,
     emoji: "📜",
     btn: "Prendi l'Olocron",
-    blurb: "Un Olocron è apparso in **un canale a caso** del server. Trovalo e reclamalo!",
-    hiddenBlurb: "Hai trovato l'Olocron. Premi il pulsante per reclamarlo!",
+    blurb: "Un Olocron è apparso in **un canale a caso** del server. Trovalo e reagisci per reclamarlo!",
+    hiddenBlurb: "Hai trovato l'Olocron. Reagisci per reclamarlo!",
     hubImage: `${HUNT_CDN}/sw-olocron-hunt-hub.jpg?v=${HUNT_IMG_V}`,
     hiddenImage: `${HUNT_CDN}/sw-olocron-hunt-hidden.jpg?v=${HUNT_IMG_V}`,
+    winImage: `${HUNT_CDN}/sw-olocron-hunt-win.jpg?v=${HUNT_IMG_V}`,
+    loseImage: `${HUNT_CDN}/sw-olocron-hunt-lose.jpg?v=${HUNT_IMG_V}`,
   },
 });
 
@@ -332,8 +411,9 @@ async function spawnReactGame(client?, kind?, { channelId = null, force = false 
     guildId,
     emoji: meta.emoji,
     createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() + REACT_DURATION_MS).toISOString(),
   });
+  scheduleReactTimeout(client, kind, REACT_DURATION_MS);
   return { ok: true, messageId: msg.id, channelId: channel.id };
   } catch (err) {
     await setRound(kind, {
@@ -352,6 +432,216 @@ function clearHuntTimeout(kind?) {
   const t = huntTimeouts.get(key);
   if (t) clearTimeout(t);
   huntTimeouts.delete(key);
+}
+
+function clearReactTimeout(kind?) {
+  const key = String(kind || "");
+  const t = reactTimeouts.get(key);
+  if (t) clearTimeout(t);
+  reactTimeouts.delete(key);
+}
+
+async function finalizeReactTimeout(client?, kind?) {
+  clearReactTimeout(kind);
+  if (String(kind) === "podrace" && (await catchUpPodraceFromHistory(client))) return;
+  const round = await getActiveRound(kind);
+  if (!round?.payload || round.payload.status !== "active") return;
+  const payload = round.payload;
+  await setRound(kind, { ...payload, status: "expired", expiredAt: new Date().toISOString() });
+  const meta = REACT_GAMES[kind];
+  const channelId = normalizeId(payload.channelId);
+  if (!client || !channelId || !meta) return;
+  const channel = client.channels.cache.get(channelId) || (await client.channels.fetch(channelId).catch(() => null));
+  if (!channel?.messages?.fetch || !payload.messageId) return;
+  const msg = await channel.messages.fetch(normalizeId(payload.messageId)).catch(() => null);
+  if (!msg?.edit) return;
+  const loseEmbed = new EmbedBuilder()
+    .setColor(0x6b7280)
+    .setTitle(`${meta.title}`)
+    .setDescription("<a:VC_pixeltime:1482535344103620771> Tempo scaduto: nessuno ha reagito in tempo.");
+  if (meta.loseImage) loseEmbed.setImage(meta.loseImage);
+  await msg.edit({ embeds: [loseEmbed] }).catch(() => null);
+}
+
+function scheduleReactTimeout(client?, kind?, durationMs = REACT_DURATION_MS) {
+  clearReactTimeout(kind);
+  const t = setTimeout(() => {
+    void finalizeReactTimeout(client, kind);
+  }, Math.max(1000, Number(durationMs) || REACT_DURATION_MS));
+  t.unref?.();
+  reactTimeouts.set(String(kind), t);
+}
+
+function clearScovaTimeout() {
+  const t = scovaTimeouts.get("scova");
+  if (t) clearTimeout(t);
+  scovaTimeouts.delete("scova");
+}
+
+async function finalizeScovaTimeout(client?) {
+  clearScovaTimeout();
+  if (await catchUpScovaFromHistory(client)) return;
+  const round = await getActiveRound("scova");
+  if (!round?.payload || round.payload.status !== "active") return;
+  const payload = round.payload;
+  await setRound("scova", { ...payload, status: "expired", expiredAt: new Date().toISOString() });
+  await deleteSwChannelMessage(client, payload.channelId, payload.rolePingMessageId);
+  const channelId = normalizeId(payload.channelId);
+  if (!client || !channelId) return;
+  const channel = client.channels.cache.get(channelId) || (await client.channels.fetch(channelId).catch(() => null));
+  if (!channel?.send) return;
+  await channel
+    .send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x6b7280)
+          .setTitle("Scova il pianeta")
+          .setDescription("<a:VC_pixeltime:1482535344103620771> Tempo scaduto: il settore resta sconosciuto.")
+          .setImage(SCOVA_LOSE_IMAGE),
+      ],
+    })
+    .catch(() => null);
+}
+
+function scheduleScovaTimeout(client?, durationMs = SCOVA_DURATION_MS) {
+  clearScovaTimeout();
+  const t = setTimeout(() => {
+    void finalizeScovaTimeout(client);
+  }, Math.max(1000, Number(durationMs) || SCOVA_DURATION_MS));
+  t.unref?.();
+  scovaTimeouts.set("scova", t);
+}
+
+function clearDeckTimeout(kind?) {
+  const key = String(kind || "");
+  const t = deckTimeouts.get(key);
+  if (t) clearTimeout(t);
+  deckTimeouts.delete(key);
+}
+
+async function finalizeDeckTimeout(client?, kind?) {
+  clearDeckTimeout(kind);
+  if (await catchUpDeckFromHistory(client, kind)) return;
+  const round = await getActiveRound(kind);
+  if (!round?.payload || round.payload.status !== "active") return;
+  const payload = round.payload;
+  await setRound(kind, { ...payload, status: "expired", expiredAt: new Date().toISOString() });
+  const channelId = normalizeId(payload.channelId);
+  if (!client || !channelId) return;
+  const channel = client.channels.cache.get(channelId) || (await client.channels.fetch(channelId).catch(() => null));
+  if (!channel?.messages?.fetch || !payload.messageId) return;
+  const msg = await channel.messages.fetch(normalizeId(payload.messageId)).catch(() => null);
+  if (!msg?.edit) return;
+  const isPg = kind === "deck_pg";
+  const label = payload.label || "oggetto";
+  /* art generica “scappato / sparita” (stesso mood per tutti); fallback catalogo item */
+  let loseImage = null;
+  try {
+    const { STAR_WARS_CLASSIC_EMBED_ART } = require("../../Utils/Minigames/starWarsMinigameHooks") as typeof import("../../Utils/Minigames/starWarsMinigameHooks");
+    loseImage = isPg ? STAR_WARS_CLASSIC_EMBED_ART?.pgEscaped : STAR_WARS_CLASSIC_EMBED_ART?.reliquiaPerduta;
+  } catch (_) {}
+  if (!loseImage && payload.itemId) {
+    try {
+      if (isPg) {
+        const { pgImageUrl: img } = require("../../Utils/Eventi/starWarsPgCatalog") as typeof import("../../Utils/Eventi/starWarsPgCatalog");
+        loseImage = img(payload.itemId);
+      } else {
+        const { reliquieImageUrl: img } = require("../../Utils/Eventi/starWarsReliquieCatalog") as typeof import("../../Utils/Eventi/starWarsReliquieCatalog");
+        loseImage = img(payload.itemId);
+      }
+    } catch (_) {}
+  }
+  const loseEmbed = new EmbedBuilder()
+    .setColor(0x6b7280)
+    .setTitle(isPg ? "PG sfuggito" : "Reliquia perduta")
+    .setDescription(`<a:VC_pixeltime:1482535344103620771> Tempo scaduto: **${label}** non è stato reclamato.`);
+  if (loseImage) loseEmbed.setImage(String(loseImage));
+  await msg
+    .edit({
+      embeds: [loseEmbed],
+    })
+    .catch(() => null);
+}
+
+function scheduleDeckTimeout(client?, kind?, durationMs = DECK_DURATION_MS) {
+  clearDeckTimeout(kind);
+  const t = setTimeout(() => {
+    void finalizeDeckTimeout(client, kind);
+  }, Math.max(1000, Number(durationMs) || DECK_DURATION_MS));
+  t.unref?.();
+  deckTimeouts.set(String(kind), t);
+}
+
+function clearConquistaTimeout() {
+  const t = conquistaTimeouts.get("conquista");
+  if (t) clearTimeout(t);
+  conquistaTimeouts.delete("conquista");
+}
+
+async function finalizeConquistaTimeout(client?) {
+  clearConquistaTimeout();
+  await catchUpConquistaFromReactions(client);
+  const round = await getActiveRound("conquista");
+  if (!round?.payload || round.payload.status !== "active") return;
+  const payload = { ...round.payload };
+  const systems = payload.systems && typeof payload.systems === "object" ? { ...payload.systems } : {};
+  /* Cancella subito gli embed sistema ancora aperti negli altri canali. */
+  for (const [key, system] of Object.entries(systems)) {
+    if (normalizeId(system?.claimedBy)) continue;
+    await deleteSwChannelMessage(client, system?.channelId, system?.messageId);
+    systems[key] = { ...system, expired: true, messageId: null };
+  }
+  payload.systems = systems;
+  await deleteSwChannelMessage(client, payload.hubChannelId, payload.rolePingMessageId);
+  await deleteSwChannelMessage(client, payload.hubChannelId, payload.hubMessageId);
+  const scores = countFactionConquistaClaims(systems);
+  const winner =
+    scores.repubblica === scores.separatisti
+      ? null
+      : scores.repubblica > scores.separatisti
+        ? "repubblica"
+        : "separatisti";
+  let winGrant = null;
+  if (winner) {
+    winGrant = await grantConquistaWinTroops(client, { winnerFaction: winner });
+  }
+  await setRound("conquista", {
+    ...payload,
+    status: "expired",
+    expiredAt: new Date().toISOString(),
+    scores,
+    winner,
+    winGrant,
+  });
+  const hubId = normalizeId(payload.hubChannelId);
+  if (!client || !hubId) return;
+  const hub = client.channels.cache.get(hubId) || (await client.channels.fetch(hubId).catch(() => null));
+  if (!hub?.send) return;
+  const content =
+    winner === "repubblica"
+      ? "🔵 Tempo scaduto — la **Repubblica** domina i sistemi conquistati!"
+      : winner === "separatisti"
+        ? "🟣 Tempo scaduto — i **Separatisti** dominano i sistemi conquistati!"
+        : "<a:VC_pixeltime:1482535344103620771> Tempo scaduto — nessun dominio sul settore.";
+  const embed = winner
+    ? buildConquistaWinAnnounceEmbed({ winner, scores, winGrant })
+    : new EmbedBuilder()
+        .setColor(0x6b7280)
+        .setTitle("Conquista il sistema")
+        .setDescription(
+          `<a:VC_pixeltime:1482535344103620771> Tempo scaduto.\nSistemi: **Repubblica ${scores.repubblica}** — **Separatisti ${scores.separatisti}**`,
+        )
+        .setImage(CONQUISTA_LOSE_IMAGE);
+  await hub.send({ content, embeds: [embed] }).catch(() => null);
+}
+
+function scheduleConquistaTimeout(client?, durationMs = CONQUISTA_DURATION_MS) {
+  clearConquistaTimeout();
+  const t = setTimeout(() => {
+    void finalizeConquistaTimeout(client);
+  }, Math.max(1000, Number(durationMs) || CONQUISTA_DURATION_MS));
+  t.unref?.();
+  conquistaTimeouts.set("conquista", t);
 }
 
 async function pickRandomHuntChannel(guild?, excludeChannelIds = []) {
@@ -396,26 +686,25 @@ async function deleteHuntHiddenMessage(client?, payload?) {
 
 async function finalizeHuntTimeout(client?, kind?) {
   clearHuntTimeout(kind);
+  if (await catchUpHuntFromReactions(client, kind)) return;
   const round = await getActiveRound(kind);
   if (!round?.payload || round.payload.status !== "active") return;
   const payload = round.payload;
   await setRound(kind, { ...payload, status: "expired", expiredAt: new Date().toISOString() });
   await deleteHuntHiddenMessage(client, payload);
+  await deleteSwChannelMessage(client, payload.hubChannelId || payload.channelId, payload.rolePingMessageId);
+  await deleteSwChannelMessage(client, payload.hubChannelId || payload.channelId, payload.mainMessageId || payload.hubMessageId);
   const hubId = normalizeId(payload.hubChannelId);
   if (!hubId || !client) return;
   const hub = client.channels.cache.get(hubId) || (await client.channels.fetch(hubId).catch(() => null));
   const meta = HUNT_GAMES[kind];
   if (hub?.send && meta) {
-    await hub
-      .send({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x6b7280)
-            .setTitle(`${meta.emoji} ${meta.title}`)
-            .setDescription("<a:VC_pixeltime:1482535344103620771> Tempo scaduto: nessuno ha trovato il messaggio nascosto."),
-        ],
-      })
-      .catch(() => null);
+    const loseEmbed = new EmbedBuilder()
+      .setColor(0x6b7280)
+      .setTitle(`${meta.emoji} ${meta.title}`)
+      .setDescription("<a:VC_pixeltime:1482535344103620771> Tempo scaduto: nessuno ha trovato il messaggio nascosto.");
+    if (meta.loseImage) loseEmbed.setImage(meta.loseImage);
+    await hub.send({ embeds: [loseEmbed] }).catch(() => null);
   }
 }
 
@@ -423,12 +712,12 @@ function scheduleHuntTimeout(client?, kind?, durationMs = HUNT_DURATION_MS) {
   clearHuntTimeout(kind);
   const t = setTimeout(() => {
     void finalizeHuntTimeout(client, kind);
-  }, Math.max(60_000, Number(durationMs) || HUNT_DURATION_MS));
+  }, Math.max(1000, Number(durationMs) || HUNT_DURATION_MS));
   t.unref?.();
   huntTimeouts.set(String(kind), t);
 }
 
-/** Ewok / Olocron: stile “trova il bot” (hub + bottone nascosto). */
+/** Ewok / Olocron: stile “trova il bot” (hub + reazione sul messaggio nascosto). */
 async function spawnHuntGame(client?, kind?, { channelId = null, force = false } = {}) {
   const meta = HUNT_GAMES[kind];
   if (!meta) return { ok: false, error: "unknown" };
@@ -463,7 +752,7 @@ async function spawnHuntGame(client?, kind?, { channelId = null, force = false }
 
   const durationMs = HUNT_DURATION_MS;
   const customId = `sw_mg:${kind}:${Date.now().toString(36)}`;
-  await pingMinigamesRole(client, hub);
+  const pingMsg = await pingMinigamesRole(client, hub);
   const hubEmbed = new EmbedBuilder()
     .setColor(0x2f6fed)
     .setTitle(`${meta.emoji}  ${meta.title}`)
@@ -476,16 +765,14 @@ async function spawnHuntGame(client?, kind?, { channelId = null, force = false }
   const hiddenEmbed = new EmbedBuilder()
     .setColor(0xc9a227)
     .setTitle(`${meta.emoji}  ${meta.title}`)
-    .setDescription(meta.hiddenBlurb);
+    .setDescription(`${meta.hiddenBlurb}\n\nReagisci con ${meta.emoji} per reclamare!`);
   if (meta.hiddenImage) hiddenEmbed.setImage(meta.hiddenImage);
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(customId).setEmoji(meta.emoji).setLabel(meta.btn).setStyle(ButtonStyle.Primary),
-  );
-  const hiddenMsg = await hidden.send({ embeds: [hiddenEmbed], components: [row] }).catch(() => null);
+  const hiddenMsg = await hidden.send({ embeds: [hiddenEmbed] }).catch(() => null);
   if (!hiddenMsg) {
     await setRound(kind, { status: "aborted", kind, guildId, hubChannelId, error: "hide_send_failed" });
     return { ok: false, error: "send_failed" };
   }
+  await seedClaimReaction(hiddenMsg, meta.emoji);
 
   await setRound(kind, {
     status: "active",
@@ -496,6 +783,8 @@ async function spawnHuntGame(client?, kind?, { channelId = null, force = false }
     targetChannelId: hidden.id,
     messageId: hiddenMsg.id,
     mainMessageId: hubMsg?.id || null,
+    hubMessageId: hubMsg?.id || null,
+    rolePingMessageId: pingMsg?.id || null,
     customId,
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + durationMs).toISOString(),
@@ -517,14 +806,7 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
     if (!round?.payload || round.payload.status !== "active") continue;
     if (normalizeId(round.payload.messageId) !== messageId) continue;
     const meta = REACT_GAMES[kind];
-    const emoji = normalizeId(reaction.emoji?.name) || reaction.emoji?.toString?.();
-    if (emoji !== meta.emoji && reaction.emoji?.name !== "🏁" && reaction.emoji?.name !== "paw_prints") {
-      /* allow unicode match */
-      if (String(reaction.emoji?.name || "") !== meta.emoji.replace(/\ufe0f/g, "")) {
-        if (meta.emoji === "🏁" && reaction.emoji?.name !== "checkered_flag" && reaction.emoji?.name !== "🏁") continue;
-        if (meta.emoji === "🐾" && reaction.emoji?.name !== "paw_prints" && reaction.emoji?.name !== "🐾") continue;
-      }
-    }
+    if (!emojiNameMatches(reaction, meta.emoji)) continue;
     const guildId = normalizeId(round.payload.guildId) || normalizeId(reaction.message?.guildId) || mainGuildId(client);
     if (!(await isStarWarsSortedParticipant(client, guildId, user.id))) {
       await reaction.users?.remove?.(user.id).catch(() => null);
@@ -536,6 +818,7 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
     try {
       const claimed = await claimRound(kind, user.id);
       if (!claimed) return true;
+      clearReactTimeout(kind);
       await grantStarWarsMinigameWinReward(client, {
         guildId: walletGuildId(client) || guildId,
         userId: user.id,
@@ -546,7 +829,7 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
         .setColor(0xeab308)
         .setTitle(`${meta.title} terminata!`)
         .setDescription(
-          `🏁 <@${user.id}> vince e si porta a casa: ${formatCrateMention(meta.crate, 1, { open: true })} + **${meta.exp} exp**+ 15 ${CREDITI}`,
+          `🏁 <@${user.id}> vince e si porta a casa: ${formatCrateMention(meta.crate, 1, { open: true })} + **${meta.exp} exp** + 15 ${CREDITI}`,
         );
       if (meta.winImage) winEmbed.setImage(meta.winImage);
       await reaction.message
@@ -558,6 +841,73 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
       claimLocks.delete(lock);
     }
   }
+
+  /* Claim via reazione: hunt / conquista / convoglio */
+  if (await tryButtonGameClaimFromReaction(client, reaction, user)) return true;
+  return false;
+}
+
+async function tryButtonGameClaimFromReaction(client?, reaction?, user?) {
+  const messageId = normalizeId(reaction?.message?.id);
+  const msg = reaction?.message;
+  if (!messageId || !msg || !user) return false;
+
+  for (const kind of Object.keys(HUNT_GAMES)) {
+    const round = await getActiveRound(kind);
+    if (!round?.payload || round.payload.status !== "active") continue;
+    if (normalizeId(round.payload.messageId) !== messageId) continue;
+    if (!emojiNameMatches(reaction, HUNT_GAMES[kind].emoji)) continue;
+    return handleStarWarsButton(
+      makeSwButtonShim({
+        client,
+        guildId: round.payload.guildId || msg.guildId,
+        user,
+        message: msg,
+        customId: round.payload.customId,
+      }),
+    );
+  }
+
+  {
+    const round = await getActiveRound("conquista");
+    if (round?.payload?.status === "active" && round.payload.systems && typeof round.payload.systems === "object") {
+      for (const [systemKey, system] of Object.entries(round.payload.systems)) {
+        if (normalizeId(system?.claimedBy)) continue;
+        if (normalizeId(system?.messageId) !== messageId) continue;
+        if (!emojiNameMatches(reaction, CONQUISTA_CLAIM_REACT)) continue;
+        return handleStarWarsButton(
+          makeSwButtonShim({
+            client,
+            guildId: round.payload.guildId || msg.guildId,
+            user,
+            message: msg,
+            customId: system?.customId || `sw_mg:conquista:claim:${systemKey}`,
+          }),
+        );
+      }
+    }
+  }
+
+  {
+    const round = await getActiveRound("convoglio");
+    if (round?.payload?.status === "active" && normalizeId(round.payload.messageId) === messageId) {
+      let actionCustomId = null;
+      if (emojiNameMatches(reaction, CONVOGLIO_CONTINUE_REACT)) actionCustomId = round.payload.customContinue;
+      else if (emojiNameMatches(reaction, CONVOGLIO_INTERCEPT_REACT)) actionCustomId = round.payload.customIntercept;
+      if (actionCustomId) {
+        return handleStarWarsButton(
+          makeSwButtonShim({
+            client,
+            guildId: round.payload.guildId || msg.guildId,
+            user,
+            message: msg,
+            customId: actionCustomId,
+          }),
+        );
+      }
+    }
+  }
+
   return false;
 }
 
@@ -597,6 +947,9 @@ async function handleStarWarsButton(interaction?) {
     return true;
   }
   clearHuntTimeout(kind);
+  /* come find-bot: l’embed nascosto sparisce subito al click */
+  await interaction.message?.delete?.().catch(() => null);
+  await deleteHuntHiddenMessage(interaction.client, round.payload);
   await grantStarWarsMinigameWinReward(interaction.client, {
     guildId: walletGuildId(interaction.client) || normalizeId(interaction.guildId) || normalizeId(round.payload.guildId),
     userId: interaction.user.id,
@@ -608,18 +961,20 @@ async function handleStarWarsButton(interaction?) {
       content: `<a:VC_Events:1482706144953897223> Hai vinto! +${formatCrateMention(meta.crate, 1, { open: true })} + ${meta.exp} exp + 15 ${CREDITI}`,
     })
     .catch(() => null);
-  await deleteHuntHiddenMessage(interaction.client, round.payload);
   const hubId = normalizeId(round.payload.hubChannelId || round.payload.channelId);
   if (hubId) {
     const hub =
       interaction.client.channels.cache.get(hubId) ||
       (await interaction.client.channels.fetch(hubId).catch(() => null));
     if (hub?.send) {
-      await hub
-        .send({
-          content: `${meta.emoji} <@${interaction.user.id}> ha vinto **${meta.title}**! +${formatCrateMention(meta.crate, 1, { open: true })} + ${meta.exp} exp`,
-        })
-        .catch(() => null);
+      const winEmbed = new EmbedBuilder()
+        .setColor(0xeab308)
+        .setTitle(`${meta.emoji} ${meta.title}`)
+        .setDescription(
+          `<@${interaction.user.id}> ha vinto! +${formatCrateMention(meta.crate, 1, { open: true })} + **${meta.exp} exp** + 15 ${CREDITI}`,
+        );
+      if (meta.winImage) winEmbed.setImage(meta.winImage);
+      await hub.send({ embeds: [winEmbed] }).catch(() => null);
     }
   }
   return true;
@@ -683,6 +1038,12 @@ async function clearAllJediRoleHolders(guild?, role?, reason = "Ordine 66 reset"
   }
 }
 
+const ORDINE66_CDN = "https://cdn.viniliecaffe.it/images/starwars";
+const ORDINE66_IMG_V = "20261110o66b";
+const ORDINE66_HUB_IMAGE = `${ORDINE66_CDN}/ordine66-hub.jpg?v=${ORDINE66_IMG_V}`;
+const ORDINE66_WIN_IMAGE = `${ORDINE66_CDN}/ordine66-win.jpg?v=${ORDINE66_IMG_V}`;
+const ORDINE66_LOSE_IMAGE = `${ORDINE66_CDN}/ordine66-lose.jpg?v=${ORDINE66_IMG_V}`;
+
 function clearOrdine66Timeout() {
   const t = ordine66Timeouts.get("ordine66");
   if (t) clearTimeout(t);
@@ -691,6 +1052,7 @@ function clearOrdine66Timeout() {
 
 async function finalizeOrdine66Timeout(client?) {
   clearOrdine66Timeout();
+  if (await catchUpOrdine66FromHistory(client)) return;
   const round = await getActiveRound("ordine66");
   if (!round?.payload || round.payload.status !== "active") return;
   const payload = round.payload;
@@ -699,6 +1061,8 @@ async function finalizeOrdine66Timeout(client?) {
   const guild = client?.guilds?.cache?.get(guildId) || (await client?.guilds?.fetch?.(guildId).catch(() => null));
   const role = resolveJediRole(guild);
   await clearJediRoleFromMember(guild, role, payload.targetId, "Ordine 66 scaduto");
+  /* togli solo il ping ruolo; l’embed hub resta in chat */
+  await deleteSwChannelMessage(client, payload.channelId, payload.rolePingMessageId);
   const chId = normalizeId(payload.channelId);
   if (!chId || !client) return;
   const channel = client.channels.cache.get(chId) || (await client.channels.fetch(chId).catch(() => null));
@@ -709,7 +1073,8 @@ async function finalizeOrdine66Timeout(client?) {
           new EmbedBuilder()
             .setColor(0x6b7280)
             .setTitle("Ordine 66")
-            .setDescription("<a:VC_pixeltime:1482535344103620771> Tempo scaduto: il Jedi è fuggito."),
+            .setDescription("<a:VC_pixeltime:1482535344103620771> Tempo scaduto: il Jedi è fuggito.")
+            .setImage(ORDINE66_LOSE_IMAGE),
         ],
       })
       .catch(() => null);
@@ -779,19 +1144,9 @@ async function startOrdine66(client?, { channelId = null, force = false } = {}) 
   if (!roleOk) return { ok: false, error: "role_assign_failed" };
 
   const expiresAt = new Date(Date.now() + ORDINE66_DURATION_MS).toISOString();
-  await setRound("ordine66", {
-    status: "active",
-    kind: "ordine66",
-    targetId: target.id,
-    roleId: jediRole.id,
-    channelId: channel.id,
-    guildId,
-    createdAt: new Date().toISOString(),
-    expiresAt,
-  });
   scheduleOrdine66Timeout(client, ORDINE66_DURATION_MS);
-  await pingMinigamesRole(client, channel);
-  await channel
+  const pingMsg = await pingMinigamesRole(client, channel);
+  const hubMsg = await channel
     .send({
       embeds: [
         new EmbedBuilder()
@@ -799,10 +1154,23 @@ async function startOrdine66(client?, { channelId = null, force = false } = {}) 
           .setTitle("Ordine 66")
           .setDescription(
             `Un Jedi è tra gli utenti **smistati online**… **Pingalo** in chat per eseguire l'Ordine 66.\nVince chi lo menziona per primo.\nHai **${Math.round(ORDINE66_DURATION_MS / 60000)} minuti**.`,
-          ),
+          )
+          .setImage(ORDINE66_HUB_IMAGE),
       ],
     })
     .catch(() => null);
+  await setRound("ordine66", {
+    status: "active",
+    kind: "ordine66",
+    targetId: target.id,
+    roleId: jediRole.id,
+    channelId: channel.id,
+    guildId,
+    hubMessageId: hubMsg?.id || null,
+    rolePingMessageId: pingMsg?.id || null,
+    createdAt: new Date().toISOString(),
+    expiresAt,
+  });
   return { ok: true, targetId: target.id, roleId: jediRole.id };
 }
 
@@ -856,18 +1224,27 @@ async function tryOrdine66Mention(message?, client?) {
   });
   await reactSwWin(message);
   await message
-    .reply(
-      `Eseguito. <@${message.author.id}> ottiene ${formatCrateMention("alpha", 1, { open: true })} + 100 exp + 5 truppe (${CREDITI} +5 · +10 banca).`,
-    )
+    .reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x8b1a1a)
+          .setTitle("<a:VC_Events:1482706144953897223> Ordine eseguito!")
+          .setDescription(
+            `<@${message.author.id}> ottiene ${formatCrateMention("alpha", 1, { open: true })} + 100 exp + 5 truppe (${CREDITI} +5 · +10 banca).`,
+          )
+          .setImage(ORDINE66_WIN_IMAGE),
+      ],
+    })
     .catch(() => null);
   return true;
 }
 
 /* ——— Cacciatore di taglie (come Ordine 66, ruolo rinominato) ——— */
 const CACCIATORE_CDN = "https://cdn.viniliecaffe.it/images/starwars";
-const CACCIATORE_IMG_V = "20261106ct1";
+const CACCIATORE_IMG_V = "20261110ct2";
 const CACCIATORE_HUB_IMAGE = `${CACCIATORE_CDN}/cacciatore-taglie-hub.jpg?v=${CACCIATORE_IMG_V}`;
 const CACCIATORE_WIN_IMAGE = `${CACCIATORE_CDN}/cacciatore-taglie-win.jpg?v=${CACCIATORE_IMG_V}`;
+const CACCIATORE_LOSE_IMAGE = `${CACCIATORE_CDN}/cacciatore-taglie-lose.jpg?v=${CACCIATORE_IMG_V}`;
 /** 2 unità a potenza 1 (non tier): Cloni/Droidi, Ribelli/Stormtrooper, Repubblicano/Assaltatore. */
 const CACCIATORE_TROOP_POWER = 1;
 const CACCIATORE_TROOP_QTY = 2;
@@ -927,6 +1304,7 @@ function clearCacciatoreTimeout() {
 
 async function finalizeCacciatoreTimeout(client?) {
   clearCacciatoreTimeout();
+  if (await catchUpCacciatoreFromHistory(client)) return;
   const round = await getActiveRound("cacciatore");
   if (!round?.payload || round.payload.status !== "active") return;
   const payload = round.payload;
@@ -935,6 +1313,8 @@ async function finalizeCacciatoreTimeout(client?) {
   const guild = client?.guilds?.cache?.get(guildId) || (await client?.guilds?.fetch?.(guildId).catch(() => null));
   const role = resolveJediRole(guild);
   await clearJediRoleFromMember(guild, role, payload.targetId, "Cacciatore di taglie scaduto");
+  /* togli solo il ping ruolo; l’embed hub resta in chat */
+  await deleteSwChannelMessage(client, payload.channelId, payload.rolePingMessageId);
   const chId = normalizeId(payload.channelId);
   if (!chId || !client) return;
   const channel = client.channels.cache.get(chId) || (await client.channels.fetch(chId).catch(() => null));
@@ -946,7 +1326,7 @@ async function finalizeCacciatoreTimeout(client?) {
             .setColor(0x6b7280)
             .setTitle("Cacciatore di taglie")
             .setDescription("<a:VC_pixeltime:1482535344103620771> Tempo scaduto: il bersaglio è fuggito.")
-            .setImage(CACCIATORE_HUB_IMAGE),
+            .setImage(CACCIATORE_LOSE_IMAGE),
         ],
       })
       .catch(() => null);
@@ -995,19 +1375,9 @@ async function startCacciatoreTaglie(client?, { channelId = null, force = false 
   if (!roleOk) return { ok: false, error: "role_assign_failed" };
 
   const expiresAt = new Date(Date.now() + CACCIATORE_DURATION_MS).toISOString();
-  await setRound("cacciatore", {
-    status: "active",
-    kind: "cacciatore",
-    targetId: target.id,
-    roleId: huntRole.id,
-    channelId: channel.id,
-    guildId,
-    createdAt: new Date().toISOString(),
-    expiresAt,
-  });
   scheduleCacciatoreTimeout(client, CACCIATORE_DURATION_MS);
-  await pingMinigamesRole(client, channel);
-  await channel
+  const pingMsg = await pingMinigamesRole(client, channel);
+  const hubMsg = await channel
     .send({
       embeds: [
         new EmbedBuilder()
@@ -1020,6 +1390,18 @@ async function startCacciatoreTaglie(client?, { channelId = null, force = false 
       ],
     })
     .catch(() => null);
+  await setRound("cacciatore", {
+    status: "active",
+    kind: "cacciatore",
+    targetId: target.id,
+    roleId: huntRole.id,
+    channelId: channel.id,
+    guildId,
+    hubMessageId: hubMsg?.id || null,
+    rolePingMessageId: pingMsg?.id || null,
+    createdAt: new Date().toISOString(),
+    expiresAt,
+  });
   return { ok: true, targetId: target.id, roleId: huntRole.id };
 }
 
@@ -1101,8 +1483,10 @@ async function tryCacciatoreMention(message?, client?) {
 
 /* ——— Scova il pianeta ——— */
 const SCOVA_CDN = "https://cdn.viniliecaffe.it/images/starwars";
-const SCOVA_IMG_V = "20261104a";
+const SCOVA_IMG_V = "20261110sc2";
 const SCOVA_MAP_IMAGE = `${SCOVA_CDN}/galaxy-map-scova.jpg?v=${SCOVA_IMG_V}`;
+const SCOVA_WIN_IMAGE = `${SCOVA_CDN}/scova-win.jpg?v=${SCOVA_IMG_V}`;
+const SCOVA_LOSE_IMAGE = `${SCOVA_CDN}/scova-lose.jpg?v=${SCOVA_IMG_V}`;
 
 const SCOVA_PLANETS = Object.freeze([
   { id: "dantooine", name: "Dantooine", aliases: ["dantooine"], coords: ["L4", "L04"] },
@@ -1202,6 +1586,15 @@ async function startScovaPianeta(client?, { channelId = null, force = false } = 
   const channel = guild?.channels?.cache?.get(chId) || (await guild?.channels?.fetch?.(chId).catch(() => null));
   if (!channel?.isTextBased?.()) return { ok: false, error: "bad_channel" };
 
+  const pingMsg = await pingMinigamesRole(client, channel);
+  const embed = new EmbedBuilder()
+    .setColor(0x2f6fed)
+    .setTitle("Scova il pianeta")
+    .setDescription(
+      `La mappa galattica non risulta aggiornata. Cerca il pianeta nel settore **\`${coord}\`** alle coordinate \`${numericCoords}\`\nConsulta la mappa e scrivi in chat il nome del pianeta.\nHai **${Math.round(SCOVA_DURATION_MS / 60000)} minuti**.`,
+    )
+    .setImage(SCOVA_MAP_IMAGE);
+  const hubMsg = await channel.send({ embeds: [embed] }).catch(() => null);
   await setRound("scova", {
     status: "active",
     kind: "scova",
@@ -1211,18 +1604,12 @@ async function startScovaPianeta(client?, { channelId = null, force = false } = 
     numericCoords,
     channelId: channel.id,
     guildId,
+    hubMessageId: hubMsg?.id || null,
+    rolePingMessageId: pingMsg?.id || null,
     createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() + SCOVA_DURATION_MS).toISOString(),
   });
-  await pingMinigamesRole(client, channel);
-  const embed = new EmbedBuilder()
-          .setColor(0x2f6fed)
-          .setTitle("Scova il pianeta")
-    .setDescription(
-      `La mappa galattica non risulta aggiornata. Cerca il pianeta nel settore **\`${coord}\`** alle coordinate \`${numericCoords}\`\nConsulta la mappa e scrivi in chat il nome del pianeta.`,
-    )
-    .setImage(SCOVA_MAP_IMAGE);
-  await channel.send({ embeds: [embed] }).catch(() => null);
+  scheduleScovaTimeout(client, SCOVA_DURATION_MS);
   return { ok: true, planetId: planet.id, coord, numericCoords };
 }
 
@@ -1246,6 +1633,7 @@ async function tryScovaMessage(message?, client?) {
     await reactSwWrong(message);
     return true;
   }
+  clearScovaTimeout();
 
   const clientRef = client || message.client;
   const walletGid = walletGuildId(clientRef) || normalizeId(message.guildId);
@@ -1314,7 +1702,9 @@ async function tryScovaMessage(message?, client?) {
     .setColor(winColor)
     .setTitle("Mappa aggiornata!")
     .setDescription(foundLine + rewardLine)
-    .setImage(scovaPlanetImageUrl(guessPlanet.id));
+    .setImage(SCOVA_WIN_IMAGE);
+  const planetThumb = scovaPlanetImageUrl(guessPlanet.id);
+  if (planetThumb) winEmbed.setThumbnail(planetThumb);
   await reactSwWin(message);
   await message.reply({ embeds: [winEmbed] }).catch(() => null);
   return true;
@@ -1414,14 +1804,23 @@ function attaccaBaseBoardEmbed(payload?, { lastHit = null, finished = false } = 
     );
   } else if (lastHit?.winnerLabel) {
     const wl = String(lastHit.winnerLabel);
-    if (/pareggio|draw|tie/i.test(wl)) lines.push("", "⚖️ **Pareggio** — entrambe le basi a pezzi.");
+    if (/tempo scaduto|timeout/i.test(wl)) lines.push("", "<a:VC_pixeltime:1482535344103620771> **Tempo scaduto** — nessuna base distrutta.");
+    else if (/pareggio|draw|tie/i.test(wl)) lines.push("", "⚖️ **Pareggio** — entrambe le basi a pezzi.");
     else lines.push("", `🏆 **${wl}** distrutta!`);
   }
   const bothDead = finished && left <= 0 && right <= 0;
-  const color = finished ? (bothDead || /pareggio|draw|tie/i.test(String(lastHit?.winnerLabel || "")) ? 0x9ca3af : 0x22c55e) : left <= 30 || right <= 30 ? 0xef4444 : 0xc9a227;
+  const timedOut = finished && /tempo scaduto|timeout/i.test(String(lastHit?.winnerLabel || ""));
+  const color = finished
+    ? bothDead || timedOut || /pareggio|draw|tie/i.test(String(lastHit?.winnerLabel || ""))
+      ? 0x9ca3af
+      : 0x22c55e
+    : left <= 30 || right <= 30
+      ? 0xef4444
+      : 0xc9a227;
   let image: string = skin.vs;
   if (finished) {
-    if (bothDead || /pareggio|draw|tie/i.test(String(lastHit?.winnerLabel || ""))) image = skin.draw;
+    if (timedOut) image = skin.vs;
+    else if (bothDead || /pareggio|draw|tie/i.test(String(lastHit?.winnerLabel || ""))) image = skin.draw;
     else if (lastHit?.winnerLabel) image = attaccaVsImageForDestroyed(lastHit.winnerLabel, skin);
   }
   return new EmbedBuilder()
@@ -1458,13 +1857,14 @@ async function startAttaccaBase(client?, { channelId = null, force = false } = {
   const hp = ATTACCA_MAX_HP;
   const skinKey = resolveFeatureStateNow().epoch === EPOCHS.SEQUEL ? "sequel" : "civil";
   const boardPayload = { hpYavin: hp, hpDeathStar: hp, skin: skinKey };
-  await pingMinigamesRole(client, channel);
+  const pingMsg = await pingMinigamesRole(client, channel);
   const boardMsg = await channel
     .send({
       embeds: [attaccaBaseBoardEmbed(boardPayload)],
     })
     .catch(() => null);
   if (!boardMsg) return { ok: false, error: "send_failed" };
+  const expiresAt = new Date(Date.now() + ATTACCA_DURATION_MS).toISOString();
   const payload = {
     status: "active",
     kind: "attacca_base",
@@ -1476,10 +1876,58 @@ async function startAttaccaBase(client?, { channelId = null, force = false } = {
     guildId,
     boardMessageId: boardMsg.id,
     messageId: boardMsg.id,
+    rolePingMessageId: pingMsg?.id || null,
     createdAt: new Date().toISOString(),
+    expiresAt,
   };
   await setRound("attacca_base", payload);
+  scheduleAttaccaTimeout(client, ATTACCA_DURATION_MS);
   return { ok: true, messageId: boardMsg.id };
+}
+
+function clearAttaccaTimeout() {
+  const t = attaccaTimeouts.get("attacca_base");
+  if (t) clearTimeout(t);
+  attaccaTimeouts.delete("attacca_base");
+}
+
+async function finalizeAttaccaTimeout(client?) {
+  clearAttaccaTimeout();
+  if (await catchUpAttaccaFromHistory(client)) return;
+  const round = await getActiveRound("attacca_base");
+  if (!round?.payload || round.payload.status !== "active") return;
+  const payload = { ...round.payload, status: "expired", expiredAt: new Date().toISOString() };
+  await setRound("attacca_base", payload);
+  await deleteSwChannelMessage(client, payload.channelId, payload.rolePingMessageId);
+  const skin = attaccaSkinFromPayload(payload);
+  await editAttaccaBaseBoard(client, payload, { finished: true, lastHit: { winnerLabel: "Tempo scaduto" } });
+  const chId = normalizeId(payload.channelId);
+  if (!chId || !client) return;
+  const channel = client.channels.cache.get(chId) || (await client.channels.fetch(chId).catch(() => null));
+  if (!channel?.send) return;
+  await channel
+    .send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x6b7280)
+          .setTitle("Attacca la base")
+          .setDescription(
+            `<a:VC_pixeltime:1482535344103620771> Tempo scaduto: nessuna base è stata distrutta.\n` +
+              `**${skin.leftLabel}** ${safeHp(payload.hpYavin)}/${ATTACCA_MAX_HP} · **${skin.rightLabel}** ${safeHp(payload.hpDeathStar)}/${ATTACCA_MAX_HP}`,
+          )
+          .setImage(skin.vs),
+      ],
+    })
+    .catch(() => null);
+}
+
+function scheduleAttaccaTimeout(client?, durationMs = ATTACCA_DURATION_MS) {
+  clearAttaccaTimeout();
+  const t = setTimeout(() => {
+    void finalizeAttaccaTimeout(client);
+  }, Math.max(1000, Number(durationMs) || ATTACCA_DURATION_MS));
+  t.unref?.();
+  attaccaTimeouts.set("attacca_base", t);
 }
 
 async function tryAttaccaBaseMessage(message?, client?) {
@@ -1532,6 +1980,7 @@ async function tryAttaccaBaseMessage(message?, client?) {
   await editAttaccaBaseBoard(client || message.client, payload, { lastHit, finished: Boolean(winner) });
 
   if (winner) {
+    clearAttaccaTimeout();
     await grantStarWarsMinigameWinReward(client || message.client, {
       guildId: walletGuildId(client || message.client) || message.guildId,
       userId: uid,
@@ -1560,8 +2009,10 @@ async function tryAttaccaBaseMessage(message?, client?) {
 /* ——— Proteggi convoglio ——— */
 const CONVOGLIO_NEED_HOPS = 3;
 const CONVOGLIO_CDN = "https://cdn.viniliecaffe.it/images/starwars";
-const CONVOGLIO_IMG_V = "20261104cv2";
+const CONVOGLIO_IMG_V = "20261111cv1";
+const CONVOGLIO_HUB_IMAGE = `${CONVOGLIO_CDN}/convoglio-hub.jpg?v=${CONVOGLIO_IMG_V}`;
 const CONVOGLIO_IMAGES = Object.freeze({
+  hub: CONVOGLIO_HUB_IMAGE,
   1: `${CONVOGLIO_CDN}/convoglio-hop1.jpg?v=${CONVOGLIO_IMG_V}`,
   2: `${CONVOGLIO_CDN}/convoglio-hop2.jpg?v=${CONVOGLIO_IMG_V}`,
   3: `${CONVOGLIO_CDN}/convoglio-hop3.jpg?v=${CONVOGLIO_IMG_V}`,
@@ -1631,15 +2082,11 @@ async function pickRandomConvoglioHideChannel(guild?, excludeChannelIds = []) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-function buildConvoglioButtons(token?) {
+function buildConvoglioActionIds(token?) {
   const t = String(token || Date.now().toString(36));
   return {
     customContinue: `sw_mg:convoglio:continua:${t}`,
     customIntercept: `sw_mg:convoglio:intercetta:${t}`,
-    row: new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`sw_mg:convoglio:continua:${t}`).setLabel("Continua").setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(`sw_mg:convoglio:intercetta:${t}`).setLabel("Intercetta").setStyle(ButtonStyle.Danger),
-    ),
   };
 }
 
@@ -1697,7 +2144,8 @@ function convoglioEmbed({
     .setTitle(titles[hopN] || "Proteggi convoglio")
     .setDescription(
       `Tappa **${hopN}/${needHops}**\nFazione di scorta: **${escortLabel}**.\n` +
-        `Se qualcuno **Intercetta**, la corsa finisce subito e **si perdono le ricompense**.`,
+        `Se qualcuno **Intercetta**, la corsa finisce subito e **si perdono le ricompense**.\n` +
+        `Reazioni: ${CONVOGLIO_CONTINUE_REACT} Continua · ${CONVOGLIO_INTERCEPT_REACT} Intercetta.`,
     )
     .setImage(CONVOGLIO_IMAGES[hopN] || CONVOGLIO_IMAGES[1]);
 }
@@ -1709,23 +2157,53 @@ async function startConvoglio(client?, { channelId = null, force = false } = {})
 
   const targetCtx = await resolveSpawnTarget(client, channelId);
   const guildId = targetCtx.guildId;
-  const chId = targetCtx.channelId;
+  const hubChannelId = targetCtx.channelId;
   const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-  const channel = guild?.channels?.cache?.get(chId) || (await guild?.channels?.fetch?.(chId).catch(() => null));
-  if (!channel?.isTextBased?.()) return { ok: false, error: "bad_channel" };
+  const hub =
+    guild?.channels?.cache?.get(hubChannelId) || (await guild?.channels?.fetch?.(hubChannelId).catch(() => null));
+  if (!hub?.isTextBased?.()) return { ok: false, error: "bad_channel" };
+
+  const hideChannel = await pickRandomConvoglioHideChannel(guild, [hubChannelId]);
+  if (!hideChannel?.isTextBased?.()) return { ok: false, error: "no_hide_channel" };
 
   const escort = Math.random() < 0.5 ? "repubblica" : "separatisti";
   const hop = 1;
-  const btns = buildConvoglioButtons();
-  await pingMinigamesRole(client, channel);
-  const msg = await channel
+  const actionIds = buildConvoglioActionIds();
+  const durationMs = CONVOGLIO_DURATION_MS;
+  const escortLabel = convoglioFactionLabel(escort);
+  const pingMsg = await pingMinigamesRole(client, hub);
+  const hubMsg = await hub
     .send({
-      embeds: [convoglioEmbed({ escort, hop, mode: "active" })],
-      components: [btns.row],
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x8b1a1a)
+          .setTitle("Proteggi convoglio")
+          .setDescription(
+            `Un convoglio della **${escortLabel}** è in viaggio.\n` +
+              `Le tappe appaiono a caso nei canali **Community** e **Pinned** — scortalo o intercettalo.\n` +
+              `Reazioni: ${CONVOGLIO_CONTINUE_REACT} Continua (solo scorta) · ${CONVOGLIO_INTERCEPT_REACT} Intercetta (fazione opposta).\n` +
+              `Hai **${Math.round(durationMs / 60000)} minuti**.`,
+          )
+          .setImage(CONVOGLIO_HUB_IMAGE),
+      ],
     })
     .catch(() => null);
-  if (!msg) return { ok: false, error: "send_failed" };
+  if (!hubMsg) return { ok: false, error: "hub_send_failed" };
 
+  const msg = await hideChannel
+    .send({
+      embeds: [convoglioEmbed({ escort, hop, mode: "active" })],
+    })
+    .catch(() => null);
+  if (!msg) {
+    await hubMsg.delete().catch(() => null);
+    await setRound("convoglio", { status: "aborted", kind: "convoglio", guildId, hubChannelId, error: "hop_send_failed" });
+    return { ok: false, error: "send_failed" };
+  }
+  await seedClaimReaction(msg, CONVOGLIO_CONTINUE_REACT);
+  await seedClaimReaction(msg, CONVOGLIO_INTERCEPT_REACT);
+
+  const expiresAt = new Date(Date.now() + durationMs).toISOString();
   await setRound("convoglio", {
     status: "active",
     kind: "convoglio",
@@ -1733,15 +2211,61 @@ async function startConvoglio(client?, { channelId = null, force = false } = {})
     hops: hop,
     needHops: CONVOGLIO_NEED_HOPS,
     messageId: msg.id,
-    channelId: channel.id,
-    hubChannelId: channel.id,
-    usedChannelIds: [channel.id],
+    channelId: hideChannel.id,
+    hubChannelId,
+    hubMessageId: hubMsg.id,
+    usedChannelIds: [hubChannelId, hideChannel.id].map(normalizeId).filter(Boolean),
     guildId,
-    customContinue: btns.customContinue,
-    customIntercept: btns.customIntercept,
+    rolePingMessageId: pingMsg?.id || null,
+    customContinue: actionIds.customContinue,
+    customIntercept: actionIds.customIntercept,
     createdAt: new Date().toISOString(),
+    expiresAt,
   });
-  return { ok: true, hop, channelId: channel.id };
+  scheduleConvoglioTimeout(client, durationMs);
+  return { ok: true, hop, channelId: hideChannel.id, hubChannelId };
+}
+
+function clearConvoglioTimeout() {
+  const t = convoglioTimeouts.get("convoglio");
+  if (t) clearTimeout(t);
+  convoglioTimeouts.delete("convoglio");
+}
+
+async function finalizeConvoglioTimeout(client?) {
+  clearConvoglioTimeout();
+  if (await catchUpConvoglioFromReactions(client)) return;
+  const round = await getActiveRound("convoglio");
+  if (!round?.payload || round.payload.status !== "active") return;
+  const payload = round.payload;
+  await setRound("convoglio", { ...payload, status: "expired", expiredAt: new Date().toISOString() });
+  await deleteSwChannelMessage(client, payload.channelId, payload.messageId);
+  await deleteSwChannelMessage(client, payload.hubChannelId || payload.channelId, payload.hubMessageId);
+  await deleteSwChannelMessage(client, payload.hubChannelId || payload.channelId, payload.rolePingMessageId);
+  const hubId = normalizeId(payload.hubChannelId) || chatChannelId(client, payload.guildId);
+  if (!hubId || !client) return;
+  const hub = client.channels.cache.get(hubId) || (await client.channels.fetch(hubId).catch(() => null));
+  if (!hub?.send) return;
+  await hub
+    .send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x6b7280)
+          .setTitle("Proteggi convoglio")
+          .setDescription("<a:VC_pixeltime:1482535344103620771> Tempo scaduto: il convoglio non è arrivato a destinazione.")
+          .setImage(CONVOGLIO_IMAGES.intercepted),
+      ],
+    })
+    .catch(() => null);
+}
+
+function scheduleConvoglioTimeout(client?, durationMs = CONVOGLIO_DURATION_MS) {
+  clearConvoglioTimeout();
+  const t = setTimeout(() => {
+    void finalizeConvoglioTimeout(client);
+  }, Math.max(1000, Number(durationMs) || CONVOGLIO_DURATION_MS));
+  t.unref?.();
+  convoglioTimeouts.set("convoglio", t);
 }
 
 async function handleConvoglioButton(interaction?, parts?) {
@@ -1774,25 +2298,42 @@ async function handleConvoglioButton(interaction?, parts?) {
       await interaction.reply({ content: "Non puoi intercettare il tuo convoglio.", flags: 1 << 6 }).catch(() => null);
       return true;
     }
+    clearConvoglioTimeout();
     await setRound("convoglio", {
       ...round.payload,
       status: "intercepted",
       interceptedBy: interaction.user.id,
       completedAt: new Date().toISOString(),
     });
-    await interaction.message
-      ?.edit?.({
-        embeds: [convoglioEmbed({ escort, hop: currentHop, needHops, mode: "intercepted" })],
-        components: [],
-      })
-      .catch(() => null);
+    const hopMsg = interaction.message;
+    await hopMsg?.delete?.().catch(() => null);
+    await deleteSwChannelMessage(
+      interaction.client,
+      round.payload.hubChannelId,
+      round.payload.hubMessageId,
+    );
     await interaction
       .reply({
-        content: `💥 <@${interaction.user.id}> ha intercettato il convoglio alla tappa **${currentHop}/${needHops}**. **Nessuna ricompensa.**`,
+        content: `💥 Hai intercettato il convoglio alla tappa **${currentHop}/${needHops}**. **Nessuna ricompensa.**`,
+        flags: 1 << 6,
       })
       .catch(() => null);
-    const announce = await interaction.fetchReply().catch(() => null);
-    scheduleConvoglioMessageCleanup(interaction.message, announce);
+    const hubId =
+      normalizeId(round.payload.hubChannelId) ||
+      chatChannelId(interaction.client, round.payload.guildId || interaction.guildId);
+    if (hubId) {
+      const hub =
+        interaction.client.channels.cache.get(hubId) ||
+        (await interaction.client.channels.fetch(hubId).catch(() => null));
+      if (hub?.send) {
+        await hub
+          .send({
+            content: `💥 <@${interaction.user.id}> ha intercettato il convoglio alla tappa **${currentHop}/${needHops}**. **Nessuna ricompensa.**`,
+            embeds: [convoglioEmbed({ escort, hop: currentHop, needHops, mode: "intercepted" })],
+          })
+          .catch(() => null);
+      }
+    }
     return true;
   }
 
@@ -1802,9 +2343,11 @@ async function handleConvoglioButton(interaction?, parts?) {
       return true;
     }
 
-    await interaction.message?.edit?.({ components: [] }).catch(() => null);
+    const hopMsg = interaction.message;
+    await hopMsg?.delete?.().catch(() => null);
 
     if (currentHop >= needHops) {
+      clearConvoglioTimeout();
       await claimRound("convoglio", interaction.user.id);
       await grantStarWarsMinigameWinReward(interaction.client, {
         guildId: walletGuildId(interaction.client) || interaction.guildId,
@@ -1812,19 +2355,33 @@ async function handleConvoglioButton(interaction?, parts?) {
         reason: "convoglio_escort",
         grant: { crateId: "omega", crateQty: 1, exp: 100 },
       });
-      await interaction.message
-        ?.edit?.({
-          embeds: [convoglioEmbed({ escort, hop: needHops, needHops, mode: "arrived" })],
-          components: [],
-        })
-        .catch(() => null);
+      await deleteSwChannelMessage(
+        interaction.client,
+        round.payload.hubChannelId,
+        round.payload.hubMessageId,
+      );
       await interaction
         .reply({
-          content: `🏁 Convoglio a destinazione! <@${interaction.user.id}> (+${formatCrateMention("omega", 1, { open: true })} + 100 exp)`,
+          content: `🏁 Convoglio a destinazione! (+${formatCrateMention("omega", 1, { open: true })} + 100 exp)`,
+          flags: 1 << 6,
         })
         .catch(() => null);
-      const announce = await interaction.fetchReply().catch(() => null);
-      scheduleConvoglioMessageCleanup(interaction.message, announce);
+      const hubId =
+        normalizeId(round.payload.hubChannelId) ||
+        chatChannelId(interaction.client, round.payload.guildId || interaction.guildId);
+      if (hubId) {
+        const hub =
+          interaction.client.channels.cache.get(hubId) ||
+          (await interaction.client.channels.fetch(hubId).catch(() => null));
+        if (hub?.send) {
+          await hub
+            .send({
+              content: `🏁 <@${interaction.user.id}> ha portato il convoglio a destinazione! (+${formatCrateMention("omega", 1, { open: true })} + 100 exp)`,
+              embeds: [convoglioEmbed({ escort, hop: needHops, needHops, mode: "arrived" })],
+            })
+            .catch(() => null);
+        }
+      }
       return true;
     }
 
@@ -1838,14 +2395,13 @@ async function handleConvoglioButton(interaction?, parts?) {
     if (!nextChannel?.isTextBased?.()) {
       await setRound("convoglio", { ...round.payload, status: "aborted", error: "no_hide_channel" });
       await interaction.reply({ content: "Nessun canale libero per la prossima tappa.", flags: 1 << 6 }).catch(() => null);
-    return true;
-  }
+      return true;
+    }
 
-    const btns = buildConvoglioButtons(`${Date.now().toString(36)}${nextHop}`);
+    const actionIds = buildConvoglioActionIds(`${Date.now().toString(36)}${nextHop}`);
     const nextMsg = await nextChannel
       .send({
         embeds: [convoglioEmbed({ escort, hop: nextHop, needHops, mode: "active" })],
-        components: [btns.row],
       })
       .catch(() => null);
     if (!nextMsg) {
@@ -1853,6 +2409,8 @@ async function handleConvoglioButton(interaction?, parts?) {
       await interaction.reply({ content: "Impossibile spawnare la prossima tappa.", flags: 1 << 6 }).catch(() => null);
       return true;
     }
+    await seedClaimReaction(nextMsg, CONVOGLIO_CONTINUE_REACT);
+    await seedClaimReaction(nextMsg, CONVOGLIO_INTERCEPT_REACT);
 
     await setRound("convoglio", {
       ...round.payload,
@@ -1860,8 +2418,8 @@ async function handleConvoglioButton(interaction?, parts?) {
       messageId: nextMsg.id,
       channelId: nextChannel.id,
       usedChannelIds: [...used, normalizeId(nextChannel.id)].filter(Boolean),
-      customContinue: btns.customContinue,
-      customIntercept: btns.customIntercept,
+      customContinue: actionIds.customContinue,
+      customIntercept: actionIds.customIntercept,
       lastMovedAt: new Date().toISOString(),
     });
 
@@ -1871,7 +2429,6 @@ async function handleConvoglioButton(interaction?, parts?) {
         flags: 1 << 6,
       })
       .catch(() => null);
-    await interaction.message?.delete?.().catch(() => null);
     return true;
   }
   return true;
@@ -1879,7 +2436,7 @@ async function handleConvoglioButton(interaction?, parts?) {
 
 /* ——— Conquista il sistema ——— */
 const CONQUISTA_CDN = "https://cdn.viniliecaffe.it/images/starwars";
-const CONQUISTA_IMG_V = "20261104cq2";
+const CONQUISTA_IMG_V = "20261111cq1";
 const CONQUISTA_HUB_IMAGE = `${CONQUISTA_CDN}/conquista-hub.jpg?v=${CONQUISTA_IMG_V}`;
 const CONQUISTA_WIN_IMAGES = Object.freeze({
   repubblica: `${CONQUISTA_CDN}/conquista-win-repubblica.jpg?v=${CONQUISTA_IMG_V}`,
@@ -1887,7 +2444,8 @@ const CONQUISTA_WIN_IMAGES = Object.freeze({
   draw: `${CONQUISTA_CDN}/conquista-win-draw.jpg?v=${CONQUISTA_IMG_V}`,
 });
 const CONQUISTA_MAX_PER_USER = 2;
-const CONQUISTA_DURATION_MS = 30 * 60 * 1000;
+const CONQUISTA_DURATION_MS = SW_EXTRA_DURATION_MS;
+const CONQUISTA_LOSE_IMAGE = `${CONQUISTA_CDN}/conquista-lose.jpg?v=${CONQUISTA_IMG_V}`;
 /** Bonus vittoria: unità bank fazione (cloni/droidi), non per singolo membro. */
 const CONQUISTA_WIN_UNIT_ID = "cloni_droidi";
 const CONQUISTA_WIN_UNIT_QTY = 4;
@@ -1968,14 +2526,9 @@ async function listPinnedCommunityTextChannels(guild?) {
   });
 }
 
-function buildConquistaClaimButton(systemKey?) {
+function buildConquistaClaimId(systemKey?) {
   const key = String(systemKey || Date.now().toString(36));
-  return {
-    customId: `sw_mg:conquista:claim:${key}`,
-    row: new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`sw_mg:conquista:claim:${key}`).setLabel("Conquista").setStyle(ButtonStyle.Danger),
-    ),
-  };
+  return { customId: `sw_mg:conquista:claim:${key}` };
 }
 
 function conquistaSystemEmbed(planet?, { claimedBy = null, claimedFaction = null } = {}) {
@@ -1996,7 +2549,7 @@ function conquistaSystemEmbed(planet?, { claimedBy = null, claimedFaction = null
   const embed = new EmbedBuilder()
     .setColor(0xc2410c)
     .setTitle(`Sistema in bilico — ${name}`)
-    .setDescription(`${blurb}\n\nClicca **Conquista** per rivendicarlo.`);
+    .setDescription(`${blurb}\n\nReagisci con ${CONQUISTA_CLAIM_REACT} per conquistarlo.`);
   if (image) embed.setImage(image);
   return embed;
 }
@@ -2102,6 +2655,7 @@ async function maybeFinalizeConquista(client?, payload?) {
   const entries = Object.values(systems);
   if (!entries.length) return;
   if (!entries.every((s?) => normalizeId(s?.claimedBy))) return;
+  clearConquistaTimeout();
   const scores = countFactionConquistaClaims(systems);
   const winner =
     scores.repubblica === scores.separatisti
@@ -2169,7 +2723,7 @@ async function startConquista(client?, { channelId = null, force = false } = {})
   const pairCount = Math.min(channels.length, planets.length);
   if (!pairCount) return { ok: false, error: "no_planets" };
 
-  await pingMinigamesRole(client, hub);
+  const pingMsg = await pingMinigamesRole(client, hub);
   const hubMsg = await hub
     .send({
       embeds: [
@@ -2178,8 +2732,9 @@ async function startConquista(client?, { channelId = null, force = false } = {})
           .setTitle("Conquista il sistema")
           .setDescription(
             "I sistemi sono apparsi nei canali **Community** e **Pinned**.\n" +
-              "Repubblica e Separatisti: rivendicateli il prima possibile.\n" +
+              `Repubblica e Separatisti: reagite con ${CONQUISTA_CLAIM_REACT} per rivendicarli.\n` +
               `Ogni sistema vale **100 exp**. Max **${CONQUISTA_MAX_PER_USER}** a testa.\n` +
+              `Hai **${Math.round(CONQUISTA_DURATION_MS / 60000)} minuti**.\n` +
               `La fazione vincente riceve **+${CONQUISTA_WIN_UNIT_QTY} Cloni/Droidi** nell'esercito di fazione.`,
           )
           .setImage(CONQUISTA_HUB_IMAGE),
@@ -2194,14 +2749,14 @@ async function startConquista(client?, { channelId = null, force = false } = {})
     const channel = channels[i];
     const planet = planets[i];
     const systemKey = `${Date.now().toString(36)}${i.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-    const btns = buildConquistaClaimButton(systemKey);
+    const claim = buildConquistaClaimId(systemKey);
     const msg = await channel
       .send({
         embeds: [conquistaSystemEmbed(planet)],
-        components: [btns.row],
       })
       .catch(() => null);
     if (!msg) continue;
+    await seedClaimReaction(msg, CONQUISTA_CLAIM_REACT);
     systems[systemKey] = {
       planetId: planet.id,
       planetName: planet.name,
@@ -2209,7 +2764,7 @@ async function startConquista(client?, { channelId = null, force = false } = {})
       messageId: msg.id,
       claimedBy: null,
       claimedFaction: null,
-      customId: btns.customId,
+      customId: claim.customId,
     };
     spawned += 1;
   }
@@ -2226,10 +2781,12 @@ async function startConquista(client?, { channelId = null, force = false } = {})
     guildId,
     hubChannelId: hub.id,
     hubMessageId: hubMsg.id,
+    rolePingMessageId: pingMsg?.id || null,
     systems,
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + CONQUISTA_DURATION_MS).toISOString(),
   });
+  scheduleConquistaTimeout(client, CONQUISTA_DURATION_MS);
   return { ok: true, spawned, hubChannelId: hub.id };
 }
 
@@ -2308,21 +2865,35 @@ async function handleConquistaButton(interaction?, parts?) {
       grant: { exp: 100 },
     });
 
-    await interaction.message
-      ?.edit?.({
-        embeds: [conquistaSystemEmbed(planet, { claimedBy: interaction.user.id, claimedFaction: faction })],
-        components: [],
-      })
-      .catch(() => null);
+    /* come find-bot: l’embed del sistema sparisce subito al claim */
+    await interaction.message?.delete?.().catch(() => null);
 
+    /* nel canale nascosto solo ACK ephemeral; l’announce pubblico va in chat hub */
     await interaction
       .reply({
-        content: `🛰️ <@${interaction.user.id}> conquista **${planet.name}** per la **${conquistaFactionLabel(faction)}**! (+100 exp)`,
+        content: `🛰️ Hai conquistato **${planet.name}** per la **${conquistaFactionLabel(faction)}**! (+100 exp)`,
+        flags: 1 << 6,
       })
       .catch(() => null);
 
+    const hubId =
+      normalizeId(fresh.payload.hubChannelId) ||
+      chatChannelId(interaction.client, fresh.payload.guildId || interaction.guildId);
+    if (hubId) {
+      const hub =
+        interaction.client.channels.cache.get(hubId) ||
+        (await interaction.client.channels.fetch(hubId).catch(() => null));
+      if (hub?.send) {
+        await hub
+          .send({
+            content: `🛰️ <@${interaction.user.id}> conquista **${planet.name}** per la **${conquistaFactionLabel(faction)}**! (+100 exp)`,
+          })
+          .catch(() => null);
+      }
+    }
+
     await maybeFinalizeConquista(interaction.client, nextPayload);
-  return true;
+    return true;
   } finally {
     claimLocks.delete(lock);
   }
@@ -2388,8 +2959,9 @@ async function spawnDeckDrop(client?, kind?, { channelId = null, force = false }
     channelId: channel.id,
     guildId,
     createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() + DECK_DURATION_MS).toISOString(),
   });
+  scheduleDeckTimeout(client, roundKind, DECK_DURATION_MS);
   return { ok: true, itemId: item.id, name: item.name };
 }
 
@@ -2420,6 +2992,7 @@ async function tryDeckMessage(message?, client?) {
       await message.reply("Qualcun altro è stato più veloce.").catch(() => null);
       return true;
     }
+    clearDeckTimeout(kind);
 
     const item = isPg ? getPgById(matched.id) : getReliquieById(matched.id);
     const label = item?.name || round.payload.label || matched.name;
@@ -2562,6 +3135,403 @@ async function tickCalendarRoleSync(client?) {
   } catch (_) {}
 }
 
+/* ——— Catch-up dopo riavvio (come i minigames classici): risposte perse + scaduti ——— */
+function snowflakeAfter(messageId?, afterId?) {
+  const mid = normalizeId(messageId);
+  const aid = normalizeId(afterId);
+  if (!aid) return true;
+  if (!mid) return false;
+  try {
+    return BigInt(mid) > BigInt(aid);
+  } catch (_) {
+    return mid !== aid;
+  }
+}
+
+function messageMentionsUserId(message?, userId?) {
+  const targetId = normalizeId(userId);
+  if (!targetId || !message) return false;
+  const mentionColl = message.mentions?.users;
+  const fromApi = [...(mentionColl?.values?.() || mentionColl?.cache?.values?.() || [])].some(
+    (u?) => normalizeId(u?.id) === targetId,
+  );
+  if (fromApi) return true;
+  const content = String(message.content || "");
+  return content.includes(`<@${targetId}>`) || content.includes(`<@!${targetId}>`);
+}
+
+async function resolveSwRoundChannel(client?, channelId?) {
+  const chId = normalizeId(channelId);
+  if (!client || !chId) return null;
+  const channel = client.channels.cache.get(chId) || (await client.channels.fetch(chId).catch(() => null));
+  return channel?.messages?.fetch ? channel : null;
+}
+
+async function fetchSwCatchupMessages(channel?, { afterId = null, startedAt = null, endsAt = null, afterTs = null, limit = 100 } = {}) {
+  if (!channel?.messages?.fetch) return [];
+  const batch = await channel.messages.fetch({ limit: Math.max(20, Math.min(100, Number(limit) || 100)) }).catch(() => null);
+  if (!batch?.size) return [];
+  const startMs = startedAt ? new Date(startedAt).getTime() : NaN;
+  const endMs = endsAt ? new Date(endsAt).getTime() : NaN;
+  const afterMs = afterTs ? new Date(afterTs).getTime() : NaN;
+  return [...batch.values()]
+    .filter((m?) => {
+      if (!m || m.author?.bot || m.system || m.webhookId) return false;
+      if (!snowflakeAfter(m.id, afterId)) return false;
+      const ts = Number(m.createdTimestamp || 0);
+      if (Number.isFinite(startMs) && ts && ts < startMs - 2000) return false;
+      if (Number.isFinite(endMs) && ts && ts > endMs + 1500) return false;
+      if (Number.isFinite(afterMs) && ts && ts <= afterMs + 250) return false;
+      return true;
+    })
+    .sort(
+      (a?, b?) =>
+        Number(a.createdTimestamp || 0) - Number(b.createdTimestamp || 0) ||
+        String(a.id).localeCompare(String(b.id)),
+    );
+}
+
+async function catchUpOrdine66FromHistory(client?) {
+  const round = await getActiveRound("ordine66");
+  if (!round?.payload || round.payload.status !== "active") return false;
+  const payload = round.payload;
+  const targetId = normalizeId(payload.targetId);
+  if (!targetId) return false;
+  const channel = await resolveSwRoundChannel(client, payload.channelId);
+  if (!channel) return false;
+  const messages = await fetchSwCatchupMessages(channel, {
+    afterId: payload.hubMessageId || payload.rolePingMessageId,
+    startedAt: payload.createdAt,
+    endsAt: payload.expiresAt,
+  });
+  for (const msg of messages) {
+    if (normalizeId(msg.author?.id) === targetId) continue;
+    if (!messageMentionsUserId(msg, targetId)) continue;
+    const ok = await tryOrdine66Mention(msg, client);
+    if (ok) {
+      const fresh = await getActiveRound("ordine66");
+      if (!fresh || fresh.payload?.status !== "active") {
+        global.logger?.info?.(`[SW MG] catch-up win ordine66 from ${msg.author?.id}`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function catchUpCacciatoreFromHistory(client?) {
+  const round = await getActiveRound("cacciatore");
+  if (!round?.payload || round.payload.status !== "active") return false;
+  const payload = round.payload;
+  const targetId = normalizeId(payload.targetId);
+  if (!targetId) return false;
+  const channel = await resolveSwRoundChannel(client, payload.channelId);
+  if (!channel) return false;
+  const messages = await fetchSwCatchupMessages(channel, {
+    afterId: payload.hubMessageId || payload.rolePingMessageId,
+    startedAt: payload.createdAt,
+    endsAt: payload.expiresAt,
+  });
+  for (const msg of messages) {
+    if (!messageMentionsUserId(msg, targetId)) continue;
+    const ok = await tryCacciatoreMention(msg, client);
+    if (ok) {
+      const fresh = await getActiveRound("cacciatore");
+      if (!fresh || fresh.payload?.status !== "active") {
+        global.logger?.info?.(`[SW MG] catch-up win cacciatore from ${msg.author?.id}`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function catchUpScovaFromHistory(client?) {
+  const round = await getActiveRound("scova");
+  if (!round?.payload || round.payload.status !== "active") return false;
+  const payload = round.payload;
+  const answerId = normalizeId(payload.planetId || payload.answer).toLowerCase();
+  if (!answerId) return false;
+  const channel = await resolveSwRoundChannel(client, payload.channelId);
+  if (!channel) return false;
+  const messages = await fetchSwCatchupMessages(channel, {
+    afterId: payload.hubMessageId || payload.rolePingMessageId || payload.messageId,
+    startedAt: payload.createdAt,
+    endsAt: payload.expiresAt,
+  });
+  for (const msg of messages) {
+    const guess = findScovaPlanetByGuess(msg.content);
+    if (!guess || guess.id !== answerId) continue;
+    const ok = await tryScovaMessage(msg, client);
+    if (ok) {
+      const fresh = await getActiveRound("scova");
+      if (!fresh || fresh.payload?.status !== "active") {
+        global.logger?.info?.(`[SW MG] catch-up win scova from ${msg.author?.id}`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function catchUpDeckFromHistory(client?, kind?) {
+  const round = await getActiveRound(kind);
+  if (!round?.payload || round.payload.status !== "active") return false;
+  const payload = round.payload;
+  const itemId = normalizeId(payload.itemId).toLowerCase();
+  if (!itemId) return false;
+  const isPg = kind === "deck_pg";
+  const channel = await resolveSwRoundChannel(client, payload.channelId);
+  if (!channel) return false;
+  const messages = await fetchSwCatchupMessages(channel, {
+    afterId: payload.messageId || payload.hubMessageId,
+    startedAt: payload.createdAt,
+    endsAt: payload.expiresAt,
+  });
+  for (const msg of messages) {
+    const matched = isPg ? findPgByGuess(msg.content) : findReliquieByGuess(msg.content);
+    if (!matched || matched.id !== itemId) continue;
+    const ok = await tryDeckMessage(msg, client);
+    if (ok) {
+      const fresh = await getActiveRound(kind);
+      if (!fresh || fresh.payload?.status !== "active") {
+        global.logger?.info?.(`[SW MG] catch-up win ${kind} from ${msg.author?.id}`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function catchUpAttaccaFromHistory(client?) {
+  const round = await getActiveRound("attacca_base");
+  if (!round?.payload || round.payload.status !== "active") return false;
+  const payload = round.payload;
+  const channel = await resolveSwRoundChannel(client, payload.channelId);
+  if (!channel) return false;
+  const messages = await fetchSwCatchupMessages(channel, {
+    afterId: payload.boardMessageId || payload.messageId,
+    startedAt: payload.createdAt,
+    endsAt: payload.expiresAt,
+    afterTs: payload.lastHitAt || null,
+  });
+  let applied = 0;
+  for (const msg of messages) {
+    const text = String(msg.content || "").trim();
+    if (text.length < ATTACCA_MIN_CHARS) continue;
+    const before = await getActiveRound("attacca_base");
+    if (!before?.payload || before.payload.status !== "active") {
+      global.logger?.info?.(`[SW MG] catch-up attacca completed after ${applied} hits`);
+      return true;
+    }
+    const ok = await tryAttaccaBaseMessage(msg, client);
+    if (ok) applied += 1;
+    const after = await getActiveRound("attacca_base");
+    if (!after || after.payload?.status !== "active") {
+      global.logger?.info?.(`[SW MG] catch-up win attacca_base from ${msg.author?.id}`);
+      return true;
+    }
+  }
+  if (applied) global.logger?.info?.(`[SW MG] catch-up attacca applied ${applied} hits`);
+  return false;
+}
+
+async function listReactionClaimUsers(message?, emoji?, client?) {
+  if (!message?.reactions?.cache || !emoji) return [];
+  const reaction =
+    [...(message.reactions.cache.values() || [])].find((row?) => emojiNameMatches(row, emoji)) || null;
+  if (!reaction) return [];
+  const users = await reaction.users.fetch().catch(() => null);
+  if (!users?.size) return [];
+  const botId = normalizeId(client?.user?.id);
+  return [...users.values()]
+    .filter((u?) => u && !u.bot && normalizeId(u.id) !== botId)
+    .sort((a?, b?) => String(a.id).localeCompare(String(b.id)))
+    .map((user?) => ({ user, reaction }));
+}
+
+async function catchUpPodraceFromHistory(client?) {
+  const kind = "podrace";
+  const round = await getActiveRound(kind);
+  if (!round?.payload || round.payload.status !== "active") return false;
+  const payload = round.payload;
+  const meta = REACT_GAMES[kind];
+  const messageId = normalizeId(payload.messageId);
+  if (!meta || !messageId) return false;
+  const channel = await resolveSwRoundChannel(client, payload.channelId);
+  if (!channel) return false;
+  const msg = await channel.messages.fetch(messageId).catch(() => null);
+  if (!msg) return false;
+  const candidates = await listReactionClaimUsers(msg, meta.emoji, client);
+  for (const { user, reaction } of candidates) {
+    const fakeReaction = { ...reaction, message: msg, emoji: reaction.emoji, users: reaction.users };
+    const ok = await handleStarWarsReaction(client, fakeReaction, user);
+    if (ok) {
+      const fresh = await getActiveRound(kind);
+      if (!fresh || fresh.payload?.status !== "active") {
+        global.logger?.info?.(`[SW MG] catch-up win podrace from ${user.id}`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function catchUpHuntFromReactions(client?, kind?) {
+  const meta = HUNT_GAMES[kind];
+  const round = await getActiveRound(kind);
+  if (!meta || !round?.payload || round.payload.status !== "active") return false;
+  const channel = await resolveSwRoundChannel(client, round.payload.targetChannelId || round.payload.channelId);
+  const messageId = normalizeId(round.payload.messageId);
+  if (!channel || !messageId) return false;
+  const msg = await channel.messages.fetch(messageId).catch(() => null);
+  if (!msg) return false;
+  const candidates = await listReactionClaimUsers(msg, meta.emoji, client);
+  for (const { user, reaction } of candidates) {
+    const fakeReaction = { ...reaction, message: msg, emoji: reaction.emoji, users: reaction.users };
+    const ok = await tryButtonGameClaimFromReaction(client, fakeReaction, user);
+    if (ok) {
+      const fresh = await getActiveRound(kind);
+      if (!fresh || fresh.payload?.status !== "active") {
+        global.logger?.info?.(`[SW MG] catch-up win ${kind} reaction from ${user.id}`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function catchUpConquistaFromReactions(client?) {
+  const round = await getActiveRound("conquista");
+  if (!round?.payload || round.payload.status !== "active") return false;
+  const systems = round.payload.systems && typeof round.payload.systems === "object" ? round.payload.systems : {};
+  let claimedAny = false;
+  for (const [systemKey, system] of Object.entries(systems)) {
+    if (normalizeId(system?.claimedBy)) continue;
+    const channel = await resolveSwRoundChannel(client, system?.channelId);
+    const messageId = normalizeId(system?.messageId);
+    if (!channel || !messageId) continue;
+    const msg = await channel.messages.fetch(messageId).catch(() => null);
+    if (!msg) continue;
+    const candidates = await listReactionClaimUsers(msg, CONQUISTA_CLAIM_REACT, client);
+    for (const { user, reaction } of candidates) {
+      const fakeReaction = { ...reaction, message: msg, emoji: reaction.emoji, users: reaction.users };
+      const ok = await tryButtonGameClaimFromReaction(client, fakeReaction, user);
+      if (!ok) continue;
+      claimedAny = true;
+      break;
+    }
+    /* un sistema alla volta: ricarica stato prima del prossimo */
+    const fresh = await getActiveRound("conquista");
+    if (!fresh?.payload || fresh.payload.status !== "active") {
+      global.logger?.info?.(`[SW MG] catch-up conquista settled via reactions`);
+      return true;
+    }
+  }
+  if (claimedAny) global.logger?.info?.(`[SW MG] catch-up conquista applied reaction claims`);
+  /* conquista resta active finché non finiscono i sistemi / timeout */
+  return false;
+}
+
+async function catchUpConvoglioFromReactions(client?) {
+  const round = await getActiveRound("convoglio");
+  if (!round?.payload || round.payload.status !== "active") return false;
+  const channel = await resolveSwRoundChannel(client, round.payload.channelId);
+  const messageId = normalizeId(round.payload.messageId);
+  if (!channel || !messageId) return false;
+  const msg = await channel.messages.fetch(messageId).catch(() => null);
+  if (!msg) return false;
+
+  const continueUsers = await listReactionClaimUsers(msg, CONVOGLIO_CONTINUE_REACT, client);
+  const interceptUsers = await listReactionClaimUsers(msg, CONVOGLIO_INTERCEPT_REACT, client);
+  const merged = [
+    ...interceptUsers.map((x?) => ({ ...x, emoji: CONVOGLIO_INTERCEPT_REACT })),
+    ...continueUsers.map((x?) => ({ ...x, emoji: CONVOGLIO_CONTINUE_REACT })),
+  ].sort((a?, b?) => String(a.user.id).localeCompare(String(b.user.id)));
+
+  for (const { user, reaction, emoji } of merged) {
+    const fakeReaction = {
+      ...reaction,
+      message: msg,
+      emoji: { name: emoji },
+      users: reaction.users,
+    };
+    const before = await getActiveRound("convoglio");
+    if (!before?.payload || before.payload.status !== "active") return true;
+    const ok = await tryButtonGameClaimFromReaction(client, fakeReaction, user);
+    if (!ok) continue;
+    const after = await getActiveRound("convoglio");
+    if (!after || after.payload?.status !== "active") {
+      global.logger?.info?.(`[SW MG] catch-up convoglio settled from ${user.id}`);
+      return true;
+    }
+    /* hop avanzato: messaggio cambiato, stop questo pass */
+    if (normalizeId(after.payload?.messageId) !== messageId) {
+      global.logger?.info?.(`[SW MG] catch-up convoglio hop advanced from ${user.id}`);
+      return false;
+    }
+  }
+  return false;
+}
+
+async function catchUpSpecialRoundFromHistory(client?, kind?) {
+  const k = String(kind || "");
+  try {
+    if (k === "ordine66") return await catchUpOrdine66FromHistory(client);
+    if (k === "cacciatore") return await catchUpCacciatoreFromHistory(client);
+    if (k === "scova") return await catchUpScovaFromHistory(client);
+    if (k === "attacca_base") return await catchUpAttaccaFromHistory(client);
+    if (k === "deck_pg" || k === "deck_relic") return await catchUpDeckFromHistory(client, k);
+    if (k === "podrace") return await catchUpPodraceFromHistory(client);
+    if (k === "ewok" || k === "olocron") return await catchUpHuntFromReactions(client, k);
+    if (k === "conquista") return await catchUpConquistaFromReactions(client);
+    if (k === "convoglio") return await catchUpConvoglioFromReactions(client);
+  } catch (err) {
+    global.logger?.warn?.(`[SW MG] catch-up ${k}:`, err?.message || err);
+  }
+  return false;
+}
+
+async function restoreActiveStarWarsTimeouts(client?) {
+  if (!client) return;
+  const jobs = [
+    { kind: "conquista", schedule: scheduleConquistaTimeout, finalize: finalizeConquistaTimeout },
+    { kind: "convoglio", schedule: scheduleConvoglioTimeout, finalize: finalizeConvoglioTimeout },
+    { kind: "ordine66", schedule: scheduleOrdine66Timeout, finalize: finalizeOrdine66Timeout },
+    { kind: "cacciatore", schedule: scheduleCacciatoreTimeout, finalize: finalizeCacciatoreTimeout },
+    { kind: "scova", schedule: scheduleScovaTimeout, finalize: finalizeScovaTimeout },
+    { kind: "attacca_base", schedule: scheduleAttaccaTimeout, finalize: finalizeAttaccaTimeout },
+    { kind: "ewok", schedule: (c?, ms?) => scheduleHuntTimeout(c, "ewok", ms), finalize: (c?) => finalizeHuntTimeout(c, "ewok") },
+    { kind: "olocron", schedule: (c?, ms?) => scheduleHuntTimeout(c, "olocron", ms), finalize: (c?) => finalizeHuntTimeout(c, "olocron") },
+    { kind: "podrace", schedule: (c?, ms?) => scheduleReactTimeout(c, "podrace", ms), finalize: (c?) => finalizeReactTimeout(c, "podrace") },
+    { kind: "deck_pg", schedule: (c?, ms?) => scheduleDeckTimeout(c, "deck_pg", ms), finalize: (c?) => finalizeDeckTimeout(c, "deck_pg") },
+    { kind: "deck_relic", schedule: (c?, ms?) => scheduleDeckTimeout(c, "deck_relic", ms), finalize: (c?) => finalizeDeckTimeout(c, "deck_relic") },
+  ];
+  for (const job of jobs) {
+    try {
+      const round = await getActiveRound(job.kind);
+      if (!round?.payload || round.payload.status !== "active") continue;
+      const caught = await catchUpSpecialRoundFromHistory(client, job.kind);
+      if (caught) {
+        global.logger?.info?.(`[SW MG] restore catch-up settled kind=${job.kind}`);
+        continue;
+      }
+      const still = await getActiveRound(job.kind);
+      if (!still?.payload || still.payload.status !== "active") continue;
+      const left = msUntilExpiresAt(still.payload.expiresAt, SW_EXTRA_DURATION_MS);
+      if (left <= 0) {
+        global.logger?.info?.(`[SW MG] restore timeout immediate finalize kind=${job.kind}`);
+        await job.finalize(client);
+      } else {
+        global.logger?.info?.(`[SW MG] restore timeout kind=${job.kind} in ${Math.round(left / 1000)}s`);
+        job.schedule(client, left);
+      }
+    } catch (err) {
+      global.logger?.warn?.(`[SW MG] restore timeout ${job.kind}:`, err?.message || err);
+    }
+  }
+}
+
 function startStarWarsMinigamesLoop(client?) {
   if (!client || loopState.has(client)) return;
   loopState.add(client);
@@ -2574,6 +3544,11 @@ function startStarWarsMinigamesLoop(client?) {
       const { syncStarWarsCalendarRoleNames } = require("./starWarsCalendarRoleSync") as typeof import("./starWarsCalendarRoleSync");
       await syncStarWarsCalendarRoleNames(client);
     } catch (_) {}
+    try {
+      await restoreActiveStarWarsTimeouts(client);
+    } catch (err) {
+      global.logger?.warn?.("[SW MG] restore timeouts:", err?.message || err);
+    }
   })();
   const schedule = () => {
     const t = setTimeout(async () => {

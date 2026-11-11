@@ -129,6 +129,13 @@ async function sendLevelMilestoneSupportersAnnouncement(guild?, member?, level?,
   if (!roleId) return;
   const allow = await shouldSendPublicMemberAnnouncement(member).catch(() => false);
   if (!allow) return;
+  try {
+    const A = require("../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../MultiGuild/services/announcementsRuntime");
+    if (await A.roleRuleHandles(guild.id, roleId)) return;
+    if (await A.trySendConfiguredRoleAnnounce(guild.client, member, roleId, { fallbackChannelId: SUPPORTERS_CHANNEL_ID })) {
+      return;
+    }
+  } catch (_) {}
   const channel =
     guild.channels.cache.get(SUPPORTERS_CHANNEL_ID) || (await getGuildChannelCached(guild, SUPPORTERS_CHANNEL_ID));
   if (!channel?.isTextBased?.()) return;

@@ -38,8 +38,8 @@ export default function EventoHubPage() {
       pageId="hub"
       path={meta.path}
       title="Centro"
-      accent="di comando"
-      text="Allacciati al ponte olografico: profilo pilota, inventario personale, collezioni e finestra sul calendario stagione."
+      accent="di controllo"
+      text="Il ponte della tua nave ammiraglia dove controllare il tuo profilo, inventario, collezioni e il calendario degli eventi."
       icon={<Radio />}
     >
       <EventoSortGate mode="hub">

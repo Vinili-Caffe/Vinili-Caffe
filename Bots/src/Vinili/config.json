@@ -217,7 +217,7 @@
     "enabled": true,
     "translateApiToItalian": true,
     "spawnFreshActivity": {
-      "enabled": false,
+      "enabled": true,
       "windowMs": 300000,
       "minMessages": 5
     },
@@ -226,7 +226,7 @@
     "activityWindowMs": 1800000,
     "minMessages": 25,
     "activityThreshold": {
-      "enabled": false,
+      "enabled": true,
       "hardMin": 15,
       "hardMax": 100,
       "memberReference": 200,

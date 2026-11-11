@@ -25,8 +25,8 @@ export default function EventoAccademiaPage() {
       pageId="accademia"
       path={meta.path}
       title="Accademia"
-      accent="Jedi"
-      text="Prove a tempo sul campo: mira, reazione e ricompense in casse. Un addestramento ogni quattro ore."
+      accent="militare"
+      text="Prova a tempo per allenare mira e reazione in campo. Puoi fare un addestramento ogni 4 ore."
       icon={<Crosshair />}
     >
       <EventoSortGate mode="redirect">

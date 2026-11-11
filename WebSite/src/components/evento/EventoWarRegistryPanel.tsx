@@ -76,7 +76,7 @@ export function EventoWarRegistryPanel({ enabled }: { enabled?: boolean }) {
           <div className="h-28 animate-pulse rounded-2xl bg-crema/8" />
         ) : !wars.length ? (
           <p className="rounded-2xl bg-black/40 px-4 py-8 text-center text-sm text-crema/55 ring-1 ring-cyan-300/15">
-            Nessuna guerra registrata ancora. Gli scontri orari appariranno qui a risoluzione.
+            Nessuna guerra avviata. Gli attacchi o le difese appariranno qui una volta avviate.
           </p>
         ) : (
           <ul className="space-y-2">

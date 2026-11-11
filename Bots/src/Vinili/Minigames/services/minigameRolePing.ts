@@ -74,19 +74,21 @@ function buildMinigameRolePingContent(cfg?, extraRoleId?) {
 async function sendMinigameRolePing(channel?, cfg?, extraRoleId?) {
   const content = buildMinigameRolePingContent(cfg, extraRoleId);
   const chId = String(channel?.id || "").trim();
-  if (!content || !chId || typeof channel?.send !== "function") return;
-      if (rolePingSentThisStart.has(chId)) return;
+  if (!content || !chId || typeof channel?.send !== "function") return null;
+  if (rolePingSentThisStart.has(chId)) return null;
   if (await hasRecentPersistedRolePing(chId)) {
     rolePingSentThisStart.add(chId);
-    return;
+    return null;
   }
   rolePingSentThisStart.add(chId);
   try {
-    await channel.send({ content });
+    const msg = await channel.send({ content });
     const guildId = String(cfg?.guildId || channel?.guild?.id || "").trim();
     await persistRolePingSent(chId, guildId);
+    return msg || null;
   } catch (_) {
     rolePingSentThisStart.delete(chId);
+    return null;
   }
 }
 

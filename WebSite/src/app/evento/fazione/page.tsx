@@ -24,9 +24,8 @@ export default function EventoFazionePage() {
     <EventoPage
       pageId="fazione"
       path={meta.path}
-      title="Ponte"
-      accent="di fazione"
-      text="Caveau, hangar e catena di comando della tua flotta. Solo chi ha superato lo smistamento entra sul ponte."
+      title="Sala"
+      accent="di guerra"
       icon={<Shield />}
     >
       <EventoSortGate mode="redirect">

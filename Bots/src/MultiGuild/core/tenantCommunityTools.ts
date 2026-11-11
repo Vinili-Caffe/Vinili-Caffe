@@ -59,7 +59,16 @@ type V2Block =
   | { type: "section"; content: string; accessory: "thumbnail" | "button"; thumbnailUrl: string; button: { label: string; url: string; emoji: string } }
   | { type: "buttons"; buttons: { label: string; url: string; emoji: string }[] };
 type MsgV2 = { enabled: boolean; container: boolean; accentColor: string; blocks: V2Block[] };
-type MsgDraft = { content: string; embed: MsgEmbed; buttons: MsgButton[]; v2: MsgV2 };
+type MsgDraft = {
+  content: string;
+  embed: MsgEmbed;
+  buttons: MsgButton[];
+  v2: MsgV2;
+  /** se true, le menzioni utente nel testo (e mentionUserId) pingano */
+  mentionUsers: boolean;
+  /** se true, le menzioni ruolo <@&…> nel testo pingano */
+  mentionRoles: boolean;
+};
 
 const str = (v: unknown, max: number) => String(v ?? "").slice(0, max);
 const isId = (v: unknown) => /^\d{16,22}$/.test(String(v || ""));
@@ -133,6 +142,10 @@ function normalizeDraft(raw?): MsgDraft {
     },
     buttons,
     v2: { enabled: v.enabled === true, container: v.container !== false, accentColor: hex(v.accentColor, ""), blocks },
+    /* default: ruoli sì; utenti sì solo se già salvato o bozza legacy con {user} (benvenuto/annunci) */
+    mentionUsers:
+      typeof r.mentionUsers === "boolean" ? r.mentionUsers === true : /\{user\}/.test(String(r.content || "")),
+    mentionRoles: r.mentionRoles !== false,
   };
 }
 
@@ -171,6 +184,24 @@ function linkButtonComponent(b: { label: string; url: string; emoji: string }, v
   return c;
 }
 
+/** allowed_mentions da draft: parse vuoto; utenti/ruoli solo se i toggle sono accesi. */
+function buildAllowedMentions(draft: MsgDraft, text: string, opts: { mentionUserId?: string | null } = {}) {
+  const users: string[] = [];
+  const roles: string[] = [];
+  if (draft.mentionUsers) {
+    if (opts.mentionUserId && isId(opts.mentionUserId)) users.push(String(opts.mentionUserId));
+    for (const m of String(text || "").matchAll(/<@!?(\d{16,22})>/g)) users.push(m[1]);
+  }
+  if (draft.mentionRoles) {
+    for (const m of String(text || "").matchAll(/<@&(\d{16,22})>/g)) roles.push(m[1]);
+  }
+  return {
+    parse: [] as string[],
+    ...(users.length ? { users: [...new Set(users)].slice(0, 20) } : {}),
+    ...(roles.length ? { roles: [...new Set(roles)].slice(0, 20) } : {}),
+  };
+}
+
 /** Components V2: blocchi (testo, sezioni, immagini, separatori, pulsanti), dentro un contenitore se richiesto. */
 function buildV2Body(draft: MsgDraft, vars: FillVars, extraRows: any[], opts: { mentionUserId?: string | null }) {
   const out: any[] = [];
@@ -201,12 +232,14 @@ function buildV2Body(draft: MsgDraft, vars: FillVars, extraRows: any[], opts: { 
   if (!out.length) out.push({ type: 10, content: "​" });
   const accent = draft.v2.accentColor ? parseInt(draft.v2.accentColor.slice(1), 16) : null;
   const components = draft.v2.container ? [{ type: 17, ...(accent != null ? { accent_color: accent } : {}), components: out }, ...extraRows] : [...out, ...extraRows];
-  const text = draft.v2.blocks.map((b) => (b.type === "text" || b.type === "section" ? b.content : "")).join("\n");
-  const roleIds = [...new Set([...fill(text, vars).matchAll(/<@&(\d{16,22})>/g)].map((m) => m[1]))].slice(0, 20);
+  const text = fill(
+    draft.v2.blocks.map((b) => (b.type === "text" || b.type === "section" ? b.content : "")).join("\n"),
+    vars,
+  );
   return {
     flags: 1 << 15,
     components,
-    allowed_mentions: { parse: [], ...(opts.mentionUserId ? { users: [opts.mentionUserId] } : {}), ...(roleIds.length ? { roles: roleIds } : {}) },
+    allowed_mentions: buildAllowedMentions(draft, text, opts),
   };
 }
 
@@ -261,9 +294,7 @@ function buildMessageBody(draft: MsgDraft, vars: FillVars = {}, extraRows: any[]
   }
   rows.push(...extraRows);
   body.components = rows.slice(0, 5);
-  /* menziona davvero solo l'utente indicato e i ruoli scritti a mano nel testo (es. ping Staff) */
-  const roleIds = [...new Set([...String(body.content || "").matchAll(/<@&(\d{16,22})>/g)].map((m) => m[1]))].slice(0, 20);
-  body.allowed_mentions = { parse: [], ...(opts.mentionUserId ? { users: [opts.mentionUserId] } : {}), ...(roleIds.length ? { roles: roleIds } : {}) };
+  body.allowed_mentions = buildAllowedMentions(draft, String(body.content || ""), opts);
   if (!body.content && !body.embeds) body.content = "​";
   return body;
 }
@@ -727,6 +758,7 @@ const DEFAULT_WELCOME: WelcomeSettings = {
     channelId: null,
     draft: normalizeDraft({
       content: "{user}",
+      mentionUsers: true,
       embed: { enabled: true, title: "Benvenuto in {server}!", description: "Ciao {user}, sei il membro numero **{membercount}**. Buona permanenza!", color: "#d49150" },
     }),
   },

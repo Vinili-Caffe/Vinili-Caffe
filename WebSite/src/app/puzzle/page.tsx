@@ -14,8 +14,9 @@ const PuzzleBoard = dynamic(() => import("@/components/puzzle/PuzzleBoard").then
 export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/puzzle/",
-    title: "Puzzle",
-    description: "Puzzle galassia riservato all'High Staff - pezzi da ricomporre.",
+    title: "Puzzle galattico",
+    description:
+      "Ricomponi le rappresentazioni artistiche galattiche in 6 difficoltà differenti. Meno tempo ci impieghi, maggiore sarà il premio.",
   }),
   robots: { index: false },
 };
@@ -26,8 +27,8 @@ export default function PuzzlePage() {
       <EventoBootScroll />
       <DiscordComponentEmbed
         path={"/puzzle/"}
-        title="Puzzle"
-        description="Puzzle galassia riservato all'High Staff - pezzi da ricomporre."
+        title="Puzzle galattico"
+        description="Ricomponi le rappresentazioni artistiche galattiche in 6 difficoltà differenti. Meno tempo ci impieghi, maggiore sarà il premio."
       />
       <EventoSortGate mode="redirect">
         <PuzzleBoard />

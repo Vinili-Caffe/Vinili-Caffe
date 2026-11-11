@@ -5,6 +5,7 @@ const { addExpWithLevel, shouldIgnoreExpForMember, isLevelExpGuild } = require("
 const { isExcludedActivityChannel } = require("./activityService") as typeof import("./activityService");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
+const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const {
   matchesWelcomeGreetingForExp,
   resolveWelcomeGreetingSessionId,
@@ -17,6 +18,8 @@ const {
 const { scheduleMessageDeletion } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
 const TIME_ZONE = "Europe/Rome";
 const FIRST_MESSAGE_DAILY_EXP = 150;
+/** Solo #chat: niente sniping da chat vocali / altri canali a mezzanotte. */
+const FIRST_MESSAGE_CHAT_CHANNEL_ID = String(IDs.channels?.chat || "").trim();
 const WELCOME_GREETING_EXP = 30;
 const WELCOME_GREETING_EXP_NOTICE_TTL_MS = 12 * 1000;
 const WELCOME_GREETING_AWARD_RETRY_DELAYS_MS = [0, 800, 2000, 4000, 6000];
@@ -52,7 +55,7 @@ function buildExpBonusChatContent(message?, amount?, variant?) {
   const expLine = `${EXP_EMOJI} **${Math.max(0, Math.floor(Number(amount) || 0))} exp** guadagnati!`;
   if (variant === "first_message_server_daily") {
     return [
-      `${E.VC_ThankYou} **Sei stato/a il primo a scrivere oggi nel server!**`,
+      `${E.VC_ThankYou} **Sei stato/a il primo a scrivere oggi in chat!**`,
       expLine,
       mention,
     ].filter(Boolean).join("\n");
@@ -426,15 +429,24 @@ async function tryAwardWelcomeGreetingFromMessageBonus(message?) {
   }
 }
 
+function isFirstMessageDailyChatChannel(message?) {
+  const channelId = String(message?.channelId || message?.channel?.id || "").trim();
+  if (!FIRST_MESSAGE_CHAT_CHANNEL_ID || !channelId) return false;
+  return channelId === FIRST_MESSAGE_CHAT_CHANNEL_ID;
+}
+
 async function handleMessageCommunityExpBonuses(message?) {
   if (!canEarnCommunityMessageExp(message)) return;
-  const dateKey = getRomeDateKey(new Date());
-  if (await tryClaimServerFirstMessageOfDayExp(message.guild.id, message.author.id, dateKey)) {
-    const awarded = await awardCommunityExp(message, FIRST_MESSAGE_DAILY_EXP, "first_message_server_daily");
-    if (!awarded) {
-      await releaseServerFirstMessageOfDayClaim(message.guild.id, dateKey);
-    } else {
-      await sendExpBonusChatNotice(message, FIRST_MESSAGE_DAILY_EXP, "first_message_server_daily");
+  /* Primo messaggio del giorno (00:00 Rome): solo #chat, non vocali/altri canali. */
+  if (isFirstMessageDailyChatChannel(message)) {
+    const dateKey = getRomeDateKey(new Date());
+    if (await tryClaimServerFirstMessageOfDayExp(message.guild.id, message.author.id, dateKey)) {
+      const awarded = await awardCommunityExp(message, FIRST_MESSAGE_DAILY_EXP, "first_message_server_daily");
+      if (!awarded) {
+        await releaseServerFirstMessageOfDayClaim(message.guild.id, dateKey);
+      } else {
+        await sendExpBonusChatNotice(message, FIRST_MESSAGE_DAILY_EXP, "first_message_server_daily");
+      }
     }
   }
   await tryAwardWelcomeGreetingFromMessageBonus(message);

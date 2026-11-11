@@ -9,13 +9,13 @@ const { Routes } = require("discord.js") as typeof import("discord.js");
 const T = require("../core/tenantCommunityTools") as typeof import("../core/tenantCommunityTools");
 
 const restOf = (client?) => client?.rest || client?._rest || null;
-const ROLE_RULES_MAX = 20;
-const SEED_VERSION = 1;
+const ROLE_RULES_MAX = 40;
+const SEED_VERSION = 3;
 
 /* ───────────── impostazioni ───────────── */
 
 function emptyDraft() {
-  return T.normalizeDraft({ content: "", embed: { enabled: true, title: "", description: "", color: "#f47fff" }, buttons: [] });
+  return T.normalizeDraft({ content: "", mentionUsers: false, mentionRoles: true, embed: { enabled: true, title: "", description: "", color: "#f47fff" }, buttons: [] });
 }
 
 function normalizeRoleRule(raw?, i = 0) {
@@ -42,9 +42,23 @@ function normalizeConfig(raw?) {
     boost: {
       enabled: b.enabled === true,
       channelId: T.isId(b.channelId) ? String(b.channelId) : null,
-      firstDraft: b.firstDraft ? T.normalizeDraft(b.firstDraft) : T.normalizeDraft({ content: "{user}", embed: { enabled: true, title: "Grazie per il boost! 💜", description: "{user} ha boostato **{server}**! Ora siamo a **{boosts}** boost.", color: "#f47fff" }, buttons: [] }),
+      firstDraft: b.firstDraft
+        ? T.normalizeDraft(b.firstDraft)
+        : T.normalizeDraft({
+            content: "{user}",
+            mentionUsers: true,
+            embed: { enabled: true, title: "Grazie per il boost! 💜", description: "{user} ha boostato **{server}**! Ora siamo a **{boosts}** boost.", color: "#f47fff" },
+            buttons: [],
+          }),
       /* dal secondo boost della stessa persona */
-      repeatDraft: b.repeatDraft ? T.normalizeDraft(b.repeatDraft) : T.normalizeDraft({ content: "{user}", embed: { enabled: true, title: "Un altro boost! 💜", description: "{user} ha boostato di nuovo **{server}**! Ora siamo a **{boosts}** boost.", color: "#f47fff" }, buttons: [] }),
+      repeatDraft: b.repeatDraft
+        ? T.normalizeDraft(b.repeatDraft)
+        : T.normalizeDraft({
+            content: "{user}",
+            mentionUsers: true,
+            embed: { enabled: true, title: "Un altro boost! 💜", description: "{user} ha boostato di nuovo **{server}**! Ora siamo a **{boosts}** boost.", color: "#f47fff" },
+            buttons: [],
+          }),
     },
     roles: {
       enabled: rl.enabled !== false,
@@ -80,10 +94,35 @@ async function getState(guildId: string) {
 
 /* ───────────── invio ───────────── */
 
-async function postDraft(client?, channelId?: string | null, draft?, vars: Record<string, string> = {}, mentionUserId: string | null = null) {
+function genderDraftForMember(draft?, member?) {
+  if (!draft || !member) return draft;
+  try {
+    const { applyPronounGenderToTextForMember } = require("../../Vinili/Community/utils/pronounGenderUtils") as typeof import("../../Vinili/Community/utils/pronounGenderUtils");
+    const next = JSON.parse(JSON.stringify(draft));
+    if (typeof next.content === "string") next.content = applyPronounGenderToTextForMember(next.content, member);
+    if (next.embed && typeof next.embed === "object") {
+      for (const key of ["title", "description", "footerText", "authorName"]) {
+        if (typeof next.embed[key] === "string") next.embed[key] = applyPronounGenderToTextForMember(next.embed[key], member);
+      }
+      if (Array.isArray(next.embed.fields)) {
+        next.embed.fields = next.embed.fields.map((f?) => ({
+          ...f,
+          name: typeof f?.name === "string" ? applyPronounGenderToTextForMember(f.name, member) : f?.name,
+          value: typeof f?.value === "string" ? applyPronounGenderToTextForMember(f.value, member) : f?.value,
+        }));
+      }
+    }
+    return next;
+  } catch (_) {
+    return draft;
+  }
+}
+
+async function postDraft(client?, channelId?: string | null, draft?, vars: Record<string, string> = {}, mentionUserId: string | null = null, memberForGender = null) {
   const rest = restOf(client);
   if (!rest || !channelId || !draft || T.draftIsEmpty(draft)) return null;
-  const body: any = T.buildMessageBody(draft, vars, [], { mentionUserId });
+  const gendered = genderDraftForMember(draft, memberForGender);
+  const body: any = T.buildMessageBody(gendered, vars, [], { mentionUserId });
   return rest.post(Routes.channelMessages(channelId), { body }).catch((err?) => {
     global.logger?.warn?.("[ANNUNCI] invio non riuscito:", channelId, err?.rawError?.message || err?.message || err);
     return null;
@@ -169,7 +208,7 @@ async function handleRoleAdded(oldMember?, newMember?) {
     if (rule.cooldownHours > 0 && now - Number(st.roleAnnounced[key] || 0) < rule.cooldownHours * 3_600_000) continue;
     const role = guild.roles.cache.get(roleId);
     const vars = T.memberVars(guild, newMember.user, { role: `<@&${roleId}>`, "role.name": String(role?.name || "") });
-    const sent = await postDraft(newMember.client, rule.channelId, rule.draft, vars, newMember.id);
+    const sent = await postDraft(newMember.client, rule.channelId, rule.draft, vars, newMember.id, newMember);
     if (sent) {
       st.roleAnnounced[key] = now;
       changed = true;
@@ -190,6 +229,49 @@ async function roleRuleHandles(guildId?, roleId?) {
   return cfg.roles.rules.some((r) => r.enabled && r.channelId && r.roleIds.includes(String(roleId)));
 }
 
+/**
+ * Annuncio classico MAIN: se in dashboard c'è il draft per quel ruolo, usalo
+ * (anche con regola spenta), così preview e live coincidono senza doppio post.
+ * Se la regola è accesa, non inviare qui: ci pensa handleRoleAdded.
+ */
+async function trySendConfiguredRoleAnnounce(client?, member?, roleId?, opts: { fallbackChannelId?: string | null } = {}) {
+  const guild = member?.guild;
+  const gid = String(guild?.id || "");
+  const rid = String(roleId || "");
+  const uid = String(member?.id || "");
+  if (!client || !guild || !gid || !rid || !uid) return false;
+  try {
+    const raw = await T.getGuildBlob("announcements", gid, true);
+    if (!raw || typeof raw !== "object") return false;
+    const cfg = normalizeConfig(raw);
+    if (!cfg.userSaved && !(T.isMainGuild(gid) && Number(cfg.seedVersion) >= 1)) return false;
+    if (cfg.roles.enabled === false) return false;
+    const rule = cfg.roles.rules.find((r) => r.roleIds.includes(rid) && r.channelId && !T.draftIsEmpty(r.draft));
+    if (!rule) return false;
+    /* regola accesa → handleRoleAdded (evita doppio annuncio) */
+    if (rule.enabled) return false;
+    const channelId = rule.channelId || (T.isId(opts.fallbackChannelId) ? String(opts.fallbackChannelId) : null);
+    if (!channelId) return false;
+    const st = await getState(gid);
+    const key = `${rule.id}:${uid}`;
+    const now = Date.now();
+    if (rule.cooldownHours > 0 && now - Number(st.roleAnnounced[key] || 0) < rule.cooldownHours * 3_600_000) {
+      return true; /* già annunciato di recente: non fallback hardcoded */
+    }
+    const role = guild.roles.cache.get(rid);
+    const vars = T.memberVars(guild, member.user || member, { role: `<@&${rid}>`, "role.name": String(role?.name || "") });
+    const sent = await postDraft(client, channelId, rule.draft, vars, uid, member);
+    if (sent) {
+      st.roleAnnounced[key] = now;
+      await T.setGuildBlob("announcementsState", gid, st);
+      return true;
+    }
+  } catch (err) {
+    global.logger?.warn?.("[ANNUNCI] classic role draft:", (err as any)?.message || err);
+  }
+  return false;
+}
+
 /* ───────────── import dal server principale ───────────── */
 
 function mainSeedConfig() {
@@ -199,6 +281,11 @@ function mainSeedConfig() {
   let perkLine = "";
   try {
     perkLine = String((require("../../Vinili/Community/utils/mentionResponseAccessUtils") as any).MENTION_RESPONSE_PERK_LINE_DISCORD || "");
+  } catch (_) {}
+  let verifiedImage = "";
+  try {
+    const { botPhotoCdnUrl } = require("../../shared/discord/botPhotosCdn") as any;
+    verifiedImage = String(botPhotoCdnUrl("verificaselfie.png") || "");
   } catch (_) {}
   const supporters = String(IDs?.channels?.supporters || "") || null;
   const staffPing = "1442568910070349985";
@@ -245,50 +332,259 @@ function mainSeedConfig() {
     `${e("reddiamond")} Bypass requisiti dei giveaway`,
     `${e("exp")} X3 EXP Boost`,
   ]);
-  const guildedRole = String(IDs?.roles?.Guilded || "");
-  const rules = guildedRole
-    ? [
-        {
-          name: "Nuovx Guilded",
+
+  const nuovxDraft = (title: string, lines: string[], imageUrl = "") => ({
+    content: "{user}",
+    mentionUsers: true,
+    mentionRoles: true,
+    embed: {
+      enabled: true,
+      title,
+      description: ["{user}, `hai sbloccato:`", ...lines].join("\n"),
+      color: "#6f4e37",
+      authorName: "{username}",
+      authorIconUrl: "{avatar}",
+      thumbnailUrl: "{avatar}",
+      footerText: "Grazie per il tuo supporto!",
+      ...(imageUrl ? { imageUrl } : {}),
+    },
+    buttons: [],
+  });
+  const nuovxRule = (name: string, roleId: string, title: string, lines: string[], imageUrl = "") =>
+    roleId
+      ? {
+          name,
           enabled: false,
-          roleIds: [guildedRole],
+          roleIds: [roleId],
+          channelId: supporters,
+          cooldownHours: 24,
+          draft: nuovxDraft(title, lines, imageUrl),
+        }
+      : null;
+
+  const guildedRole = String(IDs?.roles?.Guilded || "");
+  const followerRole = String(IDs?.roles?.Follower || "");
+  const supporterRole = String(IDs?.roles?.SocialSupporter || "");
+  const fanRole = String(IDs?.roles?.Fan || "");
+  const patronRole = String(IDs?.roles?.Patron || "");
+  const verificato = String(IDs?.roles?.Verificato || "");
+  const verificata = String(IDs?.roles?.Verificata || "");
+  const verifiedNeo = String(IDs?.roles?.VerifiedNeo || "");
+  const donator = String(IDs?.roles?.Donator || "");
+  const vip = String(IDs?.roles?.VIP || "");
+  const vipPlus = String(IDs?.roles?.VIPplus || "");
+  const promoter = String(IDs?.roles?.Promoter || "");
+  const propulsor = String(IDs?.roles?.Propulsor || "");
+  const catalyst = String(IDs?.roles?.Catalyst || "");
+  const infoChannel = String(IDs?.channels?.info || "");
+
+  const unlockPicNick = [
+    `${e("VC_Reply")} Ti è stato assegnato il ruolo {role}!`,
+    `${e("VC_Infinity")} - Permesso di allegare immagini e link in chat`,
+    `${e("VC_HeartWhite")} - Permesso di cambiare il nickname`,
+  ];
+  const perksSite = `${e("VC_Arrow")} Scopri i tuoi vantaggi sul nostro [sito](https://viniliecaffe.it/perks).`;
+  const invitePerksLine = infoChannel
+    ? `${e("VC_Arrow")} Dettagli perk: <#${infoChannel}>`
+    : perksSite;
+
+  const rules = [
+    nuovxRule("Nuovx Guilded", guildedRole, `Nuovx Guilded ${e("VC_StarPink")}`, [
+      ...unlockPicNick,
+      "",
+      `${e("VC_Arrow")} Grazie per aver scelto la nostra tag! Scopri tutti i vantaggi [qui](https://viniliecaffe.it/perks)`,
+    ]),
+    nuovxRule("Nuovx Follower", followerRole, `Nuovx Follower ${e("VC_StarPink")}`, [
+      ...unlockPicNick,
+      "",
+      `${e("VC_Arrow")} Seguici su [Instagram](https://instagram.com/viniliecaffe) e su [TikTok](https://tiktok.com/@viniliecaffe).`,
+    ]),
+    nuovxRule("Nuovx Supporter", supporterRole, `Nuovx Supporter ${e("VC_StarPink")}`, [
+      ...unlockPicNick,
+      "",
+      `${e("VC_Arrow")} Metti \`.gg/viniliecaffe\`, \`discord.gg/viniliecaffe\` o \`viniliecaffe.it\` nella tua bio.`,
+    ]),
+    nuovxRule("Nuovx Fan", fanRole, `Nuovx Fan ${e("VC_StarPink")}`, [
+      `${e("VC_Reply")} Ti verrà dato entro **3 minuti** dal bot!`,
+      `${e("VC_Infinity")} - Permesso di allegare immagini e link in chat`,
+      `${e("VC_HeartWhite")} - Permesso di cambiare nickname`,
+      "",
+      `${e("VC_Arrow")} Metti il link del server nel tuo status.`,
+    ]),
+    nuovxRule("Nuovx Verified he/him", verificato, `Nuovx Verified ʰᵉᐟʰⁱᵐ ${e("VC_StarPink")}`, [...unlockPicNick, "", perksSite], verifiedImage),
+    nuovxRule("Nuovx Verified she/her", verificata, `Nuovx Verified ˢʰᵉᐟʰᵉʳ ${e("VC_StarPink")}`, [...unlockPicNick, "", perksSite], verifiedImage),
+    nuovxRule("Nuovx Verified they", verifiedNeo, `Nuovx Verified ⁿ^ᐟꜝ ${e("VC_StarPink")}`, [...unlockPicNick, "", perksSite], verifiedImage),
+    nuovxRule("Nuovx Patron", patronRole, `Nuovx Patron ${e("VC_StarPink")}`, [
+      `${e("VC_Reply")} Ti è stato assegnato il ruolo {role}!`,
+      `${e("VC_Dot")} - Possibilità di **scrivere in gigante**`,
+      "",
+      `${e("VC_Arrow")} Hai completato i prerequisiti social.`,
+      perksSite,
+    ]),
+    nuovxRule("Nuovx Promoter", promoter, "🎀✦ Nuovx Promoter!", [
+      `${e("VC_Reply")} Hai ricevuto {role} — **Promoter**`,
+      `${e("VC_Infinity")} - Permesso di allegare immagini e link in chat`,
+      `${e("VC_HeartWhite")} - Permesso di cambiare il nickname`,
+      "",
+      "Per il prossimo ruolo raggiungi **25 inviti** con il tuo link personalizzato.",
+      invitePerksLine,
+    ]),
+    nuovxRule("Nuovx Propulsor", propulsor, "✨ Nuovx Propulsor!", [
+      `${e("VC_Reply")} Hai ricevuto {role} — **Propulsor**`,
+      `${e("VC_Infinity")} - Tutti i perks di Promoter`,
+      `${e("VC_HeartWhite")} - Permesso di mandare sticker ed emoji di altri server`,
+      `${e("VC_Flame")} - Permesso di aggiungere reazioni ai messaggi`,
+      "",
+      "Per il prossimo ruolo raggiungi **100 inviti** con il tuo link personalizzato.",
+      invitePerksLine,
+    ]),
+    nuovxRule("Nuovx Catalyst", catalyst, "🏆 Nuovx Catalyst!", [
+      `${e("VC_Reply")} Hai ricevuto {role} — **Catalyst**`,
+      `${e("VC_Infinity")} - Tutti i perks di Propulsor`,
+      `${e("VC_HeartWhite")} - Permesso di usare soundboard esterne`,
+      "",
+      "Hai raggiunto la soglia massima degli inviti reward!",
+      invitePerksLine,
+    ]),
+    donator
+      ? {
+          name: "Pacchetto Donator",
+          enabled: false,
+          roleIds: [donator],
           channelId: supporters,
           cooldownHours: 24,
           draft: {
-            content: "{user}",
+            content: `${e("VC_Money")} \`|\` {user}`,
+            mentionUsers: true,
             embed: {
               enabled: true,
-              title: `Nuovx Guilded ${e("VC_StarPink")}`,
+              title: "",
               description: [
-                "{user}, `hai sbloccato:`",
-                `${e("VC_Reply")} Ti è stato assegnato il ruolo {role}!`,
-                `${e("VC_Infinity")} - Permesso di allegare immagini e link in chat`,
-                `${e("VC_HeartWhite")} - Permesso di cambiare il nickname`,
+                `### ${e("ThankYou")} **__{user} HAI RICEVUTO IL RUOLO DONATOR!__**`,
                 "",
-                `${e("VC_Arrow")} Grazie per aver scelto la nostra tag! Scopri tutti i vantaggi [qui](https://viniliecaffe.it/perks)`,
+                "**Con questo ruolo hai sbloccato i seguenti vantaggi:**",
+                "",
+                `${e("sparkledred")} Permesso di allegare **link e immagini** in chat`,
+                `${e("sparkle")} Permesso di usare le **Soundboard** di altri server`,
+                `${e("pinkstar")} Permesso di mandare **sticker ed emoji** di altri server`,
+                `${e("reddiamond")} Bypass dei requisiti nei **giveaway**`,
+                `${e("moon")} Permesso di cambiare il tuo **nickname**`,
+                `${e("blueflash")} Sblocchi i **COLORI PLUS** in [Personalizza](https://www.viniliecaffe.it/personalizza/)`,
+                `${e("reddiamond")} Sblocchi i comandi \`+quote\` e \`+repost\``,
+                `${e("exp")} X4 EXP boost`,
+                "",
+                `${e("VC_Link")} [viniliecaffe.it](<https://viniliecaffe.it>)`,
               ].join("\n"),
-              color: "#6f4e37",
+              color: "#826bc2",
               authorName: "{username}",
               authorIconUrl: "{avatar}",
               thumbnailUrl: "{avatar}",
-              footerText: "Grazie per il tuo supporto!",
             },
             buttons: [],
           },
-        },
-      ]
-    : [];
-  return normalizeConfig({ boost: { enabled: false, channelId: supporters, firstDraft: first, repeatDraft: second }, roles: { enabled: true, rules }, seedVersion: SEED_VERSION });
+        }
+      : null,
+    vip
+      ? {
+          name: "Pacchetto VIP",
+          enabled: false,
+          roleIds: [vip],
+          channelId: supporters,
+          cooldownHours: 24,
+          draft: {
+            content: `${e("VC_Money")} \`|\` {user}`,
+            mentionUsers: true,
+            embed: {
+              enabled: true,
+              title: "",
+              description: [
+                `### ${e("ThankYou")} **__{user} HAI RICEVUTO IL RUOLO VIP!__**`,
+                "",
+                "**Con questo ruolo hai sbloccato i seguenti vantaggi:**",
+                "",
+                `${e("sparkledred")} Tutti i perks del ruolo Donator`,
+                `${e("VC_Flame")} Reazioni ai messaggi in chat`,
+                `${e("VC_Winner")} Vocale privata`,
+                `${e("VC_Color")} Ruolo custom gradiente`,
+                `${e("exp")} X5 EXP boost`,
+                "",
+                `${e("VC_Link")} [viniliecaffe.it](<https://viniliecaffe.it>)`,
+              ].join("\n"),
+              color: "#826bc2",
+              authorName: "{username}",
+              authorIconUrl: "{avatar}",
+              thumbnailUrl: "{avatar}",
+            },
+            buttons: [],
+          },
+        }
+      : null,
+    vipPlus
+      ? {
+          name: "Pacchetto VIP+",
+          enabled: false,
+          roleIds: [vipPlus],
+          channelId: supporters,
+          cooldownHours: 24,
+          draft: {
+            content: `${e("VC_Money")} \`|\` {user}`,
+            mentionUsers: true,
+            embed: {
+              enabled: true,
+              title: "",
+              description: [
+                `### ${e("ThankYou")} **__{user} HAI RICEVUTO IL RUOLO VIP+!__**`,
+                "",
+                "**Con questo ruolo hai sbloccato i seguenti vantaggi:**",
+                "",
+                `${e("sparkledred")} Tutti i perks del ruolo VIP`,
+                `${e("exp")} X6 EXP boost`,
+                "",
+                `${e("VC_Link")} [viniliecaffe.it](<https://viniliecaffe.it>)`,
+              ].join("\n"),
+              color: "#826bc2",
+              authorName: "{username}",
+              authorIconUrl: "{avatar}",
+              thumbnailUrl: "{avatar}",
+            },
+            buttons: [],
+          },
+        }
+      : null,
+  ].filter(Boolean);
+
+  return normalizeConfig({
+    boost: { enabled: false, channelId: supporters, firstDraft: first, repeatDraft: second },
+    roles: { enabled: true, rules },
+    seedVersion: SEED_VERSION,
+  });
 }
 
-/** Prima apertura sul principale: importa gli annunci attuali (spenti). */
+/** Prima apertura / upgrade seed sul principale: importa o aggiunge le regole ruolo mancanti. */
 async function ensureMainSeed(guildId?) {
   const gid = String(guildId || "");
   if (!T.isMainGuild(gid)) return false;
   const prev = await T.getGuildBlob("announcements", gid, true);
-  if (prev && (prev.userSaved === true || Number(prev.seedVersion || 0) >= SEED_VERSION)) return false;
-  await T.setGuildBlob("announcements", gid, mainSeedConfig());
-  return true;
+  const seed = mainSeedConfig();
+  if (!prev) {
+    await T.setGuildBlob("announcements", gid, seed);
+    return true;
+  }
+  const prevVer = Number(prev.seedVersion || 0);
+  if (prevVer >= SEED_VERSION) return false;
+  const next = normalizeConfig(prev);
+  const covered = new Set(next.roles.rules.flatMap((r) => r.roleIds.map(String)));
+  let added = 0;
+  for (const rule of seed.roles.rules) {
+    if (rule.roleIds.some((id) => covered.has(String(id)))) continue;
+    next.roles.rules.push(rule);
+    for (const id of rule.roleIds) covered.add(String(id));
+    added += 1;
+  }
+  next.seedVersion = SEED_VERSION;
+  next.userSaved = prev.userSaved === true;
+  await T.setGuildBlob("announcements", gid, next);
+  return added > 0 || prevVer < SEED_VERSION;
 }
 
 export = {
@@ -301,4 +597,5 @@ export = {
   handleTenantBoostMessage,
   handleRoleAdded,
   roleRuleHandles,
+  trySendConfiguredRoleAnnounce,
 };

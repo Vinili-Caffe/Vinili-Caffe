@@ -190,6 +190,22 @@ async function flushDonationPackageAnnounce(key?) {
   const roleId = ROLE_ID_BY_TIER[tier];
   const isPurchase = await resolveRoleAddWasManualPurchase(guild, userId, roleId, guild.client);
 
+  const roleIdForDash = ROLE_ID_BY_TIER[tier];
+  try {
+    const A = require("../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../MultiGuild/services/announcementsRuntime");
+    if (roleIdForDash && (await A.roleRuleHandles(guild.id, roleIdForDash))) {
+      lastDonationAnnounceByMember.set(key, { tier, at: now });
+      return;
+    }
+    if (
+      roleIdForDash &&
+      (await A.trySendConfiguredRoleAnnounce(guild.client, member, roleIdForDash, { fallbackChannelId: channelId }))
+    ) {
+      lastDonationAnnounceByMember.set(key, { tier, at: now });
+      return;
+    }
+  } catch (_) {}
+
   const staffPing = String(IDs.roles?.Staff || "").trim();
   const content = staffPing
     ? `${E.ThankYou} \`|\`  ${member.user} \`|\` <@&${staffPing}>`
@@ -232,6 +248,16 @@ async function sendDonationPackageAnnounceNow(member?, tier?, opts: Record<strin
       member.client || opts.client,
     );
   }
+  try {
+    const A = require("../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../MultiGuild/services/announcementsRuntime");
+    if (roleId && (await A.roleRuleHandles(member.guild.id, roleId))) {
+      return { ok: true, messageId: null, via: "dashboard-enabled" };
+    }
+    if (roleId && (await A.trySendConfiguredRoleAnnounce(member.client || opts.client, member, roleId, { fallbackChannelId: channelId }))) {
+      lastDonationAnnounceByMember.set(memberAnnounceKey(member.guild.id, member.id), { tier, at: Date.now() });
+      return { ok: true, messageId: null, via: "dashboard-draft" };
+    }
+  } catch (_) {}
   const staffPing = String(IDs.roles?.Staff || "").trim();
   const content = staffPing
     ? `${E.ThankYou} \`|\`  ${member.user} \`|\` <@&${staffPing}>`

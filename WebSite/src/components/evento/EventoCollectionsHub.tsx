@@ -14,31 +14,15 @@ function CollectionGrid({ deck, accent }: { deck: EventoCollectionDeck; accent: 
   const bar = accent === "reliquie" ? "from-[#c9a227] via-[#e4c76b] to-[#f5e6a3]" : "from-cyan-200 via-sky-400 to-amber-300";
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <EventoKicker>
-            {deck.active ? "In corso" : "Collezione aperta"} · {deck.ownedCount}/{deck.total}
-          </EventoKicker>
-          <p className="mt-1 text-sm text-crema/60">
-            {accent === "pg"
-              ? "Personaggi trovati nei minigiochi Discord."
-              : "Reliquie trovate nei minigiochi Discord."}
-          </p>
-        </div>
-        <p className="font-display text-2xl font-bold tabular-nums text-crema">
-          {deck.ownedCount}
-          <span className="text-crema/40">/{deck.total}</span>
-        </p>
-      </div>
       {accent === "reliquie" ? (
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-cyan-950/90 ring-1 ring-cyan-400/15">
+        <div className="h-1.5 overflow-hidden rounded-full bg-cyan-950/90 ring-1 ring-cyan-400/15">
           <div
             className={cn("h-full rounded-full bg-gradient-to-r", bar)}
             style={{ width: `${pct}%`, boxShadow: "0 0 12px rgba(228,199,107,0.45)" }}
           />
         </div>
       ) : (
-        <EventoProgressBar className="mt-3 !h-1.5" pct={pct} />
+        <EventoProgressBar className="!h-1.5" pct={pct} />
       )}
       <ul className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
         {deck.items.map((it) => (

@@ -32,6 +32,16 @@ async function resolveMinigamePromptAttachment(
       if (attachment) return { attachment, backgroundUrl };
     } catch (_) {}
   }
+  const sourceLines = Array.isArray(lines) ? lines : [];
+  const needsEmojiArt = sourceLines.some((line?) =>
+    /[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}]/u.test(String(line || "")),
+  );
+  if (needsEmojiArt) {
+    try {
+      const rich = await canvas.buildEmojiRichPromptImageAttachment(title, lines, fileBaseName);
+      if (rich) return { attachment: rich, backgroundUrl: null };
+    } catch (_) {}
+  }
   return {
     attachment: canvas.buildPromptImageAttachment(title, lines, fileBaseName, suffix, client),
     backgroundUrl: null,

@@ -53,6 +53,20 @@ async function resumeRestoredMusicSessions(client?, opts: Record<string, any> = 
     if (!gid || !session) continue;
     let encoded = String(session.playingEncoded || "").trim();
     const vcId = String(session.voiceChannelId || "").trim();
+    /* se la traccia corrente era già finita (posizione ≈ length ms), passa alla successiva */
+    const npInfo =
+      session?.nowPlaying && typeof session.nowPlaying === "object" ? session.nowPlaying : null;
+    const curLen = Math.max(
+      0,
+      Math.floor(Number(npInfo?.length ?? npInfo?.info?.length ?? session?.playingTrackLengthMs ?? 0) || 0),
+    );
+    const curPos = Math.max(0, Math.floor(Number(session.playingPositionMs) || 0));
+    if (encoded && curLen > 5000 && curPos >= Math.max(0, curLen - 2500)) {
+      encoded = "";
+      session.playingEncoded = null;
+      session.playingPositionMs = 0;
+      session.nowPlaying = null;
+    }
     /* queueResumeKeep1: se manca playingEncoded ma c'è coda → riparti dal primo track */
     if (!encoded && Array.isArray(session.tracks) && session.tracks.length > 0) {
       const next = session.tracks.shift();
@@ -63,7 +77,13 @@ async function resumeRestoredMusicSessions(client?, opts: Record<string, any> = 
         session.playingPositionMs = 0;
       }
     }
-    if (!encoded || !vcId || !/^\d{17,22}$/.test(vcId)) continue;
+    if (!encoded || !vcId || !/^\d{17,22}$/.test(vcId)) {
+      if (!encoded && !(Array.isArray(session.tracks) && session.tracks.length)) {
+        guildQueues.delete(gid);
+        persistMusicQueueSnapshotNow(client);
+      }
+      continue;
+    }
     if (sh.players?.get(gid)?.track) continue;
     if (sh.connections?.get(gid)?.channelId) continue;
 

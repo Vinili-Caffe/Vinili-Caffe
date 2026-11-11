@@ -26,7 +26,7 @@ export default function EventoClassifichePage() {
       path={meta.path}
       title="Sala"
       accent="classifiche"
-      text="Proiezioni olografiche live: fazioni, PEI e EXP. Periodo o sola fase — scegli il canale di comando."
+      text="Ologrammi di tutte le classifiche disponibili dell’evento."
       icon={<Trophy />}
     >
       <EventoSortGate mode="redirect">

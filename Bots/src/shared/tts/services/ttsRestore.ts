@@ -113,6 +113,17 @@ async function enqueueTtsMessageFromHistory(message?, client?, voiceChannel?, st
   await saveTtsLastMessageProgress(voiceChannel.guild.id, voiceChannel.id, message.id, message.createdTimestamp, String(voiceChannel.client?.user?.id || ""));
 }
 
+function ttsMessageIdAlreadyProcessed(messageId?, lastProcessedMessageId?) {
+  const mid = String(messageId || "").trim();
+  const last = String(lastProcessedMessageId || "").trim();
+  if (!mid || !last || !/^\d{17,22}$/.test(mid) || !/^\d{17,22}$/.test(last)) return false;
+  try {
+    return BigInt(mid) <= BigInt(last);
+  } catch (_) {
+    return mid === last;
+  }
+}
+
 async function catchupTtsMessagesForChannel(
   client?,
   voiceChannel?,
@@ -134,12 +145,8 @@ async function catchupTtsMessagesForChannel(
 
   for (const message of sorted) {
     if (state.queue.length >= MAX_TTS_QUEUE) break;
-    if (
-      lastProcessedMessageId &&
-      String((message as any)?.id || "") === String(lastProcessedMessageId)
-    ) {
-      continue;
-    }
+    /* snowflake ≤ last → già in coda/letti (non solo l’ultimo id esatto) */
+    if (ttsMessageIdAlreadyProcessed((message as any)?.id, lastProcessedMessageId)) continue;
     if ((message as any)?.createdTimestamp <= cutoffMs) continue;
     if ((message as any)?.author?.bot) continue;
     await enqueueTtsMessageFromHistory(message, client, voiceChannel, state, prefix).catch(() => null);
@@ -185,14 +192,23 @@ async function restoreTtsConnections(client?) {
           await joinTtsChannel(channel).catch((e?) =>
             global.logger?.warn?.("[TTS] restore join skipped:", e?.message || e),
           );
-          await catchupTtsMessagesForChannel(
-            client,
-            channel,
-            entry?.lastTtsProcessedAt,
-            entry?.lastTtsMessageId,
-            prefix,
-          );
+          /* prima lo snapshot coda (pending non ancora letti); poi catchup solo di messaggi più nuovi */
           restoreTtsQueueForChannel(channel);
+          const state = getState(channel);
+          const restoredPending = Array.isArray(state?.queue) ? state.queue.length : 0;
+          if (restoredPending > 0) {
+            global.logger?.info?.(
+              `[TTS RESTORE] guild=${gid} snapshot queue=${restoredPending} (skip catchup history)`,
+            );
+          } else {
+            await catchupTtsMessagesForChannel(
+              client,
+              channel,
+              entry?.lastTtsProcessedAt,
+              entry?.lastTtsMessageId,
+              prefix,
+            );
+          }
         }),
       );
       if (policy.restoreGapMs > 0 && i + concurrency < states.length) {

@@ -13,7 +13,7 @@ export default function EventoAvventoRedirectPage() {
 
   return (
     <main className="mx-auto flex min-h-[40vh] max-w-lg flex-col items-center justify-center px-6 text-center">
-      <p className="text-sm text-crema/70">L&apos;avvento è nel Centro di comando…</p>
+      <p className="text-sm text-crema/70">L&apos;avvento è nel Centro di controllo…</p>
       <a href={HUB} className="mt-3 text-sm font-semibold text-caramel underline underline-offset-2">
         Vai all&apos;hub
       </a>

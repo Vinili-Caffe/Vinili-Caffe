@@ -118,6 +118,10 @@ function isEmojiSkinToneModifier(cp?) {
   return Number.isFinite(cp) && cp >= 0x1f3fb && cp <= 0x1f3ff;
 }
 
+function isRegionalIndicator(cp?) {
+  return Number.isFinite(cp) && cp >= 0x1f1e6 && cp <= 0x1f1ff;
+}
+
 function tokenizeEmojiText(text?) {
   const raw = String(text || "").trim();
   if (!raw) {
@@ -177,6 +181,10 @@ function tokenizeEmojiText(text?) {
       if (nextIsSkinTone) {
         continue;
       }
+      /* bandiere: due regional indicator restano un'unica emoji (🇮🇹), non I+T */
+      if (isRegionalIndicator(cp) && isRegionalIndicator(nextCp)) {
+        continue;
+      }
       if (isEmoji && nextIsEmoji) {
         flushEmoji();
         continue;
@@ -194,11 +202,13 @@ function tokenizeEmojiText(text?) {
   return tokens.length ? tokens : [{ type: "text", value: "" }];
 }
 
+/* twitter/twemoji@15 su jsDelivr è 404: senza PNG il canvas fa fillText e “colora” le emoji. */
 const TWEMOJI_CDN_BASES = Object.freeze([
-  "https://cdn.jsdelivr.net/gh/twitter/twemoji@15.1.0/assets/72x72",
+  "https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/72x72",
+  "https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.3/assets/72x72",
+  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72",
   "https://unpkg.com/emoji-datasource-twitter@15.1.0/img/twitter/64",
   "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72",
-  "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72",
 ]);
 
 function emojiStringToCodepoints(emoji?) {
@@ -346,11 +356,14 @@ async function getEmojiImage(token?) {
         suppressWarning: true,
       }).catch(() => null);
     }
-    const sources = emojiToTwemojiUrls(token).slice(0, 2);
+    const sources = emojiToTwemojiUrls(token).slice(0, 4);
     if (!sources.length) return null;
     const img = await Promise.any(
       sources.map((sourceUrl?) =>
-        safeLoadImage(sourceUrl, { timeoutMs, suppressWarning: true }),
+        safeLoadImage(sourceUrl, { timeoutMs, suppressWarning: true }).then((loaded?) => {
+          if (!loaded) throw new Error("emoji_image_null");
+          return loaded;
+        }),
       ),
     ).catch(() => null);
     return img || null;

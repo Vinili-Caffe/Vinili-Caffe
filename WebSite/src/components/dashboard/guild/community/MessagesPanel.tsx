@@ -185,7 +185,7 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
                 </div>
               </FormGroup>
               <FormGroup title="Contenuto">
-                <DraftEditor value={edit.draft} onChange={(draft) => setEdit({ ...edit, draft })} emojis={data.pickers.emojis} placeholders={PLACEHOLDERS} maxButtons={data.limits.buttons} />
+                <DraftEditor key={edit.id || "new"} value={edit.draft} onChange={(draft) => setEdit({ ...edit, draft })} emojis={data.pickers.emojis} placeholders={PLACEHOLDERS} maxButtons={data.limits.buttons} />
               </FormGroup>
               <FormGroup title="Programma" description="Il bot lo pubblica da solo all'ora scelta (ora italiana).">
                 <div className="flex flex-wrap items-end gap-2">

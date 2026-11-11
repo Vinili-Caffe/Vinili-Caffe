@@ -45,7 +45,17 @@ function buildYearHintEmbed(guessBeforeTarget?) {
     );
 }
 
-function buildWinEmbed(winnerId?, effectiveExp?, totalExp?, details = null) {
+/** Immagine vittoria tema SW (pool classici), se evento live — blu/rosso per fazione. */
+async function resolveWinEmbedImageUrl(cfg?, winnerId?) {
+  try {
+    const { resolveStarWarsClassicWinImageUrl } = require("../utils/starWarsMinigameHooks") as typeof import("../utils/starWarsMinigameHooks");
+    return (await resolveStarWarsClassicWinImageUrl(cfg, winnerId)) || null;
+  } catch {
+    return null;
+  }
+}
+
+function buildWinEmbed(winnerId?, effectiveExp?, totalExp?, details = null, imageUrl = null) {
   const lines = [`${E.VC_Winner} Complimenti <@${winnerId}>, hai vinto e guadagnato **${effectiveExp} exp**${E.VC_Exclamation}`];
   if (details) {
     const extras = [];
@@ -55,13 +65,15 @@ function buildWinEmbed(winnerId?, effectiveExp?, totalExp?, details = null) {
   }
   lines.push("", `${E.VC_Stats} **Le tue statistiche:**`, `${E.VC_Arrow} Ora hai un totale di **${totalExp} exp**`);
   if (details?.newStreak > 1) lines.push(`${E.VC_Arrow} Serie di vittorie: **${details.newStreak}** (record: **${details.bestStreak}**)`);
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setTitle(`${E.VC_Events} Un utente ha vinto${E.VC_Exclamation}`)
     .setDescription(lines.join("\n"))
     .setFooter({
       text: "I tuoi progressi sono nel profilo su viniliecaffe.it/profilo",
     });
+  if (imageUrl) embed.setImage(String(imageUrl));
+  return embed;
 }
 
 function getNextReward(totalExp?) {
@@ -116,6 +128,7 @@ export = {
   buildHintEmbed,
   buildYearHintEmbed,
   buildWinEmbed,
+  resolveWinEmbedImageUrl,
   buildRewardEmbed,
   buildTreasureHuntFoundEmbed,
 };

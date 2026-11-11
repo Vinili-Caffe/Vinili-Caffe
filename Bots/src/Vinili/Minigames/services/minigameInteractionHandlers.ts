@@ -2,7 +2,7 @@
 const { AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
 const { addExpWithLevel, shouldIgnoreExpForMember } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
-const { buildWinEmbed, buildTreasureHuntFoundEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
+const { buildWinEmbed, resolveWinEmbedImageUrl, buildTreasureHuntFoundEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { activeGames, blockMinigameRehydrate, clearNoParticipationDelay, clearActiveGame, beginMinigameWinClose, endMinigameWinClose } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
@@ -92,7 +92,13 @@ async function handleMinigameReaction(client?, reaction?, user?) {
         warnMinigame(err);
       }
     }
-    const winEmbed = buildWinEmbed(user.id, award.effectiveExp, award.nextTotal, award.details);
+    const winEmbed = buildWinEmbed(
+      user.id,
+      award.effectiveExp,
+      award.nextTotal,
+      award.details,
+      await resolveWinEmbedImageUrl(cfg, user.id),
+    );
     const foundEmbed = buildTreasureHuntFoundEmbed(getTreasureHuntMessageUrl(guildId, cfg.channelId, game.winnerMessageId));
     if (channel?.send) {
       await sendMinigameMessage(channel, { embeds: [foundEmbed, winEmbed] }).catch(() => {});
@@ -135,7 +141,13 @@ async function handleMinigameButtonWin(interaction?, game?, cfg?) {
       rewardExp: game.rewardExp,
       channelId: cfg.channelId || null,
     });
-    const winEmbed = buildWinEmbed(interaction.user.id, award.effectiveExp, award.nextTotal, award.details);
+    const winEmbed = buildWinEmbed(
+      interaction.user.id,
+      award.effectiveExp,
+      award.nextTotal,
+      award.details,
+      await resolveWinEmbedImageUrl(winCfg, interaction.user.id),
+    );
     const mainChannel = await getChannelCached(client, cfg.channelId);
     if (mainChannel) {
       await sendMinigameMessage(

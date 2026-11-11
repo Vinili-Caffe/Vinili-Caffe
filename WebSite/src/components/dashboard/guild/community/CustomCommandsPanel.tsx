@@ -120,7 +120,7 @@ export function CustomCommandsPanel({ guildId, token, onToast }: { guildId: stri
                 </div>
               </FormGroup>
               <FormGroup title="Risposta">
-                <DraftEditor value={edit.draft} onChange={(draft) => setEdit({ ...edit, draft })} emojis={data.pickers.emojis} placeholders={PLACEHOLDERS} maxButtons={data.limits.buttons} />
+                <DraftEditor key={edit.id || "new"} value={edit.draft} onChange={(draft) => setEdit({ ...edit, draft })} emojis={data.pickers.emojis} placeholders={PLACEHOLDERS} maxButtons={data.limits.buttons} />
               </FormGroup>
               <FormGroup title="Opzioni">
                 <div className="divide-y divide-sand/[0.08]">

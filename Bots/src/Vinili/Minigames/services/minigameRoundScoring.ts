@@ -1,7 +1,7 @@
 /** Minigiochi: controllo risposte e assegnazione della vittoria. */
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 const { normalizeCountryName } = require("./minigameImages") as typeof import("./minigameImages");
-const { buildWinEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
+const { buildWinEmbed, resolveWinEmbedImageUrl } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { normalizePlayerGuess } = require("./minigameSources") as typeof import("./minigameSources");
 const { compactNoSpaces, normalizeUserAnswerText, buildStrictBankAliases, isExplicitBankAnswerCorrect, parseMathGuess, extractWordGuessCandidates, buildPlayerAnswerAliases, normalizeMemorySequence, memoryEmojiMessageMatches } = require("./minigameText") as typeof import("./minigameText");
 const { activeGames, channelWinClosing, clearNoParticipationDelay, clearActiveGame, beginMinigameWinClose, endMinigameWinClose } = require("./minigameState") as typeof import("./minigameState");
@@ -263,7 +263,15 @@ async function handleMinigameWin(message?, game?, cfg?) {
           mergeStarWarsQuizRewardIntoMessage(
             mergeHalloweenCandyDropIntoMessage(
               {
-                embeds: [buildWinEmbed(message.author.id, award.effectiveExp, award.nextTotal, award.details)],
+                embeds: [
+                  buildWinEmbed(
+                    message.author.id,
+                    award.effectiveExp,
+                    award.nextTotal,
+                    award.details,
+                    await resolveWinEmbedImageUrl(clearCfg, message.author.id),
+                  ),
+                ],
               },
               award,
               message.author.id,

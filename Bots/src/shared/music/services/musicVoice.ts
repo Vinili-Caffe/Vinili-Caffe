@@ -473,6 +473,7 @@ async function destroyGhostMusicStateIfBotNotInVoice(client?, guild?) {
   if (!stale) return;
   endListeners.delete(gid);
   guildQueues.delete(gid);
+  persistMusicQueueSnapshotNow(client);
   try {
     if (player) await player.destroy();
   } catch (_) {}
