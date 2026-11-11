@@ -89,19 +89,63 @@ async function seedClaimReaction(message?, emoji?) {
   await message.react(emoji).catch(() => null);
 }
 
-function makeSwButtonShim({ client, guildId, user, message, customId }) {
+function makeSwButtonShim({ client, guildId, user, message, customId, reaction = null }) {
+  const uid = normalizeId(user?.id);
+  const notify = async (payload?) => {
+    const content = typeof payload === "string" ? payload : String(payload?.content || "").trim();
+    if (!content || !uid) return null;
+    const channel = message?.channel || (message?.channelId && client?.channels?.cache?.get?.(message.channelId));
+    if (!channel?.send) return null;
+    const sent = await channel
+      .send({
+        content: `<@${uid}> ${content}`,
+        allowedMentions: { users: [uid] },
+      })
+      .catch(() => null);
+    if (sent) {
+      setTimeout(() => {
+        void sent.delete?.().catch?.(() => null);
+      }, 10_000);
+    }
+    return sent;
+  };
+  const dropReaction = async () => {
+    try {
+      if (reaction?.users?.remove && uid) await reaction.users.remove(uid).catch(() => null);
+    } catch (_) {}
+  };
   return {
     client,
     guildId: normalizeId(guildId) || normalizeId(message?.guildId),
+    guild: message?.guild || null,
     user,
+    member: message?.guild?.members?.cache?.get?.(uid) || null,
     message,
     customId: String(customId || ""),
-    deferred: true,
-    replied: true,
+    deferred: false,
+    replied: false,
     deferReply: async () => {},
-    editReply: async () => {},
-    reply: async () => {},
+    editReply: async (payload?) => notify(payload),
+    reply: async (payload?) => {
+      await dropReaction();
+      return notify(payload);
+    },
   };
+}
+
+/** Allinea fazioni epoche (ribellione/impero/…) al pair Clone Wars usato da convoglio. */
+function normalizeConvoglioSide(factionId?) {
+  try {
+    const { normalizeFactionId } = require("./starWarsFactionTestRoles") as typeof import("./starWarsFactionTestRoles");
+    const side = normalizeFactionId(factionId);
+    if (side === "repubblica" || side === "separatisti") return side;
+  } catch (_) {}
+  const f = String(factionId || "")
+    .trim()
+    .toLowerCase();
+  if (f === "repubblica" || f === "ribellione" || f === "nuova_repubblica") return "repubblica";
+  if (f === "separatisti" || f === "impero" || f === "nuovo_ordine") return "separatisti";
+  return f;
 }
 
 /** Ping ruolo Minigames prima dell'annuncio (stesso anti-doppione del pool normale). */
@@ -902,6 +946,7 @@ async function tryButtonGameClaimFromReaction(client?, reaction?, user?) {
             user,
             message: msg,
             customId: actionCustomId,
+            reaction,
           }),
         );
       }
@@ -2239,8 +2284,8 @@ async function finalizeConvoglioTimeout(client?) {
   if (!round?.payload || round.payload.status !== "active") return;
   const payload = round.payload;
   await setRound("convoglio", { ...payload, status: "expired", expiredAt: new Date().toISOString() });
+  /* timeout: togli solo la tappa attiva nei canali; l'hub resta in chat */
   await deleteSwChannelMessage(client, payload.channelId, payload.messageId);
-  await deleteSwChannelMessage(client, payload.hubChannelId || payload.channelId, payload.hubMessageId);
   await deleteSwChannelMessage(client, payload.hubChannelId || payload.channelId, payload.rolePingMessageId);
   const hubId = normalizeId(payload.hubChannelId) || chatChannelId(client, payload.guildId);
   if (!hubId || !client) return;
@@ -2284,12 +2329,13 @@ async function handleConvoglioButton(interaction?, parts?) {
     return true;
   }
 
-  const faction = await resolveStarWarsFactionId(interaction.client, interaction.guildId, interaction.user.id);
+  const factionRaw = await resolveStarWarsFactionId(interaction.client, interaction.guildId, interaction.user.id);
+  const faction = normalizeConvoglioSide(factionRaw);
   if (!faction) {
     await interaction.reply({ content: UNSORTED_MG_MSG, flags: 1 << 6 }).catch(() => null);
     return true;
   }
-  const escort = round.payload.escort;
+  const escort = normalizeConvoglioSide(round.payload.escort) || String(round.payload.escort || "");
   const needHops = Math.max(1, safeHp(round.payload.needHops) || CONVOGLIO_NEED_HOPS);
   const currentHop = Math.max(1, safeHp(round.payload.hops) || 1);
 

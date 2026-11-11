@@ -64,7 +64,7 @@ async function deleteAutoResponder(client?, token?, guildId?, id?) {
   return { ok: true, status: 200 };
 }
 
-/* ───────────── annunci (boost, ruolo ottenuto) ───────────── */
+/* ───────────── annunci automatici (boost, named, ruoli custom) ───────────── */
 
 const ANN = () => require("../../services/announcementsRuntime") as typeof import("../../services/announcementsRuntime");
 
@@ -82,6 +82,12 @@ async function patchAnnouncements(client?, token?, guildId?, body?) {
   const raw = body?.config || body;
   const empty = (raw?.roles?.rules || []).find((r?) => r?.enabled !== false && (!Array.isArray(r?.roleIds) || !r.roleIds.length || !r?.channelId));
   if (empty) return fail(400, "incomplete", `"${String(empty.name || "Regola")}": scegli almeno un ruolo e il canale, oppure spegnila.`);
+  const named = raw?.named && typeof raw.named === "object" ? raw.named : {};
+  for (const key of ANN().NAMED_KEYS || []) {
+    const slot = named[key];
+    if (!slot || slot.enabled !== true) continue;
+    if (!slot.channelId) return fail(400, "incomplete", `"${String(slot.name || key)}": scegli il canale, oppure spegnilo.`);
+  }
   const config = await ANN().saveConfig(a.guildId, raw);
   return { ok: true, status: 200, config };
 }

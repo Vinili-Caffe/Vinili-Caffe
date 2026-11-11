@@ -1,5 +1,5 @@
-/** Trova il bot: bottone nascosto in un canale testuale o bot in un canale vocale. */
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
+/** Trova il bot: reazione sul messaggio nascosto in un canale testuale, oppure bot in vocale. */
+const { ChannelType, PermissionsBitField } = require("discord.js") as typeof import("discord.js");
 const { isVoiceChannelEligibleForFindBotMinigame } = require("../../Minigames/utils/findBotVoiceChannelEligibility") as typeof import("../../Minigames/utils/findBotVoiceChannelEligibility");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 const { resolveMinigamePromptAttachment } = require("./minigameImages") as typeof import("./minigameImages");
@@ -15,8 +15,29 @@ const { getConfig } = require("./minigameConfig") as typeof import("./minigameCo
 const { shouldUseStarWarsTheme } = require("../utils/starWarsMinigameHooks") as typeof import("../utils/starWarsMinigameHooks");
 
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
+const FIND_BOT_CLAIM_EMOJI = E.VC_Heart;
+const FIND_BOT_CLAIM_EMOJI_ID = "1448672728822448141";
+
+function findBotClaimEmojiMatches(reactionOrEmoji?) {
+  const id = String(reactionOrEmoji?.emoji?.id || reactionOrEmoji?.id || "").trim();
+  if (id && id === FIND_BOT_CLAIM_EMOJI_ID) return true;
+  const name = String(reactionOrEmoji?.emoji?.name || reactionOrEmoji?.name || "").trim();
+  if (name === "VC_Heart") return true;
+  const raw = String(reactionOrEmoji?.emoji || reactionOrEmoji || "");
+  return Boolean(FIND_BOT_CLAIM_EMOJI && raw.includes(FIND_BOT_CLAIM_EMOJI_ID));
+}
+
+async function seedFindBotClaimReaction(message?) {
+  if (!message?.react || !FIND_BOT_CLAIM_EMOJI) return;
+  await message.react(FIND_BOT_CLAIM_EMOJI).catch(() => null);
+}
+
 async function finalizeFindMinigameTimeout(client?, cfg?, mainChannelId?, mainChannel?, game?, buildTimeoutEmbed?) {
   if (!game) return;
+  if (game.type === "findBot") {
+    const won = await catchUpFindBotFromReactions(client, cfg, game).catch(() => false);
+    if (won) return;
+  }
   if (game.type === "findBotVoice") {
     await leaveFindBotVoiceChannel(mainChannel?.guild?.id);
   } else {
@@ -223,7 +244,7 @@ async function startFindBotGame(client?, cfg?) {
   const { attachment: findBotAttachment } = await resolveMinigamePromptAttachment(
     cfg,
     "Trova il bot",
-    ["Cerca il messaggio nascosto in un canale del server.", "Clicca il pulsante quando lo trovi!"],
+    ["Cerca il messaggio nascosto in un canale del server.", "Reagisci con il cuore quando lo trovi!"],
     "find_bot",
     client,
   );
@@ -232,7 +253,6 @@ async function startFindBotGame(client?, cfg?) {
   const mainMessage = await sendMinigameMessage(mainChannel, { embeds: [findBotEmbed], files: findBotAttachment ? [findBotAttachment] : [], }).catch(() => null);
 
   const customId = `minigame_findbot:${Date.now()}`;
-  const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(customId).setEmoji(E.VC_Heart).setLabel("Clicca qui per vincere!").setStyle(ButtonStyle.Primary),);
   let findBotNearImage = null;
   if (shouldUseStarWarsTheme(cfg)) {
     try {
@@ -240,11 +260,14 @@ async function startFindBotGame(client?, cfg?) {
       findBotNearImage = STAR_WARS_CLASSIC_EMBED_ART?.findBotNear || null;
     } catch (_) {}
   }
-  const gameMessage = await sendMinigameMessage(targetChannel, { embeds: [buildFindBotButtonEmbed(rewardExp, durationMs, findBotNearImage)], components: [row] }).catch((err?) => {
+  const gameMessage = await sendMinigameMessage(targetChannel, {
+    embeds: [buildFindBotButtonEmbed(rewardExp, durationMs, findBotNearImage)],
+  }).catch((err?) => {
     global.logger?.error?.("[MINIGAMES] FindBot: send to target channel failed", { channelId: targetChannel.id, channelName: targetChannel.name, err: err?.message || err });
     return null;
   });
   if (!gameMessage) return false;
+  await seedFindBotClaimReaction(gameMessage);
 
   const timeout = scheduleFindMinigameTimeout(client, cfg, channelId, mainChannel, customId, durationMs, buildTimeoutFindBotEmbed);
   const hintTimeout = await scheduleMinuteHint(client, targetChannel.id, durationMs, channelId,);
@@ -260,6 +283,7 @@ async function startFindBotGame(client?, cfg?) {
     messageId: gameMessage?.id || null,
     mainMessageId: mainMessage?.id || null,
     customId,
+    claimEmoji: FIND_BOT_CLAIM_EMOJI,
   });
 
   await saveActiveGame(client, cfg, {
@@ -356,6 +380,107 @@ async function startFindBotVoiceGame(client?, cfg?) {
   return true;
 }
 
+async function handleFindBotClaimWin(client?, guild?, user?, game?, cfg?, { ephemeralReply = null } = {}) {
+  if (!guild || !user || user.bot || !game || game.type !== "findBot") return false;
+  const winCfg = { ...cfg, guildId: String(guild.id || cfg?.guildId || "") };
+  const channelId = String(winCfg.channelId || "");
+  if (!channelId) return false;
+  clearNoParticipationDelay(channelId);
+  const closed = await beginMinigameWinClose(client, winCfg, game);
+  if (!closed) {
+    if (typeof ephemeralReply === "function") {
+      await ephemeralReply(`${E.cancel} Partita già conclusa.`).catch?.(() => null);
+    }
+    return false;
+  }
+  try {
+    const award = await awardMinigameWinToUser({
+      client,
+      guild,
+      userId: user.id,
+      cfg,
+      game,
+      rewardExp: game.rewardExp,
+      channelId: cfg.channelId || null,
+    });
+    const winEmbed = buildWinEmbed(
+      user.id,
+      award.effectiveExp,
+      award.nextTotal,
+      award.details,
+      await resolveWinEmbedImageUrl(winCfg, user.id),
+    );
+    const mainChannel = await getChannelCached(client, cfg.channelId);
+    if (mainChannel) {
+      await sendMinigameMessage(
+        mainChannel,
+        mergeStarWarsQuizRewardIntoMessage(
+          mergeHalloweenCandyDropIntoMessage({ embeds: [winEmbed] }, award, user.id),
+          award,
+          user.id,
+        ),
+      ).catch(() => {});
+    }
+    if (typeof ephemeralReply === "function") {
+      await ephemeralReply(`${E.VC_Events} Hai vinto!`).catch?.(() => null);
+    }
+    if (award.member) {
+      await handleExpReward(client, award.member, award.nextTotal);
+    }
+    try {
+      await deleteFindMinigameRemoteMessage(guild, game);
+    } catch (err) {
+      warnMinigame(err);
+    }
+    return true;
+  } catch (err) {
+    warnMinigame(err);
+    return false;
+  } finally {
+    await clearActiveGame(client, winCfg).catch(() => {});
+    endMinigameWinClose(channelId);
+  }
+}
+
+async function catchUpFindBotFromReactions(client?, cfg?, game?) {
+  if (!client || !cfg || !game || game.type !== "findBot") return false;
+  const targetChannelId = String(game.channelId || "").trim();
+  const messageId = String(game.messageId || "").trim();
+  if (!targetChannelId || !messageId) return false;
+  const channel =
+    client.channels.cache.get(targetChannelId) ||
+    (await client.channels.fetch(targetChannelId).catch(() => null));
+  if (!channel?.messages?.fetch) return false;
+  const msg = await channel.messages.fetch(messageId).catch(() => null);
+  if (!msg?.reactions?.cache) return false;
+  const reaction =
+    [...(msg.reactions.cache.values() || [])].find((row?) => findBotClaimEmojiMatches(row)) || null;
+  if (!reaction) return false;
+  const users = await reaction.users.fetch().catch(() => null);
+  if (!users?.size) return false;
+  const claimants = [...users.values()]
+    .filter((u?) => u && !u.bot)
+    .sort((a?, b?) => String(a.id).localeCompare(String(b.id)));
+  for (const user of claimants) {
+    if (cfg.starWarsEventLive) {
+      try {
+        const {
+          isStarWarsSortedParticipant,
+        } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService");
+        const ok = await isStarWarsSortedParticipant(client, msg.guildId || cfg.guildId, user.id);
+        if (!ok) continue;
+      } catch (_) {}
+    }
+    const guild = msg.guild || channel.guild;
+    const won = await handleFindBotClaimWin(client, guild, user, game, cfg);
+    if (won) {
+      global.logger?.info?.(`[MINIGAMES] FindBot catch-up win from ${user.id}`);
+      return true;
+    }
+  }
+  return false;
+}
+
 async function handleFindBotVoiceWin(client?, guild?, member?, game?, cfg?) {
   const winCfg = { ...cfg, guildId: String(guild?.id || cfg?.guildId || "") };
   const channelId = String(winCfg.channelId || "");
@@ -412,4 +537,21 @@ async function handleFindBotVoiceWin(client?, guild?, member?, game?, cfg?) {
   }
 }
 
-export = { scheduleFindMinigameTimeout, pickRandomFindBotChannel, joinFindBotVoiceChannel, resolveFindBotVoiceBotChannelId, syncFindBotVoiceTargetChannel, getActiveFindBotVoiceGame, shouldDeferTtsLeaveForFindBotVoiceMinigame, startFindBotGame, startFindBotVoiceGame, handleFindBotVoiceWin };
+export = {
+  FIND_BOT_CLAIM_EMOJI,
+  FIND_BOT_CLAIM_EMOJI_ID,
+  findBotClaimEmojiMatches,
+  seedFindBotClaimReaction,
+  scheduleFindMinigameTimeout,
+  pickRandomFindBotChannel,
+  joinFindBotVoiceChannel,
+  resolveFindBotVoiceBotChannelId,
+  syncFindBotVoiceTargetChannel,
+  getActiveFindBotVoiceGame,
+  shouldDeferTtsLeaveForFindBotVoiceMinigame,
+  startFindBotGame,
+  startFindBotVoiceGame,
+  handleFindBotClaimWin,
+  catchUpFindBotFromReactions,
+  handleFindBotVoiceWin,
+};

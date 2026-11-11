@@ -304,7 +304,7 @@ function buildFindBotEmbed(rewardExp?, durationMs?) {
     .setTitle(`Trova il bot ${E.VC_Exclamation}`)
     .setDescription(
       [
-        `${E.VC_EXP} Trova il messaggio del bot tra i canali del server, premi il bottone per ottenere **${rewardExp} exp**.`,
+        `${E.VC_EXP} Trova il messaggio del bot tra i canali del server, reagisci con ${E.VC_Heart} per ottenere **${rewardExp} exp**.`,
         `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per trovarlo.`,
         `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
@@ -318,8 +318,8 @@ function buildFindBotButtonEmbed(rewardExp?, durationMs?, imageUrl = null) {
     .setTitle(`Sei vicino al bot ${E.VC_Exclamation}`)
     .setDescription(
       [
-        `${E.VC_EXP} Hai trovato il messaggio nascosto: clicca il bottone per ottenere **${rewardExp} exp**.`,
-        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per cliccare il bottone.`,
+        `${E.VC_EXP} Hai trovato il messaggio nascosto: reagisci con ${E.VC_Heart} per ottenere **${rewardExp} exp**.`,
+        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per reclamare.`,
         `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );

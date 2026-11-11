@@ -41,6 +41,7 @@ import { onComposerEnterSend } from "@/lib/composer-keys";
 import { TicketActions } from "./TicketActions";
 import { EmojiText } from "@/components/discord/EmojiText";
 import { ComposerSuggest } from "./ComposerSuggest";
+import { UploadRightsHint } from "@/components/UploadRightsHint";
 
 function isBarePartnershipCommand(raw: string) {
   return /^\/+\s*partnership\s*$/i.test(String(raw || "").trim());
@@ -250,9 +251,15 @@ function Bubble({
   return (
     <li className={cn("group flex min-w-0 gap-2.5", mine && "flex-row-reverse")}>
       <Avatar userId={m.authorId} src={m.authorAvatarUrl} name={m.authorName} className="mt-5 size-8 shrink-0 text-xs" />
-      <div className={cn("flex min-w-0 max-w-[min(85%,100%)] flex-col sm:max-w-[75%]", mine && "items-end")}>
-        <p className={cn("mb-1 flex min-w-0 flex-wrap items-center gap-x-2 px-1 text-xs", mine && "justify-end")}>
-          <span className="min-w-0 break-words font-semibold text-crema/85">{m.authorName}</span>
+      {/* width esplicita: senza, il flex allarga la colonna al testo e non va a capo */}
+      <div
+        className={cn(
+          "flex min-w-0 w-[min(100%,36rem)] max-w-[calc(100%-2.75rem)] flex-col sm:max-w-[min(75%,36rem)]",
+          mine && "items-end",
+        )}
+      >
+        <p className={cn("mb-1 flex min-w-0 max-w-full flex-wrap items-center gap-x-2 px-1 text-xs", mine && "justify-end")}>
+          <span className="min-w-0 break-words font-semibold text-crema/85 [overflow-wrap:anywhere]">{m.authorName}</span>
           {m.authorRoleName && <span className={cn("rounded px-1.5 py-px text-[0.65rem] font-bold uppercase tracking-wider", staff ? "bg-caramel/20 text-ember" : "bg-crema/8 text-crema/55")}>{m.authorRoleName}</span>}
           {m.authorAvgRating != null && (
             <span className="inline-flex items-center gap-0.5 text-crema/45">
@@ -263,7 +270,7 @@ function Bubble({
         </p>
         <div
           className={cn(
-            "relative min-w-0 max-w-full rounded-2xl px-4 py-2.5 text-[0.95rem] leading-relaxed shadow-sm",
+            "relative min-w-0 max-w-full overflow-hidden rounded-2xl px-4 py-2.5 text-[0.95rem] leading-relaxed shadow-sm",
             mine ? "rounded-tr-md bg-crema text-espresso" : staff ? "rounded-tl-md bg-gradient-to-br from-[#4a2e1c] to-mocha text-crema ring-1 ring-caramel/25" : "rounded-tl-md bg-roast text-crema ring-1 ring-sand/12",
             m.pending && "opacity-60",
           )}
@@ -277,7 +284,7 @@ function Bubble({
             <DiscordContent
               text={m.content}
               names={{ users: names, roles: roleNames, channels: channelNames, light: mine }}
-              className="whitespace-pre-wrap"
+              className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
             />
           )}
           {m.imageUrls.length > 0 && (
@@ -677,8 +684,8 @@ export function TicketChat({
       </div>
 
       {/* messaggi */}
-      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-5 sm:px-6">
-        <ul className="space-y-4">
+      <div ref={listRef} className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-5 sm:px-6">
+        <ul className="min-w-0 space-y-4">
           {messages.map((m) => {
             const mine = m.authorId === me;
             const canDelete = !closed && m.authorKind !== "system" && (mine || !!p?.isHighStaff);
@@ -693,9 +700,16 @@ export function TicketChat({
                 canReact={!closed && !!p?.canReply}
                 canEdit={!closed && mine && !!p?.canReply}
                 canDelete={canDelete}
-                onReply={() => setReply(m)}
+                onReply={() => {
+                  setEditing(null);
+                  setReply(m);
+                }}
                 onReact={(e) => void reactTo(m.id, e)}
-                onEdit={() => (setEditing(m), setText(m.content))}
+                onEdit={() => {
+                  setReply(null);
+                  setEditing(m);
+                  setText(m.content);
+                }}
                 onDelete={async () => {
                   if (!(await confirmDialog({ message: "Eliminare questo messaggio?", danger: true }))) return;
                   run(deleteMessage(token, t.id, m.id));
@@ -760,26 +774,41 @@ export function TicketChat({
           ) : null}
         </div>
       ) : p?.canReply ? (
-        <div className="border-t border-sand/10 bg-roast/60 p-3 sm:p-4">
+        <div className="min-w-0 border-t border-sand/10 bg-roast/60 p-3 sm:p-4">
           {(reply || editing) && (
-            <p className="mb-2 flex items-center gap-2 rounded-lg bg-crema/[0.05] px-3 py-1.5 text-xs text-crema/65">
-              {editing ? <Pencil className="size-3.5" /> : <CornerUpLeft className="size-3.5" />}
-              <span className="min-w-0 flex-1 truncate">{editing ? "Modifica del messaggio" : `Rispondi a ${reply!.authorName}: ${reply!.content}`}</span>
-              <button type="button" aria-label="Annulla" onClick={() => (setReply(null), editing && setText(""), setEditing(null))}>
-                <X className="size-3.5" />
+            <div className="mb-2 flex min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-lg bg-crema/[0.05] px-3 py-1.5 text-xs text-crema/65">
+              {editing ? <Pencil className="size-3.5 shrink-0" aria-hidden /> : <CornerUpLeft className="size-3.5 shrink-0" aria-hidden />}
+              <span className="min-w-0 flex-1 truncate [overflow-wrap:anywhere]">
+                {editing ? "Modifica del messaggio" : `Rispondi a ${reply!.authorName}: ${reply!.content}`}
+              </span>
+              <button
+                type="button"
+                aria-label={editing ? "Annulla modifica" : "Annulla risposta"}
+                title={editing ? "Annulla modifica" : "Annulla risposta"}
+                onClick={() => {
+                  if (editing) setText("");
+                  setReply(null);
+                  setEditing(null);
+                }}
+                className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-crema/10 text-crema ring-1 ring-sand/25 transition hover:bg-crema/20"
+              >
+                <X className="size-3.5" aria-hidden />
               </button>
-            </p>
+            </div>
           )}
           {images.length > 0 && (
-            <div className="mb-2 flex gap-2">
-              {images.map((src, i) => (
-                <span key={i} className="relative">
-                  <img src={src} alt="" className="size-14 rounded-lg object-cover" />
-                  <button type="button" aria-label="Rimuovi" onClick={() => setImages((x) => x.filter((_, j) => j !== i))} className="absolute -right-1.5 -top-1.5 rounded-full bg-crema p-0.5 text-espresso">
-                    <X className="size-3" />
-                  </button>
-                </span>
-              ))}
+            <div className="mb-2 space-y-1.5">
+              <div className="flex gap-2">
+                {images.map((src, i) => (
+                  <span key={i} className="relative">
+                    <img src={src} alt="" className="size-14 rounded-lg object-cover" />
+                    <button type="button" aria-label="Rimuovi" onClick={() => setImages((x) => x.filter((_, j) => j !== i))} className="absolute -right-1.5 -top-1.5 rounded-full bg-crema p-0.5 text-espresso">
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <UploadRightsHint />
             </div>
           )}
           <div className="relative flex items-end gap-2">
@@ -818,6 +847,13 @@ export function TicketChat({
                 onClick={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
                 onKeyUp={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
                 onKeyDown={(e) => {
+                  if (e.key === "Escape" && (reply || editing)) {
+                    e.preventDefault();
+                    if (editing) setText("");
+                    setReply(null);
+                    setEditing(null);
+                    return;
+                  }
                   // ComposerSuggest fa preventDefault su Enter/Tab quando sceglie dal menu
                   onComposerEnterSend(e, () => void send());
                 }}

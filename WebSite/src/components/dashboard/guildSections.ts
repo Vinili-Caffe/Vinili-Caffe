@@ -126,7 +126,10 @@ export const ANNUNCI_MODULE_TABS = [
   { id: "dm", label: "Messaggio privato" },
   { id: "roles", label: "Ruoli automatici" },
   { id: "boost", label: "Boost" },
-  { id: "ruolinuovi", label: "Ruolo ottenuto" },
+  { id: "clantag", label: "Clan tag" },
+  { id: "status", label: "Status" },
+  { id: "inviti", label: "Inviti" },
+  { id: "ruolinuovi", label: "Ruoli custom" },
 ] as const satisfies readonly GuildModuleTab[];
 
 export type AnnunciModuleTabId = (typeof ANNUNCI_MODULE_TABS)[number]["id"];
@@ -153,7 +156,7 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "messaggi", label: "Messaggi", icon: Megaphone, tabs: [] as const },
   { id: "comandipers", label: "Comandi personalizzati", icon: TerminalSquare, tabs: [] as const },
   { id: "ruoli", label: "Ruoli automatici", icon: Tags, tabs: [] as const },
-  { id: "benvenuto", label: "Annunci", icon: PartyPopper, tabs: ANNUNCI_MODULE_TABS },
+  { id: "benvenuto", label: "Annunci automatici", icon: PartyPopper, tabs: ANNUNCI_MODULE_TABS },
   { id: "risposte", label: "Risposte automatiche", icon: MessageSquareReply, tabs: [] as const },
   { id: "contatori", label: "Contatori", icon: Gauge, tabs: [] as const },
   { id: "bumpvoti", label: "Bump e voti", icon: Rocket, tabs: [] as const },

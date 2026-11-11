@@ -62,10 +62,21 @@ export type SavedMessage = {
   updatedAt: number;
 };
 
-/** Annunci: boost e ruolo ottenuto */
+/** Annunci automatici: boost, eventi nominati e ruoli custom */
 export type RoleAnnounceRule = { id: string; name: string; enabled: boolean; roleIds: string[]; channelId: string | null; cooldownHours: number; draft: MsgDraft };
+export type NamedAnnounceSlot = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  roleId: string | null;
+  channelId: string | null;
+  cooldownHours: number;
+  draft: MsgDraft;
+};
+export type NamedAnnounceKey = "clantag" | "fan" | "supporter" | "promoter" | "propulsor" | "catalyst";
 export type AnnouncementsConfig = {
   boost: { enabled: boolean; channelId: string | null; firstDraft: MsgDraft; repeatDraft: MsgDraft };
+  named: Record<NamedAnnounceKey, NamedAnnounceSlot>;
   roles: { enabled: boolean; rules: RoleAnnounceRule[] };
 };
 

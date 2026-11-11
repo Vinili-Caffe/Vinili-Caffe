@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/cn";
 import { useFeedbackApi } from "@/lib/feedback-api";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
+import { UploadRightsHint } from "@/components/UploadRightsHint";
 
 type FeedbackDraft = { kind: Kind; tag: Topic | null; content: string };
 
@@ -225,6 +226,7 @@ export function Composer({
               )}
             </div>
             <p className="mt-1.5 text-xs text-ink/45">Fino a {MAX_IMAGES} foto (PNG, JPG, WebP o GIF).</p>
+            <UploadRightsHint tone="light" className="mt-1" />
             <input name="attachments" ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
           </div>
         )}

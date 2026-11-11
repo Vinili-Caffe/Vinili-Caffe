@@ -221,7 +221,7 @@ const SECTION_LEAD: Record<Section, string> = {
   messaggi: "Annunci e regolamenti con embed e pulsanti: pubblicali subito o a un'ora precisa.",
   comandipers: "Comandi con una risposta fissa, tipo +regole o +ip, creati da te.",
   ruoli: "Pannelli dove i membri si prendono i ruoli da soli: con pulsanti, menu o reazioni.",
-  benvenuto: "Benvenuto, addio, messaggio privato a chi entra e ruoli automatici.",
+  benvenuto: "Annunci automatici: ingresso, uscita, boost, clan tag, status, inviti e ruoli custom.",
   risposte: "Il bot risponde da solo quando qualcuno scrive certe parole.",
   contatori: "Canali vocali che mostrano membri, boost e altri numeri, aggiornati da soli.",
   bumpvoti: "Bump di Disboard e Discadia e voti su Top.gg e Discadia: ringraziamenti, ricompense, promemoria e classifica.",
@@ -2195,10 +2195,25 @@ export function GuildPanel() {
 
                     {section === "benvenuto" && guildId && token ? (
                       <Panel>
-                        {moduleTab === "boost" || moduleTab === "ruolinuovi" ? (
-                          <AnnouncementsPanel key={moduleTab} guildId={guildId} token={token} onToast={showToast} tab={moduleTab} />
+                        {moduleTab === "boost" ||
+                        moduleTab === "ruolinuovi" ||
+                        moduleTab === "clantag" ||
+                        moduleTab === "status" ||
+                        moduleTab === "inviti" ? (
+                          <AnnouncementsPanel
+                            key={moduleTab}
+                            guildId={guildId}
+                            token={token}
+                            onToast={showToast}
+                            tab={moduleTab as "boost" | "ruolinuovi" | "clantag" | "status" | "inviti"}
+                          />
                         ) : (
-                          <WelcomePanel guildId={guildId} token={token} onToast={showToast} tab={moduleTab && isAnnunciModuleTab(moduleTab) ? (moduleTab as "welcome" | "goodbye" | "dm" | "roles") : "welcome"} />
+                          <WelcomePanel
+                            guildId={guildId}
+                            token={token}
+                            onToast={showToast}
+                            tab={moduleTab && isAnnunciModuleTab(moduleTab) ? (moduleTab as "welcome" | "goodbye" | "dm" | "roles") : "welcome"}
+                          />
                         )}
                       </Panel>
                     ) : null}

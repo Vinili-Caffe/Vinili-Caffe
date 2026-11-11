@@ -4,7 +4,9 @@ import { Reveal } from "@/components/Reveal";
 import { RichText } from "@/components/RichText";
 import { PAYPAL, TIERS, WHERE } from "@/lib/donate";
 import { cn } from "@/lib/cn";
+import { page } from "@/lib/site";
 import { PromoBanner, PromoPrice, PromoSticker } from "@/components/promo/Promo";
+import { SmartLink } from "@/components/SmartLink";
 
 const WHERE_ICONS = [<Server key="s" />, <Bot key="b" />, <PartyPopper key="p" />];
 
@@ -96,9 +98,13 @@ export function DonateBoard() {
                   >
                     <Heart className="size-4" /> {CTA[t.id] ?? t.cta}
                   </a>
-                  <p className="relative mt-2 text-center text-xs text-crema/40">Pagamento con PayPal</p>
+                  <p className="relative mt-2 text-center text-xs text-crema/40">Pagamento con PayPal · donazione una tantum, senza rinnovo automatico</p>
                   <p className="relative mt-1 text-center text-xs leading-snug text-crema/35">
-                    Il ruolo viene assegnato dallo staff dopo la conferma del pagamento su PayPal.
+                    Il ruolo viene assegnato dallo staff dopo la conferma del pagamento su PayPal. Pagando accetti i{" "}
+                    <SmartLink href={page("/terms/")} className="font-semibold text-ember underline-offset-2 hover:underline">
+                      Termini di Servizio
+                    </SmartLink>
+                    ; le donazioni non sono rimborsabili.
                   </p>
                 </article>
               </Reveal>

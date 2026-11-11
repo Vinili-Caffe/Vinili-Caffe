@@ -1,8 +1,8 @@
 /**
- * Annunci della dashboard (sezione "Annunci"): boost e ruolo ottenuto.
- * - boost: server tenant dal messaggio di sistema di Discord ("ha boostato il server"); sul server principale
- *   resta il riconoscimento classico (con ruolo Double Booster) ma, se l'annuncio è acceso qui, usa questi testi
- * - ruolo ottenuto: per ogni regola (ruoli → canale + messaggio), su tutti i server
+ * Annunci automatici della dashboard: boost, eventi nominati (clan/status/inviti) e ruoli custom.
+ * - boost: server tenant dal messaggio di sistema di Discord; sul principale resta il riconoscimento classico
+ * - named: Guilded / Fan / Supporter / Promoter / Propulsor / Catalyst (una fonte, non in Ruoli custom)
+ * - ruoli custom: regole freeform (ruoli → canale + messaggio), su tutti i server
  * Impostazioni e stato in BotState (tenantCommunityTools: announcements / announcementsState).
  */
 const { Routes } = require("discord.js") as typeof import("discord.js");
@@ -10,7 +10,10 @@ const T = require("../core/tenantCommunityTools") as typeof import("../core/tena
 
 const restOf = (client?) => client?.rest || client?._rest || null;
 const ROLE_RULES_MAX = 40;
-const SEED_VERSION = 3;
+const SEED_VERSION = 5;
+
+const NAMED_KEYS = ["clantag", "fan", "supporter", "promoter", "propulsor", "catalyst"] as const;
+type NamedKey = (typeof NAMED_KEYS)[number];
 
 /* ───────────── impostazioni ───────────── */
 
@@ -32,6 +35,48 @@ function normalizeRoleRule(raw?, i = 0) {
     cooldownHours: Number.isFinite(cd) && cd >= 0 && cd <= 8760 ? cd : 24,
     draft: r.draft ? T.normalizeDraft(r.draft) : emptyDraft(),
   };
+}
+
+function normalizeNamedSlot(key: NamedKey, raw?) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const cd = Math.floor(Number(r.cooldownHours));
+  const defaults: Record<NamedKey, string> = {
+    clantag: "Clan tag",
+    fan: "Fan (status)",
+    supporter: "Supporter (bio)",
+    promoter: "Promoter",
+    propulsor: "Propulsor",
+    catalyst: "Catalyst",
+  };
+  return {
+    id: `named:${key}`,
+    name: String(r.name || "").trim().slice(0, 80) || defaults[key],
+    enabled: r.enabled === true,
+    roleId: T.isId(r.roleId) ? String(r.roleId) : null,
+    channelId: T.isId(r.channelId) ? String(r.channelId) : null,
+    cooldownHours: Number.isFinite(cd) && cd >= 0 && cd <= 8760 ? cd : 24,
+    draft: r.draft ? T.normalizeDraft(r.draft) : emptyDraft(),
+  };
+}
+
+/** Slot nominato → forma regola (stessa pipeline di invio/cooldown). */
+function namedAsRule(slot: ReturnType<typeof normalizeNamedSlot>) {
+  return {
+    id: slot.id,
+    name: slot.name,
+    enabled: slot.enabled,
+    roleIds: slot.roleId ? [slot.roleId] : [],
+    channelId: slot.channelId,
+    cooldownHours: slot.cooldownHours,
+    draft: slot.draft,
+  };
+}
+
+function normalizeNamed(raw?) {
+  const n = raw && typeof raw === "object" ? raw : {};
+  const out = {} as Record<NamedKey, ReturnType<typeof normalizeNamedSlot>>;
+  for (const key of NAMED_KEYS) out[key] = normalizeNamedSlot(key, n[key]);
+  return out;
 }
 
 function normalizeConfig(raw?) {
@@ -60,6 +105,7 @@ function normalizeConfig(raw?) {
             buttons: [],
           }),
     },
+    named: normalizeNamed(r.named),
     roles: {
       enabled: rl.enabled !== false,
       rules: (Array.isArray(rl.rules) ? rl.rules : []).slice(0, ROLE_RULES_MAX).map((x, i) => normalizeRoleRule(x, i)),
@@ -69,6 +115,43 @@ function normalizeConfig(raw?) {
   };
 }
 type AnnConfig = ReturnType<typeof normalizeConfig>;
+type AnnRule = ReturnType<typeof normalizeRoleRule>;
+
+function namedRoleIds(cfg: AnnConfig): Set<string> {
+  const s = new Set<string>();
+  for (const key of NAMED_KEYS) {
+    const id = cfg.named[key]?.roleId;
+    if (id) s.add(String(id));
+  }
+  return s;
+}
+
+/** Regole per un ruolo: named sempre; freeform solo se roles.enabled. */
+function findRulesForRole(cfg: AnnConfig, roleId: string): AnnRule[] {
+  const rid = String(roleId);
+  const out: AnnRule[] = [];
+  for (const key of NAMED_KEYS) {
+    const slot = cfg.named[key];
+    if (slot.roleId === rid) out.push(namedAsRule(slot));
+  }
+  if (cfg.roles.enabled !== false) {
+    for (const r of cfg.roles.rules) {
+      if (r.roleIds.includes(rid)) out.push(r);
+    }
+  }
+  return out;
+}
+
+/** Named + (se accesi) ruoli custom. */
+function allSendableRules(cfg: AnnConfig): AnnRule[] {
+  const out: AnnRule[] = [];
+  for (const key of NAMED_KEYS) {
+    const slot = cfg.named[key];
+    if (slot.roleId) out.push(namedAsRule(slot));
+  }
+  if (cfg.roles.enabled !== false) out.push(...cfg.roles.rules);
+  return out;
+}
 
 async function getConfig(guildId: string, fresh = false): Promise<AnnConfig> {
   return normalizeConfig(await T.getGuildBlob("announcements", String(guildId), fresh));
@@ -77,6 +160,13 @@ async function getConfig(guildId: string, fresh = false): Promise<AnnConfig> {
 async function saveConfig(guildId: string, raw?) {
   const prev = await getConfig(guildId, true);
   const next = normalizeConfig({ ...raw, seedVersion: prev.seedVersion, userSaved: true });
+  /* non lasciare i roleId named anche in Ruoli custom */
+  const reserved = namedRoleIds(next);
+  if (reserved.size) {
+    next.roles.rules = next.roles.rules
+      .map((r) => ({ ...r, roleIds: r.roleIds.filter((id) => !reserved.has(String(id))) }))
+      .filter((r) => r.roleIds.length > 0);
+  }
   await T.setGuildBlob("announcements", String(guildId), next);
   return next;
 }
@@ -178,7 +268,7 @@ async function handleTenantBoostMessage(message?) {
   return true;
 }
 
-/* ───────────── ruolo ottenuto ───────────── */
+/* ───────────── ruolo ottenuto (named + custom) ───────────── */
 
 async function handleRoleAdded(oldMember?, newMember?) {
   const guild = newMember?.guild;
@@ -189,9 +279,8 @@ async function handleRoleAdded(oldMember?, newMember?) {
   const added = [...newMember.roles.cache.keys()].filter((id) => !oldMember.roles.cache.has(id));
   if (!added.length) return;
   const cfg = await getConfig(gid);
-  if (!cfg.roles.enabled || !cfg.roles.rules.length) return;
-  const rules = cfg.roles.rules.filter((r) => r.enabled && r.channelId && r.roleIds.some((id) => added.includes(id)));
-  if (!rules.length) return;
+  const candidates = allSendableRules(cfg).filter((r) => r.enabled && r.channelId && r.roleIds.some((id) => added.includes(id)));
+  if (!candidates.length) return;
   let restoredByMute: (g: string, u: string, r: string) => boolean = () => false;
   try {
     const m = require("../../Vinili/Moderation/utils/muteRestoreAnnounceSuppress") as any;
@@ -200,7 +289,7 @@ async function handleRoleAdded(oldMember?, newMember?) {
   const st = await getState(gid);
   const now = Date.now();
   let changed = false;
-  for (const rule of rules) {
+  for (const rule of candidates) {
     const roleId = rule.roleIds.find((id) => added.includes(id)) as string;
     /* ruolo rimesso dopo un mute: non è un ruolo "nuovo" */
     if (restoredByMute(gid, newMember.id, roleId)) continue;
@@ -222,11 +311,12 @@ async function handleRoleAdded(oldMember?, newMember?) {
   }
 }
 
-/** Server principale: il ruolo ha già una regola accesa qui? (allora l'annuncio classico si ferma) */
+/** Server principale: il ruolo ha già una regola/slot acceso qui? (allora l'annuncio classico si ferma) */
 async function roleRuleHandles(guildId?, roleId?) {
   const cfg = await getConfig(String(guildId || "")).catch(() => null);
-  if (!cfg?.roles.enabled) return false;
-  return cfg.roles.rules.some((r) => r.enabled && r.channelId && r.roleIds.includes(String(roleId)));
+  if (!cfg) return false;
+  const rid = String(roleId || "");
+  return findRulesForRole(cfg, rid).some((r) => r.enabled && r.channelId);
 }
 
 /**
@@ -245,8 +335,7 @@ async function trySendConfiguredRoleAnnounce(client?, member?, roleId?, opts: { 
     if (!raw || typeof raw !== "object") return false;
     const cfg = normalizeConfig(raw);
     if (!cfg.userSaved && !(T.isMainGuild(gid) && Number(cfg.seedVersion) >= 1)) return false;
-    if (cfg.roles.enabled === false) return false;
-    const rule = cfg.roles.rules.find((r) => r.roleIds.includes(rid) && r.channelId && !T.draftIsEmpty(r.draft));
+    const rule = findRulesForRole(cfg, rid).find((r) => r.channelId && !T.draftIsEmpty(r.draft));
     if (!rule) return false;
     /* regola accesa → handleRoleAdded (evita doppio annuncio) */
     if (rule.enabled) return false;
@@ -350,6 +439,17 @@ function mainSeedConfig() {
     },
     buttons: [],
   });
+  const namedSlot = (name: string, roleId: string, title: string, lines: string[], imageUrl = "") =>
+    roleId
+      ? {
+          name,
+          enabled: false,
+          roleId,
+          channelId: supporters,
+          cooldownHours: 24,
+          draft: nuovxDraft(title, lines, imageUrl),
+        }
+      : null;
   const nuovxRule = (name: string, roleId: string, title: string, lines: string[], imageUrl = "") =>
     roleId
       ? {
@@ -388,28 +488,56 @@ function mainSeedConfig() {
     ? `${e("VC_Arrow")} Dettagli perk: <#${infoChannel}>`
     : perksSite;
 
-  const rules = [
-    nuovxRule("Nuovx Guilded", guildedRole, `Nuovx Guilded ${e("VC_StarPink")}`, [
+  const namedRaw: Partial<Record<NamedKey, ReturnType<typeof namedSlot>>> = {
+    clantag: namedSlot("Clan tag", guildedRole, `Nuovx Guilded ${e("VC_StarPink")}`, [
       ...unlockPicNick,
       "",
       `${e("VC_Arrow")} Grazie per aver scelto la nostra tag! Scopri tutti i vantaggi [qui](https://viniliecaffe.it/perks)`,
     ]),
-    nuovxRule("Nuovx Follower", followerRole, `Nuovx Follower ${e("VC_StarPink")}`, [
-      ...unlockPicNick,
-      "",
-      `${e("VC_Arrow")} Seguici su [Instagram](https://instagram.com/viniliecaffe) e su [TikTok](https://tiktok.com/@viniliecaffe).`,
-    ]),
-    nuovxRule("Nuovx Supporter", supporterRole, `Nuovx Supporter ${e("VC_StarPink")}`, [
-      ...unlockPicNick,
-      "",
-      `${e("VC_Arrow")} Metti \`.gg/viniliecaffe\`, \`discord.gg/viniliecaffe\` o \`viniliecaffe.it\` nella tua bio.`,
-    ]),
-    nuovxRule("Nuovx Fan", fanRole, `Nuovx Fan ${e("VC_StarPink")}`, [
+    fan: namedSlot("Fan (status)", fanRole, `Nuovx Fan ${e("VC_StarPink")}`, [
       `${e("VC_Reply")} Ti verrà dato entro **3 minuti** dal bot!`,
       `${e("VC_Infinity")} - Permesso di allegare immagini e link in chat`,
       `${e("VC_HeartWhite")} - Permesso di cambiare nickname`,
       "",
       `${e("VC_Arrow")} Metti il link del server nel tuo status.`,
+    ]),
+    supporter: namedSlot("Supporter (bio)", supporterRole, `Nuovx Supporter ${e("VC_StarPink")}`, [
+      ...unlockPicNick,
+      "",
+      `${e("VC_Arrow")} Metti \`.gg/viniliecaffe\`, \`discord.gg/viniliecaffe\` o \`viniliecaffe.it\` nella tua bio.`,
+    ]),
+    promoter: namedSlot("Promoter", promoter, "🎀✦ Nuovx Promoter!", [
+      `${e("VC_Reply")} Hai ricevuto {role} — **Promoter**`,
+      `${e("VC_Infinity")} - Permesso di allegare immagini e link in chat`,
+      `${e("VC_HeartWhite")} - Permesso di cambiare il nickname`,
+      "",
+      "Per il prossimo ruolo raggiungi **25 inviti** con il tuo link personalizzato.",
+      invitePerksLine,
+    ]),
+    propulsor: namedSlot("Propulsor", propulsor, "✨ Nuovx Propulsor!", [
+      `${e("VC_Reply")} Hai ricevuto {role} — **Propulsor**`,
+      `${e("VC_Infinity")} - Tutti i perks di Promoter`,
+      `${e("VC_HeartWhite")} - Permesso di mandare sticker ed emoji di altri server`,
+      `${e("VC_Flame")} - Permesso di aggiungere reazioni ai messaggi`,
+      "",
+      "Per il prossimo ruolo raggiungi **100 inviti** con il tuo link personalizzato.",
+      invitePerksLine,
+    ]),
+    catalyst: namedSlot("Catalyst", catalyst, "🏆 Nuovx Catalyst!", [
+      `${e("VC_Reply")} Hai ricevuto {role} — **Catalyst**`,
+      `${e("VC_Infinity")} - Tutti i perks di Propulsor`,
+      `${e("VC_HeartWhite")} - Permesso di usare soundboard esterne`,
+      "",
+      "Hai raggiunto la soglia massima degli inviti reward!",
+      invitePerksLine,
+    ]),
+  };
+
+  const rules = [
+    nuovxRule("Nuovx Follower", followerRole, `Nuovx Follower ${e("VC_StarPink")}`, [
+      ...unlockPicNick,
+      "",
+      `${e("VC_Arrow")} Seguici su [Instagram](https://instagram.com/viniliecaffe) e su [TikTok](https://tiktok.com/@viniliecaffe).`,
     ]),
     nuovxRule("Nuovx Verified he/him", verificato, `Nuovx Verified ʰᵉᐟʰⁱᵐ ${e("VC_StarPink")}`, [...unlockPicNick, "", perksSite], verifiedImage),
     nuovxRule("Nuovx Verified she/her", verificata, `Nuovx Verified ˢʰᵉᐟʰᵉʳ ${e("VC_StarPink")}`, [...unlockPicNick, "", perksSite], verifiedImage),
@@ -420,31 +548,6 @@ function mainSeedConfig() {
       "",
       `${e("VC_Arrow")} Hai completato i prerequisiti social.`,
       perksSite,
-    ]),
-    nuovxRule("Nuovx Promoter", promoter, "🎀✦ Nuovx Promoter!", [
-      `${e("VC_Reply")} Hai ricevuto {role} — **Promoter**`,
-      `${e("VC_Infinity")} - Permesso di allegare immagini e link in chat`,
-      `${e("VC_HeartWhite")} - Permesso di cambiare il nickname`,
-      "",
-      "Per il prossimo ruolo raggiungi **25 inviti** con il tuo link personalizzato.",
-      invitePerksLine,
-    ]),
-    nuovxRule("Nuovx Propulsor", propulsor, "✨ Nuovx Propulsor!", [
-      `${e("VC_Reply")} Hai ricevuto {role} — **Propulsor**`,
-      `${e("VC_Infinity")} - Tutti i perks di Promoter`,
-      `${e("VC_HeartWhite")} - Permesso di mandare sticker ed emoji di altri server`,
-      `${e("VC_Flame")} - Permesso di aggiungere reazioni ai messaggi`,
-      "",
-      "Per il prossimo ruolo raggiungi **100 inviti** con il tuo link personalizzato.",
-      invitePerksLine,
-    ]),
-    nuovxRule("Nuovx Catalyst", catalyst, "🏆 Nuovx Catalyst!", [
-      `${e("VC_Reply")} Hai ricevuto {role} — **Catalyst**`,
-      `${e("VC_Infinity")} - Tutti i perks di Propulsor`,
-      `${e("VC_HeartWhite")} - Permesso di usare soundboard esterne`,
-      "",
-      "Hai raggiunto la soglia massima degli inviti reward!",
-      invitePerksLine,
     ]),
     donator
       ? {
@@ -555,12 +658,17 @@ function mainSeedConfig() {
 
   return normalizeConfig({
     boost: { enabled: false, channelId: supporters, firstDraft: first, repeatDraft: second },
+    named: namedRaw,
     roles: { enabled: true, rules },
     seedVersion: SEED_VERSION,
   });
 }
 
-/** Prima apertura / upgrade seed sul principale: importa o aggiunge le regole ruolo mancanti. */
+function namedSlotIsEmpty(slot: ReturnType<typeof normalizeNamedSlot>) {
+  return !slot.roleId && T.draftIsEmpty(slot.draft);
+}
+
+/** Prima apertura / upgrade seed sul principale: importa named + regole custom mancanti. */
 async function ensureMainSeed(guildId?) {
   const gid = String(guildId || "");
   if (!T.isMainGuild(gid)) return false;
@@ -571,24 +679,67 @@ async function ensureMainSeed(guildId?) {
     return true;
   }
   const prevVer = Number(prev.seedVersion || 0);
-  if (prevVer >= SEED_VERSION) return false;
   const next = normalizeConfig(prev);
+  let changed = false;
+
+  /* migra regole freeform → named (una sola fonte) */
+  for (const key of NAMED_KEYS) {
+    const seedSlot = seed.named[key];
+    const cur = next.named[key];
+    if (!seedSlot.roleId) continue;
+    const fromRule = next.roles.rules.find((r) => r.roleIds.includes(seedSlot.roleId!));
+    if (namedSlotIsEmpty(cur)) {
+      if (fromRule) {
+        next.named[key] = normalizeNamedSlot(key, {
+          name: fromRule.name || seedSlot.name,
+          enabled: fromRule.enabled === true,
+          roleId: seedSlot.roleId,
+          channelId: fromRule.channelId || seedSlot.channelId,
+          cooldownHours: fromRule.cooldownHours,
+          draft: fromRule.draft,
+        });
+      } else {
+        next.named[key] = seedSlot;
+      }
+      changed = true;
+    } else if (!cur.roleId) {
+      next.named[key] = normalizeNamedSlot(key, { ...cur, roleId: seedSlot.roleId });
+      changed = true;
+    } else if (T.draftIsEmpty(cur.draft) && !T.draftIsEmpty(seedSlot.draft)) {
+      next.named[key] = normalizeNamedSlot(key, { ...cur, draft: seedSlot.draft, channelId: cur.channelId || seedSlot.channelId });
+      changed = true;
+    }
+  }
+
+  const reserved = namedRoleIds(next);
+  const before = next.roles.rules.length;
+  next.roles.rules = next.roles.rules
+    .map((r) => ({ ...r, roleIds: r.roleIds.filter((id) => !reserved.has(String(id))) }))
+    .filter((r) => r.roleIds.length > 0);
+  if (next.roles.rules.length !== before) changed = true;
+
   const covered = new Set(next.roles.rules.flatMap((r) => r.roleIds.map(String)));
   let added = 0;
   for (const rule of seed.roles.rules) {
+    if (!rule.roleIds.length) continue;
+    if (rule.roleIds.some((id) => reserved.has(String(id)))) continue;
     if (rule.roleIds.some((id) => covered.has(String(id)))) continue;
     next.roles.rules.push(rule);
     for (const id of rule.roleIds) covered.add(String(id));
     added += 1;
   }
-  next.seedVersion = SEED_VERSION;
+  if (added > 0) changed = true;
+
+  if (!changed && prevVer >= SEED_VERSION) return false;
+  next.seedVersion = Math.max(prevVer, SEED_VERSION);
   next.userSaved = prev.userSaved === true;
   await T.setGuildBlob("announcements", gid, next);
-  return added > 0 || prevVer < SEED_VERSION;
+  return true;
 }
 
 export = {
   ROLE_RULES_MAX,
+  NAMED_KEYS,
   getConfig,
   saveConfig,
   ensureMainSeed,

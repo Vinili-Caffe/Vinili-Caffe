@@ -2,7 +2,8 @@ import { page } from "@/lib/site";
 import { SmartLink } from "../SmartLink";
 
 /**
- * Mini-markup legale (da HTML vecchio): **grassetto**, *corsivo*, `codice`, [[etichetta|/percorso/]].
+ * Mini-markup legale: **grassetto**, *corsivo*, `codice`,
+ * [[etichetta|/percorso/]] oppure [etichetta](https://… / /percorso/).
  * A capo nel testo → <br />.
  */
 export function LegalProse({ text, className }: { text: string; className?: string }) {
@@ -19,8 +20,22 @@ export function LegalProse({ text, className }: { text: string; className?: stri
   );
 }
 
+const LINK_CLASS =
+  "font-medium text-caramel underline decoration-caramel/40 underline-offset-4 transition-colors hover:text-ember";
+
+function ProseLink({ href, label }: { href: string; label: string }) {
+  const resolved = href.startsWith("/") ? page(href) : href;
+  const external = /^https?:/.test(resolved) && !resolved.includes("viniliecaffe.it");
+  return (
+    <SmartLink href={resolved} {...(external ? { target: "_blank", rel: "noopener" } : {})} className={LINK_CLASS}>
+      {label}
+    </SmartLink>
+  );
+}
+
 function Inline({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[\[[^\]]+\]\])/g);
+  /* wiki [[a|b]] prima dei markdown [a](b), così non si spezzano */
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[\[[^\]]+\]\]|\[[^\]]+\]\([^)]+\))/g);
   return (
     <>
       {parts.map((p, i) => {
@@ -45,21 +60,10 @@ function Inline({ text }: { text: string }) {
             </code>
           );
         }
-        const m = p.match(/^\[\[([^|\]]+)\|([^\]]+)\]\]$/);
-        if (m) {
-          const href = m[2].startsWith("/") ? page(m[2]) : m[2];
-          const external = /^https?:/.test(href) && !href.includes("viniliecaffe.it");
-          return (
-            <SmartLink
-              key={i}
-              href={href}
-              {...(external ? { target: "_blank", rel: "noopener" } : {})}
-              className="font-medium text-caramel underline decoration-caramel/40 underline-offset-4 transition-colors hover:text-ember"
-            >
-              {m[1]}
-            </SmartLink>
-          );
-        }
+        const wiki = p.match(/^\[\[([^|\]]+)\|([^\]]+)\]\]$/);
+        if (wiki) return <ProseLink key={i} label={wiki[1]} href={wiki[2]} />;
+        const md = p.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        if (md) return <ProseLink key={i} label={md[1]} href={md[2]} />;
         return <span key={i}>{p}</span>;
       })}
     </>

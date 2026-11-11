@@ -39,6 +39,7 @@ import {
 } from "@/lib/contest";
 import { AccessHomeRedirect } from "@/components/AccessHomeRedirect";
 import { PageHero } from "@/components/PageHero";
+import { UploadRightsHint } from "@/components/UploadRightsHint";
 import { Disclosure, confirmDialog, showToast } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
@@ -756,29 +757,33 @@ export function ContestBoard({
                   <p className="px-1 text-[11px] leading-relaxed text-crema/40">
                     Se cambi o elimini la foto, i like già ricevuti vengono azzerati.
                   </p>
+                  <UploadRightsHint className="px-1" />
                 </Panel>
               ) : null}
               {!status?.submitBanned && !mineByCat[catSubmit] ? (
-                <label className="group flex cursor-pointer flex-col items-center gap-3 rounded-3xl border border-dashed border-crema/20 bg-gradient-to-b from-crema/[0.05] to-transparent px-6 py-14 text-center transition hover:border-caramel/40 hover:from-caramel/[0.07]">
-                  <span className="flex size-14 items-center justify-center rounded-2xl bg-caramel/15 text-caramel ring-1 ring-caramel/25 transition group-hover:scale-105">
-                    <ImagePlus className="size-7" />
-                  </span>
-                  <span className="font-display text-lg font-semibold">
-                    {isSfondi ? `Carica sfondo ${catSubmitLabel}` : `Carica ${catSubmitLabel || "foto"}`}
-                  </span>
-                  <span className="max-w-xs text-xs leading-relaxed text-crema/45">
-                    {catSubmit === "pc" ? "Formato orizzontale consigliato" : catSubmit === "mobile" ? "Formato verticale consigliato" : "Una foto"}
-                    {" · "}PNG, JPG o WEBP · max 4 MB
-                  </span>
-                  <input
-                    name="contest-image"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    disabled={busy || !canSubmitCat}
-                    onChange={(e) => void onPickFile(e.target.files?.[0] || null)}
-                  />
-                </label>
+                <div className="space-y-2">
+                  <label className="group flex cursor-pointer flex-col items-center gap-3 rounded-3xl border border-dashed border-crema/20 bg-gradient-to-b from-crema/[0.05] to-transparent px-6 py-14 text-center transition hover:border-caramel/40 hover:from-caramel/[0.07]">
+                    <span className="flex size-14 items-center justify-center rounded-2xl bg-caramel/15 text-caramel ring-1 ring-caramel/25 transition group-hover:scale-105">
+                      <ImagePlus className="size-7" />
+                    </span>
+                    <span className="font-display text-lg font-semibold">
+                      {isSfondi ? `Carica sfondo ${catSubmitLabel}` : `Carica ${catSubmitLabel || "foto"}`}
+                    </span>
+                    <span className="max-w-xs text-xs leading-relaxed text-crema/45">
+                      {catSubmit === "pc" ? "Formato orizzontale consigliato" : catSubmit === "mobile" ? "Formato verticale consigliato" : "Una foto"}
+                      {" · "}PNG, JPG o WEBP · max 4 MB
+                    </span>
+                    <input
+                      name="contest-image"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      disabled={busy || !canSubmitCat}
+                      onChange={(e) => void onPickFile(e.target.files?.[0] || null)}
+                    />
+                  </label>
+                  <UploadRightsHint className="text-center" />
+                </div>
               ) : null}
               {!status?.submitBanned && cats.length > 1 && !mineByCat[catSubmit] ? (
                 <p className="text-center text-xs text-crema/40">Una foto per sezione: puoi mandarne una per PC e una per telefono.</p>

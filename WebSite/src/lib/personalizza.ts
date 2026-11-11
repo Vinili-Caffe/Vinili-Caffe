@@ -265,11 +265,14 @@ function fontsTextParam(raw: string): string {
   }
 }
 
-/** Un solo foglio Google Fonts con i soli glifi che servono (parametro `text`). */
+/**
+ * Foglio CSS per le anteprime font della rank card.
+ * Usa Bunny Fonts (mirror privacy-friendly): niente fonts.googleapis.com / fonts.gstatic.com.
+ */
 export function rankFontsCssUrl(fonts: RankFont[], text: string): string {
   const fams = fonts.map((f) => RANK_FONT_CSS[f.key]).filter((m) => m?.g).map((m) => `family=${m!.family.replace(/ /g, "+")}`);
   if (!fams.length) return "";
-  return `https://fonts.googleapis.com/css2?${fams.join("&")}&display=swap&text=${fontsTextParam(text)}`;
+  return `https://fonts.bunny.net/css2?${fams.join("&")}&display=swap&text=${fontsTextParam(text)}`;
 }
 
 function authHeaders(token: string, json = false): HeadersInit {

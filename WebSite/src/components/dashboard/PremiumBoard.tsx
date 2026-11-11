@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { motion } from "motion/react";
 import { ArrowDownLeft, ArrowUpRight, CalendarClock, Check, Coins, Diamond, History, Lock, LogIn, Server, Sparkles, Ticket } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
-import { confirmDialog } from "@/components/ui";
+import { Checkbox, confirmDialog } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { checkDashboardAccess, listManageableGuilds, readGuildsCache, type DashboardGuild } from "@/lib/dashboard";
@@ -204,6 +204,7 @@ function ActivatePremium({
   const [picked, setGuildId] = useState("");
   const [months, setMonths] = useState<number>(3);
   const [busy, setBusy] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
   /* con un solo server disponibile è già scelto */
   const guildId = picked || (candidates.length === 1 ? candidates[0].id : "");
 
@@ -216,13 +217,17 @@ function ActivatePremium({
     if (!guild) return onToast("Scegli prima un server.", true);
     if (guild.premiumLifetime) return onToast("Questo server ha già Premium per sempre.", true);
     if (!enough) return onToast(`Ti mancano ${plan.credits - balance} crediti per questo piano.`, true);
+    if (!acceptTerms) return onToast("Devi accettare i Termini di Servizio per continuare.", true);
     const extend = guild.premiumActive;
     const ok = await confirmDialog({
       title: extend ? "Allungare Premium?" : "Attivare Premium?",
       message: (
         <>
           {extend ? "Aggiungi" : "Attivi"} <strong>{monthsLabel(plan.months)}</strong> di Premium su <strong>{guild.name}</strong>
-          {extend ? ", in coda alla scadenza attuale" : ""}. Spendi <strong>{plan.credits} crediti</strong>, te ne restano {balance - plan.credits}. I crediti spesi non tornano indietro.
+          {extend ? ", in coda alla scadenza attuale" : ""}. Spendi <strong>{plan.credits} crediti</strong> (
+          {planPerMonth(plan)} crediti/mese), te ne restano {balance - plan.credits}. Non c&apos;è rinnovo automatico a
+          pagamento: alla scadenza Premium termina; per continuare spendi di nuovo crediti. I crediti spesi non tornano
+          indietro.
         </>
       ),
       confirmLabel: `Spendi ${plan.credits} crediti`,
@@ -335,22 +340,81 @@ function ActivatePremium({
           </div>
         </fieldset>
 
-        <div className="flex flex-col gap-3 rounded-xl bg-espresso/55 p-4 ring-1 ring-sand/10 sm:flex-row sm:items-center">
-          <p className="min-w-0 flex-1 text-sm text-crema/80">
-            {guild ? (
-              <>
-                <span className="font-semibold text-crema">{monthsLabel(plan.months)}</span> su <span className="font-semibold text-crema">{guild.name}</span> ·{" "}
-                <span className="tabular-nums">{plan.credits}</span> crediti
-                {enough ? <span className="text-crema/60"> · ne restano {balance - plan.credits}</span> : <span className="text-[#f0a493] light:text-[#a83a2c]"> · non bastano</span>}
-              </>
-            ) : (
-              <span className="text-crema/60">Scegli un server per continuare.</span>
-            )}
-          </p>
-          <button type="button" disabled={busy || !guild || !enough || credits == null} onClick={() => void activate()} className={cn(dashPrimaryBtn, "justify-center")}>
-            <Diamond className="size-4" aria-hidden />
-            {busy ? "Attivazione…" : guild?.premiumActive ? "Allunga Premium" : "Attiva Premium"}
-          </button>
+        <div className="overflow-hidden rounded-2xl ring-1 ring-sand/12">
+          {guild ? (
+            <div className="grid gap-px bg-sand/10 sm:grid-cols-3">
+              <div className="bg-espresso/70 px-4 py-3.5">
+                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-crema/45">Prezzo</p>
+                <p className="mt-1 text-sm text-crema">
+                  <span className="font-display text-xl font-semibold tabular-nums">{plan.credits}</span>
+                  <span className="text-crema/55"> crediti</span>
+                </p>
+                <p className="mt-0.5 text-xs text-crema/55">
+                  {monthsLabel(plan.months)} · {planPerMonth(plan)}/mese
+                  {enough ? ` · restano ${balance - plan.credits}` : ""}
+                </p>
+                {!enough ? <p className="mt-1 text-xs font-medium text-[#f0a493] light:text-[#a83a2c]">Crediti insufficienti</p> : null}
+              </div>
+              <div className="bg-espresso/70 px-4 py-3.5">
+                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-crema/45">Rinnovo</p>
+                <p className="mt-1 text-sm font-semibold text-crema">Nessun rinnovo automatico</p>
+                <p className="mt-0.5 text-xs leading-snug text-crema/55">Scade a fine periodo; per continuare spendi di nuovo crediti.</p>
+              </div>
+              <div className="bg-espresso/70 px-4 py-3.5">
+                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-crema/45">Disdetta</p>
+                <p className="mt-1 text-sm font-semibold text-crema">Scade da sola</p>
+                <p className="mt-0.5 text-xs leading-snug text-crema/55">
+                  Rimozione anticipata via{" "}
+                  <SmartLink href={page("/tickets/")} className="font-semibold text-ember underline-offset-2 hover:underline">
+                    ticket
+                  </SmartLink>
+                  . I crediti spesi non sono rimborsabili tranne in casi eccezionali.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-espresso/55 px-4 py-5 text-center text-sm text-crema/55">Scegli un server per continuare.</div>
+          )}
+
+          <div className="flex flex-col gap-3 bg-roast/40 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              disabled={!guild}
+              onClick={() => guild && setAcceptTerms(!acceptTerms)}
+              className={cn(
+                "flex min-w-0 flex-1 items-start gap-3 rounded-xl px-1 py-0.5 text-left text-sm leading-snug transition",
+                guild ? "text-crema/80 hover:text-crema" : "cursor-not-allowed text-crema/40",
+              )}
+            >
+              <Checkbox
+                checked={acceptTerms}
+                disabled={!guild}
+                onChange={setAcceptTerms}
+                aria-label="Accetto i Termini di Servizio"
+                className="mt-0.5 size-[1.15rem]"
+              />
+              <span>
+                Accetto i{" "}
+                <SmartLink
+                  href={page("/terms/")}
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-semibold text-ember underline-offset-2 hover:underline"
+                >
+                  Termini di Servizio
+                </SmartLink>{" "}
+                e confermo prezzo, durata e disdetta.
+              </span>
+            </button>
+            <button
+              type="button"
+              disabled={busy || !guild || !enough || credits == null || !acceptTerms}
+              onClick={() => void activate()}
+              className={cn(dashPrimaryBtn, "w-full shrink-0 justify-center sm:w-auto")}
+            >
+              <Diamond className="size-4" aria-hidden />
+              {busy ? "Attivazione…" : guild?.premiumActive ? "Allunga Premium" : "Attiva Premium"}
+            </button>
+          </div>
         </div>
       </div>
     </Panel>

@@ -329,6 +329,15 @@ export function TicketsApp() {
       if (d.ticketId) {
         setCreating(false);
         setSelected(d.ticketId);
+        return;
+      }
+      try {
+        if (new URLSearchParams(window.location.search).get("dmca") === "1") {
+          setSelected(null);
+          setCreating(true);
+        }
+      } catch {
+        /* ignore */
       }
     };
     applyFromUrl();
@@ -578,7 +587,7 @@ export function TicketsApp() {
         <aside className="flex min-h-0 flex-col border-r border-sand/10 bg-roast/50">
           <ListChrome {...listProps} />
         </aside>
-        <section className="flex min-h-0 flex-col">
+        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden">
           <PaneBody {...paneProps} />
         </section>
       </div>

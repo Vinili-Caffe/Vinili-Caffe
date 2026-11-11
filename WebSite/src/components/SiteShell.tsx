@@ -33,6 +33,7 @@ function RichScrollProgress() {
 }
 
 const CookieConsent = dynamic(() => import("./CookieConsent").then((m) => m.CookieConsent), { ssr: false });
+const AgeGate = dynamic(() => import("./AgeGate").then((m) => m.AgeGate), { ssr: false });
 const NotifLiveToasts = dynamic(() => import("./notifications/NotifLiveToasts").then((m) => m.NotifLiveToasts), { ssr: false });
 const NotifPageRead = dynamic(() => import("./notifications/NotifPageRead").then((m) => m.NotifPageRead), { ssr: false });
 const PushSync = dynamic(() => import("./notifications/PushSync").then((m) => m.PushSync), { ssr: false });
@@ -106,6 +107,7 @@ export function SiteShell({
                 </>
               )}
               <CookieConsent />
+              <AgeGate />
               <NotifLiveToasts />
               {evento ? <EventoMusic /> : app ? null : <VinylMusicRoot />}
               {/* easter egg: "It's time" 1×/giorno alla prima pagina, poi stop */}

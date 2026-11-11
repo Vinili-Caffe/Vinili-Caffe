@@ -473,6 +473,19 @@ async function mutateBirthday(guild?, userId?, client?, payload?) {
     if (birthYear < nowY - 120) {
       return { ok: false, reason: "invalid_age", message: "Anno di nascita non valido." };
     }
+    /* Sito IT-first: sotto i 14 anni non si salva il compleanno (allineato al gate età). */
+    {
+      const today = getRomeDateParts();
+      const hasBirthdayPassed = today.month > month || (today.month === month && today.day >= day);
+      const ageNow = Math.max(0, today.year - birthYear - (hasBirthdayPassed ? 0 : 1));
+      if (ageNow < 14) {
+        return {
+          ok: false,
+          reason: "underage",
+          message: "Devi avere almeno 14 anni per usare questo sito.",
+        };
+      }
+    }
     const prevDay = Number(current.day) || 0;
     const prevMonth = Number(current.month) || 0;
     const dayMonthChanged = Boolean(prevDay && prevMonth) && (day !== prevDay || month !== prevMonth);

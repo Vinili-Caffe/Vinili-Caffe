@@ -294,7 +294,15 @@ function buildGameSnapshotFromPersistedState(state?) {
       return game;
     case "findBot":
     case "halloweenFindGhost":
+      game.channelId = String(state.targetChannelId || state.channelId || "");
+      game.messageId = String(state.gameMessageId || state.messageId || "");
+      game.mainMessageId = String(state.mainMessageId || "");
+      game.customId = String(state.customId || "");
+      return game;
     case "findBotVoice":
+      game.channelId = String(state.targetChannelId || state.channelId || "");
+      game.voiceChannelId = game.channelId;
+      game.customId = String(state.customId || "");
       return game;
     default:
       return { ...game, ...parsed };
@@ -344,6 +352,13 @@ async function closeExpiredMinigameState(client?, cfg?, channel?, state?) {
     if (candidateIds.length) removeTreasureHuntReactions(channel, candidateIds, decoy, winner).catch(() => { });
     await minigameStateDeleteOne({ guildId, channelId }).catch(() => { });
     return;
+  }
+  if (type === "findBot") {
+    try {
+      const { catchUpFindBotFromReactions } = require("./minigameFindBot") as typeof import("./minigameFindBot");
+      const snap = buildGameSnapshotFromPersistedState(state);
+      if (snap && (await catchUpFindBotFromReactions(client, cfg, snap).catch(() => false))) return;
+    } catch (_) {}
   }
   const game = buildGameSnapshotFromPersistedState(state);
   await sendMinigameTimeoutAndClose(

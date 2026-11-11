@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Great_Vibes, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AuthProvider } from "@/lib/auth";
@@ -20,16 +19,8 @@ import { API_CACHE_BOOT } from "@/lib/api-cache-boot";
 import { SSR_TEXT_SNAPSHOT_BOOT } from "@/lib/hydration-diff";
 import { SITE_TITLE_BRAND, SITE_TITLE_TEMPLATE } from "@/lib/page-title";
 import { SITE_EMBED_COLOR, SITE_THEME_COLOR, siteLogoOgImage } from "@/lib/og";
+import { cormorant, greatVibes, inter } from "@/lib/fonts";
 import "./globals.css";
-
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  style: ["normal", "italic"],
-});
-const greatVibes = Great_Vibes({ variable: "--font-great-vibes", subsets: ["latin"], weight: "400" });
 
 // Indexing: HTML indexable for www. La beta resta noindex via header nginx X-Robots-Tag.
 // Title/OG: `Vinili & Caffè • Italia • Social • Gaming ǀ Pagina` (wordmark UI ≠ title)

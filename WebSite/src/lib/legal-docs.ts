@@ -188,8 +188,9 @@ export const LEGAL_PRIVACY: LegalDoc = {
       id: "minori",
       title: "Minori",
       blocks: [
-        { type: "p", text: "Il servizio è destinato a utenti che rispettano l’età minima richiesta da Discord. In Italia, per i trattamenti digitali basati sul consenso, si applica inoltre la soglia tipica di **14 anni** (salvo diversa previsione normativa)." },
-        { type: "p", text: "Non raccogliamo consapevolmente dati di minori al di sotto di tali soglie. Se veniamo informati di una raccolta non conforme, possiamo rimuovere i dati e limitare l’accesso nei limiti tecnici e organizzativi ragionevoli." },
+        { type: "p", text: "Il servizio è pensato per un pubblico principalmente italiano e richiede di norma almeno **14 anni** (soglia tipica in Italia per i trattamenti digitali basati sul consenso), oltre all’età minima prevista da Discord." },
+        { type: "p", text: "Al primo accesso con Discord ti chiediamo la **data di nascita** (conservata sul tuo dispositivo) per verificare questa soglia. Non raccogliamo consapevolmente dati di minori sotto i 14 anni. Se veniamo informati di una raccolta non conforme, possiamo rimuovere i dati e limitare l’accesso nei limiti tecnici e organizzativi ragionevoli." },
+        { type: "p", text: "Se accedi da un altro Paese, restano valide anche le regole locali e quelle di Discord: in ogni caso sul sito applichiamo il minimo di **14 anni**." },
       ],
     },
     {
@@ -269,7 +270,8 @@ export const LEGAL_COOKIE: LegalDoc = {
         { type: "ul", items: [
             "Cookie di profilazione pubblicitaria o remarketing.",
             "Reti ads di social media per target pubblicitario (salvo cookie Discord durante OAuth).",
-            "Vendita di dati a inserzionisti."
+            "Vendita di dati a inserzionisti.",
+            "**Session replay** / registrazione delle sessioni (Hotjar, FullStory, PostHog replay, Microsoft Clarity replay, ecc.): non registriamo lo schermo né i campi del form. Non esiste quindi mascheramento password da configurare oltre alle normali buone pratiche (login via Discord OAuth, senza password sul sito)."
           ] },
       ],
     },
@@ -392,7 +394,7 @@ export const LEGAL_TERMS: LegalDoc = {
       blocks: [
         { type: "p", text: "Per usare i nostri servizi devi:" },
         { type: "ul", items: [
-            "Avere almeno l’età minima richiesta da Discord e, per l’uso del sito in Italia, di norma almeno **14 anni** (o l’età prevista dalla legge applicabile). Se sei minore, l’uso deve avvenire con il coinvolgimento di chi esercita la responsabilità genitoriale ove richiesto.",
+            "Avere almeno **14 anni** (soglia del sito, allineata all’Italia) e rispettare anche l’età minima di Discord e, se diversa, quella del tuo Paese. Alla prima iscrizione/login verifichiamo l’età. Sotto soglia non puoi usare il servizio; ove la legge richieda il coinvolgimento di chi esercita la responsabilità genitoriale, l’uso deve avvenire in quel contesto.",
             "Usare un account Discord valido e non compromesso.",
             "Fornire dati corretti quando invii candidature, richieste, recensioni o altri moduli.",
             "Mantenere sicuro il tuo account e non condividerlo per aggirare controlli o limitazioni.",
@@ -533,10 +535,10 @@ export const LEGAL_TERMS: LegalDoc = {
 export const LEGAL_COPYRIGHT: LegalDoc = {
   slug: "copyright",
   h1: "Copyright e Licenza",
-  updatedIso: null,
-  updatedLabel: null,
+  updatedIso: "2026-11-11",
+  updatedLabel: "11 novembre 2026",
   updatedPrefix: "Ultimo aggiornamento:",
-  subtitle: "Avvisi ufficiali di proprietà intellettuale di Vinili & Caffè",
+  subtitle: "Proprietà intellettuale e segnalazioni — approccio Italia-first",
   sections: [
     {
       id: "copyright",
@@ -550,7 +552,35 @@ export const LEGAL_COPYRIGHT: LegalDoc = {
             "**Server Discord ufficiale** (nome/brand, icone, banner, emoji/sticker personalizzati, layout e materiali creati dallo staff)."
           ] },
         { type: "p", text: "È vietato usare, copiare, modificare, ripubblicare o distribuire tali contenuti senza autorizzazione scritta dei titolari." },
-        { type: "p", text: "I contenuti pubblicati dagli utenti restano dei rispettivi autori, nei limiti di legge, delle policy Discord e dei Termini di Servizio." },
+        { type: "p", text: "I contenuti pubblicati dagli utenti (immagini, allegati, media in ticket, contest, feedback, bacheca/vetrina, ecc.) restano dei rispettivi autori, nei limiti di legge, delle policy Discord e dei Termini di Servizio. Caricando un file dichiari di avere i diritti necessari o l’autorizzazione a farlo." },
+      ],
+    },
+    {
+      id: "segnalazioni-e-dmca",
+      title: "Segnalazioni di violazione e rimozione",
+      blocks: [
+        { type: "p", text: "Se ritieni che un contenuto caricato da utenti sul sito o nei servizi Vinili & Caffè violi i tuoi diritti d’autore (o altri diritti di proprietà intellettuale), puoi chiederne la rimozione." },
+        { type: "label", text: "Come segnalare (Italia / UE)" },
+        { type: "ul", items: [
+            "**1.** Apri un **ticket** sul sito (categoria Supporto) con oggetto **«Segnalazione copyright»**, oppure scrivi allo staff sul Discord ufficiale.",
+            "**2.** Indica: (a) chi sei e un recapito email; (b) l’opera protetta e, se possibile, prova di titolarità o di autorizzazione a segnalare; (c) dove si trova il materiale sul sito (URL o descrizione chiara); (d) perché ritieni che l’uso non sia lecito.",
+            "**3.** Più dettagli fornisci, più rapidamente possiamo valutare."
+          ] },
+        { type: "label", text: "Cosa facciamo" },
+        { type: "ul", items: [
+            "Valutiamo la segnalazione in tempi ragionevoli.",
+            "Possiamo **rimuovere o disabilitare** l’accesso al materiale contestato e, se opportuno, avvisare chi l’ha caricato.",
+            "Se chi ha caricato il contenuto risponde in modo fondato, possiamo rivalutare secondo le procedure interne e la legge applicabile.",
+            "Segnalazioni abusive o upload ripetuti di contenuti non autorizzati possono portare a limitazioni o ban dell’account."
+          ] },
+        { type: "label", text: "Contatto" },
+        { type: "ul", items: [
+            "**Referente:** Lorenzo Antonio Corvaglia — Vinili & Caffè",
+            "**Canale:** ticket sul sito (Supporto) oppure staff Discord",
+            "**Pagina:** [[viniliecaffe.it/copyright|/copyright/]]"
+          ] },
+        { type: "p", text: "Il progetto è rivolto soprattutto a un pubblico italiano. Se sei un utente o un titolare di diritti in un altro Paese (inclusi gli USA), usa lo stesso canale ticket/Discord: valuteremo la richiesta secondo la legge applicabile e le policy della piattaforma." },
+        { type: "cta", href: "/tickets/?dmca=1", label: "Apri un ticket per segnalazione copyright" },
       ],
     },
     {

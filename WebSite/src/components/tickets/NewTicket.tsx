@@ -9,6 +9,10 @@ import { imageToDataUrl } from "@/lib/feedback";
 import { MAX_CONTENT, MAX_IMAGE_BYTES, MAX_IMAGES, createTicket, enablePush, pushIsOn, type Category, type Ticket } from "@/lib/tickets";
 import { cn } from "@/lib/cn";
 import { EmojiText } from "@/components/discord/EmojiText";
+import { UploadRightsHint } from "@/components/UploadRightsHint";
+
+const DMCA_STARTER =
+  "Segnalazione copyright\n\n1) Chi sono e email di contatto:\n2) Opera protetta / prova di titolarità (se ce l'ho):\n3) URL o descrizione del materiale sul sito:\n4) Perché ritengo che l'uso non sia lecito:\n";
 
 type NewTicketDraft = { cat: string | null; text: string };
 
@@ -52,6 +56,20 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
   useEffect(() => {
     if (!isStaff) pushIsOn().then(setPush).catch(() => setPush(false));
   }, [isStaff]);
+
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      if (q.get("dmca") !== "1") return;
+      const supporto = categories.find((c) => c.id === "supporto")?.id || categories[0]?.id || null;
+      setForm((f) => ({
+        cat: f.cat || supporto,
+        text: f.text.trim() ? f.text : DMCA_STARTER,
+      }));
+    } catch {
+      /* ignore */
+    }
+  }, [categories]);
 
   const turnOnPush = async () => {
     setPushBusy(true);
@@ -178,6 +196,7 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
           {text.length} / {MAX_CONTENT}
         </span>
       </div>
+      <UploadRightsHint className="mt-2" />
 
       {err && <p className="mt-4 rounded-xl bg-[#a83a2c]/15 px-4 py-3 text-sm text-[#f0a493] light:text-[#a83a2c]">{err}</p>}
 

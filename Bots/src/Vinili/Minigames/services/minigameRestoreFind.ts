@@ -5,7 +5,12 @@ const { sendMinigameMessage } = require("./minigameDiscord") as typeof import(".
 const { treasureHuntDisplayTexts, getTreasureHuntMessageUrl } = require("./minigameTreasureEmoji") as typeof import("./minigameTreasureEmoji");
 const { parseStateTarget, scheduleMinuteHint } = require("./minigameRound") as typeof import("./minigameRound");
 const { mountTreasureHuntGame } = require("./minigameTreasureHunt") as typeof import("./minigameTreasureHunt");
-const { scheduleFindMinigameTimeout, joinFindBotVoiceChannel } = require("./minigameFindBot") as typeof import("./minigameFindBot");
+const {
+  scheduleFindMinigameTimeout,
+  joinFindBotVoiceChannel,
+  catchUpFindBotFromReactions,
+  seedFindBotClaimReaction,
+} = require("./minigameFindBot") as typeof import("./minigameFindBot");
 
 async function restoreFindGames(client?, cfg?, channel?, state?, remainingMs?, endsAt?) {
   if (state.type === "treasureHunt") {
@@ -55,6 +60,19 @@ async function restoreFindGames(client?, cfg?, channel?, state?, remainingMs?, e
       customId: state.customId,
     };
     activeGames.set(cfg.channelId, game);
+    if (state.type === "findBot") {
+      try {
+        const target =
+          channel.guild?.channels?.cache?.get(String(state.targetChannelId || "")) ||
+          (await channel.guild?.channels?.fetch?.(String(state.targetChannelId || "")).catch(() => null));
+        const hidden = target?.messages?.fetch
+          ? await target.messages.fetch(String(state.gameMessageId || "")).catch(() => null)
+          : null;
+        if (hidden) await seedFindBotClaimReaction(hidden);
+      } catch (_) {}
+      const won = await catchUpFindBotFromReactions(client, cfg, game).catch(() => false);
+      if (won) return true;
+    }
     return true;
   }
   if (state.type === "findBotVoice") {

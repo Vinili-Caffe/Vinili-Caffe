@@ -17,7 +17,14 @@ const {
 const { treasureEmojiMatches, botPlacedTreasureReaction, getTreasureHuntMessageUrl } = require("./minigameTreasureEmoji") as typeof import("./minigameTreasureEmoji");
 const { getConfig } = require("./minigameConfig") as typeof import("./minigameConfig");
 const { ensureTreasureHuntGame, cleanupTreasureHuntReactions } = require("./minigameTreasureHunt") as typeof import("./minigameTreasureHunt");
-const { resolveFindBotVoiceBotChannelId, syncFindBotVoiceTargetChannel, getActiveFindBotVoiceGame, handleFindBotVoiceWin } = require("./minigameFindBot") as typeof import("./minigameFindBot");
+const {
+  resolveFindBotVoiceBotChannelId,
+  syncFindBotVoiceTargetChannel,
+  getActiveFindBotVoiceGame,
+  handleFindBotVoiceWin,
+  findBotClaimEmojiMatches,
+  handleFindBotClaimWin,
+} = require("./minigameFindBot") as typeof import("./minigameFindBot");
 const { fetchAudioAttachment } = require("./minigameGuessMatchers") as typeof import("./minigameGuessMatchers");
 
 async function handleMinigameReaction(client?, reaction?, user?) {
@@ -36,6 +43,52 @@ async function handleMinigameReaction(client?, reaction?, user?) {
     if (!message?.guild) return false;
     const cfg = getConfig(client || message.client);
     if (!cfg?.enabled || !cfg.channelId) return false;
+
+    /* Trova il bot: claim via reazione sul messaggio nascosto (recuperabile al riavvio). */
+    {
+      let findGame = activeGames.get(cfg.channelId);
+      if (!findGame || findGame.type !== "findBot") {
+        for (const g of activeGames.values()) {
+          if (g?.type === "findBot" && String(g.messageId || "") === String(message.id)) {
+            findGame = g;
+            break;
+          }
+        }
+      }
+      if (
+        findGame?.type === "findBot" &&
+        String(findGame.messageId || "") === String(message.id) &&
+        findBotClaimEmojiMatches(liveReaction)
+      ) {
+        if (cfg.starWarsEventLive) {
+          try {
+            const {
+              isStarWarsSortedParticipant,
+              UNSORTED_MG_MSG,
+            } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService");
+            const ok = await isStarWarsSortedParticipant(client || message.client, message.guildId, user.id);
+            if (!ok) {
+              await liveReaction.users?.remove?.(user.id).catch(() => null);
+              const ch = message.channel;
+              if (ch?.send) {
+                const tip = await ch
+                  .send({ content: `<@${user.id}> ${UNSORTED_MG_MSG}`, allowedMentions: { users: [user.id] } })
+                  .catch(() => null);
+                if (tip) setTimeout(() => void tip.delete?.().catch?.(() => null), 10_000);
+              }
+              return true;
+            }
+          } catch (_) {}
+        }
+        if (findGame._claiming) return true;
+        findGame._claiming = true;
+        const mapKey = [...activeGames.entries()].find(([, g]) => g === findGame)?.[0] || cfg.channelId;
+        const winCfg = { ...cfg, channelId: mapKey };
+        await handleFindBotClaimWin(client || message.client, message.guild, user, findGame, winCfg);
+        return true;
+      }
+    }
+
     let game = activeGames.get(cfg.channelId);
     if (!game || game.type !== "treasureHunt") {
       game = await ensureTreasureHuntGame(client || message.client, cfg);
@@ -118,6 +171,14 @@ async function handleMinigameReaction(client?, reaction?, user?) {
 }
 
 async function handleMinigameButtonWin(interaction?, game?, cfg?) {
+  /* Legacy findBot a bottone: stesso percorso win della reazione. */
+  if (game?.type === "findBot") {
+    await handleFindBotClaimWin(interaction.client, interaction.guild, interaction.user, game, cfg, {
+      ephemeralReply: async (content?) =>
+        interaction.reply({ content, flags: 1 << 6 }).catch(() => null),
+    });
+    return;
+  }
   clearNoParticipationDelay(cfg.channelId);
   const client = interaction.client;
   const winCfg = { ...cfg, guildId: interaction.guild.id };
@@ -232,10 +293,8 @@ ${game.previewUrl}`,
       return true;
     }
 
-    const fallbackText = `${E.link} Se su telefono non si riproduce, apri questo link per ascoltare: ` + game.previewUrl;
     await interaction
       .editReply({
-        content: fallbackText,
         files: [new AttachmentBuilder(audio, { name: "anteprima.m4a" })],
       })
       .catch(() => { });
@@ -246,7 +305,7 @@ ${game.previewUrl}`,
     try {
       await interaction
         .reply({
-          content: `${E.cancel} Trick or Treat è terminato (evento Halloween archiviato).`,
+          content: `${E.cancel} Trick or Treat è terminato.`,
           flags: 1 << 6,
         })
         .catch(() => {});

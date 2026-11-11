@@ -17,6 +17,7 @@ import {
   type RankTheme,
 } from "@/lib/personalizza";
 import { confirmDialog, Range } from "@/components/ui";
+import { UploadRightsHint } from "@/components/UploadRightsHint";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { ColorKnob } from "./ColorKnob";
 
@@ -676,6 +677,7 @@ export function RankDeck({
                       Rimuovi il tuo sfondo
                     </button>
                   )}
+                  {canCustomWp ? <UploadRightsHint className="mt-3" /> : null}
                 </div>
               </div>
             </div>
