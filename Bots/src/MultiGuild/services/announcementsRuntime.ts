@@ -272,7 +272,10 @@ function boostVars(guild?, user?, extra: Record<string, string> = {}) {
 
 /** Annuncio boost con i testi della dashboard. Usato dai server tenant e dal riconoscimento classico del principale. */
 /** Ruoli della dashboard a chi boosta (solo quelli che il bot può gestire). */
+const annOn = (gid?) => (require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(String(gid || ""), "benvenuto");
+
 async function giveBoostRoles(guild?, userOrMember?, repeat = false, cfg?: AnnConfig) {
+  if (!annOn(guild?.id)) return;
   const c = cfg || (await getConfig(String(guild?.id || "")).catch(() => null));
   if (!c || !guild) return;
   const ids = repeat ? [...c.boost.firstRoleIds, ...c.boost.repeatRoleIds] : c.boost.firstRoleIds;
@@ -294,6 +297,7 @@ async function handleBoostEnded(oldMember?, newMember?) {
   const guild = newMember?.guild;
   if (!guild || newMember?.user?.bot) return;
   if (!oldMember?.premiumSince || newMember.premiumSince) return;
+  if (!annOn(guild.id)) return;
   const cfg = await getConfig(String(guild.id)).catch(() => null);
   if (!cfg?.boost.removeRolesOnEnd) return;
   const ids = [...new Set([...cfg.boost.firstRoleIds, ...cfg.boost.repeatRoleIds])].filter((id) => newMember.roles?.cache?.has(id));
@@ -302,6 +306,7 @@ async function handleBoostEnded(oldMember?, newMember?) {
 }
 
 async function sendBoostAnnouncement(client?, guild?, member?, opts: { repeat?: boolean; boostCount?: number; channelId?: string | null } = {}) {
+  if (!annOn(guild?.id)) return null;
   const cfg = await getConfig(String(guild?.id || ""));
   await giveBoostRoles(guild, member, opts.repeat === true, cfg);
   /* annuncio nel canale e privato sono indipendenti: si può usare anche solo il privato */
@@ -341,6 +346,7 @@ async function handleTenantBoostMessage(message?) {
   const guild = message?.guild;
   const gid = String(guild?.id || "");
   if (!gid || !BOOST_MESSAGE_TYPES.has(Number(message?.type)) || T.isMainGuild(gid)) return false;
+  if (!annOn(gid)) return false;
   const cfg = await getConfig(gid);
   if (!cfg.boost.enabled && !cfg.boost.dm.enabled && !cfg.boost.firstRoleIds.length && !cfg.boost.repeatRoleIds.length) return false;
   const st = await getState(gid);
@@ -363,6 +369,7 @@ async function handleRoleAdded(oldMember?, newMember?) {
   const guild = newMember?.guild;
   const gid = String(guild?.id || "");
   if (!gid || newMember?.user?.bot) return;
+  if (!annOn(gid)) return;
   /* senza i ruoli di prima non si sa cosa è cambiato: meglio non annunciare niente */
   if (oldMember?.partial || !oldMember?.roles?.cache) return;
   const added = [...newMember.roles.cache.keys()].filter((id) => !oldMember.roles.cache.has(id));

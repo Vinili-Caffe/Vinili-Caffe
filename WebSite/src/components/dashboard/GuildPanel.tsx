@@ -169,6 +169,11 @@ const CommandAclEditor = dynamic(() => import("./guild/CommandAcl").then((m) => 
 });
 const SetupWizard = dynamic(() => import("./guild/SetupWizard").then((m) => m.SetupWizard), { ssr: false });
 
+const ModulesPanel = dynamic(() => import("./guild/ModulesPanel").then((m) => m.ModulesPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
 const StatsPanel = dynamic(() => import("./guild/StatsPanel").then((m) => m.StatsPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
@@ -270,6 +275,7 @@ type Section = GuildSectionId;
 
 const SECTION_LEAD: Record<Section, string> = {
   settings: "Prefisso, canale aggiornamenti e nickname del bot.",
+  moduli: "Accendi e spegni i moduli del bot su questo server.",
   bacheca: "Quote, repost, clip e skullboard: funzioni, canali e stile delle citazioni.",
   commands: "Attiva o disattiva i comandi e scegli chi può usarli e dove.",
   tickets: "Ticket aperti, pannelli, moduli, team e blacklist.",
@@ -293,6 +299,7 @@ const SECTION_LEAD: Record<Section, string> = {
 
 /* testata di ogni pagina: spiegazione breve e colore (Bump e Voti hanno la loro, Impostazioni la scheda del server) */
 const SECTION_HERO: Partial<Record<string, { text: string; accent: string }>> = {
+  moduli: { text: "Accendi e spegni le parti del bot su questo server: un modulo spento non ha più comandi né azioni automatiche.", accent: "#9b8cf0" },
   commands: { text: "Accendi, spegni e limita i comandi del bot: per categoria, per canale e per ruolo.", accent: "#d99a5b" },
   stats: { text: "Come sta andando il server: ingressi, uscite, messaggi e attività nel tempo.", accent: "#5fb3c9" },
   salute: { text: "Permessi mancanti, canali che non esistono più e tutto quello che può fermare il bot.", accent: "#7fc48c" },
@@ -2254,6 +2261,8 @@ export function GuildPanel() {
 
   /* moduli spenti su questo server: nel menu vanno nel gruppo "Disattivati" (si aggiorna cambiando sezione) */
   const [modulesOff, setModulesOff] = useState<GuildSectionId[]>([]);
+  /* cambia quando si accende/spegne un modulo: il menu si riaggiorna */
+  const [modulesRev, setModulesRev] = useState(0);
   useEffect(() => {
     if (!guildId || !token || gate !== "ready") return;
     let alive = true;
@@ -2263,7 +2272,7 @@ export function GuildPanel() {
     return () => {
       alive = false;
     };
-  }, [guildId, token, gate, section]);
+  }, [guildId, token, gate, section, modulesRev]);
   const navOff: GuildSectionId[] =
     tickets && tickets.enabled === false ? [...modulesOff, "tickets"] : modulesOff;
 
@@ -2597,6 +2606,18 @@ export function GuildPanel() {
                         />
                       </Panel>
                       )
+                    ) : null}
+
+                    {section === "moduli" && guildId && token ? (
+                      <Panel>
+                        <ModulesPanel
+                          guildId={guildId}
+                          token={token}
+                          onToast={showToast}
+                          onOpen={(s) => void setSection(s)}
+                          onChanged={() => setModulesRev((n) => n + 1)}
+                        />
+                      </Panel>
                     ) : null}
 
                     {section === "stats" && guildId && token ? (

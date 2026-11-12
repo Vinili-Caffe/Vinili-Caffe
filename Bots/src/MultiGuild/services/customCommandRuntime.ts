@@ -10,6 +10,7 @@ const cooldown = new Map<string, number>();
 async function runCustomCommand(message?, cmd?): Promise<boolean> {
   const gid = message?.guild?.id;
   if (!gid || !cmd || message.author?.bot) return false;
+  if (!(require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(gid, "comandipers")) return false;
   const command = await T.findCustomCommand(gid, String(cmd));
   if (!command) return false;
 

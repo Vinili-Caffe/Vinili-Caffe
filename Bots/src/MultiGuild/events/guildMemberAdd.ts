@@ -11,6 +11,8 @@ export = {
   async execute(member?) {
     const guild = member?.guild;
     if (!guild || member.user?.bot) return;
+    /* modulo Annunci automatici spento: niente benvenuto, privato e ruoli d'ingresso */
+    if (!(require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(guild.id, "benvenuto")) return;
     const cfg = await T.getWelcome(guild.id);
 
     if (cfg.autoRoleIds.length) {

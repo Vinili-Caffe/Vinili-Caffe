@@ -6,6 +6,7 @@ import {
   HeartPulse,
   Gauge,
   Gift,
+  Blocks,
   MessageSquareReply,
   Vote,
   Megaphone,
@@ -23,6 +24,7 @@ import {
 
 /** Voce piatta del pannello server (URL `?s=`). */
 export type GuildSectionId =
+  | "moduli"
   | "stats"
   | "salute"
   | "messaggi"
@@ -140,6 +142,8 @@ export function isAnnunciModuleTab(v: string): v is AnnunciModuleTabId {
 /** Core del server: sotto SERVER (Comandi/Classifica con sotto-menù). */
 export const GUILD_SERVER_SECTIONS = [
   { id: "settings", label: "Impostazioni", icon: Settings2 },
+  /* accende e spegne i moduli (comandi e automatismi compresi) */
+  { id: "moduli", label: "Moduli", icon: Blocks },
   /* le categorie stanno dentro la pagina (elenco a sinistra), non nel menu laterale */
   { id: "commands", label: "Comandi", icon: Terminal },
   { id: "stats", label: "Statistiche", icon: BarChart3 },

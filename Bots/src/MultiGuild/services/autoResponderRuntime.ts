@@ -10,6 +10,8 @@ const lastFired = new Map<string, number>();
 async function runAutoResponders(message?): Promise<boolean> {
   if (!message?.guild || message.author?.bot || message.webhookId || message.system) return false;
   if (message.__autoResponderHandled) return false;
+  /* modulo spento dalla pagina Moduli */
+  if (!(require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(message.guild.id, "risposte")) return false;
   const content = String(message.content || "");
   if (!content.trim()) return false;
 

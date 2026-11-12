@@ -364,6 +364,7 @@ async function deleteCounter(client?, token?, guildId?, id?) {
 async function runCounters(client?) {
   const all = await T.allGuildRows("counters");
   for (const [gid, rows] of Object.entries(all)) {
+    if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(gid, "contatori")) continue;
     const counts = await guildCounts(client, gid, needsSplit(rows)).catch(() => null);
     if (!counts) continue;
     let changed = false;
@@ -660,6 +661,27 @@ async function deletePoll(client?, token?, guildId?, id?, alsoDiscord = false) {
 }
 
 /** Quali moduli sono spenti su questo server (per il menu della dashboard), principale compreso. */
+const MS = () => require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches");
+
+/** Pagina Moduli: stato di ogni modulo (acceso / bloccato). */
+async function listModuleSwitches(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  return { ok: true, status: 200, modules: MS().listModules(a.guildId) };
+}
+
+/** Pagina Moduli: accende o spegne un modulo. */
+async function setModuleSwitch(client?, token?, guildId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const id = String(body?.id || "");
+  if (!MS().MODULES.some((m) => m.id === id)) return fail(400, "unknown_module", "Modulo sconosciuto.");
+  if (T.isMainGuild(a.guildId)) return fail(400, "main_locked", "Sul server principale i moduli restano sempre accesi.");
+  const ok = await MS().setModuleOn(a.guildId, id, body?.on === true);
+  if (!ok) return fail(500, "save_failed", "Non sono riuscito a salvare. Riprova tra poco.");
+  return { ok: true, status: 200, modules: MS().listModules(a.guildId) };
+}
+
 async function modulesStatus(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
@@ -704,11 +726,15 @@ async function modulesStatus(client?, token?, guildId?) {
     sondaggi: (polls as any[]).some((p: any) => !p?.ended && !p?.deleted),
     partnership: partnershipOn,
   };
+  /* spenti dalla pagina Moduli */
+  for (const m of MS().MODULES) if (!MS().isModuleOn(gid, m.id) && Object.prototype.hasOwnProperty.call(on, m.id)) on[m.id] = false;
   return { ok: true, status: 200, off: Object.keys(on).filter((k) => !on[k]) };
 }
 
 export = {
   modulesStatus,
+  listModuleSwitches,
+  setModuleSwitch,
   putAutoResponder,
   deleteAutoResponder,
   listChatReminders,

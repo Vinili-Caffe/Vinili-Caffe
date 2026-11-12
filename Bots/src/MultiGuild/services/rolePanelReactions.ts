@@ -60,6 +60,7 @@ async function applyWant(guild?, member?, panel?, want?: Set<string>) {
 }
 
 async function onReactionAdd(reaction?, user?) {
+  if (!(require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(reaction?.message?.guild?.id || reaction?.message?.guildId, "ruoli")) return;
   const ctx = await resolve(reaction, user);
   if (!ctx) return;
   const { guild, message, panel, option, member, key } = ctx;
@@ -87,6 +88,7 @@ async function onReactionAdd(reaction?, user?) {
 }
 
 async function onReactionRemove(reaction?, user?) {
+  if (!(require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(reaction?.message?.guild?.id || reaction?.message?.guildId, "ruoli")) return;
   const ctx = await resolve(reaction, user);
   if (!ctx?.option) return;
   const { guild, message, panel, option, member } = ctx;

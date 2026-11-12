@@ -34,6 +34,9 @@ export = {
     return Boolean(T.parseRolePanelCustomId(interaction.customId));
   },
   async execute(interaction?) {
+    if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(interaction?.guildId, "ruoli")) {
+      return say(interaction, "Questo pannello è spento: il modulo Ruoli automatici è disattivato sul server.");
+    }
     const parsed = T.parseRolePanelCustomId(interaction.customId);
     const guild = interaction.guild;
     if (!parsed || !guild) return;

@@ -26,6 +26,7 @@ function welcomeVarsForMember(member?) {
 async function sendDashboardWelcome(member?) {
   const guild = member?.guild;
   if (!guild) return null;
+  if (!(require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(guild.id, "benvenuto")) return false;
   const cfg = await T.getWelcome(guild.id);
   if (!cfg.welcome.enabled || !cfg.welcome.channelId) return false;
   const rest = member.client?.rest;
@@ -40,6 +41,7 @@ async function sendDashboardWelcome(member?) {
 async function sendDashboardWelcomeDm(member?) {
   const guild = member?.guild;
   if (!guild || member.user?.bot) return { sent: false, dmClosed: false };
+  if (!(require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(guild.id, "benvenuto")) return { sent: false, dmClosed: false };
   const cfg = await T.getWelcome(guild.id);
   if (!cfg.dm.enabled) return { sent: false, dmClosed: false };
   const rest = member.client?.rest;

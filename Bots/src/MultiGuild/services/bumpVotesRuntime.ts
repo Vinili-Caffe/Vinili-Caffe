@@ -350,6 +350,7 @@ function detectBump(message?): Service | null {
 async function handleTenantBumpMessage(message?, opts: { recheck?: boolean } = {}) {
   const guildId = String(message?.guild?.id || "");
   if (!guildId || !message?.author?.bot) return false;
+  if (!(require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(guildId, "bump")) return false;
   const service = detectBump(message);
   if (!service) {
     /* bot del bump senza testo ancora (risposta in arrivo): riprova sul messaggio aggiornato */
@@ -412,6 +413,7 @@ async function resolveGuild(client?, gid?: string) {
 async function handleVoteWebhook(client?, guildId?: string, service?: string, token?: string, body?) {
   const gid = String(guildId || "");
   if (!T.isId(gid) || (service !== "topgg" && service !== "discadia")) return { status: 404, text: "Not found" };
+  if (!(require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(gid, "voti")) return { status: 200, text: "Disabled" };
   const cfg = await getConfig(gid, true);
   if (!cfg.votes.enabled || token !== cfg.votes.token) return { status: 401, text: "Unauthorized" };
   if (!cfg.votes[service]) return { status: 200, text: "Disabled" };

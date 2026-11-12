@@ -350,6 +350,8 @@ async function runScheduledMessages(client?) {
   for (const gid of Object.keys(map)) {
     const due = (Array.isArray(map[gid]) ? map[gid] : []).filter((r?) => r?.status === "scheduled" && Number(r.scheduledAt) <= now);
     if (!due.length) continue;
+    /* modulo Messaggi spento: i programmati restano in attesa */
+    if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(gid, "messaggi")) continue;
     const guild = await guildInfo(client, gid);
     for (const msg of due) {
       const repeat = msg.repeat && msg.repeat !== "none" ? String(msg.repeat) : "";

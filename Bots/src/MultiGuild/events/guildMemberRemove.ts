@@ -9,6 +9,7 @@ export = {
   async execute(member?, client?) {
     const guild = member?.guild;
     if (!guild || member.user?.bot) return;
+    if (!(require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(guild.id, "benvenuto")) return;
     const cfg = await T.getWelcome(guild.id);
     const vars = T.memberVars(guild, member.user);
     /* privato a chi esce: arriva solo se ha ancora un server in comune col bot e i privati aperti */
