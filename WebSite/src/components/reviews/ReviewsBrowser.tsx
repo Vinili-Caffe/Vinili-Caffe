@@ -93,14 +93,17 @@ export function ReviewsBrowser({
     };
   }, [kind, token, ready, round]);
 
+  const viewerId = String(data?.viewer?.id || "").trim();
   // staff: nascondi recensioni verso chi non è più nella lista staffers (ex staff)
   const reviews = useMemo(() => {
     const list = data?.reviews ?? [];
     if (kind !== "staff") return list;
     const ids = new Set((data?.staffers ?? []).map((s) => String(s.id || "").trim()).filter(Boolean));
     if (!ids.size) return list;
+    /* l'elenco staffers esclude chi guarda (non si recensisce da solo): le recensioni su di sé vanno viste lo stesso */
+    if (viewerId) ids.add(viewerId);
     return list.filter((r) => ids.has(String(r.staffUserId || "").trim()));
-  }, [data?.reviews, data?.staffers, kind]);
+  }, [data?.reviews, data?.staffers, viewerId, kind]);
   const sorted = useMemo(() => {
     const list = [...reviews];
     if (sort === "liked") list.sort((a, b) => b.likeCount - a.likeCount);
