@@ -2263,7 +2263,7 @@ export function GuildPanel() {
     };
   }, [guildId, token, gate, section]);
   const navOff: GuildSectionId[] =
-    tickets && tickets.enabled === false && !overview?.isMainGuild ? [...modulesOff, "tickets"] : modulesOff;
+    tickets && tickets.enabled === false ? [...modulesOff, "tickets"] : modulesOff;
 
   const sectionMeta = findGuildSection(section);
   const commandTabsForNav = useMemo(() => {

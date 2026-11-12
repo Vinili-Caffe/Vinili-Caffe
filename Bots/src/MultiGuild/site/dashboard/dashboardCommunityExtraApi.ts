@@ -659,15 +659,11 @@ async function deletePoll(client?, token?, guildId?, id?, alsoDiscord = false) {
   return { ok: true, status: 200 };
 }
 
-/**
- * Quali moduli sono spenti su questo server (per il menu della dashboard).
- * Sul server principale molte funzioni girano ancora col sistema classico: lì non si segna niente come spento.
- */
+/** Quali moduli sono spenti su questo server (per il menu della dashboard), principale compreso. */
 async function modulesStatus(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   const gid = a.guildId;
-  if (T.isMainGuild(gid)) return { ok: true, status: 200, off: [] };
   const [messages, commands, rolePanels, welcome, autoResponders, counters, polls, bv, ann, giveaways] = await Promise.all([
     T.listMessages(gid, true).catch(() => []),
     T.listCommands(gid, true).catch(() => []),
