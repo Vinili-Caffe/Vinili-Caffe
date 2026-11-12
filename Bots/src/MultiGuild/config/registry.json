@@ -5,20 +5,20 @@
     "enabled": true,
     "features": {
       "utility": true,
-      "music": false,
-      "tts": false,
+      "music": true,
+      "tts": true,
       "minigames": true,
       "moderation": false,
       "partnership": true,
       "level": false,
       "stats": false,
       "economy": false,
-      "ticket": false,
+      "ticket": true,
       "security": false,
       "community_automations": false,
       "website": false,
       "staff_tools": false,
-      "giveaway": false
+      "giveaway": true
     }
   },
   "guilds": {

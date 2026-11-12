@@ -2273,8 +2273,8 @@ export function GuildPanel() {
       alive = false;
     };
   }, [guildId, token, gate, section, modulesRev]);
-  const navOff: GuildSectionId[] =
-    tickets && tickets.enabled === false ? [...modulesOff, "tickets"] : modulesOff;
+  /* "Disattivati" = solo i moduli spenti dalla pagina Moduli (lo dice il bot) */
+  const navOff: GuildSectionId[] = modulesOff;
 
   const sectionMeta = findGuildSection(section);
   const commandTabsForNav = useMemo(() => {
