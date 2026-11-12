@@ -160,10 +160,15 @@ export function AuditPanel({
   guildId,
   token,
   area = "all",
+  title,
+  icon: Icon,
 }: {
   guildId: string;
   token: string;
   area?: Area | string;
+  /** con il titolo diventa una scheda della pagina (una per area, segnata nell'elenco a sinistra) */
+  title?: string;
+  icon?: React.ComponentType<{ className?: string }>;
 }) {
   const activeArea = (String(area || "all").trim() || "all") as Area;
   const [page, setPage] = useState(1);
@@ -204,6 +209,56 @@ export function AuditPanel({
 
   const from = current && current.total ? (page - 1) * PAGE_SIZE + 1 : 0;
   const to = current ? Math.min(page * PAGE_SIZE, current.total) : 0;
+
+  if (title) {
+    const boxId = `spy-${activeArea}`;
+    return (
+      <section id={boxId} className="scroll-mt-24 overflow-hidden rounded-3xl bg-roast/70 ring-1 ring-sand/10">
+        <header className="flex items-center gap-3 border-b border-sand/[0.08] px-4 py-3.5 sm:px-5">
+          {Icon ? (
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-caramel/20 to-ember/5 text-ember ring-1 ring-caramel/20">
+              <Icon className="size-4" />
+            </span>
+          ) : null}
+          <h3 className="min-w-0 flex-1 font-semibold text-crema">{title}</h3>
+          {current && !current.error ? (
+            <span className="rounded-full bg-crema/[0.06] px-2.5 py-0.5 text-xs font-semibold tabular-nums text-crema/65">
+              {current.total} modific{current.total === 1 ? "a" : "he"}
+            </span>
+          ) : null}
+        </header>
+        <div className="p-3 sm:p-4">
+          {!current ? (
+            <RowsSkeleton rows={3} />
+          ) : current.error ? (
+            <Notice>{current.error}</Notice>
+          ) : groups.length === 0 ? (
+            <p className="px-2 py-4 text-center text-sm text-crema/50">Ancora nessuna modifica in quest&apos;area.</p>
+          ) : (
+            <div className="space-y-4">
+              {groups.map((g) => (
+                <div key={g.day}>
+                  <h4 className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/60">{g.day}</h4>
+                  <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-2xl bg-espresso/45 ring-1 ring-sand/10">
+                    {g.rows.map((r, i) => {
+                      const id = rowKey(r, i);
+                      return <AuditEntry key={id} row={r} open={openKey === id} onToggle={() => setOpenKey((cur) => (cur === id ? null : id))} />;
+                    })}
+                  </ul>
+                </div>
+              ))}
+              {current.pages > 1 ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-sand/10 pt-3">
+                  <span className="text-xs tabular-nums text-crema/60">{`${from}–${to} di ${current.total}`}</span>
+                  <Pagination page={page} totalPages={current.pages} onChange={setPage} scrollToId={boxId} className="mt-0" />
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <div id="dash-audit" className="scroll-mt-24 space-y-4">

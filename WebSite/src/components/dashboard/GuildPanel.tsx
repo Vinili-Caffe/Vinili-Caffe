@@ -282,6 +282,9 @@ const SECTION_HERO: Partial<Record<string, { text: string; accent: string }>> = 
   classifica: { text: "Chi porta più server, più partner e più persone.", accent: "#e8b04b" },
 };
 
+/* aree del registro, tutte nella stessa pagina */
+const REGISTRO_AREAS = REGISTRO_MODULE_TABS.filter((t) => t.id !== "all");
+
 /* icona per categoria (comandi e aree del registro); per le altre una generica */
 const SIDE_TAB_ICONS: Record<string, LucideIcon> = {
   all: IcAll,
@@ -324,32 +327,81 @@ const sideTabIcon = (t: { id: string; label: string }) =>
 function SideTabsLayout({
   label,
   tabs,
-  active,
-  onSelect,
   children,
 }: {
   label: string;
   tabs: readonly { id: string; label: string }[];
-  active: string;
-  onSelect: (id: string) => void;
   children: React.ReactNode;
 }) {
+  /* tutto in una pagina: l'elenco segue lo scorrimento e un clic porta alla sezione */
+  const [active, setActive] = useState<string>(tabs[0]?.id || "");
+  const locked = useRef<number | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  useEffect(() => {
+    const ids = tabs.map((t) => t.id);
+    const update = () => {
+      if (locked.current != null) return;
+      const els = ids.map((id) => document.getElementById(`spy-${id}`)).filter((e): e is HTMLElement => Boolean(e));
+      if (!els.length) return;
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 8;
+      let current = els[0];
+      if (atBottom) current = els[els.length - 1];
+      else for (const el of els) if (el.getBoundingClientRect().top <= 140) current = el;
+      const id = current.id.slice(4);
+      setActive((prev) => (prev === id ? prev : id));
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [tabs]);
+
+  /* telefono: la pillola attiva resta visibile nella fila orizzontale */
+  useEffect(() => {
+    const ul = listRef.current;
+    const chip = ul?.querySelector<HTMLElement>(`[data-tab="${CSS.escape(active)}"]`);
+    if (!ul || !chip || ul.scrollWidth <= ul.clientWidth) return;
+    ul.scrollTo({ left: chip.offsetLeft - ul.clientWidth / 2 + chip.clientWidth / 2, behavior: "smooth" });
+  }, [active]);
+
+  const go = (id: string) => {
+    const el = document.getElementById(`spy-${id}`);
+    if (!el) return;
+    setActive(id);
+    if (locked.current != null) window.clearTimeout(locked.current);
+    locked.current = window.setTimeout(() => (locked.current = null), 900);
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
-      <nav aria-label={label} className="lg:sticky lg:top-20">
-        <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-0.5 lg:mx-0 lg:flex-col lg:overflow-visible lg:rounded-2xl lg:bg-roast/60 lg:p-1.5 lg:ring-1 lg:ring-sand/10">
+      <nav aria-label={label} className="sticky top-14 z-10 -mx-4 bg-espresso/90 px-4 py-2 backdrop-blur lg:top-20 lg:mx-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+        <ul ref={listRef} className="flex gap-1 overflow-x-auto pb-0.5 lg:flex-col lg:overflow-visible lg:rounded-2xl lg:bg-roast/60 lg:p-1.5 lg:ring-1 lg:ring-sand/10">
           {tabs.map((t) => {
             const on = active === t.id;
             const Icon = sideTabIcon(t);
             return (
-              <li key={t.id} className="shrink-0">
+              <li key={t.id} className="relative shrink-0">
+                {on ? (
+                  <motion.span
+                    layoutId={`spy-${label}`}
+                    className="absolute inset-0 rounded-lg bg-caramel/15 ring-1 ring-caramel/25"
+                    transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                    aria-hidden
+                  />
+                ) : null}
                 <button
                   type="button"
-                  aria-current={on ? "page" : undefined}
-                  onClick={() => onSelect(t.id)}
+                  data-tab={t.id}
+                  aria-current={on ? "location" : undefined}
+                  onClick={() => go(t.id)}
                   className={cn(
-                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-sm font-semibold transition-colors lg:py-2",
-                    on ? "bg-caramel/15 text-ember ring-1 ring-caramel/25" : "text-crema/60 ring-1 ring-sand/10 hover:bg-crema/[0.05] hover:text-crema lg:ring-0",
+                    "relative flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-sm font-semibold transition-colors lg:py-2",
+                    on ? "text-ember" : "text-crema/60 ring-1 ring-sand/10 hover:bg-crema/[0.05] hover:text-crema lg:ring-0",
                   )}
                 >
                   <Icon className={cn("size-4 shrink-0", on ? "text-ember" : "text-crema/45")} aria-hidden />
@@ -1652,7 +1704,6 @@ function CommandsSection({
   error,
   onUpdated,
   onToast,
-  category: categoryProp,
 }: {
   guildId: string;
   token: string;
@@ -1664,30 +1715,43 @@ function CommandsSection({
   /** Categoria dalla sidebar (senza chip orizzontali). */
   category?: string;
 }) {
-  const cat = categoryProp && String(categoryProp).trim() ? String(categoryProp) : "all";
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [aclName, setAclName] = useState<string | null>(null);
 
   const categories = useMemo(() => commands?.catalog ?? [], [commands]);
-  const activeCat: CatalogCategory | null = useMemo(() => {
-    if (!commands) return null;
-    if (cat === "all") return null;
-    return categories.find((c) => c.id === cat) ?? null;
-  }, [commands, categories, cat]);
 
-  const rows = useMemo(() => {
+  /* tutte le categorie una sotto l'altra (la ricerca filtra dentro ognuna, quelle vuote spariscono) */
+  const groups: CatalogCategory[] = useMemo(() => {
     if (!commands) return [];
-    const base = activeCat ? activeCat.commands : categories.flatMap((c) => c.commands);
     const q = query.trim().toLowerCase().replace(/^[/+!.]/, "");
-    if (!q) return base;
-    return base.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        String(c.displayName || "").toLowerCase().includes(q) ||
-        String(c.description || "").toLowerCase().includes(q),
-    );
-  }, [commands, activeCat, categories, query]);
+    if (!q) return categories.filter((c) => c.commands.length);
+    return categories
+      .map((c) => ({
+        ...c,
+        commands: c.commands.filter(
+          (x) =>
+            x.name.toLowerCase().includes(q) ||
+            String(x.displayName || "").toLowerCase().includes(q) ||
+            String(x.description || "").toLowerCase().includes(q),
+        ),
+      }))
+      .filter((c) => c.commands.length);
+  }, [commands, categories, query]);
+
+  /* permessi comuni di ogni categoria: se tutti i comandi hanno gli stessi li mostra, altrimenti parte vuoto */
+  const categoryAcls = useMemo(() => {
+    const out: Record<string, CommandAcl> = {};
+    const acls = commands?.commands || {};
+    const sig = (x?: CommandAcl) =>
+      JSON.stringify([x?.roleMode || null, [...(x?.roleIds || [])].sort(), x?.channelMode || null, [...(x?.channelIds || [])].sort()]);
+    for (const g of categories) {
+      const first = acls[g.commands[0]?.name || ""];
+      const same = g.commands.every((c) => sig(acls[c.name]) === sig(first));
+      out[g.id] = same && first ? { ...first, enabled: true, boardFeatureLocked: false } : { enabled: true, roleMode: null, roleIds: [], channelMode: null, channelIds: [] };
+    }
+    return out;
+  }, [commands, categories]);
 
   const totals = useMemo(() => {
     if (!commands) return { all: 0, on: 0 };
@@ -1740,11 +1804,15 @@ function CommandsSection({
     onToast("Impostazioni comando salvate.");
   };
 
-  const saveCategoryAcl = async (names: string[], next: CommandAcl) => {
-    const body = buildCommandAclBody(next);
+  /* stessi ruoli/canali per tutta la categoria: ogni comando resta acceso o spento com'era */
+  const saveCategoryAcl = async (names: string[], next: CommandAcl, busyKey?: string) => {
     const payload: Record<string, CommandAcl | null> = {};
-    for (const name of names) payload[name] = body;
-    setBusy(names[0] || "cat");
+    for (const name of names) {
+      if (commands.commands[name]?.boardFeatureLocked) continue;
+      payload[name] = buildCommandAclBody({ ...next, enabled: isCommandEnabled(commands.commands, name) });
+    }
+    if (!Object.keys(payload).length) return;
+    setBusy(busyKey || names[0] || "cat");
     const res = await patchGuildCommands(token, guildId, payload);
     setBusy(null);
     if (!res.ok) {
@@ -1752,8 +1820,29 @@ function CommandsSection({
       return;
     }
     onUpdated(res.data);
-    onToast("Impostazioni comando salvate.");
+    onToast(busyKey ? "Permessi applicati a tutta la categoria." : "Impostazioni comando salvate.");
   };
+
+  /* accende o spegne tutti i comandi della categoria, tenendo i loro permessi */
+  const toggleCategory = async (group: CatalogCategory, next: boolean) => {
+    const payload: Record<string, CommandAcl | null> = {};
+    for (const c of group.commands) {
+      const prev = commands.commands[c.name];
+      if (prev?.boardFeatureLocked) continue;
+      payload[c.name] = buildCommandAclBody({ ...(prev || { enabled: true, roleMode: null, roleIds: [], channelMode: null, channelIds: [] }), enabled: next });
+    }
+    if (!Object.keys(payload).length) return;
+    setBusy(`cat:${group.id}`);
+    const res = await patchGuildCommands(token, guildId, payload);
+    setBusy(null);
+    if (!res.ok) {
+      onToast(res.message, true);
+      return;
+    }
+    onUpdated(res.data);
+    onToast(next ? "Categoria accesa." : "Categoria spenta.");
+  };
+
 
   const aclChannels = [...pickers.textChannels, ...pickers.voiceChannels];
 
@@ -1776,10 +1865,8 @@ function CommandsSection({
             </span>
           </>
         }
-        bodyClassName="space-y-3 px-0 py-0 sm:px-0"
       >
-        <div className="space-y-3 px-4 pt-4 sm:px-5">
-          <label className="relative block">
+        <label className="relative block">
             <span className="sr-only">Cerca comando</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-crema/50" aria-hidden />
             <input
@@ -1787,18 +1874,73 @@ function CommandsSection({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Cerca un comando…"
-              className={cn(fieldCls, "pl-9 placeholder:text-crema/50")}
+              className={cn(fieldCls, "mt-0 pl-9 placeholder:text-crema/50")}
             />
           </label>
-        </div>
+      </Panel>
 
-        <ul className="divide-y divide-sand/[0.07] border-t border-sand/[0.08]">
-          {rows.length === 0 ? (
-            <li className="px-4 py-8 text-center text-sm text-crema/60">
-              {query ? "Nessun comando con questo nome." : "Nessun comando in questa categoria."}
-            </li>
-          ) : (
-            rows.map((cmd) => {
+      {groups.length === 0 ? (
+        <p className="rounded-3xl bg-roast/60 px-4 py-10 text-center text-sm text-crema/60 ring-1 ring-sand/10">
+          {query ? "Nessun comando con questo nome." : "Nessun comando disponibile."}
+        </p>
+      ) : null}
+
+      {groups.map((group) => {
+        const GroupIcon = sideTabIcon({ id: group.id, label: group.label });
+        const groupOn = group.commands.filter((x) => isCommandEnabled(commands.commands, x.name)).length;
+        const fullGroup = categories.find((c) => c.id === group.id) || group;
+        const groupLabel = group.label.charAt(0).toUpperCase() + group.label.slice(1);
+        const catOpen = aclName === `cat:${group.id}`;
+        const catBusy = busy === `cat:${group.id}`;
+        return (
+      <section key={group.id} id={`spy-${group.id}`} data-spy={group.id} className="scroll-mt-24 overflow-hidden rounded-3xl bg-roast/70 ring-1 ring-sand/10">
+        <header className={cn("border-b border-sand/[0.08] px-4 py-3.5 sm:px-5", catOpen && "bg-espresso/40")}>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-caramel/20 to-ember/5 text-ember ring-1 ring-caramel/20">
+              <GroupIcon className="size-4" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold text-crema">{groupLabel}</h3>
+              <p className="text-xs tabular-nums text-crema/55">
+                {groupOn} attivi su {fullGroup.commands.length}
+              </p>
+            </div>
+            <button
+              type="button"
+              className={cn(
+                "rounded-lg px-2.5 py-1.5 text-xs font-semibold ring-1 transition",
+                catOpen ? "bg-caramel/15 text-ember ring-caramel/30" : "text-crema/55 ring-sand/15 hover:text-crema hover:ring-sand/30",
+              )}
+              aria-expanded={catOpen}
+              onClick={() => setAclName(catOpen ? null : `cat:${group.id}`)}
+            >
+              Permessi categoria
+            </button>
+            <Toggle
+              checked={groupOn > 0}
+              disabled={catBusy}
+              label={`Attiva tutta la categoria ${groupLabel}`}
+              onChange={(next) => void toggleCategory(fullGroup, next)}
+            />
+          </div>
+          {catOpen ? (
+            <div className="mt-3">
+              <p className="text-xs leading-relaxed text-crema/60">
+                Ruoli e canali scelti qui valgono per tutti i {fullGroup.commands.length} comandi di {groupLabel}. Chi è acceso resta acceso; dopo puoi
+                cambiare il singolo comando.
+              </p>
+              <CommandAclEditor
+                acl={categoryAcls[group.id]!}
+                roles={pickers.roles}
+                channels={aclChannels}
+                busy={catBusy}
+                onSave={(next) => void saveCategoryAcl(fullGroup.commands.map((c) => c.name), next, `cat:${group.id}`)}
+              />
+            </div>
+          ) : null}
+        </header>
+        <ul className="divide-y divide-sand/[0.07]">
+          {group.commands.map((cmd) => {
               const acl = commands.commands[cmd.name];
               const on = isCommandEnabled(commands.commands, cmd.name);
               const locked = acl?.boardFeatureLocked === true;
@@ -1868,10 +2010,11 @@ function CommandsSection({
                   ) : null}
                 </li>
               );
-            })
-          )}
+            })}
         </ul>
-      </Panel>
+      </section>
+        );
+      })}
     </div>
   );
 }
@@ -2037,22 +2180,21 @@ export function GuildPanel() {
   const sectionMeta = findGuildSection(section);
   const commandTabsForNav = useMemo(() => {
     const cats = commands?.catalog || [];
-    if (!cats.length) return [...COMMAND_SECTION_TABS];
-    return [
-      { id: "all", label: "Tutti" },
-      ...cats.map((c) => ({
+    if (!cats.length) return COMMAND_SECTION_TABS.filter((t) => t.id !== "all");
+    return cats
+      .filter((c) => c.commands.length)
+      .map((c) => ({
         id: c.id,
         label: c.label.charAt(0).toUpperCase() + c.label.slice(1),
-      })),
-    ];
+      }));
   }, [commands]);
   /* Comandi e Registro: le categorie si scelgono dentro la pagina, in un elenco a sinistra */
   const inPageTabs: readonly { id: string; label: string }[] | null =
-    section === "commands" ? commandTabsForNav : section === "registro" ? REGISTRO_MODULE_TABS : null;
+    section === "commands" ? commandTabsForNav : section === "registro" ? REGISTRO_AREAS : null;
   const activeSectionTabs = inPageTabs ? [] : sectionTabs(section);
   const labelTabs = inPageTabs || activeSectionTabs;
   const activeTabLabel =
-    labelTabs.length && moduleTab
+    !inPageTabs && labelTabs.length && moduleTab
       ? labelTabs.find((t) => t.id === moduleTab)?.label || null
       : null;
   const showSections = gate === "ready" && overview?.botPresent;
@@ -2247,14 +2389,13 @@ export function GuildPanel() {
                       />
                     ) : null}
                     {section === "commands" && guildId && token ? (
-                      <SideTabsLayout label="Categorie dei comandi" tabs={commandTabsForNav} active={moduleTab || "all"} onSelect={(t) => setModuleTab("commands", t)}>
+                      <SideTabsLayout label="Categorie dei comandi" tabs={commandTabsForNav}>
                       <CommandsSection
                         guildId={guildId}
                         token={token}
                         commands={commands}
                         pickers={pickers}
                         error={commandsError}
-                        category={moduleTab || "all"}
                         onUpdated={(next) => {
                           setCommands(next);
                           setCommandsError(null);
@@ -2410,14 +2551,15 @@ export function GuildPanel() {
                     ) : null}
 
                     {section === "registro" && guildId && token ? (
-                      <SideTabsLayout label="Aree del registro" tabs={REGISTRO_MODULE_TABS} active={moduleTab && isRegistroModuleTab(moduleTab) ? moduleTab : "all"} onSelect={(t) => setModuleTab("registro", t)}>
-                        <Panel>
-                          <AuditPanel
-                            guildId={guildId}
-                            token={token}
-                            area={moduleTab && isRegistroModuleTab(moduleTab) ? moduleTab : "all"}
-                          />
-                        </Panel>
+                      <SideTabsLayout label="Aree del registro" tabs={REGISTRO_AREAS}>
+                        <div className="space-y-5">
+                          <p className="text-sm text-crema/65">
+                            Ogni modifica fatta dalla dashboard su questo server, con chi l&apos;ha fatta, divisa per area. Clicca una riga per i dettagli.
+                          </p>
+                          {REGISTRO_AREAS.map((a) => (
+                            <AuditPanel key={a.id} guildId={guildId} token={token} area={a.id} title={a.label} icon={sideTabIcon(a)} />
+                          ))}
+                        </div>
                       </SideTabsLayout>
                     ) : null}
 
