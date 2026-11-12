@@ -2,18 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle,
-  Ban,
   Check,
   Clock3,
   FileText,
-  Gavel,
   Hash,
   ListOrdered,
   MessageSquare,
-  MessageSquareOff,
   Plus,
-  Scale,
   Shield,
   ShieldCheck,
   UserCog,
@@ -36,7 +31,7 @@ import {
   type ModerationCasesPage,
   type ModerationMessages,
 } from "@/lib/dashboard-guild";
-import { Field, MultiCheck, Notice, Panel, SettingRow, StatTile, Toggle, fieldClass, miniBtn, dangerBtn, primaryMini } from "./bits";
+import { Field, MultiCheck, Notice, Panel, SettingRow, Toggle, fieldClass, miniBtn, dangerBtn, primaryMini } from "./bits";
 
 const controlClass = cn(fieldClass, "mt-0");
 
@@ -342,47 +337,12 @@ export function ModerationPanel({
   if (error && !bundle) return <Notice>{error}</Notice>;
   if (!bundle) return null;
 
-  const { settings, overview, enabled, protectedGuild } = bundle;
+  const { settings } = bundle;
 
   return (
     <div className="space-y-4">
-      <section className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/50 px-4 py-3 ring-1 ring-sand/10">
-        <span
-          className={cn(
-            "flex size-10 shrink-0 items-center justify-center rounded-xl",
-            enabled ? "bg-ember/20 text-ember" : "bg-crema/[0.06] text-crema/45",
-          )}
-        >
-          <Gavel className="size-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-crema">Modulo moderazione</p>
-          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-crema/50">
-            <span className={cn("size-1.5 rounded-full", enabled ? "bg-[#7fc48c]" : "bg-crema/30")} aria-hidden />
-            {protectedGuild
-              ? "Sempre attivo sul server Vinili"
-              : enabled
-                ? "Attivo: ban, mute, warn, purge e lock disponibili"
-                : "Spento: i comandi di moderazione non rispondono"}
-          </p>
-        </div>
-        <Toggle
-          checked={enabled}
-          disabled={busy || protectedGuild}
-          label="Attiva moderazione"
-          onChange={(next) => void save({ enabled: next }, next ? "Moderazione attivata." : "Moderazione disattivata.")}
-        />
-      </section>
-
       {activeTab === "overview" ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-            <StatTile icon={<Scale />} label="Casi (7g)" value={overview.cases7d} tone="accent" />
-            <StatTile icon={<ListOrdered />} label="Casi totali" value={overview.totalCases} />
-            <StatTile icon={<AlertTriangle />} label="Warn attivi" value={overview.activeWarns} tone="ok" />
-            <StatTile icon={<Clock3 />} label="Mute/ban a tempo" value={overview.activeTimed} hint="ancora in corso" />
-          </div>
-
           <Panel icon={<Shield />} title="Opzioni" description="Comportamento dei comandi di moderazione.">
             <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2 xl:grid-cols-3">
               <SettingRow title="Invia DM agli utenti" description="Quando vengono espulsi, bannati o silenziati.">
@@ -528,15 +488,6 @@ export function ModerationPanel({
             </div>
           </Panel>
 
-          {bundle.activeModerations.length ? (
-            <Panel icon={<MessageSquareOff />} title="Sanzioni a tempo attive" description="Mute e ban con scadenza ancora in corso.">
-              <ul className="divide-y divide-sand/[0.07] rounded-xl bg-espresso/40 ring-1 ring-sand/10">
-                {bundle.activeModerations.map((row) => (
-                  <CaseRow key={`active-${row.caseId}-${row.userId}`} row={row} />
-                ))}
-              </ul>
-            </Panel>
-          ) : null}
         </div>
       ) : null}
 
@@ -962,18 +913,6 @@ export function ModerationPanel({
         </Panel>
       ) : null}
 
-      {activeTab === "overview" ? (
-        <Panel icon={<Ban />} title="Azioni (7 giorni)" description="Conteggi su tutti i casi del server negli ultimi 7 giorni.">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-            {["BAN", "SOFTBAN", "KICK", "MUTE", "WARN", "UNBAN", "UNMUTE"].map((act) => (
-              <div key={act} className="rounded-xl bg-espresso/50 px-3 py-2.5 ring-1 ring-sand/10">
-                <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-crema/50">{act}</p>
-                <p className="mt-1 text-lg font-semibold tabular-nums text-crema">{overview.byAction[act] || 0}</p>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      ) : null}
     </div>
   );
 }
