@@ -24,6 +24,7 @@ import {
   UserRound,
   Wrench,
   X,
+  Lock,
 } from "lucide-react";
 import { SiteShell } from "@/components/SiteShell";
 import { Footer } from "@/components/Footer";
@@ -108,6 +109,8 @@ export type GuildNav = {
   badges?: Partial<Record<GuildSectionId, number>>;
   /** moduli spenti su questo server: vanno nel gruppo "Disattivati" sotto Moduli */
   off?: readonly GuildSectionId[];
+  /** moduli che qui non si gestiscono dalla dashboard: in "Disattivati", non cliccabili (valore = perché) */
+  locked?: Partial<Record<GuildSectionId, string>>;
 };
 
 function samePath(pathname: string, href: string, exact = false) {
@@ -139,7 +142,10 @@ function NavItem({
   badge,
   animated = true,
   off = false,
+  lockedReason,
 }: {
+  /** modulo che qui non si apre: voce non cliccabile con l'etichetta "bloccato" */
+  lockedReason?: string;
   /** modulo spento: voce attenuata con l'etichetta "disattivo" */
   off?: boolean;
   /** pill animata solo nella sidebar fissa (quella del telefono è un'altra istanza) */
@@ -169,12 +175,25 @@ function NavItem({
       ) : null}
       <Icon className={cn("size-[1.05rem] shrink-0", active ? "text-ember" : off ? "text-crema/35 group-hover:text-crema/60" : "text-crema/60 group-hover:text-crema/70")} />
       <span className={cn("min-w-0 flex-1 truncate text-left", off && !active && "text-crema/45")}>{label}</span>
-      {off ? <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">disattivo</span> : null}
+      {lockedReason ? (
+        <span className="inline-flex items-center gap-1 rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">
+          <Lock className="size-2.5" aria-hidden /> bloccato
+        </span>
+      ) : off ? (
+        <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">disattivo</span>
+      ) : null}
       {badge ? (
         <span className="rounded-md bg-caramel px-1.5 py-px text-[0.65rem] font-bold tabular-nums text-ink">{badge > 99 ? "99+" : badge}</span>
       ) : null}
     </>
   );
+  if (lockedReason) {
+    return (
+      <span role="link" aria-disabled="true" title={lockedReason} className={cn(cls, "cursor-not-allowed hover:bg-transparent hover:text-crema/55")}>
+        {inner}
+      </span>
+    );
+  }
   if (onClick) {
     return (
       <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cls}>
@@ -211,8 +230,10 @@ function ModuleNavItem({
   onModuleTab,
   onNavigate,
   off = false,
+  lockedReason,
 }: {
   off?: boolean;
+  lockedReason?: string;
   item: { id: GuildSectionId; label: string; icon: React.ComponentType<{ className?: string }>; tabs?: readonly { id: string; label: string }[] };
   active: boolean;
   moduleTab?: string | null;
@@ -257,6 +278,7 @@ function ModuleNavItem({
         active={active}
         badge={badge}
         off={off}
+        lockedReason={lockedReason}
         onClick={onSelect ? () => go() : undefined}
         href={!onSelect && guildId ? guildSectionHref(guildId, item.id) : undefined}
       />
@@ -815,12 +837,14 @@ function Sidebar({
 
             {(() => {
               /* moduli spenti in un gruppo a parte, sotto */
-              const offSet = new Set<string>(guildNav?.off || []);
+              const lockedMap = guildNav?.locked || {};
+              const offSet = new Set<string>([...(guildNav?.off || []), ...Object.keys(lockedMap)]);
               const item = (s: (typeof GUILD_MODULE_SECTIONS)[number], off: boolean) => (
                 <ModuleNavItem
                   key={s.id}
                   item={s}
                   off={off}
+                  lockedReason={lockedMap[s.id]}
                   active={guildNav?.active === s.id}
                   moduleTab={guildNav?.moduleTab}
                   badge={guildNav?.badges?.[s.id]}
