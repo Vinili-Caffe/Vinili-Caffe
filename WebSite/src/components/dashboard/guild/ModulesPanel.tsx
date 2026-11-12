@@ -85,14 +85,16 @@ export function ModulesPanel({
     const needle = q.trim().toLowerCase();
     return META.filter((m) => byId.has(m.id))
       .filter((m) => !needle || m.title.toLowerCase().includes(needle) || m.text.toLowerCase().includes(needle))
-      .map((m) => ({ ...m, ...(byId.get(m.id) as Row) }));
+      .map((m) => ({ ...m, ...(byId.get(m.id) as Row) }))
+      /* bloccato (ticket del principale, gestiti dal sito): si vede come spento e non si apre */
+      .map((m) => (m.locked ? { ...m, on: false, page: undefined } : m));
   }, [rows, q]);
 
   if (error && !rows) return <Notice error>{error}</Notice>;
   if (!rows) return <RowsSkeleton rows={6} />;
 
   const shown = rows.filter((r) => META.some((m) => m.id === r.id));
-  const onCount = shown.filter((r) => r.on).length;
+  const onCount = shown.filter((r) => r.on && !r.locked).length;
 
   const toggle = async (id: string, on: boolean) => {
     setBusy(id);

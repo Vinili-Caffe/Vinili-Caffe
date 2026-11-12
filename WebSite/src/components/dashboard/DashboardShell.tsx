@@ -373,12 +373,10 @@ function ModuleNavItem({
 function ServerSwitcher({ current }: { current: ShellGuild | null }) {
   const [open, setOpen] = useState(false);
   const [guilds, setGuilds] = useState<DashboardGuild[]>([]);
-  const [lastId, setLastId] = useState("");
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setGuilds(readGuildsCache() || []);
-    setLastId(readLastGuildId());
   }, [open]);
 
   useEffect(() => {
@@ -395,7 +393,8 @@ function ServerSwitcher({ current }: { current: ShellGuild | null }) {
     };
   }, [open]);
 
-  const shown: ShellGuild | null = current || guilds.find((g) => g.id === lastId) || null;
+  /* fuori dal pannello di un server: nessun server selezionato */
+  const shown: ShellGuild | null = current;
 
   return (
     <div ref={box} className="relative">
@@ -748,9 +747,8 @@ function Sidebar({
   onTogglePin?: () => void;
 }) {
   const pathname = usePathname() || "/";
-  const [lastId, setLastId] = useState("");
-  useEffect(() => setLastId(readLastGuildId()), []);
-  const guildId = guild?.id || lastId;
+  /* sezioni del server solo con un server aperto (in "I miei server" non si è ancora scelto) */
+  const guildId = guild?.id || "";
 
   return (
     <div className="relative flex h-full flex-col gap-5 overflow-y-auto px-3 pb-3 pt-4" onClickCapture={(e) => {
