@@ -80,8 +80,9 @@ async function patchAnnouncements(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   const raw = body?.config || body;
-  const empty = (raw?.roles?.rules || []).find((r?) => r?.enabled !== false && (!Array.isArray(r?.roleIds) || !r.roleIds.length || !r?.channelId));
-  if (empty) return fail(400, "incomplete", `"${String(empty.name || "Regola")}": scegli almeno un ruolo e il canale, oppure spegnila.`);
+  /* serve un ruolo e almeno un modo per avvisare: il canale o il privato */
+  const empty = (raw?.roles?.rules || []).find((r?) => r?.enabled !== false && (!Array.isArray(r?.roleIds) || !r.roleIds.length || (!r?.channelId && r?.dm?.enabled !== true)));
+  if (empty) return fail(400, "incomplete", `"${String(empty.name || "Regola")}": scegli almeno un ruolo e il canale (o accendi il privato), oppure spegnila.`);
   const named = raw?.named && typeof raw.named === "object" ? raw.named : {};
   for (const key of ANN().NAMED_KEYS || []) {
     const slot = named[key];
@@ -658,7 +659,60 @@ async function deletePoll(client?, token?, guildId?, id?, alsoDiscord = false) {
   return { ok: true, status: 200 };
 }
 
+/**
+ * Quali moduli sono spenti su questo server (per il menu della dashboard).
+ * Sul server principale molte funzioni girano ancora col sistema classico: lì non si segna niente come spento.
+ */
+async function modulesStatus(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const gid = a.guildId;
+  if (T.isMainGuild(gid)) return { ok: true, status: 200, off: [] };
+  const [messages, commands, rolePanels, welcome, autoResponders, counters, polls, bv, ann, giveaways] = await Promise.all([
+    T.listMessages(gid, true).catch(() => []),
+    T.listCommands(gid, true).catch(() => []),
+    T.listRolePanels(gid, true).catch(() => []),
+    T.getWelcome(gid, true).catch(() => null),
+    T.listRows("autoResponders", gid, true).catch(() => []),
+    T.listRows("counters", gid, true).catch(() => []),
+    T.listRows("polls", gid, true).catch(() => []),
+    BV().getConfig(gid, true).catch(() => null),
+    ANN().getConfig(gid, true).catch(() => null),
+    GiveawayModel().find({ guildId: gid, ended: { $ne: true } }).limit(1).lean().catch(() => []),
+  ]);
+  let partnershipOn = true;
+  try {
+    const P = require("../../../Vinili/Partner/core/tenantPartnershipSettings") as typeof import("../../../Vinili/Partner/core/tenantPartnershipSettings");
+    partnershipOn = P.isPartnershipSetupComplete(P.getPartnershipConfigSync(gid));
+  } catch (_) {}
+  const w: any = welcome;
+  const annOn = Boolean(
+    (w && (w.welcome?.enabled || w.goodbye?.enabled || w.dm?.enabled || w.goodbyeDm?.enabled || (w.autoRoleIds || []).length)) ||
+      (ann &&
+        (ann.boost.enabled ||
+          ann.boost.dm?.enabled ||
+          (ann.boost.firstRoleIds || []).length ||
+          Object.values(ann.named || {}).some((n: any) => n?.enabled) ||
+          (ann.roles.enabled !== false && ann.roles.rules.some((r: any) => r.enabled)))),
+  );
+  const on: Record<string, boolean> = {
+    messaggi: (messages as any[]).length > 0,
+    comandipers: (commands as any[]).length > 0,
+    ruoli: (rolePanels as any[]).length > 0,
+    benvenuto: annOn,
+    risposte: (autoResponders as any[]).some((r: any) => r?.enabled !== false),
+    contatori: (counters as any[]).length > 0,
+    bump: Boolean(bv?.enabled),
+    voti: Boolean(bv?.votes?.enabled),
+    giveaway: (giveaways as any[]).length > 0,
+    sondaggi: (polls as any[]).some((p: any) => !p?.ended && !p?.deleted),
+    partnership: partnershipOn,
+  };
+  return { ok: true, status: 200, off: Object.keys(on).filter((k) => !on[k]) };
+}
+
 export = {
+  modulesStatus,
   putAutoResponder,
   deleteAutoResponder,
   listChatReminders,

@@ -1,5 +1,6 @@
 "use client";
 
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BellRing, Check, Copy, Gift, Heart, MessageSquareHeart, RefreshCw, Rocket, Sparkles, Star, Timer, Zap } from "lucide-react";
@@ -241,6 +242,7 @@ function ExpCards({ keys, cfg, setExp }: { keys: BumpExpKey[]; cfg: BumpVotesCon
 export function BumpPanel({ guildId, token, onToast }: PanelProps) {
   const h = useBumpVotesConfig(guildId, token);
   const { data, error, cfg, set, isMain, loadError, busy, setBusy, dirty, imported } = h;
+  useUnsavedChanges(dirty);
   const [kind, setKind] = useState<"thanks" | "reminder">("thanks");
   const [svc, setSvc] = useState<BumpService>("disboard");
   const baseVars = useSampleVars(data);
@@ -394,6 +396,7 @@ export function BumpPanel({ guildId, token, onToast }: PanelProps) {
 export function VotesPanel({ guildId, token, onToast }: PanelProps) {
   const h = useBumpVotesConfig(guildId, token);
   const { data, error, cfg, set, urls, isMain, loadError, busy, setBusy, dirty, imported } = h;
+  useUnsavedChanges(dirty);
   const [kind, setKind] = useState<"thanks" | "dm">("thanks");
   const [svc, setSvc] = useState<VoteService>("topgg");
   const [copied, setCopied] = useState<string | null>(null);

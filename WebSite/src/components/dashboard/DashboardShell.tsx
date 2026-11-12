@@ -30,6 +30,7 @@ import { Footer } from "@/components/Footer";
 import { SmartLink } from "@/components/SmartLink";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
+import { confirmLeaveUnsaved } from "@/lib/unsaved-changes";
 import { readGuildsCache, readLastGuildId, selectGuild, type DashboardGuild } from "@/lib/dashboard";
 import { ensureIsDev, getIsDev, subscribeDev } from "@/lib/dashboard-dev";
 import { ensureCreditsBalance, getCreditsBalance, subscribeCredits } from "@/lib/dashboard-premium";
@@ -105,6 +106,8 @@ export type GuildNav = {
   tabsBySection?: Partial<Record<GuildSectionId, readonly { id: string; label: string }[]>>;
   /** numeretto accanto alla voce (es. ticket in attesa) */
   badges?: Partial<Record<GuildSectionId, number>>;
+  /** moduli spenti su questo server: vanno nel gruppo "Disattivati" sotto Moduli */
+  off?: readonly GuildSectionId[];
 };
 
 function samePath(pathname: string, href: string, exact = false) {
@@ -135,7 +138,10 @@ function NavItem({
   label,
   badge,
   animated = true,
+  off = false,
 }: {
+  /** modulo spento: voce attenuata con l'etichetta "disattivo" */
+  off?: boolean;
   /** pill animata solo nella sidebar fissa (quella del telefono è un'altra istanza) */
   animated?: boolean;
   href?: string;
@@ -161,8 +167,9 @@ function NavItem({
       ) : active ? (
         <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-to-b from-ember to-caramel" aria-hidden />
       ) : null}
-      <Icon className={cn("size-[1.05rem] shrink-0", active ? "text-ember" : "text-crema/60 group-hover:text-crema/70")} />
-      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+      <Icon className={cn("size-[1.05rem] shrink-0", active ? "text-ember" : off ? "text-crema/35 group-hover:text-crema/60" : "text-crema/60 group-hover:text-crema/70")} />
+      <span className={cn("min-w-0 flex-1 truncate text-left", off && !active && "text-crema/45")}>{label}</span>
+      {off ? <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">disattivo</span> : null}
       {badge ? (
         <span className="rounded-md bg-caramel px-1.5 py-px text-[0.65rem] font-bold tabular-nums text-ink">{badge > 99 ? "99+" : badge}</span>
       ) : null}
@@ -203,7 +210,9 @@ function ModuleNavItem({
   onSelect,
   onModuleTab,
   onNavigate,
+  off = false,
 }: {
+  off?: boolean;
   item: { id: GuildSectionId; label: string; icon: React.ComponentType<{ className?: string }>; tabs?: readonly { id: string; label: string }[] };
   active: boolean;
   moduleTab?: string | null;
@@ -247,6 +256,7 @@ function ModuleNavItem({
         icon={Icon}
         active={active}
         badge={badge}
+        off={off}
         onClick={onSelect ? () => go() : undefined}
         href={!onSelect && guildId ? guildSectionHref(guildId, item.id) : undefined}
       />
@@ -410,11 +420,24 @@ function ServerSwitcher({ current }: { current: ShellGuild | null }) {
                       type="button"
                       role="option"
                       aria-selected={on}
-                      onClick={() => {
+                      onClick={async () => {
                         setOpen(false);
                         if (on && current) return;
-                        /* pagina intera: il pannello ricarica tutti i dati del nuovo server */
-                        window.location.assign(selectGuild(g.id));
+                        if (!(await confirmLeaveUnsaved())) return;
+                        /* pagina intera: il pannello ricarica tutti i dati del nuovo server.
+                           Stessa sezione e scheda di adesso, se il bot è anche lì (altrimenti la pagina del server) */
+                        const href = selectGuild(g.id);
+                        const cur = new URLSearchParams(window.location.search);
+                        const s = cur.get("s");
+                        const t = cur.get("t");
+                        if (current && g.botPresent && s) {
+                          const u = new URL(href, window.location.href);
+                          u.searchParams.set("s", s);
+                          if (t) u.searchParams.set("t", t);
+                          window.location.assign(u.pathname + u.search);
+                          return;
+                        }
+                        window.location.assign(href);
                       }}
                       className={cn(
                         "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition-colors",
@@ -790,11 +813,14 @@ function Sidebar({
               })}
             </NavGroup>
 
-            <NavGroup title="Moduli">
-              {GUILD_MODULE_SECTIONS.map((s) => (
+            {(() => {
+              /* moduli spenti in un gruppo a parte, sotto */
+              const offSet = new Set<string>(guildNav?.off || []);
+              const item = (s: (typeof GUILD_MODULE_SECTIONS)[number], off: boolean) => (
                 <ModuleNavItem
                   key={s.id}
                   item={s}
+                  off={off}
                   active={guildNav?.active === s.id}
                   moduleTab={guildNav?.moduleTab}
                   badge={guildNav?.badges?.[s.id]}
@@ -805,8 +831,16 @@ function Sidebar({
                   onModuleTab={guildNav?.onModuleTab}
                   onNavigate={onNavigate}
                 />
-              ))}
-            </NavGroup>
+              );
+              const onList = GUILD_MODULE_SECTIONS.filter((s) => !offSet.has(s.id));
+              const offList = GUILD_MODULE_SECTIONS.filter((s) => offSet.has(s.id));
+              return (
+                <>
+                  <NavGroup title="Moduli">{onList.map((s) => item(s, false))}</NavGroup>
+                  {offList.length ? <NavGroup title="Disattivati">{offList.map((s) => item(s, true))}</NavGroup> : null}
+                </>
+              );
+            })()}
           </>
         ) : null}
 

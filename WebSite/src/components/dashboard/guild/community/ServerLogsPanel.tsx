@@ -1,5 +1,6 @@
 "use client";
 
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { useEffect, useState } from "react";
 import { MultiSelect, Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
@@ -24,6 +25,7 @@ export function ServerLogsPanel({ guildId, token, onToast }: { guildId: string; 
     setSaved(JSON.stringify(v));
   }, [data]);
 
+  useUnsavedChanges(Boolean(cfg && saved && JSON.stringify(cfg) !== saved));
   if (error && !data) return <Notice error>{error}</Notice>;
   if (!data || !cfg) return <RowsSkeleton rows={6} />;
 

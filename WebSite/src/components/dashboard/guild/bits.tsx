@@ -407,15 +407,18 @@ export function MultiCheck({
   selected,
   onChange,
   lockedIds,
+  lockedLabel = "sistema",
   empty = "Nessuna opzione disponibile.",
 }: {
   options: { id: string; label: string }[];
   selected: string[];
   onChange: (next: string[]) => void;
   lockedIds?: string[];
+  /** Badge accanto alle voci bloccate. Stringa vuota = nascosto. */
+  lockedLabel?: string;
   empty?: string;
 }) {
-  if (!options.length) return <p className="text-xs text-crema/60">{empty}</p>;
+  if (!options.length) return <p className="mt-1.5 text-xs text-crema/60">{empty}</p>;
   const set = new Set(selected);
   const locked = new Set((lockedIds || []).map(String));
   return (
@@ -445,7 +448,9 @@ export function MultiCheck({
                 }}
               />
               <span className="min-w-0 flex-1 truncate"><EmojiText text={opt.label} /></span>
-              {isLocked ? <span className="shrink-0 text-[0.65rem] uppercase tracking-wide text-crema/40">sistema</span> : null}
+              {isLocked && lockedLabel ? (
+                <span className="shrink-0 text-[0.65rem] uppercase tracking-wide text-crema/40">{lockedLabel}</span>
+              ) : null}
             </label>
           </li>
         );

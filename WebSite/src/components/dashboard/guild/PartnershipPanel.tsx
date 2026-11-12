@@ -1,5 +1,6 @@
 "use client";
 
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { NumberField } from "@/components/ui/NumberField";
 import { cn } from "@/lib/cn";
 import { useEffect, useState } from "react";
@@ -120,6 +121,7 @@ export function PartnershipPanel({
   /* segnaposto: si inseriscono nell'ultimo campo del ringraziamento dove hai scritto */
   const [bundle, setBundle] = useState<PartnershipBundle | null>(null);
   const [draft, setDraft] = useState<PartnershipConfig | null>(null);
+  useUnsavedChanges(Boolean(bundle && draft && JSON.stringify(draft) !== JSON.stringify(bundle.config)));
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);

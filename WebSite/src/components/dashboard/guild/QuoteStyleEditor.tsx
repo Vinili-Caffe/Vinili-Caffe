@@ -1,5 +1,6 @@
 "use client";
 
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { useEffect, useMemo, useState } from "react";
 import { Lock } from "lucide-react";
 import { Select } from "@/components/ui/Select";
@@ -121,6 +122,7 @@ export function QuoteStyleEditor({
 }) {
   const [draft, setDraft] = useState<QuoteStyle>(value);
   const [dirty, setDirty] = useState(false);
+  useUnsavedChanges(dirty);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);

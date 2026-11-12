@@ -1,5 +1,6 @@
 "use client";
 
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { useEffect, useState } from "react";
 import { Send, UserPlus } from "lucide-react";
 import { MultiSelect } from "@/components/ui/Select";
@@ -29,6 +30,7 @@ export function WelcomePanel({
   const [saved, setSaved] = useState<string>("");
   const [busy, setBusy] = useState<string | null>(null);
   const vars = useSampleVars(data);
+  useUnsavedChanges(Boolean(cfg && saved && JSON.stringify(cfg) !== saved));
 
   useEffect(() => {
     if (!data) return;
@@ -50,7 +52,7 @@ export function WelcomePanel({
     if (!r.ok) return onToast(r.message, true);
     setCfg(r.data.welcome);
     setSaved(JSON.stringify(r.data.welcome));
-    onToast("Benvenuto e addio salvati.");
+    onToast(tab === "goodbye" ? "Addio salvato." : "Benvenuto salvato.");
   };
 
   const test = async (kind: "welcome" | "goodbye" | "dm" | "goodbyeDm") => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Plus, Tags, Trash2 } from "lucide-react";
 import { MultiSelect, Select } from "@/components/ui/Select";
@@ -99,6 +100,7 @@ export function AnnouncementsPanel({
   const [imported, setImported] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  useUnsavedChanges(dirty);
   const [busy, setBusy] = useState(false);
   const [boostTab, setBoostTab] = useState<"first" | "repeat">("first");
   const [openRule, setOpenRule] = useState<string | null>(null);

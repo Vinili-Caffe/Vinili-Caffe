@@ -1,5 +1,6 @@
 "use client";
 
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { EmojiText } from "@/components/discord/EmojiText";
 import { NumberField } from "@/components/ui/NumberField";
 import { useEffect, useRef, useState } from "react";
@@ -34,6 +35,7 @@ import {
   type TicketsSummary,
 } from "@/lib/dashboard-guild";
 import { cn } from "@/lib/cn";
+import { page } from "@/lib/site";
 import { Select } from "@/components/ui/Select";
 import { ExpandableTextarea, Field, Notice, Panel, SettingRow, StatTile, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, RowsSkeleton } from "./bits";
 import { TicketArchive } from "./TicketArchive";
@@ -99,6 +101,7 @@ export function TicketDesk({
   onSummaryRef.current = onSummary;
 
   useEffect(() => {
+    if (isMainGuild) return;
     let cancel = false;
     (async () => {
       const res = await loadTicketModule(token, guildId);
@@ -114,10 +117,10 @@ export function TicketDesk({
     return () => {
       cancel = true;
     };
-  }, [token, guildId]);
+  }, [token, guildId, isMainGuild]);
 
   useEffect(() => {
-    if (tab !== "overview") return;
+    if (isMainGuild || tab !== "overview") return;
     let cancel = false;
     listTicketList(token, guildId, { status, limit: 30 }).then((res) => {
       if (cancel) return;
@@ -126,7 +129,33 @@ export function TicketDesk({
     return () => {
       cancel = true;
     };
-  }, [tab, status, token, guildId]);
+  }, [tab, status, token, guildId, isMainGuild]);
+
+  /* Main Vinili: ticket sul sito, come la bacheca — niente modulo Discord da configurare qui. */
+  if (isMainGuild) {
+    return (
+      <section className="flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-r from-caramel/[0.12] via-roast/80 to-roast/80 p-4 ring-1 ring-caramel/25 sm:p-5">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/30">
+          <Ticket className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-crema">Ticket sul sito</p>
+          <p className="mt-0.5 text-xs text-crema/60">
+            Sul server Vinili i ticket non passano dal modulo Discord della dashboard: si aprono e gestiscono su{" "}
+            <span className="text-crema/80">viniliecaffe.it/tickets</span>.
+          </p>
+        </div>
+        <a
+          href={page("/tickets/")}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(primaryMini, "inline-flex items-center gap-1.5 no-underline")}
+        >
+          Apri i ticket <ExternalLink className="size-3.5" />
+        </a>
+      </section>
+    );
+  }
 
   const enabled = mod?.enabled ?? summary?.enabled ?? false;
   const overview = mod?.overview ?? summary?.overview;
@@ -516,6 +545,7 @@ function QuickRepliesEditor({
 }) {
   const [draft, setDraft] = useState<TicketQuickReply[]>(replies);
   const [dirty, setDirty] = useState(false);
+  useUnsavedChanges(dirty);
 
   useEffect(() => {
     setDraft(replies);

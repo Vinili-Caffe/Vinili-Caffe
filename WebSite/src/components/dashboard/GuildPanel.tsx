@@ -122,6 +122,8 @@ import {
   searchTicketMembers,
 } from "@/lib/dashboard-guild";
 import dynamic from "next/dynamic";
+import { communityApi } from "@/lib/dashboard-community";
+import { confirmLeaveUnsaved } from "@/lib/unsaved-changes";
 import { DashboardShell, type GuildSectionId } from "./DashboardShell";
 import {
   COMMAND_SECTION_TABS,
@@ -1326,13 +1328,26 @@ function SettingsSection({
               <Select
                 value={language}
                 disabled={saving}
+                searchable
+                searchPlaceholder="Cerca lingua…"
                 onChange={async (next) => {
                   setLanguage(next);
                   const ok = await save({ language: next || null }, "Lingua salvata.");
                   if (!ok) setLanguage(settings.language ?? "");
                 }}
                 className={cn(fieldCls, "mt-1.5")}
-                options={[{ value: "", label: "Automatica (lingua del server Discord)" }, ...SERVER_LANGUAGES]}
+                options={[
+                  {
+                    value: "",
+                    label: (() => {
+                      const auto = SERVER_LANGUAGES.find((l) => l.value === settings.discordLanguage);
+                      return auto
+                        ? `${auto.label} (automatica importata da discord)`
+                        : "Automatica (importata da discord)";
+                    })(),
+                  },
+                  ...SERVER_LANGUAGES,
+                ]}
               />
               <span className="mt-1 block text-xs text-crema/50">Lingua dei messaggi del bot su questo server.</span>
             </label>
@@ -1344,6 +1359,8 @@ function SettingsSection({
               <Select
                 value={timezone}
                 disabled={saving}
+                searchable
+                searchPlaceholder="Cerca fuso orario…"
                 onChange={async (next) => {
                   setTimezone(next);
                   const ok = await save({ timezone: next }, "Fuso orario salvato.");
@@ -1382,7 +1399,7 @@ function SettingsSection({
             </div>
             <div>
               <p className="text-xs font-semibold text-crema/70">Persone</p>
-              <label className="relative mt-1.5 block">
+              <label className="mt-1.5 block">
                 <span className="sr-only">Cerca una persona</span>
                 <input
                   name="dashboard-user-search"
@@ -1392,62 +1409,51 @@ function SettingsSection({
                   placeholder="Cerca per nome o ID…"
                   className={cn(fieldCls, "mt-0")}
                 />
-                {userHits.length ? (
-                  <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-lg bg-mocha p-1 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.85)] ring-1 ring-sand/20">
-                    {userHits.map((hit) => (
-                      <li key={hit.id}>
-                        <button
-                          type="button"
-                          className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-crema/85 hover:bg-crema/[0.06]"
-                          onClick={() => {
-                            if (dashboardUserIds.includes(hit.id)) return;
-                            setUserLabels((cur) => ({ ...cur, [hit.id]: hit.label }));
-                            setUserQuery("");
-                            setUserHits([]);
-                            void saveUsers([...dashboardUserIds, hit.id]);
-                          }}
-                        >
-                          <span className="truncate">{hit.label}</span>
-                          <span className="shrink-0 font-mono text-[0.65rem] text-crema/60">{hit.id}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
               </label>
-              {guildOwner ? (
-                <ul className="mt-2 flex flex-wrap gap-1.5">
-                  <li
-                    className="inline-flex items-center gap-1.5 rounded-full bg-caramel/12 px-3 py-1 text-sm text-crema ring-1 ring-caramel/30"
-                    title="Il proprietario del server ha sempre accesso"
-                  >
-                    <span className="max-w-[12rem] truncate" translate="no">{guildOwner.label}</span>
-                    <span className="text-xs text-crema/55">· proprietario</span>
-                  </li>
-                </ul>
-              ) : null}
-              {dashboardUserIds.filter((id) => id !== guildOwner?.id).length === 0 ? (
-                <p className="mt-2 text-xs text-crema/60">Nessuna persona aggiunta singolarmente.</p>
+              <MultiCheck
+                options={(() => {
+                  const seen = new Set<string>();
+                  const opts: { id: string; label: string }[] = [];
+                  if (guildOwner) {
+                    seen.add(guildOwner.id);
+                    opts.push({ id: guildOwner.id, label: `${guildOwner.label} · proprietario` });
+                  }
+                  for (const id of dashboardUserIds) {
+                    if (seen.has(id)) continue;
+                    seen.add(id);
+                    opts.push({ id, label: userLabels[id] || id });
+                  }
+                  for (const hit of userHits) {
+                    if (seen.has(hit.id)) continue;
+                    seen.add(hit.id);
+                    opts.push({ id: hit.id, label: hit.label });
+                  }
+                  return opts;
+                })()}
+                selected={[
+                  ...(guildOwner ? [guildOwner.id] : []),
+                  ...dashboardUserIds.filter((id) => id !== guildOwner?.id),
+                ]}
+                lockedIds={guildOwner ? [guildOwner.id] : []}
+                lockedLabel=""
+                onChange={(ids) => {
+                  if (rolesLocked || saving) return;
+                  const next = ids.filter((id) => id !== guildOwner?.id);
+                  for (const hit of userHits) {
+                    if (next.includes(hit.id)) setUserLabels((cur) => ({ ...cur, [hit.id]: hit.label }));
+                  }
+                  setUserQuery("");
+                  setUserHits([]);
+                  void saveUsers(next);
+                }}
+                empty="Cerca qualcuno per aggiungerlo all’accesso dashboard."
+              />
+              {rolesLocked ? (
+                <p className="mt-1 text-xs text-crema/50">Bloccato su questo server.</p>
               ) : (
-                <ul className="mt-2 flex flex-wrap gap-1.5">
-                  {dashboardUserIds.filter((id) => id !== guildOwner?.id).map((id) => (
-                    <li
-                      key={id}
-                      className="inline-flex items-center gap-1 rounded-full bg-crema/[0.07] py-1 pl-3 pr-1 text-sm text-crema ring-1 ring-sand/15"
-                    >
-                      <span className="max-w-[12rem] truncate">{userLabels[id] || id}</span>
-                      <button
-                        type="button"
-                        aria-label={`Togli ${userLabels[id] || id} dall’accesso dashboard`}
-                        disabled={rolesLocked || saving}
-                        className="flex size-5 items-center justify-center rounded-full text-crema/60 transition hover:bg-[#a83a2c]/25 hover:text-[#f0a493] hover:light:text-[#a83a2c] disabled:opacity-45"
-                        onClick={() => void saveUsers(dashboardUserIds.filter((x) => x !== id))}
-                      >
-                        ✕
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <p className="mt-1 text-xs text-crema/50">
+                  Persone abilitate singolarmente (oltre ai ruoli). Il proprietario ha sempre accesso.
+                </p>
               )}
             </div>
           </div>
@@ -2122,7 +2128,8 @@ export function GuildPanel() {
   }, []);
 
   const setSection = useCallback(
-    (next: Section) => {
+    async (next: Section) => {
+      if (!(await confirmLeaveUnsaved())) return;
       const nextTab = defaultModuleTab(next);
       setSectionState(next);
       setModuleTabState(nextTab);
@@ -2133,7 +2140,8 @@ export function GuildPanel() {
   );
 
   const setModuleTab = useCallback(
-    (nextSection: Section, tab: string) => {
+    async (nextSection: Section, tab: string) => {
+      if (!(await confirmLeaveUnsaved())) return;
       const safe = sanitizeModuleTab(nextSection, tab);
       setSectionState(nextSection);
       setModuleTabState(safe);
@@ -2242,6 +2250,21 @@ export function GuildPanel() {
     };
   }, [ready, token]);
 
+  /* moduli spenti su questo server: nel menu vanno nel gruppo "Disattivati" (si aggiorna cambiando sezione) */
+  const [modulesOff, setModulesOff] = useState<GuildSectionId[]>([]);
+  useEffect(() => {
+    if (!guildId || !token || gate !== "ready") return;
+    let alive = true;
+    void communityApi.modulesStatus(token, guildId).then((r) => {
+      if (alive && r.ok) setModulesOff((r.data.off || []) as GuildSectionId[]);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [guildId, token, gate, section]);
+  const navOff: GuildSectionId[] =
+    tickets && tickets.enabled === false && !overview?.isMainGuild ? [...modulesOff, "tickets"] : modulesOff;
+
   const sectionMeta = findGuildSection(section);
   const commandTabsForNav = useMemo(() => {
     const cats = commands?.catalog || [];
@@ -2258,7 +2281,9 @@ export function GuildPanel() {
     section === "commands" ? commandTabsForNav : section === "registro" ? REGISTRO_AREAS : null;
   const switchTabs: readonly { id: string; label: string }[] | null =
     section === "tickets"
-      ? TICKET_MODULE_TABS
+      ? overview?.isMainGuild
+        ? null
+        : TICKET_MODULE_TABS
       : section === "moderation"
         ? MODERATION_MODULE_TABS
         : section === "partnership"
@@ -2298,6 +2323,7 @@ export function GuildPanel() {
               moduleTab,
               onModuleTab: setModuleTab,
               badges: { tickets: tickets?.overview.unclaimed || undefined },
+              off: navOff,
             }
           : undefined
       }
@@ -2505,20 +2531,36 @@ export function GuildPanel() {
                       />
                     ) : null}
                     {section === "tickets" && guildId && token ? (
-                      withSwitchTabs(
-                      <TicketDesk
-                        guildId={guildId}
-                        token={token}
-                        summary={tickets}
-                        error={ticketsError}
-                        isMainGuild={overview.isMainGuild}
-                        tab={moduleTab && isTicketModuleTab(moduleTab) ? moduleTab : "overview"}
-                        onSummary={(next) => {
-                          setTickets(next);
-                          setTicketsError(null);
-                        }}
-                        onToast={showToast}
-                      />
+                      overview.isMainGuild ? (
+                        <TicketDesk
+                          guildId={guildId}
+                          token={token}
+                          summary={tickets}
+                          error={ticketsError}
+                          isMainGuild
+                          tab="overview"
+                          onSummary={(next) => {
+                            setTickets(next);
+                            setTicketsError(null);
+                          }}
+                          onToast={showToast}
+                        />
+                      ) : (
+                        withSwitchTabs(
+                          <TicketDesk
+                            guildId={guildId}
+                            token={token}
+                            summary={tickets}
+                            error={ticketsError}
+                            isMainGuild={false}
+                            tab={moduleTab && isTicketModuleTab(moduleTab) ? moduleTab : "overview"}
+                            onSummary={(next) => {
+                              setTickets(next);
+                              setTicketsError(null);
+                            }}
+                            onToast={showToast}
+                          />,
+                        )
                       )
                     ) : null}
                     {section === "moderation" && guildId && token && moduleTab === "log" ? (

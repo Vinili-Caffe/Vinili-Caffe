@@ -397,6 +397,8 @@ export type Poll = {
 export const communityApi = {
   saveAutoResponder: (t: string, g: string, a: Partial<AutoResponder>) => call<{ autoResponder: AutoResponder }>(t, g, "/auto-responders", "PUT", a),
   deleteAutoResponder: (t: string, g: string, id: string) => call(t, g, `/auto-responders/${encodeURIComponent(id)}`, "DELETE"),
+  /** moduli spenti su questo server (per il menu) */
+  modulesStatus: (t: string, g: string) => call<{ off: string[] }>(t, g, "/modules-status", "GET"),
   getAnnouncements: (t: string, g: string) =>
     call<{ isMainGuild?: boolean; imported?: boolean; config: AnnouncementsConfig; maxRules?: number }>(t, g, `/announcements?_=${Date.now()}`),
   saveAnnouncements: (t: string, g: string, config: AnnouncementsConfig) => call<{ config: AnnouncementsConfig }>(t, g, "/announcements", "PATCH", { config }),

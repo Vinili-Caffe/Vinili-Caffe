@@ -209,6 +209,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     const X = () => require("./dashboardCommunityExtraApi") as typeof import("./dashboardCommunityExtraApi");
     app.put(`${base}/auto-responders`, wrap("ar put", (t, req) => X().putAutoResponder(client, t, gid(req), req.body)));
     app.delete(`${base}/auto-responders/:id`, wrap("ar del", (t, req) => X().deleteAutoResponder(client, t, gid(req), req.params?.id)));
+    app.get(`${base}/modules-status`, wrap("modules status", (t, req) => X().modulesStatus(client, t, gid(req))));
     app.get(`${base}/announcements`, wrap("announcements", (t, req) => X().getAnnouncements(client, t, gid(req))));
     app.patch(`${base}/announcements`, wrap("announcements patch", (t, req) => X().patchAnnouncements(client, t, gid(req), req.body)));
     app.get(`${base}/bump-votes`, wrap("bump votes", (t, req) => X().getBumpVotes(client, t, gid(req))));
