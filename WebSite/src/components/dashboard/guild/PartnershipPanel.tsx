@@ -28,6 +28,8 @@ import { confirmDialog, Disclosure } from "@/components/ui";
 import { Pagination } from "@/components/ui/Pagination";
 import { MessagePreview } from "./MessagePreview";
 import { PARTNERSHIP_SAMPLES, PlaceholderList } from "./PlaceholderList";
+import { DiscordMessagePreview, EditorWithPreview } from "./community/shared";
+import { emptyDraft } from "@/lib/dashboard-community";
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
@@ -536,67 +538,130 @@ export function PartnershipPanel({
                   />
                 </SettingRow>
               </div>
-              <Field label="Titolo">
-                <input
-                  ref={tyTitleRef}
-                  onFocus={() => (tyLastField.current = "title")}
-                  name="thank-you-title"
-                  value={draft.thankYouEmbed.title || ""}
-                  onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, title: e.target.value || null } })}
-                  className={fieldClass}
-                />
-              </Field>
-              <Field label="Testo">
-                <ExpandableTextarea
-                  ref={tyTextRef}
-                  onFocus={() => (tyLastField.current = "description")}
-                  name="thank-you-description"
-                  value={draft.thankYouEmbed.description || ""}
-                  rows={6}
-                  onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, description: e.target.value || null } })}
-                />
-              </Field>
-              <MessagePreview
-                title={draft.thankYouEmbed.title}
-                text={draft.thankYouEmbed.description}
-                roles={roles}
-                channels={channels}
-                samples={PARTNERSHIP_SAMPLES}
+              <EditorWithPreview
+                editor={
+                  <div className="space-y-4">
+                    <Field label="Titolo">
+                                    <input
+                                      ref={tyTitleRef}
+                                      onFocus={() => (tyLastField.current = "title")}
+                                      name="thank-you-title"
+                                      value={draft.thankYouEmbed.title || ""}
+                                      onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, title: e.target.value || null } })}
+                                      className={fieldClass}
+                                    />
+                                  </Field>
+                    <Field label="Testo">
+                                    <ExpandableTextarea
+                                      ref={tyTextRef}
+                                      onFocus={() => (tyLastField.current = "description")}
+                                      name="thank-you-description"
+                                      value={draft.thankYouEmbed.description || ""}
+                                      rows={6}
+                                      onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, description: e.target.value || null } })}
+                                    />
+                                  </Field>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Colore">
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <input
+                            type="color"
+                            aria-label="Colore del riquadro"
+                            value={draft.thankYouEmbed.color || "#d49150"}
+                            onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, color: e.target.value } })}
+                            className="h-11 w-14 shrink-0 cursor-pointer rounded-xl bg-espresso/70 p-1 ring-1 ring-sand/15"
+                          />
+                          <input
+                            value={draft.thankYouEmbed.color || ""}
+                            placeholder="#d49150"
+                            maxLength={7}
+                            onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, color: e.target.value || null } })}
+                            className={cn(fieldClass, "mt-0 font-mono")}
+                          />
+                        </div>
+                      </Field>
+                      <Field label="Autore" hint="Riga piccola sopra il titolo. Vuoto = niente.">
+                        <input
+                          value={draft.thankYouEmbed.authorName || ""}
+                          onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, authorName: e.target.value || null } })}
+                          className={fieldClass}
+                        />
+                      </Field>
+                      <Field label="Piè di pagina" hint="Riga piccola in fondo. Vuoto = niente.">
+                        <input
+                          value={draft.thankYouEmbed.footerText || ""}
+                          onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, footerText: e.target.value || null } })}
+                          className={fieldClass}
+                        />
+                      </Field>
+                      <div className="self-end pb-1">
+                        <SettingRow title="Data e ora in fondo">
+                          <Toggle
+                            size="sm"
+                            checked={draft.thankYouEmbed.timestampEnabled}
+                            label="Data e ora in fondo"
+                            onChange={(v) => set({ thankYouEmbed: { ...draft.thankYouEmbed, timestampEnabled: v } })}
+                          />
+                        </SettingRow>
+                      </div>
+                    </div>
+                    <PlaceholderList
+                                    onInsert={(token) => {
+                                      const field = tyLastField.current;
+                                      const el = field === "title" ? tyTitleRef.current : tyTextRef.current;
+                                      const cur = String((field === "title" ? draft.thankYouEmbed.title : draft.thankYouEmbed.description) || "");
+                                      const start = el?.selectionStart ?? cur.length;
+                                      const end = el?.selectionEnd ?? start;
+                                      const next = cur.slice(0, start) + token + cur.slice(end);
+                                      set({ thankYouEmbed: { ...draft.thankYouEmbed, [field]: next } });
+                                      requestAnimationFrame(() => {
+                                        el?.focus();
+                                        el?.setSelectionRange(start + token.length, start + token.length);
+                                      });
+                                    }}
+                                  />
+                    <button
+                                    type="button"
+                                    className={primaryMini}
+                                    disabled={busy}
+                                    onClick={async () => {
+                                      setBusy(true);
+                                      const res = await patchPartnership(token, guildId, { thankYouEmbed: draft.thankYouEmbed });
+                                      setBusy(false);
+                                      if (!res.ok) {
+                                        onToast(res.message, true);
+                                        return;
+                                      }
+                                      setBundle(res.data);
+                                      setDraft(res.data.config);
+                                      onToast("Ringraziamento salvato.");
+                                    }}
+                                  >
+                                    Salva ringraziamento
+                                  </button>
+                  </div>
+                }
+                preview={
+                  <DiscordMessagePreview
+                    draft={emptyDraft({
+                      content: "",
+                      embed: {
+                        ...emptyDraft().embed,
+                        enabled: true,
+                        title: draft.thankYouEmbed.title || "",
+                        description: draft.thankYouEmbed.description || "",
+                        color: draft.thankYouEmbed.color || "#d49150",
+                        authorName: draft.thankYouEmbed.authorName || "",
+                        footerText: draft.thankYouEmbed.footerText || "",
+                        timestamp: draft.thankYouEmbed.timestampEnabled,
+                      },
+                    })}
+                    vars={PARTNERSHIP_SAMPLES}
+                    roles={roles.map((r) => ({ id: r.id, name: r.name, color: null, position: 0 }))}
+                    channels={channels}
+                  />
+                }
               />
-              <PlaceholderList
-                onInsert={(token) => {
-                  const field = tyLastField.current;
-                  const el = field === "title" ? tyTitleRef.current : tyTextRef.current;
-                  const cur = String((field === "title" ? draft.thankYouEmbed.title : draft.thankYouEmbed.description) || "");
-                  const start = el?.selectionStart ?? cur.length;
-                  const end = el?.selectionEnd ?? start;
-                  const next = cur.slice(0, start) + token + cur.slice(end);
-                  set({ thankYouEmbed: { ...draft.thankYouEmbed, [field]: next } });
-                  requestAnimationFrame(() => {
-                    el?.focus();
-                    el?.setSelectionRange(start + token.length, start + token.length);
-                  });
-                }}
-              />
-              <button
-                type="button"
-                className={primaryMini}
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  const res = await patchPartnership(token, guildId, { thankYouEmbed: draft.thankYouEmbed });
-                  setBusy(false);
-                  if (!res.ok) {
-                    onToast(res.message, true);
-                    return;
-                  }
-                  setBundle(res.data);
-                  setDraft(res.data.config);
-                  onToast("Ringraziamento salvato.");
-                }}
-              >
-                Salva ringraziamento
-              </button>
             </div>
           </Disclosure>
         </div>
