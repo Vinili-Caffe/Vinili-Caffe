@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import {
-  AudioLines,
-  Gamepad2,
   Gauge,
   Gavel,
   Gift,
@@ -12,7 +10,6 @@ import {
   Lock,
   Megaphone,
   MessageSquareReply,
-  Music2,
   PartyPopper,
   Pin,
   Rocket,
@@ -22,7 +19,6 @@ import {
   TerminalSquare,
   Ticket,
   Vote,
-  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -48,10 +44,6 @@ const META: ModuleMeta[] = [
   { id: "voti", title: "Voti", text: "Voti su Top.gg e Discadia con ruolo e promemoria.", icon: Vote, page: "voti" },
   { id: "giveaway", title: "Giveaway", text: "Estrazioni a premi con requisiti e vincitori scelti dal bot.", icon: Gift, page: "giveaway" },
   { id: "sondaggi", title: "Sondaggi", text: "Domande al server con voto e risultati in diretta.", icon: Vote, page: "sondaggi" },
-  { id: "utility", title: "Utility", text: "Comandi di servizio: avatar, info, promemoria e simili.", icon: Wrench, page: "commands", tag: "Comandi" },
-  { id: "music", title: "Musica", text: "Il bot suona musica nei canali vocali.", icon: Music2, page: "commands", tag: "Comandi" },
-  { id: "tts", title: "TTS", text: "Il bot legge ad alta voce i messaggi nei vocali.", icon: AudioLines, page: "commands", tag: "Comandi" },
-  { id: "minigames", title: "Minigiochi", text: "Giochi veloci in chat per far passare il tempo.", icon: Gamepad2, page: "commands", tag: "Comandi" },
 ];
 
 type Row = { id: string; on: boolean; locked: boolean };
@@ -99,7 +91,8 @@ export function ModulesPanel({
   if (error && !rows) return <Notice error>{error}</Notice>;
   if (!rows) return <RowsSkeleton rows={6} />;
 
-  const onCount = rows.filter((r) => r.on).length;
+  const shown = rows.filter((r) => META.some((m) => m.id === r.id));
+  const onCount = shown.filter((r) => r.on).length;
 
   const toggle = async (id: string, on: boolean) => {
     setBusy(id);
@@ -130,7 +123,7 @@ export function ModulesPanel({
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca un modulo…" className={cn(fieldClass, "mt-0 pl-9")} />
         </label>
         <span className="rounded-full bg-crema/[0.06] px-3 py-1 text-xs font-semibold tabular-nums text-crema/65">
-          {onCount} accesi su {rows.length}
+          {onCount} accesi su {shown.length}
         </span>
       </div>
 
