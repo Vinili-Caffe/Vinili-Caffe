@@ -549,6 +549,47 @@ function fmtNum(n: number | null) {
   return n != null ? n.toLocaleString("it-IT") : "—";
 }
 
+/** Barra in cima a ogni modulo: stato e interruttore (spento = tutto il modulo fermo). */
+function ModuleBar({
+  icon: Icon,
+  title,
+  on,
+  busy,
+  onToggle,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  on: boolean;
+  busy: boolean;
+  onToggle: (next: boolean) => void;
+}) {
+  return (
+    <section
+      className={cn(
+        "flex flex-wrap items-center gap-4 rounded-2xl p-4 ring-1 sm:p-5",
+        on ? "bg-gradient-to-r from-caramel/[0.12] via-roast/80 to-roast/80 ring-caramel/25" : "bg-roast/80 ring-sand/10",
+      )}
+    >
+      <span
+        className={cn(
+          "flex size-11 shrink-0 items-center justify-center rounded-xl ring-1",
+          on ? "bg-caramel/15 text-ember ring-caramel/30" : "bg-crema/[0.05] text-crema/60 ring-sand/15",
+        )}
+      >
+        <Icon className="size-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold text-crema">{title}</p>
+        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-crema/60">
+          <span className={cn("size-1.5 rounded-full", on ? "bg-[#7fc48c]" : "bg-crema/40")} aria-hidden />
+          {on ? "Attivo" : "Spento: comandi e azioni automatiche fermi, le impostazioni restano salvate"}
+        </p>
+      </div>
+      <Toggle checked={on} disabled={busy} label={`${on ? "Spegni" : "Accendi"} ${title}`} onChange={onToggle} />
+    </section>
+  );
+}
+
 /** Testata del server: copertina (banner o icona sfocata), icona, badge e dati generali del server. */
 function GuildHero({ guild, premiumActive, prefix }: { guild: GuildOverview; premiumActive: boolean; prefix: string | null }) {
   const initial = (guild.name.trim().charAt(0) || "?").toUpperCase();
@@ -2276,6 +2317,9 @@ export function GuildPanel() {
   const [firstSetupClosed, setFirstSetupClosed] = useState(false);
   /* setup partnership in corso: le altre schede della Partnership restano chiuse */
   const [partnerSetupLock, setPartnerSetupLock] = useState(false);
+  /* interruttori dei moduli (stessi della pagina Moduli) */
+  const [moduleStates, setModuleStates] = useState<Record<string, { on: boolean; locked: boolean }>>({});
+  const [moduleBusy, setModuleBusy] = useState(false);
   /* cambia quando si accende/spegne un modulo: il menu si riaggiorna */
   const [modulesRev, setModulesRev] = useState(0);
   useEffect(() => {
@@ -2288,6 +2332,34 @@ export function GuildPanel() {
       alive = false;
     };
   }, [guildId, token, gate, section, modulesRev]);
+  useEffect(() => {
+    if (!guildId || !token || gate !== "ready") return;
+    let alive = true;
+    void communityApi.listModules(token, guildId).then((r) => {
+      if (alive && r.ok) setModuleStates(Object.fromEntries(r.data.modules.map((m) => [m.id, { on: m.on, locked: m.locked }])));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [guildId, token, gate, modulesRev]);
+  const toggleModule = async (id: string, next: boolean) => {
+    if (!guildId || !token) return;
+    setModuleBusy(true);
+    setModuleStates((cur) => ({ ...cur, [id]: { on: next, locked: cur[id]?.locked === true } }));
+    const r = await communityApi.setModule(token, guildId, id, next);
+    setModuleBusy(false);
+    if (!r.ok) {
+      setModuleStates((cur) => ({ ...cur, [id]: { on: !next, locked: cur[id]?.locked === true } }));
+      return showToast(r.message, true);
+    }
+    setModuleStates(Object.fromEntries(r.data.modules.map((m) => [m.id, { on: m.on, locked: m.locked }])));
+    showToast(next ? "Modulo acceso." : "Modulo spento: comandi e azioni automatiche fermi.");
+    setModulesRev((n) => n + 1);
+  };
+  /* la Bacheca ha già la sua barra; i moduli bloccati (ticket del principale) non hanno interruttore */
+  const moduleState = section !== "bacheca" ? moduleStates[section] : undefined;
+  const showModuleBar = Boolean(moduleState && !moduleState.locked);
+  const moduleOff = showModuleBar && moduleState?.on === false;
   /* "Disattivati" = solo i moduli spenti dalla pagina Moduli (lo dice il bot) */
   const navOff: GuildSectionId[] = modulesOff;
 
@@ -2534,6 +2606,16 @@ export function GuildPanel() {
                         accent={SECTION_HERO[section]!.accent}
                       />
                     ) : null}
+                    {showModuleBar ? (
+                      <ModuleBar
+                        icon={sectionMeta.icon}
+                        title={sectionMeta.label}
+                        on={moduleState?.on === true}
+                        busy={moduleBusy}
+                        onToggle={(next) => void toggleModule(section, next)}
+                      />
+                    ) : null}
+                    <div inert={moduleOff} aria-disabled={moduleOff} className={cn("space-y-5 transition-opacity", moduleOff && "pointer-events-none select-none opacity-45")}>
                     {section === "settings" && guildId && token ? (
                       <SettingsSection
                         guildId={guildId}
@@ -2785,6 +2867,7 @@ export function GuildPanel() {
                         />
                       </Panel>
                     ) : null}
+                    </div>
                   </motion.div>
                 </AnimatePresence>
               </>
