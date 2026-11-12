@@ -144,7 +144,7 @@ export function ModulesPanel({
                   m.on ? "bg-roast/70 ring-sand/15" : "bg-espresso/40 ring-sand/10",
                 )}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-center gap-3">
                   <span
                     className={cn(
                       "flex size-10 shrink-0 items-center justify-center rounded-xl ring-1",
@@ -158,7 +158,6 @@ export function ModulesPanel({
                       <p className={cn("font-semibold", m.on ? "text-crema" : "text-crema/60")}>{m.title}</p>
                       {m.tag ? <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/50">{m.tag}</span> : null}
                     </div>
-                    <p className={cn("mt-0.5 text-xs font-semibold", m.on ? "text-emerald-300 light:text-emerald-700" : "text-crema/45")}>{m.on ? "Attivo" : "Disattivo"}</p>
                   </div>
                   {m.locked ? (
                     <span className="flex size-9 items-center justify-center text-crema/40" title="Sul server principale si gestisce dal sito, non da qui">
