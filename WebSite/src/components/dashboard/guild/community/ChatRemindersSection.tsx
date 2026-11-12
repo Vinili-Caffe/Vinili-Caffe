@@ -170,7 +170,7 @@ export function ChatRemindersSection({
       </div>
       <ul className="mt-2 space-y-1.5">
         {items.map((r, i) => (
-          <li key={r.id || i} className="flex items-center gap-2 rounded-xl bg-espresso/45 p-2 ring-1 ring-sand/10">
+          <li key={r.id || i} className="flex items-center gap-2 rounded-2xl bg-espresso/45 p-2 ring-1 ring-sand/10">
             <span className="h-8 w-1 shrink-0 rounded-full" style={{ background: r.draft.embed.enabled ? r.draft.embed.color : "#4e5058" }} aria-hidden />
             <button
               type="button"

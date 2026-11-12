@@ -547,7 +547,7 @@ export function ModerationPanel({
           description="Alla soglia di warn (+warn) il bot applica l’azione scelta. Durata 0 = permanente."
         >
           <div className="space-y-4">
-            <div className="rounded-xl bg-espresso/40 p-4 ring-1 ring-sand/10">
+            <div className="rounded-2xl bg-espresso/40 p-4 ring-1 ring-sand/10">
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,11rem)_minmax(0,12rem)_minmax(0,11rem)_auto]">
                 <label className="block min-w-0">
                   <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-crema/50">Warn raggiunti</span>

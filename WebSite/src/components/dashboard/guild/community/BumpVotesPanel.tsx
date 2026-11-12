@@ -7,7 +7,7 @@ import { NumberField } from "@/components/ui/NumberField";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { communityApi, type BumpExp, type BumpExpKey, type BumpService, type BumpVotesConfig, type VoteService } from "@/lib/dashboard-community";
-import { Field, Notice, RowsSkeleton, Toggle, primaryMini } from "../bits";
+import { Field, Notice, PageHero as Hero, PageSection as Section, Pills, RowsSkeleton, SaveBar, Toggle } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 /* ───────────── costanti ───────────── */
@@ -111,52 +111,6 @@ function useBumpVotesConfig(guildId: string, token: string) {
 
 /* ───────────── pezzi grafici ───────────── */
 
-/** Testata della pagina: icona, titolo, stato e interruttore principale. */
-function Hero({
-  icon: Icon,
-  title,
-  text,
-  on,
-  onToggle,
-  toggleLabel,
-  accent,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  text: string;
-  on: boolean;
-  onToggle: (v: boolean) => void;
-  toggleLabel: string;
-  accent: string;
-}) {
-  return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-mocha via-roast to-espresso p-5 ring-1 ring-sand/15 sm:p-6">
-      <div className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full opacity-25 blur-3xl" style={{ background: accent }} aria-hidden />
-      <div className="relative flex flex-wrap items-center gap-4">
-        <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-crema/[0.06] ring-1 ring-sand/15" style={{ color: accent }}>
-          <Icon className="size-7" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-display text-2xl font-semibold text-crema">{title}</h2>
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1",
-                on ? "bg-emerald-500/12 text-emerald-300 ring-emerald-400/25" : "bg-crema/[0.05] text-crema/55 ring-sand/15",
-              )}
-            >
-              <span className={cn("size-1.5 rounded-full", on ? "bg-emerald-400" : "bg-crema/35")} aria-hidden />
-              {on ? "Attivo" : "Spento"}
-            </span>
-          </div>
-          <p className="mt-1 max-w-2xl text-sm text-crema/65">{text}</p>
-        </div>
-        <Toggle checked={on} onChange={onToggle} label={toggleLabel} />
-      </div>
-    </div>
-  );
-}
-
 /** Scheda di un servizio (Disboard, Discadia, Top.gg). */
 function ServiceCard({
   brand,
@@ -198,67 +152,6 @@ function ServiceCard({
   );
 }
 
-/** Controllo a pillole (es. Ringraziamento / Promemoria, Disboard / Discadia). */
-function Pills<K extends string>({
-  value,
-  onChange,
-  options,
-  ariaLabel,
-}: {
-  value: K;
-  onChange: (k: K) => void;
-  options: { id: K; label: string; icon?: React.ComponentType<{ className?: string }>; dot?: string }[];
-  ariaLabel: string;
-}) {
-  return (
-    <div className="inline-flex flex-wrap gap-1 rounded-xl bg-espresso/70 p-1 ring-1 ring-sand/10" role="tablist" aria-label={ariaLabel}>
-      {options.map((o) => {
-        const on = value === o.id;
-        const Icon = o.icon;
-        return (
-          <button
-            key={o.id}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            onClick={() => onChange(o.id)}
-            className={cn(
-              "relative inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors",
-              on ? "text-crema" : "text-crema/55 hover:text-crema",
-            )}
-          >
-            {on ? <motion.span layoutId={`pill-${ariaLabel}`} className="absolute inset-0 rounded-lg bg-mocha ring-1 ring-sand/15" transition={{ type: "spring", stiffness: 500, damping: 40 }} /> : null}
-            <span className="relative inline-flex items-center gap-1.5">
-              {o.dot ? <span className="size-2 rounded-full" style={{ background: o.dot }} aria-hidden /> : null}
-              {Icon ? <Icon className="size-3.5" /> : null}
-              {o.label}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Sezione con titolo e icona. */
-function Section({ icon: Icon, title, text, right, children }: { icon: React.ComponentType<{ className?: string }>; title: string; text?: string; right?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section className="rounded-3xl bg-roast/60 p-4 ring-1 ring-sand/10 sm:p-5">
-      <div className="mb-4 flex flex-wrap items-start gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-caramel/12 text-ember">
-          <Icon className="size-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-crema">{title}</h3>
-          {text ? <p className="text-xs text-crema/55">{text}</p> : null}
-        </div>
-        {right}
-      </div>
-      {children}
-    </section>
-  );
-}
-
 /** Editor del messaggio + anteprima affiancati. */
 function Studio({ editor, preview }: { editor: React.ReactNode; preview: React.ReactNode }) {
   return (
@@ -269,31 +162,6 @@ function Studio({ editor, preview }: { editor: React.ReactNode; preview: React.R
         {preview}
       </div>
     </div>
-  );
-}
-
-/** Barra in basso quando ci sono modifiche da salvare. */
-function SaveBar({ show, busy, onSave, onReset }: { show: boolean; busy: boolean; onSave: () => void; onReset: () => void }) {
-  return (
-    <AnimatePresence>
-      {show ? (
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 24 }}
-          className="sticky bottom-4 z-20 mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-mocha/95 px-4 py-3 shadow-[0_18px_50px_-18px_rgba(0,0,0,0.85)] ring-1 ring-sand/20 backdrop-blur"
-        >
-          <span className="size-2 rounded-full bg-ember" aria-hidden />
-          <p className="flex-1 text-sm font-medium text-crema">Hai modifiche non salvate</p>
-          <button type="button" className="rounded-lg px-3 py-1.5 text-sm font-semibold text-crema/70 hover:text-crema" disabled={busy} onClick={onReset}>
-            Annulla
-          </button>
-          <button type="button" className={primaryMini} disabled={busy} onClick={onSave}>
-            <Check className="size-3.5" /> Salva
-          </button>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
   );
 }
 

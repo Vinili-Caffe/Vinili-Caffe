@@ -59,7 +59,7 @@ export function ServerLogsPanel({ guildId, token, onToast }: { guildId: string; 
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
         <Toggle checked={cfg.enabled} onChange={(enabled) => setCfg({ ...cfg, enabled })} label="Attiva i log del server" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-crema">Log del server</p>

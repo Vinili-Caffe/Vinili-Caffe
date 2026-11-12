@@ -99,7 +99,7 @@ export function CountersPanel({ guildId, token, onToast }: { guildId: string; to
       {rows.length ? (
         <ul className="space-y-2">
           {rows.map((c) => (
-            <li key={c.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+            <li key={c.id} className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-caramel/12 text-ember">
                 <Volume2 className="size-4" />
               </span>

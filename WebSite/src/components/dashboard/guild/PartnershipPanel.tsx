@@ -710,7 +710,7 @@ export function PartnershipPanel({
         managers === null ? (
           <ul className="grid gap-2.5 md:grid-cols-2" aria-busy>
             {Array.from({ length: 6 }, (_, i) => (
-              <li key={i} className="flex items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+              <li key={i} className="flex items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
                 <span className="size-9 shrink-0 animate-pulse rounded-lg bg-crema/[0.06]" />
                 <span className="min-w-0 flex-1 space-y-1.5">
                   <span className="block h-3.5 w-2/5 animate-pulse rounded bg-crema/[0.08]" />
@@ -729,7 +729,7 @@ export function PartnershipPanel({
             {[...managers]
               .sort((a, b) => b.points - a.points)
               .map((m, i) => (
-                <li key={m.userId} className="flex flex-wrap items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+                <li key={m.userId} className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
                   <span
                     className={cn(
                       "flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold tabular-nums",

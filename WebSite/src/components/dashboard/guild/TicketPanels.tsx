@@ -938,7 +938,7 @@ export function TicketPanels({
                 <button
                   type="button"
                   onClick={() => setSingle(panel)}
-                  className="group flex w-full items-center gap-3 rounded-xl bg-espresso/45 p-3 text-left ring-1 ring-sand/10 transition hover:bg-espresso/70 hover:ring-sand/25"
+                  className="group flex w-full items-center gap-3 rounded-2xl bg-espresso/45 p-3 text-left ring-1 ring-sand/10 transition hover:bg-espresso/70 hover:ring-caramel/30"
                 >
                   <span className="h-10 w-1 shrink-0 rounded-full" style={{ background: panel.color || "#5865f2" }} aria-hidden />
                   <span className="min-w-0 flex-1">
@@ -976,7 +976,7 @@ export function TicketPanels({
                 <button
                   type="button"
                   onClick={() => setMulti(panel)}
-                  className="group flex w-full items-center gap-3 rounded-xl bg-espresso/45 p-3 text-left ring-1 ring-sand/10 transition hover:bg-espresso/70 hover:ring-sand/25"
+                  className="group flex w-full items-center gap-3 rounded-2xl bg-espresso/45 p-3 text-left ring-1 ring-sand/10 transition hover:bg-espresso/70 hover:ring-caramel/30"
                 >
                   <span className="h-10 w-1 shrink-0 rounded-full" style={{ background: panel.color || "#5865f2" }} aria-hidden />
                   <span className="min-w-0 flex-1">

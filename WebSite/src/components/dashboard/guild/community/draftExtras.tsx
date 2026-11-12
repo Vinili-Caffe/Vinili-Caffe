@@ -191,7 +191,7 @@ export function V2Editor({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10">
+      <div className="rounded-2xl bg-espresso/40 p-3 ring-1 ring-sand/10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-crema">Contenitore</p>
@@ -213,7 +213,7 @@ export function V2Editor({
       {blocks.length ? (
         <ol className="space-y-2">
           {blocks.map((b, i) => (
-            <li key={i} className="rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10">
+            <li key={i} className="rounded-2xl bg-espresso/40 p-3 ring-1 ring-sand/10">
               <div className="mb-2 flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.12em] text-crema/55">
                   {i + 1}. {BLOCK_LABEL[b.type]}
@@ -299,7 +299,7 @@ export function V2Editor({
           ))}
         </ol>
       ) : (
-        <p className="rounded-xl bg-espresso/40 p-3 text-sm text-crema/60 ring-1 ring-sand/10">Aggiungi il primo blocco: testo, sezione, immagini, separatore o pulsanti.</p>
+        <p className="rounded-2xl bg-espresso/40 p-3 text-sm text-crema/60 ring-1 ring-sand/10">Aggiungi il primo blocco: testo, sezione, immagini, separatore o pulsanti.</p>
       )}
 
       <div className="flex flex-wrap gap-2">

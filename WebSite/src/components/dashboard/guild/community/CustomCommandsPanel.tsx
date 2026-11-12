@@ -169,7 +169,7 @@ export function CustomCommandsPanel({ guildId, token, onToast }: { guildId: stri
       {data.commands.length ? (
         <ul className="space-y-2">
           {data.commands.map((c) => (
-            <li key={c.id} className="flex items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+            <li key={c.id} className="flex items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
               <button type="button" onClick={() => open(c)} className="min-w-0 flex-1 text-left">
                 <span className="block font-mono font-semibold text-crema">
                   {prefix}

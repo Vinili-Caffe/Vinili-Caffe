@@ -106,7 +106,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
   const past = (list || []).filter((g) => g.ended);
 
   const row = (g: Giveaway) => (
-    <li key={g.id} className="space-y-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+    <li key={g.id} className="space-y-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
       <div className="flex flex-wrap items-center gap-3">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-caramel/12 text-ember">
           <Gift className="size-4" />

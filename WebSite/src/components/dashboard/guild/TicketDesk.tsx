@@ -202,7 +202,7 @@ export function TicketDesk({
         <div className="space-y-4" aria-busy aria-label="Caricamento ticket">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }, (_, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-xl bg-espresso/55 p-3 ring-1 ring-sand/10">
+              <div key={i} className="flex items-center gap-3 rounded-2xl bg-espresso/55 p-3 ring-1 ring-sand/10">
                 <span className="size-9 animate-pulse rounded-lg bg-crema/[0.07]" />
                 <span className="flex-1 space-y-1.5">
                   <span className="block h-2.5 w-1/2 animate-pulse rounded bg-crema/[0.06]" />
@@ -570,7 +570,7 @@ function QuickRepliesEditor({
       ) : (
         <ul className="space-y-3">
           {draft.map((row, index) => (
-            <li key={row.id || index} className="rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10 sm:p-4">
+            <li key={row.id || index} className="rounded-2xl bg-espresso/40 p-3 ring-1 ring-sand/10 sm:p-4">
               <div className="flex flex-wrap items-start gap-3">
                 <div className="min-w-0 flex-1 space-y-3">
                   <Field label="Titolo">

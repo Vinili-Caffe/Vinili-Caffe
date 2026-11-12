@@ -280,7 +280,7 @@ export function AutoRespondersPanel({ guildId, token, onToast }: { guildId: stri
       {rows.length ? (
         <ul className="space-y-2">
           {rows.map((a) => (
-            <li key={a.id} className="flex items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+            <li key={a.id} className="flex items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
               <button
                 type="button"
                 className="min-w-0 flex-1 text-left"

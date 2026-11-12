@@ -130,6 +130,7 @@ import {
   dashPrimaryBtn,
   dashSecondaryBtn,
   discordBtn,
+  PageHero,
 } from "./guild/bits";
 
 const CommandAclEditor = dynamic(() => import("./guild/CommandAcl").then((m) => m.CommandAcl), {
@@ -258,6 +259,27 @@ const SECTION_LEAD: Record<Section, string> = {
   voti: "Voti su Top.gg e Discadia: webhook, ringraziamenti, ruolo e (sul principale) promemoria in DM.",
   giveaway: "Crea giveaway, guarda chi partecipa ed estrai i vincitori.",
   sondaggi: "Sondaggi di Discord pubblicati dalla dashboard, con i risultati.",
+};
+
+/* testata di ogni pagina: spiegazione breve e colore (Bump e Voti hanno la loro, Impostazioni la scheda del server) */
+const SECTION_HERO: Partial<Record<string, { text: string; accent: string }>> = {
+  commands: { text: "Accendi, spegni e limita i comandi del bot: per categoria, per canale e per ruolo.", accent: "#d99a5b" },
+  stats: { text: "Come sta andando il server: ingressi, uscite, messaggi e attività nel tempo.", accent: "#5fb3c9" },
+  salute: { text: "Permessi mancanti, canali che non esistono più e tutto quello che può fermare il bot.", accent: "#7fc48c" },
+  registro: { text: "Chi ha cambiato cosa nella dashboard, e quando.", accent: "#b9a389" },
+  bacheca: { text: "I messaggi più apprezzati finiscono in bacheca, con lo stile che scegli tu.", accent: "#e8b04b" },
+  tickets: { text: "Assistenza privata con pannelli, form, team dello staff e archivio delle conversazioni.", accent: "#6f9ce8" },
+  moderation: { text: "Punizioni automatiche, ricorsi, casi e registro di tutto quello che succede nel server.", accent: "#e0735f" },
+  partnership: { text: "Partner in automatico: regole, filtri, manager e storico di ogni accordo.", accent: "#9b8cf0" },
+  messaggi: { text: "Messaggi del bot fatti come vuoi tu, da mandare subito o a orari fissi.", accent: "#d99a5b" },
+  comandipers: { text: "Comandi tuoi, con la risposta che decidi tu.", accent: "#c98bdb" },
+  ruoli: { text: "Pannelli con pulsanti o menu per far prendere i ruoli da soli.", accent: "#6fc2a8" },
+  benvenuto: { text: "Il bot saluta chi entra, chi esce, chi boosta e chi ottiene un ruolo.", accent: "#f08fb0" },
+  risposte: { text: "Il bot risponde da solo quando qualcuno scrive certe parole.", accent: "#5fb3c9" },
+  contatori: { text: "Canali che mostrano numeri sempre aggiornati: membri, boost, online.", accent: "#e8b04b" },
+  giveaway: { text: "Estrazioni a premi con requisiti, durata e vincitori scelti dal bot.", accent: "#f08fb0" },
+  sondaggi: { text: "Domande al server con voto a pulsanti e risultati in diretta.", accent: "#6f9ce8" },
+  classifica: { text: "Chi porta più server, più partner e più persone.", accent: "#e8b04b" },
 };
 
 /* icona per categoria (comandi e aree del registro); per le altre una generica */
@@ -2195,7 +2217,16 @@ export function GuildPanel() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15 }}
+                    className="space-y-5"
                   >
+                    {SECTION_HERO[section] ? (
+                      <PageHero
+                        icon={sectionMeta.icon}
+                        title={activeTabLabel && !inPageTabs ? `${sectionMeta.label} · ${activeTabLabel}` : sectionMeta.label}
+                        text={SECTION_HERO[section]!.text}
+                        accent={SECTION_HERO[section]!.accent}
+                      />
+                    ) : null}
                     {section === "settings" && guildId && token ? (
                       <SettingsSection
                         guildId={guildId}

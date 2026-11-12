@@ -65,7 +65,7 @@ export function WelcomePanel({
       <EditorWithPreview
         editor={
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
               <Toggle checked={p.enabled} onChange={(enabled) => set({ enabled })} label={k === "welcome" ? "Attiva il benvenuto" : "Attiva l'addio"} />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-crema">{k === "welcome" ? "Messaggio quando entra qualcuno" : "Messaggio quando qualcuno esce"}</p>
@@ -98,7 +98,7 @@ export function WelcomePanel({
           { icon: <Mail className="size-4" />, label: "Privato", on: cfg.dm.enabled },
           { icon: <UserPlus className="size-4" />, label: "Ruoli automatici", on: cfg.autoRoleIds.length > 0 },
         ].map((s) => (
-          <div key={s.label} className="flex items-center gap-2.5 rounded-xl bg-espresso/45 p-2.5 ring-1 ring-sand/10">
+          <div key={s.label} className="flex items-center gap-2.5 rounded-2xl bg-espresso/45 p-2.5 ring-1 ring-sand/10">
             <span className={cn("flex size-8 items-center justify-center rounded-lg", s.on ? "bg-[#5f9a6a]/15 text-[#9fd0a8] light:text-[#2f6b3f]" : "bg-crema/[0.06] text-crema/50")}>{s.icon}</span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-crema">{s.label}</span>
@@ -120,7 +120,7 @@ export function WelcomePanel({
         <EditorWithPreview
           editor={
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
                 <Toggle checked={cfg.dm.enabled} onChange={(enabled) => setCfg({ ...cfg, dm: { ...cfg.dm, enabled } })} label="Attiva il messaggio privato" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-crema">Messaggio privato a chi entra</p>

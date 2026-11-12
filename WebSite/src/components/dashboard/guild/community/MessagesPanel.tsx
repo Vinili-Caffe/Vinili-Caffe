@@ -282,7 +282,7 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
               <button
                 type="button"
                 onClick={() => open(m)}
-                className="flex w-full items-center gap-3 rounded-xl bg-espresso/45 p-3 text-left ring-1 ring-sand/10 transition hover:ring-sand/25"
+                className="flex w-full items-center gap-3 rounded-2xl bg-espresso/45 p-3 text-left ring-1 ring-sand/10 transition hover:ring-caramel/30 hover:bg-espresso/65"
               >
                 <span className="h-9 w-1 shrink-0 rounded-full" style={{ background: m.draft.embed.enabled ? m.draft.embed.color : "#4e5058" }} aria-hidden />
                 <span className="min-w-0 flex-1">

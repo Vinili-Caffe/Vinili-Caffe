@@ -39,7 +39,7 @@ export function MainAutomationsSection({ guildId, token, onToast }: { guildId: s
     <FormGroup title="Automazioni del server" description="Cose che il bot fa da solo sui messaggi di certi canali. Qui puoi spegnerle e riaccenderle.">
       <ul className="space-y-1.5">
         {items.map((a) => (
-          <li key={a.key} className="flex items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+          <li key={a.key} className="flex items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
             <Workflow className="size-4 shrink-0 text-ember" aria-hidden />
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold text-crema">{a.name}</span>

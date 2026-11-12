@@ -368,7 +368,7 @@ export function DraftEditor({
         </button>
       </div>
 
-      <div className="space-y-2 rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10">
+      <div className="space-y-2 rounded-2xl bg-espresso/40 p-3 ring-1 ring-sand/10">
         <SettingRow title="Ping utenti" description="Se attivo, le menzioni utente nel testo (e {user} nel benvenuto) notificano davvero.">
           <Toggle size="sm" checked={mentionUsers} onChange={(v) => setDraft({ ...value, mentionUsers: v })} label="Ping utenti" />
         </SettingRow>
@@ -388,7 +388,7 @@ export function DraftEditor({
       <>
       <RichTextArea label="Testo del messaggio" value={value.content} onChange={(content) => setDraft({ ...value, content })} max={2000} rows={6} emojis={emojis} placeholders={placeholders} placeholder="Facoltativo se usi l'embed" />
 
-      <div className="rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10">
+      <div className="rounded-2xl bg-espresso/40 p-3 ring-1 ring-sand/10">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-crema">Embed</p>

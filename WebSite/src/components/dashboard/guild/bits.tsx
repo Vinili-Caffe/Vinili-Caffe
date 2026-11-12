@@ -3,14 +3,14 @@
 import { forwardRef, useState, type TextareaHTMLAttributes } from "react";
 import { EmojiText } from "@/components/discord/EmojiText";
 import { AnimatePresence, motion } from "motion/react";
-import { Diamond, Maximize2, Minimize2 } from "lucide-react";
+import { Check, Diamond, Info, Maximize2, Minimize2, TriangleAlert } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
 import { Checkbox } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { page } from "@/lib/site";
 
 export const fieldClass =
-  "mt-1.5 w-full rounded-lg bg-espresso/70 px-3 py-2.5 text-sm text-crema ring-1 ring-sand/15 outline-none transition placeholder:text-crema/50 hover:ring-sand/25 focus:ring-2 focus:ring-caramel/45 disabled:opacity-50";
+  "mt-1.5 w-full rounded-xl bg-espresso/70 px-3 py-2.5 text-sm text-crema ring-1 ring-sand/15 outline-none transition placeholder:text-crema/45 hover:ring-sand/25 focus:bg-espresso/90 focus:ring-2 focus:ring-caramel/45 disabled:opacity-50";
 
 export const labelClass = "text-[0.8rem] font-semibold text-crema/80";
 
@@ -90,15 +90,175 @@ export function Toggle({
 }
 
 export function Notice({ children, error = false }: { children: React.ReactNode; error?: boolean }) {
+  const Icon = error ? TriangleAlert : Info;
   return (
-    <p
+    <div
       className={cn(
-        "rounded-xl px-3 py-2.5 text-sm ring-1",
-        error ? "bg-[#a83a2c]/15 text-[#f0a493] light:text-[#a83a2c] ring-[#a83a2c]/30" : "bg-caramel/10 text-crema/75 ring-caramel/25",
+        "flex items-start gap-2.5 rounded-2xl px-3.5 py-3 text-sm ring-1",
+        error ? "bg-[#a83a2c]/12 text-[#f0a493] light:text-[#a83a2c] ring-[#a83a2c]/30" : "bg-caramel/[0.08] text-crema/80 ring-caramel/20",
       )}
     >
+      <Icon className={cn("mt-0.5 size-4 shrink-0", error ? "" : "text-ember")} aria-hidden />
+      <div className="min-w-0 flex-1 leading-relaxed">{children}</div>
+    </div>
+  );
+}
+
+/* ── Pezzi grafici delle pagine (testata, sezioni, pillole, barra di salvataggio) ── */
+
+type IconType = React.ComponentType<{ className?: string }>;
+
+/** Testata di una pagina della dashboard: icona grande, titolo, stato e (se serve) interruttore principale. */
+export function PageHero({
+  icon: Icon,
+  title,
+  text,
+  on,
+  onToggle,
+  toggleLabel,
+  accent = "#d99a5b",
+  aside,
+}: {
+  icon: IconType;
+  title: string;
+  text?: React.ReactNode;
+  /** stato attivo/spento: se manca niente pallino */
+  on?: boolean;
+  onToggle?: (v: boolean) => void;
+  toggleLabel?: string;
+  accent?: string;
+  aside?: React.ReactNode;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-mocha via-roast to-espresso p-5 ring-1 ring-sand/15 sm:p-6">
+      <div className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full opacity-25 blur-3xl" style={{ background: accent }} aria-hidden />
+      <div className="pointer-events-none absolute -bottom-24 left-1/3 size-48 rounded-full opacity-10 blur-3xl" style={{ background: accent }} aria-hidden />
+      <div className="relative flex flex-wrap items-center gap-4">
+        <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-crema/[0.06] ring-1 ring-sand/15" style={{ color: accent }}>
+          <Icon className="size-7" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-display text-2xl font-semibold text-crema">{title}</h2>
+            {on != null ? (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1",
+                  on ? "bg-emerald-500/12 text-emerald-300 light:text-emerald-700 ring-emerald-400/25" : "bg-crema/[0.05] text-crema/55 ring-sand/15",
+                )}
+              >
+                <span className={cn("size-1.5 rounded-full", on ? "bg-emerald-400" : "bg-crema/35")} aria-hidden />
+                {on ? "Attivo" : "Spento"}
+              </span>
+            ) : null}
+          </div>
+          {text ? <p className="mt-1 max-w-2xl text-sm leading-relaxed text-crema/65">{text}</p> : null}
+        </div>
+        {aside}
+        {onToggle && on != null ? <Toggle checked={on} onChange={onToggle} label={toggleLabel || title} /> : null}
+      </div>
+    </div>
+  );
+}
+
+/** Sezione di una pagina: icona, titolo, spiegazione, controlli a destra. */
+export function PageSection({
+  icon: Icon,
+  title,
+  text,
+  right,
+  children,
+  className,
+}: {
+  icon?: IconType;
+  title: string;
+  text?: React.ReactNode;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("rounded-3xl bg-roast/60 p-4 ring-1 ring-sand/10 sm:p-5", className)}>
+      <div className="mb-4 flex flex-wrap items-start gap-3">
+        {Icon ? (
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-caramel/12 text-ember">
+            <Icon className="size-4" />
+          </span>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold text-crema">{title}</h3>
+          {text ? <p className="text-xs leading-relaxed text-crema/55">{text}</p> : null}
+        </div>
+        {right}
+      </div>
       {children}
-    </p>
+    </section>
+  );
+}
+
+/** Controllo a pillole (scelta tra poche opzioni). */
+export function Pills<K extends string>({
+  value,
+  onChange,
+  options,
+  ariaLabel,
+}: {
+  value: K;
+  onChange: (k: K) => void;
+  options: { id: K; label: string; icon?: IconType; dot?: string }[];
+  ariaLabel: string;
+}) {
+  return (
+    <div className="inline-flex max-w-full flex-wrap gap-1 rounded-xl bg-espresso/70 p-1 ring-1 ring-sand/10" role="tablist" aria-label={ariaLabel}>
+      {options.map((o) => {
+        const on = value === o.id;
+        const Icon = o.icon;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(o.id)}
+            className={cn("relative inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors", on ? "text-crema" : "text-crema/55 hover:text-crema")}
+          >
+            {on ? <motion.span layoutId={`pill-${ariaLabel}`} className="absolute inset-0 rounded-lg bg-mocha ring-1 ring-sand/15" transition={{ type: "spring", stiffness: 500, damping: 40 }} /> : null}
+            <span className="relative inline-flex items-center gap-1.5">
+              {o.dot ? <span className="size-2 rounded-full" style={{ background: o.dot }} aria-hidden /> : null}
+              {Icon ? <Icon className="size-3.5" /> : null}
+              {o.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Barra in basso quando ci sono modifiche da salvare. */
+export function SaveBar({ show, busy, onSave, onReset }: { show: boolean; busy: boolean; onSave: () => void; onReset?: () => void }) {
+  return (
+    <AnimatePresence>
+      {show ? (
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 24 }}
+          className="sticky bottom-4 z-20 mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-mocha/95 px-4 py-3 shadow-[0_18px_50px_-18px_rgba(0,0,0,0.85)] ring-1 ring-sand/20 backdrop-blur"
+        >
+          <span className="size-2 rounded-full bg-ember" aria-hidden />
+          <p className="flex-1 text-sm font-medium text-crema">Hai modifiche non salvate</p>
+          {onReset ? (
+            <button type="button" className="rounded-lg px-3 py-1.5 text-sm font-semibold text-crema/70 hover:text-crema" disabled={busy} onClick={onReset}>
+              Annulla
+            </button>
+          ) : null}
+          <button type="button" className={primaryMini} disabled={busy} onClick={onSave}>
+            <Check className="size-3.5" /> Salva
+          </button>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   );
 }
 
@@ -114,9 +274,9 @@ export function Subnav<T extends string>({
   label: string;
 }) {
   return (
-    <div className="max-w-full overflow-x-auto border-b border-sand/12">
+    <div className="max-w-full overflow-x-auto">
       <div
-        className="flex min-w-max gap-1"
+        className="inline-flex min-w-max gap-1 rounded-xl bg-espresso/70 p-1 ring-1 ring-sand/10"
         role="tablist"
         aria-label={label}
         onKeyDown={(e) => {
@@ -140,18 +300,19 @@ export function Subnav<T extends string>({
               tabIndex={on ? 0 : -1}
               onClick={() => onChange(tab.id)}
               className={cn(
-                "relative -mb-px whitespace-nowrap px-3.5 pb-2.5 pt-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-caramel",
-                on ? "text-crema" : "text-crema/60 hover:text-crema",
+                "relative whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-caramel",
+                on ? "text-crema" : "text-crema/55 hover:text-crema",
               )}
             >
-              {tab.label}
-              <span
-                className={cn(
-                  "absolute inset-x-2 bottom-0 h-0.5 rounded-full transition-colors",
-                  on ? "bg-gradient-to-r from-caramel to-ember" : "bg-transparent",
-                )}
-                aria-hidden
-              />
+              {on ? (
+                <motion.span
+                  layoutId={`subnav-${label}`}
+                  className="absolute inset-0 rounded-lg bg-mocha ring-1 ring-sand/15"
+                  transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                  aria-hidden
+                />
+              ) : null}
+              <span className="relative">{tab.label}</span>
             </button>
           );
         })}
@@ -213,10 +374,13 @@ export function EditorHeader({
 /** Gruppo dentro un editor: titolo breve, spiegazione e contenuto. */
 export function FormGroup({ title, description, children }: { title: string; description?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl bg-espresso/45 p-4 ring-1 ring-sand/10">
-      <h3 className="text-sm font-semibold text-crema">{title}</h3>
-      {description ? <p className="mt-0.5 text-xs leading-relaxed text-crema/60">{description}</p> : null}
-      <div className="mt-3.5">{children}</div>
+    <section className="rounded-2xl bg-espresso/45 p-4 ring-1 ring-sand/10 sm:p-5">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-crema">
+        <span className="h-3.5 w-1 rounded-full bg-gradient-to-b from-caramel to-ember" aria-hidden />
+        {title}
+      </h3>
+      {description ? <p className="mt-1 text-xs leading-relaxed text-crema/60">{description}</p> : null}
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
@@ -226,7 +390,7 @@ export function StatusBadge({ tone = "muted", children }: { tone?: "ok" | "warn"
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider",
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider",
         tone === "ok" && "bg-[#5f9a6a]/15 text-[#9fd0a8] light:text-[#2f6b3f]",
         tone === "warn" && "bg-[#a83a2c]/15 text-[#f0a493] light:text-[#a83a2c]",
         tone === "accent" && "bg-caramel/15 text-ember",
@@ -303,9 +467,9 @@ export function SettingRow({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
+    <div className="flex items-center gap-4 py-3.5 first:pt-0 last:pb-0">
       {icon ? (
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-crema/[0.05] text-crema/55 [&>svg]:size-4">{icon}</span>
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-caramel/[0.09] text-ember/80 [&>svg]:size-4">{icon}</span>
       ) : null}
       <div className="min-w-0 flex-1 pr-1">
         <p className="text-sm font-medium text-crema">{title}</p>
@@ -359,11 +523,11 @@ export function Panel({
   bodyClassName?: string;
 }) {
   return (
-    <section className={cn("rounded-2xl bg-roast/80 ring-1 ring-sand/10", className)}>
+    <section className={cn("rounded-3xl bg-roast/70 ring-1 ring-sand/10", className)}>
       {title ? (
-        <header className={cn("flex items-start gap-3 px-4 py-3.5 sm:px-5", children && "border-b border-sand/[0.08]")}>
+        <header className={cn("flex items-start gap-3 px-4 py-4 sm:px-5", children && "border-b border-sand/[0.08]")}>
           {icon ? (
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-caramel/12 text-ember ring-1 ring-caramel/20 [&>svg]:size-[1.05rem]">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-caramel/20 to-ember/5 text-ember ring-1 ring-caramel/20 [&>svg]:size-[1.1rem]">
               {icon}
             </span>
           ) : null}
@@ -374,7 +538,7 @@ export function Panel({
           {aside ? <div className="flex shrink-0 items-center gap-2">{aside}</div> : null}
         </header>
       ) : null}
-      {children ? <div className={cn("px-4 py-4 sm:px-5", bodyClassName)}>{children}</div> : null}
+      {children ? <div className={cn("px-4 py-4 sm:px-5 sm:py-5", bodyClassName)}>{children}</div> : null}
     </section>
   );
 }
@@ -400,13 +564,13 @@ export function StatTile({
     <Tag
       {...(onClick ? { type: "button" as const, onClick } : {})}
       className={cn(
-        "flex min-w-0 items-center gap-3 rounded-xl bg-espresso/55 p-3 text-left ring-1 ring-sand/10",
-        onClick && "transition hover:ring-sand/25",
+        "group relative flex min-w-0 items-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-br from-espresso/70 to-espresso/40 p-3.5 text-left ring-1 ring-sand/10",
+        onClick && "transition hover:-translate-y-0.5 hover:ring-sand/25",
       )}
     >
       <span
         className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-lg [&>svg]:size-4",
+          "flex size-10 shrink-0 items-center justify-center rounded-xl [&>svg]:size-[1.05rem]",
           tone === "accent" && "bg-caramel/15 text-ember",
           tone === "ok" && "bg-[#5f9a6a]/15 text-[#9fd0a8] light:text-[#2f6b3f]",
           tone === "default" && "bg-crema/[0.06] text-crema/60",

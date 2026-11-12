@@ -244,7 +244,7 @@ function StatsSkeleton() {
     <div className="space-y-4" aria-busy aria-label="Caricamento statistiche">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="flex items-center gap-3 rounded-xl bg-espresso/55 p-3 ring-1 ring-sand/10">
+          <div key={i} className="flex items-center gap-3 rounded-2xl bg-espresso/55 p-3 ring-1 ring-sand/10">
             <span className="size-9 animate-pulse rounded-lg bg-crema/[0.07]" />
             <span className="flex-1 space-y-1.5">
               <span className="block h-2.5 w-1/2 animate-pulse rounded bg-crema/[0.06]" />

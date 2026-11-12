@@ -469,7 +469,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
         <ul className="space-y-2">
           {data.rolePanels.map((p) => (
             <li key={p.id}>
-              <button type="button" onClick={() => setEdit(p)} className="flex w-full items-center gap-3 rounded-xl bg-espresso/45 p-3 text-left ring-1 ring-sand/10 transition hover:ring-sand/25">
+              <button type="button" onClick={() => setEdit(p)} className="flex w-full items-center gap-3 rounded-2xl bg-espresso/45 p-3 text-left ring-1 ring-sand/10 transition hover:ring-caramel/30 hover:bg-espresso/65">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-caramel/12 text-ember">
                   <Tags className="size-4" />
                 </span>

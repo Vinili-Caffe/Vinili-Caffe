@@ -281,14 +281,14 @@ export function QuoteStyleEditor({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex items-center justify-between gap-3 rounded-xl bg-espresso/55 p-3 ring-1 ring-sand/10">
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-espresso/55 p-3 ring-1 ring-sand/10">
           <div>
             <p className="text-sm font-semibold text-crema">Grassetto</p>
             <p className="mt-0.5 text-xs text-crema/60">Testo in bold.</p>
           </div>
           <Toggle checked={draft.bold} disabled={busy} label="Grassetto" onChange={(next) => patch({ bold: next })} />
         </div>
-        <div className="flex items-center justify-between gap-3 rounded-xl bg-espresso/55 p-3 ring-1 ring-sand/10">
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-espresso/55 p-3 ring-1 ring-sand/10">
           <div>
             <p className="text-sm font-semibold text-crema">Specchio</p>
             <p className="mt-0.5 text-xs text-crema/60">Inverte il layout orizzontale.</p>

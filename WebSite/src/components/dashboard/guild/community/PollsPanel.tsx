@@ -154,7 +154,7 @@ export function PollsPanel({ guildId, token, onToast }: { guildId: string; token
               const total = p.answers.reduce((s, a) => s + (a.votes || 0), 0);
               const max = Math.max(0, ...p.answers.map((a) => a.votes || 0));
               return (
-                <li key={p.id} className="rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+                <li key={p.id} className="rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
                   <div className="flex flex-wrap items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-crema">{p.question}</p>
