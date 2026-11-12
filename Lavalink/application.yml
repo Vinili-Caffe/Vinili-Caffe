@@ -25,12 +25,10 @@ plugins:
   lavasrc:
     # ISRC senza virgolette (con "…" YouTube matcha video a caso). Poi QUERY.
     providers:
-      # matchStrict2: ytsearch prima (ytmsearch spinge cover/karaoke)
+      # ytmsearch/MUSIC → 403 WEB_REMIX (nov 2026): solo ytsearch sui client TV/WEBEMBEDDED.
       - "ytsearch:%ISRC%"
       - "ytsearch:%QUERY% official audio"
       - "ytsearch:%QUERY%"
-      - "ytmsearch:%ISRC%"
-      - "ytmsearch:%QUERY%"
     sources:
       # Link spotify:track/album/playlist restano ok; spsearch LavaSrc timeouta spesso
       # (lookup embed fatto dal bot via Web API — vedi spsearchFix1).
@@ -67,16 +65,14 @@ plugins:
     clients:
       # TV+OAuth = playback (metadata None → saltato su loadtracks URL).
       # TVHTML5_SIMPLY = metadata+playback video (no OAuth) → loadtracks diretti.
-      # WEBEMBEDDED / ANDROID_VR = fallback metadata; MUSIC solo search (playback false).
+      # WEBEMBEDDED / ANDROID_VR = fallback metadata.
+      # MUSIC/WEB_REMIX = search 403 → fuori dalla lista finché YouTube non riapre.
       # WEB/MWEB = SABR senza URL → loadfailed (playback false).
       - TV
       - TVHTML5_SIMPLY
       - WEBEMBEDDED
       - ANDROID_VR
-      - MUSIC
     clientOptions:
-      MUSIC:
-        playback: false
       WEB:
         playback: false
       MWEB:

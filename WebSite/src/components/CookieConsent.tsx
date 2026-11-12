@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { Cookie } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { SmartLink } from "./SmartLink";
 import {
+  clearCookieConsent,
   hasAnalyticsConsent,
   hasCookieChoice,
   isCookieBannerSkippedPath,
@@ -18,16 +19,19 @@ import {
 
 /**
  * Banner consenso cookie + boot GA solo dopo «Accetta».
- * Chiave localStorage: `vc_cookie_consent` (come il sito vecchio).
+ * Chiave localStorage: `vc_cookie_consent` (+ cookie HTTP omonimo).
  * Rifiuto facile: niente login Discord / VIP.
+ *
+ * Reset test: `?vc_reset_consent=1` (pulisce LS/SS/cookie e ripropone il banner).
  */
 export function CookieConsent() {
   const { t } = useI18n();
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const trackedPath = useRef<string | null>(null);
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     try {
       if (new URLSearchParams(window.location.search).get("vc_phone_preview") === "1") {
         setOpen(false);
@@ -35,6 +39,10 @@ export function CookieConsent() {
       }
     } catch {
       /* ignore */
+    }
+    if (isCookieBannerSkippedPath(pathname)) {
+      setOpen(false);
+      return;
     }
     if (hasAnalyticsConsent()) {
       loadGtagIfConsented();
@@ -45,12 +53,45 @@ export function CookieConsent() {
       setOpen(false);
       return;
     }
-    if (isCookieBannerSkippedPath(pathname)) {
-      setOpen(false);
-      return;
-    }
     setOpen(true);
   }, [pathname]);
+
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("vc_reset_consent") === "1") {
+        clearCookieConsent();
+        sp.delete("vc_reset_consent");
+        const q = sp.toString();
+        const next = `${pathname}${q ? `?${q}` : ""}${window.location.hash || ""}`;
+        router.replace(next);
+        setOpen(!isCookieBannerSkippedPath(pathname));
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    refresh();
+  }, [pathname, refresh, router]);
+
+  useEffect(() => {
+    const onFocus = () => refresh();
+    const onStorage = (e: StorageEvent) => {
+      if (
+        e.key === null ||
+        e.key === "vc_cookie_consent" ||
+        e.key === "vc_cookie_banner_ack_v3"
+      ) {
+        refresh();
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [refresh]);
 
   useEffect(() => {
     if (!hasAnalyticsConsent()) {
@@ -93,7 +134,7 @@ export function CookieConsent() {
           className="vc-cookie-banner fixed inset-x-0 bottom-3 z-[70] flex justify-center px-3 sm:bottom-4"
         >
           <div
-            className="w-full max-w-[26rem] rounded-3xl bg-roast/95 p-3.5 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.55)] ring-1 ring-sand/25 backdrop-blur-md sm:p-4"
+            className="w-full max-w-[30rem] rounded-3xl bg-roast/95 p-3.5 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.55)] ring-1 ring-sand/25 backdrop-blur-md sm:p-4"
             role="document"
           >
             <div className="flex gap-3">
@@ -107,15 +148,8 @@ export function CookieConsent() {
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">
                   {t("cookie.kicker")}
                 </p>
-                <p id="vc-cookie-consent-text" className="mt-1 text-sm leading-snug text-crema/90">
-                  {t("cookie.bodyBefore")}{" "}
-                  <SmartLink
-                    href="/cookie/"
-                    className="font-medium text-sand underline decoration-sand/60 underline-offset-2 hover:text-crema"
-                  >
-                    {t("cookie.essentials")}
-                  </SmartLink>{" "}
-                  {t("cookie.bodyMid")}{" "}
+                <p id="vc-cookie-consent-text" className="mt-1 text-sm leading-relaxed text-crema/90">
+                  {t("cookie.body")}{" "}
                   <SmartLink
                     href="/cookie/"
                     className="font-medium text-sand underline decoration-sand/60 underline-offset-2 hover:text-crema"

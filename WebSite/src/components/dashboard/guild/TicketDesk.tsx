@@ -227,54 +227,54 @@ export function TicketDesk({
             <div className="grid items-start gap-4 xl:grid-cols-2">
               {/* Sinistra: Canali + Avvisi impilati (altezza al contenuto). Destra: Comportamento. */}
               <div className="min-w-0 space-y-4">
-                <Panel icon={<Hash />} title="Canali" description="Dove stanno pannello e transcript, e dove si aprono i ticket quando la categoria è piena.">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Canale pannello">
-                      <Select
-                        value={mod.settings.panelChannelId || ""}
-                        disabled={busy}
-                        onChange={(v) => save({ panelChannelId: v || null })}
-                        className={fieldClass}
-                        options={channelOptions("— Nessuno —")}
-                      />
-                    </Field>
-                    <Field label="Canale transcript">
-                      <Select
-                        value={mod.settings.transcriptChannelId || ""}
-                        disabled={busy}
-                        onChange={(v) => save({ transcriptChannelId: v || null })}
-                        className={fieldClass}
-                        options={channelOptions("— Nessuno —")}
-                      />
-                    </Field>
-                    <Field label="Categoria overflow">
-                      <Select
-                        value={mod.settings.overflowCategoryId || ""}
-                        disabled={busy}
-                        onChange={(v) => save({ overflowCategoryId: v || null })}
-                        className={fieldClass}
-                        options={[
-                          { value: "", label: mod.settings.categoryName || "Automatica" },
-                          ...mod.pickers.categories.map((c) => ({ value: c.id, label: c.name })),
-                        ]}
-                      />
-                    </Field>
-                    <Field label="Ticket aperti per utente">
-                      <NumberField
-                        name="max-open-tickets"
-                        aria-label="Ticket aperti per utente"
-                        min={1}
-                        max={25}
-                        disabled={busy}
-                        value={mod.settings.maxOpenTicketsPerUser}
-                        onChange={(n) => setMod({ ...mod, settings: { ...mod.settings, maxOpenTicketsPerUser: n ?? 1 } })}
-                        onCommit={(n) => {
-                          if (n != null) save({ maxOpenTicketsPerUser: n });
-                        }}
-                      />
-                    </Field>
-                  </div>
-                </Panel>
+              <Panel icon={<Hash />} title="Canali" description="Dove stanno pannello e transcript, e dove si aprono i ticket quando la categoria è piena.">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Canale pannello">
+                    <Select
+                      value={mod.settings.panelChannelId || ""}
+                      disabled={busy}
+                      onChange={(v) => save({ panelChannelId: v || null })}
+                      className={fieldClass}
+                      options={channelOptions("— Nessuno —")}
+                    />
+                  </Field>
+                  <Field label="Canale transcript">
+                    <Select
+                      value={mod.settings.transcriptChannelId || ""}
+                      disabled={busy}
+                      onChange={(v) => save({ transcriptChannelId: v || null })}
+                      className={fieldClass}
+                      options={channelOptions("— Nessuno —")}
+                    />
+                  </Field>
+                  <Field label="Categoria overflow">
+                    <Select
+                      value={mod.settings.overflowCategoryId || ""}
+                      disabled={busy}
+                      onChange={(v) => save({ overflowCategoryId: v || null })}
+                      className={fieldClass}
+                      options={[
+                        { value: "", label: mod.settings.categoryName || "Automatica" },
+                        ...mod.pickers.categories.map((c) => ({ value: c.id, label: c.name })),
+                      ]}
+                    />
+                  </Field>
+                  <Field label="Ticket aperti per utente">
+                    <NumberField
+                      name="max-open-tickets"
+                      aria-label="Ticket aperti per utente"
+                      min={1}
+                      max={25}
+                      disabled={busy}
+                      value={mod.settings.maxOpenTicketsPerUser}
+                      onChange={(n) => setMod({ ...mod, settings: { ...mod.settings, maxOpenTicketsPerUser: n ?? 1 } })}
+                      onCommit={(n) => {
+                        if (n != null) save({ maxOpenTicketsPerUser: n });
+                      }}
+                    />
+                  </Field>
+                </div>
+              </Panel>
 
                 <Panel
                   icon={<BellRing />}

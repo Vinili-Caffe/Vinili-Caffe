@@ -78,11 +78,38 @@ async function reorderTestRolesLikeMain(main?, test?, me?) {
   return { ok: true, moved: positions.length };
 }
 
+async function mirrorRenameChannel(guild?, dest?, name?, reason?) {
+  const id = String(dest?.id || "").trim();
+  if (!guild?.channels || !id) throw new Error("no dest channel");
+  const ch = guild.channels.cache.get(id) || dest;
+  const reasonText = String(reason || "testGuildMirrorSync");
+  const nextName = String(name || "");
+  if (typeof ch?.setName === "function") return ch.setName(nextName, reasonText);
+  if (typeof ch?.edit === "function") return ch.edit({ name: nextName, reason: reasonText });
+  /* DirectoryChannel / partial / remap stale: edit via manager */
+  return guild.channels.edit(id, { name: nextName, reason: reasonText });
+}
+
+async function mirrorSetParent(guild?, dest?, parentId?, reason?) {
+  const id = String(dest?.id || "").trim();
+  if (!guild?.channels || !id) throw new Error("no dest channel");
+  const ch = guild.channels.cache.get(id) || dest;
+  const parent = parentId || null;
+  if (typeof ch?.setParent === "function") {
+    return ch.setParent(parent, { lockPermissions: false, reason: String(reason || "testGuildMirrorSync") });
+  }
+  return guild.channels.edit(id, {
+    parent,
+    lockPermissions: false,
+    reason: String(reason || "testGuildMirrorSync"),
+  });
+}
+
 async function syncMirroredCategoryFields(src?, dest?, roleMap?, test?, stats?) {
   if (!src || !dest) return;
   try {
     if (String(dest.name || "") !== String(src.name || "")) {
-      await dest.setName(src.name, { reason: "testGuildMirrorSync: rename category like main" });
+      await mirrorRenameChannel(test, dest, src.name, "testGuildMirrorSync: rename category like main");
       stats.channelsUpdated = (stats.channelsUpdated || 0) + 1;
       await sleep(180);
     }
@@ -695,20 +722,31 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
     }
 
     function resolveExistingTestChannel(src?) {
+      const srcType = Number(src?.type);
+      const usable = (ch?) =>
+        ch &&
+        Number(ch.type) === srcType &&
+        (typeof ch.setName === "function" || typeof ch.edit === "function" || Boolean(ch.id));
       const remapId = String(persistedChannelRemap[String(src.id)] || "").trim();
       if (remapId) {
-        const hit = claimTestChannel(test.channels.cache.get(remapId));
-        if (hit) return hit;
+        const remapped = test.channels.cache.get(remapId);
+        /* Remap stale / DirectoryChannel senza setName: non riusare tipi diversi. */
+        if (usable(remapped)) {
+          const hit = claimTestChannel(remapped);
+          if (hit) return hit;
+        }
       }
       const key = channelKey(src);
       /* Preferisci nome uguale al main (dopo renumber), altrimenti prima key libera. */
       const candidates = [...test.channels.cache.values()].filter(
-        (ch?) => channelKey(ch) === key && !usedTestChannelIds.has(String(ch.id)),
+        (ch?) =>
+          usable(ch) && channelKey(ch) === key && !usedTestChannelIds.has(String(ch.id)),
       );
       const exact = candidates.find((ch?) => String(ch.name || "") === String(src.name || ""));
       if (exact) return claimTestChannel(exact);
       if (candidates.length) return claimTestChannel(candidates[0]);
-      return claimTestChannel(testByKey.get(key));
+      const keyed = testByKey.get(key);
+      return usable(keyed) ? claimTestChannel(keyed) : null;
     }
 
     const mainChannels = [...main.channels.cache.values()].sort((a?, b?) => {
@@ -760,16 +798,13 @@ async function runTestGuildMirrorSync(client?, opts: Record<string, any> = {}) {
         stats.channelsMatched += 1;
         try {
           if (String(dest.name || "") !== String(src.name || "")) {
-            await dest.setName(src.name, { reason: "testGuildMirrorSync: rename channel like main" });
+            await mirrorRenameChannel(test, dest, src.name, "testGuildMirrorSync: rename channel like main");
             stats.channelsUpdated = (stats.channelsUpdated || 0) + 1;
             await sleep(120);
           }
           const wantParent = src.parentId ? channelMap.get(src.parentId) || null : null;
           if (String(dest.parentId || "") !== String(wantParent || "")) {
-            await dest.setParent(wantParent, {
-              lockPermissions: false,
-              reason: "testGuildMirrorSync: parent like main",
-            });
+            await mirrorSetParent(test, dest, wantParent, "testGuildMirrorSync: parent like main");
             await sleep(120);
           }
         } catch (e) {

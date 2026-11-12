@@ -75,6 +75,34 @@ function normalizeExp(raw?) {
   ) as Record<ExpKey, typeof EXP_DEFAULTS.disboard>;
 }
 
+/**
+ * Discord spezza __underline__ / bold su mention e `code` → gap visivi (“spazi a caso”).
+ * Appiattisce la riga Grazie…bumpato se ha quel pattern.
+ */
+function fixBumpThanksContent(content?) {
+  const raw = String(content || "");
+  if (!raw || !/Grazie/i.test(raw) || !/bumpato/i.test(raw)) return raw;
+  if (!/__Grazie|__per aver__|`bumpato`/i.test(raw)) return raw;
+  const hadUser = /\{user\}/.test(raw);
+  const lines = raw.split("\n");
+  const next = lines
+    .filter((line) => line.trim() !== "{user}")
+    .map((line) => {
+      if (!/Grazie/i.test(line) || !/bumpato|server/i.test(line)) return line;
+      const emojiM = line.match(/^(<a?:[^:>]+:\d+>)\s*/);
+      const emoji = emojiM ? emojiM[1] + " " : "";
+      return `${emoji}**Grazie ${hadUser ? "{user} " : ""}per aver bumpato il server!**`;
+    });
+  return next.join("\n");
+}
+
+function draftWithFixedThanks(d?) {
+  const draft = T.normalizeDraft(d);
+  const fixed = fixBumpThanksContent(draft.content);
+  if (fixed !== draft.content) draft.content = fixed;
+  return draft;
+}
+
 /* ogni servizio ha i suoi testi (e le sue ore per i voti); i vecchi testi unici fanno da base */
 function normalizeConfig(raw?) {
   const r = raw && typeof raw === "object" ? raw : {};
@@ -84,7 +112,7 @@ function normalizeConfig(raw?) {
   const v = r.votes && typeof r.votes === "object" ? r.votes : {};
   const vth = v.thanks && typeof v.thanks === "object" ? v.thanks : {};
   const vps = v.perService && typeof v.perService === "object" ? v.perService : {};
-  const draftOr = (d?, fallback?, text = "") => (d ? T.normalizeDraft(d) : fallback ? T.normalizeDraft(fallback) : textDraft(text));
+  const draftOr = (d?, fallback?, text = "") => (d ? draftWithFixedThanks(d) : fallback ? draftWithFixedThanks(fallback) : textDraft(text));
   const services = Object.fromEntries(
     SERVICES.map((s) => {
       const x = svc[s] && typeof svc[s] === "object" ? svc[s] : {};
@@ -205,11 +233,28 @@ async function giveTimedRole(client?, guildId?: string, userId?: string | null, 
   st.roleExpiry.push({ userId, roleId: reward.roleId, until });
 }
 
-function userVars(guild?, userId?: string | null) {
+async function userVars(client?, guild?, userId?: string | null) {
+  const uid = String(userId || "").trim();
+  let user = null;
+  if (uid && guild?.members?.fetch) {
+    const member = await guild.members.fetch(uid).catch(() => null);
+    user = member?.user || null;
+  }
+  if (!user && uid && client?.users?.fetch) {
+    user = await client.users.fetch(uid).catch(() => null);
+  }
+  if (user || guild) {
+    return T.memberVars(guild || null, user || (uid ? { id: uid } : null), {});
+  }
   return {
-    user: userId ? `<@${userId}>` : "Qualcuno",
-    "user.id": userId || "",
-    server: String(guild?.name || ""),
+    user: uid ? `<@${uid}>` : "Qualcuno",
+    "user.id": uid || "",
+    server: "",
+    avatar: "",
+    username: "",
+    "user.name": "",
+    servericon: "",
+    serverbanner: "",
   };
 }
 
@@ -323,7 +368,7 @@ async function handleTenantBumpMessage(message?, opts: { recheck?: boolean } = {
   await giveTimedRole(message.client, guildId, userId, cfg.reward, st);
   await saveState(guildId, st);
   if (cfg.thanks.enabled) {
-    await sendDraft(message.client, String(message.channelId), cfg.services[service].thanksDraft, { ...userVars(message.guild, userId), ...expOut, service: SERVICE_LABEL[service], count: String(userId ? st.bumps[userId] : 0) }, userId);
+    await sendDraft(message.client, String(message.channelId), cfg.services[service].thanksDraft, { ...(await userVars(message.client, message.guild, userId)), ...expOut, service: SERVICE_LABEL[service], count: String(userId ? st.bumps[userId] : 0) }, userId);
   }
   return true;
 }
@@ -358,7 +403,8 @@ async function handleVoteWebhook(client?, guildId?: string, service?: string, to
   const st = await getState(gid);
   const firstTime = !st.votes[userId];
   const lastMap = (st.voteLast[service] = st.voteLast[service] || {});
-  const expOut = await giveExp(client, await resolveGuild(client, gid), userId, service === "topgg" ? "topgg" : "discadiaVote", cfg, {
+  const guild = await resolveGuild(client, gid);
+  const expOut = await giveExp(client, guild, userId, service === "topgg" ? "topgg" : "discadiaVote", cfg, {
     previousLastAt: lastMap[userId] || null,
     cooldownMs: cfg.votes.perService[service].hours * 3_600_000,
     firstTime,
@@ -369,7 +415,7 @@ async function handleVoteWebhook(client?, guildId?: string, service?: string, to
   await saveState(gid, st);
   if (cfg.votes.thanks.enabled && cfg.votes.channelId) {
     const label = VOTE_LABEL[service];
-    await sendDraft(client, cfg.votes.channelId, cfg.votes.perService[service].draft, { ...userVars(null, userId), ...expOut, service: label, count: String(st.votes[userId]) }, userId);
+    await sendDraft(client, cfg.votes.channelId, cfg.votes.perService[service].draft, { ...(await userVars(client, guild, userId)), ...expOut, service: label, count: String(st.votes[userId]) }, userId);
   }
   return { status: 200, text: "OK" };
 }
@@ -408,7 +454,7 @@ async function trySendConfiguredVoteThanks(
       channelId,
       draft,
       {
-        ...userVars(guild, userId),
+        ...(await userVars(client, guild, userId)),
         service: label,
         ...vars,
       },
@@ -457,6 +503,7 @@ async function runBumpVotesTick(client?) {
 }
 
 let timer: ReturnType<typeof setInterval> | null = null;
+let thanksFixOnce = false;
 function startBumpVotesLoop(client?) {
   if (timer) return;
   const tick = () =>
@@ -464,13 +511,24 @@ function startBumpVotesLoop(client?) {
   timer = setInterval(tick, 60_000);
   timer.unref?.();
   setTimeout(tick, 20_000).unref?.();
+  if (!thanksFixOnce) {
+    thanksFixOnce = true;
+    setTimeout(() => {
+      void (async () => {
+        const all = await T.allGuildBlobs("bumpVotes");
+        for (const gid of Object.keys(all || {})) {
+          await persistThanksSpacingFix(gid).catch(() => false);
+        }
+      })().catch(() => {});
+    }, 8_000).unref?.();
+  }
 }
 
 /**
  * Server principale: le impostazioni di adesso (attese, ringraziamento, promemoria, voti, ruolo Voter)
  * portate nel modulo, spente: si accende quando si vuole passare al modulo.
  */
-const MAIN_SEED_VERSION = 4;
+const MAIN_SEED_VERSION = 5;
 function mainSeedConfig(client?) {
   const IDs = require("../../Vinili/Config/ids") as any;
   const { E } = require("../../shared/emojis/emojiCatalog") as any;
@@ -482,19 +540,19 @@ function mainSeedConfig(client?) {
     topgg: Math.max(1, Math.round(Number(cfgMain?.topgg?.voteReminderCooldownHours) || 12)),
     discadia: Math.max(1, Math.round(Number(cfgMain?.discadiaVoteReminder?.cooldownHours) || 24)),
   };
+  /* Niente __…__ / `code` che avvolgono {user}: Discord spezza il markdown e lascia gap. */
   const bumpThanks = (again: string, withExp: boolean) => ({
     content: [
-      `${e("VC_ThankYou")} **__Grazie per aver \`bumpato\` il server!__**`,
+      `${e("VC_ThankYou")} **Grazie {user} per aver bumpato il server!**`,
       ...(withExp ? [`${e("VC_EXP")} **{exp} exp** guadagnati!{bonus}`] : []),
       `${e("VC_HelloKittyGun")} Ci __vediamo__ nuovamente tra **${again}!**`,
-      "{user}",
     ].join("\n"),
     embed: { enabled: false },
     buttons: [],
   });
   const reminder = (title: string, url: string) => ({
     content: "{role}",
-    embed: { enabled: true, title, url, description: `${e("VC_bump")} **Per bumpare scrivi __\`/bump\` in chat__**!`, color: "#6f4e37" },
+    embed: { enabled: true, title, url, description: `${e("VC_bump")} **Per bumpare scrivi \`/bump\` in chat!**`, color: "#6f4e37" },
     buttons: [],
   });
   const voteThanks = (s: VoteService) => {
@@ -569,15 +627,40 @@ function mainSeedConfig(client?) {
   });
 }
 
+/** Persiste fix spazi markdown sui thanks già salvati (anche userSaved). */
+async function persistThanksSpacingFix(guildId?: string) {
+  const gid = String(guildId || "");
+  if (!gid) return false;
+  const prev = await T.getGuildBlob("bumpVotes", gid, true);
+  if (!prev || typeof prev !== "object") return false;
+  let changed = false;
+  const services = prev.services && typeof prev.services === "object" ? prev.services : {};
+  for (const s of SERVICES) {
+    const draft = services[s]?.thanksDraft;
+    if (!draft || typeof draft.content !== "string") continue;
+    const fixed = fixBumpThanksContent(draft.content);
+    if (fixed !== draft.content) {
+      draft.content = fixed;
+      changed = true;
+    }
+  }
+  if (!changed) return false;
+  await T.setGuildBlob("bumpVotes", gid, prev);
+  return true;
+}
+
 /** Prima apertura sul principale: importa le impostazioni attuali. */
 async function ensureMainSeed(client?, guildId?: string) {
   const gid = String(guildId || "");
   if (!T.isMainGuild(gid)) return false;
   const prev = await T.getGuildBlob("bumpVotes", gid, true);
+  /* fix spazi anche se il draft è già stato salvato dalla dashboard */
+  await persistThanksSpacingFix(gid).catch(() => false);
   /* si reimporta solo se non l'hai ancora toccato e l'import è di una versione vecchia */
-  if (prev && (prev.userSaved === true || Number(prev.seedVersion || 1) >= MAIN_SEED_VERSION)) return false;
+  const again = await T.getGuildBlob("bumpVotes", gid, true);
+  if (again && (again.userSaved === true || Number(again.seedVersion || 1) >= MAIN_SEED_VERSION)) return false;
   const seed = mainSeedConfig(client);
-  if (prev?.votes?.token) seed.votes.token = prev.votes.token;
+  if (again?.votes?.token) seed.votes.token = again.votes.token;
   await T.setGuildBlob("bumpVotes", gid, seed);
   return true;
 }

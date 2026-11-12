@@ -377,7 +377,7 @@ async function listQuotesByUser(guildId?, userId?, opts: Record<string, any> = {
   return { rows: rows || [], total: Number(total) || 0 };
 }
 
-async function deleteUserQuoteEntry({ guild, quoteId, userId }) {
+async function deleteUserQuoteEntry({ guild, quoteId, userId, forceStaff = false }) {
   const gid = String(guild?.id || "").trim();
   const uid = String(userId || "").trim();
   const qid = String(quoteId || "").trim();
@@ -387,7 +387,7 @@ async function deleteUserQuoteEntry({ guild, quoteId, userId }) {
   if (!doc?._id || String(doc.guildId) !== gid) {
     return { ok: false, message: "Quote non trovata." };
   }
-  if (String(doc.creatorUserId) !== uid) {
+  if (!forceStaff && String(doc.creatorUserId) !== uid) {
     return { ok: false, message: "Puoi rimuovere solo le tue quote." };
   }
 
@@ -410,7 +410,11 @@ async function deleteUserQuoteEntry({ guild, quoteId, userId }) {
         const removedEmbed = new EmbedBuilder()
           .setColor(TENANT_EMBED_COLOR)
           .setTitle("🗑️ Citazione rimossa")
-          .setDescription("Questa citazione è stata rimossa dall'autore.")
+          .setDescription(
+            forceStaff
+              ? "Questa citazione è stata rimossa dallo staff."
+              : "Questa citazione è stata rimossa dall'autore.",
+          )
           .addFields(
             { name: "Rimossa da", value: `<@${uid}>`, inline: true },
             { name: "Data rimozione", value: `${dateStr} ${timeStr}`, inline: true },

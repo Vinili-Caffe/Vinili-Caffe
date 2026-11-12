@@ -67,7 +67,7 @@ async function deleteClipCompletely(guild?, boardChannelId?, boardMessageId?, us
   return { ok: true, isClip: true, deletedCount: Number(deleteResult?.deletedCount) || 0 };
 }
 
-async function deleteUserRepostEntry({ guild, client, repostId, userId }) {
+async function deleteUserRepostEntry({ guild, client, repostId, userId, forceStaff = false }) {
   const gid = String(guild?.id || "").trim();
   const uid = String(userId || "").trim();
   const rid = String(repostId || "").trim();
@@ -77,12 +77,29 @@ async function deleteUserRepostEntry({ guild, client, repostId, userId }) {
   if (!doc?._id || String(doc.guildId) !== gid) {
     return { ok: false, message: "Repost non trovato." };
   }
-  if (String(doc.reposterUserId) !== uid) {
+  if (!forceStaff && String(doc.reposterUserId) !== uid) {
     return { ok: false, message: "Puoi rimuovere solo i tuoi repost." };
   }
 
   if (isClipRepostDoc(doc)) {
-    return deleteClipCompletely(guild, doc.boardChannelId, doc.boardMessageId, uid);
+    return deleteClipCompletely(guild, doc.boardChannelId, doc.boardMessageId, uid, {
+      forceStaff: Boolean(forceStaff),
+    });
+  }
+
+  /* High staff: toglie l’intero contenuto dalla bacheca (tutti i repost sullo stesso messaggio). */
+  if (forceStaff) {
+    const bc = String(doc.boardChannelId || "").trim();
+    const bm = String(doc.boardMessageId || "").trim();
+    const deleted = await timedRepostQuery(
+      GuildRepost.deleteMany(bc && bm ? { guildId: gid, boardChannelId: bc, boardMessageId: bm } : { _id: doc._id }),
+      "repost staff force delete",
+    ).catch(() => null);
+    if (bc && bm) {
+      await applyBoardMessageRemovedState(guild, bc, bm, uid, false);
+      await decrementRepostCount(gid).catch(() => null);
+    }
+    return { ok: true, isClip: false, boardRemoved: true, deletedCount: Number(deleted?.deletedCount) || 0 };
   }
 
   const bc = String(doc.boardChannelId || "").trim();

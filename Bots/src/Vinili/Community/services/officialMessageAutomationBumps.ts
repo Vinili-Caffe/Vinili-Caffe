@@ -263,16 +263,18 @@ async function handleDisboardBump(message?, client?) {
     releaseBumpDedupeKey(dedupeKey);
     throw err;
   }
-  let thanksMessage = `${E.VC_ThankYou} **__Grazie per aver \`bumpato\` il server!__**\n` +
-    `${E.VC_HelloKittyGun} Ci __vediamo__ nuovamente tra **due ore!**\n` +
-    bumpMention;
+  const thanksHead = bumpMention
+    ? `${E.VC_ThankYou} **Grazie ${bumpMention} per aver bumpato il server!**`
+    : `${E.VC_ThankYou} **Grazie per aver bumpato il server!**`;
+  let thanksMessage = `${thanksHead}\n` +
+    `${E.VC_HelloKittyGun} Ci __vediamo__ nuovamente tra **due ore!**`;
   if (bumpUserId && recordResult?.previousLastBumpAt !== undefined) {
     const reward = await awardBumpVoteExp(client, message.guild, bumpUserId, "disboard", recordResult.previousLastBumpAt, disboardCooldownMs, undefined, recordResult?.previousReminderSentAt || null, recordResult?.previousLastBumpUserId || null).catch(() => null);
     if (reward?.effectiveExp != null) {
-      const parts = [`${E.VC_ThankYou} **__Grazie per aver \`bumpato\` il server!__**`, `${E.VC_EXP} **` + reward.effectiveExp + " exp** guadagnati!"];
+      const parts = [thanksHead, `${E.VC_EXP} **` + reward.effectiveExp + " exp** guadagnati!"];
       if (reward.fastBonus > 0) parts.push(`${E.VC_Flame} Risposta rapida +` + reward.fastBonus + " exp");
       if (reward.streakBonus > 0) parts.push(`${E.VC_Flame} Streak ` + reward.newStreak + " +" + reward.streakBonus + " exp");
-      parts.push(`${E.VC_HelloKittyGun} Ci __vediamo__ nuovamente tra **due ore!**\n` + bumpMention);
+      parts.push(`${E.VC_HelloKittyGun} Ci __vediamo__ nuovamente tra **due ore!**`);
       thanksMessage = parts.join("\n");
     }
   }
@@ -404,9 +406,11 @@ async function handleDiscadiaBump(message?, client?) {
     releaseBumpDedupeKey(dedupeKey);
     throw err;
   }
-  let thanksMessage = `${E.VC_ThankYou} **__Grazie per aver \`bumpato\` il server!__**\n` +
-    `${E.VC_HelloKittyGun} Ci __vediamo__ nuovamente tra **24 ore!**\n` +
-    bumpMention;
+  const thanksHead = bumpMention
+    ? `${E.VC_ThankYou} **Grazie ${bumpMention} per aver bumpato il server!**`
+    : `${E.VC_ThankYou} **Grazie per aver bumpato il server!**`;
+  let thanksMessage = `${thanksHead}\n` +
+    `${E.VC_HelloKittyGun} Ci __vediamo__ nuovamente tra **24 ore!**`;
   if (channel?.isTextBased?.()) {
     try {
       await channel.send({

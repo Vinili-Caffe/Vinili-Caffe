@@ -41,6 +41,7 @@ function isReadOnlySiteGet(req?) {
   if (path === "/webhooks/site-discord-me") return true;
   if (path === "/webhooks/site-staff-access") return true;
   if (path === "/webhooks/site-cookie-consent") return true;
+  if (path === "/webhooks/site-age-attest") return true;
   if (path.startsWith("/webhooks/site-rank-card")) return true;
   if (path.startsWith("/webhooks/site-wrapped")) return true;
   if (path.startsWith("/webhooks/site-custom-profile")) return true;

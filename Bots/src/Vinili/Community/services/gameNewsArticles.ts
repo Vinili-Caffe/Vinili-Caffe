@@ -5,8 +5,14 @@ const { ARTICLE_BRIEF_MAX, stripHtml, stripLeadingTitleEcho, trimBriefAtSentence
 
 const HTTP_TIMEOUT_MS = 20_000;
 const HTTP_RETRIES = 2;
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 function isTransientHttpError(err?) {
+  const status = Number(err?.response?.status || 0);
+  if (status === 408 || status === 425 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504) {
+    return true;
+  }
   const code = String(err?.code || err?.cause?.code || err?.message || "");
   return /ECONNABORTED|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|UND_ERR|AbortError|TimeoutError|socket hang up|network/i.test(
     code,
@@ -459,14 +465,25 @@ async function resolveArticleUrl(url?) {
 }
 
 async function httpGet(url?, opts: Record<string, any> = {}) {
+  const target = String(url || "");
+  const isGoogleNews = /(?:^|\.)news\.google\.com\b/i.test(target) || /news\.google\.com\//i.test(target);
   let lastErr = null;
   for (let attempt = 0; attempt <= HTTP_RETRIES; attempt += 1) {
     try {
       const res = await axios.get(url, {
         timeout: HTTP_TIMEOUT_MS,
         headers: {
-          "User-Agent": "ViniliGameNews/1.0 (+https://viniliecaffe.it)",
-          Accept: "application/json, application/rss+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8",
+          /* Google News RSS: UA custom → 503; browser UA ok dalla stessa VPS. */
+          "User-Agent": isGoogleNews ? BROWSER_UA : "ViniliGameNews/1.0 (+https://viniliecaffe.it)",
+          Accept: isGoogleNews
+            ? "application/rss+xml, application/xml, text/xml, */*;q=0.8"
+            : "application/json, application/rss+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8",
+          ...(isGoogleNews
+            ? {
+                "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+                Referer: "https://news.google.com/",
+              }
+            : {}),
           ...(opts.headers || {}),
         },
         validateStatus: (s?) => s >= 200 && s < 400,
@@ -476,7 +493,7 @@ async function httpGet(url?, opts: Record<string, any> = {}) {
     } catch (err) {
       lastErr = err;
       if (!isTransientHttpError(err) || attempt >= HTTP_RETRIES) break;
-      await new Promise((r?) => setTimeout(r, 500 * (attempt + 1)));
+      await new Promise((r?) => setTimeout(r, 700 * (attempt + 1)));
     }
   }
   throw lastErr;

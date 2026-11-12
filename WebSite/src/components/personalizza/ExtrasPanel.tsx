@@ -29,6 +29,11 @@ import {
   type PersTab,
   type ProfileExtras,
 } from "@/lib/personalizza";
+import {
+  BIRTHDAY_MIN_AGE,
+  birthdayInputError,
+  maxBirthYearForMinAge,
+} from "@/lib/birthday-input";
 import { EmojiPopover, type EmojiPick } from "./EmojiPopover";
 import { LockPlate } from "./LockPlate";
 import { EmojiText } from "@/components/discord/EmojiText";
@@ -273,6 +278,9 @@ export function ExtrasPanel({
 
   if (tab === "birthday") {
     const b = extras.birthday;
+    const yearCap = maxBirthYearForMinAge(BIRTHDAY_MIN_AGE);
+    const bdayErr = birthdayInputError(day, month, year, BIRTHDAY_MIN_AGE);
+    const canSave = !busy && !bdayErr;
     return (
       <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
         <div className="flex items-start gap-3">
@@ -286,6 +294,13 @@ export function ExtrasPanel({
               Il giorno del tuo compleanno ricevi un annuncio in chat, il ruolo compleanno e un multi EXP ×2 per tutta
               la giornata. Dopo l&apos;annuncio non potrai più cambiare giorno/mese fino all&apos;anno prossimo.
             </p>
+            <p className="mt-2 flex items-start gap-2 rounded-xl bg-espresso/55 px-3 py-2 text-xs leading-relaxed text-crema/70 ring-1 ring-sand/15">
+              <Lock className="mt-0.5 size-3.5 shrink-0 text-caramel" aria-hidden />
+              <span>
+                Età minima <strong className="text-crema">{BIRTHDAY_MIN_AGE} anni</strong>. Date future o età inferiori
+                non sono accettate.
+              </span>
+            </p>
             <div className="mt-4 grid grid-cols-3 gap-2">
               <label htmlFor="day" className="block">
                 <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/45">Giorno</span>
@@ -297,6 +312,7 @@ export function ExtrasPanel({
                   nullable
                   value={day === "" ? null : Number(day)}
                   onChange={(n) => setDay(n == null ? "" : String(n))}
+                  onCommit={(n) => setDay(n == null ? "" : String(n))}
                   className="mt-1 h-11 rounded-xl"
                 />
               </label>
@@ -310,6 +326,7 @@ export function ExtrasPanel({
                   nullable
                   value={month === "" ? null : Number(month)}
                   onChange={(n) => setMonth(n == null ? "" : String(n))}
+                  onCommit={(n) => setMonth(n == null ? "" : String(n))}
                   className="mt-1 h-11 rounded-xl"
                 />
               </label>
@@ -319,27 +336,44 @@ export function ExtrasPanel({
                   id="year"
                   name="year"
                   min={1900}
-                  max={new Date().getFullYear()}
+                  max={yearCap}
                   nullable
                   value={year === "" ? null : Number(year)}
-                  onChange={(n) => setYear(n == null ? "" : String(n))}
+                  onChange={(n) => {
+                    if (n == null) {
+                      setYear("");
+                      return;
+                    }
+                    setYear(String(Math.min(yearCap, Math.max(1900, n))));
+                  }}
+                  onCommit={(n) => setYear(n == null ? "" : String(n))}
                   className="mt-1 h-11 rounded-xl"
                 />
               </label>
             </div>
+            {day && month && year && bdayErr ? (
+              <p className="mt-2 text-xs font-medium text-ember" role="alert">
+                {bdayErr}
+              </p>
+            ) : null}
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={busy}
-                onClick={() =>
-                  run("birthday", {
+                disabled={!canSave}
+                onClick={() => {
+                  const err = birthdayInputError(day, month, year, BIRTHDAY_MIN_AGE);
+                  if (err) {
+                    onToast(err, true);
+                    return;
+                  }
+                  void run("birthday", {
                     action: "set",
                     day: Number(day),
                     month: Number(month),
                     birthYear: Number(year),
                     showAge: b.showAge !== false,
-                  })
-                }
+                  });
+                }}
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-50"
               >
                 {busy ? <Loader2 className="size-4 animate-spin" /> : null}

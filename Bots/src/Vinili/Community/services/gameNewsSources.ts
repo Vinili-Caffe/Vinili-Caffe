@@ -228,8 +228,8 @@ async function fetchFromSource(source?) {
     return (items || []).map((item?) => ({ ...item, sourceType: source.type }));
   } catch (err) {
     const status = Number(err?.response?.status || 0);
-    /* 429/403/404 tipici su feed terziari flaky: warn soft, no error spam */
-    if (status === 429 || status === 403 || status === 404) {
+    /* 429/403/404/5xx tipici su feed terziari flaky: warn soft, no error spam */
+    if (status === 429 || status === 403 || status === 404 || status === 502 || status === 503 || status === 504) {
       warnSourceFailThrottled(source, `HTTP ${status}`, true);
       return [];
     }

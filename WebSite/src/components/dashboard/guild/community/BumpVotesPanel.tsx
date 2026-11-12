@@ -67,7 +67,21 @@ export function BumpVotesPanel({ guildId, token, onToast }: { guildId: string; t
   const [thanksTab, setThanksTab] = useState<BumpService>("disboard");
   const [reminderTab, setReminderTab] = useState<BumpService>("disboard");
   const [voteTab, setVoteTab] = useState<VoteService>("topgg");
-  const vars = useMemo(() => ({ ...sampleVars(data), service: "Disboard", count: "12", role: "@Bumper", exp: "150", streak: "3", bonus: "🔥 Streak 3 **+20 exp**" }), [data]);
+  const vars = useMemo(() => {
+    const base = sampleVars(data);
+    /* Anteprima: usa l’icona del bot come foto utente se non c’è altro (evita logo Discord default). */
+    const demoAvatar = String(data?.bot?.avatarUrl || "").trim() || base.avatar;
+    return {
+      ...base,
+      avatar: demoAvatar,
+      service: "Disboard",
+      count: "12",
+      role: "@Bumper",
+      exp: "150",
+      streak: "3",
+      bonus: "🔥 Streak 3 **+20 exp**",
+    };
+  }, [data]);
 
   useEffect(() => {
     let alive = true;

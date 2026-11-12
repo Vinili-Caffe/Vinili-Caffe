@@ -292,6 +292,10 @@ async function main() {
     next();
   };
 
+  /* healthCorsBeforeRoute1: /webhooks/health era registrato PRIMA di app.use(CORS)
+     → GET cross-origin da www senza ACAO (OPTIONS ok perché non matchava la route). */
+  app.use(siteCorsMiddleware);
+
   app.get("/webhooks/site-api/health", (_req?, res?) => {
     const { sendStackHealth } = require("../../site/http/stackHealth") as typeof import("../../site/http/stackHealth");
     return sendStackHealth(client, _req, res, { service: "site-api", includeLavalink: false });
@@ -576,6 +580,14 @@ async function main() {
       startPartnershipHistoryMigrationWorker(client);
     } catch (err) {
       console.warn("[SITE-API] partnership migration worker:", err?.message || err);
+    }
+    try {
+      const {
+        scheduleAgeBirthdaySyncBackfill,
+      } = require("../../site/http/siteAgeBirthdaySyncBackfill") as typeof import("../../site/http/siteAgeBirthdaySyncBackfill");
+      scheduleAgeBirthdaySyncBackfill(client);
+    } catch (err) {
+      console.warn("[SITE-API] age-birthday sync schedule:", err?.message || err);
     }
   });
 }

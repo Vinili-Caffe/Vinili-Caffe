@@ -466,23 +466,39 @@ async function mutateBirthday(guild?, userId?, client?, payload?) {
       }
       birthYear = inferBirthYearFromAge(day, month, age);
     }
-    const nowY = getRomeDateParts().year;
-    if (birthYear > nowY) {
-      return { ok: false, reason: "invalid_age", message: "L'anno di nascita non puo essere nel futuro." };
+    const today = getRomeDateParts();
+    const nowY = today.year;
+    /* Data calendario reale (niente 31/02). */
+    {
+      const probe = new Date(Date.UTC(birthYear, month - 1, day));
+      if (
+        probe.getUTCFullYear() !== birthYear ||
+        probe.getUTCMonth() !== month - 1 ||
+        probe.getUTCDate() !== day
+      ) {
+        return { ok: false, reason: "invalid_date", message: "Data di nascita non valida." };
+      }
+    }
+    /* Blocca anche “anno corrente ma giorno/mese futuri” (es. 31/12/2026 a novembre). */
+    const isFuture =
+      birthYear > nowY ||
+      (birthYear === nowY && (month > today.month || (month === today.month && day > today.day)));
+    if (isFuture) {
+      return { ok: false, reason: "invalid_age", message: "La data di nascita non può essere nel futuro." };
     }
     if (birthYear < nowY - 120) {
       return { ok: false, reason: "invalid_age", message: "Anno di nascita non valido." };
     }
-    /* Sito IT-first: sotto i 14 anni non si salva il compleanno (allineato al gate età). */
+    /* Lock età: sotto i 13 anni non si salva il compleanno (pavimento Discord). */
     {
-      const today = getRomeDateParts();
+      const BIRTHDAY_MIN_AGE = 13;
       const hasBirthdayPassed = today.month > month || (today.month === month && today.day >= day);
-      const ageNow = Math.max(0, today.year - birthYear - (hasBirthdayPassed ? 0 : 1));
-      if (ageNow < 14) {
+      const ageNow = today.year - birthYear - (hasBirthdayPassed ? 0 : 1);
+      if (ageNow < BIRTHDAY_MIN_AGE) {
         return {
           ok: false,
           reason: "underage",
-          message: "Devi avere almeno 14 anni per usare questo sito.",
+          message: `Devi avere almeno ${BIRTHDAY_MIN_AGE} anni per impostare il compleanno.`,
         };
       }
     }
@@ -511,7 +527,6 @@ async function mutateBirthday(guild?, userId?, client?, payload?) {
     });
     await tryCelebrateBirthdayAfterProfileSave(client, guild.id, userId).catch(() => null);
     const birthday = await getBirthdayProfile(guild.id, userId);
-    const today = getRomeDateParts();
     const celebratedNow =
       Number(birthday?.day) === today.day &&
       Number(birthday?.month) === today.month &&

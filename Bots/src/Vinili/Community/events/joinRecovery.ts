@@ -477,18 +477,21 @@ async function runDeferredJoinAnnouncements(member?) {
   if (!member?.guild?.id || String(member.guild.id) !== String(IDs.guilds?.main || "")) return;
   const guildId = String(member.guild.id);
   const userId = String(member.id);
+  if (!(await shouldSendPublicMemberAnnouncement(member).catch(() => false))) {
+    await markJoinAnnouncePending(member);
+    return;
+  }
   const welcomeChannel = await resolveWelcomeChannelForMember(member);
   const botId = String(member.client?.user?.id || "");
   if (welcomeChannel && (await joinWelcomeAlreadySent(welcomeChannel, member, botId))) {
     await clearJoinAnnouncePending(member);
     return;
   }
-  const cleared: any = await ActivityUserProfile.updateOne(
-    { guildId, userId, "profile.joinAnnouncePending": true },
+  /* Non richiedere pending=true: se il flag non era stato settato al join, il welcome restava bloccato. */
+  await ActivityUserProfile.updateOne(
+    { guildId, userId },
     { $unset: { "profile.joinAnnouncePending": "" } },
-  ).catch(() => ({ modifiedCount: 0 }));
-  const clearedCount = Number(cleared?.modifiedCount ?? cleared?.nModified ?? 0);
-  if (!clearedCount) return;
+  ).catch(() => null);
   await dispatchPublicJoinAnnouncements(member);
 }
 

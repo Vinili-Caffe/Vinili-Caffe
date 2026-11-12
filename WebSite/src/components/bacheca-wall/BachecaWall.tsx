@@ -6,6 +6,7 @@ import { CalendarDays, ExternalLink, Heart, LayoutGrid, Link2, Loader2, Mic, Quo
 import { SmartLink } from "@/components/SmartLink";
 import { page as sitePage } from "@/lib/site";
 import { useAuth } from "@/lib/auth";
+import { loadStaffAccess } from "@/lib/staff";
 import {
   KIND_LABEL,
   SORT_LABEL,
@@ -95,7 +96,23 @@ export function BachecaWall() {
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<BachecaItem | null>(null);
   const [drawing, setDrawing] = useState(false);
+  const [highStaff, setHighStaff] = useState(false);
   const cols = useSyncExternalStore(subscribeResize, columnsNow, () => 1);
+
+  useEffect(() => {
+    if (!token) {
+      setHighStaff(false);
+      return;
+    }
+    let cancelled = false;
+    loadStaffAccess(token).then((r) => {
+      if (cancelled) return;
+      setHighStaff(Boolean(r.ok && (r.data.isHighStaff || r.data.canManage)));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   /* masonry: ogni card va nella colonna più corta (altezze vere misurate), così non restano buchi in fondo
      e l'ordine resta da sinistra a destra */
@@ -426,7 +443,7 @@ export function BachecaWall() {
             >
               <BachecaDetail
                 item={open}
-                canRemove={canRemove(open, user?.id)}
+                canRemove={canRemove(open, user?.id, { isHighStaff: highStaff })}
                 onReact={(e) => react(open, e)}
                 onRepost={() => repost(open)}
                 onRemove={() => remove(open)}

@@ -8,6 +8,10 @@ function mountPrefsBootWebhookRoutes(app?, client?) {
     handleSiteChromePrefsPost,
   } = require("../siteChromePrefsApi") as typeof import("../siteChromePrefsApi");
   const { handleSiteCookieConsentGet } = require("../siteCookieConsentApi") as typeof import("../siteCookieConsentApi");
+  const {
+    handleSiteAgeAttestGet,
+    handleSiteAgeAttestPost,
+  } = require("../siteAgeAttestApi") as typeof import("../siteAgeAttestApi");
 
   app.get("/webhooks/site-seratafilm-access", (req?, res?) => handleSiteSeratafilmAccessGet(client, req, res));
   app.get("/webhooks/site-seratafilm-film", (req?, res?) => handleSiteSeratafilmFilmGet(client, req, res));
@@ -23,6 +27,9 @@ function mountPrefsBootWebhookRoutes(app?, client?) {
     return handleSiteClientErrorRecent(req, res);
   });
   app.get("/webhooks/site-cookie-consent", (req?, res?) => handleSiteCookieConsentGet(client, req, res));
+  /* siteAgeAttest1: autodichiarazione età (server-side, immutabile) */
+  app.get("/webhooks/site-age-attest", (req?, res?) => handleSiteAgeAttestGet(client, req, res));
+  app.post("/webhooks/site-age-attest", (req?, res?) => handleSiteAgeAttestPost(client, req, res));
   /* siteBoot1: me skim + unread + theme/prefs in un round-trip */
   try {
     const { handleSiteBootGet } = require("../siteBootApi") as typeof import("../siteBootApi");

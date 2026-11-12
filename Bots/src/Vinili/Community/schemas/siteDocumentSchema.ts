@@ -41,6 +41,8 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
     BOARD_REVIEW: "board_review",
     /* starWarsEvent1 */
     STARWARS_EVENT_STATE: "starwars_event_state",
+    /* siteAgeAttest1: autodichiarazione età sito (ok|blocked, immutabile) */
+    SITE_AGE_ATTESTATION: "site_age_attestation",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -501,6 +503,17 @@ siteDocumentSchema.index(
 siteDocumentSchema.index(
   { docType: 1, boardListingId: 1, status: 1, createdAt: -1 },
   { name: "board_review_listing_status", partialFilterExpression: { docType: SITE_DOC.BOARD_REVIEW } },
+);
+siteDocumentSchema.index(
+  { docType: 1, userId: 1 },
+  {
+    unique: true,
+    name: "site_age_attestation_user_unique",
+    partialFilterExpression: {
+      docType: SITE_DOC.SITE_AGE_ATTESTATION,
+      userId: { $type: "string", $gt: "" },
+    },
+  },
 );
 
 const SiteDocument: any = models.SiteDocument || model("SiteDocument", siteDocumentSchema, "sitedocuments");

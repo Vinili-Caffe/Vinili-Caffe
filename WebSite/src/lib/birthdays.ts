@@ -24,7 +24,7 @@ export type BirthdaysMonth = {
   entries: BirthdayEntry[];
 };
 
-const MONTHS_IT = [
+export const MONTHS_IT = [
   "",
   "Gennaio",
   "Febbraio",
@@ -39,6 +39,10 @@ const MONTHS_IT = [
   "Novembre",
   "Dicembre",
 ];
+
+export function monthLabelIt(month: number) {
+  return MONTHS_IT[Math.max(1, Math.min(12, Math.floor(Number(month) || 0)))] || "…";
+}
 
 export function shiftMonth(month: number, year: number, delta: number) {
   let m = month + delta;
@@ -82,7 +86,8 @@ export function entryMeta(entry: BirthdayEntry, calendarYear: number) {
   const by = Number(entry.birthYear);
   if (entry.showAge !== false && Number.isFinite(by) && by >= 1900) {
     const turning = calendarYear - by;
-    if (turning >= 0 && turning <= 120) meta += ` · compie ${turning} anni`;
+    /* Niente “compie 0 anni” / età assurde da date future o incomplete. */
+    if (turning >= 1 && turning <= 120) meta += ` · compie ${turning} anni`;
   }
   return meta;
 }

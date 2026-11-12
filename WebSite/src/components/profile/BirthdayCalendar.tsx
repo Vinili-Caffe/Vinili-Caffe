@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Cake, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { setChromeOpen } from "@/lib/chrome-open";
@@ -11,6 +11,7 @@ import {
   groupByDay,
   leadingBlanks,
   loadBirthdaysMonth,
+  monthLabelIt,
   shiftMonth,
   type BirthdayEntry,
   type BirthdaysMonth,
@@ -37,43 +38,62 @@ export function BirthdayCalendar({
   const [data, setData] = useState<BirthdaysMonth | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const loadGen = useRef(0);
+  const wasOpen = useRef(false);
 
   const load = useCallback(async (m: number, y: number) => {
+    const gen = ++loadGen.current;
     setLoading(true);
     setError(false);
     const out = await loadBirthdaysMonth(m, y);
+    if (gen !== loadGen.current) return;
     setLoading(false);
     if (!out) {
       setError(true);
       return;
     }
     setData(out);
-    setMonth(out.month);
-    setYear(out.year);
+    /* Non forzare mese/anno dalla risposta: evita salti se l’utente ha già navigato. */
   }, []);
 
   useEffect(() => {
-    if (!open) return;
-    setChromeOpen(`bday-${chromeId}`, true);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    const n = new Date();
-    setMonth(n.getMonth() + 1);
-    setYear(n.getFullYear());
-    setData(null);
-    void load(n.getMonth() + 1, n.getFullYear());
-    return () => {
+    if (!open) {
+      wasOpen.current = false;
       setChromeOpen(`bday-${chromeId}`, false);
+      return;
+    }
+    setChromeOpen(`bday-${chromeId}`, true);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCloseRef.current();
+    window.addEventListener("keydown", onKey);
+
+    /* Reset al mese corrente solo all’apertura, non a ogni re-render del parent. */
+    if (!wasOpen.current) {
+      wasOpen.current = true;
+      const n = new Date();
+      const m = n.getMonth() + 1;
+      const y = n.getFullYear();
+      setMonth(m);
+      setYear(y);
+      setData(null);
+      void load(m, y);
+    }
+
+    return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose, chromeId, load]);
+  }, [open, chromeId, load]);
 
   const go = (delta: number) => {
     const next = shiftMonth(month, year, delta);
     setMonth(next.month);
     setYear(next.year);
+    setData(null);
     void load(next.month, next.year);
   };
+  const monthTitle = monthLabelIt(month);
+  const viewData = data && data.month === month && data.year === year ? data : null;
 
   return (
     <AnimatePresence>
@@ -91,7 +111,7 @@ export function BirthdayCalendar({
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label={`Calendario compleanni ${data?.monthLabel || ""}`}
+            aria-label={`Calendario compleanni ${monthTitle}`}
             initial={{ opacity: 0, y: 16, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -100,7 +120,7 @@ export function BirthdayCalendar({
               "relative my-auto flex w-[min(96vw,38rem)] max-h-[min(90vh,44rem)] flex-col overflow-hidden rounded-[1.15rem] p-4 shadow-[0_28px_70px_rgba(0,0,0,0.55)]",
               "bg-[linear-gradient(165deg,rgba(28,20,15,0.99),rgba(12,9,7,0.99))]",
               "ring-1 ring-sand/35",
-              loading && data && "pointer-events-none opacity-75",
+              loading && viewData && "pointer-events-none opacity-75",
             )}
             onClick={(e) => e.stopPropagation()}
           >
@@ -117,7 +137,7 @@ export function BirthdayCalendar({
                 <h2 className="inline-flex min-w-0 items-center gap-2 text-center text-[1.02rem] font-extrabold capitalize tracking-wide text-crema">
                   <Cake className="size-4 shrink-0 text-sand" />
                   <span className="truncate">
-                    {data?.monthLabel || "…"} {year}
+                    {monthTitle} {year}
                   </span>
                 </h2>
                 <button
@@ -139,17 +159,17 @@ export function BirthdayCalendar({
               </button>
             </header>
 
-            <div className={cn("min-h-0 flex-1 overflow-auto pr-0.5", loading && data && "blur-[1px]")}>
-              {!data && loading && (
+            <div className={cn("min-h-0 flex-1 overflow-auto pr-0.5", loading && viewData && "blur-[1px]")}>
+              {!viewData && loading && (
                 <div className="grid min-h-40 place-items-center gap-2 text-sm text-crema/70">
                   <Loader2 className="size-5 animate-spin text-sand" />
                   Caricamento calendario…
                 </div>
               )}
-              {error && !data && (
+              {error && !viewData && (
                 <p className="py-10 text-center text-sm text-crema/60">Calendario non disponibile al momento.</p>
               )}
-              {data && <CalendarBody data={data} highlightUserId={highlightUserId} />}
+              {viewData && <CalendarBody data={viewData} highlightUserId={highlightUserId} />}
             </div>
           </motion.div>
         </motion.div>

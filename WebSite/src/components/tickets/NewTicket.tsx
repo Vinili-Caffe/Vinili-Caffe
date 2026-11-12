@@ -12,7 +12,7 @@ import { EmojiText } from "@/components/discord/EmojiText";
 import { UploadRightsHint } from "@/components/UploadRightsHint";
 
 const DMCA_STARTER =
-  "Segnalazione copyright\n\n1) Chi sono e email di contatto:\n2) Opera protetta / prova di titolarità (se ce l'ho):\n3) URL o descrizione del materiale sul sito:\n4) Perché ritengo che l'uso non sia lecito:\n";
+  "Segnalazione copyright\n\n1) Identità e indirizzo e-mail:\n2) Opera protetta e, ove disponibile, prova di titolarità o legittimazione a segnalare:\n3) URL o descrizione precisa del materiale contestato:\n4) Motivazione della richiesta di rimozione:\n";
 
 type NewTicketDraft = { cat: string | null; text: string };
 

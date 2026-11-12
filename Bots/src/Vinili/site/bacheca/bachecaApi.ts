@@ -357,11 +357,31 @@ async function handleBachecaRepost(client?, req?, res?) {
   }
 }
 
-/** Toglie un contenuto: quote → chi l'ha creata; clip → chi l'ha registrata; repost → il proprio repost; 💀 → l'autore del messaggio. */
+async function resolveViewerMember(client?, req?) {
+  const token = normalizeBearer(req?.headers?.authorization);
+  if (!token) return null;
+  const resolved = await resolveWebsiteGuildMember(client, token).catch(() => null);
+  if (!resolved?.ok) return null;
+  return resolved;
+}
+
+function memberIsHighStaff(member?) {
+  try {
+    const { memberIsHighStaffEligible } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
+    return Boolean(memberIsHighStaffEligible(member));
+  } catch {
+    return false;
+  }
+}
+
+/** Toglie un contenuto: quote/clip/repost/💀 del proprietario, oppure qualsiasi contenuto se High Staff. */
 async function handleBachecaDelete(client?, req?, res?) {
   try {
-    const viewerId = await requireViewer(client, req, res);
-    if (!viewerId) return;
+    const resolved = await resolveViewerMember(client, req);
+    const viewerId = String(resolved?.userId || resolved?.member?.id || "").trim();
+    if (!viewerId) {
+      return res.status(401).json({ ok: false, error: "auth", message: "Accedi con Discord." });
+    }
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const id = String(body.id || "").trim();
     if (!ITEM_ID_RE.test(id)) return res.status(400).json({ ok: false, error: "bad_request" });
@@ -371,25 +391,43 @@ async function handleBachecaDelete(client?, req?, res?) {
     const docs: any[] = await GuildBoardPost.find({ guildId, boardMessageId: id }).sort({ createdAt: 1 }).lean();
     if (!docs.length) return res.status(404).json({ ok: false, error: "not_found" });
     const first = docs[0];
+    const forceStaff = memberIsHighStaff(resolved?.member);
     let result: any = { ok: false, message: "Non puoi togliere questo contenuto." };
     if (first.type === "quote") {
       const { deleteUserQuoteEntry } = require("../../Community/utils/Quote/quoteBoardService") as typeof import("../../Community/utils/Quote/quoteBoardService");
-      result = await deleteUserQuoteEntry({ guild, quoteId: String(first._id), userId: viewerId });
+      result = await deleteUserQuoteEntry({
+        guild,
+        quoteId: String(first._id),
+        userId: viewerId,
+        forceStaff,
+      });
     } else if (first.type === "skull") {
-      if (String(first.sourceAuthorId) === viewerId) {
-        await GuildSkullPost.deleteOne({ _id: first._id });
+      if (forceStaff || String(first.sourceAuthorId) === viewerId) {
+        await GuildSkullPost.deleteMany({ guildId, boardMessageId: id });
         result = { ok: true };
       }
     } else {
-      const own = docs.find((d) => String(d.reposterUserId) === viewerId);
+      const own = docs.find((d) => String(d.reposterUserId) === viewerId) || (forceStaff ? docs[0] : null);
       if (own) {
         const { deleteUserRepostEntry } = require("../../Community/services/repostService") as typeof import("../../Community/services/repostService");
-        result = await deleteUserRepostEntry({ guild, client, repostId: String(own._id), userId: viewerId });
+        result = await deleteUserRepostEntry({
+          guild,
+          client,
+          repostId: String(own._id),
+          userId: viewerId,
+          forceStaff,
+        });
       }
     }
-    if (!result?.ok) return res.status(403).json({ ok: false, error: "forbidden", message: String(result?.message || "Non puoi togliere questo contenuto.") });
+    if (!result?.ok) {
+      return res.status(403).json({
+        ok: false,
+        error: "forbidden",
+        message: String(result?.message || "Non puoi togliere questo contenuto."),
+      });
+    }
     broadcastBachecaChanged("remove", id);
-    return res.status(200).json({ ok: true, id });
+    return res.status(200).json({ ok: true, id, staff: forceStaff || undefined });
   } catch (err) {
     global.logger?.error?.("[site-bacheca] delete:", err?.message || err);
     return res.status(500).json({ ok: false, error: "internal" });

@@ -105,9 +105,14 @@ export function bachecaShareUrl(id: string) {
   return `https://www.viniliecaffe.it/bacheca/?p=${encodeURIComponent(id)}`;
 }
 
-/** Chi può togliere il contenuto dal muro (il server ricontrolla comunque). */
-export function canRemove(item: BachecaItem, userId: string | undefined) {
+/** Chi può togliere il contenuto dal muro (il server ricontrolla comunque). High staff: qualsiasi. */
+export function canRemove(
+  item: BachecaItem,
+  userId: string | undefined,
+  opts?: { isHighStaff?: boolean },
+) {
   if (!userId) return false;
+  if (opts?.isHighStaff) return true;
   if (item.kind === "skull") return item.author.id === userId;
   return item.by.id === userId;
 }

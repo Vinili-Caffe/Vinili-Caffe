@@ -78,6 +78,20 @@ export function hasAnalyticsConsent(): boolean {
   return readCookieConsent() === "accepted";
 }
 
+function writeConsentCookie(name: string, value: string, maxAgeSec: number) {
+  try {
+    const secure = String(window.location.protocol || "").toLowerCase() === "https:" ? "; Secure" : "";
+    const domain = cookieDomainSuffix();
+    document.cookie = `${name}=${value}; Max-Age=${maxAgeSec}; Path=/; SameSite=Lax${secure}${domain}`;
+    /* Host-only: se Domain=.viniliecaffe.it non c’era, serve anche senza Domain. */
+    if (domain) {
+      document.cookie = `${name}=${value}; Max-Age=${maxAgeSec}; Path=/; SameSite=Lax${secure}`;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Persiste accepted|rejected (localStorage + cookie 180g). Non carica gtag da sola. */
 export function rememberCookieConsent(choice: CookieConsentChoice): void {
   const value: CookieConsentChoice = choice === "rejected" ? "rejected" : "accepted";
@@ -92,9 +106,32 @@ export function rememberCookieConsent(choice: CookieConsentChoice): void {
     /* ignore */
   }
   try {
-    const secure = String(window.location.protocol || "").toLowerCase() === "https:" ? "; Secure" : "";
-    const domain = cookieDomainSuffix();
-    document.cookie = `${COOKIE_CONSENT_KEY}=${value}; Max-Age=${CONSENT_MAX_AGE_SEC}; Path=/; SameSite=Lax${secure}${domain}`;
+    window.localStorage.removeItem(COOKIE_CONSENT_KEY_LEGACY);
+  } catch {
+    /* ignore */
+  }
+  writeConsentCookie(COOKIE_CONSENT_KEY, value, CONSENT_MAX_AGE_SEC);
+  writeConsentCookie(COOKIE_CONSENT_KEY_LEGACY, "", 0);
+}
+
+/** Azzera LS/SS + cookie (anche Domain=.viniliecaffe.it). */
+export function clearCookieConsent(): void {
+  if (typeof window === "undefined") return;
+  for (const key of [COOKIE_CONSENT_KEY, COOKIE_CONSENT_KEY_LEGACY]) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
+    try {
+      window.sessionStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
+    writeConsentCookie(key, "", 0);
+  }
+  try {
+    window.__vcGtagLoaded = false;
   } catch {
     /* ignore */
   }
