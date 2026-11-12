@@ -224,7 +224,7 @@ export function AnnouncementsPanel({
                 const booster = data.pickers.roles.find((r) => r.booster);
                 return booster ? (
                   <span
-                    className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-[#f47fff]/10 px-2.5 py-1 text-xs text-crema/85 ring-1 ring-[#f47fff]/25"
+                    className="mb-1 mt-2 flex w-fit max-w-full items-center gap-1.5 rounded-full bg-[#f47fff]/10 px-2.5 py-1 text-xs text-crema/85 ring-1 ring-[#f47fff]/25"
                     title="Lo dà Discord in automatico a chi boosta e lo toglie quando il boost finisce"
                   >
                     <span className="size-2 rounded-full" style={{ background: booster.color || "#f47fff" }} aria-hidden />

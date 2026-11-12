@@ -123,7 +123,7 @@ export function WelcomePanel({
                     >
                       <span className="size-2 rounded-full" style={{ background: role?.color || "#99aab5" }} aria-hidden />
                       <span className="font-semibold">@{role?.name || r.id}</span>
-                      <span className="text-crema/50">· sempre, {r.note}</span>
+                      <span className="text-crema/50">· {r.note}</span>
                       <span className="rounded-full bg-crema/[0.08] px-1.5 text-[0.6rem] font-semibold uppercase tracking-wider text-crema/55">sistema</span>
                     </span>
                   );

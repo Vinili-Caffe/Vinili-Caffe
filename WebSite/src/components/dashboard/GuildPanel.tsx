@@ -2311,6 +2311,8 @@ export function GuildPanel() {
 
   return (
     <DashboardShell
+      /* con le sezioni aperte il titolo lo mostra già la testata della pagina: niente doppione sopra */
+      bare={Boolean(showSections)}
       title={showSections ? heading : "Pannello server"}
       crumb={showSections ? heading : "Pannello"}
       lead={showSections ? SECTION_LEAD[section] : "Impostazioni, comandi, ticket e partnership del server selezionato."}
