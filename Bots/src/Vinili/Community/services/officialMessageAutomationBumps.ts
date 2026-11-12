@@ -130,6 +130,7 @@ function collectDisboardBumpHaystacks(message?) {
 async function handleDisboardBump(message?, client?) {
   const disboard = client?.config?.disboard;
   if (!disboard || !message.guild) return false;
+  if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(message.guild.id, "bump")) return false;
   if (!message.author) return false;
   if (String(message.author.id) === String(client.user?.id)) return false;
 
@@ -271,6 +272,7 @@ async function handleDisboardBump(message?, client?) {
 async function handleDiscadiaBump(message?, client?) {
   const discadia = client?.config?.discadia;
   if (!discadia || !message.guild) return false;
+  if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(message.guild.id, "bump")) return false;
   if (isMessageFromDisboardBot(message, client)) return false;
   if (String(message.author?.id) === String(client.user?.id)) return false;
   const discadiaBotIds = new Set(

@@ -88,6 +88,7 @@ function buildWelcomeChannelContent(member?) {
 
 async function sendWelcomeChannelAnnouncement(channel?, member?) {
   if (!channel?.send || !member) return null;
+  if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(member.guild?.id, "benvenuto")) return null;
   /* benvenuto salvato dalla dashboard: testi e canale da lì (anche spento) */
   try {
     const { hasSavedWelcome } = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");

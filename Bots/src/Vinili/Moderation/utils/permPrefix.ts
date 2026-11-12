@@ -78,6 +78,11 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
   const userId = message?.author?.id || null;
   const safeCommand = String(commandName || "").toLowerCase();
   const onMainGuild = isMainGuild(guildId);
+  /* modulo spento dalla pagina Moduli */
+  if (guildId) {
+    const blocked = (require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).blockedCommandMessage(guildId, safeCommand);
+    if (blocked) return options.returnDetails ? { allowed: false, reason: "module_disabled", requiredRoles: null, channels: null, message: blocked } : false;
+  }
 
   try {
     const {

@@ -676,9 +676,8 @@ async function setModuleSwitch(client?, token?, guildId?, body?) {
   if (!a.ok) return a;
   const id = String(body?.id || "");
   if (!MS().MODULES.some((m) => m.id === id)) return fail(400, "unknown_module", "Modulo sconosciuto.");
-  if (T.isMainGuild(a.guildId)) return fail(400, "main_locked", "Sul server principale i moduli restano sempre accesi.");
   const ok = await MS().setModuleOn(a.guildId, id, body?.on === true);
-  if (!ok) return fail(500, "save_failed", "Non sono riuscito a salvare. Riprova tra poco.");
+  if (!ok) return fail(400, "save_failed", T.isMainGuild(a.guildId) && id === "tickets" ? "Sul server principale i ticket si gestiscono dal sito." : "Non sono riuscito a salvare. Riprova tra poco.");
   return { ok: true, status: 200, modules: MS().listModules(a.guildId) };
 }
 

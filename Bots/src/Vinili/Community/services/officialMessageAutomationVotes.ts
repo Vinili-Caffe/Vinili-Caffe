@@ -34,6 +34,7 @@ function getVoteManagerBotIds(client?) {
 
 async function handleVoteManagerMessage(message?, client?, options: Record<string, any> = {}) {
   if (!message.guild) return false;
+  if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(message.guild.id, "voti")) return false;
   if (message.channel?.id !== VOTE_CHANNEL_ID) return false;
   const isAutomatedSource = Boolean(message.author?.bot || message.applicationId || message.webhookId,);
   if (!isAutomatedSource) return false;
@@ -88,6 +89,7 @@ async function handleVoteManagerMessage(message?, client?, options: Record<strin
 
 async function processDiscadiaVote(guild?, user?, client?, options: Record<string, any> = {}) {
   if (!guild || !user || !client) return false;
+  if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(guild.id, "voti")) return false;
   const voteListing = options?.voteListing === "topgg" ? "topgg" : "discadia";
   const voteCooldownMs = getVoteCooldownMs(client, voteListing);
   const userId = String(user?.id || "").trim();

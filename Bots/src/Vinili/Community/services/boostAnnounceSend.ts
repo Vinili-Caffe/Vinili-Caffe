@@ -7,6 +7,7 @@ const { sleep } = require("./memberUpdateLogs") as typeof import("./memberUpdate
 
 async function sendBoostEmbeds(channel?, member?, times?, boostCount?, priorAnnouncedSlots = 0, opts: Record<string, any> = {}) {
   if (!channel?.isTextBased?.()) return 0;
+  if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(member?.guild?.id, "benvenuto")) return 0;
   const safeTimes = Math.max(0, Number(times || 0));
   const start = Math.max(0, Math.floor(Number(priorAnnouncedSlots || 0)));
   if (safeTimes <= 0) return 0;

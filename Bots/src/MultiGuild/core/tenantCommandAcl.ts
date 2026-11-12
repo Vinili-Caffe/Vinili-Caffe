@@ -947,6 +947,7 @@ function resolveTenantCommandAcl(message?, commandName?, options: Record<string,
 }
 
 export = {
+  categoryCommandsSeed,
   setCommandCatalogClient,
   normalizeCommandName,
   normalizeCommandAclKey,

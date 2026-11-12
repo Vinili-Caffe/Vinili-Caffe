@@ -32,6 +32,7 @@ async function resolveReliableMemberCount(guild?) {
 
 async function updateMemberCounterNow(guild?) {
   if (!guild) return false;
+  if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(guild.id, "contatori")) return false;
   const channel = await resolveCounterChannel(guild);
   if (!channel) return false;
 

@@ -99,7 +99,6 @@ export function ModulesPanel({
   if (error && !rows) return <Notice error>{error}</Notice>;
   if (!rows) return <RowsSkeleton rows={6} />;
 
-  const locked = rows.some((r) => r.locked);
   const onCount = rows.filter((r) => r.on).length;
 
   const toggle = async (id: string, on: boolean) => {
@@ -120,13 +119,9 @@ export function ModulesPanel({
 
   return (
     <div className="space-y-4">
-      {locked ? (
-        <Notice>Sul server principale i moduli restano sempre accesi: qui vedi lo stato, ma non si possono spegnere.</Notice>
-      ) : (
-        <p className="text-sm text-crema/60">
-          Spegnendo un modulo il bot smette di usarlo su questo server: niente comandi, messaggi o azioni automatiche. Le impostazioni restano salvate per quando lo riaccendi.
-        </p>
-      )}
+      <p className="text-sm text-crema/60">
+        Spegnendo un modulo il bot smette di usarlo su questo server: niente comandi, messaggi o azioni automatiche. Le impostazioni restano salvate per quando lo riaccendi.
+      </p>
 
       <div className="flex flex-wrap items-center gap-3">
         <label className="relative min-w-[14rem] flex-1">
@@ -171,7 +166,7 @@ export function ModulesPanel({
                     <p className={cn("mt-0.5 text-xs font-semibold", m.on ? "text-emerald-300 light:text-emerald-700" : "text-crema/45")}>{m.on ? "Attivo" : "Disattivo"}</p>
                   </div>
                   {m.locked ? (
-                    <span className="flex size-9 items-center justify-center text-crema/40" title="Sul server principale resta sempre acceso">
+                    <span className="flex size-9 items-center justify-center text-crema/40" title="Sul server principale si gestisce dal sito, non da qui">
                       <Lock className="size-4" aria-hidden />
                     </span>
                   ) : (

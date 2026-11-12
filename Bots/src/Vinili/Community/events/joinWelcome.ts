@@ -63,6 +63,7 @@ async function maybeNotifyDiscordPrivacyBlockForMember(member?) {
 
 async function sendDmWelcome(member?) {
   if (!isMainGuildJoin(member?.guild?.id)) return;
+  if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(member?.guild?.id, "benvenuto")) return;
   /* DM salvato dalla dashboard: usa quello (anche spento) */
   try {
     const { hasSavedWelcome } = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");

@@ -284,6 +284,11 @@ async function checkSlashPermission(interaction?, options: Record<string, any> =
   const userId = interaction?.user?.id || null;
   const guildId = interaction?.guildId || interaction?.guild?.id || null;
   const onMainGuild = isMainGuild(guildId);
+  /* modulo spento dalla pagina Moduli */
+  if (guildId && interaction?.commandName) {
+    const blocked = (require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).blockedCommandMessage(guildId, interaction.commandName);
+    if (blocked) return options.returnDetails ? { allowed: false, reason: "module_disabled", requiredRoles: null, channels: null, message: blocked } : false;
+  }
 
   try {
     const {
