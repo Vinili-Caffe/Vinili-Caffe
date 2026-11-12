@@ -713,9 +713,9 @@ export function DmExtra({
 export function EditorWithPreview({ editor, preview }: { editor: React.ReactNode; preview: React.ReactNode }) {
   return (
     <div className="@container">
-    <div className="grid gap-5 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] @6xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
+    <div className="grid gap-5 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] @5xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
       <div className="min-w-0">{editor}</div>
-      <div className="min-w-0 @4xl:sticky @4xl:top-20 @4xl:self-start">
+      <div className="min-w-0 @3xl:sticky @3xl:top-20 @3xl:self-start @3xl:max-h-[calc(100dvh-6rem)] @3xl:overflow-y-auto @3xl:overscroll-contain">
         <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/60">Anteprima</p>
         {preview}
       </div>

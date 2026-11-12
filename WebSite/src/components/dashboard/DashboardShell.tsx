@@ -1035,7 +1035,8 @@ export function DashboardShell({
             </div>
           </header>
 
-          <main className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
+          {/* pannello server: più largo, così editor e anteprima stanno comodi affiancati */}
+          <main className={cn("mx-auto px-4 pb-16 pt-6 sm:px-6 sm:pt-8", guildNav ? "max-w-[100rem]" : "max-w-6xl")}>
             {!bare ? (
               <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
                 <div className="min-w-0">
