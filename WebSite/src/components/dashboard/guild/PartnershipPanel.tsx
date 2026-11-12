@@ -111,14 +111,17 @@ export function PartnershipPanel({
   token,
   onToast,
   tab: tabProp,
+  onSetupLock,
 }: {
   guildId: string;
   token: string;
   onToast: (msg: string, err?: boolean) => void;
   /** Tab dalla sidebar (senza Subnav orizzontale). */
   tab?: Tab;
+  /** setup guidato aperto: le altre schede vanno bloccate */
+  onSetupLock?: (locked: boolean) => void;
 }) {
-  const tab: Tab = tabProp && isPartnershipModuleTab(tabProp) ? tabProp : "setup";
+  const requestedTab: Tab = tabProp && isPartnershipModuleTab(tabProp) ? tabProp : "setup";
   /* segnaposto: si inseriscono nell'ultimo campo del ringraziamento dove hai scritto */
   const [bundle, setBundle] = useState<PartnershipBundle | null>(null);
   const [draft, setDraft] = useState<PartnershipConfig | null>(null);
@@ -141,6 +144,13 @@ export function PartnershipPanel({
   /* wizard aperto finché non chiudi “Fine” (anche se un salvataggio intermedio flipsasse setupCompleted) */
   const [wizardSession, setWizardSession] = useState(false);
   const [setupCelebrating, setSetupCelebrating] = useState(false);
+  /* durante il setup si resta sul setup: le altre schede non si aprono */
+  const setupLocked = wizardSession || setupCelebrating;
+  const tab: Tab = setupLocked ? "setup" : requestedTab;
+  useEffect(() => {
+    onSetupLock?.(setupLocked);
+  }, [setupLocked, onSetupLock]);
+  useEffect(() => () => onSetupLock?.(false), [onSetupLock]);
   /* bot, emoji del server, nome e foto di chi è in dashboard: anteprima uguale alle altre schede */
   const { data: community } = useCommunity(guildId, token);
   const base = useSampleVars(community);

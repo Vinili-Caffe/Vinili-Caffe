@@ -390,10 +390,15 @@ function SideTabsLayout({
   children,
   active: activeProp,
   onSelect,
+  lockedIds,
+  lockedReason,
 }: {
   label: string;
   tabs: readonly { id: string; label: string }[];
   children: React.ReactNode;
+  /** schede non cliccabili (es. durante un setup guidato) */
+  lockedIds?: readonly string[];
+  lockedReason?: string;
   /** con active + onSelect l'elenco cambia scheda; senza, tutto in una pagina e l'elenco segue lo scorrimento */
   active?: string;
   onSelect?: (id: string) => void;
@@ -469,14 +474,18 @@ function SideTabsLayout({
                   type="button"
                   data-tab={t.id}
                   aria-current={on ? (controlled ? "page" : "location") : undefined}
+                  disabled={!on && Boolean(lockedIds?.includes(t.id))}
+                  title={!on && lockedIds?.includes(t.id) ? lockedReason : undefined}
                   onClick={() => go(t.id)}
                   className={cn(
                     "relative flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-sm font-semibold transition-colors lg:py-2",
                     on ? "text-ember" : "text-crema/60 ring-1 ring-sand/10 hover:bg-crema/[0.05] hover:text-crema lg:ring-0",
+                    !on && lockedIds?.includes(t.id) && "cursor-not-allowed opacity-40 hover:bg-transparent hover:text-crema/60",
                   )}
                 >
                   <Icon className={cn("size-4 shrink-0", on ? "text-ember" : "text-crema/45")} aria-hidden />
-                  {t.label}
+                  <span className="min-w-0 flex-1 truncate">{t.label}</span>
+                  {!on && lockedIds?.includes(t.id) ? <Lock className="size-3.5 shrink-0 text-crema/40" aria-hidden /> : null}
                 </button>
               </li>
             );
@@ -2265,6 +2274,8 @@ export function GuildPanel() {
   /* moduli spenti su questo server: nel menu vanno nel gruppo "Disattivati" (si aggiorna cambiando sezione) */
   const [modulesOff, setModulesOff] = useState<GuildSectionId[]>([]);
   const [firstSetupClosed, setFirstSetupClosed] = useState(false);
+  /* setup partnership in corso: le altre schede della Partnership restano chiuse */
+  const [partnerSetupLock, setPartnerSetupLock] = useState(false);
   /* cambia quando si accende/spegne un modulo: il menu si riaggiorna */
   const [modulesRev, setModulesRev] = useState(0);
   useEffect(() => {
@@ -2309,7 +2320,14 @@ export function GuildPanel() {
   const switchActive = moduleTab || defaultModuleTab(section) || "";
   const withSwitchTabs = (node: React.ReactNode) =>
     switchTabs ? (
-      <SideTabsLayout label={`Sezioni ${sectionMeta.label}`} tabs={switchTabs} active={switchActive} onSelect={(t) => setModuleTab(section, t)}>
+      <SideTabsLayout
+        label={`Sezioni ${sectionMeta.label}`}
+        tabs={switchTabs}
+        active={section === "partnership" && partnerSetupLock ? "setup" : switchActive}
+        onSelect={(t) => setModuleTab(section, t)}
+        lockedIds={section === "partnership" && partnerSetupLock ? switchTabs.filter((t) => t.id !== "setup").map((t) => t.id) : undefined}
+        lockedReason="Completa prima il setup della partnership"
+      >
         {node}
       </SideTabsLayout>
     ) : (
@@ -2625,6 +2643,7 @@ export function GuildPanel() {
                           token={token}
                           onToast={showToast}
                           tab={moduleTab && isPartnershipModuleTab(moduleTab) ? moduleTab : "setup"}
+                          onSetupLock={setPartnerSetupLock}
                         />
                       </Panel>
                       )
