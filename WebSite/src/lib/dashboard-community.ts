@@ -75,6 +75,8 @@ export type NamedAnnounceSlot = {
   cooldownHours: number;
   draft: MsgDraft;
   dm?: AnnounceDm;
+  /** solo Fan: testi nello status che danno il ruolo (vuoto = link del server) */
+  statusTriggers?: string[];
 };
 export type NamedAnnounceKey = "clantag" | "fan" | "promoter" | "propulsor" | "catalyst";
 export type AnnouncementsConfig = {

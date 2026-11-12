@@ -153,7 +153,10 @@ export function PartnershipPanel({
     "manager.username": base.username,
     "manager.id": base["user.id"],
     "manager.avatar": base.avatar,
-    "partner.icon": "https://cdn.discordapp.com/embed/avatars/1.png",
+    /* nell'anteprima il server partner è questo stesso server (nome e icona veri) */
+    partner: base.server,
+    "partner.name": base.server,
+    "partner.icon": base.servericon,
     /* per l'anteprima di Discord (menzione con nome) */
     username: base.username,
   };
@@ -578,7 +581,7 @@ export function PartnershipPanel({
               Messaggio di ringraziamento <PremiumBadge active={bundle.premiumActive} />
             </h3>
             <p className="mt-1 text-xs text-crema/60">Il bot lo manda al server partner dopo la pubblicazione.</p>
-            {!bundle.premiumActive ? <PremiumLock className="mt-3" feature="Il messaggio di ringraziamento" note="Puoi scriverlo adesso: parte solo quando il server ha Premium." /> : null}
+            {!bundle.premiumActive ? <PremiumLock className="mt-3" feature="Il messaggio di ringraziamento" note="Senza Premium resta quello predefinito e non si può modificare. L'anteprima mostra quello che il bot manda adesso." /> : null}
             <div className="mt-4 space-y-4">
               <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
                 <Toggle
@@ -591,6 +594,7 @@ export function PartnershipPanel({
                   <p className="text-sm font-semibold text-crema">Ringraziamento attivo</p>
                   <p className="text-xs text-crema/55">{draft.thankYouEmbed.enabled ? "Il bot usa questo messaggio" : "Spento: il bot usa quello predefinito"}</p>
                 </div>
+                {bundle.premiumActive ? (
                 <button
                   type="button"
                   className={primaryMini}
@@ -609,9 +613,16 @@ export function PartnershipPanel({
                 >
                   Salva ringraziamento
                 </button>
+                ) : null}
               </div>
               <EditorWithPreview
                 editor={
+                  /* senza Premium: bloccato (si vede, non si tocca) */
+                  <div
+                    inert={!bundle.premiumActive}
+                    aria-disabled={!bundle.premiumActive}
+                    className={cn(!bundle.premiumActive && "pointer-events-none select-none opacity-45 grayscale-[0.4]")}
+                  >
                   <DraftEditor
                     key="thank-you"
                     value={thankYouDraftOf(draft.thankYouEmbed, bundle.thankYouDefaults)}
@@ -620,6 +631,7 @@ export function PartnershipPanel({
                     placeholders={TY_PLACEHOLDERS}
                     maxButtons={10}
                   />
+                  </div>
                 }
                 preview={
                   <DiscordMessagePreview

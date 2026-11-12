@@ -303,6 +303,20 @@ export function AnnouncementsPanel({
                         </Field>
                       </div>
                       {!slot.roleId ? <p className="text-xs text-amber-200/80">Scegli il ruolo: senza, questo annuncio non parte.</p> : null}
+                      {key === "fan" && data.isMainGuild ? (
+                        <Field
+                          label="Cosa va scritto nello status"
+                          hint="Uno per riga. Se lo status contiene uno di questi testi, il bot dà il ruolo e manda l'annuncio; se lo toglie, il ruolo va via. Vuoto = i link del server (.gg/viniliecaffe, discord.gg/viniliecaffe, viniliecaffe.it). Maiuscole e spazi non contano."
+                        >
+                          <textarea
+                            rows={4}
+                            value={(slot.statusTriggers || []).join("\n")}
+                            placeholder={".gg/viniliecaffe\ndiscord.gg/viniliecaffe\nviniliecaffe.it"}
+                            onChange={(e) => setNamed(key, { statusTriggers: e.target.value.split("\n").map((x) => x.slice(0, 100)).slice(0, 15) })}
+                            className={cn(fieldClass, "font-mono")}
+                          />
+                        </Field>
+                      ) : null}
                       <EditorWithPreview
                         editor={
                             <DraftEditor

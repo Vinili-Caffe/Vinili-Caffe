@@ -71,6 +71,11 @@ function normalizeNamedSlot(key: NamedKey, raw?) {
     cooldownHours: Number.isFinite(cd) && cd >= 0 && cd <= 8760 ? cd : 24,
     draft: r.draft ? T.normalizeDraft(r.draft) : emptyDraft(),
     dm: normalizeDm(r.dm),
+    /* solo Fan: testi che, scritti nello status, danno il ruolo (vuoto = link del server, regola classica) */
+    statusTriggers:
+      key === "fan"
+        ? [...new Set<string>((Array.isArray(r.statusTriggers) ? r.statusTriggers : []).map((x) => String(x || "").trim().slice(0, 100)).filter(Boolean))].slice(0, 15)
+        : [],
   };
 }
 
