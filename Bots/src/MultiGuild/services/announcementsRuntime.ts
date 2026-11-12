@@ -31,6 +31,10 @@ function normalizeDm(raw?, fallbackContent = "Ciao {username}! Hai ottenuto {rol
   };
 }
 
+function roleIdList(v?) {
+  return [...new Set<string>((Array.isArray(v) ? v : []).filter((x) => T.isId(x)).map(String))].slice(0, 10);
+}
+
 function normalizeRoleRule(raw?, i = 0) {
   const r = raw && typeof raw === "object" ? raw : {};
   const ids = (v?) => [...new Set<string>((Array.isArray(v) ? v : []).filter((x) => T.isId(x)).map(String))].slice(0, 25);
@@ -133,6 +137,11 @@ function normalizeConfig(raw?) {
           }),
       /* privato a chi boosta (stesso testo per primo boost e successivi) */
       dm: normalizeDm(b.dm, "Grazie per il boost a **{server}**, {username}! 💜"),
+      /* ruoli dati da Vinili: al primo boost e dal secondo in poi */
+      firstRoleIds: roleIdList(b.firstRoleIds),
+      repeatRoleIds: roleIdList(b.repeatRoleIds),
+      /* quando il boost finisce li toglie */
+      removeRolesOnEnd: b.removeRolesOnEnd !== false,
     },
     named: normalizeNamed(r.named),
     roles: {
@@ -257,8 +266,39 @@ function boostVars(guild?, user?, extra: Record<string, string> = {}) {
 }
 
 /** Annuncio boost con i testi della dashboard. Usato dai server tenant e dal riconoscimento classico del principale. */
+/** Ruoli della dashboard a chi boosta (solo quelli che il bot può gestire). */
+async function giveBoostRoles(guild?, userOrMember?, repeat = false, cfg?: AnnConfig) {
+  const c = cfg || (await getConfig(String(guild?.id || "")).catch(() => null));
+  if (!c || !guild) return;
+  const ids = repeat ? [...c.boost.firstRoleIds, ...c.boost.repeatRoleIds] : c.boost.firstRoleIds;
+  if (!ids.length) return;
+  const uid = String(userOrMember?.id || userOrMember?.user?.id || "");
+  if (!uid) return;
+  const member = userOrMember?.roles?.add ? userOrMember : await guild.members?.fetch?.(uid).catch(() => null);
+  if (!member?.roles) return;
+  const me = guild.members?.me;
+  const ok = ids.filter((id) => {
+    const r = guild.roles?.cache?.get(id);
+    return r && !r.managed && me && r.position < me.roles.highest.position && !member.roles.cache?.has(id);
+  });
+  if (ok.length) await member.roles.add(ok, "Ruoli del boost (dashboard)").catch((err?) => global.logger?.warn?.("[ANNUNCI] ruoli boost:", guild.id, err?.message || err));
+}
+
+/** Boost finito: toglie i ruoli dati dalla dashboard (se l'opzione è accesa). */
+async function handleBoostEnded(oldMember?, newMember?) {
+  const guild = newMember?.guild;
+  if (!guild || newMember?.user?.bot) return;
+  if (!oldMember?.premiumSince || newMember.premiumSince) return;
+  const cfg = await getConfig(String(guild.id)).catch(() => null);
+  if (!cfg?.boost.removeRolesOnEnd) return;
+  const ids = [...new Set([...cfg.boost.firstRoleIds, ...cfg.boost.repeatRoleIds])].filter((id) => newMember.roles?.cache?.has(id));
+  if (!ids.length) return;
+  await newMember.roles.remove(ids, "Boost finito (dashboard)").catch((err?) => global.logger?.warn?.("[ANNUNCI] ruoli boost finito:", guild.id, err?.message || err));
+}
+
 async function sendBoostAnnouncement(client?, guild?, member?, opts: { repeat?: boolean; boostCount?: number; channelId?: string | null } = {}) {
   const cfg = await getConfig(String(guild?.id || ""));
+  await giveBoostRoles(guild, member, opts.repeat === true, cfg);
   /* annuncio nel canale e privato sono indipendenti: si può usare anche solo il privato */
   if (!cfg.boost.enabled && !cfg.boost.dm.enabled) return null;
   const channelId = cfg.boost.channelId || opts.channelId || null;
@@ -270,10 +310,12 @@ async function sendBoostAnnouncement(client?, guild?, member?, opts: { repeat?: 
   return postDraft(client, channelId, draft, vars, String(user?.id || "") || null);
 }
 
-/** Server principale con l'annuncio classico nel canale: manda solo il privato della dashboard (se acceso). */
-async function sendBoostDmOnly(client?, guild?, member?, boostCount?: number) {
+/** Server principale con l'annuncio classico nel canale: ruoli e privato della dashboard (se impostati). */
+async function sendBoostDmOnly(client?, guild?, member?, boostCount?: number, repeat = false) {
   const cfg = await getConfig(String(guild?.id || "")).catch(() => null);
-  if (!cfg || cfg.boost.enabled || !cfg.boost.dm.enabled) return false;
+  if (!cfg || cfg.boost.enabled) return false;
+  await giveBoostRoles(guild, member, repeat, cfg);
+  if (!cfg.boost.dm.enabled) return false;
   const user = member?.user || member;
   if (!user?.id) return false;
   const vars = boostVars(guild, user, boostCount ? { boosts: String(boostCount) } : {});
@@ -295,7 +337,7 @@ async function handleTenantBoostMessage(message?) {
   const gid = String(guild?.id || "");
   if (!gid || !BOOST_MESSAGE_TYPES.has(Number(message?.type)) || T.isMainGuild(gid)) return false;
   const cfg = await getConfig(gid);
-  if (!cfg.boost.enabled && !cfg.boost.dm.enabled) return false;
+  if (!cfg.boost.enabled && !cfg.boost.dm.enabled && !cfg.boost.firstRoleIds.length && !cfg.boost.repeatRoleIds.length) return false;
   const st = await getState(gid);
   if (st.lastBoostMessageId === String(message.id)) return true;
   const uid = String(message.author?.id || "");
@@ -791,6 +833,7 @@ export = {
   ensureMainSeed,
   sendBoostAnnouncement,
   sendBoostDmOnly,
+  handleBoostEnded,
   boostModuleEnabled,
   handleTenantBoostMessage,
   handleRoleAdded,

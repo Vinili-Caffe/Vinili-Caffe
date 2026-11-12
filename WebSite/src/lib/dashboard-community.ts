@@ -78,7 +78,17 @@ export type NamedAnnounceSlot = {
 };
 export type NamedAnnounceKey = "clantag" | "fan" | "promoter" | "propulsor" | "catalyst";
 export type AnnouncementsConfig = {
-  boost: { enabled: boolean; channelId: string | null; firstDraft: MsgDraft; repeatDraft: MsgDraft; dm?: AnnounceDm };
+  boost: {
+    enabled: boolean;
+    channelId: string | null;
+    firstDraft: MsgDraft;
+    repeatDraft: MsgDraft;
+    dm?: AnnounceDm;
+    /** ruoli dati al primo boost e dal secondo in poi */
+    firstRoleIds?: string[];
+    repeatRoleIds?: string[];
+    removeRolesOnEnd?: boolean;
+  };
   named: Record<NamedAnnounceKey, NamedAnnounceSlot>;
   roles: { enabled: boolean; rules: RoleAnnounceRule[] };
 };

@@ -214,6 +214,33 @@ export function AnnouncementsPanel({
             </div>
           ) : null}
         </FormGroup>
+        <FormGroup title="Ruoli da dare" description="Vinili li dà a chi boosta, anche con l'annuncio spento. Il ruolo del bot deve stare sopra questi ruoli.">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Al primo boost">
+              <MultiSelect
+                value={b.firstRoleIds || []}
+                onChange={(ids) => set({ ...cfg, boost: { ...b, firstRoleIds: ids.slice(0, 10) } })}
+                options={roleOptions(data.pickers.roles, guildId)}
+                placeholder="Nessuno"
+                className={fieldClass}
+              />
+            </Field>
+            <Field label="Dal secondo boost" hint="Si aggiungono a quelli del primo.">
+              <MultiSelect
+                value={b.repeatRoleIds || []}
+                onChange={(ids) => set({ ...cfg, boost: { ...b, repeatRoleIds: ids.slice(0, 10) } })}
+                options={roleOptions(data.pickers.roles, guildId)}
+                placeholder="Nessuno"
+                className={fieldClass}
+              />
+            </Field>
+          </div>
+          <div className="mt-3">
+            <SettingRow title="Toglili quando il boost finisce" description="Come fa Discord con il ruolo Server Booster.">
+              <Toggle size="sm" checked={b.removeRolesOnEnd !== false} onChange={(removeRolesOnEnd) => set({ ...cfg, boost: { ...b, removeRolesOnEnd } })} label="Togli i ruoli quando il boost finisce" />
+            </SettingRow>
+          </div>
+        </FormGroup>
         <DmExtra
           editorKey="boost"
           value={b.dm}

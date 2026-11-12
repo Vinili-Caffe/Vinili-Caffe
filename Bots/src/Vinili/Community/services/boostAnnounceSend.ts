@@ -27,7 +27,7 @@ async function sendBoostEmbeds(channel?, member?, times?, boostCount?, priorAnno
       return sentCount;
     }
     /* annuncio classico nel canale: il privato della dashboard parte lo stesso, se acceso */
-    if (member?.guild?.id) await A.sendBoostDmOnly(member.client, member.guild, member, Math.max(1, Number(boostCount || 0)));
+    if (member?.guild?.id) await A.sendBoostDmOnly(member.client, member.guild, member, Math.max(1, Number(boostCount || 0)), start + safeTimes >= 2);
   } catch (err) {
     global.logger?.warn?.("[guildMemberUpdate] boost dashboard:", err?.message || err);
   }
