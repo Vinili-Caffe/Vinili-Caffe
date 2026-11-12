@@ -111,26 +111,7 @@ export function WelcomePanel({
                 <p className="text-xs text-crema/55">Dati a chi entra. Il ruolo del bot deve stare sopra questi ruoli; i bot che entrano non li ricevono.</p>
               </div>
             </div>
-            {(data.systemAutoRoles || []).length ? (
-              <div className="mb-3 flex flex-wrap gap-2">
-                {(data.systemAutoRoles || []).map((r) => {
-                  const role = data.pickers.roles.find((x) => x.id === r.id);
-                  return (
-                    <span
-                      key={r.id}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-crema/[0.06] px-2.5 py-1 text-xs text-crema/80 ring-1 ring-sand/15"
-                      title="Dato in automatico dal sistema del bot: non si toglie da qui"
-                    >
-                      <span className="size-2 rounded-full" style={{ background: role?.color || "#99aab5" }} aria-hidden />
-                      <span className="font-semibold">@{role?.name || r.id}</span>
-                      <span className="text-crema/50">· {r.note}</span>
-                      <span className="rounded-full bg-crema/[0.08] px-1.5 text-[0.6rem] font-semibold uppercase tracking-wider text-crema/55">sistema</span>
-                    </span>
-                  );
-                })}
-              </div>
-            ) : null}
-            <Field label={(data.systemAutoRoles || []).length ? "Altri ruoli" : "Ruoli"}>
+            <Field label="Ruoli">
               <MultiSelect
                 value={cfg.autoRoleIds}
                 onChange={(autoRoleIds) => setCfg({ ...cfg, autoRoleIds: autoRoleIds.slice(0, 10) })}

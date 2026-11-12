@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ListChecks, MousePointerClick, Plus, Send, Smile, SmilePlus, Tags, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ListChecks, MousePointerClick, Plus, Send, ShieldCheck, Smile, SmilePlus, Tags, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { NumberField } from "@/components/ui/NumberField";
 import { MultiSelect, Select } from "@/components/ui/Select";
@@ -457,8 +457,37 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
     );
   }
 
+  const systemRoles = data.systemAutoRoles || [];
   return (
     <div className="space-y-3">
+      {systemRoles.length ? (
+        <section className="rounded-2xl bg-espresso/40 p-4 ring-1 ring-sand/10">
+          <div className="mb-3 flex items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-caramel/12 text-ember">
+              <ShieldCheck className="size-4" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-crema">Ruoli che dà il bot da solo</p>
+              <p className="text-xs text-crema/55">Verifica e anzianità: li assegna e li cambia il bot, non si modificano da qui.</p>
+            </div>
+          </div>
+          <ul className="grid gap-2 md:grid-cols-2">
+            {systemRoles.map((r) => {
+              const role = data.pickers.roles.find((x) => x.id === r.id);
+              return (
+                <li key={r.id} className="flex items-center gap-3 rounded-xl bg-espresso/50 px-3 py-2.5 ring-1 ring-sand/10">
+                  <span className="size-2.5 shrink-0 rounded-full" style={{ background: role?.color || "#99aab5" }} aria-hidden />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-crema">@{role?.name || r.id}</p>
+                    <p className="truncate text-xs text-crema/55">{r.note.charAt(0).toUpperCase() + r.note.slice(1)}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-crema/[0.08] px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-crema/55">sistema</span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-crema/60">Pannelli con pulsanti, menu o reazioni dove i membri si prendono da soli i ruoli: notifiche, colori, giochi…</p>
         <button type="button" className={primaryMini} disabled={data.rolePanels.length >= data.limits.rolePanels} onClick={() => setEdit(blank())}>
