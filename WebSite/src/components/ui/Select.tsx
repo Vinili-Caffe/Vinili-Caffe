@@ -20,6 +20,9 @@ type Base = {
   className?: string;
   menuClassName?: string;
   size?: "md" | "sm" | "pill";
+  /** Campo di ricerca in cima al menu (lingue, fusi…). */
+  searchable?: boolean;
+  searchPlaceholder?: string;
   "aria-label"?: string;
   id?: string;
 };
@@ -75,7 +78,7 @@ function useSelectOpen(disabled?: boolean) {
   const [mounted, setMounted] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const menu = useRef<HTMLUListElement>(null);
+  const menu = useRef<HTMLElement>(null);
   const uid = useId();
 
   useEffect(() => setMounted(true), []);
@@ -101,6 +104,12 @@ function useSelectOpen(disabled?: boolean) {
   return { open, setOpen, box, trigger, menu, uid, mounted };
 }
 
+function filterOptions(options: SelectOption[], query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return options;
+  return options.filter((o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q));
+}
+
 function MenuList({
   listId,
   ariaLabel,
@@ -112,6 +121,8 @@ function MenuList({
   pos,
   menuRef,
   menuClassName,
+  searchable,
+  searchPlaceholder,
 }: {
   listId: string;
   ariaLabel?: string;
@@ -121,12 +132,24 @@ function MenuList({
   selectedSet?: Set<string>;
   onPick: (o: SelectOption) => void;
   pos: MenuPos;
-  menuRef: React.RefObject<HTMLUListElement | null>;
+  menuRef: React.RefObject<HTMLElement | null>;
   menuClassName?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }) {
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const shown = useMemo(() => (searchable ? filterOptions(options, query) : options), [options, query, searchable]);
+
+  useEffect(() => {
+    if (!searchable) return;
+    const id = window.setTimeout(() => searchRef.current?.focus(), 0);
+    return () => window.clearTimeout(id);
+  }, [searchable]);
+
   return (
-    <motion.ul
-      ref={menuRef}
+    <motion.div
+      ref={menuRef as React.RefObject<HTMLDivElement>}
       id={listId}
       role="listbox"
       aria-label={ariaLabel}
@@ -144,51 +167,72 @@ function MenuList({
         maxHeight: pos.maxH,
       }}
       className={cn(
-        "z-[120] overflow-y-auto rounded-2xl bg-roast/97 p-1.5 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] ring-1 ring-sand/15 backdrop-blur-xl",
+        "z-[120] flex flex-col overflow-hidden rounded-2xl bg-roast/97 p-1.5 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] ring-1 ring-sand/15 backdrop-blur-xl",
         menuClassName,
       )}
     >
-      {options.map((o) => {
-        const on = multi ? selectedSet?.has(o.value) : o.value === value;
-        return (
-          <li key={o.value} role="presentation">
-            <button
-              type="button"
-              role="option"
-              aria-selected={!!on}
-              disabled={o.disabled}
-              onClick={() => {
-                if (o.disabled) return;
-                onPick(o);
-              }}
-              className={cn(
-                "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm leading-snug transition",
-                o.disabled && "cursor-not-allowed opacity-40",
-                on
-                  ? multi
-                    ? "bg-caramel/15 font-semibold text-crema"
-                    : "bg-caramel/20 font-semibold text-ember ring-1 ring-caramel/30"
-                  : "text-crema/85 hover:bg-crema/8 hover:text-crema",
-              )}
-            >
-              {multi ? (
-                <span
+      {searchable ? (
+        <div className="shrink-0 p-1 pb-1.5">
+          <input
+            ref={searchRef}
+            type="search"
+            value={query}
+            placeholder={searchPlaceholder || "Cerca…"}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+            className="w-full rounded-xl bg-crema/8 px-3 py-2 text-sm text-crema outline-none ring-1 ring-sand/20 placeholder:text-crema/40 focus:ring-caramel/45"
+          />
+        </div>
+      ) : null}
+      <ul className="min-h-0 flex-1 overflow-y-auto">
+        {shown.length === 0 ? (
+          <li className="px-3 py-2.5 text-sm text-crema/50">Nessun risultato.</li>
+        ) : (
+          shown.map((o) => {
+            const on = multi ? selectedSet?.has(o.value) : o.value === value;
+            return (
+              <li key={o.value} role="presentation">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={!!on}
+                  disabled={o.disabled}
+                  onClick={() => {
+                    if (o.disabled) return;
+                    onPick(o);
+                  }}
                   className={cn(
-                    "flex size-4 shrink-0 items-center justify-center rounded-md ring-1",
-                    on ? "bg-caramel text-ink ring-caramel" : "ring-sand/35",
+                    "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm leading-snug transition",
+                    o.disabled && "cursor-not-allowed opacity-40",
+                    on
+                      ? multi
+                        ? "bg-caramel/15 font-semibold text-crema"
+                        : "bg-caramel/20 font-semibold text-ember ring-1 ring-caramel/30"
+                      : "text-crema/85 hover:bg-crema/8 hover:text-crema",
                   )}
-                  aria-hidden
                 >
-                  {on ? <Check className="size-3" /> : null}
-                </span>
-              ) : null}
-              <span className="min-w-0 flex-1 truncate"><EmojiText text={o.label} /></span>
-              {!multi && on ? <Check className="size-3.5 shrink-0 text-caramel" aria-hidden /> : null}
-            </button>
-          </li>
-        );
-      })}
-    </motion.ul>
+                  {multi ? (
+                    <span
+                      className={cn(
+                        "flex size-4 shrink-0 items-center justify-center rounded-md ring-1",
+                        on ? "bg-caramel text-ink ring-caramel" : "ring-sand/35",
+                      )}
+                      aria-hidden
+                    >
+                      {on ? <Check className="size-3" /> : null}
+                    </span>
+                  ) : null}
+                  <span className="min-w-0 flex-1 truncate">
+                    <EmojiText text={o.label} />
+                  </span>
+                  {!multi && on ? <Check className="size-3.5 shrink-0 text-caramel" aria-hidden /> : null}
+                </button>
+              </li>
+            );
+          })
+        )}
+      </ul>
+    </motion.div>
   );
 }
 
@@ -202,6 +246,8 @@ export function Select({
   className,
   menuClassName,
   size = "md",
+  searchable,
+  searchPlaceholder,
   "aria-label": ariaLabel,
   id,
 }: Base & {
@@ -249,6 +295,8 @@ export function Select({
                 ariaLabel={ariaLabel}
                 options={options}
                 value={value}
+                searchable={searchable}
+                searchPlaceholder={searchPlaceholder}
                 onPick={(o) => {
                   onChange(o.value);
                   setOpen(false);

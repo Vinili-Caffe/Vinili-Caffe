@@ -101,6 +101,8 @@ export type GuildSettings = {
   updatesChannelId: string | null;
   /** Lingua dei messaggi del bot (null = quella del server Discord) */
   language: string | null;
+  /** Lingua Discord del server (preferred_locale → codice tenant), per l’etichetta “automatica” */
+  discordLanguage: string | null;
   /** Fuso orario IANA del server (predefinito Europe/Rome) */
   timezone: string;
   /** Ruoli che possono usare la dashboard anche senza Gestisci server */
@@ -527,6 +529,8 @@ function mapSettings(data: Record<string, unknown>): {
       prefixMaxLength: Number.isFinite(maxLen) && maxLen > 0 ? maxLen : PREFIX_MAX_LEN,
       updatesChannelId: s.updatesChannelId ? String(s.updatesChannelId) : null,
       language: typeof s.language === "string" && /^[a-z]{2}$/.test(s.language) ? s.language : null,
+      discordLanguage:
+        typeof s.discordLanguage === "string" && /^[a-z]{2}$/.test(s.discordLanguage) ? s.discordLanguage : null,
       timezone: typeof s.timezone === "string" && s.timezone.trim() ? s.timezone.trim() : "Europe/Rome",
       dashboardRoleIds: Array.isArray(s.dashboardRoleIds)
         ? s.dashboardRoleIds.map((id) => String(id || "").trim()).filter(Boolean)
