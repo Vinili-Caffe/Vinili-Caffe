@@ -14,13 +14,25 @@ const discadiaBumpService = createBumpReminderService({ model: buildBumpStateMod
 let discadiaVoteReminderLoopHandle = null;
 const BUMP_DUE_REMINDER_SWEEP_MS = 2 * 60 * 1000;
 
+async function classicBumpReminderStillOwns(service: "disboard" | "discadia") {
+  try {
+    const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+    const gid = String(IDs?.guilds?.main || "");
+    if (!gid) return true;
+    const { moduleHandlesBump } = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
+    return !(await moduleHandlesBump(gid, service));
+  } catch {
+    return true;
+  }
+}
+
 function startBumpDueReminderSweepLoop(client?) {
   if (!client || client._bumpDueReminderSweepStarted) return;
   client._bumpDueReminderSweepStarted = true;
   const tick = () => {
     Promise.all([
-      disboardService.sweepDueReminders(client),
-      discadiaBumpService.sweepDueReminders(client),
+      classicBumpReminderStillOwns("disboard").then((ok) => (ok ? disboardService.sweepDueReminders(client) : null)),
+      classicBumpReminderStillOwns("discadia").then((ok) => (ok ? discadiaBumpService.sweepDueReminders(client) : null)),
     ]).catch(() => null);
   };
   setInterval(tick, BUMP_DUE_REMINDER_SWEEP_MS);

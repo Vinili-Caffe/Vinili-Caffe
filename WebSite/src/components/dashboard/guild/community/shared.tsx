@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Smile } from "lucide-react";
 import { DiscordContent } from "@/components/discord/DiscordContent";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { toggleEmojiPicker, customEmojiUrl, type EmojiPick } from "@/components/ui/emoji-picker";
 import { Select } from "@/components/ui/Select";
+import { avatarUrl, displayName, useAuth, type DiscordUser } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { loadCommunity, type CommunityData, type MsgDraft, type PickerChannel, type PickerEmoji, type PickerRole } from "@/lib/dashboard-community";
-import { Field, SettingRow, Toggle, fieldClass, labelClass, miniBtn } from "../bits";
+import { ExpandableTextarea, Field, SettingRow, Toggle, fieldClass, labelClass, miniBtn } from "../bits";
 import { EmbedFieldsPreview, FieldsEditor, LinkButtonsEditor, V2Editor, V2Preview, blocksFromClassic, v2Of } from "./draftExtras";
 
 /* ───────────── dati ───────────── */
@@ -79,14 +80,17 @@ export function ImageUrlField({ label, value, onChange }: { label: string; value
   );
 }
 
-export function sampleVars(data: CommunityData | null, extra: Record<string, string> = {}) {
+export function sampleVars(data: CommunityData | null, extra: Record<string, string> = {}, viewer?: DiscordUser | null) {
+  const id = String(viewer?.id || "").trim();
+  const nice = viewer ? displayName(viewer) : "Tu";
+  const uname = String(viewer?.username || "").trim() || "tu";
   return {
-    user: "@Mario",
-    username: "Mario",
-    "user.name": "mario",
-    "user.id": "123456789012345678",
+    user: id ? `<@${id}>` : "@Tu",
+    username: nice,
+    "user.name": uname,
+    "user.id": id,
     server: data?.guild.name || "Il tuo server",
-    avatar: "https://cdn.discordapp.com/embed/avatars/0.png",
+    avatar: viewer ? avatarUrl(viewer, 256) : "https://cdn.discordapp.com/embed/avatars/0.png",
     servericon: data?.guild.icon ? `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png?size=256` : "https://cdn.discordapp.com/embed/avatars/1.png",
     serverbanner: data?.guild.banner
       ? `https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.${data.guild.banner.startsWith("a_") ? "gif" : "png"}?size=1024`
@@ -98,6 +102,13 @@ export function sampleVars(data: CommunityData | null, extra: Record<string, str
     args: "",
     ...extra,
   } as Record<string, string>;
+}
+
+/** Anteprima dashboard: usa sempre l’utente loggato (nome + avatar), non un Mario generico. */
+export function useSampleVars(data: CommunityData | null, extra: Record<string, string> = {}) {
+  const { user } = useAuth();
+  const extraKey = JSON.stringify(extra);
+  return useMemo(() => sampleVars(data, JSON.parse(extraKey) as Record<string, string>, user), [data, user, extraKey]);
 }
 
 export function PlaceholderChips({ items, onInsert }: { items: { token: string; hint: string }[]; onInsert: (t: string) => void }) {
@@ -241,14 +252,13 @@ export function RichTextArea({
           {value.length}/{max}
         </span>
       </div>
-      <textarea
+      <ExpandableTextarea
         ref={ref}
         value={value}
-        rows={rows}
+        rows={Math.max(rows, 5)}
         maxLength={max}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className={cn(fieldClass, "resize-y leading-relaxed")}
       />
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <EmojiButton emojis={emojis} onPick={(t) => onChange(insertAt(ref.current, value, t, max))} />
@@ -376,7 +386,7 @@ export function DraftEditor({
         </>
       ) : (
       <>
-      <RichTextArea label="Testo del messaggio" value={value.content} onChange={(content) => setDraft({ ...value, content })} max={2000} rows={3} emojis={emojis} placeholders={placeholders} placeholder="Facoltativo se usi l'embed" />
+      <RichTextArea label="Testo del messaggio" value={value.content} onChange={(content) => setDraft({ ...value, content })} max={2000} rows={6} emojis={emojis} placeholders={placeholders} placeholder="Facoltativo se usi l'embed" />
 
       <div className="rounded-xl bg-espresso/40 p-3 ring-1 ring-sand/10">
         <div className="flex items-center justify-between gap-3">
@@ -398,7 +408,7 @@ export function DraftEditor({
                 <ColorPicker value={e.color} onChange={(color) => setEmbed({ color })} className="mt-1.5 flex" />
               </div>
             </div>
-            <RichTextArea label="Descrizione" value={e.description} onChange={(description) => setEmbed({ description })} max={4096} rows={5} emojis={emojis} placeholders={placeholders} />
+            <RichTextArea label="Descrizione" value={e.description} onChange={(description) => setEmbed({ description })} max={4096} rows={8} emojis={emojis} placeholders={placeholders} />
             <FieldsEditor fields={e.fields ?? []} onChange={(fields) => setEmbed({ fields })} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Autore (facoltativo)">
@@ -432,7 +442,23 @@ export function DraftEditor({
 
 /* ───────────── anteprima stile Discord ───────────── */
 
-const fillVars = (s: string, vars: Record<string, string>) => s.replace(/\{([a-zA-Z_.]+)\}/g, (m, k: string) => vars[k] ?? m);
+const fillVars = (text: string, vars: Record<string, string>) => {
+  let s = String(text || "");
+  if (Object.prototype.hasOwnProperty.call(vars, "bonus")) {
+    const bonusRaw = String(vars.bonus ?? "");
+    if (!bonusRaw.trim()) {
+      s = s
+        .replace(/\n[ \t]*\{bonus\}[ \t]*(?=\n|$)/g, "")
+        .replace(/\{bonus\}[ \t]*\n/g, "")
+        .replace(/\{bonus\}/g, "");
+    } else {
+      const bonusBody = bonusRaw.replace(/^\n+/, "").replace(/\n+$/, "");
+      s = s.replace(/\n[ \t]*\{bonus\}/g, `\n${bonusBody}`);
+      s = s.replace(/\{bonus\}/g, bonusRaw);
+    }
+  }
+  return s.replace(/\{([a-zA-Z_.]+)\}/g, (m, k: string) => (k === "bonus" ? m : vars[k] ?? m));
+};
 
 export type PreviewRow =
   | { kind: "buttons"; items: { label: string; emoji?: string; style: 1 | 2 | 3 | 4 | 5 }[] }
@@ -496,7 +522,10 @@ export function DiscordMessagePreview({
   bot?: { name: string; avatarUrl: string } | null;
   className?: string;
 }) {
+  const previewUserId = String(vars["user.id"] || "").trim();
+  const previewUserName = String(vars.username || vars["user.name"] || "").trim() || "tu";
   const names = {
+    users: previewUserId ? { [previewUserId]: previewUserName } : {},
     roles: Object.fromEntries(roles.map((r) => [r.id, r.name])),
     channels: Object.fromEntries(channels.map((c) => [c.id, c.name])),
   };

@@ -165,6 +165,90 @@ async function main() {
     res.status(200).json({ ok: true, service: "discadia-vote-intake" });
   });
 
+  const spillDir = String(process.env.DISCADIA_VOTE_SPILL_DIR || path.join(ROOT, "data")).trim();
+  const spillFile = path.join(spillDir, "discadia-vote-spill.jsonl");
+  try {
+    fs.mkdirSync(spillDir, { recursive: true });
+  } catch (_) {}
+
+  function appendSpill(entry: Record<string, any>) {
+    try {
+      fs.appendFileSync(spillFile, `${JSON.stringify(entry)}\n`, "utf8");
+      return true;
+    } catch (err) {
+      console.error("[DISCADIA INTAKE] spill write failed:", (err as any)?.message || err);
+      return false;
+    }
+  }
+
+  async function enqueueOnce(userId: string, rawSnippet: string, source = "intake") {
+    const out = await enqueuePendingDiscadiaVote(guildId, userId, { source, rawSnippet });
+    return Boolean(out?.ok);
+  }
+
+  async function enqueueWithRetry(userId: string, rawSnippet: string, source = "intake", spillOnFail = true) {
+    let lastErr: any = null;
+    for (let i = 0; i < 5; i++) {
+      try {
+        if (await enqueueOnce(userId, rawSnippet, source)) return true;
+        lastErr = "enqueue_failed";
+      } catch (err) {
+        lastErr = err;
+      }
+      await new Promise((r) => setTimeout(r, 250 * (i + 1) * (i + 1)));
+    }
+    console.error("[DISCADIA INTAKE] enqueue failed after retries:", userId, lastErr?.message || lastErr);
+    if (spillOnFail) {
+      appendSpill({
+        at: new Date().toISOString(),
+        guildId,
+        userId,
+        rawSnippet,
+        source: `${source}-spill`,
+      });
+    }
+    return false;
+  }
+
+  async function replaySpill() {
+    let raw = "";
+    try {
+      if (!fs.existsSync(spillFile)) return;
+      raw = fs.readFileSync(spillFile, "utf8");
+    } catch (_) {
+      return;
+    }
+    if (!raw.trim()) return;
+    const lines = raw.split(/\n/).map((l) => l.trim()).filter(Boolean);
+    const kept: string[] = [];
+    for (const line of lines) {
+      try {
+        const row = JSON.parse(line);
+        const userId = String(row?.userId || "").trim();
+        if (!/^\d{17,22}$/.test(userId)) continue;
+        const ok = await enqueueWithRetry(
+          userId,
+          String(row?.rawSnippet || "").slice(0, 240),
+          String(row?.source || "spill"),
+          false,
+        );
+        if (!ok) kept.push(line);
+      } catch (_) {
+        kept.push(line);
+      }
+    }
+    try {
+      fs.writeFileSync(spillFile, kept.length ? `${kept.join("\n")}\n` : "", "utf8");
+    } catch (_) {}
+  }
+
+  setInterval(() => {
+    void replaySpill().catch(() => {});
+  }, 30_000).unref?.();
+  setTimeout(() => {
+    void replaySpill().catch(() => {});
+  }, 5_000).unref?.();
+
   async function handleDiscadiaPost(req?, res?) {
     try {
       const got = extractDiscadiaProvidedSecret(req);
@@ -183,14 +267,17 @@ async function main() {
         console.warn("[DISCADIA INTAKE] User ID missing; raw:", compact.slice(0, 200));
         return res.status(400).send("User ID missing");
       }
-      await enqueuePendingDiscadiaVote(guildId, userId, {
-        source: "intake",
-        rawSnippet: rawText.replace(/\s+/g, " ").trim().slice(0, 240),
-      });
-      return res.status(200).send("Queued");
+      const rawSnippet = rawText.replace(/\s+/g, " ").trim().slice(0, 240);
+      /* Rispondi subito: se Mongo è lento Discadia chiude (HTTP 499) e il voto si perde. */
+      res.status(200).send("Queued");
+      console.log(`[DISCADIA INTAKE] accepted user=${userId}`);
+      void enqueueWithRetry(userId, rawSnippet, "intake").catch((err) =>
+        console.error("[DISCADIA INTAKE] bg enqueue:", err?.message || err),
+      );
+      return;
     } catch (err) {
       console.error("[DISCADIA INTAKE]", err?.message || err);
-      return res.status(500).send("Internal Server Error");
+      if (!res.headersSent) return res.status(500).send("Internal Server Error");
     }
   }
 

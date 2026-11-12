@@ -6,7 +6,7 @@ import { MultiSelect } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { communityApi, type WelcomeSettings } from "@/lib/dashboard-community";
 import { Field, Notice, RowsSkeleton, Toggle, fieldClass, miniBtn, primaryMini } from "../bits";
-import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, MEMBER_PLACEHOLDERS, roleOptions, sampleVars, useCommunity } from "./shared";
+import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, MEMBER_PLACEHOLDERS, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 type Tab = "welcome" | "goodbye" | "dm" | "roles";
 
@@ -25,7 +25,7 @@ export function WelcomePanel({
   const [cfg, setCfg] = useState<WelcomeSettings | null>(null);
   const [saved, setSaved] = useState<string>("");
   const [busy, setBusy] = useState<string | null>(null);
-  const vars = useMemo(() => sampleVars(data), [data]);
+  const vars = useSampleVars(data);
 
   useEffect(() => {
     if (!data) return;

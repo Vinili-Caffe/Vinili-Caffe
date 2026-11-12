@@ -1,7 +1,6 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { recordDiscadiaBump, recordBump, awardBumpVoteExp } = require("./bumpService") as typeof import("./bumpService");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
-const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   extractUserIdFromText,
   flattenEmbedText,
@@ -250,7 +249,6 @@ async function handleDisboardBump(message?, client?) {
     message.guild.id,
     `source=${detectionSource} msg=${message.id} channel=${message.channelId}`,
   );
-  const bumpMention = bumpUserId ? `<@${bumpUserId}>` : "";
   const disboardCooldownMs = (client?.config?.disboard?.cooldownMinutes ?? 120) * 60 * 1000;
   let recordResult;
   try {
@@ -263,30 +261,9 @@ async function handleDisboardBump(message?, client?) {
     releaseBumpDedupeKey(dedupeKey);
     throw err;
   }
-  const thanksHead = bumpMention
-    ? `${E.VC_ThankYou} **Grazie ${bumpMention} per aver bumpato il server!**`
-    : `${E.VC_ThankYou} **Grazie per aver bumpato il server!**`;
-  let thanksMessage = `${thanksHead}\n` +
-    `${E.VC_HelloKittyGun} Ci __vediamo__ nuovamente tra **due ore!**`;
+  /* Ringraziamento: solo draft dashboard (modulo Bump e voti). Qui restano detect/record/exp. */
   if (bumpUserId && recordResult?.previousLastBumpAt !== undefined) {
-    const reward = await awardBumpVoteExp(client, message.guild, bumpUserId, "disboard", recordResult.previousLastBumpAt, disboardCooldownMs, undefined, recordResult?.previousReminderSentAt || null, recordResult?.previousLastBumpUserId || null).catch(() => null);
-    if (reward?.effectiveExp != null) {
-      const parts = [thanksHead, `${E.VC_EXP} **` + reward.effectiveExp + " exp** guadagnati!"];
-      if (reward.fastBonus > 0) parts.push(`${E.VC_Flame} Risposta rapida +` + reward.fastBonus + " exp");
-      if (reward.streakBonus > 0) parts.push(`${E.VC_Flame} Streak ` + reward.newStreak + " +" + reward.streakBonus + " exp");
-      parts.push(`${E.VC_HelloKittyGun} Ci __vediamo__ nuovamente tra **due ore!**`);
-      thanksMessage = parts.join("\n");
-    }
-  }
-  if (channel?.isTextBased?.()) {
-    try {
-      await channel.send({
-        content: thanksMessage.trim(),
-        reply: { messageReference: message.id, failIfNotExists: false },
-      });
-    } catch {
-      await channel.send({ content: thanksMessage.trim() }).catch(() => { });
-    }
+    await awardBumpVoteExp(client, message.guild, bumpUserId, "disboard", recordResult.previousLastBumpAt, disboardCooldownMs, undefined, recordResult?.previousReminderSentAt || null, recordResult?.previousLastBumpUserId || null).catch(() => null);
   }
   return true;
 }
@@ -395,7 +372,6 @@ async function handleDiscadiaBump(message?, client?) {
       logBumpSkipDebug("[DISCADIA BUMP DETECT]", message, "user_not_resolved", "fallback=record_with_null_user");
     }
   }
-  const bumpMention = bumpUserId ? `<@${bumpUserId}>` : "";
   try {
     const discadiaBumpAt = (() => {
       const ts = Number(message.createdTimestamp);
@@ -406,21 +382,7 @@ async function handleDiscadiaBump(message?, client?) {
     releaseBumpDedupeKey(dedupeKey);
     throw err;
   }
-  const thanksHead = bumpMention
-    ? `${E.VC_ThankYou} **Grazie ${bumpMention} per aver bumpato il server!**`
-    : `${E.VC_ThankYou} **Grazie per aver bumpato il server!**`;
-  let thanksMessage = `${thanksHead}\n` +
-    `${E.VC_HelloKittyGun} Ci __vediamo__ nuovamente tra **24 ore!**`;
-  if (channel?.isTextBased?.()) {
-    try {
-      await channel.send({
-        content: thanksMessage.trim(),
-        reply: { messageReference: message.id, failIfNotExists: false },
-      });
-    } catch {
-      await channel.send({ content: thanksMessage.trim() }).catch(() => { });
-    }
-  }
+  /* Ringraziamento: solo draft dashboard (modulo Bump e voti). */
   return true;
 }
 

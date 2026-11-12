@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { communityApi, emptyDraft, type SavedMessage } from "@/lib/dashboard-community";
 import { EditorHeader, Field, FormGroup, Notice, RowsSkeleton, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
-import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, formatWhen, sampleVars, useCommunity } from "./shared";
+import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, formatWhen, useCommunity, useSampleVars } from "./shared";
 import { ChatRemindersSection } from "./ChatRemindersSection";
 
 const TIMES = Array.from({ length: 96 }, (_, i) => {
@@ -60,7 +60,7 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
   const [confirmDel, setConfirmDel] = useState(false);
   const [reminderEditing, setReminderEditing] = useState(false);
 
-  const vars = useMemo(() => sampleVars(data), [data]);
+  const vars = useSampleVars(data);
 
   if (error && !data) return <Notice error>{error}</Notice>;
   if (!data) return <RowsSkeleton rows={4} />;

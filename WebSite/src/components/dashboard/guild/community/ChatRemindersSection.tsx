@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, BellRing, Plus, Trash2 } from "lucide-react";
 import { communityApi, emptyDraft, type ChatReminder, type CommunityData } from "@/lib/dashboard-community";
 import { EditorHeader, Field, FormGroup, Notice, RowsSkeleton, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
-import { DiscordMessagePreview, DraftEditor, EditorWithPreview, sampleVars } from "./shared";
+import { DiscordMessagePreview, DraftEditor, EditorWithPreview, useSampleVars } from "./shared";
 
 /**
  * Promemoria a rotazione che il bot manda in chat sul server principale (vota, recensioni, ticket…).
@@ -30,7 +30,7 @@ export function ChatRemindersSection({
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [draftItem, setDraftItem] = useState<ChatReminder | null>(null);
   const [busy, setBusy] = useState(false);
-  const vars = useMemo(() => sampleVars(data), [data]);
+  const vars = useSampleVars(data);
 
   useEffect(() => {
     let alive = true;

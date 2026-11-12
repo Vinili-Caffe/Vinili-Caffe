@@ -31,7 +31,7 @@ import { PARTNERSHIP_SAMPLES, PlaceholderList } from "./PlaceholderList";
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
-import { Field, FormGroup, Notice, PremiumBadge, PremiumLock, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, FormSkeleton } from "./bits";
+import { ExpandableTextarea, Field, FormGroup, Notice, PremiumBadge, PremiumLock, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, FormSkeleton } from "./bits";
 import { isPartnershipModuleTab, type PartnershipModuleTabId } from "../guildSections";
 
 type Tab = PartnershipModuleTabId;
@@ -408,13 +408,12 @@ export function PartnershipPanel({
                 ) : null}
                 {draft.partnerDesc.mode === "static" ? (
                   <Field label="Testo">
-                    <textarea
+                    <ExpandableTextarea
                       name="partner-description"
                       value={draft.partnerDesc.staticText || ""}
                       maxLength={4000}
-                      rows={5}
+                      rows={7}
                       onChange={(e) => set({ partnerDesc: { ...draft.partnerDesc, staticText: e.target.value } })}
-                      className={fieldClass}
                     />
                     <MessagePreview text={draft.partnerDesc.staticText} roles={roles} channels={channels} />
                   </Field>
@@ -548,14 +547,13 @@ export function PartnershipPanel({
                 />
               </Field>
               <Field label="Testo">
-                <textarea
+                <ExpandableTextarea
                   ref={tyTextRef}
                   onFocus={() => (tyLastField.current = "description")}
                   name="thank-you-description"
                   value={draft.thankYouEmbed.description || ""}
-                  rows={3}
+                  rows={6}
                   onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, description: e.target.value || null } })}
-                  className={fieldClass}
                 />
               </Field>
               <MessagePreview

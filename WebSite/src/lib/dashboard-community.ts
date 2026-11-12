@@ -112,8 +112,8 @@ export type BumpVotesConfig = {
     channelId: string | null;
     thanks: { enabled: boolean };
     rewardRoleId: string | null;
-    /** per servizio: ringraziamento e ore del ruolo */
-    perService: Record<VoteService, { draft: MsgDraft; hours: number }>;
+    /** per servizio: ringraziamento, ore del ruolo e (solo main) promemoria DM */
+    perService: Record<VoteService, { draft: MsgDraft; hours: number; reminderDraft: MsgDraft; reminderEnabled: boolean }>;
   };
 };
 export type BumpVotesLeaderboard = { bumps: { id: string; name: string; count: number }[]; votes: { id: string; name: string; count: number }[] };
@@ -385,7 +385,7 @@ export const communityApi = {
   saveAnnouncements: (t: string, g: string, config: AnnouncementsConfig) => call<{ config: AnnouncementsConfig }>(t, g, "/announcements", "PATCH", { config }),
   getBumpVotes: (t: string, g: string) =>
     call<{ isMainGuild?: boolean; imported?: boolean; config?: BumpVotesConfig; urls?: { topgg: string; discadia: string } }>(t, g, `/bump-votes?_=${Date.now()}`),
-  saveBumpVotes: (t: string, g: string, config: BumpVotesConfig) =>
+  saveBumpVotes: (t: string, g: string, config: Partial<BumpVotesConfig>) =>
     call<{ config: BumpVotesConfig; urls: { topgg: string; discadia: string } }>(t, g, "/bump-votes", "PATCH", { config }),
   regenBumpVotesToken: (t: string, g: string) => call<{ config: BumpVotesConfig; urls: { topgg: string; discadia: string } }>(t, g, "/bump-votes/token", "POST", {}),
   bumpVotesLeaderboard: (t: string, g: string) => call<BumpVotesLeaderboard>(t, g, `/bump-votes/leaderboard?_=${Date.now()}`),

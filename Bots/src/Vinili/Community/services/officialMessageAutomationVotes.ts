@@ -1,8 +1,6 @@
-const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js") as typeof import("discord.js");
 const { recordDiscadiaVote, awardBumpVoteExp, getVoteCooldownMs, isVoteListingRecordedAtOrAfter } = require("./bumpService") as typeof import("./bumpService");
 const { upsertVoteRole } = require("./communityOpsService") as typeof import("./communityOpsService");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
-const { TENANT_EMBED_COLOR } = require("../../../MultiGuild/utils/tenantEmbedBranding") as typeof import("../../../MultiGuild/utils/tenantEmbedBranding");
 const { resolveVoteRoleIdForGuild } = require("../utils/resolveVoteRoleId") as typeof import("../utils/resolveVoteRoleId");
 const { getCachedOrFetchMember } = require("./officialMessageAutomationMemberCache") as typeof import("./officialMessageAutomationMemberCache");
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
@@ -15,7 +13,6 @@ const {
 
 const VOTE_CHANNEL_ID = IDs.channels.supporters;
 const VOTE_ROLE_ID = IDs.roles.Voter;
-const VOTE_URL = IDs.links.vote;
 
 function getVoteManagerBotIds(client?) {
   const discadiaCfg = client?.config?.discadia || {};
@@ -89,19 +86,11 @@ async function handleVoteManagerMessage(message?, client?, options: Record<strin
   return handled;
 }
 
-function resolvePublicVoteHubUrl(client?) {
-  const fromTopgg = String(client?.config?.topgg?.votePageUrl || "").trim();
-  const fromDiscadia = String(client?.config?.discadiaVoteReminder?.voteUrl || "").trim();
-  const fromIds = String(IDs.links?.vote || "").trim();
-  return fromTopgg || fromDiscadia || fromIds;
-}
-
 async function processDiscadiaVote(guild?, user?, client?, options: Record<string, any> = {}) {
   if (!guild || !user || !client) return false;
   const voteListing = options?.voteListing === "topgg" ? "topgg" : "discadia";
   const voteCooldownMs = getVoteCooldownMs(client, voteListing);
   const userId = String(user?.id || "").trim();
-    const userMention = /^\d{16,22}$/.test(userId) ? `<@${userId}>` : "Utente";
 
   let expValue = 0;
   let resolvedVoteCount = null;
@@ -144,25 +133,20 @@ async function processDiscadiaVote(guild?, user?, client?, options: Record<strin
     global.logger?.warn?.("[officialMessageAutomation] SW vote reward: ", err?.message || err);
   }
 
-  const voteCooldownHours = Math.max(1, Math.round(voteCooldownMs / (60 * 60 * 1000)));
-  const voteAgainHoursLabel = voteCooldownHours === 1 ? "1 ora" : `${voteCooldownHours} ore`;
-  const voteLabel = typeof resolvedVoteCount === "number" ? `${resolvedVoteCount}°` : "";
-  const votePlatformLabel = voteListing === "topgg" ? "Top.gg" : "Discadia";
   const resolvedVoteRoleId = await resolveVoteRoleIdForGuild(guild).catch(() => "");
-  const bonusText = voteRewardExtras.length ? voteRewardExtras.map((l?) => `\n${l}`).join("") : "";
+  const bonusText = voteRewardExtras.length ? voteRewardExtras.join("\n") : "";
 
-  /* Preferisci i draft «Bump e voti» della dashboard (main incluso). */
-  let sentConfigured = false;
+  /* Messaggio solo dai draft dashboard («Bump e voti»). */
   try {
     const { trySendConfiguredVoteThanks } = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
-    sentConfigured = await trySendConfiguredVoteThanks(
+    await trySendConfiguredVoteThanks(
       client,
       guild,
       userId,
       voteListing,
       {
         exp: String(expValue),
-        count: voteLabel ? String(resolvedVoteCount) : "?",
+        count: typeof resolvedVoteCount === "number" ? String(resolvedVoteCount) : "?",
         bonus: bonusText,
         fast: "0",
         streak: "0",
@@ -171,61 +155,6 @@ async function processDiscadiaVote(guild?, user?, client?, options: Record<strin
     );
   } catch (err) {
     global.logger?.warn?.("[officialMessageAutomation] vote draft: ", err?.message || err);
-  }
-
-  if (!sentConfigured) {
-    const { DIVIDER_URL: dividerUrl } = require("../../../shared/discord/constants") as typeof import("../../../shared/discord/constants");
-    const { userAvatarUrlStatic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
-    const voteRoleText = resolvedVoteRoleId
-      ? `${E.VC_Money} ${E.VC_Arrow} Il ruolo <@&${resolvedVoteRoleId}> per ${voteAgainHoursLabel}`
-      : `${E.VC_Money} ${E.VC_Arrow} Reward voto assegnata per ${voteAgainHoursLabel}`;
-    const thankLine =
-      voteListing === "topgg"
-        ? `${E.VC_ThankYou} Grazie ${userMention} per aver votato su **Top.gg**!`
-        : `${E.VC_ThankYou} Grazie ${userMention} per aver votato su **Discadia**!`;
-    const descriptionLines = [
-      thankLine,
-      "",
-      "`Hai guadagnato:`",
-      `${E.VC_EXP} ${E.VC_Arrow} **${expValue} EXP** per il tuo ${voteLabel ? `**${voteLabel} voto** su **${votePlatformLabel}**` : `**voto** su **${votePlatformLabel}**`}`,
-      ...(voteRewardExtras.length > 0 ? voteRewardExtras : []),
-      voteRoleText,
-      "",
-      `${E.VC_update} Vota di nuovo tra __${voteAgainHoursLabel}__ per ottenere **altri exp** dal **bottone sottostante**.`,
-    ];
-    const botFooterIcon =
-      userAvatarUrlStatic(client?.user, { size: 64 }) ||
-      (typeof client?.user?.displayAvatarURL === "function"
-        ? client.user.displayAvatarURL({ size: 64, extension: "png", forceStatic: true })
-        : null);
-    const embed = new EmbedBuilder()
-      .setColor(TENANT_EMBED_COLOR)
-      .setTitle(`${E.VC_Vote} **Un nuovo voto!**`)
-      .setDescription(descriptionLines.join("\n"))
-      .setFooter({
-        text: "Ogni volta che voterai il valore dell'exp guadagnata varierà",
-        iconURL: botFooterIcon || undefined,
-      })
-      .setImage(dividerUrl);
-
-    const components = [];
-    const linkVoteUrl = resolvePublicVoteHubUrl(client) || VOTE_URL;
-    if (linkVoteUrl) {
-      components.push(
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setStyle(ButtonStyle.Link)
-            .setEmoji(E.VC_HeartPink)
-            .setLabel("Vota cliccando qui")
-            .setURL(linkVoteUrl),
-        ),
-      );
-    }
-
-    const channel = client.channels.cache.get(VOTE_CHANNEL_ID) || await client.channels.fetch(VOTE_CHANNEL_ID).catch(() => null);
-    if (channel?.isTextBased?.()) {
-      await channel.send({ content: userMention, embeds: [embed], components, }).catch(() => { });
-    }
   }
 
   void (async () => {

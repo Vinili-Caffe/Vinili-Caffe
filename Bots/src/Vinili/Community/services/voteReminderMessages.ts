@@ -197,10 +197,26 @@ async function sendVoteFallbackChannelReminder(client?, guildId?, userId?, voteL
     return false;
   const channel = client.channels.cache.get(fallbackId) || (await getClientChannelCached(client, fallbackId));
   if (!channel) return false;
+  const listing = voteListingKey(voteListing);
+  try {
+    const { trySendConfiguredVoteReminder } = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
+    const result = await trySendConfiguredVoteReminder(client, null, {
+      guildId: String(guildId || guild.id),
+      userId: String(userId),
+      voteListing: listing,
+      asChannelFallback: true,
+      channel,
+    });
+    if (result === "sent" || result === "skipped") {
+      lastVoteFallbackSentAt.set(key, now);
+      return result === "sent";
+    }
+    if (result === "failed") return false;
+  } catch (_) {}
   const { embed, components } = await buildVoteReminderEmbed(client, {
     guildId,
     userId,
-    voteListing: voteListingKey(voteListing),
+    voteListing: listing,
   });
   const sent = await channel
     .send({
@@ -307,11 +323,22 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
     if (!user && client?.users?.fetch) user = await client.users.fetch(uid).catch(() => null);
     if (!user) return { ok: true, delivered: false, skippedOptOut: false };
 
-    const { embed, components } = await buildVoteReminderEmbed(client, { guildId: gid, userId: uid, voteListing: listing });
     let delivered = false;
     try {
-      await user.send({ embeds: [embed], ...(components.length ? { components } : {}) });
-      delivered = true;
+      let dashboardResult: "not_owned" | "skipped" | "sent" | "failed" = "not_owned";
+      try {
+        const { trySendConfiguredVoteReminder } = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
+        dashboardResult = await trySendConfiguredVoteReminder(client, user, { guildId: gid, userId: uid, voteListing: listing });
+      } catch (_) {}
+      if (dashboardResult === "sent" || dashboardResult === "skipped") {
+        delivered = true;
+      } else if (dashboardResult === "failed") {
+        delivered = await sendVoteFallbackChannelReminder(client, gid, uid, listing);
+      } else {
+        const { embed, components } = await buildVoteReminderEmbed(client, { guildId: gid, userId: uid, voteListing: listing });
+        await user.send({ embeds: [embed], ...(components.length ? { components } : {}) });
+        delivered = true;
+      }
     } catch (err) {
       if (isUserDmPrivacyBlockedError(err)) {
         const voteCategory = listing === "topgg" ? "vote_topgg" : "bump";

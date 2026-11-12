@@ -15,8 +15,8 @@ import {
   EditorWithPreview,
   EmojiButton,
   EmojiGlyph,
-  sampleVars,
   useCommunity,
+  useSampleVars,
   type PreviewRow,
 } from "./shared";
 
@@ -120,7 +120,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
   const { data, setData, error } = useCommunity(guildId, token);
   const [edit, setEditRaw] = useState<RolePanel | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const vars = useMemo(() => sampleVars(data), [data]);
+  const vars = useSampleVars(data);
   const setEdit = (p: RolePanel | null) => setEditRaw(p ? withDefaults(p) : null);
 
   if (error && !data) return <Notice error>{error}</Notice>;

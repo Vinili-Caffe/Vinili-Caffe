@@ -34,6 +34,31 @@ import {
   X,
   Languages,
 } from "lucide-react";
+import {
+  AudioLines as IcTts,
+  BarChart3 as IcStats,
+  Coins as IcEconomy,
+  Code2 as IcDev,
+  Crown as IcAdmin,
+  Lock as IcSecurity,
+  Gamepad2 as IcGames,
+  Gavel as IcModeration,
+  Gem as IcPremium,
+  Handshake as IcPartnership,
+  Hash as IcGeneric,
+  LayoutGrid as IcAll,
+  Music2 as IcMusic,
+  Pin as IcBoard,
+  Settings2 as IcSettings,
+  ShieldCheck as IcStaff,
+  Swords as IcStarwars,
+  Terminal as IcCommands,
+  Ticket as IcTicket,
+  TrendingUp as IcLevel,
+  Users as IcCommunity,
+  Wrench as IcUtility,
+  type LucideIcon,
+} from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
 import { confirmDialog } from "@/components/ui";
 import { Select } from "@/components/ui/Select";
@@ -85,6 +110,7 @@ import {
   isModerationModuleTab,
   isPartnershipModuleTab,
   isRegistroModuleTab,
+  REGISTRO_MODULE_TABS,
   isAnnunciModuleTab,
   isTicketModuleTab,
   sectionTabs,
@@ -147,7 +173,11 @@ const AnnouncementsPanel = dynamic(() => import("./guild/community/Announcements
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
 
-const BumpVotesPanel = dynamic(() => import("./guild/community/BumpVotesPanel").then((m) => m.BumpVotesPanel), {
+const BumpPanel = dynamic(() => import("./guild/community/BumpVotesPanel").then((m) => m.BumpPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+const VotesPanel = dynamic(() => import("./guild/community/BumpVotesPanel").then((m) => m.VotesPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
@@ -224,17 +254,101 @@ const SECTION_LEAD: Record<Section, string> = {
   benvenuto: "Annunci automatici: ingresso, uscita, boost, clan tag, status, inviti e ruoli custom.",
   risposte: "Il bot risponde da solo quando qualcuno scrive certe parole.",
   contatori: "Canali vocali che mostrano membri, boost e altri numeri, aggiornati da soli.",
-  bumpvoti: "Bump di Disboard e Discadia e voti su Top.gg e Discadia: ringraziamenti, ricompense, promemoria e classifica.",
+  bump: "Bump di Disboard e Discadia: ringraziamenti, ricompense e promemoria quando si può ribumpare.",
+  voti: "Voti su Top.gg e Discadia: webhook, ringraziamenti, ruolo e (sul principale) promemoria in DM.",
   giveaway: "Crea giveaway, guarda chi partecipa ed estrai i vincitori.",
   sondaggi: "Sondaggi di Discord pubblicati dalla dashboard, con i risultati.",
 };
 
+/* icona per categoria (comandi e aree del registro); per le altre una generica */
+const SIDE_TAB_ICONS: Record<string, LucideIcon> = {
+  all: IcAll,
+  tutti: IcAll,
+  tutto: IcAll,
+  utility: IcUtility,
+  bacheca: IcBoard,
+  music: IcMusic,
+  musica: IcMusic,
+  tts: IcTts,
+  minigames: IcGames,
+  minigiochi: IcGames,
+  moderation: IcModeration,
+  moderazione: IcModeration,
+  partnership: IcPartnership,
+  level: IcLevel,
+  livelli: IcLevel,
+  stats: IcStats,
+  statistiche: IcStats,
+  economy: IcEconomy,
+  economia: IcEconomy,
+  staff: IcStaff,
+  admin: IcAdmin,
+  ticket: IcTicket,
+  tickets: IcTicket,
+  starwars: IcStarwars,
+  security: IcSecurity,
+  dev: IcDev,
+  settings: IcSettings,
+  impostazioni: IcSettings,
+  commands: IcCommands,
+  comandi: IcCommands,
+  community: IcCommunity,
+  premium: IcPremium,
+};
+const sideTabIcon = (t: { id: string; label: string }) =>
+  SIDE_TAB_ICONS[String(t.id || "").toLowerCase()] || SIDE_TAB_ICONS[String(t.label || "").toLowerCase().replace(/\s+/g, "")] || IcGeneric;
+
+/** Categorie della pagina in un elenco a sinistra (su telefono una fila scorrevole sopra il contenuto). */
+function SideTabsLayout({
+  label,
+  tabs,
+  active,
+  onSelect,
+  children,
+}: {
+  label: string;
+  tabs: readonly { id: string; label: string }[];
+  active: string;
+  onSelect: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
+      <nav aria-label={label} className="lg:sticky lg:top-20">
+        <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-0.5 lg:mx-0 lg:flex-col lg:overflow-visible lg:rounded-2xl lg:bg-roast/60 lg:p-1.5 lg:ring-1 lg:ring-sand/10">
+          {tabs.map((t) => {
+            const on = active === t.id;
+            const Icon = sideTabIcon(t);
+            return (
+              <li key={t.id} className="shrink-0">
+                <button
+                  type="button"
+                  aria-current={on ? "page" : undefined}
+                  onClick={() => onSelect(t.id)}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-sm font-semibold transition-colors lg:py-2",
+                    on ? "bg-caramel/15 text-ember ring-1 ring-caramel/25" : "text-crema/60 ring-1 ring-sand/10 hover:bg-crema/[0.05] hover:text-crema lg:ring-0",
+                  )}
+                >
+                  <Icon className={cn("size-4 shrink-0", on ? "text-ember" : "text-crema/45")} aria-hidden />
+                  {t.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
 const fieldCls =
   "w-full rounded-lg bg-espresso/70 px-3 py-2 text-sm text-crema ring-1 ring-sand/15 outline-none transition focus:ring-caramel/45 disabled:opacity-50";
 
 function readSectionFromSearch(search: string): Section | null {
   try {
     const v = String(new URLSearchParams(search).get("s") || "");
+    if (v === "bumpvoti") return "bump";
     return isGuildSection(v) ? v : null;
   } catch {
     return null;
@@ -1910,11 +2024,14 @@ export function GuildPanel() {
       })),
     ];
   }, [commands]);
-  const activeSectionTabs =
-    section === "commands" ? commandTabsForNav : sectionTabs(section);
+  /* Comandi e Registro: le categorie si scelgono dentro la pagina, in un elenco a sinistra */
+  const inPageTabs: readonly { id: string; label: string }[] | null =
+    section === "commands" ? commandTabsForNav : section === "registro" ? REGISTRO_MODULE_TABS : null;
+  const activeSectionTabs = inPageTabs ? [] : sectionTabs(section);
+  const labelTabs = inPageTabs || activeSectionTabs;
   const activeTabLabel =
-    activeSectionTabs.length && moduleTab
-      ? activeSectionTabs.find((t) => t.id === moduleTab)?.label || null
+    labelTabs.length && moduleTab
+      ? labelTabs.find((t) => t.id === moduleTab)?.label || null
       : null;
   const showSections = gate === "ready" && overview?.botPresent;
   const heading = activeTabLabel ? `${sectionMeta.label} · ${activeTabLabel}` : sectionMeta.label;
@@ -1932,7 +2049,6 @@ export function GuildPanel() {
               onSelect: setSection,
               moduleTab,
               onModuleTab: setModuleTab,
-              tabsBySection: { commands: commandTabsForNav },
               badges: { tickets: tickets?.overview.unclaimed || undefined },
             }
           : undefined
@@ -2100,6 +2216,7 @@ export function GuildPanel() {
                       />
                     ) : null}
                     {section === "commands" && guildId && token ? (
+                      <SideTabsLayout label="Categorie dei comandi" tabs={commandTabsForNav} active={moduleTab || "all"} onSelect={(t) => setModuleTab("commands", t)}>
                       <CommandsSection
                         guildId={guildId}
                         token={token}
@@ -2113,6 +2230,7 @@ export function GuildPanel() {
                         }}
                         onToast={showToast}
                       />
+                      </SideTabsLayout>
                     ) : null}
                     {section === "bacheca" && guildId && token ? (
                       <BoardsSection
@@ -2230,9 +2348,15 @@ export function GuildPanel() {
                       </Panel>
                     ) : null}
 
-                    {section === "bumpvoti" && guildId && token ? (
+                    {section === "bump" && guildId && token ? (
                       <Panel>
-                        <BumpVotesPanel guildId={guildId} token={token} onToast={showToast} />
+                        <BumpPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "voti" && guildId && token ? (
+                      <Panel>
+                        <VotesPanel guildId={guildId} token={token} onToast={showToast} />
                       </Panel>
                     ) : null}
 
@@ -2255,13 +2379,15 @@ export function GuildPanel() {
                     ) : null}
 
                     {section === "registro" && guildId && token ? (
-                      <Panel>
-                        <AuditPanel
-                          guildId={guildId}
-                          token={token}
-                          area={moduleTab && isRegistroModuleTab(moduleTab) ? moduleTab : "all"}
-                        />
-                      </Panel>
+                      <SideTabsLayout label="Aree del registro" tabs={REGISTRO_MODULE_TABS} active={moduleTab && isRegistroModuleTab(moduleTab) ? moduleTab : "all"} onSelect={(t) => setModuleTab("registro", t)}>
+                        <Panel>
+                          <AuditPanel
+                            guildId={guildId}
+                            token={token}
+                            area={moduleTab && isRegistroModuleTab(moduleTab) ? moduleTab : "all"}
+                          />
+                        </Panel>
+                      </SideTabsLayout>
                     ) : null}
 
                     {section === "classifica" && guildId && token ? (

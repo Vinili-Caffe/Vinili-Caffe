@@ -75,34 +75,6 @@ function normalizeExp(raw?) {
   ) as Record<ExpKey, typeof EXP_DEFAULTS.disboard>;
 }
 
-/**
- * Discord spezza __underline__ / bold su mention e `code` → gap visivi (“spazi a caso”).
- * Appiattisce la riga Grazie…bumpato se ha quel pattern.
- */
-function fixBumpThanksContent(content?) {
-  const raw = String(content || "");
-  if (!raw || !/Grazie/i.test(raw) || !/bumpato/i.test(raw)) return raw;
-  if (!/__Grazie|__per aver__|`bumpato`/i.test(raw)) return raw;
-  const hadUser = /\{user\}/.test(raw);
-  const lines = raw.split("\n");
-  const next = lines
-    .filter((line) => line.trim() !== "{user}")
-    .map((line) => {
-      if (!/Grazie/i.test(line) || !/bumpato|server/i.test(line)) return line;
-      const emojiM = line.match(/^(<a?:[^:>]+:\d+>)\s*/);
-      const emoji = emojiM ? emojiM[1] + " " : "";
-      return `${emoji}**Grazie ${hadUser ? "{user} " : ""}per aver bumpato il server!**`;
-    });
-  return next.join("\n");
-}
-
-function draftWithFixedThanks(d?) {
-  const draft = T.normalizeDraft(d);
-  const fixed = fixBumpThanksContent(draft.content);
-  if (fixed !== draft.content) draft.content = fixed;
-  return draft;
-}
-
 /* ogni servizio ha i suoi testi (e le sue ore per i voti); i vecchi testi unici fanno da base */
 function normalizeConfig(raw?) {
   const r = raw && typeof raw === "object" ? raw : {};
@@ -112,7 +84,7 @@ function normalizeConfig(raw?) {
   const v = r.votes && typeof r.votes === "object" ? r.votes : {};
   const vth = v.thanks && typeof v.thanks === "object" ? v.thanks : {};
   const vps = v.perService && typeof v.perService === "object" ? v.perService : {};
-  const draftOr = (d?, fallback?, text = "") => (d ? draftWithFixedThanks(d) : fallback ? draftWithFixedThanks(fallback) : textDraft(text));
+  const draftOr = (d?, fallback?, text = "") => (d ? T.normalizeDraft(d) : fallback ? T.normalizeDraft(fallback) : textDraft(text));
   const services = Object.fromEntries(
     SERVICES.map((s) => {
       const x = svc[s] && typeof svc[s] === "object" ? svc[s] : {};
@@ -131,9 +103,17 @@ function normalizeConfig(raw?) {
   const perService = Object.fromEntries(
     VOTE_SERVICES.map((s) => {
       const x = vps[s] && typeof vps[s] === "object" ? vps[s] : {};
-      return [s, { draft: draftOr(x.draft, vth.draft, DEFAULT_VOTE_THANKS), hours: hoursOr(x.hours, v.reward?.hours ? hoursOr(v.reward.hours) : DEFAULT_VOTE_HOURS[s]) }];
+      return [
+        s,
+        {
+          draft: draftOr(x.draft, vth.draft, DEFAULT_VOTE_THANKS),
+          hours: hoursOr(x.hours, v.reward?.hours ? hoursOr(v.reward.hours) : DEFAULT_VOTE_HOURS[s]),
+          reminderDraft: draftOr(x.reminderDraft, null, ""),
+          reminderEnabled: x.reminderEnabled !== false,
+        },
+      ];
     }),
-  ) as Record<VoteService, { draft: any; hours: number }>;
+  ) as Record<VoteService, { draft: any; hours: number; reminderDraft: any; reminderEnabled: boolean }>;
   return {
     enabled: r.enabled === true,
     services,
@@ -166,9 +146,52 @@ async function getConfig(guildId: string, fresh = false): Promise<BumpConfig> {
   return normalizeConfig(await T.getGuildBlob("bumpVotes", guildId, fresh));
 }
 
+/** Merge parziale: i pannelli Bump e Voti possono salvare solo la propria metà. */
 async function saveConfig(guildId: string, raw?) {
   const prev = await getConfig(guildId, true);
-  const next = normalizeConfig({ ...raw, votes: { ...(raw?.votes || {}), token: prev.votes.token }, seedVersion: prev.seedVersion, userSaved: true });
+  const r = raw && typeof raw === "object" ? raw : {};
+  const nextRaw: any = {
+    enabled: "enabled" in r ? r.enabled : prev.enabled,
+    services: { ...prev.services },
+    thanks: { ...prev.thanks, ...(r.thanks && typeof r.thanks === "object" ? r.thanks : {}) },
+    reminder: { ...prev.reminder, ...(r.reminder && typeof r.reminder === "object" ? r.reminder : {}) },
+    reward: { ...prev.reward, ...(r.reward && typeof r.reward === "object" ? r.reward : {}) },
+    votes: {
+      ...prev.votes,
+      ...(r.votes && typeof r.votes === "object" ? r.votes : {}),
+      token: prev.votes.token,
+      thanks: {
+        ...prev.votes.thanks,
+        ...(r.votes?.thanks && typeof r.votes.thanks === "object" ? r.votes.thanks : {}),
+      },
+      perService: { ...prev.votes.perService },
+    },
+    exp: { ...prev.exp },
+    seedVersion: prev.seedVersion,
+    userSaved: true,
+  };
+  if (r.services && typeof r.services === "object") {
+    for (const s of SERVICES) {
+      if (r.services[s] && typeof r.services[s] === "object") {
+        nextRaw.services[s] = { ...prev.services[s], ...r.services[s] };
+      }
+    }
+  }
+  if (r.votes?.perService && typeof r.votes.perService === "object") {
+    for (const s of VOTE_SERVICES) {
+      if (r.votes.perService[s] && typeof r.votes.perService[s] === "object") {
+        nextRaw.votes.perService[s] = { ...prev.votes.perService[s], ...r.votes.perService[s] };
+      }
+    }
+  }
+  if (r.exp && typeof r.exp === "object") {
+    for (const k of EXP_KEYS) {
+      if (r.exp[k] && typeof r.exp[k] === "object") {
+        nextRaw.exp[k] = { ...prev.exp[k], ...r.exp[k] };
+      }
+    }
+  }
+  const next = normalizeConfig(nextRaw);
   await T.setGuildBlob("bumpVotes", guildId, next);
   return next;
 }
@@ -295,7 +318,8 @@ async function giveExp(client?, guild?, userId?: string | null, key?: ExpKey, cf
     const lines: string[] = [];
     if (reward.fastBonus > 0) lines.push(`${flame} Risposta rapida **+${reward.fastBonus} exp**`);
     if (reward.streakBonus > 0) lines.push(`${flame} Streak ${reward.newStreak} **+${reward.streakBonus} exp**`);
-    return { exp: String(reward.effectiveExp), fast: String(reward.fastBonus || 0), streak: String(reward.newStreak || 1), bonus: lines.map((l) => `\n${l}`).join("") };
+    /* senza \n iniziale: nei draft dashboard {bonus} è su riga sua (fill toglie la riga se vuoto) */
+    return { exp: String(reward.effectiveExp), fast: String(reward.fastBonus || 0), streak: String(reward.newStreak || 1), bonus: lines.join("\n") };
   } catch (err) {
     global.logger?.warn?.("[BUMP VOTES] exp:", (err as any)?.message || err);
     return NO_EXP;
@@ -503,7 +527,6 @@ async function runBumpVotesTick(client?) {
 }
 
 let timer: ReturnType<typeof setInterval> | null = null;
-let thanksFixOnce = false;
 function startBumpVotesLoop(client?) {
   if (timer) return;
   const tick = () =>
@@ -511,40 +534,34 @@ function startBumpVotesLoop(client?) {
   timer = setInterval(tick, 60_000);
   timer.unref?.();
   setTimeout(tick, 20_000).unref?.();
-  if (!thanksFixOnce) {
-    thanksFixOnce = true;
-    setTimeout(() => {
-      void (async () => {
-        const all = await T.allGuildBlobs("bumpVotes");
-        for (const gid of Object.keys(all || {})) {
-          await persistThanksSpacingFix(gid).catch(() => false);
-        }
-      })().catch(() => {});
-    }, 8_000).unref?.();
-  }
 }
 
 /**
  * Server principale: le impostazioni di adesso (attese, ringraziamento, promemoria, voti, ruolo Voter)
  * portate nel modulo, spente: si accende quando si vuole passare al modulo.
  */
-const MAIN_SEED_VERSION = 5;
+const MAIN_SEED_VERSION = 7;
+function linesToText(raw?) {
+  if (Array.isArray(raw) && raw.length) return raw.map((x) => String(x || "")).join("\n");
+  if (typeof raw === "string" && raw.trim()) return raw.trim();
+  return "";
+}
 function mainSeedConfig(client?) {
   const IDs = require("../../Vinili/Config/ids") as any;
   const { E } = require("../../shared/emojis/emojiCatalog") as any;
   const e = (k: string) => String(E?.[k] || "");
   const cfgMain = client?.config || {};
   const voterRole = String(IDs?.roles?.Voter || "") || null;
-  const voteUrl = String(cfgMain?.topgg?.votePageUrl || "https://www.viniliecaffe.it/vote");
+  const voteUrl = String(cfgMain?.topgg?.votePageUrl || cfgMain?.discadiaVoteReminder?.voteUrl || IDs?.links?.vote || "https://www.viniliecaffe.it/vote");
   const hours: Record<VoteService, number> = {
     topgg: Math.max(1, Math.round(Number(cfgMain?.topgg?.voteReminderCooldownHours) || 12)),
     discadia: Math.max(1, Math.round(Number(cfgMain?.discadiaVoteReminder?.cooldownHours) || 24)),
   };
-  /* Niente __…__ / `code` che avvolgono {user}: Discord spezza il markdown e lascia gap. */
+  /* {bonus} su riga sua: fill() la toglie se non ci sono rapida/streak. */
   const bumpThanks = (again: string, withExp: boolean) => ({
     content: [
-      `${e("VC_ThankYou")} **Grazie {user} per aver bumpato il server!**`,
-      ...(withExp ? [`${e("VC_EXP")} **{exp} exp** guadagnati!{bonus}`] : []),
+      `${e("VC_ThankYou")} **__Grazie {user} per aver \`bumpato\` il server!__**`,
+      ...(withExp ? [`${e("VC_EXP")} **{exp} exp** guadagnati!`, "{bonus}"] : []),
       `${e("VC_HelloKittyGun")} Ci __vediamo__ nuovamente tra **${again}!**`,
     ].join("\n"),
     embed: { enabled: false },
@@ -552,7 +569,7 @@ function mainSeedConfig(client?) {
   });
   const reminder = (title: string, url: string) => ({
     content: "{role}",
-    embed: { enabled: true, title, url, description: `${e("VC_bump")} **Per bumpare scrivi \`/bump\` in chat!**`, color: "#6f4e37" },
+    embed: { enabled: true, title, url, description: `${e("VC_bump")} **Per bumpare scrivi __\`/bump\` in chat__**!`, color: "#6f4e37" },
     buttons: [],
   });
   const voteThanks = (s: VoteService) => {
@@ -567,14 +584,40 @@ function mainSeedConfig(client?) {
           `${e("VC_ThankYou")} Grazie {user} per aver votato su **${VOTE_LABEL[s]}**!`,
           "",
           "`Hai guadagnato:`",
-          `${e("VC_EXP")} ${e("VC_Arrow")} **{exp} EXP** per il tuo **{count}° voto** su **${VOTE_LABEL[s]}**{bonus}`,
+          `${e("VC_EXP")} ${e("VC_Arrow")} **{exp} EXP** per il tuo **{count}° voto** su **${VOTE_LABEL[s]}**`,
+          "{bonus}",
           `${e("VC_Money")} ${e("VC_Arrow")} ${voterRole ? `Il ruolo <@&${voterRole}> per ${label}` : `Ricompensa per ${label}`}`,
           "",
           `${e("VC_update")} Vota di nuovo tra __${label}__ per ottenere **altri exp** dal **bottone sottostante**.`,
         ].join("\n"),
         color: "#6f4e37",
+        thumbnailUrl: "{avatar}",
       },
       buttons: [{ label: "Vota cliccando qui", url: voteUrl, emoji: e("VC_HeartPink"), row: 0 }],
+    };
+  };
+  const voteDmReminder = (s: VoteService) => {
+    const h = hours[s];
+    const classic =
+      s === "topgg"
+        ? linesToText(cfgMain?.topgg?.reminderMessage) ||
+          [`${e("VC_topgg")} Hey! Sono passate ${h} ore: puoi votare di nuovo su **Top.gg**.`, `${e("VC_ThankYou")} **Grazie per il supporto!**`, `${e("link")} Per votare su Top.gg, clicca sul pulsante sottostante:\n`].join("\n")
+        : linesToText(cfgMain?.discadiaVoteReminder?.message) ||
+          [`${e("discadia") || e("VC_Discadia")} Hey! Sono passate ${h} ore: puoi votare di nuovo su Discadia.`, `${e("VC_ThankYou")} **Grazie per il supporto!**`, `${e("link")} Per votare su Discadia, clicca sul pulsante sottostante:\n`].join("\n");
+    const url =
+      s === "topgg"
+        ? String(cfgMain?.topgg?.votePageUrl || voteUrl)
+        : String(cfgMain?.discadiaVoteReminder?.voteUrl || voteUrl);
+    return {
+      content: "",
+      embed: {
+        enabled: true,
+        title: "",
+        description: classic,
+        color: "#6f4e37",
+        footerText: "DM voti: Personalizza → Privacy (Discadia e Top.gg separati) o Notifiche DM.",
+      },
+      buttons: url ? [{ label: "Vota cliccando qui", url, emoji: e("VC_HeartPink"), row: 0 }] : [],
     };
   };
   return normalizeConfig({
@@ -603,7 +646,10 @@ function mainSeedConfig(client?) {
       channelId: String(IDs?.channels?.supporters || "") || null,
       thanks: { enabled: true },
       rewardRoleId: voterRole,
-      perService: { topgg: { draft: voteThanks("topgg"), hours: hours.topgg }, discadia: { draft: voteThanks("discadia"), hours: hours.discadia } },
+      perService: {
+        topgg: { draft: voteThanks("topgg"), hours: hours.topgg, reminderDraft: voteDmReminder("topgg"), reminderEnabled: true },
+        discadia: { draft: voteThanks("discadia"), hours: hours.discadia, reminderDraft: voteDmReminder("discadia"), reminderEnabled: true },
+      },
     },
     exp: {
       disboard: {
@@ -627,40 +673,34 @@ function mainSeedConfig(client?) {
   });
 }
 
-/** Persiste fix spazi markdown sui thanks già salvati (anche userSaved). */
-async function persistThanksSpacingFix(guildId?: string) {
-  const gid = String(guildId || "");
-  if (!gid) return false;
-  const prev = await T.getGuildBlob("bumpVotes", gid, true);
-  if (!prev || typeof prev !== "object") return false;
-  let changed = false;
-  const services = prev.services && typeof prev.services === "object" ? prev.services : {};
-  for (const s of SERVICES) {
-    const draft = services[s]?.thanksDraft;
-    if (!draft || typeof draft.content !== "string") continue;
-    const fixed = fixBumpThanksContent(draft.content);
-    if (fixed !== draft.content) {
-      draft.content = fixed;
-      changed = true;
-    }
-  }
-  if (!changed) return false;
-  await T.setGuildBlob("bumpVotes", gid, prev);
-  return true;
-}
-
-/** Prima apertura sul principale: importa le impostazioni attuali. */
+/** Prima apertura / soft-upgrade sul principale: importa le impostazioni attuali. */
 async function ensureMainSeed(client?, guildId?: string) {
   const gid = String(guildId || "");
   if (!T.isMainGuild(gid)) return false;
   const prev = await T.getGuildBlob("bumpVotes", gid, true);
-  /* fix spazi anche se il draft è già stato salvato dalla dashboard */
-  await persistThanksSpacingFix(gid).catch(() => false);
-  /* si reimporta solo se non l'hai ancora toccato e l'import è di una versione vecchia */
-  const again = await T.getGuildBlob("bumpVotes", gid, true);
-  if (again && (again.userSaved === true || Number(again.seedVersion || 1) >= MAIN_SEED_VERSION)) return false;
+  const prevVersion = Number(prev?.seedVersion || 0);
+  /* già salvato dall'utente: solo soft-fill dei reminder DM mancanti se seed vecchio */
+  if (prev && prev.userSaved === true) {
+    if (prevVersion >= MAIN_SEED_VERSION) return false;
+    const seed = mainSeedConfig(client);
+    const cfg = normalizeConfig(prev);
+    let changed = false;
+    for (const s of VOTE_SERVICES) {
+      if (T.draftIsEmpty(cfg.votes.perService[s].reminderDraft)) {
+        cfg.votes.perService[s].reminderDraft = seed.votes.perService[s].reminderDraft;
+        cfg.votes.perService[s].reminderEnabled = seed.votes.perService[s].reminderEnabled;
+        changed = true;
+      }
+    }
+    cfg.seedVersion = MAIN_SEED_VERSION;
+    cfg.userSaved = true;
+    if (prev?.votes?.token) cfg.votes.token = prev.votes.token;
+    await T.setGuildBlob("bumpVotes", gid, cfg);
+    return changed;
+  }
+  if (prev && prevVersion >= MAIN_SEED_VERSION) return false;
   const seed = mainSeedConfig(client);
-  if (again?.votes?.token) seed.votes.token = again.votes.token;
+  if (prev?.votes?.token) seed.votes.token = prev.votes.token;
   await T.setGuildBlob("bumpVotes", gid, seed);
   return true;
 }
@@ -669,6 +709,52 @@ async function ensureMainSeed(client?, guildId?: string) {
 async function moduleHandlesBump(guildId: string, service: Service) {
   const cfg = await getConfig(guildId).catch(() => null);
   return Boolean(cfg?.enabled && cfg.services[service]?.enabled);
+}
+
+/** Modulo voti acceso per Top.gg / Discadia → i DM reminder usano i draft dashboard. */
+async function moduleHandlesVote(guildId: string, service: VoteService) {
+  const cfg = await getConfig(guildId).catch(() => null);
+  return Boolean(cfg?.votes?.enabled && cfg.votes[service]);
+}
+
+/**
+ * Promemoria voto da draft dashboard.
+ * - not_owned: modulo voti spento → usare embed classico
+ * - skipped: modulo acceso ma reminder disattivato per il servizio (niente DM Discord)
+ * - sent / failed: tentativo con draft
+ */
+async function trySendConfiguredVoteReminder(
+  client?,
+  user?,
+  opts: { guildId?: string; userId?: string | null; voteListing?: string; asChannelFallback?: boolean; channel?: any } = {},
+): Promise<"not_owned" | "skipped" | "sent" | "failed"> {
+  const gid = String(opts.guildId || "");
+  const service: VoteService | null = opts.voteListing === "topgg" ? "topgg" : opts.voteListing === "discadia" ? "discadia" : null;
+  const uid = String(opts.userId || user?.id || "").trim();
+  if (!client || !gid || !service || !uid) return "not_owned";
+  try {
+    if (!(await moduleHandlesVote(gid, service))) return "not_owned";
+    const cfg = await getConfig(gid, true);
+    const row = cfg.votes.perService[service];
+    if (!row || row.reminderEnabled === false) return "skipped";
+    const draft = row.reminderDraft;
+    if (T.draftIsEmpty(draft)) return "failed";
+    const body: any = T.buildMessageBody(draft, { service: VOTE_LABEL[service], server: "" }, [], { mentionUserId: null });
+    if (opts.asChannelFallback && opts.channel?.send) {
+      const payload: any = { ...body, content: [`<@${uid}>`, body.content || ""].filter(Boolean).join("\n").slice(0, 2000) };
+      const sent = await opts.channel.send(payload).catch(() => null);
+      return sent ? "sent" : "failed";
+    }
+    const rest = restOf(client);
+    if (!rest) return "failed";
+    const dm: any = await rest.post(Routes.userChannels(), { body: { recipient_id: uid } }).catch(() => null);
+    if (!dm?.id) return "failed";
+    const sent = await rest.post(Routes.channelMessages(dm.id), { body }).then(() => true).catch(() => false);
+    return sent ? "sent" : "failed";
+  } catch (err) {
+    global.logger?.warn?.("[BUMP VOTES] vote reminder draft:", (err as any)?.message || err);
+    return "failed";
+  }
 }
 
 /* ───────────── classifica ───────────── */
@@ -704,6 +790,7 @@ async function resetLeaderboard(guildId: string, which: "bumps" | "votes") {
 export = {
   ensureMainSeed,
   moduleHandlesBump,
+  moduleHandlesVote,
   SERVICES,
   getConfig,
   saveConfig,
@@ -711,6 +798,7 @@ export = {
   handleTenantBumpMessage,
   handleVoteWebhook,
   trySendConfiguredVoteThanks,
+  trySendConfiguredVoteReminder,
   startBumpVotesLoop,
   runBumpVotesTick,
   leaderboard,

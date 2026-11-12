@@ -7,7 +7,7 @@ import { ColorPicker } from "@/components/ui/color-picker";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import type { MsgButton, MsgDraft, MsgField, MsgV2, PickerEmoji, V2Block, V2LinkButton } from "@/lib/dashboard-community";
-import { Field, Toggle, fieldClass, labelClass, miniBtn } from "../bits";
+import { ExpandableTextarea, Field, Toggle, fieldClass, labelClass, miniBtn } from "../bits";
 import { EmojiButton, EmojiGlyph, ImageUrlField, RichTextArea } from "./shared";
 
 export const DEFAULT_V2: MsgV2 = { enabled: false, container: true, accentColor: "", blocks: [] };
@@ -70,7 +70,7 @@ export function FieldsEditor({ fields, onChange }: { fields: MsgField[]; onChang
                   <Trash2 className="size-3.5" />
                 </button>
               </div>
-              <textarea value={f.value} maxLength={1024} rows={2} placeholder="Valore" onChange={(ev) => set(i, { value: ev.target.value })} className={cn(fieldClass, "mt-0 resize-y")} />
+              <ExpandableTextarea value={f.value} maxLength={1024} rows={3} placeholder="Valore" onChange={(ev) => set(i, { value: ev.target.value })} className="min-h-[5rem]" />
             </li>
           ))}
         </ul>
@@ -230,10 +230,10 @@ export function V2Editor({
                 </button>
               </div>
               {b.type === "text" ? (
-                <RichTextArea label="Testo" value={b.content} onChange={(content) => setBlock(i, { ...b, content })} max={4000} rows={4} emojis={emojis} placeholders={placeholders} placeholder="Markdown: # titoli, **grassetto**, -# testo piccolo…" />
+                <RichTextArea label="Testo" value={b.content} onChange={(content) => setBlock(i, { ...b, content })} max={4000} rows={7} emojis={emojis} placeholders={placeholders} placeholder="Markdown: # titoli, **grassetto**, -# testo piccolo…" />
               ) : b.type === "section" ? (
                 <div className="space-y-3">
-                  <RichTextArea label="Testo" value={b.content} onChange={(content) => setBlock(i, { ...b, content })} max={4000} rows={3} emojis={emojis} placeholders={placeholders} />
+                  <RichTextArea label="Testo" value={b.content} onChange={(content) => setBlock(i, { ...b, content })} max={4000} rows={6} emojis={emojis} placeholders={placeholders} />
                   <Field label="Accanto al testo">
                     <Select
                       value={b.accessory}

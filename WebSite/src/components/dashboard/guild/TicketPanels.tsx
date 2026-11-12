@@ -30,7 +30,7 @@ import {
 import { Checkbox, Disclosure, confirmDialog } from "@/components/ui";
 import { Select } from "@/components/ui/Select";
 import { DiscordPanelPreview } from "./DiscordPanelPreview";
-import { EditorHeader, Field, FormGroup, MultiCheck, Notice, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, labelClass, miniBtn, primaryMini, EditorSkeleton } from "./bits";
+import { EditorHeader, ExpandableTextarea, Field, FormGroup, MultiCheck, Notice, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, labelClass, miniBtn, primaryMini, EditorSkeleton } from "./bits";
 
 const TYPE_LABEL: Record<string, string> = {
   supporto: "Supporto",
@@ -395,7 +395,7 @@ export function TicketPanels({
               </div>
               <div className="mt-4">
                 <Field label="Testo">
-                  <textarea name="content" value={single.content} maxLength={4096} rows={4} onChange={(e) => set({ content: e.target.value })} className={fieldClass} />
+                  <ExpandableTextarea name="content" value={single.content} maxLength={4096} rows={6} onChange={(e) => set({ content: e.target.value })} />
                 </Field>
               </div>
             </FormGroup>
@@ -545,13 +545,12 @@ export function TicketPanels({
                   />
                 </Field>
                 <Field label="Testo">
-                  <textarea
+                  <ExpandableTextarea
                     name="welcome-description"
                     value={single.welcome.description}
                     maxLength={4096}
-                    rows={4}
+                    rows={6}
                     onChange={(e) => set({ welcome: { ...single.welcome, description: e.target.value } })}
-                    className={fieldClass}
                   />
                 </Field>
                 <MessagePreview
@@ -835,7 +834,7 @@ export function TicketPanels({
               </div>
               <div className="mt-4">
                 <Field label="Testo">
-                  <textarea name="description" value={multi.description} maxLength={4096} rows={3} onChange={(e) => set({ description: e.target.value })} className={fieldClass} />
+                  <ExpandableTextarea name="description" value={multi.description} maxLength={4096} rows={6} onChange={(e) => set({ description: e.target.value })} />
                 </Field>
               </div>
             </FormGroup>

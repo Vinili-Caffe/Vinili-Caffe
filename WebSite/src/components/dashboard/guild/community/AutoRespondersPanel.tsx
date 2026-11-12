@@ -9,7 +9,7 @@ import { NumberField } from "@/components/ui/NumberField";
 import { cn } from "@/lib/cn";
 import { communityApi, emptyDraft, type AutoResponder } from "@/lib/dashboard-community";
 import { EditorHeader, Field, FormGroup, Notice, RowsSkeleton, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
-import { DiscordMessagePreview, DraftEditor, EditorWithPreview, EmojiButton, EmojiGlyph, MEMBER_PLACEHOLDERS, roleOptions, sampleVars, useCommunity } from "./shared";
+import { DiscordMessagePreview, DraftEditor, EditorWithPreview, EmojiButton, EmojiGlyph, MEMBER_PLACEHOLDERS, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 const MATCH = [
   { value: "contains", label: "Il messaggio contiene la parola" },
@@ -44,7 +44,7 @@ export function AutoRespondersPanel({ guildId, token, onToast }: { guildId: stri
   const [edit, setEdit] = useState<AutoResponder | null>(null);
   const [triggerInput, setTriggerInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const vars = useMemo(() => sampleVars(data), [data]);
+  const vars = useSampleVars(data);
 
   if (error && !data) return <Notice error>{error}</Notice>;
   if (!data) return <RowsSkeleton rows={4} />;

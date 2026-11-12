@@ -14,7 +14,7 @@ import {
   type RoleAnnounceRule,
 } from "@/lib/dashboard-community";
 import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
-import { ChannelField, DiscordMessagePreview, DraftEditor, roleOptions, sampleVars, useCommunity } from "./shared";
+import { ChannelField, DiscordMessagePreview, DraftEditor, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 const BOOST_PLACEHOLDERS = [
   { token: "{user}", hint: "chi ha boostato" },
@@ -107,10 +107,11 @@ export function AnnouncementsPanel({
   const [boostTab, setBoostTab] = useState<"first" | "repeat">("first");
   const [openRule, setOpenRule] = useState<string | null>(null);
   const [openNamed, setOpenNamed] = useState<string | null>(null);
+  const baseVars = useSampleVars(data);
   const vars = useMemo(() => {
     const role = data?.pickers.roles.find((r) => !r.managed);
-    return { ...sampleVars(data), boosts: "14", tier: "2", role: role ? `<@&${role.id}>` : "@Ruolo", "role.name": role?.name || "Ruolo" };
-  }, [data]);
+    return { ...baseVars, boosts: "14", tier: "2", role: role ? `<@&${role.id}>` : "@Ruolo", "role.name": role?.name || "Ruolo" };
+  }, [baseVars, data]);
 
   useEffect(() => {
     let alive = true;

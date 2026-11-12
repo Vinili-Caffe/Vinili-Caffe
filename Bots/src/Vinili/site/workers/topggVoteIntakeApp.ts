@@ -87,14 +87,17 @@ async function main() {
       const rawSnippet = Buffer.isBuffer(req._topggRawBody)
         ? req._topggRawBody.toString("utf8").replace(/\s+/g, " ").trim().slice(0, 240)
         : "";
-      await enqueuePendingTopggVote(guildId, userId, {
+      /* Rispondi subito: evita timeout lato Top.gg se Mongo è lento. */
+      res.status(200).send("Queued");
+      console.log(`[TOPGG INTAKE] accepted user=${userId}`);
+      void enqueuePendingTopggVote(guildId, userId, {
         source: "intake",
         rawSnippet,
-      });
-      return res.status(200).send("Queued");
+      }).catch((err) => console.error("[TOPGG INTAKE] bg enqueue:", err?.message || err));
+      return;
     } catch (err) {
       console.error("[TOPGG INTAKE]", err?.message || err);
-      return res.status(500).send("Internal Server Error");
+      if (!res.headersSent) return res.status(500).send("Internal Server Error");
     }
   });
 

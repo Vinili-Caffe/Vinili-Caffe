@@ -31,7 +31,8 @@ export type GuildSectionId =
   | "benvenuto"
   | "risposte"
   | "contatori"
-  | "bumpvoti"
+  | "bump"
+  | "voti"
   | "giveaway"
   | "sondaggi"
   | "settings"
@@ -141,10 +142,11 @@ export function isAnnunciModuleTab(v: string): v is AnnunciModuleTabId {
 /** Core del server: sotto SERVER (Comandi/Classifica con sotto-menù). */
 export const GUILD_SERVER_SECTIONS = [
   { id: "settings", label: "Impostazioni", icon: Settings2 },
-  { id: "commands", label: "Comandi", icon: Terminal, tabs: COMMAND_SECTION_TABS },
+  /* le categorie stanno dentro la pagina (elenco a sinistra), non nel menu laterale */
+  { id: "commands", label: "Comandi", icon: Terminal },
   { id: "stats", label: "Statistiche", icon: BarChart3 },
   { id: "salute", label: "Salute del bot", icon: HeartPulse },
-  { id: "registro", label: "Registro modifiche", icon: History, tabs: REGISTRO_MODULE_TABS },
+  { id: "registro", label: "Registro modifiche", icon: History },
 ] as const satisfies readonly GuildNavItem[];
 
 /** Funzioni opzionali: sotto MODULI. */
@@ -159,7 +161,8 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "benvenuto", label: "Annunci automatici", icon: PartyPopper, tabs: ANNUNCI_MODULE_TABS },
   { id: "risposte", label: "Risposte automatiche", icon: MessageSquareReply, tabs: [] as const },
   { id: "contatori", label: "Contatori", icon: Gauge, tabs: [] as const },
-  { id: "bumpvoti", label: "Bump e voti", icon: Rocket, tabs: [] as const },
+  { id: "bump", label: "Bump", icon: Rocket, tabs: [] as const },
+  { id: "voti", label: "Voti", icon: Vote, tabs: [] as const },
   { id: "giveaway", label: "Giveaway", icon: Gift, tabs: [] as const },
   { id: "sondaggi", label: "Sondaggi", icon: Vote, tabs: [] as const },
 ] as const satisfies readonly GuildNavItem[];

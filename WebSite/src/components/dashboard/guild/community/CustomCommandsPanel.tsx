@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { MultiSelect } from "@/components/ui/Select";
 import { communityApi, emptyDraft, type CustomCommand } from "@/lib/dashboard-community";
 import { EditorHeader, Field, FormGroup, Notice, RowsSkeleton, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
-import { DiscordMessagePreview, DraftEditor, EditorWithPreview, MEMBER_PLACEHOLDERS, roleOptions, sampleVars, useCommunity } from "./shared";
+import { DiscordMessagePreview, DraftEditor, EditorWithPreview, MEMBER_PLACEHOLDERS, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 const PLACEHOLDERS = [
   ...MEMBER_PLACEHOLDERS,
@@ -32,7 +32,7 @@ export function CustomCommandsPanel({ guildId, token, onToast }: { guildId: stri
   const [edit, setEdit] = useState<CustomCommand | null>(null);
   const [aliasText, setAliasText] = useState("");
   const [busy, setBusy] = useState(false);
-  const vars = useMemo(() => sampleVars(data, { args: "testo di esempio" }), [data]);
+  const vars = useSampleVars(data, { args: "testo di esempio" });
 
   if (error && !data) return <Notice error>{error}</Notice>;
   if (!data) return <RowsSkeleton rows={4} />;

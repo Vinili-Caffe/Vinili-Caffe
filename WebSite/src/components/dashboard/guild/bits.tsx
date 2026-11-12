@@ -1,8 +1,9 @@
 "use client";
 
+import { forwardRef, useState, type TextareaHTMLAttributes } from "react";
 import { EmojiText } from "@/components/discord/EmojiText";
 import { AnimatePresence, motion } from "motion/react";
-import { Diamond } from "lucide-react";
+import { Diamond, Maximize2, Minimize2 } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
 import { Checkbox } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -12,6 +13,39 @@ export const fieldClass =
   "mt-1.5 w-full rounded-lg bg-espresso/70 px-3 py-2.5 text-sm text-crema ring-1 ring-sand/15 outline-none transition placeholder:text-crema/50 hover:ring-sand/25 focus:ring-2 focus:ring-caramel/45 disabled:opacity-50";
 
 export const labelClass = "text-[0.8rem] font-semibold text-crema/80";
+
+/** Textarea dashboard: resize + pulsante espandi/riduci (le caselle di default sono troppo basse). */
+export const ExpandableTextarea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement> & { expandedMinClass?: string }
+>(function ExpandableTextarea({ className, rows = 5, expandedMinClass = "min-h-[min(52vh,28rem)]", ...props }, ref) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="relative mt-1.5 min-w-0">
+      <textarea
+        {...props}
+        ref={ref}
+        rows={expanded ? Math.max(Number(rows) || 5, 14) : rows}
+        className={cn(
+          fieldClass,
+          "mt-0 min-h-[7.5rem] resize-y leading-relaxed pr-10",
+          expanded && expandedMinClass,
+          className,
+        )}
+      />
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        title={expanded ? "Riduci" : "Espandi"}
+        aria-label={expanded ? "Riduci casella di testo" : "Espandi casella di testo"}
+        aria-pressed={expanded}
+        className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-md bg-espresso/90 text-crema/70 ring-1 ring-sand/20 transition hover:bg-crema/10 hover:text-crema"
+      >
+        {expanded ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
+      </button>
+    </div>
+  );
+});
 
 export function Toggle({
   checked,

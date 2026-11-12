@@ -35,7 +35,7 @@ import {
 } from "@/lib/dashboard-guild";
 import { cn } from "@/lib/cn";
 import { Select } from "@/components/ui/Select";
-import { Field, Notice, Panel, SettingRow, StatTile, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, RowsSkeleton } from "./bits";
+import { ExpandableTextarea, Field, Notice, Panel, SettingRow, StatTile, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, RowsSkeleton } from "./bits";
 import { TicketArchive } from "./TicketArchive";
 import { TicketBlacklist } from "./TicketBlacklist";
 import { TicketForms } from "./TicketForms";
@@ -584,13 +584,12 @@ function QuickRepliesEditor({
                     />
                   </Field>
                   <Field label="Messaggio" hint="Testo inviato nel ticket (max 2000).">
-                    <textarea
+                    <ExpandableTextarea
                       value={row.content}
                       disabled={busy}
                       maxLength={2000}
-                      rows={3}
+                      rows={5}
                       placeholder="Ciao! Grazie per aver aperto un ticket…"
-                      className={cn(fieldClass, "min-h-[5.5rem] resize-y")}
                       onChange={(e) => patchAt(index, { content: e.target.value })}
                     />
                   </Field>

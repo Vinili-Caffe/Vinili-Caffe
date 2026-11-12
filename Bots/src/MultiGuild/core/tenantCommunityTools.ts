@@ -171,7 +171,25 @@ function parseEmoji(raw?) {
 
 type FillVars = Record<string, string>;
 function fill(text?, vars: FillVars = {}) {
-  return String(text || "").replace(/\{([a-zA-Z_.]+)\}/g, (m, k: string) => (Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : m));
+  let s = String(text || "");
+  /* {bonus} spesso è su riga sua nei draft dashboard: se vuoto non lasciare la riga bianca. */
+  if (Object.prototype.hasOwnProperty.call(vars, "bonus")) {
+    const bonusRaw = String(vars.bonus ?? "");
+    if (!bonusRaw.trim()) {
+      s = s
+        .replace(/\n[ \t]*\{bonus\}[ \t]*(?=\n|$)/g, "")
+        .replace(/\{bonus\}[ \t]*\n/g, "")
+        .replace(/\{bonus\}/g, "");
+    } else {
+      const bonusBody = bonusRaw.replace(/^\n+/, "").replace(/\n+$/, "");
+      s = s.replace(/\n[ \t]*\{bonus\}/g, `\n${bonusBody}`);
+      s = s.replace(/\{bonus\}/g, bonusRaw);
+    }
+  }
+  return s.replace(/\{([a-zA-Z_.]+)\}/g, (m, k: string) => {
+    if (k === "bonus") return m;
+    return Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : m;
+  });
 }
 
 /** Corpo REST di un messaggio Discord. `extraRows` = componenti aggiuntivi (es. pulsanti ruolo). */
