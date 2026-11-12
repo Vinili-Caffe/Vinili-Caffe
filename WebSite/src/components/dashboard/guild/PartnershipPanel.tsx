@@ -65,6 +65,7 @@ import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { ExpandableTextarea, Field, FormGroup, Notice, PremiumBadge, PremiumLock, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, FormSkeleton } from "./bits";
+import { PartnershipSetupWizard } from "./PartnershipSetupWizard";
 import { isPartnershipModuleTab, type PartnershipModuleTabId } from "../guildSections";
 
 type Tab = PartnershipModuleTabId;
@@ -137,6 +138,8 @@ export function PartnershipPanel({
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [migration, setMigration] = useState<PartnershipMigration | null>(null);
+  /* tiene montato il wizard durante il flash “completato” anche se setupCompleted è già true */
+  const [setupCelebrating, setSetupCelebrating] = useState(false);
   /* bot, emoji del server, nome e foto di chi è in dashboard: anteprima uguale alle altre schede */
   const { data: community } = useCommunity(guildId, token);
   const base = useSampleVars(community);
@@ -321,39 +324,46 @@ export function PartnershipPanel({
 
   const roleOptions = (none: string) => [{ value: "", label: none }, ...roles.map((r) => ({ value: r.id, label: `@${r.name}` }))];
 
+  const needsSetup = !draft.setupCompleted;
+  const showWizard = needsSetup || setupCelebrating;
+
   return (
     <div className="space-y-4">
-      {/* stato del modulo partnership */}
-      <div
-        className={cn(
-          "-mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b px-4 py-3.5 sm:-mx-5 sm:px-5",
-          draft.setupCompleted ? "border-[#5f9a6a]/20 bg-[#5f9a6a]/[0.06]" : "border-caramel/20 bg-caramel/[0.06]",
-        )}
-      >
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold ring-1",
-            draft.setupCompleted
-              ? "bg-[#5f9a6a]/15 text-[#9fd0a8] ring-[#5f9a6a]/30 light:text-[#2f6b3f]"
-              : "bg-caramel/15 text-ember ring-caramel/30",
-          )}
-        >
-          <span className={cn("size-1.5 rounded-full", draft.setupCompleted ? "bg-[#7fc48c]" : "bg-ember")} aria-hidden />
-          {draft.setupCompleted ? "Setup completo" : "Setup da completare: servono canale partnership e ruolo manager"}
-        </span>
-        {bundle.premiumActive ? <StatusBadge tone="accent">Premium</StatusBadge> : null}
-        {draft.inviteUrl ? (
-          <a
-            href={draft.inviteUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="ml-auto inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-crema/75 ring-1 ring-sand/15 transition hover:text-crema"
-          >
-            Invito del server ↗
-          </a>
-        ) : null}
-      </div>
-      {tab === "setup" ? (
+      {!showWizard && (bundle.premiumActive || draft.inviteUrl) ? (
+        <div className="-mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b border-sand/[0.08] px-4 py-3.5 sm:-mx-5 sm:px-5">
+          {bundle.premiumActive ? <StatusBadge tone="accent">Premium</StatusBadge> : null}
+          {draft.inviteUrl ? (
+            <a
+              href={draft.inviteUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="ml-auto inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-crema/75 ring-1 ring-sand/15 transition hover:text-crema"
+            >
+              Invito del server ↗
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+
+      {showWizard ? (
+        <PartnershipSetupWizard
+          guildId={guildId}
+          token={token}
+          draft={draft}
+          channels={channels}
+          roles={roles}
+          busy={busy}
+          onDraft={set}
+          onSaved={(next) => {
+            applySaved(next);
+            if (next.config.setupCompleted) setSetupCelebrating(true);
+          }}
+          onToast={onToast}
+          onFinished={() => setSetupCelebrating(false)}
+        />
+      ) : null}
+
+      {tab === "setup" && !showWizard ? (
         <div className="space-y-4">
           <SaveBar text="Le modifiche del setup si applicano quando salvi.">
             <button
