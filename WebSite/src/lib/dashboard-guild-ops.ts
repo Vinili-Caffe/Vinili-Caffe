@@ -343,8 +343,19 @@ export type PartnershipConfig = {
   };
 };
 
+/** testi del ringraziamento predefinito del bot (si vedono nell'editor finché non lo cambi) */
+export type ThankYouDefaults = {
+  color: string;
+  title: string;
+  description: string;
+  authorName: string;
+  footerText: string;
+  timestampEnabled: boolean;
+};
+
 export type PartnershipBundle = {
   config: PartnershipConfig;
+  thankYouDefaults: ThankYouDefaults;
   premiumActive: boolean;
   pickers: { textChannels: PickerChannel[]; categories: PickerChannel[]; roles: PickerRole[] };
 };
@@ -1033,6 +1044,7 @@ function mapPartnership(data: Record<string, unknown>): PartnershipBundle {
   const desc = rec(p.partnerDesc) || {};
   const filters = rec(p.contentFilters) || {};
   const embed = rec(p.thankYouEmbed) || {};
+  const tyd = rec(p.thankYouEmbedDefaults) || rec(data.thankYouEmbedDefaults) || {};
   const invite = rec(p.invite);
   const premium = rec(data.premium);
   const pickers = rec(data.pickers) || {};
@@ -1081,6 +1093,16 @@ function mapPartnership(data: Record<string, unknown>): PartnershipBundle {
         timestampEnabled: embed.timestampEnabled !== false,
         draft: embed.draft && typeof embed.draft === "object" ? (embed.draft as import("./dashboard-community").MsgDraft) : null,
       },
+    },
+    thankYouDefaults: {
+      color: str(tyd.color) || "",
+      title: str(tyd.title) || "**PARTNER EFFETTUATA**",
+      description:
+        str(tyd.description) ||
+        "Grazie per aver _effettuato_ una **partner** con `{guild}`\nOra sei a **`{user.points}`** partner!\nContinua ad __effettuare__ partner per riscattare i **premi**.",
+      authorName: str(tyd.authorName) || "{user.username}",
+      footerText: str(tyd.footerText) || "{partner}",
+      timestampEnabled: tyd.timestampEnabled !== false,
     },
     pickers: {
       textChannels: mapChannels(pickers.textChannels),

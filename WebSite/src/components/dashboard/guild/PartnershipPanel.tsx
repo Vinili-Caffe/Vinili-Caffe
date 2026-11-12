@@ -28,31 +28,38 @@ import { confirmDialog } from "@/components/ui";
 import { Pagination } from "@/components/ui/Pagination";
 import { MessagePreview } from "./MessagePreview";
 import { PARTNERSHIP_PLACEHOLDERS, PARTNERSHIP_SAMPLES } from "./PlaceholderList";
-import { DiscordMessagePreview, DraftEditor, EditorWithPreview } from "./community/shared";
+import { DiscordMessagePreview, DraftEditor, EditorWithPreview, useCommunity, useSampleVars } from "./community/shared";
 import { emptyDraft, type MsgDraft } from "@/lib/dashboard-community";
+import type { ThankYouDefaults } from "@/lib/dashboard-guild-ops";
 
 /* segnaposto della partnership per l'editor dei messaggi */
 const TY_PLACEHOLDERS = PARTNERSHIP_PLACEHOLDERS.flatMap((g) => g.items.map((it) => ({ token: it.token, hint: it.hint })));
 
-/** Ringraziamento salvato coi campi vecchi → messaggio completo (stesso aspetto di adesso). */
-function thankYouDraftOf(ty: { title: string | null; description: string | null; color: string | null; authorName: string | null; footerText: string | null; timestampEnabled: boolean; draft?: MsgDraft | null }): MsgDraft {
+/** Ringraziamento salvato coi campi vecchi (o quello predefinito del bot) → messaggio completo, stesso aspetto di adesso. */
+function thankYouDraftOf(
+  ty: { title: string | null; description: string | null; color: string | null; authorName: string | null; footerText: string | null; timestampEnabled: boolean; draft?: MsgDraft | null },
+  def: ThankYouDefaults,
+): MsgDraft {
   if (ty.draft) return ty.draft;
+  /* campo vuoto = quello predefinito, come fa il bot */
   return emptyDraft({
     content: "",
     embed: {
       ...emptyDraft().embed,
       enabled: true,
-      title: ty.title || "",
-      description: ty.description || "",
-      color: ty.color || "#6f4e37",
-      authorName: ty.authorName || "{user.username}",
+      title: ty.title || def.title,
+      description: ty.description || def.description,
+      color: ty.color || def.color || "#6f4e37",
+      authorName: ty.authorName || def.authorName,
       authorIconUrl: "{user.avatar}",
       thumbnailUrl: "{guild.icon}",
-      footerText: ty.footerText || "{partner}",
+      footerText: ty.footerText || def.footerText,
       timestamp: ty.timestampEnabled,
     },
   });
 }
+
+
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
@@ -128,6 +135,28 @@ export function PartnershipPanel({
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [migration, setMigration] = useState<PartnershipMigration | null>(null);
+  /* bot, emoji del server, nome e foto di chi è in dashboard: anteprima uguale alle altre schede */
+  const { data: community } = useCommunity(guildId, token);
+  const base = useSampleVars(community);
+  const tyVars: Record<string, string> = {
+    ...PARTNERSHIP_SAMPLES,
+    guild: base.server,
+    "guild.id": guildId,
+    "guild.icon": base.servericon,
+    user: base.user,
+    "user.username": base.username,
+    "user.tag": base["user.name"],
+    "user.id": base["user.id"],
+    "user.avatar": base.avatar,
+    /* chi fa la partnership è anche il manager nell'anteprima */
+    manager: base.user,
+    "manager.username": base.username,
+    "manager.id": base["user.id"],
+    "manager.avatar": base.avatar,
+    "partner.icon": "https://cdn.discordapp.com/embed/avatars/1.png",
+    /* per l'anteprima di Discord (menzione con nome) */
+    username: base.username,
+  };
 
   useEffect(() => {
     let cancel = false;
@@ -568,7 +597,7 @@ export function PartnershipPanel({
                   disabled={busy}
                   onClick={async () => {
                     setBusy(true);
-                    const res = await patchPartnership(token, guildId, { thankYouEmbed: { ...draft.thankYouEmbed, draft: thankYouDraftOf(draft.thankYouEmbed) } });
+                    const res = await patchPartnership(token, guildId, { thankYouEmbed: { ...draft.thankYouEmbed, draft: thankYouDraftOf(draft.thankYouEmbed, bundle.thankYouDefaults) } });
                     setBusy(false);
                     if (!res.ok) {
                       onToast(res.message, true);
@@ -585,17 +614,18 @@ export function PartnershipPanel({
                 editor={
                   <DraftEditor
                     key="thank-you"
-                    value={thankYouDraftOf(draft.thankYouEmbed)}
+                    value={thankYouDraftOf(draft.thankYouEmbed, bundle.thankYouDefaults)}
                     onChange={(d) => set({ thankYouEmbed: { ...draft.thankYouEmbed, draft: d } })}
-                    emojis={[]}
+                    emojis={community?.pickers.emojis || []}
                     placeholders={TY_PLACEHOLDERS}
                     maxButtons={10}
                   />
                 }
                 preview={
                   <DiscordMessagePreview
-                    draft={thankYouDraftOf(draft.thankYouEmbed)}
-                    vars={PARTNERSHIP_SAMPLES}
+                    draft={thankYouDraftOf(draft.thankYouEmbed, bundle.thankYouDefaults)}
+                    vars={tyVars}
+                    bot={community?.bot}
                     roles={roles.map((r) => ({ id: r.id, name: r.name, color: null, position: 0 }))}
                     channels={channels}
                   />
