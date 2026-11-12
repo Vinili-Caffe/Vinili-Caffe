@@ -12,12 +12,13 @@ const { resolveGuildAccess } = require("./guildRegistry") as typeof import("./gu
 const { isViniliProtectedGuild } = require("./viniliProtectedGuilds") as typeof import("./viniliProtectedGuilds");
 
 type ModuleKind = "feature" | "dash" | "boards";
-type ModuleDef = { id: string; kind: ModuleKind; feature?: string };
+/* mainOnly: per ora esiste solo sul server principale (sugli altri non si vede e non si accende) */
+type ModuleDef = { id: string; kind: ModuleKind; feature?: string; mainOnly?: boolean };
 
 const MODULES: ModuleDef[] = [
   { id: "bacheca", kind: "boards" },
   { id: "tickets", kind: "feature", feature: "ticket" },
-  { id: "moderation", kind: "feature", feature: "moderation" },
+  { id: "moderation", kind: "feature", feature: "moderation", mainOnly: true },
   { id: "partnership", kind: "feature", feature: "partnership" },
   { id: "messaggi", kind: "dash" },
   { id: "comandipers", kind: "dash" },
@@ -105,14 +106,20 @@ function isModuleOn(guildId?: string, id?: string): boolean {
 
 function listModules(guildId?: string) {
   const prot = isProtected(guildId);
-  return MODULES.map((m) => ({ id: m.id, on: isModuleOn(guildId, m.id), locked: prot && PROTECTED_LOCKED.has(m.id) }));
+  return MODULES.filter((m) => prot || !m.mainOnly).map((m) => ({ id: m.id, on: isModuleOn(guildId, m.id), locked: prot && PROTECTED_LOCKED.has(m.id) }));
+}
+
+/** Il modulo esiste su questo server? (quelli solo del principale no) */
+function moduleExists(guildId?: string, id?: string) {
+  const def = MODULES.find((m) => m.id === id);
+  return Boolean(def) && (!def!.mainOnly || isProtected(guildId));
 }
 
 /** Accende/spegne un modulo. Ritorna false se non si può (server protetto, modulo sconosciuto, errore). */
 async function setModuleOn(guildId?: string, id?: string, on?: boolean): Promise<boolean> {
   const gid = String(guildId || "");
   const def = MODULES.find((m) => m.id === id);
-  if (!gid || !def) return false;
+  if (!gid || !def || !moduleExists(gid, def.id)) return false;
   const next = on === true;
   if (isProtected(gid)) {
     if (PROTECTED_LOCKED.has(def.id)) return false;
@@ -193,4 +200,4 @@ function blockedCommandMessage(guildId?: string, commandName?: string): string |
   return `Questo comando è disattivato: il modulo ${MODULE_LABEL[mod] || mod} è spento su questo server.`;
 }
 
-export = { MODULES, isModuleOn, listModules, setModuleOn, moduleForCommand, blockedCommandMessage };
+export = { MODULES, isModuleOn, listModules, setModuleOn, moduleExists, moduleForCommand, blockedCommandMessage };

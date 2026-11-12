@@ -2242,6 +2242,8 @@ export function GuildPanel() {
       setOverview(d.overview);
       /* ticket del principale: si gestiscono dal sito, la sezione non si apre nemmeno da un link diretto */
       if (d.overview?.isMainGuild) setSectionState((cur) => (cur === "tickets" ? "settings" : cur));
+      /* moderazione: solo sul principale, sugli altri server la sezione non si apre */
+      else setSectionState((cur) => (cur === "moderation" ? "settings" : cur));
       setSettings(d.settings);
       setPickers(d.settingsPickers);
       setSettingsError(d.settingsError);
@@ -2337,6 +2339,8 @@ export function GuildPanel() {
               onModuleTab: setModuleTab,
               badges: { tickets: tickets?.overview.unclaimed || undefined },
               off: navOff,
+              /* per ora la Moderazione c'è solo sul server principale */
+              hidden: overview && !overview.isMainGuild ? ["moderation"] : undefined,
               /* sul principale i ticket si gestiscono dal sito, non dalla dashboard */
               locked: overview?.isMainGuild ? { tickets: "Sul server principale i ticket si gestiscono dal sito, non da qui." } : undefined,
             }

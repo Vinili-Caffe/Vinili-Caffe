@@ -687,7 +687,7 @@ const SIDEBAR_MODULES = ["bacheca", "tickets", "moderation", "partnership", "mes
 async function modulesStatus(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
-  return { ok: true, status: 200, off: SIDEBAR_MODULES.filter((id) => !MS().isModuleOn(a.guildId, id)) };
+  return { ok: true, status: 200, off: SIDEBAR_MODULES.filter((id) => MS().moduleExists(a.guildId, id) && !MS().isModuleOn(a.guildId, id)) };
 }
 
 export = {

@@ -109,6 +109,8 @@ export type GuildNav = {
   badges?: Partial<Record<GuildSectionId, number>>;
   /** moduli spenti su questo server: vanno nel gruppo "Disattivati" sotto Moduli */
   off?: readonly GuildSectionId[];
+  /** moduli che su questo server non esistono: non compaiono proprio nel menu */
+  hidden?: readonly GuildSectionId[];
   /** moduli che qui non si gestiscono dalla dashboard: in "Disattivati", non cliccabili (valore = perché) */
   locked?: Partial<Record<GuildSectionId, string>>;
 };
@@ -854,8 +856,10 @@ function Sidebar({
                   onNavigate={onNavigate}
                 />
               );
-              const onList = GUILD_MODULE_SECTIONS.filter((s) => !offSet.has(s.id));
-              const offList = GUILD_MODULE_SECTIONS.filter((s) => offSet.has(s.id));
+              const hiddenSet = new Set<string>(guildNav?.hidden || []);
+              const visible = GUILD_MODULE_SECTIONS.filter((s) => !hiddenSet.has(s.id));
+              const onList = visible.filter((s) => !offSet.has(s.id));
+              const offList = visible.filter((s) => offSet.has(s.id));
               return (
                 <>
                   <NavGroup title="Moduli">{onList.map((s) => item(s, false))}</NavGroup>
