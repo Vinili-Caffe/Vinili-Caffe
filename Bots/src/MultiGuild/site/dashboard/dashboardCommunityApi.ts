@@ -212,6 +212,17 @@ async function getDashboardCommunity(client?, token?, guildId?) {
     welcome,
     welcomeSaved: await T.hasSavedWelcome(gid, true),
     isMainGuild: T.isMainGuild(gid),
+    /* ruoli che il bot dà già all'ingresso col sistema classico (solo principale), da mostrare nei Ruoli automatici */
+    systemAutoRoles: (() => {
+      if (!T.isMainGuild(gid)) return [];
+      try {
+        const IDs = require("../../../Vinili/Config/ids") as any;
+        const pre = String(IDs?.roles?.preMember || "");
+        return pre ? [{ id: pre, note: "finché non completa la verifica" }] : [];
+      } catch (_) {
+        return [];
+      }
+    })(),
     pickers,
   };
 }
