@@ -158,6 +158,56 @@ function shouldRefreshPickers(gid: string) {
   return true;
 }
 
+/*
+ * Ruoli che ricevono tutti quelli che entrano nel server principale.
+ * - il ruolo di pre-verifica lo dà il bot (codice);
+ * - gli altri (onboarding di Discord, altri bot…) si ricavano da chi è entrato di recente:
+ *   i ruoli che hanno tutti gli ultimi ingressi. Rifatto al massimo ogni 15 minuti.
+ */
+const joinRolesCache = new Map<string, { at: number; roles: { id: string; note: string }[] }>();
+async function mainJoinRoles(client?, gid?: string) {
+  const hit = joinRolesCache.get(String(gid));
+  if (hit && Date.now() - hit.at < 15 * 60 * 1000) return hit.roles;
+  const out: { id: string; note: string }[] = [];
+  let pre = "";
+  try {
+    const IDs = require("../../../Vinili/Config/ids") as any;
+    pre = String(IDs?.roles?.preMember || "");
+    if (pre) out.push({ id: pre, note: "finché non completa la verifica" });
+  } catch (_) {}
+  try {
+    const rest = restOf(client);
+    const all: any[] = [];
+    let after = "";
+    for (let i = 0; i < 20; i += 1) {
+      const q = new URLSearchParams({ limit: "1000" });
+      if (after) q.set("after", after);
+      const batch: any = await rest.get(`/guilds/${gid}/members?${q.toString()}`);
+      if (!Array.isArray(batch) || !batch.length) break;
+      all.push(...batch);
+      after = String(batch[batch.length - 1]?.user?.id || "");
+      if (!after || batch.length < 1000) break;
+    }
+    /* ultimi ingressi di persone (non bot) */
+    const recent = all
+      .filter((m) => m?.user && !m.user.bot && m.joined_at)
+      .sort((a, b) => Date.parse(b.joined_at) - Date.parse(a.joined_at))
+      .slice(0, 25);
+    if (recent.length >= 5) {
+      let common = new Set<string>((recent[0].roles || []).map(String));
+      for (const m of recent.slice(1)) {
+        const mine = new Set<string>((m.roles || []).map(String));
+        common = new Set([...common].filter((id) => mine.has(id)));
+      }
+      for (const id of common) if (id !== pre && id !== String(gid)) out.push({ id, note: "lo hanno tutti quelli entrati di recente" });
+    }
+  } catch (err) {
+    global.logger?.warn?.("[DASHBOARD] ruoli d'ingresso:", (err as any)?.message || err);
+  }
+  joinRolesCache.set(String(gid), { at: Date.now(), roles: out });
+  return out;
+}
+
 async function getDashboardCommunity(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
@@ -212,17 +262,8 @@ async function getDashboardCommunity(client?, token?, guildId?) {
     welcome,
     welcomeSaved: await T.hasSavedWelcome(gid, true),
     isMainGuild: T.isMainGuild(gid),
-    /* ruoli che il bot dà già all'ingresso col sistema classico (solo principale), da mostrare nei Ruoli automatici */
-    systemAutoRoles: (() => {
-      if (!T.isMainGuild(gid)) return [];
-      try {
-        const IDs = require("../../../Vinili/Config/ids") as any;
-        const pre = String(IDs?.roles?.preMember || "");
-        return pre ? [{ id: pre, note: "finché non completa la verifica" }] : [];
-      } catch (_) {
-        return [];
-      }
-    })(),
+    /* ruoli già dati all'ingresso fuori dalla dashboard (solo principale), da mostrare nei Ruoli automatici */
+    systemAutoRoles: T.isMainGuild(gid) ? await mainJoinRoles(client, gid).catch(() => []) : [],
     pickers,
   };
 }

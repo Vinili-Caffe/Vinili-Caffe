@@ -182,7 +182,7 @@ export type WelcomeSettings = {
 };
 
 export type PickerChannel = { id: string; name: string };
-export type PickerRole = { id: string; name: string; color: string | null; position: number; managed?: boolean };
+export type PickerRole = { id: string; name: string; color: string | null; position: number; managed?: boolean; /** ruolo Server Booster di Discord */ booster?: boolean };
 /** guildName presente = emoji di un altro server del bot */
 export type PickerEmoji = { id: string; name: string; animated?: boolean; url?: string; guildId?: string; guildName?: string };
 

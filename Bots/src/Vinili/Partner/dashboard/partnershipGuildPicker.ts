@@ -132,6 +132,8 @@ async function listGuildPickerData(client?, guildId?, opts: Record<string, any> 
           permissions,
           administrator,
           managed: Boolean(r.managed),
+          /* ruolo "Server Booster" che Discord dà da solo a chi boosta */
+          booster: Boolean(r.tags?.premiumSubscriberRole === true || (r.tags && Object.prototype.hasOwnProperty.call(r.tags, "premium_subscriber"))),
         };
       })
       .sort((a?, b?) => b.position - a.position || a.name.localeCompare(b.name, "it"));

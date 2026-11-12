@@ -219,6 +219,20 @@ export function AnnouncementsPanel({
         <FormGroup title="Ruoli da dare" description="Vinili li dà a chi boosta, anche con l'annuncio spento. Il ruolo del bot deve stare sopra questi ruoli.">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Al primo boost">
+              {(() => {
+                /* il ruolo Server Booster lo dà già Discord: si vede qui, non si sceglie */
+                const booster = data.pickers.roles.find((r) => r.booster);
+                return booster ? (
+                  <span
+                    className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-[#f47fff]/10 px-2.5 py-1 text-xs text-crema/85 ring-1 ring-[#f47fff]/25"
+                    title="Lo dà Discord in automatico a chi boosta e lo toglie quando il boost finisce"
+                  >
+                    <span className="size-2 rounded-full" style={{ background: booster.color || "#f47fff" }} aria-hidden />
+                    <span className="font-semibold">@{booster.name}</span>
+                    <span className="text-crema/50">· sempre, lo dà Discord</span>
+                  </span>
+                ) : null;
+              })()}
               <MultiSelect
                 value={b.firstRoleIds || []}
                 onChange={(ids) => set({ ...cfg, boost: { ...b, firstRoleIds: ids.slice(0, 10) } })}
