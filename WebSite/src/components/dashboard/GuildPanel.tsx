@@ -6,8 +6,6 @@ import {
   Bot,
   Camera,
   CalendarDays,
-  CheckCircle2,
-  Circle,
   Download,
   Gem,
   Shapes,
@@ -31,8 +29,8 @@ import {
   Upload,
   UserPlus,
   Users,
-  X,
   Languages,
+  Rocket,
 } from "lucide-react";
 import {
   Archive as IcArchive,
@@ -167,7 +165,6 @@ const CommandAclEditor = dynamic(() => import("./guild/CommandAcl").then((m) => 
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
-const SetupWizard = dynamic(() => import("./guild/SetupWizard").then((m) => m.SetupWizard), { ssr: false });
 
 const ModulesPanel = dynamic(() => import("./guild/ModulesPanel").then((m) => m.ModulesPanel), {
   ssr: false,
@@ -544,103 +541,6 @@ function fmtNum(n: number | null) {
 }
 
 /** Testata del server: copertina (banner o icona sfocata), icona, badge e dati generali del server. */
-function setupDismissKey(guildId: string) {
-  return `dash-setup-dismissed:${guildId}`;
-}
-
-function SetupGuideBanner({
-  overview,
-  ticketsEnabled,
-  onGo,
-}: {
-  overview: GuildOverview;
-  ticketsEnabled: boolean;
-  onGo: (section: Section) => void;
-}) {
-  const setup = overview.setup;
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    try {
-      setDismissed(localStorage.getItem(setupDismissKey(overview.id)) === "1");
-    } catch {
-      setDismissed(false);
-    }
-  }, [overview.id]);
-
-  if (!setup || setup.complete || dismissed || overview.isMainGuild) return null;
-
-  const steps = [
-    {
-      id: "partnership-channel" as const,
-      done: Boolean(setup.partnershipsChannelId),
-      label: "Canale partnership",
-      section: "partnership" as Section,
-    },
-    {
-      id: "partnership-role" as const,
-      done: Boolean(setup.partnerManagerRoleId),
-      label: "Ruolo partner manager",
-      section: "partnership" as Section,
-    },
-    {
-      id: "tickets" as const,
-      done: ticketsEnabled,
-      label: "Attiva i ticket (opzionale)",
-      section: "tickets" as Section,
-      optional: true,
-    },
-  ];
-
-  const dismiss = () => {
-    try {
-      localStorage.setItem(setupDismissKey(overview.id), "1");
-    } catch {
-      /* ignore */
-    }
-    setDismissed(true);
-  };
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-caramel/[0.14] via-roast/85 to-roast/85 p-4 ring-1 ring-caramel/25 sm:p-5">
-      <button
-        type="button"
-        onClick={dismiss}
-        className="absolute right-3 top-3 rounded-lg p-1.5 text-crema/50 transition hover:bg-crema/10 hover:text-crema"
-        aria-label="Nascondi guida"
-      >
-        <X className="size-4" />
-      </button>
-      <p className="pr-8 text-sm font-semibold text-crema">Configurazione iniziale</p>
-      <p className="mt-1 max-w-xl text-xs leading-relaxed text-crema/65">
-        Completa questi passaggi per far funzionare partnership (e, se vuoi, i ticket) su questo server.
-      </p>
-      <ul className="mt-3 space-y-2">
-        {steps.map((step) => (
-          <li key={step.id}>
-            <button
-              type="button"
-              onClick={() => onGo(step.section)}
-              className="flex w-full items-center gap-2.5 rounded-xl bg-espresso/40 px-3 py-2 text-left text-sm text-crema/85 ring-1 ring-sand/10 transition hover:bg-espresso/55"
-            >
-              {step.done ? (
-                <CheckCircle2 className="size-4 shrink-0 text-[#9fd0a8] light:text-[#2f6b3f]" aria-hidden />
-              ) : (
-                <Circle className="size-4 shrink-0 text-crema/40" aria-hidden />
-              )}
-              <span className="min-w-0 flex-1 font-medium">
-                {step.label}
-                {step.optional ? <span className="ml-1 text-xs font-normal text-crema/45">opzionale</span> : null}
-              </span>
-              <span className="text-xs font-semibold text-ember">Apri</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function GuildHero({ guild, premiumActive, prefix }: { guild: GuildOverview; premiumActive: boolean; prefix: string | null }) {
   const initial = (guild.name.trim().charAt(0) || "?").toUpperCase();
   const created = guildCreatedAt(guild.id);
@@ -1056,6 +956,107 @@ const SERVER_LANGUAGES = [
   ["ro", "🇷🇴 Română"],
   ["sv", "🇸🇪 Svenska"],
 ].map(([value, label]) => ({ value, label }));
+
+/* primo avvio: una volta fatto (o se il server è già impostato) non si mostra più */
+const FIRST_SETUP_KEY = (gid: string) => `vc-first-setup:${gid}`;
+function firstSetupDone(gid: string, settings: GuildSettings) {
+  if (settings.updatesChannelId || settings.language) return true;
+  try {
+    return localStorage.getItem(FIRST_SETUP_KEY(gid)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Finestra a schermo intero al primo avvio: prefisso, canale aggiornamenti, lingua e fuso orario. */
+function FirstSetupModal({
+  guildId,
+  token,
+  guildName,
+  settings,
+  pickers,
+  onDone,
+  onToast,
+}: {
+  guildId: string;
+  token: string;
+  guildName: string;
+  settings: GuildSettings;
+  pickers: SettingsPickers;
+  onDone: (next: GuildSettings, nextPickers?: SettingsPickers) => void;
+  onToast: (msg: string, err?: boolean) => void;
+}) {
+  const [prefix, setPrefix] = useState(settings.prefix || "+");
+  const [channel, setChannel] = useState(settings.updatesChannelId || "");
+  const [language, setLanguage] = useState(settings.language || settings.discordLanguage || "it");
+  const [timezone, setTimezone] = useState(settings.timezone || "Europe/Rome");
+  const [busy, setBusy] = useState(false);
+  const tzOptions = useMemo(() => timezoneOptions(timezone), [timezone]);
+
+  const submit = async () => {
+    const parsed = normalizePrefixInput(prefix, settings.prefixMaxLength);
+    if (!parsed.ok) return onToast(parsed.message, true);
+    setBusy(true);
+    const res = await patchGuildSettings(token, guildId, { prefix: parsed.prefix, updatesChannelId: channel || null, language: language || null, timezone });
+    setBusy(false);
+    if (!res.ok) return onToast(res.message, true);
+    try {
+      localStorage.setItem(FIRST_SETUP_KEY(guildId), "1");
+    } catch {}
+    onToast("Fatto! Il bot è pronto su questo server.");
+    onDone(res.data.settings, res.data.pickers);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/75 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="first-setup-title">
+      <motion.div
+        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-gradient-to-br from-mocha via-roast to-espresso p-6 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] ring-1 ring-sand/20"
+      >
+        <div className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-caramel/25 blur-3xl" aria-hidden />
+        <div className="relative">
+          <span className="flex size-12 items-center justify-center rounded-2xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
+            <Rocket className="size-6" aria-hidden />
+          </span>
+          <h2 id="first-setup-title" className="mt-4 font-display text-2xl font-semibold text-crema">Benvenuto su Vinili!</h2>
+          <p className="mt-1 text-sm text-crema/65">Prima di iniziare imposta le basi per <span className="font-semibold text-crema">{guildName}</span>. Puoi cambiarle quando vuoi da Impostazioni.</p>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-[0.8rem] font-semibold text-crema/80">Prefisso dei comandi</span>
+              <input value={prefix} maxLength={settings.prefixMaxLength} onChange={(e) => setPrefix(e.target.value)} className={cn(fieldCls, "mt-1.5 font-mono")} />
+            </label>
+            <label className="block">
+              <span className="text-[0.8rem] font-semibold text-crema/80">Canale delle novità</span>
+              <Select
+                value={channel}
+                onChange={setChannel}
+                searchable
+                searchPlaceholder="Cerca canale…"
+                className={cn(fieldCls, "mt-1.5")}
+                options={[{ value: "", label: "Nessuno" }, ...pickers.textChannels.map((c) => ({ value: c.id, label: `#${c.name}` }))]}
+              />
+            </label>
+            <label className="block">
+              <span className="text-[0.8rem] font-semibold text-crema/80">Lingua del bot</span>
+              <Select value={language} onChange={setLanguage} searchable searchPlaceholder="Cerca lingua…" className={cn(fieldCls, "mt-1.5")} options={SERVER_LANGUAGES} />
+            </label>
+            <label className="block">
+              <span className="text-[0.8rem] font-semibold text-crema/80">Fuso orario</span>
+              <Select value={timezone} onChange={setTimezone} searchable searchPlaceholder="Cerca fuso…" className={cn(fieldCls, "mt-1.5")} options={tzOptions} />
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-crema/50">Nel canale delle novità arrivano gli aggiornamenti di Vinili. Il fuso orario serve per i messaggi programmati e gli orari.</p>
+
+          <button type="button" disabled={busy} onClick={() => void submit()} className={cn(dashPrimaryBtn, "mt-6 w-full justify-center py-2.5")}>
+            {busy ? "Salvataggio…" : "Inizia"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 /* fusi orari IANA del browser, con lo scarto da UTC (es. "Europe/Rome · UTC+1") */
 function timezoneOptions(current: string) {
@@ -2242,8 +2243,8 @@ export function GuildPanel() {
       setOverview(d.overview);
       /* ticket del principale: si gestiscono dal sito, la sezione non si apre nemmeno da un link diretto */
       if (d.overview?.isMainGuild) setSectionState((cur) => (cur === "tickets" ? "settings" : cur));
-      /* moderazione: solo sul principale, sugli altri server la sezione non si apre */
-      else setSectionState((cur) => (cur === "moderation" ? "settings" : cur));
+      /* moderazione e bacheca: solo sul principale, sugli altri server non si aprono */
+      else setSectionState((cur) => (cur === "moderation" || cur === "bacheca" ? "settings" : cur));
       setSettings(d.settings);
       setPickers(d.settingsPickers);
       setSettingsError(d.settingsError);
@@ -2263,6 +2264,7 @@ export function GuildPanel() {
 
   /* moduli spenti su questo server: nel menu vanno nel gruppo "Disattivati" (si aggiorna cambiando sezione) */
   const [modulesOff, setModulesOff] = useState<GuildSectionId[]>([]);
+  const [firstSetupClosed, setFirstSetupClosed] = useState(false);
   /* cambia quando si accende/spegne un modulo: il menu si riaggiorna */
   const [modulesRev, setModulesRev] = useState(0);
   useEffect(() => {
@@ -2339,8 +2341,8 @@ export function GuildPanel() {
               onModuleTab: setModuleTab,
               badges: { tickets: tickets?.overview.unclaimed || undefined },
               off: navOff,
-              /* per ora la Moderazione c'è solo sul server principale */
-              hidden: overview && !overview.isMainGuild ? ["moderation"] : undefined,
+              /* moderazione e bacheca solo sul server principale */
+              hidden: overview && !overview.isMainGuild ? ["moderation", "bacheca"] : undefined,
               /* sul principale i ticket si gestiscono dal sito, non dalla dashboard */
               locked: overview?.isMainGuild ? { tickets: "Sul server principale i ticket si gestiscono dal sito, non da qui." } : undefined,
             }
@@ -2432,8 +2434,21 @@ export function GuildPanel() {
               />
             ) : null}
 
-            {overview.botPresent ? (
-              <SetupGuideBanner overview={overview} ticketsEnabled={tickets?.enabled === true} onGo={setSection} />
+            {/* primo avvio: finestra a schermo intero (prefisso, novità, lingua, fuso) */}
+            {overview.botPresent && !overview.isMainGuild && guildId && token && settings && !firstSetupClosed && !firstSetupDone(guildId, settings) ? (
+              <FirstSetupModal
+                guildId={guildId}
+                token={token}
+                guildName={overview.name}
+                settings={settings}
+                pickers={pickers}
+                onToast={showToast}
+                onDone={(next, nextPickers) => {
+                  setSettings(next);
+                  if (nextPickers) setPickers(nextPickers);
+                  setFirstSetupClosed(true);
+                }}
+              />
             ) : null}
 
             {!overview.botPresent ? (
@@ -2479,7 +2494,6 @@ export function GuildPanel() {
                 </div>
 
                 {/* primo avvio guidato: compare finché manca un passo (si può nascondere) */}
-                {guildId && token && overview.botPresent ? <SetupWizard guildId={guildId} token={token} /> : null}
 
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -2533,7 +2547,7 @@ export function GuildPanel() {
                       />
                       </SideTabsLayout>
                     ) : null}
-                    {section === "bacheca" && guildId && token ? (
+                    {section === "bacheca" && overview.isMainGuild && guildId && token ? (
                       <BoardsSection
                         guildId={guildId}
                         token={token}
@@ -2582,14 +2596,14 @@ export function GuildPanel() {
                         )
                       )
                     ) : null}
-                    {section === "moderation" && guildId && token && moduleTab === "log" ? (
+                    {section === "moderation" && overview.isMainGuild && guildId && token && moduleTab === "log" ? (
                       withSwitchTabs(
                       <Panel>
                         <ServerLogsPanel guildId={guildId} token={token} onToast={showToast} />
                       </Panel>
                       )
                     ) : null}
-                    {section === "moderation" && guildId && token && moduleTab !== "log" ? (
+                    {section === "moderation" && overview.isMainGuild && guildId && token && moduleTab !== "log" ? (
                       withSwitchTabs(
                       <ModerationPanel
                         guildId={guildId}
@@ -2617,6 +2631,7 @@ export function GuildPanel() {
                         <ModulesPanel
                           guildId={guildId}
                           token={token}
+                          hideIds={overview.isMainGuild ? undefined : ["moderation", "bacheca"]}
                           onToast={showToast}
                           onOpen={(s) => void setSection(s)}
                           onChanged={() => setModulesRev((n) => n + 1)}
