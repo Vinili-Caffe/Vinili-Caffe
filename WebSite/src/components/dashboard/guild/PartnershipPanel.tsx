@@ -138,7 +138,8 @@ export function PartnershipPanel({
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [migration, setMigration] = useState<PartnershipMigration | null>(null);
-  /* tiene montato il wizard durante il flash “completato” anche se setupCompleted è già true */
+  /* wizard aperto finché non chiudi “Fine” (anche se un salvataggio intermedio flipsasse setupCompleted) */
+  const [wizardSession, setWizardSession] = useState(false);
   const [setupCelebrating, setSetupCelebrating] = useState(false);
   /* bot, emoji del server, nome e foto di chi è in dashboard: anteprima uguale alle altre schede */
   const { data: community } = useCommunity(guildId, token);
@@ -168,6 +169,8 @@ export function PartnershipPanel({
 
   useEffect(() => {
     let cancel = false;
+    setWizardSession(false);
+    setSetupCelebrating(false);
     (async () => {
       setLoading(true);
       const res = await loadPartnership(token, guildId);
@@ -180,6 +183,8 @@ export function PartnershipPanel({
       setError("");
       setBundle(res.data);
       setDraft(res.data.config);
+      /* apre il wizard solo se il setup non è ancora chiuso esplicitamente */
+      setWizardSession(res.data.config.setupCompleted !== true);
     })();
     return () => {
       cancel = true;
@@ -324,8 +329,7 @@ export function PartnershipPanel({
 
   const roleOptions = (none: string) => [{ value: "", label: none }, ...roles.map((r) => ({ value: r.id, label: `@${r.name}` }))];
 
-  const needsSetup = !draft.setupCompleted;
-  const showWizard = needsSetup || setupCelebrating;
+  const showWizard = wizardSession || setupCelebrating;
 
   return (
     <div className="space-y-4">
@@ -359,7 +363,10 @@ export function PartnershipPanel({
             if (next.config.setupCompleted) setSetupCelebrating(true);
           }}
           onToast={onToast}
-          onFinished={() => setSetupCelebrating(false)}
+          onFinished={() => {
+            setSetupCelebrating(false);
+            setWizardSession(false);
+          }}
         />
       ) : null}
 

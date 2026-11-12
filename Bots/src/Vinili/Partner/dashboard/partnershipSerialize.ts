@@ -1,5 +1,5 @@
 /** Dashboard partnership: dati come li vede il sito. */
-const { isPartnershipSetupComplete, normalizeContentFilters } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
+const { normalizeContentFilters } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
 const { formatPingDelayForInput, DEFAULT_CUSTOM_ROLE_PING_DELAY_MS } = require("../../Partner/runtime/partnershipPingUtils") as typeof import("../../Partner/runtime/partnershipPingUtils");
 const { defaultThankYouEmbedFieldsForGuild } = require("../../Partner/runtime/partnershipThankYouEmbed") as typeof import("../../Partner/runtime/partnershipThankYouEmbed");
 
@@ -62,11 +62,8 @@ function serializePartnership(config?, guildId = null) {
         return "12h";
       }
     })(),
-    setupCompleted: Boolean(
-      cfg.legacy === true ||
-        isPartnershipSetupComplete(cfg) ||
-        (cfg.partnershipsChannelId && cfg.partnerManagerRoleId),
-    ),
+    /* Flag esplicito (o legacy): canale+ruolo da soli non chiudono il wizard dashboard. */
+    setupCompleted: Boolean(cfg.legacy === true || cfg.setupCompleted === true),
     setupCompletedAt: cfg.setupCompletedAt || null,
     invite: cfg.invite?.url
       ? { code: cfg.invite.code || null, url: cfg.invite.url, channelId: cfg.invite.channelId || null }

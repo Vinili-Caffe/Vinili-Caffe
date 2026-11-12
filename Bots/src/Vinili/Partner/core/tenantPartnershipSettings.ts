@@ -410,10 +410,8 @@ async function savePartnershipConfig(guildId?, patch?) {
       Object.prototype.hasOwnProperty.call(patch, "contentFilters") ||
       prev.contentFiltersConfigured === true,
   };
-      if (next.partnershipsChannelId && next.partnerManagerRoleId && !next.setupCompleted) {
-    next.setupCompleted = true;
-    next.setupCompletedAt = next.setupCompletedAt || Date.now();
-  }
+  /* setupCompleted solo via completePartnershipSetup / completeSetup (wizard o +setup),
+     non appena ci sono canale+ruolo: altrimenti il wizard dashboard sparisce a metà. */
   map[gid] = configToRow(next);
   const saved = await setBotState(BOT_STATE_KEY, map);
   if (!saved) return { ok: false, reason: "persist_failed" };
