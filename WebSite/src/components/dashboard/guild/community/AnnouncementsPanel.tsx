@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Plus, Tags, Trash2 } from "lucide-react";
-import { MultiSelect } from "@/components/ui/Select";
+import { MultiSelect, Select } from "@/components/ui/Select";
 import { NumberField } from "@/components/ui/NumberField";
 import { cn } from "@/lib/cn";
 import {
@@ -38,17 +38,14 @@ type AnnouncementsTab = "boost" | "ruolinuovi" | "clantag" | "status" | "inviti"
 const TAB_BLURB: Record<AnnouncementsTab, string> = {
   boost: "Un messaggio quando qualcuno boosta il server: uno per il primo boost e uno per quelli dopo.",
   clantag: "Annuncio quando qualcuno prende la tag clan (ruolo Guilded).",
-  status: "Annunci Fan (link nello status) e Supporter (link in bio).",
+  status: "Annuncio Fan: il bot dà il ruolo da solo a chi mette il link del server nello status.",
   inviti: "Annunci ai traguardi inviti: Promoter (5), Propulsor (25), Catalyst (100).",
-  ruolinuovi: "Regole libere per altri ruoli (Verified, Patron, Donator…). Clan/status/inviti stanno nelle tab dedicate.",
+  ruolinuovi: "Regole libere per altri ruoli (Supporter, Verified, Patron, Donator…). Clan tag, status e inviti stanno nelle loro schede.",
 };
 
 const NAMED_GROUPS: Record<"clantag" | "status" | "inviti", { key: NamedAnnounceKey; title: string; hint: string }[]> = {
   clantag: [{ key: "clantag", title: "Clan tag", hint: "Quando qualcuno ottiene il ruolo Guilded dalla tag." }],
-  status: [
-    { key: "fan", title: "Fan (status)", hint: "Link del server nello status Discord." },
-    { key: "supporter", title: "Supporter (bio)", hint: "Link del server nella bio / about me." },
-  ],
+  status: [{ key: "fan", title: "Fan (status)", hint: "Link del server nello status Discord: ruolo dato in automatico." }],
   inviti: [
     { key: "promoter", title: "Promoter — 5 inviti", hint: "Primo traguardo con il link personalizzato." },
     { key: "propulsor", title: "Propulsor — 25 inviti", hint: "Secondo traguardo." },
@@ -78,7 +75,6 @@ function ensureNamed(cfg: AnnouncementsConfig): AnnouncementsConfig["named"] {
   return {
     clantag: n.clantag || emptyNamed("clantag", "Clan tag"),
     fan: n.fan || emptyNamed("fan", "Fan (status)"),
-    supporter: n.supporter || emptyNamed("supporter", "Supporter (bio)"),
     promoter: n.promoter || emptyNamed("promoter", "Promoter"),
     propulsor: n.propulsor || emptyNamed("propulsor", "Propulsor"),
     catalyst: n.catalyst || emptyNamed("catalyst", "Catalyst"),
@@ -177,8 +173,8 @@ export function AnnouncementsPanel({
         {imported ? <Notice>Ho importato l&apos;annuncio dei boost del server principale (primo boost e doppio boost). È spento: accendilo quando vuoi usarlo.</Notice> : null}
         {saveBar}
         <FormGroup title="Annuncio dei boost">
-          <SettingRow title="Annuncia i boost" description="Ogni volta che qualcuno boosta il server.">
-            <Toggle checked={b.enabled} onChange={(enabled) => set({ ...cfg, boost: { ...b, enabled } })} label="Annuncia i boost" />
+          <SettingRow title="Annuncia nel canale" description="Ogni volta che qualcuno boosta il server. Spento + privato acceso = solo in privato.">
+            <Toggle checked={b.enabled} onChange={(enabled) => set({ ...cfg, boost: { ...b, enabled } })} label="Annuncia i boost nel canale" />
           </SettingRow>
           {b.enabled ? (
             <div className="mt-3 space-y-3">
@@ -215,18 +211,18 @@ export function AnnouncementsPanel({
                 }
                 preview={<DiscordMessagePreview bot={data.bot} draft={draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
               />
-              <DmExtra
-                editorKey="boost"
-                value={b.dm}
-                onChange={(dm) => set({ ...cfg, boost: { ...b, dm } })}
-                data={data}
-                vars={vars}
-                placeholders={BOOST_PLACEHOLDERS}
-                hint="A chi boosta, sia al primo boost che ai successivi."
-              />
             </div>
           ) : null}
         </FormGroup>
+        <DmExtra
+          editorKey="boost"
+          value={b.dm}
+          onChange={(dm) => set({ ...cfg, boost: { ...b, dm } })}
+          data={data}
+          vars={vars}
+          placeholders={BOOST_PLACEHOLDERS}
+          hint="A chi boosta, sia al primo boost che ai successivi. Funziona anche con l'annuncio nel canale spento."
+        />
       </div>
     );
   }
@@ -241,7 +237,7 @@ export function AnnouncementsPanel({
           </Notice>
         ) : null}
         {saveBar}
-        <FormGroup title={tab === "clantag" ? "Clan tag" : tab === "status" ? "Status e bio" : "Traguardi inviti"}>
+        <FormGroup title={tab === "clantag" ? "Clan tag" : tab === "status" ? "Status" : "Traguardi inviti"}>
           <div className="space-y-2">
             {group.map(({ key, title, hint }) => {
               const slot = named[key];
@@ -266,19 +262,20 @@ export function AnnouncementsPanel({
                   {open ? (
                     <div className="space-y-3 border-t border-sand/10 p-3">
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <ChannelField label="Canale" value={slot.channelId} channels={channels} onChange={(channelId) => setNamed(key, { channelId })} />
+                        <Field label="Ruolo" hint="L'annuncio parte quando qualcuno riceve questo ruolo.">
+                          <Select
+                            value={slot.roleId || ""}
+                            onChange={(v) => setNamed(key, { roleId: v || null })}
+                            options={[{ value: "", label: "— Nessuno —" }, ...roleOptions(data.pickers.roles, guildId).filter((o) => o.value === slot.roleId || !reservedRoleIds.has(o.value))]}
+                            className="mt-1.5 h-11 rounded-lg"
+                          />
+                        </Field>
+                        <ChannelField label="Canale" hint="Vuoto = niente messaggio in chat (va bene se usi solo il privato)." value={slot.channelId} channels={channels} onChange={(channelId) => setNamed(key, { channelId })} />
                         <Field label="Non ripetere entro (ore)" hint="Se il ruolo viene tolto e rimesso. 0 = sempre.">
                           <NumberField value={slot.cooldownHours} min={0} max={8760} onChange={(v) => setNamed(key, { cooldownHours: Number(v) || 0 })} aria-label="Ore" />
                         </Field>
                       </div>
-                      {slot.roleId ? (
-                        <p className="text-xs text-crema/50">
-                          Ruolo collegato:{" "}
-                          <span className="text-crema/80">{data.pickers.roles.find((r) => r.id === slot.roleId)?.name || slot.roleId}</span>
-                        </p>
-                      ) : (
-                        <p className="text-xs text-amber-200/80">Ruolo non configurato su questo server (seed solo sul principale).</p>
-                      )}
+                      {!slot.roleId ? <p className="text-xs text-amber-200/80">Scegli il ruolo: senza, questo annuncio non parte.</p> : null}
                       <EditorWithPreview
                         editor={
                             <DraftEditor
@@ -381,7 +378,7 @@ export function AnnouncementsPanel({
                       <Field label="Nome (solo per te)">
                         <input value={r.name} maxLength={80} onChange={(e) => setRule(r.id, { name: e.target.value })} className={fieldClass} />
                       </Field>
-                      <ChannelField label="Canale" value={r.channelId} channels={channels} onChange={(channelId) => setRule(r.id, { channelId })} />
+                      <ChannelField label="Canale" hint="Vuoto = niente messaggio in chat (va bene se usi solo il privato)." value={r.channelId} channels={channels} onChange={(channelId) => setRule(r.id, { channelId })} />
                       <Field label="Ruoli" hint="L'annuncio parte quando qualcuno riceve uno di questi.">
                         <MultiSelect
                           value={r.roleIds}

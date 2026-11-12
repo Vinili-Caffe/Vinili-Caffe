@@ -77,7 +77,7 @@ export function WelcomePanel({
         <Toggle checked={p.enabled} onChange={(enabled) => set({ enabled })} label={k === "welcome" ? "Attiva il benvenuto" : "Attiva l'addio"} />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-crema">{k === "welcome" ? "Messaggio quando entra qualcuno" : "Messaggio quando qualcuno esce"}</p>
-          <p className="text-xs text-crema/55">{p.enabled ? "Attivo" : "Spento"}</p>
+          <p className="text-xs text-crema/55">{p.enabled ? "Nel canale: attivo" : "Nel canale: spento (il privato qui sotto funziona lo stesso)"}</p>
         </div>
         <button type="button" className={miniBtn} disabled={!!busy || !p.channelId} onClick={() => void test(k)}>
           <Send className="size-3.5" /> Prova

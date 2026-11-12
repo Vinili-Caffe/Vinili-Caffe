@@ -76,7 +76,7 @@ export type NamedAnnounceSlot = {
   draft: MsgDraft;
   dm?: AnnounceDm;
 };
-export type NamedAnnounceKey = "clantag" | "fan" | "supporter" | "promoter" | "propulsor" | "catalyst";
+export type NamedAnnounceKey = "clantag" | "fan" | "promoter" | "propulsor" | "catalyst";
 export type AnnouncementsConfig = {
   boost: { enabled: boolean; channelId: string | null; firstDraft: MsgDraft; repeatDraft: MsgDraft; dm?: AnnounceDm };
   named: Record<NamedAnnounceKey, NamedAnnounceSlot>;

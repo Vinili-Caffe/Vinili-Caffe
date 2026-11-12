@@ -12,7 +12,8 @@ const restOf = (client?) => client?.rest || client?._rest || null;
 const ROLE_RULES_MAX = 40;
 const SEED_VERSION = 5;
 
-const NAMED_KEYS = ["clantag", "fan", "supporter", "promoter", "propulsor", "catalyst"] as const;
+/* Supporter (bio) è nei ruoli custom: il ruolo lo dà lo staff a mano */
+const NAMED_KEYS = ["clantag", "fan", "promoter", "propulsor", "catalyst"] as const;
 type NamedKey = (typeof NAMED_KEYS)[number];
 
 /* ───────────── impostazioni ───────────── */
@@ -53,7 +54,6 @@ function normalizeNamedSlot(key: NamedKey, raw?) {
   const defaults: Record<NamedKey, string> = {
     clantag: "Clan tag",
     fan: "Fan (status)",
-    supporter: "Supporter (bio)",
     promoter: "Promoter",
     propulsor: "Propulsor",
     catalyst: "Catalyst",
@@ -95,6 +95,21 @@ function normalizeConfig(raw?) {
   const r = raw && typeof raw === "object" ? raw : {};
   const b = r.boost && typeof r.boost === "object" ? r.boost : {};
   const rl = r.roles && typeof r.roles === "object" ? r.roles : {};
+  const rulesRaw: any[] = Array.isArray(rl.rules) ? [...rl.rules] : [];
+  /* vecchio slot "supporter" (scheda a parte) → regola dei ruoli custom, se nessuna regola ha già quel ruolo */
+  const legacySup = r.named && typeof r.named === "object" ? r.named.supporter : null;
+  if (legacySup && T.isId(legacySup.roleId) && !rulesRaw.some((x) => Array.isArray(x?.roleIds) && x.roleIds.map(String).includes(String(legacySup.roleId)))) {
+    rulesRaw.unshift({
+      id: "supporterbio",
+      name: String(legacySup.name || "").trim() || "Supporter (bio)",
+      enabled: legacySup.enabled === true,
+      roleIds: [String(legacySup.roleId)],
+      channelId: legacySup.channelId,
+      cooldownHours: legacySup.cooldownHours,
+      draft: legacySup.draft,
+      dm: legacySup.dm,
+    });
+  }
   return {
     boost: {
       enabled: b.enabled === true,
@@ -122,7 +137,7 @@ function normalizeConfig(raw?) {
     named: normalizeNamed(r.named),
     roles: {
       enabled: rl.enabled !== false,
-      rules: (Array.isArray(rl.rules) ? rl.rules : []).slice(0, ROLE_RULES_MAX).map((x, i) => normalizeRoleRule(x, i)),
+      rules: rulesRaw.slice(0, ROLE_RULES_MAX).map((x, i) => normalizeRoleRule(x, i)),
     },
     seedVersion: Number.isInteger(r.seedVersion) ? r.seedVersion : 0,
     userSaved: r.userSaved === true,
@@ -244,13 +259,25 @@ function boostVars(guild?, user?, extra: Record<string, string> = {}) {
 /** Annuncio boost con i testi della dashboard. Usato dai server tenant e dal riconoscimento classico del principale. */
 async function sendBoostAnnouncement(client?, guild?, member?, opts: { repeat?: boolean; boostCount?: number; channelId?: string | null } = {}) {
   const cfg = await getConfig(String(guild?.id || ""));
-  if (!cfg.boost.enabled) return null;
+  /* annuncio nel canale e privato sono indipendenti: si può usare anche solo il privato */
+  if (!cfg.boost.enabled && !cfg.boost.dm.enabled) return null;
   const channelId = cfg.boost.channelId || opts.channelId || null;
   const user = member?.user || member;
   const draft = opts.repeat ? cfg.boost.repeatDraft : cfg.boost.firstDraft;
   const vars = boostVars(guild, user, opts.boostCount ? { boosts: String(opts.boostCount) } : {});
   if (cfg.boost.dm.enabled && user?.id) await T.sendDraftDm(client, String(user.id), cfg.boost.dm.draft, vars);
+  if (!cfg.boost.enabled) return null;
   return postDraft(client, channelId, draft, vars, String(user?.id || "") || null);
+}
+
+/** Server principale con l'annuncio classico nel canale: manda solo il privato della dashboard (se acceso). */
+async function sendBoostDmOnly(client?, guild?, member?, boostCount?: number) {
+  const cfg = await getConfig(String(guild?.id || "")).catch(() => null);
+  if (!cfg || cfg.boost.enabled || !cfg.boost.dm.enabled) return false;
+  const user = member?.user || member;
+  if (!user?.id) return false;
+  const vars = boostVars(guild, user, boostCount ? { boosts: String(boostCount) } : {});
+  return (await T.sendDraftDm(client, String(user.id), cfg.boost.dm.draft, vars)).sent;
 }
 
 /** Server principale: l'annuncio dei boost è passato alla dashboard? */
@@ -268,7 +295,7 @@ async function handleTenantBoostMessage(message?) {
   const gid = String(guild?.id || "");
   if (!gid || !BOOST_MESSAGE_TYPES.has(Number(message?.type)) || T.isMainGuild(gid)) return false;
   const cfg = await getConfig(gid);
-  if (!cfg.boost.enabled) return false;
+  if (!cfg.boost.enabled && !cfg.boost.dm.enabled) return false;
   const st = await getState(gid);
   if (st.lastBoostMessageId === String(message.id)) return true;
   const uid = String(message.author?.id || "");
@@ -332,7 +359,8 @@ async function roleRuleHandles(guildId?, roleId?) {
   const cfg = await getConfig(String(guildId || "")).catch(() => null);
   if (!cfg) return false;
   const rid = String(roleId || "");
-  return findRulesForRole(cfg, rid).some((r) => r.enabled && r.channelId);
+  /* anche solo privato: il messaggio classico nel canale si ferma lo stesso */
+  return findRulesForRole(cfg, rid).some((r) => r.enabled && (r.channelId || r.dm.enabled));
 }
 
 /**
@@ -518,11 +546,6 @@ function mainSeedConfig() {
       "",
       `${e("VC_Arrow")} Metti il link del server nel tuo status.`,
     ]),
-    supporter: namedSlot("Supporter (bio)", supporterRole, `Nuovx Supporter ${e("VC_StarPink")}`, [
-      ...unlockPicNick,
-      "",
-      `${e("VC_Arrow")} Metti \`.gg/viniliecaffe\`, \`discord.gg/viniliecaffe\` o \`viniliecaffe.it\` nella tua bio.`,
-    ]),
     promoter: namedSlot("Promoter", promoter, "🎀✦ Nuovx Promoter!", [
       `${e("VC_Reply")} Hai ricevuto {role} — **Promoter**`,
       `${e("VC_Infinity")} - Permesso di allegare immagini e link in chat`,
@@ -551,6 +574,11 @@ function mainSeedConfig() {
   };
 
   const rules = [
+    nuovxRule("Supporter (bio)", supporterRole, `Nuovx Supporter ${e("VC_StarPink")}`, [
+      ...unlockPicNick,
+      "",
+      `${e("VC_Arrow")} Metti \`.gg/viniliecaffe\`, \`discord.gg/viniliecaffe\` o \`viniliecaffe.it\` nella tua bio.`,
+    ]),
     nuovxRule("Nuovx Follower", followerRole, `Nuovx Follower ${e("VC_StarPink")}`, [
       ...unlockPicNick,
       "",
@@ -719,7 +747,8 @@ async function ensureMainSeed(guildId?) {
         next.named[key] = seedSlot;
       }
       changed = true;
-    } else if (!cur.roleId) {
+    } else if (!cur.roleId && !next.userSaved) {
+      /* ruolo tolto apposta dalla dashboard: non rimetterlo */
       next.named[key] = normalizeNamedSlot(key, { ...cur, roleId: seedSlot.roleId });
       changed = true;
     } else if (T.draftIsEmpty(cur.draft) && !T.draftIsEmpty(seedSlot.draft)) {
@@ -761,6 +790,7 @@ export = {
   saveConfig,
   ensureMainSeed,
   sendBoostAnnouncement,
+  sendBoostDmOnly,
   boostModuleEnabled,
   handleTenantBoostMessage,
   handleRoleAdded,
