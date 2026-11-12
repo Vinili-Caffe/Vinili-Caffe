@@ -191,6 +191,22 @@ async function buildThankYouEmbed({
     pingPlan,
   });
 
+  /* messaggio completo della dashboard: segnaposto della partnership in ogni testo, poi corpo Discord */
+  if (custom?.draft && typeof custom.draft === "object") {
+    try {
+      const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+      const draft = T.normalizeDraft(custom.draft);
+      if (!T.draftIsEmpty(draft)) {
+        const fillDeep = (v?) =>
+          typeof v === "string" ? applyPartnershipEmbedTemplate(v, templateVars) : Array.isArray(v) ? v.map(fillDeep) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fillDeep(x)])) : v;
+        const body = T.buildMessageBody(fillDeep(draft), {});
+        return { embed: null, body, managerContent: null };
+      }
+    } catch (err) {
+      global.logger?.warn?.("[PARTNER] ringraziamento completo:", (err as any)?.message || err);
+    }
+  }
+
   if (hasThankYouEmbedContent(custom)) {
     const fields = resolveThankYouEmbedEditorValues(custom, guild?.id);
     const embed = new EmbedBuilder();
@@ -256,7 +272,7 @@ async function buildThankYouEmbed({
     if (fields.timestampEnabled !== false) embed.setTimestamp();
 
     if (embedHasMeaningfulContent(embed)) {
-      return { embed, managerContent: resolved.managerContent };
+      return { embed, body: null, managerContent: resolved.managerContent };
     }
   }
 
@@ -279,7 +295,39 @@ async function buildThankYouEmbed({
     .setTimestamp()
     .setThumbnail(guildIconUrl(guild, { size: 256 }) || undefined);
 
-  return { embed, managerContent: defaultResolved.managerContent };
+  return { embed, body: null, managerContent: defaultResolved.managerContent };
+}
+
+/**
+ * Manda il ringraziamento: embed classico o messaggio completo della dashboard.
+ * `above` = ping/riga sopra; con Components V2 (niente testo libero) parte come messaggio a sé prima.
+ * Ritorna il messaggio inviato (con id) o null.
+ */
+async function sendThankYouMessage(channel?, ty?, above?: string | null, allowedMentions?) {
+  if (!channel || !ty) return null;
+  if (!ty.body) {
+    const payload: Record<string, any> = { embeds: [ty.embed] };
+    if (above) {
+      payload.content = above;
+      if (allowedMentions) payload.allowedMentions = allowedMentions;
+    }
+    return channel.send(payload).catch(() => null);
+  }
+  const { Routes } = require("discord.js") as typeof import("discord.js");
+  const body: Record<string, any> = { ...ty.body };
+  const isV2 = (Number(body.flags) & 32768) === 32768;
+  if (above) {
+    if (isV2) {
+      await channel.send({ content: above, ...(allowedMentions ? { allowedMentions } : {}) }).catch(() => null);
+    } else {
+      body.content = [above, body.content].filter(Boolean).join("\n").slice(0, 2000);
+      if (allowedMentions) body.allowed_mentions = { parse: allowedMentions.parse || [], users: allowedMentions.users || [], roles: allowedMentions.roles || [] };
+    }
+  }
+  return channel.client.rest.post(Routes.channelMessages(channel.id), { body }).catch((err?) => {
+    global.logger?.warn?.("[PARTNER] invio ringraziamento:", err?.rawError?.message || err?.message || err);
+    return null;
+  });
 }
 
 export = {
@@ -290,4 +338,5 @@ export = {
   formatThankYouEmbedValueForModal,
   seedDefaultThankYouEmbedIfEmpty,
   buildThankYouEmbed,
+  sendThankYouMessage,
 };

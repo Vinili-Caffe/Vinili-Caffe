@@ -2,7 +2,7 @@
 
 import { NumberField } from "@/components/ui/NumberField";
 import { cn } from "@/lib/cn";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   addPartnershipBlacklist,
   adjustPartnershipManagerPoints,
@@ -24,12 +24,35 @@ import {
   type PartnershipManager,
   type PartnershipMigration,
 } from "@/lib/dashboard-guild";
-import { confirmDialog, Disclosure } from "@/components/ui";
+import { confirmDialog } from "@/components/ui";
 import { Pagination } from "@/components/ui/Pagination";
 import { MessagePreview } from "./MessagePreview";
-import { PARTNERSHIP_SAMPLES, PlaceholderList } from "./PlaceholderList";
-import { DiscordMessagePreview, EditorWithPreview } from "./community/shared";
-import { emptyDraft } from "@/lib/dashboard-community";
+import { PARTNERSHIP_PLACEHOLDERS, PARTNERSHIP_SAMPLES } from "./PlaceholderList";
+import { DiscordMessagePreview, DraftEditor, EditorWithPreview } from "./community/shared";
+import { emptyDraft, type MsgDraft } from "@/lib/dashboard-community";
+
+/* segnaposto della partnership per l'editor dei messaggi */
+const TY_PLACEHOLDERS = PARTNERSHIP_PLACEHOLDERS.flatMap((g) => g.items.map((it) => ({ token: it.token, hint: it.hint })));
+
+/** Ringraziamento salvato coi campi vecchi → messaggio completo (stesso aspetto di adesso). */
+function thankYouDraftOf(ty: { title: string | null; description: string | null; color: string | null; authorName: string | null; footerText: string | null; timestampEnabled: boolean; draft?: MsgDraft | null }): MsgDraft {
+  if (ty.draft) return ty.draft;
+  return emptyDraft({
+    content: "",
+    embed: {
+      ...emptyDraft().embed,
+      enabled: true,
+      title: ty.title || "",
+      description: ty.description || "",
+      color: ty.color || "#6f4e37",
+      authorName: ty.authorName || "{user.username}",
+      authorIconUrl: "{user.avatar}",
+      thumbnailUrl: "{guild.icon}",
+      footerText: ty.footerText || "{partner}",
+      timestamp: ty.timestampEnabled,
+    },
+  });
+}
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
@@ -88,9 +111,6 @@ export function PartnershipPanel({
 }) {
   const tab: Tab = tabProp && isPartnershipModuleTab(tabProp) ? tabProp : "setup";
   /* segnaposto: si inseriscono nell'ultimo campo del ringraziamento dove hai scritto */
-  const tyTitleRef = useRef<HTMLInputElement>(null);
-  const tyTextRef = useRef<HTMLTextAreaElement>(null);
-  const tyLastField = useRef<"title" | "description">("description");
   const [bundle, setBundle] = useState<PartnershipBundle | null>(null);
   const [draft, setDraft] = useState<PartnershipConfig | null>(null);
   const [error, setError] = useState("");
@@ -199,6 +219,14 @@ export function PartnershipPanel({
   const categories = bundle.pickers.categories;
   const set = (patch: Partial<PartnershipConfig>) => setDraft({ ...draft, ...patch });
 
+  /* Il PATCH non rimanda i pickers: senza merge i select restano vuoti finché non ricarichi. */
+  const applySaved = (next: PartnershipBundle) => {
+    const hasPickers =
+      next.pickers.roles.length > 0 || next.pickers.textChannels.length > 0 || next.pickers.categories.length > 0;
+    setBundle((prev) => (hasPickers || !prev ? next : { ...next, pickers: prev.pickers }));
+    setDraft(next.config);
+  };
+
   const saveSetup = async () => {
     const customRole = draft.pings.customRoleId;
     const customMembers = draft.pings.customRoleMembers;
@@ -241,8 +269,7 @@ export function PartnershipPanel({
       onToast(res.message, true);
       return;
     }
-    setBundle(res.data);
-    setDraft(res.data.config);
+    applySaved(res.data);
     onToast("Configurazione partnership salvata.");
   };
 
@@ -254,8 +281,7 @@ export function PartnershipPanel({
       onToast(res.message, true);
       return;
     }
-    setBundle(res.data);
-    setDraft(res.data.config);
+    applySaved(res.data);
     onToast("Filtri salvati.");
   };
 
@@ -517,145 +543,58 @@ export function PartnershipPanel({
             <p className="mt-2 text-xs text-crema/60">Vuoto = quella menzione non viene mai fatta. Ruolo e soglia del ruolo vanno impostati insieme.</p>
           </FormGroup>
 
-          <Disclosure
-            title={
-              <span className="inline-flex items-center gap-2">
-                Messaggio di ringraziamento <PremiumBadge active={bundle.premiumActive} />
-              </span>
-            }
-          >
-            <p className="text-xs text-crema/60">Il bot lo manda al server partner dopo la pubblicazione.</p>
+          <section className="rounded-2xl bg-espresso/45 p-4 ring-1 ring-sand/10 sm:p-5">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-crema">
+              <span className="h-3.5 w-1 rounded-full bg-gradient-to-b from-caramel to-ember" aria-hidden />
+              Messaggio di ringraziamento <PremiumBadge active={bundle.premiumActive} />
+            </h3>
+            <p className="mt-1 text-xs text-crema/60">Il bot lo manda al server partner dopo la pubblicazione.</p>
             {!bundle.premiumActive ? <PremiumLock className="mt-3" feature="Il messaggio di ringraziamento" note="Puoi scriverlo adesso: parte solo quando il server ha Premium." /> : null}
-            <div className="mt-3 space-y-4">
-              <div className="divide-y divide-sand/[0.07]">
-                <SettingRow title="Ringraziamento attivo">
-                  <Toggle
-                    size="sm"
-                    checked={draft.thankYouEmbed.enabled}
-                    disabled={!bundle.premiumActive && !draft.thankYouEmbed.enabled}
-                    label="Ringraziamento attivo"
-                    onChange={(v) => set({ thankYouEmbed: { ...draft.thankYouEmbed, enabled: v } })}
-                  />
-                </SettingRow>
+            <div className="mt-4 space-y-4">
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+                <Toggle
+                  checked={draft.thankYouEmbed.enabled}
+                  disabled={!bundle.premiumActive && !draft.thankYouEmbed.enabled}
+                  label="Ringraziamento attivo"
+                  onChange={(v) => set({ thankYouEmbed: { ...draft.thankYouEmbed, enabled: v } })}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-crema">Ringraziamento attivo</p>
+                  <p className="text-xs text-crema/55">{draft.thankYouEmbed.enabled ? "Il bot usa questo messaggio" : "Spento: il bot usa quello predefinito"}</p>
+                </div>
+                <button
+                  type="button"
+                  className={primaryMini}
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    const res = await patchPartnership(token, guildId, { thankYouEmbed: { ...draft.thankYouEmbed, draft: thankYouDraftOf(draft.thankYouEmbed) } });
+                    setBusy(false);
+                    if (!res.ok) {
+                      onToast(res.message, true);
+                      return;
+                    }
+                    applySaved(res.data);
+                    onToast("Ringraziamento salvato.");
+                  }}
+                >
+                  Salva ringraziamento
+                </button>
               </div>
               <EditorWithPreview
                 editor={
-                  <div className="space-y-4">
-                    <Field label="Titolo">
-                                    <input
-                                      ref={tyTitleRef}
-                                      onFocus={() => (tyLastField.current = "title")}
-                                      name="thank-you-title"
-                                      value={draft.thankYouEmbed.title || ""}
-                                      onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, title: e.target.value || null } })}
-                                      className={fieldClass}
-                                    />
-                                  </Field>
-                    <Field label="Testo">
-                                    <ExpandableTextarea
-                                      ref={tyTextRef}
-                                      onFocus={() => (tyLastField.current = "description")}
-                                      name="thank-you-description"
-                                      value={draft.thankYouEmbed.description || ""}
-                                      rows={6}
-                                      onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, description: e.target.value || null } })}
-                                    />
-                                  </Field>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Colore">
-                        <div className="mt-1.5 flex items-center gap-2">
-                          <input
-                            type="color"
-                            aria-label="Colore del riquadro"
-                            value={draft.thankYouEmbed.color || "#d49150"}
-                            onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, color: e.target.value } })}
-                            className="h-11 w-14 shrink-0 cursor-pointer rounded-xl bg-espresso/70 p-1 ring-1 ring-sand/15"
-                          />
-                          <input
-                            value={draft.thankYouEmbed.color || ""}
-                            placeholder="#d49150"
-                            maxLength={7}
-                            onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, color: e.target.value || null } })}
-                            className={cn(fieldClass, "mt-0 font-mono")}
-                          />
-                        </div>
-                      </Field>
-                      <Field label="Autore" hint="Riga piccola sopra il titolo. Vuoto = niente.">
-                        <input
-                          value={draft.thankYouEmbed.authorName || ""}
-                          onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, authorName: e.target.value || null } })}
-                          className={fieldClass}
-                        />
-                      </Field>
-                      <Field label="Piè di pagina" hint="Riga piccola in fondo. Vuoto = niente.">
-                        <input
-                          value={draft.thankYouEmbed.footerText || ""}
-                          onChange={(e) => set({ thankYouEmbed: { ...draft.thankYouEmbed, footerText: e.target.value || null } })}
-                          className={fieldClass}
-                        />
-                      </Field>
-                      <div className="self-end pb-1">
-                        <SettingRow title="Data e ora in fondo">
-                          <Toggle
-                            size="sm"
-                            checked={draft.thankYouEmbed.timestampEnabled}
-                            label="Data e ora in fondo"
-                            onChange={(v) => set({ thankYouEmbed: { ...draft.thankYouEmbed, timestampEnabled: v } })}
-                          />
-                        </SettingRow>
-                      </div>
-                    </div>
-                    <PlaceholderList
-                                    onInsert={(token) => {
-                                      const field = tyLastField.current;
-                                      const el = field === "title" ? tyTitleRef.current : tyTextRef.current;
-                                      const cur = String((field === "title" ? draft.thankYouEmbed.title : draft.thankYouEmbed.description) || "");
-                                      const start = el?.selectionStart ?? cur.length;
-                                      const end = el?.selectionEnd ?? start;
-                                      const next = cur.slice(0, start) + token + cur.slice(end);
-                                      set({ thankYouEmbed: { ...draft.thankYouEmbed, [field]: next } });
-                                      requestAnimationFrame(() => {
-                                        el?.focus();
-                                        el?.setSelectionRange(start + token.length, start + token.length);
-                                      });
-                                    }}
-                                  />
-                    <button
-                                    type="button"
-                                    className={primaryMini}
-                                    disabled={busy}
-                                    onClick={async () => {
-                                      setBusy(true);
-                                      const res = await patchPartnership(token, guildId, { thankYouEmbed: draft.thankYouEmbed });
-                                      setBusy(false);
-                                      if (!res.ok) {
-                                        onToast(res.message, true);
-                                        return;
-                                      }
-                                      setBundle(res.data);
-                                      setDraft(res.data.config);
-                                      onToast("Ringraziamento salvato.");
-                                    }}
-                                  >
-                                    Salva ringraziamento
-                                  </button>
-                  </div>
+                  <DraftEditor
+                    key="thank-you"
+                    value={thankYouDraftOf(draft.thankYouEmbed)}
+                    onChange={(d) => set({ thankYouEmbed: { ...draft.thankYouEmbed, draft: d } })}
+                    emojis={[]}
+                    placeholders={TY_PLACEHOLDERS}
+                    maxButtons={10}
+                  />
                 }
                 preview={
                   <DiscordMessagePreview
-                    draft={emptyDraft({
-                      content: "",
-                      embed: {
-                        ...emptyDraft().embed,
-                        enabled: true,
-                        title: draft.thankYouEmbed.title || "",
-                        description: draft.thankYouEmbed.description || "",
-                        color: draft.thankYouEmbed.color || "#d49150",
-                        authorName: draft.thankYouEmbed.authorName || "",
-                        footerText: draft.thankYouEmbed.footerText || "",
-                        timestamp: draft.thankYouEmbed.timestampEnabled,
-                      },
-                    })}
+                    draft={thankYouDraftOf(draft.thankYouEmbed)}
                     vars={PARTNERSHIP_SAMPLES}
                     roles={roles.map((r) => ({ id: r.id, name: r.name, color: null, position: 0 }))}
                     channels={channels}
@@ -663,7 +602,7 @@ export function PartnershipPanel({
                 }
               />
             </div>
-          </Disclosure>
+          </section>
         </div>
       ) : null}
 

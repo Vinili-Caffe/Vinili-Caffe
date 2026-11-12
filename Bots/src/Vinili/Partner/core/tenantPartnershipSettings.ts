@@ -60,9 +60,20 @@ function normalizeThankYouEmbed(raw?) {
       footerText: null,
       footerIconUrl: null,
       timestampEnabled: true,
+      draft: null,
     };
   }
   const description = String(raw.description ?? raw.d ?? "").trim() || null;
+  /* messaggio completo dalla dashboard (testo + embed o Components V2): se c'è, vince sui campi singoli */
+  const draftRaw = raw.draft ?? raw.dr;
+  let draft = null;
+  if (draftRaw && typeof draftRaw === "object") {
+    try {
+      draft = (require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools")).normalizeDraft(draftRaw);
+    } catch (_) {
+      draft = null;
+    }
+  }
   const timestampRaw = raw.timestampEnabled ?? raw.ts;
   return {
     enabled: raw.enabled === true || raw.e === true,
@@ -76,6 +87,7 @@ function normalizeThankYouEmbed(raw?) {
     footerText: String(raw.footerText ?? raw.ft ?? "").trim() || null,
     footerIconUrl: String(raw.footerIconUrl ?? raw.fi ?? "").trim() || null,
     timestampEnabled: timestampRaw === false || timestampRaw === 0 ? false : true,
+    draft,
   };
 }
 
@@ -297,6 +309,7 @@ function configToRow(config?) {
           ft: config.thankYouEmbed.footerText || null,
           fi: config.thankYouEmbed.footerIconUrl || null,
           ts: config.thankYouEmbed.timestampEnabled !== false,
+          dr: config.thankYouEmbed.draft || null,
         }
       : null,
     pd: config.partnerDesc?.configured

@@ -338,6 +338,8 @@ export type PartnershipConfig = {
     authorName: string | null;
     footerText: string | null;
     timestampEnabled: boolean;
+    /** messaggio completo (testo + embed o Components V2): se c'è, il bot usa questo */
+    draft?: import("./dashboard-community").MsgDraft | null;
   };
 };
 
@@ -1077,6 +1079,7 @@ function mapPartnership(data: Record<string, unknown>): PartnershipBundle {
         authorName: strOrNull(embed.authorName),
         footerText: strOrNull(embed.footerText),
         timestampEnabled: embed.timestampEnabled !== false,
+        draft: embed.draft && typeof embed.draft === "object" ? (embed.draft as import("./dashboard-community").MsgDraft) : null,
       },
     },
     pickers: {

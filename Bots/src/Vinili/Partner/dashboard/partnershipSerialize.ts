@@ -142,6 +142,7 @@ function serializePartnership(config?, guildId = null) {
       footerText: embed.footerText || null,
       footerIconUrl: embed.footerIconUrl || null,
       timestampEnabled: embed.timestampEnabled !== false,
+      draft: embed.draft || null,
     },
     thankYouEmbedDefaults: {
       color: defaults.color || "",

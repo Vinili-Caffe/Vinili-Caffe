@@ -30,7 +30,7 @@ const {
   buildPartnershipAboveEmbedContent,
   resolvePartnershipDescriptionForPublish,
 } = require("../runtime/partnershipMessageUtils") as typeof import("../runtime/partnershipMessageUtils");
-const { buildThankYouEmbed } = require("../runtime/partnershipThankYouEmbed") as typeof import("../runtime/partnershipThankYouEmbed");
+const { buildThankYouEmbed, sendThankYouMessage } = require("../runtime/partnershipThankYouEmbed") as typeof import("../runtime/partnershipThankYouEmbed");
 
 async function partnerInteractionReply(interaction?, payload?) {
   if (interaction.deferred && !interaction.replied) {
@@ -439,7 +439,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
     const shownPartnerPoints = resolvePartnerPointsShown(sAfter);
     const totalPartnerEarned = resolvePartnerTotalEarned(sAfter);
 
-    const { embed } = await buildThankYouEmbed({
+    const thankYou = await buildThankYouEmbed({
       guild: interaction.guild,
       actorMember: interaction.member || interaction.user,
       partnershipCfg,
@@ -454,16 +454,14 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
       pingPlan,
     });
 
-    const thankYouPayload: Record<string, any> = { embeds: [embed] };
-    if (aboveEmbedContent) {
-      thankYouPayload.content = aboveEmbedContent;
-      thankYouPayload.allowedMentions = buildPartnershipPublishAllowedMentions(
-        pingPlan,
-        resolvedManagerId,
-        { excludeUserIds: suppressManagerPing ? [resolvedManagerId] : [] },
-      );
-    }
-    const thankYouMessage = await partnershipChannel.send(thankYouPayload).catch(() => null);
+    const thankYouMessage: any = await sendThankYouMessage(
+      partnershipChannel,
+      thankYou,
+      aboveEmbedContent || null,
+      aboveEmbedContent
+        ? buildPartnershipPublishAllowedMentions(pingPlan, resolvedManagerId, { excludeUserIds: suppressManagerPing ? [resolvedManagerId] : [] })
+        : null,
+    );
     if (thankYouMessage?.id && staffAfterAudit?.staff?.partnerActions?.[actionIndex]) {
       const ids = Array.isArray(staffAfterAudit.staff.partnerActions[actionIndex].partnerMessageIds)
         ? staffAfterAudit.staff.partnerActions[actionIndex].partnerMessageIds.slice()

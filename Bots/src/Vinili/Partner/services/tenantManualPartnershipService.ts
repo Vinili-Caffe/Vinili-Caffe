@@ -28,7 +28,7 @@ const {
   buildPartnershipPublishAllowedMentions,
 } = require("../runtime/partnershipPingUtils") as typeof import("../runtime/partnershipPingUtils");
 const { userSuppressesManagerPing, resolveManagerSelectedBadgeEmojis } = require("./tenantProfilePreferencesService") as typeof import("./tenantProfilePreferencesService");
-const { buildThankYouEmbed } = require("../runtime/partnershipThankYouEmbed") as typeof import("../runtime/partnershipThankYouEmbed");
+const { buildThankYouEmbed, sendThankYouMessage } = require("../runtime/partnershipThankYouEmbed") as typeof import("../runtime/partnershipThankYouEmbed");
 const {
   resolvePartnerTotalEarned,
   resolvePartnerPointsShown,
@@ -303,7 +303,7 @@ async function finalizeManualPartnership(message?, managerId?, inviteMeta?, _opt
   /* thankYouSpendableOnly1: embed default usa solo spendibile */
   const totalPartnerEarned = resolvePartnerTotalEarned(s);
   const shownPartnerPoints = resolvePartnerPointsShown(s);
-  const { embed: thankYouEmbed } = await buildThankYouEmbed({
+  const thankYou = await buildThankYouEmbed({
     guild,
     actorMember: member || message.member || message.author,
     partnershipCfg,
@@ -317,16 +317,14 @@ async function finalizeManualPartnership(message?, managerId?, inviteMeta?, _opt
     staffPartnerActions: s.partnerActions || [],
     pingPlan,
   });
-  const thankYouPayload: Record<string, any> = { embeds: [thankYouEmbed] };
-  if (aboveEmbedContent) {
-    thankYouPayload.content = aboveEmbedContent;
-    thankYouPayload.allowedMentions = buildPartnershipPublishAllowedMentions(
-      pingPlan,
-      resolvedManagerId,
-      { excludeUserIds: suppressManagerPing ? [resolvedManagerId] : [] },
-    );
-  }
-  const thankYouMessage = await message.channel.send(thankYouPayload).catch(() => null);
+  const thankYouMessage: any = await sendThankYouMessage(
+    message.channel,
+    thankYou,
+    aboveEmbedContent || null,
+    aboveEmbedContent
+      ? buildPartnershipPublishAllowedMentions(pingPlan, resolvedManagerId, { excludeUserIds: suppressManagerPing ? [resolvedManagerId] : [] })
+      : null,
+  );
 
   const partnershipLogId = await reserveAndPersistPartnershipLogId(staffDoc, actionIndex);
 
