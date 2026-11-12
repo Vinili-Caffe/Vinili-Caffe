@@ -766,6 +766,8 @@ type WelcomeSettings = {
   welcome: { enabled: boolean; channelId: string | null; draft: MsgDraft };
   goodbye: { enabled: boolean; channelId: string | null; draft: MsgDraft };
   dm: { enabled: boolean; draft: MsgDraft };
+  /* messaggio privato a chi esce (arriva solo se ha ancora un server in comune col bot) */
+  goodbyeDm: { enabled: boolean; draft: MsgDraft };
   autoRoleIds: string[];
   updatedAt: number;
 };
@@ -786,6 +788,7 @@ const DEFAULT_WELCOME: WelcomeSettings = {
     draft: normalizeDraft({ content: "**{username}** ha lasciato il server. Ora siamo {membercount}." }),
   },
   dm: { enabled: false, draft: normalizeDraft({ content: "Ciao {username}, benvenuto in **{server}**!" }) },
+  goodbyeDm: { enabled: false, draft: normalizeDraft({ content: "Ciao {username}, ci mancherai in **{server}**!" }) },
   autoRoleIds: [],
   updatedAt: 0,
 };
@@ -802,12 +805,17 @@ function normalizeWelcome(raw?, prev: WelcomeSettings = DEFAULT_WELCOME): Welcom
     };
   };
   const dm = r.dm && typeof r.dm === "object" ? r.dm : null;
+  const gdm = r.goodbyeDm && typeof r.goodbyeDm === "object" ? r.goodbyeDm : null;
+  const prevGdm = prev.goodbyeDm || DEFAULT_WELCOME.goodbyeDm;
   return {
     welcome: part("welcome"),
     goodbye: part("goodbye"),
     dm: dm
       ? { enabled: Object.prototype.hasOwnProperty.call(dm, "enabled") ? dm.enabled === true : prev.dm.enabled, draft: dm.draft ? normalizeDraft(dm.draft) : prev.dm.draft }
       : prev.dm,
+    goodbyeDm: gdm
+      ? { enabled: Object.prototype.hasOwnProperty.call(gdm, "enabled") ? gdm.enabled === true : prevGdm.enabled, draft: gdm.draft ? normalizeDraft(gdm.draft) : prevGdm.draft }
+      : prevGdm,
     autoRoleIds: Object.prototype.hasOwnProperty.call(r, "autoRoleIds")
       ? [...new Set<string>((Array.isArray(r.autoRoleIds) ? r.autoRoleIds : []).filter(isId).map(String))].slice(0, 10)
       : prev.autoRoleIds,
@@ -897,6 +905,25 @@ function mainGuildWelcomeSeed(): WelcomeSettings {
     },
     DEFAULT_WELCOME,
   );
+}
+
+/**
+ * Manda un messaggio della dashboard in privato. Non lancia mai:
+ * { sent, dmClosed } (dmClosed = privati chiusi o nessun server in comune).
+ */
+async function sendDraftDm(client?, userId?: string | null, draft?: MsgDraft | null, vars: Record<string, string> = {}) {
+  const rest = client?.rest;
+  const uid = String(userId || "");
+  if (!rest || !isId(uid) || !draft || draftIsEmpty(draft)) return { sent: false, dmClosed: false };
+  try {
+    const { Routes } = require("discord.js") as typeof import("discord.js");
+    const ch: any = await rest.post(Routes.userChannels(), { body: { recipient_id: uid } });
+    await rest.post(Routes.channelMessages(ch.id), { body: buildMessageBody(draft, vars) });
+    return { sent: true, dmClosed: false };
+  } catch (err) {
+    const code = Number((err as any)?.code || (err as any)?.rawError?.code);
+    return { sent: false, dmClosed: code === 50007 || code === 50278 };
+  }
 }
 
 async function writeWelcome(guildId: string, value: WelcomeSettings) {
@@ -1212,6 +1239,7 @@ export = {
   emojiKey,
   emojiForReactionApi,
   getWelcome,
+  sendDraftDm,
   hasSavedWelcome,
   isMainGuild,
   writeWelcome,

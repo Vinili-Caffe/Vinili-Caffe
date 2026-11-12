@@ -124,8 +124,6 @@ export type RegistroModuleTabId = (typeof REGISTRO_MODULE_TABS)[number]["id"];
 export const ANNUNCI_MODULE_TABS = [
   { id: "welcome", label: "Benvenuto" },
   { id: "goodbye", label: "Addio" },
-  { id: "dm", label: "Messaggio privato" },
-  { id: "roles", label: "Ruoli automatici" },
   { id: "boost", label: "Boost" },
   { id: "clantag", label: "Clan tag" },
   { id: "status", label: "Status" },

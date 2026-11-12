@@ -525,15 +525,15 @@ async function patchWelcome(client?, token?, guildId?, body?) {
 async function testWelcome(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
-  const kind = body?.kind === "goodbye" ? "goodbye" : body?.kind === "dm" ? "dm" : "welcome";
+  const kind = body?.kind === "goodbye" ? "goodbye" : body?.kind === "dm" ? "dm" : body?.kind === "goodbyeDm" ? "goodbyeDm" : "welcome";
   const cfg = T.normalizeWelcome(body?.settings || {}, await T.getWelcome(a.guildId, true));
   const rest = restOf(client);
   const [user, guild]: any[] = await Promise.all([rest?.get(Routes.user(a.userId)).catch(() => null), guildInfo(client, a.guildId)]);
   const vars = T.memberVars(guild, user || { id: a.userId });
-  if (kind === "dm") {
+  if (kind === "dm" || kind === "goodbyeDm") {
     try {
       const dm: any = await rest.post(Routes.userChannels(), { body: { recipient_id: a.userId } });
-      await rest.post(Routes.channelMessages(dm.id), { body: T.buildMessageBody(cfg.dm.draft, vars) });
+      await rest.post(Routes.channelMessages(dm.id), { body: T.buildMessageBody(kind === "dm" ? cfg.dm.draft : cfg.goodbyeDm.draft, vars) });
       return { ok: true, status: 200 };
     } catch (err) {
       return fail(400, "send_failed", discordError(err));

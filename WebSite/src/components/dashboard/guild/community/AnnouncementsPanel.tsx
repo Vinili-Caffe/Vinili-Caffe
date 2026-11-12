@@ -14,7 +14,7 @@ import {
   type RoleAnnounceRule,
 } from "@/lib/dashboard-community";
 import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
-import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars } from "./shared";
+import { ChannelField, DiscordMessagePreview, DmExtra, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 const BOOST_PLACEHOLDERS = [
   { token: "{user}", hint: "chi ha boostato" },
@@ -215,6 +215,15 @@ export function AnnouncementsPanel({
                 }
                 preview={<DiscordMessagePreview bot={data.bot} draft={draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
               />
+              <DmExtra
+                editorKey="boost"
+                value={b.dm}
+                onChange={(dm) => set({ ...cfg, boost: { ...b, dm } })}
+                data={data}
+                vars={vars}
+                placeholders={BOOST_PLACEHOLDERS}
+                hint="A chi boosta, sia al primo boost che ai successivi."
+              />
             </div>
           ) : null}
         </FormGroup>
@@ -282,6 +291,15 @@ export function AnnouncementsPanel({
                             />
                         }
                         preview={<DiscordMessagePreview bot={data.bot} draft={slot.draft} vars={slotVars(slot)} roles={data.pickers.roles} channels={channels} />}
+                      />
+                      <DmExtra
+                        editorKey={key}
+                        value={slot.dm}
+                        onChange={(dm) => setNamed(key, { dm })}
+                        data={data}
+                        vars={slotVars(slot)}
+                        placeholders={ROLE_PLACEHOLDERS}
+                        hint="A chi ottiene il ruolo."
                       />
                     </div>
                   ) : null}
@@ -382,6 +400,15 @@ export function AnnouncementsPanel({
                           <DraftEditor key={r.id} value={r.draft} onChange={(draft) => setRule(r.id, { draft })} emojis={data.pickers.emojis} placeholders={ROLE_PLACEHOLDERS} maxButtons={data.limits.buttons} />
                       }
                       preview={<DiscordMessagePreview bot={data.bot} draft={r.draft} vars={ruleVars(r)} roles={data.pickers.roles} channels={channels} />}
+                    />
+                    <DmExtra
+                      editorKey={r.id}
+                      value={r.dm}
+                      onChange={(dm) => setRule(r.id, { dm })}
+                      data={data}
+                      vars={ruleVars(r)}
+                      placeholders={ROLE_PLACEHOLDERS}
+                      hint="A chi ottiene il ruolo. Funziona anche senza canale: solo in privato."
                     />
                     <button type="button" className={dangerBtn} onClick={() => set({ ...cfg, roles: { ...cfg.roles, rules: cfg.roles.rules.filter((x) => x.id !== r.id) } })}>
                       <Trash2 className="size-3.5" /> Elimina la regola

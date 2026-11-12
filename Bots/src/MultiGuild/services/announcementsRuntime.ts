@@ -21,6 +21,15 @@ function emptyDraft() {
   return T.normalizeDraft({ content: "", mentionUsers: false, mentionRoles: true, embed: { enabled: true, title: "", description: "", color: "#f47fff" }, buttons: [] });
 }
 
+/** messaggio privato opzionale accanto all'annuncio nel canale */
+function normalizeDm(raw?, fallbackContent = "Ciao {username}! Hai ottenuto {role.name} in **{server}**.") {
+  const d = raw && typeof raw === "object" ? raw : {};
+  return {
+    enabled: d.enabled === true,
+    draft: d.draft ? T.normalizeDraft(d.draft) : T.normalizeDraft({ content: fallbackContent, embed: { enabled: false, title: "", description: "", color: "#f47fff" }, buttons: [] }),
+  };
+}
+
 function normalizeRoleRule(raw?, i = 0) {
   const r = raw && typeof raw === "object" ? raw : {};
   const ids = (v?) => [...new Set<string>((Array.isArray(v) ? v : []).filter((x) => T.isId(x)).map(String))].slice(0, 25);
@@ -34,6 +43,7 @@ function normalizeRoleRule(raw?, i = 0) {
     /* stesso ruolo alla stessa persona: non ripetere l'annuncio entro queste ore (es. ruolo tolto e rimesso) */
     cooldownHours: Number.isFinite(cd) && cd >= 0 && cd <= 8760 ? cd : 24,
     draft: r.draft ? T.normalizeDraft(r.draft) : emptyDraft(),
+    dm: normalizeDm(r.dm),
   };
 }
 
@@ -56,6 +66,7 @@ function normalizeNamedSlot(key: NamedKey, raw?) {
     channelId: T.isId(r.channelId) ? String(r.channelId) : null,
     cooldownHours: Number.isFinite(cd) && cd >= 0 && cd <= 8760 ? cd : 24,
     draft: r.draft ? T.normalizeDraft(r.draft) : emptyDraft(),
+    dm: normalizeDm(r.dm),
   };
 }
 
@@ -69,6 +80,7 @@ function namedAsRule(slot: ReturnType<typeof normalizeNamedSlot>) {
     channelId: slot.channelId,
     cooldownHours: slot.cooldownHours,
     draft: slot.draft,
+    dm: slot.dm,
   };
 }
 
@@ -104,6 +116,8 @@ function normalizeConfig(raw?) {
             embed: { enabled: true, title: "Un altro boost! 💜", description: "{user} ha boostato di nuovo **{server}**! Ora siamo a **{boosts}** boost.", color: "#f47fff" },
             buttons: [],
           }),
+      /* privato a chi boosta (stesso testo per primo boost e successivi) */
+      dm: normalizeDm(b.dm, "Grazie per il boost a **{server}**, {username}! 💜"),
     },
     named: normalizeNamed(r.named),
     roles: {
@@ -235,6 +249,7 @@ async function sendBoostAnnouncement(client?, guild?, member?, opts: { repeat?: 
   const user = member?.user || member;
   const draft = opts.repeat ? cfg.boost.repeatDraft : cfg.boost.firstDraft;
   const vars = boostVars(guild, user, opts.boostCount ? { boosts: String(opts.boostCount) } : {});
+  if (cfg.boost.dm.enabled && user?.id) await T.sendDraftDm(client, String(user.id), cfg.boost.dm.draft, vars);
   return postDraft(client, channelId, draft, vars, String(user?.id || "") || null);
 }
 
@@ -279,7 +294,7 @@ async function handleRoleAdded(oldMember?, newMember?) {
   const added = [...newMember.roles.cache.keys()].filter((id) => !oldMember.roles.cache.has(id));
   if (!added.length) return;
   const cfg = await getConfig(gid);
-  const candidates = allSendableRules(cfg).filter((r) => r.enabled && r.channelId && r.roleIds.some((id) => added.includes(id)));
+  const candidates = allSendableRules(cfg).filter((r) => r.enabled && (r.channelId || r.dm.enabled) && r.roleIds.some((id) => added.includes(id)));
   if (!candidates.length) return;
   let restoredByMute: (g: string, u: string, r: string) => boolean = () => false;
   try {
@@ -297,8 +312,9 @@ async function handleRoleAdded(oldMember?, newMember?) {
     if (rule.cooldownHours > 0 && now - Number(st.roleAnnounced[key] || 0) < rule.cooldownHours * 3_600_000) continue;
     const role = guild.roles.cache.get(roleId);
     const vars = T.memberVars(guild, newMember.user, { role: `<@&${roleId}>`, "role.name": String(role?.name || "") });
-    const sent = await postDraft(newMember.client, rule.channelId, rule.draft, vars, newMember.id, newMember);
-    if (sent) {
+    const sent = rule.channelId ? await postDraft(newMember.client, rule.channelId, rule.draft, vars, newMember.id, newMember) : null;
+    const dmSent = rule.dm.enabled ? (await T.sendDraftDm(newMember.client, newMember.id, genderDraftForMember(rule.dm.draft, newMember), vars)).sent : false;
+    if (sent || dmSent) {
       st.roleAnnounced[key] = now;
       changed = true;
     }
@@ -350,6 +366,7 @@ async function trySendConfiguredRoleAnnounce(client?, member?, roleId?, opts: { 
     const role = guild.roles.cache.get(rid);
     const vars = T.memberVars(guild, member.user || member, { role: `<@&${rid}>`, "role.name": String(role?.name || "") });
     const sent = await postDraft(client, channelId, rule.draft, vars, uid, member);
+    if (rule.dm.enabled) await T.sendDraftDm(client, uid, genderDraftForMember(rule.dm.draft, member), vars);
     if (sent) {
       st.roleAnnounced[key] = now;
       await T.setGuildBlob("announcementsState", gid, st);

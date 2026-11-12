@@ -155,12 +155,14 @@ function ServiceCard({
 /** Editor del messaggio + anteprima affiancati. */
 function Studio({ editor, preview }: { editor: React.ReactNode; preview: React.ReactNode }) {
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+    <div className="@container">
+    <div className="grid gap-4 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] @6xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
       <div className="min-w-0">{editor}</div>
-      <div className="min-w-0 xl:sticky xl:top-20 xl:self-start">
+      <div className="min-w-0 @4xl:sticky @4xl:top-20 @4xl:self-start">
         <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Anteprima</p>
         {preview}
       </div>
+    </div>
     </div>
   );
 }

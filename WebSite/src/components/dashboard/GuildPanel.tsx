@@ -2595,7 +2595,7 @@ export function GuildPanel() {
                             guildId={guildId}
                             token={token}
                             onToast={showToast}
-                            tab={moduleTab && isAnnunciModuleTab(moduleTab) ? (moduleTab as "welcome" | "goodbye" | "dm" | "roles") : "welcome"}
+                            tab={moduleTab === "goodbye" ? "goodbye" : "welcome"}
                           />
                         )}
                       </Panel>

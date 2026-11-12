@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, Smile } from "lucide-react";
+import { ExternalLink, Mail, Send, Smile } from "lucide-react";
 import { DiscordContent } from "@/components/discord/DiscordContent";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { toggleEmojiPicker, customEmojiUrl, type EmojiPick } from "@/components/ui/emoji-picker";
 import { Select } from "@/components/ui/Select";
 import { avatarUrl, displayName, useAuth, type DiscordUser } from "@/lib/auth";
 import { cn } from "@/lib/cn";
-import { loadCommunity, type CommunityData, type MsgDraft, type PickerChannel, type PickerEmoji, type PickerRole } from "@/lib/dashboard-community";
+import { emptyDraft, loadCommunity, type CommunityData, type MsgDraft, type PickerChannel, type PickerEmoji, type PickerRole } from "@/lib/dashboard-community";
 import { ExpandableTextarea, Field, SettingRow, Toggle, fieldClass, labelClass, miniBtn } from "../bits";
 import { EmbedFieldsPreview, FieldsEditor, LinkButtonsEditor, V2Editor, V2Preview, blocksFromClassic, v2Of } from "./draftExtras";
 
@@ -340,7 +340,7 @@ export function DraftEditor({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-lg bg-espresso/70 p-1 ring-1 ring-sand/10" role="radiogroup" aria-label="Formato del messaggio">
+        <div className="grid min-w-[15rem] flex-1 grid-cols-2 gap-1 rounded-xl bg-espresso/70 p-1 ring-1 ring-sand/10" role="radiogroup" aria-label="Formato del messaggio">
           {[
             { on: false, label: "Testo + embed" },
             { on: true, label: "Components V2" },
@@ -355,7 +355,7 @@ export function DraftEditor({
                 setDraft({ ...value, v2: { ...v2, enabled: opt.on, blocks: opt.on && !v2.blocks.length ? blocksFromClassic(value) : v2.blocks } });
               }}
               className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
+                "whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-semibold transition-colors",
                 v2.enabled === opt.on ? "bg-mocha text-crema ring-1 ring-sand/15" : "text-crema/60 hover:text-crema",
               )}
             >
@@ -657,15 +657,69 @@ export function DiscordMessagePreview({
   );
 }
 
+/** "Manda anche in privato": interruttore e, se acceso, editor + anteprima del messaggio privato. */
+export function DmExtra({
+  value,
+  onChange,
+  data,
+  vars,
+  placeholders,
+  hint = "Arriva a chi ha i messaggi privati aperti.",
+  onTest,
+  testBusy,
+  editorKey,
+}: {
+  value: { enabled: boolean; draft: MsgDraft } | undefined;
+  onChange: (next: { enabled: boolean; draft: MsgDraft }) => void;
+  data: CommunityData;
+  vars: Record<string, string>;
+  placeholders: { token: string; hint: string }[];
+  hint?: string;
+  onTest?: () => void;
+  testBusy?: boolean;
+  editorKey: string;
+}) {
+  const v = value || { enabled: false, draft: emptyDraft({ content: "Ciao {username}!", embed: { ...emptyDraft().embed, enabled: false } }) };
+  return (
+    <section className={cn("rounded-2xl p-4 ring-1 transition-colors", v.enabled ? "bg-[#5865f2]/[0.07] ring-[#5865f2]/25" : "bg-espresso/40 ring-sand/10")}>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl", v.enabled ? "bg-[#5865f2]/20 text-[#aab3ff]" : "bg-crema/[0.06] text-crema/55")}>
+          <Mail className="size-4" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-crema">Manda anche in privato</p>
+          <p className="text-xs text-crema/55">{hint}</p>
+        </div>
+        {v.enabled && onTest ? (
+          <button type="button" className={miniBtn} disabled={testBusy} onClick={onTest}>
+            <Send className="size-3.5" /> Mandalo a me
+          </button>
+        ) : null}
+        <Toggle size="sm" checked={v.enabled} onChange={(enabled) => onChange({ ...v, enabled })} label="Manda anche in privato" />
+      </div>
+      {v.enabled ? (
+        <div className="mt-4">
+          <EditorWithPreview
+            editor={<DraftEditor key={`dm-${editorKey}`} value={v.draft} onChange={(draft) => onChange({ ...v, draft })} emojis={data.pickers.emojis} placeholders={placeholders} maxButtons={data.limits.buttons} />}
+            preview={<DiscordMessagePreview bot={data.bot} draft={v.draft} vars={vars} roles={data.pickers.roles} channels={data.pickers.textChannels} />}
+          />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 /** Colonne editor + anteprima fissa a destra su desktop. */
 export function EditorWithPreview({ editor, preview }: { editor: React.ReactNode; preview: React.ReactNode }) {
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
+    <div className="@container">
+    <div className="grid gap-5 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] @6xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
       <div className="min-w-0">{editor}</div>
-      <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+      <div className="min-w-0 @4xl:sticky @4xl:top-20 @4xl:self-start">
         <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/60">Anteprima</p>
         {preview}
       </div>
+    </div>
     </div>
   );
 }

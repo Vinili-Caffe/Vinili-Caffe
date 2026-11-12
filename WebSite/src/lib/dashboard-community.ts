@@ -63,7 +63,9 @@ export type SavedMessage = {
 };
 
 /** Annunci automatici: boost, eventi nominati e ruoli custom */
-export type RoleAnnounceRule = { id: string; name: string; enabled: boolean; roleIds: string[]; channelId: string | null; cooldownHours: number; draft: MsgDraft };
+/** messaggio privato opzionale accanto all'annuncio */
+export type AnnounceDm = { enabled: boolean; draft: MsgDraft };
+export type RoleAnnounceRule = { id: string; name: string; enabled: boolean; roleIds: string[]; channelId: string | null; cooldownHours: number; draft: MsgDraft; dm?: AnnounceDm };
 export type NamedAnnounceSlot = {
   id: string;
   name: string;
@@ -72,10 +74,11 @@ export type NamedAnnounceSlot = {
   channelId: string | null;
   cooldownHours: number;
   draft: MsgDraft;
+  dm?: AnnounceDm;
 };
 export type NamedAnnounceKey = "clantag" | "fan" | "supporter" | "promoter" | "propulsor" | "catalyst";
 export type AnnouncementsConfig = {
-  boost: { enabled: boolean; channelId: string | null; firstDraft: MsgDraft; repeatDraft: MsgDraft };
+  boost: { enabled: boolean; channelId: string | null; firstDraft: MsgDraft; repeatDraft: MsgDraft; dm?: AnnounceDm };
   named: Record<NamedAnnounceKey, NamedAnnounceSlot>;
   roles: { enabled: boolean; rules: RoleAnnounceRule[] };
 };
@@ -161,6 +164,8 @@ export type WelcomeSettings = {
   welcome: { enabled: boolean; channelId: string | null; draft: MsgDraft };
   goodbye: { enabled: boolean; channelId: string | null; draft: MsgDraft };
   dm: { enabled: boolean; draft: MsgDraft };
+  /** privato a chi esce */
+  goodbyeDm?: { enabled: boolean; draft: MsgDraft };
   autoRoleIds: string[];
 };
 
@@ -431,5 +436,5 @@ export const communityApi = {
   deleteRolePanel: (t: string, g: string, id: string) => call(t, g, `/role-panels/${encodeURIComponent(id)}`, "DELETE"),
   publishRolePanel: (t: string, g: string, id: string) => call<{ panel: RolePanel; edited?: boolean; reactionWarning?: string | null }>(t, g, `/role-panels/${encodeURIComponent(id)}/publish`, "POST", {}),
   saveWelcome: (t: string, g: string, w: WelcomeSettings) => call<{ welcome: WelcomeSettings }>(t, g, "/welcome", "PATCH", w),
-  testWelcome: (t: string, g: string, kind: "welcome" | "goodbye" | "dm", settings: WelcomeSettings) => call(t, g, "/welcome/test", "POST", { kind, settings }),
+  testWelcome: (t: string, g: string, kind: "welcome" | "goodbye" | "dm" | "goodbyeDm", settings: WelcomeSettings) => call(t, g, "/welcome/test", "POST", { kind, settings }),
 };
