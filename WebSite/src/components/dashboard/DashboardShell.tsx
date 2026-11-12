@@ -887,6 +887,7 @@ export function DashboardShell({
   guild = null,
   guildNav,
   crumb,
+  crumbs,
   actions,
 }: {
   title: string;
@@ -898,8 +899,10 @@ export function DashboardShell({
   guild?: ShellGuild | null;
   /** Sezioni del pannello server gestite dalla pagina (al posto dei link). */
   guildNav?: GuildNav;
-  /** Ultima voce delle briciole (default: titolo). */
+  /** Ultima voce delle briciole (default: titolo). Preferisci `crumbs` a più livelli. */
   crumb?: string;
+  /** Percorso a più livelli: Nome server › Sezione › Tab (con freccia tra ogni pezzo). */
+  crumbs?: string[];
   actions?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -1076,15 +1079,50 @@ export function DashboardShell({
             >
               <Menu className="size-[1.1rem]" />
             </button>
-            {/* il server è già nella barra laterale: qui solo Dashboard › pagina (su telefono solo la pagina) */}
+            {/* Con server: Nome › Sezione › Tab. Senza: Dashboard › pagina. */}
             <nav aria-label="Percorso" className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
-              <SmartLink href={page("/dashboard/")} className="hidden shrink-0 text-crema/60 transition hover:text-crema sm:inline">
-                Dashboard
-              </SmartLink>
-              <ChevronRight className="hidden size-3.5 shrink-0 text-crema/25 sm:block" aria-hidden />
-              <span className="min-w-0 truncate font-semibold text-crema" title={guild ? `${guild.name} · ${crumb || title}` : undefined}>
-                {crumb || title}
-              </span>
+              {(() => {
+                const trail = (crumbs && crumbs.length ? crumbs : [crumb || title]).filter(Boolean) as string[];
+                const head = guild ? (
+                  <SmartLink
+                    href={page("/dashboard/")}
+                    className="hidden min-w-0 max-w-[10rem] shrink-0 truncate text-crema/60 transition hover:text-crema sm:inline"
+                    title={guild.name}
+                  >
+                    {guild.name}
+                  </SmartLink>
+                ) : (
+                  <SmartLink href={page("/dashboard/")} className="hidden shrink-0 text-crema/60 transition hover:text-crema sm:inline">
+                    Dashboard
+                  </SmartLink>
+                );
+                const titleFull = guild ? [guild.name, ...trail].join(" › ") : ["Dashboard", ...trail].join(" › ");
+                return (
+                  <>
+                    {head}
+                    {trail.map((part, i) => {
+                      const last = i === trail.length - 1;
+                      return (
+                        <span key={`${i}-${part}`} className="contents">
+                          <ChevronRight
+                            className={cn("size-3.5 shrink-0 text-crema/25", i === 0 && "hidden sm:block")}
+                            aria-hidden
+                          />
+                          <span
+                            className={cn(
+                              "min-w-0 truncate",
+                              last ? "font-semibold text-crema" : "hidden text-crema/60 sm:inline",
+                            )}
+                            title={last ? titleFull : part}
+                          >
+                            {part}
+                          </span>
+                        </span>
+                      );
+                    })}
+                  </>
+                );
+              })()}
             </nav>
             <TopNavLinks guild={guild} guildNav={guildNav} />
             <CreditsChip />

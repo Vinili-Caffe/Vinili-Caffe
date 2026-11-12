@@ -2318,11 +2318,14 @@ export function GuildPanel() {
   const activeSectionTabs = inPageTabs || switchTabs ? [] : sectionTabs(section);
   const labelTabs = inPageTabs || switchTabs || activeSectionTabs;
   const activeTabLabel =
-    !inPageTabs && labelTabs.length && moduleTab
-      ? labelTabs.find((t) => t.id === moduleTab)?.label || null
+    !inPageTabs && labelTabs.length
+      ? labelTabs.find((t) => t.id === (moduleTab || defaultModuleTab(section) || ""))?.label || null
       : null;
   const showSections = gate === "ready" && overview?.botPresent;
   const heading = activeTabLabel ? `${sectionMeta.label} · ${activeTabLabel}` : sectionMeta.label;
+  const pathCrumbs = showSections
+    ? ([sectionMeta.label, activeTabLabel].filter(Boolean) as string[])
+    : ["Pannello"];
 
   return (
     <DashboardShell
@@ -2330,6 +2333,7 @@ export function GuildPanel() {
       bare={Boolean(showSections)}
       title={showSections ? heading : "Pannello server"}
       crumb={showSections ? heading : "Pannello"}
+      crumbs={pathCrumbs}
       lead={showSections ? SECTION_LEAD[section] : "Impostazioni, comandi, ticket e partnership del server selezionato."}
       guild={overview ? { id: overview.id, name: overview.name, iconUrl: overview.iconUrl } : null}
       guildNav={
