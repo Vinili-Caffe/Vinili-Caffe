@@ -158,7 +158,7 @@ function shouldRefreshPickers(gid: string) {
   return true;
 }
 
-/** Ruoli che il bot dà da solo sul server principale: pre-verifica all'ingresso, Member dopo la verifica. */
+/** Ruoli che il bot dà da solo sul server principale: pre-verifica all'ingresso, Member dopo la verifica, poi l'anzianità. */
 async function mainJoinRoles(_client?, _gid?: string) {
   const out: { id: string; note: string }[] = [];
   try {
@@ -167,6 +167,11 @@ async function mainJoinRoles(_client?, _gid?: string) {
     const member = String(IDs?.roles?.Member || "");
     if (pre) out.push({ id: pre, note: "all'ingresso, finché non completa la verifica" });
     if (member) out.push({ id: member, note: "dopo la verifica (il pre-verifica viene tolto)" });
+    /* anzianità dalla verifica (uno alla volta, il bot cambia da solo) */
+    const r = IDs?.roles || {};
+    if (r.NuovoUtente) out.push({ id: String(r.NuovoUtente), note: "dopo la verifica, per i primi 30 giorni" });
+    if (r.Veterano) out.push({ id: String(r.Veterano), note: "da 30 giorni a 1 anno dalla verifica" });
+    if (r.OG) out.push({ id: String(r.OG), note: "dopo 1 anno dalla verifica" });
   } catch (_) {}
   return out;
 }
