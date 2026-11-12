@@ -14,7 +14,7 @@ import {
   type RoleAnnounceRule,
 } from "@/lib/dashboard-community";
 import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
-import { ChannelField, DiscordMessagePreview, DraftEditor, roleOptions, useCommunity, useSampleVars } from "./shared";
+import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 const BOOST_PLACEHOLDERS = [
   { token: "{user}", hint: "chi ha boostato" },
@@ -202,17 +202,19 @@ export function AnnouncementsPanel({
                   </button>
                 ))}
               </div>
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-                <DraftEditor
-                  key={boostTab}
-                  value={draft}
-                  onChange={(d) => set({ ...cfg, boost: boostTab === "first" ? { ...b, firstDraft: d } : { ...b, repeatDraft: d } })}
-                  emojis={data.pickers.emojis}
-                  placeholders={BOOST_PLACEHOLDERS}
-                  maxButtons={data.limits.buttons}
-                />
-                <DiscordMessagePreview bot={data.bot} draft={draft} vars={vars} roles={data.pickers.roles} channels={channels} />
-              </div>
+              <EditorWithPreview
+                editor={
+                    <DraftEditor
+                      key={boostTab}
+                      value={draft}
+                      onChange={(d) => set({ ...cfg, boost: boostTab === "first" ? { ...b, firstDraft: d } : { ...b, repeatDraft: d } })}
+                      emojis={data.pickers.emojis}
+                      placeholders={BOOST_PLACEHOLDERS}
+                      maxButtons={data.limits.buttons}
+                    />
+                }
+                preview={<DiscordMessagePreview bot={data.bot} draft={draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
+              />
             </div>
           ) : null}
         </FormGroup>
@@ -268,17 +270,19 @@ export function AnnouncementsPanel({
                       ) : (
                         <p className="text-xs text-amber-200/80">Ruolo non configurato su questo server (seed solo sul principale).</p>
                       )}
-                      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-                        <DraftEditor
-                          key={key}
-                          value={slot.draft}
-                          onChange={(draft) => setNamed(key, { draft })}
-                          emojis={data.pickers.emojis}
-                          placeholders={ROLE_PLACEHOLDERS}
-                          maxButtons={data.limits.buttons}
-                        />
-                        <DiscordMessagePreview bot={data.bot} draft={slot.draft} vars={slotVars(slot)} roles={data.pickers.roles} channels={channels} />
-                      </div>
+                      <EditorWithPreview
+                        editor={
+                            <DraftEditor
+                              key={key}
+                              value={slot.draft}
+                              onChange={(draft) => setNamed(key, { draft })}
+                              emojis={data.pickers.emojis}
+                              placeholders={ROLE_PLACEHOLDERS}
+                              maxButtons={data.limits.buttons}
+                            />
+                        }
+                        preview={<DiscordMessagePreview bot={data.bot} draft={slot.draft} vars={slotVars(slot)} roles={data.pickers.roles} channels={channels} />}
+                      />
                     </div>
                   ) : null}
                 </div>
@@ -373,10 +377,12 @@ export function AnnouncementsPanel({
                         <NumberField value={r.cooldownHours} min={0} max={8760} onChange={(v) => setRule(r.id, { cooldownHours: Number(v) || 0 })} aria-label="Ore" />
                       </Field>
                     </div>
-                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-                      <DraftEditor key={r.id} value={r.draft} onChange={(draft) => setRule(r.id, { draft })} emojis={data.pickers.emojis} placeholders={ROLE_PLACEHOLDERS} maxButtons={data.limits.buttons} />
-                      <DiscordMessagePreview bot={data.bot} draft={r.draft} vars={ruleVars(r)} roles={data.pickers.roles} channels={channels} />
-                    </div>
+                    <EditorWithPreview
+                      editor={
+                          <DraftEditor key={r.id} value={r.draft} onChange={(draft) => setRule(r.id, { draft })} emojis={data.pickers.emojis} placeholders={ROLE_PLACEHOLDERS} maxButtons={data.limits.buttons} />
+                      }
+                      preview={<DiscordMessagePreview bot={data.bot} draft={r.draft} vars={ruleVars(r)} roles={data.pickers.roles} channels={channels} />}
+                    />
                     <button type="button" className={dangerBtn} onClick={() => set({ ...cfg, roles: { ...cfg.roles, rules: cfg.roles.rules.filter((x) => x.id !== r.id) } })}>
                       <Trash2 className="size-3.5" /> Elimina la regola
                     </button>

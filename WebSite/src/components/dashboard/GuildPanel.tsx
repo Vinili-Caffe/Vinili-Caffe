@@ -35,6 +35,30 @@ import {
   Languages,
 } from "lucide-react";
 import {
+  Archive as IcArchive,
+  Ban as IcBan,
+  BellRing as IcStatusAnn,
+  ClipboardList as IcForms,
+  DoorOpen as IcGoodbye,
+  Filter as IcFilter,
+  FolderOpen as IcCases,
+  Gauge as IcOverview,
+  HandHeart as IcWelcome,
+  History as IcHistory,
+  Import as IcImport,
+  Mail as IcDm,
+  MessageSquareQuote as IcReplies,
+  PanelsTopLeft as IcPanels,
+  Rocket as IcBoost,
+  Scale as IcAppeals,
+  ScrollText as IcLog,
+  Siren as IcPunish,
+  Sparkles as IcNewRole,
+  Tag as IcClanTag,
+  Tags as IcAutoRoles,
+  UserPlus as IcInvites,
+  UserCog as IcManager,
+  UsersRound as IcTeams,
   AudioLines as IcTts,
   BarChart3 as IcStats,
   Coins as IcEconomy,
@@ -101,6 +125,10 @@ import dynamic from "next/dynamic";
 import { DashboardShell, type GuildSectionId } from "./DashboardShell";
 import {
   COMMAND_SECTION_TABS,
+  TICKET_MODULE_TABS,
+  MODERATION_MODULE_TABS,
+  PARTNERSHIP_MODULE_TABS,
+  ANNUNCI_MODULE_TABS,
   defaultModuleTab,
   findGuildSection,
   isClassificaSectionTab,
@@ -287,6 +315,32 @@ const REGISTRO_AREAS = REGISTRO_MODULE_TABS.filter((t) => t.id !== "all");
 
 /* icona per categoria (comandi e aree del registro); per le altre una generica */
 const SIDE_TAB_ICONS: Record<string, LucideIcon> = {
+  /* ticket, moderazione, partnership, annunci */
+  overview: IcOverview,
+  archive: IcArchive,
+  panels: IcPanels,
+  forms: IcForms,
+  teams: IcTeams,
+  replies: IcReplies,
+  blacklist: IcBan,
+  setup: IcSettings,
+  filtri: IcFilter,
+  manager: IcManager,
+  storia: IcHistory,
+  migrazione: IcImport,
+  punizioni: IcPunish,
+  ricorsi: IcAppeals,
+  casi: IcCases,
+  log: IcLog,
+  welcome: IcWelcome,
+  goodbye: IcGoodbye,
+  dm: IcDm,
+  roles: IcAutoRoles,
+  boost: IcBoost,
+  clantag: IcClanTag,
+  status: IcStatusAnn,
+  inviti: IcInvites,
+  ruolinuovi: IcNewRole,
   all: IcAll,
   tutti: IcAll,
   tutto: IcAll,
@@ -328,17 +382,24 @@ function SideTabsLayout({
   label,
   tabs,
   children,
+  active: activeProp,
+  onSelect,
 }: {
   label: string;
   tabs: readonly { id: string; label: string }[];
   children: React.ReactNode;
+  /** con active + onSelect l'elenco cambia scheda; senza, tutto in una pagina e l'elenco segue lo scorrimento */
+  active?: string;
+  onSelect?: (id: string) => void;
 }) {
-  /* tutto in una pagina: l'elenco segue lo scorrimento e un clic porta alla sezione */
-  const [active, setActive] = useState<string>(tabs[0]?.id || "");
+  const controlled = Boolean(onSelect);
+  const [spyActive, setActive] = useState<string>(tabs[0]?.id || "");
+  const active = controlled ? activeProp || tabs[0]?.id || "" : spyActive;
   const locked = useRef<number | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
+    if (controlled) return;
     const ids = tabs.map((t) => t.id);
     const update = () => {
       if (locked.current != null) return;
@@ -358,7 +419,7 @@ function SideTabsLayout({
       window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
     };
-  }, [tabs]);
+  }, [tabs, controlled]);
 
   /* telefono: la pillola attiva resta visibile nella fila orizzontale */
   useEffect(() => {
@@ -369,6 +430,10 @@ function SideTabsLayout({
   }, [active]);
 
   const go = (id: string) => {
+    if (onSelect) {
+      onSelect(id);
+      return;
+    }
     const el = document.getElementById(`spy-${id}`);
     if (!el) return;
     setActive(id);
@@ -397,7 +462,7 @@ function SideTabsLayout({
                 <button
                   type="button"
                   data-tab={t.id}
-                  aria-current={on ? "location" : undefined}
+                  aria-current={on ? (controlled ? "page" : "location") : undefined}
                   onClick={() => go(t.id)}
                   className={cn(
                     "relative flex w-full items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-sm font-semibold transition-colors lg:py-2",
@@ -2191,8 +2256,27 @@ export function GuildPanel() {
   /* Comandi e Registro: le categorie si scelgono dentro la pagina, in un elenco a sinistra */
   const inPageTabs: readonly { id: string; label: string }[] | null =
     section === "commands" ? commandTabsForNav : section === "registro" ? REGISTRO_AREAS : null;
-  const activeSectionTabs = inPageTabs ? [] : sectionTabs(section);
-  const labelTabs = inPageTabs || activeSectionTabs;
+  const switchTabs: readonly { id: string; label: string }[] | null =
+    section === "tickets"
+      ? TICKET_MODULE_TABS
+      : section === "moderation"
+        ? MODERATION_MODULE_TABS
+        : section === "partnership"
+          ? PARTNERSHIP_MODULE_TABS
+          : section === "benvenuto"
+            ? ANNUNCI_MODULE_TABS
+            : null;
+  const switchActive = moduleTab || defaultModuleTab(section) || "";
+  const withSwitchTabs = (node: React.ReactNode) =>
+    switchTabs ? (
+      <SideTabsLayout label={`Sezioni ${sectionMeta.label}`} tabs={switchTabs} active={switchActive} onSelect={(t) => setModuleTab(section, t)}>
+        {node}
+      </SideTabsLayout>
+    ) : (
+      node
+    );
+  const activeSectionTabs = inPageTabs || switchTabs ? [] : sectionTabs(section);
+  const labelTabs = inPageTabs || switchTabs || activeSectionTabs;
   const activeTabLabel =
     !inPageTabs && labelTabs.length && moduleTab
       ? labelTabs.find((t) => t.id === moduleTab)?.label || null
@@ -2421,6 +2505,7 @@ export function GuildPanel() {
                       />
                     ) : null}
                     {section === "tickets" && guildId && token ? (
+                      withSwitchTabs(
                       <TicketDesk
                         guildId={guildId}
                         token={token}
@@ -2434,21 +2519,27 @@ export function GuildPanel() {
                         }}
                         onToast={showToast}
                       />
+                      )
                     ) : null}
                     {section === "moderation" && guildId && token && moduleTab === "log" ? (
+                      withSwitchTabs(
                       <Panel>
                         <ServerLogsPanel guildId={guildId} token={token} onToast={showToast} />
                       </Panel>
+                      )
                     ) : null}
                     {section === "moderation" && guildId && token && moduleTab !== "log" ? (
+                      withSwitchTabs(
                       <ModerationPanel
                         guildId={guildId}
                         token={token}
                         tab={moduleTab && isModerationModuleTab(moduleTab) ? moduleTab : "overview"}
                         onToast={showToast}
                       />
+                      )
                     ) : null}
                     {section === "partnership" && guildId && token ? (
+                      withSwitchTabs(
                       <Panel>
                         <PartnershipPanel
                           guildId={guildId}
@@ -2457,6 +2548,7 @@ export function GuildPanel() {
                           tab={moduleTab && isPartnershipModuleTab(moduleTab) ? moduleTab : "setup"}
                         />
                       </Panel>
+                      )
                     ) : null}
 
                     {section === "stats" && guildId && token ? (
@@ -2484,6 +2576,7 @@ export function GuildPanel() {
                     ) : null}
 
                     {section === "benvenuto" && guildId && token ? (
+                      withSwitchTabs(
                       <Panel>
                         {moduleTab === "boost" ||
                         moduleTab === "ruolinuovi" ||
@@ -2506,6 +2599,7 @@ export function GuildPanel() {
                           />
                         )}
                       </Panel>
+                      )
                     ) : null}
 
                     {section === "risposte" && guildId && token ? (

@@ -152,13 +152,14 @@ export const GUILD_SERVER_SECTIONS = [
 /** Funzioni opzionali: sotto MODULI. */
 export const GUILD_MODULE_SECTIONS = [
   { id: "bacheca", label: "Bacheca", icon: Pin, tabs: [] as const },
-  { id: "tickets", label: "Ticket", icon: Ticket, tabs: TICKET_MODULE_TABS },
-  { id: "moderation", label: "Moderazione", icon: Gavel, tabs: MODERATION_MODULE_TABS },
-  { id: "partnership", label: "Partnership", icon: Handshake, tabs: PARTNERSHIP_MODULE_TABS },
+  /* Ticket, Moderazione, Partnership e Annunci: le schede stanno nella pagina, in un elenco a sinistra */
+  { id: "tickets", label: "Ticket", icon: Ticket, tabs: [] as const },
+  { id: "moderation", label: "Moderazione", icon: Gavel, tabs: [] as const },
+  { id: "partnership", label: "Partnership", icon: Handshake, tabs: [] as const },
   { id: "messaggi", label: "Messaggi", icon: Megaphone, tabs: [] as const },
   { id: "comandipers", label: "Comandi personalizzati", icon: TerminalSquare, tabs: [] as const },
   { id: "ruoli", label: "Ruoli automatici", icon: Tags, tabs: [] as const },
-  { id: "benvenuto", label: "Annunci automatici", icon: PartyPopper, tabs: ANNUNCI_MODULE_TABS },
+  { id: "benvenuto", label: "Annunci automatici", icon: PartyPopper, tabs: [] as const },
   { id: "risposte", label: "Risposte automatiche", icon: MessageSquareReply, tabs: [] as const },
   { id: "contatori", label: "Contatori", icon: Gauge, tabs: [] as const },
   { id: "bump", label: "Bump", icon: Rocket, tabs: [] as const },
