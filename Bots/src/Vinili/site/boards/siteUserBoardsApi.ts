@@ -152,6 +152,10 @@ async function handleSiteUserBoardsGet(client?, req?, res?) {
       }
       guildId = wanted;
       res.setHeader("Cache-Control", "private, no-store");
+      const MS = require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches");
+      if (!MS.isModuleOn(wanted, "bacheca")) {
+        return res.status(200).json({ ok: true, disabled: true, kind, userId, page: 1, perPage: PER_PAGE, total: 0, totalPages: 1, items: [] });
+      }
     }
 
     const skip = (page - 1) * PER_PAGE;

@@ -21,6 +21,8 @@ export type BoardItem = {
 export type BoardPage = {
   kind: BoardKind;
   userId: string;
+  /** in quel server il modulo Bacheca è spento: la sezione non si mostra */
+  disabled?: boolean;
   page: number;
   perPage: number;
   total: number;
@@ -43,6 +45,7 @@ export async function loadUserBoards(kind: BoardKind, userId: string, page = 1, 
     return {
       kind,
       userId,
+      disabled: j.disabled === true,
       page: Number(j.page) || 1,
       perPage: Number(j.perPage) || 6,
       total: Number(j.total) || 0,

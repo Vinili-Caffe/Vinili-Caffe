@@ -335,6 +335,9 @@ export function ProfileBoards({
     await reload(kind, page);
   };
 
+  /* Bacheca spenta in quel server: niente sezione */
+  if (data?.disabled) return null;
+
   return (
     <Reveal>
       <div id="miei-contenuti" className="mb-5 scroll-mt-28">

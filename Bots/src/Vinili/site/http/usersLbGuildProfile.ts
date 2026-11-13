@@ -84,14 +84,9 @@ async function guildProfile(client?, req?, guildId?, targetId?, mainId?) {
       ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=256`
       : `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(u.id) >> 22n) % 6}.png`;
 
-  /* Partner Manager: il ruolo scelto nella Partnership di quel server */
-  let isPartnerManager = false;
-  try {
-    const P = require("../../Partner/core/tenantPartnershipSettings") as any;
-    const cfg: any = await P.getPartnershipConfig(String(guildId)).catch(() => null);
-    const pmRole = String(cfg?.partnerManagerRoleId || "");
-    isPartnerManager = Boolean(pmRole && Array.isArray(m.roles) && m.roles.includes(pmRole));
-  } catch (_) {}
+  /* Partner Manager: il ruolo scelto nella Partnership di quel server (solo col modulo Partnership acceso) */
+  const pmRole = await pmRoleOf(guildId);
+  const isPartnerManager = Boolean(pmRole && Array.isArray(m.roles) && m.roles.includes(pmRole));
 
   /* compleanno: uno per persona; fuori dal principale solo se ha scelto "in tutti i miei server" */
   let birthday: any = null;
@@ -129,7 +124,16 @@ async function guildProfile(client?, req?, guildId?, targetId?, mainId?) {
 
 /* ───────────── Partner Manager di un server ───────────── */
 
+const partnershipOn = (guildId?) => {
+  try {
+    return (require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(String(guildId || ""), "partnership");
+  } catch (_) {
+    return false;
+  }
+};
+
 async function pmRoleOf(guildId?) {
+  if (!partnershipOn(guildId)) return "";
   try {
     const P = require("../../Partner/core/tenantPartnershipSettings") as any;
     const cfg: any = await P.getPartnershipConfig(String(guildId)).catch(() => null);
@@ -185,6 +189,12 @@ async function guildStaff(client?, req?, guildId?, targetId?) {
   const { getTenantProfileSnapshot } = require("../../Partner/services/tenantProfileProgressService") as any;
   const snap: any = await getTenantProfileSnapshot(String(guildId), String(targetId), { client, evaluateObjectives: false }).catch(() => null);
   if (!snap) return { status: 503, body: { ok: false, error: "unavailable", message: "Statistiche non disponibili ora." } };
+  /* partnership contate solo in questo server (+profile le conta su tutti) */
+  try {
+    const L = require("../../Partner/services/tenantLeaderboardService") as any;
+    const here = await L.getUserPartnershipScoresForGuild(String(guildId), String(targetId));
+    if (here) snap.scores = here;
+  } catch (_) {}
   const selected = (Array.isArray(snap.prefs?.selectedBadges) ? snap.prefs.selectedBadges : [])
     .map((id: string) => snap.badgeMap?.get?.(id))
     .filter(Boolean)
