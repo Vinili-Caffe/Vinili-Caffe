@@ -105,10 +105,8 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
         /* il processo del sito non tiene tutti i server in memoria: si chiede a Discord */
         let inside = false;
         if (viewerId) {
-          const { Routes } = require("discord.js") as typeof import("discord.js");
-          inside = await (client.rest as any)
-            .get(Routes.guildMember(wanted, viewerId))
-            .then(() => true, () => false);
+          const GP = require("./usersLbGuildProfile") as typeof import("./usersLbGuildProfile");
+          inside = Boolean(await GP.memberOf(client, wanted, viewerId));
         }
         if (!inside) return res.status(403).json({ ok: false, error: "not_member", message: "Puoi vedere solo il calendario dei server dove sei anche tu." });
         const key = `birthdays:v2:${wanted}:${year}:${month}`;

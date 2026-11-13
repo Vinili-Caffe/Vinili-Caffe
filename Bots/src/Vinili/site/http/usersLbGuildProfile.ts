@@ -23,9 +23,23 @@ async function viewerIdOf(req?) {
   return String(me?.me?.id || "");
 }
 
+/**
+ * Chiamata REST del bot che non lancia mai: null se la connessione non c'è o Discord risponde errore.
+ * (nel processo del sito la REST può stare in client._rest; senza, la pagina dava errore 500)
+ */
+async function restGet(client?, route?: string, options?: any): Promise<any | null> {
+  try {
+    const rest = client?._rest || client?.rest;
+    if (!rest?.get) return null;
+    return await rest.get(route, options);
+  } catch (_) {
+    return null;
+  }
+}
+
 async function memberOf(client?, guildId?, userId?): Promise<any | null> {
   if (!isId(guildId) || !isId(userId)) return null;
-  return (client.rest as any).get(Routes.guildMember(String(guildId), String(userId))).catch(() => null);
+  return restGet(client, Routes.guildMember(String(guildId), String(userId)));
 }
 
 /** Server in comune tra chi guarda e la persona del profilo (con il bot dentro). */
@@ -91,7 +105,7 @@ async function guildProfile(client?, req?, guildId?, targetId?, mainId?) {
 
   let guildName = "";
   try {
-    const g: any = await (client.rest as any).get(Routes.guild(String(guildId))).catch(() => null);
+    const g: any = await restGet(client, Routes.guild(String(guildId)));
     guildName = String(g?.name || "");
   } catch (_) {}
 
@@ -141,9 +155,7 @@ async function partnerManagers(client?, guildId?, roleId?) {
   const out: any[] = [];
   let after = "0";
   for (let page = 0; page < 5; page++) {
-    const rows: any[] = await (client.rest as any)
-      .get(Routes.guildMembers(String(guildId)), { query: new URLSearchParams({ limit: "1000", after }) })
-      .catch(() => []);
+    const rows: any[] = (await restGet(client, Routes.guildMembers(String(guildId)), { query: new URLSearchParams({ limit: "1000", after }) })) || [];
     if (!Array.isArray(rows) || !rows.length) break;
     for (const m of rows) {
       if (!m?.user?.bot && Array.isArray(m.roles) && m.roles.includes(roleId)) {
@@ -202,4 +214,4 @@ async function guildStaff(client?, req?, guildId?, targetId?) {
   };
 }
 
-export = { sharedGuilds, guildProfile, guildStaff, memberOf, viewerIdOf };
+export = { sharedGuilds, guildProfile, guildStaff, memberOf, viewerIdOf, restGet };

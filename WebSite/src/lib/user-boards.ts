@@ -28,10 +28,15 @@ export type BoardPage = {
   items: BoardItem[];
 };
 
-export async function loadUserBoards(kind: BoardKind, userId: string, page = 1): Promise<BoardPage | null> {
+/** Quote, repost o clip di una persona: del principale, oppure (con il login) di un altro server dove sei anche tu. */
+export async function loadUserBoards(kind: BoardKind, userId: string, page = 1, opts: { guildId?: string | null; token?: string | null } = {}): Promise<BoardPage | null> {
   try {
     const q = new URLSearchParams({ kind, userId, page: String(page) });
-    const r = await fetch(apiUrl(`/webhooks/site-user-boards?${q}`), { cache: "no-store" });
+    if (opts.guildId) q.set("guild", opts.guildId);
+    const r = await fetch(apiUrl(`/webhooks/site-user-boards?${q}`), {
+      cache: "no-store",
+      ...(opts.guildId && opts.token ? { headers: { Authorization: `Bearer ${opts.token}` } } : {}),
+    });
     if (!r.ok) return null;
     const j = await r.json();
     if (!j?.ok || !Array.isArray(j.items)) return null;

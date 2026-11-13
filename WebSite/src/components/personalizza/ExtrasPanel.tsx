@@ -23,12 +23,15 @@ import { cn } from "@/lib/cn";
 import {
   customEmojiUrl,
   loadGuildEmojis,
+  loadProfileExtras,
   mutateProfileExtras,
   reactionTokenFromPick,
   type GuildEmoji,
   type PersTab,
   type ProfileExtras,
 } from "@/lib/personalizza";
+import { loadMyBotGuilds, type BotGuild } from "@/lib/birthdays";
+import { ServerSwitcher } from "@/components/profile/ServerSwitcher";
 import {
   BIRTHDAY_MIN_AGE,
   birthdayInputError,
@@ -161,16 +164,51 @@ export function ExtrasPanel({
     };
   }, [token]);
 
+  /* Privacy per server: ogni server ha le sue scelte (null = il principale) */
+  const outsider = extras.inGuild === false;
+  const [pvGuilds, setPvGuilds] = useState<BotGuild[]>([]);
+  const [pvGuild, setPvGuild] = useState<string | null>(null);
+  const [pvOther, setPvOther] = useState<{ key: string; privacy: ProfileExtras["privacy"] } | null>(null);
+  useEffect(() => {
+    if (tab !== "privacy") return;
+    let alive = true;
+    void loadMyBotGuilds(token).then((list) => {
+      if (!alive) return;
+      setPvGuilds(list);
+      /* fuori dal principale: parte dal primo dei tuoi server */
+      if (outsider) setPvGuild((cur) => cur || list.find((g) => !g.isMain)?.id || null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [tab, token, outsider]);
+  useEffect(() => {
+    if (!pvGuild) return;
+    let alive = true;
+    void loadProfileExtras(token, "privacy", pvGuild).then((r) => {
+      if (alive && r.ok) setPvOther({ key: pvGuild, privacy: r.data.privacy });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [pvGuild, token]);
+
   async function run(section: string, extra: Record<string, unknown> = {}) {
     if (busy) return;
     setBusy(true);
-    const r = await mutateProfileExtras(token, { section, ...extra });
+    const otherPrivacy = section === "privacy" && pvGuild ? pvGuild : null;
+    const r = await mutateProfileExtras(token, { section, ...extra, ...(otherPrivacy ? { guild: otherPrivacy } : {}) });
     setBusy(false);
     if (!r.ok) {
       onToast(r.message, true);
       return;
     }
     const d = r.data;
+    if (otherPrivacy) {
+      if (d.privacy) setPvOther({ key: otherPrivacy, privacy: d.privacy as ProfileExtras["privacy"] });
+      onToast(r.message || "Salvato.");
+      return;
+    }
     const next = { ...extras };
     if (d.birthday) next.birthday = d.birthday as ProfileExtras["birthday"];
     if (d.privacy) next.privacy = d.privacy as ProfileExtras["privacy"];
@@ -441,10 +479,37 @@ export function ExtrasPanel({
   }
 
   if (tab === "privacy") {
-    const kinds = extras.privacy?.kinds || [];
+    const kinds = pvGuild ? (pvOther?.key === pvGuild ? pvOther.privacy?.kinds || [] : []) : extras.privacy?.kinds || [];
+    const shownGuilds = outsider ? pvGuilds.filter((g) => !g.isMain) : pvGuilds;
+    const mainId = pvGuilds.find((g) => g.isMain)?.id || "";
+    if (outsider && !shownGuilds.length) {
+      return (
+        <p className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 text-sm text-crema/65 ring-1 ring-sand/12">
+          La privacy vale per server: entra in un server con il bot per scegliere cosa possono fare gli altri con te.
+        </p>
+      );
+    }
+    const switcher =
+      shownGuilds.length > 1 ? (
+        <div className="relative z-30 mb-4 flex justify-center">
+          <ServerSwitcher guilds={shownGuilds} current={pvGuild || mainId} onGo={(gid) => setPvGuild(gid === mainId ? null : gid)} />
+        </div>
+      ) : null;
+    if (pvGuild && pvOther?.key !== pvGuild) {
+      return (
+        <div>
+          {switcher}
+          <div className="flex h-40 items-center justify-center gap-2 text-sm text-crema/55">
+            <Loader2 className="size-4 animate-spin" /> Carico la privacy di questo server…
+          </div>
+        </div>
+      );
+    }
     const closed = kinds.filter((k) => k.blocked).length;
     const level = kinds.length ? closed / kinds.length : 0;
     return (
+      <div>
+        {switcher}
       <div className="overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
         {/* testata: lucchetto che si chiude man mano che proteggi le voci */}
         <div className="relative flex flex-col gap-5 bg-gradient-to-br from-caramel/15 via-roast/40 to-transparent p-5 sm:flex-row sm:items-center sm:p-6">
@@ -566,6 +631,7 @@ export function ExtrasPanel({
             );
           })}
         </ul>
+      </div>
       </div>
     );
   }

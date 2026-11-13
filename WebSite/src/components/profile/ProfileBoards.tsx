@@ -267,7 +267,20 @@ function Card({
   );
 }
 
-export function ProfileBoards({ userId, owns, token }: { userId: string; owns: boolean; token: string | null }) {
+export function ProfileBoards({
+  userId,
+  owns: ownsProp,
+  token,
+  guildId = null,
+}: {
+  userId: string;
+  owns: boolean;
+  token: string | null;
+  /** server scelto nel profilo (null = principale) */
+  guildId?: string | null;
+}) {
+  /* si possono eliminare solo le voci della Bacheca del principale */
+  const owns = ownsProp && !guildId;
   const [kind, setKind] = useState<BoardKind>("quote");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<BoardPage | null>(null);
@@ -279,12 +292,12 @@ export function ProfileBoards({ userId, owns, token }: { userId: string; owns: b
     async (k: BoardKind, p: number) => {
       setLoading(true);
       setErr("");
-      const out = await loadUserBoards(k, userId, p);
+      const out = await loadUserBoards(k, userId, p, guildId ? { guildId, token } : {});
       setData(out);
       setLoading(false);
       if (!out) setErr("Non riesco a caricare questa bacheca.");
     },
-    [userId],
+    [userId, guildId, token],
   );
 
   useEffect(() => {
@@ -330,7 +343,9 @@ export function ProfileBoards({ userId, owns, token }: { userId: string; owns: b
         </p>
         <h2 className="mt-1.5 font-display text-3xl font-semibold sm:text-4xl">Quote, repost e clip</h2>
         <p className="mt-2 max-w-2xl text-sm text-crema/55">
-          Le quote, i repost e le clip che hai pubblicato sulla bacheca Discord. Da qui puoi gestirli e rimuoverli.
+          {guildId
+            ? "Le quote, i repost e le clip di questo server."
+            : "Le quote, i repost e le clip che hai pubblicato sulla bacheca Discord. Da qui puoi gestirli e rimuoverli."}
         </p>
       </div>
 

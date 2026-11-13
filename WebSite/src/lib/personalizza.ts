@@ -543,9 +543,12 @@ export async function previewRankCard(token: string, theme: RankTheme, signal?: 
   }
 }
 
-export async function loadProfileExtras(token: string, section?: string): Promise<ApiResult<ProfileExtras>> {
+export async function loadProfileExtras(token: string, section?: string, guildId?: string | null): Promise<ApiResult<ProfileExtras>> {
   try {
-    const q = section ? `?section=${encodeURIComponent(section)}` : "";
+    const qs = new URLSearchParams();
+    if (section) qs.set("section", section);
+    if (guildId) qs.set("guild", guildId);
+    const q = qs.toString() ? `?${qs}` : "";
     const res = await fetch(`/webhooks/site-profile-extras${q}`, {
       headers: authHeaders(token),
       cache: "no-store",

@@ -275,9 +275,29 @@ async function buildRolePanelCategory(guild?, member?, cat?, prefetched: Record<
   };
 }
 
-async function getProfileExtras(client?, { accessToken, section: sectionRaw, viewAs: viewAsRaw }: any = {}) {
+/** Privacy di un altro server (non il principale): solo se ne fai parte. "" = il principale. */
+async function otherGuildFor(client?, resolved?, guildRaw?) {
+  const gid = String(guildRaw || "").trim();
+  if (!/^d{16,22}$/.test(gid) || gid === String(resolved?.guild?.id || "")) return { gid: "" };
+  const GP = require("./usersLbGuildProfile") as typeof import("./usersLbGuildProfile");
+  if (!(await GP.memberOf(client, gid, resolved.userId))) {
+    return { gid, denied: { ok: false, status: 403, error: "not_member", message: "Non sei in quel server." } };
+  }
+  return { gid };
+}
+
+async function getProfileExtras(client?, { accessToken, section: sectionRaw, viewAs: viewAsRaw, guild: guildRaw }: any = {}) {
   const resolved: any = await resolveProfileUser(client, accessToken);
   if (!resolved.ok) return resolved;
+  /* privacy di un altro server: le scelte valgono solo lì */
+  if (String(sectionRaw || "").toLowerCase() === "privacy" && guildRaw) {
+    const other: any = await otherGuildFor(client, resolved, guildRaw);
+    if (other.denied) return other.denied;
+    if (other.gid) {
+      const privacy = await readPrivacyState(other.gid, resolved.userId);
+      return { ...extrasSkeleton(resolved.userId), inGuild: !resolved.outsider, guild: other.gid, privacy: { kinds: PRIVACY_CONTENT_KINDS.map((k?) => privacy[k]) } };
+    }
+  }
   /* fuori dal principale: solo il compleanno (vale in tutti i server) */
   if (resolved.outsider) {
     const b = await getBirthdayProfile(resolved.guild.id, resolved.userId).catch(() => null);
@@ -747,6 +767,16 @@ async function mutateProfileExtras(client?, payload?) {
   const resolved: any = await resolveProfileUser(client, accessToken);
   if (!resolved.ok) return resolved;
   const { guild, member, userId } = resolved;
+  /* privacy di un altro server */
+  if (section === "privacy" && payload?.guild) {
+    const other: any = await otherGuildFor(client, resolved, payload.guild);
+    if (other.denied) return other.denied;
+    if (other.gid) {
+      const out: any = await mutatePrivacy(other.gid, userId, payload);
+      if (!out?.ok) return { ok: false, status: 400, error: out?.reason || "error", message: out?.message || "Operazione non riuscita." };
+      return { ok: true, status: 200, ...out, guild: other.gid };
+    }
+  }
   /* fuori dal principale si può cambiare solo il compleanno */
   if (resolved.outsider && section !== "birthday") {
     return { ok: false, status: 403, error: "not_in_guild", message: "Questa parte del profilo è del server principale." };

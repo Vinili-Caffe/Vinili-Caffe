@@ -228,6 +228,7 @@ function mountProfileWebhookRoutes(app?, client?, ctx: Record<string, any> = {})
         accessToken,
         section,
         viewAs: parseViewAsFromReq(req),
+        guild: String(req.query?.guild || "").trim(),
       });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {

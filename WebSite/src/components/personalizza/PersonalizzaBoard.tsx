@@ -131,8 +131,9 @@ export function PersonalizzaBoard() {
   const backHref = user?.id ? page(`/user/?id=${encodeURIComponent(user.id)}`) : page("/user/");
   /* fuori dal server principale: solo il compleanno, che vale in tutti i server */
   const outsider = extras?.inGuild === false;
-  const shownTab: PersTab = outsider ? "birthday" : tab;
-  const tabs = outsider ? PERS_TABS.filter((t) => t.id === "birthday") : PERS_TABS;
+  /* compleanno e privacy valgono anche fuori dal principale (la privacy, server per server) */
+  const shownTab: PersTab = outsider && tab !== "privacy" ? "birthday" : tab;
+  const tabs = outsider ? PERS_TABS.filter((t) => t.id === "birthday" || t.id === "privacy") : PERS_TABS;
 
   if (!ready) {
     return (
@@ -223,7 +224,7 @@ export function PersonalizzaBoard() {
 
       {outsider ? (
         <div className="rounded-2xl bg-caramel/10 px-4 py-3 text-sm text-crema/80 ring-1 ring-caramel/25">
-          Non sei nel server principale: qui puoi impostare il compleanno, che vale in tutti i server dove c&apos;è il bot. Rank card, ruoli e reazioni sono del server principale.
+          Non sei nel server principale: qui puoi impostare il compleanno, che vale in tutti i server dove c&apos;è il bot, e la privacy di ognuno dei tuoi server. Rank card, ruoli e reazioni sono del server principale.
         </div>
       ) : error ? (
         <div className="rounded-2xl bg-caramel/10 px-4 py-3 text-sm text-crema/80 ring-1 ring-caramel/25">{error}</div>

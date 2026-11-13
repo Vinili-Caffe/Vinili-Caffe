@@ -138,9 +138,20 @@ async function handleSiteUserBoardsGet(client?, req?, res?) {
     if (!/^\d{17,22}$/.test(userId)) {
       return res.status(400).json({ ok: false, error: "bad_user", message: "userId non valido." });
     }
-    const guildId = mainGuildId();
+    let guildId = mainGuildId();
     if (!guildId) {
       return res.status(503).json({ ok: false, error: "no_guild", message: "Guild non configurata." });
+    }
+    /* un altro server (profilo per server): solo per chi ne fa parte */
+    const wanted = String(req.query?.guild || "").trim();
+    if (/^d{16,22}$/.test(wanted) && wanted !== guildId) {
+      const GP = require("../http/usersLbGuildProfile") as typeof import("../http/usersLbGuildProfile");
+      const viewerId = await GP.viewerIdOf(req);
+      if (!viewerId || !(await GP.memberOf(client, wanted, viewerId))) {
+        return res.status(403).json({ ok: false, error: "not_member", message: "Puoi vedere solo i server dove sei anche tu." });
+      }
+      guildId = wanted;
+      res.setHeader("Cache-Control", "private, no-store");
     }
 
     const skip = (page - 1) * PER_PAGE;

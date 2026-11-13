@@ -85,8 +85,8 @@ async function buildBirthdaysMonthPayload(client?, guildId?, month?, year?, opts
     let present = Boolean(member);
     /* server non tenuto in memoria da questo processo: chiede direttamente a Discord se è membro */
     if (!present) {
-      const { Routes } = require("discord.js") as typeof import("discord.js");
-      present = await (client.rest as any).get(Routes.guildMember(String(guildId), userId)).then(() => true, () => false);
+      const GP = require("./usersLbGuildProfile") as typeof import("./usersLbGuildProfile");
+      present = Boolean(await GP.memberOf(client, String(guildId), userId));
     }
     /* non è in questo server: non compare nel suo calendario */
     if (!present) continue;

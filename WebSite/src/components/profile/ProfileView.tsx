@@ -159,7 +159,13 @@ export function ProfileView() {
           calendarGuildId={guildSel}
           serverName={gd.guild.name || undefined}
         />
-        {pmTab && tab === "staff" ? <GuildStaffView token={token!} guildId={guildSel} userId={gd.userId} onNavigate={(uid) => goGuildTab("staff", uid)} /> : null}
+        {pmTab && tab === "staff" ? (
+          <GuildStaffView token={token!} guildId={guildSel} userId={gd.userId} onNavigate={(uid) => goGuildTab("staff", uid)} />
+        ) : (
+          <div className="mx-auto max-w-5xl px-6 pb-20 pt-2 sm:pt-4">
+            <ProfileBoards key={guildSel} userId={gd.userId} owns={Boolean(user && user.id === gd.userId)} token={token} guildId={guildSel} />
+          </div>
+        )}
       </>
     );
   }
