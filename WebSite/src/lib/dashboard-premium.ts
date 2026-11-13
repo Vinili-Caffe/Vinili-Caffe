@@ -112,7 +112,7 @@ export async function loadCreditsHistory(
           delta,
           at: num(r.at) || null,
           reason: String(r.reason || "adjust"),
-          guildId: /^d{16,22}$/.test(gid) ? gid : null,
+          guildId: /^\d{16,22}$/.test(gid) ? gid : null,
         } satisfies CreditsMove;
       })
       .filter((m): m is CreditsMove => Boolean(m));

@@ -40,7 +40,7 @@ function jumpUrl(guildId?, channelId?, messageId?) {
   if (!g || !c || !m || m === "pending" || m === "0") return "";
   /* bachecaSite1: i contenuti nuovi stanno sulla Bacheca del sito, non in un canale */
   if (isSiteBoardChannel(c)) return bachecaItemUrl(m);
-  if (!/^d{16,20}$/.test(c)) return "";
+  if (!/^\d{16,20}$/.test(c)) return "";
   return `https://discord.com/channels/${g}/${c}/${m}`;
 }
 
@@ -144,7 +144,7 @@ async function handleSiteUserBoardsGet(client?, req?, res?) {
     }
     /* un altro server (profilo per server): solo per chi ne fa parte */
     const wanted = String(req.query?.guild || "").trim();
-    if (/^d{16,22}$/.test(wanted) && wanted !== guildId) {
+    if (/^\d{16,22}$/.test(wanted) && wanted !== guildId) {
       const GP = require("../http/usersLbGuildProfile") as typeof import("../http/usersLbGuildProfile");
       const viewerId = await GP.viewerIdOf(req);
       if (!viewerId || !(await GP.memberOf(client, wanted, viewerId))) {

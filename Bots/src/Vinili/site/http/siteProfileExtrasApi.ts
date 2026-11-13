@@ -278,7 +278,7 @@ async function buildRolePanelCategory(guild?, member?, cat?, prefetched: Record<
 /** Privacy di un altro server (non il principale): solo se ne fai parte. "" = il principale. */
 async function otherGuildFor(client?, resolved?, guildRaw?) {
   const gid = String(guildRaw || "").trim();
-  if (!/^d{16,22}$/.test(gid) || gid === String(resolved?.guild?.id || "")) return { gid: "" };
+  if (!/^\d{16,22}$/.test(gid) || gid === String(resolved?.guild?.id || "")) return { gid: "" };
   const GP = require("./usersLbGuildProfile") as typeof import("./usersLbGuildProfile");
   if (!(await GP.memberOf(client, gid, resolved.userId))) {
     return { gid, denied: { ok: false, status: 403, error: "not_member", message: "Non sei in quel server." } };

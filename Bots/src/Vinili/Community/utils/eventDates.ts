@@ -80,11 +80,11 @@ function parseEventDateMs(value?, timezone?, fallbackTime?) {
 function parseScheduleMs(value?, fallbackTime = "12:00:00") {
   const d = String(value || "").trim();
   if (!d) return null;
-  if (/^d{4}-d{2}-d{2}$/.test(d)) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
     const ms = new Date(`${d}T${fallbackTime}`).getTime();
     return Number.isFinite(ms) ? ms : null;
   }
-  const normalized = d.includes("T") || /sd{2}:d{2}/.test(d) ? d.replace(/s+/, "T") : `${d}T${fallbackTime}`;
+  const normalized = d.includes("T") || /\s\d{2}:\d{2}/.test(d) ? d.replace(/\s+/, "T") : `${d}T${fallbackTime}`;
   const ms = new Date(normalized).getTime();
   return Number.isFinite(ms) ? ms : null;
 }
