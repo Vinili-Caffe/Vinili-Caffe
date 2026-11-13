@@ -160,7 +160,14 @@ export function ProfileView() {
           serverName={gd.guild.name || undefined}
         />
         {pmTab && tab === "staff" ? (
-          <GuildStaffView token={token!} guildId={guildSel} userId={gd.userId} onNavigate={(uid) => goGuildTab("staff", uid)} />
+          <GuildStaffView
+            token={token!}
+            guildId={guildSel}
+            userId={gd.userId}
+            owns={Boolean(user && user.id === gd.userId)}
+            serverName={gd.guild.name || undefined}
+            onNavigate={(uid) => goGuildTab("staff", uid)}
+          />
         ) : (
           <div className="mx-auto max-w-5xl px-6 pb-20 pt-2 sm:pt-4">
             <ProfileBoards key={guildSel} userId={gd.userId} owns={Boolean(user && user.id === gd.userId)} token={token} guildId={guildSel} />
@@ -206,7 +213,13 @@ export function ProfileView() {
     <>
       <AlbumCover p={p} tab={tab} showStaffTab={showStaffTab} onTab={goTab} topSlot={switcher} staffSince={showStaffTab && tab === "staff" ? staffSince : null} />
       {showStaffTab && tab === "staff" ? (
-        <StaffCardView token={token!} userId={p.userId} access={staffAccess!} onNavigate={(uid) => goTab("staff", uid)} onTenure={setStaffSince} />
+        <>
+          <StaffCardView token={token!} userId={p.userId} access={staffAccess!} onNavigate={(uid) => goTab("staff", uid)} onTenure={setStaffSince} />
+          {/* Partner Manager anche sul principale: statistiche partnership, badge e obiettivi (preferenze se è il tuo) */}
+          {mainId ? (
+            <GuildStaffView token={token!} guildId={mainId} userId={p.userId} owns={owns} hideNavigator serverName="Vinili & Caffè" onNavigate={(uid) => goTab("staff", uid)} />
+          ) : null}
+        </>
       ) : (
         <div className="space-y-20 pb-20 pt-2 sm:pt-4">
           {outsider ? null : <Tracklist p={p} />}

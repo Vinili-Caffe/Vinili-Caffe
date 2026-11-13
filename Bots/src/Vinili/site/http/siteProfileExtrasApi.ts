@@ -286,9 +286,22 @@ async function otherGuildFor(client?, resolved?, guildRaw?) {
   return { gid };
 }
 
+/** Profilo partnership (preferenze e badge) del proprio utente in un server: solo se lì è Partner Manager. */
+async function pmProfileFor(client?, resolved?, guildRaw?, patch?: any) {
+  const gid = /^\d{16,22}$/.test(String(guildRaw || "")) ? String(guildRaw) : String(resolved?.guild?.id || "");
+  const GP = require("./usersLbGuildProfile") as typeof import("./usersLbGuildProfile");
+  if (!(await GP.isPartnerManagerIn(client, gid, resolved.userId))) {
+    return { ok: false, status: 403, error: "not_pm", message: "Non sei Partner Manager in questo server." };
+  }
+  const P = require("../../../MultiGuild/site/dashboard/siteDashboardTenantProfileApi") as any;
+  const out = patch ? await P.applyTenantProfilePatch(client, gid, resolved.userId, patch) : await P.buildTenantProfilePayload(client, resolved.userId, gid);
+  return out?.ok === false ? out : { ...out, ok: true, status: 200, guild: gid };
+}
+
 async function getProfileExtras(client?, { accessToken, section: sectionRaw, viewAs: viewAsRaw, guild: guildRaw }: any = {}) {
   const resolved: any = await resolveProfileUser(client, accessToken);
   if (!resolved.ok) return resolved;
+  if (String(sectionRaw || "").toLowerCase() === "pm") return pmProfileFor(client, resolved, guildRaw);
   /* privacy di un altro server: le scelte valgono solo lì */
   if (String(sectionRaw || "").toLowerCase() === "privacy" && guildRaw) {
     const other: any = await otherGuildFor(client, resolved, guildRaw);
@@ -767,6 +780,11 @@ async function mutateProfileExtras(client?, payload?) {
   const resolved: any = await resolveProfileUser(client, accessToken);
   if (!resolved.ok) return resolved;
   const { guild, member, userId } = resolved;
+  /* profilo partnership: preferenze e badge */
+  if (section === "pm") {
+    const { section: _s, accessToken: _t, guild: g, ...rest } = payload || {};
+    return pmProfileFor(client, resolved, g, rest);
+  }
   /* privacy di un altro server */
   if (section === "privacy" && payload?.guild) {
     const other: any = await otherGuildFor(client, resolved, payload.guild);

@@ -123,8 +123,8 @@ function serializeNotification(row?, readAt?) {
   };
 }
 
-async function buildTenantProfilePayload(client?, userId?) {
-  const guildId = mainGuildId(client);
+async function buildTenantProfilePayload(client?, userId?, guildIdArg?: string | null) {
+  const guildId = String(guildIdArg || "") || mainGuildId(client);
   if (!guildId) {
     return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
   }
@@ -183,7 +183,12 @@ async function patchDashboardTenantProfile(client?, accessToken?, body?) {
   if (!guildId) {
     return { ok: false, status: 503, error: "misconfigured", message: "Guild principale non configurata." };
   }
+  return applyTenantProfilePatch(client, guildId, gate.userId, body);
+}
 
+/** Preferenze e badge del profilo partnership di un utente in un server (dashboard e profilo del sito). */
+async function applyTenantProfilePatch(client?, guildId?, userId?, body?) {
+  const gate = { userId: String(userId || "") };
   const patch = body && typeof body === "object" ? body : {};
   const current = await getTenantProfilePrefs(guildId, gate.userId);
   const next: Record<string, any> = {};
@@ -283,10 +288,12 @@ async function patchDashboardTenantProfile(client?, accessToken?, body?) {
     }).catch(() => null);
   }
 
-  return buildTenantProfilePayload(client, gate.userId);
+  return buildTenantProfilePayload(client, gate.userId, guildId);
 }
 
 export = {
   getDashboardTenantProfile,
   patchDashboardTenantProfile,
+  buildTenantProfilePayload,
+  applyTenantProfilePatch,
 };

@@ -89,6 +89,32 @@ async function send(method: "GET" | "PATCH", token: string, body?: unknown): Pro
 
 export const loadTenantProfile = (token: string) => send("GET", token);
 
+type PmBody = Partial<{ suppressManagerPing: boolean; ephemeralCommands: boolean; language: string; toggleBadgeId: string }>;
+
+/** Lo stesso profilo partnership in un server qualsiasi (profilo del sito): solo il tuo, se lì sei Partner Manager. */
+async function sendPm(token: string, guildId: string, body?: PmBody): Promise<{ ok: true; profile: TenantProfile } | Fail> {
+  try {
+    const url = body ? "/webhooks/site-profile-extras" : `/webhooks/site-profile-extras?section=pm&guild=${encodeURIComponent(guildId)}&_=${Date.now()}`;
+    const r = await fetch(url, {
+      method: body ? "POST" : "GET",
+      cache: "no-store",
+      credentials: "omit",
+      headers: { Accept: "application/json", Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify({ section: "pm", guild: guildId, ...body }) : undefined,
+    });
+    const data = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+    if (r.status !== 200 || data.ok === false) {
+      return { ok: false, status: r.status, message: typeof data.message === "string" ? data.message : "Profilo non disponibile." };
+    }
+    return { ok: true, profile: mapProfile(data) };
+  } catch {
+    return { ok: false, status: 0, message: "Errore di rete." };
+  }
+}
+
+export const loadPmProfile = (token: string, guildId: string) => sendPm(token, guildId);
+export const patchPmProfile = (token: string, guildId: string, body: PmBody) => sendPm(token, guildId, body);
+
 export const patchTenantProfile = (
   token: string,
   body: Partial<{ suppressManagerPing: boolean; ephemeralCommands: boolean; language: string; toggleBadgeId: string }>,

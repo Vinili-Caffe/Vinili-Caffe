@@ -9,7 +9,7 @@ import { confirmDialog } from "@/components/ui";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { getCreditsBalance, subscribeCredits } from "@/lib/dashboard-premium";
-import { loadTenantProfile, patchTenantProfile, type ProfileEmoji, type TenantProfile } from "@/lib/dashboard-profile";
+import { loadPmProfile, loadTenantProfile, patchPmProfile, patchTenantProfile, type ProfileEmoji, type TenantProfile } from "@/lib/dashboard-profile";
 import { eraseGdprData, exportGdprData, labelFor, summarizeCounts, type EraseResult } from "@/lib/gdpr";
 import { page } from "@/lib/site";
 import { DashboardShell } from "./DashboardShell";
@@ -68,14 +68,28 @@ function AccountCard() {
 }
 
 /** Profilo partnership (solo alto staff): preferenze del bot, badge in vetrina, obiettivi. */
-function PartnerProfile({ token, onToast }: { token: string; onToast: (m: string, err?: boolean) => void }) {
+/**
+ * Profilo partnership: statistiche, preferenze, badge in vetrina, obiettivi.
+ * Di base è quello della dashboard (server principale); con guildId è quello di un altro server (profilo del sito).
+ */
+export function PartnerProfile({
+  token,
+  onToast,
+  guildId = null,
+  prefsNote = "Valgono quando usi Vinili sul server principale.",
+}: {
+  token: string;
+  onToast: (m: string, err?: boolean) => void;
+  guildId?: string | null;
+  prefsNote?: string;
+}) {
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [hidden, setHidden] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    void loadTenantProfile(token).then((res) => {
+    void (guildId ? loadPmProfile(token, guildId) : loadTenantProfile(token)).then((res) => {
       if (cancelled) return;
       if (res.ok) setProfile(res.profile);
       else setHidden(true);
@@ -83,14 +97,14 @@ function PartnerProfile({ token, onToast }: { token: string; onToast: (m: string
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, guildId]);
 
   if (hidden) return null;
   if (!profile) return <div className="h-48 animate-pulse rounded-2xl bg-crema/[0.04]" aria-busy />;
 
   const patch = async (body: Parameters<typeof patchTenantProfile>[1], okMsg: string) => {
     setBusy(true);
-    const res = await patchTenantProfile(token, body);
+    const res = guildId ? await patchPmProfile(token, guildId, body) : await patchTenantProfile(token, body);
     setBusy(false);
     if (!res.ok) return onToast(res.message, true);
     setProfile(res.profile);
@@ -108,7 +122,7 @@ function PartnerProfile({ token, onToast }: { token: string; onToast: (m: string
         <StatTile icon={<Handshake />} label="Oggi" value={profile.scores.daily.toLocaleString("it-IT")} />
       </div>
 
-      <Panel icon={<Settings2 />} title="Preferenze del bot" description="Valgono quando usi Vinili sul server principale.">
+      <Panel icon={<Settings2 />} title="Preferenze del bot" description={prefsNote}>
         <div className="divide-y divide-sand/[0.07] sm:grid sm:grid-cols-2 sm:gap-x-6 sm:divide-y-0 lg:grid-cols-3">
           <SettingRow title="Niente ping nelle mie partnership" description="Quando sei tu il manager, il messaggio di partnership non ti menziona.">
             <Toggle

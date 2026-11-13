@@ -6,6 +6,8 @@ import { Award, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Handshake,
 import { Avatar } from "@/components/Avatar";
 import { EmojiText } from "@/components/discord/EmojiText";
 import { loadGuildStaff, type GuildStaff, type GuildStaffManager } from "@/lib/profile";
+import { showToast } from "@/components/ui";
+import { PartnerProfile } from "@/components/dashboard/ProfileBoard";
 import { cn } from "@/lib/cn";
 
 /** "Lista staff" dei Partner Manager del server: frecce, posizione e menu con ricerca. */
@@ -76,7 +78,25 @@ function Stat({ value, label, icon }: { value: number | string; label: string; i
 }
 
 /** Tab Staff di un Partner Manager in un server (non il principale): le statistiche di +profile. */
-export function GuildStaffView({ token, guildId, userId, onNavigate }: { token: string; guildId: string; userId: string; onNavigate: (id: string) => void }) {
+export function GuildStaffView({
+  token,
+  guildId,
+  userId,
+  onNavigate,
+  owns = false,
+  hideNavigator = false,
+  serverName,
+}: {
+  token: string;
+  guildId: string;
+  userId: string;
+  onNavigate: (id: string) => void;
+  /** è il tuo profilo: preferenze e badge in vetrina modificabili */
+  owns?: boolean;
+  /** sul principale "Lista staff" c'è già (quella dello staff) */
+  hideNavigator?: boolean;
+  serverName?: string;
+}) {
   const [res, setRes] = useState<{ key: string; r: Awaited<ReturnType<typeof loadGuildStaff>> } | null>(null);
   const key = `${guildId}:${userId}`;
 
@@ -92,6 +112,8 @@ export function GuildStaffView({ token, guildId, userId, onNavigate }: { token: 
   const pending = useMemo(() => (staff ? staff.objectives.filter((o) => !o.done) : []), [staff]);
   const doneCount = staff ? staff.objectives.length - pending.length : 0;
 
+  /* sul principale (sotto la scheda staff): se non è Partner Manager non si mostra niente */
+  if (hideNavigator && (!res || res.key !== key || !res.r.ok)) return null;
   if (!res || res.key !== key)
     return (
       <div className="flex h-64 items-center justify-center gap-2 text-crema/55">
@@ -101,11 +123,32 @@ export function GuildStaffView({ token, guildId, userId, onNavigate }: { token: 
   if (!res.r.ok) return <p className="mx-auto max-w-xl rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-8 text-center text-crema/70 ring-1 ring-sand/12">{res.r.message}</p>;
   const s = res.r.data;
 
+  /* il tuo profilo: statistiche, preferenze, badge da scegliere e obiettivi (come in /dashboard/profilo) */
+  if (owns) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-6 px-4 pb-20 sm:px-6">
+        {hideNavigator ? null : (
+          <div className="relative z-30 flex justify-center">
+            <PmNavigator list={s.managers} current={userId} onGo={onNavigate} />
+          </div>
+        )}
+        <PartnerProfile
+          token={token}
+          guildId={guildId}
+          onToast={(m, err) => showToast(m, Boolean(err))}
+          prefsNote={`Valgono quando usi Vinili${serverName ? ` su ${serverName}` : " in questo server"}.`}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 pb-20 sm:px-6">
-      <div className="relative z-30 flex justify-center">
-        <PmNavigator list={s.managers} current={userId} onGo={onNavigate} />
-      </div>
+      {hideNavigator ? null : (
+        <div className="relative z-30 flex justify-center">
+          <PmNavigator list={s.managers} current={userId} onGo={onNavigate} />
+        </div>
+      )}
 
       {s.selectedBadges.length ? (
         <div className="flex flex-wrap items-center justify-center gap-2">

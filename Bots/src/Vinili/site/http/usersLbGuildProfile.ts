@@ -135,6 +135,11 @@ const partnershipOn = (guildId?) => {
 async function pmRoleOf(guildId?) {
   if (!partnershipOn(guildId)) return "";
   try {
+    const R = require("../../Partner/core/partnershipConfigResolver") as any;
+    const id = String(R.getPartnerManagerRoleId?.(String(guildId)) || "");
+    if (id) return id;
+  } catch (_) {}
+  try {
     const P = require("../../Partner/core/tenantPartnershipSettings") as any;
     const cfg: any = await P.getPartnershipConfig(String(guildId)).catch(() => null);
     return String(cfg?.partnerManagerRoleId || "");
@@ -224,4 +229,12 @@ async function guildStaff(client?, req?, guildId?, targetId?) {
   };
 }
 
-export = { sharedGuilds, guildProfile, guildStaff, memberOf, viewerIdOf, restGet };
+/** È Partner Manager in quel server? (modulo Partnership acceso e ruolo addosso) */
+async function isPartnerManagerIn(client?, guildId?, userId?) {
+  const roleId = await pmRoleOf(guildId);
+  if (!roleId) return false;
+  const m: any = await memberOf(client, guildId, userId);
+  return Boolean(m && Array.isArray(m.roles) && m.roles.includes(roleId));
+}
+
+export = { sharedGuilds, guildProfile, guildStaff, memberOf, viewerIdOf, restGet, isPartnerManagerIn };
