@@ -368,17 +368,6 @@ export function QuoteStyleEditor({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          disabled={busy || !dirty}
-          onClick={async () => {
-            const ok = await onSave(draft);
-            if (ok) setDirty(false);
-          }}
-          className="rounded-lg bg-gradient-to-r from-caramel to-ember px-3.5 py-2 text-sm font-semibold text-ink disabled:opacity-45"
-        >
-          Salva stile quote
-        </button>
-        <button
-          type="button"
           disabled={busy}
           onClick={async () => {
             const next = defaultQuoteStyle();

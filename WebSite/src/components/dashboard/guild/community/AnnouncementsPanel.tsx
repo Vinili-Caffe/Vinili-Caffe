@@ -14,7 +14,7 @@ import {
   type RoleAnnounceRule,
   type TenureRule,
 } from "@/lib/dashboard-community";
-import { TrackUnsaved, Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
+import { TrackUnsaved, Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, dangerBtn, fieldClass, miniBtn } from "../bits";
 import { ChannelField, DiscordMessagePreview, DmExtra, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 const BOOST_PLACEHOLDERS = [
@@ -45,7 +45,43 @@ const TENURE_PLACEHOLDERS = [
   { token: "{days}", hint: "i giorni della soglia" },
   { token: "{server}", hint: "nome del server" },
 ];
-const daysLabel = (d: number) => (d % 365 === 0 ? (d === 365 ? "1 anno" : `${d / 365} anni`) : d % 30 === 0 ? (d === 30 ? "1 mese" : `${d / 30} mesi`) : d === 1 ? "1 giorno" : `${d} giorni`);
+/* durata: un numero + giorni/mesi/anni (salvata comunque in giorni) */
+type DurUnit = "d" | "m" | "y";
+const DUR_MULT: Record<DurUnit, number> = { d: 1, m: 30, y: 365 };
+const unitOf = (d: number): DurUnit => (d > 0 && d % 365 === 0 ? "y" : d > 0 && d % 30 === 0 ? "m" : "d");
+function DurationField({ days, onChange }: { days: number; onChange: (days: number) => void }) {
+  const [picked, setPicked] = useState<DurUnit>(() => unitOf(days));
+  /* se i giorni non stanno nell'unità scelta (es. dopo "Annulla"), si usa quella giusta */
+  const unit = days % DUR_MULT[picked] === 0 ? picked : unitOf(days);
+  const mult = DUR_MULT[unit];
+  return (
+    <div className="mt-1.5 flex gap-2">
+      <NumberField
+        value={days / mult}
+        min={0}
+        max={Math.floor(3650 / mult)}
+        onChange={(v) => onChange(Math.min(3650, Math.max(0, Math.round(Number(v) || 0)) * mult))}
+        aria-label="Quanto tempo"
+        className="min-w-0 flex-1"
+      />
+      <Select
+        value={unit}
+        onChange={(v) => {
+          const u = (v as DurUnit) || "d";
+          setPicked(u);
+          onChange(Math.min(Math.floor(3650 / DUR_MULT[u]), days / mult) * DUR_MULT[u]);
+        }}
+        options={[
+          { value: "d", label: "giorni" },
+          { value: "m", label: "mesi" },
+          { value: "y", label: "anni" },
+        ]}
+        className="h-11 w-28 shrink-0 rounded-lg"
+      />
+    </div>
+  );
+}
+const daysLabel = (d: number) => (d === 0 ? "Subito" : d % 365 === 0 ? (d === 365 ? "1 anno" : `${d / 365} anni`) : d % 30 === 0 ? (d === 30 ? "1 mese" : `${d / 30} mesi`) : d === 1 ? "1 giorno" : `${d} giorni`);
 
 const TAB_BLURB: Record<AnnouncementsTab, string> = {
   boost: "Un messaggio quando qualcuno boosta il server: uno per il primo boost e uno per quelli dopo.",
@@ -114,7 +150,7 @@ export function AnnouncementsPanel({
   const [dirty, setDirty] = useState(false);
   /* ultima versione salvata, per "Annulla" */
   const [savedCfg, setSavedCfg] = useState<AnnouncementsConfig | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [, setBusy] = useState(false);
   const [boostTab, setBoostTab] = useState<"first" | "repeat">("first");
   const [openRule, setOpenRule] = useState<string | null>(null);
   const [openNamed, setOpenNamed] = useState<string | null>(null);
@@ -169,14 +205,8 @@ export function AnnouncementsPanel({
   };
   const track = <TrackUnsaved dirty={dirty} onSave={save} onReset={reset} />;
 
-  const saveBar = (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <p className="text-sm text-crema/60">{TAB_BLURB[tab]}</p>
-      <button type="button" className={primaryMini} disabled={busy || !dirty} onClick={() => void save()}>
-        Salva
-      </button>
-    </div>
-  );
+  /* spiegazione della scheda (si salva con la barra in basso) */
+  const saveBar = <p className="text-sm text-crema/60">{TAB_BLURB[tab]}</p>;
 
   const slotVars = (slot: NamedAnnounceSlot) => {
     const role = data.pickers.roles.find((x) => x.id === slot.roleId);
@@ -232,7 +262,7 @@ export function AnnouncementsPanel({
                       maxButtons={data.limits.buttons}
                     />
                 }
-                preview={<DiscordMessagePreview bot={data.bot} draft={draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
+                preview={<DiscordMessagePreview testChannelId={b.channelId} bot={data.bot} draft={draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
               />
             </div>
           ) : null}
@@ -368,7 +398,7 @@ export function AnnouncementsPanel({
                               maxButtons={data.limits.buttons}
                             />
                         }
-                        preview={<DiscordMessagePreview bot={data.bot} draft={slot.draft} vars={slotVars(slot)} roles={data.pickers.roles} channels={channels} />}
+                        preview={<DiscordMessagePreview testChannelId={slot.channelId} bot={data.bot} draft={slot.draft} vars={slotVars(slot)} roles={data.pickers.roles} channels={channels} />}
                       />
                       <DmExtra
                         editorKey={key}
@@ -402,7 +432,7 @@ export function AnnouncementsPanel({
     const addTr = () => {
       const id = `t${Date.now().toString(36)}`;
       const last = tn.rules[tn.rules.length - 1];
-      const days = last ? Math.min(3650, last.days * 2) : 30;
+      const days = last ? Math.min(3650, Math.max(30, last.days * 2)) : 30;
       setTn({
         rules: [
           ...tn.rules,
@@ -461,8 +491,8 @@ export function AnnouncementsPanel({
                   {open ? (
                     <div className="space-y-3 border-t border-sand/10 p-3">
                       <div className="grid gap-3 sm:grid-cols-3">
-                        <Field label="Dopo quanti giorni" hint={`= ${daysLabel(r.days)} nel server`}>
-                          <NumberField value={r.days} min={1} max={3650} onChange={(v) => setTr(r.id, { days: Math.max(1, Number(v) || 1) })} aria-label="Giorni" />
+                        <Field label="Dopo quanto tempo" hint={r.days === 0 ? (data.isMainGuild ? "0 = appena completa la verifica" : "0 = appena entra") : "Un mese conta 30 giorni, un anno 365."}>
+                          <DurationField days={r.days} onChange={(days) => setTr(r.id, { days })} />
                         </Field>
                         <Field label="Ruolo da dare">
                           <Select
@@ -477,7 +507,7 @@ export function AnnouncementsPanel({
                       {r.channelId ? (
                         <EditorWithPreview
                           editor={<DraftEditor key={r.id} value={r.draft} onChange={(draft) => setTr(r.id, { draft })} emojis={data.pickers.emojis} placeholders={TENURE_PLACEHOLDERS} maxButtons={data.limits.buttons} />}
-                          preview={<DiscordMessagePreview bot={data.bot} draft={r.draft} vars={trVars(r)} roles={data.pickers.roles} channels={channels} />}
+                          preview={<DiscordMessagePreview testChannelId={r.channelId} bot={data.bot} draft={r.draft} vars={trVars(r)} roles={data.pickers.roles} channels={channels} />}
                         />
                       ) : null}
                       <DmExtra editorKey={`ten-${r.id}`} value={r.dm} onChange={(dm) => setTr(r.id, { dm })} data={data} vars={trVars(r)} placeholders={TENURE_PLACEHOLDERS} hint="A chi raggiunge la soglia." />
@@ -587,7 +617,7 @@ export function AnnouncementsPanel({
                       editor={
                           <DraftEditor key={r.id} value={r.draft} onChange={(draft) => setRule(r.id, { draft })} emojis={data.pickers.emojis} placeholders={ROLE_PLACEHOLDERS} maxButtons={data.limits.buttons} />
                       }
-                      preview={<DiscordMessagePreview bot={data.bot} draft={r.draft} vars={ruleVars(r)} roles={data.pickers.roles} channels={channels} />}
+                      preview={<DiscordMessagePreview testChannelId={r.channelId} bot={data.bot} draft={r.draft} vars={ruleVars(r)} roles={data.pickers.roles} channels={channels} />}
                     />
                     <DmExtra
                       editorKey={r.id}

@@ -10,7 +10,7 @@ const T = require("../core/tenantCommunityTools") as typeof import("../core/tena
 
 const restOf = (client?) => client?.rest || client?._rest || null;
 const ROLE_RULES_MAX = 40;
-const SEED_VERSION = 5;
+const SEED_VERSION = 6;
 
 /* Supporter (bio) è nei ruoli custom: il ruolo lo dà lo staff a mano */
 const NAMED_KEYS = ["clantag", "fan", "promoter", "propulsor", "catalyst"] as const;
@@ -42,7 +42,7 @@ function normalizeTenureRule(raw?, i = 0) {
   return {
     id: typeof r.id === "string" && /^[a-z0-9]{4,40}$/i.test(r.id) ? r.id : T.newId(),
     enabled: r.enabled !== false,
-    days: Number.isFinite(days) && days >= 1 && days <= 3650 ? days : 30 * (i + 1),
+    days: Number.isFinite(days) && days >= 0 && days <= 3650 ? days : 30 * (i + 1),
     roleId: T.isId(r.roleId) ? String(r.roleId) : null,
     channelId: T.isId(r.channelId) ? String(r.channelId) : null,
     draft: r.draft
@@ -418,8 +418,16 @@ async function runTenureRoles(client?) {
       const st = await getState(gid);
       let changed = false;
       const now = Date.now();
+      /* sul principale l'anzianità vale solo per chi ha completato la verifica (ruolo Member) */
+      let mainMemberRole = "";
+      if (T.isMainGuild(gid)) {
+        try {
+          mainMemberRole = String((require("../../Vinili/Config/ids") as any)?.roles?.Member || "");
+        } catch (_) {}
+      }
       for (const member of guild.members.cache.values()) {
         if (member.user?.bot || !member.joinedTimestamp) continue;
+        if (mainMemberRole && !member.roles.cache.has(mainMemberRole)) continue;
         const daysIn = Math.floor((now - member.joinedTimestamp) / 86_400_000);
         /* la soglia più alta raggiunta (le regole sono in ordine di giorni) */
         const reached = rules.filter((r) => daysIn >= r.days);
@@ -856,7 +864,20 @@ function mainSeedConfig() {
       : null,
   ].filter(Boolean);
 
+  const tenureRole = (k: string) => String(IDs?.roles?.[k] || "") || null;
+  const tenureSeed = {
+    /* spente: il sistema classico continua finché non le accendi da qui */
+    enabled: false,
+    removePrevious: true,
+    rules: [
+      { days: 0, roleId: tenureRole("NuovoUtente"), channelId: null },
+      { days: 30, roleId: tenureRole("Veterano"), channelId: null },
+      { days: 365, roleId: tenureRole("OG"), channelId: null },
+    ].filter((r) => r.roleId),
+  };
+
   return normalizeConfig({
+    tenure: tenureSeed,
     boost: { enabled: false, channelId: supporters, firstDraft: first, repeatDraft: second },
     named: namedRaw,
     roles: { enabled: true, rules },
@@ -930,6 +951,12 @@ async function ensureMainSeed(guildId?) {
     added += 1;
   }
   if (added > 0) changed = true;
+
+  /* anzianità: se non ci sono ancora soglie, quelle del sistema classico */
+  if (!next.tenure.rules.length && seed.tenure.rules.length) {
+    next.tenure = seed.tenure;
+    changed = true;
+  }
 
   if (!changed && prevVer >= SEED_VERSION) return false;
   next.seedVersion = Math.max(prevVer, SEED_VERSION);

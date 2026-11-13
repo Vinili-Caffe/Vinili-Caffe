@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Send, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { MultiSelect } from "@/components/ui/Select";
 import { communityApi, emptyDraft, type WelcomeSettings } from "@/lib/dashboard-community";
-import { Field, Notice, RowsSkeleton, Toggle, TrackUnsaved, fieldClass, miniBtn, primaryMini } from "../bits";
+import { Field, Notice, RowsSkeleton, Toggle, TrackUnsaved, fieldClass } from "../bits";
 import { ChannelField, DiscordMessagePreview, DmExtra, DraftEditor, EditorWithPreview, MEMBER_PLACEHOLDERS, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 /* "dm" e "roles" sono vecchi link: ora stanno dentro Benvenuto */
@@ -27,7 +27,7 @@ export function WelcomePanel({
   const { data, error } = useCommunity(guildId, token);
   const [cfg, setCfg] = useState<WelcomeSettings | null>(null);
   const [saved, setSaved] = useState<string>("");
-  const [busy, setBusy] = useState<string | null>(null);
+  const [, setBusy] = useState<string | null>(null);
   const vars = useSampleVars(data);
 
   useEffect(() => {
@@ -51,14 +51,6 @@ export function WelcomePanel({
     setCfg(r.data.welcome);
     setSaved(JSON.stringify(r.data.welcome));
     onToast(tab === "goodbye" ? "Addio salvato." : "Benvenuto salvato.");
-  };
-
-  const test = async (kind: "welcome" | "goodbye" | "dm" | "goodbyeDm") => {
-    setBusy(`test-${kind}`);
-    const r = await communityApi.testWelcome(token, guildId, kind, cfg);
-    setBusy(null);
-    if (!r.ok) return onToast(r.message, true);
-    onToast(kind === "dm" || kind === "goodbyeDm" ? "Ti ho mandato la prova in privato." : "Prova inviata nel canale, con te come nuovo membro.");
   };
 
   const reset = () => {
@@ -86,12 +78,6 @@ export function WelcomePanel({
           <p className="text-sm font-semibold text-crema">{k === "welcome" ? "Messaggio quando entra qualcuno" : "Messaggio quando qualcuno esce"}</p>
           <p className="text-xs text-crema/55">{p.enabled ? "Nel canale: attivo" : "Nel canale: spento (il privato qui sotto funziona lo stesso)"}</p>
         </div>
-        <button type="button" className={miniBtn} disabled={!!busy || !p.channelId} onClick={() => void test(k)}>
-          <Send className="size-3.5" /> Prova
-        </button>
-        <button type="button" className={primaryMini} disabled={!dirty || !!busy} onClick={() => void save()}>
-          {dirty ? "Salva modifiche" : "Salvato"}
-        </button>
       </div>
 
       <EditorWithPreview
@@ -101,7 +87,7 @@ export function WelcomePanel({
             <DraftEditor key={k} value={p.draft} onChange={(draft) => set({ draft })} emojis={data.pickers.emojis} placeholders={MEMBER_PLACEHOLDERS} maxButtons={data.limits.buttons} />
           </div>
         }
-        preview={<DiscordMessagePreview bot={data.bot} draft={p.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
+        preview={<DiscordMessagePreview testChannelId={p.channelId} bot={data.bot} draft={p.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
       />
 
       {k === "welcome" ? (
@@ -134,8 +120,6 @@ export function WelcomePanel({
             vars={vars}
             placeholders={MEMBER_PLACEHOLDERS}
             hint="A chi entra. Non arriva a chi ha i messaggi privati chiusi."
-            onTest={() => void test("dm")}
-            testBusy={!!busy}
           />
         </>
       ) : (
@@ -147,8 +131,6 @@ export function WelcomePanel({
           vars={vars}
           placeholders={MEMBER_PLACEHOLDERS}
           hint="A chi esce. Arriva solo se ha ancora un server in comune col bot e i privati aperti."
-          onTest={() => void test("goodbyeDm")}
-          testBusy={!!busy}
         />
       )}
     </div>

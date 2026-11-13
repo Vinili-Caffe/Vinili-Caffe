@@ -83,6 +83,12 @@ async function syncTenureDiscordRoles(member?, keepRoleId?) {
 
 async function applyTenureForMember(member?, record?) {
   if (!member || !record) return;
+  /* anzianità gestita dalla dashboard (Annunci automatici → Anzianità): il sistema classico si ferma */
+  try {
+    const A = require("../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../MultiGuild/services/announcementsRuntime");
+    const cfg: any = await A.getConfig(String(member.guild?.id || "")).catch(() => null);
+    if (cfg?.tenure?.enabled && cfg.tenure.rules.some((r: any) => r.enabled && r.roleId)) return;
+  } catch (_) {}
   if (mongoose.connection?.readyState !== 1) return;
   const mutedRoleId = String(IDs.roles?.Muted || "").trim();
   if (mutedRoleId && member.roles?.cache?.has?.(mutedRoleId)) return;

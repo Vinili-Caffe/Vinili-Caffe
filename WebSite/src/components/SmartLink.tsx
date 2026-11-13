@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import type { ComponentProps, MouseEvent } from "react";
+import type { ComponentProps, MouseEvent, PointerEvent } from "react";
 import { useFxCap } from "@/components/effects/DeviceFxProvider";
 
 type Props = Omit<ComponentProps<"a">, "href"> & { href: string };
@@ -31,10 +32,15 @@ function pathKey(href: string) {
 
 /**
  * Percorsi interni (`/…`) → navigazione client (Link); URL esterni → `<a>`.
- * Hard assign solo se dopo ~4s la SPA non ha mosso l’URL (niente reload aggressivo).
+ * Hard assign solo se dopo ~12s la SPA non ha mosso l’URL (niente reload aggressivo).
+ * Prima erano 4s: su telefono la prima apertura di una pagina spesso ci mette di più,
+ * e il sito ricaricava tutto invece di aspettare (sembrava che il menu "non portasse").
  */
-export function SmartLink({ href, onClick, ...rest }: Props) {
+const HARD_FALLBACK_MS = 12_000;
+
+export function SmartLink({ href, onClick, onPointerDown, ...rest }: Props) {
   const prefetch = useFxCap("prefetch");
+  const router = useRouter();
 
   if (!href.startsWith("/")) {
     return <a href={href} onClick={onClick} {...rest} />;
@@ -77,10 +83,22 @@ export function SmartLink({ href, onClick, ...rest }: Props) {
       } catch {
         /* ignore */
       }
-    }, 4000);
+    }, HARD_FALLBACK_MS);
   };
 
-  return <Link href={href} prefetch={prefetch} onClick={handleClick} {...rest} />;
+  /* appena tocchi il link la pagina inizia a caricare (anche dove il precaricamento è spento) */
+  const handlePointerDown = (e: PointerEvent<HTMLAnchorElement>) => {
+    onPointerDown?.(e);
+    if (!prefetch) {
+      try {
+        router.prefetch(href);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
+  return <Link href={href} prefetch={prefetch} onClick={handleClick} onPointerDown={handlePointerDown} {...rest} />;
 }
 
 export const MotionLink = motion.create(SmartLink);

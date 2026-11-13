@@ -358,7 +358,7 @@ export function BumpPanel({ guildId, token, onToast }: PanelProps) {
                   maxButtons={data.limits.buttons}
                 />
               }
-              preview={<DiscordMessagePreview bot={data.bot} draft={draft} vars={{ ...vars, service: SERVICE_LABEL[svc] }} roles={data.pickers.roles} channels={channels} />}
+              preview={<DiscordMessagePreview testChannelId={kind === "reminder" ? cfg.reminder.channelId : null} bot={data.bot} draft={draft} vars={{ ...vars, service: SERVICE_LABEL[svc] }} roles={data.pickers.roles} channels={channels} />}
             />
           ) : (
             <p className="rounded-xl bg-espresso/45 px-3 py-6 text-center text-sm text-crema/55 ring-1 ring-sand/10">
@@ -582,7 +582,7 @@ export function VotesPanel({ guildId, token, onToast }: PanelProps) {
                   maxButtons={data.limits.buttons}
                 />
               }
-              preview={<DiscordMessagePreview bot={data.bot} draft={draft} vars={{ ...vars, service: VOTE_LABEL[svc] }} roles={data.pickers.roles} channels={channels} />}
+              preview={<DiscordMessagePreview testDmOnly={showDm} testChannelId={showDm ? null : cfg.votes.channelId} bot={data.bot} draft={draft} vars={{ ...vars, service: VOTE_LABEL[svc] }} roles={data.pickers.roles} channels={channels} />}
             />
           ) : (
             <p className="rounded-xl bg-espresso/45 px-3 py-6 text-center text-sm text-crema/55 ring-1 ring-sand/10">

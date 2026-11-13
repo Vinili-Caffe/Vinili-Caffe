@@ -566,6 +566,14 @@ async function testMessage(client?, token?, guildId?, body?) {
     if (/^[\w.:-]{1,40}$/.test(k) && (typeof v === "string" || typeof v === "number")) sample[k] = String(v).slice(0, 500);
   }
   const vars = { ...sample, ...T.memberVars(guild, user || { id: a.userId }) };
+  /* nel canale impostato: deve essere un canale di questo server */
+  const channelId = T.isId(body?.channelId) ? String(body.channelId) : "";
+  if (channelId) {
+    const ch: any = await rest.get(Routes.channel(channelId)).catch(() => null);
+    if (!ch || String(ch.guild_id || "") !== String(a.guildId)) return fail(400, "bad_channel", "Il canale non è di questo server.");
+    const out: any = await sendOrEdit(client, channelId, undefined, T.buildMessageBody(draft, vars, [], { mentionUserId: null }));
+    return out.ok ? { ok: true, status: 200, where: "channel" } : fail(400, "send_failed", out.message);
+  }
   try {
     const dm: any = await rest.post(Routes.userChannels(), { body: { recipient_id: a.userId } });
     await rest.post(Routes.channelMessages(dm.id), { body: T.buildMessageBody(draft, vars) });

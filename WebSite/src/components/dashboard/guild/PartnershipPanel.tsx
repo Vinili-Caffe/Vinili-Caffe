@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import {
   addPartnershipBlacklist,
   adjustPartnershipManagerPoints,
-  deletePartnership,
   deletePartnershipBlacklistEntry,
   listPartnershipHistory,
   loadPartnership,
@@ -337,64 +336,6 @@ export function PartnershipPanel({
     onToast("Partnership salvata.");
   };
 
-  const saveSetup = async () => {
-    const customRole = draft.pings.customRoleId;
-    const customMembers = draft.pings.customRoleMembers;
-    if ((customRole && customMembers == null) || (!customRole && customMembers != null)) {
-      onToast("Ruolo custom e soglia membri devono essere impostati insieme.", true);
-      return;
-    }
-    const descMode = draft.partnerDesc.mode;
-    const partnerDesc =
-      !descMode || descMode === "clear" || descMode === "none"
-        ? { mode: "clear" }
-        : descMode === "channel"
-          ? { mode: "channel", channelId: draft.partnerDesc.channelId }
-          : { mode: "static", staticText: draft.partnerDesc.staticText };
-    setBusy(true);
-    const res = await patchPartnership(token, guildId, {
-      partnershipsChannelId: draft.partnershipsChannelId,
-      logsChannelId: draft.logsChannelId,
-      pmCommandsChannelId: draft.pmCommandsChannelId,
-      pmCommandsCategoryIds: draft.pmCommandsCategoryIds,
-      partnerManagerRoleId: draft.partnerManagerRoleId,
-      managerBadgeRoleId: draft.managerBadgeRoleId,
-      skipManager: draft.skipManager,
-      manualPartnershipEnabled: draft.manualPartnershipEnabled,
-      managerLeaveAction: draft.managerLeaveAction,
-      sameServerCooldownInput: draft.sameServerCooldownInput,
-      pings: {
-        hereMembers: draft.pings.hereMembers,
-        everyoneMembers: draft.pings.everyoneMembers,
-        customRoleId: draft.pings.customRoleId,
-        customRoleMembers: draft.pings.customRoleMembers,
-        hereDelayInput: draft.pings.hereDelayInput,
-        everyoneDelayInput: draft.pings.everyoneDelayInput,
-        customRoleDelayInput: draft.pings.customRoleDelayInput,
-      },
-      partnerDesc,
-    });
-    setBusy(false);
-    if (!res.ok) {
-      onToast(res.message, true);
-      return;
-    }
-    applySaved(res.data);
-    onToast("Configurazione partnership salvata.");
-  };
-
-  const saveFilters = async () => {
-    setBusy(true);
-    const res = await patchPartnership(token, guildId, { contentFilters: draft.contentFilters });
-    setBusy(false);
-    if (!res.ok) {
-      onToast(res.message, true);
-      return;
-    }
-    applySaved(res.data);
-    onToast("Filtri salvati.");
-  };
-
   const roleOptions = (none: string) => [{ value: "", label: none }, ...roles.map((r) => ({ value: r.id, label: `@${r.name}` }))];
 
   const showWizard = wizardSession || setupCelebrating;
@@ -425,35 +366,6 @@ export function PartnershipPanel({
 
       {tab === "setup" && !showWizard ? (
         <div className="space-y-4">
-          <SaveBar text="Le modifiche del setup si applicano quando salvi.">
-            <button
-              type="button"
-              disabled={busy}
-              className={dangerBtn}
-              onClick={async () => {
-                if (!(await confirmDialog({ message: "Azzerare tutta la configurazione partnership? Canali, ruoli e regole tornano vuoti.", danger: true }))) return;
-                setBusy(true);
-                const res = await deletePartnership(token, guildId);
-                setBusy(false);
-                if (!res.ok) {
-                  onToast(res.message, true);
-                  return;
-                }
-                onToast(res.data.message);
-                const fresh = await loadPartnership(token, guildId);
-                if (fresh.ok) {
-                  setBundle(fresh.data);
-                  setDraft(fresh.data.config);
-                }
-              }}
-            >
-              Azzera setup
-            </button>
-            <button type="button" disabled={busy} className={primaryMini} onClick={saveSetup}>
-              Salva setup
-            </button>
-          </SaveBar>
-
           <div className="grid gap-4 xl:grid-cols-2">
             <FormGroup title="Canali e ruoli" description="Dove escono le partnership e chi le gestisce.">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -703,26 +615,6 @@ export function PartnershipPanel({
                   <p className="text-sm font-semibold text-crema">Ringraziamento attivo</p>
                   <p className="text-xs text-crema/55">{draft.thankYouEmbed.enabled ? "Il bot usa questo messaggio" : "Spento: il bot usa quello predefinito"}</p>
                 </div>
-                {bundle.premiumActive ? (
-                <button
-                  type="button"
-                  className={primaryMini}
-                  disabled={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    const res = await patchPartnership(token, guildId, { thankYouEmbed: { ...draft.thankYouEmbed, draft: thankYouDraftOf(draft.thankYouEmbed, bundle.thankYouDefaults) } });
-                    setBusy(false);
-                    if (!res.ok) {
-                      onToast(res.message, true);
-                      return;
-                    }
-                    applySaved(res.data);
-                    onToast("Ringraziamento salvato.");
-                  }}
-                >
-                  Salva ringraziamento
-                </button>
-                ) : null}
               </div>
               <EditorWithPreview
                 editor={
@@ -744,6 +636,7 @@ export function PartnershipPanel({
                 }
                 preview={
                   <DiscordMessagePreview
+                    testChannelId={draft.partnershipsChannelId}
                     draft={thankYouDraftOf(draft.thankYouEmbed, bundle.thankYouDefaults)}
                     vars={tyVars}
                     bot={community?.bot}
@@ -759,11 +652,6 @@ export function PartnershipPanel({
 
       {tab === "filtri" ? (
         <div className="space-y-4">
-          <SaveBar text="Pulizia automatica della descrizione dei server partner. L'invito Discord resta sempre.">
-            <button type="button" className={primaryMini} disabled={busy} onClick={saveFilters}>
-              Salva filtri
-            </button>
-          </SaveBar>
           <FormGroup title="Cosa togliere dalla descrizione" description={`${FILTERS.filter((f) => draft.contentFilters[f.key]).length} filtri attivi su ${FILTERS.length}`}>
             <div className="divide-y divide-sand/[0.07]">
               {FILTERS.map((row) => (
@@ -1126,11 +1014,3 @@ const MIGRATION_STATUS: Record<string, string> = {
 };
 
 /** Barra in alto con le azioni della sezione (sempre in vista mentre scorri). */
-function SaveBar({ text, children }: { text: string; children: React.ReactNode }) {
-  return (
-    <div className="sticky top-14 z-20 flex flex-wrap items-center gap-3 rounded-xl bg-roast/95 px-4 py-3 ring-1 ring-sand/10 backdrop-blur-md">
-      <p className="min-w-0 flex-1 text-xs text-crema/70">{text}</p>
-      <div className="flex flex-wrap gap-2">{children}</div>
-    </div>
-  );
-}

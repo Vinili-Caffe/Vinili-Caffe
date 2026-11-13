@@ -8,6 +8,7 @@ import { toggleEmojiPicker, customEmojiUrl, type EmojiPick } from "@/components/
 import { Select } from "@/components/ui/Select";
 import { avatarUrl, displayName, useAuth, type DiscordUser } from "@/lib/auth";
 import { cn } from "@/lib/cn";
+import { chooseDialog } from "@/components/ui";
 import { communityApi, emptyDraft, loadCommunity, type CommunityData, type MsgDraft, type PickerChannel, type PickerEmoji, type PickerRole } from "@/lib/dashboard-community";
 import { ExpandableTextarea, Field, SettingRow, Toggle, fieldClass, labelClass, miniBtn } from "../bits";
 import { EmbedFieldsPreview, FieldsEditor, LinkButtonsEditor, V2Editor, V2Preview, blocksFromClassic, v2Of } from "./draftExtras";
@@ -508,20 +509,46 @@ function ScaleToFit({ width, children }: { width: number; children: React.ReactN
 /* server e accesso per le prove di invio (li mette il pannello del server) */
 export const DraftTestContext = createContext<{ guildId: string; token: string; onToast: (msg: string, err?: boolean) => void } | null>(null);
 
-/** Anteprima del messaggio + tasto per provarlo davvero (arriva in privato). */
-export function DiscordMessagePreview(props: React.ComponentProps<typeof DiscordMessagePreviewBody>) {
+/**
+ * Anteprima del messaggio + tasto "Prova".
+ * Con un canale impostato chiede dove provarlo (canale o privato); senza, arriva in privato.
+ */
+export function DiscordMessagePreview({
+  testChannelId,
+  testDmOnly,
+  ...props
+}: React.ComponentProps<typeof DiscordMessagePreviewBody> & {
+  /** canale dove il messaggio verrà mandato davvero (per la prova nel canale) */
+  testChannelId?: string | null;
+  /** messaggio privato: la prova va solo in privato */
+  testDmOnly?: boolean;
+}) {
   const ctx = useContext(DraftTestContext);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   if (!ctx) return <DiscordMessagePreviewBody {...props} />;
   const send = async () => {
+    let where: "dm" | "channel" = "dm";
+    if (testChannelId && !testDmOnly) {
+      const chName = (props.channels || []).find((c) => c.id === testChannelId)?.name;
+      const pick = await chooseDialog({
+        title: "Dove vuoi provarlo?",
+        message: "Il messaggio viene mandato così com'è adesso, con i valori d'esempio.",
+        choices: [
+          { id: "channel", label: `Nel canale ${chName ? "#" + chName : "impostato"}` },
+          { id: "dm", label: "In privato a me" },
+        ],
+      });
+      if (!pick) return;
+      where = pick === "channel" ? "channel" : "dm";
+    }
     setBusy(true);
-    const r = await communityApi.testMessage(ctx.token, ctx.guildId, props.draft, props.vars);
+    const r = await communityApi.testMessage(ctx.token, ctx.guildId, props.draft, props.vars, where === "channel" ? testChannelId : null);
     setBusy(false);
     if (!r.ok) return ctx.onToast(r.message, true);
     setSent(true);
     window.setTimeout(() => setSent(false), 2500);
-    ctx.onToast("Prova inviata: guarda i tuoi messaggi privati su Discord.");
+    ctx.onToast(where === "channel" ? "Prova inviata nel canale." : "Prova inviata: guarda i tuoi messaggi privati su Discord.");
   };
   return (
     <div className="space-y-2">
@@ -536,7 +563,7 @@ export function DiscordMessagePreview(props: React.ComponentProps<typeof Discord
             sent ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30" : "bg-crema/[0.05] text-crema/80 ring-sand/15 hover:bg-crema/[0.09] hover:text-crema",
           )}
         >
-          <Send className="size-3.5" aria-hidden /> {busy ? "Invio…" : sent ? "Inviata!" : "Mandala a me"}
+          <Send className="size-3.5" aria-hidden /> {busy ? "Invio…" : sent ? "Inviata!" : "Prova"}
         </button>
       </div>
     </div>
@@ -703,8 +730,6 @@ export function DmExtra({
   vars,
   placeholders,
   hint = "Arriva a chi ha i messaggi privati aperti.",
-  onTest,
-  testBusy,
   editorKey,
 }: {
   value: { enabled: boolean; draft: MsgDraft } | undefined;
@@ -713,8 +738,6 @@ export function DmExtra({
   vars: Record<string, string>;
   placeholders: { token: string; hint: string }[];
   hint?: string;
-  onTest?: () => void;
-  testBusy?: boolean;
   editorKey: string;
 }) {
   const v = value || { enabled: false, draft: emptyDraft({ content: "Ciao {username}!", embed: { ...emptyDraft().embed, enabled: false } }) };
@@ -728,18 +751,13 @@ export function DmExtra({
           <p className="text-sm font-semibold text-crema">Manda anche in privato</p>
           <p className="text-xs text-crema/55">{hint}</p>
         </div>
-        {v.enabled && onTest ? (
-          <button type="button" className={miniBtn} disabled={testBusy} onClick={onTest}>
-            <Send className="size-3.5" /> Mandalo a me
-          </button>
-        ) : null}
         <Toggle size="sm" checked={v.enabled} onChange={(enabled) => onChange({ ...v, enabled })} label="Manda anche in privato" />
       </div>
       {v.enabled ? (
         <div className="mt-4">
           <EditorWithPreview
             editor={<DraftEditor key={`dm-${editorKey}`} value={v.draft} onChange={(draft) => onChange({ ...v, draft })} emojis={data.pickers.emojis} placeholders={placeholders} maxButtons={data.limits.buttons} />}
-            preview={<DiscordMessagePreview bot={data.bot} draft={v.draft} vars={vars} roles={data.pickers.roles} channels={data.pickers.textChannels} />}
+            preview={<DiscordMessagePreview testDmOnly bot={data.bot} draft={v.draft} vars={vars} roles={data.pickers.roles} channels={data.pickers.textChannels} />}
           />
         </div>
       ) : null}

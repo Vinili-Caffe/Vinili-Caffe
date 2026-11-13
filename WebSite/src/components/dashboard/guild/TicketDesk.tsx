@@ -649,9 +649,6 @@ function QuickRepliesEditor({
         <button type="button" disabled={busy || draft.length >= 25} onClick={add} className={miniBtn}>
           <Plus className="size-3.5" aria-hidden /> Aggiungi
         </button>
-        <button type="button" disabled={busy || !dirty} onClick={() => void persist()} className={primaryMini}>
-          Salva risposte
-        </button>
         {draft.length >= 25 ? <span className="self-center text-xs text-crema/50">Massimo 25 risposte.</span> : null}
       </div>
     </div>

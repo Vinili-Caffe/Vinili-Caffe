@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { MultiSelect, Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { LOG_EVENT_GROUPS, communityApi, type ServerLogs } from "@/lib/dashboard-community";
-import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, TrackUnsaved, fieldClass, primaryMini } from "../bits";
+import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, TrackUnsaved, fieldClass } from "../bits";
 import { ChannelField, useCommunity } from "./shared";
 
 const DEFAULT: ServerLogs = { enabled: false, channelId: null, channels: {}, events: {}, ignoredChannelIds: [], ignoreBots: true };
@@ -14,7 +14,7 @@ export function ServerLogsPanel({ guildId, token, onToast }: { guildId: string; 
   const { data, error } = useCommunity(guildId, token);
   const [cfg, setCfg] = useState<ServerLogs | null>(null);
   const [saved, setSaved] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [, setBusy] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -74,9 +74,6 @@ export function ServerLogsPanel({ guildId, token, onToast }: { guildId: string; 
             {activeCount} eventi attivi{customCount ? ` · ${customCount} con un canale tutto loro` : ""}. Il bot scrive cosa succede nel server.
           </p>
         </div>
-        <button type="button" className={primaryMini} disabled={!dirty || busy} onClick={() => void save()}>
-          {dirty ? "Salva modifiche" : "Salvato"}
-        </button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">

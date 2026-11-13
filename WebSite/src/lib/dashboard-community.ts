@@ -460,6 +460,7 @@ export const communityApi = {
   publishRolePanel: (t: string, g: string, id: string) => call<{ panel: RolePanel; edited?: boolean; reactionWarning?: string | null }>(t, g, `/role-panels/${encodeURIComponent(id)}/publish`, "POST", {}),
   saveWelcome: (t: string, g: string, w: WelcomeSettings) => call<{ welcome: WelcomeSettings }>(t, g, "/welcome", "PATCH", w),
   /** prova di un messaggio: arriva in privato a chi la chiede */
-  testMessage: (t: string, g: string, draft: MsgDraft, vars: Record<string, string>) => call(t, g, "/test-message", "POST", { draft, vars }),
+  testMessage: (t: string, g: string, draft: MsgDraft, vars: Record<string, string>, channelId?: string | null) =>
+    call(t, g, "/test-message", "POST", { draft, vars, ...(channelId ? { channelId } : {}) }),
   testWelcome: (t: string, g: string, kind: "welcome" | "goodbye" | "dm" | "goodbyeDm", settings: WelcomeSettings) => call(t, g, "/welcome/test", "POST", { kind, settings }),
 };

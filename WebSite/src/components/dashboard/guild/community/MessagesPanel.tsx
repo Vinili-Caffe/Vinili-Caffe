@@ -253,7 +253,7 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
               ) : null}
             </div>
           }
-          preview={<DiscordMessagePreview bot={data.bot} draft={edit.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
+          preview={<DiscordMessagePreview testChannelId={edit.channelId} bot={data.bot} draft={edit.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
         />
       </div>
     );
