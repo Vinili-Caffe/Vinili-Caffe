@@ -830,8 +830,10 @@ function normalizeWelcome(raw?, prev: WelcomeSettings = DEFAULT_WELCOME): Welcom
 async function getWelcome(guildId: string, fresh = false): Promise<WelcomeSettings> {
   const map = await loadMap("welcome", fresh);
   const row = map[guildId];
-  if (row && typeof row === "object") return normalizeWelcome(row, DEFAULT_WELCOME);
-  return isMainGuild(guildId) ? mainGuildWelcomeSeed() : DEFAULT_WELCOME;
+  /* sul principale: i salvataggi parziali ereditano il seed (enabled+canale chat), non il default tenant spento */
+  const base = isMainGuild(guildId) ? mainGuildWelcomeSeed() : DEFAULT_WELCOME;
+  if (row && typeof row === "object") return normalizeWelcome(row, base);
+  return base;
 }
 
 /** true se il server ha salvato benvenuto/addio dalla dashboard (nel principale: la dashboard sostituisce quello nel codice). */

@@ -53,7 +53,7 @@ async function buildManagedInviteIndex() {
       }
     }
   } catch {
-      }
+  }
   return map;
 }
 
@@ -164,30 +164,39 @@ async function filterRowsToPartnerManagers(client?, guildId?, rows?) {
   return list.filter((row?) => pmIds.has(String(row?.userId || "").trim()));
 }
 
-async function getDashboardPartnershipLeaderboard(client?, accessToken?, guildId?, query: Record<string, any> = {}) {
-  const access = await verifyDashboardGuildAccess(client, accessToken, guildId);
-  if (!access.ok) return access;
-  if (!access.botPresent) {
-    return fail(400, "bot_missing", "Il bot non è presente in questo server.");
-  }
-
-  const category = normalizeCategory(query.category || query.board || "servers");
-  const period = normalizePeriod(query.period || "total");
-  const page = parsePage(query.page);
-  const perPage = parsePerPage(query.perPage);
-      const partnerScopeGuildId = category === "partners" ? access.guildId : null;
+/**
+ * Classifica partnership (server / PM / ingressi). Usata da dashboard (auth) e sito pubblico.
+ */
+async function buildPartnershipLeaderboard(
+  client?,
+  {
+    category: categoryRaw,
+    period: periodRaw,
+    page: pageRaw,
+    perPage: perPageRaw,
+    partnerScopeGuildId,
+    selfUserId,
+    selfGuildId,
+  }: Record<string, any> = {},
+) {
+  const category = normalizeCategory(categoryRaw || "servers");
+  const period = normalizePeriod(periodRaw || "total");
+  const page = parsePage(pageRaw);
+  const perPage = parsePerPage(perPageRaw);
+  const scopeGuildId =
+    category === "partners" ? String(partnerScopeGuildId || "").trim() || null : null;
 
   let rows = [];
   try {
-            if (category === "servers") {
+    if (category === "servers") {
       await refreshPartnershipConfigCache().catch(() => null);
     }
-    rows = await fetchLeaderboardRows(category, period, partnerScopeGuildId, client);
-    if (category === "partners") {
-      rows = await filterRowsToPartnerManagers(client, access.guildId, rows);
+    rows = await fetchLeaderboardRows(category, period, scopeGuildId, client);
+    if (category === "partners" && scopeGuildId) {
+      rows = await filterRowsToPartnerManagers(client, scopeGuildId, rows);
     }
   } catch (err) {
-    global.logger?.error?.("[DASH LEADERBOARD] fetch failed:", err);
+    global.logger?.error?.("[LEADERBOARD] fetch failed:", err);
     return fail(500, "fetch_failed", "Impossibile caricare la classifica.");
   }
 
@@ -198,10 +207,10 @@ async function getDashboardPartnershipLeaderboard(client?, accessToken?, guildId
   const slice = (rows || []).slice(start, start + perPage);
 
   const guild =
-    (category === "partners"
-      ? await resolveGuildMembersForLeaderboard(client, access.guildId)
+    (category === "partners" && scopeGuildId
+      ? await resolveGuildMembersForLeaderboard(client, scopeGuildId)
       : null) ||
-    client.guilds.cache.get(access.guildId) ||
+    (scopeGuildId ? client.guilds.cache.get(scopeGuildId) : null) ||
     null;
 
   let managedByGuildId = null;
@@ -214,10 +223,10 @@ async function getDashboardPartnershipLeaderboard(client?, accessToken?, guildId
     try {
       const { fetchMembers } = require("../../../Vinili/Community/utils/leaderboardHelpers") as typeof import("../../../Vinili/Community/utils/leaderboardHelpers");
       const ids = slice.map((r?) => String(r.userId || "").trim()).filter(Boolean);
-      if (access.userId) ids.push(String(access.userId));
+      if (selfUserId) ids.push(String(selfUserId));
       partnersMembers = await fetchMembers(guild, ids);
     } catch (err) {
-      global.logger?.warn?.("[DASH LEADERBOARD] fetchMembers failed:", err?.message || err);
+      global.logger?.warn?.("[LEADERBOARD] fetchMembers failed:", err?.message || err);
       partnersMembers = null;
     }
   }
@@ -228,13 +237,13 @@ async function getDashboardPartnershipLeaderboard(client?, accessToken?, guildId
     try {
       if (category === "partners") {
         enriched.push(
-          await enrichPartnerRow(client, guild, slice[i], rank, access.userId, partnersMembers),
+          await enrichPartnerRow(client, guild, slice[i], rank, selfUserId, partnersMembers),
         );
       } else {
-        enriched.push(enrichGuildRowSync(client, slice[i], rank, access.guildId, managedByGuildId));
+        enriched.push(enrichGuildRowSync(client, slice[i], rank, selfGuildId, managedByGuildId));
       }
     } catch (err) {
-      global.logger?.warn?.("[DASH LEADERBOARD] enrich row failed:", err?.message || err);
+      global.logger?.warn?.("[LEADERBOARD] enrich row failed:", err?.message || err);
       if (category === "partners") {
         const userId = String(slice[i]?.userId || "").trim();
         enriched.push({
@@ -244,7 +253,7 @@ async function getDashboardPartnershipLeaderboard(client?, accessToken?, guildId
           displayName: userId,
           avatarUrl: null,
           score: Math.max(0, Number(slice[i]?.score) || 0),
-          isSelf: Boolean(access.userId && userId === access.userId),
+          isSelf: Boolean(selfUserId && userId === selfUserId),
         });
       } else {
         const gid = String(slice[i]?.guildId || "").trim();
@@ -255,7 +264,7 @@ async function getDashboardPartnershipLeaderboard(client?, accessToken?, guildId
           iconUrl: null,
           inviteUrl: null,
           score: Math.max(0, Number(slice[i]?.score) || 0),
-          isSelf: Boolean(access.guildId && gid === access.guildId),
+          isSelf: Boolean(selfGuildId && gid === selfGuildId),
         });
       }
     }
@@ -263,33 +272,33 @@ async function getDashboardPartnershipLeaderboard(client?, accessToken?, guildId
 
   let self = null;
   try {
-    if (category === "partners" && access.userId) {
-      const entry = findRankEntry(rows, (r?) => String(r.userId) === String(access.userId));
+    if (category === "partners" && selfUserId) {
+      const entry = findRankEntry(rows, (r?) => String(r.userId) === String(selfUserId));
       if (entry) {
         self = await enrichPartnerRow(
           client,
           guild,
           entry.row,
           entry.rank,
-          access.userId,
+          selfUserId,
           partnersMembers,
         );
       }
-    } else if (category === "servers" || category === "join") {
-      const entry = findRankEntry(rows, (r?) => String(r.guildId) === String(access.guildId));
+    } else if ((category === "servers" || category === "join") && selfGuildId) {
+      const entry = findRankEntry(rows, (r?) => String(r.guildId) === String(selfGuildId));
       if (entry) {
-        self = enrichGuildRowSync(client, entry.row, entry.rank, access.guildId, managedByGuildId);
+        self = enrichGuildRowSync(client, entry.row, entry.rank, selfGuildId, managedByGuildId);
       }
     }
   } catch (err) {
-    global.logger?.warn?.("[DASH LEADERBOARD] enrich self failed:", err?.message || err);
+    global.logger?.warn?.("[LEADERBOARD] enrich self failed:", err?.message || err);
     self = null;
   }
 
   return {
     ok: true,
     status: 200,
-    guildId: access.guildId,
+    guildId: scopeGuildId || selfGuildId || null,
     category,
     period,
     page: safePage,
@@ -302,6 +311,42 @@ async function getDashboardPartnershipLeaderboard(client?, accessToken?, guildId
   };
 }
 
+async function getDashboardPartnershipLeaderboard(client?, accessToken?, guildId?, query: Record<string, any> = {}) {
+  const access = await verifyDashboardGuildAccess(client, accessToken, guildId);
+  if (!access.ok) return access;
+  if (!access.botPresent) {
+    return fail(400, "bot_missing", "Il bot non è presente in questo server.");
+  }
+
+  return buildPartnershipLeaderboard(client, {
+    category: query.category || query.board || "servers",
+    period: query.period || "total",
+    page: query.page,
+    perPage: query.perPage,
+    partnerScopeGuildId: access.guildId,
+    selfUserId: access.userId,
+    selfGuildId: access.guildId,
+  });
+}
+
+/** Classifica bot pubblica (sito /classifiche scope=bots). Partner manager = guild principale. */
+async function getPublicPartnershipLeaderboard(client?, query: Record<string, any> = {}, opts: Record<string, any> = {}) {
+  const IDs = require("../../../Vinili/Config/ids") as typeof import("../../../Vinili/Config/ids");
+  const mainGuildId = String(IDs.guilds?.main || "").trim();
+  const selfUserId = String(opts.selfUserId || query.userId || "").trim() || null;
+  return buildPartnershipLeaderboard(client, {
+    category: query.category || query.board || "servers",
+    period: query.period || "total",
+    page: query.page,
+    perPage: query.perPage || 10,
+    partnerScopeGuildId: mainGuildId,
+    selfUserId: /^\d{15,22}$/.test(String(selfUserId || "")) ? selfUserId : null,
+    selfGuildId: mainGuildId,
+  });
+}
+
 export = {
   getDashboardPartnershipLeaderboard,
+  getPublicPartnershipLeaderboard,
+  buildPartnershipLeaderboard,
 };

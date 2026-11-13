@@ -93,25 +93,37 @@ async function claimJoinAnnounceSlot(member?) {
   const joined = Number(member.joinedTimestamp || 0);
   const cutoff = joined > 0 ? new Date(joined - 5_000) : new Date(0);
   const claimId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const claimAt = new Date();
   try {
+    /* NON segnare joinAnnounceSentAt qui: solo dopo invio riuscito (altrimenti recovery conta “già mandato”) */
     const doc: any = await ActivityUserProfile.findOneAndUpdate(
       {
         guildId,
         userId,
-        $or: [
-          { "profile.joinAnnounceSentAt": { $exists: false } },
-          { "profile.joinAnnounceSentAt": null },
-          { "profile.joinAnnounceSentAt": { $lt: cutoff } },
+        $and: [
+          {
+            $or: [
+              { "profile.joinAnnounceSentAt": { $exists: false } },
+              { "profile.joinAnnounceSentAt": null },
+              { "profile.joinAnnounceSentAt": { $lt: cutoff } },
+            ],
+          },
+          {
+            $or: [
+              { "profile.joinAnnounceClaimId": { $exists: false } },
+              { "profile.joinAnnounceClaimId": null },
+              { "profile.joinAnnounceClaimAt": { $lt: new Date(Date.now() - 120_000) } },
+            ],
+          },
         ],
       },
       {
         $set: {
           guildId,
           userId,
-          "profile.joinAnnounceSentAt": new Date(),
           "profile.joinAnnounceClaimId": claimId,
+          "profile.joinAnnounceClaimAt": claimAt,
         },
-        $unset: { "profile.joinAnnouncePending": "" },
       },
       { upsert: true, new: true },
     ).catch((err?) => {
@@ -135,6 +147,18 @@ function releaseWelcomeInflight(member?) {
   welcomeSendInflight.delete(`${String(member.guild.id)}:${String(member.id)}`);
 }
 
+/** Se l’invio fallisce, libera lo slot e rimette pending così recovery/deferred riprovano. */
+async function clearJoinAnnounceClaim(member?) {
+  if (!member?.guild?.id || !member?.id) return;
+  await ActivityUserProfile.updateOne(
+    { guildId: String(member.guild.id), userId: String(member.id) },
+    {
+      $unset: { "profile.joinAnnounceSentAt": "", "profile.joinAnnounceClaimId": "", "profile.joinAnnounceClaimAt": "" },
+      $set: { "profile.joinAnnouncePending": true },
+    },
+  ).catch(() => null);
+}
+
 /** Benvenuto nel canale: testi e canale sono quelli della dashboard (Benvenuto), anche sul principale. */
 async function sendWelcomeChannelAnnouncement(_channel?, member?) {
   if (!member?.guild?.id) return null;
@@ -144,9 +168,16 @@ async function sendWelcomeChannelAnnouncement(_channel?, member?) {
   try {
     const { sendDashboardWelcome } = require("../../../MultiGuild/services/welcomeRuntime") as typeof import("../../../MultiGuild/services/welcomeRuntime");
     const sent = await sendDashboardWelcome(member);
+    /* false = spento/senza canale; null = errore → riprova */
+    if (!sent) {
+      await clearJoinAnnounceClaim(member);
+      return null;
+    }
+    await markJoinAnnounceSent(member);
     refreshWelcomeContextForGuild(member.guild.id, member.id);
-    return sent || null;
+    return sent;
   } catch (err) {
+    await clearJoinAnnounceClaim(member);
     global.logger?.warn?.("[guildMemberAdd] dashboard welcome:", err?.message || err);
     return null;
   } finally {
@@ -557,7 +588,10 @@ async function markJoinAnnounceSent(member?) {
   if (!member?.guild?.id || !member?.id) return;
   await ActivityUserProfile.updateOne(
     { guildId: String(member.guild.id), userId: String(member.id) },
-    { $set: { "profile.joinAnnounceSentAt": new Date() }, $unset: { "profile.joinAnnouncePending": "" } },
+    {
+      $set: { "profile.joinAnnounceSentAt": new Date() },
+      $unset: { "profile.joinAnnouncePending": "", "profile.joinAnnounceClaimId": "", "profile.joinAnnounceClaimAt": "" },
+    },
   ).catch(() => null);
 }
 

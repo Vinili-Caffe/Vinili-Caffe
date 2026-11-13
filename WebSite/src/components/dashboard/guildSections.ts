@@ -18,7 +18,6 @@ import {
   Settings2,
   Terminal,
   Ticket,
-  Trophy,
   Video,
   Cake,
   type LucideIcon,
@@ -47,7 +46,6 @@ export type GuildSectionId =
   | "tickets"
   | "moderation"
   | "partnership"
-  | "classifica"
   | "registro";
 
 export type GuildModuleTab = { id: string; label: string };
@@ -72,14 +70,6 @@ export const COMMAND_SECTION_TABS = [
 ] as const satisfies readonly GuildModuleTab[];
 
 export type CommandSectionTabId = (typeof COMMAND_SECTION_TABS)[number]["id"];
-
-export const CLASSIFICA_SECTION_TABS = [
-  { id: "servers", label: "Server" },
-  { id: "partners", label: "Partner manager" },
-  { id: "join", label: "Ingressi" },
-] as const satisfies readonly GuildModuleTab[];
-
-export type ClassificaSectionTabId = (typeof CLASSIFICA_SECTION_TABS)[number]["id"];
 
 export const TICKET_MODULE_TABS = [
   { id: "overview", label: "Panoramica" },
@@ -191,13 +181,8 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "compleanni", label: "Compleanni", icon: Cake, tabs: [] as const },
 ] as const satisfies readonly GuildNavItem[];
 
-/** Sezioni che non stanno nel menu laterale: si aprono dalla barra in alto. */
-export const GUILD_TOPBAR_SECTIONS = [
-  { id: "classifica", label: "Classifica", icon: Trophy, tabs: CLASSIFICA_SECTION_TABS },
-] as const satisfies readonly GuildNavItem[];
-
 /** Elenco piatto (URL, mobile chip, lookup). Ordine: server poi moduli. */
-export const GUILD_SECTIONS = [...GUILD_SERVER_SECTIONS, ...GUILD_MODULE_SECTIONS, ...GUILD_TOPBAR_SECTIONS] as const;
+export const GUILD_SECTIONS = [...GUILD_SERVER_SECTIONS, ...GUILD_MODULE_SECTIONS] as const;
 
 export function isGuildSection(v: string): v is GuildSectionId {
   return GUILD_SECTIONS.some((s) => s.id === v);
@@ -219,10 +204,6 @@ export function isCommandSectionTab(v: string): v is CommandSectionTabId {
   return COMMAND_SECTION_TABS.some((t) => t.id === v);
 }
 
-export function isClassificaSectionTab(v: string): v is ClassificaSectionTabId {
-  return CLASSIFICA_SECTION_TABS.some((t) => t.id === v);
-}
-
 export function isRegistroModuleTab(v: string): v is RegistroModuleTabId {
   return REGISTRO_MODULE_TABS.some((t) => t.id === v);
 }
@@ -232,7 +213,6 @@ export function defaultModuleTab(section: GuildSectionId): string | null {
   if (section === "moderation") return "overview";
   if (section === "partnership") return "setup";
   if (section === "commands") return "all";
-  if (section === "classifica") return "servers";
   if (section === "registro") return "all";
   if (section === "benvenuto") return "welcome";
   if (section === "live") return "twitch";

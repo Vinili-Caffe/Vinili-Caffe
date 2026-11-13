@@ -158,7 +158,10 @@ async function runAgeBirthdaySyncBackfill(client?, opts: Record<string, any> = {
     ["1", "true", "yes", "on"].includes(String(process.env.VC_AGE_BIRTHDAY_SYNC_FORCE || "").trim().toLowerCase());
   const claim = await claimJob(force);
   if (!claim.ok) {
-    global.logger?.info?.(`[SITE-API] age-birthday sync skip: ${claim.reason}`);
+    /* already_done = pass una tantum già fatto: niente log a ogni restart di site-api */
+    if (claim.reason !== "already_done") {
+      global.logger?.info?.(`[SITE-API] age-birthday sync skip: ${claim.reason}`);
+    }
     return { ok: false, reason: claim.reason };
   }
 

@@ -1,7 +1,11 @@
 function mountUsersLeaderboardWebhookRoutes(app?, client?) {
   const { handleSiteUsersLeaderboardGet } = require("../siteUsersLeaderboardApi") as typeof import("../siteUsersLeaderboardApi");
+  const { handleSiteBotsLeaderboardGet } = require("../siteBotsLeaderboardApi") as typeof import("../siteBotsLeaderboardApi");
   app.get("/webhooks/site-users", (req?, res?) => {
     return handleSiteUsersLeaderboardGet(client, req, res);
+  });
+  app.get("/webhooks/site-bots-leaderboard", (req?, res?) => {
+    return handleSiteBotsLeaderboardGet(client, req, res);
   });
 }
 

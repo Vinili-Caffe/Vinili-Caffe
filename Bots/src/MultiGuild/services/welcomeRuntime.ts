@@ -27,12 +27,29 @@ async function sendDashboardWelcome(member?) {
   const guild = member?.guild;
   if (!guild) return null;
   if (!(require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(guild.id, "benvenuto")) return false;
-  const cfg = await T.getWelcome(guild.id);
+  const cfg = await T.getWelcome(guild.id, true);
+  /* tenant senza canale/welcome: skip silenzioso (non è un errore) */
   if (!cfg.welcome.enabled || !cfg.welcome.channelId) return false;
-  const rest = member.client?.rest;
+  /* gateway: member.client.rest — worker REST: global.botClient._rest (il member non porta il client completo) */
+  const rest =
+    member.client?._rest ||
+    member.client?.rest ||
+    member.guild?.client?._rest ||
+    member.guild?.client?.rest ||
+    (global as any).botClient?._rest ||
+    (global as any).botClient?.rest ||
+    (global as any).__vinylsDiscordClient?.rest;
+  if (!rest?.post) {
+    global.logger?.warn?.("[WELCOME] skip: no REST client", guild.id);
+    return null;
+  }
   const body = T.buildMessageBody(cfg.welcome.draft, welcomeVarsForMember(member), [], { mentionUserId: String(member.id) });
+  if (!body || (typeof body === "object" && !body.content && !body.embeds?.length && !body.components?.length)) {
+    global.logger?.warn?.("[WELCOME] skip: empty body", guild.id);
+    return null;
+  }
   return rest.post(Routes.channelMessages(cfg.welcome.channelId), { body }).catch((err?) => {
-    global.logger?.warn?.("[WELCOME] send:", guild.id, err?.message || err);
+    global.logger?.warn?.("[WELCOME] send:", guild.id, err?.message || err, err?.rawError || err?.code || "");
     return null;
   });
 }

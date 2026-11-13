@@ -624,6 +624,8 @@ const activityUserProfileSchema = new Schema(
       },
       joinAnnouncePending: { type: Boolean, default: null },
       joinAnnounceSentAt: { type: Date, default: null },
+      joinAnnounceClaimId: { type: String, default: null },
+      joinAnnounceClaimAt: { type: Date, default: null },
       inviteReminderState: {
         inviteNearTargets: { type: [Number], default: [] },
       },

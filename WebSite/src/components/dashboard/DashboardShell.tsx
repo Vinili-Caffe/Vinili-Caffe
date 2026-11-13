@@ -535,23 +535,14 @@ function CreditsChip() {
 }
 
 /** FAQ, Feedback e Recensioni nella barra in alto (da tablet in su; su telefono stanno nel menu account). */
-function topLinks(guild: ShellGuild | null, guildNav: GuildNav | undefined, pathname: string) {
-  const rankHref = (id: string) => `/dashboard/guild/?id=${encodeURIComponent(id)}&s=classifica&t=servers`;
+function topLinks(pathname: string) {
   return [
     {
-      href: guild?.id ? rankHref(guild.id) : "/dashboard/",
+      href: "/classifiche/?scope=bots",
       label: "Classifica",
       icon: Trophy,
-      active: guildNav?.active === "classifica",
-      /* nel pannello del server cambia sezione senza ricaricare; altrove apre l'ultimo server usato */
-      onClick: guildNav
-        ? () => guildNav.onSelect("classifica")
-        : guild?.id
-          ? undefined
-          : () => {
-              const last = readLastGuildId();
-              window.location.href = page(last ? rankHref(last) : "/dashboard/");
-            },
+      active: samePath(pathname, "/classifiche/"),
+      onClick: undefined as (() => void) | undefined,
     },
     { href: PERKS_HREF, label: "Vantaggi", icon: Sparkles, active: samePath(pathname, PERKS_HREF), onClick: undefined },
     ...BOT_NAV.map((n) => ({ href: n.href as string, label: n.label as string, icon: n.icon, active: samePath(pathname, n.href), onClick: undefined })),
@@ -562,7 +553,7 @@ function TopNavLinks({ guild, guildNav }: { guild: ShellGuild | null; guildNav?:
   const pathname = usePathname() || "";
   return (
     <nav aria-label="Dashboard" className="hidden shrink-0 items-center gap-0.5 lg:flex">
-      {topLinks(guild, guildNav, pathname).map((n) => {
+      {topLinks(pathname).map((n) => {
         const active = n.active;
         const Icon = n.icon;
         return (
@@ -713,7 +704,7 @@ function AccountMenu({ guild, guildNav, inline = false }: { guild: ShellGuild | 
             </div>
             <div className="mt-1.5 border-t border-sand/10 pt-1.5 lg:hidden">
               <p className="px-2.5 pb-1 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Dashboard</p>
-              {topLinks(guild, guildNav, pathname).map((n) => {
+              {topLinks(pathname).map((n) => {
                 const Icon = n.icon;
                 return (
                   <SmartLink

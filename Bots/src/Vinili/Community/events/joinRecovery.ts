@@ -93,6 +93,13 @@ async function joinWelcomeAlreadySent(channel?, member?, botId?) {
   const guildId = String(member.guild?.id || "");
   const userId = String(member.id);
   const joined = Number(member.joinedTimestamp || 0);
+  /* prova prima in canale: il flag mongo da solo mentiva (claim prima dell’invio) */
+  const sinceMs = joined || Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const inChannel = await welcomeAnnounceExistsForUser(channel, member, botId, sinceMs);
+  if (inChannel) {
+    await markJoinAnnounceSent(member);
+    return true;
+  }
   if (isMongoReady()) {
     const doc = await ActivityUserProfile.findOne({ guildId, userId })
       .select("profile.joinAnnounceSentAt")
@@ -101,16 +108,17 @@ async function joinWelcomeAlreadySent(channel?, member?, botId?) {
     const sentRaw = doc?.profile?.joinAnnounceSentAt;
     if (sentRaw) {
       const sentAt = new Date(sentRaw).getTime();
-            if (Number.isFinite(sentAt) && sentAt > 0 && (!joined || sentAt >= joined - 5_000)) {
-        return true;
+      /* flag senza embed in chat → bruciato: sblocca e riprova */
+      if (Number.isFinite(sentAt) && sentAt > 0 && (!joined || sentAt >= joined - 5_000)) {
+        await ActivityUserProfile.updateOne(
+          { guildId, userId },
+          {
+            $unset: { "profile.joinAnnounceSentAt": "", "profile.joinAnnounceClaimId": "", "profile.joinAnnounceClaimAt": "" },
+            $set: { "profile.joinAnnouncePending": true },
+          },
+        ).catch(() => null);
       }
     }
-  }
-  const sinceMs = joined || Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const inChannel = await welcomeAnnounceExistsForUser(channel, member, botId, sinceMs);
-  if (inChannel) {
-    await markJoinAnnounceSent(member);
-    return true;
   }
   return false;
 }
@@ -139,9 +147,11 @@ async function dispatchPublicJoinAnnouncements(member?) {
   const welcomeAlreadySent = welcomeChannel ? await joinWelcomeAlreadySent(welcomeChannel, fresh, botId) : false;
 
   if (fresh.client) await activateWelcomeContextForGuild(fresh.guild.id, fresh.id);
+  let welcomeMsg = null;
   if (welcomeChannel && !welcomeAlreadySent) {
-    await sendWelcomeChannelAnnouncement(welcomeChannel, fresh);
-    await announceInviteInfo(fresh, welcomeChannel, info);
+    welcomeMsg = await sendWelcomeChannelAnnouncement(welcomeChannel, fresh);
+    if (welcomeMsg) await announceInviteInfo(fresh, welcomeChannel, info);
+    else global.logger?.warn?.("[JOIN RECOVER] welcome send failed/skipped:", fresh.id);
   } else if (welcomeAlreadySent) {
     await clearJoinAnnouncePending(fresh);
   }
@@ -152,7 +162,12 @@ async function dispatchPublicJoinAnnouncements(member?) {
   await maybeSendInviteNearRewardReminder(fresh, info);
   await maybeSendInviteReward(fresh, info);
 
-  return { ok: true, announced: Boolean(welcomeChannel) };
+  return {
+    ok: true,
+    announced: Boolean(welcomeMsg),
+    already: Boolean(welcomeAlreadySent),
+    welcomeFailed: Boolean(welcomeChannel && !welcomeAlreadySent && !welcomeMsg),
+  };
 }
 
 async function recoverJoinAnnouncementsOnStartup(client?, opts: Record<string, any> = {}) {
@@ -254,7 +269,8 @@ async function recoverJoinAnnouncementsOnStartup(client?, opts: Record<string, a
       return null;
     });
     if (out?.roles) rolesFixed += 1;
-    if (out?.announced || out?.already) recovered += 1;
+    /* solo invii veri: "already" non conta come welcome recuperato */
+    if (out?.announced) recovered += 1;
     await joinRecoverySleep(450);
   }
 
@@ -323,19 +339,10 @@ async function recoverJoinAnnouncementsOnStartup(client?, opts: Record<string, a
     await joinRecoverySleep(500);
   }
 
-  const actionable =
-    recovered > 0 ||
-    rolesFixed > 0 ||
-    missedRecovered > 0 ||
-    pendingClearedGone > 0 ||
-    pendingStaleCleared > 0 ||
-    pendingReady > 0;
-  /* Idle (solo waitingVerify / scan senza azioni) → silenzio a ogni boot. */
-  if (actionable) {
-    global.logger?.warn?.(
-      `[JOIN RECOVER] pending=${pendingProcessed} ready=${pendingReady} waitingVerify=${pendingWaitingVerify} clearedGone=${pendingClearedGone} staleCleared=${pendingStaleCleared} missedScanned=${missedScanned} missedSkippedOk=${missedSkippedOk} missedRecovered=${missedRecovered} welcomes=${recovered} rolesFixed=${rolesFixed} lookbackMs=${lookbackMs}`,
-    );
-  }
+  /* Sempre una riga: altrimenti sembrava che al boot non recuperasse niente. */
+  global.logger?.warn?.(
+    `[JOIN RECOVER] pending=${pendingProcessed} ready=${pendingReady} waitingVerify=${pendingWaitingVerify} clearedGone=${pendingClearedGone} staleCleared=${pendingStaleCleared} missedScanned=${missedScanned} missedSkippedOk=${missedSkippedOk} missedRecovered=${missedRecovered} welcomes=${recovered} rolesFixed=${rolesFixed} lookbackMs=${lookbackMs}`,
+  );
 
   return {
     ok: true,
@@ -467,8 +474,10 @@ async function processMissedJoinMember(member?, opts: Record<string, any> = {}) 
   }
 
   return {
-    ok: true,
-    announced: Boolean(out?.announced || out?.ok),
+    ok: Boolean(out?.ok),
+    announced: Boolean(out?.announced),
+    already: Boolean(out?.already),
+    welcomeFailed: Boolean(out?.welcomeFailed),
     roles: rolesOk,
   };
 }

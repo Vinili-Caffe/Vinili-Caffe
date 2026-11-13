@@ -88,6 +88,7 @@ import { confirmDialog } from "@/components/ui";
 import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
+import { page } from "@/lib/site";
 import {
   checkDashboardAccess,
   dashHref,
@@ -138,8 +139,6 @@ import {
   LIVE_MODULE_TABS,
   defaultModuleTab,
   findGuildSection,
-  isClassificaSectionTab,
-  CLASSIFICA_SECTION_TABS,
   isCommandSectionTab,
   isGuildSection,
   isModerationModuleTab,
@@ -265,11 +264,6 @@ const AuditPanel = dynamic(() => import("./guild/AuditPanel").then((m) => m.Audi
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
 
-const LeaderboardPanel = dynamic(() => import("./guild/LeaderboardPanel").then((m) => m.LeaderboardPanel), {
-  ssr: false,
-  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
-});
-
 const PartnershipPanel = dynamic(() => import("./guild/PartnershipPanel").then((m) => m.PartnershipPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
@@ -298,7 +292,6 @@ const SECTION_LEAD: Record<Section, string> = {
   tickets: "Ticket aperti, pannelli, moduli, team e blacklist.",
   moderation: "Ban, mute, warn, mod logs, ricorsi, punizioni automatiche e casi.",
   partnership: "Configurazione e gestione delle partnership del server.",
-  classifica: "Classifiche partnership: server, partner manager e ingressi.",
   stats: "Ticket e partnership del server: andamento, voti, staff più attivo.",
   registro: "Chi ha cambiato cosa dalla dashboard, e quando.",
   salute: "Cosa non funziona nel server e come sistemarlo: permessi del bot, canali e ruoli.",
@@ -337,7 +330,6 @@ const SECTION_HERO: Partial<Record<string, { text: string; accent: string }>> = 
   sondaggi: { text: "Domande al server con voto a pulsanti e risultati in diretta.", accent: "#6f9ce8" },
   live: { text: "Notifiche social multi-piattaforma: live, video e post con messaggio, canale e ping.", accent: "#9146ff" },
   compleanni: { text: "Gli auguri a chi compie gli anni, con il ruolo del giorno.", accent: "#f08fb0" },
-  classifica: { text: "Chi porta più server, più partner e più persone.", accent: "#e8b04b" },
 };
 
 /* aree del registro, tutte nella stessa pagina */
@@ -533,6 +525,8 @@ function readSectionFromSearch(search: string): Section | null {
   try {
     const v = String(new URLSearchParams(search).get("s") || "");
     if (v === "bumpvoti") return "bump";
+    /* classifica → sito pubblico /classifiche/?scope=bots */
+    if (v === "classifica") return null;
     return isGuildSection(v) ? v : null;
   } catch {
     return null;
@@ -552,7 +546,6 @@ function sanitizeModuleTab(section: Section, raw: string | null | undefined): st
     /* categorie dinamiche dal catalogo API */
     return /^[a-z0-9_-]{1,40}$/i.test(v) ? v : "all";
   }
-  if (section === "classifica") return isClassificaSectionTab(v) ? v : "servers";
   if (section === "registro") return isRegistroModuleTab(v) ? v : "all";
   if (section === "benvenuto") return isAnnunciModuleTab(v) ? v : "welcome";
   if (section === "live") return isLiveModuleTab(v) ? v : "twitch";
@@ -2181,6 +2174,14 @@ export function GuildPanel() {
   );
 
   useEffect(() => {
+    try {
+      if (String(new URLSearchParams(window.location.search).get("s") || "") === "classifica") {
+        window.location.replace(page("/classifiche/?scope=bots"));
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
     const fromUrl = readSectionFromSearch(window.location.search);
     if (fromUrl) {
       setSectionState(fromUrl);
@@ -2880,23 +2881,6 @@ export function GuildPanel() {
                       </SideTabsLayout>
                     ) : null}
 
-                    {section === "classifica" && guildId && token ? (
-                      <Panel>
-                        <div className="mb-4">
-                          <Subnav
-                            label="Classifiche"
-                            tabs={CLASSIFICA_SECTION_TABS.map((t) => ({ id: t.id, label: t.label }))}
-                            value={moduleTab && isClassificaSectionTab(moduleTab) ? moduleTab : "servers"}
-                            onChange={(t) => setModuleTab("classifica", t)}
-                          />
-                        </div>
-                        <LeaderboardPanel
-                          guildId={guildId}
-                          token={token}
-                          category={moduleTab && isClassificaSectionTab(moduleTab) ? moduleTab : "servers"}
-                        />
-                      </Panel>
-                    ) : null}
                     </div>
                     </DraftTestContext.Provider>
                   </motion.div>

@@ -326,9 +326,10 @@ export = {
           await refreshWelcomeContextForGuild(memberAfterVerifyJoin.guild.id, memberAfterVerifyJoin.id);
         }
         if (welcomeChannel && canAnnounce) {
-          await sendWelcomeChannelAnnouncement(welcomeChannel, memberAfterVerifyJoin);
+          const welcomeMsg = await sendWelcomeChannelAnnouncement(welcomeChannel, memberAfterVerifyJoin);
           info = await resolveInviteInfo(memberAfterVerifyJoin).catch(() => null);
-          await announceInviteInfo(memberAfterVerifyJoin, welcomeChannel, info);
+          /* vanity/invite solo dopo il benvenuto: altrimenti restava solo la riga vanity senza embed */
+          if (welcomeMsg) await announceInviteInfo(memberAfterVerifyJoin, welcomeChannel, info);
         }
       }
 

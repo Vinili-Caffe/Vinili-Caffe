@@ -211,7 +211,9 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
     }
 
     if (searchId) {
-      const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+      /* site-api a volte non ha ancora guilds in cache: niente throw su .cache */
+      const guild =
+        client?.guilds?.cache?.get?.(guildId) || (await client?.guilds?.fetch?.(guildId).catch(() => null)) || null;
       const membersApprox = await resolveMembersApprox(client, guild, guildId);
       if (rankBoard === "minigames" && rankPeriod === "monthly") {
         res.setHeader("Cache-Control", "no-store");
@@ -455,7 +457,7 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
     const perPageDefault = lite ? 9 : 12;
     const perPage = parseIntSafe(q.perPage, 1, perPageMax, perPageDefault);
     /* siteUsersSwr1: cache hit prima di Discord/membersApprox */
-    let guild = client.guilds.cache.get(guildId) || null;
+    let guild = client?.guilds?.cache?.get?.(guildId) || null;
     let computedBoard = Boolean(guild) && isComputedListBoard(rankBoard, rankPeriod);
     const emptyMinigamesMonthly = rankBoard === "minigames" && rankPeriod === "monthly";
     const romeDayKey = rankBoard === "messages" || rankBoard === "voice" ? getRomeDayKey(new Date()) : "";
@@ -521,7 +523,7 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
     }
 
     if (!guild) {
-      guild = (await client.guilds.fetch(guildId).catch(() => null)) || null;
+      guild = (await client?.guilds?.fetch?.(guildId).catch(() => null)) || null;
       computedBoard = Boolean(guild) && isComputedListBoard(rankBoard, rankPeriod);
       cacheKey = `v6:${guildId}:${board}:${responsePeriod}${computedBoard ? ":computed" : ""}:p${page}:n${perPage}:perf${perfTier}`;
       listMeta = cacheLookupMeta(cacheKey, LIST_STALE_KEEP_MS);

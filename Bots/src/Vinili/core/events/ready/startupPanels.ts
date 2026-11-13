@@ -1,10 +1,14 @@
 const startupPanelsTrigger = require("../../../Community/discord/panels/startupPanels") as typeof import("../../../Community/discord/panels/startupPanels");
 const {
+  getEnabledDiscordPanelNames,
+} = require("../../../Community/config/discordPanelsConfig") as typeof import("../../../Community/config/discordPanelsConfig");
+const {
   STARTUP_THROTTLE_NS,
   STARTUP_PANELS_TTL_MS,
   shouldRunStartupWork,
   markStartupThrottle,
   formatDurationMs,
+  envFlagEnabled,
 } = require("./startupHelpers") as typeof import("./startupHelpers");
 
 /** panelsCodeChange1: impronta del codice dei pannelli (cartella Embeds). Se cambia (nuova pubblicazione)
@@ -43,6 +47,13 @@ function panelsCodeFingerprint() {
 
 async function runStartupPanels(client?, label = "immediate") {
   if (client._startupPanelsRefreshRunning) return;
+
+  /* DEFAULT_ENABLED=[]: niente da ripubblicare. Solo force env o allowlist DISCORD_PANELS_ENABLED. */
+  const enabledNames = getEnabledDiscordPanelNames();
+  if (!enabledNames.length && !envFlagEnabled("STARTUP_PANELS")) {
+    markStartupThrottle(STARTUP_THROTTLE_NS, "startup-panels");
+    return;
+  }
 
   let decision = shouldRunStartupWork(STARTUP_THROTTLE_NS, "startup-panels", {
     ttlMs: STARTUP_PANELS_TTL_MS,
