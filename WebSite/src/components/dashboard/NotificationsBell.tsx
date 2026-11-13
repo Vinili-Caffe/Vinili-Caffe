@@ -7,6 +7,7 @@ import { AlertTriangle, Bell, CheckCheck, Clock3, Diamond, LogOut, Megaphone, Ti
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { dashHref } from "@/lib/dashboard";
+import { confirmLeaveUnsaved } from "@/lib/unsaved-changes";
 import { loadNotifications, markNotificationsRead, timeAgo, type DashNotification } from "@/lib/dashboard-notifications";
 
 const POLL_MS = 90_000;
@@ -113,10 +114,25 @@ export function NotificationsBell() {
     }
   };
 
-  const openItem = (n: DashNotification) => {
+  const openItem = async (n: DashNotification) => {
     if (n.href) {
       setOpen(false);
-      router.push(dashHref(n.href));
+      /* modifiche non salvate nella pagina: prima la barra in basso */
+      if (!(await confirmLeaveUnsaved())) return;
+      const target = dashHref(n.href);
+      let url: URL | null = null;
+      try {
+        url = new URL(target, window.location.href);
+      } catch {
+        url = null;
+      }
+      /* stessa pagina (es. pannello server con altro server/sezione): il pannello legge l'indirizzo solo all'apertura,
+         quindi serve un caricamento vero; altrimenti resteresti dove sei */
+      if (url && url.origin === window.location.origin && url.pathname === window.location.pathname) {
+        if (url.search !== window.location.search || url.hash !== window.location.hash) window.location.assign(url.pathname + url.search + url.hash);
+        return;
+      }
+      router.push(target);
       return;
     }
     if (n.body.length > n.title.length) {
@@ -183,7 +199,7 @@ export function NotificationsBell() {
                     <li key={n.id}>
                       <button
                         type="button"
-                        onClick={() => openItem(n)}
+                        onClick={() => void openItem(n)}
                         className={cn(
                           "flex w-full gap-3 px-4 py-3 text-left transition hover:bg-crema/[0.03]",
                           !n.read && "bg-caramel/[0.05]",

@@ -19,6 +19,7 @@ export function NotifNavigate() {
         sessionStorage.setItem("vc-pwa-left-start", "1");
         sessionStorage.removeItem("vc-pwa-want-home");
         sessionStorage.setItem("vc-notif-pending-nav", next);
+        sessionStorage.setItem("vc-notif-pending-nav-at", String(Date.now()));
         (window as unknown as { __vcNotifNavDone?: number }).__vcNotifNavDone = 1;
         (window as unknown as { __vcPwaResumeSkip?: number }).__vcPwaResumeSkip = 1;
       } catch {
@@ -106,6 +107,14 @@ export function NotifNavigate() {
       try {
         const pending = sessionStorage.getItem("vc-notif-pending-nav");
         if (!pending) return;
+        /* destinazione vecchia (più di 1 minuto) o senza orario: non riportare più lì
+           (prima restava salvata e ti rimandava alla notifica precedente a ogni pagina) */
+        const at = Number(sessionStorage.getItem("vc-notif-pending-nav-at") || 0);
+        if (!at || Date.now() - at > 60_000) {
+          sessionStorage.removeItem("vc-notif-pending-nav");
+          sessionStorage.removeItem("vc-notif-pending-nav-at");
+          return;
+        }
         const here = notifPathKey(location.href);
         const want = notifPathKey(pending) || pending;
         if (want === here) {
