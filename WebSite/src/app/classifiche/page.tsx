@@ -22,15 +22,7 @@ export const metadata: Metadata = {
   }),
 };
 
-export default async function ClassifichePage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ scope?: string }> | { scope?: string };
-}) {
-  const sp = searchParams && typeof (searchParams as Promise<unknown>).then === "function"
-    ? await (searchParams as Promise<{ scope?: string }>)
-    : ((searchParams as { scope?: string } | undefined) ?? {});
-  const initialScope = sp?.scope === "bots" ? "bots" : "community";
+export default async function ClassifichePage() {
   const [initialCommunity, initialBots] = await Promise.all([loadBuildBoard(), loadBuildBotsBoard()]);
   return (
     <SiteShell>
@@ -46,11 +38,7 @@ export default async function ClassifichePage({
         accent="d'oro"
         text="Community e partnership: chi spacca di più nel server e chi porta più gente."
       />
-      <ClassificheBrowser
-        initialCommunity={initialCommunity}
-        initialBots={initialBots}
-        initialScope={initialScope}
-      />
+      <ClassificheBrowser initialCommunity={initialCommunity} initialBots={initialBots} />
     </SiteShell>
   );
 }
