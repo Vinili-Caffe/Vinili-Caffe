@@ -402,22 +402,6 @@ export function PartnershipPanel({
   return (
     <div className="space-y-4">
       <TrackUnsaved dirty={anyDirty && !showWizard} onSave={saveAllChanges} onReset={() => setDraft(bundle.config)} />
-      {!showWizard && (bundle.premiumActive || draft.inviteUrl) ? (
-        <div className="-mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b border-sand/[0.08] px-4 py-3.5 sm:-mx-5 sm:px-5">
-          {bundle.premiumActive ? <StatusBadge tone="accent">Premium</StatusBadge> : null}
-          {draft.inviteUrl ? (
-            <a
-              href={draft.inviteUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="ml-auto inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-crema/75 ring-1 ring-sand/15 transition hover:text-crema"
-            >
-              Invito del server ↗
-            </a>
-          ) : null}
-        </div>
-      ) : null}
-
       {showWizard ? (
         <PartnershipSetupWizard
           guildId={guildId}
@@ -1028,7 +1012,7 @@ export function PartnershipPanel({
                     <img src={row.iconUrl} alt="" width={36} height={36} className="size-9 shrink-0 rounded-xl object-cover ring-1 ring-sand/15" />
                   ) : (
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.08] text-sm font-bold text-crema/80" aria-hidden>
-                      {(String(row.guildName || row.invite || "?").trim().charAt(0) || "?").toUpperCase()}
+                      {(String(row.guildName || row.invite || "").match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase()}
                     </span>
                   )}
                   <div className="min-w-0 flex-1">

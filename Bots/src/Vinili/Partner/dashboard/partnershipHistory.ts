@@ -41,11 +41,31 @@ async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, q
     guildIconUrlFn = null;
   }
 
+  /* loghi dei server partner già trovati (per codice invito): così non si chiede ogni volta a Discord */
+  const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+  const ICONS_KEY = "partnerInviteIcons.v1";
+  const savedIcons: Record<string, string> = ((await getBotState(ICONS_KEY, {}).catch(() => ({}))) as Record<string, string>) || {};
+  let iconsChanged = false;
+  const iconKey = (invite?) => String(extractInviteCode(String(invite || "")) || "").toLowerCase();
+  const knownIcon = (row?) => {
+    const k = iconKey(row?.invite);
+    return (k && savedIcons[k]) || getCachedInviteGuildMeta(String(row?.invite || ""))?.iconUrl || null;
+  };
+  const rememberIcon = (invite?, url?) => {
+    const k = iconKey(invite);
+    if (!k || !url || savedIcons[k] === url) return;
+    savedIcons[k] = String(url);
+    iconsChanged = true;
+  };
+
   const needsDiscordEnrich = (row?) => {
     const invite = String(row?.invite || "").trim();
     if (!invite) return false;
     if (!isUsableGuildName(row?.guildName)) return true;
-    return false;
+    /* nome già noto ma niente logo: lo chiediamo dall'invito (se Vinili non è nel server partner) */
+    const gid = String(row?.guildId || "").trim();
+    if (gid && client?.guilds?.cache?.get(gid)) return false;
+    return !knownIcon(row);
   };
 
   async function mapPool(items?, concurrency?, mapper?) {
@@ -77,6 +97,7 @@ async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, q
         if (!isUsableGuildName(row.guildName)) row.guildName = cached.guildName;
         if (!row.guildId && cached.guildId) row.guildId = cached.guildId;
         row._iconUrl = cached.iconUrl || null;
+        rememberIcon(invite, cached.iconUrl);
         return;
       }
       const out = { rateLimited: false };
@@ -96,6 +117,7 @@ async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, q
       }
       if (!row.guildId && meta.guildId) row.guildId = String(meta.guildId).trim();
       row._iconUrl = meta.iconUrl || null;
+      rememberIcon(invite, meta.iconUrl);
 
             setImmediate(() => {
         softPersistPartnerHistoryMeta(access.guildId, {
@@ -110,7 +132,7 @@ async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, q
   const entries = pageRows.map((row?) => {
     let guildName = isUsableGuildName(row.guildName) ? String(row.guildName).trim() : null;
     let invite = String(row.invite || "").trim() || null;
-    let iconUrl = row._iconUrl || null;
+    let iconUrl = row._iconUrl || knownIcon(row) || null;
     let partnerGuildId = String(row.guildId || "").trim() || null;
 
     if (partnerGuildId) {
@@ -149,6 +171,12 @@ async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, q
       invite,
     };
   });
+
+  if (iconsChanged) {
+    setImmediate(() => {
+      void Promise.resolve(setBotState(ICONS_KEY, savedIcons)).catch(() => {});
+    });
+  }
 
   return {
     ok: true,
