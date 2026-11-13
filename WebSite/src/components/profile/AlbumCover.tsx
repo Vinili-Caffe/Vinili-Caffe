@@ -39,11 +39,23 @@ export function AlbumCover({
   tab = "community",
   showStaffTab = false,
   onTab,
+  topSlot,
+  staffSince,
+  calendarGuildId = null,
+  serverName,
 }: {
   p: ProfileData;
   tab?: "community" | "staff";
   showStaffTab?: boolean;
   onTab?: (t: "community" | "staff") => void;
+  /** in alto: scelta del server del profilo */
+  topSlot?: React.ReactNode;
+  /** "In staff dal …" (scheda Staff), accanto a "Nel server dal …" */
+  staffSince?: string | null;
+  /** server del calendario compleanni (null = principale) */
+  calendarGuildId?: string | null;
+  /** nome del server quando non è il principale */
+  serverName?: string;
 }) {
   const reduce = useReducedMotion();
   // la copertina si inclina verso il mouse come un vinile preso in mano
@@ -74,7 +86,7 @@ export function AlbumCover({
   };
 
   return (
-    <section className={cn("relative isolate overflow-x-clip pb-16 sm:pb-24", showStaffTab ? "pt-20 sm:pt-24" : "pt-16 sm:pt-20")}>
+    <section className={cn("relative isolate overflow-x-clip pb-16 sm:pb-24", showStaffTab || topSlot ? "pt-20 sm:pt-24" : "pt-16 sm:pt-20")}>
       {/* stessa atmosfera café delle altre pagine interne */}
       <HeroBackdrop
         priority
@@ -97,6 +109,8 @@ export function AlbumCover({
       {p.avatarUrl ? (
         <AlbumCoverGlow src={staticImageUrl(p.avatarUrl)} />
       ) : null}
+
+      {topSlot ? <div className="relative z-30 mx-auto mb-4 flex max-w-5xl justify-center px-4 sm:px-6">{topSlot}</div> : null}
 
       {showStaffTab && onTab && (
         <div className="relative z-20 mx-auto mb-5 flex max-w-5xl justify-center px-6 sm:mb-6">
@@ -189,7 +203,13 @@ export function AlbumCover({
               </button>
             )}
           </div>
-          {p.joinedAt && p.inGuild && <p className="mt-2 text-sm text-crema/45">Nel server dal {dateIt(p.joinedAt)}</p>}
+          {(p.joinedAt && p.inGuild) || staffSince ? (
+            <p className="mt-2 text-sm text-crema/45">
+              {p.joinedAt && p.inGuild ? `${serverName ? `In ${serverName}` : "Nel server"} dal ${dateIt(p.joinedAt)}` : null}
+              {p.joinedAt && p.inGuild && staffSince ? <span className="mx-1.5 text-crema/25">·</span> : null}
+              {staffSince ? `In staff dal ${staffSince}` : null}
+            </p>
+          ) : null}
           {!p.inGuild && (
             <p className="mt-2 text-sm text-crema/45">
               {!p.level?.exp && !p.messages?.messagesTotal && !p.roles.length ? "Non è nel server principale" : "Non è più nel server Discord"}
@@ -264,7 +284,7 @@ export function AlbumCover({
         </motion.div>
       </div>
 
-      <BirthdayCalendar open={bdayOpen} onClose={() => setBdayOpen(false)} highlightUserId={p.userId} />
+      <BirthdayCalendar open={bdayOpen} onClose={() => setBdayOpen(false)} highlightUserId={p.userId} guildId={calendarGuildId} />
     </section>
   );
 }

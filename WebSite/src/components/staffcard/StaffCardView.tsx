@@ -150,19 +150,36 @@ function Block({ title, icon, link, children }: { title: string; icon: React.Rea
 }
 
 /** La scheda Staff del profilo (sito vecchio: user-profile-staff-tab + staff-profile-render). */
-export function StaffCardView({ token, userId, access, onNavigate }: { token: string; userId: string; access: StaffAccess; onNavigate: (id: string) => void }) {
+export function StaffCardView({
+  token,
+  userId,
+  access,
+  onNavigate,
+  onTenure,
+}: {
+  token: string;
+  userId: string;
+  access: StaffAccess;
+  onNavigate: (id: string) => void;
+  /** "In staff dal …": la mostra la testata del profilo, accanto a "Nel server dal …" */
+  onTenure?: (label: string | null) => void;
+}) {
   const [card, setCard] = useState<StaffCard | null>(null);
   const [err, setErr] = useState("");
   const [mng, setMng] = useState<ManageData | null>(null);
   const [sheet, setSheet] = useState<SheetKind | null>(null);
   const [reload, setReload] = useState(0);
   const [sfBusy, setSfBusy] = useState(false);
+  const onTenureRef = useRef(onTenure);
+  useEffect(() => {
+    onTenureRef.current = onTenure;
+  }, [onTenure]);
 
   useEffect(() => {
     let alive = true;
     loadCard(token, userId).then((r) => {
       if (!alive) return;
-      if (r.ok) (setCard(r.data), setErr(""));
+      if (r.ok) (setCard(r.data), setErr(""), onTenureRef.current?.(r.data.career?.tenure?.label || null));
       else setErr(r.message);
     });
     loadManage(token, userId).then((r) => alive && r.ok && setMng(r.data));
@@ -242,14 +259,13 @@ export function StaffCardView({ token, userId, access, onNavigate }: { token: st
       </div>
 
       {/* flag / tenure: i badge ruolo stanno già nell’AlbumCover */}
-      {(flags.length > 0 || card.career?.tenure?.label) && (
+      {flags.length > 0 && (
         <div className="flex flex-wrap items-center justify-center gap-2">
           {flags.map((f) => (
             <span key={f.k} className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", f.c)}>
               {f.t}
             </span>
           ))}
-          {card.career?.tenure?.label && <span className="text-sm text-crema/50">In staff dal {card.career.tenure.label}</span>}
         </div>
       )}
 

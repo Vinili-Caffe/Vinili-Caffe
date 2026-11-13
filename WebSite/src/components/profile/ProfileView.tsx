@@ -6,7 +6,8 @@ import { Disc3, LogIn, RotateCcw, Trophy } from "lucide-react";
 import { StaffCardView } from "@/components/staffcard/StaffCardView";
 import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
 import { useAuth } from "@/lib/auth";
-import { isUserId, loadProfile, type ProfileResult } from "@/lib/profile";
+import { guildProfileAsData, isUserId, loadGuildProfile, loadProfile, loadProfileGuilds, type GuildProfile, type ProfileGuild, type ProfileResult } from "@/lib/profile";
+import { ServerSwitcher } from "./ServerSwitcher";
 import { page } from "@/lib/site";
 import { AlbumCover } from "./AlbumCover";
 import { CandyCollection, CustomStuff, RankCard, RolesList } from "./ProfileSections";
@@ -55,6 +56,32 @@ export function ProfileView() {
   const id = isUserId(raw) ? raw : ready && user ? user.id : null;
   const [res, setRes] = useState<{ id: string; r: ProfileResult } | null>(null);
   const [retry, setRetry] = useState(0);
+  /* profilo per server: server in comune (con il login) e quello scelto (?g=) */
+  const [guilds, setGuilds] = useState<ProfileGuild[]>([]);
+  const [gp, setGp] = useState<{ key: string; r: { ok: true; data: GuildProfile } | { ok: false; message: string } } | null>(null);
+  const [staffSince, setStaffSince] = useState<string | null>(null);
+  const mainId = guilds.find((x) => x.isMain)?.id || null;
+  const rawG = params.get("g");
+  const guildSel = rawG && guilds.some((x) => x.id === rawG && !x.isMain) ? rawG : null;
+
+  useEffect(() => {
+    if (!id || !token) return;
+    let alive = true;
+    void loadProfileGuilds(token, id).then((list) => alive && setGuilds(list));
+    return () => {
+      alive = false;
+    };
+  }, [id, token]);
+
+  useEffect(() => {
+    if (!id || !token || !guildSel) return;
+    let alive = true;
+    const key = `${guildSel}:${id}`;
+    void loadGuildProfile(token, guildSel, id).then((r) => alive && setGp({ key, r }));
+    return () => {
+      alive = false;
+    };
+  }, [id, token, guildSel]);
 
   useEffect(() => {
     if (!id) return;
@@ -96,6 +123,32 @@ export function ProfileView() {
     );
   }
 
+  const goGuild = (gid: string) => {
+    const g = gid && gid !== mainId ? `&g=${gid}` : "";
+    setStaffSince(null);
+    router.push(`/user/?id=${id}${g}`, { scroll: false });
+  };
+  const switcher =
+    guilds.length > 1 || (guilds.length === 1 && !guilds[0].isMain) ? (
+      <ServerSwitcher guilds={guilds} current={guildSel || mainId || guilds[0].id} onGo={goGuild} />
+    ) : null;
+
+  /* un altro server: testata con i dati di quel server (le statistiche sono del principale) */
+  if (guildSel) {
+    if (!gp || gp.key !== `${guildSel}:${id}`) return <Skeleton />;
+    if (!gp.r.ok)
+      return (
+        <>
+          <div className="mx-auto flex max-w-5xl justify-center px-4 pt-24">{switcher}</div>
+          <Message icon={<Disc3 />} title="Profilo non disponibile" text={gp.r.message} />
+        </>
+      );
+    const gd = gp.r.data;
+    return (
+      <AlbumCover p={guildProfileAsData(gd)} topSlot={switcher} calendarGuildId={guildSel} serverName={gd.guild.name || undefined} />
+    );
+  }
+
   if (!res || res.id !== id) return <Skeleton />;
   const r = res.r;
 
@@ -130,9 +183,9 @@ export function ProfileView() {
 
   return (
     <>
-      <AlbumCover p={p} tab={tab} showStaffTab={showStaffTab} onTab={goTab} />
+      <AlbumCover p={p} tab={tab} showStaffTab={showStaffTab} onTab={goTab} topSlot={switcher} staffSince={showStaffTab && tab === "staff" ? staffSince : null} />
       {showStaffTab && tab === "staff" ? (
-        <StaffCardView token={token!} userId={p.userId} access={staffAccess!} onNavigate={(uid) => goTab("staff", uid)} />
+        <StaffCardView token={token!} userId={p.userId} access={staffAccess!} onNavigate={(uid) => goTab("staff", uid)} onTenure={setStaffSince} />
       ) : (
         <div className="space-y-20 pb-20 pt-2 sm:pt-4">
           {outsider ? null : <Tracklist p={p} />}

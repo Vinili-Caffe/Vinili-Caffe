@@ -147,3 +147,79 @@ export function multiplierRows(src: MultiplierSource[]) {
   }
   return [{ key: "base", label: "Base", type: "base", multiplier: base, active: true } as MultiplierSource, ...list];
 }
+
+/* ───────────── profilo per server ───────────── */
+
+export type ProfileGuild = { id: string; name: string; iconUrl: string | null; isMain: boolean };
+
+export type GuildProfile = {
+  guild: { id: string; name: string };
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string;
+  joinedAt?: string;
+  isPartnerManager: boolean;
+  birthday: Birthday | null;
+};
+
+/** Server in comune tra te e la persona del profilo (con il bot). Serve il login. */
+export async function loadProfileGuilds(token: string, userId: string): Promise<ProfileGuild[]> {
+  try {
+    const q = new URLSearchParams({ profileGuilds: "1", userId });
+    const r = await fetch(apiUrl(`/webhooks/site-users?${q}`), { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+    const j = await r.json().catch(() => null);
+    return r.ok && j?.ok && Array.isArray(j.guilds) ? (j.guilds as ProfileGuild[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** La persona in un altro server: nome e foto lì, da quando c'è, compleanno, se è Partner Manager. */
+export async function loadGuildProfile(token: string, guildId: string, userId: string): Promise<{ ok: true; data: GuildProfile } | { ok: false; message: string }> {
+  try {
+    const q = new URLSearchParams({ board: "guildprofile", guild: guildId, userId });
+    const r = await fetch(apiUrl(`/webhooks/site-users?${q}`), { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j?.ok || !j.profile) return { ok: false, message: String(j?.message || "Profilo non disponibile in questo server.") };
+    const p = j.profile;
+    return {
+      ok: true,
+      data: {
+        guild: { id: String(j.guild?.id || guildId), name: String(j.guild?.name || "") },
+        userId: String(p.userId),
+        username: String(p.username || ""),
+        displayName: String(p.displayName || p.username || "Utente"),
+        avatarUrl: p.avatarUrl || undefined,
+        joinedAt: p.joinedAt || undefined,
+        isPartnerManager: p.isPartnerManager === true,
+        birthday: p.birthday?.day && p.birthday?.month ? p.birthday : null,
+      },
+    };
+  } catch {
+    return { ok: false, message: "Errore di rete." };
+  }
+}
+
+/** Il profilo di un altro server nella forma della testata (senza dati del principale). */
+export function guildProfileAsData(g: GuildProfile): ProfileData {
+  return {
+    userId: g.userId,
+    username: g.username,
+    displayName: g.displayName,
+    avatarUrl: g.avatarUrl,
+    joinedAt: g.joinedAt,
+    inGuild: true,
+    roles: [],
+    birthday: g.birthday,
+    custom: { role: null, secondaryRole: null, voice: null },
+    multiplier: 1,
+    multiplierSources: [],
+    candy: null,
+    level: null,
+    weekly: null,
+    messages: null,
+    voice: null,
+    minigames: null,
+  };
+}

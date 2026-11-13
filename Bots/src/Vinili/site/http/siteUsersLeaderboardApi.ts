@@ -56,6 +56,18 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
     const responsePeriod = board === "weekly" ? "weekly" : periodRaw;
     const searchId = parseSearchUserId(q.userId ?? q.user_id ?? q.id ?? q.searchUserId ?? q.uid);
 
+    /* profilo per server: server in comune e profilo della persona in uno di quelli */
+    if (String(q.profileGuilds || "") === "1" || String(q.board || "") === "guildprofile") {
+      const GP = require("./usersLbGuildProfile") as typeof import("./usersLbGuildProfile");
+      const target = parseSearchUserId(q.userId ?? q.id);
+      const out =
+        String(q.profileGuilds || "") === "1"
+          ? await GP.sharedGuilds(client, req, target, guildId)
+          : await GP.guildProfile(client, req, String(q.guild || ""), target, guildId);
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.status(out.status).json(out.body);
+    }
+
     /* i server dove sei tu e c'è il bot (per scegliere quale calendario vedere) */
     if (String(q.myGuilds || "") === "1") {
       const token = String(req?.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim();
