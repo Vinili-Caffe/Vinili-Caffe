@@ -379,12 +379,14 @@ export function DraftEditor({
       <RichTextArea label="Testo del messaggio" value={value.content} onChange={(content) => setDraft({ ...value, content })} max={2000} rows={6} emojis={emojis} placeholders={placeholders} placeholder="Facoltativo se usi l'embed" />
 
       <div className="rounded-2xl bg-espresso/40 p-3 ring-1 ring-sand/10">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-crema">Embed</p>
-            <p className="text-xs text-crema/55">Il riquadro colorato con titolo, testo e immagini.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-5 text-crema">Embed</p>
+            <p className="mt-0.5 text-xs text-crema/55">Il riquadro colorato con titolo, testo e immagini.</p>
           </div>
-          <Toggle checked={e.enabled} onChange={(enabled) => setEmbed({ enabled })} label="Usa l'embed" size="sm" />
+          <div className="flex min-h-5 shrink-0 items-center">
+            <Toggle checked={e.enabled} onChange={(enabled) => setEmbed({ enabled })} label="Usa l'embed" size="sm" />
+          </div>
         </div>
         {e.enabled ? (
           <div className="mt-3 space-y-3">

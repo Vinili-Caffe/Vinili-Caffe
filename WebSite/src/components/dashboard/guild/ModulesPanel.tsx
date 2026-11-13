@@ -18,6 +18,7 @@ import {
   Tags,
   TerminalSquare,
   Ticket,
+  Video,
   Vote,
   type LucideIcon,
 } from "lucide-react";
@@ -44,6 +45,7 @@ const META: ModuleMeta[] = [
   { id: "voti", title: "Voti", text: "Voti su Top.gg e Discadia con ruolo e promemoria.", icon: Vote, page: "voti" },
   { id: "giveaway", title: "Giveaway", text: "Estrazioni a premi con requisiti e vincitori scelti dal bot.", icon: Gift, page: "giveaway" },
   { id: "sondaggi", title: "Sondaggi", text: "Domande al server con voto e risultati in diretta.", icon: Vote, page: "sondaggi" },
+  { id: "live", title: "Social Network", text: "Avvisi per live, video e post su Twitch, YouTube, Kick, TikTok e Instagram.", icon: Video, page: "live" },
 ];
 
 type Row = { id: string; on: boolean; locked: boolean };
@@ -62,7 +64,7 @@ export function ModulesPanel({
   /** apre la pagina del modulo */
   onOpen: (section: GuildSectionId) => void;
   /** un modulo è stato acceso o spento (per aggiornare il menu) */
-  onChanged?: () => void;
+  onChanged?: (modules: Row[]) => void;
   /** moduli da non mostrare (es. moderazione/bacheca sui tenant) */
   hideIds?: string[];
 }) {
@@ -114,7 +116,7 @@ export function ModulesPanel({
     setRows(r.data.modules);
     const title = META.find((m) => m.id === id)?.title || "Modulo";
     onToast(on ? `${title} acceso.` : `${title} spento: comandi e automatismi fermi.`);
-    onChanged?.();
+    onChanged?.(r.data.modules);
   };
 
   return (

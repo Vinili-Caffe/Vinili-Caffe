@@ -566,15 +566,16 @@ export function SettingRow({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-4 py-3.5 first:pt-0 last:pb-0">
+    <div className="flex items-start gap-4 py-3.5 first:pt-0 last:pb-0">
       {icon ? (
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-caramel/[0.09] text-ember/80 [&>svg]:size-4">{icon}</span>
+        <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-caramel/[0.09] text-ember/80 [&>svg]:size-4">{icon}</span>
       ) : null}
       <div className="min-w-0 flex-1 pr-1">
-        <p className="text-sm font-medium text-crema">{title}</p>
+        <p className="text-sm font-medium leading-5 text-crema">{title}</p>
         {description ? <p className="mt-0.5 text-xs leading-relaxed text-crema/60">{description}</p> : null}
       </div>
-      <div className="shrink-0 pl-1">{children}</div>
+      {/* allineato al titolo (h-5 = leading del title), non al centro del blocco */}
+      <div className="flex min-h-5 shrink-0 items-center self-start pl-1">{children}</div>
     </div>
   );
 }

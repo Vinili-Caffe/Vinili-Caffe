@@ -25,6 +25,8 @@ const KEYS = {
   bumpVotesState: "multiGuildBumpVotesState.v1",
   announcements: "multiGuildAnnouncements.v1",
   announcementsState: "multiGuildAnnouncementsState.v1",
+  liveAlerts: "multiGuildLiveAlerts.v1",
+  liveAlertsState: "multiGuildLiveAlertState.v1",
 } as const;
 type Kind = keyof typeof KEYS;
 
@@ -961,7 +963,7 @@ async function writeChatReminders(guildId: string, items: ChatReminder[]) {
 
 /* ───────────── oggetti generici per server (bump e voti, annunci) ───────────── */
 
-type BlobKind = "bumpVotes" | "bumpVotesState" | "announcements" | "announcementsState";
+type BlobKind = "bumpVotes" | "bumpVotesState" | "announcements" | "announcementsState" | "liveAlerts" | "liveAlertsState";
 
 async function getGuildBlob(kind: BlobKind, guildId: string, fresh = false): Promise<any | null> {
   const map = await loadMap(kind, fresh);

@@ -19,6 +19,7 @@ import {
   Terminal,
   Ticket,
   Trophy,
+  Video,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ export type GuildSectionId =
   | "voti"
   | "giveaway"
   | "sondaggi"
+  | "live"
   | "settings"
   | "commands"
   | "bacheca"
@@ -140,6 +142,20 @@ export function isAnnunciModuleTab(v: string): v is AnnunciModuleTabId {
   return ANNUNCI_MODULE_TABS.some((t) => t.id === v);
 }
 
+export const LIVE_MODULE_TABS = [
+  { id: "twitch", label: "Twitch" },
+  { id: "youtube", label: "YouTube" },
+  { id: "kick", label: "Kick" },
+  { id: "tiktok", label: "TikTok" },
+  { id: "instagram", label: "Instagram" },
+] as const satisfies readonly GuildModuleTab[];
+
+export type LiveModuleTabId = (typeof LIVE_MODULE_TABS)[number]["id"];
+
+export function isLiveModuleTab(v: string): v is LiveModuleTabId {
+  return LIVE_MODULE_TABS.some((t) => t.id === v);
+}
+
 /** Core del server: sotto SERVER (Comandi/Classifica con sotto-menù). */
 export const GUILD_SERVER_SECTIONS = [
   /* accende e spegne i moduli (comandi e automatismi compresi): prima voce e pagina d'ingresso del server */
@@ -169,6 +185,7 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "voti", label: "Voti", icon: Vote, tabs: [] as const },
   { id: "giveaway", label: "Giveaway", icon: Gift, tabs: [] as const },
   { id: "sondaggi", label: "Sondaggi", icon: Vote, tabs: [] as const },
+  { id: "live", label: "Social Network", icon: Video, tabs: [] as const },
 ] as const satisfies readonly GuildNavItem[];
 
 /** Sezioni che non stanno nel menu laterale: si aprono dalla barra in alto. */
@@ -215,6 +232,7 @@ export function defaultModuleTab(section: GuildSectionId): string | null {
   if (section === "classifica") return "servers";
   if (section === "registro") return "all";
   if (section === "benvenuto") return "welcome";
+  if (section === "live") return "twitch";
   return null;
 }
 

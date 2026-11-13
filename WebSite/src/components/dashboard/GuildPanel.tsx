@@ -82,6 +82,7 @@ import {
   Wrench as IcUtility,
   type LucideIcon,
 } from "lucide-react";
+import { InstagramIcon, KickIcon, TikTokIcon, TwitchIcon, YoutubeIcon } from "./guild/LivePlatformIcons";
 import { SmartLink } from "@/components/SmartLink";
 import { confirmDialog } from "@/components/ui";
 import { Select } from "@/components/ui/Select";
@@ -131,6 +132,7 @@ import {
   MODERATION_MODULE_TABS,
   PARTNERSHIP_MODULE_TABS,
   ANNUNCI_MODULE_TABS,
+  LIVE_MODULE_TABS,
   defaultModuleTab,
   findGuildSection,
   isClassificaSectionTab,
@@ -142,6 +144,7 @@ import {
   isRegistroModuleTab,
   REGISTRO_MODULE_TABS,
   isAnnunciModuleTab,
+  isLiveModuleTab,
   isTicketModuleTab,
   sectionTabs,
 } from "./guildSections";
@@ -239,6 +242,11 @@ const PollsPanel = dynamic(() => import("./guild/community/PollsPanel").then((m)
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
 
+const LiveVideoPanel = dynamic(() => import("./guild/community/LiveVideoPanel").then((m) => m.LiveVideoPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
 const HealthPanel = dynamic(() => import("./guild/HealthPanel").then((m) => m.HealthPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
@@ -296,6 +304,7 @@ const SECTION_LEAD: Record<Section, string> = {
   voti: "Voti su Top.gg e Discadia: webhook, ringraziamenti, ruolo e (sul principale) promemoria in DM.",
   giveaway: "Crea giveaway, guarda chi partecipa ed estrai i vincitori.",
   sondaggi: "Sondaggi di Discord pubblicati dalla dashboard, con i risultati.",
+  live: "Avvisi per live, video e post su Twitch, YouTube, Kick, TikTok e Instagram: canali, messaggio e ping.",
 };
 
 /* testata di ogni pagina: spiegazione breve e colore (Bump e Voti hanno la loro, Impostazioni la scheda del server) */
@@ -317,6 +326,7 @@ const SECTION_HERO: Partial<Record<string, { text: string; accent: string }>> = 
   contatori: { text: "Canali che mostrano numeri sempre aggiornati: membri, boost, online.", accent: "#e8b04b" },
   giveaway: { text: "Estrazioni a premi con requisiti, durata e vincitori scelti dal bot.", accent: "#f08fb0" },
   sondaggi: { text: "Domande al server con voto a pulsanti e risultati in diretta.", accent: "#6f9ce8" },
+  live: { text: "Notifiche social multi-piattaforma: live, video e post con messaggio, canale e ping.", accent: "#9146ff" },
   classifica: { text: "Chi porta più server, più partner e più persone.", accent: "#e8b04b" },
 };
 
@@ -384,6 +394,11 @@ const SIDE_TAB_ICONS: Record<string, LucideIcon> = {
   comandi: IcCommands,
   community: IcCommunity,
   premium: IcPremium,
+  twitch: TwitchIcon,
+  youtube: YoutubeIcon,
+  kick: KickIcon,
+  tiktok: TikTokIcon,
+  instagram: InstagramIcon,
 };
 const sideTabIcon = (t: { id: string; label: string }) =>
   SIDE_TAB_ICONS[String(t.id || "").toLowerCase()] || SIDE_TAB_ICONS[String(t.label || "").toLowerCase().replace(/\s+/g, "")] || IcGeneric;
@@ -530,6 +545,7 @@ function sanitizeModuleTab(section: Section, raw: string | null | undefined): st
   if (section === "classifica") return isClassificaSectionTab(v) ? v : "servers";
   if (section === "registro") return isRegistroModuleTab(v) ? v : "all";
   if (section === "benvenuto") return isAnnunciModuleTab(v) ? v : "welcome";
+  if (section === "live") return isLiveModuleTab(v) ? v : "twitch";
   return fallback;
 }
 
@@ -2290,13 +2306,25 @@ export function GuildPanel() {
     if (!guildId || !token) return;
     setModuleBusy(true);
     setModuleStates((cur) => ({ ...cur, [id]: { on: next, locked: cur[id]?.locked === true } }));
+    /* sidebar subito: non aspettare modulesStatus */
+    setModulesOff((cur) => {
+      const sid = id as GuildSectionId;
+      if (next) return cur.filter((x) => x !== sid);
+      return cur.includes(sid) ? cur : [...cur, sid];
+    });
     const r = await communityApi.setModule(token, guildId, id, next);
     setModuleBusy(false);
     if (!r.ok) {
       setModuleStates((cur) => ({ ...cur, [id]: { on: !next, locked: cur[id]?.locked === true } }));
+      setModulesOff((cur) => {
+        const sid = id as GuildSectionId;
+        if (!next) return cur.filter((x) => x !== sid);
+        return cur.includes(sid) ? cur : [...cur, sid];
+      });
       return showToast(r.message, true);
     }
     setModuleStates(Object.fromEntries(r.data.modules.map((m) => [m.id, { on: m.on, locked: m.locked }])));
+    setModulesOff(r.data.modules.filter((m) => !m.on && !m.locked).map((m) => m.id as GuildSectionId));
     /* bacheca: lo stesso interruttore delle sue impostazioni */
     if (id === "bacheca") setSettings((cur) => (cur ? { ...cur, boards: { ...cur.boards, enabled: next } } : cur));
     showToast(next ? "Modulo acceso." : "Modulo spento: comandi e azioni automatiche fermi.");
@@ -2306,8 +2334,16 @@ export function GuildPanel() {
   const moduleState = moduleStates[section];
   const showModuleBar = Boolean(moduleState && !moduleState.locked);
   const moduleOff = showModuleBar && moduleState?.on === false;
-  /* "Disattivati" = solo i moduli spenti dalla pagina Moduli (lo dice il bot) */
-  const navOff: GuildSectionId[] = modulesOff;
+  /* "Disattivati": modulesStatus + stato locale (così non resta “attivo” se lo status arriva in ritardo) */
+  const navOff: GuildSectionId[] = useMemo(() => {
+    const set = new Set<string>(modulesOff);
+    for (const [id, st] of Object.entries(moduleStates)) {
+      if (st.locked) continue;
+      if (st.on === false) set.add(id);
+      else if (st.on === true) set.delete(id);
+    }
+    return [...set] as GuildSectionId[];
+  }, [modulesOff, moduleStates]);
 
   const sectionMeta = findGuildSection(section);
   const commandTabsForNav = useMemo(() => {
@@ -2334,7 +2370,9 @@ export function GuildPanel() {
           ? PARTNERSHIP_MODULE_TABS
           : section === "benvenuto"
             ? ANNUNCI_MODULE_TABS
-            : null;
+            : section === "live"
+              ? LIVE_MODULE_TABS
+              : null;
   const switchActive = moduleTab || defaultModuleTab(section) || "";
   const withSwitchTabs = (node: React.ReactNode) =>
     switchTabs ? (
@@ -2680,7 +2718,11 @@ export function GuildPanel() {
                           hideIds={overview.isMainGuild ? undefined : ["moderation", "bacheca"]}
                           onToast={showToast}
                           onOpen={(s) => void setSection(s)}
-                          onChanged={() => setModulesRev((n) => n + 1)}
+                          onChanged={(mods) => {
+                            setModuleStates(Object.fromEntries(mods.map((m) => [m.id, { on: m.on, locked: m.locked }])));
+                            setModulesOff(mods.filter((m) => !m.on && !m.locked).map((m) => m.id as GuildSectionId));
+                            setModulesRev((n) => n + 1);
+                          }}
                         />
                       </Panel>
                     ) : null}
@@ -2771,6 +2813,20 @@ export function GuildPanel() {
                       <Panel>
                         <PollsPanel guildId={guildId} token={token} onToast={showToast} />
                       </Panel>
+                    ) : null}
+
+                    {section === "live" && guildId && token ? (
+                      withSwitchTabs(
+                        <Panel>
+                          <LiveVideoPanel
+                            key={moduleTab}
+                            guildId={guildId}
+                            token={token}
+                            onToast={showToast}
+                            tab={moduleTab && isLiveModuleTab(moduleTab) ? moduleTab : "twitch"}
+                          />
+                        </Panel>,
+                      )
                     ) : null}
 
                     {section === "salute" && guildId && token ? (

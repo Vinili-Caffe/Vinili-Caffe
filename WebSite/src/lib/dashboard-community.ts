@@ -399,6 +399,43 @@ export type Poll = {
   deleted?: boolean;
 };
 
+export type LivePlatform = "twitch" | "youtube" | "kick" | "tiktok" | "instagram";
+
+export type LiveAccount = {
+  id: string;
+  displayName: string;
+  discordUserId: string | null;
+  streamVoiceChannelId: string | null;
+  voiceNameOn: string | null;
+  voiceNameOff: string | null;
+  voiceStatusOn: string | null;
+  deleteAnnouncementOnOffline: boolean;
+};
+
+export type LivePlatformConfig = {
+  enabled: boolean;
+  channelId: string | null;
+  pingRoleId: string | null;
+  /** legacy: preferisci draft */
+  messageTemplate?: string;
+  /** messaggio per le dirette */
+  draft: MsgDraft;
+  /** messaggio per nuovi post/video (YouTube / TikTok / Instagram); se manca usa draft */
+  postsDraft?: MsgDraft;
+  pollIntervalSec: number;
+  reannounceCooldownSec: number;
+  streamVoiceChannelId: string | null;
+  notifyLive?: boolean;
+  notifyPosts?: boolean;
+  accounts: LiveAccount[];
+};
+
+export type LiveAlertsConfig = {
+  seedVersion?: number;
+  userSaved?: boolean;
+  platforms: Record<LivePlatform, LivePlatformConfig>;
+};
+
 export const communityApi = {
   saveAutoResponder: (t: string, g: string, a: Partial<AutoResponder>) => call<{ autoResponder: AutoResponder }>(t, g, "/auto-responders", "PUT", a),
   deleteAutoResponder: (t: string, g: string, id: string) => call(t, g, `/auto-responders/${encodeURIComponent(id)}`, "DELETE"),
@@ -428,6 +465,13 @@ export const communityApi = {
   updateCounter: (t: string, g: string, id: string, c: Partial<Counter>) => call<{ counter: Counter }>(t, g, `/counters/${encodeURIComponent(id)}`, "PATCH", c),
   deleteCounter: (t: string, g: string, id: string) => call(t, g, `/counters/${encodeURIComponent(id)}`, "DELETE"),
   saveServerLogs: (t: string, g: string, l: ServerLogs) => call<{ serverLogs: ServerLogs }>(t, g, "/server-logs", "PATCH", l),
+  getLive: (t: string, g: string) =>
+    call<{ isMainGuild?: boolean; imported?: boolean; config: LiveAlertsConfig; maxAccounts?: number; placeholders?: string[] }>(
+      t,
+      g,
+      `/live?_=${Date.now()}`,
+    ),
+  saveLive: (t: string, g: string, config: LiveAlertsConfig) => call<{ config: LiveAlertsConfig }>(t, g, "/live", "PATCH", { config }),
   listGiveaways: (t: string, g: string) => call<{ giveaways: Giveaway[] }>(t, g, `/giveaways?_=${Date.now()}`),
   createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number; hostId?: string }) =>
     call<{ giveaway: Giveaway }>(t, g, "/giveaways", "POST", body),

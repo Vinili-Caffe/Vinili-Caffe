@@ -160,24 +160,32 @@ function NavItem({
   label: string;
   badge?: number;
 }) {
+  /* spento: mai la pillola arancione “attivo”; se sei sulla pagina, solo un alone tenue */
+  const lit = active && !off && !lockedReason;
+  const hereOff = active && (off || Boolean(lockedReason));
   const cls = cn(
     "group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
-    active ? "bg-caramel/12 text-crema" : "text-crema/55 hover:bg-crema/[0.04] hover:text-crema",
+    lit ? "bg-caramel/12 text-crema" : hereOff ? "bg-crema/[0.04] text-crema/55" : "text-crema/55 hover:bg-crema/[0.04] hover:text-crema",
   );
   const inner = (
     <>
-      {active && animated ? (
+      {lit && animated ? (
         <motion.span
           layoutId="dash-nav-pill"
           className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-to-b from-ember to-caramel"
           transition={{ type: "spring", stiffness: 500, damping: 40 }}
           aria-hidden
         />
-      ) : active ? (
+      ) : lit ? (
         <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-to-b from-ember to-caramel" aria-hidden />
       ) : null}
-      <Icon className={cn("size-[1.05rem] shrink-0", active ? "text-ember" : off ? "text-crema/35 group-hover:text-crema/60" : "text-crema/60 group-hover:text-crema/70")} />
-      <span className={cn("min-w-0 flex-1 truncate text-left", off && !active && "text-crema/45")}>{label}</span>
+      <Icon
+        className={cn(
+          "size-[1.05rem] shrink-0",
+          lit ? "text-ember" : off || lockedReason ? "text-crema/35 group-hover:text-crema/60" : "text-crema/60 group-hover:text-crema/70",
+        )}
+      />
+      <span className={cn("min-w-0 flex-1 truncate text-left", (off || lockedReason) && "text-crema/45")}>{label}</span>
       {lockedReason ? (
         <span className="inline-flex items-center gap-1 rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">
           <Lock className="size-2.5" aria-hidden /> bloccato
@@ -199,13 +207,13 @@ function NavItem({
   }
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={cls}>
+      <button type="button" onClick={onClick} aria-current={lit ? "page" : undefined} className={cls}>
         {inner}
       </button>
     );
   }
   return (
-    <SmartLink href={page(href || "/dashboard/")} aria-current={active ? "page" : undefined} className={cls}>
+    <SmartLink href={page(href || "/dashboard/")} aria-current={lit ? "page" : undefined} className={cls}>
       {inner}
     </SmartLink>
   );
@@ -288,30 +296,44 @@ function ModuleNavItem({
     );
   }
 
+  const lit = active && !off && !lockedReason;
+  const hereOff = active && (off || Boolean(lockedReason));
   return (
     <div>
       <button
         type="button"
         aria-expanded={open}
-        aria-current={active ? "page" : undefined}
+        aria-current={lit ? "page" : undefined}
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
-          active ? "bg-caramel/12 text-crema" : "text-crema/55 hover:bg-crema/[0.04] hover:text-crema",
+          lit ? "bg-caramel/12 text-crema" : hereOff ? "bg-crema/[0.04] text-crema/55" : "text-crema/55 hover:bg-crema/[0.04] hover:text-crema",
         )}
       >
-        {active && animated ? (
+        {lit && animated ? (
           <motion.span
             layoutId="dash-nav-pill"
             className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-to-b from-ember to-caramel"
             transition={{ type: "spring", stiffness: 500, damping: 40 }}
             aria-hidden
           />
-        ) : active ? (
+        ) : lit ? (
           <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-to-b from-ember to-caramel" aria-hidden />
         ) : null}
-        <Icon className={cn("size-[1.05rem] shrink-0", active ? "text-ember" : "text-crema/60 group-hover:text-crema/70")} />
-        <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+        <Icon
+          className={cn(
+            "size-[1.05rem] shrink-0",
+            lit ? "text-ember" : off || lockedReason ? "text-crema/35 group-hover:text-crema/60" : "text-crema/60 group-hover:text-crema/70",
+          )}
+        />
+        <span className={cn("min-w-0 flex-1 truncate text-left", (off || lockedReason) && "text-crema/45")}>{item.label}</span>
+        {lockedReason ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">
+            <Lock className="size-2.5" aria-hidden /> bloccato
+          </span>
+        ) : off ? (
+          <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">disattivo</span>
+        ) : null}
         {badge ? (
           <span className="rounded-md bg-caramel px-1.5 py-px text-[0.65rem] font-bold tabular-nums text-ink">{badge > 99 ? "99+" : badge}</span>
         ) : null}
@@ -332,7 +354,7 @@ function ModuleNavItem({
           >
             <div className="mb-1 ml-3 mt-0.5 space-y-0.5 border-l border-sand/12 py-0.5 pl-2">
               {tabs.map((tab) => {
-                const on = active && moduleTab === tab.id;
+                const on = lit && moduleTab === tab.id;
                 if (!onSelect && guildId) {
                   return (
                     <SmartLink

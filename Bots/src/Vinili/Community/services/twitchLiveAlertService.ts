@@ -83,23 +83,28 @@ const TWITCH_POLL_FAIL_LOG_COOLDOWN_MS = 10 * 60 * 1000;
 let lastTwitchPollFailLogAt = 0;
 let lastTwitchPollFailMsg = "";
 
-function resolveConfig(client?) {
-  const raw = client?.config?.twitchLiveAlerts && typeof client.config.twitchLiveAlerts === "object"
-    ? client.config.twitchLiveAlerts
-    : {};
-  const pollIntervalSec = Math.max(60, Math.min(600, Math.floor(Number(raw.pollIntervalSec) || DEFAULT_POLL_INTERVAL_SEC)));
+/** Cache sync del blob MultiGuild (riempita da resolveConfigAsync / loop unificato). */
+let multiGuildTwitchOverride: any = null;
+
+function setMultiGuildTwitchOverride(cfg?) {
+  multiGuildTwitchOverride = cfg && typeof cfg === "object" ? cfg : null;
+}
+
+function resolveConfigFromRaw(raw?) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const pollIntervalSec = Math.max(60, Math.min(600, Math.floor(Number(r.pollIntervalSec) || DEFAULT_POLL_INTERVAL_SEC)));
   const reannounceCooldownSec = Math.max(
     300,
-    Math.min(6 * 3600, Math.floor(Number(raw.reannounceCooldownSec) || DEFAULT_REANNOUNCE_COOLDOWN_SEC)),
+    Math.min(6 * 3600, Math.floor(Number(r.reannounceCooldownSec) || DEFAULT_REANNOUNCE_COOLDOWN_SEC)),
   );
-  const channelId = String(raw.channelId || IDs.channels?.news || "").trim();
-  const pingRoleId = String(raw.pingRoleId || IDs.roles?.Live || "").trim();
-  const streamers = (Array.isArray(raw.streamers) ? raw.streamers : [])
+  const channelId = String(r.channelId || IDs.channels?.news || "").trim();
+  const pingRoleId = String(r.pingRoleId || IDs.roles?.Live || "").trim();
+  const streamers = (Array.isArray(r.streamers) ? r.streamers : [])
     .map((entry?) => {
       const login = normalizeLogin(entry?.login);
       if (!login || login === "replace_me") return null;
       const streamVoiceChannelId = String(
-        entry?.streamVoiceChannelId || raw.streamVoiceChannelId || "",
+        entry?.streamVoiceChannelId || r.streamVoiceChannelId || "",
       ).trim() || null;
       const voiceStatusOn = String(entry?.voiceStatusOn || "").trim()
         || `Sono in live su https://www.twitch.tv/${login}`;
@@ -115,18 +120,57 @@ function resolveConfig(client?) {
       };
     })
     .filter(Boolean);
-  const clientId = String(process.env.TWITCH_CLIENT_ID || raw.clientId || "").trim();
-  const clientSecret = String(process.env.TWITCH_CLIENT_SECRET || raw.clientSecret || "").trim();
+  const clientId = String(process.env.TWITCH_CLIENT_ID || r.clientId || "").trim();
+  const clientSecret = String(process.env.TWITCH_CLIENT_SECRET || r.clientSecret || "").trim();
   return {
-    enabled: raw.enabled !== false,
+    enabled: r.enabled !== false,
     pollIntervalSec,
     reannounceCooldownSec,
     channelId,
     pingRoleId,
+    streamVoiceChannelId: String(r.streamVoiceChannelId || "").trim() || null,
     streamers,
     clientId,
     clientSecret,
   };
+}
+
+function resolveConfig(client?) {
+  if (multiGuildTwitchOverride) {
+    const fromMg = resolveConfigFromRaw(multiGuildTwitchOverride);
+    if (fromMg.streamers.length) return fromMg;
+  }
+  const raw = client?.config?.twitchLiveAlerts && typeof client.config.twitchLiveAlerts === "object"
+    ? client.config.twitchLiveAlerts
+    : {};
+  return resolveConfigFromRaw(raw);
+}
+
+async function refreshMultiGuildTwitchOverride(client?) {
+  try {
+    const Live = require("../../../MultiGuild/services/liveAlertsRuntime") as typeof import("../../../MultiGuild/services/liveAlertsRuntime");
+    const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+    const mainId = String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
+    if (!mainId) return;
+    await Live.ensureMainSeed(client, mainId).catch(() => false);
+    const cfg = await Live.getConfig(mainId, true);
+    setMultiGuildTwitchOverride(Live.twitchCompatFromConfig(cfg, client));
+    /* stage guard continua a leggere client.config — allinea in memoria */
+    if (client?.config && cfg?.platforms?.twitch) {
+      const compat = Live.twitchCompatFromConfig(cfg, client);
+      client.config.twitchLiveAlerts = {
+        ...(client.config.twitchLiveAlerts || {}),
+        enabled: compat.enabled,
+        pollIntervalSec: compat.pollIntervalSec,
+        reannounceCooldownSec: compat.reannounceCooldownSec,
+        channelId: compat.channelId,
+        pingRoleId: compat.pingRoleId,
+        streamVoiceChannelId: compat.streamVoiceChannelId,
+        streamers: compat.streamers,
+      };
+    }
+    void T;
+  } catch (_) {}
 }
 
 function isConfigured(cfg?) {
@@ -613,44 +657,38 @@ async function runTwitchLiveAlertPoll(client?) {
 }
 
 function startTwitchLiveAlertLoop(client?) {
+  /* Unificato in liveAlertsRuntime (Twitch + YT + Kick + TikTok). Qui solo seed + override. */
   const dedicated = String(process.env.COMMUNITY_POLL_WORKER || "").trim() === "1";
   const external = String(process.env.COMMUNITY_POLL_EXTERNAL || "").trim() === "1";
   if (external && !dedicated) return;
   if (!client || loopStarted.has(client)) return;
-  const cfg = resolveConfig(client);
-  if (!cfg.enabled) return;
-  if (!cfg.streamers.length) {
-    global.logger?.warn?.("[TWITCH LIVE] enabled but no streamers configured in twitchLiveAlerts.streamers");
-    return;
-  }
-  if (!cfg.clientId || !cfg.clientSecret) {
-    global.logger?.warn?.("[TWITCH LIVE] missing TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET");
-    return;
-  }
-  if (!cfg.channelId || !cfg.pingRoleId) {
-    global.logger?.warn?.("[TWITCH LIVE] missing news channel or Live ping role id");
-    return;
-  }
-
   loopStarted.add(client);
-  const intervalMs = cfg.pollIntervalSec * 1000;
-  const tick = () => runTwitchLiveAlertPoll(client).catch(() => {});
-  tick();
-  const timer = setInterval(tick, intervalMs);
-  timer.unref?.();
-  client._twitchLiveAlertInterval = timer;
-  if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
-    global.logger?.info?.(
-      `[TWITCH LIVE] loop started (${cfg.pollIntervalSec}s) for: ${cfg.streamers.map((s?) => s.login).join(", ")}`,
-    );
-  }
+  void refreshMultiGuildTwitchOverride(client).then(() => {
+    try {
+      const { startLiveAlertsLoop } = require("../../../MultiGuild/services/liveAlertsRuntime") as typeof import("../../../MultiGuild/services/liveAlertsRuntime");
+      startLiveAlertsLoop(client);
+    } catch (err) {
+      global.logger?.warn?.("[TWITCH LIVE] liveAlertsRuntime missing, legacy poll:", err?.message || err);
+      const cfg = resolveConfig(client);
+      if (!cfg.enabled || !cfg.streamers.length || !cfg.clientId || !cfg.clientSecret) return;
+      const intervalMs = cfg.pollIntervalSec * 1000;
+      const tick = () => runTwitchLiveAlertPoll(client).catch(() => {});
+      tick();
+      const timer = setInterval(tick, intervalMs);
+      timer.unref?.();
+      client._twitchLiveAlertInterval = timer;
+    }
+  });
 }
 
 export = {
   startTwitchLiveAlertLoop,
   resolveConfig,
+  refreshMultiGuildTwitchOverride,
+  setMultiGuildTwitchOverride,
   normalizeLogin,
   getAppAccessToken,
   fetchLiveStreams,
   buildStreamThumbnailUrl,
+  updateStreamVoiceChannel,
 };

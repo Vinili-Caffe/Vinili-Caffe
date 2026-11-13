@@ -424,6 +424,49 @@ async function patchServerLogs(client?, token?, guildId?, body?) {
   return { ok: true, status: 200, serverLogs: next };
 }
 
+/* ───────────── Live & Video ───────────── */
+
+const LIVE = () => require("../../services/liveAlertsRuntime") as typeof import("../../services/liveAlertsRuntime");
+
+async function getLive(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const imported = await LIVE().ensureMainSeed(client, a.guildId).catch(() => false);
+  const config = await LIVE().getConfig(a.guildId, true);
+  return {
+    ok: true,
+    status: 200,
+    isMainGuild: T.isMainGuild(a.guildId),
+    imported,
+    config,
+    maxAccounts: LIVE().ACCOUNTS_MAX,
+    placeholders: ["{mention}", "{name}", "{title}", "{game}", "{viewers}", "{url}", "{ping}", "{platform}", "{thumb}", "{type}", "{kind}"],
+  };
+}
+
+async function patchLive(client?, token?, guildId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const raw = body?.config || body;
+  const prev = await LIVE().getConfig(a.guildId, true);
+  const draft = LIVE().normalizeConfig(raw, prev);
+  for (const p of LIVE().PLATFORMS) {
+    const plat = draft.platforms[p];
+    if (!plat?.enabled) continue;
+    if (!plat.channelId) return fail(400, "incomplete", `${p}: scegli il canale Discord, oppure spegni la piattaforma.`);
+    if (!plat.accounts.length) return fail(400, "incomplete", `${p}: aggiungi almeno un account, oppure spegni la piattaforma.`);
+  }
+  const config = await LIVE().saveConfig(a.guildId, draft);
+  if (T.isMainGuild(a.guildId)) {
+    try {
+      const Twitch = require("../../../Vinili/Community/services/twitchLiveAlertService") as typeof import("../../../Vinili/Community/services/twitchLiveAlertService");
+      Twitch.setMultiGuildTwitchOverride?.(LIVE().twitchCompatFromConfig(config, client));
+      await Twitch.refreshMultiGuildTwitchOverride?.(client);
+    } catch (_) {}
+  }
+  return { ok: true, status: 200, config };
+}
+
 /* ───────────── giveaway ───────────── */
 
 const G = () => require("../../../Vinili/Giveaway/services/giveawayService") as typeof import("../../../Vinili/Giveaway/services/giveawayService");
@@ -678,7 +721,7 @@ async function setModuleSwitch(client?, token?, guildId?, body?) {
 }
 
 /* moduli del menu laterale: "Disattivati" = solo quelli spenti dalla pagina Moduli */
-const SIDEBAR_MODULES = ["bacheca", "tickets", "moderation", "partnership", "messaggi", "comandipers", "ruoli", "benvenuto", "risposte", "contatori", "bump", "voti", "giveaway", "sondaggi"];
+const SIDEBAR_MODULES = ["bacheca", "tickets", "moderation", "partnership", "messaggi", "comandipers", "ruoli", "benvenuto", "risposte", "contatori", "bump", "voti", "giveaway", "sondaggi", "live"];
 
 async function modulesStatus(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
@@ -711,6 +754,8 @@ export = {
   startCountersLoop,
   COUNTER_LABEL,
   patchServerLogs,
+  getLive,
+  patchLive,
   listGiveaways,
   createGiveaway,
   editGiveaway,

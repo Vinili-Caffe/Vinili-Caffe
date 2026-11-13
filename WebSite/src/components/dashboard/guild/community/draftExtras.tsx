@@ -192,12 +192,14 @@ export function V2Editor({
   return (
     <div className="space-y-3">
       <div className="rounded-2xl bg-espresso/40 p-3 ring-1 ring-sand/10">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-crema">Contenitore</p>
-            <p className="text-xs text-crema/55">Racchiude i blocchi in un riquadro, con una striscia colorata a sinistra se vuoi.</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-5 text-crema">Contenitore</p>
+            <p className="mt-0.5 text-xs text-crema/55">Racchiude i blocchi in un riquadro, con una striscia colorata a sinistra se vuoi.</p>
           </div>
-          <Toggle size="sm" checked={value.container} onChange={(container) => onChange({ ...value, container })} label="Usa il contenitore" />
+          <div className="flex min-h-5 shrink-0 items-center">
+            <Toggle size="sm" checked={value.container} onChange={(container) => onChange({ ...value, container })} label="Usa il contenitore" />
+          </div>
         </div>
         {value.container ? (
           <div className="mt-3 flex flex-wrap items-center gap-3">
