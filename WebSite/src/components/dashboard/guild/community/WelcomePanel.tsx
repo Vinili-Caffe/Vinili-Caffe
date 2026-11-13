@@ -1,11 +1,10 @@
 "use client";
 
-import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { useEffect, useState } from "react";
 import { Send, UserPlus } from "lucide-react";
 import { MultiSelect } from "@/components/ui/Select";
 import { communityApi, emptyDraft, type WelcomeSettings } from "@/lib/dashboard-community";
-import { Field, Notice, RowsSkeleton, Toggle, fieldClass, miniBtn, primaryMini } from "../bits";
+import { Field, Notice, RowsSkeleton, Toggle, TrackUnsaved, fieldClass, miniBtn, primaryMini } from "../bits";
 import { ChannelField, DiscordMessagePreview, DmExtra, DraftEditor, EditorWithPreview, MEMBER_PLACEHOLDERS, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 /* "dm" e "roles" sono vecchi link: ora stanno dentro Benvenuto */
@@ -30,7 +29,6 @@ export function WelcomePanel({
   const [saved, setSaved] = useState<string>("");
   const [busy, setBusy] = useState<string | null>(null);
   const vars = useSampleVars(data);
-  useUnsavedChanges(Boolean(cfg && saved && JSON.stringify(cfg) !== saved));
 
   useEffect(() => {
     if (!data) return;
@@ -63,12 +61,19 @@ export function WelcomePanel({
     onToast(kind === "dm" || kind === "goodbyeDm" ? "Ti ho mandato la prova in privato." : "Prova inviata nel canale, con te come nuovo membro.");
   };
 
+  const reset = () => {
+    try {
+      setCfg(JSON.parse(saved));
+    } catch {}
+  };
+
   const k = tab;
   const p = cfg[k];
   const set = (patch: Partial<WelcomeSettings["welcome"]>) => setCfg({ ...cfg, [k]: { ...p, ...patch } });
 
   return (
     <div className="space-y-4">
+      <TrackUnsaved dirty={dirty} onSave={save} onReset={reset} />
       {data.isMainGuild && !data.welcomeSaved ? (
         <Notice>
           Questi sono il benvenuto e il messaggio privato che il bot usa adesso in questo server. Quando salvi, li gestisci da qui: il bot userà i testi della dashboard al posto di quelli vecchi. Invite tracker e controlli d&apos;ingresso restano uguali.

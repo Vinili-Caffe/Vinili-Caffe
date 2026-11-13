@@ -1,6 +1,5 @@
 "use client";
 
-import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BellRing, Check, Copy, Gift, Heart, MessageSquareHeart, RefreshCw, Rocket, Sparkles, Star, Timer, Zap } from "lucide-react";
@@ -8,7 +7,7 @@ import { NumberField } from "@/components/ui/NumberField";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { communityApi, type BumpExp, type BumpExpKey, type BumpService, type BumpVotesConfig, type VoteService } from "@/lib/dashboard-community";
-import { Field, Notice, PageHero as Hero, PageSection as Section, Pills, RowsSkeleton, SaveBar, Toggle } from "../bits";
+import { Field, Notice, PageHero as Hero, PageSection as Section, Pills, RowsSkeleton, Toggle, TrackUnsaved } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 /* ───────────── costanti ───────────── */
@@ -241,8 +240,7 @@ function ExpCards({ keys, cfg, setExp }: { keys: BumpExpKey[]; cfg: BumpVotesCon
 
 export function BumpPanel({ guildId, token, onToast }: PanelProps) {
   const h = useBumpVotesConfig(guildId, token);
-  const { data, error, cfg, set, isMain, loadError, busy, setBusy, dirty, imported } = h;
-  useUnsavedChanges(dirty);
+  const { data, error, cfg, set, isMain, loadError, setBusy, dirty, imported } = h;
   const [kind, setKind] = useState<"thanks" | "reminder">("thanks");
   const [svc, setSvc] = useState<BumpService>("disboard");
   const baseVars = useSampleVars(data);
@@ -386,7 +384,7 @@ export function BumpPanel({ guildId, token, onToast }: PanelProps) {
         {isMain && cfg.exp ? <ExpCards keys={BUMP_EXP_KEYS} cfg={cfg} setExp={setExp} /> : null}
       </div>
 
-      <SaveBar show={dirty} busy={busy} onSave={() => void save()} onReset={h.reset} />
+      <TrackUnsaved dirty={dirty} onSave={save} onReset={h.reset} />
     </div>
   );
 }
@@ -396,7 +394,6 @@ export function BumpPanel({ guildId, token, onToast }: PanelProps) {
 export function VotesPanel({ guildId, token, onToast }: PanelProps) {
   const h = useBumpVotesConfig(guildId, token);
   const { data, error, cfg, set, urls, isMain, loadError, busy, setBusy, dirty, imported } = h;
-  useUnsavedChanges(dirty);
   const [kind, setKind] = useState<"thanks" | "dm">("thanks");
   const [svc, setSvc] = useState<VoteService>("topgg");
   const [copied, setCopied] = useState<string | null>(null);
@@ -597,7 +594,7 @@ export function VotesPanel({ guildId, token, onToast }: PanelProps) {
         {isMain && cfg.exp ? <ExpCards keys={VOTE_EXP_KEYS} cfg={cfg} setExp={setExp} /> : null}
       </div>
 
-      <SaveBar show={dirty} busy={busy} onSave={() => void save()} onReset={h.reset} />
+      <TrackUnsaved dirty={dirty} onSave={save} onReset={h.reset} />
     </div>
   );
 }

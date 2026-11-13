@@ -1,9 +1,10 @@
 "use client";
 
 import { forwardRef, useState, type TextareaHTMLAttributes } from "react";
+import { useUnsavedChanges, useUnsavedState } from "@/lib/unsaved-changes";
 import { EmojiText } from "@/components/discord/EmojiText";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, Diamond, Info, Maximize2, Minimize2, TriangleAlert } from "lucide-react";
+import { Check, Diamond, Info, Maximize2, Minimize2, RotateCcw, TriangleAlert } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
 import { Checkbox } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -232,6 +233,75 @@ export function Pills<K extends string>({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Segna le modifiche non salvate di un pannello e le collega alla barra in basso (GlobalSaveBar).
+ * Si mette nel JSX dopo aver definito salva/annulla: non disegna niente.
+ */
+export function TrackUnsaved({ dirty, onSave, onReset }: { dirty: boolean; onSave?: () => unknown; onReset?: () => void }) {
+  useUnsavedChanges(dirty, { onSave, onReset });
+  return null;
+}
+
+/** Barra unica in basso: compare quando una pagina ha modifiche da salvare (Salva / Annulla). */
+export function GlobalSaveBar() {
+  const st = useUnsavedState();
+  const [busy, setBusy] = useState(false);
+  const show = st.count > 0 && (st.canSave || st.canReset);
+  return (
+    <AnimatePresence>
+      {show ? (
+        <motion.div
+          initial={{ opacity: 0, y: 28, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 28, scale: 0.98 }}
+          transition={{ type: "spring", stiffness: 420, damping: 34 }}
+          className="pointer-events-none fixed inset-x-0 bottom-5 z-[75] flex justify-center px-4"
+          role="region"
+          aria-label="Modifiche non salvate"
+        >
+          <div className="pointer-events-auto flex w-full max-w-2xl items-center gap-3 rounded-2xl bg-mocha/95 px-4 py-3 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] ring-1 ring-caramel/30 backdrop-blur-md sm:px-5">
+            <span className="relative flex size-2.5 shrink-0" aria-hidden>
+              <span className="absolute inset-0 animate-ping rounded-full bg-ember/60" />
+              <span className="relative size-2.5 rounded-full bg-ember" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-crema">Hai modifiche non salvate</p>
+              <p className="hidden text-xs text-crema/55 sm:block">Salvale prima di cambiare pagina, o annullale per tornare a com&apos;era.</p>
+            </div>
+            {st.canReset ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => st.resetAll()}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-crema/70 transition hover:bg-crema/[0.06] hover:text-crema disabled:opacity-45"
+              >
+                <RotateCcw className="size-3.5" aria-hidden /> Annulla
+              </button>
+            ) : null}
+            {st.canSave ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await st.saveAll();
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink shadow-[0_10px_24px_-12px_rgba(217,154,91,0.9)] transition hover:brightness-105 disabled:opacity-60"
+              >
+                <Check className="size-4" aria-hidden /> {busy ? "Salvataggio…" : "Salva"}
+              </button>
+            ) : null}
+          </div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   );
 }
 

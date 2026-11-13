@@ -1,6 +1,5 @@
 "use client";
 
-import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { NumberField } from "@/components/ui/NumberField";
 import { cn } from "@/lib/cn";
 import { useEffect, useState } from "react";
@@ -26,6 +25,7 @@ import {
   type PartnershipMigration,
 } from "@/lib/dashboard-guild";
 import { confirmDialog } from "@/components/ui";
+import { Sparkles } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import { MessagePreview } from "./MessagePreview";
 import { PARTNERSHIP_PLACEHOLDERS, PARTNERSHIP_SAMPLES } from "./PlaceholderList";
@@ -64,7 +64,7 @@ function thankYouDraftOf(
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { pollInterval } from "@/lib/device-fx";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
-import { ExpandableTextarea, Field, FormGroup, Notice, PremiumBadge, PremiumLock, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, FormSkeleton } from "./bits";
+import { TrackUnsaved, ExpandableTextarea, Field, FormGroup, Notice, PremiumBadge, PremiumLock, SettingRow, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, FormSkeleton } from "./bits";
 import { PartnershipSetupWizard } from "./PartnershipSetupWizard";
 import { isPartnershipModuleTab, type PartnershipModuleTabId } from "../guildSections";
 
@@ -125,7 +125,6 @@ export function PartnershipPanel({
   /* segnaposto: si inseriscono nell'ultimo campo del ringraziamento dove hai scritto */
   const [bundle, setBundle] = useState<PartnershipBundle | null>(null);
   const [draft, setDraft] = useState<PartnershipConfig | null>(null);
-  useUnsavedChanges(Boolean(bundle && draft && JSON.stringify(draft) !== JSON.stringify(bundle.config)));
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -141,6 +140,8 @@ export function PartnershipPanel({
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [migration, setMigration] = useState<PartnershipMigration | null>(null);
+  /* simulatore dei ping: membri del server partner da provare */
+  const [simMembers, setSimMembers] = useState<number | null>(100);
   /* wizard aperto finché non chiudi “Fine” (anche se un salvataggio intermedio flipsasse setupCompleted) */
   const [wizardSession, setWizardSession] = useState(false);
   const [setupCelebrating, setSetupCelebrating] = useState(false);
@@ -279,6 +280,63 @@ export function PartnershipPanel({
     setDraft(next.config);
   };
 
+  /* corpo del salvataggio setup (null = dati non validi, già segnalato) */
+  const setupBody = (): Record<string, unknown> | null => {
+    const customRole = draft.pings.customRoleId;
+    const customMembers = draft.pings.customRoleMembers;
+    if ((customRole && customMembers == null) || (!customRole && customMembers != null)) {
+      onToast("Ruolo custom e soglia membri devono essere impostati insieme.", true);
+      return null;
+    }
+    const descMode = draft.partnerDesc.mode;
+    const partnerDesc =
+      !descMode || descMode === "clear" || descMode === "none"
+        ? { mode: "clear" }
+        : descMode === "channel"
+          ? { mode: "channel", channelId: draft.partnerDesc.channelId }
+          : { mode: "static", staticText: draft.partnerDesc.staticText };
+    return {
+      partnershipsChannelId: draft.partnershipsChannelId,
+      logsChannelId: draft.logsChannelId,
+      pmCommandsChannelId: draft.pmCommandsChannelId,
+      pmCommandsCategoryIds: draft.pmCommandsCategoryIds,
+      partnerManagerRoleId: draft.partnerManagerRoleId,
+      managerBadgeRoleId: draft.managerBadgeRoleId,
+      skipManager: draft.skipManager,
+      manualPartnershipEnabled: draft.manualPartnershipEnabled,
+      managerLeaveAction: draft.managerLeaveAction,
+      sameServerCooldownInput: draft.sameServerCooldownInput,
+      pings: { ...draft.pings },
+      partnerDesc,
+    };
+  };
+
+  /* barra in basso: salva insieme tutto quello che è cambiato (setup, filtri, ringraziamento) */
+  const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  /* setup = tutto tranne filtri e ringraziamento (hanno il loro salvataggio) */
+  const setupOf = (c: typeof draft) => ({ ...c, contentFilters: null, thankYouEmbed: null });
+  const setupDirty = !sameJson(setupOf(draft), setupOf(bundle.config));
+  const filtersDirty = !sameJson(draft.contentFilters, bundle.config.contentFilters);
+  const tyDirty = bundle.premiumActive && !sameJson(draft.thankYouEmbed, bundle.config.thankYouEmbed);
+  const anyDirty = setupDirty || filtersDirty || tyDirty;
+  const saveAllChanges = async () => {
+    const body: Record<string, unknown> = {};
+    if (setupDirty) {
+      const sb = setupBody();
+      if (!sb) return;
+      Object.assign(body, sb);
+    }
+    if (filtersDirty) body.contentFilters = draft.contentFilters;
+    if (tyDirty) body.thankYouEmbed = { ...draft.thankYouEmbed, draft: thankYouDraftOf(draft.thankYouEmbed, bundle.thankYouDefaults) };
+    if (!Object.keys(body).length) return;
+    setBusy(true);
+    const res = await patchPartnership(token, guildId, body);
+    setBusy(false);
+    if (!res.ok) return onToast(res.message, true);
+    applySaved(res.data);
+    onToast("Partnership salvata.");
+  };
+
   const saveSetup = async () => {
     const customRole = draft.pings.customRoleId;
     const customMembers = draft.pings.customRoleMembers;
@@ -343,6 +401,7 @@ export function PartnershipPanel({
 
   return (
     <div className="space-y-4">
+      <TrackUnsaved dirty={anyDirty && !showWizard} onSave={saveAllChanges} onReset={() => setDraft(bundle.config)} />
       {!showWizard && (bundle.premiumActive || draft.inviteUrl) ? (
         <div className="-mx-4 -mt-4 flex flex-wrap items-center gap-3 border-b border-sand/[0.08] px-4 py-3.5 sm:-mx-5 sm:px-5">
           {bundle.premiumActive ? <StatusBadge tone="accent">Premium</StatusBadge> : null}
@@ -602,6 +661,43 @@ export function PartnershipPanel({
               </table>
             </div>
             <p className="mt-2 text-xs text-crema/60">Vuoto = quella menzione non viene mai fatta. Ruolo e soglia del ruolo vanno impostati insieme.</p>
+            {(() => {
+              /* stessa regola del bot: ogni menzione parte se il partner ha almeno quei membri */
+              const n = simMembers ?? 0;
+              const hits: { key: string; label: string }[] = [];
+              if (draft.pings.hereMembers != null && n >= draft.pings.hereMembers) hits.push({ key: "here", label: "@here" });
+              if (draft.pings.everyoneMembers != null && n >= draft.pings.everyoneMembers) hits.push({ key: "everyone", label: "@everyone" });
+              if (draft.pings.customRoleId && draft.pings.customRoleMembers != null && n >= draft.pings.customRoleMembers) {
+                const r = roles.find((x) => x.id === draft.pings.customRoleId);
+                hits.push({ key: "role", label: `@${r?.name || "ruolo"}` });
+              }
+              return (
+                <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-r from-caramel/[0.08] via-espresso/50 to-espresso/40 p-4 ring-1 ring-caramel/20">
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-crema">
+                      <Sparkles className="size-4 text-ember" aria-hidden /> Prova le soglie
+                    </p>
+                    <p className="mt-0.5 text-xs text-crema/60">Scrivi quanti membri ha un server partner e vedi quale menzione farebbe il bot con le soglie qui sopra.</p>
+                  </div>
+                  <label className="flex items-center gap-2 rounded-xl bg-espresso/70 px-3 py-1.5 ring-1 ring-sand/15">
+                    <span className="text-xs text-crema/60">Membri</span>
+                    <NumberField size="sm" min={0} nullable value={simMembers} onChange={setSimMembers} aria-label="Membri del server partner" className="mt-0 w-24" />
+                  </label>
+                  <div className="flex flex-wrap items-center gap-1.5" aria-live="polite">
+                    {hits.length ? (
+                      hits.map((h) => (
+                        <span key={h.key} className="rounded-full bg-caramel/15 px-2.5 py-1 text-xs font-semibold text-ember ring-1 ring-caramel/30">
+                          {h.label}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="rounded-full bg-crema/[0.06] px-2.5 py-1 text-xs font-semibold text-crema/60 ring-1 ring-sand/15">Nessun ping</span>
+                    )}
+                  </div>
+                  <p className="basis-full text-[0.7rem] text-crema/45">Il ritardo tra un ping e l&apos;altro può saltarne uno se ne è partito uno da poco.</p>
+                </div>
+              );
+            })()}
           </FormGroup>
 
           <section className="rounded-2xl bg-espresso/45 p-4 ring-1 ring-sand/10 sm:p-5">

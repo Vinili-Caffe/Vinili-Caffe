@@ -1,6 +1,5 @@
 "use client";
 
-import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { useEffect, useMemo, useState } from "react";
 import { Lock } from "lucide-react";
 import { Select } from "@/components/ui/Select";
@@ -8,7 +7,7 @@ import { cn } from "@/lib/cn";
 import { defaultQuoteStyle, previewGuildQuoteStyle, type QuoteStyle } from "@/lib/dashboard-guild";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Range } from "@/components/ui/Range";
-import { Field, PremiumLock, Toggle, fieldClass } from "./bits";
+import { Field, PremiumLock, Toggle, TrackUnsaved, fieldClass } from "./bits";
 
 const BG_PRESETS: { value: string; label: string; swatch: string }[] = [
   { value: "black", label: "Nero", swatch: "#070707" },
@@ -122,7 +121,6 @@ export function QuoteStyleEditor({
 }) {
   const [draft, setDraft] = useState<QuoteStyle>(value);
   const [dirty, setDirty] = useState(false);
-  useUnsavedChanges(dirty);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
@@ -177,6 +175,17 @@ export function QuoteStyleEditor({
 
   return (
     <div className={cn("space-y-4", disabled && "opacity-50")}>
+      <TrackUnsaved
+        dirty={dirty}
+        onSave={async () => {
+          const ok = await onSave(draft);
+          if (ok) setDirty(false);
+        }}
+        onReset={() => {
+          setDraft(value);
+          setDirty(false);
+        }}
+      />
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-crema">Stile quote</p>

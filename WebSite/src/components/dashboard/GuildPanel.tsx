@@ -159,6 +159,7 @@ import {
   dashSecondaryBtn,
   discordBtn,
   PageHero,
+  GlobalSaveBar,
 } from "./guild/bits";
 
 const CommandAclEditor = dynamic(() => import("./guild/CommandAcl").then((m) => m.CommandAcl), {
@@ -2870,6 +2871,7 @@ export function GuildPanel() {
                     </div>
                   </motion.div>
                 </AnimatePresence>
+                <GlobalSaveBar />
               </>
             )}
           </motion.div>

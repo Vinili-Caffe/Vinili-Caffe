@@ -1,11 +1,10 @@
 "use client";
 
-import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { useEffect, useState } from "react";
 import { MultiSelect, Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { LOG_EVENT_GROUPS, communityApi, type ServerLogs } from "@/lib/dashboard-community";
-import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, fieldClass, primaryMini } from "../bits";
+import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, TrackUnsaved, fieldClass, primaryMini } from "../bits";
 import { ChannelField, useCommunity } from "./shared";
 
 const DEFAULT: ServerLogs = { enabled: false, channelId: null, channels: {}, events: {}, ignoredChannelIds: [], ignoreBots: true };
@@ -25,7 +24,6 @@ export function ServerLogsPanel({ guildId, token, onToast }: { guildId: string; 
     setSaved(JSON.stringify(v));
   }, [data]);
 
-  useUnsavedChanges(Boolean(cfg && saved && JSON.stringify(cfg) !== saved));
   if (error && !data) return <Notice error>{error}</Notice>;
   if (!data || !cfg) return <RowsSkeleton rows={6} />;
 
@@ -56,11 +54,18 @@ export function ServerLogsPanel({ guildId, token, onToast }: { guildId: string; 
     onToast("Log del server salvati.");
   };
 
+  const reset = () => {
+    try {
+      setCfg(JSON.parse(saved));
+    } catch {}
+  };
+
   const activeCount = LOG_EVENT_GROUPS.flatMap((g) => g.events).filter((e) => on(e.id)).length;
   const customCount = Object.keys(cfg.channels || {}).length;
 
   return (
     <div className="space-y-4">
+      <TrackUnsaved dirty={dirty} onSave={save} onReset={reset} />
       <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
         <Toggle checked={cfg.enabled} onChange={(enabled) => setCfg({ ...cfg, enabled })} label="Attiva i log del server" />
         <div className="min-w-0 flex-1">

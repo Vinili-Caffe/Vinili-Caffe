@@ -1,6 +1,5 @@
 "use client";
 
-import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { EmojiText } from "@/components/discord/EmojiText";
 import { NumberField } from "@/components/ui/NumberField";
 import { useEffect, useRef, useState } from "react";
@@ -37,7 +36,7 @@ import {
 import { cn } from "@/lib/cn";
 import { page } from "@/lib/site";
 import { Select } from "@/components/ui/Select";
-import { ExpandableTextarea, Field, Notice, Panel, SettingRow, StatTile, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, RowsSkeleton } from "./bits";
+import { TrackUnsaved, ExpandableTextarea, Field, Notice, Panel, SettingRow, StatTile, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini, RowsSkeleton } from "./bits";
 import { TicketArchive } from "./TicketArchive";
 import { TicketBlacklist } from "./TicketBlacklist";
 import { TicketForms } from "./TicketForms";
@@ -545,7 +544,6 @@ function QuickRepliesEditor({
 }) {
   const [draft, setDraft] = useState<TicketQuickReply[]>(replies);
   const [dirty, setDirty] = useState(false);
-  useUnsavedChanges(dirty);
 
   useEffect(() => {
     setDraft(replies);
@@ -590,6 +588,14 @@ function QuickRepliesEditor({
 
   return (
     <div className="space-y-4">
+      <TrackUnsaved
+        dirty={dirty}
+        onSave={persist}
+        onReset={() => {
+          setDraft(replies);
+          setDirty(false);
+        }}
+      />
       {!draft.length ? (
         <div className="rounded-xl bg-crema/[0.03] px-4 py-8 text-center ring-1 ring-sand/10">
           <p className="text-sm text-crema/65">Nessuna risposta ancora. Aggiungine una per usarla con /risposta.</p>

@@ -1,6 +1,5 @@
 "use client";
 
-import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Plus, Tags, Trash2 } from "lucide-react";
 import { MultiSelect, Select } from "@/components/ui/Select";
@@ -14,7 +13,7 @@ import {
   type NamedAnnounceSlot,
   type RoleAnnounceRule,
 } from "@/lib/dashboard-community";
-import { Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
+import { TrackUnsaved, Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
 import { ChannelField, DiscordMessagePreview, DmExtra, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 const BOOST_PLACEHOLDERS = [
@@ -100,7 +99,8 @@ export function AnnouncementsPanel({
   const [imported, setImported] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
-  useUnsavedChanges(dirty);
+  /* ultima versione salvata, per "Annulla" */
+  const [savedCfg, setSavedCfg] = useState<AnnouncementsConfig | null>(null);
   const [busy, setBusy] = useState(false);
   const [boostTab, setBoostTab] = useState<"first" | "repeat">("first");
   const [openRule, setOpenRule] = useState<string | null>(null);
@@ -118,6 +118,7 @@ export function AnnouncementsPanel({
       if (!r.ok) return setLoadError(r.message);
       const config = r.data.config;
       setCfg({ ...config, named: ensureNamed(config) });
+      setSavedCfg({ ...config, named: ensureNamed(config) });
       setMaxRules(r.data.maxRules || 20);
       setImported(r.data.imported === true);
     });
@@ -145,9 +146,15 @@ export function AnnouncementsPanel({
     setBusy(false);
     if (!r.ok) return onToast(r.message, true);
     setCfg({ ...r.data.config, named: ensureNamed(r.data.config) });
+    setSavedCfg({ ...r.data.config, named: ensureNamed(r.data.config) });
     setDirty(false);
     onToast("Annunci salvati.");
   };
+  const reset = () => {
+    if (savedCfg) setCfg(savedCfg);
+    setDirty(false);
+  };
+  const track = <TrackUnsaved dirty={dirty} onSave={save} onReset={reset} />;
 
   const saveBar = (
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -172,6 +179,7 @@ export function AnnouncementsPanel({
     const draft = boostTab === "first" ? b.firstDraft : b.repeatDraft;
     return (
       <div className="space-y-4">
+        {track}
         {imported ? <Notice>Ho importato l&apos;annuncio dei boost del server principale (primo boost e doppio boost). È spento: accendilo quando vuoi usarlo.</Notice> : null}
         {saveBar}
         <FormGroup title="Annuncio dei boost">
@@ -276,6 +284,7 @@ export function AnnouncementsPanel({
     const group = NAMED_GROUPS[tab];
     return (
       <div className="space-y-4">
+        {track}
         {imported ? (
           <Notice>
             Ho importato i testi del server principale. Sono spenti: i draft valgono già in chat; accendi lo switch se vuoi gestirli solo da qui (senza il messaggio classico del bot).
@@ -407,6 +416,7 @@ export function AnnouncementsPanel({
 
   return (
     <div className="space-y-4">
+      {track}
       {imported ? (
         <Notice>
           Ho importato gli annunci ruolo del server principale (Verified, Patron, Follower, Donator/VIP…). Clan tag, status e inviti stanno nelle tab dedicate. Sono spenti: i draft valgono già in chat.
