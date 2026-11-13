@@ -250,9 +250,9 @@ async function listBirthdaysForMonth(guildId?, month?) {
     "profile.birthday.day": { $gte: 1, $lte: 31 },
   })
     .select(
-      "userId profile.birthday.day profile.birthday.month profile.birthday.birthYear profile.birthday.showAge",
+      "userId profile.birthday.day profile.birthday.month profile.birthday.birthYear profile.birthday.showAge profile.birthday.announceScope",
     )
-    .limit(400)
+    .limit(1000)
     .lean()
     .catch(() => []);
   return (docs || [])
@@ -269,6 +269,7 @@ async function listBirthdaysForMonth(guildId?, month?) {
         month: monthNum,
         showAge,
         birthYear: showAge && Number.isFinite(birthYear) && birthYear >= 1900 ? birthYear : null,
+        announceScope: ["all", "main", "none"].includes(String(bday.announceScope)) ? String(bday.announceScope) : "all",
       };
     })
     .filter(Boolean);

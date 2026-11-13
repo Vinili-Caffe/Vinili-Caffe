@@ -56,11 +56,50 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
     const responsePeriod = board === "weekly" ? "weekly" : periodRaw;
     const searchId = parseSearchUserId(q.userId ?? q.user_id ?? q.id ?? q.searchUserId ?? q.uid);
 
+    /* i server dove sei tu e c'è il bot (per scegliere quale calendario vedere) */
+    if (String(q.myGuilds || "") === "1") {
+      const token = String(req?.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim();
+      if (!token) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi per vedere i tuoi server." });
+      const D = require("../../../MultiGuild/site/dashboard/siteDashboardApi") as any;
+      const mine: any = await D.fetchUserGuilds(token).catch(() => null);
+      if (!mine?.ok) return res.status(Number(mine?.status) || 503).json({ ok: false, error: mine?.error || "guilds_failed", message: mine?.message || "Non riesco a leggere i tuoi server." });
+      const botIds: Set<string> = D.buildKnownBotGuildIdSet(client);
+      const guilds = (mine.guilds as any[])
+        .filter((g) => botIds.has(String(g.id)))
+        .map((g) => ({
+          id: String(g.id),
+          name: String(g.name || ""),
+          iconUrl: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=64` : null,
+          isMain: String(g.id) === guildId,
+        }))
+        .sort((a, b) => Number(b.isMain) - Number(a.isMain) || a.name.localeCompare(b.name, "it"));
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.json({ ok: true, guilds });
+    }
+
     if (board === "birthdays") {
       const romeToday = getRomeDateParts();
       const month = parseCalendarMonth(q.month, romeToday.month);
       const year = parseCalendarYear(q.year, romeToday.year);
-      const birthdaysCacheKey = `birthdays:v1:${guildId}:${year}:${month}`;
+      /* un altro server: solo per chi ne fa parte (il calendario rivela chi c'è) */
+      const wanted = /^\d{16,22}$/.test(String(q.guild || "")) ? String(q.guild) : guildId;
+      if (wanted !== guildId) {
+        const token = String(req?.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim();
+        const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
+        const me: any = token ? await fetchDiscordOAuthMe(token).catch(() => null) : null;
+        const viewerId = String(me?.me?.id || "");
+        const g = client.guilds.cache.get(wanted);
+        const inside = Boolean(g && viewerId && (g.members.cache.has(viewerId) || (await g.members.fetch(viewerId).catch(() => null))));
+        if (!inside) return res.status(403).json({ ok: false, error: "not_member", message: "Puoi vedere solo il calendario dei server dove sei anche tu." });
+        const key = `birthdays:v2:${wanted}:${year}:${month}`;
+        const hit = cacheGet(key);
+        res.setHeader("Cache-Control", "private, no-store");
+        if (hit) return res.json(hit);
+        const payload = await buildBirthdaysMonthPayload(client, wanted, month, year, { storeGuildId: guildId });
+        cacheSet(key, payload, BIRTHDAYS_CACHE_TTL_MS);
+        return res.json(payload);
+      }
+      const birthdaysCacheKey = `birthdays:v2:${guildId}:${year}:${month}`;
       const cachedBirthdays = cacheGet(birthdaysCacheKey);
       if (cachedBirthdays) {
         return replyUsers(req, res, cachedBirthdays, "public, max-age=60");

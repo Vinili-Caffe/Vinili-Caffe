@@ -92,14 +92,32 @@ export function entryMeta(entry: BirthdayEntry, calendarYear: number) {
   return meta;
 }
 
-export async function loadBirthdaysMonth(month: number, year: number): Promise<BirthdaysMonth | null> {
+export type BotGuild = { id: string; name: string; iconUrl: string | null; isMain: boolean };
+
+/** I tuoi server dove c'è anche il bot (per scegliere il calendario). */
+export async function loadMyBotGuilds(token: string): Promise<BotGuild[]> {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-users?myGuilds=1"), { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+    const j = await r.json().catch(() => null);
+    return r.ok && j?.ok && Array.isArray(j.guilds) ? (j.guilds as BotGuild[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Compleanni di un mese: del principale, oppure (con il login) di un altro server dove sei anche tu. */
+export async function loadBirthdaysMonth(month: number, year: number, opts: { guildId?: string | null; token?: string | null } = {}): Promise<BirthdaysMonth | null> {
   try {
     const q = new URLSearchParams({
       board: "birthdays",
       month: String(month),
       year: String(year),
     });
-    const r = await fetch(apiUrl(`/webhooks/site-users?${q}`), { cache: "no-store" });
+    if (opts.guildId) q.set("guild", opts.guildId);
+    const r = await fetch(apiUrl(`/webhooks/site-users?${q}`), {
+      cache: "no-store",
+      ...(opts.guildId && opts.token ? { headers: { Authorization: `Bearer ${opts.token}` } } : {}),
+    });
     if (!r.ok) return null;
     const j = await r.json();
     if (!j?.ok || j.board !== "birthdays") return null;

@@ -60,15 +60,26 @@ function buildPublicBirthdayPayload(birthdayRaw?, romeToday?) {
   };
 }
 
-async function buildBirthdaysMonthPayload(client?, guildId?, month?, year?) {
+/**
+ * Calendario di un mese. I compleanni sono uno per persona (salvati sotto il principale): qui si mostrano
+ * solo i membri del server scelto. Fuori dal principale non compare chi ha scelto di festeggiare solo lì
+ * o da nessuna parte.
+ */
+async function buildBirthdaysMonthPayload(client?, guildId?, month?, year?, opts: { storeGuildId?: string } = {}) {
   const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  const storeGuildId = String(opts.storeGuildId || guildId);
+  const isMain = String(guildId) === storeGuildId;
   const romeToday = getRomeDateParts();
-  const rows = await listBirthdaysForMonth(guildId, month);
+  const rows = await listBirthdaysForMonth(storeGuildId, month);
   const entries = [];
   for (const row of rows) {
     const userId = String(row.userId || "").trim();
     if (!userId) continue;
-    const member = guild?.members?.cache?.get?.(userId) || readCachedWebsiteMember(userId) || null;
+    if (!isMain && (row as any).announceScope !== "all") continue;
+    let member = guild?.members?.cache?.get?.(userId) || (isMain ? readCachedWebsiteMember(userId) : null) || null;
+    if (!member && guild) member = await guild.members.fetch(userId).catch(() => null);
+    /* non è in questo server: non compare nel suo calendario */
+    if (!member) continue;
     const identity = await fetchUserIdentity(client, guild, userId, {
       member,
       skipUserFetch: Boolean(member),

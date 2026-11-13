@@ -5,12 +5,16 @@ import { AnimatePresence, motion } from "motion/react";
 import { Cake, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { setChromeOpen } from "@/lib/chrome-open";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
+import { useAuth } from "@/lib/auth";
+import { Select } from "@/components/ui/Select";
 import {
   daysInMonth,
   entryMeta,
   groupByDay,
   leadingBlanks,
   loadBirthdaysMonth,
+  loadMyBotGuilds,
+  type BotGuild,
   monthLabelIt,
   shiftMonth,
   type BirthdayEntry,
@@ -42,12 +46,38 @@ export function BirthdayCalendar({
   onCloseRef.current = onClose;
   const loadGen = useRef(0);
   const wasOpen = useRef(false);
+  /* calendario per server: i tuoi server col bot (serve il login); senza scelta = il principale */
+  const { token } = useAuth();
+  const [guilds, setGuilds] = useState<BotGuild[]>([]);
+  const [guildId, setGuildId] = useState<string | null>(null);
+  const guildRef = useRef<string | null>(null);
+  const loadRef = useRef<(() => Promise<void>) | null>(null);
+
+  useEffect(() => {
+    if (!open || !token) return;
+    let alive = true;
+    void loadMyBotGuilds(token).then((list) => {
+      if (!alive) return;
+      setGuilds(list);
+      /* non sei nel principale: parte dal primo dei tuoi server */
+      if (list.length && !list.some((g) => g.isMain) && !guildRef.current) {
+        guildRef.current = list[0].id;
+        setGuildId(list[0].id);
+        setData(null);
+        void loadRef.current?.();
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open, token]);
 
   const load = useCallback(async (m: number, y: number) => {
     const gen = ++loadGen.current;
     setLoading(true);
     setError(false);
-    const out = await loadBirthdaysMonth(m, y);
+    const gid = guildRef.current;
+    const out = await loadBirthdaysMonth(m, y, gid ? { guildId: gid, token } : {});
     if (gen !== loadGen.current) return;
     setLoading(false);
     if (!out) {
@@ -56,7 +86,7 @@ export function BirthdayCalendar({
     }
     setData(out);
     /* Non forzare mese/anno dalla risposta: evita salti se l’utente ha già navigato. */
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (!open) {
@@ -91,6 +121,17 @@ export function BirthdayCalendar({
     setYear(next.year);
     setData(null);
     void load(next.month, next.year);
+  };
+  useEffect(() => {
+    loadRef.current = () => load(month, year);
+  }, [load, month, year]);
+  const pickGuild = (next: string) => {
+    const main = guilds.find((g) => g.isMain);
+    const gid = !next || next === main?.id ? null : next;
+    guildRef.current = gid;
+    setGuildId(gid);
+    setData(null);
+    void load(month, year);
   };
   const monthTitle = monthLabelIt(month);
   const viewData = data && data.month === month && data.year === year ? data : null;
@@ -158,6 +199,18 @@ export function BirthdayCalendar({
                 <X className="size-4" />
               </button>
             </header>
+
+            {guilds.length > 1 || (guilds.length === 1 && !guilds[0].isMain) ? (
+              <div className="mb-3 shrink-0">
+                <Select
+                  value={guildId || guilds.find((g) => g.isMain)?.id || ""}
+                  onChange={pickGuild}
+                  aria-label="Server del calendario"
+                  className="h-10 rounded-xl bg-espresso/90"
+                  options={guilds.map((g) => ({ value: g.id, label: g.isMain ? `${g.name} (principale)` : g.name }))}
+                />
+              </div>
+            ) : null}
 
             <div className={cn("min-h-0 flex-1 overflow-auto pr-0.5", loading && viewData && "blur-[1px]")}>
               {!viewData && loading && (

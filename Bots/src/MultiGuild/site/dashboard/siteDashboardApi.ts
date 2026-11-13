@@ -1075,6 +1075,7 @@ async function getDashboardGuildOverview(client?, accessToken?, guildId?) {
 }
 
 export = {
+  fetchUserGuilds,
   listDashboardGuilds,
   getDashboardGuildOverview,
   verifyDashboardGuildAccess,

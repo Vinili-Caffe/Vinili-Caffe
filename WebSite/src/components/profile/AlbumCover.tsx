@@ -190,7 +190,11 @@ export function AlbumCover({
             )}
           </div>
           {p.joinedAt && p.inGuild && <p className="mt-2 text-sm text-crema/45">Nel server dal {dateIt(p.joinedAt)}</p>}
-          {!p.inGuild && <p className="mt-2 text-sm text-crema/45">Non è più nel server Discord</p>}
+          {!p.inGuild && (
+            <p className="mt-2 text-sm text-crema/45">
+              {!p.level?.exp && !p.messages?.messagesTotal && !p.roles.length ? "Non è nel server principale" : "Non è più nel server Discord"}
+            </p>
+          )}
 
           {b.length > 0 && (
             <ul className="mt-5 flex flex-wrap justify-center gap-2 md:justify-start">

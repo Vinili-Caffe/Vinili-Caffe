@@ -122,6 +122,8 @@ export function ProfileView() {
 
   const p = r.data;
   const owns = !!user && user.id === p.userId;
+  /* mai stato nel server principale: niente statistiche, rank card o ruoli (sono di quel server) */
+  const outsider = !p.inGuild && !p.level?.exp && !p.messages?.messagesTotal && !p.roles.length;
   const targetIsStaff = p.roles.some((x) => STAFF_ROLE_IDS.has(x.id));
   const showStaffTab = Boolean(staffAccess && token && targetIsStaff);
   const goTab = (t: "community" | "staff", uid = p.userId) => router.push(`/user/?id=${uid}${t === "staff" ? "&tab=staff" : ""}`, { scroll: false });
@@ -133,13 +135,13 @@ export function ProfileView() {
         <StaffCardView token={token!} userId={p.userId} access={staffAccess!} onNavigate={(uid) => goTab("staff", uid)} />
       ) : (
         <div className="space-y-20 pb-20 pt-2 sm:pt-4">
-          <Tracklist p={p} />
+          {outsider ? null : <Tracklist p={p} />}
           <div className="mx-auto max-w-5xl space-y-20 px-6">
-            <RankCard p={p} owns={owns} />
-            <CustomStuff p={p} owns={owns} />
-            <CandyCollection p={p} />
+            {outsider ? null : <RankCard p={p} owns={owns} />}
+            {outsider ? null : <CustomStuff p={p} owns={owns} />}
+            {outsider ? null : <CandyCollection p={p} />}
             <ProfileBoards userId={p.userId} owns={owns} token={token} />
-            <RolesList p={p} />
+            {outsider ? null : <RolesList p={p} />}
           </div>
         </div>
       )}

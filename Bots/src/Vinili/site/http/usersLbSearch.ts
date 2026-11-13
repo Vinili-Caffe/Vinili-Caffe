@@ -154,6 +154,30 @@ async function buildProfileSearchPayload(client?, guildId?, searchId?) {
   const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
   const doc = await ActivityUserProfile.findOne({ guildId, userId: searchId }).select(SEARCH_SELECT).lean().catch(() => null);
   if (!doc) {
+    /* mai stato nel principale ma è un utente Discord vero: profilo base (il compleanno vale ovunque) */
+    const u: any = await client.users.fetch(searchId).catch(() => null);
+    if (u && !u.bot) {
+      return {
+        ok: true,
+        search: true,
+        notFound: false,
+        inGuild: false,
+        board: "profile",
+        page: 1,
+        perPage: 1,
+        total: 1,
+        totalPages: 1,
+        profile: {
+          userId: String(u.id),
+          username: String(u.username || ""),
+          displayName: String(u.globalName || u.username || "").trim(),
+          avatarUrl: String(u.displayAvatarURL?.({ size: 256 }) || ""),
+          inGuild: false,
+          roles: [],
+        },
+        rows: {},
+      };
+    }
     return {
       ok: true,
       search: true,
