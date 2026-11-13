@@ -5,101 +5,11 @@ const { getGuildChannelCached, getGuildMemberCached } = require("../../../shared
 const { ActivityUserProfile } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 const { getAnnouncedBoostSlots, ensureBoostSlotsSynced, clearAnnouncedBoostSlotsMemoryForGuild } = require("../utils/boostSlotAnnounceTracker") as typeof import("../utils/boostSlotAnnounceTracker");
 const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
-const { textMentionsUserId, countRecentBotBoostAnnouncesForUser, extractBoostAnnounceTargetUserId, extractEmbedDescription, buildBoostAnnounceEmbedIndex } = require("./boostAnnounceState") as typeof import("./boostAnnounceState");
+const { textMentionsUserId, countRecentBotBoostAnnouncesForUser, extractBoostAnnounceTargetUserId, buildBoostAnnounceEmbedIndex } = require("./boostAnnounceState") as typeof import("./boostAnnounceState");
 const { collectRecentNativeBoosterCandidates, countNativeBoostSlotsInRecentMessages } = require("./boostNative") as typeof import("./boostNative");
 const { sleep } = require("./memberUpdateLogs") as typeof import("./memberUpdateLogs");
 const { recoverBoostEmbedsForUserUntilComplete, recoverMissingBoostEmbedsForUser } = require("./boostAnnounce") as typeof import("./boostAnnounce");
 const { fetchGuildMembersIfCacheThin, isPrimaryShard } = require("./boostRecovery") as typeof import("./boostRecovery");
-
-async function correctMisleadingSingleBoostEmbedsOnStartup(client?) {
-  if (!isPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
-  const guildId = String(IDs.guilds.main || "");
-  if (!guildId) return { ok: false, reason: "no_main_guild" };
-  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
-  if (!guild) return { ok: false, reason: "guild_not_found" };
-
-  const boostChannelId = IDs.channels.supporters;
-  if (!boostChannelId) return { ok: false, reason: "no_boost_channel" };
-  const channel = guild.channels.cache.get(boostChannelId) || (await getGuildChannelCached(guild, boostChannelId));
-  if (!channel?.isTextBased?.()) return { ok: false, reason: "channel_not_text" };
-
-  const me = guild.members?.me;
-  const perms = me && channel.permissionsFor ? channel.permissionsFor(me) : null;
-  if (!perms?.has?.(PermissionsBitField.Flags.ReadMessageHistory) || !perms?.has?.(PermissionsBitField.Flags.ManageMessages)) {
-    return { ok: false, reason: "missing_perms_edit" };
-  }
-
-  await fetchGuildMembersIfCacheThin(guild);
-
-  const batch = await channel.messages.fetch({ limit: 100 }).catch(() => null);
-  if (!batch) return { ok: false, reason: "fetch_failed" };
-
-  const botUid = String(client.user?.id || "");
-  const sorted = [...batch.values()].sort((a?, b?) => Number(b?.createdTimestamp || 0) - Number(a?.createdTimestamp || 0));
-  const userIdsWithNewerDoubleEmbed = new Set();
-  for (const msg of sorted) {
-    if (String(msg.author?.id || "") !== botUid) continue;
-    const uidScan = extractBoostAnnounceTargetUserId(msg.content);
-    if (!uidScan) continue;
-    const descScan = extractEmbedDescription(msg.embeds?.[0]);
-    if (!descScan || !descScan.includes("GRAZIE")) continue;
-    if (descScan.includes("DOPPIO") && /boost/i.test(descScan)) userIdsWithNewerDoubleEmbed.add(uidScan);
-  }
-
-  const alreadyCorrectedUserIds = new Set();
-  let fixed = 0;
-
-  for (const msg of sorted) {
-    if (String(msg.author?.id || "") !== botUid) continue;
-    const uid = extractBoostAnnounceTargetUserId(msg.content);
-    if (!uid || alreadyCorrectedUserIds.has(uid)) continue;
-    const emb = msg.embeds?.[0];
-    const desc = extractEmbedDescription(emb);
-    if (!desc) continue;
-    if (desc.includes("DOPPIO")) continue;
-    if (!desc.includes("PER IL BOOST!")) continue;
-    if (userIdsWithNewerDoubleEmbed.has(uid)) continue;
-
-    const announced = getAnnouncedBoostSlots(guild.id, uid);
-    const embedTs = Number(msg.createdTimestamp || 0);
-    /* boostFalseDouble1: prova del 2° solo da messaggi nativi Discord, non dal ruolo Double Booster
-       (che poteva essere stato assegnato per errore) né solo dallo slot DB gonfiato. */
-    const nativeOnly = await countNativeBoostSlotsInRecentMessages(guild, channel, uid, {
-      perChannelLimit: 100,
-      sinceMs: embedTs > 0 ? embedTs - 10 * 60 * 1000 : Date.now() - 24 * 60 * 60 * 1000,
-    }).catch(() => 0);
-    if (nativeOnly < 2) continue;
-    const sessionSlots = await getMemberBoostSlotSignals(guild, uid, channel, {
-      sinceMs: embedTs > 0 ? embedTs - 10 * 60 * 1000 : Date.now() - 24 * 60 * 60 * 1000,
-      perChannelLimit: 100,
-      ignoreDoubleBoosterRole: true,
-    }).catch(() => 0);
-    const slotSignals = Math.max(announced, sessionSlots, nativeOnly);
-    if (slotSignals < 2) continue;
-
-    const member = await getGuildMemberCached(guild, uid, { preferFresh: true }).catch(() => null);
-    if (!member) continue;
-
-    const recovery = await recoverMissingBoostEmbedsForUser(guild, uid, {
-      knownNativeSlots: 2,
-      expectedSlots: 2,
-      startedAt: embedTs > 0 ? embedTs - 1000 : Number(member.premiumSinceTimestamp || 0),
-      nativeLookbackMs: 24 * 60 * 60 * 1000,
-      allowSecondRecovery: true,
-    }).catch(() => ({ ok: false, sent: 0 }));
-    const sent = Math.max(0, Number(recovery?.sent || 0));
-    if (sent <= 0) continue;
-
-    alreadyCorrectedUserIds.add(uid);
-    fixed += sent;
-  }
-
-  if (fixed > 0) {
-    global.logger?.info?.("[guildMemberUpdate] sent missing second boost embeds:", fixed);
-  }
-
-  return { ok: true, fixed };
-}
 
 async function backfillAnnouncedBoostSlotsFromSupportersHistory(client?, opts: Record<string, any> = {}) {
   if (!isPrimaryShard(client)) return { ok: false, reason: "not_primary_shard" };
@@ -454,4 +364,4 @@ async function recoverUnannouncedBoostersOnStartup(client?, opts: Record<string,
   };
 }
 
-export = { correctMisleadingSingleBoostEmbedsOnStartup, backfillAnnouncedBoostSlotsFromSupportersHistory, reconcileDoubleBoosterRolesOnStartup, recoverMissingSecondBoostEmbedsOnStartup, recoverUnannouncedBoostersOnStartup };
+export = { backfillAnnouncedBoostSlotsFromSupportersHistory, reconcileDoubleBoosterRolesOnStartup, recoverMissingSecondBoostEmbedsOnStartup, recoverUnannouncedBoostersOnStartup };

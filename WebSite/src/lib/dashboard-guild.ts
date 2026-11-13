@@ -878,6 +878,36 @@ export async function loadGuildTickets(token: string, guildId: string): Promise<
 }
 
 /** Carica overview + (in parallelo) settings, commands, tickets. */
+/*
+ * Memoria breve del pannello server (per scheda del browser, 15 minuti): riaprendo un server la pagina
+ * compare subito con gli ultimi dati e si aggiorna in silenzio. Prima aspettava sempre il bot (4–10 s nel log).
+ */
+const PANEL_CACHE_TTL_MS = 15 * 60_000;
+const panelCacheKey = (userId: string, guildId: string) => `vc-guild-panel:${userId}:${guildId}`;
+
+export function readGuildPanelCache(userId: string | null | undefined, guildId: string): GuildPanelBundle | null {
+  if (!userId || !guildId) return null;
+  try {
+    const raw = sessionStorage.getItem(panelCacheKey(userId, guildId));
+    if (!raw) return null;
+    const row = JSON.parse(raw) as { at: number; data: GuildPanelBundle };
+    if (!row?.data?.overview || Date.now() - Number(row.at || 0) > PANEL_CACHE_TTL_MS) return null;
+    return row.data;
+  } catch {
+    return null;
+  }
+}
+
+export function writeGuildPanelCache(userId: string | null | undefined, guildId: string, data: GuildPanelBundle | null) {
+  if (!userId || !guildId) return;
+  try {
+    if (data) sessionStorage.setItem(panelCacheKey(userId, guildId), JSON.stringify({ at: Date.now(), data }));
+    else sessionStorage.removeItem(panelCacheKey(userId, guildId));
+  } catch {
+    /* memoria piena o bloccata: si carica come prima */
+  }
+}
+
 export async function loadGuildPanel(token: string, guildId: string): Promise<Ok<GuildPanelBundle> | Fail> {
   /* tutte e quattro insieme: prima si aspettava la panoramica e solo dopo partivano le altre tre */
   const restPromise = Promise.all([

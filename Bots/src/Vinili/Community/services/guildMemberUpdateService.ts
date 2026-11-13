@@ -28,7 +28,7 @@ const { enforceJoinGatePostJoinUsername } = require("./joinGateUsername") as typ
 const { recordManualStaffRoleHistoryIfNeeded, removePlusColorsIfNotEligible, ensureCustomVocAccess, syncCustomVocEligibilityWindow, syncCustomRoleEligibilityWindow } = require("./memberPerks") as typeof import("./memberPerks");
 const { computeBoostDelta, handleBoostUpdate, recoverConcurrentNativeBoosts, recoverMissingBoostEmbedsForUser } = require("./boostAnnounce") as typeof import("./boostAnnounce");
 const { recoverLastGlobalNativeBoostEmbedsOnStartup, recoverRecentBoostEmbedsOnStartup } = require("./boostRecovery") as typeof import("./boostRecovery");
-const { correctMisleadingSingleBoostEmbedsOnStartup, backfillAnnouncedBoostSlotsFromSupportersHistory, reconcileDoubleBoosterRolesOnStartup, recoverMissingSecondBoostEmbedsOnStartup, recoverUnannouncedBoostersOnStartup } = require("./boostStartupFixes") as typeof import("./boostStartupFixes");
+const { backfillAnnouncedBoostSlotsFromSupportersHistory, reconcileDoubleBoosterRolesOnStartup, recoverMissingSecondBoostEmbedsOnStartup, recoverUnannouncedBoostersOnStartup } = require("./boostStartupFixes") as typeof import("./boostStartupFixes");
 
 
 
@@ -42,7 +42,6 @@ export = {
   recoverConcurrentNativeBoosts,
   recoverLastGlobalNativeBoostEmbedsOnStartup,
   recoverRecentBoostEmbedsOnStartup,
-  correctMisleadingSingleBoostEmbedsOnStartup,
   backfillAnnouncedBoostSlotsFromSupportersHistory,
   reconcileDoubleBoosterRolesOnStartup,
   recoverMissingSecondBoostEmbedsOnStartup,

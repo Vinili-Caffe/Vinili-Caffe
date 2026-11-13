@@ -13,7 +13,6 @@ export = {
   recoverConcurrentNativeBoosts: gmu.recoverConcurrentNativeBoosts,
   recoverLastGlobalNativeBoostEmbedsOnStartup: gmu.recoverLastGlobalNativeBoostEmbedsOnStartup,
   recoverRecentBoostEmbedsOnStartup: gmu.recoverRecentBoostEmbedsOnStartup,
-  correctMisleadingSingleBoostEmbedsOnStartup: gmu.correctMisleadingSingleBoostEmbedsOnStartup,
   backfillAnnouncedBoostSlotsFromSupportersHistory: gmu.backfillAnnouncedBoostSlotsFromSupportersHistory,
   reconcileDoubleBoosterRolesOnStartup: gmu.reconcileDoubleBoosterRolesOnStartup,
   recoverMissingSecondBoostEmbedsOnStartup: gmu.recoverMissingSecondBoostEmbedsOnStartup,

@@ -219,12 +219,6 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?, 
         }),
     },
     {
-      label: "correct misleading single boost embeds (double booster)",
-      weight: 38,
-      enabled: false,
-      run: () => guildMemberUpdateExtras.correctMisleadingSingleBoostEmbedsOnStartup(client),
-    },
-    {
       label: "optional Top.gg stats digest",
       weight: 40,
       enabled: startupEnabled(primaryScheduler && shouldRunTopggStatsDigestOnStartup(client), true),

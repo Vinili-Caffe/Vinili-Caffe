@@ -103,6 +103,9 @@ import {
   importGuildConfig,
   isCommandEnabled,
   loadGuildPanel,
+  readGuildPanelCache,
+  writeGuildPanelCache,
+  type GuildPanelBundle,
   normalizePrefixInput,
   patchGuildCommandAcl,
   patchGuildCommandEnabled,
@@ -2105,7 +2108,8 @@ function CommandsSection({
 
 /** Pannello server: impostazioni, comandi con ACL, ticket e partnership. */
 export function GuildPanel() {
-  const { ready, token, login } = useAuth();
+  const { ready, token, login, user } = useAuth();
+  const userId = user?.id || null;
   const [gate, setGate] = useState<Gate>("loading");
   const [guildId, setGuildId] = useState("");
   const [section, setSectionState] = useState<Section>("moduli");
@@ -2210,9 +2214,34 @@ export function GuildPanel() {
     setGuildId(id);
     let cancelled = false;
 
+    /* dati del pannello → stato della pagina (dal bot o dalla memoria della scheda) */
+    const applyBundle = (d: GuildPanelBundle) => {
+      setOverview(d.overview);
+      /* ticket del principale: si gestiscono dal sito, la sezione non si apre nemmeno da un link diretto */
+      if (d.overview?.isMainGuild) setSectionState((cur) => (cur === "tickets" ? "moduli" : cur));
+      /* moderazione e bacheca: solo sul principale, sugli altri server non si aprono */
+      else setSectionState((cur) => (cur === "moderation" || cur === "bacheca" ? "moduli" : cur));
+      setSettings(d.settings);
+      setPickers(d.settingsPickers);
+      setSettingsError(d.settingsError);
+      setCommands(d.commands);
+      setCommandsError(d.commandsError);
+      setTickets(d.tickets);
+      setTicketsError(d.ticketsError);
+      setPremiumActive(d.premiumActive);
+      setPremiumUntil(d.premiumUntil ?? null);
+    };
+
     (async () => {
-      setGate("loading");
       setError("");
+      /* già aperto da poco in questa scheda: pagina subito, poi si aggiorna in silenzio */
+      const cached = readGuildPanelCache(userId, id);
+      if (cached) {
+        applyBundle(cached);
+        setGate("ready");
+      } else {
+        setGate("loading");
+      }
 
       /* accesso e pannello partono insieme (il pannello si scarta se l'accesso è negato) */
       const panelPromise = loadGuildPanel(token, id);
@@ -2229,6 +2258,7 @@ export function GuildPanel() {
         return;
       }
       if (access.access.blacklisted || !access.access.allowed) {
+        writeGuildPanelCache(userId, id, null);
         setGate("locked");
         return;
       }
@@ -2241,36 +2271,25 @@ export function GuildPanel() {
           return;
         }
         if (panel.status === 403) {
+          writeGuildPanelCache(userId, id, null);
           setGate("locked");
           return;
         }
-        setError(panel.message);
+        /* aggiornamento fallito ma la pagina c'è già (dalla memoria): resta com'è */
+        if (!cached) setError(panel.message);
         setGate("ready");
         return;
       }
 
-      const d = panel.data;
-      setOverview(d.overview);
-      /* ticket del principale: si gestiscono dal sito, la sezione non si apre nemmeno da un link diretto */
-      if (d.overview?.isMainGuild) setSectionState((cur) => (cur === "tickets" ? "moduli" : cur));
-      /* moderazione e bacheca: solo sul principale, sugli altri server non si aprono */
-      else setSectionState((cur) => (cur === "moderation" || cur === "bacheca" ? "moduli" : cur));
-      setSettings(d.settings);
-      setPickers(d.settingsPickers);
-      setSettingsError(d.settingsError);
-      setCommands(d.commands);
-      setCommandsError(d.commandsError);
-      setTickets(d.tickets);
-      setTicketsError(d.ticketsError);
-      setPremiumActive(d.premiumActive);
-      setPremiumUntil(d.premiumUntil ?? null);
+      applyBundle(panel.data);
+      writeGuildPanelCache(userId, id, panel.data);
       setGate("ready");
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [ready, token]);
+  }, [ready, token, userId]);
 
   /* moduli spenti su questo server: nel menu vanno nel gruppo "Disattivati" (si aggiorna cambiando sezione) */
   const [modulesOff, setModulesOff] = useState<GuildSectionId[]>([]);
