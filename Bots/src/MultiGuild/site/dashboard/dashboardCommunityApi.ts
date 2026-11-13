@@ -97,28 +97,6 @@ async function sendOrEdit(client?, channelId?: string, prev?: { messageId: strin
 
 /* ───────────── pannelli del server principale ───────────── */
 
-/** Una volta sola: porta il pannello info del bot tra i messaggi della dashboard (stesso messaggio su Discord). */
-async function importMainPanels(client?, gid?: string) {
-  if (await T.wasPanelImported(gid, "info")) return;
-  const info = require("../../../Vinili/Community/discord/panels/info") as any;
-  const rows = await T.listMessages(gid, true);
-  if (rows.length >= T.LIMITS.messages) return;
-  const messageId = await info.currentInfoMessageId(gid).catch(() => null);
-  const channelId = String(info.INFO_CHANNEL_ID || "") || null;
-  const base = T.normalizeMessage({ name: "Pannello info", channelId, draft: info.buildInfoDraft() }, null);
-  const row = {
-    ...base,
-    panelKey: "info",
-    managed: false,
-    messageId: messageId || null,
-    sentChannelId: messageId ? channelId : null,
-    sentAt: messageId ? Date.now() : null,
-    status: (messageId ? "sent" : "draft") as any,
-  };
-  await T.writeMessages(gid, [row, ...rows]);
-  await T.markPanelImported(gid, "info");
-}
-
 /**
  * Una volta sola: il canale "Members" del principale diventa un contatore della dashboard
  * (stesso canale e stesso testo). Da lì il contatore classico usa il testo della dashboard,
@@ -139,18 +117,6 @@ async function importMainCounter(client?, gid?: string) {
     }
   }
   await T.markPanelImported(gid, "memberCounter");
-}
-
-/** Una volta sola: le reazioni alle parole del bot diventano risposte automatiche della dashboard. */
-async function importMainWordReactions(gid: string) {
-  if (await T.wasPanelImported(gid, "wordReactions")) return;
-  const { wordReactionRulesForImport } = require("../../../Vinili/Community/services/officialMessageCommunityHandlers") as any;
-  const rules = typeof wordReactionRulesForImport === "function" ? wordReactionRulesForImport() : [];
-  const rows = await T.listRows("autoResponders", gid, true);
-  const room = Math.max(0, T.LIMITS.autoResponders - rows.length);
-  const imported = rules.slice(0, room).map((r: any) => T.normalizeAutoResponder(r, null));
-  await T.writeRows("autoResponders", gid, [...rows, ...imported]);
-  await T.markPanelImported(gid, "wordReactions");
 }
 
 /* ───────────── lettura ───────────── */
@@ -208,10 +174,6 @@ async function getDashboardCommunity(client?, token?, guildId?) {
     T.listRows("counters", gid, true),
     T.getServerLogs(gid, true),
   ]);
-  if (T.isMainGuild(gid)) {
-    await importMainPanels(client, gid).catch(() => null);
-    await importMainWordReactions(gid).catch(() => null);
-  }
   const [messages, commands, rolePanels, welcome, pickers, guild, bot] = await Promise.all([
     T.listMessages(gid, true),
     T.listCommands(gid, true),

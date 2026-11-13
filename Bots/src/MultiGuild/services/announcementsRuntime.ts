@@ -464,6 +464,49 @@ async function runTenureRoles(client?) {
   }
 }
 
+/**
+ * Rimette subito il ruolo d'anzianità giusto a un membro, senza annunci: serve dopo un mute
+ * (i ruoli tolti tornano) o quando rientra nel server. `joinedMs` = ingresso "vero" (es. contando
+ * i rientri); senza, si usa l'ingresso attuale. Ritorna false se l'anzianità della dashboard è spenta.
+ */
+async function reapplyTenureForMember(member?, joinedMs?: number) {
+  const guild = member?.guild;
+  const gid = String(guild?.id || "");
+  if (!gid || member?.user?.bot || !annOn(gid)) return false;
+  const cfg = await getConfig(gid);
+  const rules = cfg.tenure.rules.filter((r) => r.enabled && r.roleId);
+  if (!cfg.tenure.enabled || !rules.length) return false;
+  if (T.isMainGuild(gid)) {
+    const memberRole = String((require("../../Vinili/Config/ids") as any)?.roles?.Member || "");
+    if (memberRole && !member.roles.cache.has(memberRole)) return true;
+  }
+  const since = Number(joinedMs) > 0 ? Number(joinedMs) : Number(member.joinedTimestamp || 0);
+  if (!since) return true;
+  const daysIn = Math.floor((Date.now() - since) / 86_400_000);
+  const reached = rules.filter((r) => daysIn >= r.days);
+  if (!reached.length) return true;
+  const top = reached[reached.length - 1];
+  const me = guild.members?.me;
+  const role = guild.roles.cache.get(top.roleId as string);
+  if (!role || role.managed || !me || role.position >= me.roles.highest.position) return true;
+  if (!member.roles.cache.has(role.id)) {
+    const ok = await member.roles.add(role.id, `Anzianità: ${top.days} giorni nel server (ripristino)`).then(() => true, () => false);
+    if (!ok) return true;
+  }
+  /* segnato come già dato: il giro ogni 30 minuti non lo riannuncia */
+  const st = await getState(gid);
+  const key = `${top.id}:${member.id}`;
+  if (!st.tenureGiven[key]) {
+    st.tenureGiven[key] = Date.now();
+    await T.setGuildBlob("announcementsState", gid, st);
+  }
+  if (cfg.tenure.removePrevious) {
+    const others = rules.map((r) => r.roleId as string).filter((id) => id !== role.id && member.roles.cache.has(id));
+    if (others.length) await member.roles.remove(others, "Anzianità: tiene solo la soglia raggiunta").catch(() => null);
+  }
+  return true;
+}
+
 /** Avvia il controllo ogni 30 minuti (processo del bot su Discord). */
 function startTenureRolesLoop(client?) {
   if (!client || client.__tenureRolesTimer) return;
@@ -974,6 +1017,7 @@ export = {
   sendBoostAnnouncement,
   sendBoostDmOnly,
   startTenureRolesLoop,
+  reapplyTenureForMember,
   runTenureRoles,
   handleBoostEnded,
   boostModuleEnabled,

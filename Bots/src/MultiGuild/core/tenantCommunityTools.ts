@@ -1009,12 +1009,6 @@ async function markPanelImported(guildId: string, key: string) {
   if (!list.includes(key)) await saveGuild("importedPanels", String(guildId), [...list, key]);
 }
 
-/** Il codice deve lasciar stare questo pannello? (pubblicato almeno una volta dalla dashboard) */
-async function isPanelManagedByDashboard(guildId: string, key: string): Promise<boolean> {
-  const rows = await listMessages(String(guildId)).catch(() => [] as SavedMessage[]);
-  return rows.some((r) => r.panelKey === key && r.managed === true);
-}
-
 /* ───────────── liste/oggetti generici per le altre funzioni ───────────── */
 
 async function listRows(kind: "autoResponders" | "counters" | "polls", guildId: string, fresh = false): Promise<any[]> {
@@ -1200,7 +1194,6 @@ export = {
   isAutomationEnabled,
   wasPanelImported,
   markPanelImported,
-  isPanelManagedByDashboard,
   CHAT_REMINDERS_MAX,
   normalizeChatReminder,
   getChatReminders,

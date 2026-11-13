@@ -1,6 +1,5 @@
 /** Ingresso membri: bot aggiunti al server (ruoli, log, chi li ha aggiunti). */
 const { EmbedBuilder, PermissionsBitField, AuditLogEvent, UserFlagsBitField, MessageFlags } = require("discord.js") as typeof import("discord.js");
-const { DIVIDER_URL } = require("../../../shared/discord/constants") as typeof import("../../../shared/discord/constants");
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { queueIdsCatalogSync } = require("../../Config/idsAutoSync") as typeof import("../../Config/idsAutoSync");
@@ -12,10 +11,8 @@ const { createModCase, getModConfig, logModCase } = require("../../Moderation/ut
 const { buildUnbanRequestRow } = require("../../Moderation/utils/unbanRequestButton") as typeof import("../../Moderation/utils/unbanRequestButton");
 const { enforceUntrustedBotMember, punishMemberForBotAbuse, buildTrustedBotIdSet, isDiscordOfficialActor } = require("../../Moderation/services/trustedBotGuardService") as typeof import("../../Moderation/services/trustedBotGuardService");
 const { addRolesAndGetMember, getGuildChannelCached, getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
-const { applyDefaultFooterToEmbeds } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
 const { refreshWelcomeContextForGuild } = require("../../Community/services/officialMessageCommunityHandlers") as typeof import("../../Community/services/officialMessageCommunityHandlers");
-const { guildMemberDisplayAvatarUrlDynamic, accountUsername } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
-const { buildMemberWelcomePhrase } = require("../../Community/utils/pronounWelcomeUtils") as typeof import("../../Community/utils/pronounWelcomeUtils");
+const { guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { formatInviteCountIt, formatInviteLinkForJoinMessage, resolveGuildChannel, resolveInviteInfo } = require("../../Community/events/joinInvites") as typeof import("../../Community/events/joinInvites");
 
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
@@ -79,81 +76,20 @@ async function addBotRoles(member?) {
   }
 }
 
-function buildWelcomeChannelContent(member?) {
-  const { word } = buildMemberWelcomePhrase(member);
-  const staffId = String(IDs.roles?.Staff || "").trim();
-  const staffPing = staffId ? ` <@&${staffId}>` : "";
-  return `Ciao <@${member.id}>, ${word}!${staffPing} ${E.VC_heartfinger}`;
-}
-
-async function sendWelcomeChannelAnnouncement(channel?, member?) {
-  if (!channel?.send || !member) return null;
-  if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(member.guild?.id, "benvenuto")) return null;
-  /* benvenuto salvato dalla dashboard: testi e canale da lì (anche spento) */
+/** Benvenuto nel canale: testi e canale sono quelli della dashboard (Benvenuto), anche sul principale. */
+async function sendWelcomeChannelAnnouncement(_channel?, member?) {
+  if (!member?.guild?.id) return null;
+  if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(member.guild.id, "benvenuto")) return null;
   try {
-    const { hasSavedWelcome } = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
-    if (member.guild?.id && (await hasSavedWelcome(member.guild.id))) {
-      const { sendDashboardWelcome } = require("../../../MultiGuild/services/welcomeRuntime") as typeof import("../../../MultiGuild/services/welcomeRuntime");
-      const sent = await sendDashboardWelcome(member);
-      refreshWelcomeContextForGuild(member.guild.id, member.id);
-      await markJoinAnnounceSent(member);
-      return sent || null;
-    }
-  } catch (err) {
-    global.logger?.warn?.("[guildMemberAdd] dashboard welcome:", err?.message || err);
-  }
-  const staffId = String(IDs.roles?.Staff || "").trim();
-  const sent = await channel
-    .send(
-      applyDefaultFooterToEmbeds(
-        {
-          content: buildWelcomeChannelContent(member),
-          embeds: [buildWelcomeEmbed(member)],
-          // Ping nuovo membro + Staff (content fuori dall’embed via split V2)
-          allowedMentions: {
-            users: [String(member.id)],
-            roles: staffId ? [staffId] : [],
-            parse: [],
-          },
-        },
-        member.guild,
-      ),
-    )
-    .catch(() => null);
-  if (sent && member.guild?.id) {
+    const { sendDashboardWelcome } = require("../../../MultiGuild/services/welcomeRuntime") as typeof import("../../../MultiGuild/services/welcomeRuntime");
+    const sent = await sendDashboardWelcome(member);
     refreshWelcomeContextForGuild(member.guild.id, member.id);
     await markJoinAnnounceSent(member);
+    return sent || null;
+  } catch (err) {
+    global.logger?.warn?.("[guildMemberAdd] dashboard welcome:", err?.message || err);
+    return null;
   }
-  return sent;
-}
-
-function buildWelcomeEmbed(member?) {
-  const visibleCount = getVerifiedPlusBotsCount(member.guild);
-  const uname = accountUsername(member);
-  const { word, capitalized } = buildMemberWelcomePhrase(member);
-  return new EmbedBuilder()
-    .setAuthor({
-      name: uname,
-      iconURL: guildMemberDisplayAvatarUrlDynamic(member, { size: 128 }) || undefined,
-    })
-    .setTitle(
-      `${E.VC_HeartsPink} ${capitalized} su Vinili & Caffè ${E.VC_HeartsPink}`,
-    )
-    .setDescription(
-      `__${uname}__ ${word} nella nostra community ${E.VC_Sparkles}\n` +
-      `${E.VC_addperson} [Vai sul sito](https://www.viniliecaffe.it/personalizza/) per **personalizzare il tuo profilo**\n`,
-    )
-    .setThumbnail(guildMemberDisplayAvatarUrlDynamic(member, { size: 256 }) || undefined)
-    .setImage(DIVIDER_URL)
-    .setColor("#6f4e37")
-    .setFooter({ text: `Ora siamo in ${visibleCount} membri` });
-}
-
-function getVerifiedPlusBotsCount(guild?) {
-      const reported = Math.max(0, Number(guild?.memberCount || 0));
-  if (reported > 0) return reported;
-  if (!guild?.members?.cache?.size) return 0;
-  return guild.members.cache.size;
 }
 
 async function sendBotAddLog(member?) {
@@ -563,4 +499,4 @@ async function markJoinAnnounceSent(member?) {
   ).catch(() => null);
 }
 
-export = { sendWelcomeChannelAnnouncement, getVerifiedPlusBotsCount, handleBotJoin, hasNoAvatar, buildJoinGateTriggeredEmbed, kickForJoinGate, markJoinAnnounceSent };
+export = { sendWelcomeChannelAnnouncement, handleBotJoin, hasNoAvatar, buildJoinGateTriggeredEmbed, kickForJoinGate, markJoinAnnounceSent };

@@ -126,14 +126,6 @@ async function pingStaffAutomodAlert(message?) {
   }
 }
 
-function scheduleAutomodSanzioniStickyReposition(client?, delayMs = 2500) {
-  if (!client) return;
-  try {
-    const { maybeRepositionModerationSticky } = require("../utils/moderationStickyPanelRuntime") as typeof import("../utils/moderationStickyPanelRuntime");
-    void maybeRepositionModerationSticky(null, client, { delayMs }).catch(() => null);
-  } catch (_) {}
-}
-
 function truncateText(input?, max = 700) {
   const text = String(input || "").trim();
   if (!text) return "";
@@ -337,4 +329,4 @@ async function sendPanicModeLog(message?, event?, count?, activeUntil?) {
   }
 }
 
-export = { ACTION_CHANNEL_LOG_COOLDOWN, NATIVE_STAFF_PING_COOLDOWN, GUILD_PANIC_STATE, ACTION_CHANNEL_LOG_COOLDOWN_MS, NATIVE_STAFF_PING_COOLDOWN_MS, PANIC_MODE, scheduleMetricsSave, dayKeyFromMs, getGuildMetricsBucket, getPanicState, resolveLogChannel, pingStaffAutomodAlert, scheduleAutomodSanzioniStickyReposition, truncateText, escapeDiscordTripleBackticks, buildAutomodAttachmentLinkEvidenceLine, automodEmbedColor, automodActionLabelIt, formatAutomodViolationTechnical, buildAutomodRegolaFieldValue, formatDurationShort, registerAutoModCase, sendAutomodActionInChannel, sendPanicModeLog };
+export = { ACTION_CHANNEL_LOG_COOLDOWN, NATIVE_STAFF_PING_COOLDOWN, GUILD_PANIC_STATE, ACTION_CHANNEL_LOG_COOLDOWN_MS, NATIVE_STAFF_PING_COOLDOWN_MS, PANIC_MODE, scheduleMetricsSave, dayKeyFromMs, getGuildMetricsBucket, getPanicState, resolveLogChannel, pingStaffAutomodAlert, truncateText, escapeDiscordTripleBackticks, buildAutomodAttachmentLinkEvidenceLine, automodEmbedColor, automodActionLabelIt, formatAutomodViolationTechnical, buildAutomodRegolaFieldValue, formatDurationShort, registerAutoModCase, sendAutomodActionInChannel, sendPanicModeLog };

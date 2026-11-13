@@ -5,13 +5,11 @@
  * Site flows (ruoli, ticket, verify, candidature, pause, staff guide) are site-only —
  * no Discord panel redirects / PANEL_SITE_REPLACES.
  *
- * Override: DISCORD_PANELS_ENABLED=info,sanzioni
+ * Override: DISCORD_PANELS_ENABLED=nome,altro
  */
 
-const DEFAULT_ENABLED = Object.freeze([
-  "info",
-  "sanzioni",
-]);
+/* nessun pannello da codice: il pannello Info si gestisce dalla dashboard (Messaggi) */
+const DEFAULT_ENABLED = Object.freeze([]);
 
 function parseEnabledFromEnv() {
   const raw = String(process.env.DISCORD_PANELS_ENABLED || "").trim();

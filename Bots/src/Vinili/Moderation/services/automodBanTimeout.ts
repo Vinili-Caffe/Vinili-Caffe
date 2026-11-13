@@ -4,7 +4,7 @@ const { isExtraOwner } = require("../../Security/services/securityProfilesServic
 const { pickPrimaryAutomodRegolaBucket, getAutomodRegolaSanction, formatRegolaDotFromBucket } = require("../utils/modRegolamentoConstants") as typeof import("../utils/modRegolamentoConstants");
 const { nowMs } = require("./automodText") as typeof import("./automodText");
 const { DISCORD_TIMEOUT_MAX_MS, getRegolaTimeoutStrikeCount, incrementRegolaTimeoutStrike } = require("./automodBadUser") as typeof import("./automodBadUser");
-const { registerAutoModCase, sendAutomodActionInChannel, scheduleAutomodSanzioniStickyReposition, truncateText } = require("./automodEmbeds") as typeof import("./automodEmbeds");
+const { registerAutoModCase, sendAutomodActionInChannel, truncateText } = require("./automodEmbeds") as typeof import("./automodEmbeds");
 const { recordAutomodMetric, isAutomodPublicNoticeCooldownClear, touchAutomodPublicNoticeCooldown } = require("./automodActions") as typeof import("./automodActions");
 const { sendAutomodLog } = require("./automodDecisions") as typeof import("./automodDecisions");
 const { areAutoTimeoutsEnabled, getRegularTimeoutMs, isHeatResetOnPunishment } = require("./automodRuntime") as typeof import("./automodRuntime");
@@ -81,7 +81,6 @@ async function banMemberFromAutomod(message?, state?, violations?, options: Reco
     touchAutomodPublicNoticeCooldown(message);
     await sendAutomodActionInChannel(message, "ban", violations, {});
   }
-  scheduleAutomodSanzioniStickyReposition(message.client);
   return true;
 }
 
@@ -174,7 +173,6 @@ async function timeoutMember(message?, state?, violations?, options: Record<stri
       timeoutMs: durationMs,
     });
   }
-  scheduleAutomodSanzioniStickyReposition(message.client);
   return true;
 }
 

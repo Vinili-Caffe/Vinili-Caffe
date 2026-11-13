@@ -24,7 +24,6 @@ const { startDailyChannelMessageStatsLoop } = require("../../Community/services/
 const { startWeeklyActivityWinnersLoop } = require("../../Community/services/weeklyActivityWinnersService") as typeof import("../../Community/services/weeklyActivityWinnersService");
 const { startBirthdayLoop } = require("../../Community/services/birthdayService") as typeof import("../../Community/services/birthdayService");
 const { startGlobalExpEventAnnouncementLoop } = require("../../Community/services/globalExpEventAnnouncementService") as typeof import("../../Community/services/globalExpEventAnnouncementService");
-const { startVerificationTenureLoop } = require("../../Community/services/communityOpsTenure") as typeof import("../../Community/services/communityOpsTenure");
 const { startStreamerStageGuardLoop } = require("../../Community/services/streamerStageGuardService") as typeof import("../../Community/services/streamerStageGuardService");
 const { startStafferDellaSettimanaLoop } = require("../../Staff/services/stafferDellaSettimanaService") as typeof import("../../Staff/services/stafferDellaSettimanaService");
 const { startWeeklyStaffResocontoLoop } = require("../../Staff/services/weeklyStaffResocontoService") as typeof import("../../Staff/services/weeklyStaffResocontoService");
@@ -71,7 +70,6 @@ async function main(shared?: { client?: any } | null) {
   startWeeklyActivityWinnersLoop(client);
   startBirthdayLoop(client);
   startGlobalExpEventAnnouncementLoop(client);
-  startVerificationTenureLoop(client);
   startStreamerStageGuardLoop(client);
   startStafferDellaSettimanaLoop(client);
   startWeeklyStaffResocontoLoop(client);

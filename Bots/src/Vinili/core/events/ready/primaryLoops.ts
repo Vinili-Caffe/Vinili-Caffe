@@ -237,12 +237,6 @@ function startPrimaryLoops(client?, engagementTick?) {
       const { startVoteQueueLoop } = require("../../../site/http/discadiaVoteQueueService") as typeof import("../../../site/http/discadiaVoteQueueService");
       startVoteQueueLoop(client);
     }],
-    /* tenureVeteranoLoop1: sweep giornaliero NuovoUtente→Veterano→OG (era importato ma mai avviato) */
-    ["[VERIFY TENURE] Failed to start loop", () => {
-      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
-      const { startVerificationTenureLoop } = require("../../../Community/services/communityOpsService") as typeof import("../../../Community/services/communityOpsService");
-      startVerificationTenureLoop(client);
-    }],
     [
       "[BOT HTTP WEBHOOK] Failed to start",
       () => {
