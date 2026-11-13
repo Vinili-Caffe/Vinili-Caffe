@@ -261,7 +261,7 @@ function ActivatePremium({
           {candidates.length === 0 ? (
             <p className="mt-2 rounded-xl border border-dashed border-sand/20 px-4 py-6 text-center text-sm text-crema/60">
               Il bot non è in nessuno dei server che gestisci.{" "}
-              <SmartLink href={page("/dashboard/")} className="font-semibold text-ember underline-offset-2 hover:underline">
+              <SmartLink href={page("/dashboard/server/")} className="font-semibold text-ember underline-offset-2 hover:underline">
                 Aggiungilo
               </SmartLink>{" "}
               e torna qui.

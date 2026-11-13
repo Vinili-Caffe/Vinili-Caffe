@@ -2480,7 +2480,7 @@ export function GuildPanel() {
                   <button type="button" onClick={login} className={discordBtn}>
                     <LogIn className="size-4" /> Accedi con Discord
                   </button>
-                  <SmartLink href={dashHref("/dashboard/")} className={dashSecondaryBtn}>
+                  <SmartLink href={dashHref("/dashboard/server/")} className={dashSecondaryBtn}>
                     Torna ai server
                   </SmartLink>
                 </>
@@ -2497,7 +2497,7 @@ export function GuildPanel() {
               icon={<Lock />}
               title="Accesso non disponibile"
               actions={
-                <SmartLink href={dashHref("/dashboard/")} className={dashSecondaryBtn}>
+                <SmartLink href={dashHref("/dashboard/server/")} className={dashSecondaryBtn}>
                   Torna ai server
                 </SmartLink>
               }
@@ -2513,7 +2513,7 @@ export function GuildPanel() {
               icon={<LayoutGrid />}
               title="Nessun server selezionato"
               actions={
-                <SmartLink href={dashHref("/dashboard/")} className={dashPrimaryBtn}>
+                <SmartLink href={dashHref("/dashboard/server/")} className={dashPrimaryBtn}>
                   Scegli un server
                 </SmartLink>
               }
@@ -2897,7 +2897,7 @@ export function GuildPanel() {
               icon={<Info />}
               title="Pannello non disponibile"
               actions={
-                <SmartLink href={dashHref("/dashboard/")} className={dashSecondaryBtn}>
+                <SmartLink href={dashHref("/dashboard/server/")} className={dashSecondaryBtn}>
                   Torna ai server
                 </SmartLink>
               }

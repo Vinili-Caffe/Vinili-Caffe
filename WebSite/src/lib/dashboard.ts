@@ -39,7 +39,7 @@ const GUILDS_CACHE_KEY = "vc_dash_switcher_guilds_v1";
 
 /** Voci della sidebar dashboard. */
 export const DASH_NAV = [
-  { id: "servers", label: "Server", href: "/dashboard/", hint: "Scegli il server" },
+  { id: "servers", label: "Server", href: "/dashboard/server/", hint: "Scegli il server" },
   { id: "guild", label: "Pannello", href: "/dashboard/guild/", hint: "Configurazione e moduli" },
   { id: "premium", label: "Premium", href: "/dashboard/premium/", hint: "Piani e crediti" },
   { id: "profilo", label: "Profilo", href: "/dashboard/profilo/", hint: "Account dashboard" },

@@ -95,6 +95,7 @@ export const REACT_PAGES = new Set([
   "/app/",
   "/personalizza/",
   "/dashboard/",
+  "/dashboard/server/",
   "/dashboard/guild/",
   "/dashboard/faq/",
   "/dashboard/feedback/",

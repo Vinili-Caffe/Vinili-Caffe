@@ -3,13 +3,13 @@ import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
-const ServerPicker = dynamic(
-  () => import("@/components/dashboard/ServerPicker").then((m) => m.ServerPicker),
+const BotShowcase = dynamic(
+  () => import("@/components/dashboard/BotShowcase").then((m) => m.BotShowcase),
   { loading: () => null },
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/dashboard/", title: "Dashboard", description: "Dashboard bot Vinili & Caffè: scegli il server e gestisci configurazione e moduli." }),
+  ...pageSocialMeta({ path: "/dashboard/", title: "Vinili · Dashboard", description: "Vinili, il bot di Vinili & Caffè: ticket, moderazione, partnership, annunci, live e molto altro, tutto configurabile dal sito." }),
   robots: { index: false },
 };
 
@@ -18,10 +18,10 @@ export default function DashboardPage() {
     <>
       <DiscordComponentEmbed
         path="/dashboard/"
-        title="Dashboard"
-        description="Dashboard bot Vinili & Caffè: scegli il server e gestisci configurazione e moduli."
+        title="Vinili"
+        description="Vinili, il bot di Vinili & Caffè: ticket, moderazione, partnership, annunci, live e molto altro, tutto configurabile dal sito."
       />
-      <ServerPicker />
+      <BotShowcase />
     </>
   );
 }

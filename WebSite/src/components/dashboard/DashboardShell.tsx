@@ -10,6 +10,7 @@ import {
   Coins,
   CreditCard,
   Diamond,
+  Disc3,
   House,
   LayoutGrid,
   LogIn,
@@ -490,7 +491,7 @@ function ServerSwitcher({ current }: { current: ShellGuild | null }) {
               )}
             </div>
             <SmartLink
-              href={page("/dashboard/")}
+              href={page("/dashboard/server/")}
               onClick={() => setOpen(false)}
               className="flex items-center gap-2 border-t border-sand/12 px-3 py-2.5 text-xs font-semibold text-crema/60 transition hover:bg-crema/[0.04] hover:text-crema"
             >
@@ -716,7 +717,8 @@ function Sidebar({
 
       <nav aria-label="Dashboard" className="flex-1 space-y-5">
         <NavGroup title="Generale">
-          <NavItem animated={!onNavigate} href="/dashboard/" label="I miei server" icon={LayoutGrid} active={samePath(pathname, "/dashboard/", true)} />
+          <NavItem animated={!onNavigate} href="/dashboard/" label="Vinili" icon={Disc3} active={samePath(pathname, "/dashboard/", true)} />
+          <NavItem animated={!onNavigate} href="/dashboard/server/" label="I miei server" icon={LayoutGrid} active={samePath(pathname, "/dashboard/server/", true)} />
         </NavGroup>
 
         {guildId ? (
@@ -1025,7 +1027,7 @@ export function DashboardShell({
                 const trail = (crumbs && crumbs.length ? crumbs : [crumb || title]).filter(Boolean) as string[];
                 const head = guild ? (
                   <SmartLink
-                    href={page("/dashboard/")}
+                    href={page("/dashboard/server/")}
                     className="hidden min-w-0 max-w-[10rem] shrink-0 truncate text-crema/60 transition hover:text-crema sm:inline"
                     title={guild.name}
                   >
