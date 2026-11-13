@@ -12,15 +12,15 @@ services:
     volumes:
       # Volume storico del bot (NON deploy_mongodb_data creato per errore dal compose project).
       - vc_mongodb_data:/data/db
-    # 640m era troppo stretto: WiredTiger + connessioni bot → OOM thrash / timeout.
-    mem_limit: 1024m
-    memswap_limit: 1280m
+    # 1G bastava a regime, ma il mongodump delle 00:00 + i bot facevano timeout/riavvio.
+    mem_limit: 2048m
+    memswap_limit: 2304m
     command:
       - mongod
       - --bind_ip_all
-      # 0.3: dal 30/10/2026, con meno processi Node (meno connessioni) e la VPS senza RAM libera
+      # Allineato al limit 2G (prima 0.3 con 1G): lascia margine a connessioni e dump.
       - --wiredTigerCacheSizeGB
-      - "0.3"
+      - "0.5"
 
 volumes:
   vc_mongodb_data:

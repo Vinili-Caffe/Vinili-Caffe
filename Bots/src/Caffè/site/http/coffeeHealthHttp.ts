@@ -1,4 +1,6 @@
 const http = require("http") as typeof import("http");
+const mongoose = require("mongoose") as typeof import("mongoose");
+const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 
 let server = null;
 let boundClient = null;
@@ -25,6 +27,37 @@ function parseRolesQuery(urlPathWithQuery?) {
 function json(res?, status?, payload?) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(payload));
+}
+
+async function measureDiscordRestPingMs(client?) {
+  if (!client?.rest?.get) return null;
+  const { Routes } = require("discord-api-types/v10") as typeof import("discord-api-types/v10");
+  const t0 = Date.now();
+  try {
+    await client.rest.get(Routes.user("@me"));
+    return Math.max(0, Date.now() - t0);
+  } catch {
+    return null;
+  }
+}
+
+async function measureMongoPingMs() {
+  if (!isMongoReady()) return null;
+  const t0 = Date.now();
+  try {
+    await mongoose.connection.db.admin().ping();
+    return Math.max(0, Date.now() - t0);
+  } catch {
+    return null;
+  }
+}
+
+function resolveShardLabel(client?) {
+  const shardIds = Array.isArray(client?.shard?.ids)
+    ? client.shard.ids.map((id?) => Number(id)).filter((id?) => Number.isInteger(id) && id >= 0)
+    : [];
+  if (shardIds.length) return String(shardIds[0]);
+  return "0";
 }
 
 function startCoffeeHealthHttpServer(client?) {
@@ -70,20 +103,32 @@ function startCoffeeHealthHttpServer(client?) {
       json(res, 404, { ok: false, error: "not_found" });
       return;
     }
-    const ready = Boolean(boundClient?.isReady?.() || boundClient?.user?.id);
-    const rawGw = Number(boundClient?.ws?.ping);
-    const gatewayPingMs = Number.isFinite(rawGw) && rawGw >= 0 ? Math.round(rawGw) : null;
-    const memMb = Math.round((process.memoryUsage().rss || 0) / (1024 * 1024));
-    json(res, ready ? 200 : 503, {
-      ok: ready,
-      status: ready ? "online" : "starting",
-      service: "coffee",
-      bot: boundClient?.user?.tag || boundClient?.user?.username || null,
-      gatewayPingMs,
-      uptimeSec: Math.floor(process.uptime()),
-      memMb,
-      ts: new Date().toISOString(),
-    });
+
+    void (async () => {
+      try {
+        const ready = Boolean(boundClient?.isReady?.() || boundClient?.user?.id);
+        const rawGw = Number(boundClient?.ws?.ping);
+        const gatewayPingMs = Number.isFinite(rawGw) && rawGw >= 0 ? Math.round(rawGw) : null;
+        const [restPingMs, mongoPingMs] = await Promise.all([measureDiscordRestPingMs(boundClient), measureMongoPingMs()]);
+        const memMb = Math.round((process.memoryUsage().rss || 0) / (1024 * 1024));
+        json(res, ready ? 200 : 503, {
+          ok: ready,
+          status: ready ? "online" : "starting",
+          service: "coffee",
+          bot: boundClient?.user?.tag || boundClient?.user?.username || null,
+          gatewayPingMs,
+          restPingMs,
+          mongoPingMs,
+          shard: resolveShardLabel(boundClient),
+          uptimeSec: Math.floor(process.uptime()),
+          memMb,
+          ts: new Date().toISOString(),
+        });
+      } catch (err) {
+        global.logger?.error?.("[HEALTH] Coffee health:", err?.message || err);
+        json(res, 503, { ok: false, status: "error", service: "coffee", error: "health_failed" });
+      }
+    })();
   });
   server.listen(port, host, () => {
     if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {

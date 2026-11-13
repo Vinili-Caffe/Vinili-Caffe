@@ -114,11 +114,11 @@ export async function loadLiveProcesses(): Promise<ProcessLive[]> {
     status: String(coffee?.status || (checks?.coffee ? "online" : "offline")),
     bot: coffee?.bot != null ? String(coffee.bot) : health.coffee != null ? String(health.coffee) : null,
     gatewayPingMs: numOrNull(coffee?.gatewayPingMs),
-    restPingMs: null,
-    mongoPingMs: null,
+    restPingMs: numOrNull(coffee?.restPingMs),
+    mongoPingMs: numOrNull(coffee?.mongoPingMs),
     uptimeSec: numOrNull(coffee?.uptimeSec),
     memMb: numOrNull(coffee?.memMb),
-    shard: null,
+    shard: coffee?.shard != null ? String(coffee.shard) : null,
     checks: null,
   };
 

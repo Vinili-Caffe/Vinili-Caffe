@@ -67,11 +67,24 @@ async function probeCoffeeHealth(timeoutMs = 1500) {
       bot: json?.bot || null,
       status: json?.status || (ok ? "online" : "offline"),
       gatewayPingMs: Number.isFinite(Number(json?.gatewayPingMs)) ? Number(json.gatewayPingMs) : null,
+      restPingMs: Number.isFinite(Number(json?.restPingMs)) ? Number(json.restPingMs) : null,
+      mongoPingMs: Number.isFinite(Number(json?.mongoPingMs)) ? Number(json.mongoPingMs) : null,
+      shard: json?.shard != null ? String(json.shard) : null,
       uptimeSec: Number.isFinite(Number(json?.uptimeSec)) ? Number(json.uptimeSec) : null,
       memMb: Number.isFinite(Number(json?.memMb)) ? Number(json.memMb) : null,
     };
   } catch {
-    return { ok: false, bot: null, status: "unreachable", gatewayPingMs: null, uptimeSec: null, memMb: null };
+    return {
+      ok: false,
+      bot: null,
+      status: "unreachable",
+      gatewayPingMs: null,
+      restPingMs: null,
+      mongoPingMs: null,
+      shard: null,
+      uptimeSec: null,
+      memMb: null,
+    };
   } finally {
     clearTimeout(timer);
   }
@@ -162,6 +175,9 @@ async function buildStackHealthPayload(client?, opts: Record<string, any> = {}) 
           bot: coffee.bot || null,
           status: coffee.status || null,
           gatewayPingMs: coffee.gatewayPingMs ?? null,
+          restPingMs: coffee.restPingMs ?? null,
+          mongoPingMs: coffee.mongoPingMs ?? null,
+          shard: coffee.shard ?? null,
           uptimeSec: coffee.uptimeSec ?? null,
           memMb: coffee.memMb ?? null,
         }
