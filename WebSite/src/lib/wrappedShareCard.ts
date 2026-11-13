@@ -1,6 +1,8 @@
 import { sizedDiscordCdn } from "@/lib/discord-cdn";
 import { cdnUrl } from "@/lib/site";
-import { fmt, hours, type WrappedPayload } from "@/lib/wrapped";
+import { fmt, type WrappedPayload } from "@/lib/wrapped";
+import { moodForStoryKey } from "@/lib/wrappedMoods";
+import { buildStoryCards } from "@/lib/wrappedStories";
 
 export type WrappedShareFormat = "story" | "square";
 
@@ -28,7 +30,7 @@ let cache: CacheEntry | null = null;
 let inflight: { key: string; promise: Promise<WrappedShareCard[]> } | null = null;
 
 function cacheKey(data: WrappedPayload) {
-  return `${data.user.id}:${data.year}:${data.allTime.level}:${data.allTime.messagesTotal}:${data.allTime.voiceTotalSeconds}:${data.archetype.id}`;
+  return `${data.user.id}:${data.year}:${data.allTime.level}:${data.allTime.messagesTotal}:${data.allTime.voiceTotalSeconds}:${data.allTime.votesTotal}:${data.archetype.id}:recap2`;
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -121,33 +123,6 @@ function paintAvatar(
   ctx.restore();
 }
 
-function paintStat(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  label: string,
-  value: string,
-) {
-  roundRect(ctx, x, y, w, h, 22);
-  ctx.fillStyle = "rgba(244,233,216,0.07)";
-  ctx.fill();
-  ctx.strokeStyle = "rgba(196,160,122,0.28)";
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(196,160,122,0.75)";
-  ctx.font = `600 ${Math.round(h * 0.14)}px ${FONT_BODY}`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.fillText(label.toUpperCase(), x + 20, y + 16);
-
-  ctx.fillStyle = "#f4e9d8";
-  ctx.font = `600 ${Math.round(h * 0.34)}px ${FONT_DISPLAY}`;
-  ctx.fillText(value, x + 20, y + h * 0.42);
-}
-
 function canvasToJpegBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
@@ -162,22 +137,59 @@ function revokeLater(url: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 180_000);
 }
 
+/** Taglia il testo con "…" finché sta nella larghezza. */
+function fit(ctx: CanvasRenderingContext2D, text: string, maxW: number) {
+  let t = text;
+  if (ctx.measureText(t).width <= maxW) return t;
+  while (t.length > 2 && ctx.measureText(`${t}…`).width > maxW) t = t.slice(0, -1);
+  return `${t.trimEnd()}…`;
+}
+
+/** Disco grande in un angolo, mezzo fuori dalla card (come nel resoconto). */
+function paintCornerRecord(ctx: CanvasRenderingContext2D, logo: HTMLImageElement | null, cx: number, cy: number, r: number) {
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  if (logo) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(logo, cx - r, cy - r, r * 2, r * 2);
+  } else {
+    for (let i = 0; i < 18; i++) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - i * (r / 22), 0, Math.PI * 2);
+      ctx.strokeStyle = i % 2 ? "rgba(0,0,0,0.5)" : "rgba(244,233,216,0.06)";
+      ctx.lineWidth = r / 22;
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * La card è il resoconto finale del Wrapped: chi sei, i quattro numeri grossi
+ * e la scaletta delle schede viste, ognuna col suo dato.
+ */
 async function makeCard(
   data: WrappedPayload,
   format: WrappedShareFormat,
   avatar: HTMLImageElement | null,
   logo: HTMLImageElement | null,
 ): Promise<WrappedShareCard> {
-  const width = format === "story" ? STORY_W : SQUARE;
-  const height = format === "story" ? STORY_H : SQUARE;
+  const story = format === "story";
+  const width = story ? STORY_W : SQUARE;
+  const height = story ? STORY_H : SQUARE;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) throw new Error("no_2d");
 
-  paintBg(ctx, width, height);
-
+  const accent = moodForStoryKey("share").accent;
+  const stories = buildStoryCards(data);
+  const role = stories.find((c) => c.key === "role");
+  const tracks = stories.filter((c) => c.key !== "hello" && c.key !== "share" && c.key !== "role" && c.stat);
+  const a = data.allTime;
   const name = data.user.displayName || data.user.username || "Tu";
   const initials = name
     .split(/\s+/)
@@ -185,84 +197,160 @@ async function makeCard(
     .slice(0, 2)
     .map((p) => p[0] || "")
     .join("");
-  const a = data.allTime;
-  const pad = format === "story" ? 54 : 48;
-  const topY = format === "story" ? 88 : 54;
+  const pad = story ? 54 : 44;
+  const inner = width - pad * 2;
 
-  if (logo) {
-    const lw = 54;
-    const lh = (logo.naturalHeight / Math.max(1, logo.naturalWidth)) * lw;
-    ctx.globalAlpha = 0.9;
-    ctx.drawImage(logo, pad, topY, lw, lh);
-    ctx.globalAlpha = 1;
-  }
+  paintBg(ctx, width, height);
 
-  ctx.fillStyle = "rgba(232,196,154,0.85)";
-  ctx.font = `600 22px ${FONT_BODY}`;
+  /* scheda in alto: vinile nell'angolo, avatar, nome e ruolo */
+  const boxPad = story ? 30 : 24;
+  const avSize = story ? 128 : 96;
+  const pillH = story ? 44 : 34;
+  const headH = boxPad + avSize + (story ? 26 : 18) + pillH + boxPad;
+  /* scaletta: quante righe stanno; poi tutto il blocco va centrato in altezza */
+  const minTop = story ? 70 : 40;
+  const footH = story ? 90 : 60;
+  const listGap = story ? 22 : 16;
+  const rowH = story ? 92 : 66;
+  const listHead = story ? 64 : 48;
+  const maxRows = Math.max(0, Math.floor((height - footH - minTop - headH - listGap - listHead - 20) / rowH));
+  const rows = tracks.slice(0, maxRows);
+  const listH = rows.length ? listHead + rows.length * rowH + (story ? 14 : 8) : 0;
+  const headTop = Math.max(minTop, Math.round((height - footH - (headH + (listH ? listGap + listH : 0))) / 2));
+  roundRect(ctx, pad, headTop, inner, headH, 34);
+  ctx.fillStyle = "rgba(244,233,216,0.06)";
+  ctx.fill();
+  ctx.save();
+  roundRect(ctx, pad, headTop, inner, headH, 34);
+  ctx.clip();
+  paintCornerRecord(ctx, logo, pad + inner - (story ? 40 : 30), headTop + (story ? 40 : 30), story ? 170 : 130);
+  ctx.restore();
+  roundRect(ctx, pad, headTop, inner, headH, 34);
+  ctx.strokeStyle = "rgba(196,160,122,0.3)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  const avCx = pad + boxPad + avSize / 2;
+  const avCy = headTop + boxPad + avSize / 2;
+  ctx.beginPath();
+  ctx.arc(avCx, avCy, avSize / 2 + 5, 0, Math.PI * 2);
+  ctx.fillStyle = accent;
+  ctx.fill();
+  paintAvatar(ctx, avatar, avCx, avCy, avSize, initials || "?");
+
+  const textX = pad + boxPad + avSize + (story ? 24 : 18);
+  const textW = pad + inner - textX - (story ? 110 : 80);
   ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText(`VINILI WRAPPED · ${data.year}`, pad + (logo ? 70 : 0), topY + 28);
-
-  const avatarSize = format === "story" ? 196 : 156;
-  const avatarCy = format === "story" ? height * 0.32 : height * 0.34;
-  paintAvatar(ctx, avatar, width / 2, avatarCy, avatarSize, initials || "?");
-
-  const titleY = avatarCy + avatarSize / 2 + (format === "story" ? 52 : 36);
-  ctx.fillStyle = "#f4e9d8";
-  ctx.font = `600 ${format === "story" ? 68 : 54}px ${FONT_DISPLAY}`;
-  ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  let title = name;
-  while (ctx.measureText(title).width > width - pad * 2 && title.length > 4) {
-    title = `${title.slice(0, -2)}…`;
-  }
-  ctx.fillText(title, width / 2, titleY);
+  ctx.fillStyle = accent;
+  ctx.font = `600 ${story ? 20 : 16}px ${FONT_BODY}`;
+  ctx.fillText(`VINILI WRAPPED · ${data.year}`, textX, avCy - (story ? 58 : 44));
+  ctx.fillStyle = "#f4e9d8";
+  ctx.font = `600 ${story ? 58 : 44}px ${FONT_DISPLAY}`;
+  ctx.fillText(fit(ctx, name, textW), textX, avCy - (story ? 30 : 22));
+  ctx.fillStyle = "rgba(244,233,216,0.72)";
+  ctx.font = `500 ${story ? 24 : 19}px ${FONT_BODY}`;
+  ctx.fillText(fit(ctx, role?.title || data.archetype.label, textW), textX, avCy + (story ? 36 : 28));
 
-  ctx.fillStyle = "#e8c49a";
-  ctx.font = `600 ${format === "story" ? 30 : 24}px ${FONT_BODY}`;
-  ctx.fillText(data.archetype.label, width / 2, titleY + (format === "story" ? 82 : 66));
-
-  const stats: [string, string][] = [
-    ["Livello", `Lv.${a.level}`],
-    ["Rank", `#${a.allTimeRank}`],
-    ["Messaggi", fmt(a.messagesTotal)],
-    a.votesTotal ? ["Voti", fmt(a.votesTotal)] : ["In call", hours(a.voiceTotalSeconds)],
+  /* livello, classifica e top %: badge sotto il nome (messaggi e vocale stanno già nella scaletta) */
+  const pills: { label: string; strong?: boolean }[] = [
+    { label: `Livello ${fmt(a.level)}` },
+    { label: `#${fmt(a.allTimeRank)} in classifica` },
+    ...(a.betterThanPct > 0 ? [{ label: `Top ${Math.max(1, 100 - a.betterThanPct)}% del server`, strong: true }] : []),
   ];
-
-  const gridTop = format === "story" ? titleY + 156 : titleY + 118;
-  const gap = 14;
-  const cellW = (width - pad * 2 - gap) / 2;
-  const cellH = format === "story" ? 112 : 92;
-  stats.forEach(([lab, val], i) => {
-    const col = i % 2;
-    const row = Math.floor(i / 2);
-    paintStat(ctx, pad + col * (cellW + gap), gridTop + row * (cellH + gap), cellW, cellH, lab, val);
-  });
-
-  if (format === "story" && a.betterThanPct > 0) {
-    const badgeY = gridTop + 2 * (cellH + gap) + 24;
-    roundRect(ctx, pad, badgeY, width - pad * 2, 66, 18);
-    ctx.fillStyle = "rgba(217,154,91,0.16)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(217,154,91,0.35)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.fillStyle = "#f0b46e";
-    ctx.font = `600 24px ${FONT_BODY}`;
-    ctx.textAlign = "center";
+  {
+    let x = pad + boxPad;
+    const y = headTop + boxPad + avSize + (story ? 26 : 18);
+    ctx.font = `700 ${story ? 21 : 16}px ${FONT_BODY}`;
+    ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(
-      `Top ${Math.max(1, 100 - a.betterThanPct)}% · meglio del ${a.betterThanPct}%`,
-      width / 2,
-      badgeY + 33,
-    );
+    for (const pill of pills) {
+      const w = ctx.measureText(pill.label).width + (story ? 40 : 30);
+      if (x + w > pad + inner - boxPad) break;
+      roundRect(ctx, x, y, w, pillH, pillH / 2);
+      ctx.fillStyle = pill.strong ? accent : "rgba(0,0,0,0.3)";
+      ctx.fill();
+      if (!pill.strong) {
+        ctx.strokeStyle = "rgba(244,233,216,0.18)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
+      ctx.fillStyle = pill.strong ? "#1a120c" : "#f4e9d8";
+      ctx.fillText(pill.label, x + (story ? 20 : 15), y + pillH / 2 + 1);
+      x += w + (story ? 12 : 9);
+    }
+  }
+
+  /* la scaletta: le schede viste, una riga per scheda (quante ne stanno) */
+  const listTop = headTop + headH + listGap;
+  if (rows.length) {
+    roundRect(ctx, pad, listTop, inner, listH, 34);
+    ctx.fillStyle = "rgba(0,0,0,0.28)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(244,233,216,0.1)";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(196,160,122,0.85)";
+    ctx.font = `600 ${story ? 17 : 13}px ${FONT_BODY}`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText("LATO B · LA TUA SCALETTA", pad + boxPad, listTop + (story ? 28 : 20));
+
+    rows.forEach((t, i) => {
+      const y = listTop + listHead + i * rowH;
+      const mid = y + rowH / 2;
+      const tone = moodForStoryKey(t.key).accent;
+      const left = pad + boxPad;
+      const right = pad + inner - boxPad;
+      if (i < rows.length - 1) {
+        ctx.save();
+        ctx.setLineDash([6, 6]);
+        ctx.strokeStyle = "rgba(244,233,216,0.12)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(left, y + rowH);
+        ctx.lineTo(right, y + rowH);
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(244,233,216,0.35)";
+      ctx.font = `500 ${story ? 18 : 14}px ui-monospace, Menlo, monospace`;
+      ctx.fillText(String(i + 1).padStart(2, "0"), left, mid);
+      ctx.beginPath();
+      ctx.arc(left + (story ? 46 : 36), mid, story ? 6 : 5, 0, Math.PI * 2);
+      ctx.fillStyle = tone;
+      ctx.fill();
+
+      ctx.textAlign = "right";
+      ctx.fillStyle = tone;
+      ctx.font = `600 ${story ? 34 : 26}px ${FONT_DISPLAY}`;
+      const stat = fit(ctx, t.stat || "", inner * 0.38);
+      const statW = ctx.measureText(stat).width;
+      ctx.fillText(stat, right, mid);
+
+      const tx = left + (story ? 66 : 52);
+      const tw = right - statW - 20 - tx;
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#f4e9d8";
+      ctx.font = `600 ${story ? 25 : 19}px ${FONT_BODY}`;
+      const same = t.title === t.stat;
+      ctx.fillText(fit(ctx, same ? t.kicker : t.title, tw), tx, same ? mid : mid - (story ? 13 : 10));
+      if (!same) {
+        ctx.fillStyle = "rgba(244,233,216,0.42)";
+        ctx.font = `600 ${story ? 14 : 11}px ${FONT_BODY}`;
+        ctx.fillText(fit(ctx, t.kicker.toUpperCase(), tw), tx, mid + (story ? 17 : 13));
+      }
+    });
   }
 
   ctx.fillStyle = "rgba(244,233,216,0.45)";
-  ctx.font = `500 20px ${FONT_BODY}`;
+  ctx.font = `500 ${story ? 20 : 16}px ${FONT_BODY}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
-  ctx.fillText("viniliecaffe.it/wrapped", width / 2, height - (format === "story" ? 52 : 36));
+  ctx.fillText("viniliecaffe.it/wrapped", width / 2, height - (story ? 40 : 22));
 
   const blob = await canvasToJpegBlob(canvas);
   const fileName = `vinili-wrapped-${data.year}-${format}.jpg`;
@@ -272,7 +360,7 @@ async function makeCard(
 
   return {
     id: format,
-    label: format === "story" ? "Storia (9:16)" : "Quadrata (1:1)",
+    label: story ? "Storia (9:16)" : "Quadrata (1:1)",
     format,
     width,
     height,

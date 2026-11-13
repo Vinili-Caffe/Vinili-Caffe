@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { RotateCcw, Share2 } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { VinylRecord } from "@/components/VinylRecord";
-import { fmt, hours, type WrappedPayload } from "@/lib/wrapped";
+import { fmt, type WrappedPayload } from "@/lib/wrapped";
 import { moodForStoryKey } from "@/lib/wrappedMoods";
 import type { StoryCard } from "@/lib/wrappedStories";
 
@@ -31,13 +31,12 @@ export function WrappedRecap({
   const a = data.allTime;
   const tracks = cards.filter((c) => c.key !== "hello" && c.key !== "share" && c.key !== "role" && c.stat);
   const role = cards.find((c) => c.key === "role");
-  const big: [string, string][] = [
-    ["Livello", `Lv.${fmt(a.level)}`],
-    ["Classifica", `#${fmt(a.allTimeRank)}`],
-    ["Messaggi", fmt(a.messagesTotal)],
-    ["In vocale", hours(a.voiceTotalSeconds)],
+  /* livello, classifica e top %: badge sotto il nome (messaggi e vocale stanno già nella scaletta) */
+  const pills: { label: string; strong?: boolean }[] = [
+    { label: `Livello ${fmt(a.level)}` },
+    { label: `#${fmt(a.allTimeRank)} in classifica` },
+    ...(a.betterThanPct > 0 ? [{ label: `Top ${Math.max(1, 100 - a.betterThanPct)}% del server`, strong: true }] : []),
   ];
-  const top = a.betterThanPct > 0 ? `Top ${Math.max(1, 100 - a.betterThanPct)}% del server` : null;
 
   return (
     <div
@@ -72,31 +71,24 @@ export function WrappedRecap({
           </div>
         </div>
 
-        <div className="relative mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {big.map(([label, value], i) => (
-            <motion.div
-              key={label}
-              initial={{ opacity: 0, y: 10 }}
+        <div className="relative mt-4 flex flex-wrap gap-2">
+          {pills.map((p, i) => (
+            <motion.span
+              key={p.label}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.12 + i * 0.06, duration: 0.4, ease }}
-              className="rounded-2xl bg-black/25 px-3 py-2.5 ring-1 ring-[#f4e9d8]/10"
+              transition={{ delay: 0.15 + i * 0.07, duration: 0.4, ease }}
+              className={
+                p.strong
+                  ? "inline-flex rounded-full px-3 py-1 text-xs font-semibold text-[#1a120c]"
+                  : "inline-flex rounded-full bg-black/25 px-3 py-1 text-xs font-semibold text-[#f4e9d8] ring-1 ring-[#f4e9d8]/15"
+              }
+              style={p.strong ? { background: accent } : undefined}
             >
-              <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-[#c4a07a]/80">{label}</span>
-              <span className="mt-0.5 block truncate font-display text-2xl font-semibold text-[#f4e9d8]">{value}</span>
-            </motion.div>
+              {p.label}
+            </motion.span>
           ))}
         </div>
-        {top ? (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="relative mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold text-[#1a120c]"
-            style={{ background: accent }}
-          >
-            {top}
-          </motion.p>
-        ) : null}
       </motion.div>
 
       {/* la scaletta del tuo anno: ogni scheda vista, col suo dato */}
@@ -122,8 +114,8 @@ export function WrappedRecap({
                   <span className="w-6 shrink-0 font-mono text-xs text-[#f4e9d8]/35 lining-nums">{String(i + 1).padStart(2, "0")}</span>
                   <span className="size-2 shrink-0 rounded-full" style={{ background: tone }} aria-hidden />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-[#f4e9d8]">{t.title}</span>
-                    <span className="block truncate text-[0.7rem] uppercase tracking-[0.14em] text-[#f4e9d8]/40">{t.kicker}</span>
+                    <span className="block truncate text-sm font-semibold text-[#f4e9d8]">{t.title === t.stat ? t.kicker : t.title}</span>
+                    {t.title === t.stat ? null : <span className="block truncate text-[0.7rem] uppercase tracking-[0.14em] text-[#f4e9d8]/40">{t.kicker}</span>}
                   </span>
                   <span className="shrink-0 text-right font-display text-lg font-semibold lining-nums" style={{ color: tone }}>
                     {t.stat}

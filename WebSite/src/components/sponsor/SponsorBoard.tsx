@@ -12,7 +12,7 @@ import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { Disclosure } from "@/components/ui/Disclosure";
 import { PromoBanner, PromoInline } from "@/components/promo/Promo";
-import { PROMO, promoOn, promoPrice } from "@/lib/promo";
+import { promoPrice, usePromo } from "@/lib/promo";
 
 type Kind = "channel" | "website" | "events";
 
@@ -59,6 +59,7 @@ export function SponsorBoard() {
   const [extra, setExtra] = useState(0);
   const [passes, setPasses] = useState(1);
   const [analytics, setAnalytics] = useState<SiteAnalytics | null>(null);
+  const promo = usePromo();
 
   useEffect(() => {
     let alive = true;
@@ -80,7 +81,7 @@ export function SponsorBoard() {
   }
   if (kind !== "events" && extra > 0) lines.push({ label: `Ping @everyone aggiuntivi ×${extra}`, price: EXTRA_PING * extra });
   const subtotal = lines.reduce((s, l) => s + l.price, 0);
-  const total = promoPrice(subtotal);
+  const total = promoPrice(subtotal, promo);
 
   const pps = analytics?.pagesPerSession ?? (analytics ? analytics.pageViews / Math.max(1, analytics.sessions) : 0);
   const audience = [
@@ -274,7 +275,7 @@ export function SponsorBoard() {
           {/* lo scontrino: carta e inchiostro fissi, uguale nei due temi */}
           <div className="lg:sticky lg:top-28 lg:self-start">
             <div className="relative rounded-t-3xl bg-paper px-7 pb-8 pt-7 font-mono text-ink shadow-[0_30px_60px_-30px_rgba(0,0,0,0.9)]">
-              {promoOn() && (
+              {promo && (
                 <motion.span
                   aria-hidden
                   initial={{ scale: 2, opacity: 0, rotate: 0 }}
@@ -283,7 +284,7 @@ export function SponsorBoard() {
                   transition={{ type: "spring", stiffness: 500, damping: 20, delay: 0.4 }}
                   className="absolute -right-2 top-16 rounded-lg border-[3px] border-[#b5502a] px-2.5 py-1 font-display text-sm font-black uppercase tracking-widest text-[#b5502a] opacity-80 mix-blend-multiply"
                 >
-                  Scontato -{PROMO.percent}%
+                  {promo.name} -{promo.percent}%
                 </motion.span>
               )}
               <p className="text-center font-display text-2xl font-bold uppercase tracking-[0.04em]">VINILI & CAFFÈ</p>
@@ -299,14 +300,14 @@ export function SponsorBoard() {
                   ))}
                 </AnimatePresence>
               </ul>
-              {promoOn() && (
+              {promo && (
                 <div className="mt-3 flex justify-between gap-4 text-sm font-semibold text-[#b5502a]">
-                  <span>Sconto -{PROMO.percent}%</span>
+                  <span>Sconto {promo.name} -{promo.percent}%</span>
                   <span className="shrink-0 lining-nums">-{eur(subtotal - total)}</span>
                 </div>
               )}
               <div className="my-5 border-t-2 border-dashed border-ink/20" />
-              {promoOn() && <p className="-mb-1 text-right text-sm text-ink/45 line-through decoration-[#b5502a] decoration-2 lining-nums">{eur(subtotal)}</p>}
+              {promo && <p className="-mb-1 text-right text-sm text-ink/45 line-through decoration-[#b5502a] decoration-2 lining-nums">{eur(subtotal)}</p>}
               <div className="flex items-end justify-between">
                 <span className="text-sm font-bold uppercase tracking-widest">Totale</span>
                 <motion.span key={total} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className="font-display text-4xl font-bold lining-nums">

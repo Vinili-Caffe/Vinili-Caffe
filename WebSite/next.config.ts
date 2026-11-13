@@ -8,6 +8,8 @@ process.env.NEXT_TELEMETRY_DISABLED = "1";
 // `rewrites` vale solo in `next dev` (l'export statico le ignora); serve-out.mjs fa da proxy in anteprima.
 const nextConfig: NextConfig = {
   output: "export",
+  /* ora della build: le pagine statiche disegnano gli sconti a orario come erano in quel momento (niente HTML diverso al primo disegno) */
+  env: { NEXT_PUBLIC_BUILD_AT: String(Date.now()) },
   trailingSlash: true,
   images: { unoptimized: true },
   async rewrites() {
