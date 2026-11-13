@@ -19,6 +19,8 @@ export type StoryCard = {
   body: string;
   footnote?: string;
   celebrate?: boolean;
+  /** dato chiave della scheda, per il resoconto finale */
+  stat?: string;
 };
 
 function pctLine(betterThanPct: number): string | undefined {
@@ -53,6 +55,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       kicker: "Nel server",
       title: `${fmt(data.user.daysInServer)} giorni`,
       body: "Da quanto hai messo piede qui. Il vinile gira ancora.",
+      stat: `${fmt(data.user.daysInServer)} giorni`,
     });
   }
 
@@ -64,6 +67,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       title: "Fantasma preferito",
       body: `Ti piace osservare nell'ombra. Hai letto tantissimo ma hai inviato solo ${fmt(msg)} messaggi. Sei il nostro fantasma preferito!`,
       footnote: pctLine(a.messagesBetterThanPct),
+      stat: `${fmt(msg)} messaggi`,
     });
   } else {
     cards.push({
@@ -72,6 +76,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       title: "Copymaster",
       body: `Sei un vero copymaster. Hai scritto in totale ${fmt(msg)} messaggi. Praticamente potresti scriverci una tesi!`,
       footnote: pctLine(a.messagesBetterThanPct),
+      stat: `${fmt(msg)} messaggi`,
     });
   }
 
@@ -83,6 +88,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       kicker: "Vocale",
       title: "Terrore da microfono",
       body: "I nostri canali vocali ti terrorizzano talmente tanto da non esserci mai entrato. Nemmeno per sbaglio!",
+      stat: "0 ore",
     });
   } else if (voiceH < VOICE_FEW_H) {
     cards.push({
@@ -91,6 +97,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       title: "Un po' in soggezione",
       body: `I nostri canali vocali ti mettono un po' in soggezione: hai trascorso solo ${hours(a.voiceTotalSeconds)} a parlare con noi.`,
       footnote: pctLine(a.voiceBetterThanPct),
+      stat: hours(a.voiceTotalSeconds),
     });
   } else if (voiceH >= VOICE_MANY_H) {
     cards.push({
@@ -99,6 +106,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       title: homeVc.startsWith("#") ? `Residente in ${homeVc}` : "Residente vocale",
       body: `Praticamente hai preso la residenza in ${homeVc}. Ci hai trascorso ben ${hours(a.voiceTotalSeconds)}. È assolutamente assurdo!`,
       footnote: pctLine(a.voiceBetterThanPct),
+      stat: hours(a.voiceTotalSeconds),
     });
   } else {
     cards.push({
@@ -107,6 +115,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       title: hours(a.voiceTotalSeconds),
       body: `Hai passato ${hours(a.voiceTotalSeconds)} in call. Né fantasma né inquilino fisso.`,
       footnote: pctLine(a.voiceBetterThanPct),
+      stat: hours(a.voiceTotalSeconds),
     });
   }
 
@@ -116,6 +125,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       key: "support",
       kicker: "Sostegno",
       title: "0 voti",
+      stat: "0 voti",
       body: "Voti per il server? Quali voti? Hai supportato la nostra crescita esattamente 0 volte. Tranquillo, ti facciamo godere i frutti del lavoro altrui gratis.",
     });
   } else if (votes >= VOTES_MANY) {
@@ -123,6 +133,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       key: "support",
       kicker: "Sostegno",
       title: "PR di fiducia",
+      stat: `${fmt(votes)} voti`,
       body: `Sei il nostro PR di fiducia! Hai votato il server ben ${fmt(votes)} volte. Il nostro reparto marketing dovrebbe seriamente pagarti lo stipendio.`,
     });
   } else {
@@ -130,6 +141,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       key: "support",
       kicker: "Sostegno",
       title: "Dovere civico",
+      stat: `${fmt(votes)} ${votes === 1 ? "voto" : "voti"}`,
       body: `Hai fatto il tuo dovere civico. Con i tuoi ${fmt(votes)} voti hai contribuito a farci crescere. Grazie!`,
     });
   }
@@ -140,6 +152,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       key: "boost",
       kicker: "Sostegno",
       title: "Mecenate",
+      stat: boosts > 0 ? `${fmt(boosts)} boost` : "Boost attivo",
       body:
         boosts > 0
           ? `Il vero mecenate del server sei tu. Hai effettuato un totale di ${fmt(boosts)} boost. Senza di te saremmo solo dei pixel poveri. Grazie!`
@@ -153,6 +166,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       key: "games",
       kicker: "Minigiochi",
       title: "Ludopatia certificata",
+      stat: `${fmt(a.minigameTotalExp)} EXP`,
       body: `Non ti perdi mai niente. Hai accumulato un totale di ${fmt(a.minigameTotalExp)} EXP con i nostri minigames. Soffri decisamente di ludopatia!${streakBit}`,
       footnote:
         pctLine(a.minigameBetterThanPct) ||
@@ -177,6 +191,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
         key: "particular",
         kicker: "Ti rende particolare",
         title: "I vampiri ti temono",
+        stat: `${fmt(night)} msg di notte`,
         body: `Hai inviato ${fmt(night)} messaggi a notte fonda. Forse è ora che tu vada a dormire!`,
       },
     });
@@ -188,6 +203,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
         key: "particular",
         kicker: "Ti rende particolare",
         title: "VIP del bancone",
+        stat: `${fmt(mentionsRecv)} menzioni`,
         body: `Sei proprio al centro dell'attenzione, un vero VIP. Sei stato menzionato ${fmt(mentionsRecv)} volte. Inizia a servirti una scorta!`,
       },
     });
@@ -200,6 +216,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
         key: "particular",
         kicker: "Ti rende particolare",
         title: "Dito sulla chiocciola",
+        stat: `${fmt(pings)} tag`,
         body: `Hai il dito facile sulla chiocciola. Hai taggato gli altri ben ${fmt(pings)} volte. Ma sei un raider o cosa?!?`,
       },
     });
@@ -211,6 +228,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
         key: "particular",
         kicker: "Ti rende particolare",
         title: "Artista visivo",
+        stat: `${fmt(gifs)} GIF e immagini`,
         body: `Perché usare le parole quando ci sono le immagini? Hai intasato la chat con ${fmt(gifs)} GIF/immagini. Un vero artista visivo.`,
       },
     });
@@ -222,6 +240,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
         key: "particular",
         kicker: "Ti rende particolare",
         title: "Boss dei bot",
+        stat: `${fmt(cmds)} comandi`,
         body: `Hai schiavizzato i nostri bot lanciando ben ${fmt(cmds)} comandi. Speriamo che un giorno non si ribellino...`,
       },
     });
@@ -233,6 +252,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
         key: "particular",
         kicker: "Ti rende particolare",
         title: "Gusti raffinati",
+        stat: `:${topEmoji.name}: ×${fmt(topEmoji.count)}`,
         body: `Le emoji standard ti annoiano. Hai spammato l'emoji :${topEmoji.name}: per ben ${fmt(topEmoji.count)} volte. Gusti decisamente raffinati.`,
       },
     });
@@ -253,7 +273,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
 
   cards.push({
     key: "share",
-    kicker: "Condividi",
+    kicker: "Il tuo anno",
     title: name,
     body: `${data.archetype.label} · Lv.${a.level} · #${a.allTimeRank} · ${fmt(a.messagesTotal)} msg · ${hours(a.voiceTotalSeconds)}`,
   });

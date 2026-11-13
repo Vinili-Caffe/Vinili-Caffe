@@ -13,6 +13,7 @@ import { PageHero } from "@/components/PageHero";
 import { VinylRecord } from "@/components/VinylRecord";
 import { WrappedSlideDecor } from "@/components/wrapped/WrappedSlideDecor";
 import { WrappedShareSheet } from "@/components/wrapped/WrappedShareSheet";
+import { WrappedRecap } from "@/components/wrapped/WrappedRecap";
 import { useFxCap } from "@/components/effects/DeviceFxProvider";
 import { useAuth } from "@/lib/auth";
 import { celebrate } from "@/lib/confetti";
@@ -28,7 +29,7 @@ import {
 import { moodForStoryKey, type WrappedMood } from "@/lib/wrappedMoods";
 import { loadWrapped, type WrappedPayload } from "@/lib/wrapped";
 import { prefetchWrappedShareCards } from "@/lib/wrappedShareCard";
-import { buildStoryCards } from "@/lib/wrappedStories";
+import { buildStoryCards, type StoryCard } from "@/lib/wrappedStories";
 
 type Field = {
   key: string;
@@ -61,9 +62,7 @@ function StaggerTitle({ text, accent }: { text: string; accent: string }) {
   );
 }
 
-function buildFields(data: WrappedPayload): Field[] {
-  const stories = buildStoryCards(data);
-  const a = data.allTime;
+function buildFields(stories: StoryCard[]): Field[] {
   return stories.map((s) => {
     const isShare = s.key === "share";
     const mood = moodForStoryKey(s.key);
@@ -73,49 +72,7 @@ function buildFields(data: WrappedPayload): Field[] {
       titleText: s.title,
       kicker: s.kicker,
       celebrate: s.celebrate,
-      line: isShare ? (
-        <span className="mx-auto flex w-full max-w-sm flex-col items-center gap-5 text-center">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 260, damping: 18 }}
-          >
-            <Avatar
-              userId={data.user.id}
-              src={data.user.avatarUrl || undefined}
-              name={data.user.displayName}
-              className="size-20 ring-2 ring-[#d99a5b]/50"
-            />
-          </motion.div>
-          <span className="block font-display text-[clamp(2rem,8vw,3.25rem)] font-semibold leading-none text-[#f4e9d8]">
-            {s.title}
-          </span>
-          <span className="block text-base font-normal tracking-normal" style={{ color: mood.accent }}>
-            {data.archetype.label}
-          </span>
-          <span className="grid w-full grid-cols-2 gap-2 text-left text-sm font-normal tracking-normal">
-            {[
-              ["Lv", String(a.level)],
-              ["Rank", `#${a.allTimeRank}`],
-              ["Msg", a.messagesTotal.toLocaleString("it-IT")],
-              ["Voti", (a.votesTotal ?? 0).toLocaleString("it-IT")],
-            ].map(([lab, val], i) => (
-              <motion.span
-                key={lab}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 + i * 0.06, duration: 0.4, ease }}
-                className="rounded-2xl bg-[#f4e9d8]/8 px-3 py-2 ring-1 ring-[#c4a07a]/25 backdrop-blur-sm"
-              >
-                <span className="block text-[0.65rem] uppercase tracking-[0.16em] text-[#c4a07a]/70">{lab}</span>
-                <span className="font-display text-2xl text-[#f4e9d8]">{val}</span>
-              </motion.span>
-            ))}
-          </span>
-        </span>
-      ) : (
-        <StaggerTitle text={s.title} accent="#f4e9d8" />
-      ),
+      line: isShare ? null : <StaggerTitle text={s.title} accent="#f4e9d8" />,
       whisper: isShare ? undefined : (
         <>
           <motion.p
@@ -211,7 +168,8 @@ export function WrappedBoard() {
     };
   }, [ready, token]);
 
-  const fields = useMemo(() => (data ? buildFields(data) : []), [data]);
+  const stories = useMemo(() => (data ? buildStoryCards(data) : []), [data]);
+  const fields = useMemo(() => buildFields(stories), [stories]);
   const field = fields[index] || null;
   const last = Math.max(0, fields.length - 1);
 
@@ -566,7 +524,7 @@ export function WrappedBoard() {
       </div>
 
       <div className="relative z-10 flex min-h-0 flex-1 cursor-pointer select-none flex-col" onClick={onStagePointer}>
-        <div className="flex flex-1 flex-col justify-center px-6 pb-16 pt-20 sm:px-12">
+        <div className={cn("flex flex-1 flex-col px-6 pb-16 pt-20 sm:px-12", field.key === "share" ? "overflow-y-auto" : "justify-center")}>
           <AnimatePresence mode="wait" custom={dir}>
             <motion.div
               key={field.key}
@@ -575,8 +533,21 @@ export function WrappedBoard() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={reduce ? { opacity: 0 } : { opacity: 0, y: dir * -24, scale: 1.02 }}
               transition={{ duration: reduce ? 0.15 : 0.48, ease }}
-              className="mx-auto w-full max-w-3xl text-center"
+              className={cn("mx-auto w-full max-w-3xl text-center", field.key === "share" && "my-auto")}
             >
+              {field.key === "share" ? (
+                <WrappedRecap
+                  data={data}
+                  cards={stories}
+                  accent={field.mood.accent}
+                  onShare={openShare}
+                  onReplay={() => {
+                    setDir(-1);
+                    setIndex(0);
+                  }}
+                />
+              ) : (
+                <>
               <motion.p
                 initial={{ opacity: 0, letterSpacing: "0.4em" }}
                 animate={{ opacity: 0.75, letterSpacing: "0.28em" }}
@@ -592,6 +563,8 @@ export function WrappedBoard() {
               {field.whisper ? (
                 <div className="mx-auto mt-6 max-w-md text-base text-[#f4e9d8]/70 sm:text-lg">{field.whisper}</div>
               ) : null}
+                </>
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
