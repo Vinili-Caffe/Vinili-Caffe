@@ -73,20 +73,71 @@ function startGatewayHealthOnlyHttp(client?) {
   if (!isSiteApiExternal()) return;
 
   const http = require("node:http") as typeof import("node:http");
+  const mongoose = require("mongoose") as typeof import("mongoose");
+  const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
   const port = Number(client?.config?.discadia?.webhookPort || process.env.BOT_GATEWAY_HEALTH_PORT || 3000) || 3000;
+
+  async function measureDiscordRestPingMs() {
+    if (!client?.rest?.get) return null;
+    const { Routes } = require("discord-api-types/v10") as typeof import("discord-api-types/v10");
+    const t0 = Date.now();
+    try {
+      await client.rest.get(Routes.user("@me"));
+      return Math.max(0, Date.now() - t0);
+    } catch {
+      return null;
+    }
+  }
+
+  async function measureMongoPingMs() {
+    if (!isMongoReady()) return null;
+    const t0 = Date.now();
+    try {
+      await mongoose.connection.db.admin().ping();
+      return Math.max(0, Date.now() - t0);
+    } catch {
+      return null;
+    }
+  }
+
+  function resolveShardLabel() {
+    const shardIds = Array.isArray(client?.shard?.ids)
+      ? client.shard.ids.map((id?) => Number(id)).filter((id?) => Number.isInteger(id) && id >= 0)
+      : [];
+    if (shardIds.length) return String(shardIds[0]);
+    return "0";
+  }
+
   const server = http.createServer((req?, res?) => {
     const pathOnly = normalizeWebhookPath(req?.url || "/");
     if (req?.method === "GET" && (pathOnly === "/webhooks/health" || pathOnly === "/webhooks/status")) {
-      const ok = Boolean(client?.user?.id);
-      const body = JSON.stringify({
-        ok,
-        status: ok ? "online" : "starting",
-        service: "bots-vinyls-gateway",
-        bot: client?.user?.tag || null,
-        ts: new Date().toISOString(),
-      });
-      res.writeHead(ok ? 200 : 503, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(body);
+      void (async () => {
+        try {
+          const ok = Boolean(client?.user?.id);
+          const rawGw = Number(client?.ws?.ping);
+          const gatewayPingMs = Number.isFinite(rawGw) && rawGw >= 0 ? Math.round(rawGw) : null;
+          const [restPingMs, mongoPingMs] = await Promise.all([measureDiscordRestPingMs(), measureMongoPingMs()]);
+          const body = JSON.stringify({
+            ok,
+            status: ok ? "online" : "starting",
+            service: "bots-vinyls-gateway",
+            bot: client?.user?.tag || null,
+            gatewayPingMs,
+            restPingMs,
+            mongoPingMs,
+            shard: resolveShardLabel(),
+            uptimeSec: Math.floor(process.uptime()),
+            memMb: Math.round((process.memoryUsage().rss || 0) / (1024 * 1024)),
+            ts: new Date().toISOString(),
+          });
+          res.writeHead(ok ? 200 : 503, { "Content-Type": "application/json; charset=utf-8" });
+          res.end(body);
+        } catch (err) {
+          global.logger?.error?.("[WEBHOOK] gateway health-only:", err?.message || err);
+          res.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
+          res.end(JSON.stringify({ ok: false, status: "error", service: "bots-vinyls-gateway" }));
+        }
+      })();
       return;
     }
     res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });

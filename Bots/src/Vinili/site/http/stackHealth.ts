@@ -47,8 +47,44 @@ function resolveCoffeeHealthTarget() {
   };
 }
 
-async function probeCoffeeHealth(timeoutMs = 1500) {
-  const { host, port } = resolveCoffeeHealthTarget();
+function resolveGatewayHealthTarget() {
+  const host = String(process.env.BOT_GATEWAY_HEALTH_HOST || "127.0.0.1").trim() || "127.0.0.1";
+  const port = Number(process.env.BOT_GATEWAY_HEALTH_PORT || 3000);
+  return {
+    host,
+    port: Number.isFinite(port) && port > 0 ? Math.floor(port) : 3000,
+  };
+}
+
+function emptyProbe(status = "unreachable") {
+  return {
+    ok: false,
+    bot: null,
+    status,
+    gatewayPingMs: null,
+    restPingMs: null,
+    mongoPingMs: null,
+    shard: null,
+    uptimeSec: null,
+    memMb: null,
+  };
+}
+
+function mapHealthJson(json?, ok = false) {
+  return {
+    ok,
+    bot: json?.bot || null,
+    status: json?.status || (ok ? "online" : "offline"),
+    gatewayPingMs: Number.isFinite(Number(json?.gatewayPingMs)) ? Number(json.gatewayPingMs) : null,
+    restPingMs: Number.isFinite(Number(json?.restPingMs)) ? Number(json.restPingMs) : null,
+    mongoPingMs: Number.isFinite(Number(json?.mongoPingMs)) ? Number(json.mongoPingMs) : null,
+    shard: json?.shard != null ? String(json.shard) : null,
+    uptimeSec: Number.isFinite(Number(json?.uptimeSec)) ? Number(json.uptimeSec) : null,
+    memMb: Number.isFinite(Number(json?.memMb)) ? Number(json.memMb) : null,
+  };
+}
+
+async function probeHttpHealth(url?, timeoutMs = 1500) {
   const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
   const timer = setTimeout(() => {
     try {
@@ -56,38 +92,29 @@ async function probeCoffeeHealth(timeoutMs = 1500) {
     } catch (_) {}
   }, Math.max(250, Number(timeoutMs) || 1500));
   try {
-    const res = await fetch(`http://${host}:${port}/health`, {
+    const res = await fetch(url, {
       signal: ctrl?.signal,
       cache: "no-store",
     });
     const json: any = await res.json().catch(() => ({}));
     const ok = Boolean(res.ok && (json?.ok === true || json?.status === "online"));
-    return {
-      ok,
-      bot: json?.bot || null,
-      status: json?.status || (ok ? "online" : "offline"),
-      gatewayPingMs: Number.isFinite(Number(json?.gatewayPingMs)) ? Number(json.gatewayPingMs) : null,
-      restPingMs: Number.isFinite(Number(json?.restPingMs)) ? Number(json.restPingMs) : null,
-      mongoPingMs: Number.isFinite(Number(json?.mongoPingMs)) ? Number(json.mongoPingMs) : null,
-      shard: json?.shard != null ? String(json.shard) : null,
-      uptimeSec: Number.isFinite(Number(json?.uptimeSec)) ? Number(json.uptimeSec) : null,
-      memMb: Number.isFinite(Number(json?.memMb)) ? Number(json.memMb) : null,
-    };
+    return mapHealthJson(json, ok);
   } catch {
-    return {
-      ok: false,
-      bot: null,
-      status: "unreachable",
-      gatewayPingMs: null,
-      restPingMs: null,
-      mongoPingMs: null,
-      shard: null,
-      uptimeSec: null,
-      memMb: null,
-    };
+    return emptyProbe("unreachable");
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function probeCoffeeHealth(timeoutMs = 1500) {
+  const { host, port } = resolveCoffeeHealthTarget();
+  return probeHttpHealth(`http://${host}:${port}/health`, timeoutMs);
+}
+
+/** Gateway Discord Vinili (porta 3000) quando site-api è processo separato. */
+async function probeGatewayHealth(timeoutMs = 1500) {
+  const { host, port } = resolveGatewayHealthTarget();
+  return probeHttpHealth(`http://${host}:${port}/webhooks/health`, timeoutMs);
 }
 
 async function measureDiscordRestPingMs(client?) {
@@ -139,17 +166,37 @@ async function buildStackHealthPayload(client?, opts: Record<string, any> = {}) 
     lavalinkOk = await probeLavalinkHttpReady(host, port, 1500);
   }
 
-  let coffee = null;
-  if (includeCoffee) {
-    coffee = await probeCoffeeHealth(1500);
+  const serviceName = String(opts.service || "bots");
+  const preferGatewayProcess = opts.preferGatewayProcess === true || serviceName === "site-api";
+
+  const [restPingLocal, coffee, gateway] = await Promise.all([
+    measureDiscordRestPingMs(client),
+    includeCoffee ? probeCoffeeHealth(1500) : Promise.resolve(null),
+    preferGatewayProcess ? probeGatewayHealth(1500) : Promise.resolve(null),
+  ]);
+  let gatewayPingMs = resolveGatewayPingMs(client);
+  let restPingMs = restPingLocal;
+  let shard = resolveShardLabel(client);
+  const mem = process.memoryUsage();
+  let memMb = Math.round((mem.rss || 0) / (1024 * 1024));
+  let uptimeSec = Math.floor(process.uptime());
+  let botOut = botTag;
+
+  /* Su site-api il client non ha il websocket Discord: le metriche “Bot Vinili” vengono dal gateway. */
+  if (gateway?.ok) {
+    if (gatewayPingMs == null) gatewayPingMs = gateway.gatewayPingMs ?? null;
+    if (restPingMs == null) restPingMs = gateway.restPingMs ?? null;
+    if (preferGatewayProcess) {
+      botOut = gateway.bot || botOut;
+      shard = gateway.shard || shard;
+      if (gateway.memMb != null) memMb = gateway.memMb;
+      if (gateway.uptimeSec != null) uptimeSec = gateway.uptimeSec;
+      if (gateway.mongoPingMs != null && mongoPingMs == null) mongoPingMs = gateway.mongoPingMs;
+    }
   }
 
-  const [restPingMs] = await Promise.all([measureDiscordRestPingMs(client)]);
-  const gatewayPingMs = resolveGatewayPingMs(client);
-  const mem = process.memoryUsage();
-
   const checks = {
-    bot: botReady,
+    bot: preferGatewayProcess ? Boolean(gateway?.ok || botReady) : botReady,
     mongo: mongoOk && mongoPingMs != null,
     ...(includeLavalink ? { lavalink: Boolean(lavalinkOk) } : {}),
     ...(includeCoffee ? { coffee: Boolean(coffee?.ok) } : {}),
@@ -159,16 +206,16 @@ async function buildStackHealthPayload(client?, opts: Record<string, any> = {}) 
   return {
     ok,
     status: ok ? "online" : "degraded",
-    service: String(opts.service || "bots"),
-    bot: botTag,
+    service: serviceName,
+    bot: botOut,
     coffee: coffee?.bot || null,
     checks,
     mongoPingMs,
     gatewayPingMs,
     restPingMs,
-    shard: resolveShardLabel(client),
-    memMb: Math.round((mem.rss || 0) / (1024 * 1024)),
-    uptimeSec: Math.floor(process.uptime()),
+    shard,
+    memMb,
+    uptimeSec,
     coffeeDetail: coffee
       ? {
           ok: Boolean(coffee.ok),
@@ -205,5 +252,6 @@ function sendStackHealth(client?, req?, res?, opts: Record<string, any> = {}) {
 export = {
   sendStackHealth,
   probeCoffeeHealth,
+  probeGatewayHealth,
   probeLavalinkHttpReady,
 };

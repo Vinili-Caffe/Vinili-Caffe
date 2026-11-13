@@ -126,6 +126,8 @@ export async function loadLiveProcesses(): Promise<ProcessLive[]> {
 }
 
 function numOrNull(v: unknown): number | null {
+  /* Number(null) === 0: senza questo i ping mancanti diventavano “0 ms” falsi. */
+  if (v == null || v === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
