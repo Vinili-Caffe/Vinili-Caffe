@@ -459,13 +459,16 @@ export function EditorHeader({
 }
 
 /** Gruppo dentro un editor: titolo breve, spiegazione e contenuto. */
-export function FormGroup({ title, description, children }: { title: string; description?: React.ReactNode; children: React.ReactNode }) {
+export function FormGroup({ title, description, action, children }: { title: string; description?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl bg-espresso/45 p-4 ring-1 ring-sand/10 sm:p-5">
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-crema">
-        <span className="h-3.5 w-1 rounded-full bg-gradient-to-b from-caramel to-ember" aria-hidden />
-        {title}
-      </h3>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-crema">
+          <span className="h-3.5 w-1 rounded-full bg-gradient-to-b from-caramel to-ember" aria-hidden />
+          {title}
+        </h3>
+        {action ? <div className="-my-1 shrink-0">{action}</div> : null}
+      </div>
       {description ? <p className="mt-1 text-xs leading-relaxed text-crema/60">{description}</p> : null}
       <div className="mt-4">{children}</div>
     </section>

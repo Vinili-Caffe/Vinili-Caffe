@@ -585,6 +585,47 @@ async function testMessage(client?, token?, guildId?, body?) {
   }
 }
 
+/**
+ * Anteprima della descrizione partnership presa da un canale: stessi messaggi e stessa scelta
+ * del bot (ultimi 20, il più vecchio con testo, preferendo quelli non scritti da bot).
+ */
+async function partnerDescriptionPreview(client?, token?, guildId?, channelIdRaw?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const channelId = T.isId(channelIdRaw) ? String(channelIdRaw) : "";
+  if (!channelId) return fail(400, "bad_channel", "Scegli prima il canale della descrizione.");
+  const rest = restOf(client);
+  const ch: any = await rest?.get(Routes.channel(channelId)).catch(() => null);
+  if (!ch || String(ch.guild_id || "") !== String(a.guildId)) return fail(400, "bad_channel", "Il canale non è di questo server.");
+  let list: any[] = [];
+  try {
+    list = ((await rest.get(Routes.channelMessages(channelId), { query: new URLSearchParams({ limit: "20" }) })) as any[]) || [];
+  } catch (err) {
+    return fail(400, "no_access", `Non riesco a leggere il canale: ${discordError(err)}`);
+  }
+  const { extractPartnershipMessageText } = require("../../../Vinili/Partner/runtime/partnershipMessageBody") as typeof import("../../../Vinili/Partner/runtime/partnershipMessageBody");
+  const withText = list
+    .map((m: any) => ({ m, text: extractPartnershipMessageText({ ...m, messageSnapshots: m.message_snapshots }) }))
+    .filter((e) => e.text)
+    .sort((x, y) => Date.parse(x.m.timestamp) - Date.parse(y.m.timestamp));
+  if (!withText.length) return { ok: true, status: 200, found: false, channelName: ch.name || "" };
+  const human = withText.filter((e) => !e.m.author?.bot);
+  const pick = (withText.length > 1 && human.length ? human : withText)[0];
+  const au = pick.m.author || {};
+  return {
+    ok: true,
+    status: 200,
+    found: true,
+    channelName: ch.name || "",
+    text: pick.text,
+    author: {
+      name: au.global_name || au.username || "",
+      avatarUrl: au.avatar ? `https://cdn.discordapp.com/avatars/${au.id}/${au.avatar}.png?size=64` : "",
+    },
+    at: pick.m.timestamp || null,
+  };
+}
+
 /** Manda un'anteprima reale nel canale scelto, usando chi è in dashboard come "nuovo membro". */
 async function testWelcome(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
@@ -625,4 +666,5 @@ export = {
   patchWelcome,
   testWelcome,
   testMessage,
+  partnerDescriptionPreview,
 };

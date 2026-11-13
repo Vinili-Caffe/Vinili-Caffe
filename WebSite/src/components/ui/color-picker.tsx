@@ -113,7 +113,20 @@ export function ColorPicker({
   const fallback = normalizeHex(defaultHex) || "#d4a888";
   const current = normalizeHex(value);
   const face = current || fallback;
-  const hsv = hexToHsv(face);
+  /*
+   * Tinta/saturazione/luminosità tenute qui: ricavarle ogni volta dall'hex perde la tinta
+   * quando il colore è nero o grigio (stesso hex per ogni tinta), e la barra sembrava bloccata.
+   */
+  const [hsv, setHsv] = useState<Hsv>(() => hexToHsv(face));
+  const [seenFace, setSeenFace] = useState(face);
+  if (face !== seenFace) {
+    setSeenFace(face);
+    if (hsvToHex(hsv.h, hsv.s, hsv.v) !== face) setHsv(hexToHsv(face));
+  }
+  const pick = (next: Hsv) => {
+    setHsv(next);
+    onChange(hsvToHex(next.h, next.s, next.v));
+  };
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [hexDraft, setHexDraft] = useState(value);
@@ -182,7 +195,7 @@ export function ColorPicker({
     const r = el.getBoundingClientRect();
     const s = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
     const v = Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height));
-    onChange(hsvToHex(hsv.h, s, v));
+    pick({ h: hsv.h, s, v });
   }
 
   const placeHolder = placeholder || (allowEmpty ? "Predefinito" : fallback);
@@ -285,7 +298,12 @@ export function ColorPicker({
                 step={1}
                 value={Math.round(hsv.h)}
                 aria-label="Tonalità"
-                onChange={(n) => onChange(hsvToHex(n, hsv.s, hsv.v))}
+                onChange={(n) => {
+                  /* colore nero o grigio: muovendo la tinta si passa a un colore pieno, se no non cambierebbe niente */
+                  const s = hsv.s < 0.05 ? 1 : hsv.s;
+                  const v = hsv.v < 0.05 ? 1 : hsv.v;
+                  pick({ h: n, s, v });
+                }}
                 className="mt-3"
                 style={{ background: "linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)" }}
               />

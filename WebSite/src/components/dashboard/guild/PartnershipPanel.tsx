@@ -27,6 +27,8 @@ import { confirmDialog } from "@/components/ui";
 import { Sparkles } from "lucide-react";
 import { Pagination } from "@/components/ui/Pagination";
 import { MessagePreview } from "./MessagePreview";
+import { PartnerDescPreviewButton } from "./PartnerDescPreview";
+import { PartnerFiltersPreview } from "./PartnerFiltersPreview";
 import { PARTNERSHIP_PLACEHOLDERS, PARTNERSHIP_SAMPLES } from "./PlaceholderList";
 import { DiscordMessagePreview, DraftEditor, EditorWithPreview, useCommunity, useSampleVars } from "./community/shared";
 import { emptyDraft, type MsgDraft } from "@/lib/dashboard-community";
@@ -428,7 +430,15 @@ export function PartnershipPanel({
               </div>
             </FormGroup>
 
-            <FormGroup title="Descrizione del vostro server" description="Il testo che il bot manda al server partner.">
+            <FormGroup
+              title="Descrizione del vostro server"
+              description="Il testo che il bot manda al server partner."
+              action={
+                draft.partnerDesc.mode === "channel" && draft.partnerDesc.channelId ? (
+                  <PartnerDescPreviewButton token={token} guildId={guildId} channelId={draft.partnerDesc.channelId} roles={roles} channels={channels} />
+                ) : null
+              }
+            >
               <div className="grid gap-4">
                 <Field label="Da dove prenderla">
                   <Select
@@ -651,7 +661,7 @@ export function PartnershipPanel({
       ) : null}
 
       {tab === "filtri" ? (
-        <div className="space-y-4">
+        <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
           <FormGroup title="Cosa togliere dalla descrizione" description={`${FILTERS.filter((f) => draft.contentFilters[f.key]).length} filtri attivi su ${FILTERS.length}`}>
             <div className="divide-y divide-sand/[0.07]">
               {FILTERS.map((row) => (
@@ -666,6 +676,9 @@ export function PartnershipPanel({
               ))}
             </div>
           </FormGroup>
+          <div className="xl:sticky xl:top-4">
+            <PartnerFiltersPreview filters={draft.contentFilters} roles={roles} channels={channels} />
+          </div>
         </div>
       ) : null}
 

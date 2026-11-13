@@ -263,6 +263,8 @@ export function QuoteStyleEditor({
             onChange={(next) => patch({ font: next })}
             className={fieldClass}
             options={fontOptions}
+            searchable
+            searchPlaceholder="Cerca un font…"
           />
         </Field>
         <Field label="Orientamento">
