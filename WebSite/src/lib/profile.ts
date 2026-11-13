@@ -223,3 +223,29 @@ export function guildProfileAsData(g: GuildProfile): ProfileData {
     minigames: null,
   };
 }
+
+/* ───────────── tab Staff di un Partner Manager (altri server) ───────────── */
+
+export type GuildStaffBadge = { id: string; emoji: string; title: string };
+export type GuildStaffObjective = GuildStaffBadge & { desc: string; current: number; target: number; done: boolean };
+export type GuildStaffManager = { userId: string; displayName: string; avatarUrl: string | null };
+export type GuildStaff = {
+  scores: { total: number; daily: number; weekly: number };
+  awardsPercent: number;
+  selectedBadges: GuildStaffBadge[];
+  badges: GuildStaffBadge[];
+  objectives: GuildStaffObjective[];
+  managers: GuildStaffManager[];
+};
+
+export async function loadGuildStaff(token: string, guildId: string, userId: string): Promise<{ ok: true; data: GuildStaff } | { ok: false; message: string }> {
+  try {
+    const q = new URLSearchParams({ board: "guildstaff", guild: guildId, userId });
+    const r = await fetch(apiUrl(`/webhooks/site-users?${q}`), { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j?.ok || !j.staff) return { ok: false, message: String(j?.message || "Statistiche non disponibili.") };
+    return { ok: true, data: j.staff as GuildStaff };
+  } catch {
+    return { ok: false, message: "Errore di rete." };
+  }
+}

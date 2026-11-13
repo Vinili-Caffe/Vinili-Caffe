@@ -57,13 +57,15 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
     const searchId = parseSearchUserId(q.userId ?? q.user_id ?? q.id ?? q.searchUserId ?? q.uid);
 
     /* profilo per server: server in comune e profilo della persona in uno di quelli */
-    if (String(q.profileGuilds || "") === "1" || String(q.board || "") === "guildprofile") {
+    if (String(q.profileGuilds || "") === "1" || String(q.board || "") === "guildprofile" || String(q.board || "") === "guildstaff") {
       const GP = require("./usersLbGuildProfile") as typeof import("./usersLbGuildProfile");
       const target = parseSearchUserId(q.userId ?? q.id);
       const out =
         String(q.profileGuilds || "") === "1"
           ? await GP.sharedGuilds(client, req, target, guildId)
-          : await GP.guildProfile(client, req, String(q.guild || ""), target, guildId);
+          : String(q.board || "") === "guildstaff"
+            ? await GP.guildStaff(client, req, String(q.guild || ""), target)
+            : await GP.guildProfile(client, req, String(q.guild || ""), target, guildId);
       res.setHeader("Cache-Control", "private, no-store");
       return res.status(out.status).json(out.body);
     }

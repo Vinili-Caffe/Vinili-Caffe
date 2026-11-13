@@ -113,4 +113,93 @@ async function guildProfile(client?, req?, guildId?, targetId?, mainId?) {
   };
 }
 
-export = { sharedGuilds, guildProfile, memberOf, viewerIdOf };
+/* ───────────── Partner Manager di un server ───────────── */
+
+async function pmRoleOf(guildId?) {
+  try {
+    const P = require("../../Partner/core/tenantPartnershipSettings") as any;
+    const cfg: any = await P.getPartnershipConfig(String(guildId)).catch(() => null);
+    return String(cfg?.partnerManagerRoleId || "");
+  } catch (_) {
+    return "";
+  }
+}
+
+const memberAvatar = (guildId: string, m: any) => {
+  const u = m?.user || {};
+  if (m?.avatar) return `https://cdn.discordapp.com/guilds/${guildId}/users/${u.id}/avatars/${m.avatar}.png?size=64`;
+  if (u.avatar) return `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=64`;
+  return null;
+};
+
+/** Partner Manager del server (per "Lista staff"): membri con il ruolo scelto nella Partnership. 5 minuti in memoria. */
+const pmListCache = new Map<string, { at: number; list: any[] }>();
+async function partnerManagers(client?, guildId?, roleId?) {
+  const key = `${guildId}:${roleId}`;
+  const hit = pmListCache.get(key);
+  if (hit && Date.now() - hit.at < 5 * 60_000) return hit.list;
+  const out: any[] = [];
+  let after = "0";
+  for (let page = 0; page < 5; page++) {
+    const rows: any[] = await (client.rest as any)
+      .get(Routes.guildMembers(String(guildId)), { query: new URLSearchParams({ limit: "1000", after }) })
+      .catch(() => []);
+    if (!Array.isArray(rows) || !rows.length) break;
+    for (const m of rows) {
+      if (!m?.user?.bot && Array.isArray(m.roles) && m.roles.includes(roleId)) {
+        out.push({ userId: String(m.user.id), displayName: String(m.nick || m.user.global_name || m.user.username || ""), avatarUrl: memberAvatar(String(guildId), m) });
+      }
+    }
+    if (rows.length < 1000) break;
+    after = String(rows[rows.length - 1]?.user?.id || after);
+  }
+  out.sort((a, b) => a.displayName.localeCompare(b.displayName, "it"));
+  pmListCache.set(key, { at: Date.now(), list: out });
+  return out;
+}
+
+/** La tab Staff di un Partner Manager in un server: le statistiche di +profile. */
+async function guildStaff(client?, req?, guildId?, targetId?) {
+  const viewerId = await viewerIdOf(req);
+  if (!viewerId) return { status: 401, body: { ok: false, error: "missing_token", message: "Accedi per vedere lo staff." } };
+  if (!(await memberOf(client, guildId, viewerId))) {
+    return { status: 403, body: { ok: false, error: "not_member", message: "Puoi vedere solo i server dove sei anche tu." } };
+  }
+  const roleId = await pmRoleOf(guildId);
+  const m: any = roleId ? await memberOf(client, guildId, targetId) : null;
+  if (!roleId || !m || !Array.isArray(m.roles) || !m.roles.includes(roleId)) {
+    return { status: 404, body: { ok: false, error: "not_pm", message: "Non è Partner Manager in questo server." } };
+  }
+  const { getTenantProfileSnapshot } = require("../../Partner/services/tenantProfileProgressService") as any;
+  const snap: any = await getTenantProfileSnapshot(String(guildId), String(targetId), { client, evaluateObjectives: false }).catch(() => null);
+  if (!snap) return { status: 503, body: { ok: false, error: "unavailable", message: "Statistiche non disponibili ora." } };
+  const selected = (Array.isArray(snap.prefs?.selectedBadges) ? snap.prefs.selectedBadges : [])
+    .map((id: string) => snap.badgeMap?.get?.(id))
+    .filter(Boolean)
+    .map((b: any) => ({ id: String(b.id), emoji: String(b.emoji || ""), title: String(b.title || "") }));
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      staff: {
+        roleId,
+        scores: { total: Number(snap.scores?.total) || 0, daily: Number(snap.scores?.daily) || 0, weekly: Number(snap.scores?.weekly) || 0 },
+        awardsPercent: Number(snap.awardsPercent) || 0,
+        selectedBadges: selected,
+        badges: (snap.unlockedBadges || []).map((b: any) => ({ id: String(b.id), emoji: String(b.emoji || ""), title: String(b.title || "") })),
+        objectives: (snap.objectives || []).map((o: any) => ({
+          id: String(o.id),
+          emoji: String(o.emoji || ""),
+          title: String(o.title || ""),
+          desc: String(o.desc || ""),
+          current: Number(o.progress?.current) || 0,
+          target: Math.max(1, Number(o.progress?.target) || 1),
+          done: o.progress?.done === true,
+        })),
+        managers: await partnerManagers(client, guildId, roleId).catch(() => []),
+      },
+    },
+  };
+}
+
+export = { sharedGuilds, guildProfile, guildStaff, memberOf, viewerIdOf };

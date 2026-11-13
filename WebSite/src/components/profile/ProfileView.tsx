@@ -8,6 +8,7 @@ import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
 import { useAuth } from "@/lib/auth";
 import { guildProfileAsData, isUserId, loadGuildProfile, loadProfile, loadProfileGuilds, type GuildProfile, type ProfileGuild, type ProfileResult } from "@/lib/profile";
 import { ServerSwitcher } from "./ServerSwitcher";
+import { GuildStaffView } from "./GuildStaffView";
 import { page } from "@/lib/site";
 import { AlbumCover } from "./AlbumCover";
 import { CandyCollection, CustomStuff, RankCard, RolesList } from "./ProfileSections";
@@ -126,7 +127,7 @@ export function ProfileView() {
   const goGuild = (gid: string) => {
     const g = gid && gid !== mainId ? `&g=${gid}` : "";
     setStaffSince(null);
-    router.push(`/user/?id=${id}${g}`, { scroll: false });
+    router.push(`/user/?id=${id}${g}${tab === "staff" ? "&tab=staff" : ""}`, { scroll: false });
   };
   const switcher =
     guilds.length > 1 || (guilds.length === 1 && !guilds[0].isMain) ? (
@@ -144,8 +145,22 @@ export function ProfileView() {
         </>
       );
     const gd = gp.r.data;
+    /* Partner Manager di quel server: tab Staff con le statistiche di +profile */
+    const pmTab = gd.isPartnerManager && Boolean(token);
+    const goGuildTab = (t: "community" | "staff", uid = id) => router.push(`/user/?id=${uid}&g=${guildSel}${t === "staff" ? "&tab=staff" : ""}`, { scroll: false });
     return (
-      <AlbumCover p={guildProfileAsData(gd)} topSlot={switcher} calendarGuildId={guildSel} serverName={gd.guild.name || undefined} />
+      <>
+        <AlbumCover
+          p={guildProfileAsData(gd)}
+          tab={pmTab ? tab : "community"}
+          showStaffTab={pmTab}
+          onTab={goGuildTab}
+          topSlot={switcher}
+          calendarGuildId={guildSel}
+          serverName={gd.guild.name || undefined}
+        />
+        {pmTab && tab === "staff" ? <GuildStaffView token={token!} guildId={guildSel} userId={gd.userId} onNavigate={(uid) => goGuildTab("staff", uid)} /> : null}
+      </>
     );
   }
 
