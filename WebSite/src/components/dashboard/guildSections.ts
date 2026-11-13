@@ -142,9 +142,9 @@ export function isAnnunciModuleTab(v: string): v is AnnunciModuleTabId {
 
 /** Core del server: sotto SERVER (Comandi/Classifica con sotto-menù). */
 export const GUILD_SERVER_SECTIONS = [
-  { id: "settings", label: "Impostazioni", icon: Settings2 },
-  /* accende e spegne i moduli (comandi e automatismi compresi) */
+  /* accende e spegne i moduli (comandi e automatismi compresi): prima voce e pagina d'ingresso del server */
   { id: "moduli", label: "Moduli", icon: Blocks },
+  { id: "settings", label: "Impostazioni", icon: Settings2 },
   /* le categorie stanno dentro la pagina (elenco a sinistra), non nel menu laterale */
   { id: "commands", label: "Comandi", icon: Terminal },
   { id: "stats", label: "Statistiche", icon: BarChart3 },

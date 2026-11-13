@@ -743,6 +743,7 @@ function BotIdentityCard({
       title: kind === "avatar" ? "Togliere l'avatar?" : "Togliere il banner?",
       message: "In questo server il bot torna a quello di sempre.",
       confirmLabel: "Togli",
+      danger: true,
     });
     if (!ok) return;
     await onSave(kind === "avatar" ? { botAvatar: null } : { botBanner: null }, kind === "avatar" ? "Avatar ripristinato." : "Banner ripristinato.");
@@ -917,6 +918,13 @@ function BotIdentityCard({
                   title="Torna al nome di sempre"
                   aria-label="Ripristina nickname"
                   onClick={async () => {
+                    const sure = await confirmDialog({
+                      title: "Togliere il nickname?",
+                      message: "In questo server il bot torna a chiamarsi col nome di sempre.",
+                      confirmLabel: "Togli",
+                      danger: true,
+                    });
+                    if (!sure) return;
                     setNick("");
                     const ok = await onSave({ botNickname: null }, "Nickname del bot ripristinato.");
                     if (!ok) setNick(settings.botNickname ?? "");
@@ -2084,7 +2092,7 @@ export function GuildPanel() {
   const { ready, token, login } = useAuth();
   const [gate, setGate] = useState<Gate>("loading");
   const [guildId, setGuildId] = useState("");
-  const [section, setSectionState] = useState<Section>("settings");
+  const [section, setSectionState] = useState<Section>("moduli");
   const [moduleTab, setModuleTabState] = useState<string | null>(null);
   const [overview, setOverview] = useState<GuildOverview | null>(null);
   const [settings, setSettings] = useState<GuildSettings | null>(null);
@@ -2223,9 +2231,9 @@ export function GuildPanel() {
       const d = panel.data;
       setOverview(d.overview);
       /* ticket del principale: si gestiscono dal sito, la sezione non si apre nemmeno da un link diretto */
-      if (d.overview?.isMainGuild) setSectionState((cur) => (cur === "tickets" ? "settings" : cur));
+      if (d.overview?.isMainGuild) setSectionState((cur) => (cur === "tickets" ? "moduli" : cur));
       /* moderazione e bacheca: solo sul principale, sugli altri server non si aprono */
-      else setSectionState((cur) => (cur === "moderation" || cur === "bacheca" ? "settings" : cur));
+      else setSectionState((cur) => (cur === "moderation" || cur === "bacheca" ? "moduli" : cur));
       setSettings(d.settings);
       setPickers(d.settingsPickers);
       setSettingsError(d.settingsError);

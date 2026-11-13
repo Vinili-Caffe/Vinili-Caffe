@@ -100,7 +100,6 @@ export function ModulesPanel({
   if (!rows) return <RowsSkeleton rows={6} />;
 
   const shown = rows.filter((r) => META.some((m) => m.id === r.id) && !hidden.has(r.id));
-  const onCount = shown.filter((r) => r.on && !r.locked).length;
 
   const toggle = async (id: string, on: boolean) => {
     setBusy(id);
@@ -124,15 +123,12 @@ export function ModulesPanel({
         Spegnendo un modulo il bot smette di usarlo su questo server: niente comandi, messaggi o azioni automatiche. Le impostazioni restano salvate per quando lo riaccendi.
       </p>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="relative min-w-[14rem] flex-1">
+      <div>
+        <label className="relative block w-full">
           <span className="sr-only">Cerca un modulo</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-crema/45" aria-hidden />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca un modulo…" className={cn(fieldClass, "mt-0 pl-9")} />
         </label>
-        <span className="rounded-full bg-crema/[0.06] px-3 py-1 text-xs font-semibold tabular-nums text-crema/65">
-          {onCount} accesi su {shown.length}
-        </span>
       </div>
 
       {list.length === 0 ? (

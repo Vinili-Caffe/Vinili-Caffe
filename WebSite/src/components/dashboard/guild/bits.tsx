@@ -6,7 +6,7 @@ import { EmojiText } from "@/components/discord/EmojiText";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, Diamond, Info, Maximize2, Minimize2, RotateCcw, TriangleAlert } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
-import { Checkbox } from "@/components/ui";
+import { Checkbox, confirmDialog } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { page } from "@/lib/site";
 
@@ -292,7 +292,16 @@ export function GlobalSaveBar() {
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => st.resetAll()}
+                onClick={async () => {
+                  const sure = await confirmDialog({
+                    title: "Annullare le modifiche?",
+                    message: "Quello che hai cambiato e non hai salvato torna com'era prima.",
+                    confirmLabel: "Annulla le modifiche",
+                    cancelLabel: "Continua a modificare",
+                    danger: true,
+                  });
+                  if (sure) st.resetAll();
+                }}
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-crema/70 transition hover:bg-crema/[0.06] hover:text-crema disabled:opacity-45"
               >
                 <RotateCcw className="size-3.5" aria-hidden /> Annulla

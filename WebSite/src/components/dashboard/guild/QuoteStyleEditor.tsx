@@ -6,6 +6,7 @@ import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { defaultQuoteStyle, previewGuildQuoteStyle, type QuoteStyle } from "@/lib/dashboard-guild";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { confirmDialog } from "@/components/ui";
 import { Range } from "@/components/ui/Range";
 import { Field, PremiumLock, Toggle, TrackUnsaved, fieldClass } from "./bits";
 
@@ -132,12 +133,16 @@ export function QuoteStyleEditor({
 
   useEffect(() => {
     if (!guildId || !token || locked) return;
-    const ac = new AbortController();
+    /*
+     * Niente AbortController: annullare la richiesta a ogni modifica (es. trascinando il colore)
+     * riempiva la console di "AbortError". Una risposta arrivata tardi si butta e basta.
+     */
+    let stale = false;
     const timer = window.setTimeout(() => {
       setPreviewLoading(true);
       setPreviewFailed(false);
-      void previewGuildQuoteStyle(token, guildId, draft, ac.signal).then((url) => {
-        if (ac.signal.aborted) {
+      void previewGuildQuoteStyle(token, guildId, draft).then((url) => {
+        if (stale) {
           if (url) URL.revokeObjectURL(url);
           return;
         }
@@ -150,7 +155,7 @@ export function QuoteStyleEditor({
       });
     }, 420);
     return () => {
-      ac.abort();
+      stale = true;
       window.clearTimeout(timer);
     };
   }, [draft, guildId, token, locked]);
@@ -372,6 +377,13 @@ export function QuoteStyleEditor({
           type="button"
           disabled={busy}
           onClick={async () => {
+            const sure = await confirmDialog({
+              title: "Ripristinare lo stile di default?",
+              message: "Colori, font, sfondo e il resto dello stile delle quote tornano come all'inizio, e si salva subito.",
+              confirmLabel: "Ripristina",
+              danger: true,
+            });
+            if (!sure) return;
             const next = defaultQuoteStyle();
             setDraft(next);
             const ok = await onSave(next);
