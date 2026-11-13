@@ -108,16 +108,12 @@ async function joinWelcomeAlreadySent(channel?, member?, botId?) {
     const sentRaw = doc?.profile?.joinAnnounceSentAt;
     if (sentRaw) {
       const sentAt = new Date(sentRaw).getTime();
-      /* flag senza embed in chat → bruciato: sblocca e riprova */
-      if (Number.isFinite(sentAt) && sentAt > 0 && (!joined || sentAt >= joined - 5_000)) {
-        await ActivityUserProfile.updateOne(
-          { guildId, userId },
-          {
-            $unset: { "profile.joinAnnounceSentAt": "", "profile.joinAnnounceClaimId": "", "profile.joinAnnounceClaimAt": "" },
-            $set: { "profile.joinAnnouncePending": true },
-          },
-        ).catch(() => null);
-      }
+      /*
+       * Segno "benvenuto inviato": ora si salva solo DOPO che il messaggio è partito (claim + invio + mark),
+       * quindi è affidabile. Prima, se il messaggio non sembrava quello vecchio in chat (il benvenuto della
+       * dashboard ha un altro formato), il segno veniva cancellato e il benvenuto rimandato a ogni riavvio.
+       */
+      if (Number.isFinite(sentAt) && sentAt > 0 && (!joined || sentAt >= joined - 5_000)) return true;
     }
   }
   return false;
@@ -148,10 +144,21 @@ async function dispatchPublicJoinAnnouncements(member?) {
 
   if (fresh.client) await activateWelcomeContextForGuild(fresh.guild.id, fresh.id);
   let welcomeMsg = null;
+  let welcomeSkipReason = null;
   if (welcomeChannel && !welcomeAlreadySent) {
-    welcomeMsg = await sendWelcomeChannelAnnouncement(welcomeChannel, fresh);
-    if (welcomeMsg) await announceInviteInfo(fresh, welcomeChannel, info);
-    else global.logger?.warn?.("[JOIN RECOVER] welcome send failed/skipped:", fresh.id);
+    const out = await sendWelcomeChannelAnnouncement(welcomeChannel, fresh);
+    if (out && typeof out === "object" && out.skipped) {
+      welcomeSkipReason = String(out.reason || "skipped");
+      /* claim_busy = un altro invio è già in corso/appena riuscito: non è un errore */
+      if (welcomeSkipReason !== "claim_busy") {
+        global.logger?.info?.("[JOIN RECOVER] welcome skipped:", fresh.id, welcomeSkipReason);
+      }
+    } else if (out) {
+      welcomeMsg = out;
+      await announceInviteInfo(fresh, welcomeChannel, info);
+    } else {
+      global.logger?.warn?.("[JOIN RECOVER] welcome send failed:", fresh.id);
+    }
   } else if (welcomeAlreadySent) {
     await clearJoinAnnouncePending(fresh);
   }
@@ -166,7 +173,8 @@ async function dispatchPublicJoinAnnouncements(member?) {
     ok: true,
     announced: Boolean(welcomeMsg),
     already: Boolean(welcomeAlreadySent),
-    welcomeFailed: Boolean(welcomeChannel && !welcomeAlreadySent && !welcomeMsg),
+    welcomeFailed: Boolean(welcomeChannel && !welcomeAlreadySent && !welcomeMsg && welcomeSkipReason !== "claim_busy"),
+    welcomeSkipReason,
   };
 }
 

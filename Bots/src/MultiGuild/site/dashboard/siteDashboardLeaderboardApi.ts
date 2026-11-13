@@ -329,19 +329,170 @@ async function getDashboardPartnershipLeaderboard(client?, accessToken?, guildId
   });
 }
 
-/** Classifica bot pubblica (sito /classifiche scope=bots). Partner manager = guild principale. */
-async function getPublicPartnershipLeaderboard(client?, query: Record<string, any> = {}, opts: Record<string, any> = {}) {
+function resolveMainGuildId() {
   const IDs = require("../../../Vinili/Config/ids") as typeof import("../../../Vinili/Config/ids");
-  const mainGuildId = String(IDs.guilds?.main || "").trim();
+  return String(IDs.guilds?.main || "").trim();
+}
+
+function guildIconFromOAuth(g?) {
+  const id = String(g?.id || "").trim();
+  const icon = String(g?.icon || "").trim();
+  if (!id || !icon) return null;
+  const ext = icon.startsWith("a_") ? "gif" : "png";
+  return `https://cdn.discordapp.com/icons/${id}/${icon}.${ext}?size=64`;
+}
+
+/** Server dove il viewer è Partner Manager (+ sempre il principale in testa). */
+async function listViewerPmGuilds(client?, accessToken?) {
+  const token = String(accessToken || "").trim();
+  if (!token) return fail(401, "missing_token", "Accedi per vedere i tuoi server PM.");
+
+  const mainGuildId = resolveMainGuildId();
+  const D = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
+  const mine: any = await D.fetchUserGuilds(token).catch(() => null);
+  if (!mine?.ok) {
+    return fail(Number(mine?.status) || 503, mine?.error || "guilds_failed", mine?.message || "Non riesco a leggere i tuoi server.");
+  }
+
+  let viewerId = "";
+  try {
+    const { fetchDiscordOAuthMe } = require("../../../Vinili/site/http/discordOauthMe") as typeof import("../../../Vinili/site/http/discordOauthMe");
+    const me: any = await fetchDiscordOAuthMe(token).catch(() => null);
+    viewerId = String(me?.me?.id || "");
+  } catch {
+    viewerId = "";
+  }
+  if (!/^\d{15,22}$/.test(viewerId)) {
+    return fail(401, "invalid_token", "Sessione Discord non valida.");
+  }
+
+  const botIds: Set<string> = D.buildKnownBotGuildIdSet(client);
+  const candidates = (Array.isArray(mine.guilds) ? mine.guilds : [])
+    .filter((g?) => botIds.has(String(g?.id || "")))
+    .slice(0, 60);
+
+  const { isPartnerManagerIn } = require("../../../Vinili/site/http/usersLbGuildProfile") as typeof import("../../../Vinili/site/http/usersLbGuildProfile");
+  const byId = new Map();
+
+  /* principale sempre presente (classifica pubblica) */
+  if (mainGuildId) {
+    const mainRow = candidates.find((g?) => String(g.id) === mainGuildId);
+    let name = String(mainRow?.name || "").trim();
+    let iconUrl = guildIconFromOAuth(mainRow);
+    if (!name || !iconUrl) {
+      try {
+        const g = client?.guilds?.cache?.get(mainGuildId) || null;
+        if (g) {
+          name = name || String(g.name || "").trim();
+          if (!iconUrl) {
+            try {
+              iconUrl = guildIconUrl(g, { size: 64 });
+            } catch {
+              iconUrl = null;
+            }
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    byId.set(mainGuildId, {
+      id: mainGuildId,
+      name: name || "Vinili & Caffè",
+      iconUrl,
+      isMain: true,
+      isPm: false,
+    });
+  }
+
+  const checks = await Promise.all(
+    candidates.map(async (g?) => {
+      const gid = String(g?.id || "").trim();
+      if (!gid || gid === mainGuildId) return null;
+      const ok = await isPartnerManagerIn(client, gid, viewerId).catch(() => false);
+      if (!ok) return null;
+      return {
+        id: gid,
+        name: String(g?.name || gid).trim() || gid,
+        iconUrl: guildIconFromOAuth(g),
+        isMain: false,
+        isPm: true,
+      };
+    }),
+  );
+
+  for (const row of checks) {
+    if (row) byId.set(row.id, row);
+  }
+
+  /* flag PM anche sul principale se ce l'ha */
+  if (mainGuildId && byId.has(mainGuildId)) {
+    const isPm = await isPartnerManagerIn(client, mainGuildId, viewerId).catch(() => false);
+    byId.get(mainGuildId).isPm = Boolean(isPm);
+  }
+
+  const guilds = Array.from(byId.values()).sort(
+    (a?, b?) => Number(b.isMain) - Number(a.isMain) || String(a.name).localeCompare(String(b.name), "it"),
+  );
+
+  return { ok: true, status: 200, userId: viewerId, guilds };
+}
+
+/**
+ * Classifica bot pubblica (sito /classifiche scope=bots).
+ * Partners: di default il principale; `guildId` altro server solo se sei PM lì (Bearer).
+ */
+async function getPublicPartnershipLeaderboard(client?, query: Record<string, any> = {}, opts: Record<string, any> = {}) {
+  const mainGuildId = resolveMainGuildId();
+  const category = normalizeCategory(query.category || query.board || "servers");
   const selfUserId = String(opts.selfUserId || query.userId || "").trim() || null;
+  const requestedGuildId = String(query.guildId || query.guild || "").trim();
+  let partnerScopeGuildId = mainGuildId;
+  let selfGuildId = mainGuildId;
+
+  if (category === "partners" && requestedGuildId && /^\d{15,22}$/.test(requestedGuildId)) {
+    if (requestedGuildId === mainGuildId) {
+      partnerScopeGuildId = mainGuildId;
+    } else {
+      const token = String(opts.accessToken || "").trim();
+      if (!token) return fail(401, "missing_token", "Accedi per vedere la classifica PM di altri server.");
+      const D = require("./siteDashboardApi") as typeof import("./siteDashboardApi");
+      const mine: any = await D.fetchUserGuilds(token).catch(() => null);
+      if (!mine?.ok) {
+        return fail(Number(mine?.status) || 503, mine?.error || "guilds_failed", mine?.message || "Non riesco a leggere i tuoi server.");
+      }
+      const inList = (Array.isArray(mine.guilds) ? mine.guilds : []).some((g?) => String(g?.id) === requestedGuildId);
+      if (!inList) return fail(403, "not_member", "Puoi vedere solo i server dove sei Partner Manager.");
+
+      let viewerId = selfUserId;
+      if (!/^\d{15,22}$/.test(String(viewerId || ""))) {
+        try {
+          const { fetchDiscordOAuthMe } = require("../../../Vinili/site/http/discordOauthMe") as typeof import("../../../Vinili/site/http/discordOauthMe");
+          const me: any = await fetchDiscordOAuthMe(token).catch(() => null);
+          viewerId = String(me?.me?.id || "") || null;
+        } catch {
+          viewerId = null;
+        }
+      }
+      if (!/^\d{15,22}$/.test(String(viewerId || ""))) {
+        return fail(401, "invalid_token", "Sessione Discord non valida.");
+      }
+      const { isPartnerManagerIn } = require("../../../Vinili/site/http/usersLbGuildProfile") as typeof import("../../../Vinili/site/http/usersLbGuildProfile");
+      const isPm = await isPartnerManagerIn(client, requestedGuildId, viewerId).catch(() => false);
+      if (!isPm) return fail(403, "not_pm", "Devi essere Partner Manager in quel server.");
+      partnerScopeGuildId = requestedGuildId;
+      selfGuildId = requestedGuildId;
+    }
+  }
+
   return buildPartnershipLeaderboard(client, {
     category: query.category || query.board || "servers",
     period: query.period || "total",
     page: query.page,
     perPage: query.perPage || 10,
-    partnerScopeGuildId: mainGuildId,
+    partnerScopeGuildId,
     selfUserId: /^\d{15,22}$/.test(String(selfUserId || "")) ? selfUserId : null,
-    selfGuildId: mainGuildId,
+    selfGuildId,
   });
 }
 
@@ -349,4 +500,6 @@ export = {
   getDashboardPartnershipLeaderboard,
   getPublicPartnershipLeaderboard,
   buildPartnershipLeaderboard,
+  listViewerPmGuilds,
 };
+

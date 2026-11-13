@@ -8,7 +8,7 @@ export type BotsPeriodId = "total" | "weekly" | "daily";
 
 export const BOTS_BOARDS: { id: BotsBoardId; label: string; hint: string }[] = [
   { id: "servers", label: "Server", hint: "I server con più partnership fatte con Vinili." },
-  { id: "partners", label: "Partner manager", hint: "Chi ha fatto più partnership sul server principale." },
+  { id: "partners", label: "Partner manager", hint: "Chi ha fatto più partnership: scegli il server se sei PM altrove." },
   { id: "join", label: "Ingressi", hint: "I server che hanno portato più persone con le partnership." },
 ];
 
@@ -39,6 +39,15 @@ export type BotsLeaderPage = {
   unit: string;
   rows: BotsLeaderRow[];
   self: BotsLeaderRow | null;
+  guildId?: string | null;
+};
+
+export type BotsPmGuild = {
+  id: string;
+  name: string;
+  iconUrl: string | null;
+  isMain: boolean;
+  isPm?: boolean;
 };
 
 export function botsBoardUnit(board: BotsBoardId): string {
@@ -69,7 +78,14 @@ function mapRow(raw: unknown, category: BotsBoardId): BotsLeaderRow | null {
 export async function loadBotsBoard(
   board: BotsBoardId,
   page = 1,
-  opts: { origin?: string; period?: BotsPeriodId; perPage?: number; userId?: string } = {},
+  opts: {
+    origin?: string;
+    period?: BotsPeriodId;
+    perPage?: number;
+    userId?: string;
+    guildId?: string;
+    token?: string | null;
+  } = {},
 ): Promise<BotsLeaderPage | null> {
   const period = opts.period ?? "total";
   const q = new URLSearchParams({
@@ -79,12 +95,15 @@ export async function loadBotsBoard(
     perPage: String(opts.perPage ?? 10),
   });
   if (opts.userId) q.set("userId", opts.userId);
+  if (opts.guildId && board === "partners") q.set("guildId", opts.guildId);
   try {
     const base = opts.origin ?? "";
     const url = base
       ? `${base.replace(/\/$/, "")}/webhooks/site-bots-leaderboard?${q}`
       : apiUrl(`/webhooks/site-bots-leaderboard?${q}`);
-    const r = await fetch(url, { cache: "no-store" });
+    const headers: HeadersInit = {};
+    if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
+    const r = await fetch(url, { cache: "no-store", headers });
     const j = (await r.json().catch(() => null)) as Record<string, unknown> | null;
     if (!j?.ok || !Array.isArray(j.rows)) return null;
     const cat = (["servers", "partners", "join"].includes(String(j.category)) ? j.category : board) as BotsBoardId;
@@ -98,9 +117,32 @@ export async function loadBotsBoard(
       unit: j.unit === "joins" ? "ingressi" : "partnership",
       rows: j.rows.map((row) => mapRow(row, cat)).filter((x): x is BotsLeaderRow => Boolean(x)),
       self: mapRow(j.self, cat),
+      guildId: j.guildId ? String(j.guildId) : opts.guildId || null,
     };
   } catch {
     return null;
+  }
+}
+
+export async function loadBotsPmGuilds(token: string): Promise<BotsPmGuild[]> {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-bots-leaderboard?list=pm-guilds"), {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const j = (await r.json().catch(() => null)) as { ok?: boolean; guilds?: BotsPmGuild[] } | null;
+    if (!j?.ok || !Array.isArray(j.guilds)) return [];
+    return j.guilds
+      .map((g) => ({
+        id: String(g.id || "").trim(),
+        name: String(g.name || "").trim(),
+        iconUrl: g.iconUrl ? String(g.iconUrl) : null,
+        isMain: g.isMain === true,
+        isPm: g.isPm === true,
+      }))
+      .filter((g) => /^\d{15,22}$/.test(g.id) && g.name);
+  } catch {
+    return [];
   }
 }
 

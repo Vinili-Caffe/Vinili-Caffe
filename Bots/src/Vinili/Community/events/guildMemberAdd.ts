@@ -329,7 +329,9 @@ export = {
           const welcomeMsg = await sendWelcomeChannelAnnouncement(welcomeChannel, memberAfterVerifyJoin);
           info = await resolveInviteInfo(memberAfterVerifyJoin).catch(() => null);
           /* vanity/invite solo dopo il benvenuto: altrimenti restava solo la riga vanity senza embed */
-          if (welcomeMsg) await announceInviteInfo(memberAfterVerifyJoin, welcomeChannel, info);
+          if (welcomeMsg && !(welcomeMsg as any)?.skipped) {
+            await announceInviteInfo(memberAfterVerifyJoin, welcomeChannel, info);
+          }
         }
       }
 

@@ -7,7 +7,17 @@ import type { ProfileGuild } from "@/lib/profile";
 import { cn } from "@/lib/cn";
 
 /** Scelta del server del profilo, con lo stesso aspetto di "Lista staff": frecce, nome, posizione e menu. */
-export function ServerSwitcher({ guilds, current, onGo }: { guilds: ProfileGuild[]; current: string; onGo: (id: string) => void }) {
+export function ServerSwitcher({
+  guilds,
+  current,
+  onGo,
+  menuTitle = "Server in comune",
+}: {
+  guilds: ProfileGuild[];
+  current: string;
+  onGo: (id: string) => void;
+  menuTitle?: string;
+}) {
   const i = guilds.findIndex((g) => g.id === current);
   const cur = guilds[i] || guilds[0];
   const [open, setOpen] = useState(false);
@@ -66,7 +76,7 @@ export function ServerSwitcher({ guilds, current, onGo }: { guilds: ProfileGuild
             ) : null}
             <div className="max-h-80 overflow-y-auto p-1.5">
               <p className="flex items-center gap-1.5 px-2 pb-1 pt-2 text-[0.65rem] font-bold uppercase tracking-[0.2em] text-caramel">
-                <Server className="size-3" aria-hidden /> Server in comune
+                <Server className="size-3" aria-hidden /> {menuTitle}
               </p>
               {list.map((g) => (
                 <button key={g.id} type="button" onClick={() => go(g.id)} className={cn("flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left text-sm hover:bg-crema/[0.06]", g.id === cur.id && "bg-caramel/12 text-ember")}>

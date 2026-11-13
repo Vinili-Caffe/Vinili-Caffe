@@ -20,10 +20,12 @@ import {
   botsFmt,
   botsMetric,
   loadBotsBoard,
+  loadBotsPmGuilds,
   type BotsBoardId,
   type BotsLeaderPage,
   type BotsLeaderRow,
   type BotsPeriodId,
+  type BotsPmGuild,
 } from "@/lib/bots-leaderboard";
 import { useAuth } from "@/lib/auth";
 import { page } from "@/lib/site";
@@ -31,6 +33,8 @@ import { cn } from "@/lib/cn";
 import { Avatar } from "@/components/Avatar";
 import { Pagination } from "@/components/ui/Pagination";
 import { ShowMoreButton } from "@/components/ui/ShowMore";
+import { ServerSwitcher } from "@/components/profile/ServerSwitcher";
+import type { ProfileGuild } from "@/lib/profile";
 
 const BOARD_ICONS: Record<BotsBoardId, LucideIcon> = {
   servers: Building2,
@@ -212,7 +216,7 @@ function Row({ row, unit, rows }: { row: BotsLeaderRow; unit: string; rows: Bots
 }
 
 export function BotsLeaderboardBrowser({ initial }: { initial: BotsLeaderPage | null }) {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [board, setBoard] = useState<BotsBoardId>("servers");
   const [period, setPeriod] = useState<BotsPeriodId>("total");
   const [pageNum, setPageNum] = useState(1);
@@ -221,27 +225,58 @@ export function BotsLeaderboardBrowser({ initial }: { initial: BotsLeaderPage | 
   const [listLoading, setListLoading] = useState(!initial);
   const [boardBoot, setBoardBoot] = useState(!initial);
   const [listVisible, setListVisible] = useState(50);
+  const [pmGuilds, setPmGuilds] = useState<BotsPmGuild[]>([]);
+  const [partnerGuildId, setPartnerGuildId] = useState<string>("");
   const first = useRef(true);
   const LIST_CHUNK = 50;
+
+  const partnerGuildForFetch =
+    board === "partners" && partnerGuildId && pmGuilds.some((g) => g.id === partnerGuildId && !g.isMain)
+      ? partnerGuildId
+      : undefined;
 
   useEffect(() => {
     setPageNum(1);
     setListVisible(LIST_CHUNK);
-  }, [board, period]);
+  }, [board, period, partnerGuildForFetch]);
 
   useEffect(() => {
     setListVisible(LIST_CHUNK);
   }, [pageNum]);
 
   useEffect(() => {
-    if (first.current && initial && board === "servers" && period === "total") {
+    if (board !== "partners" || !token) {
+      setPmGuilds([]);
+      return;
+    }
+    let alive = true;
+    loadBotsPmGuilds(token).then((list) => {
+      if (!alive) return;
+      setPmGuilds(list);
+      setPartnerGuildId((cur) => {
+        if (cur && list.some((g) => g.id === cur)) return cur;
+        return list.find((g) => g.isMain)?.id || list[0]?.id || "";
+      });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [board, token]);
+
+  useEffect(() => {
+    if (first.current && initial && board === "servers" && period === "total" && !partnerGuildForFetch) {
       setBoardBoot(false);
       return;
     }
     let alive = true;
     setBoardBoot(true);
     setPodium([]);
-    loadBotsBoard(board, 1, { period, userId: user?.id }).then((d) => {
+    loadBotsBoard(board, 1, {
+      period,
+      userId: user?.id,
+      guildId: partnerGuildForFetch,
+      token: partnerGuildForFetch ? token : null,
+    }).then((d) => {
       if (!alive) return;
       if (d && d.board === board && d.period === period) setPodium(d.rows.slice(0, 3));
       setBoardBoot(false);
@@ -249,10 +284,10 @@ export function BotsLeaderboardBrowser({ initial }: { initial: BotsLeaderPage | 
     return () => {
       alive = false;
     };
-  }, [board, period, initial, user?.id]);
+  }, [board, period, initial, user?.id, partnerGuildForFetch, token]);
 
   useEffect(() => {
-    if (first.current && initial && board === "servers" && period === "total" && pageNum === 1) {
+    if (first.current && initial && board === "servers" && period === "total" && pageNum === 1 && !partnerGuildForFetch) {
       first.current = false;
       setListLoading(false);
       return;
@@ -261,7 +296,12 @@ export function BotsLeaderboardBrowser({ initial }: { initial: BotsLeaderPage | 
     let alive = true;
     setListLoading(true);
     setData(null);
-    loadBotsBoard(board, pageNum, { period, userId: user?.id }).then((d) => {
+    loadBotsBoard(board, pageNum, {
+      period,
+      userId: user?.id,
+      guildId: partnerGuildForFetch,
+      token: partnerGuildForFetch ? token : null,
+    }).then((d) => {
       if (!alive) return;
       if (d && (d.board !== board || d.period !== period)) {
         setListLoading(false);
@@ -274,9 +314,16 @@ export function BotsLeaderboardBrowser({ initial }: { initial: BotsLeaderPage | 
     return () => {
       alive = false;
     };
-  }, [board, period, pageNum, initial, user?.id]);
+  }, [board, period, pageNum, initial, user?.id, partnerGuildForFetch, token]);
 
   const dataReady = Boolean(data && data.board === board && data.period === period);
+  const switcherGuilds: ProfileGuild[] = pmGuilds.map((g) => ({
+    id: g.id,
+    name: g.name,
+    iconUrl: g.iconUrl,
+    isMain: g.isMain,
+  }));
+  const showPmSwitcher = board === "partners" && switcherGuilds.length > 1;
   const page = dataReady ? (data!.page ?? pageNum) : pageNum;
   const top = dataReady ? podium : [];
   const rest = dataReady ? (page === 1 ? data!.rows.slice(3) : data!.rows) : [];
@@ -356,9 +403,27 @@ export function BotsLeaderboardBrowser({ initial }: { initial: BotsLeaderPage | 
         </div>
       </LayoutGroup>
 
+      {showPmSwitcher ? (
+        <div className="mt-5 flex justify-center">
+          <ServerSwitcher
+            guilds={switcherGuilds}
+            current={partnerGuildId || switcherGuilds[0].id}
+            menuTitle="Server dove sei PM"
+            onGo={(id) => {
+              setPartnerGuildId(id);
+              setPageNum(1);
+            }}
+          />
+        </div>
+      ) : null}
+
       <p className="mt-4 text-center text-sm text-crema/50">
         {dataReady
-          ? `${botsFmt(data!.total)} in classifica · ${boardInfo.hint}`
+          ? `${botsFmt(data!.total)} in classifica · ${
+              board === "partners" && partnerGuildForFetch
+                ? `PM di ${pmGuilds.find((g) => g.id === partnerGuildId)?.name || "questo server"}`
+                : boardInfo.hint
+            }`
           : boardInfo.hint}
       </p>
 

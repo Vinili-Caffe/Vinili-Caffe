@@ -159,16 +159,26 @@ async function clearJoinAnnounceClaim(member?) {
   ).catch(() => null);
 }
 
-/** Benvenuto nel canale: testi e canale sono quelli della dashboard (Benvenuto), anche sul principale. */
+/**
+ * Benvenuto nel canale (dashboard).
+ * Ritorna il messaggio, oppure `{ skipped: true, reason }` se non è un errore d’invio
+ * (claim perso / modulo spento / canale assente).
+ */
 async function sendWelcomeChannelAnnouncement(_channel?, member?) {
-  if (!member?.guild?.id) return null;
-  if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(member.guild.id, "benvenuto")) return null;
+  if (!member?.guild?.id) return { skipped: true, reason: "no_guild" };
+  if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(member.guild.id, "benvenuto")) {
+    return { skipped: true, reason: "module_off" };
+  }
   const claimed = await claimJoinAnnounceSlot(member);
-  if (!claimed) return null;
+  if (!claimed) return { skipped: true, reason: "claim_busy" };
   try {
     const { sendDashboardWelcome } = require("../../../MultiGuild/services/welcomeRuntime") as typeof import("../../../MultiGuild/services/welcomeRuntime");
     const sent = await sendDashboardWelcome(member);
     /* false = spento/senza canale; null = errore → riprova */
+    if (sent === false) {
+      await clearJoinAnnounceClaim(member);
+      return { skipped: true, reason: "disabled_or_no_channel" };
+    }
     if (!sent) {
       await clearJoinAnnounceClaim(member);
       return null;
