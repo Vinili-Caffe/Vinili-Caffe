@@ -62,7 +62,7 @@ function DurationField({ days, onChange }: { days: number; onChange: (days: numb
         max={Math.floor(3650 / mult)}
         onChange={(v) => onChange(Math.min(3650, Math.max(0, Math.round(Number(v) || 0)) * mult))}
         aria-label="Quanto tempo"
-        className="min-w-0 flex-1"
+        className="mt-0 h-10 min-w-0 flex-1 rounded-xl"
       />
       <Select
         value={unit}
@@ -76,7 +76,7 @@ function DurationField({ days, onChange }: { days: number; onChange: (days: numb
           { value: "m", label: "mesi" },
           { value: "y", label: "anni" },
         ]}
-        className="h-11 w-28 shrink-0 rounded-lg"
+        className="h-10 w-28 shrink-0 rounded-xl"
       />
     </div>
   );
@@ -499,7 +499,7 @@ export function AnnouncementsPanel({
                             value={r.roleId || ""}
                             onChange={(v) => setTr(r.id, { roleId: v || null })}
                             options={[{ value: "", label: "— Nessuno —" }, ...roleOptions(data.pickers.roles, guildId)]}
-                            className="mt-1.5 h-11 rounded-lg"
+                            className="mt-1.5 h-10 rounded-xl"
                           />
                         </Field>
                         <ChannelField label="Canale annuncio" hint="Vuoto = niente annuncio in chat." value={r.channelId} channels={channels} onChange={(channelId) => setTr(r.id, { channelId })} />

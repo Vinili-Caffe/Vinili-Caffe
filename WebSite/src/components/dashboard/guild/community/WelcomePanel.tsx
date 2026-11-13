@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { UserPlus } from "lucide-react";
 import { MultiSelect } from "@/components/ui/Select";
 import { communityApi, emptyDraft, type WelcomeSettings } from "@/lib/dashboard-community";
-import { Field, Notice, RowsSkeleton, Toggle, TrackUnsaved, fieldClass } from "../bits";
-import { ChannelField, DiscordMessagePreview, DmExtra, DraftEditor, EditorWithPreview, MEMBER_PLACEHOLDERS, roleOptions, useCommunity, useSampleVars } from "./shared";
+import { Field, FormGroup, Notice, SettingRow, RowsSkeleton, Toggle, TrackUnsaved, fieldClass } from "../bits";
+import { ChannelField, DiscordMessagePreview, TestDraftButton, DmExtra, DraftEditor, EditorWithPreview, MEMBER_PLACEHOLDERS, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 /* "dm" e "roles" sono vecchi link: ora stanno dentro Benvenuto */
 type Tab = "welcome" | "goodbye" | "dm" | "roles";
@@ -72,13 +72,21 @@ export function WelcomePanel({
         </Notice>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
-        <Toggle checked={p.enabled} onChange={(enabled) => set({ enabled })} label={k === "welcome" ? "Attiva il benvenuto" : "Attiva l'addio"} />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-crema">{k === "welcome" ? "Messaggio quando entra qualcuno" : "Messaggio quando qualcuno esce"}</p>
-          <p className="text-xs text-crema/55">{p.enabled ? "Nel canale: attivo" : "Nel canale: spento (il privato qui sotto funziona lo stesso)"}</p>
-        </div>
-      </div>
+      <p className="text-sm text-crema/60">
+        {k === "welcome" ? "Un messaggio quando qualcuno entra nel server, più i ruoli automatici e il privato se vuoi." : "Un messaggio quando qualcuno esce dal server, più il privato se vuoi."}
+      </p>
+
+      <FormGroup title={k === "welcome" ? "Messaggio di benvenuto" : "Messaggio d'addio"}>
+        <SettingRow
+          title="Manda nel canale"
+          description={k === "welcome" ? "Ogni volta che entra qualcuno. Spento + privato acceso = solo in privato." : "Ogni volta che qualcuno esce. Spento + privato acceso = solo in privato."}
+        >
+          <div className="flex items-center gap-3">
+            <TestDraftButton draft={p.draft} vars={vars} channels={channels} testChannelId={p.channelId} />
+            <Toggle checked={p.enabled} onChange={(enabled) => set({ enabled })} label={k === "welcome" ? "Attiva il benvenuto" : "Attiva l'addio"} />
+          </div>
+        </SettingRow>
+      </FormGroup>
 
       <EditorWithPreview
         editor={
@@ -87,7 +95,7 @@ export function WelcomePanel({
             <DraftEditor key={k} value={p.draft} onChange={(draft) => set({ draft })} emojis={data.pickers.emojis} placeholders={MEMBER_PLACEHOLDERS} maxButtons={data.limits.buttons} />
           </div>
         }
-        preview={<DiscordMessagePreview testChannelId={p.channelId} bot={data.bot} draft={p.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
+        preview={<DiscordMessagePreview noTest bot={data.bot} draft={p.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
       />
 
       {k === "welcome" ? (

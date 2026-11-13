@@ -516,21 +516,50 @@ export const DraftTestContext = createContext<{ guildId: string; token: string; 
 export function DiscordMessagePreview({
   testChannelId,
   testDmOnly,
+  noTest,
   ...props
 }: React.ComponentProps<typeof DiscordMessagePreviewBody> & {
   /** canale dove il messaggio verrà mandato davvero (per la prova nel canale) */
   testChannelId?: string | null;
   /** messaggio privato: la prova va solo in privato */
   testDmOnly?: boolean;
+  /** il tasto Prova sta già altrove nella pagina */
+  noTest?: boolean;
+}) {
+  const ctx = useContext(DraftTestContext);
+  if (!ctx || noTest) return <DiscordMessagePreviewBody {...props} />;
+  return (
+    <div className="space-y-2">
+      <DiscordMessagePreviewBody {...props} />
+      <div className="flex justify-end">
+        <TestDraftButton draft={props.draft} vars={props.vars} channels={props.channels} testChannelId={testChannelId} testDmOnly={testDmOnly} />
+      </div>
+    </div>
+  );
+}
+
+/** Tasto "Prova": con un canale impostato chiede se provarlo lì o in privato; senza, arriva in privato. */
+export function TestDraftButton({
+  draft,
+  vars,
+  channels = [],
+  testChannelId,
+  testDmOnly,
+}: {
+  draft: MsgDraft;
+  vars: Record<string, string>;
+  channels?: PickerChannel[];
+  testChannelId?: string | null;
+  testDmOnly?: boolean;
 }) {
   const ctx = useContext(DraftTestContext);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
-  if (!ctx) return <DiscordMessagePreviewBody {...props} />;
+  if (!ctx) return null;
   const send = async () => {
     let where: "dm" | "channel" = "dm";
     if (testChannelId && !testDmOnly) {
-      const chName = (props.channels || []).find((c) => c.id === testChannelId)?.name;
+      const chName = channels.find((c) => c.id === testChannelId)?.name;
       const pick = await chooseDialog({
         title: "Dove vuoi provarlo?",
         message: "Il messaggio viene mandato così com'è adesso, con i valori d'esempio.",
@@ -543,7 +572,7 @@ export function DiscordMessagePreview({
       where = pick === "channel" ? "channel" : "dm";
     }
     setBusy(true);
-    const r = await communityApi.testMessage(ctx.token, ctx.guildId, props.draft, props.vars, where === "channel" ? testChannelId : null);
+    const r = await communityApi.testMessage(ctx.token, ctx.guildId, draft, vars, where === "channel" ? testChannelId : null);
     setBusy(false);
     if (!r.ok) return ctx.onToast(r.message, true);
     setSent(true);
@@ -551,22 +580,17 @@ export function DiscordMessagePreview({
     ctx.onToast(where === "channel" ? "Prova inviata nel canale." : "Prova inviata: guarda i tuoi messaggi privati su Discord.");
   };
   return (
-    <div className="space-y-2">
-      <DiscordMessagePreviewBody {...props} />
-      <div className="flex justify-end">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void send()}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 transition disabled:opacity-50",
-            sent ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30" : "bg-crema/[0.05] text-crema/80 ring-sand/15 hover:bg-crema/[0.09] hover:text-crema",
-          )}
-        >
-          <Send className="size-3.5" aria-hidden /> {busy ? "Invio…" : sent ? "Inviata!" : "Prova"}
-        </button>
-      </div>
-    </div>
+    <button
+      type="button"
+      disabled={busy}
+      onClick={() => void send()}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 transition disabled:opacity-50",
+        sent ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30" : "bg-crema/[0.05] text-crema/80 ring-sand/15 hover:bg-crema/[0.09] hover:text-crema",
+      )}
+    >
+      <Send className="size-3.5" aria-hidden /> {busy ? "Invio…" : sent ? "Inviata!" : "Prova"}
+    </button>
   );
 }
 
