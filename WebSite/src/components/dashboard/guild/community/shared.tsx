@@ -293,14 +293,12 @@ export function DraftEditor({
   const e = value.embed;
   const pastRef = useRef<MsgDraft[]>([]);
   const applyingUndo = useRef(false);
-  const [canUndo, setCanUndo] = useState(false);
 
   const setDraft = useCallback(
     (next: MsgDraft) => {
       if (!applyingUndo.current) {
         pastRef.current.push(cloneDraft(value));
         if (pastRef.current.length > 40) pastRef.current.shift();
-        setCanUndo(true);
       }
       onChange(next);
     },
@@ -311,7 +309,6 @@ export function DraftEditor({
     const prev = pastRef.current.pop();
     if (!prev) return;
     applyingUndo.current = true;
-    setCanUndo(pastRef.current.length > 0);
     onChange(prev);
     queueMicrotask(() => {
       applyingUndo.current = false;
@@ -322,10 +319,7 @@ export function DraftEditor({
     const onKey = (ev: KeyboardEvent) => {
       if (!(ev.ctrlKey || ev.metaKey) || ev.key.toLowerCase() !== "z" || ev.shiftKey) return;
       const t = ev.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
-        /* in input nativo Ctrl+Z resta quello del browser; qui solo se non c'è selezione da annullare… lasciamo entrambi: usiamo il bottone + Ctrl+Z fuori dai campi */
-        return;
-      }
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       if (!pastRef.current.length) return;
       ev.preventDefault();
       undo();
@@ -340,33 +334,28 @@ export function DraftEditor({
   const mentionRoles = value.mentionRoles !== false;
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="grid min-w-[15rem] flex-1 grid-cols-2 gap-1 rounded-xl bg-espresso/70 p-1 ring-1 ring-sand/10" role="radiogroup" aria-label="Formato del messaggio">
-          {[
-            { on: false, label: "Testo + embed" },
-            { on: true, label: "Components V2" },
-          ].map((opt) => (
-            <button
-              key={opt.label}
-              type="button"
-              role="radio"
-              aria-checked={v2.enabled === opt.on}
-              onClick={() => {
-                if (v2.enabled === opt.on) return;
-                setDraft({ ...value, v2: { ...v2, enabled: opt.on, blocks: opt.on && !v2.blocks.length ? blocksFromClassic(value) : v2.blocks } });
-              }}
-              className={cn(
-                "whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-semibold transition-colors",
-                v2.enabled === opt.on ? "bg-mocha text-crema ring-1 ring-sand/15" : "text-crema/60 hover:text-crema",
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <button type="button" className={miniBtn} disabled={!canUndo} onClick={undo} title="Annulla l'ultima modifica (Ctrl+Z fuori dai campi)">
-          Annulla modifica
-        </button>
+      <div className="grid min-w-[15rem] grid-cols-2 gap-1 rounded-xl bg-espresso/70 p-1 ring-1 ring-sand/10" role="radiogroup" aria-label="Formato del messaggio">
+        {[
+          { on: false, label: "Testo + embed" },
+          { on: true, label: "Components V2" },
+        ].map((opt) => (
+          <button
+            key={opt.label}
+            type="button"
+            role="radio"
+            aria-checked={v2.enabled === opt.on}
+            onClick={() => {
+              if (v2.enabled === opt.on) return;
+              setDraft({ ...value, v2: { ...v2, enabled: opt.on, blocks: opt.on && !v2.blocks.length ? blocksFromClassic(value) : v2.blocks } });
+            }}
+            className={cn(
+              "whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-semibold transition-colors",
+              v2.enabled === opt.on ? "bg-mocha text-crema ring-1 ring-sand/15" : "text-crema/60 hover:text-crema",
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       <div className="space-y-2 rounded-2xl bg-espresso/40 p-3 ring-1 ring-sand/10">

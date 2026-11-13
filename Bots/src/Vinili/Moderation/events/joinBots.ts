@@ -20,6 +20,8 @@ const INVITE_LOG_CHANNEL_ID = IDs.channels.chat;
 const JOIN_GATE_WHITELIST_ROLE_IDS = new Set([IDs.roles.Founder].filter(Boolean).map(String),);
 const AUDIT_FETCH_LIMIT = 20;
 const AUDIT_LOOKBACK_MS = 120 * 1000;
+/** Evita doppio benvenuto se guildMemberAdd e deferred (guildMemberUpdate) partono insieme. */
+const welcomeSendInflight = new Set();
 
 function formatActor(actor?) {
   if (!actor) return "sconosciuto";
@@ -76,19 +78,79 @@ async function addBotRoles(member?) {
   }
 }
 
+/**
+ * Prenota lo slot benvenuto (atomico): solo chi vince il claim manda il messaggio.
+ * Copre la race join live + deferred su guildMemberUpdate (restore ruoli).
+ */
+async function claimJoinAnnounceSlot(member?) {
+  if (!member?.guild?.id || !member?.id) return false;
+  const guildId = String(member.guild.id);
+  const userId = String(member.id);
+  const key = `${guildId}:${userId}`;
+  if (welcomeSendInflight.has(key)) return false;
+  welcomeSendInflight.add(key);
+
+  const joined = Number(member.joinedTimestamp || 0);
+  const cutoff = joined > 0 ? new Date(joined - 5_000) : new Date(0);
+  const claimId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  try {
+    const doc: any = await ActivityUserProfile.findOneAndUpdate(
+      {
+        guildId,
+        userId,
+        $or: [
+          { "profile.joinAnnounceSentAt": { $exists: false } },
+          { "profile.joinAnnounceSentAt": null },
+          { "profile.joinAnnounceSentAt": { $lt: cutoff } },
+        ],
+      },
+      {
+        $set: {
+          guildId,
+          userId,
+          "profile.joinAnnounceSentAt": new Date(),
+          "profile.joinAnnounceClaimId": claimId,
+        },
+        $unset: { "profile.joinAnnouncePending": "" },
+      },
+      { upsert: true, new: true },
+    ).catch((err?) => {
+      if (err?.code === 11000) return null;
+      throw err;
+    });
+    if (!doc || String(doc?.profile?.joinAnnounceClaimId || "") !== claimId) {
+      welcomeSendInflight.delete(key);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    welcomeSendInflight.delete(key);
+    global.logger?.warn?.("[guildMemberAdd] welcome claim:", err?.message || err);
+    return false;
+  }
+}
+
+function releaseWelcomeInflight(member?) {
+  if (!member?.guild?.id || !member?.id) return;
+  welcomeSendInflight.delete(`${String(member.guild.id)}:${String(member.id)}`);
+}
+
 /** Benvenuto nel canale: testi e canale sono quelli della dashboard (Benvenuto), anche sul principale. */
 async function sendWelcomeChannelAnnouncement(_channel?, member?) {
   if (!member?.guild?.id) return null;
   if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(member.guild.id, "benvenuto")) return null;
+  const claimed = await claimJoinAnnounceSlot(member);
+  if (!claimed) return null;
   try {
     const { sendDashboardWelcome } = require("../../../MultiGuild/services/welcomeRuntime") as typeof import("../../../MultiGuild/services/welcomeRuntime");
     const sent = await sendDashboardWelcome(member);
     refreshWelcomeContextForGuild(member.guild.id, member.id);
-    await markJoinAnnounceSent(member);
     return sent || null;
   } catch (err) {
     global.logger?.warn?.("[guildMemberAdd] dashboard welcome:", err?.message || err);
     return null;
+  } finally {
+    releaseWelcomeInflight(member);
   }
 }
 
@@ -499,4 +561,12 @@ async function markJoinAnnounceSent(member?) {
   ).catch(() => null);
 }
 
-export = { sendWelcomeChannelAnnouncement, handleBotJoin, hasNoAvatar, buildJoinGateTriggeredEmbed, kickForJoinGate, markJoinAnnounceSent };
+export = {
+  sendWelcomeChannelAnnouncement,
+  handleBotJoin,
+  hasNoAvatar,
+  buildJoinGateTriggeredEmbed,
+  kickForJoinGate,
+  markJoinAnnounceSent,
+  claimJoinAnnounceSlot,
+};

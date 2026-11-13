@@ -331,8 +331,8 @@ export function GlobalSaveBar() {
   );
 }
 
-/** Barra in basso quando ci sono modifiche da salvare. */
-export function SaveBar({ show, busy, onSave, onReset }: { show: boolean; busy: boolean; onSave: () => void; onReset?: () => void }) {
+/** Barra locale (legacy): preferisci GlobalSaveBar. Senza Annulla — quello è solo in basso. */
+export function SaveBar({ show, busy, onSave }: { show: boolean; busy: boolean; onSave: () => void; onReset?: () => void }) {
   return (
     <AnimatePresence>
       {show ? (
@@ -344,11 +344,6 @@ export function SaveBar({ show, busy, onSave, onReset }: { show: boolean; busy: 
         >
           <span className="size-2 rounded-full bg-ember" aria-hidden />
           <p className="flex-1 text-sm font-medium text-crema">Hai modifiche non salvate</p>
-          {onReset ? (
-            <button type="button" className="rounded-lg px-3 py-1.5 text-sm font-semibold text-crema/70 hover:text-crema" disabled={busy} onClick={onReset}>
-              Annulla
-            </button>
-          ) : null}
           <button type="button" className={primaryMini} disabled={busy} onClick={onSave}>
             <Check className="size-3.5" /> Salva
           </button>

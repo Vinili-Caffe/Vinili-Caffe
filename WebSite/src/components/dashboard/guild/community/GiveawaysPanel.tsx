@@ -178,7 +178,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
               Salva modifiche
             </button>
             <button type="button" className={miniBtn} disabled={!!busy} onClick={() => setEditId(null)}>
-              Annulla
+              Chiudi
             </button>
           </div>
         </div>
