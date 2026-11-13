@@ -51,7 +51,7 @@ export function BotFaqBrowser() {
         <p className="relative mt-2 max-w-xl text-sm text-crema/65">
           Scrivilo nei feedback del bot: se è un problema lo sistemiamo, se è un&apos;idea la valutiamo.
         </p>
-        <SmartLink href={page("/dashboard/feedback/")} className={`${dashPrimaryBtn} relative mt-5`}>
+        <SmartLink href={page("/feedback/#bot")} className={`${dashPrimaryBtn} relative mt-5`}>
           <MessageSquarePlus className="size-4" aria-hidden /> Vai ai feedback
         </SmartLink>
       </section>

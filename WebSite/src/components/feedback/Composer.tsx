@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Bug, ImagePlus, Lightbulb, Loader2, Send, X } from "lucide-react";
 import { useFormDraft } from "@/components/ui/form-drafts";
@@ -62,6 +62,7 @@ export function Composer({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const messageId = `feedback-message-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const len = text.trim().length;
 
   const draft = useFormDraft(api.draftKey, form, setForm, {
@@ -185,9 +186,9 @@ export function Composer({
         </>
         ) : null}
 
-        <label htmlFor="message" className="mt-5 block">
+        <label htmlFor={messageId} className="mt-5 block">
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-ink/50">Messaggio</span>
-          <textarea id="message" name="message"
+          <textarea id={messageId} name="message"
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, MAX_LEN))}
             rows={6}

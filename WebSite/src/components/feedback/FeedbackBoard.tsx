@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { HeartHandshake, Info, LogIn, PenLine, RotateCcw, Shield, Users } from "lucide-react";
 import { Reveal } from "@/components/Reveal";
@@ -63,6 +63,8 @@ export function FeedbackBoard({
   const [openId, setOpenId] = useState<string | null>(() => readDeepLink().suggestionId || null);
   const [composer, setComposer] = useState<{ edit?: Suggestion } | null>(null);
   const [toast, setToast] = useState("");
+  /* due lavagne nella stessa pagina (server e bot): ognuna ha la sua ancora per la paginazione */
+  const listId = `feedback-list-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const deeplinkBoot = useRef(Boolean(readDeepLink().suggestionId || readDeepLink().boardStaff));
   const triedStaffFlip = useRef(false);
 
@@ -286,7 +288,7 @@ export function FeedbackBoard({
         {error && <p className="mt-6 rounded-xl bg-[#a83a2c]/15 px-4 py-3 text-sm text-[#f0a493] light:text-[#a83a2c]">{error}</p>}
 
         {/* biglietti */}
-        <div id="feedback-list" className="mt-8 scroll-mt-28">
+        <div id={listId} className="mt-8 scroll-mt-28">
           {list === null ? (
             <div className="columns-1 gap-6 sm:columns-2 lg:columns-3">
               {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -313,7 +315,7 @@ export function FeedbackBoard({
                   <NoteCard key={s.id} s={s} i={i} onOpen={() => setOpenId(s.id)} onVote={(d) => vote(s, d)} />
                 ))}
               </div>
-              <Pagination page={pageSafe} totalPages={totalPages} onChange={setPageNum} scrollToId="feedback-list" />
+              <Pagination page={pageSafe} totalPages={totalPages} onChange={setPageNum} scrollToId={listId} />
             </>
           )}
         </div>

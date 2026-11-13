@@ -65,9 +65,9 @@ function guildSectionHref(guildId: string, sectionId: GuildSectionId, tab?: stri
 }
 
 const BOT_NAV = [
-  { href: "/dashboard/faq/", label: "FAQ", icon: HelpCircle },
-  { href: "/dashboard/feedback/", label: "Feedback", icon: MessageSquarePlus },
-  { href: "/dashboard/recensioni/", label: "Recensioni", icon: NotebookPen },
+  { href: "/faq/#bot", label: "FAQ", icon: HelpCircle },
+  { href: "/feedback/#bot", label: "Feedback", icon: MessageSquarePlus },
+  { href: "/recensioni/#bot", label: "Recensioni", icon: NotebookPen },
 ] as const;
 
 const ACCOUNT_NAV = [

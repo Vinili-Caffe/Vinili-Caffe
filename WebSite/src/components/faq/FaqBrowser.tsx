@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { Calendar, ChevronDown, Gamepad2, Link2, Music, Search, TrendingUp, Users, X, type LucideIcon } from "lucide-react";
 import { FAQ_CATEGORIES, FAQ_ITEMS, type FaqCategory, type FaqItem } from "@/lib/faq";
@@ -203,6 +203,31 @@ export function FaqBrowser({
     window.addEventListener("hashchange", fromHash);
     return () => window.removeEventListener("hashchange", fromHash);
   }, []);
+
+  /*
+   * /faq/#categoria (es. #bot) → apre quella categoria. Effetto a parte, legato alle categorie:
+   * le FAQ del bot arrivano con la lingua, quindi la categoria può comparire dopo il primo disegno.
+   */
+  const hashCatDone = useRef(false);
+  useEffect(() => {
+    const apply = () => {
+      const id = decodeURIComponent(location.hash.slice(1));
+      if (!id || !categories.some((c) => c.id === id)) return false;
+      setQuery("");
+      setCat(id);
+      return true;
+    };
+    /* fuori dal corpo dell'effetto: niente aggiornamenti a cascata */
+    const t = window.setTimeout(() => {
+      if (!hashCatDone.current && apply()) hashCatDone.current = true;
+    }, 0);
+    const onHash = () => void apply();
+    window.addEventListener("hashchange", onHash);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("hashchange", onHash);
+    };
+  }, [categories]);
 
   const results = useMemo(() => {
     const q = norm(query.trim());

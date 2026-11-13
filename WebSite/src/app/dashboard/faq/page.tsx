@@ -1,13 +1,9 @@
 import type { Metadata } from "next";
-import { BotFaqBrowser } from "@/components/dashboard/BotFaqBrowser";
-import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { MovedRedirect } from "@/components/MovedRedirect";
 
 export const metadata: Metadata = { title: "FAQ bot · Dashboard", robots: { index: false } };
 
+/* spostata nella pagina pubblica: chi ha il vecchio link ci arriva lo stesso */
 export default function Page() {
-  return (
-    <DashboardShell title="FAQ del bot" lead="Domande frequenti su Vinili e le funzioni dashboard.">
-      <BotFaqBrowser />
-    </DashboardShell>
-  );
+  return <MovedRedirect to="/faq/#bot" label="Le FAQ del bot ora stanno nella pagina FAQ" />;
 }

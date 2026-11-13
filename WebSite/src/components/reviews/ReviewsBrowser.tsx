@@ -56,6 +56,8 @@ export function ReviewsBrowser({
     const read = () => {
       const d = readDeepLink();
       if (d.boardStaff && kinds.some((k) => k.id === "staff")) setKind("staff");
+      /* /recensioni/#bot → le recensioni del bot (prima stavano in dashboard) */
+      if (location.hash === "#bot" && kinds.some((k) => k.id === "bot")) setKind("bot");
       if (d.reviewId) setFocusId(d.reviewId);
     };
     read();

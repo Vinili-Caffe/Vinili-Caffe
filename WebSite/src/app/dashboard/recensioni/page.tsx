@@ -1,18 +1,9 @@
 import type { Metadata } from "next";
-import dynamic from "next/dynamic";
-import { DashboardShell } from "@/components/dashboard/DashboardShell";
-
-const BotReviewsBoard = dynamic(
-  () => import("@/components/dashboard/BotReviewsBoard").then((m) => m.BotReviewsBoard),
-  { loading: () => null },
-);
+import { MovedRedirect } from "@/components/MovedRedirect";
 
 export const metadata: Metadata = { title: "Recensioni bot · Dashboard", robots: { index: false } };
 
+/* spostata nella pagina pubblica: chi ha il vecchio link ci arriva lo stesso */
 export default function Page() {
-  return (
-    <DashboardShell title="Recensioni del bot" lead="Cosa dicono gli utenti del bot Vinili.">
-      <BotReviewsBoard />
-    </DashboardShell>
-  );
+  return <MovedRedirect to="/recensioni/#bot" label="Le recensioni del bot ora stanno nella pagina Recensioni" />;
 }

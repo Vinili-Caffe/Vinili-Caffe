@@ -43,9 +43,9 @@ export const DASH_NAV = [
   { id: "guild", label: "Pannello", href: "/dashboard/guild/", hint: "Configurazione e moduli" },
   { id: "premium", label: "Premium", href: "/dashboard/premium/", hint: "Piani e crediti" },
   { id: "profilo", label: "Profilo", href: "/dashboard/profilo/", hint: "Account dashboard" },
-  { id: "faq", label: "FAQ", href: "/dashboard/faq/", hint: "Domande sul bot" },
-  { id: "feedback", label: "Feedback", href: "/dashboard/feedback/", hint: "Idee per il bot" },
-  { id: "recensioni", label: "Recensioni", href: "/dashboard/recensioni/", hint: "Recensioni del bot" },
+  { id: "faq", label: "FAQ", href: "/faq/#bot", hint: "Domande sul bot" },
+  { id: "feedback", label: "Feedback", href: "/feedback/#bot", hint: "Idee per il bot" },
+  { id: "recensioni", label: "Recensioni", href: "/recensioni/#bot", hint: "Recensioni del bot" },
   { id: "transcript", label: "Transcript", href: "/dashboard/transcript/", hint: "Log ticket" },
 ] as const;
 

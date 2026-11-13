@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { BookOpen, LifeBuoy, MessagesSquare } from "lucide-react";
 import { DiscordButton } from "@/components/DiscordButton";
-import { FaqBrowser } from "@/components/faq/FaqBrowser";
+import { SiteFaq } from "@/components/faq/SiteFaq";
 import { PageHero } from "@/components/PageHero";
 import { Reveal } from "@/components/Reveal";
 import { SiteShell } from "@/components/SiteShell";
@@ -27,10 +27,10 @@ export default function FaqPage() {
         kicker="Supporto"
         title="Domande"
         accent="frequenti"
-        text="Livelli, musica, giochi, eventi e staff: le risposte rapide a quello che ci chiedete più spesso."
+        text="Livelli, musica, giochi, eventi, staff e il bot Vinili: le risposte rapide a quello che ci chiedete più spesso."
       />
 
-      <FaqBrowser />
+      <SiteFaq />
 
       {/* non hai trovato risposta */}
       <section className="mx-auto max-w-4xl px-6 pb-10">
