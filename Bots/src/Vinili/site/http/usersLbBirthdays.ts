@@ -66,7 +66,11 @@ function buildPublicBirthdayPayload(birthdayRaw?, romeToday?) {
  * o da nessuna parte.
  */
 async function buildBirthdaysMonthPayload(client?, guildId?, month?, year?, opts: { storeGuildId?: string } = {}) {
-  const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+  const { ensureWebsiteGuild } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
+  const guild =
+    client.guilds.cache.get(guildId) ||
+    (await ensureWebsiteGuild(client, guildId, 5000).catch(() => null)) ||
+    (await client.guilds.fetch(guildId).catch(() => null));
   const storeGuildId = String(opts.storeGuildId || guildId);
   const isMain = String(guildId) === storeGuildId;
   const romeToday = getRomeDateParts();
@@ -77,9 +81,15 @@ async function buildBirthdaysMonthPayload(client?, guildId?, month?, year?, opts
     if (!userId) continue;
     if (!isMain && (row as any).announceScope !== "all") continue;
     let member = guild?.members?.cache?.get?.(userId) || (isMain ? readCachedWebsiteMember(userId) : null) || null;
-    if (!member && guild) member = await guild.members.fetch(userId).catch(() => null);
+    if (!member && guild?.members?.fetch) member = await guild.members.fetch(userId).catch(() => null);
+    let present = Boolean(member);
+    /* server non tenuto in memoria da questo processo: chiede direttamente a Discord se è membro */
+    if (!present) {
+      const { Routes } = require("discord.js") as typeof import("discord.js");
+      present = await (client.rest as any).get(Routes.guildMember(String(guildId), userId)).then(() => true, () => false);
+    }
     /* non è in questo server: non compare nel suo calendario */
-    if (!member) continue;
+    if (!present) continue;
     const identity = await fetchUserIdentity(client, guild, userId, {
       member,
       skipUserFetch: Boolean(member),

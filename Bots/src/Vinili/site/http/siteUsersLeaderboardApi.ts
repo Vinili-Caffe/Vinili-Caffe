@@ -88,8 +88,14 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
         const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
         const me: any = token ? await fetchDiscordOAuthMe(token).catch(() => null) : null;
         const viewerId = String(me?.me?.id || "");
-        const g = client.guilds.cache.get(wanted);
-        const inside = Boolean(g && viewerId && (g.members.cache.has(viewerId) || (await g.members.fetch(viewerId).catch(() => null))));
+        /* il processo del sito non tiene tutti i server in memoria: si chiede a Discord */
+        let inside = false;
+        if (viewerId) {
+          const { Routes } = require("discord.js") as typeof import("discord.js");
+          inside = await (client.rest as any)
+            .get(Routes.guildMember(wanted, viewerId))
+            .then(() => true, () => false);
+        }
         if (!inside) return res.status(403).json({ ok: false, error: "not_member", message: "Puoi vedere solo il calendario dei server dove sei anche tu." });
         const key = `birthdays:v2:${wanted}:${year}:${month}`;
         const hit = cacheGet(key);
