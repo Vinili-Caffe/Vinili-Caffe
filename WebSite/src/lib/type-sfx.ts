@@ -60,6 +60,12 @@ function ensure(): AudioContext | null {
 
 export function unlockTypeSfx() {
   if (unlocked) return;
+  /*
+   * Suoni spenti (preferenze, dispositivo o volume a zero): niente contesto audio.
+   * Crearlo su Windows può bloccare la pagina per secondi, e il log del sito lo mostrava
+   * come il primo clic "congelato" (INP 1,5–4,6 s da questo setTimeout).
+   */
+  if (!getLiveCaps().sound || !effectEnabled(EFFECT_KEYS.typeSfx, true) || typeSfxVolume() <= 0.001) return;
   unlocked = true;
   runAfterGesturePaint(() => {
     if (!unlocked) return;

@@ -65,11 +65,16 @@ export function TypeSfx() {
 
     document.addEventListener("keydown", onKey, true);
     document.addEventListener("input", onInput, true);
-    document.addEventListener("pointerdown", unlockTypeSfx, { once: true, capture: true });
+    /* l'audio si prepara solo quando tocchi un campo di testo, non al primo clic qualsiasi della pagina */
+    const onPointer = (ev: PointerEvent) => {
+      if (isTypingTarget(ev.target)) unlockTypeSfx();
+    };
+    document.addEventListener("pointerdown", onPointer, true);
 
     return () => {
       document.removeEventListener("keydown", onKey, true);
       document.removeEventListener("input", onInput, true);
+      document.removeEventListener("pointerdown", onPointer, true);
       disposeTypeSfx();
     };
   }, []);
