@@ -149,6 +149,9 @@ async function setBirthdayProfile(guildId?, userId?, payload: Record<string, any
     "profile.birthday.birthYear": safe.birthYear == null ? null : Number(safe.birthYear),
     "profile.birthday.showAge": safe.showAge == null ? true : Boolean(safe.showAge),
   };
+  if (Object.prototype.hasOwnProperty.call(safe, "announceScope")) {
+    $set["profile.birthday.announceScope"] = ["all", "main", "none"].includes(String(safe.announceScope)) ? String(safe.announceScope) : "all";
+  }
   /* Non azzerare lastCelebratedYear / registration se non passati (altrimenti ogni save ripete l'annuncio). */
   if (Object.prototype.hasOwnProperty.call(safe, "lastCelebratedYear")) {
     $set["profile.birthday.lastCelebratedYear"] =
@@ -172,6 +175,7 @@ async function clearBirthdayProfile(guildId?, userId?) {
       "profile.birthday.month": null,
       "profile.birthday.birthYear": null,
       "profile.birthday.showAge": true,
+      "profile.birthday.announceScope": "all",
       "profile.birthday.lastCelebratedYear": null,
       "profile.birthday.registrationMessageId": null,
       "profile.birthday.registrationChannelId": null,

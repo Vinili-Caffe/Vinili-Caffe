@@ -575,6 +575,8 @@ const activityUserProfileSchema = new Schema(
         month: { type: Number, default: null },
         birthYear: { type: Number, default: null },
         showAge: { type: Boolean, default: true },
+        /* dove annunciarlo: all = in tutti i server in comune col bot, main = solo il principale, none = da nessuna parte */
+        announceScope: { type: String, default: "all" },
         lastCelebratedYear: { type: Number, default: null },
         registrationMessageId: { type: String, default: null },
         registrationChannelId: { type: String, default: null },

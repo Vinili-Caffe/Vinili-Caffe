@@ -291,8 +291,10 @@ export function ExtrasPanel({
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Compleanno</p>
             <h3 className="mt-1 font-display text-2xl font-semibold">Quando festeggiamo?</h3>
             <p className="mt-2 text-sm leading-relaxed text-crema/60">
-              Il giorno del tuo compleanno ricevi un annuncio in chat, il ruolo compleanno e un multi EXP ×2 per tutta
-              la giornata. Dopo l&apos;annuncio non potrai più cambiare giorno/mese fino all&apos;anno prossimo.
+              Vale in tutti i server dove c&apos;è il bot: il giorno del tuo compleanno ti fanno gli auguri nei server che hanno
+              i compleanni attivi
+              {extras.inGuild === false ? "." : ", e sul server principale hai anche il ruolo compleanno e un multi EXP ×2 per tutta la giornata."} Dopo
+              l&apos;annuncio non potrai più cambiare giorno/mese fino all&apos;anno prossimo.
             </p>
             <p className="mt-2 flex items-start gap-2 rounded-xl bg-espresso/55 px-3 py-2 text-xs leading-relaxed text-crema/70 ring-1 ring-sand/15">
               <Lock className="mt-0.5 size-3.5 shrink-0 text-caramel" aria-hidden />
@@ -395,6 +397,42 @@ export function ExtrasPanel({
               >
                 Rimuovi
               </button>
+            </div>
+
+            {/* dove annunciarlo: lo decide chi compie gli anni */}
+            <div className="mt-5 border-t border-sand/10 pt-4">
+              <p className="text-sm font-semibold text-crema">Dove annunciarlo</p>
+              <p className="mt-0.5 text-xs text-crema/50">
+                {b.day ? "Puoi cambiarlo quando vuoi." : "Lo scegli dopo aver salvato il compleanno."} L&apos;età si vede solo se la mostri.
+              </p>
+              <div className="mt-2.5 grid gap-1.5 sm:grid-cols-3" role="radiogroup" aria-label="Dove annunciare il compleanno">
+                {(
+                  [
+                    ["all", "In tutti i miei server", "Dove c'è il bot e i compleanni sono attivi"],
+                    ["main", "Solo nel principale", "Vinili & Caffè"],
+                    ["none", "Da nessuna parte", "Niente annunci"],
+                  ] as const
+                ).map(([k, label, hint]) => {
+                  const on = (b.announceScope || "all") === k;
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      disabled={busy || !b.day || on}
+                      onClick={() => run("birthday", { action: "scope", announceScope: k })}
+                      className={cn(
+                        "rounded-xl px-3 py-2.5 text-left ring-1 transition disabled:cursor-default",
+                        on ? "bg-caramel/15 ring-caramel/45" : "bg-espresso/55 ring-sand/15 hover:ring-sand/30 disabled:opacity-50",
+                      )}
+                    >
+                      <span className={cn("block text-sm font-semibold", on ? "text-crema" : "text-crema/80")}>{label}</span>
+                      <span className="block text-xs text-crema/50">{hint}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

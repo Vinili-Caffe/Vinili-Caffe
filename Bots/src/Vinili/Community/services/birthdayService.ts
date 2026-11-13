@@ -111,7 +111,21 @@ async function stripBirthdayFlairRoleFromAllGuilds(client?) {
   }
 }
 
-async function deliverBirthdayAnnouncementsForGuild(guild?, guildDocs?, today?) {
+async function deliverBirthdayAnnouncementsForGuild(guild?, allDocs?, today?) {
+  /* il compleanno vale per tutti i server: qui si festeggia solo chi è nel principale e vuole l'annuncio */
+  const guildDocs = [];
+  for (const doc of allDocs || []) {
+    const scope = String((doc?.profile?.birthday || doc)?.announceScope || "all");
+    if (scope === "none") continue;
+    const inGuild =
+      guild.members.cache.has(String(doc.userId)) || Boolean(await guild.members.fetch(String(doc.userId)).catch(() => null));
+    if (inGuild) guildDocs.push(doc);
+  }
+  if (!guildDocs.length) {
+    const skipIds = (allDocs || []).map((d?) => String(d._id)).filter(Boolean);
+    if (skipIds.length) await markBirthdayCelebratedByIds(skipIds, today.year).catch(() => {});
+    return;
+  }
   const channelId = IDs.channels.chat || null;
   let channel =
     (channelId ? (guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId))) : null) || null;

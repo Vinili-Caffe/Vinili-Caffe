@@ -129,6 +129,10 @@ export function PersonalizzaBoard() {
   }, [token]);
 
   const backHref = user?.id ? page(`/user/?id=${encodeURIComponent(user.id)}`) : page("/user/");
+  /* fuori dal server principale: solo il compleanno, che vale in tutti i server */
+  const outsider = extras?.inGuild === false;
+  const shownTab: PersTab = outsider ? "birthday" : tab;
+  const tabs = outsider ? PERS_TABS.filter((t) => t.id === "birthday") : PERS_TABS;
 
   if (!ready) {
     return (
@@ -193,8 +197,8 @@ export function PersonalizzaBoard() {
           </div>
 
           <nav className="flex gap-1 overflow-x-auto px-2 py-2 sm:flex-wrap sm:overflow-visible sm:px-3" aria-label="Sezioni personalizzazione">
-            {PERS_TABS.map((t) => {
-              const on = tab === t.id;
+            {tabs.map((t) => {
+              const on = shownTab === t.id;
               return (
                 <button
                   key={t.id}
@@ -217,7 +221,13 @@ export function PersonalizzaBoard() {
         </div>
       </Reveal>
 
-      {error && <div className="rounded-2xl bg-caramel/10 px-4 py-3 text-sm text-crema/80 ring-1 ring-caramel/25">{error}</div>}
+      {outsider ? (
+        <div className="rounded-2xl bg-caramel/10 px-4 py-3 text-sm text-crema/80 ring-1 ring-caramel/25">
+          Non sei nel server principale: qui puoi impostare il compleanno, che vale in tutti i server dove c&apos;è il bot. Rank card, ruoli e reazioni sono del server principale.
+        </div>
+      ) : error ? (
+        <div className="rounded-2xl bg-caramel/10 px-4 py-3 text-sm text-crema/80 ring-1 ring-caramel/25">{error}</div>
+      ) : null}
 
       {loading && !rank && !custom && !extras ? (
         <div className="flex items-center justify-center gap-2 rounded-3xl bg-roast/50 py-20 text-sm text-crema/50 ring-1 ring-sand/10">
@@ -226,21 +236,21 @@ export function PersonalizzaBoard() {
       ) : (
         <AnimatePresence mode="wait">
           <motion.div
-            key={tab}
+            key={shownTab}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.22 }}
           >
-            {tab === "rank" && rank && (
+            {shownTab === "rank" && rank && (
               <RankDeck initial={rank} token={token} onToast={onToast} onThemeSynced={setRank} />
             )}
-            {(tab === "primary" || tab === "secondary" || tab === "voice") && custom && (
-              <CustomChannel target={tab} state={custom} token={token} onState={setCustom} onToast={onToast} />
+            {(shownTab === "primary" || shownTab === "secondary" || shownTab === "voice") && custom && (
+              <CustomChannel target={shownTab} state={custom} token={token} onState={setCustom} onToast={onToast} />
             )}
-            {EXTRAS_TABS.has(tab) && extras && (
+            {EXTRAS_TABS.has(shownTab) && extras && (
               <ExtrasPanel
-                tab={tab as Exclude<PersTab, "rank" | "primary" | "secondary" | "voice">}
+                tab={shownTab as Exclude<PersTab, "rank" | "primary" | "secondary" | "voice">}
                 extras={extras}
                 token={token}
                 onExtras={setExtras}

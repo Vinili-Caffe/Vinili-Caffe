@@ -180,9 +180,13 @@ export type RolePanelCategory = {
 
 export type MentionReactionDisplay = { token?: string; markup?: string; url?: string; name?: string };
 
+export type BirthdayScope = "all" | "main" | "none";
+
 export type ProfileExtras = {
   userId: string;
-  birthday: { day: number | null; month: number | null; birthYear: number | null; showAge: boolean };
+  /** false = non è nel server principale: vede solo il compleanno (vale in tutti i server) */
+  inGuild?: boolean;
+  birthday: { day: number | null; month: number | null; birthYear: number | null; showAge: boolean; announceScope?: BirthdayScope };
   privacy: { kinds: { key: string; label: string; blocked: boolean }[] };
   mentionReaction: {
     access: boolean;
@@ -553,11 +557,13 @@ export async function loadProfileExtras(token: string, section?: string): Promis
       ok: true,
       data: {
         userId: String(body.userId || ""),
+        inGuild: body.inGuild !== false,
         birthday: (body.birthday as ProfileExtras["birthday"]) || {
           day: null,
           month: null,
           birthYear: null,
-          showAge: true,
+          showAge: false,
+          announceScope: "all",
         },
         privacy: (body.privacy as ProfileExtras["privacy"]) || { kinds: [] },
         mentionReaction: (body.mentionReaction as ProfileExtras["mentionReaction"]) || {

@@ -132,6 +132,34 @@ async function readPrivacyState(guildId?, userId?) {
   return out;
 }
 
+/** Compleanno serializzato per il sito. */
+function serializeBirthday(b?) {
+  return {
+    day: Number(b?.day) || null,
+    month: Number(b?.month) || null,
+    birthYear: Number(b?.birthYear) || null,
+    showAge: b ? b.showAge !== false : false,
+    announceScope: ["all", "main", "none"].includes(String(b?.announceScope)) ? String(b.announceScope) : "all",
+  };
+}
+
+/**
+ * Chi è nel server principale: membro completo. Chi non c'è: solo l'utente (da OAuth), per le parti del
+ * profilo che valgono in tutti i server (il compleanno). Il compleanno si salva sempre sotto il principale.
+ */
+async function resolveProfileUser(client?, accessToken?) {
+  const resolved: any = await resolveWebsiteGuildMember(client, accessToken);
+  if (resolved?.ok || resolved?.error !== "not_in_guild") return resolved;
+  const { fetchDiscordOAuthMe } = require("./discordOauthMe") as typeof import("./discordOauthMe");
+  const me: any = await fetchDiscordOAuthMe(accessToken).catch(() => null);
+  const userId = String(me?.me?.id || "").trim();
+  if (!me?.ok || !/^\d{17,20}$/.test(userId)) return resolved;
+  const IDs = require("../../Config/ids") as any;
+  const mainId = String(client?.config?.mainGuildId || IDs?.guilds?.main || "").trim();
+  const guild = client?.guilds?.cache?.get?.(mainId) || { id: mainId };
+  return { ok: true, guild, member: null, userId, outsider: true };
+}
+
 function normalizeExtrasSection(raw?) {
   const s = String(raw || "")
     .trim()
@@ -150,7 +178,7 @@ function extrasSkeleton(userId?) {
     dm: { blockAll: false, categories: [] },
     siteNotif: { groups: [] },
     privacy: { kinds: [] },
-    birthday: { day: null, month: null, birthYear: null, showAge: true },
+    birthday: serializeBirthday(null),
     mentionReaction: { access: false, max: 0, reactions: [], display: [] },
     mentionResponse: { access: false, accessHint: MENTION_RESPONSE_ACCESS_HINT_IT, text: "" },
     rolePanel: { categories: [], byKey: {} },
@@ -248,8 +276,13 @@ async function buildRolePanelCategory(guild?, member?, cat?, prefetched: Record<
 }
 
 async function getProfileExtras(client?, { accessToken, section: sectionRaw, viewAs: viewAsRaw }: any = {}) {
-  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  const resolved: any = await resolveProfileUser(client, accessToken);
   if (!resolved.ok) return resolved;
+  /* fuori dal principale: solo il compleanno (vale in tutti i server) */
+  if (resolved.outsider) {
+    const b = await getBirthdayProfile(resolved.guild.id, resolved.userId).catch(() => null);
+    return { ...extrasSkeleton(resolved.userId), inGuild: false, birthday: serializeBirthday(b) };
+  }
   let { guild, member, userId } = resolved;
   const viewAsApplied = applyViewAsToResolvedMember(member, viewAsRaw, {
     userId,
@@ -303,16 +336,7 @@ async function getProfileExtras(client?, { accessToken, section: sectionRaw, vie
   if (needPrivacy && privacy) {
     payload.privacy = { kinds: PRIVACY_CONTENT_KINDS.map((k?) => privacy[k]) };
   }
-  if (needBirthday) {
-    payload.birthday = birthday
-      ? {
-          day: Number(birthday.day) || null,
-          month: Number(birthday.month) || null,
-          birthYear: Number(birthday.birthYear) || null,
-          showAge: birthday.showAge !== false,
-        }
-      : { day: null, month: null, birthYear: null, showAge: true };
-  }
+  if (needBirthday) payload.birthday = serializeBirthday(birthday);
   if (needReactions) {
     const reactionMax = getCustomReactionMax(member);
     const reactionTokens = Array.isArray(reactionDoc?.reactions)
@@ -417,11 +441,31 @@ async function mutatePrivacy(guildId?, userId?, payload?) {
   return { ok: true, privacy: { kinds: Object.values(await readPrivacyState(guildId, userId)) }, message: "Privacy aggiornata." };
 }
 
-async function mutateBirthday(guild?, userId?, client?, payload?) {
+async function mutateBirthday(guild?, userId?, client?, payload?, opts: { outsider?: boolean } = {}) {
   const action = String(payload?.action || "").trim();
   if (action === "clear") {
     await clearBirthdayProfile(guild.id, userId);
-    return { ok: true, birthday: { day: null, month: null, birthYear: null, showAge: true }, message: "Compleanno rimosso." };
+    return { ok: true, birthday: serializeBirthday(null), message: "Compleanno rimosso." };
+  }
+  if (action === "scope") {
+    const scope = String(payload?.announceScope || "");
+    if (!["all", "main", "none"].includes(scope)) return { ok: false, reason: "invalid_params", message: "Scelta non valida." };
+    const current = (await getBirthdayProfile(guild.id, userId).catch(() => null)) || {};
+    if (!Number(current.day) || !Number(current.month)) {
+      return { ok: false, reason: "birthday_incomplete", message: "Imposta prima il compleanno." };
+    }
+    await setBirthdayProfile(guild.id, userId, {
+      day: Number(current.day),
+      month: Number(current.month),
+      birthYear: Number(current.birthYear) || null,
+      showAge: current.showAge !== false,
+      announceScope: scope,
+    });
+    return {
+      ok: true,
+      birthday: serializeBirthday(await getBirthdayProfile(guild.id, userId)),
+      message: scope === "none" ? "Il tuo compleanno non verrà annunciato." : scope === "main" ? "Annunciato solo nel server principale." : "Annunciato in tutti i tuoi server.",
+    };
   }
   if (action === "privacy") {
     const current = (await getBirthdayProfile(guild.id, userId).catch(() => null)) || {};
@@ -434,21 +478,12 @@ async function mutateBirthday(guild?, userId?, client?, payload?) {
       month: Number(current.month),
       birthYear: Number(current.birthYear),
       showAge,
+      announceScope: current.announceScope || "all",
       lastCelebratedYear: current.lastCelebratedYear,
       registrationMessageId: current.registrationMessageId,
       registrationChannelId: current.registrationChannelId,
     });
-    const birthday = await getBirthdayProfile(guild.id, userId);
-    return {
-      ok: true,
-      birthday: {
-        day: Number(birthday?.day) || null,
-        month: Number(birthday?.month) || null,
-        birthYear: Number(birthday?.birthYear) || null,
-        showAge: birthday?.showAge !== false,
-      },
-      message: "Privacy età aggiornata.",
-    };
+    return { ok: true, birthday: serializeBirthday(await getBirthdayProfile(guild.id, userId)), message: "Privacy età aggiornata." };
   }
   if (action === "set") {
     const day = Number(payload?.day);
@@ -456,7 +491,9 @@ async function mutateBirthday(guild?, userId?, client?, payload?) {
     let birthYear = Number(payload?.birthYear);
     const age = Number(payload?.age);
     const current = (await getBirthdayProfile(guild.id, userId).catch(() => null)) || {};
-    const showAge = payload?.showAge == null ? current.showAge !== false : Boolean(payload.showAge);
+    /* età nascosta di base per chi lo imposta da ora; chi l'aveva già tiene la sua scelta */
+    const hadBirthday = Boolean(Number(current.day) && Number(current.month));
+    const showAge = payload?.showAge == null ? (hadBirthday ? current.showAge !== false : false) : Boolean(payload.showAge);
     if (!Number.isInteger(day) || !Number.isInteger(month) || day < 1 || day > 31 || month < 1 || month > 12) {
       return { ok: false, reason: "invalid_date", message: "Data non valida (giorno/mese)." };
     }
@@ -521,11 +558,13 @@ async function mutateBirthday(guild?, userId?, client?, payload?) {
       month,
       birthYear,
       showAge,
+      announceScope: ["all", "main", "none"].includes(String(payload?.announceScope)) ? String(payload.announceScope) : current.announceScope || "all",
       lastCelebratedYear: current.lastCelebratedYear,
       registrationMessageId: current.registrationMessageId,
       registrationChannelId: current.registrationChannelId,
     });
-    await tryCelebrateBirthdayAfterProfileSave(client, guild.id, userId).catch(() => null);
+    /* festa subito solo per chi è nel principale (fuori ci pensa il giro dei compleanni dei suoi server) */
+    if (!opts.outsider) await tryCelebrateBirthdayAfterProfileSave(client, guild.id, userId).catch(() => null);
     const birthday = await getBirthdayProfile(guild.id, userId);
     const celebratedNow =
       Number(birthday?.day) === today.day &&
@@ -533,13 +572,8 @@ async function mutateBirthday(guild?, userId?, client?, payload?) {
       Number(birthday?.lastCelebratedYear) === today.year;
     return {
       ok: true,
-      birthday: {
-        day: Number(birthday?.day) || null,
-        month: Number(birthday?.month) || null,
-        birthYear: Number(birthday?.birthYear) || null,
-        showAge: birthday?.showAge !== false,
-      },
-      message: celebratedNow
+      birthday: serializeBirthday(birthday),
+      message: celebratedNow && !opts.outsider
         ? "Compleanno salvato. Oggi è il tuo giorno: annuncio in chat e multi ×2 attivi!"
         : "Compleanno salvato.",
     };
@@ -710,9 +744,13 @@ async function mutateRolePanel(guild?, member?, userId?, payload?) {
 async function mutateProfileExtras(client?, payload?) {
   const accessToken = String(payload?.accessToken || "").trim();
   const section = String(payload?.section || "").trim().toLowerCase();
-  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  const resolved: any = await resolveProfileUser(client, accessToken);
   if (!resolved.ok) return resolved;
   const { guild, member, userId } = resolved;
+  /* fuori dal principale si può cambiare solo il compleanno */
+  if (resolved.outsider && section !== "birthday") {
+    return { ok: false, status: 403, error: "not_in_guild", message: "Questa parte del profilo è del server principale." };
+  }
 
   let result;
   try {
@@ -721,7 +759,7 @@ async function mutateProfileExtras(client?, payload?) {
       result = await mutateSiteNotifPrefs(guild.id, userId, payload, { member });
     }
     else if (section === "privacy") result = await mutatePrivacy(guild.id, userId, payload);
-    else if (section === "birthday") result = await mutateBirthday(guild, userId, client, payload);
+    else if (section === "birthday") result = await mutateBirthday(guild, userId, client, payload, { outsider: resolved.outsider === true });
     else if (section === "mention_reaction" || section === "reactions") {
       result = await mutateMentionReaction(guild, member, userId, client, payload);
     } else if (section === "mention_response" || section === "response") {
