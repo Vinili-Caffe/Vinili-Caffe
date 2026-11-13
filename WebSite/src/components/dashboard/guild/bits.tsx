@@ -250,6 +250,9 @@ export function GlobalSaveBar() {
   const st = useUnsavedState();
   const [busy, setBusy] = useState(false);
   const show = st.count > 0 && (st.canSave || st.canReset);
+  /* hai provato a uscire senza salvare: la barra trema e diventa rossa per un attimo */
+  const [seenNudges, setSeenNudges] = useState(st.nudges);
+  const alert = st.nudges !== seenNudges;
   return (
     <AnimatePresence>
       {show ? (
@@ -262,13 +265,27 @@ export function GlobalSaveBar() {
           role="region"
           aria-label="Modifiche non salvate"
         >
-          <div className="pointer-events-auto flex w-full max-w-2xl items-center gap-3 rounded-2xl bg-mocha/95 px-4 py-3 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] ring-1 ring-caramel/30 backdrop-blur-md sm:px-5">
+          <motion.div
+            key={st.nudges}
+            animate={st.nudges ? { x: [0, -12, 12, -9, 9, -5, 5, 0] } : undefined}
+            transition={{ duration: 0.5 }}
+            onAnimationComplete={() => {
+              const n = st.nudges;
+              window.setTimeout(() => setSeenNudges(n), 1100);
+            }}
+            className={cn(
+              "pointer-events-auto flex w-full max-w-2xl items-center gap-3 rounded-2xl px-4 py-3 backdrop-blur-md transition-[background-color,box-shadow] duration-300 sm:px-5",
+              alert
+                ? "bg-[#a83a2c]/95 shadow-[0_0_0_4px_rgba(232,92,70,0.35),0_24px_60px_-20px_rgba(0,0,0,0.9)] ring-1 ring-[#f0a493]/60"
+                : "bg-mocha/95 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] ring-1 ring-caramel/30",
+            )}
+          >
             <span className="relative flex size-2.5 shrink-0" aria-hidden>
               <span className="absolute inset-0 animate-ping rounded-full bg-ember/60" />
               <span className="relative size-2.5 rounded-full bg-ember" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-crema">Hai modifiche non salvate</p>
+              <p className="text-sm font-semibold text-crema">{alert ? "Attenzione: salva o annulla prima di uscire!" : "Hai modifiche non salvate"}</p>
               <p className="hidden text-xs text-crema/55 sm:block">Salvale prima di cambiare pagina, o annullale per tornare a com&apos;era.</p>
             </div>
             {st.canReset ? (
@@ -298,7 +315,7 @@ export function GlobalSaveBar() {
                 <Check className="size-4" aria-hidden /> {busy ? "Salvataggio…" : "Salva"}
               </button>
             ) : null}
-          </div>
+          </motion.div>
         </motion.div>
       ) : null}
     </AnimatePresence>

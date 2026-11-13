@@ -160,6 +160,7 @@ import {
   discordBtn,
   PageHero,
   GlobalSaveBar,
+  TrackUnsaved,
 } from "./guild/bits";
 
 const CommandAclEditor = dynamic(() => import("./guild/CommandAcl").then((m) => m.CommandAcl), {
@@ -1299,10 +1300,9 @@ function SettingsSection({
   const shownRoleIds = settings.dashboardRolesConfigured ? dashboardRoleIds : [...new Set([...autoRoleIds, ...dashboardRoleIds])];
   const guildOwner = settings.guildOwner;
 
+  /* le modifiche restano in sospeso finché non premi Salva nella barra in basso */
   const saveRoles = async (next: string[]) => {
     setDashboardRoleIds(next);
-    const ok = await save({ dashboardRoleIds: next }, "Ruoli dashboard salvati.");
-    if (!ok) setDashboardRoleIds(settings.dashboardRoleIds ?? []);
   };
 
   const saveUsers = async (next: string[]) => {
@@ -1311,12 +1311,40 @@ function SettingsSection({
       return;
     }
     setDashboardUserIds(next);
-    const ok = await save({ dashboardUserIds: next }, "Utenti dashboard salvati.");
-    if (!ok) setDashboardUserIds(settings.dashboardUserIds ?? []);
+  };
+
+  const pendingBody = (): Record<string, unknown> => {
+    const body: Record<string, unknown> = {};
+    if (!prefixLocked && prefix !== settings.prefix) body.prefix = prefix;
+    if (!updatesLocked && (updatesChannelId || null) !== (settings.updatesChannelId ?? null)) body.updatesChannelId = updatesChannelId || null;
+    if ((language || null) !== (settings.language ?? null)) body.language = language || null;
+    if (timezone !== (settings.timezone ?? "Europe/Rome")) body.timezone = timezone;
+    if (JSON.stringify(dashboardRoleIds) !== JSON.stringify(settings.dashboardRoleIds ?? [])) body.dashboardRoleIds = dashboardRoleIds;
+    if (JSON.stringify(dashboardUserIds) !== JSON.stringify(settings.dashboardUserIds ?? [])) body.dashboardUserIds = dashboardUserIds;
+    return body;
+  };
+  const settingsDirty = Object.keys(pendingBody()).length > 0;
+  const saveAllSettings = async () => {
+    const body = pendingBody();
+    if (typeof body.prefix === "string") {
+      const parsed = normalizePrefixInput(body.prefix, settings.prefixMaxLength);
+      if (!parsed.ok) return onToast(parsed.message, true);
+      body.prefix = parsed.prefix;
+    }
+    if (Object.keys(body).length) await save(body, "Impostazioni salvate.");
+  };
+  const resetSettings = () => {
+    setPrefix(settings.prefix);
+    setUpdatesChannelId(settings.updatesChannelId ?? "");
+    setLanguage(settings.language ?? "");
+    setTimezone(settings.timezone ?? "Europe/Rome");
+    setDashboardRoleIds(settings.dashboardRoleIds ?? []);
+    setDashboardUserIds(settings.dashboardUserIds ?? []);
   };
 
   return (
     <div className="space-y-4">
+      <TrackUnsaved dirty={settingsDirty} onSave={saveAllSettings} onReset={resetSettings} />
       {settings.botUsername ? (
         <BotIdentityCard settings={settings} canCustomize={canCustomize} saving={saving} onSave={save} onToast={onToast} />
       ) : null}
@@ -1335,21 +1363,10 @@ function SettingsSection({
                 maxLength={settings.prefixMaxLength}
                 disabled={prefixLocked || saving}
                 onChange={(e) => setPrefix(e.target.value)}
-                onBlur={async () => {
-                  if (prefixLocked || prefix === settings.prefix) return;
-                  const parsed = normalizePrefixInput(prefix, settings.prefixMaxLength);
-                  if (!parsed.ok) {
-                    onToast(parsed.message, true);
-                    setPrefix(settings.prefix);
-                    return;
-                  }
-                  const ok = await save({ prefix: parsed.prefix }, "Prefisso salvato.");
-                  if (!ok) setPrefix(settings.prefix);
-                }}
                 className={cn(fieldCls, "mt-1.5 font-mono")}
               />
               <span className="mt-1 block text-xs text-crema/50">
-                {prefixLocked ? "Bloccato sul server Vinili." : "Si salva quando esci dal campo."}
+                {prefixLocked ? "Bloccato sul server Vinili." : "Comando di esempio: " + (prefix || "+") + "help"}
               </span>
             </label>
 
@@ -1361,12 +1378,7 @@ function SettingsSection({
               <Select
                 value={updatesChannelId}
                 disabled={updatesLocked || saving}
-                onChange={async (next) => {
-                  setUpdatesChannelId(next);
-                  if (updatesLocked) return;
-                  const ok = await save({ updatesChannelId: next || null }, "Canale aggiornamenti salvato.");
-                  if (!ok) setUpdatesChannelId(settings.updatesChannelId ?? "");
-                }}
+                onChange={(next) => setUpdatesChannelId(next)}
                 className={cn(fieldCls, "mt-1.5")}
                 options={[
                   { value: "", label: "— Nessuno —" },
@@ -1389,11 +1401,7 @@ function SettingsSection({
                 disabled={saving}
                 searchable
                 searchPlaceholder="Cerca lingua…"
-                onChange={async (next) => {
-                  setLanguage(next);
-                  const ok = await save({ language: next || null }, "Lingua salvata.");
-                  if (!ok) setLanguage(settings.language ?? "");
-                }}
+                onChange={(next) => setLanguage(next)}
                 className={cn(fieldCls, "mt-1.5")}
                 options={[
                   {
@@ -1420,11 +1428,7 @@ function SettingsSection({
                 disabled={saving}
                 searchable
                 searchPlaceholder="Cerca fuso orario…"
-                onChange={async (next) => {
-                  setTimezone(next);
-                  const ok = await save({ timezone: next }, "Fuso orario salvato.");
-                  if (!ok) setTimezone(settings.timezone ?? "Europe/Rome");
-                }}
+                onChange={(next) => setTimezone(next)}
                 className={cn(fieldCls, "mt-1.5")}
                 options={timezoneOptions(timezone)}
               />

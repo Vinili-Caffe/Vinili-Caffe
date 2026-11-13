@@ -14,6 +14,8 @@ type Entry = { key: symbol; actions: React.MutableRefObject<Actions> };
 const pending = new Map<symbol, Entry>();
 const listeners = new Set<() => void>();
 let snapshot = 0;
+/* aumenta ogni volta che si prova a uscire con modifiche: la barra trema e si illumina */
+let nudges = 0;
 let skipBeforeUnload = false;
 
 function emit() {
@@ -63,6 +65,7 @@ export function useUnsavedState() {
   const entries = [...pending.values()];
   return {
     count: entries.length,
+    nudges,
     canSave: entries.some((e) => typeof e.actions.current.onSave === "function"),
     canReset: entries.some((e) => typeof e.actions.current.onReset === "function"),
     saveAll: async () => {
@@ -77,6 +80,12 @@ export function useUnsavedState() {
 /** true = si può uscire (nessuna modifica, oppure confermato). */
 export async function confirmLeaveUnsaved(): Promise<boolean> {
   if (!hasUnsavedChanges()) return true;
+  /* c'è la barra Salva/Annulla: non si esce, la barra trema per ricordarlo */
+  if ([...pending.values()].some((e) => e.actions.current.onSave || e.actions.current.onReset)) {
+    nudges += 1;
+    emit();
+    return false;
+  }
   const ok = await confirmDialog({
     title: "Modifiche non salvate",
     message: "Hai cambiato qualcosa senza salvare. Se esci ora le modifiche vanno perse.",

@@ -31,7 +31,7 @@ import {
   type ModerationCasesPage,
   type ModerationMessages,
 } from "@/lib/dashboard-guild";
-import { Field, MultiCheck, Notice, Panel, SettingRow, Toggle, fieldClass, miniBtn, dangerBtn, primaryMini } from "./bits";
+import { Field, MultiCheck, Notice, Panel, SettingRow, Toggle, TrackUnsaved, fieldClass, miniBtn, dangerBtn, primaryMini } from "./bits";
 
 const controlClass = cn(fieldClass, "mt-0");
 
@@ -149,6 +149,8 @@ export function ModerationPanel({
   const [bundle, setBundle] = useState<ModerationBundle | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  /* opzioni cambiate ma non ancora salvate (barra in basso) */
+  const [modPending, setModPending] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
   const [casesPage, setCasesPage] = useState(1);
   const [casesData, setCasesData] = useState<ModerationCasesPage | null>(null);
@@ -337,16 +339,26 @@ export function ModerationPanel({
   if (error && !bundle) return <Notice>{error}</Notice>;
   if (!bundle) return null;
 
-  const { settings } = bundle;
+  /* a schermo le opzioni come le hai cambiate, anche prima di salvare */
+  const settings = { ...bundle.settings, ...modPending } as typeof bundle.settings;
+  const stage = (patch: Record<string, unknown>) => setModPending((cur) => ({ ...cur, ...patch }));
 
   return (
     <div className="space-y-4">
+      <TrackUnsaved
+        dirty={Object.keys(modPending).length > 0}
+        onSave={async () => {
+          const ok = await save(modPending, "Moderazione salvata.");
+          if (ok) setModPending({});
+        }}
+        onReset={() => setModPending({})}
+      />
       {activeTab === "overview" ? (
         <div className="space-y-4">
           <Panel icon={<Shield />} title="Opzioni" description="Comportamento dei comandi di moderazione.">
             <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2 xl:grid-cols-3">
               <SettingRow title="Invia DM agli utenti" description="Quando vengono espulsi, bannati o silenziati.">
-                <Toggle size="sm" checked={settings.dmOnAction} disabled={busy} label="DM" onChange={(next) => void save({ dmOnAction: next })} />
+                <Toggle size="sm" checked={settings.dmOnAction} disabled={busy} label="DM" onChange={(next) => stage({ dmOnAction: next })} />
               </SettingRow>
               <SettingRow title="Rispondi con la motivazione" description="Mostra il motivo nella risposta pubblica del comando.">
                 <Toggle
@@ -354,7 +366,7 @@ export function ModerationPanel({
                   checked={settings.replyWithReason}
                   disabled={busy}
                   label="Motivazione"
-                  onChange={(next) => void save({ replyWithReason: next })}
+                  onChange={(next) => stage({ replyWithReason: next })}
                 />
               </SettingRow>
               <SettingRow title="Usa i timeout di Discord" description="Per il silenziamento (altrimenti ruolo Muted se disponibile).">
@@ -363,7 +375,7 @@ export function ModerationPanel({
                   checked={settings.useDiscordTimeout}
                   disabled={busy}
                   label="Timeout Discord"
-                  onChange={(next) => void save({ useDiscordTimeout: next })}
+                  onChange={(next) => stage({ useDiscordTimeout: next })}
                 />
               </SettingRow>
               <SettingRow title="Conserva i messaggi in caso di ban" description="Non cancella la cronologia messaggi dell’utente.">
@@ -372,7 +384,7 @@ export function ModerationPanel({
                   checked={settings.keepMessagesOnBan}
                   disabled={busy}
                   label="Conserva messaggi"
-                  onChange={(next) => void save({ keepMessagesOnBan: next })}
+                  onChange={(next) => stage({ keepMessagesOnBan: next })}
                 />
               </SettingRow>
               <SettingRow title="Elimina i comandi dopo l’esecuzione" description="Cancella il messaggio +ban/+mute/… dopo il successo.">
@@ -381,7 +393,7 @@ export function ModerationPanel({
                   checked={settings.deleteModCommands}
                   disabled={busy}
                   label="Elimina comandi"
-                  onChange={(next) => void save({ deleteModCommands: next })}
+                  onChange={(next) => stage({ deleteModCommands: next })}
                 />
               </SettingRow>
               <SettingRow title="Motivo obbligatorio" description="Per mute e warn (ban e kick lo richiedono sempre).">
@@ -390,7 +402,7 @@ export function ModerationPanel({
                   checked={settings.requireReason}
                   disabled={busy}
                   label="Motivo obbligatorio"
-                  onChange={(next) => void save({ requireReason: next })}
+                  onChange={(next) => stage({ requireReason: next })}
                 />
               </SettingRow>
               {!settings.keepMessagesOnBan ? (
@@ -398,7 +410,7 @@ export function ModerationPanel({
                   <Select
                     value={String(settings.banDeleteDays)}
                     disabled={busy}
-                    onChange={(v) => void save({ banDeleteDays: Number(v) || 0 }, "Giorni ban salvati.")}
+                    onChange={(v) => stage({ banDeleteDays: Number(v) || 0 })}
                     className={cn(fieldClass, "w-28")}
                     options={[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: String(d), label: `${d}g` }))}
                   />
@@ -419,7 +431,7 @@ export function ModerationPanel({
                 <Select
                   value={settings.modLogsChannelId || ""}
                   disabled={busy}
-                  onChange={(v) => void save({ modLogsChannelId: v || null }, "Canale mod logs salvato.")}
+                  onChange={(v) => stage({ modLogsChannelId: v || null })}
                   className={fieldClass}
                   options={channelOptions}
                 />
@@ -429,7 +441,7 @@ export function ModerationPanel({
               <MultiCheck
                 options={roleOptions}
                 selected={settings.moderatorRoleIds}
-                onChange={(ids) => void save({ moderatorRoleIds: ids }, "Ruoli moderatore salvati.")}
+                onChange={(ids) => stage({ moderatorRoleIds: ids })}
                 empty="Nessun ruolo disponibile."
               />
             </Panel>
@@ -437,7 +449,7 @@ export function ModerationPanel({
               <MultiCheck
                 options={roleOptions}
                 selected={settings.protectedRoleIds}
-                onChange={(ids) => void save({ protectedRoleIds: ids }, "Ruoli protetti salvati.")}
+                onChange={(ids) => stage({ protectedRoleIds: ids })}
                 empty="Nessun ruolo disponibile."
               />
             </Panel>
