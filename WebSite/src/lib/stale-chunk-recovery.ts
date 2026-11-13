@@ -1,3 +1,5 @@
+import { reportSiteEvent } from "./site-report";
+
 /** Dopo un deploy i chunk vecchi 404ano: serve hard reload, NON unregister del SW (uccide le push iOS). */
 
 export const STALE_CHUNK =
@@ -50,6 +52,8 @@ export async function hardReload(path?: string) {
 export function recoverFromStaleChunk(message: string) {
   if (!isStaleChunkMessage(message)) return;
   if (!canAutoRecoverStaleChunk()) return;
+  /* nel log del sito: ricarica dopo un deploy (pezzi del sito vecchi non più online) */
+  reportSiteEvent("stale-reload", String(message).slice(0, 200));
   void hardReload();
 }
 

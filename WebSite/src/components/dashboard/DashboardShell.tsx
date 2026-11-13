@@ -10,17 +10,13 @@ import {
   Coins,
   CreditCard,
   Diamond,
-  HelpCircle,
   House,
   LayoutGrid,
   LogIn,
   Menu,
-  MessageSquarePlus,
-  NotebookPen,
   Pin,
   PinOff,
   Sparkles,
-  Trophy,
   UserRound,
   Wrench,
   X,
@@ -63,12 +59,6 @@ function guildSectionHref(guildId: string, sectionId: GuildSectionId, tab?: stri
   if (t) qs.set("t", t);
   return `/dashboard/guild/?${qs.toString()}`;
 }
-
-const BOT_NAV = [
-  { href: "/faq/#bot", label: "FAQ", icon: HelpCircle },
-  { href: "/feedback/#bot", label: "Feedback", icon: MessageSquarePlus },
-  { href: "/recensioni/#bot", label: "Recensioni", icon: NotebookPen },
-] as const;
 
 const ACCOUNT_NAV = [
   { href: "/dashboard/profilo/", label: "Profilo", icon: UserRound },
@@ -534,58 +524,6 @@ function CreditsChip() {
   );
 }
 
-/** FAQ, Feedback e Recensioni nella barra in alto (da tablet in su; su telefono stanno nel menu account). */
-function topLinks(pathname: string) {
-  return [
-    {
-      href: "/classifiche/?scope=bots",
-      label: "Classifica",
-      icon: Trophy,
-      active: samePath(pathname, "/classifiche/"),
-      onClick: undefined as (() => void) | undefined,
-    },
-    { href: PERKS_HREF, label: "Vantaggi", icon: Sparkles, active: samePath(pathname, PERKS_HREF), onClick: undefined },
-    ...BOT_NAV.map((n) => ({ href: n.href as string, label: n.label as string, icon: n.icon, active: samePath(pathname, n.href), onClick: undefined })),
-  ];
-}
-
-function TopNavLinks({ guild, guildNav }: { guild: ShellGuild | null; guildNav?: GuildNav }) {
-  const pathname = usePathname() || "";
-  return (
-    <nav aria-label="Dashboard" className="hidden shrink-0 items-center gap-0.5 lg:flex">
-      {topLinks(pathname).map((n) => {
-        const active = n.active;
-        const Icon = n.icon;
-        return (
-          <SmartLink
-            key={n.label}
-            href={page(n.href)}
-            onClick={
-              n.onClick
-                ? (e: React.MouseEvent) => {
-                    e.preventDefault();
-                    n.onClick?.();
-                  }
-                : undefined
-            }
-            aria-current={active ? "page" : undefined}
-            aria-label={n.label}
-            title={n.label}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold transition 2xl:px-2.5",
-              active ? "bg-caramel/15 text-ember" : "text-crema/65 hover:bg-crema/[0.05] hover:text-crema",
-            )}
-          >
-            <Icon className="size-4" aria-hidden />
-            {/* testo solo sugli schermi larghi, sotto resta l'icona (nome nel suggerimento) */}
-            <span className="hidden 2xl:inline">{n.label}</span>
-          </SmartLink>
-        );
-      })}
-    </nav>
-  );
-}
-
 /** Menu account in alto a destra: nome utente, voci dell'account e ritorno al sito. */
 function AccountMenu({ guild, guildNav, inline = false }: { guild: ShellGuild | null; guildNav?: GuildNav; inline?: boolean }) {
   const { user, ready, login, token } = useAuth();
@@ -637,13 +575,20 @@ function AccountMenu({ guild, guildNav, inline = false }: { guild: ShellGuild | 
     );
   }
 
-  const items = [ACCOUNT_NAV[0], ...(isDev ? [{ href: "/dashboard/sviluppatore/", label: "Sviluppatore", icon: Wrench }] : []), ACCOUNT_NAV[1]];
+  /* Vantaggi sotto Premium (FAQ, feedback, recensioni e classifica stanno nelle pagine pubbliche) */
+  const items = [
+    ACCOUNT_NAV[0],
+    ...(isDev ? [{ href: "/dashboard/sviluppatore/", label: "Sviluppatore", icon: Wrench }] : []),
+    ACCOUNT_NAV[1],
+    { href: PERKS_HREF, label: "Vantaggi", icon: Sparkles },
+  ];
   const itemClass = (active: boolean) =>
     cn(
       "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition",
       active ? "bg-caramel/15 text-ember" : "text-crema/80 hover:bg-crema/[0.06] hover:text-crema",
     );
-  const isActive = (href: string) => samePath(pathname, href) && !samePath(pathname, PERKS_HREF) && !items.some((o) => o.href.length > href.length && samePath(pathname, o.href));
+  const isActive = (href: string) =>
+    href === PERKS_HREF ? samePath(pathname, PERKS_HREF) : samePath(pathname, href) && !samePath(pathname, PERKS_HREF) && !items.some((o) => o.href.length > href.length && samePath(pathname, o.href));
 
   return (
     <div ref={root} className={cn("relative", inline ? "w-full" : "shrink-0")}>
@@ -696,32 +641,6 @@ function AccountMenu({ guild, guildNav, inline = false }: { guild: ShellGuild | 
                 const Icon = n.icon;
                 return (
                   <SmartLink key={n.href} href={page(n.href)} role="menuitem" className={itemClass(isActive(n.href))}>
-                    <Icon className="size-4 shrink-0" aria-hidden />
-                    {n.label}
-                  </SmartLink>
-                );
-              })}
-            </div>
-            <div className="mt-1.5 border-t border-sand/10 pt-1.5 lg:hidden">
-              <p className="px-2.5 pb-1 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Dashboard</p>
-              {topLinks(pathname).map((n) => {
-                const Icon = n.icon;
-                return (
-                  <SmartLink
-                    key={n.label}
-                    href={page(n.href)}
-                    role="menuitem"
-                    onClick={
-                      n.onClick
-                        ? (e: React.MouseEvent) => {
-                            e.preventDefault();
-                            setOpen(false);
-                            n.onClick?.();
-                          }
-                        : undefined
-                    }
-                    className={itemClass(n.active)}
-                  >
                     <Icon className="size-4 shrink-0" aria-hidden />
                     {n.label}
                   </SmartLink>
@@ -1145,7 +1064,6 @@ export function DashboardShell({
                 );
               })()}
             </nav>
-            <TopNavLinks guild={guild} guildNav={guildNav} />
             <CreditsChip />
             <LangMenu />
             <NotificationsBell />

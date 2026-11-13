@@ -20,7 +20,7 @@ import { useI18n } from "@/lib/i18n";
 import { page } from "@/lib/site";
 import { dashPrimaryBtn } from "./guild/bits";
 
-const BOT_FAQ_ICONS: Record<string, LucideIcon> = {
+export const BOT_FAQ_ICONS: Record<string, LucideIcon> = {
   faq_start: Compass,
   faq_dashboard: LayoutDashboard,
   faq_settings: SlidersHorizontal,

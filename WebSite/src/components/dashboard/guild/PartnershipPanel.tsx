@@ -578,16 +578,17 @@ export function PartnershipPanel({
                 hits.push({ key: "role", label: `@${r?.name || "ruolo"}` });
               }
               return (
-                <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-r from-caramel/[0.08] via-espresso/50 to-espresso/40 p-4 ring-1 ring-caramel/20">
-                  <div className="min-w-0 flex-1">
+                <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-gradient-to-r from-caramel/[0.08] via-espresso/50 to-espresso/40 p-4 ring-1 ring-caramel/20">
+                  {/* titolo e spiegazione sempre sopra, a tutta larghezza: in colonna stretta non si spezzano parola per parola */}
+                  <div className="min-w-0 basis-full">
                     <p className="flex items-center gap-2 text-sm font-semibold text-crema">
                       <Sparkles className="size-4 text-ember" aria-hidden /> Prova le soglie
                     </p>
                     <p className="mt-0.5 text-xs text-crema/60">Scrivi quanti membri ha un server partner e vedi quale menzione farebbe il bot con le soglie qui sopra.</p>
                   </div>
-                  <label className="flex items-center gap-2 rounded-xl bg-espresso/70 px-3 py-1.5 ring-1 ring-sand/15">
-                    <span className="text-xs text-crema/60">Membri</span>
-                    <NumberField size="sm" min={0} nullable value={simMembers} onChange={setSimMembers} aria-label="Membri del server partner" className="mt-0 w-40" />
+                  <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-espresso/70 px-3 py-1.5 ring-1 ring-sand/15 sm:max-w-xs">
+                    <span className="shrink-0 text-xs text-crema/60">Membri</span>
+                    <NumberField size="sm" min={0} nullable value={simMembers} onChange={setSimMembers} aria-label="Membri del server partner" className="mt-0 min-w-0 flex-1" />
                   </label>
                   <div className="flex flex-wrap items-center gap-1.5" aria-live="polite">
                     {hits.length ? (

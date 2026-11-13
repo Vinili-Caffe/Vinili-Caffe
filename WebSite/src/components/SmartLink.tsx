@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import type { ComponentProps, MouseEvent, PointerEvent } from "react";
 import { useFxCap } from "@/components/effects/DeviceFxProvider";
+import { reportSiteEvent } from "@/lib/site-report";
 
 type Props = Omit<ComponentProps<"a">, "href"> & { href: string };
 
@@ -78,6 +79,12 @@ export function SmartLink({ href, onClick, onPointerDown, ...rest }: Props) {
       const now = pathKey(`${location.pathname}${location.search}${location.hash}`);
       if (now !== fromKey) return;
       /* Soft nav bloccata: hard load verso la destinazione cliccata (mai verso home a caso). */
+      /* nel log del sito: quante volte succede e su che dispositivi (telefoni lenti?) */
+      reportSiteEvent("nav-reload", `navigazione ferma dopo ${HARD_FALLBACK_MS / 1000}s, ricarico ${dest}`, {
+        from: fromKey,
+        online: navigator.onLine,
+        conn: (navigator as Navigator & { connection?: { effectiveType?: string } }).connection?.effectiveType || null,
+      });
       try {
         location.assign(dest);
       } catch {

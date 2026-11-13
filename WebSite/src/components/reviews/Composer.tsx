@@ -6,6 +6,7 @@ import { Check, Feather, Loader2, LogIn, Trash2 } from "lucide-react";
 import { clearDraft, useFormDraft } from "@/components/ui/form-drafts";
 import { deleteReview, submitReview, MAX_LEN, MIN_LEN, type Review, type ReviewKind, type Staffer, type Viewer } from "@/lib/reviews";
 import { cn } from "@/lib/cn";
+import { confirmDialog } from "@/components/ui";
 import { Avatar } from "../Avatar";
 import { StarPicker } from "./Stars";
 
@@ -43,7 +44,6 @@ export function Composer({
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [confirmDel, setConfirmDel] = useState(false);
 
   const draft = useFormDraft(`reviews:${kind}`, form, setForm, {
     watch: true,
@@ -58,7 +58,6 @@ export function Composer({
       setForm((f) => ({ ...f, rating: existing.rating, content: existing.content }));
       clearDraft(`reviews:${kind}`);
     }
-    setConfirmDel(false);
   }, [existing?.id, existing?.rating, existing?.content, kind]);
 
   if (!token) {
@@ -100,12 +99,22 @@ export function Composer({
 
   const remove = async () => {
     if (!existing || !token) return;
+    const sure = await confirmDialog({
+      title: "Eliminare la recensione?",
+      message: "Sparisce dalla pagina insieme a like e risposte. Non si può annullare.",
+      confirmLabel: "Elimina",
+      danger: true,
+    });
+    if (!sure) return;
     setBusy(true);
     const res = await deleteReview(token, existing.id);
     setBusy(false);
-    setConfirmDel(false);
     setMsg(res.ok ? { ok: true, text: "Recensione eliminata." } : { ok: false, text: res.message });
-    if (res.ok) onSaved();
+    if (res.ok) {
+      /* modulo vuoto: la recensione non c'è più */
+      setForm((f) => ({ ...f, rating: 0, content: "" }));
+      onSaved();
+    }
   };
 
   return (
@@ -161,22 +170,11 @@ export function Composer({
         <span className={cn("text-xs tabular-nums", len > 0 && len < MIN_LEN ? "text-amber-300" : "text-crema/40")}>
           {len < MIN_LEN ? `ancora ${MIN_LEN - len} caratteri` : `${len}/${MAX_LEN}`}
         </span>
-        {existing &&
-          (confirmDel ? (
-            <span className="inline-flex items-center gap-2 text-sm">
-              <span className="text-crema/60">Eliminarla davvero?</span>
-              <button type="button" onClick={remove} className="font-semibold text-red-300 hover:underline">
-                Sì, elimina
-              </button>
-              <button type="button" onClick={() => setConfirmDel(false)} className="text-crema/60 hover:text-crema">
-                No
-              </button>
-            </span>
-          ) : (
-            <button type="button" onClick={() => setConfirmDel(true)} className="inline-flex items-center gap-1.5 text-sm text-crema/50 hover:text-red-300">
-              <Trash2 className="size-4" /> Elimina
-            </button>
-          ))}
+        {existing ? (
+          <button type="button" onClick={() => void remove()} disabled={busy} className="inline-flex items-center gap-1.5 text-sm text-crema/50 hover:text-red-300 disabled:opacity-40">
+            <Trash2 className="size-4" /> Elimina
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={save}

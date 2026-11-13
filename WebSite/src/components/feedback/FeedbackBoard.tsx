@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { HeartHandshake, Info, LogIn, PenLine, RotateCcw, Shield, Users } from "lucide-react";
+import { Bot, HeartHandshake, Info, LogIn, PenLine, RotateCcw, Shield, Users } from "lucide-react";
 import { Reveal } from "@/components/Reveal";
 import { useAuth } from "@/lib/auth";
 import { useFeedbackApi } from "@/lib/feedback-api";
@@ -47,7 +47,13 @@ function Pill({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 export function FeedbackBoard({
   className = "mx-auto max-w-6xl px-6 pb-20",
   title = "Idee e feedback",
-}: { className?: string; title?: string } = {}) {
+  botTab,
+}: {
+  className?: string;
+  title?: string;
+  /** terza voce "Bot" dello switcher (pagina pubblica): active = si sta guardando la lavagna del bot */
+  botTab?: { active: boolean; onSelect: (bot: boolean, staff?: boolean) => void; staffAllowed?: boolean };
+} = {}) {
   const api = useFeedbackApi();
   const { ready, token, login } = useAuth();
   const { t } = useI18n();
@@ -226,27 +232,39 @@ export function FeedbackBoard({
           </button>
         </div>
 
-        {api.boards && viewer?.canAccessStaffBoard && (
+        {(api.boards && viewer?.canAccessStaffBoard) || botTab ? (
           <div className="mt-5 inline-flex rounded-full bg-black/30 p-1 ring-1 ring-crema/10">
-            {(["community", "staff"] as Board[]).map((b) => (
-              <button
-                key={b}
-                type="button"
-                aria-pressed={board === b}
-                onClick={() => {
-                  if (b === board) return;
-                  setBoard(b);
-                  setList(null);
-                  setOpenId(null);
-                  setPageNum(1);
-                }}
-                className={cn("inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors", board === b ? "bg-crema text-espresso" : "text-crema/60 hover:text-crema")}
-              >
-                {b === "staff" ? <Shield className="size-4" /> : <Users className="size-4" />} {b === "staff" ? "Staff" : "Community"}
-              </button>
-            ))}
+            {(
+              [
+                "community",
+                ...(api.boards && viewer?.canAccessStaffBoard ? ["staff"] : botTab?.active && botTab.staffAllowed ? ["staff"] : []),
+                ...(botTab ? ["bot"] : []),
+              ] as (Board | "bot")[]
+            ).map((b) => {
+              const on = b === "bot" ? Boolean(botTab?.active) : !botTab?.active && board === b;
+              return (
+                <button
+                  key={b}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => {
+                    if (on) return;
+                    /* Bot e ritorno al sito: cambia lavagna (archivio diverso) */
+                    if (botTab && (b === "bot" || botTab.active)) return botTab.onSelect(b === "bot", b === "staff");
+                    setBoard(b as Board);
+                    setList(null);
+                    setOpenId(null);
+                    setPageNum(1);
+                  }}
+                  className={cn("inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors", on ? "bg-crema text-espresso" : "text-crema/60 hover:text-crema")}
+                >
+                  {b === "staff" ? <Shield className="size-4" /> : b === "bot" ? <Bot className="size-4" /> : <Users className="size-4" />}{" "}
+                  {b === "staff" ? "Staff" : b === "bot" ? "Bot" : "Community"}
+                </button>
+              );
+            })}
           </div>
-        )}
+        ) : null}
 
         {/* filtri */}
         <div className="mt-5 space-y-2.5">

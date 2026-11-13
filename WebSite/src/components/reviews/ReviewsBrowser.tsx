@@ -71,6 +71,8 @@ export function ReviewsBrowser({
   const listRef = useRef<HTMLDivElement>(null);
   const [holdHeight, setHoldHeight] = useState(0);
   const loadedKind = useRef<ReviewKind | null>(null);
+  /* dopo una tua azione (pubblica/elimina) la lista nuova vale anche se è vuota */
+  const acceptEmpty = useRef(false);
   useEffect(() => {
     if (!ready) return;
     let alive = true;
@@ -81,9 +83,10 @@ export function ReviewsBrowser({
       if (d) {
         setData((prev) => {
           const sameKind = loadedKind.current === kind;
-          if (sameKind && prev?.reviews?.length && !d.reviews?.length) return prev;
+          if (sameKind && prev?.reviews?.length && !d.reviews?.length && !acceptEmpty.current) return prev;
           return d;
         });
+        acceptEmpty.current = false;
         loadedKind.current = kind;
       }
       setLoading(false);
@@ -197,7 +200,10 @@ export function ReviewsBrowser({
             </motion.div>
           </AnimatePresence>
         </div>
-        <Composer kind={kind} token={token} viewer={viewer} staffers={data?.staffers ?? []} onLogin={login} onSaved={reload} />
+        <Composer kind={kind} token={token} viewer={viewer} staffers={data?.staffers ?? []} onLogin={login} onSaved={() => {
+            acceptEmpty.current = true;
+            reload();
+          }} />
       </div>
 
       {/* elenco */}
