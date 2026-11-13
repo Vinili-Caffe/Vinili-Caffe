@@ -36,6 +36,10 @@ export = {
       }, 10_000);
       client.__tenantSettingsCacheRefreshTimer.unref?.();
     }
+    /* ruoli d'anzianità degli Annunci automatici: controllo ogni 30 minuti */
+    try {
+      (require("../services/announcementsRuntime") as typeof import("../services/announcementsRuntime")).startTenureRolesLoop(client);
+    } catch (_) {}
     if (autoRegisterGuildsOnJoin()) {
       await bootstrapTenantRegistryFromClient(client);
     }

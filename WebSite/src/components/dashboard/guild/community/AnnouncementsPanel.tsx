@@ -12,6 +12,7 @@ import {
   type NamedAnnounceKey,
   type NamedAnnounceSlot,
   type RoleAnnounceRule,
+  type TenureRule,
 } from "@/lib/dashboard-community";
 import { TrackUnsaved, Field, FormGroup, Notice, RowsSkeleton, SettingRow, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
 import { ChannelField, DiscordMessagePreview, DmExtra, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars } from "./shared";
@@ -33,13 +34,25 @@ const ROLE_PLACEHOLDERS = [
   { token: "{server}", hint: "nome del server" },
 ];
 
-type AnnouncementsTab = "boost" | "ruolinuovi" | "clantag" | "status" | "inviti";
+type AnnouncementsTab = "boost" | "ruolinuovi" | "clantag" | "status" | "inviti" | "anzianita";
+
+const TENURE_PLACEHOLDERS = [
+  { token: "{user}", hint: "chi ha raggiunto la soglia" },
+  { token: "{username}", hint: "il suo nome" },
+  { token: "{avatar}", hint: "la sua foto (per immagini)" },
+  { token: "{role}", hint: "il ruolo dato (menzione)" },
+  { token: "{role.name}", hint: "il nome del ruolo" },
+  { token: "{days}", hint: "i giorni della soglia" },
+  { token: "{server}", hint: "nome del server" },
+];
+const daysLabel = (d: number) => (d % 365 === 0 ? (d === 365 ? "1 anno" : `${d / 365} anni`) : d % 30 === 0 ? (d === 30 ? "1 mese" : `${d / 30} mesi`) : d === 1 ? "1 giorno" : `${d} giorni`);
 
 const TAB_BLURB: Record<AnnouncementsTab, string> = {
   boost: "Un messaggio quando qualcuno boosta il server: uno per il primo boost e uno per quelli dopo.",
   clantag: "Annuncio quando qualcuno prende la tag clan (ruolo Guilded).",
   status: "Annuncio Fan: il bot dà il ruolo da solo a chi mette il link del server nello status.",
   inviti: "Annunci ai traguardi inviti: Promoter (5), Propulsor (25), Catalyst (100).",
+  anzianita: "Ruoli dati da soli dopo un certo tempo nel server (es. 1 mese, 6 mesi, 1 anno), con annuncio e messaggio privato se vuoi.",
   ruolinuovi: "Regole libere per altri ruoli (Supporter, Verified, Patron, Donator…). Clan tag, status e inviti stanno nelle loro schede.",
 };
 
@@ -371,6 +384,115 @@ export function AnnouncementsPanel({
                 </div>
               );
             })}
+          </div>
+        </FormGroup>
+      </div>
+    );
+  }
+
+  /* Anzianità: ruoli dopo tot giorni nel server */
+  if (tab === "anzianita") {
+    const tn = cfg.tenure || { enabled: false, removePrevious: true, rules: [] };
+    const setTn = (p: Partial<NonNullable<AnnouncementsConfig["tenure"]>>) => set({ ...cfg, tenure: { ...tn, ...p } });
+    const setTr = (id: string, p: Partial<TenureRule>) => setTn({ rules: tn.rules.map((r) => (r.id === id ? { ...r, ...p } : r)) });
+    const trVars = (r: TenureRule) => {
+      const role = data.pickers.roles.find((x) => x.id === r.roleId);
+      return { ...vars, days: String(r.days), role: role ? `<@&${role.id}>` : "@Ruolo", "role.name": role?.name || "Ruolo" };
+    };
+    const addTr = () => {
+      const id = `t${Date.now().toString(36)}`;
+      const last = tn.rules[tn.rules.length - 1];
+      const days = last ? Math.min(3650, last.days * 2) : 30;
+      setTn({
+        rules: [
+          ...tn.rules,
+          {
+            id,
+            enabled: true,
+            days,
+            roleId: null,
+            channelId: null,
+            draft: emptyDraft({
+              content: "{user}",
+              mentionUsers: true,
+              embed: { ...emptyDraft().embed, title: "Un traguardo! 🎉", description: "{user} è con noi da **{days} giorni** e ottiene {role}!" },
+            }),
+            dm: { enabled: false, draft: emptyDraft({ content: "Sei in **{server}** da {days} giorni: hai ottenuto {role.name}! 🎉", embed: { ...emptyDraft().embed, enabled: false } }) },
+          },
+        ],
+      });
+      setOpenRule(id);
+    };
+    const sorted = [...tn.rules].sort((a, b) => a.days - b.days);
+    return (
+      <div className="space-y-4">
+        {track}
+        {saveBar}
+        <FormGroup title="Ruoli d'anzianità" description="Il bot controlla ogni 30 minuti da quanto tempo ognuno è nel server e dà il ruolo della soglia raggiunta.">
+          <div className="divide-y divide-sand/[0.07]">
+            <SettingRow title="Dai i ruoli d'anzianità" description="Accende o spegne tutte le soglie qui sotto.">
+              <Toggle checked={tn.enabled} onChange={(enabled) => setTn({ enabled })} label="Ruoli d'anzianità" />
+            </SettingRow>
+            <SettingRow title="Togli il ruolo della soglia precedente" description="Chi passa da 1 mese a 6 mesi perde il ruolo di 1 mese e tiene solo l'ultimo.">
+              <Toggle size="sm" checked={tn.removePrevious} onChange={(removePrevious) => setTn({ removePrevious })} label="Togli il ruolo precedente" />
+            </SettingRow>
+          </div>
+          <div className="mt-4 space-y-2">
+            {sorted.map((r) => {
+              const open = openRule === r.id;
+              const role = data.pickers.roles.find((x) => x.id === r.roleId);
+              return (
+                <div key={r.id} className="rounded-2xl bg-espresso/40 ring-1 ring-sand/10">
+                  <div className="flex items-center gap-2 p-3">
+                    <button type="button" onClick={() => setOpenRule(open ? null : r.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                      <span className="flex h-9 min-w-[4.5rem] shrink-0 items-center justify-center rounded-xl bg-caramel/12 px-2 text-xs font-bold text-ember ring-1 ring-caramel/25">
+                        {daysLabel(r.days)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-crema">{role ? `@${role.name}` : "Scegli il ruolo"}</span>
+                        <span className="block truncate text-xs text-crema/50">
+                          {[r.channelId ? "annuncio nel canale" : null, r.dm?.enabled ? "privato" : null].filter(Boolean).join(" · ") || "solo il ruolo"}
+                        </span>
+                      </span>
+                      <ChevronDown className={cn("size-4 text-crema/50 transition", open && "rotate-180")} aria-hidden />
+                    </button>
+                    <Toggle size="sm" checked={r.enabled} onChange={(enabled) => setTr(r.id, { enabled })} label={`Attiva ${daysLabel(r.days)}`} />
+                  </div>
+                  {open ? (
+                    <div className="space-y-3 border-t border-sand/10 p-3">
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <Field label="Dopo quanti giorni" hint={`= ${daysLabel(r.days)} nel server`}>
+                          <NumberField value={r.days} min={1} max={3650} onChange={(v) => setTr(r.id, { days: Math.max(1, Number(v) || 1) })} aria-label="Giorni" />
+                        </Field>
+                        <Field label="Ruolo da dare">
+                          <Select
+                            value={r.roleId || ""}
+                            onChange={(v) => setTr(r.id, { roleId: v || null })}
+                            options={[{ value: "", label: "— Nessuno —" }, ...roleOptions(data.pickers.roles, guildId)]}
+                            className="mt-1.5 h-11 rounded-lg"
+                          />
+                        </Field>
+                        <ChannelField label="Canale annuncio" hint="Vuoto = niente annuncio in chat." value={r.channelId} channels={channels} onChange={(channelId) => setTr(r.id, { channelId })} />
+                      </div>
+                      {r.channelId ? (
+                        <EditorWithPreview
+                          editor={<DraftEditor key={r.id} value={r.draft} onChange={(draft) => setTr(r.id, { draft })} emojis={data.pickers.emojis} placeholders={TENURE_PLACEHOLDERS} maxButtons={data.limits.buttons} />}
+                          preview={<DiscordMessagePreview bot={data.bot} draft={r.draft} vars={trVars(r)} roles={data.pickers.roles} channels={channels} />}
+                        />
+                      ) : null}
+                      <DmExtra editorKey={`ten-${r.id}`} value={r.dm} onChange={(dm) => setTr(r.id, { dm })} data={data} vars={trVars(r)} placeholders={TENURE_PLACEHOLDERS} hint="A chi raggiunge la soglia." />
+                      <button type="button" className={dangerBtn} onClick={() => setTn({ rules: tn.rules.filter((x) => x.id !== r.id) })}>
+                        <Trash2 className="size-3.5" /> Elimina la soglia
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+            {!sorted.length ? <p className="text-sm text-crema/55">Nessuna soglia: aggiungine una, per esempio 30 giorni → ruolo &ldquo;Membro fedele&rdquo;.</p> : null}
+            <button type="button" className={miniBtn} disabled={tn.rules.length >= 15} onClick={addTr}>
+              <Plus className="size-3.5" /> Aggiungi soglia
+            </button>
           </div>
         </FormGroup>
       </div>

@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertTriangle, Bell, CheckCheck, Clock3, Diamond, LogOut, Megaphone, Ticket } from "lucide-react";
+import { AlertTriangle, Bell, CheckCheck, Clock3, Diamond, LogOut, Megaphone, Ticket, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { dashHref } from "@/lib/dashboard";
@@ -44,6 +46,19 @@ function typeTone(type: string) {
   }
 }
 
+const NARROW_MQ = "(max-width: 1023px)";
+function useNarrow() {
+  return useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia(NARROW_MQ);
+      mq.addEventListener("change", cb);
+      return () => mq.removeEventListener("change", cb);
+    },
+    () => window.matchMedia(NARROW_MQ).matches,
+    () => false,
+  );
+}
+
 /** Campanella avvisi dashboard (tutti gli utenti con accesso) + notifiche staff se alto staff. */
 export function NotificationsBell() {
   const { token } = useAuth();
@@ -55,6 +70,9 @@ export function NotificationsBell() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
+  const sheet = useRef<HTMLDivElement>(null);
+  const narrow = useNarrow();
+  useBodyScrollLock(open && narrow);
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -91,7 +109,8 @@ export function NotificationsBell() {
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!wrap.current?.contains(t) && !sheet.current?.contains(t)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("pointerdown", onDown);
@@ -140,6 +159,57 @@ export function NotificationsBell() {
     }
   };
 
+  const listEl = (big: boolean) => (
+    items.length === 0 ? (
+              <p className={cn("text-center text-crema/60", big ? "px-4 py-16 text-base" : "px-4 py-10 text-sm")}>Nessun avviso per ora.</p>
+            ) : (
+              <ul className={cn("divide-y divide-sand/[0.07]", !big && "max-h-[min(28rem,70vh)] overflow-y-auto")}>
+                {items.map((n) => {
+                  const isOpen = expanded === n.id;
+                  const showBody = isOpen || Boolean(n.href);
+                  return (
+                    <li key={n.id}>
+                      <button
+                        type="button"
+                        onClick={() => void openItem(n)}
+                        className={cn(
+                          "flex w-full gap-3 text-left transition hover:bg-crema/[0.03]",
+                          big ? "px-4 py-4" : "px-4 py-3",
+                          !n.read && "bg-caramel/[0.05]",
+                        )}
+                      >
+                        <span className={cn("mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg", typeTone(n.type))}>
+                          {typeIcon(n.type)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-start gap-2">
+                            <span className={cn("min-w-0 flex-1 text-crema", big ? "text-[0.95rem]" : "text-sm", !n.read && "font-semibold")}>{n.title}</span>
+                            {!n.read ? <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-ember" aria-hidden /> : null}
+                          </span>
+                          {showBody ? (
+                            <span className={cn("mt-0.5 block text-xs leading-relaxed text-crema/70", !isOpen && !n.href && "line-clamp-2")}>
+                              {n.body}
+                            </span>
+                          ) : n.body !== n.title ? (
+                            <span className="mt-0.5 block line-clamp-2 text-xs leading-relaxed text-crema/70">{n.body}</span>
+                          ) : null}
+                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.7rem] text-crema/50">
+                            <span className="inline-flex items-center gap-1">
+                              <Clock3 className="size-2.5" aria-hidden />
+                              {timeAgo(n.at)}
+                            </span>
+                            {n.guildName ? <span className="truncate">{n.guildName}</span> : null}
+                            {n.href ? <span className="text-ember/80">Apri →</span> : null}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+    )
+  );
+
   return (
     <div ref={wrap} className="relative shrink-0">
       <button
@@ -161,8 +231,58 @@ export function NotificationsBell() {
         ) : null}
       </button>
 
+      {typeof document !== "undefined"
+        ? createPortal(
+            <AnimatePresence>
+              {open && narrow ? (
+                <motion.div
+                  ref={sheet}
+                  key="dash-notif-sheet"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Notifiche"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="fixed inset-0 z-[100] flex flex-col bg-espresso/98"
+                >
+                  <div className="flex shrink-0 items-center justify-between gap-3 border-b border-sand/10 px-4 pb-3 pt-[max(0.85rem,env(safe-area-inset-top))]">
+                    <div>
+                      <p className="font-display text-xl font-semibold text-crema">Avvisi</p>
+                      <p className="text-xs text-crema/60">{unread ? `${unread} da leggere` : "Tutto letto"}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {unread ? (
+                        <button
+                          type="button"
+                          onClick={() => void markAll()}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-crema/70 hover:bg-crema/8 hover:text-crema disabled:opacity-50"
+                        >
+                          <CheckCheck className="size-4" aria-hidden /> Segna lette
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        className="inline-flex size-11 items-center justify-center rounded-full bg-crema/8 text-crema ring-1 ring-crema/15"
+                        aria-label="Chiudi"
+                      >
+                        <X className="size-5" aria-hidden />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">{listEl(true)}</div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>,
+            document.body,
+          )
+        : null}
+
       <AnimatePresence>
-        {open ? (
+        {open && !narrow ? (
           <motion.div
             role="dialog"
             aria-label="Notifiche"
@@ -188,53 +308,7 @@ export function NotificationsBell() {
                 </button>
               ) : null}
             </header>
-            {items.length === 0 ? (
-              <p className="px-4 py-10 text-center text-sm text-crema/60">Nessun avviso per ora.</p>
-            ) : (
-              <ul className="max-h-[min(28rem,70vh)] divide-y divide-sand/[0.07] overflow-y-auto">
-                {items.map((n) => {
-                  const isOpen = expanded === n.id;
-                  const showBody = isOpen || Boolean(n.href);
-                  return (
-                    <li key={n.id}>
-                      <button
-                        type="button"
-                        onClick={() => void openItem(n)}
-                        className={cn(
-                          "flex w-full gap-3 px-4 py-3 text-left transition hover:bg-crema/[0.03]",
-                          !n.read && "bg-caramel/[0.05]",
-                        )}
-                      >
-                        <span className={cn("mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg", typeTone(n.type))}>
-                          {typeIcon(n.type)}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-start gap-2">
-                            <span className={cn("min-w-0 flex-1 text-sm text-crema", !n.read && "font-semibold")}>{n.title}</span>
-                            {!n.read ? <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-ember" aria-hidden /> : null}
-                          </span>
-                          {showBody ? (
-                            <span className={cn("mt-0.5 block text-xs leading-relaxed text-crema/70", !isOpen && !n.href && "line-clamp-2")}>
-                              {n.body}
-                            </span>
-                          ) : n.body !== n.title ? (
-                            <span className="mt-0.5 block line-clamp-2 text-xs leading-relaxed text-crema/70">{n.body}</span>
-                          ) : null}
-                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.7rem] text-crema/50">
-                            <span className="inline-flex items-center gap-1">
-                              <Clock3 className="size-2.5" aria-hidden />
-                              {timeAgo(n.at)}
-                            </span>
-                            {n.guildName ? <span className="truncate">{n.guildName}</span> : null}
-                            {n.href ? <span className="text-ember/80">Apri →</span> : null}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            {listEl(false)}
           </motion.div>
         ) : null}
       </AnimatePresence>

@@ -130,6 +130,7 @@ export const ANNUNCI_MODULE_TABS = [
   { id: "clantag", label: "Clan tag" },
   { id: "status", label: "Status" },
   { id: "inviti", label: "Inviti" },
+  { id: "anzianita", label: "Anzianità" },
   { id: "ruolinuovi", label: "Ruoli custom" },
 ] as const satisfies readonly GuildModuleTab[];
 

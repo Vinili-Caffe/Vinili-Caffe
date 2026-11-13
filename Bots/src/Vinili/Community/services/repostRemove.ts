@@ -164,7 +164,6 @@ async function purgeRepostsOfDeletedSource(guild?, sourceChannelId?, sourceMessa
     if (boardMsg) await boardMsg.delete().catch(() => null);
     await decrementRepostCount(gid).catch(() => null);
   }
-  global.logger?.info?.(`[REPOST] originale cancellato ${sc}/${sm}: rimossi ${reposts.length} repost`);
   return reposts.length;
 }
 

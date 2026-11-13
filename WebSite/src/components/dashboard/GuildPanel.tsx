@@ -55,6 +55,7 @@ import {
   Tag as IcClanTag,
   Tags as IcAutoRoles,
   UserPlus as IcInvites,
+  Hourglass as IcTenure,
   UserCog as IcManager,
   UsersRound as IcTeams,
   AudioLines as IcTts,
@@ -121,6 +122,7 @@ import {
 } from "@/lib/dashboard-guild";
 import dynamic from "next/dynamic";
 import { communityApi } from "@/lib/dashboard-community";
+import { DraftTestContext } from "./guild/community/shared";
 import { confirmLeaveUnsaved } from "@/lib/unsaved-changes";
 import { DashboardShell, type GuildSectionId } from "./DashboardShell";
 import {
@@ -348,6 +350,7 @@ const SIDE_TAB_ICONS: Record<string, LucideIcon> = {
   clantag: IcClanTag,
   status: IcStatusAnn,
   inviti: IcInvites,
+  anzianita: IcTenure,
   ruolinuovi: IcNewRole,
   all: IcAll,
   tutti: IcAll,
@@ -456,7 +459,7 @@ function SideTabsLayout({
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
       <nav aria-label={label} className="sticky top-14 z-10 -mx-4 bg-espresso/90 px-4 py-2 backdrop-blur lg:top-20 lg:mx-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
         <ul ref={listRef} className="flex gap-1 overflow-x-auto pb-0.5 lg:flex-col lg:overflow-visible lg:rounded-2xl lg:bg-roast/60 lg:p-1.5 lg:ring-1 lg:ring-sand/10">
           {tabs.map((t) => {
@@ -549,47 +552,6 @@ function guildCreatedAt(id: string): Date | null {
 
 function fmtNum(n: number | null) {
   return n != null ? n.toLocaleString("it-IT") : "—";
-}
-
-/** Barra in cima a ogni modulo: stato e interruttore (spento = tutto il modulo fermo). */
-function ModuleBar({
-  icon: Icon,
-  title,
-  on,
-  busy,
-  onToggle,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  on: boolean;
-  busy: boolean;
-  onToggle: (next: boolean) => void;
-}) {
-  return (
-    <section
-      className={cn(
-        "flex flex-wrap items-center gap-4 rounded-2xl p-4 ring-1 sm:p-5",
-        on ? "bg-gradient-to-r from-caramel/[0.12] via-roast/80 to-roast/80 ring-caramel/25" : "bg-roast/80 ring-sand/10",
-      )}
-    >
-      <span
-        className={cn(
-          "flex size-11 shrink-0 items-center justify-center rounded-xl ring-1",
-          on ? "bg-caramel/15 text-ember ring-caramel/30" : "bg-crema/[0.05] text-crema/60 ring-sand/15",
-        )}
-      >
-        <Icon className="size-5" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold text-crema">{title}</p>
-        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-crema/60">
-          <span className={cn("size-1.5 rounded-full", on ? "bg-[#7fc48c]" : "bg-crema/40")} aria-hidden />
-          {on ? "Attivo" : "Spento: comandi e azioni automatiche fermi, le impostazioni restano salvate"}
-        </p>
-      </div>
-      <Toggle checked={on} disabled={busy} label={`${on ? "Spegni" : "Accendi"} ${title}`} onChange={onToggle} />
-    </section>
-  );
 }
 
 /** Testata del server: copertina (banner o icona sfocata), icona, badge e dati generali del server. */
@@ -1644,7 +1606,6 @@ function BoardsSection({
   if (!settings) return null;
 
   const channelsLocked = settings.updatesLocked;
-  const activeFeatures = BOARD_FEATURES.filter((f) => features[f.id]).length;
   const off = saving || !boardsEnabled;
 
   const saveBoardChannel = async (key: keyof typeof channelState, next: string, label: string) => {
@@ -1658,41 +1619,6 @@ function BoardsSection({
   return (
     <div className="space-y-4">
       {/* modulo: stato + interruttore principale */}
-      <section
-        className={cn(
-          "flex flex-wrap items-center gap-4 rounded-2xl p-4 ring-1 sm:p-5",
-          boardsEnabled ? "bg-gradient-to-r from-caramel/[0.12] via-roast/80 to-roast/80 ring-caramel/25" : "bg-roast/80 ring-sand/10",
-        )}
-      >
-        <span
-          className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-xl ring-1",
-            boardsEnabled ? "bg-caramel/15 text-ember ring-caramel/30" : "bg-crema/[0.05] text-crema/60 ring-sand/15",
-          )}
-        >
-          <Pin className="size-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-crema">Bacheca</p>
-          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-crema/60">
-            <span className={cn("size-1.5 rounded-full", boardsEnabled ? "bg-[#7fc48c]" : "bg-crema/40")} aria-hidden />
-            {boardsEnabled
-              ? `Attiva · ${activeFeatures} di ${BOARD_FEATURES.length} funzioni accese`
-              : "Spenta: quote, repost, clip e skullboard non pubblicano"}
-          </p>
-        </div>
-        <Toggle
-          checked={boardsEnabled}
-          disabled={saving}
-          label="Attiva bacheca"
-          onChange={async (next) => {
-            setBoardsEnabled(next);
-            const ok = await save({ boards: { enabled: next, features } }, next ? "Bacheca attiva." : "Bacheca disattivata.");
-            if (!ok) setBoardsEnabled(settings.boards.enabled === true);
-          }}
-        />
-      </section>
-
       <div className={cn("grid gap-4 transition-opacity xl:grid-cols-2", !boardsEnabled && "opacity-50")}>
         <Panel icon={<SlidersHorizontal />} title="Funzioni" description="Accendi solo quello che usate sul server.">
           <div className="divide-y divide-sand/[0.07]">
@@ -2358,11 +2284,13 @@ export function GuildPanel() {
       return showToast(r.message, true);
     }
     setModuleStates(Object.fromEntries(r.data.modules.map((m) => [m.id, { on: m.on, locked: m.locked }])));
+    /* bacheca: lo stesso interruttore delle sue impostazioni */
+    if (id === "bacheca") setSettings((cur) => (cur ? { ...cur, boards: { ...cur.boards, enabled: next } } : cur));
     showToast(next ? "Modulo acceso." : "Modulo spento: comandi e azioni automatiche fermi.");
     setModulesRev((n) => n + 1);
   };
   /* la Bacheca ha già la sua barra; i moduli bloccati (ticket del principale) non hanno interruttore */
-  const moduleState = section !== "bacheca" ? moduleStates[section] : undefined;
+  const moduleState = moduleStates[section];
   const showModuleBar = Boolean(moduleState && !moduleState.locked);
   const moduleOff = showModuleBar && moduleState?.on === false;
   /* "Disattivati" = solo i moduli spenti dalla pagina Moduli (lo dice il bot) */
@@ -2609,17 +2537,12 @@ export function GuildPanel() {
                         title={activeTabLabel && !inPageTabs ? `${sectionMeta.label} · ${activeTabLabel}` : sectionMeta.label}
                         text={SECTION_HERO[section]!.text}
                         accent={SECTION_HERO[section]!.accent}
+                        on={showModuleBar ? moduleState?.on === true : undefined}
+                        onToggle={showModuleBar ? (next) => { if (!moduleBusy) void toggleModule(section, next); } : undefined}
+                        toggleLabel={`${moduleState?.on ? "Spegni" : "Accendi"} ${sectionMeta.label}`}
                       />
                     ) : null}
-                    {showModuleBar ? (
-                      <ModuleBar
-                        icon={sectionMeta.icon}
-                        title={sectionMeta.label}
-                        on={moduleState?.on === true}
-                        busy={moduleBusy}
-                        onToggle={(next) => void toggleModule(section, next)}
-                      />
-                    ) : null}
+                    <DraftTestContext.Provider value={guildId && token ? { guildId, token, onToast: showToast } : null}>
                     <div inert={moduleOff} aria-disabled={moduleOff} className={cn("space-y-5 transition-opacity", moduleOff && "pointer-events-none select-none opacity-45")}>
                     {section === "settings" && guildId && token ? (
                       <SettingsSection
@@ -2780,13 +2703,14 @@ export function GuildPanel() {
                         moduleTab === "ruolinuovi" ||
                         moduleTab === "clantag" ||
                         moduleTab === "status" ||
-                        moduleTab === "inviti" ? (
+                        moduleTab === "inviti" ||
+                        moduleTab === "anzianita" ? (
                           <AnnouncementsPanel
                             key={moduleTab}
                             guildId={guildId}
                             token={token}
                             onToast={showToast}
-                            tab={moduleTab as "boost" | "ruolinuovi" | "clantag" | "status" | "inviti"}
+                            tab={moduleTab as "boost" | "ruolinuovi" | "clantag" | "status" | "inviti" | "anzianita"}
                           />
                         ) : (
                           <WelcomePanel
@@ -2873,6 +2797,7 @@ export function GuildPanel() {
                       </Panel>
                     ) : null}
                     </div>
+                    </DraftTestContext.Provider>
                   </motion.div>
                 </AnimatePresence>
                 <GlobalSaveBar />

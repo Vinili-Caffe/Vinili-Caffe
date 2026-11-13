@@ -65,6 +65,8 @@ export type SavedMessage = {
 /** Annunci automatici: boost, eventi nominati e ruoli custom */
 /** messaggio privato opzionale accanto all'annuncio */
 export type AnnounceDm = { enabled: boolean; draft: MsgDraft };
+/** dopo N giorni nel server → ruolo (+ annuncio e privato facoltativi) */
+export type TenureRule = { id: string; enabled: boolean; days: number; roleId: string | null; channelId: string | null; draft: MsgDraft; dm?: AnnounceDm };
 export type RoleAnnounceRule = { id: string; name: string; enabled: boolean; roleIds: string[]; channelId: string | null; cooldownHours: number; draft: MsgDraft; dm?: AnnounceDm };
 export type NamedAnnounceSlot = {
   id: string;
@@ -93,6 +95,7 @@ export type AnnouncementsConfig = {
   };
   named: Record<NamedAnnounceKey, NamedAnnounceSlot>;
   roles: { enabled: boolean; rules: RoleAnnounceRule[] };
+  tenure?: { enabled: boolean; removePrevious: boolean; rules: TenureRule[] };
 };
 
 /** Bump e voti (server tenant) */
@@ -456,5 +459,7 @@ export const communityApi = {
   deleteRolePanel: (t: string, g: string, id: string) => call(t, g, `/role-panels/${encodeURIComponent(id)}`, "DELETE"),
   publishRolePanel: (t: string, g: string, id: string) => call<{ panel: RolePanel; edited?: boolean; reactionWarning?: string | null }>(t, g, `/role-panels/${encodeURIComponent(id)}/publish`, "POST", {}),
   saveWelcome: (t: string, g: string, w: WelcomeSettings) => call<{ welcome: WelcomeSettings }>(t, g, "/welcome", "PATCH", w),
+  /** prova di un messaggio: arriva in privato a chi la chiede */
+  testMessage: (t: string, g: string, draft: MsgDraft, vars: Record<string, string>) => call(t, g, "/test-message", "POST", { draft, vars }),
   testWelcome: (t: string, g: string, kind: "welcome" | "goodbye" | "dm" | "goodbyeDm", settings: WelcomeSettings) => call(t, g, "/welcome/test", "POST", { kind, settings }),
 };

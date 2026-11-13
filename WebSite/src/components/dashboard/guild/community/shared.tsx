@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Mail, Send, Smile } from "lucide-react";
 import { DiscordContent } from "@/components/discord/DiscordContent";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -8,7 +8,7 @@ import { toggleEmojiPicker, customEmojiUrl, type EmojiPick } from "@/components/
 import { Select } from "@/components/ui/Select";
 import { avatarUrl, displayName, useAuth, type DiscordUser } from "@/lib/auth";
 import { cn } from "@/lib/cn";
-import { emptyDraft, loadCommunity, type CommunityData, type MsgDraft, type PickerChannel, type PickerEmoji, type PickerRole } from "@/lib/dashboard-community";
+import { communityApi, emptyDraft, loadCommunity, type CommunityData, type MsgDraft, type PickerChannel, type PickerEmoji, type PickerRole } from "@/lib/dashboard-community";
 import { ExpandableTextarea, Field, SettingRow, Toggle, fieldClass, labelClass, miniBtn } from "../bits";
 import { EmbedFieldsPreview, FieldsEditor, LinkButtonsEditor, V2Editor, V2Preview, blocksFromClassic, v2Of } from "./draftExtras";
 
@@ -505,7 +505,45 @@ function ScaleToFit({ width, children }: { width: number; children: React.ReactN
   );
 }
 
-export function DiscordMessagePreview({
+/* server e accesso per le prove di invio (li mette il pannello del server) */
+export const DraftTestContext = createContext<{ guildId: string; token: string; onToast: (msg: string, err?: boolean) => void } | null>(null);
+
+/** Anteprima del messaggio + tasto per provarlo davvero (arriva in privato). */
+export function DiscordMessagePreview(props: React.ComponentProps<typeof DiscordMessagePreviewBody>) {
+  const ctx = useContext(DraftTestContext);
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  if (!ctx) return <DiscordMessagePreviewBody {...props} />;
+  const send = async () => {
+    setBusy(true);
+    const r = await communityApi.testMessage(ctx.token, ctx.guildId, props.draft, props.vars);
+    setBusy(false);
+    if (!r.ok) return ctx.onToast(r.message, true);
+    setSent(true);
+    window.setTimeout(() => setSent(false), 2500);
+    ctx.onToast("Prova inviata: guarda i tuoi messaggi privati su Discord.");
+  };
+  return (
+    <div className="space-y-2">
+      <DiscordMessagePreviewBody {...props} />
+      <div className="flex justify-end">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void send()}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 transition disabled:opacity-50",
+            sent ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30" : "bg-crema/[0.05] text-crema/80 ring-sand/15 hover:bg-crema/[0.09] hover:text-crema",
+          )}
+        >
+          <Send className="size-3.5" aria-hidden /> {busy ? "Invio…" : sent ? "Inviata!" : "Mandala a me"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DiscordMessagePreviewBody({
   draft,
   vars,
   roles = [],

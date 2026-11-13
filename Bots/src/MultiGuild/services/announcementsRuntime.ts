@@ -35,6 +35,28 @@ function roleIdList(v?) {
   return [...new Set<string>((Array.isArray(v) ? v : []).filter((x) => T.isId(x)).map(String))].slice(0, 10);
 }
 
+const TENURE_RULES_MAX = 15;
+function normalizeTenureRule(raw?, i = 0) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const days = Math.floor(Number(r.days));
+  return {
+    id: typeof r.id === "string" && /^[a-z0-9]{4,40}$/i.test(r.id) ? r.id : T.newId(),
+    enabled: r.enabled !== false,
+    days: Number.isFinite(days) && days >= 1 && days <= 3650 ? days : 30 * (i + 1),
+    roleId: T.isId(r.roleId) ? String(r.roleId) : null,
+    channelId: T.isId(r.channelId) ? String(r.channelId) : null,
+    draft: r.draft
+      ? T.normalizeDraft(r.draft)
+      : T.normalizeDraft({
+          content: "{user}",
+          mentionUsers: true,
+          embed: { enabled: true, title: "Un traguardo! 🎉", description: "{user} è con noi da **{days} giorni** e ottiene {role}!", color: "#d49150" },
+          buttons: [],
+        }),
+    dm: normalizeDm(r.dm, "Sei in **{server}** da {days} giorni: hai ottenuto {role.name}! 🎉"),
+  };
+}
+
 function normalizeRoleRule(raw?, i = 0) {
   const r = raw && typeof raw === "object" ? raw : {};
   const ids = (v?) => [...new Set<string>((Array.isArray(v) ? v : []).filter((x) => T.isId(x)).map(String))].slice(0, 25);
@@ -149,6 +171,19 @@ function normalizeConfig(raw?) {
       removeRolesOnEnd: b.removeRolesOnEnd !== false,
     },
     named: normalizeNamed(r.named),
+    /* ruoli d'anzianità: dopo tot giorni nel server */
+    tenure: (() => {
+      const tn = r.tenure && typeof r.tenure === "object" ? r.tenure : {};
+      return {
+        enabled: tn.enabled === true,
+        /* una soglia nuova toglie i ruoli delle soglie più basse */
+        removePrevious: tn.removePrevious !== false,
+        rules: (Array.isArray(tn.rules) ? tn.rules : [])
+          .slice(0, TENURE_RULES_MAX)
+          .map((x, i) => normalizeTenureRule(x, i))
+          .sort((a, b) => a.days - b.days),
+      };
+    })(),
     roles: {
       enabled: rl.enabled !== false,
       rules: rulesRaw.slice(0, ROLE_RULES_MAX).map((x, i) => normalizeRoleRule(x, i)),
@@ -222,6 +257,8 @@ async function getState(guildId: string) {
     boosts: s.boosts && typeof s.boosts === "object" ? s.boosts : {},
     roleAnnounced: s.roleAnnounced && typeof s.roleAnnounced === "object" ? s.roleAnnounced : {},
     lastBoostMessageId: String(s.lastBoostMessageId || ""),
+    /* "regola:utente" → quando è stato dato (una volta sola: se lo togli a mano non torna) */
+    tenureGiven: s.tenureGiven && typeof s.tenureGiven === "object" ? s.tenureGiven : {},
   };
 }
 
@@ -361,6 +398,70 @@ async function handleTenantBoostMessage(message?) {
     channelId: cfg.boost.channelId || String(message.channelId),
   });
   return true;
+}
+
+/* ───────────── ruoli d'anzianità (dopo tot giorni nel server) ───────────── */
+
+let tenureRunning = false;
+async function runTenureRoles(client?) {
+  if (tenureRunning || !client?.guilds?.cache) return;
+  tenureRunning = true;
+  try {
+    const all = await T.allGuildBlobs("announcements").catch(() => ({}));
+    for (const gid of Object.keys(all || {})) {
+      const guild = client.guilds.cache.get(gid);
+      if (!guild || !annOn(gid)) continue;
+      const cfg = normalizeConfig(all[gid]);
+      const rules = cfg.tenure.rules.filter((r) => r.enabled && r.roleId);
+      if (!cfg.tenure.enabled || !rules.length) continue;
+      const me = guild.members?.me;
+      const st = await getState(gid);
+      let changed = false;
+      const now = Date.now();
+      for (const member of guild.members.cache.values()) {
+        if (member.user?.bot || !member.joinedTimestamp) continue;
+        const daysIn = Math.floor((now - member.joinedTimestamp) / 86_400_000);
+        /* la soglia più alta raggiunta (le regole sono in ordine di giorni) */
+        const reached = rules.filter((r) => daysIn >= r.days);
+        if (!reached.length) continue;
+        const top = reached[reached.length - 1];
+        const key = `${top.id}:${member.id}`;
+        const role = guild.roles.cache.get(top.roleId as string);
+        if (!role || role.managed || !me || role.position >= me.roles.highest.position) continue;
+        if (!st.tenureGiven[key] && !member.roles.cache.has(role.id)) {
+          const ok = await member.roles.add(role.id, `Anzianità: ${top.days} giorni nel server`).then(() => true, () => false);
+          if (!ok) continue;
+          st.tenureGiven[key] = now;
+          changed = true;
+          const vars = T.memberVars(guild, member.user, { role: `<@&${role.id}>`, "role.name": String(role.name || ""), days: String(top.days) });
+          if (top.channelId) await postDraft(client, top.channelId, top.draft, vars, member.id, member);
+          if (top.dm.enabled) await T.sendDraftDm(client, member.id, genderDraftForMember(top.dm.draft, member), vars);
+        } else if (!st.tenureGiven[key]) {
+          /* aveva già il ruolo: segnalo come dato, senza annunciare */
+          st.tenureGiven[key] = now;
+          changed = true;
+        }
+        /* togli i ruoli delle soglie più basse */
+        if (cfg.tenure.removePrevious) {
+          const lower = reached.slice(0, -1).map((r) => r.roleId as string).filter((id) => id !== role.id && member.roles.cache.has(id));
+          if (lower.length) await member.roles.remove(lower, "Anzianità: soglia successiva raggiunta").catch(() => null);
+        }
+      }
+      if (changed) await T.setGuildBlob("announcementsState", gid, st);
+    }
+  } catch (err) {
+    global.logger?.warn?.("[ANNUNCI] anzianità:", (err as any)?.message || err);
+  } finally {
+    tenureRunning = false;
+  }
+}
+
+/** Avvia il controllo ogni 30 minuti (processo del bot su Discord). */
+function startTenureRolesLoop(client?) {
+  if (!client || client.__tenureRolesTimer) return;
+  setTimeout(() => void runTenureRoles(client), 60_000).unref?.();
+  client.__tenureRolesTimer = setInterval(() => void runTenureRoles(client), 30 * 60_000);
+  client.__tenureRolesTimer.unref?.();
 }
 
 /* ───────────── ruolo ottenuto (named + custom) ───────────── */
@@ -845,6 +946,8 @@ export = {
   ensureMainSeed,
   sendBoostAnnouncement,
   sendBoostDmOnly,
+  startTenureRolesLoop,
+  runTenureRoles,
   handleBoostEnded,
   boostModuleEnabled,
   handleTenantBoostMessage,

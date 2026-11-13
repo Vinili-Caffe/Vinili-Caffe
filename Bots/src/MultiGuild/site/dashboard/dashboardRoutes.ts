@@ -206,6 +206,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     app.post(`${base}/role-panels/:id/publish`, wrap("roles publish", (t, req) => C().publishRolePanel(client, t, gid(req), req.params?.id)));
     app.patch(`${base}/welcome`, wrap("welcome patch", (t, req) => C().patchWelcome(client, t, gid(req), req.body)));
     app.post(`${base}/welcome/test`, wrap("welcome test", (t, req) => C().testWelcome(client, t, gid(req), req.body)));
+    app.post(`${base}/test-message`, wrap("test message", (t, req) => C().testMessage(client, t, gid(req), req.body)));
     const X = () => require("./dashboardCommunityExtraApi") as typeof import("./dashboardCommunityExtraApi");
     app.put(`${base}/auto-responders`, wrap("ar put", (t, req) => X().putAutoResponder(client, t, gid(req), req.body)));
     app.delete(`${base}/auto-responders/:id`, wrap("ar del", (t, req) => X().deleteAutoResponder(client, t, gid(req), req.params?.id)));

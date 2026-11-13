@@ -543,6 +543,40 @@ async function patchWelcome(client?, token?, guildId?, body?) {
   return { ok: true, status: 200, welcome: next };
 }
 
+/* prove inviate: una ogni 4 secondi per persona */
+const testMessageAt = new Map<string, number>();
+
+/**
+ * Prova di qualsiasi messaggio della dashboard: lo manda in privato a chi la chiede.
+ * I segnaposto si riempiono con i valori d'esempio dell'anteprima (più nome e foto veri di chi prova).
+ */
+async function testMessage(client?, token?, guildId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const last = testMessageAt.get(String(a.userId)) || 0;
+  if (Date.now() - last < 4000) return fail(429, "slow_down", "Aspetta un attimo prima di un'altra prova.");
+  testMessageAt.set(String(a.userId), Date.now());
+  const draft = T.normalizeDraft(body?.draft || {});
+  if (T.draftIsEmpty(draft)) return fail(400, "empty", "Il messaggio è vuoto: scrivi qualcosa prima di provarlo.");
+  const rest = restOf(client);
+  const [user, guild]: any[] = await Promise.all([rest?.get(Routes.user(a.userId)).catch(() => null), guildInfo(client, a.guildId)]);
+  const sample: Record<string, string> = {};
+  const raw = body?.vars && typeof body.vars === "object" ? body.vars : {};
+  for (const [k, v] of Object.entries(raw).slice(0, 80)) {
+    if (/^[\w.:-]{1,40}$/.test(k) && (typeof v === "string" || typeof v === "number")) sample[k] = String(v).slice(0, 500);
+  }
+  const vars = { ...sample, ...T.memberVars(guild, user || { id: a.userId }) };
+  try {
+    const dm: any = await rest.post(Routes.userChannels(), { body: { recipient_id: a.userId } });
+    await rest.post(Routes.channelMessages(dm.id), { body: T.buildMessageBody(draft, vars) });
+    return { ok: true, status: 200 };
+  } catch (err) {
+    const code = Number((err as any)?.code || (err as any)?.rawError?.code);
+    if (code === 50007) return fail(400, "dm_closed", "Non riesco a scriverti in privato: apri i messaggi privati dai membri del server.");
+    return fail(400, "send_failed", discordError(err));
+  }
+}
+
 /** Manda un'anteprima reale nel canale scelto, usando chi è in dashboard come "nuovo membro". */
 async function testWelcome(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
@@ -582,4 +616,5 @@ export = {
   publishRolePanel,
   patchWelcome,
   testWelcome,
+  testMessage,
 };
