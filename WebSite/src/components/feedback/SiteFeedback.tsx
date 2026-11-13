@@ -10,6 +10,27 @@ import { FeedbackBoard } from "./FeedbackBoard";
  */
 export function SiteFeedback() {
   const [bot, setBot] = useState(false);
+  /* accesso alla lavagna staff: noto subito (salvato nel browser) e confermato quando la lavagna del sito risponde */
+  const [staffAllowed, setStaffAllowed] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        if (localStorage.getItem("vc-feedback-staff") === "1") setStaffAllowed(true);
+      } catch {
+        /* ignore */
+      }
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
+  const onStaffAccess = (allowed: boolean) => {
+    setStaffAllowed(allowed);
+    try {
+      if (allowed) localStorage.setItem("vc-feedback-staff", "1");
+      else localStorage.removeItem("vc-feedback-staff");
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     const read = () => setBot(location.hash === "#bot");
@@ -36,9 +57,9 @@ export function SiteFeedback() {
 
   return bot ? (
     <FeedbackApiProvider api={BOT_FEEDBACK_API}>
-      <FeedbackBoard key="bot" title="Idee per Vinili" botTab={{ active: true, onSelect: select }} />
+      <FeedbackBoard key="bot" title="Idee per Vinili" botTab={{ active: true, onSelect: select, staffAllowed }} />
     </FeedbackApiProvider>
   ) : (
-    <FeedbackBoard key="site" botTab={{ active: false, onSelect: select }} />
+    <FeedbackBoard key="site" botTab={{ active: false, onSelect: select, staffAllowed, onStaffAccess }} />
   );
 }

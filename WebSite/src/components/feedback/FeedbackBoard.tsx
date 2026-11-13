@@ -52,7 +52,7 @@ export function FeedbackBoard({
   className?: string;
   title?: string;
   /** terza voce "Bot" dello switcher (pagina pubblica): active = si sta guardando la lavagna del bot */
-  botTab?: { active: boolean; onSelect: (bot: boolean, staff?: boolean) => void; staffAllowed?: boolean };
+  botTab?: { active: boolean; onSelect: (bot: boolean, staff?: boolean) => void; staffAllowed?: boolean; onStaffAccess?: (allowed: boolean) => void };
 } = {}) {
   const api = useFeedbackApi();
   const { ready, token, login } = useAuth();
@@ -73,6 +73,11 @@ export function FeedbackBoard({
   const listId = `feedback-list-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const deeplinkBoot = useRef(Boolean(readDeepLink().suggestionId || readDeepLink().boardStaff));
   const triedStaffFlip = useRef(false);
+  /* la pagina pubblica ricorda se l'utente vede la lavagna staff, così la voce non compare e sparisce */
+  const reportStaff = useRef(botTab?.onStaffAccess);
+  useEffect(() => {
+    reportStaff.current = botTab?.onStaffAccess;
+  });
 
   const pull = useCallback(async () => {
     if (!ready) return;
@@ -86,6 +91,7 @@ export function FeedbackBoard({
     setError("");
     setList(r.data.suggestions);
     setViewer(r.data.viewer);
+    if (api.boards) reportStaff.current?.(Boolean(r.data.viewer?.canAccessStaffBoard));
   }, [ready, token, board, api]);
 
   useEffect(() => {
@@ -237,7 +243,7 @@ export function FeedbackBoard({
             {(
               [
                 "community",
-                ...(api.boards && viewer?.canAccessStaffBoard ? ["staff"] : botTab?.active && botTab.staffAllowed ? ["staff"] : []),
+                ...((api.boards && viewer?.canAccessStaffBoard) || botTab?.staffAllowed ? ["staff"] : []),
                 ...(botTab ? ["bot"] : []),
               ] as (Board | "bot")[]
             ).map((b) => {

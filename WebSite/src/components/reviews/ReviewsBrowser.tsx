@@ -55,9 +55,15 @@ export function ReviewsBrowser({
   useEffect(() => {
     const read = () => {
       const d = readDeepLink();
-      if (d.boardStaff && kinds.some((k) => k.id === "staff")) setKind("staff");
+      if (d.boardStaff && kinds.some((k) => k.id === "staff")) {
+        setData(null);
+        setKind("staff");
+      }
       /* /recensioni/#bot → le recensioni del bot (prima stavano in dashboard) */
-      if (location.hash === "#bot" && kinds.some((k) => k.id === "bot")) setKind("bot");
+      if (location.hash === "#bot" && kinds.some((k) => k.id === "bot")) {
+        setData(null);
+        setKind("bot");
+      }
       if (d.reviewId) setFocusId(d.reviewId);
     };
     read();
@@ -134,7 +140,7 @@ export function ReviewsBrowser({
       {/* tipo di recensione (solo se ce n'è più di uno) */}
       {kinds.length > 1 ? (
       <LayoutGroup id="review-kinds">
-        <div className="grid gap-2 sm:grid-cols-2" role="tablist" aria-label="Tipo di recensioni">
+        <div className={cn("grid gap-2", kinds.length >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2")} role="tablist" aria-label="Tipo di recensioni">
           {kinds.map((k) => {
             const active = kind === k.id;
             const Icon = KIND_ICONS[k.id];
@@ -145,6 +151,9 @@ export function ReviewsBrowser({
                 role="tab"
                 aria-selected={active}
                 onClick={() => {
+                  if (k.id === kind) return;
+                  /* niente recensioni né "la tua recensione" dell'altra scheda mentre carica */
+                  setData(null);
                   setKind(k.id);
                   setPageNum(1);
                 }}
@@ -200,7 +209,7 @@ export function ReviewsBrowser({
             </motion.div>
           </AnimatePresence>
         </div>
-        <Composer kind={kind} token={token} viewer={viewer} staffers={data?.staffers ?? []} onLogin={login} onSaved={() => {
+        <Composer key={kind} kind={kind} token={token} viewer={viewer} staffers={data?.staffers ?? []} onLogin={login} onSaved={() => {
             acceptEmpty.current = true;
             reload();
           }} />
