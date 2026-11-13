@@ -1,7 +1,7 @@
 "use client";
 
 import { DiscordContent } from "@/components/discord/DiscordContent";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   CircleAlert,
@@ -299,9 +299,10 @@ function PastIncidents({ days }: { days: PastIncidentDay[] }) {
 function UpdatedAgo({ atMs }: { atMs: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [atMs]);
   const label = timeAgoMs(atMs, now);
   if (!label) return null;
   return <> · ultimo aggiornamento {label}</>;
@@ -309,21 +310,26 @@ function UpdatedAgo({ atMs }: { atMs: number }) {
 
 function Countdown({ onDone, resetKey }: { onDone: () => void; resetKey: number }) {
   const [left, setLeft] = useState(REFRESH);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
   useEffect(() => setLeft(REFRESH), [resetKey]);
+
   useEffect(() => {
     const id = window.setInterval(() => {
       if (document.hidden) return;
-      setLeft((l) => (l <= 1 ? REFRESH : l - 1));
+      setLeft((l) => {
+        if (l <= 1) {
+          /* a 0 si chiama onDone; il reset a 60 arriva da resetKey dopo il fetch */
+          queueMicrotask(() => onDoneRef.current());
+          return 0;
+        }
+        return l - 1;
+      });
     }, 1000);
     return () => window.clearInterval(id);
   }, []);
-  useEffect(() => {
-    if (left === REFRESH) return;
-    if (left === 1) {
-      const t = window.setTimeout(onDone, 1000);
-      return () => window.clearTimeout(t);
-    }
-  }, [left, onDone]);
+
   return (
     <span className="relative hidden size-12 shrink-0 items-center justify-center sm:flex" title="Prossimo aggiornamento">
       <svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90">
