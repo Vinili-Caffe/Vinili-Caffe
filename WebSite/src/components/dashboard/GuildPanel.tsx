@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Bot,
@@ -2128,8 +2128,11 @@ export function GuildPanel() {
     async (next: Section) => {
       if (!(await confirmLeaveUnsaved())) return;
       const nextTab = defaultModuleTab(next);
-      setSectionState(next);
-      setModuleTabState(nextTab);
+      /* transizione: il clic risponde subito e la sezione nuova si disegna senza bloccare la pagina */
+      startTransition(() => {
+        setSectionState(next);
+        setModuleTabState(nextTab);
+      });
       writeNavUrl(next, nextTab);
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
@@ -2140,8 +2143,10 @@ export function GuildPanel() {
     async (nextSection: Section, tab: string) => {
       if (!(await confirmLeaveUnsaved())) return;
       const safe = sanitizeModuleTab(nextSection, tab);
-      setSectionState(nextSection);
-      setModuleTabState(safe);
+      startTransition(() => {
+        setSectionState(nextSection);
+        setModuleTabState(safe);
+      });
       writeNavUrl(nextSection, safe);
       window.scrollTo({ top: 0, behavior: "smooth" });
     },

@@ -48,6 +48,16 @@ self.addEventListener("activate", (event) => {
     (async () => {
       const keys = await caches.keys();
       await Promise.all(keys.filter((k) => !KEEP_CACHES.has(k)).map((k) => caches.delete(k)));
+      /*
+       * Navigation preload: la richiesta della pagina parte insieme all'avvio del service worker.
+       * Senza, su telefono dopo un po' di inattività la pagina aspettava prima il risveglio del SW
+       * (TTFB 4–6,5 s nel log del sito su /recensioni e /vote).
+       */
+      try {
+        if (self.registration.navigationPreload) await self.registration.navigationPreload.enable();
+      } catch {
+        /* non supportato */
+      }
       await self.clients.claim();
     })(),
   );
@@ -61,7 +71,15 @@ self.addEventListener("fetch", (event) => {
 
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req).catch(async () => {
+      (async () => {
+        try {
+          const pre = await event.preloadResponse;
+          if (pre) return pre;
+        } catch {
+          /* preload fallito: si rifà la richiesta normale */
+        }
+        return fetch(req);
+      })().catch(async () => {
         const hit = await caches.match(OFFLINE_URL);
         return hit || new Response("Sei offline", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
       }),

@@ -38,6 +38,7 @@ import { ensureCreditsBalance, getCreditsBalance, subscribeCredits } from "@/lib
 import { cdnUrl, page } from "@/lib/site";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { NotificationsBell } from "./NotificationsBell";
+import { DASH_PIN_KEY } from "@/lib/dash-side-boot";
 import { LangMenu } from "@/components/LangMenu";
 import { ThemePrefRow } from "@/components/ThemeToggle";
 import {
@@ -940,7 +941,7 @@ export function DashboardShell({
       let pin = false;
       let wasHidden = false;
       try {
-        pin = localStorage.getItem("vc-dash-side-pin") === "1";
+        pin = localStorage.getItem(DASH_PIN_KEY) === "1";
         wasHidden = sessionStorage.getItem("vc-dash-side") === "hidden";
       } catch {
         /* ignore */
@@ -949,7 +950,7 @@ export function DashboardShell({
       if (pin) return;
       /* già nascosta in questa visita: le pagine dopo partono nascoste, niente salto del contenuto */
       if (wasHidden) setSideHidden(true);
-      else scheduleHide(4000);
+      else scheduleHide(2500);
     });
     return () => {
       window.cancelAnimationFrame(raf);
@@ -960,8 +961,11 @@ export function DashboardShell({
   const toggleSidePin = () => {
     const next = !sidePinned;
     setSidePinned(next);
+    /* lo spazio del contenuto segue solo la puntina (vedi DASH_SIDE_BOOT) */
+    if (next) document.documentElement.setAttribute("data-dash-pin", "");
+    else document.documentElement.removeAttribute("data-dash-pin");
     try {
-      localStorage.setItem("vc-dash-side-pin", next ? "1" : "0");
+      localStorage.setItem(DASH_PIN_KEY, next ? "1" : "0");
       if (next) sessionStorage.removeItem("vc-dash-side");
     } catch {
       /* ignore */
@@ -1005,7 +1009,7 @@ export function DashboardShell({
           className={cn(
             "fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-sand/10 bg-roast transition-[transform,box-shadow] duration-300 ease-out lg:block",
             sideShown ? "translate-x-0" : "-translate-x-full",
-            sideHidden && sidePeek && !sidePinned && "shadow-[24px_0_60px_-20px_rgba(0,0,0,0.85)]",
+            sideShown && !sidePinned && "shadow-[24px_0_60px_-20px_rgba(0,0,0,0.85)]",
           )}
           aria-label="Menu dashboard"
           onMouseEnter={() => {
@@ -1068,7 +1072,11 @@ export function DashboardShell({
           ) : null}
         </AnimatePresence>
 
-        <div className={cn("relative transition-[padding] duration-300 ease-out", !sidePinned && sideHidden ? "lg:pl-0" : "lg:pl-64")}>
+        {/*
+          Spazio a sinistra solo con la sidebar fissata (puntina): senza, la sidebar passa SOPRA il contenuto.
+          Prima si nascondeva cambiando questo spazio e tutta la pagina saltava di lato (CLS nel log del sito).
+        */}
+        <div className="relative transition-[padding] duration-300 ease-out [:root[data-dash-pin]_&]:lg:pl-64">
           <header className="sticky top-[var(--vc-view-as-h,0px)] z-30 flex h-14 items-center gap-3 border-b border-sand/10 bg-espresso/85 px-4 backdrop-blur-md sm:px-6">
             <button
               type="button"
@@ -1134,7 +1142,8 @@ export function DashboardShell({
           </header>
 
           {/* pannello server: più largo, così editor e anteprima stanno comodi affiancati */}
-          <main className={cn("mx-auto px-4 pb-16 pt-6 sm:px-6 sm:pt-8", guildNav ? "max-w-[100rem]" : "max-w-6xl")}>
+          {/* alta almeno quanto lo schermo: mentre i dati arrivano il piede di pagina resta fuori vista e non salta */}
+          <main className={cn("mx-auto min-h-[calc(100dvh-3.5rem)] px-4 pb-16 pt-6 sm:px-6 sm:pt-8", guildNav ? "max-w-[100rem]" : "max-w-6xl")}>
             {!bare ? (
               <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
                 <div className="min-w-0">
