@@ -260,6 +260,7 @@ async function buildLevelServerPanelPayload(guild?, ownerId?, section = "home", 
 
 module.exports = {
   name: "level",
+  folder: "Admin",
   aliases: [],
   usage: "+level | +level <@utente | id>",
   examples: ["+level", "+level @utente"],

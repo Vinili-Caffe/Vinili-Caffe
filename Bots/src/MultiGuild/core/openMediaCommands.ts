@@ -4,16 +4,13 @@ const { canInvokePrefixCommand, mapCategoryToFeature } = require("./accessPolicy
 const { resolveGuildAccess } = require("./guildRegistry") as typeof import("./guildRegistry");
 const MUSIC_PREFIX_COMMANDS = new Set(["play", "pause", "resume", "skip", "stop", "volume", "shuffle", "clear", "repeat", "previous", "rewind", "restart", "now", "next", "queue", "lyrics", "requested", "upcoming"]);
 const TTS_PREFIX_COMMANDS = new Set(["join", "leave", "set", "voices"]);
-const UTILITY_PREFIX_COMMANDS = new Set(["avatar", "banner", "afk", "snipe", "invite", "invites"]);
+const UTILITY_PREFIX_COMMANDS = new Set(["avatar", "banner", "afk", "snipe", "invite", "invites", "help", "profile"]);
 const BACHECA_PREFIX_COMMANDS = new Set(["quote", "repost", "clip"]);
-/* Nessun prefix “sempre on”: sui tenant valgono solo le feature registry (partnership/utility)
-   e la Bacheca se attiva dalla dashboard (boards.enabled). */
-const TENANT_ALWAYS_PREFIX_COMMANDS = new Set([]);
+/* help/profile in utility: sui tenant restano sempre usabili anche senza feature utility. */
+const TENANT_ALWAYS_PREFIX_COMMANDS = new Set(["help", "profile"]);
 const MINIGAMES_PREFIX_COMMANDS = new Set(["ship"]);
 const PARTNERSHIP_PREFIX_COMMANDS = new Set([
-  "help",
   "settings",
-  "profile",
   "description",
   "blacklist",
   "setup",

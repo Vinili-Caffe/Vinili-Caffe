@@ -13,6 +13,7 @@ function resolvePreferredAvatarUrl(member?, user?) {
 
 export = {
   name: "rank",
+  folder: "Stats",
   aliases: ["r"],
   allowEmptyArgs: true,
   async execute(message?, args = []) {

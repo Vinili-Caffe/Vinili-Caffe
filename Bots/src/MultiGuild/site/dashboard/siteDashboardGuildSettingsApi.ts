@@ -190,6 +190,32 @@ async function readGuildOwner(client?, guildId?) {
   return { id: ownerId, label };
 }
 
+/** Lingua Discord del server (preferred_locale) mappata ai codici tenant (it/en/…). */
+async function readGuildDiscordLanguage(client?, guildId?) {
+  const gid = String(guildId || "");
+  let raw =
+    client?.guilds?.cache?.get?.(gid)?.preferredLocale ||
+    client?.guilds?.cache?.get?.(gid)?.preferred_locale ||
+    "";
+  if (!raw) {
+    const rest = client?._rest || client?.rest;
+    if (rest) {
+      const g: any = await rest.get(Routes.guild(gid)).catch(() => null);
+      raw = g?.preferred_locale || g?.preferredLocale || "";
+    }
+  }
+  try {
+    const { mapDiscordLocaleToTenantLanguage } = require("../../../Vinili/Partner/i18n/tenantPartnershipI18n/languages") as typeof import("../../../Vinili/Partner/i18n/tenantPartnershipI18n/languages");
+    return mapDiscordLocaleToTenantLanguage(raw);
+  } catch {
+    const base = String(raw || "")
+      .trim()
+      .toLowerCase()
+      .split("-")[0];
+    return /^[a-z]{2}$/.test(base) ? base : null;
+  }
+}
+
 async function readBotGuildIdentity(client?, guildId?) {
   const botId = String(client?.user?.id || "").trim();
   let nickname = null;
@@ -349,7 +375,10 @@ async function getDashboardGuildSettings(client?, accessToken?, guildId?) {
     identityHasCustom(savedIdentity);
 
   let pickers = { textChannels: [], categories: [], roles: [] };
-  const guildOwner = await readGuildOwner(client, access.guildId).catch(() => null);
+  const [guildOwner, discordLanguage] = await Promise.all([
+    readGuildOwner(client, access.guildId).catch(() => null),
+    readGuildDiscordLanguage(client, access.guildId).catch(() => null),
+  ]);
   try {
     pickers = await listGuildPickerData(client, access.guildId);
   } catch (err) {
@@ -372,6 +401,7 @@ async function getDashboardGuildSettings(client?, accessToken?, guildId?) {
       guildOwner,
       updatesChannelId: snapshot.updatesChannelId,
       language: snapshot.language ?? null,
+      discordLanguage,
       timezone: snapshot.timezone || "Europe/Rome",
       boards: snapshot.boards || {
         enabled: false,
@@ -658,6 +688,10 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
   try {
     pickers = await listGuildPickerData(client, gid);
   } catch (_) {}
+  const [guildOwner, discordLanguage] = await Promise.all([
+    readGuildOwner(client, gid).catch(() => null),
+    readGuildDiscordLanguage(client, gid).catch(() => null),
+  ]);
 
   return {
     ok: true,
@@ -672,9 +706,10 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
       dashboardRoleIds: Array.isArray(snapshot.dashboardRoleIds) ? snapshot.dashboardRoleIds : [],
       dashboardUserIds: Array.isArray(snapshot.dashboardUserIds) ? snapshot.dashboardUserIds : [],
       dashboardRolesConfigured: snapshot.dashboardRolesConfigured === true,
-      guildOwner: await readGuildOwner(client, gid).catch(() => null),
+      guildOwner,
       updatesChannelId: snapshot.updatesChannelId,
       language: snapshot.language ?? null,
+      discordLanguage,
       timezone: snapshot.timezone || "Europe/Rome",
       boards: snapshot.boards || {
         enabled: false,

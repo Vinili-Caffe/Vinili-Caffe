@@ -204,7 +204,7 @@ export = (client?) => {
     );
     loadPrefixFilesFromDir(
       path.resolve(__dirname, "..", "..", "..", "..", "archivio", "starwars", "src", "Vinili", "Prefix", "Economy"),
-      "StarWars",
+      "Economy",
       newPcommands,
       newAliases,
       statusMap,

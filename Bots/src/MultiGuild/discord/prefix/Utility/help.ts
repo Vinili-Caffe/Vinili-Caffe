@@ -3,6 +3,7 @@ const { executeTenantHelp } = require("../../../utils/tenantHelp") as typeof imp
 /** +help: guida ai comandi, uguale su tutti i server (main compreso). */
 export = {
   name: "help",
+  folder: "Utility",
   allowEmptyArgs: true,
   description: "Apre la guida ai comandi disponibili su questo server.",
   usage: "+help [comando]",

@@ -130,7 +130,9 @@ function formatPingMemberThresholdForInput(value?) {
 }
 
 function parsePingMemberThresholdInput(raw?) {
-  const text = String(raw || "").trim();
+  /* 0 è valido (= soglia sempre soddisfatta): non usare `raw || ""` (0 è falsy). */
+  if (raw === null || raw === undefined || raw === "") return null;
+  const text = String(raw).trim();
   if (!text || /^null$/i.test(text)) return null;
   const n = Number.parseInt(text, 10);
   if (!Number.isFinite(n) || n < 0) return NaN;

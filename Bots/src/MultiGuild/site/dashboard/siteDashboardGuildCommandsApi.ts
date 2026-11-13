@@ -144,7 +144,7 @@ function mergePermissionsJsonIntoCommands(guildId?, commands?, catalog?) {
   return out;
 }
 
-async function buildCommandsResponse(client?, accessToken?, guildId?) {
+async function buildCommandsResponse(client?, accessToken?, guildId?, opts: Record<string, any> = {}) {
   setCommandCatalogClient(client);
   const applicationId = resolveBotApplicationId(client);
   const botToken = resolveBotToken(client);
@@ -152,7 +152,9 @@ async function buildCommandsResponse(client?, accessToken?, guildId?) {
   let discordSync: any = { ok: true, warning: null };
 
   const slashKeys = collectSlashKeys(guildId);
-  if (slashKeys.length && accessToken && applicationId && botToken) {
+  /* Dopo un PATCH abbiamo già sync-ato verso Discord: rileggere e riscrivere
+     può riportare permessi vecchi (eventual consistency) e “resettare” la UI. */
+  if (slashKeys.length && accessToken && applicationId && botToken && opts.skipDiscordPull !== true) {
     const loaded = await loadSlashAclMapFromDiscord({
       accessToken,
       botToken,
@@ -341,7 +343,7 @@ async function patchDashboardGuildCommands(client?, accessToken?, guildId?, body
     warmTenantRegistryForCommands(),
   ]);
 
-  return buildCommandsResponse(client, accessToken, access.guildId);
+  return buildCommandsResponse(client, accessToken, access.guildId, { skipDiscordPull: true });
 }
 
 export = {

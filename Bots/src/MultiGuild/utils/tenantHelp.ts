@@ -21,7 +21,6 @@ const CATEGORY_ORDER = ["partnership", "bacheca", "utility", "music", "tts", "mi
 
 const TENANT_PARTNERSHIP_CATALOG = [
   { id: "invite", invoke: "+invite", example: "+invite", permissions: null },
-  { id: "help", invoke: "+help", syntaxKey: "help_cmd_help_syntax", example: "+help setup", permissions: null },
   { id: "setup", invoke: "+setup", example: "+setup", permissions: "manage_server" },
   { id: "settings", invoke: "+settings", example: "+settings", permissions: "manage_server" },
   { id: "leave_partnership", invoke: "+leave", syntaxKey: "help_cmd_leave_partnership_syntax", example: "+leave partnership", permissions: "manage_server" },
@@ -32,7 +31,6 @@ const TENANT_PARTNERSHIP_CATALOG = [
   { id: "points", invoke: "+points", syntaxKey: "help_cmd_points_syntax", example: "+points", permissions: "partner_manager" },
   { id: "ctx_add_points", invoke: "Aggiungi punti", example: "Tasto destro sull'utente → Apps → Aggiungi punti", permissions: "administrator" },
   { id: "ctx_remove_points", invoke: "Rimuovi punti", example: "Tasto destro sull'utente → Apps → Rimuovi punti", permissions: "administrator" },
-  { id: "profile", invoke: "+profile", syntaxKey: "help_cmd_profile_syntax", example: "+profile", permissions: "partner_manager" },
   { id: "badges", invoke: "+badges", syntaxKey: "help_cmd_badges_syntax", example: "+badges", permissions: "partner_manager" },
   { id: "history", invoke: "+history", syntaxKey: "help_cmd_history_syntax", example: "+history 7", permissions: "partner_manager" },
   { id: "leaderboard", invoke: "+leaderboard", example: "+leaderboard", permissions: "partner_manager" },
@@ -56,6 +54,8 @@ const TENANT_COMMAND_CATALOG = {
     { invoke: "+clip", description: "Pubblica una clip vocale sulla bacheca (allegato o risposta).", example: "+clip", permissions: null },
   ],
   utility: [
+    { id: "help", invoke: "+help", syntaxKey: "help_cmd_help_syntax", example: "+help setup", permissions: null },
+    { id: "profile", invoke: "+profile", syntaxKey: "help_cmd_profile_syntax", example: "+profile", permissions: "partner_manager" },
     { invoke: "+afk", syntax: "(messaggio)", description: "Imposta il tuo stato AFK con un messaggio personalizzato.", example: "+afk sono via", permissions: null },
     { invoke: "+avatar", syntax: "(utente)", description: "Mostra l'avatar di un utente.", example: "+avatar", permissions: null },
     { invoke: "+banner", syntax: "(utente)", description: "Mostra il banner di un utente.", example: "+banner", permissions: null },

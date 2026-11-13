@@ -164,14 +164,34 @@ async function getDashboardHealth(client?, accessToken?, guildId?) {
     global.logger?.warn?.("[DASH HEALTH] settings:", err?.message || err);
   }
 
-  /* ticket */
+  /* ticket (sul main i ticket sono sul sito: niente controlli Discord del modulo tenant) */
   try {
+    let skipDiscordTickets = false;
+    try {
+      const { isMainGuild } = require("../../core/tenantCommunityTools") as typeof import("../../core/tenantCommunityTools");
+      skipDiscordTickets = isMainGuild(gid) === true;
+    } catch (_) {
+      try {
+        const { isViniliFullFeatureGuild } = require("../../core/guildFeatureScope") as typeof import("../../core/guildFeatureScope");
+        skipDiscordTickets = isViniliFullFeatureGuild(gid) === true;
+      } catch (_) {}
+    }
+    if (skipDiscordTickets) {
+      add({
+        id: "tickets-site",
+        area: "ticket",
+        level: "info",
+        title: "Ticket sul sito",
+        detail: "Sul server Vinili i ticket si gestiscono da viniliecaffe.it/tickets, non con il modulo Discord della dashboard.",
+        fix: null,
+      });
+    }
     const { getTicketSettingsSync } = require("../../tickets/tenant/tenantTicketSettings") as typeof import("../../tickets/tenant/tenantTicketSettings");
     const { getGuildPanels } = require("../../tickets/tenant/tenantTicketPanels") as typeof import("../../tickets/tenant/tenantTicketPanels");
     const t: any = getTicketSettingsSync(gid) || {};
     const panels: any = await getGuildPanels(gid).catch(() => ({ singles: [], multis: [] }));
     const singles = Array.isArray(panels?.singles) ? panels.singles : [];
-    const ticketsOn = t.enabled !== false && singles.length > 0;
+    const ticketsOn = !skipDiscordTickets && t.enabled !== false && singles.length > 0;
     if (ticketsOn) {
       if (!admin && ((base & P.ManageChannels) !== P.ManageChannels || (base & P.ManageRoles) !== P.ManageRoles)) {
         add({
