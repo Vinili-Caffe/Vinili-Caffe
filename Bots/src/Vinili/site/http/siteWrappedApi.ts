@@ -181,11 +181,26 @@ function summarizeHourlyOwl(hourly?, cutoffDayKey = null) {
   };
 }
 
-function sumVotesFromLeaf(leaf?) {
-  const cur =
-    nInt(leaf?.voteCountTopgg) + nInt(leaf?.voteCountDiscadia) + nInt(leaf?.voteCount);
-  const prev = nInt(leaf?.prevVoteCountTopgg) + nInt(leaf?.prevVoteCountDiscadia);
-  return cur + prev;
+/**
+ * Voti dell'anno: somma dei mesi di quell'anno.
+ * Fonte: lo storico per mese (voteMonths); per il mese corrente e il precedente vale anche il contatore
+ * mensile (prende il più alto: lo storico è nato dopo, il mese in corso può avere voti contati solo lì).
+ */
+function sumYearVotesFromLeaf(leaf?, year?) {
+  const prefix = `${Math.floor(Number(year) || wrappedYear())}-`;
+  const months: Record<string, number> = {};
+  const raw = leaf?.voteMonths && typeof leaf.voteMonths === "object" ? leaf.voteMonths : {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (/^\d{4}-\d{2}$/.test(k) && k.startsWith(prefix)) months[k] = nInt(v);
+  }
+  const counter = (key?, n?) => {
+    const k = String(key || "");
+    if (!k.startsWith(prefix)) return;
+    months[k] = Math.max(nInt(months[k]), nInt(n));
+  };
+  counter(leaf?.voteCountMonthKey, nInt(leaf?.voteCountTopgg) + nInt(leaf?.voteCountDiscadia) + nInt(leaf?.voteCount));
+  counter(leaf?.prevVoteCountMonthKey, nInt(leaf?.prevVoteCountTopgg) + nInt(leaf?.prevVoteCountDiscadia));
+  return Object.values(months).reduce((a, b) => a + b, 0);
 }
 
 /**
@@ -394,7 +409,7 @@ async function getSiteWrapped(client?, payload?) {
   ]);
 
   const voteLeaf = exp?.bumpVoteRewards?.discadia_vote || {};
-  const votesTotal = sumVotesFromLeaf(voteLeaf);
+  const votesTotal = sumYearVotesFromLeaf(voteLeaf, year);
   const boostYear = resolveYearBoostCount(member, year, doc?.profile?.serverBoostAnnouncedSlotCount);
   const boosts = nInt(boostYear.boosts);
   const isBoosting = Boolean(boostYear.isBoosting);

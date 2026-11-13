@@ -12,6 +12,8 @@ const DISCADIA_VOTE_COUNT_MONTH_KEY_PATH = `${DISCADIA_VOTE_ROOT}.voteCountMonth
 const DISCADIA_PREV_VOTE_COUNT_MONTH_KEY_PATH = `${DISCADIA_VOTE_ROOT}.prevVoteCountMonthKey`;
 const DISCADIA_PREV_VOTE_COUNT_TOPGG_PATH = `${DISCADIA_VOTE_ROOT}.prevVoteCountTopgg`;
 const DISCADIA_PREV_VOTE_COUNT_DISCADIA_PATH = `${DISCADIA_VOTE_ROOT}.prevVoteCountDiscadia`;
+/** voti per mese ("YYYY-MM" → n), mai azzerati: servono al Wrapped e ai totali dell'anno */
+const DISCADIA_VOTE_MONTHS_PATH = `${DISCADIA_VOTE_ROOT}.voteMonths`;
 
 async function recordDiscadiaVote(client?, guildId?, userId?, options: Record<string, any> = {}) {
   const voteListing = voteListingKey(options?.voteListing);
@@ -103,6 +105,8 @@ async function recordDiscadiaVote(client?, guildId?, userId?, options: Record<st
     const incKey = voteListing === "topgg" ? DISCADIA_VOTE_COUNT_TOPGG_PATH : DISCADIA_VOTE_COUNT_DISCADIA_PATH;
     update.$inc = { [incKey]: 1 };
   }
+
+  update.$inc = { ...(update.$inc || {}), [`${DISCADIA_VOTE_MONTHS_PATH}.${currentMonthKey}`]: 1 };
 
   const doc = await ActivityUserProfile.findOneAndUpdate(
     { guildId: IDs.guilds.main, userId },

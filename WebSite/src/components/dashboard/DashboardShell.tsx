@@ -10,7 +10,6 @@ import {
   Coins,
   CreditCard,
   Diamond,
-  Disc3,
   House,
   LayoutGrid,
   LogIn,
@@ -717,7 +716,6 @@ function Sidebar({
 
       <nav aria-label="Dashboard" className="flex-1 space-y-5">
         <NavGroup title="Generale">
-          <NavItem animated={!onNavigate} href="/dashboard/" label="Vinili" icon={Disc3} active={samePath(pathname, "/dashboard/", true)} />
           <NavItem animated={!onNavigate} href="/dashboard/server/" label="I miei server" icon={LayoutGrid} active={samePath(pathname, "/dashboard/server/", true)} />
         </NavGroup>
 
@@ -824,6 +822,7 @@ export function DashboardShell({
   crumb,
   crumbs,
   actions,
+  noCrumb,
 }: {
   title: string;
   lead?: string;
@@ -839,6 +838,8 @@ export function DashboardShell({
   /** Percorso a più livelli: Nome server › Sezione › Tab (con freccia tra ogni pezzo). */
   crumbs?: string[];
   actions?: React.ReactNode;
+  /** Pagina d'ingresso: in alto solo "Dashboard", senza voce dopo. */
+  noCrumb?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname() || "/";
@@ -1024,7 +1025,7 @@ export function DashboardShell({
             {/* Con server: Nome › Sezione › Tab. Senza: Dashboard › pagina. */}
             <nav aria-label="Percorso" className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
               {(() => {
-                const trail = (crumbs && crumbs.length ? crumbs : [crumb || title]).filter(Boolean) as string[];
+                const trail = noCrumb && !guild ? [] : ((crumbs && crumbs.length ? crumbs : [crumb || title]).filter(Boolean) as string[]);
                 const head = guild ? (
                   <SmartLink
                     href={page("/dashboard/server/")}
@@ -1034,7 +1035,10 @@ export function DashboardShell({
                     {guild.name}
                   </SmartLink>
                 ) : (
-                  <SmartLink href={page("/dashboard/")} className="hidden shrink-0 text-crema/60 transition hover:text-crema sm:inline">
+                  <SmartLink
+                    href={page("/dashboard/")}
+                    className={cn("shrink-0 transition hover:text-crema", trail.length ? "hidden text-crema/60 sm:inline" : "font-semibold text-crema")}
+                  >
                     Dashboard
                   </SmartLink>
                 );

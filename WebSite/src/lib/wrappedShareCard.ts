@@ -286,12 +286,21 @@ async function buildAll(data: WrappedPayload, onFirst?: (card: WrappedShareCard)
   const avatarUrl = sizedDiscordCdn(data.user.avatarUrl, 256, { animate: false });
   const [avatar, logo] = await Promise.all([
     loadImage(avatarUrl, true, 800),
-    loadImage(cdnUrl("/images/logo-disco.png"), false, 600),
+    /* il logo sta sul CDN (altra origine): senza CORS "sporca" la tela e l'immagine non si può più esportare */
+    loadImage(cdnUrl("/images/logo-disco.png"), true, 900),
   ]);
 
-  const story = await makeCard(data, "story", avatar, logo);
+  /* se un'immagine blocca comunque l'esportazione, la card si rifà senza immagini invece di fallire */
+  const make = async (format: WrappedShareFormat) => {
+    try {
+      return await makeCard(data, format, avatar, logo);
+    } catch {
+      return makeCard(data, format, null, null);
+    }
+  };
+  const story = await make("story");
   onFirst?.(story);
-  const square = await makeCard(data, "square", avatar, logo);
+  const square = await make("square");
   return [story, square];
 }
 

@@ -285,7 +285,7 @@ export function BotShowcase() {
   }, []);
 
   return (
-    <DashboardShell title="Vinili" crumb="Vinili" bare>
+    <DashboardShell title="Dashboard" noCrumb bare>
       {/* intro */}
       <section className="relative grid items-center gap-10 pb-6 pt-2 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:pt-6">
         <div>

@@ -54,6 +54,8 @@ async function hydrateProfileActivityBucketsFromGuild(guildId?, userId?, leanDoc
   const rows = await loadHourlyRows(gid, hourKeys, uid).catch(() => []);
   const hourly = { ...toObjectMap(base?.profile?.totals?.hourly) };
   const daily = { ...toObjectMap(base?.profile?.totals?.daily) };
+  /* un giorno con righe orarie si conta solo da quelle: il giornaliero salvato (vecchio formato) ha gli stessi messaggi */
+  const fromHours = new Set<string>();
   for (const r of rows) {
     const hk = String(r?.hourKey || "");
     if (!hk) continue;
@@ -65,7 +67,8 @@ async function hydrateProfileActivityBucketsFromGuild(guildId?, userId?, leanDoc
     };
     const dk = hk.slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dk)) continue;
-    if (!daily[dk]) {
+    if (!fromHours.has(dk)) {
+      fromHours.add(dk);
       daily[dk] = { textCount: 0, voiceSeconds: 0, textChannels: {}, voiceChannels: {} };
     }
     daily[dk].textCount = Math.max(0, Number(daily[dk].textCount || 0)) + Math.max(0, Number(r.textCount || 0));
