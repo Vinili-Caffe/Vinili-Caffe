@@ -1110,6 +1110,13 @@ function normalizeCounter(raw?, prev?) {
   };
 }
 
+/** Nome del canale di un contatore (stesso formato per lo scheduler e per il contatore classico del principale). */
+function counterDisplayName(counter?, counts?: Record<string, number> | null) {
+  const n = counts ? counts[counter?.type] : NaN;
+  const value = Number.isFinite(n) ? n.toLocaleString("it-IT") : "?";
+  return String(counter?.template || "{count}").replace(/\{count\}/g, value).slice(0, 100) || value;
+}
+
 /* log del server */
 const LOG_EVENTS = [
   "messageDelete",
@@ -1206,6 +1213,7 @@ export = {
   normalizeAutoResponder,
   matchesAutoResponder,
   normalizeCounter,
+  counterDisplayName,
   COUNTER_TYPES,
   LOG_EVENTS,
   normalizeServerLogs,

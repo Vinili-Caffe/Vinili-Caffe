@@ -119,6 +119,28 @@ async function importMainPanels(client?, gid?: string) {
   await T.markPanelImported(gid, "info");
 }
 
+/**
+ * Una volta sola: il canale "Members" del principale diventa un contatore della dashboard
+ * (stesso canale e stesso testo). Da lì il contatore classico usa il testo della dashboard,
+ * e se lo elimini dalla dashboard smette di aggiornarlo.
+ */
+async function importMainCounter(client?, gid?: string) {
+  if (await T.wasPanelImported(gid, "memberCounter")) return;
+  const IDs = require("../../../Vinili/Config/ids") as any;
+  const channelId = String(IDs?.channels?.countUtenti || "");
+  if (T.isId(channelId)) {
+    const rows = await T.listRows("counters", gid, true);
+    if (!rows.some((r: any) => r.channelId === channelId) && rows.length < T.LIMITS.counters) {
+      const ch: any = await restOf(client)?.get(Routes.channel(channelId)).catch(() => null);
+      if (ch && String(ch.guild_id || "") === String(gid)) {
+        const row = { ...T.normalizeCounter({ type: "members", template: "༄☕︲Members: {count}", channelId }), lastName: String(ch.name || "") || null };
+        await T.writeRows("counters", gid, [row, ...rows]);
+      }
+    }
+  }
+  await T.markPanelImported(gid, "memberCounter");
+}
+
 /** Una volta sola: le reazioni alle parole del bot diventano risposte automatiche della dashboard. */
 async function importMainWordReactions(gid: string) {
   if (await T.wasPanelImported(gid, "wordReactions")) return;
@@ -180,6 +202,7 @@ async function getDashboardCommunity(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   const gid = a.guildId;
+  if (T.isMainGuild(gid)) await importMainCounter(client, gid).catch(() => null);
   const [autoResponders, counters, serverLogs] = await Promise.all([
     T.listRows("autoResponders", gid, true),
     T.listRows("counters", gid, true),

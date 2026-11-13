@@ -280,11 +280,7 @@ async function guildCounts(client?, gid?, withSplit = false) {
   } as Record<string, number>;
 }
 
-function counterName(counter?, counts?: Record<string, number> | null) {
-  const n = counts ? counts[counter.type] : NaN;
-  const value = Number.isFinite(n) ? n.toLocaleString("it-IT") : "?";
-  return String(counter.template || "{count}").replace(/\{count\}/g, value).slice(0, 100) || value;
-}
+const counterName = (counter?, counts?: Record<string, number> | null) => T.counterDisplayName(counter, counts);
 
 const needsSplit = (rows: any[]) => rows.some((r) => r?.type === "humans" || r?.type === "bots");
 

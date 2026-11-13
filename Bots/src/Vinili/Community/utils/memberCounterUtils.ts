@@ -30,19 +30,47 @@ async function resolveReliableMemberCount(guild?) {
   return count;
 }
 
+const T = () => require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+
+/**
+ * Contatore importato nella dashboard (Contatori): undefined = non ancora importato (testo classico),
+ * null = eliminato dalla dashboard (non si aggiorna più), altrimenti la riga con il testo scelto lì.
+ */
+async function dashboardCounter(guildId?, channelId?) {
+  try {
+    if (!(await T().wasPanelImported(String(guildId), "memberCounter", false))) return undefined;
+    const rows = await T().listRows("counters", String(guildId));
+    return rows.find((r?) => r?.channelId === String(channelId)) || null;
+  } catch (_) {
+    return undefined;
+  }
+}
+
 async function updateMemberCounterNow(guild?) {
   if (!guild) return false;
   if (!(require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).isModuleOn(guild.id, "contatori")) return false;
   const channel = await resolveCounterChannel(guild);
   if (!channel) return false;
 
+  const row = await dashboardCounter(guild.id, channel.id);
+  /* eliminato o cambiato tipo dalla dashboard: ci pensa lo scheduler della dashboard (o nessuno) */
+  if (row === null || (row && row.type !== "members")) return false;
+
   const me = guild.members.me || (await guild.members.fetchMe().catch(() => null));
   if (!me?.permissions?.has(PermissionsBitField.Flags.ManageChannels)) return false;
 
-  const nextName = buildCounterName(await resolveReliableMemberCount(guild));
+  const count = await resolveReliableMemberCount(guild);
+  const nextName = row ? T().counterDisplayName(row, { members: count }) : buildCounterName(count);
   if (String(channel.name || "") === nextName) return true;
 
   await channel.setName(nextName).catch(() => {});
+  if (row) {
+    /* lo scheduler della dashboard sa che il nome è già giusto: niente rinomina doppia */
+    try {
+      const rows = await T().listRows("counters", guild.id, true);
+      await T().writeRows("counters", guild.id, rows.map((r?) => (r.id === row.id ? { ...r, lastName: nextName } : r)));
+    } catch (_) {}
+  }
   return true;
 }
 
