@@ -189,7 +189,8 @@ async function guildStaff(client?, req?, guildId?, targetId?) {
   const roleId = await pmRoleOf(guildId);
   const m: any = roleId ? await memberOf(client, guildId, targetId) : null;
   if (!roleId || !m || !Array.isArray(m.roles) || !m.roles.includes(roleId) || !isOnlyPmOnMain(guildId, m.roles)) {
-    return { status: 404, body: { ok: false, error: "not_pm", message: "Non è Partner Manager in questo server." } };
+    /* non è un errore: semplicemente non ha la tab (200, così la console del browser resta pulita) */
+    return { status: 200, body: { ok: true, notPm: true, staff: null, message: "Non è Partner Manager in questo server." } };
   }
   const { getTenantProfileSnapshot } = require("../../Partner/services/tenantProfileProgressService") as any;
   const snap: any = await getTenantProfileSnapshot(String(guildId), String(targetId), { client, evaluateObjectives: false }).catch(() => null);
