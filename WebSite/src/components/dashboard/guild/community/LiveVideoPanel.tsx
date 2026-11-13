@@ -246,9 +246,25 @@ export function LiveVideoPanel({
   const meta = PLATFORM[platform];
   const pcfg = cfg?.platforms[platform];
   const hasPosts = Boolean(meta.postWord);
+  const sampleAcc = pcfg?.accounts.find((a) => a.id) || null;
+  const sampleUserId = sampleAcc?.discordUserId || null;
+
+  /* nome su Discord dell'utente collegato: senza, l'anteprima mostrerebbe "@utente" */
+  const [sampleUser, setSampleUser] = useState<{ id: string; name: string } | null>(null);
+  useEffect(() => {
+    if (!sampleUserId || sampleUser?.id === sampleUserId) return;
+    let alive = true;
+    void searchTicketMembers(token, guildId, sampleUserId).then((r) => {
+      const hit = r.ok ? r.data.find((m) => m.id === sampleUserId) : null;
+      if (alive && hit) setSampleUser({ id: hit.id, name: hit.label || hit.username });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [sampleUserId, sampleUser?.id, token, guildId]);
 
   const sampleVars = useMemo(() => {
-    const acc = pcfg?.accounts.find((a) => a.id) || null;
+    const acc = sampleAcc;
     const name = acc?.displayName || acc?.id || (platform === "youtube" ? "Il tuo canale" : "nomecanale");
     const base = {
       mention: acc?.discordUserId ? `<@${acc.discordUserId}>` : name,
@@ -257,6 +273,10 @@ export function LiveVideoPanel({
       platform: meta.title,
       thumb: "https://static-cdn.jtvnw.net/ttv-static/404_preview-1280x720.jpg",
       server: data?.guild?.name || "Server",
+      /* l'anteprima riconosce questa menzione e mostra il nome giusto */
+      ...(acc?.discordUserId
+        ? { "user.id": acc.discordUserId, username: sampleUser?.id === acc.discordUserId ? sampleUser.name : acc.displayName || acc.id }
+        : {}),
     };
     const handle = acc?.id || "nomecanale";
     const liveUrl =
@@ -281,7 +301,7 @@ export function LiveVideoPanel({
         kind: "post",
       },
     };
-  }, [pcfg, platform, meta, data?.guild?.name]);
+  }, [sampleAcc, pcfg?.pingRoleId, platform, meta, data?.guild?.name, sampleUser]);
 
   if (loadError && !cfg) return <Notice error>{loadError}</Notice>;
   if (!cfg || !data || !pcfg) return <RowsSkeleton rows={8} />;
