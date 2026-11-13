@@ -380,7 +380,7 @@ export function ProfileBoard() {
   }, [toast]);
 
   return (
-    <DashboardShell title="Profilo" lead="Il tuo account, le preferenze del bot e i tuoi dati.">
+    <DashboardShell title="Profilo" lead="Il tuo account e i tuoi dati.">
       {!ready ? (
         <div className="h-40 animate-pulse rounded-2xl bg-crema/[0.04]" aria-busy />
       ) : !token ? (
@@ -398,7 +398,6 @@ export function ProfileBoard() {
       ) : (
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="space-y-5">
           <AccountCard />
-          <PartnerProfile token={token} onToast={onToast} />
           <PrivacyPanel token={token} onToast={onToast} />
         </motion.div>
       )}
