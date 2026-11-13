@@ -681,7 +681,7 @@ export function PartnershipPanel({
                   </div>
                   <label className="flex items-center gap-2 rounded-xl bg-espresso/70 px-3 py-1.5 ring-1 ring-sand/15">
                     <span className="text-xs text-crema/60">Membri</span>
-                    <NumberField size="sm" min={0} nullable value={simMembers} onChange={setSimMembers} aria-label="Membri del server partner" className="mt-0 w-24" />
+                    <NumberField size="sm" min={0} nullable value={simMembers} onChange={setSimMembers} aria-label="Membri del server partner" className="mt-0 w-40" />
                   </label>
                   <div className="flex flex-wrap items-center gap-1.5" aria-live="polite">
                     {hits.length ? (
