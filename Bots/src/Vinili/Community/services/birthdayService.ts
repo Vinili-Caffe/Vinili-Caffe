@@ -126,6 +126,25 @@ async function deliverBirthdayAnnouncementsForGuild(guild?, allDocs?, today?) {
     if (skipIds.length) await markBirthdayCelebratedByIds(skipIds, today.year).catch(() => {});
     return;
   }
+  /* annuncio gestito dalla dashboard (Compleanni): qui solo ruoli e segno "festeggiato"; se l'annuncio di oggi è già
+     partito (compleanno salvato in giornata) la dashboard festeggia subito anche questi */
+  try {
+    const R = require("../../../MultiGuild/services/birthdaysRuntime") as typeof import("../../../MultiGuild/services/birthdaysRuntime");
+    if (await R.managesMessage(guild.id)) {
+      await R.celebrateLate(guild.client, guild, guildDocs.map((d?) => String(d.userId))).catch(() => null);
+      for (const doc of guildDocs) {
+        const uid = String(doc.userId || "");
+        const b = doc?.profile?.birthday || doc;
+        await assignBirthdayRole(guild, uid);
+        await applyAgeBracketRoleFromBirthday(guild, uid, Number(b.day), Number(b.month), Number(b.birthYear)).catch(() => {});
+      }
+      const doneIds = (allDocs || []).map((d?) => String(d._id)).filter(Boolean);
+      if (doneIds.length) await markBirthdayCelebratedByIds(doneIds, today.year).catch(() => {});
+      return;
+    }
+  } catch (err) {
+    global.logger?.warn?.("[BIRTHDAY] dashboard:", err?.message || err);
+  }
   const channelId = IDs.channels.chat || null;
   let channel =
     (channelId ? (guild.channels.cache.get(channelId) || (await getGuildChannelCached(guild, channelId))) : null) || null;

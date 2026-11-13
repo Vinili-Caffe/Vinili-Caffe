@@ -31,6 +31,7 @@ const MODULES: ModuleDef[] = [
   { id: "giveaway", kind: "feature", feature: "giveaway" },
   { id: "sondaggi", kind: "dash" },
   { id: "live", kind: "dash" },
+  { id: "compleanni", kind: "dash" },
   { id: "utility", kind: "feature", feature: "utility" },
   { id: "music", kind: "feature", feature: "music" },
   { id: "tts", kind: "feature", feature: "tts" },

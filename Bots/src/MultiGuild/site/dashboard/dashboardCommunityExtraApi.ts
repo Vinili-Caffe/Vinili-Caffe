@@ -467,6 +467,31 @@ async function patchLive(client?, token?, guildId?, body?) {
   return { ok: true, status: 200, config };
 }
 
+/* ───────────── Compleanni ───────────── */
+
+const BDAY = () => require("../../services/birthdaysRuntime") as typeof import("../../services/birthdaysRuntime");
+
+async function getBirthdays(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const imported = await BDAY().ensureMainSeed(a.guildId).catch(() => false);
+  const config = await BDAY().getConfig(a.guildId, true);
+  let timezone = "Europe/Rome";
+  try {
+    timezone = (require("../../core/tenantGuildSettings") as typeof import("../../core/tenantGuildSettings")).getTenantTimezoneSync(a.guildId) || timezone;
+  } catch (_) {}
+  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), imported, config, timezone };
+}
+
+async function patchBirthdays(client?, token?, guildId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const raw = body?.config || body || {};
+  if (raw.channelId != null && raw.channelId !== "" && !T.isId(raw.channelId)) return fail(400, "bad_channel", "Canale non valido.");
+  const config = await BDAY().saveConfig(a.guildId, raw);
+  return { ok: true, status: 200, config };
+}
+
 /* ───────────── giveaway ───────────── */
 
 const G = () => require("../../../Vinili/Giveaway/services/giveawayService") as typeof import("../../../Vinili/Giveaway/services/giveawayService");
@@ -721,7 +746,7 @@ async function setModuleSwitch(client?, token?, guildId?, body?) {
 }
 
 /* moduli del menu laterale: "Disattivati" = solo quelli spenti dalla pagina Moduli */
-const SIDEBAR_MODULES = ["bacheca", "tickets", "moderation", "partnership", "messaggi", "comandipers", "ruoli", "benvenuto", "risposte", "contatori", "bump", "voti", "giveaway", "sondaggi", "live"];
+const SIDEBAR_MODULES = ["bacheca", "tickets", "moderation", "partnership", "messaggi", "comandipers", "ruoli", "benvenuto", "risposte", "contatori", "bump", "voti", "giveaway", "sondaggi", "live", "compleanni"];
 
 async function modulesStatus(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
@@ -756,6 +781,8 @@ export = {
   patchServerLogs,
   getLive,
   patchLive,
+  getBirthdays,
+  patchBirthdays,
   listGiveaways,
   createGiveaway,
   editGiveaway,

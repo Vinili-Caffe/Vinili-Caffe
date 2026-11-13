@@ -20,6 +20,7 @@ import {
   Ticket,
   Trophy,
   Video,
+  Cake,
   type LucideIcon,
 } from "lucide-react";
 
@@ -39,6 +40,7 @@ export type GuildSectionId =
   | "giveaway"
   | "sondaggi"
   | "live"
+  | "compleanni"
   | "settings"
   | "commands"
   | "bacheca"
@@ -186,6 +188,7 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "giveaway", label: "Giveaway", icon: Gift, tabs: [] as const },
   { id: "sondaggi", label: "Sondaggi", icon: Vote, tabs: [] as const },
   { id: "live", label: "Social Network", icon: Video, tabs: [] as const },
+  { id: "compleanni", label: "Compleanni", icon: Cake, tabs: [] as const },
 ] as const satisfies readonly GuildNavItem[];
 
 /** Sezioni che non stanno nel menu laterale: si aprono dalla barra in alto. */

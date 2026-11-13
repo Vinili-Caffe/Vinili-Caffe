@@ -39,6 +39,8 @@ export = {
     /* ruoli d'anzianità degli Annunci automatici: controllo ogni 30 minuti */
     try {
       (require("../services/announcementsRuntime") as typeof import("../services/announcementsRuntime")).startTenureRolesLoop(client);
+      /* compleanni della dashboard: tutti i server, ognuno nel suo fuso */
+      (require("../services/birthdaysRuntime") as typeof import("../services/birthdaysRuntime")).startBirthdaysLoop(client);
     } catch (_) {}
     if (autoRegisterGuildsOnJoin()) {
       await bootstrapTenantRegistryFromClient(client);

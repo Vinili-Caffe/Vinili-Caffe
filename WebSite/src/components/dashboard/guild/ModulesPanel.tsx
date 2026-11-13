@@ -19,6 +19,7 @@ import {
   TerminalSquare,
   Ticket,
   Video,
+  Cake,
   Vote,
   type LucideIcon,
 } from "lucide-react";
@@ -45,6 +46,7 @@ const META: ModuleMeta[] = [
   { id: "voti", title: "Voti", text: "Voti su Top.gg e Discadia con ruolo e promemoria.", icon: Vote, page: "voti" },
   { id: "giveaway", title: "Giveaway", text: "Estrazioni a premi con requisiti e vincitori scelti dal bot.", icon: Gift, page: "giveaway" },
   { id: "sondaggi", title: "Sondaggi", text: "Domande al server con voto e risultati in diretta.", icon: Vote, page: "sondaggi" },
+  { id: "compleanni", title: "Compleanni", text: "Auguri a chi compie gli anni, con ruolo del giorno e privato.", icon: Cake, page: "compleanni" },
   { id: "live", title: "Social Network", text: "Avvisi per live, video e post su Twitch, YouTube, Kick, TikTok e Instagram.", icon: Video, page: "live" },
 ];
 

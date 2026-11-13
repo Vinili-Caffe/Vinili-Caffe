@@ -250,6 +250,11 @@ const LiveVideoPanel = dynamic(() => import("./guild/community/LiveVideoPanel").
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
 
+const BirthdaysPanel = dynamic(() => import("./guild/community/BirthdaysPanel").then((m) => m.BirthdaysPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+
 const HealthPanel = dynamic(() => import("./guild/HealthPanel").then((m) => m.HealthPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
@@ -308,6 +313,7 @@ const SECTION_LEAD: Record<Section, string> = {
   giveaway: "Crea giveaway, guarda chi partecipa ed estrai i vincitori.",
   sondaggi: "Sondaggi di Discord pubblicati dalla dashboard, con i risultati.",
   live: "Avvisi per live, video e post su Twitch, YouTube, Kick, TikTok e Instagram: canali, messaggio e ping.",
+  compleanni: "Auguri nel giorno del compleanno: canale, messaggio, ruolo del giorno e privato.",
 };
 
 /* testata di ogni pagina: spiegazione breve e colore (Bump e Voti hanno la loro, Impostazioni la scheda del server) */
@@ -330,6 +336,7 @@ const SECTION_HERO: Partial<Record<string, { text: string; accent: string }>> = 
   giveaway: { text: "Estrazioni a premi con requisiti, durata e vincitori scelti dal bot.", accent: "#f08fb0" },
   sondaggi: { text: "Domande al server con voto a pulsanti e risultati in diretta.", accent: "#6f9ce8" },
   live: { text: "Notifiche social multi-piattaforma: live, video e post con messaggio, canale e ping.", accent: "#9146ff" },
+  compleanni: { text: "Gli auguri a chi compie gli anni, con il ruolo del giorno.", accent: "#f08fb0" },
   classifica: { text: "Chi porta più server, più partner e più persone.", accent: "#e8b04b" },
 };
 
@@ -2831,6 +2838,12 @@ export function GuildPanel() {
                     {section === "sondaggi" && guildId && token ? (
                       <Panel>
                         <PollsPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "compleanni" && guildId && token ? (
+                      <Panel>
+                        <BirthdaysPanel guildId={guildId} token={token} onToast={showToast} />
                       </Panel>
                     ) : null}
 
