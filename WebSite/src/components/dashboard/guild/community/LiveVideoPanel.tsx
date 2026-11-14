@@ -376,7 +376,7 @@ export function LiveVideoPanel({
         </div>
 
         {hasPosts ? (
-          <div className="divide-y divide-sand/[0.07] border-t border-sand/10 px-4 sm:px-5">
+          <div className="divide-y divide-sand/[0.07] border-t border-sand/10 px-4 py-4 sm:px-5">
             <SettingRow title="Dirette" description="Avvisa quando l'account va in live.">
               <Toggle size="sm" checked={pcfg.notifyLive !== false} onChange={(notifyLive) => setPlatform({ notifyLive })} label="Avvisa le dirette" />
             </SettingRow>
