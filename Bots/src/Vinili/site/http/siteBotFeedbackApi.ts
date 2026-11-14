@@ -394,24 +394,7 @@ async function createBotFeedback(client?, payload: Record<string, any> = {}) {
           }
   }
 
-    if (kind === "bug") {
-    const claimed = await SiteDocument.findOneAndUpdate(
-      {
-        docType: BF,
-        _id: doc._id,
-        guildId: resolved.guild.id,
-        $or: [{ missionRewardGrantedAt: null }, { missionRewardGrantedAt: { $exists: false } }],
-      },
-      { $set: { missionRewardGrantedAt: new Date() } },
-      { new: true },
-    )
-      .select("_id")
-      .lean()
-      .catch(() => null);
-    if (claimed) {
-      void recordTenantBugReport(client, resolved.guild.id, resolved.userId).catch(() => null);
-    }
-  }
+  /* Missione Bug Hunter: il credito parte solo all’accettazione staff (staffSetBotFeedbackDecision). */
 
   return {
     ok: true,
@@ -710,12 +693,8 @@ async function staffSetBotFeedbackDecision(client?, payload: Record<string, any>
     }
   }
 
-    if (
-    nextStatus === "accepted" &&
-    authorId &&
-    normalizeFeedbackKind(existing.feedbackKind) === "bug" &&
-    !existing.missionRewardGrantedAt
-  ) {
+  /* Cacciatore di Bug: +1 solo quando High Staff accetta un bug in /feedback/#bot */
+  if (nextStatus === "accepted" && authorId && normalizeFeedbackKind(existing.feedbackKind) === "bug") {
     const claimed = await SiteDocument.findOneAndUpdate(
       {
         docType: BF,
@@ -734,7 +713,11 @@ async function staffSetBotFeedbackDecision(client?, payload: Record<string, any>
         const { refreshPartnershipConfigCache } = require("../../Partner/core/tenantPartnershipSettings") as typeof import("../../Partner/core/tenantPartnershipSettings");
         await refreshPartnershipConfigCache().catch(() => null);
       } catch (_) {}
-      void recordTenantBugReport(client, resolved.guild.id, authorId).catch(() => null);
+      try {
+        await recordTenantBugReport(client, resolved.guild.id, authorId);
+      } catch (err) {
+        global.logger?.warn?.("[bot-feedback] bug hunter mission:", err?.message || err);
+      }
     }
   }
 
