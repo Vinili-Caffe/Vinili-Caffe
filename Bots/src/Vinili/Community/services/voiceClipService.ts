@@ -24,7 +24,9 @@ const { isTenantClipTranscriptionEnabledSync } = require("../../../MultiGuild/co
 
 const CLIP_MIN_SEC = 3;
 const CLIP_DEFAULT_SEC = 30;
-const CLIP_COLOR = TENANT_EMBED_COLOR;
+/* negli embed scritti come oggetto il colore va come numero: "#826bc2" faceva rifiutare il messaggio da Discord
+   (la risposta di +clip restava ferma su "Estrazione in corso…") */
+const CLIP_COLOR = parseInt(String(TENANT_EMBED_COLOR).replace("#", ""), 16) || 0x826bc2;
 const MIN_MP3_BYTES = 8_192;
 const exportingClipByGuild = new Set();
 
@@ -211,27 +213,53 @@ function formatClipTranscription(text?) {
   return `» *${escapeItalicMarkdown(clipped)}*`;
 }
 
-function buildClipBoardEmbed({ requester, requesterId, voiceChannelName, durationSec, transcription, totalPosts, prefix }) {
+function buildClipBoardEmbed({ requester, requesterId, voiceChannelName, durationSec, transcription, totalPosts, prefix, guildId = "" }: Record<string, any>) {
   const profileName = accountUsername(requester) || "Utente";
   const iconURL = guildMemberDisplayAvatarUrlDynamic(requester, { size: 128 }) || undefined;
   const safePrefix = String(prefix || "+").trim() || "+";
   const uid = String(requesterId || requester?.id || requester?.user?.id || "").trim();
-  return {
+  const { tagBoardEmbed } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
+  /* testi della dashboard (Bacheca › Clip); i predefiniti sono quelli di sempre */
+  const clipVars = {
+    prefix: safePrefix,
+    count: String(totalPosts ?? 0),
+    reposter: uid ? `<@${uid}>` : "",
+    author: uid ? `<@${uid}>` : "",
+    body: formatClipTranscription(transcription),
+    text: String(transcription || "").trim(),
+    channel: String(voiceChannelName || ""),
+    duration: String(durationSec ?? ""),
+  };
+  let title = "🎙️ Clip vocale";
+  let description = [`Ultimi **${durationSec}s** da **${voiceChannelName}**`, "", "**Trascrizione**", formatClipTranscription(transcription)].join("\n");
+  let footerHint = `† · ৎ ${safePrefix}clip · Post #${totalPosts}`;
+  let fieldName = "Clip di";
+  try {
+    const { getBoardKindPresentationSync, fillBoardTemplate } = require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation");
+    const pr = getBoardKindPresentationSync(guildId || requester?.guild?.id, "clip");
+    title = fillBoardTemplate(pr.embedTitle, clipVars) || title;
+    description = fillBoardTemplate(pr.embedDescription, clipVars) || description;
+    footerHint = fillBoardTemplate(pr.embedFooter, clipVars) || footerHint;
+    fieldName = String(pr.fieldAuthor || fieldName);
+  } catch {
+    /* testi di sempre */
+  }
+  return tagBoardEmbed({
     color: CLIP_COLOR,
     author: { name: profileName, icon_url: iconURL },
-    title: "🎙️ Clip vocale",
-    description: [
-      `Ultimi **${durationSec}s** da **${voiceChannelName}**`,
-      "",
-      "**Trascrizione**",
-      formatClipTranscription(transcription),
-    ].join("\n"),
-    fields: uid ? [{ name: "Clip di", value: `<@${uid}>`, inline: true }] : [],
+    title: String(title).slice(0, 256),
+    description: String(description).slice(0, 4096),
+    fields: uid ? [{ name: fieldName.slice(0, 256), value: `<@${uid}>`, inline: true }] : [],
     footer: {
-      text: `† · ৎ ${safePrefix}clip · Post #${totalPosts} · ${DEFAULT_FOOTER_TEXT}`,
+      text: `${footerHint} · ${DEFAULT_FOOTER_TEXT}`.slice(0, 2048),
     },
     timestamp: new Date().toISOString(),
-  };
+  }, {
+    guildId: String(guildId || requester?.guild?.id || ""),
+    kind: "clip",
+    slot: "post",
+    vars: { ...clipVars, username: String(profileName || ""), avatar: String(iconURL || "") },
+  });
 }
 
 function buildClipAckEmbed({ requesterId, boardUrl, voiceChannelName, durationSec, prefix, guildId }) {
@@ -261,12 +289,29 @@ function buildClipAckEmbed({ requesterId, boardUrl, voiceChannelName, durationSe
   } catch {
     /* fallback live */
   }
-  return {
-    color: CLIP_COLOR,
-    description: String(description).slice(0, 4096),
-    footer: { text: String(footer).slice(0, 2048) },
-    timestamp: new Date().toISOString(),
-  };
+  const { tagBoardEmbed } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
+  return tagBoardEmbed(
+    {
+      color: CLIP_COLOR,
+      description: String(description).slice(0, 4096),
+      footer: { text: String(footer).slice(0, 2048) },
+      timestamp: new Date().toISOString(),
+    },
+    {
+      guildId,
+      kind: "clip",
+      slot: "reply",
+      vars: {
+        prefix: safePrefix,
+        reposter: `<@${requesterId}>`,
+        phrase: `ha pubblicato un clip vocale da **${voiceChannelName}** (${durationSec}s).`,
+        link: linkLine,
+        channel: String(voiceChannelName || ""),
+        duration: String(durationSec ?? ""),
+        url: String(boardUrl || ""),
+      },
+    },
+  );
 }
 
 function messageJumpUrl(guildId?, channelId?, messageId?) {
@@ -384,6 +429,7 @@ async function exportClipFromCommand(ctx?) {
       transcription,
       totalPosts,
       prefix,
+      guildId,
     });
 
     let boardMsg = null;
@@ -405,12 +451,15 @@ async function exportClipFromCommand(ctx?) {
       boardMsg = registered.boardMessage;
     } else {
             const attachment = new AttachmentBuilder(mp3Path, { name: "clip.mp3" });
+      const { withBoardDraft } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
       boardMsg = await postChannel
-        .send({
-          files: [attachment],
-          embeds: [boardEmbed],
-          allowedMentions: { users: [requesterId] },
-        })
+        .send(
+          withBoardDraft({
+            files: [attachment],
+            embeds: [boardEmbed],
+            allowedMentions: { users: [requesterId] },
+          }),
+        )
         .catch(() => null);
     }
 

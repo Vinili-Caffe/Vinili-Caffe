@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Hash,
-  Image as ImageIcon,
   Lock,
   MessageSquareQuote,
   MessageSquareReply,
@@ -16,13 +15,16 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
-import { DiscordContent } from "@/components/discord/DiscordContent";
 import { Select, MultiSelect } from "@/components/ui/Select";
+import { emptyDraft, type MsgDraft, type PickerEmoji } from "@/lib/dashboard-community";
 import { cn } from "@/lib/cn";
 import {
   BOARD_FEATURES,
   DEFAULT_BOARD_PRESENTATION,
   patchGuildSettings,
+  previewGuildQuoteStyle,
+  previewGuildSkull,
+  type BoardDraftSlot,
   type BoardFeatures,
   type BoardKindPresentation,
   type BoardsMode,
@@ -31,16 +33,16 @@ import {
   type SettingsPickers,
 } from "@/lib/dashboard-guild";
 import type { BachecaModuleTabId } from "../guildSections";
-import { EditorWithPreview } from "./community/shared";
+import { DiscordMessagePreview, DraftEditor, EditorWithPreview, useCommunity, type PreviewRow } from "./community/shared";
 import { QuoteStyleEditor } from "./QuoteStyleEditor";
 import {
-  ExpandableTextarea,
   Field,
   FormGroup,
   Notice,
   PremiumBadge,
   Pills,
   SettingRow,
+  StatusBadge,
   Toggle,
   TrackUnsaved,
   fieldClass,
@@ -109,6 +111,7 @@ const KIND_META: Record<
       { token: "{link}", hint: "link alla clip salvata" },
       { token: "{channel}", hint: "nome canale vocale" },
       { token: "{duration}", hint: "secondi della clip" },
+      { token: "{username}", hint: "nome di chi ha fatto la clip" },
     ],
   },
   skull: {
@@ -128,15 +131,12 @@ const KIND_META: Record<
 
 const KINDS: BoardKindId[] = ["quote", "repost", "clip", "skull"];
 
-/* ───────────────────────── anteprime stile Discord ───────────────────────── */
+/* ───────────────────────── messaggi: predefiniti, esempio, anteprima ───────────────────────── */
 
-function fillPreview(template: string, vars: Record<string, string>) {
-  let out = template || "";
-  for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(v);
-  return out.replace(/\n{3,}/g, "\n\n").trim();
-}
+/** colori degli embed come li manda il bot */
+const KIND_COLOR: Record<BoardKindId, string> = { quote: "#826bc2", repost: "#826bc2", clip: "#826bc2", skull: "#6f4e37" };
 
-function sampleVars(kind: BoardKindId, prefix: string): Record<string, string> {
+function sampleVars(kind: BoardKindId, prefix: string, image: string): Record<string, string> {
   return {
     prefix,
     count: kind === "quote" ? "128" : "42",
@@ -146,131 +146,123 @@ function sampleVars(kind: BoardKindId, prefix: string): Record<string, string> {
     body: "» *Esempio di messaggio in bacheca…*",
     source: "https://discord.com/channels/0/0/0",
     text: "Esempio di messaggio in bacheca…",
-    channel: "#bacheca",
-    date: "14/11/2026, 11:30:00",
+    channel: kind === "clip" ? "Chiacchiere" : "#bacheca",
+    date: "14/11/2026, 11:30",
     phrase: "ha salvato un momento iconico!",
     link: "» [Clicca qui per vedere il repost](https://discord.com/channels/0/0/0)",
+    url: "https://discord.com/channels/0/0/0",
     duration: "15",
+    username: "Luigi",
+    image,
   };
 }
 
-/** Messaggio del bot con embed, come lo vedono i membri su Discord. */
-function DiscordEmbed({
-  accent,
-  title,
-  description,
-  footer,
-  fields,
-  buttons,
-  image,
-}: {
-  accent: string;
-  title?: string;
-  description?: string;
-  footer?: string;
-  fields?: { name: string; value: string }[];
-  buttons?: { label: string; danger?: boolean }[];
-  image?: boolean;
-}) {
-  const empty = !title && !description && !footer && !fields?.length;
-  return (
-    <div translate="no" className="rounded-2xl bg-[#313338] p-3.5 ring-1 ring-sand/10">
-      <div className="flex gap-3">
-        <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-caramel to-ember text-xs font-bold text-ink" aria-hidden>
-          V
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 text-[15px] font-medium leading-5 text-[#f2f3f5]">
-            Vinili
-            <span className="rounded-[3px] bg-[#5865f2] px-1 text-[10px] font-semibold leading-4 text-white">APP</span>
-            <span className="text-[11px] font-normal text-[#949ba4]">oggi alle 11:30</span>
-          </p>
-          {empty ? (
-            <p className="mt-1.5 text-sm italic text-[#949ba4]">Messaggio vuoto</p>
-          ) : (
-            <div className="mt-1.5 flex max-w-[440px] overflow-hidden rounded-[4px] bg-[#2b2d31]">
-              <span className="w-1 shrink-0" style={{ background: accent }} aria-hidden />
-              <div className="min-w-0 flex-1 px-3 pb-3 pt-2">
-                {title ? <DiscordContent text={title} className="text-[15px] font-semibold leading-5 text-[#f2f3f5]" /> : null}
-                {description ? <DiscordContent text={description} className="mt-1.5 text-[13px] leading-[18px] text-[#dbdee1]" /> : null}
-                {fields?.length ? (
-                  <div className="mt-2 space-y-1.5">
-                    {fields.map((f) => (
-                      <div key={f.name} className="text-[13px] leading-[18px]">
-                        <p className="font-semibold text-[#f2f3f5]">{f.name}</p>
-                        <p className="text-[#dbdee1]">{f.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                {image ? (
-                  <div className="mt-2.5 flex aspect-[16/7] items-center justify-center rounded-md bg-gradient-to-br from-[#3a3c42] to-[#26282c] text-[#6d717a]">
-                    <ImageIcon className="size-6" aria-hidden />
-                  </div>
-                ) : null}
-                {footer ? <p className="mt-2 text-[11px] text-[#949ba4]">{footer}</p> : null}
-              </div>
-            </div>
-          )}
-          {buttons?.length ? (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {buttons.map((b) => (
-                <span
-                  key={b.label}
-                  className={cn("inline-flex h-8 items-center rounded-[8px] px-3.5 text-[13px] font-medium text-white", b.danger ? "bg-[#da373c]" : "bg-[#4e5058]")}
-                >
-                  {b.label}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
+/** Il messaggio che il bot manda oggi, scritto come messaggio personalizzabile (punto di partenza dell'editor). */
+function defaultDraft(kind: BoardKindId, slot: BoardDraftSlot, v: BoardKindPresentation): MsgDraft {
+  const base = emptyDraft();
+  const embed = { ...base.embed, enabled: true, color: KIND_COLOR[kind] };
+  if (slot === "post") {
+    if (kind === "clip") {
+      return {
+        ...base,
+        embed: {
+          ...embed,
+          authorName: "{username}",
+          title: v.embedTitle,
+          description: v.embedDescription,
+          fields: [{ name: v.fieldAuthor || "Clip di", value: "{reposter}", inline: true }],
+          footerText: v.embedFooter,
+          timestamp: true,
+        },
+      };
+    }
+    const fields =
+      kind === "quote"
+        ? [
+            { name: v.fieldAuthor || "Messaggio di:", value: "{author}", inline: false },
+            { name: v.fieldCreator || "Creato da:", value: "{creator}", inline: false },
+          ]
+        : kind === "skull"
+          ? [
+              { name: v.fieldAuthor || "Autore", value: "{author}", inline: true },
+              { name: v.fieldChannel || "Canale", value: "{channel}", inline: true },
+              { name: v.fieldMessage || "Messaggio", value: "[Cliccami]({source})", inline: true },
+            ]
+          : [];
+    return {
+      ...base,
+      embed: {
+        ...embed,
+        title: kind === "skull" ? "" : v.embedTitle,
+        description: v.embedDescription,
+        footerText: v.embedFooter,
+        imageUrl: kind === "quote" ? "" : "{image}",
+        fields,
+        timestamp: kind === "skull",
+      },
+    };
+  }
+  if (slot === "reply") {
+    return {
+      ...base,
+      embed: {
+        ...embed,
+        description: v.ackDescription,
+        footerText: kind === "repost" || kind === "clip" ? v.ackFooter : "",
+        fields: kind === "quote" && v.ackFieldName ? [{ name: v.ackFieldName, value: "{count}", inline: false }] : [],
+        timestamp: kind === "clip",
+      },
+    };
+  }
+  return { ...base, embed: { ...embed, title: v.rouletteTitle, description: v.rouletteDescription, footerText: v.rouletteFooter, imageUrl: "{image}" } };
 }
 
-/* ───────────────────────── campi ───────────────────────── */
-
-function PlaceholderChips({
-  tokens,
-  disabled,
-  onInsert,
-}: {
-  tokens: { token: string; hint: string }[];
-  disabled?: boolean;
-  onInsert: (token: string) => void;
-}) {
-  return (
-    <div className="rounded-xl bg-espresso/40 px-3 py-2.5 ring-1 ring-sand/[0.08]">
-      <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Segnaposto · tocca per aggiungere</p>
-      <div className="flex flex-wrap gap-1.5">
-        {tokens.map((p) => (
-          <button
-            key={p.token}
-            type="button"
-            disabled={disabled}
-            title={p.hint}
-            onClick={() => onInsert(p.token)}
-            className="group inline-flex items-center gap-1.5 rounded-lg bg-crema/[0.05] px-2 py-1 text-[11px] ring-1 ring-sand/10 transition hover:bg-caramel/15 hover:ring-caramel/30 disabled:opacity-40"
-          >
-            <span className="font-mono text-ember">{p.token}</span>
-            <span className="text-crema/45 group-hover:text-crema/70">{p.hint}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+/** pulsanti che il bot aggiunge da solo sotto il messaggio */
+function botRows(kind: BoardKindId, slot: BoardDraftSlot, v: BoardKindPresentation): PreviewRow[] {
+  const repost = { label: v.buttonRepost || "Reposta", emoji: "<a:reddiamond:1443652837346377841>", style: 2 as const };
+  const remove = { label: v.buttonRemove || "Rimuovi", emoji: "🗑️", style: 4 as const };
+  if (slot === "post") return kind === "skull" ? [] : [{ kind: "buttons", items: [repost, remove] }];
+  if (slot === "roulette") return [{ kind: "buttons", items: [repost] }];
+  if (kind === "skull") return [{ kind: "buttons", items: [{ label: "Vai al Post", emoji: "💀", style: 5 }] }];
+  if (kind === "clip") return [];
+  return [{ kind: "buttons", items: [repost] }];
 }
+
+const SLOT_TEXT: Record<BoardKindId, Record<BoardDraftSlot, string>> = {
+  quote: {
+    post: "Il messaggio che il bot pubblica nel canale delle quote. L'immagine della quote è allegata: mettila dove vuoi con {image}.",
+    reply: "La risposta al comando. Vale sia quando la quote resta nel canale, sia quando va nel canale dedicato o sul sito: {channel} è il canale dove è finita.",
+    roulette: "",
+  },
+  repost: {
+    post: "Il messaggio che il bot pubblica nella bacheca. {image} è l'immagine del messaggio salvato, se ce l'ha.",
+    reply: "La risposta a chi usa il comando o il pulsante Reposta.",
+    roulette: "Ogni tanto il bot ripesca un vecchio repost a caso e lo ripubblica.",
+  },
+  clip: {
+    post: "Il messaggio con la clip vocale (il file audio è allegato).",
+    reply: "La risposta a chi usa il comando.",
+    roulette: "",
+  },
+  skull: {
+    post: "Il messaggio nella skullboard. {image} è l'immagine del messaggio originale.",
+    reply: "La conferma nel canale dove è arrivato il 💀. Vale anche per la Bacheca del sito: {channel} è il canale della skullboard.",
+    roulette: "",
+  },
+};
 
 /* ───────────────────────── editor di una funzione ───────────────────────── */
 
-type Section = "post" | "reply" | "roulette" | "buttons" | "style";
+type Section = BoardDraftSlot | "buttons" | "style";
 
 function KindEditor({
   kind,
   value,
   roles,
+  channels,
+  emojis,
+  bot,
+  sampleImage,
   prefix,
   disabled,
   onChange,
@@ -279,6 +271,11 @@ function KindEditor({
   kind: BoardKindId;
   value: BoardKindPresentation;
   roles: { id: string; name: string }[];
+  channels: { id: string; name: string }[];
+  emojis: PickerEmoji[];
+  bot: { name: string; avatarUrl: string } | null;
+  /** immagine d'esempio: la quote vera del server (Quote) o un messaggio della skullboard (Skullboard) */
+  sampleImage: string;
   prefix: string;
   disabled?: boolean;
   onChange: (next: BoardKindPresentation) => void;
@@ -287,94 +284,73 @@ function KindEditor({
 }) {
   const meta = KIND_META[kind];
   const [section, setSection] = useState<Section>("post");
-  const [ackVariant, setAckVariant] = useState<"ackDescription" | "ackDescriptionSite" | "ackDescriptionChannel">("ackDescription");
-  const sample = sampleVars(kind, prefix);
   const set = <K extends keyof BoardKindPresentation>(key: K, next: BoardKindPresentation[K]) => onChange({ ...value, [key]: next });
-  const append = (key: "embedDescription" | "ackDescription" | "ackDescriptionSite" | "ackDescriptionChannel" | "rouletteDescription", token: string) => {
-    const cur = value[key] || "";
-    set(key, `${cur}${!cur || cur.endsWith("\n") ? "" : " "}${token}`);
-  };
-
-  const text = (key: keyof BoardKindPresentation, label: string, max = 256) => (
+  const text = (key: "buttonRepost" | "buttonRemove", label: string) => (
     <Field label={label}>
-      <input
-        type="text"
-        value={String(value[key] ?? "")}
-        disabled={disabled}
-        maxLength={max}
-        onChange={(e) => set(key, e.target.value as never)}
-        className={cn(fieldClass, "mt-1.5")}
-      />
-    </Field>
-  );
-  const area = (key: keyof BoardKindPresentation, label: string, rows = 4) => (
-    <Field label={label}>
-      <ExpandableTextarea
-        value={String(value[key] ?? "")}
-        disabled={disabled}
-        maxLength={4000}
-        rows={rows}
-        onChange={(e) => set(key, e.target.value as never)}
-        className={cn(fieldClass, "mt-1.5")}
-      />
+      <input type="text" value={value[key]} disabled={disabled} maxLength={80} onChange={(e) => set(key, e.target.value)} className={cn(fieldClass, "mt-1.5")} />
     </Field>
   );
 
-  const sections: { id: Section; label: string; icon: LucideIcon }[] = [
-    { id: "post", label: kind === "skull" ? "Post in skullboard" : "Post in bacheca", icon: meta.icon },
-    { id: "reply", label: kind === "skull" ? "Conferma" : "Risposta al comando", icon: MessageSquareReply },
-    ...(kind === "repost" ? [{ id: "roulette" as const, label: "Roulette", icon: Shuffle }] : []),
+  const slots: BoardDraftSlot[] = kind === "repost" ? ["post", "reply", "roulette"] : ["post", "reply"];
+  const slotLabel: Record<BoardDraftSlot, string> = { post: kind === "skull" ? "Post in skullboard" : "Post in bacheca", reply: kind === "skull" ? "Conferma" : "Risposta al comando", roulette: "Roulette" };
+  const slotIcon: Record<BoardDraftSlot, LucideIcon> = { post: meta.icon, reply: MessageSquareReply, roulette: Shuffle };
+  const sections: { id: Section; label: string; icon: LucideIcon; dot?: string }[] = [
+    ...slots.map((s) => ({ id: s as Section, label: slotLabel[s], icon: slotIcon[s], dot: value.drafts?.[s] ? meta.accent : undefined })),
     { id: "buttons", label: "Pulsanti e permessi", icon: MousePointerClick },
     ...(styleSlot ? [{ id: "style" as const, label: "Stile immagine", icon: Sparkles }] : []),
   ];
 
-  /* ── anteprime ── */
-  const postPreview = (
-    <DiscordEmbed
-      accent={meta.accent}
-      title={kind === "skull" ? undefined : fillPreview(value.embedTitle, sample)}
-      description={fillPreview(value.embedDescription, sample)}
-      footer={fillPreview(value.embedFooter, sample)}
-      image={kind === "quote"}
-      fields={
-        kind === "quote"
-          ? [
-              { name: value.fieldAuthor || "Messaggio di:", value: sample.author },
-              { name: value.fieldCreator || "Creato da:", value: sample.creator },
-            ]
-          : kind === "skull"
-            ? [
-                { name: value.fieldAuthor || "Autore", value: sample.author },
-                { name: value.fieldChannel || "Canale", value: sample.channel },
-                { name: value.fieldMessage || "Messaggio", value: "[Cliccami]" },
-              ]
-            : undefined
-      }
-      buttons={
-        kind === "skull"
-          ? [{ label: value.buttonRemove || "Rimuovi", danger: true }]
-          : [...(value.buttonRepost ? [{ label: value.buttonRepost }] : []), { label: value.buttonRemove || "Rimuovi", danger: true }]
-      }
-    />
-  );
-  const twoAcks = kind === "quote" || kind === "skull";
-  const replyPreview = twoAcks ? (
-    <DiscordEmbed
-      accent={meta.accent}
-      description={fillPreview(value[ackVariant] || value.ackDescription, sample)}
-      fields={kind === "quote" && value.ackFieldName ? [{ name: value.ackFieldName, value: sample.count }] : undefined}
-    />
-  ) : (
-    <DiscordEmbed accent={meta.accent} description={fillPreview(value.ackDescription, sample)} footer={fillPreview(value.ackFooter, sample)} />
-  );
-  const roulettePreview = (
-    <DiscordEmbed
-      accent={meta.accent}
-      title={fillPreview(value.rouletteTitle, sample)}
-      description={fillPreview(value.rouletteDescription, sample)}
-      footer={fillPreview(value.rouletteFooter, sample)}
-    />
-  );
+  const vars = sampleVars(kind, prefix, sampleImage);
+  /* per l anteprima bastano id e nome */
+  const previewRoles = roles.map((r) => ({ ...r, color: null, position: 0 }));
+  const placeholders = [
+    ...meta.placeholders,
+    ...(kind === "clip" ? [] : [{ token: "{image}", hint: kind === "quote" ? "immagine della quote" : "immagine del messaggio" }]),
+    { token: "{url}", hint: "link al post (risposte)" },
+  ];
+
+  const slotEditor = (slot: BoardDraftSlot) => {
+    const saved = value.drafts?.[slot] ?? null;
+    const draft = saved ?? defaultDraft(kind, slot, value);
+    const usesImage = JSON.stringify(draft).includes("{image}");
+    /* la quote (o la foto della skull) arriva come allegato: sopra l'embed, se non la metti tu dentro */
+    const attachment = (kind === "quote" || (kind === "skull" && slot === "post")) && slot !== "roulette" && !usesImage ? sampleImage : "";
+    return (
+      <EditorWithPreview
+        editor={
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-start gap-3 rounded-2xl bg-espresso/45 p-4 ring-1 ring-sand/10">
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-2 text-sm font-semibold text-crema">
+                  {slotLabel[slot]}
+                  {saved ? <StatusBadge tone="accent">Personalizzato</StatusBadge> : <StatusBadge>Predefinito</StatusBadge>}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-crema/60">{SLOT_TEXT[kind][slot]}</p>
+              </div>
+              {saved ? (
+                <button type="button" disabled={disabled} className={miniBtn} onClick={() => set("drafts", { ...value.drafts, [slot]: null })}>
+                  <RotateCcw className="size-3.5" aria-hidden /> Torna al predefinito
+                </button>
+              ) : null}
+            </div>
+            <DraftEditor
+              key={`${kind}-${slot}`}
+              value={draft}
+              onChange={(d) => set("drafts", { ...value.drafts, [slot]: d })}
+              emojis={emojis}
+              placeholders={placeholders}
+            />
+            <p className="text-xs text-crema/50">
+              {slot === "reply" && kind === "clip"
+                ? "Sotto il messaggio puoi aggiungere i tuoi pulsanti link."
+                : "I pulsanti del bot (Reposta, Rimuovi…) si aggiungono da soli sotto il messaggio: il loro testo si cambia in Pulsanti e permessi."}
+            </p>
+          </div>
+        }
+        preview={<DiscordMessagePreview noTest bot={bot} draft={draft} vars={vars} roles={previewRoles} channels={channels} rows={botRows(kind, slot, value)} attachmentUrl={attachment || null} />}
+      />
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -385,129 +361,24 @@ function KindEditor({
             type="button"
             disabled={disabled}
             className={cn(miniBtn, "ml-auto")}
-            onClick={() => onChange({ ...DEFAULT_BOARD_PRESENTATION[kind], deleteRoleIds: value.deleteRoleIds })}
-            title="Rimette i testi originali di questa funzione (i ruoli restano)"
+            onClick={() => onChange({ ...DEFAULT_BOARD_PRESENTATION[kind], deleteRoleIds: value.deleteRoleIds, drafts: { post: null, reply: null, roulette: null } })}
+            title="Rimette tutti i messaggi originali di questa funzione (i ruoli restano)"
           >
-            <RotateCcw className="size-3.5" aria-hidden /> Testi predefiniti
+            <RotateCcw className="size-3.5" aria-hidden /> Tutto predefinito
           </button>
         ) : null}
       </div>
 
-      {section === "post" ? (
-        <EditorWithPreview
-          editor={
-            <FormGroup
-              title={kind === "skull" ? "Il post in skullboard" : "Il post in bacheca"}
-              description="Il messaggio che il bot pubblica nel canale della bacheca."
-            >
-              <div className="space-y-3">
-                {kind !== "skull" ? text("embedTitle", "Titolo") : null}
-                {area("embedDescription", "Testo", 6)}
-                <PlaceholderChips tokens={meta.placeholders} disabled={disabled} onInsert={(t) => append("embedDescription", t)} />
-                {text("embedFooter", "Piè di pagina", 2048)}
-                {kind === "quote" ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {text("fieldAuthor", "Riga autore")}
-                    {text("fieldCreator", "Riga creatore")}
-                  </div>
-                ) : null}
-                {kind === "skull" ? (
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {text("fieldAuthor", "Riga autore")}
-                    {text("fieldChannel", "Riga canale")}
-                    {text("fieldMessage", "Riga messaggio")}
-                  </div>
-                ) : null}
-              </div>
-            </FormGroup>
-          }
-          preview={postPreview}
-        />
-      ) : null}
-
-      {section === "reply" ? (
-        <EditorWithPreview
-          editor={
-            <FormGroup
-              title={kind === "skull" ? "Messaggio di conferma" : "Risposta al comando"}
-              description={
-                kind === "skull" ? "Cosa scrive il bot quando un messaggio finisce in skullboard." : `Cosa risponde il bot quando qualcuno usa ${prefix}${kind}.`
-              }
-            >
-              <div className="space-y-3">
-                {twoAcks ? (
-                  <>
-                    <Pills
-                      value={ackVariant}
-                      onChange={setAckVariant}
-                      ariaLabel={`Conferma ${meta.title}`}
-                      options={[
-                        { id: "ackDescription", label: "Stesso canale" },
-                        { id: "ackDescriptionChannel", label: "Canale dedicato" },
-                        { id: "ackDescriptionSite", label: "Bacheca del sito" },
-                      ]}
-                    />
-                    <p className="text-xs text-crema/55">
-                      {ackVariant === "ackDescription"
-                        ? "Quando il post resta nel canale dove hai usato il comando."
-                        : ackVariant === "ackDescriptionChannel"
-                          ? "Quando il post va nel canale della bacheca."
-                          : "Quando il post va sulla Bacheca del sito."}
-                    </p>
-                    {area(ackVariant, "Testo", 4)}
-                    <PlaceholderChips tokens={meta.placeholders} disabled={disabled} onInsert={(t) => append(ackVariant, t)} />
-                    {kind === "quote" ? text("ackFieldName", "Riga col totale delle quote") : null}
-                  </>
-                ) : (
-                  <>
-                    {area("ackDescription", "Testo", 4)}
-                    <PlaceholderChips
-                      tokens={meta.placeholders.filter((p) => ["{reposter}", "{phrase}", "{link}", "{prefix}", "{channel}", "{duration}"].includes(p.token))}
-                      disabled={disabled}
-                      onInsert={(t) => append("ackDescription", t)}
-                    />
-                    {text("ackFooter", "Piè di pagina", 2048)}
-                  </>
-                )}
-              </div>
-            </FormGroup>
-          }
-          preview={replyPreview}
-        />
-      ) : null}
-
-      {section === "roulette" && kind === "repost" ? (
-        <EditorWithPreview
-          editor={
-            <FormGroup title="Roulette dei repost" description="Ogni tanto il bot ripesca un vecchio repost a caso e lo ripubblica.">
-              <div className="space-y-3">
-                {text("rouletteTitle", "Titolo")}
-                {area("rouletteDescription", "Testo", 4)}
-                <PlaceholderChips
-                  tokens={[
-                    { token: "{body}", hint: "testo formattato" },
-                    { token: "{source}", hint: "link originale" },
-                    { token: "{text}", hint: "testo grezzo" },
-                  ]}
-                  disabled={disabled}
-                  onInsert={(t) => append("rouletteDescription", t)}
-                />
-                {text("rouletteFooter", "Piè di pagina", 2048)}
-              </div>
-            </FormGroup>
-          }
-          preview={roulettePreview}
-        />
-      ) : null}
+      {section === "post" || section === "reply" || section === "roulette" ? slotEditor(section) : null}
 
       {section === "buttons" ? (
         <EditorWithPreview
           editor={
             <div className="space-y-4">
-              <FormGroup title="Pulsanti sotto il post" description="Il testo dei pulsanti (massimo 80 caratteri).">
+              <FormGroup title="Pulsanti del bot" description="Il testo dei pulsanti che il bot mette sotto i post (massimo 80 caratteri).">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {kind !== "skull" ? text("buttonRepost", "Pulsante repost", 80) : null}
-                  {text("buttonRemove", "Pulsante rimuovi", 80)}
+                  {kind !== "skull" ? text("buttonRepost", "Pulsante repost") : null}
+                  {text("buttonRemove", "Pulsante rimuovi")}
                 </div>
               </FormGroup>
               <FormGroup
@@ -525,7 +396,18 @@ function KindEditor({
               </FormGroup>
             </div>
           }
-          preview={postPreview}
+          preview={
+            <DiscordMessagePreview
+              noTest
+              bot={bot}
+              draft={value.drafts?.post ?? defaultDraft(kind, "post", value)}
+              vars={vars}
+              roles={previewRoles}
+              channels={channels}
+              rows={botRows(kind, "post", value)}
+              attachmentUrl={kind === "quote" && !JSON.stringify(value.drafts?.post ?? "").includes("{image}") ? sampleImage || null : null}
+            />
+          }
         />
       ) : null}
 
@@ -569,6 +451,41 @@ export function BoardsPanel({
   const [saving, setSaving] = useState(false);
   const [presDirty, setPresDirty] = useState(false);
   const boardsEnabled = settings?.boards.enabled === true;
+  /* nome e avatar del bot, emoji del server: come nelle altre schede */
+  const community = useCommunity(guildId, token);
+  /* immagini d'esempio per le anteprime: la quote vera con lo stile del server e un messaggio della skullboard */
+  const [sampleImage, setSampleImage] = useState("");
+  const [skullImage, setSkullImage] = useState("");
+  useEffect(() => {
+    let url = "";
+    let alive = true;
+    void previewGuildSkull(token, guildId).then((u) => {
+      if (!u) return;
+      if (!alive) return URL.revokeObjectURL(u);
+      url = u;
+      setSkullImage(u);
+    });
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [token, guildId]);
+  const quoteStyle = settings?.boards.quoteStyle;
+  useEffect(() => {
+    if (!quoteStyle) return;
+    let url = "";
+    let alive = true;
+    void previewGuildQuoteStyle(token, guildId, quoteStyle).then((u) => {
+      if (!u) return;
+      if (!alive) return URL.revokeObjectURL(u);
+      url = u;
+      setSampleImage(u);
+    });
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [token, guildId, quoteStyle]);
 
   /* impostazioni arrivate dal server (salvataggio o ricarica): si riallinea lo stato del pannello */
   const [syncedFrom, setSyncedFrom] = useState(settings);
@@ -837,6 +754,10 @@ export function BoardsPanel({
             kind={kind}
             value={kindPres}
             roles={pickers.roles}
+            channels={pickers.textChannels}
+            emojis={community.data?.pickers.emojis ?? []}
+            bot={community.data?.bot ?? null}
+            sampleImage={kind === "skull" ? skullImage : sampleImage}
             prefix={prefix}
             disabled={off}
             onChange={(next) => {

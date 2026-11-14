@@ -57,13 +57,16 @@ async function registerClipBoardPost(ctx?) {
     });
 
     const attachment = new AttachmentBuilder(mp3Path, { name: "clip.mp3" });
+    const { withBoardDraft } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
     const boardMsg = await postChannel
-      .send({
-        files: [attachment],
-        embeds: [boardEmbed],
-        components,
-        allowedMentions: { users: [uid] },
-      })
+      .send(
+        withBoardDraft({
+          files: [attachment],
+          embeds: [boardEmbed],
+          components,
+          allowedMentions: { users: [uid] },
+        }),
+      )
       .catch((err?) => {
         global.logger?.warn?.("[clip] board send:", err?.message || err);
         return null;

@@ -809,8 +809,42 @@ async function previewDashboardQuoteStyle(client?, accessToken?, guildId?, quote
   }
 }
 
+/** Immagine d'esempio della skullboard (anteprime della dashboard): un messaggio finto col profilo di chi guarda. */
+async function previewDashboardSkull(client?, accessToken?, guildId?) {
+  const access = await verifyDashboardGuildAccess(client, accessToken, guildId);
+  if (!access.ok) return access;
+  const renderSkullboardCanvas = require("../../../Vinili/Community/utils/Render/skullboardCanvas") as typeof import("../../../Vinili/Community/utils/Render/skullboardCanvas");
+  const { guildMemberDisplayAvatarUrlStatic, memberDisplayName } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+  const guild = client?.guilds?.cache?.get?.(access.guildId) || (await client?.guilds?.fetch?.(access.guildId).catch(() => null));
+  const member = (guild && (guild.members?.cache?.get?.(access.userId) || (await guild.members?.fetch?.(access.userId).catch(() => null)))) || null;
+  const hex = member?.displayHexColor && member.displayHexColor !== "#000000" ? member.displayHexColor : null;
+  try {
+    const buffer = await renderSkullboardCanvas({
+      avatarUrl: member ? guildMemberDisplayAvatarUrlStatic(member, { size: 256 }) || "" : "",
+      username: member ? memberDisplayName(member, member.user) || "Utente" : "Utente",
+      message: "Questo messaggio ha preso così tanti 💀 che è finito in skullboard.",
+      nameColor: hex,
+      nameColors: null,
+      createdAt: new Date(),
+      reply: null,
+      roleIconUrl: null,
+      roleName: String(member?.roles?.color?.name || ""),
+      channelName: "generale",
+      mediaUrl: null,
+      hasMedia: false,
+      hasEmbedOnly: false,
+    });
+    if (!buffer) return { ok: false, status: 500, error: "preview_failed", message: "Impossibile generare l'anteprima." };
+    return { ok: true, status: 200, image: Buffer.from(buffer), mimeType: "image/png" };
+  } catch (err) {
+    global.logger?.warn?.("[dashboard skull preview]", (err as any)?.message || err);
+    return { ok: false, status: 500, error: "preview_failed", message: "Impossibile generare l'anteprima." };
+  }
+}
+
 export = {
   getDashboardGuildSettings,
   patchDashboardGuildSettings,
   previewDashboardQuoteStyle,
+  previewDashboardSkull,
 };

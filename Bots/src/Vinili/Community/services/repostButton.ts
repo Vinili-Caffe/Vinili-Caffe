@@ -294,7 +294,8 @@ async function createRepostFromMessage(ctx?) {
     };
     if (boardSendMedia.files.length) boardSendPayload.files = boardSendMedia.files;
 
-    const boardMsg = await boardChannel.send(boardSendPayload).catch(() => null);
+    const { withBoardDraft } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
+    const boardMsg = await boardChannel.send(withBoardDraft(boardSendPayload)).catch(() => null);
 
     if (!boardMsg?.id) {
       await GuildRepost.deleteOne({ _id: doc._id }).catch(() => {});
@@ -444,12 +445,18 @@ async function handleRepostaButton(interaction?) {
   // Site bacheca: boardMessage resta null (niente post Discord). Non cancellare il defer
   // pubblico — editReply con l'ack (link bacheca). Prima: deleteReply + followUp ephemeral
   // → "ci sta lavorando" spariva e l'ack spesso non arrivava.
+  const { withBoardDraft } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
   await interaction
-    .editReply({
-      embeds: [result.ackEmbed],
-      components: usePublicAck && Array.isArray(result.ackComponents) ? result.ackComponents : [],
-      allowedMentions: usePublicAck && reposterId ? { users: [reposterId] } : { parse: [] },
-    })
+    .editReply(
+      withBoardDraft(
+        {
+          embeds: [result.ackEmbed],
+          components: usePublicAck && Array.isArray(result.ackComponents) ? result.ackComponents : [],
+          allowedMentions: usePublicAck && reposterId ? { users: [reposterId] } : { parse: [] },
+        },
+        { edit: true },
+      ),
+    )
     .catch(async () => {
       await interaction
         .followUp({

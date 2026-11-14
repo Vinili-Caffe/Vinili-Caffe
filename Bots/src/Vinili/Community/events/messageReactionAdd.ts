@@ -298,6 +298,12 @@ function buildSkullEmbed(user?, message?, postImageName?) {
     .setTimestamp(message.createdAt);
 }
 
+/** Embed della skullboard marcato per il messaggio personalizzato della dashboard. */
+function tagSkull(embed?, guildId?, slot: "post" | "reply" = "post", vars: Record<string, string> = {}) {
+  const { tagBoardEmbed } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
+  return tagBoardEmbed(embed, { guildId, kind: "skull", slot, vars });
+}
+
 function buildSkullAckDescription({ guildId, siteBoard, channelId }) {
   const channelMention = channelId ? `<#${channelId}>` : "";
   try {
@@ -462,15 +468,23 @@ export = {
               channelId: "",
             }).slice(0, 4096),
           );
+        tagSkull(siteConfirm, message.guild.id, "reply", { channel: "", author: message.author.toString() });
+        const { withBoardDraft } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
         await message.channel
-          .send({ embeds: [siteConfirm], components: [bachecaSite.buildBachecaLinkRow(saved.itemId, "Vai alla Bacheca") as any] })
+          .send(withBoardDraft({ embeds: [siteConfirm], components: [bachecaSite.buildBachecaLinkRow(saved.itemId, "Vai alla Bacheca") as any] }))
           .catch(() => {});
         return;
       }
 
       const imageName = "skullboard.png";
       const imageAttachment=new AttachmentBuilder(canvasBuffer,{name:imageName,});
-      const skullEmbed = buildSkullEmbed(user, message, imageName);
+      const skullEmbed = tagSkull(buildSkullEmbed(user, message, imageName), message.guild.id, "post", {
+        author: message.author.toString(),
+        channel: `<#${message.channel.id}>`,
+        source: `https://discord.com/channels/${message.guild.id}/${message.channel.id}/${message.id}`,
+        date: new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(message.createdAt),
+      });
+      const { withBoardDraft } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
 
       const payload: Record<string, any>={embeds:[skullEmbed],files:[imageAttachment],allowedMentions:{parse:[]},};
 
@@ -479,7 +493,7 @@ export = {
         payload.reply = replyRef;
       }
 
-      const postMessage=await skullboardChannel.send(payload).catch(() => null);
+      const postMessage = await skullboardChannel.send(withBoardDraft(payload)).catch(() => null);
       if (!postMessage) return;
 
       await postMessage.react(SKULL_EMOJI).catch(() => {});
@@ -498,7 +512,8 @@ export = {
 
       const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Vai al Post").setEmoji(SKULL_EMOJI).setURL(postMessage.url),);
 
-      await message.channel.send({ embeds: [confirmEmbed], components: [row] }).catch(() => {});
+      tagSkull(confirmEmbed, message.guild.id, "reply", { channel: `<#${skullChannelId}>`, author: message.author.toString(), url: postMessage.url });
+      await message.channel.send(withBoardDraft({ embeds: [confirmEmbed], components: [row] })).catch(() => {});
     } catch (err) {
       global.logger?.error?.("[Skullboard] Error:", err);
     } finally {

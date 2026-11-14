@@ -26,6 +26,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     getDashboardGuildSettings,
     patchDashboardGuildSettings,
     previewDashboardQuoteStyle,
+    previewDashboardSkull,
   } = require("./siteDashboardGuildSettingsApi") as typeof import("./siteDashboardGuildSettingsApi");
   const {
     exportDashboardGuildConfig,
@@ -1097,6 +1098,24 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(200).send(out.image);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-dashboard quote-preview:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+
+  /* immagine d'esempio della skullboard per le anteprime della Bacheca */
+  app.get("/webhooks/site-dashboard/guilds/:guildId/boards/skull-preview", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
+      }
+      const out: any = await previewDashboardSkull(client, accessToken, req.params?.guildId);
+      if (!out || out.ok !== true || !out.image) return res.status(Number(out?.status) || 500).json(out || { ok: false, error: "preview_failed" });
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "private, max-age=600");
+      return res.status(200).send(out.image);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-dashboard skull-preview:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

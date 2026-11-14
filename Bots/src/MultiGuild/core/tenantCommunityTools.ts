@@ -81,6 +81,11 @@ const httpUrl = (v: unknown) => {
   const s = String(v || "").trim();
   return /^https?:\/\/\S+$/i.test(s) ? s.slice(0, 2000) : "";
 };
+/** Link http(s) o allegato del messaggio (attachment://nome.png, per le immagini della bacheca). */
+const mediaUrl = (v: unknown) => {
+  const s = String(v || "").trim();
+  return /^attachment:\/\/[\w.-]{1,100}$/i.test(s) ? s : httpUrl(s);
+};
 /** Link http(s) oppure un solo segnaposto ({avatar}, {servericon}). */
 const urlOrToken = (v: unknown) => {
   const s = String(v || "").trim();
@@ -234,7 +239,7 @@ function buildV2Body(draft: MsgDraft, vars: FillVars, extraRows: any[], opts: { 
     } else if (b.type === "separator") {
       out.push({ type: 14, divider: b.divider, spacing: b.spacing === "large" ? 2 : 1 });
     } else if (b.type === "media") {
-      const items = b.urls.map((u) => httpUrl(fill(u, vars))).filter(Boolean).map((url) => ({ media: { url } }));
+      const items = b.urls.map((u) => mediaUrl(fill(u, vars))).filter(Boolean).map((url) => ({ media: { url } }));
       if (items.length) out.push({ type: 12, items });
     } else if (b.type === "section") {
       const content = fill(b.content, vars).trim();
@@ -242,7 +247,7 @@ function buildV2Body(draft: MsgDraft, vars: FillVars, extraRows: any[], opts: { 
       let accessory: Record<string, any> | null = null;
       if (b.accessory === "button" && b.button.url && (b.button.label || b.button.emoji)) accessory = linkButtonComponent(b.button, vars);
       if (b.accessory === "thumbnail") {
-        const url = httpUrl(fill(b.thumbnailUrl, vars));
+        const url = mediaUrl(fill(b.thumbnailUrl, vars));
         if (url) accessory = { type: 11, media: { url } };
       }
       /* una sezione senza accessorio non è valida: diventa testo semplice */
@@ -278,8 +283,8 @@ function buildMessageBody(draft: MsgDraft, vars: FillVars = {}, extraRows: any[]
     if (title) embed.title = title.slice(0, 256);
     if (title && e.url) embed.url = e.url;
     if (desc) embed.description = desc.slice(0, 4096);
-    const img = httpUrl(fill(e.imageUrl, vars));
-    const thumb = httpUrl(fill(e.thumbnailUrl, vars));
+    const img = mediaUrl(fill(e.imageUrl, vars));
+    const thumb = mediaUrl(fill(e.thumbnailUrl, vars));
     if (img) embed.image = { url: img };
     if (thumb) embed.thumbnail = { url: thumb };
     const footer = fill(e.footerText, vars).trim();

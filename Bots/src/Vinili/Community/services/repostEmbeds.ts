@@ -78,10 +78,17 @@ function buildShareAckEmbed({ reposterId, boardUrl, prefix, guildId, kind = "rep
     description = [`${REPOST_EMOJI} * . ˊ <@${reposterId}> ${ackPhrase}`, "", linkLine].join("\n");
   }
   const footerText = DEFAULT_FOOTER_TEXT ? `${footerHint} · ${DEFAULT_FOOTER_TEXT}` : footerHint;
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(REPOST_COLOR)
     .setDescription(String(description).slice(0, 4096))
     .setFooter({ text: String(footerText).slice(0, 2048) });
+  const { tagBoardEmbed } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
+  return tagBoardEmbed(embed, {
+    guildId,
+    kind: boardKind,
+    slot: "reply",
+    vars: { prefix: safePrefix, reposter: `<@${reposterId}>`, phrase: ackPhrase, link: linkLine, url: String(boardUrl || "") },
+  });
 }
 
 function buildBoardEmbed({
@@ -145,7 +152,8 @@ function buildBoardEmbed({
     .setFooter({ text: String(footer).slice(0, 2048) });
 
   if (imageUrl) embed.setImage(imageUrl);
-  return embed;
+  const { tagBoardEmbed } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
+  return tagBoardEmbed(embed, { guildId, kind: boardKind, slot: "post", vars: { ...vars, image: String(imageUrl || "") } });
 }
 
 function buildRouletteEmbed({ sourceUrl, text, imageUrl, guildId }) {
@@ -184,7 +192,13 @@ function buildRouletteEmbed({ sourceUrl, text, imageUrl, guildId }) {
     .setFooter({ text: String(footer).slice(0, 2048) });
 
   if (imageUrl) embed.setImage(imageUrl);
-  return embed;
+  const { tagBoardEmbed } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
+  return tagBoardEmbed(embed, {
+    guildId,
+    kind: "repost",
+    slot: "roulette",
+    vars: { body, source: String(sourceUrl || ""), text: String(text || "").trim(), image: String(imageUrl || "") },
+  });
 }
 
 function boardButtonLabels(guildId?, kind = "repost") {

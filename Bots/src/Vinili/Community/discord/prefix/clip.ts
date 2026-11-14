@@ -97,18 +97,19 @@ export = {
       return;
     }
 
+    const { withBoardDraft } = require("../../utils/boardDrafts") as typeof import("../../utils/boardDrafts");
     if (pending?.editable) {
-      await pending.edit({
-        embeds: [EmbedBuilder.from((result.ackEmbed as any))],
-        components: [],
-        allowedMentions: { users: [message.author.id] },
-      }).catch(() => null);
+      await pending
+        .edit(
+          withBoardDraft(
+            { embeds: [result.ackEmbed as any], components: [], allowedMentions: { users: [message.author.id] } },
+            { edit: true },
+          ),
+        )
+        .catch(() => null);
       return;
     }
 
-    await safeMessageReply(message, {
-      embeds: [EmbedBuilder.from((result.ackEmbed as any))],
-      allowedMentions: { users: [message.author.id] },
-    });
+    await safeMessageReply(message, withBoardDraft({ embeds: [result.ackEmbed as any], allowedMentions: { users: [message.author.id] } }));
   },
 };

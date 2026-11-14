@@ -36,7 +36,8 @@ function buildQuotePostEmbed({ messageAuthorId, creatorId, totalPosts, guildId, 
     fillBoardTemplate(pr.embedDescription, vars) ||
     `${E.VC_Reply} Crea un post usando il comando **${prefix}quote** rispondendo al messaggio di un utente.`;
   const footer = fillBoardTemplate(pr.embedFooter, vars) || `Post totali: ${totalPosts}`;
-  return new EmbedBuilder()
+  const { tagBoardEmbed } = require("../../utils/boardDrafts") as typeof import("../../utils/boardDrafts");
+  return tagBoardEmbed(new EmbedBuilder()
     .setColor(TENANT_EMBED_COLOR)
     .setTitle(title.slice(0, 256))
     .setDescription(description.slice(0, 4096))
@@ -44,7 +45,7 @@ function buildQuotePostEmbed({ messageAuthorId, creatorId, totalPosts, guildId, 
       { name: (pr.fieldAuthor || "Messaggio di:").slice(0, 256), value: `<@${messageAuthorId}>` },
       { name: (pr.fieldCreator || "Creato da:").slice(0, 256), value: `<@${creatorId}>` },
     )
-    .setFooter({ text: footer.slice(0, 2048) });
+    .setFooter({ text: footer.slice(0, 2048) }), { guildId, kind: "quote", slot: "post", vars });
 }
 
 export = {
@@ -232,7 +233,9 @@ export = {
         value: String(totalPosts),
       });
 
-    const replyMsg=await safeMessageReply(message,{files:[attachment],embeds:[embed],allowedMentions:{repliedUser:false},});
+    const { tagBoardEmbed, withBoardDraft, mergeBoardComponents } = require("../../utils/boardDrafts") as typeof import("../../utils/boardDrafts");
+    tagBoardEmbed(embed, { guildId: message.guild.id, kind: "quote", slot: "reply", vars: ackVars });
+    const replyMsg = await safeMessageReply(message, withBoardDraft({ files: [attachment], embeds: [embed], allowedMentions: { repliedUser: false } }));
     if (replyMsg?.id && (siteBoard || !isRepostDisabledInGuild(message.guild.id))) {
       const repostRow = new ActionRowBuilder();
       if (!isRepostDisabledInGuild(message.guild.id)) {
@@ -247,7 +250,7 @@ export = {
         );
       }
       if (siteBoard) repostRow.addComponents(buildBachecaLinkButton(siteItemId));
-      await replyMsg.edit({ components: [repostRow as any] }).catch(() => {});
+      await replyMsg.edit({ components: mergeBoardComponents(replyMsg, [repostRow as any]) }).catch(() => {});
     }
 
     if (siteBoard) {
@@ -304,11 +307,13 @@ export = {
         quotedUserId: author.id,
       });
       const boardMsg = await quoteChannel
-        .send({
-          files: [postAttachment],
-          embeds: [postEmbed],
-          components: removeOnly,
-        })
+        .send(
+          withBoardDraft({
+            files: [postAttachment],
+            embeds: [postEmbed],
+            components: removeOnly,
+          }),
+        )
         .catch(() => null);
       if (boardMsg?.id) {
         const boardComponents = buildQuoteBoardComponents({
@@ -327,7 +332,7 @@ export = {
             .map((id?) => ({ id }));
           await boardMsg
             .edit({
-              components: boardComponents,
+              components: mergeBoardComponents(boardMsg, boardComponents),
               ...(attachments.length ? { attachments } : {}),
             })
             .catch(() => null);

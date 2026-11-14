@@ -143,7 +143,8 @@ async function syncBoardMessageComponentsDetailed(guild?, boardChannelId?, board
   if (!boardNeedsRemoveButtonRefresh(boardMsg.components, components)) return { ok: true, reason: "already_current" };
 
   let editErr = null;
-  const edited = await editBoardMessageKeepAttachments(boardMsg, { components })
+  const { mergeBoardComponents } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
+  const edited = await editBoardMessageKeepAttachments(boardMsg, { components: mergeBoardComponents(boardMsg, components) })
     .then((ok?) => ok)
     .catch((err?) => {
       editErr = err;

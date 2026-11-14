@@ -592,6 +592,7 @@ function DiscordMessagePreviewBody({
   channels = [],
   rows = [],
   bot,
+  attachmentUrl,
   className,
 }: {
   draft: MsgDraft;
@@ -600,6 +601,8 @@ function DiscordMessagePreviewBody({
   channels?: PickerChannel[];
   rows?: PreviewRow[];
   bot?: { name: string; avatarUrl: string } | null;
+  /** immagine allegata al messaggio (es. la quote), mostrata sopra l'embed come su Discord */
+  attachmentUrl?: string | null;
   className?: string;
 }) {
   const previewUserId = String(vars["user.id"] || "").trim();
@@ -617,7 +620,7 @@ function DiscordMessagePreviewBody({
   const author = fillVars(e.authorName || "", vars).trim();
   const urlOf = (u: string) => {
     const v = fillVars(u || "", vars).trim();
-    return /^https?:\/\//i.test(v) ? v : "";
+    return /^(https?:\/\/|blob:)/i.test(v) ? v : "";
   };
   const imageUrl = urlOf(e.imageUrl);
   const thumbUrl = urlOf(e.thumbnailUrl);
@@ -657,6 +660,10 @@ function DiscordMessagePreviewBody({
             </p>
             {v2.enabled ? <V2Preview v2={v2} vars={vars} names={names} fill={fillVars} /> : null}
             {!v2.enabled && content ? <DiscordContent text={content} names={names} className="whitespace-pre-line text-[16px] leading-[22px]" /> : null}
+            {attachmentUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={attachmentUrl} alt="" className="mt-[2px] h-auto max-h-[300px] w-auto max-w-[400px] rounded-[8px] object-contain" />
+            ) : null}
 
             {showEmbed ? (
               <div
@@ -695,7 +702,7 @@ function DiscordMessagePreviewBody({
               </div>
             ) : null}
 
-            {!v2.enabled && !content && !showEmbed ? <p className="italic text-[#949ba4]">Messaggio vuoto</p> : null}
+            {!v2.enabled && !content && !showEmbed && !attachmentUrl ? <p className="italic text-[#949ba4]">Messaggio vuoto</p> : null}
 
             {allRows.length ? (
               <div className="mt-1 flex flex-col gap-2 py-1">

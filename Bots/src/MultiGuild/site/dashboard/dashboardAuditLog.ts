@@ -17,6 +17,7 @@ const PREFIX = "/webhooks/site-dashboard";
 const SKIP = [
   /\/tickets\/transcripts$/,
   /\/boards\/quote-preview$/,
+  /\/boards\/skull-preview$/,
   /\/notifications\/read$/,
   /\/account\/gdpr\//,
   /\/tickets\/panels\/sync$/,

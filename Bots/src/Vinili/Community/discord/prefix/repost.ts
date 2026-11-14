@@ -34,11 +34,15 @@ async function runRepostCommand(message?, targetMessage?) {
       return;
     }
 
-    await safeMessageReply(message, {
-      embeds: [result.ackEmbed],
-      components: Array.isArray(result.ackComponents) ? result.ackComponents : [],
-      allowedMentions: { users: [message.author.id], repliedUser: false },
-    }).catch(() => null);
+    const { withBoardDraft } = require("../../utils/boardDrafts") as typeof import("../../utils/boardDrafts");
+    await safeMessageReply(
+      message,
+      withBoardDraft({
+        embeds: [result.ackEmbed],
+        components: Array.isArray(result.ackComponents) ? result.ackComponents : [],
+        allowedMentions: { users: [message.author.id], repliedUser: false },
+      }),
+    ).catch(() => null);
   } catch (err) {
     global.logger?.error?.("[repost] command failed:", err?.stack || err?.message || err);
     await safeMessageReply(message, {

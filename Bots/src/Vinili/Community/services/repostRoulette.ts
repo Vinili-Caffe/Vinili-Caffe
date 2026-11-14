@@ -159,7 +159,8 @@ async function sendRepostRoulette(client?, guildId?) {
   };
   if (rouletteSendMedia.files.length) roulettePayload.files = rouletteSendMedia.files;
 
-  await rouletteChannel.send(roulettePayload).catch(() => null);
+  const { withBoardDraft } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
+  await rouletteChannel.send(withBoardDraft(roulettePayload)).catch(() => null);
 
   return true;
 }

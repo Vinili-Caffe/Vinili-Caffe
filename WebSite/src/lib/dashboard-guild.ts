@@ -4,6 +4,7 @@
 // Resto ticket/partnership: dashboard-guild-ops.ts (re-export in fondo).
 
 import { isGuildId, selectGuild } from "@/lib/dashboard";
+import { emptyDraft, type MsgDraft } from "@/lib/dashboard-community";
 
 const BASE = "/webhooks/site-dashboard";
 
@@ -101,7 +102,12 @@ export type BoardKindPresentation = {
   rouletteTitle: string;
   rouletteDescription: string;
   rouletteFooter: string;
+  drafts: BoardDrafts;
 };
+
+/** Messaggi personalizzati della bacheca (come nelle altre schede); null = quello predefinito del bot. */
+export type BoardDrafts = { post: MsgDraft | null; reply: MsgDraft | null; roulette: MsgDraft | null };
+export type BoardDraftSlot = keyof BoardDrafts;
 
 export type BoardsPresentation = {
   quote: BoardKindPresentation;
@@ -493,6 +499,7 @@ const EMPTY_EXTRA = {
   rouletteTitle: "",
   rouletteDescription: "",
   rouletteFooter: "",
+  drafts: { post: null, reply: null, roulette: null } as BoardDrafts,
 };
 
 /** Allineati ai testi live del bot (emoji custom Vinili). */
@@ -532,16 +539,15 @@ export const DEFAULT_BOARD_PRESENTATION: BoardsPresentation = {
   },
   clip: {
     ...EMPTY_EXTRA,
-    embedTitle: "🆕 * . ˊ Nuovo repost!",
-    embedDescription:
-      "di {reposter} 🎀\n\n{body}\n\n• [Clicca qui per andare al messaggio]({source})\n\nɤ⌒➴ Autore del messaggio: {author}",
-    embedFooter: "† · ৎ Aggiungi un messaggio alla bacheca ⭐ usando il comando {prefix}repost · Post #{count}",
-    fieldAuthor: "",
+    embedTitle: "🎙️ Clip vocale",
+    embedDescription: "Ultimi **{duration}s** da **{channel}**\n\n**Trascrizione**\n{body}",
+    embedFooter: "† · ৎ {prefix}clip · Post #{count}",
+    fieldAuthor: "Clip di",
     fieldCreator: "",
     buttonRepost: "Reposta",
     buttonRemove: "Rimuovi clip",
     deleteRoleIds: [],
-    ackDescription: "<a:reddiamond:1443652837346377841> * . ˊ {reposter} {phrase}\n\n{link}",
+    ackDescription: "🎙️ {reposter} {phrase}\n{link}",
     ackFooter: "✧ * . ˊ {prefix}clip",
   },
   skull: {
@@ -592,7 +598,28 @@ function mapKindPresentation(kind: keyof BoardsPresentation, raw: unknown): Boar
     rouletteTitle: str("rouletteTitle", 256, base.rouletteTitle),
     rouletteDescription: str("rouletteDescription", 4000, base.rouletteDescription),
     rouletteFooter: str("rouletteFooter", 2048, base.rouletteFooter),
+    drafts: mapBoardDrafts(r.drafts),
   };
+}
+
+/** Messaggi personalizzati arrivati dal bot: completati coi campi mancanti, così l'editor non si rompe. */
+function mapBoardDrafts(raw: unknown): BoardDrafts {
+  const out: BoardDrafts = { post: null, reply: null, roulette: null };
+  if (!raw || typeof raw !== "object") return out;
+  for (const slot of ["post", "reply", "roulette"] as const) {
+    const d = (raw as Record<string, unknown>)[slot];
+    if (!d || typeof d !== "object") continue;
+    const base = emptyDraft();
+    const src = d as Partial<MsgDraft>;
+    out[slot] = {
+      ...base,
+      ...src,
+      embed: { ...base.embed, ...(src.embed || {}) },
+      v2: { ...base.v2, ...((src.v2 || {}) as Partial<MsgDraft["v2"]>) } as MsgDraft["v2"],
+      buttons: Array.isArray(src.buttons) ? src.buttons : [],
+    };
+  }
+  return out;
 }
 
 function mapBoardsPresentation(raw: unknown): BoardsPresentation {
@@ -940,6 +967,21 @@ export async function importGuildConfig(
 }
 
 /** Anteprima canvas quote reale (object URL da revocare). */
+/** Immagine d'esempio della skullboard (anteprime della Bacheca), come URL locale. */
+export async function previewGuildSkull(token: string, guildId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${BASE}/guilds/${encodeURIComponent(guildId)}/boards/skull-preview`, {
+      headers: authHeaders(token),
+      credentials: "omit",
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return blob?.size ? URL.createObjectURL(blob) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function previewGuildQuoteStyle(
   token: string,
   guildId: string,

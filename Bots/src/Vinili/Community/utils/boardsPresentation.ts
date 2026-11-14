@@ -28,7 +28,28 @@ type BoardKindPresentation = {
   rouletteTitle: string;
   rouletteDescription: string;
   rouletteFooter: string;
+  /** messaggi personalizzati come nelle altre schede (testo + embed o Components V2); null = quello predefinito */
+  drafts: { post: any | null; reply: any | null; roulette: any | null };
 };
+
+const DRAFT_SLOTS = ["post", "reply", "roulette"] as const;
+function normalizeDrafts(raw?): BoardKindPresentation["drafts"] {
+  const out: BoardKindPresentation["drafts"] = { post: null, reply: null, roulette: null };
+  if (!raw || typeof raw !== "object") return out;
+  let T: any = null;
+  try {
+    T = require("../../../MultiGuild/core/tenantCommunityTools");
+  } catch {
+    return out;
+  }
+  for (const slot of DRAFT_SLOTS) {
+    const d = (raw as any)[slot];
+    if (!d || typeof d !== "object") continue;
+    const n = T.normalizeDraft(d);
+    out[slot] = T.draftIsEmpty(n) ? null : n;
+  }
+  return out;
+}
 
 function liveEmoji(key: string, fallback = "") {
   try {
@@ -61,6 +82,7 @@ function liveDefaults(): Record<BoardKind, BoardKindPresentation> {
     rouletteTitle: "",
     rouletteDescription: "",
     rouletteFooter: "",
+    drafts: { post: null, reply: null, roulette: null },
   };
 
   return {
@@ -98,16 +120,15 @@ function liveDefaults(): Record<BoardKind, BoardKindPresentation> {
     },
     clip: {
       ...emptyExtra,
-      embedTitle: "🆕 * . ˊ Nuovo repost!",
-      embedDescription:
-        "di {reposter} 🎀\n\n{body}\n\n• [Clicca qui per andare al messaggio]({source})\n\nɤ⌒➴ Autore del messaggio: {author}",
-      embedFooter: "† · ৎ Aggiungi un messaggio alla bacheca ⭐ usando il comando {prefix}repost · Post #{count}",
-      fieldAuthor: "",
+      embedTitle: "🎙️ Clip vocale",
+      embedDescription: "Ultimi **{duration}s** da **{channel}**\n\n**Trascrizione**\n{body}",
+      embedFooter: "† · ৎ {prefix}clip · Post #{count}",
+      fieldAuthor: "Clip di",
       fieldCreator: "",
       buttonRepost: "Reposta",
       buttonRemove: "Rimuovi clip",
       deleteRoleIds: [],
-      ackDescription: `${red} * . ˊ {reposter} {phrase}\n\n{link}`,
+      ackDescription: "🎙️ {reposter} {phrase}\n{link}",
       ackFooter: `✧ * . ˊ {prefix}clip`,
     },
     skull: {
@@ -150,7 +171,7 @@ function normalizeRoleIds(raw?) {
 }
 
 function defaultKindPresentation(kind: BoardKind): BoardKindPresentation {
-  return { ...DEFAULTS[kind], deleteRoleIds: [] };
+  return { ...DEFAULTS[kind], deleteRoleIds: [], drafts: { post: null, reply: null, roulette: null } };
 }
 
 function normalizeKindPresentation(kind: BoardKind, raw?): BoardKindPresentation {
@@ -158,7 +179,7 @@ function normalizeKindPresentation(kind: BoardKind, raw?): BoardKindPresentation
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return base;
   const r = raw as Record<string, any>;
   /* testo vuoto = testo predefinito (un embed o un pulsante vuoto Discord lo rifiuta) */
-  const pick = (key: Exclude<keyof BoardKindPresentation, "deleteRoleIds">, max: number) => clampStr(r[key], max) || base[key];
+  const pick = (key: Exclude<keyof BoardKindPresentation, "deleteRoleIds" | "drafts">, max: number) => clampStr(r[key], max) || base[key];
   return {
     embedTitle: pick("embedTitle", 256),
     embedDescription: pick("embedDescription", 4000),
@@ -178,6 +199,7 @@ function normalizeKindPresentation(kind: BoardKind, raw?): BoardKindPresentation
     rouletteTitle: pick("rouletteTitle", 256),
     rouletteDescription: pick("rouletteDescription", 4000),
     rouletteFooter: pick("rouletteFooter", 2048),
+    drafts: normalizeDrafts(r.drafts),
   };
 }
 
@@ -229,6 +251,9 @@ function encodeBoardsPresentationCompact(presentation?) {
     if (cur.rouletteTitle !== def.rouletteTitle) row.rt = cur.rouletteTitle;
     if (cur.rouletteDescription !== def.rouletteDescription) row.rd = cur.rouletteDescription;
     if (cur.rouletteFooter !== def.rouletteFooter) row.rf = cur.rouletteFooter;
+    const ms: Record<string, any> = {};
+    for (const slot of DRAFT_SLOTS) if (cur.drafts?.[slot]) ms[slot] = cur.drafts[slot];
+    if (Object.keys(ms).length) row.ms = ms;
     if (Object.keys(row).length) out[KIND_COMPACT[kind]] = row;
   }
   return Object.keys(out).length ? out : null;
@@ -258,6 +283,7 @@ function decodeBoardsPresentationCompact(raw?) {
       rouletteTitle: blob.rt ?? blob.rouletteTitle,
       rouletteDescription: blob.rd ?? blob.rouletteDescription,
       rouletteFooter: blob.rf ?? blob.rouletteFooter,
+      drafts: blob.ms ?? blob.drafts,
     });
   };
   if (r.quote || r.repost || r.clip || r.skull) return normalizeBoardsPresentation(r);
