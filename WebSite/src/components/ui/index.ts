@@ -50,5 +50,6 @@ export type { SelectOption } from "./Select";
 export { Checkbox } from "./Checkbox";
 export { Radio } from "./Radio";
 export { DateField } from "./DateField";
+export { DateTimeField, toLocalDateTime } from "./DateTimeField";
 export { Range } from "./Range";
 export { Disclosure } from "./Disclosure";

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarClock, Dices, Gift, Pencil, Play, Plus, Search, Square, Trash2, Trophy, Users, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { DateTimeField } from "@/components/ui/DateTimeField";
 import { NumberField } from "@/components/ui/NumberField";
 import { Select } from "@/components/ui/Select";
 import { communityApi, type Giveaway, type ScheduledGiveaway } from "@/lib/dashboard-community";
@@ -37,6 +38,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
   const [scheduled, setScheduled] = useState<ScheduledGiveaway[]>([]);
   const [when, setWhen] = useState<"now" | "later">("now");
   const [startAt, setStartAt] = useState("");
+  const [openedAt] = useState(() => Date.now());
   const [listError, setListError] = useState<string | null>(null);
   const [form, setForm] = useState({ prize: "", channelId: null as string | null, amount: 1, unit: "86400000", winners: 1, minLevel: 0, host: null as MemberHit | null });
   const [editId, setEditId] = useState<string | null>(null);
@@ -281,13 +283,9 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
                 ]}
               />
               {when === "later" ? (
-                <input
-                  type="datetime-local"
-                  value={startAt}
-                  onChange={(e) => setStartAt(e.target.value)}
-                  className={fieldClass + " !mt-0 h-10 w-auto [color-scheme:dark]"}
-                  aria-label="Data e ora di inizio"
-                />
+                <div className="w-60">
+                  <DateTimeField value={startAt} min={toLocalInput(openedAt)} onChange={setStartAt} aria-label="Data e ora di inizio" />
+                </div>
               ) : null}
             </div>
           </div>

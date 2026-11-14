@@ -14,7 +14,7 @@ import {
   UserCog,
   Zap,
 } from "lucide-react";
-import { Checkbox } from "@/components/ui";
+import { Checkbox, DateField } from "@/components/ui";
 import { Pagination } from "@/components/ui/Pagination";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
@@ -857,10 +857,10 @@ export function ModerationPanel({
                 />
               </Field>
               <Field label="Dal">
-                <input type="date" value={caseFrom} onChange={(e) => setCaseFrom(e.target.value)} className={controlClass} />
+                <DateField value={caseFrom} onChange={setCaseFrom} placeholder="Qualsiasi" aria-label="Dal giorno" className="h-10" />
               </Field>
               <Field label="Al">
-                <input type="date" value={caseTo} onChange={(e) => setCaseTo(e.target.value)} className={controlClass} />
+                <DateField value={caseTo} onChange={setCaseTo} min={caseFrom || undefined} placeholder="Qualsiasi" aria-label="Al giorno" className="h-10" />
               </Field>
             </div>
             <div className="flex flex-wrap gap-2">
