@@ -441,7 +441,24 @@ export type LevelsConfig = {
     firstMessageDaily: LevelsExpBonus;
     welcomeGreeting: LevelsExpBonus;
   };
+  /** ruoli dati a chi fa tot EXP coi minigiochi */
+  minigameRewards?: { exp: number; roleId: string }[];
+  /** livelli regalati per la recensione su Disboard (0 = niente) */
+  reviewRewardLevels?: number;
 };
+
+export type LevelsEvent = { active: boolean; multiplier: number; expiresAt: string | null };
+
+export type LevelsUser = {
+  userId: string;
+  totalExp: number;
+  weeklyExp: number;
+  level: number;
+  levelStartExp: number;
+  nextLevelExp: number;
+};
+
+export type LevelsUserAction = { userId: string; action: "set" | "add" | "remove" | "reset" | "syncroles"; mode?: "exp" | "level"; value?: number };
 
 export type LivePlatform = "twitch" | "youtube" | "kick" | "tiktok" | "instagram";
 
@@ -520,8 +537,11 @@ export const communityApi = {
     call<{ isMainGuild?: boolean; imported?: boolean; config: BirthdaysConfig; timezone?: string }>(t, g, `/birthdays?_=${Date.now()}`),
   saveBirthdays: (t: string, g: string, config: BirthdaysConfig) => call<{ config: BirthdaysConfig }>(t, g, "/birthdays", "PATCH", { config }),
   getLevels: (t: string, g: string) =>
-    call<{ isMainGuild?: boolean; imported?: boolean; config: LevelsConfig }>(t, g, `/levels?_=${Date.now()}`),
+    call<{ isMainGuild?: boolean; imported?: boolean; config: LevelsConfig; event?: LevelsEvent }>(t, g, `/levels?_=${Date.now()}`),
   saveLevels: (t: string, g: string, config: LevelsConfig) => call<{ config: LevelsConfig }>(t, g, "/levels", "PATCH", { config }),
+  setLevelsEvent: (t: string, g: string, body: { multiplier: number; hours: number } | { stop: true }) => call<{ event: LevelsEvent }>(t, g, "/levels/event", "POST", body),
+  getLevelsUser: (t: string, g: string, userId: string) => call<{ user: LevelsUser }>(t, g, `/levels/user?id=${encodeURIComponent(userId)}&_=${Date.now()}`),
+  mutateLevelsUser: (t: string, g: string, body: LevelsUserAction) => call<{ before: LevelsUser; user: LevelsUser; rolesSynced: boolean }>(t, g, "/levels/user", "POST", body),
   listGiveaways: (t: string, g: string) => call<{ giveaways: Giveaway[] }>(t, g, `/giveaways?_=${Date.now()}`),
   createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number; hostId?: string; minLevel?: number }) =>
     call<{ giveaway: Giveaway }>(t, g, "/giveaways", "POST", body),

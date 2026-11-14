@@ -7,6 +7,8 @@ const T = require("../core/tenantCommunityTools") as typeof import("../core/tena
 
 type RoleMult = { roleId: string; multiplier: number };
 type RoleReward = { level: number; roleId: string };
+/** ruolo dato a chi fa tot EXP coi minigiochi (Rookie, Scout…) */
+type MinigameReward = { exp: number; roleId: string };
 
 type ExpBonus = { enabled: boolean; amount: number; channelIds: string[] };
 
@@ -29,6 +31,10 @@ type LevelsConfig = {
   perkRoleId: string | null;
   perkMinLevel: number;
   maxCombinedMultiplier: number;
+  /** premi dei minigiochi (EXP fatti coi minigiochi → ruolo) */
+  minigameRewards: MinigameReward[];
+  /** livelli regalati per la recensione su Disboard (0 = niente premio) */
+  reviewRewardLevels: number;
   /** bonus community: primo messaggio del giorno + saluto di benvenuto */
   bonuses: {
     firstMessageDaily: ExpBonus;
@@ -91,6 +97,30 @@ function normalizeRoleRewards(raw: unknown): RoleReward[] {
     if (out.length >= 60) break;
   }
   return out.sort((a, b) => a.level - b.level);
+}
+
+/** Premi minigiochi di sempre (dal catalogo ruoli). */
+function defaultMinigameRewards(): MinigameReward[] {
+  try {
+    const { EXP_REWARDS } = require("../../Vinili/Minigames/services/minigameEmbedShared") as any;
+    return normalizeMinigameRewards(EXP_REWARDS);
+  } catch {
+    return [];
+  }
+}
+
+function normalizeMinigameRewards(raw: unknown): MinigameReward[] {
+  const out: MinigameReward[] = [];
+  const seen = new Set<number>();
+  for (const row of Array.isArray(raw) ? raw : []) {
+    const exp = Math.floor(Number((row as any)?.exp));
+    const roleId = String((row as any)?.roleId || "").trim();
+    if (!Number.isFinite(exp) || exp < 1 || exp > 100_000_000 || !T.isId(roleId) || seen.has(exp)) continue;
+    seen.add(exp);
+    out.push({ exp, roleId });
+    if (out.length >= 40) break;
+  }
+  return out.sort((a, b) => a.exp - b.exp);
 }
 
 function defaultLevelUpDraft() {
@@ -189,6 +219,8 @@ function defaultConfig(): LevelsConfig {
     perkMinLevel: 10,
     maxCombinedMultiplier: 8,
     bonuses: defaultBonuses(),
+    minigameRewards: defaultMinigameRewards(),
+    reviewRewardLevels: 5,
   };
 }
 
@@ -214,6 +246,9 @@ function normalizeConfig(raw?): LevelsConfig {
     perkRoleId: T.isId(r.perkRoleId) ? String(r.perkRoleId) : null,
     perkMinLevel: Math.floor(clampNum(r.perkMinLevel, 0, 10000, 10)),
     maxCombinedMultiplier: clampNum(r.maxCombinedMultiplier, 1, 50, 8),
+    /* lista mai salvata = quelli di sempre; lista vuota salvata = nessun premio */
+    minigameRewards: Array.isArray(r.minigameRewards) ? normalizeMinigameRewards(r.minigameRewards) : defaultMinigameRewards(),
+    reviewRewardLevels: Math.floor(clampNum(r.reviewRewardLevels, 0, 100, 5)),
     bonuses: {
       firstMessageDaily: normalizeExpBonus(r.bonuses?.firstMessageDaily, base.bonuses.firstMessageDaily),
       welcomeGreeting: normalizeExpBonus(r.bonuses?.welcomeGreeting, base.bonuses.welcomeGreeting),
@@ -432,6 +467,104 @@ async function getVoiceExpPerMinute(guildId?: string) {
   return Math.max(0, Math.floor(cfg.voiceExpPerMinute));
 }
 
+/** Premi minigiochi del server (sincrono, dalla cache; senza cache quelli di sempre). */
+function getMinigameRewardsSync(guildId?: string): MinigameReward[] {
+  const cfg = getConfigSync(guildId);
+  if (cfg && (cfg.userSaved || cfg.seedVersion > 0)) return cfg.minigameRewards;
+  return defaultMinigameRewards();
+}
+
+/* ── evento EXP a tempo (stesso del pannello +level) ── */
+async function getExpEvent(guildId?: string) {
+  try {
+    const { GlobalSettings } = require("../../Vinili/Community/schemas/communitySchemas") as typeof import("../../Vinili/Community/schemas/communitySchemas");
+    const IDs = require("../../Vinili/Config/ids") as typeof import("../../Vinili/Config/ids");
+    const doc: any = await GlobalSettings.findOne({ guildId: String(IDs.guilds.main || guildId || "") }).select("expEventMultiplier expEventMultiplierExpiresAt").lean().catch(() => null);
+    const multiplier = Number(doc?.expEventMultiplier) || 1;
+    const expiresAt = doc?.expEventMultiplierExpiresAt ? new Date(doc.expEventMultiplierExpiresAt) : null;
+    const active = multiplier !== 1 && Boolean(expiresAt && expiresAt.getTime() > Date.now());
+    return { active, multiplier: active ? multiplier : 1, expiresAt: active && expiresAt ? expiresAt.toISOString() : null };
+  } catch {
+    return { active: false, multiplier: 1, expiresAt: null };
+  }
+}
+
+async function setExpEvent(guildId?: string, multiplier?: number, durationMs?: number) {
+  const { setTemporaryEventMultiplier } = require("../../Vinili/Level/services/expService") as typeof import("../../Vinili/Level/services/expService");
+  /* fermarlo = moltiplicatore 1 che scade subito */
+  if (!multiplier || multiplier === 1 || !durationMs) await setTemporaryEventMultiplier(String(guildId || ""), 1, 60 * 1000);
+  else await setTemporaryEventMultiplier(String(guildId || ""), multiplier, durationMs);
+  try {
+    const { settingsCache } = require("../../Vinili/Level/services/expMultipliers") as typeof import("../../Vinili/Level/services/expMultipliers");
+    settingsCache.clear();
+  } catch (_) {}
+  return getExpEvent(guildId);
+}
+
+/* ── EXP di un utente (scheda Utenti della dashboard) ── */
+async function getUserLevel(guildId?: string, userId?: string) {
+  const { ActivityUserProfile } = require("../../Vinili/Community/schemas/communitySchemas") as typeof import("../../Vinili/Community/schemas/communitySchemas");
+  const { getLevelInfo, getTotalExpForLevel } = require("../../Vinili/Level/services/expService") as typeof import("../../Vinili/Level/services/expService");
+  const row: any = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) }).select("profile.totals.exp.totalExp profile.totals.exp.weeklyExp").lean().catch(() => null);
+  const totalExp = Math.max(0, Math.floor(Number(row?.profile?.totals?.exp?.totalExp || 0)));
+  const info: any = getLevelInfo(totalExp);
+  const level = Number(info?.level || 0);
+  return {
+    userId: String(userId),
+    totalExp,
+    weeklyExp: Math.max(0, Math.floor(Number(row?.profile?.totals?.exp?.weeklyExp || 0))),
+    level,
+    levelStartExp: getTotalExpForLevel(level),
+    nextLevelExp: getTotalExpForLevel(level + 1),
+  };
+}
+
+/**
+ * Imposta / aggiunge / toglie livelli o EXP, azzera, risincronizza i ruoli (come il pannello +level).
+ * I ruoli premio si aggiornano subito se il bot ha il server in memoria, altrimenti al prossimo messaggio.
+ */
+async function mutateUserLevel(client?, guildId?: string, userId?: string, actorId?: string, body: Record<string, any> = {}) {
+  const { ActivityUserProfile } = require("../../Vinili/Community/schemas/communitySchemas") as typeof import("../../Vinili/Community/schemas/communitySchemas");
+  const { getLevelInfo, getTotalExpForLevel, recordLevelHistory, syncLevelRolesForMember } = require("../../Vinili/Level/services/expService") as typeof import("../../Vinili/Level/services/expService");
+  const gid = String(guildId || "");
+  const uid = String(userId || "");
+  if (!T.isId(uid)) return { ok: false, message: "Utente non valido." };
+  const action = String(body.action || "");
+  const mode = body.mode === "level" ? "level" : "exp";
+  const value = Math.floor(Number(body.value));
+  const before = await getUserLevel(gid, uid);
+  if (action !== "syncroles") {
+    let afterExp = before.totalExp;
+    if (action === "set") {
+      if (!Number.isFinite(value) || value < 0) return { ok: false, message: "Valore non valido." };
+      afterExp = mode === "exp" ? value : getTotalExpForLevel(value);
+    } else if (action === "add" || action === "remove") {
+      if (!Number.isFinite(value) || value <= 0) return { ok: false, message: "Valore non valido." };
+      const sign = action === "add" ? 1 : -1;
+      afterExp = mode === "exp" ? before.totalExp + sign * value : getTotalExpForLevel(Math.max(0, before.level + sign * value));
+    } else if (action === "reset") {
+      afterExp = 0;
+    } else {
+      return { ok: false, message: "Azione non valida." };
+    }
+    afterExp = Math.max(0, Math.min(2_000_000_000, Math.floor(afterExp)));
+    const level = Number((getLevelInfo(afterExp) as any)?.level || 0);
+    await ActivityUserProfile.updateOne(
+      { guildId: gid, userId: uid },
+      { $set: { "profile.totals.exp.totalExp": afterExp, "profile.totals.exp.level": level }, $setOnInsert: { guildId: gid, userId: uid } },
+      { upsert: true },
+    );
+    await recordLevelHistory({ guildId: gid, userId: uid, actorId: String(actorId || ""), action: `dashboard_${action}`, beforeExp: before.totalExp, afterExp, note: "Dashboard › Livelli › Utenti" }).catch(() => null);
+  }
+  const after = await getUserLevel(gid, uid);
+  let rolesSynced = false;
+  const guild = client?.guilds?.cache?.get?.(gid);
+  if (guild) {
+    rolesSynced = await syncLevelRolesForMember(guild, uid, after.level).then(() => true).catch(() => false);
+  }
+  return { ok: true, before, user: after, rolesSynced };
+}
+
 function roleRewardMap(cfg: LevelsConfig): Map<number, string> {
   return new Map(cfg.roleRewards.map((r) => [r.level, r.roleId]));
 }
@@ -484,6 +617,11 @@ export = {
   getVoiceExpPerMinute,
   roleRewardMap,
   roleMultiplierMap,
+  getMinigameRewardsSync,
+  getExpEvent,
+  setExpEvent,
+  getUserLevel,
+  mutateUserLevel,
   maxMultiplierForRoles,
   formatMultiplier,
   defaultRoleMultipliersFromIds,

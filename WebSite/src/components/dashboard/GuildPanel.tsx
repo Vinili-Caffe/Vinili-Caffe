@@ -401,6 +401,7 @@ const SIDE_TAB_ICONS: Record<string, LucideIcon> = {
   exp: IcExp,
   ruoli: IcRewards,
   annunci: Megaphone,
+  utenti: IcTeams,
   stats: IcStats,
   statistiche: IcStats,
   economy: IcEconomy,

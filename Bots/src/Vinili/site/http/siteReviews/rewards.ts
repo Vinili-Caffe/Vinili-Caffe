@@ -40,7 +40,14 @@ async function awardServerReviewLevels(client?, guild?, member?) {
     .lean()
     .catch(() => null);
   const currentExp = Number(profile?.profile?.totals?.exp?.totalExp || 0);
-  const reward = computeExpForLevelReward(currentExp, REVIEW_REWARD_LEVELS);
+  let levels = REVIEW_REWARD_LEVELS;
+  try {
+    const LVL = require("../../../../MultiGuild/services/levelsRuntime") as typeof import("../../../../MultiGuild/services/levelsRuntime");
+    const cfg = await LVL.getConfig(String(guildId));
+    if (cfg.userSaved || cfg.seedVersion > 0) levels = cfg.reviewRewardLevels;
+  } catch (_) {}
+  if (!(levels > 0)) return null;
+  const reward = computeExpForLevelReward(currentExp, levels);
   if (!reward.addedExp) return null;
 
   const expResult = await addExpWithLevel(guild, userId, reward.addedExp, false, false).catch(() => null);

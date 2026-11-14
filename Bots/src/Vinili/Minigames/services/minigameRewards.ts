@@ -6,7 +6,8 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
-const { EXP_REWARDS, buildRewardEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
+const { buildRewardEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
+const { currentMinigameRewards } = require("./minigameEmbedShared") as typeof import("./minigameEmbedShared");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { normalizeRewardExp } = require("./minigameText") as typeof import("./minigameText");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
@@ -16,7 +17,7 @@ const REWARD_CHANNEL_ID = IDs.channels.commands;
 function getHighestEligibleReward(totalExp?) {
   const expValue = Number(totalExp || 0);
   let best = null;
-  for (const reward of EXP_REWARDS) {
+  for (const reward of currentMinigameRewards()) {
     if (expValue >= reward.exp) best = reward;
   }
   return best;
@@ -24,6 +25,11 @@ function getHighestEligibleReward(totalExp?) {
 
 async function handleExpReward(client?, member?, totalExp?) {
   if (!member?.guild) return;
+  /* premi aggiornati dalla dashboard */
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    await LVL.getConfig(String(member.guild.id));
+  } catch (_) {}
   const reward = getHighestEligibleReward(totalExp);
   if (!reward) return;
   if (member.roles.cache.has(reward.roleId)) return;

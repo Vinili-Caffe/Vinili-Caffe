@@ -76,9 +76,19 @@ function buildWinEmbed(winnerId?, effectiveExp?, totalExp?, details = null, imag
   return embed;
 }
 
+/** Premi minigiochi del server principale (Dashboard › Livelli › Ruoli premio); senza, quelli di sempre. */
+function currentMinigameRewards(): { exp: number; roleId: string }[] {
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    return LVL.getMinigameRewardsSync(String(IDs.guilds.main || ""));
+  } catch {
+    return EXP_REWARDS;
+  }
+}
+
 function getNextReward(totalExp?) {
   const expValue = Number(totalExp || 0);
-  return EXP_REWARDS.find((reward?) => expValue < reward.exp) || null;
+  return currentMinigameRewards().find((reward?) => expValue < reward.exp) || null;
 }
 
 function buildRewardEmbed(member?, reward?, totalExp?) {
@@ -122,6 +132,7 @@ function buildTreasureHuntFoundEmbed(winnerMessageUrl?) {
 export = {
   MINIGAME_EMBED_COLOR,
   EXP_REWARDS,
+  currentMinigameRewards,
   DRIVING_QUIZ_LETTERS,
   buildMinuteHintEmbed,
   buildGenericHintEmbed,

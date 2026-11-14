@@ -110,6 +110,7 @@ export const LIVELLI_MODULE_TABS = [
   { id: "exp", label: "Guadagno EXP" },
   { id: "ruoli", label: "Ruoli premio" },
   { id: "annunci", label: "Annunci" },
+  { id: "utenti", label: "Utenti" },
 ] as const satisfies readonly GuildModuleTab[];
 
 export type LivelliModuleTabId = (typeof LIVELLI_MODULE_TABS)[number]["id"];

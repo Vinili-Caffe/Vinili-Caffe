@@ -502,7 +502,39 @@ async function getLevels(client?, token?, guildId?) {
   if (!MS().moduleExists(a.guildId, "livelli")) return fail(404, "unavailable", "I livelli non sono disponibili su questo server.");
   const imported = await LVL().ensureMainSeed(a.guildId).catch(() => false);
   const config = await LVL().getConfig(a.guildId, true);
-  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), imported, config };
+  const event = await LVL().getExpEvent(a.guildId);
+  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), imported, config, event };
+}
+
+/** Evento EXP a tempo: { multiplier, hours } per avviarlo, { stop: true } per chiuderlo. */
+async function setLevelsEvent(client?, token?, guildId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (!MS().moduleExists(a.guildId, "livelli")) return fail(404, "unavailable", "I livelli non sono disponibili su questo server.");
+  if (body?.stop) return { ok: true, status: 200, event: await LVL().setExpEvent(a.guildId, 1, 0) };
+  const multiplier = Number(body?.multiplier);
+  const hours = Number(body?.hours);
+  if (!Number.isFinite(multiplier) || multiplier < 1.05 || multiplier > 10) return fail(400, "bad_multiplier", "Il moltiplicatore va da ×1.05 a ×10.");
+  if (!Number.isFinite(hours) || hours < 0.25 || hours > 24 * 14) return fail(400, "bad_duration", "La durata va da 15 minuti a 14 giorni.");
+  return { ok: true, status: 200, event: await LVL().setExpEvent(a.guildId, multiplier, Math.round(hours * 3_600_000)) };
+}
+
+/** EXP di un membro (scheda Utenti). */
+async function getLevelsUser(client?, token?, guildId?, userId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (!MS().moduleExists(a.guildId, "livelli")) return fail(404, "unavailable", "I livelli non sono disponibili su questo server.");
+  if (!T.isId(userId)) return fail(400, "bad_user", "Utente non valido.");
+  return { ok: true, status: 200, user: await LVL().getUserLevel(a.guildId, String(userId)) };
+}
+
+async function patchLevelsUser(client?, token?, guildId?, body?) {
+  const a: any = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (!MS().moduleExists(a.guildId, "livelli")) return fail(404, "unavailable", "I livelli non sono disponibili su questo server.");
+  const out: any = await LVL().mutateUserLevel(client, a.guildId, String(body?.userId || ""), String(a.userId || ""), body || {});
+  if (!out.ok) return fail(400, "bad_request", out.message || "Operazione non riuscita.");
+  return { ok: true, status: 200, ...out };
 }
 
 async function patchLevels(client?, token?, guildId?, body?) {
@@ -815,6 +847,9 @@ export = {
   patchBirthdays,
   getLevels,
   patchLevels,
+  setLevelsEvent,
+  getLevelsUser,
+  patchLevelsUser,
   listGiveaways,
   createGiveaway,
   editGiveaway,
