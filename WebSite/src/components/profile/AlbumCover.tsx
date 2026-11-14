@@ -43,6 +43,7 @@ export function AlbumCover({
   staffSince,
   calendarGuildId = null,
   serverName,
+  extraBadges,
 }: {
   p: ProfileData;
   tab?: "community" | "staff";
@@ -56,6 +57,8 @@ export function AlbumCover({
   calendarGuildId?: string | null;
   /** nome del server quando non è il principale */
   serverName?: string;
+  /** sotto i ruoli: badge partnership scelti (scheda Staff) */
+  extraBadges?: React.ReactNode;
 }) {
   const reduce = useReducedMotion();
   // la copertina si inclina verso il mouse come un vinile preso in mano
@@ -232,6 +235,7 @@ export function AlbumCover({
               ))}
             </ul>
           )}
+          {extraBadges ? <div className="mt-3 flex flex-wrap justify-center gap-2 md:justify-start">{extraBadges}</div> : null}
 
           {!staffMode && lv && (
             <div className="mt-7 flex items-center gap-4">

@@ -11,6 +11,7 @@ import { getCreditsBalance, subscribeCredits } from "@/lib/dashboard-premium";
 import { loadPmProfile, loadTenantProfile, patchPmProfile, patchTenantProfile, type ProfileEmoji, type TenantProfile } from "@/lib/dashboard-profile";
 import { eraseGdprData, exportGdprData, labelFor, summarizeCounts, type EraseResult } from "@/lib/gdpr";
 import { page } from "@/lib/site";
+import { objectiveProgress } from "@/lib/profile";
 import { DashboardShell } from "./DashboardShell";
 import { DashToast, Panel, StateCard, dangerBtn, dashSecondaryBtn, discordBtn, fieldClass, miniBtn } from "./guild/bits";
 
@@ -67,7 +68,7 @@ function AccountCard() {
 }
 
 /* stessa veste delle sezioni del profilo staff (sfumatura caramello, titolo in display) */
-const PROFILE_SECTION = "rounded-3xl bg-gradient-to-b from-caramel/[0.06] via-roast/80 to-roast p-5 ring-1 ring-sand/12 sm:p-6";
+const PROFILE_SECTION = "rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6";
 
 /* stesso riquadro delle statistiche staff */
 function ProfileStat({ value, label, icon }: { value: number | string; label: string; icon: React.ReactNode }) {
@@ -83,10 +84,10 @@ function ProfileStat({ value, label, icon }: { value: number | string; label: st
 function SectionHead({ icon, title, aside }: { icon: React.ReactNode; title: string; aside?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-ember [&>svg]:size-4" aria-hidden>
+      <span className="text-caramel [&>svg]:size-5" aria-hidden>
         {icon}
       </span>
-      <h3 className="font-display text-xl font-semibold text-crema">{title}</h3>
+      <h3 className="font-display text-2xl font-semibold text-crema">{title}</h3>
       {aside ? <span className="ml-auto text-xs text-crema/50 lining-nums">{aside}</span> : null}
     </div>
   );
@@ -194,7 +195,7 @@ export function PartnerProfile({
           <SectionHead icon={<Target />} title="Obiettivi" aside={`${doneCount}/${objectives.length} completati`} />
           <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
             {objectives.map((o) => {
-              const pct = Math.min(100, Math.round((Math.min(o.current, o.target) / Math.max(1, o.target)) * 100));
+              const { pct, label } = objectiveProgress(o);
               return (
                 <li key={o.id} className={cn("rounded-2xl bg-espresso/50 p-3.5 ring-1", o.done ? "ring-caramel/30" : "ring-sand/10")}>
                   <div className="flex items-start gap-2.5">
@@ -207,13 +208,13 @@ export function PartnerProfile({
                     </div>
                     {o.done ? <span className="shrink-0 rounded-full bg-caramel/15 px-2 py-0.5 text-[0.65rem] font-bold uppercase text-ember">fatto</span> : null}
                   </div>
-                  {!o.done && o.target > 1 ? (
+                  {!o.done ? (
                     <div className="mt-2.5 flex items-center gap-2">
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-crema/10" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={o.title}>
                         <div className="h-full rounded-full bg-gradient-to-r from-caramel to-ember" style={{ width: `${pct}%` }} />
                       </div>
                       <span className="text-[0.7rem] text-crema/50 lining-nums">
-                        {o.current}/{o.target}
+                        {label}
                       </span>
                     </div>
                   ) : null}

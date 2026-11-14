@@ -249,3 +249,20 @@ export async function loadGuildStaff(token: string, guildId: string, userId: str
     return { ok: false, message: "Errore di rete." };
   }
 }
+
+/**
+ * Avanzamento di un obiettivo partnership per la barra.
+ * Gli obiettivi di classifica (top_global_rank_N) vanno al contrario: "current" è la posizione migliore
+ * raggiunta (più bassa = meglio, 0 = mai in classifica) e "target" la posizione da raggiungere.
+ */
+export function objectiveProgress(o: { id: string; current: number; target: number; done: boolean }) {
+  if (o.id.startsWith("top_global_rank_")) {
+    const best = o.current;
+    if (o.done) return { pct: 100, label: best ? `#${best}` : "fatto" };
+    if (!best) return { pct: 0, label: `serve #${o.target}` };
+    return { pct: Math.max(4, Math.min(99, Math.round((o.target / best) * 100))), label: `#${best} · serve #${o.target}` };
+  }
+  const target = Math.max(1, o.target);
+  const cur = Math.min(o.current, target);
+  return { pct: o.done ? 100 : Math.round((cur / target) * 100), label: `${cur}/${target}` };
+}

@@ -157,6 +157,7 @@ export function StaffCardView({
   onNavigate,
   onTenure,
   extraFlags,
+  middle,
 }: {
   token: string;
   userId: string;
@@ -164,6 +165,8 @@ export function StaffCardView({
   onNavigate: (id: string) => void;
   /** altri contrassegni accanto a "Nuovo in staff" (es. i badge partnership scelti) */
   extraFlags?: React.ReactNode;
+  /** parte partnership (badge, obiettivi): sta in mezzo al profilo staff, dopo i riquadri */
+  middle?: React.ReactNode;
   /** "In staff dal …": la mostra la testata del profilo, accanto a "Nel server dal …" */
   onTenure?: (label: string | null) => void;
 }) {
@@ -288,6 +291,8 @@ export function StaffCardView({
           </>
         )}
       </div>
+
+      {middle}
 
       {(access?.canViewResoconti || card.isSelf) && <Resoconto key={userId} token={token} userId={userId} canDecide={Boolean(access?.canViewResoconti && isHS)} onChanged={refresh} />}
 

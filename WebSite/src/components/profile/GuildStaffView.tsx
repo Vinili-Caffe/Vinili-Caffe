@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Award, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Handshake, Loader2, Search, Target, Users, Zap } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { EmojiText } from "@/components/discord/EmojiText";
-import { loadGuildStaff, type GuildStaff, type GuildStaffManager } from "@/lib/profile";
+import { loadGuildStaff, objectiveProgress, type GuildStaff, type GuildStaffManager } from "@/lib/profile";
 import { showToast } from "@/components/ui";
 import { PartnerProfile } from "@/components/dashboard/ProfileBoard";
 import { cn } from "@/lib/cn";
@@ -99,6 +99,7 @@ export function GuildStaffView({
   owns = false,
   hideNavigator = false,
   onBadges,
+  embedded = false,
 }: {
   token: string;
   guildId: string;
@@ -111,6 +112,8 @@ export function GuildStaffView({
   serverName?: string;
   /** server principale: i badge scelti vanno nella testata del profilo staff */
   onBadges?: (chips: React.ReactNode | null) => void;
+  /** dentro il profilo staff (principale): niente margini propri */
+  embedded?: boolean;
 }) {
   const [res, setRes] = useState<{ key: string; r: Awaited<ReturnType<typeof loadGuildStaff>> } | null>(null);
   const key = `${guildId}:${userId}`;
@@ -135,6 +138,32 @@ export function GuildStaffView({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- cambia solo coi badge
   }, [badgeIds, hideNavigator, owns]);
 
+  const wrap = embedded ? "space-y-6" : "mx-auto max-w-5xl space-y-6 px-4 pb-20 sm:px-6";
+  const badgesFromProfile = (list: { id: string; title: string; emoji: { url?: string | null; text?: string } }[]) =>
+    onBadges?.(
+      list.length ? (
+        <BadgeChips
+          badges={list.map((b) => ({
+            id: b.id,
+            title: b.title,
+            node: b.emoji.url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- emoji del badge
+              <img src={b.emoji.url} alt="" className="size-4 object-contain" />
+            ) : (
+              <span>{b.emoji.text}</span>
+            ),
+          }))}
+        />
+      ) : null,
+    );
+  if (owns && hideNavigator) {
+    return (
+      <div className={wrap}>
+        <PartnerProfile token={token} guildId={guildId} onToast={(m, err) => showToast(m, Boolean(err))} showStats={false} onBadges={onBadges ? badgesFromProfile : undefined} />
+      </div>
+    );
+  }
+
   /* sul principale (sotto la scheda staff): se non è Partner Manager non si mostra niente */
   if (hideNavigator && (!res || res.key !== key || !res.r.ok)) return null;
   if (!res || res.key !== key)
@@ -149,7 +178,7 @@ export function GuildStaffView({
   /* il tuo profilo: statistiche, preferenze, badge da scegliere e obiettivi (come in /dashboard/profilo) */
   if (owns) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6 px-4 pb-20 sm:px-6">
+      <div className={wrap}>
         {hideNavigator ? null : (
           <div className="relative z-30 flex justify-center">
             <PmNavigator list={s.managers} current={userId} onGo={onNavigate} />
@@ -160,23 +189,13 @@ export function GuildStaffView({
           guildId={guildId}
           onToast={(m, err) => showToast(m, Boolean(err))}
           showStats={!hideNavigator}
-          onBadges={
-            hideNavigator && onBadges
-              ? (list) => onBadges(list.length ? <BadgeChips badges={list.map((b) => ({ id: b.id, title: b.title, node: b.emoji.url ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- emoji del badge
-                        <img src={b.emoji.url} alt="" className="size-4 object-contain" />
-                      ) : (
-                        <span>{b.emoji.text}</span>
-                      ) }))} /> : null)
-              : undefined
-          }
         />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 pb-20 sm:px-6">
+    <div className={wrap}>
       {hideNavigator ? null : (
         <div className="relative z-30 flex justify-center">
           <PmNavigator list={s.managers} current={userId} onGo={onNavigate} />
@@ -202,17 +221,17 @@ export function GuildStaffView({
         </div>
       )}
 
-      <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.06] via-roast/80 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
+      <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
         <div className="flex items-center gap-2">
-          <Target className="size-4 text-ember" aria-hidden />
-          <h3 className="font-display text-xl font-semibold">Obiettivi</h3>
+          <Target className="size-5 text-caramel" aria-hidden />
+          <h3 className="font-display text-2xl font-semibold">Obiettivi</h3>
           <span className="ml-auto text-xs text-crema/50 lining-nums">
             {doneCount}/{s.objectives.length} completati
           </span>
         </div>
         <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
           {[...pending, ...s.objectives.filter((o) => o.done)].map((o) => {
-            const pct = Math.round((Math.min(o.current, o.target) / o.target) * 100);
+            const { pct, label } = objectiveProgress(o);
             return (
               <li key={o.id} className={cn("rounded-2xl bg-espresso/50 p-3.5 ring-1", o.done ? "ring-caramel/30" : "ring-sand/10")}>
                 <div className="flex items-start gap-2.5">
@@ -225,13 +244,13 @@ export function GuildStaffView({
                   </div>
                   {o.done ? <span className="shrink-0 rounded-full bg-caramel/15 px-2 py-0.5 text-[0.65rem] font-bold uppercase text-ember">fatto</span> : null}
                 </div>
-                {!o.done && o.target > 1 ? (
+                {!o.done ? (
                   <div className="mt-2.5 flex items-center gap-2">
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-crema/10">
                       <div className="h-full rounded-full bg-gradient-to-r from-caramel to-ember" style={{ width: `${pct}%` }} />
                     </div>
                     <span className="text-[0.7rem] text-crema/50 lining-nums">
-                      {o.current}/{o.target}
+                      {label}
                     </span>
                   </div>
                 ) : null}
@@ -242,10 +261,10 @@ export function GuildStaffView({
       </section>
 
       {s.badges.length ? (
-        <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.06] via-roast/80 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
+        <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
           <div className="flex items-center gap-2">
-            <Award className="size-4 text-ember" aria-hidden />
-            <h3 className="font-display text-xl font-semibold">Badge sbloccati</h3>
+            <Award className="size-5 text-caramel" aria-hidden />
+            <h3 className="font-display text-2xl font-semibold">Badge sbloccati</h3>
             <span className="ml-auto text-xs text-crema/50 lining-nums">{s.badges.length}</span>
           </div>
           <ul className="mt-4 flex flex-wrap gap-2">

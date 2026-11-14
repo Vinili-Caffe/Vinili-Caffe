@@ -214,7 +214,15 @@ export function ProfileView() {
 
   return (
     <>
-      <AlbumCover p={p} tab={tab} showStaffTab={showStaffTab} onTab={goTab} topSlot={switcher} staffSince={showStaffTab && tab === "staff" ? staffSince : null} />
+      <AlbumCover
+        p={p}
+        tab={tab}
+        showStaffTab={showStaffTab}
+        onTab={goTab}
+        topSlot={switcher}
+        staffSince={showStaffTab && tab === "staff" ? staffSince : null}
+        extraBadges={showStaffTab && tab === "staff" && pmBadges?.uid === p.userId ? pmBadges.node : null}
+      />
       {showStaffTab && tab === "staff" ? (
         <>
           <StaffCardView
@@ -223,21 +231,23 @@ export function ProfileView() {
             access={staffAccess!}
             onNavigate={(uid) => goTab("staff", uid)}
             onTenure={setStaffSince}
-            extraFlags={pmBadges?.uid === p.userId ? pmBadges.node : null}
+            middle={
+              /* Partner Manager anche sul principale: badge in vetrina e obiettivi, in mezzo al profilo staff */
+              mainId ? (
+                <GuildStaffView
+                  token={token!}
+                  guildId={mainId}
+                  userId={p.userId}
+                  owns={owns}
+                  hideNavigator
+                  embedded
+                  serverName="Vinili & Caffè"
+                  onNavigate={(uid) => goTab("staff", uid)}
+                  onBadges={(node) => setPmBadges({ uid: p.userId, node })}
+                />
+              ) : null
+            }
           />
-          {/* Partner Manager anche sul principale: statistiche partnership, badge e obiettivi (preferenze se è il tuo) */}
-          {mainId ? (
-            <GuildStaffView
-              token={token!}
-              guildId={mainId}
-              userId={p.userId}
-              owns={owns}
-              hideNavigator
-              serverName="Vinili & Caffè"
-              onNavigate={(uid) => goTab("staff", uid)}
-              onBadges={(node) => setPmBadges({ uid: p.userId, node })}
-            />
-          ) : null}
         </>
       ) : (
         <div className="space-y-20 pb-20 pt-2 sm:pt-4">
