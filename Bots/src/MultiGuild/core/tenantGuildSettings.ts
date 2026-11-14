@@ -207,6 +207,14 @@ function rowToBoards(row?, guildId = null) {
     clipTranscription: readClipTranscriptionFromBlob(b),
     features: readBoardFeaturesFromBlob(b),
     quoteStyle: readQuoteStyleFromBoardsBlob(b, guildId),
+    presentation: (() => {
+      try {
+        const { readBoardsPresentationFromBlob } = require("../../Vinili/Community/utils/boardsPresentation") as typeof import("../../Vinili/Community/utils/boardsPresentation");
+        return readBoardsPresentationFromBlob(b);
+      } catch {
+        return null;
+      }
+    })(),
   };
 }
 
@@ -223,18 +231,24 @@ function applyProtectedBoardsCatalogOverlay(guildId?, boards?) {
     mainId = "";
   }
   if (!mainId || gid !== mainId) return boards;
+  /* Main: contenuti sul sito, niente canali. Default ON (e:false spegne esplicitamente).
+     Senza questa regola boardsEnabledFromBlob resta false (nessun canale) e la dashboard
+     mostra Quote/Repost/Clip spente anche col modulo acceso. */
+  const blob = readBoardsBlob(settingsCache[gid]);
+  const explicitOff = blob.e === false || blob.enabled === false;
   return {
     ...boards,
-    enabled: boards?.enabled !== false,
+    enabled: !explicitOff,
     mode: "shared",
     sharedChannelId: null,
     quoteChannelId: null,
     repostChannelId: null,
     clipChannelId: null,
     skullChannelId: null,
-        features: boards?.features && typeof boards.features === "object"
+    features: boards?.features && typeof boards.features === "object"
       ? { ...defaultBoardFeatures(), ...boards.features }
       : defaultBoardFeatures(),
+    presentation: boards?.presentation || emptyBoardsPresentation(),
   };
 }
 
@@ -303,6 +317,15 @@ function getTenantChannelMapSync(guildId?) {
   return rowToChannelMap(settingsCache[gid], gid);
 }
 
+function emptyBoardsPresentation() {
+  try {
+    const { defaultBoardsPresentation } = require("../../Vinili/Community/utils/boardsPresentation") as typeof import("../../Vinili/Community/utils/boardsPresentation");
+    return defaultBoardsPresentation();
+  } catch {
+    return { quote: {}, repost: {}, clip: {}, skull: {} };
+  }
+}
+
 function getTenantBoardsSync(guildId?) {
   const gid = normalizeGuildId(guildId);
   if (!gid) {
@@ -317,9 +340,12 @@ function getTenantBoardsSync(guildId?) {
       clipTranscription: true,
       features: defaultBoardFeatures(),
       quoteStyle: freeTierQuoteStyle(),
+      presentation: emptyBoardsPresentation(),
     };
   }
-  return applyProtectedBoardsCatalogOverlay(gid, rowToBoards(settingsCache[gid], gid));
+  const boards = applyProtectedBoardsCatalogOverlay(gid, rowToBoards(settingsCache[gid], gid));
+  if (!boards?.presentation) boards.presentation = emptyBoardsPresentation();
+  return boards;
 }
 
 function isTenantClipTranscriptionEnabledSync(guildId?) {
@@ -680,7 +706,8 @@ async function setTenantBoards(guildId?, patch?) {
     const hasFeatures = Object.prototype.hasOwnProperty.call(patch, "features");
     const hasEnabled = Object.prototype.hasOwnProperty.call(patch, "enabled");
     const hasClipTranscription = Object.prototype.hasOwnProperty.call(patch, "clipTranscription");
-    if (!hasQuoteStyle && !hasFeatures && !hasEnabled && !hasClipTranscription) {
+    const hasPresentation = Object.prototype.hasOwnProperty.call(patch, "presentation");
+    if (!hasQuoteStyle && !hasFeatures && !hasEnabled && !hasClipTranscription && !hasPresentation) {
       return { ok: false, reason: "protected_guild" };
     }
     let quoteStyleEncoded = null;
@@ -688,6 +715,15 @@ async function setTenantBoards(guildId?, patch?) {
       try {
         const { encodeQuoteStyleCompact, normalizeQuoteStyle } = require("../../Vinili/Community/utils/Quote/quoteStyle") as typeof import("../../Vinili/Community/utils/Quote/quoteStyle");
         quoteStyleEncoded = encodeQuoteStyleCompact(normalizeQuoteStyle(patch.quoteStyle));
+      } catch {
+        return { ok: false, reason: "invalid_boards" };
+      }
+    }
+    let presentationEncoded = null;
+    if (hasPresentation) {
+      try {
+        const { encodeBoardsPresentationCompact, normalizeBoardsPresentation } = require("../../Vinili/Community/utils/boardsPresentation") as typeof import("../../Vinili/Community/utils/boardsPresentation");
+        presentationEncoded = encodeBoardsPresentationCompact(normalizeBoardsPresentation(patch.presentation));
       } catch {
         return { ok: false, reason: "invalid_boards" };
       }
@@ -730,6 +766,11 @@ async function setTenantBoards(guildId?, patch?) {
           if (quoteStyleEncoded && Object.keys(quoteStyleEncoded).length) prevB.qs = quoteStyleEncoded;
           else delete prevB.qs;
         }
+        if (hasPresentation) {
+          delete prevB.presentation;
+          if (presentationEncoded) prevB.pr = presentationEncoded;
+          else delete prevB.pr;
+        }
         row.b = prevB;
         delete row.boards;
         return row;
@@ -771,6 +812,16 @@ async function setTenantBoards(guildId?, patch?) {
     try {
       const { encodeQuoteStyleCompact, normalizeQuoteStyle } = require("../../Vinili/Community/utils/Quote/quoteStyle") as typeof import("../../Vinili/Community/utils/Quote/quoteStyle");
       quoteStyleEncoded = encodeQuoteStyleCompact(normalizeQuoteStyle(patch.quoteStyle));
+    } catch {
+      return { ok: false, reason: "invalid_boards" };
+    }
+  }
+  const presentationPresent = Object.prototype.hasOwnProperty.call(patch, "presentation");
+  let presentationEncoded = null;
+  if (presentationPresent) {
+    try {
+      const { encodeBoardsPresentationCompact, normalizeBoardsPresentation } = require("../../Vinili/Community/utils/boardsPresentation") as typeof import("../../Vinili/Community/utils/boardsPresentation");
+      presentationEncoded = encodeBoardsPresentationCompact(normalizeBoardsPresentation(patch.presentation));
     } catch {
       return { ok: false, reason: "invalid_boards" };
     }
@@ -828,6 +879,11 @@ async function setTenantBoards(guildId?, patch?) {
       delete prevB.quoteStyle;
       if (quoteStyleEncoded && Object.keys(quoteStyleEncoded).length) prevB.qs = quoteStyleEncoded;
       else delete prevB.qs;
+    }
+    if (presentationPresent) {
+      delete prevB.presentation;
+      if (presentationEncoded) prevB.pr = presentationEncoded;
+      else delete prevB.pr;
     }
     if (!sharedP.skip) {
       if (sharedP.clear || !sharedP.id) {

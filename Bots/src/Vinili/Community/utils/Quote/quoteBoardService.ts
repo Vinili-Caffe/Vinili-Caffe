@@ -46,15 +46,29 @@ function componentCustomId(comp?) {
   return String(comp?.customId || comp?.custom_id || "").trim();
 }
 
-function buildQuoteRemoveButton(creatorUserId?, originChannelId?, originMessageId?, fallbackChannelId = "") {
+function quoteButtonLabels(guildId?) {
+  try {
+    const { getBoardKindPresentationSync } = require("../boardsPresentation") as typeof import("../boardsPresentation");
+    const pr = getBoardKindPresentationSync(guildId, "quote");
+    return {
+      repost: String(pr.buttonRepost || "Reposta").slice(0, 80),
+      remove: String(pr.buttonRemove || "Rimuovi questa quote").slice(0, 80),
+    };
+  } catch {
+    return { repost: "Reposta", remove: "Rimuovi questa quote" };
+  }
+}
+
+function buildQuoteRemoveButton(creatorUserId?, originChannelId?, originMessageId?, fallbackChannelId = "", guildId = "") {
   const creator = String(creatorUserId || "").trim();
   const oc = String(originChannelId || fallbackChannelId || "").trim();
   const om = String(originMessageId || "").trim() || "0";
   if (!/^\d{16,20}$/.test(creator) || !/^\d{16,20}$/.test(oc)) return null;
   if (om !== "0" && !/^\d{16,20}$/.test(om)) return null;
+  const labels = quoteButtonLabels(guildId);
   return new ButtonBuilder()
     .setCustomId(`quote_remove:${creator}:${oc}:${om}`)
-    .setLabel("Rimuovi questa quote")
+    .setLabel(labels.remove)
     .setEmoji("🗑️")
     .setStyle(ButtonStyle.Danger);
 }
@@ -70,6 +84,7 @@ function buildQuoteBoardComponents({
   existingRemoveCustomId = "",
 }) {
   const buttons = [];
+  const labels = quoteButtonLabels(guildId);
   const bc = String(boardChannelId || "").trim();
   const bm = String(boardMessageId || "").trim();
   if (!isRepostDisabledInGuild(guildId) && /^\d{16,20}$/.test(bc) && /^\d{16,20}$/.test(bm)) {
@@ -78,7 +93,7 @@ function buildQuoteBoardComponents({
     buttons.push(
       new ButtonBuilder()
         .setCustomId(customId)
-        .setLabel("Reposta")
+        .setLabel(labels.repost)
         .setEmoji("1443652837346377841")
         .setStyle(ButtonStyle.Secondary),
     );
@@ -89,7 +104,7 @@ function buildQuoteBoardComponents({
     buttons.push(
       new ButtonBuilder()
         .setCustomId(existingRemove)
-        .setLabel("Rimuovi questa quote")
+        .setLabel(labels.remove)
         .setEmoji("🗑️")
         .setStyle(ButtonStyle.Danger),
     );
@@ -99,6 +114,7 @@ function buildQuoteBoardComponents({
       originChannelId,
       originMessageId,
       boardChannelId,
+      guildId,
     );
     if (removeBtn) buttons.push(removeBtn);
   }

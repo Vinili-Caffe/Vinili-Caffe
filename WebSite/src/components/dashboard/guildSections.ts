@@ -94,6 +94,16 @@ export const PARTNERSHIP_MODULE_TABS = [
 
 export type PartnershipModuleTabId = (typeof PARTNERSHIP_MODULE_TABS)[number]["id"];
 
+export const BACHECA_MODULE_TABS = [
+  { id: "impostazioni", label: "Impostazioni" },
+  { id: "quote", label: "Quote" },
+  { id: "repost", label: "Repost" },
+  { id: "clip", label: "Clip" },
+  { id: "skull", label: "Skullboard" },
+] as const satisfies readonly GuildModuleTab[];
+
+export type BachecaModuleTabId = (typeof BACHECA_MODULE_TABS)[number]["id"];
+
 export const MODERATION_MODULE_TABS = [
   { id: "overview", label: "Panoramica" },
   { id: "punizioni", label: "Punizione automatica" },
@@ -196,6 +206,10 @@ export function isPartnershipModuleTab(v: string): v is PartnershipModuleTabId {
   return PARTNERSHIP_MODULE_TABS.some((t) => t.id === v);
 }
 
+export function isBachecaModuleTab(v: string): v is BachecaModuleTabId {
+  return BACHECA_MODULE_TABS.some((t) => t.id === v);
+}
+
 export function isModerationModuleTab(v: string): v is ModerationModuleTabId {
   return MODERATION_MODULE_TABS.some((t) => t.id === v);
 }
@@ -212,6 +226,7 @@ export function defaultModuleTab(section: GuildSectionId): string | null {
   if (section === "tickets") return "overview";
   if (section === "moderation") return "overview";
   if (section === "partnership") return "setup";
+  if (section === "bacheca") return "impostazioni";
   if (section === "commands") return "all";
   if (section === "registro") return "all";
   if (section === "benvenuto") return "welcome";

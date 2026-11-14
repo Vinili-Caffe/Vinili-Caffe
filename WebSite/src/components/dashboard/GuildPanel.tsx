@@ -46,6 +46,10 @@ import {
   Import as IcImport,
   Mail as IcDm,
   MessageSquareQuote as IcReplies,
+  MessageSquareQuote as IcQuote,
+  Mic as IcClip,
+  Repeat2 as IcRepost,
+  Skull as IcSkull,
   PanelsTopLeft as IcPanels,
   Rocket as IcBoost,
   Scale as IcAppeals,
@@ -97,7 +101,6 @@ import {
   selectGuild,
 } from "@/lib/dashboard";
 import {
-  BOARD_FEATURES,
   EMPTY_SETTINGS_PICKERS,
   buildCommandAclBody,
   exportGuildConfig,
@@ -113,8 +116,6 @@ import {
   patchGuildCommands,
   patchGuildSettings,
   readGuildIdFromSearch,
-  type BoardFeatures,
-  type BoardsMode,
   type CatalogCategory,
   type CommandAcl,
   type CommandsPayload,
@@ -135,6 +136,7 @@ import {
   TICKET_MODULE_TABS,
   MODERATION_MODULE_TABS,
   PARTNERSHIP_MODULE_TABS,
+  BACHECA_MODULE_TABS,
   ANNUNCI_MODULE_TABS,
   LIVE_MODULE_TABS,
   defaultModuleTab,
@@ -143,6 +145,7 @@ import {
   isGuildSection,
   isModerationModuleTab,
   isPartnershipModuleTab,
+  isBachecaModuleTab,
   isRegistroModuleTab,
   REGISTRO_MODULE_TABS,
   isAnnunciModuleTab,
@@ -268,7 +271,7 @@ const PartnershipPanel = dynamic(() => import("./guild/PartnershipPanel").then((
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
-const QuoteStyleEditor = dynamic(() => import("./guild/QuoteStyleEditor").then((m) => m.QuoteStyleEditor), {
+const BoardsPanel = dynamic(() => import("./guild/BoardsPanel").then((m) => m.BoardsPanel), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
@@ -346,6 +349,11 @@ const SIDE_TAB_ICONS: Record<string, LucideIcon> = {
   replies: IcReplies,
   blacklist: IcBan,
   setup: IcSettings,
+  quote: IcQuote,
+  repost: IcRepost,
+  clip: IcClip,
+  skull: IcSkull,
+  skullboard: IcSkull,
   filtri: IcFilter,
   manager: IcManager,
   storia: IcHistory,
@@ -541,6 +549,7 @@ function sanitizeModuleTab(section: Section, raw: string | null | undefined): st
   if (section === "tickets") return isTicketModuleTab(v) ? v : "overview";
   if (section === "moderation") return isModerationModuleTab(v) ? v : "overview";
   if (section === "partnership") return isPartnershipModuleTab(v) ? v : "setup";
+  if (section === "bacheca") return isBachecaModuleTab(v) ? v : "impostazioni";
   if (section === "commands") {
     if (v === "all" || isCommandSectionTab(v)) return v;
     /* categorie dinamiche dal catalogo API */
@@ -1545,244 +1554,6 @@ function SettingsSection({
   );
 }
 
-const BOARD_CHANNEL_LABELS: {
-  id: keyof BoardFeatures;
-  channelKey: "quoteChannelId" | "repostChannelId" | "clipChannelId" | "skullChannelId";
-  label: string;
-}[] = [
-  { id: "quote", channelKey: "quoteChannelId", label: "Canale Quote" },
-  { id: "repost", channelKey: "repostChannelId", label: "Canale Repost" },
-  { id: "clip", channelKey: "clipChannelId", label: "Canale Clip" },
-  { id: "skull", channelKey: "skullChannelId", label: "Canale Skullboard" },
-];
-
-/** Bacheca: sezione a sé (funzioni, canali, trascrizione clip, stile quote). Si salva a ogni modifica. */
-function BoardsSection({
-  guildId,
-  token,
-  settings,
-  pickers,
-  error,
-  canCustomizeQuoteStyle,
-  onUpdated,
-  onToast,
-}: {
-  guildId: string;
-  token: string;
-  settings: GuildSettings | null;
-  pickers: SettingsPickers;
-  error: string | null;
-  canCustomizeQuoteStyle: boolean;
-  onUpdated: (next: GuildSettings, pickers?: SettingsPickers) => void;
-  onToast: (msg: string, err?: boolean) => void;
-}) {
-  const [features, setFeatures] = useState<BoardFeatures>(settings?.boards.features ?? { quote: true, repost: true, clip: true, skull: true });
-  const [boardsEnabled, setBoardsEnabled] = useState(settings?.boards.enabled === true);
-  const [boardsMode, setBoardsMode] = useState<BoardsMode>(settings?.boards.mode ?? "shared");
-  const [sharedChannelId, setSharedChannelId] = useState(settings?.boards.sharedChannelId ?? "");
-  const [quoteChannelId, setQuoteChannelId] = useState(settings?.boards.quoteChannelId ?? "");
-  const [repostChannelId, setRepostChannelId] = useState(settings?.boards.repostChannelId ?? "");
-  const [clipChannelId, setClipChannelId] = useState(settings?.boards.clipChannelId ?? "");
-  const [skullChannelId, setSkullChannelId] = useState(settings?.boards.skullChannelId ?? "");
-  const [clipTranscription, setClipTranscription] = useState(settings?.boards.clipTranscription !== false);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!settings) return;
-    setFeatures(settings.boards.features);
-    setBoardsEnabled(settings.boards.enabled === true);
-    setBoardsMode(settings.boards.mode === "split" ? "split" : "shared");
-    setSharedChannelId(settings.boards.sharedChannelId ?? "");
-    setQuoteChannelId(settings.boards.quoteChannelId ?? "");
-    setRepostChannelId(settings.boards.repostChannelId ?? "");
-    setClipChannelId(settings.boards.clipChannelId ?? "");
-    setSkullChannelId(settings.boards.skullChannelId ?? "");
-    setClipTranscription(settings.boards.clipTranscription !== false);
-  }, [settings]);
-
-  const channelState = { sharedChannelId, quoteChannelId, repostChannelId, clipChannelId, skullChannelId } as const;
-  const setChannelState = {
-    sharedChannelId: setSharedChannelId,
-    quoteChannelId: setQuoteChannelId,
-    repostChannelId: setRepostChannelId,
-    clipChannelId: setClipChannelId,
-    skullChannelId: setSkullChannelId,
-  } as const;
-
-  const channelOptions = useMemo(
-    () => [{ value: "", label: "— Nessuno —" }, ...pickers.textChannels.map((ch) => ({ value: ch.id, label: `#${ch.name}` }))],
-    [pickers.textChannels],
-  );
-
-  const save = async (body: Record<string, unknown>, okMsg: string) => {
-    setSaving(true);
-    const res = await patchGuildSettings(token, guildId, body);
-    setSaving(false);
-    if (!res.ok) {
-      onToast(res.message, true);
-      return false;
-    }
-    onUpdated(res.data.settings, res.data.pickers);
-    onToast(okMsg);
-    return true;
-  };
-
-  if (error && !settings) {
-    return <p className="rounded-xl bg-caramel/10 px-3 py-2.5 text-sm text-crema/75 ring-1 ring-caramel/25">{error}</p>;
-  }
-  if (!settings) return null;
-
-  const channelsLocked = settings.updatesLocked;
-  const off = saving || !boardsEnabled;
-
-  const saveBoardChannel = async (key: keyof typeof channelState, next: string, label: string) => {
-    const prev = channelState[key];
-    setChannelState[key](next);
-    if (channelsLocked) return;
-    const ok = await save({ boards: { [key]: next || null } }, `${label} salvato.`);
-    if (!ok) setChannelState[key](prev);
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* modulo: stato + interruttore principale */}
-      <div className={cn("grid gap-4 transition-opacity xl:grid-cols-2", !boardsEnabled && "opacity-50")}>
-        <Panel icon={<SlidersHorizontal />} title="Funzioni" description="Accendi solo quello che usate sul server.">
-          <div className="divide-y divide-sand/[0.07]">
-            {BOARD_FEATURES.map((feat) => (
-              <SettingRow key={feat.id} title={feat.title} description={feat.hint}>
-                <Toggle
-                  size="sm"
-                  checked={features[feat.id]}
-                  disabled={off}
-                  label={`Attiva ${feat.title}`}
-                  onChange={async (next) => {
-                    const nextFeats = { ...features, [feat.id]: next };
-                    setFeatures(nextFeats);
-                    const ok = await save({ boards: { enabled: boardsEnabled, features: nextFeats } }, "Funzioni bacheca salvate.");
-                    if (!ok) setFeatures(settings.boards.features);
-                  }}
-                />
-              </SettingRow>
-            ))}
-          </div>
-        </Panel>
-
-        <Panel
-          icon={<Hash />}
-          title="Dove si pubblica"
-          description={channelsLocked ? "Sul server Vinili i contenuti vanno sulla Bacheca del sito." : "Un canale per tutto, oppure uno per funzione."}
-          aside={channelsLocked ? <Lock className="size-3.5 text-crema/60" aria-label="Bloccato" /> : null}
-        >
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-1 rounded-lg bg-espresso/70 p-1 ring-1 ring-sand/10" role="radiogroup" aria-label="Modalità canali">
-              {(["shared", "split"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  role="radio"
-                  aria-checked={boardsMode === mode}
-                  disabled={off || channelsLocked}
-                  onClick={async () => {
-                    if (mode === boardsMode) return;
-                    const prev = boardsMode;
-                    setBoardsMode(mode);
-                    if (channelsLocked) return;
-                    const patch: Record<string, unknown> = { mode };
-                    if (mode === "split" && sharedChannelId) {
-                      /* parte dal canale unico: ogni funzione eredita quello finché non lo cambi */
-                      if (!quoteChannelId) (setQuoteChannelId(sharedChannelId), (patch.quoteChannelId = sharedChannelId));
-                      if (!repostChannelId) (setRepostChannelId(sharedChannelId), (patch.repostChannelId = sharedChannelId));
-                      if (!clipChannelId) (setClipChannelId(sharedChannelId), (patch.clipChannelId = sharedChannelId));
-                      if (!skullChannelId) (setSkullChannelId(sharedChannelId), (patch.skullChannelId = sharedChannelId));
-                    }
-                    const ok = await save({ boards: patch }, "Modalità bacheca salvata.");
-                    if (!ok) {
-                      setBoardsMode(prev);
-                      setQuoteChannelId(settings.boards.quoteChannelId ?? "");
-                      setRepostChannelId(settings.boards.repostChannelId ?? "");
-                      setClipChannelId(settings.boards.clipChannelId ?? "");
-                      setSkullChannelId(settings.boards.skullChannelId ?? "");
-                    }
-                  }}
-                  className={cn(
-                    "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed",
-                    boardsMode === mode ? "bg-mocha text-crema ring-1 ring-sand/15" : "text-crema/60 hover:text-crema",
-                  )}
-                >
-                  {mode === "shared" ? "Un canale unico" : "Un canale per funzione"}
-                </button>
-              ))}
-            </div>
-            {boardsMode === "shared" ? (
-              <Field label="Canale della bacheca">
-                <Select
-                  value={sharedChannelId}
-                  disabled={off || channelsLocked}
-                  onChange={(next) => void saveBoardChannel("sharedChannelId", next, "Canale bacheca")}
-                  className={cn(fieldCls, "mt-1.5")}
-                  options={channelOptions}
-                />
-              </Field>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {BOARD_CHANNEL_LABELS.filter((row) => features[row.id]).map((row) => (
-                  <Field key={row.channelKey} label={row.label}>
-                    <Select
-                      value={channelState[row.channelKey]}
-                      disabled={off || channelsLocked}
-                      onChange={(next) => void saveBoardChannel(row.channelKey, next, row.label)}
-                      className={cn(fieldCls, "mt-1.5")}
-                      options={channelOptions}
-                    />
-                  </Field>
-                ))}
-              </div>
-            )}
-            {features.clip ? (
-              <div className="divide-y divide-sand/[0.07] border-t border-sand/[0.07] pt-3">
-                <SettingRow title="Trascrizione delle clip" description="Scrive il testo automatico quando viene pubblicata una clip vocale.">
-                  <Toggle
-                    size="sm"
-                    checked={clipTranscription}
-                    disabled={off}
-                    label="Trascrizione delle clip"
-                    onChange={async (next) => {
-                      setClipTranscription(next);
-                      const ok = await save({ boards: { clipTranscription: next } }, next ? "Trascrizione clip attiva." : "Trascrizione clip disattivata.");
-                      if (!ok) setClipTranscription(settings.boards.clipTranscription !== false);
-                    }}
-                  />
-                </SettingRow>
-              </div>
-            ) : null}
-          </div>
-        </Panel>
-      </div>
-
-      {features.quote ? (
-        <Panel icon={<Pin />} title="Stile delle quote" description="Come appare l'immagine delle citazioni: anteprima e personalizzazione." aside={<PremiumBadge active={canCustomizeQuoteStyle} />}>
-          <QuoteStyleEditor
-            guildId={guildId}
-            token={token}
-            value={settings.boards.quoteStyle}
-            disabled={off}
-            locked={!canCustomizeQuoteStyle}
-            saving={saving}
-            onSave={async (next) => {
-              if (!canCustomizeQuoteStyle) {
-                onToast("Lo stile delle quote è riservato a Premium e ai server protetti.", true);
-                return false;
-              }
-              return save({ boards: { quoteStyle: next } }, "Stile quote salvato.");
-            }}
-          />
-        </Panel>
-      ) : null}
-    </div>
-  );
-}
-
 function CommandsSection({
   guildId,
   token,
@@ -2395,11 +2166,13 @@ export function GuildPanel() {
         ? MODERATION_MODULE_TABS
         : section === "partnership"
           ? PARTNERSHIP_MODULE_TABS
-          : section === "benvenuto"
-            ? ANNUNCI_MODULE_TABS
-            : section === "live"
-              ? LIVE_MODULE_TABS
-              : null;
+          : section === "bacheca"
+            ? BACHECA_MODULE_TABS
+            : section === "benvenuto"
+              ? ANNUNCI_MODULE_TABS
+              : section === "live"
+                ? LIVE_MODULE_TABS
+                : null;
   const switchActive = moduleTab || defaultModuleTab(section) || "";
   const withSwitchTabs = (node: React.ReactNode) =>
     switchTabs ? (
@@ -2657,22 +2430,25 @@ export function GuildPanel() {
                       />
                       </SideTabsLayout>
                     ) : null}
-                    {section === "bacheca" && overview.isMainGuild && guildId && token ? (
-                      <BoardsSection
-                        guildId={guildId}
-                        token={token}
-                        settings={settings}
-                        pickers={pickers}
-                        error={settingsError}
-                        canCustomizeQuoteStyle={premiumActive || overview.isMainGuild || overview.isProtectedGuild}
-                        onUpdated={(next, nextPickers) => {
-                          setSettings(next);
-                          if (nextPickers) setPickers(nextPickers);
-                          setSettingsError(null);
-                        }}
-                        onToast={showToast}
-                      />
-                    ) : null}
+                    {section === "bacheca" && overview.isMainGuild && guildId && token
+                      ? withSwitchTabs(
+                          <BoardsPanel
+                            guildId={guildId}
+                            token={token}
+                            settings={settings}
+                            pickers={pickers}
+                            error={settingsError}
+                            tab={(isBachecaModuleTab(moduleTab || "") ? moduleTab : "impostazioni") as import("./guildSections").BachecaModuleTabId}
+                            canCustomizeQuoteStyle={premiumActive || overview.isMainGuild || overview.isProtectedGuild}
+                            onUpdated={(next, nextPickers) => {
+                              setSettings(next);
+                              if (nextPickers) setPickers(nextPickers);
+                              setSettingsError(null);
+                            }}
+                            onToast={showToast}
+                          />,
+                        )
+                      : null}
                     {section === "tickets" && guildId && token ? (
                       overview.isMainGuild ? (
                         <TicketDesk

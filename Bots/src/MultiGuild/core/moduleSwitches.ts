@@ -131,6 +131,11 @@ async function setModuleOn(guildId?: string, id?: string, on?: boolean): Promise
       raw[gid] = { ...(raw[gid] || {}), [def.id]: next };
       await setBotState(PROTECTED_KEY, raw);
       protectedMap = raw;
+      /* bacheca: allinea anche boards.enabled (usato dalla tab Bacheca / comandi) */
+      if (def.kind === "boards") {
+        const { setTenantBoards } = require("./tenantGuildSettings") as typeof import("./tenantGuildSettings");
+        await (setTenantBoards as any)(gid, { enabled: next }).catch(() => null);
+      }
       return true;
     } catch (_) {
       return false;

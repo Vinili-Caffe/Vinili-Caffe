@@ -586,12 +586,16 @@ async function patchDashboardGuildSettings(client?, accessToken?, guildId?, body
       }
       boardsPatch.quoteStyle = boardsRaw.quoteStyle;
     }
+    if (Object.prototype.hasOwnProperty.call(boardsRaw, "presentation")) {
+      boardsPatch.presentation = boardsRaw.presentation;
+    }
     if (protectedGuild) {
             const allowed =
         Object.prototype.hasOwnProperty.call(boardsPatch, "quoteStyle") ||
         Object.prototype.hasOwnProperty.call(boardsPatch, "features") ||
         Object.prototype.hasOwnProperty.call(boardsPatch, "enabled") ||
-        Object.prototype.hasOwnProperty.call(boardsPatch, "clipTranscription");
+        Object.prototype.hasOwnProperty.call(boardsPatch, "clipTranscription") ||
+        Object.prototype.hasOwnProperty.call(boardsPatch, "presentation");
       if (!allowed) {
         return fail(
           400,

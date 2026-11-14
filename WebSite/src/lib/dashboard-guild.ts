@@ -82,6 +82,34 @@ export type QuoteStyle = {
   fadeOpacity: number;
 };
 
+export type BoardKindPresentation = {
+  embedTitle: string;
+  embedDescription: string;
+  embedFooter: string;
+  fieldAuthor: string;
+  fieldCreator: string;
+  fieldChannel: string;
+  fieldMessage: string;
+  buttonRepost: string;
+  buttonRemove: string;
+  deleteRoleIds: string[];
+  ackDescription: string;
+  ackDescriptionSite: string;
+  ackDescriptionChannel: string;
+  ackFieldName: string;
+  ackFooter: string;
+  rouletteTitle: string;
+  rouletteDescription: string;
+  rouletteFooter: string;
+};
+
+export type BoardsPresentation = {
+  quote: BoardKindPresentation;
+  repost: BoardKindPresentation;
+  clip: BoardKindPresentation;
+  skull: BoardKindPresentation;
+};
+
 export type GuildBoards = {
   enabled: boolean;
   mode: BoardsMode;
@@ -93,6 +121,7 @@ export type GuildBoards = {
   features: BoardFeatures;
   clipTranscription: boolean;
   quoteStyle: QuoteStyle;
+  presentation: BoardsPresentation;
 };
 
 export type GuildSettings = {
@@ -453,6 +482,129 @@ function mapQuoteStyle(raw: unknown): QuoteStyle {
   };
 }
 
+const EMPTY_EXTRA = {
+  fieldChannel: "",
+  fieldMessage: "",
+  ackDescription: "",
+  ackDescriptionSite: "",
+  ackDescriptionChannel: "",
+  ackFieldName: "",
+  ackFooter: "",
+  rouletteTitle: "",
+  rouletteDescription: "",
+  rouletteFooter: "",
+};
+
+/** Allineati ai testi live del bot (emoji custom Vinili). */
+export const DEFAULT_BOARD_PRESENTATION: BoardsPresentation = {
+  quote: {
+    ...EMPTY_EXTRA,
+    embedTitle: "<a:VC_Sparkles:1468546911936974889> Nuova quotazione ✨",
+    embedDescription:
+      "<:VC_Reply:1482532158080942191> Crea un post usando il comando **{prefix}quote** rispondendo al messaggio di un utente.",
+    embedFooter: "Post totali: {count}",
+    fieldAuthor: "Messaggio di:",
+    fieldCreator: "Creato da:",
+    buttonRepost: "Reposta",
+    buttonRemove: "Rimuovi questa quote",
+    deleteRoleIds: [],
+    ackDescription: "<a:VC_Sparkles:1468546911936974889> Quote pubblicata in questo canale.",
+    ackDescriptionSite: "<a:VC_Sparkles:1468546911936974889> La quote è appesa in **Bacheca** sul sito!",
+    ackDescriptionChannel: "<a:VC_Sparkles:1468546911936974889> Puoi trovare il post creato nel canale: {channel}!",
+    ackFieldName: "📸 Totale immagini generate:",
+  },
+  repost: {
+    ...EMPTY_EXTRA,
+    embedTitle: "🆕 * . ˊ Nuovo repost!",
+    embedDescription:
+      "di {reposter} 🎀\n\n{body}\n\n• [Clicca qui per andare al messaggio]({source})\n\nɤ⌒➴ Autore del messaggio: {author}",
+    embedFooter: "† · ৎ Aggiungi un messaggio alla bacheca ⭐ usando il comando {prefix}repost · Post #{count}",
+    fieldAuthor: "",
+    fieldCreator: "",
+    buttonRepost: "Reposta",
+    buttonRemove: "Rimuovi repost",
+    deleteRoleIds: [],
+    ackDescription: "<a:reddiamond:1443652837346377841> * . ˊ {reposter} {phrase}\n\n{link}",
+    ackFooter: "✧ * . ˊ {prefix}repost",
+    rouletteTitle: "<a:reddiamond:1443652837346377841> * . ˊ Roulette dei Repost Passati",
+    rouletteDescription: "{body}\n\n• [Messaggio Originale]({source})",
+    rouletteFooter: "† · ৎ Revival casuale dal database 🎲",
+  },
+  clip: {
+    ...EMPTY_EXTRA,
+    embedTitle: "🆕 * . ˊ Nuovo repost!",
+    embedDescription:
+      "di {reposter} 🎀\n\n{body}\n\n• [Clicca qui per andare al messaggio]({source})\n\nɤ⌒➴ Autore del messaggio: {author}",
+    embedFooter: "† · ৎ Aggiungi un messaggio alla bacheca ⭐ usando il comando {prefix}repost · Post #{count}",
+    fieldAuthor: "",
+    fieldCreator: "",
+    buttonRepost: "Reposta",
+    buttonRemove: "Rimuovi clip",
+    deleteRoleIds: [],
+    ackDescription: "<a:reddiamond:1443652837346377841> * . ˊ {reposter} {phrase}\n\n{link}",
+    ackFooter: "✧ * . ˊ {prefix}clip",
+  },
+  skull: {
+    ...EMPTY_EXTRA,
+    embedTitle: "",
+    embedDescription: "<:VC_Skully:1331591939094614057> **Aggiungi la reazione 💀 a un messaggio per pubblicarlo nella SkullBoard**",
+    embedFooter: "{date}",
+    fieldAuthor: "<:VC_User:1482527453586002103> Autore",
+    fieldCreator: "",
+    fieldChannel: "<a:VC_Channel:1482534583944871996> Canale",
+    fieldMessage: "<:VC_Chat:1482532573002465413> Messaggio",
+    buttonRepost: "",
+    buttonRemove: "Rimuovi",
+    deleteRoleIds: [],
+    ackDescription: "<:VC_Skully:1331591939094614057> Il messaggio è stato pubblicato nel canale {channel}.",
+    ackDescriptionSite: "<:VC_Skully:1331591939094614057> Il messaggio è stato appeso in **Bacheca** sul sito.",
+    ackDescriptionChannel: "<:VC_Skully:1331591939094614057> Il messaggio è stato pubblicato nel canale {channel}.",
+  },
+};
+
+function mapKindPresentation(kind: keyof BoardsPresentation, raw: unknown): BoardKindPresentation {
+  const base = DEFAULT_BOARD_PRESENTATION[kind];
+  if (!raw || typeof raw !== "object") return { ...base, deleteRoleIds: [] };
+  const r = raw as Record<string, unknown>;
+  const roles = Array.isArray(r.deleteRoleIds)
+    ? r.deleteRoleIds.map((id) => String(id || "").trim()).filter((id) => /^\d{16,20}$/.test(id)).slice(0, 25)
+    : [];
+  const str = (key: keyof BoardKindPresentation, max: number, fallback: string) => {
+    const v = String(r[key] ?? fallback).trim().slice(0, max);
+    return v || fallback;
+  };
+  return {
+    embedTitle: str("embedTitle", 256, base.embedTitle),
+    embedDescription: str("embedDescription", 4000, base.embedDescription),
+    embedFooter: str("embedFooter", 2048, base.embedFooter),
+    fieldAuthor: String(r.fieldAuthor ?? base.fieldAuthor).trim().slice(0, 256),
+    fieldCreator: String(r.fieldCreator ?? base.fieldCreator).trim().slice(0, 256),
+    fieldChannel: String(r.fieldChannel ?? base.fieldChannel).trim().slice(0, 256),
+    fieldMessage: String(r.fieldMessage ?? base.fieldMessage).trim().slice(0, 256),
+    buttonRepost: str("buttonRepost", 80, base.buttonRepost),
+    buttonRemove: str("buttonRemove", 80, base.buttonRemove),
+    deleteRoleIds: roles,
+    ackDescription: str("ackDescription", 4000, base.ackDescription),
+    ackDescriptionSite: str("ackDescriptionSite", 4000, base.ackDescriptionSite),
+    ackDescriptionChannel: str("ackDescriptionChannel", 4000, base.ackDescriptionChannel),
+    ackFieldName: str("ackFieldName", 256, base.ackFieldName),
+    ackFooter: str("ackFooter", 2048, base.ackFooter),
+    rouletteTitle: str("rouletteTitle", 256, base.rouletteTitle),
+    rouletteDescription: str("rouletteDescription", 4000, base.rouletteDescription),
+    rouletteFooter: str("rouletteFooter", 2048, base.rouletteFooter),
+  };
+}
+
+function mapBoardsPresentation(raw: unknown): BoardsPresentation {
+  const src = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return {
+    quote: mapKindPresentation("quote", src.quote),
+    repost: mapKindPresentation("repost", src.repost),
+    clip: mapKindPresentation("clip", src.clip),
+    skull: mapKindPresentation("skull", src.skull),
+  };
+}
+
 function defaultBoards(): GuildBoards {
   return {
     enabled: false,
@@ -465,6 +617,7 @@ function defaultBoards(): GuildBoards {
     features: { quote: true, repost: true, clip: true, skull: true },
     clipTranscription: true,
     quoteStyle: defaultQuoteStyle(),
+    presentation: mapBoardsPresentation(null),
   };
 }
 
@@ -489,6 +642,7 @@ function mapBoards(raw: unknown): GuildBoards {
     },
     clipTranscription: b.clipTranscription !== false,
     quoteStyle: mapQuoteStyle(b.quoteStyle),
+    presentation: mapBoardsPresentation(b.presentation),
   };
 }
 

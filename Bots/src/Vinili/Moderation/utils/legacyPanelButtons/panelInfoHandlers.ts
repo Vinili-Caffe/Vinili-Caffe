@@ -96,8 +96,15 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     const targetId = parts[1];
     const originChannelId = parts[2] || null;
     const originMessageId = parts[3] || null;
-    if (interaction.user.id !== targetId) {
-      const denied = new EmbedBuilder().setColor("#e74c3c").setTitle(`${E.vegax} Accesso negato`).setDescription("Solo l'autore della citazione può rimuoverla.");
+    let canForce = false;
+    try {
+      const { memberCanForceDeleteBoardItem } = require("../../../Community/utils/boardsPresentation") as typeof import("../../../Community/utils/boardsPresentation");
+      canForce = memberCanForceDeleteBoardItem(interaction.member, interaction.guild?.id, "quote");
+    } catch {
+      canForce = false;
+    }
+    if (interaction.user.id !== targetId && !canForce) {
+      const denied = new EmbedBuilder().setColor("#e74c3c").setTitle(`${E.vegax} Accesso negato`).setDescription("Solo l'autore della citazione (o chi ha il permesso) può rimuoverla.");
       return interaction.reply({ embeds: [denied], flags: PRIVATE_FLAG });
     }
     const now = new Date();

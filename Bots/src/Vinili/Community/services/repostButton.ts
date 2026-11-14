@@ -181,7 +181,7 @@ async function createRepostFromMessage(ctx?) {
       ok: true,
       alreadySaved: true,
       fromQuoteCanvas,
-      ackEmbed: buildShareAckEmbed({ reposterId, boardUrl, prefix }),
+      ackEmbed: buildShareAckEmbed({ reposterId, boardUrl, prefix, guildId, kind: "repost" }),
       repostId: existingBoard?._id ? String(existingBoard._id) : "",
       ackComponents: buildAckRepostaComponents({
         repostId: existingBoard?._id ? String(existingBoard._id) : "",
@@ -206,6 +206,8 @@ async function createRepostFromMessage(ctx?) {
     imageUrl: boardSendMedia.embedImageUrl,
     commandPrefix,
     imageOnly: fromQuoteCanvas,
+    guildId,
+    kind: fromClipBoard ? "clip" : "repost",
   });
 
   const sourceMember = fromQuoteCanvas
@@ -318,7 +320,7 @@ async function createRepostFromMessage(ctx?) {
     })();
   }
   const prefix = String(guild?.client?.config?.prefix || "+").trim() || "+";
-  const ackEmbed = buildShareAckEmbed({ reposterId, boardUrl, prefix });
+  const ackEmbed = buildShareAckEmbed({ reposterId, boardUrl, prefix, guildId, kind: "repost" });
 
   return {
     ok: true,

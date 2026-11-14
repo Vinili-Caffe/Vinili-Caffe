@@ -18,16 +18,33 @@ const {
 
 const QUOTE_DISABLED_MESSAGE = "Le quote sono disattivate su questo server.";
 
-function buildQuotePostEmbed({ messageAuthorId, creatorId, totalPosts }) {
+function buildQuotePostEmbed({ messageAuthorId, creatorId, totalPosts, guildId, commandPrefix }) {
+  const {
+    getBoardKindPresentationSync,
+    fillBoardTemplate,
+  } = require("../../utils/boardsPresentation") as typeof import("../../utils/boardsPresentation");
+  const pr = getBoardKindPresentationSync(guildId, "quote");
+  const prefix = String(commandPrefix || "+").trim() || "+";
+  const vars = {
+    prefix,
+    count: String(totalPosts ?? 0),
+    author: `<@${messageAuthorId}>`,
+    creator: `<@${creatorId}>`,
+  };
+  const title = fillBoardTemplate(pr.embedTitle, vars) || `${E.VC_Sparkles} Nuova quotazione ✨`;
+  const description =
+    fillBoardTemplate(pr.embedDescription, vars) ||
+    `${E.VC_Reply} Crea un post usando il comando **${prefix}quote** rispondendo al messaggio di un utente.`;
+  const footer = fillBoardTemplate(pr.embedFooter, vars) || `Post totali: ${totalPosts}`;
   return new EmbedBuilder()
     .setColor(TENANT_EMBED_COLOR)
-    .setTitle(`${E.VC_Sparkles} Nuova quotazione ✨`)
-    .setDescription(`${E.VC_Reply} Crea un post usando il comando **+quote** rispondendo al messaggio di un utente.`)
+    .setTitle(title.slice(0, 256))
+    .setDescription(description.slice(0, 4096))
     .addFields(
-      { name: "Messaggio di:", value: `<@${messageAuthorId}>` },
-      { name: "Creato da:", value: `<@${creatorId}>` },
+      { name: (pr.fieldAuthor || "Messaggio di:").slice(0, 256), value: `<@${messageAuthorId}>` },
+      { name: (pr.fieldCreator || "Creato da:").slice(0, 256), value: `<@${creatorId}>` },
     )
-    .setFooter({ text: `Post totali: ${totalPosts}` });
+    .setFooter({ text: footer.slice(0, 2048) });
 }
 
 export = {
@@ -187,16 +204,31 @@ export = {
     const siteBoard = isBachecaSiteGuild(message.guild.id);
     const siteItemId = siteBoard ? newBachecaItemId() : "";
     const quoteChannel = siteBoard ? null : await resolveQuotePostChannel(message.guild);
+    const {
+      getBoardKindPresentationSync,
+      fillBoardTemplate,
+    } = require("../../utils/boardsPresentation") as typeof import("../../utils/boardsPresentation");
+    const ackPr = getBoardKindPresentationSync(message.guild.id, "quote");
+    const ackVars = {
+      prefix: String(message.client?.config?.prefix || "+").trim() || "+",
+      count: String(totalPosts),
+      channel: quoteChannel ? `<#${quoteChannel.id}>` : "",
+      author: `<@${author.id}>`,
+      creator: `<@${message.author.id}>`,
+    };
     const embedDescription = siteBoard
-      ? `${E.VC_Sparkles} La quote è appesa in **Bacheca** sul sito!`
+      ? fillBoardTemplate(ackPr.ackDescriptionSite, ackVars) ||
+        `${E.VC_Sparkles} La quote è appesa in **Bacheca** sul sito!`
       : quoteChannel
-        ? `${E.VC_Sparkles} Puoi trovare il post creato nel canale: <#${quoteChannel.id}>!`
-        : `${E.VC_Sparkles} Quote pubblicata in questo canale.`;
+        ? fillBoardTemplate(ackPr.ackDescriptionChannel, ackVars) ||
+          `${E.VC_Sparkles} Puoi trovare il post creato nel canale: <#${quoteChannel.id}>!`
+        : fillBoardTemplate(ackPr.ackDescription, ackVars) ||
+          `${E.VC_Sparkles} Quote pubblicata in questo canale.`;
     const embed = new EmbedBuilder()
       .setColor(TENANT_EMBED_COLOR)
-      .setDescription(embedDescription)
+      .setDescription(embedDescription.slice(0, 4096))
       .addFields({
-        name: "📸 Totale immagini generate:",
+        name: (ackPr.ackFieldName || "📸 Totale immagini generate:").slice(0, 256),
         value: String(totalPosts),
       });
 
@@ -204,10 +236,12 @@ export = {
     if (replyMsg?.id && (siteBoard || !isRepostDisabledInGuild(message.guild.id))) {
       const repostRow = new ActionRowBuilder();
       if (!isRepostDisabledInGuild(message.guild.id)) {
+        const { getBoardKindPresentationSync } = require("../../utils/boardsPresentation") as typeof import("../../utils/boardsPresentation");
+        const quoteBtn = getBoardKindPresentationSync(message.guild.id, "quote").buttonRepost || "Reposta";
         repostRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`repost_src:${message.channel.id}:${replyMsg.id}:${author.id}`)
-            .setLabel("Reposta")
+            .setLabel(String(quoteBtn).slice(0, 80))
             .setEmoji("1443652837346377841")
             .setStyle(ButtonStyle.Secondary),
         );
@@ -244,7 +278,20 @@ export = {
       const postAttachment = new AttachmentBuilder(buffer, {
         name: quoteFormat === "gif" ? "quote.gif" : "quote.png",
       });
-      const postEmbed=buildQuotePostEmbed({messageAuthorId:author.id,creatorId:message.author.id,totalPosts,});
+      let commandPrefix = "+";
+      try {
+        const { getTenantPrefixSync } = require("../../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../../MultiGuild/core/tenantGuildSettings");
+        commandPrefix = String(getTenantPrefixSync?.(message.guild.id) || "+").trim() || "+";
+      } catch {
+        commandPrefix = "+";
+      }
+      const postEmbed = buildQuotePostEmbed({
+        messageAuthorId: author.id,
+        creatorId: message.author.id,
+        totalPosts,
+        guildId: message.guild.id,
+        commandPrefix,
+      });
       const originChannelId = message.channel.id;
       const originMessageId = replyMsg?.id || "0";
       const removeOnly = buildQuoteBoardComponents({

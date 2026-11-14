@@ -234,16 +234,37 @@ function buildClipBoardEmbed({ requester, requesterId, voiceChannelName, duratio
   };
 }
 
-function buildClipAckEmbed({ requesterId, boardUrl, voiceChannelName, durationSec, prefix }) {
+function buildClipAckEmbed({ requesterId, boardUrl, voiceChannelName, durationSec, prefix, guildId }) {
   const linkLine = boardUrl ? `» [Apri la clip](${boardUrl})` : "» Clip pubblicata.";
   const safePrefix = String(prefix || "+").trim() || "+";
+  let description = [
+    `🎙️ <@${requesterId}> ha pubblicato un clip vocale da **${voiceChannelName}** (${durationSec}s).`,
+    linkLine,
+  ].join("\n");
+  let footer = `✧ * . ˊ ${safePrefix}clip`;
+  try {
+    const {
+      getBoardKindPresentationSync,
+      fillBoardTemplate,
+    } = require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation");
+    const pr = getBoardKindPresentationSync(guildId, "clip");
+    const vars = {
+      prefix: safePrefix,
+      reposter: `<@${requesterId}>`,
+      phrase: `ha pubblicato un clip vocale da **${voiceChannelName}** (${durationSec}s).`,
+      link: linkLine,
+      channel: String(voiceChannelName || ""),
+      duration: String(durationSec ?? ""),
+    };
+    description = fillBoardTemplate(pr.ackDescription, vars) || description;
+    footer = fillBoardTemplate(pr.ackFooter, vars) || footer;
+  } catch {
+    /* fallback live */
+  }
   return {
     color: CLIP_COLOR,
-    description: [
-      `🎙️ <@${requesterId}> ha pubblicato un clip vocale da **${voiceChannelName}** (${durationSec}s).`,
-      linkLine,
-    ].join("\n"),
-    footer: { text: `✧ * . ˊ ${safePrefix}clip` },
+    description: String(description).slice(0, 4096),
+    footer: { text: String(footer).slice(0, 2048) },
     timestamp: new Date().toISOString(),
   };
 }
@@ -331,6 +352,7 @@ async function exportClipFromCommand(ctx?) {
         voiceChannelName: extracted.voiceChannelName || voiceChannel.name,
         durationSec: extracted.durationSec,
         prefix: prefixFor(guildId, client),
+        guildId,
       });
       return { ok: true, ackEmbed, boardUrl: saved.boardUrl, durationSec: extracted.durationSec };
     }
@@ -399,6 +421,7 @@ async function exportClipFromCommand(ctx?) {
       voiceChannelName,
       durationSec: extracted.durationSec,
       prefix,
+      guildId,
     });
 
     return { ok: true, ackEmbed, boardUrl, durationSec: extracted.durationSec };

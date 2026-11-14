@@ -254,6 +254,32 @@ async function renderSkullCanvas(
 function buildSkullEmbed(user?, message?, postImageName?) {
   const messageLink = `https://discord.com/channels/${message.guild.id}/${message.channel.id}/${message.id}`;
   const formattedDate=new Intl.DateTimeFormat("it-IT",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false,}).format(message.createdAt);
+  let description = `${E.VC_Skully} **Aggiungi la reazione ${SKULL_EMOJI} a un messaggio per pubblicarlo nella SkullBoard**`;
+  let fieldAuthor = `${E.VC_User} Autore`;
+  let fieldChannel = `${E.VC_Channel} Canale`;
+  let fieldMessage = `${E.VC_Chat} Messaggio`;
+  let footer = formattedDate;
+  try {
+    const {
+      getBoardKindPresentationSync,
+      fillBoardTemplate,
+    } = require("../../Community/utils/boardsPresentation") as typeof import("../../Community/utils/boardsPresentation");
+    const pr = getBoardKindPresentationSync(message.guild.id, "skull");
+    const vars = {
+      date: formattedDate,
+      author: message.author.toString(),
+      channel: `<#${message.channel.id}>`,
+      source: messageLink,
+    };
+    description =
+      fillBoardTemplate(pr.embedDescription, vars) || description;
+    fieldAuthor = (pr.fieldAuthor || fieldAuthor).slice(0, 256);
+    fieldChannel = (pr.fieldChannel || fieldChannel).slice(0, 256);
+    fieldMessage = (pr.fieldMessage || fieldMessage).slice(0, 256);
+    footer = fillBoardTemplate(pr.embedFooter, vars) || footer;
+  } catch {
+    /* fallback live */
+  }
 
   return new EmbedBuilder()
     .setColor("#6f4e37")
@@ -261,17 +287,48 @@ function buildSkullEmbed(user?, message?, postImageName?) {
       name: memberDisplayName(message.member || message.author),
       iconURL: guildMemberDisplayAvatarUrlDynamic(message.member || message.author, { size: 64 }) || undefined,
     })
-    .setDescription(
-      `${E.VC_Skully} **Aggiungi la reazione ${SKULL_EMOJI} a un messaggio per pubblicarlo nella SkullBoard**`,
-    )
+    .setDescription(String(description).slice(0, 4096))
     .addFields(
-      { name: `${E.VC_User} Autore`, value: message.author.toString(), inline: true },
-      { name: `${E.VC_Channel} Canale`, value: `<#${message.channel.id}>`, inline: true },
-      { name: `${E.VC_Chat} Messaggio`, value: `[Cliccami](${messageLink})`, inline: true },
+      { name: fieldAuthor, value: message.author.toString(), inline: true },
+      { name: fieldChannel, value: `<#${message.channel.id}>`, inline: true },
+      { name: fieldMessage, value: `[Cliccami](${messageLink})`, inline: true },
     )
     .setImage(`attachment://${postImageName}`)
-    .setFooter({ text: formattedDate })
+    .setFooter({ text: String(footer).slice(0, 2048) })
     .setTimestamp(message.createdAt);
+}
+
+function buildSkullAckDescription({ guildId, siteBoard, channelId }) {
+  const channelMention = channelId ? `<#${channelId}>` : "";
+  try {
+    const {
+      getBoardKindPresentationSync,
+      fillBoardTemplate,
+    } = require("../../Community/utils/boardsPresentation") as typeof import("../../Community/utils/boardsPresentation");
+    const pr = getBoardKindPresentationSync(guildId, "skull");
+    const vars = { channel: channelMention };
+    if (siteBoard) {
+      return (
+        fillBoardTemplate(pr.ackDescriptionSite, vars) ||
+        `${E.VC_Skully} Il messaggio è stato appeso in **Bacheca** sul sito.`
+      );
+    }
+    if (channelId) {
+      return (
+        fillBoardTemplate(pr.ackDescriptionChannel, vars) ||
+        fillBoardTemplate(pr.ackDescription, vars) ||
+        `${E.VC_Skully} Il messaggio è stato pubblicato nel canale ${channelMention}.`
+      );
+    }
+    return (
+      fillBoardTemplate(pr.ackDescription, vars) ||
+      `${E.VC_Skully} Il messaggio è stato pubblicato nel canale ${channelMention}.`
+    );
+  } catch {
+    return siteBoard
+      ? `${E.VC_Skully} Il messaggio è stato appeso in **Bacheca** sul sito.`
+      : `${E.VC_Skully} Il messaggio è stato pubblicato nel canale ${channelMention}.`;
+  }
 }
 
 async function maybeBuildReplyReference(message?, skullboardChannel?) {
@@ -398,7 +455,13 @@ export = {
         await skullboardUpsert(message.guild.id, message.id, saved.itemId).catch(() => null);
         const siteConfirm = new EmbedBuilder()
           .setColor("#6f4e37")
-          .setDescription(`${E.VC_Skully} Il messaggio è stato appeso in **Bacheca** sul sito.`);
+          .setDescription(
+            buildSkullAckDescription({
+              guildId: message.guild.id,
+              siteBoard: true,
+              channelId: "",
+            }).slice(0, 4096),
+          );
         await message.channel
           .send({ embeds: [siteConfirm], components: [bachecaSite.buildBachecaLinkRow(saved.itemId, "Vai alla Bacheca") as any] })
           .catch(() => {});
@@ -423,7 +486,15 @@ export = {
 
       await skullboardUpsert(message.guild.id, message.id, postMessage.id).catch(() => null);
 
-      const confirmEmbed=new EmbedBuilder().setColor("#6f4e37").setDescription(`${E.VC_Skully} Il messaggio è stato pubblicato nel canale <#${skullChannelId}>.`);
+      const confirmEmbed = new EmbedBuilder()
+        .setColor("#6f4e37")
+        .setDescription(
+          buildSkullAckDescription({
+            guildId: message.guild.id,
+            siteBoard: false,
+            channelId: skullChannelId,
+          }).slice(0, 4096),
+        );
 
       const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Vai al Post").setEmoji(SKULL_EMOJI).setURL(postMessage.url),);
 

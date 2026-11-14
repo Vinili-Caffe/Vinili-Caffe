@@ -9,7 +9,13 @@ const { timedRepostQuery, syncBoardMessageComponents, applyBoardMessageRemovedSt
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const EPHEMERAL_FLAG = 1 << 6;
 
-function memberCanForceDeleteClip(member?) {
+function memberCanForceDeleteClip(member?, guildId?) {
+  try {
+    const { memberCanForceDeleteBoardItem } = require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation");
+    if (memberCanForceDeleteBoardItem(member, guildId, "clip")) return true;
+  } catch {
+    /* fallback sotto */
+  }
   if (!member?.roles?.cache) return false;
   const highStaffId = String(IDs.roles?.HighStaff || "").trim();
   const directorId = String(IDs.roles?.Director || "").trim();
@@ -17,6 +23,15 @@ function memberCanForceDeleteClip(member?) {
     (highStaffId && member.roles.cache.has(highStaffId)) ||
       (directorId && member.roles.cache.has(directorId)),
   );
+}
+
+function memberCanForceDeleteRepost(member?, guildId?) {
+  try {
+    const { memberCanForceDeleteBoardItem } = require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation");
+    return memberCanForceDeleteBoardItem(member, guildId, "repost");
+  } catch {
+    return memberCanForceDeleteClip(member, guildId);
+  }
 }
 
 async function deleteClipCompletely(guild?, boardChannelId?, boardMessageId?, userId?, options: Record<string, any> = {}) {
@@ -235,13 +250,16 @@ async function handleRepostRemoveButton(interaction?) {
   }
 
   const isClip = isClipRepostDoc(anchor);
-  const staffForce = isClip && memberCanForceDeleteClip(interaction.member);
+  const gid = String(interaction.guild.id || "");
+  const staffForce = isClip
+    ? memberCanForceDeleteClip(interaction.member, gid)
+    : memberCanForceDeleteRepost(interaction.member, gid);
 
   if (isClip) {
     const isAuthor = String(anchor.reposterUserId || "") === clickerId;
     if (!isAuthor && !staffForce) {
       return interaction.editReply({
-        content: `${E.vegax} Solo l'autore della clip (o High Staff) può rimuoverla.`,
+        content: `${E.vegax} Solo l'autore della clip (o chi ha il permesso) può rimuoverla.`,
       }).catch(() => null);
     }
 
@@ -260,6 +278,25 @@ async function handleRepostRemoveButton(interaction?) {
     }
     return interaction.editReply({
       content: `${E.VC_Verified} Clip rimossa.`,
+    }).catch(() => null);
+  }
+
+  const isAuthor = String(anchor.reposterUserId || "") === clickerId;
+  if (staffForce && !isAuthor) {
+    const result: any = await deleteUserRepostEntry({
+      guild: interaction.guild,
+      client: interaction.client,
+      repostId: String(anchor._id),
+      userId: clickerId,
+      forceStaff: true,
+    });
+    if (!result.ok) {
+      return interaction.editReply({
+        content: `${E.vegax} ${result.message || "Impossibile rimuovere."}`,
+      }).catch(() => null);
+    }
+    return interaction.editReply({
+      content: `${E.VC_Verified} Repost rimosso.`,
     }).catch(() => null);
   }
 

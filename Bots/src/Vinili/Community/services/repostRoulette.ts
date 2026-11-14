@@ -145,7 +145,12 @@ async function sendRepostRoulette(client?, guildId?) {
   const rouletteFiles = await resolveRepostMediaFilesForSend(guild, doc);
   const rouletteSendMedia = prepareRepostSendMedia({ imageUrl, files: rouletteFiles });
 
-  const embed = buildRouletteEmbed({ sourceUrl, text, imageUrl: rouletteSendMedia.embedImageUrl });
+  const embed = buildRouletteEmbed({
+    sourceUrl,
+    text,
+    imageUrl: rouletteSendMedia.embedImageUrl,
+    guildId,
+  });
   const repostId = String(doc._id);
 
   const roulettePayload: Record<string, any> = {

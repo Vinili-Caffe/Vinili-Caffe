@@ -44,21 +44,44 @@ function resolveReposterProfile(reposter?) {
   return { name: String(name).slice(0, 256), iconURL };
 }
 
-function buildShareAckEmbed({ reposterId, boardUrl, prefix }) {
+function buildShareAckEmbed({ reposterId, boardUrl, prefix, guildId, kind = "repost" }) {
   const safePrefix = String(prefix || "").trim() || "+";
-  const linkLine = boardUrl ? `» [Clicca qui per vedere il repost](${boardUrl})` : "» Repost salvato.";
+  const boardKind = kind === "clip" ? "clip" : "repost";
+  const linkLine = boardUrl
+    ? boardKind === "clip"
+      ? `» [Apri la clip](${boardUrl})`
+      : `» [Clicca qui per vedere il repost](${boardUrl})`
+    : boardKind === "clip"
+      ? "» Clip pubblicata."
+      : "» Repost salvato.";
   const ackPhrase = pickRepostAckPhrase();
-  const lines = [
-    `${REPOST_EMOJI} * . ˊ <@${reposterId}> ${ackPhrase}`,
-    "",
-    linkLine,
-  ];
-  const footerHint = `✧ * . ˊ ${safePrefix}repost`;
+  let description = "";
+  let footerHint = `✧ * . ˊ ${safePrefix}${boardKind === "clip" ? "clip" : "repost"}`;
+  try {
+    const {
+      getBoardKindPresentationSync,
+      fillBoardTemplate,
+    } = require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation");
+    const pr = getBoardKindPresentationSync(guildId, boardKind);
+    const vars = {
+      prefix: safePrefix,
+      reposter: `<@${reposterId}>`,
+      phrase: ackPhrase,
+      link: linkLine,
+    };
+    description = fillBoardTemplate(pr.ackDescription, vars);
+    footerHint = fillBoardTemplate(pr.ackFooter, vars) || footerHint;
+  } catch {
+    /* fallback sotto */
+  }
+  if (!description) {
+    description = [`${REPOST_EMOJI} * . ˊ <@${reposterId}> ${ackPhrase}`, "", linkLine].join("\n");
+  }
   const footerText = DEFAULT_FOOTER_TEXT ? `${footerHint} · ${DEFAULT_FOOTER_TEXT}` : footerHint;
   return new EmbedBuilder()
     .setColor(REPOST_COLOR)
-    .setDescription(lines.join("\n"))
-    .setFooter({ text: footerText });
+    .setDescription(String(description).slice(0, 4096))
+    .setFooter({ text: String(footerText).slice(0, 2048) });
 }
 
 function buildBoardEmbed({
@@ -71,55 +94,123 @@ function buildBoardEmbed({
   imageUrl,
   commandPrefix,
   imageOnly,
+  guildId,
+  kind = "repost",
 }) {
   const profile = resolveReposterProfile(reposter);
   const safePrefix = String(commandPrefix || "").trim() || "+";
-  const parts = [`di <@${reposterId}> 🎀`];
-  if (!imageOnly) {
-    const body = formatRepostBody(text);
-    if (body) parts.push("", body);
+  const boardKind = kind === "clip" ? "clip" : "repost";
+  let pr = null;
+  let fillBoardTemplate = (t?, _v?) => String(t || "");
+  try {
+    const boardsPresentation = require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation");
+    pr = boardsPresentation.getBoardKindPresentationSync(guildId, boardKind);
+    fillBoardTemplate = boardsPresentation.fillBoardTemplate;
+  } catch {
+    pr = null;
   }
-  parts.push("", `• [Clicca qui per andare al messaggio](${sourceUrl})`, "", `ɤ⌒➴ Autore del messaggio: <@${sourceAuthorId}>`);
+  const body = imageOnly ? "" : formatRepostBody(text);
+  const vars = {
+    prefix: safePrefix,
+    count: String(totalPosts ?? 0),
+    reposter: `<@${reposterId}>`,
+    author: `<@${sourceAuthorId}>`,
+    source: String(sourceUrl || ""),
+    text: String(text || "").trim(),
+    body,
+  };
+  let description = "";
+  let title = boardKind === "clip" ? `🆕 * . ˊ Nuova clip!` : `🆕 * . ˊ Nuovo repost!`;
+  let footer =
+    boardKind === "clip"
+      ? `† · ৎ Aggiungi una clip alla bacheca ⭐ usando il comando ${safePrefix}clip · Post #${totalPosts}`
+      : `† · ৎ Aggiungi un messaggio alla bacheca ⭐ usando il comando ${safePrefix}repost · Post #${totalPosts}`;
+  if (pr) {
+    title = fillBoardTemplate(pr.embedTitle, vars) || title;
+    description = fillBoardTemplate(pr.embedDescription, vars);
+    footer = fillBoardTemplate(pr.embedFooter, vars) || footer;
+  }
+  if (!description) {
+    const parts = [`di <@${reposterId}> 🎀`];
+    if (body) parts.push("", body);
+    parts.push("", `• [Clicca qui per andare al messaggio](${sourceUrl})`, "", `ɤ⌒➴ Autore del messaggio: <@${sourceAuthorId}>`);
+    description = parts.join("\n");
+  }
 
   const embed = new EmbedBuilder()
     .setColor(REPOST_COLOR)
     .setAuthor({ name: profile.name, iconURL: profile.iconURL || undefined })
-    .setTitle(`🆕 * . ˊ Nuovo repost!`)
-    .setDescription(parts.join("\n"))
-    .setFooter({
-      text: `† · ৎ Aggiungi un messaggio alla bacheca ⭐ usando il comando ${safePrefix}repost · Post #${totalPosts}`,
-    });
+    .setTitle(String(title).slice(0, 256))
+    .setDescription(String(description).slice(0, 4096))
+    .setFooter({ text: String(footer).slice(0, 2048) });
 
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
 }
 
-function buildRouletteEmbed({ sourceUrl, text, imageUrl }) {
-  const parts = [];
+function buildRouletteEmbed({ sourceUrl, text, imageUrl, guildId }) {
   const body = formatRepostBody(text);
-  if (body) parts.push(body);
-  parts.push(`• [Messaggio Originale](${sourceUrl})`);
+  let title = `${REPOST_EMOJI} * . ˊ Roulette dei Repost Passati`;
+  let description = "";
+  let footer = "† · ৎ Revival casuale dal database 🎲";
+  try {
+    const {
+      getBoardKindPresentationSync,
+      fillBoardTemplate,
+    } = require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation");
+    const pr = getBoardKindPresentationSync(guildId, "repost");
+    const vars = {
+      body,
+      source: String(sourceUrl || ""),
+      text: String(text || "").trim(),
+    };
+    title = fillBoardTemplate(pr.rouletteTitle, vars) || title;
+    description = fillBoardTemplate(pr.rouletteDescription, vars);
+    footer = fillBoardTemplate(pr.rouletteFooter, vars) || footer;
+  } catch {
+    /* fallback sotto */
+  }
+  if (!description) {
+    const parts = [];
+    if (body) parts.push(body);
+    parts.push(`• [Messaggio Originale](${sourceUrl})`);
+    description = parts.join("\n\n");
+  }
 
   const embed = new EmbedBuilder()
     .setColor(REPOST_COLOR)
-    .setTitle(`${REPOST_EMOJI} * . ˊ Roulette dei Repost Passati`)
-    .setDescription(parts.join("\n\n"))
-    .setFooter({ text: "† · ৎ Revival casuale dal database 🎲" });
+    .setTitle(String(title).slice(0, 256))
+    .setDescription(String(description).slice(0, 4096))
+    .setFooter({ text: String(footer).slice(0, 2048) });
 
   if (imageUrl) embed.setImage(imageUrl);
   return embed;
 }
 
-function buildRepostaSourceButtonRow(sourceChannelId?, sourceMessageId?, quotedAuthorId = "") {
+function boardButtonLabels(guildId?, kind = "repost") {
+  try {
+    const { getBoardKindPresentationSync } = require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation");
+    const pr = getBoardKindPresentationSync(guildId, kind === "clip" ? "clip" : "repost");
+    return {
+      repost: String(pr.buttonRepost || "Reposta").slice(0, 80),
+      remove: String(pr.buttonRemove || (kind === "clip" ? "Rimuovi clip" : "Rimuovi repost")).slice(0, 80),
+    };
+  } catch {
+    return { repost: "Reposta", remove: kind === "clip" ? "Rimuovi clip" : "Rimuovi repost" };
+  }
+}
+
+function buildRepostaSourceButtonRow(sourceChannelId?, sourceMessageId?, quotedAuthorId = "", guildId = "") {
   const sc = String(sourceChannelId || "").trim();
   const sm = String(sourceMessageId || "").trim();
   if (!sc || !sm) return null;
   const qa = String(quotedAuthorId || "").trim();
   const customId = `${REPOST_SRC_PREFIX}${sc}:${sm}${qa ? `:${qa}` : ""}`;
+  const labels = boardButtonLabels(guildId, "repost");
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(customId)
-      .setLabel("Reposta")
+      .setLabel(labels.repost)
       .setEmoji("1443652837346377841")
       .setStyle(ButtonStyle.Secondary),
   );
@@ -140,25 +231,27 @@ function buildAckRepostaComponents({ repostId, targetMessage, sourceAuthorId = "
   return row ? [row] : [];
 }
 
-function buildRepostaButton(repostId?) {
+function buildRepostaButton(repostId?, guildId = "", kind = "repost") {
+  const labels = boardButtonLabels(guildId, kind);
   return new ButtonBuilder()
     .setCustomId(`${REPOST_BTN_PREFIX}${repostId}`)
-    .setLabel("Reposta")
+    .setLabel(labels.repost)
     .setEmoji("1443652837346377841")
     .setStyle(ButtonStyle.Secondary);
 }
 
-function buildRepostaButtonRow(repostId?) {
-  return new ActionRowBuilder().addComponents(buildRepostaButton(repostId));
+function buildRepostaButtonRow(repostId?, guildId = "", kind = "repost") {
+  return new ActionRowBuilder().addComponents(buildRepostaButton(repostId, guildId, kind));
 }
 
 function buildRepostRemoveButton(repostId?, doc = null) {
   const rid = String(repostId || "").trim();
   if (!rid) return null;
   const isClip = isClipRepostDoc(doc);
+  const labels = boardButtonLabels(doc?.guildId, isClip ? "clip" : "repost");
   return new ButtonBuilder()
     .setCustomId(`${REPOST_REMOVE_PREFIX}${rid}`)
-    .setLabel(isClip ? "Rimuovi clip" : "Rimuovi repost")
+    .setLabel(labels.remove)
     .setEmoji("🗑️")
     .setStyle(ButtonStyle.Danger);
 }
@@ -166,7 +259,8 @@ function buildRepostRemoveButton(repostId?, doc = null) {
 function buildBoardMessageComponents(primaryRepostId?, doc?) {
   const rid = String(primaryRepostId || doc?._id || "").trim();
   if (!rid) return [];
-  const buttons = [buildRepostaButton(rid)];
+  const isClip = isClipRepostDoc(doc);
+  const buttons = [buildRepostaButton(rid, doc?.guildId, isClip ? "clip" : "repost")];
   if (doc) {
     const removeBtn = buildRepostRemoveButton(rid, doc);
     if (removeBtn) buttons.push(removeBtn);
