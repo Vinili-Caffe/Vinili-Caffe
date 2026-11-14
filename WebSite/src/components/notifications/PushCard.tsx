@@ -173,39 +173,41 @@ export function PushCard({ token, compact = false, className }: Props) {
   return (
     <div
       className={cn(
-        "mt-6 flex flex-wrap items-center gap-4 rounded-2xl p-5 ring-1",
+        "mt-6 flex flex-col gap-3 rounded-2xl p-4 ring-1 sm:gap-4 sm:p-5",
         on ? "bg-crema/[0.04] ring-sand/12" : "bg-caramel/10 ring-caramel/30",
         className,
       )}
     >
-      {on ? <BellRing className="size-6 shrink-0 text-ember" /> : <BellOff className="size-6 shrink-0 text-caramel" />}
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold">{on ? "Notifiche push attive su questo dispositivo" : "Notifiche push spente su questo dispositivo"}</p>
-        <p className="mt-0.5 text-sm text-crema/60">
-          {supported ? "Ricevi gli avvisi del sito anche a pagina chiusa." : "Questo browser non le supporta. Su iPhone aggiungi il sito alla schermata Home."}
-        </p>
-        {msg && <p className="mt-1 text-sm text-[#e2836f] light:text-[#a83a2c]">{msg}</p>}
-        {testLine}
+      <div className="flex min-w-0 items-start gap-3">
+        {on ? <BellRing className="mt-0.5 size-6 shrink-0 text-ember" /> : <BellOff className="mt-0.5 size-6 shrink-0 text-caramel" />}
+        <div className="min-w-0 flex-1">
+          <p className="text-pretty font-semibold leading-snug">
+            {on ? "Notifiche push attive su questo dispositivo" : "Notifiche push spente su questo dispositivo"}
+          </p>
+          <p className="mt-0.5 text-pretty text-sm leading-snug text-crema/60">
+            {supported ? "Ricevi gli avvisi del sito anche a pagina chiusa." : "Questo browser non le supporta. Su iPhone aggiungi il sito alla schermata Home."}
+          </p>
+          {msg && <p className="mt-1 text-sm text-[#e2836f] light:text-[#a83a2c]">{msg}</p>}
+          {testLine}
+        </div>
       </div>
-      {supported && on ? testButton("px-4 py-2 text-sm") : null}
-      {supported && on !== null && (
-        <button
-          type="button"
-          onClick={() => void toggle()}
-          disabled={busy}
-          className={cn(
-            "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60",
-            on ? "bg-crema/8 ring-1 ring-sand/25 hover:bg-crema/12" : "bg-gradient-to-r from-caramel to-ember text-ink",
-          )}
-        >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : on ? <BellOff className="size-4" /> : <BellRing className="size-4" />} {on ? "Disattiva" : "Attiva"}
-        </button>
-      )}
-      {on && android ? (
-        <div className="basis-full">
-          <AndroidPushTips kind={android} />
+      {supported && on !== null ? (
+        <div className="flex flex-wrap items-center gap-2 pl-9 sm:pl-9">
+          {on ? testButton("px-3.5 py-2 text-sm") : null}
+          <button
+            type="button"
+            onClick={() => void toggle()}
+            disabled={busy}
+            className={cn(
+              "inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60",
+              on ? "bg-crema/8 ring-1 ring-sand/25 hover:bg-crema/12" : "bg-gradient-to-r from-caramel to-ember text-ink",
+            )}
+          >
+            {busy ? <Loader2 className="size-4 animate-spin" /> : on ? <BellOff className="size-4" /> : <BellRing className="size-4" />} {on ? "Disattiva" : "Attiva"}
+          </button>
         </div>
       ) : null}
+      {on && android ? <AndroidPushTips kind={android} /> : null}
     </div>
   );
 }
