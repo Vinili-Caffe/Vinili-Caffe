@@ -654,6 +654,15 @@ function DiscordMessagePreviewBody({
         .map((r) => ({ kind: "buttons" as const, items: (byRow.get(r) || []).slice(0, 5).map((b) => ({ label: fillVars(b.label, vars), emoji: b.emoji, style: 5 as const })) }));
   const allRows = [...linkRows, ...rows];
   const time = new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  const attachments = (
+    <>
+      {audioAttachment ? <DiscordAudioCard {...audioAttachment} /> : null}
+      {attachmentUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={attachmentUrl} alt="" className="mb-1 mt-[2px] h-auto max-h-[300px] w-auto max-w-[400px] rounded-[8px] object-contain" />
+      ) : null}
+    </>
+  );
 
   return (
     <div translate="no" className={cn("overflow-hidden rounded-xl bg-[#313338] py-3 ring-1 ring-sand/10", className)}>
@@ -671,13 +680,11 @@ function DiscordMessagePreviewBody({
               <span className="ml-1 inline-flex h-[15px] items-center rounded-[3px] bg-[#5865f2] px-1 text-[10px] font-semibold leading-none text-white">APP</span>
               <span className="ml-2 text-[12px] leading-[22px] text-[#949ba4]">Oggi alle {time}</span>
             </p>
+            {/* Components V2: gli allegati non messi nei blocchi il bot li mette in cima */}
+            {v2.enabled ? attachments : null}
             {v2.enabled ? <V2Preview v2={v2} vars={vars} names={names} fill={fillVars} /> : null}
             {!v2.enabled && content ? <DiscordContent text={content} names={names} className="whitespace-pre-line text-[16px] leading-[22px]" /> : null}
-            {audioAttachment ? <DiscordAudioCard {...audioAttachment} /> : null}
-            {attachmentUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={attachmentUrl} alt="" className="mt-[2px] h-auto max-h-[300px] w-auto max-w-[400px] rounded-[8px] object-contain" />
-            ) : null}
+            {!v2.enabled ? attachments : null}
 
             {showEmbed ? (
               <div

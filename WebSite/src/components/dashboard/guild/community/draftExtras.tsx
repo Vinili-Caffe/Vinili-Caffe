@@ -367,7 +367,8 @@ function PreviewLinkButton({ b, fill, vars }: { b: V2LinkButton; fill: (s: strin
 export function V2Preview({ v2, vars, names, fill }: { v2: MsgV2; vars: Record<string, string>; names: Names; fill: (s: string, v: Record<string, string>) => string }) {
   const urlOf = (u: string) => {
     const v = fill(u || "", vars).trim();
-    return /^https?:\/\//i.test(v) ? v : "";
+    /* blob: = immagini d'esempio generate per l'anteprima (es. la quote del server) */
+    return /^(https?:\/\/|blob:)/i.test(v) ? v : "";
   };
   const body = (
     <div className="flex flex-col gap-2">
