@@ -6,7 +6,7 @@ import { motion } from "motion/react";
 import type { ComponentProps, MouseEvent, PointerEvent } from "react";
 import { useFxCap } from "@/components/effects/DeviceFxProvider";
 import { reportSiteEvent } from "@/lib/site-report";
-import { startNavProbe } from "@/lib/nav-probe";
+import { navProbeSnapshot, startNavProbe } from "@/lib/nav-probe";
 
 type Props = Omit<ComponentProps<"a">, "href"> & { href: string };
 
@@ -86,6 +86,7 @@ export function SmartLink({ href, onClick, onPointerDown, ...rest }: Props) {
         from: fromKey,
         online: navigator.onLine,
         conn: (navigator as Navigator & { connection?: { effectiveType?: string } }).connection?.effectiveType || null,
+        ...(navProbeSnapshot() || {}),
       });
       try {
         location.assign(dest);
