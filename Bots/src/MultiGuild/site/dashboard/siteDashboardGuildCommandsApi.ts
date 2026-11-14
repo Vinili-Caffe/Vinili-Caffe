@@ -144,6 +144,26 @@ function mergePermissionsJsonIntoCommands(guildId?, commands?, catalog?) {
   return out;
 }
 
+/*
+ * Discord aggiorna i permessi dei comandi slash con un po' di ritardo: rileggendoli subito dopo un salvataggio
+ * tornavano quelli vecchi e sovrascrivevano quanto appena salvato (categorie spente che risultavano accese
+ * finché non passava un po' o non le rispegnevi). Per i comandi cambiati da poco dalla dashboard vale il salvato.
+ */
+const LOCAL_SLASH_FRESH_MS = 15 * 60 * 1000;
+const localSlashChangedAt = new Map<string, number>();
+function markLocalSlashChange(guildId?, key?) {
+  localSlashChangedAt.set(`${guildId}:${key}`, Date.now());
+}
+function isLocalSlashFresh(guildId?, key?) {
+  const at = localSlashChangedAt.get(`${guildId}:${key}`) || 0;
+  if (!at) return false;
+  if (Date.now() - at > LOCAL_SLASH_FRESH_MS) {
+    localSlashChangedAt.delete(`${guildId}:${key}`);
+    return false;
+  }
+  return true;
+}
+
 async function buildCommandsResponse(client?, accessToken?, guildId?, opts: Record<string, any> = {}) {
   setCommandCatalogClient(client);
   const applicationId = resolveBotApplicationId(client);
@@ -151,7 +171,8 @@ async function buildCommandsResponse(client?, accessToken?, guildId?, opts: Reco
   let commands = getTenantCommandAclMapSync(guildId);
   let discordSync: any = { ok: true, warning: null };
 
-  const slashKeys = collectSlashKeys(guildId);
+  /* i comandi cambiati da poco dalla dashboard non si rileggono da Discord */
+  const slashKeys = collectSlashKeys(guildId).filter((key?) => !isLocalSlashFresh(guildId, key));
   /* Dopo un PATCH abbiamo già sync-ato verso Discord: rileggere e riscrivere
      può riportare permessi vecchi (eventual consistency) e “resettare” la UI. */
   if (slashKeys.length && accessToken && applicationId && botToken && opts.skipDiscordPull !== true) {
@@ -337,6 +358,7 @@ async function patchDashboardGuildCommands(client?, accessToken?, guildId?, body
   if (!saved.ok) {
     return fail(500, saved.reason || "persist_failed", reasonToMessage(saved.reason));
   }
+  for (const job of slashSyncJobs) markLocalSlashChange(access.guildId, job.key);
 
   await Promise.all([
     refreshTenantGuildSettingsCache().catch(() => null),
