@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Ban, Gamepad2, Gift, Megaphone, MessageSquare, Mic, Plus, RefreshCw, Search, Sparkles, Star, Timer, Trash2, TrendingUp, Trophy, UserRound, X, type LucideIcon } from "lucide-react";
+import { Ban, CalendarClock, Gamepad2, Gift, Loader2, Megaphone, MessageSquare, Mic, Play, Plus, RefreshCw, Search, Sparkles, Star, Timer, Trash2, TrendingUp, Trophy, UserRound, X, type LucideIcon } from "lucide-react";
 import { NumberField } from "@/components/ui/NumberField";
 import { MultiSelect, Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
-import { communityApi, type LevelsConfig, type LevelsEvent, type LevelsRoleMultiplier, type LevelsRoleReward, type LevelsUser, type LevelsUserAction, type PickerRole } from "@/lib/dashboard-community";
+import { communityApi, type LevelsConfig, type LevelsEvent, type LevelsRoleMultiplier, type LevelsRoleReward, type LevelsScheduledEvent, type LevelsUser, type LevelsUserAction, type PickerRole } from "@/lib/dashboard-community";
 import { searchTicketMembers, type MemberHit } from "@/lib/dashboard-guild-ops";
 import { Field, Notice, Pills, RowsSkeleton, StatusBadge, Toggle, TrackUnsaved, dangerBtn, dashPrimaryBtn, fieldClass, labelClass, miniBtn } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars } from "./shared";
@@ -48,7 +48,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn("relative overflow-hidden rounded-3xl bg-roast/70 p-4 ring-1 ring-sand/10 sm:p-5", className)}>
+    <section className={cn("relative rounded-3xl bg-roast/70 p-4 ring-1 ring-sand/10 sm:p-5", className)}>
       <div className="flex items-start gap-3">
         <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-2xl ring-1 transition", off ? "bg-crema/[0.04] text-crema/35 ring-sand/10" : "bg-[#826bc2]/15 text-[#b9a6f0] ring-[#826bc2]/30")}>
           <Icon className="size-[1.1rem]" aria-hidden />
@@ -128,6 +128,7 @@ export function LevelsPanel({
   const [announce, setAnnounce] = useState<"level" | "milestone">("level");
   const [isMain, setIsMain] = useState(false);
   const [event, setEvent] = useState<LevelsEvent | null>(null);
+  const [scheduled, setScheduled] = useState<LevelsScheduledEvent[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -139,6 +140,7 @@ export function LevelsPanel({
       setImported(r.data.imported === true);
       setIsMain(r.data.isMainGuild === true);
       setEvent(r.data.event || null);
+      setScheduled(r.data.scheduled || []);
     });
     return () => {
       alive = false;
@@ -307,7 +309,17 @@ export function LevelsPanel({
             </div>
           </Card>
 
-          <EventCard guildId={guildId} token={token} event={event} onEvent={setEvent} onToast={onToast} />
+          <EventCard
+            guildId={guildId}
+            token={token}
+            event={event}
+            scheduled={scheduled}
+            onChange={(e, list) => {
+              setEvent(e);
+              setScheduled(list);
+            }}
+            onToast={onToast}
+          />
 
           <Card icon={Ban} title="Esclusioni" text="Dove e per chi l'EXP non conta.">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -543,30 +555,50 @@ function timeLeft(ms: number) {
   return `${min}m`;
 }
 
-const EVENT_DURATIONS = [
-  { hours: 1, label: "1 ora" },
-  { hours: 3, label: "3 ore" },
-  { hours: 6, label: "6 ore" },
-  { hours: 24, label: "1 giorno" },
-  { hours: 72, label: "3 giorni" },
-  { hours: 168, label: "1 settimana" },
+const EVENT_UNITS = [
+  { value: "1", label: "minuti" },
+  { value: "60", label: "ore" },
+  { value: "1440", label: "giorni" },
 ];
+
+/** "2 giorni e 3 ore", "45 minuti" */
+function durationLabel(minutes: number) {
+  const d = Math.floor(minutes / 1440);
+  const h = Math.floor((minutes % 1440) / 60);
+  const m = Math.round(minutes % 60);
+  const parts = [d ? `${d} ${d === 1 ? "giorno" : "giorni"}` : "", h ? `${h} ${h === 1 ? "ora" : "ore"}` : "", m ? `${m} ${m === 1 ? "minuto" : "minuti"}` : ""].filter(Boolean);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} e ${parts[parts.length - 1]}` : parts[0] || "0 minuti";
+}
+
+const whenLabel = (ms: number) => new Date(ms).toLocaleString("it-IT", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/** valore per <input type="datetime-local"> (ora locale) */
+function toLocalInput(ms: number) {
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 function EventCard({
   guildId,
   token,
   event,
-  onEvent,
+  scheduled,
+  onChange,
   onToast,
 }: {
   guildId: string;
   token: string;
   event: LevelsEvent | null;
-  onEvent: (e: LevelsEvent) => void;
+  scheduled: LevelsScheduledEvent[];
+  onChange: (e: LevelsEvent, scheduled: LevelsScheduledEvent[]) => void;
   onToast: (msg: string, err?: boolean) => void;
 }) {
   const [multiplier, setMultiplier] = useState(2);
-  const [hours, setHours] = useState(24);
+  const [amount, setAmount] = useState(1);
+  const [unit, setUnit] = useState("1440");
+  const [when, setWhen] = useState<"now" | "later">("now");
+  const [startAt, setStartAt] = useState("");
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
@@ -577,42 +609,85 @@ function EventCard({
 
   const endsAt = event?.expiresAt ? new Date(event.expiresAt).getTime() : 0;
   const active = Boolean(event?.active && endsAt > now);
+  const minutes = Math.max(1, amount) * Number(unit);
+  const startMs = startAt ? new Date(startAt).getTime() : NaN;
+  const startOk = when === "now" || (Number.isFinite(startMs) && startMs > now);
+  const durationOk = minutes >= 5 && minutes <= 60 * 24 * 30;
 
-  const run = async (body: { multiplier: number; hours: number } | { stop: true }) => {
+  const run = async (body: Parameters<typeof communityApi.setLevelsEvent>[2], okMsg: string) => {
     setBusy(true);
     const r = await communityApi.setLevelsEvent(token, guildId, body);
     setBusy(false);
     if (!r.ok) return onToast(r.message, true);
-    onEvent(r.data.event);
-    setNow(Date.now());
-    onToast("stop" in body ? "Evento EXP chiuso." : `Evento ×${body.multiplier} avviato.`);
+    onChange(r.data.event, r.data.scheduled || []);
+    onToast(okMsg);
   };
+
+  const submit = () => {
+    if (when === "later") {
+      void run({ multiplier, minutes, startAt: new Date(startMs).toISOString() }, `Evento ×${multiplier} programmato per ${whenLabel(startMs)}.`);
+    } else {
+      void run({ multiplier, minutes }, `Evento ×${multiplier} avviato.`);
+    }
+  };
+
+  const label = "text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50";
 
   return (
     <Card
       icon={Timer}
       title="Evento EXP"
-      text="Un moltiplicatore in più per un periodo, sopra a tutto il resto. Si spegne da solo."
-      aside={active ? <StatusBadge tone="ok">attivo</StatusBadge> : <StatusBadge>nessuno</StatusBadge>}
+      text="Un moltiplicatore in più per un periodo, sopra a tutto il resto. Puoi farlo partire ora o programmarlo; si spegne da solo."
+      aside={active ? <StatusBadge tone="ok">attivo</StatusBadge> : scheduled.length ? <StatusBadge tone="accent">{scheduled.length} in programma</StatusBadge> : <StatusBadge>nessuno</StatusBadge>}
     >
       {active && event ? (
         <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-[#826bc2]/12 p-4 ring-1 ring-[#826bc2]/30">
           <p className="font-display text-4xl font-semibold text-crema lining-nums">×{event.multiplier}</p>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-crema">Mancano {timeLeft(endsAt - now)}</p>
-            <p className="text-xs text-crema/55">
-              Finisce {new Date(endsAt).toLocaleString("it-IT", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-            </p>
+            <p className="text-sm font-semibold text-crema">In corso · mancano {timeLeft(endsAt - now)}</p>
+            <p className="text-xs text-crema/55">Finisce {whenLabel(endsAt)}</p>
           </div>
-          <button type="button" className={dangerBtn} disabled={busy} onClick={() => void run({ stop: true })}>
+          <button type="button" className={dangerBtn} disabled={busy} onClick={() => void run({ stop: true }, "Evento EXP chiuso.")}>
             Chiudi ora
           </button>
         </div>
       ) : null}
 
-      <div className={cn("grid gap-3 sm:grid-cols-[12rem_minmax(0,1fr)]", active && "mt-4")}>
+      {scheduled.length ? (
+        <div className={cn(active && "mt-3")}>
+          <p className={cn(labelClass, "mb-2")}>In programma</p>
+          <ul className="space-y-2">
+            {scheduled.map((ev) => {
+              const s = new Date(ev.startAt).getTime();
+              return (
+                <li key={ev.id} className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+                  <span className="flex h-10 min-w-14 items-center justify-center rounded-xl bg-[#826bc2]/15 px-2 font-display text-lg font-semibold text-[#cdbdf7] ring-1 ring-[#826bc2]/25 lining-nums">×{ev.multiplier}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-crema">
+                      {whenLabel(s)} <span className="font-normal text-crema/50">· tra {timeLeft(s - now)}</span>
+                    </p>
+                    <p className="text-xs text-crema/55">
+                      Dura {durationLabel(ev.durationMs / 60_000)} · finisce {whenLabel(s + ev.durationMs)}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" className={miniBtn} disabled={busy} onClick={() => void run({ startNowId: ev.id }, `Evento ×${ev.multiplier} avviato adesso.`)}>
+                      <Play className="size-3.5" aria-hidden /> Parti ora
+                    </button>
+                    <button type="button" className={miniBtn} disabled={busy} onClick={() => void run({ cancelId: ev.id }, "Evento programmato annullato.")}>
+                      <X className="size-3.5" aria-hidden /> Annulla
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
+      <div className={cn("grid gap-3 lg:grid-cols-[auto_auto_minmax(0,1fr)]", (active || scheduled.length > 0) && "mt-4")}>
         <div className="rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Moltiplicatore</p>
+          <p className={label}>Moltiplicatore</p>
           <div className="mt-2 flex items-center gap-2">
             <div className="w-32">
               <NumberField className="!mt-0" value={multiplier} min={1.1} max={10} step={0.1} onChange={(v) => setMultiplier(Number(v) || 2)} aria-label="Moltiplicatore dell'evento" />
@@ -621,14 +696,51 @@ function EventCard({
           </div>
         </div>
         <div className="rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Durata</p>
-          <div className="mt-2">
-            <Pills value={String(hours)} onChange={(v) => setHours(Number(v))} ariaLabel="Durata dell'evento" options={EVENT_DURATIONS.map((d) => ({ id: String(d.hours), label: d.label }))} />
+          <p className={label}>Durata</p>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="w-32">
+              <NumberField className="!mt-0" value={amount} min={1} max={unit === "1" ? 43200 : unit === "60" ? 720 : 30} onChange={(v) => setAmount(Math.max(1, Math.floor(Number(v) || 1)))} aria-label="Durata dell'evento" />
+            </div>
+            <div className="w-28">
+              <Select value={unit} onChange={setUnit} options={EVENT_UNITS} className={cn(fieldClass, "!mt-0")} aria-label="Unità della durata" />
+            </div>
+          </div>
+        </div>
+        <div className="rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10">
+          <p className={label}>Quando</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Pills
+              value={when}
+              onChange={(v) => {
+                setWhen(v);
+                if (v === "later" && !startAt) setStartAt(toLocalInput(Math.ceil((Date.now() + 3_600_000) / 3_600_000) * 3_600_000));
+              }}
+              ariaLabel="Quando parte l'evento"
+              options={[
+                { id: "now", label: "Subito" },
+                { id: "later", label: "Programma", icon: CalendarClock },
+              ]}
+            />
+            {when === "later" ? (
+              <input
+                type="datetime-local"
+                value={startAt}
+                min={toLocalInput(now)}
+                onChange={(e) => setStartAt(e.target.value)}
+                className={cn(fieldClass, "!mt-0 h-10 w-auto [color-scheme:dark]")}
+                aria-label="Data e ora di inizio"
+              />
+            ) : null}
           </div>
         </div>
       </div>
-      <button type="button" className={cn(dashPrimaryBtn, "mt-3")} disabled={busy || multiplier < 1.05} onClick={() => void run({ multiplier, hours })}>
-        <Sparkles className="size-4" aria-hidden /> {active ? "Sostituisci l'evento" : "Avvia evento"} (×{multiplier} per {EVENT_DURATIONS.find((d) => d.hours === hours)?.label})
+      {!durationOk ? <p className="mt-2 text-xs text-[#e2836f]">La durata va da 5 minuti a 30 giorni.</p> : null}
+      {when === "later" && !startOk ? <p className="mt-2 text-xs text-[#e2836f]">Scegli una data futura.</p> : null}
+      <button type="button" className={cn(dashPrimaryBtn, "mt-3")} disabled={busy || multiplier < 1.05 || !durationOk || !startOk} onClick={submit}>
+        {when === "later" ? <CalendarClock className="size-4" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
+        {when === "later"
+          ? `Programma ×${multiplier} per ${durationLabel(minutes)}${startOk && Number.isFinite(startMs) ? ` · ${whenLabel(startMs)}` : ""}`
+          : `${active ? "Sostituisci l'evento" : "Avvia evento"} (×${multiplier} per ${durationLabel(minutes)})`}
       </button>
     </Card>
   );
@@ -638,7 +750,8 @@ function EventCard({
 
 function MemberSearch({ guildId, token, onPick }: { guildId: string; token: string; onPick: (m: MemberHit) => void }) {
   const [query, setQuery] = useState("");
-  const [hits, setHits] = useState<MemberHit[]>([]);
+  /* risultati con la ricerca a cui appartengono: così si sa se sta ancora cercando */
+  const [result, setResult] = useState<{ q: string; hits: MemberHit[] }>({ q: "", hits: [] });
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -646,13 +759,15 @@ function MemberSearch({ guildId, token, onPick }: { guildId: string; token: stri
     if (q.length < 2 && !/^\d{16,22}$/.test(q)) return;
     const timer = window.setTimeout(async () => {
       const res = await searchTicketMembers(token, guildId, q);
-      if (res.ok) setHits(res.data);
-    }, 280);
+      setResult({ q, hits: res.ok ? res.data : [] });
+    }, 200);
     return () => window.clearTimeout(timer);
   }, [query, token, guildId]);
 
   const q = query.trim();
-  const shown = q.length >= 2 || /^\d{16,22}$/.test(q) ? hits : [];
+  const valid = q.length >= 2 || /^\d{16,22}$/.test(q);
+  const searching = valid && result.q !== q;
+  const shown = valid && result.q === q ? result.hits : [];
 
   return (
     <div className="relative">
@@ -669,6 +784,10 @@ function MemberSearch({ guildId, token, onPick }: { guildId: string; token: stri
         className={cn(fieldClass, "!mt-0 h-11 py-0 pl-10")}
         aria-label="Cerca un membro"
       />
+      {searching ? <Loader2 className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-crema/45" aria-hidden /> : null}
+      {open && valid && !searching && !shown.length ? (
+        <p className="absolute inset-x-0 top-full z-20 mt-1 rounded-xl bg-mocha px-3 py-2.5 text-sm text-crema/55 shadow-xl ring-1 ring-sand/15">Nessun membro trovato per “{q}”.</p>
+      ) : null}
       {open && shown.length ? (
         <ul className="absolute inset-x-0 top-full z-20 mt-1 max-h-64 overflow-auto rounded-xl bg-mocha p-1 shadow-xl ring-1 ring-sand/15">
           {shown.map((m) => (
@@ -680,7 +799,7 @@ function MemberSearch({ guildId, token, onPick }: { guildId: string; token: stri
                 onClick={() => {
                   onPick(m);
                   setQuery("");
-                  setHits([]);
+                  setResult({ q: "", hits: [] });
                   setOpen(false);
                 }}
               >

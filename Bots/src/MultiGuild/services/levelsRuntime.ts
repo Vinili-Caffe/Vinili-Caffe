@@ -492,6 +492,93 @@ async function getExpEvent(guildId?: string) {
   }
 }
 
+/* ── eventi EXP programmati (partono da soli all'ora scelta) ── */
+type ScheduledExpEvent = { id: string; multiplier: number; durationMs: number; startAt: string; createdBy: string; createdAt: string };
+const MAX_SCHEDULED_EVENTS = 20;
+
+function normalizeScheduled(raw: unknown): ScheduledExpEvent[] {
+  const out: ScheduledExpEvent[] = [];
+  for (const r of Array.isArray(raw) ? raw : []) {
+    const multiplier = Number((r as any)?.multiplier);
+    const durationMs = Math.floor(Number((r as any)?.durationMs));
+    const start = new Date((r as any)?.startAt).getTime();
+    if (!Number.isFinite(multiplier) || multiplier < 1.05 || multiplier > 10) continue;
+    if (!Number.isFinite(durationMs) || durationMs < 60_000) continue;
+    if (!Number.isFinite(start)) continue;
+    out.push({
+      id: String((r as any)?.id || "").slice(0, 40) || Math.random().toString(36).slice(2, 12),
+      multiplier,
+      durationMs,
+      startAt: new Date(start).toISOString(),
+      createdBy: String((r as any)?.createdBy || ""),
+      createdAt: String((r as any)?.createdAt || new Date().toISOString()),
+    });
+  }
+  return out.sort((a, b) => a.startAt.localeCompare(b.startAt)).slice(0, MAX_SCHEDULED_EVENTS);
+}
+
+async function listScheduledEvents(guildId?: string, fresh = false): Promise<ScheduledExpEvent[]> {
+  const blob = await T.getGuildBlob("levelsEvents", String(guildId || ""), fresh).catch(() => null);
+  return normalizeScheduled(blob?.scheduled);
+}
+
+async function saveScheduledEvents(guildId: string, list: ScheduledExpEvent[]) {
+  await T.setGuildBlob("levelsEvents", guildId, list.length ? { scheduled: normalizeScheduled(list) } : null);
+}
+
+async function scheduleExpEvent(guildId?: string, ev: { multiplier: number; durationMs: number; startAt: string | number; actorId?: string } = {} as any) {
+  const gid = String(guildId || "");
+  const list = await listScheduledEvents(gid, true);
+  if (list.length >= MAX_SCHEDULED_EVENTS) return { ok: false, message: `Massimo ${MAX_SCHEDULED_EVENTS} eventi programmati.` };
+  const startAt = new Date(ev.startAt).toISOString();
+  list.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), multiplier: ev.multiplier, durationMs: ev.durationMs, startAt, createdBy: String(ev.actorId || ""), createdAt: new Date().toISOString() });
+  await saveScheduledEvents(gid, list);
+  return { ok: true, scheduled: await listScheduledEvents(gid, true) };
+}
+
+async function cancelScheduledEvent(guildId?: string, id?: string) {
+  const gid = String(guildId || "");
+  const list = await listScheduledEvents(gid, true);
+  await saveScheduledEvents(gid, list.filter((e) => e.id !== String(id)));
+  return listScheduledEvents(gid, true);
+}
+
+/** Fa partire subito un evento programmato (durata piena da adesso). */
+async function startScheduledEventNow(guildId?: string, id?: string) {
+  const gid = String(guildId || "");
+  const list = await listScheduledEvents(gid, true);
+  const ev = list.find((e) => e.id === String(id));
+  if (!ev) return null;
+  await saveScheduledEvents(gid, list.filter((e) => e.id !== ev.id));
+  return setExpEvent(gid, ev.multiplier, ev.durationMs);
+}
+
+/** Avvia gli eventi arrivati all'ora (finiscono comunque all'ora prevista: inizio + durata). */
+async function runDueScheduledEvents(guildId?: string) {
+  const gid = String(guildId || "");
+  if (!gid) return 0;
+  const list = await listScheduledEvents(gid, true);
+  const now = Date.now();
+  const due = list.filter((e) => new Date(e.startAt).getTime() <= now);
+  if (!due.length) return 0;
+  await saveScheduledEvents(gid, list.filter((e) => !due.includes(e)));
+  /* se ne scadono più insieme vale l'ultimo iniziato ancora in corso */
+  const live = due.filter((e) => new Date(e.startAt).getTime() + e.durationMs > now).sort((a, b) => b.startAt.localeCompare(a.startAt))[0];
+  if (live) await setExpEvent(gid, live.multiplier, new Date(live.startAt).getTime() + live.durationMs - now);
+  return due.length;
+}
+
+let eventTicker: NodeJS.Timeout | null = null;
+/** Controllo ogni 30 secondi degli eventi programmati del server principale (un solo processo lo avvia). */
+function startScheduledEventsTicker() {
+  if (eventTicker) return;
+  const IDs = require("../../Vinili/Config/ids") as typeof import("../../Vinili/Config/ids");
+  const tick = () => void runDueScheduledEvents(String(IDs.guilds.main || "")).catch(() => null);
+  eventTicker = setInterval(tick, 30_000);
+  eventTicker.unref?.();
+  tick();
+}
+
 async function setExpEvent(guildId?: string, multiplier?: number, durationMs?: number) {
   const { setTemporaryEventMultiplier } = require("../../Vinili/Level/services/expService") as typeof import("../../Vinili/Level/services/expService");
   /* fermarlo = moltiplicatore 1 che scade subito */
@@ -623,6 +710,12 @@ export = {
   getMinigameRewardsSync,
   getExpEvent,
   setExpEvent,
+  listScheduledEvents,
+  scheduleExpEvent,
+  cancelScheduledEvent,
+  startScheduledEventNow,
+  runDueScheduledEvents,
+  startScheduledEventsTicker,
   getUserLevel,
   mutateUserLevel,
   maxMultiplierForRoles,

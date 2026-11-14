@@ -122,8 +122,19 @@ function serializeMemberSearchHit(member?) {
   if (!/^\d{16,22}$/.test(id)) return null;
   const username = String(user?.username || "").trim();
   if (!username) return null;
-  return { id, username, label: username };
+  /* nome visibile nel server (soprannome → nome globale → username) */
+  const label = String(member?.nickname || member?.nick || user?.globalName || user?.global_name || username).trim() || username;
+  return { id, username, label };
 }
+
+/** Testi su cui cercare: username, nome globale, soprannome. */
+function memberSearchTexts(member?) {
+  const user = member?.user || member;
+  return [user?.username, user?.globalName, user?.global_name, member?.nickname, member?.nick].map((x?) => String(x || "").toLowerCase()).filter(Boolean);
+}
+
+const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T | null> =>
+  Promise.race([p.catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), ms))]);
 
 async function searchDashboardTicketTeamMembers(client?, accessToken?, guildId?, query: Record<string, any> = {}) {
   const access = await verifyDashboardGuildAccess(client, accessToken, guildId);
@@ -155,19 +166,39 @@ async function searchDashboardTicketTeamMembers(client?, accessToken?, guildId?,
     if (member) push(member);
   }
 
+  const needle = q.toLowerCase();
+  /* 1) membri già in memoria: subito, e cerca anche dentro il nome (non solo all'inizio) */
   try {
-    const found = await guild.members.fetch({ query: q.slice(0, 32), limit: 25 }).catch(() => null);
-    const source = found && typeof found.values === "function" ? found.values() : [];
-    for (const member of source) push(member);
+    for (const member of guild.members.cache?.values?.() || []) {
+      if (memberSearchTexts(member).some((t) => t.includes(needle))) push(member);
+      if (byId.size >= 25) break;
+    }
   } catch (_) {}
 
-  const needle = q.toLowerCase();
+  /* 2) ricerca di Discord via REST (veloce, funziona anche senza gateway); il gateway solo se fallisce.
+     Prima il gateway poteva restare appeso fino a 2 minuti nel processo del sito. */
+  if (byId.size < 10 && !/^\d{16,22}$/.test(q)) {
+    const { Routes } = require("discord.js") as typeof import("discord.js");
+    const rest: any = await withTimeout(
+      client.rest.get(Routes.guildMembersSearch(gid), { query: new URLSearchParams({ query: q.slice(0, 32), limit: "25" }) }) as Promise<any>,
+      4000,
+    );
+    if (Array.isArray(rest)) {
+      for (const raw of rest) push({ ...raw, id: raw?.user?.id, user: raw?.user });
+    } else {
+      const found: any = await withTimeout(guild.members.fetch({ query: q.slice(0, 32), limit: 25, time: 4000 }), 4500);
+      const source = found && typeof found.values === "function" ? found.values() : [];
+      for (const member of source) push(member);
+    }
+  }
+
   const members = [...byId.values()]
-    .filter((m?) => {
-      if (/^\d{16,22}$/.test(q) && m.id === q) return true;
-      return String(m.username || "").toLowerCase().includes(needle);
+    .sort((a?, b?) => {
+      /* prima chi inizia con il testo cercato */
+      const as = Number(!(a.username.toLowerCase().startsWith(needle) || a.label.toLowerCase().startsWith(needle)));
+      const bs = Number(!(b.username.toLowerCase().startsWith(needle) || b.label.toLowerCase().startsWith(needle)));
+      return as - bs || String(a.label).localeCompare(String(b.label), "it");
     })
-    .sort((a?, b?) => String(a.username).localeCompare(String(b.username), "it"))
     .slice(0, 25);
 
   return { ok: true, status: 200, guildId: gid, members, query: q };

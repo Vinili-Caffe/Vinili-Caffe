@@ -449,6 +449,14 @@ export type LevelsConfig = {
 
 export type LevelsEvent = { active: boolean; multiplier: number; expiresAt: string | null };
 
+export type LevelsScheduledEvent = { id: string; multiplier: number; durationMs: number; startAt: string; createdBy: string; createdAt: string };
+
+export type LevelsEventRequest =
+  | { multiplier: number; minutes: number; startAt?: string }
+  | { stop: true }
+  | { cancelId: string }
+  | { startNowId: string };
+
 export type LevelsUser = {
   userId: string;
   totalExp: number;
@@ -537,9 +545,9 @@ export const communityApi = {
     call<{ isMainGuild?: boolean; imported?: boolean; config: BirthdaysConfig; timezone?: string }>(t, g, `/birthdays?_=${Date.now()}`),
   saveBirthdays: (t: string, g: string, config: BirthdaysConfig) => call<{ config: BirthdaysConfig }>(t, g, "/birthdays", "PATCH", { config }),
   getLevels: (t: string, g: string) =>
-    call<{ isMainGuild?: boolean; imported?: boolean; config: LevelsConfig; event?: LevelsEvent }>(t, g, `/levels?_=${Date.now()}`),
+    call<{ isMainGuild?: boolean; imported?: boolean; config: LevelsConfig; event?: LevelsEvent; scheduled?: LevelsScheduledEvent[] }>(t, g, `/levels?_=${Date.now()}`),
   saveLevels: (t: string, g: string, config: LevelsConfig) => call<{ config: LevelsConfig }>(t, g, "/levels", "PATCH", { config }),
-  setLevelsEvent: (t: string, g: string, body: { multiplier: number; hours: number } | { stop: true }) => call<{ event: LevelsEvent }>(t, g, "/levels/event", "POST", body),
+  setLevelsEvent: (t: string, g: string, body: LevelsEventRequest) => call<{ event: LevelsEvent; scheduled?: LevelsScheduledEvent[] }>(t, g, "/levels/event", "POST", body),
   getLevelsUser: (t: string, g: string, userId: string) => call<{ user: LevelsUser }>(t, g, `/levels/user?id=${encodeURIComponent(userId)}&_=${Date.now()}`),
   mutateLevelsUser: (t: string, g: string, body: LevelsUserAction) => call<{ before: LevelsUser; user: LevelsUser; rolesSynced: boolean }>(t, g, "/levels/user", "POST", body),
   listGiveaways: (t: string, g: string) => call<{ giveaways: Giveaway[] }>(t, g, `/giveaways?_=${Date.now()}`),

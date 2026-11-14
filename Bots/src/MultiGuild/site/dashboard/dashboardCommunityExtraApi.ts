@@ -502,21 +502,55 @@ async function getLevels(client?, token?, guildId?) {
   if (!MS().moduleExists(a.guildId, "livelli")) return fail(404, "unavailable", "I livelli non sono disponibili su questo server.");
   const imported = await LVL().ensureMainSeed(a.guildId).catch(() => false);
   const config = await LVL().getConfig(a.guildId, true);
+  /* se il processo del bot è fermo, gli eventi arrivati all'ora partono comunque aprendo la dashboard */
+  await LVL().runDueScheduledEvents(a.guildId).catch(() => 0);
   const event = await LVL().getExpEvent(a.guildId);
-  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), imported, config, event };
+  const scheduled = await LVL().listScheduledEvents(a.guildId, true);
+  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), imported, config, event, scheduled };
 }
 
-/** Evento EXP a tempo: { multiplier, hours } per avviarlo, { stop: true } per chiuderlo. */
+/**
+ * Evento EXP a tempo.
+ *   { multiplier, minutes }            → parte subito
+ *   { multiplier, minutes, startAt }   → programmato
+ *   { stop: true }                     → chiude quello in corso
+ *   { cancelId } / { startNowId }      → annulla o fa partire subito un programmato
+ */
 async function setLevelsEvent(client?, token?, guildId?, body?) {
-  const a = await access(client, token, guildId);
+  const a: any = await access(client, token, guildId);
   if (!a.ok) return a;
   if (!MS().moduleExists(a.guildId, "livelli")) return fail(404, "unavailable", "I livelli non sono disponibili su questo server.");
-  if (body?.stop) return { ok: true, status: 200, event: await LVL().setExpEvent(a.guildId, 1, 0) };
+  const done = async (event?) => ({
+    ok: true,
+    status: 200,
+    event: event || (await LVL().getExpEvent(a.guildId)),
+    scheduled: await LVL().listScheduledEvents(a.guildId, true),
+  });
+  if (body?.stop) return done(await LVL().setExpEvent(a.guildId, 1, 0));
+  if (body?.cancelId) {
+    await LVL().cancelScheduledEvent(a.guildId, String(body.cancelId));
+    return done();
+  }
+  if (body?.startNowId) {
+    const ev = await LVL().startScheduledEventNow(a.guildId, String(body.startNowId));
+    if (!ev) return fail(404, "not_found", "Evento non trovato: forse è già partito.");
+    return done(ev);
+  }
   const multiplier = Number(body?.multiplier);
-  const hours = Number(body?.hours);
+  const minutes = body?.minutes != null ? Number(body.minutes) : Number(body?.hours) * 60;
   if (!Number.isFinite(multiplier) || multiplier < 1.05 || multiplier > 10) return fail(400, "bad_multiplier", "Il moltiplicatore va da ×1.05 a ×10.");
-  if (!Number.isFinite(hours) || hours < 0.25 || hours > 24 * 14) return fail(400, "bad_duration", "La durata va da 15 minuti a 14 giorni.");
-  return { ok: true, status: 200, event: await LVL().setExpEvent(a.guildId, multiplier, Math.round(hours * 3_600_000)) };
+  if (!Number.isFinite(minutes) || minutes < 5 || minutes > 60 * 24 * 30) return fail(400, "bad_duration", "La durata va da 5 minuti a 30 giorni.");
+  const durationMs = Math.round(minutes * 60_000);
+  if (body?.startAt) {
+    const start = new Date(body.startAt).getTime();
+    if (!Number.isFinite(start)) return fail(400, "bad_start", "Data di inizio non valida.");
+    if (start < Date.now() - 60_000) return fail(400, "bad_start", "La data di inizio è già passata.");
+    if (start > Date.now() + 365 * 86_400_000) return fail(400, "bad_start", "Puoi programmare al massimo un anno avanti.");
+    const out: any = await LVL().scheduleExpEvent(a.guildId, { multiplier, durationMs, startAt: start, actorId: a.userId });
+    if (!out.ok) return fail(400, "too_many", out.message);
+    return done();
+  }
+  return done(await LVL().setExpEvent(a.guildId, multiplier, durationMs));
 }
 
 /** EXP di un membro (scheda Utenti). */
