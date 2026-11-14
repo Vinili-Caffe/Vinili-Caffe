@@ -132,7 +132,9 @@ async function buildTenantProfilePayload(client?, userId?, guildIdArg?: string |
   const snapshot = await getTenantProfileSnapshot(guildId, userId, {
     client,
     langUserId: userId,
-    evaluateObjectives: false,
+    /* Sblocca count/classifica/flag quando apri il profilo partnership dalla dashboard o dal sito. */
+    evaluateObjectives: true,
+    refreshLeaderboard: true,
   });
   const [user, notifications] = await Promise.all([
     resolveProfileUser(client, userId),
@@ -210,7 +212,8 @@ async function applyTenantProfilePatch(client?, guildId?, userId?, body?) {
     const unlocked = await getTenantProfileSnapshot(guildId, gate.userId, {
       client,
       langUserId: gate.userId,
-      evaluateObjectives: false,
+      evaluateObjectives: true,
+      refreshLeaderboard: false,
     });
     const unlockedIds = new Set((unlocked.unlockedBadges || []).map((b?) => String(b.id)));
     const cleaned = [];
@@ -244,7 +247,8 @@ async function applyTenantProfilePatch(client?, guildId?, userId?, body?) {
     const unlocked = await getTenantProfileSnapshot(guildId, gate.userId, {
       client,
       langUserId: gate.userId,
-      evaluateObjectives: false,
+      evaluateObjectives: true,
+      refreshLeaderboard: false,
     });
     const unlockedIds = new Set((unlocked.unlockedBadges || []).map((b?) => String(b.id)));
     if (!unlockedIds.has(badgeId)) {

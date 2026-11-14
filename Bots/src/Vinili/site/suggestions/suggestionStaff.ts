@@ -1,12 +1,40 @@
 /** Suggerimenti: decisioni dello staff (accetta, rifiuta, decisione, elimina). */
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-const { suggestionBoardOf, sanitizeStaffReason } = require("./suggestionFields") as typeof import("./suggestionFields");
+const { suggestionBoardOf, sanitizeStaffReason, normalizeSuggestionKind } = require("./suggestionFields") as typeof import("./suggestionFields");
 const { broadcastSiteSuggestionsChanged } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");
 const { SG, memberCanModerateSuggestions, denyStaffBoardIfNeeded, deleteSuggestionFiles } = require("./suggestionFiles") as typeof import("./suggestionFiles");
 const { clipNotifBody, suggestionNotifOpenUrl, deleteSuggestionNotifications, notifySuggestionAuthor } = require("./suggestionNotify") as typeof import("./suggestionNotify");
 const { serializeSuggestion } = require("./suggestionSerialize") as typeof import("./suggestionSerialize");
+const { recordTenantBugReport } = require("../../Partner/services/tenantObjectiveService") as typeof import("../../Partner/services/tenantObjectiveService");
+
+async function maybeAwardBugHunterOnAccept(client?, guildId?, suggestionId?, authorId?, doc?) {
+  const uid = String(authorId || "").trim();
+  const sid = String(suggestionId || "").trim();
+  const gid = String(guildId || "").trim();
+  if (!client || !gid || !sid || !uid) return;
+  if (normalizeSuggestionKind(doc?.feedbackKind) !== "bug") return;
+  const claimed = await SiteDocument.findOneAndUpdate(
+    {
+      docType: SG,
+      _id: sid,
+      guildId: gid,
+      $or: [{ missionRewardGrantedAt: null }, { missionRewardGrantedAt: { $exists: false } }],
+    },
+    { $set: { missionRewardGrantedAt: new Date() } },
+    { new: true },
+  )
+    .select("_id")
+    .lean()
+    .catch(() => null);
+  if (!claimed) return;
+  try {
+    await recordTenantBugReport(client, gid, uid);
+  } catch (err) {
+    global.logger?.warn?.("[siteSuggestions] bug hunter mission:", err?.message || err);
+  }
+}
 
 async function staffAcceptSiteSuggestion(client?, payload: Record<string, any> = {}) {
   const accessToken = String(payload.accessToken || "").trim();
@@ -80,6 +108,7 @@ async function staffAcceptSiteSuggestion(client?, payload: Record<string, any> =
     } catch (errAuto) {
       global.logger?.warn?.("[siteSuggestionsApi] compiti auto accept:", errAuto?.message || errAuto);
     }
+    await maybeAwardBugHunterOnAccept(client, resolved.guild.id, suggestionId, authorAccept, updated);
   }
 
   broadcastSiteSuggestionsChanged();
@@ -248,6 +277,7 @@ async function staffSetSiteSuggestionDecision(client?, payload: Record<string, a
       } catch (errAuto) {
         global.logger?.warn?.("[siteSuggestionsApi] compiti auto:", errAuto?.message || errAuto);
       }
+      await maybeAwardBugHunterOnAccept(client, resolved.guild.id, suggestionId, authorId, updated);
     } else if (nextStatus === "rejected") {
       await notifySuggestionAuthor(resolved.guild.id, authorId, {
         title: "Suggerimento rifiutato",

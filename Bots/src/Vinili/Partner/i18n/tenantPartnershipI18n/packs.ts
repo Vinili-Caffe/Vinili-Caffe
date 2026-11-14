@@ -29,9 +29,9 @@ const BADGE_EN = {
   top_global_rank_1: { title: "Crown of the Chart", desc: "Reach #1 on the global top." },
   top_global_rank_3: { title: "Podium of Excellence", desc: "Reach a top-3 spot on the global top." },
   top_global_rank_10: { title: "World Elite", desc: "Reach a top-10 spot on the global top." },
-  bug_report_1: { title: "Bug Hunter I", desc: "Get 1 bot bug accepted." },
-  bug_report_5: { title: "Bug Hunter II", desc: "Get 5 bot bugs accepted." },
-  bug_report_10: { title: "Bug Hunter III", desc: "Get 10 bot bugs accepted." },
+  bug_report_1: { title: "Bug Hunter I", desc: "Get 1 bug accepted on /feedback/." },
+  bug_report_5: { title: "Bug Hunter II", desc: "Get 5 bugs accepted on /feedback/." },
+  bug_report_10: { title: "Bug Hunter III", desc: "Get 10 bugs accepted on /feedback/." },
 };
 
 const OBJECTIVE_EN = {
@@ -60,9 +60,9 @@ const OBJECTIVE_EN = {
   top_global_rank_1: { emoji: E.VC_Podio1, title: "Crown of the Chart", desc: "Reach #1 on the global top." },
   top_global_rank_3: { emoji: E.VC_Podio2, title: "Podium of Excellence", desc: "Reach a top-3 spot on the global top." },
   top_global_rank_10: { emoji: E.VC_Podio3, title: "World Elite", desc: "Reach a top-10 spot on the global top." },
-  bug_report_1: { emoji: E["2398shinyredbughunter"], title: "Bug Hunter I", desc: "Get 1 bot bug accepted on /feedback/." },
-  bug_report_5: { emoji: E["1757bugbusterbadgediscord"], title: "Bug Hunter II", desc: "Get 5 bot bugs accepted on /feedback/." },
-  bug_report_10: { emoji: E["5594shinypurplebughunter"], title: "Bug Hunter III", desc: "Get 10 bot bugs accepted on /feedback/." },
+  bug_report_1: { emoji: E["2398shinyredbughunter"], title: "Bug Hunter I", desc: "Get 1 bug accepted on /feedback/ (community or bot)." },
+  bug_report_5: { emoji: E["1757bugbusterbadgediscord"], title: "Bug Hunter II", desc: "Get 5 bugs accepted on /feedback/ (community or bot)." },
+  bug_report_10: { emoji: E["5594shinypurplebughunter"], title: "Bug Hunter III", desc: "Get 10 bugs accepted on /feedback/ (community or bot)." },
 };
 
 const UI_EN = {
@@ -332,9 +332,9 @@ const BADGE_IT = {
   top_global_rank_1: { title: "Corona della Classifica", desc: "Ottieni la prima posizione nella top mondiale." },
   top_global_rank_3: { title: "Podio d'Eccellenza", desc: "Ottieni una tra le prime 3 posizioni nella top mondiale." },
   top_global_rank_10: { title: "Elite Mondiale", desc: "Ottieni una tra le prime 10 posizioni nella top mondiale." },
-  bug_report_1: { title: "Cacciatore di Bug I", desc: "Fai accettare 1 bug del bot." },
-  bug_report_5: { title: "Cacciatore di Bug II", desc: "Fai accettare 5 bug del bot." },
-  bug_report_10: { title: "Cacciatore di Bug III", desc: "Fai accettare 10 bug del bot." },
+  bug_report_1: { title: "Cacciatore di Bug I", desc: "Fai accettare 1 bug su /feedback/." },
+  bug_report_5: { title: "Cacciatore di Bug II", desc: "Fai accettare 5 bug su /feedback/." },
+  bug_report_10: { title: "Cacciatore di Bug III", desc: "Fai accettare 10 bug su /feedback/." },
 };
 
 const OBJECTIVE_IT = {
@@ -363,9 +363,9 @@ const OBJECTIVE_IT = {
   top_global_rank_1: { emoji: E.VC_Podio1, title: "Corona della Classifica", desc: "Ottieni la prima posizione nella top mondiale." },
   top_global_rank_3: { emoji: E.VC_Podio2, title: "Podio d'Eccellenza", desc: "Ottieni una tra le prime 3 posizioni nella top mondiale." },
   top_global_rank_10: { emoji: E.VC_Podio3, title: "Elite Mondiale", desc: "Ottieni una tra le prime 10 posizioni nella top mondiale." },
-  bug_report_1: { emoji: E["2398shinyredbughunter"], title: "Cacciatore di Bug I", desc: "Fai accettare 1 bug del bot su /feedback/#bot." },
-  bug_report_5: { emoji: E["1757bugbusterbadgediscord"], title: "Cacciatore di Bug II", desc: "Fai accettare 5 bug del bot su /feedback/#bot." },
-  bug_report_10: { emoji: E["5594shinypurplebughunter"], title: "Cacciatore di Bug III", desc: "Fai accettare 10 bug del bot su /feedback/#bot." },
+  bug_report_1: { emoji: E["2398shinyredbughunter"], title: "Cacciatore di Bug I", desc: "Fai accettare 1 bug su /feedback/ (community o bot)." },
+  bug_report_5: { emoji: E["1757bugbusterbadgediscord"], title: "Cacciatore di Bug II", desc: "Fai accettare 5 bug su /feedback/ (community o bot)." },
+  bug_report_10: { emoji: E["5594shinypurplebughunter"], title: "Cacciatore di Bug III", desc: "Fai accettare 10 bug su /feedback/ (community o bot)." },
 };
 
 function tr(pack?) {

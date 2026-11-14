@@ -23,6 +23,23 @@ async function getDashboardPartnership(client?, accessToken?, guildId?, opts: Re
   const premium = isViniliFullFeatureGuild(access.guildId)
     ? { active: true, plan: "premium", until: null }
     : serializePremiumPublic(getTenantPremiumSync(access.guildId));
+  /* Aprire le impostazioni partnership aggiorna setup/desc/thank-you e le missioni da classifica. */
+  try {
+    const { hasThankYouEmbedContent } = require("../../Partner/runtime/partnershipThankYouEmbed") as typeof import("../../Partner/runtime/partnershipThankYouEmbed");
+    const flags = [];
+    if (config?.legacy === true || isPartnershipSetupComplete(config)) flags.push("setupDone");
+    if (config?.partnerDesc?.configured) flags.push("descSet");
+    if (hasThankYouEmbedContent(config?.thankYouEmbed)) flags.push("thankYouSet");
+    for (const flag of flags) {
+      void setTenantObjectiveFlag(client, access.guildId, access.userId, flag).catch(() => null);
+    }
+    const { evaluateTenantObjectives } = require("../../Partner/services/tenantObjectiveService") as typeof import("../../Partner/services/tenantObjectiveService");
+    void evaluateTenantObjectives(client, access.guildId, access.userId, {
+      refreshLeaderboard: true,
+      silent: true,
+      userId: access.userId,
+    }).catch(() => null);
+  } catch (_) {}
   let pickers = { textChannels: [], categories: [], roles: [] };
   try {
     pickers = await listGuildPickerData(client, access.guildId, {
@@ -328,19 +345,28 @@ async function patchDashboardPartnership(client?, accessToken?, guildId?, body?)
   const premium = isViniliFullFeatureGuild(gid)
     ? { active: true, plan: "premium", until: null }
     : serializePremiumPublic(getTenantPremiumSync(gid));
-    const objectiveFlags = [];
+  const { hasThankYouEmbedContent } = require("../../Partner/runtime/partnershipThankYouEmbed") as typeof import("../../Partner/runtime/partnershipThankYouEmbed");
+  const objectiveFlags = [];
   if (config?.legacy === true || isPartnershipSetupComplete(config)) {
     objectiveFlags.push("setupDone");
   }
   if (config?.partnerDesc?.configured) {
     objectiveFlags.push("descSet");
   }
-    if (config?.thankYouEmbed?.enabled === true && premium.active) {
+  if (hasThankYouEmbedContent(config?.thankYouEmbed)) {
     objectiveFlags.push("thankYouSet");
   }
   for (const flag of objectiveFlags) {
     void setTenantObjectiveFlag(client, gid, access.userId, flag).catch(() => null);
   }
+  try {
+    const { evaluateTenantObjectives } = require("../../Partner/services/tenantObjectiveService") as typeof import("../../Partner/services/tenantObjectiveService");
+    void evaluateTenantObjectives(client, gid, access.userId, {
+      refreshLeaderboard: true,
+      silent: true,
+      userId: access.userId,
+    }).catch(() => null);
+  } catch (_) {}
 
   const out: Record<string, any> = {
     ok: true,

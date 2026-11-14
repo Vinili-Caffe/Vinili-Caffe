@@ -167,7 +167,7 @@ async function partnerManagers(client?, guildId?, roleId?) {
     const rows: any[] = (await restGet(client, Routes.guildMembers(String(guildId)), { query: new URLSearchParams({ limit: "1000", after }) })) || [];
     if (!Array.isArray(rows) || !rows.length) break;
     for (const m of rows) {
-      if (!m?.user?.bot && Array.isArray(m.roles) && m.roles.includes(roleId) && isOnlyPmOnMain(guildId, m.roles)) {
+      if (!m?.user?.bot && Array.isArray(m.roles) && m.roles.includes(roleId)) {
         out.push({ userId: String(m.user.id), displayName: String(m.nick || m.user.global_name || m.user.username || ""), avatarUrl: memberAvatar(String(guildId), m) });
       }
     }
@@ -188,12 +188,18 @@ async function guildStaff(client?, req?, guildId?, targetId?) {
   }
   const roleId = await pmRoleOf(guildId);
   const m: any = roleId ? await memberOf(client, guildId, targetId) : null;
-  if (!roleId || !m || !Array.isArray(m.roles) || !m.roles.includes(roleId) || !isOnlyPmOnMain(guildId, m.roles)) {
+  if (!roleId || !m || !Array.isArray(m.roles) || !m.roles.includes(roleId)) {
     /* non è un errore: semplicemente non ha la tab (200, così la console del browser resta pulita) */
     return { status: 200, body: { ok: true, notPm: true, staff: null, message: "Non è Partner Manager in questo server." } };
   }
   const { getTenantProfileSnapshot } = require("../../Partner/services/tenantProfileProgressService") as any;
-  const snap: any = await getTenantProfileSnapshot(String(guildId), String(targetId), { client, evaluateObjectives: false }).catch(() => null);
+  const isSelf = String(viewerId) === String(targetId);
+  const snap: any = await getTenantProfileSnapshot(String(guildId), String(targetId), {
+    client,
+    /* Sul proprio tab staff: aggiorna missioni (partnership, classifica, flag). */
+    evaluateObjectives: isSelf,
+    refreshLeaderboard: isSelf,
+  }).catch(() => null);
   if (!snap) return { status: 503, body: { ok: false, error: "unavailable", message: "Statistiche non disponibili ora." } };
   /* partnership contate solo in questo server (+profile le conta su tutti) */
   try {
@@ -230,31 +236,12 @@ async function guildStaff(client?, req?, guildId?, targetId?) {
   };
 }
 
-/**
- * Sul principale il profilo partnership è solo di chi è Partner Manager e basta:
- * chi ha anche un ruolo dello staff (Helper, Mod, Staff, High Staff, Manager…) non ce l'ha.
- */
-function isOnlyPmOnMain(guildId?, roles: string[] = []) {
-  let IDs: any = null;
-  try {
-    IDs = require("../../Config/ids");
-  } catch (_) {
-    return true;
-  }
-  if (String(guildId || "") !== String(IDs?.guilds?.main || "")) return true;
-  const r = IDs?.roles || {};
-  const staff = [r.Founder, r.Manager, r.Admin, r.Director, r.HighStaff, r.SeniorModerator, r.Mod, r.Helper, r.Staff]
-    .map((x: unknown) => String(x || ""))
-    .filter(Boolean);
-  return !roles.some((id) => staff.includes(String(id)));
-}
-
-/** È Partner Manager in quel server? (modulo Partnership acceso, ruolo addosso, sul principale senza altri ruoli staff) */
+/** È Partner Manager in quel server? (modulo Partnership acceso e ruolo addosso; anche se ha altri ruoli staff). */
 async function isPartnerManagerIn(client?, guildId?, userId?) {
   const roleId = await pmRoleOf(guildId);
   if (!roleId) return false;
   const m: any = await memberOf(client, guildId, userId);
-  return Boolean(m && Array.isArray(m.roles) && m.roles.includes(roleId) && isOnlyPmOnMain(guildId, m.roles));
+  return Boolean(m && Array.isArray(m.roles) && m.roles.includes(roleId));
 }
 
 export = { sharedGuilds, guildProfile, guildStaff, memberOf, viewerIdOf, restGet, isPartnerManagerIn };

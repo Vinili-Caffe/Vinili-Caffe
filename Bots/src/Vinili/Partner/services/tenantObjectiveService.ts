@@ -354,9 +354,17 @@ async function syncObjectiveFlagsFromTenantState(client?, guildId?, userId?) {
       stats.flags.descSet = true;
       changed = true;
     }
-        if (config?.thankYouEmbed?.enabled === true && !stats.flags.thankYouSet) {
-      stats.flags.thankYouSet = true;
-      changed = true;
+    try {
+      const { hasThankYouEmbedContent } = require("../runtime/partnershipThankYouEmbed") as typeof import("../runtime/partnershipThankYouEmbed");
+      if (hasThankYouEmbedContent(config?.thankYouEmbed) && !stats.flags.thankYouSet) {
+        stats.flags.thankYouSet = true;
+        changed = true;
+      }
+    } catch (_) {
+      if (config?.thankYouEmbed?.enabled === true && !stats.flags.thankYouSet) {
+        stats.flags.thankYouSet = true;
+        changed = true;
+      }
     }
   }
   if (prefs.ephemeralCommands === true && !stats.flags.privacySet) {

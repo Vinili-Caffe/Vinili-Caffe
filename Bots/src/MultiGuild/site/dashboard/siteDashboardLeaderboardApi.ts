@@ -273,6 +273,17 @@ async function buildPartnershipLeaderboard(
   let self = null;
   try {
     if (category === "partners" && selfUserId) {
+      const evalGuildId = String(scopeGuildId || selfGuildId || "").trim();
+      if (evalGuildId && client) {
+        try {
+          const { evaluateTenantObjectives } = require("../../../Vinili/Partner/services/tenantObjectiveService") as typeof import("../../../Vinili/Partner/services/tenantObjectiveService");
+          await evaluateTenantObjectives(client, evalGuildId, selfUserId, {
+            refreshLeaderboard: true,
+            silent: true,
+            userId: selfUserId,
+          }).catch(() => null);
+        } catch (_) {}
+      }
       const entry = findRankEntry(rows, (r?) => String(r.userId) === String(selfUserId));
       if (entry) {
         self = await enrichPartnerRow(

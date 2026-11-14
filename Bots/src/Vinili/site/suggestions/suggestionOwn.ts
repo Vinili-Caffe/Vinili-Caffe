@@ -5,7 +5,6 @@ const { normalizeSuggestionBoard, validateSuggestionTopicTag, suggestionBoardOf,
 const { broadcastSiteSuggestionsChanged } = require("./siteSuggestionsBroadcast") as typeof import("./siteSuggestionsBroadcast");
 const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");
 const { guildMemberDisplayAvatarUrlDynamic, guildMemberDisplayAvatarUrlStatic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
-const { recordTenantBugReport } = require("../../Partner/services/tenantObjectiveService") as typeof import("../../Partner/services/tenantObjectiveService");
 const { resolveSiteAvatarUrl } = require("../../site/http/siteLiveAvatars") as typeof import("../../site/http/siteLiveAvatars");
 const { SG, denyStaffBoardIfNeeded, saveSuggestionImages, deleteSuggestionFiles } = require("./suggestionFiles") as typeof import("./suggestionFiles");
 const { suggestionNotifOpenUrl, notifyHighStaffNewSuggestion, deleteSuggestionNotifications, notifySuggestionAuthor } = require("./suggestionNotify") as typeof import("./suggestionNotify");
@@ -112,24 +111,7 @@ async function createSiteSuggestion(client?, payload: Record<string, any> = {}) 
     await doc.save().catch(() => null);
   }
 
-  if (kind === "bug") {
-    const claimed = await SiteDocument.findOneAndUpdate(
-      {
-        docType: SG,
-        _id: doc._id,
-        guildId: resolved.guild.id,
-        $or: [{ missionRewardGrantedAt: null }, { missionRewardGrantedAt: { $exists: false } }],
-      },
-      { $set: { missionRewardGrantedAt: new Date() } },
-      { new: true },
-    )
-      .select("_id")
-      .lean()
-      .catch(() => null);
-    if (claimed) {
-      void recordTenantBugReport(client, resolved.guild.id, resolved.userId).catch(() => null);
-    }
-  }
+  /* Missione Bug Hunter: credito solo all’accettazione staff (suggestionStaff). */
 
   await notifyHighStaffNewSuggestion(resolved.guild, doc, displayNameForMember(resolved.member));
   broadcastSiteSuggestionsChanged();
