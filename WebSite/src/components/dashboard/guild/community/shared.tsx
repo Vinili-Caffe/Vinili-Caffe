@@ -54,15 +54,22 @@ export const IMAGE_PLACEHOLDERS = [
   { token: "{serverbanner}", label: "Banner server", hint: "banner del server (se ne ha uno)" },
 ];
 
+/**
+ * Segnaposto immagine disponibili nell editor: di base foto utente e icone del server;
+ * una scheda può metterne altri (es. la Bacheca: {image} = l immagine della quote).
+ */
+export const ImagePlaceholdersContext = createContext<{ token: string; label: string; hint: string }[]>(IMAGE_PLACEHOLDERS);
+
 /** Campo immagine: link oppure uno dei segnaposto con un clic. */
 export function ImageUrlField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  const active = IMAGE_PLACEHOLDERS.find((p) => p.token === value);
+  const placeholders = useContext(ImagePlaceholdersContext);
+  const active = placeholders.find((p) => p.token === value);
   return (
     <div className="min-w-0">
       <span className={cn(labelClass, "block")}>{label}</span>
       <input value={value} onChange={(ev) => onChange(ev.target.value)} placeholder="https://…" aria-label={label} className={fieldClass} />
       <div className="mt-1.5 flex flex-wrap gap-1.5">
-        {IMAGE_PLACEHOLDERS.map((p) => (
+        {placeholders.map((p) => (
           <button
             key={p.token}
             type="button"
@@ -593,6 +600,7 @@ function DiscordMessagePreviewBody({
   rows = [],
   bot,
   attachmentUrl,
+  mentionNames,
   className,
 }: {
   draft: MsgDraft;
@@ -603,14 +611,16 @@ function DiscordMessagePreviewBody({
   bot?: { name: string; avatarUrl: string } | null;
   /** immagine allegata al messaggio (es. la quote), mostrata sopra l'embed come su Discord */
   attachmentUrl?: string | null;
+  /** nomi finti per le menzioni d esempio (<@id>, <#id>) */
+  mentionNames?: { users?: Record<string, string>; channels?: Record<string, string> };
   className?: string;
 }) {
   const previewUserId = String(vars["user.id"] || "").trim();
   const previewUserName = String(vars.username || vars["user.name"] || "").trim() || "tu";
   const names = {
-    users: previewUserId ? { [previewUserId]: previewUserName } : {},
+    users: { ...(previewUserId ? { [previewUserId]: previewUserName } : {}), ...(mentionNames?.users || {}) },
     roles: Object.fromEntries(roles.map((r) => [r.id, r.name])),
-    channels: Object.fromEntries(channels.map((c) => [c.id, c.name])),
+    channels: { ...Object.fromEntries(channels.map((c) => [c.id, c.name])), ...(mentionNames?.channels || {}) },
   };
   const content = fillVars(draft.content, vars).trim();
   const e = draft.embed;

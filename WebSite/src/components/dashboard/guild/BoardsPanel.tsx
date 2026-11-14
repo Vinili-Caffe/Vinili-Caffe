@@ -7,7 +7,6 @@ import {
   MessageSquareQuote,
   MessageSquareReply,
   Mic,
-  MousePointerClick,
   Repeat2,
   RotateCcw,
   Shuffle,
@@ -33,7 +32,7 @@ import {
   type SettingsPickers,
 } from "@/lib/dashboard-guild";
 import type { BachecaModuleTabId } from "../guildSections";
-import { DiscordMessagePreview, DraftEditor, EditorWithPreview, useCommunity, type PreviewRow } from "./community/shared";
+import { DiscordMessagePreview, DraftEditor, EditorWithPreview, EmojiGlyph, ImagePlaceholdersContext, useCommunity, type PreviewRow } from "./community/shared";
 import { QuoteStyleEditor } from "./QuoteStyleEditor";
 import {
   Field,
@@ -136,17 +135,21 @@ const KINDS: BoardKindId[] = ["quote", "repost", "clip", "skull"];
 /** colori degli embed come li manda il bot */
 const KIND_COLOR: Record<BoardKindId, string> = { quote: "#826bc2", repost: "#826bc2", clip: "#826bc2", skull: "#6f4e37" };
 
+/* menzioni d esempio: nelle anteprime appaiono come su Discord (@Mario, #bacheca) */
+const SAMPLE_IDS = { mario: "100000000000000001", luigi: "100000000000000002", channel: "100000000000000003" };
+const SAMPLE_NAMES = { users: { [SAMPLE_IDS.mario]: "Mario", [SAMPLE_IDS.luigi]: "Luigi" }, channels: { [SAMPLE_IDS.channel]: "bacheca" } };
+
 function sampleVars(kind: BoardKindId, prefix: string, image: string): Record<string, string> {
   return {
     prefix,
     count: kind === "quote" ? "128" : "42",
-    author: "@Mario",
-    creator: "@Luigi",
-    reposter: "@Luigi",
+    author: `<@${SAMPLE_IDS.mario}>`,
+    creator: `<@${SAMPLE_IDS.luigi}>`,
+    reposter: `<@${SAMPLE_IDS.luigi}>`,
     body: "» *Esempio di messaggio in bacheca…*",
     source: "https://discord.com/channels/0/0/0",
     text: "Esempio di messaggio in bacheca…",
-    channel: kind === "clip" ? "Chiacchiere" : "#bacheca",
+    channel: kind === "clip" ? "Chiacchiere" : `<#${SAMPLE_IDS.channel}>`,
     date: "14/11/2026, 11:30",
     phrase: "ha salvato un momento iconico!",
     link: "» [Clicca qui per vedere il repost](https://discord.com/channels/0/0/0)",
@@ -253,7 +256,7 @@ const SLOT_TEXT: Record<BoardKindId, Record<BoardDraftSlot, string>> = {
 
 /* ───────────────────────── editor di una funzione ───────────────────────── */
 
-type Section = BoardDraftSlot | "buttons" | "style";
+type Section = BoardDraftSlot | "style";
 
 function KindEditor({
   kind,
@@ -285,29 +288,85 @@ function KindEditor({
   const meta = KIND_META[kind];
   const [section, setSection] = useState<Section>("post");
   const set = <K extends keyof BoardKindPresentation>(key: K, next: BoardKindPresentation[K]) => onChange({ ...value, [key]: next });
-  const text = (key: "buttonRepost" | "buttonRemove", label: string) => (
+  /* un pulsante del bot: com'è su Discord + il suo testo */
+  const botButton = (key: "buttonRepost" | "buttonRemove", label: string, tone: "grey" | "red", emoji: string) => (
     <Field label={label}>
-      <input type="text" value={value[key]} disabled={disabled} maxLength={80} onChange={(e) => set(key, e.target.value)} className={cn(fieldClass, "mt-1.5")} />
+      <div className="mt-1.5 flex items-center gap-2">
+        <span
+          className={cn("inline-flex h-9 shrink-0 items-center rounded-lg px-2.5", tone === "red" ? "bg-[#da373c]" : "bg-[#4e5058]")}
+          aria-hidden
+        >
+          <EmojiGlyph value={emoji} className="size-[18px]" />
+        </span>
+        <input type="text" value={value[key]} disabled={disabled} maxLength={80} onChange={(e) => set(key, e.target.value)} className={fieldClass} />
+      </div>
     </Field>
   );
+
+  /* sotto ogni messaggio: i pulsanti che il bot ci mette (e, nel post, chi può cancellare) */
+  const botButtonsBox = (slot: BoardDraftSlot) => {
+    const repostHere = slot === "roulette" || (slot === "post" && kind !== "skull") || (slot === "reply" && (kind === "quote" || kind === "repost"));
+    const removeHere = slot === "post" && kind !== "skull";
+    const skullLink = slot === "reply" && kind === "skull";
+    if (!repostHere && !removeHere && !skullLink && slot !== "post") return null;
+    return (
+      <FormGroup
+        title="Pulsanti del bot"
+        description="Il bot li mette sempre sotto il messaggio, dopo i tuoi pulsanti link: qui ne cambi il testo. Il testo vale per tutti i messaggi di questa funzione."
+      >
+        <div className="space-y-4">
+          {repostHere || removeHere ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {repostHere ? botButton("buttonRepost", "Reposta", "grey", "<a:reddiamond:1443652837346377841>") : null}
+              {removeHere ? botButton("buttonRemove", "Rimuovi", "red", "🗑️") : null}
+            </div>
+          ) : null}
+          {skullLink ? <p className="text-xs text-crema/60">Sotto la conferma c&apos;è il pulsante 💀 &quot;Vai al Post&quot;, che porta al messaggio nella skullboard.</p> : null}
+          {slot === "post" ? (
+            <div className={cn(repostHere || removeHere ? "border-t border-sand/[0.08] pt-4" : "")}>
+              <Field
+                label={kind === "skull" ? "Chi può togliere i post dalla skullboard" : "Chi può usare Rimuovi sui post degli altri"}
+                hint="L'autore può sempre togliere i propri post, e chi amministra il server o gestisce i messaggi può togliere tutto. Qui aggiungi altri ruoli."
+              >
+                <MultiSelect
+                  value={value.deleteRoleIds}
+                  disabled={disabled}
+                  onChange={(ids) => set("deleteRoleIds", ids.slice(0, 25))}
+                  className={cn(fieldClass, "mt-1.5")}
+                  options={roles.map((r) => ({ value: r.id, label: `@${r.name}` }))}
+                  placeholder="Nessun ruolo in più"
+                />
+              </Field>
+            </div>
+          ) : null}
+        </div>
+      </FormGroup>
+    );
+  };
 
   const slots: BoardDraftSlot[] = kind === "repost" ? ["post", "reply", "roulette"] : ["post", "reply"];
   const slotLabel: Record<BoardDraftSlot, string> = { post: kind === "skull" ? "Post in skullboard" : "Post in bacheca", reply: kind === "skull" ? "Conferma" : "Risposta al comando", roulette: "Roulette" };
   const slotIcon: Record<BoardDraftSlot, LucideIcon> = { post: meta.icon, reply: MessageSquareReply, roulette: Shuffle };
   const sections: { id: Section; label: string; icon: LucideIcon; dot?: string }[] = [
     ...slots.map((s) => ({ id: s as Section, label: slotLabel[s], icon: slotIcon[s], dot: value.drafts?.[s] ? meta.accent : undefined })),
-    { id: "buttons", label: "Pulsanti e permessi", icon: MousePointerClick },
     ...(styleSlot ? [{ id: "style" as const, label: "Stile immagine", icon: Sparkles }] : []),
   ];
 
-  const vars = sampleVars(kind, prefix, sampleImage);
+  const vars = { ...sampleVars(kind, prefix, sampleImage), avatar: bot?.avatarUrl || "" };
   /* per l anteprima bastano id e nome */
   const previewRoles = roles.map((r) => ({ ...r, color: null, position: 0 }));
-  const placeholders = [
-    ...meta.placeholders,
-    ...(kind === "clip" ? [] : [{ token: "{image}", hint: kind === "quote" ? "immagine della quote" : "immagine del messaggio" }]),
-    { token: "{url}", hint: "link al post (risposte)" },
-  ];
+  const placeholders = [...meta.placeholders, { token: "{url}", hint: "link al post (risposte)" }];
+  /* nei campi immagine: l immagine della quote / della skull / del messaggio, da mettere dove vuoi (anche più volte) */
+  const imagePlaceholders =
+    kind === "clip"
+      ? [{ token: "{avatar}", label: "Foto di chi ha fatto la clip", hint: "foto profilo di chi ha usato +clip" }]
+      : [
+          {
+            token: "{image}",
+            label: kind === "quote" ? "Immagine della quote" : kind === "skull" ? "Immagine della skull" : "Immagine del messaggio",
+            hint: kind === "repost" ? "l immagine del messaggio salvato, se ce l ha" : "l immagine generata dal bot, allegata al messaggio",
+          },
+        ];
 
   const slotEditor = (slot: BoardDraftSlot) => {
     const saved = value.drafts?.[slot] ?? null;
@@ -333,21 +392,19 @@ function KindEditor({
                 </button>
               ) : null}
             </div>
-            <DraftEditor
-              key={`${kind}-${slot}`}
-              value={draft}
-              onChange={(d) => set("drafts", { ...value.drafts, [slot]: d })}
-              emojis={emojis}
-              placeholders={placeholders}
-            />
-            <p className="text-xs text-crema/50">
-              {slot === "reply" && kind === "clip"
-                ? "Sotto il messaggio puoi aggiungere i tuoi pulsanti link."
-                : "I pulsanti del bot (Reposta, Rimuovi…) si aggiungono da soli sotto il messaggio: il loro testo si cambia in Pulsanti e permessi."}
-            </p>
+            <ImagePlaceholdersContext.Provider value={imagePlaceholders}>
+              <DraftEditor
+                key={`${kind}-${slot}`}
+                value={draft}
+                onChange={(d) => set("drafts", { ...value.drafts, [slot]: d })}
+                emojis={emojis}
+                placeholders={placeholders}
+              />
+            </ImagePlaceholdersContext.Provider>
+            {botButtonsBox(slot)}
           </div>
         }
-        preview={<DiscordMessagePreview noTest bot={bot} draft={draft} vars={vars} roles={previewRoles} channels={channels} rows={botRows(kind, slot, value)} attachmentUrl={attachment || null} />}
+        preview={<DiscordMessagePreview mentionNames={SAMPLE_NAMES} noTest bot={bot} draft={draft} vars={vars} roles={previewRoles} channels={channels} rows={botRows(kind, slot, value)} attachmentUrl={attachment || null} />}
       />
     );
   };
@@ -370,46 +427,6 @@ function KindEditor({
       </div>
 
       {section === "post" || section === "reply" || section === "roulette" ? slotEditor(section) : null}
-
-      {section === "buttons" ? (
-        <EditorWithPreview
-          editor={
-            <div className="space-y-4">
-              <FormGroup title="Pulsanti del bot" description="Il testo dei pulsanti che il bot mette sotto i post (massimo 80 caratteri).">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {kind !== "skull" ? text("buttonRepost", "Pulsante repost") : null}
-                  {text("buttonRemove", "Pulsante rimuovi")}
-                </div>
-              </FormGroup>
-              <FormGroup
-                title="Chi può cancellare"
-                description="L'autore può sempre togliere i propri post, e chi amministra il server o gestisce i messaggi può togliere tutto. Qui aggiungi altri ruoli che possono togliere anche i post degli altri."
-              >
-                <MultiSelect
-                  value={value.deleteRoleIds}
-                  disabled={disabled}
-                  onChange={(ids) => set("deleteRoleIds", ids.slice(0, 25))}
-                  className={fieldClass}
-                  options={roles.map((r) => ({ value: r.id, label: `@${r.name}` }))}
-                  placeholder="Nessun ruolo in più"
-                />
-              </FormGroup>
-            </div>
-          }
-          preview={
-            <DiscordMessagePreview
-              noTest
-              bot={bot}
-              draft={value.drafts?.post ?? defaultDraft(kind, "post", value)}
-              vars={vars}
-              roles={previewRoles}
-              channels={channels}
-              rows={botRows(kind, "post", value)}
-              attachmentUrl={kind === "quote" && !JSON.stringify(value.drafts?.post ?? "").includes("{image}") ? sampleImage || null : null}
-            />
-          }
-        />
-      ) : null}
 
       {section === "style" ? styleSlot : null}
     </div>
