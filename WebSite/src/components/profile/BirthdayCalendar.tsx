@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { Cake, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { setChromeOpen } from "@/lib/chrome-open";
@@ -100,7 +101,9 @@ export function BirthdayCalendar({
   const monthTitle = monthLabelIt(month);
   const viewData = data && data.month === month && data.year === year ? data : null;
 
-  return (
+  /* sopra tutta la pagina: dentro la testata (che si inclina) restava sotto i riquadri del profilo staff */
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -180,7 +183,8 @@ export function BirthdayCalendar({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 
