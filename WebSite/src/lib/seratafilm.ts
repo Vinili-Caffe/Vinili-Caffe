@@ -16,13 +16,13 @@ export const SERATA_EVENT: SerataEvent = {
   recurring: { weekday: 6, hour: 21, minute: 0 },
   /** Vuoto = sabato 21:00 Europe/Rome (recurring). Imposta ISO solo per una data fissa. */
   overrideIso: "",
-  filmTitle: "Perfetti sconosciuti",
+  filmTitle: "Chiamami col tuo nome",
   nextFilmTitle: "",
 };
 
 /** Locandina sul player — sempre da CDN (`vc-media`). */
 export const FILM_POSTER =
-  "https://cdn.viniliecaffe.it/images/seratafilm/perfetti-sconosciuti-poster.jpg?v=20261107ps1";
+  "https://cdn.viniliecaffe.it/images/seratafilm/chiamami-col-tuo-nome-poster.jpg?v=20261114cm1";
 
 /** Skip titoli di coda (disattivato). */
 export const CREDITS_SKIP = {

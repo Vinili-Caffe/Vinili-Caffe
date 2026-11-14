@@ -1,0 +1,7 @@
+﻿*.mp4
+.env.r2
+.env
+Bots/node_modules
+Bots/build
+**/*.mp4
+Watch *
