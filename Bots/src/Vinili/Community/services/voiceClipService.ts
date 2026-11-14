@@ -270,16 +270,22 @@ function buildClipAckEmbed({ requesterId, boardUrl, voiceChannelName, durationSe
     linkLine,
   ].join("\n");
   let footer = `✧ * . ˊ ${safePrefix}clip`;
+  let clipPhrase = `ha pubblicato un clip vocale da **${voiceChannelName}** (${durationSec}s).`;
   try {
     const {
       getBoardKindPresentationSync,
       fillBoardTemplate,
     } = require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation");
     const pr = getBoardKindPresentationSync(guildId, "clip");
+    const { pickRepostAckPhrase } = require("../utils/repostAckPhrases") as typeof import("../utils/repostAckPhrases");
+    clipPhrase = fillBoardTemplate(pickRepostAckPhrase(guildId, "clip"), {
+      channel: String(voiceChannelName || ""),
+      duration: String(durationSec ?? ""),
+    });
     const vars = {
       prefix: safePrefix,
       reposter: `<@${requesterId}>`,
-      phrase: `ha pubblicato un clip vocale da **${voiceChannelName}** (${durationSec}s).`,
+      phrase: clipPhrase,
       link: linkLine,
       channel: String(voiceChannelName || ""),
       duration: String(durationSec ?? ""),
@@ -304,7 +310,7 @@ function buildClipAckEmbed({ requesterId, boardUrl, voiceChannelName, durationSe
       vars: {
         prefix: safePrefix,
         reposter: `<@${requesterId}>`,
-        phrase: `ha pubblicato un clip vocale da **${voiceChannelName}** (${durationSec}s).`,
+        phrase: clipPhrase,
         link: linkLine,
         channel: String(voiceChannelName || ""),
         duration: String(durationSec ?? ""),

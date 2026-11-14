@@ -293,24 +293,52 @@ const REPOST_ACK_PHRASES = [
 
 const { randomInt } = require("crypto") as typeof import("crypto");
 
-let phraseBag = [];
+/* un "sacchetto" per server e funzione: escono tutte prima di ripetersi */
+const bags = new Map<string, { sig: string; bag: string[] }>();
 
-function shufflePhraseBag() {
-  phraseBag = REPOST_ACK_PHRASES.slice();
-  for (let i = phraseBag.length - 1; i > 0; i -= 1) {
+function shuffled(list: string[]) {
+  const out = list.slice();
+  for (let i = out.length - 1; i > 0; i -= 1) {
     const j = randomInt(0, i + 1);
-    const tmp = phraseBag[i];
-    phraseBag[i] = phraseBag[j];
-    phraseBag[j] = tmp;
+    const tmp = out[i];
+    out[i] = out[j];
+    out[j] = tmp;
   }
+  return out;
 }
 
-function pickRepostAckPhrase() {
-  if (!REPOST_ACK_PHRASES.length) return "ha repostato questo messaggio.";
-  if (!phraseBag.length) shufflePhraseBag();
-  return phraseBag.pop();
+/** Frasi del server per {phrase} (Bacheca › Repost/Clip in dashboard); senza, quelle predefinite. */
+function phrasesFor(guildId?: string, kind = "repost"): string[] {
+  try {
+    const { getBoardKindPresentationSync } = require("./boardsPresentation") as typeof import("./boardsPresentation");
+    const list = (getBoardKindPresentationSync(guildId, kind) as any)?.phrases;
+    if (Array.isArray(list) && list.length) return list;
+  } catch {
+    /* predefinite */
+  }
+  return kind === "clip" ? CLIP_ACK_PHRASES : REPOST_ACK_PHRASES;
 }
+
+function pickRepostAckPhrase(guildId?: string, kind = "repost") {
+  const list = phrasesFor(guildId, kind);
+  if (!list.length) return "ha repostato questo messaggio.";
+  const key = `${guildId || ""}:${kind}`;
+  const sig = list.join("\n");
+  let entry = bags.get(key);
+  /* lista cambiata dalla dashboard: si ricomincia col sacchetto nuovo */
+  if (!entry || entry.sig !== sig) {
+    entry = { sig, bag: [] };
+    bags.set(key, entry);
+  }
+  if (!entry.bag.length) entry.bag = shuffled(list);
+  return entry.bag.pop() || list[0];
+}
+
+/** Clip: la frase predefinita di sempre ({channel} e {duration} si riempiono dopo). */
+const CLIP_ACK_PHRASES = ["ha pubblicato un clip vocale da **{channel}** ({duration}s)."];
 
 export = {
+  REPOST_ACK_PHRASES,
+  CLIP_ACK_PHRASES,
   pickRepostAckPhrase,
 };

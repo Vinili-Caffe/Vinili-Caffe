@@ -66,11 +66,12 @@ function buildQuoteRemoveButton(creatorUserId?, originChannelId?, originMessageI
   if (!/^\d{16,20}$/.test(creator) || !/^\d{16,20}$/.test(oc)) return null;
   if (om !== "0" && !/^\d{16,20}$/.test(om)) return null;
   const labels = quoteButtonLabels(guildId);
-  return new ButtonBuilder()
-    .setCustomId(`quote_remove:${creator}:${oc}:${om}`)
-    .setLabel(labels.remove)
-    .setEmoji("🗑️")
-    .setStyle(ButtonStyle.Danger);
+  return (require("../boardsPresentation") as typeof import("../boardsPresentation")).styleBoardButton(
+    new ButtonBuilder().setCustomId(`quote_remove:${creator}:${oc}:${om}`).setLabel(labels.remove).setEmoji("🗑️").setStyle(ButtonStyle.Danger),
+    guildId,
+    "quote",
+    "remove",
+  );
 }
 
 function buildQuoteBoardComponents({
@@ -91,22 +92,24 @@ function buildQuoteBoardComponents({
     const qa = String(quotedUserId || "").trim();
     const customId = `${REPOST_SRC_PREFIX}${bc}:${bm}${qa && /^\d{16,20}$/.test(qa) ? `:${qa}` : ""}`;
     buttons.push(
-      new ButtonBuilder()
-        .setCustomId(customId)
-        .setLabel(labels.repost)
-        .setEmoji("1443652837346377841")
-        .setStyle(ButtonStyle.Secondary),
+      (require("../boardsPresentation") as typeof import("../boardsPresentation")).styleBoardButton(
+        new ButtonBuilder().setCustomId(customId).setLabel(labels.repost).setEmoji("1443652837346377841").setStyle(ButtonStyle.Secondary),
+        guildId,
+        "quote",
+        "repost",
+      ),
     );
   }
 
   const existingRemove = String(existingRemoveCustomId || "").trim();
   if (existingRemove && parseQuoteRemoveCustomId(existingRemove)) {
     buttons.push(
-      new ButtonBuilder()
-        .setCustomId(existingRemove)
-        .setLabel(labels.remove)
-        .setEmoji("🗑️")
-        .setStyle(ButtonStyle.Danger),
+      (require("../boardsPresentation") as typeof import("../boardsPresentation")).styleBoardButton(
+        new ButtonBuilder().setCustomId(existingRemove).setLabel(labels.remove).setEmoji("🗑️").setStyle(ButtonStyle.Danger),
+        guildId,
+        "quote",
+        "remove",
+      ),
     );
   } else {
     const removeBtn = buildQuoteRemoveButton(

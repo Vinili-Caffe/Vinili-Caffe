@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Shuffle,
   Skull,
+  Smile,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -32,9 +33,10 @@ import {
   type SettingsPickers,
 } from "@/lib/dashboard-guild";
 import type { BachecaModuleTabId } from "../guildSections";
-import { DiscordMessagePreview, DraftEditor, EditorWithPreview, EmojiGlyph, ImagePlaceholdersContext, useCommunity, type PreviewRow } from "./community/shared";
+import { DiscordMessagePreview, DraftEditor, EditorWithPreview, EmojiButton, EmojiGlyph, ImagePlaceholdersContext, useCommunity, type PreviewRow } from "./community/shared";
 import { QuoteStyleEditor } from "./QuoteStyleEditor";
 import {
+  ExpandableTextarea,
   Field,
   FormGroup,
   Notice,
@@ -45,6 +47,7 @@ import {
   Toggle,
   TrackUnsaved,
   fieldClass,
+  labelClass,
   miniBtn,
 } from "./bits";
 
@@ -222,8 +225,8 @@ function defaultDraft(kind: BoardKindId, slot: BoardDraftSlot, v: BoardKindPrese
 
 /** pulsanti che il bot aggiunge da solo sotto il messaggio */
 function botRows(kind: BoardKindId, slot: BoardDraftSlot, v: BoardKindPresentation): PreviewRow[] {
-  const repost = { label: v.buttonRepost || "Reposta", emoji: "<a:reddiamond:1443652837346377841>", style: 2 as const };
-  const remove = { label: v.buttonRemove || "Rimuovi", emoji: "🗑️", style: 4 as const };
+  const repost = { label: v.buttonRepost || "Reposta", emoji: v.buttonRepostEmoji || undefined, style: v.buttonRepostStyle || 2 };
+  const remove = { label: v.buttonRemove || "Rimuovi", emoji: v.buttonRemoveEmoji || undefined, style: v.buttonRemoveStyle || 4 };
   if (slot === "post") return kind === "skull" ? [] : [{ kind: "buttons", items: [repost, remove] }];
   if (slot === "roulette") return [{ kind: "buttons", items: [repost] }];
   if (kind === "skull") return [{ kind: "buttons", items: [{ label: "Vai al Post", emoji: "💀", style: 5 }] }];
@@ -253,6 +256,73 @@ const SLOT_TEXT: Record<BoardKindId, Record<BoardDraftSlot, string>> = {
     roulette: "",
   },
 };
+
+/* ───────────────────────── frasi casuali di {phrase} ───────────────────────── */
+
+/** Le frasi tra cui il bot pesca {phrase}: una per riga, si aggiungono e si tolgono a mano. */
+function PhrasesBox({ kind, value, disabled, onChange }: { kind: BoardKindId; value: string[]; disabled?: boolean; onChange: (next: string[]) => void }) {
+  /* il testo resta com'è mentre scrivi (righe vuote comprese); la lista pulita va salvata */
+  const [text, setText] = useState(value.join("\n"));
+  const [synced, setSynced] = useState(value);
+  if (value !== synced) {
+    setSynced(value);
+    if (value.join("\n") !== text.split("\n").map((l) => l.trim()).filter(Boolean).join("\n")) setText(value.join("\n"));
+  }
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  return (
+    <FormGroup
+      title="Frasi casuali di {phrase}"
+      description={
+        kind === "clip"
+          ? "Ogni volta il bot ne sceglie una a caso. Puoi usare {channel} (canale vocale) e {duration} (secondi)."
+          : "Ogni volta il bot ne sceglie una a caso, senza ripeterle finché non le ha usate tutte."
+      }
+      action={
+        <button type="button" disabled={disabled} className={miniBtn} onClick={() => onChange([])} title="Torna alle frasi predefinite del bot">
+          <RotateCcw className="size-3.5" aria-hidden /> Predefinite
+        </button>
+      }
+    >
+      <ExpandableTextarea
+        value={text}
+        disabled={disabled}
+        rows={8}
+        maxLength={300 * 201}
+        placeholder="Una frase per riga…"
+        onChange={(e) => {
+          setText(e.target.value);
+          onChange(e.target.value.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 300));
+        }}
+        className={cn(fieldClass, "font-mono text-xs leading-relaxed")}
+      />
+      <p className="mt-1.5 text-xs text-crema/50">
+        {lines.length ? `${lines.length} ${lines.length === 1 ? "frase" : "frasi"} · una per riga, massimo 300` : "Vuoto: il bot usa le sue frasi predefinite."}
+      </p>
+    </FormGroup>
+  );
+}
+
+/** Messaggi uguali a quello predefinito tornano "predefiniti" (così annullare a mano toglie anche l'avviso delle modifiche). */
+function cleanKind(kind: BoardKindId, v: BoardKindPresentation): BoardKindPresentation {
+  const drafts = { ...(v.drafts || { post: null, reply: null, roulette: null }) };
+  for (const slot of ["post", "reply", "roulette"] as const) {
+    const d = drafts[slot];
+    if (d && JSON.stringify(d) === JSON.stringify(defaultDraft(kind, slot, v))) drafts[slot] = null;
+  }
+  return { ...v, drafts };
+}
+function cleanPresentation(p: BoardsPresentation): BoardsPresentation {
+  return { quote: cleanKind("quote", p.quote), repost: cleanKind("repost", p.repost), clip: cleanKind("clip", p.clip), skull: cleanKind("skull", p.skull) };
+}
+
+/** Togli {image} da tutti i campi immagine del messaggio. */
+function withoutImage(d: MsgDraft): MsgDraft {
+  return JSON.parse(JSON.stringify(d).split('"{image}"').join('""')) as MsgDraft;
+}
+
+/* colori dei pulsanti di Discord */
+const BTN_BG: Record<1 | 2 | 3 | 4, string> = { 1: "bg-[#5865f2]", 2: "bg-[#4e5058]", 3: "bg-[#248046]", 4: "bg-[#da373c]" };
+const BTN_NAME: Record<1 | 2 | 3 | 4, string> = { 1: "Blu", 2: "Grigio", 3: "Verde", 4: "Rosso" };
 
 /* ───────────────────────── editor di una funzione ───────────────────────── */
 
@@ -289,19 +359,62 @@ function KindEditor({
   const [section, setSection] = useState<Section>("post");
   const set = <K extends keyof BoardKindPresentation>(key: K, next: BoardKindPresentation[K]) => onChange({ ...value, [key]: next });
   /* un pulsante del bot: com'è su Discord + il suo testo */
-  const botButton = (key: "buttonRepost" | "buttonRemove", label: string, tone: "grey" | "red", emoji: string) => (
-    <Field label={label}>
-      <div className="mt-1.5 flex items-center gap-2">
-        <span
-          className={cn("inline-flex h-9 shrink-0 items-center rounded-lg px-2.5", tone === "red" ? "bg-[#da373c]" : "bg-[#4e5058]")}
-          aria-hidden
-        >
-          <EmojiGlyph value={emoji} className="size-[18px]" />
-        </span>
-        <input type="text" value={value[key]} disabled={disabled} maxLength={80} onChange={(e) => set(key, e.target.value)} className={fieldClass} />
+  /* un pulsante del bot: emoji (si cambia col selettore), colore e testo, tutto sulla stessa riga */
+  const botButton = (which: "Repost" | "Remove", label: string) => {
+    const textKey = `button${which}` as const;
+    const emojiKey = `button${which}Emoji` as const;
+    const styleKey = `button${which}Style` as const;
+    const emoji = value[emojiKey];
+    const style = value[styleKey];
+    return (
+      <div className="min-w-0 space-y-2">
+        <p className={labelClass}>{label}</p>
+        <div className="flex items-stretch gap-2">
+          <EmojiButton
+            emojis={emojis}
+            label={`Emoji del pulsante ${label}`}
+            onPick={(e) => set(emojiKey, e)}
+            className={cn("!h-11 !w-11 shrink-0 !px-0 !py-0", BTN_BG[style])}
+          >
+            {emoji ? <EmojiGlyph value={emoji} className="size-5" /> : <Smile className="size-4 text-white/70" aria-hidden />}
+          </EmojiButton>
+          <input
+            type="text"
+            value={value[textKey]}
+            disabled={disabled}
+            maxLength={80}
+            onChange={(e) => set(textKey, e.target.value)}
+            className={cn(fieldClass, "!mt-0 h-11 min-w-0 flex-1 py-0")}
+            aria-label={`Testo del pulsante ${label}`}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([1, 2, 3, 4] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              disabled={disabled}
+              onClick={() => set(styleKey, s)}
+              aria-pressed={style === s}
+              title={BTN_NAME[s]}
+              className={cn(
+                "inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[0.7rem] font-semibold text-white/90 ring-2 transition",
+                BTN_BG[s],
+                style === s ? "ring-crema/80" : "ring-transparent opacity-60 hover:opacity-100",
+              )}
+            >
+              {BTN_NAME[s]}
+            </button>
+          ))}
+          {emoji ? (
+            <button type="button" disabled={disabled} onClick={() => set(emojiKey, "")} className="ml-auto text-[0.7rem] font-semibold text-crema/50 hover:text-crema">
+              Togli emoji
+            </button>
+          ) : null}
+        </div>
       </div>
-    </Field>
-  );
+    );
+  };
 
   /* sotto ogni messaggio: i pulsanti che il bot ci mette (e, nel post, chi può cancellare) */
   const botButtonsBox = (slot: BoardDraftSlot) => {
@@ -317,8 +430,8 @@ function KindEditor({
         <div className="space-y-4">
           {repostHere || removeHere ? (
             <div className="grid gap-3 sm:grid-cols-2">
-              {repostHere ? botButton("buttonRepost", "Reposta", "grey", "<a:reddiamond:1443652837346377841>") : null}
-              {removeHere ? botButton("buttonRemove", "Rimuovi", "red", "🗑️") : null}
+              {repostHere ? botButton("Repost", "Reposta") : null}
+              {removeHere ? botButton("Remove", "Rimuovi") : null}
             </div>
           ) : null}
           {skullLink ? <p className="text-xs text-crema/60">Sotto la conferma c&apos;è il pulsante 💀 &quot;Vai al Post&quot;, che porta al messaggio nella skullboard.</p> : null}
@@ -352,7 +465,10 @@ function KindEditor({
     ...(styleSlot ? [{ id: "style" as const, label: "Stile immagine", icon: Sparkles }] : []),
   ];
 
-  const vars = { ...sampleVars(kind, prefix, sampleImage), avatar: bot?.avatarUrl || "" };
+  const firstPhrase = (value.phrases?.[0] || (kind === "clip" ? "ha pubblicato un clip vocale da **{channel}** ({duration}s)." : "ha salvato un momento iconico!"))
+    .split("{channel}").join("Chiacchiere")
+    .split("{duration}").join("15");
+  const vars = { ...sampleVars(kind, prefix, sampleImage), avatar: bot?.avatarUrl || "", phrase: firstPhrase };
   /* per l anteprima bastano id e nome */
   const previewRoles = roles.map((r) => ({ ...r, color: null, position: 0 }));
   const placeholders = [...meta.placeholders, { token: "{url}", hint: "link al post (risposte)" }];
@@ -369,11 +485,23 @@ function KindEditor({
         ];
 
   const slotEditor = (slot: BoardDraftSlot) => {
-    const saved = value.drafts?.[slot] ?? null;
-    const draft = saved ?? defaultDraft(kind, slot, value);
+    const raw = value.drafts?.[slot] ?? null;
+    const saved = cleanKind(kind, value).drafts[slot];
+    const draft = raw ?? defaultDraft(kind, slot, value);
     const usesImage = JSON.stringify(draft).includes("{image}");
-    /* la quote (o la foto della skull) arriva come allegato: sopra l'embed, se non la metti tu dentro */
-    const attachment = (kind === "quote" || (kind === "skull" && slot === "post")) && slot !== "roulette" && !usesImage ? sampleImage : "";
+    /* la quote (o la foto della skull) arriva come allegato */
+    const hasImage = kind === "quote" ? slot !== "roulette" : kind === "skull" && slot === "post";
+    const hidden = kind === "quote" && slot === "reply" && value.hideReplyImage;
+    const placement: "above" | "inside" | "hidden" = hidden ? "hidden" : usesImage ? "inside" : "above";
+    const attachment = hasImage && placement === "above" ? sampleImage : "";
+    const place = (next: "above" | "inside" | "hidden") => {
+      let d = withoutImage(draft);
+      if (next === "inside") {
+        if (d.v2?.enabled) d = { ...d, v2: { ...d.v2, blocks: [{ type: "media", urls: ["{image}"] }, ...d.v2.blocks] } };
+        else d = { ...d, embed: { ...d.embed, enabled: true, imageUrl: "{image}" } };
+      }
+      onChange({ ...value, drafts: { ...value.drafts, [slot]: d }, hideReplyImage: slot === "reply" ? next === "hidden" : value.hideReplyImage });
+    };
     return (
       <EditorWithPreview
         editor={
@@ -387,11 +515,35 @@ function KindEditor({
                 <p className="mt-1 text-xs leading-relaxed text-crema/60">{SLOT_TEXT[kind][slot]}</p>
               </div>
               {saved ? (
-                <button type="button" disabled={disabled} className={miniBtn} onClick={() => set("drafts", { ...value.drafts, [slot]: null })}>
+                <button type="button" disabled={disabled} className={miniBtn} onClick={() => onChange({ ...value, drafts: { ...value.drafts, [slot]: null }, hideReplyImage: slot === "reply" ? false : value.hideReplyImage })}>
                   <RotateCcw className="size-3.5" aria-hidden /> Torna al predefinito
                 </button>
               ) : null}
             </div>
+            {hasImage ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-4 ring-1 ring-sand/10">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-crema">{kind === "quote" ? "Immagine della quote" : "Immagine della skull"}</p>
+                  <p className="mt-0.5 text-xs text-crema/60">
+                    {placement === "inside"
+                      ? "Sta dentro il messaggio, dove hai messo {image} (puoi spostarla o ripeterla nei campi immagine)."
+                      : placement === "hidden"
+                        ? "La risposta arriva senza immagine."
+                        : "Allegata sopra il messaggio, come su Discord."}
+                  </p>
+                </div>
+                <Pills
+                  value={placement}
+                  onChange={place}
+                  ariaLabel={`Immagine ${kind} ${slot}`}
+                  options={[
+                    { id: "above" as const, label: "Sopra" },
+                    { id: "inside" as const, label: "Dentro il messaggio" },
+                    ...(kind === "quote" && slot === "reply" ? [{ id: "hidden" as const, label: "Nascosta" }] : []),
+                  ]}
+                />
+              </div>
+            ) : null}
             <ImagePlaceholdersContext.Provider value={imagePlaceholders}>
               <DraftEditor
                 key={`${kind}-${slot}`}
@@ -401,6 +553,7 @@ function KindEditor({
                 placeholders={placeholders}
               />
             </ImagePlaceholdersContext.Provider>
+            {slot === "reply" && (kind === "repost" || kind === "clip") ? <PhrasesBox kind={kind} value={value.phrases || []} disabled={disabled} onChange={(phrases) => set("phrases", phrases)} /> : null}
             {botButtonsBox(slot)}
           </div>
         }
@@ -418,7 +571,7 @@ function KindEditor({
             type="button"
             disabled={disabled}
             className={cn(miniBtn, "ml-auto")}
-            onClick={() => onChange({ ...DEFAULT_BOARD_PRESENTATION[kind], deleteRoleIds: value.deleteRoleIds, drafts: { post: null, reply: null, roulette: null } })}
+            onClick={() => onChange({ ...DEFAULT_BOARD_PRESENTATION[kind], deleteRoleIds: value.deleteRoleIds, drafts: { post: null, reply: null, roulette: null }, phrases: [] })}
             title="Rimette tutti i messaggi originali di questa funzione (i ruoli restano)"
           >
             <RotateCcw className="size-3.5" aria-hidden /> Tutto predefinito
@@ -466,7 +619,6 @@ export function BoardsPanel({
   const [clipTranscription, setClipTranscription] = useState(settings?.boards.clipTranscription !== false);
   const [presentation, setPresentation] = useState<BoardsPresentation>(settings?.boards.presentation ?? DEFAULT_BOARD_PRESENTATION);
   const [saving, setSaving] = useState(false);
-  const [presDirty, setPresDirty] = useState(false);
   const boardsEnabled = settings?.boards.enabled === true;
   /* nome e avatar del bot, emoji del server: come nelle altre schede */
   const community = useCommunity(guildId, token);
@@ -517,7 +669,6 @@ export function BoardsPanel({
     setSkullChannelId(settings.boards.skullChannelId ?? "");
     setClipTranscription(settings.boards.clipTranscription !== false);
     setPresentation(settings.boards.presentation ?? DEFAULT_BOARD_PRESENTATION);
-    setPresDirty(false);
   }
 
   const channelState = { sharedChannelId, quoteChannelId, repostChannelId, clipChannelId, skullChannelId } as const;
@@ -596,9 +747,11 @@ export function BoardsPanel({
     }
   };
 
+  /* modifiche vere: se torni a mano com'era (o al predefinito salvato), l'avviso sparisce */
+  const savedPresentation = settings.boards.presentation ?? DEFAULT_BOARD_PRESENTATION;
+  const presDirty = JSON.stringify(cleanPresentation(presentation)) !== JSON.stringify(cleanPresentation(savedPresentation));
   const savePresentation = async () => {
-    const ok = await save({ boards: { presentation } }, "Messaggi e pulsanti salvati.");
-    if (ok) setPresDirty(false);
+    await save({ boards: { presentation: cleanPresentation(presentation) } }, "Messaggi e pulsanti salvati.");
   };
 
   /* ── Impostazioni: dove si pubblica + le quattro funzioni ── */
@@ -738,10 +891,7 @@ export function BoardsPanel({
       <TrackUnsaved
         dirty={presDirty}
         onSave={() => void savePresentation()}
-        onReset={() => {
-          setPresentation(settings.boards.presentation ?? DEFAULT_BOARD_PRESENTATION);
-          setPresDirty(false);
-        }}
+        onReset={() => setPresentation(settings.boards.presentation ?? DEFAULT_BOARD_PRESENTATION)}
       />
 
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-mocha via-roast to-espresso p-5 ring-1 ring-sand/15">
@@ -777,10 +927,7 @@ export function BoardsPanel({
             sampleImage={kind === "skull" ? skullImage : sampleImage}
             prefix={prefix}
             disabled={off}
-            onChange={(next) => {
-              setPresentation((prev) => ({ ...prev, [kind]: next }));
-              setPresDirty(true);
-            }}
+            onChange={(next) => setPresentation((prev) => ({ ...prev, [kind]: next }))}
             styleSlot={
               kind === "quote" ? (
                 <QuoteStyleEditor

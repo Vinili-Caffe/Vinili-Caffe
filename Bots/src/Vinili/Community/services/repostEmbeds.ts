@@ -54,7 +54,7 @@ function buildShareAckEmbed({ reposterId, boardUrl, prefix, guildId, kind = "rep
     : boardKind === "clip"
       ? "» Clip pubblicata."
       : "» Repost salvato.";
-  const ackPhrase = pickRepostAckPhrase();
+  const ackPhrase = pickRepostAckPhrase(guildId, boardKind);
   let description = "";
   let footerHint = `✧ * . ˊ ${safePrefix}${boardKind === "clip" ? "clip" : "repost"}`;
   try {
@@ -222,11 +222,12 @@ function buildRepostaSourceButtonRow(sourceChannelId?, sourceMessageId?, quotedA
   const customId = `${REPOST_SRC_PREFIX}${sc}:${sm}${qa ? `:${qa}` : ""}`;
   const labels = boardButtonLabels(guildId, "repost");
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(customId)
-      .setLabel(labels.repost)
-      .setEmoji("1443652837346377841")
-      .setStyle(ButtonStyle.Secondary),
+    (require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation")).styleBoardButton(
+      new ButtonBuilder().setCustomId(customId).setLabel(labels.repost).setEmoji("1443652837346377841").setStyle(ButtonStyle.Secondary),
+      guildId,
+      "repost",
+      "repost",
+    ),
   );
 }
 
@@ -247,11 +248,12 @@ function buildAckRepostaComponents({ repostId, targetMessage, sourceAuthorId = "
 
 function buildRepostaButton(repostId?, guildId = "", kind = "repost") {
   const labels = boardButtonLabels(guildId, kind);
-  return new ButtonBuilder()
-    .setCustomId(`${REPOST_BTN_PREFIX}${repostId}`)
-    .setLabel(labels.repost)
-    .setEmoji("1443652837346377841")
-    .setStyle(ButtonStyle.Secondary);
+  return (require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation")).styleBoardButton(
+    new ButtonBuilder().setCustomId(`${REPOST_BTN_PREFIX}${repostId}`).setLabel(labels.repost).setEmoji("1443652837346377841").setStyle(ButtonStyle.Secondary),
+    guildId,
+    kind === "clip" ? "clip" : "repost",
+    "repost",
+  );
 }
 
 function buildRepostaButtonRow(repostId?, guildId = "", kind = "repost") {
@@ -263,11 +265,12 @@ function buildRepostRemoveButton(repostId?, doc = null) {
   if (!rid) return null;
   const isClip = isClipRepostDoc(doc);
   const labels = boardButtonLabels(doc?.guildId, isClip ? "clip" : "repost");
-  return new ButtonBuilder()
-    .setCustomId(`${REPOST_REMOVE_PREFIX}${rid}`)
-    .setLabel(labels.remove)
-    .setEmoji("🗑️")
-    .setStyle(ButtonStyle.Danger);
+  return (require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation")).styleBoardButton(
+    new ButtonBuilder().setCustomId(`${REPOST_REMOVE_PREFIX}${rid}`).setLabel(labels.remove).setEmoji("🗑️").setStyle(ButtonStyle.Danger),
+    doc?.guildId,
+    isClip ? "clip" : "repost",
+    "remove",
+  );
 }
 
 function buildBoardMessageComponents(primaryRepostId?, doc?) {

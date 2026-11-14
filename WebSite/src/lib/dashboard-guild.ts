@@ -103,6 +103,15 @@ export type BoardKindPresentation = {
   rouletteDescription: string;
   rouletteFooter: string;
   drafts: BoardDrafts;
+  /** frasi casuali per {phrase} (repost e clip); vuoto = quelle predefinite del bot */
+  phrases: string[];
+  /** Quote: risposta al comando senza l'immagine della quote */
+  hideReplyImage: boolean;
+  /** emoji ("" = nessuna) e colore (1 blu, 2 grigio, 3 verde, 4 rosso) dei pulsanti del bot */
+  buttonRepostEmoji: string;
+  buttonRemoveEmoji: string;
+  buttonRepostStyle: 1 | 2 | 3 | 4;
+  buttonRemoveStyle: 1 | 2 | 3 | 4;
 };
 
 /** Messaggi personalizzati della bacheca (come nelle altre schede); null = quello predefinito del bot. */
@@ -500,6 +509,12 @@ const EMPTY_EXTRA = {
   rouletteDescription: "",
   rouletteFooter: "",
   drafts: { post: null, reply: null, roulette: null } as BoardDrafts,
+  phrases: [] as string[],
+  hideReplyImage: false,
+  buttonRepostEmoji: "<a:reddiamond:1443652837346377841>",
+  buttonRemoveEmoji: "🗑️",
+  buttonRepostStyle: 2 as const,
+  buttonRemoveStyle: 4 as const,
 };
 
 /** Allineati ai testi live del bot (emoji custom Vinili). */
@@ -599,7 +614,18 @@ function mapKindPresentation(kind: keyof BoardsPresentation, raw: unknown): Boar
     rouletteDescription: str("rouletteDescription", 4000, base.rouletteDescription),
     rouletteFooter: str("rouletteFooter", 2048, base.rouletteFooter),
     drafts: mapBoardDrafts(r.drafts),
+    phrases: Array.isArray(r.phrases) ? r.phrases.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 300) : [],
+    hideReplyImage: r.hideReplyImage === true,
+    buttonRepostEmoji: typeof r.buttonRepostEmoji === "string" ? r.buttonRepostEmoji.slice(0, 80) : base.buttonRepostEmoji,
+    buttonRemoveEmoji: typeof r.buttonRemoveEmoji === "string" ? r.buttonRemoveEmoji.slice(0, 80) : base.buttonRemoveEmoji,
+    buttonRepostStyle: btnStyleOf(r.buttonRepostStyle, base.buttonRepostStyle),
+    buttonRemoveStyle: btnStyleOf(r.buttonRemoveStyle, base.buttonRemoveStyle),
   };
+}
+
+function btnStyleOf(v: unknown, fb: 1 | 2 | 3 | 4): 1 | 2 | 3 | 4 {
+  const n = Math.floor(Number(v));
+  return n === 1 || n === 2 || n === 3 || n === 4 ? n : fb;
 }
 
 /** Messaggi personalizzati arrivati dal bot: completati coi campi mancanti, così l'editor non si rompe. */

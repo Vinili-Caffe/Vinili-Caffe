@@ -242,11 +242,16 @@ export = {
         const { getBoardKindPresentationSync } = require("../../utils/boardsPresentation") as typeof import("../../utils/boardsPresentation");
         const quoteBtn = getBoardKindPresentationSync(message.guild.id, "quote").buttonRepost || "Reposta";
         repostRow.addComponents(
-          new ButtonBuilder()
-            .setCustomId(`repost_src:${message.channel.id}:${replyMsg.id}:${author.id}`)
-            .setLabel(String(quoteBtn).slice(0, 80))
-            .setEmoji("1443652837346377841")
-            .setStyle(ButtonStyle.Secondary),
+          (require("../../utils/boardsPresentation") as typeof import("../../utils/boardsPresentation")).styleBoardButton(
+            new ButtonBuilder()
+              .setCustomId(`repost_src:${message.channel.id}:${replyMsg.id}:${author.id}`)
+              .setLabel(String(quoteBtn).slice(0, 80))
+              .setEmoji("1443652837346377841")
+              .setStyle(ButtonStyle.Secondary),
+            message.guild.id,
+            "quote",
+            "repost",
+          ),
         );
       }
       if (siteBoard) repostRow.addComponents(buildBachecaLinkButton(siteItemId));

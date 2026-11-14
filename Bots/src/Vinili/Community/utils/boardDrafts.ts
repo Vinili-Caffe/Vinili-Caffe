@@ -57,11 +57,16 @@ function hasCustomId(c?: any): boolean {
  * Applica il messaggio personalizzato a un invio della bacheca (send, reply, edit).
  * `edit`: si sta modificando un messaggio già mandato (svuota testo/embed vecchi se serve).
  */
-function withBoardDraft<P extends Record<string, any>>(payload: P, opts: { edit?: boolean } = {}): P {
+function withBoardDraft<P extends Record<string, any>>(input: P, opts: { edit?: boolean } = {}): P {
+  let payload = input;
   try {
     const first = Array.isArray(payload?.embeds) ? payload.embeds[0] : null;
     const info = first ? tags.get(first) : null;
     if (!info) return payload;
+    /* Quote: risposta al comando senza l'immagine, se la dashboard lo chiede */
+    if (info.slot === "reply" && hideReplyImage(info.guildId, info.kind) && Array.isArray(payload.files)) {
+      payload = { ...payload, files: payload.files.filter((f) => !/\.(png|jpe?g|gif|webp)$/i.test(fileName(f))) };
+    }
     const draft = boardDraftFor(info.guildId, info.kind, info.slot);
     if (!draft) return payload;
     const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
@@ -114,6 +119,15 @@ function withBoardDraft<P extends Record<string, any>>(payload: P, opts: { edit?
   } catch (err) {
     global.logger?.warn?.("[bacheca] messaggio personalizzato non applicato:", (err as any)?.message || err);
     return payload;
+  }
+}
+
+function hideReplyImage(guildId?: string, kind?: BoardKind) {
+  try {
+    const { getBoardKindPresentationSync } = require("./boardsPresentation") as typeof import("./boardsPresentation");
+    return (getBoardKindPresentationSync(guildId, kind) as any)?.hideReplyImage === true;
+  } catch {
+    return false;
   }
 }
 
