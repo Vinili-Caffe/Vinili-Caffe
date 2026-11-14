@@ -600,6 +600,7 @@ function DiscordMessagePreviewBody({
   rows = [],
   bot,
   attachmentUrl,
+  audioAttachment,
   mentionNames,
   className,
 }: {
@@ -611,6 +612,8 @@ function DiscordMessagePreviewBody({
   bot?: { name: string; avatarUrl: string } | null;
   /** immagine allegata al messaggio (es. la quote), mostrata sopra l'embed come su Discord */
   attachmentUrl?: string | null;
+  /** file audio allegato (es. la clip vocale), come il lettore di Discord sopra l embed */
+  audioAttachment?: { name: string; seconds: number; size?: string } | null;
   /** nomi finti per le menzioni d esempio (<@id>, <#id>) */
   mentionNames?: { users?: Record<string, string>; channels?: Record<string, string> };
   className?: string;
@@ -670,6 +673,7 @@ function DiscordMessagePreviewBody({
             </p>
             {v2.enabled ? <V2Preview v2={v2} vars={vars} names={names} fill={fillVars} /> : null}
             {!v2.enabled && content ? <DiscordContent text={content} names={names} className="whitespace-pre-line text-[16px] leading-[22px]" /> : null}
+            {audioAttachment ? <DiscordAudioCard {...audioAttachment} /> : null}
             {attachmentUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={attachmentUrl} alt="" className="mt-[2px] h-auto max-h-[300px] w-auto max-w-[400px] rounded-[8px] object-contain" />
@@ -712,7 +716,7 @@ function DiscordMessagePreviewBody({
               </div>
             ) : null}
 
-            {!v2.enabled && !content && !showEmbed && !attachmentUrl ? <p className="italic text-[#949ba4]">Messaggio vuoto</p> : null}
+            {!v2.enabled && !content && !showEmbed && !attachmentUrl && !audioAttachment ? <p className="italic text-[#949ba4]">Messaggio vuoto</p> : null}
 
             {allRows.length ? (
               <div className="mt-1 flex flex-col gap-2 py-1">
@@ -750,6 +754,34 @@ function DiscordMessagePreviewBody({
           </div>
         </div>
       </ScaleToFit>
+    </div>
+  );
+}
+
+/** File audio allegato come lo mostra Discord: icona, nome, peso e lettore (finto, solo anteprima). */
+function DiscordAudioCard({ name, seconds, size = "240 KB" }: { name: string; seconds: number; size?: string }) {
+  const t = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  return (
+    <div className="mt-[2px] w-full max-w-[432px] rounded-[8px] border border-[#3f4147] bg-[#2b2d31] p-4">
+      <div className="flex items-center gap-3">
+        <svg viewBox="0 0 24 32" className="h-10 w-[30px] shrink-0" aria-hidden>
+          <path d="M2 0h14l8 8v22a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2Z" fill="#5865f2" />
+          <path d="M16 0l8 8h-6a2 2 0 0 1-2-2V0Z" fill="#8c96f7" />
+          <path d="M10 13v8.3a2.5 2.5 0 1 0 1.6 2.3V16h3.4v-3H10Z" fill="#fff" />
+        </svg>
+        <div className="min-w-0">
+          <p className="truncate text-[16px] leading-5 text-[#00a8fc]">{name}</p>
+          <p className="text-[12px] leading-4 text-[#949ba4]">{size}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-3 rounded-[4px] bg-[#1e1f22] px-3 py-2 text-[13px] text-[#dbdee1]">
+        <span className="flex size-5 items-center justify-center" aria-hidden>
+          <svg viewBox="0 0 24 24" className="size-5"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
+        </span>
+        <span className="font-mono text-[12px] tabular-nums text-[#b5bac1]">0:00 / {t(seconds)}</span>
+        <span className="h-1.5 flex-1 rounded-full bg-[#4e5058]"><span className="block h-full w-0 rounded-full bg-[#5865f2]" /></span>
+        <svg viewBox="0 0 24 24" className="size-5 text-[#b5bac1]" aria-hidden><path d="M3 10v4h4l5 5V5L7 10H3Zm13.5 2A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4Z" fill="currentColor" /></svg>
+      </div>
     </div>
   );
 }

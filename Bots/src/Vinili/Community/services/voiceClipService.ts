@@ -263,7 +263,7 @@ function buildClipBoardEmbed({ requester, requesterId, voiceChannelName, duratio
 }
 
 function buildClipAckEmbed({ requesterId, boardUrl, voiceChannelName, durationSec, prefix, guildId }) {
-  const linkLine = boardUrl ? `» [Apri la clip](${boardUrl})` : "» Clip pubblicata.";
+  const linkLine = boardUrl ? `[Apri la clip](${boardUrl})` : "Clip pubblicata.";
   const safePrefix = String(prefix || "+").trim() || "+";
   let description = [
     `🎙️ <@${requesterId}> ha pubblicato un clip vocale da **${voiceChannelName}** (${durationSec}s).`,

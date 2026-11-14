@@ -112,6 +112,9 @@ export type BoardKindPresentation = {
   buttonRemoveEmoji: string;
   buttonRepostStyle: 1 | 2 | 3 | 4;
   buttonRemoveStyle: 1 | 2 | 3 | 4;
+  /** Skullboard: pulsante "Vai al Post" sotto la conferma */
+  buttonLink: string;
+  buttonLinkEmoji: string;
 };
 
 /** Messaggi personalizzati della bacheca (come nelle altre schede); null = quello predefinito del bot. */
@@ -515,6 +518,8 @@ const EMPTY_EXTRA = {
   buttonRemoveEmoji: "🗑️",
   buttonRepostStyle: 2 as const,
   buttonRemoveStyle: 4 as const,
+  buttonLink: "Vai al Post",
+  buttonLinkEmoji: "💀",
 };
 
 /** Allineati ai testi live del bot (emoji custom Vinili). */
@@ -620,6 +625,8 @@ function mapKindPresentation(kind: keyof BoardsPresentation, raw: unknown): Boar
     buttonRemoveEmoji: typeof r.buttonRemoveEmoji === "string" ? r.buttonRemoveEmoji.slice(0, 80) : base.buttonRemoveEmoji,
     buttonRepostStyle: btnStyleOf(r.buttonRepostStyle, base.buttonRepostStyle),
     buttonRemoveStyle: btnStyleOf(r.buttonRemoveStyle, base.buttonRemoveStyle),
+    buttonLink: typeof r.buttonLink === "string" && r.buttonLink.trim() ? r.buttonLink.slice(0, 80) : base.buttonLink,
+    buttonLinkEmoji: typeof r.buttonLinkEmoji === "string" ? r.buttonLinkEmoji.slice(0, 80) : base.buttonLinkEmoji,
   };
 }
 

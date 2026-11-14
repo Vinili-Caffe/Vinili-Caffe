@@ -39,9 +39,19 @@ type BoardKindPresentation = {
   buttonRemoveEmoji: string;
   buttonRepostStyle: number;
   buttonRemoveStyle: number;
+  /** Skullboard: pulsante link "Vai al Post" sotto la conferma (i link non cambiano colore) */
+  buttonLink: string;
+  buttonLinkEmoji: string;
 };
 
-const BTN_DEFAULTS = { buttonRepostEmoji: "<a:reddiamond:1443652837346377841>", buttonRemoveEmoji: "🗑️", buttonRepostStyle: 2, buttonRemoveStyle: 4 };
+const BTN_DEFAULTS = {
+  buttonRepostEmoji: "<a:reddiamond:1443652837346377841>",
+  buttonRemoveEmoji: "🗑️",
+  buttonRepostStyle: 2,
+  buttonRemoveStyle: 4,
+  buttonLink: "Vai al Post",
+  buttonLinkEmoji: "💀",
+};
 const btnStyle = (v?, fb = 2) => {
   const n = Math.floor(Number(v));
   return n >= 1 && n <= 4 ? n : fb;
@@ -253,6 +263,8 @@ function normalizeKindPresentation(kind: BoardKind, raw?): BoardKindPresentation
     buttonRemoveEmoji: r.buttonRemoveEmoji === "" ? "" : pick("buttonRemoveEmoji", 80),
     buttonRepostStyle: btnStyle(r.buttonRepostStyle, base.buttonRepostStyle),
     buttonRemoveStyle: btnStyle(r.buttonRemoveStyle, base.buttonRemoveStyle),
+    buttonLink: pick("buttonLink", 80),
+    buttonLinkEmoji: r.buttonLinkEmoji === "" ? "" : pick("buttonLinkEmoji", 80),
   };
 }
 
@@ -313,6 +325,8 @@ function encodeBoardsPresentationCompact(presentation?) {
     if (cur.buttonRemoveEmoji !== BTN_DEFAULTS.buttonRemoveEmoji) row.bxe = cur.buttonRemoveEmoji;
     if (cur.buttonRepostStyle !== BTN_DEFAULTS.buttonRepostStyle) row.brs = cur.buttonRepostStyle;
     if (cur.buttonRemoveStyle !== BTN_DEFAULTS.buttonRemoveStyle) row.bxs = cur.buttonRemoveStyle;
+    if (cur.buttonLink !== BTN_DEFAULTS.buttonLink) row.bl = cur.buttonLink;
+    if (cur.buttonLinkEmoji !== BTN_DEFAULTS.buttonLinkEmoji) row.ble = cur.buttonLinkEmoji;
     if (Object.keys(row).length) out[KIND_COMPACT[kind]] = row;
   }
   return Object.keys(out).length ? out : null;
@@ -349,6 +363,8 @@ function decodeBoardsPresentationCompact(raw?) {
       buttonRemoveEmoji: blob.bxe ?? blob.buttonRemoveEmoji,
       buttonRepostStyle: blob.brs ?? blob.buttonRepostStyle,
       buttonRemoveStyle: blob.bxs ?? blob.buttonRemoveStyle,
+      buttonLink: blob.bl ?? blob.buttonLink,
+      buttonLinkEmoji: blob.ble ?? blob.buttonLinkEmoji,
     });
   };
   if (r.quote || r.repost || r.clip || r.skull) return normalizeBoardsPresentation(r);

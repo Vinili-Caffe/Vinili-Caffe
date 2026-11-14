@@ -510,7 +510,20 @@ export = {
           }).slice(0, 4096),
         );
 
-      const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Vai al Post").setEmoji(SKULL_EMOJI).setURL(postMessage.url),);
+      /* testo ed emoji del pulsante dalla dashboard (Bacheca › Skullboard) */
+      const linkBtn = new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Vai al Post").setEmoji(SKULL_EMOJI).setURL(postMessage.url);
+      try {
+        const { getBoardKindPresentationSync } = require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation");
+        const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+        const pr: any = getBoardKindPresentationSync(message.guild.id, "skull");
+        if (pr.buttonLink) linkBtn.setLabel(String(pr.buttonLink).slice(0, 80));
+        const em = pr.buttonLinkEmoji ? T.parseEmoji(pr.buttonLinkEmoji) : null;
+        if (em) linkBtn.setEmoji(em);
+        else if (pr.buttonLinkEmoji === "") delete (linkBtn as any).data.emoji;
+      } catch {
+        /* come prima */
+      }
+      const row = new ActionRowBuilder().addComponents(linkBtn);
 
       tagSkull(confirmEmbed, message.guild.id, "reply", { channel: `<#${skullChannelId}>`, author: message.author.toString(), url: postMessage.url });
       await message.channel.send(withBoardDraft({ embeds: [confirmEmbed], components: [row] })).catch(() => {});

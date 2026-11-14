@@ -155,7 +155,7 @@ function sampleVars(kind: BoardKindId, prefix: string, image: string): Record<st
     channel: kind === "clip" ? "Chiacchiere" : `<#${SAMPLE_IDS.channel}>`,
     date: "14/11/2026, 11:30",
     phrase: "ha salvato un momento iconico",
-    link: "» [Clicca qui per vedere il repost](https://discord.com/channels/0/0/0)",
+    link: kind === "clip" ? "[Apri la clip](https://discord.com/channels/0/0/0)" : "[Clicca qui per vedere il repost](https://discord.com/channels/0/0/0)",
     url: "https://discord.com/channels/0/0/0",
     duration: "15",
     username: "Luigi",
@@ -230,7 +230,7 @@ function botRows(kind: BoardKindId, slot: BoardDraftSlot, v: BoardKindPresentati
   const remove = { label: v.buttonRemove || "Rimuovi", emoji: v.buttonRemoveEmoji || undefined, style: v.buttonRemoveStyle || 4 };
   if (slot === "post") return kind === "skull" ? [] : [{ kind: "buttons", items: [repost, remove] }];
   if (slot === "roulette") return [{ kind: "buttons", items: [repost] }];
-  if (kind === "skull") return [{ kind: "buttons", items: [{ label: "Vai al Post", emoji: "💀", style: 5 }] }];
+  if (kind === "skull") return [{ kind: "buttons", items: [{ label: v.buttonLink || "Vai al Post", emoji: v.buttonLinkEmoji || undefined, style: 5 }] }];
   if (kind === "clip") return [];
   return [{ kind: "buttons", items: [repost] }];
 }
@@ -361,12 +361,13 @@ function KindEditor({
   const set = <K extends keyof BoardKindPresentation>(key: K, next: BoardKindPresentation[K]) => onChange({ ...value, [key]: next });
   /* un pulsante del bot: com'è su Discord + il suo testo */
   /* un pulsante del bot: emoji (si cambia col selettore), colore e testo, tutto sulla stessa riga */
-  const botButton = (which: "Repost" | "Remove", label: string) => {
+  const botButton = (which: "Repost" | "Remove" | "Link", label: string) => {
     const textKey = `button${which}` as const;
     const emojiKey = `button${which}Emoji` as const;
-    const styleKey = `button${which}Style` as const;
+    /* i pulsanti link (Vai al Post) su Discord sono sempre grigi */
+    const styleKey = which === "Link" ? null : (`button${which}Style` as const);
     const emoji = value[emojiKey];
-    const style = value[styleKey];
+    const style = styleKey ? value[styleKey] : 2;
     return (
       <div className="min-w-0 space-y-2">
         <p className={labelClass}>{label}</p>
@@ -390,12 +391,12 @@ function KindEditor({
           />
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          {([1, 2, 3, 4] as const).map((s) => (
+          {styleKey ? ([1, 2, 3, 4] as const).map((s) => (
             <button
               key={s}
               type="button"
               disabled={disabled}
-              onClick={() => set(styleKey, s)}
+              onClick={() => styleKey && set(styleKey, s)}
               aria-pressed={style === s}
               title={BTN_NAME[s]}
               className={cn(
@@ -406,7 +407,7 @@ function KindEditor({
             >
               {BTN_NAME[s]}
             </button>
-          ))}
+          )) : <span className="text-[0.7rem] text-crema/45">Pulsante link: su Discord è sempre grigio.</span>}
           {emoji ? (
             <button type="button" disabled={disabled} onClick={() => set(emojiKey, "")} className="ml-auto text-[0.7rem] font-semibold text-crema/50 hover:text-crema">
               Togli emoji
@@ -435,7 +436,7 @@ function KindEditor({
               {removeHere ? botButton("Remove", "Rimuovi") : null}
             </div>
           ) : null}
-          {skullLink ? <p className="text-xs text-crema/60">Sotto la conferma c&apos;è il pulsante 💀 &quot;Vai al Post&quot;, che porta al messaggio nella skullboard.</p> : null}
+          {skullLink ? <div className="sm:max-w-[calc(50%-0.375rem)]">{botButton("Link", "Vai al Post (porta al messaggio nella skullboard)")}</div> : null}
           {slot === "post" ? (
             <div className={cn(repostHere || removeHere ? "border-t border-sand/[0.08] pt-4" : "")}>
               <Field
@@ -558,7 +559,7 @@ function KindEditor({
             {botButtonsBox(slot)}
           </div>
         }
-        preview={<DiscordMessagePreview mentionNames={SAMPLE_NAMES} noTest bot={bot} draft={draft} vars={vars} roles={previewRoles} channels={channels} rows={botRows(kind, slot, value)} attachmentUrl={attachment || null} />}
+        preview={<DiscordMessagePreview mentionNames={SAMPLE_NAMES} noTest bot={bot} draft={draft} vars={vars} roles={previewRoles} channels={channels} rows={botRows(kind, slot, value)} attachmentUrl={attachment || null} audioAttachment={kind === "clip" && slot === "post" ? { name: "clip.mp3", seconds: 15 } : null} />}
       />
     );
   };

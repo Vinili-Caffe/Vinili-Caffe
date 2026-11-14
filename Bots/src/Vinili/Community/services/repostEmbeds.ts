@@ -49,11 +49,11 @@ function buildShareAckEmbed({ reposterId, boardUrl, prefix, guildId, kind = "rep
   const boardKind = kind === "clip" ? "clip" : "repost";
   const linkLine = boardUrl
     ? boardKind === "clip"
-      ? `» [Apri la clip](${boardUrl})`
-      : `» [Clicca qui per vedere il repost](${boardUrl})`
+      ? `[Apri la clip](${boardUrl})`
+      : `[Clicca qui per vedere il repost](${boardUrl})`
     : boardKind === "clip"
-      ? "» Clip pubblicata."
-      : "» Repost salvato.";
+      ? "Clip pubblicata."
+      : "Repost salvato.";
   const ackPhrase = pickRepostAckPhrase(guildId, boardKind);
   let description = "";
   let footerHint = `✧ * . ˊ ${safePrefix}${boardKind === "clip" ? "clip" : "repost"}`;
