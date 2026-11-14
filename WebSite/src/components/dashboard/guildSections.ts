@@ -20,6 +20,7 @@ import {
   Ticket,
   Video,
   Cake,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,6 +41,7 @@ export type GuildSectionId =
   | "sondaggi"
   | "live"
   | "compleanni"
+  | "livelli"
   | "settings"
   | "commands"
   | "bacheca"
@@ -189,6 +191,7 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "sondaggi", label: "Sondaggi", icon: Vote, tabs: [] as const },
   { id: "live", label: "Social Network", icon: Video, tabs: [] as const },
   { id: "compleanni", label: "Compleanni", icon: Cake, tabs: [] as const },
+  { id: "livelli", label: "Livelli & EXP", icon: TrendingUp, tabs: [] as const },
 ] as const satisfies readonly GuildNavItem[];
 
 /** Elenco piatto (URL, mobile chip, lookup). Ordine: server poi moduli. */

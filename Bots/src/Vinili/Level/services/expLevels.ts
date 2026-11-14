@@ -16,7 +16,14 @@ function normalizeExpGuildId(guildOrId?) {
 function isLevelExpGuild(guildOrId?) {
   const gid = normalizeExpGuildId(guildOrId);
   const mainId = String(ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
-  return Boolean(gid && mainId && gid === mainId);
+  if (!(gid && mainId && gid === mainId)) return false;
+  /* modulo "livelli" spento dalla dashboard → niente EXP */
+  try {
+    const { isModuleOn } = require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches");
+    return isModuleOn(gid, "livelli");
+  } catch {
+    return true;
+  }
 }
 
 function formatMemberMention(member?) {

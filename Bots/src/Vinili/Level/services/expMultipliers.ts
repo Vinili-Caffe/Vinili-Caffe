@@ -203,7 +203,35 @@ async function getGuildExpSettings(guildId?) {
   }
 
   const normalized = normalizeSettingsDoc(doc);
-  const value = { ...normalized, effectiveMultiplier: normalized.baseMultiplier * normalized.eventMultiplier, };
+  let maxCombinedMultiplier = MAX_COMBINED_MULTIPLIER;
+  /* overlay dalla dashboard (tassi / lock / multi ruoli salvati nel modulo Livelli) */
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const cfg = await LVL.getConfig(String(guildId || targetGuildId)).catch(() => null);
+    if (cfg && (cfg.userSaved || cfg.seedVersion > 0)) {
+      if (Number.isFinite(cfg.globalMultiplier) && cfg.globalMultiplier > 0) {
+        normalized.baseMultiplier = Number(cfg.globalMultiplier);
+      }
+      if (Array.isArray(cfg.lockedChannelIds)) normalized.lockedChannelIds = cfg.lockedChannelIds.map(String);
+      if (Array.isArray(cfg.ignoredRoleIds)) normalized.ignoredRoleIds = cfg.ignoredRoleIds.map(String);
+      if (Array.isArray(cfg.roleMultipliers) && (cfg.roleMultipliers.length || cfg.userSaved)) {
+        const map = new Map();
+        for (const row of cfg.roleMultipliers) {
+          const id = String(row.roleId || "").trim();
+          const n = Number(row.multiplier);
+          if (/^\d{16,20}$/.test(id) && Number.isFinite(n) && n > 0) map.set(id, n);
+        }
+        if (map.size || cfg.userSaved) normalized.roleMultipliersMerged = map;
+      }
+      const cap = Number(cfg.maxCombinedMultiplier);
+      if (Number.isFinite(cap) && cap >= 1) maxCombinedMultiplier = cap;
+    }
+  } catch (_) {}
+  const value = {
+    ...normalized,
+    effectiveMultiplier: normalized.baseMultiplier * normalized.eventMultiplier,
+    maxCombinedMultiplier,
+  };
   settingsCache.set(guildId, { value, at: now });
   return value;
 }
@@ -231,13 +259,15 @@ function getRoleMultiplier(member?, settings = null) {
   return multi;
 }
 
-function combineWeeklyExpMultiplier(globalExpMultiplier?, roleMultiplier?) {
+function combineWeeklyExpMultiplier(globalExpMultiplier?, roleMultiplier?, maxCombined?) {
   const globalMulti = Number(globalExpMultiplier);
   const roleMulti = Number(roleMultiplier);
   const safeGlobal = Number.isFinite(globalMulti) && globalMulti > 0 ? globalMulti : 1;
   const safeRole = Number.isFinite(roleMulti) && roleMulti > 0 ? roleMulti : 1;
   const roleBonus = Math.max(0, safeRole - 1);
-  return Math.min(MAX_COMBINED_MULTIPLIER, Math.max(1, safeGlobal + roleBonus));
+  const custom = Number(maxCombined);
+  const cap = Number.isFinite(custom) && custom >= 1 ? custom : MAX_COMBINED_MULTIPLIER;
+  return Math.min(cap, Math.max(1, safeGlobal + roleBonus));
 }
 
 async function getResolvedWeeklyExpMultiplier(guild?, userId?, guildSettings = null, memberHint = null) {
@@ -254,16 +284,14 @@ async function getResolvedWeeklyExpMultiplier(guild?, userId?, guildSettings = n
       : guild
         ? Number(await getGlobalMultiplier(guild.id).catch(() => 1)) || 1
         : 1;
-  if (!guild) return combineWeeklyExpMultiplier(globalMulti, 1);
-    let member =
-    memberHint ||
-    guild.members?.cache?.get?.(String(userId)) ||
-    null;
+  const cap = Number(settings?.maxCombinedMultiplier);
+  if (!guild) return combineWeeklyExpMultiplier(globalMulti, 1, cap);
+  let member = memberHint || guild.members?.cache?.get?.(String(userId)) || null;
   if (!member && guild.members?.fetch) {
     member = await guild.members.fetch({ user: String(userId), force: false }).catch(() => null);
   }
-  if (!member) return combineWeeklyExpMultiplier(globalMulti, 1);
-  return combineWeeklyExpMultiplier(globalMulti, getRoleMultiplier(member, settings));
+  if (!member) return combineWeeklyExpMultiplier(globalMulti, 1, cap);
+  return combineWeeklyExpMultiplier(globalMulti, getRoleMultiplier(member, settings), cap);
 }
 
 async function getGlobalMultiplier(guildId?) {

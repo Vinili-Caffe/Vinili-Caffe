@@ -5,8 +5,8 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached, getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { isLevelExpGuild, getIsoWeekKey, getCurrentWeekKey, getLevelInfo, getTotalExpForLevel, repairExpTotals, resolveLevelUpAnnounceLevel } = require("./expLevels") as typeof import("./expLevels");
 const { DEFAULT_MULTIPLIER, settingsCache, normalizeSettingsDoc, getGuildExpSettings, getRoleMultiplier, combineWeeklyExpMultiplier, getResolvedWeeklyExpMultiplier, getGlobalMultiplier } = require("./expMultipliers") as typeof import("./expMultipliers");
-const { LEVEL_ROLE_MAP, sendLevelUpAnnouncement, scheduleEventLevelUpMessage } = require("./expLevelUp") as typeof import("./expLevelUp");
-const { fetchGuildMember, addLevelRoleIfPossible, healMissingLevelRoles, healLevelRolesForGuildOnStartup, addPerkRoleIfPossible, syncLevelRolesForMember } = require("./expRoles") as typeof import("./expRoles");
+const { LEVEL_ROLE_MAP, getLevelRoleMap, sendLevelUpAnnouncement, scheduleEventLevelUpMessage } = require("./expLevelUp") as typeof import("./expLevelUp");
+const { fetchGuildMember, addLevelRoleIfPossible, healMissingLevelRoles, healLevelRolesForGuildOnStartup, addPerkRoleIfPossible, syncLevelRolesForMember, minRoleLevel } = require("./expRoles") as typeof import("./expRoles");
 const { getTopExpGainsInPeriod } = require("./expHistory") as typeof import("./expHistory");
 const { ensureWeeklyExp, getUserExpStats, getUserRanks, retroSyncGuildLevels } = require("./expStats") as typeof import("./expStats");
 
@@ -18,7 +18,36 @@ const MESSAGE_EXP = 2;
 const VOICE_EXP_PER_MINUTE = 5;
 
 function invalidateSettingsCache(guildId?) {
-  if (guildId) settingsCache.delete(guildId);
+  if (guildId) settingsCache.delete(String(guildId));
+  else settingsCache.clear();
+}
+
+async function resolveMessageExp(guildId?) {
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    return await LVL.getMessageExp(guildId);
+  } catch {
+    return MESSAGE_EXP;
+  }
+}
+
+async function resolveVoiceExpPerMinute(guildId?) {
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    return await LVL.getVoiceExpPerMinute(guildId);
+  } catch {
+    return VOICE_EXP_PER_MINUTE;
+  }
+}
+
+async function resolveMessageCooldownSec(guildId?) {
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const cfg = await LVL.getConfig(String(guildId || ""));
+    return Math.max(0, Math.floor(Number(cfg.messageCooldownSec) || 0));
+  } catch {
+    return 0;
+  }
 }
 
 async function recordLevelHistory(guildId?, userId?, actorId = null, action = "update", beforeExp = 0, afterExp = 0, note = null) {
@@ -243,9 +272,12 @@ async function addExpWithLevel(guild?, userId?, amount?, applyMultiplier = false
   if (result.levelInfo.level > (result.prevLevel ?? 0)) {
     if (member) {
       const level = result.levelInfo.level;
-      const reachedPerkLevels = Array.from(LEVEL_ROLE_MAP.keys()).filter((perkLevel?) => perkLevel > (result.prevLevel ?? 0) && perkLevel <= level,).sort((a?, b?) => a - b);
+      const roleMap = await getLevelRoleMap(guild.id).catch(() => LEVEL_ROLE_MAP);
+      const reachedPerkLevels = Array.from(roleMap.keys())
+        .filter((perkLevel?) => perkLevel > (result.prevLevel ?? 0) && perkLevel <= level)
+        .sort((a?, b?) => a - b);
       for (const perkLevel of reachedPerkLevels) {
-        const roleId = LEVEL_ROLE_MAP.get(perkLevel);
+        const roleId = roleMap.get(perkLevel);
         if (!roleId) continue;
         await addLevelRoleIfPossible(member, roleId);
       }
@@ -253,25 +285,35 @@ async function addExpWithLevel(guild?, userId?, amount?, applyMultiplier = false
         totalExp: result.afterExp,
         level: result.levelInfo.level,
       });
-      const announceLevel = resolveLevelUpAnnounceLevel(
-        result.prevLevel ?? 0,
-        level,
-        inlineSnapshot,
-      );
+      const announceLevel = resolveLevelUpAnnounceLevel(result.prevLevel ?? 0, level, inlineSnapshot);
       if (announceLevel) {
         scheduleEventLevelUpMessage(guild, guild.id, userId, announceLevel, result.prevLevel ?? 0);
       }
-      if (result.levelInfo.level >= 10) {
+      if (result.levelInfo.level >= (await minRoleLevel(guild.id).catch(() => 10))) {
         await healMissingLevelRoles(member, result.levelInfo.level);
-        await addPerkRoleIfPossible(member);
+        await addPerkRoleIfPossible(member, result.levelInfo.level);
       }
     }
-  } else if (result.levelInfo.level >= 10 && member) {
-    /* levelRoleHeal1: self-heal milestone (es. Level10) anche senza level-up */
+  } else if (member && result.levelInfo.level >= (await minRoleLevel(guild.id).catch(() => 10))) {
+    /* levelRoleHeal1: self-heal milestone anche senza level-up (solo da quando serve un ruolo) */
     await healMissingLevelRoles(member, result.levelInfo.level);
-    await addPerkRoleIfPossible(member);
+    await addPerkRoleIfPossible(member, result.levelInfo.level);
   }
   return result;
+}
+
+async function syncLevelsBlobField(guildId?, patch?) {
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+    const gid = String(guildId || IDs.guilds.main || "");
+    if (!gid || !patch || typeof patch !== "object") return;
+    const prev = await LVL.getConfig(gid, true);
+    if (!(prev.userSaved || prev.seedVersion > 0)) return;
+    const next = LVL.normalizeConfig({ ...prev, ...patch, userSaved: true });
+    await T.setGuildBlob("levels", gid, next);
+    await LVL.getConfig(gid, true);
+  } catch (_) {}
 }
 
 async function setGlobalMultiplier(guildId?, multiplier?) {
@@ -280,6 +322,7 @@ async function setGlobalMultiplier(guildId?, multiplier?) {
   if (!Number.isFinite(value) || value <= 0) value = DEFAULT_MULTIPLIER;
   const doc = await GlobalSettings.findOneAndUpdate({ guildId }, { $set: { expMultiplier: value } }, { upsert: true, new: true, setDefaultsOnInsert: true },);
   invalidateSettingsCache(guildId);
+  await syncLevelsBlobField(guildId, { globalMultiplier: value });
   const settings = normalizeSettingsDoc(doc);
   return settings.baseMultiplier;
 }
@@ -317,6 +360,7 @@ async function setLevelChannelLocked(guildId?, channelId?, locked = true) {
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
   invalidateSettingsCache(guildId);
+  await syncLevelsBlobField(guildId, { lockedChannelIds: next });
   return next;
 }
 
@@ -333,6 +377,7 @@ async function setRoleIgnored(guildId?, roleId?, ignored = true) {
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => null);
   invalidateSettingsCache(guildId);
+  await syncLevelsBlobField(guildId, { ignoredRoleIds: next });
   return next;
 }
 
@@ -422,4 +467,35 @@ async function shouldIgnoreExpForMember({ guildId, member, channelId = null, ski
 }
 const PERIOD_LOOKBACK_DAYS = [1, 7, 14, 21, 30];
 
-export = { MESSAGE_EXP, VOICE_EXP_PER_MINUTE, isLevelExpGuild, addExpWithLevel, getUserExpStats, getUserRanks, getLevelInfo, getTotalExpForLevel, getGlobalMultiplier, setGlobalMultiplier, setTemporaryEventMultiplier, getGuildExpSettings, setLevelChannelLocked, setRoleIgnored, setRoleExpMultiplier, shouldIgnoreExpForMember, recordLevelHistory, syncLevelRolesForMember, retroSyncGuildLevels, healLevelRolesForGuildOnStartup, getResolvedWeeklyExpMultiplier, getCurrentWeekKey, incrementMinigameWinCounters, sendLevelUpAnnouncement, getTopExpGainsInPeriod, PERIOD_LOOKBACK_DAYS };
+export = {
+  MESSAGE_EXP,
+  VOICE_EXP_PER_MINUTE,
+  resolveMessageExp,
+  resolveVoiceExpPerMinute,
+  resolveMessageCooldownSec,
+  invalidateSettingsCache,
+  isLevelExpGuild,
+  addExpWithLevel,
+  getUserExpStats,
+  getUserRanks,
+  getLevelInfo,
+  getTotalExpForLevel,
+  getGlobalMultiplier,
+  setGlobalMultiplier,
+  setTemporaryEventMultiplier,
+  getGuildExpSettings,
+  setLevelChannelLocked,
+  setRoleIgnored,
+  setRoleExpMultiplier,
+  shouldIgnoreExpForMember,
+  recordLevelHistory,
+  syncLevelRolesForMember,
+  retroSyncGuildLevels,
+  healLevelRolesForGuildOnStartup,
+  getResolvedWeeklyExpMultiplier,
+  getCurrentWeekKey,
+  incrementMinigameWinCounters,
+  sendLevelUpAnnouncement,
+  getTopExpGainsInPeriod,
+  PERIOD_LOOKBACK_DAYS,
+};

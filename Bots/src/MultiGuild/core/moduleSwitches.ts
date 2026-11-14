@@ -32,6 +32,8 @@ const MODULES: ModuleDef[] = [
   { id: "sondaggi", kind: "dash" },
   { id: "live", kind: "dash" },
   { id: "compleanni", kind: "dash" },
+  /* EXP / livelli: per ora solo sul principale (il sistema EXP è già lì) */
+  { id: "livelli", kind: "dash", mainOnly: true },
   { id: "utility", kind: "feature", feature: "utility" },
   { id: "music", kind: "feature", feature: "music" },
   { id: "tts", kind: "feature", feature: "tts" },

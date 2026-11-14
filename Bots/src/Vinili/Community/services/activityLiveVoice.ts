@@ -2,7 +2,7 @@
 const { isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const { ActivityUserProfile, ACTIVITY_MAIN_GUILD_ID } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 const { isValidGuildUserIdChannelId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
-const { addExpWithLevel, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, isLevelExpGuild } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
+const { addExpWithLevel, VOICE_EXP_PER_MINUTE, resolveVoiceExpPerMinute, shouldIgnoreExpForMember, isLevelExpGuild } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const { resolveVoiceExpMultiplier, computeVoiceExpFromSeconds } = require("../utils/voiceExpChannelUtils") as typeof import("../utils/voiceExpChannelUtils");
 const { bumpDailyVoice, bumpHourlyVoice } = require("./activityBumps") as typeof import("./activityBumps");
 const { recordVoiceSessionEnd, isCountableVoiceState } = require("./activityRecord") as typeof import("./activityRecord");
@@ -181,8 +181,9 @@ async function runLiveVoiceExpTick(client?) {
     const alreadyAwardedSeconds = Math.max(0, Number(row?.profile?.totals?.expAwardedSeconds || 0),);
     const ignored = await shouldIgnoreExpForMember({ guildId, member, channelId, });
     const voiceMult = ignored ? 0 : await resolveVoiceExpMultiplier({ id: channelId }, guild, client);
-    const totalAwardableExp = computeVoiceExpFromSeconds(elapsedSeconds, voiceMult, VOICE_EXP_PER_MINUTE);
-    const alreadyAwardedExp = computeVoiceExpFromSeconds(alreadyAwardedSeconds, voiceMult, VOICE_EXP_PER_MINUTE);
+    const voiceRate = await resolveVoiceExpPerMinute(guildId).catch(() => VOICE_EXP_PER_MINUTE);
+    const totalAwardableExp = computeVoiceExpFromSeconds(elapsedSeconds, voiceMult, voiceRate);
+    const alreadyAwardedExp = computeVoiceExpFromSeconds(alreadyAwardedSeconds, voiceMult, voiceRate);
     const grantableExp = Math.max(0, totalAwardableExp - alreadyAwardedExp);
     if (grantableExp <= 0) continue;
 

@@ -3,7 +3,10 @@ const mongoose = require("mongoose") as typeof import("mongoose");
 const { ensureMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 const { ACTIVITY_LEGACY_DAILY_DISABLED, ACTIVITY_LEGACY_HOURLY_DISABLED } = require("../schemas/communitySchemas") as typeof import("../schemas/communitySchemas");
 const { isValidGuildUserIdChannelId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
-const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, shouldIgnoreExpForMember, isLevelExpGuild } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
+const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, resolveMessageExp, resolveVoiceExpPerMinute, resolveMessageCooldownSec, shouldIgnoreExpForMember, isLevelExpGuild } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
+
+/** cooldown messaggi EXP (dashboard): chiave guild:user → last award ms */
+const messageExpCooldownUntil = new Map<string, number>();
 const { resolveVoiceExpMultiplier, computeVoiceExpFromSeconds } = require("../utils/voiceExpChannelUtils") as typeof import("../utils/voiceExpChannelUtils");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { isExcludedActivityChannel } = require("./activityChannels") as typeof import("./activityChannels");
@@ -188,6 +191,21 @@ async function applyMessageActivityTick(client?, tick?) {
   const guild =
     client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
   if (!guild) return;
+  const amount = await resolveMessageExp(gid).catch(() => MESSAGE_EXP);
+  if (!(amount > 0)) return;
+  const cooldownSec = await resolveMessageCooldownSec(gid).catch(() => 0);
+  if (cooldownSec > 0) {
+    const key = `${gid}:${uid}`;
+    const until = Number(messageExpCooldownUntil.get(key) || 0);
+    const now = Date.now();
+    if (now < until) return;
+    messageExpCooldownUntil.set(key, now + cooldownSec * 1000);
+    if (messageExpCooldownUntil.size > 20_000) {
+      for (const [k, t] of messageExpCooldownUntil) {
+        if (t <= now) messageExpCooldownUntil.delete(k);
+      }
+    }
+  }
   const member = await guild.members.fetch(uid).catch(() => null);
   const ignored = await shouldIgnoreExpForMember({
     guildId: gid,
@@ -195,7 +213,7 @@ async function applyMessageActivityTick(client?, tick?) {
     channelId: channelIdResolved || null,
   });
   if (!ignored) {
-    await addExpWithLevel(guild, uid, MESSAGE_EXP, true, true, { source: "activity" });
+    await addExpWithLevel(guild, uid, amount, true, true, { source: "activity" });
   }
 }
 
@@ -260,8 +278,9 @@ async function recordVoiceSessionEnd(doc?, now?, guild?, skipExp = false, channe
   doc.profile.totals.sessionChannelId = null;
   const alreadyAwardedSeconds = Math.max(0, Number(doc.profile.totals.expAwardedSeconds || 0),);
   const voiceMult = skipExp ? 0 : await resolveVoiceExpMultiplier({ id: channelId }, guild, guild?.client);
-  const totalAwardableExp = computeVoiceExpFromSeconds(elapsedSeconds, voiceMult, VOICE_EXP_PER_MINUTE);
-  const alreadyAwardedExp = computeVoiceExpFromSeconds(alreadyAwardedSeconds, voiceMult, VOICE_EXP_PER_MINUTE);
+  const voiceRate = await resolveVoiceExpPerMinute(guild?.id).catch(() => VOICE_EXP_PER_MINUTE);
+  const totalAwardableExp = computeVoiceExpFromSeconds(elapsedSeconds, voiceMult, voiceRate);
+  const alreadyAwardedExp = computeVoiceExpFromSeconds(alreadyAwardedSeconds, voiceMult, voiceRate);
   const remainingExp = Math.max(0, totalAwardableExp - alreadyAwardedExp);
   doc.profile.totals.expAwardedSeconds = 0;
   if (!skipExp && remainingExp > 0 && isLevelExpGuild(guild?.id)) {

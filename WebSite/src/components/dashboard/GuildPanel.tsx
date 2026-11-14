@@ -256,6 +256,10 @@ const BirthdaysPanel = dynamic(() => import("./guild/community/BirthdaysPanel").
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
+const LevelsPanel = dynamic(() => import("./guild/community/LevelsPanel").then((m) => m.LevelsPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
 
 const HealthPanel = dynamic(() => import("./guild/HealthPanel").then((m) => m.HealthPanel), {
   ssr: false,
@@ -310,6 +314,7 @@ const SECTION_LEAD: Record<Section, string> = {
   sondaggi: "Sondaggi di Discord pubblicati dalla dashboard, con i risultati.",
   live: "Avvisi per live, video e post su Twitch, YouTube, Kick, TikTok e Instagram: canali, messaggio e ping.",
   compleanni: "Auguri nel giorno del compleanno: canale, messaggio, ruolo del giorno e privato.",
+  livelli: "EXP da chat e vocale, moltiplicatori, ruoli premio e messaggi di level-up.",
 };
 
 /* testata di ogni pagina: spiegazione breve e colore (Bump e Voti hanno la loro, Impostazioni la scheda del server) */
@@ -333,6 +338,7 @@ const SECTION_HERO: Partial<Record<string, { text: string; accent: string }>> = 
   sondaggi: { text: "Domande al server con voto a pulsanti e risultati in diretta.", accent: "#6f9ce8" },
   live: { text: "Notifiche social multi-piattaforma: live, video e post con messaggio, canale e ping.", accent: "#9146ff" },
   compleanni: { text: "Gli auguri a chi compie gli anni, con il ruolo del giorno.", accent: "#f08fb0" },
+  livelli: { text: "Livelli e EXP del server: tassi, moltiplicatori, premi e annunci.", accent: "#826bc2" },
 };
 
 /* aree del registro, tutte nella stessa pagina */
@@ -2621,6 +2627,12 @@ export function GuildPanel() {
                     {section === "compleanni" && guildId && token ? (
                       <Panel>
                         <BirthdaysPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "livelli" && guildId && token ? (
+                      <Panel>
+                        <LevelsPanel guildId={guildId} token={token} onToast={showToast} />
                       </Panel>
                     ) : null}
 

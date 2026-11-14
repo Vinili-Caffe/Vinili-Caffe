@@ -151,7 +151,7 @@ export function BirthdaysPanel({ guildId, token, onToast }: { guildId: string; t
           <Clock className="mt-0.5 size-4 shrink-0 text-crema/45" aria-hidden />
           {meta.isMain
             ? "Su questo server chi compie gli anni ha il ×2 EXP per tutta la giornata. Per citarlo nel messaggio usa {exptext}."
-            : "Arriverà insieme ai livelli: quando li accenderai su questo server potrai dare anche un boost EXP nel giorno del compleanno."}
+            : "Il boost EXP nel giorno del compleanno arriverà quando i livelli saranno disponibili anche su questo server."}
         </p>
         <a href={page("/personalizza/?target=birthday")} className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-crema/55 hover:text-crema">
           <ExternalLink className="size-3.5" aria-hidden /> Il tuo compleanno su Personalizza

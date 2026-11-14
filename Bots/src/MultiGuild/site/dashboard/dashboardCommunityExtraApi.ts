@@ -492,6 +492,31 @@ async function patchBirthdays(client?, token?, guildId?, body?) {
   return { ok: true, status: 200, config };
 }
 
+/* ───────────── Livelli / EXP ───────────── */
+
+const LVL = () => require("../../services/levelsRuntime") as typeof import("../../services/levelsRuntime");
+
+async function getLevels(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (!MS().moduleExists(a.guildId, "livelli")) return fail(404, "unavailable", "I livelli non sono disponibili su questo server.");
+  const imported = await LVL().ensureMainSeed(a.guildId).catch(() => false);
+  const config = await LVL().getConfig(a.guildId, true);
+  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), imported, config };
+}
+
+async function patchLevels(client?, token?, guildId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (!MS().moduleExists(a.guildId, "livelli")) return fail(404, "unavailable", "I livelli non sono disponibili su questo server.");
+  const raw = body?.config || body || {};
+  if (raw.levelUpChannelId != null && raw.levelUpChannelId !== "" && !T.isId(raw.levelUpChannelId)) {
+    return fail(400, "bad_channel", "Canale non valido.");
+  }
+  const config = await LVL().saveConfig(a.guildId, raw);
+  return { ok: true, status: 200, config };
+}
+
 /* ───────────── giveaway ───────────── */
 
 const G = () => require("../../../Vinili/Giveaway/services/giveawayService") as typeof import("../../../Vinili/Giveaway/services/giveawayService");
@@ -746,7 +771,7 @@ async function setModuleSwitch(client?, token?, guildId?, body?) {
 }
 
 /* moduli del menu laterale: "Disattivati" = solo quelli spenti dalla pagina Moduli */
-const SIDEBAR_MODULES = ["bacheca", "tickets", "moderation", "partnership", "messaggi", "comandipers", "ruoli", "benvenuto", "risposte", "contatori", "bump", "voti", "giveaway", "sondaggi", "live", "compleanni"];
+const SIDEBAR_MODULES = ["bacheca", "tickets", "moderation", "partnership", "messaggi", "comandipers", "ruoli", "benvenuto", "risposte", "contatori", "bump", "voti", "giveaway", "sondaggi", "live", "compleanni", "livelli"];
 
 async function modulesStatus(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
@@ -783,6 +808,8 @@ export = {
   patchLive,
   getBirthdays,
   patchBirthdays,
+  getLevels,
+  patchLevels,
   listGiveaways,
   createGiveaway,
   editGiveaway,

@@ -3,9 +3,18 @@ const { ActivityUserProfile } = require("../../Community/schemas/communitySchema
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildMemberCached, getGuildRoleCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { isLevelExpGuild } = require("./expLevels") as typeof import("./expLevels");
-const { LEVEL_ROLE_MAP } = require("./expLevelUp") as typeof import("./expLevelUp");
+const { LEVEL_ROLE_MAP, getLevelRoleMap } = require("./expLevelUp") as typeof import("./expLevelUp");
 
 const PERK_ROLE_ID = IDs.roles.PicPerms;
+
+async function resolvePerkRole(guildId?) {
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const cfg = await LVL.getConfig(String(guildId || ""));
+    if (cfg?.perkRoleId) return { roleId: String(cfg.perkRoleId), minLevel: Math.max(0, Math.floor(Number(cfg.perkMinLevel) || 0)) };
+  } catch (_) {}
+  return { roleId: String(PERK_ROLE_ID || ""), minLevel: 10 };
+}
 
 async function fetchGuildMember(guild?, userId?) {
   if (!guild || !userId) return null;
@@ -74,14 +83,16 @@ async function addLevelRoleIfPossible(member?, roleId?) {
 async function healMissingLevelRoles(member?, level?) {
   if (!member?.guild || !Number.isFinite(Number(level))) return 0;
   const safeLevel = Math.max(0, Math.floor(Number(level || 0)));
-  if (safeLevel < 10) return 0;
-  const reachedPerkLevels = Array.from(LEVEL_ROLE_MAP.keys())
+  const map = await getLevelRoleMap(member.guild.id).catch(() => LEVEL_ROLE_MAP);
+  const minReward = Math.min(...Array.from(map.keys()), 10);
+  if (safeLevel < minReward) return 0;
+  const reachedPerkLevels = Array.from(map.keys())
     .filter((perkLevel?) => perkLevel <= safeLevel)
     .sort((a?, b?) => a - b);
   let mem = member;
   let healed = 0;
   for (const perkLevel of reachedPerkLevels) {
-    const roleId = LEVEL_ROLE_MAP.get(perkLevel);
+    const roleId = map.get(perkLevel);
     if (!roleId) continue;
     if (mem.roles?.cache?.has(roleId)) continue;
     const ok = await addLevelRoleIfPossible(mem, roleId);
@@ -127,9 +138,20 @@ function isMemberGoneError(err?) {
   return code === 10007 || code === 10013 || msg.includes("unknown member") || msg.includes("unknown user") || msg.includes("not found");
 }
 
-async function addPerkRoleIfPossible(member?) {
-  if (!member?.guild || !PERK_ROLE_ID) return;
-  const rid = String(PERK_ROLE_ID);
+async function addPerkRoleIfPossible(member?, knownLevel?: number) {
+  const perk = await resolvePerkRole(member?.guild?.id);
+  if (!member?.guild || !perk.roleId) return;
+  if (perk.minLevel > 0 && Number.isFinite(Number(knownLevel))) {
+    if (Math.floor(Number(knownLevel)) < perk.minLevel) return;
+  } else if (perk.minLevel > 0) {
+    const row = await ActivityUserProfile.findOne({ guildId: String(member.guild.id), userId: String(member.id) })
+      .select("profile.totals.exp.level")
+      .lean()
+      .catch(() => null);
+    const level = Math.max(0, Math.floor(Number(row?.profile?.totals?.exp?.level || 0)));
+    if (level < perk.minLevel) return;
+  }
+  const rid = String(perk.roleId);
   const me = member.guild.members.me;
   if (!me?.permissions?.has?.("ManageRoles")) return;
   const role = member.guild.roles.cache.get(rid) || (await getGuildRoleCached(member.guild, rid));
@@ -166,34 +188,44 @@ async function removeLevelRoleIfPossible(member?, roleId?) {
   return !fresh?.roles?.cache?.has(roleId);
 }
 
+/** Livello più basso da cui servono ruoli (primo premio o ruolo perk): sotto, i controlli si saltano. */
+async function minRoleLevel(guildId?) {
+  const map = await getLevelRoleMap(guildId).catch(() => LEVEL_ROLE_MAP);
+  const perk = await resolvePerkRole(guildId);
+  const levels = [...Array.from(map.keys()).map(Number), ...(perk.roleId ? [perk.minLevel] : [])].filter((n) => Number.isFinite(n) && n > 0);
+  return levels.length ? Math.min(...levels) : Infinity;
+}
+
 async function syncLevelRolesForMember(guild?, userId?, level?) {
   if (!guild || !userId) return [];
   const safeLevel = Math.max(0, Math.floor(Number(level || 0)));
   const member = await getGuildMemberCached(guild, userId);
   if (!member) return [];
+  const map = await getLevelRoleMap(guild.id).catch(() => LEVEL_ROLE_MAP);
+  const perk = await resolvePerkRole(guild.id);
   const awarded = [];
-  const aboveLevels = Array.from(LEVEL_ROLE_MAP.keys())
+  const aboveLevels = Array.from(map.keys())
     .filter((perkLevel?) => perkLevel > safeLevel)
     .sort((a?, b?) => b - a);
   for (const perkLevel of aboveLevels) {
-    const roleId = LEVEL_ROLE_MAP.get(perkLevel);
+    const roleId = map.get(perkLevel);
     if (roleId) await removeLevelRoleIfPossible(member, roleId);
   }
-  const reachedPerkLevels = Array.from(LEVEL_ROLE_MAP.keys())
+  const reachedPerkLevels = Array.from(map.keys())
     .filter((perkLevel?) => perkLevel <= safeLevel)
     .sort((a?, b?) => a - b);
-  let mem = await getGuildMemberCached(guild, userId, { preferFresh: true }) || member;
+  let mem = (await getGuildMemberCached(guild, userId, { preferFresh: true })) || member;
   for (const perkLevel of reachedPerkLevels) {
-    const roleId = LEVEL_ROLE_MAP.get(perkLevel);
+    const roleId = map.get(perkLevel);
     if (!roleId) continue;
     const alreadyHad = Boolean(mem?.roles?.cache?.has(roleId));
     const ok = await addLevelRoleIfPossible(mem, roleId);
-            if (ok && !alreadyHad) awarded.push(roleId);
+    if (ok && !alreadyHad) awarded.push(roleId);
     mem = (await getGuildMemberCached(guild, userId, { preferFresh: true })) || mem;
   }
   const freshMember = await getGuildMemberCached(guild, userId, { preferFresh: true });
   if (!freshMember) return awarded;
-  if (safeLevel >= 10) await addPerkRoleIfPossible(freshMember);
+  if (safeLevel >= perk.minLevel) await addPerkRoleIfPossible(freshMember);
   else {
     const { tryRevokePicPermsIfIneligible } = require("../../Community/utils/manualSocialRoleAnnounceAndPicPerms") as typeof import("../../Community/utils/manualSocialRoleAnnounceAndPicPerms");
     await tryRevokePicPermsIfIneligible(freshMember);
@@ -201,4 +233,4 @@ async function syncLevelRolesForMember(guild?, userId?, level?) {
   return awarded;
 }
 
-export = { fetchGuildMember, addLevelRoleIfPossible, healMissingLevelRoles, healLevelRolesForGuildOnStartup, addPerkRoleIfPossible, syncLevelRolesForMember };
+export = { fetchGuildMember, addLevelRoleIfPossible, healMissingLevelRoles, healLevelRolesForGuildOnStartup, addPerkRoleIfPossible, syncLevelRolesForMember, minRoleLevel };

@@ -411,6 +411,30 @@ export type BirthdaysConfig = {
   reactions?: string[];
 };
 
+export type LevelsRoleMultiplier = { roleId: string; multiplier: number };
+export type LevelsRoleReward = { level: number; roleId: string };
+
+export type LevelsConfig = {
+  seedVersion?: number;
+  userSaved?: boolean;
+  messageEnabled: boolean;
+  voiceEnabled: boolean;
+  messageExp: number;
+  voiceExpPerMinute: number;
+  messageCooldownSec: number;
+  globalMultiplier: number;
+  lockedChannelIds: string[];
+  ignoredRoleIds: string[];
+  roleMultipliers: LevelsRoleMultiplier[];
+  levelUpChannelId: string | null;
+  levelUpDraft: MsgDraft;
+  milestoneDraft: MsgDraft;
+  roleRewards: LevelsRoleReward[];
+  perkRoleId: string | null;
+  perkMinLevel: number;
+  maxCombinedMultiplier: number;
+};
+
 export type LivePlatform = "twitch" | "youtube" | "kick" | "tiktok" | "instagram";
 
 export type LiveAccount = {
@@ -487,6 +511,9 @@ export const communityApi = {
   getBirthdays: (t: string, g: string) =>
     call<{ isMainGuild?: boolean; imported?: boolean; config: BirthdaysConfig; timezone?: string }>(t, g, `/birthdays?_=${Date.now()}`),
   saveBirthdays: (t: string, g: string, config: BirthdaysConfig) => call<{ config: BirthdaysConfig }>(t, g, "/birthdays", "PATCH", { config }),
+  getLevels: (t: string, g: string) =>
+    call<{ isMainGuild?: boolean; imported?: boolean; config: LevelsConfig }>(t, g, `/levels?_=${Date.now()}`),
+  saveLevels: (t: string, g: string, config: LevelsConfig) => call<{ config: LevelsConfig }>(t, g, "/levels", "PATCH", { config }),
   listGiveaways: (t: string, g: string) => call<{ giveaways: Giveaway[] }>(t, g, `/giveaways?_=${Date.now()}`),
   createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number; hostId?: string }) =>
     call<{ giveaway: Giveaway }>(t, g, "/giveaways", "POST", body),
