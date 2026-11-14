@@ -106,6 +106,18 @@ export const BACHECA_MODULE_TABS = [
 
 export type BachecaModuleTabId = (typeof BACHECA_MODULE_TABS)[number]["id"];
 
+export const LIVELLI_MODULE_TABS = [
+  { id: "exp", label: "Guadagno EXP" },
+  { id: "ruoli", label: "Ruoli premio" },
+  { id: "annunci", label: "Annunci" },
+] as const satisfies readonly GuildModuleTab[];
+
+export type LivelliModuleTabId = (typeof LIVELLI_MODULE_TABS)[number]["id"];
+
+export function isLivelliModuleTab(v: string): v is LivelliModuleTabId {
+  return LIVELLI_MODULE_TABS.some((t) => t.id === v);
+}
+
 export const MODERATION_MODULE_TABS = [
   { id: "overview", label: "Panoramica" },
   { id: "punizioni", label: "Punizione automatica" },
@@ -234,6 +246,7 @@ export function defaultModuleTab(section: GuildSectionId): string | null {
   if (section === "registro") return "all";
   if (section === "benvenuto") return "welcome";
   if (section === "live") return "twitch";
+  if (section === "livelli") return "exp";
   return null;
 }
 

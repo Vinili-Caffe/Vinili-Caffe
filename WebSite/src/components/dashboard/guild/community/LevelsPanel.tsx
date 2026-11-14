@@ -106,14 +106,24 @@ const roleColor = (roles: PickerRole[], id: string) => {
 
 /* ───────────── pannello ───────────── */
 
-export function LevelsPanel({ guildId, token, onToast }: { guildId: string; token: string; onToast: (msg: string, err?: boolean) => void }) {
+export function LevelsPanel({
+  guildId,
+  token,
+  onToast,
+  tab = "exp",
+}: {
+  guildId: string;
+  token: string;
+  onToast: (msg: string, err?: boolean) => void;
+  /** scheda scelta nell'elenco laterale */
+  tab?: Tab;
+}) {
   const { data } = useCommunity(guildId, token);
   const baseVars = useSampleVars(data);
   const [cfg, setCfg] = useState<LevelsConfig | null>(null);
   const [saved, setSaved] = useState("");
   const [imported, setImported] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("exp");
   const [announce, setAnnounce] = useState<"level" | "milestone">("level");
 
   useEffect(() => {
@@ -130,17 +140,19 @@ export function LevelsPanel({ guildId, token, onToast }: { guildId: string; toke
     };
   }, [guildId, token]);
 
+  /* {role} come un vero ruolo del server: il primo ruolo premio (o uno qualsiasi) */
+  const sampleRoleId = cfg?.roleRewards?.[0]?.roleId || data?.pickers.roles.find((r) => !r.managed && r.id !== guildId)?.id || "";
   const vars = useMemo(
     () => ({
       ...baseVars,
       user: baseVars.user || "@Mario",
       username: baseVars.username || "Mario",
       level: "42",
-      role: "@Level 50",
-      roleid: "100000000000000050",
+      role: sampleRoleId ? `<@&${sampleRoleId}>` : "@Level 50",
+      roleid: sampleRoleId || "100000000000000050",
       perks: "#supporters",
     }),
-    [baseVars],
+    [baseVars, sampleRoleId],
   );
 
   if (loadError && !cfg) return <Notice error>{loadError}</Notice>;
@@ -184,35 +196,6 @@ export function LevelsPanel({ guildId, token, onToast }: { guildId: string; toke
       {imported ? (
         <Notice>Ho importato tassi, moltiplicatori, canali bloccati e ruoli premio che il bot usa già su questo server. Puoi cambiarli liberamente da qui.</Notice>
       ) : null}
-
-      {/* riepilogo in alto */}
-      <div className="grid gap-2 sm:grid-cols-4">
-        {[
-          { icon: MessageSquare, label: "Per messaggio", value: cfg.messageEnabled ? `${cfg.messageExp} EXP` : "spento" },
-          { icon: Mic, label: "In vocale, all'ora", value: cfg.voiceEnabled ? `≈ ${voicePerHour.toLocaleString("it-IT")} EXP` : "spento" },
-          { icon: Sparkles, label: "Moltiplicatore", value: `×${cfg.globalMultiplier} · max ×${cfg.maxCombinedMultiplier}` },
-          { icon: Gift, label: "Ruoli premio", value: String(cfg.roleRewards.length) },
-        ].map(({ icon: Icon, label, value }) => (
-          <div key={label} className="flex items-center gap-3 rounded-2xl bg-espresso/45 px-3.5 py-3 ring-1 ring-sand/10">
-            <Icon className="size-4 shrink-0 text-[#b9a6f0]" aria-hidden />
-            <div className="min-w-0">
-              <p className="truncate text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/45">{label}</p>
-              <p className="truncate text-sm font-semibold text-crema">{value}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <Pills
-        value={tab}
-        onChange={setTab}
-        ariaLabel="Sezioni livelli"
-        options={[
-          { id: "exp", label: "Guadagno EXP", icon: TrendingUp },
-          { id: "ruoli", label: "Ruoli premio", icon: Trophy },
-          { id: "annunci", label: "Annunci", icon: Megaphone },
-        ]}
-      />
 
       {tab === "exp" ? (
         <div className="space-y-4">

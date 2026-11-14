@@ -146,6 +146,8 @@ import {
   isModerationModuleTab,
   isPartnershipModuleTab,
   isBachecaModuleTab,
+  isLivelliModuleTab,
+  LIVELLI_MODULE_TABS,
   isRegistroModuleTab,
   REGISTRO_MODULE_TABS,
   isAnnunciModuleTab,
@@ -556,6 +558,7 @@ function sanitizeModuleTab(section: Section, raw: string | null | undefined): st
   if (section === "moderation") return isModerationModuleTab(v) ? v : "overview";
   if (section === "partnership") return isPartnershipModuleTab(v) ? v : "setup";
   if (section === "bacheca") return isBachecaModuleTab(v) ? v : "impostazioni";
+  if (section === "livelli") return isLivelliModuleTab(v) ? v : "exp";
   if (section === "commands") {
     if (v === "all" || isCommandSectionTab(v)) return v;
     /* categorie dinamiche dal catalogo API */
@@ -2178,7 +2181,9 @@ export function GuildPanel() {
               ? ANNUNCI_MODULE_TABS
               : section === "live"
                 ? LIVE_MODULE_TABS
-                : null;
+                : section === "livelli"
+                  ? LIVELLI_MODULE_TABS
+                  : null;
   const switchActive = moduleTab || defaultModuleTab(section) || "";
   const withSwitchTabs = (node: React.ReactNode) =>
     switchTabs ? (
@@ -2631,9 +2636,11 @@ export function GuildPanel() {
                     ) : null}
 
                     {section === "livelli" && guildId && token ? (
-                      <Panel>
-                        <LevelsPanel guildId={guildId} token={token} onToast={showToast} />
-                      </Panel>
+                      withSwitchTabs(
+                        <Panel>
+                          <LevelsPanel guildId={guildId} token={token} onToast={showToast} tab={moduleTab && isLivelliModuleTab(moduleTab) ? moduleTab : "exp"} />
+                        </Panel>,
+                      )
                     ) : null}
 
                     {section === "live" && guildId && token ? (
