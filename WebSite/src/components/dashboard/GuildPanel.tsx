@@ -84,6 +84,7 @@ import {
   TrendingUp as IcLevel,
   Trophy as IcRewards,
   Zap as IcExp,
+  Gift as IcBonus,
   Users as IcCommunity,
   Wrench as IcUtility,
   type LucideIcon,
@@ -399,6 +400,7 @@ const SIDE_TAB_ICONS: Record<string, LucideIcon> = {
   livelli: IcLevel,
   /* Livelli: Guadagno EXP, Ruoli premio, Annunci */
   exp: IcExp,
+  bonus: IcBonus,
   ruoli: IcRewards,
   annunci: Megaphone,
   utenti: IcTeams,

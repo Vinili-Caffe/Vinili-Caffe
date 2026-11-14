@@ -6,11 +6,14 @@
 const T = require("../core/tenantCommunityTools") as typeof import("../core/tenantCommunityTools");
 
 type RoleMult = { roleId: string; multiplier: number };
-type RoleReward = { level: number; roleId: string };
+/** perks: testo dei vantaggi sbloccati (va in {perklist} del messaggio vantaggi); assente = quelli di sempre */
+type RoleReward = { level: number; roleId: string; perks?: string };
 /** ruolo dato a chi fa tot EXP coi minigiochi (Rookie, Scout…) */
 type MinigameReward = { exp: number; roleId: string };
 
-type ExpBonus = { enabled: boolean; amount: number; channelIds: string[] };
+/** noticeDraft: messaggio completo (testo, embed o V2) mandato in risposta; noticeTemplate resta per compatibilità */
+type ExpBonus = { enabled: boolean; amount: number; channelIds: string[]; noticeTemplate: string; noticeDraft: ReturnType<typeof T.normalizeDraft> };
+type CooldownTier = { minLevel: number; seconds: number };
 
 type LevelsConfig = {
   seedVersion: number;
@@ -28,13 +31,34 @@ type LevelsConfig = {
   levelUpDraft: ReturnType<typeof T.normalizeDraft>;
   milestoneDraft: ReturnType<typeof T.normalizeDraft>;
   roleRewards: RoleReward[];
+  /** messaggio "vantaggi sbloccati" quando si prende un ruolo premio (es. #supporters) */
+  perksEnabled: boolean;
+  /** canale del messaggio vantaggi (vuoto = #supporters del server principale) */
+  perksChannelId: string | null;
+  perksDraft: ReturnType<typeof T.normalizeDraft>;
   perkRoleId: string | null;
   perkMinLevel: number;
   maxCombinedMultiplier: number;
   /** premi dei minigiochi (EXP fatti coi minigiochi → ruolo) */
   minigameRewards: MinigameReward[];
+  /** canale annuncio premio minigiochi (vuoto = #comandi) */
+  minigameRewardChannelId: string | null;
+  /** messaggio premio minigiochi (vuoto = embed classico) */
+  minigameRewardDraft: ReturnType<typeof T.normalizeDraft>;
   /** livelli regalati per la recensione sul sito (solo main; 0 = niente premio) */
   reviewRewardLevels: number;
+  /** cooldown comandi: soglie di livello + riduzioni Staff/VIP/Boost */
+  commandCooldown: {
+    defaultSeconds: number;
+    tiers: CooldownTier[];
+    roles: {
+      staff: number;
+      vipPlus: number;
+      vip: number;
+      doubleBooster: number;
+      booster: number;
+    };
+  };
   /** bonus community: primo messaggio del giorno + saluto di benvenuto */
   bonuses: {
     firstMessageDaily: ExpBonus;
@@ -93,7 +117,8 @@ function normalizeRoleRewards(raw: unknown): RoleReward[] {
     const roleId = String((row as any)?.roleId || "").trim();
     if (!Number.isFinite(level) || level < 1 || level > 10000 || !T.isId(roleId) || seen.has(level)) continue;
     seen.add(level);
-    out.push({ level, roleId });
+    const perks = (row as any)?.perks;
+    out.push(typeof perks === "string" ? { level, roleId, perks: perks.slice(0, 2000) } : { level, roleId });
     if (out.length >= 60) break;
   }
   return out.sort((a, b) => a.level - b.level);
@@ -175,13 +200,154 @@ function defaultMilestoneDraft() {
   });
 }
 
-function normalizeExpBonus(raw?, fb: ExpBonus): ExpBonus {
-  const r = raw && typeof raw === "object" ? raw : {};
+/** Messaggio vantaggi di sempre (#supporters): {perklist} = vantaggi del livello. */
+function defaultPerksDraft() {
+  const { E } = require("../../shared/emojis/emojiCatalog") as typeof import("../../shared/emojis/emojiCatalog");
+  const e = (k: string) => String((E as any)?.[k] || "");
+  return T.normalizeDraft({
+    content: `${e("VC_LevelUp")} \`|\`  {user}`,
+    mentionUsers: true,
+    embed: {
+      enabled: true,
+      title: "",
+      description: [
+        `### ${e("ThankYou")} **__COMPLIMENTI {user}!__**`,
+        "",
+        `${e("exp")} **Hai raggiunto il livello \`{level}\`** e il ruolo {role}.`,
+        "",
+        `${e("VC_LevelUp")} **Hai sbloccato i seguenti vantaggi:**`,
+        "",
+        "{perklist}",
+        "",
+        `${e("flyingnitroboost")} **Grazie** per essere attivo/a su **{server}**!`,
+        "",
+        `${e("VC_Link")} Dettaglio completo: [viniliecaffe.it/perks](<https://viniliecaffe.it/perks/>)`,
+      ].join("\n"),
+      color: "#826bc2",
+      imageUrl: "",
+      thumbnailUrl: "{avatar}",
+      footerText: "",
+      timestamp: false,
+      authorName: "{username}",
+      authorIconUrl: "{avatar}",
+      fields: [],
+    },
+  });
+}
+
+/** Vantaggi di sempre per un livello del server principale (testo, una riga per vantaggio). */
+function defaultPerksText(level: number): string {
+  try {
+    const M = require("../../Vinili/Community/utils/levelMilestoneSupportersAnnounceEmbeds") as typeof import("../../Vinili/Community/utils/levelMilestoneSupportersAnnounceEmbeds");
+    return M.buildPerkBlockLines(level).join("\n");
+  } catch {
+    return "";
+  }
+}
+
+/** Ruoli premio coi vantaggi di sempre dove non sono mai stati scritti (solo server principale). */
+function withDefaultPerks(rewards: RoleReward[]): RoleReward[] {
+  return rewards.map((r) => (typeof r.perks === "string" ? r : { ...r, perks: defaultPerksText(r.level) }));
+}
+
+/** Messaggio bonus di sempre: emoji in apertura, EXP in grassetto, menzione in fondo. */
+function defaultBonusDraft(kind: "firstMessageDaily" | "welcomeGreeting", template?: string) {
+  const { E } = require("../../shared/emojis/emojiCatalog") as typeof import("../../shared/emojis/emojiCatalog");
+  const e = (k: string) => String((E as any)?.[k] || "");
+  const content = template
+    ? template
+    : kind === "firstMessageDaily"
+      ? `${e("VC_ThankYou")} **Sei stato/a il primo a scrivere oggi in chat!**\n${e("VC_EXP")} **{amount} exp** guadagnati!\n{user}`
+      : `${e("VC_ThankYou")} **Grazie per il benvenuto!**\n${e("VC_EXP")} **{amount} exp** guadagnati!\n{user}`;
+  return T.normalizeDraft({ content, mentionUsers: true, embed: { enabled: false } });
+}
+
+function normalizeExpBonus(raw: unknown, fb: ExpBonus, kind: "firstMessageDaily" | "welcomeGreeting"): ExpBonus {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const notice = String(r.noticeTemplate ?? fb.noticeTemplate ?? "").trim().slice(0, 500);
+  /* niente draft salvato: se c'era un testo personalizzato diventa il testo del messaggio */
+  const customTemplate = typeof r.noticeTemplate === "string" && r.noticeTemplate.trim() && r.noticeTemplate.trim() !== fb.noticeTemplate ? notice : "";
   return {
     enabled: r.enabled !== false,
     amount: clampNum(r.amount, 0, 100000, fb.amount),
     channelIds: uniqIds(r.channelIds, 20),
+    noticeTemplate: notice || fb.noticeTemplate,
+    noticeDraft: r.noticeDraft && typeof r.noticeDraft === "object" ? T.normalizeDraft(r.noticeDraft) : defaultBonusDraft(kind, customTemplate || undefined),
   };
+}
+
+function normalizeCooldownRoleSec(raw: unknown, fb: number) {
+  return Math.floor(clampNum(raw, 0, 3600, fb));
+}
+
+function normalizeCommandCooldown(raw: unknown): LevelsConfig["commandCooldown"] {
+  const d = defaultCommandCooldown();
+  const r = raw && typeof raw === "object" ? (raw as any) : {};
+  const rolesRaw = r.roles && typeof r.roles === "object" ? r.roles : {};
+  const tiers: CooldownTier[] = [];
+  for (const row of Array.isArray(r.tiers) ? r.tiers : d.tiers) {
+    const minLevel = Math.floor(Number(row?.minLevel));
+    const seconds = Math.floor(Number(row?.seconds));
+    if (!Number.isFinite(minLevel) || minLevel < 1 || minLevel > 10000) continue;
+    if (!Number.isFinite(seconds) || seconds < 0 || seconds > 3600) continue;
+    tiers.push({ minLevel, seconds });
+    if (tiers.length >= 20) break;
+  }
+  return {
+    defaultSeconds: Math.floor(clampNum(r.defaultSeconds, 0, 3600, d.defaultSeconds)),
+    tiers: (tiers.length ? tiers : d.tiers).sort((a, b) => b.minLevel - a.minLevel),
+    roles: {
+      staff: normalizeCooldownRoleSec(rolesRaw.staff, d.roles.staff),
+      vipPlus: normalizeCooldownRoleSec(rolesRaw.vipPlus, d.roles.vipPlus),
+      vip: normalizeCooldownRoleSec(rolesRaw.vip, d.roles.vip),
+      doubleBooster: normalizeCooldownRoleSec(rolesRaw.doubleBooster, d.roles.doubleBooster),
+      booster: normalizeCooldownRoleSec(rolesRaw.booster, d.roles.booster),
+    },
+  };
+}
+
+function defaultCommandCooldown(): LevelsConfig["commandCooldown"] {
+  return {
+    defaultSeconds: 30,
+    tiers: [
+      { minLevel: 100, seconds: 0 },
+      { minLevel: 50, seconds: 5 },
+      { minLevel: 30, seconds: 15 },
+    ],
+    roles: {
+      staff: 0,
+      vipPlus: 5,
+      vip: 15,
+      doubleBooster: 5,
+      booster: 15,
+    },
+  };
+}
+
+function defaultMinigameRewardDraft() {
+  return T.normalizeDraft({
+    content: "{user}",
+    mentionUsers: true,
+    embed: {
+      enabled: true,
+      title: "",
+      description: [
+        "Premio ricevuto",
+        "",
+        "**{user}** hai ottenuto il ruolo {role} per aver raggiunto **{exp}** exp ai Minigiochi",
+        "",
+        "{next}",
+      ].join("\n"),
+      color: "#826bc2",
+      imageUrl: "",
+      thumbnailUrl: "",
+      footerText: "Gli exp dei minigiochi si sommano al livello globale.",
+      timestamp: false,
+      authorName: "{username}",
+      authorIconUrl: "{avatar}",
+      fields: [],
+    },
+  });
 }
 
 function defaultBonuses(): LevelsConfig["bonuses"] {
@@ -193,8 +359,20 @@ function defaultBonuses(): LevelsConfig["bonuses"] {
     chatId = null;
   }
   return {
-    firstMessageDaily: { enabled: true, amount: 150, channelIds: chatId ? [chatId] : [] },
-    welcomeGreeting: { enabled: true, amount: 30, channelIds: [] },
+    firstMessageDaily: {
+      enabled: true,
+      amount: 150,
+      channelIds: chatId ? [chatId] : [],
+      noticeTemplate: "Sei stato/a il primo a scrivere oggi in chat!\n**{amount} exp** guadagnati!\n{user}",
+      noticeDraft: defaultBonusDraft("firstMessageDaily"),
+    },
+    welcomeGreeting: {
+      enabled: true,
+      amount: 30,
+      channelIds: [],
+      noticeTemplate: "Grazie per il benvenuto!\n**{amount} exp** guadagnati!\n{user}",
+      noticeDraft: defaultBonusDraft("welcomeGreeting"),
+    },
   };
 }
 
@@ -215,12 +393,18 @@ function defaultConfig(): LevelsConfig {
     levelUpDraft: defaultLevelUpDraft(),
     milestoneDraft: defaultMilestoneDraft(),
     roleRewards: [],
+    perksEnabled: true,
+    perksChannelId: null,
+    perksDraft: defaultPerksDraft(),
     perkRoleId: null,
     perkMinLevel: 10,
     maxCombinedMultiplier: 8,
     bonuses: defaultBonuses(),
     minigameRewards: defaultMinigameRewards(),
+    minigameRewardChannelId: null,
+    minigameRewardDraft: defaultMinigameRewardDraft(),
     reviewRewardLevels: 5,
+    commandCooldown: defaultCommandCooldown(),
   };
 }
 
@@ -243,15 +427,24 @@ function normalizeConfig(raw?): LevelsConfig {
     levelUpDraft: r.levelUpDraft && typeof r.levelUpDraft === "object" ? T.normalizeDraft(r.levelUpDraft) : defaultLevelUpDraft(),
     milestoneDraft: r.milestoneDraft && typeof r.milestoneDraft === "object" ? T.normalizeDraft(r.milestoneDraft) : defaultMilestoneDraft(),
     roleRewards: normalizeRoleRewards(r.roleRewards),
+    perksEnabled: r.perksEnabled !== false,
+    perksChannelId: T.isId(r.perksChannelId) ? String(r.perksChannelId) : null,
+    perksDraft: r.perksDraft && typeof r.perksDraft === "object" ? T.normalizeDraft(r.perksDraft) : defaultPerksDraft(),
     perkRoleId: T.isId(r.perkRoleId) ? String(r.perkRoleId) : null,
     perkMinLevel: Math.floor(clampNum(r.perkMinLevel, 0, 10000, 10)),
     maxCombinedMultiplier: clampNum(r.maxCombinedMultiplier, 1, 50, 8),
     /* lista mai salvata = quelli di sempre; lista vuota salvata = nessun premio */
     minigameRewards: Array.isArray(r.minigameRewards) ? normalizeMinigameRewards(r.minigameRewards) : defaultMinigameRewards(),
+    minigameRewardChannelId: T.isId(r.minigameRewardChannelId) ? String(r.minigameRewardChannelId) : null,
+    minigameRewardDraft:
+      r.minigameRewardDraft && typeof r.minigameRewardDraft === "object"
+        ? T.normalizeDraft(r.minigameRewardDraft)
+        : defaultMinigameRewardDraft(),
     reviewRewardLevels: Math.floor(clampNum(r.reviewRewardLevels, 0, 100, 5)),
+    commandCooldown: normalizeCommandCooldown(r.commandCooldown),
     bonuses: {
-      firstMessageDaily: normalizeExpBonus(r.bonuses?.firstMessageDaily, base.bonuses.firstMessageDaily),
-      welcomeGreeting: normalizeExpBonus(r.bonuses?.welcomeGreeting, base.bonuses.welcomeGreeting),
+      firstMessageDaily: normalizeExpBonus(r.bonuses?.firstMessageDaily, base.bonuses.firstMessageDaily, "firstMessageDaily"),
+      welcomeGreeting: normalizeExpBonus(r.bonuses?.welcomeGreeting, base.bonuses.welcomeGreeting, "welcomeGreeting"),
     },
   };
 }
@@ -477,7 +670,7 @@ function getMinigameRewardsSync(guildId?: string): MinigameReward[] {
   return defaultMinigameRewards();
 }
 
-/* ── evento EXP a tempo (stesso del pannello +level) ── */
+/* ── evento EXP a tempo (dashboard Livelli) ── */
 async function getExpEvent(guildId?: string) {
   try {
     const { GlobalSettings } = require("../../Vinili/Community/schemas/communitySchemas") as typeof import("../../Vinili/Community/schemas/communitySchemas");
@@ -610,7 +803,7 @@ async function getUserLevel(guildId?: string, userId?: string) {
 }
 
 /**
- * Imposta / aggiunge / toglie livelli o EXP, azzera, risincronizza i ruoli (come il pannello +level).
+ * Imposta / aggiunge / toglie livelli o EXP, azzera, risincronizza i ruoli (dashboard Livelli).
  * I ruoli premio si aggiornano subito se il bot ha il server in memoria, altrimenti al prossimo messaggio.
  */
 async function mutateUserLevel(client?, guildId?: string, userId?: string, actorId?: string, body: Record<string, any> = {}) {
@@ -707,6 +900,9 @@ export = {
   getVoiceExpPerMinute,
   roleRewardMap,
   roleMultiplierMap,
+  defaultPerksDraft,
+  defaultPerksText,
+  withDefaultPerks,
   getMinigameRewardsSync,
   getExpEvent,
   setExpEvent,
@@ -725,4 +921,6 @@ export = {
   defaultLevelUpDraft,
   defaultMilestoneDraft,
   defaultBonuses,
+  defaultCommandCooldown,
+  defaultMinigameRewardDraft,
 };

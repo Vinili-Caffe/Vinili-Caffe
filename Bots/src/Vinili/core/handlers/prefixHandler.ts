@@ -277,7 +277,7 @@ export = (client?) => {
       statusMap,
     );
 
-    // Level prefix (+rank, +level)
+    // Level prefix (+rank)
     loadPrefixFilesFromDir(
       path.resolve(__dirname, "..", "..", "Level", "discord", "prefix"),
       "Level",

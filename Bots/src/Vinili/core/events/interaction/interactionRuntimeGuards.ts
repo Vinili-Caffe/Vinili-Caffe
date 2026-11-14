@@ -49,7 +49,7 @@ function resolveNotOwnerPanelHint(customId?) {
   if (id.startsWith("backup_") || id.startsWith("backup-load_") || id.startsWith("backup_list_")) {
     return { label: "pannello", command: "+backup" };
   }
-  if (id.startsWith("level_panel")) return { label: "pannello", command: "+level" };
+  if (id.startsWith("level_panel")) return { label: "pannello", command: null };
   if (id.startsWith("ticket_panel_") || id.startsWith("ticket_")) {
     return { label: "pannello", command: null, siteReopen: siteTicketsPageDiscordRef() };
   }

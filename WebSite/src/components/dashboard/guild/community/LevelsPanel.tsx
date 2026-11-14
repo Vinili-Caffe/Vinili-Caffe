@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Ban, CalendarClock, Check, Gamepad2, Gift, Loader2, Megaphone, MessageSquare, Mic, Minus, Play, Plus, RefreshCw, RotateCcw, Search, Sparkles, Star, Target, Timer, Trash2, TrendingUp, Trophy, UserRound, X, type LucideIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, Ban, HandHeart, Sunrise, CalendarClock, Check, Gamepad2, Gift, Loader2, Megaphone, MessageSquare, Mic, Minus, Play, Plus, RefreshCw, RotateCcw, Search, Sparkles, Star, Target, Timer, Trash2, TrendingUp, Trophy, UserRound, X, type LucideIcon } from "lucide-react";
 import { DateTimeField } from "@/components/ui/DateTimeField";
 import { NumberField } from "@/components/ui/NumberField";
 import { MultiSelect, Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
-import { communityApi, type LevelsConfig, type LevelsEvent, type LevelsRoleMultiplier, type LevelsRoleReward, type LevelsScheduledEvent, type LevelsUser, type LevelsUserAction, type PickerRole } from "@/lib/dashboard-community";
+import { communityApi, emptyDraft, type LevelsConfig, type LevelsEvent, type LevelsExpBonus, type LevelsRoleMultiplier, type LevelsRoleReward, type LevelsScheduledEvent, type LevelsUser, type LevelsUserAction, type PickerRole } from "@/lib/dashboard-community";
 import { searchTicketMembers, type MemberHit } from "@/lib/dashboard-guild-ops";
 import { Field, Notice, Pills, RowsSkeleton, StatusBadge, Toggle, TrackUnsaved, dangerBtn, dashPrimaryBtn, fieldClass, labelClass, miniBtn } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars } from "./shared";
@@ -19,6 +19,13 @@ const LEVEL_PLACEHOLDERS = [
   { token: "{server}", hint: "nome del server" },
 ];
 
+const PERKS_PLACEHOLDERS = [
+  ...LEVEL_PLACEHOLDERS,
+  { token: "{role}", hint: "menzione del ruolo premio" },
+  { token: "{perklist}", hint: "i vantaggi di quel livello (scritti qui sotto)" },
+  { token: "{perks}", hint: "canale dei vantaggi (menzione)" },
+];
+
 const MILESTONE_PLACEHOLDERS = [
   ...LEVEL_PLACEHOLDERS,
   { token: "{role}", hint: "menzione del ruolo premio" },
@@ -26,7 +33,56 @@ const MILESTONE_PLACEHOLDERS = [
   { token: "{perks}", hint: "canale vantaggi (menzione)" },
 ];
 
-type Tab = "exp" | "ruoli" | "annunci" | "utenti";
+const MINIGAME_PLACEHOLDERS = [
+  { token: "{user}", hint: "menzione del vincitore" },
+  { token: "{username}", hint: "nome visualizzato" },
+  { token: "{avatar}", hint: "foto profilo" },
+  { token: "{role}", hint: "ruolo premio minigiochi" },
+  { token: "{exp}", hint: "soglia EXP del premio" },
+  { token: "{next}", hint: "testo prossima ricompensa" },
+  { token: "{server}", hint: "nome del server" },
+];
+
+const BONUS_PLACEHOLDERS = [
+  { token: "{user}", hint: "menzione di chi prende il bonus" },
+  { token: "{username}", hint: "nome visualizzato" },
+  { token: "{amount}", hint: "EXP regalati" },
+  { token: "{avatar}", hint: "foto profilo (campi immagine)" },
+  { token: "{server}", hint: "nome del server" },
+];
+
+type BonusKind = "firstMessageDaily" | "welcomeGreeting";
+
+const BONUS_META: Record<BonusKind, { title: string; text: string; channelsHint: string }> = {
+  firstMessageDaily: {
+    title: "Primo messaggio del giorno",
+    text: "EXP a chi scrive per primo ogni giorno (ora italiana).",
+    channelsHint: "Dove conta il primo messaggio. Vuoto = #chat.",
+  },
+  welcomeGreeting: {
+    title: "Saluto di benvenuto",
+    text: "EXP a chi dà il benvenuto a un nuovo membro.",
+    channelsHint: "Dove conta il saluto. Vuoto = regole attuali del bot.",
+  },
+};
+
+const DEFAULT_COMMAND_COOLDOWN = {
+  defaultSeconds: 30,
+  tiers: [
+    { minLevel: 100, seconds: 0 },
+    { minLevel: 50, seconds: 5 },
+    { minLevel: 30, seconds: 15 },
+  ],
+  roles: {
+    staff: 0,
+    vipPlus: 5,
+    vip: 15,
+    doubleBooster: 5,
+    booster: 15,
+  },
+};
+
+type Tab = "exp" | "bonus" | "ruoli" | "annunci" | "utenti";
 
 /* ───────────── pezzi grafici ───────────── */
 
@@ -126,8 +182,11 @@ export function LevelsPanel({
   const [saved, setSaved] = useState("");
   const [imported, setImported] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [announce, setAnnounce] = useState<"level" | "milestone">("level");
+  const [announce, setAnnounce] = useState<"level" | "milestone" | "minigame" | "perks">("level");
+  /* livello scelto per scrivere i vantaggi (e per l'anteprima) */
+  const [perksLevel, setPerksLevel] = useState<number | null>(null);
   const [isMain, setIsMain] = useState(false);
+  const [bonusKind, setBonusKind] = useState<BonusKind>("firstMessageDaily");
   const [event, setEvent] = useState<LevelsEvent | null>(null);
   const [scheduled, setScheduled] = useState<LevelsScheduledEvent[]>([]);
 
@@ -148,20 +207,33 @@ export function LevelsPanel({
     };
   }, [guildId, token]);
 
-  /* {role} come un vero ruolo del server: il primo ruolo premio (o uno qualsiasi) */
-  const sampleRoleId = cfg?.roleRewards?.[0]?.roleId || data?.pickers.roles.find((r) => !r.managed && r.id !== guildId)?.id || "";
-  const vars = useMemo(
-    () => ({
-      ...baseVars,
-      user: baseVars.user || "@Mario",
-      username: baseVars.username || "Mario",
-      level: "42",
-      role: sampleRoleId ? `<@&${sampleRoleId}>` : "@Level 50",
-      roleid: sampleRoleId || "100000000000000050",
-      perks: "#supporters",
-    }),
-    [baseVars, sampleRoleId],
-  );
+  /* {role}: premio livelli, oppure premio minigiochi nell'anteprima minigiochi */
+  const sampleLevelRoleId = cfg?.roleRewards?.[0]?.roleId || data?.pickers.roles.find((r) => !r.managed && r.id !== guildId)?.id || "";
+  const sampleMinigameRoleId = cfg?.minigameRewards?.[0]?.roleId || "";
+  const sampleMinigameExp = cfg?.minigameRewards?.[0]?.exp || 500;
+  const perksRewards = [...(cfg?.roleRewards || [])].sort((a, b) => a.level - b.level);
+  const perksSel = perksRewards.find((r) => r.level === perksLevel) || perksRewards[0] || null;
+  const perksSelLevel = String(perksSel?.level || 10);
+  const perksSelText = perksSel?.perks?.trim() || "—";
+  const perksChannelName = data?.pickers.textChannels.find((c) => c.id === cfg?.perksChannelId)?.name || "supporters";
+  const sampleRoleId =
+    announce === "minigame" ? sampleMinigameRoleId || sampleLevelRoleId : announce === "perks" ? perksSel?.roleId || sampleLevelRoleId : sampleLevelRoleId;
+  /* niente useMemo: ci pensa il React Compiler */
+  const vars = {
+    ...baseVars,
+    user: baseVars.user || "@Mario",
+    username: baseVars.username || "Mario",
+    level: "42",
+    role: sampleRoleId ? `<@&${sampleRoleId}>` : announce === "minigame" ? "@Rookie" : "@Level 50",
+    roleid: sampleRoleId || (announce === "minigame" ? "100000000000000500" : "100000000000000050"),
+    perks: "#supporters",
+    exp: String(sampleMinigameExp),
+    amount: "150",
+    next: "Ti mancano **200** exp per la prossima ricompensa!",
+    ...(announce === "perks"
+      ? { level: perksSelLevel, perklist: perksSelText, perks: `#${perksChannelName}` }
+      : {}),
+  };
 
   if (loadError && !cfg) return <Notice error>{loadError}</Notice>;
   if (!cfg || !data) return <RowsSkeleton rows={8} />;
@@ -333,53 +405,164 @@ export function LevelsPanel({
             </div>
           </Card>
 
-          <Card icon={Gift} title="Bonus chat" text="Premi una tantum: primo messaggio del giorno e saluto a chi entra.">
+          <Card icon={Timer} title="Cooldown comandi" text="Secondi di attesa tra un comando e l’altro. Vale il minore tra livello e ruolo (Staff / VIP / Boost).">
             {(() => {
-              const first = cfg.bonuses?.firstMessageDaily || { enabled: true, amount: 150, channelIds: [] };
-              const welcome = cfg.bonuses?.welcomeGreeting || { enabled: true, amount: 30, channelIds: [] };
-              const setBonus = (key: "firstMessageDaily" | "welcomeGreeting", patch: Partial<typeof first>) =>
-                set({
-                  bonuses: {
-                    firstMessageDaily: key === "firstMessageDaily" ? { ...first, ...patch } : first,
-                    welcomeGreeting: key === "welcomeGreeting" ? { ...welcome, ...patch } : welcome,
-                  },
-                });
+              const cd = {
+                ...DEFAULT_COMMAND_COOLDOWN,
+                ...(cfg.commandCooldown || {}),
+                roles: { ...DEFAULT_COMMAND_COOLDOWN.roles, ...(cfg.commandCooldown?.roles || {}) },
+              };
+              const tiers = [...(cd.tiers || [])].sort((a, b) => b.minLevel - a.minLevel);
+              const setCd = (patch: Partial<typeof cd>) => set({ commandCooldown: { ...cd, ...patch } });
+              const setTier = (i: number, patch: Partial<(typeof tiers)[0]>) => {
+                const next = tiers.map((row, idx) => (idx === i ? { ...row, ...patch } : row));
+                setCd({ tiers: next });
+              };
+              const setRole = (key: keyof typeof cd.roles, seconds: number) =>
+                setCd({ roles: { ...cd.roles, [key]: Math.max(0, Math.floor(seconds || 0)) } });
+              const roleRows: { key: keyof typeof cd.roles; label: string }[] = [
+                { key: "staff", label: "Staff" },
+                { key: "vipPlus", label: "VIP+" },
+                { key: "vip", label: "VIP" },
+                { key: "doubleBooster", label: "Double Boost" },
+                { key: "booster", label: "Booster" },
+              ];
               return (
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <div className={cn("rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10", !first.enabled && "opacity-55")}>
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-crema">Primo messaggio del giorno</p>
-                      <Toggle size="sm" checked={first.enabled} onChange={(enabled) => setBonus("firstMessageDaily", { enabled })} label="Primo messaggio" />
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="EXP">
-                        <NumberField value={first.amount} min={0} max={100000} disabled={!first.enabled} onChange={(v) => setBonus("firstMessageDaily", { amount: Number(v) || 0 })} aria-label="EXP primo messaggio" />
-                      </Field>
-                      <Field label="Canali" hint="Vuoto = #chat predefinito.">
-                        <MultiSelect value={first.channelIds} onChange={(channelIds) => setBonus("firstMessageDaily", { channelIds })} options={channels.map((c) => ({ value: c.id, label: `#${c.name}` }))} className={fieldClass} placeholder="Default" disabled={!first.enabled} />
-                      </Field>
-                    </div>
+                <div className="space-y-3">
+                  <div className="max-w-xs">
+                    <BigNumber label="Cooldown di base" value={cd.defaultSeconds} min={0} max={3600} onChange={(v) => setCd({ defaultSeconds: Math.max(0, Math.floor(v || 0)) })} suffix="sec" hint="Senza soglia di livello." />
                   </div>
-                  <div className={cn("rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10", !welcome.enabled && "opacity-55")}>
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-crema">Saluto di benvenuto</p>
-                      <Toggle size="sm" checked={welcome.enabled} onChange={(enabled) => setBonus("welcomeGreeting", { enabled })} label="Saluto benvenuto" />
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="EXP">
-                        <NumberField value={welcome.amount} min={0} max={100000} disabled={!welcome.enabled} onChange={(v) => setBonus("welcomeGreeting", { amount: Number(v) || 0 })} aria-label="EXP saluto" />
-                      </Field>
-                      <Field label="Canali" hint="Vuoto = regole attuali del bot.">
-                        <MultiSelect value={welcome.channelIds} onChange={(channelIds) => setBonus("welcomeGreeting", { channelIds })} options={channels.map((c) => ({ value: c.id, label: `#${c.name}` }))} className={fieldClass} placeholder="Default" disabled={!welcome.enabled} />
-                      </Field>
-                    </div>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {roleRows.map(({ key, label }) => (
+                      <div key={key} className="rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+                        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">{label}</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <div className="w-28">
+                            <NumberField className="!mt-0" value={cd.roles[key]} min={0} max={3600} onChange={(v) => setRole(key, Number(v) || 0)} aria-label={`Cooldown ${label}`} />
+                          </div>
+                          <span className="text-xs text-crema/50">sec</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                  {tiers.length ? (
+                    <ul className="space-y-2">
+                      {tiers.map((row, i) => (
+                        <li key={i} className="flex flex-wrap items-center gap-2 rounded-2xl bg-espresso/45 p-2 pl-3 ring-1 ring-sand/10">
+                          <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">Dal lv</span>
+                          <div className="w-28">
+                            <NumberField className="!mt-0" value={row.minLevel} min={1} max={10000} onChange={(v) => setTier(i, { minLevel: Math.max(1, Number(v) || 1) })} aria-label="Livello soglia cooldown" />
+                          </div>
+                          <ArrowRight className="size-3.5 text-crema/40" aria-hidden />
+                          <div className="w-28">
+                            <NumberField className="!mt-0" value={row.seconds} min={0} max={3600} onChange={(v) => setTier(i, { seconds: Math.max(0, Number(v) || 0) })} aria-label="Secondi cooldown" />
+                          </div>
+                          <span className="text-xs text-crema/50">sec</span>
+                          <button type="button" className={cn(miniBtn, "!px-2")} onClick={() => setCd({ tiers: tiers.filter((_, j) => j !== i) })} aria-label="Togli soglia">
+                            <Trash2 className="size-3.5" aria-hidden />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="rounded-2xl border border-dashed border-sand/15 px-4 py-4 text-center text-sm text-crema/50">Nessuna soglia: vale solo il cooldown di base.</p>
+                  )}
+                  <button
+                    type="button"
+                    className={cn(miniBtn)}
+                    onClick={() =>
+                      setCd({
+                        tiers: [...tiers, { minLevel: (tiers.reduce((m, t) => Math.max(m, t.minLevel), 0) || 0) + 10, seconds: 5 }],
+                      })
+                    }
+                  >
+                    <Plus className="size-3.5" aria-hidden /> Aggiungi soglia
+                  </button>
                 </div>
               );
             })()}
           </Card>
         </div>
       ) : null}
+
+      {tab === "bonus"
+        ? (() => {
+            const fallback = (k: BonusKind): LevelsExpBonus => ({ enabled: true, amount: k === "firstMessageDaily" ? 150 : 30, channelIds: [] as string[] });
+            const first = cfg.bonuses?.firstMessageDaily || fallback("firstMessageDaily");
+            const welcome = cfg.bonuses?.welcomeGreeting || fallback("welcomeGreeting");
+            const cur = bonusKind === "firstMessageDaily" ? first : welcome;
+            const meta = BONUS_META[bonusKind];
+            const setBonus = (patch: Partial<typeof cur>) =>
+              set({
+                bonuses: {
+                  firstMessageDaily: bonusKind === "firstMessageDaily" ? { ...first, ...patch } : first,
+                  welcomeGreeting: bonusKind === "welcomeGreeting" ? { ...welcome, ...patch } : welcome,
+                },
+              });
+            const draft = cur.noticeDraft || emptyDraft();
+            return (
+              <div className="space-y-4">
+                <Pills
+                  value={bonusKind}
+                  onChange={setBonusKind}
+                  ariaLabel="Quale bonus"
+                  options={[
+                    { id: "firstMessageDaily", label: BONUS_META.firstMessageDaily.title, icon: Sunrise },
+                    { id: "welcomeGreeting", label: BONUS_META.welcomeGreeting.title, icon: HandHeart },
+                  ]}
+                />
+
+                <Card
+                  icon={bonusKind === "firstMessageDaily" ? Sunrise : HandHeart}
+                  title={meta.title}
+                  text={meta.text}
+                  off={!cur.enabled}
+                  aside={<Toggle checked={cur.enabled} onChange={(enabled) => setBonus({ enabled })} label={meta.title} />}
+                >
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+                    <BigNumber label="EXP regalati" value={cur.amount} min={0} max={100000} onChange={(amount) => setBonus({ amount })} suffix="EXP" />
+                    <div className="rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10">
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Canali</p>
+                      <MultiSelect
+                        value={cur.channelIds}
+                        onChange={(channelIds) => setBonus({ channelIds })}
+                        options={channels.map((c) => ({ value: c.id, label: `#${c.name}` }))}
+                        className={cn(fieldClass, "mt-2")}
+                        placeholder="Predefinito"
+                      />
+                      <p className="mt-2 text-xs text-crema/50">{meta.channelsHint}</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <p className="text-xs text-crema/55">Il bot risponde al messaggio di chi prende il bonus.{bonusKind === "welcomeGreeting" ? " Il messaggio si cancella da solo dopo 12 secondi." : ""}</p>
+
+                <EditorWithPreview
+                  editor={
+                    <DraftEditor
+                      key={`bonus-${bonusKind}`}
+                      value={draft}
+                      onChange={(noticeDraft) => setBonus({ noticeDraft })}
+                      emojis={data.pickers.emojis}
+                      placeholders={BONUS_PLACEHOLDERS}
+                      maxButtons={data.limits.buttons}
+                    />
+                  }
+                  preview={
+                    <DiscordMessagePreview
+                      testChannelId={cur.channelIds[0] || undefined}
+                      bot={data.bot}
+                      draft={draft}
+                      vars={{ ...vars, amount: String(cur.amount), exp: String(cur.amount) }}
+                      roles={pickerRoles}
+                      channels={channels}
+                    />
+                  }
+                />
+              </div>
+            );
+          })()
+        : null}
 
       {tab === "ruoli" ? (
         <div className="space-y-4">
@@ -500,6 +683,17 @@ export function LevelsPanel({
             <ChannelField label="Canale" value={cfg.levelUpChannelId} channels={channels} onChange={(levelUpChannelId) => set({ levelUpChannelId })} />
           </Card>
 
+          {isMain ? (
+            <Card icon={Gamepad2} title="Premio minigiochi" text="Dove e come annunciare il ruolo sbloccato coi minigiochi. Vuoto = #comandi e messaggio classico.">
+              <ChannelField
+                label="Canale premio"
+                value={cfg.minigameRewardChannelId || null}
+                channels={channels}
+                onChange={(minigameRewardChannelId) => set({ minigameRewardChannelId: minigameRewardChannelId || null })}
+              />
+            </Card>
+          ) : null}
+
           <div className="flex flex-wrap items-center gap-3">
             <Pills
               value={announce}
@@ -508,29 +702,133 @@ export function LevelsPanel({
               options={[
                 { id: "level", label: "Nuovo livello", icon: TrendingUp },
                 { id: "milestone", label: "Ruolo premio sbloccato", icon: Trophy },
+                ...(isMain ? [{ id: "perks" as const, label: "Vantaggi sbloccati", icon: Gift }] : []),
+                ...(isMain ? [{ id: "minigame" as const, label: "Premio minigiochi", icon: Gamepad2 }] : []),
               ]}
             />
             <p className="text-xs text-crema/55">
-              {announce === "level" ? "A ogni livello senza premio." : cfg.roleRewards.length ? "Quando il livello dà un ruolo premio: usa {role} e {perks}." : "Senza ruoli premio non viene mai usato."}
+              {announce === "level"
+                ? "A ogni livello senza premio."
+                : announce === "perks"
+                  ? "Un secondo messaggio, a parte, coi vantaggi del ruolo premio appena preso."
+                  : announce === "minigame"
+                  ? "Quando si sblocca un ruolo coi minigiochi: {user} {role} {exp} {next}."
+                  : cfg.roleRewards.length
+                    ? "Quando il livello dà un ruolo premio: usa {role} e {perks}."
+                    : "Senza ruoli premio non viene mai usato."}
             </p>
           </div>
+
+          {announce === "perks" ? (
+            <Card
+              icon={Gift}
+              title="Vantaggi sbloccati"
+              text="Quando qualcuno prende un ruolo premio, il bot manda anche questo messaggio coi vantaggi di quel livello. È separato da quello del canale level-up."
+              off={cfg.perksEnabled === false}
+              aside={<Toggle checked={cfg.perksEnabled !== false} onChange={(perksEnabled) => set({ perksEnabled })} label="Messaggio vantaggi" />}
+            >
+              <ChannelField
+                label="Canale"
+                value={cfg.perksChannelId || null}
+                channels={channels}
+                onChange={(perksChannelId) => set({ perksChannelId: perksChannelId || null })}
+              />
+              <p className="-mt-1 text-xs text-crema/50">Vuoto = #supporters.</p>
+
+              <div className="mt-4">
+                <p className={labelClass}>Vantaggi per livello</p>
+                {perksRewards.length ? (
+                  <>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {perksRewards.map((r) => {
+                        const on = perksSel?.level === r.level;
+                        const empty = !r.perks?.trim();
+                        return (
+                          <button
+                            key={r.level}
+                            type="button"
+                            onClick={() => setPerksLevel(r.level)}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition",
+                              on ? "bg-[#826bc2]/20 text-crema ring-[#826bc2]/50" : "bg-espresso/45 text-crema/70 ring-sand/10 hover:text-crema",
+                            )}
+                          >
+                            <span className="size-2 rounded-full" style={{ background: roleColor(pickerRoles, r.roleId) }} aria-hidden />
+                            Lv {r.level}
+                            {empty ? <span className="text-crema/35">· vuoto</span> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {perksSel ? (
+                      <div className="mt-3">
+                        <textarea
+                          value={perksSel.perks || ""}
+                          onChange={(e) =>
+                            set({ roleRewards: cfg.roleRewards.map((r) => (r.level === perksSel.level ? { ...r, perks: e.target.value.slice(0, 2000) } : r)) })
+                          }
+                          rows={6}
+                          placeholder={"Un vantaggio per riga, es.\n:star: Permesso di cambiare nickname"}
+                          className={cn(fieldClass, "!mt-0 min-h-36 resize-y py-2.5 font-mono text-[0.8rem] leading-relaxed")}
+                          aria-label={`Vantaggi del livello ${perksSel.level}`}
+                        />
+                        <p className="mt-1.5 text-xs text-crema/50">
+                          Finisce al posto di <code className="text-crema/70">{"{perklist}"}</code> quando si arriva al livello {perksSel.level}. Vuoto = &quot;—&quot;.
+                        </p>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="mt-2 rounded-2xl border border-dashed border-sand/15 px-4 py-5 text-center text-sm text-crema/50">Aggiungi prima dei ruoli premio nella scheda Ruoli premio.</p>
+                )}
+              </div>
+            </Card>
+          ) : null}
 
           <EditorWithPreview
             editor={
               <DraftEditor
                 key={announce}
-                value={announce === "level" ? cfg.levelUpDraft : cfg.milestoneDraft}
-                onChange={(d) => set(announce === "level" ? { levelUpDraft: d } : { milestoneDraft: d })}
+                value={
+                  announce === "level"
+                    ? cfg.levelUpDraft
+                    : announce === "minigame"
+                      ? cfg.minigameRewardDraft || emptyDraft()
+                      : announce === "perks"
+                        ? cfg.perksDraft || emptyDraft()
+                        : cfg.milestoneDraft
+                }
+                onChange={(d) =>
+                  set(
+                    announce === "level"
+                      ? { levelUpDraft: d }
+                      : announce === "minigame"
+                        ? { minigameRewardDraft: d }
+                        : announce === "perks"
+                          ? { perksDraft: d }
+                          : { milestoneDraft: d },
+                  )
+                }
                 emojis={data.pickers.emojis}
-                placeholders={announce === "level" ? LEVEL_PLACEHOLDERS : MILESTONE_PLACEHOLDERS}
+                placeholders={
+                  announce === "level" ? LEVEL_PLACEHOLDERS : announce === "minigame" ? MINIGAME_PLACEHOLDERS : announce === "perks" ? PERKS_PLACEHOLDERS : MILESTONE_PLACEHOLDERS
+                }
                 maxButtons={data.limits.buttons}
               />
             }
             preview={
               <DiscordMessagePreview
-                testChannelId={cfg.levelUpChannelId || undefined}
+                testChannelId={(announce === "minigame" ? cfg.minigameRewardChannelId : announce === "perks" ? cfg.perksChannelId : cfg.levelUpChannelId) || undefined}
                 bot={data.bot}
-                draft={announce === "level" ? cfg.levelUpDraft : cfg.milestoneDraft}
+                draft={
+                  announce === "level"
+                    ? cfg.levelUpDraft
+                    : announce === "minigame"
+                      ? cfg.minigameRewardDraft || emptyDraft()
+                      : announce === "perks"
+                        ? cfg.perksDraft || emptyDraft()
+                        : cfg.milestoneDraft
+                }
                 vars={vars}
                 roles={pickerRoles}
                 channels={channels}

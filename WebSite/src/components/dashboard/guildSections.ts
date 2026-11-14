@@ -108,6 +108,7 @@ export type BachecaModuleTabId = (typeof BACHECA_MODULE_TABS)[number]["id"];
 
 export const LIVELLI_MODULE_TABS = [
   { id: "exp", label: "Guadagno EXP" },
+  { id: "bonus", label: "Bonus chat" },
   { id: "ruoli", label: "Ruoli premio" },
   { id: "annunci", label: "Annunci" },
   { id: "utenti", label: "Utenti" },

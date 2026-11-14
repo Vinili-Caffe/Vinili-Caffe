@@ -419,9 +419,133 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     return { embeds: [boostEmbed, howtoEmbed], components: [row] };
   };
 
-  const buildLevelsPayload = () => {
-    const levelEmbed = new EmbedBuilder()
+  const legacyPerkLines = (level?, roleId?) => {
+    const L = Number(level);
+    const role = roleId ? `<@&${roleId}>` : "";
+    if (L === 10) {
+      return [
+        role,
+        `${E.VC_DoubleReply} Permesso di cambiare nickname`,
+        `${E.VC_DoubleReply} Permesso di allegare link e immagini in chat`,
+        `${E.VC_DoubleReply} Permesso di inviare messaggi vocali in chat`,
+        `${E.VC_DoubleReply} Sblocchi i comandi \`+quote\` e \`+repost\``,
+        `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv10}>`,
+      ];
+    }
+    if (L === 20) {
+      return [
+        role,
+        "Tutte le ricompense precedenti",
+        `${E.VC_DoubleReply} Possibilità di aggiungere reazioni ai messaggi in chat`,
+        `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv20}>`,
+      ];
+    }
+    if (L === 30) {
+      return [
+        role,
+        "Tutte le ricompense precedenti",
+        `${E.VC_DoubleReply} Permesso di usare soundboard di altri server`,
+        `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv30}>`,
+      ];
+    }
+    if (L === 50) {
+      return [
+        role,
+        "Tutte le ricompense precedenti",
+        `${E.VC_DoubleReply} Possibilità di creare un ruolo __personalizzato PERMANENTE__ e un canale vocale privato __personalizzato PERMANENTE__.`,
+        `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv50}>`,
+      ];
+    }
+    if (L === 70) {
+      return [
+        role,
+        "Tutte le ricompense precedenti",
+        `${E.VC_DoubleReply} Permesso di usare sticker ed emoji di altri server`,
+        `${E.VC_DoubleReply} Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)`,
+        `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv70}>`,
+      ];
+    }
+    if (L === 100) {
+      return [
+        role,
+        "Tutte le ricompense precedenti",
+        `${E.VC_DoubleReply} Bypass requisiti per le candidature`,
+        `${E.VC_DoubleReply} Bonus EXP permanente +15%`,
+        `${E.VC_DoubleReply} ${MENTION_RESPONSE_PERK_BODY}`,
+        `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv100}>`,
+      ];
+    }
+    if (L === 125) {
+      return [
+        role,
+        "Tutte le ricompense precedenti",
+        `${E.VC_DoubleReply} Bypass requisiti per i giveaway`,
+        `${E.VC_DoubleReply} Bonus EXP permanente +20%`,
+        `${E.VC_DoubleReply} Sblocchi il secondo custom role`,
+        `${E.VC_Reply} ${E.VC_New} Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.orangeBlackPlus}>`,
+      ];
+    }
+    if (L === 150) {
+      return [
+        role,
+        "Tutte le ricompense precedenti",
+        `${E.VC_DoubleReply} Bonus EXP permanente +25%`,
+        `${E.VC_Reply} ${E.VC_New} Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.greenBlackPlus}>`,
+        `${E.VC_DoubleReply} Decorazione a scelta riscattabile tramite ticket **HIGH STAFF**`,
+      ];
+    }
+    if (L === 200) {
+      return [
+        role,
+        "Tutte le ricompense precedenti",
+        `${E.VC_Reply} ${E.VC_New} Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.aquaBlackPlus}>`,
+        `${E.VC_DoubleReply} Nitro Boost mensile riscattabile tramite ticket **HIGH STAFF**`,
+      ];
+    }
+    return role ? [role, "Ruolo premio sbloccato al livello indicato."] : ["Ruolo premio sbloccato al livello indicato."];
+  };
 
+  const buildLevelsPayload = async () => {
+    let rewards: { level: number; roleId: string }[] = [
+      { level: 10, roleId: IDs.roles.Level10 },
+      { level: 20, roleId: IDs.roles.Level20 },
+      { level: 30, roleId: IDs.roles.Level30 },
+      { level: 50, roleId: IDs.roles.Level50 },
+      { level: 70, roleId: IDs.roles.Level70 },
+      { level: 100, roleId: IDs.roles.Level100 },
+      { level: 125, roleId: IDs.roles.Level120 },
+      { level: 150, roleId: IDs.roles.Level150 },
+      { level: 200, roleId: IDs.roles.Level200 },
+    ];
+    let cooldownLines: string[] = [];
+    try {
+      const LVL = require("../../../../MultiGuild/services/levelsRuntime") as typeof import("../../../../MultiGuild/services/levelsRuntime");
+      const cfg = await LVL.getConfig(String(interaction.guild?.id || IDs.guilds.main || ""));
+      if (cfg && (cfg.userSaved || cfg.seedVersion > 0)) {
+        rewards = Array.isArray(cfg.roleRewards) ? cfg.roleRewards.slice() : [];
+        const cd = cfg.commandCooldown;
+        if (cd) {
+          const tiers = [...(cd.tiers || [])].sort((a, b) => a.minLevel - b.minLevel);
+          const roles = cd.roles || { staff: 0, vipPlus: 5, vip: 15, doubleBooster: 5, booster: 15 };
+          cooldownLines = [
+            `${E.VC_Money} **Cooldown comandi** (da Livelli):`,
+            `• base **${cd.defaultSeconds}s**`,
+            ...tiers.map((t) => `• dal livello **${t.minLevel}** → **${t.seconds}s**`),
+            `• Staff **${roles.staff}s** · VIP+ **${roles.vipPlus}s** · VIP **${roles.vip}s**`,
+            `• Double Boost **${roles.doubleBooster}s** · Booster **${roles.booster}s**`,
+          ];
+        }
+      }
+    } catch (_) {}
+
+    const fields = rewards.slice(0, 25).map((row, idx) => {
+      const next = rewards[idx + 1];
+      const range = next ? `LIVELLO ${row.level}-${Math.max(row.level, next.level - 1)}` : `LIVELLO ${row.level}+`;
+      const lines = legacyPerkLines(row.level, row.roleId);
+      return { name: `\`${range}\``, value: lines.join("\n").slice(0, 1024), inline: true };
+    });
+
+    const levelEmbed = new EmbedBuilder()
       .setColor("#6f4e37")
       .setTitle(`${E.exp} **__Sali di livello e sblocca vantaggi sempre migliori__**`)
       .setDescription([
@@ -430,115 +554,14 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
         "",
         `${E.VC_Dot} Per __vedere i tuoi EXP__ e le tue statistiche, usa il comando \`+rank\` in <#${IDs.channels.commands}>.`,
         "",
+        ...(cooldownLines.length ? [...cooldownLines, ""] : []),
         `${E.VC_Dot} ──────────────── ${E.exp} ──────────────── ${E.VC_Dot}`,
         "",
-        `${E.VC_Arrow} **LISTA DEI LIVELLI:**`,
+        rewards.length ? `${E.VC_Arrow} **LISTA DEI LIVELLI:**` : `${E.VC_Arrow} Nessun ruolo premio configurato in dashboard.`,
       ].join("\n"))
-      .addFields(
-        {
-          name: "\`LIVELLO 10-19\`",
-          value: [
-            `<@&${IDs.roles.Level10}>`,
-            `${E.VC_DoubleReply} Permesso di cambiare nickname`,
-            `${E.VC_DoubleReply} Permesso di allegare link e immagini in chat`,
-            `${E.VC_DoubleReply} Permesso di inviare messaggi vocali in chat`,
-            `${E.VC_DoubleReply} Sblocchi i comandi \`+quote\` e \`+repost\``,
-            `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv10}>`
-          ].join("\n"),
-          inline: true,
-        },
-        {
-          name: "\`LIVELLO 20-29\`",
-          value: [
-            `<@&${IDs.roles.Level20}>`,
-            "Tutte le ricompense precedenti",
-            `${E.VC_DoubleReply} Possibilità di aggiungere reazioni ai messaggi in chat`,
-            `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv20}>`
-          ].join("\n"),
-          inline: true,
-        },
-        {
-          name: "\`LIVELLO 30-49\`",
-          value: [
-            `<@&${IDs.roles.Level30}>`,
-            "Tutte le ricompense precedenti",
-            `${E.VC_DoubleReply} Permesso di usare soundboard di altri server`,
-            `${E.VC_DoubleReply} Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 15 secondi).`,
-            `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv30}>`
-          ].join("\n"),
-          inline: true,
-        },
-        {
-          name: "\`LIVELLO 50-69\`",
-          value: [
-            `<@&${IDs.roles.Level50}>`,
-            "Tutte le ricompense precedenti",
-            `${E.VC_DoubleReply} Possibilità di creare un ruolo __personalizzato PERMANENTE__ e un canale vocale privato __personalizzato PERMANENTE__.`,
-            `${E.VC_DoubleReply} Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 5 secondi).`,
-            `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv50}>`
-          ].join("\n"),
-          inline: true,
-        },
-        {
-          name: "\`LIVELLO 70-99\`",
-          value: [
-            `<@&${IDs.roles.Level70}>`,
-            "Tutte le ricompense precedenti",
-            `${E.VC_DoubleReply} Permesso di usare sticker ed emoji di altri server`,
-            `${E.VC_DoubleReply} Aggiungi reazioni al messaggio quando ti @menzionano in chat (max. 3)`,
-            `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv70}>`
-          ].join("\n"),
-          inline: true,
-        },
-        {
-          name: "\`LIVELLO 100-119\`",
-          value: [
-            `<@&${IDs.roles.Level100}>`,
-            "Tutte le ricompense precedenti",
-            `${E.VC_DoubleReply} Cooldown sui comandi del nostro bot ridotto (da 30 secondi a 1 secondo).`,
-            `${E.VC_DoubleReply} Bypass requisiti per le candidature`,
-            `${E.VC_DoubleReply} Bonus EXP permanente +15%`,
-            `${E.VC_DoubleReply} ${MENTION_RESPONSE_PERK_BODY}`,
-            `${E.VC_Reply} ${E.VC_New} Nuovo colore gradiente sbloccato con [Personalizza](https://www.viniliecaffe.it/personalizza/)<@&${IDs.roles.colorUnlockLv100}>`
-          ].join("\n"),
-          inline: true,
-        },
-        {
-          name: "\`LIVELLO 125-149\`",
-          value: [
-            `<@&${IDs.roles.Level120}>`,
-            "Tutte le ricompense precedenti",
-            `${E.VC_DoubleReply} Bypass requisiti per i giveaway`,
-            `${E.VC_DoubleReply} Bonus EXP permanente +20%`,
-            `${E.VC_DoubleReply} Sblocchi il secondo custom role`,
-            `${E.VC_Reply} ${E.VC_New} Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.orangeBlackPlus}>`,
-          ].join("\n"),
-          inline: true,
-        },
-        {
-          name: "\`LIVELLO 150-199\`",
-          value: [
-            `<@&${IDs.roles.Level150}>`,
-            "Tutte le ricompense precedenti",
-            `${E.VC_DoubleReply} Bonus EXP permanente +25%`,
-            `${E.VC_Reply} ${E.VC_New} Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.greenBlackPlus}>`,
-            `${E.VC_DoubleReply} Decorazione a scelta riscattabile tramite ticket **HIGH STAFF**`,
-          ].join("\n"),
-          inline: true,
-        },
-        {
-          name: "\`LIVELLO 200+\`",
-          value: [
-            `<@&${IDs.roles.Level200}>`,
-            "Tutte le ricompense precedenti",
-            `${E.VC_Reply} ${E.VC_New} Nuovo **Plus combo Black** con [Personalizza](https://www.viniliecaffe.it/personalizza/) <@&${IDs.roles.aquaBlackPlus}>`,
-            `${E.VC_DoubleReply} Nitro Boost mensile riscattabile tramite ticket **HIGH STAFF**`,
-          ].join("\n"),
-          inline: true,
-        },
-      )
-
       .setFooter({ text: "Se esci dal server o cambi account, i livelli ti verranno tolti e NON rimessi." });
+
+    if (fields.length) levelEmbed.addFields(fields);
 
     const howtoEmbed = new EmbedBuilder().setColor("#6f4e37").setTitle(`${E.nitroboost} **__Come creare ruolo personalizzato e vocale privata__**`).setDescription([
       `Usa [Personalizza](https://www.viniliecaffe.it/personalizza/) in <#${IDs.channels.commands}> per creare e configurare il ruolo, la vocale, le reaction e la Mention Response.`,
@@ -558,7 +581,7 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     interaction.customId == "info_level" ||
     interaction.customId == "infolivelli"
   ) {
-    return sendUpdatedView(buildLevelsPayload());
+    return sendUpdatedView(await buildLevelsPayload());
   }
   if (interaction.customId == "torna_indietro") {
     return sendUpdatedView(buildBoostLevelsPayload());

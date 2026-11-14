@@ -122,7 +122,60 @@ function buildLevelMilestoneSupportersAnnounceContent(user?) {
   return `${E.VC_LevelUp} \`|\`  ${user}`;
 }
 
-async function sendLevelMilestoneSupportersAnnouncement(guild?, member?, level?, roleId?) {
+async function trySendDashboardMilestoneToSupporters(guild?, member?, level?, roleId?, alreadyPostedChannelId?) {
+  try {
+    const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const { applyDefaultFooterToEmbeds } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
+    const { applyPronounGenderToPayload } = require("./pronounGenderUtils") as typeof import("./pronounGenderUtils");
+    const { formatMemberMention } = require("../../Level/services/expLevels") as typeof import("../../Level/services/expLevels");
+    const { memberDisplayName, resolveEmbedUserAvatarUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+
+    const cfg = await LVL.getConfig(String(guild.id));
+    if (!(cfg.userSaved || cfg.seedVersion > 0)) return false;
+    /* Dashboard › Livelli › Annunci › Vantaggi sbloccati */
+    if (cfg.perksEnabled === false || T.draftIsEmpty?.(cfg.perksDraft)) return true;
+    void alreadyPostedChannelId;
+    const perksChannelId = String(cfg.perksChannelId || SUPPORTERS_CHANNEL_ID || "");
+    const channel = guild.channels.cache.get(perksChannelId) || (await getGuildChannelCached(guild, perksChannelId));
+    if (!channel?.isTextBased?.()) return false;
+    const reward = (cfg.roleRewards || []).find((r: any) => Number(r.level) === Number(level));
+    const perklist = typeof reward?.perks === "string" ? reward.perks : buildPerkBlockLines(level).join("\n");
+
+    const avatarUrl = await resolveEmbedUserAvatarUrl(member, { size: 256 });
+    const vars = {
+      user: formatMemberMention(member),
+      username: memberDisplayName(member),
+      level: String(level || 0),
+      avatar: String(avatarUrl || ""),
+      role: roleId ? `<@&${roleId}>` : "",
+      roleid: String(roleId || ""),
+      perks: `<#${perksChannelId}>`,
+      perklist: perklist || "—",
+      server: String(guild.name || ""),
+    };
+    const body: any = T.buildMessageBody(cfg.perksDraft, vars, [], { mentionUserId: member.id });
+    const outgoing = applyDefaultFooterToEmbeds(
+      applyPronounGenderToPayload(
+        {
+          content: body.content,
+          embeds: body.embeds,
+          components: body.components,
+          flags: body.flags,
+          allowedMentions: body.allowed_mentions,
+        },
+        member,
+      ),
+      guild,
+    );
+    await channel.send(outgoing).catch(() => null);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function sendLevelMilestoneSupportersAnnouncement(guild?, member?, level?, roleId?, opts: { alreadyPostedChannelId?: string | null } = {}) {
   if (!guild || !member?.user || !SUPPORTERS_CHANNEL_ID) return;
   if (String(guild.id) !== MAIN_GUILD_ID) return;
   if (!Number.isFinite(Number(level)) || Number(level) < 1) return;
@@ -133,6 +186,15 @@ async function sendLevelMilestoneSupportersAnnouncement(guild?, member?, level?,
     const A = require("../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../MultiGuild/services/announcementsRuntime");
     if (await A.roleRuleHandles(guild.id, roleId)) return;
     if (await A.trySendConfiguredRoleAnnounce(guild.client, member, roleId, { fallbackChannelId: SUPPORTERS_CHANNEL_ID })) {
+      return;
+    }
+  } catch (_) {}
+  /* dashboard Livelli seedata → solo milestoneDraft (niente embed perk hardcoded) */
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const cfg = await LVL.getConfig(String(guild.id));
+    if (cfg && (cfg.userSaved || cfg.seedVersion > 0)) {
+      await trySendDashboardMilestoneToSupporters(guild, member, level, roleId, opts.alreadyPostedChannelId);
       return;
     }
   } catch (_) {}
@@ -216,6 +278,7 @@ async function recoverLevelMilestoneSupportersAnnouncesOnStartup(client?, opts: 
 }
 
 export = {
+  buildPerkBlockLines,
   sendLevelMilestoneSupportersAnnouncement,
   recoverLevelMilestoneSupportersAnnouncesOnStartup,
 };

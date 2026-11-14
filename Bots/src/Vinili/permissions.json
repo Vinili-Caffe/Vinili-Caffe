@@ -128,14 +128,6 @@
         "roles.Member"
       ]
     },
-    "level": {
-      "roles": [
-        "roles.HighStaff"
-      ],
-      "channels": [
-        "channels.highCmds"
-      ]
-    },
     "me": {
       "roles": [
         "roles.Member"

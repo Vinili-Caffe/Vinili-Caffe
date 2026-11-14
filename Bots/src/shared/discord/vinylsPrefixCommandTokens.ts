@@ -24,7 +24,6 @@ const VINYLS_PREFIX_COMMAND_NAMES = new Set([
   "join",
   "kick",
   "leave",
-  "level",
   "lock",
   "lyrics",
   "me",

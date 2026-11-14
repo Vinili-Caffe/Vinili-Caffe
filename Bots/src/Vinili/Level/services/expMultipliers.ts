@@ -88,7 +88,19 @@ function parseExpEventEndMs(value?) {
   return parseScheduleEndMs(value, { endHour: 12 }) ?? parseScheduleMs(value, "23:59:59.999");
 }
 
+/** Con Livelli seedato/salvato gli eventi EXP li gestisce la dashboard (non config.json). */
+function dashboardOwnsExpEvents() {
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const cfg = LVL.getConfigSync(String(IDs.guilds?.main || ""));
+    return Boolean(cfg && (cfg.userSaved || cfg.seedVersion > 0));
+  } catch {
+    return false;
+  }
+}
+
 function getScheduledExpEvent(nowMs = Date.now()) {
+  if (dashboardOwnsExpEvents()) return null;
   const events = Array.isArray(botConfig?.globalExpEvents) ? botConfig.globalExpEvents : [];
   let best = null;
   for (const event of events) {

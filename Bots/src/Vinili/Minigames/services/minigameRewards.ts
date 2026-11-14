@@ -25,10 +25,10 @@ function getHighestEligibleReward(totalExp?) {
 
 async function handleExpReward(client?, member?, totalExp?) {
   if (!member?.guild) return;
-  /* premi aggiornati dalla dashboard */
+  let levelsCfg: any = null;
   try {
     const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
-    await LVL.getConfig(String(member.guild.id));
+    levelsCfg = await LVL.getConfig(String(member.guild.id));
   } catch (_) {}
   const reward = getHighestEligibleReward(totalExp);
   if (!reward) return;
@@ -36,8 +36,50 @@ async function handleExpReward(client?, member?, totalExp?) {
 
   await member.roles.add(reward.roleId).catch(() => { });
 
-  const rewardChannel = await getChannelCached(client, REWARD_CHANNEL_ID);
+  const channelId =
+    (levelsCfg?.minigameRewardChannelId && String(levelsCfg.minigameRewardChannelId)) || REWARD_CHANNEL_ID;
+  const rewardChannel = await getChannelCached(client, channelId);
   if (!rewardChannel) return;
+
+  /* messaggio premio da Livelli se seedato e draft non vuoto */
+  try {
+    const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+    const draft = levelsCfg?.minigameRewardDraft;
+    if (levelsCfg && (levelsCfg.userSaved || levelsCfg.seedVersion > 0) && draft && !T.draftIsEmpty?.(draft)) {
+      const { getNextReward } = require("./minigameEmbedShared") as typeof import("./minigameEmbedShared");
+      const { accountUsername, guildMemberDisplayAvatarUrlDynamic } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+      const { applyDefaultFooterToEmbeds } = require("../../../shared/embeds/defaultFooter") as typeof import("../../../shared/embeds/defaultFooter");
+      const next = getNextReward(totalExp);
+      const remaining = next ? Math.max(0, next.exp - Number(totalExp || 0)) : 0;
+      const vars = {
+        user: `<@${member.id}>`,
+        username: accountUsername(member),
+        avatar: String(guildMemberDisplayAvatarUrlDynamic(member) || ""),
+        role: `<@&${reward.roleId}>`,
+        roleid: String(reward.roleId),
+        exp: String(reward.exp),
+        total: String(Math.floor(Number(totalExp) || 0)),
+        next: next
+          ? `Ti mancano **${remaining}** exp per la prossima ricompensa!`
+          : "Hai raggiunto la ricompensa **massima**!",
+        server: String(member.guild?.name || ""),
+      };
+      const body: any = T.buildMessageBody(draft, vars, [], { mentionUserId: member.id });
+      const outgoing = applyDefaultFooterToEmbeds(
+        {
+          content: body.content,
+          embeds: body.embeds,
+          components: body.components,
+          flags: body.flags,
+          allowedMentions: body.allowed_mentions,
+        },
+        member.guild,
+      );
+      await sendMinigameMessage(rewardChannel, outgoing).catch(() => null);
+      return;
+    }
+  } catch (_) {}
+
   await sendMinigameMessage(rewardChannel, {
       content: `${member}`,
       embeds: [buildRewardEmbed(member, reward, totalExp)],

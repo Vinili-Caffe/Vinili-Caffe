@@ -427,8 +427,18 @@ export type BirthdaysConfig = {
 };
 
 export type LevelsRoleMultiplier = { roleId: string; multiplier: number };
-export type LevelsRoleReward = { level: number; roleId: string };
-export type LevelsExpBonus = { enabled: boolean; amount: number; channelIds: string[] };
+/** perks: vantaggi sbloccati con questo ruolo (finiscono in {perklist}) */
+export type LevelsRoleReward = { level: number; roleId: string; perks?: string };
+/** noticeDraft: messaggio mandato in risposta (testo, embed o V2) */
+export type LevelsExpBonus = { enabled: boolean; amount: number; channelIds: string[]; noticeTemplate?: string; noticeDraft?: MsgDraft };
+export type LevelsCooldownTier = { minLevel: number; seconds: number };
+export type LevelsCooldownRoles = {
+  staff: number;
+  vipPlus: number;
+  vip: number;
+  doubleBooster: number;
+  booster: number;
+};
 
 export type LevelsConfig = {
   seedVersion?: number;
@@ -455,6 +465,16 @@ export type LevelsConfig = {
   };
   /** ruoli dati a chi fa tot EXP coi minigiochi */
   minigameRewards?: { exp: number; roleId: string }[];
+  /** canale annuncio premio minigiochi (vuoto = #comandi) */
+  minigameRewardChannelId?: string | null;
+  /** messaggio premio minigiochi */
+  minigameRewardDraft?: MsgDraft;
+  /** messaggio "vantaggi sbloccati" (es. #supporters) */
+  perksEnabled?: boolean;
+  perksChannelId?: string | null;
+  perksDraft?: MsgDraft;
+  /** cooldown comandi per livello + Staff/VIP/Boost */
+  commandCooldown?: { defaultSeconds: number; tiers: LevelsCooldownTier[]; roles: LevelsCooldownRoles };
   /** livelli regalati per la recensione sul sito (solo server principale; 0 = niente) */
   reviewRewardLevels?: number;
 };

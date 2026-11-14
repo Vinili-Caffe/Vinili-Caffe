@@ -175,18 +175,20 @@ async function searchDashboardTicketTeamMembers(client?, accessToken?, guildId?,
     }
   } catch (_) {}
 
-  /* 2) ricerca di Discord via REST (veloce, funziona anche senza gateway); il gateway solo se fallisce.
-     Prima il gateway poteva restare appeso fino a 2 minuti nel processo del sito. */
+  /* 2) ricerca Discord via REST (site-api ha client._rest, non client.rest). */
   if (byId.size < 10 && !/^\d{16,22}$/.test(q)) {
     const { Routes } = require("discord.js") as typeof import("discord.js");
-    const rest: any = await withTimeout(
-      client.rest.get(Routes.guildMembersSearch(gid), { query: new URLSearchParams({ query: q.slice(0, 32), limit: "25" }) }) as Promise<any>,
-      4000,
-    );
-    if (Array.isArray(rest)) {
-      for (const raw of rest) push({ ...raw, id: raw?.user?.id, user: raw?.user });
+    const api = client?._rest || client?.rest;
+    const restHits: any = api?.get
+      ? await withTimeout(
+          api.get(Routes.guildMembersSearch(gid), { query: { query: q.slice(0, 32), limit: 25 } }) as Promise<any>,
+          5000,
+        )
+      : null;
+    if (Array.isArray(restHits)) {
+      for (const raw of restHits) push({ ...raw, id: raw?.user?.id, user: raw?.user });
     } else {
-      const found: any = await withTimeout(guild.members.fetch({ query: q.slice(0, 32), limit: 25, time: 4000 }), 4500);
+      const found: any = await withTimeout(guild.members.fetch({ query: q.slice(0, 32), limit: 25 }), 5000);
       const source = found && typeof found.values === "function" ? found.values() : [];
       for (const member of source) push(member);
     }

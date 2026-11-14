@@ -111,6 +111,24 @@ function attachGuildMembersApi(guild?, client?) {
       ) {
         return fetchOne(typeof opts === "string" ? opts : opts.user || opts.id);
       }
+      /* ricerca per nome (dashboard): NON scaricare tutti i membri */
+      const query = String(opts?.query || "").trim();
+      if (query) {
+        const limit = Math.max(1, Math.min(100, Math.floor(Number(opts?.limit) || 25)));
+        const rest = client._rest || client.rest;
+        if (!rest?.get) return asCacheMap();
+        const raw = await rest.get(Routes.guildMembersSearch(guild.id), {
+          query: { query: query.slice(0, 32), limit },
+        });
+        const out = asCacheMap();
+        for (const rawM of Array.isArray(raw) ? raw : []) {
+          const member = wrapMember(rawM, guild, wrapUser(rawM.user, client));
+          if (!member?.id) continue;
+          guild.members.cache.set(member.id, member);
+          out.set(member.id, member);
+        }
+        return out;
+      }
       const rawMembers = await fetchAllMembers(client._rest, guild.id);
       for (const rawM of rawMembers) {
         const member = wrapMember(rawM, guild, wrapUser(rawM.user, client));

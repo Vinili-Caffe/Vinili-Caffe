@@ -133,6 +133,7 @@ export = {
   MINIGAME_EMBED_COLOR,
   EXP_REWARDS,
   currentMinigameRewards,
+  getNextReward,
   DRIVING_QUIZ_LETTERS,
   buildMinuteHintEmbed,
   buildGenericHintEmbed,

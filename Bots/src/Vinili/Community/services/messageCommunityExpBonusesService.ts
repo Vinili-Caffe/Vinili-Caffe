@@ -32,8 +32,14 @@ async function resolveCommunityBonuses(guildId?) {
         enabled: true,
         amount: FIRST_MESSAGE_DAILY_EXP_FALLBACK,
         channelIds: FIRST_MESSAGE_CHAT_CHANNEL_ID ? [FIRST_MESSAGE_CHAT_CHANNEL_ID] : [],
+        noticeTemplate: "Sei stato/a il primo a scrivere oggi in chat!\n**{amount} exp** guadagnati!\n{user}",
       },
-      welcomeGreeting: { enabled: true, amount: WELCOME_GREETING_EXP_FALLBACK, channelIds: [] },
+      welcomeGreeting: {
+        enabled: true,
+        amount: WELCOME_GREETING_EXP_FALLBACK,
+        channelIds: [],
+        noticeTemplate: "Grazie per il benvenuto!\n**{amount} exp** guadagnati!\n{user}",
+      },
     };
   }
 }
@@ -66,7 +72,23 @@ const FIRST_MESSAGE_DOC_TYPE = SITE_DOCUMENT_TYPE.COMMUNITY_FIRST_MESSAGE_DAILY;
 const WELCOME_GREETING_DOC_TYPE = SITE_DOCUMENT_TYPE.COMMUNITY_WELCOME_GREETING_EXP;
 const EXP_EMOJI = E.VC_EXP;
 
-function buildExpBonusChatContent(message?, amount?, variant?) {
+function applyBonusNoticeTemplate(template?, message?, amount?) {
+  const mention = message.author ? `<@${message.author.id}>` : "";
+  const amt = Math.max(0, Math.floor(Number(amount) || 0));
+  return String(template || "")
+    .replaceAll("{user}", mention)
+    .replaceAll("{username}", String(message.author?.username || message.member?.displayName || ""))
+    .replaceAll("{amount}", String(amt))
+    .replaceAll("{exp}", String(amt))
+    .trim();
+}
+
+function buildExpBonusChatContent(message?, amount?, variant?, noticeTemplate?) {
+  const fromDash = applyBonusNoticeTemplate(noticeTemplate, message, amount);
+  if (fromDash) {
+    /* emoji EXP se manca nel testo dashboard */
+    return fromDash.includes("exp") ? fromDash : `${EXP_EMOJI} ${fromDash}`;
+  }
   const mention = message.author ? `<@${message.author.id}>` : "";
   const expLine = `${EXP_EMOJI} **${Math.max(0, Math.floor(Number(amount) || 0))} exp** guadagnati!`;
   if (variant === "first_message_server_daily") {
@@ -92,14 +114,40 @@ function shouldSendWelcomeGreetingNotice(message?) {
   return true;
 }
 
-async function sendExpBonusChatNotice(message?, amount?, variant?) {
+/** Messaggio della dashboard (testo, embed o V2); null = vuoto o non disponibile. */
+async function buildExpBonusDraftPayload(message?, amount?, noticeDraft?) {
+  if (!noticeDraft || typeof noticeDraft !== "object") return null;
+  try {
+    const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+    if (T.draftIsEmpty?.(noticeDraft)) return null;
+    const { resolveEmbedUserAvatarUrl, memberDisplayName } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
+    const amt = String(Math.max(0, Math.floor(Number(amount) || 0)));
+    const avatar = message.member ? await resolveEmbedUserAvatarUrl(message.member, { size: 256 }).catch(() => "") : "";
+    const vars = {
+      user: message.author ? `<@${message.author.id}>` : "",
+      username: String((message.member ? memberDisplayName(message.member) : "") || message.author?.username || ""),
+      amount: amt,
+      exp: amt,
+      avatar: String(avatar || ""),
+      server: String(message.guild?.name || ""),
+    };
+    const body: any = T.buildMessageBody(noticeDraft, vars, [], { mentionUserId: message.author?.id });
+    return { content: body.content, embeds: body.embeds, components: body.components, flags: body.flags, allowedMentions: body.allowed_mentions };
+  } catch {
+    return null;
+  }
+}
+
+async function sendExpBonusChatNotice(message?, amount?, variant?, noticeTemplate?, noticeDraft?) {
   const channel = message.channel;
   if (!channel?.isTextBased?.() || typeof channel.send !== "function") return;
   if (variant === "welcome_greeting" && !shouldSendWelcomeGreetingNotice(message)) return;
-  const content = buildExpBonusChatContent(message, amount, variant).trim();
-  if (!content) return;
   const { applyPronounGenderToPayload } = require("../utils/pronounGenderUtils") as typeof import("../utils/pronounGenderUtils");
-  const outgoing = applyPronounGenderToPayload({ content }, message.member);
+  /* Dashboard › Livelli › Bonus: messaggio completo; senza, il testo di sempre */
+  const fromDraft = await buildExpBonusDraftPayload(message, amount, noticeDraft);
+  const content = fromDraft ? "" : buildExpBonusChatContent(message, amount, variant, noticeTemplate).trim();
+  if (!fromDraft && !content) return;
+  const outgoing = applyPronounGenderToPayload(fromDraft || { content }, message.member);
   let sent = null;
   try {
     sent = await channel.send({
@@ -350,7 +398,7 @@ async function tryAwardWelcomeGreetingExpOnce(message?, options: Record<string, 
   }
   if (awarded) {
     await markWelcomeGreetingExpAwarded(message.guild.id, message.author.id, joinTargetUserId);
-    await sendExpBonusChatNotice(message, welcomeAmount, "welcome_greeting");
+    await sendExpBonusChatNotice(message, welcomeAmount, "welcome_greeting", bonuses.welcomeGreeting.noticeTemplate, (bonuses.welcomeGreeting as any).noticeDraft);
     return { ok: true, reason: "awarded" };
   }
   await releaseWelcomeGreetingExpClaim(message.guild.id, message.author.id, joinTargetUserId);
@@ -478,7 +526,7 @@ async function handleMessageCommunityExpBonuses(message?) {
       if (!awarded) {
         await releaseServerFirstMessageOfDayClaim(message.guild.id, dateKey);
       } else {
-        await sendExpBonusChatNotice(message, amount, "first_message_server_daily");
+        await sendExpBonusChatNotice(message, amount, "first_message_server_daily", bonuses.firstMessageDaily.noticeTemplate, (bonuses.firstMessageDaily as any).noticeDraft);
       }
     }
   }

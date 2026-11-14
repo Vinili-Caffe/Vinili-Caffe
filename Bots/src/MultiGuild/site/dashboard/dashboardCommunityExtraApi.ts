@@ -501,7 +501,8 @@ async function getLevels(client?, token?, guildId?) {
   if (!a.ok) return a;
   if (!MS().moduleExists(a.guildId, "livelli")) return fail(404, "unavailable", "I livelli non sono disponibili su questo server.");
   const imported = await LVL().ensureMainSeed(a.guildId).catch(() => false);
-  const config = await LVL().getConfig(a.guildId, true);
+  const loaded = await LVL().getConfig(a.guildId, true);
+  const config = T.isMainGuild(a.guildId) ? { ...loaded, roleRewards: LVL().withDefaultPerks(loaded.roleRewards) } : loaded;
   /* se il processo del bot è fermo, gli eventi arrivati all'ora partono comunque aprendo la dashboard */
   await LVL().runDueScheduledEvents(a.guildId).catch(() => 0);
   const event = await LVL().getExpEvent(a.guildId);

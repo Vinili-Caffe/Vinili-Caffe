@@ -20,7 +20,19 @@ function parseExpEventStartMs(value?) {
   return parseScheduleMs(value, "12:00:00");
 }
 
+/** Con Livelli in dashboard attiva non annunciamo più gli eventi da config.json. */
+function dashboardOwnsExpEvents() {
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const cfg = LVL.getConfigSync(String(IDs.guilds?.main || ""));
+    return Boolean(cfg && (cfg.userSaved || cfg.seedVersion > 0));
+  } catch {
+    return false;
+  }
+}
+
 function listAnnounceableExpEvents(nowMs = Date.now()) {
+  if (dashboardOwnsExpEvents()) return [];
   const events = Array.isArray(botConfig?.globalExpEvents) ? botConfig.globalExpEvents : [];
   const out = [];
   for (const event of events) {

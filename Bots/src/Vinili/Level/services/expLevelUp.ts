@@ -29,7 +29,8 @@ async function getLevelRoleMap(guildId?) {
   try {
     const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
     const cfg = await LVL.getConfig(String(guildId || ""));
-    if (cfg?.roleRewards?.length) return LVL.roleRewardMap(cfg);
+    /* lista salvata/seedata (anche vuota) = fonte di verità; niente fallback hardcoded */
+    if (cfg && (cfg.userSaved || cfg.seedVersion > 0)) return LVL.roleRewardMap(cfg);
   } catch (_) {}
   return LEVEL_ROLE_MAP;
 }
@@ -81,7 +82,7 @@ async function sendDashboardLevelUp(guild?, member?, level?, opts: { roleId?: st
     if (!channel) return false;
     const draft = opts.milestone ? cfg.milestoneDraft : cfg.levelUpDraft;
     if (T.draftIsEmpty?.(draft)) return false;
-    const vars = await levelUpVars(member, level, opts.roleId || "", PERKS_CHANNEL_ID);
+    const vars = await levelUpVars(member, level, opts.roleId || "", cfg.perksChannelId || PERKS_CHANNEL_ID);
     const body: any = T.buildMessageBody(draft, vars, [], { mentionUserId: member.id });
     const { applyPronounGenderToPayload } = require("../../Community/utils/pronounGenderUtils") as typeof import("../../Community/utils/pronounGenderUtils");
     const outgoing = applyDefaultFooterToEmbeds(
@@ -139,8 +140,19 @@ async function sendLevelUpAnnouncement(guild?, member?, level?) {
   const map = await getLevelRoleMap(guild.id);
   if (map.has(level)) {
     const roleId = map.get(level);
-    await sendPerksLevelMessage(guild, member, level, roleId);
-    await sendLevelMilestoneSupportersAnnouncement(guild, member, level, roleId).catch(() => null);
+    /* dashboard milestone → canale Livelli; se fallisce resta il messaggio classico corto */
+    const dashOk = await sendDashboardLevelUp(guild, member, level, { roleId, milestone: true });
+    if (!dashOk) await sendPerksLevelMessage(guild, member, level, roleId, { skipDashboard: true });
+    let alreadyPostedChannelId: string | null = null;
+    if (dashOk) {
+      try {
+        const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+        const cfg = await LVL.getConfig(guild.id);
+        alreadyPostedChannelId = cfg.levelUpChannelId || LEVEL_UP_CHANNEL_ID || null;
+      } catch (_) {}
+    }
+    /* #supporters: stesso draft dashboard (non più l'embed hardcoded dei perk) */
+    await sendLevelMilestoneSupportersAnnouncement(guild, member, level, roleId, { alreadyPostedChannelId }).catch(() => null);
   } else {
     await sendLevelUpMessage(guild, member, level);
   }
@@ -166,11 +178,11 @@ async function buildPerksLevelEmbed(member?, level?, roleId?) {
   };
 }
 
-async function sendPerksLevelMessage(guild?, member?, level?, roleIdHint?) {
+async function sendPerksLevelMessage(guild?, member?, level?, roleIdHint?, opts: { skipDashboard?: boolean } = {}) {
   const map = await getLevelRoleMap(guild?.id);
   const roleId = String(roleIdHint || map.get(level) || "").trim();
   if (!guild || !member || !roleId) return;
-  if (await sendDashboardLevelUp(guild, member, level, { roleId, milestone: true })) return;
+  if (!opts.skipDashboard && (await sendDashboardLevelUp(guild, member, level, { roleId, milestone: true }))) return;
   const channel = await resolveLevelUpChannel(guild, null);
   if (!channel) return;
   const payload = await buildPerksLevelEmbed(member, level, roleId);

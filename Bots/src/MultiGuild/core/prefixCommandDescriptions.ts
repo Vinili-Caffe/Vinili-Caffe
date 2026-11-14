@@ -47,7 +47,6 @@ const PREFIX_COMMAND_DESCRIPTIONS = Object.freeze({
   leaderboard: "Classifiche globali join, partners e servers.",
   random: "Estrae un server partnership casuale.",
   security: "Pannello sicurezza con toggle moduli istantanei.",
-  level: "Pannello gestione livelli.",
   backup: "Pannello backup del server.",
   setup: "Setup guidato partnership (sul main: già completo → usa +settings).",
   settings: "Pannello impostazioni partnership del server.",
