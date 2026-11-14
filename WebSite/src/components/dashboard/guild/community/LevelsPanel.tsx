@@ -89,10 +89,10 @@ function BigNumber({
     <div className="rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10">
       <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">{label}</p>
       <div className="mt-2 flex items-center gap-2">
-        <div className="w-28">
-          <NumberField value={value} min={min} max={max} step={step} disabled={disabled} onChange={(v) => onChange(Number(v) || 0)} aria-label={label} />
+        <div className="w-36">
+          <NumberField className="!mt-0" value={value} min={min} max={max} step={step} disabled={disabled} onChange={(v) => onChange(Number(v) || 0)} aria-label={label} />
         </div>
-        {suffix ? <span className="text-sm font-semibold text-crema/60">{suffix}</span> : null}
+        {suffix ? <span className="self-center text-sm font-semibold text-crema/60">{suffix}</span> : null}
       </div>
       {hint ? <p className="mt-2 text-xs text-crema/50">{hint}</p> : null}
     </div>
@@ -246,10 +246,10 @@ export function LevelsPanel({ guildId, token, onToast }: { guildId: string; toke
             >
               <div className="grid gap-3 sm:grid-cols-2">
                 <BigNumber label="EXP al minuto" value={cfg.voiceExpPerMinute} min={0} max={500} onChange={(voiceExpPerMinute) => set({ voiceExpPerMinute })} suffix="EXP" />
-                <div className="flex flex-col justify-center rounded-2xl bg-[#826bc2]/10 p-3.5 ring-1 ring-[#826bc2]/20">
+                <div className="rounded-2xl bg-[#826bc2]/10 p-3.5 ring-1 ring-[#826bc2]/20">
                   <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Un&apos;ora in vocale</p>
-                  <p className="mt-1 font-display text-2xl font-semibold text-crema lining-nums">≈ {voicePerHour.toLocaleString("it-IT")} EXP</p>
-                  <p className="text-xs text-crema/50">col moltiplicatore globale, senza bonus dei ruoli</p>
+                  <p className="mt-2 flex h-10 items-center font-display text-2xl font-semibold text-crema lining-nums">≈ {voicePerHour.toLocaleString("it-IT")} EXP</p>
+                  <p className="mt-2 text-xs text-crema/50">col moltiplicatore globale, senza bonus dei ruoli</p>
                 </div>
               </div>
             </Card>
@@ -292,8 +292,8 @@ export function LevelsPanel({ guildId, token, onToast }: { guildId: string; toke
                       <div className="min-w-0 flex-1">
                         <Select value={row.roleId} onChange={(roleId) => setMult(i, { roleId })} options={roles} className={cn(fieldClass, "!mt-0")} aria-label="Ruolo" />
                       </div>
-                      <div className="w-24 shrink-0">
-                        <NumberField value={row.multiplier} min={0.1} max={20} step={0.05} onChange={(v) => setMult(i, { multiplier: Math.max(0.1, Number(v) || 1) })} aria-label="Moltiplicatore del ruolo" />
+                      <div className="w-36 shrink-0">
+                        <NumberField className="!mt-0" value={row.multiplier} min={0.1} max={20} step={0.05} onChange={(v) => setMult(i, { multiplier: Math.max(0.1, Number(v) || 1) })} aria-label="Moltiplicatore del ruolo" />
                       </div>
                       <button type="button" className={cn(miniBtn, "!px-2")} onClick={() => set({ roleMultipliers: cfg.roleMultipliers.filter((_, j) => j !== i) })} aria-label="Togli il bonus">
                         <Trash2 className="size-3.5" aria-hidden />
@@ -337,8 +337,8 @@ export function LevelsPanel({ guildId, token, onToast }: { guildId: string; toke
                   <li key={i} className="relative flex flex-wrap items-center gap-2 rounded-2xl bg-espresso/45 p-2 pl-3 ring-1 ring-sand/10">
                     <span className="absolute -left-[1.15rem] top-1/2 size-2.5 -translate-y-1/2 rounded-full bg-[#826bc2] ring-4 ring-roast" aria-hidden />
                     <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">Lv</span>
-                    <div className="w-24 shrink-0">
-                      <NumberField value={row.level} min={1} max={10000} onChange={(v) => setReward(i, { level: Math.max(1, Number(v) || 1) })} aria-label="Livello del premio" />
+                    <div className="w-36 shrink-0">
+                      <NumberField className="!mt-0" value={row.level} min={1} max={10000} onChange={(v) => setReward(i, { level: Math.max(1, Number(v) || 1) })} aria-label="Livello del premio" />
                     </div>
                     <span className="size-2.5 shrink-0 rounded-full" style={{ background: roleColor(pickerRoles, row.roleId) }} aria-hidden />
                     <div className="min-w-[10rem] flex-1">
@@ -375,7 +375,7 @@ export function LevelsPanel({ guildId, token, onToast }: { guildId: string; toke
               </Field>
               <Field label="Dal livello">
                 <div className="mt-1.5">
-                  <NumberField value={cfg.perkMinLevel} min={0} max={10000} disabled={!cfg.perkRoleId} onChange={(v) => set({ perkMinLevel: Math.max(0, Number(v) || 0) })} aria-label="Livello del ruolo vantaggio" />
+                  <NumberField className="!mt-0" value={cfg.perkMinLevel} min={0} max={10000} disabled={!cfg.perkRoleId} onChange={(v) => set({ perkMinLevel: Math.max(0, Number(v) || 0) })} aria-label="Livello del ruolo vantaggio" />
                 </div>
               </Field>
             </div>
