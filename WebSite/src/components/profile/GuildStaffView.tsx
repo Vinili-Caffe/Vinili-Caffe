@@ -67,6 +67,19 @@ function PmNavigator({ list, current, onGo }: { list: GuildStaffManager[]; curre
   );
 }
 
+/** Badge partnership scelti, come pillole (testata del profilo staff sul principale). */
+function BadgeChips({ badges }: { badges: { id: string; title: string; node: React.ReactNode }[] }) {
+  return (
+    <>
+      {badges.map((b) => (
+        <span key={b.id} className="inline-flex items-center gap-1.5 rounded-full bg-caramel/12 px-2.5 py-1 text-xs font-semibold text-ember ring-1 ring-caramel/25">
+          {b.node} {b.title}
+        </span>
+      ))}
+    </>
+  );
+}
+
 function Stat({ value, label, icon }: { value: number | string; label: string; icon: React.ReactNode }) {
   return (
     <div className="flex flex-col items-start rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 ring-1 ring-sand/12">
@@ -85,7 +98,7 @@ export function GuildStaffView({
   onNavigate,
   owns = false,
   hideNavigator = false,
-  serverName,
+  onBadges,
 }: {
   token: string;
   guildId: string;
@@ -96,6 +109,8 @@ export function GuildStaffView({
   /** sul principale "Lista staff" c'è già (quella dello staff) */
   hideNavigator?: boolean;
   serverName?: string;
+  /** server principale: i badge scelti vanno nella testata del profilo staff */
+  onBadges?: (chips: React.ReactNode | null) => void;
 }) {
   const [res, setRes] = useState<{ key: string; r: Awaited<ReturnType<typeof loadGuildStaff>> } | null>(null);
   const key = `${guildId}:${userId}`;
@@ -111,6 +126,14 @@ export function GuildStaffView({
   const staff: GuildStaff | null = res?.key === key && res.r.ok ? res.r.data : null;
   const pending = useMemo(() => (staff ? staff.objectives.filter((o) => !o.done) : []), [staff]);
   const doneCount = staff ? staff.objectives.length - pending.length : 0;
+
+  /* principale, profilo di un altro: i badge scelti salgono nella testata */
+  const badgeIds = staff ? staff.selectedBadges.map((b) => b.id).join(",") : "";
+  useEffect(() => {
+    if (!hideNavigator || !onBadges || owns) return;
+    onBadges(staff && staff.selectedBadges.length ? <BadgeChips badges={staff.selectedBadges.map((b) => ({ id: b.id, title: b.title, node: <EmojiText text={b.emoji} emojiClassName="size-4" /> }))} /> : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cambia solo coi badge
+  }, [badgeIds, hideNavigator, owns]);
 
   /* sul principale (sotto la scheda staff): se non è Partner Manager non si mostra niente */
   if (hideNavigator && (!res || res.key !== key || !res.r.ok)) return null;
@@ -136,7 +159,17 @@ export function GuildStaffView({
           token={token}
           guildId={guildId}
           onToast={(m, err) => showToast(m, Boolean(err))}
-          prefsNote={`Valgono quando usi Vinili${serverName ? ` su ${serverName}` : " in questo server"}.`}
+          showStats={!hideNavigator}
+          onBadges={
+            hideNavigator && onBadges
+              ? (list) => onBadges(list.length ? <BadgeChips badges={list.map((b) => ({ id: b.id, title: b.title, node: b.emoji.url ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- emoji del badge
+                        <img src={b.emoji.url} alt="" className="size-4 object-contain" />
+                      ) : (
+                        <span>{b.emoji.text}</span>
+                      ) }))} /> : null)
+              : undefined
+          }
         />
       </div>
     );
@@ -150,7 +183,7 @@ export function GuildStaffView({
         </div>
       )}
 
-      {s.selectedBadges.length ? (
+      {s.selectedBadges.length && !hideNavigator ? (
         <div className="flex flex-wrap items-center justify-center gap-2">
           {s.selectedBadges.map((b) => (
             <span key={b.id} className="inline-flex items-center gap-1.5 rounded-full bg-caramel/12 px-3 py-1 text-xs font-semibold text-ember ring-1 ring-caramel/25">
@@ -160,12 +193,14 @@ export function GuildStaffView({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat value={s.scores.total} label="Partnership totali" icon={<Handshake />} />
-        <Stat value={s.scores.daily} label="Oggi" icon={<Zap />} />
-        <Stat value={s.scores.weekly} label="Questa settimana" icon={<CalendarDays />} />
-        <Stat value={`${s.awardsPercent}%`} label="Premi ottenuti" icon={<Award />} />
-      </div>
+      {hideNavigator ? null : (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat value={s.scores.total} label="Partnership totali" icon={<Handshake />} />
+          <Stat value={s.scores.daily} label="Oggi" icon={<Zap />} />
+          <Stat value={s.scores.weekly} label="Questa settimana" icon={<CalendarDays />} />
+          <Stat value={`${s.awardsPercent}%`} label="Premi ottenuti" icon={<Award />} />
+        </div>
+      )}
 
       <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.06] via-roast/80 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
         <div className="flex items-center gap-2">

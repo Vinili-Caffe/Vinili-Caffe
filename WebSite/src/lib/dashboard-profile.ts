@@ -112,6 +112,38 @@ async function sendPm(token: string, guildId: string, body?: PmBody): Promise<{ 
   }
 }
 
+/** Preferenze del bot (comandi partnership): uguali in tutti i server. */
+export type BotPrefs = {
+  prefs: { suppressManagerPing: boolean; ephemeralCommands: boolean; language: string };
+  languages: { code: string; label: string; flag: string }[];
+};
+
+async function sendBotPrefs(token: string, body?: Partial<BotPrefs["prefs"]>): Promise<{ ok: true; data: BotPrefs } | Fail> {
+  try {
+    const r = await fetch(body ? "/webhooks/site-profile-extras" : `/webhooks/site-profile-extras?section=botprefs&_=${Date.now()}`, {
+      method: body ? "POST" : "GET",
+      cache: "no-store",
+      credentials: "omit",
+      headers: { Accept: "application/json", Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify({ section: "botprefs", ...body }) : undefined,
+    });
+    const d = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+    if (r.status !== 200 || d.ok === false) return { ok: false, status: r.status, message: typeof d.message === "string" ? d.message : "Preferenze non disponibili." };
+    const p = (d.prefs || {}) as Record<string, unknown>;
+    return {
+      ok: true,
+      data: {
+        prefs: { suppressManagerPing: p.suppressManagerPing === true, ephemeralCommands: p.ephemeralCommands === true, language: String(p.language || "it") },
+        languages: Array.isArray(d.languages) ? (d.languages as BotPrefs["languages"]) : [],
+      },
+    };
+  } catch {
+    return { ok: false, status: 0, message: "Errore di rete." };
+  }
+}
+export const loadBotPrefs = (token: string) => sendBotPrefs(token);
+export const patchBotPrefs = (token: string, body: Partial<BotPrefs["prefs"]>) => sendBotPrefs(token, body);
+
 export const loadPmProfile = (token: string, guildId: string) => sendPm(token, guildId);
 export const patchPmProfile = (token: string, guildId: string, body: PmBody) => sendPm(token, guildId, body);
 

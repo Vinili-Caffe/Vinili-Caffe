@@ -1,9 +1,8 @@
 "use client";
 
-import { Select } from "@/components/ui/Select";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { motion } from "motion/react";
-import { Award, Coins, Database, Diamond, Download, Eye, Handshake, LogIn, LogOut, Settings2, ShieldAlert, Target, Trash2, UserRound } from "lucide-react";
+import { Award, CalendarDays, Coins, Database, Diamond, Download, Eye, Handshake, LogIn, LogOut, ShieldAlert, Target, Trash2, UserRound, Zap } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
 import { confirmDialog } from "@/components/ui";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
@@ -13,7 +12,7 @@ import { loadPmProfile, loadTenantProfile, patchPmProfile, patchTenantProfile, t
 import { eraseGdprData, exportGdprData, labelFor, summarizeCounts, type EraseResult } from "@/lib/gdpr";
 import { page } from "@/lib/site";
 import { DashboardShell } from "./DashboardShell";
-import { DashToast, Panel, SettingRow, StateCard, StatTile, Toggle, dangerBtn, dashSecondaryBtn, discordBtn, fieldClass, miniBtn } from "./guild/bits";
+import { DashToast, Panel, StateCard, dangerBtn, dashSecondaryBtn, discordBtn, fieldClass, miniBtn } from "./guild/bits";
 
 type Toast = { msg: string; err: boolean } | null;
 
@@ -67,21 +66,50 @@ function AccountCard() {
   );
 }
 
-/** Profilo partnership (solo alto staff): preferenze del bot, badge in vetrina, obiettivi. */
+/* stessa veste delle sezioni del profilo staff (sfumatura caramello, titolo in display) */
+const PROFILE_SECTION = "rounded-3xl bg-gradient-to-b from-caramel/[0.06] via-roast/80 to-roast p-5 ring-1 ring-sand/12 sm:p-6";
+
+/* stesso riquadro delle statistiche staff */
+function ProfileStat({ value, label, icon }: { value: number | string; label: string; icon: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-start rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 ring-1 ring-sand/12">
+      <span className="flex size-9 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25 [&>svg]:size-4">{icon}</span>
+      <span className="mt-3 font-display text-3xl font-semibold leading-none lining-nums">{typeof value === "number" ? value.toLocaleString("it-IT") : value}</span>
+      <span className="mt-1 text-xs text-crema/55">{label}</span>
+    </div>
+  );
+}
+
+function SectionHead({ icon, title, aside }: { icon: React.ReactNode; title: string; aside?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-ember [&>svg]:size-4" aria-hidden>
+        {icon}
+      </span>
+      <h3 className="font-display text-xl font-semibold text-crema">{title}</h3>
+      {aside ? <span className="ml-auto text-xs text-crema/50 lining-nums">{aside}</span> : null}
+    </div>
+  );
+}
+
 /**
- * Profilo partnership: statistiche, preferenze, badge in vetrina, obiettivi.
- * Di base è quello della dashboard (server principale); con guildId è quello di un altro server (profilo del sito).
+ * Profilo partnership del proprio utente in un server (tab Staff del profilo del sito):
+ * preferenze del bot, badge in vetrina e obiettivi, con la stessa veste delle sezioni staff.
  */
 export function PartnerProfile({
   token,
   onToast,
   guildId = null,
-  prefsNote = "Valgono quando usi Vinili sul server principale.",
+  showStats = true,
+  onBadges,
 }: {
   token: string;
   onToast: (m: string, err?: boolean) => void;
   guildId?: string | null;
-  prefsNote?: string;
+  /** riquadri delle partnership (sul server principale no) */
+  showStats?: boolean;
+  /** badge in vetrina scelti: sul principale li mostra la testata del profilo */
+  onBadges?: (badges: { id: string; title: string; emoji: ProfileEmoji }[]) => void;
 }) {
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [hidden, setHidden] = useState(false);
@@ -99,8 +127,15 @@ export function PartnerProfile({
     };
   }, [token, guildId]);
 
+  const selectedBadges = profile ? profile.badges.filter((b) => b.selected).map((b) => ({ id: b.id, title: b.title, emoji: b.emoji })) : null;
+  const badgesKey = selectedBadges ? selectedBadges.map((b) => b.id).join(",") : "";
+  useEffect(() => {
+    if (selectedBadges && onBadges) onBadges(selectedBadges);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cambia solo quando cambiano i badge scelti
+  }, [badgesKey, Boolean(selectedBadges)]);
+
   if (hidden) return null;
-  if (!profile) return <div className="h-48 animate-pulse rounded-2xl bg-crema/[0.04]" aria-busy />;
+  if (!profile) return <div className="h-48 animate-pulse rounded-3xl bg-crema/[0.04]" aria-busy />;
 
   const patch = async (body: Parameters<typeof patchTenantProfile>[1], okMsg: string) => {
     setBusy(true);
@@ -113,121 +148,80 @@ export function PartnerProfile({
 
   const unlocked = profile.badges.filter((b) => b.unlocked);
   const selectedCount = profile.badges.filter((b) => b.selected).length;
+  const objectives = [...profile.objectives.filter((o) => !o.done), ...profile.objectives.filter((o) => o.done)];
+  const doneCount = profile.objectives.filter((o) => o.done).length;
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatTile icon={<Handshake />} tone="accent" label="Partnership totali" value={profile.scores.total.toLocaleString("it-IT")} />
-        <StatTile icon={<Handshake />} label="Questa settimana" value={profile.scores.weekly.toLocaleString("it-IT")} />
-        <StatTile icon={<Handshake />} label="Oggi" value={profile.scores.daily.toLocaleString("it-IT")} />
-      </div>
-
-      <Panel icon={<Settings2 />} title="Preferenze del bot" description={prefsNote}>
-        <div className="divide-y divide-sand/[0.07] sm:grid sm:grid-cols-2 sm:gap-x-6 sm:divide-y-0 lg:grid-cols-3">
-          <SettingRow title="Niente ping nelle mie partnership" description="Quando sei tu il manager, il messaggio di partnership non ti menziona.">
-            <Toggle
-              size="sm"
-              checked={profile.prefs.suppressManagerPing}
-              disabled={busy}
-              label="Niente ping nelle mie partnership"
-              onChange={(v) => void patch({ suppressManagerPing: v }, "Preferenza salvata.")}
-            />
-          </SettingRow>
-          <SettingRow title="Risposte dei comandi solo per me" description="Le risposte dei comandi partnership le vedi solo tu.">
-            <Toggle
-              size="sm"
-              checked={profile.prefs.ephemeralCommands}
-              disabled={busy}
-              label="Risposte dei comandi solo per me"
-              onChange={(v) => void patch({ ephemeralCommands: v }, "Preferenza salvata.")}
-            />
-          </SettingRow>
-          {profile.languages.length ? (
-            <SettingRow title="Lingua del bot" description="Lingua dei messaggi che il bot ti manda.">
-              <Select
-                aria-label="Lingua del bot"
-                size="sm"
-                value={profile.prefs.language}
-                disabled={busy}
-                onChange={(v) => void patch({ language: v }, "Lingua salvata.")}
-                options={profile.languages.map((l) => ({ value: l.code, label: `${l.flag} ${l.label}`.trim() }))}
-                className="min-w-36"
-              />
-            </SettingRow>
-          ) : null}
+    <div className="space-y-6">
+      {showStats ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <ProfileStat value={profile.scores.total} label="Partnership totali" icon={<Handshake />} />
+          <ProfileStat value={profile.scores.daily} label="Oggi" icon={<Zap />} />
+          <ProfileStat value={profile.scores.weekly} label="Questa settimana" icon={<CalendarDays />} />
+          <ProfileStat value={`${Math.round(profile.awardsPercent)}%`} label="Premi ottenuti" icon={<Award />} />
         </div>
-      </Panel>
-
-      <Panel
-        icon={<Award />}
-        title="Badge in vetrina"
-        description={`Scegline fino a ${profile.maxSelectedBadges}: compaiono accanto al tuo nome nelle partnership.`}
-        aside={<span className="text-xs tabular-nums text-crema/60">{selectedCount}/{profile.maxSelectedBadges}</span>}
-      >
+      ) : null}
+      <section className={PROFILE_SECTION}>
+        <SectionHead icon={<Award />} title="Badge in vetrina" aside={`${selectedCount}/${profile.maxSelectedBadges} scelti`} />
+        <p className="mt-1 text-xs text-crema/55">Tocca un badge per metterlo o toglierlo: quelli scelti compaiono accanto al tuo nome nelle partnership.</p>
         {unlocked.length === 0 ? (
-          <p className="text-sm text-crema/60">Nessun badge sbloccato: completa gli obiettivi per averne.</p>
+          <p className="mt-4 text-sm text-crema/60">Nessun badge sbloccato: completa gli obiettivi qui sotto per averne.</p>
         ) : (
-          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {profile.badges.map((b) => (
+          <ul className="mt-4 flex flex-wrap gap-2">
+            {unlocked.map((b) => (
               <li key={b.id}>
                 <button
                   type="button"
-                  disabled={!b.unlocked || busy}
+                  disabled={busy}
                   aria-pressed={b.selected}
                   onClick={() => void patch({ toggleBadgeId: b.id }, b.selected ? "Badge tolto dalla vetrina." : "Badge in vetrina.")}
                   title={b.desc || b.title}
                   className={cn(
-                    "flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left ring-1 transition",
-                    b.selected ? "bg-caramel/12 ring-caramel/45" : "bg-espresso/45 ring-sand/10 hover:ring-sand/25",
-                    !b.unlocked && "opacity-45",
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition disabled:opacity-60",
+                    b.selected ? "bg-caramel/15 text-ember ring-caramel/40" : "bg-crema/[0.05] text-crema/75 ring-sand/15 hover:text-crema hover:ring-sand/30",
                   )}
                 >
-                  <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg bg-crema/[0.06]", !b.unlocked && "grayscale")}>
-                    <Emoji e={b.emoji} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-crema">{b.unlocked ? b.title : "Bloccato"}</span>
-                    <span className="block truncate text-xs text-crema/60">{b.unlocked ? b.desc || "Sbloccato" : "Completa un obiettivo"}</span>
-                  </span>
+                  <Emoji e={b.emoji} /> {b.title}
                 </button>
               </li>
             ))}
           </ul>
         )}
-      </Panel>
+      </section>
 
-      {profile.qualifiesForMissions && profile.objectives.length ? (
-        <Panel
-          icon={<Target />}
-          title="Obiettivi"
-          description="Completandoli sblocchi i badge."
-          aside={<span className="text-xs tabular-nums text-crema/60">{Math.round(profile.awardsPercent)}% fatto</span>}
-        >
-          <ul className="grid gap-2 md:grid-cols-2">
-            {profile.objectives.map((o) => {
-              const pct = Math.min(100, Math.round((o.current / o.target) * 100));
+      {profile.qualifiesForMissions && objectives.length ? (
+        <section className={PROFILE_SECTION}>
+          <SectionHead icon={<Target />} title="Obiettivi" aside={`${doneCount}/${objectives.length} completati`} />
+          <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
+            {objectives.map((o) => {
+              const pct = Math.min(100, Math.round((Math.min(o.current, o.target) / Math.max(1, o.target)) * 100));
               return (
-                <li key={o.id} className="flex items-center gap-3 rounded-xl bg-espresso/45 p-3 ring-1 ring-sand/10">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-crema/[0.06]">
-                    <Emoji e={o.emoji} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center justify-between gap-2 text-sm font-semibold text-crema">
-                      <span className="truncate">{o.title}</span>
-                      <span className={cn("shrink-0 text-xs tabular-nums", o.done ? "text-[#9fd0a8] light:text-[#2f6b3f]" : "text-crema/60")}>
-                        {o.done ? "Fatto" : `${Math.min(o.current, o.target)}/${o.target}`}
-                      </span>
-                    </p>
-                    {o.desc ? <p className="truncate text-xs text-crema/60">{o.desc}</p> : null}
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-crema/[0.08]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={o.title}>
-                      <div className={cn("h-full rounded-full", o.done ? "bg-[#7fc48c]" : "bg-caramel")} style={{ width: `${pct}%` }} />
+                <li key={o.id} className={cn("rounded-2xl bg-espresso/50 p-3.5 ring-1", o.done ? "ring-caramel/30" : "ring-sand/10")}>
+                  <div className="flex items-start gap-2.5">
+                    <span className="mt-0.5 shrink-0 leading-none">
+                      <Emoji e={o.emoji} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className={cn("text-sm font-semibold", o.done ? "text-ember" : "text-crema")}>{o.title}</p>
+                      {o.desc ? <p className="mt-0.5 text-xs leading-relaxed text-crema/55">{o.desc}</p> : null}
                     </div>
+                    {o.done ? <span className="shrink-0 rounded-full bg-caramel/15 px-2 py-0.5 text-[0.65rem] font-bold uppercase text-ember">fatto</span> : null}
                   </div>
+                  {!o.done && o.target > 1 ? (
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-crema/10" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={o.title}>
+                        <div className="h-full rounded-full bg-gradient-to-r from-caramel to-ember" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-[0.7rem] text-crema/50 lining-nums">
+                        {o.current}/{o.target}
+                      </span>
+                    </div>
+                  ) : null}
                 </li>
               );
             })}
           </ul>
-        </Panel>
+        </section>
       ) : null}
     </div>
   );

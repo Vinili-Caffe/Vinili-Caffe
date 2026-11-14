@@ -13,6 +13,7 @@ import { page } from "@/lib/site";
 import { AlbumCover } from "./AlbumCover";
 import { CandyCollection, CustomStuff, RankCard, RolesList } from "./ProfileSections";
 import { ProfileBoards } from "./ProfileBoards";
+import { BotPrefsCard } from "./BotPrefsCard";
 import { Tracklist } from "./Tracklist";
 
 // ruoli che rendono un profilo "staff": Founder, Manager, Director, High Staff, Staff, Partner Manager
@@ -61,6 +62,8 @@ export function ProfileView() {
   const [guilds, setGuilds] = useState<ProfileGuild[]>([]);
   const [gp, setGp] = useState<{ key: string; r: { ok: true; data: GuildProfile } | { ok: false; message: string } } | null>(null);
   const [staffSince, setStaffSince] = useState<string | null>(null);
+  /* badge partnership scelti (server principale): stanno nella testata del profilo staff */
+  const [pmBadges, setPmBadges] = useState<{ uid: string; node: React.ReactNode } | null>(null);
   const mainId = guilds.find((x) => x.isMain)?.id || null;
   const rawG = params.get("g");
   const guildSel = rawG && guilds.some((x) => x.id === rawG && !x.isMain) ? rawG : null;
@@ -214,10 +217,26 @@ export function ProfileView() {
       <AlbumCover p={p} tab={tab} showStaffTab={showStaffTab} onTab={goTab} topSlot={switcher} staffSince={showStaffTab && tab === "staff" ? staffSince : null} />
       {showStaffTab && tab === "staff" ? (
         <>
-          <StaffCardView token={token!} userId={p.userId} access={staffAccess!} onNavigate={(uid) => goTab("staff", uid)} onTenure={setStaffSince} />
+          <StaffCardView
+            token={token!}
+            userId={p.userId}
+            access={staffAccess!}
+            onNavigate={(uid) => goTab("staff", uid)}
+            onTenure={setStaffSince}
+            extraFlags={pmBadges?.uid === p.userId ? pmBadges.node : null}
+          />
           {/* Partner Manager anche sul principale: statistiche partnership, badge e obiettivi (preferenze se è il tuo) */}
           {mainId ? (
-            <GuildStaffView token={token!} guildId={mainId} userId={p.userId} owns={owns} hideNavigator serverName="Vinili & Caffè" onNavigate={(uid) => goTab("staff", uid)} />
+            <GuildStaffView
+              token={token!}
+              guildId={mainId}
+              userId={p.userId}
+              owns={owns}
+              hideNavigator
+              serverName="Vinili & Caffè"
+              onNavigate={(uid) => goTab("staff", uid)}
+              onBadges={(node) => setPmBadges({ uid: p.userId, node })}
+            />
           ) : null}
         </>
       ) : (
@@ -228,6 +247,7 @@ export function ProfileView() {
             {outsider ? null : <CustomStuff p={p} owns={owns} />}
             {outsider ? null : <CandyCollection p={p} />}
             <ProfileBoards userId={p.userId} owns={owns} token={token} />
+            {owns && token ? <BotPrefsCard token={token} /> : null}
             {outsider ? null : <RolesList p={p} />}
           </div>
         </div>

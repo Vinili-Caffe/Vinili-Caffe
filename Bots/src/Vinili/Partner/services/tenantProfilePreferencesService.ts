@@ -52,38 +52,82 @@ function mergeTenantPartnershipPrefs(canonicalTp?, legacyTp?) {
   };
 }
 
+/*
+ * Preferenze uguali in tutti i server (niente ping, risposte solo per me, lingua): si salvano una volta
+ * per utente in una riga a parte. Badge in vetrina e notifiche restano di ogni server.
+ * Finché uno non le cambia dal sito, valgono quelle vecchie di quel server.
+ */
+const GLOBAL_PREFS_GUILD = "global-prefs";
+const GLOBAL_KEYS = ["suppressManagerPing", "ephemeralCommands", "language", "languageManual"] as const;
+
+async function loadGlobalPrefs(userId?) {
+  const uid = String(userId || "").trim();
+  if (!uid) return null;
+  const doc: any = await ActivityUserProfile.findOne({ guildId: GLOBAL_PREFS_GUILD, userId: uid })
+    .select("profile.tenantPartnership")
+    .lean()
+    .catch(() => null);
+  const tp = doc?.profile?.tenantPartnership;
+  return tp && typeof tp === "object" ? tp : null;
+}
+
+function applyGlobalPrefs(prefs?, globalTp?) {
+  if (!globalTp) return prefs;
+  const out = { ...prefs };
+  if (Object.prototype.hasOwnProperty.call(globalTp, "suppressManagerPing")) out.suppressManagerPing = globalTp.suppressManagerPing === true;
+  if (Object.prototype.hasOwnProperty.call(globalTp, "ephemeralCommands")) out.ephemeralCommands = globalTp.ephemeralCommands === true;
+  if (globalTp.language) {
+    out.language = normalizeTenantLanguage(globalTp.language);
+    out.languageManual = true;
+  }
+  return out;
+}
+
+/** Solo le preferenze globali (profilo del sito). */
+async function getGlobalProfilePrefs(userId?) {
+  return applyGlobalPrefs({ ...DEFAULT_PREFS }, await loadGlobalPrefs(userId));
+}
+
 async function getTenantProfilePrefs(guildId?, userId?) {
   const gid = String(guildId || "").trim();
   const uid = String(userId || "").trim();
-  if (!gid || !uid) return { ...DEFAULT_PREFS };
-  const { canonical, legacy } = await loadCanonicalTenantPartnershipRows(
-    gid,
-    uid,
-    "profile.tenantPartnership",
-  );
-  return mergeTenantPartnershipPrefs(
-    canonical?.profile?.tenantPartnership,
-    legacy?.profile?.tenantPartnership,
+  if (!uid) return { ...DEFAULT_PREFS };
+  if (!gid) return getGlobalProfilePrefs(uid);
+  const [{ canonical, legacy }, globalTp] = await Promise.all([
+    loadCanonicalTenantPartnershipRows(gid, uid, "profile.tenantPartnership"),
+    loadGlobalPrefs(uid),
+  ]);
+  return applyGlobalPrefs(
+    mergeTenantPartnershipPrefs(canonical?.profile?.tenantPartnership, legacy?.profile?.tenantPartnership),
+    globalTp,
   );
 }
 
 async function updateTenantProfilePrefs(guildId?, userId?, patch: Record<string, any> = {}) {
-  const gid = getTenantPartnershipStorageGuildId(guildId);
   const uid = String(userId || "").trim();
-  if (!gid || !uid) return null;
-  const $set: Record<string, any> = {};
+  if (!uid) return null;
+  /* le preferenze globali vanno nella riga dell'utente valida per tutti i server */
+  const $global: Record<string, any> = {};
   if (Object.prototype.hasOwnProperty.call(patch, "suppressManagerPing")) {
-    $set["profile.tenantPartnership.suppressManagerPing"] = patch.suppressManagerPing === true;
+    $global["profile.tenantPartnership.suppressManagerPing"] = patch.suppressManagerPing === true;
   }
   if (Object.prototype.hasOwnProperty.call(patch, "ephemeralCommands")) {
-    $set["profile.tenantPartnership.ephemeralCommands"] = patch.ephemeralCommands === true;
+    $global["profile.tenantPartnership.ephemeralCommands"] = patch.ephemeralCommands === true;
   }
   if (Object.prototype.hasOwnProperty.call(patch, "language")) {
-    $set["profile.tenantPartnership.language"] = normalizeTenantLanguage(patch.language);
+    $global["profile.tenantPartnership.language"] = normalizeTenantLanguage(patch.language);
+    $global["profile.tenantPartnership.languageManual"] = true;
   }
-  if (Object.prototype.hasOwnProperty.call(patch, "languageManual")) {
-    $set["profile.tenantPartnership.languageManual"] = patch.languageManual === true;
+  if (Object.keys($global).length) {
+    await ActivityUserProfile.updateOne(
+      { guildId: GLOBAL_PREFS_GUILD, userId: uid },
+      { $set: $global, $setOnInsert: { guildId: GLOBAL_PREFS_GUILD, userId: uid } },
+      { upsert: true },
+    ).catch(() => null);
   }
+  const gid = getTenantPartnershipStorageGuildId(guildId);
+  if (!gid) return getGlobalProfilePrefs(uid);
+  const $set: Record<string, any> = {};
   if (Object.prototype.hasOwnProperty.call(patch, "selectedBadges")) {
     const ids = Array.isArray(patch.selectedBadges)
       ? patch.selectedBadges.map((id?) => String(id || "").trim()).filter(Boolean).slice(0, 2)
@@ -103,7 +147,7 @@ async function updateTenantProfilePrefs(guildId?, userId?, patch: Record<string,
   )
     .select("profile.tenantPartnership")
     .catch(() => null);
-  return normalizePrefs(doc?.profile?.tenantPartnership);
+  return applyGlobalPrefs(normalizePrefs(doc?.profile?.tenantPartnership), await loadGlobalPrefs(uid));
 }
 
 async function userWantsTenantEphemeralCommands(guildId?, userId?) {
@@ -136,6 +180,7 @@ async function resolveManagerSelectedBadgeEmojis(guildId?, userId?) {
 }
 
 export = {
+  getGlobalProfilePrefs,
   getTenantProfilePrefs,
   updateTenantProfilePrefs,
   userWantsTenantEphemeralCommands,

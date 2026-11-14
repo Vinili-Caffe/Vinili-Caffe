@@ -298,10 +298,31 @@ async function pmProfileFor(client?, resolved?, guildRaw?, patch?: any) {
   return out?.ok === false ? out : { ...out, ok: true, status: 200, guild: gid };
 }
 
+/** Preferenze del bot per i comandi partnership: uguali in ogni server. */
+async function botPrefsFor(userId?: string, patch?: Record<string, any> | null) {
+  const P = require("../../Partner/services/tenantProfilePreferencesService") as typeof import("../../Partner/services/tenantProfilePreferencesService");
+  const { TENANT_LANGUAGE_OPTIONS } = require("../../Partner/tenant/tenantProfileConstants") as any;
+  if (patch) {
+    const body: Record<string, any> = {};
+    if (typeof patch.suppressManagerPing === "boolean") body.suppressManagerPing = patch.suppressManagerPing;
+    if (typeof patch.ephemeralCommands === "boolean") body.ephemeralCommands = patch.ephemeralCommands;
+    if (typeof patch.language === "string" && patch.language) body.language = patch.language;
+    await P.updateTenantProfilePrefs("", userId, body);
+  }
+  const prefs: any = await P.getGlobalProfilePrefs(userId);
+  return {
+    ok: true,
+    status: 200,
+    prefs: { suppressManagerPing: prefs.suppressManagerPing === true, ephemeralCommands: prefs.ephemeralCommands === true, language: String(prefs.language || "it") },
+    languages: (Array.isArray(TENANT_LANGUAGE_OPTIONS) ? TENANT_LANGUAGE_OPTIONS : []).map((l: any) => ({ code: l.code, label: l.label, flag: l.flag })),
+  };
+}
+
 async function getProfileExtras(client?, { accessToken, section: sectionRaw, viewAs: viewAsRaw, guild: guildRaw }: any = {}) {
   const resolved: any = await resolveProfileUser(client, accessToken);
   if (!resolved.ok) return resolved;
   if (String(sectionRaw || "").toLowerCase() === "pm") return pmProfileFor(client, resolved, guildRaw);
+  if (String(sectionRaw || "").toLowerCase() === "botprefs") return botPrefsFor(resolved.userId);
   /* privacy di un altro server: le scelte valgono solo lì */
   if (String(sectionRaw || "").toLowerCase() === "privacy" && guildRaw) {
     const other: any = await otherGuildFor(client, resolved, guildRaw);
@@ -780,6 +801,11 @@ async function mutateProfileExtras(client?, payload?) {
   const resolved: any = await resolveProfileUser(client, accessToken);
   if (!resolved.ok) return resolved;
   const { guild, member, userId } = resolved;
+  /* preferenze del bot (tutti i server) */
+  if (section === "botprefs") {
+    const { section: _s, accessToken: _t, ...rest } = payload || {};
+    return botPrefsFor(userId, rest);
+  }
   /* profilo partnership: preferenze e badge */
   if (section === "pm") {
     const { section: _s, accessToken: _t, guild: g, ...rest } = payload || {};

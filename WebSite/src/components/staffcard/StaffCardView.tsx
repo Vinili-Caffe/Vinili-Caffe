@@ -156,11 +156,14 @@ export function StaffCardView({
   access,
   onNavigate,
   onTenure,
+  extraFlags,
 }: {
   token: string;
   userId: string;
   access: StaffAccess;
   onNavigate: (id: string) => void;
+  /** altri contrassegni accanto a "Nuovo in staff" (es. i badge partnership scelti) */
+  extraFlags?: React.ReactNode;
   /** "In staff dal …": la mostra la testata del profilo, accanto a "Nel server dal …" */
   onTenure?: (label: string | null) => void;
 }) {
@@ -259,15 +262,16 @@ export function StaffCardView({
       </div>
 
       {/* flag / tenure: i badge ruolo stanno già nell’AlbumCover */}
-      {flags.length > 0 && (
+      {flags.length > 0 || extraFlags ? (
         <div className="flex flex-wrap items-center justify-center gap-2">
           {flags.map((f) => (
             <span key={f.k} className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", f.c)}>
               {f.t}
             </span>
           ))}
+          {extraFlags}
         </div>
-      )}
+      ) : null}
 
       {/* riquadri: ognuno apre il suo pannello */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
