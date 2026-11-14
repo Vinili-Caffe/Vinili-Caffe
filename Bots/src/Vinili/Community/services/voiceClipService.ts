@@ -208,9 +208,9 @@ function escapeItalicMarkdown(text?) {
 
 function formatClipTranscription(text?) {
   const raw = String(text || "").trim();
-  if (!raw) return "» _Nessun testo riconosciuto nel clip._";
+  if (!raw) return "_Nessun testo riconosciuto nel clip._";
   const clipped = raw.length > 3600 ? `${raw.slice(0, 3599)}…` : raw;
-  return `» *${escapeItalicMarkdown(clipped)}*`;
+  return `*${escapeItalicMarkdown(clipped)}*`;
 }
 
 function buildClipBoardEmbed({ requester, requesterId, voiceChannelName, durationSec, transcription, totalPosts, prefix, guildId = "" }: Record<string, any>) {

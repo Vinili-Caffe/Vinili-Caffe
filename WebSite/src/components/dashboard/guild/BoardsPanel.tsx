@@ -149,12 +149,12 @@ function sampleVars(kind: BoardKindId, prefix: string, image: string): Record<st
     author: `<@${SAMPLE_IDS.mario}>`,
     creator: `<@${SAMPLE_IDS.luigi}>`,
     reposter: `<@${SAMPLE_IDS.luigi}>`,
-    body: "» *Esempio di messaggio in bacheca…*",
+    body: "*Esempio di messaggio in bacheca…*",
     source: "https://discord.com/channels/0/0/0",
     text: "Esempio di messaggio in bacheca…",
     channel: kind === "clip" ? "Chiacchiere" : `<#${SAMPLE_IDS.channel}>`,
     date: "14/11/2026, 11:30",
-    phrase: "ha salvato un momento iconico!",
+    phrase: "ha salvato un momento iconico",
     link: "» [Clicca qui per vedere il repost](https://discord.com/channels/0/0/0)",
     url: "https://discord.com/channels/0/0/0",
     duration: "15",
@@ -174,6 +174,7 @@ function defaultDraft(kind: BoardKindId, slot: BoardDraftSlot, v: BoardKindPrese
         embed: {
           ...embed,
           authorName: "{username}",
+          authorIconUrl: "{avatar}",
           title: v.embedTitle,
           description: v.embedDescription,
           fields: [{ name: v.fieldAuthor || "Clip di", value: "{reposter}", inline: true }],
@@ -465,7 +466,7 @@ function KindEditor({
     ...(styleSlot ? [{ id: "style" as const, label: "Stile immagine", icon: Sparkles }] : []),
   ];
 
-  const firstPhrase = (value.phrases?.[0] || (kind === "clip" ? "ha pubblicato un clip vocale da **{channel}** ({duration}s)." : "ha salvato un momento iconico!"))
+  const firstPhrase = (value.phrases?.[0] || (kind === "clip" ? "ha pubblicato un clip vocale da **{channel}** ({duration}s)." : "ha salvato un momento iconico"))
     .split("{channel}").join("Chiacchiere")
     .split("{duration}").join("15");
   const vars = { ...sampleVars(kind, prefix, sampleImage), avatar: bot?.avatarUrl || "", phrase: firstPhrase };

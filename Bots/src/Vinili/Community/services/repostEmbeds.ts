@@ -30,7 +30,7 @@ function formatRepostBody(text?) {
   const raw = String(text || "").trim();
   if (!raw) return "";
   const clipped = raw.length > MAX_EMBED_BODY_CHARS ? `${raw.slice(0, MAX_EMBED_BODY_CHARS - 1)}…` : raw;
-  return `» *${escapeItalicMarkdown(clipped)}*`;
+  return `*${escapeItalicMarkdown(clipped)}*`;
 }
 
 function resolveReposterProfile(reposter?) {
