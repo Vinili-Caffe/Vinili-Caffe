@@ -145,11 +145,28 @@ async function sendRepostRoulette(client?, guildId?) {
   const rouletteFiles = await resolveRepostMediaFilesForSend(guild, doc);
   const rouletteSendMedia = prepareRepostSendMedia({ imageUrl, files: rouletteFiles });
 
+  let prefix = "+";
+  try {
+    const { resolveCommandPrefixForGuild } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
+    prefix = resolveCommandPrefixForGuild(guildId, client) || "+";
+  } catch {
+    prefix = String(client?.config?.prefix || "+").trim() || "+";
+  }
+  let count = "";
+  try {
+    count = String(await GuildRepost.countDocuments({ guildId: String(guildId) }).catch(() => 0) || 0);
+  } catch {
+    count = "";
+  }
   const embed = buildRouletteEmbed({
     sourceUrl,
     text,
     imageUrl: rouletteSendMedia.embedImageUrl,
     guildId,
+    prefix,
+    count,
+    authorId: String(doc.sourceAuthorId || "").trim(),
+    reposterId: String(doc.reposterUserId || "").trim(),
   });
   const repostId = String(doc._id);
 

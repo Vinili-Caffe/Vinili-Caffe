@@ -378,10 +378,22 @@ function decodeBoardsPresentationCompact(raw?) {
 
 function fillBoardTemplate(template?, vars: Record<string, string> = {}) {
   let out = String(template || "");
+  /* body/text/phrase vuoti: togli la riga (anche con » davanti), come nei draft dashboard */
+  for (const key of ["body", "text", "phrase", "bonus", "image"]) {
+    if (!Object.prototype.hasOwnProperty.call(vars, key)) continue;
+    if (String(vars[key] ?? "").trim()) continue;
+    const token = `\\{${key}\\}`;
+    out = out
+      .replace(new RegExp(`\\n[ \\t]*»?[ \\t]*${token}[ \\t]*(?=\\n|$)`, "g"), "")
+      .replace(new RegExp(`^[ \\t]*»?[ \\t]*${token}[ \\t]*\\n?`, "g"), "")
+      .replace(new RegExp(`${token}[ \\t]*\\n`, "g"), "")
+      .replace(new RegExp(token, "g"), "");
+  }
   for (const [key, value] of Object.entries(vars)) {
     out = out.split(`{${key}}`).join(String(value ?? ""));
   }
   return out
+    .replace(/^[ \t]*»[ \t]*$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/[ \t]+\n/g, "\n")
     .trim();

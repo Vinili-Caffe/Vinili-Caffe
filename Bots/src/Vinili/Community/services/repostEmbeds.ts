@@ -156,22 +156,45 @@ function buildBoardEmbed({
   return tagBoardEmbed(embed, { guildId, kind: boardKind, slot: "post", vars: { ...vars, image: String(imageUrl || "") } });
 }
 
-function buildRouletteEmbed({ sourceUrl, text, imageUrl, guildId }) {
+function buildRouletteEmbed({
+  sourceUrl,
+  text,
+  imageUrl,
+  guildId,
+  prefix,
+  count,
+  authorId,
+  reposterId,
+}: Record<string, any> = {}) {
   const body = formatRepostBody(text);
   let title = `${REPOST_EMOJI} * . ˊ Roulette dei Repost Passati`;
   let description = "";
   let footer = "† · ৎ Revival casuale dal database 🎲";
+  let safePrefix = String(prefix || "").trim() || "+";
+  try {
+    if (!String(prefix || "").trim()) {
+      const { resolveCommandPrefixForGuild } = require("../../../MultiGuild/core/tenantGuildSettings") as typeof import("../../../MultiGuild/core/tenantGuildSettings");
+      safePrefix = resolveCommandPrefixForGuild(guildId) || "+";
+    }
+  } catch {
+    /* ignore */
+  }
+  const vars: Record<string, string> = {
+    body,
+    source: String(sourceUrl || ""),
+    text: String(text || "").trim(),
+    prefix: safePrefix,
+    count: String(count ?? ""),
+    author: authorId ? `<@${authorId}>` : "",
+    reposter: reposterId ? `<@${reposterId}>` : "",
+    image: String(imageUrl || ""),
+  };
   try {
     const {
       getBoardKindPresentationSync,
       fillBoardTemplate,
     } = require("../utils/boardsPresentation") as typeof import("../utils/boardsPresentation");
     const pr = getBoardKindPresentationSync(guildId, "repost");
-    const vars = {
-      body,
-      source: String(sourceUrl || ""),
-      text: String(text || "").trim(),
-    };
     title = fillBoardTemplate(pr.rouletteTitle, vars) || title;
     description = fillBoardTemplate(pr.rouletteDescription, vars);
     footer = fillBoardTemplate(pr.rouletteFooter, vars) || footer;
@@ -197,7 +220,7 @@ function buildRouletteEmbed({ sourceUrl, text, imageUrl, guildId }) {
     guildId,
     kind: "repost",
     slot: "roulette",
-    vars: { body, source: String(sourceUrl || ""), text: String(text || "").trim(), image: String(imageUrl || "") },
+    vars,
   });
 }
 

@@ -72,18 +72,34 @@ function withBoardDraft<P extends Record<string, any>>(input: P, opts: { edit?: 
     const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
 
     const files = Array.isArray(payload.files) ? payload.files : [];
+    const isImageName = (n?: string) => /\.(png|jpe?g|gif|webp)$/i.test(String(n || ""));
+    const isUsableImage = (raw?: string) => {
+      const s = String(raw || "").trim();
+      return /^https?:\/\/\S+$/i.test(s) || /^attachment:\/\/[\w.-]{1,100}$/i.test(s);
+    };
     const names = files.map(fileName).filter(Boolean);
-    const image = names.find((n) => /\.(png|jpe?g|gif|webp)$/i.test(n));
-    const vars = { ...info.vars, image: image ? `attachment://${image}` : info.vars.image || "" };
+    const imageFile = names.find(isImageName);
+    const taggedImage = String(info.vars.image || "").trim();
+    /* niente immagine → {image} vuoto, così l'embed/media non la mostra */
+    const resolvedImage = imageFile
+      ? `attachment://${imageFile}`
+      : isUsableImage(taggedImage)
+        ? taggedImage
+        : "";
+    const vars = { ...info.vars, image: resolvedImage };
     const botRows = (Array.isArray(payload.components) ? payload.components : []).map(toJson);
     const body: any = T.buildMessageBody(draft, vars, botRows, {});
 
+    /* senza immagine: non allegare file immagine orfani (né forzarli in V2) */
+    const sendFiles = resolvedImage ? files : files.filter((f) => !isImageName(fileName(f)));
+    const sendNames = sendFiles.map(fileName).filter(Boolean);
+
     /* Components V2: i file vanno mostrati da un componente, altrimenti non si vedono */
-    if (body.flags && names.length) {
+    if (body.flags && sendNames.length) {
       const text = JSON.stringify(body.components || []);
-      const missing = names.filter((n) => !text.includes(`attachment://${n}`));
-      const media = missing.filter((n) => /\.(png|jpe?g|gif|webp)$/i.test(n));
-      const others = missing.filter((n) => !media.includes(n));
+      const missing = sendNames.filter((n) => !text.includes(`attachment://${n}`));
+      const media = resolvedImage ? missing.filter(isImageName) : [];
+      const others = missing.filter((n) => !isImageName(n));
       const extra: any[] = [];
       if (media.length) extra.push({ type: 12, items: media.map((n) => ({ media: { url: `attachment://${n}` } })) });
       for (const n of others) extra.push({ type: 13, file: { url: `attachment://${n}` } });
@@ -95,6 +111,8 @@ function withBoardDraft<P extends Record<string, any>>(input: P, opts: { edit?: 
     delete out.content;
     delete out.allowedMentions;
     out.components = body.components || [];
+    if (sendFiles.length) out.files = sendFiles;
+    else delete out.files;
     if (body.flags) {
       out.flags = body.flags;
       out.embeds = [];
@@ -106,7 +124,7 @@ function withBoardDraft<P extends Record<string, any>>(input: P, opts: { edit?: 
       if (content) out.content = content;
       else if (opts.edit) out.content = null;
       /* senza testo né embed Discord rifiuta il messaggio: basta l'allegato, altrimenti uno spazio invisibile */
-      if (!content && !body.embeds && !files.length) out.content = "​";
+      if (!content && !body.embeds && !sendFiles.length) out.content = "​";
     }
     const am = body.allowed_mentions || { parse: [] };
     out.allowedMentions = {

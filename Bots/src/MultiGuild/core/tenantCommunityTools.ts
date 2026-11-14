@@ -179,26 +179,42 @@ function parseEmoji(raw?) {
 }
 
 type FillVars = Record<string, string>;
+
+/** Segnaposto opzionali: se vuoti non lasciare riga / `»` / media orfani. */
+const OPTIONAL_LINE_VARS = ["bonus", "body", "text", "phrase", "image"] as const;
+
+function stripEmptyOptionalVar(s: string, key: string) {
+  const token = `\\{${key}\\}`;
+  return s
+    .replace(new RegExp(`\\n[ \\t]*»?[ \\t]*${token}[ \\t]*(?=\\n|$)`, "g"), "")
+    .replace(new RegExp(`^[ \\t]*»?[ \\t]*${token}[ \\t]*\\n?`, "g"), "")
+    .replace(new RegExp(`${token}[ \\t]*\\n`, "g"), "")
+    .replace(new RegExp(token, "g"), "");
+}
+
 function fill(text?, vars: FillVars = {}) {
   let s = String(text || "");
-  /* {bonus} spesso è su riga sua nei draft dashboard: se vuoto non lasciare la riga bianca. */
-  if (Object.prototype.hasOwnProperty.call(vars, "bonus")) {
-    const bonusRaw = String(vars.bonus ?? "");
-    if (!bonusRaw.trim()) {
-      s = s
-        .replace(/\n[ \t]*\{bonus\}[ \t]*(?=\n|$)/g, "")
-        .replace(/\{bonus\}[ \t]*\n/g, "")
-        .replace(/\{bonus\}/g, "");
-    } else {
-      const bonusBody = bonusRaw.replace(/^\n+/, "").replace(/\n+$/, "");
+  for (const key of OPTIONAL_LINE_VARS) {
+    if (!Object.prototype.hasOwnProperty.call(vars, key)) continue;
+    const raw = String(vars[key] ?? "");
+    if (!raw.trim()) {
+      s = stripEmptyOptionalVar(s, key);
+      continue;
+    }
+    if (key === "bonus") {
+      const bonusBody = raw.replace(/^\n+/, "").replace(/\n+$/, "");
       s = s.replace(/\n[ \t]*\{bonus\}/g, `\n${bonusBody}`);
-      s = s.replace(/\{bonus\}/g, bonusRaw);
+      s = s.replace(/\{bonus\}/g, raw);
     }
   }
-  return s.replace(/\{([a-zA-Z_.]+)\}/g, (m, k: string) => {
-    if (k === "bonus") return m;
-    return Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : m;
-  });
+  return s
+    .replace(/\{([a-zA-Z_.]+)\}/g, (m, k: string) => {
+      if ((OPTIONAL_LINE_VARS as readonly string[]).includes(k) && !String(vars[k] ?? "").trim()) return "";
+      return Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : m;
+    })
+    .replace(/^[ \t]*»[ \t]*$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+\n/g, "\n");
 }
 
 /** Corpo REST di un messaggio Discord. `extraRows` = componenti aggiuntivi (es. pulsanti ruolo). */
@@ -239,7 +255,11 @@ function buildV2Body(draft: MsgDraft, vars: FillVars, extraRows: any[], opts: { 
     } else if (b.type === "separator") {
       out.push({ type: 14, divider: b.divider, spacing: b.spacing === "large" ? 2 : 1 });
     } else if (b.type === "media") {
-      const items = b.urls.map((u) => mediaUrl(fill(u, vars))).filter(Boolean).map((url) => ({ media: { url } }));
+      /* {image} vuoto → nessun blocco media (niente riquadro vuoto) */
+      const items = b.urls
+        .map((u) => mediaUrl(fill(u, vars)))
+        .filter(Boolean)
+        .map((url) => ({ media: { url } }));
       if (items.length) out.push({ type: 12, items });
     } else if (b.type === "section") {
       const content = fill(b.content, vars).trim();
@@ -283,6 +303,7 @@ function buildMessageBody(draft: MsgDraft, vars: FillVars = {}, extraRows: any[]
     if (title) embed.title = title.slice(0, 256);
     if (title && e.url) embed.url = e.url;
     if (desc) embed.description = desc.slice(0, 4096);
+    /* {image} / thumbnail vuoti → non settare (Discord non mostra riquadro vuoto) */
     const img = mediaUrl(fill(e.imageUrl, vars));
     const thumb = mediaUrl(fill(e.thumbnailUrl, vars));
     if (img) embed.image = { url: img };
