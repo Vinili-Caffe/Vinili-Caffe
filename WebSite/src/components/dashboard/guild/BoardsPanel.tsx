@@ -18,6 +18,7 @@ import {
 import { Select, MultiSelect } from "@/components/ui/Select";
 import { emptyDraft, type MsgDraft, type PickerEmoji } from "@/lib/dashboard-community";
 import { cn } from "@/lib/cn";
+import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import {
   BOARD_FEATURES,
   DEFAULT_BOARD_PRESENTATION,
@@ -470,7 +471,16 @@ function KindEditor({
   const firstPhrase = (value.phrases?.[0] || (kind === "clip" ? "ha pubblicato un clip vocale da **{channel}** ({duration}s)." : "ha salvato un momento iconico"))
     .split("{channel}").join("Chiacchiere")
     .split("{duration}").join("15");
-  const vars = { ...sampleVars(kind, prefix, sampleImage), avatar: bot?.avatarUrl || "", phrase: firstPhrase };
+  /* come nelle altre anteprime: l utente d esempio sei tu (menzioni, nome, foto) */
+  const { user: viewer } = useAuth();
+  const meMention = viewer?.id ? `<@${viewer.id}>` : null;
+  const vars = {
+    ...sampleVars(kind, prefix, sampleImage),
+    ...(meMention ? { author: meMention, creator: meMention, reposter: meMention, username: displayName(viewer!) } : {}),
+    avatar: viewer ? avatarUrl(viewer, 256) : bot?.avatarUrl || "",
+    phrase: firstPhrase,
+  };
+  const mentionNames = viewer?.id ? { users: { ...SAMPLE_NAMES.users, [viewer.id]: displayName(viewer) }, channels: SAMPLE_NAMES.channels } : SAMPLE_NAMES;
   /* per l anteprima bastano id e nome */
   const previewRoles = roles.map((r) => ({ ...r, color: null, position: 0 }));
   const placeholders = [...meta.placeholders, { token: "{url}", hint: "link al post (risposte)" }];
@@ -559,7 +569,7 @@ function KindEditor({
             {botButtonsBox(slot)}
           </div>
         }
-        preview={<DiscordMessagePreview mentionNames={SAMPLE_NAMES} noTest bot={bot} draft={draft} vars={vars} roles={previewRoles} channels={channels} rows={botRows(kind, slot, value)} attachmentUrl={attachment || null} audioAttachment={kind === "clip" && slot === "post" ? { name: "clip.mp3", seconds: 15 } : null} />}
+        preview={<DiscordMessagePreview mentionNames={mentionNames} noTest bot={bot} draft={draft} vars={vars} roles={previewRoles} channels={channels} rows={botRows(kind, slot, value)} attachmentUrl={attachment || null} audioAttachment={kind === "clip" && slot === "post" ? { name: "clip.mp3", seconds: 15 } : null} />}
       />
     );
   };
