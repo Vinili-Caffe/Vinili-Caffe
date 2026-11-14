@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Dices, Gift, Pencil, Plus, Search, Square, Trash2, Trophy, Users, X } from "lucide-react";
+import { CalendarClock, Dices, Gift, Pencil, Play, Plus, Search, Square, Trash2, Trophy, Users, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { NumberField } from "@/components/ui/NumberField";
 import { Select } from "@/components/ui/Select";
-import { communityApi, type Giveaway } from "@/lib/dashboard-community";
+import { communityApi, type Giveaway, type ScheduledGiveaway } from "@/lib/dashboard-community";
 import { searchTicketMembers, type MemberHit } from "@/lib/dashboard-guild-ops";
-import { Field, FormGroup, Notice, RowsSkeleton, StatusBadge, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
+import { Field, FormGroup, Notice, Pills, RowsSkeleton, StatusBadge, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
 import { ChannelField, formatWhen, useCommunity } from "./shared";
 
 const UNITS = [
@@ -16,9 +16,27 @@ const UNITS = [
   { value: "86400000", label: "giorni" },
 ];
 
+/** valore per <input type="datetime-local"> (ora locale) */
+function toLocalInput(ms: number) {
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** "2 giorni", "3 ore", "45 minuti" (la durata scelta nel form è sempre un'unità sola) */
+function durationText(ms: number) {
+  const m = Math.round(ms / 60_000);
+  if (m % 1440 === 0) return `${m / 1440} ${m / 1440 === 1 ? "giorno" : "giorni"}`;
+  if (m % 60 === 0) return `${m / 60} ${m / 60 === 1 ? "ora" : "ore"}`;
+  return `${m} ${m === 1 ? "minuto" : "minuti"}`;
+}
+
 export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; token: string; onToast: (msg: string, err?: boolean) => void }) {
   const { data, error } = useCommunity(guildId, token);
   const [list, setList] = useState<Giveaway[] | null>(null);
+  const [scheduled, setScheduled] = useState<ScheduledGiveaway[]>([]);
+  const [when, setWhen] = useState<"now" | "later">("now");
+  const [startAt, setStartAt] = useState("");
   const [listError, setListError] = useState<string | null>(null);
   const [form, setForm] = useState({ prize: "", channelId: null as string | null, amount: 1, unit: "86400000", winners: 1, minLevel: 0, host: null as MemberHit | null });
   const [editId, setEditId] = useState<string | null>(null);
@@ -32,6 +50,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
       if (!alive) return;
       if (r.ok) {
         setList(r.data.giveaways);
+        setScheduled(r.data.scheduled || []);
         setListError(null);
       } else setListError(r.message);
     });
@@ -48,6 +67,8 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
   const create = async () => {
     if (!form.prize.trim()) return onToast("Scrivi il premio.", true);
     if (!form.channelId) return onToast("Scegli il canale.", true);
+    const startMs = when === "later" ? new Date(startAt).getTime() : NaN;
+    if (when === "later" && !(startMs > Date.now())) return onToast("Scegli una data futura per l'inizio.", true);
     setBusy("create");
     const r = await communityApi.createGiveaway(token, guildId, {
       prize: form.prize.trim(),
@@ -56,11 +77,21 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
       winnerCount: form.winners,
       minLevel: form.minLevel,
       ...(form.host ? { hostId: form.host.id } : {}),
+      ...(when === "later" ? { startAt: new Date(startMs).toISOString() } : {}),
     });
     setBusy(null);
     if (!r.ok) return onToast(r.message, true);
     setForm((f) => ({ ...f, prize: "" }));
-    onToast(`Giveaway pubblicato in #${chName(r.data.giveaway.channelId)}.`);
+    onToast(when === "later" ? `Giveaway programmato per ${formatWhen(startMs)} in #${chName(form.channelId)}.` : `Giveaway pubblicato in #${chName(form.channelId)}.`);
+    reload();
+  };
+
+  const actScheduled = async (s: ScheduledGiveaway, action: "start" | "cancel") => {
+    setBusy(`${s.id}:${action}`);
+    const r = await communityApi.scheduledGiveawayAction(token, guildId, s.id, action);
+    setBusy(null);
+    if (!r.ok) return onToast(r.message, true);
+    onToast(action === "start" ? `Giveaway pubblicato in #${chName(s.channelId)}.` : "Giveaway programmato annullato.");
     reload();
   };
 
@@ -232,8 +263,36 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
           <div className="w-full sm:w-72">
             <HostField guildId={guildId} token={token} value={form.host} emptyLabel="Tu (predefinito)" onChange={(host) => setForm({ ...form, host })} />
           </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <div>
+            <span className="text-[0.8rem] font-semibold text-crema/80">Quando</span>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <Pills
+                value={when}
+                onChange={(v) => {
+                  setWhen(v);
+                  if (v === "later" && !startAt) setStartAt(toLocalInput(Math.ceil((Date.now() + 3_600_000) / 3_600_000) * 3_600_000));
+                }}
+                ariaLabel="Quando parte il giveaway"
+                options={[
+                  { id: "now", label: "Subito" },
+                  { id: "later", label: "Programma", icon: CalendarClock },
+                ]}
+              />
+              {when === "later" ? (
+                <input
+                  type="datetime-local"
+                  value={startAt}
+                  onChange={(e) => setStartAt(e.target.value)}
+                  className={fieldClass + " !mt-0 h-10 w-auto [color-scheme:dark]"}
+                  aria-label="Data e ora di inizio"
+                />
+              ) : null}
+            </div>
+          </div>
           <button type="button" className={primaryMini + " ml-auto h-10"} disabled={!!busy} onClick={() => void create()}>
-            <Plus className="size-3.5" /> Pubblica giveaway
+            {when === "later" ? <CalendarClock className="size-3.5" /> : <Plus className="size-3.5" />} {when === "later" ? "Programma giveaway" : "Pubblica giveaway"}
           </button>
         </div>
       </FormGroup>
@@ -241,8 +300,41 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
       {listError && !list ? <Notice error>{listError}</Notice> : null}
       {!list && !listError ? <RowsSkeleton rows={3} /> : null}
       {list ? (
-        list.length ? (
+        list.length || scheduled.length ? (
           <div className="space-y-4">
+            {scheduled.length ? (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-crema/55">Programmati</p>
+                <ul className="space-y-2">
+                  {scheduled.map((s) => (
+                    <li key={s.id} className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-crema/[0.06] text-crema/70">
+                        <CalendarClock className="size-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-crema">{s.prize}</p>
+                        <p className="flex flex-wrap items-center gap-x-2 text-xs text-crema/55">
+                          <span>#{chName(s.channelId)}</span>
+                          <span>parte {formatWhen(s.startAt)}</span>
+                          <span>dura {durationText(s.durationMs)}</span>
+                          <span>
+                            {s.winnerCount} {s.winnerCount === 1 ? "vincitore" : "vincitori"}
+                          </span>
+                          {s.minLevel ? <span>lv ≥ {s.minLevel}</span> : null}
+                        </p>
+                      </div>
+                      <StatusBadge>Programmato</StatusBadge>
+                      <button type="button" className={miniBtn} disabled={!!busy} onClick={() => void actScheduled(s, "start")}>
+                        <Play className="size-3.5" /> Parti ora
+                      </button>
+                      <button type="button" aria-label="Annulla giveaway programmato" className={dangerBtn} disabled={!!busy} onClick={() => void actScheduled(s, "cancel")}>
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {active.length ? (
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-crema/55">In corso</p>
@@ -316,7 +408,7 @@ function HostField({
             }}
             onFocus={() => setOpen(true)}
             onBlur={() => window.setTimeout(() => setOpen(false), 150)}
-            className={fieldClass + " mt-0 h-10 py-0 pl-8"}
+            className={fieldClass + " !mt-0 h-10 py-0 pl-8"}
           />
           {open && shown.length ? (
             <ul className="absolute inset-x-0 top-full z-20 mt-1 max-h-60 overflow-auto rounded-lg bg-mocha p-1 shadow-xl ring-1 ring-sand/15">

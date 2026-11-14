@@ -607,16 +607,59 @@ function serializeGiveaway(g?) {
   };
 }
 
+const GS = () => require("../../services/giveawaySchedule") as typeof import("../../services/giveawaySchedule");
+
+function serializeScheduled(s?) {
+  return {
+    id: String(s.id),
+    prize: String(s.prize),
+    channelId: String(s.channelId),
+    hostId: s.hostId ? String(s.hostId) : null,
+    durationMs: Number(s.durationMs),
+    winnerCount: Number(s.winnerCount) || 1,
+    minLevel: Number(s.minLevel) || 0,
+    startAt: new Date(s.startAt).getTime(),
+  };
+}
+
 async function listGiveaways(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
+  /* se il timer del bot è fermo, quelli in ritardo di oltre 90 s partono aprendo la dashboard */
+  for (const item of await GS().takeDue(a.guildId, 90_000).catch(() => [])) await publishGiveaway(client, a.guildId, item).catch(() => null);
   const rows: any[] = await GiveawayModel().find({ guildId: a.guildId }).lean();
   const out = (Array.isArray(rows) ? rows : []).map(serializeGiveaway).sort((x, y) => Number(x.ended) - Number(y.ended) || y.endAt - x.endAt).slice(0, 60);
-  return { ok: true, status: 200, giveaways: out };
+  const scheduled = (await GS().list(a.guildId).catch(() => [])).map(serializeScheduled);
+  return { ok: true, status: 200, giveaways: out, scheduled };
+}
+
+/** Crea il giveaway e manda il messaggio (dashboard subito, oppure all'ora programmata). */
+async function publishGiveaway(client?, guildId?, p: { prize: string; channelId: string; hostId: string; durationMs: number; winnerCount: number; minLevel: number } = {} as any) {
+  const rest = restOf(client);
+  if (!rest) return fail(503, "no_rest", "Bot non pronto.");
+  const gid = String(guildId);
+  const hostId = String(p.hostId);
+  const user: any = await rest.get(Routes.user(hostId)).catch(() => null);
+  const svc = G();
+  const g: any = await svc.createGiveaway({ guildId: gid, channelId: p.channelId, hostId, hostTag: user?.username || "", prize: p.prize, durationMs: p.durationMs, winnerCount: p.winnerCount, minLevel: p.minLevel });
+  const channelId = p.channelId;
+  try {
+    const embed: any = svc.buildGiveawayEmbed(g);
+    const row: any = svc.buildEnterButton(String(g._id));
+    const m: any = await rest.post(Routes.channelMessages(channelId), {
+      body: { embeds: [embed?.toJSON ? embed.toJSON() : embed], components: [row?.toJSON ? row.toJSON() : row], allowed_mentions: { parse: [] } },
+    });
+    await svc.setGiveawayMessageId(g._id, m.id);
+    return { ok: true, status: 200, giveaway: serializeGiveaway({ ...g, messageId: m.id }) };
+  } catch (err) {
+    /* messaggio non inviato: annulla il giveaway appena creato */
+    await GiveawayModel().updateOne({ _id: g._id }, { $set: { ended: true, cancelled: true } }).catch(() => null);
+    return fail(400, "send_failed", discordError(err));
+  }
 }
 
 async function createGiveaway(client?, token?, guildId?, body?) {
-  const a = await access(client, token, guildId);
+  const a: any = await access(client, token, guildId);
   if (!a.ok) return a;
   const prize = String(body?.prize || "").trim().slice(0, 200);
   const channelId = T.isId(body?.channelId) ? String(body.channelId) : "";
@@ -635,22 +678,38 @@ async function createGiveaway(client?, token?, guildId?, body?) {
     if (!member?.user?.id) return fail(400, "bad_host", "L'host scelto non è nel server.");
     hostId = wanted;
   }
-  const user: any = await rest.get(Routes.user(hostId)).catch(() => null);
-  const svc = G();
-  const g: any = await svc.createGiveaway({ guildId: a.guildId, channelId, hostId, hostTag: user?.username || "", prize, durationMs, winnerCount, minLevel });
-  try {
-    const embed: any = svc.buildGiveawayEmbed(g);
-    const row: any = svc.buildEnterButton(String(g._id));
-    const m: any = await rest.post(Routes.channelMessages(channelId), {
-      body: { embeds: [embed?.toJSON ? embed.toJSON() : embed], components: [row?.toJSON ? row.toJSON() : row], allowed_mentions: { parse: [] } },
-    });
-    await svc.setGiveawayMessageId(g._id, m.id);
-    return { ok: true, status: 200, giveaway: serializeGiveaway({ ...g, messageId: m.id }) };
-  } catch (err) {
-    /* messaggio non inviato: annulla il giveaway appena creato */
-    await GiveawayModel().updateOne({ _id: g._id }, { $set: { ended: true, cancelled: true } }).catch(() => null);
-    return fail(400, "send_failed", discordError(err));
+  const params = { prize, channelId, hostId, durationMs, winnerCount, minLevel };
+  if (body?.startAt) {
+    const start = new Date(body.startAt).getTime();
+    if (!Number.isFinite(start)) return fail(400, "bad_start", "Data di inizio non valida.");
+    if (start < Date.now() - 60_000) return fail(400, "bad_start", "La data di inizio è già passata.");
+    if (start > Date.now() + 365 * 86_400_000) return fail(400, "bad_start", "Puoi programmare al massimo un anno avanti.");
+    /* il bot deve poter scrivere nel canale anche fra giorni: lo verifico ora */
+    const ch: any = await rest.get(Routes.channel(channelId)).catch(() => null);
+    if (!ch?.id || String(ch.guild_id || "") !== a.guildId) return fail(400, "bad_channel", "Il bot non vede quel canale.");
+    const out = await GS().add(a.guildId, { ...params, startAt: new Date(start).toISOString(), createdBy: String(a.userId) });
+    if (!out.ok) return fail(400, "too_many", out.message);
+    return { ok: true, status: 200, scheduled: (await GS().list(a.guildId)).map(serializeScheduled) };
   }
+  return publishGiveaway(client, a.guildId, params);
+}
+
+/** Giveaway programmato: annulla, o pubblicalo subito. */
+async function scheduledGiveawayAction(client?, token?, guildId?, id?, action?: "cancel" | "start") {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const item = await GS().take(a.guildId, String(id || ""));
+  if (!item) return fail(404, "not_found", "Giveaway programmato non trovato: forse è già partito.");
+  if (action === "start") {
+    const out: any = await publishGiveaway(client, a.guildId, item);
+    if (!out.ok) {
+      /* non pubblicato: torna in programma */
+      await GS().add(a.guildId, { ...item }).catch(() => null);
+      return out;
+    }
+    return { ...out, scheduled: (await GS().list(a.guildId)).map(serializeScheduled) };
+  }
+  return { ok: true, status: 200, scheduled: (await GS().list(a.guildId)).map(serializeScheduled) };
 }
 
 async function giveawayAction(client?, token?, guildId?, messageId?, action?: "end" | "reroll" | "delete") {
@@ -888,6 +947,8 @@ export = {
   patchLevelsUser,
   listGiveaways,
   createGiveaway,
+  publishGiveaway,
+  scheduledGiveawayAction,
   editGiveaway,
   giveawayAction,
   listPolls,

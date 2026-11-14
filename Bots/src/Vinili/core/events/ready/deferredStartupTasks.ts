@@ -512,6 +512,15 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?, 
       },
     },
     {
+      label: "scheduled giveaways ticker",
+      weight: 90,
+      enabled: startupEnabled(primaryScheduler, true),
+      run: () => {
+        const GS = require("../../../../MultiGuild/services/giveawaySchedule") as typeof import("../../../../MultiGuild/services/giveawaySchedule");
+        GS.startTicker(client);
+      },
+    },
+    {
       label: "heal missing level milestone roles",
       weight: 91,
       /* levelRoleBootHeal1 / rebootDurability1: anche fast path — Level10+ senza ruolo; offload su bot-scheduler */

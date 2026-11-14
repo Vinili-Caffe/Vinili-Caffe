@@ -387,6 +387,18 @@ export type Giveaway = {
   minLevel?: number;
 };
 
+/** Giveaway programmato: parte da solo all'ora scelta. */
+export type ScheduledGiveaway = {
+  id: string;
+  prize: string;
+  channelId: string;
+  hostId: string | null;
+  durationMs: number;
+  winnerCount: number;
+  minLevel: number;
+  startAt: number;
+};
+
 export type Poll = {
   id: string;
   question: string;
@@ -550,9 +562,13 @@ export const communityApi = {
   setLevelsEvent: (t: string, g: string, body: LevelsEventRequest) => call<{ event: LevelsEvent; scheduled?: LevelsScheduledEvent[] }>(t, g, "/levels/event", "POST", body),
   getLevelsUser: (t: string, g: string, userId: string) => call<{ user: LevelsUser }>(t, g, `/levels/user?id=${encodeURIComponent(userId)}&_=${Date.now()}`),
   mutateLevelsUser: (t: string, g: string, body: LevelsUserAction) => call<{ before: LevelsUser; user: LevelsUser; rolesSynced: boolean }>(t, g, "/levels/user", "POST", body),
-  listGiveaways: (t: string, g: string) => call<{ giveaways: Giveaway[] }>(t, g, `/giveaways?_=${Date.now()}`),
-  createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number; hostId?: string; minLevel?: number }) =>
-    call<{ giveaway: Giveaway }>(t, g, "/giveaways", "POST", body),
+  listGiveaways: (t: string, g: string) => call<{ giveaways: Giveaway[]; scheduled?: ScheduledGiveaway[] }>(t, g, `/giveaways?_=${Date.now()}`),
+  createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number; hostId?: string; minLevel?: number; startAt?: string }) =>
+    call<{ giveaway?: Giveaway; scheduled?: ScheduledGiveaway[] }>(t, g, "/giveaways", "POST", body),
+  scheduledGiveawayAction: (t: string, g: string, id: string, action: "start" | "cancel") =>
+    action === "cancel"
+      ? call<{ scheduled?: ScheduledGiveaway[] }>(t, g, `/giveaways/scheduled/${encodeURIComponent(id)}`, "DELETE")
+      : call<{ giveaway?: Giveaway; scheduled?: ScheduledGiveaway[] }>(t, g, `/giveaways/scheduled/${encodeURIComponent(id)}/start`, "POST", {}),
   editGiveaway: (
     t: string,
     g: string,
