@@ -224,9 +224,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
             </div>
           </div>
           <div>
-            <span className="text-[0.8rem] font-semibold text-crema/80">
-              Livello minimo <span className="font-normal text-crema/45">· 0 = nessuno</span>
-            </span>
+            <span className="text-[0.8rem] font-semibold text-crema/80"> Livello minimo </span>
             <div className="mt-1.5 w-28">
               <NumberField className="!mt-0" value={form.minLevel} min={0} max={10000} onChange={(v) => setForm({ ...form, minLevel: Math.max(0, Number(v) || 0) })} aria-label="Livello minimo" />
             </div>
