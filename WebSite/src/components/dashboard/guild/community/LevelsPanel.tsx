@@ -459,8 +459,8 @@ export function LevelsPanel({
           {isMain ? (
             <Card
               icon={Star}
-              title="Recensione su Disboard"
-              text="Livelli regalati a chi lascia una recensione al server (una volta sola)."
+              title="Recensione sul sito"
+              text="Livelli regalati a chi lascia una recensione della community su viniliecaffe.it/recensioni (una volta sola). Non usa Disboard."
               aside={(cfg.reviewRewardLevels ?? 5) > 0 ? <StatusBadge tone="accent">+{cfg.reviewRewardLevels ?? 5} livelli</StatusBadge> : <StatusBadge>spento</StatusBadge>}
             >
               <div className="max-w-xs">

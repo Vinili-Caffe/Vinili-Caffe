@@ -443,7 +443,7 @@ export type LevelsConfig = {
   };
   /** ruoli dati a chi fa tot EXP coi minigiochi */
   minigameRewards?: { exp: number; roleId: string }[];
-  /** livelli regalati per la recensione su Disboard (0 = niente) */
+  /** livelli regalati per la recensione sul sito (solo server principale; 0 = niente) */
   reviewRewardLevels?: number;
 };
 

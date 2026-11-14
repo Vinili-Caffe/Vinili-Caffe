@@ -33,7 +33,7 @@ type LevelsConfig = {
   maxCombinedMultiplier: number;
   /** premi dei minigiochi (EXP fatti coi minigiochi → ruolo) */
   minigameRewards: MinigameReward[];
-  /** livelli regalati per la recensione su Disboard (0 = niente premio) */
+  /** livelli regalati per la recensione sul sito (solo main; 0 = niente premio) */
   reviewRewardLevels: number;
   /** bonus community: primo messaggio del giorno + saluto di benvenuto */
   bonuses: {
@@ -269,6 +269,7 @@ async function getConfig(guildId: string, fresh = false): Promise<LevelsConfig> 
     if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.cfg;
   }
   const cfg = normalizeConfig(await T.getGuildBlob("levels", gid, fresh));
+  if (!T.isMainGuild(gid)) cfg.reviewRewardLevels = 0;
   return remember(gid, cfg);
 }
 
@@ -286,6 +287,8 @@ async function saveConfig(guildId: string, raw?): Promise<LevelsConfig> {
     seedVersion: Math.max(prev.seedVersion, SEED_VERSION),
     userSaved: true,
   });
+  /* premio recensione sito: solo sul principale */
+  if (!T.isMainGuild(gid)) next.reviewRewardLevels = 0;
   await T.setGuildBlob("levels", gid, next);
   remember(gid, next);
   await syncGlobalSettingsFromConfig(gid, next).catch(() => null);

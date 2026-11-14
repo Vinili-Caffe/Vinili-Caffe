@@ -1,9 +1,64 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BellOff, BellRing, Loader2, Send } from "lucide-react";
+import { BatteryCharging, BellOff, BellRing, ChevronDown, Loader2, Send } from "lucide-react";
 import { disablePush, enablePush, pushIsOn, pushSupported, testPush } from "@/lib/push";
 import { cn } from "@/lib/cn";
+
+type AndroidKind = "samsung" | "xiaomi" | "brave" | "other";
+
+/** Android e, se si capisce, la marca o il browser (cambiano i passaggi per le impostazioni). */
+async function detectAndroid(): Promise<AndroidKind | null> {
+  const ua = navigator.userAgent;
+  if (!/Android/i.test(ua)) return null;
+  const brave = (navigator as Navigator & { brave?: { isBrave?: () => Promise<boolean> } }).brave;
+  if (brave && (await brave.isBrave?.().catch(() => false))) return "brave";
+  if (/SM-|SAMSUNG|SamsungBrowser|Galaxy/i.test(ua)) return "samsung";
+  if (/Xiaomi|Redmi|POCO|\bMi \d|\bM2\d{3}[A-Z]/i.test(ua)) return "xiaomi";
+  return "other";
+}
+
+/**
+ * Su Android le push arrivano tramite il browser: se il sistema lo mette a dormire (risparmio batteria,
+ * "app in sospensione", avvio automatico negato) arrivano solo ad app aperta. Il sito non può cambiarlo:
+ * qui si spiega come sistemarlo dalle impostazioni del telefono.
+ */
+function AndroidPushTips({ kind, compact }: { kind: AndroidKind; compact?: boolean }) {
+  const steps: React.ReactNode[] =
+    kind === "brave"
+      ? [
+          <>Apri Brave → <b>Impostazioni → Privacy e sicurezza</b>.</>,
+          <>Attiva <b>Usa i servizi Google per le notifiche push</b> (senza, le notifiche arrivano solo con Brave aperto).</>,
+          <>Poi <b>Impostazioni del telefono → App → Brave → Batteria → Senza restrizioni</b>.</>,
+        ]
+      : [
+          <><b>Impostazioni → App → Chrome → Batteria</b> e scegli <b>Senza restrizioni</b>.</>,
+          ...(kind === "samsung"
+            ? [<><b>Impostazioni → Assistenza dispositivo → Batteria → Limiti utilizzo in background</b>: togli Chrome da <b>App in sospensione</b> e <b>App in sospensione profonda</b>, e disattiva <b>Sospendi app inutilizzate</b>.</>]
+            : kind === "xiaomi"
+              ? [<><b>Impostazioni → App → Gestisci app → Chrome</b>: attiva <b>Avvio automatico</b> e in <b>Risparmio batteria</b> scegli <b>Nessuna restrizione</b>.</>]
+              : [<>Se il telefono ha voci come <b>Avvio automatico</b> o <b>App in sospensione</b>, attiva o togli Chrome da lì.</>]),
+          <>Controlla che le notifiche di <b>Chrome</b> e di <b>Vinili & Caffè</b> siano attive nelle impostazioni del telefono.</>,
+        ];
+  return (
+    <details className={cn("group mt-2 rounded-xl bg-crema/[0.04] ring-1 ring-sand/12", compact ? "px-2.5 py-1.5" : "px-3.5 py-2.5")}>
+      <summary className={cn("flex cursor-pointer list-none items-center gap-2 font-semibold text-crema/80 [&::-webkit-details-marker]:hidden", compact ? "text-xs" : "text-sm")}>
+        <BatteryCharging className="size-4 shrink-0 text-caramel" aria-hidden />
+        <span className="min-w-0 flex-1">Arrivano solo con l&apos;app aperta?</span>
+        <ChevronDown className="size-4 shrink-0 text-crema/45 transition-transform group-open:rotate-180" aria-hidden />
+      </summary>
+      <div className={cn("mt-2 text-crema/65", compact ? "text-xs" : "text-sm")}>
+        <p>Su Android le notifiche passano dal browser: se il telefono lo mette a dormire per risparmiare batteria, arrivano solo quando riapri l&apos;app.</p>
+        <ol className="mt-2 list-decimal space-y-1.5 pl-5 marker:font-semibold marker:text-caramel">
+          {steps.map((s, i) => (
+            <li key={i}>{s}</li>
+          ))}
+        </ol>
+        <p className="mt-2 text-crema/50">Dopo averlo fatto, chiudi l&apos;app del tutto: la prossima notifica dovrebbe arrivare anche così.</p>
+      </div>
+    </details>
+  );
+}
 
 type Props = {
   token: string;
@@ -19,10 +74,14 @@ export function PushCard({ token, compact = false, className }: Props) {
   const [msg, setMsg] = useState("");
   const [testing, setTesting] = useState(false);
   const [test, setTest] = useState<{ ok: boolean; message: string } | null>(null);
+  const [android, setAndroid] = useState<AndroidKind | null>(null);
   const supported = typeof window === "undefined" || pushSupported();
 
   useEffect(() => {
     pushIsOn().then(setOn).catch(() => setOn(false));
+    detectAndroid()
+      .then(setAndroid)
+      .catch(() => setAndroid(null));
   }, []);
 
   const toggle = async () => {
@@ -106,6 +165,7 @@ export function PushCard({ token, compact = false, className }: Props) {
         </div>
         {msg ? <p className="mt-1.5 text-xs text-[#e2836f] light:text-[#a83a2c]">{msg}</p> : null}
         {testLine}
+        {on && android ? <AndroidPushTips kind={android} compact /> : null}
       </div>
     );
   }
@@ -141,6 +201,11 @@ export function PushCard({ token, compact = false, className }: Props) {
           {busy ? <Loader2 className="size-4 animate-spin" /> : on ? <BellOff className="size-4" /> : <BellRing className="size-4" />} {on ? "Disattiva" : "Attiva"}
         </button>
       )}
+      {on && android ? (
+        <div className="basis-full">
+          <AndroidPushTips kind={android} />
+        </div>
+      ) : null}
     </div>
   );
 }

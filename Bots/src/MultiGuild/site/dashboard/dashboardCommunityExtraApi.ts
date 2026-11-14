@@ -541,10 +541,12 @@ async function patchLevels(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   if (!MS().moduleExists(a.guildId, "livelli")) return fail(404, "unavailable", "I livelli non sono disponibili su questo server.");
-  const raw = body?.config || body || {};
+  const raw = { ...(body?.config || body || {}) };
   if (raw.levelUpChannelId != null && raw.levelUpChannelId !== "" && !T.isId(raw.levelUpChannelId)) {
     return fail(400, "bad_channel", "Canale non valido.");
   }
+  /* premio recensione sito: solo sul principale */
+  if (!T.isMainGuild(a.guildId)) delete raw.reviewRewardLevels;
   const config = await LVL().saveConfig(a.guildId, raw);
   return { ok: true, status: 200, config };
 }

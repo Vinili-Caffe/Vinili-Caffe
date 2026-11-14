@@ -24,6 +24,13 @@ async function awardServerReviewLevels(client?, guild?, member?) {
   const guildId = String(guild?.id || "").trim();
   const userId = String(member?.id || member?.user?.id || "").trim();
   if (!guildId || !userId) return null;
+  /* solo server principale (recensioni sito Vinili); gli altri server non hanno questo premio */
+  try {
+    const T = require("../../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../../MultiGuild/core/tenantCommunityTools");
+    if (!T.isMainGuild(guildId)) return null;
+  } catch {
+    return null;
+  }
 
   const alreadyRewarded = await ActivityUserProfile.findOne({
     guildId,
