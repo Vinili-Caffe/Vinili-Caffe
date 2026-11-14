@@ -6,6 +6,7 @@ import { motion } from "motion/react";
 import type { ComponentProps, MouseEvent, PointerEvent } from "react";
 import { useFxCap } from "@/components/effects/DeviceFxProvider";
 import { reportSiteEvent } from "@/lib/site-report";
+import { startNavProbe } from "@/lib/nav-probe";
 
 type Props = Omit<ComponentProps<"a">, "href"> & { href: string };
 
@@ -58,6 +59,7 @@ export function SmartLink({ href, onClick, onPointerDown, ...rest }: Props) {
     if (destKey === fromKey) return;
 
     clearSoftFallback();
+    startNavProbe(fromKey, dest, pathKey);
     try {
       /* pwaInAppNav1: navigazione dentro l'app — la home non deve "riprendere" la pagina di prima */
       sessionStorage.setItem("vc-pwa-inapp-nav", String(Date.now()));

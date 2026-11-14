@@ -1,5 +1,6 @@
 "use client";
 
+import { reportHardReload } from "@/lib/nav-probe";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { EFFECT_KEYS, effectEnabled, isTouchUi } from "@/lib/site-effects";
@@ -107,6 +108,11 @@ export function PullToRefresh() {
         );
       }
       sessionStorage.setItem(PTR_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    try {
+      reportHardReload("trascinamento verso il basso (pull to refresh)");
     } catch {
       /* ignore */
     }

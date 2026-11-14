@@ -1,4 +1,5 @@
 import { reportSiteEvent } from "./site-report";
+import { reportHardReload } from "./nav-probe";
 
 /** Dopo un deploy i chunk vecchi 404ano: serve hard reload, NON unregister del SW (uccide le push iOS). */
 
@@ -30,7 +31,8 @@ export function canAutoRecoverStaleChunk(cooldownMs = 60_000) {
  * Bust navigazione + pulizia cache HTML/asset.
  * Mai unregister del service worker: su iOS perde la push subscription.
  */
-export async function hardReload(path?: string) {
+export async function hardReload(path?: string, reason = "sconosciuto") {
+  reportHardReload(reason, { path: path ?? location.pathname });
   try {
     if (typeof caches !== "undefined") {
       const keys = await caches.keys();
@@ -54,7 +56,7 @@ export function recoverFromStaleChunk(message: string) {
   if (!canAutoRecoverStaleChunk()) return;
   /* nel log del sito: ricarica dopo un deploy (pezzi del sito vecchi non più online) */
   reportSiteEvent("stale-reload", String(message).slice(0, 200));
-  void hardReload();
+  void hardReload(undefined, "pezzi del sito vecchi");
 }
 
 /** link/script asset falliti (CSS 404 → HTML → MIME error in console). */
@@ -69,7 +71,7 @@ export function recoverFromAssetLoadFailure(target: EventTarget | null) {
       : String((el as HTMLScriptElement).src || "");
   if (!href.includes("/_next/static/")) return;
   if (!canAutoRecoverStaleChunk()) return;
-  void hardReload();
+  void hardReload(undefined, `file del sito non caricato: ${href.split("/").pop()}`);
 }
 
 /**
@@ -97,11 +99,11 @@ export function isCssShellBroken() {
 export function recoverPwaShellIfBroken(reason: "bfcache" | "css" | "resume" = "css") {
   if (reason === "bfcache") {
     if (!canAutoRecoverStaleChunk(45_000)) return false;
-    void hardReload();
+    void hardReload(undefined, "ritorno dalla cache del browser");
     return true;
   }
   if (!isCssShellBroken()) return false;
   if (!canAutoRecoverStaleChunk(45_000)) return false;
-  void hardReload();
+  void hardReload(undefined, `grafica persa (${reason})`);
   return true;
 }

@@ -26,7 +26,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
   useEffect(() => {
     reportBoundaryError(error);
     if (!canAutoRecoverStaleChunk()) return;
-    void hardReload();
+    void hardReload(undefined, `errore della pagina: ${String(error?.message || "").slice(0, 80)}`);
   }, [error]);
 
   return (
@@ -40,7 +40,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
             <button
               type="button"
               onClick={() => {
-                void hardReload("/");
+                void hardReload("/", "pulsante Ricarica della pagina di errore");
               }}
               className="rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-semibold text-ink"
             >
