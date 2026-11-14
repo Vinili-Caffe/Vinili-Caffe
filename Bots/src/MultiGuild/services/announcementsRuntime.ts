@@ -299,10 +299,34 @@ async function postDraft(client?, channelId?: string | null, draft?, vars: Recor
   });
 }
 
-function boostVars(guild?, user?, extra: Record<string, string> = {}) {
+async function expMultForRoles(guildId?, roleIds: string[] = []) {
+  try {
+    const LVL = require("./levelsRuntime") as typeof import("./levelsRuntime");
+    const gid = String(guildId || "");
+    /* seed silenzioso sul principale: così i multi Donator/VIP esistono anche senza aprire Livelli */
+    if (T.isMainGuild(gid)) await LVL.ensureMainSeed(gid).catch(() => false);
+    const cfg = await LVL.getConfig(gid);
+    return LVL.formatMultiplier(LVL.maxMultiplierForRoles(cfg, roleIds));
+  } catch {
+    return "1";
+  }
+}
+
+async function boostVars(guild?, user?, extra: Record<string, string> = {}, cfg?: AnnConfig, repeat = false) {
+  const roleIds = [...(cfg?.boost?.firstRoleIds || []), ...(repeat ? cfg?.boost?.repeatRoleIds || [] : [])];
+  try {
+    const IDs = require("../../Vinili/Config/ids") as typeof import("../../Vinili/Config/ids");
+    const booster = String((IDs as any)?.roles?.ServerBooster || "");
+    const double = String((IDs as any)?.roles?.DoubleBooster || "");
+    /* Discord dà Server Booster / Double Booster da solo: vanno nel multi anche se non sono in "ruoli da dare" */
+    if (T.isId(booster)) roleIds.push(booster);
+    if (repeat && T.isId(double)) roleIds.push(double);
+  } catch (_) {}
+  const expmult = await expMultForRoles(guild?.id, roleIds);
   return T.memberVars(guild, user, {
     boosts: String(guild?.premiumSubscriptionCount ?? 0),
     tier: String(guild?.premiumTier ?? 0),
+    expmult,
     ...extra,
   });
 }
@@ -351,7 +375,7 @@ async function sendBoostAnnouncement(client?, guild?, member?, opts: { repeat?: 
   const channelId = cfg.boost.channelId || opts.channelId || null;
   const user = member?.user || member;
   const draft = opts.repeat ? cfg.boost.repeatDraft : cfg.boost.firstDraft;
-  const vars = boostVars(guild, user, opts.boostCount ? { boosts: String(opts.boostCount) } : {});
+  const vars = await boostVars(guild, user, opts.boostCount ? { boosts: String(opts.boostCount) } : {}, cfg, opts.repeat === true);
   if (cfg.boost.dm.enabled && user?.id) await T.sendDraftDm(client, String(user.id), cfg.boost.dm.draft, vars);
   if (!cfg.boost.enabled) return null;
   return postDraft(client, channelId, draft, vars, String(user?.id || "") || null);
@@ -365,7 +389,7 @@ async function sendBoostDmOnly(client?, guild?, member?, boostCount?: number, re
   if (!cfg.boost.dm.enabled) return false;
   const user = member?.user || member;
   if (!user?.id) return false;
-  const vars = boostVars(guild, user, boostCount ? { boosts: String(boostCount) } : {});
+  const vars = await boostVars(guild, user, boostCount ? { boosts: String(boostCount) } : {}, cfg, repeat);
   return (await T.sendDraftDm(client, String(user.id), cfg.boost.dm.draft, vars)).sent;
 }
 
@@ -544,7 +568,8 @@ async function handleRoleAdded(oldMember?, newMember?) {
     const key = `${rule.id}:${newMember.id}`;
     if (rule.cooldownHours > 0 && now - Number(st.roleAnnounced[key] || 0) < rule.cooldownHours * 3_600_000) continue;
     const role = guild.roles.cache.get(roleId);
-    const vars = T.memberVars(guild, newMember.user, { role: `<@&${roleId}>`, "role.name": String(role?.name || "") });
+    const expmult = await expMultForRoles(gid, [roleId]);
+    const vars = T.memberVars(guild, newMember.user, { role: `<@&${roleId}>`, "role.name": String(role?.name || ""), expmult });
     const sent = rule.channelId ? await postDraft(newMember.client, rule.channelId, rule.draft, vars, newMember.id, newMember) : null;
     const dmSent = rule.dm.enabled ? (await T.sendDraftDm(newMember.client, newMember.id, genderDraftForMember(rule.dm.draft, newMember), vars)).sent : false;
     if (sent || dmSent) {
@@ -598,7 +623,8 @@ async function trySendConfiguredRoleAnnounce(client?, member?, roleId?, opts: { 
       return true; /* già annunciato di recente: non fallback hardcoded */
     }
     const role = guild.roles.cache.get(rid);
-    const vars = T.memberVars(guild, member.user || member, { role: `<@&${rid}>`, "role.name": String(role?.name || "") });
+    const expmult = await expMultForRoles(gid, [rid]);
+    const vars = T.memberVars(guild, member.user || member, { role: `<@&${rid}>`, "role.name": String(role?.name || ""), expmult });
     const sent = await postDraft(client, channelId, rule.draft, vars, uid, member);
     if (rule.dm.enabled) await T.sendDraftDm(client, uid, genderDraftForMember(rule.dm.draft, member), vars);
     if (sent) {

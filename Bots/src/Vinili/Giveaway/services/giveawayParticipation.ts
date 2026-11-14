@@ -59,6 +59,30 @@ async function enterGiveaway(interaction?, client?, opts?) {
   }
 
   const userId = String(interaction.user?.id || "");
+  const minLevel = Math.max(0, Math.floor(Number(giveaway.minLevel) || 0));
+  if (minLevel > 0) {
+    try {
+      const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+      const { getLevelInfo, isLevelExpGuild } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
+      const guildId = String(giveaway.guildId || interaction.guildId || "");
+      if (!isLevelExpGuild(guildId)) {
+        await replyGiveawayEphemeral(interaction, `${E.VC_Alert} Questo giveaway richiede il livello **${minLevel}**, ma i livelli non sono attivi qui.`);
+        return true;
+      }
+      const doc = await ActivityUserProfile.findOne({ guildId, userId }).select("profile.totals.exp.totalExp profile.totals.exp.level").lean().catch(() => null);
+      const level = Math.max(
+        Math.floor(Number(doc?.profile?.totals?.exp?.level || 0)),
+        getLevelInfo(doc?.profile?.totals?.exp?.totalExp).level,
+      );
+      if (level < minLevel) {
+        await replyGiveawayEphemeral(interaction, `${E.VC_Alert} Serve il livello **${minLevel}** (sei al **${level}**).`);
+        return true;
+      }
+    } catch (_) {
+      await replyGiveawayEphemeral(interaction, `${E.VC_Alert} Non riesco a verificare il tuo livello. Riprova tra poco.`);
+      return true;
+    }
+  }
   const wasIn = giveaway.participants && giveaway.participants.includes(userId);
 
   const updated = await Giveaway.findOneAndUpdate(

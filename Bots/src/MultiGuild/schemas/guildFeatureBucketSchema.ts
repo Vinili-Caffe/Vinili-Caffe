@@ -97,6 +97,8 @@ const giveawayEntrySchema = new Schema(
     winnerIds: { type: [String], default: [] },
     /* morgamesGw1: obbligatorio account Morgames collegato a Discord */
     requireMorgames: { type: Boolean, default: false },
+    /** 0 = nessuno; altrimenti livello EXP minimo per entrare */
+    minLevel: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

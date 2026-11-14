@@ -25,10 +25,12 @@ const GIVEAWAY_READ_PROJECTION = {
   cancelled: 1,
   winnerIds: 1,
   guildId: 1,
+  minLevel: 1,
 };
 
-async function createGiveaway({ guildId, channelId, hostId, hostTag, prize, durationMs, winnerCount }) {
+async function createGiveaway({ guildId, channelId, hostId, hostTag, prize, durationMs, winnerCount, minLevel = 0 }) {
   const endAt = new Date(Date.now() + durationMs);
+  const safeMin = Math.max(0, Math.min(10000, Math.floor(Number(minLevel) || 0)));
   const doc = await Giveaway.create({
     guildId,
     channelId,
@@ -40,6 +42,7 @@ async function createGiveaway({ guildId, channelId, hostId, hostTag, prize, dura
     hostTag: hostTag || "",
     participants: [],
     ended: false,
+    minLevel: safeMin,
   });
   return doc;
 }
@@ -261,6 +264,9 @@ async function editGiveawayByMessageId(messageId?, client?, patch: Record<string
   if (patch.winnerCount != null) {
     const n = Math.max(1, Math.min(Number(patch.winnerCount) || 1, 20));
     $set.winnerCount = n;
+  }
+  if (patch.minLevel != null) {
+    $set.minLevel = Math.max(0, Math.min(10000, Math.floor(Number(patch.minLevel) || 0)));
   }
   if (patch.hostId != null) {
     $set.hostId = String(patch.hostId);

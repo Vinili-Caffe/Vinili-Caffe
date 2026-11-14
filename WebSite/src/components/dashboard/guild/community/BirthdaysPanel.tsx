@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Cake, Clock, ExternalLink } from "lucide-react";
+import { Cake, ExternalLink, Zap } from "lucide-react";
+import { NumberField } from "@/components/ui/NumberField";
 import { Select } from "@/components/ui/Select";
 import { communityApi, type BirthdaysConfig } from "@/lib/dashboard-community";
 import { page } from "@/lib/site";
-import { Field, FormGroup, Notice, RowsSkeleton, TrackUnsaved, fieldClass } from "../bits";
+import { Field, FormGroup, Notice, RowsSkeleton, Toggle, TrackUnsaved, fieldClass } from "../bits";
 import { ChannelField, DiscordMessagePreview, DmExtra, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 const PLACEHOLDERS = [
@@ -50,17 +51,22 @@ export function BirthdaysPanel({ guildId, token, onToast }: { guildId: string; t
     };
   }, [guildId, token]);
 
+  const expBoost = cfg?.expBoost || { enabled: true, multiplier: 2 };
   /* anteprima: due festeggiati d'esempio, uno con l'età visibile */
   const vars = useMemo(
-    () => ({
-      ...baseVars,
-      users: `${baseVars.user || "@Mario"} e @Giulia`,
-      count: "2",
-      age: "",
-      agetext: "Oggi compiono **20** e **25** anni.",
-      exptext: meta.isMain ? " E per oggi c'è un **×2 EXP**!" : "",
-    }),
-    [baseVars, meta.isMain],
+    () => {
+      const m = expBoost.multiplier;
+      const label = Number.isInteger(m) ? String(m) : String(m);
+      return {
+        ...baseVars,
+        users: `${baseVars.user || "@Mario"} e @Giulia`,
+        count: "2",
+        age: "",
+        agetext: "Oggi compiono **20** e **25** anni.",
+        exptext: meta.isMain && expBoost.enabled ? ` E per oggi c'è un **×${label} EXP**!` : "",
+      };
+    },
+    [baseVars, meta.isMain, expBoost.enabled, expBoost.multiplier],
   );
   const dmVars = useMemo(() => ({ ...baseVars, age: "20", agetext: "Oggi compie **20** anni." }), [baseVars]);
 
@@ -146,13 +152,39 @@ export function BirthdaysPanel({ guildId, token, onToast }: { guildId: string; t
         hint="A chi compie gli anni. Se è in più server col bot, riceve un solo privato al giorno."
       />
 
-      <FormGroup title="Boost EXP" description="Il moltiplicatore di EXP nel giorno del compleanno.">
-        <p className="flex items-start gap-2 text-sm text-crema/60">
-          <Clock className="mt-0.5 size-4 shrink-0 text-crema/45" aria-hidden />
-          {meta.isMain
-            ? "Su questo server chi compie gli anni ha il ×2 EXP per tutta la giornata. Per citarlo nel messaggio usa {exptext}."
-            : "Il boost EXP nel giorno del compleanno arriverà quando i livelli saranno disponibili anche su questo server."}
-        </p>
+      <FormGroup title="Boost EXP" description="Moltiplicatore sul ruolo del giorno (si allinea al modulo Livelli).">
+        {meta.isMain ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="flex items-center gap-2 text-sm text-crema/70">
+                <Zap className="size-4 text-ember" aria-hidden />
+                Nel messaggio usa {"{exptext}"} per citare il boost.
+              </p>
+              <Toggle
+                size="sm"
+                checked={expBoost.enabled}
+                onChange={(enabled) => set({ expBoost: { ...expBoost, enabled } })}
+                label="Boost EXP compleanno"
+              />
+            </div>
+            <Field label="Moltiplicatore" hint="Es. 2 = ×2 EXP per tutta la giornata.">
+              <NumberField
+                value={expBoost.multiplier}
+                min={1}
+                max={20}
+                step={0.1}
+                disabled={!expBoost.enabled}
+                onChange={(v) => set({ expBoost: { ...expBoost, multiplier: Math.max(1, Number(v) || 2) } })}
+                aria-label="Moltiplicatore EXP compleanno"
+              />
+            </Field>
+            <a href="?s=livelli&t=exp" className="inline-flex items-center gap-1.5 text-xs font-semibold text-crema/55 hover:text-crema">
+              <ExternalLink className="size-3.5" aria-hidden /> Apri Livelli & EXP
+            </a>
+          </div>
+        ) : (
+          <p className="text-sm text-crema/60">Il boost EXP nel giorno del compleanno arriverà quando i livelli saranno disponibili anche su questo server.</p>
+        )}
         <a href={page("/personalizza/?target=birthday")} className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-crema/55 hover:text-crema">
           <ExternalLink className="size-3.5" aria-hidden /> Il tuo compleanno su Personalizza
         </a>

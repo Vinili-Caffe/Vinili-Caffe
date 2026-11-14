@@ -8,6 +8,8 @@ const T = require("../core/tenantCommunityTools") as typeof import("../core/tena
 type RoleMult = { roleId: string; multiplier: number };
 type RoleReward = { level: number; roleId: string };
 
+type ExpBonus = { enabled: boolean; amount: number; channelIds: string[] };
+
 type LevelsConfig = {
   seedVersion: number;
   userSaved: boolean;
@@ -27,6 +29,11 @@ type LevelsConfig = {
   perkRoleId: string | null;
   perkMinLevel: number;
   maxCombinedMultiplier: number;
+  /** bonus community: primo messaggio del giorno + saluto di benvenuto */
+  bonuses: {
+    firstMessageDaily: ExpBonus;
+    welcomeGreeting: ExpBonus;
+  };
 };
 
 const SEED_VERSION = 1;
@@ -138,6 +145,29 @@ function defaultMilestoneDraft() {
   });
 }
 
+function normalizeExpBonus(raw?, fb: ExpBonus): ExpBonus {
+  const r = raw && typeof raw === "object" ? raw : {};
+  return {
+    enabled: r.enabled !== false,
+    amount: clampNum(r.amount, 0, 100000, fb.amount),
+    channelIds: uniqIds(r.channelIds, 20),
+  };
+}
+
+function defaultBonuses(): LevelsConfig["bonuses"] {
+  let chatId: string | null = null;
+  try {
+    const IDs = require("../../Vinili/Config/ids") as typeof import("../../Vinili/Config/ids");
+    chatId = T.isId((IDs as any)?.channels?.chat) ? String((IDs as any).channels.chat) : null;
+  } catch {
+    chatId = null;
+  }
+  return {
+    firstMessageDaily: { enabled: true, amount: 150, channelIds: chatId ? [chatId] : [] },
+    welcomeGreeting: { enabled: true, amount: 30, channelIds: [] },
+  };
+}
+
 function defaultConfig(): LevelsConfig {
   return {
     seedVersion: 0,
@@ -158,6 +188,7 @@ function defaultConfig(): LevelsConfig {
     perkRoleId: null,
     perkMinLevel: 10,
     maxCombinedMultiplier: 8,
+    bonuses: defaultBonuses(),
   };
 }
 
@@ -183,6 +214,10 @@ function normalizeConfig(raw?): LevelsConfig {
     perkRoleId: T.isId(r.perkRoleId) ? String(r.perkRoleId) : null,
     perkMinLevel: Math.floor(clampNum(r.perkMinLevel, 0, 10000, 10)),
     maxCombinedMultiplier: clampNum(r.maxCombinedMultiplier, 1, 50, 8),
+    bonuses: {
+      firstMessageDaily: normalizeExpBonus(r.bonuses?.firstMessageDaily, base.bonuses.firstMessageDaily),
+      welcomeGreeting: normalizeExpBonus(r.bonuses?.welcomeGreeting, base.bonuses.welcomeGreeting),
+    },
   };
 }
 
@@ -402,7 +437,37 @@ function roleRewardMap(cfg: LevelsConfig): Map<number, string> {
 }
 
 function roleMultiplierMap(cfg: LevelsConfig): Map<string, number> {
-  return new Map(cfg.roleMultipliers.map((r) => [r.roleId, r.multiplier]));
+  /* finché Livelli non è seedato/salvato, usa i default IDs (Donator×4, VIP×5, …) —
+     altrimenti {expmult} negli annunci resta 1 mentre l'EXP reale usa già quei valori. */
+  const map = new Map<string, number>();
+  if (!cfg.userSaved || !cfg.roleMultipliers.length) {
+    for (const row of defaultRoleMultipliersFromIds()) map.set(row.roleId, row.multiplier);
+  }
+  for (const row of cfg.roleMultipliers) map.set(row.roleId, row.multiplier);
+  return map;
+}
+
+/** Moltiplicatore più alto tra i ruoli dati (per annunci boost / VIP). */
+function maxMultiplierForRoles(cfg: LevelsConfig, roleIds: string[] = []) {
+  const map = roleMultiplierMap(cfg);
+  let best = 1;
+  for (const id of roleIds) {
+    const n = Number(map.get(String(id)));
+    if (Number.isFinite(n) && n > best) best = n;
+  }
+  return best;
+}
+
+/** Formatta il multi per i placeholder ({expmult}): intero senza decimali inutili. */
+function formatMultiplier(n: number) {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v <= 0) return "1";
+  return Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100);
+}
+
+async function getCommunityBonuses(guildId?: string) {
+  const cfg = await getConfig(String(guildId || ""));
+  return cfg.bonuses;
 }
 
 export = {
@@ -419,6 +484,11 @@ export = {
   getVoiceExpPerMinute,
   roleRewardMap,
   roleMultiplierMap,
+  maxMultiplierForRoles,
+  formatMultiplier,
+  defaultRoleMultipliersFromIds,
+  getCommunityBonuses,
   defaultLevelUpDraft,
   defaultMilestoneDraft,
+  defaultBonuses,
 };

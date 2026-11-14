@@ -20,9 +20,9 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
   const { data, error } = useCommunity(guildId, token);
   const [list, setList] = useState<Giveaway[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);
-  const [form, setForm] = useState({ prize: "", channelId: null as string | null, amount: 1, unit: "86400000", winners: 1, host: null as MemberHit | null });
+  const [form, setForm] = useState({ prize: "", channelId: null as string | null, amount: 1, unit: "86400000", winners: 1, minLevel: 0, host: null as MemberHit | null });
   const [editId, setEditId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ prize: "", amount: 1, unit: "86400000", winners: 1, host: null as MemberHit | null });
+  const [editForm, setEditForm] = useState({ prize: "", amount: 1, unit: "86400000", winners: 1, minLevel: 0, host: null as MemberHit | null });
   const [busy, setBusy] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
@@ -54,6 +54,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
       channelId: form.channelId,
       durationMs: Math.max(1, form.amount) * Number(form.unit),
       winnerCount: form.winners,
+      minLevel: form.minLevel,
       ...(form.host ? { hostId: form.host.id } : {}),
     });
     setBusy(null);
@@ -80,6 +81,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
       amount: 1,
       unit: "86400000",
       winners: g.winnerCount || 1,
+      minLevel: g.minLevel || 0,
       host: null,
     });
   };
@@ -88,9 +90,10 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
     if (!g.messageId) return;
     if (!editForm.prize.trim()) return onToast("Scrivi il premio.", true);
     setBusy(`${g.id}:edit`);
-    const body: { prize: string; winnerCount: number; durationMs?: number; hostId?: string } = {
+    const body: { prize: string; winnerCount: number; minLevel: number; durationMs?: number; hostId?: string } = {
       prize: editForm.prize.trim(),
       winnerCount: editForm.winners,
+      minLevel: editForm.minLevel,
     };
     if (editForm.amount > 0) body.durationMs = Math.max(1, editForm.amount) * Number(editForm.unit);
     if (editForm.host) body.hostId = editForm.host.id;
@@ -121,6 +124,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
             <span>
               {g.winnerCount} {g.winnerCount === 1 ? "vincitore" : "vincitori"}
             </span>
+            {g.minLevel ? <span>lv ≥ {g.minLevel}</span> : null}
             <span>{g.ended ? `finito ${formatWhen(g.endAt)}` : `finisce ${formatWhen(g.endAt)}`}</span>
           </p>
           {g.ended && !g.cancelled && g.winnerIds.length ? (
@@ -161,17 +165,23 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
               <span className="text-[0.8rem] font-semibold text-crema/80">Nuova durata da ora</span>
               <div className="mt-1.5 flex gap-2">
                 <div className="w-28">
-                  <NumberField value={editForm.amount} min={1} max={1440} onChange={(v) => setEditForm({ ...editForm, amount: Number(v) || 1 })} aria-label="Durata" />
+                  <NumberField className="!mt-0" value={editForm.amount} min={1} max={1440} onChange={(v) => setEditForm({ ...editForm, amount: Number(v) || 1 })} aria-label="Durata" />
                 </div>
                 <div className="w-28">
-                  <Select value={editForm.unit} onChange={(unit) => setEditForm({ ...editForm, unit })} options={UNITS} className="mt-1.5 h-10 rounded-lg" aria-label="Unità" />
+                  <Select value={editForm.unit} onChange={(unit) => setEditForm({ ...editForm, unit })} options={UNITS} className="!mt-0 h-10 rounded-lg" aria-label="Unità" />
                 </div>
               </div>
             </div>
             <div>
               <span className="text-[0.8rem] font-semibold text-crema/80">Vincitori</span>
               <div className="mt-1.5 w-24">
-                <NumberField value={editForm.winners} min={1} max={20} onChange={(v) => setEditForm({ ...editForm, winners: Number(v) || 1 })} aria-label="Vincitori" />
+                <NumberField className="!mt-0" value={editForm.winners} min={1} max={20} onChange={(v) => setEditForm({ ...editForm, winners: Number(v) || 1 })} aria-label="Vincitori" />
+              </div>
+            </div>
+            <div>
+              <span className="text-[0.8rem] font-semibold text-crema/80">Livello minimo</span>
+              <div className="mt-1.5 w-24">
+                <NumberField className="!mt-0" value={editForm.minLevel} min={0} max={10000} onChange={(v) => setEditForm({ ...editForm, minLevel: Math.max(0, Number(v) || 0) })} aria-label="Livello minimo" />
               </div>
             </div>
             <button type="button" className={primaryMini} disabled={!!busy} onClick={() => void saveEdit(g)}>
@@ -200,17 +210,25 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
             <span className="text-[0.8rem] font-semibold text-crema/80">Durata</span>
             <div className="mt-1.5 flex gap-2">
               <div className="w-28">
-                <NumberField value={form.amount} min={1} max={1440} onChange={(v) => setForm({ ...form, amount: Number(v) || 1 })} aria-label="Durata" />
+                <NumberField className="!mt-0" value={form.amount} min={1} max={1440} onChange={(v) => setForm({ ...form, amount: Number(v) || 1 })} aria-label="Durata" />
               </div>
               <div className="w-28">
-                <Select value={form.unit} onChange={(unit) => setForm({ ...form, unit })} options={UNITS} className="mt-1.5 h-10 rounded-lg" aria-label="Unità" />
+                <Select value={form.unit} onChange={(unit) => setForm({ ...form, unit })} options={UNITS} className="!mt-0 h-10 rounded-lg" aria-label="Unità" />
               </div>
             </div>
           </div>
           <div>
             <span className="text-[0.8rem] font-semibold text-crema/80">Vincitori</span>
             <div className="mt-1.5 w-28">
-              <NumberField value={form.winners} min={1} max={20} onChange={(v) => setForm({ ...form, winners: Number(v) || 1 })} aria-label="Vincitori" />
+              <NumberField className="!mt-0" value={form.winners} min={1} max={20} onChange={(v) => setForm({ ...form, winners: Number(v) || 1 })} aria-label="Vincitori" />
+            </div>
+          </div>
+          <div>
+            <span className="text-[0.8rem] font-semibold text-crema/80">
+              Livello minimo <span className="font-normal text-crema/45">· 0 = nessuno</span>
+            </span>
+            <div className="mt-1.5 w-28">
+              <NumberField className="!mt-0" value={form.minLevel} min={0} max={10000} onChange={(v) => setForm({ ...form, minLevel: Math.max(0, Number(v) || 0) })} aria-label="Livello minimo" />
             </div>
           </div>
           <div className="w-full sm:w-72">

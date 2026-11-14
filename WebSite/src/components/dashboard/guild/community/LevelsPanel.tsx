@@ -308,6 +308,52 @@ export function LevelsPanel({
               </Field>
             </div>
           </Card>
+
+          <Card icon={Gift} title="Bonus chat" text="Premi una tantum: primo messaggio del giorno e saluto a chi entra.">
+            {(() => {
+              const first = cfg.bonuses?.firstMessageDaily || { enabled: true, amount: 150, channelIds: [] };
+              const welcome = cfg.bonuses?.welcomeGreeting || { enabled: true, amount: 30, channelIds: [] };
+              const setBonus = (key: "firstMessageDaily" | "welcomeGreeting", patch: Partial<typeof first>) =>
+                set({
+                  bonuses: {
+                    firstMessageDaily: key === "firstMessageDaily" ? { ...first, ...patch } : first,
+                    welcomeGreeting: key === "welcomeGreeting" ? { ...welcome, ...patch } : welcome,
+                  },
+                });
+              return (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className={cn("rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10", !first.enabled && "opacity-55")}>
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-crema">Primo messaggio del giorno</p>
+                      <Toggle size="sm" checked={first.enabled} onChange={(enabled) => setBonus("firstMessageDaily", { enabled })} label="Primo messaggio" />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="EXP">
+                        <NumberField value={first.amount} min={0} max={100000} disabled={!first.enabled} onChange={(v) => setBonus("firstMessageDaily", { amount: Number(v) || 0 })} aria-label="EXP primo messaggio" />
+                      </Field>
+                      <Field label="Canali" hint="Vuoto = #chat predefinito.">
+                        <MultiSelect value={first.channelIds} onChange={(channelIds) => setBonus("firstMessageDaily", { channelIds })} options={channels.map((c) => ({ value: c.id, label: `#${c.name}` }))} className={fieldClass} placeholder="Default" disabled={!first.enabled} />
+                      </Field>
+                    </div>
+                  </div>
+                  <div className={cn("rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10", !welcome.enabled && "opacity-55")}>
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-crema">Saluto di benvenuto</p>
+                      <Toggle size="sm" checked={welcome.enabled} onChange={(enabled) => setBonus("welcomeGreeting", { enabled })} label="Saluto benvenuto" />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="EXP">
+                        <NumberField value={welcome.amount} min={0} max={100000} disabled={!welcome.enabled} onChange={(v) => setBonus("welcomeGreeting", { amount: Number(v) || 0 })} aria-label="EXP saluto" />
+                      </Field>
+                      <Field label="Canali" hint="Vuoto = regole attuali del bot.">
+                        <MultiSelect value={welcome.channelIds} onChange={(channelIds) => setBonus("welcomeGreeting", { channelIds })} options={channels.map((c) => ({ value: c.id, label: `#${c.name}` }))} className={fieldClass} placeholder="Default" disabled={!welcome.enabled} />
+                      </Field>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </Card>
         </div>
       ) : null}
 

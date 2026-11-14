@@ -17,10 +17,26 @@ const {
 } = require("./officialMessageCommunityHandlers") as typeof import("./officialMessageCommunityHandlers");
 const { scheduleMessageDeletion } = require("../../../shared/utils/ephemeralMessageTtl") as typeof import("../../../shared/utils/ephemeralMessageTtl");
 const TIME_ZONE = "Europe/Rome";
-const FIRST_MESSAGE_DAILY_EXP = 150;
-/** Solo #chat: niente sniping da chat vocali / altri canali a mezzanotte. */
+const FIRST_MESSAGE_DAILY_EXP_FALLBACK = 150;
+/** Solo #chat di default: niente sniping da chat vocali / altri canali a mezzanotte. */
 const FIRST_MESSAGE_CHAT_CHANNEL_ID = String(IDs.channels?.chat || "").trim();
-const WELCOME_GREETING_EXP = 30;
+const WELCOME_GREETING_EXP_FALLBACK = 30;
+
+async function resolveCommunityBonuses(guildId?) {
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    return await LVL.getCommunityBonuses(guildId);
+  } catch {
+    return {
+      firstMessageDaily: {
+        enabled: true,
+        amount: FIRST_MESSAGE_DAILY_EXP_FALLBACK,
+        channelIds: FIRST_MESSAGE_CHAT_CHANNEL_ID ? [FIRST_MESSAGE_CHAT_CHANNEL_ID] : [],
+      },
+      welcomeGreeting: { enabled: true, amount: WELCOME_GREETING_EXP_FALLBACK, channelIds: [] },
+    };
+  }
+}
 const WELCOME_GREETING_EXP_NOTICE_TTL_MS = 12 * 1000;
 const WELCOME_GREETING_AWARD_RETRY_DELAYS_MS = [0, 800, 2000, 4000, 6000];
 const WELCOME_GREETING_BACKUP_DELAY_MS = 2500;
@@ -310,9 +326,23 @@ async function tryAwardWelcomeGreetingExpOnce(message?, options: Record<string, 
     global.logger?.warn?.("[community-exp-bonus] welcome greeting claim_failed:", logCtx);
     return { ok: false, reason: "claim_failed" };
   }
+  const bonuses = await resolveCommunityBonuses(message.guild.id);
+  if (!bonuses.welcomeGreeting.enabled || !(bonuses.welcomeGreeting.amount > 0)) {
+    await releaseWelcomeGreetingExpClaim(message.guild.id, message.author.id, joinTargetUserId);
+    return { ok: false, reason: "disabled" };
+  }
+  const welcomeAmount = Math.max(0, Math.floor(Number(bonuses.welcomeGreeting.amount) || 0));
+  const allowedWelcomeChannels = bonuses.welcomeGreeting.channelIds || [];
+  if (allowedWelcomeChannels.length) {
+    const ch = String(message.channelId || message.channel?.id || "");
+    if (!allowedWelcomeChannels.includes(ch)) {
+      await releaseWelcomeGreetingExpClaim(message.guild.id, message.author.id, joinTargetUserId);
+      return { ok: false, reason: "wrong_channel" };
+    }
+  }
   let awarded = false;
   try {
-    awarded = await awardCommunityExp(message, WELCOME_GREETING_EXP, "welcome_greeting");
+    awarded = await awardCommunityExp(message, welcomeAmount, "welcome_greeting");
   } catch (err) {
     await releaseWelcomeGreetingExpClaim(message.guild.id, message.author.id, joinTargetUserId);
     global.logger?.warn?.("[community-exp-bonus] welcome greeting award error:", err?.message || err, logCtx);
@@ -320,7 +350,7 @@ async function tryAwardWelcomeGreetingExpOnce(message?, options: Record<string, 
   }
   if (awarded) {
     await markWelcomeGreetingExpAwarded(message.guild.id, message.author.id, joinTargetUserId);
-    await sendExpBonusChatNotice(message, WELCOME_GREETING_EXP, "welcome_greeting");
+    await sendExpBonusChatNotice(message, welcomeAmount, "welcome_greeting");
     return { ok: true, reason: "awarded" };
   }
   await releaseWelcomeGreetingExpClaim(message.guild.id, message.author.id, joinTargetUserId);
@@ -429,23 +459,26 @@ async function tryAwardWelcomeGreetingFromMessageBonus(message?) {
   }
 }
 
-function isFirstMessageDailyChatChannel(message?) {
+function isFirstMessageDailyAllowedChannel(message?, channelIds: string[] = []) {
   const channelId = String(message?.channelId || message?.channel?.id || "").trim();
-  if (!FIRST_MESSAGE_CHAT_CHANNEL_ID || !channelId) return false;
-  return channelId === FIRST_MESSAGE_CHAT_CHANNEL_ID;
+  if (!channelId) return false;
+  const allowed = Array.isArray(channelIds) && channelIds.length ? channelIds : FIRST_MESSAGE_CHAT_CHANNEL_ID ? [FIRST_MESSAGE_CHAT_CHANNEL_ID] : [];
+  return allowed.includes(channelId);
 }
 
 async function handleMessageCommunityExpBonuses(message?) {
   if (!canEarnCommunityMessageExp(message)) return;
-  /* Primo messaggio del giorno (00:00 Rome): solo #chat, non vocali/altri canali. */
-  if (isFirstMessageDailyChatChannel(message)) {
+  const bonuses = await resolveCommunityBonuses(message.guild.id);
+  /* Primo messaggio del giorno (00:00 Rome): canali scelti in Livelli (default #chat). */
+  if (bonuses.firstMessageDaily.enabled && bonuses.firstMessageDaily.amount > 0 && isFirstMessageDailyAllowedChannel(message, bonuses.firstMessageDaily.channelIds)) {
     const dateKey = getRomeDateKey(new Date());
+    const amount = Math.max(0, Math.floor(Number(bonuses.firstMessageDaily.amount) || 0));
     if (await tryClaimServerFirstMessageOfDayExp(message.guild.id, message.author.id, dateKey)) {
-      const awarded = await awardCommunityExp(message, FIRST_MESSAGE_DAILY_EXP, "first_message_server_daily");
+      const awarded = await awardCommunityExp(message, amount, "first_message_server_daily");
       if (!awarded) {
         await releaseServerFirstMessageOfDayClaim(message.guild.id, dateKey);
       } else {
-        await sendExpBonusChatNotice(message, FIRST_MESSAGE_DAILY_EXP, "first_message_server_daily");
+        await sendExpBonusChatNotice(message, amount, "first_message_server_daily");
       }
     }
   }

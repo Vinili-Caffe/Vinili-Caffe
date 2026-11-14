@@ -25,6 +25,7 @@ const EXP_PLACEHOLDERS = [
   { token: "{exp}", hint: "EXP guadagnati" },
   { token: "{bonus}", hint: "bonus rapida/streak: mettilo su una riga sua (se vuoto la riga sparisce)" },
   { token: "{streak}", hint: "serie attuale" },
+  { token: "{level}", hint: "livello dopo il premio" },
 ];
 const VOTE_PLACEHOLDERS = [
   { token: "{user}", hint: "chi ha votato" },
@@ -185,7 +186,19 @@ function RewardSummary({ roleName, hours, verb }: { roleName: string | null; hou
 function ExpCards({ keys, cfg, setExp }: { keys: BumpExpKey[]; cfg: BumpVotesConfig; setExp: (k: BumpExpKey, p: Partial<BumpExp>) => void }) {
   if (!cfg.exp) return null;
   return (
-    <Section icon={Zap} title="EXP" text="Solo sul server principale, dove ci sono i livelli. Stessi calcoli del sistema classico.">
+    <Section
+      icon={Zap}
+      title="EXP"
+      text={
+        <>
+          Solo sul server principale. I tassi base di chat/vocale e i moltiplicatori stanno in{" "}
+          <a href="?s=livelli&t=exp" className="font-semibold text-ember underline-offset-2 hover:underline">
+            Livelli & EXP
+          </a>
+          . Qui configuri i premi di bump/voto.
+        </>
+      }
+    >
       <div className="grid gap-3 lg:grid-cols-2">
         {keys.map((k) => {
           const x = cfg.exp![k];
@@ -246,7 +259,7 @@ export function BumpPanel({ guildId, token, onToast }: PanelProps) {
   const baseVars = useSampleVars(data);
   const reminderRoleId = cfg?.reminder?.roleId || null;
   const vars = useMemo(
-    () => ({ ...baseVars, count: "12", role: reminderRoleId ? `<@&${reminderRoleId}>` : "", exp: "150", streak: "3", bonus: "🔥 Streak 3 **+20 exp**" }),
+    () => ({ ...baseVars, count: "12", role: reminderRoleId ? `<@&${reminderRoleId}>` : "", exp: "150", streak: "3", bonus: "🔥 Streak 3 **+20 exp**", level: "42" }),
     [baseVars, reminderRoleId],
   );
 
@@ -398,7 +411,7 @@ export function VotesPanel({ guildId, token, onToast }: PanelProps) {
   const [svc, setSvc] = useState<VoteService>("topgg");
   const [copied, setCopied] = useState<string | null>(null);
   const baseVars = useSampleVars(data);
-  const vars = useMemo(() => ({ ...baseVars, count: "12", exp: "150", streak: "3", bonus: "🔥 Streak 3 **+20 exp**" }), [baseVars]);
+  const vars = useMemo(() => ({ ...baseVars, count: "12", exp: "150", streak: "3", bonus: "🔥 Streak 3 **+20 exp**", level: "42" }), [baseVars]);
 
   if (loadError && isMain == null) return <Notice error>{loadError}</Notice>;
   if (isMain == null) return <RowsSkeleton rows={4} />;

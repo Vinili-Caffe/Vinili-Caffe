@@ -535,6 +535,7 @@ function serializeGiveaway(g?) {
     cancelled: Boolean(g.cancelled),
     winnerIds: Array.isArray(g.winnerIds) ? g.winnerIds.map(String) : [],
     hostId: g.hostId ? String(g.hostId) : null,
+    minLevel: Math.max(0, Math.floor(Number(g.minLevel) || 0)),
   };
 }
 
@@ -553,6 +554,7 @@ async function createGiveaway(client?, token?, guildId?, body?) {
   const channelId = T.isId(body?.channelId) ? String(body.channelId) : "";
   const durationMs = Number(body?.durationMs);
   const winnerCount = Math.max(1, Math.min(20, Math.floor(Number(body?.winnerCount) || 1)));
+  const minLevel = Math.max(0, Math.min(10000, Math.floor(Number(body?.minLevel) || 0)));
   if (!prize) return fail(400, "no_prize", "Scrivi il premio.");
   if (!channelId) return fail(400, "no_channel", "Scegli il canale.");
   if (!Number.isFinite(durationMs) || durationMs < 60_000 || durationMs > 60 * 86_400_000) return fail(400, "bad_duration", "Durata tra 1 minuto e 60 giorni.");
@@ -567,7 +569,7 @@ async function createGiveaway(client?, token?, guildId?, body?) {
   }
   const user: any = await rest.get(Routes.user(hostId)).catch(() => null);
   const svc = G();
-  const g: any = await svc.createGiveaway({ guildId: a.guildId, channelId, hostId, hostTag: user?.username || "", prize, durationMs, winnerCount });
+  const g: any = await svc.createGiveaway({ guildId: a.guildId, channelId, hostId, hostTag: user?.username || "", prize, durationMs, winnerCount, minLevel });
   try {
     const embed: any = svc.buildGiveawayEmbed(g);
     const row: any = svc.buildEnterButton(String(g._id));
@@ -614,6 +616,9 @@ async function editGiveaway(client?, token?, guildId?, messageId?, body?) {
   }
   if (body?.winnerCount != null) {
     patch.winnerCount = Math.max(1, Math.min(20, Math.floor(Number(body.winnerCount) || 1)));
+  }
+  if (body?.minLevel != null) {
+    patch.minLevel = Math.max(0, Math.min(10000, Math.floor(Number(body.minLevel) || 0)));
   }
   if (body?.durationMs != null) {
     const durationMs = Number(body.durationMs);

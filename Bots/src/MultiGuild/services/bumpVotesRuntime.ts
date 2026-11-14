@@ -284,7 +284,23 @@ async function userVars(client?, guild?, userId?: string | null) {
 /* ───────────── EXP (solo server principale) ───────────── */
 
 const EXP_SOURCE: Record<ExpKey, string> = { disboard: "disboard", discadia: "discadia_bump_module", topgg: "discadia_vote", discadiaVote: "discadia_vote" };
-const NO_EXP = { exp: "0", fast: "0", streak: "0", bonus: "" };
+const NO_EXP = { exp: "0", fast: "0", streak: "0", bonus: "", level: "0" };
+
+async function resolveUserLevel(guildId?, userId?) {
+  try {
+    const { ActivityUserProfile } = require("../../Vinili/Community/schemas/communitySchemas") as typeof import("../../Vinili/Community/schemas/communitySchemas");
+    const { getLevelInfo } = require("../../Vinili/Level/services/expService") as typeof import("../../Vinili/Level/services/expService");
+    const doc = await ActivityUserProfile.findOne({ guildId: String(guildId), userId: String(userId) })
+      .select("profile.totals.exp.totalExp profile.totals.exp.level")
+      .lean()
+      .catch(() => null);
+    const stored = Math.max(0, Math.floor(Number(doc?.profile?.totals?.exp?.level || 0)));
+    const fromExp = getLevelInfo(doc?.profile?.totals?.exp?.totalExp).level;
+    return String(Math.max(stored, fromExp));
+  } catch {
+    return "0";
+  }
+}
 
 async function giveExp(client?, guild?, userId?: string | null, key?: ExpKey, cfg?: BumpConfig, ctx: { previousLastAt?: number | null; cooldownMs?: number; fastSinceAt?: number | null; previousUserId?: string | null; firstTime?: boolean } = {}) {
   if (!guild?.id || !userId || !key || !cfg || !T.isMainGuild(String(guild.id))) return NO_EXP;
@@ -293,7 +309,7 @@ async function giveExp(client?, guild?, userId?: string | null, key?: ExpKey, cf
   const step = 5;
   const span = Math.max(0, Math.floor((x.maxExp - x.minExp) / step));
   const base = ctx.firstTime && x.firstTimeExp > 0 ? x.firstTimeExp : x.minExp + Math.floor(Math.random() * (span + 1)) * step;
-  if (base <= 0) return NO_EXP;
+  if (base <= 0) return { ...NO_EXP, level: await resolveUserLevel(guild.id, userId) };
   try {
     const { awardBumpVoteExp } = require("../../Vinili/Community/services/bumpRewards") as typeof import("../../Vinili/Community/services/bumpRewards");
     const reward: any = await awardBumpVoteExp(
@@ -312,17 +328,18 @@ async function giveExp(client?, guild?, userId?: string | null, key?: ExpKey, cf
         streak: { bonusPercentPerWin: x.streakPercent, maxBonusPercent: x.streakMaxPercent },
       },
     );
-    if (!reward || reward.effectiveExp == null) return NO_EXP;
+    if (!reward || reward.effectiveExp == null) return { ...NO_EXP, level: await resolveUserLevel(guild.id, userId) };
     const { E } = require("../../shared/emojis/emojiCatalog") as any;
     const flame = String(E?.VC_Flame || "🔥");
     const lines: string[] = [];
     if (reward.fastBonus > 0) lines.push(`${flame} Risposta rapida **+${reward.fastBonus} exp**`);
     if (reward.streakBonus > 0) lines.push(`${flame} Streak ${reward.newStreak} **+${reward.streakBonus} exp**`);
+    const level = reward.afterLevel != null ? String(reward.afterLevel) : await resolveUserLevel(guild.id, userId);
     /* senza \n iniziale: nei draft dashboard {bonus} è su riga sua (fill toglie la riga se vuoto) */
-    return { exp: String(reward.effectiveExp), fast: String(reward.fastBonus || 0), streak: String(reward.newStreak || 1), bonus: lines.join("\n") };
+    return { exp: String(reward.effectiveExp), fast: String(reward.fastBonus || 0), streak: String(reward.newStreak || 1), bonus: lines.join("\n"), level };
   } catch (err) {
     global.logger?.warn?.("[BUMP VOTES] exp:", (err as any)?.message || err);
-    return NO_EXP;
+    return { ...NO_EXP, level: await resolveUserLevel(guild.id, userId) };
   }
 }
 

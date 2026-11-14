@@ -383,6 +383,8 @@ export type Giveaway = {
   cancelled: boolean;
   winnerIds: string[];
   hostId: string | null;
+  /** 0 = nessuno */
+  minLevel?: number;
 };
 
 export type Poll = {
@@ -409,10 +411,12 @@ export type BirthdaysConfig = {
   roleId: string | null;
   dm: { enabled: boolean; draft: MsgDraft };
   reactions?: string[];
+  expBoost?: { enabled: boolean; multiplier: number };
 };
 
 export type LevelsRoleMultiplier = { roleId: string; multiplier: number };
 export type LevelsRoleReward = { level: number; roleId: string };
+export type LevelsExpBonus = { enabled: boolean; amount: number; channelIds: string[] };
 
 export type LevelsConfig = {
   seedVersion?: number;
@@ -433,6 +437,10 @@ export type LevelsConfig = {
   perkRoleId: string | null;
   perkMinLevel: number;
   maxCombinedMultiplier: number;
+  bonuses?: {
+    firstMessageDaily: LevelsExpBonus;
+    welcomeGreeting: LevelsExpBonus;
+  };
 };
 
 export type LivePlatform = "twitch" | "youtube" | "kick" | "tiktok" | "instagram";
@@ -515,13 +523,13 @@ export const communityApi = {
     call<{ isMainGuild?: boolean; imported?: boolean; config: LevelsConfig }>(t, g, `/levels?_=${Date.now()}`),
   saveLevels: (t: string, g: string, config: LevelsConfig) => call<{ config: LevelsConfig }>(t, g, "/levels", "PATCH", { config }),
   listGiveaways: (t: string, g: string) => call<{ giveaways: Giveaway[] }>(t, g, `/giveaways?_=${Date.now()}`),
-  createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number; hostId?: string }) =>
+  createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number; hostId?: string; minLevel?: number }) =>
     call<{ giveaway: Giveaway }>(t, g, "/giveaways", "POST", body),
   editGiveaway: (
     t: string,
     g: string,
     messageId: string,
-    body: { prize?: string; durationMs?: number; winnerCount?: number; hostId?: string },
+    body: { prize?: string; durationMs?: number; winnerCount?: number; hostId?: string; minLevel?: number },
   ) => call<{ giveaway: Giveaway }>(t, g, `/giveaways/${encodeURIComponent(messageId)}`, "PATCH", body),
   giveawayAction: (t: string, g: string, messageId: string, action: "end" | "reroll" | "delete") =>
     action === "delete"

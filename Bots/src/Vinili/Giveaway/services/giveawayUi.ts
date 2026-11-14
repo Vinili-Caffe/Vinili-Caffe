@@ -41,6 +41,7 @@ function buildGiveawayEmbed(giveaway?, options: Record<string, any> = {}) {
   const hostDisplay = hostId ? `<@${hostId}>` : (hostTag || "—");
   const isCancelled = Boolean(cancelled);
 
+  const minLevel = Math.max(0, Math.floor(Number(giveaway.minLevel) || 0));
   const fields = [
     {
       name: `${E.VC_Calendar} Tempo rimanente`,
@@ -53,6 +54,13 @@ function buildGiveawayEmbed(giveaway?, options: Record<string, any> = {}) {
       inline: true,
     },
   ];
+  if (minLevel > 0) {
+    fields.push({
+      name: `${E.VC_LevelUp2 || E.VC_EXP} Livello minimo`,
+      value: String(minLevel),
+      inline: true,
+    });
+  }
 
   const embed = new EmbedBuilder()
     .setColor(isCancelled ? "#992d22" : "#5865F2")

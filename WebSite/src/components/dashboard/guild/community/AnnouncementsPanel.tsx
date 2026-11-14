@@ -23,6 +23,7 @@ const BOOST_PLACEHOLDERS = [
   { token: "{avatar}", hint: "la sua foto (per immagini)" },
   { token: "{boosts}", hint: "boost totali del server" },
   { token: "{tier}", hint: "livello boost del server" },
+  { token: "{expmult}", hint: "moltiplicatore EXP dei ruoli boost (da Livelli)" },
   { token: "{server}", hint: "nome del server" },
 ];
 const ROLE_PLACEHOLDERS = [
@@ -31,6 +32,7 @@ const ROLE_PLACEHOLDERS = [
   { token: "{avatar}", hint: "la sua foto (per immagini)" },
   { token: "{role}", hint: "il ruolo (menzione)" },
   { token: "{role.name}", hint: "il nome del ruolo" },
+  { token: "{expmult}", hint: "moltiplicatore EXP di quel ruolo (da Livelli)" },
   { token: "{server}", hint: "nome del server" },
 ];
 
@@ -154,11 +156,35 @@ export function AnnouncementsPanel({
   const [boostTab, setBoostTab] = useState<"first" | "repeat">("first");
   const [openRule, setOpenRule] = useState<string | null>(null);
   const [openNamed, setOpenNamed] = useState<string | null>(null);
+  const [roleExpMult, setRoleExpMult] = useState<Record<string, number>>({});
   const baseVars = useSampleVars(data);
+  const fmtMult = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100));
+  const multFor = (roleIds: (string | null | undefined)[]) => {
+    let best = 1;
+    for (const id of roleIds) {
+      if (!id) continue;
+      const n = Number(roleExpMult[id]);
+      if (Number.isFinite(n) && n > best) best = n;
+    }
+    return fmtMult(best);
+  };
   const vars = useMemo(() => {
     const role = data?.pickers.roles.find((r) => !r.managed);
-    return { ...baseVars, boosts: "14", tier: "2", role: role ? `<@&${role.id}>` : "@Ruolo", "role.name": role?.name || "Ruolo" };
-  }, [baseVars, data]);
+    const booster = data?.pickers.roles.find((r) => r.booster);
+    const b = cfg?.boost;
+    const ids =
+      boostTab === "repeat"
+        ? [...(b?.firstRoleIds || []), ...(b?.repeatRoleIds || []), booster?.id]
+        : [...(b?.firstRoleIds || []), booster?.id];
+    return {
+      ...baseVars,
+      boosts: "14",
+      tier: "2",
+      role: role ? `<@&${role.id}>` : "@Ruolo",
+      "role.name": role?.name || "Ruolo",
+      expmult: multFor(ids),
+    };
+  }, [baseVars, data, cfg?.boost, boostTab, roleExpMult]);
 
   useEffect(() => {
     let alive = true;
@@ -170,6 +196,16 @@ export function AnnouncementsPanel({
       setSavedCfg({ ...config, named: ensureNamed(config) });
       setMaxRules(r.data.maxRules || 20);
       setImported(r.data.imported === true);
+    });
+    void communityApi.getLevels(token, guildId).then((r) => {
+      if (!alive || !r.ok) return;
+      const map: Record<string, number> = {};
+      for (const row of r.data.config.roleMultipliers || []) {
+        const id = String(row.roleId || "");
+        const n = Number(row.multiplier);
+        if (id && Number.isFinite(n) && n > 0) map[id] = n;
+      }
+      setRoleExpMult(map);
     });
     return () => {
       alive = false;
@@ -210,7 +246,19 @@ export function AnnouncementsPanel({
 
   const slotVars = (slot: NamedAnnounceSlot) => {
     const role = data.pickers.roles.find((x) => x.id === slot.roleId);
-    return role ? { ...vars, role: `<@&${role.id}>`, "role.name": role.name } : vars;
+    const expmult = multFor([slot.roleId]);
+    return role ? { ...vars, role: `<@&${role.id}>`, "role.name": role.name, expmult } : { ...vars, expmult };
+  };
+  const ruleVars = (rule: RoleAnnounceRule) => {
+    const roleId = rule.roleIds?.[0];
+    const role = roleId ? data.pickers.roles.find((x) => x.id === roleId) : null;
+    const expmult = multFor(rule.roleIds || []);
+    return {
+      ...vars,
+      role: role ? `<@&${role.id}>` : vars.role,
+      "role.name": role?.name || vars["role.name"],
+      expmult,
+    };
   };
 
   const setNamed = (key: NamedAnnounceKey, patch: Partial<NamedAnnounceSlot>) => {
@@ -267,7 +315,18 @@ export function AnnouncementsPanel({
             </div>
           ) : null}
         </FormGroup>
-        <FormGroup title="Ruoli da dare" description="Vinili li dà a chi boosta, anche con l'annuncio spento. Il ruolo del bot deve stare sopra questi ruoli.">
+        <FormGroup
+          title="Ruoli da dare"
+          description={
+            <>
+              Vinili li dà a chi boosta, anche con l&apos;annuncio spento. Il moltiplicatore EXP di questi ruoli si legge da{" "}
+              <a href="?s=livelli&t=exp" className="font-semibold text-ember underline-offset-2 hover:underline">
+                Livelli & EXP
+              </a>{" "}
+              (usa {"{expmult}"} nel messaggio).
+            </>
+          }
+        >
           <div className="grid gap-3 sm:grid-cols-2">
             <Field
               label="Al primo boost"
@@ -531,10 +590,6 @@ export function AnnouncementsPanel({
 
   /* Ruoli custom */
   const rules = cfg.roles.rules.filter((r) => !r.roleIds.some((id) => reservedRoleIds.has(id)));
-  const ruleVars = (r: RoleAnnounceRule) => {
-    const role = data.pickers.roles.find((x) => x.id === r.roleIds[0]);
-    return role ? { ...vars, role: `<@&${role.id}>`, "role.name": role.name } : vars;
-  };
   const setRule = (id: string, p: Partial<RoleAnnounceRule>) =>
     set({ ...cfg, roles: { ...cfg.roles, rules: cfg.roles.rules.map((r) => (r.id === id ? { ...r, ...p } : r)) } });
   const addRule = () => {

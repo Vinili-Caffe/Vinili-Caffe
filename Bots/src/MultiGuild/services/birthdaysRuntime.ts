@@ -23,6 +23,8 @@ type BirthdaysConfig = {
   dm: { enabled: boolean; draft: ReturnType<typeof T.normalizeDraft> };
   /** reazioni aggiunte all'annuncio (emoji o <:nome:id>) */
   reactions: string[];
+  /** boost EXP nel giorno del compleanno (moltiplicatore sul ruolo del giorno) */
+  expBoost: { enabled: boolean; multiplier: number };
 };
 
 const SEED_VERSION = 1;
@@ -57,6 +59,15 @@ function defaultDmDraft() {
   });
 }
 
+function normalizeExpBoost(raw?): { enabled: boolean; multiplier: number } {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const m = Number(r.multiplier);
+  return {
+    enabled: r.enabled !== false,
+    multiplier: Number.isFinite(m) && m >= 1 && m <= 20 ? Math.round(m * 100) / 100 : 2,
+  };
+}
+
 function normalizeConfig(raw?): BirthdaysConfig {
   const r = raw && typeof raw === "object" ? raw : {};
   const hour = Math.floor(Number(r.hour));
@@ -72,7 +83,32 @@ function normalizeConfig(raw?): BirthdaysConfig {
       draft: r.dm?.draft && typeof r.dm.draft === "object" ? T.normalizeDraft(r.dm.draft) : defaultDmDraft(),
     },
     reactions: (Array.isArray(r.reactions) ? r.reactions : []).map((x: unknown) => String(x || "").trim()).filter(Boolean).slice(0, 5),
+    expBoost: normalizeExpBoost(r.expBoost),
   };
+}
+
+function formatExpBoostText(cfg?: BirthdaysConfig) {
+  if (!cfg?.expBoost?.enabled) return "";
+  const m = cfg.expBoost.multiplier;
+  const label = Number.isInteger(m) ? String(m) : String(m);
+  return ` E per oggi c'è un **×${label} EXP**!`;
+}
+
+/** Allinea il moltiplicatore del ruolo compleanno nel modulo Livelli. */
+async function syncBirthdayExpToLevels(guildId: string, cfg: BirthdaysConfig) {
+  if (!T.isMainGuild(guildId)) return;
+  try {
+    const LVL = require("./levelsRuntime") as typeof import("./levelsRuntime");
+    const IDs = require("../../Vinili/Config/ids") as typeof import("../../Vinili/Config/ids");
+    const roleId = String(cfg.roleId || (IDs as any)?.roles?.birthdayFlair || "").trim();
+    if (!T.isId(roleId)) return;
+    const levels = await LVL.getConfig(guildId, true);
+    const others = (levels.roleMultipliers || []).filter((r) => r.roleId !== roleId);
+    const nextMults = cfg.expBoost.enabled
+      ? [...others, { roleId, multiplier: cfg.expBoost.multiplier }]
+      : others;
+    await LVL.saveConfig(guildId, { ...levels, roleMultipliers: nextMults });
+  } catch (_) {}
 }
 
 async function getConfig(guildId: string, fresh = false): Promise<BirthdaysConfig> {
@@ -83,6 +119,7 @@ async function saveConfig(guildId: string, raw?): Promise<BirthdaysConfig> {
   const prev = await getConfig(guildId, true);
   const next = normalizeConfig({ ...prev, ...(raw && typeof raw === "object" ? raw : {}), seedVersion: prev.seedVersion, userSaved: true });
   await T.setGuildBlob("birthdays", String(guildId), next);
+  await syncBirthdayExpToLevels(String(guildId), next).catch(() => null);
   return next;
 }
 
@@ -101,6 +138,7 @@ async function ensureMainSeed(guildId?) {
     channelId: prev?.channelId || IDs?.channels?.chat || null,
     hour: 0,
     roleId: prev?.roleId || IDs?.roles?.birthdayFlair || null,
+    expBoost: prev?.expBoost || { enabled: true, multiplier: 2 },
     reactions: [e("VC_Events"), e("VC_HelloKittyGift"), e("VC_bluparty")].filter(Boolean),
     draft:
       prev?.draft ||
@@ -181,14 +219,24 @@ function messageVars(guild?, firstUser?, list: Birthday[] = [], year = new Date(
   const mentions = list.map((b) => `<@${b.userId}>`);
   const ages = list.filter((b) => b.showAge && b.birthYear).map((b) => Math.max(1, year - Number(b.birthYear)));
   const agetext = !ages.length ? "" : list.length === 1 ? `Oggi compie **${ages[0]}** anni.` : `Oggi compiono ${joinNicely(ages.map((a) => `**${a}**`))} anni.`;
-  const exptext = T.isMainGuild(String(guild?.id || "")) ? " E per oggi c'è un **×2 EXP**!" : "";
   return T.memberVars(guild, firstUser, {
     users: joinNicely(mentions),
     count: String(list.length),
     age: list.length === 1 && ages.length ? String(ages[0]) : "",
     agetext,
-    exptext,
+    exptext: "",
   });
+}
+
+async function messageVarsAsync(guild?, firstUser?, list: Birthday[] = [], year = new Date().getFullYear()) {
+  const base = messageVars(guild, firstUser, list, year);
+  if (!T.isMainGuild(String(guild?.id || ""))) return base;
+  try {
+    const cfg = await getConfig(String(guild.id));
+    return { ...base, exptext: formatExpBoostText(cfg) };
+  } catch {
+    return base;
+  }
 }
 
 /* ───────────── invio ───────────── */
@@ -197,7 +245,7 @@ async function sendFor(client?, guild?, cfg?: BirthdaysConfig, list: Birthday[] 
   const rest = client?.rest;
   if (!rest || !guild || !cfg?.channelId || !list.length) return null;
   const first = await client.users.fetch(list[0].userId).catch(() => null);
-  const body: any = T.buildMessageBody(cfg.draft, messageVars(guild, first, list, year), [], { mentionUserId: null });
+  const body: any = T.buildMessageBody(cfg.draft, await messageVarsAsync(guild, first, list, year), [], { mentionUserId: null });
   const sent: any = await rest.post(Routes.channelMessages(cfg.channelId), { body }).catch((err?) => {
     global.logger?.warn?.("[COMPLEANNI] invio:", guild.id, err?.rawError?.message || err?.message || err);
     return null;
