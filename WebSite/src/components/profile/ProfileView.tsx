@@ -64,6 +64,8 @@ export function ProfileView() {
   const [staffSince, setStaffSince] = useState<string | null>(null);
   /* badge partnership scelti (server principale): stanno nella testata del profilo staff */
   const [pmBadges, setPmBadges] = useState<{ uid: string; node: React.ReactNode } | null>(null);
+  /* contrassegni staff (In pausa, Nuovo in staff…): anche loro nella testata, sotto i ruoli */
+  const [staffFlags, setStaffFlags] = useState<{ uid: string; node: React.ReactNode } | null>(null);
   const mainId = guilds.find((x) => x.isMain)?.id || null;
   const rawG = params.get("g");
   const guildSel = rawG && guilds.some((x) => x.id === rawG && !x.isMain) ? rawG : null;
@@ -221,7 +223,14 @@ export function ProfileView() {
         onTab={goTab}
         topSlot={switcher}
         staffSince={showStaffTab && tab === "staff" ? staffSince : null}
-        extraBadges={showStaffTab && tab === "staff" && pmBadges?.uid === p.userId ? pmBadges.node : null}
+        extraBadges={
+          showStaffTab && tab === "staff" && (staffFlags?.uid === p.userId || pmBadges?.uid === p.userId) ? (
+            <>
+              {staffFlags?.uid === p.userId ? staffFlags.node : null}
+              {pmBadges?.uid === p.userId ? pmBadges.node : null}
+            </>
+          ) : null
+        }
       />
       {showStaffTab && tab === "staff" ? (
         <>
@@ -231,6 +240,7 @@ export function ProfileView() {
             access={staffAccess!}
             onNavigate={(uid) => goTab("staff", uid)}
             onTenure={setStaffSince}
+            onFlags={(node) => setStaffFlags({ uid: p.userId, node })}
             middle={
               /* Partner Manager anche sul principale: badge in vetrina e obiettivi, in mezzo al profilo staff */
               mainId ? (

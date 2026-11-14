@@ -67,12 +67,12 @@ function PmNavigator({ list, current, onGo }: { list: GuildStaffManager[]; curre
   );
 }
 
-/** Badge partnership scelti, come pillole (testata del profilo staff sul principale). */
+/** Badge partnership scelti, come gli adesivi dei ruoli (testata del profilo staff sul principale). */
 function BadgeChips({ badges }: { badges: { id: string; title: string; node: React.ReactNode }[] }) {
   return (
     <>
-      {badges.map((b) => (
-        <span key={b.id} className="inline-flex items-center gap-1.5 rounded-full bg-caramel/12 px-2.5 py-1 text-xs font-semibold text-ember ring-1 ring-caramel/25">
+      {badges.map((b, i) => (
+        <span key={b.id} className={cn("inline-flex items-center gap-1.5 rounded-lg bg-paper px-2.5 py-1 text-xs font-bold text-ink shadow-[0_6px_14px_-6px_rgba(0,0,0,0.8)]", i % 2 ? "-rotate-2" : "rotate-2")}>
           {b.node} {b.title}
         </span>
       ))}

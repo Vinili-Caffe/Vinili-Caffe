@@ -22,6 +22,10 @@ import {
   ThumbsUp,
   TriangleAlert,
   Users,
+  PauseCircle,
+  Sprout,
+  Star,
+  Trophy,
 } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { showToast } from "@/components/ui";
@@ -158,6 +162,7 @@ export function StaffCardView({
   onTenure,
   extraFlags,
   middle,
+  onFlags,
 }: {
   token: string;
   userId: string;
@@ -167,6 +172,8 @@ export function StaffCardView({
   extraFlags?: React.ReactNode;
   /** parte partnership (badge, obiettivi): sta in mezzo al profilo staff, dopo i riquadri */
   middle?: React.ReactNode;
+  /** contrassegni (In pausa, Nuovo in staff, Staffer del mese…): se c'è, li mostra la testata del profilo */
+  onFlags?: (node: React.ReactNode | null) => void;
   /** "In staff dal …": la mostra la testata del profilo, accanto a "Nel server dal …" */
   onTenure?: (label: string | null) => void;
 }) {
@@ -207,6 +214,34 @@ export function StaffCardView({
   }, [card]);
   const roster = useMemo(() => (mng?.sections ?? []).map((s) => ({ label: s.roleLabel, members: s.members })), [mng]);
   const me = mng?.sections.flatMap((s) => s.members).find((m) => m.userId === userId);
+  const flags = [
+    me?.onPause && { k: "pause", t: "In pausa", c: "bg-sand/15 text-sand", icon: <PauseCircle className="size-3.5 text-[#7a6a5c]" aria-hidden /> },
+    me?.isNew && { k: "new", t: "Nuovo in staff", c: "bg-ember/15 text-ember", icon: <Sprout className="size-3.5 text-[#3f8f4e]" aria-hidden /> },
+    me?.isStaffDelMese && { k: "mese", t: "Staffer del mese", c: "bg-ember/15 text-ember", icon: <Trophy className="size-3.5 text-[#c27a1a]" aria-hidden /> },
+    me?.isStaffDelSettimana && { k: "sett", t: "Staffer della settimana", c: "bg-ember/15 text-ember", icon: <Star className="size-3.5 text-[#c9a227]" aria-hidden /> },
+  ].filter(Boolean) as { k: string; t: string; c: string; icon: React.ReactNode }[];
+  /* nella testata del profilo, accanto ai ruoli, come i loro adesivi */
+  const flagsKey = flags.map((f) => f.k).join(",");
+  const onFlagsRef = useRef(onFlags);
+  useEffect(() => {
+    onFlagsRef.current = onFlags;
+  }, [onFlags]);
+  useEffect(() => {
+    if (!card) return;
+    onFlagsRef.current?.(
+      flags.length ? (
+        <>
+          {flags.map((f, i) => (
+            <span key={f.k} className={cn("inline-flex items-center gap-1.5 rounded-lg bg-paper px-2.5 py-1 text-xs font-bold text-ink shadow-[0_6px_14px_-6px_rgba(0,0,0,0.8)]", i % 2 ? "rotate-2" : "-rotate-2")}>
+              {f.icon}
+              {f.t}
+            </span>
+          ))}
+        </>
+      ) : null,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cambia solo quando cambiano i contrassegni
+  }, [flagsKey, Boolean(card)]);
 
   if (err) return <p className="mx-auto max-w-xl rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-8 text-center text-crema/70 ring-1 ring-sand/12">{err}</p>;
   if (!card)
@@ -242,12 +277,6 @@ export function StaffCardView({
 
   // come sito vecchio: link serata per HS/manage; stato presenza se il payload lo manda (profilo full)
   const canOpenSerata = Boolean(isHS || access.canManage);
-  const flags = [
-    me?.onPause && { k: "pause", t: "In pausa", c: "bg-sand/15 text-sand" },
-    me?.isNew && { k: "new", t: "Nuovo in staff", c: "bg-ember/15 text-ember" },
-    me?.isStaffDelMese && { k: "mese", t: "Staffer del mese", c: "bg-ember/15 text-ember" },
-    me?.isStaffDelSettimana && { k: "sett", t: "Staffer della settimana", c: "bg-ember/15 text-ember" },
-  ].filter(Boolean) as { k: string; t: string; c: string }[];
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 pb-20 sm:px-6">
@@ -265,9 +294,9 @@ export function StaffCardView({
       </div>
 
       {/* flag / tenure: i badge ruolo stanno già nell’AlbumCover */}
-      {flags.length > 0 || extraFlags ? (
+      {(!onFlags && flags.length > 0) || extraFlags ? (
         <div className="flex flex-wrap items-center justify-center gap-2">
-          {flags.map((f) => (
+          {(onFlags ? [] : flags).map((f) => (
             <span key={f.k} className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", f.c)}>
               {f.t}
             </span>
