@@ -105,30 +105,43 @@ async function render(type: string, client?): Promise<PreviewOut> {
     case "guessRegionCapital":
       return canvasOut(toDataUrl(images.buildRegionNameImageAttachment("Lazio") as Attachment) || card("Indovina il capoluogo", ["Lazio"], "guess_region_capital", client));
     case "guessCapital": {
+      /* come nel round: la bandiera del paese, non il nome scritto */
       const bank: any[] = await src.loadCapitalQuestionBank(cfg).catch(() => []);
-      const row = pick(bank.filter((r) => r?.country));
-      if (row?.image) return { image: String(row.image), source: "remote" };
-      return canvasOut(card("Indovina la capitale", [String(row?.country || "Italia")], "guess_capital", client));
+      const withFlag = bank.filter((r) => r?.image);
+      const row = pick(withFlag) || pick(bank.filter((r) => r?.country));
+      const flag = String(row?.image || "https://flagcdn.com/w320/it.png");
+      return canvasOut(await photoCard(flag, "Indovina la capitale", "guess_capital", [String(row?.country || "Italia")], client));
     }
     case "guessReverseCapital": {
       const bank: any[] = await src.loadReverseCapitalQuestionBank(cfg).catch(() => []);
-      const row = pick(bank.filter((r) => r?.capital));
-      if (row?.image) return { image: String(row.image), source: "remote" };
+      const withFlag = bank.filter((r) => r?.image);
+      const row = pick(withFlag) || pick(bank.filter((r) => r?.capital));
+      if (row?.image) return canvasOut(await photoCard(String(row.image), "Capitale inverso", "guess_reverse_capital", [String(row?.capital || "Roma")], client));
       return canvasOut(card("Capitale inverso", [String(row?.capital || "Roma")], "guess_reverse_capital", client));
     }
     case "guessFlag": {
+      /* bandiera dentro la card canvas (come calciatore/squadra), non solo il PNG nudo */
       const list: any[] = await src.loadCountryList(cfg).catch(() => []);
       const row = pick(list.filter((c) => c?.flagUrl));
-      return { image: String(row?.flagUrl || "https://flagcdn.com/w320/it.png"), source: "remote" };
+      const flag = String(row?.flagUrl || "https://flagcdn.com/w320/it.png");
+      return canvasOut(await photoCard(flag, "Indovina la bandiera", "guess_flag", ["Quale nazione è?"], client));
     }
     case "guessPlayer": {
-      const info: any = (await src.fetchFamousPlayer(cfg).catch(() => null)) || (await src.fetchLeagueFamousPlayer(cfg).catch(() => null));
-      return canvasOut(await photoCard(String(info?.image || ""), "Indovina il calciatore", "guess_player", ["Chi è questo calciatore?"], client));
+      const info: any =
+        (await src.fetchFamousPlayer(cfg).catch(() => null)) ||
+        (await src.fetchLeagueFamousPlayer(cfg).catch(() => null)) ||
+        (await src.fetchPlayerFromRandomLetter(cfg).catch(() => null));
+      const img = String(
+        info?.image ||
+          "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg/320px-Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg",
+      );
+      return canvasOut(await photoCard(img, "Indovina il calciatore", "guess_player", ["Chi è questo calciatore?"], client));
     }
     case "guessTeam": {
       const teams: any[] = await src.loadFootballTeamsFromApi(cfg).catch(() => []);
       const row = pick(teams.filter((t) => t?.image));
-      return canvasOut(await photoCard(String(row?.image || ""), "Indovina la squadra", "guess_team", ["Quale squadra è?"], client));
+      const img = String(row?.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/FC_Internazionale_Milano_2021.svg/240px-FC_Internazionale_Milano_2021.svg.png");
+      return canvasOut(await photoCard(img, "Indovina la squadra", "guess_team", ["Quale squadra è?"], client));
     }
     case "guessSinger": {
       const singers: any[] = await src.loadSingersFromApi(cfg).catch(() => []);
@@ -143,10 +156,24 @@ async function render(type: string, client?): Promise<PreviewOut> {
     }
     case "guessAlbum": {
       const albums: any[] = await src.loadAlbumsFromApi(cfg).catch(() => []);
-      const row: any = pick(albums.filter((a) => a?.album));
-      const img = await censored(String(row?.image || ""), "minigame_album.png");
+      const row: any = pick(albums.filter((a) => a?.image || a?.album));
+      const raw = String(
+        row?.image ||
+          "https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg",
+      );
+      const img = (await censored(raw, "minigame_album.png")) || raw;
       return img ? { image: img, source: img.startsWith("data:") ? "canvas" : "remote" } : canvasOut(card("Indovina l'album", [String(row?.album || "Album"), String(row?.artist || "")], "guess_album", client));
     }
+    case "drivingQuiz": {
+      const sample = {
+        questionType: "boolean",
+        statement: "In curva il veicolo tende a sbandare.",
+      };
+      const att = images.buildDrivingQuizPromptImage(sample) as Attachment;
+      return canvasOut(toDataUrl(att) || card("Quiz patente", ["In curva il veicolo tende a sbandare.", "Rispondi: Vero o Falso"], "driving_quiz", client));
+    }
+    case "treasureHunt":
+      return canvasOut(await themedCard(cfg, "Caccia al tesoro", ["Trova la reaction nascosta", "nei prossimi messaggi"], "treasure_hunt", client));
     default: {
       let label = type;
       try {

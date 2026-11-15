@@ -1,6 +1,6 @@
 /** Minigiochi quiz: capitali, capoluoghi e città. */
 const { getGuessCityBank } = require("../../Minigames/data/minigameBanks") as typeof import("../../Minigames/data/minigameBanks");
-const { normalizeCountryName, fetchWikiRegionImage, buildPromptImageAttachment, buildRegionNameImageAttachment } = require("./minigameImages") as typeof import("./minigameImages");
+const { normalizeCountryName, fetchWikiRegionImage, buildPromptImageAttachment, buildRegionNameImageAttachment, buildRemoteGuessImageCardAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 const { buildGuessCapitalEmbed, buildGuessRegionCapitalEmbed, buildGuessReverseCapitalEmbed, buildTimeoutCapitalEmbed, buildTimeoutRegionCapitalEmbed, buildTimeoutReverseCapitalEmbed, buildGuessCityEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { loadCapitalQuestionBank, loadReverseCapitalQuestionBank, loadRegionCapitalQuestionBank } = require("./minigameSources") as typeof import("./minigameSources");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
@@ -27,8 +27,11 @@ async function startGuessCapitalGame(client?, cfg?) {
 
   if (cfg.roleId)
     await sendMinigameRolePing(channel, cfg);
-  const capitalAttachment = !pick.image ? buildPromptImageAttachment("Indovina la capitale", [pick.country], "guess_capital", "", client) : null;
-  const capitalEmbed = buildGuessCapitalEmbed(pick.country, rewardExp, durationMs, pick.image || (capitalAttachment ? `attachment://${capitalAttachment.name}` : null));
+  /* bandiera dentro la card canvas; senza bandiera la card col nome */
+  const capitalAttachment =
+    (pick.image ? await buildRemoteGuessImageCardAttachment(pick.image, "Indovina la capitale", "guess_capital.png").catch(() => null) : null) ||
+    (!pick.image ? buildPromptImageAttachment("Indovina la capitale", [pick.country], "guess_capital", "", client) : null);
+  const capitalEmbed = buildGuessCapitalEmbed(pick.country, rewardExp, durationMs, capitalAttachment ? `attachment://${capitalAttachment.name}` : pick.image || null);
   const gameMessage = await sendMinigameMessage(
     channel,
     { embeds: [capitalEmbed], files: capitalAttachment ? [capitalAttachment] : [] },
@@ -159,8 +162,10 @@ async function startGuessReverseCapitalGame(client?, cfg?) {
 
   if (cfg.roleId)
     await sendMinigameRolePing(channel, cfg);
-  const reverseCapitalAttachment = !pick.image ? buildPromptImageAttachment("Capitale inverso", [pick.capital], "guess_reverse_capital", "", client) : null;
-  const reverseCapitalEmbed = buildGuessReverseCapitalEmbed(pick.capital, rewardExp, durationMs, pick.image || (reverseCapitalAttachment ? `attachment://${reverseCapitalAttachment.name}` : null));
+  const reverseCapitalAttachment =
+    (pick.image ? await buildRemoteGuessImageCardAttachment(pick.image, "Capitale inverso", "guess_reverse_capital.png").catch(() => null) : null) ||
+    (!pick.image ? buildPromptImageAttachment("Capitale inverso", [pick.capital], "guess_reverse_capital", "", client) : null);
+  const reverseCapitalEmbed = buildGuessReverseCapitalEmbed(pick.capital, rewardExp, durationMs, reverseCapitalAttachment ? `attachment://${reverseCapitalAttachment.name}` : pick.image || null);
   const gameMessage = await sendMinigameMessage(
     channel,
     { embeds: [reverseCapitalEmbed], files: reverseCapitalAttachment ? [reverseCapitalAttachment] : [] },

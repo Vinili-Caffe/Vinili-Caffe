@@ -285,7 +285,7 @@ async function handleMinigameWin(message?, game?, cfg?) {
           user: `<@${message.author.id}>`,
           exp: award.effectiveExp,
           total: award.nextTotal,
-          streak: award.details?.newStreak,
+          streak: award.details?.newStreak ?? (award as any).newStreak ?? 1,
         }),
         mentionUserId: message.author.id,
         guild: message.guild,

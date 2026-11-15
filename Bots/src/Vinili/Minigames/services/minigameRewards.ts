@@ -258,7 +258,7 @@ async function awardMinigameWinToUser({
     warnMinigame(err);
   }
 
-  return { effectiveExp, nextTotal, details, member, halloweenCandyDrop, starWarsQuizReward };
+  return { effectiveExp, nextTotal, details, member, halloweenCandyDrop, starWarsQuizReward, newStreak, bestStreak };
 }
 
 function mergeStarWarsQuizRewardIntoMessage(basePayload?, award?, winnerUserId?) {

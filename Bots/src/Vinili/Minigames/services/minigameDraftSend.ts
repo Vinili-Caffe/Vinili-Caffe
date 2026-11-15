@@ -95,7 +95,9 @@ function promptFromFallbackDescription(desc?) {
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
-  const useful = lines.filter((l) => !l.startsWith(">") && !/^hai\s/i.test(l));
+  /* via le emoji in testa alla riga: il messaggio della dashboard ha già la sua */
+  const LEAD = /^(?:(?:<a?:\w{1,64}:\d{15,22}>|\p{Extended_Pictographic}\uFE0F?|[\u{1F1E6}-\u{1F1FF}]{2})\s*)+/u;
+  const useful = lines.filter((l) => !l.startsWith(">") && !/^hai\s/i.test(l)).map((l) => l.replace(LEAD, "").trim()).filter(Boolean);
   if (useful.length) return useful.join("\n");
   return lines[0] || "Partecipa per vincere **{exp} exp**.";
 }

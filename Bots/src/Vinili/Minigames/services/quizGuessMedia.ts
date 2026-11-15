@@ -40,6 +40,43 @@ async function resolveGuessPuzzleAttachment({
 }
 const CENSOR_STEP_INTERVAL_MS = 60 * 1000;
 
+function isComponentsV2Message(msg?) {
+  try {
+    return Boolean(msg?.flags?.has?.(1 << 15)) || (Number(msg?.flags?.bitfield) & (1 << 15)) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+/** V2: sostituisce l'immagine della galleria (copertina) con quella meno censurata, o con l'originale alla fine. */
+async function editV2Artwork(msg?, alpha = 0, originalArtworkUrl = "", attachmentName = "") {
+  const name = String(attachmentName || "");
+  const isArtwork = (url?) => {
+    const u = String(url || "");
+    return (name && (u === `attachment://${name}` || u.split("?")[0].endsWith(`/${name}`))) || (originalArtworkUrl && u === originalArtworkUrl);
+  };
+  let files: any[] = [];
+  let nextUrl = originalArtworkUrl;
+  if (alpha > 0) {
+    const censored = await censorArtworkImage(originalArtworkUrl, { attachmentName: name, overlayAlpha: alpha });
+    if (!censored) return;
+    files = [new AttachmentBuilder(censored.buffer, { name: censored.attachmentName })];
+    nextUrl = `attachment://${censored.attachmentName}`;
+  }
+  const swap = (list?) =>
+    (Array.isArray(list) ? list : []).map((c?) => {
+      if (!c || typeof c !== "object") return c;
+      const out: any = { ...c };
+      if (out.type === 12 && Array.isArray(out.items)) out.items = out.items.map((i?) => (isArtwork(i?.media?.url) ? { ...i, media: { ...i.media, url: nextUrl } } : i));
+      if (out.type === 11 && isArtwork(out.media?.url)) out.media = { ...out.media, url: nextUrl };
+      if (out.accessory?.type === 11 && isArtwork(out.accessory?.media?.url)) out.accessory = { ...out.accessory, media: { ...out.accessory.media, url: nextUrl } };
+      if (Array.isArray(out.components)) out.components = swap(out.components);
+      return out;
+    });
+  const components = swap((msg.components || []).map((c?) => (typeof c?.toJSON === "function" ? c.toJSON() : c)));
+  await msg.edit({ components, files, attachments: [] }).catch(() => {});
+}
+
 function scheduleArtworkCensorSteps(params?) {
   const { channelId, channel, gameMessageId, originalArtworkUrl, durationMs, buildEmbed, rewardExp, attachmentName, gameType } = params;
   if (!channelId || !channel || !gameMessageId || !originalArtworkUrl || !buildEmbed) return [];
@@ -56,6 +93,10 @@ function scheduleArtworkCensorSteps(params?) {
       try {
         const msg = await channel.messages.fetch(gameMessageId).catch(() => null);
         if (!msg?.editable) return;
+        if (isComponentsV2Message(msg)) {
+          await editV2Artwork(msg, alpha, originalArtworkUrl, attachmentName);
+          return;
+        }
         if (alpha <= 0) {
           const embed = buildEmbed(rewardExp, durationMs, originalArtworkUrl);
           const payload = gameType === "guessSong" ? { embeds: [embed], components: msg.components, files: [] } : { embeds: [embed], files: [] };
@@ -98,10 +139,12 @@ async function startGuessFlagGame(client?, cfg?) {
   const roleId = cfg.roleId;
   await sendMinigameRolePing(channel, cfg, roleId);
 
-  const flagEmbed = buildGuessFlagEmbed(target.flagUrl, rewardExp, durationMs);
+  /* bandiera dentro la card canvas dei minigiochi (se fallisce, la bandiera com'è) */
+  const flagCard = target.flagUrl ? await buildRemoteGuessImageCardAttachment(target.flagUrl, "Indovina la bandiera", "guess_flag.png").catch(() => null) : null;
+  const flagEmbed = buildGuessFlagEmbed(flagCard ? `attachment://${flagCard.name}` : target.flagUrl, rewardExp, durationMs);
   const gameMessage = await sendMinigameMessage(
     channel,
-    { embeds: [flagEmbed] },
+    { embeds: [flagEmbed], files: flagCard ? [flagCard] : [] },
     { type: "guessFlag", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, country: target.displayName }) },
   ).catch(() => null);
 
