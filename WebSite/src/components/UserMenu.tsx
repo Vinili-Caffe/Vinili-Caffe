@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, CalendarDays, LayoutDashboard, ListChecks, LogIn, LogOut, MessageSquareText, Sparkles, UserRound, Users } from "lucide-react";
+import { BookOpen, CalendarDays, ChevronDown, LayoutDashboard, ListChecks, LogIn, LogOut, MessageSquareText, Sparkles, UserRound, Users } from "lucide-react";
 import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
@@ -13,7 +13,6 @@ import { useCloseOnScroll } from "@/lib/use-close-on-scroll";
 import { readViewAs, viewAsAllowedSticky } from "@/lib/view-as";
 import { isEventoHighStaff, isEventoPublicWindowOpen } from "@/lib/evento-starwars";
 import { Avatar } from "@/components/Avatar";
-import { HeaderNameMarquee } from "./effects/HeaderNameMarquee";
 import { ThemePrefRow } from "./ThemeToggle";
 import { SmartLink } from "./SmartLink";
 
@@ -129,18 +128,24 @@ export function UserMenu({ className }: { className?: string }) {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-label={t("auth.accountMenu")}
-        className="flex h-10 items-center gap-2 rounded-full bg-crema/8 p-1 pr-3 ring-1 ring-crema/15 transition-[transform,background-color] duration-200 ease-out hover:bg-crema/15 active:scale-[0.97]"
+        /* come il menu account della dashboard: avatar, nome + @username, freccia */
+        className={cn(
+          "flex h-10 items-center gap-2 rounded-xl p-1 ring-1 transition-[transform,background-color,box-shadow] duration-200 ease-out active:scale-[0.97] sm:pl-1 sm:pr-2",
+          open ? "bg-crema/[0.07] ring-sand/25" : "ring-sand/10 hover:bg-crema/[0.05] hover:ring-sand/20",
+        )}
       >
         {user ? (
-          <Avatar userId={user.id} src={avatarUrl(user)} name={displayName(user)} className="size-8" />
+          <Avatar userId={user.id} src={avatarUrl(user, 64)} name={displayName(user)} className="size-7" />
         ) : (
-          <span className="flex size-8 items-center justify-center rounded-full bg-crema/10">
-            <UserRound className="size-[1.15rem]" strokeWidth={2.25} />
+          <span className="flex size-7 items-center justify-center rounded-full bg-crema/10">
+            <UserRound className="size-4" strokeWidth={2.25} />
           </span>
         )}
-        <span className="hidden max-w-32 text-sm font-medium leading-none sm:block">
-          {user ? <HeaderNameMarquee text={displayName(user)} /> : t("auth.account")}
+        <span className="hidden min-w-0 text-left leading-tight sm:block">
+          <span className="block max-w-[9rem] truncate text-[0.8rem] font-semibold text-crema">{user ? displayName(user) : t("auth.account")}</span>
+          {user ? <span className="block max-w-[9rem] truncate text-[0.68rem] text-crema/55">@{user.username}</span> : null}
         </span>
+        <ChevronDown className={cn("hidden size-3.5 text-crema/50 transition sm:block", open && "rotate-180")} aria-hidden />
       </button>
 
       <AnimatePresence>
@@ -153,11 +158,11 @@ export function UserMenu({ className }: { className?: string }) {
             className="absolute right-0 top-full z-[70] mt-2 max-h-[calc(100dvh-6rem)] w-64 origin-top-right overflow-y-auto rounded-2xl bg-roast/95 p-1.5 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] ring-1 ring-sand/15 backdrop-blur-xl"
           >
             {user && (
-              <div className="flex items-center gap-3 px-3 py-2.5">
-                <Avatar userId={user.id} src={avatarUrl(user, 96)} name={displayName(user)} className="size-10" />
+              <div className="mb-1 flex items-center gap-2.5 border-b border-sand/10 px-2.5 pb-2.5 pt-1.5">
+                <Avatar userId={user.id} src={avatarUrl(user, 64)} name={displayName(user)} className="size-9" />
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{displayName(user)}</p>
-                  <p className="truncate text-xs text-crema/50">@{user.username}</p>
+                  <p className="truncate text-sm font-semibold text-crema">{displayName(user)}</p>
+                  <p className="truncate text-xs text-crema/55">@{user.username}</p>
                 </div>
               </div>
             )}
