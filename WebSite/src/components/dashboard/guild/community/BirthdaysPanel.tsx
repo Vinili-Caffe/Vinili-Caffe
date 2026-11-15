@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Cake, ExternalLink, Zap } from "lucide-react";
+import { Cake, ExternalLink, Plus, Trash2, Users, Zap } from "lucide-react";
 import { NumberField } from "@/components/ui/NumberField";
 import { Select } from "@/components/ui/Select";
 import { communityApi, type BirthdaysConfig } from "@/lib/dashboard-community";
 import { page } from "@/lib/site";
-import { Field, FormGroup, Notice, RowsSkeleton, Toggle, TrackUnsaved, fieldClass } from "../bits";
+import { Field, FormGroup, Notice, RowsSkeleton, Toggle, TrackUnsaved, fieldClass, labelClass, miniBtn } from "../bits";
+import { cn } from "@/lib/cn";
 import { ChannelField, DiscordMessagePreview, DmExtra, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 const PLACEHOLDERS = [
@@ -28,6 +29,27 @@ const DM_PLACEHOLDERS = [
 ];
 
 const HOURS = Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: `${String(h).padStart(2, "0")}:00` }));
+
+const DEFAULT_AGE_BRACKETS: NonNullable<BirthdaysConfig["ageBrackets"]> = {
+  enabled: true,
+  minAge: 13,
+  brackets: [
+    { maxAge: 14, roleId: "" },
+    { maxAge: 16, roleId: "" },
+    { maxAge: 18, roleId: "" },
+    { maxAge: 999, roleId: "" },
+  ],
+};
+
+function resolveAgeBrackets(cfg: BirthdaysConfig): NonNullable<BirthdaysConfig["ageBrackets"]> {
+  const ab = cfg.ageBrackets;
+  if (!ab) return DEFAULT_AGE_BRACKETS;
+  return {
+    enabled: ab.enabled !== false,
+    minAge: Number.isFinite(ab.minAge) ? ab.minAge : DEFAULT_AGE_BRACKETS.minAge,
+    brackets: ab.brackets?.length ? ab.brackets : DEFAULT_AGE_BRACKETS.brackets,
+  };
+}
 
 export function BirthdaysPanel({ guildId, token, onToast }: { guildId: string; token: string; onToast: (msg: string, err?: boolean) => void }) {
   const { data } = useCommunity(guildId, token);
@@ -151,6 +173,83 @@ export function BirthdaysPanel({ guildId, token, onToast }: { guildId: string; t
         placeholders={DM_PLACEHOLDERS}
         hint="A chi compie gli anni. Se è in più server col bot, riceve un solo privato al giorno."
       />
+
+      {meta.isMain ? (
+        <FormGroup title="Ruoli d'età" description="Ruoli assegnati in base all'età dichiarata. Sotto l'età minima i ruoli fascia vengono tolti.">
+          {(() => {
+            const ab = resolveAgeBrackets(cfg);
+            const roles = roleOptions(data.pickers.roles, guildId);
+            const setAb = (patch: Partial<typeof ab>) => set({ ageBrackets: { ...ab, ...patch } });
+            const setBracket = (i: number, patch: Partial<(typeof ab.brackets)[0]>) =>
+              setAb({ brackets: ab.brackets.map((row, idx) => (idx === i ? { ...row, ...patch } : row)) });
+            const roleColor = (id: string) => {
+              const c = data.pickers.roles.find((r) => r.id === id)?.color;
+              return c && c !== "#000000" ? c : "#99aab5";
+            };
+            return (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="flex items-center gap-2 text-sm text-crema/70">
+                    <Users className="size-4 text-ember" aria-hidden />
+                    Una fascia per età massima; al compleanno o all&apos;aggiornamento del profilo il bot aggiorna i ruoli.
+                  </p>
+                  <Toggle size="sm" checked={ab.enabled} onChange={(enabled) => setAb({ enabled })} label="Ruoli d'età" />
+                </div>
+                <div className={cn(!ab.enabled && "pointer-events-none opacity-45")}>
+                  <Field label="Età minima" hint="Sotto questa età: nessun ruolo fascia (vengono rimossi).">
+                    <NumberField value={ab.minAge} min={0} max={30} disabled={!ab.enabled} onChange={(v) => setAb({ minAge: Math.max(0, Math.min(30, Math.floor(Number(v) || 0))) })} aria-label="Età minima ruoli fascia" />
+                  </Field>
+                  <div className="mt-3">
+                    <p className={labelClass}>Fasce</p>
+                    {ab.brackets.length ? (
+                      <ul className="mt-2 space-y-2">
+                        {ab.brackets.map((row, i) => (
+                          <li key={i} className="flex flex-wrap items-center gap-2 rounded-2xl bg-espresso/45 p-2 pl-3 ring-1 ring-sand/10">
+                            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">Fino a</span>
+                            <div className="w-24 shrink-0">
+                              <NumberField className="!mt-0" value={row.maxAge} min={1} max={200} disabled={!ab.enabled} onChange={(v) => setBracket(i, { maxAge: Math.max(1, Math.min(200, Math.floor(Number(v) || 1))) })} aria-label="Età massima fascia" />
+                            </div>
+                            <span className="text-xs text-crema/50">anni</span>
+                            <span className="size-2.5 shrink-0 rounded-full" style={{ background: roleColor(row.roleId) }} aria-hidden />
+                            <div className="min-w-[10rem] flex-1">
+                              <Select value={row.roleId} onChange={(roleId) => setBracket(i, { roleId })} options={roles} className={cn(fieldClass, "!mt-0")} disabled={!ab.enabled} aria-label="Ruolo fascia d'età" />
+                            </div>
+                            <button
+                              type="button"
+                              className={cn(miniBtn, "!px-2")}
+                              disabled={!ab.enabled || ab.brackets.length <= 1}
+                              onClick={() => setAb({ brackets: ab.brackets.filter((_, j) => j !== i) })}
+                              aria-label="Togli fascia"
+                            >
+                              <Trash2 className="size-3.5" aria-hidden />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 rounded-2xl border border-dashed border-sand/15 px-4 py-4 text-center text-sm text-crema/50">Nessuna fascia configurata.</p>
+                    )}
+                    <button
+                      type="button"
+                      className={cn(miniBtn, "mt-2")}
+                      disabled={!ab.enabled || !roles.length || ab.brackets.length >= 12}
+                      onClick={() => {
+                        const last = ab.brackets[ab.brackets.length - 1];
+                        const maxAge = Math.min(200, (last?.maxAge || ab.minAge) + 2);
+                        setAb({
+                          brackets: [...ab.brackets, { maxAge, roleId: roles.find((r) => !ab.brackets.some((b) => b.roleId === r.value))?.value || roles[0]?.value || "" }],
+                        });
+                      }}
+                    >
+                      <Plus className="size-3.5" aria-hidden /> Aggiungi fascia
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </FormGroup>
+      ) : null}
 
       <FormGroup title="Boost EXP" description="Moltiplicatore sul ruolo del giorno (si allinea al modulo Livelli).">
         {meta.isMain ? (

@@ -64,14 +64,41 @@ const MUSIC_QUEUE_SNAPSHOT_PATH = process.env.MUSIC_QUEUE_SNAPSHOT_PATH
   ? path.resolve(String(process.env.MUSIC_QUEUE_SNAPSHOT_PATH))
   : path.join(__dirname, "..", "..", "..", "Vinili", "Data", "musicQueueSnapshot.json");
 
+/** Metadati minimi: senza questi, dopo un riavvio i brani diventano «Traccia sconosciuta» e il mirror non sa cercarli. */
+function serializeTrackInfo(info?) {
+  if (!info || typeof info !== "object") return null;
+  const out: Record<string, any> = {};
+  const title = String(info.title || "").trim();
+  const author = String(info.author || "").trim();
+  const uri = String(info.uri || "").trim();
+  const identifier = String(info.identifier || "").trim();
+  const sourceName = String(info.sourceName || "").trim();
+  const artworkUrl = String(info.artworkUrl || "").trim();
+  const isrc = String(info.isrc || info?.pluginInfo?.isrc || "").trim();
+  const length = Math.max(0, Math.floor(Number(info.length || info.duration || 0) || 0));
+  if (title) out.title = title.slice(0, 240);
+  if (author) out.author = author.slice(0, 160);
+  if (uri) out.uri = uri.slice(0, 500);
+  if (identifier) out.identifier = identifier.slice(0, 200);
+  if (sourceName) out.sourceName = sourceName.slice(0, 40);
+  if (artworkUrl) out.artworkUrl = artworkUrl.slice(0, 500);
+  if (isrc) out.isrc = isrc.slice(0, 32);
+  if (length > 0) out.length = length;
+  return Object.keys(out).length ? out : null;
+}
+
 function serializeQueueTrack(track?) {
   if (!track) return null;
   const encoded = typeof track?.encoded === "string" ? track.encoded : null;
   if (!encoded) return null;
   const vcRequestedByUserId = track?.vcRequestedByUserId ? String(track.vcRequestedByUserId) : null;
   const vcRequestedByUserTag = track?.vcRequestedByUserTag ? String(track.vcRequestedByUserTag) : null;
+  const info = serializeTrackInfo(track.info);
+  const label = String(track?.label || "").trim() || (info ? `${info.title || "Senza titolo"} — ${info.author || "?"}` : "");
   return {
     encoded,
+    ...(info ? { info } : {}),
+    ...(label ? { label: label.slice(0, 200) } : {}),
     ...(vcRequestedByUserId ? { vcRequestedByUserId } : {}),
     ...(vcRequestedByUserTag ? { vcRequestedByUserTag } : {}),
   };
@@ -83,8 +110,12 @@ function serializeEncodedLabelRows(rows?) {
     .map((row?) => {
       const encoded = typeof row?.encoded === "string" ? row.encoded : null;
       if (!encoded) return null;
-      const label = row?.label ? String(row.label) : "Traccia";
-      return { encoded, label };
+      const info = serializeTrackInfo(row?.info);
+      const label =
+        (row?.label ? String(row.label) : "") ||
+        (info ? `${info.title || "Senza titolo"} — ${info.author || "?"}` : "") ||
+        "Traccia";
+      return { encoded, label: label.slice(0, 200), ...(info ? { info } : {}) };
     })
     .filter(Boolean);
 }

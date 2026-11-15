@@ -5,7 +5,7 @@ const { voteCountMonthKeyRome } = require("../utils/romeVoteMonthKey") as typeof
 const { siteTicketsPageDiscordRef } = require("../../../shared/web/siteTicketsPageRef") as typeof import("../../../shared/web/siteTicketsPageRef");
 const { getGuildMemberCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { previousMonthKeyRome } = require("./winnersTime") as typeof import("./winnersTime");
-const { WEEKLY_WINNERS_EXCLUDED_ROLE_IDS, resolveTopThreeUsers } = require("./winnersRows") as typeof import("./winnersRows");
+const { getWeeklyWinnersExcludedRoleIds, resolveTopThreeUsers } = require("./winnersRows") as typeof import("./winnersRows");
 const { MONTHLY_MEMBER_ROLE_ID } = require("./winnersRoles") as typeof import("./winnersRoles");
 
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
@@ -66,7 +66,7 @@ async function resolvePreviousMonthTopVoters(client?, guild?) {
     sorted,
     (doc?) => Number(doc?._voteTotal || 0),
     3,
-    WEEKLY_WINNERS_EXCLUDED_ROLE_IDS,
+    getWeeklyWinnersExcludedRoleIds(),
   );
 }
 

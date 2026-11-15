@@ -15,6 +15,7 @@ const { compactNoSpaces, normalizeRewardExp, isLikelyItalianText, createMathQues
 const { activeGames, isQuestionKeyRecent, pushQuestionKeyToRecent, pickQuestionAvoidRecent } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
 const { markSent, saveActiveGame, scheduleMinigameRoundTimeout, sendMinigameTimeoutAndClose, scheduleGenericHint } = require("./minigameRound") as typeof import("./minigameRound");
 const { translateToItalian, buildItalianGkApiUrls, parseItalianGkQuestionFromPayload } = require("./quizSources") as typeof import("./quizSources");
 
@@ -81,7 +82,11 @@ async function startItalianGkGame(client?, cfg?) {
   if (gkAttachment) {
     gkEmbed.setImage(`attachment://${gkAttachment.name}`);
   }
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [gkEmbed], files: gkAttachment ? [gkAttachment] : [], }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [gkEmbed], files: gkAttachment ? [gkAttachment] : [] },
+    { type: "italianGK", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, question: questionRow.question }) },
+  ).catch(() => null);
   const displayAnswer = String(questionRow.answers[0] || "sconosciuta");
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutItalianGkEmbed(game.displayAnswer)); }, durationMs); timeout.unref?.();
@@ -133,7 +138,11 @@ async function startMathExpressionGame(client?, cfg?) {
     await sendMinigameRolePing(channel, cfg);
   const expressionAttachment = buildMathExpressionImageAttachment(row.expression);
   const files = expressionAttachment ? [expressionAttachment] : [];
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [buildMathExpressionEmbed(row.expression, rewardExp, durationMs, expressionAttachment?.name || null,),], files, }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [buildMathExpressionEmbed(row.expression, rewardExp, durationMs, expressionAttachment?.name || null)], files },
+    { type: "mathExpression", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, expression: row.expression }) },
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutMathEmbed(game.answer)); }, durationMs); timeout.unref?.();
   const answerNum = Number(row.answer);
@@ -186,7 +195,11 @@ async function startGuessYearGame(client?, cfg?) {
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildGuessYearEmbed(pick.title, pick.subtitle || null, rewardExp, durationMs, imageUrl);
   if (shouldUseHalloweenTheme(cfg)) embed.setTitle("Indovina l'anno Halloween 🎃");
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [embed], files: attachment ? [attachment] : [] },
+    { type: "guessYear", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, title: pick.title }) },
+  ).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const yearHint = `${E.VC_Flame} L'anno è tra **${pick.year - 5}** e **${pick.year + 5}**.`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, yearHint);
@@ -243,7 +256,11 @@ async function startCompleteVerseGame(client?, cfg?) {
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildCompleteVerseEmbed(pick.verse, rewardExp, durationMs, imageUrl);
   if (shouldUseHalloweenTheme(cfg) && !shouldUseStarWarsTheme(cfg)) embed.setTitle("Completa il verso Halloween 🎃");
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [embed], files: attachment ? [attachment] : [] },
+    { type: "completeVerse", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs }) },
+  ).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const hintText = `Verso: ${buildRevealHint(pick.answer)}`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, hintText);
@@ -316,7 +333,11 @@ async function startGuessEmojiGame(client?, cfg?) {
   );
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildGuessEmojiEmbed(pick.emojis, rewardExp, durationMs, imageUrl);
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [embed], files: attachment ? [attachment] : [] },
+    { type: "guessEmoji", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs }) },
+  ).catch(() => null);
   if (!gameMessage) return false;
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const hintText = `Risposta: ${buildRevealHint(displayAnswer || sourceAnswers[0] || "")}`;
@@ -360,7 +381,11 @@ async function startQuoteFilmGame(client?, cfg?) {
   const attachment = buildPromptImageAttachment("Citazione da film/serie", [displayQuote], "quote_film", "", client);
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildQuoteFilmEmbed(displayQuote, rewardExp, durationMs, imageUrl);
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [embed], files: attachment ? [attachment] : [] },
+    { type: "quoteFilm", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs }) },
+  ).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const hintText = `Film/Serie: ${buildRevealHint(pick.answer)}`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, hintText);
@@ -407,7 +432,11 @@ async function startCompleteProverbGame(client?, cfg?) {
   const attachment = buildPromptImageAttachment("Completa il proverbio", [pick.start], "complete_proverb", "", client);
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildCompleteProverbEmbed(pick.start, rewardExp, durationMs, imageUrl);
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [embed], files: attachment ? [attachment] : [] },
+    { type: "completeProverb", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs }) },
+  ).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const hintText = `Completamento: ${buildRevealHint(pick.end) ?? "—"}`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, hintText);
@@ -453,7 +482,11 @@ async function startSynonymAntonymGame(client?, cfg?) {
   const attachment = buildPromptImageAttachment(pick.kind === "antonym" ? "Trova il contrario" : "Trova il sinonimo", [`Parola: ${pick.word}`, `Scrivi ${kindLabel} di questa parola.`], "synonym_antonym", "", client);
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildSynonymAntonymEmbed(pick.word, pick.kind, rewardExp, durationMs, imageUrl);
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [embed], files: attachment ? [attachment] : [] },
+    { type: "synonymAntonym", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, word: pick.word }) },
+  ).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const hintText = `Risposta: ${buildRevealHint(answer)}`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, hintText);

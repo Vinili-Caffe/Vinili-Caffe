@@ -6,6 +6,7 @@ const { buildWinEmbed, resolveWinEmbedImageUrl, buildTreasureHuntFoundEmbed } = 
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { activeGames, blockMinigameRehydrate, clearNoParticipationDelay, clearActiveGame, beginMinigameWinClose, endMinigameWinClose } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   handleExpReward,
@@ -154,7 +155,21 @@ async function handleMinigameReaction(client?, reaction?, user?) {
     );
     const foundEmbed = buildTreasureHuntFoundEmbed(getTreasureHuntMessageUrl(guildId, cfg.channelId, game.winnerMessageId));
     if (channel?.send) {
-      await sendMinigameMessage(channel, { embeds: [foundEmbed, winEmbed] }).catch(() => {});
+      await sendMinigameMessage(
+        channel,
+        { embeds: [foundEmbed, winEmbed] },
+        {
+          type: "treasureHunt",
+          kind: "win",
+          vars: minigameDraftVars(channel, {
+            user: `<@${user.id}>`,
+            exp: award.effectiveExp,
+            total: award.nextTotal,
+            streak: award.details?.newStreak,
+          }),
+          mentionUserId: user.id,
+        },
+      ).catch(() => {});
     }
     if (member) {
       await handleExpReward(client || message.client, member, award.nextTotal);
@@ -218,6 +233,17 @@ async function handleMinigameButtonWin(interaction?, game?, cfg?) {
           award,
           interaction.user.id,
         ),
+        {
+          type: game.type,
+          kind: "win",
+          vars: minigameDraftVars(mainChannel, {
+            user: `<@${interaction.user.id}>`,
+            exp: award.effectiveExp,
+            total: award.nextTotal,
+            streak: award.details?.newStreak,
+          }),
+          mentionUserId: interaction.user.id,
+        },
       ).catch(() => { });
     }
     await interaction.reply({

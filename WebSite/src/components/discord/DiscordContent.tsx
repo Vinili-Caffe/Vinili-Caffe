@@ -190,46 +190,67 @@ export function DiscordContent({ text, names = {}, className }: { text: string; 
           );
         }
         const lines = b.split("\n");
-        return lines.map((line, li) => {
+        const nodes: ReactNode[] = [];
+        for (let li = 0; li < lines.length; ) {
+          const line = lines[li];
           const k = `${bi}-${li}`;
-          const br = li < lines.length - 1 ? <br /> : null;
           const q = line.match(/^>\s?(.*)$/);
-          if (q)
-            return (
-              <Fragment key={k}>
-                <span className={names.light ? "block border-l-4 border-espresso/25 pl-3 text-espresso/70" : "block border-l-4 border-crema/25 pl-3 text-crema/80"}>
-                  {inline(q[1], names, k)}
-                </span>
-                {br}
-              </Fragment>
+          /* Citazioni consecutive = un solo blocco (come Discord), senza <br> extra tra le righe. */
+          if (q) {
+            const quoteBodies: string[] = [];
+            while (li < lines.length) {
+              const qm = lines[li].match(/^>\s?(.*)$/);
+              if (!qm) break;
+              quoteBodies.push(qm[1]);
+              li += 1;
+            }
+            nodes.push(
+              <span
+                key={k}
+                className={names.light ? "block border-l-4 border-espresso/25 pl-3 text-espresso/70" : "block border-l-4 border-crema/25 pl-3 text-crema/80"}
+              >
+                {quoteBodies.map((body, qi) => (
+                  <Fragment key={`${k}-q-${qi}`}>
+                    {qi > 0 ? <br /> : null}
+                    {inline(body, names, `${k}-q-${qi}`)}
+                  </Fragment>
+                ))}
+              </span>,
             );
+            continue;
+          }
           const sub = line.match(/^-#\s+(.+)$/);
-          if (sub)
-            return (
-              <Fragment key={k}>
-                <span className={names.light ? "block text-xs text-espresso/55" : "block text-xs text-crema/55"}>
-                  {inline(sub[1], names, k)}
-                </span>
-                {br}
-              </Fragment>
+          if (sub) {
+            nodes.push(
+              <span key={k} className={names.light ? "block text-xs text-espresso/55" : "block text-xs text-crema/55"}>
+                {inline(sub[1], names, k)}
+              </span>,
             );
+            li += 1;
+            continue;
+          }
           const h = line.match(/^(#{1,3})\s+(.+)$/);
-          if (h)
-            return (
-              <Fragment key={k}>
-                <span className={h[1].length === 1 ? "block text-lg font-bold" : "block font-bold"}>
-                  {inline(h[2], names, k)}
-                </span>
-                {br}
-              </Fragment>
+          if (h) {
+            nodes.push(
+              <span key={k} className={h[1].length === 1 ? "block text-lg font-bold" : "block font-bold"}>
+                {inline(h[2], names, k)}
+              </span>,
             );
-          return (
+            li += 1;
+            continue;
+          }
+          /* Righe inline: <br> solo tra di loro (i block sopra vanno già a capo da soli). */
+          const nextIsBlock =
+            li + 1 < lines.length && (/^>\s?/.test(lines[li + 1]) || /^-#\s+/.test(lines[li + 1]) || /^#{1,3}\s+/.test(lines[li + 1]));
+          nodes.push(
             <Fragment key={k}>
               {inline(line, names, k)}
-              {br}
-            </Fragment>
+              {li < lines.length - 1 && !nextIsBlock ? <br /> : null}
+            </Fragment>,
           );
-        });
+          li += 1;
+        }
+        return <Fragment key={bi}>{nodes}</Fragment>;
       })}
     </div>
   );

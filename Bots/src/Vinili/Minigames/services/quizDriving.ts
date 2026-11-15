@@ -9,6 +9,7 @@ const { normalizeRewardExp, normalizeTruthValue, shuffleArray } = require("./min
 const { activeGames, isQuestionKeyRecent, pushQuestionKeyToRecent, pickQuestionAvoidRecent } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
 const { markSent, saveActiveGame, sendMinigameTimeoutAndClose, scheduleGenericHint } = require("./minigameRound") as typeof import("./minigameRound");
 const { translateToItalian } = require("./quizSources") as typeof import("./quizSources");
 
@@ -231,7 +232,11 @@ async function startDrivingQuizGame(client?, cfg?) {
   if (drivingAttachment) {
     drivingEmbed.setImage(`attachment://${drivingAttachment.name}`);
   }
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [drivingEmbed], files: drivingAttachment ? [drivingAttachment] : [], }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [drivingEmbed], files: drivingAttachment ? [drivingAttachment] : [] },
+    { type: "drivingQuiz", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, statement: row.statement }) },
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutDrivingQuizEmbed(game)); }, durationMs); timeout.unref?.();
 

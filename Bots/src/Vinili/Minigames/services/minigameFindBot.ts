@@ -9,6 +9,7 @@ const { normalizeRewardExp } = require("./minigameText") as typeof import("./min
 const { activeGames, clearNoParticipationDelay, clearActiveGame, beginMinigameWinClose, endMinigameWinClose } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
 const { handleExpReward, mergeHalloweenCandyDropIntoMessage, mergeStarWarsQuizRewardIntoMessage, awardMinigameWinToUser } = require("./minigameRewards") as typeof import("./minigameRewards");
 const { markSent, saveActiveGame, deleteFindMinigameRemoteMessage, sendMinigameTimeoutAndClose, scheduleMinuteHint, findBotVoiceSessionByGuild, leaveFindBotVoiceChannel } = require("./minigameRound") as typeof import("./minigameRound");
 const { getConfig } = require("./minigameConfig") as typeof import("./minigameConfig");
@@ -250,7 +251,11 @@ async function startFindBotGame(client?, cfg?) {
   );
   const findBotEmbed = buildFindBotEmbed(rewardExp, durationMs);
   if (findBotAttachment) findBotEmbed.setImage(`attachment://${findBotAttachment.name}`);
-  const mainMessage = await sendMinigameMessage(mainChannel, { embeds: [findBotEmbed], files: findBotAttachment ? [findBotAttachment] : [], }).catch(() => null);
+  const mainMessage = await sendMinigameMessage(
+    mainChannel,
+    { embeds: [findBotEmbed], files: findBotAttachment ? [findBotAttachment] : [] },
+    { type: "findBot", kind: "start", vars: minigameDraftVars(mainChannel, { exp: rewardExp, durationMs }) },
+  ).catch(() => null);
 
   const customId = `minigame_findbot:${Date.now()}`;
   let findBotNearImage = null;
@@ -335,10 +340,11 @@ async function startFindBotVoiceGame(client?, cfg?) {
   );
   const introEmbed = buildFindBotVoiceEmbed(rewardExp, durationMs);
   if (attachment) introEmbed.setImage(`attachment://${attachment.name}`);
-  const mainMessage = await sendMinigameMessage(mainChannel, {
-    embeds: [introEmbed],
-    files: attachment ? [attachment] : [],
-  }).catch(() => null);
+  const mainMessage = await sendMinigameMessage(
+    mainChannel,
+    { embeds: [introEmbed], files: attachment ? [attachment] : [] },
+    { type: "findBotVoice", kind: "start", vars: minigameDraftVars(mainChannel, { exp: rewardExp, durationMs }) },
+  ).catch(() => null);
 
   const customId = `minigame_findbotvoice:${Date.now()}`;
   const timeout = scheduleFindMinigameTimeout(
@@ -419,6 +425,17 @@ async function handleFindBotClaimWin(client?, guild?, user?, game?, cfg?, { ephe
           award,
           user.id,
         ),
+        {
+          type: "findBot",
+          kind: "win",
+          vars: minigameDraftVars(mainChannel, {
+            user: `<@${user.id}>`,
+            exp: award.effectiveExp,
+            total: award.nextTotal,
+            streak: award.details?.newStreak,
+          }),
+          mentionUserId: user.id,
+        },
       ).catch(() => {});
     }
     if (typeof ephemeralReply === "function") {
@@ -521,6 +538,17 @@ async function handleFindBotVoiceWin(client?, guild?, member?, game?, cfg?) {
           award,
           member.id,
         ),
+        {
+          type: "findBotVoice",
+          kind: "win",
+          vars: minigameDraftVars(mainChannel, {
+            user: `<@${member.id}>`,
+            exp: award.effectiveExp,
+            total: award.nextTotal,
+            streak: award.details?.newStreak,
+          }),
+          mentionUserId: member.id,
+        },
       ).catch(() => {});
     }
     if (award.member) {

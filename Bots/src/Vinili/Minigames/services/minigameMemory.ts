@@ -12,6 +12,7 @@ const { normalizeRewardExp, shuffleArray, normalizeMemorySequence, displayMemory
 const { activeGames, pickQuestionAvoidRecent } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
 const { markSent, saveActiveGame, parseStateTarget, scheduleMinigameRoundTimeout, catchUpMemoryEmojiWinFromHistory } = require("./minigameRound") as typeof import("./minigameRound");
 const { suppressMinigameSnipe } = require("./minigameSnipe") as typeof import("./minigameSnipe");
 
@@ -296,6 +297,7 @@ async function startMemoryEmojiGame(client?, cfg?, options?) {
   const sequenceMessage = await sendMinigameMessage(
     channel,
     { embeds: [sequenceEmbed], files: sequenceFiles },
+    { type, kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs }) },
   ).catch(() => null);
   if (!sequenceMessage) return false;
   suppressMinigameSnipe(client, channelId, sequenceMessage.id);

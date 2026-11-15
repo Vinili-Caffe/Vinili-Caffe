@@ -10,7 +10,7 @@ const { getPreviousRomeCalendarMonth } = require("./winnersTime") as typeof impo
 const { loadMonthlyRowsFromRomeCalendarMonth, resolveTopThreeUsers, uniqueRankingByUserId } = require("./winnersRows") as typeof import("./winnersRows");
 const { updateMonthlyWinnerRoles } = require("./winnersRoles") as typeof import("./winnersRoles");
 const { TROPHY_LABELS, resolvePreviousMonthTopVoters, cleanupExpiredMonthlyVoterRewards, assignMonthlyVoterRewards, buildMonthlyTopPrizeEmbedLines, buildMonthlyTopWinnerAnnounceLines, revokeActiveMonthlyTopRewardsExcept, revokeActiveMonthlyVoterRewardsExcept, cleanupExpiredMonthlyTopRewards, assignMonthlyTopRewards } = require("./winnersMonthlyRewards") as typeof import("./winnersMonthlyRewards");
-const { TARGET_CHANNEL_ID, buildEmptyLine, formatRankLine } = require("./winnersWeekly") as typeof import("./winnersWeekly");
+const { resolveWeeklyTopChannelId, buildEmptyLine, formatRankLine } = require("./winnersWeekly") as typeof import("./winnersWeekly");
 const { setBotState, tryClaimBotStateOnce } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 
 /** Durante SW i premi mensili sono sostituiti dai podi di fine fase. */
@@ -58,7 +58,7 @@ async function publishMonthlyActivityWinners(client?, options: Record<string, an
   let guild =
     mainGuildId &&
     (client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null)));
-  const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
+  const channelIdToUse = resolveWeeklyTopChannelId(options.targetChannelId);
   if (!guild) {
     const channel =
       client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));

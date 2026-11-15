@@ -7,13 +7,31 @@ const MINIGAME_WIN_EMOJI = E.VC_Events;
 const MINIGAME_CORRECT_FALLBACK_EMOJI = "\u2714";
 const MINIGAME_WRONG_EMOJI = E.VC_Cross;
 
-async function sendMinigameMessage(channel?, payload?) {
+/**
+ * @param opts.type tipo minigioco — se presente, prova start/win draft dalla dashboard
+ * @param opts.kind 'start' | 'win' (default start)
+ * @param opts.vars placeholder del draft
+ */
+async function sendMinigameMessage(channel?, payload?, opts: { type?: string; kind?: "start" | "win"; vars?: Record<string, string>; mentionUserId?: string | null } = {}) {
   if (!channel?.send) return null;
   try {
+    let body = payload;
+    if (opts?.type) {
+      try {
+        const { applyMinigameDraftToPayload } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
+        body = applyMinigameDraftToPayload(payload, {
+          type: opts.type,
+          kind: opts.kind || "start",
+          vars: opts.vars || {},
+          mentionUserId: opts.mentionUserId || null,
+          guild: channel.guild || null,
+        });
+      } catch (_) {}
+    }
     const outgoing =
-      payload && typeof payload === "object" && !Array.isArray(payload)
-        ? applyDefaultFooterToEmbeds(payload, channel.guild)
-        : payload;
+      body && typeof body === "object" && !Array.isArray(body)
+        ? applyDefaultFooterToEmbeds(body, channel.guild)
+        : body;
     return await channel.send(outgoing);
   } catch (_) {
     return null;

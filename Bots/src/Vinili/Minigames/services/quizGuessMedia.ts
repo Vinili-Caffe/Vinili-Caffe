@@ -9,6 +9,7 @@ const { normalizeRewardExp, buildPlayerAnswerAliases, buildPlainMaskedTextHint, 
 const { activeGames, pickQuestionAvoidRecent } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
 const { markSent, saveActiveGame, scheduleMinigameRoundTimeout, sendMinigameTimeoutAndClose, scheduleGenericHint } = require("./minigameRound") as typeof import("./minigameRound");
 const { translateToItalian } = require("./quizSources") as typeof import("./quizSources");
 
@@ -98,7 +99,11 @@ async function startGuessFlagGame(client?, cfg?) {
   await sendMinigameRolePing(channel, cfg, roleId);
 
   const flagEmbed = buildGuessFlagEmbed(target.flagUrl, rewardExp, durationMs);
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [flagEmbed] }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [flagEmbed] },
+    { type: "guessFlag", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, country: target.displayName }) },
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutFlagEmbed(game.displayName)); }, durationMs); timeout.unref?.();
 
@@ -189,7 +194,8 @@ async function startGuessPlayerGame(client?, cfg?) {
 
   const gameMessage = await sendMinigameMessage(
     channel,
-    { embeds: [playerEmbed], ...(playerAttachment ? { files: [playerAttachment] } : {}) }
+    { embeds: [playerEmbed], ...(playerAttachment ? { files: [playerAttachment] } : {}) },
+    { type: "guessPlayer", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, name: info.name }) },
   ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutPlayerEmbed(game.displayName)); }, durationMs); timeout.unref?.();
@@ -260,7 +266,11 @@ async function startGuessSongGame(client?, cfg?) {
     songImageUrl = `attachment://${songCensored.attachmentName}`;
   }
   const songFiles = songCensored ? [new AttachmentBuilder(songCensored.buffer, { name: songCensored.attachmentName })] : [];
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [buildGuessSongEmbed(rewardExp, durationMs, songImageUrl)], components: [row], files: songFiles, }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [buildGuessSongEmbed(rewardExp, durationMs, songImageUrl)], components: [row], files: songFiles },
+    { type: "guessSong", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, title: info.title, artist: info.artist }) },
+  ).catch(() => null);
 
   const censorRevealTimeouts = info.artwork && gameMessage?.id
     ? scheduleArtworkCensorSteps({
@@ -350,7 +360,8 @@ async function startGuessTeamGame(client?, cfg?) {
   );
   const gameMessage = await sendMinigameMessage(
     channel,
-    { embeds: [teamEmbed], ...(teamAttachment ? { files: [teamAttachment] } : {}) }
+    { embeds: [teamEmbed], ...(teamAttachment ? { files: [teamAttachment] } : {}) },
+    { type: "guessTeam", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, team: pick.team }) },
   ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutTeamEmbed(game.team)); }, durationMs); timeout.unref?.();
@@ -416,7 +427,8 @@ async function startGuessSingerGame(client?, cfg?) {
   );
   const gameMessage = await sendMinigameMessage(
     channel,
-    { embeds: [singerEmbed], ...(singerAttachment ? { files: [singerAttachment] } : {}) }
+    { embeds: [singerEmbed], ...(singerAttachment ? { files: [singerAttachment] } : {}) },
+    { type: "guessSinger", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, name: pick.name }) },
   ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutSingerEmbed(game.name)); }, durationMs); timeout.unref?.();
@@ -476,7 +488,11 @@ async function startGuessAlbumGame(client?, cfg?) {
   const albumFallbackAttachment = !albumImageUrl ? buildPromptImageAttachment("Indovina l'album", [pick.album, pick.artist], "guess_album", "", client) : null;
   if (albumFallbackAttachment) albumImageUrl = `attachment://${albumFallbackAttachment.name}`;
   const albumFiles = albumCensored ? [new AttachmentBuilder(albumCensored.buffer, { name: albumCensored.attachmentName })] : (albumFallbackAttachment ? [albumFallbackAttachment] : []);
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [buildGuessAlbumEmbed(rewardExp, durationMs, albumImageUrl)], files: albumFiles, }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [buildGuessAlbumEmbed(rewardExp, durationMs, albumImageUrl)], files: albumFiles },
+    { type: "guessAlbum", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, album: pick.album, artist: pick.artist }) },
+  ).catch(() => null);
 
   const censorRevealTimeouts = pick.image && gameMessage?.id
     ? scheduleArtworkCensorSteps({

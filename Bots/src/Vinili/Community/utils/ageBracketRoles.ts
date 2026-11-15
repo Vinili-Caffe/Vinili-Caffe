@@ -36,13 +36,38 @@ function computeAgeFromBirthParts(day?, month?, birthYear?, now = new Date()) {
   return Math.max(0, today.year - Number(birthYear) - (hasBirthdayPassed ? 0 : 1));
 }
 
-function getAgeBracketRoleIdForAge(age?) {
-  if (!Number.isFinite(age)) return { targetId: null, stripOnly: false };
-  if (age < 13) return { targetId: null, stripOnly: true };
-  if (age <= 14) return { targetId: String(IDs.roles?.["1314"] || "").trim() || null, stripOnly: false };
-  if (age <= 16) return { targetId: String(IDs.roles?.["1516"] || "").trim() || null, stripOnly: false };
-  if (age <= 18) return { targetId: String(IDs.roles?.["1718"] || "").trim() || null, stripOnly: false };
-  return { targetId: String(IDs.roles?.["19"] || "").trim() || null, stripOnly: false };
+async function resolveAgeBracketsConfig() {
+  try {
+    const BDAY = require("../../../MultiGuild/services/birthdaysRuntime") as typeof import("../../../MultiGuild/services/birthdaysRuntime");
+    const cfg = await BDAY.getConfig(String(IDs.guilds?.main || ""));
+    if (cfg && (cfg.userSaved || cfg.seedVersion > 0) && cfg.ageBrackets) return cfg.ageBrackets;
+  } catch (_) {}
+  return null;
+}
+
+function getAgeBracketRoleIdForAge(age?, ageBrackets?) {
+  if (!Number.isFinite(age)) return { targetId: null, stripOnly: false, roleIds: AGE_BRACKET_ROLE_IDS };
+  const ab = ageBrackets && typeof ageBrackets === "object" ? ageBrackets : null;
+  if (ab && ab.enabled === false) return { targetId: null, stripOnly: false, roleIds: [] };
+  const brackets = Array.isArray(ab?.brackets) && ab.brackets.length
+    ? [...ab.brackets].sort((a?, b?) => Number(a.maxAge) - Number(b.maxAge))
+    : null;
+  const roleIds = brackets
+    ? brackets.map((b?) => String(b.roleId || "").trim()).filter(Boolean)
+    : AGE_BRACKET_ROLE_IDS;
+  const minAge = Number.isFinite(Number(ab?.minAge)) ? Number(ab.minAge) : 13;
+  if (age < minAge) return { targetId: null, stripOnly: true, roleIds };
+  if (brackets?.length) {
+    for (const row of brackets) {
+      if (age <= Number(row.maxAge)) return { targetId: String(row.roleId || "").trim() || null, stripOnly: false, roleIds };
+    }
+    const last = brackets[brackets.length - 1];
+    return { targetId: String(last?.roleId || "").trim() || null, stripOnly: false, roleIds };
+  }
+  if (age <= 14) return { targetId: String(IDs.roles?.["1314"] || "").trim() || null, stripOnly: false, roleIds };
+  if (age <= 16) return { targetId: String(IDs.roles?.["1516"] || "").trim() || null, stripOnly: false, roleIds };
+  if (age <= 18) return { targetId: String(IDs.roles?.["1718"] || "").trim() || null, stripOnly: false, roleIds };
+  return { targetId: String(IDs.roles?.["19"] || "").trim() || null, stripOnly: false, roleIds };
 }
 
 async function applyAgeBracketRoleFromBirthday(guild?, userId?, day?, month?, birthYear?, now = new Date()) {
@@ -50,11 +75,13 @@ async function applyAgeBracketRoleFromBirthday(guild?, userId?, day?, month?, bi
   if (!uid || !guild) return { ok: false, reason: "bad_args" };
   const age = computeAgeFromBirthParts(day, month, birthYear, now);
   if (age == null) return { ok: false, reason: "bad_age_inputs" };
-  const { targetId, stripOnly } = getAgeBracketRoleIdForAge(age);
+  const ageBrackets = await resolveAgeBracketsConfig();
+  const { targetId, stripOnly, roleIds } = getAgeBracketRoleIdForAge(age, ageBrackets);
   const member = await guild.members.fetch({ user: uid, force: false }).catch(() => null);
   if (!member) return { ok: false, reason: "member" };
   const reason = "Profilo: fascia d'età (compleanno)";
-  const had = AGE_BRACKET_ROLE_IDS.filter((rid?) => member.roles.cache.has(rid));
+  const ids = Array.isArray(roleIds) && roleIds.length ? roleIds : AGE_BRACKET_ROLE_IDS;
+  const had = ids.filter((rid?) => member.roles.cache.has(rid));
 
   if (stripOnly || !targetId) {
     if (!had.length) return { ok: true, unchanged: true };

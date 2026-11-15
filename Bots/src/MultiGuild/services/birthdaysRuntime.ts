@@ -12,6 +12,7 @@
 const { Routes } = require("discord.js") as typeof import("discord.js");
 const T = require("../core/tenantCommunityTools") as typeof import("../core/tenantCommunityTools");
 
+type AgeBracket = { maxAge: number; roleId: string };
 type BirthdaysConfig = {
   seedVersion: number;
   userSaved: boolean;
@@ -25,6 +26,13 @@ type BirthdaysConfig = {
   reactions: string[];
   /** boost EXP nel giorno del compleanno (moltiplicatore sul ruolo del giorno) */
   expBoost: { enabled: boolean; multiplier: number };
+  /** ruoli fascia d'età (solo server principale) */
+  ageBrackets: {
+    enabled: boolean;
+    /** sotto questa età: toglie i ruoli fascia */
+    minAge: number;
+    brackets: AgeBracket[];
+  };
 };
 
 const SEED_VERSION = 1;
@@ -68,6 +76,47 @@ function normalizeExpBoost(raw?): { enabled: boolean; multiplier: number } {
   };
 }
 
+function defaultAgeBrackets(): BirthdaysConfig["ageBrackets"] {
+  try {
+    const IDs = require("../../Vinili/Config/ids") as any;
+    const rows: [number, string][] = [
+      [14, "1314"],
+      [16, "1516"],
+      [18, "1718"],
+      [999, "19"],
+    ];
+    return {
+      enabled: true,
+      minAge: 13,
+      brackets: rows
+        .map(([maxAge, key]) => ({ maxAge, roleId: String(IDs?.roles?.[key] || "").trim() }))
+        .filter((b) => T.isId(b.roleId)),
+    };
+  } catch {
+    return { enabled: true, minAge: 13, brackets: [] };
+  }
+}
+
+function normalizeAgeBrackets(raw?): BirthdaysConfig["ageBrackets"] {
+  const d = defaultAgeBrackets();
+  const r = raw && typeof raw === "object" ? raw : {};
+  const brackets: AgeBracket[] = [];
+  const seen = new Set<number>();
+  for (const row of Array.isArray(r.brackets) ? r.brackets : d.brackets) {
+    const maxAge = Math.floor(Number(row?.maxAge));
+    const roleId = String(row?.roleId || "").trim();
+    if (!Number.isFinite(maxAge) || maxAge < 1 || maxAge > 200 || seen.has(maxAge) || !T.isId(roleId)) continue;
+    seen.add(maxAge);
+    brackets.push({ maxAge, roleId });
+    if (brackets.length >= 12) break;
+  }
+  return {
+    enabled: r.enabled !== false,
+    minAge: Math.max(0, Math.min(30, Math.floor(Number(r.minAge) || d.minAge))),
+    brackets: (brackets.length ? brackets : d.brackets).sort((a, b) => a.maxAge - b.maxAge),
+  };
+}
+
 function normalizeConfig(raw?): BirthdaysConfig {
   const r = raw && typeof raw === "object" ? raw : {};
   const hour = Math.floor(Number(r.hour));
@@ -84,6 +133,7 @@ function normalizeConfig(raw?): BirthdaysConfig {
     },
     reactions: (Array.isArray(r.reactions) ? r.reactions : []).map((x: unknown) => String(x || "").trim()).filter(Boolean).slice(0, 5),
     expBoost: normalizeExpBoost(r.expBoost),
+    ageBrackets: normalizeAgeBrackets(r.ageBrackets),
   };
 }
 

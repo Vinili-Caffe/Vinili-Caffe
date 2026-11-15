@@ -249,6 +249,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     app.get(`${base}/levels`, wrap("levels", (t, req) => X().getLevels(client, t, gid(req))));
     app.patch(`${base}/levels`, wrap("levels patch", (t, req) => X().patchLevels(client, t, gid(req), req.body)));
     app.post(`${base}/levels/event`, wrap("levels event", (t, req) => X().setLevelsEvent(client, t, gid(req), req.body)));
+    app.get(`${base}/levels/minigame-preview`, wrap("levels minigame preview", (t, req) => X().getMinigamePreview(client, t, gid(req), String(req.query?.type || ""))));
     app.get(`${base}/levels/user`, wrap("levels user", (t, req) => X().getLevelsUser(client, t, gid(req), String(req.query?.id || ""))));
     app.post(`${base}/levels/user`, wrap("levels user patch", (t, req) => X().patchLevelsUser(client, t, gid(req), req.body)));
     app.get(`${base}/giveaways`, wrap("gw list", (t, req) => X().listGiveaways(client, t, gid(req))));

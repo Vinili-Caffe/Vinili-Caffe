@@ -42,6 +42,9 @@ function buildGiveawayEmbed(giveaway?, options: Record<string, any> = {}) {
   const isCancelled = Boolean(cancelled);
 
   const minLevel = Math.max(0, Math.floor(Number(giveaway.minLevel) || 0));
+  const requiredRoleIds = (Array.isArray(giveaway.requiredRoleIds) ? giveaway.requiredRoleIds : [])
+    .map((id?) => String(id || "").trim())
+    .filter((id?) => /^\d{16,22}$/.test(id));
   const fields = [
     {
       name: `${E.VC_Calendar} Tempo rimanente`,
@@ -58,6 +61,13 @@ function buildGiveawayEmbed(giveaway?, options: Record<string, any> = {}) {
     fields.push({
       name: `${E.VC_LevelUp2 || E.VC_EXP} Livello minimo`,
       value: String(minLevel),
+      inline: true,
+    });
+  }
+  if (requiredRoleIds.length) {
+    fields.push({
+      name: `${E.VC_EXP} Ruoli richiesti`,
+      value: requiredRoleIds.map((id?) => `<@&${id}>`).join(" · "),
       inline: true,
     });
   }

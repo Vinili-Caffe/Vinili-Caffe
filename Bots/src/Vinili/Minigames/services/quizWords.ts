@@ -16,6 +16,7 @@ const { shuffleString, normalizeWord, normalizeRewardExp, maskHangmanWord, build
 const { activeGames, pickQuestionAvoidRecent } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
 const { markSent, saveActiveGame, sendMinigameTimeoutAndClose, scheduleGenericHint } = require("./minigameRound") as typeof import("./minigameRound");
 const { translateToItalian, extractWordListFromApiPayload, loadWordList, fetchPhraseFromApiCandidates, isValidHangmanWord } = require("./quizSources") as typeof import("./quizSources");
 
@@ -48,7 +49,11 @@ async function startGuessNumberGame(client?, cfg?) {
   );
   const numberEmbed = buildGuessNumberEmbed(min, max, rewardExp, durationMs);
   if (numberAttachment) numberEmbed.setImage(`attachment://${numberAttachment.name}`);
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [numberEmbed], files: numberAttachment ? [numberAttachment] : [], }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [numberEmbed], files: numberAttachment ? [numberAttachment] : [] },
+    { type: "guessNumber", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, min, max }) },
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutNumberEmbed(game.target)); }, durationMs); timeout.unref?.();
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, buildNumberNearHint(target, min, max),);
@@ -112,7 +117,11 @@ async function startGuessWordGame(client?, cfg?) {
   if (wordAttachment) {
     wordEmbed.setImage(`attachment://${wordAttachment.name}`);
   }
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [wordEmbed], files: wordAttachment ? [wordAttachment] : [], }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [wordEmbed], files: wordAttachment ? [wordAttachment] : [] },
+    { type: "guessWord", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, word: scrambled }) },
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutWordEmbed(game.target)); }, durationMs); timeout.unref?.();
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, `Parola: ${buildRevealHint(target, 0.4, false)}`,
@@ -199,7 +208,11 @@ async function startFastTypeGame(client?, cfg?) {
   if (fastTypeAttachment) {
     fastTypeEmbed.setImage(`attachment://${fastTypeAttachment.name}`);
   }
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [fastTypeEmbed], files: fastTypeAttachment ? [fastTypeAttachment] : [], }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [fastTypeEmbed], files: fastTypeAttachment ? [fastTypeAttachment] : [] },
+    { type: "fastType", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, phrase }) },
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutFastTypeEmbed(game.phrase)); }, durationMs); timeout.unref?.();
 
@@ -295,7 +308,11 @@ async function startHangmanGame(client?, cfg?) {
   if (hangmanAttachment) {
     hangmanEmbed.setImage(`attachment://${hangmanAttachment.name}`);
   }
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [hangmanEmbed], files: hangmanAttachment ? [hangmanAttachment] : [], }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [hangmanEmbed], files: hangmanAttachment ? [hangmanAttachment] : [] },
+    { type: "hangman", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, word: maskedWord }) },
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutHangmanEmbed(game.word)); }, durationMs); timeout.unref?.();
     const hintTimeout = null;

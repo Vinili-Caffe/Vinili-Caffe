@@ -4,6 +4,7 @@
 // Handler: Vinili/Utils/Web/siteDashboardApi.js (+ siteWebhookRoutes.js).
 
 import { page } from "@/lib/site";
+import { readableGuildName } from "@/lib/discord-fancy-text";
 
 export type DashboardGuild = {
   id: string;
@@ -149,7 +150,7 @@ function mapGuild(row: Record<string, unknown>): DashboardGuild | null {
   const icon = String(row?.iconUrl || "").trim();
   return {
     id,
-    name: String(row?.name || "Server").trim() || "Server",
+    name: readableGuildName(row?.name),
     iconUrl: icon || null,
     owner: row?.owner === true,
     botPresent: row?.botPresent === true,

@@ -12,6 +12,7 @@ type ScheduledGiveaway = {
   durationMs: number;
   winnerCount: number;
   minLevel: number;
+  requiredRoleIds: string[];
   startAt: string;
   createdBy: string;
   createdAt: string;
@@ -35,6 +36,10 @@ function normalize(raw: unknown): ScheduledGiveaway[] {
       durationMs,
       winnerCount: Math.max(1, Math.min(20, Math.floor(Number(x.winnerCount) || 1))),
       minLevel: Math.max(0, Math.min(10000, Math.floor(Number(x.minLevel) || 0))),
+      requiredRoleIds: (Array.isArray(x.requiredRoleIds) ? x.requiredRoleIds : [])
+        .map((id: unknown) => String(id || "").trim())
+        .filter((id: string) => /^\d{16,22}$/.test(id))
+        .slice(0, 20),
       startAt: new Date(start).toISOString(),
       createdBy: String(x.createdBy || ""),
       createdAt: String(x.createdAt || new Date().toISOString()),

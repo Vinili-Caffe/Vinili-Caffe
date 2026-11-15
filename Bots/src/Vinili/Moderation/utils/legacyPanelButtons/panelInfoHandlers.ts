@@ -541,7 +541,11 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
     const fields = rewards.slice(0, 25).map((row, idx) => {
       const next = rewards[idx + 1];
       const range = next ? `LIVELLO ${row.level}-${Math.max(row.level, next.level - 1)}` : `LIVELLO ${row.level}+`;
-      const lines = legacyPerkLines(row.level, row.roleId);
+      const roleLine = row.roleId ? `<@&${row.roleId}>` : "";
+      const customPerks = typeof (row as any)?.perks === "string" ? String((row as any).perks).trim() : "";
+      const lines = customPerks
+        ? [roleLine, customPerks].filter(Boolean)
+        : legacyPerkLines(row.level, row.roleId);
       return { name: `\`${range}\``, value: lines.join("\n").slice(0, 1024), inline: true };
     });
 

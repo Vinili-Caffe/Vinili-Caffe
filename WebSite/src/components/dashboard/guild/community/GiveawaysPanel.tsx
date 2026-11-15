@@ -5,11 +5,11 @@ import { CalendarClock, Dices, Gift, Pencil, Play, Plus, Search, Square, Trash2,
 import { EmptyState } from "@/components/ui/EmptyState";
 import { DateTimeField } from "@/components/ui/DateTimeField";
 import { NumberField } from "@/components/ui/NumberField";
-import { Select } from "@/components/ui/Select";
+import { MultiSelect, Select } from "@/components/ui/Select";
 import { communityApi, type Giveaway, type ScheduledGiveaway } from "@/lib/dashboard-community";
 import { searchTicketMembers, type MemberHit } from "@/lib/dashboard-guild-ops";
 import { Field, FormGroup, Notice, Pills, RowsSkeleton, StatusBadge, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";
-import { ChannelField, formatWhen, useCommunity } from "./shared";
+import { ChannelField, formatWhen, roleOptions, useCommunity } from "./shared";
 
 const UNITS = [
   { value: "60000", label: "minuti" },
@@ -40,9 +40,9 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
   const [startAt, setStartAt] = useState("");
   const [openedAt] = useState(() => Date.now());
   const [listError, setListError] = useState<string | null>(null);
-  const [form, setForm] = useState({ prize: "", channelId: null as string | null, amount: 1, unit: "86400000", winners: 1, minLevel: 0, host: null as MemberHit | null });
+  const [form, setForm] = useState({ prize: "", channelId: null as string | null, amount: 1, unit: "86400000", winners: 1, minLevel: 0, requiredRoleIds: [] as string[], host: null as MemberHit | null });
   const [editId, setEditId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ prize: "", amount: 1, unit: "86400000", winners: 1, minLevel: 0, host: null as MemberHit | null });
+  const [editForm, setEditForm] = useState({ prize: "", amount: 1, unit: "86400000", winners: 1, minLevel: 0, requiredRoleIds: [] as string[], host: null as MemberHit | null });
   const [busy, setBusy] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
@@ -65,6 +65,12 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
   if (error && !data) return <Notice error>{error}</Notice>;
   if (!data) return <RowsSkeleton rows={4} />;
   const chName = (id: string) => data.pickers.textChannels.find((c) => c.id === id)?.name || "canale";
+  const roles = roleOptions(data.pickers.roles, guildId);
+  const roleNames = (ids: string[] | undefined) =>
+    (ids || [])
+      .map((id) => data.pickers.roles.find((r) => r.id === id)?.name || "ruolo")
+      .filter(Boolean)
+      .join(", ");
 
   const create = async () => {
     if (!form.prize.trim()) return onToast("Scrivi il premio.", true);
@@ -78,6 +84,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
       durationMs: Math.max(1, form.amount) * Number(form.unit),
       winnerCount: form.winners,
       minLevel: form.minLevel,
+      ...(form.requiredRoleIds.length ? { requiredRoleIds: form.requiredRoleIds } : {}),
       ...(form.host ? { hostId: form.host.id } : {}),
       ...(when === "later" ? { startAt: new Date(startMs).toISOString() } : {}),
     });
@@ -115,6 +122,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
       unit: "86400000",
       winners: g.winnerCount || 1,
       minLevel: g.minLevel || 0,
+      requiredRoleIds: g.requiredRoleIds || [],
       host: null,
     });
   };
@@ -123,10 +131,11 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
     if (!g.messageId) return;
     if (!editForm.prize.trim()) return onToast("Scrivi il premio.", true);
     setBusy(`${g.id}:edit`);
-    const body: { prize: string; winnerCount: number; minLevel: number; durationMs?: number; hostId?: string } = {
+    const body: { prize: string; winnerCount: number; minLevel: number; durationMs?: number; hostId?: string; requiredRoleIds?: string[] } = {
       prize: editForm.prize.trim(),
       winnerCount: editForm.winners,
       minLevel: editForm.minLevel,
+      requiredRoleIds: editForm.requiredRoleIds,
     };
     if (editForm.amount > 0) body.durationMs = Math.max(1, editForm.amount) * Number(editForm.unit);
     if (editForm.host) body.hostId = editForm.host.id;
@@ -158,6 +167,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
               {g.winnerCount} {g.winnerCount === 1 ? "vincitore" : "vincitori"}
             </span>
             {g.minLevel ? <span>lv ≥ {g.minLevel}</span> : null}
+            {g.requiredRoleIds?.length ? <span>ruoli: {roleNames(g.requiredRoleIds)}</span> : null}
             <span>{g.ended ? `finito ${formatWhen(g.endAt)}` : `finisce ${formatWhen(g.endAt)}`}</span>
           </p>
           {g.ended && !g.cancelled && g.winnerIds.length ? (
@@ -217,6 +227,11 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
                 <NumberField className="!mt-0" value={editForm.minLevel} min={0} max={10000} onChange={(v) => setEditForm({ ...editForm, minLevel: Math.max(0, Number(v) || 0) })} aria-label="Livello minimo" />
               </div>
             </div>
+            <div className="w-full sm:min-w-[14rem] sm:flex-1">
+              <Field label="Ruoli richiesti" hint="Vuoto = tutti possono partecipare.">
+                <MultiSelect value={editForm.requiredRoleIds} onChange={(requiredRoleIds) => setEditForm({ ...editForm, requiredRoleIds })} options={roles} className={fieldClass} placeholder="Nessuno" />
+              </Field>
+            </div>
             <button type="button" className={primaryMini} disabled={!!busy} onClick={() => void saveEdit(g)}>
               Salva modifiche
             </button>
@@ -261,6 +276,11 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
             <div className="mt-1.5 w-28">
               <NumberField className="!mt-0" value={form.minLevel} min={0} max={10000} onChange={(v) => setForm({ ...form, minLevel: Math.max(0, Number(v) || 0) })} aria-label="Livello minimo" />
             </div>
+          </div>
+          <div className="w-full sm:min-w-[14rem] sm:flex-1">
+            <Field label="Ruoli richiesti" hint="Serve almeno uno di questi ruoli per partecipare.">
+              <MultiSelect value={form.requiredRoleIds} onChange={(requiredRoleIds) => setForm({ ...form, requiredRoleIds })} options={roles} className={fieldClass} placeholder="Nessuno" />
+            </Field>
           </div>
           <div className="w-full sm:w-72">
             <HostField guildId={guildId} token={token} value={form.host} emptyLabel="Tu (predefinito)" onChange={(host) => setForm({ ...form, host })} />
@@ -319,6 +339,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
                             {s.winnerCount} {s.winnerCount === 1 ? "vincitore" : "vincitori"}
                           </span>
                           {s.minLevel ? <span>lv ≥ {s.minLevel}</span> : null}
+                          {s.requiredRoleIds?.length ? <span>ruoli: {roleNames(s.requiredRoleIds)}</span> : null}
                         </p>
                       </div>
                       <StatusBadge>Programmato</StatusBadge>

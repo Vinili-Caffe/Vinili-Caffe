@@ -29,8 +29,12 @@ function restoreSessionSnapshotRow(row?) {
         .map((t?) => {
           const encoded = typeof t?.encoded === "string" ? t.encoded : null;
           if (!encoded) return null;
+          const info = t?.info && typeof t.info === "object" ? t.info : null;
+          const label = String(t?.label || "").trim();
           return {
             encoded,
+            ...(info ? { info } : {}),
+            ...(label ? { label } : {}),
             ...(t?.vcRequestedByUserId ? { vcRequestedByUserId: String(t.vcRequestedByUserId) } : {}),
             ...(t?.vcRequestedByUserTag ? { vcRequestedByUserTag: String(t.vcRequestedByUserTag) } : {}),
           };
@@ -123,9 +127,10 @@ function trackForManualQueue(track?) {
   if (!encoded) return null;
   const out: Record<string, any> = { encoded };
   if (track.info && typeof track.info === "object") out.info = track.info;
+  if (track.label) out.label = String(track.label).slice(0, 200);
   if (track.vcRequestedByUserId) out.vcRequestedByUserId = String(track.vcRequestedByUserId);
   if (track.vcRequestedByUserTag) out.vcRequestedByUserTag = String(track.vcRequestedByUserTag);
-    if (Array.isArray(track._mirrorCandidates) && track._mirrorCandidates.length) {
+  if (Array.isArray(track._mirrorCandidates) && track._mirrorCandidates.length) {
     out._mirrorCandidates = track._mirrorCandidates;
   }
   return out;

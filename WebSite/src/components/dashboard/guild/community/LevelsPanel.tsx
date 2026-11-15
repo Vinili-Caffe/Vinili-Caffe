@@ -1,14 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowRight, Ban, HandHeart, Sunrise, CalendarClock, Check, Gamepad2, Gift, Loader2, Megaphone, MessageSquare, Mic, Minus, Play, Plus, RefreshCw, RotateCcw, Search, Sparkles, Star, Target, Timer, Trash2, TrendingUp, Trophy, UserRound, X, type LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Ban, ChevronDown, HandHeart, Sunrise, CalendarClock, Check, Gamepad2, Gift, LineChart, Loader2, Megaphone, MessageSquare, Mic, Minus, Play, Plus, RefreshCw, RotateCcw, Search, Sparkles, Star, Target, Timer, Trash2, TrendingUp, Trophy, UserRound, X, type LucideIcon } from "lucide-react";
 import { DateTimeField } from "@/components/ui/DateTimeField";
 import { NumberField } from "@/components/ui/NumberField";
 import { MultiSelect, Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
-import { communityApi, emptyDraft, type LevelsConfig, type LevelsEvent, type LevelsExpBonus, type LevelsRoleMultiplier, type LevelsRoleReward, type LevelsScheduledEvent, type LevelsUser, type LevelsUserAction, type PickerRole } from "@/lib/dashboard-community";
+import {
+  communityApi,
+  emptyDraft,
+  type LevelsActivityWinners,
+  type LevelsConfig,
+  type LevelsEvent,
+  type LevelsExpBonus,
+  type LevelsLevelCurve,
+  type LevelsMinigameScoring,
+  type LevelsRoleMultiplier,
+  type LevelsRoleReward,
+  type LevelsScheduledEvent,
+  type LevelsUser,
+  type LevelsUserAction,
+  type PickerChannel,
+  type PickerRole,
+} from "@/lib/dashboard-community";
 import { searchTicketMembers, type MemberHit } from "@/lib/dashboard-guild-ops";
-import { Field, Notice, Pills, RowsSkeleton, StatusBadge, Toggle, TrackUnsaved, dangerBtn, dashPrimaryBtn, fieldClass, labelClass, miniBtn } from "../bits";
+import { buildMinigamePreviewCardDataUrl } from "@/lib/minigame-preview-card";
+import { ExpandableTextarea, Field, Notice, Pills, RowsSkeleton, StatusBadge, Toggle, TrackUnsaved, dangerBtn, dashPrimaryBtn, fieldClass, labelClass, miniBtn } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars } from "./shared";
 
 const LEVEL_PLACEHOLDERS = [
@@ -66,6 +83,18 @@ const BONUS_META: Record<BonusKind, { title: string; text: string; channelsHint:
   },
 };
 
+const DEFAULT_LEVEL_CURVE: LevelsLevelCurve = {
+  firstThreshold: 100,
+  roundTo: 50,
+  minStepAdd: 110,
+  segments: [
+    { upTo: 10, base: 120, from: 1, perLevel: 25 },
+    { upTo: 30, base: 380, from: 10, perLevel: 55 },
+    { upTo: 60, base: 1600, from: 30, perLevel: 120 },
+    { upTo: 10000, base: 5200, from: 60, perLevel: 210 },
+  ],
+};
+
 const DEFAULT_COMMAND_COOLDOWN = {
   defaultSeconds: 30,
   tiers: [
@@ -80,9 +109,344 @@ const DEFAULT_COMMAND_COOLDOWN = {
     doubleBooster: 5,
     booster: 15,
   },
+  customRoles: [] as { roleId: string; seconds: number }[],
 };
 
-type Tab = "exp" | "bonus" | "ruoli" | "annunci" | "utenti";
+const DEFAULT_MINIGAME_DURATION_MS: Record<string, number> = {
+  hangman: 240_000,
+  findBot: 300_000,
+  findBotVoice: 300_000,
+  halloweenFindGhost: 300_000,
+  halloweenMissingEmoji: 180_000,
+  halloweenCountBats: 180_000,
+  halloweenTrickOrTreat: 900_000,
+};
+
+const DEFAULT_MINIGAME_ROWS: { type: string; rewardExp: number }[] = [
+  { type: "guessNumber", rewardExp: 100 },
+  { type: "guessWord", rewardExp: 150 },
+  { type: "guessFlag", rewardExp: 150 },
+  { type: "guessPlayer", rewardExp: 150 },
+  { type: "guessSong", rewardExp: 150 },
+  { type: "guessCapital", rewardExp: 150 },
+  { type: "guessReverseCapital", rewardExp: 150 },
+  { type: "guessRegionCapital", rewardExp: 150 },
+  { type: "fastType", rewardExp: 200 },
+  { type: "guessTeam", rewardExp: 150 },
+  { type: "guessSinger", rewardExp: 150 },
+  { type: "guessAlbum", rewardExp: 150 },
+  { type: "hangman", rewardExp: 200 },
+  { type: "italianGK", rewardExp: 150 },
+  { type: "drivingQuiz", rewardExp: 150 },
+  { type: "mathExpression", rewardExp: 200 },
+  { type: "findBot", rewardExp: 200 },
+  { type: "findBotVoice", rewardExp: 200 },
+  { type: "memoryEmoji", rewardExp: 250 },
+  { type: "guessYear", rewardExp: 150 },
+  { type: "completeVerse", rewardExp: 150 },
+  { type: "guessEmoji", rewardExp: 150 },
+  { type: "quoteFilm", rewardExp: 150 },
+  { type: "completeProverb", rewardExp: 120 },
+  { type: "synonymAntonym", rewardExp: 150 },
+  { type: "guessCity", rewardExp: 150 },
+  { type: "treasureHunt", rewardExp: 150 },
+  { type: "starWarsQuiz", rewardExp: 50 },
+  { type: "starWarsGuessPlanet", rewardExp: 50 },
+  { type: "halloweenQuiz", rewardExp: 150 },
+  { type: "halloweenFindGhost", rewardExp: 200 },
+  { type: "halloweenMissingEmoji", rewardExp: 150 },
+  { type: "halloweenCountBats", rewardExp: 150 },
+  { type: "halloweenTrickOrTreat", rewardExp: 100 },
+  { type: "podrace", rewardExp: 100 },
+  { type: "cacciatore", rewardExp: 100 },
+  { type: "scova", rewardExp: 100 },
+  { type: "ordine66", rewardExp: 100 },
+  { type: "attacca_base", rewardExp: 100 },
+  { type: "conquista", rewardExp: 100 },
+  { type: "pg", rewardExp: 100 },
+  { type: "reliquie", rewardExp: 100 },
+  { type: "convoglio", rewardExp: 100 },
+  { type: "ewok", rewardExp: 100 },
+  { type: "olocron", rewardExp: 100 },
+];
+
+function defaultMinigameRow(type: string, rewardExp: number): NonNullable<LevelsMinigameScoring["rewardExpByType"]>[number] {
+  return {
+    type,
+    rewardExp,
+    enabled: true,
+    durationMs: DEFAULT_MINIGAME_DURATION_MS[type] || 180_000,
+  };
+}
+
+const DEFAULT_MINIGAME_SCORING: LevelsMinigameScoring = {
+  fastGuess: { windowMs: 30_000, multiplier: 1.5 },
+  streak: { bonusPercentPerWin: 10, maxBonusPercent: 50 },
+  rewardExpByType: DEFAULT_MINIGAME_ROWS.map((r) => defaultMinigameRow(r.type, r.rewardExp)),
+  startDraft: null,
+  winDraft: null,
+};
+
+const MINIGAME_TYPE_LABELS: Record<string, string> = {
+  guessNumber: "Indovina il numero",
+  guessWord: "Indovina la parola",
+  guessFlag: "Indovina la bandiera",
+  guessPlayer: "Indovina il calciatore",
+  guessSong: "Indovina la canzone",
+  guessCapital: "Indovina la capitale",
+  guessReverseCapital: "Capitale al contrario",
+  guessRegionCapital: "Capitale di regione",
+  fastType: "Scrivi veloce",
+  guessTeam: "Indovina la squadra",
+  guessSinger: "Indovina il cantante",
+  guessAlbum: "Indovina l'album",
+  hangman: "Impiccato",
+  italianGK: "Quiz italiano",
+  drivingQuiz: "Quiz della patente",
+  mathExpression: "Espressioni matematiche",
+  findBot: "Trova il bot",
+  findBotVoice: "Trova il bot (vocale)",
+  memoryEmoji: "Memory emoji",
+  guessYear: "Indovina l'anno",
+  completeVerse: "Completa il verso",
+  guessEmoji: "Indovina l'emoji",
+  quoteFilm: "Citazione film",
+  completeProverb: "Completa il proverbio",
+  synonymAntonym: "Sinonimo / contrario",
+  guessCity: "Indovina la città",
+  treasureHunt: "Caccia al tesoro",
+  starWarsQuiz: "Quiz Star Wars",
+  starWarsGuessPlanet: "Indovina il pianeta",
+  halloweenQuiz: "Quiz Halloween",
+  halloweenFindGhost: "Trova il fantasma",
+  halloweenMissingEmoji: "Emoji mancante",
+  halloweenCountBats: "Conta i pipistrelli",
+  halloweenTrickOrTreat: "Dolcetto o scherzetto",
+  podrace: "Podrace",
+  cacciatore: "Cacciatore di taglie",
+  scova: "Scova",
+  ordine66: "Ordine 66",
+  attacca_base: "Attacca la base",
+  conquista: "Conquista",
+  pg: "Colleziona PG",
+  reliquie: "Reliquie",
+  convoglio: "Proteggi il convoglio",
+  ewok: "Caccia agli Ewok",
+  olocron: "Olocron",
+};
+
+function minigameTypeLabel(type: string) {
+  return MINIGAME_TYPE_LABELS[type] || type;
+}
+
+/** Unisce i tipi salvati con i default (tipi nuovi restano visibili). */
+function mergeMinigameRewardExpByType(saved?: LevelsMinigameScoring["rewardExpByType"] | null) {
+  const defaults = DEFAULT_MINIGAME_SCORING.rewardExpByType;
+  if (!saved?.length) return defaults.map((d) => ({ ...d }));
+  const byType = new Map(saved.map((r) => [r.type, r]));
+  const out = defaults.map((d) => {
+    const s = byType.get(d.type);
+    if (!s) return { ...d };
+    return {
+      ...d,
+      ...s,
+      type: d.type,
+      rewardExp: Math.max(1, Math.floor(Number(s.rewardExp) || d.rewardExp)),
+      enabled: s.enabled !== false,
+      durationMs: Math.max(15_000, Math.min(1_800_000, Math.floor(Number(s.durationMs) || d.durationMs || 180_000))),
+    };
+  });
+  for (const row of saved) {
+    if (!defaults.some((d) => d.type === row.type)) {
+      out.push({
+        ...defaultMinigameRow(row.type, Math.max(1, Math.floor(Number(row.rewardExp) || 100))),
+        ...row,
+        enabled: row.enabled !== false,
+      });
+    }
+  }
+  return out;
+}
+
+const MINIGAME_START_PLACEHOLDERS = [
+  { token: "{minigame}", hint: "nome del minigioco (cambia per tipo)" },
+  { token: "{prompt}", hint: "riga di gioco del bot (domanda, lettere…)" },
+  { token: "{exp}", hint: "EXP del round" },
+  { token: "{minutesLabel}", hint: "durata in italiano (**3 minuti**)" },
+  { token: "{minutes}", hint: "minuti (numero)" },
+  { token: "{duration}", hint: "durata in secondi" },
+  { token: "{image}", hint: "immagine del round (bandiera, foto…)" },
+  { token: "{server}", hint: "nome del server" },
+];
+
+type MinigamePreviewMeta = { prompt: string; /** foto/URL se il round usa un’immagine remota */ image?: string; /** righe sulla card canvas come sul bot */ cardLines?: string[] };
+
+/** Prompt + immagine/card d’esempio per l’anteprima per-tipo (solo dashboard). */
+const MINIGAME_PREVIEW: Record<string, MinigamePreviewMeta> = {
+  guessNumber: { prompt: "Indovina un numero tra **1** e **100** per ottenere **{exp} exp**.", cardLines: ["Tra 1 e 100"] },
+  guessWord: { prompt: "Indovina la parola da queste lettere: **A E L P P** per ottenere **{exp} exp**.", cardLines: ["A E L P P"] },
+  guessFlag: {
+    prompt: "Indovina la nazione da questa bandiera per ottenere **{exp} exp**.",
+    image: "https://flagcdn.com/w320/it.png",
+    cardLines: ["Bandiera"],
+  },
+  guessPlayer: {
+    prompt: "Indovina il calciatore più famoso per ottenere **{exp} exp**.",
+    cardLines: ["Calciatore"],
+  },
+  guessSong: {
+    prompt: "Indovina la canzone per ottenere **{exp} exp**.",
+    cardLines: ["Canzone"],
+  },
+  guessCapital: {
+    prompt: "Indovina la capitale di **Italia** per ottenere **{exp} exp**.",
+    cardLines: ["Italia"],
+  },
+  guessReverseCapital: {
+    prompt: "**Roma** è la capitale di quale Stato? Indovina per **{exp} exp**.",
+    cardLines: ["Roma"],
+  },
+  guessRegionCapital: {
+    prompt: "Indovina il capoluogo della regione **Lazio** per ottenere **{exp} exp**.",
+    cardLines: ["Lazio"],
+  },
+  fastType: {
+    prompt: "Il primo che scrive questa frase ottiene **{exp} exp**.\n```\nScrivi questa frase\n```",
+    cardLines: ["Scrivi questa frase"],
+  },
+  guessTeam: {
+    prompt: "Indovina la squadra di calcio dal logo per ottenere **{exp} exp**.",
+    cardLines: ["Squadra"],
+  },
+  guessSinger: {
+    prompt: "Indovina il cantante dalla foto per ottenere **{exp} exp**.",
+    cardLines: ["Cantante"],
+  },
+  guessAlbum: {
+    prompt: "Indovina l'album dalla copertina per ottenere **{exp} exp**.",
+    cardLines: ["Album"],
+  },
+  hangman: { prompt: "Scrivi una lettera o prova la parola intera per ottenere **{exp} exp**.\nParola: **_ _ _ _ _**", cardLines: ["_ _ _ _ _"] },
+  italianGK: { prompt: "**Domanda:** Qual è il fiume più lungo d'Italia? per ottenere **{exp} exp**.", cardLines: ["Qual è il fiume più lungo d'Italia?"] },
+  drivingQuiz: {
+    prompt: "**Affermazione:** In curva il veicolo tende a sbandare.\nRispondi con `vero` o `falso`.\nRicompensa: **{exp} exp**",
+    cardLines: ["In curva il veicolo tende a sbandare.", "Vero o falso?"],
+  },
+  mathExpression: { prompt: "Risolvi: **12 + 8 × 2** per ottenere **{exp} exp**.", cardLines: ["12 + 8 × 2"] },
+  findBot: { prompt: "Trova il messaggio del bot tra i canali del server e reagisci per ottenere **{exp} exp**.", cardLines: ["Trova il bot"] },
+  findBotVoice: { prompt: "Il bot si è nascosto in una **vocale vuota**: entra per ottenere **{exp} exp**.", cardLines: ["Trova il bot in vocale"] },
+  memoryEmoji: { prompt: "Memorizza la sequenza e riscrivila per ottenere **{exp} exp**.", cardLines: ["⭐ 🎵 🎮 🔥"] },
+  guessYear: {
+    prompt: "In che anno è uscito **Inception**? Scrivi l'anno per **{exp} exp**.",
+    cardLines: ["Inception"],
+  },
+  completeVerse: {
+    prompt: "Completa: **Nel mezzo del cammin di nostra vita…** per **{exp} exp**.",
+    cardLines: ["Nel mezzo del cammin di nostra vita…"],
+  },
+  guessEmoji: { prompt: "Cosa rappresenta **🦁👑**? Scrivi film, serie o canzone per **{exp} exp**.", cardLines: ["🦁👑"] },
+  quoteFilm: {
+    prompt: '*"Che la forza sia con te"* — Da quale film o serie? **{exp} exp**.',
+    cardLines: ['"Che la forza sia con te"'],
+  },
+  completeProverb: { prompt: "**Chi dorme…** Completa il proverbio per **{exp} exp**.", cardLines: ["Chi dorme…"] },
+  synonymAntonym: { prompt: "Scrivi un sinonimo o il contrario di **bello** per **{exp} exp**.", cardLines: ["bello"] },
+  guessCity: {
+    prompt: "In quale città si trova **il Colosseo**? **{exp} exp**.",
+    cardLines: ["Il Colosseo"],
+  },
+  treasureHunt: { prompt: "Sui prossimi messaggi metterò una reaction: trovala e cliccaci sopra per **{exp} exp**.", cardLines: ["Caccia al tesoro"] },
+  starWarsQuiz: {
+    prompt: "Rispondi alla domanda sull'immagine per ottenere **{exp} exp**.",
+    cardLines: ["Quiz Star Wars"],
+  },
+  starWarsGuessPlanet: {
+    prompt: "Indovina il pianeta da questa immagine per ottenere **{exp} exp**.",
+    cardLines: ["Pianeta"],
+  },
+  halloweenQuiz: { prompt: "**Domanda:** Qual è il mostro di Frankenstein? per ottenere **{exp} exp**.", cardLines: ["Quiz Halloween"] },
+  halloweenFindGhost: { prompt: "Chi lo trova vince **{exp} exp**.", cardLines: ["Trova il fantasma"] },
+  halloweenMissingEmoji: { prompt: "Sequenza: **🎃👻❓🦇** — Chi indovina vince **{exp} exp**.", cardLines: ["🎃👻❓🦇"] },
+  halloweenCountBats: { prompt: "🦇🦇🎃🦇 — Quanti 🦇 ci sono? Scrivi il numero per **{exp} exp**.", cardLines: ["🦇🦇🎃🦇"] },
+  halloweenTrickOrTreat: { prompt: "Partecipa per ottenere **{exp} exp**.", cardLines: ["Dolcetto o scherzetto"] },
+  podrace: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Podrace"] },
+  cacciatore: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Cacciatore di taglie"] },
+  scova: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Scova"] },
+  ordine66: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Ordine 66"] },
+  attacca_base: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Attacca la base"] },
+  conquista: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Conquista"] },
+  pg: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Colleziona PG"] },
+  reliquie: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Reliquie"] },
+  convoglio: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Proteggi il convoglio"] },
+  ewok: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Caccia agli Ewok"] },
+  olocron: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Olocron"] },
+};
+
+/** Immagine vera generata dal bot se arrivata; poi foto d'esempio; poi card canvas (solo dopo mount client). */
+function resolveMinigamePreviewImage(type: string, cardReady: boolean, real?: Record<string, string>) {
+  if (real?.[type]) return real[type];
+  const meta = MINIGAME_PREVIEW[type];
+  if (meta?.image) return meta.image;
+  if (!cardReady) return "";
+  const title = minigameTypeLabel(type);
+  const lines = meta?.cardLines?.length ? meta.cardLines : [title];
+  return buildMinigamePreviewCardDataUrl(title, lines) || "";
+}
+
+/** Anteprima: mette sempre l’immagine del round come fa il bot (embed: immagine; V2: galleria in fondo, prima dei pulsanti). */
+function minigamePreviewDraft(draft: ReturnType<typeof emptyDraft>, imageUrl?: string | null) {
+  if (!imageUrl || !draft) return draft;
+  if (draft.v2?.enabled) {
+    const blocks = draft.v2.blocks || [];
+    /* già messa a mano con {image} o con la stessa foto */
+    const has = blocks.some(
+      (b) =>
+        (b.type === "media" && b.urls.some((u) => u.includes("{image}") || u === imageUrl)) ||
+        (b.type === "section" && b.accessory === "thumbnail" && (b.thumbnailUrl.includes("{image}") || b.thumbnailUrl === imageUrl)),
+    );
+    if (has) return draft;
+    let at = blocks.length;
+    while (at > 0 && blocks[at - 1]?.type === "buttons") at -= 1;
+    const media = { type: "media" as const, urls: [imageUrl] };
+    return { ...draft, v2: { ...draft.v2, blocks: [...blocks.slice(0, at), media, ...blocks.slice(at)] } };
+  }
+  if (!draft.embed) return draft;
+  return {
+    ...draft,
+    embed: { ...draft.embed, enabled: true, imageUrl },
+  };
+}
+
+function minigameRowPreviewVars(
+  row: { type: string; rewardExp: number; durationMs?: number },
+  base: Record<string, string>,
+  image: string,
+) {
+  const meta = MINIGAME_PREVIEW[row.type] || { prompt: "Partecipa per ottenere **{exp} exp**." };
+  const minutes = Math.max(1, Math.round((row.durationMs || 180000) / 60000));
+  const exp = String(row.rewardExp || 150);
+  const prompt = meta.prompt.replace(/\{exp\}/g, exp);
+  return {
+    ...base,
+    minigame: minigameTypeLabel(row.type),
+    prompt,
+    exp,
+    duration: String(Math.round((row.durationMs || 180000) / 1000)),
+    minutes: String(minutes),
+    minutesLabel: minutes === 1 ? "**1 minuto**" : `**${minutes} minuti**`,
+    image,
+  };
+}
+
+const MINIGAME_WIN_PLACEHOLDERS = [
+  { token: "{user}", hint: "menzione del vincitore" },
+  { token: "{exp}", hint: "EXP guadagnati in questo round" },
+  { token: "{total}", hint: "totale EXP minigiochi" },
+  { token: "{streak}", hint: "serie di vittorie" },
+  { token: "{server}", hint: "nome del server" },
+];
+
+type Tab = "exp" | "bonus" | "minigiochi" | "ruoli" | "annunci" | "utenti";
 
 /* ───────────── pezzi grafici ───────────── */
 
@@ -182,13 +546,35 @@ export function LevelsPanel({
   const [saved, setSaved] = useState("");
   const [imported, setImported] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [announce, setAnnounce] = useState<"level" | "milestone" | "minigame" | "perks">("level");
+  const [announce, setAnnounce] = useState<"level" | "milestone" | "perks">("level");
   /* livello scelto per scrivere i vantaggi (e per l'anteprima) */
   const [perksLevel, setPerksLevel] = useState<number | null>(null);
+  const [gameEditType, setGameEditType] = useState<string | null>(null);
+  const [gameDraftKind, setGameDraftKind] = useState<"start" | "win">("start");
+  /** Card canvas generate solo a client (SSR non ha document). */
+  const [previewCardsReady, setPreviewCardsReady] = useState(false);
   const [isMain, setIsMain] = useState(false);
   const [bonusKind, setBonusKind] = useState<BonusKind>("firstMessageDaily");
   const [event, setEvent] = useState<LevelsEvent | null>(null);
   const [scheduled, setScheduled] = useState<LevelsScheduledEvent[]>([]);
+
+  useEffect(() => {
+    setPreviewCardsReady(true);
+  }, []);
+
+  /* immagini vere dei round, generate dal bot: quella dell'esempio condiviso e quella del gioco aperto */
+  const [realGameImgs, setRealGameImgs] = useState<Record<string, string>>({});
+  const askedGameImgs = useRef(new Set<string>());
+  useEffect(() => {
+    if (tab !== "minigiochi" || !isMain) return;
+    for (const type of ["guessNumber", gameEditType].filter(Boolean) as string[]) {
+      if (askedGameImgs.current.has(type)) continue;
+      askedGameImgs.current.add(type);
+      void communityApi.getMinigamePreview(token, guildId, type).then((r) => {
+        if (r.ok && r.data.image) setRealGameImgs((m) => ({ ...m, [type]: r.data.image }));
+      });
+    }
+  }, [tab, isMain, gameEditType, token, guildId]);
 
   useEffect(() => {
     let alive = true;
@@ -216,16 +602,16 @@ export function LevelsPanel({
   const perksSelLevel = String(perksSel?.level || 10);
   const perksSelText = perksSel?.perks?.trim() || "—";
   const perksChannelName = data?.pickers.textChannels.find((c) => c.id === cfg?.perksChannelId)?.name || "supporters";
-  const sampleRoleId =
-    announce === "minigame" ? sampleMinigameRoleId || sampleLevelRoleId : announce === "perks" ? perksSel?.roleId || sampleLevelRoleId : sampleLevelRoleId;
+  const sampleRoleId = announce === "perks" ? perksSel?.roleId || sampleLevelRoleId : sampleLevelRoleId;
+  const sampleMinigameMention = sampleMinigameRoleId ? `<@&${sampleMinigameRoleId}>` : "@Rookie";
   /* niente useMemo: ci pensa il React Compiler */
   const vars = {
     ...baseVars,
     user: baseVars.user || "@Mario",
     username: baseVars.username || "Mario",
     level: "42",
-    role: sampleRoleId ? `<@&${sampleRoleId}>` : announce === "minigame" ? "@Rookie" : "@Level 50",
-    roleid: sampleRoleId || (announce === "minigame" ? "100000000000000500" : "100000000000000050"),
+    role: sampleRoleId ? `<@&${sampleRoleId}>` : "@Level 50",
+    roleid: sampleRoleId || "100000000000000050",
     perks: "#supporters",
     exp: String(sampleMinigameExp),
     amount: "150",
@@ -233,6 +619,15 @@ export function LevelsPanel({
     ...(announce === "perks"
       ? { level: perksSelLevel, perklist: perksSelText, perks: `#${perksChannelName}` }
       : {}),
+  };
+  const minigameVars = {
+    ...baseVars,
+    user: baseVars.user || "@Mario",
+    username: baseVars.username || "Mario",
+    role: sampleMinigameMention,
+    roleid: sampleMinigameRoleId || "100000000000000500",
+    exp: String(sampleMinigameExp),
+    next: "Ti mancano **200** exp per la prossima ricompensa!",
   };
 
   if (loadError && !cfg) return <Notice error>{loadError}</Notice>;
@@ -385,6 +780,7 @@ export function LevelsPanel({
           <EventCard
             guildId={guildId}
             token={token}
+            channels={channels}
             event={event}
             scheduled={scheduled}
             onChange={(e, list) => {
@@ -393,6 +789,148 @@ export function LevelsPanel({
             }}
             onToast={onToast}
           />
+
+          <Card
+            icon={LineChart}
+            title="Curva livelli"
+            text="Quanti EXP servono per salire di livello. Le modifiche valgono per i progressi nuovi; gli EXP già accumulati restano quelli che sono."
+          >
+            {(() => {
+              const curve: LevelsLevelCurve = { ...DEFAULT_LEVEL_CURVE, ...cfg.levelCurve, segments: cfg.levelCurve?.segments?.length ? cfg.levelCurve.segments : DEFAULT_LEVEL_CURVE.segments };
+              const setCurve = (patch: Partial<LevelsLevelCurve>) => set({ levelCurve: { ...curve, ...patch } });
+              const setSeg = (i: number, patch: Partial<(typeof curve.segments)[0]>) =>
+                setCurve({ segments: curve.segments.map((row, idx) => (idx === i ? { ...row, ...patch } : row)) });
+              const segs = curve.segments.map((row, i) => ({ row, i }));
+              return (
+                <div className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <BigNumber
+                      label="Prima soglia"
+                      value={curve.firstThreshold}
+                      min={1}
+                      max={1_000_000}
+                      onChange={(firstThreshold) => setCurve({ firstThreshold: Math.max(1, Math.floor(firstThreshold || 1)) })}
+                      suffix="EXP"
+                      hint="EXP per passare al livello 1."
+                    />
+                    <BigNumber
+                      label="Arrotondamento"
+                      value={curve.roundTo}
+                      min={1}
+                      max={1000}
+                      onChange={(roundTo) => setCurve({ roundTo: Math.max(1, Math.floor(roundTo || 1)) })}
+                      hint="Passo di arrotondamento delle soglie."
+                    />
+                    <BigNumber
+                      label="Incremento minimo"
+                      value={curve.minStepAdd}
+                      min={0}
+                      max={1_000_000}
+                      onChange={(minStepAdd) => setCurve({ minStepAdd: Math.max(0, Math.floor(minStepAdd || 0)) })}
+                      suffix="EXP"
+                      hint="Salto minimo tra un livello e l'altro."
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className={labelClass}>Segmenti</p>
+                      <StatusBadge>{curve.segments.length} fasce</StatusBadge>
+                    </div>
+                    {segs.length ? (
+                      <ul className="space-y-2">
+                        {segs.map(({ row, i }) => (
+                          <li key={i} className="flex flex-wrap items-center gap-2 rounded-2xl bg-espresso/45 p-2 pl-3 ring-1 ring-sand/10">
+                            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">Fino al lv</span>
+                            <div className="w-36 shrink-0 sm:w-40">
+                              <NumberField className="!mt-0" size="sm" value={row.upTo} min={1} max={100000} onChange={(v) => setSeg(i, { upTo: Math.max(1, Math.floor(Number(v) || 1)) })} aria-label="Livello massimo del segmento" />
+                            </div>
+                            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">Base</span>
+                            <div className="w-36 shrink-0 sm:w-40">
+                              <NumberField className="!mt-0" size="sm" value={row.base} min={1} max={1_000_000} onChange={(v) => setSeg(i, { base: Math.max(1, Math.floor(Number(v) || 1)) })} aria-label="EXP base del segmento" />
+                            </div>
+                            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">Da lv</span>
+                            <div className="w-32 shrink-0 sm:w-36">
+                              <NumberField className="!mt-0" size="sm" value={row.from} min={0} max={100000} onChange={(v) => setSeg(i, { from: Math.max(0, Math.floor(Number(v) || 0)) })} aria-label="Livello iniziale del segmento" />
+                            </div>
+                            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">+ / lv</span>
+                            <div className="w-36 shrink-0 sm:w-40">
+                              <NumberField className="!mt-0" size="sm" value={row.perLevel} min={0} max={1_000_000} onChange={(v) => setSeg(i, { perLevel: Math.max(0, Math.floor(Number(v) || 0)) })} aria-label="EXP aggiuntivi per livello" />
+                            </div>
+                            <button
+                              type="button"
+                              className={cn(miniBtn, "!px-2")}
+                              disabled={curve.segments.length <= 1}
+                              onClick={() => setCurve({ segments: curve.segments.filter((_, j) => j !== i) })}
+                              aria-label="Togli segmento"
+                            >
+                              <Trash2 className="size-3.5" aria-hidden />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="rounded-2xl border border-dashed border-sand/15 px-4 py-5 text-center text-sm text-crema/50">Nessun segmento: serve almeno una fascia.</p>
+                    )}
+                    <button
+                      type="button"
+                      className={cn(miniBtn, "mt-2")}
+                      onClick={() => {
+                        const last = curve.segments[curve.segments.length - 1];
+                        const upTo = (last?.upTo || 0) + 10;
+                        setCurve({
+                          segments: [
+                            ...curve.segments,
+                            { upTo, base: last?.base || 100, from: last?.upTo || 1, perLevel: last?.perLevel || 25 },
+                          ],
+                        });
+                      }}
+                    >
+                      <Plus className="size-3.5" aria-hidden /> Aggiungi segmento
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </Card>
+
+          {isMain ? (
+            <Card icon={Trophy} title="TOP attività" text="Canale degli annunci TOP, ruoli esclusi dal conteggio e ruoli assegnati ai vincitori. Il TOP minigiochi è nella scheda Minigiochi.">
+              {(() => {
+                const aw: LevelsActivityWinners = {
+                  channelId: null,
+                  excludedRoleIds: [],
+                  weeklyTextRoleId: null,
+                  weeklyVoiceRoleId: null,
+                  weeklyMinigameRoleId: null,
+                  monthlyMemberRoleId: null,
+                  ...cfg.activityWinners,
+                };
+                const setAw = (patch: Partial<LevelsActivityWinners>) => set({ activityWinners: { ...aw, ...patch } });
+                const roleSelect = (value: string | null, onChange: (v: string | null) => void, label: string) => (
+                  <Select value={value || ""} onChange={(v) => onChange(v || null)} options={[{ value: "", label: "Nessuno" }, ...roles]} className={fieldClass} aria-label={label} />
+                );
+                return (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Canale annunci">
+                      <Select
+                        value={aw.channelId || ""}
+                        onChange={(v) => setAw({ channelId: v || null })}
+                        options={[{ value: "", label: "Predefinito" }, ...channels.map((c) => ({ value: c.id, label: `#${c.name}` }))]}
+                        className={fieldClass}
+                        aria-label="Canale TOP attività"
+                      />
+                    </Field>
+                    <Field label="Ruoli esclusi" hint="Staff e simili non entrano nelle classifiche.">
+                      <MultiSelect value={aw.excludedRoleIds} onChange={(excludedRoleIds) => setAw({ excludedRoleIds })} options={roles} className={fieldClass} placeholder="Nessuno" />
+                    </Field>
+                    <Field label="TOP chat settimanale">{roleSelect(aw.weeklyTextRoleId, (weeklyTextRoleId) => setAw({ weeklyTextRoleId }), "TOP chat settimanale")}</Field>
+                    <Field label="TOP vocale settimanale">{roleSelect(aw.weeklyVoiceRoleId, (weeklyVoiceRoleId) => setAw({ weeklyVoiceRoleId }), "TOP vocale settimanale")}</Field>
+                    <Field label="Membro del mese">{roleSelect(aw.monthlyMemberRoleId, (monthlyMemberRoleId) => setAw({ monthlyMemberRoleId }), "Membro del mese")}</Field>
+                  </div>
+                );
+              })()}
+            </Card>
+          ) : null}
 
           <Card icon={Ban} title="Esclusioni" text="Dove e per chi l'EXP non conta.">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -411,6 +949,7 @@ export function LevelsPanel({
                 ...DEFAULT_COMMAND_COOLDOWN,
                 ...(cfg.commandCooldown || {}),
                 roles: { ...DEFAULT_COMMAND_COOLDOWN.roles, ...(cfg.commandCooldown?.roles || {}) },
+                customRoles: [...(cfg.commandCooldown?.customRoles || DEFAULT_COMMAND_COOLDOWN.customRoles)],
               };
               const tiers = [...(cd.tiers || [])].sort((a, b) => b.minLevel - a.minLevel);
               const setCd = (patch: Partial<typeof cd>) => set({ commandCooldown: { ...cd, ...patch } });
@@ -444,6 +983,71 @@ export function LevelsPanel({
                         </div>
                       </div>
                     ))}
+                  </div>
+                  <div className="mt-3">
+                    <p className={cn(labelClass, "mb-2")}>Altri ruoli</p>
+                    {cd.customRoles.length ? (
+                      <ul className="space-y-2">
+                        {cd.customRoles.map((row, i) => (
+                          <li key={i} className="flex flex-wrap items-center gap-2 rounded-2xl bg-espresso/45 p-2 pl-3 ring-1 ring-sand/10">
+                            <span className="size-2.5 shrink-0 rounded-full" style={{ background: roleColor(pickerRoles, row.roleId) }} aria-hidden />
+                            <div className="min-w-[10rem] flex-1">
+                              <Select
+                                value={row.roleId}
+                                onChange={(roleId) =>
+                                  setCd({
+                                    customRoles: cd.customRoles.map((r, idx) => (idx === i ? { ...r, roleId } : r)),
+                                  })
+                                }
+                                options={roles}
+                                className={cn(fieldClass, "!mt-0")}
+                                aria-label="Ruolo cooldown"
+                              />
+                            </div>
+                            <div className="w-28">
+                              <NumberField
+                                className="!mt-0"
+                                value={row.seconds}
+                                min={0}
+                                max={3600}
+                                onChange={(v) =>
+                                  setCd({
+                                    customRoles: cd.customRoles.map((r, idx) => (idx === i ? { ...r, seconds: Math.max(0, Math.floor(Number(v) || 0)) } : r)),
+                                  })
+                                }
+                                aria-label="Secondi cooldown ruolo"
+                              />
+                            </div>
+                            <span className="text-xs text-crema/50">sec</span>
+                            <button
+                              type="button"
+                              className={cn(miniBtn, "!px-2")}
+                              onClick={() => setCd({ customRoles: cd.customRoles.filter((_, j) => j !== i) })}
+                              aria-label="Togli ruolo"
+                            >
+                              <Trash2 className="size-3.5" aria-hidden />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="rounded-2xl border border-dashed border-sand/15 px-4 py-4 text-center text-sm text-crema/50">Nessun ruolo extra: oltre Staff/VIP/Boost.</p>
+                    )}
+                    <button
+                      type="button"
+                      className={cn(miniBtn, "mt-2")}
+                      disabled={!roles.length}
+                      onClick={() =>
+                        setCd({
+                          customRoles: [
+                            ...cd.customRoles,
+                            { roleId: roles.find((r) => !cd.customRoles.some((c) => c.roleId === r.value))?.value || roles[0]?.value || "", seconds: 15 },
+                          ],
+                        })
+                      }
+                    >
+                      <Plus className="size-3.5" aria-hidden /> Aggiungi ruolo
+                    </button>
                   </div>
                   {tiers.length ? (
                     <ul className="space-y-2">
@@ -537,6 +1141,27 @@ export function LevelsPanel({
 
                 <p className="text-xs text-crema/55">Il bot risponde al messaggio di chi prende il bonus.{bonusKind === "welcomeGreeting" ? " Il messaggio si cancella da solo dopo 12 secondi." : ""}</p>
 
+                {bonusKind === "welcomeGreeting" ? (
+                  <Field label="Parole di saluto" hint="Una per riga. Vuoto = l’elenco predefinito del bot (wordReactions).">
+                    <ExpandableTextarea
+                      value={(welcome.words || []).join("\n")}
+                      rows={5}
+                      maxLength={8000}
+                      placeholder={"Benvenut*\nBenvenuto\nCiao\n..."}
+                      onChange={(e) => {
+                        const words = e.target.value
+                          .split(/\r?\n/)
+                          .map((w) => w.trim())
+                          .filter(Boolean)
+                          .slice(0, 80);
+                        setBonus({ words });
+                      }}
+                      className={cn(fieldClass, "!mt-0 min-h-28 resize-y py-2.5 font-mono text-[0.8rem] leading-relaxed")}
+                      aria-label="Parole che fanno scattare il saluto"
+                    />
+                  </Field>
+                ) : null}
+
                 <EditorWithPreview
                   editor={
                     <DraftEditor
@@ -618,6 +1243,264 @@ export function LevelsPanel({
           </Card>
 
           {isMain ? (
+            <Card
+              icon={Star}
+              title="Recensione sul sito"
+              text="Livelli regalati a chi lascia una recensione della community su viniliecaffe.it/recensioni (una volta sola). Non usa Disboard."
+              aside={(cfg.reviewRewardLevels ?? 5) > 0 ? <StatusBadge tone="accent">+{cfg.reviewRewardLevels ?? 5} livelli</StatusBadge> : <StatusBadge>spento</StatusBadge>}
+            >
+              <div className="max-w-xs">
+                <BigNumber
+                  label="Livelli in regalo"
+                  value={cfg.reviewRewardLevels ?? 5}
+                  min={0}
+                  max={100}
+                  onChange={(v) => set({ reviewRewardLevels: Math.max(0, Math.floor(v || 0)) })}
+                  suffix="livelli"
+                  hint="0 = nessun premio."
+                />
+              </div>
+            </Card>
+          ) : null}
+        </div>
+      ) : null}
+
+      {tab === "minigiochi" ? (
+        isMain ? (
+          <div className="space-y-4">
+            <Card icon={Gamepad2} title="Bonus e tipi" text="Risposta veloce, serie, e per ogni gioco: on/off, durata ed EXP. I messaggi Inizio/Vittoria sono unici per tutti.">
+              {(() => {
+                const scoring: LevelsMinigameScoring = {
+                  ...DEFAULT_MINIGAME_SCORING,
+                  ...cfg.minigameScoring,
+                  fastGuess: { ...DEFAULT_MINIGAME_SCORING.fastGuess, ...cfg.minigameScoring?.fastGuess },
+                  streak: { ...DEFAULT_MINIGAME_SCORING.streak, ...cfg.minigameScoring?.streak },
+                  rewardExpByType: mergeMinigameRewardExpByType(cfg.minigameScoring?.rewardExpByType),
+                  startDraft: cfg.minigameScoring?.startDraft || null,
+                  winDraft: cfg.minigameScoring?.winDraft || null,
+                };
+                const setScoring = (patch: Partial<LevelsMinigameScoring>) => set({ minigameScoring: { ...scoring, ...patch } });
+                const setRow = (type: string, patch: Partial<(typeof scoring.rewardExpByType)[0]>) =>
+                  setScoring({
+                    rewardExpByType: scoring.rewardExpByType.map((r) => (r.type === type ? { ...r, ...patch } : r)),
+                  });
+                const fastSec = Math.round(scoring.fastGuess.windowMs / 1000);
+                const sharedDraft = gameDraftKind === "win" ? scoring.winDraft || emptyDraft() : scoring.startDraft || emptyDraft();
+                const sharedSampleType = "guessNumber";
+                const sharedSampleImg = resolveMinigamePreviewImage(sharedSampleType, previewCardsReady, realGameImgs);
+                const sharedDraftVars =
+                  gameDraftKind === "win"
+                    ? { ...minigameVars, exp: "200", total: "1500", streak: "3", user: minigameVars.user || "@Mario" }
+                    : {
+                        ...minigameVars,
+                        minigame: minigameTypeLabel(sharedSampleType),
+                        prompt: (MINIGAME_PREVIEW[sharedSampleType]?.prompt || "").replace(/\{exp\}/g, "150"),
+                        exp: "150",
+                        duration: "180",
+                        minutes: "3",
+                        minutesLabel: "**3 minuti**",
+                        image: sharedSampleImg,
+                      };
+                const sharedPreviewDraft =
+                  gameDraftKind === "win" ? sharedDraft : minigamePreviewDraft(sharedDraft, sharedSampleImg || null);
+                return (
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <BigNumber
+                        label="Finestra risposta veloce"
+                        value={fastSec}
+                        min={1}
+                        max={300}
+                        onChange={(v) => setScoring({ fastGuess: { ...scoring.fastGuess, windowMs: Math.max(1, Math.floor(v || 1)) * 1000 } })}
+                        suffix="sec"
+                        hint="ENTRO questa finestra si applica il moltiplicatore."
+                      />
+                      <BigNumber
+                        label="Moltiplicatore veloce"
+                        value={scoring.fastGuess.multiplier}
+                        min={1}
+                        max={10}
+                        step={0.05}
+                        onChange={(v) => setScoring({ fastGuess: { ...scoring.fastGuess, multiplier: Math.max(1, Number(v) || 1) } })}
+                        suffix="×"
+                      />
+                      <BigNumber
+                        label="Bonus serie"
+                        value={scoring.streak.bonusPercentPerWin}
+                        min={0}
+                        max={100}
+                        onChange={(v) => setScoring({ streak: { ...scoring.streak, bonusPercentPerWin: Math.max(0, Math.floor(Number(v) || 0)) } })}
+                        suffix="%"
+                        hint="In più per ogni vittoria consecutiva."
+                      />
+                      <BigNumber
+                        label="Tetto serie"
+                        value={scoring.streak.maxBonusPercent}
+                        min={0}
+                        max={500}
+                        onChange={(v) => setScoring({ streak: { ...scoring.streak, maxBonusPercent: Math.max(0, Math.floor(Number(v) || 0)) } })}
+                        suffix="%"
+                        hint="Massimo bonus cumulato dalla serie."
+                      />
+                    </div>
+
+                    <div className="space-y-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Pills
+                          value={gameDraftKind}
+                          onChange={setGameDraftKind}
+                          ariaLabel="Messaggio condiviso"
+                          options={[
+                            { id: "start" as const, label: "Inizio round", icon: Play },
+                            { id: "win" as const, label: "Vittoria", icon: Trophy },
+                          ]}
+                        />
+                        <p className="text-xs text-crema/50">
+                          {gameDraftKind === "start"
+                            ? "Un solo messaggio per tutti. {minigame}, {prompt}, {exp}, {minutesLabel}, {image}. L’immagine del round la mette il bot."
+                            : "Un solo messaggio di vittoria per tutti i giochi."}
+                        </p>
+                      </div>
+                      <EditorWithPreview
+                        editor={
+                          <DraftEditor
+                            key={`shared-${gameDraftKind}`}
+                            value={sharedDraft}
+                            onChange={(d) => setScoring(gameDraftKind === "win" ? { winDraft: d } : { startDraft: d })}
+                            emojis={data.pickers.emojis}
+                            placeholders={gameDraftKind === "win" ? MINIGAME_WIN_PLACEHOLDERS : MINIGAME_START_PLACEHOLDERS}
+                            maxButtons={data.limits.buttons}
+                          />
+                        }
+                        preview={
+                          <DiscordMessagePreview bot={data.bot} draft={sharedPreviewDraft} vars={sharedDraftVars} roles={pickerRoles} channels={channels} />
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className={labelClass}>Giochi</p>
+                        <StatusBadge>
+                          {scoring.rewardExpByType.filter((r) => r.enabled !== false).length}/{scoring.rewardExpByType.length} attivi
+                        </StatusBadge>
+                      </div>
+                      <p className="mb-2 text-xs text-crema/50">Per tipo: attiva/spegni, durata, EXP e anteprima (senza modificare l’embed). Caccia al tesoro: l’EXP scala i bucket.</p>
+                      <ul className="space-y-2">
+                        {scoring.rewardExpByType.map((row) => {
+                          const open = gameEditType === row.type;
+                          const on = row.enabled !== false;
+                          const durSec = Math.max(15, Math.round((row.durationMs || 180000) / 1000));
+                          const rowStart = scoring.startDraft || emptyDraft();
+                          const rowWin = scoring.winDraft || emptyDraft();
+                          const rowImg = resolveMinigamePreviewImage(row.type, previewCardsReady, realGameImgs);
+                          const rowStartVars = minigameRowPreviewVars(row, minigameVars, rowImg);
+                          const rowWinVars = {
+                            ...minigameVars,
+                            exp: String(row.rewardExp || 150),
+                            total: "1500",
+                            streak: "3",
+                            user: minigameVars.user || "@Mario",
+                          };
+                          const rowStartDraft = minigamePreviewDraft(rowStart, rowImg || null);
+                          return (
+                            <li key={row.type} className={cn("rounded-2xl ring-1 ring-sand/10", on ? "bg-espresso/45" : "bg-espresso/25 opacity-80")}>
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 p-2.5 pl-3 text-left"
+                                onClick={() => setGameEditType(open ? null : row.type)}
+                                aria-expanded={open}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-semibold text-crema">{minigameTypeLabel(row.type)}</p>
+                                  <p className="truncate text-[0.65rem] text-crema/45">
+                                    {on ? "attivo" : "spento"} · {durSec}s · {row.rewardExp} EXP
+                                  </p>
+                                </div>
+                                <ChevronDown className={cn("size-4 shrink-0 text-crema/50 transition", open && "rotate-180")} aria-hidden />
+                              </button>
+                              {open ? (
+                                <div className="space-y-3 border-t border-sand/10 p-3 pt-3">
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <Toggle checked={on} onChange={(enabled) => setRow(row.type, { enabled })} label={`Attiva ${minigameTypeLabel(row.type)}`} />
+                                    {!on ? <StatusBadge>fuori rotazione</StatusBadge> : null}
+                                  </div>
+                                  <div className="grid gap-3 sm:grid-cols-2">
+                                    <BigNumber
+                                      label="Durata"
+                                      value={durSec}
+                                      min={15}
+                                      max={1800}
+                                      onChange={(v) => setRow(row.type, { durationMs: Math.max(15, Math.floor(v || 15)) * 1000 })}
+                                      suffix="sec"
+                                    />
+                                    <BigNumber
+                                      label="EXP vittoria"
+                                      value={row.rewardExp}
+                                      min={1}
+                                      max={100000}
+                                      step={10}
+                                      onChange={(v) => setRow(row.type, { rewardExp: Math.max(1, Math.floor(Number(v) || 1)) })}
+                                      suffix="EXP"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <p className={labelClass}>Anteprima inizio</p>
+                                    <DiscordMessagePreview
+                                      noTest
+                                      bot={data.bot}
+                                      draft={rowStartDraft}
+                                      vars={rowStartVars}
+                                      roles={pickerRoles}
+                                      channels={channels}
+                                    />
+                                    <p className={labelClass}>Anteprima vittoria</p>
+                                    <DiscordMessagePreview
+                                      noTest
+                                      bot={data.bot}
+                                      draft={rowWin}
+                                      vars={rowWinVars}
+                                      roles={pickerRoles}
+                                      channels={channels}
+                                    />
+                                  </div>
+                                </div>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })()}
+            </Card>
+
+            <Card icon={Trophy} title="TOP minigiochi" text="Ruolo del vincitore della classifica settimanale EXP minigiochi.">
+              {(() => {
+                const aw: LevelsActivityWinners = {
+                  channelId: null,
+                  excludedRoleIds: [],
+                  weeklyTextRoleId: null,
+                  weeklyVoiceRoleId: null,
+                  weeklyMinigameRoleId: null,
+                  monthlyMemberRoleId: null,
+                  ...cfg.activityWinners,
+                };
+                return (
+                  <Field label="Ruolo TOP settimanale">
+                    <Select
+                      value={aw.weeklyMinigameRoleId || ""}
+                      onChange={(v) => set({ activityWinners: { ...aw, weeklyMinigameRoleId: v || null } })}
+                      options={[{ value: "", label: "Nessuno" }, ...roles]}
+                      className={fieldClass}
+                      aria-label="TOP minigiochi settimanale"
+                    />
+                  </Field>
+                );
+              })()}
+            </Card>
+
             <Card icon={Gamepad2} title="Premi minigiochi" text="Ruoli per chi accumula EXP vincendo i minigiochi. Lista vuota = nessun ruolo.">
               {games.length ? (
                 <ol className="relative space-y-2 pl-5 before:absolute before:bottom-3 before:left-[0.55rem] before:top-3 before:w-px before:bg-gradient-to-b before:from-[#826bc2]/60 before:to-transparent">
@@ -650,29 +1533,42 @@ export function LevelsPanel({
                 <Plus className="size-3.5" aria-hidden /> Aggiungi premio ({nextGameExp.toLocaleString("it-IT")} EXP)
               </button>
             </Card>
-          ) : null}
 
-          {isMain ? (
-            <Card
-              icon={Star}
-              title="Recensione sul sito"
-              text="Livelli regalati a chi lascia una recensione della community su viniliecaffe.it/recensioni (una volta sola). Non usa Disboard."
-              aside={(cfg.reviewRewardLevels ?? 5) > 0 ? <StatusBadge tone="accent">+{cfg.reviewRewardLevels ?? 5} livelli</StatusBadge> : <StatusBadge>spento</StatusBadge>}
-            >
-              <div className="max-w-xs">
-                <BigNumber
-                  label="Livelli in regalo"
-                  value={cfg.reviewRewardLevels ?? 5}
-                  min={0}
-                  max={100}
-                  onChange={(v) => set({ reviewRewardLevels: Math.max(0, Math.floor(v || 0)) })}
-                  suffix="livelli"
-                  hint="0 = nessun premio."
+            <Card icon={Megaphone} title="Annuncio premio" text="Dove e come annunciare il ruolo sbloccato coi minigiochi. Vuoto = #comandi e messaggio classico. Placeholder: {user} {role} {exp} {next}.">
+              <ChannelField
+                label="Canale premio"
+                value={cfg.minigameRewardChannelId || null}
+                channels={channels}
+                onChange={(minigameRewardChannelId) => set({ minigameRewardChannelId: minigameRewardChannelId || null })}
+              />
+              <div className="mt-4">
+                <EditorWithPreview
+                  editor={
+                    <DraftEditor
+                      value={cfg.minigameRewardDraft || emptyDraft()}
+                      onChange={(d) => set({ minigameRewardDraft: d })}
+                      emojis={data.pickers.emojis}
+                      placeholders={MINIGAME_PLACEHOLDERS}
+                      maxButtons={data.limits.buttons}
+                    />
+                  }
+                  preview={
+                    <DiscordMessagePreview
+                      testChannelId={cfg.minigameRewardChannelId || undefined}
+                      bot={data.bot}
+                      draft={cfg.minigameRewardDraft || emptyDraft()}
+                      vars={minigameVars}
+                      roles={pickerRoles}
+                      channels={channels}
+                    />
+                  }
                 />
               </div>
             </Card>
-          ) : null}
-        </div>
+          </div>
+        ) : (
+          <Notice>I minigiochi EXP si configurano solo sul server principale.</Notice>
+        )
       ) : null}
 
       {tab === "utenti" ? <UsersTab guildId={guildId} token={token} cfg={cfg} pickerRoles={pickerRoles} onToast={onToast} /> : null}
@@ -683,17 +1579,6 @@ export function LevelsPanel({
             <ChannelField label="Canale" value={cfg.levelUpChannelId} channels={channels} onChange={(levelUpChannelId) => set({ levelUpChannelId })} />
           </Card>
 
-          {isMain ? (
-            <Card icon={Gamepad2} title="Premio minigiochi" text="Dove e come annunciare il ruolo sbloccato coi minigiochi. Vuoto = #comandi e messaggio classico.">
-              <ChannelField
-                label="Canale premio"
-                value={cfg.minigameRewardChannelId || null}
-                channels={channels}
-                onChange={(minigameRewardChannelId) => set({ minigameRewardChannelId: minigameRewardChannelId || null })}
-              />
-            </Card>
-          ) : null}
-
           <div className="flex flex-wrap items-center gap-3">
             <Pills
               value={announce}
@@ -703,7 +1588,6 @@ export function LevelsPanel({
                 { id: "level", label: "Nuovo livello", icon: TrendingUp },
                 { id: "milestone", label: "Ruolo premio sbloccato", icon: Trophy },
                 ...(isMain ? [{ id: "perks" as const, label: "Vantaggi sbloccati", icon: Gift }] : []),
-                ...(isMain ? [{ id: "minigame" as const, label: "Premio minigiochi", icon: Gamepad2 }] : []),
               ]}
             />
             <p className="text-xs text-crema/55">
@@ -711,8 +1595,6 @@ export function LevelsPanel({
                 ? "A ogni livello senza premio."
                 : announce === "perks"
                   ? "Un secondo messaggio, a parte, coi vantaggi del ruolo premio appena preso."
-                  : announce === "minigame"
-                  ? "Quando si sblocca un ruolo coi minigiochi: {user} {role} {exp} {next}."
                   : cfg.roleRewards.length
                     ? "Quando il livello dà un ruolo premio: usa {role} e {perks}."
                     : "Senza ruoli premio non viene mai usato."}
@@ -789,46 +1671,18 @@ export function LevelsPanel({
             editor={
               <DraftEditor
                 key={announce}
-                value={
-                  announce === "level"
-                    ? cfg.levelUpDraft
-                    : announce === "minigame"
-                      ? cfg.minigameRewardDraft || emptyDraft()
-                      : announce === "perks"
-                        ? cfg.perksDraft || emptyDraft()
-                        : cfg.milestoneDraft
-                }
-                onChange={(d) =>
-                  set(
-                    announce === "level"
-                      ? { levelUpDraft: d }
-                      : announce === "minigame"
-                        ? { minigameRewardDraft: d }
-                        : announce === "perks"
-                          ? { perksDraft: d }
-                          : { milestoneDraft: d },
-                  )
-                }
+                value={announce === "level" ? cfg.levelUpDraft : announce === "perks" ? cfg.perksDraft || emptyDraft() : cfg.milestoneDraft}
+                onChange={(d) => set(announce === "level" ? { levelUpDraft: d } : announce === "perks" ? { perksDraft: d } : { milestoneDraft: d })}
                 emojis={data.pickers.emojis}
-                placeholders={
-                  announce === "level" ? LEVEL_PLACEHOLDERS : announce === "minigame" ? MINIGAME_PLACEHOLDERS : announce === "perks" ? PERKS_PLACEHOLDERS : MILESTONE_PLACEHOLDERS
-                }
+                placeholders={announce === "level" ? LEVEL_PLACEHOLDERS : announce === "perks" ? PERKS_PLACEHOLDERS : MILESTONE_PLACEHOLDERS}
                 maxButtons={data.limits.buttons}
               />
             }
             preview={
               <DiscordMessagePreview
-                testChannelId={(announce === "minigame" ? cfg.minigameRewardChannelId : announce === "perks" ? cfg.perksChannelId : cfg.levelUpChannelId) || undefined}
+                testChannelId={(announce === "perks" ? cfg.perksChannelId : cfg.levelUpChannelId) || undefined}
                 bot={data.bot}
-                draft={
-                  announce === "level"
-                    ? cfg.levelUpDraft
-                    : announce === "minigame"
-                      ? cfg.minigameRewardDraft || emptyDraft()
-                      : announce === "perks"
-                        ? cfg.perksDraft || emptyDraft()
-                        : cfg.milestoneDraft
-                }
+                draft={announce === "level" ? cfg.levelUpDraft : announce === "perks" ? cfg.perksDraft || emptyDraft() : cfg.milestoneDraft}
                 vars={vars}
                 roles={pickerRoles}
                 channels={channels}
@@ -881,6 +1735,7 @@ function toLocalInput(ms: number) {
 function EventCard({
   guildId,
   token,
+  channels,
   event,
   scheduled,
   onChange,
@@ -888,6 +1743,7 @@ function EventCard({
 }: {
   guildId: string;
   token: string;
+  channels: PickerChannel[];
   event: LevelsEvent | null;
   scheduled: LevelsScheduledEvent[];
   onChange: (e: LevelsEvent, scheduled: LevelsScheduledEvent[]) => void;
@@ -898,6 +1754,9 @@ function EventCard({
   const [unit, setUnit] = useState("1440");
   const [when, setWhen] = useState<"now" | "later">("now");
   const [startAt, setStartAt] = useState("");
+  const [announceEnabled, setAnnounceEnabled] = useState(false);
+  const [announceChannelId, setAnnounceChannelId] = useState("");
+  const [announceContent, setAnnounceContent] = useState("Evento EXP ×{mult} in corso!");
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
@@ -924,7 +1783,17 @@ function EventCard({
 
   const submit = () => {
     if (when === "later") {
-      void run({ multiplier, minutes, startAt: new Date(startMs).toISOString() }, `Evento ×${multiplier} programmato per ${whenLabel(startMs)}.`);
+      void run(
+        {
+          multiplier,
+          minutes,
+          startAt: new Date(startMs).toISOString(),
+          announceEnabled,
+          announceChannelId: announceChannelId || null,
+          announceContent,
+        },
+        `Evento ×${multiplier} programmato per ${whenLabel(startMs)}.`,
+      );
     } else {
       void run({ multiplier, minutes }, `Evento ×${multiplier} avviato.`);
     }
@@ -967,6 +1836,7 @@ function EventCard({
                     </p>
                     <p className="text-xs text-crema/55">
                       Dura {durationLabel(ev.durationMs / 60_000)} · finisce {whenLabel(s + ev.durationMs)}
+                      {ev.announceEnabled ? " · annuncio all’inizio" : ""}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -1028,6 +1898,40 @@ function EventCard({
           </div>
         </div>
       </div>
+      {when === "later" ? (
+        <div className="mt-3 space-y-3 rounded-2xl bg-espresso/45 p-4 ring-1 ring-sand/10">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Toggle checked={announceEnabled} onChange={setAnnounceEnabled} label="Annuncio all’inizio" />
+            <p className="text-xs text-crema/55">Messaggio in chat quando parte l’evento programmato.</p>
+          </div>
+          <Field
+            label="Testo annuncio"
+            hint="All’ora di inizio, se attivo. Usa {mult} o {multiplier} per il moltiplicatore."
+          >
+            <ExpandableTextarea
+              value={announceContent}
+              rows={3}
+              maxLength={2000}
+              disabled={!announceEnabled}
+              placeholder="Evento EXP ×{mult} in corso!"
+              onChange={(e) => setAnnounceContent(e.target.value.slice(0, 2000))}
+              className={cn(fieldClass, "!mt-0 min-h-24 resize-y py-2.5")}
+              aria-label="Messaggio annuncio evento"
+            />
+          </Field>
+          {announceEnabled ? (
+            <Field label="Canale annuncio" hint="Vuoto = canale eventi predefinito del bot.">
+              <Select
+                value={announceChannelId}
+                onChange={setAnnounceChannelId}
+                options={[{ value: "", label: "Predefinito" }, ...channels.map((c) => ({ value: c.id, label: `#${c.name}` }))]}
+                className={fieldClass}
+                aria-label="Canale annuncio evento"
+              />
+            </Field>
+          ) : null}
+        </div>
+      ) : null}
       {!durationOk ? <p className="mt-2 text-xs text-[#e2836f]">La durata va da 5 minuti a 30 giorni.</p> : null}
       {when === "later" && !startOk ? <p className="mt-2 text-xs text-[#e2836f]">Scegli una data futura.</p> : null}
       <button type="button" className={cn(dashPrimaryBtn, "mt-3")} disabled={busy || multiplier < 1.05 || !durationOk || !startOk} onClick={submit}>

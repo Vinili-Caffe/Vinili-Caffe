@@ -868,7 +868,18 @@ function resolveWordReactionChannelIds(channelIdKeys?) {
 function getWelcomeGreetingRule() {
   const rules = getWordReactionsConfig();
   if (!Array.isArray(rules)) return null;
-  return rules.find((rule?) => rule?.onlyInWelcomeContext) || null;
+  const base = rules.find((rule?) => rule?.onlyInWelcomeContext) || null;
+  if (!base) return null;
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+    const cfg = LVL.getConfigSync(String(IDs.guilds?.main || ""));
+    const words = cfg?.bonuses?.welcomeGreeting?.words;
+    if (cfg && (cfg.userSaved || cfg.seedVersion > 0) && Array.isArray(words) && words.length) {
+      return { ...base, words: words.map((w?) => String(w || "").trim()).filter(Boolean) };
+    }
+  } catch (_) {}
+  return base;
 }
 
 function messageChannelIdsForWelcomeExp(message?) {

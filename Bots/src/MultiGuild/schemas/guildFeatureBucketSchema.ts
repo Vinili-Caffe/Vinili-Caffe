@@ -99,6 +99,8 @@ const giveawayEntrySchema = new Schema(
     requireMorgames: { type: Boolean, default: false },
     /** 0 = nessuno; altrimenti livello EXP minimo per entrare */
     minLevel: { type: Number, default: 0 },
+    /** vuoto = nessuno; altrimenti serve almeno uno di questi ruoli */
+    requiredRoleIds: { type: [String], default: [] },
   },
   { timestamps: true },
 );

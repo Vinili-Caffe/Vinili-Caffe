@@ -368,7 +368,7 @@ export function V2Preview({ v2, vars, names, fill }: { v2: MsgV2; vars: Record<s
   const urlOf = (u: string) => {
     const v = fill(u || "", vars).trim();
     /* blob: = immagini d'esempio generate per l'anteprima (es. la quote del server) */
-    return /^(https?:\/\/|blob:)/i.test(v) ? v : "";
+    return /^(https?:\/\/|blob:|data:image\/)/i.test(v) ? v : "";
   };
   const body = (
     <div className="flex flex-col gap-2">

@@ -8,6 +8,7 @@ const { normalizeRewardExp } = require("./minigameText") as typeof import("./min
 const { activeGames, channelWinClosing, treasureHuntReactLocks, isMinigameRehydrateBlocked, recordNoParticipationIfNeeded, clearActiveGame, endMinigameWinClose, tryClaimMinigameChannelClose } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
 const { logTreasureHuntReactDebug, getTreasureHuntCfg, ensureGuildEmojisForTreasure, normalizeTreasureEmojiPair, findMessageReactionByToken, treasureReactErrorMeta, reactTreasureHuntEmojiWithFallbacks, treasureHuntDisplayTexts, pickTreasureHuntBucket, pickTreasureHuntEmojiPair, removeTreasureHuntReactions, serializeTreasureHuntTarget, getTreasureHuntMessageUrl } = require("./minigameTreasureEmoji") as typeof import("./minigameTreasureEmoji");
 const { markSent, saveActiveGame, parseStateTarget, closeExpiredMinigameState } = require("./minigameRound") as typeof import("./minigameRound");
 
@@ -332,7 +333,11 @@ async function startTreasureHuntGame(client?, cfg?) {
     durationMs,
     rewardExp,
   );
-  const introMessage = await sendMinigameMessage(channel, { embeds: [introEmbed] }).catch(() => null);
+  const introMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [introEmbed] },
+    { type: "treasureHunt", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, targetCount }) },
+  ).catch(() => null);
   if (introMessage?.id) {
     game.introMessageId = String(introMessage.id);
     await persistTreasureHuntState(client, cfg, game);

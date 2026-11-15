@@ -10,6 +10,32 @@ const MINIGAME_WINNER_ROLE_ID = IDs.roles.MVP;
 const ROYALE_MINIGAME_ROLE_ID = IDs.roles.Royale;
 const MONTHLY_MEMBER_ROLE_ID = IDs.roles.TopMonthlyMember;
 
+function resolveWinnerRoleIds() {
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const cfg = LVL.getActivityWinnersSync(String(IDs.guilds?.main || ""));
+    if (!cfg) return {
+      message: MESSAGE_WINNER_ROLE_ID,
+      voice: VOICE_WINNER_ROLE_ID,
+      minigame: MINIGAME_WINNER_ROLE_ID,
+      monthly: MONTHLY_MEMBER_ROLE_ID,
+    };
+    return {
+      message: cfg.weeklyTextRoleId || MESSAGE_WINNER_ROLE_ID,
+      voice: cfg.weeklyVoiceRoleId || VOICE_WINNER_ROLE_ID,
+      minigame: cfg.weeklyMinigameRoleId || MINIGAME_WINNER_ROLE_ID,
+      monthly: cfg.monthlyMemberRoleId || MONTHLY_MEMBER_ROLE_ID,
+    };
+  } catch {
+    return {
+      message: MESSAGE_WINNER_ROLE_ID,
+      voice: VOICE_WINNER_ROLE_ID,
+      minigame: MINIGAME_WINNER_ROLE_ID,
+      monthly: MONTHLY_MEMBER_ROLE_ID,
+    };
+  }
+}
+
 async function removeRoleFromAllMembers(guild?, roleId?, keepUserId = "") {
   if (!roleId) return;
   await guild.members.fetch().catch(() => null);
@@ -46,6 +72,7 @@ function pickFirstAvailable(ranking?, excludedUserIds = new Set()) {
 }
 
 async function updateWeeklyWinnerRoles(guild?, topMessages?, topVoice?, topMinigame?) {
+  const roles = resolveWinnerRoleIds();
   const chosenUserIds = new Set();
   const messageWinner = pickFirstAvailable(topMessages, chosenUserIds);
   if (messageWinner) chosenUserIds.add(messageWinner.userId);
@@ -53,37 +80,38 @@ async function updateWeeklyWinnerRoles(guild?, topMessages?, topVoice?, topMinig
   if (voiceWinner) chosenUserIds.add(voiceWinner.userId);
   const minigameWinner =
     topMinigame !== false &&
-      MINIGAME_WINNER_ROLE_ID &&
+      roles.minigame &&
       Array.isArray(topMinigame) &&
       topMinigame.length
       ? pickFirstAvailable(topMinigame, chosenUserIds)
       : null;
   const removals = [
-    removeRoleFromAllMembers(guild, MESSAGE_WINNER_ROLE_ID, messageWinner?.userId),
-    removeRoleFromAllMembers(guild, VOICE_WINNER_ROLE_ID, voiceWinner?.userId),
+    removeRoleFromAllMembers(guild, roles.message, messageWinner?.userId),
+    removeRoleFromAllMembers(guild, roles.voice, voiceWinner?.userId),
   ];
-  if (MINIGAME_WINNER_ROLE_ID && topMinigame !== false) {
-    removals.push(removeRoleFromAllMembers(guild, MINIGAME_WINNER_ROLE_ID, minigameWinner?.userId));
+  if (roles.minigame && topMinigame !== false) {
+    removals.push(removeRoleFromAllMembers(guild, roles.minigame, minigameWinner?.userId));
   }
   await Promise.all(removals);
   const assigns = [
-    assignRoleToUser(guild, messageWinner?.userId, MESSAGE_WINNER_ROLE_ID),
-    assignRoleToUser(guild, voiceWinner?.userId, VOICE_WINNER_ROLE_ID),
+    assignRoleToUser(guild, messageWinner?.userId, roles.message),
+    assignRoleToUser(guild, voiceWinner?.userId, roles.voice),
   ];
-  if (MINIGAME_WINNER_ROLE_ID && topMinigame !== false) {
-    assigns.push(assignRoleToUser(guild, minigameWinner?.userId, MINIGAME_WINNER_ROLE_ID));
+  if (roles.minigame && topMinigame !== false) {
+    assigns.push(assignRoleToUser(guild, minigameWinner?.userId, roles.minigame));
   }
   await Promise.all(assigns);
   return { messageWinner, voiceWinner, minigameWinner };
 }
 
 async function updateMonthlyWinnerRoles(guild?, topCombined?) {
+  const roles = resolveWinnerRoleIds();
   const first = Array.isArray(topCombined) && topCombined.length ? topCombined[0] : null;
   const second = Array.isArray(topCombined) && topCombined.length > 1 ? topCombined[1] : null;
   const third = Array.isArray(topCombined) && topCombined.length > 2 ? topCombined[2] : null;
-  if (!MONTHLY_MEMBER_ROLE_ID) return { topMonthlyWinner: first, monthlyTopSecond: second, monthlyTopThird: third };
-  await removeRoleFromAllMembers(guild, MONTHLY_MEMBER_ROLE_ID);
-  await assignRoleToUser(guild, first?.userId, MONTHLY_MEMBER_ROLE_ID);
+  if (!roles.monthly) return { topMonthlyWinner: first, monthlyTopSecond: second, monthlyTopThird: third };
+  await removeRoleFromAllMembers(guild, roles.monthly);
+  await assignRoleToUser(guild, first?.userId, roles.monthly);
   return { topMonthlyWinner: first, monthlyTopSecond: second, monthlyTopThird: third };
 }
 

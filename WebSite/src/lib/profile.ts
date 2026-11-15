@@ -3,6 +3,7 @@
 // Le impostazioni (compleanno, privacy, reazioni…) stanno in Personalizza, non qui.
 
 import { apiUrl } from "./api";
+import { readableGuildName } from "./discord-fancy-text";
 
 export type DiscordRole = { id: string; name: string; color?: string; emoji?: string; iconUrl?: string };
 export type SharedMember = { id: string; username?: string; displayName?: string; avatarUrl?: string; isOwner?: boolean };
@@ -169,7 +170,8 @@ export async function loadProfileGuilds(token: string, userId: string): Promise<
     const q = new URLSearchParams({ profileGuilds: "1", userId });
     const r = await fetch(apiUrl(`/webhooks/site-users?${q}`), { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const j = await r.json().catch(() => null);
-    return r.ok && j?.ok && Array.isArray(j.guilds) ? (j.guilds as ProfileGuild[]) : [];
+    if (!(r.ok && j?.ok && Array.isArray(j.guilds))) return [];
+    return (j.guilds as ProfileGuild[]).map((g) => ({ ...g, name: readableGuildName(g.name, g.name || "Server") }));
   } catch {
     return [];
   }
@@ -186,7 +188,7 @@ export async function loadGuildProfile(token: string, guildId: string, userId: s
     return {
       ok: true,
       data: {
-        guild: { id: String(j.guild?.id || guildId), name: String(j.guild?.name || "") },
+        guild: { id: String(j.guild?.id || guildId), name: readableGuildName(j.guild?.name || "", "Server") },
         userId: String(p.userId),
         username: String(p.username || ""),
         displayName: String(p.displayName || p.username || "Utente"),

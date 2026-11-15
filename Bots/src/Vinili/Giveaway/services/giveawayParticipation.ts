@@ -83,6 +83,20 @@ async function enterGiveaway(interaction?, client?, opts?) {
       return true;
     }
   }
+  const requiredRoleIds = (Array.isArray(giveaway.requiredRoleIds) ? giveaway.requiredRoleIds : [])
+    .map((id?) => String(id || "").trim())
+    .filter((id?) => /^\d{16,22}$/.test(id));
+  if (requiredRoleIds.length) {
+    const member =
+      interaction.member ||
+      (await interaction.guild?.members?.fetch?.(userId).catch(() => null));
+    const hasAny = requiredRoleIds.some((id?) => Boolean(member?.roles?.cache?.has?.(id)));
+    if (!hasAny) {
+      const mentions = requiredRoleIds.map((id?) => `<@&${id}>`).join(" · ");
+      await replyGiveawayEphemeral(interaction, `${E.VC_Alert} Serve almeno uno di questi ruoli: ${mentions}`);
+      return true;
+    }
+  }
   const wasIn = giveaway.participants && giveaway.participants.includes(userId);
 
   const updated = await Giveaway.findOneAndUpdate(

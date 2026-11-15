@@ -2,6 +2,8 @@
 // API: /webhooks/site-dashboard/guilds/:id/community/…
 // Handler: MultiGuild/site/dashboard/dashboardCommunityApi.ts
 
+import { readableGuildName } from "@/lib/discord-fancy-text";
+
 /** row = fila 0-4 (se manca: 5 per fila in ordine) */
 export type MsgButton = { label: string; url: string; emoji: string; row?: number };
 export type MsgField = { name: string; value: string; inline: boolean };
@@ -249,13 +251,18 @@ export async function loadCommunity(token: string, guildId: string): Promise<{ o
     ok: true,
     data: {
       ...d,
+      guild: d.guild
+        ? { ...d.guild, name: readableGuildName(d.guild.name, d.guild.name || "Server") }
+        : d.guild,
       messages: Array.isArray(d.messages) ? d.messages : [],
       commands: Array.isArray(d.commands) ? d.commands : [],
       rolePanels: Array.isArray(d.rolePanels) ? d.rolePanels : [],
       pickers: {
         textChannels: Array.isArray(d.pickers?.textChannels) ? d.pickers.textChannels : [],
         roles: Array.isArray(d.pickers?.roles) ? d.pickers.roles : [],
-        emojis: Array.isArray(d.pickers?.emojis) ? d.pickers.emojis : [],
+        emojis: Array.isArray(d.pickers?.emojis)
+          ? d.pickers.emojis.map((e) => (e.guildName ? { ...e, guildName: readableGuildName(e.guildName, e.guildName) } : e))
+          : [],
         categories: Array.isArray(d.pickers?.categories) ? d.pickers.categories : [],
       },
     },
@@ -385,6 +392,7 @@ export type Giveaway = {
   hostId: string | null;
   /** 0 = nessuno */
   minLevel?: number;
+  requiredRoleIds?: string[];
 };
 
 /** Giveaway programmato: parte da solo all'ora scelta. */
@@ -397,6 +405,7 @@ export type ScheduledGiveaway = {
   winnerCount: number;
   minLevel: number;
   startAt: number;
+  requiredRoleIds?: string[];
 };
 
 export type Poll = {
@@ -424,13 +433,20 @@ export type BirthdaysConfig = {
   dm: { enabled: boolean; draft: MsgDraft };
   reactions?: string[];
   expBoost?: { enabled: boolean; multiplier: number };
+  /** ruoli fascia d'età (solo server principale) */
+  ageBrackets?: {
+    enabled: boolean;
+    /** sotto questa età: toglie i ruoli fascia */
+    minAge: number;
+    brackets: { maxAge: number; roleId: string }[];
+  };
 };
 
 export type LevelsRoleMultiplier = { roleId: string; multiplier: number };
 /** perks: vantaggi sbloccati con questo ruolo (finiscono in {perklist}) */
 export type LevelsRoleReward = { level: number; roleId: string; perks?: string };
 /** noticeDraft: messaggio mandato in risposta (testo, embed o V2) */
-export type LevelsExpBonus = { enabled: boolean; amount: number; channelIds: string[]; noticeTemplate?: string; noticeDraft?: MsgDraft };
+export type LevelsExpBonus = { enabled: boolean; amount: number; channelIds: string[]; noticeTemplate?: string; noticeDraft?: MsgDraft; words?: string[] };
 export type LevelsCooldownTier = { minLevel: number; seconds: number };
 export type LevelsCooldownRoles = {
   staff: number;
@@ -438,6 +454,38 @@ export type LevelsCooldownRoles = {
   vip: number;
   doubleBooster: number;
   booster: number;
+};
+export type LevelsCooldownCustomRole = { roleId: string; seconds: number };
+export type LevelsMinigameRewardExp = {
+  type: string;
+  rewardExp: number;
+  enabled?: boolean;
+  durationMs?: number;
+};
+export type LevelsMinigameScoring = {
+  fastGuess: { windowMs: number; multiplier: number };
+  streak: { bonusPercentPerWin: number; maxBonusPercent: number };
+  rewardExpByType: LevelsMinigameRewardExp[];
+  /** Messaggio inizio round unico ({minigame} {exp} {minutesLabel} {prompt}) */
+  startDraft?: MsgDraft | null;
+  /** Messaggio vittoria unico */
+  winDraft?: MsgDraft | null;
+};
+export type LevelsActivityWinners = {
+  channelId: string | null;
+  excludedRoleIds: string[];
+  weeklyTextRoleId: string | null;
+  weeklyVoiceRoleId: string | null;
+  weeklyMinigameRoleId: string | null;
+  monthlyMemberRoleId: string | null;
+};
+
+export type LevelsCurveSegment = { upTo: number; base: number; from: number; perLevel: number };
+export type LevelsLevelCurve = {
+  firstThreshold: number;
+  roundTo: number;
+  minStepAdd: number;
+  segments: LevelsCurveSegment[];
 };
 
 export type LevelsConfig = {
@@ -473,18 +521,41 @@ export type LevelsConfig = {
   perksEnabled?: boolean;
   perksChannelId?: string | null;
   perksDraft?: MsgDraft;
-  /** cooldown comandi per livello + Staff/VIP/Boost */
-  commandCooldown?: { defaultSeconds: number; tiers: LevelsCooldownTier[]; roles: LevelsCooldownRoles };
+  /** cooldown comandi per livello + Staff/VIP/Boost + ruoli custom */
+  commandCooldown?: { defaultSeconds: number; tiers: LevelsCooldownTier[]; roles: LevelsCooldownRoles; customRoles?: LevelsCooldownCustomRole[] };
+  /** bilanciamento EXP minigiochi (solo server principale) */
+  minigameScoring?: LevelsMinigameScoring;
+  /** TOP settimanale/mensile (solo server principale) */
+  activityWinners?: LevelsActivityWinners;
   /** livelli regalati per la recensione sul sito (solo server principale; 0 = niente) */
   reviewRewardLevels?: number;
+  /** curva EXP → livello (soglie e segmenti dello step) */
+  levelCurve?: LevelsLevelCurve;
 };
 
 export type LevelsEvent = { active: boolean; multiplier: number; expiresAt: string | null };
 
-export type LevelsScheduledEvent = { id: string; multiplier: number; durationMs: number; startAt: string; createdBy: string; createdAt: string };
+export type LevelsScheduledEvent = {
+  id: string;
+  multiplier: number;
+  durationMs: number;
+  startAt: string;
+  createdBy: string;
+  createdAt: string;
+  announceEnabled?: boolean;
+  announceChannelId?: string | null;
+  announceContent?: string;
+};
 
 export type LevelsEventRequest =
-  | { multiplier: number; minutes: number; startAt?: string }
+  | {
+      multiplier: number;
+      minutes: number;
+      startAt?: string;
+      announceEnabled?: boolean;
+      announceChannelId?: string | null;
+      announceContent?: string;
+    }
   | { stop: true }
   | { cancelId: string }
   | { startNowId: string };
@@ -580,10 +651,13 @@ export const communityApi = {
     call<{ isMainGuild?: boolean; imported?: boolean; config: LevelsConfig; event?: LevelsEvent; scheduled?: LevelsScheduledEvent[] }>(t, g, `/levels?_=${Date.now()}`),
   saveLevels: (t: string, g: string, config: LevelsConfig) => call<{ config: LevelsConfig }>(t, g, "/levels", "PATCH", { config }),
   setLevelsEvent: (t: string, g: string, body: LevelsEventRequest) => call<{ event: LevelsEvent; scheduled?: LevelsScheduledEvent[] }>(t, g, "/levels/event", "POST", body),
+  /** immagine vera del round (canvas o foto) generata dal bot, per le anteprime dei minigiochi */
+  getMinigamePreview: (t: string, g: string, type: string) =>
+    call<{ image: string; source: "canvas" | "remote" | "none" }>(t, g, `/levels/minigame-preview?type=${encodeURIComponent(type)}`),
   getLevelsUser: (t: string, g: string, userId: string) => call<{ user: LevelsUser }>(t, g, `/levels/user?id=${encodeURIComponent(userId)}&_=${Date.now()}`),
   mutateLevelsUser: (t: string, g: string, body: LevelsUserAction) => call<{ before: LevelsUser; user: LevelsUser; rolesSynced: boolean }>(t, g, "/levels/user", "POST", body),
   listGiveaways: (t: string, g: string) => call<{ giveaways: Giveaway[]; scheduled?: ScheduledGiveaway[] }>(t, g, `/giveaways?_=${Date.now()}`),
-  createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number; hostId?: string; minLevel?: number; startAt?: string }) =>
+  createGiveaway: (t: string, g: string, body: { channelId: string; prize: string; durationMs: number; winnerCount: number; hostId?: string; minLevel?: number; startAt?: string; requiredRoleIds?: string[] }) =>
     call<{ giveaway?: Giveaway; scheduled?: ScheduledGiveaway[] }>(t, g, "/giveaways", "POST", body),
   scheduledGiveawayAction: (t: string, g: string, id: string, action: "start" | "cancel") =>
     action === "cancel"
@@ -593,7 +667,7 @@ export const communityApi = {
     t: string,
     g: string,
     messageId: string,
-    body: { prize?: string; durationMs?: number; winnerCount?: number; hostId?: string; minLevel?: number },
+    body: { prize?: string; durationMs?: number; winnerCount?: number; hostId?: string; minLevel?: number; requiredRoleIds?: string[] },
   ) => call<{ giveaway: Giveaway }>(t, g, `/giveaways/${encodeURIComponent(messageId)}`, "PATCH", body),
   giveawayAction: (t: string, g: string, messageId: string, action: "end" | "reroll" | "delete") =>
     action === "delete"

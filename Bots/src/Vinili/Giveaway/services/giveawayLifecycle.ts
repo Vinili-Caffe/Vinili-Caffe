@@ -26,9 +26,23 @@ const GIVEAWAY_READ_PROJECTION = {
   winnerIds: 1,
   guildId: 1,
   minLevel: 1,
+  requiredRoleIds: 1,
 };
 
-async function createGiveaway({ guildId, channelId, hostId, hostTag, prize, durationMs, winnerCount, minLevel = 0 }) {
+function normalizeRequiredRoleIds(raw?) {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const id of Array.isArray(raw) ? raw : []) {
+    const s = String(id || "").trim();
+    if (!/^\d{16,22}$/.test(s) || seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+async function createGiveaway({ guildId, channelId, hostId, hostTag, prize, durationMs, winnerCount, minLevel = 0, requiredRoleIds = [] }) {
   const endAt = new Date(Date.now() + durationMs);
   const safeMin = Math.max(0, Math.min(10000, Math.floor(Number(minLevel) || 0)));
   const doc = await Giveaway.create({
@@ -43,6 +57,7 @@ async function createGiveaway({ guildId, channelId, hostId, hostTag, prize, dura
     participants: [],
     ended: false,
     minLevel: safeMin,
+    requiredRoleIds: normalizeRequiredRoleIds(requiredRoleIds),
   });
   return doc;
 }
@@ -267,6 +282,9 @@ async function editGiveawayByMessageId(messageId?, client?, patch: Record<string
   }
   if (patch.minLevel != null) {
     $set.minLevel = Math.max(0, Math.min(10000, Math.floor(Number(patch.minLevel) || 0)));
+  }
+  if (patch.requiredRoleIds != null) {
+    $set.requiredRoleIds = normalizeRequiredRoleIds(patch.requiredRoleIds);
   }
   if (patch.hostId != null) {
     $set.hostId = String(patch.hostId);

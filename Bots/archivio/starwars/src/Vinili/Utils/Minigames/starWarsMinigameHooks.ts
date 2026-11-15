@@ -257,6 +257,7 @@ function getStarWarsExclusiveAvailableTypes(cfg?) {
     types.push(t);
   }
   for (const t of getStarWarsSpecialAvailableTypes()) {
+    if (cfg?.[t] === false) continue;
     if (!types.includes(t)) types.push(t);
   }
   return types;

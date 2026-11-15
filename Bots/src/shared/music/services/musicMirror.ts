@@ -294,7 +294,8 @@ async function playWithMirrorFallbacks(player?, session?, node?, track?) {
     });
     if (!list.length) {
       const src = String(track?.info?.sourceName || "").toLowerCase();
-      if (track?.encoded && src && src !== "spotify") list = [track];
+      /* anche senza sourceName (snapshot vecchio): prova l'encoded così com'è */
+      if (track?.encoded && src !== "spotify") list = [track];
     }
     const ytSeed =
       list.find((c?) => isYoutubeSourceName(c?.info?.sourceName)) ||
@@ -531,9 +532,16 @@ async function resolvePlayableTracks(node?, userQuery?, options: Record<string, 
 }
 
 function describeTrack(t?) {
+  const label = String(t?.label || "").trim();
+  if (label) return label;
   const info = t?.info;
   if (!info) return "Traccia sconosciuta";
-  return `${info.title || "Senza titolo"} — ${info.author || "?"}`;
+  const title = String(info.title || "").trim();
+  const author = String(info.author || "").trim();
+  if (title || author) return `${title || "Senza titolo"} — ${author || "?"}`;
+  const id = String(info.identifier || info.uri || "").trim();
+  if (id) return id.slice(0, 80);
+  return "Traccia sconosciuta";
 }
 
 function markFreshPlayAttempt(session?) {

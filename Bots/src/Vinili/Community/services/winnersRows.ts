@@ -7,6 +7,15 @@ const { getLastSunday21BoundaryMsAtOrBefore, buildLast7DaysHourKeys, buildCalend
 
 const REQUIRED_MEMBER_ROLE_ID = String(IDs.roles.Member || "");
 const WEEKLY_WINNERS_EXCLUDED_ROLE_IDS = new Set( [IDs.roles.Staff, IDs.roles.HighStaff, IDs.roles.Helper, IDs.roles.Mod, IDs.roles.SeniorModerator, IDs.roles.Director, IDs.roles.Admin, IDs.roles.Manager, IDs.roles.Founder].filter(Boolean).map((id?) => String(id)));
+
+function getWeeklyWinnersExcludedRoleIds() {
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const cfg = LVL.getActivityWinnersSync(String(IDs.guilds?.main || ""));
+    if (cfg?.excludedRoleIds?.length) return new Set(cfg.excludedRoleIds.map((id?) => String(id)));
+  } catch (_) {}
+  return WEEKLY_WINNERS_EXCLUDED_ROLE_IDS;
+}
 const BACKFILL_HOUR_SUFFIX = "T12";
 
 function shouldSkipBackfillRow(hourKey?, hourSet?) {
@@ -200,7 +209,7 @@ function extractMapEntries(raw?) {
   return [];
 }
 
-async function resolveTopThreeUsers(client?, guild?, docs?, valueGetter?, limit = 3, excludedRoleIds = WEEKLY_WINNERS_EXCLUDED_ROLE_IDS) {
+async function resolveTopThreeUsers(client?, guild?, docs?, valueGetter?, limit = 3, excludedRoleIds = getWeeklyWinnersExcludedRoleIds()) {
   const cap = Math.max(1, Math.min(25, Number(limit) || 3));
   const excludedSet =
     excludedRoleIds instanceof Set
@@ -226,7 +235,7 @@ async function resolveTopThreeUsers(client?, guild?, docs?, valueGetter?, limit 
   return out;
 }
 
-async function resolveMinigameTopForced(client?, guild?, docs?, valueGetter?, limit = 10, excludedRoleIdsFirst = WEEKLY_WINNERS_EXCLUDED_ROLE_IDS) {
+async function resolveMinigameTopForced(client?, guild?, docs?, valueGetter?, limit = 10, excludedRoleIdsFirst = getWeeklyWinnersExcludedRoleIds()) {
   const cap = Math.max(1, Math.min(25, Number(limit) || 10));
   let rows = await resolveTopThreeUsers(client, guild, docs, valueGetter, cap, excludedRoleIdsFirst);
   if (rows.length) return rows;
@@ -318,4 +327,4 @@ function deduplicateTopTwoLists(topA?, topB?, sortedA?, sortedB?, targetSize = 3
   return { listA: resultA, listB: resultB };
 }
 
-export = { REQUIRED_MEMBER_ROLE_ID, WEEKLY_WINNERS_EXCLUDED_ROLE_IDS, wasStaffDuringWeeklyActivityWindow, effectiveMinigameWeeklyScoreForRankWeek, loadMonthlyRowsFromRomeCalendarMonth, loadWeeklyRowsFromHourlyWindow, loadRowsFromHourlyWindowByHourKeys, loadDailyRowsFromHourlyWindow, resolveTopThreeUsers, resolveMinigameTopForced, uniqueRankingByUserId, deduplicateTopTwoLists };
+export = { REQUIRED_MEMBER_ROLE_ID, WEEKLY_WINNERS_EXCLUDED_ROLE_IDS, getWeeklyWinnersExcludedRoleIds, wasStaffDuringWeeklyActivityWindow, effectiveMinigameWeeklyScoreForRankWeek, loadMonthlyRowsFromRomeCalendarMonth, loadWeeklyRowsFromHourlyWindow, loadRowsFromHourlyWindowByHourKeys, loadDailyRowsFromHourlyWindow, resolveTopThreeUsers, resolveMinigameTopForced, uniqueRankingByUserId, deduplicateTopTwoLists };

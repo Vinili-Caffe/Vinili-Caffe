@@ -547,7 +547,15 @@ async function setLevelsEvent(client?, token?, guildId?, body?) {
     if (!Number.isFinite(start)) return fail(400, "bad_start", "Data di inizio non valida.");
     if (start < Date.now() - 60_000) return fail(400, "bad_start", "La data di inizio è già passata.");
     if (start > Date.now() + 365 * 86_400_000) return fail(400, "bad_start", "Puoi programmare al massimo un anno avanti.");
-    const out: any = await LVL().scheduleExpEvent(a.guildId, { multiplier, durationMs, startAt: start, actorId: a.userId });
+    const out: any = await LVL().scheduleExpEvent(a.guildId, {
+      multiplier,
+      durationMs,
+      startAt: start,
+      actorId: a.userId,
+      announceEnabled: body?.announceEnabled === true,
+      announceChannelId: body?.announceChannelId || null,
+      announceContent: String(body?.announceContent || "").trim(),
+    });
     if (!out.ok) return fail(400, "too_many", out.message);
     return done();
   }
@@ -555,6 +563,18 @@ async function setLevelsEvent(client?, token?, guildId?, body?) {
 }
 
 /** EXP di un membro (scheda Utenti). */
+/** Immagine vera del round per l'anteprima (generata dal bot). */
+async function getMinigamePreview(client?, token?, guildId?, type?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (!T.isMainGuild(a.guildId)) return fail(404, "unavailable", "I minigiochi ci sono solo sul server principale.");
+  const t = String(type || "").trim();
+  if (!/^[\w-]{2,40}$/.test(t)) return fail(400, "bad_type", "Minigioco non valido.");
+  const { renderMinigamePreview } = require("../../../Vinili/Minigames/services/minigamePreview") as typeof import("../../../Vinili/Minigames/services/minigamePreview");
+  const out = await renderMinigamePreview(t, client);
+  return { ok: true, status: 200, type: t, ...out };
+}
+
 async function getLevelsUser(client?, token?, guildId?, userId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
@@ -605,6 +625,7 @@ function serializeGiveaway(g?) {
     winnerIds: Array.isArray(g.winnerIds) ? g.winnerIds.map(String) : [],
     hostId: g.hostId ? String(g.hostId) : null,
     minLevel: Math.max(0, Math.floor(Number(g.minLevel) || 0)),
+    requiredRoleIds: (Array.isArray(g.requiredRoleIds) ? g.requiredRoleIds : []).map(String).filter((id) => /^\d{16,22}$/.test(id)).slice(0, 20),
   };
 }
 
@@ -619,6 +640,7 @@ function serializeScheduled(s?) {
     durationMs: Number(s.durationMs),
     winnerCount: Number(s.winnerCount) || 1,
     minLevel: Number(s.minLevel) || 0,
+    requiredRoleIds: (Array.isArray(s.requiredRoleIds) ? s.requiredRoleIds : []).map(String).filter((id) => /^\d{16,22}$/.test(id)).slice(0, 20),
     startAt: new Date(s.startAt).getTime(),
   };
 }
@@ -635,14 +657,24 @@ async function listGiveaways(client?, token?, guildId?) {
 }
 
 /** Crea il giveaway e manda il messaggio (dashboard subito, oppure all'ora programmata). */
-async function publishGiveaway(client?, guildId?, p: { prize: string; channelId: string; hostId: string; durationMs: number; winnerCount: number; minLevel: number } = {} as any) {
+async function publishGiveaway(client?, guildId?, p: { prize: string; channelId: string; hostId: string; durationMs: number; winnerCount: number; minLevel: number; requiredRoleIds?: string[] } = {} as any) {
   const rest = restOf(client);
   if (!rest) return fail(503, "no_rest", "Bot non pronto.");
   const gid = String(guildId);
   const hostId = String(p.hostId);
   const user: any = await rest.get(Routes.user(hostId)).catch(() => null);
   const svc = G();
-  const g: any = await svc.createGiveaway({ guildId: gid, channelId: p.channelId, hostId, hostTag: user?.username || "", prize: p.prize, durationMs: p.durationMs, winnerCount: p.winnerCount, minLevel: p.minLevel });
+  const g: any = await svc.createGiveaway({
+    guildId: gid,
+    channelId: p.channelId,
+    hostId,
+    hostTag: user?.username || "",
+    prize: p.prize,
+    durationMs: p.durationMs,
+    winnerCount: p.winnerCount,
+    minLevel: p.minLevel,
+    requiredRoleIds: p.requiredRoleIds,
+  });
   const channelId = p.channelId;
   try {
     const embed: any = svc.buildGiveawayEmbed(g);
@@ -667,6 +699,10 @@ async function createGiveaway(client?, token?, guildId?, body?) {
   const durationMs = Number(body?.durationMs);
   const winnerCount = Math.max(1, Math.min(20, Math.floor(Number(body?.winnerCount) || 1)));
   const minLevel = Math.max(0, Math.min(10000, Math.floor(Number(body?.minLevel) || 0)));
+  const requiredRoleIds = (Array.isArray(body?.requiredRoleIds) ? body.requiredRoleIds : [])
+    .map((id?) => String(id || "").trim())
+    .filter((id?) => /^\d{16,22}$/.test(id))
+    .slice(0, 20);
   if (!prize) return fail(400, "no_prize", "Scrivi il premio.");
   if (!channelId) return fail(400, "no_channel", "Scegli il canale.");
   if (!Number.isFinite(durationMs) || durationMs < 60_000 || durationMs > 60 * 86_400_000) return fail(400, "bad_duration", "Durata tra 1 minuto e 60 giorni.");
@@ -679,7 +715,7 @@ async function createGiveaway(client?, token?, guildId?, body?) {
     if (!member?.user?.id) return fail(400, "bad_host", "L'host scelto non è nel server.");
     hostId = wanted;
   }
-  const params = { prize, channelId, hostId, durationMs, winnerCount, minLevel };
+  const params = { prize, channelId, hostId, durationMs, winnerCount, minLevel, requiredRoleIds };
   if (body?.startAt) {
     const start = new Date(body.startAt).getTime();
     if (!Number.isFinite(start)) return fail(400, "bad_start", "Data di inizio non valida.");
@@ -747,6 +783,12 @@ async function editGiveaway(client?, token?, guildId?, messageId?, body?) {
   }
   if (body?.minLevel != null) {
     patch.minLevel = Math.max(0, Math.min(10000, Math.floor(Number(body.minLevel) || 0)));
+  }
+  if (body?.requiredRoleIds != null) {
+    patch.requiredRoleIds = (Array.isArray(body.requiredRoleIds) ? body.requiredRoleIds : [])
+      .map((id?) => String(id || "").trim())
+      .filter((id?) => /^\d{16,22}$/.test(id))
+      .slice(0, 20);
   }
   if (body?.durationMs != null) {
     const durationMs = Number(body.durationMs);
@@ -945,6 +987,7 @@ export = {
   patchLevels,
   setLevelsEvent,
   getLevelsUser,
+  getMinigamePreview,
   patchLevelsUser,
   listGiveaways,
   createGiveaway,

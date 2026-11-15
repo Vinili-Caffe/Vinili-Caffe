@@ -5,6 +5,7 @@
 
 import { isGuildId, selectGuild } from "@/lib/dashboard";
 import { emptyDraft, type MsgDraft } from "@/lib/dashboard-community";
+import { readableGuildName } from "@/lib/discord-fancy-text";
 
 const BASE = "/webhooks/site-dashboard";
 
@@ -388,7 +389,7 @@ function mapOverview(data: Record<string, unknown>): GuildOverview | null {
     : null;
   return {
     id,
-    name: String(g.name || "Server").trim() || "Server",
+    name: readableGuildName(g.name),
     iconUrl: icon || null,
     botPresent: g.botPresent === true,
     botUsageBlacklisted: g.botUsageBlacklisted === true,

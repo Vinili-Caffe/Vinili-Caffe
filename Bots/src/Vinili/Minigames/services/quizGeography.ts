@@ -8,6 +8,7 @@ const { compactNoSpaces, normalizeRewardExp, buildRevealHint, buildCapitalHint, 
 const { activeGames, pickQuestionAvoidRecent } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
 const { markSent, saveActiveGame, scheduleMinigameRoundTimeout, sendMinigameTimeoutAndClose, scheduleGenericHint } = require("./minigameRound") as typeof import("./minigameRound");
 
 async function startGuessCapitalGame(client?, cfg?) {
@@ -28,7 +29,11 @@ async function startGuessCapitalGame(client?, cfg?) {
     await sendMinigameRolePing(channel, cfg);
   const capitalAttachment = !pick.image ? buildPromptImageAttachment("Indovina la capitale", [pick.country], "guess_capital", "", client) : null;
   const capitalEmbed = buildGuessCapitalEmbed(pick.country, rewardExp, durationMs, pick.image || (capitalAttachment ? `attachment://${capitalAttachment.name}` : null));
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [capitalEmbed], files: capitalAttachment ? [capitalAttachment] : [], }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [capitalEmbed], files: capitalAttachment ? [capitalAttachment] : [] },
+    { type: "guessCapital", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, country: pick.country }) },
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutCapitalEmbed(game.country, game.displayAnswer)); }, durationMs); timeout.unref?.();
   const displayAnswer = String(pick.answers[0] || "sconosciuta");
@@ -90,7 +95,11 @@ async function startGuessRegionCapitalGame(client?, cfg?) {
   const image = await fetchWikiRegionImage(pick.region);
   const regionNameAttachment = !image ? (buildRegionNameImageAttachment(pick.region) || buildPromptImageAttachment("Indovina il capoluogo", [pick.region], "guess_region_capital", "", client)) : null;
   const regionImageUrl = image || (regionNameAttachment ? `attachment://${regionNameAttachment.name}` : null);
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [buildGuessRegionCapitalEmbed(pick.region, rewardExp, durationMs, regionImageUrl, regionNameAttachment?.name || null,),], files: regionNameAttachment ? [regionNameAttachment] : [], }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [buildGuessRegionCapitalEmbed(pick.region, rewardExp, durationMs, regionImageUrl, regionNameAttachment?.name || null)], files: regionNameAttachment ? [regionNameAttachment] : [] },
+    { type: "guessRegionCapital", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, region: pick.region }) },
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutRegionCapitalEmbed(game.region, game.displayAnswer),); }, durationMs); timeout.unref?.();
   const displayAnswer = String(pick.answers[0] || "sconosciuto");
@@ -152,7 +161,11 @@ async function startGuessReverseCapitalGame(client?, cfg?) {
     await sendMinigameRolePing(channel, cfg);
   const reverseCapitalAttachment = !pick.image ? buildPromptImageAttachment("Capitale inverso", [pick.capital], "guess_reverse_capital", "", client) : null;
   const reverseCapitalEmbed = buildGuessReverseCapitalEmbed(pick.capital, rewardExp, durationMs, pick.image || (reverseCapitalAttachment ? `attachment://${reverseCapitalAttachment.name}` : null));
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [reverseCapitalEmbed], files: reverseCapitalAttachment ? [reverseCapitalAttachment] : [], }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [reverseCapitalEmbed], files: reverseCapitalAttachment ? [reverseCapitalAttachment] : [] },
+    { type: "guessReverseCapital", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, capital: pick.capital }) },
+  ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutReverseCapitalEmbed(game.capital, game.displayAnswer)); }, durationMs); timeout.unref?.();
   const displayAnswer = String(pick.country);
@@ -211,7 +224,11 @@ async function startGuessCityGame(client?, cfg?) {
   const attachment = buildPromptImageAttachment("Indovina la città", [pick.landmark, pick.country ? `Paese: ${pick.country}` : ""].filter(Boolean), "guess_city", "", client);
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildGuessCityEmbed(pick.landmark, rewardExp, durationMs, imageUrl);
-  const gameMessage = await sendMinigameMessage(channel, { embeds: [embed], files: attachment ? [attachment] : [] }).catch(() => null);
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    { embeds: [embed], files: attachment ? [attachment] : [] },
+    { type: "guessCity", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, landmark: pick.landmark }) },
+  ).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const hintText = `Città: ${buildRevealHint(pick.city)}`;
   const hintTimeout = await scheduleGenericHint(client, channelId, durationMs, hintText);

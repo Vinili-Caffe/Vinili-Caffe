@@ -6,6 +6,7 @@ const { normalizePlayerGuess } = require("./minigameSources") as typeof import("
 const { compactNoSpaces, normalizeUserAnswerText, buildStrictBankAliases, isExplicitBankAnswerCorrect, parseMathGuess, extractWordGuessCandidates, buildPlayerAnswerAliases, normalizeMemorySequence, memoryEmojiMessageMatches } = require("./minigameText") as typeof import("./minigameText");
 const { activeGames, channelWinClosing, clearNoParticipationDelay, clearActiveGame, beginMinigameWinClose, endMinigameWinClose } = require("./minigameState") as typeof import("./minigameState");
 const { reactMinigameWin } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { applyMinigameDraftToPayload, minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
 const { handleExpReward, mergeHalloweenCandyDropIntoMessage, mergeStarWarsQuizRewardIntoMessage, awardMinigameWinToUser } = require("./minigameRewards") as typeof import("./minigameRewards");
 const { parseStateTarget, buildGameSnapshotFromPersistedState } = require("./minigameRoundEnd") as typeof import("./minigameRoundEnd");
 
@@ -258,29 +259,38 @@ async function handleMinigameWin(message?, game?, cfg?) {
         rewardExp: game.rewardExp,
         channelId: msgChannelId || null,
       });
-      await message
-        .reply(
-          mergeStarWarsQuizRewardIntoMessage(
-            mergeHalloweenCandyDropIntoMessage(
-              {
-                embeds: [
-                  buildWinEmbed(
-                    message.author.id,
-                    award.effectiveExp,
-                    award.nextTotal,
-                    award.details,
-                    await resolveWinEmbedImageUrl(clearCfg, message.author.id),
-                  ),
-                ],
-              },
-              award,
-              message.author.id,
-            ),
-            award,
-            message.author.id,
-          ),
-        )
-        .catch(() => { });
+      const winPayload = mergeStarWarsQuizRewardIntoMessage(
+        mergeHalloweenCandyDropIntoMessage(
+          {
+            embeds: [
+              buildWinEmbed(
+                message.author.id,
+                award.effectiveExp,
+                award.nextTotal,
+                award.details,
+                await resolveWinEmbedImageUrl(clearCfg, message.author.id),
+              ),
+            ],
+          },
+          award,
+          message.author.id,
+        ),
+        award,
+        message.author.id,
+      );
+      const replyPayload = applyMinigameDraftToPayload(winPayload, {
+        type: game.type,
+        kind: "win",
+        vars: minigameDraftVars(message.channel, {
+          user: `<@${message.author.id}>`,
+          exp: award.effectiveExp,
+          total: award.nextTotal,
+          streak: award.details?.newStreak,
+        }),
+        mentionUserId: message.author.id,
+        guild: message.guild,
+      });
+      await message.reply(replyPayload).catch(() => { });
       if (award.member) {
         await handleExpReward(client, award.member, award.nextTotal);
       }

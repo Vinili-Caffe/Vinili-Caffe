@@ -24,6 +24,49 @@ let rotationQueue = [];
 const LAST_PLAYED_ROTATION_SIZE = 3;
 const GAME_TYPE_COOLDOWN_MS = 30 * 60 * 1000;
 
+function applyDashboardMinigameScoring(base?) {
+  if (!base || typeof base !== "object") return base;
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const scoring = LVL.getMinigameScoringSync(String(IDs.guilds?.main || ""));
+    if (!scoring) return base;
+    const out: any = {
+      ...base,
+      fastGuess: { ...(base.fastGuess || {}), ...(scoring.fastGuess || {}) },
+      streak: { ...(base.streak || {}), ...(scoring.streak || {}) },
+    };
+    for (const row of Array.isArray(scoring.rewardExpByType) ? scoring.rewardExpByType : []) {
+      const type = String(row?.type || "").trim();
+      if (!type) continue;
+      /* spegne il tipo nella rotazione (getAvailableGameTypes usa !== false) */
+      if (row?.enabled === false) {
+        out[type] = false;
+        continue;
+      }
+      const rewardExp = Math.max(1, Math.floor(Number(row.rewardExp) || 0));
+      const durationMs = Math.max(15_000, Math.min(1_800_000, Math.floor(Number(row.durationMs) || 0) || 180_000));
+      const prev = out[type] && typeof out[type] === "object" ? out[type] : {};
+      out[type] = { ...prev, rewardExp, durationMs };
+      /* Caccia al tesoro: scala i bucket rispetto al valore medio di default (150). */
+      if (type === "treasureHunt" && Array.isArray(prev.buckets) && prev.buckets.length) {
+        const mid = 150;
+        const factor = rewardExp / mid;
+        out[type] = {
+          ...out[type],
+          buckets: prev.buckets.map((b: any) => {
+            if (!b || typeof b !== "object") return b;
+            const baseExp = Math.max(1, Math.floor(Number(b.rewardExp) || mid));
+            return { ...b, rewardExp: Math.max(1, Math.round(baseExp * factor)) };
+          }),
+        };
+      }
+    }
+    return out;
+  } catch {
+    return base;
+  }
+}
+
 function getConfig(client?) {
   const cfg = client?.config?.minigames || null;
   if (!cfg) return null;
@@ -37,7 +80,7 @@ function getConfig(client?) {
   const starWarsEventLive =
     Boolean(isStarWarsPublicWindowOpen(client)) &&
     isStarWarsEventLiveForMinigames(client, Date.now(), IDs.guilds?.main || null);
-  const base = {
+  const base = applyDashboardMinigameScoring({
     ...cfg,
     halloweenEventLive: isHalloweenEventLiveForMinigames(client),
     halloweenExclusiveDuringEvent: isHalloweenExclusiveMinigamesEnabled(client, cfg),
@@ -56,11 +99,14 @@ function getConfig(client?) {
         cfg.findBotVoice?.excludedChannelIds || cfg.findBot?.excludedChannelIds || [],
       ),
     },
-  };
+  });
   if (!starWarsEventLive) return base;
-  // Durante SW: 15 min, 3 min durata, finestra 06→02; stessi premi quiz (50 exp + crediti/cassa via win rewards)
-  const swRewardExp = cfg?.starWarsQuiz?.rewardExp ?? 50;
-  const swDuration = { durationMs: SW_MINIGAME_DURATION_MS, rewardExp: swRewardExp };
+  // Durante SW: 15 min, 3 min durata, finestra 06→02; EXP da dashboard (overlay) se presente
+  const swRewardExp = base?.starWarsQuiz?.rewardExp ?? cfg?.starWarsQuiz?.rewardExp ?? 50;
+  const swPlanetExp = base?.starWarsGuessPlanet?.rewardExp ?? cfg?.starWarsGuessPlanet?.rewardExp ?? swRewardExp;
+  const swQuizDuration = { durationMs: SW_MINIGAME_DURATION_MS, rewardExp: swRewardExp };
+  const swPlanetDuration = { durationMs: SW_MINIGAME_DURATION_MS, rewardExp: swPlanetExp };
+  const swClassicDuration = { durationMs: SW_MINIGAME_DURATION_MS };
   return {
     ...base,
     intervalMs: SW_MINIGAME_INTERVAL_MS,
@@ -69,15 +115,15 @@ function getConfig(client?) {
       start: { ...SW_MINIGAME_WINDOW.start },
       end: { ...SW_MINIGAME_WINDOW.end },
     },
-    starWarsQuiz: { ...(cfg.starWarsQuiz || {}), ...swDuration, rewardCredits: cfg?.starWarsQuiz?.rewardCredits ?? 5000 },
-    starWarsGuessPlanet: { ...(cfg.starWarsGuessPlanet || {}), ...swDuration },
-    guessNumber: { ...(cfg.guessNumber || {}), ...swDuration },
-    hangman: { ...(cfg.hangman || {}), ...swDuration },
-    fastType: { ...(cfg.fastType || {}), ...swDuration, useDefaultApi: false },
-    memoryEmoji: { ...(cfg.memoryEmoji || {}), ...swDuration },
-    completeVerse: { ...(cfg.completeVerse || {}), ...swDuration },
-    findBot: { ...base.findBot, ...(cfg.findBot || {}), ...swDuration },
-    findBotVoice: { ...base.findBotVoice, ...(cfg.findBotVoice || {}), ...swDuration },
+    starWarsQuiz: { ...(cfg.starWarsQuiz || {}), ...swQuizDuration, rewardCredits: cfg?.starWarsQuiz?.rewardCredits ?? 5000, rewardExp: swRewardExp },
+    starWarsGuessPlanet: { ...(cfg.starWarsGuessPlanet || {}), ...swPlanetDuration },
+    guessNumber: { ...(base.guessNumber || cfg.guessNumber || {}), ...swClassicDuration },
+    hangman: { ...(base.hangman || cfg.hangman || {}), ...swClassicDuration },
+    fastType: { ...(base.fastType || cfg.fastType || {}), ...swClassicDuration, useDefaultApi: false },
+    memoryEmoji: { ...(base.memoryEmoji || cfg.memoryEmoji || {}), ...swClassicDuration },
+    completeVerse: { ...(base.completeVerse || cfg.completeVerse || {}), ...swClassicDuration },
+    findBot: { ...base.findBot, ...(cfg.findBot || {}), ...swClassicDuration },
+    findBotVoice: { ...base.findBotVoice, ...(cfg.findBotVoice || {}), ...swClassicDuration },
   };
 }
 

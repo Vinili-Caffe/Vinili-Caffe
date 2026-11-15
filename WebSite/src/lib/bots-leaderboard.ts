@@ -1,5 +1,6 @@
 import { SITE_ORIGIN } from "./site";
 import { apiUrl } from "./api";
+import { readableGuildName } from "./discord-fancy-text";
 
 /** Classifiche bot (partnership): GET /webhooks/site-bots-leaderboard */
 
@@ -135,7 +136,7 @@ export async function loadBotsPmGuilds(token: string): Promise<BotsPmGuild[]> {
     return j.guilds
       .map((g) => ({
         id: String(g.id || "").trim(),
-        name: String(g.name || "").trim(),
+        name: readableGuildName(g.name, ""),
         iconUrl: g.iconUrl ? String(g.iconUrl) : null,
         isMain: g.isMain === true,
         isPm: g.isPm === true,

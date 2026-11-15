@@ -12,8 +12,105 @@ type RoleReward = { level: number; roleId: string; perks?: string };
 type MinigameReward = { exp: number; roleId: string };
 
 /** noticeDraft: messaggio completo (testo, embed o V2) mandato in risposta; noticeTemplate resta per compatibilità */
-type ExpBonus = { enabled: boolean; amount: number; channelIds: string[]; noticeTemplate: string; noticeDraft: ReturnType<typeof T.normalizeDraft> };
+type ExpBonus = {
+  enabled: boolean;
+  amount: number;
+  channelIds: string[];
+  noticeTemplate: string;
+  noticeDraft: ReturnType<typeof T.normalizeDraft>;
+  /** parole/frasi che fanno scattare il saluto EXP (vuoto = quelle di wordReactions.json) */
+  words?: string[];
+};
 type CooldownTier = { minLevel: number; seconds: number };
+type CooldownCustomRole = { roleId: string; seconds: number };
+type MinigameRewardExp = {
+  type: string;
+  rewardExp: number;
+  enabled: boolean;
+  durationMs: number;
+};
+type MinigameScoring = {
+  fastGuess: { windowMs: number; multiplier: number };
+  streak: { bonusPercentPerWin: number; maxBonusPercent: number };
+  rewardExpByType: MinigameRewardExp[];
+  /** Messaggio inizio round unico per tutti i tipi ({minigame} {exp} {minutesLabel} {prompt}) */
+  startDraft: ReturnType<typeof T.normalizeDraft> | null;
+  /** Messaggio vittoria unico per tutti i tipi */
+  winDraft: ReturnType<typeof T.normalizeDraft> | null;
+};
+
+const DEFAULT_MINIGAME_DURATION_MS: Record<string, number> = {
+  guessNumber: 180_000,
+  guessWord: 180_000,
+  guessFlag: 180_000,
+  guessPlayer: 180_000,
+  guessSong: 180_000,
+  guessCapital: 180_000,
+  guessReverseCapital: 180_000,
+  guessRegionCapital: 180_000,
+  fastType: 180_000,
+  guessTeam: 180_000,
+  guessSinger: 180_000,
+  guessAlbum: 180_000,
+  hangman: 240_000,
+  italianGK: 180_000,
+  drivingQuiz: 180_000,
+  mathExpression: 180_000,
+  findBot: 300_000,
+  findBotVoice: 300_000,
+  memoryEmoji: 180_000,
+  guessYear: 180_000,
+  completeVerse: 180_000,
+  guessEmoji: 180_000,
+  quoteFilm: 180_000,
+  completeProverb: 180_000,
+  synonymAntonym: 180_000,
+  guessCity: 180_000,
+  treasureHunt: 180_000,
+  starWarsQuiz: 180_000,
+  starWarsGuessPlanet: 180_000,
+  halloweenQuiz: 180_000,
+  halloweenFindGhost: 300_000,
+  halloweenMissingEmoji: 180_000,
+  halloweenCountBats: 180_000,
+  halloweenTrickOrTreat: 900_000,
+  podrace: 180_000,
+  cacciatore: 180_000,
+  scova: 180_000,
+  ordine66: 180_000,
+  attacca_base: 180_000,
+  conquista: 180_000,
+  pg: 180_000,
+  reliquie: 180_000,
+  convoglio: 180_000,
+  ewok: 180_000,
+  olocron: 180_000,
+};
+
+function defaultDurationForType(type: string) {
+  return DEFAULT_MINIGAME_DURATION_MS[type] || 180_000;
+}
+
+function optionalMinigameDraft(raw: unknown) {
+  if (!raw || typeof raw !== "object") return null;
+  const d = T.normalizeDraft(raw);
+  return T.draftIsEmpty(d) ? null : d;
+}
+type ActivityWinnersConfig = {
+  channelId: string | null;
+  excludedRoleIds: string[];
+  weeklyTextRoleId: string | null;
+  weeklyVoiceRoleId: string | null;
+  weeklyMinigameRoleId: string | null;
+  monthlyMemberRoleId: string | null;
+};
+type LevelCurveSegment = { upTo: number; base: number; from: number; perLevel: number };
+type LevelCurve = {
+  firstThreshold: number;
+  roundTo: number;
+  minStepAdd: number;
+  segments: LevelCurveSegment[];
+};
 
 type LevelsConfig = {
   seedVersion: number;
@@ -47,7 +144,7 @@ type LevelsConfig = {
   minigameRewardDraft: ReturnType<typeof T.normalizeDraft>;
   /** livelli regalati per la recensione sul sito (solo main; 0 = niente premio) */
   reviewRewardLevels: number;
-  /** cooldown comandi: soglie di livello + riduzioni Staff/VIP/Boost */
+  /** cooldown comandi: soglie di livello + riduzioni Staff/VIP/Boost + ruoli custom */
   commandCooldown: {
     defaultSeconds: number;
     tiers: CooldownTier[];
@@ -58,7 +155,14 @@ type LevelsConfig = {
       doubleBooster: number;
       booster: number;
     };
+    customRoles: CooldownCustomRole[];
   };
+  /** bilanciamento EXP minigiochi (fast/streak + override per tipo) */
+  minigameScoring: MinigameScoring;
+  /** TOP settimanale/mensile: canale, esclusi, ruoli vincitori */
+  activityWinners: ActivityWinnersConfig;
+  /** curva EXP → livello (soglie e segmenti dello step) */
+  levelCurve: LevelCurve;
   /** bonus community: primo messaggio del giorno + saluto di benvenuto */
   bonuses: {
     firstMessageDaily: ExpBonus;
@@ -66,7 +170,7 @@ type LevelsConfig = {
   };
 };
 
-const SEED_VERSION = 1;
+const SEED_VERSION = 4;
 const MODULE_ID = "livelli";
 
 const moduleOn = (gid?) =>
@@ -262,18 +366,349 @@ function defaultBonusDraft(kind: "firstMessageDaily" | "welcomeGreeting", templa
   return T.normalizeDraft({ content, mentionUsers: true, embed: { enabled: false } });
 }
 
+function defaultMinigameScoring(): MinigameScoring {
+  const rows: Array<{ type: string; rewardExp: number }> = [
+    { type: "guessNumber", rewardExp: 100 },
+    { type: "guessWord", rewardExp: 150 },
+    { type: "guessFlag", rewardExp: 150 },
+    { type: "guessPlayer", rewardExp: 150 },
+    { type: "guessSong", rewardExp: 150 },
+    { type: "guessCapital", rewardExp: 150 },
+    { type: "guessReverseCapital", rewardExp: 150 },
+    { type: "guessRegionCapital", rewardExp: 150 },
+    { type: "fastType", rewardExp: 200 },
+    { type: "guessTeam", rewardExp: 150 },
+    { type: "guessSinger", rewardExp: 150 },
+    { type: "guessAlbum", rewardExp: 150 },
+    { type: "hangman", rewardExp: 200 },
+    { type: "italianGK", rewardExp: 150 },
+    { type: "drivingQuiz", rewardExp: 150 },
+    { type: "mathExpression", rewardExp: 200 },
+    { type: "findBot", rewardExp: 200 },
+    { type: "findBotVoice", rewardExp: 200 },
+    { type: "memoryEmoji", rewardExp: 250 },
+    { type: "guessYear", rewardExp: 150 },
+    { type: "completeVerse", rewardExp: 150 },
+    { type: "guessEmoji", rewardExp: 150 },
+    { type: "quoteFilm", rewardExp: 150 },
+    { type: "completeProverb", rewardExp: 120 },
+    { type: "synonymAntonym", rewardExp: 150 },
+    { type: "guessCity", rewardExp: 150 },
+    { type: "treasureHunt", rewardExp: 150 },
+    { type: "starWarsQuiz", rewardExp: 50 },
+    { type: "starWarsGuessPlanet", rewardExp: 50 },
+    { type: "halloweenQuiz", rewardExp: 150 },
+    { type: "halloweenFindGhost", rewardExp: 200 },
+    { type: "halloweenMissingEmoji", rewardExp: 150 },
+    { type: "halloweenCountBats", rewardExp: 150 },
+    { type: "halloweenTrickOrTreat", rewardExp: 100 },
+    { type: "podrace", rewardExp: 100 },
+    { type: "cacciatore", rewardExp: 100 },
+    { type: "scova", rewardExp: 100 },
+    { type: "ordine66", rewardExp: 100 },
+    { type: "attacca_base", rewardExp: 100 },
+    { type: "conquista", rewardExp: 100 },
+    { type: "pg", rewardExp: 100 },
+    { type: "reliquie", rewardExp: 100 },
+    { type: "convoglio", rewardExp: 100 },
+    { type: "ewok", rewardExp: 100 },
+    { type: "olocron", rewardExp: 100 },
+  ];
+  let startDraft: ReturnType<typeof T.normalizeDraft> | null = null;
+  let winDraft: ReturnType<typeof T.normalizeDraft> | null = null;
+  try {
+    const D = require("../../Vinili/Minigames/services/minigameClassicDrafts") as typeof import("../../Vinili/Minigames/services/minigameClassicDrafts");
+    startDraft = D.classicSharedStartDraft();
+    winDraft = D.classicSharedWinDraft();
+  } catch (_) {}
+  return {
+    fastGuess: { windowMs: 30_000, multiplier: 1.5 },
+    streak: { bonusPercentPerWin: 10, maxBonusPercent: 50 },
+    rewardExpByType: rows.map((r) => ({
+      type: r.type,
+      rewardExp: r.rewardExp,
+      enabled: true,
+      durationMs: defaultDurationForType(r.type),
+    })),
+    startDraft,
+    winDraft,
+  };
+}
+
+/** Draft condivisi: se vuoti → classici; migra eventuali draft per-tipo legacy. */
+function fillEmptyMinigameDrafts(scoring: MinigameScoring, raw?: any): MinigameScoring {
+  let classicStart: ReturnType<typeof T.normalizeDraft> | null = null;
+  let classicWin: ReturnType<typeof T.normalizeDraft> | null = null;
+  try {
+    const D = require("../../Vinili/Minigames/services/minigameClassicDrafts") as typeof import("../../Vinili/Minigames/services/minigameClassicDrafts");
+    classicStart = D.classicSharedStartDraft();
+    classicWin = D.classicSharedWinDraft();
+  } catch (_) {}
+
+  let startDraft = scoring.startDraft && !T.draftIsEmpty(scoring.startDraft) ? scoring.startDraft : null;
+  let winDraft = scoring.winDraft && !T.draftIsEmpty(scoring.winDraft) ? scoring.winDraft : null;
+
+  /* Legacy: draft salvati per tipo → promuovi il primo non vuoto (vittoria era già uguale). */
+  const legacyRows = Array.isArray(raw?.rewardExpByType) ? raw.rewardExpByType : [];
+  if (!startDraft || !winDraft) {
+    for (const row of legacyRows) {
+      if (!startDraft) {
+        const d = optionalMinigameDraft(row?.startDraft);
+        if (d) startDraft = d;
+      }
+      if (!winDraft) {
+        const d = optionalMinigameDraft(row?.winDraft);
+        if (d) winDraft = d;
+      }
+      if (startDraft && winDraft) break;
+    }
+  }
+
+  return {
+    ...scoring,
+    startDraft: startDraft || classicStart,
+    winDraft: winDraft || classicWin,
+    rewardExpByType: scoring.rewardExpByType.map((row) => ({
+      type: row.type,
+      rewardExp: row.rewardExp,
+      enabled: row.enabled,
+      durationMs: row.durationMs,
+    })),
+  };
+}
+
+/** Valori EXP/durata/fast/streak dal config.json del bot principale. */
+function importMinigameScoringFromBotConfig(): MinigameScoring {
+  const d = defaultMinigameScoring();
+  try {
+    const cfg = require("../../Vinili/config.json") as { minigames?: Record<string, any> };
+    const mg = cfg?.minigames;
+    if (!mg || typeof mg !== "object") return d;
+    const fg = mg.fastGuess && typeof mg.fastGuess === "object" ? mg.fastGuess : {};
+    const st = mg.streak && typeof mg.streak === "object" ? mg.streak : {};
+    const rewardExpByType = d.rewardExpByType.map((row) => {
+      const raw = mg[row.type];
+      if (raw === false) return { ...row, enabled: false };
+      if (!raw || typeof raw !== "object") return row;
+      const rewardExp = Math.floor(Number(raw.rewardExp));
+      const durationMs = Math.floor(Number(raw.durationMs));
+      return {
+        ...row,
+        enabled: true,
+        rewardExp: Number.isFinite(rewardExp) && rewardExp >= 1 ? Math.min(100_000, rewardExp) : row.rewardExp,
+        durationMs:
+          Number.isFinite(durationMs) && durationMs >= 15_000
+            ? Math.min(1_800_000, durationMs)
+            : row.durationMs,
+      };
+    });
+    return fillEmptyMinigameDrafts({
+      fastGuess: {
+        windowMs: Math.floor(clampNum(fg.windowMs, 1000, 300_000, d.fastGuess.windowMs)),
+        multiplier: clampNum(fg.multiplier, 1, 10, d.fastGuess.multiplier),
+      },
+      streak: {
+        bonusPercentPerWin: Math.floor(clampNum(st.bonusPercentPerWin, 0, 100, d.streak.bonusPercentPerWin)),
+        maxBonusPercent: Math.floor(clampNum(st.maxBonusPercent, 0, 500, d.streak.maxBonusPercent)),
+      },
+      rewardExpByType,
+      startDraft: d.startDraft,
+      winDraft: d.winDraft,
+    });
+  } catch {
+    return d;
+  }
+}
+
+/** Unisce tipi nuovi dal catalogo/import senza sovrascrivere quelli già salvati. */
+function mergeMinigameScoringWithImport(prevScoring: unknown): MinigameScoring {
+  const imported = importMinigameScoringFromBotConfig();
+  const prevRaw = prevScoring && typeof prevScoring === "object" ? (prevScoring as any) : {};
+  const savedRows = Array.isArray(prevRaw.rewardExpByType) ? prevRaw.rewardExpByType : [];
+  const savedTypes = new Set(
+    savedRows.map((r: any) => String(r?.type || "").trim()).filter(Boolean),
+  );
+  if (!savedTypes.size) return imported;
+  const normalizedPrev = normalizeMinigameScoring(prevScoring);
+  const byType = new Map(normalizedPrev.rewardExpByType.map((r) => [r.type, r]));
+  for (const row of imported.rewardExpByType) {
+    if (!byType.has(row.type)) byType.set(row.type, row);
+  }
+  const order = imported.rewardExpByType.map((r) => r.type);
+  const rewardExpByType: MinigameRewardExp[] = [];
+  for (const type of order) {
+    const row = byType.get(type);
+    if (row) rewardExpByType.push(row);
+  }
+  for (const row of normalizedPrev.rewardExpByType) {
+    if (!order.includes(row.type)) rewardExpByType.push(row);
+  }
+  return fillEmptyMinigameDrafts(
+    {
+      fastGuess: normalizedPrev.fastGuess,
+      streak: normalizedPrev.streak,
+      rewardExpByType,
+      startDraft: normalizedPrev.startDraft,
+      winDraft: normalizedPrev.winDraft,
+    },
+    prevRaw,
+  );
+}
+
+function normalizeMinigameTypeRow(row: any, def?: MinigameRewardExp | null): MinigameRewardExp | null {
+  const type = String(row?.type || def?.type || "").trim().slice(0, 64);
+  if (!type) return null;
+  const rewardExp = Math.floor(Number(row?.rewardExp ?? def?.rewardExp));
+  if (!Number.isFinite(rewardExp) || rewardExp < 1 || rewardExp > 100000) return null;
+  const durationMs = Math.floor(
+    clampNum(row?.durationMs, 15_000, 1_800_000, def?.durationMs || defaultDurationForType(type)),
+  );
+  const enabled = row?.enabled === false ? false : true;
+  return { type, rewardExp, enabled, durationMs };
+}
+
+function normalizeMinigameScoring(raw: unknown): MinigameScoring {
+  const d = defaultMinigameScoring();
+  const r = raw && typeof raw === "object" ? (raw as any) : {};
+  const fg = r.fastGuess && typeof r.fastGuess === "object" ? r.fastGuess : {};
+  const st = r.streak && typeof r.streak === "object" ? r.streak : {};
+  const byType: MinigameRewardExp[] = [];
+  const seen = new Set<string>();
+  const savedRows = Array.isArray(r.rewardExpByType) ? r.rewardExpByType : [];
+  const defByType = new Map(d.rewardExpByType.map((x) => [x.type, x]));
+  const source = savedRows.length
+    ? [...savedRows, ...d.rewardExpByType.filter((def) => !savedRows.some((row: any) => String(row?.type || "").trim() === def.type))]
+    : d.rewardExpByType;
+  for (const row of source) {
+    const type = String(row?.type || "").trim().slice(0, 64);
+    if (!type || seen.has(type)) continue;
+    const normalized = normalizeMinigameTypeRow(row, defByType.get(type) || null);
+    if (!normalized) continue;
+    seen.add(type);
+    byType.push(normalized);
+    if (byType.length >= 80) break;
+  }
+  const base: MinigameScoring = {
+    fastGuess: {
+      windowMs: Math.floor(clampNum(fg.windowMs, 1000, 300_000, d.fastGuess.windowMs)),
+      multiplier: clampNum(fg.multiplier, 1, 10, d.fastGuess.multiplier),
+    },
+    streak: {
+      bonusPercentPerWin: Math.floor(clampNum(st.bonusPercentPerWin, 0, 100, d.streak.bonusPercentPerWin)),
+      maxBonusPercent: Math.floor(clampNum(st.maxBonusPercent, 0, 500, d.streak.maxBonusPercent)),
+    },
+    rewardExpByType: byType.length ? byType : d.rewardExpByType,
+    startDraft: optionalMinigameDraft(r.startDraft) || d.startDraft,
+    winDraft: optionalMinigameDraft(r.winDraft) || d.winDraft,
+  };
+  return fillEmptyMinigameDrafts(base, r);
+}
+
+function defaultActivityWinners(): ActivityWinnersConfig {
+  try {
+    const IDs = require("../../Vinili/Config/ids") as typeof import("../../Vinili/Config/ids");
+    const staffKeys = ["Staff", "HighStaff", "Helper", "Mod", "SeniorModerator", "Director", "Admin", "Manager", "Founder"];
+    return {
+      channelId: T.isId((IDs as any)?.channels?.topWeeklyUser) ? String((IDs as any).channels.topWeeklyUser) : null,
+      excludedRoleIds: staffKeys.map((k) => String((IDs as any)?.roles?.[k] || "")).filter((id) => T.isId(id)),
+      weeklyTextRoleId: T.isId((IDs as any)?.roles?.TopWeeklyText) ? String((IDs as any).roles.TopWeeklyText) : null,
+      weeklyVoiceRoleId: T.isId((IDs as any)?.roles?.TopWeeklyVoc) ? String((IDs as any).roles.TopWeeklyVoc) : null,
+      weeklyMinigameRoleId: T.isId((IDs as any)?.roles?.MVP) ? String((IDs as any).roles.MVP) : null,
+      monthlyMemberRoleId: T.isId((IDs as any)?.roles?.TopMonthlyMember) ? String((IDs as any).roles.TopMonthlyMember) : null,
+    };
+  } catch {
+    return {
+      channelId: null,
+      excludedRoleIds: [],
+      weeklyTextRoleId: null,
+      weeklyVoiceRoleId: null,
+      weeklyMinigameRoleId: null,
+      monthlyMemberRoleId: null,
+    };
+  }
+}
+
+function normalizeActivityWinners(raw: unknown): ActivityWinnersConfig {
+  const d = defaultActivityWinners();
+  const r = raw && typeof raw === "object" ? (raw as any) : {};
+  return {
+    channelId: T.isId(r.channelId) ? String(r.channelId) : d.channelId,
+    excludedRoleIds: Array.isArray(r.excludedRoleIds) ? uniqIds(r.excludedRoleIds, 40) : d.excludedRoleIds,
+    weeklyTextRoleId: T.isId(r.weeklyTextRoleId) ? String(r.weeklyTextRoleId) : d.weeklyTextRoleId,
+    weeklyVoiceRoleId: T.isId(r.weeklyVoiceRoleId) ? String(r.weeklyVoiceRoleId) : d.weeklyVoiceRoleId,
+    weeklyMinigameRoleId: T.isId(r.weeklyMinigameRoleId) ? String(r.weeklyMinigameRoleId) : d.weeklyMinigameRoleId,
+    monthlyMemberRoleId: T.isId(r.monthlyMemberRoleId) ? String(r.monthlyMemberRoleId) : d.monthlyMemberRoleId,
+  };
+}
+
+function defaultLevelCurve(): LevelCurve {
+  return {
+    firstThreshold: 100,
+    roundTo: 50,
+    minStepAdd: 110,
+    segments: [
+      { upTo: 10, base: 120, from: 1, perLevel: 25 },
+      { upTo: 30, base: 380, from: 10, perLevel: 55 },
+      { upTo: 60, base: 1600, from: 30, perLevel: 120 },
+      { upTo: 10000, base: 5200, from: 60, perLevel: 210 },
+    ],
+  };
+}
+
+function normalizeLevelCurve(raw: unknown): LevelCurve {
+  const d = defaultLevelCurve();
+  const r = raw && typeof raw === "object" ? (raw as any) : {};
+  const segments: LevelCurveSegment[] = [];
+  for (const row of Array.isArray(r.segments) ? r.segments : d.segments) {
+    const upTo = Math.floor(Number(row?.upTo));
+    const base = Math.floor(Number(row?.base));
+    const from = Math.floor(Number(row?.from));
+    const perLevel = Math.floor(Number(row?.perLevel));
+    if (!Number.isFinite(upTo) || upTo < 1 || upTo > 100000) continue;
+    if (!Number.isFinite(base) || base < 1 || base > 1_000_000) continue;
+    if (!Number.isFinite(from) || from < 0 || from > 100000) continue;
+    if (!Number.isFinite(perLevel) || perLevel < 0 || perLevel > 1_000_000) continue;
+    segments.push({ upTo, base, from, perLevel });
+    if (segments.length >= 12) break;
+  }
+  return {
+    firstThreshold: Math.floor(clampNum(r.firstThreshold, 1, 1_000_000, d.firstThreshold)),
+    roundTo: Math.floor(clampNum(r.roundTo, 1, 1000, d.roundTo)),
+    minStepAdd: Math.floor(clampNum(r.minStepAdd, 0, 1_000_000, d.minStepAdd)),
+    segments: (segments.length ? segments : d.segments).sort((a, b) => a.upTo - b.upTo),
+  };
+}
+
+function normalizeWelcomeWords(raw: unknown): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const w of Array.isArray(raw) ? raw : []) {
+    const s = String(w || "").trim().slice(0, 80);
+    const key = s.toLowerCase();
+    if (!s || seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+    if (out.length >= 80) break;
+  }
+  return out;
+}
+
 function normalizeExpBonus(raw: unknown, fb: ExpBonus, kind: "firstMessageDaily" | "welcomeGreeting"): ExpBonus {
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const notice = String(r.noticeTemplate ?? fb.noticeTemplate ?? "").trim().slice(0, 500);
   /* niente draft salvato: se c'era un testo personalizzato diventa il testo del messaggio */
   const customTemplate = typeof r.noticeTemplate === "string" && r.noticeTemplate.trim() && r.noticeTemplate.trim() !== fb.noticeTemplate ? notice : "";
-  return {
+  const out: ExpBonus = {
     enabled: r.enabled !== false,
     amount: clampNum(r.amount, 0, 100000, fb.amount),
     channelIds: uniqIds(r.channelIds, 20),
     noticeTemplate: notice || fb.noticeTemplate,
     noticeDraft: r.noticeDraft && typeof r.noticeDraft === "object" ? T.normalizeDraft(r.noticeDraft) : defaultBonusDraft(kind, customTemplate || undefined),
   };
+  if (kind === "welcomeGreeting") {
+    out.words = Array.isArray(r.words) ? normalizeWelcomeWords(r.words) : Array.isArray(fb.words) ? fb.words : [];
+  }
+  return out;
 }
 
 function normalizeCooldownRoleSec(raw: unknown, fb: number) {
@@ -293,6 +728,16 @@ function normalizeCommandCooldown(raw: unknown): LevelsConfig["commandCooldown"]
     tiers.push({ minLevel, seconds });
     if (tiers.length >= 20) break;
   }
+  const customRoles: CooldownCustomRole[] = [];
+  const seenRoles = new Set<string>();
+  for (const row of Array.isArray(r.customRoles) ? r.customRoles : []) {
+    const roleId = String(row?.roleId || "").trim();
+    const seconds = Math.floor(Number(row?.seconds));
+    if (!T.isId(roleId) || seenRoles.has(roleId) || !Number.isFinite(seconds) || seconds < 0 || seconds > 3600) continue;
+    seenRoles.add(roleId);
+    customRoles.push({ roleId, seconds });
+    if (customRoles.length >= 40) break;
+  }
   return {
     defaultSeconds: Math.floor(clampNum(r.defaultSeconds, 0, 3600, d.defaultSeconds)),
     tiers: (tiers.length ? tiers : d.tiers).sort((a, b) => b.minLevel - a.minLevel),
@@ -303,6 +748,7 @@ function normalizeCommandCooldown(raw: unknown): LevelsConfig["commandCooldown"]
       doubleBooster: normalizeCooldownRoleSec(rolesRaw.doubleBooster, d.roles.doubleBooster),
       booster: normalizeCooldownRoleSec(rolesRaw.booster, d.roles.booster),
     },
+    customRoles,
   };
 }
 
@@ -321,6 +767,7 @@ function defaultCommandCooldown(): LevelsConfig["commandCooldown"] {
       doubleBooster: 5,
       booster: 15,
     },
+    customRoles: [],
   };
 }
 
@@ -372,6 +819,7 @@ function defaultBonuses(): LevelsConfig["bonuses"] {
       channelIds: [],
       noticeTemplate: "Grazie per il benvenuto!\n**{amount} exp** guadagnati!\n{user}",
       noticeDraft: defaultBonusDraft("welcomeGreeting"),
+      words: [],
     },
   };
 }
@@ -405,6 +853,9 @@ function defaultConfig(): LevelsConfig {
     minigameRewardDraft: defaultMinigameRewardDraft(),
     reviewRewardLevels: 5,
     commandCooldown: defaultCommandCooldown(),
+    minigameScoring: defaultMinigameScoring(),
+    activityWinners: defaultActivityWinners(),
+    levelCurve: defaultLevelCurve(),
   };
 }
 
@@ -442,6 +893,9 @@ function normalizeConfig(raw?): LevelsConfig {
         : defaultMinigameRewardDraft(),
     reviewRewardLevels: Math.floor(clampNum(r.reviewRewardLevels, 0, 100, 5)),
     commandCooldown: normalizeCommandCooldown(r.commandCooldown),
+    minigameScoring: normalizeMinigameScoring(r.minigameScoring),
+    activityWinners: normalizeActivityWinners(r.activityWinners),
+    levelCurve: normalizeLevelCurve(r.levelCurve),
     bonuses: {
       firstMessageDaily: normalizeExpBonus(r.bonuses?.firstMessageDaily, base.bonuses.firstMessageDaily, "firstMessageDaily"),
       welcomeGreeting: normalizeExpBonus(r.bonuses?.welcomeGreeting, base.bonuses.welcomeGreeting, "welcomeGreeting"),
@@ -566,6 +1020,22 @@ async function ensureMainSeed(guildId?): Promise<boolean> {
     remember(gid, normalizeConfig(prev));
     return false;
   }
+
+  /* Upgrade seed: catalogo minigiochi + draft condivisi (+ seedVersion), senza resettare i livelli. */
+  if (prev && Number(prev.seedVersion) >= 1) {
+    const base = prev.userSaved
+      ? mergeMinigameScoringWithImport(prev.minigameScoring)
+      : importMinigameScoringFromBotConfig();
+    const seed = normalizeConfig({
+      ...prev,
+      seedVersion: SEED_VERSION,
+      minigameScoring: fillEmptyMinigameDrafts(base, prev.minigameScoring),
+    });
+    await T.setGuildBlob("levels", gid, seed);
+    remember(gid, seed);
+    return false;
+  }
+
   const IDs = require("../../Vinili/Config/ids") as typeof import("../../Vinili/Config/ids");
   let globalMultiplier = 1;
   let lockedChannelIds: string[] = [];
@@ -609,6 +1079,7 @@ async function ensureMainSeed(guildId?): Promise<boolean> {
     maxCombinedMultiplier: 8,
     levelUpDraft: prev?.levelUpDraft || defaultLevelUpDraft(),
     milestoneDraft: prev?.milestoneDraft || defaultMilestoneDraft(),
+    minigameScoring: fillEmptyMinigameDrafts(importMinigameScoringFromBotConfig()),
   });
   await T.setGuildBlob("levels", gid, seed);
   remember(gid, seed);
@@ -686,7 +1157,17 @@ async function getExpEvent(guildId?: string) {
 }
 
 /* ── eventi EXP programmati (partono da soli all'ora scelta) ── */
-type ScheduledExpEvent = { id: string; multiplier: number; durationMs: number; startAt: string; createdBy: string; createdAt: string };
+type ScheduledExpEvent = {
+  id: string;
+  multiplier: number;
+  durationMs: number;
+  startAt: string;
+  createdBy: string;
+  createdAt: string;
+  announceEnabled: boolean;
+  announceChannelId: string | null;
+  announceContent: string;
+};
 const MAX_SCHEDULED_EVENTS = 20;
 
 function normalizeScheduled(raw: unknown): ScheduledExpEvent[] {
@@ -698,6 +1179,7 @@ function normalizeScheduled(raw: unknown): ScheduledExpEvent[] {
     if (!Number.isFinite(multiplier) || multiplier < 1.05 || multiplier > 10) continue;
     if (!Number.isFinite(durationMs) || durationMs < 60_000) continue;
     if (!Number.isFinite(start)) continue;
+    const announceChannelId = T.isId((r as any)?.announceChannelId) ? String((r as any).announceChannelId) : null;
     out.push({
       id: String((r as any)?.id || "").slice(0, 40) || Math.random().toString(36).slice(2, 12),
       multiplier,
@@ -705,6 +1187,9 @@ function normalizeScheduled(raw: unknown): ScheduledExpEvent[] {
       startAt: new Date(start).toISOString(),
       createdBy: String((r as any)?.createdBy || ""),
       createdAt: String((r as any)?.createdAt || new Date().toISOString()),
+      announceEnabled: (r as any)?.announceEnabled === true,
+      announceChannelId,
+      announceContent: String((r as any)?.announceContent || "").trim().slice(0, 2000),
     });
   }
   return out.sort((a, b) => a.startAt.localeCompare(b.startAt)).slice(0, MAX_SCHEDULED_EVENTS);
@@ -719,14 +1204,81 @@ async function saveScheduledEvents(guildId: string, list: ScheduledExpEvent[]) {
   await T.setGuildBlob("levelsEvents", guildId, list.length ? { scheduled: normalizeScheduled(list) } : null);
 }
 
-async function scheduleExpEvent(guildId?: string, ev: { multiplier: number; durationMs: number; startAt: string | number; actorId?: string } = {} as any) {
+async function scheduleExpEvent(
+  guildId?: string,
+  ev: {
+    multiplier: number;
+    durationMs: number;
+    startAt: string | number;
+    actorId?: string;
+    announceEnabled?: boolean;
+    announceChannelId?: string | null;
+    announceContent?: string;
+  } = {} as any,
+) {
   const gid = String(guildId || "");
   const list = await listScheduledEvents(gid, true);
   if (list.length >= MAX_SCHEDULED_EVENTS) return { ok: false, message: `Massimo ${MAX_SCHEDULED_EVENTS} eventi programmati.` };
   const startAt = new Date(ev.startAt).toISOString();
-  list.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), multiplier: ev.multiplier, durationMs: ev.durationMs, startAt, createdBy: String(ev.actorId || ""), createdAt: new Date().toISOString() });
+  list.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    multiplier: ev.multiplier,
+    durationMs: ev.durationMs,
+    startAt,
+    createdBy: String(ev.actorId || ""),
+    createdAt: new Date().toISOString(),
+    announceEnabled: ev.announceEnabled === true,
+    announceChannelId: T.isId(ev.announceChannelId) ? String(ev.announceChannelId) : null,
+    announceContent: String(ev.announceContent || "").trim().slice(0, 2000),
+  });
   await saveScheduledEvents(gid, list);
   return { ok: true, scheduled: await listScheduledEvents(gid, true) };
+}
+
+async function sendScheduledExpEventAnnounce(client?, ev: ScheduledExpEvent) {
+  if (!ev?.announceEnabled || !ev.announceContent?.trim()) return false;
+  try {
+    const IDs = require("../../Vinili/Config/ids") as typeof import("../../Vinili/Config/ids");
+    const { GlobalSettings } = require("../../Vinili/Community/schemas/communitySchemas") as typeof import("../../Vinili/Community/schemas/communitySchemas");
+    const { getClientChannelCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
+    const channelId = ev.announceChannelId || String(IDs.channels?.eventAnnouncements || "").trim();
+    if (!/^\d{5,30}$/.test(channelId)) return false;
+    const key = `dash:${ev.id}`;
+    const gid = String(IDs.guilds?.main || "");
+    await GlobalSettings.findOneAndUpdate(
+      { guildId: gid },
+      { $setOnInsert: { guildId: gid, expEventStartAnnouncementsSent: [] } },
+      { upsert: true, setDefaultsOnInsert: true },
+    ).catch(() => null);
+    const claimed = await GlobalSettings.findOneAndUpdate(
+      { guildId: gid, expEventStartAnnouncementsSent: { $nin: [key] } },
+      { $addToSet: { expEventStartAnnouncementsSent: key } },
+      { new: true },
+    ).catch(() => null);
+    if (!claimed) return false;
+    const channel = await getClientChannelCached(client, channelId).catch(() => null);
+    if (!channel?.send) {
+      await GlobalSettings.updateOne({ guildId: gid }, { $pull: { expEventStartAnnouncementsSent: key } }).catch(() => null);
+      return false;
+    }
+    const content = String(ev.announceContent)
+      .replaceAll("{mult}", String(ev.multiplier))
+      .replaceAll("{multiplier}", String(ev.multiplier))
+      .trim();
+    const roleIds = [...content.matchAll(/<@&(\d{5,30})>/g)].map((m) => m[1]);
+    await channel.send({
+      content,
+      allowedMentions: {
+        parse: /@everyone\b|@here\b/.test(content) ? ["everyone"] : [],
+        roles: [...new Set(roleIds)],
+        users: [],
+      },
+    });
+    return true;
+  } catch (err) {
+    global.logger?.warn?.("[levels] exp event announce:", (err as any)?.message || err);
+    return false;
+  }
 }
 
 async function cancelScheduledEvent(guildId?: string, id?: string) {
@@ -747,7 +1299,7 @@ async function startScheduledEventNow(guildId?: string, id?: string) {
 }
 
 /** Avvia gli eventi arrivati all'ora (finiscono comunque all'ora prevista: inizio + durata). */
-async function runDueScheduledEvents(guildId?: string) {
+async function runDueScheduledEvents(guildId?: string, client?) {
   const gid = String(guildId || "");
   if (!gid) return 0;
   const list = await listScheduledEvents(gid, true);
@@ -758,15 +1310,18 @@ async function runDueScheduledEvents(guildId?: string) {
   /* se ne scadono più insieme vale l'ultimo iniziato ancora in corso */
   const live = due.filter((e) => new Date(e.startAt).getTime() + e.durationMs > now).sort((a, b) => b.startAt.localeCompare(a.startAt))[0];
   if (live) await setExpEvent(gid, live.multiplier, new Date(live.startAt).getTime() + live.durationMs - now);
+  if (client) {
+    for (const ev of due) await sendScheduledExpEventAnnounce(client, ev).catch(() => null);
+  }
   return due.length;
 }
 
 let eventTicker: NodeJS.Timeout | null = null;
 /** Controllo ogni 30 secondi degli eventi programmati del server principale (un solo processo lo avvia). */
-function startScheduledEventsTicker() {
+function startScheduledEventsTicker(client?) {
   if (eventTicker) return;
   const IDs = require("../../Vinili/Config/ids") as typeof import("../../Vinili/Config/ids");
-  const tick = () => void runDueScheduledEvents(String(IDs.guilds.main || "")).catch(() => null);
+  const tick = () => void runDueScheduledEvents(String(IDs.guilds.main || ""), client).catch(() => null);
   eventTicker = setInterval(tick, 30_000);
   eventTicker.unref?.();
   tick();
@@ -886,6 +1441,24 @@ async function getCommunityBonuses(guildId?: string) {
   return cfg.bonuses;
 }
 
+function getActivityWinnersSync(guildId?: string): ActivityWinnersConfig {
+  const cfg = getConfigSync(guildId);
+  if (cfg && (cfg.userSaved || cfg.seedVersion > 0)) return cfg.activityWinners;
+  return defaultActivityWinners();
+}
+
+function getMinigameScoringSync(guildId?: string): MinigameScoring {
+  const cfg = getConfigSync(guildId);
+  if (cfg && (cfg.userSaved || cfg.seedVersion > 0)) return cfg.minigameScoring;
+  return defaultMinigameScoring();
+}
+
+function getLevelCurveSync(guildId?: string): LevelCurve {
+  const cfg = getConfigSync(guildId);
+  if (cfg && (cfg.userSaved || cfg.seedVersion > 0) && cfg.levelCurve) return cfg.levelCurve;
+  return defaultLevelCurve();
+}
+
 export = {
   MODULE_ID,
   SEED_VERSION,
@@ -923,4 +1496,10 @@ export = {
   defaultBonuses,
   defaultCommandCooldown,
   defaultMinigameRewardDraft,
+  defaultMinigameScoring,
+  defaultActivityWinners,
+  defaultLevelCurve,
+  getActivityWinnersSync,
+  getMinigameScoringSync,
+  getLevelCurveSync,
 };

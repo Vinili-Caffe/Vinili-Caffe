@@ -2,6 +2,8 @@
 // API: /webhooks/site-dashboard/dev/* e /webhooks/site-dashboard/botban
 // Handler: MultiGuild/site/dashboard/siteDashboardBotDevApi.ts, siteDashboardBotbanApi.ts
 
+import { readableGuildName } from "@/lib/discord-fancy-text";
+
 const BASE = "/webhooks/site-dashboard";
 
 type Fail = { ok: false; status: number; message: string };
@@ -72,7 +74,7 @@ export const loadDevGuilds = (token: string, q: string) =>
     total: Number(d.total) || 0,
     guilds: list(d.guilds).map((g) => ({
       id: String(g.id || ""),
-      name: String(g.name || g.id || ""),
+      name: readableGuildName(g.name || g.id || "", String(g.id || "Server")),
       iconUrl: str(g.iconUrl),
       ownerId: str(g.ownerId),
       memberCount: Number(g.memberCount) || 0,

@@ -10,6 +10,7 @@ import { avatarUrl, displayName, useAuth, type DiscordUser } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { chooseDialog } from "@/components/ui";
 import { communityApi, emptyDraft, loadCommunity, type CommunityData, type MsgDraft, type PickerChannel, type PickerEmoji, type PickerRole } from "@/lib/dashboard-community";
+import { readableGuildName } from "@/lib/discord-fancy-text";
 import { ExpandableTextarea, Field, SettingRow, Toggle, fieldClass, labelClass, miniBtn } from "../bits";
 import { EmbedFieldsPreview, FieldsEditor, LinkButtonsEditor, V2Editor, V2Preview, blocksFromClassic, v2Of } from "./draftExtras";
 
@@ -97,7 +98,7 @@ export function sampleVars(data: CommunityData | null, extra: Record<string, str
     username: nice,
     "user.name": uname,
     "user.id": id,
-    server: data?.guild.name || "Il tuo server",
+    server: readableGuildName(data?.guild.name, "Il tuo server"),
     avatar: viewer ? avatarUrl(viewer, 256) : "https://cdn.discordapp.com/embed/avatars/0.png",
     servericon: data?.guild.icon ? `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png?size=256` : "https://cdn.discordapp.com/embed/avatars/1.png",
     serverbanner: data?.guild.banner
@@ -633,9 +634,10 @@ function DiscordMessagePreviewBody({
   const author = fillVars(e.authorName || "", vars).trim();
   const urlOf = (u: string) => {
     const v = fillVars(u || "", vars).trim();
-    return /^(https?:\/\/|blob:)/i.test(v) ? v : "";
+    return /^(https?:\/\/|blob:|data:image\/)/i.test(v) ? v : "";
   };
-  const imageUrl = urlOf(e.imageUrl);
+  /* vars.image = fallback anteprima minigiochi (card canvas / foto round) se il draft non ha URL */
+  const imageUrl = urlOf(e.imageUrl) || urlOf(vars.image || "") || urlOf(vars.imageUrl || "");
   const thumbUrl = urlOf(e.thumbnailUrl);
   const authorIcon = urlOf(e.authorIconUrl || "");
   const showEmbed = !v2Of(draft).enabled && e.enabled && (title || desc || imageUrl || thumbUrl || author || (e.fields ?? []).length);

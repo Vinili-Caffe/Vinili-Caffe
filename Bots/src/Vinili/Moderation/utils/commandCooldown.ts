@@ -158,6 +158,12 @@ function computeCooldownSeconds(member?, level?, guildId?) {
   if (hasVip) fromRole = Math.min(fromRole, Math.max(0, Math.floor(Number(roleSecs.vip) || 0)));
   if (hasServerBooster) fromRole = Math.min(fromRole, Math.max(0, Math.floor(Number(roleSecs.booster) || 0)));
 
+  for (const row of Array.isArray(cd?.customRoles) ? cd.customRoles : []) {
+    const roleId = String(row?.roleId || "").trim();
+    if (!roleId || !hasRole(member, roleId)) continue;
+    fromRole = Math.min(fromRole, Math.max(0, Math.floor(Number(row?.seconds) || 0)));
+  }
+
   return Math.min(fromLevel, fromRole);
 }
 

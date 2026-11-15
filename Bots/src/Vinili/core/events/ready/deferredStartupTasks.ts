@@ -508,7 +508,7 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?, 
       enabled: startupEnabled(primaryScheduler, true),
       run: () => {
         const LVL = require("../../../../MultiGuild/services/levelsRuntime") as typeof import("../../../../MultiGuild/services/levelsRuntime");
-        LVL.startScheduledEventsTicker();
+        LVL.startScheduledEventsTicker(client);
       },
     },
     {

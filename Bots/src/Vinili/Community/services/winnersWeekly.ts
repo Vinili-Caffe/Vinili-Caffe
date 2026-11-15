@@ -7,12 +7,22 @@ const { getClientChannelCached, getClientGuildCached } = require("../../../share
 const { guildIconUrl } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { setBotState, tryClaimBotStateOnce } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
 const { getLastSunday21BoundaryMsAtOrBefore, getWeekKey, getMinigameRankWeekKeyForPublish, getNextWeekKeyAfterSunday21Boundary, buildAnchorDateFromWeekKey } = require("./winnersTime") as typeof import("./winnersTime");
-const { WEEKLY_WINNERS_EXCLUDED_ROLE_IDS, wasStaffDuringWeeklyActivityWindow, effectiveMinigameWeeklyScoreForRankWeek, loadWeeklyRowsFromHourlyWindow, loadDailyRowsFromHourlyWindow, resolveTopThreeUsers, resolveMinigameTopForced, uniqueRankingByUserId, deduplicateTopTwoLists } = require("./winnersRows") as typeof import("./winnersRows");
+const { getWeeklyWinnersExcludedRoleIds, wasStaffDuringWeeklyActivityWindow, effectiveMinigameWeeklyScoreForRankWeek, loadWeeklyRowsFromHourlyWindow, loadDailyRowsFromHourlyWindow, resolveTopThreeUsers, resolveMinigameTopForced, uniqueRankingByUserId, deduplicateTopTwoLists } = require("./winnersRows") as typeof import("./winnersRows");
 const { MINIGAME_WINNER_ROLE_ID, pickFirstAvailable, updateWeeklyWinnerRoles, syncRoyaleMinigameTotalRole } = require("./winnersRoles") as typeof import("./winnersRoles");
 const { TROPHY_LABELS } = require("./winnersMonthlyRewards") as typeof import("./winnersMonthlyRewards");
 
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const TARGET_CHANNEL_ID = IDs.channels.topWeeklyUser;
+
+function resolveWeeklyTopChannelId(overrideId?) {
+  if (overrideId) return String(overrideId);
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const cfg = LVL.getActivityWinnersSync(String(IDs.guilds?.main || ""));
+    if (cfg?.channelId) return String(cfg.channelId);
+  } catch (_) {}
+  return TARGET_CHANNEL_ID;
+}
 const TEMP_SUPPRESS_MINIGAME_WEEK_KEYS = new Set(
   ["2026-W19"]
     .map((k?) => String(k || "").trim())
@@ -62,7 +72,7 @@ async function publishWeeklyActivityWinners(client?, options: Record<string, any
       mainGuildId &&
       (client.guilds.cache.get(mainGuildId) || (await getClientGuildCached(client, mainGuildId, { ttlMs: 60_000 }).catch(() => null)));
     if (!guild) {
-      const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
+      const channelIdToUse = resolveWeeklyTopChannelId(options.targetChannelId);
       const ch =
         client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
       if (!ch?.guild) {
@@ -72,7 +82,7 @@ async function publishWeeklyActivityWinners(client?, options: Record<string, any
       guild = ch.guild;
     }
     if (!skipNormalWeekly) {
-      const channelIdToUse = options.targetChannelId || TARGET_CHANNEL_ID;
+      const channelIdToUse = resolveWeeklyTopChannelId(options.targetChannelId);
       channel =
         client.channels.cache.get(channelIdToUse) || (await getClientChannelCached(client, channelIdToUse, { ttlMs: 60_000 }));
       if (!channel?.guild) {
@@ -146,7 +156,7 @@ async function publishWeeklyActivityWinners(client?, options: Record<string, any
           row.staff,
           weekPeriodStartMs,
           weekPeriodEndMs,
-          WEEKLY_WINNERS_EXCLUDED_ROLE_IDS,
+          getWeeklyWinnersExcludedRoleIds(),
           row.staffRolesHistoryRetention,
         );
       };
@@ -228,7 +238,7 @@ async function publishWeeklyActivityWinners(client?, options: Record<string, any
                 d?.staff,
                 weekPeriodStartMs,
                 weekPeriodEndMs,
-                WEEKLY_WINNERS_EXCLUDED_ROLE_IDS,
+                getWeeklyWinnersExcludedRoleIds(),
                 d?.staffRolesHistoryRetention,
               ),
           );
@@ -381,10 +391,11 @@ _ _`,
 }
 
 async function resetWeeklyActivityCounters(client?, options: Record<string, any> = {}) {
-  const channel = client.channels.cache.get(TARGET_CHANNEL_ID) || (await getClientChannelCached(client, TARGET_CHANNEL_ID, { ttlMs: 60_000 }));
-  const guildId = channel?.guild?.id;
+  const channelId = resolveWeeklyTopChannelId();
+  const channel = client.channels.cache.get(channelId) || (await getClientChannelCached(client, channelId, { ttlMs: 60_000 }));
+  const guildId = channel?.guild?.id || String(IDs.guilds?.main || "");
   if (!guildId) {
-    global.logger?.error?.("[WEEKLY ACTIVITY] Reset skipped: channel or guild not found.", TARGET_CHANNEL_ID);
+    global.logger?.error?.("[WEEKLY ACTIVITY] Reset skipped: channel or guild not found.", channelId);
     return;
   }
   const now = new Date();
@@ -412,4 +423,4 @@ async function resetWeeklyActivityCounters(client?, options: Record<string, any>
   );
 }
 
-export = { TARGET_CHANNEL_ID, buildEmptyLine, formatRankLine, publishWeeklyActivityWinners, resetWeeklyActivityCounters };
+export = { TARGET_CHANNEL_ID, resolveWeeklyTopChannelId, buildEmptyLine, formatRankLine, publishWeeklyActivityWinners, resetWeeklyActivityCounters };

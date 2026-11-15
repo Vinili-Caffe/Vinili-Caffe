@@ -69,34 +69,60 @@ function getCurrentWeekKey() {
   return getIsoWeekKey(new Date());
 }
 
+function resolveLevelCurve() {
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    return LVL.getLevelCurveSync(String(IDs.guilds?.main || ""));
+  } catch {
+    return null;
+  }
+}
+
+function roundToNearest(value?, roundTo = 50) {
+  const step = Math.max(1, Math.floor(Number(roundTo) || 50));
+  return Math.round(Number(value || 0) / step) * step;
+}
+
 function roundToNearest50(value?) {
-  return Math.round(value / 50) * 50;
+  const curve = resolveLevelCurve();
+  return roundToNearest(value, curve?.roundTo ?? 50);
 }
 
 function getLevelStep(level?) {
   const safeLevel = Math.max(1, Math.floor(Number(level || 1)));
-  if (safeLevel <= 10) {
-    return 120 + (safeLevel - 1) * 25;
+  const curve = resolveLevelCurve();
+  const segments = Array.isArray(curve?.segments) ? curve.segments : null;
+  if (segments?.length) {
+    for (const seg of segments) {
+      if (safeLevel <= Number(seg.upTo)) {
+        const from = Math.max(0, Math.floor(Number(seg.from) || 0));
+        return Math.max(0, Math.floor(Number(seg.base) || 0) + (safeLevel - from) * Math.floor(Number(seg.perLevel) || 0));
+      }
+    }
+    const last = segments[segments.length - 1];
+    const from = Math.max(0, Math.floor(Number(last.from) || 0));
+    return Math.max(0, Math.floor(Number(last.base) || 0) + (safeLevel - from) * Math.floor(Number(last.perLevel) || 0));
   }
-  if (safeLevel <= 30) {
-    return 380 + (safeLevel - 10) * 55;
-  }
-  if (safeLevel <= 60) {
-    return 1600 + (safeLevel - 30) * 120;
-  }
+  if (safeLevel <= 10) return 120 + (safeLevel - 1) * 25;
+  if (safeLevel <= 30) return 380 + (safeLevel - 10) * 55;
+  if (safeLevel <= 60) return 1600 + (safeLevel - 30) * 120;
   return 5200 + (safeLevel - 60) * 210;
 }
 
 function getLevelInfo(totalExp?) {
+  const curve = resolveLevelCurve();
+  const firstThreshold = Math.max(1, Math.floor(Number(curve?.firstThreshold) || 100));
+  const minStepAdd = Math.max(0, Math.floor(Number(curve?.minStepAdd) || 110));
+  const roundTo = Math.max(1, Math.floor(Number(curve?.roundTo) || 50));
   const exp = Math.max(0, Math.floor(Number(totalExp || 0)));
   let level = 0;
   let currentLevelExp = 0;
-  let nextThreshold = 100;
+  let nextThreshold = firstThreshold;
   while (exp >= nextThreshold) {
     level += 1;
     currentLevelExp = nextThreshold;
     const step = getLevelStep(level);
-    nextThreshold = roundToNearest50(nextThreshold + Math.max(110, step));
+    nextThreshold = roundToNearest(nextThreshold + Math.max(minStepAdd, step), roundTo);
   }
   const remainingToNext = Math.max(0, nextThreshold - exp);
   const span = Math.max(1, nextThreshold - currentLevelExp);
@@ -111,11 +137,15 @@ function getLevelInfo(totalExp?) {
 }
 
 function getTotalExpForLevel(level?) {
+  const curve = resolveLevelCurve();
+  const firstThreshold = Math.max(1, Math.floor(Number(curve?.firstThreshold) || 100));
+  const minStepAdd = Math.max(0, Math.floor(Number(curve?.minStepAdd) || 110));
+  const roundTo = Math.max(1, Math.floor(Number(curve?.roundTo) || 50));
   const targetLevel = Math.max(0, Math.floor(Number(level || 0)));
   if (targetLevel <= 0) return 0;
-  let threshold = 100;
+  let threshold = firstThreshold;
   for (let l = 1; l < targetLevel; l += 1) {
-    threshold = roundToNearest50(threshold + Math.max(110, getLevelStep(l)));
+    threshold = roundToNearest(threshold + Math.max(minStepAdd, getLevelStep(l)), roundTo);
   }
   return threshold;
 }
