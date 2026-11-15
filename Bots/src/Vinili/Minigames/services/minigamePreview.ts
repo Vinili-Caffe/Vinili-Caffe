@@ -22,9 +22,15 @@ function toDataUrl(att: Attachment): string {
 function minigameConfig(client?) {
   try {
     const { getConfig } = require("./minigameConfig") as typeof import("./minigameConfig");
-    return getConfig(client) || {};
+    /* nel processo del sito client.config non c'è: si usa il config.json del bot (nomi famosi, campionati…) */
+    const withConfig = client?.config?.minigames ? client : { ...(client || {}), config: require("../../config.json") };
+    return getConfig(withConfig) || (withConfig.config as any)?.minigames || {};
   } catch {
-    return {};
+    try {
+      return (require("../../config.json") as any)?.minigames || {};
+    } catch {
+      return {};
+    }
   }
 }
 
@@ -50,9 +56,9 @@ async function photoCard(imageUrl: string, title: string, base: string, fallback
 }
 
 /** Copertina censurata come all'inizio del round (canzone, album). */
-async function censored(artwork: string, name: string) {
+async function censored(artwork: string, name: string, cardTitle = "") {
   if (!artwork) return "";
-  const out: any = await images.censorArtworkImage(artwork, { attachmentName: name, overlayAlpha: 0.98 }).catch(() => null);
+  const out: any = await images.censorArtworkImage(artwork, { attachmentName: name, overlayAlpha: 0.98, cardTitle }).catch(() => null);
   if (out?.buffer) return `data:image/png;base64,${Buffer.from(out.buffer).toString("base64")}`;
   return artwork;
 }
@@ -151,7 +157,7 @@ async function render(type: string, client?): Promise<PreviewOut> {
     }
     case "guessSong": {
       const info: any = await src.fetchPopularSong(cfg).catch(() => null);
-      const img = await censored(String(info?.artwork || ""), "minigame_song.png");
+      const img = await censored(String(info?.artwork || ""), "minigame_song.png", "Indovina la canzone");
       return img ? { image: img, source: img.startsWith("data:") ? "canvas" : "remote" } : canvasOut(card("Indovina la canzone", ["Ascolta l'anteprima"], "guess_song", client));
     }
     case "guessAlbum": {
@@ -161,7 +167,7 @@ async function render(type: string, client?): Promise<PreviewOut> {
         row?.image ||
           "https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg",
       );
-      const img = (await censored(raw, "minigame_album.png")) || raw;
+      const img = (await censored(raw, "minigame_album.png", "Indovina l'album")) || raw;
       return img ? { image: img, source: img.startsWith("data:") ? "canvas" : "remote" } : canvasOut(card("Indovina l'album", [String(row?.album || "Album"), String(row?.artist || "")], "guess_album", client));
     }
     case "drivingQuiz": {

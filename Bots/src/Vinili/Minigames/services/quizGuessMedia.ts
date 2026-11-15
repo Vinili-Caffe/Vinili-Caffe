@@ -39,6 +39,8 @@ async function resolveGuessPuzzleAttachment({
   );
 }
 const CENSOR_STEP_INTERVAL_MS = 60 * 1000;
+/** Titolo della card canvas delle copertine (come gli altri minigiochi). */
+const ARTWORK_CARD_TITLE: Record<string, string> = { guessSong: "Indovina la canzone", guessAlbum: "Indovina l'album" };
 
 function isComponentsV2Message(msg?) {
   try {
@@ -49,7 +51,7 @@ function isComponentsV2Message(msg?) {
 }
 
 /** V2: sostituisce l'immagine della galleria (copertina) con quella meno censurata, o con l'originale alla fine. */
-async function editV2Artwork(msg?, alpha = 0, originalArtworkUrl = "", attachmentName = "") {
+async function editV2Artwork(msg?, alpha = 0, originalArtworkUrl = "", attachmentName = "", cardTitle = "") {
   const name = String(attachmentName || "");
   const isArtwork = (url?) => {
     const u = String(url || "");
@@ -57,12 +59,12 @@ async function editV2Artwork(msg?, alpha = 0, originalArtworkUrl = "", attachmen
   };
   let files: any[] = [];
   let nextUrl = originalArtworkUrl;
-  if (alpha > 0) {
-    const censored = await censorArtworkImage(originalArtworkUrl, { attachmentName: name, overlayAlpha: alpha });
-    if (!censored) return;
+  /* alpha 0 = copertina scoperta, sempre dentro la card */
+  const censored = await censorArtworkImage(originalArtworkUrl, { attachmentName: name, overlayAlpha: Math.max(0, alpha), cardTitle });
+  if (censored) {
     files = [new AttachmentBuilder(censored.buffer, { name: censored.attachmentName })];
     nextUrl = `attachment://${censored.attachmentName}`;
-  }
+  } else if (alpha > 0) return;
   const swap = (list?) =>
     (Array.isArray(list) ? list : []).map((c?) => {
       if (!c || typeof c !== "object") return c;
@@ -94,7 +96,16 @@ function scheduleArtworkCensorSteps(params?) {
         const msg = await channel.messages.fetch(gameMessageId).catch(() => null);
         if (!msg?.editable) return;
         if (isComponentsV2Message(msg)) {
-          await editV2Artwork(msg, alpha, originalArtworkUrl, attachmentName);
+          await editV2Artwork(msg, alpha, originalArtworkUrl, attachmentName, ARTWORK_CARD_TITLE[gameType] || "");
+          return;
+        }
+        const cardTitle = ARTWORK_CARD_TITLE[gameType] || "";
+        const revealed = alpha <= 0 && cardTitle ? await censorArtworkImage(originalArtworkUrl, { attachmentName, overlayAlpha: 0, cardTitle }) : null;
+        if (revealed) {
+          const embed = buildEmbed(rewardExp, durationMs, `attachment://${revealed.attachmentName}`);
+          const files = [new AttachmentBuilder(revealed.buffer, { name: revealed.attachmentName })];
+          const payload = gameType === "guessSong" ? { embeds: [embed], components: msg.components, files } : { embeds: [embed], files };
+          await msg.edit(payload).catch(() => {});
           return;
         }
         if (alpha <= 0) {
@@ -103,7 +114,7 @@ function scheduleArtworkCensorSteps(params?) {
           await msg.edit(payload).catch(() => {});
           return;
         }
-        const censored = await censorArtworkImage(originalArtworkUrl, { attachmentName, overlayAlpha: alpha });
+        const censored = await censorArtworkImage(originalArtworkUrl, { attachmentName, overlayAlpha: alpha, cardTitle });
         if (!censored) return;
         const embed = buildEmbed(rewardExp, durationMs, `attachment://${censored.attachmentName}`);
         const files = [new AttachmentBuilder(censored.buffer, { name: censored.attachmentName })];
@@ -304,7 +315,7 @@ async function startGuessSongGame(client?, cfg?) {
 
   const songAttachmentName = "minigame_song.png";
   let songImageUrl = info.artwork;
-  const songCensored = info.artwork ? await censorArtworkImage(info.artwork, { attachmentName: songAttachmentName, overlayAlpha: 0.98 }) : null;
+  const songCensored = info.artwork ? await censorArtworkImage(info.artwork, { attachmentName: songAttachmentName, overlayAlpha: 0.98, cardTitle: ARTWORK_CARD_TITLE.guessSong }) : null;
   if (songCensored) {
     songImageUrl = `attachment://${songCensored.attachmentName}`;
   }
@@ -524,7 +535,7 @@ async function startGuessAlbumGame(client?, cfg?) {
 
   const albumAttachmentName = "minigame_album.png";
   let albumImageUrl = pick.image;
-  const albumCensored = pick.image ? await censorArtworkImage(pick.image, { attachmentName: albumAttachmentName, overlayAlpha: 0.98 }) : null;
+  const albumCensored = pick.image ? await censorArtworkImage(pick.image, { attachmentName: albumAttachmentName, overlayAlpha: 0.98, cardTitle: ARTWORK_CARD_TITLE.guessAlbum }) : null;
   if (albumCensored) {
     albumImageUrl = `attachment://${albumCensored.attachmentName}`;
   }

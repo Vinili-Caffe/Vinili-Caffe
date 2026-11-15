@@ -840,8 +840,8 @@ function buildPromptImageAttachment(title?, lines = [], fileBaseName = "minigame
 async function buildRemoteGuessImageCardAttachment(imageUrl?, title?, fileName = "guess_image.png") {
   try {
     registerCanvasFonts(canvasModule);
-    const photo = await loadImageBufferFromUrl(imageUrl);
-    if (!photo) return null;
+    const photo = Buffer.isBuffer(imageUrl) ? await loadImage(imageUrl).catch(() => null) : await loadImageBufferFromUrl(imageUrl);
+    if (!photo?.width || !photo?.height) return null;
     const width = 1400;
     const height = 780;
     const canvas = createCanvas(width, height);
@@ -856,13 +856,16 @@ async function buildRemoteGuessImageCardAttachment(imageUrl?, title?, fileName =
     ctx.fillStyle = CANVAS_STYLE.titleColor;
     ctx.font = fontStackPrimaryOnly(64, "700");
     ctx.fillText(String(title || "Indovina").slice(0, 48), width / 2, cardY + 48);
+    /* zona sotto il titolo: foto centrata in orizzontale e in verticale; le immagini piccole (bandiere) si ingrandiscono */
+    const areaTop = cardY + 120;
+    const areaBottom = cardY + cardH - 44;
     const maxW = cardW - 120;
-    const maxH = cardH - 200;
-    const scale = Math.min(maxW / photo.width, maxH / photo.height, 1);
+    const maxH = areaBottom - areaTop;
+    const scale = Math.min(maxW / photo.width, maxH / photo.height, 3);
     const drawW = Math.round(photo.width * scale);
     const drawH = Math.round(photo.height * scale);
-    const x = (width - drawW) / 2;
-    const y = cardY + 140;
+    const x = Math.round((width - drawW) / 2);
+    const y = Math.round(areaTop + (maxH - drawH) / 2);
     ctx.drawImage(photo, x, y, drawW, drawH);
     const name = String(fileName || "guess_image.png").replace(/[^\w.\-]+/g, "_");
     return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: name.endsWith(".png") ? name : `${name}.png` });
@@ -935,7 +938,12 @@ async function censorArtworkImage(imageUrl?, opts: Record<string, any> = {}) {
     ctx.filter = "none";
 
     const attachmentName = opts?.attachmentName || "minigame_artwork.png";
-    return { buffer: canvas.toBuffer("image/png"), attachmentName };
+    const buffer = canvas.toBuffer("image/png");
+    if (opts?.cardTitle) {
+      const cardAtt: any = await buildRemoteGuessImageCardAttachment(buffer, String(opts.cardTitle), attachmentName);
+      if (cardAtt?.attachment) return { buffer: cardAtt.attachment, attachmentName };
+    }
+    return { buffer, attachmentName };
   } catch {
     return null;
   }
