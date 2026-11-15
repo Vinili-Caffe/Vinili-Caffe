@@ -26,7 +26,7 @@ import {
 import { searchTicketMembers, type MemberHit } from "@/lib/dashboard-guild-ops";
 import { buildMinigamePreviewCardDataUrl } from "@/lib/minigame-preview-card";
 import { ExpandableTextarea, Field, Notice, Pills, RowsSkeleton, StatusBadge, Toggle, TrackUnsaved, dangerBtn, dashPrimaryBtn, fieldClass, labelClass, miniBtn } from "../bits";
-import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars } from "./shared";
+import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars, type PreviewRow } from "./shared";
 
 const LEVEL_PLACEHOLDERS = [
   { token: "{user}", hint: "menzione di chi è salito di livello" },
@@ -288,18 +288,21 @@ const MINIGAME_PREVIEW: Record<string, MinigamePreviewMeta> = {
   guessFlag: {
     prompt: "Indovina la nazione da questa bandiera per ottenere **{exp} exp**.",
     image: "https://flagcdn.com/w320/it.png",
-    cardLines: ["Bandiera"],
+    cardLines: ["Quale nazione è?"],
   },
   guessPlayer: {
     prompt: "Indovina il calciatore più famoso per ottenere **{exp} exp**.",
-    cardLines: ["Calciatore"],
+    image:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg/320px-Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg",
+    cardLines: ["Chi è questo calciatore?"],
   },
   guessSong: {
     prompt: "Indovina la canzone per ottenere **{exp} exp**.",
-    cardLines: ["Canzone"],
+    cardLines: ["Ascolta l'anteprima"],
   },
   guessCapital: {
     prompt: "Indovina la capitale di **Italia** per ottenere **{exp} exp**.",
+    image: "https://flagcdn.com/w320/it.png",
     cardLines: ["Italia"],
   },
   guessReverseCapital: {
@@ -311,12 +314,13 @@ const MINIGAME_PREVIEW: Record<string, MinigamePreviewMeta> = {
     cardLines: ["Lazio"],
   },
   fastType: {
-    prompt: "Il primo che scrive questa frase ottiene **{exp} exp**.\n```\nScrivi questa frase\n```",
+    prompt: "Il primo che scrive questa frase ottiene **{exp} exp**.\n",
     cardLines: ["Scrivi questa frase"],
   },
   guessTeam: {
     prompt: "Indovina la squadra di calcio dal logo per ottenere **{exp} exp**.",
-    cardLines: ["Squadra"],
+    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/FC_Internazionale_Milano_2021.svg/240px-FC_Internazionale_Milano_2021.svg.png",
+    cardLines: ["Quale squadra è?"],
   },
   guessSinger: {
     prompt: "Indovina il cantante dalla foto per ottenere **{exp} exp**.",
@@ -324,13 +328,14 @@ const MINIGAME_PREVIEW: Record<string, MinigamePreviewMeta> = {
   },
   guessAlbum: {
     prompt: "Indovina l'album dalla copertina per ottenere **{exp} exp**.",
+    image: "https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg",
     cardLines: ["Album"],
   },
   hangman: { prompt: "Scrivi una lettera o prova la parola intera per ottenere **{exp} exp**.\nParola: **_ _ _ _ _**", cardLines: ["_ _ _ _ _"] },
   italianGK: { prompt: "**Domanda:** Qual è il fiume più lungo d'Italia? per ottenere **{exp} exp**.", cardLines: ["Qual è il fiume più lungo d'Italia?"] },
   drivingQuiz: {
     prompt: "**Affermazione:** In curva il veicolo tende a sbandare.\nRispondi con `vero` o `falso`.\nRicompensa: **{exp} exp**",
-    cardLines: ["In curva il veicolo tende a sbandare.", "Vero o falso?"],
+    cardLines: ["In curva il veicolo tende a sbandare.", "Rispondi: Vero o Falso"],
   },
   mathExpression: { prompt: "Risolvi: **12 + 8 × 2** per ottenere **{exp} exp**.", cardLines: ["12 + 8 × 2"] },
   findBot: { prompt: "Trova il messaggio del bot tra i canali del server e reagisci per ottenere **{exp} exp**.", cardLines: ["Trova il bot"] },
@@ -355,7 +360,10 @@ const MINIGAME_PREVIEW: Record<string, MinigamePreviewMeta> = {
     prompt: "In quale città si trova **il Colosseo**? **{exp} exp**.",
     cardLines: ["Il Colosseo"],
   },
-  treasureHunt: { prompt: "Sui prossimi messaggi metterò una reaction: trovala e cliccaci sopra per **{exp} exp**.", cardLines: ["Caccia al tesoro"] },
+  treasureHunt: {
+    prompt: "Sui prossimi messaggi metterò una reaction: trovala e cliccaci sopra per **{exp} exp**.",
+    cardLines: ["Trova la reaction nascosta", "nei prossimi messaggi"],
+  },
   starWarsQuiz: {
     prompt: "Rispondi alla domanda sull'immagine per ottenere **{exp} exp**.",
     cardLines: ["Quiz Star Wars"],
@@ -391,6 +399,14 @@ function resolveMinigamePreviewImage(type: string, cardReady: boolean, real?: Re
   const title = minigameTypeLabel(type);
   const lines = meta?.cardLines?.length ? meta.cardLines : [title];
   return buildMinigamePreviewCardDataUrl(title, lines) || "";
+}
+
+/** Extra UI del round che non sta nel draft (es. bottone canzone). La reaction della caccia sta sui messaggi successivi, non sull’intro. */
+function minigamePreviewRows(type: string): PreviewRow[] {
+  if (type === "guessSong") {
+    return [{ kind: "buttons", items: [{ label: "Ascolta anteprima", style: 2 }] }];
+  }
+  return [];
 }
 
 /** Anteprima: mette sempre l’immagine del round come fa il bot (embed: immagine; V2: galleria in fondo, prima dei pulsanti). */
@@ -564,6 +580,8 @@ export function LevelsPanel({
 
   /* immagini vere dei round, generate dal bot: quella dell'esempio condiviso e quella del gioco aperto */
   const [realGameImgs, setRealGameImgs] = useState<Record<string, string>>({});
+  /* perché l'immagine vera non c'è (fonte giù, canvas mancante, bot non aggiornato…) */
+  const [realGameNotes, setRealGameNotes] = useState<Record<string, string>>({});
   const askedGameImgs = useRef(new Set<string>());
   useEffect(() => {
     if (tab !== "minigiochi" || !isMain) return;
@@ -572,6 +590,9 @@ export function LevelsPanel({
       askedGameImgs.current.add(type);
       void communityApi.getMinigamePreview(token, guildId, type).then((r) => {
         if (r.ok && r.data.image) setRealGameImgs((m) => ({ ...m, [type]: r.data.image }));
+        else askedGameImgs.current.delete(type);
+        const note = r.ok ? r.data.note || "" : r.message;
+        setRealGameNotes((m) => ({ ...m, [type]: note }));
       });
     }
   }, [tab, isMain, gameEditType, token, guildId]);
@@ -1446,11 +1467,13 @@ export function LevelsPanel({
                                   </div>
                                   <div className="space-y-2">
                                     <p className={labelClass}>Anteprima inizio</p>
+                                    {realGameNotes[row.type] ? <p className="text-xs text-[#e2836f]">Immagine d&apos;esempio: {realGameNotes[row.type]}</p> : null}
                                     <DiscordMessagePreview
                                       noTest
                                       bot={data.bot}
                                       draft={rowStartDraft}
                                       vars={rowStartVars}
+                                      rows={minigamePreviewRows(row.type)}
                                       roles={pickerRoles}
                                       channels={channels}
                                     />

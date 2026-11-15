@@ -6,7 +6,19 @@
 const images = require("./minigameImages") as typeof import("./minigameImages");
 
 type Attachment = { attachment?: any; name?: string } | null | undefined;
-type PreviewOut = { image: string; source: "canvas" | "remote" | "none" };
+/** note: perché non c'è l'immagine vera (fonte irraggiungibile, canvas mancante…), mostrato in dashboard */
+type PreviewOut = { image: string; source: "canvas" | "remote" | "none"; note?: string };
+
+/** canvas c'è in questo processo? */
+function canvasAvailable() {
+  try {
+    const c = require("canvas");
+    c.createCanvas(1, 1);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const CACHE_MS = 15 * 60 * 1000;
 const cache = new Map<string, { at: number; out: PreviewOut }>();
@@ -141,13 +153,17 @@ async function render(type: string, client?): Promise<PreviewOut> {
         info?.image ||
           "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg/320px-Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg",
       );
-      return canvasOut(await photoCard(img, "Indovina il calciatore", "guess_player", ["Chi è questo calciatore?"], client));
+      const out = canvasOut(await photoCard(img, "Indovina il calciatore", "guess_player", ["Chi è questo calciatore?"], client));
+      if (!out.image) return { ...out, note: "Foto del calciatore non caricata nella card." };
+      return info?.image ? out : { ...out, note: "TheSportsDB non ha risposto: foto d'esempio." };
     }
     case "guessTeam": {
       const teams: any[] = await src.loadFootballTeamsFromApi(cfg).catch(() => []);
       const row = pick(teams.filter((t) => t?.image));
       const img = String(row?.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/FC_Internazionale_Milano_2021.svg/240px-FC_Internazionale_Milano_2021.svg.png");
-      return canvasOut(await photoCard(img, "Indovina la squadra", "guess_team", ["Quale squadra è?"], client));
+      const out = canvasOut(await photoCard(img, "Indovina la squadra", "guess_team", ["Quale squadra è?"], client));
+      if (!out.image) return { ...out, note: "Logo della squadra non caricato nella card." };
+      return row?.image ? out : { ...out, note: "TheSportsDB non ha risposto: logo d'esempio." };
     }
     case "guessSinger": {
       const singers: any[] = await src.loadSingersFromApi(cfg).catch(() => []);
@@ -167,8 +183,10 @@ async function render(type: string, client?): Promise<PreviewOut> {
         row?.image ||
           "https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg",
       );
-      const img = (await censored(raw, "minigame_album.png", "Indovina l'album")) || raw;
-      return img ? { image: img, source: img.startsWith("data:") ? "canvas" : "remote" } : canvasOut(card("Indovina l'album", [String(row?.album || "Album"), String(row?.artist || "")], "guess_album", client));
+      const img = await censored(raw, "minigame_album.png", "Indovina l'album");
+      if (img && img.startsWith("data:")) return { image: img, source: "canvas" };
+      const note = !row?.image ? "Nessun album dalla fonte (Deezer non risponde)." : "Copertina non caricata nella card.";
+      return { ...canvasOut(card("Indovina l'album", [String(row?.album || "Album"), String(row?.artist || "")], "guess_album", client)), note };
     }
     case "drivingQuiz": {
       const sample = {
@@ -194,9 +212,11 @@ async function render(type: string, client?): Promise<PreviewOut> {
 async function renderMinigamePreview(type?: string, client?): Promise<PreviewOut> {
   const t = String(type || "").trim().slice(0, 40);
   if (!t) return { image: "", source: "none" };
+  if (!canvasAvailable()) return { image: "", source: "none", note: "Canvas non disponibile nel processo del sito: niente immagine vera." };
   const hit = cache.get(t);
   if (hit && Date.now() - hit.at < CACHE_MS && hit.out.image) return hit.out;
-  const out = await render(t, client).catch(() => ({ image: "", source: "none" as const }));
+  const out: PreviewOut = await render(t, client).catch((e: any) => ({ image: "", source: "none" as const, note: `Errore: ${String(e?.message || e).slice(0, 120)}` }));
+  if (!out.image && !out.note) out.note = "Il bot non è riuscito a generare l'immagine.";
   if (out.image) cache.set(t, { at: Date.now(), out });
   return out;
 }

@@ -92,6 +92,7 @@ function withRoundImageV2(components: any[], url?: string) {
 /** Prima riga utile dell'embed classico (senza citazioni tempo/profilo) → {prompt}. */
 function promptFromFallbackDescription(desc?) {
   const lines = String(desc || "")
+    .replace(/```[\s\S]*?```/g, "")
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);

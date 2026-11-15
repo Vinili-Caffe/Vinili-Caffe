@@ -653,7 +653,7 @@ export const communityApi = {
   setLevelsEvent: (t: string, g: string, body: LevelsEventRequest) => call<{ event: LevelsEvent; scheduled?: LevelsScheduledEvent[] }>(t, g, "/levels/event", "POST", body),
   /** immagine vera del round (canvas o foto) generata dal bot, per le anteprime dei minigiochi */
   getMinigamePreview: (t: string, g: string, type: string) =>
-    call<{ image: string; source: "canvas" | "remote" | "none" }>(t, g, `/levels/minigame-preview?type=${encodeURIComponent(type)}`),
+    call<{ image: string; source: "canvas" | "remote" | "none"; note?: string }>(t, g, `/levels/minigame-preview?type=${encodeURIComponent(type)}`),
   getLevelsUser: (t: string, g: string, userId: string) => call<{ user: LevelsUser }>(t, g, `/levels/user?id=${encodeURIComponent(userId)}&_=${Date.now()}`),
   mutateLevelsUser: (t: string, g: string, body: LevelsUserAction) => call<{ before: LevelsUser; user: LevelsUser; rolesSynced: boolean }>(t, g, "/levels/user", "POST", body),
   listGiveaways: (t: string, g: string) => call<{ giveaways: Giveaway[]; scheduled?: ScheduledGiveaway[] }>(t, g, `/giveaways?_=${Date.now()}`),
