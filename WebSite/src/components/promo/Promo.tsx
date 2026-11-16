@@ -10,6 +10,39 @@ import { cn } from "@/lib/cn";
 const noop = () => () => {};
 const usePreview = () => useSyncExternalStore(noop, isPromoPreview, () => false);
 
+/** Pagine con i prezzi scontati (Donazioni, Sponsor). */
+export const isPromoHref = (href: string) => /\/(donazioni|sponsor)\/?(\?|#|$)/.test(String(href || ""));
+
+/**
+ * Bollino piccolo "-25%" accanto a Donazioni e Sponsor nei menu: si vede sempre durante uno sconto
+ * ma non disturba (niente animazioni continue, colore dello sconto, testo minuscolo).
+ */
+export function PromoNavTag({ className }: { className?: string }) {
+  const promo = usePromo();
+  if (!promo) return null;
+  return (
+    <span
+      title={`${promo.name}: -${promo.percent}% su donazioni e sponsor`}
+      className={cn("inline-flex shrink-0 items-center rounded-full px-1.5 py-px text-[0.6rem] font-bold leading-4 tracking-wide lining-nums ring-1", className)}
+      style={{ color: promo.accent, backgroundColor: `${promo.accent}1f`, boxShadow: `inset 0 0 0 1px ${promo.accent}55` }}
+    >
+      <span className="sr-only">Sconto </span>-{promo.percent}%
+    </span>
+  );
+}
+
+/** Puntino sul gruppo che contiene una pagina scontata (es. "Supporta"). */
+export function PromoNavDot({ className }: { className?: string }) {
+  const promo = usePromo();
+  if (!promo) return null;
+  return (
+    <span aria-hidden title={`${promo.name}: -${promo.percent}%`} className={cn("relative inline-flex size-1.5 shrink-0", className)}>
+      <span className="absolute inset-0 rounded-full opacity-60 motion-safe:animate-ping [animation-iteration-count:3]" style={{ backgroundColor: promo.accent }} />
+      <span className="relative size-1.5 rounded-full" style={{ backgroundColor: promo.accent }} />
+    </span>
+  );
+}
+
 /** Bollino nero "-50%" che si attacca sulla card con un colpo di timbro. */
 export function PromoSticker({ className }: { className?: string }) {
   const promo = usePromo();

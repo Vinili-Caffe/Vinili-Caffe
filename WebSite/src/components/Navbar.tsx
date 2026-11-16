@@ -49,6 +49,7 @@ import {
 import { useEventoChrome } from "./evento/EventoChrome";
 import { useEventoSortGate } from "./evento/EventoSortContext";
 import { ContestNavPill } from "./contest/ContestNavPill";
+import { PromoNavDot, PromoNavTag, isPromoHref } from "./promo/Promo";
 
 function canHoverNav() {
   try {
@@ -332,6 +333,7 @@ function NavDrop({
       >
         <NavIcon labelKey={labelKey} className="size-3.5 shrink-0 opacity-75" />
         {label}
+        {links.some((l) => isPromoHref(l.href)) ? <PromoNavDot className="-ml-0.5 self-start mt-1" /> : null}
         <ChevronDown className={cn("size-3.5 opacity-60 transition-transform", open && "rotate-180")} aria-hidden />
       </button>
       <AnimatePresence>
@@ -368,6 +370,7 @@ function NavDrop({
                       >
                         {ico}
                         {t(l.labelKey)}
+                        {isPromoHref(l.href) ? <PromoNavTag className="ml-auto" /> : null}
                       </SmartLink>
                     )}
                   </li>
@@ -686,6 +689,7 @@ export function Navbar() {
                     <SmartLink href={l.href} className={navUnderlineClass(pathActive(pathname, l.href))}>
                       <NavIcon labelKey={l.labelKey} className="size-3.5 shrink-0 opacity-75" />
                       {t(l.labelKey)}
+                      {isPromoHref(l.href) ? <PromoNavTag /> : null}
                     </SmartLink>
                   </li>
                 ))}
@@ -893,7 +897,10 @@ export function Navbar() {
                               )}
                             >
                               {ico}
-                              {t(l.labelKey)}
+                              <span className="inline-flex items-center gap-1.5">
+                                {t(l.labelKey)}
+                                {isPromoHref(l.href) ? <PromoNavTag /> : null}
+                              </span>
                         </SmartLink>
                           )}
                       </li>
