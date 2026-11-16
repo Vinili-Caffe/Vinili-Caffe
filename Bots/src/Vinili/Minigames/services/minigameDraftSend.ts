@@ -55,6 +55,27 @@ function embedDescription(embed?) {
   return String(embed?.description || embed?.data?.description || "").trim();
 }
 
+/** Fields dell'embed classico (es. sequenza Memoria) — il draft condiviso altrimenti li perde. */
+function embedFieldsText(embed?) {
+  let fields: any[] = [];
+  try {
+    if (typeof embed?.toJSON === "function") {
+      const j = embed.toJSON();
+      fields = Array.isArray(j?.fields) ? j.fields : [];
+    } else if (Array.isArray(embed?.data?.fields)) {
+      fields = embed.data.fields;
+    } else if (Array.isArray(embed?.fields)) {
+      fields = embed.fields;
+    }
+  } catch (_) {
+    fields = [];
+  }
+  return fields
+    .map((f?) => String(f?.value || "").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
 /** C'è già una galleria/miniatura con quell'immagine (es. {image} messo a mano nel V2)? */
 function v2HasImage(components: any[], url: string): boolean {
   const walk = (list: any[]): boolean =>
@@ -103,9 +124,58 @@ function promptFromFallbackDescription(desc?) {
   return lines[0] || "Partecipa per vincere **{exp} exp**.";
 }
 
+/** Righe con pulsanti “di gioco” (customId), non link della dashboard. */
+function isGameActionRow(row?) {
+  if (!row) return false;
+  try {
+    const j = typeof row.toJSON === "function" ? row.toJSON() : row;
+    if (Number(j?.type) !== 1) return false;
+    const comps = Array.isArray(j?.components) ? j.components : [];
+    return comps.some((c?) => c && (c.custom_id || c.customId));
+  } catch {
+    return false;
+  }
+}
+
+function rowToJson(row?) {
+  if (!row) return null;
+  try {
+    return typeof row.toJSON === "function" ? row.toJSON() : row;
+  } catch {
+    return row;
+  }
+}
+
 /**
- * Se c’è un draft non vuoto per kind (condiviso), sostituisce content/embeds/components del draft
- * e tiene files (+ components extra del fallback se il draft non ne ha).
+ * Testo/embed dal draft dashboard; i components di gioco del fallback (es. Ascolta anteprima)
+ * restano SEMPRE, anche se il draft ha già pulsanti link.
+ */
+function mergeMinigameComponents(draftComponents?, fallbackComponents?) {
+  const draft = (Array.isArray(draftComponents) ? draftComponents : []).map(rowToJson).filter(Boolean);
+  const fb = (Array.isArray(fallbackComponents) ? fallbackComponents : []).map(rowToJson).filter(Boolean);
+  const gameRows = fb.filter(isGameActionRow);
+  if (!draft.length && !fb.length) return undefined;
+  if (!draft.length) return fb;
+  if (!gameRows.length) return draft;
+  const draftIds = new Set(
+    draft.flatMap((r?) =>
+      (Array.isArray(r?.components) ? r.components : [])
+        .map((c?) => String(c?.custom_id || c?.customId || ""))
+        .filter(Boolean),
+    ),
+  );
+  const extra = gameRows.filter((r?) => {
+    const ids = (Array.isArray(r?.components) ? r.components : [])
+      .map((c?) => String(c?.custom_id || c?.customId || ""))
+      .filter(Boolean);
+    return ids.some((id) => !draftIds.has(id));
+  });
+  return [...draft, ...extra].slice(0, 5);
+}
+
+/**
+ * Se c’è un draft non vuoto per kind (condiviso), sostituisce content/embeds del draft
+ * e tiene files + components di gioco del fallback (Ascolta anteprima, ecc.).
  * Se il draft non ha immagine, eredita quella del fallback (bandiere, foto, allegati).
  */
 function applyMinigameDraftToPayload(fallbackPayload?, opts: { type?: string; kind?: "start" | "win"; vars?: Record<string, string>; mentionUserId?: string | null; guild?: any } = {}) {
@@ -125,14 +195,17 @@ function applyMinigameDraftToPayload(fallbackPayload?, opts: { type?: string; ki
     }
     const fbEmbeds = Array.isArray(fb.embeds) ? fb.embeds : [];
     if ((opts.kind || "start") === "start") {
-      if (!vars.prompt) vars.prompt = promptFromFallbackDescription(embedDescription(fbEmbeds[0]));
+      if (!vars.prompt) {
+        const descPrompt = promptFromFallbackDescription(embedDescription(fbEmbeds[0]));
+        const fieldExtra = embedFieldsText(fbEmbeds[0]);
+        vars.prompt = fieldExtra ? `${descPrompt}\n${fieldExtra}` : descPrompt;
+      }
       if (!vars.image) {
         const fbImg = embedImageUrl(fbEmbeds[0]);
         if (fbImg) vars.image = fbImg;
       }
     }
     const body: any = T.buildMessageBody(draft, vars, [], { mentionUserId: opts.mentionUserId || null });
-    const draftHasComponents = Array.isArray(body.components) && body.components.length > 0;
     let embeds = body.embeds;
     if (Array.isArray(embeds) && embeds[0] && fbEmbeds[0] && !embedImageUrl(embeds[0])) {
       const fbImg = embedImageUrl(fbEmbeds[0]);
@@ -140,19 +213,19 @@ function applyMinigameDraftToPayload(fallbackPayload?, opts: { type?: string; ki
         embeds = [{ ...embeds[0], image: { url: fbImg } }];
       }
     }
-    let components = draftHasComponents ? body.components : fb.components;
+    let components = mergeMinigameComponents(body.components, fb.components);
     const isV2 = (Number(body.flags) & (1 << 15)) !== 0;
     if (isV2 && (opts.kind || "start") === "start") {
       const roundImg = vars.image || embedImageUrl(fbEmbeds[0]);
-      components = withRoundImageV2(components, roundImg);
+      components = withRoundImageV2(components || [], roundImg);
     }
     const out: Record<string, any> = {
       content: body.content,
       embeds,
-      components,
       flags: body.flags,
       allowedMentions: body.allowed_mentions,
     };
+    if (components?.length) out.components = components;
     if (fb.files) out.files = fb.files;
     return applyDefaultFooterToEmbeds(out, opts.guild || null);
   } catch {

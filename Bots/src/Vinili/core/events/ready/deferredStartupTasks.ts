@@ -512,6 +512,16 @@ function buildDeferredStartupTasks(client?, primaryScheduler?, engagementTick?, 
       },
     },
     {
+      label: "minigame dashboard previews",
+      weight: 90,
+      /* nel processo del bot (bots-vinyls): è lì che c'è canvas e girano i minigiochi veri */
+      enabled: startupEnabled(primaryScheduler),
+      run: () => {
+        const MP = require("../../../Minigames/services/minigamePreview") as typeof import("../../../Minigames/services/minigamePreview");
+        MP.startMinigamePreviewWorker(client);
+      },
+    },
+    {
       label: "scheduled giveaways ticker",
       weight: 90,
       enabled: startupEnabled(primaryScheduler, true),

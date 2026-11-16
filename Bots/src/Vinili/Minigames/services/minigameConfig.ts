@@ -28,12 +28,66 @@ function applyDashboardMinigameScoring(base?) {
   if (!base || typeof base !== "object") return base;
   try {
     const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
-    const scoring = LVL.getMinigameScoringSync(String(IDs.guilds?.main || ""));
-    if (!scoring) return base;
-    const out: any = {
-      ...base,
-      fastGuess: { ...(base.fastGuess || {}), ...(scoring.fastGuess || {}) },
-      streak: { ...(base.streak || {}), ...(scoring.streak || {}) },
+    const mainId = String(IDs.guilds?.main || "");
+    const scoring = LVL.getMinigameScoringSync(mainId);
+    const spawn = typeof LVL.getMinigameSpawnSync === "function" ? LVL.getMinigameSpawnSync(mainId) : null;
+    const gameOpts = typeof LVL.getMinigameGameOptionsSync === "function" ? LVL.getMinigameGameOptionsSync(mainId) : null;
+    let out: any = { ...base };
+    if (spawn && typeof spawn === "object") {
+      out = {
+        ...out,
+        enabled: spawn.enabled !== false,
+        intervalMs: spawn.intervalMs,
+        noParticipationIntervalMs: spawn.noParticipationIntervalMs,
+        activityWindowMs: spawn.activityWindowMs,
+        minMessages: spawn.minMessages,
+        failsafeMs: spawn.failsafeMs,
+        timeWindow: {
+          start: { ...(spawn.timeWindow?.start || {}) },
+          end: { ...(spawn.timeWindow?.end || {}) },
+        },
+        spawnFreshActivity: {
+          ...(out.spawnFreshActivity || {}),
+          ...(spawn.spawnFreshActivity || {}),
+        },
+        activityThreshold: {
+          ...(out.activityThreshold || {}),
+          ...(spawn.activityThreshold || {}),
+        },
+      };
+      if (spawn.channelId) out.channelId = String(spawn.channelId);
+      if (spawn.roleId) out.roleId = String(spawn.roleId);
+    }
+    if (gameOpts && typeof gameOpts === "object") {
+      const mergeType = (type: string, patch: Record<string, any>) => {
+        const prev = out[type] && typeof out[type] === "object" ? out[type] : {};
+        out[type] = { ...prev, ...patch };
+      };
+      if (gameOpts.guessNumber) mergeType("guessNumber", { min: gameOpts.guessNumber.min, max: gameOpts.guessNumber.max });
+      if (gameOpts.hangman) mergeType("hangman", { maxMisses: gameOpts.hangman.maxMisses });
+      if (gameOpts.memoryEmoji) mergeType("memoryEmoji", { displayMs: gameOpts.memoryEmoji.displayMs });
+      if (gameOpts.drivingQuiz) mergeType("drivingQuiz", { userAnswerCooldownMs: gameOpts.drivingQuiz.userAnswerCooldownMs });
+      if (gameOpts.guessPlayer) mergeType("guessPlayer", { onlyFamous: gameOpts.guessPlayer.onlyFamous !== false });
+      if (gameOpts.guessSong) mergeType("guessSong", { onlyFamous: gameOpts.guessSong.onlyFamous !== false });
+      if (gameOpts.guessAlbum) mergeType("guessAlbum", { onlyFamousArtists: gameOpts.guessAlbum.onlyFamousArtists !== false });
+      if (gameOpts.findBotVoice?.excludedChannelIds) {
+        const prev = out.findBotVoice && typeof out.findBotVoice === "object" ? out.findBotVoice : {};
+        out.findBotVoice = { ...prev, excludedChannelIds: [...gameOpts.findBotVoice.excludedChannelIds] };
+      }
+      if (gameOpts.treasureHunt) {
+        const prev = out.treasureHunt && typeof out.treasureHunt === "object" ? out.treasureHunt : {};
+        out.treasureHunt = {
+          ...prev,
+          ...(Array.isArray(gameOpts.treasureHunt.emojiPairs) ? { emojiPairs: gameOpts.treasureHunt.emojiPairs } : {}),
+          ...(Array.isArray(gameOpts.treasureHunt.buckets) ? { buckets: gameOpts.treasureHunt.buckets } : {}),
+        };
+      }
+    }
+    if (!scoring) return out;
+    out = {
+      ...out,
+      fastGuess: { ...(out.fastGuess || {}), ...(scoring.fastGuess || {}) },
+      streak: { ...(out.streak || {}), ...(scoring.streak || {}) },
     };
     for (const row of Array.isArray(scoring.rewardExpByType) ? scoring.rewardExpByType : []) {
       const type = String(row?.type || "").trim();
@@ -47,8 +101,9 @@ function applyDashboardMinigameScoring(base?) {
       const durationMs = Math.max(15_000, Math.min(1_800_000, Math.floor(Number(row.durationMs) || 0) || 180_000));
       const prev = out[type] && typeof out[type] === "object" ? out[type] : {};
       out[type] = { ...prev, rewardExp, durationMs };
-      /* Caccia al tesoro: scala i bucket rispetto al valore medio di default (150). */
-      if (type === "treasureHunt" && Array.isArray(prev.buckets) && prev.buckets.length) {
+      /* Caccia: se i bucket non arrivano dalla dashboard, scala rispetto al default medio (150). */
+      const dashBuckets = Array.isArray(gameOpts?.treasureHunt?.buckets) && gameOpts.treasureHunt.buckets.length;
+      if (type === "treasureHunt" && !dashBuckets && Array.isArray(prev.buckets) && prev.buckets.length) {
         const mid = 150;
         const factor = rewardExp / mid;
         out[type] = {
@@ -85,6 +140,7 @@ function getConfig(client?) {
     halloweenEventLive: isHalloweenEventLiveForMinigames(client),
     halloweenExclusiveDuringEvent: isHalloweenExclusiveMinigamesEnabled(client, cfg),
     starWarsEventLive,
+    /* default ID; la dashboard può sovrascrivere con minigameSpawn.channelId/roleId */
     channelId: IDs.channels.chat,
     roleId: IDs.roles.Minigames,
     findBot: {
@@ -94,12 +150,15 @@ function getConfig(client?) {
     findBotVoice: {
       ...(cfg.findBotVoice || {}),
       requiredRoleId: IDs.roles.Member,
-      excludedChannelIds: mergeFindBotVoiceExcludedChannelIds(
-        client,
-        cfg.findBotVoice?.excludedChannelIds || cfg.findBot?.excludedChannelIds || [],
-      ),
+      excludedChannelIds: cfg.findBotVoice?.excludedChannelIds || cfg.findBot?.excludedChannelIds || [],
     },
   });
+  if (base?.findBotVoice && typeof base.findBotVoice === "object") {
+    base.findBotVoice = {
+      ...base.findBotVoice,
+      excludedChannelIds: mergeFindBotVoiceExcludedChannelIds(client, base.findBotVoice.excludedChannelIds || []),
+    };
+  }
   if (!starWarsEventLive) return base;
   // Durante SW: 15 min, 3 min durata, finestra 06→02; EXP da dashboard (overlay) se presente
   const swRewardExp = base?.starWarsQuiz?.rewardExp ?? cfg?.starWarsQuiz?.rewardExp ?? 50;

@@ -426,4 +426,92 @@ async function fetchLeagueFamousPlayer(cfg?) {
   return players[randomBetween(0, players.length - 1)] || null;
 }
 
-export = { loadFootballTeamsFromApi, fetchPlayerFromRandomLetter, fetchFamousPlayer, fetchLeagueFamousPlayer };
+/** Wikipedia REST: foto di calciatori famosi quando TheSportsDB è giù. */
+const SAMPLE_FAMOUS_PLAYERS = [
+  { name: "Lionel Messi", team: "Inter Miami", nationality: "Argentina", wiki: "Lionel Messi" },
+  { name: "Cristiano Ronaldo", team: "Al Nassr", nationality: "Portugal", wiki: "Cristiano Ronaldo" },
+  { name: "Kylian Mbappé", team: "Real Madrid", nationality: "France", wiki: "Kylian Mbappé" },
+  { name: "Erling Haaland", team: "Manchester City", nationality: "Norway", wiki: "Erling Haaland" },
+  { name: "Luka Modrić", team: "Real Madrid", nationality: "Croatia", wiki: "Luka Modrić" },
+  { name: "Robert Lewandowski", team: "Barcelona", nationality: "Poland", wiki: "Robert Lewandowski" },
+  { name: "Kevin De Bruyne", team: "Manchester City", nationality: "Belgium", wiki: "Kevin De Bruyne" },
+  { name: "Mohamed Salah", team: "Liverpool", nationality: "Egypt", wiki: "Mohamed Salah" },
+  { name: "Vinícius Júnior", team: "Real Madrid", nationality: "Brazil", wiki: "Vinícius Júnior" },
+  { name: "Harry Kane", team: "Bayern Munich", nationality: "England", wiki: "Harry Kane" },
+];
+
+const SAMPLE_FOOTBALL_TEAMS = [
+  { team: "Inter", image: "https://crests.football-data.org/108.png", answers: ["Inter", "Internazionale", "Inter Milan"] },
+  { team: "Milan", image: "https://crests.football-data.org/98.png", answers: ["Milan", "AC Milan"] },
+  { team: "Juventus", image: "https://crests.football-data.org/109.png", answers: ["Juventus", "Juve"] },
+  { team: "Napoli", image: "https://crests.football-data.org/113.png", answers: ["Napoli"] },
+  { team: "Roma", image: "https://crests.football-data.org/100.png", answers: ["Roma", "AS Roma"] },
+  { team: "Real Madrid", image: "https://crests.football-data.org/86.png", answers: ["Real Madrid", "Real"] },
+  { team: "Barcelona", image: "https://crests.football-data.org/81.png", answers: ["Barcelona", "Barcellona", "Barça"] },
+  { team: "Manchester City", image: "https://crests.football-data.org/65.png", answers: ["Manchester City", "Man City"] },
+];
+
+async function fetchWikipediaImage(wikiTitle?) {
+  const title = String(wikiTitle || "").trim();
+  if (!title) return "";
+  for (const lang of ["en", "it"]) {
+    try {
+      const res = await axios.get(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`, {
+        timeout: 12000,
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "ViniliCaffeBot/1.0 (minigames; https://www.viniliecaffe.it)",
+        },
+        validateStatus: (s?) => s >= 200 && s < 300,
+      });
+      /* Non riscrivere /330px- → /640px-: thumb.wikimedia.org risponde 400. Usare gli URL API così come sono. */
+      const original = String(res?.data?.originalimage?.source || "").trim();
+      const thumb = String(res?.data?.thumbnail?.source || "").trim();
+      if (original) return original;
+      if (thumb) return thumb;
+    } catch (err) {
+      warnMinigame(err);
+    }
+  }
+  return "";
+}
+
+async function fetchSampleFamousPlayer() {
+  const order = [...SAMPLE_FAMOUS_PLAYERS];
+  for (let i = order.length - 1; i > 0; i -= 1) {
+    const j = randomBetween(0, i);
+    const tmp = order[i];
+    order[i] = order[j];
+    order[j] = tmp;
+  }
+  for (const pick of order.slice(0, 6)) {
+    if (!pick) continue;
+    const image = await fetchWikipediaImage(pick.wiki);
+    if (!image) continue;
+    return {
+      name: pick.name,
+      team: pick.team,
+      nationality: pick.nationality,
+      image,
+      aliases: buildAliases([pick.name]),
+      source: "wikipedia_sample",
+    };
+  }
+  return null;
+}
+
+async function fetchSampleFootballTeam() {
+  const pick = SAMPLE_FOOTBALL_TEAMS[randomBetween(0, SAMPLE_FOOTBALL_TEAMS.length - 1)];
+  if (!pick) return null;
+  return { ...pick, sample: true, source: "football_data_sample" };
+}
+
+export = {
+  loadFootballTeamsFromApi,
+  fetchPlayerFromRandomLetter,
+  fetchFamousPlayer,
+  fetchLeagueFamousPlayer,
+  fetchSampleFamousPlayer,
+  fetchSampleFootballTeam,
+  fetchWikipediaImage,
+};

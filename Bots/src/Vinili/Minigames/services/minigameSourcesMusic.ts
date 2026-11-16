@@ -78,7 +78,8 @@ async function loadAlbumsFromApi(cfg?) {
       const artist = album?.artist?.name || "Artista sconosciuto";
       const image = album?.cover_xl || album?.cover_big || album?.cover_medium || album?.cover || null;
       if (!title || !image) continue;
-      if (onlyFamousArtists && famousArtistNames && !famousArtistNames.has(normalizeCountryName(artist)))
+      /* Se Deezer artisti è vuoto, famousArtistNames.size === 0 → non filtrare tutto via */
+      if (onlyFamousArtists && famousArtistNames && famousArtistNames.size > 0 && !famousArtistNames.has(normalizeCountryName(artist)))
         continue;
       out.push({ album: title, artist, answers: buildAliases([title]), image });
     }
@@ -86,9 +87,70 @@ async function loadAlbumsFromApi(cfg?) {
     warnMinigame(err);
   }
 
+  /* Deezer giù / vuoto → iTunes top albums IT */
+  if (!out.length) {
+    try {
+      const res = await axios.get("https://itunes.apple.com/it/rss/topalbums/limit=50/json", {
+        timeout: 15000,
+        headers: { "User-Agent": "ViniliCaffeBot/1.0 (minigames; https://www.viniliecaffe.it)" },
+      });
+      const entries = Array.isArray(res?.data?.feed?.entry) ? res.data.feed.entry : [];
+      const pushItunes = (filterFamous: boolean) => {
+        for (const entry of entries) {
+          const title = entry?.["im:name"]?.label || entry?.title?.label || "";
+          const artist = entry?.["im:artist"]?.label || "Artista sconosciuto";
+          const images = Array.isArray(entry?.["im:image"]) ? entry["im:image"] : [];
+          const image = images.length ? String(images[images.length - 1]?.label || "").replace(/\d+x\d+bb/, "600x600bb") : "";
+          if (!title || !image) continue;
+          if (filterFamous && famousArtistNames && famousArtistNames.size > 0 && !famousArtistNames.has(normalizeCountryName(artist))) continue;
+          out.push({ album: title, artist, answers: buildAliases([title]), image, source: "itunes" });
+        }
+      };
+      pushItunes(Boolean(onlyFamousArtists && famousArtistNames && famousArtistNames.size > 0));
+      if (!out.length) pushItunes(false);
+    } catch (err) {
+      warnMinigame(err);
+    }
+  }
+
   cachedAlbums = out;
   cachedAlbumsAt = now;
   return cachedAlbums;
+}
+
+const SAMPLE_ALBUMS = [
+  { album: "Abbey Road", artist: "The Beatles", term: "Abbey Road Beatles" },
+  { album: "Thriller", artist: "Michael Jackson", term: "Thriller Michael Jackson" },
+  { album: "Nevermind", artist: "Nirvana", term: "Nevermind Nirvana" },
+  { album: "The Dark Side of the Moon", artist: "Pink Floyd", term: "Dark Side of the Moon Pink Floyd" },
+  { album: "25", artist: "Adele", term: "25 Adele" },
+];
+
+async function fetchSampleAlbum() {
+  const pick = SAMPLE_ALBUMS[randomBetween(0, SAMPLE_ALBUMS.length - 1)];
+  if (!pick) return null;
+  try {
+    const res = await axios.get("https://itunes.apple.com/search", {
+      params: { term: pick.term, entity: "album", limit: 5 },
+      timeout: 12000,
+      headers: { "User-Agent": "ViniliCaffeBot/1.0" },
+    });
+    const results = Array.isArray(res?.data?.results) ? res.data.results : [];
+    const hit = results.find((r?) => r?.artworkUrl100 && r?.collectionName) || results[0];
+    const image = hit?.artworkUrl100 ? String(hit.artworkUrl100).replace("100x100bb", "600x600bb") : "";
+    if (!image) return { ...pick, answers: buildAliases([pick.album]), image: "", sample: true, source: "itunes_sample" };
+    return {
+      album: hit.collectionName || pick.album,
+      artist: hit.artistName || pick.artist,
+      answers: buildAliases([hit.collectionName || pick.album]),
+      image,
+      sample: true,
+      source: "itunes_sample",
+    };
+  } catch (err) {
+    warnMinigame(err);
+    return { ...pick, answers: buildAliases([pick.album]), image: "", sample: true, source: "itunes_sample" };
+  }
 }
 
 async function fetchRandomSong(cfg?) {
@@ -301,4 +363,4 @@ async function fetchArtistCountry(cfg?, artistName?) {
   return null;
 }
 
-export = { loadSingersFromApi, loadAlbumsFromApi, fetchRandomSong, fetchPopularSong };
+export = { loadSingersFromApi, loadAlbumsFromApi, fetchRandomSong, fetchPopularSong, fetchSampleAlbum };

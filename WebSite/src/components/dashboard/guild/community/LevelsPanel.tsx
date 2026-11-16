@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Ban, ChevronDown, HandHeart, Sunrise, CalendarClock, Check, Gamepad2, Gift, LineChart, Loader2, Megaphone, MessageSquare, Mic, Minus, Play, Plus, RefreshCw, RotateCcw, Search, Sparkles, Star, Target, Timer, Trash2, TrendingUp, Trophy, UserRound, X, type LucideIcon } from "lucide-react";
+import { ArrowRight, Ban, ChevronDown, Sunrise, CalendarClock, Check, Clock3, Gamepad2, Gift, LineChart, Loader2, Megaphone, MessageSquare, Mic, Minus, Play, Plus, RefreshCw, RotateCcw, Search, Sparkles, Star, Target, Timer, Trash2, TrendingUp, Trophy, UserRound, X, type LucideIcon } from "lucide-react";
 import { DateTimeField } from "@/components/ui/DateTimeField";
 import { NumberField } from "@/components/ui/NumberField";
 import { MultiSelect, Select } from "@/components/ui/Select";
@@ -14,8 +14,12 @@ import {
   type LevelsEvent,
   type LevelsExpBonus,
   type LevelsLevelCurve,
+  type LevelsMinigameGameOptions,
   type LevelsMinigameScoring,
+  type LevelsMinigameSpawn,
   type LevelsRoleMultiplier,
+  type LevelsTreasureBucket,
+  type LevelsTreasureEmojiPair,
   type LevelsRoleReward,
   type LevelsScheduledEvent,
   type LevelsUser,
@@ -25,29 +29,29 @@ import {
 } from "@/lib/dashboard-community";
 import { searchTicketMembers, type MemberHit } from "@/lib/dashboard-guild-ops";
 import { buildMinigamePreviewCardDataUrl } from "@/lib/minigame-preview-card";
-import { ExpandableTextarea, Field, Notice, Pills, RowsSkeleton, StatusBadge, Toggle, TrackUnsaved, dangerBtn, dashPrimaryBtn, fieldClass, labelClass, miniBtn } from "../bits";
+import { ExpandableTextarea, Field, Notice, Pills, RowsSkeleton, SettingRow, StatusBadge, Toggle, TrackUnsaved, dangerBtn, dashPrimaryBtn, fieldClass, labelClass, miniBtn } from "../bits";
 import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, roleOptions, useCommunity, useSampleVars, type PreviewRow } from "./shared";
 
 const LEVEL_PLACEHOLDERS = [
   { token: "{user}", hint: "menzione di chi è salito di livello" },
   { token: "{username}", hint: "nome visualizzato" },
   { token: "{level}", hint: "numero del livello raggiunto" },
-  { token: "{avatar}", hint: "foto profilo (campi immagine)" },
+  { token: "{avatar}", hint: "foto profilo" },
   { token: "{server}", hint: "nome del server" },
 ];
 
 const PERKS_PLACEHOLDERS = [
   ...LEVEL_PLACEHOLDERS,
   { token: "{role}", hint: "menzione del ruolo premio" },
-  { token: "{perklist}", hint: "i vantaggi di quel livello (scritti qui sotto)" },
-  { token: "{perks}", hint: "canale dei vantaggi (menzione)" },
+  { token: "{perklist}", hint: "i vantaggi di quel livello" },
+  { token: "{perks}", hint: "canale dei vantaggi" },
 ];
 
 const MILESTONE_PLACEHOLDERS = [
   ...LEVEL_PLACEHOLDERS,
   { token: "{role}", hint: "menzione del ruolo premio" },
   { token: "{roleid}", hint: "id del ruolo premio" },
-  { token: "{perks}", hint: "canale vantaggi (menzione)" },
+  { token: "{perks}", hint: "canale dei vantaggi" },
 ];
 
 const MINIGAME_PLACEHOLDERS = [
@@ -64,23 +68,14 @@ const BONUS_PLACEHOLDERS = [
   { token: "{user}", hint: "menzione di chi prende il bonus" },
   { token: "{username}", hint: "nome visualizzato" },
   { token: "{amount}", hint: "EXP regalati" },
-  { token: "{avatar}", hint: "foto profilo (campi immagine)" },
+  { token: "{avatar}", hint: "foto profilo" },
   { token: "{server}", hint: "nome del server" },
 ];
 
-type BonusKind = "firstMessageDaily" | "welcomeGreeting";
-
-const BONUS_META: Record<BonusKind, { title: string; text: string; channelsHint: string }> = {
-  firstMessageDaily: {
-    title: "Primo messaggio del giorno",
-    text: "EXP a chi scrive per primo ogni giorno (ora italiana).",
-    channelsHint: "Dove conta il primo messaggio. Vuoto = #chat.",
-  },
-  welcomeGreeting: {
-    title: "Saluto di benvenuto",
-    text: "EXP a chi dà il benvenuto a un nuovo membro.",
-    channelsHint: "Dove conta il saluto. Vuoto = regole attuali del bot.",
-  },
+const BONUS_FIRST_META = {
+  title: "Primo messaggio del giorno",
+  text: "EXP a chi scrive per primo ogni giorno.",
+  channelsHint: "Dove conta il primo messaggio.",
 };
 
 const DEFAULT_LEVEL_CURVE: LevelsLevelCurve = {
@@ -116,11 +111,29 @@ const DEFAULT_MINIGAME_DURATION_MS: Record<string, number> = {
   hangman: 240_000,
   findBot: 300_000,
   findBotVoice: 300_000,
-  halloweenFindGhost: 300_000,
-  halloweenMissingEmoji: 180_000,
-  halloweenCountBats: 180_000,
-  halloweenTrickOrTreat: 900_000,
 };
+
+/** Halloween / Star Wars: solo eventi, fuori dalla tab Minigiochi. */
+const HIDDEN_MINIGAME_TYPES = new Set([
+  "starWarsQuiz",
+  "starWarsGuessPlanet",
+  "halloweenQuiz",
+  "halloweenFindGhost",
+  "halloweenMissingEmoji",
+  "halloweenCountBats",
+  "halloweenTrickOrTreat",
+  "podrace",
+  "cacciatore",
+  "scova",
+  "ordine66",
+  "attacca_base",
+  "conquista",
+  "pg",
+  "reliquie",
+  "convoglio",
+  "ewok",
+  "olocron",
+]);
 
 const DEFAULT_MINIGAME_ROWS: { type: string; rewardExp: number }[] = [
   { type: "guessNumber", rewardExp: 100 },
@@ -150,24 +163,6 @@ const DEFAULT_MINIGAME_ROWS: { type: string; rewardExp: number }[] = [
   { type: "synonymAntonym", rewardExp: 150 },
   { type: "guessCity", rewardExp: 150 },
   { type: "treasureHunt", rewardExp: 150 },
-  { type: "starWarsQuiz", rewardExp: 50 },
-  { type: "starWarsGuessPlanet", rewardExp: 50 },
-  { type: "halloweenQuiz", rewardExp: 150 },
-  { type: "halloweenFindGhost", rewardExp: 200 },
-  { type: "halloweenMissingEmoji", rewardExp: 150 },
-  { type: "halloweenCountBats", rewardExp: 150 },
-  { type: "halloweenTrickOrTreat", rewardExp: 100 },
-  { type: "podrace", rewardExp: 100 },
-  { type: "cacciatore", rewardExp: 100 },
-  { type: "scova", rewardExp: 100 },
-  { type: "ordine66", rewardExp: 100 },
-  { type: "attacca_base", rewardExp: 100 },
-  { type: "conquista", rewardExp: 100 },
-  { type: "pg", rewardExp: 100 },
-  { type: "reliquie", rewardExp: 100 },
-  { type: "convoglio", rewardExp: 100 },
-  { type: "ewok", rewardExp: 100 },
-  { type: "olocron", rewardExp: 100 },
 ];
 
 function defaultMinigameRow(type: string, rewardExp: number): NonNullable<LevelsMinigameScoring["rewardExpByType"]>[number] {
@@ -187,6 +182,116 @@ const DEFAULT_MINIGAME_SCORING: LevelsMinigameScoring = {
   winDraft: null,
 };
 
+const DEFAULT_MINIGAME_SPAWN: LevelsMinigameSpawn = {
+  enabled: true,
+  channelId: null,
+  roleId: null,
+  intervalMs: 900_000,
+  noParticipationIntervalMs: 900_000,
+  activityWindowMs: 1_800_000,
+  minMessages: 25,
+  failsafeMs: 5_400_000,
+  timeWindow: { start: { hour: 7, minute: 0 }, end: { hour: 1, minute: 0 } },
+  spawnFreshActivity: { enabled: true, windowMs: 300_000, minMessages: 5 },
+  activityThreshold: {
+    enabled: true,
+    hardMin: 15,
+    hardMax: 100,
+    nightHourStart: 24,
+    nightHourEnd: 7,
+    nightFactor: 0.72,
+    peakHourStart: 18,
+    peakHourEnd: 22,
+    peakFactor: 1.08,
+    defaultTimeFactor: 1,
+    memberReference: 200,
+    memberFactorMin: 0.58,
+    memberFactorMax: 1.18,
+    memberExponent: 0.18,
+    spamAvgMessagesPerUser: 4,
+    spamPenaltyPerExcess: 0.065,
+    spamPenaltyCap: 0.42,
+    minUniqueDivisor: 16,
+    uniqueBypassMultiple: 1.35,
+  },
+};
+
+const DEFAULT_MINIGAME_GAME_OPTIONS: LevelsMinigameGameOptions = {
+  guessNumber: { min: 1, max: 100 },
+  hangman: { maxMisses: 10 },
+  memoryEmoji: { displayMs: 5_000 },
+  drivingQuiz: { userAnswerCooldownMs: 5_000 },
+  guessPlayer: { onlyFamous: true },
+  guessSong: { onlyFamous: true },
+  guessAlbum: { onlyFamousArtists: true },
+  findBotVoice: { excludedChannelIds: [] },
+  treasureHunt: {
+    emojiPairs: [
+      { decoy: "⚓", winner: "💎" },
+      { decoy: "🪄", winner: "💎" },
+      { decoy: "✨", winner: "🏆" },
+    ],
+    buckets: [
+      { weight: 1, minMessages: 20, maxMessages: 30, minDurationMs: 60_000, maxDurationMs: 120_000, rewardExp: 100 },
+      { weight: 1, minMessages: 30, maxMessages: 50, minDurationMs: 90_000, maxDurationMs: 180_000, rewardExp: 150 },
+      { weight: 1, minMessages: 40, maxMessages: 70, minDurationMs: 120_000, maxDurationMs: 240_000, rewardExp: 200 },
+    ],
+  },
+};
+
+const MINIGAME_HOUR_OPTS = Array.from({ length: 24 }, (_, h) => ({
+  value: String(h),
+  label: String(h).padStart(2, "0"),
+}));
+const MINIGAME_MINUTE_OPTS = [0, 15, 30, 45].map((m) => ({
+  value: String(m),
+  label: String(m).padStart(2, "0"),
+}));
+
+function mergeMinigameSpawn(saved?: LevelsMinigameSpawn | null): LevelsMinigameSpawn {
+  const s = saved && typeof saved === "object" ? saved : ({} as LevelsMinigameSpawn);
+  const tw = s.timeWindow && typeof s.timeWindow === "object" ? s.timeWindow : DEFAULT_MINIGAME_SPAWN.timeWindow;
+  const fresh = s.spawnFreshActivity && typeof s.spawnFreshActivity === "object" ? s.spawnFreshActivity : DEFAULT_MINIGAME_SPAWN.spawnFreshActivity;
+  const at = s.activityThreshold && typeof s.activityThreshold === "object" ? s.activityThreshold : DEFAULT_MINIGAME_SPAWN.activityThreshold;
+  return {
+    ...DEFAULT_MINIGAME_SPAWN,
+    ...s,
+    channelId: s.channelId || null,
+    roleId: s.roleId || null,
+    timeWindow: {
+      start: { ...DEFAULT_MINIGAME_SPAWN.timeWindow.start, ...(tw.start || {}) },
+      end: { ...DEFAULT_MINIGAME_SPAWN.timeWindow.end, ...(tw.end || {}) },
+    },
+    spawnFreshActivity: { ...DEFAULT_MINIGAME_SPAWN.spawnFreshActivity, ...fresh },
+    activityThreshold: { ...DEFAULT_MINIGAME_SPAWN.activityThreshold, ...at },
+  };
+}
+
+function mergeMinigameGameOptions(saved?: LevelsMinigameGameOptions | null): LevelsMinigameGameOptions {
+  const s = saved && typeof saved === "object" ? saved : ({} as LevelsMinigameGameOptions);
+  const th = s.treasureHunt && typeof s.treasureHunt === "object" ? s.treasureHunt : DEFAULT_MINIGAME_GAME_OPTIONS.treasureHunt;
+  return {
+    ...DEFAULT_MINIGAME_GAME_OPTIONS,
+    ...s,
+    guessNumber: { ...DEFAULT_MINIGAME_GAME_OPTIONS.guessNumber, ...(s.guessNumber || {}) },
+    hangman: { ...DEFAULT_MINIGAME_GAME_OPTIONS.hangman, ...(s.hangman || {}) },
+    memoryEmoji: { ...DEFAULT_MINIGAME_GAME_OPTIONS.memoryEmoji, ...(s.memoryEmoji || {}) },
+    drivingQuiz: { ...DEFAULT_MINIGAME_GAME_OPTIONS.drivingQuiz, ...(s.drivingQuiz || {}) },
+    guessPlayer: { ...DEFAULT_MINIGAME_GAME_OPTIONS.guessPlayer, ...(s.guessPlayer || {}) },
+    guessSong: { ...DEFAULT_MINIGAME_GAME_OPTIONS.guessSong, ...(s.guessSong || {}) },
+    guessAlbum: { ...DEFAULT_MINIGAME_GAME_OPTIONS.guessAlbum, ...(s.guessAlbum || {}) },
+    findBotVoice: {
+      excludedChannelIds: Array.isArray(s.findBotVoice?.excludedChannelIds)
+        ? s.findBotVoice!.excludedChannelIds
+        : DEFAULT_MINIGAME_GAME_OPTIONS.findBotVoice.excludedChannelIds,
+    },
+    treasureHunt: {
+      emojiPairs: Array.isArray(th.emojiPairs) && th.emojiPairs.length ? th.emojiPairs : DEFAULT_MINIGAME_GAME_OPTIONS.treasureHunt.emojiPairs,
+      buckets: Array.isArray(th.buckets) && th.buckets.length ? th.buckets : DEFAULT_MINIGAME_GAME_OPTIONS.treasureHunt.buckets,
+    },
+  };
+}
+
 const MINIGAME_TYPE_LABELS: Record<string, string> = {
   guessNumber: "Indovina il numero",
   guessWord: "Indovina la parola",
@@ -195,55 +300,37 @@ const MINIGAME_TYPE_LABELS: Record<string, string> = {
   guessSong: "Indovina la canzone",
   guessCapital: "Indovina la capitale",
   guessReverseCapital: "Capitale al contrario",
-  guessRegionCapital: "Capitale di regione",
-  fastType: "Scrivi veloce",
+  guessRegionCapital: "Capoluogo di regione",
+  fastType: "Gara di digitazione",
   guessTeam: "Indovina la squadra",
   guessSinger: "Indovina il cantante",
   guessAlbum: "Indovina l'album",
   hangman: "Impiccato",
-  italianGK: "Quiz italiano",
-  drivingQuiz: "Quiz della patente",
+  italianGK: "Quiz Cultura Generale",
+  drivingQuiz: "Quiz Patente",
   mathExpression: "Espressioni matematiche",
   findBot: "Trova il bot",
-  findBotVoice: "Trova il bot (vocale)",
-  memoryEmoji: "Memory emoji",
-  guessYear: "Indovina l'anno",
-  completeVerse: "Completa il verso",
+  findBotVoice: "Trova il bot in vocale",
+  memoryEmoji: "Memorizza le emoji",
+  guessYear: "Indovina l'anno di uscita",
+  completeVerse: "Completa la frase",
   guessEmoji: "Indovina l'emoji",
-  quoteFilm: "Citazione film",
+  quoteFilm: "Indovina la citazione",
   completeProverb: "Completa il proverbio",
-  synonymAntonym: "Sinonimo / contrario",
+  synonymAntonym: "Indovina il sinonimo o il contrario",
   guessCity: "Indovina la città",
-  treasureHunt: "Caccia al tesoro",
-  starWarsQuiz: "Quiz Star Wars",
-  starWarsGuessPlanet: "Indovina il pianeta",
-  halloweenQuiz: "Quiz Halloween",
-  halloweenFindGhost: "Trova il fantasma",
-  halloweenMissingEmoji: "Emoji mancante",
-  halloweenCountBats: "Conta i pipistrelli",
-  halloweenTrickOrTreat: "Dolcetto o scherzetto",
-  podrace: "Podrace",
-  cacciatore: "Cacciatore di taglie",
-  scova: "Scova",
-  ordine66: "Ordine 66",
-  attacca_base: "Attacca la base",
-  conquista: "Conquista",
-  pg: "Colleziona PG",
-  reliquie: "Reliquie",
-  convoglio: "Proteggi il convoglio",
-  ewok: "Caccia agli Ewok",
-  olocron: "Olocron",
+  treasureHunt: "Trova la reaction nascosta",
 };
 
 function minigameTypeLabel(type: string) {
   return MINIGAME_TYPE_LABELS[type] || type;
 }
 
-/** Unisce i tipi salvati con i default (tipi nuovi restano visibili). */
+/** Unisce i tipi salvati con i default (tipi nuovi restano visibili; Halloween/SW esclusi). */
 function mergeMinigameRewardExpByType(saved?: LevelsMinigameScoring["rewardExpByType"] | null) {
-  const defaults = DEFAULT_MINIGAME_SCORING.rewardExpByType;
+  const defaults = DEFAULT_MINIGAME_SCORING.rewardExpByType.filter((d) => !HIDDEN_MINIGAME_TYPES.has(d.type));
   if (!saved?.length) return defaults.map((d) => ({ ...d }));
-  const byType = new Map(saved.map((r) => [r.type, r]));
+  const byType = new Map(saved.filter((r) => r?.type && !HIDDEN_MINIGAME_TYPES.has(r.type)).map((r) => [r.type, r]));
   const out = defaults.map((d) => {
     const s = byType.get(d.type);
     if (!s) return { ...d };
@@ -257,6 +344,7 @@ function mergeMinigameRewardExpByType(saved?: LevelsMinigameScoring["rewardExpBy
     };
   });
   for (const row of saved) {
+    if (!row?.type || HIDDEN_MINIGAME_TYPES.has(row.type)) continue;
     if (!defaults.some((d) => d.type === row.type)) {
       out.push({
         ...defaultMinigameRow(row.type, Math.max(1, Math.floor(Number(row.rewardExp) || 100))),
@@ -269,13 +357,13 @@ function mergeMinigameRewardExpByType(saved?: LevelsMinigameScoring["rewardExpBy
 }
 
 const MINIGAME_START_PLACEHOLDERS = [
-  { token: "{minigame}", hint: "nome del minigioco (cambia per tipo)" },
-  { token: "{prompt}", hint: "riga di gioco del bot (domanda, lettere…)" },
+  { token: "{minigame}", hint: "nome del minigioco" },
+  { token: "{prompt}", hint: "riga di gioco del bot" },
   { token: "{exp}", hint: "EXP del round" },
-  { token: "{minutesLabel}", hint: "durata in italiano (**3 minuti**)" },
-  { token: "{minutes}", hint: "minuti (numero)" },
-  { token: "{duration}", hint: "durata in secondi" },
-  { token: "{image}", hint: "immagine del round (bandiera, foto…)" },
+  { token: "{minutesLabel}", hint: "durata del gioco" },
+  { token: "{minutes}", hint: "minuti del gioco" },
+  { token: "{duration}", hint: "durata del gioco in secondi" },
+  { token: "{image}", hint: "immagine del round" },
   { token: "{server}", hint: "nome del server" },
 ];
 
@@ -296,6 +384,7 @@ const MINIGAME_PREVIEW: Record<string, MinigamePreviewMeta> = {
       "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg/320px-Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg",
     cardLines: ["Chi è questo calciatore?"],
   },
+  /* team/album: PNG/CDN stabili (no SVG Wikipedia: il bot non li carica in canvas) */
   guessSong: {
     prompt: "Indovina la canzone per ottenere **{exp} exp**.",
     cardLines: ["Ascolta l'anteprima"],
@@ -319,7 +408,7 @@ const MINIGAME_PREVIEW: Record<string, MinigamePreviewMeta> = {
   },
   guessTeam: {
     prompt: "Indovina la squadra di calcio dal logo per ottenere **{exp} exp**.",
-    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/FC_Internazionale_Milano_2021.svg/240px-FC_Internazionale_Milano_2021.svg.png",
+    image: "https://crests.football-data.org/108.png",
     cardLines: ["Quale squadra è?"],
   },
   guessSinger: {
@@ -328,7 +417,7 @@ const MINIGAME_PREVIEW: Record<string, MinigamePreviewMeta> = {
   },
   guessAlbum: {
     prompt: "Indovina l'album dalla copertina per ottenere **{exp} exp**.",
-    image: "https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg",
+    image: "https://i.scdn.co/image/ab67616d0000b273dc30583ba717007b00cceb25",
     cardLines: ["Album"],
   },
   hangman: { prompt: "Scrivi una lettera o prova la parola intera per ottenere **{exp} exp**.\nParola: **_ _ _ _ _**", cardLines: ["_ _ _ _ _"] },
@@ -364,37 +453,24 @@ const MINIGAME_PREVIEW: Record<string, MinigamePreviewMeta> = {
     prompt: "Sui prossimi messaggi metterò una reaction: trovala e cliccaci sopra per **{exp} exp**.",
     cardLines: ["Trova la reaction nascosta", "nei prossimi messaggi"],
   },
-  starWarsQuiz: {
-    prompt: "Rispondi alla domanda sull'immagine per ottenere **{exp} exp**.",
-    cardLines: ["Quiz Star Wars"],
-  },
-  starWarsGuessPlanet: {
-    prompt: "Indovina il pianeta da questa immagine per ottenere **{exp} exp**.",
-    cardLines: ["Pianeta"],
-  },
-  halloweenQuiz: { prompt: "**Domanda:** Qual è il mostro di Frankenstein? per ottenere **{exp} exp**.", cardLines: ["Quiz Halloween"] },
-  halloweenFindGhost: { prompt: "Chi lo trova vince **{exp} exp**.", cardLines: ["Trova il fantasma"] },
-  halloweenMissingEmoji: { prompt: "Sequenza: **🎃👻❓🦇** — Chi indovina vince **{exp} exp**.", cardLines: ["🎃👻❓🦇"] },
-  halloweenCountBats: { prompt: "🦇🦇🎃🦇 — Quanti 🦇 ci sono? Scrivi il numero per **{exp} exp**.", cardLines: ["🦇🦇🎃🦇"] },
-  halloweenTrickOrTreat: { prompt: "Partecipa per ottenere **{exp} exp**.", cardLines: ["Dolcetto o scherzetto"] },
-  podrace: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Podrace"] },
-  cacciatore: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Cacciatore di taglie"] },
-  scova: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Scova"] },
-  ordine66: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Ordine 66"] },
-  attacca_base: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Attacca la base"] },
-  conquista: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Conquista"] },
-  pg: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Colleziona PG"] },
-  reliquie: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Reliquie"] },
-  convoglio: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Proteggi il convoglio"] },
-  ewok: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Caccia agli Ewok"] },
-  olocron: { prompt: "Minigioco speciale Star Wars. In palio **{exp} exp**.", cardLines: ["Olocron"] },
 };
 
-/** Immagine vera generata dal bot se arrivata; poi foto d'esempio; poi card canvas (solo dopo mount client). */
-function resolveMinigamePreviewImage(type: string, cardReady: boolean, real?: Record<string, string>) {
-  if (real?.[type]) return real[type];
+/**
+ * Immagine anteprima: solo data URL del bot (card canvas). URL remoti spesso non si vedono
+ * in dashboard → card client locale (sempre visibile). Hotlink ok solo flagcdn / football-data.
+ */
+function resolveMinigamePreviewImage(
+  type: string,
+  cardReady: boolean,
+  real?: Record<string, string>,
+  _notes?: Record<string, string>,
+) {
   const meta = MINIGAME_PREVIEW[type];
-  if (meta?.image) return meta.image;
+  const realImg = String(real?.[type] || "");
+  if (realImg.startsWith("data:image/")) return realImg;
+  const hotlinkOk = (u: string) => /^https?:\/\/(flagcdn\.com|crests\.football-data\.org)\//i.test(u);
+  if (hotlinkOk(realImg)) return realImg;
+  if (meta?.image && hotlinkOk(meta.image)) return meta.image;
   if (!cardReady) return "";
   const title = minigameTypeLabel(type);
   const lines = meta?.cardLines?.length ? meta.cardLines : [title];
@@ -462,7 +538,7 @@ const MINIGAME_WIN_PLACEHOLDERS = [
   { token: "{server}", hint: "nome del server" },
 ];
 
-type Tab = "exp" | "bonus" | "minigiochi" | "ruoli" | "annunci" | "utenti";
+type Tab = "exp" | "bonus" | "minigiochi" | "ruoli" | "utenti";
 
 /* ───────────── pezzi grafici ───────────── */
 
@@ -570,7 +646,6 @@ export function LevelsPanel({
   /** Card canvas generate solo a client (SSR non ha document). */
   const [previewCardsReady, setPreviewCardsReady] = useState(false);
   const [isMain, setIsMain] = useState(false);
-  const [bonusKind, setBonusKind] = useState<BonusKind>("firstMessageDaily");
   const [event, setEvent] = useState<LevelsEvent | null>(null);
   const [scheduled, setScheduled] = useState<LevelsScheduledEvent[]>([]);
 
@@ -583,6 +658,9 @@ export function LevelsPanel({
   /* perché l'immagine vera non c'è (fonte giù, canvas mancante, bot non aggiornato…) */
   const [realGameNotes, setRealGameNotes] = useState<Record<string, string>>({});
   const askedGameImgs = useRef(new Set<string>());
+  /* il bot prepara le immagini in pochi secondi: si richiede finché non arrivano */
+  const [gameImgRetry, setGameImgRetry] = useState(0);
+  const gameImgTries = useRef<Record<string, number>>({});
   useEffect(() => {
     if (tab !== "minigiochi" || !isMain) return;
     for (const type of ["guessNumber", gameEditType].filter(Boolean) as string[]) {
@@ -590,12 +668,22 @@ export function LevelsPanel({
       askedGameImgs.current.add(type);
       void communityApi.getMinigamePreview(token, guildId, type).then((r) => {
         if (r.ok && r.data.image) setRealGameImgs((m) => ({ ...m, [type]: r.data.image }));
-        else askedGameImgs.current.delete(type);
         const note = r.ok ? r.data.note || "" : r.message;
         setRealGameNotes((m) => ({ ...m, [type]: note }));
+        const photoMissing = /senza foto|senza logo|senza copertina|preparando|non disponibile/i.test(note) || !(r.ok && r.data.image);
+        if (photoMissing) {
+          const tries = (gameImgTries.current[type] || 0) + 1;
+          gameImgTries.current[type] = tries;
+          if (tries < 8) {
+            window.setTimeout(() => {
+              askedGameImgs.current.delete(type);
+              setGameImgRetry((n) => n + 1);
+            }, 12_000);
+          }
+        }
       });
     }
-  }, [tab, isMain, gameEditType, token, guildId]);
+  }, [tab, isMain, gameEditType, token, guildId, gameImgRetry]);
 
   useEffect(() => {
     let alive = true;
@@ -1112,81 +1200,47 @@ export function LevelsPanel({
 
       {tab === "bonus"
         ? (() => {
-            const fallback = (k: BonusKind): LevelsExpBonus => ({ enabled: true, amount: k === "firstMessageDaily" ? 150 : 30, channelIds: [] as string[] });
-            const first = cfg.bonuses?.firstMessageDaily || fallback("firstMessageDaily");
-            const welcome = cfg.bonuses?.welcomeGreeting || fallback("welcomeGreeting");
-            const cur = bonusKind === "firstMessageDaily" ? first : welcome;
-            const meta = BONUS_META[bonusKind];
-            const setBonus = (patch: Partial<typeof cur>) =>
+            const welcome = cfg.bonuses?.welcomeGreeting || { enabled: true, amount: 30, channelIds: [] as string[] };
+            const first = cfg.bonuses?.firstMessageDaily || { enabled: true, amount: 150, channelIds: [] as string[] };
+            const setBonus = (patch: Partial<LevelsExpBonus>) =>
               set({
                 bonuses: {
-                  firstMessageDaily: bonusKind === "firstMessageDaily" ? { ...first, ...patch } : first,
-                  welcomeGreeting: bonusKind === "welcomeGreeting" ? { ...welcome, ...patch } : welcome,
+                  firstMessageDaily: { ...first, ...patch },
+                  welcomeGreeting: welcome,
                 },
               });
-            const draft = cur.noticeDraft || emptyDraft();
+            const draft = first.noticeDraft || emptyDraft();
             return (
               <div className="space-y-4">
-                <Pills
-                  value={bonusKind}
-                  onChange={setBonusKind}
-                  ariaLabel="Quale bonus"
-                  options={[
-                    { id: "firstMessageDaily", label: BONUS_META.firstMessageDaily.title, icon: Sunrise },
-                    { id: "welcomeGreeting", label: BONUS_META.welcomeGreeting.title, icon: HandHeart },
-                  ]}
-                />
-
                 <Card
-                  icon={bonusKind === "firstMessageDaily" ? Sunrise : HandHeart}
-                  title={meta.title}
-                  text={meta.text}
-                  off={!cur.enabled}
-                  aside={<Toggle checked={cur.enabled} onChange={(enabled) => setBonus({ enabled })} label={meta.title} />}
+                  icon={Sunrise}
+                  title={BONUS_FIRST_META.title}
+                  text={BONUS_FIRST_META.text}
+                  off={!first.enabled}
+                  aside={<Toggle checked={first.enabled} onChange={(enabled) => setBonus({ enabled })} label={BONUS_FIRST_META.title} />}
                 >
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
-                    <BigNumber label="EXP regalati" value={cur.amount} min={0} max={100000} onChange={(amount) => setBonus({ amount })} suffix="EXP" />
+                    <BigNumber label="EXP regalati" value={first.amount} min={0} max={100000} onChange={(amount) => setBonus({ amount })} suffix="EXP" />
                     <div className="rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10">
                       <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Canali</p>
                       <MultiSelect
-                        value={cur.channelIds}
+                        value={first.channelIds}
                         onChange={(channelIds) => setBonus({ channelIds })}
                         options={channels.map((c) => ({ value: c.id, label: `#${c.name}` }))}
                         className={cn(fieldClass, "mt-2")}
                         placeholder="Predefinito"
                       />
-                      <p className="mt-2 text-xs text-crema/50">{meta.channelsHint}</p>
+                      <p className="mt-2 text-xs text-crema/50">{BONUS_FIRST_META.channelsHint}</p>
                     </div>
                   </div>
                 </Card>
 
-                <p className="text-xs text-crema/55">Il bot risponde al messaggio di chi prende il bonus.{bonusKind === "welcomeGreeting" ? " Il messaggio si cancella da solo dopo 12 secondi." : ""}</p>
-
-                {bonusKind === "welcomeGreeting" ? (
-                  <Field label="Parole di saluto" hint="Una per riga. Vuoto = l’elenco predefinito del bot (wordReactions).">
-                    <ExpandableTextarea
-                      value={(welcome.words || []).join("\n")}
-                      rows={5}
-                      maxLength={8000}
-                      placeholder={"Benvenut*\nBenvenuto\nCiao\n..."}
-                      onChange={(e) => {
-                        const words = e.target.value
-                          .split(/\r?\n/)
-                          .map((w) => w.trim())
-                          .filter(Boolean)
-                          .slice(0, 80);
-                        setBonus({ words });
-                      }}
-                      className={cn(fieldClass, "!mt-0 min-h-28 resize-y py-2.5 font-mono text-[0.8rem] leading-relaxed")}
-                      aria-label="Parole che fanno scattare il saluto"
-                    />
-                  </Field>
-                ) : null}
+                <p className="text-xs text-crema/55">Il bot risponde al messaggio di chi prende il bonus. Il saluto ai nuovi membri è in Annunci automatici → Benvenuto.</p>
 
                 <EditorWithPreview
                   editor={
                     <DraftEditor
-                      key={`bonus-${bonusKind}`}
+                      key="bonus-first"
                       value={draft}
                       onChange={(noticeDraft) => setBonus({ noticeDraft })}
                       emojis={data.pickers.emojis}
@@ -1196,10 +1250,10 @@ export function LevelsPanel({
                   }
                   preview={
                     <DiscordMessagePreview
-                      testChannelId={cur.channelIds[0] || undefined}
+                      testChannelId={first.channelIds[0] || undefined}
                       bot={data.bot}
                       draft={draft}
-                      vars={{ ...vars, amount: String(cur.amount), exp: String(cur.amount) }}
+                      vars={{ ...vars, amount: String(first.amount), exp: String(first.amount) }}
                       roles={pickerRoles}
                       channels={channels}
                     />
@@ -1283,13 +1337,297 @@ export function LevelsPanel({
               </div>
             </Card>
           ) : null}
+
+          <Card icon={Megaphone} title="Annunci di livello" text="Canale e messaggi quando qualcuno sale di livello o sblocca un ruolo premio. Vuoto = canale comandi del bot.">
+            <ChannelField label="Canale" value={cfg.levelUpChannelId} channels={channels} onChange={(levelUpChannelId) => set({ levelUpChannelId })} />
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Pills
+                value={announce}
+                onChange={setAnnounce}
+                ariaLabel="Messaggio di level-up"
+                options={[
+                  { id: "level", label: "Nuovo livello", icon: TrendingUp },
+                  { id: "milestone", label: "Ruolo premio sbloccato", icon: Trophy },
+                  ...(isMain ? [{ id: "perks" as const, label: "Vantaggi sbloccati", icon: Gift }] : []),
+                ]}
+              />
+              <p className="text-xs text-crema/55">
+                {announce === "level"
+                  ? "A ogni livello senza premio."
+                  : announce === "perks"
+                    ? "Un secondo messaggio, a parte, coi vantaggi del ruolo premio appena preso."
+                    : cfg.roleRewards.length
+                      ? "Quando il livello dà un ruolo premio: usa {role} e {perks}."
+                      : "Senza ruoli premio non viene mai usato."}
+              </p>
+            </div>
+
+            {announce === "perks" ? (
+              <div className="mt-4 space-y-3 rounded-2xl bg-espresso/35 p-3 ring-1 ring-sand/10">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-crema">Messaggio vantaggi</p>
+                  <Toggle checked={cfg.perksEnabled !== false} onChange={(perksEnabled) => set({ perksEnabled })} label="Messaggio vantaggi" />
+                </div>
+                <ChannelField
+                  label="Canale"
+                  value={cfg.perksChannelId || null}
+                  channels={channels}
+                  onChange={(perksChannelId) => set({ perksChannelId: perksChannelId || null })}
+                />
+                <p className="-mt-1 text-xs text-crema/50">Vuoto = #supporters.</p>
+
+                <div>
+                  <p className={labelClass}>Vantaggi per livello</p>
+                  {perksRewards.length ? (
+                    <>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {perksRewards.map((r) => {
+                          const on = perksSel?.level === r.level;
+                          const empty = !r.perks?.trim();
+                          return (
+                            <button
+                              key={r.level}
+                              type="button"
+                              onClick={() => setPerksLevel(r.level)}
+                              className={cn(
+                                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition",
+                                on ? "bg-[#826bc2]/20 text-crema ring-[#826bc2]/50" : "bg-espresso/45 text-crema/70 ring-sand/10 hover:text-crema",
+                              )}
+                            >
+                              <span className="size-2 rounded-full" style={{ background: roleColor(pickerRoles, r.roleId) }} aria-hidden />
+                              Lv {r.level}
+                              {empty ? <span className="text-crema/35">· vuoto</span> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {perksSel ? (
+                        <div className="mt-3">
+                          <textarea
+                            value={perksSel.perks || ""}
+                            onChange={(e) =>
+                              set({ roleRewards: cfg.roleRewards.map((r) => (r.level === perksSel.level ? { ...r, perks: e.target.value.slice(0, 2000) } : r)) })
+                            }
+                            rows={6}
+                            placeholder={"Un vantaggio per riga, es.\n:star: Permesso di cambiare nickname"}
+                            className={cn(fieldClass, "!mt-0 min-h-36 resize-y py-2.5 font-mono text-[0.8rem] leading-relaxed")}
+                            aria-label={`Vantaggi del livello ${perksSel.level}`}
+                          />
+                          <p className="mt-1.5 text-xs text-crema/50">
+                            Finisce al posto di <code className="text-crema/70">{"{perklist}"}</code> quando si arriva al livello {perksSel.level}. Vuoto = &quot;—&quot;.
+                          </p>
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="mt-2 rounded-2xl border border-dashed border-sand/15 px-4 py-5 text-center text-sm text-crema/50">Aggiungi prima dei ruoli premio qui sopra.</p>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-4">
+              <EditorWithPreview
+                editor={
+                  <DraftEditor
+                    key={announce}
+                    value={announce === "level" ? cfg.levelUpDraft : announce === "perks" ? cfg.perksDraft || emptyDraft() : cfg.milestoneDraft}
+                    onChange={(d) => set(announce === "level" ? { levelUpDraft: d } : announce === "perks" ? { perksDraft: d } : { milestoneDraft: d })}
+                    emojis={data.pickers.emojis}
+                    placeholders={announce === "level" ? LEVEL_PLACEHOLDERS : announce === "perks" ? PERKS_PLACEHOLDERS : MILESTONE_PLACEHOLDERS}
+                    maxButtons={data.limits.buttons}
+                  />
+                }
+                preview={
+                  <DiscordMessagePreview
+                    testChannelId={(announce === "perks" ? cfg.perksChannelId : cfg.levelUpChannelId) || undefined}
+                    bot={data.bot}
+                    draft={announce === "level" ? cfg.levelUpDraft : announce === "perks" ? cfg.perksDraft || emptyDraft() : cfg.milestoneDraft}
+                    vars={vars}
+                    roles={pickerRoles}
+                    channels={channels}
+                  />
+                }
+              />
+            </div>
+          </Card>
         </div>
       ) : null}
 
       {tab === "minigiochi" ? (
         isMain ? (
           <div className="space-y-4">
-            <Card icon={Gamepad2} title="Bonus e tipi" text="Risposta veloce, serie, e per ogni gioco: on/off, durata ed EXP. I messaggi Inizio/Vittoria sono unici per tutti.">
+            <Card icon={Clock3} title="Programmazione" text="Ogni quanto escono i minigiochi, in quali ore, e quanta attività serve in chat. Orario di Roma; la fascia può passare la mezzanotte.">
+              {(() => {
+                const spawn = mergeMinigameSpawn(cfg.minigameSpawn);
+                const setSpawn = (patch: Partial<LevelsMinigameSpawn>) =>
+                  set({ minigameSpawn: { ...spawn, ...patch } });
+                const setTw = ( wh: "start" | "end", patch: Partial<{ hour: number; minute: number }> ) =>
+                  setSpawn({
+                    timeWindow: {
+                      ...spawn.timeWindow,
+                      [wh]: { ...spawn.timeWindow[wh], ...patch },
+                    },
+                  });
+                const setFresh = (patch: Partial<LevelsMinigameSpawn["spawnFreshActivity"]>) =>
+                  setSpawn({ spawnFreshActivity: { ...spawn.spawnFreshActivity, ...patch } });
+                const setAt = (patch: Partial<LevelsMinigameSpawn["activityThreshold"]>) =>
+                  setSpawn({ activityThreshold: { ...spawn.activityThreshold, ...patch } });
+                const intervalMin = Math.round(spawn.intervalMs / 60_000);
+                const noPartMin = Math.round(spawn.noParticipationIntervalMs / 60_000);
+                const activityMin = Math.round(spawn.activityWindowMs / 60_000);
+                const failsafeMin = Math.round(spawn.failsafeMs / 60_000);
+                const freshMin = Math.round(spawn.spawnFreshActivity.windowMs / 60_000);
+                return (
+                  <div className="space-y-4">
+                    <SettingRow title="Minigiochi attivi" description="Se spento, in chat non parte nessun round automatico.">
+                      <Toggle size="sm" checked={spawn.enabled !== false} onChange={(on) => setSpawn({ enabled: on })} label="Minigiochi attivi" />
+                    </SettingRow>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <ChannelField
+                        label="Canale spawn"
+                        value={spawn.channelId || null}
+                        channels={channels}
+                        onChange={(channelId) => setSpawn({ channelId })}
+                        hint="Vuoto = canale chat principale del bot."
+                      />
+                      <Field label="Ruolo ping" hint="Vuoto = ruolo Minigiochi del bot.">
+                        <Select
+                          value={spawn.roleId || ""}
+                          onChange={(v) => setSpawn({ roleId: v || null })}
+                          options={[{ value: "", label: "Default bot" }, ...roles]}
+                          className={fieldClass}
+                          aria-label="Ruolo ping minigiochi"
+                        />
+                      </Field>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <BigNumber
+                        label="Intervallo"
+                        value={intervalMin}
+                        min={1}
+                        max={360}
+                        onChange={(v) => setSpawn({ intervalMs: Math.max(1, Math.floor(v || 1)) * 60_000 })}
+                        suffix="min"
+                        hint="Attesa minima tra un round e il successivo."
+                      />
+                      <BigNumber
+                        label="Se nessuno gioca"
+                        value={noPartMin}
+                        min={1}
+                        max={360}
+                        onChange={(v) => setSpawn({ noParticipationIntervalMs: Math.max(1, Math.floor(v || 1)) * 60_000 })}
+                        suffix="min"
+                        hint="Pausa più lunga dopo un round senza risposte."
+                      />
+                      <BigNumber
+                        label="Finestra attività"
+                        value={activityMin}
+                        min={1}
+                        max={360}
+                        onChange={(v) => setSpawn({ activityWindowMs: Math.max(1, Math.floor(v || 1)) * 60_000 })}
+                        suffix="min"
+                        hint="Quanto indietro si contano i messaggi in chat."
+                      />
+                      <BigNumber
+                        label="Messaggi minimi"
+                        value={spawn.minMessages}
+                        min={1}
+                        max={500}
+                        onChange={(v) => setSpawn({ minMessages: Math.max(1, Math.floor(v || 1)) })}
+                        hint="Ancora della soglia: sotto questo livello di chat non parte."
+                      />
+                    </div>
+
+                    <div className="rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10">
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Fascia oraria</p>
+                      <p className="mt-1 text-xs text-crema/50">Fuori da queste ore i round automatici non partono.</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-crema/75">
+                        dalle
+                        <div className="w-20">
+                          <Select size="sm" value={String(spawn.timeWindow.start.hour)} onChange={(v) => setTw("start", { hour: Number(v) })} options={MINIGAME_HOUR_OPTS} aria-label="Ora inizio" />
+                        </div>
+                        :
+                        <div className="w-20">
+                          <Select size="sm" value={String(spawn.timeWindow.start.minute)} onChange={(v) => setTw("start", { minute: Number(v) })} options={MINIGAME_MINUTE_OPTS} aria-label="Minuti inizio" />
+                        </div>
+                        alle
+                        <div className="w-20">
+                          <Select size="sm" value={String(spawn.timeWindow.end.hour)} onChange={(v) => setTw("end", { hour: Number(v) })} options={MINIGAME_HOUR_OPTS} aria-label="Ora fine" />
+                        </div>
+                        :
+                        <div className="w-20">
+                          <Select size="sm" value={String(spawn.timeWindow.end.minute)} onChange={(v) => setTw("end", { minute: Number(v) })} options={MINIGAME_MINUTE_OPTS} aria-label="Minuti fine" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10">
+                      <SettingRow title="Soglia adattiva" description="Alza o abbassa i messaggi richiesti in base a ora, spam e dimensione server.">
+                        <Toggle size="sm" checked={spawn.activityThreshold.enabled !== false} onChange={(on) => setAt({ enabled: on })} label="Soglia adattiva" />
+                      </SettingRow>
+                      {spawn.activityThreshold.enabled !== false ? (
+                        <div className="space-y-3">
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <BigNumber label="Min adattivo" value={spawn.activityThreshold.hardMin} min={1} max={200} onChange={(v) => setAt({ hardMin: Math.max(1, Math.floor(v || 1)) })} hint="Pavimento della soglia." />
+                            <BigNumber label="Max adattivo" value={spawn.activityThreshold.hardMax} min={1} max={500} onChange={(v) => setAt({ hardMax: Math.max(1, Math.floor(v || 1)) })} hint="Tetto della soglia." />
+                            <BigNumber label="Picco dalle" value={spawn.activityThreshold.peakHourStart} min={0} max={23} onChange={(v) => setAt({ peakHourStart: Math.max(0, Math.min(23, Math.floor(v || 0))) })} suffix="h" />
+                            <BigNumber label="Picco alle" value={spawn.activityThreshold.peakHourEnd} min={0} max={23} onChange={(v) => setAt({ peakHourEnd: Math.max(0, Math.min(23, Math.floor(v || 0))) })} suffix="h" />
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <BigNumber label="Fattore picco" value={Number(spawn.activityThreshold.peakFactor ?? 1.08)} min={0.2} max={3} step={0.01} onChange={(v) => setAt({ peakFactor: Math.max(0.2, Number(v) || 1) })} suffix="×" />
+                            <BigNumber label="Notte dalle" value={spawn.activityThreshold.nightHourStart} min={0} max={24} onChange={(v) => setAt({ nightHourStart: Math.max(0, Math.min(24, Math.floor(v || 0))) })} suffix="h" hint="24 = solo fino a «notte alle»." />
+                            <BigNumber label="Notte alle" value={spawn.activityThreshold.nightHourEnd} min={0} max={24} onChange={(v) => setAt({ nightHourEnd: Math.max(0, Math.min(24, Math.floor(v || 0))) })} suffix="h" />
+                            <BigNumber label="Fattore notte" value={Number(spawn.activityThreshold.nightFactor ?? 0.72)} min={0.2} max={2} step={0.01} onChange={(v) => setAt({ nightFactor: Math.max(0.2, Number(v) || 0.72) })} suffix="×" />
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <BigNumber label="Fattore base" value={Number(spawn.activityThreshold.defaultTimeFactor ?? 1)} min={0.2} max={3} step={0.01} onChange={(v) => setAt({ defaultTimeFactor: Math.max(0.2, Number(v) || 1) })} suffix="×" />
+                            <BigNumber label="Membri ref." value={Number(spawn.activityThreshold.memberReference ?? 200)} min={30} max={5000} onChange={(v) => setAt({ memberReference: Math.max(30, Math.floor(v || 200)) })} hint="Scala soglia col numero membri." />
+                            <BigNumber label="Fatt. membri min" value={Number(spawn.activityThreshold.memberFactorMin ?? 0.58)} min={0.2} max={2} step={0.01} onChange={(v) => setAt({ memberFactorMin: Math.max(0.2, Number(v) || 0.58) })} suffix="×" />
+                            <BigNumber label="Fatt. membri max" value={Number(spawn.activityThreshold.memberFactorMax ?? 1.18)} min={0.2} max={3} step={0.01} onChange={(v) => setAt({ memberFactorMax: Math.max(0.2, Number(v) || 1.18) })} suffix="×" />
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <BigNumber label="Esp. membri" value={Number(spawn.activityThreshold.memberExponent ?? 0.18)} min={0.05} max={1} step={0.01} onChange={(v) => setAt({ memberExponent: Math.max(0.05, Number(v) || 0.18) })} />
+                            <BigNumber label="Spam media/user" value={Number(spawn.activityThreshold.spamAvgMessagesPerUser ?? 4)} min={1} max={50} step={0.5} onChange={(v) => setAt({ spamAvgMessagesPerUser: Math.max(1, Number(v) || 4) })} />
+                            <BigNumber label="Penalità spam" value={Number(spawn.activityThreshold.spamPenaltyPerExcess ?? 0.065)} min={0} max={1} step={0.005} onChange={(v) => setAt({ spamPenaltyPerExcess: Math.max(0, Number(v) || 0) })} />
+                            <BigNumber label="Tetto spam" value={Number(spawn.activityThreshold.spamPenaltyCap ?? 0.42)} min={0} max={2} step={0.01} onChange={(v) => setAt({ spamPenaltyCap: Math.max(0, Number(v) || 0) })} />
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <BigNumber label="Divisore autori unici" value={Number(spawn.activityThreshold.minUniqueDivisor ?? 16)} min={2} max={50} onChange={(v) => setAt({ minUniqueDivisor: Math.max(2, Math.floor(v || 16)) })} hint="Più alto = meno autori unici richiesti." />
+                            <BigNumber label="Bypass unici" value={Number(spawn.activityThreshold.uniqueBypassMultiple ?? 1.35)} min={1} max={5} step={0.05} onChange={(v) => setAt({ uniqueBypassMultiple: Math.max(1, Number(v) || 1.35) })} suffix="×" hint="Se i messaggi sono molti, ignora il gate autori." />
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-3 rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10">
+                      <SettingRow title="Attività recente" description="Prima di far partire un round, richiede messaggi freschi nella chat (non solo nella finestra lunga).">
+                        <Toggle size="sm" checked={spawn.spawnFreshActivity.enabled !== false} onChange={(on) => setFresh({ enabled: on })} label="Attività recente" />
+                      </SettingRow>
+                      {spawn.spawnFreshActivity.enabled !== false ? (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <BigNumber label="Ultimi minuti" value={freshMin} min={1} max={60} onChange={(v) => setFresh({ windowMs: Math.max(1, Math.floor(v || 1)) * 60_000 })} suffix="min" />
+                          <BigNumber label="Messaggi freschi" value={spawn.spawnFreshActivity.minMessages} min={1} max={100} onChange={(v) => setFresh({ minMessages: Math.max(1, Math.floor(v || 1)) })} />
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <BigNumber
+                      label="Failsafe"
+                      value={failsafeMin}
+                      min={5}
+                      max={1440}
+                      onChange={(v) => setSpawn({ failsafeMs: Math.max(5, Math.floor(v || 5)) * 60_000 })}
+                      suffix="min"
+                      hint="Se per tanto non esce nulla ma c’è un po’ di chat, forza un round."
+                    />
+                  </div>
+                );
+              })()}
+            </Card>
+
+            <Card icon={Gamepad2} title="Bonus e tipi" text="Risposta veloce, serie, e per ogni gioco: on/off, durata, EXP e opzioni specifiche. I messaggi Inizio/Vittoria sono unici per tutti.">
               {(() => {
                 const scoring: LevelsMinigameScoring = {
                   ...DEFAULT_MINIGAME_SCORING,
@@ -1300,7 +1638,24 @@ export function LevelsPanel({
                   startDraft: cfg.minigameScoring?.startDraft || null,
                   winDraft: cfg.minigameScoring?.winDraft || null,
                 };
-                const setScoring = (patch: Partial<LevelsMinigameScoring>) => set({ minigameScoring: { ...scoring, ...patch } });
+                const gameOpts = mergeMinigameGameOptions(cfg.minigameGameOptions);
+                const setGameOpts = (patch: Partial<LevelsMinigameGameOptions>) =>
+                  set({ minigameGameOptions: { ...gameOpts, ...patch } });
+                const hiddenEventRows = (cfg.minigameScoring?.rewardExpByType || []).filter(
+                  (r) => r?.type && HIDDEN_MINIGAME_TYPES.has(r.type),
+                );
+                const withHiddenEventRows = (rows: LevelsMinigameScoring["rewardExpByType"]) => [
+                  ...(rows || []).filter((r) => r?.type && !HIDDEN_MINIGAME_TYPES.has(r.type)),
+                  ...hiddenEventRows,
+                ];
+                const setScoring = (patch: Partial<LevelsMinigameScoring>) =>
+                  set({
+                    minigameScoring: {
+                      ...scoring,
+                      ...patch,
+                      rewardExpByType: withHiddenEventRows(patch.rewardExpByType ?? scoring.rewardExpByType),
+                    },
+                  });
                 const setRow = (type: string, patch: Partial<(typeof scoring.rewardExpByType)[0]>) =>
                   setScoring({
                     rewardExpByType: scoring.rewardExpByType.map((r) => (r.type === type ? { ...r, ...patch } : r)),
@@ -1308,7 +1663,7 @@ export function LevelsPanel({
                 const fastSec = Math.round(scoring.fastGuess.windowMs / 1000);
                 const sharedDraft = gameDraftKind === "win" ? scoring.winDraft || emptyDraft() : scoring.startDraft || emptyDraft();
                 const sharedSampleType = "guessNumber";
-                const sharedSampleImg = resolveMinigamePreviewImage(sharedSampleType, previewCardsReady, realGameImgs);
+                const sharedSampleImg = resolveMinigamePreviewImage(sharedSampleType, previewCardsReady, realGameImgs, realGameNotes);
                 const sharedDraftVars =
                   gameDraftKind === "win"
                     ? { ...minigameVars, exp: "200", total: "1500", streak: "3", user: minigameVars.user || "@Mario" }
@@ -1406,7 +1761,7 @@ export function LevelsPanel({
                           {scoring.rewardExpByType.filter((r) => r.enabled !== false).length}/{scoring.rewardExpByType.length} attivi
                         </StatusBadge>
                       </div>
-                      <p className="mb-2 text-xs text-crema/50">Per tipo: attiva/spegni, durata, EXP e anteprima (senza modificare l’embed). Caccia al tesoro: l’EXP scala i bucket.</p>
+                      <p className="mb-2 text-xs text-crema/50">Per tipo: attiva/spegni, durata, EXP, opzioni specifiche e anteprima.</p>
                       <ul className="space-y-2">
                         {scoring.rewardExpByType.map((row) => {
                           const open = gameEditType === row.type;
@@ -1414,7 +1769,7 @@ export function LevelsPanel({
                           const durSec = Math.max(15, Math.round((row.durationMs || 180000) / 1000));
                           const rowStart = scoring.startDraft || emptyDraft();
                           const rowWin = scoring.winDraft || emptyDraft();
-                          const rowImg = resolveMinigamePreviewImage(row.type, previewCardsReady, realGameImgs);
+                          const rowImg = resolveMinigamePreviewImage(row.type, previewCardsReady, realGameImgs, realGameNotes);
                           const rowStartVars = minigameRowPreviewVars(row, minigameVars, rowImg);
                           const rowWinVars = {
                             ...minigameVars,
@@ -1465,9 +1820,196 @@ export function LevelsPanel({
                                       suffix="EXP"
                                     />
                                   </div>
+                                  {row.type === "guessNumber" ? (
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                      <BigNumber label="Minimo" value={gameOpts.guessNumber.min} min={1} max={1_000_000} onChange={(v) => setGameOpts({ guessNumber: { ...gameOpts.guessNumber, min: Math.max(1, Math.floor(v || 1)) } })} />
+                                      <BigNumber label="Massimo" value={gameOpts.guessNumber.max} min={gameOpts.guessNumber.min} max={1_000_000} onChange={(v) => setGameOpts({ guessNumber: { ...gameOpts.guessNumber, max: Math.max(gameOpts.guessNumber.min, Math.floor(v || 100)) } })} />
+                                    </div>
+                                  ) : null}
+                                  {row.type === "hangman" ? (
+                                    <BigNumber label="Errori massimi" value={gameOpts.hangman.maxMisses} min={3} max={20} onChange={(v) => setGameOpts({ hangman: { maxMisses: Math.max(3, Math.floor(v || 10)) } })} />
+                                  ) : null}
+                                  {row.type === "memoryEmoji" ? (
+                                    <BigNumber label="Secondi sequenza" value={Math.round(gameOpts.memoryEmoji.displayMs / 1000)} min={2} max={60} onChange={(v) => setGameOpts({ memoryEmoji: { displayMs: Math.max(2, Math.floor(v || 5)) * 1000 } })} suffix="sec" hint="Quanto resta visibile la sequenza." />
+                                  ) : null}
+                                  {row.type === "drivingQuiz" ? (
+                                    <BigNumber label="Cooldown risposta" value={Math.round(gameOpts.drivingQuiz.userAnswerCooldownMs / 1000)} min={0} max={60} onChange={(v) => setGameOpts({ drivingQuiz: { userAnswerCooldownMs: Math.max(0, Math.floor(v || 0)) * 1000 } })} suffix="sec" />
+                                  ) : null}
+                                  {row.type === "guessPlayer" ? (
+                                    <SettingRow title="Solo famosi" description="Filtra i calciatori più conosciuti.">
+                                      <Toggle size="sm" checked={gameOpts.guessPlayer.onlyFamous !== false} onChange={(on) => setGameOpts({ guessPlayer: { onlyFamous: on } })} label="Solo famosi" />
+                                    </SettingRow>
+                                  ) : null}
+                                  {row.type === "guessSong" ? (
+                                    <SettingRow title="Solo famosi" description="Preferisci brani popolari.">
+                                      <Toggle size="sm" checked={gameOpts.guessSong.onlyFamous !== false} onChange={(on) => setGameOpts({ guessSong: { onlyFamous: on } })} label="Solo famosi" />
+                                    </SettingRow>
+                                  ) : null}
+                                  {row.type === "guessAlbum" ? (
+                                    <SettingRow title="Solo artisti famosi" description="Copertine di artisti già nel chart.">
+                                      <Toggle size="sm" checked={gameOpts.guessAlbum.onlyFamousArtists !== false} onChange={(on) => setGameOpts({ guessAlbum: { onlyFamousArtists: on } })} label="Solo artisti famosi" />
+                                    </SettingRow>
+                                  ) : null}
+                                  {row.type === "findBotVoice" ? (
+                                    <Field label="Vocali escluse (ID)" hint="Una riga o virgola per ID. Si aggiungono a quelle di sistema del bot.">
+                                      <ExpandableTextarea
+                                        value={(gameOpts.findBotVoice.excludedChannelIds || []).join("\n")}
+                                        rows={3}
+                                        onChange={(e) =>
+                                          setGameOpts({
+                                            findBotVoice: {
+                                              excludedChannelIds: String(e.target.value || "")
+                                                .split(/[\s,;]+/)
+                                                .map((x) => x.trim())
+                                                .filter((id) => /^\d{15,22}$/.test(id)),
+                                            },
+                                          })
+                                        }
+                                        aria-label="ID vocali escluse"
+                                        className={fieldClass}
+                                      />
+                                    </Field>
+                                  ) : null}
+                                  {row.type === "treasureHunt" ? (
+                                    <div className="space-y-3">
+                                      <div>
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                          <p className={labelClass}>Coppie emoji</p>
+                                          <button
+                                            type="button"
+                                            className={miniBtn}
+                                            onClick={() =>
+                                              setGameOpts({
+                                                treasureHunt: {
+                                                  ...gameOpts.treasureHunt,
+                                                  emojiPairs: [...gameOpts.treasureHunt.emojiPairs, { decoy: "🎯", winner: "💎" }],
+                                                },
+                                              })
+                                            }
+                                          >
+                                            <Plus className="size-3.5" aria-hidden /> Aggiungi
+                                          </button>
+                                        </div>
+                                        <ul className="space-y-2">
+                                          {gameOpts.treasureHunt.emojiPairs.map((pair: LevelsTreasureEmojiPair, pi: number) => (
+                                            <li key={pi} className="flex flex-wrap items-center gap-2 rounded-xl bg-roast/40 p-2 ring-1 ring-sand/10">
+                                              <input
+                                                value={pair.decoy}
+                                                maxLength={8}
+                                                onChange={(ev) => {
+                                                  const emojiPairs = gameOpts.treasureHunt.emojiPairs.map((p, j) => (j === pi ? { ...p, decoy: ev.target.value } : p));
+                                                  setGameOpts({ treasureHunt: { ...gameOpts.treasureHunt, emojiPairs } });
+                                                }}
+                                                className={cn(fieldClass, "!mt-0 w-20")}
+                                                aria-label="Emoji falsa"
+                                              />
+                                              <span className="text-xs text-crema/45">→</span>
+                                              <input
+                                                value={pair.winner}
+                                                maxLength={8}
+                                                onChange={(ev) => {
+                                                  const emojiPairs = gameOpts.treasureHunt.emojiPairs.map((p, j) => (j === pi ? { ...p, winner: ev.target.value } : p));
+                                                  setGameOpts({ treasureHunt: { ...gameOpts.treasureHunt, emojiPairs } });
+                                                }}
+                                                className={cn(fieldClass, "!mt-0 w-20")}
+                                                aria-label="Emoji vincente"
+                                              />
+                                              <button
+                                                type="button"
+                                                className={cn(miniBtn, "!px-2")}
+                                                onClick={() =>
+                                                  setGameOpts({
+                                                    treasureHunt: {
+                                                      ...gameOpts.treasureHunt,
+                                                      emojiPairs: gameOpts.treasureHunt.emojiPairs.filter((_, j) => j !== pi),
+                                                    },
+                                                  })
+                                                }
+                                                aria-label="Togli coppia"
+                                              >
+                                                <Trash2 className="size-3.5" aria-hidden />
+                                              </button>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                      <div>
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                          <p className={labelClass}>Bucket difficoltà</p>
+                                          <button
+                                            type="button"
+                                            className={miniBtn}
+                                            onClick={() =>
+                                              setGameOpts({
+                                                treasureHunt: {
+                                                  ...gameOpts.treasureHunt,
+                                                  buckets: [
+                                                    ...gameOpts.treasureHunt.buckets,
+                                                    { weight: 1, minMessages: 20, maxMessages: 40, minDurationMs: 60_000, maxDurationMs: 120_000, rewardExp: 150 },
+                                                  ],
+                                                },
+                                              })
+                                            }
+                                          >
+                                            <Plus className="size-3.5" aria-hidden /> Aggiungi
+                                          </button>
+                                        </div>
+                                        <ul className="space-y-2">
+                                          {gameOpts.treasureHunt.buckets.map((b: LevelsTreasureBucket, bi: number) => (
+                                            <li key={bi} className="space-y-2 rounded-xl bg-roast/40 p-2.5 ring-1 ring-sand/10">
+                                              <div className="grid gap-2 sm:grid-cols-3">
+                                                <BigNumber label="Peso" value={b.weight} min={1} max={100} onChange={(v) => {
+                                                  const buckets = gameOpts.treasureHunt.buckets.map((x, j) => (j === bi ? { ...x, weight: Math.max(1, Math.floor(v || 1)) } : x));
+                                                  setGameOpts({ treasureHunt: { ...gameOpts.treasureHunt, buckets } });
+                                                }} />
+                                                <BigNumber label="Msg min" value={b.minMessages} min={1} max={500} onChange={(v) => {
+                                                  const buckets = gameOpts.treasureHunt.buckets.map((x, j) => (j === bi ? { ...x, minMessages: Math.max(1, Math.floor(v || 1)) } : x));
+                                                  setGameOpts({ treasureHunt: { ...gameOpts.treasureHunt, buckets } });
+                                                }} />
+                                                <BigNumber label="Msg max" value={b.maxMessages} min={b.minMessages} max={500} onChange={(v) => {
+                                                  const buckets = gameOpts.treasureHunt.buckets.map((x, j) => (j === bi ? { ...x, maxMessages: Math.max(x.minMessages, Math.floor(v || 1)) } : x));
+                                                  setGameOpts({ treasureHunt: { ...gameOpts.treasureHunt, buckets } });
+                                                }} />
+                                              </div>
+                                              <div className="grid gap-2 sm:grid-cols-3">
+                                                <BigNumber label="Durata min" value={Math.round(b.minDurationMs / 1000)} min={15} max={1800} onChange={(v) => {
+                                                  const buckets = gameOpts.treasureHunt.buckets.map((x, j) => (j === bi ? { ...x, minDurationMs: Math.max(15, Math.floor(v || 15)) * 1000 } : x));
+                                                  setGameOpts({ treasureHunt: { ...gameOpts.treasureHunt, buckets } });
+                                                }} suffix="s" />
+                                                <BigNumber label="Durata max" value={Math.round(b.maxDurationMs / 1000)} min={15} max={1800} onChange={(v) => {
+                                                  const buckets = gameOpts.treasureHunt.buckets.map((x, j) => (j === bi ? { ...x, maxDurationMs: Math.max(Math.round(x.minDurationMs / 1000), Math.floor(v || 15)) * 1000 } : x));
+                                                  setGameOpts({ treasureHunt: { ...gameOpts.treasureHunt, buckets } });
+                                                }} suffix="s" />
+                                                <BigNumber label="EXP" value={b.rewardExp} min={1} max={100000} step={10} onChange={(v) => {
+                                                  const buckets = gameOpts.treasureHunt.buckets.map((x, j) => (j === bi ? { ...x, rewardExp: Math.max(1, Math.floor(v || 1)) } : x));
+                                                  setGameOpts({ treasureHunt: { ...gameOpts.treasureHunt, buckets } });
+                                                }} />
+                                              </div>
+                                              <button
+                                                type="button"
+                                                className={cn(miniBtn, "!px-2")}
+                                                onClick={() =>
+                                                  setGameOpts({
+                                                    treasureHunt: {
+                                                      ...gameOpts.treasureHunt,
+                                                      buckets: gameOpts.treasureHunt.buckets.filter((_, j) => j !== bi),
+                                                    },
+                                                  })
+                                                }
+                                              >
+                                                <Trash2 className="size-3.5" aria-hidden /> Togli bucket
+                                              </button>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    </div>
+                                  ) : null}
                                   <div className="space-y-2">
                                     <p className={labelClass}>Anteprima inizio</p>
-                                    {realGameNotes[row.type] ? <p className="text-xs text-[#e2836f]">Immagine d&apos;esempio: {realGameNotes[row.type]}</p> : null}
+                                    {realGameNotes[row.type] && !realGameImgs[row.type] ? (
+                                      <p className="text-xs text-[#e2836f]">{realGameNotes[row.type]}</p>
+                                    ) : null}
                                     <DiscordMessagePreview
                                       noTest
                                       bot={data.bot}
@@ -1595,125 +2137,6 @@ export function LevelsPanel({
       ) : null}
 
       {tab === "utenti" ? <UsersTab guildId={guildId} token={token} cfg={cfg} pickerRoles={pickerRoles} onToast={onToast} /> : null}
-
-      {tab === "annunci" ? (
-        <div className="space-y-4">
-          <Card icon={Megaphone} title="Dove si annuncia" text="Il canale dei messaggi di level-up. Vuoto = il canale comandi predefinito del bot.">
-            <ChannelField label="Canale" value={cfg.levelUpChannelId} channels={channels} onChange={(levelUpChannelId) => set({ levelUpChannelId })} />
-          </Card>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Pills
-              value={announce}
-              onChange={setAnnounce}
-              ariaLabel="Messaggio di level-up"
-              options={[
-                { id: "level", label: "Nuovo livello", icon: TrendingUp },
-                { id: "milestone", label: "Ruolo premio sbloccato", icon: Trophy },
-                ...(isMain ? [{ id: "perks" as const, label: "Vantaggi sbloccati", icon: Gift }] : []),
-              ]}
-            />
-            <p className="text-xs text-crema/55">
-              {announce === "level"
-                ? "A ogni livello senza premio."
-                : announce === "perks"
-                  ? "Un secondo messaggio, a parte, coi vantaggi del ruolo premio appena preso."
-                  : cfg.roleRewards.length
-                    ? "Quando il livello dà un ruolo premio: usa {role} e {perks}."
-                    : "Senza ruoli premio non viene mai usato."}
-            </p>
-          </div>
-
-          {announce === "perks" ? (
-            <Card
-              icon={Gift}
-              title="Vantaggi sbloccati"
-              text="Quando qualcuno prende un ruolo premio, il bot manda anche questo messaggio coi vantaggi di quel livello. È separato da quello del canale level-up."
-              off={cfg.perksEnabled === false}
-              aside={<Toggle checked={cfg.perksEnabled !== false} onChange={(perksEnabled) => set({ perksEnabled })} label="Messaggio vantaggi" />}
-            >
-              <ChannelField
-                label="Canale"
-                value={cfg.perksChannelId || null}
-                channels={channels}
-                onChange={(perksChannelId) => set({ perksChannelId: perksChannelId || null })}
-              />
-              <p className="-mt-1 text-xs text-crema/50">Vuoto = #supporters.</p>
-
-              <div className="mt-4">
-                <p className={labelClass}>Vantaggi per livello</p>
-                {perksRewards.length ? (
-                  <>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {perksRewards.map((r) => {
-                        const on = perksSel?.level === r.level;
-                        const empty = !r.perks?.trim();
-                        return (
-                          <button
-                            key={r.level}
-                            type="button"
-                            onClick={() => setPerksLevel(r.level)}
-                            className={cn(
-                              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition",
-                              on ? "bg-[#826bc2]/20 text-crema ring-[#826bc2]/50" : "bg-espresso/45 text-crema/70 ring-sand/10 hover:text-crema",
-                            )}
-                          >
-                            <span className="size-2 rounded-full" style={{ background: roleColor(pickerRoles, r.roleId) }} aria-hidden />
-                            Lv {r.level}
-                            {empty ? <span className="text-crema/35">· vuoto</span> : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {perksSel ? (
-                      <div className="mt-3">
-                        <textarea
-                          value={perksSel.perks || ""}
-                          onChange={(e) =>
-                            set({ roleRewards: cfg.roleRewards.map((r) => (r.level === perksSel.level ? { ...r, perks: e.target.value.slice(0, 2000) } : r)) })
-                          }
-                          rows={6}
-                          placeholder={"Un vantaggio per riga, es.\n:star: Permesso di cambiare nickname"}
-                          className={cn(fieldClass, "!mt-0 min-h-36 resize-y py-2.5 font-mono text-[0.8rem] leading-relaxed")}
-                          aria-label={`Vantaggi del livello ${perksSel.level}`}
-                        />
-                        <p className="mt-1.5 text-xs text-crema/50">
-                          Finisce al posto di <code className="text-crema/70">{"{perklist}"}</code> quando si arriva al livello {perksSel.level}. Vuoto = &quot;—&quot;.
-                        </p>
-                      </div>
-                    ) : null}
-                  </>
-                ) : (
-                  <p className="mt-2 rounded-2xl border border-dashed border-sand/15 px-4 py-5 text-center text-sm text-crema/50">Aggiungi prima dei ruoli premio nella scheda Ruoli premio.</p>
-                )}
-              </div>
-            </Card>
-          ) : null}
-
-          <EditorWithPreview
-            editor={
-              <DraftEditor
-                key={announce}
-                value={announce === "level" ? cfg.levelUpDraft : announce === "perks" ? cfg.perksDraft || emptyDraft() : cfg.milestoneDraft}
-                onChange={(d) => set(announce === "level" ? { levelUpDraft: d } : announce === "perks" ? { perksDraft: d } : { milestoneDraft: d })}
-                emojis={data.pickers.emojis}
-                placeholders={announce === "level" ? LEVEL_PLACEHOLDERS : announce === "perks" ? PERKS_PLACEHOLDERS : MILESTONE_PLACEHOLDERS}
-                maxButtons={data.limits.buttons}
-              />
-            }
-            preview={
-              <DiscordMessagePreview
-                testChannelId={(announce === "perks" ? cfg.perksChannelId : cfg.levelUpChannelId) || undefined}
-                bot={data.bot}
-                draft={announce === "level" ? cfg.levelUpDraft : announce === "perks" ? cfg.perksDraft || emptyDraft() : cfg.milestoneDraft}
-                vars={vars}
-                roles={pickerRoles}
-                channels={channels}
-              />
-            }
-          />
-        </div>
-      ) : null}
     </div>
   );
 }

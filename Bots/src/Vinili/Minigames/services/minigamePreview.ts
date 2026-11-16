@@ -57,15 +57,45 @@ async function themedCard(cfg: any, title: string, lines: string[], base: string
   return toDataUrl(out?.attachment) || card(title, lines, base, client);
 }
 
-/** Foto dentro la card del bot (calciatore, squadra, cantante). */
-async function photoCard(imageUrl: string, title: string, base: string, fallbackLines: string[], client?) {
-  if (imageUrl) {
-    const att = (await images.buildRemoteGuessImageCardAttachment(imageUrl, title, `${base}.png`).catch(() => null)) as Attachment;
+/**
+ * Foto dentro la card canvas. Prova più URL; se nessuno carica → card solo testo (sempre data URL).
+ * Mai URL remoti nudi: in dashboard spesso non si vedono (hotlink/CORS).
+ * Nota: solo se la foto non entra nella card (niente messaggi “fonte giù” quando c’è comunque la foto).
+ */
+async function photoCardOut(
+  imageUrls: string | string[],
+  title: string,
+  base: string,
+  fallbackLines: string[],
+  client?,
+  missingPhotoNote?: string,
+): Promise<PreviewOut> {
+  const list = (Array.isArray(imageUrls) ? imageUrls : [imageUrls])
+    .map((u) => String(u || "").trim())
+    .filter((u, i, a) => u && a.indexOf(u) === i);
+  for (const remote of list) {
+    const att = (await images.buildRemoteGuessImageCardAttachment(remote, title, `${base}.png`).catch(() => null)) as Attachment;
     const url = toDataUrl(att);
-    if (url) return url;
+    if (url) return { image: url, source: "canvas" };
   }
-  return card(title, fallbackLines, base, client);
+  const c = card(title, fallbackLines, base, client);
+  return { image: c, source: c ? "canvas" : "none", note: missingPhotoNote || "Foto non disponibile." };
 }
+
+/** Crest / copertine sempre raggiungibili (niente upload.wikimedia hardcodati: 400 senza query API). */
+const SAMPLE = {
+  team: [
+    "https://crests.football-data.org/108.png",
+    "https://crests.football-data.org/109.png",
+    "https://crests.football-data.org/98.png",
+    "https://crests.football-data.org/86.png",
+  ],
+  album: [
+    "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/48/53/43/485343e3-dd6a-0034-faec-f4b6403f8108/13UMGIM63890.rgb.jpg/600x600bb.jpg",
+    "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/32/4f/fd/324ffda2-9e51-8f6a-0c2d-c6fd2b41ac55/074643811224.jpg/600x600bb.jpg",
+    "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/45/b2/24/45b224b7-baa4-c320-9e3b-fd37dcfcdcb1/mzi.nkvwvqxf.jpg/600x600bb.jpg",
+  ],
+};
 
 /** Copertina censurata come all'inizio del round (canzone, album). */
 async function censored(artwork: string, name: string, cardTitle = "") {
@@ -128,65 +158,87 @@ async function render(type: string, client?): Promise<PreviewOut> {
       const withFlag = bank.filter((r) => r?.image);
       const row = pick(withFlag) || pick(bank.filter((r) => r?.country));
       const flag = String(row?.image || "https://flagcdn.com/w320/it.png");
-      return canvasOut(await photoCard(flag, "Indovina la capitale", "guess_capital", [String(row?.country || "Italia")], client));
+      return photoCardOut([flag, "https://flagcdn.com/w320/it.png", "https://flagcdn.com/w320/fr.png"], "Indovina la capitale", "guess_capital", [String(row?.country || "Italia")], client);
     }
     case "guessReverseCapital": {
       const bank: any[] = await src.loadReverseCapitalQuestionBank(cfg).catch(() => []);
       const withFlag = bank.filter((r) => r?.image);
       const row = pick(withFlag) || pick(bank.filter((r) => r?.capital));
-      if (row?.image) return canvasOut(await photoCard(String(row.image), "Capitale inverso", "guess_reverse_capital", [String(row?.capital || "Roma")], client));
+      if (row?.image) return photoCardOut([String(row.image), "https://flagcdn.com/w320/it.png"], "Capitale inverso", "guess_reverse_capital", [String(row?.capital || "Roma")], client);
       return canvasOut(card("Capitale inverso", [String(row?.capital || "Roma")], "guess_reverse_capital", client));
     }
     case "guessFlag": {
-      /* bandiera dentro la card canvas (come calciatore/squadra), non solo il PNG nudo */
       const list: any[] = await src.loadCountryList(cfg).catch(() => []);
       const row = pick(list.filter((c) => c?.flagUrl));
       const flag = String(row?.flagUrl || "https://flagcdn.com/w320/it.png");
-      return canvasOut(await photoCard(flag, "Indovina la bandiera", "guess_flag", ["Quale nazione è?"], client));
+      return photoCardOut([flag, "https://flagcdn.com/w320/it.png", "https://flagcdn.com/w320/br.png"], "Indovina la bandiera", "guess_flag", ["Quale nazione è?"], client);
     }
     case "guessPlayer": {
       const info: any =
         (await src.fetchFamousPlayer(cfg).catch(() => null)) ||
         (await src.fetchLeagueFamousPlayer(cfg).catch(() => null)) ||
-        (await src.fetchPlayerFromRandomLetter(cfg).catch(() => null));
-      const img = String(
-        info?.image ||
-          "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg/320px-Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg",
+        (await src.fetchPlayerFromRandomLetter(cfg).catch(() => null)) ||
+        (await src.fetchSampleFamousPlayer().catch(() => null));
+      const wikiExtra =
+        info?.image
+          ? ""
+          : (await src.fetchWikipediaImage?.("Lionel Messi").catch(() => "")) ||
+            (await src.fetchWikipediaImage?.("Cristiano Ronaldo").catch(() => "")) ||
+            "";
+      return photoCardOut(
+        [String(info?.image || ""), String(wikiExtra || "")],
+        "Indovina il calciatore",
+        "guess_player",
+        ["Chi è questo calciatore?"],
+        client,
+        "Anteprima senza foto del calciatore.",
       );
-      const out = canvasOut(await photoCard(img, "Indovina il calciatore", "guess_player", ["Chi è questo calciatore?"], client));
-      if (!out.image) return { ...out, note: "Foto del calciatore non caricata nella card." };
-      return info?.image ? out : { ...out, note: "TheSportsDB non ha risposto: foto d'esempio." };
     }
     case "guessTeam": {
       const teams: any[] = await src.loadFootballTeamsFromApi(cfg).catch(() => []);
-      const row = pick(teams.filter((t) => t?.image));
-      const img = String(row?.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/FC_Internazionale_Milano_2021.svg/240px-FC_Internazionale_Milano_2021.svg.png");
-      const out = canvasOut(await photoCard(img, "Indovina la squadra", "guess_team", ["Quale squadra è?"], client));
-      if (!out.image) return { ...out, note: "Logo della squadra non caricato nella card." };
-      return row?.image ? out : { ...out, note: "TheSportsDB non ha risposto: logo d'esempio." };
+      const row = pick(teams.filter((t) => t?.image)) || (await src.fetchSampleFootballTeam().catch(() => null));
+      return photoCardOut(
+        [String(row?.image || ""), ...SAMPLE.team],
+        "Indovina la squadra",
+        "guess_team",
+        ["Quale squadra è?"],
+        client,
+        "Anteprima senza logo della squadra.",
+      );
     }
     case "guessSinger": {
       const singers: any[] = await src.loadSingersFromApi(cfg).catch(() => []);
-      const row: any = pick(singers.filter((s) => s?.name));
-      const img = String(row?.image || (row?.name ? await images.fetchSingerImageFallback(row.name, cfg).catch(() => "") : "") || "");
-      return canvasOut(await photoCard(img, "Indovina il cantante", "guess_singer", ["Chi è questo cantante?"], client));
+      const row: any = pick(singers.filter((s) => s?.image || s?.name));
+      const img = String(
+        row?.image ||
+          (row?.name ? await images.fetchSingerImageFallback(row.name, cfg).catch(() => "") : "") ||
+          (await src.fetchWikipediaImage?.("Adele").catch(() => "")) ||
+          (await src.fetchWikipediaImage?.("Taylor Swift").catch(() => "")) ||
+          "",
+      );
+      return photoCardOut([img], "Indovina il cantante", "guess_singer", ["Chi è questo cantante?"], client, "Anteprima senza foto del cantante.");
     }
     case "guessSong": {
       const info: any = await src.fetchPopularSong(cfg).catch(() => null);
-      const img = await censored(String(info?.artwork || ""), "minigame_song.png", "Indovina la canzone");
-      return img ? { image: img, source: img.startsWith("data:") ? "canvas" : "remote" } : canvasOut(card("Indovina la canzone", ["Ascolta l'anteprima"], "guess_song", client));
+      const artwork = String(info?.artwork || SAMPLE.album[0] || "");
+      const img = artwork ? await censored(artwork, "minigame_song.png", "Indovina la canzone") : "";
+      if (img?.startsWith("data:")) return { image: img, source: "canvas" };
+      return photoCardOut([artwork, ...SAMPLE.album], "Indovina la canzone", "guess_song", ["Ascolta l'anteprima"], client, "Anteprima senza copertina.");
     }
     case "guessAlbum": {
       const albums: any[] = await src.loadAlbumsFromApi(cfg).catch(() => []);
-      const row: any = pick(albums.filter((a) => a?.image || a?.album));
-      const raw = String(
-        row?.image ||
-          "https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg",
+      const row: any = pick(albums.filter((a) => a?.image)) || (await src.fetchSampleAlbum().catch(() => null));
+      const raw = String(row?.image || "");
+      const img = raw ? await censored(raw, "minigame_album.png", "Indovina l'album") : "";
+      if (img?.startsWith("data:")) return { image: img, source: "canvas" };
+      return photoCardOut(
+        [raw, ...SAMPLE.album],
+        "Indovina l'album",
+        "guess_album",
+        [String(row?.album || "Album"), String(row?.artist || "")].filter(Boolean),
+        client,
+        "Anteprima senza copertina dell'album.",
       );
-      const img = await censored(raw, "minigame_album.png", "Indovina l'album");
-      if (img && img.startsWith("data:")) return { image: img, source: "canvas" };
-      const note = !row?.image ? "Nessun album dalla fonte (Deezer non risponde)." : "Copertina non caricata nella card.";
-      return { ...canvasOut(card("Indovina l'album", [String(row?.album || "Album"), String(row?.artist || "")], "guess_album", client)), note };
     }
     case "drivingQuiz": {
       const sample = {
@@ -209,16 +261,119 @@ async function render(type: string, client?): Promise<PreviewOut> {
   }
 }
 
+function isUsablePreviewImage(image?: string) {
+  return Boolean(image && String(image).startsWith("data:image/"));
+}
+
 async function renderMinigamePreview(type?: string, client?): Promise<PreviewOut> {
   const t = String(type || "").trim().slice(0, 40);
   if (!t) return { image: "", source: "none" };
-  if (!canvasAvailable()) return { image: "", source: "none", note: "Canvas non disponibile nel processo del sito: niente immagine vera." };
+  if (!canvasAvailable()) return { image: "", source: "none", note: "Canvas non disponibile nel processo del bot: niente immagine vera." };
   const hit = cache.get(t);
-  if (hit && Date.now() - hit.at < CACHE_MS && hit.out.image) return hit.out;
+  if (hit && Date.now() - hit.at < CACHE_MS && isUsablePreviewImage(hit.out.image)) return hit.out;
   const out: PreviewOut = await render(t, client).catch((e: any) => ({ image: "", source: "none" as const, note: `Errore: ${String(e?.message || e).slice(0, 120)}` }));
   if (!out.image && !out.note) out.note = "Il bot non è riuscito a generare l'immagine.";
-  if (out.image) cache.set(t, { at: Date.now(), out });
+  /* solo data URL in cache/store: gli URL remoti in dashboard spesso non si vedono */
+  if (isUsablePreviewImage(out.image)) {
+    out.source = "canvas";
+    cache.set(t, { at: Date.now(), out });
+  } else if (out.image && !isUsablePreviewImage(out.image)) {
+    out.image = "";
+    out.source = "none";
+    if (!out.note) out.note = "Immagine remota scartata: serve la card canvas.";
+  }
   return out;
 }
 
-export = { renderMinigamePreview };
+/* ── anteprime preparate dal processo dei minigiochi ──
+ * Il processo del sito non raggiunge le fonti esterne (TheSportsDB, Deezer…): le immagini le genera il processo
+ * che fa girare i minigiochi veri, le salva nel database e il sito le legge da lì. */
+/* v4: visual system Vinili (glass viola) — invalida le card crema/marroni. */
+const STORE_PREFIX = "minigamePreview.v4.";
+const WANTED_KEY = "minigamePreviewWanted.v4.list";
+const FRESH_MS = 12 * 60 * 60 * 1000;
+type StoredPreview = PreviewOut & { at: number };
+
+function botState() {
+  return require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+}
+
+async function readStoredPreview(type: string): Promise<StoredPreview | null> {
+  const v: any = await botState().getBotState(STORE_PREFIX + type, null).catch(() => null);
+  return v && typeof v === "object" ? (v as StoredPreview) : null;
+}
+
+/** Il sito chiede un'immagine (nuova o mancante): la prepara il processo dei minigiochi al prossimo giro. */
+async function requestPreview(type: string) {
+  const list: string[] = (await botState().getBotState(WANTED_KEY, []).catch(() => [])) || [];
+  if (Array.isArray(list) && list.includes(type)) return;
+  await botState().setBotState(WANTED_KEY, [...(Array.isArray(list) ? list : []), type].slice(-60)).catch(() => false);
+}
+
+function isPhotoFailureNote(note?: string) {
+  return /senza foto|senza logo|senza copertina|foto non disponibile|canvas non disponibile|errore:/i.test(String(note || ""));
+}
+
+/** Per il sito: immagine salvata (se c'è) e richiesta di rinfresco quando è vecchia o manca. */
+async function getStoredMinigamePreview(type?: string): Promise<PreviewOut> {
+  const t = String(type || "").trim().slice(0, 40);
+  if (!t) return { image: "", source: "none" };
+  const stored = await readStoredPreview(t);
+  const photoOk = stored && isUsablePreviewImage(stored.image) && !isPhotoFailureNote(stored.note);
+  const fresh = Boolean(photoOk && Date.now() - Number(stored!.at || 0) <= FRESH_MS);
+  if (!fresh) await requestPreview(t);
+  if (fresh) return { image: stored!.image, source: "canvas" };
+  /* se c’è già una card (anche solo testo) mostrala subito mentre il worker rifà quella con foto */
+  if (stored && isUsablePreviewImage(stored.image)) {
+    return { image: stored.image, source: "canvas", ...(isPhotoFailureNote(stored.note) ? { note: stored.note } : {}) };
+  }
+  if (stored?.note) return { image: "", source: "none", note: stored.note };
+  return { image: "", source: "none", note: "Il bot sta preparando l'immagine: compare tra poco." };
+}
+
+async function renderAndStore(type: string, client?) {
+  cache.delete(type);
+  const out = await renderMinigamePreview(type, client);
+  if (isUsablePreviewImage(out.image)) {
+    await botState().setBotState(STORE_PREFIX + type, { ...out, at: Date.now() }).catch(() => false);
+  }
+  return out;
+}
+
+let previewWorker: NodeJS.Timeout | null = null;
+/** Processo dei minigiochi: ogni 20 s prepara le immagini chieste dal sito; all'avvio quelle che mancano. */
+function startMinigamePreviewWorker(client?) {
+  if (previewWorker) return;
+  let busy = false;
+  const tick = async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      const list: string[] = (await botState().getBotState(WANTED_KEY, []).catch(() => [])) || [];
+      if (Array.isArray(list) && list.length) {
+        await botState().setBotState(WANTED_KEY, []).catch(() => false);
+        for (const t of [...new Set(list)].slice(0, 20)) await renderAndStore(String(t), client).catch(() => null);
+      }
+    } finally {
+      busy = false;
+    }
+  };
+  previewWorker = setInterval(() => void tick(), 20_000);
+  previewWorker.unref?.();
+  /* all'avvio, piano piano: tutti i tipi senza immagine o vecchi */
+  void (async () => {
+    let types: string[] = [];
+    try {
+      const { MINIGAME_TYPE_LABELS } = require("./minigameClassicDrafts") as typeof import("./minigameClassicDrafts");
+      types = Object.keys(MINIGAME_TYPE_LABELS || {});
+    } catch {}
+    for (const t of types) {
+      const stored = await readStoredPreview(t);
+      if (stored?.image && Date.now() - Number(stored.at || 0) < FRESH_MS) continue;
+      await renderAndStore(t, client).catch(() => null);
+      await new Promise((r) => setTimeout(r, 2500));
+    }
+  })();
+}
+
+export = { renderMinigamePreview, getStoredMinigamePreview, startMinigamePreviewWorker };

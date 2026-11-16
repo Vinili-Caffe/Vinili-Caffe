@@ -150,6 +150,7 @@ import {
   isPartnershipModuleTab,
   isBachecaModuleTab,
   isLivelliModuleTab,
+  normalizeLivelliModuleTab,
   LIVELLI_MODULE_TABS,
   isRegistroModuleTab,
   REGISTRO_MODULE_TABS,
@@ -343,7 +344,7 @@ const SECTION_HERO: Partial<Record<string, { text: string; accent: string }>> = 
   sondaggi: { text: "Domande al server con voto a pulsanti e risultati in diretta.", accent: "#6f9ce8" },
   live: { text: "Notifiche social multi-piattaforma: live, video e post con messaggio, canale e ping.", accent: "#9146ff" },
   compleanni: { text: "Gli auguri a chi compie gli anni, con il ruolo del giorno.", accent: "#f08fb0" },
-  livelli: { text: "Livelli e EXP del server: tassi, minigiochi, moltiplicatori, premi e annunci.", accent: "#826bc2" },
+  livelli: { text: "Livelli e EXP del server: tassi, minigiochi, moltiplicatori, premi e annunci di livello.", accent: "#826bc2" },
 };
 
 /* aree del registro, tutte nella stessa pagina */
@@ -567,7 +568,7 @@ function sanitizeModuleTab(section: Section, raw: string | null | undefined): st
   if (section === "moderation") return isModerationModuleTab(v) ? v : "overview";
   if (section === "partnership") return isPartnershipModuleTab(v) ? v : "setup";
   if (section === "bacheca") return isBachecaModuleTab(v) ? v : "impostazioni";
-  if (section === "livelli") return isLivelliModuleTab(v) ? v : "exp";
+  if (section === "livelli") return normalizeLivelliModuleTab(v);
   if (section === "commands") {
     if (v === "all" || isCommandSectionTab(v)) return v;
     /* categorie dinamiche dal catalogo API */
@@ -2649,7 +2650,7 @@ export function GuildPanel() {
                     {section === "livelli" && guildId && token ? (
                       withSwitchTabs(
                         <Panel>
-                          <LevelsPanel guildId={guildId} token={token} onToast={showToast} tab={moduleTab && isLivelliModuleTab(moduleTab) ? moduleTab : "exp"} />
+                          <LevelsPanel guildId={guildId} token={token} onToast={showToast} tab={normalizeLivelliModuleTab(moduleTab)} />
                         </Panel>,
                       )
                     ) : null}

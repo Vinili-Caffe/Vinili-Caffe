@@ -5,7 +5,29 @@ const { drawLabelWithEmoji, tokenizeEmojiText } = require("../../Community/utils
 const { AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
 const { polishItalianQuestionText, loadImageBufferFromUrl } = require("./minigameImageRemote") as typeof import("./minigameImageRemote");
 
-const CANVAS_STYLE = { bgGradStart: "#2c2419", bgGradEnd: "#1a1510", cardFill: "rgba(247, 241, 232, 0.96)", cardStroke: "rgba(111, 78, 55, 0.5)", titleColor: "#8b7355", bodyColor: "#2c2419", padding: 44, radius: 22 };
+/**
+ * Visual system minigiochi classici (no SW/Halloween).
+ * Brand Vinili: viola #826bc2 su espresso scuro — card glass, non “foglietto crema”.
+ */
+const CANVAS_STYLE = {
+  bgDeep: "#0c0a12",
+  bgMid: "#16101f",
+  bgGlow: "rgba(130, 107, 194, 0.38)",
+  bgGlowSoft: "rgba(130, 107, 194, 0.12)",
+  cardFill: "rgba(22, 16, 32, 0.92)",
+  cardFillTop: "rgba(38, 28, 56, 0.96)",
+  cardStroke: "rgba(168, 148, 220, 0.42)",
+  cardStrokeInner: "rgba(255, 255, 255, 0.06)",
+  accent: "#826bc2",
+  accentHot: "#a78bfa",
+  titleColor: "#d4c4f5",
+  bodyColor: "#f3eefc",
+  mutedColor: "rgba(214, 200, 240, 0.62)",
+  dangerColor: "#f0a090",
+  hangmanStroke: "#cbb8ef",
+  padding: 40,
+  radius: 28,
+};
 
 let canvasModule = null;
 let createCanvas = null;
@@ -94,13 +116,14 @@ function buildFastTypePromptImage(phrase?, labelText = "Scrivi esattamente quest
     const totalContentHeight = labelHeight + gapLabelPhrase + totalPhraseHeight;
     const contentStartY = cardY + (cardH - totalContentHeight) / 2;
 
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    ctx.fillStyle = CANVAS_STYLE.titleColor;
-    ctx.font = fontStackPrimaryOnly(28, "600");
-    ctx.fillText(String(labelText || "Scrivi esattamente questa frase"), width / 2, contentStartY);
+    drawCanvasTitle(ctx, String(labelText || "Scrivi esattamente questa frase"), width / 2, contentStartY, {
+      size: 28,
+      maxWidth: usableWidth,
+    });
 
     let phraseY = contentStartY + labelHeight + gapLabelPhrase;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
     ctx.font = fontStackPrimaryOnly(42, "700");
     ctx.fillStyle = CANVAS_STYLE.bodyColor;
     for (const line of phraseLines) {
@@ -173,13 +196,11 @@ function buildDrivingQuizPromptImage(row?) {
     const totalContentHeight = titleHeight + titleGap + statementHeight + optionsHeight;
     let y = cardY + (cardH - totalContentHeight) / 2;
 
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    ctx.fillStyle = CANVAS_STYLE.titleColor;
-    ctx.font = fontStackPrimaryOnly(56, "700");
-    ctx.fillText("Quiz patente", textCenterX, y);
+    drawCanvasTitle(ctx, "Quiz patente", textCenterX, y, { size: 52, maxWidth: usableWidth });
     y += titleHeight + titleGap;
 
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
     ctx.fillStyle = CANVAS_STYLE.bodyColor;
     ctx.font = fontStackPrimaryOnly(58, "700");
     for (const line of statementLines) {
@@ -196,7 +217,7 @@ function buildDrivingQuizPromptImage(row?) {
       }
     } else {
       y += boolGap;
-      ctx.fillStyle = CANVAS_STYLE.titleColor;
+      ctx.fillStyle = CANVAS_STYLE.accentHot;
       ctx.font = fontStackPrimaryOnly(46, "700");
       ctx.fillText("Rispondi: Vero o Falso", textCenterX, y);
     }
@@ -227,21 +248,123 @@ function roundRect(ctx?, x?, y?, w?, h?, r?) {
 }
 
 function fillCanvasBackground(ctx?, width?, height?) {
-  const g = ctx.createLinearGradient(0, 0, width, height);
-  g.addColorStop(0, CANVAS_STYLE.bgGradStart);
-  g.addColorStop(1, CANVAS_STYLE.bgGradEnd);
-  ctx.fillStyle = g;
+  const base = ctx.createLinearGradient(0, 0, width * 0.2, height);
+  base.addColorStop(0, CANVAS_STYLE.bgMid);
+  base.addColorStop(0.55, CANVAS_STYLE.bgDeep);
+  base.addColorStop(1, "#08060d");
+  ctx.fillStyle = base;
   ctx.fillRect(0, 0, width, height);
+
+  /* alone viola brand in alto a destra */
+  const glow = ctx.createRadialGradient(width * 0.82, height * 0.12, 20, width * 0.78, height * 0.18, Math.max(width, height) * 0.55);
+  glow.addColorStop(0, CANVAS_STYLE.bgGlow);
+  glow.addColorStop(0.45, CANVAS_STYLE.bgGlowSoft);
+  glow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, width, height);
+
+  const glow2 = ctx.createRadialGradient(width * 0.12, height * 0.9, 10, width * 0.18, height * 0.85, Math.max(width, height) * 0.4);
+  glow2.addColorStop(0, "rgba(90, 60, 140, 0.22)");
+  glow2.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = glow2;
+  ctx.fillRect(0, 0, width, height);
+
+  /* vignetta leggera */
+  const vig = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.25, width / 2, height / 2, Math.max(width, height) * 0.72);
+  vig.addColorStop(0, "rgba(0,0,0,0)");
+  vig.addColorStop(1, "rgba(0,0,0,0.45)");
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, width, height);
+
+  /* granello sottile (deterministic, no random per buffer stabili) */
+  ctx.save();
+  ctx.globalAlpha = 0.035;
+  ctx.fillStyle = "#ffffff";
+  for (let i = 0; i < 90; i += 1) {
+    const x = ((i * 97) % Math.max(1, width - 2)) + 1;
+    const y = ((i * 53) % Math.max(1, height - 2)) + 1;
+    ctx.fillRect(x, y, 1.5, 1.5);
+  }
+  ctx.restore();
 }
 
 function fillCanvasCard(ctx?, x?, y?, w?, h?, radius = null) {
   const r = radius ?? CANVAS_STYLE.radius;
-  ctx.fillStyle = CANVAS_STYLE.cardFill;
+  ctx.save();
+  /* ombra soft sotto la card */
+  ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+  ctx.shadowBlur = 28;
+  ctx.shadowOffsetY = 10;
+  const fill = ctx.createLinearGradient(x, y, x, y + h);
+  fill.addColorStop(0, CANVAS_STYLE.cardFillTop);
+  fill.addColorStop(1, CANVAS_STYLE.cardFill);
+  ctx.fillStyle = fill;
   roundRect(ctx, x, y, w, h, r);
   ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  /* bordo viola */
   ctx.strokeStyle = CANVAS_STYLE.cardStroke;
   ctx.lineWidth = 2;
   roundRect(ctx, x, y, w, h, r);
+  ctx.stroke();
+
+  /* highlight interno top */
+  ctx.strokeStyle = CANVAS_STYLE.cardStrokeInner;
+  ctx.lineWidth = 1;
+  roundRect(ctx, x + 3, y + 3, w - 6, h - 6, Math.max(8, r - 4));
+  ctx.stroke();
+
+  /* barra accent in alto */
+  const barH = 4;
+  ctx.fillStyle = CANVAS_STYLE.accent;
+  roundRect(ctx, x + 28, y + 14, Math.min(120, w * 0.18), barH, 2);
+  ctx.fill();
+  const barGlow = ctx.createLinearGradient(x + 28, y, x + 160, y);
+  barGlow.addColorStop(0, CANVAS_STYLE.accentHot);
+  barGlow.addColorStop(1, "rgba(167, 139, 250, 0)");
+  ctx.fillStyle = barGlow;
+  roundRect(ctx, x + 28, y + 14, Math.min(180, w * 0.28), barH, 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCanvasTitle(ctx?, text?, cx?, y?, opts: { size?: number; maxWidth?: number } = {}) {
+  const size = Math.max(28, Number(opts.size) || 64);
+  const maxWidth = Number(opts.maxWidth) || 1200;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = CANVAS_STYLE.titleColor;
+  ctx.font = fontStackPrimaryOnly(size, "700");
+  /* leggero glow sul titolo */
+  ctx.shadowColor = "rgba(130, 107, 194, 0.55)";
+  ctx.shadowBlur = 18;
+  ctx.fillText(String(text || "Minigioco").slice(0, 56), cx, y, maxWidth);
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+/** Cornice foto arrotolata + glow viola; ritaglia l’immagine dentro. */
+function drawClippedPhoto(ctx?, photo?, x?, y?, w?, h?, radius = 18) {
+  if (!photo) return;
+  ctx.save();
+  ctx.shadowColor = "rgba(130, 107, 194, 0.4)";
+  ctx.shadowBlur = 22;
+  ctx.fillStyle = "rgba(8, 6, 14, 0.95)";
+  roundRect(ctx, x - 5, y - 5, w + 10, h + 10, radius + 3);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  roundRect(ctx, x, y, w, h, radius);
+  ctx.clip();
+  ctx.drawImage(photo, x, y, w, h);
+  ctx.restore();
+  ctx.strokeStyle = "rgba(167, 139, 250, 0.55)";
+  ctx.lineWidth = 2.5;
+  roundRect(ctx, x, y, w, h, radius);
   ctx.stroke();
 }
 
@@ -470,17 +593,7 @@ function buildHangmanImageAttachment(maskedWord?, misses = 0, maxMisses = 10, fi
     const ctx = canvas.getContext("2d");
 
     fillCanvasBackground(ctx, width, height);
-
-    const innerGrad = ctx.createLinearGradient(0, 0, width, 0);
-    innerGrad.addColorStop(0, "#3d2e26");
-    innerGrad.addColorStop(0.5, "#5c4538");
-    innerGrad.addColorStop(1, "#3d2e26");
-    ctx.fillStyle = innerGrad;
-    ctx.strokeStyle = CANVAS_STYLE.cardStroke;
-    ctx.lineWidth = 3;
-    roundRect(ctx, 32, 32, width - 64, height - 64, 16);
-    ctx.fill();
-    ctx.stroke();
+    fillCanvasCard(ctx, 28, 28, width - 56, height - 56, 22);
 
     const safeMax = Math.max(3, Math.min(10, Number(maxMisses) || 10));
     const m = Math.max(0, Math.min(safeMax, Number(misses) || 0));
@@ -488,7 +601,7 @@ function buildHangmanImageAttachment(maskedWord?, misses = 0, maxMisses = 10, fi
 
     const leftZoneCenterX = 240;
     const wordCenterX = 600;
-    const contentTop = 100;
+    const contentTop = 108;
     const contentBottom = 380;
 
     const poleBottomY = contentBottom - 24;
@@ -500,7 +613,7 @@ function buildHangmanImageAttachment(maskedWord?, misses = 0, maxMisses = 10, fi
     const headCy = poleTopY + 32;
     const ropeY = poleTopY + 8;
 
-    ctx.strokeStyle = "#b8a99a";
+    ctx.strokeStyle = CANVAS_STYLE.hangmanStroke;
     ctx.lineWidth = 4;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -579,23 +692,19 @@ function buildHangmanImageAttachment(maskedWord?, misses = 0, maxMisses = 10, fi
       ctx.stroke();
     }
 
-    ctx.fillStyle = "#e8e0d5";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = fontStackPrimaryOnly(42, "700");
-    ctx.fillText(String(headerTitle || "Impiccato"), width / 2, 54);
+    drawCanvasTitle(ctx, String(headerTitle || "Impiccato"), width / 2, 48, { size: 40, maxWidth: width - 120 });
 
     const wordStr = String(maskedWord || "").trim() || "_";
-    ctx.fillStyle = "#e8e0d5";
+    ctx.fillStyle = CANVAS_STYLE.bodyColor;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.font = fontStackPrimaryOnly(44, "700");
     ctx.fillText(wordStr, wordCenterX, (contentTop + contentBottom) / 2, width - 320);
 
     const isLost = m >= safeMax;
-    ctx.fillStyle = isLost ? "#f5b3a6" : "#c9b89f";
+    ctx.fillStyle = isLost ? CANVAS_STYLE.dangerColor : CANVAS_STYLE.mutedColor;
     ctx.font = fontStackPrimaryOnly(28, "700");
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(`Errori: ${m}/${safeMax}`, width / 2, height - 60);
+    ctx.fillText(`Errori: ${m}/${safeMax}`, width / 2, height - 58);
 
     return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: fileName });
   } catch {
@@ -624,8 +733,8 @@ async function buildEmojiRichPromptImageAttachment(title?, lines = [], fileBaseN
     const cardH = height - CANVAS_STYLE.padding * 2;
     fillCanvasCard(ctx, cardX, cardY, cardW, cardH);
 
-    await drawLabelWithEmoji(ctx, String(title || "Minigioco"), width / 2, cardY + 48, {
-      size: 68,
+    await drawLabelWithEmoji(ctx, String(title || "Minigioco"), width / 2, cardY + 56, {
+      size: 64,
       weight: "700",
       color: CANVAS_STYLE.titleColor,
       align: "center",
@@ -690,11 +799,10 @@ function buildPromptImageAttachment(title?, lines = [], fileBaseName = "minigame
       const cardH = height - CANVAS_STYLE.padding * 2;
       fillCanvasCard(ctx, cardX, cardY, cardW, cardH);
 
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
-      ctx.fillStyle = CANVAS_STYLE.titleColor;
-      ctx.font = fontStackPrimaryOnly(76, "800");
-      ctx.fillText(String(title || "Cultura generale"), width / 2, cardY + 100);
+      drawCanvasTitle(ctx, String(title || "Cultura generale"), width / 2, cardY + 72, {
+        size: 68,
+        maxWidth: cardW - 120,
+      });
 
       const question = polishItalianQuestionText(String(lines[0] || "").trim() || "Domanda");
       const usableWidth = cardW - 150;
@@ -710,6 +818,8 @@ function buildPromptImageAttachment(title?, lines = [], fileBaseName = "minigame
       const totalH = questionLines.length * lineHeight;
       let y = Math.round(cardY + 200 + Math.max(0, (cardH - 300 - totalH) / 2));
 
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
       ctx.fillStyle = CANVAS_STYLE.bodyColor;
       ctx.font = fontStackPrimaryOnly(questionFont, "700");
       for (const line of questionLines) {
@@ -740,11 +850,10 @@ function buildPromptImageAttachment(title?, lines = [], fileBaseName = "minigame
       const cardH = height - CANVAS_STYLE.padding * 2;
       fillCanvasCard(ctx, cardX, cardY, cardW, cardH);
 
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
-      ctx.fillStyle = CANVAS_STYLE.titleColor;
-      ctx.font = fontStackPrimaryOnly(76, "800");
-      ctx.fillText(String(title || "Indovina la parola"), width / 2, cardY + 100);
+      drawCanvasTitle(ctx, String(title || "Indovina la parola"), width / 2, cardY + 72, {
+        size: 68,
+        maxWidth: cardW - 120,
+      });
 
       const scrambled = String(lines[0] || "").trim() || "?";
       const usableWidth = cardW - 150;
@@ -758,6 +867,8 @@ function buildPromptImageAttachment(title?, lines = [], fileBaseName = "minigame
       const lineHeight = Math.round(fontSize * 1.22);
       const totalH = textLines.length * lineHeight;
       let y = Math.round(cardY + 200 + Math.max(0, (cardH - 300 - totalH) / 2));
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
       ctx.fillStyle = CANVAS_STYLE.bodyColor;
       ctx.font = fontStackPrimaryOnly(fontSize, "700");
       for (const line of textLines) {
@@ -805,11 +916,10 @@ function buildPromptImageAttachment(title?, lines = [], fileBaseName = "minigame
     const cardH = height - CANVAS_STYLE.padding * 2;
     fillCanvasCard(ctx, cardX, cardY, cardW, cardH);
 
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    ctx.fillStyle = CANVAS_STYLE.titleColor;
-    ctx.font = fontStackPrimaryOnly(68, "700");
-    ctx.fillText(String(title || "Minigioco"), width / 2, cardY + 48);
+    drawCanvasTitle(ctx, String(title || "Minigioco"), width / 2, cardY + 52, {
+      size: 60,
+      maxWidth: cardW - 120,
+    });
 
     const usableWidth = cardW - 120;
     const sourceLines = Array.isArray(lines) ? lines.map((line?) => String(line || "").trim()).filter(Boolean) : [];
@@ -820,6 +930,8 @@ function buildPromptImageAttachment(title?, lines = [], fileBaseName = "minigame
     }
     if (!renderedLines.length) renderedLines.push("...");
 
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
     ctx.font = fontStackPrimaryOnly(56, "700");
     ctx.fillStyle = CANVAS_STYLE.bodyColor;
     const lineHeight = 76;
@@ -852,21 +964,21 @@ async function buildRemoteGuessImageCardAttachment(imageUrl?, title?, fileName =
     const cardW = width - CANVAS_STYLE.padding * 2;
     const cardH = height - CANVAS_STYLE.padding * 2;
     fillCanvasCard(ctx, cardX, cardY, cardW, cardH);
-    ctx.textAlign = "center";
-    ctx.fillStyle = CANVAS_STYLE.titleColor;
-    ctx.font = fontStackPrimaryOnly(64, "700");
-    ctx.fillText(String(title || "Indovina").slice(0, 48), width / 2, cardY + 48);
-    /* zona sotto il titolo: foto centrata in orizzontale e in verticale; le immagini piccole (bandiere) si ingrandiscono */
-    const areaTop = cardY + 120;
-    const areaBottom = cardY + cardH - 44;
-    const maxW = cardW - 120;
+    drawCanvasTitle(ctx, String(title || "Indovina").slice(0, 48), width / 2, cardY + 44, {
+      size: 56,
+      maxWidth: cardW - 100,
+    });
+    /* zona sotto il titolo: foto centrata; piccole (bandiere) si ingrandiscono fino a 3× */
+    const areaTop = cardY + 128;
+    const areaBottom = cardY + cardH - 40;
+    const maxW = cardW - 140;
     const maxH = areaBottom - areaTop;
     const scale = Math.min(maxW / photo.width, maxH / photo.height, 3);
     const drawW = Math.round(photo.width * scale);
     const drawH = Math.round(photo.height * scale);
     const x = Math.round((width - drawW) / 2);
     const y = Math.round(areaTop + (maxH - drawH) / 2);
-    ctx.drawImage(photo, x, y, drawW, drawH);
+    drawClippedPhoto(ctx, photo, x, y, drawW, drawH, Math.min(20, Math.round(Math.min(drawW, drawH) / 12)));
     const name = String(fileName || "guess_image.png").replace(/[^\w.\-]+/g, "_");
     return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: name.endsWith(".png") ? name : `${name}.png` });
   } catch {
@@ -886,13 +998,17 @@ function buildMathExpressionImageAttachment(expression?) {
     const pad = CANVAS_STYLE.padding;
     const cardW = width - pad * 2;
     const cardH = height - pad * 2;
-    fillCanvasCard(ctx, pad, pad, cardW, cardH, 20);
+    fillCanvasCard(ctx, pad, pad, cardW, cardH, 22);
 
+    drawCanvasTitle(ctx, "Calcola", width / 2, pad + 36, { size: 28, maxWidth: cardW - 80 });
     ctx.fillStyle = CANVAS_STYLE.bodyColor;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = fontStackPrimaryOnly(120, "700");
-    ctx.fillText(String(expression || ""), width / 2, height / 2);
+    ctx.shadowColor = "rgba(130, 107, 194, 0.45)";
+    ctx.shadowBlur = 16;
+    ctx.font = fontStackPrimaryOnly(112, "700");
+    ctx.fillText(String(expression || ""), width / 2, height / 2 + 18);
+    ctx.shadowBlur = 0;
 
     const name = "math_expression.png";
     return new AttachmentBuilder(canvas.toBuffer("image/png"), { name });
@@ -964,16 +1080,17 @@ function buildRegionNameImageAttachment(regionName?) {
     const pad = CANVAS_STYLE.padding;
     const cardW = width - pad * 2;
     const cardH = height - pad * 2;
-    fillCanvasCard(ctx, pad, pad, cardW, cardH, 20);
+    fillCanvasCard(ctx, pad, pad, cardW, cardH, 22);
 
-    ctx.fillStyle = CANVAS_STYLE.titleColor;
+    drawCanvasTitle(ctx, label, width / 2, 118, { size: 36, maxWidth: cardW - 80 });
+    ctx.fillStyle = CANVAS_STYLE.bodyColor;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = fontStackPrimaryOnly(52, "700");
-    ctx.fillText(label, width / 2, 140);
-    ctx.fillStyle = CANVAS_STYLE.bodyColor;
-    ctx.font = fontStackPrimaryOnly(96, "700");
-    ctx.fillText(safeRegion, width / 2, 250, width - 120);
+    ctx.shadowColor = "rgba(130, 107, 194, 0.4)";
+    ctx.shadowBlur = 14;
+    ctx.font = fontStackPrimaryOnly(88, "700");
+    ctx.fillText(safeRegion, width / 2, 250, width - 140);
+    ctx.shadowBlur = 0;
 
     return new AttachmentBuilder(canvas.toBuffer("image/png"), {
       name: "region_name.png",

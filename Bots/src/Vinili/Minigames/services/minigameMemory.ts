@@ -280,24 +280,41 @@ async function startMemoryEmojiGame(client?, cfg?, options?) {
     await sendMinigameRolePing(channel, cfg);
 
   const sequenceEmbed = buildMemorySequenceEmbed(displaySequence, rewardExp, displayMs);
+  /* Sempre canvas con la sequenza: il draft condiviso toglie i fields dell'embed classico. */
   let sequenceFiles = [];
-  if (shouldUseStarWarsTheme(cfg)) {
-    const { attachment } = await resolveMinigamePromptAttachment(
-      cfg,
-      "Memoria",
-      [displaySequence, "Memorizza la sequenza"],
-      "memory_emoji",
-      client,
-    );
-    if (attachment) {
-      sequenceEmbed.setImage(`attachment://${attachment.name}`);
-      sequenceFiles = [attachment];
-    }
+  let sequenceImage = "";
+  const { attachment } = await resolveMinigamePromptAttachment(
+    cfg,
+    "Memoria",
+    [displaySequence, "Memorizza la sequenza"],
+    "memory_emoji",
+    client,
+  );
+  if (attachment) {
+    sequenceImage = `attachment://${attachment.name}`;
+    sequenceEmbed.setImage(sequenceImage);
+    sequenceFiles = [attachment];
   }
+  const displaySecs = Math.max(1, Math.round(displayMs / 1000));
+  const startPrompt = sequenceImage
+    ? `Memorizza questa sequenza e riscrivila per ottenere **${rewardExp} exp**.\nLa sequenza sparirà tra **${displaySecs} secondi**.`
+    : `Memorizza questa sequenza e riscrivila per ottenere **${rewardExp} exp**.\n${displaySequence}\nLa sequenza sparirà tra **${displaySecs} secondi**.`;
   const sequenceMessage = await sendMinigameMessage(
     channel,
     { embeds: [sequenceEmbed], files: sequenceFiles },
-    { type, kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs }) },
+    {
+      type,
+      kind: "start",
+      vars: minigameDraftVars(channel, {
+        exp: rewardExp,
+        type,
+        prompt: startPrompt,
+        image: sequenceImage || undefined,
+        minutesLabel: `**${displaySecs} secondi**`,
+        minutes: String(Math.max(1, Math.round(displayMs / 60_000))),
+        duration: String(displaySecs),
+      }),
+    },
   ).catch(() => null);
   if (!sequenceMessage) return false;
   suppressMinigameSnipe(client, channelId, sequenceMessage.id);

@@ -3,7 +3,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = requ
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 const { fetchSingerImageFallback, buildPromptImageAttachment, fetchRawImageAttachment, buildRemoteGuessImageCardAttachment, censorArtworkImage } = require("./minigameImages") as typeof import("./minigameImages");
 const { buildGuessFlagEmbed, buildGuessPlayerEmbed, buildGuessSongEmbed, buildGuessTeamEmbed, buildGuessSingerEmbed, buildGuessAlbumEmbed, buildTimeoutFlagEmbed, buildTimeoutPlayerEmbed, buildTimeoutTeamEmbed, buildTimeoutSingerEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
-const { randomBetween, loadCountryList, loadFootballTeamsFromApi, loadSingersFromApi, loadAlbumsFromApi, normalizePlayerGuess, fetchPlayerFromRandomLetter, fetchFamousPlayer, fetchLeagueFamousPlayer, fetchRandomSong, fetchPopularSong } = require("./minigameSources") as typeof import("./minigameSources");
+const { randomBetween, loadCountryList, loadFootballTeamsFromApi, loadSingersFromApi, loadAlbumsFromApi, normalizePlayerGuess, fetchPlayerFromRandomLetter, fetchFamousPlayer, fetchLeagueFamousPlayer, fetchSampleFamousPlayer, fetchSampleFootballTeam, fetchSampleAlbum, fetchRandomSong, fetchPopularSong } = require("./minigameSources") as typeof import("./minigameSources");
 const { getChannelCached, pickRandomItem } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { normalizeRewardExp, buildPlayerAnswerAliases, buildPlainMaskedTextHint, buildRevealHint, buildCountryHint } = require("./minigameText") as typeof import("./minigameText");
 const { activeGames, pickQuestionAvoidRecent } = require("./minigameState") as typeof import("./minigameState");
@@ -220,7 +220,7 @@ async function startGuessPlayerGame(client?, cfg?) {
     fetchLeagueFamousPlayer(cfg),
     fetchPlayerFromRandomLetter(cfg),
   ]);
-  let info = infoFamous || infoLeague || infoLetter;
+  let info = infoFamous || infoLeague || infoLetter || (await fetchSampleFamousPlayer().catch(() => null));
   if (!info) return false;
 
   if (cfg?.translateApiToItalian !== false) {
@@ -389,7 +389,10 @@ async function startGuessTeamGame(client?, cfg?) {
   const channelId = cfg.channelId;
   if (!channelId || activeGames.has(channelId)) return false;
   const teams = await loadFootballTeamsFromApi(cfg);
-  const pick = pickQuestionAvoidRecent(channelId, "guessTeam", teams, (t?) => t?.team || t?.id || "", 15) || pickRandomItem(teams);
+  let pick = pickQuestionAvoidRecent(channelId, "guessTeam", teams, (t?) => t?.team || t?.id || "", 15) || pickRandomItem(teams);
+  if (!pick?.team || !pick?.answers?.length) {
+    pick = await fetchSampleFootballTeam().catch(() => null);
+  }
   if (!pick?.team || !pick?.answers?.length) return false;
 
   const rewardExp = normalizeRewardExp(cfg?.guessTeam?.rewardExp ?? 150);
@@ -522,7 +525,10 @@ async function startGuessAlbumGame(client?, cfg?) {
   const channelId = cfg.channelId;
   if (!channelId || activeGames.has(channelId)) return false;
   const albums = await loadAlbumsFromApi(cfg);
-  const pick = pickQuestionAvoidRecent(channelId, "guessAlbum", albums, (a?) => `${a?.album || ""}|${a?.artist || ""}`, 15) || pickRandomItem(albums);
+  let pick = pickQuestionAvoidRecent(channelId, "guessAlbum", albums, (a?) => `${a?.album || ""}|${a?.artist || ""}`, 15) || pickRandomItem(albums);
+  if (!pick?.album || !pick?.answers?.length) {
+    pick = await fetchSampleAlbum().catch(() => null);
+  }
   if (!pick?.album || !pick?.answers?.length) return false;
 
   const rewardExp = normalizeRewardExp(cfg?.guessAlbum?.rewardExp ?? 150);

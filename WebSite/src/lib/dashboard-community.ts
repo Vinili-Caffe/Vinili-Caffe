@@ -471,6 +471,60 @@ export type LevelsMinigameScoring = {
   /** Messaggio vittoria unico */
   winDraft?: MsgDraft | null;
 };
+export type LevelsMinigameClock = { hour: number; minute: number };
+export type LevelsMinigameSpawn = {
+  enabled: boolean;
+  channelId?: string | null;
+  roleId?: string | null;
+  intervalMs: number;
+  noParticipationIntervalMs: number;
+  activityWindowMs: number;
+  minMessages: number;
+  failsafeMs: number;
+  timeWindow: { start: LevelsMinigameClock; end: LevelsMinigameClock };
+  spawnFreshActivity: { enabled: boolean; windowMs: number; minMessages: number };
+  activityThreshold: {
+    enabled: boolean;
+    hardMin: number;
+    hardMax: number;
+    nightHourStart: number;
+    nightHourEnd: number;
+    nightFactor?: number;
+    peakHourStart: number;
+    peakHourEnd: number;
+    peakFactor?: number;
+    defaultTimeFactor?: number;
+    memberReference?: number;
+    memberFactorMin?: number;
+    memberFactorMax?: number;
+    memberExponent?: number;
+    spamAvgMessagesPerUser?: number;
+    spamPenaltyPerExcess?: number;
+    spamPenaltyCap?: number;
+    minUniqueDivisor?: number;
+    uniqueBypassMultiple?: number;
+  };
+};
+export type LevelsTreasureEmojiPair = { decoy: string; winner: string };
+export type LevelsTreasureBucket = {
+  weight: number;
+  minMessages: number;
+  maxMessages: number;
+  minDurationMs: number;
+  maxDurationMs: number;
+  rewardExp: number;
+};
+export type LevelsMinigameGameOptions = {
+  guessNumber: { min: number; max: number };
+  hangman: { maxMisses: number };
+  memoryEmoji: { displayMs: number };
+  drivingQuiz: { userAnswerCooldownMs: number };
+  guessPlayer: { onlyFamous: boolean };
+  guessSong: { onlyFamous: boolean };
+  guessAlbum: { onlyFamousArtists: boolean };
+  findBotVoice: { excludedChannelIds: string[] };
+  treasureHunt: { emojiPairs: LevelsTreasureEmojiPair[]; buckets: LevelsTreasureBucket[] };
+};
 export type LevelsActivityWinners = {
   channelId: string | null;
   excludedRoleIds: string[];
@@ -525,6 +579,10 @@ export type LevelsConfig = {
   commandCooldown?: { defaultSeconds: number; tiers: LevelsCooldownTier[]; roles: LevelsCooldownRoles; customRoles?: LevelsCooldownCustomRole[] };
   /** bilanciamento EXP minigiochi (solo server principale) */
   minigameScoring?: LevelsMinigameScoring;
+  /** intervallo, fascia oraria e filtri attività (solo server principale) */
+  minigameSpawn?: LevelsMinigameSpawn;
+  /** dettagli per tipo (solo server principale) */
+  minigameGameOptions?: LevelsMinigameGameOptions;
   /** TOP settimanale/mensile (solo server principale) */
   activityWinners?: LevelsActivityWinners;
   /** livelli regalati per la recensione sul sito (solo server principale; 0 = niente) */

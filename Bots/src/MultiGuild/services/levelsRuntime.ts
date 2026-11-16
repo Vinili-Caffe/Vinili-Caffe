@@ -38,6 +38,64 @@ type MinigameScoring = {
   /** Messaggio vittoria unico per tutti i tipi */
   winDraft: ReturnType<typeof T.normalizeDraft> | null;
 };
+type MinigameClock = { hour: number; minute: number };
+/** Intervallo, fascia oraria e filtri attività della chat (overlay su config.json). */
+type MinigameSpawn = {
+  enabled: boolean;
+  /** null = canale chat principale (IDs) */
+  channelId: string | null;
+  /** null = ruolo Minigames (IDs) per il ping */
+  roleId: string | null;
+  intervalMs: number;
+  noParticipationIntervalMs: number;
+  activityWindowMs: number;
+  minMessages: number;
+  failsafeMs: number;
+  timeWindow: { start: MinigameClock; end: MinigameClock };
+  spawnFreshActivity: { enabled: boolean; windowMs: number; minMessages: number };
+  activityThreshold: {
+    enabled: boolean;
+    hardMin: number;
+    hardMax: number;
+    nightHourStart: number;
+    nightHourEnd: number;
+    nightFactor: number;
+    peakHourStart: number;
+    peakHourEnd: number;
+    peakFactor: number;
+    defaultTimeFactor: number;
+    memberReference: number;
+    memberFactorMin: number;
+    memberFactorMax: number;
+    memberExponent: number;
+    spamAvgMessagesPerUser: number;
+    spamPenaltyPerExcess: number;
+    spamPenaltyCap: number;
+    minUniqueDivisor: number;
+    uniqueBypassMultiple: number;
+  };
+};
+type TreasureEmojiPair = { decoy: string; winner: string };
+type TreasureBucket = {
+  weight: number;
+  minMessages: number;
+  maxMessages: number;
+  minDurationMs: number;
+  maxDurationMs: number;
+  rewardExp: number;
+};
+/** Opzioni per-gioco oltre EXP/durata (overlay su config.json). */
+type MinigameGameOptions = {
+  guessNumber: { min: number; max: number };
+  hangman: { maxMisses: number };
+  memoryEmoji: { displayMs: number };
+  drivingQuiz: { userAnswerCooldownMs: number };
+  guessPlayer: { onlyFamous: boolean };
+  guessSong: { onlyFamous: boolean };
+  guessAlbum: { onlyFamousArtists: boolean };
+  findBotVoice: { excludedChannelIds: string[] };
+  treasureHunt: { emojiPairs: TreasureEmojiPair[]; buckets: TreasureBucket[] };
+};
 
 const DEFAULT_MINIGAME_DURATION_MS: Record<string, number> = {
   guessNumber: 180_000,
@@ -159,6 +217,10 @@ type LevelsConfig = {
   };
   /** bilanciamento EXP minigiochi (fast/streak + override per tipo) */
   minigameScoring: MinigameScoring;
+  /** quanto spesso / in quali ore / filtri attività chat */
+  minigameSpawn: MinigameSpawn;
+  /** dettagli per tipo (range numeri, treasure, findBot…) */
+  minigameGameOptions: MinigameGameOptions;
   /** TOP settimanale/mensile: canale, esclusi, ruoli vincitori */
   activityWinners: ActivityWinnersConfig;
   /** curva EXP → livello (soglie e segmenti dello step) */
@@ -170,7 +232,7 @@ type LevelsConfig = {
   };
 };
 
-const SEED_VERSION = 4;
+const SEED_VERSION = 6;
 const MODULE_ID = "livelli";
 
 const moduleOn = (gid?) =>
@@ -395,24 +457,6 @@ function defaultMinigameScoring(): MinigameScoring {
     { type: "synonymAntonym", rewardExp: 150 },
     { type: "guessCity", rewardExp: 150 },
     { type: "treasureHunt", rewardExp: 150 },
-    { type: "starWarsQuiz", rewardExp: 50 },
-    { type: "starWarsGuessPlanet", rewardExp: 50 },
-    { type: "halloweenQuiz", rewardExp: 150 },
-    { type: "halloweenFindGhost", rewardExp: 200 },
-    { type: "halloweenMissingEmoji", rewardExp: 150 },
-    { type: "halloweenCountBats", rewardExp: 150 },
-    { type: "halloweenTrickOrTreat", rewardExp: 100 },
-    { type: "podrace", rewardExp: 100 },
-    { type: "cacciatore", rewardExp: 100 },
-    { type: "scova", rewardExp: 100 },
-    { type: "ordine66", rewardExp: 100 },
-    { type: "attacca_base", rewardExp: 100 },
-    { type: "conquista", rewardExp: 100 },
-    { type: "pg", rewardExp: 100 },
-    { type: "reliquie", rewardExp: 100 },
-    { type: "convoglio", rewardExp: 100 },
-    { type: "ewok", rewardExp: 100 },
-    { type: "olocron", rewardExp: 100 },
   ];
   let startDraft: ReturnType<typeof T.normalizeDraft> | null = null;
   let winDraft: ReturnType<typeof T.normalizeDraft> | null = null;
@@ -514,6 +558,242 @@ function importMinigameScoringFromBotConfig(): MinigameScoring {
       rewardExpByType,
       startDraft: d.startDraft,
       winDraft: d.winDraft,
+    });
+  } catch {
+    return d;
+  }
+}
+
+function clampHour(n: unknown, fb: number) {
+  return Math.floor(clampNum(n, 0, 23, fb));
+}
+function clampMinute(n: unknown, fb: number) {
+  return Math.floor(clampNum(n, 0, 59, fb));
+}
+function normalizeMinigameClock(raw: unknown, fb: MinigameClock): MinigameClock {
+  const r = raw && typeof raw === "object" ? (raw as any) : {};
+  return { hour: clampHour(r.hour, fb.hour), minute: clampMinute(r.minute, fb.minute) };
+}
+
+function defaultMinigameSpawn(): MinigameSpawn {
+  return {
+    enabled: true,
+    channelId: null,
+    roleId: null,
+    intervalMs: 900_000,
+    noParticipationIntervalMs: 900_000,
+    activityWindowMs: 1_800_000,
+    minMessages: 25,
+    failsafeMs: 5_400_000,
+    timeWindow: { start: { hour: 7, minute: 0 }, end: { hour: 1, minute: 0 } },
+    spawnFreshActivity: { enabled: true, windowMs: 300_000, minMessages: 5 },
+    activityThreshold: {
+      enabled: true,
+      hardMin: 15,
+      hardMax: 100,
+      nightHourStart: 24,
+      nightHourEnd: 7,
+      nightFactor: 0.72,
+      peakHourStart: 18,
+      peakHourEnd: 22,
+      peakFactor: 1.08,
+      defaultTimeFactor: 1,
+      memberReference: 200,
+      memberFactorMin: 0.58,
+      memberFactorMax: 1.18,
+      memberExponent: 0.18,
+      spamAvgMessagesPerUser: 4,
+      spamPenaltyPerExcess: 0.065,
+      spamPenaltyCap: 0.42,
+      minUniqueDivisor: 16,
+      uniqueBypassMultiple: 1.35,
+    },
+  };
+}
+
+function normalizeMinigameSpawn(raw: unknown): MinigameSpawn {
+  const d = defaultMinigameSpawn();
+  const r = raw && typeof raw === "object" ? (raw as any) : {};
+  const fresh = r.spawnFreshActivity && typeof r.spawnFreshActivity === "object" ? r.spawnFreshActivity : {};
+  const at = r.activityThreshold && typeof r.activityThreshold === "object" ? r.activityThreshold : {};
+  const tw = r.timeWindow && typeof r.timeWindow === "object" ? r.timeWindow : {};
+  return {
+    enabled: r.enabled !== false,
+    channelId: T.isId(r.channelId) ? String(r.channelId) : null,
+    roleId: T.isId(r.roleId) ? String(r.roleId) : null,
+    intervalMs: Math.floor(clampNum(r.intervalMs, 60_000, 24 * 60 * 60_000, d.intervalMs)),
+    noParticipationIntervalMs: Math.floor(
+      clampNum(r.noParticipationIntervalMs, 60_000, 24 * 60 * 60_000, d.noParticipationIntervalMs),
+    ),
+    activityWindowMs: Math.floor(clampNum(r.activityWindowMs, 60_000, 6 * 60 * 60_000, d.activityWindowMs)),
+    minMessages: Math.floor(clampNum(r.minMessages, 1, 500, d.minMessages)),
+    failsafeMs: Math.floor(clampNum(r.failsafeMs, 5 * 60_000, 24 * 60 * 60_000, d.failsafeMs)),
+    timeWindow: {
+      start: normalizeMinigameClock(tw.start, d.timeWindow.start),
+      end: normalizeMinigameClock(tw.end, d.timeWindow.end),
+    },
+    spawnFreshActivity: {
+      enabled: fresh.enabled !== false,
+      windowMs: Math.floor(clampNum(fresh.windowMs, 60_000, 60 * 60_000, d.spawnFreshActivity.windowMs)),
+      minMessages: Math.floor(clampNum(fresh.minMessages, 1, 100, d.spawnFreshActivity.minMessages)),
+    },
+    activityThreshold: {
+      enabled: at.enabled !== false,
+      hardMin: Math.floor(clampNum(at.hardMin, 1, 200, d.activityThreshold.hardMin)),
+      hardMax: Math.floor(clampNum(at.hardMax, 1, 500, d.activityThreshold.hardMax)),
+      nightHourStart: Math.floor(clampNum(at.nightHourStart, 0, 24, d.activityThreshold.nightHourStart)),
+      nightHourEnd: Math.floor(clampNum(at.nightHourEnd, 0, 24, d.activityThreshold.nightHourEnd)),
+      nightFactor: clampNum(at.nightFactor, 0.2, 2, d.activityThreshold.nightFactor),
+      peakHourStart: clampHour(at.peakHourStart, d.activityThreshold.peakHourStart),
+      peakHourEnd: clampHour(at.peakHourEnd, d.activityThreshold.peakHourEnd),
+      peakFactor: clampNum(at.peakFactor, 0.2, 3, d.activityThreshold.peakFactor),
+      defaultTimeFactor: clampNum(at.defaultTimeFactor, 0.2, 3, d.activityThreshold.defaultTimeFactor),
+      memberReference: Math.floor(clampNum(at.memberReference, 30, 5000, d.activityThreshold.memberReference)),
+      memberFactorMin: clampNum(at.memberFactorMin, 0.2, 2, d.activityThreshold.memberFactorMin),
+      memberFactorMax: clampNum(at.memberFactorMax, 0.2, 3, d.activityThreshold.memberFactorMax),
+      memberExponent: clampNum(at.memberExponent, 0.05, 1, d.activityThreshold.memberExponent),
+      spamAvgMessagesPerUser: clampNum(at.spamAvgMessagesPerUser, 1, 50, d.activityThreshold.spamAvgMessagesPerUser),
+      spamPenaltyPerExcess: clampNum(at.spamPenaltyPerExcess, 0, 1, d.activityThreshold.spamPenaltyPerExcess),
+      spamPenaltyCap: clampNum(at.spamPenaltyCap, 0, 2, d.activityThreshold.spamPenaltyCap),
+      minUniqueDivisor: Math.floor(clampNum(at.minUniqueDivisor, 2, 50, d.activityThreshold.minUniqueDivisor)),
+      uniqueBypassMultiple: clampNum(at.uniqueBypassMultiple, 1, 5, d.activityThreshold.uniqueBypassMultiple),
+    },
+  };
+}
+
+/** Intervallo/fascia/attività dal config.json del bot principale. */
+function importMinigameSpawnFromBotConfig(): MinigameSpawn {
+  const d = defaultMinigameSpawn();
+  try {
+    const cfg = require("../../Vinili/config.json") as { minigames?: Record<string, any> };
+    const mg = cfg?.minigames;
+    if (!mg || typeof mg !== "object") return d;
+    return normalizeMinigameSpawn({
+      enabled: mg.enabled,
+      channelId: mg.channelId,
+      roleId: mg.roleId,
+      intervalMs: mg.intervalMs,
+      noParticipationIntervalMs: mg.noParticipationIntervalMs,
+      activityWindowMs: mg.activityWindowMs,
+      minMessages: mg.minMessages,
+      failsafeMs: mg.failsafeMs,
+      timeWindow: mg.timeWindow,
+      spawnFreshActivity: mg.spawnFreshActivity,
+      activityThreshold: mg.activityThreshold,
+    });
+  } catch {
+    return d;
+  }
+}
+
+function defaultMinigameGameOptions(): MinigameGameOptions {
+  return {
+    guessNumber: { min: 1, max: 100 },
+    hangman: { maxMisses: 10 },
+    memoryEmoji: { displayMs: 5_000 },
+    drivingQuiz: { userAnswerCooldownMs: 5_000 },
+    guessPlayer: { onlyFamous: true },
+    guessSong: { onlyFamous: true },
+    guessAlbum: { onlyFamousArtists: true },
+    findBotVoice: { excludedChannelIds: [] },
+    treasureHunt: {
+      emojiPairs: [
+        { decoy: "⚓", winner: "💎" },
+        { decoy: "🪄", winner: "💎" },
+        { decoy: "✨", winner: "🏆" },
+      ],
+      buckets: [
+        { weight: 1, minMessages: 20, maxMessages: 30, minDurationMs: 60_000, maxDurationMs: 120_000, rewardExp: 100 },
+        { weight: 1, minMessages: 30, maxMessages: 50, minDurationMs: 90_000, maxDurationMs: 180_000, rewardExp: 150 },
+        { weight: 1, minMessages: 40, maxMessages: 70, minDurationMs: 120_000, maxDurationMs: 240_000, rewardExp: 200 },
+      ],
+    },
+  };
+}
+
+function normalizeTreasurePairs(raw: unknown, fb: TreasureEmojiPair[]): TreasureEmojiPair[] {
+  const list = Array.isArray(raw) ? raw : fb;
+  const out: TreasureEmojiPair[] = [];
+  for (const row of list) {
+    const decoy = String((row as any)?.decoy || "").trim().slice(0, 16);
+    const winner = String((row as any)?.winner || "").trim().slice(0, 16);
+    if (!decoy || !winner) continue;
+    out.push({ decoy, winner });
+    if (out.length >= 12) break;
+  }
+  return out.length ? out : fb.map((p) => ({ ...p }));
+}
+
+function normalizeTreasureBuckets(raw: unknown, fb: TreasureBucket[]): TreasureBucket[] {
+  const list = Array.isArray(raw) ? raw : fb;
+  const out: TreasureBucket[] = [];
+  for (const row of list) {
+    const r = row && typeof row === "object" ? (row as any) : {};
+    const minMessages = Math.floor(clampNum(r.minMessages, 1, 500, 20));
+    const maxMessages = Math.floor(clampNum(r.maxMessages, minMessages, 500, Math.max(minMessages, 30)));
+    const minDurationMs = Math.floor(clampNum(r.minDurationMs, 15_000, 1_800_000, 60_000));
+    const maxDurationMs = Math.floor(clampNum(r.maxDurationMs, minDurationMs, 1_800_000, Math.max(minDurationMs, 120_000)));
+    out.push({
+      weight: Math.floor(clampNum(r.weight, 1, 100, 1)),
+      minMessages,
+      maxMessages,
+      minDurationMs,
+      maxDurationMs,
+      rewardExp: Math.floor(clampNum(r.rewardExp, 1, 100_000, 150)),
+    });
+    if (out.length >= 8) break;
+  }
+  return out.length ? out : fb.map((b) => ({ ...b }));
+}
+
+function normalizeMinigameGameOptions(raw: unknown): MinigameGameOptions {
+  const d = defaultMinigameGameOptions();
+  const r = raw && typeof raw === "object" ? (raw as any) : {};
+  const gn = r.guessNumber && typeof r.guessNumber === "object" ? r.guessNumber : {};
+  const hm = r.hangman && typeof r.hangman === "object" ? r.hangman : {};
+  const me = r.memoryEmoji && typeof r.memoryEmoji === "object" ? r.memoryEmoji : {};
+  const dq = r.drivingQuiz && typeof r.drivingQuiz === "object" ? r.drivingQuiz : {};
+  const gp = r.guessPlayer && typeof r.guessPlayer === "object" ? r.guessPlayer : {};
+  const gs = r.guessSong && typeof r.guessSong === "object" ? r.guessSong : {};
+  const ga = r.guessAlbum && typeof r.guessAlbum === "object" ? r.guessAlbum : {};
+  const fb = r.findBotVoice && typeof r.findBotVoice === "object" ? r.findBotVoice : {};
+  const th = r.treasureHunt && typeof r.treasureHunt === "object" ? r.treasureHunt : {};
+  const minN = Math.floor(clampNum(gn.min, 1, 1_000_000, d.guessNumber.min));
+  const maxN = Math.floor(clampNum(gn.max, minN, 1_000_000, Math.max(minN, d.guessNumber.max)));
+  return {
+    guessNumber: { min: minN, max: maxN },
+    hangman: { maxMisses: Math.floor(clampNum(hm.maxMisses, 3, 20, d.hangman.maxMisses)) },
+    memoryEmoji: { displayMs: Math.floor(clampNum(me.displayMs, 2_000, 60_000, d.memoryEmoji.displayMs)) },
+    drivingQuiz: {
+      userAnswerCooldownMs: Math.floor(clampNum(dq.userAnswerCooldownMs, 0, 60_000, d.drivingQuiz.userAnswerCooldownMs)),
+    },
+    guessPlayer: { onlyFamous: gp.onlyFamous !== false },
+    guessSong: { onlyFamous: gs.onlyFamous !== false },
+    guessAlbum: { onlyFamousArtists: ga.onlyFamousArtists !== false },
+    findBotVoice: { excludedChannelIds: uniqIds(fb.excludedChannelIds, 40) },
+    treasureHunt: {
+      emojiPairs: normalizeTreasurePairs(th.emojiPairs, d.treasureHunt.emojiPairs),
+      buckets: normalizeTreasureBuckets(th.buckets, d.treasureHunt.buckets),
+    },
+  };
+}
+
+function importMinigameGameOptionsFromBotConfig(): MinigameGameOptions {
+  const d = defaultMinigameGameOptions();
+  try {
+    const cfg = require("../../Vinili/config.json") as { minigames?: Record<string, any> };
+    const mg = cfg?.minigames;
+    if (!mg || typeof mg !== "object") return d;
+    return normalizeMinigameGameOptions({
+      guessNumber: mg.guessNumber,
+      hangman: mg.hangman,
+      memoryEmoji: mg.memoryEmoji,
+      drivingQuiz: mg.drivingQuiz,
+      guessPlayer: mg.guessPlayer,
+      guessSong: mg.guessSong,
+      guessAlbum: mg.guessAlbum,
+      findBotVoice: mg.findBotVoice,
+      treasureHunt: mg.treasureHunt,
     });
   } catch {
     return d;
@@ -779,7 +1059,7 @@ function defaultMinigameRewardDraft() {
       enabled: true,
       title: "",
       description: [
-        "Premio ricevuto",
+        "<a:VC_Events:1482706144953897223> Premio ricevuto",
         "",
         "**{user}** hai ottenuto il ruolo {role} per aver raggiunto **{exp}** exp ai Minigiochi",
         "",
@@ -854,6 +1134,8 @@ function defaultConfig(): LevelsConfig {
     reviewRewardLevels: 5,
     commandCooldown: defaultCommandCooldown(),
     minigameScoring: defaultMinigameScoring(),
+    minigameSpawn: defaultMinigameSpawn(),
+    minigameGameOptions: defaultMinigameGameOptions(),
     activityWinners: defaultActivityWinners(),
     levelCurve: defaultLevelCurve(),
   };
@@ -894,6 +1176,10 @@ function normalizeConfig(raw?): LevelsConfig {
     reviewRewardLevels: Math.floor(clampNum(r.reviewRewardLevels, 0, 100, 5)),
     commandCooldown: normalizeCommandCooldown(r.commandCooldown),
     minigameScoring: normalizeMinigameScoring(r.minigameScoring),
+    minigameSpawn: r.minigameSpawn ? normalizeMinigameSpawn(r.minigameSpawn) : importMinigameSpawnFromBotConfig(),
+    minigameGameOptions: r.minigameGameOptions
+      ? normalizeMinigameGameOptions(r.minigameGameOptions)
+      : importMinigameGameOptionsFromBotConfig(),
     activityWinners: normalizeActivityWinners(r.activityWinners),
     levelCurve: normalizeLevelCurve(r.levelCurve),
     bonuses: {
@@ -1021,15 +1307,23 @@ async function ensureMainSeed(guildId?): Promise<boolean> {
     return false;
   }
 
-  /* Upgrade seed: catalogo minigiochi + draft condivisi (+ seedVersion), senza resettare i livelli. */
+  /* Upgrade seed: catalogo minigiochi + draft condivisi + spawn (+ seedVersion), senza resettare i livelli. */
   if (prev && Number(prev.seedVersion) >= 1) {
     const base = prev.userSaved
       ? mergeMinigameScoringWithImport(prev.minigameScoring)
       : importMinigameScoringFromBotConfig();
+    const spawn = prev.minigameSpawn
+      ? normalizeMinigameSpawn(prev.minigameSpawn)
+      : importMinigameSpawnFromBotConfig();
+    const gameOpts = prev.minigameGameOptions
+      ? normalizeMinigameGameOptions(prev.minigameGameOptions)
+      : importMinigameGameOptionsFromBotConfig();
     const seed = normalizeConfig({
       ...prev,
       seedVersion: SEED_VERSION,
       minigameScoring: fillEmptyMinigameDrafts(base, prev.minigameScoring),
+      minigameSpawn: spawn,
+      minigameGameOptions: gameOpts,
     });
     await T.setGuildBlob("levels", gid, seed);
     remember(gid, seed);
@@ -1080,6 +1374,8 @@ async function ensureMainSeed(guildId?): Promise<boolean> {
     levelUpDraft: prev?.levelUpDraft || defaultLevelUpDraft(),
     milestoneDraft: prev?.milestoneDraft || defaultMilestoneDraft(),
     minigameScoring: fillEmptyMinigameDrafts(importMinigameScoringFromBotConfig()),
+    minigameSpawn: importMinigameSpawnFromBotConfig(),
+    minigameGameOptions: importMinigameGameOptionsFromBotConfig(),
   });
   await T.setGuildBlob("levels", gid, seed);
   remember(gid, seed);
@@ -1453,6 +1749,18 @@ function getMinigameScoringSync(guildId?: string): MinigameScoring {
   return defaultMinigameScoring();
 }
 
+function getMinigameSpawnSync(guildId?: string): MinigameSpawn {
+  const cfg = getConfigSync(guildId);
+  if (cfg && (cfg.userSaved || cfg.seedVersion > 0) && cfg.minigameSpawn) return cfg.minigameSpawn;
+  return importMinigameSpawnFromBotConfig();
+}
+
+function getMinigameGameOptionsSync(guildId?: string): MinigameGameOptions {
+  const cfg = getConfigSync(guildId);
+  if (cfg && (cfg.userSaved || cfg.seedVersion > 0) && cfg.minigameGameOptions) return cfg.minigameGameOptions;
+  return importMinigameGameOptionsFromBotConfig();
+}
+
 function getLevelCurveSync(guildId?: string): LevelCurve {
   const cfg = getConfigSync(guildId);
   if (cfg && (cfg.userSaved || cfg.seedVersion > 0) && cfg.levelCurve) return cfg.levelCurve;
@@ -1497,9 +1805,13 @@ export = {
   defaultCommandCooldown,
   defaultMinigameRewardDraft,
   defaultMinigameScoring,
+  defaultMinigameSpawn,
+  defaultMinigameGameOptions,
   defaultActivityWinners,
   defaultLevelCurve,
   getActivityWinnersSync,
   getMinigameScoringSync,
+  getMinigameSpawnSync,
+  getMinigameGameOptionsSync,
   getLevelCurveSync,
 };

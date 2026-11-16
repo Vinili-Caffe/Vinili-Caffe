@@ -570,8 +570,9 @@ async function getMinigamePreview(client?, token?, guildId?, type?) {
   if (!T.isMainGuild(a.guildId)) return fail(404, "unavailable", "I minigiochi ci sono solo sul server principale.");
   const t = String(type || "").trim();
   if (!/^[\w-]{2,40}$/.test(t)) return fail(400, "bad_type", "Minigioco non valido.");
-  const { renderMinigamePreview } = require("../../../Vinili/Minigames/services/minigamePreview") as typeof import("../../../Vinili/Minigames/services/minigamePreview");
-  const out = await renderMinigamePreview(t, client);
+  /* la prepara il processo dei minigiochi (qui le fonti esterne non si raggiungono) */
+  const { getStoredMinigamePreview } = require("../../../Vinili/Minigames/services/minigamePreview") as typeof import("../../../Vinili/Minigames/services/minigamePreview");
+  const out = await getStoredMinigamePreview(t);
   return { ok: true, status: 200, type: t, ...out };
 }
 

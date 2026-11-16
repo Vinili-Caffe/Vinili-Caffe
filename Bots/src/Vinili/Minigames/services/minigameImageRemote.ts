@@ -133,7 +133,11 @@ async function loadImageBufferFromUrl(imageUrl?) {
       responseType: "arraybuffer",
       timeout: 15000,
       maxContentLength: 8 * 1024 * 1024,
-      headers: { "User-Agent": "ViniliCaffeBot/1.0", Accept: "image/*,*/*" },
+      headers: {
+        "User-Agent": "ViniliCaffeBot/1.0 (minigames; https://www.viniliecaffe.it)",
+        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        Referer: "https://www.viniliecaffe.it/",
+      },
       validateStatus: (status?) => status >= 200 && status < 300,
     });
     const buf = Buffer.from(res.data || []);
@@ -152,7 +156,11 @@ async function fetchRawImageAttachment(imageUrl?, fileName = "guess_image.jpg") 
       responseType: "arraybuffer",
       timeout: 15000,
       maxContentLength: 8 * 1024 * 1024,
-      headers: { "User-Agent": "ViniliCaffeBot/1.0", Accept: "image/*,*/*" },
+      headers: {
+        "User-Agent": "ViniliCaffeBot/1.0 (minigames; https://www.viniliecaffe.it)",
+        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        Referer: "https://www.viniliecaffe.it/",
+      },
       validateStatus: (status?) => status >= 200 && status < 300,
     });
     const buf = Buffer.from(res.data || []);

@@ -111,7 +111,6 @@ export const LIVELLI_MODULE_TABS = [
   { id: "bonus", label: "Bonus chat" },
   { id: "minigiochi", label: "Minigiochi" },
   { id: "ruoli", label: "Ruoli premio" },
-  { id: "annunci", label: "Annunci" },
   { id: "utenti", label: "Utenti" },
 ] as const satisfies readonly GuildModuleTab[];
 
@@ -119,6 +118,12 @@ export type LivelliModuleTabId = (typeof LIVELLI_MODULE_TABS)[number]["id"];
 
 export function isLivelliModuleTab(v: string): v is LivelliModuleTabId {
   return LIVELLI_MODULE_TABS.some((t) => t.id === v);
+}
+
+/** Vecchio link “Annunci” → ora dentro Ruoli premio. */
+export function normalizeLivelliModuleTab(v: string | null | undefined): LivelliModuleTabId {
+  if (v === "annunci") return "ruoli";
+  return v && isLivelliModuleTab(v) ? v : "exp";
 }
 
 export const MODERATION_MODULE_TABS = [

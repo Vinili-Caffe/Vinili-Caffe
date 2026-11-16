@@ -19,6 +19,10 @@ export = {
   fetchPlayerFromRandomLetter: football.fetchPlayerFromRandomLetter,
   fetchFamousPlayer: football.fetchFamousPlayer,
   fetchLeagueFamousPlayer: football.fetchLeagueFamousPlayer,
+  fetchSampleFamousPlayer: football.fetchSampleFamousPlayer,
+  fetchSampleFootballTeam: football.fetchSampleFootballTeam,
+  fetchWikipediaImage: football.fetchWikipediaImage,
   fetchRandomSong: music.fetchRandomSong,
   fetchPopularSong: music.fetchPopularSong,
+  fetchSampleAlbum: music.fetchSampleAlbum,
 };
