@@ -97,8 +97,14 @@ function applyDashboardMinigameScoring(base?) {
         out[type] = false;
         continue;
       }
-      const rewardExp = Math.max(1, Math.floor(Number(row.rewardExp) || 0));
+      let rewardExp = Math.max(1, Math.floor(Number(row.rewardExp) || 0));
       const durationMs = Math.max(15_000, Math.min(1_800_000, Math.floor(Number(row.durationMs) || 0) || 180_000));
+      /* dashboard: a volte rewardExp e durationMs venivano scambiati (180000 "exp") */
+      if (rewardExp >= 15_000) {
+        const prevObj = out[type] && typeof out[type] === "object" ? out[type] : {};
+        const fallback = Math.max(1, Math.floor(Number(prevObj.rewardExp) || 0));
+        rewardExp = fallback > 0 && fallback < 15_000 ? fallback : 150;
+      }
       const prev = out[type] && typeof out[type] === "object" ? out[type] : {};
       out[type] = { ...prev, rewardExp, durationMs };
       /* Caccia: se i bucket non arrivano dalla dashboard, scala rispetto al default medio (150). */

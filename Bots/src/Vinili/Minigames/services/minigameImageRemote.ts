@@ -5,8 +5,39 @@ const { AttachmentBuilder } = require("discord.js") as typeof import("discord.js
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 
 const regionImageCache = new Map();
+const capitalImageCache = new Map();
 const singerImageFallbackCache = new Map();
 const SINGER_IMAGE_FALLBACK_TTL_MS = 24 * 60 * 60 * 1000;
+
+function preferLargerWikiImage(data?) {
+  const orig = String(data?.originalimage?.source || "").trim();
+  if (orig) return orig;
+  const thumb = String(data?.thumbnail?.source || "").trim();
+  if (!thumb) return null;
+  return thumb.replace(/\/\d+px-/g, "/800px-");
+}
+
+async function fetchWikiSummaryImage(titles = []) {
+  const list = (Array.isArray(titles) ? titles : [titles])
+    .map((t) => String(t || "").trim())
+    .filter((t, i, a) => t && a.indexOf(t) === i);
+  for (const title of list) {
+    for (const lang of ["it", "en"]) {
+      const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+      try {
+        const res = await axios.get(url, {
+          timeout: 12000,
+          headers: { "User-Agent": "ViniliCaffeBot/1.0 (minigames; https://www.viniliecaffe.it)" },
+        });
+        const image = preferLargerWikiImage(res?.data);
+        if (image) return image;
+      } catch (err) {
+        warnMinigame(err);
+      }
+    }
+  }
+  return null;
+}
 
 function normalizeCountryName(raw?) {
   const specials = { "\u00df": "ss", "\u1e9e": "ss", "\u00e6": "ae", "\u00c6": "ae", "\u0153": "oe", "\u0152": "oe", "\u00f8": "o", "\u00d8": "o", "\u00e5": "a", "\u00c5": "a", "\u0142": "l", "\u0141": "l", "\u0111": "d", "\u0110": "d", "\u00f0": "d", "\u00d0": "d", "\u00fe": "th", "\u00de": "th", };
@@ -36,26 +67,39 @@ async function fetchWikiRegionImage(regionName?) {
   if (!normalized) return null;
   if (regionImageCache.has(normalized)) return regionImageCache.get(normalized);
 
-  const titles = [normalized, `${normalized}(regione italiana)`,
+  const image = await fetchWikiSummaryImage([
+    normalized,
+    `${normalized}`,
+    `${normalized}`,
     `Regione ${normalized}`,
-  ];
+  ]);
+  regionImageCache.set(normalized, image || null);
+  return image || null;
+}
 
-  for (const title of titles) {
-    const url = `https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
-    try {
-      const res = await axios.get(url, { timeout: 12000 });
-      const image = res?.data?.thumbnail?.source || res?.data?.originalimage?.source || null;
-      if (image) {
-        regionImageCache.set(normalized, image);
-        return image;
-      }
-    } catch (err) {
-      warnMinigame(err);
-    }
-  }
+/** Foto città-capitale (non bandiera: spoilererebbe lo Stato). */
+async function fetchWikiCapitalImage(capitalName?, extraTitles = []) {
+  const normalized = String(capitalName || "").trim();
+  if (!normalized) return null;
+  if (capitalImageCache.has(normalized)) return capitalImageCache.get(normalized);
 
-  regionImageCache.set(normalized, null);
-  return null;
+  let italian = "";
+  try {
+    const { CAPITAL_ITALIAN } = require("../../Minigames/data/minigameBanks") as typeof import("../../Minigames/data/minigameBanks");
+    italian = String(CAPITAL_ITALIAN?.[normalized] || "").trim();
+  } catch {}
+
+  const extras = (Array.isArray(extraTitles) ? extraTitles : [extraTitles]).map((t) => String(t || "").trim()).filter(Boolean);
+  const image = await fetchWikiSummaryImage([
+    normalized,
+    italian,
+    ...extras,
+    italian ? `${italian}` : "",
+    `${normalized}`,
+    `${normalized}`,
+  ]);
+  capitalImageCache.set(normalized, image || null);
+  return image || null;
 }
 
 function isDeezerArtistPlaceholderImage(url?) {
@@ -189,6 +233,7 @@ export = {
   normalizeCountryName,
   polishItalianQuestionText,
   fetchWikiRegionImage,
+  fetchWikiCapitalImage,
   pickBestSingerImage,
   fetchSingerImageFallback,
   loadImageBufferFromUrl,

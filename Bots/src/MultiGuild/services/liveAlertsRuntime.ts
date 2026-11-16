@@ -477,7 +477,7 @@ function shouldAnnounce(prev?, streamId?, cooldownSec?) {
   return { publish: true, silent: false };
 }
 
-async function publishAlert(client?, guildId: string, platform: LivePlatform, pcfg: PlatformCfg, account: LiveAccount, snap: LiveSnap) {
+async function publishAlert(client = null, guildId: string, platform: LivePlatform, pcfg: PlatformCfg, account: LiveAccount, snap: LiveSnap) {
   const guild = await getClientGuildCached(client, guildId).catch(() => null);
   if (!guild) return { ok: false as const, reason: "guild_unavailable" };
   const channelId = String(pcfg.channelId || "").trim();
@@ -516,7 +516,7 @@ async function publishAlert(client?, guildId: string, platform: LivePlatform, pc
   const draft =
     kind === "post" && pcfg.postsDraft && !T.draftIsEmpty(pcfg.postsDraft) ? pcfg.postsDraft : liveDraft;
 
-  const body = T.buildMessageBody(draft, vars, [], { mentionUserId: account.discordUserId });
+  const body: any = T.buildMessageBody(draft, vars, [], { mentionUserId: account.discordUserId });
   if (typeof body.content === "string") body.content = stripEmptyTemplateLines(body.content).slice(0, 2000) || undefined;
 
   /* campi embed vuoti (game/viewers) fuori; link anteprima sulla live */
@@ -545,17 +545,24 @@ async function publishAlert(client?, guildId: string, platform: LivePlatform, pc
   });
   if (!sent?.id) return { ok: false as const, reason: "send_failed" };
 
-  await saveAccountState(guildId, platform, account.id, {
+  /* post/video: chiave separata `${id}::post` — non sovrascrivere lo slot live */
+  const isPost = snap.kind === "post";
+  const stateKey = isPost ? `${account.id}::post` : account.id;
+  await saveAccountState(guildId, platform, stateKey, {
     lastStreamId: snap.streamId,
     announcedAt: new Date().toISOString(),
-    isLive: true,
-    messageId: String(sent.id),
-    channelId: String(channel.id),
+    ...(isPost
+      ? {}
+      : {
+          isLive: true,
+          messageId: String(sent.id),
+          channelId: String(channel.id),
+        }),
   });
   return { ok: true as const, messageId: String(sent.id) };
 }
 
-async function deleteAnnouncement(client?, guildId: string, platform: LivePlatform, account: LiveAccount, prev?) {
+async function deleteAnnouncement(client = null, guildId: string, platform: LivePlatform, account: LiveAccount, prev?) {
   if (!account.deleteAnnouncementOnOffline) return;
   const messageId = String(prev?.messageId || "").trim();
   const channelId = String(prev?.channelId || "").trim();
@@ -569,7 +576,7 @@ async function deleteAnnouncement(client?, guildId: string, platform: LivePlatfo
   });
 }
 
-async function applyTwitchVoice(client?, guildId: string, account: LiveAccount, pcfg: PlatformCfg, mode: "on" | "off") {
+async function applyTwitchVoice(client = null, guildId: string, account: LiveAccount, pcfg: PlatformCfg, mode: "on" | "off") {
   const Twitch = require("../../Vinili/Community/services/twitchLiveAlertService") as typeof import("../../Vinili/Community/services/twitchLiveAlertService");
   const streamer = {
     login: account.id,
@@ -598,7 +605,7 @@ async function applyTwitchVoice(client?, guildId: string, account: LiveAccount, 
   }
 }
 
-async function updateStreamVoiceForGuild(client?, guildId: string, streamer: any, mode: "on" | "off") {
+async function updateStreamVoiceForGuild(client = null, guildId: string, streamer: any, mode: "on" | "off") {
   const channelId = String(streamer?.streamVoiceChannelId || "").trim();
   if (!channelId) return;
   const guild = await getClientGuildCached(client, guildId).catch(() => null);
@@ -1049,7 +1056,7 @@ async function fetchInstagram(ids: string[]): Promise<{ lives: Map<string, LiveS
 }
 
 async function processPlatform(
-  client?,
+  client = null,
   guildId: string,
   platform: LivePlatform,
   pcfg: PlatformCfg,
@@ -1087,10 +1094,10 @@ async function processPlatform(
 
     if (platform === "twitch") await applyTwitchVoice(client, guildId, account, pcfg, "on");
 
+    /* isLive subito; lastStreamId solo dopo announce OK (altrimenti un send fallito non ripubblica mai) */
     if (!prev?.isLive) {
       await saveAccountState(guildId, platform, account.id, {
         isLive: true,
-        lastStreamId: snap.streamId,
         voiceChannelMode: platform === "twitch" && (account.streamVoiceChannelId || pcfg.streamVoiceChannelId) ? "on" : prev?.voiceChannelMode,
       });
       if (platform === "twitch" && T.isMainGuild(guildId)) {
@@ -1104,17 +1111,21 @@ async function processPlatform(
     const decision = shouldAnnounce(prev, snap.streamId, pcfg.reannounceCooldownSec);
     if (!decision.publish) {
       if (decision.silent) {
-        await saveAccountState(guildId, platform, account.id, { isLive: true, lastStreamId: snap.streamId });
+        await saveAccountState(guildId, platform, account.id, { isLive: true });
       }
       continue;
     }
-    await publishAlert(client, guildId, platform, pcfg, account, snap);
+    const pub = await publishAlert(client, guildId, platform, pcfg, account, snap);
+    if (!pub?.ok) {
+      await saveAccountState(guildId, platform, account.id, { isLive: true }).catch(() => null);
+      global.logger?.warn?.(`[LIVE ${platform}] announce retry next poll:`, account.id, pub?.reason || "failed");
+    }
   }
 }
 
 /** Nuovi post/video: prima osservazione = baseline (niente annuncio), poi solo se cambia id. */
 async function processContentPosts(
-  client?,
+  client = null,
   guildId: string,
   platform: LivePlatform,
   pcfg: PlatformCfg,
@@ -1130,15 +1141,16 @@ async function processContentPosts(
     const key = `${account.id}::post`;
     const prev = platState[key];
     if (!prev?.lastStreamId) {
+      /* baseline: niente annuncio sul primo id visto */
       await saveAccountState(guildId, platform, key, { lastStreamId: snap.streamId, announcedAt: new Date().toISOString() });
       continue;
     }
     if (String(prev.lastStreamId) === String(snap.streamId)) continue;
-    await publishAlert(client, guildId, platform, pcfg, account, snap);
-    await saveAccountState(guildId, platform, key, {
-      lastStreamId: snap.streamId,
-      announcedAt: new Date().toISOString(),
-    });
+    const pub = await publishAlert(client, guildId, platform, pcfg, account, snap);
+    /* lastStreamId ::post aggiornato solo da publishAlert se ok — altrimenti riprova al prossimo poll */
+    if (!pub?.ok) {
+      global.logger?.warn?.(`[LIVE ${platform}] post announce retry next poll:`, account.id, pub?.reason || "failed");
+    }
   }
 }
 

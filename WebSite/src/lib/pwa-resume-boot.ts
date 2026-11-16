@@ -11,7 +11,9 @@ var WANT_HOME_KEY="vc-pwa-want-home";
 var UI_RESTORE_KEY="vc_pwa_ui_restore_v1";
 
 function isOauthHash(h){h=String(h||"");return h.indexOf("access_token=")!==-1||h.indexOf("error=")!==-1}
+function isOauthQuery(s){s=String(s||"");return /(?:^|[?&])(code|error)=/.test(s)}
 try{var oh=String(location.hash||"");if(isOauthHash(oh)){window.__vcOauthCallbackPending=1;try{sessionStorage.setItem("vc_oauth_hash_capture_v1",oh)}catch(e0){}}}catch(e1){}
+try{var oq=String(location.search||"");if(isOauthQuery(oq)){window.__vcOauthCallbackPending=1;try{sessionStorage.setItem("vc_oauth_query_capture_v1",oq)}catch(eQ){}}}catch(e2){}
 
 function mq(m){try{return!!(window.matchMedia&&window.matchMedia("(display-mode: "+m+")").matches)}catch(e){return false}}
 function isPwa(){if(mq("standalone")||mq("fullscreen")||mq("minimal-ui")||mq("window-controls-overlay"))return true;try{return!!navigator.standalone}catch(e){return false}}
@@ -33,7 +35,7 @@ function pathOnly(p){return String(p||"/").split("?")[0].split("#")[0].replace(/
 stripApp();
 markShell();
 
-try{if(window.__vcOauthCallbackPending||isOauthHash(location.hash))return}catch(eO){}
+try{if(window.__vcOauthCallbackPending||isOauthHash(location.hash)||isOauthQuery(location.search))return}catch(eO){}
 
 if(!isPwa()&&!wasShell())return;
 

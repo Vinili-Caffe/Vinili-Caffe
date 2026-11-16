@@ -29,7 +29,7 @@ async function restoreFindGames(client?, cfg?, channel?, state?, remainingMs?, e
         const labels = await treasureHuntDisplayTexts(channel.guild, decoy, winner);
         await sendMinigameMessage(channel, {
             embeds: [
-              buildTreasureHuntTimeoutEmbed(labels.decoy, labels.winner, url),
+              buildTreasureHuntTimeoutEmbed(url),
             ],
           })
           .catch(() => {});

@@ -114,9 +114,10 @@ function withBoardDraft<P extends Record<string, any>>(input: P, opts: { edit?: 
     if (sendFiles.length) out.files = sendFiles;
     else delete out.files;
     if (body.flags) {
-      out.flags = body.flags;
+      out.flags = Number(body.flags) | (1 << 15);
       out.embeds = [];
       if (opts.edit) out.content = null;
+      else if (out.content === undefined) out.content = "";
     } else {
       if (body.embeds) out.embeds = body.embeds;
       else out.embeds = [];

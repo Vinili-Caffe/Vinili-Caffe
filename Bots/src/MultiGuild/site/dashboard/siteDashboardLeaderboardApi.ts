@@ -377,7 +377,7 @@ async function listViewerPmGuilds(client?, accessToken?) {
     return fail(401, "invalid_token", "Sessione Discord non valida.");
   }
 
-  const botIds: Set<string> = D.buildKnownBotGuildIdSet(client);
+  const botIds = D.buildKnownBotGuildIdSet(client) as Set<string>;
   const candidates = (Array.isArray(mine.guilds) ? mine.guilds : [])
     .filter((g?) => botIds.has(String(g?.id || "")))
     .slice(0, 60);

@@ -20,6 +20,12 @@ const {
 const { isLitePerf, resolveSitePerfTier } = require("../../site/http/sitePerfHints") as typeof import("../../site/http/sitePerfHints");
 const { fetchDiscordOAuthMe } = require("../../site/http/discordOauthMe") as typeof import("../../site/http/discordOauthMe");
 const { tryNotModified } = require("../../site/http/siteHttpEtag") as typeof import("../../site/http/siteHttpEtag");
+const {
+  loadDashboardSiteItems,
+  isDashNotifId,
+  markDashboardAlertsRead,
+  mergeSiteAndDashItems,
+} = require("./siteDashNotifMerge") as typeof import("./siteDashNotifMerge");
 
 const BEARER_USER_CACHE_TTL_MS = 90_000;
 const bearerUserCache = new Map();
@@ -84,17 +90,22 @@ async function handleSiteNotificationsGet(client?, req?, res?) {
     const mode = String(q.mode || "").trim().toLowerCase();
     /* siteNotifW2: badge poll uses mode=count (+ ETag/304) instead of full list */
     if (mode === "count" || mode === "unread") {
-      const counted = await countSiteInAppUnreadForUser(resolved.userId);
+      const [counted, dash] = await Promise.all([
+        countSiteInAppUnreadForUser(resolved.userId),
+        loadDashboardSiteItems(client, accessToken),
+      ]);
+      const unread = Number(counted.unread || 0) + Number(dash.unread || 0);
+      const total = Number(counted.total || 0) + Number(dash.items?.length || 0);
       /* siteApiDeviceEverywhere1: weak ETag + RFC If-None-Match (Safari/proxies) */
-      const etag = `W/"uc-${counted.revision}"`;
+      const etag = `W/"uc-${counted.revision}-d${dash.unread || 0}"`;
       res.setHeader("Cache-Control", "private, no-cache");
       res.setHeader("X-VC-Perf", perfTier);
       if (tryNotModified(req, res, etag)) return res;
       return res.status(200).json({
         ok: true,
         mode: "count",
-        unread: counted.unread,
-        total: counted.total,
+        unread,
+        total,
         revision: counted.revision,
         latestAt: counted.latestAt || 0,
         perf: perfTier,
@@ -103,16 +114,23 @@ async function handleSiteNotificationsGet(client?, req?, res?) {
     const rawLimit = Number(q.limit);
     const defaultLimit = lite ? 30 : perfTier === "mid" ? 50 : 100;
     const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(100, Math.floor(rawLimit)) : defaultLimit;
-    const items = await listSiteInAppNotificationsForUser(resolved.userId, limit);
-    const counted = await countSiteInAppUnreadForUser(resolved.userId).catch(() => null);
+    const [siteItems, dash, counted] = await Promise.all([
+      listSiteInAppNotificationsForUser(resolved.userId, limit),
+      loadDashboardSiteItems(client, accessToken),
+      countSiteInAppUnreadForUser(resolved.userId).catch(() => null),
+    ]);
+    const items = mergeSiteAndDashItems(siteItems, dash.items, limit);
+    const siteUnread = counted && Number.isFinite(Number(counted.unread)) ? Number(counted.unread) : items.filter((x?) => !x.read && !isDashNotifId(x.id)).length;
+    const unread = siteUnread + Number(dash.unread || 0);
+    const siteTotal = counted && Number.isFinite(Number(counted.total)) ? Number(counted.total) : undefined;
     res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("X-VC-Perf", perfTier);
     /* notifBadgeServerTruth1: unread anche sul full list così il badge non dipende solo dallo store client */
     return res.status(200).json({
       ok: true,
       items,
-      unread: counted && Number.isFinite(Number(counted.unread)) ? Number(counted.unread) : undefined,
-      total: counted && Number.isFinite(Number(counted.total)) ? Number(counted.total) : undefined,
+      unread,
+      total: siteTotal != null ? siteTotal + Number(dash.items?.length || 0) : undefined,
       perf: perfTier,
     });
   } catch (err) {
@@ -130,7 +148,10 @@ async function handleSiteNotificationsMarkReadPost(client?, req?, res?) {
     }
     const body = req.body && typeof req.body === "object" ? req.body : {};
     if (body.all === true) {
-      const modified = await markAllSiteInAppNotificationsRead(resolved.userId);
+      const [modified] = await Promise.all([
+        markAllSiteInAppNotificationsRead(resolved.userId),
+        markDashboardAlertsRead(client, accessToken),
+      ]);
       return res.status(200).json({ ok: true, modified });
     }
     const pageUrl = String(body.pageUrl || body.href || "").trim();
@@ -158,6 +179,10 @@ async function handleSiteNotificationsMarkReadPost(client?, req?, res?) {
     if (!id) {
       return res.status(400).json({ ok: false, error: "missing_id", message: "Campo id richiesto." });
     }
+    if (isDashNotifId(id)) {
+      await markDashboardAlertsRead(client, accessToken);
+      return res.status(200).json({ ok: true, updated: true });
+    }
     const updated = await markSiteInAppNotificationRead(resolved.userId, id);
     return res.status(200).json({ ok: true, updated });
   } catch (err) {
@@ -173,7 +198,10 @@ async function handleSiteNotificationsClearPost(client?, req?, res?) {
     if (!resolved.ok) {
       return res.status(Number(resolved.status) || 401).json(resolved);
     }
-    const deleted = await deleteAllSiteInAppNotificationsForUser(resolved.userId);
+    const [deleted] = await Promise.all([
+      deleteAllSiteInAppNotificationsForUser(resolved.userId),
+      markDashboardAlertsRead(client, accessToken),
+    ]);
     return res.status(200).json({ ok: true, deleted });
   } catch (err) {
     global.logger?.error?.("[WEBHOOK] site-notifications clear:", err);
@@ -192,6 +220,10 @@ async function handleSiteNotificationsDeletePost(client?, req?, res?) {
     const id = String(body.id || "").trim();
     if (!id) {
       return res.status(400).json({ ok: false, error: "missing_id", message: "Campo id richiesto." });
+    }
+    if (isDashNotifId(id)) {
+      await markDashboardAlertsRead(client, accessToken);
+      return res.status(200).json({ ok: true, deleted: true });
     }
     const deleted = await deleteSiteInAppNotificationForUser(resolved.userId, id);
     return res.status(200).json({ ok: true, deleted });

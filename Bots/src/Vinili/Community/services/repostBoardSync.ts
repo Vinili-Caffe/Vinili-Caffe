@@ -174,9 +174,8 @@ async function applyBoardMessageRemovedState(guild?, boardChannelId?, boardMessa
   const boardMsg = await channel.messages.fetch(mid).catch(() => null);
   if (!boardMsg) return;
   const removedEmbed = buildRepostRemovedEmbed({ userId, isClip });
-  await boardMsg
-    .edit({ embeds: [removedEmbed], components: [], files: [], attachments: [] })
-    .catch(() => boardMsg.delete().catch(() => null));
+  const { editMessageEmbedAware } = require("../../../shared/discord/safeMessageEdit") as typeof import("../../../shared/discord/safeMessageEdit");
+  await editMessageEmbedAware(boardMsg, { embed: removedEmbed, components: [], files: [] });
 }
 
 export = { REPOST_DB_MS, ensureRepostDbReady, timedRepostQuery, editBoardMessageKeepAttachments, syncBoardMessageComponents, ensureBoardRepostaButton, applyBoardMessageRemovedState };

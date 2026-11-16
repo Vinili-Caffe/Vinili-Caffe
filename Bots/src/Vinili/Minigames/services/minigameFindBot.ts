@@ -291,7 +291,7 @@ async function startFindBotGame(client?, cfg?) {
     claimEmoji: FIND_BOT_CLAIM_EMOJI,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "findBot",
     rewardExp,
     startedAt: new Date(),
@@ -302,6 +302,7 @@ async function startFindBotGame(client?, cfg?) {
     customId,
   });
 
+  if (!saved) return false;
   markSent(channelId);
 
   return true;
@@ -372,7 +373,7 @@ async function startFindBotVoiceGame(client?, cfg?) {
     customId,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "findBotVoice",
     rewardExp,
     startedAt: new Date(),
@@ -382,6 +383,7 @@ async function startFindBotVoiceGame(client?, cfg?) {
     customId,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }

@@ -19,4 +19,23 @@ function isVoiceTransportError(err?) {
   return false;
 }
 
-export = { isVoiceTransportError, voiceTransportErrorMessage };
+/** Shoukaku/Lavalink: voice update dopo restart/sessione scaduta (sendServerUpdate). */
+function isLavalinkSessionError(err?) {
+  const msg = voiceTransportErrorMessage(err).toLowerCase();
+  const name = String(err?.name || "");
+  if (name === "RestError" && msg.includes("session not found")) return true;
+  if (msg.includes("session not found")) return true;
+  if (msg.includes("session is not found")) return true;
+  return false;
+}
+
+function isRecoverableVoiceOrMusicError(err?) {
+  return isVoiceTransportError(err) || isLavalinkSessionError(err);
+}
+
+export = {
+  isVoiceTransportError,
+  isLavalinkSessionError,
+  isRecoverableVoiceOrMusicError,
+  voiceTransportErrorMessage,
+};

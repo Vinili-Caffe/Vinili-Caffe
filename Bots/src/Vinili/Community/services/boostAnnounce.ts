@@ -156,18 +156,28 @@ async function handleBoostUpdate(oldMember?, newMember?) {
   const premiumSinceChanged = alreadyBoostingBefore && newBoostTs > 0 && newBoostTs !== oldBoostTs;
   const realNewBoost = newBoostTs > 0 && countIncreased;
   const recentNativeSlots = nativeBoostSeenSince(guildId, newMember.id, Date.now() - NATIVE_BOOST_ACCUMULATE_MS);
+  const alreadyAnnouncedSlotsEarly = getAnnouncedBoostSlots(guildId, newMember.id);
+  /* boostSpam1: ruolo Double/dashboard / perk dopo l'announce NON deve riaprire il ciclo
+     (giveBoostRoles → memberUpdate → re-announce → spam). Solo se i nativi superano
+     già gli slot annunciati, o c’è un vero aumento del conteggio guild. */
+  if (alreadyAnnouncedSlotsEarly >= 2 && !countIncreased && recentNativeSlots <= alreadyAnnouncedSlotsEarly) {
+    boostCountCache.set(guildId, currentCount);
+    return;
+  }
   /* boostMiss1: secondo/N boost mentre già booster — premiumSince NON cambia,
      quindi senza segnale nativo + countIncrease lo skippavamo del tutto. */
   const additionalBoostWhileActive = Boolean(
     alreadyBoostingBefore &&
       newBoostTs > 0 &&
-      (countIncreased || recentNativeSlots > 0 || boosterRoleAdded),
+      (countIncreased ||
+        recentNativeSlots > alreadyAnnouncedSlotsEarly ||
+        (boosterRoleAdded && alreadyAnnouncedSlotsEarly < 1)),
   );
   const shouldAnnounce = Boolean(
     startedBoostingNow ||
     realNewBoost ||
     additionalBoostWhileActive ||
-    (premiumSinceChanged && (countIncreased || recentNativeSlots > 0)) ||
+    (premiumSinceChanged && (countIncreased || recentNativeSlots > alreadyAnnouncedSlotsEarly)) ||
     (boosterRoleAddedWithoutPremiumSince && (countIncreased || recentNativeSlots > 0)),
   );
   if (!shouldAnnounce) {
@@ -192,7 +202,7 @@ async function handleBoostUpdate(oldMember?, newMember?) {
 
   boostCountCache.set(guildId, currentCount);
   void addPerkRoleIfPossible(newMember).catch(() => null);
-  let alreadyAnnouncedSlots = getAnnouncedBoostSlots(guildId, newMember.id);
+  let alreadyAnnouncedSlots = alreadyAnnouncedSlotsEarly;
   if (startedBoostingNow && alreadyAnnouncedSlots > 0) {
     setAnnouncedBoostSlots(guildId, newMember.id, 0);
     await persistAnnouncedBoostSlotsToDb(guildId, newMember.id).catch(() => null);

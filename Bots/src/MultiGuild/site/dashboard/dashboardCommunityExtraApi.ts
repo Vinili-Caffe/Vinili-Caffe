@@ -504,7 +504,7 @@ async function getLevels(client?, token?, guildId?) {
   const loaded = await LVL().getConfig(a.guildId, true);
   const config = T.isMainGuild(a.guildId) ? { ...loaded, roleRewards: LVL().withDefaultPerks(loaded.roleRewards) } : loaded;
   /* se il processo del bot è fermo, gli eventi arrivati all'ora partono comunque aprendo la dashboard */
-  await LVL().runDueScheduledEvents(a.guildId).catch(() => 0);
+  await LVL().runDueScheduledEvents(a.guildId, client).catch(() => 0);
   const event = await LVL().getExpEvent(a.guildId);
   const scheduled = await LVL().listScheduledEvents(a.guildId, true);
   return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), imported, config, event, scheduled };

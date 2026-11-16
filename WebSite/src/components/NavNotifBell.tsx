@@ -189,7 +189,11 @@ export function NavNotifBell() {
         return next;
       });
     }
-    if (/^[a-f0-9]{24}$/i.test(n.id)) void deleteNotif(token, n.id);
+    if (/^dash:/.test(n.id)) {
+      void markNotifRead(token, n.id);
+    } else if (/^[a-f0-9]{24}$/i.test(n.id)) {
+      void deleteNotif(token, n.id);
+    }
     window.dispatchEvent(new CustomEvent("vc:notif-changed"));
   }
 

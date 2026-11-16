@@ -200,9 +200,20 @@ function applyMinigameDraftToPayload(fallbackPayload?, opts: { type?: string; ki
         const fieldExtra = embedFieldsText(fbEmbeds[0]);
         vars.prompt = fieldExtra ? `${descPrompt}\n${fieldExtra}` : descPrompt;
       }
+      /* Nested {exp}/{quote} dentro prompt (draft custom / anteprima) */
+      if (vars.prompt && /\{[a-zA-Z_.]+\}/.test(vars.prompt)) {
+        vars.prompt = vars.prompt.replace(/\{([a-zA-Z_.]+)\}/g, (m, k: string) =>
+          Object.prototype.hasOwnProperty.call(vars, k) ? String(vars[k]) : m,
+        );
+      }
       if (!vars.image) {
         const fbImg = embedImageUrl(fbEmbeds[0]);
         if (fbImg) vars.image = fbImg;
+      }
+      /* Se c’è un file allegato ma manca {image}, collega il primo attachment:// */
+      if (!vars.image && Array.isArray(fb.files) && fb.files[0]) {
+        const name = String(fb.files[0]?.name || fb.files[0]?.attachment?.name || "").trim();
+        if (name) vars.image = `attachment://${name}`;
       }
     }
     const body: any = T.buildMessageBody(draft, vars, [], { mentionUserId: opts.mentionUserId || null });
@@ -227,6 +238,12 @@ function applyMinigameDraftToPayload(fallbackPayload?, opts: { type?: string; ki
     };
     if (components?.length) out.components = components;
     if (fb.files) out.files = fb.files;
+    /* V2: niente classic embeds residui (come preparePanelDiscordPayload / sendOrEdit). */
+    if (isV2) {
+      out.embeds = [];
+      out.flags = Number(out.flags || 0) | (1 << 15);
+      if (out.content === undefined) out.content = "";
+    }
     return applyDefaultFooterToEmbeds(out, opts.guild || null);
   } catch {
     return fallbackPayload;
@@ -240,6 +257,25 @@ function minigameDraftVars(channelOrGuild?, extra: Record<string, string | numbe
   };
   for (const [k, v] of Object.entries(extra)) {
     if (v == null) continue;
+    /* quoteFilmBug1: non esporre durationMs grezzo (180000) — nei draft veniva
+       scambiato per {exp} e stampava "180000 exp" al posto della ricompensa. */
+    if (k === "durationMs") continue;
+    if (k === "exp") {
+      const n = Number(v);
+      /* valori tipo 180000 = durata ms finita per sbaglio in {exp} */
+      if (!Number.isFinite(n) || n <= 0) continue;
+      if (n > 10_000) {
+        try {
+          const { normalizeRewardExp } = require("./minigameText") as typeof import("./minigameText");
+          out.exp = String(normalizeRewardExp(150));
+        } catch {
+          out.exp = "150";
+        }
+        continue;
+      }
+      out.exp = String(Math.floor(n));
+      continue;
+    }
     out[k] = String(v);
   }
   if (extra.durationMs != null) {
@@ -256,6 +292,12 @@ function minigameDraftVars(channelOrGuild?, extra: Record<string, string | numbe
     } catch {
       out.minigame = String(extra.type);
     }
+  }
+  /* {exp} dentro {prompt} (es. anteprime dashboard) → risolvi subito */
+  if (out.prompt && /\{[a-zA-Z_.]+\}/.test(out.prompt)) {
+    out.prompt = out.prompt.replace(/\{([a-zA-Z_.]+)\}/g, (m, k: string) =>
+      Object.prototype.hasOwnProperty.call(out, k) ? out[k] : m,
+    );
   }
   return out;
 }

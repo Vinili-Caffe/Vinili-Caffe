@@ -6,7 +6,7 @@ const { MINIGAME_EMBED_COLOR, buildTimeoutNumberEmbed, buildTimeoutWordEmbed, bu
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { activeGames, channelWinClosing, recordNoParticipationIfNeeded, clearActiveGame, clearMinigameRoundTimers, endMinigameWinClose, tryClaimMinigameChannelClose } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
-const { treasureHuntDisplayTexts, removeTreasureHuntReactions, getTreasureHuntMessageUrl } = require("./minigameTreasureEmoji") as typeof import("./minigameTreasureEmoji");
+const { removeTreasureHuntReactions, getTreasureHuntMessageUrl } = require("./minigameTreasureEmoji") as typeof import("./minigameTreasureEmoji");
 const { resolveMinigameGuildIdAsync } = require("./minigameRoundStart") as typeof import("./minigameRoundStart");
 const { revealHangmanSolutionBoard } = require("./minigameRoundAdvance") as typeof import("./minigameRoundAdvance");
 
@@ -345,20 +345,29 @@ async function closeExpiredMinigameState(client?, cfg?, channel?, state?) {
       warnMinigame(err);
     }
     const url = getTreasureHuntMessageUrl(guildId, channel.id, winnerMessageId);
-    const labels = await treasureHuntDisplayTexts(channel.guild, decoy, winner);
     await sendMinigameMessage(channel, {
-      embeds: [buildTreasureHuntTimeoutEmbed(labels.decoy, labels.winner, url)],
+      embeds: [buildTreasureHuntTimeoutEmbed(url)],
     }).catch(() => { });
     if (candidateIds.length) removeTreasureHuntReactions(channel, candidateIds, decoy, winner).catch(() => { });
     await minigameStateDeleteOne({ guildId, channelId }).catch(() => { });
     return;
   }
   if (type === "findBot") {
-    try {
-      const { catchUpFindBotFromReactions } = require("./minigameFindBot") as typeof import("./minigameFindBot");
-      const snap = buildGameSnapshotFromPersistedState(state);
-      if (snap && (await catchUpFindBotFromReactions(client, cfg, snap).catch(() => false))) return;
-    } catch (_) {}
+    const snap = buildGameSnapshotFromPersistedState(state);
+    if (snap) {
+      let won = false;
+      try {
+        const { catchUpFindBotFromReactions } = require("./minigameFindBot") as typeof import("./minigameFindBot");
+        won = Boolean(await catchUpFindBotFromReactions(client, cfg, snap));
+      } catch (err) {
+        /* Win path may have started — do not fall through to timeout close. */
+        warnMinigame(err);
+        return;
+      }
+      if (won) return;
+      /* Skip timeout only if a win-close already claimed the channel. */
+      if (channelWinClosing.has(channelId)) return;
+    }
   }
   const game = buildGameSnapshotFromPersistedState(state);
   await sendMinigameTimeoutAndClose(

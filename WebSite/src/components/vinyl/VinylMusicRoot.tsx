@@ -20,6 +20,7 @@ import {
   writeVinylMusic,
 } from "@/lib/vinyl-music-store";
 import { subscribeSerataMuteBgm } from "@/lib/serata-mute-bgm";
+import { useSocialPhoneOpenListener } from "@/lib/social-phone-open";
 
 function pathSuppressesSiteMusic(pathname: string) {
   const p = String(pathname || "").replace(/\/+$/, "") || "/";
@@ -51,7 +52,10 @@ export function VinylMusicRoot() {
   const [hint, setHint] = useState(false);
   const [suppress, setSuppress] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [phoneOpen, setPhoneOpen] = useState(false);
   const trackTitle = resolveVinylYt().title;
+
+  useEffect(() => useSocialPhoneOpenListener(setPhoneOpen), []);
 
   useEffect(() => {
     volumeRef.current = volume;
@@ -442,7 +446,7 @@ export function VinylMusicRoot() {
   return (
     <>
       <div ref={host} className="pointer-events-none fixed size-px overflow-hidden opacity-0" aria-hidden />
-      {!suppress ? (
+      {!suppress && !phoneOpen ? (
         <MusicDock
           label={trackTitle}
           on={on}

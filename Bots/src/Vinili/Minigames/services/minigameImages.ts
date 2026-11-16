@@ -69,6 +69,7 @@ export = {
   normalizeCountryName: remote.normalizeCountryName,
   polishItalianQuestionText: remote.polishItalianQuestionText,
   fetchWikiRegionImage: remote.fetchWikiRegionImage,
+  fetchWikiCapitalImage: remote.fetchWikiCapitalImage,
   pickBestSingerImage: remote.pickBestSingerImage,
   fetchSingerImageFallback: remote.fetchSingerImageFallback,
   buildDrivingQuizPromptImage: canvas.buildDrivingQuizPromptImage,

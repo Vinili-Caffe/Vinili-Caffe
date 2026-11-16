@@ -324,7 +324,7 @@ function MembersPulseBody({
               <span className="inline-flex size-9 items-center justify-center rounded-xl bg-caramel/15 text-caramel ring-1 ring-caramel/25">
                 <c.icon className="size-4" />
               </span>
-              <p className="mt-3 font-display text-3xl font-semibold lining-nums tabular-nums text-crema sm:text-4xl">{c.value}</p>
+              <p className="mt-3 font-sans text-3xl font-semibold tracking-tight lining-nums tabular-nums text-crema sm:text-4xl">{c.value}</p>
               <p className="mt-1 text-sm font-semibold text-crema/85">{c.label}</p>
               <p className="mt-0.5 text-xs leading-snug text-crema/45">{c.hint}</p>
             </motion.div>
@@ -451,14 +451,15 @@ export function LiveStats({ initial }: { initial: Stats }) {
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
 
   const pull = useCallback(() => {
-    return loadStatsBundle("", initial).then((b) => {
+    return loadStatsBundle("", initial, { fresh: true }).then((b) => {
       setStats(b.stats);
       setExtra(b.extra);
       setFetchedAt(Date.now());
     });
   }, [initial]);
 
-  useLiveRefresh(pull, { intervalMs: 120_000, topics: ["live_stats"] });
+  /* presence = online Discord; live_stats = snapshot extra (boost/staff/pulse) */
+  useLiveRefresh(pull, { intervalMs: 45_000, topics: ["live_stats", "presence"] });
 
   const items: {
     id: Exclude<RosterKind, null>;
@@ -558,7 +559,7 @@ export function LiveStats({ initial }: { initial: Stats }) {
                   </span>
                 )}
               </div>
-              <div className="mt-3 font-display text-4xl font-semibold text-crema sm:text-5xl">
+              <div className="mt-3 font-sans text-4xl font-semibold tracking-tight text-crema sm:text-5xl">
                 <CountUp value={it.value} locale={locale} />
               </div>
               {/* facce anteprima su tutte e 4 le card */}

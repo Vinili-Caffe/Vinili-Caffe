@@ -101,13 +101,13 @@ export function WelcomePanel({
     setSaved(JSON.stringify(r.data.welcome));
 
     if (tab === "welcome" && levelsCfg && greetingDirty) {
+      /* solo bonuses: un full blob stale qui può sovrascrivere minigiochi/livelli salvati altrove */
       const lr = await communityApi.saveLevels(token, guildId, {
-        ...levelsCfg,
         bonuses: {
           firstMessageDaily: firstDaily,
           welcomeGreeting: greeting,
         },
-      });
+      } as any);
       if (!lr.ok) {
         setBusy(null);
         return onToast(lr.message, true);

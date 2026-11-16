@@ -22,6 +22,7 @@ const { mountPrefsBootWebhookRoutes } = require("./webhooks/prefsBootRoutes") as
 const {
   mountDiscordMeWebhookRoutes,
   mountOauthStartWebhookRoutes,
+  mountSiteAuthOauthRoutes,
 } = require("./webhooks/oauthAuthRoutes") as typeof import("./webhooks/oauthAuthRoutes");
 const { mountConfessionaleWebhookRoutes } = require("./webhooks/confessionaleRoutes") as typeof import("./webhooks/confessionaleRoutes");
 const { mountUserWorkflowWebhookRoutes } = require("./webhooks/userWorkflowRoutes") as typeof import("./webhooks/userWorkflowRoutes");
@@ -57,6 +58,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   mountNotificationsRoutes(app, client);
   mountPrefsBootWebhookRoutes(app, client);
   mountDiscordMeWebhookRoutes(app, client, ctx);
+  mountSiteAuthOauthRoutes(app, client, ctx);
   mountStaffRoutes(app, client);
   mountConfessionaleWebhookRoutes(app, client);
   mountWorkflowRoutes(app, client);

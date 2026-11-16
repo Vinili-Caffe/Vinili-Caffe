@@ -1,6 +1,6 @@
 /** Minigiochi quiz: capitali, capoluoghi e città. */
 const { getGuessCityBank } = require("../../Minigames/data/minigameBanks") as typeof import("../../Minigames/data/minigameBanks");
-const { normalizeCountryName, fetchWikiRegionImage, buildPromptImageAttachment, buildRegionNameImageAttachment, buildRemoteGuessImageCardAttachment } = require("./minigameImages") as typeof import("./minigameImages");
+const { normalizeCountryName, fetchWikiRegionImage, fetchWikiCapitalImage, buildPromptImageAttachment, buildRegionNameImageAttachment, buildRemoteGuessImageCardAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 const { buildGuessCapitalEmbed, buildGuessRegionCapitalEmbed, buildGuessReverseCapitalEmbed, buildTimeoutCapitalEmbed, buildTimeoutRegionCapitalEmbed, buildTimeoutReverseCapitalEmbed, buildGuessCityEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { loadCapitalQuestionBank, loadReverseCapitalQuestionBank, loadRegionCapitalQuestionBank } = require("./minigameSources") as typeof import("./minigameSources");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
@@ -61,7 +61,7 @@ async function startGuessCapitalGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessCapital",
     target: JSON.stringify({
       country: pick.country,
@@ -75,6 +75,7 @@ async function startGuessCapitalGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -95,12 +96,18 @@ async function startGuessRegionCapitalGame(client?, cfg?) {
 
   if (cfg.roleId)
     await sendMinigameRolePing(channel, cfg);
+  /* foto regione in card canvas; testo solo se wiki non dà immagine */
   const image = await fetchWikiRegionImage(pick.region);
-  const regionNameAttachment = !image ? (buildRegionNameImageAttachment(pick.region) || buildPromptImageAttachment("Indovina il capoluogo", [pick.region], "guess_region_capital", "", client)) : null;
-  const regionImageUrl = image || (regionNameAttachment ? `attachment://${regionNameAttachment.name}` : null);
+  const regionAttachment =
+    (image ? await buildRemoteGuessImageCardAttachment(image, "Capitale di regione", "guess_region_capital.png").catch(() => null) : null) ||
+    buildRegionNameImageAttachment(pick.region) ||
+    buildPromptImageAttachment("Indovina il capoluogo", [pick.region], "guess_region_capital", "", client);
   const gameMessage = await sendMinigameMessage(
     channel,
-    { embeds: [buildGuessRegionCapitalEmbed(pick.region, rewardExp, durationMs, regionImageUrl, regionNameAttachment?.name || null)], files: regionNameAttachment ? [regionNameAttachment] : [] },
+    {
+      embeds: [buildGuessRegionCapitalEmbed(pick.region, rewardExp, durationMs, regionAttachment ? `attachment://${regionAttachment.name}` : image || null)],
+      files: regionAttachment ? [regionAttachment] : [],
+    },
     { type: "guessRegionCapital", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, region: pick.region }) },
   ).catch(() => null);
 
@@ -117,7 +124,7 @@ async function startGuessRegionCapitalGame(client?, cfg?) {
     type: "guessRegionCapital",
     region: pick.region,
     answers: pick.answers,
-    image,
+    image: image || null,
     displayAnswer,
     rewardExp,
     startedAt: Date.now(),
@@ -127,12 +134,12 @@ async function startGuessRegionCapitalGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessRegionCapital",
     target: JSON.stringify({
       region: pick.region,
       answers: pick.answers,
-      image,
+      image: image || null,
       displayAnswer,
     }),
     rewardExp,
@@ -141,6 +148,7 @@ async function startGuessRegionCapitalGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -162,10 +170,12 @@ async function startGuessReverseCapitalGame(client?, cfg?) {
 
   if (cfg.roleId)
     await sendMinigameRolePing(channel, cfg);
+  /* foto della città (non bandiera: rivelerebbe lo Stato) */
+  const capitalPhoto = await fetchWikiCapitalImage(pick.capital);
   const reverseCapitalAttachment =
-    (pick.image ? await buildRemoteGuessImageCardAttachment(pick.image, "Capitale inverso", "guess_reverse_capital.png").catch(() => null) : null) ||
-    (!pick.image ? buildPromptImageAttachment("Capitale inverso", [pick.capital], "guess_reverse_capital", "", client) : null);
-  const reverseCapitalEmbed = buildGuessReverseCapitalEmbed(pick.capital, rewardExp, durationMs, reverseCapitalAttachment ? `attachment://${reverseCapitalAttachment.name}` : pick.image || null);
+    (capitalPhoto ? await buildRemoteGuessImageCardAttachment(capitalPhoto, "Capitale inverso", "guess_reverse_capital.png").catch(() => null) : null) ||
+    buildPromptImageAttachment("Capitale inverso", [pick.capital], "guess_reverse_capital", "", client);
+  const reverseCapitalEmbed = buildGuessReverseCapitalEmbed(pick.capital, rewardExp, durationMs, reverseCapitalAttachment ? `attachment://${reverseCapitalAttachment.name}` : capitalPhoto || null);
   const gameMessage = await sendMinigameMessage(
     channel,
     { embeds: [reverseCapitalEmbed], files: reverseCapitalAttachment ? [reverseCapitalAttachment] : [] },
@@ -187,7 +197,7 @@ async function startGuessReverseCapitalGame(client?, cfg?) {
     country: pick.country,
     answers: pick.answers,
     displayAnswer,
-    image: pick.image || null,
+    image: capitalPhoto || null,
     rewardExp,
     startedAt: Date.now(),
     endsAt: Date.now() + durationMs,
@@ -196,14 +206,14 @@ async function startGuessReverseCapitalGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessReverseCapital",
     target: JSON.stringify({
       capital: pick.capital,
       country: pick.country,
       answers: pick.answers,
       displayAnswer,
-      image: pick.image || null,
+      image: capitalPhoto || null,
     }),
     rewardExp,
     startedAt: new Date(),
@@ -211,6 +221,7 @@ async function startGuessReverseCapitalGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -251,7 +262,7 @@ async function startGuessCityGame(client?, cfg?) {
     hintTimeout,
     gameMessageId: gameMessage?.id || null,
   });
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessCity",
     target: JSON.stringify({ landmark: pick.landmark, city: pick.city }),
     rewardExp,
@@ -259,6 +270,7 @@ async function startGuessCityGame(client?, cfg?) {
     endsAt: new Date(Date.now() + durationMs),
     gameMessageId: gameMessage?.id || null,
   });
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }

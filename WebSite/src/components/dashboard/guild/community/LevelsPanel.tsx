@@ -420,7 +420,7 @@ const MINIGAME_PREVIEW: Record<string, MinigamePreviewMeta> = {
     image: "https://i.scdn.co/image/ab67616d0000b273dc30583ba717007b00cceb25",
     cardLines: ["Album"],
   },
-  hangman: { prompt: "Scrivi una lettera o prova la parola intera per ottenere **{exp} exp**.\nParola: **_ _ _ _ _**", cardLines: ["_ _ _ _ _"] },
+  hangman: { prompt: "Scrivi una lettera o prova la parola intera per ottenere **{exp} exp**.", cardLines: ["_ _ _ _ _"] },
   italianGK: { prompt: "**Domanda:** Qual è il fiume più lungo d'Italia? per ottenere **{exp} exp**.", cardLines: ["Qual è il fiume più lungo d'Italia?"] },
   drivingQuiz: {
     prompt: "**Affermazione:** In curva il veicolo tende a sbandare.\nRispondi con `vero` o `falso`.\nRicompensa: **{exp} exp**",
@@ -440,7 +440,7 @@ const MINIGAME_PREVIEW: Record<string, MinigamePreviewMeta> = {
   },
   guessEmoji: { prompt: "Cosa rappresenta **🦁👑**? Scrivi film, serie o canzone per **{exp} exp**.", cardLines: ["🦁👑"] },
   quoteFilm: {
-    prompt: '*"Che la forza sia con te"* — Da quale film o serie? **{exp} exp**.',
+    prompt: '*“Che la forza sia con te”* — Da quale film o serie? **{exp} exp**.',
     cardLines: ['"Che la forza sia con te"'],
   },
   completeProverb: { prompt: "**Chi dorme…** Completa il proverbio per **{exp} exp**.", cardLines: ["Chi dorme…"] },
@@ -613,6 +613,17 @@ function BigNumber({
   );
 }
 
+/**
+ * Campo in minuti: in stato resta il ms esatto; si riscrive solo se i minuti mostrati cambiano
+ * (evita round-trip silenzioso 900_000 → round → 15 → 900_000 quando i ms non erano multipli di 60s).
+ */
+function msFromDisplayedMinutes(currentMs: number, nextMin: number, floorMin: number): number | null {
+  const shown = Math.max(floorMin, Math.round(currentMs / 60_000));
+  const next = Math.max(floorMin, Math.floor(nextMin || floorMin));
+  if (next === shown) return null;
+  return next * 60_000;
+}
+
 const roleColor = (roles: PickerRole[], id: string) => {
   const c = roles.find((r) => r.id === id)?.color;
   return c && c !== "#000000" ? c : "#99aab5";
@@ -648,6 +659,10 @@ export function LevelsPanel({
   const [isMain, setIsMain] = useState(false);
   const [event, setEvent] = useState<LevelsEvent | null>(null);
   const [scheduled, setScheduled] = useState<LevelsScheduledEvent[]>([]);
+  const [saving, setSaving] = useState(false);
+  const guildIdRef = useRef(guildId);
+  guildIdRef.current = guildId;
+  const savingLock = useRef(false);
 
   useEffect(() => {
     setPreviewCardsReady(true);
@@ -687,6 +702,13 @@ export function LevelsPanel({
 
   useEffect(() => {
     let alive = true;
+    /* reset immediato: altrimenti al cambio guild resta la config precedente e un Salva può sovrascrivere il server sbagliato */
+    setCfg(null);
+    setSaved("");
+    setLoadError(null);
+    setImported(false);
+    setEvent(null);
+    setScheduled([]);
     void communityApi.getLevels(token, guildId).then((r) => {
       if (!alive) return;
       if (!r.ok) return setLoadError(r.message);
@@ -749,12 +771,23 @@ export function LevelsPanel({
   const set = (patch: Partial<LevelsConfig>) => setCfg({ ...cfg, ...patch });
 
   const save = async () => {
-    const r = await communityApi.saveLevels(token, guildId, cfg);
-    if (!r.ok) return onToast(r.message, true);
-    setCfg(r.data.config);
-    setSaved(JSON.stringify(r.data.config));
-    setImported(false);
-    onToast("Livelli e EXP salvati.");
+    if (savingLock.current || saving || !cfg) return;
+    savingLock.current = true;
+    setSaving(true);
+    const gid = guildId;
+    const snapshot = cfg;
+    try {
+      const r = await communityApi.saveLevels(token, gid, snapshot);
+      if (guildIdRef.current !== gid) return;
+      if (!r.ok) return onToast(r.message, true);
+      setCfg(r.data.config);
+      setSaved(JSON.stringify(r.data.config));
+      setImported(false);
+      onToast("Livelli e EXP salvati.");
+    } finally {
+      savingLock.current = false;
+      setSaving(false);
+    }
   };
   const reset = () => {
     try {
@@ -1508,7 +1541,10 @@ export function LevelsPanel({
                         value={intervalMin}
                         min={1}
                         max={360}
-                        onChange={(v) => setSpawn({ intervalMs: Math.max(1, Math.floor(v || 1)) * 60_000 })}
+                        onChange={(v) => {
+                          const next = msFromDisplayedMinutes(spawn.intervalMs, v, 1);
+                          if (next != null) setSpawn({ intervalMs: next });
+                        }}
                         suffix="min"
                         hint="Attesa minima tra un round e il successivo."
                       />
@@ -1517,7 +1553,10 @@ export function LevelsPanel({
                         value={noPartMin}
                         min={1}
                         max={360}
-                        onChange={(v) => setSpawn({ noParticipationIntervalMs: Math.max(1, Math.floor(v || 1)) * 60_000 })}
+                        onChange={(v) => {
+                          const next = msFromDisplayedMinutes(spawn.noParticipationIntervalMs, v, 1);
+                          if (next != null) setSpawn({ noParticipationIntervalMs: next });
+                        }}
                         suffix="min"
                         hint="Pausa più lunga dopo un round senza risposte."
                       />
@@ -1526,7 +1565,10 @@ export function LevelsPanel({
                         value={activityMin}
                         min={1}
                         max={360}
-                        onChange={(v) => setSpawn({ activityWindowMs: Math.max(1, Math.floor(v || 1)) * 60_000 })}
+                        onChange={(v) => {
+                          const next = msFromDisplayedMinutes(spawn.activityWindowMs, v, 1);
+                          if (next != null) setSpawn({ activityWindowMs: next });
+                        }}
                         suffix="min"
                         hint="Quanto indietro si contano i messaggi in chat."
                       />
@@ -1607,7 +1649,17 @@ export function LevelsPanel({
                       </SettingRow>
                       {spawn.spawnFreshActivity.enabled !== false ? (
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <BigNumber label="Ultimi minuti" value={freshMin} min={1} max={60} onChange={(v) => setFresh({ windowMs: Math.max(1, Math.floor(v || 1)) * 60_000 })} suffix="min" />
+                          <BigNumber
+                            label="Ultimi minuti"
+                            value={freshMin}
+                            min={1}
+                            max={60}
+                            onChange={(v) => {
+                              const next = msFromDisplayedMinutes(spawn.spawnFreshActivity.windowMs, v, 1);
+                              if (next != null) setFresh({ windowMs: next });
+                            }}
+                            suffix="min"
+                          />
                           <BigNumber label="Messaggi freschi" value={spawn.spawnFreshActivity.minMessages} min={1} max={100} onChange={(v) => setFresh({ minMessages: Math.max(1, Math.floor(v || 1)) })} />
                         </div>
                       ) : null}
@@ -1618,7 +1670,10 @@ export function LevelsPanel({
                       value={failsafeMin}
                       min={5}
                       max={1440}
-                      onChange={(v) => setSpawn({ failsafeMs: Math.max(5, Math.floor(v || 5)) * 60_000 })}
+                      onChange={(v) => {
+                        const next = msFromDisplayedMinutes(spawn.failsafeMs, v, 5);
+                        if (next != null) setSpawn({ failsafeMs: next });
+                      }}
                       suffix="min"
                       hint="Se per tanto non esce nulla ma c’è un po’ di chat, forza un round."
                     />
@@ -2397,12 +2452,21 @@ function MemberSearch({ guildId, token, onPick }: { guildId: string; token: stri
   /* risultati con la ricerca a cui appartengono: così si sa se sta ancora cercando */
   const [result, setResult] = useState<{ q: string; hits: MemberHit[]; err?: string }>({ q: "", hits: [] });
   const [open, setOpen] = useState(false);
+  const searchReqId = useRef(0);
 
   useEffect(() => {
     const q = query.trim();
-    if (q.length < 2 && !/^\d{16,22}$/.test(q)) return;
+    if (q.length < 2 && !/^\d{16,22}$/.test(q)) {
+      searchReqId.current += 1;
+      setResult({ q: "", hits: [] });
+      return;
+    }
+    const reqId = ++searchReqId.current;
+    /* finché non arriva la risposta di questa richiesta, spinner (niente hit stale di un’altra guild/q) */
+    setResult({ q: "", hits: [] });
     const timer = window.setTimeout(async () => {
       const res = await searchTicketMembers(token, guildId, q);
+      if (reqId !== searchReqId.current) return;
       setResult(res.ok ? { q, hits: res.data } : { q, hits: [], err: res.message });
     }, 200);
     return () => window.clearTimeout(timer);

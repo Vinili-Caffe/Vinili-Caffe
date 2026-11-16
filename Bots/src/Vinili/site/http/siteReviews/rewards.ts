@@ -32,21 +32,6 @@ async function awardServerReviewLevels(client?, guild?, member?) {
     return null;
   }
 
-  const alreadyRewarded = await ActivityUserProfile.findOne({
-    guildId,
-    userId,
-    "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedAt": { $ne: null },
-  })
-    .select("_id")
-    .lean()
-    .catch(() => null);
-  if (alreadyRewarded) return null;
-
-  const profile = await ActivityUserProfile.findOne({ guildId, userId })
-    .select("profile.totals.exp.totalExp")
-    .lean()
-    .catch(() => null);
-  const currentExp = Number(profile?.profile?.totals?.exp?.totalExp || 0);
   let levels = REVIEW_REWARD_LEVELS;
   try {
     const LVL = require("../../../../MultiGuild/services/levelsRuntime") as typeof import("../../../../MultiGuild/services/levelsRuntime");
@@ -54,23 +39,43 @@ async function awardServerReviewLevels(client?, guild?, member?) {
     if (cfg.userSaved || cfg.seedVersion > 0) levels = cfg.reviewRewardLevels;
   } catch (_) {}
   if (!(levels > 0)) return null;
+
+  const profile = await ActivityUserProfile.findOne({ guildId, userId })
+    .select("profile.totals.exp.totalExp")
+    .lean()
+    .catch(() => null);
+  const currentExp = Number(profile?.profile?.totals?.exp?.totalExp || 0);
   const reward = computeExpForLevelReward(currentExp, levels);
   if (!reward.addedExp) return null;
 
-  const expResult = await addExpWithLevel(guild, userId, reward.addedExp, false, false).catch(() => null);
-  const finalLevel = Number(expResult?.levelInfo?.level || getLevelInfo(currentExp + reward.addedExp).level || reward.targetLevel);
-
+  /* Ensure profile exists, then claim atomically (no upsert race on unique guild+user). */
   await ActivityUserProfile.updateOne(
     { guildId, userId },
+    { $setOnInsert: { guildId, userId } },
+    { upsert: true },
+  ).catch(() => null);
+
+  const claimed = await ActivityUserProfile.findOneAndUpdate(
     {
-      $setOnInsert: { guildId, userId },
+      guildId,
+      userId,
+      $or: [
+        { "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedAt": null },
+        { "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedAt": { $exists: false } },
+      ],
+    },
+    {
       $set: {
         "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedBy": String(client?.user?.id || ""),
         "profile.totals.exp.bumpVoteRewards.disboard_review.rewardedAt": new Date(),
       },
     },
-    { upsert: true },
+    { new: true },
   ).catch(() => null);
+  if (!claimed) return null;
+
+  const expResult = await addExpWithLevel(guild, userId, reward.addedExp, false, false).catch(() => null);
+  const finalLevel = Number(expResult?.levelInfo?.level || getLevelInfo(currentExp + reward.addedExp).level || reward.targetLevel);
 
   return {
     addedLevels: Math.max(0, finalLevel - reward.currentLevel),

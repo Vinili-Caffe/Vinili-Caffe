@@ -7,7 +7,7 @@ function buildTimeoutNumberEmbed(number?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! Il numero era **${number}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! Il numero era: **${number}**.`,
     );
 }
 
@@ -15,7 +15,7 @@ function buildTimeoutWordEmbed(word?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! La parola era **${word}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! La parola era: **${word}**.`,
     );
 }
 
@@ -23,7 +23,7 @@ function buildTimeoutFlagEmbed(name?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! La bandiera era **${name}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! La nazione era: **${name}**.`,
     );
 }
 
@@ -31,7 +31,7 @@ function buildTimeoutPlayerEmbed(name?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! Il calciatore era **${name}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! Il calciatore era: **${name}**.`,
     );
 }
 
@@ -39,7 +39,7 @@ function buildTimeoutSongEmbed(title?, artist?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! Era **${title}** \u2014 ${artist}.`,
+      `${E.VC_pixeltime} Tempo scaduto! Il brano era: **${artist}** \u2014 **${title}**.`,
     );
 }
 
@@ -47,7 +47,7 @@ function buildTimeoutFindBotEmbed() {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! Nessuno ha trovato il bot.`,
+      `${E.VC_pixeltime} Tempo scaduto! Nessuno ha trovato il messaggio del bot.`,
     );
 }
 
@@ -71,7 +71,7 @@ function buildTimeoutCapitalEmbed(country?, answer?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! La capitale di **${country}** era **${answer}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! La capitale di **${country}** era: **${answer}**.`,
     );
 }
 
@@ -79,7 +79,7 @@ function buildTimeoutRegionCapitalEmbed(region?, answer?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! Il capoluogo di **${region}** era **${answer}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! Il capoluogo di **${region}** era: **${answer}**.`,
     );
 }
 
@@ -87,7 +87,7 @@ function buildTimeoutReverseCapitalEmbed(capital?, answer?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! **${capital}** è la capitale di **${answer}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! **${capital}** è la capitale di: **${answer}**.`,
     );
 }
 
@@ -95,7 +95,7 @@ function buildTimeoutFastTypeEmbed(phrase?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! La frase era \`${phrase}\`.`,
+      `${E.VC_pixeltime} Tempo scaduto! La frase era: **${phrase}**.`,
     );
 }
 
@@ -103,7 +103,7 @@ function buildTimeoutTeamEmbed(team?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! La squadra era **${team}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! La squadra era: **${team}**.`,
     );
 }
 
@@ -111,7 +111,7 @@ function buildTimeoutSingerEmbed(name?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! Il cantante era **${name}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! Il cantante era: **${name}**.`,
     );
 }
 
@@ -119,7 +119,7 @@ function buildTimeoutAlbumEmbed(name?, artist?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! Era **${name}** di ${artist}.`,
+      `${E.VC_pixeltime} Tempo scaduto! L'album era: **${name}** di **${artist}**.`,
     );
 }
 
@@ -127,7 +127,7 @@ function buildTimeoutHangmanEmbed(word?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! La parola era **${word}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! La parola era: **${word}**.`,
     );
 }
 
@@ -135,7 +135,7 @@ function buildHangmanLossEmbed(word?) {
   return new EmbedBuilder()
     .setColor("#ED4245")
     .setDescription(
-      `${E.VC_pixeltime} Errori esauriti! La parola era **${word}**.`,
+      `${E.VC_pixeltime} Errori esauriti! La parola era: **${word}**.`,
     );
 }
 
@@ -143,7 +143,7 @@ function buildTimeoutItalianGkEmbed(answer?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! La risposta era **${answer}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! La risposta era: **${answer}**.`,
     );
 }
 
@@ -152,9 +152,9 @@ function buildTimeoutDrivingQuizEmbed(game?) {
   let text;
   if (isMultiple && game.options[game.correctIndex] != null) {
     const letter = DRIVING_QUIZ_LETTERS[game.correctIndex] ?? String(game.correctIndex + 1);
-    text = `La risposta corretta era **${letter}) ${game.options[game.correctIndex]}**.`;
+    text = `La risposta corretta era: **${letter}) ${game.options[game.correctIndex]}**.`;
   } else {
-    text = `La risposta corretta era **${game?.answer ? "vero" : "falso"}**.`;
+    text = `La risposta corretta era: **${game?.answer ? "vero" : "falso"}**.`;
   }
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
@@ -167,7 +167,7 @@ function buildTimeoutMathEmbed(answer?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! Il risultato corretto era **${answer}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! Il risultato corretto era: **${answer}**.`,
     );
 }
 
@@ -176,7 +176,7 @@ function buildTimeoutGuessYearEmbed(title?, subtitle?, year?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! **${title}**${sub} era del **${year}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! **${title}**${sub} era del: **${year}**.`,
     );
 }
 
@@ -184,7 +184,7 @@ function buildTimeoutCompleteVerseEmbed(answer?, song?, artist?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! La risposta era **${answer}** (${song} — ${artist}).`,
+      `${E.VC_pixeltime} Tempo scaduto! La risposta era: **${answer}** (${song} — ${artist}).`,
     );
 }
 
@@ -192,7 +192,7 @@ function buildTimeoutGuessEmojiEmbed(emojis?, answer?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! ${emojis} era **${answer}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! ${emojis} era: **${answer}**.`,
     );
 }
 
@@ -200,7 +200,7 @@ function buildTimeoutQuoteFilmEmbed(quote?, answer?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! La citazione è da **${answer}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! La citazione è da: **${answer}**.`,
     );
 }
 
@@ -209,7 +209,7 @@ function buildTimeoutCompleteProverbEmbed(start?, end?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! Il proverbio completo: **${full}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! Il proverbio completo era: **${full}**.`,
     );
 }
 
@@ -220,7 +220,7 @@ function buildTimeoutSynonymAntonymEmbed(word?, answer?, kind?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! ${label} di **${safeWord}** era **${safeAnswer}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! ${label} di **${safeWord}** era: **${safeAnswer}**.`,
     );
 }
 
@@ -228,22 +228,20 @@ function buildTimeoutGuessCityEmbed(landmark?, city?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
     .setDescription(
-      `${E.VC_pixeltime} Tempo scaduto! **${landmark}** si trova a **${city}**.`,
+      `${E.VC_pixeltime} Tempo scaduto! **${landmark}** si trova a: **${city}**.`,
     );
 }
 
-function buildTreasureHuntTimeoutEmbed(decoyDisplay?, winnerDisplay?, winnerMessageUrl?) {
-  const decoyText = String(decoyDisplay || "").trim() || "le reaction";
-  const winnerText = String(winnerDisplay || "").trim() || "quella vincente";
+function buildTreasureHuntTimeoutEmbed(winnerMessageUrl?) {
   const lines = [
-    `${E.VC_pixeltime} Tempo scaduto! Nessuno ha trovato la reaction ${winnerText} tra le ${decoyText}.`,
+    `${E.VC_pixeltime} Tempo scaduto! Nessuno ha trovato la reaction vincente tra le reaction.`,
   ];
   if (winnerMessageUrl) {
-    lines.push("", `${E.VC_Arrow} Era questo messaggio: ${winnerMessageUrl}`);
+    lines.push("", `${E.VC_Arrow} Il messaggio nascosto era: <${winnerMessageUrl}>`);
   }
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle(`${E.VC_Alert} Caccia al tesoro conclusa`)
+    .setTitle(`Caccia al tesoro conclusa`)
     .setDescription(lines.join("\n"));
 }
 

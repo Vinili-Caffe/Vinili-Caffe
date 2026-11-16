@@ -119,39 +119,43 @@ async function render(type: string, client?): Promise<PreviewOut> {
       return canvasOut(await themedCard(cfg, "Indovina il numero", [`Tra ${min} e ${max}`], "guess_number", client));
     }
     case "guessWord":
-      return canvasOut(card("Indovina la parola", ["aeplp"], "guess_word", client));
+      return canvasOut(card("Indovina la parola da queste lettere", ["aeplp"], "guess_word", client));
     case "fastType":
-      return canvasOut(await themedCard(cfg, "Scrivi la frase", ["Il caffè del mattino è sacro"], "fast_type", client));
+      return canvasOut(await themedCard(cfg, "Scrivi la frase prima di tutti", ["Il caffè del mattino è sacro"], "fast_type", client));
     case "hangman":
       return canvasOut(await themedCard(cfg, "Impiccato", ["_ _ _ _ _", "Errori: 0/10"], "hangman", client));
     case "italianGK":
-      return canvasOut(card("Cultura generale", ["Qual è il fiume più lungo d'Italia?"], "italian_gk", client));
+      return canvasOut(card("Quiz di Cultura Generale", ["Qual è il fiume più lungo d'Italia?"], "italian_gk", client));
     case "mathExpression":
-      return canvasOut(toDataUrl(images.buildMathExpressionImageAttachment("12 + 8 × 2") as Attachment) || card("Calcola", ["12 + 8 × 2"], "math", client));
+      return canvasOut(toDataUrl(images.buildMathExpressionImageAttachment("12 + 8 × 2") as Attachment) || card("Calcola l'espressione", ["12 + 8 × 2"], "math", client));
     case "memoryEmoji":
-      return canvasOut(await themedCard(cfg, "Memoria", ["⭐ 🎵 🎮 🔥", "Memorizza la sequenza"], "memory_emoji", client));
+      return canvasOut(await themedCard(cfg, "Memoria con emoji", ["⭐ 🎵 🎮 🔥", "Memorizza la sequenza"], "memory_emoji", client));
     case "findBot":
-      return canvasOut(await themedCard(cfg, "Trova il bot", ["Cerca il messaggio nascosto in un canale del server.", "Reagisci con il cuore quando lo trovi!"], "find_bot", client));
+      return canvasOut(await themedCard(cfg, "Trova il bot in chat", ["Cerca il messaggio nascosto in un canale del server.", "Reagisci con il cuore quando lo trovi!"], "find_bot", client));
     case "findBotVoice":
       return canvasOut(await themedCard(cfg, "Trova il bot in vocale", ["Il bot si è nascosto in una vocale vuota del server.", "Entra in quella vocale per vincere!"], "find_bot", client));
     case "guessYear":
-      return canvasOut(card("Indovina l'anno", ["Inception", "Film"], "guess_year", client));
+      return canvasOut(card("Indovina l'anno di uscita", ["Inception", "Film"], "guess_year", client));
     case "completeVerse":
       return canvasOut(await themedCard(cfg, "Completa il verso", ["Nel blu dipinto di blu…", "Volare — Domenico Modugno"], "complete_verse", client));
     case "guessEmoji": {
-      const att = (await images.buildEmojiRichPromptImageAttachment("Indovina da emoji", ["🦁👑", "Categoria: Film"], "guess_emoji").catch(() => null)) as Attachment;
-      return canvasOut(toDataUrl(att) || card("Indovina da emoji", ["🦁👑", "Categoria: Film"], "guess_emoji", client));
+      const att = (await images.buildEmojiRichPromptImageAttachment("Indovina la parola da queste emoji", ["🦁👑", "Categoria: Film"], "guess_emoji").catch(() => null)) as Attachment;
+      return canvasOut(toDataUrl(att) || card("Indovina la parola da queste emoji", ["🦁👑", "Categoria: Film"], "guess_emoji", client));
     }
     case "quoteFilm":
-      return canvasOut(card("Citazione da film/serie", ["\"Che la forza sia con te\""], "quote_film", client));
+      return canvasOut(card("Citazione di un film o serie TV", ["\"Che la forza sia con te\""], "quote_film", client));
     case "completeProverb":
       return canvasOut(card("Completa il proverbio", ["Chi dorme…"], "complete_proverb", client));
     case "synonymAntonym":
       return canvasOut(card("Trova il sinonimo", ["Parola: bello", "Scrivi un sinonimo di questa parola."], "synonym_antonym", client));
     case "guessCity":
       return canvasOut(card("Indovina la città", ["Il Colosseo", "Paese: Italia"], "guess_city", client));
-    case "guessRegionCapital":
-      return canvasOut(toDataUrl(images.buildRegionNameImageAttachment("Lazio") as Attachment) || card("Indovina il capoluogo", ["Lazio"], "guess_region_capital", client));
+    case "guessRegionCapital": {
+      const region = "Lazio";
+      const wiki = await images.fetchWikiRegionImage(region).catch(() => null);
+      if (wiki) return photoCardOut([wiki], "Capoluogo di regione", "guess_region_capital", [region], client);
+      return canvasOut(toDataUrl(images.buildRegionNameImageAttachment(region) as Attachment) || card("Indovina il capoluogo", [region], "guess_region_capital", client));
+    }
     case "guessCapital": {
       /* come nel round: la bandiera del paese, non il nome scritto */
       const bank: any[] = await src.loadCapitalQuestionBank(cfg).catch(() => []);
@@ -162,16 +166,17 @@ async function render(type: string, client?): Promise<PreviewOut> {
     }
     case "guessReverseCapital": {
       const bank: any[] = await src.loadReverseCapitalQuestionBank(cfg).catch(() => []);
-      const withFlag = bank.filter((r) => r?.image);
-      const row = pick(withFlag) || pick(bank.filter((r) => r?.capital));
-      if (row?.image) return photoCardOut([String(row.image), "https://flagcdn.com/w320/it.png"], "Capitale inverso", "guess_reverse_capital", [String(row?.capital || "Roma")], client);
-      return canvasOut(card("Capitale inverso", [String(row?.capital || "Roma")], "guess_reverse_capital", client));
+      const row = pick(bank.filter((r) => r?.capital)) || { capital: "Roma" };
+      const capital = String(row?.capital || "Roma");
+      const wiki = await images.fetchWikiCapitalImage(capital).catch(() => null);
+      if (wiki) return photoCardOut([wiki], "Capitale inverso", "guess_reverse_capital", [capital], client, "Anteprima senza foto della città.");
+      return canvasOut(card("Capitale inverso", [capital], "guess_reverse_capital", client));
     }
     case "guessFlag": {
       const list: any[] = await src.loadCountryList(cfg).catch(() => []);
       const row = pick(list.filter((c) => c?.flagUrl));
       const flag = String(row?.flagUrl || "https://flagcdn.com/w320/it.png");
-      return photoCardOut([flag, "https://flagcdn.com/w320/it.png", "https://flagcdn.com/w320/br.png"], "Indovina la bandiera", "guess_flag", ["Quale nazione è?"], client);
+      return photoCardOut([flag, "https://flagcdn.com/w320/it.png", "https://flagcdn.com/w320/br.png"], "Indovina la nazione", "guess_flag", ["Quale nazione è?"], client);
     }
     case "guessPlayer": {
       const info: any =
@@ -223,7 +228,7 @@ async function render(type: string, client?): Promise<PreviewOut> {
       const artwork = String(info?.artwork || SAMPLE.album[0] || "");
       const img = artwork ? await censored(artwork, "minigame_song.png", "Indovina la canzone") : "";
       if (img?.startsWith("data:")) return { image: img, source: "canvas" };
-      return photoCardOut([artwork, ...SAMPLE.album], "Indovina la canzone", "guess_song", ["Ascolta l'anteprima"], client, "Anteprima senza copertina.");
+      return photoCardOut([artwork, ...SAMPLE.album], "Indovina la canzone", "guess_song", ["Ascolta l'anteprima della canzone"], client, "Anteprima senza copertina.");
     }
     case "guessAlbum": {
       const albums: any[] = await src.loadAlbumsFromApi(cfg).catch(() => []);
@@ -246,7 +251,7 @@ async function render(type: string, client?): Promise<PreviewOut> {
         statement: "In curva il veicolo tende a sbandare.",
       };
       const att = images.buildDrivingQuizPromptImage(sample) as Attachment;
-      return canvasOut(toDataUrl(att) || card("Quiz patente", ["In curva il veicolo tende a sbandare.", "Rispondi: Vero o Falso"], "driving_quiz", client));
+      return canvasOut(toDataUrl(att) || card("Quiz Patente", ["In curva il veicolo tende a sbandare.", "Rispondi: Vero o Falso"], "driving_quiz", client));
     }
     case "treasureHunt":
       return canvasOut(await themedCard(cfg, "Caccia al tesoro", ["Trova la reaction nascosta", "nei prossimi messaggi"], "treasure_hunt", client));
@@ -288,9 +293,9 @@ async function renderMinigamePreview(type?: string, client?): Promise<PreviewOut
 /* ── anteprime preparate dal processo dei minigiochi ──
  * Il processo del sito non raggiunge le fonti esterne (TheSportsDB, Deezer…): le immagini le genera il processo
  * che fa girare i minigiochi veri, le salva nel database e il sito le legge da lì. */
-/* v4: visual system Vinili (glass viola) — invalida le card crema/marroni. */
-const STORE_PREFIX = "minigamePreview.v4.";
-const WANTED_KEY = "minigamePreviewWanted.v4.list";
+/* v5: capitale inverso/regione con foto wiki; niente barra accent. */
+const STORE_PREFIX = "minigamePreview.v5.";
+const WANTED_KEY = "minigamePreviewWanted.v5.list";
 const FRESH_MS = 12 * 60 * 60 * 1000;
 type StoredPreview = PreviewOut & { at: number };
 

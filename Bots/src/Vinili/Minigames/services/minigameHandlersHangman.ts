@@ -4,9 +4,10 @@ const { buildHangmanEmbed, buildHangmanLossEmbed } = require("./minigameEmbeds")
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { normalizeCharForGuess, maskHangmanWord } = require("./minigameText") as typeof import("./minigameText");
 const { blockMinigameRehydrate } = require("./minigameState") as typeof import("./minigameState");
-const { MINIGAME_CORRECT_FALLBACK_EMOJI, reactMinigameWrongEmoji } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { MINIGAME_CORRECT_FALLBACK_EMOJI, reactMinigameWrongEmoji, editMinigameRoundImage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 const { saveActiveGame, shouldRevealHangmanSolutionOnBoard, updateHangmanBoardMessage, sendMinigameTimeoutAndClose, handleMinigameWin } = require("./minigameRound") as typeof import("./minigameRound");
 const { isNearTextGuess, isHangmanFullWordMatch } = require("./minigameGuessMatchers") as typeof import("./minigameGuessMatchers");
+const { formatItalianMinutesBold } = require("../../../shared/utils/italianDurationLabels") as typeof import("../../../shared/utils/italianDurationLabels");
 
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function finalizeHangmanLoss(message?, client?, cfg?, game?) {
@@ -29,15 +30,10 @@ async function finalizeHangmanLoss(message?, client?, cfg?, game?) {
         client,
         `loss_${Date.now()}`,
       );
-      const embed = buildHangmanEmbed(fullWordShown, game.rewardExp, 0);
+      const embed = buildHangmanEmbed(game.rewardExp, Math.max(1000, Number(game.endsAt) - Date.now()));
       embed.setColor("#ED4245");
       if (attachment) embed.setImage(`attachment://${attachment.name}`);
-      await gameMsg
-        .edit({
-          embeds: [embed],
-          files: attachment ? [attachment] : [],
-        })
-        .catch(() => {});
+      await editMinigameRoundImage(gameMsg, { attachment, embed });
     }
   }
 
@@ -106,16 +102,17 @@ async function handleHangmanMessage(message?, client?, cfg?, game?, content?, co
       game.guessedLetters = Array.from(guessed.values());
       const isCorrectLetter = wordNorm && wordNorm.includes(letter);
       if (!isCorrectLetter) {
+        /* Vite personali + disegno condiviso (solo lettere sbagliate). */
         userMisses[userId] = currentUserMisses + 1;
-        game.misses = Math.max(Number(game.misses || 0), Number(userMisses[userId] || 0));
+        game.misses = Number(game.misses || 0) + 1;
         await reactMinigameWrongEmoji(message, game);
       } else {
         await message.react(MINIGAME_CORRECT_FALLBACK_EMOJI).catch(() => { });
       }
     } else if (guessText.length > 1) {
+      /* Parola sbagliata: brucia solo le vite di questo utente, non chiude il round. */
       guessHandled = true;
       userMisses[userId] = currentUserMisses + 1;
-      game.misses = Math.max(Number(game.misses || 0), Number(userMisses[userId] || 0));
       await reactMinigameWrongEmoji(message, game);
     }
     if (!guessHandled) return false;
@@ -130,6 +127,7 @@ async function handleHangmanMessage(message?, client?, cfg?, game?, content?, co
       return true;
     }
 
+    /* Game over solo quando il disegno condiviso è completo — non dalle vite personali. */
     if (Number(game.misses || 0) >= maxMisses) {
       await finalizeHangmanLoss(message, client, cfg, game);
       return true;
@@ -159,19 +157,19 @@ async function handleHangmanMessage(message?, client?, cfg?, game?, content?, co
       client,
       `update_${Date.now()}`,
     );
-    const hangmanUpdateEmbed = buildHangmanEmbed(maskedWord, game.rewardExp, Math.max(1000, game.endsAt - Date.now()));
+    const hangmanUpdateEmbed = buildHangmanEmbed(game.rewardExp, Math.max(1000, Number(game.endsAt) - Date.now()));
+    hangmanUpdateEmbed.setDescription(`${E.VC_pixeltime} Hai ${formatItalianMinutesBold(Math.max(1000, game.endsAt - Date.now()))} per indovinarla!`);
+    hangmanUpdateEmbed.setFooter({ text: `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).` });
     if (hangmanUpdateAttachment) {
       hangmanUpdateEmbed.setImage(`attachment://${hangmanUpdateAttachment.name}`);
     }
     const channel = message.channel;
     const gameMsg = game.gameMessageId && channel ? await channel.messages.fetch(game.gameMessageId).catch(() => null) : null;
     if (gameMsg) {
-      await gameMsg
-        .edit({
-          embeds: [hangmanUpdateEmbed],
-          files: hangmanUpdateAttachment ? [hangmanUpdateAttachment] : [],
-        })
-        .catch(() => { });
+      await editMinigameRoundImage(gameMsg, {
+        attachment: hangmanUpdateAttachment,
+        embed: hangmanUpdateEmbed,
+      });
     }
     return true;
   }

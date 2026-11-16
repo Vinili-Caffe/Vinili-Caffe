@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { HeroBackdrop } from "./HeroBackdrop";
 import { HeroStage } from "./HeroStage";
+import { BlurText, GradientText, Magnet } from "./react-bits";
 import { RotatingText } from "./ui/rotating-text";
 
 const EMBERS = Array.from({ length: 12 }, (_, i) => ({
@@ -128,19 +129,19 @@ export function Hero() {
             <span className="mb-1 block font-script text-[2.35rem] font-normal leading-none text-sand sm:mb-2 sm:text-[2.85rem] lg:text-[3.25rem]">
               {welcome}
             </span>
-            <span className="block whitespace-nowrap text-crema drop-shadow-[0_2px_24px_rgba(217,154,91,0.2)] pr-[0.08em] text-[min(6rem,18.5cqw)]">
-              Vinili <span className="italic text-sand">&amp;</span> Caffè
-            </span>
+            <GradientText className="block whitespace-nowrap drop-shadow-[0_2px_24px_rgba(217,154,91,0.2)] pr-[0.08em] text-[min(6rem,18.5cqw)] text-crema">
+              <span className="mr-[0.12em] inline-block align-[-0.08em] text-[0.72em] not-italic [-webkit-text-fill-color:unset] [background:none] [color:unset]">📀</span>
+              Vinili <span className="italic">&amp;</span> Caffè
+              <span className="ml-[0.14em] inline-block align-[-0.06em] text-[0.72em] not-italic [-webkit-text-fill-color:unset] [background:none] [color:unset]">☕</span>
+            </GradientText>
           </motion.h1>
 
-          <motion.p
-            initial={{ y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.8, ease }}
+          <BlurText
+            as="p"
+            text={t("home.lead")}
+            delay={0.035}
             className="mx-auto mt-7 max-w-xl text-pretty text-lg leading-relaxed text-crema/80 lg:mx-0"
-          >
-            {t("home.lead")}
-          </motion.p>
+          />
 
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -148,12 +149,14 @@ export function Hero() {
             transition={{ delay: 0.4, duration: 0.8, ease }}
             className="mt-10 flex flex-wrap items-center justify-center gap-3 lg:justify-start"
           >
-            <a
-              href="#esplora"
-              className="rounded-full bg-crema/8 px-6 py-3.5 font-semibold text-crema ring-1 ring-crema/25 transition-[transform,background-color,color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:bg-crema/14 hover:ring-sand/40 active:scale-[0.97]"
-            >
-              {t("home.exploreCta")}
-            </a>
+            <Magnet strength={0.32} padding={56}>
+              <a
+                href="#esplora"
+                className="inline-flex rounded-full bg-crema/8 px-6 py-3.5 font-semibold text-crema ring-1 ring-crema/25 transition-[transform,background-color,color,box-shadow] duration-200 ease-out hover:bg-crema/14 hover:ring-sand/40 active:scale-[0.97]"
+              >
+                {t("home.exploreCta")}
+              </a>
+            </Magnet>
           </motion.div>
         </div>
 

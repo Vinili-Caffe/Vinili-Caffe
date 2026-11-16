@@ -88,7 +88,7 @@ function wrapPromptText(ctx?, text?, maxWidth?) {
   return lines.length ? lines : [source];
 }
 
-function buildFastTypePromptImage(phrase?, labelText = "Scrivi esattamente questa frase") {
+function buildFastTypePromptImage(phrase?, labelText = "Scrivi questa frase prima di tutti") {
   try {
     registerCanvasFonts(canvasModule);
     const width = 1200;
@@ -116,7 +116,7 @@ function buildFastTypePromptImage(phrase?, labelText = "Scrivi esattamente quest
     const totalContentHeight = labelHeight + gapLabelPhrase + totalPhraseHeight;
     const contentStartY = cardY + (cardH - totalContentHeight) / 2;
 
-    drawCanvasTitle(ctx, String(labelText || "Scrivi esattamente questa frase"), width / 2, contentStartY, {
+    drawCanvasTitle(ctx, String(labelText || "Scrivi questa frase prima di tutti"), width / 2, contentStartY, {
       size: 28,
       maxWidth: usableWidth,
     });
@@ -196,7 +196,7 @@ function buildDrivingQuizPromptImage(row?) {
     const totalContentHeight = titleHeight + titleGap + statementHeight + optionsHeight;
     let y = cardY + (cardH - totalContentHeight) / 2;
 
-    drawCanvasTitle(ctx, "Quiz patente", textCenterX, y, { size: 52, maxWidth: usableWidth });
+    drawCanvasTitle(ctx, "Quiz Patente", textCenterX, y, { size: 52, maxWidth: usableWidth });
     y += titleHeight + titleGap;
 
     ctx.textAlign = "center";
@@ -219,7 +219,7 @@ function buildDrivingQuizPromptImage(row?) {
       y += boolGap;
       ctx.fillStyle = CANVAS_STYLE.accentHot;
       ctx.font = fontStackPrimaryOnly(46, "700");
-      ctx.fillText("Rispondi: Vero o Falso", textCenterX, y);
+      ctx.fillText("Rispondi con vero o falso", textCenterX, y);
     }
 
     const name = "driving_quiz.png";
@@ -316,18 +316,6 @@ function fillCanvasCard(ctx?, x?, y?, w?, h?, radius = null) {
   ctx.lineWidth = 1;
   roundRect(ctx, x + 3, y + 3, w - 6, h - 6, Math.max(8, r - 4));
   ctx.stroke();
-
-  /* barra accent in alto */
-  const barH = 4;
-  ctx.fillStyle = CANVAS_STYLE.accent;
-  roundRect(ctx, x + 28, y + 14, Math.min(120, w * 0.18), barH, 2);
-  ctx.fill();
-  const barGlow = ctx.createLinearGradient(x + 28, y, x + 160, y);
-  barGlow.addColorStop(0, CANVAS_STYLE.accentHot);
-  barGlow.addColorStop(1, "rgba(167, 139, 250, 0)");
-  ctx.fillStyle = barGlow;
-  roundRect(ctx, x + 28, y + 14, Math.min(180, w * 0.28), barH, 2);
-  ctx.fill();
   ctx.restore();
 }
 
@@ -799,7 +787,7 @@ function buildPromptImageAttachment(title?, lines = [], fileBaseName = "minigame
       const cardH = height - CANVAS_STYLE.padding * 2;
       fillCanvasCard(ctx, cardX, cardY, cardW, cardH);
 
-      drawCanvasTitle(ctx, String(title || "Cultura generale"), width / 2, cardY + 72, {
+      drawCanvasTitle(ctx, String(title || "Quiz di Cultura Generale"), width / 2, cardY + 72, {
         size: 68,
         maxWidth: cardW - 120,
       });
@@ -850,7 +838,7 @@ function buildPromptImageAttachment(title?, lines = [], fileBaseName = "minigame
       const cardH = height - CANVAS_STYLE.padding * 2;
       fillCanvasCard(ctx, cardX, cardY, cardW, cardH);
 
-      drawCanvasTitle(ctx, String(title || "Indovina la parola"), width / 2, cardY + 72, {
+      drawCanvasTitle(ctx, String(title || "Indovina la parola da queste lettere"), width / 2, cardY + 72, {
         size: 68,
         maxWidth: cardW - 120,
       });
@@ -897,7 +885,7 @@ function buildPromptImageAttachment(title?, lines = [], fileBaseName = "minigame
     if (out) return out;
   }
   if (fileBaseName === "fast_type" && Array.isArray(lines) && lines.length > 0) {
-    const fastLabel = "Scrivi esattamente questa frase";
+    const fastLabel = "Scrivi questa frase prima di tutti";
     const out = buildFastTypePromptImage(lines[0], fastLabel);
     if (out) return out;
   }
@@ -1340,7 +1328,7 @@ async function buildStarWarsQuizPromptImage(row?) {
       }
       ctx.fillStyle = "rgba(244, 233, 216, 0.55)";
       ctx.font = fontStackPrimaryOnly(26, "600");
-      ctx.fillText("Scrivi la risposta in chat", W / 2, panelY + panelH - 48);
+      ctx.fillText("Scrivi la risposta nel canale", W / 2, panelY + panelH - 48);
     }
 
     return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: "starwars_quiz.png" });

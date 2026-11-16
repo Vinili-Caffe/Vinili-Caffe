@@ -1,6 +1,5 @@
 /** Reazioni, bottoni e voice state minigiochi. Estratto da minigameHandlers. */
 const { AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
-const { addExpWithLevel, shouldIgnoreExpForMember } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const { warnMinigame } = require("./minigameLog") as typeof import("./minigameLog");
 const { buildWinEmbed, resolveWinEmbedImageUrl, buildTreasureHuntFoundEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
@@ -13,7 +12,6 @@ const {
   awardMinigameWinToUser,
   mergeHalloweenCandyDropIntoMessage,
   mergeStarWarsQuizRewardIntoMessage,
-  computeMinigameAwardForUser,
 } = require("./minigameRewards") as typeof import("./minigameRewards");
 const { treasureEmojiMatches, botPlacedTreasureReaction, getTreasureHuntMessageUrl } = require("./minigameTreasureEmoji") as typeof import("./minigameTreasureEmoji");
 const { getConfig } = require("./minigameConfig") as typeof import("./minigameConfig");
@@ -29,6 +27,8 @@ const {
 const { fetchAudioAttachment } = require("./minigameGuessMatchers") as typeof import("./minigameGuessMatchers");
 
 async function handleMinigameReaction(client?, reaction?, user?) {
+  let message: any = null;
+  let cfg: any = null;
   try {
     if (!reaction || !user || user.bot) return false;
     let liveReaction = reaction;
@@ -36,13 +36,13 @@ async function handleMinigameReaction(client?, reaction?, user?) {
       liveReaction = await liveReaction.fetch().catch(() => null);
       if (!liveReaction) return false;
     }
-    let message = liveReaction.message;
+    message = liveReaction.message;
     if (message?.partial) {
       message = await message.fetch().catch(() => null);
       if (!message) return false;
     }
     if (!message?.guild) return false;
-    const cfg = getConfig(client || message.client);
+    cfg = getConfig(client || message.client);
     if (!cfg?.enabled || !cfg.channelId) return false;
 
     /* Trova il bot: claim via reazione sul messaggio nascosto (recuperabile al riavvio). */
@@ -79,13 +79,27 @@ async function handleMinigameReaction(client?, reaction?, user?) {
               }
               return true;
             }
-          } catch (_) {}
+          } catch (err) {
+            global.logger?.warn?.("[MINIGAMES] Star Wars sort gate failed (findBot reaction); denying play", {
+              guildId: message.guildId,
+              userId: user.id,
+              err: (err as any)?.message || String(err),
+            });
+            await liveReaction.users?.remove?.(user.id).catch(() => null);
+            return true;
+          }
         }
         if (findGame._claiming) return true;
         findGame._claiming = true;
         const mapKey = [...activeGames.entries()].find(([, g]) => g === findGame)?.[0] || cfg.channelId;
         const winCfg = { ...cfg, channelId: mapKey };
-        await handleFindBotClaimWin(client || message.client, message.guild, user, findGame, winCfg);
+        try {
+          const won = await handleFindBotClaimWin(client || message.client, message.guild, user, findGame, winCfg);
+          if (!won) findGame._claiming = false;
+        } catch (err) {
+          findGame._claiming = false;
+          throw err;
+        }
         return true;
       }
     }
@@ -111,76 +125,72 @@ async function handleMinigameReaction(client?, reaction?, user?) {
     game.hadParticipation = true;
     game._claiming = true;
     blockMinigameRehydrate(cfg.channelId);
-    if (game.timeout) clearTimeout(game.timeout);
-    activeGames.delete(cfg.channelId);
     clearNoParticipationDelay(cfg.channelId);
     const guildId = message.guild.id;
-    const channel = message.channel
-      || (await getChannelCached(client || message.client, cfg.channelId));
-    let award;
-    try {
-      award = await computeMinigameAwardForUser({
-        guildId,
-        userId: user.id,
-        cfg,
-        baseExp: game.rewardExp,
-        startedAt: game.startedAt,
-        client: botClient,
-        gameType: "treasureHunt",
-      });
-    } catch (err) {
-      warnMinigame(err);
-      activeGames.delete(cfg.channelId);
+    const winCfg = { ...cfg, guildId };
+    const closed = await beginMinigameWinClose(botClient, winCfg, game);
+    if (!closed) {
+      game._claiming = false;
       return true;
     }
-    const member = await message.guild.members.fetch(user.id).catch(() => null);
-    const ignoreExp = await shouldIgnoreExpForMember({
-      guildId,
-      member,
-      channelId: cfg.channelId,
-    });
-    if (!ignoreExp) {
-      try {
-        await addExpWithLevel(message.guild, user.id, award.effectiveExp, false, true);
-      } catch (err) {
-        warnMinigame(err);
+    const channel = message.channel
+      || (await getChannelCached(botClient, cfg.channelId));
+    try {
+      const award = await awardMinigameWinToUser({
+        client: botClient,
+        guild: message.guild,
+        userId: user.id,
+        cfg: winCfg,
+        game,
+        rewardExp: game.rewardExp,
+        channelId: cfg.channelId || null,
+      });
+      const winEmbed = buildWinEmbed(
+        user.id,
+        award.effectiveExp,
+        award.nextTotal,
+        award.details,
+        await resolveWinEmbedImageUrl(cfg, user.id),
+      );
+      const foundEmbed = buildTreasureHuntFoundEmbed(getTreasureHuntMessageUrl(guildId, cfg.channelId, game.winnerMessageId));
+      if (channel?.send) {
+        await sendMinigameMessage(
+          channel,
+          { embeds: [foundEmbed, winEmbed] },
+          {
+            type: "treasureHunt",
+            kind: "win",
+            vars: minigameDraftVars(channel, {
+              user: `<@${user.id}>`,
+              exp: award.effectiveExp,
+              total: award.nextTotal,
+              streak: award.details?.newStreak ?? (award as any).newStreak ?? 1,
+            }),
+            mentionUserId: user.id,
+          },
+        ).catch(() => {});
       }
+      if (award.member) {
+        await handleExpReward(botClient, award.member, award.nextTotal);
+      }
+      if (channel && Array.isArray(game.candidateIds) && game.candidateIds.length) {
+        await cleanupTreasureHuntReactions(channel, game);
+      }
+      return true;
+    } catch (err) {
+      warnMinigame(err);
+      return false;
+    } finally {
+      await clearActiveGame(botClient, winCfg, game).catch(() => {});
+      endMinigameWinClose(cfg.channelId);
     }
-    const winEmbed = buildWinEmbed(
-      user.id,
-      award.effectiveExp,
-      award.nextTotal,
-      award.details,
-      await resolveWinEmbedImageUrl(cfg, user.id),
-    );
-    const foundEmbed = buildTreasureHuntFoundEmbed(getTreasureHuntMessageUrl(guildId, cfg.channelId, game.winnerMessageId));
-    if (channel?.send) {
-      await sendMinigameMessage(
-        channel,
-        { embeds: [foundEmbed, winEmbed] },
-        {
-          type: "treasureHunt",
-          kind: "win",
-          vars: minigameDraftVars(channel, {
-            user: `<@${user.id}>`,
-            exp: award.effectiveExp,
-            total: award.nextTotal,
-            streak: award.details?.newStreak ?? (award as any).newStreak ?? 1,
-          }),
-          mentionUserId: user.id,
-        },
-      ).catch(() => {});
-    }
-    if (member) {
-      await handleExpReward(client || message.client, member, award.nextTotal);
-    }
-    if (channel && Array.isArray(game.candidateIds) && game.candidateIds.length) {
-      await cleanupTreasureHuntReactions(channel, game);
-    }
-    await clearActiveGame(client || message.client, { ...cfg, guildId });
-    return true;
   } catch (err) {
     warnMinigame(err);
+    try {
+      const chId = String(cfg?.channelId || message?.channelId || "");
+      const gId = String(message?.guild?.id || cfg?.guildId || "");
+      if (chId && gId) await clearActiveGame(client || message?.client, { ...cfg, channelId: chId, guildId: gId }).catch(() => {});
+    } catch (_) {}
     return false;
   }
 }
@@ -202,7 +212,7 @@ async function handleMinigameButtonWin(interaction?, game?, cfg?) {
   const closed = await beginMinigameWinClose(client, winCfg, game);
   if (!closed) {
     await interaction.reply({
-      content: `${E.cancel} Partita già conclusa.`,
+      content: `${E.cancel} La partita è già stata conclusa.`,
       flags: 1 << 6,
     }).catch(() => { });
     return;
@@ -247,7 +257,7 @@ async function handleMinigameButtonWin(interaction?, game?, cfg?) {
       ).catch(() => { });
     }
     await interaction.reply({
-      content: `${E.VC_Events} Hai vinto!`,
+      content: `${E.VC_Events} Hai vinto! Congratulazioni!`,
       flags: 1 << 6,
     }).catch(() => { });
     if (award.member) {
@@ -371,7 +381,7 @@ ${game.previewUrl}`,
     if (isFindHiddenButton) {
       await interaction
         .reply({
-          content: `${E.cancel} Partita già conclusa o non attiva.`,
+          content: `${E.cancel} La partita è già stata conclusa o non è più attiva.`,
           flags: 1 << 6,
         })
         .catch(() => {});
@@ -383,7 +393,7 @@ ${game.previewUrl}`,
     if (isFindHiddenButton) {
       await interaction
         .reply({
-          content: `${E.cancel} Questo pulsante non è più valido.`,
+          content: `${E.cancel} Questo pulsante non è più valido per questa partita.`,
           flags: 1 << 6,
         })
         .catch(() => {});

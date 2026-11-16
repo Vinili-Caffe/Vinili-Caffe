@@ -235,6 +235,14 @@ async function call<T = Record<string, unknown>>(token: string, guildId: string,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     const d = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+    if (r.status === 401) {
+      const { handleUnauthorizedSession } = await import("./auth");
+      handleUnauthorizedSession();
+      return {
+        ok: false,
+        message: typeof d.message === "string" && d.message.trim() ? d.message : "Sessione scaduta: accedi di nuovo.",
+      };
+    }
     if (r.status === 404 && method === "GET") return { ok: false, message: "Arriva col prossimo aggiornamento del bot." };
     if (!r.ok || d.ok === false) return { ok: false, message: typeof d.message === "string" ? d.message : "Operazione non riuscita." };
     return { ok: true, data: d as T };

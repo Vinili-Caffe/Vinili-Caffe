@@ -346,7 +346,7 @@ async function startMemoryEmojiGame(client?, cfg?, options?) {
     promptMessageId: null,
   }));
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type,
     target: JSON.stringify({
       sequence,
@@ -361,6 +361,7 @@ async function startMemoryEmojiGame(client?, cfg?, options?) {
     gameMessageId: sequenceMessage.id,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }

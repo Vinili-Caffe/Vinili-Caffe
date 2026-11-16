@@ -441,11 +441,8 @@ async function deleteUserQuoteEntry({ guild, quoteId, userId, forceStaff = false
           .setFooter({
             text: `Gestisci le quote dal profilo sul sito · Personalizza: https://www.viniliecaffe.it/personalizza/ · Oggi alle ${timeStr}`,
           });
-        await boardMsg
-          .edit({ embeds: [removedEmbed], components: [], files: [], attachments: [] })
-          .catch(async () => {
-            if (typeof boardMsg.delete === "function") await boardMsg.delete().catch(() => null);
-          });
+        const { editMessageEmbedAware } = require("../../../../shared/discord/safeMessageEdit") as typeof import("../../../../shared/discord/safeMessageEdit");
+        await editMessageEmbedAware(boardMsg, { embed: removedEmbed, components: [], files: [] });
       }
     }
   }

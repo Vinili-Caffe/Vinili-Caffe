@@ -218,28 +218,20 @@ async function main() {
   }
 
   const app = express();
-    app.set("trust proxy", 1);
+  app.set("trust proxy", 1);
   mountSiteApiRateLimit(app);
-  app.use(
-    express.json({
-      limit: "12mb",
-      verify: (req?, _res?, buf?) => {
-        const pathOnly = String(req.originalUrl || req.url || req.path || "")
-          .split("?")[0]
-          .replace(/\/+$/, "") || "/";
-      },
-    }),
-  );
-  app.use(express.urlencoded({ extended: true, limit: "256kb" }));
-  /* anteprima "visualizza come ruolo" (header X-VC-View-As): contesto per tutta la richiesta */
-  {
-    const { mountViewAsContext } = require("../../../shared/runtime/viewAsContext") as typeof import("../../../shared/runtime/viewAsContext");
-    mountViewAsContext(app);
-  }
 
   const candidatureCorsAllowlist = expandCorsOriginAllowlist(
     parseCorsOriginAllowlist(
-      String(process.env.WEBSITE_CANDIDATURE_CORS_ORIGIN || process.env.WEBSITE_PUBLIC_ORIGIN || "").trim(),
+      [
+        String(process.env.WEBSITE_CANDIDATURE_CORS_ORIGIN || "").trim(),
+        String(process.env.WEBSITE_PUBLIC_ORIGIN || "").trim(),
+        String(process.env.WEBSITE_PUBLIC_URL || "").trim(),
+        "https://www.viniliecaffe.it",
+        "https://viniliecaffe.it",
+      ]
+        .filter(Boolean)
+        .join(","),
     ),
   );
 
@@ -272,8 +264,10 @@ async function main() {
     }
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
       res.append("Vary", "Origin");
     } else if (isStatus || isSiteApi) {
+      /* senza Origin allowlist non si possono mandare cookie (ACAO *) */
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
@@ -292,9 +286,33 @@ async function main() {
     next();
   };
 
-  /* healthCorsBeforeRoute1: /webhooks/health era registrato PRIMA di app.use(CORS)
-     → GET cross-origin da www senza ACAO (OPTIONS ok perché non matchava la route). */
+  /* CORS prima di json: anche 400 invalid_json tengono ACAO + credentials. */
   app.use(siteCorsMiddleware);
+
+  app.use(
+    express.json({
+      limit: "12mb",
+      verify: (req?, _res?, buf?) => {
+        const pathOnly = String(req.originalUrl || req.url || req.path || "")
+          .split("?")[0]
+          .replace(/\/+$/, "") || "/";
+      },
+    }),
+  );
+  app.use(express.urlencoded({ extended: true, limit: "256kb" }));
+  /* anteprima "visualizza come ruolo" (header X-VC-View-As): contesto per tutta la richiesta */
+  {
+    const { mountViewAsContext } = require("../../../shared/runtime/viewAsContext") as typeof import("../../../shared/runtime/viewAsContext");
+    mountViewAsContext(app);
+  }
+
+  /* Cookie httpOnly → Authorization Bearer Discord (marker vc_sess dal browser). */
+  try {
+    const { mountSiteAuthSessionMiddleware } = require("./siteAuthSession") as typeof import("./siteAuthSession");
+    mountSiteAuthSessionMiddleware(app);
+  } catch (err) {
+    console.warn("[SITE-API] site auth session middleware:", err?.message || err);
+  }
 
   app.get("/webhooks/site-api/health", (_req?, res?) => {
     const { sendStackHealth } = require("../../site/http/stackHealth") as typeof import("../../site/http/stackHealth");

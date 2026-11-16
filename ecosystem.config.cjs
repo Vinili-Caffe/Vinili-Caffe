@@ -71,7 +71,8 @@ const lavalinkPm2App = {
   ...HA_RESTART,
   min_uptime: "45s",
   kill_timeout: 15000,
-  max_memory_restart: "420M",
+  /* RSS JVM > heap (-Xmx320m): metaspace/native; 420M faceva restart loop a ~450M. */
+  max_memory_restart: "600M",
   env: lavalinkEnvFromFile,
 };
 

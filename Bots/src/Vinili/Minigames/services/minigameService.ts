@@ -18,25 +18,11 @@ const { restoreActiveGames } = require("./minigameRestoreCore") as typeof import
 const { isStaleOrInvalidActiveGame, closeStaleActiveMinigameChannel, handleMinigameReaction, handleMinigameMessage, handleMinigameButton, isMinigameFloodExemptChannel, handleMinigameVoiceState } = require("./minigameHandlers") as typeof import("./minigameHandlers");
 const { envFlagOn, shouldStartExternalWorkerLoop } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
-
 const MINIGAME_SPAWN_REQUEST_KEY = "minigameSpawnRequest";
+const MINIGAME_FORCE_START_ONCE_KEY = "minigameForceStartOnce";
+/** Dopo restart: se un round era partito da poco ma lo state non c’è più, riparti subito. */
+const MINIGAME_CATCHUP_RECENT_MS = 20 * 60_000;
 const spawnConsumerTimers = new WeakMap();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const loopState = new WeakSet();
 const loopIntervals = new WeakMap();
 const expireSweepTimers = new WeakMap();
@@ -533,8 +519,9 @@ async function bootstrapMinigameScheduler(client?) {
     return;
   }
 
+  let restoreResult = { restored: false, needsCatchUp: false };
   try {
-    await restoreActiveGames(client);
+    restoreResult = (await restoreActiveGames(client)) || restoreResult;
   } catch (err) {
     global.logger?.error?.("[MINIGAMES] restoreActiveGames failed:", err?.message || err);
   }
@@ -546,11 +533,47 @@ async function bootstrapMinigameScheduler(client?) {
     global.logger?.warn?.("[MINIGAMES] activity backfill:", err?.message || err);
   }
 
+  const channelId = String(cfg?.channelId || "").trim();
+  const hasLive = channelId ? activeGames.has(channelId) : false;
+  let catchUpStarted = false;
+  if (!hasLive && channelId && cfg?.enabled) {
+    let forceOnce = false;
+    try {
+      forceOnce = Boolean(await getBotState(MINIGAME_FORCE_START_ONCE_KEY, null));
+      if (forceOnce) await setBotState(MINIGAME_FORCE_START_ONCE_KEY, null);
+    } catch (_) {}
+    const lastSent = Number(lastSentAtByChannel.get(channelId) || 0);
+    const recentlyInterrupted =
+      Boolean(restoreResult?.needsCatchUp) ||
+      (lastSent > 0 && Date.now() - lastSent < MINIGAME_CATCHUP_RECENT_MS);
+    if (forceOnce || recentlyInterrupted) {
+      try {
+        if (!pendingGames.has(channelId)) {
+          const type = await getNextGameType(client, cfg);
+          if (type) pendingGames.set(channelId, { type, createdAt: Date.now() });
+        }
+        catchUpStarted = Boolean(await maybeStartRandomGame(client, true));
+        if (catchUpStarted) {
+          global.logger?.warn?.("[MINIGAMES] catch-up start after restart", {
+            channelId,
+            forceOnce,
+            needsCatchUp: Boolean(restoreResult?.needsCatchUp),
+            lastSentAt: lastSent || null,
+          });
+        }
+      } catch (err) {
+        global.logger?.error?.("[MINIGAMES] catch-up start failed:", err?.message || err);
+      }
+    }
+  }
+
   logMinigameSpawn("bootstrap scheduler", {
     channelId: cfg?.channelId,
     minigamesEnabled: Boolean(cfg?.enabled),
     activityBackfill,
     activeMainGame: cfg?.channelId ? activeGames.get(String(cfg.channelId))?.type || null : null,
+    catchUpStarted,
+    restoreResult,
     externalSplit,
   });
 

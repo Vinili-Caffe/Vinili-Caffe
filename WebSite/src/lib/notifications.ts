@@ -257,6 +257,7 @@ export function personalCategory(n: SiteNotification): PersonalCatId {
   if (kind === "confessionale" || /^confessionale:/.test(key) || /\/staff\/confessionale\//.test(n.openUrl || "")) return "confessionale";
   if (kind === "staff") return "staff";
   if (kind === "mod" || kind === "success") return "community";
+  if (String(n.channel || "").toLowerCase() === "dashboard" || /^dash:/.test(key)) return "system";
   return "system";
 }
 

@@ -1,5 +1,5 @@
 const { flushAllRecoverySnapshots } = require("../recovery/shutdownCheckpoint") as typeof import("../recovery/shutdownCheckpoint");
-const { isVoiceTransportError } = require("../discord/voiceTransportErrors") as typeof import("../discord/voiceTransportErrors");
+const { isRecoverableVoiceOrMusicError } = require("../discord/voiceTransportErrors") as typeof import("../discord/voiceTransportErrors");
 
 function installProcessHandlers(options: Record<string, any> = {}) {
   const flag = String(options.flag || "__vcProcessHandlersInstalled");
@@ -44,8 +44,8 @@ function installProcessHandlers(options: Record<string, any> = {}) {
     logError(`UNCAUGHT EXCEPTION: ${err?.stack || err}`);
   });
   process.on("unhandledRejection", (err?: any) => {
-    if (isVoiceTransportError(err)) {
-      logWarn(`Voice transport (recovered): ${err?.message || err}`);
+    if (isRecoverableVoiceOrMusicError(err)) {
+      logWarn(`Voice/music transport (recovered): ${err?.message || err}`);
       return;
     }
     logError(`UNHANDLED REJECTION: ${err?.stack || err}`);

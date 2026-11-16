@@ -51,25 +51,56 @@ const TOT_STATE_SUFFIX = ":halloweenTrickOrTreat";
 
 async function saveActiveGame(client?, cfg?, payload?) {
   const channelId = cfg?.channelId;
-  if (!channelId) return;
+  if (!channelId) return false;
   let guildId = cfg?.guildId || null;
   if (!guildId) {
     const channel = await getChannelCached(client, channelId);
     guildId = channel?.guild?.id || null;
   }
-  if (!guildId) return;
-  await (minigameStateFindOneAndUpdate as any)(
-    { guildId, channelId },
-    { $set: { guildId, channelId, ...payload } },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).catch((err?) => {
-    global.logger?.warn?.("[MINIGAMES] saveActiveGame failed", {
+  if (!guildId) return false;
+
+  const persist = () =>
+    (minigameStateFindOneAndUpdate as any)(
+      { guildId, channelId },
+      { $set: { guildId, channelId, ...payload } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+
+  let persistErr = null;
+  try {
+    await persist();
+  } catch (err) {
+    persistErr = err;
+    global.logger?.warn?.("[MINIGAMES] saveActiveGame failed; retrying once", {
       channelId,
       guildId,
       type: payload?.type || null,
-      err: err?.message || String(err),
+      err: (err as any)?.message || String(err),
     });
-  });
+    try {
+      await persist();
+      persistErr = null;
+    } catch (err2) {
+      persistErr = err2;
+      global.logger?.warn?.("[MINIGAMES] saveActiveGame failed after retry; aborting memory-only round", {
+        channelId,
+        guildId,
+        type: payload?.type || null,
+        err: (err2 as any)?.message || String(err2),
+      });
+    }
+  }
+
+  if (persistErr) {
+    try {
+      const { activeGames, clearMinigameRoundTimers } = require("./minigameState") as typeof import("./minigameState");
+      const live = activeGames.get(channelId);
+      clearMinigameRoundTimers(live);
+      activeGames.delete(channelId);
+    } catch (_) {}
+    return false;
+  }
+
   const endsAt = Number(payload?.endsAt || 0);
   if (Number.isFinite(endsAt) && endsAt > Date.now()) {
     try {
@@ -87,6 +118,7 @@ async function saveActiveGame(client?, cfg?, payload?) {
       noteChatHubKindAt(quietCh, CHAT_HUB_KINDS.MINIGAME, endsAt);
     } catch (_) {}
   }
+  return true;
 }
 
 export = { resolveMinigameGuildIdAsync, markSent, TOT_STATE_SUFFIX, saveActiveGame };

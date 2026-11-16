@@ -8,6 +8,8 @@ const ALLOWED_KEY = "vc_view_as_allowed";
 const BAR_KEY = "vc_view_as_bar_open";
 const TOKEN_KEY = "vc_discord_access_token";
 const EXPIRES_KEY = "vc_discord_expires_at";
+const SESSION_FLAG_KEY = "vc_site_session_v1";
+const SESSION_MARKER = "vc_sess";
 
 export const VIEW_AS_HEADER = "X-VC-View-As";
 
@@ -153,6 +155,11 @@ export function viewAsLabel(mode = readViewAs()) {
 export function readRealToken() {
   if (typeof window === "undefined") return "";
   try {
+    /* Sessione cookie httpOnly: marker opaco per Authorization + credentials include. */
+    if (localStorage.getItem(SESSION_FLAG_KEY) === "1") {
+      const exp = Number(localStorage.getItem(EXPIRES_KEY) || 0);
+      if (!exp || exp >= Date.now() + 60_000) return SESSION_MARKER;
+    }
     const t = String(localStorage.getItem(TOKEN_KEY) || "").trim();
     const exp = Number(localStorage.getItem(EXPIRES_KEY) || 0);
     if (!t || (exp && exp < Date.now() + 60_000)) return "";

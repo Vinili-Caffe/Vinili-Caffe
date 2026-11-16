@@ -40,8 +40,8 @@ export const MAINT = 3;
 export async function loadStatus(_origin = ""): Promise<StatusData | null> {
   try {
     const [pageRes, hbRes] = await Promise.all([
-      fetch(apiUrl("/status-kuma/api/status-page/vinili"), { cache: "no-store" }),
-      fetch(apiUrl("/status-kuma/api/status-page/heartbeat/vinili"), { cache: "no-store" }),
+      fetch(apiUrl("/status-kuma/api/status-page/vinili"), { cache: "no-store", credentials: "omit" }),
+      fetch(apiUrl("/status-kuma/api/status-page/heartbeat/vinili"), { cache: "no-store", credentials: "omit" }),
     ]);
     const pageJ = await pageRes.json();
     const hb = await hbRes.json();

@@ -2650,7 +2650,7 @@ export function GuildPanel() {
                     {section === "livelli" && guildId && token ? (
                       withSwitchTabs(
                         <Panel>
-                          <LevelsPanel guildId={guildId} token={token} onToast={showToast} tab={normalizeLivelliModuleTab(moduleTab)} />
+                          <LevelsPanel key={guildId} guildId={guildId} token={token} onToast={showToast} tab={normalizeLivelliModuleTab(moduleTab)} />
                         </Panel>,
                       )
                     ) : null}

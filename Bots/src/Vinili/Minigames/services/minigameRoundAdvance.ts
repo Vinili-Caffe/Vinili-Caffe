@@ -2,7 +2,7 @@
 const { buildHangmanBoardAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 const { buildHangmanEmbed, buildMinuteHintEmbed, buildGenericHintEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
-const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+const { sendMinigameMessage, editMinigameRoundImage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 
 function shouldRevealHangmanSolutionOnBoard(cfg?, game?, channelId = "") {
   if (!game || game.type !== "hangman") return false;
@@ -38,19 +38,16 @@ async function updateHangmanBoardMessage(message?, game?, shownWord?) {
     `solved_${Date.now()}`,
   );
   const hangmanSolvedEmbed = buildHangmanEmbed(
-    shownWord,
     game.rewardExp,
-    Math.max(1000, game.endsAt - Date.now()),
+    Math.max(1000, Number(game.endsAt) - Date.now()),
   );
   if (hangmanSolvedAttachment) {
     hangmanSolvedEmbed.setImage(`attachment://${hangmanSolvedAttachment.name}`);
   }
-  await gameMsg
-    .edit({
-      embeds: [hangmanSolvedEmbed],
-      files: hangmanSolvedAttachment ? [hangmanSolvedAttachment] : [],
-    })
-    .catch(() => {});
+  await editMinigameRoundImage(gameMsg, {
+    attachment: hangmanSolvedAttachment,
+    embed: hangmanSolvedEmbed,
+  });
 }
 
 async function scheduleMinuteHint(client?, hintChannelId?, durationMs?, channelId?, hintBeforeExpiryMs = 60 * 1000) {

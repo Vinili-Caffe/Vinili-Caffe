@@ -43,7 +43,7 @@ async function sendDashboardWelcome(member?) {
     global.logger?.warn?.("[WELCOME] skip: no REST client", guild.id);
     return null;
   }
-  const body = T.buildMessageBody(cfg.welcome.draft, welcomeVarsForMember(member), [], { mentionUserId: String(member.id) });
+  const body: any = T.buildMessageBody(cfg.welcome.draft, welcomeVarsForMember(member), [], { mentionUserId: String(member.id) });
   if (!body || (typeof body === "object" && !body.content && !body.embeds?.length && !body.components?.length)) {
     global.logger?.warn?.("[WELCOME] skip: empty body", guild.id);
     return null;

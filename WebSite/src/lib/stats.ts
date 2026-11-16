@@ -68,10 +68,11 @@ function merge(invite: Invite | null, extra: StatsExtra | null, base: Stats): St
   };
 }
 
-async function getJson<T>(url: string): Promise<T | null> {
+async function getJson<T>(url: string, fresh = false): Promise<T | null> {
   try {
-    /* Preferisci cache HTTP/CDN (CF edge) invece di no-store: meno round-trip verso Canada. */
-    const r = await fetch(url, { cache: "default" });
+    /* Build/SSR: cache HTTP/CDN. Client live refresh: no-store + bust anti-CDN stale. */
+    const href = fresh ? `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}` : url;
+    const r = await fetch(href, { cache: fresh ? "no-store" : "default" });
     return r.ok ? ((await r.json()) as T) : null;
   } catch {
     return null;
@@ -80,13 +81,13 @@ async function getJson<T>(url: string): Promise<T | null> {
 
 type StatsBundle = { stats: Stats; extra: StatsExtra | null; invite: Invite | null };
 
-/** Dedup in-flight: Hero + LiveStats sulla home condividono un solo fetch. */
+/** Dedup in-flight: Hero + LiveStats sulla home condividono un solo fetch (solo cache non-fresh). */
 const inflightBundles = new Map<string, Promise<StatsBundle>>();
 
-async function fetchStatsBundle(origin: string, base: Stats): Promise<StatsBundle> {
+async function fetchStatsBundle(origin: string, base: Stats, fresh = false): Promise<StatsBundle> {
   const [invite, extra] = await Promise.all([
-    getJson<Invite>(`${origin}/discord-invite.json`),
-    getJson<StatsExtra>(`${origin}/live-stats-extra.json`),
+    getJson<Invite>(`${origin}/discord-invite.json`, fresh),
+    getJson<StatsExtra>(`${origin}/live-stats-extra.json`, fresh),
   ]);
   return { stats: merge(invite, extra, base), extra, invite };
 }
@@ -100,11 +101,14 @@ export async function loadStats(origin = "", base: Stats = FALLBACK_STATS): Prom
 export async function loadStatsBundle(
   origin = "",
   base: Stats = FALLBACK_STATS,
+  opts: { fresh?: boolean } = {},
 ): Promise<StatsBundle> {
+  const fresh = opts.fresh === true;
+  if (fresh) return fetchStatsBundle(origin, base, true);
   const key = `${origin}::${base.members}:${base.online}:${base.boosts}:${base.staff}`;
   const hit = inflightBundles.get(key);
   if (hit) return hit;
-  const p = fetchStatsBundle(origin, base).finally(() => {
+  const p = fetchStatsBundle(origin, base, false).finally(() => {
     inflightBundles.delete(key);
   });
   inflightBundles.set(key, p);

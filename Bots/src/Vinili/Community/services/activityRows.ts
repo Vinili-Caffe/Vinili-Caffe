@@ -298,6 +298,12 @@ function activityGuildHourlyConnReady() {
   }
 }
 
+function isMongoDisconnectedError(err?) {
+  if (!err) return false;
+  if (err.name === "MongoNotConnectedError") return true;
+  return /Client must be connected before running operations/i.test(String(err?.message || err || ""));
+}
+
 async function loadGuildHourlyDocsRaw(guildId?, hourKeys = null) {
   const gid = String(guildId || "");
   if (!gid) return [];
@@ -318,9 +324,14 @@ async function loadGuildHourlyDocsRaw(guildId?, hourKeys = null) {
       if (ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS > 0) q = q.maxTimeMS(ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS);
       return await q;
     } catch (err) {
-      global.logger?.warn?.("[activityRows] loadGuildHourlyDocsRaw mongoose:", err?.message || err);
+      /* tipico durante SIGINT/restart: Mongo già chiuso, timer attività ancora in volo */
+      if (!isMongoDisconnectedError(err)) {
+        global.logger?.warn?.("[activityRows] loadGuildHourlyDocsRaw mongoose:", err?.message || err);
+      }
     }
   }
+
+  if (!activityGuildHourlyConnReady()) return [];
 
   const native = resolveNativeActivityGuildHourlyCollection();
   if (native) {
@@ -329,9 +340,11 @@ async function loadGuildHourlyDocsRaw(guildId?, hourKeys = null) {
       if (ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS > 0) opts.maxTimeMS = ACTIVITY_GUILD_HOURLY_QUERY_MAX_MS;
       return await native.find({ guildId: gid }, opts).toArray();
     } catch (err) {
-      global.logger?.warn?.("[activityRows] loadGuildHourlyDocsRaw native:", err?.message || err);
+      if (!isMongoDisconnectedError(err)) {
+        global.logger?.warn?.("[activityRows] loadGuildHourlyDocsRaw native:", err?.message || err);
+      }
     }
-  } else {
+  } else if (activityGuildHourlyConnReady()) {
     global.logger?.warn?.(
       "[activityRows] loadGuildHourlyDocsRaw: no collection (readyState=",
       ActivityGuildHourly?.db?.readyState ?? mongoose.connection?.readyState,

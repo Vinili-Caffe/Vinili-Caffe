@@ -44,7 +44,7 @@ function resolveReposterProfile(reposter?) {
   return { name: String(name).slice(0, 256), iconURL };
 }
 
-function buildShareAckEmbed({ reposterId, boardUrl, prefix, guildId, kind = "repost" }) {
+function buildShareAckEmbed({ reposterId, boardUrl, prefix, guildId, kind = "repost", count = null }) {
   const safePrefix = String(prefix || "").trim() || "+";
   const boardKind = kind === "clip" ? "clip" : "repost";
   const linkLine = boardUrl
@@ -55,6 +55,7 @@ function buildShareAckEmbed({ reposterId, boardUrl, prefix, guildId, kind = "rep
       ? "Clip pubblicata."
       : "Repost salvato.";
   const ackPhrase = pickRepostAckPhrase(guildId, boardKind);
+  const countStr = count == null || count === "" ? "" : String(count);
   let description = "";
   let footerHint = `✧ * . ˊ ${safePrefix}${boardKind === "clip" ? "clip" : "repost"}`;
   try {
@@ -68,6 +69,8 @@ function buildShareAckEmbed({ reposterId, boardUrl, prefix, guildId, kind = "rep
       reposter: `<@${reposterId}>`,
       phrase: ackPhrase,
       link: linkLine,
+      count: countStr,
+      url: String(boardUrl || ""),
     };
     description = fillBoardTemplate(pr.ackDescription, vars);
     footerHint = fillBoardTemplate(pr.ackFooter, vars) || footerHint;
@@ -76,6 +79,10 @@ function buildShareAckEmbed({ reposterId, boardUrl, prefix, guildId, kind = "rep
   }
   if (!description) {
     description = [`${REPOST_EMOJI} * . ˊ <@${reposterId}> ${ackPhrase}`, "", linkLine].join("\n");
+  }
+  /* draft reply spesso riusa il footer del post con Post #{count} */
+  if (countStr && footerHint.includes("{count}")) {
+    footerHint = footerHint.split("{count}").join(countStr);
   }
   const footerText = DEFAULT_FOOTER_TEXT ? `${footerHint} · ${DEFAULT_FOOTER_TEXT}` : footerHint;
   const embed = new EmbedBuilder()
@@ -87,7 +94,14 @@ function buildShareAckEmbed({ reposterId, boardUrl, prefix, guildId, kind = "rep
     guildId,
     kind: boardKind,
     slot: "reply",
-    vars: { prefix: safePrefix, reposter: `<@${reposterId}>`, phrase: ackPhrase, link: linkLine, url: String(boardUrl || "") },
+    vars: {
+      prefix: safePrefix,
+      reposter: `<@${reposterId}>`,
+      phrase: ackPhrase,
+      link: linkLine,
+      url: String(boardUrl || ""),
+      count: countStr,
+    },
   });
 }
 

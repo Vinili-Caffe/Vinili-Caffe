@@ -9,7 +9,7 @@ const { activeGames, channelWinClosing, treasureHuntReactLocks, isMinigameRehydr
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
-const { logTreasureHuntReactDebug, getTreasureHuntCfg, ensureGuildEmojisForTreasure, normalizeTreasureEmojiPair, findMessageReactionByToken, treasureReactErrorMeta, reactTreasureHuntEmojiWithFallbacks, treasureHuntDisplayTexts, pickTreasureHuntBucket, pickTreasureHuntEmojiPair, removeTreasureHuntReactions, serializeTreasureHuntTarget, getTreasureHuntMessageUrl } = require("./minigameTreasureEmoji") as typeof import("./minigameTreasureEmoji");
+const { logTreasureHuntReactDebug, getTreasureHuntCfg, ensureGuildEmojisForTreasure, normalizeTreasureEmojiPair, findMessageReactionByToken, treasureReactErrorMeta, reactTreasureHuntEmojiWithFallbacks, pickTreasureHuntBucket, pickTreasureHuntEmojiPair, removeTreasureHuntReactions, serializeTreasureHuntTarget, getTreasureHuntMessageUrl } = require("./minigameTreasureEmoji") as typeof import("./minigameTreasureEmoji");
 const { markSent, saveActiveGame, parseStateTarget, closeExpiredMinigameState } = require("./minigameRound") as typeof import("./minigameRound");
 
 async function catchUpTreasureHuntReactions(channel?, game?) {
@@ -115,8 +115,8 @@ async function ensureTreasureHuntGame(client?, cfg?) {
 }
 
 async function persistTreasureHuntState(client?, cfg?, game?) {
-  if (!game || game.type !== "treasureHunt") return;
-  await saveActiveGame(client, cfg, {
+  if (!game || game.type !== "treasureHunt") return false;
+  return saveActiveGame(client, cfg, {
     type: "treasureHunt",
     target: serializeTreasureHuntTarget(game),
     rewardExp: game.rewardExp,
@@ -262,9 +262,8 @@ async function finishTreasureHuntByTimeout(client?, cfg?, channel?, game?) {
   try {
     await cleanupTreasureHuntReactions(channel, game);
     const url = getTreasureHuntMessageUrl(channel.guildId || channel.guild?.id, channel.id, game?.winnerMessageId);
-    const labels = await treasureHuntDisplayTexts(channel.guild, game);
     await sendMinigameMessage(channel, {
-      embeds: [buildTreasureHuntTimeoutEmbed(labels.decoy, labels.winner, url)],
+      embeds: [buildTreasureHuntTimeoutEmbed(url)],
     }).catch(() => {});
     await clearActiveGame(client, cfg);
   } finally {
@@ -325,7 +324,8 @@ async function startTreasureHuntGame(client?, cfg?) {
     introMessageId: null,
   };
   activeGames.set(channelId, game);
-  await persistTreasureHuntState(client, cfg, game);
+  const saved = await persistTreasureHuntState(client, cfg, game);
+  if (!saved) return false;
   const introEmbed = buildTreasureHuntStartEmbed(
     pair.decoyDisplay || pair.decoy,
     pair.winnerDisplay || pair.winner,
@@ -340,7 +340,8 @@ async function startTreasureHuntGame(client?, cfg?) {
   ).catch(() => null);
   if (introMessage?.id) {
     game.introMessageId = String(introMessage.id);
-    await persistTreasureHuntState(client, cfg, game);
+    const updated = await persistTreasureHuntState(client, cfg, game);
+    if (!updated) return false;
   }
   await primeTreasureHuntRecentMessages(channel, client, cfg, game);
   markSent(channelId);

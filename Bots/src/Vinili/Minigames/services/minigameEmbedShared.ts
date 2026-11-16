@@ -121,10 +121,10 @@ function buildRewardEmbed(member?, reward?, totalExp?) {
 function buildTreasureHuntFoundEmbed(winnerMessageUrl?) {
   return new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle(`${E.VC_Winner} Tesoro trovato${E.VC_Exclamation}`)
+    .setTitle(`Tesoro trovato${E.VC_Exclamation}`)
     .setDescription(
       winnerMessageUrl
-        ? `${E.VC_Arrow} Il messaggio nascosto era: ${winnerMessageUrl}`
+        ? `${E.VC_Arrow} Il messaggio nascosto era: <${winnerMessageUrl}>`
         : `${E.VC_Arrow} La caccia è terminata.`,
     );
 }

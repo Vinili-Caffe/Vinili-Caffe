@@ -5,19 +5,20 @@
  *  - qualsiasi scrittura (POST/PATCH/PUT/DELETE) all'API svuota la memoria, così dopo un salvataggio
  *    i dati si rileggono sempre freschi.
  * La chiave include il token (Authorization) e ignora il parametro anti-cache `_=`.
- * Escluse le letture "live" (chat ticket, notifiche, stato, dirette, importazioni in corso…).
- * Marker: apiCache2 (gen bump: GET in-flight non ripopola store dopo una scrittura)
+ * Escluse le letture "live" (chat ticket, notifiche, stato, dirette, livelli, importazioni in corso…).
+ * Marker: apiCache3 (levels fuori dalla cache duratura; gen bump: GET in-flight non ripopola store dopo una scrittura)
  */
 export const API_CACHE_BOOT = `(function(){try{
-if(window.__vcApiCache)return;window.__vcApiCache=2;
+if(window.__vcApiCache)return;window.__vcApiCache=3;
 var base=window.fetch.bind(window);
 var store=new Map();var inflight=new Map();var MAX=120;var gen=0;
-var LIVE=/(notif|live|status|heartbeat|twitch|stream|chat|typing|presence|migration|workflow|poll|minigame|messages|tickets|avvento[/]claim|contest[/][^/?]+[/](feed|swipe))/i;
+var LIVE=/(notif|live|status|heartbeat|twitch|stream|chat|typing|presence|migration|workflow|poll|minigame|messages|tickets|[/]levels(?:[/?#]|$)|avvento[/]claim|contest[/][^/?]+[/](feed|swipe))/i;
 function urlOf(i){try{return typeof i==="string"?i:(i&&i.url)||""}catch(e){return""}}
 function methodOf(i,n){var m=(n&&n.method)||(i&&typeof i!=="string"&&i.method)||"GET";return String(m).toUpperCase()}
 function authOf(i,n){try{var h=(n&&n.headers)||(i&&typeof i!=="string"&&i.headers);if(!h)return"";if(typeof Headers!=="undefined"&&h instanceof Headers)return h.get("Authorization")||"";if(Array.isArray(h)){for(var k=0;k<h.length;k++)if(String(h[k][0]).toLowerCase()==="authorization")return String(h[k][1]);return""}for(var key in h)if(key.toLowerCase()==="authorization")return String(h[key]);return""}catch(e){return""}}
+function sessOf(){try{var u=JSON.parse(localStorage.getItem("vc_beta_discord_user")||"null");return u&&u.id?String(u.id):""}catch(e){return""}}
 function isApi(u){return /\\/(webhooks|v1)\\//.test(u)}
-function keyOf(u,auth){try{var x=new URL(u,location.href);x.searchParams.delete("_");return x.origin+x.pathname+"?"+x.searchParams.toString()+"#"+auth}catch(e){return u+"#"+auth}}
+function keyOf(u,auth){try{var x=new URL(u,location.href);x.searchParams.delete("_");return x.origin+x.pathname+"?"+x.searchParams.toString()+"#"+auth+"|"+sessOf()}catch(e){return u+"#"+auth+"|"+sessOf()}}
 function ttlOf(u){return /\\/site-dashboard\\//.test(u)?30000:15000}
 function build(e){return new Response(e.body,{status:e.status,statusText:e.statusText,headers:e.headers})}
 window.__vcApiCacheClear=function(){gen++;store.clear()};

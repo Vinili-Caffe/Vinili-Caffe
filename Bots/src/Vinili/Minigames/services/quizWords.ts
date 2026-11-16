@@ -72,7 +72,7 @@ async function startGuessNumberGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessNumber",
     target: String(target),
     min,
@@ -83,6 +83,7 @@ async function startGuessNumberGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
 
   return true;
@@ -138,7 +139,7 @@ async function startGuessWordGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessWord",
     target,
     rewardExp,
@@ -147,6 +148,7 @@ async function startGuessWordGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
 
   return true;
@@ -204,7 +206,7 @@ async function startFastTypeGame(client?, cfg?) {
     "fast_type",
     client,
   );
-  const fastTypeEmbed = buildFastTypeEmbed(phrase, rewardExp, durationMs);
+  const fastTypeEmbed = buildFastTypeEmbed(rewardExp, durationMs);
   if (fastTypeAttachment) {
     fastTypeEmbed.setImage(`attachment://${fastTypeAttachment.name}`);
   }
@@ -229,7 +231,7 @@ async function startFastTypeGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "fastType",
     target: JSON.stringify({
       phrase,
@@ -241,6 +243,7 @@ async function startFastTypeGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -303,15 +306,26 @@ async function startHangmanGame(client?, cfg?) {
     "hangman",
     client,
   );
-  let hangmanEmbed = buildHangmanEmbed(maskedWord, rewardExp, durationMs);
+  let hangmanEmbed = buildHangmanEmbed(rewardExp, durationMs);
   if (shouldUseHalloweenTheme(cfg) && !shouldUseStarWarsTheme(cfg)) hangmanEmbed.setTitle("Impiccato Halloween 🎃");
   if (hangmanAttachment) {
     hangmanEmbed.setImage(`attachment://${hangmanAttachment.name}`);
   }
+  const hangmanPrompt = `Scrivi una lettera o prova la parola intera per ottenere **${rewardExp} exp**.`;
   const gameMessage = await sendMinigameMessage(
     channel,
     { embeds: [hangmanEmbed], files: hangmanAttachment ? [hangmanAttachment] : [] },
-    { type: "hangman", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, word: maskedWord }) },
+    {
+      type: "hangman",
+      kind: "start",
+      vars: minigameDraftVars(channel, {
+        exp: rewardExp,
+        durationMs,
+        word: maskedWord,
+        prompt: hangmanPrompt,
+        image: hangmanAttachment ? `attachment://${hangmanAttachment.name}` : "",
+      }),
+    },
   ).catch(() => null);
 
   const timeout = setTimeout(async () => { const game = activeGames.get(channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, channelId, channel, game, buildTimeoutHangmanEmbed(game.word)); }, durationMs); timeout.unref?.();
@@ -333,7 +347,7 @@ async function startHangmanGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "hangman",
     target: JSON.stringify({
       word,
@@ -349,6 +363,7 @@ async function startHangmanGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }

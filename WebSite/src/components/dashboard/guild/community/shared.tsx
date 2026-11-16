@@ -22,6 +22,9 @@ export function useCommunity(guildId: string, token: string) {
   const [nonce, setNonce] = useState(0);
   useEffect(() => {
     let alive = true;
+    /* reset subito al cambio guild: evita dati/picker del server precedente */
+    setData(null);
+    setError(null);
     void loadCommunity(token, guildId).then((r) => {
       if (!alive) return;
       if (r.ok) {

@@ -128,29 +128,31 @@ async function recoverMissingBoostEmbedsForUser(guild?, userId?, opts: Record<st
   const recoveryStartedAt = Number.isFinite(Number(opts.startedAt)) ? Number(opts.startedAt) : 0;
   const recentRecovery =
     recoveryStartedAt > 0 && Date.now() - recoveryStartedAt <= Math.max(nativeLookbackMs, 6 * 60 * 60 * 1000);
-  const freshNativeGap = Boolean(
-    recentRecovery &&
-      forcedSlots > 0 &&
-      channelSinceStart < forcedSlots,
+  /* boostSpam1: prior SEMPRE include announcedSlots (DB/mem). Prima freshNativeGap li
+     ignorava → se lo scan canale non matchava i draft dashboard, re-inviava all'infinito. */
+  const priorSlots = Math.max(
+    channelEmbedsInPeriod,
+    announcedSlots,
+    channelSinceStart,
+    channelInLookback,
+    recentMemSent,
   );
-  /* boostDedup1: native fresco → prior = canale + mem recenti (mai ignorare ciò che abbiamo già mandato) */
-  const priorSlots = freshNativeGap
-    ? Math.max(channelSinceStart, channelInLookback, recentMemSent)
-    : Math.max(channelEmbedsInPeriod, announcedSlots, channelSinceStart, recentMemSent);
   if (priorSlots >= slotTarget) {
     await syncAnnouncedBoostSlotsFromChannelCount(gid, uid, Math.max(announcedSlots, priorSlots));
     markBoostAnnounceHandled(boostKey);
     return { ok: true, sent: 0, reason: "already_announced_in_period" };
   }
-  /* boostDedup3: niente inflate “recentRecovery” che forzava re-send anche con embed già in canale */
   let extraMissing = Math.max(0, slotTarget - priorSlots);
-  if (freshNativeGap) {
-    extraMissing = Math.max(extraMissing, Math.max(0, forcedSlots - channelSinceStart));
+  if (
+    recentRecovery &&
+    forcedSlots > 0 &&
+    channelSinceStart < forcedSlots &&
+    priorSlots < forcedSlots
+  ) {
+    extraMissing = Math.max(extraMissing, Math.max(0, forcedSlots - priorSlots));
   }
-  const missingCap = freshNativeGap
-    ? Math.max(0, Math.min(forcedSlots, slotTarget) - priorSlots)
-    : Math.max(0, slotTarget - priorSlots);
-  extraMissing = Math.min(extraMissing, Math.max(0, missingCap));
+  const missingCap = Math.max(0, slotTarget - priorSlots);
+  extraMissing = Math.min(extraMissing, missingCap);
   if (extraMissing <= 0) {
     markBoostAnnounceHandled(boostKey);
     return { ok: true, sent: 0, reason: "already_announced_in_period" };

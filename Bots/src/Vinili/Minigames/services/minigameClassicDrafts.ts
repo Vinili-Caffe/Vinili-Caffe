@@ -29,7 +29,7 @@ const MINIGAME_TYPE_LABELS: Record<string, string> = {
   guessYear: "Indovina l'anno",
   completeVerse: "Completa la frase",
   guessEmoji: "Indovina l'emoji",
-  quoteFilm: "Indovina la citazione",
+  quoteFilm: "Citazione da film/serie",
   completeProverb: "Completa il proverbio o la frase",
   synonymAntonym: "Indovina il sinonimo o il contrario",
   guessCity: "Indovina la città",

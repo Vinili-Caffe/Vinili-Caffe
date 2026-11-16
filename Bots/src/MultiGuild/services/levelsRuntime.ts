@@ -838,8 +838,14 @@ function mergeMinigameScoringWithImport(prevScoring: unknown): MinigameScoring {
 function normalizeMinigameTypeRow(row: any, def?: MinigameRewardExp | null): MinigameRewardExp | null {
   const type = String(row?.type || def?.type || "").trim().slice(0, 64);
   if (!type) return null;
-  const rewardExp = Math.floor(Number(row?.rewardExp ?? def?.rewardExp));
-  if (!Number.isFinite(rewardExp) || rewardExp < 1 || rewardExp > 100000) return null;
+  let rewardExp = Math.floor(Number(row?.rewardExp ?? def?.rewardExp));
+  if (!Number.isFinite(rewardExp) || rewardExp < 1) return null;
+  /* dashboard: rewardExp e durationMs a volte scambiati (es. 180000 "exp") */
+  if (rewardExp >= 15_000) {
+    const fallback = Math.floor(Number(def?.rewardExp) || 0);
+    rewardExp = fallback > 0 && fallback < 15_000 ? fallback : 150;
+  }
+  if (rewardExp > 10_000) return null;
   const durationMs = Math.floor(
     clampNum(row?.durationMs, 15_000, 1_800_000, def?.durationMs || defaultDurationForType(type)),
   );
@@ -1224,7 +1230,7 @@ async function saveConfig(guildId: string, raw?): Promise<LevelsConfig> {
   if (!T.isMainGuild(gid)) next.reviewRewardLevels = 0;
   await T.setGuildBlob("levels", gid, next);
   remember(gid, next);
-  await syncGlobalSettingsFromConfig(gid, next).catch(() => null);
+  await syncGlobalSettingsFromConfig(gid, next);
   return next;
 }
 
@@ -1408,7 +1414,13 @@ async function syncGlobalSettingsFromConfig(guildId: string, cfg: LevelsConfig) 
       const { settingsCache } = require("../../Vinili/Level/services/expMultipliers") as typeof import("../../Vinili/Level/services/expMultipliers");
       settingsCache.delete(String(guildId));
     } catch (_) {}
-  } catch (_) {}
+  } catch (err) {
+    global.logger?.warn?.("[levels] syncGlobalSettingsFromConfig failed", {
+      guildId: String(guildId),
+      err: (err as any)?.message || String(err),
+    });
+    throw err;
+  }
 }
 
 function levelsActive(guildId?): boolean {
@@ -1531,7 +1543,7 @@ async function scheduleExpEvent(
   return { ok: true, scheduled: await listScheduledEvents(gid, true) };
 }
 
-async function sendScheduledExpEventAnnounce(client?, ev: ScheduledExpEvent) {
+async function sendScheduledExpEventAnnounce(client = null, ev: ScheduledExpEvent) {
   if (!ev?.announceEnabled || !ev.announceContent?.trim()) return false;
   try {
     const IDs = require("../../Vinili/Config/ids") as typeof import("../../Vinili/Config/ids");

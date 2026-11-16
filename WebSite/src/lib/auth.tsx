@@ -1,36 +1,32 @@
 "use client";
 
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { apiUrl } from "./api";
 import { isGuestPreview, subscribeViewAs } from "./view-as";
 
-// Login Discord: OAuth implicit (response_type=token). Token in localStorage (fino a 180 giorni).
-// Le API del sito lo ricevono come "Authorization: Bearer …".
-// State/return OAuth anche in sessionStorage (round-trip Discord / ITP).
-//
-// Parità oauthPromptNone1 / logoutToOAuth1 / oauthHashKill1 / oauthSession180d1:
-// - click login → prompt=none; soft error → consent
-// - logout utente → Discord authorize (consent)
-// - sessione locale max 180 giorni; Discord può invalidare prima → 401 → logout
-// - oauthAutoRenew1: il token di Discord scade molto prima (login implicito, niente refresh):
-//   a meno di 1 giorno dalla scadenza, o al primo 401, rinnovo silenzioso con prompt=none
-//   (nessuna domanda se si è ancora collegati a Discord nel browser); se Discord chiede conferma → solo logout
+// Login Discord: OAuth authorization code + PKCE quando il backend è pronto;
+// altrimenti implicit → bind una tantum in cookie httpOnly (niente AT in localStorage).
+// Le API ricevono Authorization: Bearer vc_sess + credentials; il server legge il cookie.
+
+/** Marker opaco: non è un token Discord. Il cookie httpOnly porta l’AT reale. */
+export const SESSION_MARKER = "vc_sess";
 
 const CLIENT_ID = "1329118940110127204";
 const SCOPES = "identify guilds";
+/** Legacy: cancellato al boot (migrazione fuori da localStorage). */
 const TOKEN_KEY = "vc_discord_access_token";
 const EXPIRES_KEY = "vc_discord_expires_at";
 const USER_KEY = "vc_beta_discord_user";
 const STATE_KEY = "vc_beta_oauth_state";
 const PENDING_RETURN_KEY = "vc_oauth_pending_return_v1";
 const ATTEMPTED_NONE_KEY = "vc_oauth_attempted_none_v1";
-/** Boot head (pwa-resume) salva l’hash OAuth qui: su iOS a volte sparisce prima dell’hydrate. */
 const OAUTH_HASH_CAPTURE_KEY = "vc_oauth_hash_capture_v1";
+const OAUTH_QUERY_CAPTURE_KEY = "vc_oauth_query_capture_v1";
+const PKCE_VERIFIER_KEY = "vc_oauth_pkce_verifier_v1";
+const SESSION_FLAG_KEY = "vc_site_session_v1";
 const STATE_MAX_AGE_MS = 30 * 60 * 1000;
-/** Sessione sito in localStorage: fino a 180 giorni (policy cookie/privacy). */
 const SESSION_MAX_MS = 180 * 24 * 60 * 60 * 1000;
-/** Scadenza vera del token secondo Discord (expires_in). */
 const DISCORD_EXP_KEY = "vc_discord_token_expires_at";
-/** Ultimo rinnovo automatico tentato (evita giri continui verso Discord). */
 const AUTO_RENEW_AT_KEY = "vc_oauth_auto_renew_at_v1";
 const AUTO_RENEW_BEFORE_MS = 24 * 60 * 60 * 1000;
 const AUTO_RENEW_MIN_GAP_MS = 10 * 60 * 1000;
@@ -89,14 +85,12 @@ const ssSet = (k: string, v: string | null) => {
   } catch {}
 };
 
-/** Token/user in localStorage (persistono tra tab/chiusure, max SESSION_MAX_MS). */
-const AUTH_PERSIST_KEYS = new Set([TOKEN_KEY, EXPIRES_KEY, USER_KEY, DISCORD_EXP_KEY]);
+const AUTH_PERSIST_KEYS = new Set([EXPIRES_KEY, USER_KEY, DISCORD_EXP_KEY, SESSION_FLAG_KEY]);
 
 function authGet(k: string): string | null {
   if (AUTH_PERSIST_KEYS.has(k)) {
     const ls = read(k);
     if (ls != null) return ls;
-    // migrazione one-shot da sessionStorage (periodo oauthSessionStorage1)
     const ss = ssGet(k);
     if (ss != null) {
       write(k, ss);
@@ -111,27 +105,71 @@ function authGet(k: string): string | null {
 function authSet(k: string, v: string | null) {
   if (AUTH_PERSIST_KEYS.has(k)) {
     write(k, v);
-    ssSet(k, null); // niente doppio storage
+    ssSet(k, null);
     return;
   }
   write(k, v);
 }
 
-function storedToken(): string | null {
-  const t = authGet(TOKEN_KEY);
-  const exp = Number(authGet(EXPIRES_KEY) || 0);
-  if (!t || (exp && exp < Date.now() + 60_000)) return null;
-  return t;
+function wipeLegacyAccessToken() {
+  write(TOKEN_KEY, null);
+  ssSet(TOKEN_KEY, null);
 }
 
 function clearLocalSession() {
-  authSet(TOKEN_KEY, null);
+  wipeLegacyAccessToken();
   authSet(EXPIRES_KEY, null);
   authSet(USER_KEY, null);
   authSet(DISCORD_EXP_KEY, null);
+  authSet(SESSION_FLAG_KEY, null);
   ssSet(TOKEN_KEY, null);
   ssSet(EXPIRES_KEY, null);
   ssSet(USER_KEY, null);
+  ssSet(PKCE_VERIFIER_KEY, null);
+  write(PKCE_VERIFIER_KEY, null);
+}
+
+function storedSessionAlive(): boolean {
+  if (authGet(SESSION_FLAG_KEY) !== "1") return false;
+  const exp = Number(authGet(EXPIRES_KEY) || 0);
+  if (exp && exp < Date.now() + 60_000) return false;
+  return true;
+}
+
+function b64urlBytes(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]!);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function makePkce(): Promise<{ verifier: string; challenge: string }> {
+  const raw = crypto.getRandomValues(new Uint8Array(32));
+  const verifier = b64urlBytes(raw);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  return { verifier, challenge: b64urlBytes(new Uint8Array(digest)) };
+}
+
+export function isSessionMarker(token?: string | null): boolean {
+  return String(token || "").trim() === SESSION_MARKER;
+}
+
+/**
+ * 401 dalle API del sito: svuota la sessione locale e prova rinnovo silenzioso.
+ */
+export function handleUnauthorizedSession() {
+  clearLocalSession();
+  void fetch(apiUrl("/webhooks/site-auth/logout"), {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+  }).catch(() => {});
+  try {
+    if (typeof window !== "undefined" && canAutoRenew() && window.top === window.self) {
+      void startOAuth("none", location.pathname + location.search, true);
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 function normalizeReturnPath(raw?: string | null): string {
@@ -139,7 +177,6 @@ function normalizeReturnPath(raw?: string | null): string {
   if (!s) return "";
   if (!s.startsWith("/")) return "";
   if (s.startsWith("//")) return "";
-  // "/\evil.com" o caratteri di controllo: il browser li legge come "//evil.com" → redirect esterno
   if (/[\\\u0000-\u001f]/.test(s)) return "";
   try {
     if (new URL(s, location.origin).origin !== location.origin) return "";
@@ -176,25 +213,49 @@ function parseStateRaw(raw: string | null): Partial<OAuthStatePayload> {
   }
 }
 
-function buildAuthorizeUrl(prompt: OAuthPrompt, statePayload: OAuthStatePayload) {
+let pkceMetaCache: { at: number; pkce: boolean } | null = null;
+
+async function fetchPkceReady(): Promise<boolean> {
+  if (pkceMetaCache && Date.now() - pkceMetaCache.at < 60_000) return pkceMetaCache.pkce;
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-auth/oauth/meta"), { cache: "no-store", credentials: "include" });
+    const d = (await r.json().catch(() => null)) as { pkce?: boolean } | null;
+    const pkce = Boolean(d?.pkce);
+    pkceMetaCache = { at: Date.now(), pkce };
+    return pkce;
+  } catch {
+    return false;
+  }
+}
+
+async function buildAuthorizeUrl(prompt: OAuthPrompt, statePayload: OAuthStatePayload, pkce: boolean) {
   const q = new URLSearchParams({
     client_id: CLIENT_ID,
     redirect_uri: `${location.origin}/`,
-    response_type: "token",
+    response_type: pkce ? "code" : "token",
     scope: SCOPES,
     prompt,
     state: JSON.stringify(statePayload),
   });
+  if (pkce) {
+    const { verifier, challenge } = await makePkce();
+    ssSet(PKCE_VERIFIER_KEY, verifier);
+    write(PKCE_VERIFIER_KEY, verifier);
+    q.set("code_challenge", challenge);
+    q.set("code_challenge_method", "S256");
+  } else {
+    ssSet(PKCE_VERIFIER_KEY, null);
+    write(PKCE_VERIFIER_KEY, null);
+  }
   return `https://discord.com/oauth2/authorize?${q}`;
 }
 
-/** Rinnovo automatico possibile? (non più di uno ogni 10 minuti) */
 function canAutoRenew() {
   const last = Number(read(AUTO_RENEW_AT_KEY) || 0);
   return !last || Date.now() - last > AUTO_RENEW_MIN_GAP_MS;
 }
 
-function startOAuth(prompt: OAuthPrompt, returnTo?: string, auto = false) {
+async function startOAuth(prompt: OAuthPrompt, returnTo?: string, auto = false) {
   const n = crypto.getRandomValues(new Uint32Array(4)).join("");
   const r =
     normalizeReturnPath(returnTo) ||
@@ -203,7 +264,6 @@ function startOAuth(prompt: OAuthPrompt, returnTo?: string, auto = false) {
   const t = Date.now();
   const payload: OAuthStatePayload = auto ? { n, r, t, a: 1 } : { n, r, t };
   if (auto) write(AUTO_RENEW_AT_KEY, String(t));
-  // session + local: local sopravvive quando Discord apre un contesto in-app diverso
   ssSet(STATE_KEY, JSON.stringify(payload));
   write(STATE_KEY, JSON.stringify(payload));
   write(PENDING_RETURN_KEY, r);
@@ -215,7 +275,8 @@ function startOAuth(prompt: OAuthPrompt, returnTo?: string, auto = false) {
     ssSet(ATTEMPTED_NONE_KEY, null);
     write(ATTEMPTED_NONE_KEY, null);
   }
-  location.assign(buildAuthorizeUrl(prompt, payload));
+  const pkce = await fetchPkceReady();
+  location.assign(await buildAuthorizeUrl(prompt, payload, pkce));
 }
 
 function resolveReturnPath(got: Partial<OAuthStatePayload>, expected: Partial<OAuthStatePayload> | null): string {
@@ -237,13 +298,76 @@ function clearOAuthTransient() {
   write(ATTEMPTED_NONE_KEY, null);
 }
 
-/** Nonce match oppure state con returnPath + timestamp fresco (Safari/ITP / Discord in-app). */
-function acceptOAuthState(got: Partial<OAuthStatePayload>, expected: Partial<OAuthStatePayload> | null): boolean {
-  if (expected?.n && got.n && expected.n === got.n) return true;
+function acceptOAuthState(
+  got: Partial<OAuthStatePayload>,
+  expected: Partial<OAuthStatePayload> | null,
+  bothStoragesAgree = false,
+): boolean {
+  if (got.n && expected?.n) {
+    return got.n === expected.n;
+  }
+  if (!bothStoragesAgree) return false;
   const ts = Number(got.t || expected?.t || 0);
   const fresh = Number.isFinite(ts) && ts > 0 && Math.abs(Date.now() - ts) <= STATE_MAX_AGE_MS;
   if (fresh && (normalizeReturnPath(got.r) || normalizeReturnPath(expected?.r))) return true;
   return false;
+}
+
+function readExpectedState(): { expected: Partial<OAuthStatePayload> | null; bothStoragesAgree: boolean } {
+  try {
+    const ssRaw = ssGet(STATE_KEY);
+    const lsRaw = read(STATE_KEY);
+    return {
+      expected: parseStateRaw(ssRaw || lsRaw),
+      bothStoragesAgree: Boolean(ssRaw && lsRaw && ssRaw === lsRaw),
+    };
+  } catch {
+    return { expected: null, bothStoragesAgree: false };
+  }
+}
+
+async function bindAccessToken(accessToken: string, expiresIn: number): Promise<{ user: DiscordUser; expiresAt: number } | null> {
+  const r = await fetch(apiUrl("/webhooks/site-auth/session/bind"), {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ access_token: accessToken, expires_in: expiresIn > 0 ? expiresIn : undefined }),
+  });
+  const d = (await r.json().catch(() => null)) as { ok?: boolean; user?: DiscordUser; expiresAt?: number } | null;
+  if (!r.ok || !d?.ok || !d.user?.id) return null;
+  wipeLegacyAccessToken();
+  authSet(SESSION_FLAG_KEY, "1");
+  authSet(EXPIRES_KEY, String(Date.now() + SESSION_MAX_MS));
+  authSet(DISCORD_EXP_KEY, d.expiresAt ? String(d.expiresAt) : expiresIn > 0 ? String(Date.now() + expiresIn * 1000) : null);
+  authSet(USER_KEY, JSON.stringify(d.user));
+  return { user: d.user, expiresAt: Number(d.expiresAt) || 0 };
+}
+
+async function exchangeAuthCode(code: string): Promise<{ user: DiscordUser; expiresAt: number } | null> {
+  const verifier = ssGet(PKCE_VERIFIER_KEY) || read(PKCE_VERIFIER_KEY) || "";
+  if (!verifier) return null;
+  const r = await fetch(apiUrl("/webhooks/site-auth/oauth/exchange"), {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({
+      code,
+      code_verifier: verifier,
+      redirect_uri: `${location.origin}/`,
+    }),
+  });
+  ssSet(PKCE_VERIFIER_KEY, null);
+  write(PKCE_VERIFIER_KEY, null);
+  const d = (await r.json().catch(() => null)) as { ok?: boolean; user?: DiscordUser; expiresAt?: number } | null;
+  if (!r.ok || !d?.ok || !d.user?.id) return null;
+  wipeLegacyAccessToken();
+  authSet(SESSION_FLAG_KEY, "1");
+  authSet(EXPIRES_KEY, String(Date.now() + SESSION_MAX_MS));
+  authSet(DISCORD_EXP_KEY, d.expiresAt ? String(d.expiresAt) : null);
+  authSet(USER_KEY, JSON.stringify(d.user));
+  return { user: d.user, expiresAt: Number(d.expiresAt) || 0 };
 }
 
 export function avatarUrl(u: DiscordUser, size = 64) {
@@ -251,7 +375,6 @@ export function avatarUrl(u: DiscordUser, size = 64) {
     const ext = u.avatar.startsWith("a_") ? "gif" : "webp";
     return `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.${ext}?size=${size}`;
   }
-  // avatar predefinito di Discord
   const idx = Number((BigInt(u.id) >> BigInt(22)) % BigInt(6));
   return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
 }
@@ -270,142 +393,252 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearLocalSession();
     setToken(null);
     setUser(null);
+    void fetch(apiUrl("/webhooks/site-auth/logout"), {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+    }).catch(() => {});
     if (toLogin) {
-      // logoutToOAuth1: subito Discord authorize (consent), return path = pagina corrente
-      startOAuth("consent");
+      void startOAuth("consent");
     }
   }, []);
 
-  // ritorno da Discord: #access_token=…&expires_in=…&state=…  (oppure #error=…)
   useEffect(() => {
-    /* oauthHashCapture1: preferisci location.hash; fallback capture del boot (iOS/PWA). */
-    let rawHash = "";
-    try {
-      rawHash = String(location.hash || "").replace(/^#/, "");
-    } catch {
-      rawHash = "";
-    }
-    const hashLooksOauth = /(?:^|&)(access_token|error)=/.test(rawHash);
-    if (!hashLooksOauth) {
+    let cancelled = false;
+
+    const finishAnonymous = () => {
+      if (cancelled) return;
+      authSet(USER_KEY, null);
+      authSet(SESSION_FLAG_KEY, null);
+      startTransition(() => {
+        setToken(null);
+        setUser(null);
+        setReady(true);
+      });
+    };
+
+    const applySession = (me: DiscordUser) => {
+      if (cancelled) return;
+      wipeLegacyAccessToken();
+      authSet(SESSION_FLAG_KEY, "1");
+      authSet(USER_KEY, JSON.stringify(me));
+      if (!authGet(EXPIRES_KEY)) authSet(EXPIRES_KEY, String(Date.now() + SESSION_MAX_MS));
+      startTransition(() => {
+        setToken(SESSION_MARKER);
+        setUser(me);
+        setReady(true);
+      });
+    };
+
+    (async () => {
+      /* Migrazione one-shot: AT legacy in localStorage → cookie httpOnly, poi wipe. */
       try {
-        const cap = String(ssGet(OAUTH_HASH_CAPTURE_KEY) || "").replace(/^#/, "");
-        if (/(?:^|&)(access_token|error)=/.test(cap)) rawHash = cap;
+        const legacy = String(read(TOKEN_KEY) || ssGet(TOKEN_KEY) || "").trim();
+        if (legacy && legacy !== SESSION_MARKER && legacy.length > 20) {
+          const expAt = Number(authGet(DISCORD_EXP_KEY) || 0);
+          const expiresIn = expAt > Date.now() ? Math.floor((expAt - Date.now()) / 1000) : 0;
+          const bound = await bindAccessToken(legacy, expiresIn);
+          wipeLegacyAccessToken();
+          if (bound && !cancelled) {
+            startTransition(() => {
+              setToken(SESSION_MARKER);
+              setUser(bound.user);
+              setReady(true);
+            });
+            return;
+          }
+        } else {
+          wipeLegacyAccessToken();
+        }
+      } catch {
+        wipeLegacyAccessToken();
+      }
+
+      /* Query callback (code flow) oppure capture boot. */
+      let query = new URLSearchParams();
+      try {
+        query = new URLSearchParams(location.search || "");
+      } catch {
+        query = new URLSearchParams();
+      }
+      const queryLooksOauth = query.has("code") || query.has("error");
+      if (!queryLooksOauth) {
+        try {
+          const cap = String(ssGet(OAUTH_QUERY_CAPTURE_KEY) || "").replace(/^\?/, "");
+          if (/(?:^|&)(code|error)=/.test(cap)) query = new URLSearchParams(cap);
+        } catch {
+          /* ignore */
+        }
+      }
+      try {
+        ssSet(OAUTH_QUERY_CAPTURE_KEY, null);
       } catch {
         /* ignore */
       }
-    }
-    try {
-      ssSet(OAUTH_HASH_CAPTURE_KEY, null);
-    } catch {
-      /* ignore */
-    }
-    const hash = new URLSearchParams(rawHash);
-    let returnTo: string | null = null;
-    if (hash.has("access_token") || hash.has("error")) {
-      let expected: Partial<OAuthStatePayload> | null = null;
+
+      /* Hash callback (implicit legacy / fallback). */
+      let rawHash = "";
       try {
-        expected = parseStateRaw(ssGet(STATE_KEY) || read(STATE_KEY));
+        rawHash = String(location.hash || "").replace(/^#/, "");
       } catch {
-        expected = null;
+        rawHash = "";
       }
-      const got = parseStateRaw(hash.get("state"));
-
-      if (hash.has("error")) {
-        const err = String(hash.get("error") || "").toLowerCase();
-        const attemptedNone = ssGet(ATTEMPTED_NONE_KEY) === "1" || read(ATTEMPTED_NONE_KEY) === "1";
-        const ret = resolveReturnPath(got, expected);
-        history.replaceState(null, "", location.pathname + location.search);
-
-        const autoRenew = got.a === 1 || expected?.a === 1;
-        if (autoRenew) {
-          /* rinnovo automatico non riuscito senza interazione: sessione chiusa, niente schermata di Discord */
-          clearOAuthTransient();
-          clearLocalSession();
-        } else if (attemptedNone && SOFT_OAUTH_ERRORS.has(err)) {
-          // oauthPromptNone1: soft error dopo prompt=none → ripeti con consent (stesso return path)
-          clearOAuthTransient();
-          startOAuth("consent", ret);
-          return;
-        } else {
-          clearOAuthTransient();
-          setError(err === "access_denied" ? "Accesso annullato." : "Login non riuscito, riprova.");
+      const hashLooksOauth = /(?:^|&)(access_token|error)=/.test(rawHash);
+      if (!hashLooksOauth) {
+        try {
+          const cap = String(ssGet(OAUTH_HASH_CAPTURE_KEY) || "").replace(/^#/, "");
+          if (/(?:^|&)(access_token|error)=/.test(cap)) rawHash = cap;
+        } catch {
+          /* ignore */
         }
-      } else if (!acceptOAuthState(got, expected)) {
-        clearOAuthTransient();
-        setError("Login non valido (sessione scaduta), riprova.");
-        history.replaceState(null, "", location.pathname + location.search);
-      } else {
-        const t = hash.get("access_token")!;
-        /* Sessione locale fino a 180gg (policy); Discord può invalidare prima → 401 → logout. */
-        authSet(TOKEN_KEY, t);
-        authSet(EXPIRES_KEY, String(Date.now() + SESSION_MAX_MS));
-        /* scadenza vera di Discord: serve per rinnovarlo prima che scada */
-        const expiresIn = Number(hash.get("expires_in") || 0);
-        authSet(DISCORD_EXP_KEY, expiresIn > 0 ? String(Date.now() + expiresIn * 1000) : null);
-        setToken(t);
-        returnTo = resolveReturnPath(got, expected);
-        clearOAuthTransient();
-        // via il token dall'indirizzo (non deve restare in cronologia)
-        history.replaceState(null, "", location.pathname + location.search);
       }
+      try {
+        ssSet(OAUTH_HASH_CAPTURE_KEY, null);
+      } catch {
+        /* ignore */
+      }
+      const hash = new URLSearchParams(rawHash);
 
-      // Discord rimanda sempre a "/": riporta alla pagina da cui si è partiti (anche da app)
-      if (returnTo && returnTo.startsWith("/") && returnTo !== location.pathname + location.search) {
-        location.assign(returnTo);
+      if (query.has("code") || query.has("error") || hash.has("access_token") || hash.has("error")) {
+        const { expected, bothStoragesAgree } = readExpectedState();
+        const got = parseStateRaw(query.get("state") || hash.get("state"));
+        let returnTo: string | null = null;
+
+        if (query.has("error") || hash.has("error")) {
+          const err = String(query.get("error") || hash.get("error") || "").toLowerCase();
+          const attemptedNone = ssGet(ATTEMPTED_NONE_KEY) === "1" || read(ATTEMPTED_NONE_KEY) === "1";
+          const ret = resolveReturnPath(got, expected);
+          history.replaceState(null, "", location.pathname + stripOauthSearch(location.search));
+
+          const autoRenew = got.a === 1 || expected?.a === 1;
+          if (autoRenew) {
+            clearOAuthTransient();
+            clearLocalSession();
+          } else if (attemptedNone && SOFT_OAUTH_ERRORS.has(err)) {
+            clearOAuthTransient();
+            await startOAuth("consent", ret);
+            return;
+          } else {
+            clearOAuthTransient();
+            setError(err === "access_denied" ? "Accesso annullato." : "Login non riuscito, riprova.");
+          }
+        } else if (!acceptOAuthState(got, expected, bothStoragesAgree)) {
+          clearOAuthTransient();
+          setError("Login non valido (sessione scaduta), riprova.");
+          history.replaceState(null, "", location.pathname + stripOauthSearch(location.search));
+        } else if (query.has("code")) {
+          const bound = await exchangeAuthCode(String(query.get("code") || ""));
+          history.replaceState(null, "", location.pathname + stripOauthSearch(location.search));
+          clearOAuthTransient();
+          if (!bound) {
+            setError("Login non riuscito, riprova.");
+          } else {
+            returnTo = resolveReturnPath(got, expected);
+            if (!cancelled) {
+              startTransition(() => {
+                setToken(SESSION_MARKER);
+                setUser(bound.user);
+              });
+            }
+          }
+        } else if (hash.has("access_token")) {
+          const t = hash.get("access_token")!;
+          const expiresIn = Number(hash.get("expires_in") || 0);
+          history.replaceState(null, "", location.pathname + location.search);
+          const bound = await bindAccessToken(t, expiresIn);
+          clearOAuthTransient();
+          if (!bound) {
+            setError("Login non riuscito, riprova.");
+          } else {
+            returnTo = resolveReturnPath(got, expected);
+            if (!cancelled) {
+              startTransition(() => {
+                setToken(SESSION_MARKER);
+                setUser(bound.user);
+              });
+            }
+          }
+        }
+
+        if (returnTo && returnTo.startsWith("/") && returnTo !== location.pathname + location.search) {
+          location.assign(returnTo);
+          return;
+        }
+        if (!cancelled) startTransition(() => setReady(true));
         return;
       }
-    }
 
-    /* in transizione: le parti della pagina caricate dopo (bacheca, voti, recensioni…) finiscono prima di agganciarsi
-       all'HTML e poi ricevono l'utente; altrimenti React le trova diverse dall'HTML (errore #418 per chi è loggato) */
-    const t = storedToken();
-    if (!t) {
-      authSet(USER_KEY, null);
-      startTransition(() => {
-        setToken(null);
-        setReady(true);
-      });
-      return;
-    }
-    /* oauthAutoRenew1: token vicino alla scadenza di Discord → rinnovalo ora, in silenzio */
-    const discordExp = Number(authGet(DISCORD_EXP_KEY) || 0);
-    if (discordExp && discordExp - Date.now() < AUTO_RENEW_BEFORE_MS && canAutoRenew() && window.top === window.self) {
-      startOAuth("none", location.pathname + location.search, true);
-      return;
-    }
-    let cached: DiscordUser | null = null;
-    try {
-      const c = JSON.parse(authGet(USER_KEY) || "null");
-      if (c?.id) cached = c;
-    } catch {}
-    startTransition(() => {
-      setToken(t);
-      if (cached) setUser(cached);
-    });
-    fetch("/webhooks/site-discord-me", { headers: { Authorization: `Bearer ${t}` }, cache: "no-store" })
-      .then(async (r) => {
+      /* Sessione cookie già attiva? */
+      if (!storedSessionAlive()) {
+        finishAnonymous();
+        return;
+      }
+
+      const discordExp = Number(authGet(DISCORD_EXP_KEY) || 0);
+      if (discordExp && discordExp - Date.now() < AUTO_RENEW_BEFORE_MS && canAutoRenew() && window.top === window.self) {
+        /* Con refresh server-side il cookie si rinnova da solo; prompt=none solo se manca molto. */
+        const skew = discordExp - Date.now();
+        if (skew < 2 * 60 * 60 * 1000) {
+          await startOAuth("none", location.pathname + location.search, true);
+          return;
+        }
+      }
+
+      let cached: DiscordUser | null = null;
+      try {
+        const c = JSON.parse(authGet(USER_KEY) || "null");
+        if (c?.id) cached = c;
+      } catch {}
+      if (cached && !cancelled) {
+        startTransition(() => {
+          setToken(SESSION_MARKER);
+          setUser(cached);
+        });
+      }
+
+      try {
+        const r = await fetch(apiUrl("/webhooks/site-auth/session"), {
+          credentials: "include",
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${SESSION_MARKER}`, Accept: "application/json" },
+        });
         if (r.status === 401) {
-          /* token scaduto per Discord: prima prova a rinnovarlo da solo, poi eventualmente esci */
+          clearLocalSession();
           if (canAutoRenew() && window.top === window.self) {
-            startOAuth("none", location.pathname + location.search, true);
+            await startOAuth("none", location.pathname + location.search, true);
             return;
           }
-          return logout({ toLogin: false });
+          if (!cancelled) logout({ toLogin: false });
+          else finishAnonymous();
+          return;
         }
-        if (!r.ok) return;
-        const me = (await r.json()) as DiscordUser;
-        if (me?.id) {
-          startTransition(() => setUser(me));
-          authSet(USER_KEY, JSON.stringify(me));
+        if (!r.ok) {
+          if (cached) {
+            if (!cancelled) startTransition(() => setReady(true));
+            return;
+          }
+          finishAnonymous();
+          return;
         }
-      })
-      .catch(() => {})
-      .finally(() => startTransition(() => setReady(true)));
+        const d = (await r.json()) as { user?: DiscordUser };
+        if (d?.user?.id) applySession(d.user);
+        else if (cached) {
+          if (!cancelled) startTransition(() => setReady(true));
+        } else finishAnonymous();
+      } catch {
+        if (cached) {
+          if (!cancelled) startTransition(() => setReady(true));
+        } else finishAnonymous();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [logout]);
 
   const login = useCallback(() => {
-    // oauthPromptNone1: click → prompt=none (silenzioso se Discord ha già la sessione)
-    startOAuth("none");
+    void startOAuth("none");
   }, []);
 
   const shownToken = guest ? null : token;
@@ -415,6 +648,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [ready, shownToken, shownUser, error, login, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+function stripOauthSearch(search: string): string {
+  try {
+    const u = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+    ["code", "state", "error", "error_description", "access_token", "token_type", "expires_in"].forEach((k) => u.delete(k));
+    const out = u.toString();
+    return out ? `?${out}` : "";
+  } catch {
+    return "";
+  }
 }
 
 export function useAuth() {

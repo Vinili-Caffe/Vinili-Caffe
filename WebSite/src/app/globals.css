@@ -21,6 +21,8 @@
   --animate-marquee: marquee var(--marquee-duration, 60s) linear infinite;
   /* Shiny Text: riflesso che attraversa il bollino ogni ~4s */
   --animate-shine: shine 4s ease-in-out infinite;
+  /* React Bits ShinyText / GradientText: sfondo che scorre sul testo */
+  --animate-vc-shiny: vc-shiny 3.2s ease-in-out infinite;
   @keyframes shine {
     0%,
     70% {
@@ -28,6 +30,15 @@
     }
     100% {
       transform: translateX(400%) skewX(-12deg);
+    }
+  }
+  @keyframes vc-shiny {
+    0%,
+    100% {
+      background-position: 100% 50%;
+    }
+    50% {
+      background-position: 0% 50%;
     }
   }
   @keyframes marquee {

@@ -14,6 +14,7 @@ import { useI18n } from "@/lib/i18n";
 import { getVinylMusicApi, subscribeVinylMusic } from "@/lib/vinyl-music-bus";
 import { loadStatsBundle } from "@/lib/stats";
 import { VinylRecord } from "@/components/VinylRecord";
+import { Magnet } from "@/components/react-bits";
 import { AvatarCircles } from "@/components/ui/avatar-circles";
 import { cn } from "@/lib/cn";
 
@@ -507,24 +508,26 @@ export function HeroStage({ className }: { className?: string }) {
             <span className="size-8" aria-hidden />
           )}
 
-          <motion.a
-            href={DISCORD_INVITE}
-            target="_blank"
-            rel="noopener"
-            whileHover={reduce ? undefined : { y: -3, scale: 1.035 }}
-            whileTap={{ scale: 0.96 }}
-            transition={{ type: "spring", stiffness: 420, damping: 22 }}
-            className={cn(
-              "inline-flex min-w-[8.5rem] items-center justify-center rounded-full",
-              "bg-gradient-to-b from-[#e0b080] to-[#b06535]",
-              "px-8 py-3.5 text-[0.95rem] font-semibold tracking-wide text-white",
-              "shadow-[0_16px_34px_-12px_rgba(176,101,53,0.95),inset_0_1px_0_rgba(255,245,230,0.55),inset_0_-3px_0_rgba(90,45,18,0.35)]",
-              "ring-1 ring-white/20",
-            )}
-          >
-            Entra
-            <span className="sr-only"> — {t("common.discord")}</span>
-          </motion.a>
+          <Magnet strength={0.38} padding={64} disabled={!!reduce}>
+            <motion.a
+              href={DISCORD_INVITE}
+              target="_blank"
+              rel="noopener"
+              whileHover={reduce ? undefined : { y: -3, scale: 1.035 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 420, damping: 22 }}
+              className={cn(
+                "inline-flex min-w-[8.5rem] items-center justify-center rounded-full",
+                "bg-gradient-to-b from-[#e0b080] to-[#b06535]",
+                "px-8 py-3.5 text-[0.95rem] font-semibold tracking-wide text-white",
+                "shadow-[0_16px_34px_-12px_rgba(176,101,53,0.95),inset_0_1px_0_rgba(255,245,230,0.55),inset_0_-3px_0_rgba(90,45,18,0.35)]",
+                "ring-1 ring-white/20",
+              )}
+            >
+              Entra
+              <span className="sr-only"> — {t("common.discord")}</span>
+            </motion.a>
+          </Magnet>
         </div>
       </motion.div>
     </motion.div>

@@ -12,6 +12,8 @@ const { sendMinigameMessage } = require("./minigameDiscord") as typeof import(".
 const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
 const { markSent, saveActiveGame, scheduleMinigameRoundTimeout, sendMinigameTimeoutAndClose, scheduleGenericHint } = require("./minigameRound") as typeof import("./minigameRound");
 const { translateToItalian } = require("./quizSources") as typeof import("./quizSources");
+const { isComponentsV2Message } = require("../../../shared/embeds/vcPageEmbedV2") as typeof import("../../../shared/embeds/vcPageEmbedV2");
+const { V2_FLAG } = require("../../../shared/discord/safeMessageEdit") as typeof import("../../../shared/discord/safeMessageEdit");
 
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 async function resolveGuessPuzzleAttachment({
@@ -42,14 +44,6 @@ const CENSOR_STEP_INTERVAL_MS = 60 * 1000;
 /** Titolo della card canvas delle copertine (come gli altri minigiochi). */
 const ARTWORK_CARD_TITLE: Record<string, string> = { guessSong: "Indovina la canzone", guessAlbum: "Indovina l'album" };
 
-function isComponentsV2Message(msg?) {
-  try {
-    return Boolean(msg?.flags?.has?.(1 << 15)) || (Number(msg?.flags?.bitfield) & (1 << 15)) !== 0;
-  } catch {
-    return false;
-  }
-}
-
 /** V2: sostituisce l'immagine della galleria (copertina) con quella meno censurata, o con l'originale alla fine. */
 async function editV2Artwork(msg?, alpha = 0, originalArtworkUrl = "", attachmentName = "", cardTitle = "") {
   const name = String(attachmentName || "");
@@ -76,7 +70,7 @@ async function editV2Artwork(msg?, alpha = 0, originalArtworkUrl = "", attachmen
       return out;
     });
   const components = swap((msg.components || []).map((c?) => (typeof c?.toJSON === "function" ? c.toJSON() : c)));
-  await msg.edit({ components, files, attachments: [] }).catch(() => {});
+  await msg.edit({ components, files, attachments: [], flags: V2_FLAG, embeds: [] }).catch(() => {});
 }
 
 function scheduleArtworkCensorSteps(params?) {
@@ -182,7 +176,7 @@ async function startGuessFlagGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessFlag",
     target: JSON.stringify({
       names: target.names,
@@ -199,6 +193,7 @@ async function startGuessFlagGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
 
   return true;
@@ -270,7 +265,7 @@ async function startGuessPlayerGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessPlayer",
     target: JSON.stringify({
       name: info.name,
@@ -285,6 +280,7 @@ async function startGuessPlayerGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -363,7 +359,7 @@ async function startGuessSongGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessSong",
     target: JSON.stringify({
       title: info.title,
@@ -381,6 +377,7 @@ async function startGuessSongGame(client?, cfg?) {
     customId: previewCustomId,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -437,7 +434,7 @@ async function startGuessTeamGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessTeam",
     target: JSON.stringify({
       team: pick.team,
@@ -450,6 +447,7 @@ async function startGuessTeamGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -504,7 +502,7 @@ async function startGuessSingerGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessSinger",
     target: JSON.stringify({
       name: pick.name,
@@ -517,6 +515,7 @@ async function startGuessSingerGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -586,7 +585,7 @@ async function startGuessAlbumGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessAlbum",
     target: JSON.stringify({
       album: pick.album,
@@ -600,6 +599,7 @@ async function startGuessAlbumGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }

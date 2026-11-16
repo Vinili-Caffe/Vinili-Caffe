@@ -274,7 +274,7 @@ async function startDrivingQuizGame(client?, cfg?) {
 
   activeGames.set(channelId, gameState);
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "drivingQuiz",
     target: JSON.stringify(
       row.questionType === "multiple"
@@ -294,6 +294,7 @@ async function startDrivingQuizGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }

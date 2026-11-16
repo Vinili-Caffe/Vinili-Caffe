@@ -76,7 +76,7 @@ async function handleMinigameMessage(message?, client?) {
     return false;
   }
 
-  /* Evento SW: senza smistamento non si participa ai minigame in rotazione. */
+  /* Evento SW: senza smistamento non si participa ai minigame in rotazione. Fail-closed sul gate. */
   if (baseCfg.starWarsEventLive) {
     try {
       const {
@@ -88,7 +88,14 @@ async function handleMinigameMessage(message?, client?) {
         await message.reply(UNSORTED_MG_MSG).catch(() => null);
         return true;
       }
-    } catch (_) {}
+    } catch (err) {
+      global.logger?.warn?.("[MINIGAMES] Star Wars sort gate failed (message); denying play", {
+        guildId: message.guildId,
+        userId: message.author?.id,
+        err: (err as any)?.message || String(err),
+      });
+      return true;
+    }
   }
 
   if (game.hadParticipation === undefined) game.hadParticipation = false;

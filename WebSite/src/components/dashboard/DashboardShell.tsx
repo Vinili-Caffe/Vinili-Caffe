@@ -33,7 +33,7 @@ import { ensureIsDev, getIsDev, subscribeDev } from "@/lib/dashboard-dev";
 import { ensureCreditsBalance, getCreditsBalance, subscribeCredits } from "@/lib/dashboard-premium";
 import { cdnUrl, page } from "@/lib/site";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
-import { NotificationsBell } from "./NotificationsBell";
+import { NavNotifBell } from "@/components/NavNotifBell";
 import { DASH_PIN_KEY } from "@/lib/dash-side-boot";
 import { LangMenu } from "@/components/LangMenu";
 import { ThemePrefRow } from "@/components/ThemeToggle";
@@ -1072,7 +1072,7 @@ export function DashboardShell({
             </nav>
             <CreditsChip />
             <LangMenu />
-            <NotificationsBell />
+            <NavNotifBell />
             <div className="hidden sm:block">
               <AccountMenu guild={guild} guildNav={guildNav} />
             </div>

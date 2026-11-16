@@ -162,18 +162,28 @@ function isBoostAnnounceHandled(boostKey?) {
 }
 
 function boostAnnounceLooksLikeBoost(text?) {
+  const raw = String(text || "");
+  /* strip markdown **__ so "Ora siamo a **12** boost" / draft dashboard matchino */
+  const t = raw.replace(/[*_`~]/g, " ").replace(/\s+/g, " ").trim();
   return (
-    /grazie\s+.*\s+per\s+il\s+boost/i.test(text) ||
-    /per\s+il\s+doppio\s+boost/i.test(text) ||
-    /per\s+il\s+boost/i.test(text) ||
-    /ora\s+siamo\s+a\s+\d+\s+boost/i.test(text)
+    /grazie\s+.*\s+per\s+il\s+boost/i.test(t) ||
+    /grazie\s+per\s+il\s+boost/i.test(t) ||
+    /per\s+il\s+doppio\s+boost/i.test(t) ||
+    /per\s+il\s+boost/i.test(t) ||
+    /un\s+altro\s+boost/i.test(t) ||
+    /ha\s+boostato(\s+di\s+nuovo)?\b/i.test(t) ||
+    /boostato\s+di\s+nuovo/i.test(t) ||
+    /ora\s+siamo\s+a\s+\d+\s+boost/i.test(t) ||
+    /just\s+boosted\b/i.test(t) ||
+    /boosted\s+(the\s+)?server/i.test(t)
   );
 }
 
 function boostAnnounceSlotWeightFromText(text?) {
-  const t = String(text || "");
-  if (!boostAnnounceLooksLikeBoost(t)) return 0;
-  if (/doppio\s+boost/i.test(t) || /PER IL DOPPIO BOOST/i.test(t)) return 2;
+  const raw = String(text || "");
+  if (!boostAnnounceLooksLikeBoost(raw)) return 0;
+  const t = raw.replace(/[*_`~]/g, " ").replace(/\s+/g, " ");
+  if (/doppio\s+boost/i.test(t) || /due\s+boost/i.test(t) || /double\s+boost/i.test(t)) return 2;
   return 1;
 }
 
@@ -331,7 +341,9 @@ async function resolveEffectiveAnnouncedBoostSlots(guildId?, userId?, channel?, 
   if (!channel) return tracked;
   const channelCount = await countRecentBotBoostAnnouncesForUser(channel, userId, opts).catch(() => 0);
   const safeChannel = Math.max(0, Number(channelCount || 0));
-  if (safeChannel > 0 && safeChannel < tracked) {
+  /* boostSpam1: NON abbassare mai gli slot persistiti se lo scan canale è cieco
+     (testi dashboard diversi / markdown). Downgrade → missing forever → spam embed. */
+  if (safeChannel > tracked) {
     setAnnouncedBoostSlots(guildId, userId, safeChannel);
     await persistAnnouncedBoostSlotsToDb(guildId, userId).catch(() => null);
     return safeChannel;

@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Bell, Bookmark, Heart, Share2, UserPlus } from "lucide-react";
 import { Iphone } from "@/components/magicui/iphone";
 import { useChromeOpenListener } from "@/lib/chrome-open";
+import { setSocialPhoneOpen } from "@/lib/social-phone-open";
 import { DISCORD_INVITE, SITE_ORIGIN, cdnUrl } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import profile from "@/data/social-profile.json";
@@ -337,6 +338,7 @@ export function SocialPhonePromo() {
     openRef.current = false;
     setOpen(false);
     setCta(null);
+    setSocialPhoneOpen(false);
   }, [clearTimers]);
 
   const showNow = useCallback(
@@ -361,6 +363,7 @@ export function SocialPhonePromo() {
       setCta(firstCta);
       openRef.current = true;
       setOpen(true);
+      setSocialPhoneOpen(true);
 
       const s: Store = {
         ...s0,
@@ -375,6 +378,7 @@ export function SocialPhonePromo() {
         openRef.current = false;
         setOpen(false);
         setCta(null);
+        setSocialPhoneOpen(false);
       }, rand(VISIBLE_MS[0], VISIBLE_MS[1]));
 
       const bumpCta = () => {
@@ -413,6 +417,7 @@ export function SocialPhonePromo() {
       clearTimers();
       openRef.current = false;
       setOpen(false);
+      setSocialPhoneOpen(false);
       return;
     }
 
@@ -461,6 +466,7 @@ export function SocialPhonePromo() {
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVis);
       clearTimers();
+      setSocialPhoneOpen(false);
     };
   }, [enabled, desktop, showNow, clearTimers, deferSoon, hideOpen]);
 

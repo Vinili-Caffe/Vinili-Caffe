@@ -262,9 +262,10 @@ function buildClipBoardEmbed({ requester, requesterId, voiceChannelName, duratio
   });
 }
 
-function buildClipAckEmbed({ requesterId, boardUrl, voiceChannelName, durationSec, prefix, guildId }) {
+function buildClipAckEmbed({ requesterId, boardUrl, voiceChannelName, durationSec, prefix, guildId, count = null }) {
   const linkLine = boardUrl ? `[Apri la clip](${boardUrl})` : "Clip pubblicata.";
   const safePrefix = String(prefix || "+").trim() || "+";
+  const countStr = count == null || count === "" ? "" : String(count);
   let description = [
     `🎙️ <@${requesterId}> ha pubblicato un clip vocale da **${voiceChannelName}** (${durationSec}s).`,
     linkLine,
@@ -289,12 +290,14 @@ function buildClipAckEmbed({ requesterId, boardUrl, voiceChannelName, durationSe
       link: linkLine,
       channel: String(voiceChannelName || ""),
       duration: String(durationSec ?? ""),
+      count: countStr,
     };
     description = fillBoardTemplate(pr.ackDescription, vars) || description;
     footer = fillBoardTemplate(pr.ackFooter, vars) || footer;
   } catch {
     /* fallback live */
   }
+  if (countStr && footer.includes("{count}")) footer = footer.split("{count}").join(countStr);
   const { tagBoardEmbed } = require("../utils/boardDrafts") as typeof import("../utils/boardDrafts");
   return tagBoardEmbed(
     {
@@ -315,6 +318,7 @@ function buildClipAckEmbed({ requesterId, boardUrl, voiceChannelName, durationSe
         channel: String(voiceChannelName || ""),
         duration: String(durationSec ?? ""),
         url: String(boardUrl || ""),
+        count: countStr,
       },
     },
   );
@@ -404,6 +408,7 @@ async function exportClipFromCommand(ctx?) {
         durationSec: extracted.durationSec,
         prefix: prefixFor(guildId, client),
         guildId,
+        count: siteTotal,
       });
       return { ok: true, ackEmbed, boardUrl: saved.boardUrl, durationSec: extracted.durationSec };
     }
@@ -477,6 +482,7 @@ async function exportClipFromCommand(ctx?) {
       durationSec: extracted.durationSec,
       prefix,
       guildId,
+      count: totalPosts,
     });
 
     return { ok: true, ackEmbed, boardUrl, durationSec: extracted.durationSec };

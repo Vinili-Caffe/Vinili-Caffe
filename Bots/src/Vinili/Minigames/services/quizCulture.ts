@@ -78,7 +78,7 @@ async function startItalianGkGame(client?, cfg?) {
   if (cfg.roleId)
     await sendMinigameRolePing(channel, cfg);
   const gkAttachment = buildPromptImageAttachment("Cultura generale", [questionRow.question], "italian_gk", "", client);
-  const gkEmbed = buildItalianGkEmbed(questionRow.question, rewardExp, durationMs);
+  const gkEmbed = buildItalianGkEmbed(rewardExp, durationMs);
   if (gkAttachment) {
     gkEmbed.setImage(`attachment://${gkAttachment.name}`);
   }
@@ -106,7 +106,7 @@ async function startItalianGkGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "italianGK",
     target: JSON.stringify({
       question: questionRow.question,
@@ -119,6 +119,7 @@ async function startItalianGkGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -140,7 +141,7 @@ async function startMathExpressionGame(client?, cfg?) {
   const files = expressionAttachment ? [expressionAttachment] : [];
   const gameMessage = await sendMinigameMessage(
     channel,
-    { embeds: [buildMathExpressionEmbed(row.expression, rewardExp, durationMs, expressionAttachment?.name || null)], files },
+    { embeds: [buildMathExpressionEmbed(rewardExp, durationMs, expressionAttachment?.name || null)], files },
     { type: "mathExpression", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, expression: row.expression }) },
   ).catch(() => null);
 
@@ -162,7 +163,7 @@ async function startMathExpressionGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "mathExpression",
     target: JSON.stringify({
       expression: row.expression,
@@ -174,6 +175,7 @@ async function startMathExpressionGame(client?, cfg?) {
     gameMessageId: gameMessage?.id || null,
   });
 
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -216,7 +218,7 @@ async function startGuessYearGame(client?, cfg?) {
     hintTimeout,
     gameMessageId: gameMessage?.id || null,
   });
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessYear",
     target: JSON.stringify({ title: pick.title, subtitle: pick.subtitle, year: pick.year }),
     rewardExp,
@@ -224,6 +226,7 @@ async function startGuessYearGame(client?, cfg?) {
     endsAt: new Date(Date.now() + durationMs),
     gameMessageId: gameMessage?.id || null,
   });
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -254,7 +257,7 @@ async function startCompleteVerseGame(client?, cfg?) {
     client,
   );
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
-  const embed = buildCompleteVerseEmbed(pick.verse, rewardExp, durationMs, imageUrl);
+  const embed = buildCompleteVerseEmbed(rewardExp, durationMs, imageUrl);
   if (shouldUseHalloweenTheme(cfg) && !shouldUseStarWarsTheme(cfg)) embed.setTitle("Completa il verso Halloween 🎃");
   const gameMessage = await sendMinigameMessage(
     channel,
@@ -286,7 +289,7 @@ async function startCompleteVerseGame(client?, cfg?) {
     hintTimeout,
     gameMessageId: gameMessage?.id || null,
   });
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "completeVerse",
     target: JSON.stringify({ verse: pick.verse, answer: pick.answer, song: pick.song, artist: pick.artist }),
     rewardExp,
@@ -294,6 +297,7 @@ async function startCompleteVerseGame(client?, cfg?) {
     endsAt: new Date(Date.now() + durationMs),
     gameMessageId: gameMessage?.id || null,
   });
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -332,7 +336,7 @@ async function startGuessEmojiGame(client?, cfg?) {
     "guess_emoji",
   );
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
-  const embed = buildGuessEmojiEmbed(pick.emojis, rewardExp, durationMs, imageUrl);
+  const embed = buildGuessEmojiEmbed(rewardExp, durationMs, imageUrl);
   const gameMessage = await sendMinigameMessage(
     channel,
     { embeds: [embed], files: attachment ? [attachment] : [] },
@@ -354,7 +358,7 @@ async function startGuessEmojiGame(client?, cfg?) {
     hintTimeout,
     gameMessageId: gameMessage?.id || null,
   });
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "guessEmoji",
     target: JSON.stringify({ emojis: pick.emojis, answers: sourceAnswers, displayAnswer }),
     rewardExp,
@@ -362,6 +366,7 @@ async function startGuessEmojiGame(client?, cfg?) {
     endsAt: new Date(Date.now() + durationMs),
     gameMessageId: gameMessage?.id || null,
   });
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -377,14 +382,41 @@ async function startQuoteFilmGame(client?, cfg?) {
   const channel = await getChannelCached(client, channelId);
   if (!channel) return false;
   await sendMinigameRolePing(channel, cfg);
-  const displayQuote = pick.quoteIt || pick.quote;
-  const attachment = buildPromptImageAttachment("Citazione da film/serie", [displayQuote], "quote_film", "", client);
+  const displayQuote = String(pick.quoteIt || pick.quote || "").trim();
+  if (!displayQuote) return false;
+  let attachment = null;
+  try {
+    const resolved = await resolveMinigamePromptAttachment(
+      cfg,
+      "Citazione da film/serie",
+      [`“${displayQuote}”`],
+      "quote_film",
+      client,
+    );
+    attachment = resolved?.attachment || null;
+  } catch (err) {
+    warnMinigame(err);
+  }
+  if (!attachment) {
+    attachment = buildPromptImageAttachment("Citazione da film/serie", [`“${displayQuote}”`], "quote_film", "", client);
+  }
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
   const embed = buildQuoteFilmEmbed(displayQuote, rewardExp, durationMs, imageUrl);
+  const startPrompt = `*“${displayQuote}”* — Da quale film o serie? **${rewardExp} exp**.`;
   const gameMessage = await sendMinigameMessage(
     channel,
     { embeds: [embed], files: attachment ? [attachment] : [] },
-    { type: "quoteFilm", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs }) },
+    {
+      type: "quoteFilm",
+      kind: "start",
+      vars: minigameDraftVars(channel, {
+        exp: rewardExp,
+        durationMs,
+        quote: displayQuote,
+        prompt: startPrompt,
+        image: imageUrl || "",
+      }),
+    },
   ).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const hintText = `Film/Serie: ${buildRevealHint(pick.answer)}`;
@@ -405,7 +437,7 @@ async function startQuoteFilmGame(client?, cfg?) {
     hintTimeout,
     gameMessageId: gameMessage?.id || null,
   });
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "quoteFilm",
     target: JSON.stringify({ quote: displayQuote, answer: pick.answer, displayAnswer: pick.answer }),
     rewardExp,
@@ -413,6 +445,7 @@ async function startQuoteFilmGame(client?, cfg?) {
     endsAt: new Date(Date.now() + durationMs),
     gameMessageId: gameMessage?.id || null,
   });
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -431,7 +464,7 @@ async function startCompleteProverbGame(client?, cfg?) {
   await sendMinigameRolePing(channel, cfg);
   const attachment = buildPromptImageAttachment("Completa il proverbio", [pick.start], "complete_proverb", "", client);
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
-  const embed = buildCompleteProverbEmbed(pick.start, rewardExp, durationMs, imageUrl);
+  const embed = buildCompleteProverbEmbed(rewardExp, durationMs, imageUrl);
   const gameMessage = await sendMinigameMessage(
     channel,
     { embeds: [embed], files: attachment ? [attachment] : [] },
@@ -454,7 +487,7 @@ async function startCompleteProverbGame(client?, cfg?) {
     hintTimeout,
     gameMessageId: gameMessage?.id || null,
   });
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "completeProverb",
     target: JSON.stringify({ start: pick.start, end: pick.end }),
     rewardExp,
@@ -462,6 +495,7 @@ async function startCompleteProverbGame(client?, cfg?) {
     endsAt: new Date(Date.now() + durationMs),
     gameMessageId: gameMessage?.id || null,
   });
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }
@@ -505,7 +539,7 @@ async function startSynonymAntonymGame(client?, cfg?) {
     hintTimeout,
     gameMessageId: gameMessage?.id || null,
   });
-  await saveActiveGame(client, cfg, {
+  const saved = await saveActiveGame(client, cfg, {
     type: "synonymAntonym",
     target: JSON.stringify({ word: pick.word, answer, kind: pick.kind }),
     rewardExp,
@@ -513,6 +547,7 @@ async function startSynonymAntonymGame(client?, cfg?) {
     endsAt: new Date(Date.now() + durationMs),
     gameMessageId: gameMessage?.id || null,
   });
+  if (!saved) return false;
   markSent(channelId);
   return true;
 }

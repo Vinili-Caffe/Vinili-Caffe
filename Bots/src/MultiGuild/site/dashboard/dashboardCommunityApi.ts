@@ -69,16 +69,18 @@ async function guildInfo(client?, gid?) {
 async function sendOrEdit(client?, channelId?: string, prev?: { messageId: string | null; channelId: string | null }, body?) {
   const rest = restOf(client);
   if (!rest) return { ok: false, message: "Bot non raggiungibile." };
+  const { prepareComponentsV2Body } = require("../../../shared/discord/safeMessageEdit") as typeof import("../../../shared/discord/safeMessageEdit");
+  const payload = prepareComponentsV2Body(body);
   if (prev?.messageId && prev.channelId === channelId) {
     try {
-      const m: any = await rest.patch(Routes.channelMessage(channelId, prev.messageId), { body });
+      const m: any = await rest.patch(Routes.channelMessage(channelId, prev.messageId), { body: payload });
       return { ok: true, messageId: String(m?.id || prev.messageId), edited: true };
     } catch (err) {
       const code = Number(err?.code || err?.rawError?.code);
       if (code !== 10008 && code !== 50035) return { ok: false, message: discordError(err) };
       if (code === 50035) {
         try {
-          const m: any = await rest.post(Routes.channelMessages(channelId), { body });
+          const m: any = await rest.post(Routes.channelMessages(channelId), { body: payload });
           await rest.delete(Routes.channelMessage(channelId, prev.messageId)).catch(() => null);
           return { ok: true, messageId: String(m?.id || ""), edited: false };
         } catch (err2) {
@@ -88,7 +90,7 @@ async function sendOrEdit(client?, channelId?: string, prev?: { messageId: strin
     }
   }
   try {
-    const m: any = await rest.post(Routes.channelMessages(channelId), { body });
+    const m: any = await rest.post(Routes.channelMessages(channelId), { body: payload });
     return { ok: true, messageId: String(m?.id || ""), edited: false };
   } catch (err) {
     return { ok: false, message: discordError(err) };

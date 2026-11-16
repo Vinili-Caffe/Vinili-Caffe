@@ -64,17 +64,34 @@ function buildStaffCmdsParentRoleOverwrite(roleId?) {
   };
 }
 
+function isTransientOverwriteError(err?) {
+  const msg = String(err?.message || err || "");
+  return (
+    /other side closed/i.test(msg) ||
+    /ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|UND_ERR/i.test(msg) ||
+    Number(err?.status ?? err?.statusCode ?? 0) >= 500
+  );
+}
+
 async function ensureStaffCmdsParentRoleOverwrite(parent?, roleId?) {
   if (!parent?.permissionOverwrites?.edit || !roleId) return;
-  await parent.permissionOverwrites
-    .edit(
-      String(roleId),
-      buildStaffCmdsParentRoleOverwrite(roleId),
-      { reason: "Accesso thread comandi staff (solo thread, non canale padre)" },
-    )
-    .catch((err?) => {
-      global.logger?.warn?.("[STAFF CMDS THREAD] Overwrite ruolo fallito:", roleId, err?.message || err);
-    });
+  const rid = String(roleId);
+  const perms = buildStaffCmdsParentRoleOverwrite(rid);
+  const reason = "Accesso thread comandi staff (solo thread, non canale padre)";
+  let lastErr = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await parent.permissionOverwrites.edit(rid, perms, { reason });
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (!isTransientOverwriteError(err) || attempt === 2) break;
+      await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+    }
+  }
+  if (lastErr && !isTransientOverwriteError(lastErr)) {
+    global.logger?.warn?.("[STAFF CMDS THREAD] Overwrite ruolo fallito:", rid, lastErr?.message || lastErr);
+  }
 }
 
 async function ensureStaffCmdsParentRoleOverwrites(parent?) {
