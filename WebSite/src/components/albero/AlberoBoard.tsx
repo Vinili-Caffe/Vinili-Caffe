@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { Loader2, LogIn, Sparkles, Trash2, TreePine, X } from "lucide-react";
+import { Check, Loader2, LogIn, Sparkles, Trash2, TreePine, UserRound, VenetianMask, X } from "lucide-react";
 import { AlberoBauble } from "@/components/albero/AlberoBauble";
 import { AlberoScene } from "@/components/albero/AlberoScene";
 import { PageHero } from "@/components/PageHero";
@@ -736,15 +736,63 @@ export function AlberoBoard() {
                 />
               </div>
 
-              <label className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-espresso/80 px-4 py-3 ring-1 ring-crema/10">
-                <span className="text-sm text-crema/85">Pubblica in anonimo</span>
-                <input
-                  type="checkbox"
-                  checked={draft.anonymous}
-                  onChange={(e) => setDraft((d) => ({ ...d, anonymous: e.target.checked }))}
-                  className="size-4 accent-caramel"
-                />
-              </label>
+              {/* come firmare la palla: due schede, quella scelta si accende */}
+              <div role="radiogroup" aria-label="Come appendere la palla" className="mt-4 grid grid-cols-2 gap-2">
+                {(
+                  [
+                    { anon: false, title: "Col mio nome", text: "Avatar e nome sulla palla" },
+                    { anon: true, title: "In anonimo", text: "Nessun nome né avatar" },
+                  ] as const
+                ).map((o) => {
+                  const on = draft.anonymous === o.anon;
+                  const myAvatar = mine?.avatarUrl || (user ? avatarUrl(user, 64) : null);
+                  return (
+                    <button
+                      key={o.title}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setDraft((d) => ({ ...d, anonymous: o.anon }))}
+                      className={cn(
+                        "relative flex items-center gap-3 rounded-2xl p-3 text-left ring-1 transition-[background-color,box-shadow,transform] duration-200 active:scale-[0.98]",
+                        on
+                          ? "bg-caramel/12 ring-caramel/55 shadow-[0_10px_30px_-18px_rgba(240,180,110,0.8)]"
+                          : "bg-espresso/70 ring-crema/10 hover:bg-crema/[0.05] hover:ring-crema/20",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 transition",
+                          on ? "ring-caramel/70" : "ring-crema/10",
+                          o.anon ? "bg-crema/[0.06] text-crema/70" : "bg-crema/10",
+                        )}
+                      >
+                        {o.anon ? (
+                          <VenetianMask className="size-5" aria-hidden />
+                        ) : myAvatar ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={myAvatar} alt="" className="size-full object-cover" />
+                        ) : (
+                          <UserRound className="size-5 text-crema/60" aria-hidden />
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className={cn("block text-sm font-semibold", on ? "text-crema" : "text-crema/80")}>{o.title}</span>
+                        <span className="block text-[0.7rem] leading-snug text-crema/50">{o.text}</span>
+                      </span>
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "absolute right-2.5 top-2.5 flex size-4 items-center justify-center rounded-full transition",
+                          on ? "bg-caramel text-espresso" : "ring-1 ring-crema/20",
+                        )}
+                      >
+                        {on ? <Check className="size-3" strokeWidth={3} /> : null}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
 
               <label className="mt-4 block">
                 <span className="sr-only">Messaggio</span>
