@@ -73,6 +73,7 @@ function isPastStarWarsEventEnd(client?, now = new Date()) {
 }
 
 function isStarWarsForceLiveOnTestGuild(client?, guildId?) {
+  if (isPastStarWarsEventEnd(client)) return false;
   const testId = getTestGuildIdSafe();
   const gid = String(guildId || "").trim();
   if (!testId || !gid || gid !== testId) return false;

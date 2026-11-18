@@ -98,7 +98,7 @@ async function startStarWarsQuizGame(client?, cfg?, options: Record<string, any>
     backgroundUrl,
     malusTitle: malus?.def?.title || "",
   });
-  const embed = buildStarWarsQuizEmbed(prepared.kind, rewardExp, durationMs, rewardCredits, malus);
+  const embed = buildStarWarsQuizEmbed(rewardExp, durationMs, rewardCredits, malus);
   if (attachment) embed.setImage(`attachment://${attachment.name}`);
 
   const gameMessage = await sendMinigameMessage(channel, {

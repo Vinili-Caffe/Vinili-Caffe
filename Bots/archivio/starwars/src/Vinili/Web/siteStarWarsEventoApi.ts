@@ -1134,35 +1134,65 @@ async function handleSiteEventoPhaseEndPost(client?, req?, res?) {
   }
 }
 
+/**
+ * Azioni POST dello stesso utente una alla volta (site-api è un solo processo):
+ * doppio click, più schede o script in parallelo non superano limiti giornalieri
+ * né incassano due volte lo stesso premio (gara, miniera, accademia, puzzle, …).
+ */
+const userActionQueues = new Map<string, Promise<void>>();
+const USER_ACTION_WAIT_MAX_MS = 20_000;
+
+function serializedPerUser(handler?) {
+  return async (client?, req?, res?) => {
+    const auth = await resolveAuth(client, req).catch(() => null);
+    const uid = String(auth?.userId || "").trim();
+    if (!uid) return handler(client, req, res);
+    const prev = userActionQueues.get(uid) || Promise.resolve();
+    let release: () => void = () => {};
+    const mine = new Promise<void>((resolve?) => {
+      release = resolve;
+    });
+    const tail = prev.then(() => mine);
+    userActionQueues.set(uid, tail);
+    try {
+      await Promise.race([prev, new Promise((r?) => setTimeout(r, USER_ACTION_WAIT_MAX_MS))]);
+      return await handler(client, req, res);
+    } finally {
+      release();
+      if (userActionQueues.get(uid) === tail) userActionQueues.delete(uid);
+    }
+  };
+}
+
 export = {
   handleSiteEventoStatusGet,
   handleSiteEventoAvventoGet,
-  handleSiteEventoAvventoClaimPost,
+  handleSiteEventoAvventoClaimPost: serializedPerUser(handleSiteEventoAvventoClaimPost),
   handleSiteEventoCalendarGet,
   handleSiteEventoSmistamentoGet,
-  handleSiteEventoSmistamentoPost,
+  handleSiteEventoSmistamentoPost: serializedPerUser(handleSiteEventoSmistamentoPost),
   handleSiteEventoShopGet,
   handleSiteEventoFactionGet,
   handleSiteEventoFactionRanksGet,
-  handleSiteEventoFactionRanksPost,
+  handleSiteEventoFactionRanksPost: serializedPerUser(handleSiteEventoFactionRanksPost),
   handleSiteEventoWarsGet,
-  handleSiteEventoShopBuyPost,
-  handleSiteEventoShopAttackPost,
+  handleSiteEventoShopBuyPost: serializedPerUser(handleSiteEventoShopBuyPost),
+  handleSiteEventoShopAttackPost: serializedPerUser(handleSiteEventoShopAttackPost),
   handleSiteEventoMinigamesGet,
-  handleSiteEventoCrateOpenPost,
-  handleSiteEventoItemUsePost,
+  handleSiteEventoCrateOpenPost: serializedPerUser(handleSiteEventoCrateOpenPost),
+  handleSiteEventoItemUsePost: serializedPerUser(handleSiteEventoItemUsePost),
   handleSiteEventoAccademiaGet,
-  handleSiteEventoAccademiaPost,
+  handleSiteEventoAccademiaPost: serializedPerUser(handleSiteEventoAccademiaPost),
   handleSiteEventoGaraGet,
-  handleSiteEventoGaraPost,
+  handleSiteEventoGaraPost: serializedPerUser(handleSiteEventoGaraPost),
   handleSiteEventoMinieraGet,
-  handleSiteEventoMinieraPost,
+  handleSiteEventoMinieraPost: serializedPerUser(handleSiteEventoMinieraPost),
   handleSiteEventoPuzzleGet,
-  handleSiteEventoPuzzlePost,
+  handleSiteEventoPuzzlePost: serializedPerUser(handleSiteEventoPuzzlePost),
   handleSiteEventoPeiGet,
   handleSiteEventoClassificheGet,
   handleSiteEventoTraditoreGet,
-  handleSiteEventoTraditorePost,
+  handleSiteEventoTraditorePost: serializedPerUser(handleSiteEventoTraditorePost),
   handleSiteEventoCollezioniGet,
-  handleSiteEventoPhaseEndPost,
+  handleSiteEventoPhaseEndPost: serializedPerUser(handleSiteEventoPhaseEndPost),
 };

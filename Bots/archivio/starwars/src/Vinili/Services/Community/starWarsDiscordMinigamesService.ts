@@ -9,7 +9,10 @@ const { EPOCHS, resolveFeatureStateNow } = require("../../Utils/Eventi/starWarsE
 const { grantStarWarsReward, grantStarWarsMinigameWinReward, grantStarWarsGlobalMinigameWinBonus } = require("./starWarsRewardsService") as typeof import("./starWarsRewardsService");
 const { formatCrateMention } = require("../../Utils/Eventi/starWarsCrateEmojis") as typeof import("../../Utils/Eventi/starWarsCrateEmojis");
 const { getConfig } = require(__eventCoreVinili("Minigames/services/minigameConfig")) as typeof import("../../../../../../src/Vinili/Minigames/services/minigameConfig");
-const { sendMinigameRolePing } = require(__eventCoreVinili("Minigames/services/minigameRolePing")) as typeof import("../../../../../../src/Vinili/Minigames/services/minigameRolePing");
+const {
+  sendMinigameRolePing,
+  clearRolePingSentThisStart,
+} = require(__eventCoreVinili("Minigames/services/minigameRolePing")) as typeof import("../../../../../../src/Vinili/Minigames/services/minigameRolePing");
 const {
   reactMinigameWin,
   reactMinigameWrongEmoji,
@@ -20,6 +23,25 @@ const OWNER = "__starwars_mg__";
 const CREDITI = "<a:VC_crediti:1567852561543733338>";
 const loopState = new WeakSet();
 const claimLocks = new Set();
+/** Coda per tipo di round: le azioni sullo stesso round girano una alla volta (gateway = un solo processo). */
+const roundLocks = new Map<string, Promise<void>>();
+async function withRoundLock<T>(kind?, fn?: () => Promise<T>): Promise<T> {
+  const key = String(kind || "");
+  const prev = roundLocks.get(key) || Promise.resolve();
+  let release: () => void = () => {};
+  const mine = new Promise<void>((resolve?) => {
+    release = resolve;
+  });
+  const tail = prev.then(() => mine);
+  roundLocks.set(key, tail);
+  try {
+    await prev;
+    return await fn();
+  } finally {
+    release();
+    if (roundLocks.get(key) === tail) roundLocks.delete(key);
+  }
+}
 const huntTimeouts = new Map();
 const ordine66Timeouts = new Map();
 const scovaTimeouts = new Map();
@@ -153,7 +175,12 @@ async function pingMinigamesRole(client?, channel?) {
   if (!channel?.send) return null;
   try {
     const cfg = getConfig(client);
-    return (await sendMinigameRolePing(channel, cfg)) || null;
+    /* sendMinigameRolePing prenota il ping per lo start dei minigiochi classici: qui lo mandiamo subito. */
+    const content = await sendMinigameRolePing(channel, cfg);
+    if (!content) return null;
+    clearRolePingSentThisStart(channel.id);
+    const roles = [...String(content).matchAll(/<@&(\d+)>/g)].map((m?) => m[1]);
+    return (await channel.send({ content, allowedMentions: { roles } }).catch(() => null)) || null;
   } catch (_) {
     return null;
   }
@@ -873,7 +900,7 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
         .setColor(0xeab308)
         .setTitle(`${meta.title} terminata!`)
         .setDescription(
-          `🏁 <@${user.id}> vince e si porta a casa: ${formatCrateMention(meta.crate, 1, { open: true })} + **${meta.exp} exp** + 15 ${CREDITI}`,
+          `🏁 <@${user.id}> vince e si porta a casa: ${formatCrateMention(meta.crate, 1, { open: true })} + **${meta.exp} exp** + 5 ${CREDITI} (+10 alla banca della fazione)`,
         );
       if (meta.winImage) winEmbed.setImage(meta.winImage);
       await reaction.message
@@ -1003,7 +1030,7 @@ async function handleStarWarsButton(interaction?) {
   });
   await interaction
     .editReply({
-      content: `<a:VC_Events:1482706144953897223> Hai vinto! +${formatCrateMention(meta.crate, 1, { open: true })} + ${meta.exp} exp + 15 ${CREDITI}`,
+      content: `<a:VC_Events:1482706144953897223> Hai vinto! +${formatCrateMention(meta.crate, 1, { open: true })} + ${meta.exp} exp + 5 ${CREDITI} (+10 alla banca della fazione)`,
     })
     .catch(() => null);
   const hubId = normalizeId(round.payload.hubChannelId || round.payload.channelId);
@@ -1016,7 +1043,7 @@ async function handleStarWarsButton(interaction?) {
         .setColor(0xeab308)
         .setTitle(`${meta.emoji} ${meta.title}`)
         .setDescription(
-          `<@${interaction.user.id}> ha vinto! +${formatCrateMention(meta.crate, 1, { open: true })} + **${meta.exp} exp** + 15 ${CREDITI}`,
+          `<@${interaction.user.id}> ha vinto! +${formatCrateMention(meta.crate, 1, { open: true })} + **${meta.exp} exp** + 5 ${CREDITI} (+10 alla banca della fazione)`,
         );
       if (meta.winImage) winEmbed.setImage(meta.winImage);
       await hub.send({ embeds: [winEmbed] }).catch(() => null);
@@ -1986,7 +2013,13 @@ async function tryAttaccaBaseMessage(message?, client?) {
   if (!(await isStarWarsSortedParticipant(client || message.client, message.guildId, message.author.id))) {
     return false;
   }
+  /* Colpi in fila: con tanti messaggi insieme ognuno legge l'HP aggiornato (prima se ne perdevano). */
+  return withRoundLock("attacca_base", () => applyAttaccaBaseHit(message, client));
+}
 
+async function applyAttaccaBaseHit(message?, client?) {
+  const round = await getActiveRound("attacca_base");
+  if (!round?.payload || round.payload.status !== "active") return true;
   const uid = normalizeId(message.author.id);
   const hitsByUser = { ...(round.payload.hitsByUser && typeof round.payload.hitsByUser === "object" ? round.payload.hitsByUser : {}) };
   const used = Math.max(0, Math.floor(Number(hitsByUser[uid]) || 0));
@@ -2314,6 +2347,11 @@ function scheduleConvoglioTimeout(client?, durationMs = CONVOGLIO_DURATION_MS) {
 }
 
 async function handleConvoglioButton(interaction?, parts?) {
+  /* Click in fila: due membri della scorta insieme non fanno doppia tappa né doppio premio. */
+  return withRoundLock("convoglio", () => handleConvoglioButtonLocked(interaction, parts));
+}
+
+async function handleConvoglioButtonLocked(interaction?, parts?) {
   const action = parts[2]; // continua | intercetta
   const round = await getActiveRound("convoglio");
   if (!round?.payload || round.payload.status !== "active") {
@@ -2393,8 +2431,12 @@ async function handleConvoglioButton(interaction?, parts?) {
     await hopMsg?.delete?.().catch(() => null);
 
     if (currentHop >= needHops) {
+      const claimedConvoy = await claimRound("convoglio", interaction.user.id);
+      if (!claimedConvoy) {
+        await interaction.reply({ content: "Convoglio già arrivato a destinazione.", flags: 1 << 6 }).catch(() => null);
+        return true;
+      }
       clearConvoglioTimeout();
-      await claimRound("convoglio", interaction.user.id);
       await grantStarWarsMinigameWinReward(interaction.client, {
         guildId: walletGuildId(interaction.client) || interaction.guildId,
         userId: interaction.user.id,
@@ -2533,11 +2575,35 @@ function conquistaPlanetBlurb(planetId?) {
   return CONQUISTA_PLANET_BLURBS[id] || "Sistema strategico in bilico tra le fazioni.";
 }
 
+/** Lato fazione (repubblica | separatisti) a prescindere dall'epoca. */
+function conquistaSide(factionId?) {
+  return normalizeConvoglioSide(factionId) || "";
+}
+
+/** Fazione dell'epoca in corso per un lato (repubblica → ribellione → nuova_repubblica, …). */
+function conquistaEpochFactionId(side?) {
+  const s = conquistaSide(side);
+  if (!s) return "";
+  try {
+    const { EPOCH_FACTIONS } = require("../../Utils/Eventi/starWarsEconomyCatalog") as any;
+    const epoch = resolveFeatureStateNow(new Date())?.epoch || EPOCHS.CLONE_WARS;
+    const pair = (EPOCH_FACTIONS && EPOCH_FACTIONS[epoch]) || ["repubblica", "separatisti"];
+    return String(s === "repubblica" ? pair[0] : pair[1]);
+  } catch (_) {
+    return s;
+  }
+}
+
 function conquistaFactionLabel(factionId?) {
-  const f = normalizeId(factionId).toLowerCase();
-  if (f === "repubblica") return "Repubblica";
-  if (f === "separatisti") return "Separatisti";
-  return f || "sconosciuta";
+  const side = conquistaSide(factionId);
+  if (!side) return normalizeId(factionId) || "sconosciuta";
+  try {
+    const { factionDisplayName } = require("./starWarsPeiStandingService") as typeof import("./starWarsPeiStandingService");
+    const epoch = resolveFeatureStateNow(new Date())?.epoch || EPOCHS.CLONE_WARS;
+    const label = factionDisplayName(epoch, conquistaEpochFactionId(side));
+    if (label) return String(label);
+  } catch (_) {}
+  return side === "repubblica" ? "Repubblica" : "Separatisti";
 }
 
 function conquistaFactionColor(factionId?) {
@@ -2610,7 +2676,7 @@ function countFactionConquistaClaims(systems?) {
   const out = { repubblica: 0, separatisti: 0 };
   if (!systems || typeof systems !== "object") return out;
   for (const s of Object.values(systems)) {
-    const f = normalizeId(s?.claimedFaction).toLowerCase();
+    const f = conquistaSide(s?.claimedFaction);
     if (f === "repubblica" || f === "separatisti") out[f] += 1;
   }
   return out;
@@ -2624,24 +2690,30 @@ function conquistaTroopLabel(factionId?) {
 }
 
 async function grantConquistaWinTroops(client?, { winnerFaction }: { winnerFaction?: string } = {}) {
-  const winner = normalizeId(winnerFaction).toLowerCase();
-  if (!winner || (winner !== "repubblica" && winner !== "separatisti")) return { granted: 0 };
+  /* banca della fazione dell'epoca in corso (in Guerra Civile: ribellione/impero, ecc.) */
+  const winner = conquistaEpochFactionId(winnerFaction);
+  if (!winner) return { granted: 0 };
   try {
     const { getFactionBank, saveFactionBank } = require("./starWarsEconomyService") as typeof import("./starWarsEconomyService");
     const { resolveStarWarsEventConfig } = require("../../Utils/Eventi/starWarsEventConfig") as typeof import("../../Utils/Eventi/starWarsEventConfig");
     const { ADVENT_EVENT_KEY } = require("../../Utils/Eventi/starWarsAdventCatalog") as typeof import("../../Utils/Eventi/starWarsAdventCatalog");
     const cfg = resolveStarWarsEventConfig(client);
     const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
+    /* unità base (tier 1) dell'epoca in corso: cloni/droidi, ribelli/stormtrooper, … */
+    const { unitsForEpoch, unitLabelForFaction } = require("../../Utils/Eventi/starWarsEconomyCatalog") as typeof import("../../Utils/Eventi/starWarsEconomyCatalog");
+    const epoch = resolveFeatureStateNow(new Date())?.epoch || EPOCHS.CLONE_WARS;
+    const baseUnit = (unitsForEpoch(epoch) || []).find((u?) => Number(u?.tier) === 1) || null;
+    const unitId = String(baseUnit?.id || CONQUISTA_WIN_UNIT_ID);
     const bank = await getFactionBank(eventKey, winner);
     bank.units = bank.units && typeof bank.units === "object" ? { ...bank.units } : {};
-    bank.units[CONQUISTA_WIN_UNIT_ID] = Math.max(0, Number(bank.units[CONQUISTA_WIN_UNIT_ID]) || 0) + CONQUISTA_WIN_UNIT_QTY;
+    bank.units[unitId] = Math.max(0, Number(bank.units[unitId]) || 0) + CONQUISTA_WIN_UNIT_QTY;
     await saveFactionBank(eventKey, winner, bank);
     return {
       granted: 1,
-      troopLabel: conquistaTroopLabel(winner),
+      troopLabel: (baseUnit && unitLabelForFaction(baseUnit, winner)) || conquistaTroopLabel(winner),
       qty: CONQUISTA_WIN_UNIT_QTY,
-      unitId: CONQUISTA_WIN_UNIT_ID,
-      bankUnits: bank.units[CONQUISTA_WIN_UNIT_ID],
+      unitId,
+      bankUnits: bank.units[unitId],
     };
   } catch (_) {
     return { granted: 0, troopLabel: conquistaTroopLabel(winner), qty: CONQUISTA_WIN_UNIT_QTY };
@@ -2659,15 +2731,15 @@ function buildConquistaWinAnnounceEmbed({
 } = {}) {
   const r = safeHp(scores.repubblica);
   const s = safeHp(scores.separatisti);
-  const scoreLine = `Sistemi: **Repubblica ${r}** — **Separatisti ${s}**`;
+  const scoreLine = `Sistemi: **${conquistaFactionLabel("repubblica")} ${r}** — **${conquistaFactionLabel("separatisti")} ${s}**`;
 
   if (winner === "repubblica") {
     const troopLine = winGrant?.qty
-      ? `\n\nBonus di guerra alla **fazione**: **+${winGrant.qty} Cloni** nell'esercito della Repubblica.`
+      ? `\n\nBonus di guerra alla **fazione**: **+${winGrant.qty} ${winGrant.troopLabel || "Cloni"}** nell'esercito: ${conquistaFactionLabel("repubblica")}.`
       : "";
     return new EmbedBuilder()
       .setColor(0x3b82f6)
-      .setTitle("Vittoria della Repubblica")
+      .setTitle(`Vittoria: ${conquistaFactionLabel("repubblica")}`)
       .setDescription(
         `I cloni alzano la bandiera sui sistemi contesi.\nIl Senato celebra: il settore è sotto controllo.\n\n${scoreLine}${troopLine}`,
       )
@@ -2676,11 +2748,11 @@ function buildConquistaWinAnnounceEmbed({
 
   if (winner === "separatisti") {
     const troopLine = winGrant?.qty
-      ? `\n\nBonus di guerra alla **fazione**: **+${winGrant.qty} Droidi** nell'esercito Separatista.`
+      ? `\n\nBonus di guerra alla **fazione**: **+${winGrant.qty} ${winGrant.troopLabel || "Droidi"}** nell'esercito: ${conquistaFactionLabel("separatisti")}.`
       : "";
     return new EmbedBuilder()
       .setColor(0xa855f7)
-      .setTitle("Vittoria dei Separatisti")
+      .setTitle(`Vittoria: ${conquistaFactionLabel("separatisti")}`)
       .setDescription(
         `Le armate droide chiudono la morsa.\nI sistemi cadono sotto il comando della Confederazione.\n\n${scoreLine}${troopLine}`,
       )
@@ -2727,7 +2799,7 @@ async function maybeFinalizeConquista(client?, payload?) {
   });
 
   const guildId = normalizeId(payload.guildId);
-  const hubId = chatChannelId(client, guildId) || normalizeId(payload.hubChannelId);
+  const hubId = normalizeId(payload.hubChannelId) || chatChannelId(client, guildId);
   if (!hubId || !client) return;
   const hub = client.channels.cache.get(hubId) || (await client.channels.fetch(hubId).catch(() => null));
   if (!hub?.send) return;
@@ -2757,7 +2829,8 @@ async function startConquista(client?, { channelId = null, force = false } = {})
   const guild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
   if (!guild) return { ok: false, error: "no_guild" };
 
-  const hubId = chatChannelId(client, guildId) || targetCtx.channelId;
+  /* canale esplicito (staff / rotazione) prima della chat di default */
+  const hubId = (normalizeId(channelId) ? targetCtx.channelId : "") || chatChannelId(client, guildId) || targetCtx.channelId;
   const hub =
     guild.channels.cache.get(hubId) || (await guild.channels.fetch(hubId).catch(() => null));
   if (!hub?.isTextBased?.()) return { ok: false, error: "bad_hub" };
@@ -3118,7 +3191,7 @@ async function staffSpawn(client?, kind?, channelId?) {
     case "convoglio":
       return startConvoglio(client, { channelId, force: true });
     case "conquista":
-      return startConquista(client, { force: true });
+      return startConquista(client, { channelId, force: true });
     case "pg":
       return spawnDeckDrop(client, "pg", { channelId, force: true });
     case "reliquie":
@@ -3149,7 +3222,7 @@ async function startSpecialFromRotation(client?, kind?, { channelId = null } = {
     case "convoglio":
       return startConvoglio(client, { channelId, force: false });
     case "conquista":
-      return startConquista(client, { force: false });
+      return startConquista(client, { channelId, force: false });
     case "pg":
       return spawnDeckDrop(client, "pg", { channelId, force: false });
     case "reliquie":
