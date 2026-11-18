@@ -494,3 +494,69 @@ export function ChristmasDecor({
     </>
   );
 }
+
+/* ───────── Capodanno e Befana fermi (riduci-movimento): ben visibili ma senza animazioni ───────── */
+
+const NEW_YEAR_BURSTS: { pos: string; size: string; color: string; glow: string; hideSm?: boolean }[] = [
+  { pos: "left-[6%] top-[14%]", size: "size-20 sm:size-28", color: "#f5d76e", glow: "rgba(245,215,110,0.6)" },
+  { pos: "left-[24%] top-[6%]", size: "size-14 sm:size-20", color: "#ff6b8a", glow: "rgba(255,107,138,0.55)" },
+  { pos: "left-[44%] top-[16%]", size: "size-16 sm:size-24", color: "#7ec8ff", glow: "rgba(126,200,255,0.55)", hideSm: true },
+  { pos: "right-[24%] top-[7%]", size: "size-14 sm:size-20", color: "#6fd9a0", glow: "rgba(111,217,160,0.55)" },
+  { pos: "right-[6%] top-[15%]", size: "size-20 sm:size-28", color: "#e0b0ff", glow: "rgba(224,176,255,0.55)" },
+  { pos: "left-[16%] top-[34%]", size: "size-12 sm:size-16", color: "#ffb347", glow: "rgba(255,179,71,0.5)", hideSm: true },
+  { pos: "right-[17%] top-[33%]", size: "size-12 sm:size-16", color: "#fff4d6", glow: "rgba(255,244,214,0.5)", hideSm: true },
+];
+
+/** Cielo di Capodanno fermo: fuochi grandi coi loro aloni (al posto dei fuochi animati). */
+export function NewYearSky() {
+  return (
+    <>
+      {NEW_YEAR_BURSTS.map((b, i) => (
+        <div key={i} className={`absolute ${b.pos} ${b.hideSm ? "hidden sm:block" : ""}`}>
+          <div className="absolute inset-[-35%] rounded-full blur-2xl" style={{ background: `radial-gradient(circle, ${b.glow} 0%, transparent 65%)`, opacity: 0.55 }} />
+          <FireworkBurst className={`relative ${b.size} opacity-90`} color={b.color} />
+        </div>
+      ))}
+      {/* scie dei razzi, ferme */}
+      <div className="absolute bottom-[30%] left-[10%] hidden h-40 w-px rotate-[8deg] bg-gradient-to-t from-transparent via-[#f5d76e]/50 to-[#f5d76e] sm:block" />
+      <div className="absolute bottom-[34%] right-[11%] hidden h-36 w-px -rotate-[10deg] bg-gradient-to-t from-transparent via-[#e0b0ff]/50 to-[#e0b0ff] sm:block" />
+    </>
+  );
+}
+
+/** La Befana sulla scopa davanti alla luna (ferma). */
+function BefanaFlying({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 220 120" className={className} aria-hidden>
+      <circle cx="150" cy="54" r="44" fill="#f7ecc8" opacity="0.92" />
+      <circle cx="136" cy="44" r="7" fill="#e8dcae" opacity="0.7" />
+      <circle cx="162" cy="70" r="5" fill="#e8dcae" opacity="0.6" />
+      {/* scopa */}
+      <path d="M28 86 L176 58" stroke="#5b3a1e" strokeWidth="4" strokeLinecap="round" />
+      <path d="M22 80 L4 74 M24 84 L2 86 M26 88 L6 98 M24 82 L6 80" stroke="#8a6232" strokeWidth="3" strokeLinecap="round" />
+      {/* mantello */}
+      <path d="M86 76 C92 50 118 40 128 46 C136 52 134 66 126 72 L104 80 Z" fill="#1a1210" />
+      <path d="M86 76 C76 80 66 92 60 100 C76 96 92 90 104 80 Z" fill="#2a1a12" />
+      {/* testa e cappello */}
+      <circle cx="124" cy="40" r="7" fill="#d9b48f" />
+      <path d="M112 36 L140 32 L124 4 Z" fill="#1a1210" />
+      <rect x="110" y="33" width="32" height="5" rx="2" transform="rotate(-8 126 35)" fill="#6b1f2a" />
+      {/* sacco */}
+      <path d="M96 64 C90 54 98 46 106 50 C112 54 110 64 104 68 Z" fill="#7a5a3a" />
+      {/* stelline */}
+      <circle cx="40" cy="24" r="1.8" fill="#fff4d6" />
+      <circle cx="70" cy="12" r="1.4" fill="#fff4d6" />
+      <circle cx="200" cy="18" r="1.6" fill="#fff4d6" />
+    </svg>
+  );
+}
+
+/** Cielo della Befana: lei sulla scopa in alto (sempre, anche con motion). */
+export function BefanaSky() {
+  return (
+    <div className="absolute left-1/2 top-[11%] -translate-x-1/2 sm:top-[9%]">
+      <div className="absolute inset-[-20%] rounded-full bg-[radial-gradient(circle,rgba(247,236,200,0.35)_0%,transparent_65%)] blur-xl" />
+      <BefanaFlying className="relative h-24 w-44 drop-shadow-[0_0_18px_rgba(247,236,200,0.45)] sm:h-32 sm:w-60" />
+    </div>
+  );
+}

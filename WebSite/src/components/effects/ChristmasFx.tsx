@@ -11,7 +11,7 @@ import {
 import { christmasBudgetFromCaps } from "@/lib/device-fx";
 import { isPerfPaused } from "@/lib/perf-pause";
 import { useDeviceFx } from "./DeviceFxProvider";
-import { ChristmasDecor } from "./ChristmasDecor";
+import { BefanaSky, ChristmasDecor, NewYearSky } from "./ChristmasDecor";
 import { cn } from "@/lib/cn";
 import { xmasSprite, type XmasKind } from "./christmas-sprites";
 
@@ -113,7 +113,7 @@ function drawParticle(ctx: CanvasRenderingContext2D, p: Particle, t: number, dpr
 }
 
 /** Watermark in basso: solo dopo lo scroll oltre l’hero (non copre SCORRI). */
-function SeasonGreetingWatermark({ text, hidden }: { text: string; hidden?: boolean }) {
+function SeasonGreetingWatermark({ text, hidden, always }: { text: string; hidden?: boolean; /** sempre visibile (riduci-movimento a Capodanno/Befana) */ always?: boolean }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -135,7 +135,7 @@ function SeasonGreetingWatermark({ text, hidden }: { text: string; hidden?: bool
       <span
         className={cn(
           "select-none font-script text-3xl text-[#f5e6c8] drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)] transition-opacity duration-500 light:text-[#7a1f2e] light:drop-shadow-[0_2px_10px_rgba(255,255,255,0.45)] sm:text-4xl",
-          visible && !hidden ? "opacity-90" : "opacity-0",
+          (visible || always) && !hidden ? "opacity-90" : "opacity-0",
         )}
       >
         {text}
@@ -386,7 +386,10 @@ export function ChristmasFx() {
       <div className="pointer-events-none fixed inset-0 z-[40] overflow-hidden" aria-hidden>
         <Atmosphere strong={false} />
         <ChristmasDecor live={false} newYear={newYear} befana={befana} />
-        <SeasonGreetingWatermark text={greeting} />
+        {/* Capodanno e Befana fermi ma ben visibili: niente fuochi animati, quindi cielo pieno e saluto sempre su */}
+        {newYear ? <NewYearSky /> : null}
+        {befana ? <BefanaSky /> : null}
+        <SeasonGreetingWatermark text={befana ? "Buona Befana" : greeting} always={newYear || befana} />
       </div>
     );
   }
@@ -396,6 +399,7 @@ export function ChristmasFx() {
       <Atmosphere strong={!budget.cssOnly} />
 
       <ChristmasDecor live={caps.continuous} newYear={newYear} befana={befana} />
+      {befana ? <BefanaSky /> : null}
 
       {budget.canvas && budget.particles > 0 ? <canvas ref={canvasRef} className="absolute inset-0 size-full" /> : null}
 
