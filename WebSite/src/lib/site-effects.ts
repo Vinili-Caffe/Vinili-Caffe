@@ -1,7 +1,41 @@
 /** Preferenze effetti sito (stesse chiavi del WebSite vecchio dove esistevano). */
 
-/** Stagione Halloween (Rome): 15 ott → 2 nov alle 12 (chiusura evento, come il bot) — FX + musica home. */
-export function isHalloweenSeason(now = new Date()): boolean {
+/**
+ * Override localStorage (`vc_*_force`) solo dopo hydration.
+ * Leggerli al primo paint client ≠ SSR → React #418 (SOON/badge/nav diversi).
+ */
+let seasonForcesReady = false;
+const seasonForceListeners = new Set<() => void>();
+
+export function enableSeasonForces() {
+  if (seasonForcesReady) return;
+  seasonForcesReady = true;
+  for (const fn of seasonForceListeners) {
+    try {
+      fn();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function subscribeSeasonForces(fn: () => void) {
+  seasonForceListeners.add(fn);
+  return () => {
+    seasonForceListeners.delete(fn);
+  };
+}
+
+function seasonForce(key: string): boolean {
+  if (!seasonForcesReady) return false;
+  try {
+    return typeof localStorage !== "undefined" && localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function romeParts(now: Date) {
   try {
     const parts = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Europe/Rome",
@@ -11,19 +45,100 @@ export function isHalloweenSeason(now = new Date()): boolean {
       hour: "2-digit",
       hourCycle: "h23",
     }).formatToParts(now);
-    const y = Number(parts.find((p) => p.type === "year")?.value);
-    const m = Number(parts.find((p) => p.type === "month")?.value);
-    const d = Number(parts.find((p) => p.type === "day")?.value);
-    const h = Number(parts.find((p) => p.type === "hour")?.value);
-    if (!y || !m || !d) return false;
-    if (m === 10 && d >= 15) return true;
-    if (m === 11 && (d === 1 || (d === 2 && h < 12))) return true;
-    return false;
+    return {
+      y: Number(parts.find((p) => p.type === "year")?.value),
+      m: Number(parts.find((p) => p.type === "month")?.value),
+      d: Number(parts.find((p) => p.type === "day")?.value),
+      h: Number(parts.find((p) => p.type === "hour")?.value),
+    };
   } catch {
-    const m = now.getMonth() + 1;
-    const d = now.getDate();
-    return (m === 10 && d >= 15) || (m === 11 && (d === 1 || (d === 2 && now.getHours() < 12)));
+    return {
+      y: now.getFullYear(),
+      m: now.getMonth() + 1,
+      d: now.getDate(),
+      h: now.getHours(),
+    };
   }
+}
+
+/** Stagione Halloween (Rome): 15 ott → 2 nov alle 12 (chiusura evento, come il bot) — FX + musica home. */
+export function isHalloweenSeason(now = new Date()): boolean {
+  const { y, m, d, h } = romeParts(now);
+  if (!y || !m || !d) return false;
+  if (m === 10 && d >= 15) return true;
+  if (m === 11 && (d === 1 || (d === 2 && h < 12))) return true;
+  return false;
+}
+
+/**
+ * Natale (Rome): domenica 22 nov alle 12 → 7 gen alle 12.
+ * Override test: localStorage `vc_christmas_force` = 1.
+ */
+export function isChristmasSeason(now = new Date()): boolean {
+  /* Capodanno e Befana vivono dentro gli effetti di Natale: forzarli accende anche la stagione */
+  if (seasonForce("vc_christmas_force") || seasonForce("vc_newyear_force") || seasonForce("vc_befana_force")) return true;
+  const { y, m, d, h } = romeParts(now);
+  if (!y || !m || !d) return false;
+  if (m === 11 && (d > 22 || (d === 22 && h >= 12))) return true;
+  if (m === 12) return true;
+  if (m === 1 && (d < 7 || (d === 7 && h < 12))) return true;
+  return false;
+}
+
+/**
+ * Capodanno (Rome): 1 gen 00:00 → 7 gen 12:00 — fuochi + «Buon Anno».
+ * Override test: localStorage `vc_newyear_force` = 1.
+ */
+export function isNewYearSeason(now = new Date()): boolean {
+  if (seasonForce("vc_newyear_force")) return true;
+  const { y, m, d, h } = romeParts(now);
+  if (!y || !m || !d) return false;
+  if (m !== 1) return false;
+  if (d >= 1 && d < 7) return true;
+  if (d === 7 && h < 12) return true;
+  return false;
+}
+
+/**
+ * Befana / Epifania (Rome): 6 gen 00:00 → 7 gen 12:00.
+ * Override test: localStorage `vc_befana_force` = 1.
+ */
+export function isBefanaSeason(now = new Date()): boolean {
+  if (seasonForce("vc_befana_force")) return true;
+  const { y, m, d, h } = romeParts(now);
+  if (!y || !m || !d) return false;
+  if (m !== 1) return false;
+  if (d === 6) return true;
+  if (d === 7 && h < 12) return true;
+  return false;
+}
+
+/**
+ * Pagina /albero/ (Rome): 15 dic 12:00 → 25 dic 12:00.
+ * Override test: localStorage `vc_albero_force` = 1.
+ */
+export function isAlberoSeason(now = new Date()): boolean {
+  if (seasonForce("vc_albero_force")) return true;
+  const { y, m, d, h } = romeParts(now);
+  if (!y || !m || !d) return false;
+  if (m !== 12) return false;
+  if (d > 15 && d < 25) return true;
+  if (d === 15 && h >= 12) return true;
+  if (d === 25 && h < 12) return true;
+  return false;
+}
+
+/**
+ * Vinili Wrapped (Rome): 10 dic alle 12 → 7 gen alle 12.
+ * Override test: localStorage `vc_wrapped_force` = 1.
+ */
+export function isWrappedSeason(now = new Date()): boolean {
+  if (seasonForce("vc_wrapped_force")) return true;
+  const { y, m, d, h } = romeParts(now);
+  if (!y || !m || !d) return false;
+  if (m === 12 && (d > 10 || (d === 10 && h >= 12))) return true;
+  if (m === 1 && (d < 7 || (d === 7 && h < 12))) return true;
+  return false;
 }
 
 export const EFFECT_KEYS = {
@@ -33,6 +148,7 @@ export const EFFECT_KEYS = {
   typeSfxVol: "vc_type_sfx_vol",
   ptr: "vc_ptr",
   halloweenFx: "vc_halloween_fx",
+  christmasFx: "vc_christmas_fx",
   /** Policy globale motion: auto | respect | enhance | off — vedi `device-fx.ts`. */
   fxMotion: "vc_fx_motion",
 } as const;
