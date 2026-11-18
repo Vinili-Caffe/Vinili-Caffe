@@ -491,9 +491,10 @@ export function AlberoBoard() {
 
       {/*
         Mobile: CTA fuori foto; scena 16:9.
-        Desktop: sticky; -mt-28 assorbe solo il pb dell’hero (padding hero intatto).
+        Desktop: scena alta quanto lo schermo, staccata dall’hero e dal footer:
+        scorrendo arriva a riempire tutto lo schermo senza bande sopra o sotto.
       */}
-      <div data-albero-stage className="relative w-full sm:-mt-28">
+      <div data-albero-stage className="relative mb-12 mt-4 w-full sm:mb-20 sm:mt-10">
         {/* bottone fuori dalla foto — solo telefono */}
         {!token || !mine ? (
           <div className="flex justify-center px-4 py-3 sm:hidden">
@@ -520,7 +521,7 @@ export function AlberoBoard() {
           </div>
         ) : null}
 
-        <div className="relative w-full sm:sticky sm:top-0 sm:h-[100dvh]">
+        <div className="relative w-full sm:h-[100svh]">
           <div
             ref={stageRef}
             className="relative aspect-[16/9] w-full touch-none select-none overflow-hidden sm:h-full sm:aspect-auto"
