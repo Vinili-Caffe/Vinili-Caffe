@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Disc3, Loader2, LogIn, Share2, Volume2, VolumeX, X } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
@@ -18,6 +19,7 @@ import { useFxCap } from "@/components/effects/DeviceFxProvider";
 import { useAuth } from "@/lib/auth";
 import { celebrate } from "@/lib/confetti";
 import { cn } from "@/lib/cn";
+import { page } from "@/lib/site";
 import { getVinylMusicApi } from "@/lib/vinyl-music-bus";
 import {
   isWrappedAudioMuted,
@@ -27,7 +29,9 @@ import {
   unlockWrappedAudio,
 } from "@/lib/wrappedAudio";
 import { moodForStoryKey, type WrappedMood } from "@/lib/wrappedMoods";
-import { loadWrapped, type WrappedPayload } from "@/lib/wrapped";
+import { isWrappedSeason } from "@/lib/site-effects";
+import { loadStaffAccess } from "@/lib/staff";
+import { completeWrapped, loadWrapped, type WrappedPayload } from "@/lib/wrapped";
 import { prefetchWrappedShareCards } from "@/lib/wrappedShareCard";
 import { buildStoryCards, type StoryCard } from "@/lib/wrappedStories";
 
@@ -102,9 +106,9 @@ function buildFields(stories: StoryCard[]): Field[] {
 
 function WrappedShell({
   children,
-  title = "Vinili Wrapped",
+  title = "Vinili & Caffè Wrapped",
   accent,
-  text = "Il tuo disco della community — senza brani, solo te.",
+  text = "Il tuo 2026 insieme a noi.",
 }: {
   children: ReactNode;
   title?: string;
@@ -121,6 +125,7 @@ function WrappedShell({
 
 export function WrappedBoard() {
   const { ready, token, login } = useAuth();
+  const router = useRouter();
   const reduce = useReducedMotion();
   const confettiRich = useFxCap("confettiRich");
   const [data, setData] = useState<WrappedPayload | null>(null);
@@ -134,22 +139,55 @@ export function WrappedBoard() {
   const [launching, setLaunching] = useState(false);
   const [soundOn, setSoundOn] = useState(() => !isWrappedAudioMuted());
   const siteMusicWasOn = useRef(false);
+  const completeSent = useRef(false);
 
   useEffect(() => {
-    if (!ready || !token) {
+    if (!ready) return;
+    let alive = true;
+
+    const kickHome = () => {
+      if (!alive) return;
       setData(null);
       setLoading(false);
+      setDisabled(true);
       setImmersive(false);
       setLaunching(false);
-      return;
-    }
-    let alive = true;
-    setLoading(true);
-    setError(null);
-    setDisabled(false);
-    setImmersive(false);
-    setLaunching(false);
-    loadWrapped(token).then((res) => {
+      router.replace(page("/"));
+    };
+
+    const run = async () => {
+      /* Fuori stagione: solo high staff. Override test: localStorage vc_wrapped_force=1 */
+      const inSeason = isWrappedSeason();
+      if (!inSeason) {
+        if (!token) {
+          kickHome();
+          return;
+        }
+        setLoading(true);
+        const staff = await loadStaffAccess(token);
+        if (!alive) return;
+        if (!staff.ok || !staff.data.isHighStaff) {
+          kickHome();
+          return;
+        }
+      }
+
+      if (!token) {
+        setDisabled(false);
+        setData(null);
+        setLoading(false);
+        setImmersive(false);
+        setLaunching(false);
+        return;
+      }
+
+      setDisabled(false);
+      setLoading(true);
+      setError(null);
+      setImmersive(false);
+      setLaunching(false);
+      completeSent.current = false;
+      const res = await loadWrapped(token);
       if (!alive) return;
       setLoading(false);
       if (res.status === "ok") {
@@ -158,15 +196,20 @@ export function WrappedBoard() {
         /* landing hero — lo slideshow parte solo con “Gira il vinile” */
         return;
       }
-      if (res.status === "disabled") return setDisabled(true);
+      if (res.status === "disabled") {
+        kickHome();
+        return;
+      }
       if (res.status === "auth") return setError("Sessione scaduta: accedi di nuovo.");
       if (res.status === "forbidden") return setError("Devi essere nel server Discord Vinili & Caffè.");
       setError(res.message || "Errore caricamento.");
-    });
+    };
+
+    void run();
     return () => {
       alive = false;
     };
-  }, [ready, token]);
+  }, [ready, token, router]);
 
   const stories = useMemo(() => (data ? buildStoryCards(data) : []), [data]);
   const fields = useMemo(() => buildFields(stories), [stories]);
@@ -238,6 +281,14 @@ export function WrappedBoard() {
     prefetchWrappedShareCards(data);
   }, [data]);
 
+  /* Ultima slide (share) = Wrapped finito → ruolo Discord. */
+  useEffect(() => {
+    if (!immersive || !token || !field || field.key !== "share") return;
+    if (completeSent.current) return;
+    completeSent.current = true;
+    void completeWrapped(token);
+  }, [immersive, field, token]);
+
   const openShare = useCallback(() => {
     if (!data) return;
     setShareOpen(true);
@@ -283,7 +334,7 @@ export function WrappedBoard() {
     setLaunching(true);
   };
 
-  if (!ready || (token && loading)) {
+  if (!ready || (token && loading && !disabled)) {
     return (
       <WrappedShell text="Masterizziamo il tuo vinile…">
         <div className="flex flex-col items-center gap-5 py-10 text-center">
@@ -296,16 +347,20 @@ export function WrappedBoard() {
           </motion.div>
           <p className="inline-flex items-center gap-2 text-sm text-crema/55">
             <Loader2 className="size-4 animate-spin text-caramel" aria-hidden />
-            Prepariamo il piatto…
+            Stiamo rivedendo il tuo 2026 insieme a noi…
           </p>
         </div>
       </WrappedShell>
     );
   }
 
+  if (disabled) {
+    return null;
+  }
+
   if (!token) {
     return (
-      <WrappedShell accent="preview" text="Accedi con Discord per girare il tuo disco community.">
+      <WrappedShell accent="preview" text="Accedi con Discord per guardare il tuo Wrapped.">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -324,17 +379,6 @@ export function WrappedBoard() {
             <LogIn className="size-4" aria-hidden /> Accedi con Discord
           </button>
         </motion.div>
-      </WrappedShell>
-    );
-  }
-
-  if (disabled) {
-    return (
-      <WrappedShell title="Ancora sottochiave" text="Preview studio — non ancora aperta a tutti.">
-        <div className="rounded-[1.75rem] bg-ink/40 px-6 py-10 text-center ring-1 ring-crema/10">
-          <p className="text-[0.65rem] font-bold uppercase tracking-[0.22em] text-sand">Soon</p>
-          <p className="mt-3 font-display text-2xl text-crema">Torna più tardi</p>
-        </div>
       </WrappedShell>
     );
   }
@@ -359,7 +403,7 @@ export function WrappedBoard() {
   if (!immersive) {
     return (
       <>
-        <WrappedShell accent={String(data.year)} text="Il tuo disco community — senza brani, solo te.">
+        <WrappedShell accent={String(data.year)} text="Rivivi l'anno passato con noi.">
           <motion.div
             initial={reduce ? false : { opacity: 0, y: 20 }}
             animate={{ opacity: launching ? 0.35 : 1, y: 0 }}
@@ -386,7 +430,7 @@ export function WrappedBoard() {
               Pronto, {data.user.displayName}?
             </h2>
             <p className="relative mx-auto mt-3 max-w-sm text-sm leading-relaxed text-crema/60">
-              Un giro di slide sul tuo anno qui. Tocca quando vuoi.
+              Rivedi quest'anno passato con noi sul server.
             </p>
 
             <button
@@ -466,7 +510,7 @@ export function WrappedBoard() {
       style={{ background: field.mood.bg }}
       role="dialog"
       aria-modal="true"
-      aria-label="Vinili Wrapped"
+      aria-label="Vinili & Caffè Wrapped 2026"
     >
       <AnimatePresence mode="wait">
         <motion.div
@@ -568,10 +612,6 @@ export function WrappedBoard() {
             </motion.div>
           </AnimatePresence>
         </div>
-
-        <p className="pointer-events-none absolute inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] text-center text-[0.65rem] uppercase tracking-[0.2em] text-[#f4e9d8]/30">
-          tocca · {index + 1}/{fields.length}
-        </p>
       </div>
 
       {data ? <WrappedShareSheet open={shareOpen} data={data} onClose={() => setShareOpen(false)} /> : null}

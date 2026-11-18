@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useFxCap } from "./DeviceFxProvider";
-import { isDesktopPointer } from "@/lib/site-effects";
+import { isChristmasSeason, isDesktopPointer } from "@/lib/site-effects";
 
 const SVGNS = "http://www.w3.org/2000/svg";
 
@@ -33,7 +33,17 @@ export function ClickSpark() {
         line.setAttribute("y1", String(c + Math.sin(a) * 6));
         line.setAttribute("x2", String(c + Math.cos(a) * 14));
         line.setAttribute("y2", String(c + Math.sin(a) * 14));
-        line.setAttribute("stroke", i % 2 ? "#f0b46e" : "#d99a5b");
+        const xmas = isChristmasSeason();
+        const stroke = xmas
+          ? i % 3 === 0
+            ? "#c41e3a"
+            : i % 3 === 1
+              ? "#d4af37"
+              : "#3ecf6e"
+          : i % 2
+            ? "#f0b46e"
+            : "#d99a5b";
+        line.setAttribute("stroke", stroke);
         line.setAttribute("stroke-width", "2");
         line.setAttribute("stroke-linecap", "round");
         svg.appendChild(line);

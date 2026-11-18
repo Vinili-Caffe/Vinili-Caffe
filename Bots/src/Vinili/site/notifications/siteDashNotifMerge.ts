@@ -15,6 +15,9 @@ function dashKind(type?) {
 }
 
 function toSiteItem(row?) {
+  const type = String(row?.type || "").trim().toLowerCase();
+  /* noNotifIfBotAbsent1 / noTicketsStaleNotif1: fuori dalla campanella */
+  if (type === "bot_missing" || type === "bot_left" || type === "tickets_stale") return null;
   const rawId = String(row?.id || "").trim();
   if (!rawId) return null;
   const id = rawId.startsWith("dash:") ? rawId : `dash:${rawId}`;

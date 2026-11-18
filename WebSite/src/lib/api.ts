@@ -1,8 +1,8 @@
 /**
  * Origine API.
- * - Produzione con `USE_API_ORIGIN`: `https://api.viniliecaffe.it`
- * - `next dev` / localhost: rewrite same-origin o fallback www
- * - `API_FETCH_BOOT` in layout: riscrive fetch `/webhooks/` e `/v1/` prima di React
+ * - Produzione: same-origin `/webhooks/*` (rewrite Vercel) se `USE_API_ORIGIN` è false
+ * - Con `USE_API_ORIGIN`: fetch diretto su `https://api.viniliecaffe.it` (CORS)
+ * - `API_FETCH_BOOT`: credentials include + (opz.) rewrite verso API_ORIGIN
  */
 import { API_ORIGIN, SITE_ORIGIN, USE_API_ORIGIN } from "./site";
 

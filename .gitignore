@@ -280,3 +280,5 @@ Assets/**
 skills-lock.json
 AGENTS.md
 .impeccable
+.vercelignore
+.taste-skill/**

@@ -595,7 +595,12 @@ async function refreshStanzaPanelEmbedsIfPossible(guild?, voiceChannelId?) {
       : kind === "users"
         ? buildStanzaUsersManageRows(voiceCh, meta)
         : buildStanzaHomeRows(vid);
-  await msg.edit({ embeds, components }).catch(() => {});
+  const { editMessageEmbedAware } = require("../../../shared/discord/safeMessageEdit") as typeof import("../../../shared/discord/safeMessageEdit");
+  await editMessageEmbedAware(msg, {
+    embed: Array.isArray(embeds) ? embeds[0] : embeds,
+    components: Array.isArray(components) ? components : [],
+    files: [],
+  });
 }
 
 export = { stanzaOwnerToChannel, channelIdIsLinkedCustomRolePrivateVoc, clearStanzaEmptyTeardownTimer, scheduleStanzaEmptyTeardown, markStanzaBotRename, stanzaPanelTargetChannelId, isStanzaUserSilenced, syncStanzaCompanionTextName, buildStanzaHomePanelEmbed, buildStanzaManageSettingsEmbed, buildStanzaHomeRows, buildStanzaManageRows, buildStanzaUsersManageEmbed, buildStanzaUsersManageRows, postStanzaPanel, teardownStanza, parseStanzaButtonId, buildStanzaPermissionsListEmbed, fetchOwnerMember, fetchStanzaVoiceChannel, readStanzaSnapshotRaw, readStanzaSnapshotRoomsRaw, tryRehydrateStanzaRoomFromSnapshotRecord, tryRehydrateStanzaRoomByChannelId, getStanzaMetaOrRehydrate, refreshStanzaPanelEmbedsIfPossible };

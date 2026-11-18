@@ -1,5 +1,9 @@
-/** Analytics sito pubblico via api. (non www — evita 404 Vercel). */
-import { apiUrl } from "./api";
+/**
+ * Analytics sito pubblico.
+ * Same-origin `/site-analytics.json` (rewrite Vercel → api): evita CORS.
+ * apiUrl()+credentials include su ACAO:* veniva bloccato dal browser → sempre "—".
+ */
+import { SITE_ORIGIN } from "./site";
 
 export type SiteAnalytics = {
   ok: true;
@@ -15,9 +19,13 @@ export type SiteAnalytics = {
   updatedAt?: string;
 };
 
-export async function loadSiteAnalytics(_origin = ""): Promise<SiteAnalytics | null> {
+export async function loadSiteAnalytics(origin = ""): Promise<SiteAnalytics | null> {
   try {
-    const r = await fetch(apiUrl("/site-analytics.json"), { cache: "no-store" });
+    const base =
+      origin ||
+      (typeof location !== "undefined" ? "" : SITE_ORIGIN);
+    const href = `${base}/site-analytics.json?t=${Date.now()}`;
+    const r = await fetch(href, { cache: "no-store", credentials: "omit" });
     if (!r.ok) return null;
     const j = (await r.json()) as Partial<SiteAnalytics>;
     if (!j || j.ok !== true) return null;

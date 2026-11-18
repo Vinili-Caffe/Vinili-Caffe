@@ -14,6 +14,17 @@ async function handleTtsMessage(message?, client?, prefix?) {
   if (message?.author?.bot) return;
   const guildId = message.guild?.id;
   if (!guildId || !passesTtsContentFilters(message, config, prefix)) return;
+  let ttsOverlay: { enabled: boolean; autojoin: boolean; includeUsername: boolean; stayConnected: boolean; lang: string; textChannelIds: string[] } | null = null;
+  try {
+    const MS = require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches");
+    if (MS.moduleExists(guildId, "vocale") && !MS.isModuleOn(guildId, "vocale")) return;
+    const VR = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
+    if (!VR.isTtsTextChannelAllowed(guildId, message.channel?.id)) return;
+    ttsOverlay = VR.resolveGuildTtsOverlay(guildId, config);
+    if (!ttsOverlay.enabled) return;
+  } catch (_) {
+    ttsOverlay = null;
+  }
   if (!message.member && message.guild?.members?.fetch) {
     try {
       message.member =
@@ -29,7 +40,9 @@ async function handleTtsMessage(message?, client?, prefix?) {
   if (!messageVoiceChannel) return;
   if (!(await authorIsInVoiceChannel(message, messageVoiceChannel))) return;
 
-  const autojoin = booleanFromConfig(config?.tts?.autojoin, false);
+  const autojoin = ttsOverlay
+    ? Boolean(ttsOverlay.autojoin)
+    : booleanFromConfig(config?.tts?.autojoin, false);
   let botVoiceChannelId = resolveBotTtsVoiceChannelId(guildId, client);
   if (!botVoiceChannelId) {
     if (!autojoin) return;
@@ -39,9 +52,11 @@ async function handleTtsMessage(message?, client?, prefix?) {
 
   const voiceChannel = messageVoiceChannel;
   if (!voiceChannel.joinable) return;
-  const includeUsername = booleanFromConfig(config?.tts?.includeUsername, false,);
+  const includeUsername = ttsOverlay
+    ? Boolean(ttsOverlay.includeUsername)
+    : booleanFromConfig(config?.tts?.includeUsername, false);
   await hydrateUserTtsLangForUser(message.author?.id);
-  const lang = getUserTtsLang(message.author?.id) || config?.tts?.lang || "it";
+  const lang = getUserTtsLang(message.author?.id) || ttsOverlay?.lang || config?.tts?.lang || "it";
   const rawMessageText = message.cleanContent ?? message.content ?? "";
   let baseText = sanitizeText(typeof rawMessageText === "string" ? rawMessageText : String(rawMessageText),);
   baseText = filterScriptsForTtsLang(baseText, lang);

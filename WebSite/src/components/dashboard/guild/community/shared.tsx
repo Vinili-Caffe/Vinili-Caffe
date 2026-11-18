@@ -71,7 +71,15 @@ export function ImageUrlField({ label, value, onChange }: { label: string; value
   return (
     <div className="min-w-0">
       <span className={cn(labelClass, "block")}>{label}</span>
-      <input value={value} onChange={(ev) => onChange(ev.target.value)} placeholder="https://…" aria-label={label} className={fieldClass} />
+      <input
+        id={`img-url-${label.replace(/\W+/g, "-").toLowerCase()}`}
+        name={`img-url-${label.replace(/\W+/g, "-").toLowerCase()}`}
+        value={value}
+        onChange={(ev) => onChange(ev.target.value)}
+        placeholder="https://…"
+        aria-label={label}
+        className={fieldClass}
+      />
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         {placeholders.map((p) => (
           <button
@@ -403,8 +411,8 @@ export function DraftEditor({
           <div className="mt-3 space-y-3">
             <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
               <Field label="Titolo">
-                <input value={e.title} maxLength={256} onChange={(ev) => setEmbed({ title: ev.target.value })} className={fieldClass} />
-                <input value={e.url || ""} placeholder="Link del titolo (facoltativo), https://…" onChange={(ev) => setEmbed({ url: ev.target.value })} className={cn(fieldClass, "mt-2 py-1.5 text-xs")} aria-label="Link del titolo" />
+                <input name="shared-input-414" id="shared-input-414" value={e.title} maxLength={256} onChange={(ev) => setEmbed({ title: ev.target.value })} className={fieldClass} />
+                <input name="shared-input-415" id="shared-input-415" value={e.url || ""} placeholder="Link del titolo (facoltativo), https://…" onChange={(ev) => setEmbed({ url: ev.target.value })} className={cn(fieldClass, "mt-2 py-1.5 text-xs")} aria-label="Link del titolo" />
               </Field>
               <div className="min-w-0">
                 <span className={cn(labelClass, "block")}>Colore</span>
@@ -415,7 +423,7 @@ export function DraftEditor({
             <FieldsEditor fields={e.fields ?? []} onChange={(fields) => setEmbed({ fields })} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Autore (facoltativo)">
-                <input value={e.authorName || ""} maxLength={256} placeholder="es. {username}" onChange={(ev) => setEmbed({ authorName: ev.target.value })} className={fieldClass} />
+                <input name="shared-input-426" id="shared-input-426" value={e.authorName || ""} maxLength={256} placeholder="es. {username}" onChange={(ev) => setEmbed({ authorName: ev.target.value })} className={fieldClass} />
               </Field>
               <ImageUrlField label="Icona dell'autore" value={e.authorIconUrl || ""} onChange={(authorIconUrl) => setEmbed({ authorIconUrl })} />
             </div>
@@ -425,7 +433,7 @@ export function DraftEditor({
             </div>
             <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
               <Field label="Piè di pagina">
-                <input value={e.footerText} maxLength={2048} onChange={(ev) => setEmbed({ footerText: ev.target.value })} className={fieldClass} />
+                <input name="shared-input-436" id="shared-input-436" value={e.footerText} maxLength={2048} onChange={(ev) => setEmbed({ footerText: ev.target.value })} className={fieldClass} />
               </Field>
               <label className="flex items-center gap-2 pb-2.5 text-sm text-crema/80">
                 <Toggle checked={e.timestamp} onChange={(timestamp) => setEmbed({ timestamp })} label="Mostra data e ora" size="sm" />

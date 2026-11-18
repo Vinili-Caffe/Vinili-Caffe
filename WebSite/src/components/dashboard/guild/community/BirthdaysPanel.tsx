@@ -19,7 +19,7 @@ const PLACEHOLDERS = [
   { token: "{avatar}", hint: "foto del primo festeggiato (per immagini)" },
   { token: "{server}", hint: "nome del server" },
 ];
-const MAIN_PLACEHOLDERS = [...PLACEHOLDERS, { token: "{exptext}", hint: "la riga del ×2 EXP (solo sul principale)" }];
+const EXP_PLACEHOLDERS = [...PLACEHOLDERS, { token: "{exptext}", hint: "la riga del ×2 EXP (se Livelli è acceso)" }];
 
 const DM_PLACEHOLDERS = [
   { token: "{username}", hint: "il suo nome" },
@@ -56,7 +56,12 @@ export function BirthdaysPanel({ guildId, token, onToast }: { guildId: string; t
   const baseVars = useSampleVars(data);
   const [cfg, setCfg] = useState<BirthdaysConfig | null>(null);
   const [saved, setSaved] = useState("");
-  const [meta, setMeta] = useState<{ isMain: boolean; imported: boolean; timezone: string }>({ isMain: false, imported: false, timezone: "Europe/Rome" });
+  const [meta, setMeta] = useState<{ isMain: boolean; levelsActive: boolean; imported: boolean; timezone: string }>({
+    isMain: false,
+    levelsActive: false,
+    imported: false,
+    timezone: "Europe/Rome",
+  });
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,7 +71,12 @@ export function BirthdaysPanel({ guildId, token, onToast }: { guildId: string; t
       if (!r.ok) return setLoadError(r.message);
       setCfg(r.data.config);
       setSaved(JSON.stringify(r.data.config));
-      setMeta({ isMain: r.data.isMainGuild === true, imported: r.data.imported === true, timezone: r.data.timezone || "Europe/Rome" });
+      setMeta({
+        isMain: r.data.isMainGuild === true,
+        levelsActive: r.data.levelsActive === true,
+        imported: r.data.imported === true,
+        timezone: r.data.timezone || "Europe/Rome",
+      });
     });
     return () => {
       alive = false;
@@ -85,10 +95,10 @@ export function BirthdaysPanel({ guildId, token, onToast }: { guildId: string; t
         count: "2",
         age: "",
         agetext: "Oggi compiono **20** e **25** anni.",
-        exptext: meta.isMain && expBoost.enabled ? ` E per oggi c'è un **×${label} EXP**!` : "",
+        exptext: meta.levelsActive && expBoost.enabled ? ` E per oggi c'è un **×${label} EXP**!` : "",
       };
     },
-    [baseVars, meta.isMain, expBoost.enabled, expBoost.multiplier],
+    [baseVars, meta.levelsActive, expBoost.enabled, expBoost.multiplier],
   );
   const dmVars = useMemo(() => ({ ...baseVars, age: "20", agetext: "Oggi compie **20** anni." }), [baseVars]);
 
@@ -150,7 +160,7 @@ export function BirthdaysPanel({ guildId, token, onToast }: { guildId: string; t
                   value={cfg.draft}
                   onChange={(draft) => set({ draft })}
                   emojis={data.pickers.emojis}
-                  placeholders={meta.isMain ? MAIN_PLACEHOLDERS : PLACEHOLDERS}
+                  placeholders={meta.levelsActive ? EXP_PLACEHOLDERS : PLACEHOLDERS}
                   maxButtons={data.limits.buttons}
                 />
               }
@@ -252,7 +262,7 @@ export function BirthdaysPanel({ guildId, token, onToast }: { guildId: string; t
       ) : null}
 
       <FormGroup title="Boost EXP" description="Moltiplicatore sul ruolo del giorno (si allinea al modulo Livelli).">
-        {meta.isMain ? (
+        {meta.levelsActive ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="flex items-center gap-2 text-sm text-crema/70">
@@ -282,7 +292,9 @@ export function BirthdaysPanel({ guildId, token, onToast }: { guildId: string; t
             </a>
           </div>
         ) : (
-          <p className="text-sm text-crema/60">Il boost EXP nel giorno del compleanno arriverà quando i livelli saranno disponibili anche su questo server.</p>
+          <Notice>
+            Boost EXP compleanno: accendi il modulo Livelli &amp; EXP da Moduli. Poi qui puoi impostare il moltiplicatore sul ruolo del giorno.
+          </Notice>
         )}
         <a href={page("/personalizza/?target=birthday")} className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-crema/55 hover:text-crema">
           <ExternalLink className="size-3.5" aria-hidden /> Il tuo compleanno su Personalizza

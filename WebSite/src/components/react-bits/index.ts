@@ -4,3 +4,4 @@ export { GlareHover } from "./GlareHover";
 export { Magnet } from "./Magnet";
 export { TrueFocus } from "./TrueFocus";
 export { GradientText } from "./GradientText";
+export { ScrollFloat } from "./ScrollFloat";

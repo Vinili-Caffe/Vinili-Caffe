@@ -15,14 +15,14 @@ function normalizeExpGuildId(guildOrId?) {
 
 function isLevelExpGuild(guildOrId?) {
   const gid = normalizeExpGuildId(guildOrId);
-  const mainId = String(ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
-  if (!(gid && mainId && gid === mainId)) return false;
-  /* modulo "livelli" spento dalla dashboard → niente EXP */
+  if (!gid) return false;
+  /* modulo "livelli" acceso dalla dashboard → EXP su quel server (opt-in) */
   try {
     const { isModuleOn } = require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches");
     return isModuleOn(gid, "livelli");
   } catch {
-    return true;
+    const mainId = String(ACTIVITY_MAIN_GUILD_ID || IDs.guilds?.main || "").trim();
+    return Boolean(mainId && gid === mainId);
   }
 }
 

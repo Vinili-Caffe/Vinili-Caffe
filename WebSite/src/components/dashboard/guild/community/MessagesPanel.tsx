@@ -179,7 +179,7 @@ export function MessagesPanel({ guildId, token, onToast }: { guildId: string; to
               <FormGroup title="Dove">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Nome (solo per te)">
-                    <input value={edit.name} maxLength={80} onChange={(e) => setEdit({ ...edit, name: e.target.value })} className={fieldClass} />
+                    <input name="messagespanel-input-182" id="messagespanel-input-182" value={edit.name} maxLength={80} onChange={(e) => setEdit({ ...edit, name: e.target.value })} className={fieldClass} />
                   </Field>
                   <ChannelField label="Canale" value={edit.channelId} channels={channels} onChange={(channelId) => setEdit({ ...edit, channelId })} />
                 </div>

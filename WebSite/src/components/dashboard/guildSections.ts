@@ -1,4 +1,5 @@
 import {
+  Archive,
   BarChart3,
   Gavel,
   Handshake,
@@ -21,6 +22,7 @@ import {
   Video,
   Cake,
   TrendingUp,
+  Headphones,
   type LucideIcon,
 } from "lucide-react";
 
@@ -42,6 +44,8 @@ export type GuildSectionId =
   | "live"
   | "compleanni"
   | "livelli"
+  | "backup"
+  | "vocale"
   | "settings"
   | "commands"
   | "bacheca"
@@ -115,6 +119,21 @@ export const LIVELLI_MODULE_TABS = [
 ] as const satisfies readonly GuildModuleTab[];
 
 export type LivelliModuleTabId = (typeof LIVELLI_MODULE_TABS)[number]["id"];
+
+export const VOCALE_MODULE_TABS = [
+  { id: "musica", label: "Musica" },
+  { id: "tts", label: "TTS" },
+] as const satisfies readonly GuildModuleTab[];
+
+export type VocaleModuleTabId = (typeof VOCALE_MODULE_TABS)[number]["id"];
+
+export function isVocaleModuleTab(v: string): v is VocaleModuleTabId {
+  return VOCALE_MODULE_TABS.some((t) => t.id === v);
+}
+
+export function normalizeVocaleModuleTab(v: string | null | undefined): VocaleModuleTabId {
+  return v && isVocaleModuleTab(v) ? v : "musica";
+}
 
 export function isLivelliModuleTab(v: string): v is LivelliModuleTabId {
   return LIVELLI_MODULE_TABS.some((t) => t.id === v);
@@ -212,6 +231,8 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "live", label: "Social Network", icon: Video, tabs: [] as const },
   { id: "compleanni", label: "Compleanni", icon: Cake, tabs: [] as const },
   { id: "livelli", label: "Livelli & EXP", icon: TrendingUp, tabs: [] as const },
+  { id: "backup", label: "Backup", icon: Archive, tabs: [] as const },
+  { id: "vocale", label: "Vocale", icon: Headphones, tabs: [] as const },
 ] as const satisfies readonly GuildNavItem[];
 
 /** Elenco piatto (URL, mobile chip, lookup). Ordine: server poi moduli. */
@@ -251,10 +272,11 @@ export function defaultModuleTab(section: GuildSectionId): string | null {
   if (section === "partnership") return "setup";
   if (section === "bacheca") return "impostazioni";
   if (section === "commands") return "all";
-  if (section === "registro") return "all";
+  if (section === "registro") return "settings";
   if (section === "benvenuto") return "welcome";
   if (section === "live") return "twitch";
   if (section === "livelli") return "exp";
+  if (section === "vocale") return "musica";
   return null;
 }
 

@@ -56,14 +56,25 @@ type Invite = {
   approximate_presence_count?: number;
   id?: string;
   icon?: string;
-  guild?: { id?: string; icon?: string };
+  guild?: { id?: string; icon?: string; premium_subscription_count?: number };
+  profile?: { member_count?: number; online_count?: number; premium_subscription_count?: number };
 };
 
 function merge(invite: Invite | null, extra: StatsExtra | null, base: Stats): Stats {
+  const inviteMembers =
+    invite?.approximate_member_count ?? invite?.profile?.member_count ?? null;
+  const inviteOnline =
+    invite?.approximate_presence_count ?? invite?.profile?.online_count ?? null;
+  const inviteBoosts =
+    invite?.guild?.premium_subscription_count ??
+    invite?.profile?.premium_subscription_count ??
+    null;
+  /* Preferisci invite live (proxy Discord) per membri/online/boost:
+     live-stats-extra può restare indietro se il cron fallisce. */
   return {
-    members: extra?.guildMemberCount ?? invite?.approximate_member_count ?? base.members,
-    online: invite?.approximate_presence_count ?? extra?.memberPulse?.onlineNow ?? base.online,
-    boosts: extra?.guildBoostCount ?? base.boosts,
+    members: inviteMembers ?? extra?.guildMemberCount ?? base.members,
+    online: inviteOnline ?? extra?.memberPulse?.onlineNow ?? base.online,
+    boosts: inviteBoosts ?? extra?.guildBoostCount ?? base.boosts,
     staff: extra?.staffNoPm ?? base.staff,
   };
 }

@@ -1,14 +1,19 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { COPYRIGHT_HREF, LEGAL, NAV_GROUPS, SOCIAL_LINKS } from "@/lib/site";
+import { COPYRIGHT_HREF, LEGAL, NAV_GROUPS, SOCIAL_LINKS, navLinkLocked, navLinkSeasonLive } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { NavIcon } from "@/lib/nav-icons";
-import { EVENTO_BRAND, eventoEventiNavForViewer, eventoPrimaryNavForViewer } from "@/lib/evento-starwars";
+import { SeasonLiveNavTag, useNavSeasonTick } from "./SeasonLiveNav";
+import {
+  EVENTO_BRAND,
+  eventoEventiNavForViewer,
+  eventoPrimaryNavForViewer,
+  isEventoHighStaff,
+} from "@/lib/evento-starwars";
 import { DiscordButton } from "./DiscordButton";
 import { SmartLink } from "./SmartLink";
-import { Reveal } from "./Reveal";
 import { BrandMark } from "./BrandMark";
 import { FooterStatusLink } from "./FooterStatusLink";
 import { footerUnderlineClass } from "./NavUnderline";
@@ -53,6 +58,7 @@ export function Footer() {
   const { t } = useI18n();
   const pathname = usePathname() || "/";
   const year = new Date().getFullYear();
+  const { ready: seasonReady } = useNavSeasonTick();
   const eventoChrome = useEventoChrome();
   const { ready: eventoReady, access: eventoAccess } = useEventoStaffAccess();
   const { needsSort: eventoNeedsSort } = useEventoSortGate();
@@ -66,6 +72,8 @@ export function Footer() {
     { title: EVENTO_BRAND, links: eventoPrimary },
     { title: "Eventi", links: eventoEventi },
   ].filter((c) => c.links.length);
+  const highStaff = isEventoHighStaff(eventoAccess);
+  const soon = t("auth.comingSoon");
   return (
     <footer
       data-vc-float-cover="footer"
@@ -81,15 +89,13 @@ export function Footer() {
         }}
       />
       <div className="relative mx-auto max-w-6xl px-5 py-12 text-center sm:px-6 sm:py-16">
-        <Reveal>
-          <h2 className="font-display text-3xl font-semibold text-crema sm:text-5xl lg:text-6xl">
-            {t("footer.tagline")}
-            <span className="block italic text-sand">{t("footer.taglineSub")}</span>
-          </h2>
-          <div className="mt-7 flex justify-center sm:mt-9">
-            <DiscordButton label={t("footer.joinCta")} />
-          </div>
-        </Reveal>
+        <h2 className="font-display text-3xl font-semibold text-crema sm:text-5xl lg:text-6xl">
+          {t("footer.tagline")}
+          <span className="block italic text-sand">{t("footer.taglineSub")}</span>
+        </h2>
+        <div className="mt-7 flex justify-center sm:mt-9">
+          <DiscordButton label={t("footer.joinCta")} />
+        </div>
       </div>
 
       <div className="relative mx-auto max-w-6xl border-t border-sand/10 px-5 py-8 sm:px-6 sm:py-10">
@@ -167,16 +173,39 @@ export function Footer() {
                       <span className="truncate">{t(g.labelKey)}</span>
                     </h3>
                     <ul className="mt-3 flex flex-col items-center space-y-2 sm:mt-4 sm:space-y-2.5">
-                      {g.links.map((l) => (
-                        <li key={l.href}>
-                          <SmartLink
-                            href={l.href}
-                            className={cn(footerUnderlineClass(pathActive(pathname, l.href)), "text-[0.8rem] sm:text-sm")}
-                          >
-                            {t(l.labelKey)}
-                          </SmartLink>
-                        </li>
-                      ))}
+                      {g.links.map((l) => {
+                        const locked = navLinkLocked(l, { highStaff });
+                        return (
+                          <li key={l.href}>
+                            {locked ? (
+                              <span
+                                role="link"
+                                aria-disabled="true"
+                                title={soon}
+                                className="inline-flex cursor-not-allowed items-center gap-1.5 text-[0.8rem] text-crema/35 sm:text-sm"
+                              >
+                                <span className="blur-[2.5px] select-none" aria-hidden>
+                                  {t(l.labelKey)}
+                                </span>
+                                <span className="shrink-0 rounded-full bg-espresso/90 px-1.5 py-px text-[0.55rem] font-bold uppercase tracking-[0.16em] text-sand/80 ring-1 ring-sand/25">
+                                  {soon}
+                                </span>
+                              </span>
+                            ) : (
+                              <SmartLink
+                                href={l.href}
+                                className={cn(
+                                  footerUnderlineClass(pathActive(pathname, l.href)),
+                                  "inline-flex items-center gap-1.5 text-[0.8rem] sm:text-sm",
+                                )}
+                              >
+                                {t(l.labelKey)}
+                                {seasonReady && navLinkSeasonLive(l) ? <SeasonLiveNavTag /> : null}
+                              </SmartLink>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 ))}

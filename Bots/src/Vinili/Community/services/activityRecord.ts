@@ -9,6 +9,18 @@ const { addExpWithLevel, MESSAGE_EXP, VOICE_EXP_PER_MINUTE, resolveMessageExp, r
 const messageExpCooldownUntil = new Map<string, number>();
 const { resolveVoiceExpMultiplier, computeVoiceExpFromSeconds } = require("../utils/voiceExpChannelUtils") as typeof import("../utils/voiceExpChannelUtils");
 const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
+
+/** Attività/EXP: server full-feature Vinili, oppure tenant con modulo Livelli acceso. */
+function shouldTrackActivity(guildId?) {
+  const gid = String(guildId || "");
+  if (!gid) return false;
+  if (isViniliFullFeatureGuild(gid)) return true;
+  try {
+    return isLevelExpGuild(gid);
+  } catch {
+    return false;
+  }
+}
 const { isExcludedActivityChannel } = require("./activityChannels") as typeof import("./activityChannels");
 const { getDayKey, getHourKey, getWeekKey } = require("./activityTime") as typeof import("./activityTime");
 const { profileActivityCollection } = require("./activityRows") as typeof import("./activityRows");
@@ -218,7 +230,7 @@ async function applyMessageActivityTick(client?, tick?) {
 }
 
 async function recordMessageActivity(message?) {
-  if (!isViniliFullFeatureGuild(message?.guild?.id)) return;
+  if (!shouldTrackActivity(message?.guild?.id)) return;
   if (!message?.guild || !message.author || message.author.bot) return;
   if (isExcludedActivityChannel(message.channel)) return;
 
@@ -304,7 +316,7 @@ async function handleVoiceActivity(oldState?, newState?) {
   const guildId = newState?.guild?.id || oldState?.guild?.id;
   const userId = member.id;
   if (!guildId || !userId) return;
-  if (!isViniliFullFeatureGuild(guildId)) return;
+  if (!shouldTrackActivity(guildId)) return;
 
   const now = new Date();
   const wasInVoice = Boolean(oldState?.channelId);

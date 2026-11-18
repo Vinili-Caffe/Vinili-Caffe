@@ -5,7 +5,7 @@ import { Bot, PartyPopper, TrendingUp } from "lucide-react";
 import { WHY } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { Reveal } from "./Reveal";
-import { GlareHover, ShinyText, TrueFocus } from "./react-bits";
+import { GlareHover, ScrollFloat, ShinyText, TrueFocus } from "./react-bits";
 import { Spotlight } from "./ui/spotlight-card";
 
 const ICONS = [TrendingUp, PartyPopper, Bot];
@@ -18,14 +18,21 @@ export function Why() {
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">
           <ShinyText speed={4.2}>{t("why.kicker")}</ShinyText>
         </p>
-        <h2 className="mt-3 font-display text-4xl font-semibold leading-tight text-balance sm:text-5xl">
-          {t("why.title")}{" "}
+        <div className="mt-3 space-y-1">
+          <ScrollFloat
+            className="my-0 font-display text-4xl font-semibold leading-tight text-balance sm:text-5xl"
+            textClassName="font-display text-4xl font-semibold sm:text-5xl"
+            stagger={0.025}
+            distance={90}
+          >
+            {t("why.title")}
+          </ScrollFloat>
           <TrueFocus
             sentence={t("why.titleEm")}
-            className="mt-1 italic text-sand sm:mt-0"
+            className="font-display text-4xl italic text-sand sm:text-5xl"
             intervalMs={2600}
           />
-        </h2>
+        </div>
       </Reveal>
 
       <div className="grid gap-4 md:grid-cols-3 md:gap-5">

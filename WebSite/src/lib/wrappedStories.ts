@@ -45,7 +45,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       key: "hello",
       kicker: `Vinili Wrapped · ${data.year}`,
       title: `Ciao, ${name}`,
-      body: "Il tuo disco della community — senza brani, solo te.",
+      body: "Rivivi l'anno passato con noi.",
     },
   ];
 

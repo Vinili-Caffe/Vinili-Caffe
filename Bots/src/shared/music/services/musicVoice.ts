@@ -60,9 +60,13 @@ const guildQueues = new Map();
 const endListeners = new Set();
 const lastMusicEndHandledByGuild = new Map();
 const musicIdleSince = new Map();
+function defaultMusicQueueSnapshotPath() {
+  const coffee = musicHooks()?.profile === "coffee";
+  return path.join(__dirname, "..", "..", "..", coffee ? "Caffè" : "Vinili", "Data", "musicQueueSnapshot.json");
+}
 const MUSIC_QUEUE_SNAPSHOT_PATH = process.env.MUSIC_QUEUE_SNAPSHOT_PATH
   ? path.resolve(String(process.env.MUSIC_QUEUE_SNAPSHOT_PATH))
-  : path.join(__dirname, "..", "..", "..", "Vinili", "Data", "musicQueueSnapshot.json");
+  : defaultMusicQueueSnapshotPath();
 
 /** Metadati minimi: senza questi, dopo un riavvio i brani diventano «Traccia sconosciuta» e il mirror non sa cercarli. */
 function serializeTrackInfo(info?) {
@@ -143,6 +147,9 @@ function serializeSessionSnapshot(session?) {
     playingEncoded: session?.playingEncoded ? String(session.playingEncoded) : null,
     /* posResume1: ms nella traccia corrente (0 = inizio) */
     playingPositionMs: Math.max(0, Math.floor(Number(session?.playingPositionMs) || 0)),
+    alwaysOn: session?.alwaysOn === true,
+    alwaysOnKey: session?.alwaysOnKey ? String(session.alwaysOnKey) : null,
+    alwaysOnLabel: session?.alwaysOnLabel ? String(session.alwaysOnLabel).slice(0, 120) : null,
   };
   const hasResumeHint = Boolean(out.playingEncoded && out.voiceChannelId);
   if (
@@ -197,17 +204,29 @@ function resolveGuildMusicVoiceChannelId(client?, guildId?) {
 function guildMusicSessionBlocksOtherVoiceChannels(client?, guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid) return { blocked: false, channelId: null };
+  const player = client?.shoukaku?.players?.get(gid);
+  const conn = client?.shoukaku?.connections?.get(gid);
+  const session = guildQueues.get(gid);
+  /* Coffee = TTS: non bloccare per la radio 24/7 di Vinili (stesso guildId / snapshot fantasma).
+     Solo se QUESTO processo ha davvero Lavalink in vocale. */
+  if (musicHooks()?.profile === "coffee") {
+    const channelId = conn?.channelId
+      ? String(conn.channelId)
+      : player?.track
+        ? resolveGuildMusicVoiceChannelId(client, gid)
+        : null;
+    const active = Boolean(player?.track) || Boolean(conn?.channelId);
+    return { blocked: active, channelId: active ? channelId : null };
+  }
   const musicVc = resolveGuildMusicVoiceChannelId(client, gid);
   if (!musicVc) return { blocked: false, channelId: null };
-  const player = client?.shoukaku?.players?.get(gid);
-  const session = guildQueues.get(gid);
   /* noVoiceSteal1: conta anche il bot fermo in vocale per la musica (coda finita, non ancora uscito):
      prima il TTS da un altro canale poteva portarlo via */
   const active =
     Boolean(player?.track) ||
     Boolean(String(session?.nowPlaying || "").trim()) ||
     (Array.isArray(session?.tracks) && session.tracks.length > 0) ||
-    Boolean(client?.shoukaku?.connections?.get(gid)?.channelId);
+    Boolean(conn?.channelId);
   return { blocked: active, channelId: musicVc };
 }
 
@@ -258,6 +277,11 @@ function assertMusicCommandAllowed(client?, guild?, member?, requesterUserId?) {
   const vcGate = assertRequesterInActiveMusicVoiceChannel(client, guild, member);
   if (!vcGate.ok) return vcGate;
   if (isMainGuildMusicAdminBypass(guild, member)) return { ok: true };
+  try {
+    const { getConfigSync, memberHasDjRole } = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
+    const cfg = getConfigSync(guild?.id);
+    if (memberHasDjRole(member, cfg.music?.djRoleIds || [])) return { ok: true };
+  } catch (_) {}
   return assertMusicSessionOwnerOrAllowLegacy(guild?.id, requesterUserId);
 }
 
@@ -303,16 +327,86 @@ function getShardIdForGuild(guild?) {
 
 function getShoukakuVoiceConnectionTimeoutSeconds() {
   const n = Number(process.env.SHOUKAKU_VOICE_CONNECTION_TIMEOUT);
+  /* 40s default: leave + retry restano sotto i 120s del prefix +play */
   if (Number.isFinite(n) && n >= 15 && n <= 300) return Math.floor(n);
-  return 60;
+  return 40;
 }
 
 function musicJoinVoiceChannelErrorMessage(err?) {
   const m = String(err?.message || err || "");
-  if (/not established|voice connection/i.test(m)) {
+  if (/not established|voice connection|already have an existing connection/i.test(m)) {
     return "Non riesco a entrare nel canale vocale in questo momento. Se il bot sta leggendo i messaggi con il TTS, fallo prima uscire; altrimenti controlla che possa entrare e parlare nel canale e riprova tra poco.";
   }
   return "Non riesco a entrare nel canale vocale. Riprova tra poco.";
+}
+
+const musicVoiceJoinChains = new Map();
+
+/** Serializza join/leave Shoukaku per guild (evita "already have an existing connection" da +play concorrenti). */
+function withMusicVoiceJoinLock(guildId?, fn?) {
+  const gid = String(guildId || "").trim();
+  if (!gid || typeof fn !== "function") {
+    return Promise.resolve(typeof fn === "function" ? fn() : undefined);
+  }
+  const prev = musicVoiceJoinChains.get(gid) || Promise.resolve();
+  let settle = () => {};
+  const gate = new Promise((resolve?) => {
+    settle = resolve;
+  });
+  const chained = prev.then(
+    () => gate,
+    () => gate,
+  );
+  musicVoiceJoinChains.set(gid, chained);
+  return prev
+    .catch(() => {})
+    .then(() => fn())
+    .finally(() => {
+      settle();
+      if (musicVoiceJoinChains.get(gid) === chained) musicVoiceJoinChains.delete(gid);
+    });
+}
+
+/**
+ * leaveVoiceChannel + wipe forzato di connections/players.
+ * Dopo timeout 60s o Session not found può restare una connection mezza viva:
+ * il retry altrimenti esplode con "already have an existing connection".
+ */
+async function forceClearShoukakuGuildVoice(client?, guildId?) {
+  const gid = String(guildId || "").trim();
+  const sh = client?.shoukaku;
+  if (!gid || !sh) return;
+  markMusicVoiceLeaveIntentional(client, gid);
+  endListeners.delete(gid);
+  const pl = sh.players?.get(gid);
+  if (pl?.removeAllListeners) {
+    try {
+      pl.removeAllListeners("end");
+    } catch (_) {}
+  }
+  try {
+    await Promise.resolve(sh.leaveVoiceChannel?.(gid));
+  } catch (_) {}
+  try {
+    const conn = sh.connections?.get(gid);
+    if (conn) {
+      try {
+        conn.disconnect?.();
+      } catch (_) {}
+      sh.connections.delete(gid);
+    }
+  } catch (_) {}
+  try {
+    const leftover = sh.players?.get(gid);
+    if (leftover) {
+      try {
+        leftover.clean?.();
+      } catch (_) {}
+      sh.players.delete(gid);
+    }
+  } catch (_) {}
+  await clearBlockingNativeVoiceForMusic(gid, client).catch(() => false);
+  await new Promise((r?) => setTimeout(r, 350));
 }
 
 function guildHasBlockingNativeVoiceConnection(guildId?) {
@@ -479,6 +573,11 @@ async function handleMusicBotVoiceDisconnect(client?, guild?) {
       }).clearVoiceSession(gid);
     } catch (_) {}
   }
+  /* 24/7: dopo kick/disconnect rientra nel canale (anche se leave intenzionale: resta sempre lì) */
+  try {
+    const { scheduleAlwaysOnRejoin } = require("./musicAlwaysOn") as typeof import("./musicAlwaysOn");
+    scheduleAlwaysOnRejoin(client, gid, intentional ? 1800 : 2800);
+  } catch (_) {}
 }
 
 async function destroyGhostMusicStateIfBotNotInVoice(client?, guild?) {
@@ -513,4 +612,4 @@ async function destroyGhostMusicStateIfBotNotInVoice(client?, guild?) {
   } catch (_) {}
 }
 
-export = { nativeVoiceChannelId, musicHooks, musicPurgeTts, musicLeaveTts, clearActiveBotVoiceSession, guildQueues, endListeners, lastMusicEndHandledByGuild, musicIdleSince, MUSIC_QUEUE_SNAPSHOT_PATH, serializeEncodedLabelRows, mergeSessionSnapshotFromLivePlayer, getGuildMusicVoiceChannelId, guildMusicSessionBlocksOtherVoiceChannels, assertMusicCommandAllowed, guildHasMusicVoiceResumeHint, persistMusicQueueSnapshotNow, getShardIdForGuild, getShoukakuVoiceConnectionTimeoutSeconds, musicJoinVoiceChannelErrorMessage, clearBlockingNativeVoiceForMusic, markMusicVoiceLeaveIntentional, leaveMusicVoiceChannelMarked, handleMusicBotVoiceDisconnect, destroyGhostMusicStateIfBotNotInVoice };
+export = { nativeVoiceChannelId, musicHooks, musicPurgeTts, musicLeaveTts, clearActiveBotVoiceSession, guildQueues, endListeners, lastMusicEndHandledByGuild, musicIdleSince, MUSIC_QUEUE_SNAPSHOT_PATH, serializeEncodedLabelRows, mergeSessionSnapshotFromLivePlayer, getGuildMusicVoiceChannelId, guildMusicSessionBlocksOtherVoiceChannels, assertMusicCommandAllowed, guildHasMusicVoiceResumeHint, persistMusicQueueSnapshotNow, getShardIdForGuild, getShoukakuVoiceConnectionTimeoutSeconds, musicJoinVoiceChannelErrorMessage, clearBlockingNativeVoiceForMusic, withMusicVoiceJoinLock, forceClearShoukakuGuildVoice, markMusicVoiceLeaveIntentional, leaveMusicVoiceChannelMarked, handleMusicBotVoiceDisconnect, destroyGhostMusicStateIfBotNotInVoice };

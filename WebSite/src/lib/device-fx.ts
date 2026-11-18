@@ -765,6 +765,25 @@ export function halloweenBudgetFromCaps(caps: FxCaps): {
   };
 }
 
+/**
+ * Natale: più neve di Halloween (×3, clamp 18–56).
+ * Riduci-movimento resta gestito a monte da ChristmasFx (solo decor statici).
+ */
+export function christmasBudgetFromCaps(caps: FxCaps): ReturnType<typeof halloweenBudgetFromCaps> {
+  const base = halloweenBudgetFromCaps(caps);
+  if (!base.canvas || base.particles <= 0) {
+    return { ...base, fog: true, cssOnly: true, boo: caps.motion };
+  }
+  const boosted = Math.min(56, Math.max(18, Math.round(base.particles * 3)));
+  return {
+    ...base,
+    particles: boosted,
+    fog: true,
+    boo: true,
+    dprCap: Math.max(base.dprCap, 1.5),
+  };
+}
+
 /** @deprecated */
 export function halloweenBudget(tier: FxTier, touch: boolean): ReturnType<typeof halloweenBudgetFromCaps> {
   if (tier === "off") return { particles: 0, flyer: false, boo: false, dprCap: 1, canvas: false, cssOnly: false, fog: false };

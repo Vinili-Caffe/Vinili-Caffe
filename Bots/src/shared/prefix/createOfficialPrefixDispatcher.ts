@@ -530,6 +530,11 @@ function createOfficialPrefixDispatcher(options: Record<string, any> = {}) {
     }
 
     const cmdName = String(execCommand?.name || "").toLowerCase();
+    /* play/search: join vocale + resolve possono superare i 120s di default */
+    const musicJoinCommands = new Set(["play", "p", "search", "spotify", "yt", "youtube"]);
+    const commandTimeoutMs = musicJoinCommands.has(cmdName)
+      ? Math.max(PREFIX_EXECUTION_TIMEOUT_MS, 180_000)
+      : PREFIX_EXECUTION_TIMEOUT_MS;
     if (isFireAndForget(execCommand) && !execMessage?.__webTicketSync) {
       void Promise.resolve(execCommand.execute(commandMessage, execArgs, resolvedClient)).catch(
         (err?) => {
@@ -554,10 +559,10 @@ function createOfficialPrefixDispatcher(options: Record<string, any> = {}) {
           const timer = setTimeout(() => {
             reject(
               new Error(
-                `Prefix command "${String(execCommand?.name || "unknown")}" timed out after ${PREFIX_EXECUTION_TIMEOUT_MS}ms`,
+                `Prefix command "${String(execCommand?.name || "unknown")}" timed out after ${commandTimeoutMs}ms`,
               ),
             );
-          }, PREFIX_EXECUTION_TIMEOUT_MS);
+          }, commandTimeoutMs);
           timer.unref?.();
         }),
       ]);

@@ -1,15 +1,20 @@
-/** Minigiochi: menzione del ruolo all'avvio, con anti-doppione anche dopo un riavvio. */
+/** Minigiochi: menzione ruolo sull’avvio (stesso messaggio dell’embed), con anti-doppione anche dopo un riavvio. */
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const mongoose = require("mongoose") as typeof import("mongoose");
 
 const rolePingSentThisStart = new Set();
+/** Ping già claimato, da infilare nel prossimo sendMinigameMessage di start. */
+const pendingRolePingByChannel = new Map();
 const ROLE_PING_RECENT_MS = 5 * 60 * 1000;
 const MINIGAME_ROLE_PING_DOC_TYPE = SITE_DOCUMENT_TYPE.MINIGAME_ROLE_PING;
 
 function clearRolePingSentThisStart(channelId?) {
   const chId = String(channelId || "").trim();
-  if (chId) rolePingSentThisStart.delete(chId);
+  if (chId) {
+    rolePingSentThisStart.delete(chId);
+    pendingRolePingByChannel.delete(chId);
+  }
 }
 
 async function hasRecentPersistedRolePing(channelId?) {
@@ -67,29 +72,55 @@ function buildMinigameRolePingContent(cfg?, extraRoleId?) {
     roleIds.push(rid);
   };
   push(extraRoleId || cfg?.roleId);
+  if (!roleIds.length) push(IDs.roles?.Minigames);
   if (!roleIds.length) return "";
   return roleIds.map((id?) => `<@&${id}>`).join(" ");
 }
 
+/**
+ * Claim del ping per il prossimo messaggio di start (non invia nulla da solo).
+ * Restituisce il content menzione, o "" se già pingato di recente.
+ */
 async function sendMinigameRolePing(channel?, cfg?, extraRoleId?) {
   const content = buildMinigameRolePingContent(cfg, extraRoleId);
   const chId = String(channel?.id || "").trim();
-  if (!content || !chId || typeof channel?.send !== "function") return null;
-  if (rolePingSentThisStart.has(chId)) return null;
+  if (!content || !chId) return null;
+  if (rolePingSentThisStart.has(chId)) {
+    const pending = pendingRolePingByChannel.get(chId);
+    return pending || null;
+  }
   if (await hasRecentPersistedRolePing(chId)) {
     rolePingSentThisStart.add(chId);
     return null;
   }
   rolePingSentThisStart.add(chId);
-  try {
-    const msg = await channel.send({ content });
-    const guildId = String(cfg?.guildId || channel?.guild?.id || "").trim();
-    await persistRolePingSent(chId, guildId);
-    return msg || null;
-  } catch (_) {
-    rolePingSentThisStart.delete(chId);
-    return null;
-  }
+  pendingRolePingByChannel.set(chId, content);
+  const guildId = String(cfg?.guildId || channel?.guild?.id || "").trim();
+  await persistRolePingSent(chId, guildId);
+  return content;
 }
 
-export = { clearRolePingSentThisStart, clearPersistedRolePing, sendMinigameRolePing };
+/** Consuma il ping in attesa per il canale (una sola volta, al send dello start). */
+function takePendingMinigameRolePing(channelId?) {
+  const chId = String(channelId || "").trim();
+  if (!chId) return "";
+  const ping = pendingRolePingByChannel.get(chId);
+  if (!ping) return "";
+  pendingRolePingByChannel.delete(chId);
+  return String(ping);
+}
+
+function peekPendingMinigameRolePing(channelId?) {
+  const chId = String(channelId || "").trim();
+  if (!chId) return "";
+  return String(pendingRolePingByChannel.get(chId) || "");
+}
+
+export = {
+  clearRolePingSentThisStart,
+  clearPersistedRolePing,
+  buildMinigameRolePingContent,
+  sendMinigameRolePing,
+  takePendingMinigameRolePing,
+  peekPendingMinigameRolePing,
+};

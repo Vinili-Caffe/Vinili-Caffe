@@ -120,6 +120,22 @@ export async function loadWrapped(token: string): Promise<WrappedResult> {
   }
 }
 
+/** Fine slideshow → ruolo WrappedViewer sul server (idempotente). */
+export async function completeWrapped(token: string): Promise<{ ok: boolean; roleGranted?: boolean }> {
+  try {
+    const r = await fetch(apiUrl("/webhooks/site-wrapped/complete"), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      cache: "no-store",
+    });
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j?.ok) return { ok: false };
+    return { ok: true, roleGranted: Boolean(j.roleGranted) };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export function buildShareText(data: WrappedPayload): string {
   const a = data.allTime;
   const name = data.user.displayName || data.user.username || "io";

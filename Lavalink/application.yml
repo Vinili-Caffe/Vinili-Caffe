@@ -80,7 +80,7 @@ plugins:
 
 lavalink:
   server:
-    password: "youshallnotpass"
+    password: "A8BhPV7_j6d6Lkj0-z8nBaj3pnJoqwV_"
     bufferDurationMs: 1000
     frameBufferDurationMs: 1500
     trackStuckThresholdMs: 15000

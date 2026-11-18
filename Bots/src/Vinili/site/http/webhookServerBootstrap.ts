@@ -4,6 +4,8 @@ const {
   expandCorsOriginAllowlist,
   createSiteCandidatureCorsMiddleware,
 } = require("./webhookCors") as typeof import("./webhookCors");
+const { resolveListenBindHost } = require("../../../shared/http/listenBindHost") as typeof import("../../../shared/http/listenBindHost");
+const { mountMongoSanitize } = require("../../../shared/http/mongoSanitize") as typeof import("../../../shared/http/mongoSanitize");
 const {
   shouldStartDiscadiaVoteHttpWebhook,
   normalizeWebhookPath,
@@ -155,9 +157,10 @@ function startGatewayHealthOnlyHttp(client?) {
     }
     global.logger?.error?.("[WEBHOOK] health-only listen failed:", err);
   });
-  server.listen(port, "0.0.0.0", () => {
+  const bindHost = resolveListenBindHost("BOT_GATEWAY_HEALTH_BIND", "WEBHOOK_BIND");
+  server.listen(port, bindHost, () => {
     if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {
-      global.logger?.info?.(`[WEBHOOK] gateway health-only on 0.0.0.0:${port} (SITE_API_EXTERNAL)`);
+      global.logger?.info?.(`[WEBHOOK] gateway health-only on ${bindHost}:${port} (SITE_API_EXTERNAL)`);
     }
   });
 }
@@ -181,7 +184,7 @@ async function startWebhookServer(client?) {
   const topggSecret = String(process.env.TOPGG_WEBHOOK_SECRET || client?.config?.topgg?.webhookSecret || "").trim();
 
   const app = express();
-  app.set("trust proxy", true);
+  app.set("trust proxy", 1);
   app.use(
     express.json({
       limit: "12mb",
@@ -197,6 +200,7 @@ async function startWebhookServer(client?) {
     }),
   );
   app.use(express.urlencoded({ extended: true, limit: "256kb" }));
+  mountMongoSanitize(app);
   /* anteprima "visualizza come ruolo" (header X-VC-View-As): contesto per tutta la richiesta */
   {
     const { mountViewAsContext } = require("../../../shared/runtime/viewAsContext") as typeof import("../../../shared/runtime/viewAsContext");
@@ -294,8 +298,9 @@ async function startWebhookServer(client?) {
     global.logger?.error?.("[WEBHOOK] listen failed:", err);
   });
 
-  server.listen(port, "0.0.0.0", () => {
-    global.logger?.info?.(`[WEBHOOK] HTTP server online on 0.0.0.0:${port}`);
+  const bindHost = resolveListenBindHost("WEBHOOK_BIND", "BOT_HTTP_BIND");
+  server.listen(port, bindHost, () => {
+    global.logger?.info?.(`[WEBHOOK] HTTP server online on ${bindHost}:${port}`);
   });
 }
 

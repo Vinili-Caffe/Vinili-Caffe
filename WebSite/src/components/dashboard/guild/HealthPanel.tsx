@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { AlertTriangle, CheckCircle2, ChevronDown, Info, RefreshCw, ShieldCheck, Wrench, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, Info, RefreshCw, ShieldCheck, Wrench, XCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { loadGuildHealth, type GuildHealth, type HealthCheck } from "@/lib/dashboard-health";
 import { Notice, RowsSkeleton, StatTile, miniBtn } from "./bits";
@@ -12,6 +12,16 @@ const AREA_LABEL: Record<string, string> = {
   bacheca: "Bacheca",
   ticket: "Ticket",
   partnership: "Partnership",
+  runtime: "Background / worker",
+};
+
+/** Deep-link alle sezioni della dashboard da sistemare (`?s=`). */
+const AREA_HREF: Record<string, { href: string; label: string } | null> = {
+  generale: { href: "?s=settings", label: "Apri Impostazioni" },
+  bacheca: { href: "?s=bacheca", label: "Apri Bacheca" },
+  ticket: { href: "?s=tickets", label: "Apri Ticket" },
+  partnership: { href: "?s=partnership", label: "Apri Partnership" },
+  runtime: null,
 };
 
 const LEVEL_STYLE: Record<HealthCheck["level"], { icon: React.ReactNode; ring: string; chip: string }> = {
@@ -39,6 +49,7 @@ const LEVEL_STYLE: Record<HealthCheck["level"], { icon: React.ReactNode; ring: s
 
 function CheckRow({ c }: { c: HealthCheck }) {
   const st = LEVEL_STYLE[c.level];
+  const link = c.level !== "ok" ? AREA_HREF[c.area] : null;
   return (
     <motion.li initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className={cn("rounded-xl p-3 ring-1", st.ring)}>
       <div className="flex items-start gap-3">
@@ -56,6 +67,15 @@ function CheckRow({ c }: { c: HealthCheck }) {
               <Wrench className="mt-0.5 size-3.5 shrink-0 text-ember" />
               <span>{c.fix}</span>
             </p>
+          ) : null}
+          {link ? (
+            <a
+              href={link.href}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-ember transition hover:text-crema"
+            >
+              {link.label}
+              <ArrowRight className="size-3.5" aria-hidden />
+            </a>
           ) : null}
         </div>
       </div>

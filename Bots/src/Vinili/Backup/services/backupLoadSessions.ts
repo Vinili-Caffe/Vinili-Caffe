@@ -7,7 +7,8 @@ const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import(".
 const LOAD_ACTIONS = [{ key: "delete_roles", label: "Delete Roles", description: "All existing roles will be deleted", emoji: E.VC_purge, }, { key: "delete_channels", label: "Delete Channels", description: "All existing channels will be deleted", emoji: E.VC_purge, }, { key: "load_roles", label: "Load Roles", description: "New roles will be loaded", emoji: E.VC_Mention, }, { key: "load_channels", label: "Load Channels", description: "New channels will be loaded", emoji: E.channeltext, }, { key: "load_settings", label: "Load Settings", description: "Server settings will be updated", emoji: E.VC_tools, }, { key: "load_threads", label: "Load Threads", description: "Threads and forum posts will be loaded", emoji: E.VC_threads, }, { key: "load_member_info", label: "Load Member Info", description: "Member roles and nicknames will be loaded", emoji: E.member_role_icon, }, { key: "load_bans", label: "Load Bans", description: "Banned members will be loaded", emoji: E.VC_BanHammer, }, { key: "load_messages", label: "Load Messages", description: "Messages will be loaded", emoji: E.VC_Chat, }, { key: "load_pinned_messages", label: "Pinned Messages", description: "Pinned messages will be loaded", emoji: E.VC_BlackPin, }, { key: "load_emojis", label: "Load Emojis", description: "Custom emojis will be loaded", emoji: E.VC_Reply, }, { key: "load_stickers", label: "Load Stickers", description: "Stickers will be loaded", emoji: E.VC_Ticket, }, { key: "load_webhooks", label: "Load Webhooks", description: "Webhooks will be restored", emoji: E.VC_webhooks, }, { key: "load_invites", label: "Load Invites", description: "Invites will be recreated", emoji: E.link, }, { key: "load_events", label: "Load Events", description: "Scheduled events will be loaded", emoji: E.VC_Calendar, }, { key: "load_automod_rules", label: "Load AutoMod Rules", description: "AutoMod rules will be loaded", emoji: E.VC_AutoMod, },];
 const ACTION_KEYS = new Set(LOAD_ACTIONS.map((a?) => a.key));
 const DEFAULT_ACTIONS = new Set(LOAD_ACTIONS.map((a?) => a.key));
-const DEFAULT_MESSAGES_LIMIT = 1000;
+/** null = tutti i messaggi salvati nello snapshot (ripristino integrale). */
+const DEFAULT_MESSAGES_LIMIT = null;
 const MAX_MESSAGES_LIMIT = 50000;
 const SESSION_TTL_MS = 1000 * 60 * 20;
 const ACTIVE_LOAD_STALE_MS = 1000 * 60 * 60 * 6;
@@ -138,16 +139,22 @@ function sanitizeActions(values?) {
 }
 
 function normalizeMessagesLimit(value?, fallback = DEFAULT_MESSAGES_LIMIT) {
-  const raw = String(value ?? "").trim().toUpperCase();
+  if (value === null || value === undefined || value === "") {
+    if (fallback === null || fallback === undefined) return null;
+    return normalizeMessagesLimit(fallback, null);
+  }
+  const raw = String(value).trim().toUpperCase();
   if (raw === "ALL" || raw === "0" || raw === "NONE" || raw === "UNLIMITED") {
     return null;
   }
-  const num = Number(raw || fallback);
+  const num = Number(raw);
   if (!Number.isFinite(num)) {
-    return Number(fallback || DEFAULT_MESSAGES_LIMIT);
+    if (fallback === null || fallback === undefined) return null;
+    const fb = Number(fallback);
+    if (!Number.isFinite(fb)) return null;
+    return Math.max(1, Math.min(MAX_MESSAGES_LIMIT, Math.floor(fb)));
   }
-  const safe = Math.max(1, Math.min(MAX_MESSAGES_LIMIT, Math.floor(num)));
-  return safe;
+  return Math.max(1, Math.min(MAX_MESSAGES_LIMIT, Math.floor(num)));
 }
 
 function formatMessagesLimit(limit?) {

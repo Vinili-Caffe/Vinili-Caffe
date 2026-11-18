@@ -68,6 +68,10 @@ async function main(shared?: { client?: any } | null) {
   const client = shared?.client || (await createSiteApiRestClient(config, token));
   global.botClient = client;
   startPartnershipHistoryMigrationWorker(client);
+  try {
+    const { startExternalWorkerHeartbeat } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+    startExternalWorkerHeartbeat("PARTNERSHIP_MIGRATION");
+  } catch (_) {}
   if (require.main === module) {
     console.log(
       `[PARTNERSHIP-MIGRATION] ready as ${client.user?.tag || client.user?.username || "bot"}`,

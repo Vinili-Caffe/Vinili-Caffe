@@ -7,6 +7,20 @@ const T = require("../core/tenantCommunityTools") as typeof import("../core/tena
 const { E } = require("../../shared/emojis/emojiCatalog") as typeof import("../../shared/emojis/emojiCatalog");
 const { getClientGuildCached, getGuildChannelCached } = require("../../shared/discord/interactionEntityCache") as typeof import("../../shared/discord/interactionEntityCache");
 
+/** Fetch con 2–3 tentativi (TikTok/IG/YT scrape falliscono spesso al primo colpo). */
+async function fetchRetry(url?, init?: any, tries = 3) {
+  let last: any = null;
+  for (let i = 0; i < tries; i++) {
+    last = await fetch(url, init).catch((err?) => err);
+    if (last && typeof last.ok === "boolean") {
+      if (last.ok) return last;
+      if (last.status === 404 || last.status === 401 || last.status === 403) return last;
+    }
+    await new Promise((r?) => setTimeout(r, 350 * (i + 1)));
+  }
+  return last && typeof last.ok === "boolean" ? last : null;
+}
+
 type LivePlatform = "twitch" | "youtube" | "kick" | "tiktok" | "instagram";
 const PLATFORMS: LivePlatform[] = ["twitch", "youtube", "kick", "tiktok", "instagram"];
 const SEED_VERSION = 3;
@@ -704,10 +718,10 @@ async function resolveYoutubeChannelId(handleOrId: string): Promise<string | nul
   }
   if (!id) {
     /* senza chiave (o handle non trovato): dalla pagina pubblica del canale */
-    const res = await fetch(`https://www.youtube.com/@${encodeURIComponent(raw)}`, {
+    const res = await fetchRetry(`https://www.youtube.com/@${encodeURIComponent(raw)}`, {
       headers: { "User-Agent": "Mozilla/5.0", "Accept-Language": "it-IT,it;q=0.9" },
       signal: AbortSignal.timeout(15_000),
-    }).catch(() => null);
+    });
     const html = res?.ok ? await res.text().catch(() => "") : "";
     id = (html.match(/"(?:channelId|externalId)":"(UC[\w-]{20,})"/) || html.match(/youtube\.com\/channel\/(UC[\w-]{20,})/) || [])[1] || "";
   }
@@ -818,10 +832,10 @@ async function fetchKickLives(slugs: string[]): Promise<Map<string, LiveSnap>> {
   const out = new Map<string, LiveSnap>();
   for (const slug of slugs) {
     try {
-      const res = await fetch(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`, {
+      const res = await fetchRetry(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`, {
         headers: { Accept: "application/json", "User-Agent": "ViniliLiveBot/1.0" },
         signal: AbortSignal.timeout(15_000),
-      }).catch(() => null);
+      });
       if (!res?.ok) continue;
       const data: any = await res.json().catch(() => ({}));
       const live = data?.livestream;
@@ -853,11 +867,11 @@ async function fetchTikTokLives(ids: string[]): Promise<Map<string, LiveSnap>> {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       };
       if (session) headers.Cookie = `sessionid=${session}`;
-      const res = await fetch(`https://www.tiktok.com/@${encodeURIComponent(uniqueId)}/live`, {
+      const res = await fetchRetry(`https://www.tiktok.com/@${encodeURIComponent(uniqueId)}/live`, {
         headers,
         redirect: "follow",
         signal: AbortSignal.timeout(15_000),
-      }).catch(() => null);
+      });
       if (!res) continue;
       const html = await res.text().catch(() => "");
       const isLive = /"status"\s*:\s*2\b/.test(html) || /"isLive"\s*:\s*true/i.test(html) || /"liveRoomUserInfo"/.test(html);
@@ -892,11 +906,11 @@ async function fetchTikTokPosts(ids: string[]): Promise<Map<string, LiveSnap>> {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       };
       if (session) headers.Cookie = `sessionid=${session}`;
-      const res = await fetch(`https://www.tiktok.com/@${encodeURIComponent(uniqueId)}`, {
+      const res = await fetchRetry(`https://www.tiktok.com/@${encodeURIComponent(uniqueId)}`, {
         headers,
         redirect: "follow",
         signal: AbortSignal.timeout(15_000),
-      }).catch(() => null);
+      });
       if (!res) continue;
       const html = await res.text().catch(() => "");
       const vid =
@@ -973,10 +987,10 @@ async function fetchInstagram(ids: string[]): Promise<{ lives: Map<string, LiveS
       };
       if (session) headers.Cookie = `sessionid=${session}`;
 
-      const apiRes = await fetch(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`, {
+      const apiRes = await fetchRetry(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`, {
         headers,
         signal: AbortSignal.timeout(15_000),
-      }).catch(() => null);
+      });
 
       let user: any = null;
       if (apiRes?.ok) {
@@ -985,10 +999,10 @@ async function fetchInstagram(ids: string[]): Promise<{ lives: Map<string, LiveS
       }
 
       if (!user) {
-        const pageRes = await fetch(`https://www.instagram.com/${encodeURIComponent(username)}/`, {
+        const pageRes = await fetchRetry(`https://www.instagram.com/${encodeURIComponent(username)}/`, {
           headers: { ...headers, Accept: "text/html" },
           signal: AbortSignal.timeout(15_000),
-        }).catch(() => null);
+        });
         const html = pageRes ? await pageRes.text().catch(() => "") : "";
         const m = html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/i);
         if (/"isLive"\s*:\s*true/i.test(html) || /"broadcast_id"\s*:\s*"?\d+"/i.test(html)) {
@@ -1173,7 +1187,10 @@ async function runLiveAlertsPoll(client?) {
 
     type Job = { guildId: string; platform: LivePlatform; pcfg: PlatformCfg };
     const jobs: Job[] = [];
+    const { isBotPresentInGuild } = require("../../shared/discord/botGuildPresence") as typeof import("../../shared/discord/botGuildPresence");
     for (const [guildId, raw] of Object.entries(all || {})) {
+      /* liveNoBotNoNotif1: niente poll/announce se bot assente dal server */
+      if (!isBotPresentInGuild(client, guildId)) continue;
       if (!MS.isModuleOn(guildId, "live")) continue;
       const cfg = normalizeConfig(raw);
       for (const platform of PLATFORMS) {

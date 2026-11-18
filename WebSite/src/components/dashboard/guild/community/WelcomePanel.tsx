@@ -15,8 +15,7 @@ import {
 import { ExpandableTextarea, Field, FormGroup, Notice, SettingRow, RowsSkeleton, Toggle, TrackUnsaved, fieldClass, labelClass } from "../bits";
 import { ChannelField, DiscordMessagePreview, TestDraftButton, DmExtra, DraftEditor, EditorWithPreview, MEMBER_PLACEHOLDERS, roleOptions, useCommunity, useSampleVars } from "./shared";
 
-/* "dm" e "roles" sono vecchi link: ora stanno dentro Benvenuto */
-type Tab = "welcome" | "goodbye" | "dm" | "roles";
+type Tab = "welcome" | "goodbye";
 
 const GOODBYE_DM_DEFAULT = { enabled: false, draft: emptyDraft({ content: "Ciao {username}, ci mancherai in **{server}**!", embed: { ...emptyDraft().embed, enabled: false } }) };
 

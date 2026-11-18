@@ -9,13 +9,16 @@ const ANNOUNCE_CRON = "0 15 * * 1";
 const CLOSE_THREAD_CRON = "0 20 * * 5";
 const FINAL_ANNOUNCEMENT_FRIDAY_CRON = "0 21 * * 5";
 const FINAL_ANNOUNCEMENT_SATURDAY_CRON = "0 12 * * 6";
-const EVENT_START_SWEEP_CRON = "*/2 * * * 3,6";
-const STAGE_CLOSE_SWEEP_CRON = "*/5 * * * 3,4,6,0";
+/* Sweep ogni giorno: serate extra Natale (lun–dom) + sabato ricorrente. */
+const EVENT_START_SWEEP_CRON = "*/2 * * * *";
+const STAGE_CLOSE_SWEEP_CRON = "*/5 * * * *";
 const REVIEW_THREAD_SWEEP_MS = 5 * 60 * 1000;
-const EXTRA_FINAL_EVE_CRON = "0 21 * * 2";
-const EXTRA_FINAL_DAY_CRON = "0 12 * * 3";
-const EXTRA_EVENT_START_SWEEP_CRON = "*/2 * * * 3";
-const EXTRA_STAGE_CLOSE_SWEEP_CRON = "*/5 * * * 3,4";
+/** Vigilia di qualsiasi extra: 21:00 (controlla se domani c’è EXTRA_FIXED). */
+const EXTRA_FINAL_EVE_CRON = "0 21 * * *";
+/** Giorno della serata extra: 12:00. */
+const EXTRA_FINAL_DAY_CRON = "0 12 * * *";
+const EXTRA_EVENT_START_SWEEP_CRON = "*/2 * * * *";
+const EXTRA_STAGE_CLOSE_SWEEP_CRON = "*/5 * * * *";
 
 let movieNightAnnouncementTasks = null;
 let movieNightReviewCloseSweep = null;

@@ -104,6 +104,18 @@ function memberStillInVoiceChannel(member?, channelId?, guild = null) {
   return Boolean(current && current === expected);
 }
 
+/** Dopo await la cache voice può aver perso lo stato (VoiceStateManager limit): refetch se manca. */
+async function memberStillInVoiceChannelResolved(member?, channelId?, guild = null) {
+  const expected = String(channelId || "");
+  const g = guild || member?.guild || null;
+  const uid = String(member?.id || "");
+  if (!expected || !uid) return false;
+  if (memberStillInVoiceChannel(member, expected, g)) return true;
+  if (!g?.members?.fetch) return false;
+  const fresh = await g.members.fetch({ user: uid, force: true }).catch(() => null);
+  return memberStillInVoiceChannel(fresh || member, expected, g);
+}
+
 function isUserDisconnectedVoiceError(err?) {
   const msg = String(err?.message || err || "").toLowerCase();
   return msg.includes("not connected to voice") || msg.includes("target user is not connected");
@@ -153,9 +165,14 @@ function scheduleSpawnedChannelDelete(channel?, client?) {
       forgetSpawnedChannel(channelId);
       return;
     }
-    const fresh =
-      guild.channels.cache.get(channelId) || (await guild.channels.fetch(channelId).catch(() => null));
+    // Fetch obbligatorio: la cache può tenere canali già cancellati (Unknown Channel sul delete).
+    const fresh = await guild.channels.fetch(channelId).catch(() => null);
     if (!fresh?.isVoiceBased?.()) {
+      try {
+        guild.channels.cache.delete(channelId);
+      } catch {
+        /* ignore */
+      }
       forgetSpawnedChannel(channelId);
       return;
     }
@@ -175,6 +192,17 @@ function scheduleSpawnedChannelDelete(channel?, client?) {
       return;
     }
     const deleted = await fresh.delete("Vocale hub temporanea vuota").then(() => true).catch((err?) => {
+      const code = Number(err?.code || err?.rawError?.code || 0);
+      const msg = String(err?.message || err || "");
+      // Cache stale: canale già sparito su Discord → tratta come ok e togli dalla cache locale.
+      if (code === 10003 || /unknown channel/i.test(msg)) {
+        try {
+          guild.channels.cache.delete(channelId);
+        } catch {
+          /* ignore */
+        }
+        return true;
+      }
       global.logger?.warn?.("[publicVoiceHub] empty spawn delete failed:", channelId, err?.message || err);
       return false;
     });
@@ -254,4 +282,4 @@ async function sweepEmptySpawnedHubChannels(client?) {
   return queued;
 }
 
-export = { rememberSpawnedChannel, isSpawnedHubChannel, countHumanMembersResolved, memberStillInVoiceChannel, isUserDisconnectedVoiceError, resolveGuildMemberVoiceState, cleanupUnusedSpawnedChannel, scheduleSpawnedChannelDelete, handlePublicVoiceHubEmpty, sweepEmptySpawnedHubChannels };
+export = { rememberSpawnedChannel, isSpawnedHubChannel, countHumanMembersResolved, memberStillInVoiceChannel, memberStillInVoiceChannelResolved, isUserDisconnectedVoiceError, resolveGuildMemberVoiceState, cleanupUnusedSpawnedChannel, scheduleSpawnedChannelDelete, handlePublicVoiceHubEmpty, sweepEmptySpawnedHubChannels };

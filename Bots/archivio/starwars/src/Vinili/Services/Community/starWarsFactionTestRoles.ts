@@ -101,6 +101,42 @@ function allFactionRoles(guild?) {
   };
 }
 
+function participantRoleId() {
+  return normalizeId(IDs.roles?.StarWarsEventParticipant || "1572319166638194779");
+}
+
+/**
+ * Ruolo partecipante evento (oltre alla fazione), su main e test se il ruolo esiste.
+ */
+async function applyStarWarsParticipantRole(client?, userId?) {
+  const uid = normalizeId(userId);
+  const rid = participantRoleId();
+  if (!client || !uid || !rid) return { ok: false, error: "bad_args", granted: [] as string[] };
+
+  const guildIds = [...new Set([walletGuildId(client), testGuildId()].filter(Boolean))];
+  const granted: string[] = [];
+  for (const gid of guildIds) {
+    const guild = client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null));
+    if (!guild) continue;
+    const role =
+      guild.roles.cache.get(rid) ||
+      (await guild.roles.fetch(rid).catch(() => null));
+    if (!role) continue;
+    const member = guild.members.cache.get(uid) || (await guild.members.fetch(uid).catch(() => null));
+    if (!member) continue;
+    if (member.roles.cache.has(role.id)) {
+      granted.push(gid);
+      continue;
+    }
+    const added = await member.roles
+      .add(role, "SW smistamento — partecipante evento")
+      .then(() => true)
+      .catch(() => false);
+    if (added) granted.push(gid);
+  }
+  return { ok: granted.length > 0, roleId: rid, granted };
+}
+
 /** Assegna/allinea ruolo fazione su server test da factionId DB. */
 async function applyStarWarsFactionRoleOnTest(
   client?,
@@ -131,6 +167,9 @@ async function applyStarWarsFactionRoleOnTest(
     const added = await member.roles.add(targetRole, "SW smistamento test — da DB").then(() => true).catch(() => false);
     if (!added) return { ok: false, error: "role_add_failed", roleId: targetRole.id };
   }
+  try {
+    await applyStarWarsParticipantRole(client, uid);
+  } catch (_) {}
   return { ok: true, guildId: tg, roleId: targetRole.id, factionId: fid };
 }
 
@@ -174,5 +213,6 @@ export = {
   normalizeFactionId,
   resolveFactionRoleByName,
   applyStarWarsFactionRoleOnTest,
+  applyStarWarsParticipantRole,
   syncStarWarsFactionRolesOnTestFromDb,
 };

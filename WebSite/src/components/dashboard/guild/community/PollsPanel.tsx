@@ -93,7 +93,7 @@ export function PollsPanel({ guildId, token, onToast }: { guildId: string; token
       <FormGroup title="Nuovo sondaggio" description="Usa i sondaggi di Discord: i membri votano direttamente nel messaggio e i risultati arrivano anche qui.">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Domanda">
-            <input value={form.question} maxLength={300} placeholder="es. Che evento facciamo sabato?" onChange={(e) => setForm({ ...form, question: e.target.value })} className={fieldClass} />
+            <input name="pollspanel-input-96" id="pollspanel-input-96" value={form.question} maxLength={300} placeholder="es. Che evento facciamo sabato?" onChange={(e) => setForm({ ...form, question: e.target.value })} className={fieldClass} />
           </Field>
           <ChannelField label="Canale" value={form.channelId} channels={data.pickers.textChannels} onChange={(channelId) => setForm({ ...form, channelId })} />
         </div>
@@ -105,7 +105,7 @@ export function PollsPanel({ guildId, token, onToast }: { guildId: string; token
                 <EmojiButton emojis={data.pickers.emojis} onPick={(emoji) => setAnswer(i, { emoji })} label="Emoji della risposta">
                   {a.emoji ? <EmojiGlyph value={a.emoji} /> : <Smile className="size-3.5" />}
                 </EmojiButton>
-                <input value={a.text} maxLength={55} placeholder={`Risposta ${i + 1}`} onChange={(e) => setAnswer(i, { text: e.target.value })} className={cn(fieldClass, "mt-0 py-1.5")} />
+                <input name="pollspanel-input-108" id="pollspanel-input-108" value={a.text} maxLength={55} placeholder={`Risposta ${i + 1}`} onChange={(e) => setAnswer(i, { text: e.target.value })} className={cn(fieldClass, "mt-0 py-1.5")} />
                 {form.answers.length > 2 ? (
                   <button type="button" aria-label="Togli la risposta" className={miniBtn} onClick={() => setForm({ ...form, answers: form.answers.filter((_, j) => j !== i) })}>
                     <X className="size-3.5" />

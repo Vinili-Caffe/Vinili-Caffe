@@ -631,8 +631,12 @@ async function setStarWarsFaction(client, { guildId, userId, factionId, epoch = 
     const current = await getStarWarsWallet(g, u, eventKey);
     if (current.factionId) {
       try {
-        const { applyStarWarsFactionRoleOnTest } = require("./starWarsFactionTestRoles") as typeof import("./starWarsFactionTestRoles");
+        const {
+          applyStarWarsFactionRoleOnTest,
+          applyStarWarsParticipantRole,
+        } = require("./starWarsFactionTestRoles") as typeof import("./starWarsFactionTestRoles");
         await applyStarWarsFactionRoleOnTest(client, { userId: u, factionId: current.factionId });
+        await applyStarWarsParticipantRole(client, u);
       } catch (_) {}
       return {
         ok: false,
@@ -647,8 +651,12 @@ async function setStarWarsFaction(client, { guildId, userId, factionId, epoch = 
   }
 
   try {
-    const { applyStarWarsFactionRoleOnTest } = require("./starWarsFactionTestRoles") as typeof import("./starWarsFactionTestRoles");
+    const {
+      applyStarWarsFactionRoleOnTest,
+      applyStarWarsParticipantRole,
+    } = require("./starWarsFactionTestRoles") as typeof import("./starWarsFactionTestRoles");
     await applyStarWarsFactionRoleOnTest(client, { userId: u, factionId: fid });
+    await applyStarWarsParticipantRole(client, u);
   } catch (_) {}
 
   /* Primo smistato della fazione → rango massimo (bootstrap senza comandi HS). */

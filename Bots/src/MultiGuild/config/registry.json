@@ -13,7 +13,7 @@
       "level": false,
       "stats": false,
       "economy": false,
-      "ticket": true,
+      "ticket": false,
       "security": false,
       "community_automations": false,
       "website": false,

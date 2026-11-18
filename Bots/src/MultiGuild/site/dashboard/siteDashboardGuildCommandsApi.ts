@@ -244,6 +244,23 @@ async function buildCommandsResponse(client?, accessToken?, guildId?, opts: Reco
       }
     }
   } catch (_) {}
+  /* modulo spento o senza setup minimo → comandi in elenco ma bloccati */
+  try {
+    if (!isViniliFullFeatureGuild(guildId) && !isViniliProtectedGuild(guildId)) {
+      const MS = require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches");
+      const { emptyAcl, cloneCommandAcl } = require("../../core/tenantCommandAcl") as typeof import("../../core/tenantCommandAcl");
+      for (const cat of catalog || []) {
+        for (const cmd of cat.commands || []) {
+          const name = String(cmd?.name || "").trim();
+          if (!name) continue;
+          const mod = MS.moduleForCommand(name);
+          if (!mod || MS.isModuleEffectivelyOn(guildId, mod)) continue;
+          const prev = commands[name] ? cloneCommandAcl(commands[name]) : emptyAcl();
+          commands[name] = { ...prev, enabled: false, moduleFeatureLocked: true };
+        }
+      }
+    }
+  } catch (_) {}
   const prefix = getTenantPrefixSync(guildId, "+");
     const pickers = await listGuildPickerData(client, guildId).catch(() => ({
     textChannels: [],

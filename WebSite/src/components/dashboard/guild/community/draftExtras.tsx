@@ -55,7 +55,7 @@ export function FieldsEditor({ fields, onChange }: { fields: MsgField[]; onChang
           {fields.map((f, i) => (
             <li key={i} className="space-y-2 rounded-lg bg-espresso/40 p-2 ring-1 ring-sand/10">
               <div className="flex flex-wrap items-center gap-2">
-                <input value={f.name} maxLength={256} placeholder="Nome del campo" onChange={(ev) => set(i, { name: ev.target.value })} className={cn(fieldClass, "mt-0 min-w-40 flex-1 py-1.5")} />
+                <input name="draftextras-input-58" id="draftextras-input-58" value={f.name} maxLength={256} placeholder="Nome del campo" onChange={(ev) => set(i, { name: ev.target.value })} className={cn(fieldClass, "mt-0 min-w-40 flex-1 py-1.5")} />
                 <label className="flex items-center gap-2 text-xs text-crema/75">
                   <Toggle size="sm" checked={f.inline} onChange={(inline) => set(i, { inline })} label="Affiancato" />
                   Affiancato
@@ -132,8 +132,8 @@ export function LinkButtonsEditor({
               <EmojiButton emojis={emojis} onPick={(emoji) => set(i, { emoji })} label="Emoji del pulsante">
                 {b.emoji ? <EmojiGlyph value={b.emoji} /> : <Smile className="size-3.5" />}
               </EmojiButton>
-              <input value={b.label} maxLength={80} placeholder="Testo" onChange={(ev) => set(i, { label: ev.target.value })} className={cn(fieldClass, "mt-0 w-36 flex-1 py-1.5")} />
-              <input value={b.url} placeholder="https://…" onChange={(ev) => set(i, { url: ev.target.value })} className={cn(fieldClass, "mt-0 min-w-40 flex-[2] py-1.5")} />
+              <input name="draftextras-input-135" id="draftextras-input-135" value={b.label} maxLength={80} placeholder="Testo" onChange={(ev) => set(i, { label: ev.target.value })} className={cn(fieldClass, "mt-0 w-36 flex-1 py-1.5")} />
+              <input name="draftextras-input-136" id="draftextras-input-136" value={b.url} placeholder="https://…" onChange={(ev) => set(i, { url: ev.target.value })} className={cn(fieldClass, "mt-0 min-w-40 flex-[2] py-1.5")} />
               {withRows ? (
                 <div className="w-24">
                   <Select
@@ -254,8 +254,8 @@ export function V2Editor({
                       <EmojiButton emojis={emojis} onPick={(emoji) => setBlock(i, { ...b, button: { ...b.button, emoji } })} label="Emoji del pulsante">
                         {b.button.emoji ? <EmojiGlyph value={b.button.emoji} /> : <Smile className="size-3.5" />}
                       </EmojiButton>
-                      <input value={b.button.label} maxLength={80} placeholder="Testo" onChange={(ev) => setBlock(i, { ...b, button: { ...b.button, label: ev.target.value } })} className={cn(fieldClass, "mt-0 w-36 flex-1 py-1.5")} />
-                      <input value={b.button.url} placeholder="https://…" onChange={(ev) => setBlock(i, { ...b, button: { ...b.button, url: ev.target.value } })} className={cn(fieldClass, "mt-0 min-w-40 flex-[2] py-1.5")} />
+                      <input name="draftextras-input-257" id="draftextras-input-257" value={b.button.label} maxLength={80} placeholder="Testo" onChange={(ev) => setBlock(i, { ...b, button: { ...b.button, label: ev.target.value } })} className={cn(fieldClass, "mt-0 w-36 flex-1 py-1.5")} />
+                      <input name="draftextras-input-258" id="draftextras-input-258" value={b.button.url} placeholder="https://…" onChange={(ev) => setBlock(i, { ...b, button: { ...b.button, url: ev.target.value } })} className={cn(fieldClass, "mt-0 min-w-40 flex-[2] py-1.5")} />
                     </div>
                   )}
                 </div>
@@ -365,15 +365,31 @@ function PreviewLinkButton({ b, fill, vars }: { b: V2LinkButton; fill: (s: strin
 }
 
 export function V2Preview({ v2, vars, names, fill }: { v2: MsgV2; vars: Record<string, string>; names: Names; fill: (s: string, v: Record<string, string>) => string }) {
+  const previewFallback = (() => {
+    const raw = String(vars.image || vars.imageUrl || "").trim();
+    return /^(https?:\/\/|blob:|data:image\/)/i.test(raw) ? raw : "";
+  })();
   const urlOf = (u: string) => {
     const v = fill(u || "", vars).trim();
     /* blob: = immagini d'esempio generate per l'anteprima (es. la quote del server) */
-    return /^(https?:\/\/|blob:|data:image\/)/i.test(v) ? v : "";
+    if (/^(https?:\/\/|blob:|data:image\/)/i.test(v)) return v;
+    /* bot usa attachment://: in anteprima mostra la preview reale se c’è */
+    if (/^attachment:\/\//i.test(v) && previewFallback) return previewFallback;
+    return "";
   };
+  const hasMedia = v2.blocks.some((b) => b.type === "media" && b.urls.some((u) => Boolean(urlOf(u))));
+  /* come withRoundImageV2 / boardDrafts: se manca la gallery ma c’è {image}, il bot la inietta */
+  const injectRoundImage = !hasMedia && previewFallback;
+  const blocks = [...v2.blocks];
+  if (injectRoundImage) {
+    let at = blocks.length;
+    while (at > 0 && blocks[at - 1]?.type === "buttons") at -= 1;
+    blocks.splice(at, 0, { type: "media", urls: [previewFallback] } as any);
+  }
   const body = (
     <div className="flex flex-col gap-2">
-      {v2.blocks.length ? null : <p className="italic text-[#949ba4]">Messaggio vuoto</p>}
-      {v2.blocks.map((b, i) => {
+      {blocks.length ? null : <p className="italic text-[#949ba4]">Messaggio vuoto</p>}
+      {blocks.map((b, i) => {
         if (b.type === "text") return b.content.trim() ? <DiscordContent key={i} text={fill(b.content, vars)} names={names} className="whitespace-pre-line text-[16px] leading-[22px]" /> : null;
         if (b.type === "section") {
           const thumb = b.accessory === "thumbnail" ? urlOf(b.thumbnailUrl) : "";

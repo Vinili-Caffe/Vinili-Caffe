@@ -204,12 +204,20 @@ function isAnonymousComment(c?) {
   return name === "anonimo" && !String(c.authorAvatarUrl || "").trim();
 }
 
-function publicComment(c?) {
+function commentLikedIdsOf(c?) {
+  return [...new Set((Array.isArray(c?.upvoterUserIds) ? c.upvoterUserIds : []).map((x?) => String(x || "").trim()).filter(Boolean))];
+}
+
+function publicComment(c?, viewerUserId?) {
   if (!c) return null;
   const content = String(c.content || "").trim();
   const imageUrls = signDiscussionImageUrls(c.imageUrls);
   if (!content && !imageUrls.length) return null;
   const anon = isAnonymousComment(c);
+  const viewer = String(viewerUserId || "").trim();
+  const ownerId = String(c.userId || "").trim();
+  const likedUserIds = commentLikedIdsOf(c);
+  const pid = c.parentCommentId ? String(c.parentCommentId) : "";
   return {
     id: String(c._id || ""),
     authorName: anon ? ANON_LABEL : String(c.authorName || "Staff").trim() || "Staff",
@@ -217,15 +225,26 @@ function publicComment(c?) {
     anonymous: anon,
     content,
     imageUrls,
+    parentCommentId: pid && mongoose.isValidObjectId(pid) ? pid : null,
     createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : null,
+    updatedAt: c.updatedAt ? new Date(c.updatedAt).toISOString() : null,
+    likeCount: likedUserIds.length,
+    likedByViewer: Boolean(viewer && likedUserIds.includes(viewer)),
+    /* Never expose comment author id — only whether the viewer wrote it. */
+    isMine: Boolean(ownerId && viewer && ownerId === viewer),
   };
 }
 
+function likedIdsOf(doc?) {
+  return [...new Set((Array.isArray(doc?.likedUserIds) ? doc.likedUserIds : []).map((x?) => String(x || "").trim()).filter(Boolean))];
+}
+
 function publicItem(doc?, viewerUserId?) {
-  const comments = (Array.isArray(doc?.comments) ? doc.comments : []).map(publicComment).filter(Boolean);
-  const ownerId = String(doc?.userId || "").trim();
   const viewer = String(viewerUserId || "").trim();
+  const comments = (Array.isArray(doc?.comments) ? doc.comments : []).map((c?) => publicComment(c, viewer)).filter(Boolean);
+  const ownerId = String(doc?.userId || "").trim();
   const status = normalizeConfessionStatus(doc?.status);
+  const likedUserIds = likedIdsOf(doc);
   return {
     id: String(doc?._id || ""),
     content: String(doc?.content || ""),
@@ -235,11 +254,48 @@ function publicItem(doc?, viewerUserId?) {
     decidedAt: doc?.decidedAt ? new Date(doc.decidedAt).toISOString() : null,
     comments,
     commentCount: comments.length,
+    likeCount: likedUserIds.length,
+    likedByViewer: Boolean(viewer && likedUserIds.includes(viewer)),
     board: confessionBoardOf(doc),
     /* Never expose ownerId — only whether the viewer wrote it. */
     isMine: Boolean(ownerId && viewer && ownerId === viewer),
   };
 }
+
+function findCommentIndex(comments?, commentId?) {
+  const id = String(commentId || "").trim();
+  if (!id) return -1;
+  return (Array.isArray(comments) ? comments : []).findIndex((c?) => String(c?._id || "") === id);
+}
+
+async function loadActiveConfessionDoc(id?) {
+  const doc = await SiteDocument.findOne({ _id: id, docType: DOC });
+  if (!doc) {
+    return { ok: false, status: 404, error: "not_found", message: "Messaggio non trovato." };
+  }
+  const status = normalizeConfessionStatus(doc.status);
+  if (status !== "active") {
+    return {
+      ok: false,
+      status: 400,
+      error: "discussion_closed",
+      message: "Discussione chiusa: non si possono modificare i commenti.",
+    };
+  }
+  return { ok: true, doc, status };
+}
+
+const CONFESSION_PUBLIC_SELECT = {
+  content: 1,
+  createdAt: 1,
+  status: 1,
+  comments: 1,
+  userId: 1,
+  staffReason: 1,
+  decidedAt: 1,
+  confessionBoard: 1,
+  likedUserIds: 1,
+};
 
 async function requireStaff(client?, req?, res?) {
   const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -398,31 +454,27 @@ async function handleSiteConfessionaleGet(client?, req?, res?) {
       });
     }
 
-    /* Include active + resolved + soft_deleted (legacy deleted). */
+    /* Include active + resolved + soft_deleted (legacy deleted).
+     * $and obbligatorio: boardListQuery(staff) usa già $or e verrebbe sovrascritto. */
     const docs = await SiteDocument.find({
       docType: DOC,
-      ...boardListQuery(board),
-      $or: [
-        { status: "active" },
-        { status: "resolved" },
-        { status: "soft_deleted" },
-        { status: "deleted" },
-        { status: null },
-        { status: { $exists: false } },
+      $and: [
+        boardListQuery(board),
+        {
+          $or: [
+            { status: "active" },
+            { status: "resolved" },
+            { status: "soft_deleted" },
+            { status: "deleted" },
+            { status: null },
+            { status: { $exists: false } },
+          ],
+        },
       ],
     })
       .sort({ createdAt: -1 })
       .limit(LIST_LIMIT)
-      .select({
-        content: 1,
-        createdAt: 1,
-        status: 1,
-        comments: 1,
-        userId: 1,
-        staffReason: 1,
-        decidedAt: 1,
-        confessionBoard: 1,
-      })
+      .select(CONFESSION_PUBLIC_SELECT)
       .lean();
 
     const items = (docs || []).map((d?) => publicItem(d, viewerId));
@@ -587,6 +639,24 @@ async function handleSiteConfessionaleCommentPost(client?, req?, res?) {
     const displayName = anonymous ? ANON_LABEL : memberDisplayName(auth.member);
     const displayAvatar = anonymous ? "" : memberAvatarUrl(auth.member);
 
+    const rawParent = String(req.body?.parentCommentId || req.body?.parent || "").trim();
+    let parentOid = null;
+    if (rawParent) {
+      if (!mongoose.isValidObjectId(rawParent)) {
+        return res.status(400).json({ ok: false, error: "invalid_parent", message: "ID commento padre non valido." });
+      }
+      const parent = comments.find((x?) => String(x?._id || "") === rawParent);
+      if (!parent) {
+        return res.status(404).json({ ok: false, error: "parent_not_found", message: "Il commento a cui rispondi non esiste." });
+      }
+      /* replyToReply1: risposta a una risposta → stesso thread (root), niente 3° livello */
+      const rootParentId = parent.parentCommentId ? String(parent.parentCommentId) : rawParent;
+      if (!mongoose.isValidObjectId(rootParentId)) {
+        return res.status(400).json({ ok: false, error: "invalid_parent", message: "ID commento padre non valido." });
+      }
+      parentOid = new mongoose.Types.ObjectId(rootParentId);
+    }
+
     const imageUrls = wantImages ? await saveDiscussionImages("confessionale", id, req.body.images) : [];
     if (wantImages && !imageUrls.length && content.length < MIN_COMMENT_LEN) {
       return res.status(400).json({ ok: false, error: "bad_image", message: "Immagine non valida o troppo grande (max 2,5 MB)." });
@@ -598,7 +668,7 @@ async function handleSiteConfessionaleCommentPost(client?, req?, res?) {
       anonymous,
       content,
       imageUrls,
-      parentCommentId: null,
+      parentCommentId: parentOid,
       upvoterUserIds: [],
       downvoterUserIds: [],
     });
@@ -677,7 +747,7 @@ async function handleSiteConfessionaleDeletePost(client?, req?, res?) {
       },
       { new: true },
     )
-      .select({ content: 1, createdAt: 1, status: 1, comments: 1, userId: 1, staffReason: 1, decidedAt: 1 })
+      .select(CONFESSION_PUBLIC_SELECT)
       .lean();
 
     if (!updated) {
@@ -738,7 +808,7 @@ async function handleSiteConfessionaleResolvePost(client?, req?, res?) {
       },
       { new: true },
     )
-      .select({ content: 1, createdAt: 1, status: 1, comments: 1, userId: 1, staffReason: 1, decidedAt: 1 })
+      .select(CONFESSION_PUBLIC_SELECT)
       .lean();
 
     if (!updated) {
@@ -796,7 +866,7 @@ async function handleSiteConfessionaleReopenPost(client?, req?, res?) {
       },
       { new: true },
     )
-      .select({ content: 1, createdAt: 1, status: 1, comments: 1, userId: 1, staffReason: 1, decidedAt: 1 })
+      .select(CONFESSION_PUBLIC_SELECT)
       .lean();
 
     if (!updated) {
@@ -815,11 +885,263 @@ async function handleSiteConfessionaleReopenPost(client?, req?, res?) {
   }
 }
 
+async function handleSiteConfessionaleCommentPatch(client?, req?, res?) {
+  try {
+    const auth = await requireStaff(client, req, res);
+    if (!auth) return;
+
+    const id = String(req.params?.id || "").trim();
+    const commentId = String(req.params?.commentId || "").trim();
+    if (!id || !mongoose.isValidObjectId(id) || !commentId || !mongoose.isValidObjectId(commentId)) {
+      return res.status(400).json({ ok: false, error: "invalid_id", message: "ID non valido." });
+    }
+
+    const content = sanitizeContent(req.body?.content ?? req.body?.text ?? req.body?.message, MAX_COMMENT_LEN);
+    if (content.length < MIN_COMMENT_LEN) {
+      return res.status(400).json({
+        ok: false,
+        error: "content_too_short",
+        message: "Il commento è troppo breve.",
+      });
+    }
+
+    const userId = memberUserId(auth.member);
+    if (!userId) {
+      return res.status(401).json({ ok: false, error: "unauthorized", message: "Accesso staff richiesto." });
+    }
+
+    const loaded = await loadActiveConfessionDoc(id);
+    if (!loaded.ok) {
+      return res.status(loaded.status).json({ ok: false, error: loaded.error, message: loaded.message });
+    }
+
+    const comments = Array.isArray(loaded.doc.comments) ? loaded.doc.comments : [];
+    const idx = findCommentIndex(comments, commentId);
+    if (idx < 0) {
+      return res.status(404).json({ ok: false, error: "comment_not_found", message: "Commento non trovato." });
+    }
+    if (String(comments[idx].userId || "") !== userId) {
+      return res.status(403).json({ ok: false, error: "forbidden", message: "Puoi modificare solo i tuoi commenti." });
+    }
+
+    comments[idx].content = content;
+    (loaded.doc as any).comments = comments;
+    loaded.doc.markModified("comments");
+    await loaded.doc.save();
+
+    broadcastSiteConfessionaleChanged("comment_edited");
+    return res.status(200).json({
+      ok: true,
+      item: publicItem(loaded.doc.toObject ? loaded.doc.toObject() : loaded.doc, userId),
+      message: "Commento aggiornato.",
+    });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-confessionale comment patch:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+async function handleSiteConfessionaleCommentDelete(client?, req?, res?) {
+  try {
+    const auth = await requireStaff(client, req, res);
+    if (!auth) return;
+
+    const id = String(req.params?.id || "").trim();
+    const commentId = String(req.params?.commentId || "").trim();
+    if (!id || !mongoose.isValidObjectId(id) || !commentId || !mongoose.isValidObjectId(commentId)) {
+      return res.status(400).json({ ok: false, error: "invalid_id", message: "ID non valido." });
+    }
+
+    const userId = memberUserId(auth.member);
+    if (!userId) {
+      return res.status(401).json({ ok: false, error: "unauthorized", message: "Accesso staff richiesto." });
+    }
+
+    const loaded = await loadActiveConfessionDoc(id);
+    if (!loaded.ok) {
+      return res.status(loaded.status).json({ ok: false, error: loaded.error, message: loaded.message });
+    }
+
+    const comments = Array.isArray(loaded.doc.comments) ? loaded.doc.comments : [];
+    const idx = findCommentIndex(comments, commentId);
+    if (idx < 0) {
+      return res.status(404).json({ ok: false, error: "comment_not_found", message: "Commento non trovato." });
+    }
+
+    const authorId = String(comments[idx].userId || "").trim();
+    const isOwn = authorId === userId;
+    if (!isOwn && !auth.canModerate) {
+      return res.status(403).json({ ok: false, error: "forbidden", message: "Non puoi eliminare questo commento." });
+    }
+
+    const removeIds = new Set([commentId]);
+    for (const c of comments) {
+      if (String(c?.parentCommentId || "") === commentId) removeIds.add(String(c._id));
+    }
+    (loaded.doc as any).comments = comments.filter((c?) => !removeIds.has(String(c?._id || "")));
+    loaded.doc.markModified("comments");
+    await loaded.doc.save();
+
+    broadcastSiteConfessionaleChanged("comment_deleted");
+    return res.status(200).json({
+      ok: true,
+      item: publicItem(loaded.doc.toObject ? loaded.doc.toObject() : loaded.doc, userId),
+      message: "Commento eliminato.",
+    });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-confessionale comment delete:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+async function handleSiteConfessionaleCommentLikePost(client?, req?, res?) {
+  try {
+    const accessToken = normalizeHeaderSecret(req.headers.authorization);
+    const viewerAuth = await resolveConfessionaleViewer(client, accessToken);
+    if (!viewerAuth.ok || !viewerAuth.member) {
+      return res.status(401).json({
+        ok: false,
+        error: "unauthorized",
+        message: "Accedi con Discord per mettere mi piace.",
+      });
+    }
+    const viewerId = String(viewerAuth.userId || "").trim();
+    if (!viewerId) {
+      return res.status(401).json({ ok: false, error: "unauthorized", message: "Accedi con Discord per mettere mi piace." });
+    }
+
+    const id = String(req.params?.id || "").trim();
+    const commentId = String(req.params?.commentId || "").trim();
+    if (!id || !mongoose.isValidObjectId(id) || !commentId || !mongoose.isValidObjectId(commentId)) {
+      return res.status(400).json({ ok: false, error: "invalid_id", message: "ID non valido." });
+    }
+
+    const doc = await SiteDocument.findOne({ _id: id, docType: DOC }).select(CONFESSION_PUBLIC_SELECT);
+    if (!doc) {
+      return res.status(404).json({ ok: false, error: "not_found", message: "Messaggio non trovato." });
+    }
+
+    const board = confessionBoardOf(doc);
+    if (board === "staff" && !viewerAuth.canAccessStaffBoard) {
+      return res.status(403).json({
+        ok: false,
+        error: "forbidden",
+        message: "Il Confessionale staff è riservato allo staff operativo.",
+      });
+    }
+
+    const comments = Array.isArray(doc.comments) ? doc.comments : [];
+    const idx = findCommentIndex(comments, commentId);
+    if (idx < 0) {
+      return res.status(404).json({ ok: false, error: "comment_not_found", message: "Commento non trovato." });
+    }
+
+    const c = comments[idx];
+    if (String(c.userId || "") === viewerId) {
+      return res.status(403).json({
+        ok: false,
+        error: "cannot_like_own",
+        message: "Non puoi mettere mi piace al tuo commento.",
+      });
+    }
+
+    const likes = commentLikedIdsOf(c);
+    const liked = likes.includes(viewerId);
+    const next = liked ? likes.filter((x) => x !== viewerId) : [...likes, viewerId];
+    c.upvoterUserIds = next;
+    (doc as any).comments = comments;
+    doc.markModified("comments");
+    await doc.save();
+
+    broadcastSiteConfessionaleChanged(liked ? "comment_unliked" : "comment_liked");
+    const item = publicItem(doc.toObject ? doc.toObject() : doc, viewerId);
+    const pub = item.comments.find((x) => x.id === commentId) || null;
+    return res.status(200).json({
+      ok: true,
+      item,
+      liked: Boolean(pub?.likedByViewer),
+      likeCount: Number(pub?.likeCount || 0),
+    });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-confessionale comment like:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
+async function handleSiteConfessionaleLikePost(client?, req?, res?) {
+  try {
+    const accessToken = normalizeHeaderSecret(req.headers.authorization);
+    const viewerAuth = await resolveConfessionaleViewer(client, accessToken);
+    if (!viewerAuth.ok || !viewerAuth.member) {
+      return res.status(401).json({
+        ok: false,
+        error: "unauthorized",
+        message: "Accedi con Discord per mettere mi piace.",
+      });
+    }
+    const viewerId = String(viewerAuth.userId || "").trim();
+    if (!viewerId) {
+      return res.status(401).json({ ok: false, error: "unauthorized", message: "Accedi con Discord per mettere mi piace." });
+    }
+
+    const id = String(req.params?.id || "").trim();
+    if (!id || !mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ ok: false, error: "invalid_id", message: "ID non valido." });
+    }
+
+    const doc = await SiteDocument.findOne({ _id: id, docType: DOC }).select(CONFESSION_PUBLIC_SELECT);
+    if (!doc) {
+      return res.status(404).json({ ok: false, error: "not_found", message: "Messaggio non trovato." });
+    }
+
+    const board = confessionBoardOf(doc);
+    if (board === "staff" && !viewerAuth.canAccessStaffBoard) {
+      return res.status(403).json({
+        ok: false,
+        error: "forbidden",
+        message: "Il Confessionale staff è riservato allo staff operativo.",
+      });
+    }
+
+    const ownerId = String(doc.userId || "").trim();
+    if (ownerId && ownerId === viewerId) {
+      return res.status(403).json({
+        ok: false,
+        error: "cannot_like_own",
+        message: "Non puoi mettere mi piace alla tua confessione.",
+      });
+    }
+
+    const likes = likedIdsOf(doc);
+    const liked = likes.includes(viewerId);
+    const next = liked ? likes.filter((x) => x !== viewerId) : [...likes, viewerId];
+    (doc as any).likedUserIds = next;
+    doc.markModified("likedUserIds");
+    await doc.save();
+
+    broadcastSiteConfessionaleChanged(liked ? "unliked" : "liked");
+    const item = publicItem(doc.toObject ? doc.toObject() : doc, viewerId);
+    return res.status(200).json({
+      ok: true,
+      item,
+      liked: item.likedByViewer,
+      likeCount: item.likeCount,
+    });
+  } catch (err) {
+    global.logger?.error?.("[WEBHOOK] site-confessionale like:", err);
+    return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+  }
+}
+
 export = {
   handleSiteConfessionaleGet,
   handleSiteConfessionalePost,
   handleSiteConfessionaleCommentPost,
+  handleSiteConfessionaleCommentPatch,
+  handleSiteConfessionaleCommentDelete,
+  handleSiteConfessionaleCommentLikePost,
   handleSiteConfessionaleDeletePost,
   handleSiteConfessionaleResolvePost,
   handleSiteConfessionaleReopenPost,
+  handleSiteConfessionaleLikePost,
 };

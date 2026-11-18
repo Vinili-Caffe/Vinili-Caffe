@@ -11,7 +11,7 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** "YYYY-MM-DDTHH:mm" (ora locale, come <input type="datetime-local">) → Date */
+/** "YYYY-MM-DDTHH:mm" (ora locale, come input datetime-local) → Date */
 function parseLocal(v: string): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(v || "");
   if (!m) return null;
@@ -35,7 +35,7 @@ function label(d: Date) {
 
 /**
  * Campo data + ora custom (calendario e colonne ore/minuti in un pannello in portal, niente picker del sistema).
- * Valore come <input type="datetime-local">: "2026-11-14T21:00", ora locale.
+ * Valore come input datetime-local: "2026-11-14T21:00", ora locale.
  */
 export function DateTimeField({
   value,

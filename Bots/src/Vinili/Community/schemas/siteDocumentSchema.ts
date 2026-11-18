@@ -43,6 +43,8 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
     STARWARS_EVENT_STATE: "starwars_event_state",
     /* siteAgeAttest1: autodichiarazione età sito (ok|blocked, immutabile) */
     SITE_AGE_ATTESTATION: "site_age_attestation",
+    /** Albero di Natale community — una palla per utente. */
+    XMAS_TREE_ORNAMENT: "xmas_tree_ornament",
 });
 
 const siteSuggestionCommentSchema = new Schema(
@@ -55,6 +57,8 @@ const siteSuggestionCommentSchema = new Schema(
     content: { type: String, default: "", trim: true, maxlength: 1200 },
     imageUrls: { type: [String], default: [] },
     parentCommentId: { type: Schema.Types.ObjectId, default: null },
+    /* confessionale / bacheca: commento senza nome (authorName = Anonimo) */
+    anonymous: { type: Boolean, default: false },
     upvoterUserIds: { type: [String], default: [] },
     downvoterUserIds: { type: [String], default: [] },
   },
@@ -513,6 +517,25 @@ siteDocumentSchema.index(
       docType: SITE_DOC.SITE_AGE_ATTESTATION,
       userId: { $type: "string", $gt: "" },
     },
+  },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, userId: 1 },
+  {
+    unique: true,
+    name: "xmas_tree_ornament_user_unique",
+    partialFilterExpression: {
+      docType: SITE_DOC.XMAS_TREE_ORNAMENT,
+      guildId: { $type: "string", $gt: "" },
+      userId: { $type: "string", $gt: "" },
+    },
+  },
+);
+siteDocumentSchema.index(
+  { docType: 1, guildId: 1, updatedAt: -1 },
+  {
+    name: "xmas_tree_ornament_guild_updated",
+    partialFilterExpression: { docType: SITE_DOC.XMAS_TREE_ORNAMENT },
   },
 );
 

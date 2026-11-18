@@ -12,10 +12,12 @@ import {
   COUNTDOWN_LEAD_MS,
   COUNTDOWN_MP3,
   CREDITS_SKIP,
-  FILM_POSTER,
   FINAL_COUNTDOWN_MS,
   SERATA_EVENT,
+  SERATA_XMAS_NIGHTS,
   countdownParts,
+  filmPoster,
+  filmSynopsis,
   filmTitle,
   loadSerataAccess,
   liveFilmStartMs,
@@ -106,10 +108,13 @@ export function SerataBoard() {
   const cdAudioRef = useRef<HTMLAudioElement | null>(null);
   const cdTriggeredRef = useRef(false);
   const cdWarmRef = useRef(false);
-  const title = filmTitle();
+  const clock = now ?? Date.now();
+  const title = filmTitle(SERATA_EVENT, clock);
+  const poster = filmPoster(SERATA_EVENT, clock);
+  const synopsis = filmSynopsis(SERATA_EVENT, clock);
   // serata già iniziata (entro 4 ore): il countdown resta a zero e il film si può avviare
   const liveStart = now == null ? null : liveFilmStartMs(SERATA_EVENT, now);
-  const target = liveStart ?? nextFilmAtMs(SERATA_EVENT, now ?? Date.now());
+  const target = liveStart ?? nextFilmAtMs(SERATA_EVENT, clock);
   const leftMs = now == null ? Number.POSITIVE_INFINITY : Math.max(0, target - now);
   const inFinal10 = now != null && leftMs > 0 && leftMs <= FINAL_COUNTDOWN_MS;
   const inCountdownLead = now != null && leftMs > 0 && leftMs <= COUNTDOWN_LEAD_MS;
@@ -382,9 +387,34 @@ export function SerataBoard() {
           <h2 className="mt-4 font-display text-4xl font-semibold sm:text-5xl">
             Prossima serata: <span className="italic text-sand">{title}</span>
           </h2>
+          {synopsis ? <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-crema/70 sm:text-base">{synopsis}</p> : null}
           <div className="mt-8">
             <Countdown now={now} target={target} />
           </div>
+          {SERATA_XMAS_NIGHTS.length ? (
+            <ul className="mx-auto mt-8 grid max-w-3xl gap-2 text-left sm:grid-cols-2">
+              {SERATA_XMAS_NIGHTS.map((n) => {
+                const active = n.title === title;
+                return (
+                  <li
+                    key={n.id}
+                    className={cn(
+                      "flex items-center gap-3 rounded-2xl bg-espresso/45 p-2.5 ring-1 ring-sand/10",
+                      active && "ring-caramel/40",
+                    )}
+                  >
+                    <img src={n.poster} alt="" className="h-16 w-11 shrink-0 rounded-md object-cover" />
+                    <div className="min-w-0">
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/45">
+                        {n.date.slice(8)}/{n.date.slice(5, 7)} · 21:00
+                      </p>
+                      <p className={cn("truncate text-sm font-medium", active ? "text-sand" : "text-crema/85")}>{n.title}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
         </div>
 
         <div className="relative mt-10">
@@ -408,7 +438,7 @@ export function SerataBoard() {
                 className="aspect-video w-full bg-black"
                 playsInline
                 preload="auto"
-                poster={FILM_POSTER}
+                poster={poster}
                 src={stream || undefined}
                 controls={filmPlaying}
                 onPlay={() => {
@@ -439,7 +469,7 @@ export function SerataBoard() {
                   }}
                   aria-label={isLive ? `Avvia ${title}` : undefined}
                 >
-                  <img src={FILM_POSTER} alt="" className="absolute inset-0 size-full object-cover" />
+                  <img src={poster} alt="" className="absolute inset-0 size-full object-cover" />
                   <span className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/40 to-ink/30" />
                 </div>
               ) : null}

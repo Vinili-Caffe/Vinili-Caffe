@@ -122,37 +122,37 @@ async function handleStanzaVoiceLobbyJoin(oldState?, newState?, client?) {
     });
     if (!voiceChannel) return;
 
-    await applyStanzaVoiceCreatePosition(
-      voiceChannel,
-      position,
-      `Stanza temporanea sotto hub per ${member.user?.tag || uid}`,
-    );
-    await placeStanzaAfterGroupTail(
-      voiceChannel,
-      guild,
-      `Stanza temporanea sotto gruppo per ${member.user?.tag || uid}`,
-    ).catch((err?) => {
-      global.logger?.warn?.("[stanza] place under hub failed:", err?.message || err);
-    });
-    try {
-      const { reorderLimitateCategory } = require("../../../shared/voice/voiceHubOrder") as typeof import("../../../shared/voice/voiceHubOrder");
-      await reorderLimitateCategory(guild, client, {
-        parentId: parentId || getStanzaCategoryParentId(),
-        forceFetch: true,
-      });
-      await placeStanzaAfterGroupTail(voiceChannel, guild, "Stanza temporanea ri-ancora sotto hub").catch(
-        () => null,
-      );
-    } catch (eReorder) {
-      global.logger?.warn?.("[stanza] hub reorder after create failed:", eReorder?.message || eReorder);
-    }
-
+    /* Move SUBITO: place/reorder con forceFetch prima faceva fallire setChannel
+       (voice state fuori cache → "not connected" / utente resta in lobby). */
     stanzaPendingOwnerVoiceId.set(uid, voiceChannel.id);
-
-    const movedOk = await member.voice.setChannel(voiceChannel).then(() => true).catch((err?) => {
-      global.logger?.warn?.("[stanza] move failed:", err?.message || err);
-      return false;
-    });
+    let movedOk = false;
+    let liveMember = member;
+    for (let attempt = 0; attempt < 3 && !movedOk; attempt += 1) {
+      liveMember =
+        guild.members.cache.get(uid) ||
+        (await guild.members.fetch({ user: uid, force: attempt > 0 }).catch(() => null)) ||
+        liveMember;
+      if (!liveMember?.voice) break;
+      const inLobby = String(liveMember.voice.channelId || "") === STANZA_LOBBY_VOICE_ID;
+      const alreadyInStanza = String(liveMember.voice.channelId || "") === String(voiceChannel.id);
+      if (alreadyInStanza) {
+        movedOk = true;
+        break;
+      }
+      if (!inLobby && attempt === 0) {
+        // Cache stale: riprova dopo refetch.
+        continue;
+      }
+      if (!inLobby && !alreadyInStanza) break;
+      movedOk = await liveMember.voice
+        .setChannel(voiceChannel)
+        .then(() => true)
+        .catch((err?) => {
+          global.logger?.warn?.("[stanza] move failed:", attempt, err?.message || err);
+          return false;
+        });
+      if (!movedOk) await new Promise((r?) => setTimeout(r, 200));
+    }
     if (!movedOk) {
       stanzaPendingOwnerVoiceId.delete(uid);
       await voiceChannel.delete("Move fallito").catch(() => {});
@@ -162,7 +162,7 @@ async function handleStanzaVoiceLobbyJoin(oldState?, newState?, client?) {
     const refreshed =
       (await guild.channels.fetch(voiceChannel.id).catch(() => null)) || voiceChannel;
 
-    const panel = await postStanzaPanel(guild, member, refreshed, refreshed, {
+    const panel = await postStanzaPanel(guild, liveMember || member, refreshed, refreshed, {
       textChannelId: refreshed.id,
       viceUserId: null,
     });
@@ -183,6 +183,39 @@ async function handleStanzaVoiceLobbyJoin(oldState?, newState?, client?) {
     stanzaOwnerToChannel.set(okKey, refreshed.id);
     persistStanzaSnapshotNow();
     mirrorStanzaPublicToCompanionText(guild, refreshed).catch(() => {});
+
+    const placeReason = `Stanza temporanea sotto hub per ${member.user?.tag || uid}`;
+    const guildId = String(guild.id);
+    const channelId = String(refreshed.id);
+    setImmediate(() => {
+      (async () => {
+        const liveGuild = client.guilds.cache.get(guildId) || (await client.guilds.fetch(guildId).catch(() => null));
+        if (!liveGuild) return;
+        const ch =
+          liveGuild.channels.cache.get(channelId) ||
+          (await liveGuild.channels.fetch(channelId).catch(() => null));
+        if (!ch?.isVoiceBased?.()) return;
+        await applyStanzaVoiceCreatePosition(ch, position, placeReason).catch(() => null);
+        await placeStanzaAfterGroupTail(ch, liveGuild, placeReason).catch((err?) => {
+          global.logger?.warn?.("[stanza] place under hub failed:", err?.message || err);
+        });
+        try {
+          const { reorderLimitateCategory } = require("../../../shared/voice/voiceHubOrder") as typeof import("../../../shared/voice/voiceHubOrder");
+          await reorderLimitateCategory(liveGuild, client, {
+            parentId: parentId || getStanzaCategoryParentId(),
+            forceFetch: true,
+            quick: true,
+          });
+          await placeStanzaAfterGroupTail(ch, liveGuild, "Stanza temporanea ri-ancora sotto hub").catch(
+            () => null,
+          );
+        } catch (eReorder) {
+          global.logger?.warn?.("[stanza] hub reorder after create failed:", eReorder?.message || eReorder);
+        }
+      })().catch((err?) => {
+        global.logger?.warn?.("[stanza] deferred place/reorder failed:", err?.message || err);
+      });
+    });
   } finally {
     stanzaPendingOwnerVoiceId.delete(uid);
     stanzaCreateLocks.delete(uid);

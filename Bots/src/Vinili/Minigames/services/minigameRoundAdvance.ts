@@ -35,12 +35,12 @@ async function updateHangmanBoardMessage(message?, game?, shownWord?) {
     game,
     [shownWord, `Errori: ${hmErr}/${hmMax}`],
     message.client,
-    `solved_${Date.now()}`,
+    "",
   );
-  const hangmanSolvedEmbed = buildHangmanEmbed(
-    game.rewardExp,
-    Math.max(1000, Number(game.endsAt) - Date.now()),
-  );
+  const endsRaw = game?.endsAt;
+  const endsMs = endsRaw instanceof Date ? endsRaw.getTime() : Number(endsRaw);
+  const remainingMs = Number.isFinite(endsMs) && endsMs > 0 ? Math.max(1000, endsMs - Date.now()) : 60_000;
+  const hangmanSolvedEmbed = buildHangmanEmbed(game.rewardExp, remainingMs);
   if (hangmanSolvedAttachment) {
     hangmanSolvedEmbed.setImage(`attachment://${hangmanSolvedAttachment.name}`);
   }

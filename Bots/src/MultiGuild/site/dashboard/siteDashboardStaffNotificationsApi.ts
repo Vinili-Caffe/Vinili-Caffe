@@ -81,7 +81,10 @@ async function listDashboardStaffNotifications(client?, accessToken?) {
     listEventAlertsForGuildIds(guildIds, LIST_LIMIT),
   ]);
   const live = applyReadState(liveRaw, alertsReadAt);
-  const events = eventsRaw.map((row?) => serializeEvent(row, alertsReadAt));
+  /* noNotifIfBotAbsent1: bot_left non finisce nel feed notifiche (solo storico interno) */
+  const events = eventsRaw
+    .filter((row?) => String(row?.type || "").trim().toLowerCase() !== "bot_left")
+    .map((row?) => serializeEvent(row, alertsReadAt));
 
   let staffItems = [];
   const staffFlag = await resolveDashboardHighStaffFlag(client, accessToken);

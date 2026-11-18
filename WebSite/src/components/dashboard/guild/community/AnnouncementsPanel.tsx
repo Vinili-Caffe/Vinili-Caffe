@@ -437,7 +437,7 @@ export function AnnouncementsPanel({
                           label="Cosa va scritto nello status"
                           hint="Uno per riga. Se lo status contiene uno di questi testi, il bot dà il ruolo e manda l'annuncio; se lo toglie, il ruolo va via. Vuoto = i link del server (.gg/viniliecaffe, discord.gg/viniliecaffe, viniliecaffe.it). Maiuscole e spazi non contano."
                         >
-                          <textarea
+                          <textarea name="announcementspanel-textarea-440" id="announcementspanel-textarea-440"
                             rows={4}
                             value={(slot.statusTriggers || []).join("\n")}
                             placeholder={".gg/viniliecaffe\ndiscord.gg/viniliecaffe\nviniliecaffe.it"}
@@ -652,7 +652,7 @@ export function AnnouncementsPanel({
                   <div className="space-y-3 border-t border-sand/10 p-3">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field label="Nome (solo per te)">
-                        <input value={r.name} maxLength={80} onChange={(e) => setRule(r.id, { name: e.target.value })} className={fieldClass} />
+                        <input name="announcementspanel-input-655" id="announcementspanel-input-655" value={r.name} maxLength={80} onChange={(e) => setRule(r.id, { name: e.target.value })} className={fieldClass} />
                       </Field>
                       <ChannelField label="Canale" hint="Vuoto = niente messaggio in chat (va bene se usi solo il privato)." value={r.channelId} channels={channels} onChange={(channelId) => setRule(r.id, { channelId })} />
                       <Field label="Ruoli" hint="L'annuncio parte quando qualcuno riceve uno di questi.">

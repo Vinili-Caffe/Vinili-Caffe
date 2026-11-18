@@ -13,7 +13,7 @@ const { buildGuessNumberEmbed, buildGuessWordEmbed, buildFastTypeEmbed, buildHan
 const { randomBetween } = require("./minigameSources") as typeof import("./minigameSources");
 const { getChannelCached, pickRandomItem } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { shuffleString, normalizeWord, normalizeRewardExp, maskHangmanWord, buildRevealHint, buildNumberNearHint } = require("./minigameText") as typeof import("./minigameText");
-const { activeGames, pickQuestionAvoidRecent } = require("./minigameState") as typeof import("./minigameState");
+const { activeGames, pickQuestionAvoidRecent, recentLimitForBank } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
@@ -285,7 +285,7 @@ async function startHangmanGame(client?, cfg?) {
   }
   if (!words.length) return false;
 
-  const pickedWord = pickQuestionAvoidRecent(channelId, "hangman", words, (w?) => normalizeCountryName(w) || String(w || "").trim().toLowerCase(), 20) || pickRandomItem(words);
+  const pickedWord = pickQuestionAvoidRecent(channelId, "hangman", words, (w?) => normalizeCountryName(w) || String(w || "").trim().toLowerCase(), recentLimitForBank(words, 40)) || pickRandomItem(words);
   const word = normalizeCountryName(pickedWord);
   if (!word) return false;
 

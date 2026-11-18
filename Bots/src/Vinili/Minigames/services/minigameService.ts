@@ -475,7 +475,13 @@ function startMinigameSpawnConsumerLoop(client?) {
  * Worker-only: scrive richieste slot su BotState; il gateway le consuma e avvia il round in-process.
  */
 function startMinigameSlotRequestLoop(client?) {
-  if (!shouldStartExternalWorkerLoop("MINIGAMES")) return;
+  if (!shouldStartExternalWorkerLoop("MINIGAMES")) {
+    try {
+      const { warnIfExternalWorkerSkipped } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+      warnIfExternalWorkerSkipped("MINIGAMES");
+    } catch (_) {}
+    return;
+  }
   if (envFlagOn("MINIGAMES_EXTERNAL") && !envFlagOn("MINIGAMES_WORKER")) return;
   if (loopState.has(client)) return;
   loopState.add(client);

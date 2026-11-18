@@ -146,11 +146,12 @@ function formatExpBoostText(cfg?: BirthdaysConfig) {
 
 /** Allinea il moltiplicatore del ruolo compleanno nel modulo Livelli. */
 async function syncBirthdayExpToLevels(guildId: string, cfg: BirthdaysConfig) {
-  if (!T.isMainGuild(guildId)) return;
   try {
     const LVL = require("./levelsRuntime") as typeof import("./levelsRuntime");
+    if (!LVL.levelsActive(guildId)) return;
     const IDs = require("../../Vinili/Config/ids") as typeof import("../../Vinili/Config/ids");
-    const roleId = String(cfg.roleId || (IDs as any)?.roles?.birthdayFlair || "").trim();
+    const fallback = T.isMainGuild(guildId) ? String((IDs as any)?.roles?.birthdayFlair || "").trim() : "";
+    const roleId = String(cfg.roleId || fallback).trim();
     if (!T.isId(roleId)) return;
     const levels = await LVL.getConfig(guildId, true);
     const others = (levels.roleMultipliers || []).filter((r) => r.roleId !== roleId);
@@ -280,8 +281,9 @@ function messageVars(guild?, firstUser?, list: Birthday[] = [], year = new Date(
 
 async function messageVarsAsync(guild?, firstUser?, list: Birthday[] = [], year = new Date().getFullYear()) {
   const base = messageVars(guild, firstUser, list, year);
-  if (!T.isMainGuild(String(guild?.id || ""))) return base;
   try {
+    const LVL = require("./levelsRuntime") as typeof import("./levelsRuntime");
+    if (!LVL.levelsActive(String(guild?.id || ""))) return base;
     const cfg = await getConfig(String(guild.id));
     return { ...base, exptext: formatExpBoostText(cfg) };
   } catch {

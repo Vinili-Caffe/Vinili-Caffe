@@ -76,6 +76,10 @@ function startMinigameSlotRequestLoop(client?) {
   if (envFlagOn("MINIGAMES_EXTERNAL") && !envFlagOn("MINIGAMES_WORKER")) return;
   if (loopStarted) return;
   loopStarted = true;
+  try {
+    const { startExternalWorkerHeartbeat } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+    startExternalWorkerHeartbeat("MINIGAMES");
+  } catch (_) {}
 
   const cfg = getWorkerMinigameCfg(client);
   if (String(process.env.BOOT_VERBOSE || "").trim() === "1") {

@@ -2,7 +2,10 @@
 set -euo pipefail
 BOT_ROOT="${VC_BOT_ROOT:-/opt/bot}"
 TOOLS="$BOT_ROOT/bots-ts/tools/live-stats"
-set -a; . "$BOT_ROOT/.env"; set +a
+# Non fare `source` del .env: una riga senza `=` (es. INSTAGRAM_ACCESS_TOKEN) con set -e
+# faceva abortire il cron e lasciava live-stats-extra.json fermo per giorni.
+# Node carica /opt/bot/.env in modo safe (skip linee senza =).
+export VC_BOT_ENV="${VC_BOT_ENV:-$BOT_ROOT/.env}"
 export VC_LIVE_STATS_JSON_OUT=/var/www/viniliecaffe/live-stats-extra.json
 cd "$TOOLS"
 node refresh-live-stats-extra.mjs

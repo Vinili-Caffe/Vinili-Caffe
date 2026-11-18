@@ -60,6 +60,9 @@ function restoreSessionSnapshotRow(row?) {
     voiceChannelId: row?.voiceChannelId ? String(row.voiceChannelId) : null,
     playingEncoded: row?.playingEncoded ? String(row.playingEncoded) : null,
     playingPositionMs: Math.max(0, Math.floor(Number(row?.playingPositionMs) || 0)),
+    alwaysOn: row?.alwaysOn === true,
+    alwaysOnKey: row?.alwaysOnKey ? String(row.alwaysOnKey) : null,
+    alwaysOnLabel: row?.alwaysOnLabel ? String(row.alwaysOnLabel) : null,
   };
 }
 
@@ -477,10 +480,6 @@ function attachEndHandler(client?, player?, guildId?) {
     void advanceAfterFailure("exception");
   });
 
-  player.on("closed", (ev?) => {
-    logMusic("player closed", { guildId: gid, code: ev?.code, byRemote: ev?.byRemote });
-  });
-
   player.on("end", async (ev?) => {
     const reasonRaw = String(ev?.reason ?? ev?.endReason ?? "").toLowerCase();
     if (reasonRaw === "replaced") return;
@@ -582,6 +581,11 @@ function attachEndHandler(client?, player?, guildId?) {
         musicIdleSince.set(guildId, Date.now());
         persistMusicQueueSnapshotNow(client);
         cancelPendingQueueEndedEmbed(gid);
+        try {
+          const { tryResumeAlwaysOnAfterQueueEmpty } = require("./musicAlwaysOn") as typeof import("./musicAlwaysOn");
+          const resumed = await tryResumeAlwaysOnAfterQueueEmpty(client, gid);
+          if (resumed) return;
+        } catch (_) {}
         return;
       }
       const notifyChannelId = session.textChannelId || null;
@@ -595,6 +599,14 @@ function attachEndHandler(client?, player?, guildId?) {
       session.repeatQueueSnapshot = null;
       musicIdleSince.set(guildId, Date.now());
       persistMusicQueueSnapshotNow(client);
+      try {
+        const { tryResumeAlwaysOnAfterQueueEmpty } = require("./musicAlwaysOn") as typeof import("./musicAlwaysOn");
+        const resumed = await tryResumeAlwaysOnAfterQueueEmpty(client, gid);
+        if (resumed) {
+          cancelPendingQueueEndedEmbed(gid);
+          return;
+        }
+      } catch (_) {}
       scheduleMusicQueueEndedEmbed(client, notifyChannelId, guildId);
       return;
     }
@@ -626,6 +638,14 @@ function attachEndHandler(client?, player?, guildId?) {
         session.tracks = [];
         musicIdleSince.set(guildId, Date.now());
         persistMusicQueueSnapshotNow(client);
+        try {
+          const { tryResumeAlwaysOnAfterQueueEmpty } = require("./musicAlwaysOn") as typeof import("./musicAlwaysOn");
+          const resumed = await tryResumeAlwaysOnAfterQueueEmpty(client, gid);
+          if (resumed) {
+            cancelPendingQueueEndedEmbed(gid);
+            return;
+          }
+        } catch (_) {}
         if (!shouldSuppressQueueEndedEmbed(session, reasonRaw)) {
           scheduleMusicQueueEndedEmbed(client, notifyChannelId, guildId);
         } else {

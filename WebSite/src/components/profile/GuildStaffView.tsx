@@ -8,6 +8,7 @@ import { EmojiText } from "@/components/discord/EmojiText";
 import { loadGuildStaff, objectiveProgress, type GuildStaff, type GuildStaffManager } from "@/lib/profile";
 import { showToast } from "@/components/ui";
 import { PartnerProfile } from "@/components/dashboard/ProfileBoard";
+import { PartnerHistorySection } from "@/components/profile/PartnerHistorySection";
 import { cn } from "@/lib/cn";
 
 /** "Lista staff" dei Partner Manager del server: frecce, posizione e menu con ricerca. */
@@ -190,6 +191,7 @@ export function GuildStaffView({
           onToast={(m, err) => showToast(m, Boolean(err))}
           showStats={!hideNavigator}
         />
+        {!hideNavigator ? <PartnerHistorySection token={token} guildId={guildId} /> : null}
       </div>
     );
   }
@@ -276,6 +278,8 @@ export function GuildStaffView({
           </ul>
         </section>
       ) : null}
+
+      {!hideNavigator ? <PartnerHistorySection token={token} guildId={guildId} /> : null}
     </div>
   );
 }

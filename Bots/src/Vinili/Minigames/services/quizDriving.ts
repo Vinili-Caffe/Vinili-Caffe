@@ -6,7 +6,7 @@ const { normalizeCountryName, buildDrivingQuizPromptImage } = require("./minigam
 const { DRIVING_QUIZ_LETTERS, buildDrivingQuizEmbed, buildTimeoutDrivingQuizEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { getChannelCached, pickRandomItem } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { normalizeRewardExp, normalizeTruthValue, shuffleArray } = require("./minigameText") as typeof import("./minigameText");
-const { activeGames, isQuestionKeyRecent, pushQuestionKeyToRecent, pickQuestionAvoidRecent } = require("./minigameState") as typeof import("./minigameState");
+const { activeGames, isQuestionKeyRecent, pushQuestionKeyToRecent, pickQuestionAvoidRecent, recentLimitForBank } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
@@ -122,6 +122,42 @@ function shuffleDrivingMultipleChoiceRow(row?) {
   };
 }
 
+/** Mescola la risposta giusta con distrattori presi da altre domande → più varietà. */
+function remixDrivingMultipleChoiceOptions(row?) {
+  if (!row || row.questionType !== "multiple") return row;
+  if (!Array.isArray(row.options) || row.options.length < 2) return row;
+  const rawCorrect = Number(row.correctIndex);
+  if (!Number.isFinite(rawCorrect)) return row;
+  const correct = String(row.options[Math.max(0, Math.min(rawCorrect, row.options.length - 1))] ?? "").trim();
+  if (!correct) return row;
+  const pool = new Set();
+  for (const q of getDrivingMultipleChoiceBank() || []) {
+    for (const o of Array.isArray(q?.options) ? q.options : []) {
+      const s = String(o ?? "").trim();
+      if (s && s.toLowerCase() !== correct.toLowerCase()) pool.add(s);
+    }
+  }
+  for (const q of getDrivingSignQuestions() || []) {
+    for (const o of Array.isArray(q?.options) ? q.options : []) {
+      const s = String(o ?? "").trim();
+      if (s && s.toLowerCase() !== correct.toLowerCase()) pool.add(s);
+    }
+  }
+  const distractors = shuffleArray([...pool]).slice(0, 3);
+  while (distractors.length < 3) {
+    const fallback = String(row.options[distractors.length + 1] ?? "").trim();
+    if (fallback && fallback.toLowerCase() !== correct.toLowerCase() && !distractors.includes(fallback)) {
+      distractors.push(fallback);
+    } else break;
+  }
+  if (distractors.length < 2) return row;
+  return shuffleDrivingMultipleChoiceRow({
+    ...row,
+    options: [correct, ...distractors].slice(0, 4),
+    correctIndex: 0,
+  });
+}
+
 function isDrivingPatenteRelated(statement?) {
   if (!statement || typeof statement !== "string") return false;
   const s = statement.toLowerCase();
@@ -178,24 +214,47 @@ async function startDrivingQuizGame(client?, cfg?) {
     for (let r = 0; r < maxApiRetries && !row; r++) {
       row = await fetchDrivingQuizFromApi(appendCacheBuster(customApiUrl));
       if (row && !isDrivingPatenteRelated(row.statement)) row = null;
-      if (row && isQuestionKeyRecent(channelId, "drivingQuiz", row.statement, 20)) row = null;
+      if (row && isQuestionKeyRecent(channelId, "drivingQuiz", row.statement, 50)) row = null;
       if (row) fromApi = true;
     }
   }
-  if (!row && (cfg?.drivingQuiz?.useDefaultApi === true)) {
+  /* default ON: OpenTDB vehicles → più varietà; spegni con useDefaultApi: false */
+  if (!row && cfg?.drivingQuiz?.useDefaultApi !== false) {
     for (let r = 0; r < maxApiRetries && !row; r++) {
       row = await fetchDrivingQuizFromApi(appendCacheBuster(DEFAULT_DRIVING_QUIZ_API_URL));
       if (row && !isDrivingPatenteRelated(row.statement)) row = null;
-      if (row && isQuestionKeyRecent(channelId, "drivingQuiz", row.statement, 20)) row = null;
+      if (row && isQuestionKeyRecent(channelId, "drivingQuiz", row.statement, 50)) row = null;
       if (row) fromApi = true;
     }
   }
 
   if (!row) {
+    const multiBank = getDrivingMultipleChoiceBank();
+    const tfBank = getDrivingTrueFalseBank();
+    const signBank = getDrivingSignQuestions();
     const fallbackSources = [
-      () => { const signPick = pickQuestionAvoidRecent(channelId, "drivingSign", getDrivingSignQuestions(), (x?) => x?.statement, 20); if (signPick?.statement && signPick?.signType && Array.isArray(signPick?.options) && signPick.options.length >= 2 && typeof signPick?.correctIndex === "number" && signPick.correctIndex >= 0 && signPick.correctIndex < signPick.options.length) { return { questionType: "multiple", signType: String(signPick.signType), statement: String(signPick.statement), options: signPick.options.map((o?) => String(o)), correctIndex: signPick.correctIndex, }; } return null; },
-      () => { const localPick = pickQuestionAvoidRecent(channelId, "drivingMultiple", getDrivingMultipleChoiceBank(), (x?) => x?.statement, 20); if (localPick?.statement && Array.isArray(localPick?.options) && localPick.options.length >= 2 && typeof localPick?.correctIndex === "number" && localPick.correctIndex >= 0 && localPick.correctIndex < localPick.options.length) { return { questionType: "multiple", statement: String(localPick.statement), options: localPick.options.map((o?) => String(o)), correctIndex: localPick.correctIndex, }; } return null; },
-      () => { const localPick = pickQuestionAvoidRecent(channelId, "drivingTrueFalse", getDrivingTrueFalseBank(), (x?) => x?.statement, 20); if (localPick?.statement != null && typeof localPick?.answer === "boolean") { return { questionType: "trueFalse", statement: String(localPick.statement), answer: Boolean(localPick.answer), }; } return null; },
+      () => {
+        /* key = signType (lo statement è uguale per tutte → anti-recent inutilizzabile) */
+        const signPick = pickQuestionAvoidRecent(channelId, "drivingSign", signBank, (x?) => x?.signType || x?.statement, recentLimitForBank(signBank, 12));
+        if (signPick?.statement && signPick?.signType && Array.isArray(signPick?.options) && signPick.options.length >= 2 && typeof signPick?.correctIndex === "number" && signPick.correctIndex >= 0 && signPick.correctIndex < signPick.options.length) {
+          return { questionType: "multiple", signType: String(signPick.signType), statement: String(signPick.statement), options: signPick.options.map((o?) => String(o)), correctIndex: signPick.correctIndex };
+        }
+        return null;
+      },
+      () => {
+        const localPick = pickQuestionAvoidRecent(channelId, "drivingMultiple", multiBank, (x?) => x?.statement, recentLimitForBank(multiBank, 30));
+        if (localPick?.statement && Array.isArray(localPick?.options) && localPick.options.length >= 2 && typeof localPick?.correctIndex === "number" && localPick.correctIndex >= 0 && localPick.correctIndex < localPick.options.length) {
+          return { questionType: "multiple", statement: String(localPick.statement), options: localPick.options.map((o?) => String(o)), correctIndex: localPick.correctIndex };
+        }
+        return null;
+      },
+      () => {
+        const localPick = pickQuestionAvoidRecent(channelId, "drivingTrueFalse", tfBank, (x?) => x?.statement, recentLimitForBank(tfBank, 30));
+        if (localPick?.statement != null && typeof localPick?.answer === "boolean") {
+          return { questionType: "trueFalse", statement: String(localPick.statement), answer: Boolean(localPick.answer) };
+        }
+        return null;
+      },
     ];
     for (let i = fallbackSources.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -207,7 +266,7 @@ async function startDrivingQuizGame(client?, cfg?) {
     }
   }
   if (!row) return false;
-  if (fromApi && row.statement) pushQuestionKeyToRecent(channelId, "drivingQuiz", row.statement, 20);
+  if (fromApi && row.statement) pushQuestionKeyToRecent(channelId, "drivingQuiz", row.statement, 50);
   if (fromApi && row.statement) {
     const toTranslate = [row.statement];
     if (row.questionType === "multiple" && Array.isArray(row.options)) toTranslate.push(...row.options);
@@ -217,7 +276,7 @@ async function startDrivingQuizGame(client?, cfg?) {
       row = { ...row, options: translatedAll.slice(1) };
   }
   if (row.questionType === "multiple") {
-    row = shuffleDrivingMultipleChoiceRow(row);
+    row = fromApi ? shuffleDrivingMultipleChoiceRow(row) : remixDrivingMultipleChoiceOptions(row);
   }
 
   const rewardExp = normalizeRewardExp(cfg?.drivingQuiz?.rewardExp ?? 150);

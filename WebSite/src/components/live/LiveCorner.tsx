@@ -16,6 +16,8 @@ import {
   type LiveStream,
 } from "@/lib/live";
 import { useChromeOpenListener } from "@/lib/chrome-open";
+import { usePastHero } from "@/lib/use-past-hero";
+import { cn } from "@/lib/cn";
 /** Telefono (touch + viewport stretto): niente PiP. Tablet/desktop restano. */
 function isPhoneNoPip() {
   try {
@@ -118,6 +120,7 @@ export function LiveCorner() {
   const twitch = useShownStream(TWITCH_LIVE_URL, false);
   const [open, setOpen] = useState(false);
   const [chromeOpen, setChromeOpen] = useState(false);
+  const pastHero = usePastHero();
   const twitchHere = Boolean(twitch);
   const [presence, setPresence] = useState(twitchHere);
   if (presence !== twitchHere) {
@@ -141,9 +144,13 @@ export function LiveCorner() {
     if (chromeOpen) setOpen(false);
   }, [chromeOpen]);
 
-  // zucche Halloween condividono l’angolo BL a z-40: segnala al decor di farsi da parte
   useEffect(() => {
-    if (phone || !twitch || chromeOpen) {
+    if (pastHero) setOpen(false);
+  }, [pastHero]);
+
+  // zucche / albero Natale BL: segnala PiP solo se l’angolo è davvero visibile
+  useEffect(() => {
+    if (phone || !twitch || chromeOpen || pastHero) {
       try {
         delete document.documentElement.dataset.vcLivePip;
       } catch {
@@ -159,14 +166,21 @@ export function LiveCorner() {
         /* ignore */
       }
     };
-  }, [phone, twitch, chromeOpen]);
+  }, [phone, twitch, chromeOpen, pastHero]);
 
   if (phone || !twitch || chromeOpen) return null;
 
   return (
     <div
       data-vc-live-corner
-      className="pointer-events-none fixed bottom-4 left-4 z-[55] flex w-[min(17.5rem,calc(100vw-2rem))] flex-col-reverse items-start gap-2 sm:bottom-5 sm:left-5"
+      className={cn(
+        "fixed bottom-4 left-4 z-[55] flex w-[min(17.5rem,calc(100vw-2rem))] flex-col-reverse items-start gap-2 sm:bottom-5 sm:left-5",
+        "transition-[opacity,transform] duration-300 ease-out",
+        pastHero
+          ? "pointer-events-none translate-y-3 opacity-0"
+          : "pointer-events-none translate-y-0 opacity-100",
+      )}
+      aria-hidden={pastHero || undefined}
     >
       {!open && <LivePill stream={twitch} onOpen={() => setOpen(true)} />}
       <AnimatePresence>

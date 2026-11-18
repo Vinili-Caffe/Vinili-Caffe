@@ -17,7 +17,7 @@ const UNITS = [
   { value: "86400000", label: "giorni" },
 ];
 
-/** valore per <input type="datetime-local"> (ora locale) */
+/** valore per <input name="giveawayspanel-input-20" id="giveawayspanel-input-20" type="datetime-local"> (ora locale) */
 function toLocalInput(ms: number) {
   const d = new Date(ms);
   const p = (n: number) => String(n).padStart(2, "0");
@@ -199,7 +199,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
         <div className="rounded-lg bg-crema/[0.04] p-3 ring-1 ring-sand/10">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Premio">
-              <input value={editForm.prize} maxLength={200} onChange={(e) => setEditForm({ ...editForm, prize: e.target.value })} className={fieldClass} />
+              <input name="giveawayspanel-input-202" id="giveawayspanel-input-202" value={editForm.prize} maxLength={200} onChange={(e) => setEditForm({ ...editForm, prize: e.target.value })} className={fieldClass} />
             </Field>
             <HostField guildId={guildId} token={token} value={editForm.host} emptyLabel="Host attuale" onChange={(host) => setEditForm({ ...editForm, host })} />
           </div>
@@ -249,7 +249,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
       <FormGroup title="Nuovo giveaway" description="Il bot pubblica il messaggio col pulsante per partecipare ed estrae i vincitori alla fine.">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Premio">
-            <input value={form.prize} maxLength={200} placeholder="es. Nitro 1 mese" onChange={(e) => setForm({ ...form, prize: e.target.value })} className={fieldClass} />
+            <input name="giveawayspanel-input-252" id="giveawayspanel-input-252" value={form.prize} maxLength={200} placeholder="es. Nitro 1 mese" onChange={(e) => setForm({ ...form, prize: e.target.value })} className={fieldClass} />
           </Field>
           <ChannelField label="Canale" value={form.channelId} channels={data.pickers.textChannels} onChange={(channelId) => setForm({ ...form, channelId })} />
         </div>
@@ -418,7 +418,7 @@ function HostField({
       ) : (
         <div className="relative mt-1.5">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-crema/45" aria-hidden />
-          <input
+          <input name="giveawayspanel-input-421" id="giveawayspanel-input-421"
             value={query}
             placeholder={emptyLabel + " · cerca un membro"}
             onChange={(e) => {

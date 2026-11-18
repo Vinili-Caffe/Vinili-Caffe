@@ -7,6 +7,7 @@ const { isUserDmPrivacyBlockedError, notifyDmPrivacyBlockedInCommands } = requir
 const { enqueueSiteInAppNotification } = require("../../site/notifications/siteInAppNotificationsService") as typeof import("../../site/notifications/siteInAppNotificationsService");
 const { shouldSkipDiscordDmForActiveWebPush } = require("../../site/http/siteNotifPrefs") as typeof import("../../site/http/siteNotifPrefs");
 const { getClientChannelCached, getClientGuildCached, getGuildMemberCached, getUserCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
+const { isBotPresentInGuild } = require("../../../shared/discord/botGuildPresence") as typeof import("../../../shared/discord/botGuildPresence");
 const { DISCADIA_VOTE_ROOT, voteListingKey, claimVoteReminderSlot, releaseVoteReminderSlot, voteReminderLockKey } = require("./voteReminderState") as typeof import("./voteReminderState");
 
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
@@ -236,6 +237,11 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
   const listing = voteListingKey(voteListing);
   if (!gid || !uid) return { ok: false, delivered: false, skippedOptOut: false };
 
+  /* voteNoBotNoPush1: zero push/DM se il bot non è nel server */
+  if (!isBotPresentInGuild(client, gid)) {
+    return { ok: true, delivered: false, skippedOptOut: false, skippedBotAbsent: true };
+  }
+
   const lockKey = voteReminderLockKey(gid, uid, listing, lastVoteAtMs);
   if (voteReminderDispatchInflight.has(lockKey)) {
     return { ok: true, delivered: false, skippedOptOut: false, skippedDuplicate: true };
@@ -243,6 +249,12 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
   voteReminderDispatchInflight.add(lockKey);
 
   try {
+    const guild = await getClientGuildCached(client, gid);
+    const member = guild ? await getGuildMemberCached(guild, uid) : null;
+    if (!guild || !member) {
+      return { ok: true, delivered: false, skippedOptOut: false, skippedNotInGuild: true };
+    }
+
         const claimedAt = await claimVoteReminderSlot(gid, uid, listing, lastVoteAtMs);
     if (!claimedAt) {
       return { ok: true, delivered: false, skippedOptOut: false, skippedDuplicate: true };
@@ -311,12 +323,6 @@ async function dispatchVoteReminder(client, { guildId, userId, voteListing, last
     const skipDiscordForPush = await shouldSkipDiscordDmForActiveWebPush(gid, uid, siteOpts).catch(() => false);
     if (skipDiscordForPush) {
       return { ok: true, delivered: true, skippedOptOut: false, skippedDiscordForWebPush: true };
-    }
-
-    const guild = await getClientGuildCached(client, gid);
-    const member = guild ? await getGuildMemberCached(guild, uid) : null;
-    if (!member) {
-            return { ok: true, delivered: false, skippedOptOut: false, skippedNotInGuild: true };
     }
 
     let user = member.user || (await getUserCached(client, uid));

@@ -1,4 +1,4 @@
-import { API_ORIGIN, SITE_ORIGIN, USE_API_ORIGIN } from "./site";
+import { API_ORIGIN } from "./site";
 import { emitLiveRefresh } from "./use-live-refresh";
 
 /** Ping generico dal WS `/webhooks/site-realtime-ws`. */
@@ -34,6 +34,7 @@ const TYPE_TO_TOPIC: Record<string, string> = {
   boards_changed: "boards",
   reviews_changed: "reviews",
   confessionale_changed: "confessionale",
+  albero_changed: "albero",
   bacheca_changed: "bacheca",
   suggestions_changed: "suggestions",
   live_stats_changed: "live_stats",
@@ -52,19 +53,11 @@ const TYPE_TO_TOPIC: Record<string, string> = {
 };
 
 function realtimeWsUrl() {
+  /* Sempre API_ORIGIN: il rewrite Vercel non proxya l’upgrade WebSocket. */
   try {
-    if (USE_API_ORIGIN) {
-      return `${API_ORIGIN.replace(/^http/, "ws")}/webhooks/site-realtime-ws`;
-    }
-    const base =
-      typeof window !== "undefined" && window.location?.origin ? window.location.origin : SITE_ORIGIN;
-    const u = new URL("/webhooks/site-realtime-ws", base);
-    u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
-    return u.toString();
+    return `${API_ORIGIN.replace(/^http/, "ws")}/webhooks/site-realtime-ws`;
   } catch {
-    return USE_API_ORIGIN
-      ? "wss://api.viniliecaffe.it/webhooks/site-realtime-ws"
-      : "wss://www.viniliecaffe.it/webhooks/site-realtime-ws";
+    return "wss://api.viniliecaffe.it/webhooks/site-realtime-ws";
   }
 }
 

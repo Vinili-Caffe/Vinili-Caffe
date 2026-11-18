@@ -35,6 +35,10 @@ async function main(shared?: { client?: any } | null) {
   const client = shared?.client || (await createSiteApiRestClient(config, token));
   global.botClient = client;
   startVoteQueueLoop(client, 15_000);
+  try {
+    const { startExternalWorkerHeartbeat } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+    startExternalWorkerHeartbeat("VOTE_QUEUE");
+  } catch (_) {}
   if (require.main === module) {
     console.log(
       `[VOTE-DRAIN] ready as ${client.user?.tag || client.user?.username || "bot"}`,

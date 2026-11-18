@@ -365,7 +365,7 @@ export function QuoteStyleEditor({
       </div>
 
       <Field label="Footer">
-        <input
+        <input name="quotestyleeditor-input-368" id="quotestyleeditor-input-368"
           type="text"
           value={draft.footer}
           disabled={busy}

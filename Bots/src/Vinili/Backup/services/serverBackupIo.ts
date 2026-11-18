@@ -141,10 +141,12 @@ async function deleteGuildBackup(guildId?, backupId?) {
   const filePath = getBackupFilePath(guildId, backupId);
   const metaPath = getBackupMetaPath(guildId, backupId);
   const backupPath = getBackupBakPath(guildId, backupId);
+  const previewPath = path.join(getBackupFolder(guildId), `${assertSafeBackupId(backupId)}.preview.json`);
   await fs.unlink(filePath).catch(() => null);
   await fs.unlink(metaPath).catch(() => null);
   await fs.unlink(backupPath).catch(() => null);
-  return { filePath, metaPath, backupPath };
+  await fs.unlink(previewPath).catch(() => null);
+  return { filePath, metaPath, backupPath, previewPath };
 }
 
 function parseBackupIdFromFileName(fileName?) {
@@ -168,9 +170,33 @@ function toSafeDateLabel(value?) {
 
 async function readBackupMeta(guildId?, backupId?) {
   const meta = await readBackupMetaFile(guildId, backupId);
-  const sourceFromMeta = String(meta?.source || "").trim().toLowerCase();
+  const id = String(backupId || "").trim().toUpperCase();
+  /* Preferisci il .meta.json: non decomprimere snapshot da 10–20MB+ solo per la lista. */
+  if (meta && typeof meta === "object") {
+    const hasSidecar =
+      Boolean(meta.createdAt) ||
+      Boolean(meta.guildId) ||
+      Boolean(meta.file?.sizeBytes) ||
+      Boolean(meta.checksum?.compressed);
+    if (hasSidecar) {
+      return {
+        backupId: String(meta.backupId || id)
+          .trim()
+          .toUpperCase(),
+        guildName: String(meta.guildName || ""),
+        createdAt: meta.createdAt || null,
+        source: String(meta.source || "manual").trim().toLowerCase() || "manual",
+        checksum: meta.checksum || null,
+        schemaVersion: Number(meta.schemaVersion || 1),
+        sizeBytes: Number(meta.file?.sizeBytes || 0) || null,
+        stats: meta.stats && typeof meta.stats === "object" ? meta.stats : null,
+      };
+    }
+  }
+
   const data = await readGuildBackup(guildId, backupId);
   const payload = data?.payload || {};
+  const sourceFromMeta = String(meta?.source || "").trim().toLowerCase();
   return {
     backupId: String(payload?.backupId || backupId || "")
       .trim()
@@ -180,6 +206,8 @@ async function readBackupMeta(guildId?, backupId?) {
     source: sourceFromMeta || String(payload?.source || "manual").trim().toLowerCase(),
     checksum: data?.checksum || null,
     schemaVersion: Number(payload?.schemaVersion || meta?.schemaVersion || 1),
+    sizeBytes: Number(data?.sizeBytes || meta?.file?.sizeBytes || 0) || null,
+    stats: null,
   };
 }
 
@@ -238,6 +266,8 @@ async function listGuildBackupMetas(guildId?, { search = "", limit = 25, offset 
       createdAt: meta.createdAt || null,
       source: meta.source || "manual",
       label,
+      sizeBytes: meta.sizeBytes == null ? null : Number(meta.sizeBytes),
+      stats: meta.stats || null,
     });
     if (out.length >= safeLimit) break;
   }
@@ -539,6 +569,10 @@ export = {
   getBackupBakPath,
   writeFileAtomic,
   writeBackupMetaFile,
+  readBackupMetaFile,
+  readBackupMeta,
+  deleteGuildBackup,
+  listGuildBackupMetas,
   listAllBackupMetasPaginated,
   readBackupByIdGlobal,
   deleteBackupByIdGlobal,

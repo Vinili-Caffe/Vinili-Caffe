@@ -2,8 +2,8 @@
 
 import type { LegalDoc } from "./legal";
 
-const UPDATED_ISO = "2026-11-11";
-const UPDATED_LABEL = "11 novembre 2026";
+const UPDATED_ISO = "2026-11-17";
+const UPDATED_LABEL = "17 novembre 2026";
 
 export const LEGAL_PRIVACY: LegalDoc = {
   slug: "privacy",
@@ -71,7 +71,10 @@ export const LEGAL_PRIVACY: LegalDoc = {
         { type: "ul", items: [
             "Token e cache OAuth, preferenza di lingua, conferma del banner cookie, chiavi push e ulteriori chiavi tecniche memorizzate in *localStorage* e/o *sessionStorage*.",
             "Log tecnici, indirizzi IP e dati di diagnostica nei limiti necessari a sicurezza e affidabilità del servizio.",
-            "**Google Analytics** (ID di misurazione `G-KPF6425N60`) per l’analisi di traffico e stabilità del sito.",
+            "**Google Analytics** (ID di misurazione `G-KPF6425N60`) e **Google Tag Manager** (contenitore `GTM-NTXR52LM`) per l’analisi di traffico e la gestione dei tag di misurazione/marketing, previo consenso.",
+            "**Microsoft Clarity** (ID progetto `zeshji2z30`) per heatmaps e analisi dell’esperienza di navigazione (ivi inclusa, ove attiva, la registrazione di sessioni), previo consenso.",
+            "**Meta Pixel** (ID `1684468419940079`) per misurazione di campagne e interazioni sulle pagine, previo consenso.",
+            "**Google AdSense** (publisher `ca-pub-9933035299522072`) per la visualizzazione di annunci pubblicitari e la relativa monetizzazione del sito, previo consenso.",
             "Autodichiarazione dell’età minima (conferma di avere almeno 13 anni) conservata sul server e associata all’account Discord, ai fini del controllo di accesso al sito; una copia tecnica può essere memorizzata anche in *localStorage* sul dispositivo."
           ] },
       ],
@@ -86,7 +89,9 @@ export const LEGAL_PRIVACY: LegalDoc = {
             "erogazione delle funzioni di community e dei bot (profilo, livelli, musica, TTS/voice, partnership, ticket, moderazione, eventi, voti, alert live);",
             "gestione di suggerimenti, recensioni, feedback, candidature, confessionale, donazioni/crediti e richieste di supporto;",
             "invio di notifiche in-app e, ove attivate, di notifiche push del browser;",
-            "misurazione dell’utilizzo del sito (Google Analytics) al fine di comprenderne traffico e stabilità;",
+            "misurazione dell’utilizzo del sito (Google Analytics, Google Tag Manager, Microsoft Clarity) al fine di comprenderne traffico, stabilità e usabilità, previo consenso;",
+            "misurazione di campagne e interazioni tramite Meta Pixel (anche via Google Tag Manager, ove configurato), previo consenso;",
+            "monetizzazione del sito mediante annunci Google AdSense, previo consenso;",
             "configurazione del bot su server Discord gestiti da amministratori autorizzati;",
             "prevenzione di frodi, abusi, automazioni non autorizzate e comportamenti illeciti o dannosi;",
             "tutela del sito, dei bot, dell’infrastruttura e della community;",
@@ -104,7 +109,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
             "**Esecuzione di un contratto** o di misure precontrattuali, per login, gestione dell’account e funzioni richieste dall’utente.",
             "**Legittimo interesse** del titolare, per la tutela della community, la prevenzione degli abusi, la sicurezza, la moderazione e la misurazione tecnica del sito.",
             "**Obbligo legale**, ove il trattamento sia necessario per adempiere a obblighi normativi o a richieste delle autorità competenti.",
-            "**Consenso**, ove richiesto (ad esempio per le notifiche push del browser o per ulteriori funzioni opzionali che lo prevedano)."
+            "**Consenso**, ove richiesto (ad esempio per le notifiche push del browser, per Google Analytics / Google Tag Manager / Microsoft Clarity / Meta Pixel / Google AdSense tramite il banner cookie, o per ulteriori funzioni opzionali che lo prevedano)."
           ] },
       ],
     },
@@ -116,7 +121,9 @@ export const LEGAL_PRIVACY: LegalDoc = {
         { type: "ul", items: [
             "Discord Inc., per OAuth, hosting della piattaforma e API;",
             "fornitori di hosting, database e infrastruttura;",
-            "Google (Google Analytics), per la misurazione del traffico;",
+            "Google (Google Analytics, Google Tag Manager e Google AdSense), per la misurazione del traffico, la gestione dei tag e la pubblicità;",
+            "Microsoft (Microsoft Clarity), per heatmaps e analisi dell’esperienza di navigazione;",
+            "Meta Platforms (Meta Pixel), per la misurazione di campagne e interazioni;",
             "piattaforme di voto o listing (ad es. top.gg, Discadia), ove utilizzate;",
             "provider di pagamento (ad es. PayPal), in caso di donazioni o pagamenti collegati;",
             "Twitch e servizi correlati, limitatamente alle funzioni live/alert attivate;",
@@ -125,7 +132,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
             "amministratori del server Discord di appartenenza, per i dati necessari al funzionamento di quel server;",
             "autorità competenti, ove imposto dalla legge o necessario a tutelare la sicurezza del servizio."
           ] },
-        { type: "p", text: "Non sono effettuate comunicazioni a inserzionisti a fini di pubblicità personalizzata. I contenuti degli utenti non sono impiegati per l’addestramento di modelli di intelligenza artificiale generativa di terzi." },
+        { type: "p", text: "Con il consenso espresso tramite il banner cookie, dati tecnici di navigazione possono essere trattati da Google, Microsoft e Meta secondo le rispettive informative, anche per finalità di misurazione e di campagne. I contenuti degli utenti (messaggi Discord, ticket, ecc.) non sono impiegati per l’addestramento di modelli di intelligenza artificiale generativa di terzi." },
       ],
     },
     {
@@ -137,7 +144,9 @@ export const LEGAL_PRIVACY: LegalDoc = {
             "mantenere la sessione di autenticazione Discord (fino a 180 giorni ovvero fino al logout);",
             "memorizzare lingua, preferenze di interfaccia, stato delle push e conferma del banner cookie;",
             "proteggere il sito mediante controlli anti-abuso e token tecnici;",
-            "misurare l’audience sulle pagine in cui Google Analytics è attivo;",
+            "misurare l’audience e l’esperienza di navigazione (Google Analytics, Google Tag Manager, Microsoft Clarity), previo consenso;",
+            "misurare campagne e interazioni (Meta Pixel), previo consenso;",
+            "mostrare annunci pubblicitari (Google AdSense), previo consenso;",
             "assicurare il corretto funzionamento delle pagine e delle aree riservate."
           ] },
         { type: "p", text: "Per l’elenco dettagliato si rinvia alla [[Cookie Policy|/cookie/]]." },
@@ -184,7 +193,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
             "**Trascrizioni vocali:** elaborazione dell’audio in modo transitorio; il testo è conservato solo se richiesto dalla funzione, di norma fino a 90 giorni salvo esigenze di moderazione.",
             "**Corpus Markov:** aggiornamento periodico; rimozione o riduzione su richiesta nei limiti tecnici.",
             "**Log tecnici / indirizzi IP:** di norma da 30 a 90 giorni.",
-            "**Google Analytics:** secondo le impostazioni di conservazione del fornitore.",
+            "**Google Analytics / Google Tag Manager / Google AdSense / Microsoft Clarity / Meta Pixel:** secondo le impostazioni di conservazione dei rispettivi fornitori.",
             "**Backup:** cicli tipici fino a circa 90 giorni, con eventuale sovrapposizione ai termini sopra indicati."
           ] },
       ],
@@ -248,9 +257,17 @@ export const LEGAL_COOKIE: LegalDoc = {
       blocks: [
         { type: "h3", text: "Cookie e storage tecnici (necessari)" },
         { type: "p", text: "Sono utilizzati cookie e memorizzazioni locali strettamente necessari al funzionamento del sito. In loro assenza l’autenticazione e le aree riservate potrebbero non essere disponibili." },
-        { type: "p", text: "**Sessione OAuth Discord** — token e scadenza in *localStorage* (fino a 180 giorni, ovvero fino a logout o scadenza del token).\n\n**Ambito e cache del profilo** — memorizzazione dei permessi di autenticazione e di dati minimi di profilo, al fine di ridurre le chiamate a Discord.\n\n**Preferenza di lingua** — memorizzazione della lingua selezionata.\n\n**Preferenza del banner cookie** — memorizzazione della scelta espressa sull’avviso (fino a 180 giorni).\n\n**Notifiche push (facoltative)** — ove attivate: chiavi locali di stato e service worker del browser.\n\n**Stato tecnico dell’interfaccia** — chiavi locali relative a notifiche in-app, accessi a eventi o anteprime, senza finalità di profilazione pubblicitaria.\n\n**Verifica dell’età** — autodichiarazione di età minima (almeno 13 anni) conservata sul server e associata all’account Discord; eventuale copia tecnica in *localStorage* ai soli fini operativi dell’interfaccia." },
-        { type: "h3", text: "Misurazione (analytics)" },
-        { type: "p", text: "È utilizzato **Google Analytics** (ID `G-KPF6425N60`) per l’analisi di traffico e stabilità. Non sono impiegati cookie di profilazione pubblicitaria, remarketing o tracciamento social a fini commerciali, fatti salvi eventuali cookie di Discord durante il flusso OAuth." },
+        { type: "p", text: "**Sessione OAuth Discord** — token e scadenza in *localStorage* (fino a 180 giorni, ovvero fino a logout o scadenza del token).\n\n**Ambito e cache del profilo** — memorizzazione dei permessi di autenticazione e di dati minimi di profilo, al fine di ridurre le chiamate a Discord.\n\n**Preferenza di lingua** — memorizzazione della lingua selezionata.\n\n**Preferenza del banner cookie** — memorizzazione della scelta espressa sull’avviso (fino a 180 giorni).\n\n**Notifiche push (facoltative)** — ove attivate: chiavi locali di stato e service worker del browser.\n\n**Stato tecnico dell’interfaccia** — chiavi locali relative a notifiche in-app, accessi a eventi o anteprime.\n\n**Verifica dell’età** — autodichiarazione di età minima (almeno 13 anni) conservata sul server e associata all’account Discord; eventuale copia tecnica in *localStorage* ai soli fini operativi dell’interfaccia." },
+        { type: "h3", text: "Misurazione e marketing (previo consenso)" },
+        { type: "p", text: "Previo consenso espresso tramite il banner cookie sono utilizzati:" },
+        { type: "ul", items: [
+            "**Google Analytics** (ID `G-KPF6425N60`) per l’analisi di traffico e stabilità;",
+            "**Google Tag Manager** (contenitore `GTM-NTXR52LM`) per il caricamento e la gestione dei tag di misurazione e marketing;",
+            "**Microsoft Clarity** (ID progetto `zeshji2z30`) per heatmaps e analisi dell’esperienza di navigazione, ivi inclusa, ove attiva, la registrazione di sessioni;",
+            "**Meta Pixel** (ID `1684468419940079`) per la misurazione di campagne, conversioni e interazioni sulle pagine;",
+            "**Google AdSense** (publisher `ca-pub-9933035299522072`) per la visualizzazione di annunci e la monetizzazione del sito."
+          ] },
+        { type: "p", text: "In assenza di consenso tali strumenti non vengono attivati. Restano eventuali cookie di Discord durante il flusso OAuth, necessari all’autenticazione. L’autenticazione avviene esclusivamente tramite Discord OAuth; sul sito non sono raccolte password." },
         { type: "fact", title: "Sessione OAuth Discord", badge: "Necessario", items: [
             { k: "Finalità", v: "mantenere l’autenticazione e gestire il flusso OAuth." },
             { k: "Durata", v: "fino a 180 giorni come sessione locale, ovvero fino a logout o invalidazione/scadenza del token Discord." },
@@ -269,15 +286,34 @@ export const LEGAL_COOKIE: LegalDoc = {
         { type: "fact", title: "Google Analytics", badge: "Misurazione", items: [
             { k: "Finalità", v: "statistiche di traffico e utilizzo delle pagine." },
             { k: "Durata", v: "secondo le impostazioni di Google Analytics." },
-            { k: "Natura", v: "cookie e script di terzi (Google)." }
+            { k: "Natura", v: "cookie e script di terzi (Google); consenso tramite banner." }
+          ] },
+        { type: "fact", title: "Google Tag Manager", badge: "Misurazione / tag", items: [
+            { k: "Finalità", v: "caricare e gestire i tag di misurazione e marketing sul sito." },
+            { k: "Durata", v: "secondo le impostazioni di Google Tag Manager e dei tag ivi configurati." },
+            { k: "Natura", v: "script di terzi (Google, dominio googletagmanager.com); consenso tramite banner." }
+          ] },
+        { type: "fact", title: "Microsoft Clarity", badge: "Misurazione / UX", items: [
+            { k: "Finalità", v: "heatmaps, analisi dell’esperienza e, ove attiva, registrazione di sessioni." },
+            { k: "Durata", v: "secondo le impostazioni di Microsoft Clarity." },
+            { k: "Natura", v: "script e cookie di terzi (Microsoft); consenso tramite banner." }
+          ] },
+        { type: "fact", title: "Meta Pixel", badge: "Marketing", items: [
+            { k: "Finalità", v: "misurazione di campagne, conversioni e interazioni." },
+            { k: "Durata", v: "secondo le impostazioni di Meta." },
+            { k: "Natura", v: "script e cookie di terzi (Meta); consenso tramite banner." }
+          ] },
+        { type: "fact", title: "Google AdSense", badge: "Pubblicità", items: [
+            { k: "Finalità", v: "mostrare annunci pubblicitari e monetizzare le pagine." },
+            { k: "Durata", v: "secondo le impostazioni di Google AdSense." },
+            { k: "Natura", v: "script e cookie di terzi (Google, dominio googlesyndication.com); consenso tramite banner." }
           ] },
         { type: "h3", text: "Strumenti non utilizzati" },
         { type: "p", text: "Vinili & Caffè **non** impiega:" },
         { type: "ul", items: [
-            "cookie di profilazione pubblicitaria o remarketing;",
-            "reti pubblicitarie di social media a fini di targeting commerciale (fatti salvi i cookie di Discord durante OAuth);",
-            "cessione di dati a inserzionisti;",
-            "strumenti di *session replay* o registrazione delle sessioni di navigazione (a titolo esemplificativo: Hotjar, FullStory, PostHog Session Replay, Microsoft Clarity Replay). L’autenticazione avviene esclusivamente tramite Discord OAuth; sul sito non sono raccolte password."
+            "reti pubblicitarie di terzi diverse da Google AdSense e Meta Pixel (ove accettati);",
+            "cessione di contenuti utente (messaggi, ticket, confessionale) a inserzionisti;",
+            "altri strumenti di *session replay* oltre a Microsoft Clarity (ove accettato), quali Hotjar, FullStory o PostHog Session Replay."
           ] },
       ],
     },
@@ -304,7 +340,9 @@ export const LEGAL_COOKIE: LegalDoc = {
             "tutelare account e API da accessi non autorizzati;",
             "prevenire abusi automatizzati;",
             "memorizzare lingua, scelte tecniche di interfaccia e stato delle notifiche push (ove attive);",
-            "misurare traffico e utilizzo delle pagine (Google Analytics, ove attivo);",
+            "misurare traffico, utilizzo e usabilità delle pagine (Google Analytics, Google Tag Manager e Microsoft Clarity, ove accettati);",
+            "misurare campagne e interazioni (Meta Pixel, ove accettato);",
+            "mostrare annunci pubblicitari (Google AdSense, ove accettato);",
             "consentire il funzionamento di votazioni e aree riservate."
           ] },
       ],
@@ -314,7 +352,7 @@ export const LEGAL_COOKIE: LegalDoc = {
       title: "Base giuridica",
       blocks: [
         { type: "p", text: "I cookie e lo storage **strettamente necessari** all’autenticazione, alla sicurezza e al funzionamento del sito non richiedono consenso preventivo, ai sensi della disciplina GDPR ed ePrivacy applicabile." },
-        { type: "p", text: "La misurazione mediante **Google Analytics** è fondata sul legittimo interesse a comprendere l’utilizzo del sito e a migliorarne stabilità e contenuti. L’interessato può limitarla mediante impostazioni del browser, estensioni anti-tracciamento o strumenti messi a disposizione da Google. **Non sono utilizzati cookie di profilazione pubblicitaria.**" },
+        { type: "p", text: "L’attivazione di **Google Analytics**, **Google Tag Manager**, **Microsoft Clarity**, **Meta Pixel** e **Google AdSense** si fonda sul **consenso** dell’interessato espresso tramite il banner cookie («Accetta tutti»). In caso di rifiuto («Solo necessari») misurazione e annunci restano disattivati (Consent Mode). Il consenso è revocabile cancellando i dati del sito / ripristinando la scelta cookie (`?vc_reset_consent=1`) o tramite impostazioni del browser ed estensioni anti-tracciamento." },
         { type: "p", text: "Le **notifiche push** richiedono il permesso del browser e, ove previsto, il consenso dell’interessato." },
       ],
     },
@@ -323,7 +361,7 @@ export const LEGAL_COOKIE: LegalDoc = {
       title: "Gestione da parte dell’utente",
       blocks: [
         { type: "p", text: "È possibile gestire cookie e storage dalle impostazioni del browser ovvero cancellando i dati del sito. La disabilitazione degli elementi essenziali può impedire l’autenticazione. Per rimuovere la sessione è sufficiente effettuare il logout." },
-        { type: "p", text: "Per le notifiche push: revocare il permesso dalle impostazioni del browser. Per Analytics: utilizzare blocchi di cookie o tracker del browser." },
+        { type: "p", text: "Per le notifiche push: revocare il permesso dalle impostazioni del browser. Per Analytics, GTM, Clarity, Meta Pixel e AdSense: scegliere «Solo necessari» sul banner, resettare il consenso, oppure utilizzare blocchi di cookie/tracker del browser." },
         { type: "label", text: "Logout" },
         { type: "p", text: "Il logout rimuove o invalida i dati di sessione locali collegati all’autenticazione." },
       ],
@@ -333,7 +371,9 @@ export const LEGAL_COOKIE: LegalDoc = {
       title: "Cookie di terzi",
       blocks: [
         { type: "p", text: "Durante l’autenticazione OAuth con Discord possono essere impostati cookie da discord.com, regolati da Discord Inc. secondo la propria informativa." },
-        { type: "p", text: "Google Analytics carica script e cookie di Google (domini googletagmanager.com / google-analytics). Si applicano altresì le informative di Google." },
+        { type: "p", text: "Google Analytics, Google Tag Manager e Google AdSense caricano script e cookie di Google (domini googletagmanager.com / google-analytics / googlesyndication.com). Si applicano le informative di Google." },
+        { type: "p", text: "Microsoft Clarity carica script e cookie di Microsoft (clarity.ms). Si applicano le informative di Microsoft." },
+        { type: "p", text: "Meta Pixel carica script e cookie di Meta (connect.facebook.net / facebook.com). Si applicano le informative di Meta." },
         { type: "p", text: "Vinili & Caffè non esercita un controllo pieno su cookie e trattamenti effettuati da tali terzi." },
       ],
     },
@@ -347,6 +387,10 @@ export const LEGAL_COOKIE: LegalDoc = {
             ["Preferenza banner cookie", "180 giorni"],
             ["Autodichiarazione età (server + cache locale)", "Fino a cancellazione account/dati; cache locale fino a cancellazione manuale"],
             ["Google Analytics", "Secondo le impostazioni di Google"],
+            ["Google Tag Manager", "Secondo le impostazioni di Google e dei tag nel contenitore"],
+            ["Google AdSense", "Secondo le impostazioni di Google"],
+            ["Microsoft Clarity", "Secondo le impostazioni di Microsoft"],
+            ["Meta Pixel", "Secondo le impostazioni di Meta"],
             ["OAuth Discord (cookie di discord.com)", "Determinata da Discord"],
             ["Redirect / state OAuth", "Fino al completamento del login"]
           ] },

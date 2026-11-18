@@ -465,7 +465,7 @@ export function ModerationPanel({
                   <div key={field.key} className="space-y-1.5">
                     <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-crema/50">{field.label}</p>
                     <div className="flex items-stretch gap-1.5">
-                      <input
+                      <input name="moderationpanel-input-468" id="moderationpanel-input-468"
                         value={draftVal}
                         disabled={busy || !msgDraft}
                         onChange={(e) => setMsgDraft((prev) => (prev ? { ...prev, [field.key]: e.target.value } : prev))}
@@ -515,7 +515,7 @@ export function ModerationPanel({
                 <label className="block min-w-0">
                   <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-crema/50">Warn raggiunti</span>
                   <div className="mt-1.5 flex h-[2.625rem] items-center gap-2">
-                    <input
+                    <input name="moderationpanel-input-518" id="moderationpanel-input-518"
                       value={apWarnCount}
                       onChange={(e) => setApWarnCount(e.target.value.replace(/[^\d]/g, "").slice(0, 2))}
                       className={cn(controlClass, "w-[4.25rem] shrink-0")}
@@ -544,7 +544,7 @@ export function ModerationPanel({
                   <label className="block min-w-0">
                     <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-crema/50">Durata</span>
                     <div className="mt-1.5 flex h-[2.625rem] items-center gap-2">
-                      <input
+                      <input name="moderationpanel-input-547" id="moderationpanel-input-547"
                         value={apDuration}
                         onChange={(e) => setApDuration(e.target.value.replace(/[^\d]/g, "").slice(0, 6))}
                         className={cn(controlClass, "w-[5rem] shrink-0")}
@@ -717,7 +717,7 @@ export function ModerationPanel({
                   <div key={row.key} className="space-y-1.5">
                     <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-crema/50">{row.label}</p>
                     <div className="flex items-stretch gap-1.5">
-                      <input
+                      <input name="moderationpanel-input-720" id="moderationpanel-input-720"
                         value={row.draft}
                         disabled={busy}
                         inputMode="numeric"
@@ -785,7 +785,7 @@ export function ModerationPanel({
             description="Per invitare utenti a cui è stato rimosso il ban (pulsante nel DM di unban)."
           >
             <div className="flex items-stretch gap-1.5">
-              <input
+              <input name="moderationpanel-input-788" id="moderationpanel-input-788"
                 value={inviteDraft}
                 disabled={busy}
                 placeholder="https://discord.gg/…"
@@ -831,7 +831,7 @@ export function ModerationPanel({
           <div id="dash-mod-cases" className="scroll-mt-24 space-y-3">
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="ID utente">
-                <input
+                <input name="moderationpanel-input-834" id="moderationpanel-input-834"
                   value={caseUserId}
                   inputMode="numeric"
                   placeholder="es. 123456789012345678"

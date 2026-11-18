@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, CalendarDays, ChevronDown, LayoutDashboard, ListChecks, LogIn, LogOut, MessageSquareText, Sparkles, UserRound, Users } from "lucide-react";
-import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
+import { BookOpen, CalendarDays, ChevronDown, Clapperboard, LayoutDashboard, ListChecks, LogIn, LogOut, MessageSquareText, Sparkles, UserRound, Users } from "lucide-react";
+import { loadStaffAccess, staffNavFor, type StaffAccess } from "@/lib/staff";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { page } from "@/lib/site";
@@ -212,28 +212,28 @@ export function UserMenu({ className }: { className?: string }) {
               <>
                 <div className="my-1 border-t border-sand/10" />
                 <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-caramel">Area staff</p>
-                {[
-                  { href: "/staff/guida/", label: "Guida", icon: <BookOpen className="size-4" />, show: true },
-                  {
-                    href: "/staff/gestione/",
-                    label: "Gestione",
-                    icon: <Users className="size-4" />,
-                    show: Boolean(staff.canManage || staff.canManagePm),
-                  },
-                  { href: "/staff/compiti/", label: "Compiti", icon: <ListChecks className="size-4" />, show: staff.canCompiti },
-                  { href: "/staff/pause/", label: "Pause", icon: <CalendarDays className="size-4" />, show: true },
-                ]
-                  .filter((x) => x.show)
-                  .map((x) => (
+                {staffNavFor(staff).map((x) => {
+                  const Icon =
+                    x.href.startsWith("/seratafilm")
+                      ? Clapperboard
+                      : x.href.includes("/gestione")
+                        ? Users
+                        : x.href.includes("/compiti")
+                          ? ListChecks
+                          : x.href.includes("/pause")
+                            ? CalendarDays
+                            : BookOpen;
+                  return (
                     <SmartLink
                       key={x.href}
                       href={x.href}
                       onClick={() => window.setTimeout(() => setOpen(false), 0)}
                       className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-crema/80 transition-[transform,background-color,color] duration-150 ease-out hover:bg-crema/8 hover:text-crema active:scale-[0.98]"
                     >
-                      {x.icon} {x.label}
+                      <Icon className="size-4" /> {x.label}
                     </SmartLink>
-                  ))}
+                  );
+                })}
               </>
             )}
 

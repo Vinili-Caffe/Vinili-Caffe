@@ -381,7 +381,7 @@ function KindEditor({
           >
             {emoji ? <EmojiGlyph value={emoji} className="size-5" /> : <Smile className="size-4 text-white/70" aria-hidden />}
           </EmojiButton>
-          <input
+          <input name="boardspanel-input-384" id="boardspanel-input-384"
             type="text"
             value={value[textKey]}
             disabled={disabled}

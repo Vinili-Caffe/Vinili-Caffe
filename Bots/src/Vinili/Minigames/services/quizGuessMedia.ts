@@ -6,7 +6,7 @@ const { buildGuessFlagEmbed, buildGuessPlayerEmbed, buildGuessSongEmbed, buildGu
 const { randomBetween, loadCountryList, loadFootballTeamsFromApi, loadSingersFromApi, loadAlbumsFromApi, normalizePlayerGuess, fetchPlayerFromRandomLetter, fetchFamousPlayer, fetchLeagueFamousPlayer, fetchSampleFamousPlayer, fetchSampleFootballTeam, fetchSampleAlbum, fetchRandomSong, fetchPopularSong } = require("./minigameSources") as typeof import("./minigameSources");
 const { getChannelCached, pickRandomItem } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { normalizeRewardExp, buildPlayerAnswerAliases, buildPlainMaskedTextHint, buildRevealHint, buildCountryHint } = require("./minigameText") as typeof import("./minigameText");
-const { activeGames, pickQuestionAvoidRecent } = require("./minigameState") as typeof import("./minigameState");
+const { activeGames, pickQuestionAvoidRecent, recentLimitForBank } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
@@ -47,39 +47,42 @@ const ARTWORK_CARD_TITLE: Record<string, string> = { guessSong: "Indovina la can
 /** V2: sostituisce l'immagine della galleria (copertina) con quella meno censurata, o con l'originale alla fine. */
 async function editV2Artwork(msg?, alpha = 0, originalArtworkUrl = "", attachmentName = "", cardTitle = "") {
   const name = String(attachmentName || "");
-  const isArtwork = (url?) => {
-    const u = String(url || "");
-    return (name && (u === `attachment://${name}` || u.split("?")[0].endsWith(`/${name}`))) || (originalArtworkUrl && u === originalArtworkUrl);
-  };
   let files: any[] = [];
-  let nextUrl = originalArtworkUrl;
+  let nextUrl = String(originalArtworkUrl || "").trim();
   /* alpha 0 = copertina scoperta, sempre dentro la card */
   const censored = await censorArtworkImage(originalArtworkUrl, { attachmentName: name, overlayAlpha: Math.max(0, alpha), cardTitle });
   if (censored) {
     files = [new AttachmentBuilder(censored.buffer, { name: censored.attachmentName })];
     nextUrl = `attachment://${censored.attachmentName}`;
   } else if (alpha > 0) return;
-  const swap = (list?) =>
-    (Array.isArray(list) ? list : []).map((c?) => {
-      if (!c || typeof c !== "object") return c;
-      const out: any = { ...c };
-      if (out.type === 12 && Array.isArray(out.items)) out.items = out.items.map((i?) => (isArtwork(i?.media?.url) ? { ...i, media: { ...i.media, url: nextUrl } } : i));
-      if (out.type === 11 && isArtwork(out.media?.url)) out.media = { ...out.media, url: nextUrl };
-      if (out.accessory?.type === 11 && isArtwork(out.accessory?.media?.url)) out.accessory = { ...out.accessory, media: { ...out.accessory.media, url: nextUrl } };
-      if (Array.isArray(out.components)) out.components = swap(out.components);
-      return out;
-    });
-  const components = swap((msg.components || []).map((c?) => (typeof c?.toJSON === "function" ? c.toJSON() : c)));
+  if (!nextUrl) return;
+  /* forceAll: Discord risolve attachment:// → CDN; senza swap l'immagine resta rotta con attachments:[] */
+  const { replaceV2AttachmentMedia } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+  const raw = (msg.components || []).map((c?) => (typeof c?.toJSON === "function" ? c.toJSON() : c));
+  const components = replaceV2AttachmentMedia(raw, nextUrl, true);
   await msg.edit({ components, files, attachments: [], flags: V2_FLAG, embeds: [] }).catch(() => {});
 }
 
 function scheduleArtworkCensorSteps(params?) {
-  const { channelId, channel, gameMessageId, originalArtworkUrl, durationMs, buildEmbed, rewardExp, attachmentName, gameType } = params;
+  const {
+    channelId,
+    channel,
+    gameMessageId,
+    originalArtworkUrl,
+    durationMs,
+    buildEmbed,
+    rewardExp,
+    attachmentName,
+    gameType,
+    elapsedMs = 0,
+  } = params || {};
   if (!channelId || !channel || !gameMessageId || !originalArtworkUrl || !buildEmbed) return [];
   const timeouts = [];
   const totalMinutes = Math.max(1, Math.floor(durationMs / CENSOR_STEP_INTERVAL_MS));
+  const elapsed = Math.max(0, Number(elapsedMs) || 0);
   for (let step = 1; step < totalMinutes; step++) {
-    const delay = durationMs - step * CENSOR_STEP_INTERVAL_MS;
+    const delayFromStart = durationMs - step * CENSOR_STEP_INTERVAL_MS;
+    const delay = delayFromStart - elapsed;
     if (delay < 8000) continue;
     const isLastStep = step === totalMinutes - 1;
     const alpha = isLastStep ? 0 : Math.max(0, 0.9 - (step * 0.9) / Math.max(1, totalMinutes - 1));
@@ -98,13 +101,17 @@ function scheduleArtworkCensorSteps(params?) {
         if (revealed) {
           const embed = buildEmbed(rewardExp, durationMs, `attachment://${revealed.attachmentName}`);
           const files = [new AttachmentBuilder(revealed.buffer, { name: revealed.attachmentName })];
-          const payload = gameType === "guessSong" ? { embeds: [embed], components: msg.components, files } : { embeds: [embed], files };
+          const payload = gameType === "guessSong"
+            ? { embeds: [embed], components: msg.components, files, attachments: [] }
+            : { embeds: [embed], files, attachments: [] };
           await msg.edit(payload).catch(() => {});
           return;
         }
         if (alpha <= 0) {
           const embed = buildEmbed(rewardExp, durationMs, originalArtworkUrl);
-          const payload = gameType === "guessSong" ? { embeds: [embed], components: msg.components, files: [] } : { embeds: [embed], files: [] };
+          const payload = gameType === "guessSong"
+            ? { embeds: [embed], components: msg.components, files: [], attachments: [] }
+            : { embeds: [embed], files: [], attachments: [] };
           await msg.edit(payload).catch(() => {});
           return;
         }
@@ -112,11 +119,13 @@ function scheduleArtworkCensorSteps(params?) {
         if (!censored) return;
         const embed = buildEmbed(rewardExp, durationMs, `attachment://${censored.attachmentName}`);
         const files = [new AttachmentBuilder(censored.buffer, { name: censored.attachmentName })];
-        const payload = gameType === "guessSong" ? { embeds: [embed], components: msg.components, files } : { embeds: [embed], files };
+        const payload = gameType === "guessSong"
+          ? { embeds: [embed], components: msg.components, files, attachments: [] }
+          : { embeds: [embed], files, attachments: [] };
         await msg.edit(payload).catch(() => {});
       } catch (err) {
-      warnMinigame(err);
-    }
+        warnMinigame(err);
+      }
     }, delay);
     if (typeof t.unref === "function") t.unref();
     timeouts.push(t);
@@ -138,7 +147,7 @@ async function startGuessFlagGame(client?, cfg?) {
   const channel = await getChannelCached(client, channelId);
   if (!channel) return false;
 
-  const target = pickQuestionAvoidRecent(channelId, "guessFlag", countries, (c?) => c?.displayName || (Array.isArray(c?.names) ? c.names[0] : "") || "", 20) || countries[randomBetween(0, countries.length - 1)];
+  const target = pickQuestionAvoidRecent(channelId, "guessFlag", countries, (c?) => c?.displayName || (Array.isArray(c?.names) ? c.names[0] : "") || "", recentLimitForBank(countries, 40)) || countries[randomBetween(0, countries.length - 1)];
   if (!target) return false;
 
   const roleId = cfg.roleId;
@@ -386,7 +395,7 @@ async function startGuessTeamGame(client?, cfg?) {
   const channelId = cfg.channelId;
   if (!channelId || activeGames.has(channelId)) return false;
   const teams = await loadFootballTeamsFromApi(cfg);
-  let pick = pickQuestionAvoidRecent(channelId, "guessTeam", teams, (t?) => t?.team || t?.id || "", 15) || pickRandomItem(teams);
+  let pick = pickQuestionAvoidRecent(channelId, "guessTeam", teams, (t?) => t?.team || t?.id || "", recentLimitForBank(teams, 30)) || pickRandomItem(teams);
   if (!pick?.team || !pick?.answers?.length) {
     pick = await fetchSampleFootballTeam().catch(() => null);
   }
@@ -456,7 +465,7 @@ async function startGuessSingerGame(client?, cfg?) {
   const channelId = cfg.channelId;
   if (!channelId || activeGames.has(channelId)) return false;
   const singers = await loadSingersFromApi(cfg);
-  const pick = pickQuestionAvoidRecent(channelId, "guessSinger", singers, (s?) => s?.name || "", 15) || pickRandomItem(singers);
+  const pick = pickQuestionAvoidRecent(channelId, "guessSinger", singers, (s?) => s?.name || "", recentLimitForBank(singers, 30)) || pickRandomItem(singers);
   if (!pick?.name || !pick?.answers?.length) return false;
   const resolvedImage = pick.image || (await fetchSingerImageFallback(pick.name, cfg));
 
@@ -524,7 +533,7 @@ async function startGuessAlbumGame(client?, cfg?) {
   const channelId = cfg.channelId;
   if (!channelId || activeGames.has(channelId)) return false;
   const albums = await loadAlbumsFromApi(cfg);
-  let pick = pickQuestionAvoidRecent(channelId, "guessAlbum", albums, (a?) => `${a?.album || ""}|${a?.artist || ""}`, 15) || pickRandomItem(albums);
+  let pick = pickQuestionAvoidRecent(channelId, "guessAlbum", albums, (a?) => `${a?.album || ""}|${a?.artist || ""}`, recentLimitForBank(albums, 30)) || pickRandomItem(albums);
   if (!pick?.album || !pick?.answers?.length) {
     pick = await fetchSampleAlbum().catch(() => null);
   }
@@ -604,4 +613,12 @@ async function startGuessAlbumGame(client?, cfg?) {
   return true;
 }
 
-export = { startGuessFlagGame, startGuessPlayerGame, startGuessSongGame, startGuessTeamGame, startGuessSingerGame, startGuessAlbumGame };
+export = {
+  startGuessFlagGame,
+  startGuessPlayerGame,
+  startGuessSongGame,
+  startGuessTeamGame,
+  startGuessSingerGame,
+  startGuessAlbumGame,
+  scheduleArtworkCensorSteps,
+};

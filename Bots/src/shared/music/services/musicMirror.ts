@@ -49,12 +49,12 @@ async function playEncodedFromStart(player?, encoded?, options: Record<string, a
     throw new Error("playEncodedFromStart: argomenti non validi");
   }
   const position = Math.max(0, Math.floor(Number(options?.position) || 0));
-  const access = await getYoutubeOauthAccessToken().catch(() => null);
+  /* radio Icecast/HLS: niente OAuth YouTube (fino a ~15s a cache fredda). */
+  const skipOauth = options.skipOauth === true || options.oauth === false;
+  const access = skipOauth ? null : await getYoutubeOauthAccessToken().catch(() => null);
   const track = access
     ? { encoded: enc, userData: { "oauth-token": access } }
     : { encoded: enc };
-  if (access) logMusic("play with yt oauth-token", enc.slice(0, 24), position ? `@${position}ms` : "");
-  else logMusic("playTrack", enc.slice(0, 24), position ? `@${position}ms` : "from start");
   await player.playTrack({ track, position });
 }
 

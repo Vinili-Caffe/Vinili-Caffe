@@ -5,7 +5,7 @@ const { buildRecoveryVoiceState } = require("../../../shared/discord/voiceStateR
 const { MIN_SUFFIX_DIGITS, getGameVoiceHubCategoryId, isGameVoiceHubsEnabled, isGameVoiceHubChannel, getHubChannelIds, getPublicVoiceHubCategoryId, isPublicVoiceHubId, stripVoiceSuffix, parseVoiceSuffixIndex, toSuperscriptNumber, isHubCreateDisabledForChannel, resolveHubGroupKey, resolveHubSpawnBaseName, isHubGroupSpawnChannel, botCanManageVoiceHubs } = require("./voiceHubConfig") as typeof import("./voiceHubConfig");
 const { placeSpawnAfterHubGroupTail, listHubGroupChannels, nextSpawnSuffixIndex, refreshParentChannelsCache, verifyHubGroupChannelOrder, reorderLimitateCategory, pauseMs, realignPublicVoiceHubGroupsOnStartup } = require("./voiceHubOrder") as typeof import("./voiceHubOrder");
 const { ensureSpawnedChannelMemberTextAccess, buildSpawnPermissionOverwrites, ensureHubLobbySpeakDenied } = require("./voiceHubPerms") as typeof import("./voiceHubPerms");
-const { rememberSpawnedChannel, isSpawnedHubChannel, countHumanMembersResolved, memberStillInVoiceChannel, isUserDisconnectedVoiceError, resolveGuildMemberVoiceState, cleanupUnusedSpawnedChannel, scheduleSpawnedChannelDelete, handlePublicVoiceHubEmpty, sweepEmptySpawnedHubChannels } = require("./voiceHubMembers") as typeof import("./voiceHubMembers");
+const { rememberSpawnedChannel, isSpawnedHubChannel, countHumanMembersResolved, memberStillInVoiceChannel, memberStillInVoiceChannelResolved, isUserDisconnectedVoiceError, resolveGuildMemberVoiceState, cleanupUnusedSpawnedChannel, scheduleSpawnedChannelDelete, handlePublicVoiceHubEmpty, sweepEmptySpawnedHubChannels } = require("./voiceHubMembers") as typeof import("./voiceHubMembers");
 
 
 const userCreateLocks = new Set();
@@ -118,7 +118,7 @@ async function withHubCreateLock(hubId?, fn?) {
   return job;
 }
 
-function scheduleHubSpawnFollowUp(guild?, client?, hubChannel?, createdChannelId?) {
+function scheduleHubSpawnFollowUp(guild?, client?, hubChannel?, createdChannelId?, spawnName?) {
   const guildId = String(guild?.id || "");
   const hubId = String(hubChannel?.id || "");
   const channelId = String(createdChannelId || "");
@@ -134,11 +134,30 @@ function scheduleHubSpawnFollowUp(guild?, client?, hubChannel?, createdChannelId
         (channelId ? await liveGuild.channels.fetch(channelId).catch(() => null) : null);
       if (created) {
         await ensureSpawnedChannelMemberTextAccess(created, liveGuild).catch(() => null);
+        await placeSpawnAfterHubGroupTail(
+          created,
+          hub,
+          liveGuild,
+          client,
+          `Vocale hub ${hub.name} spawn ${spawnName || created.name}`,
+        ).catch(() => null);
       }
       await reorderLimitateCategory(liveGuild, client, {
         parentId: getPublicVoiceHubCategoryId(client, hub) || hub.parentId,
         forceFetch: true,
+        quick: false,
       }).catch(() => null);
+      const verify = verifyHubGroupChannelOrder(liveGuild, hub, client);
+      if (!verify.ok && created) {
+        await placeSpawnAfterHubGroupTail(created, hub, liveGuild, client, "hub spawn retry under group").catch(
+          () => null,
+        );
+        await reorderLimitateCategory(liveGuild, client, {
+          parentId: getPublicVoiceHubCategoryId(client, hub) || hub.parentId,
+          forceFetch: true,
+          quick: true,
+        }).catch(() => null);
+      }
       queueCategoryRenumber(client, liveGuild.id, 5000);
     })().catch((err?) => {
       global.logger?.warn?.("[publicVoiceHub] deferred follow-up failed:", err?.message || err);
@@ -194,7 +213,12 @@ async function handlePublicVoiceHubJoin(oldState?, newState?, client?) {
       const nextIndex = nextSpawnSuffixIndex(group, joinedId);
       const spawnName = `${resolveHubSpawnBaseName(freshHub)}${toSuperscriptNumber(nextIndex, MIN_SUFFIX_DIGITS)}`;
 
-      if (!memberStillInVoiceChannel(member, joinedId, guild)) {
+      if (!(await memberStillInVoiceChannelResolved(member, joinedId, guild))) {
+        global.logger?.warn?.(
+          "[publicVoiceHub] skip create: user left lobby before create",
+          uid,
+          freshHub?.name || joinedId,
+        );
         return;
       }
 
@@ -229,11 +253,12 @@ async function handlePublicVoiceHubJoin(oldState?, newState?, client?) {
 
       rememberSpawnedChannel(created.id, joinedId);
 
-      // Muovi subito l'utente; posizione/reorder subito dopo (sync).
+      // Muovi subito l'utente; posizione/reorder deferred.
       let freshMember = await resolveGuildMemberVoiceState(guild, member, uid);
-      if (!memberStillInVoiceChannel(freshMember, joinedId, guild)) {
+      const stillInLobby = await memberStillInVoiceChannelResolved(freshMember, joinedId, guild);
+      if (!stillInLobby) {
         // Se già finito nello spawn (race), ok; altrimenti cleanup.
-        if (!memberStillInVoiceChannel(freshMember, created.id, guild)) {
+        if (!(await memberStillInVoiceChannelResolved(freshMember, created.id, guild))) {
           await cleanupUnusedSpawnedChannel(created, "Utente non più in lobby hub");
           return;
         }
@@ -241,7 +266,7 @@ async function handlePublicVoiceHubJoin(oldState?, newState?, client?) {
         let moved = false;
         for (let attempt = 0; attempt < 2 && !moved; attempt += 1) {
           freshMember = await resolveGuildMemberVoiceState(guild, freshMember || member, uid);
-          if (!memberStillInVoiceChannel(freshMember, joinedId, guild)) break;
+          if (!(await memberStillInVoiceChannelResolved(freshMember, joinedId, guild))) break;
           moved = await freshMember.voice
             .setChannel(created)
             .then(() => true)
@@ -258,46 +283,16 @@ async function handlePublicVoiceHubJoin(oldState?, newState?, client?) {
             });
           if (!moved) await pauseMs(200);
         }
-        if (!moved && !memberStillInVoiceChannel(freshMember, created.id, guild)) {
+        if (!moved && !(await memberStillInVoiceChannelResolved(freshMember, created.id, guild))) {
           await cleanupUnusedSpawnedChannel(created, "Move utente fallito");
           return;
         }
       }
 
-      /* hubSpawnUnderHub3: solo place sotto coda gruppo + reorder categoria voice-only.
-         applyHubSpawnCreatePosition(position pre-create) riposizionava con raw stale → SOPRA l'hub. */
-      await placeSpawnAfterHubGroupTail(
-        created,
-        freshHub,
-        guild,
-        client,
-        `Vocale hub ${freshHub.name} spawn ${spawnName}`,
-      ).catch(() => null);
-      await reorderLimitateCategory(guild, client, {
-        parentId: spawnParentId || freshHub.parentId,
-        forceFetch: true,
-        quick: false,
-      }).catch((err?) => {
-        global.logger?.warn?.("[publicVoiceHub] sync reorder failed:", err?.message || err);
-      });
-
-      const verify = verifyHubGroupChannelOrder(guild, freshHub, client);
-      if (!verify.ok) {
-        global.logger?.warn?.(
-          "[publicVoiceHub] spawn still misplaced after sync reorder:",
-          spawnName,
-          verify.misplaced?.map((row?) => `${row.name}@${row.idx}->${row.expectedIdx}`).join("; "),
-        );
-        await placeSpawnAfterHubGroupTail(created, freshHub, guild, client, "hub spawn retry under group").catch(
-          () => null,
-        );
-        await reorderLimitateCategory(guild, client, {
-          parentId: spawnParentId || freshHub.parentId,
-          forceFetch: true,
-        }).catch(() => null);
-      }
-
-      scheduleHubSpawnFollowUp(guild, client, freshHub, created.id);
+      /* Create+move sotto il lock; place/reorder deferred.
+         Prima: sync reorder con force-fetch + pause 350/450ms teneva il lock e
+         rallentava le create successive (e saturava la rate limit Discord). */
+      scheduleHubSpawnFollowUp(guild, client, freshHub, created.id, spawnName);
     });
   } finally {
     userCreateLocks.delete(uid);

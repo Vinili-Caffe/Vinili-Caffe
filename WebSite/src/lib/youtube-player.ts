@@ -1,6 +1,6 @@
 /** YouTube IFrame API minimale per il giradischi. */
 
-import { isHalloweenSeason } from "@/lib/site-effects";
+import { isChristmasSeason, isHalloweenSeason } from "@/lib/site-effects";
 
 export type YtPlayer = {
   playVideo: () => void;
@@ -111,10 +111,19 @@ export const VINYL_YT_HALLOWEEN: VinylYtTrack = {
   title: "Halloween lofi · spooky",
 };
 
+/** Mix Natale lungo (VOD, seek ok). */
+export const VINYL_YT_CHRISTMAS: VinylYtTrack = {
+  id: "qwdzIECTqn8",
+  url: "https://www.youtube.com/watch?v=qwdzIECTqn8",
+  title: "Christmas lofi · cozy",
+};
+
 /** @deprecated usa resolveVinylYt() — resta il chill come fallback statico. */
 export const VINYL_YT = VINYL_YT_CHILL;
 
-/** Track del giradischi: Halloween nella stessa finestra degli FX (15 ott → 2 nov Rome). */
+/** Track del giradischi: Natale / Halloween nelle rispettive finestre FX (Rome). */
 export function resolveVinylYt(now = new Date()): VinylYtTrack {
-  return isHalloweenSeason(now) ? VINYL_YT_HALLOWEEN : VINYL_YT_CHILL;
+  if (isChristmasSeason(now)) return VINYL_YT_CHRISTMAS;
+  if (isHalloweenSeason(now)) return VINYL_YT_HALLOWEEN;
+  return VINYL_YT_CHILL;
 }

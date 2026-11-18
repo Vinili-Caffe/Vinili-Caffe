@@ -147,6 +147,75 @@ export const patchBotPrefs = (token: string, body: Partial<BotPrefs["prefs"]>) =
 export const loadPmProfile = (token: string, guildId: string) => sendPm(token, guildId);
 export const patchPmProfile = (token: string, guildId: string, body: PmBody) => sendPm(token, guildId, body);
 
+/** Cronologia partnership del server (profilo staff, come +history). */
+export type PmPartnershipHistory = {
+  days: number | null;
+  uniqueServers: number;
+  totalPartnerships: number;
+  page: number;
+  totalPages: number;
+  entries: {
+    guildId: string | null;
+    guildName: string | null;
+    iconUrl: string | null;
+    count: number;
+    lastAt: string | null;
+    invite: string | null;
+  }[];
+};
+
+export async function loadPmPartnershipHistory(
+  token: string,
+  guildId: string,
+  query: { days?: number; page?: number; pageSize?: number } = {},
+): Promise<{ ok: true; data: PmPartnershipHistory } | Fail> {
+  try {
+    const params = new URLSearchParams({ section: "pmhistory", guild: guildId, _: String(Date.now()) });
+    if (query.days) params.set("days", String(query.days));
+    if (query.page) params.set("page", String(query.page));
+    if (query.pageSize) params.set("pageSize", String(query.pageSize));
+    const r = await fetch(`/webhooks/site-profile-extras?${params}`, {
+      method: "GET",
+      cache: "no-store",
+      credentials: "omit",
+      headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+    });
+    const data = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+    if (r.status !== 200 || data.ok === false) {
+      return { ok: false, status: r.status, message: typeof data.message === "string" ? data.message : "Cronologia non disponibile." };
+    }
+    const entries = Array.isArray(data.entries)
+      ? data.entries.flatMap((row) => {
+          if (!row || typeof row !== "object") return [];
+          const e = row as Record<string, unknown>;
+          return [
+            {
+              guildId: e.guildId ? String(e.guildId) : null,
+              guildName: e.guildName ? String(e.guildName) : null,
+              iconUrl: e.iconUrl ? String(e.iconUrl) : null,
+              count: Number(e.count) || 0,
+              lastAt: e.lastAt ? String(e.lastAt) : null,
+              invite: e.invite ? String(e.invite) : null,
+            },
+          ];
+        })
+      : [];
+    return {
+      ok: true,
+      data: {
+        days: data.days == null ? null : Number(data.days) || 0,
+        uniqueServers: Number(data.uniqueServers) || 0,
+        totalPartnerships: Number(data.totalPartnerships) || 0,
+        page: Number(data.page) || 1,
+        totalPages: Number(data.totalPages) || 1,
+        entries,
+      },
+    };
+  } catch {
+    return { ok: false, status: 0, message: "Errore di rete durante il caricamento cronologia." };
+  }
+}
+
 export const patchTenantProfile = (
   token: string,
   body: Partial<{ suppressManagerPing: boolean; ephemeralCommands: boolean; language: string; toggleBadgeId: string }>,

@@ -1,8 +1,12 @@
 const { createGuildBackup } = require("./serverBackupCapture") as typeof import("./serverBackupCapture");
 const {
+  listGuildBackupMetas,
   listAllBackupMetasPaginated,
   readBackupByIdGlobal,
   deleteBackupByIdGlobal,
+  readBackupMetaFile,
+  readBackupMeta,
+  deleteGuildBackup,
   pruneGuildBackups,
   validateAndHealGuildBackups,
   writeSecuritySnapshot,
@@ -13,9 +17,13 @@ const {
 
 export = {
   createGuildBackup,
+  listGuildBackupMetas,
   listAllBackupMetasPaginated,
   readBackupByIdGlobal,
   deleteBackupByIdGlobal,
+  readBackupMetaFile,
+  readBackupMeta,
+  deleteGuildBackup,
   pruneGuildBackups,
   validateAndHealGuildBackups,
   writeSecuritySnapshot,

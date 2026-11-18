@@ -20,17 +20,32 @@ type SessionPayload = {
   iat: number;
 };
 
+let cachedSessionKey: Buffer | null = null;
+let warnedMissingSessionSecret = false;
+
 function resolveSessionSecret(): Buffer {
-  const raw = String(
-    process.env.SITE_SESSION_SECRET ||
-      process.env.DISCORD_OAUTH_CLIENT_SECRET ||
-      process.env.WEBSITE_OAUTH_CLIENT_SECRET ||
-      "",
+  if (cachedSessionKey) return cachedSessionKey;
+  const dedicated = String(process.env.SITE_SESSION_SECRET || "").trim();
+  if (dedicated) {
+    cachedSessionKey = crypto.createHash("sha256").update(dedicated, "utf8").digest();
+    return cachedSessionKey;
+  }
+  const oauth = String(
+    process.env.DISCORD_OAUTH_CLIENT_SECRET || process.env.WEBSITE_OAUTH_CLIENT_SECRET || "",
   ).trim();
-  if (raw) return crypto.createHash("sha256").update(raw, "utf8").digest();
-  /* fallback debole solo se manca env: ancora meglio di localStorage, ma va settato SITE_SESSION_SECRET */
-  const soft = String(process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN_OFFICIAL || "vc-site-sess").trim();
-  return crypto.createHash("sha256").update(`vc-sess:${soft}`, "utf8").digest();
+  if (oauth) {
+    cachedSessionKey = crypto.createHash("sha256").update(oauth, "utf8").digest();
+    return cachedSessionKey;
+  }
+  /* Mai dal bot token. Fallback efimero: sessioni valide solo fino al restart. */
+  if (!warnedMissingSessionSecret) {
+    warnedMissingSessionSecret = true;
+    console.error(
+      "[SITE-AUTH] SITE_SESSION_SECRET mancante: usa un secret dedicato (non DISCORD_TOKEN). Sessioni efimere fino al set.",
+    );
+  }
+  cachedSessionKey = crypto.randomBytes(32);
+  return cachedSessionKey;
 }
 
 function resolveOauthClientSecret(): string {

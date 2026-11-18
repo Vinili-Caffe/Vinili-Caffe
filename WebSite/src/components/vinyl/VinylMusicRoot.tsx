@@ -28,6 +28,8 @@ function pathSuppressesSiteMusic(pathname: string) {
   /* Evento Star Wars: BGM dedicato (EventoMusic). */
   if (p === "/evento" || p.startsWith("/evento/")) return true;
   if (p === "/puzzle" || p.startsWith("/puzzle/")) return true;
+  /* Albero Natale: scena immersiva senza player angolo. */
+  if (p === "/albero" || p.startsWith("/albero/")) return true;
   /* /seratafilm resta sulla musica sito (o EventoMusic se immersione SW). */
   return false;
 }

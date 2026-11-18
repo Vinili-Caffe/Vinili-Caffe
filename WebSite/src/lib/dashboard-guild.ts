@@ -199,6 +199,8 @@ export type CommandAcl = {
   channelMode: string | null;
   channelIds: string[];
   boardFeatureLocked?: boolean;
+  /** true se il modulo collegato è spento o senza setup minimo */
+  moduleFeatureLocked?: boolean;
 };
 
 export type CatalogCommand = {
@@ -807,6 +809,7 @@ function mapAcl(raw: unknown): CommandAcl {
     channelMode: a.channelMode ? String(a.channelMode) : null,
     channelIds: Array.isArray(a.channelIds) ? a.channelIds.map(String) : [],
     boardFeatureLocked: a.boardFeatureLocked === true,
+    moduleFeatureLocked: a.moduleFeatureLocked === true,
   };
 }
 

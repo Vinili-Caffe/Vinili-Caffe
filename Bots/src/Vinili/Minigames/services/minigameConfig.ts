@@ -17,12 +17,14 @@ const { randomBetween } = require("./minigameSources") as typeof import("./minig
 const { getChannelCached, getRomeDateKey } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { shuffleArray } = require("./minigameText") as typeof import("./minigameText");
 const { lastSentAtByChannel } = require("./minigameActivity") as typeof import("./minigameActivity");
-const { lastPlayedGameTypesByChannel, lastPlayedAtByChannelAndType } = require("./minigameState") as typeof import("./minigameState");
+const { lastPlayedGameTypesByChannel, lastPlayedAtByChannelAndType, hydrateRecentQuestionKeys, snapshotRecentQuestionKeys } = require("./minigameState") as typeof import("./minigameState");
 
 let rotationDate = null;
 let rotationQueue = [];
-const LAST_PLAYED_ROTATION_SIZE = 3;
-const GAME_TYPE_COOLDOWN_MS = 30 * 60 * 1000;
+/** Quanti tipi recenti escludere: ~metà pool, min 6 / max 12 (prima erano solo 3). */
+const LAST_PLAYED_ROTATION_SIZE = 8;
+/** Cooldown per tipo: 2h ≈ 8 spawn a 15m (prima 30m ≈ 2 spawn). */
+const GAME_TYPE_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 
 function applyDashboardMinigameScoring(base?) {
   if (!base || typeof base !== "object") return base;
@@ -253,6 +255,27 @@ function getAvailableGameTypes(cfg?) {
   return types;
 }
 
+function hydrateLastPlayedFromDoc(channelId?, doc?) {
+  if (!channelId || !doc) return;
+  if (Array.isArray(doc.lastPlayedTypes) && doc.lastPlayedTypes.length) {
+    lastPlayedGameTypesByChannel.set(
+      channelId,
+      doc.lastPlayedTypes.map((t?) => String(t || "")).filter(Boolean).slice(-LAST_PLAYED_ROTATION_SIZE),
+    );
+  }
+  if (doc.lastPlayedAt && typeof doc.lastPlayedAt === "object") {
+    const map = new Map();
+    for (const [k, v] of Object.entries(doc.lastPlayedAt)) {
+      const t = Number(v);
+      if (k && Number.isFinite(t) && t > 0) map.set(String(k), t);
+    }
+    if (map.size) lastPlayedAtByChannelAndType.set(channelId, map);
+  }
+  if (doc.recentQuestionKeys && typeof doc.recentQuestionKeys === "object") {
+    hydrateRecentQuestionKeys(channelId, doc.recentQuestionKeys);
+  }
+}
+
 async function loadRotationState(client?, cfg?, guildIdOverride = null) {
   const channelId = cfg?.channelId;
   if (!channelId) return;
@@ -264,9 +287,11 @@ async function loadRotationState(client?, cfg?, guildIdOverride = null) {
     const t = Number(new Date(doc.lastSentAt).getTime());
     if (Number.isFinite(t) && t > 0) lastSentAtByChannel.set(channelId, t);
   }
+  hydrateLastPlayedFromDoc(channelId, doc);
   if (doc && Array.isArray(doc.queue) && doc.dateKey === dateKey) {
     rotationDate = doc.dateKey;
-    rotationQueue = shuffleArray(doc.queue.slice());
+    /* NON reshuffle: altrimenti lo stesso tipo torna in testa dopo pochi pick */
+    rotationQueue = doc.queue.map((t?) => String(t || "")).filter(Boolean);
     return;
   }
   rotationDate = dateKey;
@@ -284,9 +309,22 @@ async function saveRotationState(client?, cfg?, guildIdOverride = null) {
   const guildId = guildIdOverride ?? cfg?.guildId ?? (await getChannelCached(client, channelId))?.guild?.id ?? null;
   if (!guildId) return;
   const dateKey = rotationDate || getRomeDateKey(new Date());
+  const lastPlayedTypes = lastPlayedGameTypesByChannel.get(channelId) || [];
+  const atMap = lastPlayedAtByChannelAndType.get(channelId) || new Map();
+  const lastPlayedAt = Object.fromEntries([...atMap.entries()].map(([k, v]) => [k, Number(v) || 0]));
+  const recentQuestionKeys = snapshotRecentQuestionKeys(channelId);
   await (minigameRotationFindOneAndUpdate as any)(
     { guildId, channelId },
-    { $set: { dateKey, queue: rotationQueue, lastSentAt: lastSentAtByChannel.get(channelId) || 0 } },
+    {
+      $set: {
+        dateKey,
+        queue: rotationQueue,
+        lastSentAt: lastSentAtByChannel.get(channelId) || 0,
+        lastPlayedTypes,
+        lastPlayedAt,
+        recentQuestionKeys,
+      },
+    },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).catch(() => { });
 }
@@ -297,9 +335,13 @@ async function getNextGameType(client?, cfg?) {
   const guildId = cfg?.guildId ?? (cfg?.channelId ? (await getChannelCached(client, cfg.channelId))?.guild?.id ?? null : null);
   await loadRotationState(client, cfg, guildId);
   const todayKey = getRomeDateKey(new Date());
-  const queueSet = new Set(rotationQueue);
-  const queueMatchesConfig = available.length === queueSet.size && available.every((t?) => queueSet.has(t));
-  if (rotationDate !== todayKey || rotationQueue.length === 0 || !queueMatchesConfig) {
+  const availableSet = new Set(available);
+  /* coda valida se non vuota e contiene solo tipi ancora disponibili (non serve che sia completa) */
+  const queueOk =
+    rotationQueue.length > 0 &&
+    rotationQueue.every((t?) => availableSet.has(t)) &&
+    rotationDate === todayKey;
+  if (!queueOk) {
     rotationDate = todayKey;
     rotationQueue = shuffleArray(expandGameTypesByRotationWeight(cfg, available.slice()));
   }
@@ -312,24 +354,33 @@ async function getNextGameType(client?, cfg?) {
     const at = cooldownUntilByType.get(type);
     return typeof at === "number" && now - at < getGameTypeCooldownMs(type, cfg);
   };
-  const halfAvailable = Math.floor(available.length / 2);
-  if (rotationQueue.length < halfAvailable && available.length > 0) {
-    rotationQueue = shuffleArray(expandGameTypesByRotationWeight(cfg, available.slice()));
-  }
-  let next = rotationQueue.shift() || available[0];
-  while ((excludeSet.has(next) || isOnCooldown(next)) && (rotationQueue.length > 0 || available.length > 1)) {
-    if (rotationQueue.length > 0) {
-      rotationQueue.push(next);
-      next = rotationQueue.shift();
-    } else {
-      const others = available.filter((t?) => !excludeSet.has(t) && !isOnCooldown(t));
-      next = others.length ? others[randomBetween(0, others.length - 1)] : available[0];
+
+  const tried = new Set();
+  let next = null;
+  while (rotationQueue.length > 0) {
+    const cand = rotationQueue.shift();
+    if (!cand || !availableSet.has(cand)) continue;
+    if (tried.has(cand)) {
+      /* ciclo completo sulla coda: nessun candidato libero → spezza anti-repeat */
+      next = cand;
       break;
     }
+    tried.add(cand);
+    if (excludeSet.has(cand) || isOnCooldown(cand)) {
+      rotationQueue.push(cand);
+      continue;
+    }
+    next = cand;
+    break;
   }
-  if (next) {
-    rotationQueue = rotationQueue.filter((type?) => type !== next);
-    rotationQueue.push(next);
+  if (!next) {
+    const others = available.filter((t?) => !excludeSet.has(t) && !isOnCooldown(t));
+    next = others.length ? others[randomBetween(0, others.length - 1)] : available[0];
+  }
+  /* NON rimettere `next` in coda: la rotazione si esaurisce e poi si ricostruisce */
+  if (rotationQueue.length === 0) {
+    rotationDate = todayKey;
+    rotationQueue = shuffleArray(expandGameTypesByRotationWeight(cfg, available.filter((t?) => t !== next)));
   }
   await saveRotationState(client, cfg, guildId);
   return next;

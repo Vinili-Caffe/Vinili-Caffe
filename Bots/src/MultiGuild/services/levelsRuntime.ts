@@ -1,7 +1,8 @@
 /**
  * Livelli / EXP della dashboard (modulo "livelli").
- * Per ora solo sul server principale (mainOnly): tassi, canali bloccati, moltiplicatori,
- * ruoli premio e messaggi di level-up personalizzabili. Il runtime Vinili Level legge da qui.
+ * Opt-in su ogni server (default off; sul principale senza salvataggio resta acceso):
+ * tassi, canali bloccati, moltiplicatori, ruoli premio e messaggi di level-up.
+ * Il runtime Vinili Level legge da qui quando il modulo è acceso.
  */
 const T = require("../core/tenantCommunityTools") as typeof import("../core/tenantCommunityTools");
 
@@ -508,9 +509,36 @@ function fillEmptyMinigameDrafts(scoring: MinigameScoring, raw?: any): MinigameS
     }
   }
 
+  const ensureStartPing = (d: ReturnType<typeof T.normalizeDraft> | null) => {
+    if (!d) return d;
+    const hasToken = (s?) => String(s || "").includes("{ping}");
+    if (d.v2?.enabled) {
+      const blocks = Array.isArray(d.v2.blocks) ? d.v2.blocks : [];
+      const already = blocks.some((b?) =>
+        (b?.type === "text" || b?.type === "section") && hasToken(b.content),
+      );
+      if (already) return { ...d, mentionRoles: true };
+      return {
+        ...d,
+        mentionRoles: true,
+        v2: {
+          ...d.v2,
+          blocks: [{ type: "text", content: "{ping}" }, ...blocks],
+        },
+      };
+    }
+    if (hasToken(d.content)) return { ...d, mentionRoles: d.mentionRoles !== false };
+    const content = String(d.content || "").trim();
+    return {
+      ...d,
+      mentionRoles: true,
+      content: content ? `{ping}\n${content}` : "{ping}",
+    };
+  };
+
   return {
     ...scoring,
-    startDraft: startDraft || classicStart,
+    startDraft: ensureStartPing(startDraft || classicStart),
     winDraft: winDraft || classicWin,
     rewardExpByType: scoring.rewardExpByType.map((row) => ({
       type: row.type,
@@ -1425,9 +1453,7 @@ async function syncGlobalSettingsFromConfig(guildId: string, cfg: LevelsConfig) 
 
 function levelsActive(guildId?): boolean {
   const gid = String(guildId || "");
-  if (!gid || !moduleOn(gid)) return false;
-  /* finché il modulo è mainOnly, resta sul principale */
-  return T.isMainGuild(gid);
+  return Boolean(gid && moduleOn(gid));
 }
 
 async function getMessageExp(guildId?: string) {

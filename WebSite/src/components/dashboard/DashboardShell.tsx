@@ -88,6 +88,16 @@ function BotLogo() {
 
 type ShellGuild = { id: string; name: string; iconUrl: string | null };
 
+/** Badge sidebar: numero semplice oppure tono (errori / avvisi salute). */
+export type NavBadge =
+  | number
+  | {
+      count: number;
+      /** danger = problemi gravi; warn = avvisi; default = caramel (ticket ecc.) */
+      tone?: "default" | "danger" | "warn";
+      title?: string;
+    };
+
 export type GuildNav = {
   active: GuildSectionId;
   onSelect: (id: GuildSectionId) => void;
@@ -96,8 +106,8 @@ export type GuildNav = {
   onModuleTab?: (section: GuildSectionId, tab: string) => void;
   /** Sotto-voci dinamiche (es. categorie comandi dal catalogo). */
   tabsBySection?: Partial<Record<GuildSectionId, readonly { id: string; label: string }[]>>;
-  /** numeretto accanto alla voce (es. ticket in attesa) */
-  badges?: Partial<Record<GuildSectionId, number>>;
+  /** numeretto/i accanto alla voce (es. ticket, errori/avvisi salute) */
+  badges?: Partial<Record<GuildSectionId, NavBadge | NavBadge[]>>;
   /** moduli spenti su questo server: vanno nel gruppo "Disattivati" sotto Moduli */
   off?: readonly GuildSectionId[];
   /** moduli che su questo server non esistono: non compaiono proprio nel menu */
@@ -105,6 +115,40 @@ export type GuildNav = {
   /** moduli che qui non si gestiscono dalla dashboard: in "Disattivati", non cliccabili (valore = perché) */
   locked?: Partial<Record<GuildSectionId, string>>;
 };
+
+function normalizeNavBadges(badge?: NavBadge | NavBadge[]): Array<{ count: number; tone: "default" | "danger" | "warn"; title?: string }> {
+  if (badge == null) return [];
+  const list = Array.isArray(badge) ? badge : [badge];
+  return list
+    .map((b) => {
+      if (typeof b === "number") return { count: b, tone: "default" as const };
+      return { count: Number(b.count) || 0, tone: b.tone || "default", title: b.title };
+    })
+    .filter((b) => b.count > 0);
+}
+
+function NavBadgePills({ badge }: { badge?: NavBadge | NavBadge[] }) {
+  const items = normalizeNavBadges(badge);
+  if (!items.length) return null;
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1">
+      {items.map((b, i) => (
+        <span
+          key={`${b.tone}-${i}`}
+          title={b.title}
+          className={cn(
+            "rounded-md px-1.5 py-px text-[0.65rem] font-bold tabular-nums",
+            b.tone === "danger" && "bg-[#a83a2c] text-[#ffe8e2]",
+            b.tone === "warn" && "bg-caramel text-ink",
+            b.tone === "default" && "bg-caramel text-ink",
+          )}
+        >
+          {b.count > 99 ? "99+" : b.count}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 function samePath(pathname: string, href: string, exact = false) {
   const p = pathname.endsWith("/") ? pathname : `${pathname}/`;
@@ -148,7 +192,7 @@ function NavItem({
   active: boolean;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  badge?: number;
+  badge?: NavBadge | NavBadge[];
 }) {
   /* spento: mai la pillola arancione “attivo”; se sei sulla pagina, solo un alone tenue */
   const lit = active && !off && !lockedReason;
@@ -183,9 +227,7 @@ function NavItem({
       ) : off ? (
         <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">disattivo</span>
       ) : null}
-      {badge ? (
-        <span className="rounded-md bg-caramel px-1.5 py-px text-[0.65rem] font-bold tabular-nums text-ink">{badge > 99 ? "99+" : badge}</span>
-      ) : null}
+      <NavBadgePills badge={badge} />
     </>
   );
   if (lockedReason) {
@@ -238,7 +280,7 @@ function ModuleNavItem({
   item: { id: GuildSectionId; label: string; icon: React.ComponentType<{ className?: string }>; tabs?: readonly { id: string; label: string }[] };
   active: boolean;
   moduleTab?: string | null;
-  badge?: number;
+  badge?: NavBadge | NavBadge[];
   animated: boolean;
   tabsOverride?: readonly { id: string; label: string }[];
   /** Senza callback in-page: naviga a /dashboard/guild/?id=&s=&t= */
@@ -324,9 +366,7 @@ function ModuleNavItem({
         ) : off ? (
           <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">disattivo</span>
         ) : null}
-        {badge ? (
-          <span className="rounded-md bg-caramel px-1.5 py-px text-[0.65rem] font-bold tabular-nums text-ink">{badge > 99 ? "99+" : badge}</span>
-        ) : null}
+        <NavBadgePills badge={badge} />
         <ChevronDown
           className={cn("size-3.5 shrink-0 text-crema/40 transition-transform", open && "rotate-180")}
           aria-hidden

@@ -1,18 +1,15 @@
 const {
-  TIME_ZONE,
-  MOVIE_NIGHT_DISPLAY_TIME,
-  ITALIAN_MONTH_NAMES,
   EXTRA_FIXED_MOVIE_NIGHTS,
-  getRomeParts,
   getRomeDateKey,
   getExtraFixedMovieNight,
   getFixedMovieTitleForDate,
+  getFixedMovieDescriptionForDate,
+  formatExtraMovieNightStaffDateLabel,
   resolveExtraMovieNightDateKey,
   getExtraMovieNightState,
   patchExtraMovieNightState,
   getMovieNightEventStartDate,
   shouldAttemptMovieNightStageCloseRecovery,
-  formatMovieNightStaffDateLabel,
 } = require("./movieNightSchedule") as typeof import("./movieNightSchedule");
 const { findExtraMovieNightEvent, MOVIE_NIGHT_EVENT_CHANNEL_ID } = require("./movieNightEvents") as typeof import("./movieNightEvents");
 const {
@@ -25,12 +22,26 @@ const {
   buildMovieNightStartAnnouncementMessage,
 } = require("./movieNightMessages") as typeof import("./movieNightMessages");
 const { fetchItalianMovieDescription } = require("./movieNightDescriptions") as typeof import("./movieNightDescriptions");
+const { ensureMovieNightScheduledEventPoster } = require("./movieNightEventPoster") as typeof import("./movieNightEventPoster");
 const { ANNOUNCEMENT_CHANNEL_ID } = require("./movieNightVotes") as typeof import("./movieNightVotes");
 const { fetchAnnouncementChannel, fetchStaffCommunicationChannel } = require("./movieNightStatus") as typeof import("./movieNightStatus");
 const { openMovieNightStagePermissions, isSerataFilmStageLive } = require("./movieNightStage") as typeof import("./movieNightStage");
 const { getClientGuildCached, getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { startSerataFilmSession } = require("../../Staff/services/staffAutoValutazioniService") as typeof import("../../Staff/services/staffAutoValutazioniService");
+
+async function resolveExtraAnnouncementDescription(eventDateKey?, title?) {
+  const key = String(eventDateKey || "").trim();
+  const fromSchedule = key
+    ? String(EXTRA_FIXED_MOVIE_NIGHTS.get(key)?.description || "").trim()
+    : "";
+  if (fromSchedule) return fromSchedule;
+  const fromDate = getFixedMovieDescriptionForDate(
+    key ? new Date(`${key}T12:00:00+01:00`) : new Date(),
+  );
+  if (fromDate) return fromDate;
+  return fetchItalianMovieDescription(title);
+}
 
 async function runExtraMovieNightFinalAnnouncementCheck(client?, opts: Record<string, any> = {}) {
   const now = opts.now || new Date();
@@ -55,10 +66,15 @@ async function runExtraMovieNightFinalAnnouncementCheck(client?, opts: Record<st
   if (!channel?.isTextBased?.() || !channel?.send) {
     return { skipped: true, reason: "announcement_channel_unavailable", eventDateKey };
   }
-  const description = await fetchItalianMovieDescription(title);
+  const description = await resolveExtraAnnouncementDescription(eventDateKey, title);
   const guildId = String(IDs.guilds?.main || client?.config?.mainGuildId || "");
   const guild = guildId ? await getClientGuildCached(client, guildId).catch(() => null) : null;
   const event = guild ? await findExtraMovieNightEvent(guild, eventDateKey, now) : null;
+  if (event) {
+    await ensureMovieNightScheduledEventPoster(event, { now }).catch((err?) => {
+      global.logger?.warn?.("[MOVIE NIGHT EXTRA] poster apply failed:", err?.message || err);
+    });
+  }
   const announceSlot = slot === "eve" ? "friday" : "saturday";
   const message = await channel.send({
     content: buildFinalMovieNightAnnouncementMessage({
@@ -82,21 +98,11 @@ async function runExtraMovieNightFinalAnnouncementCheck(client?, opts: Record<st
   try {
     const staffChannel = await fetchStaffCommunicationChannel(client);
     if (staffChannel?.isTextBased?.() && staffChannel?.send && !state.staffCommunicationMessageId) {
-      const dateLabel = formatMovieNightStaffDateLabel(
-        slot === "eve" ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : now,
-        { advanceForSaturday: false },
-      );
-      // Per mercoledì: etichetta esplicita
-      const parts = getRomeParts(slot === "eve" ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : now);
-      const monthName = ITALIAN_MONTH_NAMES[Math.max(0, parts.month - 1)] || "";
-      const wedLabel =
-        slot === "eve"
-          ? `Mercoledì ${parts.day} ${monthName}, alle ${MOVIE_NIGHT_DISPLAY_TIME}`
-          : `Oggi, ${parts.day} ${monthName}, alle ${MOVIE_NIGHT_DISPLAY_TIME}`;
+      const labelDate = slot === "eve" ? new Date(now.getTime() + 24 * 60 * 60 * 1000) : now;
       const staffMsg = await staffChannel.send({
         content: buildMovieNightStaffCommunicationMessage({
           title,
-          dateLabel: wedLabel || dateLabel,
+          dateLabel: formatExtraMovieNightStaffDateLabel(labelDate, { eve: slot === "eve" }),
         }),
         allowedMentions: { roles: [STAFF_COMMUNICATION_ROLE_ID] },
         __skipNoticeEmbed: true,

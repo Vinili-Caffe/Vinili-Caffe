@@ -50,6 +50,10 @@ function serializeMessage(message?) {
         globalName: message.author.globalName || null,
         bot: Boolean(message.author.bot),
         system: Boolean(message.author.system),
+        avatar: message.author.avatar || null,
+        avatarURL: typeof message.author.displayAvatarURL === "function"
+          ? message.author.displayAvatarURL({ size: 128 })
+          : null,
       }
       : null,
     member: message.member
@@ -178,6 +182,7 @@ function serializeThread(thread?) {
     lastMessageId: thread.lastMessageId ? String(thread.lastMessageId) : null,
     memberCount: Number(thread.memberCount ?? 0),
     messageCount: Number(thread.messageCount ?? 0),
+    appliedTags: Array.isArray(thread.appliedTags) ? thread.appliedTags.map(String) : [],
     permissionOverwrites: normalizePermissionOverwrites(thread),
   };
 }

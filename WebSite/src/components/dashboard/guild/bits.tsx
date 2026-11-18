@@ -331,28 +331,6 @@ export function GlobalSaveBar() {
   );
 }
 
-/** Barra locale (legacy): preferisci GlobalSaveBar. Senza Annulla — quello è solo in basso. */
-export function SaveBar({ show, busy, onSave }: { show: boolean; busy: boolean; onSave: () => void; onReset?: () => void }) {
-  return (
-    <AnimatePresence>
-      {show ? (
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 24 }}
-          className="sticky bottom-4 z-20 mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-mocha/95 px-4 py-3 shadow-[0_18px_50px_-18px_rgba(0,0,0,0.85)] ring-1 ring-sand/20 backdrop-blur"
-        >
-          <span className="size-2 rounded-full bg-ember" aria-hidden />
-          <p className="flex-1 text-sm font-medium text-crema">Hai modifiche non salvate</p>
-          <button type="button" className={primaryMini} disabled={busy} onClick={onSave}>
-            <Check className="size-3.5" /> Salva
-          </button>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
-  );
-}
-
 export function Subnav<T extends string>({
   tabs,
   value,

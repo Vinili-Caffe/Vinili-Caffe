@@ -84,6 +84,26 @@ async function resumeRestoredMusicSessions(client?, opts: Record<string, any> = 
       }
       continue;
     }
+    /* 24/7 attivo: non riprendere lo stream vecchio; il watcher parte sulla radio/chill della dashboard */
+    try {
+      const VR = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
+      const cfg = await VR.getConfig(gid, true);
+      if (cfg?.music?.alwaysOn?.enabled && cfg.music.alwaysOn.voiceChannelId) {
+        const { getMusicBotHooks } = require("../../music/musicBotHooks") as typeof import("../../music/musicBotHooks");
+        /* Coffee non gestisce la radio: togli sessioni fantasma (altrimenti ,join TTS pensa che la musica sia sua). */
+        if (getMusicBotHooks()?.profile === "coffee") {
+          guildQueues.delete(gid);
+          persistMusicQueueSnapshotNow(client);
+          continue;
+        }
+        session.alwaysOn = true;
+        session.tracks = [];
+        session.currentRequesterUserId = null;
+        session.currentRequesterUserTag = null;
+        session.musicSessionOwnerId = null;
+        continue;
+      }
+    } catch (_) {}
     if (sh.players?.get(gid)?.track) continue;
     if (sh.connections?.get(gid)?.channelId) continue;
 
@@ -140,14 +160,13 @@ async function resumeRestoredMusicSessions(client?, opts: Record<string, any> = 
         });
       }
       attachEndHandler(client, player, gid);
-      await player.setGlobalVolume(musicEngineHelpers().resolveDefaultJoinGlobalVolume());
+      await player.setGlobalVolume(musicEngineHelpers().resolveDefaultJoinGlobalVolume(gid));
       /* posResume1: riparti da snapshot (rewind 1.5s per non saltare battuta) */
       const rawPos = Math.max(0, Math.floor(Number(session.playingPositionMs) || 0));
       const resumePos = rawPos > 2500 ? Math.max(0, rawPos - 1500) : 0;
       await playEncodedFromStart(player, encoded, { position: resumePos });
       session.playingPositionMs = resumePos;
       persistMusicQueueSnapshotNow(client);
-      logMusic(`resumed session in guild ${gid} @${resumePos}ms`);
     } catch (err) {
       global.logger?.warn?.("[MUSIC] resume join/play failed", gid, err?.message || err);
     }

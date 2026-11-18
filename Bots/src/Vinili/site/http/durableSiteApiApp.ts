@@ -43,6 +43,8 @@ installOutgoingMessageEmbedPatch(discord);
 const { createSiteApiRestClient } = require("../../site/http/siteApiRestClient") as typeof import("../../site/http/siteApiRestClient");
 const { mountSiteWebhookRoutes } = require("./siteWebhookRoutes") as typeof import("./siteWebhookRoutes");
 const { mountSiteApiRateLimit } = require("./siteApiRateLimit") as typeof import("./siteApiRateLimit");
+const { resolveListenBindHost } = require("../../../shared/http/listenBindHost") as typeof import("../../../shared/http/listenBindHost");
+const { mountMongoSanitize } = require("../../../shared/http/mongoSanitize") as typeof import("../../../shared/http/mongoSanitize");
 
 function normalizeHeaderSecret(raw?) {
   if (raw == null) return "";
@@ -300,6 +302,7 @@ async function main() {
     }),
   );
   app.use(express.urlencoded({ extended: true, limit: "256kb" }));
+  mountMongoSanitize(app);
   /* anteprima "visualizza come ruolo" (header X-VC-View-As): contesto per tutta la richiesta */
   {
     const { mountViewAsContext } = require("../../../shared/runtime/viewAsContext") as typeof import("../../../shared/runtime/viewAsContext");
@@ -441,8 +444,9 @@ async function main() {
   } catch (err) {
     console.warn("[SITE-API] WebSocket init:", err?.message || err);
   }
-  server.listen(port, "0.0.0.0", () => {
-    console.log(`[SITE-API] ready on 0.0.0.0:${port} as ${client.user?.tag || client.user?.username}`);
+  const bindHost = resolveListenBindHost("SITE_API_BIND", "SITE_API_HOST");
+  server.listen(port, bindHost, () => {
+    console.log(`[SITE-API] ready on ${bindHost}:${port} as ${client.user?.tag || client.user?.username}`);
     setImmediate(() => {
       loadSiteApiCommandsBg();
     });

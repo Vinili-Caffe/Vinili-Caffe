@@ -175,9 +175,13 @@ function MenuList({
         <div className="shrink-0 p-1 pb-1.5">
           <input
             ref={searchRef}
+            id={`${listId}-search`}
+            name={`${listId}-search`}
             type="search"
+            autoComplete="off"
             value={query}
             placeholder={searchPlaceholder || "Cerca…"}
+            aria-label={searchPlaceholder || "Cerca…"}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.stopPropagation()}
             className="w-full rounded-xl bg-crema/8 px-3 py-2 text-sm text-crema outline-none ring-1 ring-sand/20 placeholder:text-crema/40 focus:ring-caramel/45"

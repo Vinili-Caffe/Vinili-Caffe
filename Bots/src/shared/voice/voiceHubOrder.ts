@@ -66,10 +66,11 @@ function resolveVoiceSetPositionIndex(siblings?, moveId?, afterId?) {
 }
 
 /** Posiziona lo spawn subito sotto l'ultimo canale del gruppo hub (hub o spawn precedente). */
-async function placeSpawnAfterHubGroupTail(created?, hubChannel?, guild?, client?, reason?) {
+async function placeSpawnAfterHubGroupTail(created?, hubChannel?, guild?, client?, reason?, options: Record<string, any> = {}) {
   if (!created?.id || !hubChannel || !guild) return false;
   const parentId = getPublicVoiceHubCategoryId(client, hubChannel);
-  await refreshParentChannelsCache(guild, parentId, client, { force: true });
+  // force solo se chiesto: un fetch di tutta la guild per ogni spawn = lag + rate limit.
+  await refreshParentChannelsCache(guild, parentId, client, { force: options.force === true });
   const freshHub = guild.channels.cache.get(hubChannel.id) || hubChannel;
   const freshCreated = guild.channels.cache.get(created.id) || created;
   const group = listHubGroupChannels(guild, freshHub, client).filter(

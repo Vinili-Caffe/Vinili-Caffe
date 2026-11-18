@@ -120,7 +120,37 @@ function endMinigameWinClose(channelId?) {
   channelWinClosing.delete(String(channelId || "").trim());
 }
 
-function isQuestionKeyRecent(channelId?, type?, questionKey?, recentLimit = 20) {
+function recentLimitForBank(list = [], fallback = 40) {
+  const n = Array.isArray(list) ? list.length : 0;
+  if (n <= 0) return Math.max(10, Number(fallback) || 40);
+  return Math.max(Number(fallback) || 40, Math.min(140, Math.floor(n * 0.78)));
+}
+
+function hydrateRecentQuestionKeys(channelId?, recentByType?) {
+  const ch = String(channelId || "").trim();
+  if (!ch || !recentByType || typeof recentByType !== "object") return;
+  for (const [type, keys] of Object.entries(recentByType)) {
+    if (!type || !Array.isArray(keys) || !keys.length) continue;
+    const cleaned = keys.map((k?) => getRecentQuestionKey(k)).filter(Boolean).slice(-140);
+    if (cleaned.length) recentQuestionKeysByChannel.set(`${ch}:${type}`, cleaned);
+  }
+}
+
+function snapshotRecentQuestionKeys(channelId?) {
+  const ch = String(channelId || "").trim();
+  if (!ch) return {};
+  const out: Record<string, string[]> = {};
+  const prefix = `${ch}:`;
+  for (const [mapKey, keys] of recentQuestionKeysByChannel.entries()) {
+    if (!String(mapKey).startsWith(prefix)) continue;
+    const type = String(mapKey).slice(prefix.length);
+    if (!type || !Array.isArray(keys) || !keys.length) continue;
+    out[type] = keys.slice(-140);
+  }
+  return out;
+}
+
+function isQuestionKeyRecent(channelId?, type?, questionKey?, recentLimit = 40) {
   if (!channelId || !type) return false;
   const key = `${channelId}:${type}`;
   const recent = recentQuestionKeysByChannel.get(key) || [];
@@ -128,7 +158,7 @@ function isQuestionKeyRecent(channelId?, type?, questionKey?, recentLimit = 20) 
   return k && recent.includes(k);
 }
 
-function pushQuestionKeyToRecent(channelId?, type?, questionKey?, recentLimit = 20) {
+function pushQuestionKeyToRecent(channelId?, type?, questionKey?, recentLimit = 40) {
   if (!channelId || !type) return;
   const k = getRecentQuestionKey(questionKey);
   if (!k) return;
@@ -136,14 +166,15 @@ function pushQuestionKeyToRecent(channelId?, type?, questionKey?, recentLimit = 
   const recent = recentQuestionKeysByChannel.get(key) || [];
   const next = recent.filter((x?) => x !== k);
   next.push(k);
-  while (next.length > Math.max(5, Number(recentLimit || 20))) next.shift();
+  while (next.length > Math.max(8, Number(recentLimit || 40))) next.shift();
   recentQuestionKeysByChannel.set(key, next);
 }
 
-function pickQuestionAvoidRecent(channelId?, type?, list = [], keySelector?, recentLimit = 20) {
+function pickQuestionAvoidRecent(channelId?, type?, list = [], keySelector?, recentLimit = 40) {
   if (!channelId || !type || !Array.isArray(list) || !list.length) {
     return pickRandomItem(shuffleArray(list));
   }
+  const effectiveLimit = recentLimitForBank(list, recentLimit);
   const key = `${channelId}:${type}`;
   const recent = recentQuestionKeysByChannel.get(key) || [];
   const seen = new Set(recent);
@@ -152,7 +183,7 @@ function pickQuestionAvoidRecent(channelId?, type?, list = [], keySelector?, rec
   const picked = pickRandomItem(pool.length ? pool : shuffled);
   if (!picked) return null;
   const pickedKey = getRecentQuestionKey(keySelector?.(picked));
-  if (pickedKey) pushQuestionKeyToRecent(channelId, type, pickedKey, recentLimit);
+  if (pickedKey) pushQuestionKeyToRecent(channelId, type, pickedKey, effectiveLimit);
   return picked;
 }
 
@@ -167,4 +198,4 @@ function tryClaimMinigameChannelClose(channelId?) {
 /** Avvio del gioco successivo: lo registra minigameService (così i moduli dei giochi non lo richiamano direttamente). */
 const nextGameHook: { start: null | ((client: any) => Promise<unknown>) } = { start: null };
 
-export = { nextGameHook, activeGames, channelWinClosing, treasureHuntReactLocks, blockMinigameRehydrate, isMinigameRehydrateBlocked, pendingGames, standbyChannels, lastNoParticipationEndAtByChannel, lastPlayedGameTypesByChannel, lastPlayedAtByChannelAndType, startingChannels, recordNoParticipationIfNeeded, clearNoParticipationDelay, clearActiveGame, clearMinigameRoundTimers, beginMinigameWinClose, endMinigameWinClose, isQuestionKeyRecent, pushQuestionKeyToRecent, pickQuestionAvoidRecent, tryClaimMinigameChannelClose };
+export = { nextGameHook, activeGames, channelWinClosing, treasureHuntReactLocks, blockMinigameRehydrate, isMinigameRehydrateBlocked, pendingGames, standbyChannels, lastNoParticipationEndAtByChannel, lastPlayedGameTypesByChannel, lastPlayedAtByChannelAndType, startingChannels, recordNoParticipationIfNeeded, clearNoParticipationDelay, clearActiveGame, clearMinigameRoundTimers, beginMinigameWinClose, endMinigameWinClose, isQuestionKeyRecent, pushQuestionKeyToRecent, pickQuestionAvoidRecent, recentLimitForBank, hydrateRecentQuestionKeys, snapshotRecentQuestionKeys, tryClaimMinigameChannelClose };

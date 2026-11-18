@@ -5,7 +5,7 @@ const { getMusicSearchMode, isYoutubeLikeUrl, logMusic, lavalinkErrorHint, isPla
 const { safeDiscordLinkLabel, resolveSpotifyWebUrl, formatTrackTitleMarkdownLink } = require("./musicSpotifyLinks") as typeof import("./musicSpotifyLinks");
 const { notifyBotPresenceVoiceActivity } = require("../../discord/botPresenceActivity") as typeof import("../../discord/botPresenceActivity");
 const { playWithMirrorFallbacks, resolvePlayableTracks, describeTrack, encodedFromPlayerTrack } = require("./musicMirror") as typeof import("./musicMirror");
-const { nativeVoiceChannelId, musicHooks, musicPurgeTts, endListeners, guildMusicSessionBlocksOtherVoiceChannels, persistMusicQueueSnapshotNow, getShardIdForGuild, musicJoinVoiceChannelErrorMessage, clearBlockingNativeVoiceForMusic, leaveMusicVoiceChannelMarked, destroyGhostMusicStateIfBotNotInVoice } = require("./musicVoice") as typeof import("./musicVoice");
+const { nativeVoiceChannelId, musicHooks, musicPurgeTts, endListeners, guildMusicSessionBlocksOtherVoiceChannels, persistMusicQueueSnapshotNow, getShardIdForGuild, musicJoinVoiceChannelErrorMessage, clearBlockingNativeVoiceForMusic, withMusicVoiceJoinLock, forceClearShoukakuGuildVoice, leaveMusicVoiceChannelMarked, destroyGhostMusicStateIfBotNotInVoice } = require("./musicVoice") as typeof import("./musicVoice");
 const { resolveDefaultJoinGlobalVolume, musicStartCapture, trackForManualQueue, clearSessionCurrentRequester, getSession, isLavalinkUsable, cancelPendingQueueEndedEmbed, attachEndHandler, initLavalinkMusicIfEnabled } = require("./musicEngine") as typeof import("./musicEngine");
 const { formatTrackDurationMs, formatEstimatedUntilPlayMs } = require("./musicQueueView") as typeof import("./musicQueueView");
 const { getNowPlayingEmbedTitle, formatNowPlayingLead } = require("./musicQueueControls") as typeof import("./musicQueueControls");
@@ -64,6 +64,16 @@ async function playMusicRequest(ctx?, query?) {
   if (!guild || !member) {
     return { ok: false, message: "Usa questo comando in un server." };
   }
+  try {
+    const MS = require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches");
+    if (MS.moduleExists(guild.id, "vocale") && !MS.isModuleOn(guild.id, "vocale")) {
+      return { ok: false, message: "Il modulo **Vocale** è spento su questo server (dashboard → Moduli)." };
+    }
+    const { isMusicTextChannelAllowed } = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
+    if (!isMusicTextChannelAllowed(guild.id, textChannelId)) {
+      return { ok: false, message: "In questo canale testo non puoi usare i comandi musica (vedi dashboard → Vocale)." };
+    }
+  } catch (_) {}
   initLavalinkMusicIfEnabled(client);
   if (client._shoukakuInitPending && !isLavalinkUsable(client)) {
     const waitUntil = Date.now() + 20_000;
@@ -214,6 +224,14 @@ async function playMusicRequest(ctx?, query?) {
   const session = getSession(guildId);
   session.textChannelId = textChannelId;
   session.voiceChannelId = voiceChannel.id;
+  /* 24/7 radio/chill: +play prende il posto subito (stream live non “finisce” da solo) */
+  if (session.alwaysOn) {
+    session.alwaysOn = false;
+    session.alwaysOnKey = null;
+    session.alwaysOnLabel = null;
+    session.nowPlaying = null;
+    session.playingEncoded = null;
+  }
   await musicPurgeTts(guildId, client).catch(() => {});
 
   let player = shoukaku.players.get(guildId);
@@ -226,20 +244,37 @@ async function playMusicRequest(ctx?, query?) {
         /* clipAllVoices3: undeaf obbligatorio per ricevere TUTTE le voci */
         deaf: false,
       });
+    const isExistingConnErr = (err?) =>
+      /already have an existing connection/i.test(String(err?.message || err || ""));
     try {
-      try {
-        player = await joinOnce();
-      } catch (firstErr) {
-        /* joinRetry1: connessione rimasta appesa o Lavalink appena riavviato → pulisci, aspetta il nodo e riprova una volta */
-        global.logger?.warn?.("[MUSIC] joinVoiceChannel (riprovo):", firstErr?.message || firstErr);
-        await Promise.resolve(shoukaku.leaveVoiceChannel?.(guildId)).catch(() => {});
-        await clearBlockingNativeVoiceForMusic(guildId, client).catch(() => false);
-        const waitUntil = Date.now() + 20_000;
-        while (!isLavalinkUsable(client) && Date.now() < waitUntil) {
-          await new Promise((r?) => setTimeout(r, 500));
+      player = await withMusicVoiceJoinLock(guildId, async () => {
+        /* connection senza player = join interrotto / timeout → wipe prima di riprovare */
+        if (shoukaku.connections?.has(guildId) && !shoukaku.players?.get(guildId)) {
+          await forceClearShoukakuGuildVoice(client, guildId);
         }
-        player = await joinOnce();
-      }
+        try {
+          return await joinOnce();
+        } catch (firstErr) {
+          /* joinRetry1: timeout 60s o connection fantasma → force clear, aspetta nodo, riprova */
+          global.logger?.warn?.("[MUSIC] joinVoiceChannel (riprovo):", firstErr?.message || firstErr);
+          await forceClearShoukakuGuildVoice(client, guildId);
+          const waitUntil = Date.now() + 12_000;
+          while (!isLavalinkUsable(client) && Date.now() < waitUntil) {
+            await new Promise((r?) => setTimeout(r, 400));
+          }
+          try {
+            return await joinOnce();
+          } catch (secondErr) {
+            if (!isExistingConnErr(secondErr)) throw secondErr;
+            global.logger?.warn?.(
+              "[MUSIC] joinVoiceChannel (riprovo existing):",
+              secondErr?.message || secondErr,
+            );
+            await forceClearShoukakuGuildVoice(client, guildId);
+            return await joinOnce();
+          }
+        }
+      });
       notifyBotPresenceVoiceActivity(client);
       await musicStartCapture({
         guildId,
@@ -251,14 +286,15 @@ async function playMusicRequest(ctx?, query?) {
       });
     } catch (err) {
       global.logger?.warn?.("[MUSIC] joinVoiceChannel:", err?.message || err);
+      await forceClearShoukakuGuildVoice(client, guildId).catch(() => {});
       return { ok: false, message: musicJoinVoiceChannelErrorMessage(err) };
     }
     attachEndHandler(client, player, guildId);
-    const volume = resolveDefaultJoinGlobalVolume();
+    const volume = resolveDefaultJoinGlobalVolume(guildId);
     await player.setGlobalVolume(volume);
   } else {
     attachEndHandler(client, player, guildId);
-    const volume = resolveDefaultJoinGlobalVolume();
+    const volume = resolveDefaultJoinGlobalVolume(guildId);
     await player.setGlobalVolume(volume).catch(() => {});
     if (player.paused) await player.setPaused(false).catch(() => {});
     if (!musicIsCaptureActive(guildId)) {

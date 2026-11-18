@@ -180,6 +180,14 @@ body {
   }
 }
 
+/* /albero: scena attaccata sotto l’hero (padding hero resta; niente gap nero) */
+.vc-page-hero + [data-albero-stage] {
+  padding-top: 0 !important;
+}
+main:has([data-albero-stage]) + footer {
+  margin-top: 0;
+}
+
 html::-webkit-scrollbar,
 body::-webkit-scrollbar,
 *::-webkit-scrollbar {
@@ -345,6 +353,244 @@ html.vc-phone-preview .fixed {
 }
 html.vc-phone-preview body {
   overflow: auto !important;
+}
+
+/* ── Natale FX (22 nov 12 → 7 gen 12; Capodanno/Befana da 1/6 gen, light + dark) ── */
+.vc-xmas-glow {
+  background: linear-gradient(
+    to top,
+    rgba(255, 160, 70, 0.16) 0%,
+    rgba(80, 140, 90, 0.06) 45%,
+    transparent 100%
+  );
+  filter: blur(22px);
+  animation: vc-xmas-glow-drift 20s ease-in-out infinite alternate;
+}
+@keyframes vc-xmas-glow-drift {
+  from {
+    transform: translateX(-2%) scaleX(1.04);
+  }
+  to {
+    transform: translateX(3%) scaleX(1.1);
+  }
+}
+.vc-xmas-twinkle {
+  background: radial-gradient(circle, rgba(255, 240, 180, 0.95) 0 35%, transparent 70%);
+  animation: vc-xmas-twinkle 2.8s ease-in-out infinite;
+}
+.vc-xmas-twinkle--b {
+  animation-delay: 0.9s;
+  animation-duration: 3.4s;
+}
+.vc-xmas-twinkle--c {
+  animation-delay: 1.6s;
+  animation-duration: 2.4s;
+}
+/* Desiderio proiettato sul caminetto — /albero/ */
+.albero-wish-proj {
+  text-align: center;
+  filter: drop-shadow(0 0 14px rgba(255, 170, 70, 0.4));
+}
+.albero-wish-proj__name {
+  margin: 0;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 220, 160, 0.9);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75), 0 0 10px rgba(255, 140, 40, 0.55);
+}
+.albero-wish-proj__msg {
+  margin: 0.3rem 0 0;
+  font-family: var(--font-great-vibes), cursive;
+  font-size: clamp(1.15rem, 4.2vw, 1.55rem);
+  line-height: 1.2;
+  color: #fff1d6;
+  /* mobile: leggibile (no mix-blend che sparisce sul fuoco) */
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.55rem;
+  background: rgba(12, 6, 2, 0.42);
+  box-shadow: 0 0 18px rgba(255, 140, 40, 0.25);
+  text-shadow:
+    0 0 8px rgba(255, 200, 100, 0.65),
+    0 1px 2px rgba(0, 0, 0, 0.65);
+  animation: albero-wish-flicker 2.4s ease-in-out infinite alternate;
+}
+.albero-wish-proj__glow {
+  position: absolute;
+  inset: -30% -20%;
+  z-index: -1;
+  background: radial-gradient(ellipse at 50% 55%, rgba(255, 150, 50, 0.28), transparent 62%);
+  pointer-events: none;
+  animation: albero-glow 1.6s ease-in-out infinite alternate;
+}
+@media (min-width: 640px) {
+  .albero-wish-proj {
+    transform: perspective(720px) rotateY(6deg) skewX(-2deg);
+    filter: drop-shadow(0 0 18px rgba(255, 170, 70, 0.45));
+  }
+  .albero-wish-proj__name {
+    font-size: 0.65rem;
+    letter-spacing: 0.22em;
+  }
+  .albero-wish-proj__msg {
+    font-size: clamp(1.35rem, 2.6vw, 2.35rem);
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    mix-blend-mode: screen;
+    text-shadow:
+      0 0 8px rgba(255, 200, 100, 0.75),
+      0 0 22px rgba(255, 120, 30, 0.45),
+      0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+}
+@keyframes albero-wish-flicker {
+  from {
+    opacity: 0.82;
+    filter: brightness(0.95);
+  }
+  to {
+    opacity: 1;
+    filter: brightness(1.08);
+  }
+}
+
+/* Fuoco caminetto — pagina /albero/ */
+.albero-flame {
+  position: absolute;
+  bottom: 0;
+  border-radius: 50% 50% 40% 40%;
+  filter: blur(1px);
+  mix-blend-mode: screen;
+}
+.albero-flame-a {
+  left: 28%;
+  width: 42%;
+  height: 88%;
+  background: radial-gradient(ellipse at 50% 80%, #ffef9a 0%, #ff8a2a 42%, transparent 72%);
+  animation: albero-flicker 0.85s ease-in-out infinite alternate;
+}
+.albero-flame-b {
+  left: 18%;
+  width: 34%;
+  height: 70%;
+  background: radial-gradient(ellipse at 50% 85%, #ffe07a 0%, #ff5a18 50%, transparent 75%);
+  animation: albero-flicker 1.1s ease-in-out 0.15s infinite alternate;
+  opacity: 0.85;
+}
+.albero-flame-c {
+  left: 48%;
+  width: 30%;
+  height: 62%;
+  background: radial-gradient(ellipse at 50% 90%, #fff3b0 0%, #ff9a2e 45%, transparent 70%);
+  animation: albero-flicker 0.7s ease-in-out 0.25s infinite alternate;
+  opacity: 0.75;
+}
+.albero-ember {
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 0;
+  height: 35%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255, 140, 40, 0.55), transparent 70%);
+  animation: albero-glow 1.4s ease-in-out infinite alternate;
+}
+@keyframes albero-flicker {
+  from {
+    transform: scaleY(0.92) scaleX(1.02) translateY(2%);
+    opacity: 0.7;
+  }
+  to {
+    transform: scaleY(1.08) scaleX(0.96) translateY(-2%);
+    opacity: 1;
+  }
+}
+@keyframes albero-glow {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 0.9;
+  }
+}
+@keyframes vc-xmas-twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+html[data-vc-season="christmas"] {
+  --vc-xmas-red: #c41e3a;
+  --vc-xmas-green: #1f6b3a;
+  --vc-xmas-gold: #d4af37;
+}
+html[data-vc-season="christmas"] ::selection {
+  background: color-mix(in srgb, var(--vc-xmas-red) 55%, transparent);
+  color: #fff8f0;
+}
+/* neve “statica”: drift leggero per tutti (anche riduci-movimento) */
+.vc-xmas-static-snow {
+  opacity: 0.95;
+}
+html.light .vc-xmas-static-snow,
+html[data-theme="light"] .vc-xmas-static-snow {
+  opacity: 0.75;
+  filter: drop-shadow(0 0 1px rgba(80, 110, 140, 0.35));
+}
+.vc-xmas-flake {
+  animation: vc-xmas-flake-drift var(--vc-xmas-flake-dur, 6.5s) ease-in-out infinite;
+  animation-delay: var(--vc-xmas-flake-delay, 0s);
+  will-change: transform;
+}
+@keyframes vc-xmas-flake-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  35% {
+    transform: translate3d(6px, 10px, 0) rotate(8deg);
+  }
+  70% {
+    transform: translate3d(-5px, 4px, 0) rotate(-6deg);
+  }
+}
+/* intenzionale: il drift soft resta anche con riduci-movimento (non è un effetto invasivo) */
+@media (prefers-reduced-motion: reduce) {
+  .vc-xmas-glow,
+  .vc-xmas-twinkle {
+    animation: none !important;
+  }
+  .vc-xmas-twinkle {
+    opacity: 0.85 !important;
+    transform: none !important;
+  }
+  .vc-xmas-glow {
+    opacity: 0.55 !important;
+    transform: none !important;
+  }
+}
+html[data-vc-fx-motion="0"] .vc-xmas-glow,
+html[data-vc-fx-motion="0"] .vc-xmas-twinkle {
+  animation: none !important;
+}
+html[data-vc-fx-motion="0"] .vc-xmas-twinkle {
+  opacity: 0.85 !important;
+  transform: none !important;
+}
+html[data-vc-fx-motion="0"] .vc-xmas-glow {
+  opacity: 0.55 !important;
+  transform: none !important;
+}
+html[data-vc-evento="1"] .vc-xmas-glow,
+html[data-vc-evento="1"] .vc-xmas-twinkle {
+  display: none !important;
 }
 
 /* ── Halloween FX (tutte le pagine, stagione 15 ott → 2 nov) ── */
@@ -559,8 +805,9 @@ html[data-vc-fx-motion="0"] .vc-hw-eyes {
   animation: none !important;
 }
 
-/* PiP Twitch in basso a sinistra: non coprire con le zucche */
-html[data-vc-live-pip] .vc-hw-pumpkins {
+/* PiP Twitch in basso a sinistra: non coprire con zucche / albero Natale */
+html[data-vc-live-pip] .vc-hw-pumpkins,
+html[data-vc-live-pip] .vc-xmas-tree {
   display: none !important;
 }
 
@@ -607,4 +854,19 @@ html[data-vc-evento="1"][data-vc-theme="light"] .scheme-dark {
   --color-sand: #e4c76b;
   --color-caramel: #c9a227;
   --color-ember: #f0d78c;
+}
+
+/* Motion / Lenis / GSAP: riduci trasformazioni se l’utente lo chiede */
+@media (prefers-reduced-motion: reduce) {
+  .motion-safe-transition {
+    transition: opacity 0.15s ease !important;
+  }
+  .motion-reduce-transform {
+    transform: none !important;
+    filter: none !important;
+  }
+  html.lenis,
+  html.lenis body {
+    height: auto !important;
+  }
 }

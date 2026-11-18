@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import {
+  Archive,
   Gauge,
   Gavel,
   Gift,
@@ -22,6 +23,8 @@ import {
   Cake,
   TrendingUp,
   Vote,
+  ChartPie,
+  Headphones,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -46,9 +49,11 @@ const META: ModuleMeta[] = [
   { id: "bump", title: "Bump", text: "Ringraziamenti, ricompense e promemoria per Disboard e Discadia.", icon: Rocket, page: "bump" },
   { id: "voti", title: "Voti", text: "Voti su Top.gg e Discadia con ruolo e promemoria.", icon: Vote, page: "voti" },
   { id: "giveaway", title: "Giveaway", text: "Estrazioni a premi con requisiti e vincitori scelti dal bot.", icon: Gift, page: "giveaway" },
-  { id: "sondaggi", title: "Sondaggi", text: "Domande al server con voto e risultati in diretta.", icon: Vote, page: "sondaggi" },
+  { id: "sondaggi", title: "Sondaggi", text: "Domande al server con voto e risultati in diretta.", icon: ChartPie, page: "sondaggi" },
   { id: "compleanni", title: "Compleanni", text: "Auguri a chi compie gli anni, con ruolo del giorno e privato.", icon: Cake, page: "compleanni" },
   { id: "livelli", title: "Livelli & EXP", text: "EXP da chat e vocale, moltiplicatori, ruoli premio e messaggi di level-up.", icon: TrendingUp, page: "livelli" },
+  { id: "backup", title: "Backup", text: "Snapshot Discord di ruoli, canali e messaggi: crea, elenca e ripristina (come +backup).", icon: Archive, page: "backup" },
+  { id: "vocale", title: "Vocale", text: "Musica e TTS: volume, radio/chill 24/7, DJ e canali ammessi.", icon: Headphones, page: "vocale" },
   { id: "live", title: "Social Network", text: "Avvisi per live, video e post su Twitch, YouTube, Kick, TikTok e Instagram.", icon: Video, page: "live" },
 ];
 
@@ -69,7 +74,7 @@ export function ModulesPanel({
   onOpen: (section: GuildSectionId) => void;
   /** un modulo è stato acceso o spento (per aggiornare il menu) */
   onChanged?: (modules: Row[]) => void;
-  /** moduli da non mostrare (es. moderazione/bacheca sui tenant) */
+  /** moduli da non mostrare (override puntuale) */
   hideIds?: string[];
 }) {
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -133,7 +138,7 @@ export function ModulesPanel({
         <label className="relative block w-full">
           <span className="sr-only">Cerca un modulo</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-crema/45" aria-hidden />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca un modulo…" className={cn(fieldClass, "mt-0 pl-9")} />
+          <input name="modulespanel-input-136" id="modulespanel-input-136" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca un modulo…" className={cn(fieldClass, "mt-0 pl-9")} />
         </label>
       </div>
 

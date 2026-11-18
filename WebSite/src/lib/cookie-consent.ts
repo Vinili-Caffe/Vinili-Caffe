@@ -1,6 +1,10 @@
-/** Consenso cookie + boot Google Analytics (stessa chiave del sito vecchio). */
+/** Consenso cookie + boot GA / GTM / Clarity / Meta Pixel / AdSense (stessa chiave del sito vecchio). */
 
 export const GA_MEASUREMENT_ID = "G-KPF6425N60";
+export const GTM_CONTAINER_ID = "GTM-NTXR52LM";
+export const CLARITY_PROJECT_ID = "zeshji2z30";
+export const META_PIXEL_ID = "1684468419940079";
+export const ADSENSE_CLIENT_ID = "ca-pub-9933035299522072";
 export const COOKIE_CONSENT_KEY = "vc_cookie_consent";
 /** Legacy del sito vecchio — letto in fallback. */
 export const COOKIE_CONSENT_KEY_LEGACY = "vc_cookie_banner_ack_v3";
@@ -13,7 +17,21 @@ declare global {
   interface Window {
     dataLayer?: unknown[];
     gtag?: (...args: unknown[]) => void;
+    clarity?: (...args: unknown[]) => void;
+    adsbygoogle?: unknown[];
+    fbq?: ((...args: unknown[]) => void) & {
+      callMethod?: (...args: unknown[]) => void;
+      queue?: unknown[];
+      loaded?: boolean;
+      version?: string;
+      push?: (...args: unknown[]) => void;
+    };
+    _fbq?: Window["fbq"];
     __vcGtagLoaded?: boolean;
+    __vcGtmLoaded?: boolean;
+    __vcClarityLoaded?: boolean;
+    __vcMetaPixelLoaded?: boolean;
+    __vcAdSenseLoaded?: boolean;
   }
 }
 
@@ -92,7 +110,7 @@ function writeConsentCookie(name: string, value: string, maxAgeSec: number) {
   }
 }
 
-/** Persiste accepted|rejected (localStorage + cookie 180g). Non carica gtag da sola. */
+/** Persiste accepted|rejected (localStorage + cookie 180g). Non carica i tag da sola. */
 export function rememberCookieConsent(choice: CookieConsentChoice): void {
   const value: CookieConsentChoice = choice === "rejected" ? "rejected" : "accepted";
   try {
@@ -132,44 +150,192 @@ export function clearCookieConsent(): void {
   }
   try {
     window.__vcGtagLoaded = false;
+    window.__vcGtmLoaded = false;
+    window.__vcClarityLoaded = false;
+    window.__vcMetaPixelLoaded = false;
+    window.__vcAdSenseLoaded = false;
   } catch {
     /* ignore */
   }
 }
 
 /**
- * Carica gtag/js SOLO se consenso accettato.
- * Mai prima del consenso; idempotente.
+ * Abilita Google Analytics / GTM dopo «Accetta».
+ * gtag + gtm.js stanno già nel layout; qui si aggiorna il Consent Mode (vale anche per GTM).
  */
 export function loadGtagIfConsented(): void {
   if (typeof window === "undefined") return;
   if (!hasAnalyticsConsent()) return;
+
+  window.dataLayer = window.dataLayer || [];
+  if (typeof window.gtag !== "function") {
+    window.gtag = function gtag(...args: unknown[]) {
+      window.dataLayer!.push(args);
+    };
+  }
+
+  try {
+    window.gtag("consent", "update", {
+      analytics_storage: "granted",
+      ad_storage: "granted",
+      ad_user_data: "granted",
+      ad_personalization: "granted",
+    });
+    window.dataLayer.push({ event: "vc_consent_granted" });
+  } catch {
+    /* ignore */
+  }
+
   if (window.__vcGtagLoaded) return;
   window.__vcGtagLoaded = true;
 
-  window.dataLayer = window.dataLayer || [];
-  // Stesso pattern dello snippet Google: coda dataLayer prima dello script.
-  window.gtag = function gtag(...args: unknown[]) {
-    window.dataLayer!.push(args);
-  };
-  window.gtag("js", new Date());
-  window.gtag("config", GA_MEASUREMENT_ID, {
-    allow_google_signals: false,
-    allow_ad_personalization_signals: false,
-    anonymize_ip: true,
-    send_page_view: true,
-  });
+  try {
+    window.gtag("js", new Date());
+    window.gtag("config", GA_MEASUREMENT_ID, {
+      anonymize_ip: true,
+      send_page_view: true,
+    });
+  } catch {
+    /* ignore */
+  }
+}
 
-  if (document.getElementById("vc-gtag")) return;
+/** Microsoft Clarity — solo dopo consenso (heatmaps / session replay). */
+export function loadClarityIfConsented(): void {
+  if (typeof window === "undefined") return;
+  if (!hasAnalyticsConsent()) return;
+  if (window.__vcClarityLoaded || document.getElementById("vc-clarity")) {
+    window.__vcClarityLoaded = true;
+    return;
+  }
+  window.__vcClarityLoaded = true;
+
+  /* Snippet ufficiale Clarity */
+  type ClarityFn = ((...args: unknown[]) => void) & { q?: unknown[] };
+  const w = window as unknown as { clarity?: ClarityFn };
+  w.clarity =
+    w.clarity ||
+    function (...args: unknown[]) {
+      const fn = w.clarity as ClarityFn;
+      (fn.q = fn.q || []).push(args);
+    };
+  const t = document.createElement("script");
+  t.async = true;
+  t.id = "vc-clarity";
+  t.src = `https://www.clarity.ms/tag/${CLARITY_PROJECT_ID}`;
+  const y = document.getElementsByTagName("script")[0];
+  if (y?.parentNode) y.parentNode.insertBefore(t, y);
+  else (document.head || document.documentElement).appendChild(t);
+}
+
+/** Meta Pixel — solo dopo consenso. */
+export function loadMetaPixelIfConsented(): void {
+  if (typeof window === "undefined") return;
+  if (!hasAnalyticsConsent()) return;
+  if (window.__vcMetaPixelLoaded) return;
+  window.__vcMetaPixelLoaded = true;
+
+  if (document.getElementById("vc-meta-pixel")) {
+    try {
+      window.fbq?.("track", "PageView");
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+
+  const f = window;
+  if (!f.fbq) {
+    const n = function (...args: unknown[]) {
+      const fn = n as NonNullable<Window["fbq"]>;
+      if (fn.callMethod) fn.callMethod(...args);
+      else (fn.queue = fn.queue || []).push(args);
+    } as NonNullable<Window["fbq"]>;
+    f.fbq = n;
+    if (!f._fbq) f._fbq = n;
+    n.push = n;
+    n.loaded = true;
+    n.version = "2.0";
+    n.queue = [];
+  }
 
   const s = document.createElement("script");
   s.async = true;
-  s.id = "vc-gtag";
-  s.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
-  (document.head || document.documentElement).appendChild(s);
+  s.id = "vc-meta-pixel";
+  s.src = "https://connect.facebook.net/en_US/fbevents.js";
+  const first = document.getElementsByTagName("script")[0];
+  if (first?.parentNode) first.parentNode.insertBefore(s, first);
+  else (document.head || document.documentElement).appendChild(s);
+
+  try {
+    window.fbq!("init", META_PIXEL_ID);
+    window.fbq!("track", "PageView");
+  } catch {
+    /* ignore */
+  }
+
+  if (!document.getElementById("vc-meta-pixel-noscript")) {
+    const img = document.createElement("img");
+    img.id = "vc-meta-pixel-noscript";
+    img.height = 1;
+    img.width = 1;
+    img.style.display = "none";
+    img.alt = "";
+    img.src = `https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`;
+    document.body.appendChild(img);
+  }
 }
 
-/** Page view su navigazione client (dopo che gtag è già bootato). */
+/** Google AdSense — solo dopo consenso (monetizzazione / annunci). */
+export function loadAdSenseIfConsented(): void {
+  if (typeof window === "undefined") return;
+  if (!hasAnalyticsConsent()) return;
+  if (window.__vcAdSenseLoaded || document.getElementById("vc-adsense")) {
+    window.__vcAdSenseLoaded = true;
+    return;
+  }
+  window.__vcAdSenseLoaded = true;
+  window.adsbygoogle = window.adsbygoogle || [];
+
+  const s = document.createElement("script");
+  s.async = true;
+  s.id = "vc-adsense";
+  s.crossOrigin = "anonymous";
+  s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`;
+  const first = document.getElementsByTagName("script")[0];
+  if (first?.parentNode) first.parentNode.insertBefore(s, first);
+  else (document.head || document.documentElement).appendChild(s);
+}
+
+/** Accetta: abilita GA + Clarity + Meta Pixel + AdSense. */
+export function loadAnalyticsIfConsented(): void {
+  loadGtagIfConsented();
+  loadClarityIfConsented();
+  loadMetaPixelIfConsented();
+  loadAdSenseIfConsented();
+}
+
+/** Nega storage di misurazione / ads (script già caricati restano, ma stop eventi). */
+export function revokeAnalyticsConsent(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.gtag?.("consent", "update", {
+      analytics_storage: "denied",
+      ad_storage: "denied",
+      ad_user_data: "denied",
+      ad_personalization: "denied",
+    });
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.clarity?.("consent", false);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Page view GA su navigazione client. */
 export function trackPageView(path: string): void {
   if (typeof window === "undefined") return;
   if (!window.__vcGtagLoaded || typeof window.gtag !== "function") return;
@@ -180,6 +346,18 @@ export function trackPageView(path: string): void {
       page_location: window.location.href,
       page_title: document.title,
     });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** PageView Meta su navigazione client (dopo init). */
+export function trackMetaPageView(): void {
+  if (typeof window === "undefined") return;
+  if (!hasAnalyticsConsent()) return;
+  if (!window.__vcMetaPixelLoaded || typeof window.fbq !== "function") return;
+  try {
+    window.fbq("track", "PageView");
   } catch {
     /* ignore */
   }

@@ -4,4 +4,5 @@
 Bots/node_modules
 Bots/build
 **/*.mp4
+!WebSite/public/images/albero-salotto-natale.mp4
 Watch *

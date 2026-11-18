@@ -36,7 +36,15 @@ async function clearJoinAnnouncePending(member?) {
 }
 
 async function resolveWelcomeChannelForMember(member?) {
-  const welcomeChannelId = IDs.channels.chat;
+  /* canale dashboard (quello dove parte davvero sendDashboardWelcome), fallback IDs.chat */
+  let welcomeChannelId = String(IDs.channels?.chat || "").trim();
+  try {
+    const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
+    const cfg = await T.getWelcome(String(member.guild?.id || ""), true);
+    const dashId = String(cfg?.welcome?.channelId || "").trim();
+    if (dashId) welcomeChannelId = dashId;
+  } catch (_) {}
+  if (!welcomeChannelId) return null;
   let welcomeChannel = await resolveGuildChannel(member.guild, welcomeChannelId);
   if (!welcomeChannel && member.client) {
     const mainGuild = await getClientGuildCached(member.client, IDs.guilds.main);
@@ -51,16 +59,48 @@ async function resolveWelcomeChannelForMember(member?) {
   return welcomeChannel;
 }
 
+function welcomeMessageTextBlob(message?) {
+  const parts = [String(message?.content || "")];
+  const embeds = Array.isArray(message?.embeds) ? message.embeds : [];
+  for (const e of embeds) {
+    parts.push(
+      String(e?.title || ""),
+      String(e?.description || ""),
+      String(e?.author?.name || ""),
+      String(e?.footer?.text || ""),
+    );
+    for (const f of Array.isArray(e?.fields) ? e.fields : []) {
+      parts.push(String(f?.name || ""), String(f?.value || ""));
+    }
+  }
+  const walk = (nodes?) => {
+    for (const node of Array.isArray(nodes) ? nodes : []) {
+      const r = typeof node?.toJSON === "function" ? node.toJSON() : node;
+      if (!r || typeof r !== "object") continue;
+      if (r.content) parts.push(String(r.content));
+      if (Array.isArray(r.components)) walk(r.components);
+    }
+  };
+  walk(message?.components);
+  return parts.join("\n");
+}
+
 async function welcomeAnnounceExistsForUser(channel?, memberOrUserId?, botId?, sinceMs?) {
   if (!channel?.messages?.fetch) return false;
   const userId = String(typeof memberOrUserId === "object" ? memberOrUserId?.id : memberOrUserId || "");
   if (!userId) return false;
   const uname = typeof memberOrUserId === "object" ? accountUsername(memberOrUserId) : "";
+  const display =
+    typeof memberOrUserId === "object"
+      ? String(memberOrUserId?.displayName || memberOrUserId?.user?.globalName || "").trim()
+      : "";
   const needle = `<@${userId}>`;
   const minTs = Math.max(0, Number(sinceMs || 0) - 60_000);
-  const welcomeRe = /Vinili & Caff[eèé]|Benvento|Benvenuto|nella nostra community/i;
+  /* seed + testi dashboard custom: non solo "nella nostra community" */
+  const welcomeRe =
+    /Vinili & Caff[eèé]|Benvento|Benvenuto|benvenut[oaie]|nella nostra community|personalizzare il tuo profilo|Ora siamo in/i;
   let before = undefined;
-  for (let page = 0; page < 4; page += 1) {
+  for (let page = 0; page < 6; page += 1) {
     const recent = await channel.messages.fetch({ limit: 100, ...(before ? { before } : {}) }).catch(() => null);
     if (!recent?.size) break;
     let oldestTs = Infinity;
@@ -70,15 +110,23 @@ async function welcomeAnnounceExistsForUser(channel?, memberOrUserId?, botId?, s
       if (ts && ts < minTs) continue;
       if (botId && String(m.author?.id || "") !== botId) continue;
       const embeds = Array.isArray(m.embeds) ? m.embeds : [];
-      const parts = [String(m.content || "")];
-      for (const e of embeds) {
-        parts.push(String(e?.title || ""), String(e?.description || ""), String(e?.author?.name || ""));
-      }
-      const blob = parts.join("\n");
-      const mentionsUser = blob.includes(needle) || blob.includes(`<@!${userId}>`);
-      const authorMatches = uname && embeds.some((e?) => String(e?.author?.name || "").trim() === uname);
+      const blob = welcomeMessageTextBlob(m);
+      const mentionsUser =
+        blob.includes(needle) ||
+        blob.includes(`<@!${userId}>`) ||
+        Boolean(m.mentions?.users?.has?.(userId)) ||
+        (Array.isArray(m.mentions?.users) && m.mentions.users.some((u?) => String(u?.id || "") === userId));
+      const authorMatches =
+        (uname && embeds.some((e?) => String(e?.author?.name || "").trim() === uname)) ||
+        (display && embeds.some((e?) => String(e?.author?.name || "").trim() === display)) ||
+        (uname && blob.includes(uname)) ||
+        (display && blob.includes(display));
       if (!mentionsUser && !authorMatches) continue;
       if (welcomeRe.test(blob)) return true;
+      /* draft dashboard custom / V2 senza le stringhe seed: messaggio bot con ping/author + embed o components */
+      if ((mentionsUser || authorMatches) && (embeds.length > 0 || (Array.isArray(m.components) && m.components.length > 0))) {
+        return true;
+      }
     }
     if (oldestTs <= minTs) break;
     const oldest = [...recent.values()].sort((a?, b?) => Number(a.createdTimestamp || 0) - Number(b.createdTimestamp || 0))[0];
@@ -93,13 +141,10 @@ async function joinWelcomeAlreadySent(channel?, member?, botId?) {
   const guildId = String(member.guild?.id || "");
   const userId = String(member.id);
   const joined = Number(member.joinedTimestamp || 0);
-  /* prova prima in canale: il flag mongo da solo mentiva (claim prima dell’invio) */
-  const sinceMs = joined || Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const inChannel = await welcomeAnnounceExistsForUser(channel, member, botId, sinceMs);
-  if (inChannel) {
-    await markJoinAnnounceSent(member);
-    return true;
-  }
+  /*
+   * Mongo prima: joinAnnounceSentAt si scrive solo DOPO invio ok.
+   * Se lo scan canale fallisce (V2 / chat piena / draft custom) non rimandare.
+   */
   if (isMongoReady()) {
     const doc = await ActivityUserProfile.findOne({ guildId, userId })
       .select("profile.joinAnnounceSentAt")
@@ -108,13 +153,14 @@ async function joinWelcomeAlreadySent(channel?, member?, botId?) {
     const sentRaw = doc?.profile?.joinAnnounceSentAt;
     if (sentRaw) {
       const sentAt = new Date(sentRaw).getTime();
-      /*
-       * Segno "benvenuto inviato": ora si salva solo DOPO che il messaggio è partito (claim + invio + mark),
-       * quindi è affidabile. Prima, se il messaggio non sembrava quello vecchio in chat (il benvenuto della
-       * dashboard ha un altro formato), il segno veniva cancellato e il benvenuto rimandato a ogni riavvio.
-       */
       if (Number.isFinite(sentAt) && sentAt > 0 && (!joined || sentAt >= joined - 5_000)) return true;
     }
+  }
+  const sinceMs = joined || Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const inChannel = await welcomeAnnounceExistsForUser(channel, member, botId, sinceMs);
+  if (inChannel) {
+    await markJoinAnnounceSent(member);
+    return true;
   }
   return false;
 }
@@ -433,6 +479,12 @@ async function processMissedJoinMember(member?, opts: Record<string, any> = {}) 
   }
 
   let current = member;
+  const welcomeChannel = await resolveWelcomeChannelForMember(current);
+  const botId = String(current.client?.user?.id || "");
+  /* PRIMA del restore leave-backup: altrimenti cancella joinAnnounceSentAt e JOIN RECOVER rimanda */
+  const alreadyBeforeRestore =
+    Boolean(welcomeChannel) && (await joinWelcomeAlreadySent(welcomeChannel, current, botId).catch(() => false));
+
   await syncMutedMirrorOnMemberJoin(current).catch((err?) => {
     global.logger?.warn?.("[JOIN RECOVER] muted mirror:", current.id, err?.message || err);
   });
@@ -455,14 +507,18 @@ async function processMissedJoinMember(member?, opts: Record<string, any> = {}) 
     (await getGuildMemberCached(current.guild, current.id, { preferFresh: true }).catch(() => null)) || current;
 
   const rolesOk = true;
+  if (alreadyBeforeRestore) {
+    await markJoinAnnounceSent(current);
+    await clearJoinAnnouncePending(current);
+    return { ok: true, announced: false, already: true, roles: rolesOk };
+  }
+
   const canAnnounce = await shouldSendPublicMemberAnnouncement(current);
   if (!canAnnounce) {
     await markJoinAnnouncePending(current);
     return { ok: true, announced: false, pending: true, roles: rolesOk };
   }
 
-  const welcomeChannel = await resolveWelcomeChannelForMember(current);
-  const botId = String(current.client?.user?.id || "");
   if (welcomeChannel && (await joinWelcomeAlreadySent(welcomeChannel, current, botId))) {
     await clearJoinAnnouncePending(current);
     return { ok: true, announced: false, already: true, roles: rolesOk };

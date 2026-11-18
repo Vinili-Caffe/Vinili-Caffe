@@ -99,7 +99,7 @@ export function CustomCommandsPanel({ guildId, token, onToast }: { guildId: stri
                   <Field label="Nome" hint={`Si usa scrivendo ${prefix}${edit.name || "nome"} in chat.`}>
                     <div className="relative">
                       <span className="pointer-events-none absolute left-3 top-1/2 mt-[3px] -translate-y-1/2 font-mono text-sm text-crema/50">{prefix}</span>
-                      <input
+                      <input name="customcommandspanel-input-102" id="customcommandspanel-input-102"
                         value={edit.name}
                         maxLength={32}
                         placeholder="regole"
@@ -110,12 +110,12 @@ export function CustomCommandsPanel({ guildId, token, onToast }: { guildId: stri
                     </div>
                   </Field>
                   <Field label="Altri nomi (facoltativi)" hint="Separati da virgola, es. rules, r">
-                    <input value={aliasText} onChange={(e) => setAliasText(e.target.value)} className={fieldClass} />
+                    <input name="customcommandspanel-input-113" id="customcommandspanel-input-113" value={aliasText} onChange={(e) => setAliasText(e.target.value)} className={fieldClass} />
                   </Field>
                 </div>
                 <div className="mt-3">
                   <Field label="Descrizione (per lo staff)">
-                    <input value={edit.description} maxLength={100} onChange={(e) => setEdit({ ...edit, description: e.target.value })} className={fieldClass} />
+                    <input name="customcommandspanel-input-118" id="customcommandspanel-input-118" value={edit.description} maxLength={100} onChange={(e) => setEdit({ ...edit, description: e.target.value })} className={fieldClass} />
                   </Field>
                 </div>
               </FormGroup>

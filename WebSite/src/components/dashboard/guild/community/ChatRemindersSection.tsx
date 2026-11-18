@@ -102,7 +102,7 @@ export function ChatRemindersSection({
               <FormGroup title="Promemoria">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Nome (solo per te)">
-                    <input value={draftItem.name} maxLength={80} onChange={(e) => setDraftItem({ ...draftItem, name: e.target.value })} className={fieldClass} />
+                    <input name="chatreminderssection-input-105" id="chatreminderssection-input-105" value={draftItem.name} maxLength={80} onChange={(e) => setDraftItem({ ...draftItem, name: e.target.value })} className={fieldClass} />
                   </Field>
                   <div className="flex items-end">
                     <label className="flex h-11 w-full items-center justify-between gap-3 rounded-lg bg-espresso/45 px-3 ring-1 ring-sand/10">

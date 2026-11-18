@@ -10,6 +10,18 @@ export type SerataEvent = {
   nextFilmTitle: string;
 };
 
+export type SerataNight = {
+  id: string;
+  /** YYYY-MM-DD (calendario Europe/Rome). */
+  date: string;
+  hour?: number;
+  minute?: number;
+  title: string;
+  synopsis: string;
+  /** Path `/images/...` o URL CDN. */
+  poster: string;
+};
+
 /** Titoli/orario serata (source of truth lato sito). Stream film: bot `VC_SERATAFILM_FILM_URL` / default in siteSeratafilmAccessApi. */
 export const SERATA_EVENT: SerataEvent = {
   timezone: "Europe/Rome",
@@ -20,9 +32,71 @@ export const SERATA_EVENT: SerataEvent = {
   nextFilmTitle: "",
 };
 
-/** Locandina sul player — sempre da CDN (`vc-media`). */
+/** Locandina default (sabato ricorrente) — CDN (`vc-media`). */
 export const FILM_POSTER =
   "https://cdn.viniliecaffe.it/images/seratafilm/chiamami-col-tuo-nome-poster.jpg?v=20261114cm1";
+
+const POSTER_V = "20261118xmas1";
+
+/** Locandine ufficiali dei film (CDN R2). */
+function filmPosterUrl(file: string) {
+  return `${cdnUrl(`/images/seratafilm/${file}`)}?v=${POSTER_V}`;
+}
+
+/**
+ * Serate extra Natale 2026 (21–27 dic, 21:00 Rome).
+ * 25 dic assente di proposito.
+ */
+export const SERATA_XMAS_NIGHTS: SerataNight[] = [
+  {
+    id: "2026-12-21",
+    date: "2026-12-21",
+    title: "Il figlio di Babbo Natale",
+    synopsis:
+      "Arthur, il figlio minore di Babbo Natale, scopre che un regalo non è stato consegnato. Con Nonno Natale e un’elfa partono sulla vecchia slitta per rimediare prima dell’alba.",
+    poster: filmPosterUrl("il-figlio-di-babbo-natale-poster.jpg"),
+  },
+  {
+    id: "2026-12-22",
+    date: "2026-12-22",
+    title: "A Christmas Carol",
+    synopsis:
+      "L’avaro Ebenezer Scrooge riceve la visita di tre spiriti nella notte di Natale: un viaggio tra passato, presente e futuro che può ancora cambiare il suo cuore.",
+    poster: filmPosterUrl("a-christmas-carol-poster.jpg"),
+  },
+  {
+    id: "2026-12-23",
+    date: "2026-12-23",
+    title: "Grinch",
+    synopsis:
+      "Il Grinch odia il Natale e trama di rubare ogni festeggiamento a Chi-ville. Tra mischievie e un cuore che cresce, scopre cosa resta quando i regali spariscono.",
+    poster: filmPosterUrl("grinch-poster.jpg"),
+  },
+  {
+    id: "2026-12-24",
+    date: "2026-12-24",
+    title: "Polar Express",
+    synopsis:
+      "Nella notte della Vigilia un ragazzo scettico sale sul Polar Express diretto al Polo Nord. Un viaggio magico tra biglietti d’oro, cioccolata calda e la fede nel Natale.",
+    poster: filmPosterUrl("polar-express-poster.jpg"),
+  },
+  {
+    id: "2026-12-26",
+    date: "2026-12-26",
+    title: "Mamma ho perso l'aereo",
+    synopsis:
+      "Kevin McCallister resta solo a casa per Natale e difende la villetta dai ladri Harry e Marv con trappole all’ultimo piano. Classico delle feste, umorismo e cuore.",
+    poster: filmPosterUrl("mamma-ho-perso-laereo-poster.jpg"),
+  },
+  {
+    id: "2026-12-27",
+    date: "2026-12-27",
+    title: "Poltrona per due",
+    synopsis:
+      "Un impiegato ambizioso presta l’appartamento ai superiori per gli appuntamenti clandestini, finché conosce una ragazza legata a uno di loro. Commedia bittersweet ambientata a Natale.",
+    poster: filmPosterUrl("poltrona-per-due-poster.jpg"),
+  },
+];
 
 /** Skip titoli di coda (disattivato). */
 export const CREDITS_SKIP = {
@@ -131,13 +205,22 @@ function localZonedToUtcMs(year: number, month: number, day: number, hour: numbe
   return utc;
 }
 
-/** Prossima serata da recurring o overrideIso (logica del countdown vecchio). */
-export function nextFilmAtMs(event: SerataEvent = SERATA_EVENT, now = Date.now()): number {
-  const iso = String(event.overrideIso || "").trim();
-  if (iso) {
-    const t = Date.parse(iso);
-    if (Number.isFinite(t)) return t;
-  }
+/** Per quanto la serata resta "in corso" dopo l'inizio: chi entra o ricarica in ritardo può ancora avviare il film. */
+export const LIVE_WINDOW_MS = 4 * 60 * 60 * 1000;
+
+function nightStartMs(night: SerataNight, event: SerataEvent = SERATA_EVENT): number {
+  const tz = event.timezone || "Europe/Rome";
+  const [ys, ms, ds] = String(night.date || "").split("-");
+  const y = Number(ys);
+  const m = Number(ms);
+  const d = Number(ds);
+  const hour = Number.isFinite(night.hour) ? Number(night.hour) : Number(event.recurring?.hour ?? 21);
+  const minute = Number.isFinite(night.minute) ? Number(night.minute) : Number(event.recurring?.minute || 0);
+  if (!y || !m || !d) return Number.NaN;
+  return localZonedToUtcMs(y, m, d, hour, minute, tz);
+}
+
+function nextRecurringSaturdayMs(event: SerataEvent, now: number): number {
   const tz = event.timezone || "Europe/Rome";
   const wantWd = Math.max(0, Math.min(6, Math.floor(Number(event.recurring?.weekday) || 6)));
   const wantH = Math.max(0, Math.min(23, Math.floor(Number(event.recurring?.hour) ?? 21)));
@@ -153,16 +236,75 @@ export function nextFilmAtMs(event: SerataEvent = SERATA_EVENT, now = Date.now()
   return target;
 }
 
-/** Per quanto la serata resta "in corso" dopo l'inizio: chi entra o ricarica in ritardo può ancora avviare il film. */
-export const LIVE_WINDOW_MS = 4 * 60 * 60 * 1000;
+export type ResolvedSerata = {
+  startMs: number;
+  night: SerataNight | null;
+  title: string;
+  synopsis: string;
+  poster: string;
+};
+
+function asDefaultResolved(startMs: number, event: SerataEvent): ResolvedSerata {
+  return {
+    startMs,
+    night: null,
+    title: String(event.nextFilmTitle || event.filmTitle || "il prossimo film").trim() || "il prossimo film",
+    synopsis: "",
+    poster: FILM_POSTER,
+  };
+}
+
+function asNightResolved(night: SerataNight, startMs: number): ResolvedSerata {
+  return {
+    startMs,
+    night,
+    title: night.title,
+    synopsis: night.synopsis,
+    poster: night.poster,
+  };
+}
+
+/** Serata attiva (live window) o prossima: schedule Natale ha priorità sul sabato ricorrente. */
+export function resolveSerata(event: SerataEvent = SERATA_EVENT, now = Date.now()): ResolvedSerata {
+  const iso = String(event.overrideIso || "").trim();
+  if (iso) {
+    const t = Date.parse(iso);
+    if (Number.isFinite(t) && (t > now || (now >= t && now - t < LIVE_WINDOW_MS))) {
+      return asDefaultResolved(t, event);
+    }
+  }
+
+  const scheduled = SERATA_XMAS_NIGHTS.map((night) => ({ night, startMs: nightStartMs(night, event) })).filter((x) =>
+    Number.isFinite(x.startMs),
+  );
+
+  const liveNight = scheduled.find((x) => now >= x.startMs && now - x.startMs < LIVE_WINDOW_MS);
+  if (liveNight) return asNightResolved(liveNight.night, liveNight.startMs);
+
+  const candidates: ResolvedSerata[] = scheduled
+    .filter((x) => x.startMs > now)
+    .map((x) => asNightResolved(x.night, x.startMs));
+
+  const sat = nextRecurringSaturdayMs(event, now);
+  const satDate = zonedParts(sat, event.timezone || "Europe/Rome");
+  const satKey = `${satDate.year}-${String(satDate.month).padStart(2, "0")}-${String(satDate.day).padStart(2, "0")}`;
+  if (!scheduled.some((x) => x.night.date === satKey)) {
+    candidates.push(asDefaultResolved(sat, event));
+  }
+
+  candidates.sort((a, b) => a.startMs - b.startMs);
+  return candidates[0] || asDefaultResolved(sat, event);
+}
+
+/** Prossima serata da schedule Natale, recurring o overrideIso. */
+export function nextFilmAtMs(event: SerataEvent = SERATA_EVENT, now = Date.now()): number {
+  return resolveSerata(event, now).startMs;
+}
 
 /** Inizio della serata in corso (entro LIVE_WINDOW_MS), altrimenti null. */
 export function liveFilmStartMs(event: SerataEvent = SERATA_EVENT, now = Date.now()): number | null {
-  const iso = String(event.overrideIso || "").trim();
-  let start: number;
-  if (iso && Number.isFinite(Date.parse(iso))) start = Date.parse(iso);
-  else start = nextFilmAtMs(event, now) - 7 * 24 * 60 * 60 * 1000;
-  return now >= start && now - start < LIVE_WINDOW_MS ? start : null;
+  const resolved = resolveSerata(event, now);
+  return now >= resolved.startMs && now - resolved.startMs < LIVE_WINDOW_MS ? resolved.startMs : null;
 }
 
 export function countdownParts(targetMs: number, now = Date.now()) {
@@ -175,6 +317,14 @@ export function countdownParts(targetMs: number, now = Date.now()) {
   return { ms, days, hours, minutes, seconds, live: ms <= 0 };
 }
 
-export function filmTitle(event: SerataEvent = SERATA_EVENT) {
-  return String(event.nextFilmTitle || event.filmTitle || "il prossimo film").trim() || "il prossimo film";
+export function filmTitle(event: SerataEvent = SERATA_EVENT, now = Date.now()) {
+  return resolveSerata(event, now).title;
+}
+
+export function filmPoster(event: SerataEvent = SERATA_EVENT, now = Date.now()) {
+  return resolveSerata(event, now).poster || FILM_POSTER;
+}
+
+export function filmSynopsis(event: SerataEvent = SERATA_EVENT, now = Date.now()) {
+  return resolveSerata(event, now).synopsis;
 }

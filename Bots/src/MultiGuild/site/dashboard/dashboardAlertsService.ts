@@ -188,7 +188,8 @@ async function countStaleOpenTickets(guildId?, waitMinutes = 120) {
 function buildPremiumAlert(guild?) {
   const gid = String(guild?.id || "").trim();
   const name = String(guild?.name || "Server").trim() || "Server";
-  if (!gid || guild?.isProtectedGuild) return null;
+  /* noNotifIfBotAbsent1: niente avvisi premium per server senza bot */
+  if (!gid || guild?.isProtectedGuild || guild?.botPresent !== true) return null;
   const pub = serializePremiumPublic(getTenantPremiumSync(gid));
   if (!pub.active || pub.until == null) return null;
   const until = Number(pub.until);
@@ -262,12 +263,9 @@ async function buildLiveAlertsForGuilds(guilds?) {
   for (const g of list) {
     const premium = buildPremiumAlert(g);
     if (premium) out.push(premium);
-    const missing = buildBotMissingAlert(g);
-    if (missing) out.push(missing);
+    /* noNotifIfBotAbsent1: bot assente solo su card server, non in campanella */
+    /* noTicketsStaleNotif1: ticket fermi non in campanella (gestiti in dashboard ticket) */
   }
-  const staleJobs = list.slice(0, 12).map((g?) => buildTicketsStaleAlert(g));
-  const stale = await Promise.all(staleJobs);
-  for (const row of stale) if (row) out.push(row);
   return out;
 }
 

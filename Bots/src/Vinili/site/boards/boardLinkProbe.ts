@@ -1,11 +1,14 @@
 /** Bacheche: controllo che i link inseriti esistano (inviti Discord, GitHub, YouTube, siti). */
 const { SOCIAL_HANDLE_BUILDERS } = require("./boardSanitize") as typeof import("./boardSanitize");
 const { resolveBoardsUser } = require("./boardBanners") as typeof import("./boardBanners");
+const { assertPublicHttpUrl } = require("../../../shared/http/publicUrlGuard") as typeof import("../../../shared/http/publicUrlGuard");
 
 /* boardsLinkCheck1: probe invite/social/sito/banner per ✓/✗ nel form */
 /* boardsLinkCheck2: Instagram/X spesso 429 anti-bot → soft ✓ se handle valido */
+/* boardsLinkSsrf1: blocca host/IP privati + redirect verso rete interna */
 const PROBE_UA = "ViniliBoardsLinkCheck/1.0 (+https://www.viniliecaffe.it)";
 const probeRateByUser = new Map();
+const MAX_REDIRECTS = 3;
 
 function probeAllow(userId?) {
   const now = Date.now();
@@ -36,7 +39,7 @@ function inviteCodeFromRaw(raw?) {
     .trim();
 }
 
-async function fetchProbe(url?, opts: Record<string, any> = {}) {
+async function fetchProbeOnce(url?, opts: Record<string, any> = {}) {
   const method = opts.method || "GET";
   const timeoutMs = Math.max(1500, Math.min(8000, Number(opts.timeoutMs) || 5500));
   const ctrl = new AbortController();
@@ -46,9 +49,9 @@ async function fetchProbe(url?, opts: Record<string, any> = {}) {
     } catch (_) {}
   }, timeoutMs);
   try {
-    const res = await fetch(url, {
+    return await fetch(url, {
       method,
-      redirect: "follow",
+      redirect: "manual",
       signal: ctrl.signal,
       headers: {
         Accept: opts.accept || "*/*",
@@ -56,10 +59,40 @@ async function fetchProbe(url?, opts: Record<string, any> = {}) {
         ...(opts.headers || {}),
       },
     });
-    return res;
   } finally {
     clearTimeout(t);
   }
+}
+
+async function fetchProbe(url?, opts: Record<string, any> = {}) {
+  let current = String(url || "").trim();
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    const guard = await assertPublicHttpUrl(current);
+    if (!guard.ok) {
+      const err: any = new Error(guard.reason || "blocked_host");
+      err.code = "SSRF_BLOCKED";
+      err.reason = guard.reason || "blocked_host";
+      throw err;
+    }
+    current = guard.url;
+    const res = await fetchProbeOnce(current, opts);
+    const status = Number(res.status) || 0;
+    if (status >= 300 && status < 400) {
+      const loc = String(res.headers.get("location") || "").trim();
+      if (!loc) return res;
+      try {
+        current = new URL(loc, current).toString();
+      } catch (_) {
+        return res;
+      }
+      continue;
+    }
+    return res;
+  }
+  const err: any = new Error("too_many_redirects");
+  err.code = "SSRF_BLOCKED";
+  err.reason = "too_many_redirects";
+  throw err;
 }
 
 async function probeHttpExists(url?, { expectImage = false, softBlockOk = false } = {}) {
@@ -67,10 +100,19 @@ async function probeHttpExists(url?, { expectImage = false, softBlockOk = false 
   if (!/^https?:\/\//i.test(target)) {
     return { ok: false, found: false, reason: "invalid_url" };
   }
+  {
+    const guard = await assertPublicHttpUrl(target);
+    if (!guard.ok) {
+      return { ok: true, found: false, reason: guard.reason || "blocked_host" };
+    }
+  }
   let res = null;
   try {
     res = await fetchProbe(target, { method: "HEAD", timeoutMs: 4500 });
-  } catch (_) {
+  } catch (err: any) {
+    if (err?.code === "SSRF_BLOCKED") {
+      return { ok: true, found: false, reason: err.reason || "blocked_host" };
+    }
     res = null;
   }
   const retryGet =
@@ -93,7 +135,10 @@ async function probeHttpExists(url?, { expectImage = false, softBlockOk = false 
           "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
         },
       });
-    } catch (_) {
+    } catch (err: any) {
+      if (err?.code === "SSRF_BLOCKED") {
+        return { ok: true, found: false, reason: err.reason || "blocked_host" };
+      }
       if (softBlockOk) {
         return { ok: true, found: true, reason: "soft_ok_unreachable" };
       }
@@ -249,6 +294,11 @@ async function probeBoardLink(client?, payload: Record<string, any> = {}) {
     } catch (_) {
       return { ok: true, status: 200, found: false, kind: "website", reason: "invalid_url" };
     }
+    const guard = await assertPublicHttpUrl(url);
+    if (!guard.ok) {
+      return { ok: true, status: 200, found: false, kind: "website", reason: guard.reason || "blocked_host" };
+    }
+    url = guard.url;
     const out = await probeHttpExists(url);
     return { ...out, status: 200, kind: "website", value: url };
   }
@@ -261,6 +311,11 @@ async function probeBoardLink(client?, payload: Record<string, any> = {}) {
     } catch (_) {
       return { ok: true, status: 200, found: false, kind: "banner", reason: "invalid_url" };
     }
+    const guard = await assertPublicHttpUrl(url);
+    if (!guard.ok) {
+      return { ok: true, status: 200, found: false, kind: "banner", reason: guard.reason || "blocked_host" };
+    }
+    url = guard.url;
     const out = await probeHttpExists(url, { expectImage: true });
     return { ...out, status: 200, kind: "banner", value: url };
   }

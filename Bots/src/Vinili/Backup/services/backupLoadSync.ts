@@ -139,19 +139,71 @@ async function syncLoadedChannels({ guild, backupChannels, roleMap, channelMap, 
   }
 }
 
-function normalizeMessagePayload(message?, backupId?) {
-  const authorTag = message?.author?.tag || message?.author?.username || message?.author?.id || "Sconosciuto";
-  const contentRaw = String(message?.content || "").trim();
-  const header = `**[${backupId}] ${authorTag}**`;
-  const content = contentRaw ? `${header}\n${contentRaw}` : header;
+function normalizeMessagePayload(message?, backupId?, opts: Record<string, any> = {}) {
+  const viaWebhook = Boolean(opts.viaWebhook);
+  const contentRaw = String(message?.content || "");
+  let content = contentRaw;
+  if (!viaWebhook) {
+    const authorTag =
+      message?.author?.tag || message?.author?.username || message?.author?.id || "Sconosciuto";
+    const header = `**[${backupId}] ${authorTag}**`;
+    content = contentRaw.trim() ? `${header}\n${contentRaw}` : header;
+  }
 
   const embedList = Array.isArray(message?.embeds) ? message.embeds.slice(0, 10) : [];
-  const embeds = embedList.map((emb?) => { if (!emb || typeof emb !== "object") return null; const clone = { ...emb }; if (Array.isArray(clone.fields) && clone.fields.length > 25) { clone.fields = clone.fields.slice(0, 25); } return clone; }).filter(Boolean);
+  const embeds = embedList
+    .map((emb?) => {
+      if (!emb || typeof emb !== "object") return null;
+      const clone = { ...emb };
+      if (Array.isArray(clone.fields) && clone.fields.length > 25) {
+        clone.fields = clone.fields.slice(0, 25);
+      }
+      return clone;
+    })
+    .filter(Boolean);
+
+  const username = String(
+    message?.author?.globalName || message?.author?.username || message?.author?.tag || "Utente",
+  ).slice(0, 80);
+  const avatarURL =
+    message?.author?.id && message?.author?.avatar
+      ? `https://cdn.discordapp.com/avatars/${message.author.id}/${message.author.avatar}.png?size=128`
+      : message?.member?.avatarURL || null;
 
   return {
-    content: content.slice(0, 1990),
+    content: content.slice(0, 2000),
     embeds,
+    username,
+    avatarURL,
+    tts: Boolean(message?.tts),
   };
+}
+
+async function collectMessageFiles(message?, maxFiles = 10, maxBytes = 8 * 1024 * 1024) {
+  const attachments = Array.isArray(message?.attachments) ? message.attachments : [];
+  const files = [];
+  for (const att of attachments) {
+    if (files.length >= maxFiles) break;
+    const url = String(att?.url || att?.proxyURL || "").trim();
+    if (!url) continue;
+    const buf = await resolveAssetInput(url);
+    if (!buf || buf.length > maxBytes) continue;
+    files.push({
+      attachment: buf,
+      name: String(att?.name || `file-${files.length + 1}`).slice(0, 100),
+    });
+  }
+  return files;
+}
+
+function remapReactionEmoji(raw?, emojiMap?) {
+  if (!raw || typeof raw !== "object") return raw || undefined;
+  const id = raw.id ? String(raw.id) : null;
+  if (id && emojiMap?.has?.(id)) {
+    return { id: emojiMap.get(id), name: raw.name || undefined, animated: Boolean(raw.animated) };
+  }
+  if (raw.name && !id) return { name: String(raw.name) };
+  return raw;
 }
 
 async function resolveAssetInput(value?) {
@@ -173,4 +225,12 @@ async function resolveAssetInput(value?) {
   }
 }
 
-export = { buildPermissionOverwrites, syncLoadedRoles, syncLoadedChannels, normalizeMessagePayload, resolveAssetInput };
+export = {
+  buildPermissionOverwrites,
+  syncLoadedRoles,
+  syncLoadedChannels,
+  normalizeMessagePayload,
+  collectMessageFiles,
+  remapReactionEmoji,
+  resolveAssetInput,
+};

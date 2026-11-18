@@ -1,7 +1,8 @@
 function mountProfileWebhookRoutes(app?, client?, ctx: Record<string, any> = {}) {
   const normalizeHeaderSecret = ctx.normalizeHeaderSecret;
   const { getRankCardCustomization, getServerAvatarOnly, updateRankCardCustomization, getRankCardPreview, getPublicRankCardPreview } = require("../siteRankCardApi") as typeof import("../siteRankCardApi");
-  const { getSiteWrapped } = require("../siteWrappedApi") as typeof import("../siteWrappedApi");
+  const { getSiteWrapped, completeSiteWrapped } = require("../siteWrappedApi") as typeof import("../siteWrappedApi");
+  const { listAlbero, upsertAlberoOrnament, deleteAlberoOrnament } = require("../siteAlberoApi") as typeof import("../siteAlberoApi");
   const { getCustomProfileCustomization, getCustomProfileGuildEmojis, mutateCustomProfile } = require("../siteCustomProfileApi") as typeof import("../siteCustomProfileApi");
   const { getProfileExtras, mutateProfileExtras } = require("../siteProfileExtrasApi") as typeof import("../siteProfileExtrasApi");
   const { getWelcomePronouns } = require("../siteWelcomePronounsApi") as typeof import("../siteWelcomePronounsApi");
@@ -45,6 +46,52 @@ function mountProfileWebhookRoutes(app?, client?, ctx: Record<string, any> = {})
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-wrapped get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-wrapped/complete", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const out = await completeSiteWrapped(client, { accessToken });
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-wrapped complete:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-albero", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const out = await listAlbero(client, { accessToken });
+      if (out?.ok) res.setHeader("Cache-Control", "private, max-age=20");
+      else res.setHeader("Cache-Control", "no-store");
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-albero get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-albero", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out = await upsertAlberoOrnament(client, { accessToken, ...body });
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-albero post:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.delete("/webhooks/site-albero", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const out = await deleteAlberoOrnament(client, { accessToken });
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-albero delete:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
@@ -229,6 +276,11 @@ function mountProfileWebhookRoutes(app?, client?, ctx: Record<string, any> = {})
         section,
         viewAs: parseViewAsFromReq(req),
         guild: String(req.query?.guild || "").trim(),
+        query: {
+          days: req.query?.days,
+          page: req.query?.page,
+          pageSize: req.query?.pageSize || req.query?.limit,
+        },
       });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {

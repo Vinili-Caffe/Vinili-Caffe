@@ -317,6 +317,12 @@ const ids: Record<string, any> = {
     SerataFilm: "1544830669023346688",
     Events: "1544830669023346688",
     HogwartsEventParticipant: "1507000390493798511",
+    /** Partecipante evento Star Wars (post smistamento). */
+    StarWarsEventParticipant: "1572319166638194779",
+    /** Completamento Vinili Wrapped (10 dic 12:00 → 7 gen 12:00 Rome). */
+    WrappedViewer: "1572319349501595728",
+    /** Pallina sull’albero community (15–25 dic Rome). */
+    AlberoOrnament: "1572318958277894336",
     HogwartsFinaleWinnerBonus: "1544830792168116234",
     News: "1544830667366338600",
     Bump: "1544830661637046303",

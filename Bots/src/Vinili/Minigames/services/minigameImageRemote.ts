@@ -229,11 +229,88 @@ function hasUsablePlayerImage(player?) {
   return Boolean(player?.strThumb || player?.strCutout || player?.strRender);
 }
 
+/** Copertina/poster per anno / citazione film: Wikipedia + iTunes (canzoni/album). */
+async function fetchMediaCoverImage(title?, mediaType = "film") {
+  const name = String(title || "").trim();
+  if (!name) return null;
+  const kind = String(mediaType || "film").trim().toLowerCase();
+  const wikiTitles = [];
+  if (kind === "film") {
+    wikiTitles.push(`${name} (film)`, name);
+  } else if (kind === "series" || kind === "serie" || kind === "tv") {
+    wikiTitles.push(`${name} (serie televisiva)`, `${name} (serie TV)`, `${name} (TV series)`, name);
+  } else if (kind === "song" || kind === "canzone") {
+    wikiTitles.push(`${name} (canzone)`, `${name} (song)`, name);
+  } else if (kind === "album") {
+    wikiTitles.push(`${name} (album)`, name);
+  } else {
+    wikiTitles.push(name, `${name} (film)`, `${name} (serie televisiva)`);
+  }
+  const wiki = await fetchWikiSummaryImage(wikiTitles);
+  if (wiki) return wiki;
+
+  /* iTunes: buono per musica e spesso anche film/serie */
+  try {
+    const entity =
+      kind === "album"
+        ? "album"
+        : kind === "song" || kind === "canzone"
+          ? "song"
+          : kind === "series" || kind === "serie" || kind === "tv"
+            ? "tvSeason"
+            : "movie";
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(name)}&entity=${entity}&limit=5&country=it`;
+    const res = await axios.get(url, {
+      timeout: 10000,
+      headers: { "User-Agent": "ViniliCaffeBot/1.0 (minigames; https://www.viniliecaffe.it)" },
+    });
+    const rows = Array.isArray(res?.data?.results) ? res.data.results : [];
+    for (const row of rows) {
+      const art = String(row?.artworkUrl100 || row?.artworkUrl60 || "").trim();
+      if (!art) continue;
+      return art.replace(/\/\d+x\d+bb\./i, "/600x600bb.");
+    }
+  } catch (err) {
+    warnMinigame(err);
+  }
+  return null;
+}
+
+/** Landmark / monumento per indovina la città. */
+async function fetchLandmarkImage(landmark?, city?, country?) {
+  const landmarkName = String(landmark || "").trim();
+  const cityName = String(city || "").trim();
+  const countryName = String(country || "").trim();
+  if (!landmarkName && !cityName) return null;
+  return fetchWikiSummaryImage([
+    landmarkName,
+    landmarkName && cityName ? `${landmarkName} ${cityName}` : "",
+    landmarkName && countryName ? `${landmarkName} ${countryName}` : "",
+    cityName,
+    cityName && countryName ? `${cityName} ${countryName}` : "",
+  ].filter(Boolean));
+}
+
+/** Atmosfera cinema generica (citazioni film: mai il poster della risposta). */
+async function fetchCinemaAtmosphereImage() {
+  return fetchWikiSummaryImage([
+    "Sala cinematografica",
+    "Cinema",
+    "Bobina di pellicola",
+    "Clapperboard",
+    "Film projector",
+  ]);
+}
+
 export = {
   normalizeCountryName,
   polishItalianQuestionText,
   fetchWikiRegionImage,
   fetchWikiCapitalImage,
+  fetchWikiSummaryImage,
+  fetchMediaCoverImage,
+  fetchLandmarkImage,
+  fetchCinemaAtmosphereImage,
   pickBestSingerImage,
   fetchSingerImageFallback,
   loadImageBufferFromUrl,

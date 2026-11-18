@@ -974,6 +974,78 @@ async function buildRemoteGuessImageCardAttachment(imageUrl?, title?, fileName =
   }
 }
 
+/**
+ * Card testo su foto d’atmosfera (es. citazione film: sala cinema, NON il poster della risposta).
+ * Se la foto non carica → null (il chiamante fa fallback al prompt classico).
+ */
+async function buildAtmosphereTextCardAttachment(title?, lines = [], atmosphereUrl?, fileName = "atmosphere_text.png") {
+  try {
+    registerCanvasFonts(canvasModule);
+    if (!atmosphereUrl) return null;
+    const photo = Buffer.isBuffer(atmosphereUrl)
+      ? await loadImage(atmosphereUrl).catch(() => null)
+      : await loadImageBufferFromUrl(atmosphereUrl);
+    if (!photo?.width || !photo?.height) return null;
+
+    const width = 1400;
+    const height = 780;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+
+    const scale = Math.max(width / photo.width, height / photo.height);
+    const dw = Math.round(photo.width * scale);
+    const dh = Math.round(photo.height * scale);
+    ctx.drawImage(photo, Math.round((width - dw) / 2), Math.round((height - dh) / 2), dw, dh);
+    ctx.fillStyle = "rgba(8, 6, 14, 0.74)";
+    ctx.fillRect(0, 0, width, height);
+    const glow = ctx.createRadialGradient(width * 0.5, height * 0.35, 40, width * 0.5, height * 0.4, width * 0.55);
+    glow.addColorStop(0, CANVAS_STYLE.bgGlowSoft);
+    glow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, width, height);
+
+    const cardX = CANVAS_STYLE.padding;
+    const cardY = CANVAS_STYLE.padding;
+    const cardW = width - CANVAS_STYLE.padding * 2;
+    const cardH = height - CANVAS_STYLE.padding * 2;
+    fillCanvasCard(ctx, cardX, cardY, cardW, cardH);
+
+    drawCanvasTitle(ctx, String(title || "Minigioco").slice(0, 52), width / 2, cardY + 52, {
+      size: 52,
+      maxWidth: cardW - 120,
+    });
+
+    const usableWidth = cardW - 140;
+    const sourceLines = Array.isArray(lines) ? lines.map((line?) => String(line || "").trim()).filter(Boolean) : [];
+    const renderedLines = [];
+    for (const line of sourceLines) {
+      ctx.font = fontStackPrimaryOnly(48, "700");
+      renderedLines.push(...wrapPromptText(ctx, line, usableWidth));
+    }
+    if (!renderedLines.length) renderedLines.push("…");
+
+    let fontSize = renderedLines.length > 6 ? 40 : renderedLines.length > 4 ? 46 : 52;
+    ctx.font = fontStackPrimaryOnly(fontSize, "700");
+    const lineHeight = Math.round(fontSize * 1.28);
+    const totalHeight = renderedLines.length * lineHeight;
+    let y = Math.max(cardY + 160, Math.round(cardY + (cardH - totalHeight) / 2 + 20));
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = CANVAS_STYLE.bodyColor;
+    ctx.font = fontStackPrimaryOnly(fontSize, "700");
+    for (const line of renderedLines) {
+      if (y + lineHeight > cardY + cardH - 36) break;
+      ctx.fillText(line, width / 2, y, usableWidth);
+      y += lineHeight;
+    }
+
+    const name = String(fileName || "atmosphere_text.png").replace(/[^\w.\-]+/g, "_");
+    return new AttachmentBuilder(canvas.toBuffer("image/png"), { name: name.endsWith(".png") ? name : `${name}.png` });
+  } catch {
+    return null;
+  }
+}
+
 function buildMathExpressionImageAttachment(expression?) {
   try {
     registerCanvasFonts(canvasModule);
@@ -1396,6 +1468,7 @@ export = {
   buildEmojiRichPromptImageAttachment,
   buildPromptImageAttachment,
   buildRemoteGuessImageCardAttachment,
+  buildAtmosphereTextCardAttachment,
   buildMathExpressionImageAttachment,
   censorArtworkImage,
   buildRegionNameImageAttachment,

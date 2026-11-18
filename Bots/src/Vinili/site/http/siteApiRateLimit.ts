@@ -1,5 +1,7 @@
 "use strict";
 
+const { isPrivateOrLocalIp } = require("../../../shared/http/publicUrlGuard") as typeof import("../../../shared/http/publicUrlGuard");
+
 function parsePositiveInt(raw?, fallback?) {
   const n = Number.parseInt(String(raw ?? "").trim(), 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -11,23 +13,40 @@ function webhookPath(req?) {
     .replace(/\/+$/, "") || "/";
 }
 
+function socketRemoteIp(req?) {
+  try {
+    return String(req.socket?.remoteAddress || req.connection?.remoteAddress || "").trim();
+  } catch (_) {
+    return "";
+  }
+}
+
+/** Header CF/XFF solo se la connessione arriva da nginx locale (bind loopback). */
+function trustProxyHeaders(req?) {
+  const remote = socketRemoteIp(req);
+  if (!remote) return false;
+  return isPrivateOrLocalIp(remote);
+}
+
 function clientIpKey(req?) {
+  if (trustProxyHeaders(req)) {
+    try {
+      const cf = String(req.headers["cf-connecting-ip"] || "").trim();
+      if (cf) return cf;
+    } catch (_) {}
+    try {
+      const real = String(req.headers["x-real-ip"] || "").trim();
+      if (real && real !== "127.0.0.1" && real !== "::1") return real;
+    } catch (_) {}
+    try {
+      const xf = String(req.headers["x-forwarded-for"] || "")
+        .split(",")[0]
+        .trim();
+      if (xf && xf !== "127.0.0.1" && xf !== "::1") return xf;
+    } catch (_) {}
+  }
   try {
-    const cf = String(req.headers["cf-connecting-ip"] || "").trim();
-    if (cf) return cf;
-  } catch (_) {}
-  try {
-    const real = String(req.headers["x-real-ip"] || "").trim();
-    if (real && real !== "127.0.0.1" && real !== "::1") return real;
-  } catch (_) {}
-  try {
-    const xf = String(req.headers["x-forwarded-for"] || "")
-      .split(",")[0]
-      .trim();
-    if (xf && xf !== "127.0.0.1" && xf !== "::1") return xf;
-  } catch (_) {}
-  try {
-    const ip = String(req.ip || "").trim();
+    const ip = String(req.ip || socketRemoteIp(req) || "").trim();
     if (ip) return ip;
   } catch (_) {}
   return "unknown";
@@ -46,6 +65,7 @@ function isReadOnlySiteGet(req?) {
   if (path === "/webhooks/site-age-attest") return true;
   if (path.startsWith("/webhooks/site-rank-card")) return true;
   if (path.startsWith("/webhooks/site-wrapped")) return true;
+  if (path.startsWith("/webhooks/site-albero")) return true;
   if (path.startsWith("/webhooks/site-custom-profile")) return true;
   if (path.startsWith("/webhooks/site-profile-extras")) return true;
   if (path.startsWith("/webhooks/site-welcome-pronouns")) return true;

@@ -223,7 +223,9 @@ async function execute(interaction?) {
         });
       void (async () => {
         try {
-          const result = await createGuildBackup(guild);
+          const { getBackupSettings, captureOptionsFrom } = require("../../services/backupSettingsService") as typeof import("../../services/backupSettingsService");
+          const settings = await getBackupSettings(guild.id);
+          const result = await createGuildBackup(guild, captureOptionsFrom(settings, "manual"));
           await safeMessageEdit(
             interaction.message,
             {

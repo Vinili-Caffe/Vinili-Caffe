@@ -31,7 +31,15 @@ function clip(v?, n?) {
 }
 
 function clientIp(req?) {
-  return String(req.headers["cf-connecting-ip"] || req.headers["x-real-ip"] || req.ip || "").slice(0, 64);
+  const { isPrivateOrLocalIp } = require("../../../shared/http/publicUrlGuard") as typeof import("../../../shared/http/publicUrlGuard");
+  const remote = String(req.socket?.remoteAddress || "").trim();
+  if (remote && isPrivateOrLocalIp(remote)) {
+    const cf = String(req.headers["cf-connecting-ip"] || "").trim();
+    if (cf) return cf.slice(0, 64);
+    const real = String(req.headers["x-real-ip"] || "").trim();
+    if (real) return real.slice(0, 64);
+  }
+  return String(req.ip || remote || "").slice(0, 64);
 }
 
 function allowed(ip?) {

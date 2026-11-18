@@ -11,6 +11,7 @@ import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { MusicDock } from "@/components/MusicDock";
 import { Pagination, pageSlice } from "@/components/ui/Pagination";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { EmojiInsertButton, emojiPickText, insertAtCaret } from "@/components/tickets/EmojiInsertButton";
 import { ConfSheet } from "./ConfSheet";
 import { Letter } from "./Letter";
 import { useI18n } from "@/lib/i18n";
@@ -128,6 +129,7 @@ export function ConfessionaleBoard() {
   const [sending, setSending] = useState(false);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [pageNum, setPageNum] = useState(1);
+  const textRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (readDeepLink().boardStaff) setBoard("staff");
@@ -225,7 +227,9 @@ export function ConfessionaleBoard() {
               <Feather className="size-5" /> Scrivi una lettera
             </p>
             <p className="mt-1 text-sm text-ink/60">Il messaggio non salva chi lo ha scritto: niente nome, niente ID Discord.</p>
-            <textarea name="message"
+            <textarea
+              ref={textRef}
+              name="message"
               value={text}
               onChange={(e) => setText(e.target.value.slice(0, MAX_LEN))}
               onFocus={() => !token && ready && setNote({ ok: false, text: t("confessionale.loginToSend") })}
@@ -234,7 +238,18 @@ export function ConfessionaleBoard() {
               className="mt-4 w-full resize-y border-b border-ink/20 bg-[repeating-linear-gradient(transparent,transparent_31px,rgba(80,50,30,0.15)_31px,rgba(80,50,30,0.15)_32px)] bg-transparent font-display text-xl leading-8 outline-none placeholder:text-ink/35"
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <span className="text-xs text-ink/45 lining-nums">{len < MIN_LEN ? `almeno ${MIN_LEN} caratteri` : `${len} / ${MAX_LEN}`}</span>
+              <div className="flex items-center gap-2">
+                <EmojiInsertButton
+                  token={token}
+                  preferAbove
+                  className="text-ink/50 hover:bg-ink/5 hover:text-ink"
+                  onPick={(pick) => {
+                    const { next } = insertAtCaret(text, emojiPickText(pick), textRef.current, MAX_LEN);
+                    setText(next);
+                  }}
+                />
+                <span className="text-xs text-ink/45 lining-nums">{len < MIN_LEN ? `almeno ${MIN_LEN} caratteri` : `${len} / ${MAX_LEN}`}</span>
+              </div>
               <button
                 type="button"
                 onClick={send}
@@ -268,7 +283,7 @@ export function ConfessionaleBoard() {
             <>
               <div className="columns-1 gap-6 sm:columns-2 lg:columns-3">
                 {slice.map((c, i) => (
-                  <Letter key={c.id} c={c} i={i} onOpen={() => setOpenId(c.id)} />
+                  <Letter key={c.id} c={c} i={i} token={token} onOpen={() => setOpenId(c.id)} onUpdate={replace} />
                 ))}
               </div>
               <Pagination page={pageSafe} totalPages={totalPages} onChange={setPageNum} scrollToId="confessionale-list" />

@@ -45,6 +45,7 @@ export const STAFF_NAV: StaffNavItem[] = [
   { href: "/staff/gestione/", label: "Gestione", hint: "Pex / depex staff", needAny: ["canManage", "canManagePm"] },
   { href: "/staff/compiti/", label: "Compiti", hint: "Compiti settimanali", need: "canCompiti" },
   { href: "/staff/pause/", label: "Pause", hint: "Calendario pause" },
+  { href: "/seratafilm/", label: "Serata Film", hint: "Serata cinema dello staff", need: "isHighStaff" },
 ];
 
 export function canAccessGestione(access: StaffAccess): boolean {

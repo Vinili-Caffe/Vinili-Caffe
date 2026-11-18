@@ -4,6 +4,7 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { voteCountMonthKeyRome } = require("../utils/romeVoteMonthKey") as typeof import("../utils/romeVoteMonthKey");
 const { DISCADIA_VOTE_ROOT, DISCADIA_LAST_VOTE_AT_PATH, DISCADIA_LAST_REMINDED_AT_PATH, DISCADIA_LAST_VOTE_LISTING_PATH, DISCADIA_LAST_VOTE_AT_TOPGG_PATH, DISCADIA_LAST_VOTE_AT_DISCADIA_PATH, latestVoteDateFromVoteSub, voteListingKey, voteLastAtPath, voteLastRemindedAtPath, voteStateLastAt, shouldSendVoteReminderForListing, clearVoteReminderPhoneRetries, extractDiscadiaVoteState } = require("./voteReminderState") as typeof import("./voteReminderState");
 const { discadiaVoteTimers, getVoteCooldownMs, dispatchVoteReminder, enqueueVoteCompletedSiteNotification } = require("./voteReminderMessages") as typeof import("./voteReminderMessages");
+const { isBotPresentInGuild } = require("../../../shared/discord/botGuildPresence") as typeof import("../../../shared/discord/botGuildPresence");
 
 const DISCADIA_VOTE_COUNT_LEGACY_PATH = `${DISCADIA_VOTE_ROOT}.voteCount`;
 const DISCADIA_VOTE_COUNT_TOPGG_PATH = `${DISCADIA_VOTE_ROOT}.voteCountTopgg`;
@@ -210,6 +211,7 @@ async function restorePendingVoteReminders(client?) {
   let docs = [];
   const mainGuildId = String(IDs.guilds.main || "").trim();
   if (!mainGuildId) return;
+  if (!isBotPresentInGuild(client, mainGuildId)) return;
   try {
     docs = await ActivityUserProfile.find({
       guildId: mainGuildId,
@@ -272,6 +274,7 @@ async function sendDueDiscadiaVoteReminders(client?) {
 
   const guildId = String(IDs.guilds.main || "").trim();
   if (!guildId) return;
+  if (!isBotPresentInGuild(client, guildId)) return;
   const minCooldownMs = Math.min(getVoteCooldownMs(client, "topgg"), getVoteCooldownMs(client, "discadia"));
   const cutoff = new Date(Date.now() - minCooldownMs);
 

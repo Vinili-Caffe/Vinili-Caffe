@@ -20,7 +20,7 @@ export default function WrappedPage() {
       <DiscordComponentEmbed
         path="/wrapped/"
         title="Vinili Wrapped"
-        description="Preview studio — non ancora in menu."
+        description="Il tuo disco community su Vinili & Caffè."
       />
       <WrappedBoard />
     </SiteShell>

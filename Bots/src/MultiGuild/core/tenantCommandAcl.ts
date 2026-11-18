@@ -589,7 +589,6 @@ function listTenantSlashCatalogItems(guildId?) {
   if (isDashboardFullCommandCatalogGuild(gid)) {
     return loadSlashCommandMeta().map((item?) => ({ ...item }));
   }
-  const features = resolveCatalogFeatures(gid);
   const allowedGlobal = GLOBAL_TENANT_COMMAND_NAMES || new Set();
   const items = [];
 
@@ -598,8 +597,8 @@ function listTenantSlashCatalogItems(guildId?) {
       .trim()
       .toLowerCase();
     if (!globalKey || !allowedGlobal.has(globalKey)) continue;
+    /* catalogo dashboard: tutti i disponibili; il runtime spegne quelli del modulo off/non pronto */
     const featureKey = def.feature || null;
-    if (featureKey && features[featureKey] !== true) continue;
     const aclKey = slashCatalogAclKey(def);
     if (!aclKey) continue;
     items.push({
@@ -690,7 +689,7 @@ function buildTenantCommandCatalog(guildId?) {
   if (isDashboardFullCommandCatalogGuild(gid)) {
     return buildFullViniliCommandCatalog();
   }
-  const features = resolveCatalogFeatures(gid);
+  /* Tenant: in Comandi mostra tutti quelli disponibili; modulo off / non configurato li spegne a runtime. */
   const metaMap = loadPrefixCommandMeta();
   const aliasNames = getPrefixAliasNames();
   const seed = categoryCommandsSeed();
@@ -713,19 +712,6 @@ function buildTenantCommandCatalog(guildId?) {
   }
 
   for (const [category, commands] of Object.entries(seed)) {
-    const featureKey = mapCategoryToFeature(category);
-    if (featureKey && features[featureKey] !== true) {
-      if (category !== "utility") continue;
-    }
-    if (category === "bacheca" && !isDashboardFullCommandCatalogGuild(gid)) {
-      try {
-        const { getTenantBoardsSync } = require("./tenantGuildSettings") as typeof import("./tenantGuildSettings");
-        if (getTenantBoardsSync(gid)?.enabled !== true) continue;
-      } catch {
-        continue;
-      }
-    }
-
     const items = [];
     const seen = new Set();
     for (const cmd of commands) {
@@ -733,9 +719,6 @@ function buildTenantCommandCatalog(guildId?) {
       if (!name || seen.has(name)) continue;
       if (aliasNames.has(name)) continue;
       seen.add(name);
-      if (featureKey && features[featureKey] !== true && !TENANT_ALWAYS_PREFIX_COMMANDS.has(name)) {
-        continue;
-      }
       const meta = metaMap[name] || {};
       items.push({
         name,
@@ -860,11 +843,17 @@ function resolveTenantCommandAcl(message?, commandName?, options: Record<string,
       const { isTenantBoardFeatureEnabledSync } = require("./tenantGuildSettings") as typeof import("./tenantGuildSettings");
       if (!isTenantBoardFeatureEnabledSync(guildId, boardFeature)) {
         if (options.returnDetails) {
+          let message = "Questo comando è disattivato su questo server.";
+          try {
+            const MS = require("./moduleSwitches") as typeof import("./moduleSwitches");
+            message = MS.DISABLED_COMMAND_MESSAGE || message;
+          } catch (_) {}
           return {
             allowed: false,
             reason: "board_feature_disabled",
             requiredRoles: null,
             channels: null,
+            message,
           };
         }
         return false;
@@ -899,11 +888,17 @@ function resolveTenantCommandAcl(message?, commandName?, options: Record<string,
 
   if (acl.enabled === false) {
     if (options.returnDetails) {
+      let message = "Questo comando è disattivato su questo server.";
+      try {
+        const MS = require("./moduleSwitches") as typeof import("./moduleSwitches");
+        message = MS.DISABLED_COMMAND_MESSAGE || message;
+      } catch (_) {}
       return {
         allowed: false,
         reason: "tenant_command_disabled",
         requiredRoles: null,
         channels: null,
+        message,
       };
     }
     return false;

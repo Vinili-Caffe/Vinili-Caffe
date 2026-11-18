@@ -70,6 +70,7 @@ function useBumpVotesConfig(guildId: string, token: string) {
   const [saved, setSaved] = useState<BumpVotesConfig | null>(null);
   const [urls, setUrls] = useState<{ topgg: string; discadia: string } | null>(null);
   const [isMain, setIsMain] = useState<boolean | null>(null);
+  const [levelsActive, setLevelsActive] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -81,6 +82,7 @@ function useBumpVotesConfig(guildId: string, token: string) {
       if (!alive) return;
       if (!r.ok) return setLoadError(r.message);
       setIsMain(r.data.isMainGuild === true);
+      setLevelsActive(r.data.levelsActive === true);
       setImported(r.data.imported === true);
       if (r.data.config) {
         setCfg(r.data.config);
@@ -107,7 +109,7 @@ function useBumpVotesConfig(guildId: string, token: string) {
     setDirty(false);
   };
 
-  return { data, error, cfg, setCfg, set, markSaved, reset, urls, setUrls, isMain, loadError, busy, setBusy, dirty, imported };
+  return { data, error, cfg, setCfg, set, markSaved, reset, urls, setUrls, isMain, levelsActive, loadError, busy, setBusy, dirty, imported };
 }
 
 /* ───────────── pezzi grafici ───────────── */
@@ -191,7 +193,7 @@ function ExpCards({ keys, cfg, setExp }: { keys: BumpExpKey[]; cfg: BumpVotesCon
       title="EXP"
       text={
         <>
-          Solo sul server principale. I tassi base di chat/vocale e i moltiplicatori stanno in{" "}
+          Serve il modulo Livelli & EXP acceso. I tassi base di chat/vocale e i moltiplicatori stanno in{" "}
           <a href="?s=livelli&t=exp" className="font-semibold text-ember underline-offset-2 hover:underline">
             Livelli & EXP
           </a>
@@ -253,7 +255,7 @@ function ExpCards({ keys, cfg, setExp }: { keys: BumpExpKey[]; cfg: BumpVotesCon
 
 export function BumpPanel({ guildId, token, onToast }: PanelProps) {
   const h = useBumpVotesConfig(guildId, token);
-  const { data, error, cfg, set, isMain, loadError, setBusy, dirty, imported } = h;
+  const { data, error, cfg, set, isMain, levelsActive, loadError, setBusy, dirty, imported } = h;
   const [kind, setKind] = useState<"thanks" | "reminder">("thanks");
   const [svc, setSvc] = useState<BumpService>("disboard");
   const baseVars = useSampleVars(data);
@@ -264,7 +266,7 @@ export function BumpPanel({ guildId, token, onToast }: PanelProps) {
   );
 
   if (loadError && isMain == null) return <Notice error>{loadError}</Notice>;
-  if (isMain == null) return <RowsSkeleton rows={4} />;
+  if (isMain == null || levelsActive == null) return <RowsSkeleton rows={4} />;
   if (error && !data) return <Notice error>{error}</Notice>;
   if (!data || !cfg) return <RowsSkeleton rows={4} />;
 
@@ -273,7 +275,7 @@ export function BumpPanel({ guildId, token, onToast }: PanelProps) {
   const channels = data.pickers.textChannels;
   const setService = (s: BumpService, p: Partial<BumpVotesConfig["services"][BumpService]>) => set({ ...cfg, services: { ...cfg.services, [s]: { ...cfg.services[s], ...p } } });
   const setExp = (k: BumpExpKey, p: Partial<BumpExp>) => cfg.exp && set({ ...cfg, exp: { ...cfg.exp, [k]: { ...cfg.exp[k], ...p } } });
-  const bumpPh = isMain ? [...BUMP_PLACEHOLDERS, ...EXP_PLACEHOLDERS] : BUMP_PLACEHOLDERS;
+  const bumpPh = levelsActive ? [...BUMP_PLACEHOLDERS, ...EXP_PLACEHOLDERS] : BUMP_PLACEHOLDERS;
   const msgOn = kind === "thanks" ? cfg.thanks.enabled : cfg.reminder.enabled;
   const draft = kind === "thanks" ? cfg.services[svc].thanksDraft : cfg.services[svc].reminderDraft;
 
@@ -285,7 +287,7 @@ export function BumpPanel({ guildId, token, onToast }: PanelProps) {
       thanks: cfg.thanks,
       reminder: cfg.reminder,
       reward: cfg.reward,
-      ...(isMain && cfg.exp ? { exp: Object.fromEntries(BUMP_EXP_KEYS.map((k) => [k, cfg.exp![k]])) as BumpVotesConfig["exp"] } : {}),
+      ...(levelsActive && cfg.exp ? { exp: Object.fromEntries(BUMP_EXP_KEYS.map((k) => [k, cfg.exp![k]])) as BumpVotesConfig["exp"] } : {}),
     };
     const r = await communityApi.saveBumpVotes(token, guildId, patch);
     setBusy(false);
@@ -394,7 +396,7 @@ export function BumpPanel({ guildId, token, onToast }: PanelProps) {
           </div>
         </Section>
 
-        {isMain && cfg.exp ? <ExpCards keys={BUMP_EXP_KEYS} cfg={cfg} setExp={setExp} /> : null}
+        {levelsActive && cfg.exp ? <ExpCards keys={BUMP_EXP_KEYS} cfg={cfg} setExp={setExp} /> : null}
       </div>
 
       <TrackUnsaved dirty={dirty} onSave={save} onReset={h.reset} />
@@ -406,7 +408,7 @@ export function BumpPanel({ guildId, token, onToast }: PanelProps) {
 
 export function VotesPanel({ guildId, token, onToast }: PanelProps) {
   const h = useBumpVotesConfig(guildId, token);
-  const { data, error, cfg, set, urls, isMain, loadError, busy, setBusy, dirty, imported } = h;
+  const { data, error, cfg, set, urls, isMain, levelsActive, loadError, busy, setBusy, dirty, imported } = h;
   const [kind, setKind] = useState<"thanks" | "dm">("thanks");
   const [svc, setSvc] = useState<VoteService>("topgg");
   const [copied, setCopied] = useState<string | null>(null);
@@ -414,14 +416,14 @@ export function VotesPanel({ guildId, token, onToast }: PanelProps) {
   const vars = useMemo(() => ({ ...baseVars, count: "12", exp: "150", streak: "3", bonus: "🔥 Streak 3 **+20 exp**", level: "42" }), [baseVars]);
 
   if (loadError && isMain == null) return <Notice error>{loadError}</Notice>;
-  if (isMain == null) return <RowsSkeleton rows={4} />;
+  if (isMain == null || levelsActive == null) return <RowsSkeleton rows={4} />;
   if (error && !data) return <Notice error>{error}</Notice>;
   if (!data || !cfg) return <RowsSkeleton rows={4} />;
 
   const roles = [{ value: "", label: "— Nessuno —" }, ...roleOptions(data.pickers.roles, guildId)];
   const roleName = data.pickers.roles.find((r) => r.id === cfg.votes.rewardRoleId)?.name || null;
   const channels = data.pickers.textChannels;
-  const votePh = isMain ? [...VOTE_PLACEHOLDERS, ...EXP_PLACEHOLDERS] : VOTE_PLACEHOLDERS;
+  const votePh = levelsActive ? [...VOTE_PLACEHOLDERS, ...EXP_PLACEHOLDERS] : VOTE_PLACEHOLDERS;
   const setVoteService = (s: VoteService, p: Partial<BumpVotesConfig["votes"]["perService"][VoteService]>) =>
     set({ ...cfg, votes: { ...cfg.votes, perService: { ...cfg.votes.perService, [s]: { ...cfg.votes.perService[s], ...p } } } });
   const setExp = (k: BumpExpKey, p: Partial<BumpExp>) => cfg.exp && set({ ...cfg, exp: { ...cfg.exp, [k]: { ...cfg.exp[k], ...p } } });
@@ -434,7 +436,7 @@ export function VotesPanel({ guildId, token, onToast }: PanelProps) {
     setBusy(true);
     const patch: Partial<BumpVotesConfig> = {
       votes: cfg.votes,
-      ...(isMain && cfg.exp ? { exp: Object.fromEntries(VOTE_EXP_KEYS.map((k) => [k, cfg.exp![k]])) as BumpVotesConfig["exp"] } : {}),
+      ...(levelsActive && cfg.exp ? { exp: Object.fromEntries(VOTE_EXP_KEYS.map((k) => [k, cfg.exp![k]])) as BumpVotesConfig["exp"] } : {}),
     };
     const r = await communityApi.saveBumpVotes(token, guildId, patch);
     setBusy(false);
@@ -604,15 +606,10 @@ export function VotesPanel({ guildId, token, onToast }: PanelProps) {
           )}
         </Section>
 
-        {isMain && cfg.exp ? <ExpCards keys={VOTE_EXP_KEYS} cfg={cfg} setExp={setExp} /> : null}
+        {levelsActive && cfg.exp ? <ExpCards keys={VOTE_EXP_KEYS} cfg={cfg} setExp={setExp} /> : null}
       </div>
 
       <TrackUnsaved dirty={dirty} onSave={save} onReset={h.reset} />
     </div>
   );
-}
-
-/** @deprecated usa BumpPanel / VotesPanel */
-export function BumpVotesPanel(props: PanelProps) {
-  return <BumpPanel {...props} />;
 }

@@ -32,6 +32,7 @@ import { showToast } from "@/components/ui";
 import type { StaffAccess } from "@/lib/staff";
 import { cleanRole, loadCard, loadManage, setSerataFilm, type ManageData, type RosterMember, type StaffCard } from "@/lib/staffCard";
 import { cn } from "@/lib/cn";
+import { PartnerHistorySection } from "@/components/profile/PartnerHistorySection";
 import { ManagePanel } from "./ManagePanel";
 import { Resoconto } from "./Resoconto";
 import { Sheet } from "./Sheet";
@@ -163,6 +164,7 @@ export function StaffCardView({
   extraFlags,
   middle,
   onFlags,
+  historyGuildId,
 }: {
   token: string;
   userId: string;
@@ -176,6 +178,8 @@ export function StaffCardView({
   onFlags?: (node: React.ReactNode | null) => void;
   /** "In staff dal …": la mostra la testata del profilo, accanto a "Nel server dal …" */
   onTenure?: (label: string | null) => void;
+  /** server principale: cronologia partnership (+history) di quel server */
+  historyGuildId?: string | null;
 }) {
   const [card, setCard] = useState<StaffCard | null>(null);
   const [err, setErr] = useState("");
@@ -322,6 +326,8 @@ export function StaffCardView({
       </div>
 
       {middle}
+
+      {historyGuildId ? <PartnerHistorySection token={token} guildId={historyGuildId} /> : null}
 
       {(access?.canViewResoconti || card.isSelf) && <Resoconto key={userId} token={token} userId={userId} canDecide={Boolean(access?.canViewResoconti && isHS)} onChanged={refresh} />}
 

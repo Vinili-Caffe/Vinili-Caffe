@@ -12,6 +12,8 @@ const {
   extractTopggVoteDiscordUserId,
   isTopggWebhookAuthorized,
 } = require("../http/webhookService") as typeof import("../http/webhookService");
+const { resolveListenBindHost } = require("../../../shared/http/listenBindHost") as typeof import("../../../shared/http/listenBindHost");
+const { mountMongoSanitize } = require("../../../shared/http/mongoSanitize") as typeof import("../../../shared/http/mongoSanitize");
 
 loadDotEnv();
 installConsoleLogger();
@@ -45,7 +47,7 @@ async function main() {
   const guildId = String(config.mainGuildId || IDs.guilds?.main || "").trim();
 
   const app = express();
-  app.set("trust proxy", true);
+  app.set("trust proxy", 1);
   app.use(
     express.json({
       limit: "512kb",
@@ -54,6 +56,7 @@ async function main() {
       },
     }),
   );
+  mountMongoSanitize(app);
 
   app.get("/webhooks/topgg/health", (_req?, res?) => {
     res.status(200).json({ ok: true, service: "topgg-vote-intake" });
@@ -102,8 +105,9 @@ async function main() {
   });
 
   const server = http.createServer(app);
-  server.listen(port, "0.0.0.0", () => {
-    if (require.main === module) console.log(`[VOTE-INTAKE] top.gg :${port}`);
+  const bindHost = resolveListenBindHost("TOPGG_VOTE_INTAKE_BIND", "VOTE_INTAKE_BIND");
+  server.listen(port, bindHost, () => {
+    if (require.main === module) console.log(`[VOTE-INTAKE] top.gg ${bindHost}:${port}`);
   });
 }
 

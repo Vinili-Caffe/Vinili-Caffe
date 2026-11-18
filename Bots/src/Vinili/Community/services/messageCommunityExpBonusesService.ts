@@ -3,7 +3,6 @@ const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../schemas/communitySchema
 const { isValidGuildUserId } = require("../../../shared/db/validateWriteIds") as typeof import("../../../shared/db/validateWriteIds");
 const { addExpWithLevel, shouldIgnoreExpForMember, isLevelExpGuild } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const { isExcludedActivityChannel } = require("./activityService") as typeof import("./activityService");
-const { isViniliFullFeatureGuild } = require("../../../MultiGuild/core/guildFeatureScope") as typeof import("../../../MultiGuild/core/guildFeatureScope");
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const {
@@ -180,7 +179,6 @@ function getRomeDateKey(date = new Date()) {
 function canEarnCommunityMessageExp(message?) {
   if (!message?.guild || !message?.author || message.author.bot) return false;
   if (message.system || message.webhookId || message.applicationId) return false;
-  if (!isViniliFullFeatureGuild(message.guild.id)) return false;
   if (!isLevelExpGuild(message.guild.id)) return false;
   if (isExcludedActivityChannel(message.channel)) return false;
   const content = String(message.content || "").trim();

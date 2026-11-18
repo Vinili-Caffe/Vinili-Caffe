@@ -1,5 +1,5 @@
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js") as typeof import("discord.js");
-const { readBackupByIdGlobal, createGuildBackup } = require("./serverBackupService") as typeof import("./serverBackupService");
+const { readBackupByIdGlobal } = require("./serverBackupService") as typeof import("./serverBackupService");
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
 const {
   formatMessagesLimit,
@@ -19,13 +19,8 @@ const {
   buildLoadCancelledEmbed,
   buildLoadComponents,
 } = require("./backupLoadEmbeds") as typeof import("./backupLoadEmbeds");
-const {
-  startActiveLoadIfIdle,
-  finishActiveLoad,
-  updateActiveLoad,
-  getGuildBackupLoadStatus,
-} = require("./backupLoadActive") as typeof import("./backupLoadActive");
-const { applyBackupToGuild } = require("./backupLoadApply") as typeof import("./backupLoadApply");
+const { getGuildBackupLoadStatus } = require("./backupLoadActive") as typeof import("./backupLoadActive");
+const { confirmBackupLoad } = require("./backupLoadConfirm") as typeof import("./backupLoadConfirm");
 
 function ensureManageGuild(interaction?) {
   return Boolean(interaction?.memberPermissions?.has?.(PermissionFlagsBits.ManageGuild));
@@ -148,28 +143,38 @@ async function handleBackupLoadInteraction(interaction?) {
   }
 
   if (isButton && customId.startsWith("backup_load_confirm:")) {
-    const activeLoad = startActiveLoadIfIdle({
-      guildId: interaction.guildId,
+    const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
+    if (!deferred) return true;
+
+    const started = await confirmBackupLoad({
+      guild: interaction.guild,
       userId: session.userId,
       backupId: session.backupId,
       actions: [...session.actions],
       messagesLimit: session.messagesLimit,
+      sourceGuildId: session.sourceGuildId,
+      onCheckpoint: async (checkpointId) => {
+        await interaction.message
+          .edit({
+            embeds: [buildLoadInProgressEmbed(session.backupId, checkpointId)],
+            components: buildLoadStartComponents(session.id),
+          })
+          .catch(() => { });
+      },
     });
-    if (!activeLoad) {
-      await interaction
-        .reply({
-          content: `${E.VC_Alert} C'è già un backup load in corso in questo server.`,
-          flags: 1 << 6,
-        })
-        .catch(() => { });
+
+    if (!started.ok) {
+      if (started.busy) {
+        await interaction
+          .followUp({
+            content: `${E.VC_Alert} C'è già un backup load in corso in questo server.`,
+            flags: 1 << 6,
+          })
+          .catch(() => { });
+      }
       return true;
     }
 
-    const deferred = await interaction.deferUpdate().then(() => true).catch(() => false);
-    if (!deferred) {
-      finishActiveLoad(interaction.guildId);
-      return true;
-    }
     await interaction.message
       .edit({
         embeds: [buildLoadInProgressEmbed(session.backupId)],
@@ -177,49 +182,31 @@ async function handleBackupLoadInteraction(interaction?) {
       })
       .catch(() => { });
 
-    void (async () => {
+    void started.run.then(async (result) => {
       try {
-        let checkpointId = null;
-        try {
-          const checkpoint = await createGuildBackup(interaction.guild, { source: "automatic", });
-          checkpointId = String(checkpoint?.backupId || "").toUpperCase() || null;
-          updateActiveLoad(interaction.guildId, { checkpointId });
-          if (checkpointId) {
-            await interaction.message
-              .edit({
-                embeds: [buildLoadInProgressEmbed(session.backupId, checkpointId)],
-                components: buildLoadStartComponents(session.id),
-              })
-              .catch(() => { });
-          }
-        } catch (checkpointError) {
-          global.logger?.warn?.("[backup.load] checkpoint failed:", checkpointError);
+        if (result.ok) {
+          await interaction.message
+            .edit({
+              embeds: [buildLoadDoneEmbed(session.backupId, result.stats)],
+              components: [],
+            })
+            .catch(() => { });
+          return;
         }
-
-        const stats = await applyBackupToGuild(interaction.guild, session.backupId, [...session.actions], session.sourceGuildId, session.messagesLimit,);
-        await interaction.message
-          .edit({
-            embeds: [buildLoadDoneEmbed(session.backupId, stats)],
-            components: [],
-          })
-          .catch(() => { });
-      } catch (error) {
-        global.logger?.error?.("[backup.load] failed:", error);
         await interaction.message
           .edit({
             embeds: [
-              error?.code === "BACKUP_LOAD_CANCELLED"
+              result.cancelled
                 ? buildLoadCancelledEmbed(session.backupId)
-                : buildLoadErrorEmbed(error),
+                : buildLoadErrorEmbed(result.error),
             ],
             components: [],
           })
           .catch(() => { });
       } finally {
-        finishActiveLoad(interaction.guildId);
         deleteLoadSession(sessionId);
       }
-    })();
+    });
 
     return true;
   }

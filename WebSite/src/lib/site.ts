@@ -1,13 +1,19 @@
 // Dati condivisi del sito: link, sezioni, testi. Un solo posto da aggiornare.
 
+import { isAlberoSeason, isWrappedSeason } from "@/lib/site-effects";
+
 export const SITE_ORIGIN = "https://www.viniliecaffe.it";
 /**
  * Host API stabile (nginx → site-api:3020). Path: `/webhooks/site-*`, alias `/v1/site-*`, `/health`.
  * `USE_API_ORIGIN` + `apiUrl` / boot fetch in `@/lib/api` spostano il traffico qui.
  */
 export const API_ORIGIN = "https://api.viniliecaffe.it";
-/** true = fetch/WS verso API_ORIGIN (www resta solo static). */
-export const USE_API_ORIGIN = true;
+/**
+ * false = fetch same-origin `/webhooks/*` (rewrite Vercel → api): niente CORS in console.
+ * Cookie sessione è Domain=.viniliecaffe.it → arriva comunque al proxy.
+ * Il WebSocket realtime resta su API_ORIGIN (Vercel non fa da proxy WS).
+ */
+export const USE_API_ORIGIN = false;
 
 /** Media statici su Cloudflare R2 (custom domain). */
 export const CDN_ORIGIN = "https://cdn.viniliecaffe.it";
@@ -39,9 +45,30 @@ export type NavLink = {
   labelKey: string;
   href: string;
   hintKey?: string;
-  /** SOON blur: highStaff | evento (HS oppure dal 1° dic pubblico) */
-  gate?: "highStaff" | "evento";
+  /** SOON blur: highStaff | evento | albero (15–25 dic) | wrapped (10 dic–7 gen) */
+  gate?: "highStaff" | "evento" | "albero" | "wrapped";
 };
+
+/** Blur / non cliccabile in nav, footer, explore. */
+export function navLinkLocked(
+  l: NavLink,
+  opts: { highStaff?: boolean; eventoNavOpen?: boolean } = {},
+): boolean {
+  if (l.gate === "highStaff") return !opts.highStaff;
+  if (l.gate === "evento") return !(opts.highStaff || opts.eventoNavOpen);
+  /* Albero / Wrapped: pubblici in stagione; fuori stagione solo high staff (link normali, niente SOON). */
+  if (l.gate === "albero") return !(opts.highStaff || isAlberoSeason());
+  if (l.gate === "wrapped") return !(opts.highStaff || isWrappedSeason());
+  return false;
+}
+
+/** Badge «in corso»: solo mentre la stagione pubblica è davvero aperta (non preview HS fuori periodo). */
+export function navLinkSeasonLive(l: NavLink, now = new Date()): boolean {
+  if (l.gate === "albero") return isAlberoSeason(now);
+  if (l.gate === "wrapped") return isWrappedSeason(now);
+  return false;
+}
+
 export type NavGroup = { labelKey: string; links: NavLink[] };
 
 /** Catalogo percorsi (sitemap e smart 404). Non è un gate: `page()` è sempre un link interno. */
@@ -52,6 +79,7 @@ export const REACT_PAGES = new Set([
   "/wiki/",
   "/classifiche/",
   "/wrapped/",
+  "/albero/",
   "/status/",
   "/perks/",
   "/vote/",
@@ -168,6 +196,8 @@ export const NAV_GROUPS: NavGroup[] = [
     links: [
       { labelKey: "nav.confessionale", href: page("/confessionale/"), hintKey: "nav.hint.confessionale" },
       { labelKey: "nav.wordle", href: page("/wordle/"), hintKey: "nav.hint.wordle" },
+      { labelKey: "nav.albero", href: page("/albero/"), hintKey: "nav.hint.albero", gate: "albero" },
+      { labelKey: "nav.wrapped", href: page("/wrapped/"), hintKey: "nav.hint.wrapped", gate: "wrapped" },
     ],
   },
   {

@@ -131,9 +131,10 @@ import {
 } from "@/lib/dashboard-guild";
 import dynamic from "next/dynamic";
 import { communityApi } from "@/lib/dashboard-community";
+import { loadGuildHealth } from "@/lib/dashboard-health";
 import { DraftTestContext } from "./guild/community/shared";
 import { confirmLeaveUnsaved } from "@/lib/unsaved-changes";
-import { DashboardShell, type GuildSectionId } from "./DashboardShell";
+import { DashboardShell, type GuildSectionId, type NavBadge } from "./DashboardShell";
 import {
   COMMAND_SECTION_TABS,
   TICKET_MODULE_TABS,
@@ -152,6 +153,8 @@ import {
   isLivelliModuleTab,
   normalizeLivelliModuleTab,
   LIVELLI_MODULE_TABS,
+  VOCALE_MODULE_TABS,
+  normalizeVocaleModuleTab,
   isRegistroModuleTab,
   REGISTRO_MODULE_TABS,
   isAnnunciModuleTab,
@@ -266,6 +269,14 @@ const LevelsPanel = dynamic(() => import("./guild/community/LevelsPanel").then((
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
+const BackupPanel = dynamic(() => import("./guild/BackupPanel").then((m) => m.BackupPanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
+const VoicePanel = dynamic(() => import("./guild/community/VoicePanel").then((m) => m.VoicePanel), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
+});
 
 const HealthPanel = dynamic(() => import("./guild/HealthPanel").then((m) => m.HealthPanel), {
   ssr: false,
@@ -321,6 +332,8 @@ const SECTION_LEAD: Record<Section, string> = {
   live: "Avvisi per live, video e post su Twitch, YouTube, Kick, TikTok e Instagram: canali, messaggio e ping.",
   compleanni: "Auguri nel giorno del compleanno: canale, messaggio, ruolo del giorno e privato.",
   livelli: "EXP da chat e vocale, minigiochi, moltiplicatori, ruoli premio e messaggi di level-up.",
+  backup: "Snapshot Discord del server: crea, elenca, elimina e ripristina (come +backup).",
+  vocale: "Musica e TTS: volume, 24/7 radio/chill, leave automatico, ruoli DJ e canali ammessi.",
 };
 
 /* testata di ogni pagina: spiegazione breve e colore (Bump e Voti hanno la loro, Impostazioni la scheda del server) */
@@ -345,6 +358,8 @@ const SECTION_HERO: Partial<Record<string, { text: string; accent: string }>> = 
   live: { text: "Notifiche social multi-piattaforma: live, video e post con messaggio, canale e ping.", accent: "#9146ff" },
   compleanni: { text: "Gli auguri a chi compie gli anni, con il ruolo del giorno.", accent: "#f08fb0" },
   livelli: { text: "Livelli e EXP del server: tassi, minigiochi, moltiplicatori, premi e annunci di livello.", accent: "#826bc2" },
+  backup: { text: "Copia e ripristina la struttura Discord del server: ruoli, canali, messaggi e impostazioni.", accent: "#c4a574" },
+  vocale: { text: "Musica e lettura vocale: volume, DJ, radio/chill 24/7 e TTS.", accent: "#5fb3c9" },
 };
 
 /* aree del registro, tutte nella stessa pagina */
@@ -569,12 +584,16 @@ function sanitizeModuleTab(section: Section, raw: string | null | undefined): st
   if (section === "partnership") return isPartnershipModuleTab(v) ? v : "setup";
   if (section === "bacheca") return isBachecaModuleTab(v) ? v : "impostazioni";
   if (section === "livelli") return normalizeLivelliModuleTab(v);
+  if (section === "vocale") return normalizeVocaleModuleTab(v);
   if (section === "commands") {
     if (v === "all" || isCommandSectionTab(v)) return v;
     /* categorie dinamiche dal catalogo API */
     return /^[a-z0-9_-]{1,40}$/i.test(v) ? v : "all";
   }
-  if (section === "registro") return isRegistroModuleTab(v) ? v : "all";
+  if (section === "registro") {
+    if (v === "all" || !isRegistroModuleTab(v)) return "settings";
+    return v;
+  }
   if (section === "benvenuto") return isAnnunciModuleTab(v) ? v : "welcome";
   if (section === "live") return isLiveModuleTab(v) ? v : "twitch";
   return fallback;
@@ -1094,7 +1113,7 @@ function FirstSetupModal({
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="text-[0.8rem] font-semibold text-crema/80">Prefisso dei comandi</span>
-              <input value={prefix} maxLength={settings.prefixMaxLength} onChange={(e) => setPrefix(e.target.value)} className={cn(fieldCls, "mt-1.5 font-mono")} />
+              <input name="guildpanel-input-1097" id="guildpanel-input-1097" value={prefix} maxLength={settings.prefixMaxLength} onChange={(e) => setPrefix(e.target.value)} className={cn(fieldCls, "mt-1.5 font-mono")} />
             </label>
             <label className="block">
               <span className="text-[0.8rem] font-semibold text-crema/80">Canale delle novità</span>
@@ -1541,8 +1560,8 @@ function SettingsSection({
 
         <Panel
           icon={<Download />}
-          title="Backup e ripristino"
-          description="Esporta o importa impostazioni, bacheca, comandi, partnership, ticket, community (benvenuto, messaggi, risposte, ruoli, log…) e moderazione."
+          title="Backup configurazione"
+          description="Esporta o importa le impostazioni del bot (bacheca, comandi, partnership, ticket, community, moderazione). Per lo snapshot Discord usa la pagina Backup."
         >
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={configBusy} onClick={() => void downloadBackup()} className={dashSecondaryBtn}>
@@ -1556,7 +1575,7 @@ function SettingsSection({
             >
               <Upload className="size-4" aria-hidden /> Ripristina da file
             </button>
-            <input
+            <input name="guildpanel-input-1559" id="guildpanel-input-1559"
               ref={fileRef}
               type="file"
               accept="application/json,.json"
@@ -1650,6 +1669,10 @@ function CommandsSection({
       onToast("Comando bloccato: attiva prima la funzione bacheca collegata.", true);
       return;
     }
+    if (prev?.moduleFeatureLocked) {
+      onToast("Comando bloccato: accendi e configura il modulo collegato da Moduli.", true);
+      return;
+    }
     setBusy(name);
     const optimistic = {
       ...commands,
@@ -1685,7 +1708,7 @@ function CommandsSection({
   const saveCategoryAcl = async (names: string[], next: CommandAcl, busyKey?: string) => {
     const payload: Record<string, CommandAcl | null> = {};
     for (const name of names) {
-      if (commands.commands[name]?.boardFeatureLocked) continue;
+      if (commands.commands[name]?.boardFeatureLocked || commands.commands[name]?.moduleFeatureLocked) continue;
       payload[name] = buildCommandAclBody({ ...next, enabled: isCommandEnabled(commands.commands, name) });
     }
     if (!Object.keys(payload).length) return;
@@ -1705,7 +1728,7 @@ function CommandsSection({
     const payload: Record<string, CommandAcl | null> = {};
     for (const c of group.commands) {
       const prev = commands.commands[c.name];
-      if (prev?.boardFeatureLocked) continue;
+      if (prev?.boardFeatureLocked || prev?.moduleFeatureLocked) continue;
       payload[c.name] = buildCommandAclBody({ ...(prev || { enabled: true, roleMode: null, roleIds: [], channelMode: null, channelIds: [] }), enabled: next });
     }
     if (!Object.keys(payload).length) return;
@@ -1746,7 +1769,7 @@ function CommandsSection({
         <label className="relative block">
             <span className="sr-only">Cerca comando</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-crema/50" aria-hidden />
-            <input
+            <input name="guildpanel-input-1749" id="guildpanel-input-1749"
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -1820,7 +1843,8 @@ function CommandsSection({
           {group.commands.map((cmd) => {
               const acl = commands.commands[cmd.name];
               const on = isCommandEnabled(commands.commands, cmd.name);
-              const locked = acl?.boardFeatureLocked === true;
+              const locked = acl?.boardFeatureLocked === true || acl?.moduleFeatureLocked === true;
+              const moduleLocked = acl?.moduleFeatureLocked === true;
               const category = categories.find((c) => c.commands.some((x) => x.name === cmd.name));
               const categoryNames = category?.commands.map((x) => x.name) || [cmd.name];
               const restricted = Boolean(acl && ((acl.roleIds?.length ?? 0) > 0 || (acl.channelIds?.length ?? 0) > 0));
@@ -1857,7 +1881,11 @@ function CommandsSection({
                         ) : null}
                       </div>
                       {cmd.description ? <p className="mt-0.5 truncate text-xs text-crema/60">{cmd.description}</p> : null}
-                      {locked ? <p className="mt-0.5 text-[0.68rem] text-caramel/85">Bloccato da funzione bacheca</p> : null}
+                      {acl?.boardFeatureLocked ? (
+                        <p className="mt-0.5 text-[0.68rem] text-caramel/85">Bloccato da funzione bacheca</p>
+                      ) : moduleLocked ? (
+                        <p className="mt-0.5 text-[0.68rem] text-caramel/85">Bloccato: modulo spento o da configurare</p>
+                      ) : null}
                     </div>
                     <button
                       type="button"
@@ -2017,8 +2045,6 @@ export function GuildPanel() {
       setOverview(d.overview);
       /* ticket del principale: si gestiscono dal sito, la sezione non si apre nemmeno da un link diretto */
       if (d.overview?.isMainGuild) setSectionState((cur) => (cur === "tickets" ? "moduli" : cur));
-      /* moderazione e bacheca: solo sul principale, sugli altri server non si aprono */
-      else setSectionState((cur) => (cur === "moderation" || cur === "bacheca" ? "moduli" : cur));
       setSettings(d.settings);
       setPickers(d.settingsPickers);
       setSettingsError(d.settingsError);
@@ -2109,6 +2135,27 @@ export function GuildPanel() {
       alive = false;
     };
   }, [guildId, token, gate, section, modulesRev]);
+  const [healthCounts, setHealthCounts] = useState<{ error: number; warn: number } | null>(null);
+  /* badge Salute: errori (rosso) + avvisi (caramel), anche senza aprire la pagina */
+  useEffect(() => {
+    if (!guildId || !token || gate !== "ready") {
+      setHealthCounts(null);
+      return;
+    }
+    let alive = true;
+    const pull = () => {
+      void loadGuildHealth(token, guildId).then((r) => {
+        if (!alive) return;
+        if (r.ok) setHealthCounts({ error: r.health.summary.error, warn: r.health.summary.warn });
+      });
+    };
+    pull();
+    const t = window.setInterval(pull, 60_000);
+    return () => {
+      alive = false;
+      window.clearInterval(t);
+    };
+  }, [guildId, token, gate, section === "salute" ? section : null]);
   useEffect(() => {
     if (!guildId || !token || gate !== "ready") return;
     let alive = true;
@@ -2192,10 +2239,10 @@ export function GuildPanel() {
               : section === "live"
                 ? LIVE_MODULE_TABS
                 : section === "livelli"
-                  ? overview?.isMainGuild
-                    ? LIVELLI_MODULE_TABS
-                    : LIVELLI_MODULE_TABS.filter((t) => t.id !== "minigiochi")
-                  : null;
+                  ? LIVELLI_MODULE_TABS
+                  : section === "vocale"
+                    ? VOCALE_MODULE_TABS
+                    : null;
   const switchActive = moduleTab || defaultModuleTab(section) || "";
   const withSwitchTabs = (node: React.ReactNode) =>
     switchTabs ? (
@@ -2240,10 +2287,28 @@ export function GuildPanel() {
               onSelect: setSection,
               moduleTab,
               onModuleTab: setModuleTab,
-              badges: { tickets: tickets?.overview.unclaimed || undefined },
               off: navOff,
-              /* moderazione e bacheca solo sul server principale */
-              hidden: overview && !overview.isMainGuild ? ["moderation", "bacheca"] : undefined,
+              badges: (() => {
+                const salute: NavBadge[] = [];
+                if (healthCounts?.error) {
+                  salute.push({
+                    count: healthCounts.error,
+                    tone: "danger",
+                    title: healthCounts.error === 1 ? "1 problema" : `${healthCounts.error} problemi`,
+                  });
+                }
+                if (healthCounts?.warn) {
+                  salute.push({
+                    count: healthCounts.warn,
+                    tone: "warn",
+                    title: healthCounts.warn === 1 ? "1 avviso" : `${healthCounts.warn} avvisi`,
+                  });
+                }
+                return {
+                  tickets: tickets?.overview.unclaimed || undefined,
+                  salute: salute.length ? salute : undefined,
+                };
+              })(),
               /* sul principale i ticket si gestiscono dal sito, non dalla dashboard */
               locked: overview?.isMainGuild ? { tickets: "Sul server principale i ticket si gestiscono dal sito, non da qui." } : undefined,
             }
@@ -2453,7 +2518,7 @@ export function GuildPanel() {
                       />
                       </SideTabsLayout>
                     ) : null}
-                    {section === "bacheca" && overview.isMainGuild && guildId && token
+                    {section === "bacheca" && guildId && token
                       ? withSwitchTabs(
                           <BoardsPanel
                             guildId={guildId}
@@ -2505,14 +2570,14 @@ export function GuildPanel() {
                         )
                       )
                     ) : null}
-                    {section === "moderation" && overview.isMainGuild && guildId && token && moduleTab === "log" ? (
+                    {section === "moderation" && guildId && token && moduleTab === "log" ? (
                       withSwitchTabs(
                       <Panel>
                         <ServerLogsPanel guildId={guildId} token={token} onToast={showToast} />
                       </Panel>
                       )
                     ) : null}
-                    {section === "moderation" && overview.isMainGuild && guildId && token && moduleTab !== "log" ? (
+                    {section === "moderation" && guildId && token && moduleTab !== "log" ? (
                       withSwitchTabs(
                       <ModerationPanel
                         guildId={guildId}
@@ -2541,7 +2606,6 @@ export function GuildPanel() {
                         <ModulesPanel
                           guildId={guildId}
                           token={token}
-                          hideIds={overview.isMainGuild ? undefined : ["moderation", "bacheca"]}
                           onToast={showToast}
                           onOpen={(s) => void setSection(s)}
                           onChanged={(mods) => {
@@ -2655,6 +2719,26 @@ export function GuildPanel() {
                       )
                     ) : null}
 
+                    {section === "backup" && guildId && token ? (
+                      <Panel>
+                        <BackupPanel guildId={guildId} token={token} onToast={showToast} />
+                      </Panel>
+                    ) : null}
+
+                    {section === "vocale" && guildId && token ? (
+                      withSwitchTabs(
+                        <Panel>
+                          <VoicePanel
+                            key={guildId}
+                            guildId={guildId}
+                            token={token}
+                            onToast={showToast}
+                            tab={normalizeVocaleModuleTab(moduleTab)}
+                          />
+                        </Panel>,
+                      )
+                    ) : null}
+
                     {section === "live" && guildId && token ? (
                       withSwitchTabs(
                         <Panel>
@@ -2677,17 +2761,33 @@ export function GuildPanel() {
 
                     {section === "registro" && guildId && token ? (
                       <SideTabsLayout label="Aree del registro" tabs={REGISTRO_AREAS}>
-                        <div className="space-y-5">
-                          <p className="text-sm text-crema/65">
-                            Ogni modifica fatta dalla dashboard su questo server, con chi l&apos;ha fatta, divisa per area. Clicca una riga per i dettagli.
-                          </p>
-                          {REGISTRO_AREAS.map((a) => (
-                            <AuditPanel key={a.id} guildId={guildId} token={token} area={a.id} title={a.label} icon={sideTabIcon(a)} />
-                          ))}
-                        </div>
+                        <Panel>
+                          <div className="space-y-5">
+                            <p className="text-sm text-crema/65">
+                              Ogni modifica fatta dalla dashboard su questo server, con chi l&apos;ha fatta. Clicca una riga per i dettagli.
+                            </p>
+                            {(() => {
+                              const areaId =
+                                moduleTab && isRegistroModuleTab(moduleTab) && moduleTab !== "all"
+                                  ? moduleTab
+                                  : "settings";
+                              const a = REGISTRO_AREAS.find((row) => row.id === areaId) || REGISTRO_AREAS[0];
+                              if (!a) return null;
+                              return (
+                                <AuditPanel
+                                  key={a.id}
+                                  guildId={guildId}
+                                  token={token}
+                                  area={a.id}
+                                  title={a.label}
+                                  icon={sideTabIcon(a)}
+                                />
+                              );
+                            })()}
+                          </div>
+                        </Panel>
                       </SideTabsLayout>
                     ) : null}
-
                     </div>
                     </DraftTestContext.Provider>
                   </motion.div>

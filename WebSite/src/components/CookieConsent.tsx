@@ -11,14 +11,15 @@ import {
   hasAnalyticsConsent,
   hasCookieChoice,
   isCookieBannerSkippedPath,
-  loadGtagIfConsented,
+  loadAnalyticsIfConsented,
   rememberCookieConsent,
+  revokeAnalyticsConsent,
   trackPageView,
   type CookieConsentChoice,
 } from "@/lib/cookie-consent";
 
 /**
- * Banner consenso cookie + boot GA solo dopo «Accetta».
+ * Banner consenso cookie + boot GA / GTM / Clarity / Meta Pixel / AdSense solo dopo «Accetta».
  * Chiave localStorage: `vc_cookie_consent` (+ cookie HTTP omonimo).
  * Rifiuto facile: niente login Discord / VIP.
  *
@@ -45,7 +46,7 @@ export function CookieConsent() {
       return;
     }
     if (hasAnalyticsConsent()) {
-      loadGtagIfConsented();
+      loadAnalyticsIfConsented();
       setOpen(false);
       return;
     }
@@ -98,7 +99,7 @@ export function CookieConsent() {
       trackedPath.current = null;
       return;
     }
-    loadGtagIfConsented();
+    loadAnalyticsIfConsented();
     if (trackedPath.current === null) {
       trackedPath.current = pathname;
       return;
@@ -112,9 +113,12 @@ export function CookieConsent() {
     rememberCookieConsent(choice);
     setOpen(false);
     if (choice === "accepted") {
-      loadGtagIfConsented();
+      loadAnalyticsIfConsented();
       trackedPath.current = pathname;
+      return;
     }
+    revokeAnalyticsConsent();
+    trackedPath.current = null;
   }
 
   return (

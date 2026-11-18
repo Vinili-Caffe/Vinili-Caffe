@@ -59,11 +59,12 @@ function minigameTypeLabel(type?) {
   return MINIGAME_TYPE_LABELS[t] || t || "Minigioco";
 }
 
-/** Inizio round unico: titolo = nome gioco, corpo con EXP + tempo. */
+/** Inizio round unico: ping nel content + titolo = nome gioco. */
 function classicSharedStartDraft() {
   return T.normalizeDraft({
-    content: "",
+    content: "{ping}",
     mentionUsers: false,
+    mentionRoles: true,
     embed: {
       enabled: true,
       title: `{minigame} ${e("VC_Exclamation")}`,

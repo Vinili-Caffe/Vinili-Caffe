@@ -5,6 +5,9 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AuthProvider } from "@/lib/auth";
 import { I18nFromAuth } from "@/lib/i18n";
 import { ThemeProvider, THEME_BOOT_SCRIPT } from "@/lib/theme";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import { GoogleTagManager } from "@/components/GoogleTagManager";
+import { SiteTrackers } from "@/components/SiteTrackers";
 import { SwRegister } from "@/components/SwRegister";
 import { SPONSOR_AD_BOOT } from "@/lib/sponsor-ad";
 import { SOURCE_GUARD_BOOT } from "@/lib/source-guard-boot";
@@ -20,6 +23,7 @@ import { DASH_SIDE_BOOT } from "@/lib/dash-side-boot";
 import { SSR_TEXT_SNAPSHOT_BOOT } from "@/lib/hydration-diff";
 import { SITE_TITLE_BRAND, SITE_TITLE_TEMPLATE } from "@/lib/page-title";
 import { SITE_EMBED_COLOR, SITE_THEME_COLOR, siteLogoOgImage } from "@/lib/og";
+import { ADSENSE_CLIENT_ID } from "@/lib/cookie-consent";
 import { cormorant, greatVibes, inter } from "@/lib/fonts";
 import "./globals.css";
 
@@ -92,7 +96,10 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://media.discordapp.net" />
         {/* immagini dell'intestazione, foto dei contest e cursori: senza crossOrigin, come le <img> */}
         <link rel="preconnect" href="https://cdn.viniliecaffe.it" />
-        {API_FETCH_BOOT ? <link rel="preconnect" href="https://api.viniliecaffe.it" crossOrigin="" /> : null}
+        {/* WS realtime + eventuali media API: preconnect anche con fetch same-origin */}
+        <link rel="preconnect" href="https://api.viniliecaffe.it" crossOrigin="" />
+        {/* AdSense: claim account (lo script adsbygoogle parte dopo consenso cookie) */}
+        <meta name="google-adsense-account" content={ADSENSE_CLIENT_ID} />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         {/* dashboard: spazio della sidebar fissata deciso prima del primo disegno (niente salti) */}
         <script dangerouslySetInnerHTML={{ __html: DASH_SIDE_BOOT }} />
@@ -112,7 +119,11 @@ export default function RootLayout({
             <ThemeProvider>
               <SwRegister />
               {children}
+              {/* Vercel + GA + GTM + Clarity + Meta Pixel + AdSense (dopo consenso cookie) */}
               <Analytics />
+              <GoogleAnalytics />
+              <GoogleTagManager />
+              <SiteTrackers />
               <SpeedInsights />
             </ThemeProvider>
           </I18nFromAuth>

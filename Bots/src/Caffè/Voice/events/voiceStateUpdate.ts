@@ -8,7 +8,17 @@ export = {
     if (!guild) return;
     if (!client?.user?.id) return;
 
-    if (client?.config?.tts?.stayConnected) return;
+    {
+      let stay = Boolean(client?.config?.tts?.stayConnected);
+      try {
+        const gid = String(newState?.guild?.id || oldState?.guild?.id || "");
+        if (gid) {
+          const { resolveGuildTtsOverlay } = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
+          stay = Boolean(resolveGuildTtsOverlay(gid, client?.config).stayConnected);
+        }
+      } catch (_) {}
+      if (stay) return;
+    }
 
     if (
       oldState.id === client.user.id &&

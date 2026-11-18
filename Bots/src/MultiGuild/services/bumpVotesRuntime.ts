@@ -303,7 +303,13 @@ async function resolveUserLevel(guildId?, userId?) {
 }
 
 async function giveExp(client?, guild?, userId?: string | null, key?: ExpKey, cfg?: BumpConfig, ctx: { previousLastAt?: number | null; cooldownMs?: number; fastSinceAt?: number | null; previousUserId?: string | null; firstTime?: boolean } = {}) {
-  if (!guild?.id || !userId || !key || !cfg || !T.isMainGuild(String(guild.id))) return NO_EXP;
+  if (!guild?.id || !userId || !key || !cfg) return NO_EXP;
+  try {
+    const LVL = require("./levelsRuntime") as typeof import("./levelsRuntime");
+    if (!LVL.levelsActive(String(guild.id))) return NO_EXP;
+  } catch {
+    return NO_EXP;
+  }
   const x = cfg.exp[key];
   if (!x?.enabled) return NO_EXP;
   const step = 5;
@@ -514,9 +520,14 @@ async function trySendConfiguredVoteThanks(
 async function runBumpVotesTick(client?) {
   const rest = restOf(client);
   if (!rest) return;
+  const { isBotPresentInGuild } = require("../../shared/discord/botGuildPresence") as typeof import("../../shared/discord/botGuildPresence");
+  const MS = require("../core/moduleSwitches") as typeof import("../core/moduleSwitches");
   const all = await T.allGuildBlobs("bumpVotesState");
   const now = Date.now();
   for (const gid of Object.keys(all)) {
+    /* bumpNoBotNoNotif1: niente promemoria/ruoli se bot fuori dal server */
+    if (!isBotPresentInGuild(client, gid)) continue;
+    if (!MS.isModuleOn(gid, "bump") && !MS.isModuleOn(gid, "voti")) continue;
     const raw = all[gid];
     const due = SERVICES.some((s) => raw?.last?.[s] && !raw.last[s].reminded && raw.last[s].remindAt <= now);
     const expired = Array.isArray(raw?.roleExpiry) && raw.roleExpiry.some((x?) => x.until <= now);
@@ -752,6 +763,8 @@ async function trySendConfiguredVoteReminder(
   const uid = String(opts.userId || user?.id || "").trim();
   if (!client || !gid || !service || !uid) return "not_owned";
   try {
+    const { isBotPresentInGuild } = require("../../shared/discord/botGuildPresence") as typeof import("../../shared/discord/botGuildPresence");
+    if (!isBotPresentInGuild(client, gid)) return "skipped";
     if (!(await moduleHandlesVote(gid, service))) return "not_owned";
     const cfg = await getConfig(gid, true);
     const row = cfg.votes.perService[service];

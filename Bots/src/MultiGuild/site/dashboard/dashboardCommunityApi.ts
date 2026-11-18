@@ -81,8 +81,15 @@ async function sendOrEdit(client?, channelId?: string, prev?: { messageId: strin
       if (code === 50035) {
         try {
           const m: any = await rest.post(Routes.channelMessages(channelId), { body: payload });
-          await rest.delete(Routes.channelMessage(channelId, prev.messageId)).catch(() => null);
-          return { ok: true, messageId: String(m?.id || ""), edited: false };
+          const newId = String(m?.id || "");
+          const oldId = String(prev.messageId || "");
+          /* orphanFix1: se la delete del vecchio fallisce, almeno togli i bottoni cliccabili */
+          const deleted = await rest.delete(Routes.channelMessage(channelId, oldId)).then(() => true).catch(() => false);
+          if (!deleted && oldId) {
+            const { stripMessageComponentsRest } = require("../../../shared/discord/safeMessageEdit") as typeof import("../../../shared/discord/safeMessageEdit");
+            await stripMessageComponentsRest(rest, channelId, oldId).catch(() => null);
+          }
+          return { ok: true, messageId: newId, edited: false, replaced: true, orphanStripped: !deleted };
         } catch (err2) {
           return { ok: false, message: discordError(err2) };
         }
@@ -279,6 +286,9 @@ async function sendMessageNow(client?, token?, guildId?, id?, opts?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   const gid = a.guildId;
+  if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(gid, "messaggi")) {
+    return fail(403, "module_off", "Il modulo Messaggi è spento: riaccendilo da Moduli per pubblicare.");
+  }
   const rows = await T.listMessages(gid, true);
   const idx = rows.findIndex((r) => r.id === String(id));
   if (idx < 0) return fail(404, "not_found", "Messaggio non trovato.");
@@ -317,6 +327,9 @@ async function scheduleMessage(client?, token?, guildId?, id?, body?) {
   if (body?.scheduledAt == null) {
     rows[idx] = { ...rows[idx], scheduledAt: null, status: rows[idx].messageId ? "sent" : "draft" };
   } else {
+    if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(gid, "messaggi")) {
+      return fail(403, "module_off", "Il modulo Messaggi è spento: riaccendilo da Moduli per programmare.");
+    }
     if (!Number.isFinite(at) || at < Date.now() + 30_000) return fail(400, "bad_time", "Scegli un'ora nel futuro.");
     if (at > Date.now() + 90 * 86_400_000) return fail(400, "bad_time", "Puoi programmare al massimo 90 giorni avanti.");
     if (!rows[idx].channelId) return fail(400, "no_channel", "Scegli il canale dove pubblicarlo.");
@@ -388,6 +401,9 @@ function startScheduledMessagesLoop(client?) {
 async function putCommand(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
+  if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(a.guildId, "comandipers")) {
+    return fail(403, "module_off", "Il modulo Comandi personalizzati è spento: riaccendilo da Moduli per salvare.");
+  }
   const gid = a.guildId;
   const rows = await T.listCommands(gid, true);
   const id = String(body?.id || "");
@@ -463,6 +479,9 @@ async function publishRolePanel(client?, token?, guildId?, id?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   const gid = a.guildId;
+  if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(gid, "ruoli")) {
+    return fail(403, "module_off", "Il modulo Ruoli automatici è spento: riaccendilo da Moduli per pubblicare.");
+  }
   const rows = await T.listRolePanels(gid, true);
   const idx = rows.findIndex((r) => r.id === String(id));
   if (idx < 0) return fail(404, "not_found", "Pannello non trovato.");
@@ -522,6 +541,9 @@ async function publishRolePanel(client?, token?, guildId?, id?) {
 async function patchWelcome(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
+  if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(a.guildId, "benvenuto")) {
+    return fail(403, "module_off", "Il modulo Annunci automatici è spento: riaccendilo da Moduli per salvare.");
+  }
   const prev = await T.getWelcome(a.guildId, true);
   const next = T.normalizeWelcome(body, prev);
   if (next.welcome.enabled && !next.welcome.channelId) return fail(400, "no_channel", "Scegli il canale del messaggio di benvenuto.");

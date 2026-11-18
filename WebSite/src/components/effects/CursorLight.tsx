@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EFFECT_KEYS, effectEnabled, isDesktopPointer } from "@/lib/site-effects";
+import { EFFECT_KEYS, effectEnabled, isChristmasSeason, isDesktopPointer } from "@/lib/site-effects";
 import { isPerfPaused } from "@/lib/perf-pause";
 import { useDeviceFx } from "./DeviceFxProvider";
 
@@ -82,6 +82,11 @@ export function CursorLight() {
 
   if (!on) return null;
 
+  const xmas = typeof document !== "undefined" && isChristmasSeason();
+  const glow = xmas
+    ? "radial-gradient(circle at 50% 50%, rgba(255,210,120,0.32) 0%, rgba(196,30,58,0.14) 42%, transparent 70%)"
+    : "radial-gradient(circle at 50% 50%, rgba(236,205,176,0.28) 0%, rgba(212,168,136,0.12) 42%, transparent 70%)";
+
   return (
     <div
       ref={el}
@@ -89,8 +94,7 @@ export function CursorLight() {
       aria-hidden
       className="pointer-events-none fixed top-0 left-0 z-[2147480500] size-[120px] rounded-full opacity-0 will-change-transform"
       style={{
-        background:
-          "radial-gradient(circle at 50% 50%, rgba(236,205,176,0.28) 0%, rgba(212,168,136,0.12) 42%, transparent 70%)",
+        background: glow,
         transform: "translate3d(-9999px,-9999px,0)",
       }}
     />

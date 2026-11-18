@@ -7,6 +7,7 @@ import {
   BookOpen,
   CalendarDays,
   ChevronDown,
+  Clapperboard,
   LayoutDashboard,
   ListChecks,
   LogIn,
@@ -18,9 +19,10 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { NAV_DIRECT, NAV_GROUPS, NAV_MOBILE_SECTIONS, page, type NavLink } from "@/lib/site";
+import { NAV_DIRECT, NAV_GROUPS, NAV_MOBILE_SECTIONS, navLinkLocked, navLinkSeasonLive, page, type NavLink } from "@/lib/site";
+import { SeasonLiveNavDot, SeasonLiveNavTag, useNavSeasonTick } from "./SeasonLiveNav";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
-import { loadStaffAccess, type StaffAccess } from "@/lib/staff";
+import { loadStaffAccess, staffNavFor, type StaffAccess } from "@/lib/staff";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { setChromeOpen } from "@/lib/chrome-open";
@@ -82,9 +84,7 @@ function useExclusiveNavDrop(id: string, collapse: () => void) {
 }
 
 function linkLocked(l: NavLink, highStaff: boolean, eventoNavOpen = false) {
-  if (l.gate === "highStaff") return !highStaff;
-  if (l.gate === "evento") return !(highStaff || eventoNavOpen);
-  return false;
+  return navLinkLocked(l, { highStaff, eventoNavOpen });
 }
 
 function SoonNavItem({
@@ -103,16 +103,14 @@ function SoonNavItem({
       role="link"
       aria-disabled="true"
       title={soon}
-      className={cn("relative flex cursor-not-allowed items-center justify-center overflow-hidden", className)}
+      className={cn("flex cursor-not-allowed items-center gap-2 overflow-hidden", className)}
     >
-      <span className="flex items-center gap-2 blur-[2.5px] select-none" aria-hidden>
+      <span className="flex min-w-0 flex-1 items-center gap-2 blur-[2.5px] select-none" aria-hidden>
         {icon}
-        {label}
+        <span className="truncate">{label}</span>
       </span>
-      <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <span className="rounded-full bg-espresso/90 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-sand ring-1 ring-sand/30">
-          {soon}
-        </span>
+      <span className="shrink-0 rounded-full bg-espresso/90 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-sand ring-1 ring-sand/30">
+        {soon}
       </span>
     </span>
   );
@@ -266,6 +264,7 @@ function NavDrop({
 }) {
   const { t } = useI18n();
   const pathname = usePathname() || "/";
+  const { tick: seasonTick, ready: seasonReady } = useNavSeasonTick();
   const [hover, setHover] = useState(false);
   const [pinned, setPinned] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -274,6 +273,12 @@ function NavDrop({
   const label = t(labelKey);
   const open = hover || pinned;
   const groupActive = links.some((l) => !linkLocked(l, highStaff, eventoNavOpen) && pathActive(pathname, l.href));
+  const seasonLiveGroup =
+    seasonReady &&
+    links.some((l) => {
+      void seasonTick;
+      return navLinkSeasonLive(l);
+    });
 
   const collapse = useCallback(() => {
     setHover(false);
@@ -334,6 +339,7 @@ function NavDrop({
         <NavIcon labelKey={labelKey} className="size-3.5 shrink-0 opacity-75" />
         {label}
         {links.some((l) => isPromoHref(l.href)) ? <PromoNavDot className="-ml-0.5 self-start mt-1" /> : null}
+        {seasonLiveGroup ? <SeasonLiveNavDot className="-ml-0.5 self-start mt-1" /> : null}
         <ChevronDown className={cn("size-3.5 opacity-60 transition-transform", open && "rotate-180")} aria-hidden />
       </button>
       <AnimatePresence>
@@ -349,6 +355,7 @@ function NavDrop({
               {links.map((l) => {
                 const on = pathActive(pathname, l.href);
                 const locked = linkLocked(l, highStaff, eventoNavOpen);
+                const live = seasonReady && !locked && navLinkSeasonLive(l);
                 const ico = <NavIcon labelKey={l.labelKey} className="size-3.5 shrink-0 opacity-70" />;
                 return (
                   <li key={l.href}>
@@ -370,7 +377,8 @@ function NavDrop({
                       >
                         {ico}
                         {t(l.labelKey)}
-                        {isPromoHref(l.href) ? <PromoNavTag className="ml-auto" /> : null}
+                        {live ? <SeasonLiveNavTag className="ml-auto" /> : null}
+                        {!live && isPromoHref(l.href) ? <PromoNavTag className="ml-auto" /> : null}
                       </SmartLink>
                     )}
                   </li>
@@ -397,6 +405,7 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
   const { ready, user, token, login, logout } = useAuth();
   const [staff, setStaff] = useState<StaffAccess | null>(null);
   const [stickyOk, setStickyOk] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -415,7 +424,7 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
   }, []);
 
   if (!ready && !user) {
-    return <div className="h-14 animate-pulse rounded-2xl bg-crema/8" aria-hidden />;
+    return <div className="h-12 w-full animate-pulse rounded-xl bg-crema/8" aria-hidden />;
   }
 
   if (!token) {
@@ -460,94 +469,129 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
   ];
   const staffLinks =
     staff && user
-      ? [
-          { href: "/staff/guida/", label: "Guida", icon: <BookOpen className="size-4" />, show: true },
-          {
-            href: "/staff/gestione/",
-            label: "Gestione",
-            icon: <Users className="size-4" />,
-            show: Boolean(staff.canManage || staff.canManagePm),
-          },
-          { href: "/staff/compiti/", label: "Compiti", icon: <ListChecks className="size-4" />, show: staff.canCompiti },
-          { href: "/staff/pause/", label: "Pause", icon: <CalendarDays className="size-4" />, show: true },
-        ].filter((x) => x.show)
+      ? staffNavFor(staff).map((x) => {
+          const Icon =
+            x.href.startsWith("/seratafilm")
+              ? Clapperboard
+              : x.href.includes("/gestione")
+                ? Users
+                : x.href.includes("/compiti")
+                  ? ListChecks
+                  : x.href.includes("/pause")
+                    ? CalendarDays
+                    : BookOpen;
+          return { href: x.href, label: x.label, icon: <Icon className="size-4" /> };
+        })
       : [];
 
   return (
-    <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast p-3 ring-1 ring-sand/15">
+    <div
+      className={cn(
+        "w-full overflow-hidden rounded-xl ring-1 transition-[background-color,box-shadow]",
+        expanded
+          ? "bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast p-3 ring-sand/15"
+          : "bg-roast/90 ring-sand/12",
+      )}
+    >
       {user ? (
-        <div className="mb-3 flex items-center gap-2.5 rounded-xl px-2 py-2 ring-1 ring-sand/10">
-          <Avatar userId={user.id} src={avatarUrl(user, 64)} name={displayName(user)} className="size-9" />
-          <div className="min-w-0 leading-tight">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-controls="vc-mobile-account-panel"
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors",
+            expanded ? "mb-3 ring-1 ring-sand/10 hover:bg-crema/[0.04]" : "hover:bg-crema/[0.05]",
+          )}
+        >
+          <Avatar userId={user.id} src={avatarUrl(user, 64)} name={displayName(user)} className="size-9 shrink-0" />
+          <div className="min-w-0 flex-1 leading-tight">
             <p className="truncate text-sm font-semibold text-crema">{displayName(user)}</p>
             <p className="truncate text-xs text-crema/55">@{user.username}</p>
           </div>
-        </div>
+          <ChevronDown
+            className={cn("size-3.5 shrink-0 text-crema/50 transition-transform duration-200", expanded ? "rotate-0" : "rotate-180")}
+            aria-hidden
+          />
+        </button>
       ) : null}
-      <div className="grid grid-cols-2 gap-1.5">
-        {links.map((l) =>
-          l.locked ? (
-            <span
-              key={l.href}
-              title={soon}
-              aria-disabled="true"
-              className="relative inline-flex cursor-not-allowed items-center gap-2 overflow-hidden rounded-xl bg-crema/5 px-3 py-2.5 text-sm font-medium text-crema/45 ring-1 ring-sand/10"
+
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            id="vc-mobile-account-panel"
+            key="account-panel"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="grid grid-cols-2 gap-1.5">
+              {links.map((l) =>
+                l.locked ? (
+                  <span
+                    key={l.href}
+                    title={soon}
+                    aria-disabled="true"
+                    className="inline-flex cursor-not-allowed items-center gap-2 overflow-hidden rounded-xl bg-crema/5 px-3 py-2.5 text-sm font-medium text-crema/45 ring-1 ring-sand/10"
+                  >
+                    <span className="flex min-w-0 flex-1 items-center gap-2 blur-[2.5px] select-none" aria-hidden>
+                      {l.icon}
+                      <span className="truncate">{l.label}</span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-espresso/90 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-sand ring-1 ring-sand/30">
+                      {soon}
+                    </span>
+                  </span>
+                ) : (
+                  <SmartLink
+                    key={l.href}
+                    href={l.href}
+                    onClick={() => window.setTimeout(onClose, 0)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-crema/5 px-3 py-2.5 text-sm font-medium text-crema/85 ring-1 ring-sand/10 transition-colors hover:bg-crema/10"
+                  >
+                    {l.icon}
+                    <span className="truncate">{l.label}</span>
+                  </SmartLink>
+                ),
+              )}
+            </div>
+            {staffLinks.length ? (
+              <>
+                <p className="mb-1.5 mt-3 px-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-caramel">Area staff</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {staffLinks.map((l) => (
+                    <SmartLink
+                      key={l.href}
+                      href={l.href}
+                      onClick={() => window.setTimeout(onClose, 0)}
+                      className="inline-flex items-center gap-2 rounded-xl bg-crema/5 px-3 py-2.5 text-sm font-medium text-crema/85 ring-1 ring-sand/10 transition-colors hover:bg-crema/10"
+                    >
+                      {l.icon}
+                      <span className="truncate">{l.label}</span>
+                    </SmartLink>
+                  ))}
+                </div>
+              </>
+            ) : null}
+            <div className="mt-3 border-t border-sand/10 pt-3">
+              <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-crema/40">{t("auth.theme")}</p>
+              <ThemePrefRow />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                logout();
+              }}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-crema/75 ring-1 ring-sand/15 transition-colors hover:bg-crema/8 hover:text-red-300"
             >
-              <span className="flex min-w-0 flex-1 items-center gap-2 blur-[2.5px] select-none" aria-hidden>
-                {l.icon}
-                <span className="truncate">{l.label}</span>
-              </span>
-              <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <span className="rounded-full bg-espresso/90 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-sand ring-1 ring-sand/30">
-                  {soon}
-                </span>
-              </span>
-            </span>
-          ) : (
-            <SmartLink
-              key={l.href}
-              href={l.href}
-              onClick={() => window.setTimeout(onClose, 0)}
-              className="inline-flex items-center gap-2 rounded-xl bg-crema/5 px-3 py-2.5 text-sm font-medium text-crema/85 ring-1 ring-sand/10 transition-colors hover:bg-crema/10"
-            >
-              {l.icon}
-              <span className="truncate">{l.label}</span>
-            </SmartLink>
-          ),
-        )}
-      </div>
-      {staffLinks.length ? (
-        <>
-          <p className="mb-1.5 mt-3 px-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-caramel">Area staff</p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {staffLinks.map((l) => (
-              <SmartLink
-                key={l.href}
-                href={l.href}
-                onClick={() => window.setTimeout(onClose, 0)}
-                className="inline-flex items-center gap-2 rounded-xl bg-crema/5 px-3 py-2.5 text-sm font-medium text-crema/85 ring-1 ring-sand/10 transition-colors hover:bg-crema/10"
-              >
-                {l.icon}
-                <span className="truncate">{l.label}</span>
-              </SmartLink>
-            ))}
-          </div>
-        </>
-      ) : null}
-      <div className="mt-3 border-t border-sand/10 pt-3">
-        <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-crema/40">{t("auth.theme")}</p>
-        <ThemePrefRow />
-      </div>
-      <button
-        type="button"
-        onClick={() => {
-          onClose();
-          logout();
-        }}
-        className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-crema/75 ring-1 ring-sand/15 transition-colors hover:bg-crema/8 hover:text-red-300"
-      >
-        <LogOut className="size-4" /> {t("auth.logout")}
-      </button>
+              <LogOut className="size-4" /> {t("auth.logout")}
+            </button>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -575,6 +619,7 @@ export function Navbar() {
   const eventoEventi: EventoNavItemView[] =
     eventoChrome && !eventoNeedsSort ? eventoEventiNavForViewer(staffAccess) : [];
   const soon = t("auth.comingSoon");
+  const { ready: seasonReady } = useNavSeasonTick();
   const headerRef = useRef<HTMLElement>(null);
   const navHidden = useAutoHideNav(headerRef, open);
 
@@ -608,6 +653,10 @@ export function Navbar() {
     setChromeOpen("mobile-nav", open);
     return () => setChromeOpen("mobile-nav", false);
   }, [open]);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!open) return;
@@ -724,35 +773,44 @@ export function Navbar() {
       </motion.header>
 
       <AnimatePresence>
-        {open && (
-          <motion.div
-            id="vc-menu"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("nav.menuAria")}
-            className={cn(
-              "fixed inset-x-0 bottom-0 z-[60] overflow-y-auto bg-espresso/95 lg:hidden",
-              softBlur && "backdrop-blur-2xl vc-ui-blur",
-              bar ? "top-[var(--vc-view-as-h,3.1rem)]" : "top-0",
-            )}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 pt-5 sm:px-6 sm:pt-6">
-              <span className="font-display text-2xl font-semibold">{t("nav.menuTitle")}</span>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="inline-flex size-11 items-center justify-center rounded-full bg-crema/8 ring-1 ring-crema/15 transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-crema/15 active:scale-[0.96]"
-                aria-label={t("nav.closeMenu")}
-              >
-                <X className="size-5" />
-              </button>
-            </div>
+        {open ? (
+          <>
+            <motion.button
+              type="button"
+              aria-label={t("nav.closeMenu")}
+              className="fixed inset-0 z-[60] bg-ink/70 lg:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setOpen(false)}
+            />
+            <motion.aside
+              id="vc-menu"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("nav.menuAria")}
+              className={cn(
+                "fixed inset-y-0 left-0 z-[60] flex w-full flex-col bg-roast shadow-2xl sm:w-[20rem] sm:border-r sm:border-sand/12 lg:hidden",
+                softBlur && "backdrop-blur-xl vc-ui-blur",
+              )}
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 420, damping: 40 }}
+            >
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-sand/10 px-4 py-3.5">
+                <span className="font-display text-xl font-semibold text-crema">{t("nav.menuTitle")}</span>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="inline-flex size-9 items-center justify-center rounded-lg text-crema/50 transition-colors hover:bg-crema/5 hover:text-crema"
+                  aria-label={t("nav.closeMenu")}
+                >
+                  <X className="size-[1.15rem]" />
+                </button>
+              </div>
 
-            <div className="mx-auto max-w-6xl space-y-7 px-5 pb-10 pt-7 sm:px-6">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 py-5">
               {eventoChrome ? (
                 <>
                   <motion.section
@@ -873,6 +931,7 @@ export function Navbar() {
                     {g.links.map((l) => {
                       const on = pathActive(pathname, l.href);
                       const locked = linkLocked(l, highStaff, eventoNavOpen);
+                      const live = seasonReady && !locked && navLinkSeasonLive(l);
                       const ico = <NavIcon labelKey={l.labelKey} className="size-3.5 shrink-0 opacity-75" />;
                       return (
                       <li key={l.href}>
@@ -897,9 +956,10 @@ export function Navbar() {
                               )}
                             >
                               {ico}
-                              <span className="inline-flex items-center gap-1.5">
+                              <span className="inline-flex flex-wrap items-center justify-center gap-1.5">
                                 {t(l.labelKey)}
-                                {isPromoHref(l.href) ? <PromoNavTag /> : null}
+                                {live ? <SeasonLiveNavTag /> : null}
+                                {!live && isPromoHref(l.href) ? <PromoNavTag /> : null}
                               </span>
                         </SmartLink>
                           )}
@@ -926,9 +986,10 @@ export function Navbar() {
                 </h3>
                 <MobileDrawerAccount onClose={() => setOpen(false)} />
               </motion.div>
-            </div>
-          </motion.div>
-        )}
+              </div>
+            </motion.aside>
+          </>
+        ) : null}
       </AnimatePresence>
     </>
   );

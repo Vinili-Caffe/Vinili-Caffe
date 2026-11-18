@@ -300,6 +300,11 @@ async function handleMinigameWin(message?, game?, cfg?) {
         content: `${E.VC_Attention} Risposta registrata, ma non sono riuscito a completare i premi. Il round è comunque chiuso.`,
       }).catch((replyErr?) => warnMinigame(replyErr));
     } finally {
+      try {
+        const ch = message.channel?.messages?.fetch ? message.channel : null;
+        const { stripMinigameGameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+        await stripMinigameGameMessage(ch, game).catch(() => false);
+      } catch (_) {}
       if (channelId) {
         await clearActiveGame(client, clearCfg).catch(() => { });
         endMinigameWinClose(channelId);

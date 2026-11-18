@@ -1,11 +1,11 @@
 /** Minigiochi quiz: capitali, capoluoghi e città. */
 const { getGuessCityBank } = require("../../Minigames/data/minigameBanks") as typeof import("../../Minigames/data/minigameBanks");
-const { normalizeCountryName, fetchWikiRegionImage, fetchWikiCapitalImage, buildPromptImageAttachment, buildRegionNameImageAttachment, buildRemoteGuessImageCardAttachment } = require("./minigameImages") as typeof import("./minigameImages");
+const { normalizeCountryName, fetchWikiRegionImage, fetchWikiCapitalImage, fetchLandmarkImage, buildPromptImageAttachment, buildRegionNameImageAttachment, buildRemoteGuessImageCardAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 const { buildGuessCapitalEmbed, buildGuessRegionCapitalEmbed, buildGuessReverseCapitalEmbed, buildTimeoutCapitalEmbed, buildTimeoutRegionCapitalEmbed, buildTimeoutReverseCapitalEmbed, buildGuessCityEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
 const { loadCapitalQuestionBank, loadReverseCapitalQuestionBank, loadRegionCapitalQuestionBank } = require("./minigameSources") as typeof import("./minigameSources");
 const { getChannelCached } = require("./minigameUtils") as typeof import("./minigameUtils");
 const { compactNoSpaces, normalizeRewardExp, buildRevealHint, buildCapitalHint, buildRegionCapitalHint } = require("./minigameText") as typeof import("./minigameText");
-const { activeGames, pickQuestionAvoidRecent } = require("./minigameState") as typeof import("./minigameState");
+const { activeGames, pickQuestionAvoidRecent, recentLimitForBank } = require("./minigameState") as typeof import("./minigameState");
 const { sendMinigameRolePing } = require("./minigameRolePing") as typeof import("./minigameRolePing");
 const { sendMinigameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
@@ -16,7 +16,7 @@ async function startGuessCapitalGame(client?, cfg?) {
   if (!channelId || activeGames.has(channelId)) return false;
 
   const questions = await loadCapitalQuestionBank(cfg);
-  const pick = pickQuestionAvoidRecent(channelId, "guessCapital", questions, (row?) => row?.country, 28,);
+  const pick = pickQuestionAvoidRecent(channelId, "guessCapital", questions, (row?) => row?.country, recentLimitForBank(questions, 40));
   if (!pick?.country || !Array.isArray(pick?.answers) || !pick.answers.length)
     return false;
 
@@ -85,7 +85,7 @@ async function startGuessRegionCapitalGame(client?, cfg?) {
   if (!channelId || activeGames.has(channelId)) return false;
 
   const questions = await loadRegionCapitalQuestionBank(cfg);
-  const pick = pickQuestionAvoidRecent(channelId, "guessRegionCapital", questions, (row?) => row?.region, 20,);
+  const pick = pickQuestionAvoidRecent(channelId, "guessRegionCapital", questions, (row?) => row?.region, recentLimitForBank(questions, 20));
   if (!pick?.region || !Array.isArray(pick?.answers) || !pick.answers.length)
     return false;
 
@@ -159,7 +159,7 @@ async function startGuessReverseCapitalGame(client?, cfg?) {
 
   const questions = await loadReverseCapitalQuestionBank(cfg);
   if (!questions.length) return false;
-  const pick = pickQuestionAvoidRecent(channelId, "guessReverseCapital", questions, (row?) => `${row?.capital ?? ""}\t${row?.country ?? ""}`, 28,);
+  const pick = pickQuestionAvoidRecent(channelId, "guessReverseCapital", questions, (row?) => `${row?.capital ?? ""}\t${row?.country ?? ""}`, recentLimitForBank(questions, 40));
   if (!pick?.capital || !pick?.country || !Array.isArray(pick?.answers) || !pick.answers.length)
     return false;
 
@@ -230,20 +230,41 @@ async function startGuessCityGame(client?, cfg?) {
   const channelId = cfg.channelId;
   if (!channelId || activeGames.has(channelId)) return false;
   const bank = getGuessCityBank();
-  const pick = pickQuestionAvoidRecent(channelId, "guessCity", bank, (r?) => r.landmark, 20);
+  const pick = pickQuestionAvoidRecent(channelId, "guessCity", bank, (r?) => r.landmark, recentLimitForBank(bank, 40));
   if (!pick) return false;
   const rewardExp = normalizeRewardExp(cfg?.guessCity?.rewardExp ?? 150);
   const durationMs = Math.max(60000, Number(cfg?.guessCity?.durationMs || 180000));
   const channel = await getChannelCached(client, channelId);
   if (!channel) return false;
   await sendMinigameRolePing(channel, cfg);
-  const attachment = buildPromptImageAttachment("Indovina la città", [pick.landmark, pick.country ? `Paese: ${pick.country}` : ""].filter(Boolean), "guess_city", "", client);
+  /* foto del landmark: la città si indovina dall’immagine, non dal nome scritto */
+  const landmarkPhoto = await fetchLandmarkImage(pick.landmark, pick.city, pick.country).catch(() => null);
+  const attachment =
+    (landmarkPhoto
+      ? await buildRemoteGuessImageCardAttachment(landmarkPhoto, "Indovina la città", "guess_city.png").catch(() => null)
+      : null) ||
+    buildPromptImageAttachment(
+      "Indovina la città",
+      [pick.landmark, pick.country ? `Paese: ${pick.country}` : ""].filter(Boolean),
+      "guess_city",
+      "",
+      client,
+    );
   const imageUrl = attachment ? `attachment://${attachment.name}` : null;
-  const embed = buildGuessCityEmbed(pick.landmark, rewardExp, durationMs, imageUrl);
+  const embed = buildGuessCityEmbed(landmarkPhoto ? null : pick.landmark, rewardExp, durationMs, imageUrl);
   const gameMessage = await sendMinigameMessage(
     channel,
     { embeds: [embed], files: attachment ? [attachment] : [] },
-    { type: "guessCity", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, landmark: pick.landmark }) },
+    {
+      type: "guessCity",
+      kind: "start",
+      vars: minigameDraftVars(channel, {
+        exp: rewardExp,
+        durationMs,
+        landmark: landmarkPhoto ? "questa foto" : pick.landmark,
+        image: imageUrl || "",
+      }),
+    },
   ).catch(() => null);
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const hintText = `Città: ${buildRevealHint(pick.city)}`;

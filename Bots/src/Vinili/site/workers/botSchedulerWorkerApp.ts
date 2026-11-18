@@ -38,6 +38,10 @@ installConsoleLogger();
 installWorkerEmbedPatches();
 
 async function main(shared?: { client?: any } | null) {
+  try {
+    const { startExternalWorkerHeartbeat } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+    startExternalWorkerHeartbeat("BOT_SCHEDULER");
+  } catch (_) {}
   const mongo = resolveMongoUrl();
   if (!mongo) {
     console.error("[BOT-SCHEDULER] Missing MONGO_URL / MONGODB_URI");

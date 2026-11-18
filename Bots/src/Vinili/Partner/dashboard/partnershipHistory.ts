@@ -1,10 +1,12 @@
-/** Dashboard partnership: storico delle partnership. */
+/** Dashboard / profilo staff: storico delle partnership di un server. */
 const { fail, extractInviteCodeFromInvite, escapeRegExp } = require("./partnershipSerialize") as typeof import("./partnershipSerialize");
 const { assertTenantPartnershipAccess } = require("./partnershipBlacklist") as typeof import("./partnershipBlacklist");
 
-async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, query: Record<string, any> = {}) {
-  const access = await assertTenantPartnershipAccess(client, accessToken, guildId);
-  if (!access.ok) return access;
+async function buildPartnershipHistoryPayload(client?, guildId?, query: Record<string, any> = {}) {
+  const gid = String(guildId || "").trim();
+  if (!/^\d{16,22}$/.test(gid)) {
+    return fail(400, "invalid_guild", "Server non valido.");
+  }
 
   const { listPartnerGuildHistory } = require("../../Partner/services/partnershipHistoryService") as typeof import("../../Partner/services/partnershipHistoryService");
   const {
@@ -16,13 +18,13 @@ async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, q
 
   let raw;
   try {
-    raw = await listPartnerGuildHistory(access.guildId, {
+    raw = await listPartnerGuildHistory(gid, {
       days: query?.days,
       page: query?.page,
       pageSize: query?.pageSize || query?.limit,
     });
   } catch (err) {
-    global.logger?.error?.("[DASH HISTORY] list failed:", err);
+    global.logger?.error?.("[PARTNER HISTORY] list failed:", err);
     return fail(500, "fetch_failed", "Impossibile caricare la cronologia.");
   }
 
@@ -63,8 +65,8 @@ async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, q
     if (!invite) return false;
     if (!isUsableGuildName(row?.guildName)) return true;
     /* nome già noto ma niente logo: lo chiediamo dall'invito (se Vinili non è nel server partner) */
-    const gid = String(row?.guildId || "").trim();
-    if (gid && client?.guilds?.cache?.get(gid)) return false;
+    const partnerGid = String(row?.guildId || "").trim();
+    if (partnerGid && client?.guilds?.cache?.get(partnerGid)) return false;
     return !knownIcon(row);
   };
 
@@ -85,7 +87,7 @@ async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, q
     return out;
   }
 
-    const pageRows = raw.entries || [];
+  const pageRows = raw.entries || [];
   const enrichTargets = pageRows.filter(needsDiscordEnrich);
   if (enrichTargets.length && !isInviteFetchRateLimited()) {
     let stopEnrich = false;
@@ -119,8 +121,8 @@ async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, q
       row._iconUrl = meta.iconUrl || null;
       rememberIcon(invite, meta.iconUrl);
 
-            setImmediate(() => {
-        softPersistPartnerHistoryMeta(access.guildId, {
+      setImmediate(() => {
+        softPersistPartnerHistoryMeta(gid, {
           invite,
           guildName: meta.guildName,
           partnerGuildId: meta.guildId,
@@ -181,7 +183,7 @@ async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, q
   return {
     ok: true,
     status: 200,
-    guildId: access.guildId,
+    guildId: gid,
     days: raw.days == null ? null : raw.days,
     uniqueServers: raw.uniqueServers,
     totalPartnerships: raw.totalPartnerships,
@@ -190,6 +192,53 @@ async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, q
     totalPages: raw.totalPages || 1,
     entries,
   };
+}
+
+async function getDashboardPartnershipHistory(client?, accessToken?, guildId?, query: Record<string, any> = {}) {
+  const access = await assertTenantPartnershipAccess(client, accessToken, guildId);
+  if (!access.ok) return access;
+  return buildPartnershipHistoryPayload(client, access.guildId, query);
+}
+
+/**
+ * Cronologia partnership dal profilo staff (+history sul sito).
+ * Chi può: Partner Manager del server, gestori dashboard, oppure (solo server principale) staff del sito.
+ */
+async function getProfilePartnershipHistory(client?, accessToken?, guildId?, query: Record<string, any> = {}) {
+  const token = String(accessToken || "").trim();
+  const gid = String(guildId || "").trim();
+  if (!token) return fail(401, "missing_token", "Accedi per vedere la cronologia.");
+  if (!/^\d{16,22}$/.test(gid)) return fail(400, "invalid_guild", "Server non valido.");
+
+  const { fetchDiscordOAuthMe } = require("../../site/http/discordOauthMe") as typeof import("../../site/http/discordOauthMe");
+  const me: any = await fetchDiscordOAuthMe(token).catch(() => null);
+  const userId = String(me?.me?.id || "").trim();
+  if (!userId) return fail(401, "invalid_token", "Sessione non valida.");
+
+  const GP = require("../../site/http/usersLbGuildProfile") as typeof import("../../site/http/usersLbGuildProfile");
+  const isPm = await GP.isPartnerManagerIn(client, gid, userId).catch(() => false);
+  if (!isPm) {
+    const dash = await assertTenantPartnershipAccess(client, token, gid);
+    if (!dash.ok) {
+      let mainStaffOk = false;
+      try {
+        const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+        const mainId = String(IDs.guilds?.main || "").trim();
+        if (gid === mainId) {
+          const { assertWebsiteStaffAccess } = require("../../site/staff/siteStaffAccessApi") as typeof import("../../site/staff/siteStaffAccessApi");
+          const staff: any = await assertWebsiteStaffAccess(client, token).catch(() => null);
+          mainStaffOk = staff?.ok === true;
+        }
+      } catch {
+        mainStaffOk = false;
+      }
+      if (!mainStaffOk) {
+        return fail(403, "not_pm", "Solo Partner Manager o gestori del server possono vedere la cronologia.");
+      }
+    }
+  }
+
+  return buildPartnershipHistoryPayload(client, gid, query);
 }
 
 async function softPersistPartnerHistoryMeta(guildId?, meta: Record<string, any> = {}) {
@@ -239,4 +288,4 @@ async function softPersistPartnerHistoryMeta(guildId?, meta: Record<string, any>
   }
 }
 
-export = { getDashboardPartnershipHistory };
+export = { getDashboardPartnershipHistory, getProfilePartnershipHistory, buildPartnershipHistoryPayload };

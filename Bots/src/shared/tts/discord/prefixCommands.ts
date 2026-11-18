@@ -312,6 +312,13 @@ function createSetCommand(opts: Record<string, any> = {}) {
         message.client.config = message.client.config || {};
         message.client.config.tts = message.client.config.tts || {};
         message.client.config.tts.autojoin = onValues.has(raw);
+        try {
+          const gid = String(message.guild?.id || "");
+          if (gid) {
+            const { setTtsAutojoin } = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
+            await setTtsAutojoin(gid, onValues.has(raw));
+          }
+        } catch (_) {}
         return safeMessageReply(
           message,
           p.ok(`Autojoin TTS impostato su \`${onValues.has(raw) ? "attivo" : "disattivato"}\`.`),

@@ -207,7 +207,13 @@ export type CommunityData = {
   commands: CustomCommand[];
   rolePanels: RolePanel[];
   welcome: WelcomeSettings;
-  pickers: { textChannels: PickerChannel[]; roles: PickerRole[]; emojis: PickerEmoji[]; categories: PickerChannel[] };
+  pickers: {
+    textChannels: PickerChannel[];
+    voiceChannels?: PickerChannel[];
+    roles: PickerRole[];
+    emojis: PickerEmoji[];
+    categories: PickerChannel[];
+  };
 };
 
 export function emptyDraft(over: Partial<MsgDraft> = {}): MsgDraft {
@@ -267,6 +273,9 @@ export async function loadCommunity(token: string, guildId: string): Promise<{ o
       rolePanels: Array.isArray(d.rolePanels) ? d.rolePanels : [],
       pickers: {
         textChannels: Array.isArray(d.pickers?.textChannels) ? d.pickers.textChannels : [],
+        voiceChannels: Array.isArray((d.pickers as { voiceChannels?: PickerChannel[] } | undefined)?.voiceChannels)
+          ? ((d.pickers as { voiceChannels?: PickerChannel[] }).voiceChannels as PickerChannel[])
+          : [],
         roles: Array.isArray(d.pickers?.roles) ? d.pickers.roles : [],
         emojis: Array.isArray(d.pickers?.emojis)
           ? d.pickers.emojis.map((e) => (e.guildName ? { ...e, guildName: readableGuildName(e.guildName, e.guildName) } : e))
@@ -674,6 +683,37 @@ export type LiveAlertsConfig = {
   platforms: Record<LivePlatform, LivePlatformConfig>;
 };
 
+export type VoiceAlwaysOnConfig = {
+  enabled: boolean;
+  voiceChannelId: string | null;
+  source: "radio" | "chill";
+  radioId: string;
+};
+
+export type VoiceAlwaysOnCatalog = {
+  radios: { id: string; label: string }[];
+  chill: { id: string; label: string };
+};
+
+export type VoiceConfig = {
+  music: {
+    defaultVolume: number;
+    inactivityLeaveMs: number;
+    textChannelIds: string[];
+    djRoleIds: string[];
+    alwaysOn: VoiceAlwaysOnConfig;
+  };
+  tts: {
+    enabled: boolean;
+    autojoin: boolean | null;
+    includeUsername: boolean | null;
+    stayConnected: boolean | null;
+    defaultLang: string;
+    textChannelIds: string[];
+  };
+  userSaved?: boolean;
+};
+
 export const communityApi = {
   saveAutoResponder: (t: string, g: string, a: Partial<AutoResponder>) => call<{ autoResponder: AutoResponder }>(t, g, "/auto-responders", "PUT", a),
   deleteAutoResponder: (t: string, g: string, id: string) => call(t, g, `/auto-responders/${encodeURIComponent(id)}`, "DELETE"),
@@ -687,7 +727,7 @@ export const communityApi = {
     call<{ isMainGuild?: boolean; imported?: boolean; config: AnnouncementsConfig; maxRules?: number }>(t, g, `/announcements?_=${Date.now()}`),
   saveAnnouncements: (t: string, g: string, config: AnnouncementsConfig) => call<{ config: AnnouncementsConfig }>(t, g, "/announcements", "PATCH", { config }),
   getBumpVotes: (t: string, g: string) =>
-    call<{ isMainGuild?: boolean; imported?: boolean; config?: BumpVotesConfig; urls?: { topgg: string; discadia: string } }>(t, g, `/bump-votes?_=${Date.now()}`),
+    call<{ isMainGuild?: boolean; levelsActive?: boolean; imported?: boolean; config?: BumpVotesConfig; urls?: { topgg: string; discadia: string } }>(t, g, `/bump-votes?_=${Date.now()}`),
   saveBumpVotes: (t: string, g: string, config: Partial<BumpVotesConfig>) =>
     call<{ config: BumpVotesConfig; urls: { topgg: string; discadia: string } }>(t, g, "/bump-votes", "PATCH", { config }),
   regenBumpVotesToken: (t: string, g: string) => call<{ config: BumpVotesConfig; urls: { topgg: string; discadia: string } }>(t, g, "/bump-votes/token", "POST", {}),
@@ -710,8 +750,12 @@ export const communityApi = {
       `/live?_=${Date.now()}`,
     ),
   saveLive: (t: string, g: string, config: LiveAlertsConfig) => call<{ config: LiveAlertsConfig }>(t, g, "/live", "PATCH", { config }),
+  getVoice: (t: string, g: string) =>
+    call<{ config: VoiceConfig; alwaysOnCatalog?: VoiceAlwaysOnCatalog }>(t, g, `/voice?_=${Date.now()}`),
+  saveVoice: (t: string, g: string, config: VoiceConfig) =>
+    call<{ config: VoiceConfig; alwaysOnCatalog?: VoiceAlwaysOnCatalog }>(t, g, "/voice", "PATCH", { config }),
   getBirthdays: (t: string, g: string) =>
-    call<{ isMainGuild?: boolean; imported?: boolean; config: BirthdaysConfig; timezone?: string }>(t, g, `/birthdays?_=${Date.now()}`),
+    call<{ isMainGuild?: boolean; levelsActive?: boolean; imported?: boolean; config: BirthdaysConfig; timezone?: string }>(t, g, `/birthdays?_=${Date.now()}`),
   saveBirthdays: (t: string, g: string, config: BirthdaysConfig) => call<{ config: BirthdaysConfig }>(t, g, "/birthdays", "PATCH", { config }),
   getLevels: (t: string, g: string) =>
     call<{ isMainGuild?: boolean; imported?: boolean; config: LevelsConfig; event?: LevelsEvent; scheduled?: LevelsScheduledEvent[] }>(t, g, `/levels?_=${Date.now()}`),

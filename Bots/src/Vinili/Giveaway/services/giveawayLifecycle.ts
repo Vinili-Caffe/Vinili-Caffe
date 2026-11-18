@@ -7,8 +7,16 @@ const {
   buildEnterButton,
   buildRerollButton,
 } = require("./giveawayUi") as typeof import("./giveawayUi");
+const { editMessageEmbedAware } = require("../../../shared/discord/safeMessageEdit") as typeof import("../../../shared/discord/safeMessageEdit");
 
 const MAX_TIMEOUT_MS = 2_147_483_647;
+
+async function editGiveawayBoard(msg?, embed?, components: any[] = []) {
+  if (!msg?.edit) return false;
+  const rows = Array.isArray(components) ? components.filter(Boolean) : [];
+  const result = await editMessageEmbedAware(msg, { embed, components: rows, files: [] });
+  return Boolean(result?.ok);
+}
 const pendingEndTimers = new Map();
 
 const GIVEAWAY_READ_PROJECTION = {
@@ -120,7 +128,7 @@ async function endGiveaway(giveawayId?, client?) {
           { ...giveaway, ended: true, winnerIds },
         );
         const rerollRow = buildRerollButton(giveaway._id.toString());
-        await msg.edit({ embeds: [endedEmbed], components: [rerollRow] }).catch(() => { });
+        await editGiveawayBoard(msg, endedEmbed, [rerollRow]);
       }
     } catch (err) {
       global.logger?.warn?.("[giveawayService] end/reroll:", err?.message || err);
@@ -232,7 +240,7 @@ async function rerollGiveaway(interaction?, client?) {
         const updated = { ...giveaway, winnerIds: newWinnerIds };
         const embed = buildGiveawayEmbed(updated);
         const rerollRow = buildRerollButton(giveawayId);
-        await msg.edit({ embeds: [embed], components: [rerollRow] }).catch(() => { });
+        await editGiveawayBoard(msg, embed, [rerollRow]);
       }
       await channel.send({ content: `${E.VC_Events}<@${newWinnerId}> ha vinto il giveaway! ${E.VC_Winner}` }).catch(() => { });
     } catch (err) {
@@ -319,12 +327,7 @@ async function editGiveawayByMessageId(messageId?, client?, patch: Record<string
     try {
       const msg = await channel.messages.fetch(String(messageId)).catch(() => null);
       if (msg?.editable) {
-        await msg
-          .edit({
-            embeds: [buildGiveawayEmbed(plain)],
-            components: [buildEnterButton(String(giveaway._id))],
-          })
-          .catch(() => {});
+        await editGiveawayBoard(msg, buildGiveawayEmbed(plain), [buildEnterButton(String(giveaway._id))]);
       }
     } catch (err) {
       global.logger?.warn?.("[giveawayService] edit message:", err?.message || err);
@@ -359,12 +362,11 @@ async function deleteGiveawayByMessageId(messageId?, client?, options: Record<st
           await msg.delete().catch(() => null);
           deletedMessage = true;
         } else if (msg.editable) {
-          await msg
-            .edit({
-              embeds: [buildGiveawayEmbed({ ...giveaway, ended: true, cancelled: true, winnerIds: [] })],
-              components: [],
-            })
-            .catch(() => {});
+          await editGiveawayBoard(
+            msg,
+            buildGiveawayEmbed({ ...giveaway, ended: true, cancelled: true, winnerIds: [] }),
+            [],
+          );
         }
       }
     } catch (err) {
@@ -402,7 +404,7 @@ async function rerollGiveawayByMessageId(messageId?, client?) {
         const updated = { ...giveaway, winnerIds: newWinnerIds };
         const embed = buildGiveawayEmbed(updated);
         const rerollRow = buildRerollButton(giveaway._id.toString());
-        await msg.edit({ embeds: [embed], components: [rerollRow] }).catch(() => {});
+        await editGiveawayBoard(msg, embed, [rerollRow]);
       }
       await channel.send({ content: `${E.VC_Events}<@${newWinnerId}> ha vinto il giveaway! ${E.VC_Winner}` }).catch(() => {});
     } catch (err) {

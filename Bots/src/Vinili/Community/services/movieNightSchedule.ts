@@ -32,19 +32,27 @@ function getMovieNightDiscordEventStartWindow() {
   };
 }
 
-/** Voce calendario fisso serata film (titolo e/o skip; event/poster opzionali). */
+/** Voce calendario fisso serata film (titolo e/o skip; event/poster/description opzionali). */
 type FixedMovieNightEntry = {
   title?: string;
   skip?: boolean;
   event?: string;
   /** Cover evento Discord (CDN). */
   poster?: string;
+  /** Trama annuncio (se assente → fetch Wikipedia). */
+  description?: string;
 };
 
 const SW_POSTER_CDN = "https://cdn.viniliecaffe.it/images/starwars/posters";
 const SW_POSTER_V = "20261104p1";
 function swPoster(slug?) {
   return `${SW_POSTER_CDN}/${String(slug || "").trim()}.jpg?v=${SW_POSTER_V}`;
+}
+
+const SERATA_POSTER_CDN = "https://cdn.viniliecaffe.it/images/seratafilm";
+const SERATA_POSTER_V = "20261118xmas1";
+function serataPoster(file?) {
+  return `${SERATA_POSTER_CDN}/${String(file || "").trim()}?v=${SERATA_POSTER_V}`;
 }
 
 const HARRY_POTTER_MOVIE_NIGHT_SCHEDULE = new Map<string, FixedMovieNightEntry>([
@@ -69,7 +77,7 @@ const STAR_WARS_MOVIE_NIGHT_SCHEDULE = new Map<string, FixedMovieNightEntry>([
   ["2026-12-05", { title: "Star Wars: La minaccia fantasma", event: "starwars", poster: swPoster("la-minaccia-fantasma") }],
   ["2026-12-12", { title: "Star Wars: L'attacco dei cloni", event: "starwars", poster: swPoster("lattacco-dei-cloni") }],
   ["2026-12-19", { title: "Star Wars: La vendetta dei Sith", event: "starwars", poster: swPoster("la-vendetta-dei-sith") }],
-  /* Gap: niente serata / niente thread voto */
+  /* 26 dic: serata Natale extra (Mamma ho perso l'aereo) — niente SW / niente thread voto */
   ["2026-12-26", { skip: true, event: "starwars" }],
   ["2027-01-02", { title: "Star Wars: Rogue One", event: "starwars", poster: swPoster("rogue-one") }],
   ["2027-01-09", { title: "Star Wars: Una nuova speranza", event: "starwars", poster: swPoster("una-nuova-speranza") }],
@@ -84,7 +92,88 @@ const STAR_WARS_MOVIE_NIGHT_SCHEDULE = new Map<string, FixedMovieNightEntry>([
 
 const EXTRA_FIXED_MOVIE_NIGHTS = new Map<string, FixedMovieNightEntry>([
   ["2026-10-28", { title: "La sposa cadavere" }],
+  /* Serate extra Natale 2026 (21:00 Rome). 25 dic assente. Allineato a WebSite SERATA_XMAS_NIGHTS. */
+  [
+    "2026-12-21",
+    {
+      title: "Il figlio di Babbo Natale",
+      poster: serataPoster("il-figlio-di-babbo-natale-poster.jpg"),
+      description:
+        "Arthur, il figlio minore di Babbo Natale, scopre che un regalo non è stato consegnato. Con Nonno Natale e un’elfa partono sulla vecchia slitta per rimediare prima dell’alba.",
+    },
+  ],
+  [
+    "2026-12-22",
+    {
+      title: "A Christmas Carol",
+      poster: serataPoster("a-christmas-carol-poster.jpg"),
+      description:
+        "L’avaro Ebenezer Scrooge riceve la visita di tre spiriti nella notte di Natale: un viaggio tra passato, presente e futuro che può ancora cambiare il suo cuore.",
+    },
+  ],
+  [
+    "2026-12-23",
+    {
+      title: "Grinch",
+      poster: serataPoster("grinch-poster.jpg"),
+      description:
+        "Il Grinch odia il Natale e trama di rubare ogni festeggiamento a Chi-ville. Tra mischievie e un cuore che cresce, scopre cosa resta quando i regali spariscono.",
+    },
+  ],
+  [
+    "2026-12-24",
+    {
+      title: "Polar Express",
+      poster: serataPoster("polar-express-poster.jpg"),
+      description:
+        "Nella notte della Vigilia un ragazzo scettico sale sul Polar Express diretto al Polo Nord. Un viaggio magico tra biglietti d’oro, cioccolata calda e la fede nel Natale.",
+    },
+  ],
+  [
+    "2026-12-26",
+    {
+      title: "Mamma ho perso l'aereo",
+      poster: serataPoster("mamma-ho-perso-laereo-poster.jpg"),
+      description:
+        "Kevin McCallister resta solo a casa per Natale e difende la villetta dai ladri Harry e Marv con trappole all’ultimo piano. Classico delle feste, umorismo e cuore.",
+    },
+  ],
+  [
+    "2026-12-27",
+    {
+      title: "Poltrona per due",
+      poster: serataPoster("poltrona-per-due-poster.jpg"),
+      description:
+        "Un impiegato ambizioso presta l’appartamento ai superiori per gli appuntamenti clandestini, finché conosce una ragazza legata a uno di loro. Commedia bittersweet ambientata a Natale.",
+    },
+  ],
 ]);
+
+/** Lunedì=1 … Domenica=7 (come getRomeParts.weekday). */
+const ITALIAN_WEEKDAY_NAMES = ["", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"];
+
+function formatExtraMovieNightStaffDateLabel(date = new Date(), { eve = false } = {}) {
+  const parts = getRomeParts(date);
+  const monthName = ITALIAN_MONTH_NAMES[Math.max(0, parts.month - 1)] || "";
+  const dayName = ITALIAN_WEEKDAY_NAMES[parts.weekday] || "";
+  const cap = dayName ? dayName.charAt(0).toUpperCase() + dayName.slice(1) : "Serata";
+  if (eve) return `${cap} ${parts.day} ${monthName}, alle ${MOVIE_NIGHT_DISPLAY_TIME}`;
+  return `Oggi, ${parts.day} ${monthName}, alle ${MOVIE_NIGHT_DISPLAY_TIME}`;
+}
+
+function getFixedMovieDescriptionForDate(date = new Date()) {
+  const extra = getExtraFixedMovieNight(date);
+  if (extra?.description) return String(extra.description).trim();
+  const parts = getRomeParts(date);
+  if (parts.hour < 4) {
+    const yesterday = new Date(date.getTime() - 24 * 60 * 60 * 1000);
+    const yExtra = getExtraFixedMovieNight(yesterday);
+    if (yExtra?.description) return String(yExtra.description).trim();
+  }
+  const week = getHarryPotterMovieNightScheduleForWeek(date);
+  if (week && !week.skip && week.description) return String(week.description).trim();
+  return "";
+}
 const EXTRA_STATE_KEY = "movieNightExtra.v1";
 
 const ROME_PARTS_FORMATTER = new Intl.DateTimeFormat("en-GB", {
@@ -372,6 +461,8 @@ export = {
   getFixedMovieTitleForDate,
   getFixedMoviePosterForWeek,
   getFixedMoviePosterForDate,
+  getFixedMovieDescriptionForDate,
+  formatExtraMovieNightStaffDateLabel,
   resolveExtraMovieNightDateKey,
   getExtraMovieNightState,
   patchExtraMovieNightState,

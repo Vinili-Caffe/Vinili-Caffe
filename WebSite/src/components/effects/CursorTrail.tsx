@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EFFECT_KEYS, effectEnabled, isDesktopPointer } from "@/lib/site-effects";
+import { EFFECT_KEYS, effectEnabled, isChristmasSeason, isDesktopPointer } from "@/lib/site-effects";
 import { isPerfPaused } from "@/lib/perf-pause";
 import { useDeviceFx } from "./DeviceFxProvider";
 
@@ -180,6 +180,10 @@ export function CursorTrail() {
 
   if (!active) return null;
 
+  const xmas = typeof document !== "undefined" && isChristmasSeason();
+  const head = xmas ? "#f5d76e" : "#f4e2cc";
+  const tail = xmas ? "#c41e3a" : "#f4e2cc";
+
   return (
     <svg
       ref={svgRef}
@@ -188,8 +192,8 @@ export function CursorTrail() {
     >
       <defs>
         <linearGradient ref={gradRef} id="vc-cursor-trail-grad" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#f4e2cc" stopOpacity="0.95" />
-          <stop offset="100%" stopColor="#f4e2cc" stopOpacity="0.08" />
+          <stop offset="0%" stopColor={head} stopOpacity="0.95" />
+          <stop offset="100%" stopColor={tail} stopOpacity="0.08" />
         </linearGradient>
       </defs>
       <path

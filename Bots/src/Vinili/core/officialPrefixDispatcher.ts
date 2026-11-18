@@ -330,8 +330,28 @@ const official = createOfficialPrefixDispatcher({
       );
       return true;
     }
-    if (String(permissionResult?.reason || "").startsWith("feature_disabled:")) {
-      return true;
+    {
+      const reason = String(permissionResult?.reason || "");
+      const disabledReasons = new Set([
+        "module_disabled",
+        "board_disabled",
+        "board_feature_disabled",
+        "tenant_command_disabled",
+      ]);
+      if (disabledReasons.has(reason) || reason.startsWith("feature_disabled:")) {
+        await deleteCommandMessage();
+        let text = String(permissionResult?.message || "").trim();
+        if (!text) {
+          try {
+            const MS = require("../../MultiGuild/core/moduleSwitches") as typeof import("../../MultiGuild/core/moduleSwitches");
+            text = MS.DISABLED_COMMAND_MESSAGE || "Questo comando è disattivato su questo server.";
+          } catch (_) {
+            text = "Questo comando è disattivato su questo server.";
+          }
+        }
+        await sendTemporaryMessage(message.channel, { content: `${E.vegax || E.VC_Attention || ""} ${text}`.trim() }, EPHEMERAL_TTL_SHORT_MS);
+        return true;
+      }
     }
     if (
       (permissionResult?.reason === "channel" || permissionResult?.reason === "tenant_command_channel") &&

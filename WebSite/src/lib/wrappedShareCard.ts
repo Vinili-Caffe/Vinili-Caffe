@@ -133,8 +133,19 @@ function canvasToJpegBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-function revokeLater(url: string) {
-  window.setTimeout(() => URL.revokeObjectURL(url), 180_000);
+function revokeCards(cards: WrappedShareCard[] | null | undefined) {
+  for (const c of cards || []) {
+    try {
+      URL.revokeObjectURL(c.objectUrl);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** Blob URL fresco da blob (le URL vecchie possono essere già revocate). */
+export function objectUrlFromCard(card: WrappedShareCard): string {
+  return URL.createObjectURL(card.blob);
 }
 
 /** Taglia il testo con "…" finché sta nella larghezza. */
@@ -356,7 +367,6 @@ async function makeCard(
   const fileName = `vinili-wrapped-${data.year}-${format}.jpg`;
   const file = new File([blob], fileName, { type: "image/jpeg" });
   const objectUrl = URL.createObjectURL(blob);
-  revokeLater(objectUrl);
 
   return {
     id: format,
@@ -415,11 +425,25 @@ export async function buildWrappedShareCards(
   opts?: { onFirst?: (card: WrappedShareCard) => void },
 ): Promise<WrappedShareCard[]> {
   const key = cacheKey(data);
-  if (cache?.key === key && cache.cards.length) return cache.cards;
+  if (cache?.key === key && cache.cards.length) {
+    /* Rinnova gli object URL: non devono mai dipendere da un revoke timed. */
+    const refreshed = cache.cards.map((c) => {
+      try {
+        URL.revokeObjectURL(c.objectUrl);
+      } catch {
+        /* ignore */
+      }
+      return { ...c, objectUrl: URL.createObjectURL(c.blob) };
+    });
+    cache = { key, cards: refreshed, at: Date.now() };
+    opts?.onFirst?.(refreshed[0]);
+    return refreshed;
+  }
   if (inflight?.key === key) return inflight.promise;
 
   const promise = buildAll(data, opts?.onFirst)
     .then((cards) => {
+      if (cache) revokeCards(cache.cards);
       cache = { key, cards, at: Date.now() };
       return cards;
     })
@@ -455,12 +479,20 @@ export async function shareWrappedCard(
     if ((err as { name?: string })?.name === "AbortError") return "aborted";
   }
 
+  const url = URL.createObjectURL(card.blob);
   const a = document.createElement("a");
-  a.href = card.objectUrl;
+  a.href = url;
   a.download = card.file.name;
   a.rel = "noopener";
   document.body.appendChild(a);
   a.click();
   a.remove();
+  window.setTimeout(() => {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      /* ignore */
+    }
+  }, 2_000);
   return "downloaded";
 }

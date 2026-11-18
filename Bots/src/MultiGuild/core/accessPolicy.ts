@@ -58,11 +58,8 @@ function canInvokePrefixCommand(guildId?, commandCategory?) {
 }
 
 function mapCategoryToFeature(category?) {
+  /* utility / minigiochi / music / tts: niente feature-flag modulo — solo tab Comandi (ACL) */
   const map = {
-    utility: "utility",
-    music: "music",
-    tts: "tts",
-    minigames: "minigames",
     moderation: "moderation",
     level: "level",
     stats: "stats",
@@ -71,6 +68,7 @@ function mapCategoryToFeature(category?) {
     admin: "staff_tools",
     dev: "staff_tools",
     partnership: "partnership",
+    ticket: "ticket",
   };
   return map[String(category || "").toLowerCase()] || null;
 }

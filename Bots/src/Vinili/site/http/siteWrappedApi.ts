@@ -12,9 +12,41 @@ function resolveGuildId(client?) {
   return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
 }
 
-/** Anno Wrapped (Europe/Rome): 1° gennaio → oggi. */
+function romeParts(now = new Date()) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Rome",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(now);
+    return {
+      y: Number(parts.find((p) => p.type === "year")?.value),
+      m: Number(parts.find((p) => p.type === "month")?.value),
+      d: Number(parts.find((p) => p.type === "day")?.value),
+      h: Number(parts.find((p) => p.type === "hour")?.value),
+    };
+  } catch {
+    return {
+      y: now.getFullYear(),
+      m: now.getMonth() + 1,
+      d: now.getDate(),
+      h: now.getHours(),
+    };
+  }
+}
+
+/**
+ * Anno Wrapped (Europe/Rome).
+ * In gennaio (finestra 1–7 gen) resta l’anno appena concluso.
+ */
 function wrappedYear(date = new Date()) {
-  return Number(String(romeDayKey(date)).slice(0, 4)) || date.getFullYear();
+  const { y, m } = romeParts(date);
+  const year = y || Number(String(romeDayKey(date)).slice(0, 4)) || date.getFullYear();
+  if (m === 1) return year - 1;
+  return year;
 }
 
 function yearStartDayKey(year?) {
@@ -299,19 +331,51 @@ async function countActivePool(guildId?) {
   return value;
 }
 
-function isWrappedPublicEnabled() {
-  return ["1", "true", "yes", "on"].includes(String(process.env.WEBSITE_WRAPPED_HTTP || "").trim().toLowerCase());
+/** Finestra pubblica Wrapped (Rome): 10 dic 12:00 → 7 gen 12:00. */
+function isWrappedSeasonRome(now = new Date()) {
+  const { y, m, d, h } = romeParts(now);
+  if (!y || !m || !d) return false;
+  if (m === 12 && (d > 10 || (d === 10 && h >= 12))) return true;
+  if (m === 1 && (d < 7 || (d === 7 && h < 12))) return true;
+  return false;
 }
 
-async function getSiteWrapped(client?, payload?) {
-  if (!isWrappedPublicEnabled()) {
-    return {
-      ok: false,
-      status: 503,
-      error: "wrapped_disabled",
-      message: "Vinili Wrapped non è ancora pubblico.",
-    };
+function isWrappedPublicEnabled(now = new Date()) {
+  const env = String(process.env.WEBSITE_WRAPPED_HTTP || "").trim().toLowerCase();
+  if (env === "0" || env === "false" || env === "off" || env === "no") return false;
+  if (env === "1" || env === "true" || env === "yes" || env === "on") return true;
+  return isWrappedSeasonRome(now);
+}
+
+function memberIsWrappedPreviewStaff(member?) {
+  try {
+    const { memberIsHighStaffEligible } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
+    return Boolean(memberIsHighStaffEligible(member));
+  } catch {
+    return false;
   }
+}
+
+/** Pubblico in stagione; fuori stagione solo High Staff. Force: WEBSITE_WRAPPED_HTTP=1. */
+function assertWrappedAccess(resolved?) {
+  if (isWrappedPublicEnabled()) return null;
+  if (memberIsWrappedPreviewStaff(resolved?.member)) return null;
+  return {
+    ok: false,
+    status: 503,
+    error: "wrapped_disabled",
+    message: "Vinili Wrapped non è aperto in questo periodo.",
+  };
+}
+
+function wrappedViewerRoleId() {
+  return String(IDs.roles?.WrappedViewer || "1572319349501595728").trim();
+}
+
+/**
+ * Fine slideshow Wrapped → assegna ruolo commemorativo (una volta per anno).
+ */
+async function completeSiteWrapped(client?, payload?) {
   const accessToken = String(payload?.accessToken || "").trim();
   if (!accessToken) {
     return { ok: false, status: 401, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." };
@@ -319,6 +383,84 @@ async function getSiteWrapped(client?, payload?) {
 
   const resolved = await resolveWebsiteGuildMember(client, accessToken);
   if (!resolved.ok) return resolved;
+
+  const denied = assertWrappedAccess(resolved);
+  if (denied) return denied;
+
+  const guildId = resolveGuildId(client);
+  const userId = String(resolved.userId || "").trim();
+  const roleId = wrappedViewerRoleId();
+  if (!guildId || !userId || !roleId) {
+    return { ok: false, status: 500, error: "misconfigured", message: "Guild/user/ruolo non risolti." };
+  }
+
+  const year = wrappedYear();
+  const completedPath = `profile.events.wrapped.${year}.completedAt`;
+  const rolePath = `profile.events.wrapped.${year}.roleGranted`;
+  const nowIso = new Date().toISOString();
+
+  const existing = await ActivityUserProfile.findOne({ guildId, userId })
+    .select(`profile.events.wrapped.${year}`)
+    .lean()
+    .catch(() => null);
+  const already =
+    Boolean(existing?.profile?.events?.wrapped?.[String(year)]?.roleGranted) ||
+    Boolean(existing?.profile?.events?.wrapped?.[year]?.roleGranted);
+
+  let roleGranted = already;
+  if (!already) {
+    const guild =
+      client?.guilds?.cache?.get(guildId) ||
+      (await client?.guilds?.fetch?.(guildId).catch(() => null));
+    const member =
+      guild?.members?.cache?.get(userId) ||
+      (await guild?.members?.fetch?.(userId).catch(() => null));
+    if (member?.roles) {
+      if (member.roles.cache.has(roleId)) {
+        roleGranted = true;
+      } else {
+        roleGranted = await member.roles
+          .add(roleId, `Vinili Wrapped ${year} completato`)
+          .then(() => true)
+          .catch(() => false);
+      }
+    }
+  }
+
+  await ActivityUserProfile.findOneAndUpdate(
+    { guildId, userId },
+    {
+      $set: {
+        [completedPath]: nowIso,
+        [rolePath]: Boolean(roleGranted),
+        "profile.events.wrapped.updatedAt": nowIso,
+      },
+      $setOnInsert: { guildId, userId },
+    },
+    { upsert: true },
+  ).catch(() => null);
+
+  return {
+    ok: true,
+    status: 200,
+    year,
+    roleId,
+    roleGranted: Boolean(roleGranted),
+    already: Boolean(already),
+  };
+}
+
+async function getSiteWrapped(client?, payload?) {
+  const accessToken = String(payload?.accessToken || "").trim();
+  if (!accessToken) {
+    return { ok: false, status: 401, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." };
+  }
+
+  const resolved = await resolveWebsiteGuildMember(client, accessToken);
+  if (!resolved.ok) return resolved;
+
+  const denied = assertWrappedAccess(resolved);
+  if (denied) return denied;
 
   const guildId = resolveGuildId(client);
   const userId = String(resolved.userId || "").trim();
@@ -555,4 +697,4 @@ async function getSiteWrapped(client?, payload?) {
   };
 }
 
-export = { getSiteWrapped };
+export = { getSiteWrapped, completeSiteWrapped, isWrappedSeasonRome, isWrappedPublicEnabled };

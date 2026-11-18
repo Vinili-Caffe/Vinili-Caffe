@@ -3,6 +3,38 @@ const fs = require("fs") as typeof import("fs");
 const { spawn, spawnSync } = require("child_process") as typeof import("child_process");
 const path = require("path") as typeof import("path");
 
+/* lavalinkEnvBeforeProbe1: wait-for-lavalink gira PRIMA del loader → senza .env usa youshallnotpass e spamma 401 */
+(function loadBotEnvEarly() {
+  const candidates = [
+    process.env.BOT_REPO ? path.join(String(process.env.BOT_REPO), ".env") : "",
+    path.resolve(__dirname, "../../.env"),
+    path.resolve(__dirname, "../.env"),
+    path.join(process.cwd(), ".env"),
+    path.resolve(process.cwd(), "../.env"),
+  ].filter(Boolean);
+  for (const filePath of candidates) {
+    try {
+      if (!fs.existsSync(filePath)) continue;
+      for (const line of fs.readFileSync(filePath, "utf8").split(/\n/)) {
+        const t = line.trim();
+        if (!t || t.startsWith("#")) continue;
+        const eq = t.indexOf("=");
+        if (eq < 1) continue;
+        const key = t.slice(0, eq).trim();
+        let val = t.slice(eq + 1).trim().replace(/\r/g, "");
+        if (
+          (val.startsWith('"') && val.endsWith('"')) ||
+          (val.startsWith("'") && val.endsWith("'"))
+        ) {
+          val = val.slice(1, -1);
+        }
+        if (key && process.env[key] == null) process.env[key] = val;
+      }
+      break;
+    } catch (_) {}
+  }
+})();
+
 const raw = (process.env.LAVALINK_HOST || "127.0.0.1:2333").trim().replace(/^https?:\/\//i, "");
 const lastColon = raw.lastIndexOf(":");
 const host = lastColon > 0 ? raw.slice(0, lastColon) : raw;

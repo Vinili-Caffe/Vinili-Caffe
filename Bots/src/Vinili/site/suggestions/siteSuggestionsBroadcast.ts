@@ -184,6 +184,16 @@ function broadcastSiteConfessionaleChanged(action = "") {
   notifyExternalSiteRealtime(payload);
 }
 
+function broadcastAlberoChanged(action = "") {
+  const payload = {
+    type: "albero_changed",
+    action: String(action || "").trim().toLowerCase() || "changed",
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
 function broadcastSiteStaffPausesChanged() {
   const payload = { type: "staff_pauses_changed", at: new Date().toISOString() };
   try {
@@ -402,6 +412,7 @@ export = {
   broadcastSiteNotificationsChanged,
   broadcastSiteReviewsChanged,
   broadcastSiteConfessionaleChanged,
+  broadcastAlberoChanged,
   broadcastSiteStaffPausesChanged,
   broadcastSiteStaffWorkflowChanged,
   broadcastSiteStaffWorkflowChangedDebounced,

@@ -88,6 +88,26 @@ async function loadWordList(cfg?) {
   return cachedWords;
 }
 
+const OPENTDB_GK_DEFAULT_URLS = [
+  "https://opentdb.com/api.php?amount=8&category=9&encode=url3986",
+  "https://opentdb.com/api.php?amount=8&category=23&encode=url3986",
+  "https://opentdb.com/api.php?amount=8&category=22&encode=url3986",
+  "https://opentdb.com/api.php?amount=8&category=11&encode=url3986",
+  "https://opentdb.com/api.php?amount=8&category=14&encode=url3986",
+  "https://opentdb.com/api.php?amount=8&category=12&encode=url3986",
+  "https://opentdb.com/api.php?amount=8&category=17&encode=url3986",
+  "https://opentdb.com/api.php?amount=8&category=18&encode=url3986",
+];
+
+function shuffleUrls(list = []) {
+  const out = list.slice();
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 function buildItalianGkApiUrls(cfg?) {
   const rawUrls = Array.isArray(cfg?.italianGK?.apiUrls) ? cfg.italianGK.apiUrls : cfg?.italianGK?.apiUrl ? [cfg.italianGK.apiUrl] : [];
 
@@ -117,7 +137,12 @@ function buildItalianGkApiUrls(cfg?) {
     out.push(base.replace(/\{lang\}/g, "it"));
   }
 
-  return out;
+  /* default ON: OpenTDB multi-categoria (film/serie/musica/storia/geo…) */
+  if (!out.length && cfg?.italianGK?.useDefaultApi !== false) {
+    out.push(...shuffleUrls(OPENTDB_GK_DEFAULT_URLS));
+  }
+
+  return shuffleUrls(out);
 }
 
 function parseItalianGkQuestionFromPayload(payload?) {

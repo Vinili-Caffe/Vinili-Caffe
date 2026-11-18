@@ -57,7 +57,9 @@ async function buildHangmanBoardAttachment(game?, lines = [], client = null, fil
         title: "Impiccato",
         lines,
         backgroundUrl: bg,
-        fileName: `hangman_${String(fileNameSuffix || Date.now()).replace(/[^\w\-]+/g, "_")}.png`,
+        fileName: fileNameSuffix
+          ? `hangman_${String(fileNameSuffix).replace(/[^\w\-]+/g, "_")}.png`
+          : "hangman.png",
       });
       if (attachment) return attachment;
     } catch (_) {}
@@ -70,6 +72,10 @@ export = {
   polishItalianQuestionText: remote.polishItalianQuestionText,
   fetchWikiRegionImage: remote.fetchWikiRegionImage,
   fetchWikiCapitalImage: remote.fetchWikiCapitalImage,
+  fetchWikiSummaryImage: remote.fetchWikiSummaryImage,
+  fetchMediaCoverImage: remote.fetchMediaCoverImage,
+  fetchLandmarkImage: remote.fetchLandmarkImage,
+  fetchCinemaAtmosphereImage: remote.fetchCinemaAtmosphereImage,
   pickBestSingerImage: remote.pickBestSingerImage,
   fetchSingerImageFallback: remote.fetchSingerImageFallback,
   buildDrivingQuizPromptImage: canvas.buildDrivingQuizPromptImage,
@@ -82,6 +88,7 @@ export = {
   buildHangmanBoardAttachment,
   fetchRawImageAttachment: remote.fetchRawImageAttachment,
   buildRemoteGuessImageCardAttachment: canvas.buildRemoteGuessImageCardAttachment,
+  buildAtmosphereTextCardAttachment: canvas.buildAtmosphereTextCardAttachment,
   buildMathExpressionImageAttachment: canvas.buildMathExpressionImageAttachment,
   hasUsablePlayerImage: remote.hasUsablePlayerImage,
   censorArtworkImage: canvas.censorArtworkImage,

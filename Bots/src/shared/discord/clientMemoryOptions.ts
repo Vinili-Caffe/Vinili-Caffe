@@ -34,7 +34,9 @@ function buildDiscordClientMemoryOptions(discord?) {
       StageInstanceManager: 5,
       ThreadManager: 25,
       ThreadMemberManager: 10,
-      VoiceStateManager: 100,
+      // Troppo basso (100): con guild affollata lo stato vocale viene espulso dalla cache
+      // e publicVoiceHub/stanza saltano la create (memberStillInVoiceChannel → false).
+      VoiceStateManager: 500,
     }),
     sweepers,
   };

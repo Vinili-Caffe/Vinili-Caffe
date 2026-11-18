@@ -134,22 +134,54 @@ async function render(type: string, client?): Promise<PreviewOut> {
       return canvasOut(await themedCard(cfg, "Trova il bot in chat", ["Cerca il messaggio nascosto in un canale del server.", "Reagisci con il cuore quando lo trovi!"], "find_bot", client));
     case "findBotVoice":
       return canvasOut(await themedCard(cfg, "Trova il bot in vocale", ["Il bot si è nascosto in una vocale vuota del server.", "Entra in quella vocale per vincere!"], "find_bot", client));
-    case "guessYear":
-      return canvasOut(card("Indovina l'anno di uscita", ["Inception", "Film"], "guess_year", client));
+    case "guessYear": {
+      const cover =
+        (await images.fetchMediaCoverImage("Inception", "film").catch(() => null)) ||
+        (await images.fetchWikiSummaryImage?.(["Inception (film)", "Inception"]).catch(() => null));
+      return photoCardOut(
+        [String(cover || "")],
+        "Inception · Film",
+        "guess_year",
+        ["Inception", "Film"],
+        client,
+        "Anteprima senza copertina.",
+      );
+    }
     case "completeVerse":
       return canvasOut(await themedCard(cfg, "Completa il verso", ["Nel blu dipinto di blu…", "Volare — Domenico Modugno"], "complete_verse", client));
     case "guessEmoji": {
       const att = (await images.buildEmojiRichPromptImageAttachment("Indovina la parola da queste emoji", ["🦁👑", "Categoria: Film"], "guess_emoji").catch(() => null)) as Attachment;
       return canvasOut(toDataUrl(att) || card("Indovina la parola da queste emoji", ["🦁👑", "Categoria: Film"], "guess_emoji", client));
     }
-    case "quoteFilm":
-      return canvasOut(card("Citazione di un film o serie TV", ["\"Che la forza sia con te\""], "quote_film", client));
+    case "quoteFilm": {
+      const quote = "“Che la forza sia con te”";
+      const atm = await images.fetchCinemaAtmosphereImage().catch(() => null);
+      if (atm) {
+        const att = (await images
+          .buildAtmosphereTextCardAttachment("Citazione da film/serie", [quote], atm, "quote_film.png")
+          .catch(() => null)) as Attachment;
+        const url = toDataUrl(att);
+        if (url) return { image: url, source: "canvas" };
+      }
+      return canvasOut(await themedCard(cfg, "Citazione da film/serie", [quote], "quote_film", client));
+    }
     case "completeProverb":
       return canvasOut(card("Completa il proverbio", ["Chi dorme…"], "complete_proverb", client));
     case "synonymAntonym":
       return canvasOut(card("Trova il sinonimo", ["Parola: bello", "Scrivi un sinonimo di questa parola."], "synonym_antonym", client));
-    case "guessCity":
-      return canvasOut(card("Indovina la città", ["Il Colosseo", "Paese: Italia"], "guess_city", client));
+    case "guessCity": {
+      const landmark =
+        (await images.fetchLandmarkImage("Colosseo", "Roma", "Italia").catch(() => null)) ||
+        (await images.fetchWikiSummaryImage?.(["Colosseo", "Colosseum"]).catch(() => null));
+      return photoCardOut(
+        [String(landmark || "")],
+        "Indovina la città",
+        "guess_city",
+        ["Il Colosseo", "Paese: Italia"],
+        client,
+        "Anteprima senza foto del landmark.",
+      );
+    }
     case "guessRegionCapital": {
       const region = "Lazio";
       const wiki = await images.fetchWikiRegionImage(region).catch(() => null);
@@ -293,9 +325,9 @@ async function renderMinigamePreview(type?: string, client?): Promise<PreviewOut
 /* ── anteprime preparate dal processo dei minigiochi ──
  * Il processo del sito non raggiunge le fonti esterne (TheSportsDB, Deezer…): le immagini le genera il processo
  * che fa girare i minigiochi veri, le salva nel database e il sito le legge da lì. */
-/* v5: capitale inverso/regione con foto wiki; niente barra accent. */
-const STORE_PREFIX = "minigamePreview.v5.";
-const WANTED_KEY = "minigamePreviewWanted.v5.list";
+/* v6: città/anno/citazione con foto wiki o atmosfera cinema. */
+const STORE_PREFIX = "minigamePreview.v6.";
+const WANTED_KEY = "minigamePreviewWanted.v6.list";
 const FRESH_MS = 12 * 60 * 60 * 1000;
 type StoredPreview = PreviewOut & { at: number };
 

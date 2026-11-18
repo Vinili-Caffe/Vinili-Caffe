@@ -346,6 +346,21 @@ export = {
       global.logger?.warn?.("[voiceStateUpdate] stanza hooks load:", error?.message || error);
     }
 
+    /* Hub duo/trio/squad/game: subito dopo stanza (prima di serata/activity/minigame).
+       Await lunghi + VoiceStateManager limit facevano skip create silenzioso. */
+    try {
+      const { handlePublicVoiceHubJoin, handlePublicVoiceHubEmpty } = require("../../Community/services/publicVoiceHubService") as typeof import("../../Community/services/publicVoiceHubService");
+      if (
+        client?.config?.publicVoiceHubs?.enabled !== false ||
+        client?.config?.gameVoiceHubs?.enabled !== false
+      ) {
+        await handlePublicVoiceHubJoin(oldState, newState, client);
+        await handlePublicVoiceHubEmpty(oldState, newState, client);
+      }
+    } catch (error) {
+      global.logger?.error?.("[PUBLIC VOICE HUB ERROR]", error);
+    }
+
     /* perfP1: log audit fuori dal critical path (non bloccano activity/hub) */
     void sendMemberMoveLog(oldState, newState).catch((error?) => {
       global.logger?.error?.("[voiceStateUpdate] move log failed:", error);
@@ -399,18 +414,6 @@ export = {
     } catch (error) {
       global.logger?.error?.("[MINIGAMES] voiceStateUpdate failed:", error);
     }
-    try {
-      const { handlePublicVoiceHubJoin, handlePublicVoiceHubEmpty } = require("../../Community/services/publicVoiceHubService") as typeof import("../../Community/services/publicVoiceHubService");
-      if (
-        client?.config?.publicVoiceHubs?.enabled !== false ||
-        client?.config?.gameVoiceHubs?.enabled !== false
-      ) {
-        await handlePublicVoiceHubJoin(oldState, newState, client);
-        await handlePublicVoiceHubEmpty(oldState, newState, client);
-      }
-    } catch (error) {
-      global.logger?.error?.("[PUBLIC VOICE HUB ERROR]", error);
-    }
 
         
     try {
@@ -423,7 +426,17 @@ export = {
     }
 
     if (!client?.user?.id) return;
-    if (client?.config?.tts?.stayConnected) return;
+    {
+      let stay = Boolean(client?.config?.tts?.stayConnected);
+      try {
+        const gid = String(newState?.guild?.id || oldState?.guild?.id || "");
+        if (gid) {
+          const { resolveGuildTtsOverlay } = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
+          stay = Boolean(resolveGuildTtsOverlay(gid, client?.config).stayConnected);
+        }
+      } catch (_) {}
+      if (stay) return;
+    }
 
     const guild = newState?.guild || oldState?.guild;
     if (!guild) return;

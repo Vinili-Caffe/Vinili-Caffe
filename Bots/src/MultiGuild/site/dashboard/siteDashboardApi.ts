@@ -2,12 +2,11 @@ const { PermissionFlagsBits, Routes } = require("discord.js") as typeof import("
 const IDs = require("../../../Vinili/Config/ids") as typeof import("../../../Vinili/Config/ids");
 const { isViniliFullFeatureGuild } = require("../../core/guildFeatureScope") as typeof import("../../core/guildFeatureScope");
 const { isViniliProtectedGuild } = require("../../core/viniliProtectedGuilds") as typeof import("../../core/viniliProtectedGuilds");
-const { resolveGuildAccess, listRegisteredGuildIds } = require("../../core/guildRegistry") as typeof import("../../core/guildRegistry");
+const { resolveGuildAccess } = require("../../core/guildRegistry") as typeof import("../../core/guildRegistry");
 const {
   getPartnershipConfigSync,
   isPartnershipSetupComplete,
   refreshPartnershipConfigCache,
-  listConfiguredPartnershipGuildIds,
 } = require("../../../Vinili/Partner/core/tenantPartnershipSettings") as typeof import("../../../Vinili/Partner/core/tenantPartnershipSettings");
 const {
   getTenantDashboardRoleIdsSync,
@@ -523,23 +522,15 @@ async function fetchGuildCounts(client?, guildId?) {
 }
 
 function buildKnownBotGuildIdSet(client?) {
+  /* botPresentReal1: solo guild in cui il bot è davvero (cache gateway/REST sync), non partnership/registry */
   const ids = new Set();
   try {
     for (const id of client?.guilds?.cache?.keys?.() || []) {
       const gid = String(id || "").trim();
-      if (gid) ids.add(gid);
-    }
-  } catch (_) {}
-  try {
-    for (const id of listRegisteredGuildIds() || []) {
-      const gid = String(id || "").trim();
-      if (gid) ids.add(gid);
-    }
-  } catch (_) {}
-  try {
-    for (const id of listConfiguredPartnershipGuildIds() || []) {
-      const gid = String(id || "").trim();
-      if (gid) ids.add(gid);
+      if (!gid) continue;
+      const g = client?.guilds?.cache?.get?.(gid);
+      if (g && (g.available === false || g.unavailable === true)) continue;
+      ids.add(gid);
     }
   } catch (_) {}
   return ids;
@@ -589,25 +580,13 @@ async function syncKnownBotGuildIdsFromRest(client?, opts: Record<string, any> =
 async function isBotInGuild(client?, guildId?, opts: Record<string, any> = {}) {
   const gid = String(guildId || "").trim();
   if (!gid || !/^\d{17,22}$/.test(gid)) return false;
-  if (client?.guilds?.cache?.has?.(gid)) return true;
-    try {
-    const cfg = getPartnershipConfigSync(gid);
-    if (cfg?.partnershipsChannelId || cfg?.partnerManagerRoleId || cfg?.setupCompleted) return true;
-  } catch (_) {}
   try {
-    const access = resolveGuildAccess(gid);
-    if (access?.managed) return true;
+    const g = client?.guilds?.cache?.get?.(gid);
+    if (g && g.available !== false && g.unavailable !== true) return true;
   } catch (_) {}
   if (opts.allowFetch === false) return false;
 
-    try {
-    const { refreshDynamicGuildRowsCache } = require("../../core/tenantRegistryStore") as typeof import("../../core/tenantRegistryStore");
-    await refreshDynamicGuildRowsCache();
-    const accessFresh = resolveGuildAccess(gid);
-    if (accessFresh?.managed) return true;
-  } catch (_) {}
-
-    try {
+  try {
     const meId = String(client?.user?.id || "").trim();
     if (client?._rest && /^\d{17,22}$/.test(meId)) {
       await withTimeout(client._rest.get(Routes.guildMember(gid, meId)), 6000, "bot_member");

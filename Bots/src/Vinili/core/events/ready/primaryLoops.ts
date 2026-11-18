@@ -13,7 +13,14 @@ const {
 function skipExternalWorkerLoop(kind?) {
   const key = String(kind || "").trim().toUpperCase();
   if (!key) return false;
-  return envFlagOn(`${key}_EXTERNAL`) && !envFlagOn(`${key}_WORKER`);
+  const skip = envFlagOn(`${key}_EXTERNAL`) && !envFlagOn(`${key}_WORKER`);
+  if (skip) {
+    try {
+      const { warnIfExternalWorkerSkipped } = require("../../../../shared/runtime/externalWorkerGate") as typeof import("../../../../shared/runtime/externalWorkerGate");
+      warnIfExternalWorkerSkipped(key);
+    } catch (_) {}
+  }
+  return skip;
 }
 
 function startPrimaryLoops(client?, engagementTick?) {

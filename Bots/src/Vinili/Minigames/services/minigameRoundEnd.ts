@@ -436,6 +436,11 @@ async function sendMinigameTimeoutAndClose(client?, cfg?, channelId?, channel?, 
       }
     } catch (_) {}
     const embeds = loseEmbed ? [loseEmbed] : [];
+    try {
+      const boardChannel = channel?.messages?.fetch ? channel : await getChannelCached(client, chId);
+      const { stripMinigameGameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+      await stripMinigameGameMessage(boardChannel, game).catch(() => false);
+    } catch (_) {}
     activeGames.delete(chId);
     if (embeds.length) {
       let targetChannel = channel?.send ? channel : null;

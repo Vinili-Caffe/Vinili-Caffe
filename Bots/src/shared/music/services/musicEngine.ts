@@ -23,7 +23,12 @@ function lavalinkGlobalVolumeFromUserPercent(percent0to100?) {
   return Math.min(100, Math.max(0, n));
 }
 
-function resolveDefaultJoinGlobalVolume() {
+function resolveDefaultJoinGlobalVolume(guildId?) {
+  try {
+    const { resolveMusicDefaultVolumePercent } = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
+    const fromGuild = resolveMusicDefaultVolumePercent(guildId);
+    if (Number.isFinite(fromGuild)) return lavalinkGlobalVolumeFromUserPercent(fromGuild);
+  } catch (_) {}
   const raw = Number(process.env.MUSIC_DEFAULT_VOLUME);
   if (!Number.isFinite(raw) || raw < 0) return lavalinkGlobalVolumeFromUserPercent(MUSIC_DEFAULT_LAVALINK_VOLUME);
   let v = Math.floor(raw);
@@ -86,7 +91,11 @@ async function waitForLavalinkTcpThenInitShoukaku(client?) {
 
   if (!ready.ok) {
     client._shoukakuInitPending = false;
-    /* wait-for-lavalink già monitora: niente warn duplicato al boot. */
+    global.logger?.warn?.("[MUSIC] Lavalink non pronto dopo wait", {
+      host: ready.host,
+      port: ready.port,
+      waitedMs: ready.waitedMs,
+    });
     return;
   }
 
@@ -147,6 +156,15 @@ async function waitForLavalinkTcpThenInitShoukaku(client?) {
     });
     startMusicInactivityWatcher(client);
     startMusicQueueSnapshotLoop(client);
+    try {
+      const { getMusicBotHooks } = require("../../music/musicBotHooks") as typeof import("../../music/musicBotHooks");
+      if (getMusicBotHooks()?.profile !== "coffee") {
+        const { startAlwaysOnWatcher } = require("./musicAlwaysOn") as typeof import("./musicAlwaysOn");
+        startAlwaysOnWatcher(client);
+      }
+    } catch (err) {
+      global.logger?.warn?.("[MUSIC] alwaysOn watcher start:", err?.message || err);
+    }
   } catch (err) {
     client._shoukakuInitPending = false;
     global.logger?.error?.("[MUSIC] Inizializzazione Shoukaku fallita:", err?.message || err, err?.stack);

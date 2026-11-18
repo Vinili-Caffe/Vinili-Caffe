@@ -41,6 +41,9 @@ function discordError(err?) {
 async function putAutoResponder(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
+  if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(a.guildId, "risposte")) {
+    return fail(403, "module_off", "Il modulo Risposte automatiche è spento: riaccendilo da Moduli per salvare.");
+  }
   const rows = await T.listRows("autoResponders", a.guildId, true);
   const idx = body?.id ? rows.findIndex((r) => r.id === String(body.id)) : -1;
   if (idx < 0 && rows.length >= T.LIMITS.autoResponders) return fail(400, "limit", `Puoi creare al massimo ${T.LIMITS.autoResponders} risposte automatiche.`);
@@ -79,6 +82,9 @@ async function getAnnouncements(client?, token?, guildId?) {
 async function patchAnnouncements(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
+  if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(a.guildId, "benvenuto")) {
+    return fail(403, "module_off", "Il modulo Annunci automatici è spento: riaccendilo da Moduli per salvare.");
+  }
   const raw = body?.config || body;
   /* serve un ruolo e almeno un modo per avvisare: il canale o il privato */
   const empty = (raw?.roles?.rules || []).find((r?) => r?.enabled !== false && (!Array.isArray(r?.roleIds) || !r.roleIds.length || (!r?.channelId && r?.dm?.enabled !== true)));
@@ -96,6 +102,7 @@ async function patchAnnouncements(client?, token?, guildId?, body?) {
 /* ───────────── bump e voti ───────────── */
 
 const BV = () => require("../../services/bumpVotesRuntime") as typeof import("../../services/bumpVotesRuntime");
+const LVL = () => require("../../services/levelsRuntime") as typeof import("../../services/levelsRuntime");
 const voteUrls = (gid: string, token: string) => ({
   topgg: `https://api.viniliecaffe.it/webhooks/guild-votes/${gid}/topgg/${token}`,
   discadia: `https://api.viniliecaffe.it/webhooks/guild-votes/${gid}/discadia/${token}`,
@@ -106,12 +113,17 @@ async function getBumpVotes(client?, token?, guildId?) {
   if (!a.ok) return a;
   const imported = await BV().ensureMainSeed(client, a.guildId).catch(() => false);
   const config = await BV().getConfig(a.guildId, true);
-  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), imported, config, urls: voteUrls(a.guildId, config.votes.token) };
+  const levelsActive = LVL().levelsActive(a.guildId);
+  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), levelsActive, imported, config, urls: voteUrls(a.guildId, config.votes.token) };
 }
 
 async function patchBumpVotes(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
+  const MS = require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches");
+  if (!MS.isModuleOn(a.guildId, "bump") && !MS.isModuleOn(a.guildId, "voti")) {
+    return fail(403, "module_off", "I moduli Bump e Voti sono spenti: riaccendine almeno uno da Moduli per salvare.");
+  }
   const config = await BV().saveConfig(a.guildId, body?.config || body);
   return { ok: true, status: 200, config, urls: voteUrls(a.guildId, config.votes.token) };
 }
@@ -297,6 +309,9 @@ async function createCounter(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   const gid = a.guildId;
+  if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(gid, "contatori")) {
+    return fail(403, "module_off", "Il modulo Contatori è spento: riaccendilo da Moduli per crearne uno.");
+  }
   const rows = await T.listRows("counters", gid, true);
   if (rows.length >= T.LIMITS.counters) return fail(400, "limit", `Puoi creare al massimo ${T.LIMITS.counters} contatori.`);
   const counter = T.normalizeCounter({ type: body?.type, template: body?.template });
@@ -447,6 +462,9 @@ async function getLive(client?, token?, guildId?) {
 async function patchLive(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
+  if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(a.guildId, "live")) {
+    return fail(403, "module_off", "Il modulo Social Network è spento: riaccendilo da Moduli per salvare.");
+  }
   const raw = body?.config || body;
   const prev = await LIVE().getConfig(a.guildId, true);
   const draft = LIVE().normalizeConfig(raw, prev);
@@ -480,12 +498,16 @@ async function getBirthdays(client?, token?, guildId?) {
   try {
     timezone = (require("../../core/tenantGuildSettings") as typeof import("../../core/tenantGuildSettings")).getTenantTimezoneSync(a.guildId) || timezone;
   } catch (_) {}
-  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), imported, config, timezone };
+  const levelsActive = LVL().levelsActive(a.guildId);
+  return { ok: true, status: 200, isMainGuild: T.isMainGuild(a.guildId), levelsActive, imported, config, timezone };
 }
 
 async function patchBirthdays(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
+  if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(a.guildId, "compleanni")) {
+    return fail(403, "module_off", "Il modulo Compleanni è spento: riaccendilo da Moduli per salvare.");
+  }
   const raw = body?.config || body || {};
   if (raw.channelId != null && raw.channelId !== "" && !T.isId(raw.channelId)) return fail(400, "bad_channel", "Canale non valido.");
   const config = await BDAY().saveConfig(a.guildId, raw);
@@ -493,8 +515,6 @@ async function patchBirthdays(client?, token?, guildId?, body?) {
 }
 
 /* ───────────── Livelli / EXP ───────────── */
-
-const LVL = () => require("../../services/levelsRuntime") as typeof import("../../services/levelsRuntime");
 
 async function getLevels(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
@@ -597,6 +617,9 @@ async function patchLevels(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   if (!MS().moduleExists(a.guildId, "livelli")) return fail(404, "unavailable", "I livelli non sono disponibili su questo server.");
+  if (!MS().isModuleOn(a.guildId, "livelli")) {
+    return fail(403, "module_off", "Il modulo Livelli & EXP è spento: riaccendilo da Moduli per salvare.");
+  }
   const raw = { ...(body?.config || body || {}) };
   if (raw.levelUpChannelId != null && raw.levelUpChannelId !== "" && !T.isId(raw.levelUpChannelId)) {
     return fail(400, "bad_channel", "Canale non valido.");
@@ -695,6 +718,9 @@ async function publishGiveaway(client?, guildId?, p: { prize: string; channelId:
 async function createGiveaway(client?, token?, guildId?, body?) {
   const a: any = await access(client, token, guildId);
   if (!a.ok) return a;
+  if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(a.guildId, "giveaway")) {
+    return fail(403, "module_off", "Il modulo Giveaway è spento: riaccendilo da Moduli per crearne uno.");
+  }
   const prize = String(body?.prize || "").trim().slice(0, 200);
   const channelId = T.isId(body?.channelId) ? String(body.channelId) : "";
   const durationMs = Number(body?.durationMs);
@@ -850,6 +876,9 @@ async function listPolls(client?, token?, guildId?) {
 async function createPoll(client?, token?, guildId?, body?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
+  if (!(require("../../core/moduleSwitches") as typeof import("../../core/moduleSwitches")).isModuleOn(a.guildId, "sondaggi")) {
+    return fail(403, "module_off", "Il modulo Sondaggi è spento: riaccendilo da Moduli per crearne uno.");
+  }
   const rows = await T.listRows("polls", a.guildId, true);
   if (rows.length >= T.LIMITS.polls) return fail(400, "limit", `Hai già ${T.LIMITS.polls} sondaggi: eliminane qualcuno vecchio.`);
   const question = String(body?.question || "").trim().slice(0, 300);
@@ -947,12 +976,47 @@ async function setModuleSwitch(client?, token?, guildId?, body?) {
 }
 
 /* moduli del menu laterale: "Disattivati" = solo quelli spenti dalla pagina Moduli */
-const SIDEBAR_MODULES = ["bacheca", "tickets", "moderation", "partnership", "messaggi", "comandipers", "ruoli", "benvenuto", "risposte", "contatori", "bump", "voti", "giveaway", "sondaggi", "live", "compleanni", "livelli"];
+const SIDEBAR_MODULES = ["bacheca", "tickets", "moderation", "partnership", "messaggi", "comandipers", "ruoli", "benvenuto", "risposte", "contatori", "bump", "voti", "giveaway", "sondaggi", "live", "compleanni", "livelli", "backup", "vocale"];
 
 async function modulesStatus(client?, token?, guildId?) {
   const a = await access(client, token, guildId);
   if (!a.ok) return a;
   return { ok: true, status: 200, off: SIDEBAR_MODULES.filter((id) => MS().moduleExists(a.guildId, id) && !MS().isModuleOn(a.guildId, id)) };
+}
+
+/* ───────────── musica + TTS (vocale) ───────────── */
+
+const VOICE = () => require("../../services/voiceRuntime") as typeof import("../../services/voiceRuntime");
+
+async function getVoice(client?, token?, guildId?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  const config = await VOICE().getConfig(a.guildId, true);
+  let alwaysOnCatalog = { radios: [] as { id: string; label: string }[], chill: { id: "chill", label: "Lofi chill 24/7" } };
+  try {
+    const { alwaysOnCatalogPublic } = require("../../../shared/music/services/musicAlwaysOnCatalog") as typeof import("../../../shared/music/services/musicAlwaysOnCatalog");
+    alwaysOnCatalog = alwaysOnCatalogPublic();
+  } catch (_) {}
+  return { ok: true, status: 200, config, alwaysOnCatalog };
+}
+
+async function patchVoice(client?, token?, guildId?, body?) {
+  const a = await access(client, token, guildId);
+  if (!a.ok) return a;
+  if (!MS().isModuleOn(a.guildId, "vocale")) {
+    return fail(403, "module_off", "Il modulo Vocale è spento: riaccendilo da Moduli per salvare.");
+  }
+  const config = await VOICE().saveConfig(a.guildId, body?.config || body);
+  try {
+    const { notifyAlwaysOnConfigChanged } = require("../../../shared/music/services/musicAlwaysOn") as typeof import("../../../shared/music/services/musicAlwaysOn");
+    notifyAlwaysOnConfigChanged(client, a.guildId);
+  } catch (_) {}
+  let alwaysOnCatalog = { radios: [] as { id: string; label: string }[], chill: { id: "chill", label: "Lofi chill 24/7" } };
+  try {
+    const { alwaysOnCatalogPublic } = require("../../../shared/music/services/musicAlwaysOnCatalog") as typeof import("../../../shared/music/services/musicAlwaysOnCatalog");
+    alwaysOnCatalog = alwaysOnCatalogPublic();
+  } catch (_) {}
+  return { ok: true, status: 200, config, alwaysOnCatalog };
 }
 
 export = {
@@ -1000,4 +1064,6 @@ export = {
   createPoll,
   endPoll,
   deletePoll,
+  getVoice,
+  patchVoice,
 };

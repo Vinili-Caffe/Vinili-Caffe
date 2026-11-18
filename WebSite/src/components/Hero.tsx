@@ -74,7 +74,7 @@ export function Hero() {
   }, [ready, token, locale, t]);
 
   return (
-    <section ref={ref} className="relative isolate flex min-h-dvh items-center overflow-hidden pt-24">
+    <section ref={ref} data-vc-hero className="relative isolate flex min-h-dvh items-center overflow-hidden pt-24">
       <motion.div style={reduce ? undefined : { y: bgY }} className="absolute inset-0 -z-20">
         <HeroBackdrop priority imgClassName="size-full scale-[1.08] object-cover" objectPosition="55% 40%" />
       </motion.div>
@@ -130,9 +130,7 @@ export function Hero() {
               {welcome}
             </span>
             <GradientText className="block whitespace-nowrap drop-shadow-[0_2px_24px_rgba(217,154,91,0.2)] pr-[0.08em] text-[min(6rem,18.5cqw)] text-crema">
-              <span className="mr-[0.12em] inline-block align-[-0.08em] text-[0.72em] not-italic [-webkit-text-fill-color:unset] [background:none] [color:unset]">📀</span>
               Vinili <span className="italic">&amp;</span> Caffè
-              <span className="ml-[0.14em] inline-block align-[-0.06em] text-[0.72em] not-italic [-webkit-text-fill-color:unset] [background:none] [color:unset]">☕</span>
             </GradientText>
           </motion.h1>
 

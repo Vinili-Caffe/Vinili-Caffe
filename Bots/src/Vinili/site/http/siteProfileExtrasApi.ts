@@ -318,10 +318,20 @@ async function botPrefsFor(userId?: string, patch?: Record<string, any> | null) 
   };
 }
 
-async function getProfileExtras(client?, { accessToken, section: sectionRaw, viewAs: viewAsRaw, guild: guildRaw }: any = {}) {
+async function getProfileExtras(client?, { accessToken, section: sectionRaw, viewAs: viewAsRaw, guild: guildRaw, query }: any = {}) {
   const resolved: any = await resolveProfileUser(client, accessToken);
   if (!resolved.ok) return resolved;
   if (String(sectionRaw || "").toLowerCase() === "pm") return pmProfileFor(client, resolved, guildRaw);
+  /* cronologia partnership del server (come +history), dal profilo staff */
+  if (String(sectionRaw || "").toLowerCase() === "pmhistory") {
+    const { getProfilePartnershipHistory } = require("../../Partner/dashboard/partnershipHistory") as typeof import("../../Partner/dashboard/partnershipHistory");
+    const q = query && typeof query === "object" ? query : {};
+    return getProfilePartnershipHistory(client, accessToken, guildRaw || resolved?.guild?.id, {
+      days: q.days,
+      page: q.page,
+      pageSize: q.pageSize || q.limit,
+    });
+  }
   if (String(sectionRaw || "").toLowerCase() === "botprefs") return botPrefsFor(resolved.userId);
   /* privacy di un altro server: le scelte valgono solo lì */
   if (String(sectionRaw || "").toLowerCase() === "privacy" && guildRaw) {

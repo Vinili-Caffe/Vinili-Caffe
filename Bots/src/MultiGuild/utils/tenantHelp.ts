@@ -218,23 +218,46 @@ function resolveTenantHelpFeatures(guildId?) {
   /* server principale/protetti: hanno tutte le funzioni, quindi la guida le mostra tutte */
   if (access?.protected) return Object.fromEntries(CATEGORY_ORDER.map((c) => [c, true]));
   if (!access?.allowed) return {};
-  const features = access.entry?.features && typeof access.entry.features === "object"
-    ? access.entry.features
-    : {};
-  let boardsEnabled = false;
+  let MS: any = null;
   try {
-    const { getTenantBoardsSync } = require("../core/tenantGuildSettings") as typeof import("../core/tenantGuildSettings");
-    boardsEnabled = getTenantBoardsSync(guildId)?.enabled === true;
-  } catch {
-    boardsEnabled = false;
-  }
+    MS = require("../core/moduleSwitches") as typeof import("../core/moduleSwitches");
+  } catch (_) {}
   const out: Record<string, any> = {};
   for (const category of CATEGORY_ORDER) {
+    /* utility / musica / tts / minigiochi: niente scheda Moduli — sempre in guida (salvo ACL singolo) */
+    if (category === "utility" || category === "music" || category === "tts" || category === "minigames") {
+      out[category] = true;
+      continue;
+    }
+    const mod =
+      category === "bacheca"
+        ? "bacheca"
+        : category === "moderation"
+          ? "moderation"
+          : category === "partnership"
+            ? "partnership"
+            : null;
+    if (mod && MS?.isModuleEffectivelyOn) {
+      out[category] = MS.isModuleEffectivelyOn(guildId, mod) === true;
+      continue;
+    }
     const featureKey = mapCategoryToFeature(category);
-    /* Bacheca: solo se attiva dalla dashboard (boards.enabled). */
-    out[category] = featureKey ? features[featureKey] === true : category === "bacheca" && boardsEnabled;
+    const features = access.entry?.features && typeof access.entry.features === "object" ? access.entry.features : {};
+    out[category] = featureKey ? features[featureKey] === true : false;
   }
   return out;
+}
+
+function isHelpCommandAclOff(guildId?, invoke?) {
+  try {
+    const { peekDashboardCommandAcl } = require("../core/tenantCommandAcl") as typeof import("../core/tenantCommandAcl");
+    const token = resolveCommandToken(invoke);
+    if (!token) return false;
+    const acl = peekDashboardCommandAcl(guildId, token);
+    return acl?.enabled === false;
+  } catch {
+    return false;
+  }
 }
 
 function buildTenantHelpEntries(guildId?, client = null) {
@@ -246,6 +269,7 @@ function buildTenantHelpEntries(guildId?, client = null) {
     if (!enabled[category]) continue;
     const rows = TENANT_COMMAND_CATALOG[category] || [];
     for (const row of rows) {
+      if (isHelpCommandAclOff(guildId, row.invoke)) continue;
       entries.push(applyEntryPrefix({ ...row, category }, prefix));
     }
   }

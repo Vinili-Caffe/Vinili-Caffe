@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { MessageCircle } from "lucide-react";
-import { STATUS, type ConfStatus, type Confession } from "@/lib/confessionale";
+import { Heart, MessageCircle, VenetianMask } from "lucide-react";
+import { STATUS, likeConfession, type ConfStatus, type Confession } from "@/lib/confessionale";
 import { timeAgo } from "@/lib/time";
 import { cn } from "@/lib/cn";
 import { DiscordContent } from "@/components/discord/DiscordContent";
+import { showToast } from "@/components/ui/toast";
 
 /** Sigillo di ceralacca: rosso se aperta, verde se risolta, grigio se eliminata. */
 export function Seal({ status, className }: { status: ConfStatus; className?: string }) {
@@ -26,8 +28,53 @@ export function Seal({ status, className }: { status: ConfStatus; className?: st
 }
 
 /** Una lettera lasciata sul bancone. */
-export function Letter({ c, i, onOpen }: { c: Confession; i: number; onOpen: () => void }) {
+export function Letter({
+  c,
+  i,
+  token,
+  onOpen,
+  onUpdate,
+}: {
+  c: Confession;
+  i: number;
+  token: string | null;
+  onOpen: () => void;
+  onUpdate: (c: Confession) => void;
+}) {
   const gone = c.status === "soft_deleted";
+  const [liked, setLiked] = useState(c.likedByViewer);
+  const [likes, setLikes] = useState(c.likeCount || 0);
+  useEffect(() => {
+    setLiked(c.likedByViewer);
+    setLikes(c.likeCount || 0);
+  }, [c.likedByViewer, c.likeCount, c.id]);
+
+  const preview = (c.comments || []).slice(-3);
+  const like = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!token) {
+      showToast("Accedi per mettere mi piace", true);
+      return;
+    }
+    if (c.isMine) {
+      showToast("Non puoi mettere mi piace alla tua confessione", true);
+      return;
+    }
+    const prevLiked = liked;
+    const prevLikes = likes;
+    setLiked(!prevLiked);
+    setLikes(prevLikes + (prevLiked ? -1 : 1));
+    const res = await likeConfession(token, c.id);
+    if (!res.ok) {
+      setLiked(prevLiked);
+      setLikes(prevLikes);
+      showToast(res.message, true);
+      return;
+    }
+    onUpdate(res.data);
+  };
+
   return (
     <motion.article
       id={`vc-conf-card-${c.id}`}
@@ -56,12 +103,56 @@ export function Letter({ c, i, onOpen }: { c: Confession; i: number; onOpen: () 
           className={cn("mt-1 line-clamp-[8] font-display text-xl leading-relaxed", gone && "line-through decoration-ink/30")}
         />
         <div className="mt-5 flex items-end justify-between gap-3">
-          <span className="inline-flex items-center gap-1.5 text-sm text-ink/55 lining-nums">
-            <MessageCircle className="size-4" /> {c.commentCount}
-            {c.isMine && <span className="ml-2 rounded-full bg-ink/10 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-ink/70">La tua</span>}
+          <span className="inline-flex items-center gap-3 text-sm text-ink/55 lining-nums">
+            <span className="inline-flex items-center gap-1.5">
+              <MessageCircle className="size-4" /> {c.commentCount}
+            </span>
+            <button
+              type="button"
+              onClick={like}
+              title={!token ? "Accedi per mettere mi piace" : c.isMine ? "È la tua confessione" : liked ? "Togli mi piace" : "Mi piace"}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors",
+                liked ? "text-[#a83a2c]" : "hover:text-ink/80",
+              )}
+            >
+              <Heart className="size-4" fill={liked ? "currentColor" : "none"} />
+              {likes}
+            </button>
+            {c.isMine && <span className="rounded-full bg-ink/10 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-ink/70">La tua</span>}
           </span>
-          <span className="font-script text-2xl text-ink/60">— Anonimo</span>
+          <span className="font-script text-2xl text-ink/60">— Anonimo ☕</span>
         </div>
+
+        {preview.length > 0 && (
+          <div className="mt-4 space-y-2 border-t border-ink/10 pt-3" onClick={(e) => e.stopPropagation()}>
+            {preview.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={onOpen}
+                className="flex w-full items-start gap-2 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-ink/[0.04]"
+              >
+                {m.anonymous ? (
+                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-ink/10 text-ink/50">
+                    <VenetianMask className="size-3" />
+                  </span>
+                ) : (
+                  <span className="mt-0.5 size-5 shrink-0 rounded-full bg-ink/15" aria-hidden />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className={cn("text-[0.7rem] font-semibold text-ink/55", m.anonymous && "italic")}>{m.authorName}</span>
+                  <DiscordContent text={m.content || (m.imageUrls?.length ? "📷 Foto" : "")} className="line-clamp-2 text-sm leading-snug text-ink/70" />
+                </span>
+              </button>
+            ))}
+            {c.commentCount > preview.length && (
+              <p className="text-center text-[0.7rem] font-semibold uppercase tracking-wider text-ink/40">
+                +{c.commentCount - preview.length} · apri per leggere
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </motion.article>
   );

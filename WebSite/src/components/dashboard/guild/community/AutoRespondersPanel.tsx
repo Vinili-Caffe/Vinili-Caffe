@@ -110,7 +110,7 @@ export function AutoRespondersPanel({ guildId, token, onToast }: { guildId: stri
               <FormGroup title="Quando scatta" description="Le parole non distinguono maiuscole e minuscole.">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Nome (solo per te)">
-                    <input value={edit.name} maxLength={80} placeholder="es. IP del server" onChange={(e) => setEdit({ ...edit, name: e.target.value })} className={fieldClass} />
+                    <input name="autoresponderspanel-input-113" id="autoresponderspanel-input-113" value={edit.name} maxLength={80} placeholder="es. IP del server" onChange={(e) => setEdit({ ...edit, name: e.target.value })} className={fieldClass} />
                   </Field>
                   <Field label="Regola">
                     <Select value={edit.match} onChange={(v) => setEdit({ ...edit, match: v as AutoResponder["match"] })} options={MATCH} className={fieldClass} />
@@ -119,7 +119,7 @@ export function AutoRespondersPanel({ guildId, token, onToast }: { guildId: stri
                 <div className="mt-3">
                   <span className="text-[0.8rem] font-semibold text-crema/80">Parole o frasi ({edit.triggers.length}/10)</span>
                   <div className="mt-1.5 flex gap-2">
-                    <input
+                    <input name="autoresponderspanel-input-122" id="autoresponderspanel-input-122"
                       value={triggerInput}
                       onChange={(e) => setTriggerInput(e.target.value)}
                       onKeyDown={(e) => {

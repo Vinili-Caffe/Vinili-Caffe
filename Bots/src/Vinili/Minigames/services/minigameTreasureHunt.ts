@@ -11,6 +11,7 @@ const { sendMinigameMessage } = require("./minigameDiscord") as typeof import(".
 const { minigameDraftVars } = require("./minigameDraftSend") as typeof import("./minigameDraftSend");
 const { logTreasureHuntReactDebug, getTreasureHuntCfg, ensureGuildEmojisForTreasure, normalizeTreasureEmojiPair, findMessageReactionByToken, treasureReactErrorMeta, reactTreasureHuntEmojiWithFallbacks, pickTreasureHuntBucket, pickTreasureHuntEmojiPair, removeTreasureHuntReactions, serializeTreasureHuntTarget, getTreasureHuntMessageUrl } = require("./minigameTreasureEmoji") as typeof import("./minigameTreasureEmoji");
 const { markSent, saveActiveGame, parseStateTarget, closeExpiredMinigameState } = require("./minigameRound") as typeof import("./minigameRound");
+const { resolveMinigamePromptAttachment } = require("./minigameImages") as typeof import("./minigameImages");
 
 async function catchUpTreasureHuntReactions(channel?, game?) {
   if (!channel?.messages?.fetch || !game || !Array.isArray(game.candidateIds)) return;
@@ -326,17 +327,39 @@ async function startTreasureHuntGame(client?, cfg?) {
   activeGames.set(channelId, game);
   const saved = await persistTreasureHuntState(client, cfg, game);
   if (!saved) return false;
+  const decoyLabel = pair.decoyDisplay || pair.decoy;
+  const winnerLabel = pair.winnerDisplay || pair.winner;
+  const { attachment: huntAttachment } = await resolveMinigamePromptAttachment(
+    cfg,
+    "Caccia al tesoro",
+    [
+      `Sui prossimi messaggi: ${decoyLabel}`,
+      `Su uno solo compare ${winnerLabel} — cliccalo per primo!`,
+    ],
+    "treasure_hunt",
+    client,
+  ).catch(() => ({ attachment: null }));
+  // firma: (decoy, winner, durationMs, rewardExp, imageName) — non passare targetCount/reward come imageName
   const introEmbed = buildTreasureHuntStartEmbed(
-    pair.decoyDisplay || pair.decoy,
-    pair.winnerDisplay || pair.winner,
-    targetCount,
+    decoyLabel,
+    winnerLabel,
     durationMs,
     rewardExp,
+    huntAttachment?.name || null,
   );
   const introMessage = await sendMinigameMessage(
     channel,
-    { embeds: [introEmbed] },
-    { type: "treasureHunt", kind: "start", vars: minigameDraftVars(channel, { exp: rewardExp, durationMs, targetCount }) },
+    { embeds: [introEmbed], files: huntAttachment ? [huntAttachment] : [] },
+    {
+      type: "treasureHunt",
+      kind: "start",
+      vars: minigameDraftVars(channel, {
+        exp: rewardExp,
+        durationMs,
+        targetCount,
+        image: huntAttachment ? `attachment://${huntAttachment.name}` : "",
+      }),
+    },
   ).catch(() => null);
   if (introMessage?.id) {
     game.introMessageId = String(introMessage.id);

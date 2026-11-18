@@ -92,6 +92,28 @@ async function restoreGuessGames(client?, cfg?, channel?, state?, remainingMs?, 
     const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, cfg.channelId, channel, game, buildTimeoutSongEmbed(game.title, game.artist)); }, remainingMs); timeout.unref?.();
     const hintTimeout = await scheduleGenericHint(client, cfg.channelId, remainingMs, `${artistCountry} \u2022 ${genre} \u2022 Canzone: ${buildRevealHint(title)}`,
   );
+    const startedAt = new Date(state.startedAt).getTime();
+    const artwork = String(parsed?.artwork || "").trim();
+    let censorRevealTimeouts = [];
+    if (artwork && state.gameMessageId) {
+      try {
+        const { scheduleArtworkCensorSteps } = require("./quizGuessMedia") as typeof import("./quizGuessMedia");
+        const { buildGuessSongEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
+        const fullDurationMs = Math.max(60_000, Number(endsAt) - startedAt);
+        censorRevealTimeouts = scheduleArtworkCensorSteps({
+          channelId: cfg.channelId,
+          channel,
+          gameMessageId: state.gameMessageId,
+          originalArtworkUrl: artwork,
+          durationMs: fullDurationMs,
+          elapsedMs: Math.max(0, Date.now() - startedAt),
+          buildEmbed: buildGuessSongEmbed,
+          rewardExp: Number(state.rewardExp || 0),
+          attachmentName: "minigame_song.png",
+          gameType: "guessSong",
+        });
+      } catch (_) {}
+    }
     activeGames.set(cfg.channelId, {
       type: "guessSong",
       title,
@@ -99,10 +121,11 @@ async function restoreGuessGames(client?, cfg?, channel?, state?, remainingMs?, 
       previewUrl: parsed?.previewUrl || null,
       previewCustomId: state.customId || null,
       rewardExp: Number(state.rewardExp || 0),
-      startedAt: new Date(state.startedAt).getTime(),
+      startedAt,
       endsAt,
       timeout,
       hintTimeout,
+      censorRevealTimeouts,
       gameMessageId: state.gameMessageId || null,
     });
     return true;
@@ -232,15 +255,45 @@ async function restoreGuessGames(client?, cfg?, channel?, state?, remainingMs?, 
     const artist = parsed?.artist || "artista sconosciuto";
     const answers = Array.isArray(parsed?.answers) ? parsed.answers : buildAliases([album]);
     const timeout = setTimeout(async () => { const game = activeGames.get(cfg.channelId); if (!game) return; await sendMinigameTimeoutAndClose(client, cfg, cfg.channelId, channel, game, buildTimeoutAlbumEmbed(game.album, game.artist)); }, remainingMs); timeout.unref?.();
+    const startedAt = new Date(state.startedAt).getTime();
+    const artwork = String(parsed?.image || "").trim();
+    let censorRevealTimeouts = [];
+    if (artwork && state.gameMessageId) {
+      try {
+        const { scheduleArtworkCensorSteps } = require("./quizGuessMedia") as typeof import("./quizGuessMedia");
+        const { buildGuessAlbumEmbed } = require("./minigameEmbeds") as typeof import("./minigameEmbeds");
+        const fullDurationMs = Math.max(60_000, Number(endsAt) - startedAt);
+        censorRevealTimeouts = scheduleArtworkCensorSteps({
+          channelId: cfg.channelId,
+          channel,
+          gameMessageId: state.gameMessageId,
+          originalArtworkUrl: artwork,
+          durationMs: fullDurationMs,
+          elapsedMs: Math.max(0, Date.now() - startedAt),
+          buildEmbed: buildGuessAlbumEmbed,
+          rewardExp: Number(state.rewardExp || 0),
+          attachmentName: "minigame_album.png",
+          gameType: "guessAlbum",
+        });
+      } catch (_) {}
+    }
+    const hintTimeout = await scheduleGenericHint(
+      client,
+      cfg.channelId,
+      remainingMs,
+      `Artista: **${artist}** \u2022 Album: ${buildRevealHint(album)}`,
+    );
     activeGames.set(cfg.channelId, {
       type: "guessAlbum",
       album,
       artist,
       answers,
       rewardExp: Number(state.rewardExp || 0),
-      startedAt: new Date(state.startedAt).getTime(),
+      startedAt,
       endsAt,
       timeout,
+      hintTimeout,
+      censorRevealTimeouts,
       gameMessageId: state.gameMessageId || null,
     });
     return true;

@@ -86,6 +86,31 @@ function resolveTenantFeaturePrefixBypass(guildId?, commandName?, options: Recor
   const category = resolveTenantPrefixFeatureCategory(commandName);
   if (!category) return null;
 
+  /* Bacheca / moderazione / partnership: modulo acceso + setup minimo. */
+  try {
+    const MS = require("./moduleSwitches") as typeof import("./moduleSwitches");
+    const mod =
+      category === "bacheca"
+        ? "bacheca"
+        : category === "moderation"
+          ? "moderation"
+          : category === "partnership"
+            ? "partnership"
+            : null;
+    if (mod && typeof MS.isModuleEffectivelyOn === "function" && !MS.isModuleEffectivelyOn(gid, mod)) {
+      if (options.returnDetails) {
+        return {
+          allowed: false,
+          reason: "module_disabled",
+          requiredRoles: null,
+          channels: null,
+          message: MS.DISABLED_COMMAND_MESSAGE || "Questo comando è disattivato su questo server.",
+        };
+      }
+      return false;
+    }
+  } catch (_) {}
+
   /* Bacheca: non è feature registry — si attiva solo dalla dashboard. */
   if (category === "bacheca") {
     const access = resolveGuildAccess(gid);
@@ -94,6 +119,18 @@ function resolveTenantFeaturePrefixBypass(guildId?, commandName?, options: Recor
       return buildDenyResult(options, access.reason || "tenant_disabled");
     }
     if (!isTenantBoardsEnabled(gid)) {
+      if (options.returnDetails) {
+        try {
+          const MS = require("./moduleSwitches") as typeof import("./moduleSwitches");
+          return {
+            allowed: false,
+            reason: "board_disabled",
+            requiredRoles: null,
+            channels: null,
+            message: MS.DISABLED_COMMAND_MESSAGE || "Questo comando è disattivato su questo server.",
+          };
+        } catch (_) {}
+      }
       return buildDenyResult(options, "board_disabled");
     }
     return buildAllowResult(options, "multi_guild_tenant_boards");
@@ -104,6 +141,18 @@ function resolveTenantFeaturePrefixBypass(guildId?, commandName?, options: Recor
     return buildAllowResult(options, "multi_guild_tenant_feature");
   }
   if (!gate.ok) {
+    if (options.returnDetails) {
+      try {
+        const MS = require("./moduleSwitches") as typeof import("./moduleSwitches");
+        return {
+          allowed: false,
+          reason: gate.reason || `feature_disabled:${mapCategoryToFeature(category)}`,
+          requiredRoles: null,
+          channels: null,
+          message: MS.DISABLED_COMMAND_MESSAGE || "Questo comando è disattivato su questo server.",
+        };
+      } catch (_) {}
+    }
     return buildDenyResult(options, gate.reason || `feature_disabled:${mapCategoryToFeature(category)}`);
   }
   return buildAllowResult(options, gate.reason || "multi_guild_tenant_feature");

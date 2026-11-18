@@ -10,7 +10,7 @@ const TOP_SAFE_PX = 120;
 /**
  * Navbar che si toglie di mezzo.
  * - PC (mouse): dopo un paio di secondi sale via; torna appena il mouse va in cima, ci passa sopra o col tab da tastiera.
- * - Telefono (touch): sparisce scorrendo in giù, torna appena scorri un po' in su.
+ * - Telefono (touch): resta sempre visibile (come la dashboard) così il menu hamburger resta apribile.
  * In cima alla pagina, con un menu aperto o col focus dentro resta sempre visibile.
  */
 export function useAutoHideNav(headerRef: React.RefObject<HTMLElement | null>, forceShow: boolean) {
@@ -27,6 +27,12 @@ export function useAutoHideNav(headerRef: React.RefObject<HTMLElement | null>, f
 
   useEffect(() => {
     const fine = window.matchMedia("(hover: hover) and (pointer: fine)");
+    /* touch / coarse: niente auto-hide — hamburger sempre raggiungibile */
+    if (!fine.matches) {
+      setHidden(false);
+      return;
+    }
+
     const pinned = () =>
       window.scrollY <= TOP_SAFE_PX ||
       forceShow ||
@@ -49,27 +55,17 @@ export function useAutoHideNav(headerRef: React.RefObject<HTMLElement | null>, f
       armHide();
     };
 
-    let lastY = window.scrollY;
     const onScroll = () => {
-      const y = window.scrollY;
-      const dy = y - lastY;
-      lastY = y;
-      if (y <= TOP_SAFE_PX) {
+      if (window.scrollY <= TOP_SAFE_PX) {
         clear();
         setHidden(false);
         return;
       }
-      if (fine.matches) {
-        if (!hidden) armHide();
-        return;
-      }
-      // touch: giù nasconde, su (anche poco) mostra
-      if (dy > 6 && !pinned()) setHidden(true);
-      else if (dy < -4) setHidden(false);
+      if (!hidden) armHide();
     };
 
     const onMove = (e: PointerEvent) => {
-      if (e.pointerType === "touch" || !fine.matches) return;
+      if (e.pointerType === "touch") return;
       if (e.clientY <= REVEAL_ZONE_PX) show();
     };
 
@@ -93,7 +89,7 @@ export function useAutoHideNav(headerRef: React.RefObject<HTMLElement | null>, f
     header?.addEventListener("pointerenter", enter);
     header?.addEventListener("pointerleave", leave);
     header?.addEventListener("focusin", focusIn);
-    if (window.scrollY > TOP_SAFE_PX && fine.matches) armHide();
+    if (window.scrollY > TOP_SAFE_PX) armHide();
 
     return () => {
       clear();

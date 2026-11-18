@@ -1,3 +1,18 @@
+const {
+  GUESS_YEAR_EXTRA,
+  QUOTE_FILM_EXTRA,
+  COMPLETE_VERSE_EXTRA,
+  GUESS_EMOJI_EXTRA,
+  PROVERB_EXTRA,
+  RAW_SYNONYM_EXTRA,
+  ITALIAN_GK_EXTRA,
+  DRIVING_TRUE_FALSE_EXTRA,
+  DRIVING_MULTIPLE_EXTRA,
+  FAST_TYPING_EXTRA,
+  HANGMAN_EXTRA,
+  GUESS_CITY_EXTRA,
+} = require("./minigameBanksExtra") as typeof import("./minigameBanksExtra");
+
 const GUESS_YEAR_BANK = [
   { type: "film", title: "Titanic", year: 1997 },
   { type: "film", title: "Il Padrino", year: 1972 },
@@ -60,6 +75,7 @@ const GUESS_YEAR_BANK = [
   { type: "album", title: "Rumours", subtitle: "Fleetwood Mac", year: 1977 },
   { type: "album", title: "Born in the U.S.A.", subtitle: "Bruce Springsteen", year: 1984 },
   { type: "album", title: "Sgt. Pepper's Lonely Hearts Club Band", subtitle: "The Beatles", year: 1967 },
+  ...GUESS_YEAR_EXTRA,
 ];
 
 const COMPLETE_VERSE_BANK = [
@@ -91,6 +107,7 @@ const COMPLETE_VERSE_BANK = [
   { verse: "Nel blu dipinto di blu, felice te ___ lì", answer: "pare", song: "Volare", artist: "Domenico Modugno" },
   { verse: "Con te partirò su navi per ___", answer: "mari", song: "Con te partirò", artist: "Andrea Bocelli" },
   { verse: "L'amore è ___", answer: "un'altra cosa", song: "L'amore è", artist: "Tiziano Ferro" },
+  ...COMPLETE_VERSE_EXTRA,
 ];
 
 const GUESS_EMOJI_BANK = [
@@ -128,6 +145,7 @@ const GUESS_EMOJI_BANK = [
   { emojis: "🧊👸", answers: ["frozen", "elsa"], category: "film" },
   { emojis: "🐺🦊", answers: ["zootropolis", "zootopia"], category: "film" },
   { emojis: "🎬🍿", answers: ["cinema", "film"], category: "film" },
+  ...GUESS_EMOJI_EXTRA,
 ];
 
 const QUOTE_FILM_BANK = [
@@ -165,6 +183,7 @@ const QUOTE_FILM_BANK = [
   { quote: "Bond. James Bond.", answer: "James Bond" },
   { quote: "Nobody's perfect.", answer: "A qualcuno piace caldo", quoteIt: "Nessuno è perfetto." },
   { quote: "Show me the money!", answer: "Jerry Maguire", quoteIt: "Fammi vedere i soldi!" },
+  ...QUOTE_FILM_EXTRA,
 ];
 
 const PROVERB_BANK = [
@@ -201,6 +220,7 @@ const PROVERB_BANK = [
   { start: "Fidarsi è bene, non fidarsi è...", end: "meglio" },
   { start: "Dopo la tempesta viene il...", end: "sereno" },
   { start: "Roma non fu costruita in un...", end: "giorno" },
+  ...PROVERB_EXTRA,
 ];
 
 const RAW_SYNONYM_ANTONYM_BANK = [
@@ -245,6 +265,7 @@ const RAW_SYNONYM_ANTONYM_BANK = [
   { word: "onesto", synonym: "sincero", antonym: "disonesto", kind: "antonym" },
   { word: "pacifico", synonym: "tranquillo", antonym: "bellicoso", kind: "synonym" },
   { word: "pacifico", synonym: "tranquillo", antonym: "bellicoso", kind: "antonym" },
+  ...RAW_SYNONYM_EXTRA,
 ];
 
 const SYNONYM_ANTONYM_BANK = RAW_SYNONYM_ANTONYM_BANK.filter((entry?) => {
@@ -295,6 +316,7 @@ const GUESS_CITY_BANK = [
   { landmark: "Tempio d'Oro", city: "Amritsar", country: "India" },
   { landmark: "Angkor Wat", city: "Siem Reap", country: "Cambogia" },
   { landmark: "Torre di Tokyo", city: "Tokyo", country: "Giappone" },
+  ...GUESS_CITY_EXTRA,
 ];
 
 const CAPITAL_QUIZ_BANK = [
@@ -495,6 +517,7 @@ const ITALIAN_GK_BANK = [
   { question: "Quale mare bagna la Puglia?", answers: ["Adriatico", "Ionio", "Mar Adriatico", "Mar Ionio", "Mediterraneo", "Mare Mediterraneo"] },
   { question: "Chi scoprì l'America nel 1492?", answers: ["Cristoforo Colombo", "Colombo"] },
   { question: "Qual è la regione più a sud d'Italia?", answers: ["Sicilia", "Calabria"] },
+  ...ITALIAN_GK_EXTRA,
 ];
 
 const MEMORY_EMOJI_BANK = [
@@ -552,6 +575,7 @@ const DRIVING_TRUE_FALSE_BANK = [
   { statement: "Il casco è obbligatorio per i conducenti di ciclomotori e motocicli.", answer: true },
   { statement: "Il segnale di divieto di sosta vieta di fermarsi anche momentaneamente.", answer: false },
   { statement: "In caso di frenata di emergenza è consigliato azionare ripetutamente il freno (pompaggio).", answer: true },
+  ...DRIVING_TRUE_FALSE_EXTRA,
 ];
 
 const DRIVING_MULTIPLE_CHOICE_BANK = [
@@ -575,6 +599,7 @@ const DRIVING_MULTIPLE_CHOICE_BANK = [
   { statement: "In caso di strada sdrucciolevole è opportuno:", options: ["Ridurre la velocità e manovrare con delicatezza", "Frenare a fondo", "Accelerare per uscire dalla zona", "Sterzare bruscamente"], correctIndex: 0 },
   { statement: "Il pannello integrativo con tre barre nere oblique sotto un segnale indica:", options: ["Distanza di pericolo (150-250-350 m)", "Limite di velocità 30 km/h", "Divieto di sorpasso per 3 km", "Altezza massima 3 m"], correctIndex: 0 },
   { statement: "Chi guida un veicolo deve:", options: ["Avere capacità psico-fisiche adeguate", "Essere maggiorenne per qualsiasi veicolo", "Avere solo la patente", "Non aver assunto farmaci negli ultimi 24 ore"], correctIndex: 0 },
+  ...DRIVING_MULTIPLE_EXTRA,
 ];
 
 const DRIVING_SIGN_QUESTIONS = [
@@ -621,6 +646,7 @@ const FAST_TYPING_PHRASES = [
   "chi semina vento raccoglie tempesta",
   "mal comune mezzo gaudio",
   "chi non risica non rosica",
+  ...FAST_TYPING_EXTRA,
 ];
 
 const HANGMAN_WORDS = [
@@ -634,6 +660,7 @@ const HANGMAN_WORDS = [
   "serie a", "premier", "league", "champions", "mondiale", "europei", "olimpiadi", "medaglia",
   "javascript", "python", "codice", "programma", "software", "applicazione", "browser", "server",
   "minigame", "quiz", "indovinello", "enigma", "mistero", "risposta", "domanda", "punteggio",
+  ...HANGMAN_EXTRA,
 ];
 
 function shuffleBankInPlace(arr?) {

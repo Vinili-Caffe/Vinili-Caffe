@@ -59,7 +59,7 @@ async function resumeMusicVoiceAfterAfkProbe(client?, guildId?) {
       }).catch(() => null);
     }
     attachEndHandler(client, player, gid);
-    await player.setGlobalVolume(resolveDefaultJoinGlobalVolume());
+    await player.setGlobalVolume(resolveDefaultJoinGlobalVolume(gid));
     if (!player.track) {
       await playEncodedFromStart(player, encoded);
     } else {

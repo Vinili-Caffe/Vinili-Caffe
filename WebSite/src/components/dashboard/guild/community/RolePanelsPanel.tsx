@@ -243,7 +243,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
               <FormGroup title="Pannello">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Nome (solo per te)">
-                    <input value={edit.name} maxLength={80} onChange={(e) => setEdit({ ...edit, name: e.target.value })} className={fieldClass} />
+                    <input name="rolepanelspanel-input-246" id="rolepanelspanel-input-246" value={edit.name} maxLength={80} onChange={(e) => setEdit({ ...edit, name: e.target.value })} className={fieldClass} />
                   </Field>
                   <ChannelField label="Canale" value={edit.channelId} channels={data.pickers.textChannels} onChange={(channelId) => setEdit({ ...edit, channelId })} />
                 </div>
@@ -343,7 +343,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
                 {edit.mode === "menu" ? (
                   <div className="grid gap-3 sm:grid-cols-3">
                     <Field label="Testo del menu">
-                      <input value={edit.placeholder} maxLength={150} placeholder="Scegli i tuoi ruoli" onChange={(e) => setEdit({ ...edit, placeholder: e.target.value })} className={fieldClass} />
+                      <input name="rolepanelspanel-input-346" id="rolepanelspanel-input-346" value={edit.placeholder} maxLength={150} placeholder="Scegli i tuoi ruoli" onChange={(e) => setEdit({ ...edit, placeholder: e.target.value })} className={fieldClass} />
                     </Field>
                     <Field label="Scelte minime">
                       <NumberField value={edit.menuMin} min={0} max={Math.max(0, edit.roles.length)} onChange={(v) => setEdit({ ...edit, menuMin: Number(v) || 0 })} aria-label="Scelte minime" />
@@ -396,7 +396,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
                             {edit.mode === "reactions" ? (
                               <span className="text-xs text-crema/55">{o.emoji ? <>reazione → @{r?.name || "ruolo"}</> : "ogni ruolo ha bisogno della sua reazione"}</span>
                             ) : (
-                              <input
+                              <input name="rolepanelspanel-input-399" id="rolepanelspanel-input-399"
                                 value={o.label}
                                 maxLength={80}
                                 placeholder={r?.name || "Testo"}
@@ -411,7 +411,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
                               </div>
                             ) : null}
                             {edit.mode === "menu" ? (
-                              <input
+                              <input name="rolepanelspanel-input-414" id="rolepanelspanel-input-414"
                                 value={o.description}
                                 maxLength={100}
                                 placeholder="Descrizione (facoltativa)"

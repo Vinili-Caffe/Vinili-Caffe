@@ -42,10 +42,6 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     getDashboardModerationCases,
   } = require("./siteDashboardModerationApi") as typeof import("./siteDashboardModerationApi");
   const {
-    listDashboardStaffNotifications,
-    markDashboardStaffNotificationsRead,
-  } = require("./siteDashboardStaffNotificationsApi") as typeof import("./siteDashboardStaffNotificationsApi");
-  const {
     listDashboardBotban,
     addDashboardBotban,
     removeDashboardBotban,
@@ -88,40 +84,7 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
-  app.get("/webhooks/site-dashboard/notifications", async (req?, res?) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const out = await listDashboardStaffNotifications(client, accessToken);
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-dashboard notifications:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
-  app.post("/webhooks/site-dashboard/notifications/read", async (req?, res?) => {
-    try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      if (!accessToken) {
-        return res.status(401).json({
-          ok: false,
-          error: "missing_token",
-          message: "Header Authorization: Bearer <token> richiesto.",
-        });
-      }
-      const out = await markDashboardStaffNotificationsRead(client, accessToken);
-      return res.status(Number(out.status) || 500).json(out);
-    } catch (err) {
-      global.logger?.error?.("[WEBHOOK] site-dashboard notifications read:", err);
-      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
-    }
-  });
+  /* Notifiche dashboard: solo /webhooks/site-notifications (merge in siteDashNotifMerge). */
   app.get("/webhooks/site-dashboard/botban", async (req?, res?) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -244,6 +207,8 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     app.patch(`${base}/server-logs`, wrap("logs patch", (t, req) => X().patchServerLogs(client, t, gid(req), req.body)));
     app.get(`${base}/live`, wrap("live", (t, req) => X().getLive(client, t, gid(req))));
     app.patch(`${base}/live`, wrap("live patch", (t, req) => X().patchLive(client, t, gid(req), req.body)));
+    app.get(`${base}/voice`, wrap("voice", (t, req) => X().getVoice(client, t, gid(req))));
+    app.patch(`${base}/voice`, wrap("voice patch", (t, req) => X().patchVoice(client, t, gid(req), req.body)));
     app.get(`${base}/birthdays`, wrap("birthdays", (t, req) => X().getBirthdays(client, t, gid(req))));
     app.patch(`${base}/birthdays`, wrap("birthdays patch", (t, req) => X().patchBirthdays(client, t, gid(req), req.body)));
     app.get(`${base}/levels`, wrap("levels", (t, req) => X().getLevels(client, t, gid(req))));
@@ -264,6 +229,39 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
     app.post(`${base}/polls`, wrap("poll new", (t, req) => X().createPoll(client, t, gid(req), req.body)));
     app.post(`${base}/polls/:id/end`, wrap("poll end", (t, req) => X().endPoll(client, t, gid(req), req.params?.id)));
     app.delete(`${base}/polls/:id`, wrap("poll del", (t, req) => X().deletePoll(client, t, gid(req), req.params?.id, String(req.query?.discord || "") === "1")));
+  }
+
+  {
+    const B = () => require("../../../Vinili/Backup/dashboard/siteDashboardBackupApi") as typeof import("../../../Vinili/Backup/dashboard/siteDashboardBackupApi");
+    const base = "/webhooks/site-dashboard/guilds/:guildId/backups";
+    const wrap = (label: string, fn: (token: string, req?) => Promise<any>) => async (req?, res?) => {
+      try {
+        const accessToken = normalizeHeaderSecret(req.headers.authorization);
+        if (!accessToken) {
+          return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
+        }
+        const out: any = await fn(accessToken, req);
+        return res.status(Number(out?.status) || 500).json(out);
+      } catch (err) {
+        global.logger?.error?.(`[WEBHOOK] site-dashboard backups ${label}:`, err);
+        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+      }
+    };
+    const gid = (req?) => req.params?.guildId;
+    app.get(base, wrap("list", (t, req) => B().listBackups(client, t, gid(req), req.query || {})));
+    app.post(base, wrap("create", (t, req) => B().createBackup(client, t, gid(req))));
+    app.get(`${base}/create-status`, wrap("create status", (t, req) => B().createStatus(client, t, gid(req))));
+    app.get(`${base}/settings`, wrap("settings get", (t, req) => B().getSettings(client, t, gid(req))));
+    app.patch(`${base}/settings`, wrap("settings patch", (t, req) => B().patchSettings(client, t, gid(req), req.body)));
+    app.get(`${base}/load-actions`, wrap("load actions", (t, req) => B().listLoadActions(client, t, gid(req))));
+    app.get(`${base}/load/status`, wrap("load status", (t, req) => B().loadStatus(client, t, gid(req))));
+    app.post(`${base}/load/cancel`, wrap("load cancel", (t, req) => B().cancelLoad(client, t, gid(req))));
+    app.post(`${base}/load/sessions`, wrap("session new", (t, req) => B().createSession(client, t, gid(req), req.body)));
+    app.patch(`${base}/load/sessions/:sessionId`, wrap("session patch", (t, req) => B().patchSession(client, t, gid(req), req.params?.sessionId, req.body)));
+    app.post(`${base}/load/sessions/:sessionId/preflight`, wrap("session preflight", (t, req) => B().preflightSession(client, t, gid(req), req.params?.sessionId)));
+    app.post(`${base}/load/sessions/:sessionId/confirm`, wrap("session confirm", (t, req) => B().confirmSession(client, t, gid(req), req.params?.sessionId)));
+    app.get(`${base}/:backupId`, wrap("get", (t, req) => B().getBackup(client, t, gid(req), req.params?.backupId)));
+    app.delete(`${base}/:backupId`, wrap("delete", (t, req) => B().deleteBackup(client, t, gid(req), req.params?.backupId)));
   }
 
   app.get("/webhooks/site-dashboard/guilds/:guildId/health", async (req?, res?) => {

@@ -250,6 +250,46 @@ async function getDashboardHealth(client?, accessToken?, guildId?) {
     global.logger?.warn?.("[DASH HEALTH] partnership:", err?.message || err);
   }
 
+  /* worker esterni: se EXTERNAL=1 ma il worker non batte da >2min → messaggi/contatori/live fermi */
+  try {
+    const { listStaleExternalWorkers } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+    const stale = await listStaleExternalWorkers(120_000);
+    const labels: Record<string, string> = {
+      BOT_SCHEDULER: "messaggi programmati, contatori, bump, giveaway, ticket",
+      COMMUNITY_POLL: "live/social, compleanni classici, stats giornaliere",
+      MINIGAMES: "spawn minigiochi",
+    };
+    for (const row of stale) {
+      add({
+        id: `worker-${row.kind}`,
+        area: "runtime",
+        level: "error",
+        title: `Worker ${row.kind} non risponde`,
+        detail:
+          row.ageMs == null
+            ? `Nessun heartbeat: con ${row.kind}_EXTERNAL=1 i loop (${labels[row.kind] || "background"}) non girano su questo bot.`
+            : `Ultimo heartbeat ${Math.round(row.ageMs / 1000)}s fa (soglia 120s).`,
+        fix: `Avvia/riavvia il processo con ${row.kind}_WORKER=1 (es. bot-workers / bot-scheduler / community-poll).`,
+      });
+    }
+    if (!stale.length) {
+      const { envFlagOn, WATCHED_KINDS } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+      const watching = WATCHED_KINDS.filter((k) => envFlagOn(`${k}_EXTERNAL`) && !envFlagOn(`${k}_WORKER`));
+      if (watching.length) {
+        add({
+          id: "workers-ok",
+          area: "runtime",
+          level: "ok",
+          title: "Worker di background attivi",
+          detail: `Heartbeat ok per: ${watching.join(", ")}.`,
+          fix: null,
+        });
+      }
+    }
+  } catch (err) {
+    global.logger?.warn?.("[DASH HEALTH] workers:", err?.message || err);
+  }
+
   const order: Record<Level, number> = { error: 0, warn: 1, info: 2, ok: 3 };
   checks.sort((a, b) => order[a.level] - order[b.level]);
   const summary = {

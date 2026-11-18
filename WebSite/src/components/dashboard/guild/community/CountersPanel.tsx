@@ -107,7 +107,7 @@ export function CountersPanel({ guildId, token, onToast }: { guildId: string; to
                 <p className="truncate font-semibold text-crema" translate="no">{values ? preview(editing[c.id] ?? c.template, c.type) : c.lastName || "—"}</p>
                 <p className="text-xs text-crema/55">{c.channelId ? typeLabel(c.type) : "Canale cancellato su Discord"}</p>
               </div>
-              <input
+              <input name="counterspanel-input-110" id="counterspanel-input-110"
                 value={editing[c.id] ?? c.template}
                 maxLength={90}
                 onChange={(e) => setEditing((x) => ({ ...x, [c.id]: e.target.value }))}
@@ -145,7 +145,7 @@ export function CountersPanel({ guildId, token, onToast }: { guildId: string; to
               />
             </Field>
             <Field label="Testo del canale">
-              <input value={template} maxLength={90} onChange={(e) => setTemplate(e.target.value)} className={cn(fieldClass, "h-11 py-0")} />
+              <input name="counterspanel-input-148" id="counterspanel-input-148" value={template} maxLength={90} onChange={(e) => setTemplate(e.target.value)} className={cn(fieldClass, "h-11 py-0")} />
             </Field>
             <Field label="Categoria (facoltativa)">
               <Select

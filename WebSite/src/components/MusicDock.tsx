@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Music, Pause, Play, Volume1, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useChromeOpenListener } from "@/lib/chrome-open";
+import { usePastHero } from "@/lib/use-past-hero";
 import { Range } from "@/components/ui";
 
 const BOTTOM = "bottom-[max(0.75rem,env(safe-area-inset-bottom))]";
@@ -49,8 +50,13 @@ export function MusicDock({
   const [panel, setPanel] = useState(false);
   const [mutedUi, setMutedUi] = useState(false);
   const volBeforeMute = useRef(volume > 0 ? volume : 0.5);
+  const pastHero = usePastHero();
 
   useEffect(() => useChromeOpenListener(setChromeOpen), []);
+
+  useEffect(() => {
+    if (pastHero) setPanel(false);
+  }, [pastHero]);
 
   useEffect(() => {
     if (volume > 0.001) {
@@ -167,12 +173,17 @@ export function MusicDock({
     <div
       ref={wrap}
       className={cn(
-        "pointer-events-auto fixed right-3 z-[60] sm:right-4",
+        "fixed right-3 z-[60] sm:right-4",
         BOTTOM,
         /* Desktop: pannello; mobile: colonna allineata a destra (FAB) */
         "flex w-[min(15rem,calc(100vw-1.5rem))] flex-col items-stretch md:block",
         "max-md:w-auto max-md:items-end max-md:gap-2",
+        "transition-[opacity,transform] duration-300 ease-out",
+        pastHero
+          ? "pointer-events-none translate-y-3 opacity-0"
+          : "pointer-events-auto translate-y-0 opacity-100",
       )}
+      aria-hidden={pastHero || undefined}
       role="region"
       aria-label="Lettore musica"
     >

@@ -241,6 +241,7 @@ export function ProfileView() {
             onNavigate={(uid) => goTab("staff", uid)}
             onTenure={setStaffSince}
             onFlags={(node) => setStaffFlags({ uid: p.userId, node })}
+            historyGuildId={mainId}
             middle={
               /* Partner Manager anche sul principale: badge in vetrina e obiettivi, in mezzo al profilo staff */
               mainId ? (

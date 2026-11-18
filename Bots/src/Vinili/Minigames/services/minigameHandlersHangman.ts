@@ -7,9 +7,15 @@ const { blockMinigameRehydrate } = require("./minigameState") as typeof import("
 const { MINIGAME_CORRECT_FALLBACK_EMOJI, reactMinigameWrongEmoji, editMinigameRoundImage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
 const { saveActiveGame, shouldRevealHangmanSolutionOnBoard, updateHangmanBoardMessage, sendMinigameTimeoutAndClose, handleMinigameWin } = require("./minigameRound") as typeof import("./minigameRound");
 const { isNearTextGuess, isHangmanFullWordMatch } = require("./minigameGuessMatchers") as typeof import("./minigameGuessMatchers");
-const { formatItalianMinutesBold } = require("../../../shared/utils/italianDurationLabels") as typeof import("../../../shared/utils/italianDurationLabels");
-
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
+
+function hangmanRemainingMs(game?) {
+  const raw = game?.endsAt;
+  const ends = raw instanceof Date ? raw.getTime() : Number(raw);
+  if (!Number.isFinite(ends) || ends <= 0) return 60_000;
+  return Math.max(1_000, ends - Date.now());
+}
+
 async function finalizeHangmanLoss(message?, client?, cfg?, game?) {
   if (!game || game._lossFinalized) return;
   game._lossFinalized = true;
@@ -24,13 +30,14 @@ async function finalizeHangmanLoss(message?, client?, cfg?, game?) {
   if (channel?.messages?.fetch && game.gameMessageId) {
     const gameMsg = await channel.messages.fetch(game.gameMessageId).catch(() => null);
     if (gameMsg?.edit) {
+      /* nome stabile hangman.png (come allo start): Discord riaggancia meglio attachment:// */
       const attachment = await buildHangmanBoardAttachment(
         game,
         [fullWordShown, `Errori: ${hmMax}/${hmMax}`],
         client,
-        `loss_${Date.now()}`,
+        "",
       );
-      const embed = buildHangmanEmbed(game.rewardExp, Math.max(1000, Number(game.endsAt) - Date.now()));
+      const embed = buildHangmanEmbed(game.rewardExp, hangmanRemainingMs(game));
       embed.setColor("#ED4245");
       if (attachment) embed.setImage(`attachment://${attachment.name}`);
       await editMinigameRoundImage(gameMsg, { attachment, embed });
@@ -155,11 +162,10 @@ async function handleHangmanMessage(message?, client?, cfg?, game?, content?, co
       game,
       [maskedWord, `Errori: ${hmErrU}/${hmMaxU}`],
       client,
-      `update_${Date.now()}`,
+      "",
     );
-    const hangmanUpdateEmbed = buildHangmanEmbed(game.rewardExp, Math.max(1000, Number(game.endsAt) - Date.now()));
-    hangmanUpdateEmbed.setDescription(`${E.VC_pixeltime} Hai ${formatItalianMinutesBold(Math.max(1000, game.endsAt - Date.now()))} per indovinarla!`);
-    hangmanUpdateEmbed.setFooter({ text: `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).` });
+    /* Non sovrascrivere description: buildHangmanEmbed già ha exp + minuti (in minuti, non ms). */
+    const hangmanUpdateEmbed = buildHangmanEmbed(game.rewardExp, hangmanRemainingMs(game));
     if (hangmanUpdateAttachment) {
       hangmanUpdateEmbed.setImage(`attachment://${hangmanUpdateAttachment.name}`);
     }

@@ -74,9 +74,11 @@ function compileList(files, rootForRel, outRoot, label) {
         sourcefile: `${label}/${rel}`,
         tsconfigRaw: { compilerOptions: tsconfig.compilerOptions },
       });
+      /* keepNames + `export =` → esbuild emette `nomeFile_module.exports` (ReferenceError a runtime). */
+      const code = String(res.code || "").replace(/\b\w+_module\.exports\b/g, "module.exports");
       const dest = path.join(outRoot, rel.replace(/\.ts$/, ".js"));
       fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.writeFileSync(dest, res.code);
+      fs.writeFileSync(dest, code);
       ok += 1;
     } catch (err) {
       errors += 1;

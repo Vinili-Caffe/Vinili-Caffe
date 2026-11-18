@@ -3,7 +3,14 @@ const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, E
 const { LOAD_ACTIONS, DEFAULT_MESSAGES_LIMIT, sanitizeActions, normalizeMessagesLimit, formatMessagesLimit } = require("./backupLoadSessions") as typeof import("./backupLoadSessions");
 
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
-const MESSAGE_LIMIT_PRESETS = [{ label: "100 messages", value: "100", description: "Ripristina max 100 messaggi", emoji: E.VC_Chat, }, { label: "500 messages", value: "500", description: "Ripristina max 500 messaggi", emoji: E.VC_Chat, }, { label: "1,000 messages", value: "1000", description: "Ripristina max 1000 messaggi", emoji: E.VC_Chat, }, { label: "5,000 messages", value: "5000", description: "Ripristina max 5000 messaggi", emoji: E.VC_Chat, }, { label: "10,000 messages", value: "10000", description: "Ripristina max 10000 messaggi", emoji: E.VC_Chat, }, { label: "All available", value: "ALL", description: "Ripristina tutti i messaggi nel backup", emoji: E.VC_Announce, },];
+const MESSAGE_LIMIT_PRESETS = [
+  { label: "All available", value: "ALL", description: "Ripristina tutti i messaggi nello snapshot", emoji: E.VC_Announce },
+  { label: "100 messages", value: "100", description: "Ripristina max 100 messaggi", emoji: E.VC_Chat },
+  { label: "500 messages", value: "500", description: "Ripristina max 500 messaggi", emoji: E.VC_Chat },
+  { label: "1,000 messages", value: "1000", description: "Ripristina max 1000 messaggi", emoji: E.VC_Chat },
+  { label: "5,000 messages", value: "5000", description: "Ripristina max 5000 messaggi", emoji: E.VC_Chat },
+  { label: "10,000 messages", value: "10000", description: "Ripristina max 10000 messaggi", emoji: E.VC_Chat },
+];
 
 function buildLoadWarningEmbed(backupId?, messagesLimit = DEFAULT_MESSAGES_LIMIT) {
   return new EmbedBuilder()

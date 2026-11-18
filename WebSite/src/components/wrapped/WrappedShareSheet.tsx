@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { buildShareText, type WrappedPayload } from "@/lib/wrapped";
 import {
   buildWrappedShareCards,
+  objectUrlFromCard,
   shareWrappedCard,
   type WrappedShareCard,
 } from "@/lib/wrappedShareCard";
@@ -19,6 +20,7 @@ type Props = {
 
 export function WrappedShareSheet({ open, data, onClose }: Props) {
   const [cards, setCards] = useState<WrappedShareCard[] | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [picked, setPicked] = useState(0);
@@ -31,6 +33,7 @@ export function WrappedShareSheet({ open, data, onClose }: Props) {
     setPicked(0);
     setHint("");
     setBusy(true);
+    setCards(null);
 
     void buildWrappedShareCards(data, {
       onFirst: (first) => {
@@ -59,6 +62,23 @@ export function WrappedShareSheet({ open, data, onClose }: Props) {
   const text = buildShareText(data);
   const stillBuilding = Boolean(busy && cards?.length === 1);
 
+  /* Preview sempre da blob fresco: evita blob: URL già revocati dalla cache/prefetch. */
+  useEffect(() => {
+    if (!card) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = objectUrlFromCard(card);
+    setPreviewUrl(url);
+    return () => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [card]);
+
   async function onShare() {
     if (!card) return;
     setHint("");
@@ -70,13 +90,21 @@ export function WrappedShareSheet({ open, data, onClose }: Props) {
 
   async function onDownload() {
     if (!card) return;
+    const url = previewUrl || objectUrlFromCard(card);
     const a = document.createElement("a");
-    a.href = card.objectUrl;
+    a.href = url;
     a.download = card.file.name;
     a.rel = "noopener";
     document.body.appendChild(a);
     a.click();
     a.remove();
+    if (!previewUrl) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        /* ignore */
+      }
+    }
     setHint("Salvata");
     window.setTimeout(() => setHint(""), 1600);
   }
@@ -158,10 +186,14 @@ export function WrappedShareSheet({ open, data, onClose }: Props) {
                   ) : null}
                 </div>
 
-                {card ? (
+                {card && previewUrl ? (
                   <div className="mt-4 overflow-hidden rounded-2xl bg-black/40 ring-1 ring-[#c4a07a]/20">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={card.objectUrl} alt={card.label} className="mx-auto max-h-[48dvh] w-full object-contain" />
+                    <img src={previewUrl} alt={card.label} className="mx-auto max-h-[48dvh] w-full object-contain" />
+                  </div>
+                ) : card ? (
+                  <div className="mt-4 flex items-center justify-center rounded-2xl bg-black/40 py-16 ring-1 ring-[#c4a07a]/20">
+                    <Loader2 className="size-6 animate-spin text-[#e8c49a]" />
                   </div>
                 ) : null}
 

@@ -610,7 +610,7 @@ function QuickRepliesEditor({
               <div className="flex flex-wrap items-start gap-3">
                 <div className="min-w-0 flex-1 space-y-3">
                   <Field label="Titolo">
-                    <input
+                    <input name="ticketdesk-input-613" id="ticketdesk-input-613"
                       value={row.title}
                       disabled={busy}
                       maxLength={60}

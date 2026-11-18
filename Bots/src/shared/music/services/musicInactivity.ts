@@ -4,10 +4,19 @@ const { applyDefaultFooterToEmbeds } = require("../../embeds/defaultFooter") as 
 const { guildQueues, endListeners, musicIdleSince, leaveMusicVoiceChannelMarked, musicLeaveTts, persistMusicQueueSnapshotNow } = require("./musicVoice") as typeof import("./musicVoice");
 
 const _musicIdleRawMs = Number(process.env.MUSIC_INACTIVITY_IDLE_MS || 180_000);
-const MUSIC_INACTIVITY_MS = Math.max(
+const MUSIC_INACTIVITY_MS_FALLBACK = Math.max(
   60_000,
   Number.isFinite(_musicIdleRawMs) && _musicIdleRawMs > 0 ? _musicIdleRawMs : 180_000,
 );
+
+function resolveInactivityMs(guildId?) {
+  try {
+    const { resolveMusicInactivityMs } = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
+    const n = Number(resolveMusicInactivityMs(guildId));
+    if (Number.isFinite(n) && n >= 60_000) return Math.floor(n);
+  } catch (_) {}
+  return MUSIC_INACTIVITY_MS_FALLBACK;
+}
 
 function isMusicSessionQueueIdle(guildId?) {
   const session = guildQueues.get(String(guildId || "").trim());
@@ -16,7 +25,7 @@ function isMusicSessionQueueIdle(guildId?) {
   return !np && pending === 0;
 }
 
-async function sendMusicInactivityLeaveEmbed(client?, textChannelId?, guildId?) {
+async function sendMusicInactivityLeaveEmbed(client?, textChannelId?, guildId?, idleMs?) {
   const cid = String(textChannelId || "").trim();
   const gid = String(guildId || "").trim();
   if (!cid || !client) return;
@@ -25,7 +34,7 @@ async function sendMusicInactivityLeaveEmbed(client?, textChannelId?, guildId?) 
     if (!ch?.isTextBased?.() || ch.isDMBased?.()) return;
     const guild =
       gid ? client.guilds.cache.get(gid) || (await client.guilds.fetch(gid).catch(() => null)) : ch.guild || null;
-    const mins = Math.max(1, Math.round(MUSIC_INACTIVITY_MS / 60_000));
+    const mins = Math.max(1, Math.round(Number(idleMs || resolveInactivityMs(gid)) / 60_000));
     const minLabel = mins === 1 ? "1 minuto" : `${mins} minuti`;
     const embed = new EmbedBuilder()
       .setColor(0xed4245)
@@ -47,6 +56,14 @@ async function tickMusicInactivity(client?) {
   for (const [guildId, conn] of sh.connections) {
     const gid = String(guildId || "").trim();
     if (!gid || !conn?.channelId) continue;
+    try {
+      const { getConfig } = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
+      const voiceCfg = await getConfig(gid, false);
+      if (voiceCfg?.music?.alwaysOn?.enabled && voiceCfg.music.alwaysOn.voiceChannelId) {
+        musicIdleSince.delete(gid);
+        continue;
+      }
+    } catch (_) {}
     const { isGuildClipRecording } = require("../../../Vinili/Community/services/voiceClipService") as typeof import("../../../Vinili/Community/services/voiceClipService");
     if (isGuildClipRecording(gid)) {
       musicIdleSince.delete(gid);
@@ -85,7 +102,8 @@ async function tickMusicInactivity(client?) {
       continue;
     }
     const since = musicIdleSince.get(gid) || now;
-    if (now - since < MUSIC_INACTIVITY_MS) continue;
+    const idleMs = resolveInactivityMs(gid);
+    if (now - since < idleMs) continue;
     musicIdleSince.delete(gid);
     const textChannelId = session?.textChannelId || null;
     guildQueues.delete(gid);
@@ -98,7 +116,7 @@ async function tickMusicInactivity(client?) {
     } catch (_) {}
     await leaveMusicVoiceChannelMarked(client, gid);
     if (textChannelId) {
-      await sendMusicInactivityLeaveEmbed(client, textChannelId, gid);
+      await sendMusicInactivityLeaveEmbed(client, textChannelId, gid, idleMs);
     }
     await musicLeaveTts(gid, client).catch(() => {});
   }

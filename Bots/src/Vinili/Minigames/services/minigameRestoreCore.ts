@@ -39,6 +39,14 @@ async function restoreActiveGames(client?) {
   if (await find.restoreFindGames(client, cfg, channel, state, remainingMs, endsAt)) {
     return { restored: true, needsCatchUp: false };
   }
+  /* restore fallito: togli bottoni morti dal messaggio di gioco persistito */
+  try {
+    const mid = String(state.gameMessageId || state.messageId || "").trim();
+    if (mid && channel?.messages?.fetch) {
+      const { stripMinigameGameMessage } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+      await stripMinigameGameMessage(channel, { gameMessageId: mid }).catch(() => false);
+    }
+  } catch (_) {}
   return { restored: false, needsCatchUp: true };
 }
 
