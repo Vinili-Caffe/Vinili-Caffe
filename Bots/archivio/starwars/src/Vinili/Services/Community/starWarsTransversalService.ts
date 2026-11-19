@@ -431,6 +431,10 @@ async function syncEpochForAllWallets(client?, now = new Date()) {
     },
     { upsert: true },
   ).catch(() => null);
+  try {
+    const { announceEpochChange } = require("./starWarsFactionAnnouncementsService") as typeof import("./starWarsFactionAnnouncementsService");
+    await announceEpochChange(client, { epoch: targetEpoch });
+  } catch (_) {}
   return { ok: true, epoch: targetEpoch, remapped };
 }
 

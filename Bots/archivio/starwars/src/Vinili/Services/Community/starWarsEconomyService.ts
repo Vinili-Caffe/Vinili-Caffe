@@ -438,6 +438,9 @@ async function resolveBattleForHour(eventKey?, leftId?, rightId?, epoch?, hourKe
     },
   };
   await saveWarReport(report);
+  try {
+    void (require("./starWarsFactionAnnouncementsService") as typeof import("./starWarsFactionAnnouncementsService")).announceWarResult(null, report);
+  } catch (_) {}
 
   return {
     ok: true,
@@ -524,7 +527,7 @@ async function resolveStaleHours(eventKey?, leftId?, rightId?, epoch?, currentHo
  * Non scala il wallet personale e non conta come contributo utente (+deposita).
  * Se passa userId, aggiorna solo volume PEI.
  */
-async function addFactionBankCredits(client?, factionId?, amount?, { guildId = null, userId = null } = {}) {
+async function addFactionBankCredits(client?, factionId?, amount?, { guildId = null, userId = null, reason = "" }: { guildId?: any; userId?: any; reason?: string } = {}) {
   const fid = normalizeId(factionId).toLowerCase();
   const add = safeInt(amount);
   if (!fid || add <= 0) return { ok: false, credits: 0 };
@@ -546,6 +549,9 @@ async function addFactionBankCredits(client?, factionId?, amount?, { guildId = n
       });
     } catch (_) {}
   }
+  try {
+    void (require("./starWarsFactionAnnouncementsService") as typeof import("./starWarsFactionAnnouncementsService")).announceBankIncome(client, { factionId: fid, amount: add, userId: uid || null, reason });
+  } catch (_) {}
   return { ok: true, credits: bank.credits, added: add, factionId: fid };
 }
 
@@ -624,6 +630,9 @@ async function depositPersonalCreditsToFaction(
   const bank = await getFactionBank(eventKey, wallet.factionId);
   bank.credits = safeInt(bank.credits) + add;
   await saveFactionBank(eventKey, wallet.factionId, bank);
+  try {
+    void (require("./starWarsFactionAnnouncementsService") as typeof import("./starWarsFactionAnnouncementsService")).announceBankIncome(client, { factionId: wallet.factionId, amount: add, userId: u, reason: "versamento" });
+  } catch (_) {}
 
   /* PEI da volume già incluso via $inc creditsVolume: sync pei come buyUnit */
   const peiGain = add / 100000;
@@ -814,6 +823,16 @@ async function buyUnit(client, { guildId, userId, unitId, qty = 1 }) {
   bank.credits = safeInt(bank.credits) - cost;
   bank.units[uid] = safeInt(bank.units[uid]) + amount;
   await saveFactionBank(eventKey, wallet.factionId, bank);
+  try {
+    (require("./starWarsFactionAnnouncementsService") as typeof import("./starWarsFactionAnnouncementsService")).announceTroopPurchase(client, {
+      userId: u,
+      factionId: wallet.factionId,
+      unitLabel: unit.labels[wallet.factionId] || uid,
+      qty: amount,
+      cost,
+      bankCredits: bank.credits,
+    });
+  } catch (_) {}
 
   const pub = await attachFactionArsenalToWallet(wallet, eventKey);
   return {
@@ -854,6 +873,9 @@ async function attackFaction(
   const features = resolveFeatureStateNow(new Date());
   const epoch = features.epoch || EPOCHS.CLONE_WARS;
   const factions = EPOCH_FACTIONS[epoch] || EPOCH_FACTIONS[EPOCHS.CLONE_WARS];
+  try {
+    (require("./starWarsFactionAnnouncementsService") as typeof import("./starWarsFactionAnnouncementsService")).rememberClient(client);
+  } catch (_) {}
 
   const wallet = await getStarWarsWallet(g, u, eventKey);
   if (!wallet.factionId || !factions.includes(wallet.factionId)) {

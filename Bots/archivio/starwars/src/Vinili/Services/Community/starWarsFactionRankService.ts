@@ -145,6 +145,9 @@ async function staffSetFactionRank(
     factionId: wallet.factionId,
   });
   if (!out.ok) return { ok: false, status: 500, error: out.error, message: "Salvataggio fallito." };
+  try {
+    void (require("./starWarsFactionAnnouncementsService") as typeof import("./starWarsFactionAnnouncementsService")).announceRankChange(client, { guildId: g, userId: target, factionId: wallet.factionId, tier, previousTier: clampTier(wallet.factionRankTier, 1) });
+  } catch (_) {}
   return {
     ok: true,
     status: 200,
@@ -194,6 +197,9 @@ async function promoteFactionMember(
     factionId: actor.factionId,
   });
   if (!out.ok) return { ok: false, status: 500, error: out.error, message: "Salvataggio fallito." };
+  try {
+    void (require("./starWarsFactionAnnouncementsService") as typeof import("./starWarsFactionAnnouncementsService")).announceRankChange(client, { guildId: g, userId: targetUserId, factionId: actor.factionId, tier: next, previousTier: cur });
+  } catch (_) {}
   return {
     ok: true,
     status: 200,
@@ -287,6 +293,9 @@ async function claimMarshalIfVacant(
     factionId: actor.factionId,
   });
   if (!out.ok) return { ok: false, status: 500, error: out.error, message: "Salvataggio fallito." };
+  try {
+    void (require("./starWarsFactionAnnouncementsService") as typeof import("./starWarsFactionAnnouncementsService")).announceRankChange(client, { guildId: g, userId: actorId, factionId: actor.factionId, tier: RANK_MAX_TIER, previousTier: clampTier(actor.factionRankTier, 1) });
+  } catch (_) {}
   return {
     ok: true,
     status: 200,
@@ -401,6 +410,9 @@ async function transferMarshal(
     factionId: actor.factionId,
   });
   if (!out.ok) return { ok: false, status: 500, error: out.error, message: "Salvataggio fallito." };
+  try {
+    void (require("./starWarsFactionAnnouncementsService") as typeof import("./starWarsFactionAnnouncementsService")).announceRankChange(client, { guildId: g, userId: targetId, factionId: actor.factionId, tier: RANK_MAX_TIER, previousTier: clampTier(target.factionRankTier, 1) });
+  } catch (_) {}
   return {
     ok: true,
     status: 200,

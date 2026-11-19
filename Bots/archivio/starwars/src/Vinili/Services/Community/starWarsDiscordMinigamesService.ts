@@ -1815,6 +1815,7 @@ async function tryScovaMessage(message?, client?) {
     await addFactionBankCredits(clientRef, factionId, SCOVA_BANK_CREDITS, {
       guildId: walletGid,
       userId: message.author.id,
+      reason: "Scova il pianeta",
     }).catch(() => null);
   } else {
     await grantStarWarsReward(clientRef, {
@@ -3355,6 +3356,10 @@ async function tickCalendarRoleSync(client?) {
   try {
     const { syncEpochForAllWallets } = require("./starWarsTransversalService") as typeof import("./starWarsTransversalService");
     await syncEpochForAllWallets(client);
+  } catch (_) {}
+  try {
+    const { tickFactionAnnouncements } = require("./starWarsFactionAnnouncementsService") as typeof import("./starWarsFactionAnnouncementsService");
+    await tickFactionAnnouncements(client);
   } catch (_) {}
   try {
     const { maybeAnnounceDuePeiStandings } = require("./starWarsPeiStandingService") as typeof import("./starWarsPeiStandingService");

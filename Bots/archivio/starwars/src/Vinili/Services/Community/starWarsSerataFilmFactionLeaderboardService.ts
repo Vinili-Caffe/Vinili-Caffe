@@ -184,7 +184,7 @@ async function awardFactionCredits(client?, ranked?, weekKey?) {
     const row = ranked[i];
     const credits = CREDITS_BY_RANK[i] || 0;
     if (!row?.factionId || credits <= 0) continue;
-    const out = await addFactionBankCredits(client, row.factionId, credits, {});
+    const out = await addFactionBankCredits(client, row.factionId, credits, { reason: `classifica serata film: ${i + 1}° posto` });
     if (out?.ok) {
       awarded.push({ rank: i + 1, factionId: row.factionId, credits, weekKey: String(weekKey || "") });
     }

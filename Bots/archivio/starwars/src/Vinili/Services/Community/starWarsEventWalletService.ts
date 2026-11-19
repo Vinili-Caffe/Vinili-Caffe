@@ -660,9 +660,14 @@ async function setStarWarsFaction(client, { guildId, userId, factionId, epoch = 
   } catch (_) {}
 
   /* Primo smistato della fazione → rango massimo (bootstrap senza comandi HS). */
+  let becameMarshal = false;
   try {
     const { maybeBootstrapMarshal } = require("./starWarsFactionRankService") as typeof import("./starWarsFactionRankService");
-    await maybeBootstrapMarshal(g, u, fid, eventKey);
+    const boot = await maybeBootstrapMarshal(g, u, fid, eventKey);
+    becameMarshal = Boolean(boot?.bootstrapped);
+  } catch (_) {}
+  try {
+    void (require("./starWarsFactionAnnouncementsService") as typeof import("./starWarsFactionAnnouncementsService")).announceNewRecruit(client, { userId: u, factionId: fid, becameMarshal });
   } catch (_) {}
 
   /* Truppe tier pending dalle casse → unità della nuova fazione. */

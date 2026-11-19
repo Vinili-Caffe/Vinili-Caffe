@@ -28,7 +28,8 @@ const path = require("path") as typeof import("path");
         ) {
           val = val.slice(1, -1);
         }
-        if (key && process.env[key] == null) process.env[key] = val;
+        /* LAVALINK_*: vince il .env (come nei bot), non l'ambiente salvato da pm2 che può essere vecchio */
+        if (key && (process.env[key] == null || key.startsWith("LAVALINK_"))) process.env[key] = val;
       }
       break;
     } catch (_) {}
