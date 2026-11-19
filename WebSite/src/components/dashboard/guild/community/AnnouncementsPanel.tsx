@@ -517,7 +517,10 @@ export function AnnouncementsPanel({
       <div className="space-y-4">
         {track}
         {saveBar}
-        <FormGroup title="Ruoli d'anzianità" description="Il bot controlla ogni 30 minuti da quanto tempo ognuno è nel server e dà il ruolo della soglia raggiunta.">
+        <FormGroup
+          title="Ruoli d'anzianità"
+          description="Salva le modifiche: il bot controlla ogni 30 minuti (non è immediato). Ogni soglia deve avere un ruolo scelto e restare attiva; sul server principale vale solo chi ha già il ruolo Member."
+        >
           <div className="divide-y divide-sand/[0.07]">
             <SettingRow title="Dai i ruoli d'anzianità" description="Accende o spegne tutte le soglie qui sotto.">
               <Toggle checked={tn.enabled} onChange={(enabled) => setTn({ enabled })} label="Ruoli d'anzianità" />

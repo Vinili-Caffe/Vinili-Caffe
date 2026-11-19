@@ -436,7 +436,10 @@ async function runTenureRoles(client?) {
       const guild = client.guilds.cache.get(gid);
       if (!guild || !annOn(gid)) continue;
       const cfg = normalizeConfig(all[gid]);
-      const rules = cfg.tenure.rules.filter((r) => r.enabled && r.roleId);
+      const rules = cfg.tenure.rules
+        .filter((r) => r.enabled && r.roleId)
+        .slice()
+        .sort((a, b) => Number(a.days) - Number(b.days));
       if (!cfg.tenure.enabled || !rules.length) continue;
       const me = guild.members?.me;
       const st = await getState(gid);
@@ -453,8 +456,8 @@ async function runTenureRoles(client?) {
         if (member.user?.bot || !member.joinedTimestamp) continue;
         if (mainMemberRole && !member.roles.cache.has(mainMemberRole)) continue;
         const daysIn = Math.floor((now - member.joinedTimestamp) / 86_400_000);
-        /* la soglia più alta raggiunta (le regole sono in ordine di giorni) */
-        const reached = rules.filter((r) => daysIn >= r.days);
+        /* soglia più alta raggiunta (rules ordinate per giorni) */
+        const reached = rules.filter((r) => daysIn >= Number(r.days));
         if (!reached.length) continue;
         const top = reached[reached.length - 1];
         const key = `${top.id}:${member.id}`;
@@ -498,7 +501,10 @@ async function reapplyTenureForMember(member?, joinedMs?: number) {
   const gid = String(guild?.id || "");
   if (!gid || member?.user?.bot || !annOn(gid)) return false;
   const cfg = await getConfig(gid);
-  const rules = cfg.tenure.rules.filter((r) => r.enabled && r.roleId);
+  const rules = cfg.tenure.rules
+    .filter((r) => r.enabled && r.roleId)
+    .slice()
+    .sort((a, b) => Number(a.days) - Number(b.days));
   if (!cfg.tenure.enabled || !rules.length) return false;
   if (T.isMainGuild(gid)) {
     const memberRole = String((require("../../Vinili/Config/ids") as any)?.roles?.Member || "");
@@ -507,7 +513,7 @@ async function reapplyTenureForMember(member?, joinedMs?: number) {
   const since = Number(joinedMs) > 0 ? Number(joinedMs) : Number(member.joinedTimestamp || 0);
   if (!since) return true;
   const daysIn = Math.floor((Date.now() - since) / 86_400_000);
-  const reached = rules.filter((r) => daysIn >= r.days);
+  const reached = rules.filter((r) => daysIn >= Number(r.days));
   if (!reached.length) return true;
   const top = reached[reached.length - 1];
   const me = guild.members?.me;
@@ -940,7 +946,8 @@ function mainSeedConfig() {
     removePrevious: true,
     rules: [
       { days: 0, roleId: tenureRole("NuovoUtente"), channelId: null },
-      { days: 30, roleId: tenureRole("Veterano"), channelId: null },
+      { days: 30, roleId: tenureRole("Stammgast"), channelId: null },
+      { days: 180, roleId: tenureRole("Veterano"), channelId: null },
       { days: 365, roleId: tenureRole("OG"), channelId: null },
     ].filter((r) => r.roleId),
   };

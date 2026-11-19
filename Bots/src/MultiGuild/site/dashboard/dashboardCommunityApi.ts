@@ -167,7 +167,8 @@ async function mainJoinRoles(_client?, _gid?: string) {
     /* anzianità dalla verifica (uno alla volta, il bot cambia da solo) */
     const r = IDs?.roles || {};
     if (r.NuovoUtente) out.push({ id: String(r.NuovoUtente), note: "dopo la verifica, per i primi 30 giorni" });
-    if (r.Veterano) out.push({ id: String(r.Veterano), note: "da 30 giorni a 1 anno dalla verifica" });
+    if (r.Stammgast) out.push({ id: String(r.Stammgast), note: "da 30 giorni a 6 mesi dalla verifica" });
+    if (r.Veterano) out.push({ id: String(r.Veterano), note: "da 6 mesi a 1 anno dalla verifica" });
     if (r.OG) out.push({ id: String(r.OG), note: "dopo 1 anno dalla verifica" });
   } catch (_) {}
   return out;

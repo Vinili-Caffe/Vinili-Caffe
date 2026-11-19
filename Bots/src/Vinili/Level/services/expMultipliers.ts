@@ -250,23 +250,23 @@ async function getGuildExpSettings(guildId?) {
 
 function getRoleMultiplier(member?, settings = null) {
   if (!member?.roles?.cache) return 1;
-  const veteranoRoleId = String(IDs.roles?.Veterano || "").trim();
+  const stammgastRoleId = String(IDs.roles?.Stammgast || IDs.roles?.Veterano || "").trim();
   let multi = 1;
   let hasSpecificRoleMulti = false;
-  let veteranoMulti = 1;
+  let stammgastMulti = 1;
   const map = settings?.roleMultipliersMerged instanceof Map ? settings.roleMultipliersMerged : buildRoleMultipliersMerged(null);
   for (const [roleId, value] of map.entries()) {
     if (!member.roles.cache.has(roleId)) continue;
     const parsed = Math.max(1, Number(value) || 1);
-    if (veteranoRoleId && String(roleId) === veteranoRoleId) {
-      veteranoMulti = Math.max(veteranoMulti, parsed);
+    if (stammgastRoleId && String(roleId) === stammgastRoleId) {
+      stammgastMulti = Math.max(stammgastMulti, parsed);
       continue;
     }
     hasSpecificRoleMulti = true;
     multi = Math.max(multi, parsed);
   }
-  if (!hasSpecificRoleMulti && veteranoRoleId && member.roles.cache.has(veteranoRoleId)) {
-    multi = Math.max(multi, veteranoMulti);
+  if (!hasSpecificRoleMulti && stammgastRoleId && member.roles.cache.has(stammgastRoleId)) {
+    multi = Math.max(multi, stammgastMulti);
   }
   return multi;
 }

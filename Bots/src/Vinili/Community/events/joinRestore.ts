@@ -96,7 +96,7 @@ async function restoreCustomRoleOnRejoin(member?) {
 }
 
 function memberHasAnyTenureRole(member?) {
-  const ids = [IDs.roles?.NuovoUtente, IDs.roles?.Veterano, IDs.roles?.OG].filter(Boolean);
+  const ids = [IDs.roles?.NuovoUtente, IDs.roles?.Stammgast, IDs.roles?.Veterano, IDs.roles?.OG].filter(Boolean);
   return ids.some((id?) => Boolean(id && member?.roles?.cache?.has?.(String(id))));
 }
 

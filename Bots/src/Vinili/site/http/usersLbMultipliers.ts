@@ -59,7 +59,7 @@ function buildWeeklyMultiplierSources(member?, settings?, fallbackGlobalExpMulti
         ? Number(fallbackGlobalExpMultiplier)
         : 1;
   const map = settings?.roleMultipliersMerged instanceof Map ? settings.roleMultipliersMerged : new Map();
-  const veteranoRoleId = String(IDs.roles?.Veterano || "").trim();
+  const stammgastRoleId = String(IDs.roles?.Stammgast || IDs.roles?.Veterano || "").trim();
 
   sources.push({
     key: "base",
@@ -74,8 +74,8 @@ function buildWeeklyMultiplierSources(member?, settings?, fallbackGlobalExpMulti
   let chosenRoleId = "";
   let chosenRoleMultiplier = 1;
   let chosenRoleSpecific = false;
-  let veteranoMulti = 1;
-  let veteranoPresent = false;
+  let stammgastMulti = 1;
+  let stammgastPresent = false;
 
   if (member?.roles?.cache && map.size) {
     for (const [roleId, value] of map.entries()) {
@@ -84,10 +84,10 @@ function buildWeeklyMultiplierSources(member?, settings?, fallbackGlobalExpMulti
       if (parsed <= 1) continue;
       const roleObj = member.roles.cache.get(roleId);
       const id = String(roleId || "");
-      const isVeterano = Boolean(veteranoRoleId && id === veteranoRoleId);
+      const isVeterano = Boolean(stammgastRoleId && id === stammgastRoleId);
       if (isVeterano) {
-        veteranoPresent = true;
-        veteranoMulti = Math.max(veteranoMulti, parsed);
+        stammgastPresent = true;
+        stammgastMulti = Math.max(stammgastMulti, parsed);
       } else if (parsed > chosenRoleMultiplier || !chosenRoleSpecific) {
         chosenRoleId = id;
         chosenRoleMultiplier = parsed;
@@ -111,9 +111,9 @@ function buildWeeklyMultiplierSources(member?, settings?, fallbackGlobalExpMulti
     }
   }
 
-  if (!chosenRoleSpecific && veteranoPresent && veteranoMulti > 1) {
-    chosenRoleId = veteranoRoleId;
-    chosenRoleMultiplier = veteranoMulti;
+  if (!chosenRoleSpecific && stammgastPresent && stammgastMulti > 1) {
+    chosenRoleId = stammgastRoleId;
+    chosenRoleMultiplier = stammgastMulti;
   }
 
   roleSources

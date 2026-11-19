@@ -677,10 +677,19 @@ async function handleLegacyPanelInfoButtons(interaction?, opts: Record<string, a
           inline: true,
         },
         {
-          name: "`VETERANO`",
+          name: "`STAMMGAST`",
           value: [
             "<@&1544830800984412275>",
             "Ottenibile stando nel server per almeno 1 mese",
+            "९ Esclusività del ruolo.",
+          ].join("\n"),
+          inline: true,
+        },
+        {
+          name: "`VETERANO`",
+          value: [
+            "<@&1573000176057061406>",
+            "Ottenibile stando nel server per almeno 6 mesi",
             "९ Esclusività del ruolo.",
           ].join("\n"),
           inline: true,

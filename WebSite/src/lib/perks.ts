@@ -227,7 +227,8 @@ export const BADGES: Badge[] = [
   },
   { role: "༄ Famous", how: "Memoria del server", isNew: true, desc: "Per utenti ed ex staffer che hanno lasciato il segno nella storia del server.", perks: [{ text: "Esclusività del ruolo" }] },
   { role: "༄ OG", how: "1 anno nel server", desc: "Sei nel server da almeno un anno.", perks: [{ text: "Esclusività del ruolo" }] },
-  { role: "༄ Veterano", how: "1 mese nel server", desc: "Sei nel server da almeno un mese.", perks: [{ text: "Esclusività del ruolo" }] },
+  { role: "༄ Veterano", how: "6 mesi nel server", isNew: true, desc: "Sei nel server da almeno sei mesi.", perks: [{ text: "Esclusività del ruolo" }] },
+  { role: "༄ Stammgast", how: "1 mese nel server", isNew: true, desc: "Sei nel server da almeno un mese.", perks: [{ text: "Esclusività del ruolo" }] },
 ];
 
 /** Fascia raggiunta per un livello (null se sotto il 10). */
