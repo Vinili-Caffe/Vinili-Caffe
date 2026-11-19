@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { MessageSquareText, Mic, Target, TrendingUp } from "lucide-react";
+import { MessageSquareText, Mic, Sparkles, Target, TrendingUp } from "lucide-react";
 import { Range } from "@/components/ui/Range";
 import { NumberTicker } from "@/components/ui/number-ticker";
 import { cleanRole, fmt, mult, type ProfileData } from "@/lib/profile";
@@ -176,19 +176,56 @@ function ComparisonRow({
   );
 }
 
+/** Media giornaliera da totali/settimana (preferisce la settimana se c’è attività). */
+function averageDailyActivity(p: ProfileData) {
+  const joinedMs = p.joinedAt ? new Date(p.joinedAt).getTime() : NaN;
+  const daysSinceJoin = Number.isFinite(joinedMs)
+    ? Math.max(1, Math.floor((Date.now() - joinedMs) / 86_400_000) + 1)
+    : 30;
+  const msgWeekly = Math.max(0, Number(p.messages?.messagesWeekly) || 0);
+  const msgTotal = Math.max(0, Number(p.messages?.messagesTotal) || 0);
+  const msgDaily = Math.max(0, Number(p.messages?.messagesDaily) || 0);
+  const voiceWeekly = Math.max(0, Number(p.voice?.voiceWeeklySeconds) || 0);
+  const voiceTotal = Math.max(0, Number(p.voice?.voiceTotalSeconds) || 0);
+  const voiceDaily = Math.max(0, Number(p.voice?.voiceDailySeconds) || 0);
+
+  const avgMsgs =
+    msgWeekly > 0
+      ? msgWeekly / 7
+      : msgTotal > 0
+        ? msgTotal / daysSinceJoin
+        : msgDaily;
+  const avgVoiceSec =
+    voiceWeekly > 0
+      ? voiceWeekly / 7
+      : voiceTotal > 0
+        ? voiceTotal / daysSinceJoin
+        : voiceDaily;
+
+  return {
+    messages: Math.max(0, Math.min(400, Math.round(avgMsgs))),
+    voiceHours: Math.max(0, Math.min(12, Math.round((avgVoiceSec / 3600) * 10) / 10)),
+  };
+}
+
 export function LevelSimulator({ p, sim }: { p: ProfileData; sim: LevelsSimConfig }) {
   const currentLevel = Math.max(0, Math.floor(p.level?.level ?? 0));
   const currentExp = Math.max(0, Math.floor(p.level?.exp ?? 0));
   const roleIds = useMemo(() => new Set(p.roles.map((r) => r.id)), [p.roles]);
-
-  const defaultMsgs = Math.max(20, Math.min(300, Math.round(p.messages?.messagesDaily || 80) || 80));
-  const defaultVoice = Math.max(0, Math.min(12, Math.round(((p.voice?.voiceDailySeconds || 3600) / 3600) * 10) / 10 || 1));
+  const avg = useMemo(() => averageDailyActivity(p), [p]);
 
   const [fromLevel, setFromLevel] = useState(currentLevel);
   const [toLevel, setToLevel] = useState(Math.min(1000, Math.max(currentLevel + 1, currentLevel + 10)));
-  const [messages, setMessages] = useState(defaultMsgs);
-  const [voiceHours, setVoiceHours] = useState(defaultVoice);
+  const [messages, setMessages] = useState(() => {
+    const a = averageDailyActivity(p);
+    return a.messages > 0 ? a.messages : 80;
+  });
+  const [voiceHours, setVoiceHours] = useState(() => {
+    const a = averageDailyActivity(p);
+    return a.voiceHours > 0 ? a.voiceHours : 1;
+  });
   const [pick, setPick] = useState<RolePick>("attuale");
+  const usingAvg = messages === avg.messages && Math.abs(voiceHours - avg.voiceHours) < 0.05;
 
   const startExp = useMemo(() => {
     if (fromLevel === currentLevel) return currentExp;
@@ -277,9 +314,24 @@ export function LevelSimulator({ p, sim }: { p: ProfileData; sim: LevelsSimConfi
           </p>
           <h3 className="mt-1 font-display text-2xl font-semibold text-balance sm:text-3xl">Quanto ci metti a salire?</h3>
         </div>
-        <p className="rounded-full bg-crema/[0.06] px-3 py-1.5 text-xs font-semibold text-crema/55 ring-1 ring-sand/15 lining-nums">
-          {sim.messageExp} EXP/msg · {sim.voiceExpPerMinute} EXP/min vocale
-        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setMessages(avg.messages);
+            setVoiceHours(avg.voiceHours);
+          }}
+          aria-pressed={usingAvg}
+          title={`Media stimata: ${fmt(avg.messages)} msg/giorno · ${avg.voiceHours.toLocaleString("it-IT", { maximumFractionDigits: 1 })} h vocale`}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition-[background-color,color,box-shadow,transform] duration-200 ease-out",
+            usingAvg
+              ? "bg-gradient-to-r from-caramel to-ember text-ink shadow-[0_10px_24px_-12px_rgba(240,180,110,0.7)]"
+              : "bg-crema/[0.06] text-crema/75 ring-1 ring-sand/15 hover:bg-crema/[0.1] hover:text-crema",
+          )}
+        >
+          <Sparkles className="size-3.5" aria-hidden />
+          {usingAvg ? "Media applicata" : "Usa la mia media"}
+        </button>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
