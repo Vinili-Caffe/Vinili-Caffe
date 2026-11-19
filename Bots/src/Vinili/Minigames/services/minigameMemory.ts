@@ -149,7 +149,14 @@ async function revealMemoryEmojiAndOpenAnswers(client?, cfg?, channel?, channelI
     ? Number(options.remainingMs)
     : durationMs;
   const prompt = await ensureMemoryEmojiRecallPrompt(client, cfg, channel, game, promptMs);
-  if (!prompt) return;
+  /* Anche senza messaggio di recall: apri comunque le risposte.
+     Prima, con `if (!prompt) return`, acceptsAt restava MAX_SAFE_INTEGER e ogni msg
+     prendeva solo la reaction di cooldown → sembrava rotto. */
+  if (!prompt) {
+    global.logger?.warn?.("[MINIGAMES] memoryEmoji recall prompt missing; opening answers anyway", {
+      channelId: String(channelId || ""),
+    });
+  }
   await openMemoryEmojiAnswers(client, cfg, channel, game, options);
 }
 
