@@ -237,8 +237,8 @@ function averageDailyActivity(p: ProfileData) {
         : voiceDaily;
 
   return {
-    messages: Math.max(0, Math.min(400, Math.round(avgMsgs))),
-    voiceHours: Math.max(0, Math.min(12, Math.round((avgVoiceSec / 3600) * 10) / 10)),
+    messages: Math.max(0, Math.min(1000, Math.round(avgMsgs))),
+    voiceHours: Math.max(0, Math.min(24, Math.round((avgVoiceSec / 3600) * 10) / 10)),
   };
 }
 
@@ -377,7 +377,7 @@ export function LevelSimulator({ p, sim }: { p: ProfileData; sim: LevelsSimConfi
           valueLabel={fmt(messages)}
           value={messages}
           min={0}
-          max={400}
+          max={1000}
           step={5}
           onChange={setMessages}
         />
@@ -387,7 +387,7 @@ export function LevelSimulator({ p, sim }: { p: ProfileData; sim: LevelsSimConfi
           valueLabel={`${voiceHours.toLocaleString("it-IT", { maximumFractionDigits: 1 })} h`}
           value={voiceHours}
           min={0}
-          max={12}
+          max={24}
           step={0.5}
           onChange={setVoiceHours}
         />
