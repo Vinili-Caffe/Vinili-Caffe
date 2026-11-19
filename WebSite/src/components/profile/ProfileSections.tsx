@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronDown, Ghost, Mic, Paintbrush, Sparkles, Users, Zap } from "lucide-react";
+import { ChevronDown, Ghost, Mic, Paintbrush, Sparkles, Users } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { Reveal } from "@/components/Reveal";
-import { cleanRole, dateIt, mult, multiplierRows, rankCardUrl, type CustomRole, type CustomVoice, type DiscordRole, type ProfileData, type SharedMember } from "@/lib/profile";
+import { LevelSimulator } from "@/components/profile/LevelSimulator";
+import { cleanRole, dateIt, rankCardUrl, type CustomRole, type CustomVoice, type DiscordRole, type ProfileData, type SharedMember } from "@/lib/profile";
+import { normalizeLevelsSim } from "@/lib/levelSim";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { EmojiText } from "@/components/discord/EmojiText";
@@ -30,14 +32,14 @@ const EditLink = ({ href }: { href: string }) => (
   </a>
 );
 
-/* ── rank card + moltiplicatori ─────────────────────────── */
+/* ── rank card + calcolatore livelli ────────────────────── */
 
 export function RankCard({ p, owns }: { p: ProfileData; owns: boolean }) {
   const [state, setState] = useState<"loading" | "ok" | "error">("loading");
-  const rows = multiplierRows(p.multiplierSources);
+  const sim = useMemo(() => normalizeLevelsSim(p.levelsSim, p.multiplier), [p.levelsSim, p.multiplier]);
   return (
     <Reveal>
-      <Title kicker="Rank card" title="La card di +rank" icon={<Sparkles />} action={owns ? <EditLink href="/personalizza/" /> : undefined} />
+      <Title kicker="Rank & livelli" title="Card e calcolatore" icon={<Sparkles />} action={owns ? <EditLink href="/personalizza/" /> : undefined} />
       <div className="overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
         <div className="relative p-3 sm:p-4">
           {/* l'immagine resta nel layout (invisibile) finché carica: con display:none il lazy-load non partirebbe */}
@@ -55,25 +57,8 @@ export function RankCard({ p, owns }: { p: ProfileData; owns: boolean }) {
             className={cn("aspect-[976/276] w-full rounded-2xl object-contain transition-opacity duration-500", state !== "ok" && "opacity-0")}
           />
         </div>
-        <div className="border-t border-sand/10 px-4 py-5 sm:px-6 sm:py-6">
-          <p className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 font-semibold">
-              <Zap className="size-4 text-ember" /> Moltiplicatore EXP
-            </span>
-            <span className="font-display text-3xl font-bold text-ember lining-nums">{mult(p.multiplier)}</span>
-          </p>
-          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-            {rows.map((r) => {
-              const on = r.active || r.applied;
-              return (
-                <li key={r.key} className={cn("flex items-center gap-3 rounded-xl px-3 py-2 text-sm", on ? "bg-crema/[0.06]" : "opacity-45 light:opacity-65")}>
-                  <span className="size-2.5 shrink-0 rounded-full" style={{ background: r.color || (r.type === "base" ? "#c4a07a" : "#e8c49c") }} />
-                  <span className="min-w-0 flex-1 truncate">{r.type === "role" ? cleanRole(r.label) : r.label}</span>
-                  <span className="font-semibold lining-nums">{mult(r.multiplier)}</span>
-                </li>
-              );
-            })}
-          </ul>
+        <div className="border-t border-sand/10 px-4 py-6 sm:px-6 sm:py-7">
+          <LevelSimulator p={p} sim={sim} />
         </div>
       </div>
     </Reveal>

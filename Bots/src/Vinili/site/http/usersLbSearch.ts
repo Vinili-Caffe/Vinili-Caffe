@@ -12,7 +12,109 @@ const { buildPublicBirthdayPayload } = require("./usersLbBirthdays") as typeof i
 const { buildCustomProfileData } = require("./usersLbCustomProfile") as typeof import("./usersLbCustomProfile");
 const { pctBar, siteRomeDayOverridesFromDoc, buildWeeklyMultiplierSources, peekCachedWeeklyHourlySorted } = require("./usersLbMultipliers") as typeof import("./usersLbMultipliers");
 
-const PROFILE_CACHE_VER = 13;
+const PROFILE_CACHE_VER = 14;
+
+/** Payload pubblico per il calcolatore livelli sul profilo (tassi + curva + catalogo bonus). */
+function buildLevelsSimPayload(guildId?, guildExpSettings?) {
+  const catalogDefs = [
+    ["ServerBooster", "booster", "Booster", 2, "boost"],
+    ["DoubleBooster", "double", "Double Booster", 3, "boost"],
+    ["MVP", "mvp", "MVP", 2, "status"],
+    ["Donator", "donator", "Donator", 4, "donor"],
+    ["VIP", "vip", "VIP", 5, "donor"],
+    ["VIPplus", "vipplus", "VIP+", 6, "donor"],
+  ];
+  let messageExp = 2;
+  let voiceExpPerMinute = 5;
+  let messageCooldownSec = 0;
+  let maxCombinedMultiplier = 8;
+  let globalMultiplier = 1;
+  let levelCurve = {
+    firstThreshold: 100,
+    roundTo: 50,
+    minStepAdd: 110,
+    segments: [
+      { upTo: 10, base: 120, from: 1, perLevel: 25 },
+      { upTo: 30, base: 380, from: 10, perLevel: 55 },
+      { upTo: 60, base: 1600, from: 30, perLevel: 120 },
+      { upTo: 10000, base: 5200, from: 60, perLevel: 210 },
+    ],
+  };
+  const roleMultMap =
+    guildExpSettings?.roleMultipliersMerged instanceof Map ? guildExpSettings.roleMultipliersMerged : new Map();
+  try {
+    const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
+    const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+    const cfg = LVL.getConfigSync(String(guildId || IDs.guilds?.main || ""));
+    const curve = LVL.getLevelCurveSync(String(guildId || IDs.guilds?.main || ""));
+    if (curve && typeof curve === "object") levelCurve = curve;
+    if (cfg) {
+      if (cfg.messageEnabled === false) messageExp = 0;
+      else messageExp = Math.max(0, Math.floor(Number(cfg.messageExp) || 2));
+      if (cfg.voiceEnabled === false) voiceExpPerMinute = 0;
+      else voiceExpPerMinute = Math.max(0, Math.floor(Number(cfg.voiceExpPerMinute) || 5));
+      messageCooldownSec = Math.max(0, Math.floor(Number(cfg.messageCooldownSec) || 0));
+      const cap = Number(cfg.maxCombinedMultiplier);
+      if (Number.isFinite(cap) && cap >= 1) maxCombinedMultiplier = cap;
+      const g = Number(cfg.globalMultiplier);
+      if (Number.isFinite(g) && g > 0) globalMultiplier = g;
+    }
+    const eff = Number(guildExpSettings?.effectiveMultiplier);
+    if (Number.isFinite(eff) && eff > 0) globalMultiplier = eff;
+    else {
+      const base = Number(guildExpSettings?.baseMultiplier);
+      const ev = Number(guildExpSettings?.eventMultiplier);
+      if (Number.isFinite(base) && base > 0) {
+        globalMultiplier = base * (Number.isFinite(ev) && ev > 0 ? ev : 1);
+      }
+    }
+    const settingsCap = Number(guildExpSettings?.maxCombinedMultiplier);
+    if (Number.isFinite(settingsCap) && settingsCap >= 1) maxCombinedMultiplier = settingsCap;
+
+    const catalog = [];
+    for (const [roleKey, key, label, fallbackMult, kind] of catalogDefs) {
+      const roleId = String((IDs as any)?.roles?.[roleKey] || "").trim();
+      if (!/^\d{16,20}$/.test(roleId)) continue;
+      const fromMap = Number(roleMultMap.get(roleId));
+      const multiplier =
+        Number.isFinite(fromMap) && fromMap > 0 ? fromMap : Math.max(1, Number(fallbackMult) || 1);
+      catalog.push({ key, roleId, label, multiplier: Number(multiplier.toFixed(2)), kind });
+    }
+    return {
+      messageExp,
+      voiceExpPerMinute,
+      messageCooldownSec,
+      maxCombinedMultiplier,
+      globalMultiplier: Number(Math.max(0.1, globalMultiplier).toFixed(2)),
+      levelCurve,
+      catalog,
+    };
+  } catch {
+    return {
+      messageExp,
+      voiceExpPerMinute,
+      messageCooldownSec,
+      maxCombinedMultiplier,
+      globalMultiplier: 1,
+      levelCurve,
+      catalog: catalogDefs
+        .map(([, key, label, multiplier, kind]) => {
+          const ids = {
+            booster: "1329497467481493607",
+            double: "1544830850552823849",
+            mvp: "1544830832227782699",
+            donator: "1544830864565735515",
+            vip: "1544830866616754257",
+            vipplus: "1544830868575625276",
+          };
+          const roleId = ids[key];
+          if (!roleId) return null;
+          return { key, roleId, label, multiplier, kind };
+        })
+        .filter(Boolean),
+    };
+  }
+}
 
 const SEARCH_SELECT =
   "userId profile.totals.exp profile.totals.hourly profile.totals.daily profile.totals.messagesTotal profile.totals.messagesWeekly profile.totals.messagesDaily profile.totals.messagesDailyKey profile.totals.voiceTotalSeconds profile.totals.voiceWeeklySeconds profile.totals.voiceDailySeconds profile.totals.voiceDailyKey profile.totals.sessionStartedAt profile.rankCard profile.birthday profile.events.starwars.deckReliquie profile.events.starwars.deckPG profile.events.starwars.eventKey";
@@ -301,6 +403,7 @@ async function buildProfileSearchPayload(client?, guildId?, searchId?) {
   const profileAvatarUrl =
     (member && siteMemberAvatarUrl(member, 256)) || String(levelRow.avatarUrl || "").trim();
   const weeklyMultiplierSources = buildWeeklyMultiplierSources(member, guildExpSettings, globalExpMultiplier);
+  const levelsSim = buildLevelsSimPayload(guildId, guildExpSettings);
   const effectiveJoined = null;
   const romeToday = getRomeDateParts();
   const publicBirthday = buildPublicBirthdayPayload(doc?.profile?.birthday, romeToday);
@@ -336,6 +439,7 @@ async function buildProfileSearchPayload(client?, guildId?, searchId?) {
       ...(publicBirthday ? { birthday: publicBirthday } : {}),
       ...(Array.isArray(weeklyMultiplierSources) ? { weeklyMultiplierSources } : {}),
       ...(Number.isFinite(Number(expMultiplierResolved)) ? { expMultiplierResolved: Number(expMultiplierResolved) } : {}),
+      levelsSim,
     },
     rows,
   };

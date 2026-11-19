@@ -4,6 +4,7 @@
 
 import { apiUrl } from "./api";
 import { readableGuildName } from "./discord-fancy-text";
+import { normalizeLevelsSim, type LevelsSimConfig } from "./levelSim";
 
 export type DiscordRole = { id: string; name: string; color?: string; emoji?: string; iconUrl?: string };
 export type SharedMember = { id: string; username?: string; displayName?: string; avatarUrl?: string; isOwner?: boolean };
@@ -25,6 +26,8 @@ export type ProfileData = {
   custom: { role: CustomRole | null; secondaryRole: CustomRole | null; voice: CustomVoice | null };
   multiplier: number;
   multiplierSources: MultiplierSource[];
+  /** Tassi/curva/catalogo per il calcolatore (dal bot; fallback locale se assente). */
+  levelsSim: LevelsSimConfig;
   candy: { visible: boolean; ownedCount: number; total: number; items: Candy[] } | null;
   level: { rank?: number; level: number; exp: number; currentLevelExp: number; nextLevelExp: number; progressPercent: number } | null;
   weekly: { rank?: number; weeklyExp: number } | null;
@@ -73,6 +76,7 @@ export async function loadProfile(userId: string, origin = "", token = ""): Prom
         custom: { role: cp.role || null, secondaryRole: cp.secondaryRole || null, voice: cp.voice || null },
         multiplier: Number(rows.weekly?.expMultiplier ?? p.expMultiplierResolved ?? 1) || 1,
         multiplierSources: Array.isArray(p.weeklyMultiplierSources) ? p.weeklyMultiplierSources : [],
+        levelsSim: normalizeLevelsSim(p.levelsSim, Number(rows.weekly?.expMultiplier ?? p.expMultiplierResolved ?? 1) || 1),
         candy: hc?.visible && Array.isArray(hc.items) ? { visible: true, ownedCount: Number(hc.ownedCount) || 0, total: Number(hc.total) || hc.items.length, items: hc.items } : null,
         level: rows.level || null,
         weekly: rows.weekly || null,
@@ -217,6 +221,7 @@ export function guildProfileAsData(g: GuildProfile): ProfileData {
     custom: { role: null, secondaryRole: null, voice: null },
     multiplier: 1,
     multiplierSources: [],
+    levelsSim: normalizeLevelsSim(null, 1),
     candy: null,
     level: null,
     weekly: null,
