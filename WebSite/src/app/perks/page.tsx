@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { BadgeCheck, Camera, Gem, Info, Medal, Music2, Zap } from "lucide-react";
+import { BadgeCheck, Camera, Gem, Info, Medal, Music2, PartyPopper, Zap } from "lucide-react";
+import { EventRoles } from "@/components/perks/EventRoles";
 import { NewTag, PerkList } from "@/components/perks/PerkList";
 import { GenreTimeline } from "@/components/perks/GenreTimeline";
 import { PageHero } from "@/components/PageHero";
@@ -128,6 +129,17 @@ export default function PerksPage() {
               </div>
             </Reveal>
           </div>
+        </section>
+
+        {/* ruoli evento */}
+        <section>
+          <SectionTitle
+            icon={<PartyPopper />}
+            kicker="Ruoli evento"
+            title="Ricordi da collezione"
+            text="Ogni evento lascia il suo ruolo commemorativo: ecco come si ottengono e quali puoi ancora conquistare."
+          />
+          <EventRoles />
         </section>
 
         {/* badge */}

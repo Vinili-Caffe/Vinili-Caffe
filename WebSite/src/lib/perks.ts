@@ -233,3 +233,60 @@ export const BADGES: Badge[] = [
 /** Fascia raggiunta per un livello (null se sotto il 10). */
 export const tierFor = (level: number) => [...TIERS].reverse().find((t) => level >= t.level) ?? null;
 export const nextTier = (level: number) => TIERS.find((t) => level < t.level) ?? null;
+
+/** Ruoli degli eventi. `secret`: per gli utenti è sfocato e anonimo finché non lo sveliamo (l'high staff lo vede). */
+export type EventRole = {
+  role: string;
+  event: string;
+  period: string;
+  how: string;
+  status: "available" | "ended" | "soon";
+  theme: "hogwarts" | "hogwartsGold" | "starwars" | "natale" | "anniversario";
+  secret?: boolean;
+};
+
+export const EVENT_ROLES: EventRole[] = [
+  {
+    role: "༄ Commemorativo Hogwarts",
+    event: "Evento Hogwarts",
+    period: "Estate 2026",
+    how: "Assegnato a chi ha partecipato all'**evento Hogwarts** di quest'estate.",
+    status: "ended",
+    theme: "hogwarts",
+  },
+  {
+    role: "༄ 1° Posto Evento Hogwarts",
+    event: "Evento Hogwarts",
+    period: "Estate 2026",
+    how: "Assegnato ai **vincitori** dell'evento Hogwarts, chi ha chiuso al 1° posto.",
+    status: "ended",
+    theme: "hogwartsGold",
+  },
+  {
+    role: "༄ Commemorativo Star Wars",
+    event: "Evento Star Wars",
+    period: "1 dicembre 2026 – 28 febbraio 2027",
+    how: "Partecipa all'**evento Star Wars**: fatti smistare in una fazione e gioca su Discord e sul [[sito|/evento/]].",
+    status: "soon",
+    theme: "starwars",
+    secret: true,
+  },
+  {
+    role: "༄ Commemorativo Natale",
+    event: "Albero di Natale",
+    period: "Natale 2026",
+    how: "Lascia il tuo segno sull'**albero di Natale** del [[sito|/albero/]].",
+    status: "soon",
+    theme: "natale",
+    secret: true,
+  },
+  {
+    role: "༄ Commemorativo 1° Anniversario",
+    event: "Wrapped del 1° anniversario",
+    period: "1° anniversario del server",
+    how: "Apri il tuo **Wrapped** sul [[sito|/wrapped/]] per festeggiare il primo anno del server.",
+    status: "soon",
+    theme: "anniversario",
+    secret: true,
+  },
+];
