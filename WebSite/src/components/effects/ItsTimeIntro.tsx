@@ -11,6 +11,8 @@ const DAY_KEY = "vc_its_time_day_v1";
 const COOKIE = "vc_its_time_day";
 const BC = "vc-its-time-v1";
 const CHROME_PREFS = "/webhooks/site-chrome-prefs";
+/** Ultimo giorno in cui suona (YYYY-MM-DD, Europe/Rome). */
+const LAST_DAY = "2026-12-25";
 
 let shared: HTMLAudioElement | null = null;
 function introAudio() {
@@ -119,6 +121,12 @@ let stopActiveIntro: (() => void) | null = null;
  * della visita (cookie banner, nav…) si perde e l'autoplay resta bloccato.
  */
 export function ItsTimeIntro() {
+  /* ultimo giorno il 25 dicembre (Roma): dal 26 non suona più */
+  if (romeDayKey() > LAST_DAY) return null;
+  return <ItsTimeIntroActive />;
+}
+
+function ItsTimeIntroActive() {
   const { token, ready } = useAuth();
   const tokenRef = useRef(token);
   tokenRef.current = token;
