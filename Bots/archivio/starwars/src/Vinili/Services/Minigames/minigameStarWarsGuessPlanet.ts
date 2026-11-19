@@ -82,10 +82,15 @@ async function startStarWarsGuessPlanetGame(client?, cfg?) {
   if (attachment) embed.setImage(`attachment://${attachment.name}`);
   else if (pick.imageUrl) embed.setImage(String(pick.imageUrl));
 
-  const gameMessage = await sendMinigameMessage(channel, {
-    embeds: [embed],
-    files: attachment ? [attachment] : [],
-  }).catch(() => null);
+  /* con il tipo: ping ruolo minigiochi, messaggio della dashboard e premi evento come gli altri giochi */
+  const gameMessage = await sendMinigameMessage(
+    channel,
+    {
+      embeds: [embed],
+      files: attachment ? [attachment] : [],
+    },
+    { type: "starWarsGuessPlanet", kind: "start", vars: require(__eventCoreVinili("Minigames/services/minigameDraftSend")).minigameDraftVars(channel, { exp: rewardExp, durationMs }) },
+  ).catch(() => null);
 
   const timeout = scheduleMinigameRoundTimeout(client, cfg, channelId, channel, durationMs);
   const hintTimeout = await scheduleGenericHint(

@@ -23,6 +23,8 @@ const OWNER = "__starwars_mg__";
 const CREDITI = "<a:VC_crediti:1567852561543733338>";
 const loopState = new WeakSet();
 const claimLocks = new Set();
+/** Attacca la base: ai non smistati una sola ❌ per round (ogni messaggio in chat conta come colpo). */
+const attaccaUnsortedNotified = new Set<string>();
 /** Coda per tipo di round: le azioni sullo stesso round girano una alla volta (gateway = un solo processo). */
 const roundLocks = new Map<string, Promise<void>>();
 async function withRoundLock<T>(kind?, fn?: () => Promise<T>): Promise<T> {
@@ -113,9 +115,11 @@ async function seedClaimReaction(message?, emoji?) {
 
 function makeSwButtonShim({ client, guildId, user, message, customId, reaction = null }) {
   const uid = normalizeId(user?.id);
+  /* Giochi a reazione: niente messaggi in chat (vincite annunciate nel canale hub; errori/non smistati = via la reazione). */
   const notify = async (payload?) => {
     const content = typeof payload === "string" ? payload : String(payload?.content || "").trim();
     if (!content || !uid) return null;
+    if (QUIET_REACTION_GAMES) return null;
     const channel = message?.channel || (message?.channelId && client?.channels?.cache?.get?.(message.channelId));
     if (!channel?.send) return null;
     const sent = await channel
@@ -147,7 +151,10 @@ function makeSwButtonShim({ client, guildId, user, message, customId, reaction =
     deferred: false,
     replied: false,
     deferReply: async () => {},
-    editReply: async (payload?) => notify(payload),
+    editReply: async (payload?) => {
+      if (QUIET_REACTION_GAMES) await dropReaction();
+      return notify(payload);
+    },
     reply: async (payload?) => {
       await dropReaction();
       return notify(payload);
@@ -173,17 +180,90 @@ function normalizeConvoglioSide(factionId?) {
 /** Ping ruolo Minigames prima dell'annuncio (stesso anti-doppione del pool normale). */
 async function pingMinigamesRole(client?, channel?) {
   if (!channel?.send) return null;
+  /* solo prenotazione: il ping finisce nel messaggio d'inizio (sendSwStart), come nei minigiochi normali */
   try {
-    const cfg = getConfig(client);
-    /* sendMinigameRolePing prenota il ping per lo start dei minigiochi classici: qui lo mandiamo subito. */
-    const content = await sendMinigameRolePing(channel, cfg);
-    if (!content) return null;
-    clearRolePingSentThisStart(channel.id);
-    const roles = [...String(content).matchAll(/<@&(\d+)>/g)].map((m?) => m[1]);
-    return (await channel.send({ content, allowedMentions: { roles } }).catch(() => null)) || null;
-  } catch (_) {
-    return null;
+    await sendMinigameRolePing(channel, getConfig(client));
+  } catch (_) {}
+  return null;
+}
+
+/**
+ * Messaggio d'inizio dei minigiochi speciali con lo stesso layout dei minigiochi normali
+ * (titolo "Nome ❕", testo, "Hai N minuti…", statistiche, immagine, ping, messaggio della dashboard).
+ * keepLayout: tabelloni che si aggiornano (Attacca la base): stesso embed, ma col ping.
+ */
+async function sendSwStart(channel?, type?, payload?, { durationMs = SW_EXTRA_DURATION_MS, keepLayout = false } = {}) {
+  if (!channel?.send) return null;
+  const RP = require(__eventCoreVinili("Minigames/services/minigameRolePing"));
+  try {
+    if (keepLayout) {
+      const ping = RP.takePendingMinigameRolePing(channel.id) || "";
+      const roles = [...String(ping).matchAll(/<@&(\d+)>/g)].map((m?) => m[1]);
+      return await channel.send({ ...(payload || {}), ...(ping ? { content: ping, allowedMentions: { roles } } : {}) });
+    }
+    const { sendMinigameMessage } = require(__eventCoreVinili("Minigames/services/minigameDiscord"));
+    const { minigameDraftVars } = require(__eventCoreVinili("Minigames/services/minigameDraftSend"));
+    const { MINIGAME_EMBED_COLOR } = require(__eventCoreVinili("Minigames/services/minigameEmbeds"));
+    const { minigameTypeLabel } = require(__eventCoreVinili("Minigames/services/minigameClassicDrafts"));
+    const { formatItalianMinutesBold } = require(__eventCoreVinili("../shared/utils/italianDurationLabels"));
+    const { E } = require(__eventCoreVinili("../shared/emojis/emojiCatalog"));
+    const src: any = payload?.embeds?.[0];
+    const json: any = typeof src?.toJSON === "function" ? src.toJSON() : src || {};
+    const prompt = String(json.description || "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !/^hai\s+\*\*\d+\s+minut/i.test(l) && !/^avete\s+\*\*\d+\s+minut/i.test(l))
+      .join("\n");
+    const minutes = Math.max(1, Math.round(Number(durationMs || SW_EXTRA_DURATION_MS) / 60000));
+    const embed = new EmbedBuilder()
+      .setColor(MINIGAME_EMBED_COLOR)
+      .setTitle(`${minigameTypeLabel(type)} ${E.VC_Exclamation}`)
+      .setDescription(
+        [
+          `${E.VC_EXP} ${prompt}`,
+          `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
+          `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
+        ].join("\n"),
+      );
+    if (json.image?.url) embed.setImage(String(json.image.url));
+    const msg = await sendMinigameMessage(
+      channel,
+      { embeds: [embed], files: payload?.files || [] },
+      { type, kind: "start", vars: minigameDraftVars(channel, { durationMs }) },
+    );
+    return msg;
+  } finally {
+    try {
+      RP.clearRolePingSentThisStart(channel.id);
+    } catch (_) {}
   }
+}
+
+/** Messaggio di vittoria dei minigiochi speciali: stesso layout di quelli normali ("Un utente ha vinto!") + premi evento. */
+async function buildSwWinPayload(client?, { userId, type, exp = 100, prize = "", imageUrl = null, channel = null }: any = {}) {
+  const uid = normalizeId(userId);
+  const { buildWinEmbed } = require(__eventCoreVinili("Minigames/services/minigameEmbeds"));
+  const { applyMinigameDraftToPayload, minigameDraftVars } = require(__eventCoreVinili("Minigames/services/minigameDraftSend"));
+  let total = 0;
+  try {
+    const { getStarWarsWallet } = require("./starWarsEventWalletService") as typeof import("./starWarsEventWalletService");
+    total = Math.max(0, Math.floor(Number((await getStarWarsWallet(walletGuildId(client), uid))?.exp) || 0));
+  } catch (_) {}
+  const extras = prize ? [`🌌 **Premi evento** · ${prize}`] : [];
+  const embed = buildWinEmbed(uid, exp, total, null, imageUrl);
+  if (extras.length) embed.setDescription(`${embed.data.description}\n\n${extras.join("\n")}`);
+  const payload: any = applyMinigameDraftToPayload(
+    { embeds: [embed], __swExtras: extras },
+    {
+      type,
+      kind: "win",
+      vars: minigameDraftVars(channel || null, { user: `<@${uid}>`, exp, total, streak: 1 }),
+      mentionUserId: uid,
+      guild: channel?.guild || null,
+    },
+  );
+  if (payload && typeof payload === "object") delete payload.__swExtras;
+  return payload;
 }
 
 async function deleteSwChannelMessage(client?, channelId?, messageId?) {
@@ -337,6 +417,9 @@ function walletGuildId(client?) {
   return normalizeId(IDs.guilds?.main);
 }
 
+/** Errori e non smistati: solo reazioni, nessun messaggio in chat. */
+const QUIET_REACTION_GAMES = true;
+
 const UNSORTED_MG_MSG = "<a:VC_Alert:1482706673176150077> Devi essere **smistato** nell'evento Star Wars per partecipare.";
 
 /** Legge factionId dal DB (wallet main, fallback guild Discord). */
@@ -467,7 +550,7 @@ async function spawnReactGame(client?, kind?, { channelId = null, force = false 
         `<a:VC_Events:1482706144953897223> **VIA!**\nPrimo a reagire con ${meta.emoji} vince ${formatCrateMention(meta.crate)} + **${meta.exp} exp**.`,
       );
     if (meta.startImage) embed.setImage(meta.startImage);
-  const msg = await channel.send({ embeds: [embed] }).catch(() => null);
+  const msg = await sendSwStart(channel, kind, { embeds: [embed] }, { durationMs: REACT_DURATION_MS }).catch(() => null);
     if (!msg) {
       await setRound(kind, { status: "aborted", kind, guildId, channelId: channel.id });
       return { ok: false, error: "send_failed" };
@@ -831,7 +914,7 @@ async function spawnHuntGame(client?, kind?, { channelId = null, force = false }
       `${meta.blurb}\n\nPremio: ${formatCrateMention(meta.crate)} + **${meta.exp} exp**.\nHai **${Math.round(durationMs / 60000)} minuti**.`,
     );
   if (meta.hubImage) hubEmbed.setImage(meta.hubImage);
-  const hubMsg = await hub.send({ embeds: [hubEmbed] }).catch(() => null);
+  const hubMsg = await sendSwStart(hub, kind, { embeds: [hubEmbed] }, { durationMs }).catch(() => null);
 
   const hiddenEmbed = new EmbedBuilder()
     .setColor(0xc9a227)
@@ -896,16 +979,15 @@ async function handleStarWarsReaction(client?, reaction?, user?) {
         reason: kind,
         grant: { crateId: meta.crate, crateQty: 1, exp: meta.exp },
       });
-      const winEmbed = new EmbedBuilder()
-        .setColor(0xeab308)
-        .setTitle(`${meta.title} terminata!`)
-        .setDescription(
-          `🏁 <@${user.id}> vince e si porta a casa: ${formatCrateMention(meta.crate, 1, { open: true })} + **${meta.exp} exp** + 5 ${CREDITI} (+10 alla banca della fazione)`,
-        );
-      if (meta.winImage) winEmbed.setImage(meta.winImage);
-      await reaction.message
-        ?.edit?.({ embeds: [winEmbed] })
-        .catch(() => null);
+      const winPayload = await buildSwWinPayload(client, {
+        userId: user.id,
+        type: kind,
+        exp: meta.exp,
+        prize: `${formatCrateMention(meta.crate, 1, { open: true })} · **+5** ${CREDITI} (+10 alla banca della fazione)`,
+        imageUrl: meta.winImage || null,
+        channel: reaction.message?.channel || null,
+      });
+      await reaction.message?.reply?.(winPayload).catch(() => null);
       await reactSwWin(reaction.message).catch(() => null);
       return true;
     } finally {
@@ -1039,14 +1121,15 @@ async function handleStarWarsButton(interaction?) {
       interaction.client.channels.cache.get(hubId) ||
       (await interaction.client.channels.fetch(hubId).catch(() => null));
     if (hub?.send) {
-      const winEmbed = new EmbedBuilder()
-        .setColor(0xeab308)
-        .setTitle(`${meta.emoji} ${meta.title}`)
-        .setDescription(
-          `<@${interaction.user.id}> ha vinto! +${formatCrateMention(meta.crate, 1, { open: true })} + **${meta.exp} exp** + 5 ${CREDITI} (+10 alla banca della fazione)`,
-        );
-      if (meta.winImage) winEmbed.setImage(meta.winImage);
-      await hub.send({ embeds: [winEmbed] }).catch(() => null);
+      const winPayload = await buildSwWinPayload(interaction.client, {
+        userId: interaction.user.id,
+        type: kind,
+        exp: meta.exp,
+        prize: `${formatCrateMention(meta.crate, 1, { open: true })} · **+5** ${CREDITI} (+10 alla banca della fazione)`,
+        imageUrl: meta.winImage || null,
+        channel: hub,
+      });
+      await hub.send(winPayload).catch(() => null);
     }
   }
   return true;
@@ -1218,8 +1301,7 @@ async function startOrdine66(client?, { channelId = null, force = false } = {}) 
   const expiresAt = new Date(Date.now() + ORDINE66_DURATION_MS).toISOString();
   scheduleOrdine66Timeout(client, ORDINE66_DURATION_MS);
   const pingMsg = await pingMinigamesRole(client, channel);
-  const hubMsg = await channel
-    .send({
+  const hubMsg = await sendSwStart(channel, "ordine66", {
       embeds: [
         new EmbedBuilder()
           .setColor(0x8b1a1a)
@@ -1254,29 +1336,32 @@ async function tryOrdine66Mention(message?, client?) {
   if (guildId && normalizeId(message.guildId) !== guildId) return false;
   const targetId = normalizeId(round.payload.targetId);
   if (!targetId) return false;
-  if (normalizeId(message.author?.id) === targetId) return false;
-
   const mentionColl = message.mentions?.users;
+  const selfTagged = [...(mentionColl?.values?.() || mentionColl?.cache?.values?.() || [])].some((u?) => normalizeId(u?.id) === normalizeId(message.author?.id));
+  const authorIsTarget = normalizeId(message.author?.id) === targetId;
+  /* chi ha il ruolo (il bersaglio) vince anche taggando sé stesso; gli altri auto-tag non contano */
   const mentioned = [...(mentionColl?.values?.() || mentionColl?.cache?.values?.() || [])].filter(
-    (u?) => u && !u.bot && normalizeId(u.id) !== normalizeId(message.author?.id),
+    (u?) => u && !u.bot && (normalizeId(u.id) !== normalizeId(message.author?.id) || authorIsTarget),
   );
-  if (!mentioned.length) return false;
+  if (!mentioned.length) {
+    if (selfTagged) await reactSwWrong(message);
+    return selfTagged;
+  }
 
   if (!(await isStarWarsSortedParticipant(client || message.client, message.guildId, message.author.id))) {
-    return false;
+    if (mentioned.some((u?) => normalizeId(u.id) === targetId)) await reactSwWrong(message);
+    return true;
   }
 
   const hit = mentioned.some((u?) => normalizeId(u.id) === targetId);
   if (!hit) {
     await reactSwWrong(message);
-    await message.reply("Non è quello lo Jedi.").catch(() => null);
     return true;
   }
 
   const claimed = await claimRound("ordine66", message.author.id);
   if (!claimed) {
     await reactSwWrong(message);
-    await message.reply("Qualcun altro ha già eseguito l'Ordine 66.").catch(() => null);
     return true;
   }
   clearOrdine66Timeout();
@@ -1296,17 +1381,16 @@ async function tryOrdine66Mention(message?, client?) {
   });
   await reactSwWin(message);
   await message
-    .reply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(0x8b1a1a)
-          .setTitle("<a:VC_Events:1482706144953897223> Ordine eseguito!")
-          .setDescription(
-            `<@${message.author.id}> ottiene ${formatCrateMention("alpha", 1, { open: true })} + 100 exp + 5 truppe (${CREDITI} +5 · +10 banca).`,
-          )
-          .setImage(ORDINE66_WIN_IMAGE),
-      ],
-    })
+    .reply(
+      await buildSwWinPayload(client || message.client, {
+        userId: message.author.id,
+        type: "ordine66",
+        exp: 100,
+        prize: `${formatCrateMention("alpha", 1, { open: true })} · **5 truppe** · **+5** ${CREDITI} (+10 alla banca della fazione)`,
+        imageUrl: ORDINE66_WIN_IMAGE,
+        channel: message.channel,
+      }),
+    )
     .catch(() => null);
   return true;
 }
@@ -1449,8 +1533,7 @@ async function startCacciatoreTaglie(client?, { channelId = null, force = false 
   const expiresAt = new Date(Date.now() + CACCIATORE_DURATION_MS).toISOString();
   scheduleCacciatoreTimeout(client, CACCIATORE_DURATION_MS);
   const pingMsg = await pingMinigamesRole(client, channel);
-  const hubMsg = await channel
-    .send({
+  const hubMsg = await sendSwStart(channel, "cacciatore", {
       embeds: [
         new EmbedBuilder()
           .setColor(0xb45309)
@@ -1486,32 +1569,34 @@ async function tryCacciatoreMention(message?, client?) {
   if (!targetId) return false;
 
   const authorId = normalizeId(message.author?.id);
-  const selfIsTarget = Boolean(authorId && authorId === targetId);
   const mentionColl = message.mentions?.users;
+  const selfTagged = [...(mentionColl?.values?.() || mentionColl?.cache?.values?.() || [])].some((u?) => normalizeId(u?.id) === normalizeId(message.author?.id));
   const mentioned = [...(mentionColl?.values?.() || mentionColl?.cache?.values?.() || [])].filter((u?) => {
     if (!u || u.bot) return false;
     const id = normalizeId(u.id);
-    /* Auto-tag del bersaglio: vale come taglia riscossa. */
-    if (id === authorId) return selfIsTarget;
+    /* chi ha il ruolo (il bersaglio) vince anche taggando sé stesso; gli altri auto-tag non contano */
+    if (id === authorId) return authorId === targetId;
     return true;
   });
-  if (!mentioned.length) return false;
+  if (!mentioned.length) {
+    if (selfTagged) await reactSwWrong(message);
+    return selfTagged;
+  }
 
   if (!(await isStarWarsSortedParticipant(client || message.client, message.guildId, message.author.id))) {
-    return false;
+    if (mentioned.some((u?) => normalizeId(u.id) === targetId)) await reactSwWrong(message);
+    return true;
   }
 
   const hit = mentioned.some((u?) => normalizeId(u.id) === targetId);
   if (!hit) {
     await reactSwWrong(message);
-    await message.reply("<a:VC_Alert:1482706673176150077> Non è quello il bersaglio.").catch(() => null);
     return true;
   }
 
   const claimed = await claimRound("cacciatore", message.author.id);
   if (!claimed) {
     await reactSwWrong(message);
-    await message.reply("<a:VC_Alert:1482706673176150077> Qualcun altro ha già riscosso la taglia.").catch(() => null);
     return true;
   }
   clearCacciatoreTimeout();
@@ -1538,17 +1623,16 @@ async function tryCacciatoreMention(message?, client?) {
   });
   await reactSwWin(message);
   await message
-    .reply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(0xb45309)
-          .setTitle("<a:VC_Events:1482706144953897223> Obiettivo trovato!")
-          .setDescription(
-            `<@${message.author.id}> ha riscosso la taglia guadagnando: ${formatCrateMention("alpha", 1, { open: true })} + 100 exp + ${troopLine}.`,
-          )
-          .setImage(CACCIATORE_WIN_IMAGE),
-      ],
-    })
+    .reply(
+      await buildSwWinPayload(client || message.client, {
+        userId: message.author.id,
+        type: "cacciatore",
+        exp: 100,
+        prize: `${formatCrateMention("alpha", 1, { open: true })} · ${troopLine}`,
+        imageUrl: CACCIATORE_WIN_IMAGE,
+        channel: message.channel,
+      }),
+    )
     .catch(() => null);
   return true;
 }
@@ -1666,7 +1750,7 @@ async function startScovaPianeta(client?, { channelId = null, force = false } = 
       `La mappa galattica non risulta aggiornata. Cerca il pianeta nel settore **\`${coord}\`** alle coordinate \`${numericCoords}\`\nConsulta la mappa e scrivi in chat il nome del pianeta.\nHai **${Math.round(SCOVA_DURATION_MS / 60000)} minuti**.`,
     )
     .setImage(SCOVA_MAP_IMAGE);
-  const hubMsg = await channel.send({ embeds: [embed] }).catch(() => null);
+  const hubMsg = await sendSwStart(channel, "scova", { embeds: [embed] }, { durationMs: SCOVA_DURATION_MS }).catch(() => null);
   await setRound("scova", {
     status: "active",
     kind: "scova",
@@ -1697,7 +1781,8 @@ async function tryScovaMessage(message?, client?) {
     return true;
   }
   if (!(await isStarWarsSortedParticipant(client || message.client, message.guildId, message.author.id))) {
-    return false;
+    await reactSwWrong(message);
+    return true;
   }
 
   const claimed = await claimRound("scova", message.author.id);
@@ -1759,26 +1844,19 @@ async function tryScovaMessage(message?, client?) {
               : factionId === "nuovo_ordine"
                 ? "del Nuovo Ordine"
                 : null;
-  const winColor =
-    factionId === "repubblica" || factionId === "ribellione" || factionId === "nuova_repubblica"
-      ? 0x2f6fed
-      : factionId === "separatisti" || factionId === "impero" || factionId === "nuovo_ordine"
-        ? 0xb45309
-        : 0x22c55e;
-  const foundLine =
-    `<@${message.author.id}> ha individuato **${guessPlanet.name}**` + (sector ? ` (\`${sector}\`)` : "") + ".";
-  const rewardLine = bankName
-    ? ` Per il suo contributo ha guadagnato **${SCOVA_FACTION_EXP.toLocaleString("it-IT")} exp** e ha aggiunto **${SCOVA_BANK_CREDITS.toLocaleString("it-IT")}** ${CREDITI} nella banca ${bankName}.`
-    : ` Per il suo contributo ha guadagnato **${SCOVA_FACTION_EXP.toLocaleString("it-IT")} exp**.`;
-  const winEmbed = new EmbedBuilder()
-    .setColor(winColor)
-    .setTitle("Mappa aggiornata!")
-    .setDescription(foundLine + rewardLine)
-    .setImage(SCOVA_WIN_IMAGE);
-  const planetThumb = scovaPlanetImageUrl(guessPlanet.id);
-  if (planetThumb) winEmbed.setThumbnail(planetThumb);
   await reactSwWin(message);
-  await message.reply({ embeds: [winEmbed] }).catch(() => null);
+  await message
+    .reply(
+      await buildSwWinPayload(clientRef, {
+        userId: message.author.id,
+        type: "scova",
+        exp: SCOVA_FACTION_EXP,
+        prize: `trovato **${guessPlanet.name}**${sector ? ` (\`${sector}\`)` : ""} · **+${SCOVA_FACTION_EXP.toLocaleString("it-IT")} exp** a tutta la fazione${bankName ? ` · **+${SCOVA_BANK_CREDITS.toLocaleString("it-IT")}** ${CREDITI} nella banca ${bankName}` : ""}`,
+        imageUrl: SCOVA_WIN_IMAGE,
+        channel: message.channel,
+      }),
+    )
+    .catch(() => null);
   return true;
 }
 /* ——— Attacca la base ——— */
@@ -1930,11 +2008,7 @@ async function startAttaccaBase(client?, { channelId = null, force = false } = {
   const skinKey = resolveFeatureStateNow().epoch === EPOCHS.SEQUEL ? "sequel" : "civil";
   const boardPayload = { hpYavin: hp, hpDeathStar: hp, skin: skinKey };
   const pingMsg = await pingMinigamesRole(client, channel);
-  const boardMsg = await channel
-    .send({
-      embeds: [attaccaBaseBoardEmbed(boardPayload)],
-    })
-    .catch(() => null);
+  const boardMsg = await sendSwStart(channel, "attacca_base", { embeds: [attaccaBaseBoardEmbed(boardPayload)] }, { keepLayout: true }).catch(() => null);
   if (!boardMsg) return { ok: false, error: "send_failed" };
   const expiresAt = new Date(Date.now() + ATTACCA_DURATION_MS).toISOString();
   const payload = {
@@ -2011,6 +2085,11 @@ async function tryAttaccaBaseMessage(message?, client?) {
   const text = String(message.content || "").trim();
   if (text.length < ATTACCA_MIN_CHARS) return false;
   if (!(await isStarWarsSortedParticipant(client || message.client, message.guildId, message.author.id))) {
+    const onceKey = `${normalizeId(round.payload.createdAt)}:${normalizeId(message.author.id)}`;
+    if (!attaccaUnsortedNotified.has(onceKey)) {
+      attaccaUnsortedNotified.add(onceKey);
+      await reactSwWrong(message);
+    }
     return false;
   }
   /* Colpi in fila: con tanti messaggi insieme ognuno legge l'HP aggiornato (prima se ne perdevano). */
@@ -2066,18 +2145,17 @@ async function applyAttaccaBaseHit(message?, client?) {
       grant: { crateId: "omega", crateQty: 1, exp: 100 },
     });
     await reactSwWin(message);
-    await message.channel
-      .send({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0xef4444)
-            .setTitle("Base distrutta")
-            .setDescription(
-              `💥 <@${uid}> azzera **${winner}**!\nPremio: ${formatCrateMention("omega", 1, { open: true })} + **100 exp**.`,
-            )
-            .setImage(attaccaVsImageForDestroyed(winner, skin)),
-        ],
-      })
+    await message
+      .reply(
+        await buildSwWinPayload(client || message.client, {
+          userId: uid,
+          type: "attacca_base",
+          exp: 100,
+          prize: `💥 base distrutta: **${winner}** · ${formatCrateMention("omega", 1, { open: true })}`,
+          imageUrl: attaccaVsImageForDestroyed(winner, skin),
+          channel: message.channel,
+        }),
+      )
       .catch(() => null);
   } else {
     await message.react("💥").catch(() => null);
@@ -2250,8 +2328,7 @@ async function startConvoglio(client?, { channelId = null, force = false } = {})
   const durationMs = CONVOGLIO_DURATION_MS;
   const escortLabel = convoglioFactionLabel(escort);
   const pingMsg = await pingMinigamesRole(client, hub);
-  const hubMsg = await hub
-    .send({
+  const hubMsg = await sendSwStart(hub, "convoglio", {
       embeds: [
         new EmbedBuilder()
           .setColor(0x8b1a1a)
@@ -2462,11 +2539,19 @@ async function handleConvoglioButtonLocked(interaction?, parts?) {
           interaction.client.channels.cache.get(hubId) ||
           (await interaction.client.channels.fetch(hubId).catch(() => null));
         if (hub?.send) {
+          const arrived: any = convoglioEmbed({ escort, hop: needHops, needHops, mode: "arrived" });
+          const arrivedImg = (typeof arrived?.toJSON === "function" ? arrived.toJSON() : arrived)?.image?.url || null;
           await hub
-            .send({
-              content: `🏁 <@${interaction.user.id}> ha portato il convoglio a destinazione! (+${formatCrateMention("omega", 1, { open: true })} + 100 exp)`,
-              embeds: [convoglioEmbed({ escort, hop: needHops, needHops, mode: "arrived" })],
-            })
+            .send(
+              await buildSwWinPayload(interaction.client, {
+                userId: interaction.user.id,
+                type: "convoglio",
+                exp: 100,
+                prize: `🏁 convoglio a destinazione · ${formatCrateMention("omega", 1, { open: true })}`,
+                imageUrl: arrivedImg,
+                channel: hub,
+              }),
+            )
             .catch(() => null);
         }
       }
@@ -2843,8 +2928,7 @@ async function startConquista(client?, { channelId = null, force = false } = {})
   if (!pairCount) return { ok: false, error: "no_planets" };
 
   const pingMsg = await pingMinigamesRole(client, hub);
-  const hubMsg = await hub
-    .send({
+  const hubMsg = await sendSwStart(hub, "conquista", {
       embeds: [
         new EmbedBuilder()
           .setColor(0xc2410c)
@@ -3062,11 +3146,11 @@ async function spawnDeckDrop(client?, kind?, { channelId = null, force = false }
     .setColor(isPg ? 0x2f6fed : 0xc9a227)
     .setTitle(isPg ? `Colleziona PG — ${item.name}` : `Colleziona reliquie — ${item.name}`)
     .setDescription(
-      `**${item.name}**\nPrimo a scrivere il nome in chat se lo aggiunge al deck!`,
+      `Scrivi per primo in chat **${item.name}** per aggiungerlo al deck: ${formatCrateMention("solare", 1, { open: true })} + **100 exp**.`,
     );
   if (image) embed.setImage(image);
 
-  const msg = await channel.send({ embeds: [embed] }).catch(() => null);
+  const msg = await sendSwStart(channel, isPg ? "pg" : "reliquie", { embeds: [embed] }, { durationMs: DECK_DURATION_MS }).catch(() => null);
   if (!msg) return { ok: false, error: "send_failed" };
 
   await setRound(roundKind, {
@@ -3101,14 +3185,13 @@ async function tryDeckMessage(message?, client?) {
     }
 
     if (!(await isStarWarsSortedParticipant(client || message.client, message.guildId, message.author.id))) {
-      await message.reply(UNSORTED_MG_MSG).catch(() => null);
+      await reactSwWrong(message);
       return true;
     }
 
     const claimed = await claimRound(kind, message.author.id);
     if (!claimed) {
       await reactSwWrong(message);
-      await message.reply("Qualcun altro è stato più veloce.").catch(() => null);
       return true;
     }
     clearDeckTimeout(kind);
@@ -3153,13 +3236,42 @@ async function tryDeckMessage(message?, client?) {
     }
 
     await reactSwWin(message);
-    await message
-      .reply(
+    /* stesso messaggio di vittoria degli altri minigiochi ("Un utente ha vinto!" + premi evento) */
+    try {
+      const { buildWinEmbed } = require(__eventCoreVinili("Minigames/services/minigameEmbeds"));
+      const { applyMinigameDraftToPayload, minigameDraftVars } = require(__eventCoreVinili("Minigames/services/minigameDraftSend"));
+      const after = await getStarWarsWallet(walletGid, message.author.id);
+      const owned = Array.isArray(after?.[field]) ? after[field].length : 0;
+      let deckTotal = 0;
+      try {
+        deckTotal = isPg
+          ? require("../../Utils/Eventi/starWarsPgCatalog").pgTotal()
+          : require("../../Utils/Eventi/starWarsReliquieCatalog").reliquieTotal();
+      } catch (_) {}
+      const totalExp = Math.max(0, Math.floor(Number(after?.exp) || 0));
+      const extras = [
+        `🌌 **Premi evento** · ${formatCrateMention("solare", 1, { open: true })} · **+100** exp evento`,
         alreadyOwned
-          ? `✨ <@${message.author.id}> indovina **${label}**! (+${formatCrateMention("solare", 1, { open: true })} + 100 exp) — già nel tuo deck.`
-          : `✨ <@${message.author.id}> reclama **${label}**! (+${formatCrateMention("solare", 1, { open: true })} + 100 exp) — aggiunta al deck profilo.`,
-      )
-    .catch(() => null);
+          ? `🃏 **${label}** era già nel tuo deck`
+          : `🃏 **${label}** aggiunto al deck${deckTotal ? ` (**${owned}/${deckTotal}**)` : ""}`,
+      ];
+      const embed = buildWinEmbed(message.author.id, 100, totalExp, null, isPg ? pgImageUrl(matched.id) : reliquieImageUrl(matched.id));
+      embed.setDescription(`${embed.data.description}\n\n${extras.join("\n")}`);
+      const payload = applyMinigameDraftToPayload(
+        { embeds: [embed], __swExtras: extras },
+        {
+          type: isPg ? "pg" : "reliquie",
+          kind: "win",
+          vars: minigameDraftVars(message.channel, { user: `<@${message.author.id}>`, exp: 100, total: totalExp, streak: 1 }),
+          mentionUserId: message.author.id,
+          guild: message.guild,
+        },
+      );
+      if (payload && typeof payload === "object") delete (payload as any).__swExtras;
+      await message.reply(payload).catch(() => null);
+    } catch (err) {
+      global.logger?.warn?.("[SW MG] deck win message:", err?.message || err);
+    }
     return true;
   }
   return false;

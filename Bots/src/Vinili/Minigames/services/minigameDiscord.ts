@@ -54,6 +54,52 @@ function injectMinigameRolePingIntoBody(body?, ping?) {
 }
 
 /**
+ * Durante lo Star Wars ogni minigioco in rotazione annuncia gli stessi premi evento (exp evento + crediti),
+ * come il quiz: prima solo il quiz li diceva, gli altri no.
+ */
+function appendStarWarsStartRewardLine(body?, channel?, type?) {
+  try {
+    if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+    const { getConfig } = require("./minigameConfig") as typeof import("./minigameConfig");
+    const base: any = getConfig(channel?.client) || {};
+    const cfg = { ...base, guildId: String(channel?.guild?.id || channel?.guildId || "") };
+    const hooks: any = require("../utils/starWarsMinigameHooks");
+    if (!hooks.countsTowardStarWarsEventWinRewards?.(type, cfg)) return body;
+    const quiz = cfg.starWarsQuiz && typeof cfg.starWarsQuiz === "object" ? cfg.starWarsQuiz : {};
+    const exp = Math.max(0, Math.floor(Number(quiz.rewardExp ?? 50) || 0));
+    const credits = Math.max(0, Math.floor(Number(quiz.rewardCredits ?? 5000) || 0));
+    const line = `🌌 **Premi evento** · ${E.VC_EXP} **+${exp}** exp evento · ${E.VC_crediti} **+${credits.toLocaleString("it-IT")}** crediti evento`;
+    const out: any = { ...body };
+    if (Array.isArray(out.embeds) && out.embeds[0]) {
+      const e0: any = out.embeds[0];
+      const json: any = typeof e0?.toJSON === "function" ? e0.toJSON() : e0?.data || e0;
+      const d = String(json?.description || "");
+      if (/crediti/i.test(d)) return body;
+      out.embeds = [{ ...json, description: `${d}\n${line}`.trim() }, ...out.embeds.slice(1)];
+      return out;
+    }
+    if (Array.isArray(out.components) && out.components.length) {
+      const flat = JSON.stringify(out.components.map((c: any) => (typeof c?.toJSON === "function" ? c.toJSON() : c)));
+      if (/crediti/i.test(flat)) return body;
+      const block = { type: 10, content: line };
+      const insert = (list: any[]) => {
+        let at = list.length;
+        while (at > 0 && list[at - 1]?.type === 1) at -= 1;
+        return [...list.slice(0, at), block, ...list.slice(at)];
+      };
+      const comps = out.components.map((c: any) => (typeof c?.toJSON === "function" ? c.toJSON() : c));
+      const ci = comps.findIndex((c: any) => c?.type === 17);
+      if (ci >= 0) comps[ci] = { ...comps[ci], components: insert(Array.isArray(comps[ci].components) ? comps[ci].components : []) };
+      out.components = ci >= 0 ? comps : insert(comps);
+      return out;
+    }
+    return body;
+  } catch {
+    return body;
+  }
+}
+
+/**
  * @param opts.type tipo minigioco — se presente, prova start/win draft dalla dashboard
  * @param opts.kind 'start' | 'win' (default start)
  * @param opts.vars placeholder del draft
@@ -92,6 +138,7 @@ async function sendMinigameMessage(channel?, payload?, opts: { type?: string; ki
       body = mergeRoleAllowedMentions(body, ping);
     }
     if (ping) body = injectMinigameRolePingIntoBody(body, ping);
+    if (kind === "start" && opts?.type) body = appendStarWarsStartRewardLine(body, channel, opts.type);
 
     const outgoing =
       body && typeof body === "object" && !Array.isArray(body)

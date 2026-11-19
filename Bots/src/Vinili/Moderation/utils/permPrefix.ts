@@ -78,8 +78,9 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
   const userId = message?.author?.id || null;
   const safeCommand = String(commandName || "").toLowerCase();
   const onMainGuild = isMainGuild(guildId);
-  /* modulo spento dalla pagina Moduli */
-  if (guildId) {
+  /* modulo spento dalla pagina Moduli (non nei ticket web: lì +description deve funzionare sempre) */
+  const inWebTicket = String(message?.channelId || message?.channel?.id || "").startsWith("web-ticket-");
+  if (guildId && !(inWebTicket && WEB_TICKET_PREFIX_ALLOWED_COMMANDS.has(safeCommand))) {
     const blocked = (require("../../../MultiGuild/core/moduleSwitches") as typeof import("../../../MultiGuild/core/moduleSwitches")).blockedCommandMessage(guildId, safeCommand);
     if (blocked) return options.returnDetails ? { allowed: false, reason: "module_disabled", requiredRoles: null, channels: null, message: blocked } : false;
   }
@@ -273,7 +274,8 @@ async function checkPrefixPermission(message?, commandName?, subcommandName = nu
   const webTicketSkipsChannelPolicy =
     isWebTicketPrefixChannel && WEB_TICKET_PREFIX_ALLOWED_COMMANDS.has(safeCommand);
 
-  if (dashAcl && dashAcl.enabled === false) {
+  /* nei ticket web +description resta attivo anche se spento in Dashboard → Comandi (vale per i canali Discord) */
+  if (dashAcl && dashAcl.enabled === false && !webTicketSkipsChannelPolicy) {
     if (options.returnDetails) {
       return {
         allowed: false,

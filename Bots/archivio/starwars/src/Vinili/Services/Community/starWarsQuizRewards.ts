@@ -114,6 +114,7 @@ async function grantStarWarsQuizWinRewards(
 
   return {
     ok: Boolean(out?.ok),
+    exp: eventExp,
     credits,
     sideCredits: out?.sideWin?.credits || 0,
     bankCredits: out?.sideWin?.bankCredits || 0,

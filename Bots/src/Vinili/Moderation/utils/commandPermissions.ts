@@ -49,8 +49,10 @@ function isPrefixCommandAllowedInWebTicket({
     if (!onlyCats.includes(cat)) return false;
   }
 
+  /* +description nei ticket partnership del sito: sempre attivo, anche se spento in Dashboard → Comandi
+     (lì l'interruttore vale per i canali Discord, non per i ticket web). */
   const gid = String(guildId || "").trim();
-  const dashAcl = gid ? peekMainDashboardCommandAcl(gid, safeCommand) : null;
+  const dashAcl = gid && !WEB_TICKET_PREFIX_ALLOWED_COMMANDS.has(safeCommand) ? peekMainDashboardCommandAcl(gid, safeCommand) : null;
   if (dashAcl && dashAcl.enabled === false) return false;
 
   const data = loadPermissions();
@@ -84,8 +86,9 @@ function isSlashCommandAllowedInWebTicket({
     if (!onlyCats.includes(cat)) return false;
   }
 
+  /* /partnership nei ticket partnership del sito: sempre attivo, anche se spento in Dashboard → Comandi. */
   const gid = String(guildId || "").trim();
-  const dashAcl = gid ? peekMainDashboardCommandAcl(gid, `s:1:${safeCommand}`) : null;
+  const dashAcl = gid && !WEB_TICKET_SLASH_ALLOWED_COMMANDS.has(safeCommand) ? peekMainDashboardCommandAcl(gid, `s:1:${safeCommand}`) : null;
   if (dashAcl && dashAcl.enabled === false) return false;
 
   const data = loadPermissions();

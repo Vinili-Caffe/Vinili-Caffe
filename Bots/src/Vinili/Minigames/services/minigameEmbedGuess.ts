@@ -4,6 +4,12 @@ const { formatItalianMinutesBold } = require("../../../shared/utils/italianDurat
 const { MINIGAME_EMBED_COLOR, DRIVING_QUIZ_LETTERS } = require("./minigameEmbedShared") as typeof import("./minigameEmbedShared");
 
 const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
+/** Nome file, attachment://… o URL → riferimento immagine valido per l'embed. */
+function attachmentImageRef(name?) {
+  const v = String(name || "");
+  return /^(attachment|https?):\/\//i.test(v) ? v : `attachment://${v}`;
+}
+
 function buildGuessNumberEmbed(min?, max?, rewardExp?, durationMs?, imageName = null) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
@@ -16,7 +22,7 @@ function buildGuessNumberEmbed(min?, max?, rewardExp?, durationMs?, imageName = 
         `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   return embed;
 }
 
@@ -32,7 +38,7 @@ function buildGuessWordEmbed(scrambled?, rewardExp?, durationMs?, imageName = nu
         `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   return embed;
 }
 
@@ -107,7 +113,7 @@ function buildGuessRegionCapitalEmbed(region?, rewardExp?, durationMs?, imageUrl
       `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   else if (imageUrl) embed.setImage(imageUrl);
   return embed;
 }
@@ -139,7 +145,7 @@ function buildFastTypeEmbed(rewardExp?, durationMs?, imageName = null) {
         `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   return embed;
 }
 
@@ -192,15 +198,15 @@ function buildHangmanEmbed(rewardExp?, durationMs?, imageName = null) {
   const minutes = Math.max(1, Math.round(durationMs / 60000));
   const embed = new EmbedBuilder()
     .setColor(MINIGAME_EMBED_COLOR)
-    .setTitle(`Indovina la parola ${E.VC_Exclamation}`)
+    .setTitle(`Impiccato ${E.VC_Exclamation}`)
     .setDescription(
       [
         `${E.VC_EXP} Scrivi una lettera o prova a indovinare la parola intera per ottenere **${rewardExp} exp**.`,
-        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per indovinare la parola.`,
+        `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per indovinare la parola!`,
         `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   return embed;
 }
 
@@ -216,7 +222,7 @@ function buildItalianGkEmbed(rewardExp?, durationMs?, imageName = null) {
         `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   return embed;
 }
 
@@ -237,7 +243,7 @@ function buildStarWarsQuizEmbed(rewardExp?, durationMs?, rewardCredits = 5000, m
     .setColor(MINIGAME_EMBED_COLOR)
     .setTitle(`Quiz Star Wars ${E.VC_Exclamation}`)
     .setDescription(lines.join("\n"));
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   return embed;
 }
 
@@ -255,7 +261,7 @@ function buildGuessPlanetEmbed(rewardExp?, durationMs?, hint = null, imageName =
     .setColor(MINIGAME_EMBED_COLOR)
     .setTitle(`Indovina il pianeta ${E.VC_Exclamation}`)
     .setDescription(lines.join("\n"));
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   return embed;
 }
 
@@ -269,7 +275,7 @@ function buildDrivingQuizEmbed(rewardExp?, durationMs?, imageName = null) {
       `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
       `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
-    if (imageName) embed.setImage(`attachment://${imageName}`);
+    if (imageName) embed.setImage(attachmentImageRef(imageName));
     return embed;
 }
 
@@ -284,7 +290,7 @@ function buildMathExpressionEmbed(rewardExp?, durationMs?, imageName = null) {
       `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"),
     );
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   return embed;
 }
 
@@ -300,7 +306,7 @@ function buildFindBotEmbed(rewardExp?, durationMs?, imageName = null) {
         `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   return embed;
 }
 
@@ -316,7 +322,7 @@ function buildFindBotButtonEmbed(rewardExp?, durationMs?, imageName = null) {
         `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   return embed;
 }
 
@@ -332,7 +338,7 @@ function buildFindBotVoiceEmbed(rewardExp?, durationMs?, imageName = null) {
         `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
       ].join("\n"),
     );
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   return embed;
 }
 
@@ -354,7 +360,7 @@ function buildMemorySequenceEmbed(sequence?, rewardExp?, displayMs?, imageName =
     value: safeSequence || "—",
     inline: false,
   });
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  if (imageName) embed.setImage(attachmentImageRef(imageName));
   return embed;
 }
   
@@ -373,7 +379,11 @@ function buildMemoryRecallEmbed(durationMs?, imageName = null, rewardExp = null)
       `> ${E.VC_pixeltime} Hai ${formatItalianMinutesBold(minutes)} per rispondere!`,
       `> ${E.VC_Winner} Guarda le tue statistiche dei minigiochi nel [tuo profilo](https://www.viniliecaffe.it/profilo/).`,
     ].join("\n"));
-  if (imageName) embed.setImage(`attachment://${imageName}`);
+  /* accetta nome file, attachment://… o URL (prima "attachment://attachment://…" → immagine fuori dall'embed) */
+  if (imageName) {
+    const img = String(imageName);
+    embed.setImage(/^(attachment|https?):\/\//i.test(img) ? img : `attachment://${img}`);
+  }
   return embed;
 }
 

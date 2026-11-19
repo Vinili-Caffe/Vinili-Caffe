@@ -14,6 +14,16 @@ const culture = require("./minigameHandlersCulture") as typeof import("./minigam
 
 const { isStaleOrInvalidActiveGame, closeStaleActiveMinigameChannel } = stale;
 
+/** Server test con staging Star Wars attivo (testGuildForceLive): i minigiochi seguono le regole dell'evento. */
+function isStarWarsStagingGuild(client?, guildId?) {
+  try {
+    const { isStarWarsForceLiveOnTestGuild } = require("../../../../archivio/starwars/src/Vinili/Utils/Eventi/starWarsEventConfig") as typeof import("../../../../archivio/starwars/src/Vinili/Utils/Eventi/starWarsEventConfig");
+    return Boolean(isStarWarsForceLiveOnTestGuild(client, guildId));
+  } catch {
+    return false;
+  }
+}
+
 async function handleMinigameMessage(message?, client?) {
   const baseCfg = getConfig(client);
   if (!baseCfg?.enabled) return false;
@@ -48,6 +58,8 @@ async function handleMinigameMessage(message?, client?) {
     ...baseCfg,
     guildId: String(message.guild.id || ""),
     channelId: chId,
+    /* server test in staging (testGuildForceLive): stesse regole Star Wars del principale a evento aperto */
+    starWarsEventLive: Boolean(baseCfg.starWarsEventLive) || isStarWarsStagingGuild(client || message.client, message.guild.id),
   };
 
   let game = gameHere;
@@ -77,15 +89,16 @@ async function handleMinigameMessage(message?, client?) {
   }
 
   /* Evento SW: senza smistamento non si participa ai minigame in rotazione. Fail-closed sul gate. */
-  if (baseCfg.starWarsEventLive) {
+  if (cfg.starWarsEventLive) {
     try {
       const {
         isStarWarsSortedParticipant,
-        UNSORTED_MG_MSG,
       } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService");
       const ok = await isStarWarsSortedParticipant(client || message.client, message.guildId, message.author?.id);
       if (!ok) {
-        await message.reply(UNSORTED_MG_MSG).catch(() => null);
+        /* non smistato: solo la reazione d'errore, niente messaggio in chat */
+        const { reactMinigameWrongEmoji } = require("./minigameDiscord") as typeof import("./minigameDiscord");
+        await reactMinigameWrongEmoji(message).catch(() => null);
         return true;
       }
     } catch (err) {

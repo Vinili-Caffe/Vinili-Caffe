@@ -185,6 +185,8 @@ function applyMinigameDraftToPayload(fallbackPayload?, opts: { type?: string; ki
     const T = require("../../../MultiGuild/core/tenantCommunityTools") as typeof import("../../../MultiGuild/core/tenantCommunityTools");
     const fb = fallbackPayload && typeof fallbackPayload === "object" && !Array.isArray(fallbackPayload) ? fallbackPayload : {};
     const vars: Record<string, string> = { ...(opts.vars || {}) };
+    /* senza ping al ruolo (già fatto di recente / nessun ruolo) {ping} va svuotato, non scritto in chiaro */
+    if (vars.ping == null) vars.ping = "";
     if (!vars.minigame) {
       try {
         const { minigameTypeLabel } = require("./minigameClassicDrafts") as typeof import("./minigameClassicDrafts");
@@ -236,6 +238,36 @@ function applyMinigameDraftToPayload(fallbackPayload?, opts: { type?: string; ki
       flags: body.flags,
       allowedMentions: body.allowed_mentions,
     };
+    /* vittoria durante lo Star Wars: i premi evento restano visibili anche col messaggio personalizzato */
+    const swExtras: string[] = Array.isArray(fb.__swExtras) ? fb.__swExtras.filter(Boolean) : [];
+    if ((opts.kind || "start") === "win" && swExtras.length) {
+      const text = swExtras.join("\n");
+      const isV2Body = (Number(body.flags) & (1 << 15)) !== 0;
+      if (isV2Body && Array.isArray(components)) {
+        const block = { type: 10, content: text };
+        const insert = (list: any[]) => {
+          let at = list.length;
+          while (at > 0 && list[at - 1]?.type === 1) at -= 1;
+          return [...list.slice(0, at), block, ...list.slice(at)];
+        };
+        const ci = components.findIndex((c: any) => c?.type === 17);
+        if (ci >= 0) {
+          const c: any = components[ci];
+          components = [...components];
+          components[ci] = { ...c, components: insert(Array.isArray(c.components) ? c.components : []) };
+        } else components = insert(components);
+      } else if (Array.isArray(embeds) && embeds[0]) {
+        const e0: any = embeds[0];
+        const d = String(e0.description ?? e0.data?.description ?? "");
+        if (!d.includes(swExtras[0])) {
+          embeds = [{ ...(e0.data ? e0.toJSON?.() || e0.data : e0), description: `${d}\n\n${text}`.trim() }, ...embeds.slice(1)];
+        }
+      } else {
+        body.content = [String(body.content || "").trim(), text].filter(Boolean).join("\n");
+      }
+      out.embeds = embeds;
+      out.content = body.content;
+    }
     if (components?.length) out.components = components;
     if (fb.files) out.files = fb.files;
     /* V2: niente classic embeds residui (come preparePanelDiscordPayload / sendOrEdit). */

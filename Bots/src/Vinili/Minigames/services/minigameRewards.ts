@@ -266,11 +266,15 @@ function mergeStarWarsQuizRewardIntoMessage(basePayload?, award?, winnerUserId?)
   if (!sw?.ok) return basePayload || {};
   const out = { ...(basePayload || {}) };
   const embeds = Array.isArray(out.embeds) ? out.embeds.slice() : [];
+  /* stesse righe per tutti i minigiochi dell'evento; __swExtras le porta anche nel messaggio della dashboard */
+  const lead = [];
+  if (sw.exp > 0) lead.push(`${E.VC_EXP} **+${Number(sw.exp).toLocaleString("it-IT")}** exp evento`);
+  if (sw.credits > 0) lead.push(`${E.VC_crediti} **+${Number(sw.credits).toLocaleString("it-IT")}** crediti evento`);
+  out.__swExtras = [];
+  if (lead.length) out.__swExtras.push(`🌌 **Premi evento** · ${lead.join(" · ")}`);
   if (embeds[0] && typeof embeds[0].data?.description === "string") {
     const extras = [];
-    if (sw.credits > 0) {
-      extras.push(`${E.VC_crediti} **+${Number(sw.credits).toLocaleString("it-IT")}** crediti evento`);
-    }
+    if (lead.length) extras.push(out.__swExtras[0]);
     if (sw.sideCredits > 0 || sw.bankCredits > 0) {
       extras.push(
         `${E.VC_crediti} **+${Number(sw.sideCredits || 0)}** personali · **+${Number(sw.bankCredits || 0)}** banca fazione`,
@@ -293,6 +297,7 @@ function mergeStarWarsQuizRewardIntoMessage(basePayload?, award?, winnerUserId?)
         extras.push(`Cassa Alpha tra **${sw.untilNextCrate}** vittorie`);
       }
     }
+    out.__swExtras = extras.slice();
     if (extras.length) {
       const desc = `${embeds[0].data.description}\n\n${extras.join("\n")}`;
       embeds[0] = EmbedBuilder.from(embeds[0]).setDescription(desc);

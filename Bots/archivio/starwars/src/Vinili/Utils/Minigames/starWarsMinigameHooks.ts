@@ -200,7 +200,17 @@ function resolveStarWarsMinigameChannelId(client?) {
 }
 
 function shouldUseStarWarsTheme(cfg?) {
-  return Boolean(cfg?.starWarsEventLive);
+  if (cfg?.starWarsEventLive) return true;
+  /* server test in staging (testGuildForceLive): stesse regole e premi del principale a evento aperto */
+  const gid = String(cfg?.guildId || "").trim();
+  if (!gid) return false;
+  try {
+    const g: any = global as any;
+    const client = g.botClient?.config ? g.botClient : { config: require("../../../../../../src/Vinili/config.json") };
+    return Boolean(isStarWarsForceLiveOnTestGuild(client, gid));
+  } catch (_) {
+    return false;
+  }
 }
 
 function isStarWarsQuizMinigameType(type?) {

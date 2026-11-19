@@ -26,6 +26,16 @@ const {
 } = require("./minigameFindBot") as typeof import("./minigameFindBot");
 const { fetchAudioAttachment } = require("./minigameGuessMatchers") as typeof import("./minigameGuessMatchers");
 
+
+/** Server test con staging Star Wars attivo: stesse regole dell'evento. */
+function swStagingGuild(client?, guildId?) {
+  try {
+    const { isStarWarsForceLiveOnTestGuild } = require("../../../../archivio/starwars/src/Vinili/Utils/Eventi/starWarsEventConfig");
+    return Boolean(isStarWarsForceLiveOnTestGuild(client, guildId));
+  } catch {
+    return false;
+  }
+}
 async function handleMinigameReaction(client?, reaction?, user?) {
   let message: any = null;
   let cfg: any = null;
@@ -61,22 +71,15 @@ async function handleMinigameReaction(client?, reaction?, user?) {
         String(findGame.messageId || "") === String(message.id) &&
         findBotClaimEmojiMatches(liveReaction)
       ) {
-        if (cfg.starWarsEventLive) {
+        if (cfg.starWarsEventLive || swStagingGuild(client || message.client, message.guildId)) {
           try {
             const {
               isStarWarsSortedParticipant,
-              UNSORTED_MG_MSG,
             } = require("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService") as typeof import("../../../../archivio/starwars/src/Vinili/Services/Community/starWarsDiscordMinigamesService");
             const ok = await isStarWarsSortedParticipant(client || message.client, message.guildId, user.id);
             if (!ok) {
+              /* non smistato: si toglie solo la sua reazione, niente messaggio in chat */
               await liveReaction.users?.remove?.(user.id).catch(() => null);
-              const ch = message.channel;
-              if (ch?.send) {
-                const tip = await ch
-                  .send({ content: `<@${user.id}> ${UNSORTED_MG_MSG}`, allowedMentions: { users: [user.id] } })
-                  .catch(() => null);
-                if (tip) setTimeout(() => void tip.delete?.().catch?.(() => null), 10_000);
-              }
               return true;
             }
           } catch (err) {
@@ -402,7 +405,7 @@ ${game.previewUrl}`,
     return false;
   }
 
-  if (cfg.starWarsEventLive) {
+  if (cfg.starWarsEventLive || swStagingGuild(interaction.client, interaction.guildId)) {
     try {
       const {
         isStarWarsSortedParticipant,
