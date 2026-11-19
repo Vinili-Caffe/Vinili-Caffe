@@ -11,12 +11,11 @@ import {
   estimateLevelEta,
   formatEta,
   getTotalExpForLevel,
-  type LevelsSimCatalogRole,
   type LevelsSimConfig,
 } from "@/lib/levelSim";
 import { cn } from "@/lib/cn";
 
-type RolePick = "attuale" | "base" | string;
+type RolePick = "attuale" | string;
 
 function clampInt(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Math.floor(Number(n) || 0)));
@@ -138,6 +137,7 @@ function ComparisonRow({
   active,
   current,
   hint,
+  onSelect,
 }: {
   label: string;
   badge?: string;
@@ -146,32 +146,41 @@ function ComparisonRow({
   active?: boolean;
   current?: boolean;
   hint?: string;
+  onSelect: () => void;
 }) {
   const eta = formatEta(days);
   return (
-    <li
-      className={cn(
-        "grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5 rounded-2xl px-3.5 py-3 transition-colors sm:grid-cols-[minmax(0,1.2fr)_auto_auto]",
-        active ? "bg-caramel/15 ring-1 ring-caramel/30" : "bg-crema/[0.04] hover:bg-crema/[0.07]",
-      )}
-    >
-      <div className="min-w-0">
-        <p className="truncate font-semibold text-crema/90">
-          {label}
-          <span className="ml-2 font-display text-sm font-bold text-ember lining-nums">{mult(multiplier)}</span>
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={active}
+        className={cn(
+          "grid w-full grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5 rounded-2xl px-3.5 py-3 text-left transition-[background-color,box-shadow,transform] duration-200 ease-out sm:grid-cols-[minmax(0,1.2fr)_auto_auto]",
+          "outline-none focus-visible:ring-2 focus-visible:ring-caramel/50",
+          active
+            ? "bg-caramel/15 ring-1 ring-caramel/30"
+            : "bg-crema/[0.04] hover:bg-crema/[0.09] active:scale-[0.99]",
+        )}
+      >
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-crema/90">
+            {label}
+            <span className="ml-2 font-display text-sm font-bold text-ember lining-nums">{mult(multiplier)}</span>
+          </p>
+          {hint ? <p className="truncate text-xs text-crema/45">{hint}</p> : null}
+        </div>
+        {badge ? (
+          <span className="hidden rounded-full bg-crema/10 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-crema/55 sm:inline">
+            {badge}
+          </span>
+        ) : (
+          <span className="hidden sm:block" />
+        )}
+        <p className={cn("text-right font-display text-lg font-semibold lining-nums tabular-nums", current || active ? "text-ember" : "text-crema/80")}>
+          {Number.isFinite(days) ? eta.label : "—"}
         </p>
-        {hint ? <p className="truncate text-xs text-crema/45">{hint}</p> : null}
-      </div>
-      {badge ? (
-        <span className="hidden rounded-full bg-crema/10 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-crema/55 sm:inline">
-          {badge}
-        </span>
-      ) : (
-        <span className="hidden sm:block" />
-      )}
-      <p className={cn("text-right font-display text-lg font-semibold lining-nums tabular-nums", current ? "text-ember" : "text-crema/80")}>
-        {Number.isFinite(days) ? eta.label : "—"}
-      </p>
+      </button>
     </li>
   );
 }
@@ -232,13 +241,11 @@ export function LevelSimulator({ p, sim }: { p: ProfileData; sim: LevelsSimConfi
     return getTotalExpForLevel(fromLevel, sim.levelCurve);
   }, [fromLevel, currentLevel, currentExp, sim.levelCurve]);
 
-  const activeRole = pick !== "attuale" && pick !== "base" ? sim.catalog.find((c) => c.key === pick) : null;
+  const activeRole = pick !== "attuale" ? sim.catalog.find((c) => c.key === pick) : null;
   const effectiveMult =
     pick === "attuale"
       ? Math.max(0.1, p.multiplier || 1)
-      : pick === "base"
-        ? combineMultiplier(sim.globalMultiplier, 1, sim.maxCombinedMultiplier)
-        : combineMultiplier(sim.globalMultiplier, activeRole?.multiplier ?? 1, sim.maxCombinedMultiplier);
+      : combineMultiplier(sim.globalMultiplier, activeRole?.multiplier ?? 1, sim.maxCombinedMultiplier);
 
   const safeTo = Math.max(fromLevel, toLevel);
   const eta = estimateLevelEta({
@@ -293,17 +300,10 @@ export function LevelSimulator({ p, sim }: { p: ProfileData; sim: LevelsSimConfi
     return rows;
   }, [sim, startExp, safeTo, messages, voiceHours, roleIds, p.multiplier]);
 
-  const appliedLabel = (() => {
-    if (pick === "attuale") return `il tuo ×${p.multiplier.toFixed(1).replace(".", ",")}`;
-    if (pick === "base") return mult(effectiveMult);
-    return `${cleanRole(activeRole?.label || "")} ${mult(effectiveMult)}`;
-  })();
-
-  const pills: { id: RolePick; label: string; owned?: boolean }[] = [
-    { id: "attuale", label: "Il tuo" },
-    { id: "base", label: "Base" },
-    ...sim.catalog.map((c: LevelsSimCatalogRole) => ({ id: c.key, label: c.label, owned: roleIds.has(c.roleId) })),
-  ];
+  const appliedLabel =
+    pick === "attuale"
+      ? `il tuo ×${p.multiplier.toFixed(1).replace(".", ",")}`
+      : `${cleanRole(activeRole?.label || "")} ${mult(effectiveMult)}`;
 
   return (
     <div className="space-y-7">
@@ -368,33 +368,6 @@ export function LevelSimulator({ p, sim }: { p: ProfileData; sim: LevelsSimConfi
         />
       </div>
 
-      <div>
-        <p className="mb-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/45">Moltiplicatore da usare</p>
-        <ul className="flex flex-wrap gap-2">
-          {pills.map((pill) => {
-            const on = pick === pill.id;
-            return (
-              <li key={pill.id}>
-                <button
-                  type="button"
-                  onClick={() => setPick(pill.id)}
-                  aria-pressed={on}
-                  className={cn(
-                    "rounded-full px-3.5 py-2 text-sm font-semibold transition-[background-color,color,box-shadow,transform] duration-200 ease-out",
-                    on
-                      ? "bg-gradient-to-r from-caramel to-ember text-ink shadow-[0_10px_24px_-12px_rgba(240,180,110,0.7)]"
-                      : "bg-crema/[0.06] text-crema/70 ring-1 ring-sand/15 hover:bg-crema/[0.1] hover:text-crema",
-                  )}
-                >
-                  {pill.label}
-                  {pill.owned && !on ? <span className="ml-1.5 text-[0.65rem] uppercase tracking-wider text-caramel">tu</span> : null}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-
       <div className="relative overflow-hidden rounded-[1.35rem] bg-gradient-to-br from-caramel/20 via-mocha/80 to-espresso p-5 ring-1 ring-caramel/25 sm:p-6">
         <div className="pointer-events-none absolute -right-8 -top-10 size-40 rounded-full bg-ember/20 blur-3xl" aria-hidden />
         <p className="relative text-sm font-semibold text-crema/60">
@@ -420,10 +393,10 @@ export function LevelSimulator({ p, sim }: { p: ProfileData; sim: LevelsSimConfi
       </div>
 
       <div>
-        <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-crema/75">
+        <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-crema/75">
           <TrendingUp className="size-4 text-caramel" aria-hidden />
           Con un moltiplicatore più alto
-          <span className="font-normal text-crema/40">· stessa attività</span>
+          <span className="font-normal text-crema/40">· tocca una riga per usarlo</span>
         </p>
         <ul className="grid gap-2">
           {comparisons.map((row) => (
@@ -436,6 +409,7 @@ export function LevelSimulator({ p, sim }: { p: ProfileData; sim: LevelsSimConfi
               active={pick === row.key}
               current={row.current}
               hint={row.hint}
+              onSelect={() => setPick(row.key)}
             />
           ))}
         </ul>
