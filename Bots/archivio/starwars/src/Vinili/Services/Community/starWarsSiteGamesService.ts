@@ -694,6 +694,12 @@ async function digMiniera(client, { guildId, userId, highStaff = false }) {
 
 /* ——— Puzzle di Kessel ——— */
 const PUZZLE_ATTEMPT_GRACE_MS = 12_000;
+/** Casse dal puzzle al giorno (Rome), somma di tutte le difficoltà; oltre si prende solo l'exp. */
+const PUZZLE_DAILY_CRATES = 8;
+
+function puzzleCratesDayKey(userId?, now = Date.now()) {
+  return `puzzle_crates_${normalizeId(userId)}_${dayBucketRome(new Date(now))}`;
+}
 const puzzleAdSessions = new Map(); /* adSessionId → { userId, kind, difficultyId, attemptId, startedAt } */
 
 function puzzleClaimsDocKey(userId?) {
@@ -1018,10 +1024,12 @@ async function completePuzzleAttempt(client, { guildId, userId, difficultyId, at
 
   const rewardBoosted = Boolean(attempt.rewardBoosted);
   const exp = rewardBoosted ? Math.round(diff.exp * PUZZLE_AD_BOOSTS.reward.expMult) : diff.exp;
-  const crateId = rollPuzzleCrateBiased(
-    diff,
-    rewardBoosted ? PUZZLE_AD_BOOSTS.reward.betterCrateBias : 0,
-  );
+  const cratesDayKey = puzzleCratesDayKey(u, now);
+  const cratesToday = safeInt((await getDoc(cratesDayKey))?.payload?.n);
+  const crateAllowed = Boolean(highStaff) || cratesToday < PUZZLE_DAILY_CRATES;
+  const crateId = crateAllowed
+    ? rollPuzzleCrateBiased(diff, rewardBoosted ? PUZZLE_AD_BOOSTS.reward.betterCrateBias : 0)
+    : null;
   const grant = await grantStarWarsReward(client, {
     guildId: g,
     userId: u,
@@ -1032,6 +1040,7 @@ async function completePuzzleAttempt(client, { guildId, userId, difficultyId, at
     },
   });
 
+  if (crateId && !highStaff) await setDoc(cratesDayKey, { n: cratesToday + 1 }, g);
   const claimedAt = new Date(now).toISOString();
   blob.claims[diff.id] = claimedAt;
   if (!highStaff) {
@@ -1052,6 +1061,9 @@ async function completePuzzleAttempt(client, { guildId, userId, difficultyId, at
     rewardBoosted,
     grant: grant.granted,
     wallet: grant.wallet,
+    cratesToday: crateId && !highStaff ? cratesToday + 1 : cratesToday,
+    dailyCrateCap: PUZZLE_DAILY_CRATES,
+    crateCapReached: !crateAllowed,
     cooldownRemainingMs: highStaff ? 0 : diff.cooldownMs,
     nextAvailableAt: highStaff ? claimedAt : new Date(now + diff.cooldownMs).toISOString(),
     staffBypass: Boolean(highStaff),

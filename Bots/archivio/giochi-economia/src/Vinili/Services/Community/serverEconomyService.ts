@@ -27,16 +27,20 @@ const {
   splitDualReward,
 } = require("./serverWalletService") as typeof import("./serverWalletService");
 
-/** Parametri economia Discord durante evento SW (crediti). */
+/**
+ * Parametri economia Discord durante evento SW (crediti).
+ * ×10 rispetto alla prima versione: truppe da 100k–1M e casse da centinaia di migliaia
+ * rendevano i comandi irrilevanti (~7k crediti/giorno).
+ */
 const SW_CREDIT_TUNING = Object.freeze({
-  minBet: 50,
-  maxBet: 5000,
-  dailyBetCap: 50000,
-  work: { minReward: 100, maxReward: 400 },
-  daily: { reward: 750 },
-  weekly: { reward: 4000 },
-  monthly: { reward: 15000 },
-  rob: { minTargetBalance: 500, minSteal: 100, maxSteal: 1500, failPenalty: 250 },
+  minBet: 500,
+  maxBet: 50000,
+  dailyBetCap: 500000,
+  work: { minReward: 1000, maxReward: 4000 },
+  daily: { reward: 7500 },
+  weekly: { reward: 40000 },
+  monthly: { reward: 150000 },
+  rob: { minTargetBalance: 5000, minSteal: 1000, maxSteal: 15000, failPenalty: 2500 },
 });
 
 const SERVER_ECONOMY_PATH = "profile.economy.server";

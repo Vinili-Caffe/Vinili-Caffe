@@ -5,6 +5,7 @@ import { AccessHomeRedirect } from "@/components/AccessHomeRedirect";
 import { useAuth } from "@/lib/auth";
 import {
   canAccessEventoPage,
+  isEventoClassificheGraceOpen,
   isEventoFeatureUnlocked,
   isEventoHighStaff,
   isEventoPagePublic,
@@ -50,7 +51,8 @@ export function EventoAccessGate({
   const { ready, token } = useAuth();
   /* Pubblico solo se finestra evento + pagina public + feature calendar sbloccata. */
   const publicOk =
-    isEventoPublicWindowOpen() && isEventoPagePublic(pageId) && isEventoFeatureUnlocked(pageId);
+    (isEventoPublicWindowOpen() && isEventoPagePublic(pageId) && isEventoFeatureUnlocked(pageId)) ||
+    (pageId === "classifiche" && isEventoClassificheGraceOpen());
 
   const [verdict, setVerdict] = useState<GateVerdict>("loading");
   const [access, setAccess] = useState<StaffAccess | null>(null);

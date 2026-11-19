@@ -162,7 +162,11 @@ export function PuzzleBoard() {
     if (!out?.ok) {
       throw new Error(out?.message || "Premio non assegnato.");
     }
-    const crate = out.grant?.crateId ? ` + cassa ${out.grant.crateId}` : "";
+    const crate = out.grant?.crateId
+      ? ` + cassa ${out.grant.crateId}`
+      : out.crateCapReached
+        ? ` (casse di oggi finite: ${out.dailyCrateCap ?? 8}/${out.dailyCrateCap ?? 8})`
+        : "";
     const boost = out.rewardBoosted ? " (boost)" : "";
     showToast(`+${out.grant?.exp || active.difficulty.exp} EXP${crate}${boost}`);
     void reload();

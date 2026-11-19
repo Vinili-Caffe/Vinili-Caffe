@@ -988,11 +988,18 @@ async function handleSiteEventoPeiGet(client?, req?, res?) {
   }
 }
 
+/** Dopo la chiusura le classifiche restano visibili per 24 ore (allineato al sito). */
+const CLASSIFICHE_GRACE_MS = 24 * 60 * 60 * 1000;
+
 async function handleSiteEventoClassificheGet(client?, req?, res?) {
   try {
     const auth = await resolveAuth(client, req);
     const access = accessFlags(client, auth);
-    if (!requireParticipate(access, res)) return;
+    /* Classifiche finali consultabili per 24 ore dopo la chiusura (anche ospiti e non smistati). */
+    const endMs = Number(resolveStarWarsEventConfig(client)?.endMs);
+    const graceOpen =
+      Boolean(access.ended) && Number.isFinite(endMs) && Date.now() <= endMs + CLASSIFICHE_GRACE_MS;
+    if (!graceOpen && !requireParticipate(access, res)) return;
     const board = await getClassificheBoard(client, { viewerUserId: auth?.userId || null });
     return res.status(200).json(board);
   } catch (err) {

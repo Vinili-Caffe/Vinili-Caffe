@@ -965,6 +965,10 @@ export async function completeEventoPuzzle(
       cooldownRemainingMs?: number;
       nextAvailableAt?: string;
       rewardBoosted?: boolean;
+      /** Casse dal puzzle oggi / limite giornaliero (oltre: solo exp). */
+      cratesToday?: number;
+      dailyCrateCap?: number;
+      crateCapReached?: boolean;
       message?: string;
       error?: string;
     } | null;

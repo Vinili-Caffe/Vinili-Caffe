@@ -45,7 +45,7 @@ export = {
         await deny(
           msg,
           galeoniMode
-            ? "Indica un utente valido: `+rob @utente` / `+rob username` (oppure `+rob` per Gringott)."
+            ? "Indica un utente valido: `+rob @utente` / `+rob username` (oppure `+rob` per la cassaforte)."
             : "Indica un utente valido: `+rob @utente` / `+rob username` (oppure `+rob` per la cassaforte).",
         );
         return;

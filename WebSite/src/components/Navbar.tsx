@@ -44,6 +44,7 @@ import { useDeviceFx } from "./effects/DeviceFxProvider";
 import {
   eventoEventiNavForViewer,
   eventoPrimaryNavForViewer,
+  isEventoClassificheGraceOpen,
   isEventoHighStaff,
   isEventoPublicWindowOpen,
   type EventoNavItemView,
@@ -445,11 +446,13 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
   const profileHref = page(`/user/${user ? `?id=${user.id}` : ""}`);
   const dashOpen = canOpenDashBacheca(staff, stickyOk);
   const soon = t("auth.comingSoon");
-  const eventoOpen = isEventoHighStaff(staff) || isEventoPublicWindowOpen();
+  /* 24 ore dopo la chiusura: il link porta alle classifiche finali. */
+  const eventoGrace = isEventoClassificheGraceOpen();
+  const eventoOpen = isEventoHighStaff(staff) || isEventoPublicWindowOpen() || eventoGrace;
   const links = [
     { href: profileHref, label: t("auth.profile"), icon: <UserRound className="size-4" />, locked: false },
     {
-      href: page("/evento/"),
+      href: page(eventoGrace ? "/evento/classifiche/" : "/evento/"),
       label: t("nav.evento"),
       icon: <Sparkles className="size-4" />,
       locked: !eventoOpen,

@@ -213,6 +213,22 @@ export function isEventoSeasonOpen(now = new Date()): boolean {
   return romeStamp(now) < eventoCloseStamp();
 }
 
+/** Ore dopo la chiusura in cui le classifiche restano visibili (allineato a site-api). */
+export const EVENTO_CLASSIFICHE_GRACE_HOURS = 24;
+
+function eventoClassificheGraceEndStamp(): string {
+  const c = EVENTO_PUBLIC_CLOSE;
+  const d = new Date(Date.UTC(c.year, c.month - 1, c.day, c.hour, c.minute) + EVENTO_CLASSIFICHE_GRACE_HOURS * 3_600_000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
+
+/** Evento chiuso ma classifiche ancora consultabili (24 ore dopo la chiusura). */
+export function isEventoClassificheGraceOpen(now = new Date()): boolean {
+  if (isEventoSeasonOpen(now)) return false;
+  return romeStamp(now) < eventoClassificheGraceEndStamp();
+}
+
 /**
  * Immersione UI SW (token/hero/chrome): dall’apertura Rome (1 dic 12:00) fino alla chiusura stagione.
  * Indipendente da `EVENTO_PUBLIC_ENABLED` — serve anche a HS in anteprima dicembre.
@@ -290,8 +306,8 @@ export function canAccessEventoPage(
   access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
   now = new Date(),
 ): boolean {
-  /* Chiusura totale 28 feb 21:00 — anche High Staff. */
-  if (!isEventoSeasonOpen(now)) return false;
+  /* Chiusura totale 28 feb 21:00 — anche High Staff; solo le classifiche restano 24 ore. */
+  if (!isEventoSeasonOpen(now)) return pageId === "classifiche" && isEventoClassificheGraceOpen(now);
   /* Avvento: chiuso dal 26; prima del 1 dic solo HS; in stagione ok. */
   if (pageId === "avvento") {
     if (isEventoAvventoEnded(now)) return false;
@@ -308,7 +324,7 @@ export function canSeeEventoInNav(
   access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
   now = new Date(),
 ): boolean {
-  if (!isEventoSeasonOpen(now)) return false;
+  if (!isEventoSeasonOpen(now)) return isEventoClassificheGraceOpen(now);
   return isEventoHighStaff(access) || isEventoPublicWindowOpen(now);
 }
 
@@ -319,7 +335,11 @@ export function eventoNavForViewer(
   access: Pick<StaffAccess, "isHighStaff" | "canManage"> & { highStaff?: boolean } | null | undefined,
   now = new Date(),
 ): EventoNavItemView[] {
-  if (!isEventoSeasonOpen(now)) return [];
+  if (!isEventoSeasonOpen(now)) {
+    return isEventoClassificheGraceOpen(now)
+      ? EVENTO_NAV.filter((item) => item.id === "classifiche").map((item) => ({ ...item, locked: false }))
+      : [];
+  }
   const hs = isEventoHighStaff(access);
   const pub = isEventoPublicWindowOpen(now);
   return EVENTO_NAV.map((item) => {

@@ -21,7 +21,7 @@ function now() {
 }
 
 function makeBankTarget(client?) {
-  const label = client ? resolveEconomyPresentation(client).robBankLabel : "Gringott";
+  const label = client ? resolveEconomyPresentation(client).robBankLabel : "Cassaforte";
   return {
     id: client ? robBankTargetId(client) : ROB_BANK_TARGET_ID,
     name: label,
@@ -32,7 +32,7 @@ function makeBankTarget(client?) {
 
 async function makeSession({ ownerId, guildId, targetId, targetName, cfg, isBank, client, currency }) {
   const bank = Boolean(isBank) || isRobBankTarget(targetId);
-  const bankLabel = client ? resolveEconomyPresentation(client).robBankLabel : "Gringott";
+  const bankLabel = client ? resolveEconomyPresentation(client).robBankLabel : "Cassaforte";
   const galeoniEconomy = Boolean(client && resolveEconomyMode(client) === "galeoni");
   const baseChance = Math.max(1, Math.min(99, Math.floor(Number(cfg?.rob?.successChance) || 35)));
   let successChance = baseChance;
@@ -88,7 +88,7 @@ function buildRows(session?, panelClosed = false) {
   const locked = Boolean(panelClosed) || Boolean(session.panelAnimating);
   const done = session.phase === "done";
   const softBlocked = Boolean(session.softBlocked);
-  const bankLabel = session.robBankLabel || "Gringott";
+  const bankLabel = session.robBankLabel || "Cassaforte";
   const row = [];
   if (session.isBank) {
     row.push(
@@ -275,7 +275,7 @@ function scheduleRobIdlePanel(message?, session?, notice = "", delayMs = null) {
 }
 
 async function warmupSpinPreviews() {
-    for (const targetName of ["Gringott", "Cassaforte"]) {
+    for (const targetName of ["Cassaforte"]) {
     const stub = {
       isBank: true,
       targetName,
@@ -292,7 +292,7 @@ async function warmupSpinPreviews() {
 async function warmupRobPanel(opts: Record<string, any> = {}) {
   const maxMs = Math.max(500, Math.floor(Number(opts.maxMs) || 4000));
   const wait = opts.wait !== false;
-  const bankWarmStub = { isBank: true, targetName: "Gringott", successChance: 35 };
+  const bankWarmStub = { isBank: true, targetName: "Cassaforte", successChance: 35 };
   if (defaultIdleCache) {
     if (!wait) {
       if (!renderCache.has(spinPreviewCacheKey(bankWarmStub))) {
@@ -307,7 +307,7 @@ async function warmupRobPanel(opts: Record<string, any> = {}) {
       try {
         const renderRobCanvas = require("../Render/robCanvas") as typeof import("../Render/robCanvas");
         if (typeof renderRobCanvas.warmup === "function") renderRobCanvas.warmup();
-        const idle = await renderRobCanvas({ phase: "idle", targetName: "Gringott", bankLabel: "Gringott", isBank: true, successChance: 35 });
+        const idle = await renderRobCanvas({ phase: "idle", targetName: "Cassaforte", bankLabel: "Cassaforte", isBank: true, successChance: 35 });
         const idleName = "rob-heist.png";
         defaultIdleCache = { buffer: idle.buffer, fileName: idleName, image: `attachment://${idleName}`, isGif: false };
         rememberRenderCache(IDLE_CACHE_KEY, idle.buffer, idleName);

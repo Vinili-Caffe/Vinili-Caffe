@@ -332,12 +332,14 @@ async function resolveBattleForHour(eventKey?, leftId?, rightId?, epoch?, hourKe
   let mode = "standoff";
   let message = "Nessuna delle due fazioni ha attaccato: le forze schierate sono state perse.";
 
+  let spoils = null;
   if (!leftAttack && !rightAttack) {
-    /* Solo le truppe schierate (o hangar se nessuno aveva dichiarato) vengono perse. */
-    if (leftCombat.deployed) left.stanceUnits = {};
-    else left.units = {};
-    if (rightCombat.deployed) right.stanceUnits = {};
-    else right.units = {};
+    /* Nessun attacco: le truppe schierate in difesa tornano nell'hangar, nessuno perde nulla. */
+    message = "Nessun attacco quest'ora: le truppe schierate sono tornate nell'hangar.";
+    leftFactor = 1;
+    rightFactor = 1;
+    applyCombatOutcome(left, hourKey, 1);
+    applyCombatOutcome(right, hourKey, 1);
     left.resolvedHour = hourKey;
     right.resolvedHour = hourKey;
     await saveFactionBank(eventKey, leftId, left);
@@ -347,32 +349,47 @@ async function resolveBattleForHour(eventKey?, leftId?, rightId?, epoch?, hourKe
     const rightPower = unitPower(rightBefore, epoch);
 
     if (leftAttack && rightAttack) {
+      /* Scontro pieno: vince la potenza maggiore (pari = nessun vincitore). Vincitore tiene il 70%, sconfitto il 40%. */
       mode = "engagement";
-      if (leftPower >= rightPower) {
-        winner = leftId;
-        leftFactor = 0.15;
-        rightFactor = 0.1;
+      if (leftPower === rightPower) {
+        winner = null;
+        leftFactor = 0.55;
+        rightFactor = 0.55;
+        message = "Scontro pieno in parità: entrambe le fazioni tengono il 55%.";
       } else {
-        winner = rightId;
-        leftFactor = 0.1;
-        rightFactor = 0.15;
+        winner = leftPower > rightPower ? leftId : rightId;
+        leftFactor = winner === leftId ? WAR_WIN_KEEP : WAR_ENGAGE_LOSE_KEEP;
+        rightFactor = winner === rightId ? WAR_WIN_KEEP : WAR_ENGAGE_LOSE_KEEP;
+        message = `Scontro pieno: prevale ${factionLabelSafe(epoch, winner)}. Vincitore 70%, sconfitto 40% delle forze.`;
       }
-      message = `Scontro pieno: prevale ${factionLabelSafe(epoch, winner)}.`;
     } else {
+      /* Raid: chi ha più potenza vince e non perde nulla, chi perde tiene il 70%. In parità vince chi difende. */
       mode = "raid";
-      winner = leftPower >= rightPower ? leftId : rightId;
-      if (leftAttack) {
-        leftFactor = 1.0;
-        rightFactor = 0.7;
-      } else {
-        leftFactor = 0.7;
-        rightFactor = 1.0;
-      }
-      message = `Raid: prevale ${factionLabelSafe(epoch, winner)}. Attaccante 100%, difensore 70% delle forze schierate.`;
+      const attackerId = leftAttack ? leftId : rightId;
+      const defenderId = leftAttack ? rightId : leftId;
+      const attackerPower = leftAttack ? leftPower : rightPower;
+      const defenderPower = leftAttack ? rightPower : leftPower;
+      winner = attackerPower > defenderPower ? attackerId : defenderId;
+      leftFactor = winner === leftId ? 1.0 : WAR_RAID_LOSE_KEEP;
+      rightFactor = winner === rightId ? 1.0 : WAR_RAID_LOSE_KEEP;
+      message = `Raid: prevale ${factionLabelSafe(epoch, winner)}. Il vincitore tiene tutte le truppe, lo sconfitto il 70%.`;
     }
 
     applyCombatOutcome(left, hourKey, leftFactor);
     applyCombatOutcome(right, hourKey, rightFactor);
+    /* Bottino: al vincitore il 25% del valore delle truppe perse dallo sconfitto. */
+    if (winner) {
+      const loserBefore = winner === leftId ? rightBefore : leftBefore;
+      const loserFactor = winner === leftId ? rightFactor : leftFactor;
+      const lostValue = unitsValue(unitsDiff(loserBefore, scaleUnits(loserBefore, loserFactor)), epoch);
+      const credits = Math.floor(lostValue * WAR_SPOILS_SHARE);
+      if (credits > 0) {
+        const winBank = winner === leftId ? left : right;
+        winBank.credits = safeInt(winBank.credits) + credits;
+        spoils = { factionId: winner, credits };
+        message += ` Bottino: +${credits.toLocaleString("it-IT")} crediti alla banca.`;
+      }
+    }
     left.resolvedHour = hourKey;
     right.resolvedHour = hourKey;
     await saveFactionBank(eventKey, leftId, left);
@@ -385,7 +402,7 @@ async function resolveBattleForHour(eventKey?, leftId?, rightId?, epoch?, hourKe
     stance: leftStance,
     deployed: leftCombat.deployed,
     beforeUnits: leftBefore,
-    surviveFactor: !leftAttack && !rightAttack ? 0 : leftFactor,
+    surviveFactor: leftFactor,
     hangarAfter: left.units,
   });
   const rightSide = buildSideReport({
@@ -394,7 +411,7 @@ async function resolveBattleForHour(eventKey?, leftId?, rightId?, epoch?, hourKe
     stance: rightStance,
     deployed: rightCombat.deployed,
     beforeUnits: rightBefore,
-    surviveFactor: !leftAttack && !rightAttack ? 0 : rightFactor,
+    surviveFactor: rightFactor,
     hangarAfter: right.units,
   });
 
@@ -409,6 +426,7 @@ async function resolveBattleForHour(eventKey?, leftId?, rightId?, epoch?, hourKe
     winner,
     winnerLabel: winner ? factionLabelSafe(epoch, winner) : null,
     message,
+    spoils,
     left: leftSide,
     right: rightSide,
     totals: {
@@ -431,6 +449,7 @@ async function resolveBattleForHour(eventKey?, leftId?, rightId?, epoch?, hourKe
     leftFactor,
     rightFactor,
     message,
+    spoils,
     reportId: report.id,
     myPowerHidden: true,
     enemySurvivingHidden: true,
@@ -632,6 +651,19 @@ async function depositPersonalCreditsToFaction(
     wallet: pub,
     bank,
   };
+}
+
+/* Regole guerra (bilanciamento): quota truppe che restano. */
+const WAR_WIN_KEEP = 0.7;
+const WAR_ENGAGE_LOSE_KEEP = 0.4;
+const WAR_RAID_LOSE_KEEP = 0.7;
+const WAR_SPOILS_SHARE = 0.25;
+
+/** Valore in crediti (prezzo negozio) di un gruppo di unità. */
+function unitsValue(unitsMap?, epoch?) {
+  let value = 0;
+  for (const u of unitsForEpoch(epoch)) value += safeInt(unitsMap?.[u.id]) * safeInt(u.cost);
+  return value;
 }
 
 function unitPower(unitsMap?, epoch?) {
@@ -917,7 +949,7 @@ async function attackFaction(
       bactaUsed,
       bactaHealed,
       message: defend
-        ? "Difesa dichiarata con le forze schierate. Se l'avversario attacca quest'ora, terrrete il 70% di quelle truppe."
+        ? "Difesa dichiarata con le forze schierate. Se l'avversario attacca quest'ora vince chi ha più potenza (in parità la difesa); se nessuno attacca, le truppe tornano nell'hangar."
         : "Attacco dichiarato con le forze schierate. In attesa della scelta avversaria quest'ora.",
     };
   }
@@ -928,18 +960,20 @@ async function attackFaction(
   if (resolved.mode === "standoff") {
     message = resolved.message;
   } else if (resolved.mode === "engagement") {
-    message = myWon
-      ? "Scontro pieno: la tua fazione ha prevalso."
-      : "Scontro pieno: la fazione avversaria ha prevalso.";
+    message = !resolved.winner
+      ? "Scontro pieno in parità: entrambe le fazioni tengono il 55%."
+      : myWon
+        ? "Scontro pieno: la tua fazione ha prevalso e tiene il 70% delle truppe (sconfitti 40%)."
+        : "Scontro pieno: la fazione avversaria ha prevalso; tenete il 40% delle truppe.";
   } else {
-    const iAttacked = stance === "attack";
     message = myWon
-      ? iAttacked
-        ? "Raid: avete prevalso e mantenete tutte le truppe; il difensore tiene il 70%."
-        : "Raid: avete prevalso in difesa; tenete il 70%, l'attaccante il 100%."
-      : iAttacked
-        ? "Raid: l'avversario ha prevalso; mantenete tutte le truppe, loro il 70%."
-        : "Raid: l'avversario ha prevalso; tenete il 70% delle truppe.";
+      ? "Raid: avete prevalso e mantenete tutte le truppe; gli avversari tengono il 70%."
+      : "Raid: l'avversario ha prevalso; tenete il 70% delle truppe.";
+  }
+  if (resolved.spoils?.credits) {
+    message += resolved.spoils.factionId === myId
+      ? ` Bottino: +${Number(resolved.spoils.credits).toLocaleString("it-IT")} crediti alla vostra banca.`
+      : " L'avversario incassa il bottino.";
   }
 
   const fresh = await getFactionBank(eventKey, myId);

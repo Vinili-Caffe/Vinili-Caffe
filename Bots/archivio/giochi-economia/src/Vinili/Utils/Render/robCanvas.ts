@@ -127,6 +127,22 @@ function drawPillar(ctx?, x?, top?, h?) {
   strokeRoundRect(ctx, x - 4, top - 10, w + 8, 14, 4, "#5c4510", 1);
 }
 
+/** Segno crediti evento (rombo a quattro punte) al posto della G dei Galeoni. */
+function drawCreditMark(ctx?, size?, color?) {
+  const r = Math.max(2, Number(size) || 6);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, -r);
+  ctx.quadraticCurveTo(r * 0.18, -r * 0.18, r, 0);
+  ctx.quadraticCurveTo(r * 0.18, r * 0.18, 0, r);
+  ctx.quadraticCurveTo(-r * 0.18, r * 0.18, -r, 0);
+  ctx.quadraticCurveTo(-r * 0.18, -r * 0.18, 0, -r);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawGaleone(ctx?, cx?, cy?, r?) {
   ctx.save();
   ctx.translate(cx, cy);
@@ -153,7 +169,7 @@ function drawGaleone(ctx?, cx?, cy?, r?) {
   ctx.arc(0, 0, r * 0.76, 0, Math.PI * 2);
   ctx.fillStyle = face;
   ctx.fill();
-  drawPlainText(ctx, "G", 0, 1, { size: Math.floor(r * 0.72), color: "#4a3810", weight: "900" });
+  drawCreditMark(ctx, r * 0.42, "#4a3810");
   ctx.restore();
 }
 
@@ -301,7 +317,7 @@ function drawVaultDoor(ctx?, cx?, cy?, radius?, opts?) {
     ctx.strokeStyle = "#d4af37";
     ctx.lineWidth = 2;
     ctx.stroke();
-    drawPlainText(ctx, "G", 0, 0, { size: Math.floor(radius * 0.28), color: "#d4af37", weight: "900" });
+    drawCreditMark(ctx, radius * 0.12, "#d4af37");
   }
   if (success) {
     const glow = ctx.createRadialGradient(0, 0, 10, 0, 0, radius * 1.2);

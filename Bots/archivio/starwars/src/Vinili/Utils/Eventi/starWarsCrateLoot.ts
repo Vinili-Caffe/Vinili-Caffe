@@ -2,16 +2,17 @@
 
 const { rollUtilityItemDrop } = require("./starWarsUtilityItemsCatalog") as typeof import("./starWarsUtilityItemsCatalog");
 
+/* Bilanciamento: exp delle casse /10 rispetto alla prima versione (niente livelli a catena). */
 const TABLES = Object.freeze({
-  alpha: { credits: [10000, 110000], exp: [5000, 55000] },
-  beta: { credits: [110000, 200000], exp: [55000, 95000] },
-  omega: { credits: [200000, 280000], exp: [95000, 135000] },
-  lunare: { credits: [280000, 350000], exp: [135000, 175000] },
-  solare: { credits: [350000, 410000], exp: [175000, 215000] },
-  planetario: { credits: [410000, 460000], exp: [215000, 255000] },
-  nebulare: { credits: [460000, 500000], exp: [255000, 295000] },
-  galattico: { credits: [500000, 530000], exp: [295000, 335000] },
-  avvento: { credits: [5000, 55000], exp: [2500, 27500] },
+  alpha: { credits: [10000, 110000], exp: [500, 5500] },
+  beta: { credits: [110000, 200000], exp: [5500, 9500] },
+  omega: { credits: [200000, 280000], exp: [9500, 13500] },
+  lunare: { credits: [280000, 350000], exp: [13500, 17500] },
+  solare: { credits: [350000, 410000], exp: [17500, 21500] },
+  planetario: { credits: [410000, 460000], exp: [21500, 25500] },
+  nebulare: { credits: [460000, 500000], exp: [25500, 29500] },
+  galattico: { credits: [500000, 530000], exp: [29500, 33500] },
+  avvento: { credits: [5000, 55000], exp: [250, 2750] },
   stellare: { credits: [1000, 2000], exp: [100, 400] },
   cosmica: { credits: [2000, 4000], exp: [400, 1700] },
   militare: { troopsTier1: 2 },
