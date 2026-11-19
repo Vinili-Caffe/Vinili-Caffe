@@ -575,6 +575,10 @@ async function depositPersonalCreditsToFaction(
     return { ok: false, status: 403, error: "economy_off", message: "L'economia fazioni non è attiva." };
   }
 
+  try {
+    const { ensureEpochAlignment } = require("./starWarsTransversalService") as typeof import("./starWarsTransversalService");
+    await ensureEpochAlignment(client, { guildId: g, userId: u });
+  } catch (_) {}
   const wallet = await getStarWarsWallet(g, u, eventKey);
   if (!wallet.factionId) {
     return {

@@ -354,7 +354,9 @@ export function EventoFactionHub() {
             </ul>
           ) : (
             <p className="rounded-2xl bg-black/40 px-4 py-8 text-center text-sm text-crema/55 ring-1 ring-cyan-300/15">
-              Hangar vuoto. Compra unità dallo shop sull&apos;hub per armare la fazione.
+              {data?.stance === "attack" || data?.stance === "defend"
+                ? "Le truppe sono schierate in battaglia: tornano qui quando si chiude l’ora dello scontro."
+                : "Hangar vuoto. Compra unità nel Comando militare qui sotto per armare la fazione."}
             </p>
           )}
         </EventoPanel>

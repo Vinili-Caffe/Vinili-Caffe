@@ -43,6 +43,8 @@ const PODIUM_SNAPSHOTS = Object.freeze([
   {
     id: "sequel_end_2027-02-28",
     date: "2027-02-28",
+    /* l'evento chiude alle 21:00: il podio finale conta tutta l'ultima giornata */
+    at: "20:55",
     closingEpoch: EPOCHS.SEQUEL,
     title: "Fine fase Sequel",
     subtitle: "Chiusura evento Star Wars",
@@ -341,7 +343,14 @@ async function announcePhasePodium(client?, snapshotMeta?) {
 async function maybeAnnounceDuePhasePodiums(client?, now = new Date()) {
   if (!client) return { ok: false };
   const { iso } = romeYmd(now);
-  const due = PODIUM_SNAPSHOTS.filter((s?) => s.date === iso);
+  const hhmm = (() => {
+    try {
+      return new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(now);
+    } catch (_) {
+      return "23:59";
+    }
+  })();
+  const due = PODIUM_SNAPSHOTS.filter((s?: any) => s.date === iso && hhmm >= String(s.at || "00:00"));
   if (!due.length) return { ok: true, due: 0 };
   const results = [];
   for (const meta of due) {

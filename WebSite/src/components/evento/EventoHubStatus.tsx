@@ -91,7 +91,8 @@ export function EventoHubStatus() {
     <div className="mx-auto mb-6 max-w-4xl px-6">
       <EventoPanel glow="blue">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
+          {/* su telefono il profilo prende tutta la riga e i crediti vanno sotto (prima nome/fazione/rango si troncavano) */}
+          <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
             {user && w ? (
               <div className="flex items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -157,8 +158,8 @@ export function EventoHubStatus() {
           </div>
 
           {w ? (
-            <div className="text-right">
-              <p className="flex items-center justify-end gap-2 font-sans text-3xl font-semibold tracking-tight text-sand tabular-nums">
+            <div className="text-left sm:text-right">
+              <p className="flex items-center justify-start gap-2 font-sans text-3xl font-semibold tracking-tight text-sand tabular-nums sm:justify-end">
                 <EventoCreditsIcon size="md" className="shrink-0 drop-shadow-[0_0_10px_rgba(201,162,39,0.45)]" />
                 {fmt(w.credits)}
               </p>

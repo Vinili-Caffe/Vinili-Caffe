@@ -64,6 +64,7 @@ export function EventoWarDeployModal({
     [units, qty],
   );
   const hangarPower = useMemo(() => units.reduce((a, u) => a + u.available * u.power, 0), [units]);
+  const hangarCount = useMemo(() => units.reduce((a, u) => a + u.available, 0), [units]);
   const powerPct = hangarPower > 0 ? Math.min(100, (selectedPower / hangarPower) * 100) : 0;
 
   function bump(id: string, delta: number) {
@@ -194,8 +195,8 @@ export function EventoWarDeployModal({
                   <span className="text-base font-medium text-crema/50">potenza</span>
                 </p>
                 <p className="mt-1 text-xs text-crema/50">
-                  {selectedCount.toLocaleString("it-IT")} unità schierate · hangar{" "}
-                  {hangarPower.toLocaleString("it-IT")}
+                  {selectedCount.toLocaleString("it-IT")} di {hangarCount.toLocaleString("it-IT")} unità schierate ·
+                  potenza hangar {hangarPower.toLocaleString("it-IT")}
                 </p>
               </div>
               <div className="flex gap-2">

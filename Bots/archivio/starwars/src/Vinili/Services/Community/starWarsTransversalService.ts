@@ -135,8 +135,9 @@ async function ensureEpochAlignment(client, { guildId, userId }) {
     [`${ROOT}.eventKey`]: eventKey,
   };
   if (nextFaction) $set[`${ROOT}.factionId`] = nextFaction;
+  /* I crediti li azzera il podio di fine fase (per tutti, una volta): qui non si toccano,
+     altrimenti chi entra sul sito dopo il cambio d'epoca perde quanto guadagnato nella nuova fase. */
   if (epochChanged) {
-    $set[`${ROOT}.credits`] = 0;
     $set[`${ROOT}.army`] = {};
   }
 
@@ -152,7 +153,7 @@ async function ensureEpochAlignment(client, { guildId, userId }) {
     ok: true,
     wallet: publicWallet(updated?.profile?.events?.starwars, eventKey),
     remapped: factionChanged,
-    creditsReset: epochChanged,
+    creditsReset: false,
     armyReset: epochChanged,
     from: wallet.factionId,
     to: nextFaction,
@@ -391,8 +392,51 @@ async function getUserPeiRanks(
   };
 }
 
+/**
+ * Cambio d'epoca per tutti allo scatto del calendario (loop 60″ del bot), non solo per chi apre il sito:
+ * fazioni rimappate (Repubblica → Ribellione → Nuova Repubblica, …) e banche fazione azzerate una volta.
+ * Così chi gioca solo su Discord deposita e guadagna nella fazione giusta.
+ */
+async function syncEpochForAllWallets(client?, now = new Date()) {
+  const cfg = resolveStarWarsEventConfig(client);
+  const eventKey = cfg.eventKey || ADVENT_EVENT_KEY;
+  const targetEpoch = resolveFeatureStateNow(now).epoch || EPOCHS.CLONE_WARS;
+  if (targetEpoch === EPOCHS.CLONE_WARS) return { ok: true, skipped: true, reason: "first_epoch" };
+  const dedupe = `sw_epoch_switch_${eventKey}_${targetEpoch}`;
+  const done = await SiteDocument.findOne({ docType: DOC_TYPE, ownerId: OWNER, dedupeKey: dedupe }).lean().catch(() => null);
+  if (done?.payload?.done) return { ok: true, skipped: true, reason: "already_done" };
+
+  await wipeFactionEconomyBanks(eventKey, targetEpoch).catch(() => null);
+  const map = FACTION_REMAP[targetEpoch] || {};
+  const pair = EPOCH_FACTIONS[targetEpoch] || [];
+  let remapped = 0;
+  for (const [from, to] of Object.entries(map)) {
+    const res = await ActivityUserProfile.updateMany(
+      { [`${ROOT}.eventKey`]: eventKey, [`${ROOT}.factionId`]: from },
+      { $set: { [`${ROOT}.factionId`]: to, [`${ROOT}.epoch`]: targetEpoch, [`${ROOT}.army`]: {}, [`${ROOT}.updatedAt`]: now.toISOString() } },
+    ).catch(() => null);
+    remapped += safeInt(res?.modifiedCount);
+  }
+  if (pair.length) {
+    await ActivityUserProfile.updateMany(
+      { [`${ROOT}.eventKey`]: eventKey, [`${ROOT}.factionId`]: { $in: pair }, [`${ROOT}.epoch`]: { $ne: targetEpoch } },
+      { $set: { [`${ROOT}.epoch`]: targetEpoch, [`${ROOT}.updatedAt`]: now.toISOString() } },
+    ).catch(() => null);
+  }
+  await SiteDocument.findOneAndUpdate(
+    { docType: DOC_TYPE, ownerId: OWNER, dedupeKey: dedupe },
+    {
+      $set: { payload: { done: true, epoch: targetEpoch, remapped, at: now.toISOString() }, updatedAt: new Date() },
+      $setOnInsert: { docType: DOC_TYPE, ownerId: OWNER, dedupeKey: dedupe, guildId: "0" },
+    },
+    { upsert: true },
+  ).catch(() => null);
+  return { ok: true, epoch: targetEpoch, remapped };
+}
+
 export = {
   FACTION_REMAP,
+  syncEpochForAllWallets,
   remapFactionId,
   ensureEpochAlignment,
   wipeFactionEconomyBanks,

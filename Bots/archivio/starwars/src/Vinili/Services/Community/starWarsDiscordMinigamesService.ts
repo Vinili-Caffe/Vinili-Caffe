@@ -3241,6 +3241,10 @@ async function tickCalendarRoleSync(client?) {
     await syncStarWarsCalendarRoleNames(client);
   } catch (_) {}
   try {
+    const { syncEpochForAllWallets } = require("./starWarsTransversalService") as typeof import("./starWarsTransversalService");
+    await syncEpochForAllWallets(client);
+  } catch (_) {}
+  try {
     const { maybeAnnounceDuePeiStandings } = require("./starWarsPeiStandingService") as typeof import("./starWarsPeiStandingService");
     await maybeAnnounceDuePeiStandings(client);
   } catch (_) {}
