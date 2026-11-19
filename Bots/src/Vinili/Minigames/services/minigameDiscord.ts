@@ -322,7 +322,16 @@ async function reactMinigameWin(message?) {
 }
 
 async function reactMinigameWrongEmoji(message?, _game = null) {
-  await message.react(MINIGAME_WRONG_EMOJI).catch(() => {});
+  let reacted = false;
+  try {
+    await message.react(MINIGAME_WRONG_EMOJI);
+    reacted = true;
+  } catch (err) {
+    warnMinigame(err);
+  }
+  if (!reacted) {
+    await message.react("\u274C").catch(() => {});
+  }
 }
 
 /** Fine round: togli bottoni/select dal messaggio di gioco (altrimenti restano cliccabili a vuoto). */

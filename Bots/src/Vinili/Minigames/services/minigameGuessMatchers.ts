@@ -49,14 +49,15 @@ const CASUAL_MINIGAME_PHRASES = new Set([
 function shouldReactToMinigameWrongAttempt(contentForGuess?, game?) {
   const raw = String(contentForGuess || "").trim();
   if (!raw) return false;
+  /* Memory: sequenze solo-emoji. normalizeCountryName le svuota → niente ❌ in pratica. */
+  if (game?.type === "memoryEmoji") {
+    return Boolean(normalizeMemorySequence(raw));
+  }
   const norm = normalizeCountryName(raw);
   if (!norm) return false;
   if (CASUAL_MINIGAME_PHRASES.has(norm)) return false;
   const tokens = norm.split(/\s+/).filter(Boolean);
   if (game?.type === "fastType") return norm.length >= 4;
-  if (game?.type === "memoryEmoji") {
-    return Boolean(normalizeMemorySequence(raw));
-  }
   if (tokens.length === 1 && tokens[0].length < 3) return false;
   return true;
 }

@@ -9,12 +9,15 @@ const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import(".
 const {
   rejectMinigameShotgunListingGuess,
   reactMinigameNearOrWrong,
+  reactMinigameWrongIfAttempt,
   buildSongAnswerAliases,
   isSongGuessCorrect,
   isSingerGuessCorrect,
   isNearTextGuess,
   isLooseAliasGuessCorrect,
 } = require("./minigameGuessMatchers") as typeof import("./minigameGuessMatchers");
+
+const MINIGAME_COOLDOWN_EMOJI = E.VC_Loading__969578;
 
 async function handleGuessMessage(message?, client?, cfg?, game?, content?, contentForGuess?) {
   if (game.type === "guessNumber") {
@@ -228,16 +231,15 @@ async function handleGuessMessage(message?, client?, cfg?, game?, content?, cont
   }
 
   if (game.type === "memoryEmoji") {
-    /* Durante la memorizzazione: niente reaction (né cooldown né X) sulle sequenze sbagliate —
-       altrimenti sembra che il minigioco “risponda” / sia bloccato. */
     if (!game.promptMessageId || Date.now() < Number(game.acceptsAt || 0)) {
+      await message.react(MINIGAME_COOLDOWN_EMOJI).catch(() => { });
       return false;
     }
     if (memoryEmojiMessageMatches(content, game.normalizedSequence)) {
       await handleMinigameWin(message, game, cfg);
       return true;
     }
-    /* Sequenza sbagliata a risposte aperte: silenzioso, niente ❌ */
+    await reactMinigameWrongIfAttempt(message, content, game);
     return false;
   }
 
