@@ -184,6 +184,20 @@ function broadcastSiteConfessionaleChanged(action = "") {
   notifyExternalSiteRealtime(payload);
 }
 
+function broadcastSitePropositiChanged(action = "") {
+  const payload = {
+    type: "propositi_changed",
+    action: String(action || "").trim().toLowerCase() || "changed",
+    at: new Date().toISOString(),
+  };
+  if (payload.action === "burned") {
+    broadcastSiteRealtime({ ...payload, type: "propositi_burned" });
+    notifyExternalSiteRealtime({ ...payload, type: "propositi_burned" });
+  }
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
 function broadcastAlberoChanged(action = "") {
   const payload = {
     type: "albero_changed",
@@ -412,6 +426,7 @@ export = {
   broadcastSiteNotificationsChanged,
   broadcastSiteReviewsChanged,
   broadcastSiteConfessionaleChanged,
+  broadcastSitePropositiChanged,
   broadcastAlberoChanged,
   broadcastSiteStaffPausesChanged,
   broadcastSiteStaffWorkflowChanged,

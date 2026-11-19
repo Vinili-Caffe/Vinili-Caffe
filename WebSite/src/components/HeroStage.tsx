@@ -8,7 +8,8 @@ import {
   useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { animate, motion, useMotionValue, useReducedMotion } from "motion/react";
+import { animate, motion, useMotionValue } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { DISCORD_INVITE, cdnUrl } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { getVinylMusicApi, subscribeVinylMusic } from "@/lib/vinyl-music-bus";
@@ -57,7 +58,7 @@ function ChatBubble({
   delay?: number;
   large?: boolean;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   return (
     <motion.div
       aria-hidden
@@ -90,7 +91,7 @@ function ChatBubble({
  */
 export function HeroStage({ className }: { className?: string }) {
   const { t } = useI18n();
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const vinyl = useSyncExternalStore(subscribeVinylMusic, getVinylMusicApi, () => null);
   const playing = Boolean(vinyl?.on);
   const playingRef = useRef(playing);

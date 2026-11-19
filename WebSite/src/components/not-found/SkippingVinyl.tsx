@@ -1,12 +1,13 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { VinylRecord } from "@/components/VinylRecord";
 import { cn } from "@/lib/cn";
 
 /** Disco che “salta”: gira, poi scatta indietro di un pezzo (solo transform). */
 export function SkippingVinyl({ className }: { className?: string }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
 
   return (
     <div className={cn("relative mx-auto size-40 sm:size-48", className)} aria-hidden>

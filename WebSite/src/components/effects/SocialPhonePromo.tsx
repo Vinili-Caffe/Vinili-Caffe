@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { Bell, Bookmark, Heart, Share2, UserPlus } from "lucide-react";
 import { Iphone } from "@/components/magicui/iphone";
 import { useChromeOpenListener } from "@/lib/chrome-open";
@@ -296,7 +297,7 @@ function ScreenTikTok() {
  * Non esce su tab in background né su pagine “busy” (seratafilm/tickets/staff…): rimanda.
  */
 export function SocialPhonePromo() {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const pathname = usePathname() || "/";
   const [desktop, setDesktop] = useState(false);
   const [enabled, setEnabled] = useState(false);

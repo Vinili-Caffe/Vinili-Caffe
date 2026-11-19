@@ -51,6 +51,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   "nav.rules": FileText,
   "nav.faq": CircleHelp,
   "nav.confessionale": MessagesSquare,
+  "nav.propositi": Sparkles,
   "nav.bachecaWall": Pin,
   "nav.wordle": Grid3x3,
   "nav.albero": TreePine,

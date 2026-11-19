@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from "react";
-import { animate, motion, useMotionValue, useReducedMotion, useInView } from "motion/react";
+import { animate, motion, useMotionValue, useInView } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { cn } from "@/lib/cn";
 import { VinylRecord } from "./VinylRecord";
 import { getVinylMusicApi, subscribeVinylMusic } from "@/lib/vinyl-music-bus";
@@ -47,7 +48,7 @@ function pointerRadiusRatio(clientX: number, clientY: number, rect: DOMRect) {
  */
 export function Turntable({ className }: { className?: string } = {}) {
   const vinyl = useSyncExternalStore(subscribeVinylMusic, getVinylMusicApi, () => null);
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const wrap = useRef<HTMLDivElement>(null);
   const inView = useInView(wrap, { margin: "0px 0px -10% 0px" });
   const inViewRef = useRef(inView);

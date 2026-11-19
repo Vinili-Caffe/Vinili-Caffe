@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { cn } from "@/lib/cn";
 
 /**
@@ -18,7 +19,7 @@ export function HeaderNameMarquee({
   className?: string;
   underline?: "always" | "hover" | false;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const hostRef = useRef<HTMLSpanElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
   const [marquee, setMarquee] = useState(false);

@@ -7,7 +7,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { Disc3, Loader2, LogIn, Share2, Volume2, VolumeX, X } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { PageHero } from "@/components/PageHero";
@@ -126,7 +127,7 @@ function WrappedShell({
 export function WrappedBoard() {
   const { ready, token, login } = useAuth();
   const router = useRouter();
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const confettiRich = useFxCap("confettiRich");
   const [data, setData] = useState<WrappedPayload | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { NAV_GROUPS, navLinkLocked, navLinkSeasonLive } from "@/lib/site";
+import { navGroupsForSeason, navLinkLocked, navLinkSeasonLive } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { NavIcon } from "@/lib/nav-icons";
 import { cn } from "@/lib/cn";
@@ -19,7 +19,9 @@ export function Explore() {
   const { t } = useI18n();
   const { token } = useAuth();
   const [highStaff, setHighStaff] = useState(false);
-  const { ready: seasonReady } = useNavSeasonTick();
+  const { tick: seasonTick, ready: seasonReady } = useNavSeasonTick();
+  const navGroups = navGroupsForSeason();
+  void seasonTick;
   const soon = t("auth.comingSoon");
 
   useEffect(() => {
@@ -62,7 +64,7 @@ export function Explore() {
 
       {/* Phone: 2×2. PC: 4 su una riga. */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        {NAV_GROUPS.map((g, gi) => (
+        {navGroups.map((g, gi) => (
           <Reveal key={g.labelKey} delay={gi * 0.05} className="h-full">
             <GlareHover
               className="h-full rounded-2xl sm:rounded-3xl"

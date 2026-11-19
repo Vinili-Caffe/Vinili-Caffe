@@ -4,8 +4,9 @@
  * React Bits — TrueFocus (adattato): parole a fuoco a rotazione, cornice caramel.
  */
 import { useEffect, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import { cn } from "@/lib/cn";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 
 export function TrueFocus({
   sentence,
@@ -19,7 +20,7 @@ export function TrueFocus({
   borderColor?: string;
 }) {
   const words = sentence.split(/\s+/).filter(Boolean);
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const [i, setI] = useState(0);
 
   useEffect(() => {

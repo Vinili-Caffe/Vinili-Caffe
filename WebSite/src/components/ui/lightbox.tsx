@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { ChevronLeft, ChevronRight, Download, Loader2, X, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
@@ -250,7 +251,7 @@ export function LightboxProvider({ children }: { children: React.ReactNode }) {
 /** Visualizzatore a schermo intero: scorri per cambiare foto, trascina giù per chiudere, pizzica o rotella per ingrandire. */
 function Viewer({ state }: { state: LightboxState }) {
   useBodyScrollLock(true);
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const item = state.items[state.index];
   const multi = state.items.length > 1;
   const zoomed = state.zoom > 1.01;

@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef } from "react";
+import { VenetianMask } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { colorMeta, type AlberoOrnament } from "@/lib/albero";
 
@@ -93,9 +94,24 @@ export const AlberoBauble = forwardRef<HTMLButtonElement, Props>(function Albero
             draggable={false}
             className="absolute left-1/2 top-1/2 size-[72%] -translate-x-1/2 -translate-y-1/2 rounded-full object-cover"
           />
+        ) : anonymous ? (
+          <span
+            className="absolute left-1/2 top-1/2 flex size-[78%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full"
+            style={{
+              background: `radial-gradient(circle at 40% 32%, rgba(255,236,200,0.22), transparent 42%), linear-gradient(160deg, ${meta.hex}55, #1a100c 78%)`,
+              boxShadow: "inset 0 0 0 1px rgba(255,236,200,0.18)",
+            }}
+            aria-hidden
+          >
+            <VenetianMask
+              className="size-[52%] text-[#f3e0b8]"
+              strokeWidth={1.6}
+              absoluteStrokeWidth
+            />
+          </span>
         ) : (
           <span className="absolute left-1/2 top-1/2 flex size-[72%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#2a1c12] text-[0.65em] font-semibold text-crema">
-            {anonymous ? "?" : (ornament.displayName[0] || "?").toUpperCase()}
+            {(ornament.displayName[0] || "·").toUpperCase()}
           </span>
         )}
         <span

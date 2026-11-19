@@ -12,7 +12,7 @@ import {
 } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useReducedMotion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { useDeviceFx } from "@/components/effects/DeviceFxProvider";
 import { cn } from "@/lib/cn";
 
@@ -40,7 +40,7 @@ export function ScrollFloat({
 }: Props) {
   const containerRef = useRef<HTMLHeadingElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const { allowMotion, ready } = useDeviceFx();
   const [mounted, setMounted] = useState(false);
 

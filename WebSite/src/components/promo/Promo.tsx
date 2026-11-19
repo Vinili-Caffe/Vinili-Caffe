@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { Eye } from "lucide-react";
 import { isPromoPreview, promoEndsLabel, promoPrice, usePromo } from "@/lib/promo";
 import { eur } from "@/lib/sponsor";
@@ -159,7 +160,7 @@ function Countdown({ to, accent }: { to: string; accent: string }) {
 export function PromoBanner() {
   const promo = usePromo();
   const preview = usePreview();
-  const still = useReducedMotion();
+  const still = useReducedMotionSafe();
   if (!promo) return null;
   const ends = promoEndsLabel(promo);
   const tape = Array.from({ length: 10 }, () => promo.name.toUpperCase());

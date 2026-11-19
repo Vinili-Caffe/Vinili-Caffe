@@ -2,7 +2,8 @@
 
 import { reportHardReload } from "@/lib/nav-probe";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { EFFECT_KEYS, effectEnabled, isTouchUi } from "@/lib/site-effects";
 import { cn } from "@/lib/cn";
 
@@ -72,7 +73,7 @@ function PtrVinyl({ spinning }: { spinning: boolean }) {
  * Pull-to-refresh mobile con disco vinile. Off: `localStorage.vc_ptr = "0"`.
  */
 export function PullToRefresh() {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const [pull, setPull] = useState(0);
   const [armed, setArmed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);

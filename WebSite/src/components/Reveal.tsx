@@ -1,38 +1,35 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { motionTokens, springs } from "@/lib/motion-tokens";
 
-/** Entra dal basso in viewport. Con riduci-movimento: subito visibile (niente opacity 0 bloccata). */
+/**
+ * Entra dal basso via CSS (`vc-reveal`).
+ * Stesso markup SSR e client (niente branch su reduced-motion / DeviceFx → no #418).
+ * L’animazione si spegne da CSS: prefers-reduced-motion e html[data-vc-fx-motion="0"].
+ */
 export function Reveal({
   delay = 0,
-  y = motionTokens.distance.xl,
+  y = 48,
   children,
   className,
-  viewportAmount = 0.15,
+  viewportAmount: _viewportAmount,
 }: {
   delay?: number;
   y?: number;
   children?: ReactNode;
   className?: string;
-  /** Quanta parte dell’elemento deve entrare in vista (default più permissivo del 10% negativo). */
+  /** Legacy no-op: tenuto per call-site esistenti. */
   viewportAmount?: number;
 }) {
-  const reduce = useReducedMotion();
-  if (reduce) {
-    return <div className={cn(className)}>{children}</div>;
-  }
+  const style = {
+    "--vc-reveal-y": `${y}px`,
+    "--vc-reveal-delay": `${Math.max(0, delay)}s`,
+  } as CSSProperties;
+
   return (
-    <motion.div
-      className={cn(className)}
-      initial={{ opacity: 0, y }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: viewportAmount, margin: "0px" }}
-      transition={{ ...springs.gentle, delay }}
-    >
+    <div className={cn("vc-reveal", className)} style={style}>
       {children}
-    </motion.div>
+    </div>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { Flag, Rocket } from "lucide-react";
 import { fetchEventoGara, pickEventoGara } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
@@ -494,7 +495,7 @@ function CircuitRace({
 
 export function GaraGame() {
   const { token, ready, login } = useAuth();
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionSafe();
   const [loading, setLoading] = useState(true);
   const [pods, setPods] = useState<Array<{ id: string; label: string }>>([]);
   const [pick, setPick] = useState<string | null>(null);

@@ -18,6 +18,7 @@ function normalizeKind(kind?) {
       "mod",
       "staff",
       "confessionale",
+      "propositi",
       "suggestion",
       "contest",
       "web_ticket",

@@ -10,6 +10,8 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
   SUGGESTION: "suggestion",
   BOT_FEEDBACK: "bot_feedback",
   CONFESSIONALE: "confessionale",
+  /** Buoni propositi Capodanno (28 dic–4 gen). */
+  PROPOSITI: "propositi",
   PAYMENT: "payment",
   HOGWARTS_SORTING: "hogwarts_sorting",
   HOGWARTS_FORBIDDEN_BOOKS: "hogwarts_forbidden_books",
@@ -133,6 +135,10 @@ const siteDocumentSchema = new Schema(
         /* community | staff — staff board is ladder-only (excludes PM-only) */
         suggestionBoard: { type: String, default: null, trim: true, maxlength: 16 },
         confessionBoard: { type: String, default: null, trim: true, maxlength: 16 },
+        /* propositi: post anonimo (true) o pubblico con nome/avatar */
+        anonymous: { type: Boolean, default: false },
+        /* propositi: bruciatura di fine stagione (4 gen 00:00) */
+        burnedAt: { type: Date, default: null },
         /* server | staff | sito | bots | eventi | altro — eventi only for ideas */
         topicTag: { type: String, default: null, trim: true, maxlength: 16 },
         missionRewardGrantedAt: { type: Date, default: null },

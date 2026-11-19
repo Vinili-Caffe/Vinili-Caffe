@@ -180,6 +180,30 @@ body {
   }
 }
 
+/* Reveal: animazione CSS con forwards → finisce sempre a opacity 1 (no stuck Motion/IO). */
+@keyframes vc-reveal-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, var(--vc-reveal-y, 48px), 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+.vc-reveal {
+  animation: vc-reveal-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--vc-reveal-delay, 0s);
+}
+@media (prefers-reduced-motion: reduce) {
+  .vc-reveal {
+    animation: none;
+  }
+}
+html[data-vc-fx-motion="0"] .vc-reveal {
+  animation: none;
+}
+
 /* /albero: scena attaccata sotto l’hero (padding hero resta; niente gap nero) */
 .vc-page-hero + [data-albero-stage] {
   padding-top: 0 !important;
@@ -856,7 +880,21 @@ html[data-vc-evento="1"][data-vc-theme="light"] .scheme-dark {
   --color-ember: #f0d78c;
 }
 
-/* Motion / Lenis / GSAP: riduci trasformazioni se l’utente lo chiede */
+/* Buoni propositi — cerimonia bruciatura (carta → fiamme → cenere) */
+.vc-prop-burn {
+  position: relative;
+  isolation: isolate;
+}
+.vc-prop-burn__sheet {
+  position: relative;
+  transition: filter 0.6s ease;
+}
+.vc-prop-burn[data-phase="ignite"] .vc-prop-burn__sheet,
+.vc-prop-burn[data-phase="flame"] .vc-prop-burn__sheet {
+  /* la carta si scalda: un filo più calda e luminosa vicino al fuoco */
+  filter: sepia(0.18) saturate(1.15) brightness(1.03);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .motion-safe-transition {
     transition: opacity 0.15s ease !important;

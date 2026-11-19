@@ -141,6 +141,20 @@ export function isWrappedSeason(now = new Date()): boolean {
   return false;
 }
 
+/**
+ * Buoni propositi (Rome): 28 dic 12:00 → 4 gen 00:00.
+ * A mezzanotte del 4 gen i post bruciano e la pagina torna Confessionale.
+ * Override test: localStorage `vc_propositi_force` = 1.
+ */
+export function isPropositiSeason(now = new Date()): boolean {
+  if (seasonForce("vc_propositi_force")) return true;
+  const { y, m, d, h } = romeParts(now);
+  if (!y || !m || !d) return false;
+  if (m === 12 && (d > 28 || (d === 28 && h >= 12))) return true;
+  if (m === 1 && d >= 1 && d < 4) return true;
+  return false;
+}
+
 export const EFFECT_KEYS = {
   cursorTrail: "vc_cursor_trail",
   cursorLight: "vc_cursor_light",

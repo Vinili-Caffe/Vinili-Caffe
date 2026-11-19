@@ -25,6 +25,7 @@ const {
   mountSiteAuthOauthRoutes,
 } = require("./webhooks/oauthAuthRoutes") as typeof import("./webhooks/oauthAuthRoutes");
 const { mountConfessionaleWebhookRoutes } = require("./webhooks/confessionaleRoutes") as typeof import("./webhooks/confessionaleRoutes");
+const { mountPropositiWebhookRoutes } = require("./webhooks/propositiRoutes") as typeof import("./webhooks/propositiRoutes");
 const { mountUserWorkflowWebhookRoutes } = require("./webhooks/userWorkflowRoutes") as typeof import("./webhooks/userWorkflowRoutes");
 const { mountLiveWikiWebhookRoutes } = require("./webhooks/liveWikiRoutes") as typeof import("./webhooks/liveWikiRoutes");
 const { mountRolesWebhookRoutes } = require("./webhooks/rolesRoutes") as typeof import("./webhooks/rolesRoutes");
@@ -61,6 +62,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   mountSiteAuthOauthRoutes(app, client, ctx);
   mountStaffRoutes(app, client);
   mountConfessionaleWebhookRoutes(app, client);
+  mountPropositiWebhookRoutes(app, client);
   mountWorkflowRoutes(app, client);
   mountUserWorkflowWebhookRoutes(app, client);
   mountWebTicketRoutes(app, client);

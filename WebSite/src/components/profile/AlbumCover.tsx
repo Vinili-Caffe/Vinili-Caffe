@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { BadgeCheck, Cake, Check, Copy, Link2, UserRound } from "lucide-react";
 import { page } from "@/lib/site";
 import { Avatar } from "@/components/Avatar";
@@ -60,7 +61,7 @@ export function AlbumCover({
   /** sotto i ruoli: badge partnership scelti (scheda Staff) */
   extraBadges?: React.ReactNode;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   // la copertina si inclina verso il mouse come un vinile preso in mano
   const tilt = useTilt(10);
   const [copied, setCopied] = useState(false);

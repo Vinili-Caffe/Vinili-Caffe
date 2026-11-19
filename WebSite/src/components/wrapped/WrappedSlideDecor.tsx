@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import type { WrappedMood } from "@/lib/wrappedMoods";
 import { cn } from "@/lib/cn";
 
@@ -16,7 +17,7 @@ const SPARKS = Array.from({ length: 14 }, (_, i) => ({
 const RINGS = [1, 2, 3, 4];
 
 export function WrappedSlideDecor({ mood, celebrate }: { mood: WrappedMood; celebrate?: boolean }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>

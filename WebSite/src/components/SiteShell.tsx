@@ -48,7 +48,8 @@ const OfflineQueueBoot = dynamic(() => import("./effects/OfflineQueueBoot").then
 
 function ShellMotion({ children }: { children: React.ReactNode }) {
   const { allowMotion, ready } = useDeviceFx();
-  const reducedMotion = !ready ? "user" : allowMotion ? "never" : "user";
+  /* off device → always: Motion rispetta reduced-motion su tutta la shell */
+  const reducedMotion = !ready ? "user" : allowMotion ? "never" : "always";
   return <MotionConfig reducedMotion={reducedMotion}>{children}</MotionConfig>;
 }
 

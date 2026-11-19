@@ -34,6 +34,8 @@ const TYPE_TO_TOPIC: Record<string, string> = {
   boards_changed: "boards",
   reviews_changed: "reviews",
   confessionale_changed: "confessionale",
+  propositi_changed: "propositi",
+  propositi_burned: "propositi",
   albero_changed: "albero",
   bacheca_changed: "bacheca",
   suggestions_changed: "suggestions",

@@ -1,6 +1,6 @@
 // Dati condivisi del sito: link, sezioni, testi. Un solo posto da aggiornare.
 
-import { isAlberoSeason, isWrappedSeason } from "@/lib/site-effects";
+import { isAlberoSeason, isPropositiSeason, isWrappedSeason } from "@/lib/site-effects";
 
 export const SITE_ORIGIN = "https://www.viniliecaffe.it";
 /**
@@ -45,8 +45,8 @@ export type NavLink = {
   labelKey: string;
   href: string;
   hintKey?: string;
-  /** SOON blur: highStaff | evento | albero (15–25 dic) | wrapped (10 dic–7 gen) */
-  gate?: "highStaff" | "evento" | "albero" | "wrapped";
+  /** SOON blur: highStaff | evento | albero | wrapped | propositi */
+  gate?: "highStaff" | "evento" | "albero" | "wrapped" | "propositi";
 };
 
 /** Blur / non cliccabile in nav, footer, explore. */
@@ -56,9 +56,10 @@ export function navLinkLocked(
 ): boolean {
   if (l.gate === "highStaff") return !opts.highStaff;
   if (l.gate === "evento") return !(opts.highStaff || opts.eventoNavOpen);
-  /* Albero / Wrapped: pubblici in stagione; fuori stagione solo high staff (link normali, niente SOON). */
+  /* Albero / Wrapped / Propositi: pubblici in stagione; fuori stagione solo high staff (link normali, niente SOON). */
   if (l.gate === "albero") return !(opts.highStaff || isAlberoSeason());
   if (l.gate === "wrapped") return !(opts.highStaff || isWrappedSeason());
+  if (l.gate === "propositi") return !(opts.highStaff || isPropositiSeason());
   return false;
 }
 
@@ -66,7 +67,53 @@ export function navLinkLocked(
 export function navLinkSeasonLive(l: NavLink, now = new Date()): boolean {
   if (l.gate === "albero") return isAlberoSeason(now);
   if (l.gate === "wrapped") return isWrappedSeason(now);
+  if (l.gate === "propositi") return isPropositiSeason(now);
   return false;
+}
+
+/** Confessionale ↔ Buoni propositi: in stagione si sostituisce la voce in Giochi. */
+export function confessionaleOrPropositiNavLink(now = new Date()): NavLink {
+  if (isPropositiSeason(now)) {
+    return {
+      labelKey: "nav.propositi",
+      href: page("/propositi/"),
+      hintKey: "nav.hint.propositi",
+      gate: "propositi",
+    };
+  }
+  return {
+    labelKey: "nav.confessionale",
+    href: page("/confessionale/"),
+    hintKey: "nav.hint.confessionale",
+  };
+}
+
+/** Gruppi nav con swap Confessionale/Propositi (ricalcolare dopo tick stagione). */
+export function navGroupsForSeason(now = new Date()): NavGroup[] {
+  const swap = confessionaleOrPropositiNavLink(now);
+  return NAV_GROUPS.map((g) => {
+    if (g.labelKey !== "nav.games") return g;
+    return {
+      ...g,
+      links: g.links.map((l) =>
+        l.labelKey === "nav.confessionale" || l.labelKey === "nav.propositi" ? swap : l,
+      ),
+    };
+  });
+}
+
+export function navMobileSectionsForSeason(now = new Date()): NavGroup[] {
+  const groups = navGroupsForSeason(now);
+  return [
+    {
+      labelKey: "nav.main",
+      links: [
+        { labelKey: "nav.wiki", href: page("/wiki/"), hintKey: "nav.hint.wiki" },
+        { labelKey: "nav.sponsor", href: page("/sponsor/"), hintKey: "nav.hint.sponsor" },
+      ],
+    },
+    ...groups,
+  ];
 }
 
 export type NavGroup = { labelKey: string; links: NavLink[] };
@@ -92,6 +139,7 @@ export const REACT_PAGES = new Set([
   "/feedback/",
 
   "/confessionale/",
+  "/propositi/",
   "/bacheca/",
   "/candidature/",
   "/appelli/",

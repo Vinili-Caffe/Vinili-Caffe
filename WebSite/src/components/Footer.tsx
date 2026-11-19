@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { COPYRIGHT_HREF, LEGAL, NAV_GROUPS, SOCIAL_LINKS, navLinkLocked, navLinkSeasonLive } from "@/lib/site";
+import { COPYRIGHT_HREF, LEGAL, SOCIAL_LINKS, navGroupsForSeason, navLinkLocked, navLinkSeasonLive } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { NavIcon } from "@/lib/nav-icons";
@@ -58,7 +58,9 @@ export function Footer() {
   const { t } = useI18n();
   const pathname = usePathname() || "/";
   const year = new Date().getFullYear();
-  const { ready: seasonReady } = useNavSeasonTick();
+  const { tick: seasonTick, ready: seasonReady } = useNavSeasonTick();
+  const navGroups = navGroupsForSeason();
+  void seasonTick;
   const eventoChrome = useEventoChrome();
   const { ready: eventoReady, access: eventoAccess } = useEventoStaffAccess();
   const { needsSort: eventoNeedsSort } = useEventoSortGate();
@@ -166,7 +168,7 @@ export function Footer() {
                     </ul>
                   </div>
                 ))
-              : NAV_GROUPS.map((g) => (
+              : navGroups.map((g) => (
                   <div key={g.labelKey} className="flex flex-col items-center text-center">
                     <h3 className="flex items-center justify-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-sand/80 sm:text-xs sm:tracking-[0.25em]">
                       <NavIcon labelKey={g.labelKey} className="size-3 shrink-0 opacity-80 sm:size-3.5" />

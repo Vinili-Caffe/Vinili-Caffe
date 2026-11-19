@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { Feather, Loader2, LogIn, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { BGM_SRC, MAX_LEN, MIN_LEN, loadConfessions, sendConfession, type Board, type ConfViewer, type Confession } from "@/lib/confessionale";
@@ -32,7 +33,7 @@ const PAGE_SIZE = 12;
 
 /** Fiamma di candela: solo transform/opacity, si ferma con "riduci movimento". */
 function Candle({ className }: { className?: string }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   return (
     <span className={cn("relative block h-24 w-8", className)} aria-hidden>
       <motion.span

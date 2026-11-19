@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { ExternalLink, ImageOff, Pause, Play, Repeat2 } from "lucide-react";
 import { BACHECA_EMOJIS, splitBachecaText, tiltFor, type BachecaItem } from "@/lib/bacheca";
 import { toggleBachecaAudio, useBachecaAudio } from "@/lib/bacheca-audio";
@@ -162,7 +163,7 @@ function Byline({ item, dark = false }: { item: BachecaItem; dark?: boolean }) {
 
 /** Contenitore comune: inclinazione stabile, arrivo dall'alto, si raddrizza al passaggio. */
 function Hanging({ item, children, onOpen, fresh }: { item: BachecaItem; children: React.ReactNode; onOpen: () => void; fresh?: boolean }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const tilt = tiltFor(item.id);
   return (
     <motion.article
@@ -299,7 +300,7 @@ export function LinkChips({ links, dark = false }: { links: { url: string; host:
 
 /** Clip: musicassetta. Le bobine girano mentre suona, la trascrizione è l'etichetta. */
 export function Cassette({ item, onReact, onRepost, big = false }: { item: BachecaItem; onReact: (e: string) => void; onRepost?: () => void; big?: boolean }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   /* lettore unico: card e dettaglio della stessa clip vanno insieme */
   const [playing, progress] = useBachecaAudio(item.audioUrl || "");
   const toggle = (e: React.MouseEvent) => {

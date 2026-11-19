@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { RotateCcw, Share2 } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { VinylRecord } from "@/components/VinylRecord";
@@ -27,7 +28,7 @@ export function WrappedRecap({
   onShare: () => void;
   onReplay: () => void;
 }) {
-  const still = useReducedMotion();
+  const still = useReducedMotionSafe();
   const a = data.allTime;
   const tracks = cards.filter((c) => c.key !== "hello" && c.key !== "share" && c.key !== "role" && c.stat);
   const role = cards.find((c) => c.key === "role");

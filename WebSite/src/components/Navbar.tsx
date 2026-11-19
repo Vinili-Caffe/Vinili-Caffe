@@ -19,7 +19,15 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { NAV_DIRECT, NAV_GROUPS, NAV_MOBILE_SECTIONS, navLinkLocked, navLinkSeasonLive, page, type NavLink } from "@/lib/site";
+import {
+  NAV_DIRECT,
+  navGroupsForSeason,
+  navLinkLocked,
+  navLinkSeasonLive,
+  navMobileSectionsForSeason,
+  page,
+  type NavLink,
+} from "@/lib/site";
 import { SeasonLiveNavDot, SeasonLiveNavTag, useNavSeasonTick } from "./SeasonLiveNav";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { loadStaffAccess, staffNavFor, type StaffAccess } from "@/lib/staff";
@@ -340,7 +348,7 @@ function NavDrop({
         <NavIcon labelKey={labelKey} className="size-3.5 shrink-0 opacity-75" />
         {label}
         {links.some((l) => isPromoHref(l.href)) ? <PromoNavDot className="-ml-0.5 self-start mt-1" /> : null}
-        {seasonLiveGroup ? <SeasonLiveNavDot className="-ml-0.5 self-start mt-1" /> : null}
+        {seasonLiveGroup ? <SeasonLiveNavDot className="-ml-0.5 self-center" /> : null}
         <ChevronDown className={cn("size-3.5 opacity-60 transition-transform", open && "rotate-180")} aria-hidden />
       </button>
       <AnimatePresence>
@@ -492,33 +500,11 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
       className={cn(
         "w-full overflow-hidden rounded-xl ring-1 transition-[background-color,box-shadow]",
         expanded
-          ? "bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast p-3 ring-sand/15"
+          ? "bg-gradient-to-t from-caramel/[0.08] via-roast/85 to-roast p-3 ring-sand/15"
           : "bg-roast/90 ring-sand/12",
       )}
     >
-      {user ? (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          aria-controls="vc-mobile-account-panel"
-          className={cn(
-            "flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors",
-            expanded ? "mb-3 ring-1 ring-sand/10 hover:bg-crema/[0.04]" : "hover:bg-crema/[0.05]",
-          )}
-        >
-          <Avatar userId={user.id} src={avatarUrl(user, 64)} name={displayName(user)} className="size-9 shrink-0" />
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-sm font-semibold text-crema">{displayName(user)}</p>
-            <p className="truncate text-xs text-crema/55">@{user.username}</p>
-          </div>
-          <ChevronDown
-            className={cn("size-3.5 shrink-0 text-crema/50 transition-transform duration-200", expanded ? "rotate-0" : "rotate-180")}
-            aria-hidden
-          />
-        </button>
-      ) : null}
-
+      {/* Pannello sopra il tasto account (si apre verso l’alto nel drawer). */}
       <AnimatePresence initial={false}>
         {expanded ? (
           <motion.div
@@ -595,6 +581,33 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      {user ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-controls="vc-mobile-account-panel"
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors",
+            expanded ? "mt-3 ring-1 ring-sand/10 hover:bg-crema/[0.04]" : "hover:bg-crema/[0.05]",
+          )}
+        >
+          <Avatar userId={user.id} src={avatarUrl(user, 64)} name={displayName(user)} className="size-9 shrink-0" />
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="truncate text-sm font-semibold text-crema">{displayName(user)}</p>
+            <p className="truncate text-xs text-crema/55">@{user.username}</p>
+          </div>
+          <ChevronDown
+            className={cn(
+              "size-3.5 shrink-0 text-crema/50 transition-transform duration-200",
+              /* chiuso → freccia su (si apre in alto); aperto → freccia giù */
+              expanded ? "rotate-0" : "rotate-180",
+            )}
+            aria-hidden
+          />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -622,7 +635,10 @@ export function Navbar() {
   const eventoEventi: EventoNavItemView[] =
     eventoChrome && !eventoNeedsSort ? eventoEventiNavForViewer(staffAccess) : [];
   const soon = t("auth.comingSoon");
-  const { ready: seasonReady } = useNavSeasonTick();
+  const { tick: seasonTick, ready: seasonReady } = useNavSeasonTick();
+  const navGroups = navGroupsForSeason();
+  const navMobile = navMobileSectionsForSeason();
+  void seasonTick;
   const headerRef = useRef<HTMLElement>(null);
   const navHidden = useAutoHideNav(headerRef, open);
 
@@ -746,7 +762,7 @@ export function Navbar() {
                   </li>
                 ))}
                 <li aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-crema/20" />
-                {NAV_GROUPS.map((g) => (
+                {navGroups.map((g) => (
                   <li key={g.labelKey}>
                     <NavDrop labelKey={g.labelKey} links={g.links} highStaff={highStaff} eventoNavOpen={eventoNavOpen} />
                   </li>
@@ -919,7 +935,7 @@ export function Navbar() {
                   ) : null}
                 </>
               ) : (
-                NAV_MOBILE_SECTIONS.map((g, gi) => (
+                navMobile.map((g, gi) => (
                 <motion.section
                   key={g.labelKey}
                   initial={{ opacity: 0, y: 16 }}

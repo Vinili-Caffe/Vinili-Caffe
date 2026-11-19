@@ -52,16 +52,27 @@ export function SeasonLiveNavTag({ className }: { className?: string }) {
   );
 }
 
-/** Puntino sul gruppo Giochi quando Albero o Wrapped sono live. */
+/** Punto esclamativo sul gruppo Giochi quando Albero o Wrapped sono live. */
 export function SeasonLiveNavDot({ className }: { className?: string }) {
   const { t } = useI18n();
   return (
-    <span aria-hidden title={t("nav.inProgress")} className={cn("relative inline-flex size-1.5 shrink-0", className)}>
-      <span
-        className="absolute inset-0 rounded-full opacity-70 motion-safe:animate-ping [animation-iteration-count:4]"
-        style={{ backgroundColor: ACCENT }}
-      />
-      <span className="relative size-1.5 rounded-full" style={{ backgroundColor: ACCENT }} />
+    <span
+      aria-hidden
+      title={t("nav.inProgress")}
+      className={cn(
+        "relative inline-flex size-3.5 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-black leading-none",
+        className,
+      )}
+      style={{
+        color: ACCENT,
+        backgroundColor: `${ACCENT}22`,
+        boxShadow: `inset 0 0 0 1px ${ACCENT}66`,
+      }}
+    >
+      <span className="absolute inset-0 rounded-full opacity-50 motion-safe:animate-ping [animation-iteration-count:4]" style={{ backgroundColor: `${ACCENT}55` }} />
+      <span className="relative" aria-hidden>
+        !
+      </span>
     </span>
   );
 }

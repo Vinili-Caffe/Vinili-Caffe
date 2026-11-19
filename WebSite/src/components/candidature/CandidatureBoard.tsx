@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Clock, Gift, Handshake, Loader2, PenLine, Send, Shield, Sparkles } from "lucide-react";
 import { AuthGateCard } from "@/components/AuthGateCard";
 import { Reveal } from "@/components/Reveal";
@@ -57,7 +58,7 @@ function Beans({ total, done }: { total: number; done: number }) {
 
 /** Scossa breve per i campi da compilare (rifatta a ogni tentativo grazie alla key). */
 function Shake({ on, round, children }: { on: boolean; round: number; children: React.ReactNode }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   return (
     <motion.div
       key={on ? `shake-${round}` : "ok"}

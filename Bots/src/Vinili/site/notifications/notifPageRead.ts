@@ -33,7 +33,7 @@ function pageContextFromUrlServer(pageUrl?) {
       String(u.searchParams.get("ticket") || "")
         .trim()
         .toLowerCase() ||
-      (/\/tickets$/i.test(path) || /\/feedback$/i.test(path) || /\/confessionale$/i.test(path) || /\/recensioni$/i.test(path)
+      (/\/tickets$/i.test(path) || /\/feedback$/i.test(path) || /\/confessionale$/i.test(path) || /\/propositi$/i.test(path) || /\/recensioni$/i.test(path)
         ? String(u.searchParams.get("id") || u.searchParams.get("suggestion") || "")
             .trim()
             .toLowerCase()

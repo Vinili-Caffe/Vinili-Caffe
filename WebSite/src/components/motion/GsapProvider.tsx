@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useReducedMotion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { useDeviceFx } from "@/components/effects/DeviceFxProvider";
 
 let registered = false;
@@ -18,7 +18,7 @@ function ensureGsapPlugins() {
  * Registra GSAP + ScrollTrigger una volta e refresh su resize / cambio policy motion.
  */
 export function GsapProvider({ children }: { children: ReactNode }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const { allowMotion, ready } = useDeviceFx();
 
   useEffect(() => {

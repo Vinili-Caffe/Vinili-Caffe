@@ -1,12 +1,13 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import {
   HeroBackdrop,
   HERO_ATMO_BAND,
   HERO_ATMO_VIDEO,
   HERO_ATMO_VIDEO_MOBILE,
 } from "@/components/HeroBackdrop";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -34,7 +35,7 @@ export function PageHero({
   videoSrcMobile?: string | null;
   tone?: "site" | "evento";
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const isEvento = tone === "evento";
   return (
     <section className="vc-page-hero relative isolate overflow-x-hidden pb-20 pt-36 sm:pb-28 sm:pt-44">

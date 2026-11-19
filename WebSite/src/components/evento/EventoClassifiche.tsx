@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { Crown, Radio, Trophy, Zap } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -49,7 +50,7 @@ function Holopad({
   delay?: number;
   wide?: boolean;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   return (
     <motion.section
       initial={reduce ? false : { opacity: 0, y: 16 }}
@@ -171,7 +172,7 @@ function UserRows({
 /** Classifiche olografiche — sala comando SW. */
 export function EventoClassifiche() {
   const { token, ready, login, user } = useAuth();
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<Scope>("period");
   const [boards, setBoards] = useState<EventoClassificheBoards | null>(null);

@@ -174,6 +174,7 @@ export function isInboxLinked(n: SiteNotification): boolean {
 
   if (/^staff-(pex|depex):.+:team$/.test(key) || (/\/staff\/organico\/?/.test(url) && /^(pex|depex):\s+\S/i.test(title))) return true;
   if (kind === "confessionale" || /^confessionale:/.test(key) || /\/staff\/confessionale\//.test(url)) return true;
+  if (kind === "propositi" || /^propositi:/.test(key) || /\/propositi\//.test(url)) return true;
   if (/^compiti:/.test(key) || /\/staff\/compiti\/?/.test(url) || /^compito\b/.test(title.toLowerCase()) || /scadenza compiti/.test(title.toLowerCase())) {
     return true;
   }
@@ -254,7 +255,16 @@ export function personalCategory(n: SiteNotification): PersonalCatId {
   }
   if (kind === "review") return "reviews";
   if (kind === "suggestion") return "feedback";
-  if (kind === "confessionale" || /^confessionale:/.test(key) || /\/staff\/confessionale\//.test(n.openUrl || "")) return "confessionale";
+  if (
+    kind === "confessionale" ||
+    kind === "propositi" ||
+    /^confessionale:/.test(key) ||
+    /^propositi:/.test(key) ||
+    /\/staff\/confessionale\//.test(n.openUrl || "") ||
+    /\/propositi\//.test(n.openUrl || "")
+  ) {
+    return "confessionale";
+  }
   if (kind === "staff") return "staff";
   if (kind === "mod" || kind === "success") return "community";
   if (String(n.channel || "").toLowerCase() === "dashboard" || /^dash:/.test(key)) return "system";
@@ -269,6 +279,7 @@ export const KIND_LABEL: Record<string, string> = {
   mod: "Moderazione",
   staff: "Eventi staff",
   confessionale: "Confessioni",
+  propositi: "Propositi",
   suggestion: "Feedback",
   contest: "Contest",
   web_ticket: "Ticket",

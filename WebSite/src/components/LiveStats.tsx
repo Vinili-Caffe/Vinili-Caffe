@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, animate, motion, useInView, useReducedMotion } from "motion/react";
+import { AnimatePresence, animate, motion, useInView } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { Coffee, Crown, Gem, MessageCircle, Mic2, Moon, Sun, Sunset, UserCheck, Users } from "lucide-react";
 import { useI18n, type Locale } from "@/lib/i18n";
 import {
@@ -39,7 +40,7 @@ type RosterKind = "members" | "online" | "boosts" | "staff" | null;
 function CountUp({ value, locale }: { value: number; locale: Locale }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: "-15% 0px" });
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const shown = useRef(0);
   const nf = new Intl.NumberFormat(nfLocale(locale));
 

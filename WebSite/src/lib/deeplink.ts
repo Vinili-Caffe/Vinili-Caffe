@@ -6,6 +6,7 @@ export type DeepLinkIds = {
   ticketId: string;
   suggestionId: string;
   confessionId: string;
+  propositoId: string;
   reviewId: string;
   botFeedbackId: string;
   listingId: string;
@@ -66,6 +67,7 @@ export function readDeepLink(href?: string): DeepLinkIds {
   );
 
   const confessionId = firstMongo(hashEntity("vc-conf-card-", hash), /\/confessionale/i.test(pathLc) ? q.get("id") : "");
+  const propositoId = firstMongo(hashEntity("vc-prop-card-", hash), /\/propositi/i.test(pathLc) ? q.get("id") : "");
   const reviewId = firstMongo(hashEntity("vc-review-", hash), /\/recensioni/i.test(pathLc) ? q.get("id") : "");
   const botFeedbackId = firstMongo(hashEntity("vc-bot-feedback-", hash));
   const listingId = firstMongo(/\/(bacheca|vetrina)/i.test(pathLc) ? q.get("id") : "");
@@ -76,6 +78,7 @@ export function readDeepLink(href?: string): DeepLinkIds {
     ticketId,
     suggestionId,
     confessionId,
+    propositoId,
     reviewId,
     botFeedbackId,
     listingId,
@@ -105,6 +108,10 @@ export function deepLinkFocusKeys(href?: string): string[] {
   if (d.confessionId) {
     push(`vc-conf-card-${d.confessionId}`);
     push(d.confessionId);
+  }
+  if (d.propositoId) {
+    push(`vc-prop-card-${d.propositoId}`);
+    push(d.propositoId);
   }
   if (d.reviewId) {
     push(`vc-review-${d.reviewId}`);

@@ -42,7 +42,10 @@ export function ConfSheet({ c, token, viewer, onClose, onUpdate }: { c: Confessi
   const [likes, setLikes] = useState(c.likeCount || 0);
   const open = c.status === "active";
   const staff = !!viewer?.canAccessStaffBoard;
-  const mod = !!viewer?.canModerate && !c.isMine;
+  const isHighStaff = Boolean(viewer?.canModerate);
+  const mod = isHighStaff && !c.isMine;
+  const canDeleteOwn = Boolean(c.isMine && token);
+  const canDelete = (canDeleteOwn || isHighStaff) && c.status !== "soft_deleted";
   const { roots, byParent } = useMemo(() => threadComments(c.comments || []), [c.comments]);
 
   useEffect(() => {
@@ -97,7 +100,7 @@ export function ConfSheet({ c, token, viewer, onClose, onUpdate }: { c: Confessi
     setConfirmDelete(false);
     if (!r.ok) return setMsg({ ok: false, text: r.message });
     onUpdate(r.data);
-    setMsg({ ok: true, text: "Confessione eliminata (resta visibile in elenco)." });
+    setMsg({ ok: true, text: "Confessione eliminata." });
     const tok = token;
     const id = c.id;
     showToast("Eliminato", false, {
@@ -141,28 +144,30 @@ export function ConfSheet({ c, token, viewer, onClose, onUpdate }: { c: Confessi
         </div>
 
         <div className="space-y-8 p-5 sm:p-7">
-          <article className="relative rounded-sm bg-[#ece0c8] p-6 text-ink shadow-[0_24px_40px_-24px_rgba(0,0,0,1)] sm:p-8">
-            <Seal status={c.status} className="absolute -top-4 right-6 rotate-[-8deg]" />
-            <p className="text-xs text-ink/50">{c.createdAt ? timeAgo(c.createdAt) : ""}</p>
-            <DiscordContent
-              text={c.content}
-              className={cn("mt-3 font-display text-2xl leading-relaxed", c.status === "soft_deleted" && "line-through decoration-ink/30")}
-            />
-            <div className="mt-6 flex items-end justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => void like()}
-                disabled={busy === "like"}
-                title={!token ? "Accedi per mettere mi piace" : c.isMine ? "È la tua confessione" : liked ? "Togli mi piace" : "Mi piace"}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm transition-colors",
-                  liked ? "bg-[#a83a2c]/12 text-[#a83a2c]" : "text-ink/55 hover:bg-ink/5 hover:text-ink/80",
-                )}
-              >
-                <Heart className="size-4" fill={liked ? "currentColor" : "none"} />
-                <span className="lining-nums">{likes}</span>
-              </button>
-              <p className="font-script text-3xl text-ink/60">— Anonimo ☕</p>
+          <article className="relative overflow-hidden rounded-sm bg-[#ece0c8] p-6 text-ink shadow-[0_24px_40px_-24px_rgba(0,0,0,1)] sm:p-8">
+            <Seal status={c.status} className="absolute -top-4 right-6 z-10 rotate-[-8deg]" />
+            {c.status === "soft_deleted" && (
+              <p className="relative z-10 mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-ink/55">Eliminata</p>
+            )}
+            <div className={cn(c.status === "soft_deleted" && "select-none blur-[4px] saturate-50")}>
+              <p className="text-xs text-ink/50">{c.createdAt ? timeAgo(c.createdAt) : ""}</p>
+              <DiscordContent text={c.content} className="mt-3 font-display text-2xl leading-relaxed" />
+              <div className="mt-6 flex items-end justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => void like()}
+                  disabled={busy === "like" || c.status === "soft_deleted"}
+                  title={!token ? "Accedi per mettere mi piace" : c.isMine ? "È la tua confessione" : liked ? "Togli mi piace" : "Mi piace"}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm transition-colors",
+                    liked ? "bg-[#a83a2c]/12 text-[#a83a2c]" : "text-ink/55 hover:bg-ink/5 hover:text-ink/80",
+                  )}
+                >
+                  <Heart className="size-4" fill={liked ? "currentColor" : "none"} />
+                  <span className="lining-nums">{likes}</span>
+                </button>
+                <p className="font-script text-3xl text-ink/60">— Anonimo ☕</p>
+              </div>
             </div>
           </article>
 
@@ -172,20 +177,28 @@ export function ConfSheet({ c, token, viewer, onClose, onUpdate }: { c: Confessi
             </p>
           )}
 
-          {mod && c.status !== "soft_deleted" && (
+          {canDelete && (
             <div className="rounded-2xl bg-crema/[0.04] p-5 ring-1 ring-sand/10">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-crema/45">Moderazione</p>
-              <p className="mt-1 text-sm text-crema/50">Solo se la lettera va rimossa (abuso, spam, ecc.).</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-crema/45">
+                {canDeleteOwn && !mod ? "La tua lettera" : canDeleteOwn ? "La tua lettera" : "Moderazione High Staff"}
+              </p>
+              <p className="mt-1 text-sm text-crema/50">
+                {canDeleteOwn && !mod
+                  ? "Puoi rimuovere questa confessione. Resta in elenco sfocata."
+                  : "Puoi eliminare le confessioni (abuso, spam, ecc.). Restano in elenco sfocate."}
+              </p>
               {confirmDelete ? (
                 <div className="mt-3 space-y-3 rounded-xl bg-black/25 p-3">
-                  <p className="text-sm text-crema/85">Eliminare questa confessione? Resta in elenco barrata e i commenti si chiudono.</p>
-                  <input
-                    name="reason"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value.slice(0, 1000))}
-                    placeholder="Motivo (opzionale)"
-                    className="w-full rounded-xl bg-black/30 px-3 py-2.5 text-sm outline-none ring-1 ring-sand/15 placeholder:text-crema/35 focus:ring-caramel/60"
-                  />
+                  <p className="text-sm text-crema/85">Eliminare questa confessione? Resta in elenco sfocata e i commenti si chiudono.</p>
+                  {mod || (isHighStaff && !canDeleteOwn) ? (
+                    <input
+                      name="reason"
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value.slice(0, 1000))}
+                      placeholder="Motivo (opzionale)"
+                      className="w-full rounded-xl bg-black/30 px-3 py-2.5 text-sm outline-none ring-1 ring-sand/15 placeholder:text-crema/35 focus:ring-caramel/60"
+                    />
+                  ) : null}
                   <div className="flex gap-2">
                     <button type="button" disabled={!!busy} onClick={() => void remove()} className="inline-flex items-center gap-1.5 rounded-full bg-crema px-4 py-1.5 text-sm font-semibold text-espresso disabled:opacity-60">
                       {busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Conferma

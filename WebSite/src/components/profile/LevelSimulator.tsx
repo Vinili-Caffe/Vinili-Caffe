@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { MessageSquareText, Mic, Sparkles, Target, TrendingUp } from "lucide-react";
 import { Range } from "@/components/ui/Range";
 import { NumberTicker } from "@/components/ui/number-ticker";
@@ -109,7 +110,7 @@ function ActivitySlider({
 }
 
 function EtaHeadline({ days, alreadyThere, zeroDaily }: { days: number; alreadyThere: boolean; zeroDaily: boolean }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   if (alreadyThere) {
     return (
       <motion.p

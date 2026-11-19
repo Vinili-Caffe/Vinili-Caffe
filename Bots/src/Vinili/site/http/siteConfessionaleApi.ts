@@ -697,14 +697,13 @@ async function handleSiteConfessionaleCommentPost(client?, req?, res?) {
 
 async function handleSiteConfessionaleDeletePost(client?, req?, res?) {
   try {
-    const auth = await requireStaff(client, req, res);
-    if (!auth) return;
-
-    if (!auth.canModerate) {
-      return res.status(403).json({
+    const accessToken = normalizeHeaderSecret(req.headers.authorization);
+    const viewerAuth = await resolveConfessionaleViewer(client, accessToken);
+    if (!viewerAuth.ok || !viewerAuth.member) {
+      return res.status(401).json({
         ok: false,
-        error: "forbidden",
-        message: "Solo High Staff può eliminare i messaggi.",
+        error: "unauthorized",
+        message: "Accedi con Discord per eliminare.",
       });
     }
 
@@ -713,7 +712,7 @@ async function handleSiteConfessionaleDeletePost(client?, req?, res?) {
       return res.status(400).json({ ok: false, error: "invalid_id", message: "ID non valido." });
     }
 
-    const viewerId = memberUserId(auth.member);
+    const viewerId = String(viewerAuth.userId || memberUserId(viewerAuth.member) || "").trim();
     const existing: any = await SiteDocument.findOne({
       _id: id,
       docType: DOC,
@@ -726,15 +725,18 @@ async function handleSiteConfessionaleDeletePost(client?, req?, res?) {
     }
 
     const ownerId = String(existing.userId || "").trim();
-    if (ownerId && viewerId && ownerId === viewerId) {
+    const isOwn = Boolean(ownerId && viewerId && ownerId === viewerId);
+    if (!isOwn && !viewerAuth.canModerate) {
       return res.status(403).json({
         ok: false,
-        error: "cannot_delete_own",
-        message: "Non puoi eliminare la tua stessa confessione.",
+        error: "forbidden",
+        message: "Puoi eliminare solo i tuoi messaggi (o moderare come High Staff).",
       });
     }
 
-    const reason = sanitizeContent(req.body?.reason ?? req.body?.staffReason ?? "", 1000);
+    const reason = isOwn
+      ? sanitizeContent(req.body?.reason ?? "Eliminata dall’autore.", 1000) || "Eliminata dall’autore."
+      : sanitizeContent(req.body?.reason ?? req.body?.staffReason ?? "", 1000);
     const updated = await SiteDocument.findOneAndUpdate(
       { _id: id, docType: DOC },
       {
@@ -742,7 +744,7 @@ async function handleSiteConfessionaleDeletePost(client?, req?, res?) {
           status: "soft_deleted",
           staffReason: reason,
           decidedAt: new Date(),
-          staffUserId: viewerId || null,
+          staffUserId: isOwn ? null : viewerId || null,
         },
       },
       { new: true },
@@ -837,14 +839,13 @@ async function handleSiteConfessionaleResolvePost(client?, req?, res?) {
 
 async function handleSiteConfessionaleReopenPost(client?, req?, res?) {
   try {
-    const auth = await requireStaff(client, req, res);
-    if (!auth) return;
-
-    if (!auth.canModerate) {
-      return res.status(403).json({
+    const accessToken = normalizeHeaderSecret(req.headers.authorization);
+    const viewerAuth = await resolveConfessionaleViewer(client, accessToken);
+    if (!viewerAuth.ok || !viewerAuth.member) {
+      return res.status(401).json({
         ok: false,
-        error: "forbidden",
-        message: "Solo High Staff può riaprire.",
+        error: "unauthorized",
+        message: "Accedi con Discord per riaprire.",
       });
     }
 
@@ -853,7 +854,21 @@ async function handleSiteConfessionaleReopenPost(client?, req?, res?) {
       return res.status(400).json({ ok: false, error: "invalid_id", message: "ID non valido." });
     }
 
-    const viewerId = memberUserId(auth.member);
+    const viewerId = String(viewerAuth.userId || memberUserId(viewerAuth.member) || "").trim();
+    const existing: any = await SiteDocument.findOne({ _id: id, docType: DOC }).select({ userId: 1, status: 1 }).lean();
+    if (!existing) {
+      return res.status(404).json({ ok: false, error: "not_found", message: "Messaggio non trovato." });
+    }
+    const ownerId = String(existing.userId || "").trim();
+    const isOwn = Boolean(ownerId && viewerId && ownerId === viewerId);
+    if (!isOwn && !viewerAuth.canModerate) {
+      return res.status(403).json({
+        ok: false,
+        error: "forbidden",
+        message: "Puoi ripristinare solo i tuoi messaggi (o moderare come High Staff).",
+      });
+    }
+
     const updated = await SiteDocument.findOneAndUpdate(
       { _id: id, docType: DOC },
       {
@@ -861,7 +876,7 @@ async function handleSiteConfessionaleReopenPost(client?, req?, res?) {
           status: "active",
           staffReason: "",
           decidedAt: new Date(),
-          staffUserId: viewerId || null,
+          staffUserId: isOwn ? null : viewerId || null,
         },
       },
       { new: true },

@@ -90,17 +90,25 @@ export function Letter({
         onClick={onOpen}
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen())}
         className={cn(
-          "group relative cursor-pointer rounded-sm bg-[#ece0c8] bg-[linear-gradient(180deg,rgba(255,250,240,0.5),transparent_30%,transparent_80%,rgba(120,80,40,0.12))] p-6 text-ink shadow-[0_24px_40px_-24px_rgba(0,0,0,1)] transition-transform duration-300 hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-ember",
-          gone && "opacity-55",
+          "group relative cursor-pointer overflow-hidden rounded-sm bg-[#ece0c8] bg-[linear-gradient(180deg,rgba(255,250,240,0.5),transparent_30%,transparent_80%,rgba(120,80,40,0.12))] p-6 text-ink shadow-[0_24px_40px_-24px_rgba(0,0,0,1)] transition-transform duration-300 hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-ember",
+          gone && "opacity-80",
         )}
       >
+        {gone && (
+          <span className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+            <span className="rounded-full bg-ink/75 px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-paper/90">
+              Eliminata
+            </span>
+          </span>
+        )}
+        <div className={cn(gone && "select-none blur-[3.5px] saturate-50")}>
         <div className="flex items-start justify-between gap-4">
           <span className="text-xs text-ink/50">{c.createdAt ? timeAgo(c.createdAt) : ""}</span>
           <Seal status={c.status} className="-mr-2 -mt-2 rotate-[-8deg]" />
         </div>
         <DiscordContent
           text={c.content}
-          className={cn("mt-1 line-clamp-[8] font-display text-xl leading-relaxed", gone && "line-through decoration-ink/30")}
+          className="mt-1 line-clamp-[8] font-display text-xl leading-relaxed"
         />
         <div className="mt-5 flex items-end justify-between gap-3">
           <span className="inline-flex items-center gap-3 text-sm text-ink/55 lining-nums">
@@ -110,6 +118,7 @@ export function Letter({
             <button
               type="button"
               onClick={like}
+              disabled={gone}
               title={!token ? "Accedi per mettere mi piace" : c.isMine ? "È la tua confessione" : liked ? "Togli mi piace" : "Mi piace"}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors",
@@ -153,6 +162,7 @@ export function Letter({
             )}
           </div>
         )}
+        </div>
       </div>
     </motion.article>
   );

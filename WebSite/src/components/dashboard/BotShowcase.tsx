@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import {
   ArrowRight,
   BarChart3,
@@ -101,7 +102,7 @@ function BotAvatar({ className }: { className?: string }) {
 
 /** Il disco che gira, con l'avatar di Vinili sull'etichetta e le funzioni che ci girano intorno. */
 function SpinningRecord() {
-  const still = useReducedMotion();
+  const still = useReducedMotionSafe();
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[22rem]">
       <div className="absolute inset-6 rounded-full bg-caramel/20 blur-3xl" aria-hidden />
@@ -135,7 +136,7 @@ function SpinningRecord() {
 
 /** Nastro che scorre con tutte le funzioni. */
 function Ticker() {
-  const still = useReducedMotion();
+  const still = useReducedMotionSafe();
   const all = [...SIDE_A, ...SIDE_B];
   const row = (hidden?: boolean) => (
     <div className="flex shrink-0 items-center gap-8 pr-8" aria-hidden={hidden || undefined}>

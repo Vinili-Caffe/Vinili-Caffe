@@ -1,11 +1,12 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { cn } from "@/lib/cn";
 
 /** Tazzina disegnata con Tailwind: il vapore sale piano (solo transform/opacity). */
 export function Cup({ size = 1, foam, className }: { size?: number; foam?: boolean; className?: string }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   return (
     <div className={cn("relative mx-auto h-32 w-40", className)} style={{ transform: `scale(${size})` }} aria-hidden>
       {/* vapore */}

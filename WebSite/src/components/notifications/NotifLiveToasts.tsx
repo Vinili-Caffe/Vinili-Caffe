@@ -43,7 +43,7 @@ function kindIcon(kind: string) {
   if (kind === "review" || kind === "suggestion") return MessageSquare;
   if (kind === "mod" || kind === "staff") return Shield;
   if (kind === "web_ticket" || kind === "web_ticket_mention" || kind === "web_ticket_sla") return Ticket;
-  if (kind === "confessionale") return Sparkles;
+  if (kind === "confessionale" || kind === "propositi") return Sparkles;
   return Bell;
 }
 

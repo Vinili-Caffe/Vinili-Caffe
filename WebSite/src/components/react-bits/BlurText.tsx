@@ -4,9 +4,10 @@
  * React Bits — BlurText (adattato): parole che partono sfocate e si mettono a fuoco.
  * Dipendenza: motion (già nel sito).
  */
-import { motion, useInView, useReducedMotion, type Easing } from "motion/react";
+import { motion, useInView, type Easing } from "motion/react";
 import { useMemo, useRef } from "react";
 import { cn } from "@/lib/cn";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 
 const EASE: Easing = [0.22, 1, 0.36, 1];
 
@@ -27,7 +28,7 @@ export function BlurText({
 }) {
   const ref = useRef<HTMLElement>(null);
   const inView = useInView(ref, { once: true, margin: "-12% 0px" });
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const words = useMemo(() => text.split(/(\s+)/).filter(Boolean), [text]);
 
   return (

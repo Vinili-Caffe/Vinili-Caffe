@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { CalendarDays, ExternalLink, Heart, LayoutGrid, Link2, Loader2, Mic, Quote, Repeat2, Shuffle, Skull, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
 import { page as sitePage } from "@/lib/site";
@@ -85,7 +86,7 @@ function setParam(name: string, value: string) {
 
 export function BachecaWall() {
   const { token, user, login } = useAuth();
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const [kind, setKind] = useState<BachecaFilter>("all");
   const [sort, setSort] = useState<BachecaSort>("new");
   const [items, setItems] = useState<BachecaItem[]>([]);

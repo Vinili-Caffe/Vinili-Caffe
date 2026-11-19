@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useReducedMotion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { cdnUrl } from "@/lib/site";
 
 /** Atmosfera café senza testo/UI finta — da integrare con hero reale. */
@@ -32,7 +32,7 @@ export function HeroBackdrop({
   priority?: boolean;
   objectPosition?: string;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [src, setSrc] = useState<string | null>(null);
   const wantVideo = Boolean(videoSrc) && !reduce;

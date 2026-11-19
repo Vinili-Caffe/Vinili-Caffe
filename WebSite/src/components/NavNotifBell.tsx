@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { Bell, CheckCheck, ExternalLink, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
@@ -57,7 +58,7 @@ export function NavNotifBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<SiteNotification[]>([]);
   const [unread, setUnread] = useState(0);
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReducedMotionSafe();
   const [ring, setRing] = useState(0);
   const prevUnread = useRef(0);
   useEffect(() => {
