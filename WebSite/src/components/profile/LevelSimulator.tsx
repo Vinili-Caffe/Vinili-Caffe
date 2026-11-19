@@ -34,16 +34,41 @@ function LevelField({
   min: number;
   max: number;
 }) {
+  /* draft locale: mentre digiti non si clamperà al min (altrimenti cancellare 206 → 20 riscrive subito 205) */
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? String(value);
+
+  const commit = (raw: string) => {
+    setDraft(null);
+    const digits = raw.replace(/\D/g, "");
+    onChange(clampInt(digits === "" ? value : Number(digits), min, max));
+  };
+
   return (
     <label className="block min-w-0 flex-1">
       <span className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/45">{label}</span>
       <input
-        type="number"
+        type="text"
         inputMode="numeric"
-        min={min}
-        max={max}
-        value={value}
-        onChange={(e) => onChange(clampInt(Number(e.target.value), min, max))}
+        autoComplete="off"
+        value={shown}
+        onFocus={(e) => {
+          setDraft(String(value));
+          requestAnimationFrame(() => e.target.select());
+        }}
+        onChange={(e) => {
+          let raw = e.target.value.replace(/\D/g, "");
+          if (raw.length > 1) raw = raw.replace(/^0+/, "") || "0";
+          setDraft(raw);
+          /* propaga solo se il numero è già nei limiti: niente reset mentre cancelli */
+          if (raw === "") return;
+          const n = Number(raw);
+          if (Number.isFinite(n) && n >= min && n <= max) onChange(Math.floor(n));
+        }}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
         className="mt-1.5 w-full rounded-2xl bg-crema/[0.06] px-3.5 py-3 font-display text-2xl font-semibold lining-nums tabular-nums text-crema outline-none ring-1 ring-sand/15 transition-[box-shadow,background-color] focus:bg-crema/[0.09] focus:ring-caramel/40"
       />
     </label>
