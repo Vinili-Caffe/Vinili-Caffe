@@ -6,6 +6,7 @@ import { ArrowLeft, Bot, Check, Clock, LogIn, Server, ThumbsUp, Tv } from "lucid
 import { useAuth } from "@/lib/auth";
 import {
   castListingVote,
+  loadBoardsConfig,
   loadListing,
   progressVoteSession,
   startVoteSession,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/boards";
 import { page } from "@/lib/site";
 import { Checkbox } from "@/components/ui";
+import { Turnstile } from "@/components/ui/Turnstile";
 import { SmartLink } from "../SmartLink";
 import { cn } from "@/lib/cn";
 
@@ -39,6 +41,9 @@ export function VoteListing() {
   const [step, setStep] = useState<"idle" | "countdown" | "ad" | "ready" | "done">("idle");
   const [left, setLeft] = useState(0);
   const [remind, setRemind] = useState(true);
+  const [captcha, setCaptcha] = useState("");
+  const [captchaKey, setCaptchaKey] = useState(0);
+  const [cfgSiteKey, setCfgSiteKey] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,6 +65,14 @@ export function VoteListing() {
   }, [step, left]);
 
   const listingId = idQ || listing?.id || "";
+  /* chiave Turnstile: dalla sessione di voto, altrimenti dalla config della vetrina */
+  const siteKey = String(session?.turnstileSiteKey || cfgSiteKey || "").trim();
+  const needsCaptcha = Boolean(session?.turnstileRequired);
+
+  useEffect(() => {
+    if (!ready) return;
+    void loadBoardsConfig("", token).then((c) => c?.turnstileSiteKey && setCfgSiteKey(c.turnstileSiteKey));
+  }, [ready, token]);
 
   async function begin() {
     if (!token) return login();
@@ -125,11 +138,19 @@ export function VoteListing() {
 
   async function confirm() {
     if (!token || !listingId || !session) return;
+    if (needsCaptcha && !captcha) {
+      setErr("Completa la verifica anti-robot qui sopra.");
+      return;
+    }
     setBusy(true);
-    const r = await castListingVote(token, listingId, session.sessionId, { remind });
+    setErr("");
+    const r = await castListingVote(token, listingId, session.sessionId, { remind, turnstileToken: captcha });
     setBusy(false);
     if (!r.ok) {
       setErr(r.message);
+      /* il token Turnstile vale una volta sola: ne serve uno nuovo per riprovare */
+      setCaptcha("");
+      setCaptchaKey((n) => n + 1);
       return;
     }
     setMsg(r.data.message || "Voto registrato. Grazie!");
@@ -266,12 +287,15 @@ export function VoteListing() {
                 <Checkbox checked={remind} onChange={setRemind} />
                 Avvisami quando posso votare di nuovo
               </label>
-              {session?.turnstileRequired && (
-                <p className="rounded-2xl bg-crema/5 p-3 text-xs text-crema/55 ring-1 ring-sand/15">Controllo anti-robot attivo: se il voto non passa, ricarica la pagina e riprova.</p>
+              {siteKey && (
+                <div className="rounded-2xl bg-espresso/50 p-4 ring-1 ring-sand/12">
+                  <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">Verifica anti-robot</p>
+                  <Turnstile key={captchaKey} siteKey={siteKey} onToken={setCaptcha} />
+                </div>
               )}
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || (needsCaptcha && !captcha)}
                 onClick={confirm}
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember py-4 text-lg font-bold text-ink transition hover:-translate-y-0.5 disabled:opacity-50"
               >

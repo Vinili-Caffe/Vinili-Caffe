@@ -245,6 +245,7 @@ export type CreateListingBody = {
   features?: ListingFeatures;
   accent?: string;
   visitorNotes?: string;
+  bannerUrl?: string;
   submit?: boolean;
 };
 
@@ -480,3 +481,51 @@ export const SOCIAL_LABELS: Record<SocialKey, string> = {
   x: "X",
   github: "GitHub",
 };
+
+/* ── strumenti del modulo Invia (come la vecchia bacheca) ── */
+
+export async function loadMyListing(token: string, id: string) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}`, { headers: auth(token), cache: "no-store" });
+  return parse<{ listing: BoardListing & { markdown?: string } }>(r);
+}
+
+/** Nome, icona, banner e invito del server (genera l’invito se il bot è dentro). */
+export async function loadGuildDefaults(token: string, guildId: string) {
+  const r = await fetch(`${BASE}/guild-defaults`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ guildId }),
+  });
+  return parse<{ inviteUrl: string; bannerUrl: string; name: string; iconUrl: string }>(r);
+}
+
+export async function generateGuildInvite(token: string, guildId: string, listingId?: string) {
+  const r = await fetch(`${BASE}/generate-invite`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ guildId, listingId }),
+  });
+  return parse<{ inviteUrl: string; bannerUrl?: string }>(r);
+}
+
+export type ProbeKind = "invite" | "bot_invite" | "website" | "banner" | SocialKey;
+
+/** Controlla che un link esista davvero; `value` è il link normalizzato. */
+export async function probeLink(token: string, kind: ProbeKind, value: string) {
+  const r = await fetch(`${BASE}/probe-link`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ kind, value }),
+  });
+  return parse<{ found: boolean; empty?: boolean; value?: string; label?: string; reason?: string }>(r);
+}
+
+/** Banner: immagine come data URL (PNG, JPG, WEBP, GIF, max 2,5 MB). */
+export async function uploadBanner(token: string, dataUrl: string) {
+  const r = await fetch(`${BASE}/me/banner-upload`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ image: dataUrl }),
+  });
+  return parse<{ url: string; bannerUrl: string; message?: string }>(r);
+}

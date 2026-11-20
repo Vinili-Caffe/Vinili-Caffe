@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CircleCheck, CircleDashed, Clock, FolderHeart, LogIn, Pause, Plus, Trash2, XCircle, type LucideIcon } from "lucide-react";
+import { CircleCheck, CircleDashed, Clock, FolderHeart, LogIn, Pause, Pencil, Plus, Trash2, XCircle, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { deleteMyListing, loadMine, statusLabel, type BoardListing } from "@/lib/boards";
 import { page } from "@/lib/site";
@@ -120,11 +120,16 @@ export function MyListings() {
                   <div className={cn("rounded-2xl px-4 py-3 text-sm ring-1", st.cls)}>
                     <div className="flex items-center gap-2 font-semibold">
                       <Icon className="size-4" /> {statusLabel(item.status)}
+                      {item.status !== "suspended" && (
+                        <SmartLink href={page(`/vetrina/invia/?edit=${encodeURIComponent(item.id)}`)} className="ml-auto inline-flex items-center gap-1 text-xs font-semibold opacity-80 hover:opacity-100">
+                          <Pencil className="size-3.5" /> Modifica
+                        </SmartLink>
+                      )}
                       {(item.status === "draft" || item.status === "rejected") && (
                         <button
                           type="button"
                           disabled={busyId === item.id}
-                          className="ml-auto inline-flex items-center gap-1 text-xs font-semibold opacity-80 hover:opacity-100 disabled:opacity-40"
+                          className="inline-flex items-center gap-1 text-xs font-semibold opacity-80 hover:opacity-100 disabled:opacity-40"
                           onClick={async () => {
                             if (!token || !(await confirmDialog({ message: "Eliminare questa scheda? Non si può annullare.", danger: true }))) return;
                             setBusyId(item.id);

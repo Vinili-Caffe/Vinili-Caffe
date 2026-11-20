@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Bot, Disc3, Hash, Info, Languages, LogIn, Search, Server, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { Bot, Disc3, Hash, Info, Languages, LayoutGrid, LogIn, Search, Server, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   SORTS,
@@ -20,6 +20,7 @@ import { cn } from "@/lib/cn";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { ListingCard, ListingCardSkeleton, Spotlight } from "./ListingCard";
+import { OptionPicker } from "./OptionPicker";
 import { VetrinaNav } from "./VetrinaChrome";
 
 const PER_PAGE = 24;
@@ -147,6 +148,15 @@ export function VetrinaHome({ initialKind = "" }: { initialKind?: BoardKind | ""
   const grid = spotlight.length === 3 ? items.slice(3) : items;
   const closedGate = !publicOpen && !staff;
   const hero = HERO[kind] || HERO[""];
+  /* categorie più presenti tra le schede caricate, poi l'ordine della config */
+  const topCats = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const l of items) for (const c of l.categories) count.set(c, (count.get(c) || 0) + 1);
+    const used = [...count.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c);
+    const rest = (cfg?.categories || []).filter((c) => !count.has(c));
+    const list = [...used, ...rest].slice(0, 12);
+    return f.category && !list.includes(f.category) ? [f.category, ...list.slice(0, 11)] : list;
+  }, [items, cfg, f.category]);
   const ribbon = useMemo(() => items.filter((x) => x.iconUrl).slice(0, 16), [items]);
   const set = (patch: Partial<Filters>) => setF((prev) => ({ ...prev, ...patch }));
   const activeChips: { label: string; clear: () => void }[] = [
@@ -294,15 +304,25 @@ export function VetrinaHome({ initialKind = "" }: { initialKind?: BoardKind | ""
           </div>
 
           {cfg?.categories?.length ? (
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
-              <CatChip active={!f.category} onClick={() => set({ category: "" })}>
-                Tutte le categorie
-              </CatChip>
-              {cfg.categories.map((c) => (
-                <CatChip key={c} active={f.category === c} onClick={() => set({ category: f.category === c ? "" : c })}>
-                  {labelOf(cfg.categoryLabels, c)}
-                </CatChip>
-              ))}
+            <div className="flex items-center gap-2">
+              <OptionPicker
+                className="w-48 shrink-0 sm:w-56"
+                icon={<LayoutGrid />}
+                placeholder="Tutte le categorie"
+                allLabel="Tutte le categorie"
+                searchPlaceholder="Cerca tra le categorie…"
+                options={cfg.categories.map((c) => ({ value: c, label: labelOf(cfg.categoryLabels, c) }))}
+                value={f.category ? [f.category] : []}
+                onChange={(v) => set({ category: v[0] || "" })}
+              />
+              {/* le più usate sugli scaffali: una sola riga che scorre, niente muro */}
+              <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-0.5 [mask-image:linear-gradient(90deg,#000_85%,transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {topCats.map((c) => (
+                  <CatChip key={c} active={f.category === c} onClick={() => set({ category: f.category === c ? "" : c })}>
+                    {labelOf(cfg.categoryLabels, c)}
+                  </CatChip>
+                ))}
+              </div>
             </div>
           ) : null}
 
@@ -314,21 +334,20 @@ export function VetrinaHome({ initialKind = "" }: { initialKind?: BoardKind | ""
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden"
               >
-                <div className="grid gap-5 rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12 md:grid-cols-[14rem_1fr]">
+                <div className="grid gap-5 rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12 md:grid-cols-[16rem_1fr]">
                   <div>
                     <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">
                       <Languages className="size-3.5" /> Lingua
                     </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      <SmallChip active={!f.locale} onClick={() => set({ locale: "" })}>
-                        Tutte
-                      </SmallChip>
-                      {(cfg?.locales || []).map((l) => (
-                        <SmallChip key={l} active={f.locale === l} onClick={() => set({ locale: f.locale === l ? "" : l })}>
-                          {labelOf(cfg?.localeLabels, l)}
-                        </SmallChip>
-                      ))}
-                    </div>
+                    <OptionPicker
+                      icon={<Languages />}
+                      placeholder="Tutte le lingue"
+                      allLabel="Tutte le lingue"
+                      searchPlaceholder="Cerca una lingua…"
+                      options={(cfg?.locales || []).map((l) => ({ value: l, label: labelOf(cfg?.localeLabels, l) }))}
+                      value={f.locale ? [f.locale] : []}
+                      onChange={(v) => set({ locale: v[0] || "" })}
+                    />
                   </div>
                   <div>
                     <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">
