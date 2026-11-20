@@ -1,4 +1,7 @@
 /** Ingresso membri: benvenuti mancati (dopo un riavvio o un errore). */
+const JOIN_RECOVER_HEARTBEAT_MS = 30 * 60_000;
+let lastJoinRecoverLogAt = 0;
+
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { shouldSendPublicMemberAnnouncement } = require("../../Community/utils/memberPublicAnnouncementGate") as typeof import("../../Community/utils/memberPublicAnnouncementGate");
@@ -393,10 +396,22 @@ async function recoverJoinAnnouncementsOnStartup(client?, opts: Record<string, a
     await joinRecoverySleep(500);
   }
 
-  /* Sempre una riga: altrimenti sembrava che al boot non recuperasse niente. */
-  global.logger?.warn?.(
-    `[JOIN RECOVER] pending=${pendingProcessed} ready=${pendingReady} waitingVerify=${pendingWaitingVerify} clearedGone=${pendingClearedGone} staleCleared=${pendingStaleCleared} missedScanned=${missedScanned} missedSkippedOk=${missedSkippedOk} missedRecovered=${missedRecovered} welcomes=${recovered} rolesFixed=${rolesFixed} lookbackMs=${lookbackMs}`,
-  );
+  /* info (non warn): PM2 colora di rosso i warn anche se non è un errore. */
+  const didWork =
+    recovered > 0 ||
+    rolesFixed > 0 ||
+    pendingClearedGone > 0 ||
+    pendingStaleCleared > 0 ||
+    missedRecovered > 0 ||
+    pendingReady > 0;
+  const now = Date.now();
+  const heartbeatDue = now - lastJoinRecoverLogAt >= JOIN_RECOVER_HEARTBEAT_MS;
+  if (didWork || heartbeatDue) {
+    lastJoinRecoverLogAt = now;
+    global.logger?.info?.(
+      `[JOIN RECOVER] pending=${pendingProcessed} ready=${pendingReady} waitingVerify=${pendingWaitingVerify} clearedGone=${pendingClearedGone} staleCleared=${pendingStaleCleared} missedScanned=${missedScanned} missedSkippedOk=${missedSkippedOk} missedRecovered=${missedRecovered} welcomes=${recovered} rolesFixed=${rolesFixed} lookbackMs=${lookbackMs}`,
+    );
+  }
 
   return {
     ok: true,
