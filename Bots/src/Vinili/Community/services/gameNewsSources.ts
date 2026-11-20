@@ -4,7 +4,11 @@ const { stripHtml, decodeXml, classifyImportance } = require("./gameNewsText") a
 const { isTransientHttpError, isBareGoogleNewsHome, httpGet } = require("./gameNewsArticles") as typeof import("./gameNewsArticles");
 
 const SOURCE_FAIL_LOG_COOLDOWN_MS = 15 * 60 * 1000;
+const GOOGLE_NEWS_GAP_MS = 1200;
+const GOOGLE_NEWS_429_COOLDOWN_MS = 20 * 60 * 1000;
 const lastSourceFailLogAt = new Map();
+let googleNewsNextAt = 0;
+let googleNewsCooldownUntil = 0;
 
 function warnSourceFailThrottled(source?, detail?, transient?) {
   const key = `${source?.type || "?"}|${source?.url || source?.appId || source?.query || ""}`;
@@ -15,6 +19,15 @@ function warnSourceFailThrottled(source?, detail?, transient?) {
   const msg = `[GAME NEWS] source fail ${source.type}${source.url ? ` ${source.url}` : source.appId ? ` app:${source.appId}` : source.query ? ` q:${source.query}` : ""} → ${detail}`;
   if (transient) global.logger?.warn?.(msg);
   else global.logger?.error?.(msg);
+}
+
+async function waitGoogleNewsSlot() {
+  const now = Date.now();
+  if (now < googleNewsCooldownUntil) return false;
+  const wait = Math.max(0, googleNewsNextAt - now);
+  if (wait) await new Promise((r) => setTimeout(r, wait));
+  googleNewsNextAt = Date.now() + GOOGLE_NEWS_GAP_MS;
+  return true;
 }
 const ARTICLE_SUMMARY_MAX = 1600;
 
@@ -220,6 +233,7 @@ async function fetchFromSource(source?) {
     } else if (source.type === "brawlstars_blog_html") {
       items = await fetchBrawlStarsBlogHtml();
     } else if (source.type === "google_news") {
+      if (!(await waitGoogleNewsSlot())) return [];
       items = await fetchGoogleNews(source.query);
     } else if (source.type === "rss") {
       const xml = await httpGet(source.url, { responseType: "text", transformResponse: [(d?) => d] });
@@ -228,6 +242,9 @@ async function fetchFromSource(source?) {
     return (items || []).map((item?) => ({ ...item, sourceType: source.type }));
   } catch (err) {
     const status = Number(err?.response?.status || 0);
+    if (source?.type === "google_news" && status === 429) {
+      googleNewsCooldownUntil = Date.now() + GOOGLE_NEWS_429_COOLDOWN_MS;
+    }
     /* 429/403/404/5xx tipici su feed terziari flaky: warn soft, no error spam */
     if (status === 429 || status === 403 || status === 404 || status === 502 || status === 503 || status === 504) {
       warnSourceFailThrottled(source, `HTTP ${status}`, true);

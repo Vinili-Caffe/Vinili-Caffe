@@ -330,34 +330,60 @@ function pickBestArtistCandidate(candidates?, artistName?) {
   return scored[0]?.artist || null;
 }
 
+/** MusicBrainz: max ~1 req/s; User-Agent con contatto obbligatorio. */
+const MB_UA = "ViniliCaffeBot/1.0 (https://www.viniliecaffe.it; minigames)";
+const MB_MIN_GAP_MS = 1100;
+let mbNextAt = 0;
+let mbCooldownUntil = 0;
+
+async function waitMusicBrainzSlot() {
+  const now = Date.now();
+  if (now < mbCooldownUntil) return false;
+  const wait = Math.max(0, mbNextAt - now);
+  if (wait) await new Promise((r) => setTimeout(r, wait));
+  mbNextAt = Date.now() + MB_MIN_GAP_MS;
+  return true;
+}
+
 async function fetchArtistCountry(cfg?, artistName?) {
   if (!artistName) return null;
+  if (Date.now() < mbCooldownUntil) return null;
   const apiBase = cfg?.guessSong?.artistApiUrl || "https://musicbrainz.org/ws/2/artist/?query=artist:";
   const terms = buildArtistSearchTerms(artistName);
   const urls = [];
 
-  for (const term of terms) {
-    urls.push(`${apiBase}${encodeURIComponent((term as any))}&fmt=json&limit=8`);
+  /* una query per termine, poi eventualmente la forma tra virgolette */
+  for (const term of terms.slice(0, 2)) {
+    urls.push(`${apiBase}${encodeURIComponent(String(term))}&fmt=json&limit=8`);
   }
-  urls.push(
-    `https://musicbrainz.org/ws/2/artist/?query=artist:${encodeURIComponent(artistName)}&fmt=json&limit=8`,
-  );
-  urls.push(
-    `https://musicbrainz.org/ws/2/artist/?query=artist:%22${encodeURIComponent(artistName)}%22&fmt=json&limit=8`,
-  );
+  if (artistName.includes(" ") || /[^\w\s]/i.test(artistName)) {
+    urls.push(
+      `https://musicbrainz.org/ws/2/artist/?query=artist:%22${encodeURIComponent(artistName)}%22&fmt=json&limit=8`,
+    );
+  }
 
   const seen = new Set();
   for (const url of urls) {
     if (!url || seen.has(url)) continue;
     seen.add(url);
+    if (!(await waitMusicBrainzSlot())) return null;
     try {
-      const res = await axios.get(url, { timeout: 15000, headers: { "User-Agent": "ViniliCaffeBot/1.0 (discord bot)", }, });
+      const res = await axios.get(url, {
+        timeout: 15000,
+        headers: { "User-Agent": MB_UA, Accept: "application/json" },
+      });
       const candidates = Array.isArray(res?.data?.artists) ? res.data.artists : [];
       const artist = pickBestArtistCandidate(candidates, artistName);
       const country = artist?.country || artist?.area?.name || null;
       if (country) return country;
     } catch (err) {
+      const status = Number(err?.response?.status || 0);
       warnMinigame(err);
+      /* 503/429: MusicBrainz saturo → pausa, niente raffica di retry */
+      if (status === 503 || status === 429) {
+        mbCooldownUntil = Date.now() + 5 * 60_000;
+        return null;
+      }
     }
   }
   return null;

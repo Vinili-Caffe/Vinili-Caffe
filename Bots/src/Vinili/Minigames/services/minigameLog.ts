@@ -1,8 +1,10 @@
 /** Minigiochi: log, avvisi e pausa dopo i 429 di TheSportsDB. */
 const MINIGAME_429_THROTTLE_MS = 60 * 60 * 1000;
 const MINIGAME_403_THROTTLE_MS = 60 * 1000;
+const MINIGAME_FLAKY_THROTTLE_MS = 15 * 60 * 1000;
 let last429LogAt = 0;
 let last403LogAt = 0;
+let lastFlakyLogAt = 0;
 let sportsDb429Until = 0;
 let sportsDb429Consecutive = 0;
 let sportsDb429LastHitAt = 0;
@@ -67,13 +69,24 @@ function warnMinigame(err?) {
   if (is403 && now - last403LogAt < MINIGAME_403_THROTTLE_MS) return;
   if (is403) last403LogAt = now;
   const is503 = status === 503 || (typeof msg === "string" && /status code 503/i.test(msg));
+  const is404 = status === 404 || (typeof msg === "string" && /status code 404/i.test(msg));
   let host = null;
   try { host = url ? new URL(String(url)).host : null; } catch { host = null; }
+  /* MusicBrainz/Deezer/iTunes: 503/404 tipici (rate limit o brano assente) → un warn ogni tanto */
+  const flakyHost =
+    typeof host === "string" &&
+    /musicbrainz\.org|deezer\.com|itunes\.apple\.com|apple\.com/i.test(host);
+  if (flakyHost && (is503 || is404 || is429)) {
+    if (now - lastFlakyLogAt < MINIGAME_FLAKY_THROTTLE_MS) return;
+    lastFlakyLogAt = now;
+  }
   let logMsg = is403 ? `${msg} (API 403 Forbidden: chiave/permessi o IP bloccato)` : msg;
   if (is429) {
     logMsg = `429 rate limit${host ? ` (${host})` : ""}`;
   } else if (is503) {
     logMsg = `503 service unavailable${host ? ` (${host})` : ""}`;
+  } else if (is404 && flakyHost) {
+    logMsg = `404 not found${host ? ` (${host})` : ""}`;
   }
   if (is403 && url) logMsg += ` URL: ${typeof url === "string" ? url.replace(/\/api\/v1\/json\/[^/]+/, "/api/v1/json/***") : url}`;
   global.logger?.warn?.(`[minigameService] ${logMsg}`);
