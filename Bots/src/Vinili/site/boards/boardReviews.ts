@@ -620,14 +620,31 @@ async function findMainGuildServerListing() {
   return listing || null;
 }
 
+/** ID dell'applicazione del bot di Vinili & Caffè (per la sua scheda bot). */
+function mainBotAppId() {
+  return String(process.env.DISCORD_CLIENT_ID_OFFICIAL || process.env.DISCORD_CLIENT_ID || (global as any).__vcBoardsBotId || "").trim();
+}
+
+/** Scheda bot del bot di Vinili & Caffè: lì finiscono le recensioni del bot scritte su /recensioni/. */
+async function findMainBotListing() {
+  const id = mainBotAppId();
+  if (!id) return null;
+  return (
+    (await SiteDocument.findOne({ docType: BL, boardKind: "bot", status: "approved", boardDiscordId: id })
+      .select({ _id: 1, boardDiscordId: 1, userId: 1 })
+      .lean()) || null
+  );
+}
+
 async function syncSiteServerReviewToMainBoardListing(siteReviewDoc?) {
   try {
     const src = siteReviewDoc && typeof siteReviewDoc === "object" ? siteReviewDoc : null;
     if (!src) return { ok: false, skipped: true };
-    if (String(src.reviewKind || "").toLowerCase() !== "server") return { ok: false, skipped: true };
+    const reviewKind = String(src.reviewKind || "").toLowerCase();
+    if (reviewKind !== "server" && reviewKind !== "bot") return { ok: false, skipped: true };
     const uid = String(src.userId || "").trim();
     if (!uid) return { ok: false, skipped: true };
-    const listing: any = await findMainGuildServerListing();
+    const listing: any = reviewKind === "bot" ? await findMainBotListing() : await findMainGuildServerListing();
     if (!listing) return { ok: false, skipped: true, reason: "no_listing" };
     const listingOwnerId = String(listing.userId || listing.ownerId || "").trim();
     if (listingOwnerId && listingOwnerId === uid) {
@@ -677,11 +694,11 @@ async function syncSiteServerReviewToMainBoardListing(siteReviewDoc?) {
   }
 }
 
-async function removeSiteServerReviewFromMainBoardListing(userId?) {
+async function removeSiteServerReviewFromMainBoardListing(userId?, kind = "server") {
   try {
     const uid = String(userId || "").trim();
     if (!uid) return { ok: false, skipped: true };
-    const listing: any = await findMainGuildServerListing();
+    const listing: any = kind === "bot" ? await findMainBotListing() : await findMainGuildServerListing();
     if (!listing) return { ok: false, skipped: true };
     const listingId = String(listing._id);
     const del = await SiteDocument.deleteOne({
@@ -699,4 +716,22 @@ async function removeSiteServerReviewFromMainBoardListing(userId?) {
   }
 }
 
-export = { BL, MAIN_GUILD_ID, BR, BREV, listingsCache, listingsInflight, invalidateListingsListCache, emitBoardsChanged, boardsConfig, featureGate, fetchGuildPreferLite, hashIp, listListingReviews, createListingReview, toggleListingReviewLike, reportListingReview, upsertListingReviewReply, syncSiteServerReviewToMainBoardListing, removeSiteServerReviewFromMainBoardListing };
+/** Importa una volta le recensioni del bot già scritte su /recensioni/ nella scheda del bot. */
+let botReviewsImported = false;
+async function importSiteBotReviewsOnce() {
+  if (botReviewsImported) return;
+  const listing = await findMainBotListing();
+  if (!listing) return;
+  botReviewsImported = true;
+  try {
+    const { SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+    const rows: any[] = await SiteDocument.find({ docType: SITE_DOCUMENT_TYPE.REVIEW, reviewKind: "bot", guildId: String(MAIN_GUILD_ID || "") }).limit(2000).lean();
+    for (const r of rows) await syncSiteServerReviewToMainBoardListing(r);
+    global.logger?.info?.(`[siteBoardsApi] recensioni del bot importate nella vetrina: ${rows.length}`);
+  } catch (err) {
+    botReviewsImported = false;
+    global.logger?.warn?.("[siteBoardsApi] import recensioni bot:", err?.message || err);
+  }
+}
+
+export = { importSiteBotReviewsOnce, mainBotAppId, BL, MAIN_GUILD_ID, BR, BREV, listingsCache, listingsInflight, invalidateListingsListCache, emitBoardsChanged, boardsConfig, featureGate, fetchGuildPreferLite, hashIp, listListingReviews, createListingReview, toggleListingReviewLike, reportListingReview, upsertListingReviewReply, syncSiteServerReviewToMainBoardListing, removeSiteServerReviewFromMainBoardListing };

@@ -494,10 +494,82 @@ function ensureBoardsVoteReminderScheduler(client?) {
   }, 12_000).unref?.();
 }
 
-async function bumpListing(client?, payload: Record<string, any> = {}, reqMeta: Record<string, any> = {}) {
+/** Bump: riporta in cima all'elenco una scheda server. Una volta ogni 2 ore per scheda (come Disboard), mai per i bot. */
+const BUMP_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+
+function nextBumpAtOf(listing?) {
+  const last = listing?.boardBumpedAt ? new Date(listing.boardBumpedAt).getTime() : 0;
+  return last ? new Date(last + BUMP_COOLDOWN_MS) : null;
+}
+
+/** Bump condiviso tra il sito e il comando /bump su Discord. */
+async function doBump(client: any, listing: any, who: { userId: string; name?: string; ip?: string; source?: string; channelId?: string }) {
   const gate = featureGate(client);
   if (!gate.ok) return gate;
   const cfg = gate.cfg;
+  if (String(listing.boardKind || "") === "bot") {
+    return { ok: false, status: 400, error: "bump_bots", message: "Il bump è solo per i server." };
+  }
+  const next = nextBumpAtOf(listing);
+  if (next && next.getTime() > Date.now()) {
+    const mins = Math.ceil((next.getTime() - Date.now()) / 60000);
+    const wait = mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min`;
+    return {
+      ok: false,
+      status: 429,
+      error: "bump_cooldown",
+      message: `Il prossimo bump si può fare tra ${wait}.`,
+      nextBumpAt: next.toISOString(),
+    };
+  }
+  const id = String(listing._id);
+  /* aggiornamento atomico: due bump nello stesso istante non passano entrambi */
+  const now = new Date();
+  const upd = await SiteDocument.updateOne(
+    { _id: id, docType: BL, $or: [{ boardBumpedAt: null }, { boardBumpedAt: { $lte: new Date(now.getTime() - BUMP_COOLDOWN_MS) } }] },
+    { $set: { boardBumpedAt: now } },
+  );
+  if (!upd?.modifiedCount) {
+    return { ok: false, status: 429, error: "bump_cooldown", message: "Qualcuno ha appena fatto il bump.", nextBumpAt: new Date(now.getTime() + BUMP_COOLDOWN_MS).toISOString() };
+  }
+  await SiteDocument.create({
+    docType: BB,
+    userId: String(who.userId),
+    boardListingId: id,
+    guildId: String(listing.boardDiscordId || ""),
+    boardClientIpHash: who.ip ? hashIp(who.ip) : "",
+    authorName: String(who.name || ""),
+    content: String(who.source || "site"),
+  });
+  const scores = await recomputeListingScore(id, cfg);
+  emitBoardsChanged("bump", { listingId: id });
+  /* ringraziamento, ruolo, EXP e promemoria impostati nella tab Bump della scheda */
+  let replyBody: any = null;
+  try {
+    const { onListingBumped } = require("./boardBumpHook") as typeof import("./boardBumpHook");
+    const hook: any = await onListingBumped(client, id, String(who.userId), { channelId: who.channelId || null, fromDiscord: who.source === "discord" });
+    replyBody = hook?.replyBody || null;
+  } catch (err) {
+    global.logger?.warn?.("[site-boards] bump nel server:", err?.message || err);
+  }
+  return {
+    ok: true,
+    status: 200,
+    bumped: true,
+    listingId: id,
+    replyBody,
+    bumpedAt: now.toISOString(),
+    nextBumpAt: new Date(now.getTime() + BUMP_COOLDOWN_MS).toISOString(),
+    slug: String(listing.boardSlug || ""),
+    name: String(listing.title || ""),
+    ...scores,
+  };
+}
+
+/** Dal sito: chiunque abbia fatto l'accesso può fare il bump di una scheda server. */
+async function bumpListing(client?, payload: Record<string, any> = {}, reqMeta: Record<string, any> = {}) {
+  const gate = featureGate(client);
+  if (!gate.ok) return gate;
   const auth = await resolveBoardsUser(payload.accessToken);
   if (!auth.ok) return auth;
   const id = String(payload.listingId || payload.id || "").trim();
@@ -506,39 +578,17 @@ async function bumpListing(client?, payload: Record<string, any> = {}, reqMeta: 
   }
   const listing = await SiteDocument.findOne({ _id: id, docType: BL, status: "approved" });
   if (!listing) return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata o non approvata." };
-  if (String(listing.userId) !== auth.userId) {
-    return { ok: false, status: 403, error: "forbidden", message: "Solo il proprietario può fare bump." };
-  }
+  return doBump(client, listing, { userId: auth.userId, name: auth.globalName || auth.username || "", ip: reqMeta.ip, source: "site" });
+}
 
-  const since = new Date(Date.now() - cfg.bumpCooldownHours * 60 * 60 * 1000);
-  const recent = await SiteDocument.findOne({
-    docType: BB,
-    boardListingId: id,
-    userId: auth.userId,
-    createdAt: { $gte: since },
-  }).lean();
-  if (recent) {
-    return {
-      ok: false,
-      status: 429,
-      error: "bump_cooldown",
-      message: `Bump in cooldown (${cfg.bumpCooldownHours}h).`,
-    };
+/** Da Discord (/bump): la scheda del server dove si usa il comando. */
+async function bumpGuildListing(client?, guildId?: string, user: { id: string; name?: string; channelId?: string } = { id: "" }) {
+  const gid = String(guildId || "").trim();
+  const listing = await SiteDocument.findOne({ docType: BL, boardKind: "server", boardDiscordId: gid, status: "approved" });
+  if (!listing) {
+    return { ok: false, status: 404, error: "no_listing", message: "Questo server non è ancora in vetrina: mettilo su viniliecaffe.it/vetrina." };
   }
-
-  await SiteDocument.create({
-    docType: BB,
-    userId: auth.userId,
-    boardListingId: id,
-    guildId: String(listing.boardDiscordId || ""),
-    boardClientIpHash: hashIp(reqMeta.ip),
-    authorName: auth.globalName || auth.username || "",
-  });
-  listing.boardBumpedAt = new Date();
-  await listing.save();
-  const scores = await recomputeListingScore(id, cfg);
-  emitBoardsChanged("bump", { listingId: id });
-  return { ok: true, status: 200, bumped: true, bumpedAt: listing.boardBumpedAt.toISOString(), ...scores };
+  return doBump(client, listing, { userId: String(user.id), name: user.name || "", source: "discord", channelId: user.channelId || "" });
 }
 
 async function reportListing(client?, payload: Record<string, any> = {}) {
@@ -568,4 +618,4 @@ async function reportListing(client?, payload: Record<string, any> = {}) {
   return { ok: true, status: 201, reported: true };
 }
 
-export = { BV, BB, clientIp, listingVotesMonth, recomputeListingScore, startListingVoteSession, progressListingVoteSession, voteListing, setListingVoteReminder, sweepBoardVoteReminders, ensureBoardsVoteReminderScheduler, bumpListing, reportListing };
+export = { BV, BB, clientIp, listingVotesMonth, recomputeListingScore, startListingVoteSession, progressListingVoteSession, voteListing, setListingVoteReminder, sweepBoardVoteReminders, ensureBoardsVoteReminderScheduler, bumpListing, bumpGuildListing, nextBumpAtOf, reportListing };

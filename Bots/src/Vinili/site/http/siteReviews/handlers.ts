@@ -379,6 +379,8 @@ async function deleteSiteReview(client?, payload: Record<string, any> = {}) {
     broadcastSiteReviewsChanged();
   } catch (_) {}
 
+  /* recensione del bot: tolta anche dalla scheda del bot in vetrina */
+  if (String(deleted.reviewKind || "") === "bot") await unmirrorSiteServerReviewFromBoard(resolved.userId, "bot");
   if (String(deleted.reviewKind || "") === "server") {
     await unmirrorSiteServerReviewFromBoard(resolved.userId);
     const stillEligible = await SiteDocument.exists({

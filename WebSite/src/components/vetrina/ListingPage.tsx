@@ -20,7 +20,13 @@ import {
   LogIn,
   RefreshCcw,
   Server,
+  LifeBuoy,
+  MonitorSmartphone,
+  Rocket,
   Settings2,
+  Terminal,
+  UserRound,
+  Wallet,
   ShieldCheck,
   Sparkles,
   ThumbsUp,
@@ -33,8 +39,11 @@ import {
   labelOf,
   listingFeatures,
   localeFlagUrl,
+  loadRelatedListings,
+  BUMP_COOLDOWN_MS,
   trackListing,
   type TrackEvent,
+  type BotCommand,
   type TrafficSource,
   loadBoardsConfig,
   loadListing,
@@ -50,7 +59,7 @@ import { cn } from "@/lib/cn";
 import { promptDialog, showToast } from "@/components/ui";
 import { SmartLink } from "@/components/SmartLink";
 import { DiscordContent } from "@/components/discord/DiscordContent";
-import { Stars } from "./ListingCard";
+import { ListingCard, Stars } from "./ListingCard";
 import { ListingReviews } from "./ListingReviews";
 import { VETRINA_FROM_KEY, VetrinaHeroBg } from "./VetrinaChrome";
 import { EMPTY_FILTERS, VetrinaSearch, listHref } from "./VetrinaSearch";
@@ -187,6 +196,9 @@ export function ListingPage() {
   const invite = l.kind === "bot" ? l.botInviteUrl : l.inviteUrl;
   const feats = listingFeatures(l);
   const members = Number(l.stats?.members) || 0;
+  const isBot = l.kind === "bot";
+  const serverCount = Number(l.serverCount) || 0;
+  const commands = Array.isArray(l.commands) ? l.commands : [];
   const socials = Object.entries(l.socials || {}).filter(([, v]) => v) as [SocialKey, string][];
   const KindIcon = l.kind === "bot" ? Bot : Server;
   const voteHref = page(`/vetrina/vota/?slug=${encodeURIComponent(l.slug)}&id=${encodeURIComponent(l.id)}`);
@@ -196,8 +208,14 @@ export function ListingPage() {
     setBusy("bump");
     const r = await bumpListing(token, l.id);
     setBusy("");
-    showToast(r.ok ? r.data.message || "Scheda riposizionata in cima." : r.message, !r.ok);
-    if (r.ok && r.data.listing) setListing({ ...l, ...r.data.listing });
+    if (!r.ok) {
+      showToast(r.message, true);
+      const next = (r as { nextBumpAt?: string }).nextBumpAt;
+      if (next) setListing({ ...l, bumpedAt: new Date(new Date(next).getTime() - BUMP_COOLDOWN_MS).toISOString() });
+      return;
+    }
+    showToast("Bump fatto: il server è tornato in cima.");
+    setListing({ ...l, bumpedAt: r.data.bumpedAt || new Date().toISOString(), bumps7d: (l.bumps7d || 0) + 1 });
   }
 
   async function onReport() {
@@ -318,19 +336,13 @@ export function ListingPage() {
                 {l.kind === "bot" ? "Aggiungi il bot" : "Entra nel server"} <ArrowUpRight className="size-4" />
               </a>
             ) : null}
-            <SmartLink href={voteHref} onClick={() => track("vote")} className="inline-flex items-center gap-2 rounded-full bg-crema/12 px-5 py-3 font-semibold text-crema ring-1 ring-sand/30 backdrop-blur transition hover:bg-crema/18">
-              <ThumbsUp className="size-4" /> Vota
-            </SmartLink>
-            <IconAction label="Riposiziona in cima" onClick={onBump} disabled={busy === "bump"}>
-              <RefreshCcw className={cn("size-4", busy === "bump" && "animate-spin")} />
-            </IconAction>
             <IconAction label={copied ? "Copiato" : "Copia link"} onClick={onShare}>
               {copied ? <Check className="size-4" /> : <Link2 className="size-4" />}
             </IconAction>
             <IconAction label="Segnala" onClick={onReport} disabled={busy === "report"}>
               <Flag className="size-4" />
             </IconAction>
-            {isOwner && l.kind !== "bot" ? (
+            {isOwner ? (
               <SmartLink
                 href={page(`/vetrina/modifica/?id=${encodeURIComponent(l.id)}`)}
                 className="inline-flex items-center gap-2 rounded-full bg-crema/8 px-4 py-3 text-sm font-semibold text-crema/85 ring-1 ring-sand/25 transition hover:bg-crema/15"
@@ -348,10 +360,21 @@ export function ListingPage() {
       </header>
 
       {/* ─── numeri ─── */}
-      <div className={cn("mx-auto mt-8 grid max-w-6xl grid-cols-2 gap-3 px-6", l.kind !== "bot" && members > 0 && "sm:grid-cols-3")}>
-        {l.kind !== "bot" && members > 0 ? <StatTile icon={<Users />} label="Membri" value={fmt(members)} /> : null}
-        <StatTile icon={<ThumbsUp />} label="Voti del mese" value={fmt(l.votesMonth || 0)} />
-        <StatTile icon={<RefreshCcw />} label="Riposizionamenti" value={fmt(l.bumps7d || 0)} hint="ultimi 7 giorni" />
+      <div className={cn("mx-auto mt-8 grid max-w-6xl grid-cols-2 gap-3 px-6", (isBot ? serverCount > 0 : members > 0) && "sm:grid-cols-3")}>
+        {!isBot && members > 0 ? <StatTile icon={<Users />} label="Membri" value={fmt(members)} /> : null}
+        {isBot && serverCount > 0 ? <StatTile icon={<Server />} label="Server" value={fmt(serverCount)} /> : null}
+        <ActionTile
+          icon={<ThumbsUp />}
+          label="Voti del mese"
+          value={fmt(l.votesMonth || 0)}
+          action={
+            <SmartLink href={voteHref} onClick={() => track("vote")} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-bold text-ink transition hover:-translate-y-0.5">
+              <ThumbsUp className="size-4" /> Vota
+            </SmartLink>
+          }
+        />
+        {/* bump: solo per i server, una volta ogni 2 ore */}
+        {!isBot ? <BumpTile listing={l} busy={busy === "bump"} onBump={() => void onBump()} /> : null}
       </div>
 
       {/* ─── contenuto ─── */}
@@ -370,6 +393,8 @@ export function ListingPage() {
               </div>
             )}
           </Panel>
+          {isBot && commands.length > 0 ? <CommandsPanel commands={commands} prefix={l.prefix || ""} /> : null}
+          <RelatedListings listing={l} token={token} />
           <ListingReviews listing={l} onAggregate={(avg, count) => setListing((prev) => (prev ? { ...prev, ratingAvg: avg, reviewsCount: count } : prev))} />
         </div>
 
@@ -380,7 +405,7 @@ export function ListingPage() {
                 <InfoRow icon={<Sparkles />} label="Categorie">
                   <div className="flex flex-wrap gap-1.5">
                     {l.categories.map((c) => (
-                      <SmartLink key={c} href={page(`/vetrina/?category=${encodeURIComponent(c)}`)} className="rounded-full bg-crema/8 px-2.5 py-0.5 capitalize ring-1 ring-sand/15 hover:text-ember">
+                      <SmartLink key={c} href={page(`/vetrina/${isBot ? "bot" : "server"}/?category=${encodeURIComponent(c)}`)} className="rounded-full bg-crema/8 px-2.5 py-0.5 capitalize ring-1 ring-sand/15 hover:text-ember">
                         {labelOf(cfg?.categoryLabels, c)}
                       </SmartLink>
                     ))}
@@ -405,15 +430,30 @@ export function ListingPage() {
                   </div>
                 </InfoRow>
               )}
-              {(feats.acceptsPartnerships || feats.requireVerification || feats.paidFeaturesAvailable) && (
+              {((!isBot && (feats.acceptsPartnerships || feats.requireVerification)) || feats.paidFeaturesAvailable || (isBot && (feats.webInterface || feats.userInstallable || feats.paidTier))) && (
                 <InfoRow icon={<BadgeCheck />} label="Caratteristiche">
                   <ul className="space-y-1.5">
-                    {feats.acceptsPartnerships && (
+                    {isBot && (
+                      <li className="flex items-center gap-2">
+                        <Wallet className="size-4 text-ember" /> {feats.paidTier === "paid" ? "A pagamento" : "Gratis"}
+                      </li>
+                    )}
+                    {isBot && feats.webInterface && (
+                      <li className="flex items-center gap-2">
+                        <MonitorSmartphone className="size-4 text-ember" /> Interfaccia web
+                      </li>
+                    )}
+                    {isBot && feats.userInstallable && (
+                      <li className="flex items-center gap-2">
+                        <UserRound className="size-4 text-ember" /> Installabile come app utente
+                      </li>
+                    )}
+                    {!isBot && feats.acceptsPartnerships && (
                       <li className="flex items-center gap-2">
                         <Handshake className="size-4 text-ember" /> Partnership aperte
                       </li>
                     )}
-                    {feats.requireVerification && (
+                    {!isBot && feats.requireVerification && (
                       <li className="flex items-center gap-2">
                         <ShieldCheck className="size-4 text-ember" /> Verifica all’ingresso
                       </li>
@@ -426,9 +466,14 @@ export function ListingPage() {
                   </ul>
                 </InfoRow>
               )}
-              {(l.siteUrl || socials.length > 0) && (
+              {(l.siteUrl || socials.length > 0 || (isBot && l.supportUrl)) && (
                 <InfoRow icon={<Globe />} label="Link">
                   <div className="flex flex-wrap gap-1.5">
+                    {isBot && l.supportUrl && (
+                      <a href={l.supportUrl} onClick={() => track("link")} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 py-0.5 pl-2 pr-2.5 ring-1 ring-sand/15 hover:text-ember">
+                        <LifeBuoy className="size-3.5" /> Supporto <ArrowUpRight className="size-3 opacity-60" />
+                      </a>
+                    )}
                     {l.siteUrl && (
                       <a href={l.siteUrl} onClick={() => track("link")} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 py-0.5 pl-2 pr-2.5 ring-1 ring-sand/15 hover:text-ember">
                         <Globe className="size-3.5" /> Sito <ArrowUpRight className="size-3 opacity-60" />
@@ -464,20 +509,57 @@ export function ListingPage() {
                   <span className="size-10 rounded-full bg-mocha" />
                 )}
                 <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[0.2em] text-crema/40">Messa in vetrina da</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-crema/40">{isBot ? "Sviluppatore" : "Messa in vetrina da"}</p>
                   <p className="truncate font-semibold text-crema">{l.authorName || "Membro"}</p>
                 </div>
               </div>
             )}
           </Panel>
 
-          {l.kind !== "bot" && <ListingActivity listingId={l.id} token={token} />}
+          {!isBot && <ListingActivity listingId={l.id} token={token} />}
+
+          {isBot && (l.prefix || serverCount > 0) && (
+            <Panel title="Dettagli">
+              <dl className="space-y-4 text-sm">
+                {l.prefix ? (
+                  <InfoRow icon={<Terminal />} label="Prefisso">
+                    <code className="rounded-md bg-espresso/70 px-2 py-0.5 font-mono text-base text-crema ring-1 ring-sand/15">{l.prefix}</code>
+                  </InfoRow>
+                ) : null}
+                {serverCount > 0 ? (
+                  <InfoRow icon={<Server />} label="Server">
+                    <span className="font-display text-xl font-semibold tabular-nums text-crema">{fmt(serverCount)}</span>
+                  </InfoRow>
+                ) : null}
+              </dl>
+            </Panel>
+          )}
+
+          {isBot && l.supportServer ? (
+            <Panel title="Server di supporto">
+              <SmartLink href={page(`/vetrina/scheda/?slug=${encodeURIComponent(l.supportServer.slug)}`)} className="group flex items-center gap-3 rounded-2xl bg-espresso/50 p-3 ring-1 ring-sand/12 transition hover:ring-ember/40">
+                <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-mocha">
+                  {l.supportServer.iconUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={l.supportServer.iconUrl} alt="" className="size-full object-cover" />
+                  ) : (
+                    <Server className="size-5 text-crema/60" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold text-crema group-hover:text-ember">{l.supportServer.name}</span>
+                  {l.supportServer.members ? <span className="text-xs text-crema/50">{fmt(l.supportServer.members)} membri</span> : null}
+                </span>
+                <ArrowUpRight className="size-4 shrink-0 text-crema/40 group-hover:text-ember" />
+              </SmartLink>
+            </Panel>
+          ) : null}
 
           {l.tags.length > 0 && (
             <Panel title="Tag">
               <div className="flex flex-wrap gap-1.5">
                 {l.tags.map((t) => (
-                  <SmartLink key={t} href={page(`/vetrina/?tag=${encodeURIComponent(t)}`)} className="inline-flex items-center gap-0.5 rounded-full bg-mocha/70 px-2.5 py-1 text-xs text-crema/65 ring-1 ring-sand/12 transition-colors hover:text-ember hover:ring-ember/40">
+                  <SmartLink key={t} href={page(`/vetrina/${isBot ? "bot" : "server"}/?tag=${encodeURIComponent(t)}`)} className="inline-flex items-center gap-0.5 rounded-full bg-mocha/70 px-2.5 py-1 text-xs text-crema/65 ring-1 ring-sand/12 transition-colors hover:text-ember hover:ring-ember/40">
                     <Hash className="size-3" />
                     {t}
                   </SmartLink>
@@ -551,5 +633,125 @@ function InfoRow({ icon, label, children }: { icon: ReactNode; label: string; ch
       </dt>
       <dd className="text-crema/80">{children}</dd>
     </div>
+  );
+}
+
+/** Comandi del bot, filtrabili per tipo. */
+function CommandsPanel({ commands, prefix }: { commands: BotCommand[]; prefix: string }) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const shown = commands.filter((c) => !q || `${c.name} ${c.description}`.toLowerCase().includes(q.toLowerCase()));
+  const list = open || q ? shown : shown.slice(0, 8);
+  const label = (c: BotCommand) => (c.type === "prefix" ? `${prefix}${c.name}` : c.type === "slash" ? `/${c.name}` : c.name);
+  return (
+    <Panel
+      title={`Comandi (${commands.length})`}
+      right={
+        commands.length > 6 ? (
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Cerca un comando…"
+            aria-label="Cerca un comando"
+            className="h-9 w-40 rounded-full bg-espresso/60 px-3.5 text-sm text-crema ring-1 ring-sand/15 outline-none placeholder:text-crema/30 focus:ring-caramel/50 sm:w-52"
+          />
+        ) : undefined
+      }
+    >
+      <ul className="divide-y divide-sand/10">
+        {list.map((c, i) => (
+          <li key={`${c.type}-${c.name}-${i}`} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:gap-4">
+            <code className="shrink-0 font-mono text-sm font-semibold text-ember">
+              {label(c)}
+              {c.usage ? <span className="font-normal text-crema/45"> {c.usage}</span> : null}
+            </code>
+            <span className="min-w-0 text-sm text-crema/70">{c.description || <span className="text-crema/35">—</span>}</span>
+            {c.type === "user" || c.type === "message" ? (
+              <span className="shrink-0 rounded-full bg-crema/8 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-crema/50 sm:ml-auto">
+                {c.type === "user" ? "menu utente" : "menu messaggio"}
+              </span>
+            ) : null}
+          </li>
+        ))}
+        {!list.length ? <li className="py-6 text-center text-sm text-crema/45">Nessun comando trovato.</li> : null}
+      </ul>
+      {!q && shown.length > 8 ? (
+        <button type="button" onClick={() => setOpen((v) => !v)} className="mt-3 text-sm font-semibold text-crema/60 hover:text-ember">
+          {open ? "Mostra meno" : `Mostra tutti (${shown.length})`}
+        </button>
+      ) : null}
+    </Panel>
+  );
+}
+
+/** Card dei numeri con il pulsante dentro (Vota, Bump). */
+function ActionTile({ icon, label, value, hint, action }: { icon: ReactNode; label: string; value: string; hint?: ReactNode; action: ReactNode }) {
+  return (
+    <div className="flex flex-col justify-between gap-3 rounded-2xl bg-roast p-4 ring-1 ring-sand/12 sm:flex-row">
+      <div className="min-w-0">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-crema/45 [&>svg]:size-3.5 [&>svg]:text-caramel">
+          {icon} {label}
+        </p>
+        <p className="mt-2 font-display text-3xl font-semibold lining-nums text-crema">{value}</p>
+        {hint ? <p className="text-xs text-crema/40">{hint}</p> : null}
+      </div>
+      <div className="shrink-0 sm:self-end">{action}</div>
+    </div>
+  );
+}
+
+/** Card del bump (solo server): un bump ogni 2 ore, con il tempo che manca. */
+function BumpTile({ listing, busy, onBump }: { listing: BoardListing; busy: boolean; onBump: () => void }) {
+  const until = listing.bumpedAt ? new Date(listing.bumpedAt).getTime() + BUMP_COOLDOWN_MS : 0;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (until <= Date.now()) return;
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, [until]);
+  const left = Math.max(0, until - now);
+  const mins = Math.ceil(left / 60000);
+  const wait = left ? (mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min`) : "";
+  return (
+    <ActionTile
+      icon={<Rocket />}
+      label="Bump"
+      value={(listing.bumps7d || 0).toLocaleString("it-IT")}
+      hint={wait ? `prossimo tra ${wait}` : "ultimi 7 giorni · anche con /bump su Discord"}
+      action={
+        <button
+          type="button"
+          onClick={onBump}
+          disabled={busy || Boolean(wait)}
+          title={wait ? `Il prossimo bump tra ${wait}` : "Riporta il server in cima all'elenco"}
+          className="inline-flex items-center gap-2 rounded-full bg-crema/12 px-5 py-2.5 text-sm font-semibold text-crema ring-1 ring-sand/30 transition hover:bg-crema/18 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Rocket className={cn("size-4", busy && "animate-pulse")} /> {wait ? "In attesa" : "Bump"}
+        </button>
+      }
+    />
+  );
+}
+
+/** Bot in vetrina presenti nel server (o server in vetrina che usano il bot). */
+function RelatedListings({ listing, token }: { listing: BoardListing; token?: string | null }) {
+  const [items, setItems] = useState<BoardListing[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void loadRelatedListings(listing.id, token).then((r) => alive && setItems(r.ok ? r.data.items || [] : []));
+    return () => {
+      alive = false;
+    };
+  }, [listing.id, token]);
+  if (!items || !items.length) return null;
+  const isBot = listing.kind === "bot";
+  return (
+    <Panel title={isBot ? "Server che lo usano" : "Bot di questo server"} right={<span className="text-sm text-crema/45">{items.length} in vetrina</span>}>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {items.slice(0, 6).map((it, i) => (
+          <ListingCard key={it.id} listing={it} i={i} />
+        ))}
+      </div>
+    </Panel>
   );
 }

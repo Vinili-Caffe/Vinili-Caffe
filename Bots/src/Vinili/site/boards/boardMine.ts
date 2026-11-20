@@ -143,6 +143,8 @@ async function createListing(client?, payload: Record<string, any> = {}) {
     boardAccent: accent,
     boardMarkdown: description,
     boardFeatures: sanitizeBoardFeatures(payload.features),
+    boardPrefix: kind === "bot" ? sanitizeText(payload.prefix, 16) : "",
+    boardSupportUrl: kind === "bot" ? sanitizeUrl(payload.supportUrl) : "",
     boardScore: 0,
     boardVotes30d: 0,
     boardBumps7d: 0,
@@ -246,6 +248,8 @@ async function patchListing(client?, payload: Record<string, any> = {}) {
   if (body.siteUrl != null) doc.boardSiteUrl = sanitizeUrl(body.siteUrl);
   if (body.socials != null) doc.boardSocials = sanitizeSocials(body.socials);
   if (body.features != null) doc.boardFeatures = sanitizeBoardFeatures(body.features);
+  if (body.prefix != null) doc.boardPrefix = sanitizeText(body.prefix, 16);
+  if (body.supportUrl != null) doc.boardSupportUrl = sanitizeUrl(body.supportUrl);
   if (body.inviteUrl != null) {
     doc.boardInviteUrl = sanitizeUrl(body.inviteUrl);
   }

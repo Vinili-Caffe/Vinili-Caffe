@@ -45,7 +45,16 @@ export type BoardListing = {
   createdAt: string | null;
   updatedAt: string | null;
   moderation?: { notes: string; reviewedBy: string; reviewedAt: string | null; rejectReason: string };
+  /* schede bot */
+  prefix?: string;
+  supportUrl?: string;
+  supportListingId?: string;
+  serverCount?: number;
+  commands?: BotCommand[];
+  supportServer?: { id: string; name: string; slug: string; iconUrl: string; inviteUrl: string; members: number } | null;
 };
+
+export type BotCommand = { name: string; description: string; type: "slash" | "user" | "message" | "prefix"; usage: string; category: string };
 
 export type SocialKey = "youtube" | "twitch" | "instagram" | "tiktok" | "x" | "github" | "website";
 
@@ -54,6 +63,9 @@ export type ListingFeatures = {
   paidFeaturesAvailable?: boolean;
   acceptsPartnerships?: boolean;
   requireVerification?: boolean;
+  /** bot */
+  webInterface?: boolean;
+  userInstallable?: boolean;
 };
 
 export type ListingStats = {
@@ -82,6 +94,8 @@ export type BoardsConfig = {
   minTaglineChars: number;
   minDescriptionChars: number;
   categories: string[];
+  /** categorie dei bot (diverse da quelle dei server) */
+  botCategories?: string[];
   locales: string[];
   categoryLabels: Record<string, string>;
   localeLabels: Record<string, string>;
@@ -247,6 +261,9 @@ export type CreateListingBody = {
   accent?: string;
   visitorNotes?: string;
   bannerUrl?: string;
+  /** bot */
+  prefix?: string;
+  supportUrl?: string;
   submit?: boolean;
 };
 
@@ -348,8 +365,17 @@ export async function bumpListing(token: string, id: string) {
     method: "POST",
     headers: auth(token),
   });
-  return parse<{ listing: BoardListing; message?: string }>(r);
+  return parse<{ listing?: BoardListing; message?: string; bumpedAt?: string; nextBumpAt?: string }>(r);
 }
+
+/** Schede collegate: bot in vetrina presenti nel server, o server in vetrina dove c'è il bot. */
+export async function loadRelatedListings(id: string, token?: string | null) {
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/related`, { headers: auth(token) });
+  return parse<{ kind: BoardKind; items: BoardListing[] }>(r);
+}
+
+/** Un bump ogni 2 ore per scheda. */
+export const BUMP_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 
 export async function reportListing(token: string, id: string, reason: string) {
   const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/report`, {
@@ -449,7 +475,7 @@ export const SORTS: { id: BoardSort; label: string }[] = [
   { id: "score", label: "In vetrina" },
   { id: "new", label: "Nuove" },
   { id: "votes", label: "Più votate" },
-  { id: "bumps", label: "Riposizionate" },
+  { id: "bumps", label: "Ultimo bump" },
   { id: "reviews", label: "Stelle" },
 ];
 
@@ -756,4 +782,95 @@ export async function uploadBanner(token: string, dataUrl: string) {
     body: JSON.stringify({ image: dataUrl }),
   });
   return parse<{ url: string; bannerUrl: string; message?: string }>(r);
+}
+
+/* ── schede bot ── */
+
+/** Categorie giuste per il tipo di scheda. */
+export function categoriesFor(cfg: BoardsConfig | null | undefined, kind: string) {
+  return (kind === "bot" ? cfg?.botCategories : cfg?.categories) || [];
+}
+
+export async function loadBotDefaults(token: string, botId: string) {
+  const r = await fetch(`${BASE}/bot-defaults?id=${encodeURIComponent(botId)}`, { headers: auth(token), cache: "no-store" });
+  return parse<{ name: string; iconUrl: string }>(r);
+}
+
+export type BotApiInfo = { hasKey: boolean; keyHint: string; createdAt: string | null; lastPostAt: string | null; serverCount: number; serverCountAt: string | null; commandsCount: number; own: boolean };
+
+export async function loadBotApi(token: string, id: string) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/bot-api`, { headers: auth(token), cache: "no-store" });
+  return parse<{ api: BotApiInfo; commands: BotCommand[] }>(r);
+}
+
+export async function regenBotApiKey(token: string, id: string) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/bot-api/key`, { method: "POST", headers: auth(token) });
+  return parse<{ key: string; api: BotApiInfo; message?: string }>(r);
+}
+
+export async function saveBotCommands(token: string, id: string, commands: BotCommand[]) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/commands`, {
+    method: "PUT",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ commands }),
+  });
+  return parse<{ commands: BotCommand[]; message?: string }>(r);
+}
+
+export type SupportCandidate = { id: string; name: string; slug: string; iconUrl: string };
+
+export async function loadSupportCandidates(token: string, id: string) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/support`, { headers: auth(token), cache: "no-store" });
+  return parse<{ servers: SupportCandidate[] }>(r);
+}
+
+export async function setSupportServer(token: string, id: string, serverListingId: string | null) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/support`, {
+    method: "PUT",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ serverListingId }),
+  });
+  return parse<{ support: SupportCandidate | null; message?: string }>(r);
+}
+
+/** Indirizzo pubblico dell'API delle statistiche (per gli esempi). */
+export const BOT_STATS_API_URL = "https://api.viniliecaffe.it/webhooks/site-boards/api/bots/stats";
+
+/* ── bump nel server della scheda ── */
+
+export type BumpHookConfig = {
+  enabled: boolean;
+  thanksEnabled: boolean;
+  channelId: string | null;
+  draft: MsgDraft;
+  rewardRoleId: string | null;
+  hours: number;
+  reminderEnabled: boolean;
+  reminderChannelId: string | null;
+  reminderRoleId: string | null;
+  reminderDraft: MsgDraft;
+};
+export type BumpHookData = Omit<VoteHookData, "config"> & { config: BumpHookConfig; isMain?: boolean; bumpedAt: string | null };
+
+export async function loadBumpHook(token: string, id: string) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/bump-hook`, { headers: auth(token), cache: "no-store" });
+  return parse<BumpHookData>(r);
+}
+
+export async function saveBumpHook(token: string, id: string, config: BumpHookConfig) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/bump-hook`, {
+    method: "PATCH",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ config }),
+  });
+  return parse<{ config: BumpHookConfig; message?: string }>(r);
+}
+
+export async function testBumpHook(token: string, id: string, config: BumpHookConfig, which: "thanks" | "reminder") {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/bump-hook/test`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ config, which }),
+  });
+  return parse<{ message?: string }>(r);
 }

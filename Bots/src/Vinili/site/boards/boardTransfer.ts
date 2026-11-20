@@ -79,7 +79,6 @@ async function requestTransfer(client?, payload: Record<string, any> = {}) {
   const { err, auth, doc } = await loadOwned(client, payload.accessToken, payload.listingId);
   if (err) return err;
   if (String(doc.userId) !== String(auth.userId)) return { ok: false, status: 403, error: "forbidden", message: "Solo il proprietario può passare la scheda." };
-  if (String(doc.boardKind || "") === "bot") return { ok: false, status: 400, error: "unsupported_kind", message: "Per ora si possono passare solo le schede server." };
   const toUserId = String(payload.toUserId || "").trim();
   if (!snowflakeOk(toUserId)) return { ok: false, status: 400, error: "invalid_user", message: "ID utente non valido." };
   if (toUserId === String(auth.userId)) return { ok: false, status: 400, error: "same_user", message: "La scheda è già tua." };
@@ -147,13 +146,15 @@ async function respondTransfer(client?, payload: Record<string, any> = {}) {
   const name = String(doc.title || "la scheda");
   const accept = payload.accept === true;
   if (accept) {
-    /* il nuovo proprietario deve poter gestire il server */
-    const claim: any = await assertCanClaimServer(client, payload.accessToken, String(doc.boardDiscordId || ""));
-    if (!claim.ok) {
-      return {
-        ...claim,
-        message: claim.error === "not_owner" ? "Per accettare devi poter gestire questo server su Discord." : claim.message,
-      };
+    /* scheda server: il nuovo proprietario deve poter gestire il server (per i bot non c'è un controllo possibile) */
+    if (String(doc.boardKind || "") !== "bot") {
+      const claim: any = await assertCanClaimServer(client, payload.accessToken, String(doc.boardDiscordId || ""));
+      if (!claim.ok) {
+        return {
+          ...claim,
+          message: claim.error === "not_owner" ? "Per accettare devi poter gestire questo server su Discord." : claim.message,
+        };
+      }
     }
     const prevOwner = String(doc.userId || "");
     doc.userId = String(auth.userId);

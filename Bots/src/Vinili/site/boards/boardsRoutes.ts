@@ -79,7 +79,8 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
     try {
       if (req.method === "OPTIONS") return next();
       const sub = String(req.path || "");
-      if (sub === "/config" || sub.startsWith("/files/")) return next();
+      /* l'API dei bot (statistiche con la chiave) funziona anche con la vetrina in anteprima */
+      if (sub === "/config" || sub.startsWith("/files/") || sub.startsWith("/api/")) return next();
       const { boardsConfig } = require("./boardReviews") as typeof import("./boardReviews");
       const cfg: any = boardsConfig(client);
       if (!cfg?.enabled || cfg.publicOpen) return next();
@@ -247,6 +248,73 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
     reviewHookRoute("review-hook test", (H, accessToken, req) => H.testReviewHook(client, { accessToken, listingId: req.params?.id, config: req.body?.config })),
   );
 
+  /* ── schede bot: chiave API, comandi, server di supporto ── */
+  try {
+    /* ID del bot per la sua scheda (recensioni di /recensioni/) + import una tantum delle recensioni già scritte */
+    const markBot = () => {
+      if (client?.user?.id) (global as any).__vcBoardsBotId = String(client.user.id);
+      const { importSiteBotReviewsOnce } = require("./boardReviews") as typeof import("./boardReviews");
+      void importSiteBotReviewsOnce().catch(() => null);
+    };
+    setTimeout(markBot, 30_000).unref?.();
+  } catch (_) {}
+  const botRoute = (path: string, run: (B: any, accessToken: string, req: any) => Promise<any>) =>
+    async (req?, res?) => {
+      try {
+        const accessToken = normalizeHeaderSecret(req.headers.authorization);
+        if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+        const B = require("./boardBotApi") as typeof import("./boardBotApi");
+        const out: any = await run(B, accessToken, req);
+        return res.status(Number(out?.status) || 500).json(out);
+      } catch (err) {
+        global.logger?.error?.(`[WEBHOOK] site-boards ${path}:`, err);
+        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+      }
+    };
+  app.get("/webhooks/site-boards/bot-defaults", botRoute("bot-defaults", (B, accessToken, req) => B.botDefaults(client, { accessToken, botId: req.query?.id })));
+  app.get("/webhooks/site-boards/me/listings/:id/bot-api", botRoute("bot-api", (B, accessToken, req) => B.getBotApi(client, { accessToken, listingId: req.params?.id })));
+  app.post("/webhooks/site-boards/me/listings/:id/bot-api/key", botRoute("bot-api key", (B, accessToken, req) => B.regenerateBotApiKey(client, { accessToken, listingId: req.params?.id })));
+  app.put(
+    "/webhooks/site-boards/me/listings/:id/commands",
+    botRoute("commands", (B, accessToken, req) => B.saveBotCommands(client, { accessToken, listingId: req.params?.id, commands: req.body?.commands })),
+  );
+  app.get("/webhooks/site-boards/me/listings/:id/support", botRoute("support list", (B, accessToken, req) => B.listSupportCandidates(client, { accessToken, listingId: req.params?.id })));
+  app.put(
+    "/webhooks/site-boards/me/listings/:id/support",
+    botRoute("support set", (B, accessToken, req) => B.setSupportServer(client, { accessToken, listingId: req.params?.id, serverListingId: req.body?.serverListingId })),
+  );
+  /* il bot del proprietario manda numero di server e comandi: Authorization: <chiave> */
+  app.post("/webhooks/site-boards/api/bots/stats", async (req?, res?) => {
+    try {
+      const B = require("./boardBotApi") as typeof import("./boardBotApi");
+      const raw = String(req.headers.authorization || "").trim().replace(/^Bearers+/i, "");
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out: any = await B.postBotStats(client, { key: raw, ...body });
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards api stats:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+
+  /* ── bump nel server della scheda (ringraziamento, ruolo, promemoria) ── */
+  try {
+    const { ensureBumpReminderSweep } = require("./boardBumpHook") as typeof import("./boardBumpHook");
+    ensureBumpReminderSweep(client);
+  } catch (_) {}
+  app.get("/webhooks/site-boards/me/listings/:id/bump-hook", voteHookRoute("bump-hook", async (_H, accessToken, req) => {
+    const H = require("./boardBumpHook") as typeof import("./boardBumpHook");
+    return H.getBumpHook(client, { accessToken, listingId: req.params?.id });
+  }));
+  app.patch("/webhooks/site-boards/me/listings/:id/bump-hook", voteHookRoute("bump-hook save", async (_H, accessToken, req) => {
+    const H = require("./boardBumpHook") as typeof import("./boardBumpHook");
+    return H.saveBumpHook(client, { accessToken, listingId: req.params?.id, config: req.body?.config });
+  }));
+  app.post("/webhooks/site-boards/me/listings/:id/bump-hook/test", voteHookRoute("bump-hook test", async (_H, accessToken, req) => {
+    const H = require("./boardBumpHook") as typeof import("./boardBumpHook");
+    return H.testBumpHook(client, { accessToken, listingId: req.params?.id, config: req.body?.config, which: req.body?.which });
+  }));
+
   /* ── passaggio della scheda ad un altro utente ── */
   const transferRoute = (path: string, run: (T: any, accessToken: string, req: any) => Promise<any>) =>
     async (req?, res?) => {
@@ -273,6 +341,18 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
     transferRoute("transfer respond", (T, accessToken, req) => T.respondTransfer(client, { accessToken, listingId: req.params?.id, accept: req.body?.accept === true })),
   );
 
+  /* schede collegate: bot nel server / server con il bot */
+  app.get("/webhooks/site-boards/listings/:id/related", async (req?, res?) => {
+    try {
+      const { getRelatedListings } = require("./boardRelated") as typeof import("./boardRelated");
+      const out: any = await getRelatedListings(client, req.params?.id);
+      if (out?.ok) res.setHeader("Cache-Control", "public, max-age=600");
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards related:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
   app.get("/webhooks/site-boards/listings/:id/activity", async (req?, res?) => {
     try {
       const { getListingActivity } = require("./boardActivity") as typeof import("./boardActivity");

@@ -360,7 +360,8 @@ async function checkSlashPermission(interaction?, options: Record<string, any> =
         global.logger?.warn?.("[commandPermissions] tenant giveaway gate:", err?.message || err);
       }
     }
-    if (cmd !== "partnership" && !tenantDeleteAllowed) {
+    /* /bump della Vetrina: disponibile in ogni server dove c'è il bot */
+    if (cmd !== "partnership" && !tenantDeleteAllowed && cmd !== "bump") {
       const message =
         `${E.vegax} Su questo server sono disponibili solo i comandi **partnership**.`;
       if (options.returnDetails) {

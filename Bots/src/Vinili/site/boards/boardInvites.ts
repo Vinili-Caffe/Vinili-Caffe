@@ -182,6 +182,12 @@ function serializeListing(doc?, opts: Record<string, any> = {}) {
     ratingAvg: Number(doc.boardRatingAvg) || 0,
     reviewsCount: Number(doc.boardReviewsCount) || 0,
     accent: String(doc.boardAccent || ""),
+    /* bot */
+    prefix: String(doc.boardPrefix || ""),
+    supportUrl: String(doc.boardSupportUrl || ""),
+    supportListingId: String(doc.boardSupportListingId || ""),
+    serverCount: Number(doc.boardStats?.serverCount) || 0,
+    commands: card ? [] : Array.isArray(doc.boardCommands) ? doc.boardCommands.slice(0, 150) : [],
     markdown: "",
     stats: card
       ? {}

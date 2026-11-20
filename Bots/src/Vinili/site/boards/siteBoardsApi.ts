@@ -1,7 +1,7 @@
 
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-const { BOARD_CATEGORIES, BOARD_LOCALES, BOARD_LOCALE_LABELS, BOARD_CATEGORY_LABELS, BOARD_TAG_CATALOG } = require("./boardCatalog") as typeof import("./boardCatalog");
+const { BOARD_CATEGORIES, BOARD_BOT_CATEGORIES, BOARD_BOT_CATEGORY_LABELS, BOARD_LOCALES, BOARD_LOCALE_LABELS, BOARD_CATEGORY_LABELS, BOARD_TAG_CATALOG } = require("./boardCatalog") as typeof import("./boardCatalog");
 const { slugify, sanitizeText, tagMatchesQuery } = require("./boardSanitize") as typeof import("./boardSanitize");
 const { uploadBoardBanner, serveBoardBannerFile, resolveBoardsUser } = require("./boardBanners") as typeof import("./boardBanners");
 const { probeBoardLink } = require("./boardLinkProbe") as typeof import("./boardLinkProbe");
@@ -117,7 +117,8 @@ async function listListingsUncached(client?, query: Record<string, any> = {}) {
       { content: rx },
     ];
   }
-  let sortSpec: any = { boardScore: -1, boardBumpedAt: -1, createdAt: -1 };
+  /* server: l'ordine della vetrina è l'ultimo bump (come Disboard); bot: il punteggio */
+  let sortSpec: any = kind === "server" ? { boardBumpedAt: -1, boardScore: -1, createdAt: -1 } : { boardScore: -1, boardBumpedAt: -1, createdAt: -1 };
   if (sort === "new") sortSpec = { createdAt: -1 };
   else if (sort === "bumps") sortSpec = { boardBumpedAt: -1, boardScore: -1 };
   else if (sort === "votes") sortSpec = { boardVotes30d: -1, boardScore: -1 };
@@ -186,6 +187,16 @@ function warmSiteBoardsListingsCache(client?) {
   });
 }
 
+/** Schede bot: server di supporto collegato e dati del bot di Vinili & Caffè. */
+async function enrichBot(client?, listing?) {
+  try {
+    const { enrichBotListing } = require("./boardBotApi") as typeof import("./boardBotApi");
+    return await enrichBotListing(client, listing);
+  } catch (_) {
+    return listing;
+  }
+}
+
 async function getListingBySlug(client?, slug?, opts: Record<string, any> = {}) {
   const gate = featureGate(client);
   if (!gate.ok) return gate;
@@ -219,6 +230,7 @@ async function getListingBySlug(client?, slug?, opts: Record<string, any> = {}) 
         }
         await enrichListingAuthor(client, listing);
         listing = await refreshListingStats(client, listing);
+        listing = await enrichBot(client, listing);
         return {
           ok: true,
           status: 200,
@@ -251,6 +263,7 @@ async function getListingBySlug(client?, slug?, opts: Record<string, any> = {}) 
   let listing = await enrichListingAuthor(client, serializeListing(doc));
   /* refresh membri on-read così la scheda mostra il conteggio (top.gg-like) */
   listing = await refreshListingStats(client, listing);
+  listing = await enrichBot(client, listing);
   return { ok: true, status: 200, listing, publicOpen: cfg.publicOpen };
 }
 
@@ -273,7 +286,8 @@ function getBoardsPublicConfig(client?) {
     minDescriptionChars: gate.cfg.minDescriptionChars,
     categories: gate.cfg.categories,
     locales: gate.cfg.locales,
-    categoryLabels: Object.assign({}, BOARD_CATEGORY_LABELS),
+    botCategories: BOARD_BOT_CATEGORIES.slice(),
+    categoryLabels: Object.assign({}, BOARD_CATEGORY_LABELS, BOARD_BOT_CATEGORY_LABELS),
     localeLabels: Object.assign({}, BOARD_LOCALE_LABELS),
     suggestedTags: BOARD_TAG_CATALOG.slice(),
     botInviteUrl: viniliBotInviteUrl(client, null),

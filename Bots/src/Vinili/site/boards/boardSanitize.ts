@@ -1,6 +1,6 @@
 /** Bacheche: pulizia dei campi inviati (testo, link, tag, categorie, lingue, social, colore) e immagini del server da Discord. */
 const { cdnOrigin } = require("../../site/http/siteCdnMedia") as typeof import("../../site/http/siteCdnMedia");
-const { BOARD_CATEGORIES, BOARD_LOCALES, BOARD_SOCIAL_KEYS } = require("./boardCatalog") as typeof import("./boardCatalog");
+const { BOARD_CATEGORIES, BOARD_BOT_CATEGORIES, BOARD_LOCALES, BOARD_SOCIAL_KEYS } = require("./boardCatalog") as typeof import("./boardCatalog");
 
 function snowflakeOk(id?) {
   return /^\d{17,22}$/.test(String(id || "").trim());
@@ -80,7 +80,7 @@ function sanitizeCategories(raw?, maxCategories?) {
   const seen = new Set();
   for (const item of arr) {
     const t = sanitizeText(item, 32).toLowerCase().replace(/[^a-z0-9_\-]/g, "");
-    if (!BOARD_CATEGORIES.includes(t) || seen.has(t)) continue;
+    if ((!BOARD_CATEGORIES.includes(t) && !BOARD_BOT_CATEGORIES.includes(t)) || seen.has(t)) continue;
     seen.add(t);
     out.push(t);
     if (out.length >= max) break;
@@ -198,6 +198,9 @@ function sanitizeBoardFeatures(raw?) {
     paidFeaturesAvailable: Boolean(src.paidFeaturesAvailable),
     acceptsPartnerships: Boolean(src.acceptsPartnerships),
     requireVerification: Boolean(src.requireVerification),
+    /* bot */
+    webInterface: Boolean(src.webInterface),
+    userInstallable: Boolean(src.userInstallable),
   };
 }
 

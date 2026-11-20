@@ -16,6 +16,7 @@ import {
   LayoutGrid,
   Loader2,
   LogIn,
+  MonitorSmartphone,
   Pencil,
   Plus,
   RefreshCcw,
@@ -25,6 +26,7 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
+  UserRound,
   Wand2,
   X,
 } from "lucide-react";
@@ -36,6 +38,8 @@ import {
   generateGuildInvite,
   labelOf,
   listingFeatures,
+  categoriesFor,
+  loadBotDefaults,
   loadBoardsConfig,
   loadClaimableServers,
   loadGuildDefaults,
@@ -84,6 +88,11 @@ type Form = {
   visitorNotes: string;
   bannerUrl: string;
   iconUrl: string;
+  /* bot */
+  prefix: string;
+  supportUrl: string;
+  webInterface: boolean;
+  userInstallable: boolean;
 };
 type Bundle = { kind: BoardKind; form: Form };
 type Check = { state: "idle" | "busy" | "ok" | "bad"; label?: string };
@@ -114,6 +123,10 @@ const emptyForm = (): Form => ({
   visitorNotes: "",
   bannerUrl: "",
   iconUrl: "",
+  prefix: "",
+  supportUrl: "",
+  webInterface: false,
+  userInstallable: false,
 });
 
 /* le bozze salvate dai moduli precedenti hanno solo una parte dei campi */
@@ -147,6 +160,10 @@ function fromListing(l: BoardListing & { markdown?: string }): Bundle {
       visitorNotes: l.visitorNotes || "",
       bannerUrl: l.bannerUrl || "",
       iconUrl: l.iconUrl || "",
+      prefix: l.prefix || "",
+      supportUrl: l.supportUrl || "",
+      webInterface: Boolean(f.webInterface),
+      userInstallable: Boolean(f.userInstallable),
     },
   });
 }
@@ -396,6 +413,17 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
     showToast("Banner caricato");
   }
 
+  /** Bot: nome e avatar letti da Discord dal Client ID (non sovrascrive un nome già scritto). */
+  async function fillBotDefaults() {
+    const id = form.discordId.trim();
+    if (!token || editing || kind !== "bot" || !/^\d{16,22}$/.test(id)) return;
+    setBusy("defaults");
+    const r = await loadBotDefaults(token, id);
+    setBusy("");
+    if (!r.ok) return showToast(r.message, true);
+    set({ name: form.name.trim() || r.data.name, iconUrl: r.data.iconUrl || form.iconUrl });
+  }
+
   function body(submit: boolean): CreateListingBody {
     const socials = Object.fromEntries(Object.entries(form.socials).map(([k, v]) => [k, (v || "").trim()])) as Partial<Record<SocialKey, string>>;
     return {
@@ -413,9 +441,12 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
       features: {
         paidTier: form.paidTier,
         paidFeaturesAvailable: form.paidFeaturesAvailable,
-        acceptsPartnerships: form.acceptsPartnerships,
-        requireVerification: form.requireVerification,
+        acceptsPartnerships: kind === "server" && form.acceptsPartnerships,
+        requireVerification: kind === "server" && form.requireVerification,
+        webInterface: kind === "bot" && form.webInterface,
+        userInstallable: kind === "bot" && form.userInstallable,
       },
+      ...(kind === "bot" ? { prefix: form.prefix.trim(), supportUrl: form.supportUrl.trim() } : {}),
       nsfw: form.nsfw,
       accent: form.accent,
       visitorNotes: form.visitorNotes.trim(),
@@ -621,11 +652,29 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
               )
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Client ID del bot" hint="Lo trovi nel Developer Portal di Discord, alla voce Application ID.">
-                  <input value={form.discordId} disabled={editing} onChange={(e) => set({ discordId: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder="123456789012345678" className={cn(INPUT, editing && "opacity-60")} />
+                <Field label="Client ID del bot" hint="Lo trovi nel Developer Portal di Discord, alla voce Application ID: nome e avatar li prendiamo da lì.">
+                  <div className="flex items-center gap-2">
+                    {form.iconUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={form.iconUrl} alt="" className="size-11 shrink-0 rounded-xl object-cover ring-1 ring-sand/20" />
+                    ) : null}
+                    <input
+                      value={form.discordId}
+                      disabled={editing}
+                      onChange={(e) => set({ discordId: e.target.value.replace(/\D/g, "") })}
+                      onBlur={() => void fillBotDefaults()}
+                      inputMode="numeric"
+                      placeholder="123456789012345678"
+                      className={cn(INPUT, editing && "opacity-60")}
+                    />
+                    {busy === "defaults" ? <Loader2 className="size-5 shrink-0 animate-spin text-ember" /> : null}
+                  </div>
                 </Field>
                 <Field label="Nome del bot">
                   <input value={form.name} onChange={(e) => set({ name: e.target.value })} maxLength={100} placeholder="Come si chiama?" className={INPUT} />
+                </Field>
+                <Field label="Prefisso" hint="Se il bot ha anche comandi con prefisso (es. ! o $). Vuoto se usa solo i comandi slash.">
+                  <input value={form.prefix} onChange={(e) => set({ prefix: e.target.value.slice(0, 16) })} maxLength={16} placeholder="!" className={INPUT} />
                 </Field>
               </div>
             )}
@@ -696,7 +745,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                     icon={<LayoutGrid />}
                     placeholder="Scegli le categorie"
                     searchPlaceholder="Cerca una categoria…"
-                    options={(cfg?.categories || []).map((c) => ({ value: c, label: labelOf(cfg?.categoryLabels, c) }))}
+                    options={categoriesFor(cfg, kind).map((c) => ({ value: c, label: labelOf(cfg?.categoryLabels, c) }))}
                     value={form.categories}
                     onChange={(categories) => set({ categories })}
                   />
@@ -794,6 +843,20 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                   )}
                 </div>
               </Field>
+              {kind === "bot" && (
+                <Field label="Server di supporto" hint="L’invito al server dove si chiede aiuto. Dalla pagina Gestisci puoi collegare un server già in vetrina." status={<CheckBadge c={checks.support} />}>
+                  <input
+                    value={form.supportUrl}
+                    onChange={(e) => {
+                      set({ supportUrl: e.target.value });
+                      setChecks((c) => ({ ...c, support: { state: "idle" } }));
+                    }}
+                    onBlur={() => void check("support", "invite", form.supportUrl, (v) => set({ supportUrl: v }))}
+                    placeholder="https://discord.gg/…"
+                    className={INPUT}
+                  />
+                </Field>
+              )}
               <Field label="Sito web" status={<CheckBadge c={checks.website} />}>
                 <input
                   value={form.siteUrl}
@@ -914,8 +977,17 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
               {/* una sotto l'altra: in tre colonne le scritte andavano a capo male */}
               <div className="grid grid-cols-1 gap-2">
                 <Toggle on={form.paidFeaturesAvailable} onClick={() => set({ paidFeaturesAvailable: !form.paidFeaturesAvailable })} icon={<Sparkles />} label="Funzioni premium opzionali" />
-                <Toggle on={form.acceptsPartnerships} onClick={() => set({ acceptsPartnerships: !form.acceptsPartnerships })} icon={<Handshake />} label="Accetta partnership" />
-                <Toggle on={form.requireVerification} onClick={() => set({ requireVerification: !form.requireVerification })} icon={<ShieldCheck />} label="Verifica all’ingresso" />
+                {kind === "server" ? (
+                  <>
+                    <Toggle on={form.acceptsPartnerships} onClick={() => set({ acceptsPartnerships: !form.acceptsPartnerships })} icon={<Handshake />} label="Accetta partnership" />
+                    <Toggle on={form.requireVerification} onClick={() => set({ requireVerification: !form.requireVerification })} icon={<ShieldCheck />} label="Verifica all’ingresso" />
+                  </>
+                ) : (
+                  <>
+                    <Toggle on={form.webInterface} onClick={() => set({ webInterface: !form.webInterface })} icon={<MonitorSmartphone />} label="Ha un’interfaccia web (dashboard)" />
+                    <Toggle on={form.userInstallable} onClick={() => set({ userInstallable: !form.userInstallable })} icon={<UserRound />} label="Installabile come app utente" />
+                  </>
+                )}
               </div>
             </div>
           </Step>

@@ -84,7 +84,7 @@ export function OwnershipTab({
     <div className="space-y-8">
       <div className="border-b border-sand/10 pb-6">
         <h2 className="font-display text-4xl font-semibold">Proprietà</h2>
-        <p className="mt-1 text-crema/55">Passa la scheda a un altro gestore del server, oppure eliminala.</p>
+        <p className="mt-1 text-crema/55">{listing.kind === "bot" ? "Passa la scheda a un altro sviluppatore del bot, oppure eliminala." : "Passa la scheda a un altro gestore del server, oppure eliminala."}</p>
       </div>
 
       <section className="rounded-3xl bg-roast/80 p-6 ring-1 ring-sand/12 sm:p-7">
@@ -92,7 +92,7 @@ export function OwnershipTab({
           <ArrowRightLeft className="size-5 text-caramel" /> Trasferisci
         </h3>
         <p className="mt-1 text-sm text-crema/60">
-          L&apos;altro utente riceve una notifica e ha 7 giorni per accettare da &quot;Le mie schede&quot;. Per accettare deve poter gestire il server su Discord.
+          L&apos;altro utente riceve una notifica e ha 7 giorni per accettare da &quot;Le mie schede&quot;.{listing.kind === "bot" ? "" : " Per accettare deve poter gestire il server su Discord."}
         </p>
 
         {transfer ? (

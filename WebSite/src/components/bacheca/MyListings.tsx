@@ -206,10 +206,10 @@ export function MyListings() {
                       <Icon className="size-4" /> {statusLabel(item.status)}
                       {item.status !== "suspended" && (
                         <SmartLink
-                          href={page(item.kind === "server" ? `/vetrina/modifica/?id=${encodeURIComponent(item.id)}` : `/vetrina/invia/?edit=${encodeURIComponent(item.id)}`)}
+                          href={page(`/vetrina/modifica/?id=${encodeURIComponent(item.id)}`)}
                           className="ml-auto inline-flex items-center gap-1 text-xs font-semibold opacity-80 hover:opacity-100"
                         >
-                          <Pencil className="size-3.5" /> {item.kind === "server" ? "Gestisci" : "Modifica"}
+                          <Pencil className="size-3.5" /> Gestisci
                         </SmartLink>
                       )}
                       {(item.status === "draft" || item.status === "rejected") && (

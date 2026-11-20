@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, BarChart3, LogIn, Palette, Server, ShieldAlert, Star, Webhook, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, BarChart3, Bot, Cable, LogIn, Palette, Rocket, Server, ShieldAlert, Star, Terminal, Webhook, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { loadMyListing, type BoardListing, type ListingTransfer } from "@/lib/boards";
 import { page } from "@/lib/site";
@@ -17,21 +17,39 @@ const OwnershipTab = dynamic(() => import("./OwnershipTab").then((m) => m.Owners
 const SubmitListing = dynamic(() => import("@/components/bacheca/SubmitListing").then((m) => m.SubmitListing), { ssr: false, loading: () => <TabSkeleton /> });
 const VoteHookTab = dynamic(() => import("./VoteHookTab").then((m) => m.VoteHookTab), { ssr: false, loading: () => <TabSkeleton /> });
 const ReviewHookTab = dynamic(() => import("./ReviewHookTab").then((m) => m.ReviewHookTab), { ssr: false, loading: () => <TabSkeleton /> });
+const BumpHookTab = dynamic(() => import("./BumpHookTab").then((m) => m.BumpHookTab), { ssr: false, loading: () => <TabSkeleton /> });
+const CommandsTab = dynamic(() => import("./CommandsTab").then((m) => m.CommandsTab), { ssr: false, loading: () => <TabSkeleton /> });
+const ConnectionsTab = dynamic(() => import("./ConnectionsTab").then((m) => m.ConnectionsTab), { ssr: false, loading: () => <TabSkeleton /> });
 
-type TabId = "statistiche" | "voti" | "recensioni" | "aspetto" | "proprieta";
-const GROUPS: { label: string; tabs: { id: TabId; label: string; icon: LucideIcon }[] }[] = [
+type TabId = "statistiche" | "voti" | "bump" | "recensioni" | "comandi" | "connessioni" | "aspetto" | "proprieta";
+type Group = { label: string; tabs: { id: TabId; label: string; icon: LucideIcon }[] };
+/* schede bot: niente premi nel server, ma comandi e server di supporto */
+const BOT_GROUPS: Group[] = [
+  { label: "Panoramica", tabs: [{ id: "statistiche", label: "Statistiche", icon: BarChart3 }] },
+  {
+    label: "Il tuo bot",
+    tabs: [
+      { id: "comandi", label: "Comandi e API", icon: Terminal },
+      { id: "connessioni", label: "Connessioni", icon: Cable },
+    ],
+  },
+  { label: "La tua pagina", tabs: [{ id: "aspetto", label: "Aspetto", icon: Palette }] },
+  { label: "Zona pericolosa", tabs: [{ id: "proprieta", label: "Trasferisci o elimina", icon: ShieldAlert }] },
+];
+const GROUPS: Group[] = [
   { label: "Panoramica", tabs: [{ id: "statistiche", label: "Statistiche", icon: BarChart3 }] },
   {
     label: "Premi nel server",
     tabs: [
       { id: "voti", label: "Voti", icon: Webhook },
+      { id: "bump", label: "Bump", icon: Rocket },
       { id: "recensioni", label: "Recensioni", icon: Star },
     ],
   },
   { label: "La tua pagina", tabs: [{ id: "aspetto", label: "Aspetto", icon: Palette }] },
   { label: "Zona pericolosa", tabs: [{ id: "proprieta", label: "Trasferisci o elimina", icon: ShieldAlert }] },
 ];
-const TAB_IDS = GROUPS.flatMap((g) => g.tabs.map((t) => t.id));
+const TAB_IDS = [...GROUPS, ...BOT_GROUPS].flatMap((g) => g.tabs.map((t) => t.id));
 
 function normalizeTab(raw: string): TabId {
   if (raw === "api") return "voti";
@@ -60,7 +78,7 @@ function useQuery() {
   return q;
 }
 
-/** Gestione scheda server: stats, voti, recensioni, aspetto, proprietà. */
+/** Gestione scheda: server (stats, voti, recensioni…) o bot (stats, comandi, connessioni…), aspetto e proprietà. */
 export function ManageListing() {
   const q = useQuery();
   const { ready, token, login } = useAuth();
@@ -135,16 +153,10 @@ export function ManageListing() {
       </Centered>
     );
   }
-  if (listing && listing.kind === "bot") {
-    return (
-      <Centered>
-        <p className="font-display text-3xl">Per ora la gestione completa è solo per i server</p>
-        <SmartLink href={page(`/vetrina/invia/?edit=${encodeURIComponent(listing.id)}`)} className="mt-5 inline-flex rounded-full bg-crema px-5 py-2.5 text-sm font-bold text-ink">
-          Modifica il bot
-        </SmartLink>
-      </Centered>
-    );
-  }
+  const isBot = listing?.kind === "bot";
+  const groups = isBot ? BOT_GROUPS : GROUPS;
+  /* una tab dell'altro tipo (es. voti su un bot) torna alle statistiche */
+  const shown: TabId = listing && !groups.some((g) => g.tabs.some((t) => t.id === tab)) ? "statistiche" : tab;
 
   return (
     <>
@@ -168,6 +180,8 @@ export function ManageListing() {
                 {listing?.iconUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={listing.iconUrl} alt="" className="size-full object-cover" />
+                ) : isBot ? (
+                  <Bot className="size-6 text-crema/60" />
                 ) : (
                   <Server className="size-6 text-crema/60" />
                 )}
@@ -183,12 +197,12 @@ export function ManageListing() {
             </div>
 
             <nav data-lenis-prevent className="mt-5 flex min-w-0 gap-1.5 overflow-x-auto pb-1 lg:block lg:space-y-5 lg:overflow-visible lg:pb-0" aria-label="Sezioni">
-              {GROUPS.map((g) => (
+              {groups.map((g) => (
                 <div key={g.label} className="contents lg:block">
                   <p className="hidden px-3 pb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/40 lg:block">{g.label}</p>
                   {g.tabs.map((t) => {
                     const Icon = t.icon;
-                    const active = tab === t.id;
+                    const active = shown === t.id;
                     return (
                       <button
                         key={t.id}
@@ -218,18 +232,21 @@ export function ManageListing() {
             <TabSkeleton />
           ) : (
             <AnimatePresence mode="wait">
-              <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}>
-                {tab === "statistiche" && <AnalyticsTab listingId={listing.id} token={token} />}
-                {tab === "voti" && <VoteHookTab listing={listing} token={token} />}
-                {tab === "recensioni" && <ReviewHookTab listing={listing} token={token} />}
-                {tab === "aspetto" && <SubmitListing editId={listing.id} />}
-                {tab === "proprieta" && <OwnershipTab listing={listing} token={token} transfer={transfer} onTransfer={setTransfer} />}
+              <motion.div key={shown} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}>
+                {shown === "statistiche" && <AnalyticsTab listingId={listing.id} token={token} />}
+                {shown === "voti" && <VoteHookTab listing={listing} token={token} />}
+                {shown === "bump" && <BumpHookTab listing={listing} token={token} />}
+                {shown === "recensioni" && <ReviewHookTab listing={listing} token={token} />}
+                {shown === "comandi" && <CommandsTab listing={listing} token={token} />}
+                {shown === "connessioni" && <ConnectionsTab listing={listing} token={token} />}
+                {shown === "aspetto" && <SubmitListing editId={listing.id} />}
+                {shown === "proprieta" && <OwnershipTab listing={listing} token={token} transfer={transfer} onTransfer={setTransfer} />}
               </motion.div>
             </AnimatePresence>
           )}
         </section>
       </div>
-      {tab !== "aspetto" ? <GlobalSaveBar /> : null}
+      {shown !== "aspetto" ? <GlobalSaveBar /> : null}
     </>
   );
 }

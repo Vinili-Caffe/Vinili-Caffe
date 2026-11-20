@@ -225,9 +225,18 @@ const siteDocumentSchema = new Schema(
     boardModeration: { type: Schema.Types.Mixed, default: null },
     /* vetrina: passaggio della scheda a un altro utente, in attesa che accetti */
     boardTransfer: { type: Schema.Types.Mixed, default: null },
+    /* vetrina, schede bot: prefisso, server di supporto, comandi e chiave API (solo l'hash) */
+    boardPrefix: { type: String, default: "", trim: true, maxlength: 16 },
+    boardSupportUrl: { type: String, default: "", trim: true, maxlength: 300 },
+    boardSupportListingId: { type: String, default: "", trim: true, maxlength: 32 },
+    boardCommands: { type: Schema.Types.Mixed, default: undefined },
+    boardApi: { type: Schema.Types.Mixed, default: undefined },
     /* vetrina: cosa fa il bot nel server quando qualcuno vota la scheda (+ ruoli a tempo da togliere) */
     boardVoteHook: { type: Schema.Types.Mixed, default: null },
     boardVoteHookRoles: { type: [Schema.Types.Mixed], default: undefined },
+    /* vetrina: cosa fa il bot nel server dopo un bump (+ stato del promemoria) */
+    boardBumpHook: { type: Schema.Types.Mixed, default: null },
+    boardBumpHookState: { type: Schema.Types.Mixed, default: null },
     /* vetrina: premi/annuncio quando qualcuno recensisce la scheda (senza Mixed, strict lo buttava via) */
     boardReviewHook: { type: Schema.Types.Mixed, default: null },
     boardListingId: { type: String, default: "", trim: true, maxlength: 32 },

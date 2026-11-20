@@ -12,10 +12,10 @@ function mirrorSiteServerReviewToBoard(doc?) {
     return Promise.resolve(null);
   }
 }
-function unmirrorSiteServerReviewFromBoard(userId?) {
+function unmirrorSiteServerReviewFromBoard(userId?, kind = "server") {
   try {
     const api = require("../../boards/siteBoardsApi") as typeof import("../../boards/siteBoardsApi");
-    return Promise.resolve(api.removeSiteServerReviewFromMainBoardListing(userId)).catch(() => null);
+    return Promise.resolve(api.removeSiteServerReviewFromMainBoardListing(userId, kind)).catch(() => null);
   } catch (_) {
     return Promise.resolve(null);
   }

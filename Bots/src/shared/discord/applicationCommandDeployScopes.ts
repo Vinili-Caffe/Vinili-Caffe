@@ -5,6 +5,8 @@ const GLOBAL_TENANT_COMMAND_NAMES = new Set([
   "partnership",
   "partner messaggio",
   "delete",
+  /* Vetrina: riporta in cima la scheda del server */
+  "bump",
 ]);
 
 function isGlobalTenantCommand(name?) {

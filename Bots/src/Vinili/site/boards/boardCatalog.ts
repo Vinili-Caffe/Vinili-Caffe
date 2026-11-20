@@ -698,4 +698,19 @@ const BOARD_TAG_CATALOG = [
   "zzz",
 ];
 
-export = { BOARD_CATEGORIES, BOARD_LOCALES, BOARD_LOCALE_LABELS, BOARD_CATEGORY_LABELS, BOARD_SOCIAL_KEYS, BOARD_TAG_CATALOG };
+/* categorie dei bot: diverse da quelle dei server */
+const BOARD_BOT_CATEGORIES = [
+  "musica-bot", "moderazione", "utilita", "divertimento", "giochi-bot", "economia", "livelli", "ticket", "partnership",
+  "social-bot", "notifiche", "benvenuto", "ruoli", "giveaway", "sondaggi", "logging", "verifica", "ia", "anime-bot",
+  "meme", "roleplay", "statistiche", "traduzione", "radio-bot", "dashboard-web", "personalizzabile", "multilingua",
+];
+const BOARD_BOT_CATEGORY_LABELS = {
+  "musica-bot": "Musica", moderazione: "Moderazione", utilita: "Utilità", divertimento: "Divertimento", "giochi-bot": "Giochi",
+  economia: "Economia", livelli: "Livelli", ticket: "Ticket", partnership: "Partnership", "social-bot": "Social",
+  notifiche: "Notifiche (YouTube, Twitch…)", benvenuto: "Benvenuto", ruoli: "Ruoli", giveaway: "Giveaway", sondaggi: "Sondaggi",
+  logging: "Log", verifica: "Verifica", ia: "Intelligenza artificiale", "anime-bot": "Anime", meme: "Meme", roleplay: "Roleplay",
+  statistiche: "Statistiche", traduzione: "Traduzione", "radio-bot": "Radio", "dashboard-web": "Dashboard web",
+  personalizzabile: "Personalizzabile", multilingua: "Multilingua",
+};
+
+export = { BOARD_CATEGORIES, BOARD_BOT_CATEGORIES, BOARD_BOT_CATEGORY_LABELS, BOARD_LOCALES, BOARD_LOCALE_LABELS, BOARD_CATEGORY_LABELS, BOARD_SOCIAL_KEYS, BOARD_TAG_CATALOG };

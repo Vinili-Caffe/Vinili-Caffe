@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDownUp, Hash, Languages, LayoutGrid, Search, SlidersHorizontal, X } from "lucide-react";
-import { SORTS, labelOf, type BoardKind, type BoardSort, type BoardsConfig } from "@/lib/boards";
+import { SORTS, labelOf, type BoardKind, type BoardSort, type BoardsConfig, categoriesFor } from "@/lib/boards";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { OptionPicker } from "./OptionPicker";
@@ -180,7 +180,7 @@ export function VetrinaSearch({
                       placeholder="Tutte le categorie"
                       allLabel="Tutte le categorie"
                       searchPlaceholder="Cerca tra le categorie…"
-                      options={(cfg?.categories || []).map((c) => ({ value: c, label: labelOf(cfg?.categoryLabels, c) }))}
+                      options={categoriesFor(cfg, kind).map((c) => ({ value: c, label: labelOf(cfg?.categoryLabels, c) }))}
                       value={local.category ? [local.category] : []}
                       onChange={(v) => setF({ category: v[0] || "" })}
                     />
