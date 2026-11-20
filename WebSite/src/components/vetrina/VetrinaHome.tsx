@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDownUp, Bot, ChevronLeft, ChevronRight, Disc3, Hash, Info, Languages, LayoutGrid, LogIn, Search, Server, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { ArrowDownUp, Bot, Disc3, Hash, Info, Languages, LayoutGrid, LogIn, Search, Server, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   SORTS,
@@ -152,15 +152,6 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
   const grid = spotlight.length === 3 ? items.slice(3) : items;
   const closedGate = !publicOpen && !staff;
   const hero = HERO[kind] || HERO[""];
-  /* categorie più presenti tra le schede caricate, poi l'ordine della config */
-  const topCats = useMemo(() => {
-    const count = new Map<string, number>();
-    for (const l of items) for (const c of l.categories) count.set(c, (count.get(c) || 0) + 1);
-    const used = [...count.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c);
-    const rest = (cfg?.categories || []).filter((c) => !count.has(c));
-    const list = [...used, ...rest].slice(0, 12);
-    return f.category && !list.includes(f.category) ? [f.category, ...list.slice(0, 11)] : list;
-  }, [items, cfg, f.category]);
   const ribbon = useMemo(() => items.filter((x) => x.iconUrl).slice(0, 16), [items]);
   const set = (patch: Partial<Filters>) => setF((prev) => ({ ...prev, ...patch }));
   const activeChips: { label: string; clear: () => void }[] = [
@@ -253,10 +244,11 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
       <section className="mx-auto max-w-6xl px-4 pb-28 pt-4 sm:px-6">
         {/* ─── filtri ─── */}
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {cfg?.categories?.length ? (
               <OptionPicker
-                className="w-full shrink-0 sm:w-56"
+                align="right"
+                className="w-full sm:w-56"
                 icon={<LayoutGrid />}
                 placeholder="Tutte le categorie"
                 allLabel="Tutte le categorie"
@@ -266,15 +258,7 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
                 onChange={(v) => set({ category: v[0] || "" })}
               />
             ) : null}
-            {/* le più usate sugli scaffali: una sola riga che scorre (frecce e rotella) */}
-            <ScrollRow className="order-last min-w-0 basis-full lg:order-none lg:basis-0 lg:flex-1">
-              {topCats.map((c) => (
-                <CatChip key={c} active={f.category === c} onClick={() => set({ category: f.category === c ? "" : c })}>
-                  {cfg ? labelOf(cfg.categoryLabels, c) : c}
-                </CatChip>
-              ))}
-            </ScrollRow>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <OptionPicker
                 neutral
                 align="right"
@@ -437,78 +421,6 @@ function SectionLabel({ kicker, title }: { kicker: string; title: string }) {
       <p className="font-script text-2xl text-caramel/85">{kicker}</p>
       <h2 className="font-display text-3xl font-semibold sm:text-4xl">{title}</h2>
     </div>
-  );
-}
-
-/** Riga orizzontale: frecce ai lati solo quando c'è altro da vedere, e la rotella del mouse scorre di lato. */
-function ScrollRow({ children, className }: { children: React.ReactNode; className?: string }) {
-  const box = useRef<HTMLDivElement>(null);
-  const [edge, setEdge] = useState({ left: false, right: false });
-  const sync = useCallback(() => {
-    const el = box.current;
-    if (!el) return;
-    setEdge({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
-  }, []);
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    sync();
-    const ro = new ResizeObserver(sync);
-    ro.observe(el);
-    const onWheel = (e: WheelEvent) => {
-      if (el.scrollWidth <= el.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      e.preventDefault();
-      el.scrollBy({ left: e.deltaY, behavior: "auto" });
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    el.addEventListener("scroll", sync, { passive: true });
-    return () => {
-      ro.disconnect();
-      el.removeEventListener("wheel", onWheel);
-      el.removeEventListener("scroll", sync);
-    };
-  }, [sync, children]);
-  const go = (dir: number) => box.current?.scrollBy({ left: dir * Math.max(200, (box.current?.clientWidth || 300) * 0.7), behavior: "smooth" });
-  return (
-    <div className={cn("relative", className)}>
-      <div
-        ref={box}
-        data-lenis-prevent
-        className="flex gap-2 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        style={{
-          maskImage: `linear-gradient(90deg, ${edge.left ? "transparent, #000 3rem" : "#000"}, ${edge.right ? "#000 calc(100% - 3rem), transparent" : "#000"})`,
-          WebkitMaskImage: `linear-gradient(90deg, ${edge.left ? "transparent, #000 3rem" : "#000"}, ${edge.right ? "#000 calc(100% - 3rem), transparent" : "#000"})`,
-        }}
-      >
-        {children}
-      </div>
-      {edge.left && (
-        <button type="button" aria-label="Scorri a sinistra" onClick={() => go(-1)} className="absolute left-0 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-crema text-ink shadow-lg transition hover:scale-105">
-          <ChevronLeft className="size-5" />
-        </button>
-      )}
-      {edge.right && (
-        <button type="button" aria-label="Scorri a destra" onClick={() => go(1)} className="absolute right-0 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-crema text-ink shadow-lg transition hover:scale-105">
-          <ChevronRight className="size-5" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function CatChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        "shrink-0 rounded-2xl px-4 py-2 text-sm font-semibold transition-colors",
-        active ? "bg-gradient-to-b from-caramel/30 to-caramel/10 text-crema ring-1 ring-caramel/45" : "bg-roast text-crema/55 ring-1 ring-sand/12 hover:text-crema hover:ring-sand/25",
-      )}
-    >
-      {children}
-    </button>
   );
 }
 

@@ -64,8 +64,9 @@ function VetrinaTopBar() {
   const pathname = cleanPath(usePathname() || "/");
   return (
     <header className="sticky top-[var(--vc-view-as-h,0px)] z-40 border-b border-sand/10 bg-espresso/85 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
-        <SmartLink href={page("/vetrina/")} className="group flex shrink-0 items-center gap-2.5">
+      {/* tre colonne: logo | schede (al centro esatto) | azioni */}
+      <div className="grid h-16 w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-8">
+        <SmartLink href={page("/vetrina/")} className="group flex shrink-0 items-center gap-2.5 justify-self-start">
           <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-caramel to-ember text-ink shadow-[0_8px_24px_-10px_rgba(240,180,110,0.9)] transition-transform group-hover:rotate-[-12deg]">
             <Disc3 className="size-5" />
           </span>
@@ -75,7 +76,7 @@ function VetrinaTopBar() {
           </span>
         </SmartLink>
 
-        <nav aria-label="Vetrina" className="mx-auto flex items-center rounded-full bg-roast p-1 ring-1 ring-sand/12">
+        <nav aria-label="Vetrina" className="flex items-center rounded-full bg-roast p-1 ring-1 ring-sand/12">
           {TABS.map((t) => {
             const active = pathname.startsWith(t.href);
             const Icon = t.icon;
@@ -94,7 +95,7 @@ function VetrinaTopBar() {
           })}
         </nav>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 justify-self-end">
           <SmartLink
             href={page("/vetrina/invia/")}
             className="hidden items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink transition-transform hover:-translate-y-0.5 md:inline-flex"
