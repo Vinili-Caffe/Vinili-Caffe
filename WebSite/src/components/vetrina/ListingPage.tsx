@@ -643,6 +643,15 @@ function CommandsPanel({ commands, prefix }: { commands: BotCommand[]; prefix: s
   const shown = commands.filter((c) => !q || `${c.name} ${c.description}`.toLowerCase().includes(q.toLowerCase()));
   const list = open || q ? shown : shown.slice(0, 8);
   const label = (c: BotCommand) => (c.type === "prefix" ? `${prefix}${c.name}` : c.type === "slash" ? `/${c.name}` : c.name);
+  /* uso: una variante per riga ("+cmd a | +cmd b"); se manca il comando davanti lo aggiungo */
+  const usageLines = (c: BotCommand) =>
+    String(c.usage || "")
+      .split(/\s+\|\s+/)
+      .map((u) => u.trim().replace(/^\|\s*/, ""))
+      .filter(Boolean)
+      .map((u) => (u.toLowerCase().includes(c.name.toLowerCase()) ? u : `${label(c)} ${u}`))
+      .filter((u) => u !== label(c))
+      .slice(0, 6);
   return (
     <Panel
       title={`Comandi (${commands.length})`}
@@ -660,17 +669,26 @@ function CommandsPanel({ commands, prefix }: { commands: BotCommand[]; prefix: s
     >
       <ul className="divide-y divide-sand/10">
         {list.map((c, i) => (
-          <li key={`${c.type}-${c.name}-${i}`} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:gap-4">
-            <code className="min-w-0 font-mono text-sm font-semibold text-ember [overflow-wrap:anywhere] sm:shrink-0">
-              {label(c)}
-              {c.usage ? <span className="font-normal text-crema/45"> {c.usage}</span> : null}
-            </code>
-            <span className="min-w-0 text-sm text-crema/70">{c.description || <span className="text-crema/35">—</span>}</span>
-            {c.type === "user" || c.type === "message" ? (
-              <span className="shrink-0 rounded-full bg-crema/8 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-crema/50 sm:ml-auto">
-                {c.type === "user" ? "menu utente" : "menu messaggio"}
-              </span>
+          <li key={`${c.type}-${c.name}-${i}`} className="min-w-0 py-3">
+            {/* nome e tipo in alto, varianti d'uso sotto, descrizione a tutta larghezza */}
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <code className="min-w-0 font-mono text-sm font-semibold text-ember [overflow-wrap:anywhere]">{label(c)}</code>
+              {c.type === "user" || c.type === "message" ? (
+                <span className="rounded-full bg-crema/8 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-crema/50">
+                  {c.type === "user" ? "menu utente" : "menu messaggio"}
+                </span>
+              ) : null}
+            </div>
+            {usageLines(c).length ? (
+              <div className="mt-1 space-y-0.5">
+                {usageLines(c).map((u) => (
+                  <code key={u} className="block font-mono text-xs text-crema/45 [overflow-wrap:anywhere]">
+                    {u}
+                  </code>
+                ))}
+              </div>
             ) : null}
+            {c.description ? <p className="mt-1 text-sm text-crema/70">{c.description}</p> : null}
           </li>
         ))}
         {!list.length ? <li className="py-6 text-center text-sm text-crema/45">Nessun comando trovato.</li> : null}

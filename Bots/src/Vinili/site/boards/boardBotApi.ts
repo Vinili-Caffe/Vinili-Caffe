@@ -336,7 +336,7 @@ async function syncRuntimeCommands(client?) {
       if (!name || seen.has(name) || mod?.skipPrefix || mod?.hidden || mod?.ownerOnly || mod?.devOnly) continue;
       if (HIDDEN_PREFIX_FOLDERS.test(String(mod?.folder || ""))) continue;
       seen.add(name);
-      const usage = String(mod?.usage || "").replace(/^\s*[+!$.?]?\S+\s*/, "").trim();
+      const usage = String(mod?.usage || "").trim();
       out.push({ name, description: String(mod?.description || ""), type: "prefix", usage, category: String(mod?.folder || "") });
     }
   }
