@@ -64,7 +64,7 @@ function voteUrlOf(doc?) {
  * ("Top.gg" → {service}, link di voto → pagina di voto della scheda).
  */
 function adaptFromTopgg(draft?, voteUrl = "") {
-  const isVoteLink = (u: string) => /top.gg|discadia|discords.com|/vote/i.test(u);
+  const isVoteLink = (u: string) => /top\.gg|discadia|discords\.com|\/vote\b/i.test(u);
   const walk = (v: any, key = ""): any => {
     if (typeof v === "string") {
       if ((key === "url" || key.endsWith("Url")) && voteUrl && isVoteLink(v)) return voteUrl;
