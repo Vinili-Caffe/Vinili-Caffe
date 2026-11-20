@@ -166,7 +166,7 @@ function ListChrome({
           </>
         )}
       </div>
-      <ul id="tickets-list" className="min-h-0 flex-1 space-y-1 overflow-y-auto scroll-mt-28 p-2">
+      <ul id="tickets-list" data-lenis-prevent className="min-h-0 flex-1 space-y-1 overflow-y-auto scroll-mt-28 p-2">
         {list === null && [0, 1, 2, 3].map((i) => <li key={i} className="m-1 h-16 animate-pulse rounded-2xl bg-crema/[0.05]" />)}
         {list && tickets.length === 0 && (
           <li className="p-6 text-center text-sm text-crema/50">
@@ -225,7 +225,7 @@ function PaneBody({
   const { t } = useI18n();
   if (creating) {
     return (
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <NewTicket token={token} categories={categories} isStaff={isStaff} onCancel={onBack} onCreated={onCreated} />
       </div>
     );

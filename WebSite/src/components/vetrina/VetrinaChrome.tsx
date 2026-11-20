@@ -47,7 +47,27 @@ const TABS: { href: string; label: string; icon: LucideIcon }[] = [
 ];
 
 /** Pagina della vetrina: barra propria in alto, contenuto, footer del sito. */
+export const VETRINA_FROM_KEY = "vc_vetrina_from";
+
+/** Ricorda da quale pagina della vetrina si apre una scheda (per le fonti di traffico delle statistiche). */
+function useRememberListingSource() {
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!a || !/\/vetrina\/scheda\//.test(a.getAttribute("href") || "")) return;
+      try {
+        sessionStorage.setItem(VETRINA_FROM_KEY, JSON.stringify({ from: location.pathname + location.search, at: Date.now() }));
+      } catch {
+        /* niente */
+      }
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
+}
+
 export function VetrinaShell({ children }: { children: ReactNode }) {
+  useRememberListingSource();
   return (
     <SiteShell chrome="app">
       <div className="relative min-h-dvh bg-espresso text-crema">

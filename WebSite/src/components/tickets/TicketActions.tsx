@@ -49,7 +49,7 @@ function UserPicker({ token, ticket, mode, onPick }: { token: string; ticket: Ti
         <Search className="size-4 text-crema/40" />
         <input id="ticket-member-search" name="ticket-member-search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca per nome…" className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-crema/35" />
       </label>
-      <ul className="mt-3 max-h-64 space-y-1 overflow-y-auto">
+      <ul data-lenis-prevent className="mt-3 max-h-64 space-y-1 overflow-y-auto">
         {hits === null && <li className="py-3 text-center text-sm text-crema/45">Cerco…</li>}
         {hits?.length === 0 && <li className="py-3 text-center text-sm text-crema/45">Nessun risultato.</li>}
         {hits?.map((u) => (

@@ -543,9 +543,85 @@ export const SOCIAL_LABELS: Record<SocialKey, string> = {
 
 /* ── strumenti del modulo Invia (come la vecchia bacheca) ── */
 
+export type ListingTransfer = { toUserId: string; toName: string; toAvatarUrl: string; expiresAt: string | null };
+
 export async function loadMyListing(token: string, id: string) {
   const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}`, { headers: auth(token), cache: "no-store" });
-  return parse<{ listing: BoardListing & { markdown?: string } }>(r);
+  return parse<{ listing: BoardListing & { markdown?: string }; transfer?: ListingTransfer | null }>(r);
+}
+
+/* ── statistiche ── */
+
+export type TrackEvent = "view" | "invite" | "link" | "vote" | "share";
+export type TrafficSource = "search" | "tag" | "category" | "list" | "landing" | "direct" | "site" | "external";
+
+/** Registra una visita o un click sulla pagina pubblica (non blocca mai la pagina). */
+export function trackListing(id: string, event: TrackEvent, extra: { source?: TrafficSource; lead?: string; device?: "desktop" | "mobile" } = {}, token?: string | null) {
+  if (!id) return;
+  try {
+    void fetch(`${BASE}/listings/${encodeURIComponent(id)}/track`, {
+      method: "POST",
+      headers: { ...auth(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ event, ...extra }),
+      keepalive: true,
+    }).catch(() => null);
+  } catch {
+    /* niente */
+  }
+}
+
+export type ListingAnalytics = {
+  days: number;
+  totals: { views: number; engagements: number; votes: number };
+  series: { day: string; views: number; engagements: number; votes: number }[];
+  sources: Partial<Record<TrafficSource, number>>;
+  leads: { source: string; value: string; count: number }[];
+  devices: Partial<Record<"desktop" | "mobile", number>>;
+  actions: Partial<Record<TrackEvent, number>>;
+  countries: { threshold: number; hidden: boolean; list: { code: string; count: number }[]; total: number };
+};
+
+export async function loadListingAnalytics(token: string, id: string, days = 14) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/analytics?days=${days}`, { headers: auth(token), cache: "no-store" });
+  return parse<ListingAnalytics>(r);
+}
+
+/* ── passaggio della scheda ── */
+
+export type TransferUser = { id: string; name: string; username: string; avatarUrl: string };
+export type IncomingTransfer = { listingId: string; name: string; iconUrl: string; fromName: string; fromUserId: string; requestedAt: string | null; expiresAt: string | null };
+
+export async function lookupTransferUser(token: string, userId: string) {
+  const r = await fetch(`${BASE}/me/transfer-user?userId=${encodeURIComponent(userId)}`, { headers: auth(token), cache: "no-store" });
+  return parse<{ user: TransferUser }>(r);
+}
+
+export async function requestListingTransfer(token: string, id: string, toUserId: string) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/transfer`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ toUserId }),
+  });
+  return parse<{ transfer: ListingTransfer; message?: string }>(r);
+}
+
+export async function cancelListingTransfer(token: string, id: string) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/transfer`, { method: "DELETE", headers: auth(token) });
+  return parse<{ message?: string }>(r);
+}
+
+export async function loadIncomingTransfers(token: string) {
+  const r = await fetch(`${BASE}/me/transfers`, { headers: auth(token), cache: "no-store" });
+  return parse<{ transfers: IncomingTransfer[] }>(r);
+}
+
+export async function respondListingTransfer(token: string, id: string, accept: boolean) {
+  const r = await fetch(`${BASE}/me/transfers/${encodeURIComponent(id)}/respond`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ accept }),
+  });
+  return parse<{ accepted: boolean; message?: string }>(r);
 }
 
 /** Nome, icona, banner e invito del server (genera l’invito se il bot è dentro). */

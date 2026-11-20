@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { InstagramIcon, TikTokIcon, TwitchIcon, YoutubeIcon } from "@/components/dashboard/guild/LivePlatformIcons";
 import { ListingActivity } from "./ListingActivity";
 import { motion } from "motion/react";
@@ -20,6 +20,7 @@ import {
   LogIn,
   RefreshCcw,
   Server,
+  Settings2,
   ShieldCheck,
   Sparkles,
   ThumbsUp,
@@ -32,6 +33,9 @@ import {
   labelOf,
   listingFeatures,
   localeFlagUrl,
+  trackListing,
+  type TrackEvent,
+  type TrafficSource,
   loadBoardsConfig,
   loadListing,
   reportListing,
@@ -48,7 +52,7 @@ import { SmartLink } from "@/components/SmartLink";
 import { DiscordContent } from "@/components/discord/DiscordContent";
 import { Stars } from "./ListingCard";
 import { ListingReviews } from "./ListingReviews";
-import { VetrinaHeroBg } from "./VetrinaChrome";
+import { VETRINA_FROM_KEY, VetrinaHeroBg } from "./VetrinaChrome";
 import { EMPTY_FILTERS, VetrinaSearch, listHref } from "./VetrinaSearch";
 
 function useSlug() {
@@ -73,10 +77,43 @@ const SOCIAL_ICON: Partial<Record<SocialKey, ComponentType<{ className?: string 
   twitch: TwitchIcon,
 };
 
+/** Da dove arriva la visita: pagina della vetrina da cui si è aperta la scheda, o referrer. */
+function visitSource(): { source: TrafficSource; lead?: string } {
+  try {
+    const raw = sessionStorage.getItem(VETRINA_FROM_KEY);
+    sessionStorage.removeItem(VETRINA_FROM_KEY);
+    const saved = raw ? (JSON.parse(raw) as { from?: string; at?: number }) : null;
+    if (saved?.from && Date.now() - Number(saved.at || 0) < 120_000) {
+      const u = new URL(saved.from, location.origin);
+      const p = u.pathname.replace(/\/+$/, "/");
+      const q = u.searchParams;
+      if (q.get("q")) return { source: "search", lead: q.get("q") || "" };
+      if (q.get("tag")) return { source: "tag", lead: q.get("tag") || "" };
+      if (q.get("category")) return { source: "category", lead: q.get("category") || "" };
+      if (/\/vetrina\/$/.test(p)) return { source: "landing" };
+      if (/\/vetrina\//.test(p)) return { source: "list" };
+      return { source: "site" };
+    }
+    const ref = document.referrer ? new URL(document.referrer) : null;
+    if (!ref) return { source: "direct" };
+    return { source: ref.origin === location.origin ? "site" : "external" };
+  } catch {
+    return { source: "direct" };
+  }
+}
+
+const deviceOf = (): "desktop" | "mobile" => {
+  try {
+    return matchMedia("(pointer: coarse)").matches || /Mobi|Android|iPhone/i.test(navigator.userAgent) ? "mobile" : "desktop";
+  } catch {
+    return "desktop";
+  }
+};
+
 /** Scheda completa di un server o bot in vetrina. */
 export function ListingPage() {
   const slug = useSlug();
-  const { ready, token, login } = useAuth();
+  const { ready, token, login, user } = useAuth();
   const [listing, setListing] = useState<BoardListing | null>(null);
   const [cfg, setCfg] = useState<BoardsConfig | null>(null);
   const [busy, setBusy] = useState("");
@@ -101,6 +138,19 @@ export function ListingPage() {
       alive = false;
     };
   }, [ready, slug, token]);
+
+  /* una visita per scheda aperta (non conta quelle del proprietario) */
+  const trackedId = useRef("");
+  const isOwner = Boolean(user?.id && listing?.ownerUserId && user.id === listing.ownerUserId);
+  useEffect(() => {
+    if (!listing?.id || trackedId.current === listing.id) return;
+    trackedId.current = listing.id;
+    if (isOwner) return;
+    trackListing(listing.id, "view", { ...visitSource(), device: deviceOf() }, token);
+  }, [listing?.id, isOwner, token]);
+  const track = (event: TrackEvent) => {
+    if (listing?.id && !isOwner) trackListing(listing.id, event, {}, token);
+  };
 
   useEffect(() => {
     if (listing?.name) document.title = `${listing.name} · Vetrina · Vinili & Caffè`;
@@ -166,6 +216,7 @@ export function ListingPage() {
   }
 
   async function onShare() {
+    track("share");
     try {
       await navigator.clipboard.writeText(location.href);
       setCopied(true);
@@ -259,6 +310,7 @@ export function ListingPage() {
             {invite ? (
               <a
                 href={invite}
+                onClick={() => track("invite")}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink shadow-[0_18px_40px_-18px_rgba(240,180,110,0.9)] transition-transform hover:-translate-y-0.5 active:scale-[0.98]"
@@ -266,7 +318,7 @@ export function ListingPage() {
                 {l.kind === "bot" ? "Aggiungi il bot" : "Entra nel server"} <ArrowUpRight className="size-4" />
               </a>
             ) : null}
-            <SmartLink href={voteHref} className="inline-flex items-center gap-2 rounded-full bg-crema/12 px-5 py-3 font-semibold text-crema ring-1 ring-sand/30 backdrop-blur transition hover:bg-crema/18">
+            <SmartLink href={voteHref} onClick={() => track("vote")} className="inline-flex items-center gap-2 rounded-full bg-crema/12 px-5 py-3 font-semibold text-crema ring-1 ring-sand/30 backdrop-blur transition hover:bg-crema/18">
               <ThumbsUp className="size-4" /> Vota
             </SmartLink>
             <IconAction label="Riposiziona in cima" onClick={onBump} disabled={busy === "bump"}>
@@ -278,6 +330,14 @@ export function ListingPage() {
             <IconAction label="Segnala" onClick={onReport} disabled={busy === "report"}>
               <Flag className="size-4" />
             </IconAction>
+            {isOwner && l.kind !== "bot" ? (
+              <SmartLink
+                href={page(`/vetrina/modifica/?id=${encodeURIComponent(l.id)}`)}
+                className="inline-flex items-center gap-2 rounded-full bg-crema/8 px-4 py-3 text-sm font-semibold text-crema/85 ring-1 ring-sand/25 transition hover:bg-crema/15"
+              >
+                <Settings2 className="size-4" /> Gestisci
+              </SmartLink>
+            ) : null}
             {!token && ready && (
               <button type="button" onClick={login} className="inline-flex items-center gap-2 text-sm text-ember">
                 <LogIn className="size-4" /> Accedi per votare e recensire
@@ -370,7 +430,7 @@ export function ListingPage() {
                 <InfoRow icon={<Globe />} label="Link">
                   <div className="flex flex-wrap gap-1.5">
                     {l.siteUrl && (
-                      <a href={l.siteUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 py-0.5 pl-2 pr-2.5 ring-1 ring-sand/15 hover:text-ember">
+                      <a href={l.siteUrl} onClick={() => track("link")} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 py-0.5 pl-2 pr-2.5 ring-1 ring-sand/15 hover:text-ember">
                         <Globe className="size-3.5" /> Sito <ArrowUpRight className="size-3 opacity-60" />
                       </a>
                     )}
@@ -380,7 +440,7 @@ export function ListingPage() {
                       .map(([k, url]) => {
                         const Icon = SOCIAL_ICON[k] || Link2;
                         return (
-                          <a key={k} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 py-0.5 pl-2 pr-2.5 ring-1 ring-sand/15 hover:text-ember">
+                          <a key={k} href={url} onClick={() => track("link")} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 py-0.5 pl-2 pr-2.5 ring-1 ring-sand/15 hover:text-ember">
                             <Icon className="size-3.5" /> {SOCIAL_LABELS[k] || k} <ArrowUpRight className="size-3 opacity-60" />
                           </a>
                         );

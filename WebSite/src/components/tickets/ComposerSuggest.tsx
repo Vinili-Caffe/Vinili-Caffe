@@ -205,6 +205,7 @@ export function ComposerSuggest({
     <div
       role="listbox"
       aria-label="Suggerimenti"
+      data-lenis-prevent
       className="absolute bottom-full left-0 z-20 mb-2 max-h-64 w-full min-w-[16rem] overflow-y-auto rounded-2xl bg-roast/95 p-1.5 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] ring-1 ring-sand/20 backdrop-blur-xl sm:max-w-md"
     >
       {loading && !items.length ? (

@@ -173,7 +173,8 @@ function SpotCard({ l, rank, big = false, cfg }: { l: BoardListing; rank: number
         href={listingHref(l)}
         className={cn(
           "group relative flex h-full overflow-hidden rounded-[2rem] ring-1 ring-sand/15 transition duration-300 hover:-translate-y-1 hover:ring-ember/40",
-          big ? "min-h-[22rem] flex-col justify-end p-7 sm:p-9" : "min-h-[10.5rem] items-end p-6",
+          /* su telefono più bassi: il primo non deve riempire lo schermo */
+          big ? "min-h-[14rem] flex-col justify-end p-5 sm:min-h-[22rem] sm:p-9" : "min-h-[7.5rem] items-end p-4 sm:min-h-[10.5rem] sm:p-6",
         )}
       >
         {l.bannerUrl ? (
@@ -186,14 +187,14 @@ function SpotCard({ l, rank, big = false, cfg }: { l: BoardListing; rank: number
         <span
           className={cn(
             "absolute right-5 top-3 font-display font-bold leading-none text-crema/10 transition-colors duration-500 group-hover:text-ember/25",
-            big ? "text-[9rem]" : "text-7xl",
+            big ? "text-7xl sm:text-[9rem]" : "text-5xl sm:text-7xl",
           )}
           aria-hidden
         >
           {rank}
         </span>
-        <span className="relative flex w-full items-end gap-4">
-          <span className={cn("shrink-0 overflow-hidden rounded-2xl ring-2 ring-crema/20", big ? "size-14 sm:size-20" : "size-12 sm:size-14")} style={{ background: `${accent}55` }}>
+        <span className="relative flex w-full items-end gap-3 sm:gap-4">
+          <span className={cn("shrink-0 overflow-hidden rounded-xl ring-2 ring-crema/20 sm:rounded-2xl", big ? "size-12 sm:size-20" : "size-10 sm:size-14")} style={{ background: `${accent}55` }}>
             {l.iconUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={l.iconUrl} alt="" className="size-full object-cover" />
@@ -208,9 +209,9 @@ function SpotCard({ l, rank, big = false, cfg }: { l: BoardListing; rank: number
               N°{rank} in vetrina · {kindLabel(l.kind)}
               {l.categories[0] ? <span className="hidden text-crema/50 sm:inline">· {labelOf(cfg?.categoryLabels, l.categories[0])}</span> : null}
             </span>
-            <span className={cn("mt-1 block truncate font-display font-semibold text-crema", big ? "text-4xl sm:text-5xl" : "text-2xl")}>{l.name}</span>
-            {big && l.tagline ? <span className="mt-2 line-clamp-2 max-w-xl text-crema/70">{l.tagline}</span> : null}
-            <span className="mt-2 flex items-center gap-3 text-xs text-crema/60">
+            <span className={cn("mt-1 block truncate font-display font-semibold text-crema", big ? "text-3xl sm:text-5xl" : "text-xl sm:text-2xl")}>{l.name}</span>
+            {big && l.tagline ? <span className="mt-1.5 line-clamp-1 max-w-xl text-sm text-crema/70 sm:mt-2 sm:line-clamp-2 sm:text-base">{l.tagline}</span> : null}
+            <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-crema/60 sm:mt-2">
               {l.reviewsCount > 0 ? (
                 <span className="inline-flex items-center gap-1.5">
                   <Stars value={l.ratingAvg} /> {l.ratingAvg.toFixed(1)}
@@ -218,7 +219,7 @@ function SpotCard({ l, rank, big = false, cfg }: { l: BoardListing; rank: number
               ) : null}
               {l.votesMonth > 0 ? (
                 <span className="inline-flex items-center gap-1">
-                  <ThumbsUp className="size-3.5" /> {l.votesMonth} voti questo mese
+                  <ThumbsUp className="size-3.5" /> {l.votesMonth} voti<span className="hidden sm:inline"> questo mese</span>
                 </span>
               ) : null}
             </span>

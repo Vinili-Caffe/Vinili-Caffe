@@ -1,9 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CircleCheck, CircleDashed, Clock, FolderHeart, Link2, LogIn, Pause, Pencil, Plus, RefreshCw, Trash2, XCircle, type LucideIcon } from "lucide-react";
+import { ArrowRightLeft, CircleCheck, CircleDashed, Clock, FolderHeart, Link2, LogIn, Pause, Pencil, Plus, RefreshCw, Trash2, XCircle, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { deleteMyListing, loadMine, refreshMyListing, regenerateListingInvite, statusLabel, type BoardListing } from "@/lib/boards";
+import {
+  deleteMyListing,
+  loadIncomingTransfers,
+  loadMine,
+  refreshMyListing,
+  regenerateListingInvite,
+  respondListingTransfer,
+  statusLabel,
+  type BoardListing,
+  type IncomingTransfer,
+} from "@/lib/boards";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { SmartLink } from "../SmartLink";
@@ -32,6 +42,60 @@ function MiniAction({ icon: Icon, label, busy, disabled, onClick }: { icon: Luci
     >
       <Icon className={cn("size-3.5", busy && "animate-spin")} /> {label}
     </button>
+  );
+}
+
+/** Schede che qualcuno vuole passarti: accetta o rifiuta. */
+function IncomingTransfers({ token, onAccepted }: { token: string; onAccepted: () => void }) {
+  const [items, setItems] = useState<IncomingTransfer[]>([]);
+  const [busy, setBusy] = useState("");
+  useEffect(() => {
+    let alive = true;
+    void loadIncomingTransfers(token).then((r) => alive && r.ok && setItems(r.data.transfers || []));
+    return () => {
+      alive = false;
+    };
+  }, [token]);
+  if (!items.length) return null;
+  const answer = async (t: IncomingTransfer, accept: boolean) => {
+    if (!accept && !(await confirmDialog({ message: `Rifiutare «${t.name}»?` }))) return;
+    setBusy(t.listingId);
+    const r = await respondListingTransfer(token, t.listingId, accept);
+    setBusy("");
+    if (!r.ok) return showToast(r.message, true);
+    showToast(r.data.message || (accept ? "Scheda accettata" : "Richiesta rifiutata"));
+    setItems((prev) => prev.filter((x) => x.listingId !== t.listingId));
+    if (accept) onAccepted();
+  };
+  return (
+    <div className="mb-8 space-y-3">
+      {items.map((t) => (
+        <div key={t.listingId} className="flex flex-wrap items-center gap-4 rounded-2xl bg-caramel/10 p-4 ring-1 ring-caramel/30">
+          <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-mocha">
+            {t.iconUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={t.iconUrl} alt="" className="size-full object-cover" />
+            ) : (
+              <ArrowRightLeft className="size-5 text-crema/60" />
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-crema">
+              {t.fromName || "Un utente"} vuole passarti «{t.name}»
+            </p>
+            <p className="text-xs text-crema/55">Per accettare devi poter gestire il server su Discord.</p>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" disabled={busy === t.listingId} onClick={() => void answer(t, false)} className="rounded-full bg-crema/10 px-4 py-2 text-sm font-semibold ring-1 ring-sand/25 hover:bg-crema/15 disabled:opacity-50">
+              Rifiuta
+            </button>
+            <button type="button" disabled={busy === t.listingId} onClick={() => void answer(t, true)} className="rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink disabled:opacity-50">
+              Accetta
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -107,6 +171,8 @@ export function MyListings() {
 
       {err && <p className="mb-4 text-sm text-ember">{err}</p>}
 
+      {token ? <IncomingTransfers token={token} onAccepted={refresh} /> : null}
+
       {!list && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((i) => (
@@ -139,8 +205,11 @@ export function MyListings() {
                     <div className="flex items-center gap-2 font-semibold">
                       <Icon className="size-4" /> {statusLabel(item.status)}
                       {item.status !== "suspended" && (
-                        <SmartLink href={page(`/vetrina/invia/?edit=${encodeURIComponent(item.id)}`)} className="ml-auto inline-flex items-center gap-1 text-xs font-semibold opacity-80 hover:opacity-100">
-                          <Pencil className="size-3.5" /> Modifica
+                        <SmartLink
+                          href={page(item.kind === "server" ? `/vetrina/modifica/?id=${encodeURIComponent(item.id)}` : `/vetrina/invia/?edit=${encodeURIComponent(item.id)}`)}
+                          className="ml-auto inline-flex items-center gap-1 text-xs font-semibold opacity-80 hover:opacity-100"
+                        >
+                          <Pencil className="size-3.5" /> {item.kind === "server" ? "Gestisci" : "Modifica"}
                         </SmartLink>
                       )}
                       {(item.status === "draft" || item.status === "rejected") && (

@@ -104,6 +104,7 @@ export type AnnouncementsConfig = {
 export type BumpReward = { roleId: string | null; hours: number };
 export type BumpService = "disboard" | "discadia";
 export type VoteService = "topgg" | "discadia";
+export type VoteServiceCfg = { draft: MsgDraft; hours: number; reminderDraft: MsgDraft; reminderEnabled: boolean };
 /** EXP di bump e voti (solo server principale) */
 export type BumpExpKey = "disboard" | "discadia" | "topgg" | "discadiaVote";
 export type BumpExp = {
@@ -129,11 +130,13 @@ export type BumpVotesConfig = {
     token: string;
     topgg: boolean;
     discadia: boolean;
+    /** voti dati sulla Vetrina del sito */
+    vetrina?: boolean;
     channelId: string | null;
     thanks: { enabled: boolean };
     rewardRoleId: string | null;
     /** per servizio: ringraziamento, ore del ruolo e (solo main) promemoria DM */
-    perService: Record<VoteService, { draft: MsgDraft; hours: number; reminderDraft: MsgDraft; reminderEnabled: boolean }>;
+    perService: Record<VoteService, VoteServiceCfg> & { vetrina?: VoteServiceCfg };
   };
 };
 export type BumpVotesLeaderboard = { bumps: { id: string; name: string; count: number }[]; votes: { id: string; name: string; count: number }[] };

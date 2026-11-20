@@ -98,6 +98,7 @@ function PartnershipFormDialog({
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
+        data-lenis-prevent
         className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-roast p-6 shadow-2xl ring-1 ring-sand/15 sm:rounded-3xl"
       >
         <button type="button" onClick={onClose} disabled={busy} aria-label="Chiudi" className="absolute right-4 top-4 rounded-full p-1.5 text-crema/50 hover:bg-crema/8 hover:text-crema disabled:opacity-40">
@@ -123,7 +124,7 @@ function PartnershipFormDialog({
                   <Search className="size-4 text-crema/40" />
                   <input id="manager-search" name="manager-search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca manager per nome…" className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-crema/35" />
                 </label>
-                <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto">
+                <ul data-lenis-prevent className="mt-2 max-h-40 space-y-1 overflow-y-auto">
                   {hits === null && <li className="py-2 text-center text-xs text-crema/45">Cerco…</li>}
                   {hits?.length === 0 && <li className="py-2 text-center text-xs text-crema/45">Nessun risultato.</li>}
                   {hits?.map((u) => (
@@ -684,7 +685,7 @@ export function TicketChat({
       </div>
 
       {/* messaggi */}
-      <div ref={listRef} className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-5 sm:px-6">
+      <div ref={listRef} data-lenis-prevent className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-5 sm:px-6">
         <ul className="min-w-0 space-y-4">
           {messages.map((m) => {
             const mine = m.authorId === me;

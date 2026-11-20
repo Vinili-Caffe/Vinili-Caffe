@@ -315,6 +315,19 @@ async function voteListing(client?, payload: Record<string, any> = {}, reqMeta: 
   const scores = await recomputeListingScore(id, cfg);
   ensureBoardsVoteReminderScheduler(client);
   emitBoardsChanged("vote", { listingId: id });
+  /* statistiche della scheda + avviso nel server (modulo Bump e voti), senza bloccare la risposta */
+  try {
+    const { trackListingVote } = require("./boardAnalytics") as typeof import("./boardAnalytics");
+    void trackListingVote(id);
+  } catch (_) {}
+  if (String(listing.boardKind || "") !== "bot" && String(listing.boardDiscordId || "").trim()) {
+    try {
+      const { handleVetrinaVote } = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
+      void handleVetrinaVote(client, String(listing.boardDiscordId), auth.userId).catch((err?) =>
+        global.logger?.warn?.("[site-boards] avviso voto nel server:", err?.message || err),
+      );
+    } catch (_) {}
+  }
   return {
     ok: true,
     status: 200,

@@ -177,9 +177,11 @@ function useEditId() {
 }
 
 /** Modulo per mettere in vetrina (o modificare) un server o un bot, con anteprima dal vivo. */
-export function SubmitListing() {
+export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}) {
   const { ready, token, login } = useAuth();
-  const editId = useEditId();
+  const urlEditId = useEditId();
+  /* dentro la pagina Modifica l'id arriva da fuori (lì l'URL usa ?id=) */
+  const editId = forcedEditId ?? urlEditId;
   const editing = Boolean(editId);
   const [cfg, setCfg] = useState<BoardsConfig | null>(null);
   const [bundle, setBundleRaw] = useState<Bundle>(() => normalize(null));

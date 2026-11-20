@@ -161,6 +161,66 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
+  /* ── statistiche della scheda ── */
+  app.post("/webhooks/site-boards/listings/:id/track", async (req?, res?) => {
+    try {
+      const { trackListingEvent } = require("./boardAnalytics") as typeof import("./boardAnalytics");
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const out: any = await trackListingEvent(
+        client,
+        { listingId: req.params?.id, event: body.event, source: body.source, lead: body.lead, device: body.device },
+        { ip: boardsClientIp(req), headers: req.headers },
+      );
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards track:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-boards/me/listings/:id/analytics", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi per vedere le statistiche." });
+      const { getListingAnalytics } = require("./boardAnalytics") as typeof import("./boardAnalytics");
+      const out: any = await getListingAnalytics(client, {
+        accessToken,
+        listingId: req.params?.id,
+        days: req.query?.days,
+        isHighStaff: Boolean(req.vcBoardsHighStaff) || (await isBoardsHighStaff(accessToken)),
+      });
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards analytics:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+
+  /* ── passaggio della scheda ad un altro utente ── */
+  const transferRoute = (path: string, run: (T: any, accessToken: string, req: any) => Promise<any>) =>
+    async (req?, res?) => {
+      try {
+        const accessToken = normalizeHeaderSecret(req.headers.authorization);
+        if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+        const T = require("./boardTransfer") as typeof import("./boardTransfer");
+        const out: any = await run(T, accessToken, req);
+        return res.status(Number(out?.status) || 500).json(out);
+      } catch (err) {
+        global.logger?.error?.(`[WEBHOOK] site-boards ${path}:`, err);
+        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+      }
+    };
+  app.get("/webhooks/site-boards/me/transfer-user", transferRoute("transfer-user", (T, accessToken, req) => T.lookupTransferUser(client, { accessToken, userId: req.query?.userId })));
+  app.get("/webhooks/site-boards/me/transfers", transferRoute("transfers", (T, accessToken) => T.listIncomingTransfers(client, { accessToken })));
+  app.post(
+    "/webhooks/site-boards/me/listings/:id/transfer",
+    transferRoute("transfer", (T, accessToken, req) => T.requestTransfer(client, { accessToken, listingId: req.params?.id, toUserId: req.body?.toUserId })),
+  );
+  app.delete("/webhooks/site-boards/me/listings/:id/transfer", transferRoute("transfer cancel", (T, accessToken, req) => T.cancelTransfer(client, { accessToken, listingId: req.params?.id })));
+  app.post(
+    "/webhooks/site-boards/me/transfers/:id/respond",
+    transferRoute("transfer respond", (T, accessToken, req) => T.respondTransfer(client, { accessToken, listingId: req.params?.id, accept: req.body?.accept === true })),
+  );
+
   app.get("/webhooks/site-boards/listings/:id/activity", async (req?, res?) => {
     try {
       const { getListingActivity } = require("./boardActivity") as typeof import("./boardActivity");

@@ -324,6 +324,7 @@ async function finalizeManualPartnership(message?, managerId?, inviteMeta?, _opt
     aboveEmbedContent
       ? buildPartnershipPublishAllowedMentions(pingPlan, resolvedManagerId, { excludeUserIds: suppressManagerPing ? [resolvedManagerId] : [] })
       : null,
+    message.client,
   );
 
   const partnershipLogId = await reserveAndPersistPartnershipLogId(staffDoc, actionIndex);

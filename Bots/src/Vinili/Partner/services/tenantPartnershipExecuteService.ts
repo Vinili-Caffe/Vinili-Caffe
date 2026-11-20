@@ -461,6 +461,7 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
       aboveEmbedContent
         ? buildPartnershipPublishAllowedMentions(pingPlan, resolvedManagerId, { excludeUserIds: suppressManagerPing ? [resolvedManagerId] : [] })
         : null,
+      interaction.client,
     );
     if (thankYouMessage?.id && staffAfterAudit?.staff?.partnerActions?.[actionIndex]) {
       const ids = Array.isArray(staffAfterAudit.staff.partnerActions[actionIndex].partnerMessageIds)

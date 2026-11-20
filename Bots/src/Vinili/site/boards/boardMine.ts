@@ -302,10 +302,16 @@ async function getMyListingById(client?, payload: Record<string, any> = {}) {
   }
   await enrichListingAuthor(client, listing);
   listing = await refreshListingStats(client, listing);
+  let transfer = null;
+  try {
+    const { transferForOwner } = require("./boardTransfer") as typeof import("./boardTransfer");
+    transfer = transferForOwner(doc);
+  } catch (_) {}
   return {
     ok: true,
     status: 200,
     listing,
+    transfer,
     ownerPreview: true,
     publicOpen: gate.cfg.publicOpen,
   };
@@ -330,6 +336,12 @@ async function purgeBoardListingDoc(client?, doc?, { reason = "purge" } = {}) {
     SiteDocument.deleteMany({ docType: BB, boardListingId: id }),
     SiteDocument.deleteMany({ docType: BR, boardListingId: id }),
     SiteDocument.deleteMany({ docType: BREV, boardListingId: id }),
+    (async () => {
+      try {
+        const { BoardStatsDay } = require("./boardAnalytics") as typeof import("./boardAnalytics");
+        await BoardStatsDay.deleteMany({ listingId: String(id) });
+      } catch (_) {}
+    })(),
   ]);
 
   try {

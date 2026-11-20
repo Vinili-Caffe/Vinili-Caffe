@@ -78,31 +78,31 @@ export function VetrinaLanding() {
               <motion.div key={d.kind} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.08, duration: 0.5 }}>
                 <SmartLink
                   href={page(d.href)}
-                  className="group relative flex min-h-[15rem] flex-col justify-between overflow-hidden rounded-[2rem] bg-roast p-7 ring-1 ring-sand/15 transition duration-300 hover:-translate-y-1 hover:ring-ember/40 sm:p-8"
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-[1.6rem] bg-roast p-5 ring-1 sm:min-h-[15rem] sm:rounded-[2rem] sm:p-8 ring-sand/15 transition duration-300 hover:-translate-y-1 hover:ring-ember/40"
                 >
                   <span aria-hidden className="absolute -right-24 -top-24 size-96 opacity-60 transition-opacity duration-500 group-hover:opacity-100" style={{ background: `radial-gradient(circle, ${d.tint}, transparent 65%)` }} />
                   <span className="relative flex items-start justify-between gap-4">
-                    <span className="flex size-14 items-center justify-center rounded-2xl bg-crema text-ink">
-                      <Icon className="size-7" />
+                    <span className="flex size-11 items-center justify-center rounded-xl bg-crema text-ink sm:size-14 sm:rounded-2xl">
+                      <Icon className="size-6 sm:size-7" />
                     </span>
                     {/* icone delle prime schede, sovrapposte */}
                     <span className="flex -space-x-3">
                       {(shelf?.items || []).map((l) =>
                         l.iconUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img key={l.id} src={l.iconUrl} alt="" className="size-11 rounded-full object-cover ring-4 ring-roast" />
+                          <img key={l.id} src={l.iconUrl} alt="" className="size-9 rounded-full object-cover ring-4 ring-roast sm:size-11" />
                         ) : (
-                          <span key={l.id} className="flex size-11 items-center justify-center rounded-full bg-mocha ring-4 ring-roast">
+                          <span key={l.id} className="flex size-9 items-center justify-center rounded-full bg-mocha ring-4 ring-roast sm:size-11">
                             <Icon className="size-5 text-crema/60" />
                           </span>
                         ),
                       )}
                     </span>
                   </span>
-                  <span className="relative mt-8 block">
-                    <span className="block font-display text-5xl font-semibold">{d.title}</span>
-                    <span className="mt-2 block max-w-md text-crema/60">{d.text}</span>
-                    <span className="mt-5 flex items-center justify-between gap-3">
+                  <span className="relative mt-4 block sm:mt-8">
+                    <span className="block font-display text-4xl font-semibold sm:text-5xl">{d.title}</span>
+                    <span className="mt-1.5 line-clamp-2 max-w-md text-sm text-crema/60 sm:mt-2 sm:line-clamp-none sm:text-base">{d.text}</span>
+                    <span className="mt-4 flex sm:mt-5 items-center justify-between gap-3">
                       <span className="text-sm text-crema/50">
                         {shelf ? (
                           <>

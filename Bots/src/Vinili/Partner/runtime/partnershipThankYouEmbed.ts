@@ -303,7 +303,7 @@ async function buildThankYouEmbed({
  * `above` = ping/riga sopra; con Components V2 (niente testo libero) parte come messaggio a sé prima.
  * Ritorna il messaggio inviato (con id) o null.
  */
-async function sendThankYouMessage(channel?, ty?, above?: string | null, allowedMentions?) {
+async function sendThankYouMessage(channel?, ty?, above?: string | null, allowedMentions?, clientHint?) {
   if (!channel || !ty) return null;
   if (!ty.body) {
     const payload: Record<string, any> = { embeds: [ty.embed] };
@@ -324,7 +324,13 @@ async function sendThankYouMessage(channel?, ty?, above?: string | null, allowed
       if (allowedMentions) body.allowed_mentions = { parse: allowedMentions.parse || [], users: allowedMentions.users || [], roles: allowedMentions.roles || [] };
     }
   }
-  return channel.client.rest.post(Routes.channelMessages(channel.id), { body }).catch((err?) => {
+  /* in site-api il canale può arrivare dalla cache leggera, senza .client: si usa il client passato */
+  const rest = channel.client?.rest || clientHint?.rest || null;
+  if (!rest) {
+    global.logger?.warn?.("[PARTNER] invio ringraziamento: nessun client REST disponibile");
+    return null;
+  }
+  return rest.post(Routes.channelMessages(channel.id), { body }).catch((err?) => {
     global.logger?.warn?.("[PARTNER] invio ringraziamento:", err?.rawError?.message || err?.message || err);
     return null;
   });
