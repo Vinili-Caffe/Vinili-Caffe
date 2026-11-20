@@ -20,7 +20,8 @@ import { cn } from "@/lib/cn";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { ListingCard, ListingCardSkeleton, Spotlight } from "./ListingCard";
-import { OptionPicker } from "./OptionPicker";
+import { VetrinaSearch } from "./VetrinaSearch";
+import { VetrinaHeroBg } from "./VetrinaChrome";
 import { VetrinaLanding } from "./VetrinaLanding";
 
 const PER_PAGE = 24;
@@ -87,7 +88,6 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
   const [publicOpen, setPublicOpen] = useState(true);
   const [staff, setStaff] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
-  const [showMore, setShowMore] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const reqId = useRef(0);
 
@@ -96,7 +96,6 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
     const u = readUrlFilters();
     setF((prev) => ({ ...prev, ...u }));
     setDraftQ(u.q || "");
-    if (u.tag || u.locale) setShowMore(true);
     setHydrated(true);
   }, []);
 
@@ -164,23 +163,8 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
   return (
     <>
       {/* ─── intestazione ─── */}
-      <header className="relative overflow-hidden px-6 pb-12 pt-12 sm:pt-16">
-        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(55%_65%_at_50%_0%,rgba(217,154,91,0.26),transparent_70%),radial-gradient(40%_50%_at_90%_30%,rgba(240,180,110,0.08),transparent_70%)]" />
-        {/* nastro di icone che scorre dietro al titolo */}
-        {ribbon.length >= 6 && (
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-6 opacity-[0.16] [mask-image:linear-gradient(90deg,transparent,#000_15%,#000_85%,transparent)]">
-            <motion.div
-              className="flex w-max gap-6"
-              animate={reduce ? undefined : { x: ["0%", "-50%"] }}
-              transition={{ duration: 70, repeat: Infinity, ease: "linear" }}
-            >
-              {[...ribbon, ...ribbon].map((l, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={`${l.id}-${i}`} src={l.iconUrl} alt="" className="size-24 rounded-[1.6rem] object-cover grayscale" />
-              ))}
-            </motion.div>
-          </div>
-        )}
+      <header className="relative isolate overflow-hidden px-6 pb-16 pt-14 sm:pt-20">
+        <VetrinaHeroBg />
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -194,136 +178,23 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
             La vetrina <em className="block font-script text-[1.05em] font-normal not-italic text-ember sm:inline">{hero.accent}</em>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-crema/60">{hero.text}</p>
-
-          <form
+          {/* ricerca con i filtri (categoria, ordine, lingua, tag) dall'icona a sinistra */}
+          <VetrinaSearch
             className="mx-auto mt-8 max-w-2xl"
-            onSubmit={(e) => {
-              e.preventDefault();
-              set({ q: draftQ.trim() });
+            kind={kind}
+            cfg={cfg}
+            tags={tags}
+            filters={f}
+            onApply={(next) => {
+              setF(next);
+              setDraftQ(next.q);
             }}
-          >
-            <label htmlFor="vetrina-search" className="group relative block">
-              <Search className="pointer-events-none absolute left-5 top-1/2 size-5 -translate-y-1/2 text-crema/40 transition-colors group-focus-within:text-ember" />
-              <input
-                id="vetrina-search"
-                name="vetrina-search"
-                value={draftQ}
-                onChange={(e) => setDraftQ(e.target.value)}
-                placeholder={kind === "bot" ? "Cerca un bot per nome, funzione o tag…" : kind === "server" ? "Cerca un server per nome, tema o tag…" : "Cerca server e bot per nome, tema o tag…"}
-                className="w-full rounded-full bg-roast/90 py-4 pl-14 pr-32 text-lg text-crema shadow-[0_24px_60px_-30px_rgba(217,154,91,0.6)] outline-none ring-1 ring-sand/20 backdrop-blur placeholder:text-crema/35 focus:ring-2 focus:ring-ember/50"
-              />
-              {draftQ && (
-                <button
-                  type="button"
-                  aria-label="Pulisci la ricerca"
-                  className="absolute right-[6.5rem] top-1/2 -translate-y-1/2 rounded-full p-1.5 text-crema/45 hover:text-crema"
-                  onClick={() => {
-                    setDraftQ("");
-                    set({ q: "" });
-                  }}
-                >
-                  <X className="size-4" />
-                </button>
-              )}
-              <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-bold text-ink">
-                Cerca
-              </button>
-            </label>
-          </form>
-
-          {!loading && !closedGate && (
-            <p className="mt-5 text-sm text-crema/45">
-              <span className="font-semibold text-crema/75">{total.toLocaleString("it-IT")}</span>{" "}
-              {kind === "bot" ? "bot" : kind === "server" ? "server" : "schede"} in vetrina
-              {f.sort === "score" ? " · ordinate per posizione in vetrina" : ""}
-            </p>
-          )}
+          />
         </motion.div>
       </header>
 
       <section className="mx-auto max-w-6xl px-4 pb-28 pt-4 sm:px-6">
-        {/* ─── filtri ─── */}
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {cfg?.categories?.length ? (
-              <OptionPicker
-                align="right"
-                className="w-full sm:w-56"
-                icon={<LayoutGrid />}
-                placeholder="Tutte le categorie"
-                allLabel="Tutte le categorie"
-                searchPlaceholder="Cerca tra le categorie…"
-                options={cfg.categories.map((c) => ({ value: c, label: labelOf(cfg.categoryLabels, c) }))}
-                value={f.category ? [f.category] : []}
-                onChange={(v) => set({ category: v[0] || "" })}
-              />
-            ) : null}
-            <div className="flex items-center gap-2">
-              <OptionPicker
-                neutral
-                align="right"
-                className="w-48"
-                icon={<ArrowDownUp />}
-                placeholder="Ordina"
-                searchPlaceholder="Ordina per…"
-                options={SORTS.map((o) => ({ value: o.id, label: o.label }))}
-                value={[f.sort]}
-                onChange={(v) => set({ sort: (v[0] as BoardSort) || "score" })}
-              />
-              <button
-                type="button"
-                aria-expanded={showMore}
-                onClick={() => setShowMore((v) => !v)}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold ring-1 transition-colors",
-                  showMore || f.tag || f.locale ? "bg-crema/10 text-crema ring-sand/30" : "bg-espresso/60 text-crema/60 ring-sand/15 hover:text-crema",
-                )}
-              >
-                <SlidersHorizontal className="size-4" /> Lingua e tag
-              </button>
-            </div>
-          </div>
-
-          <AnimatePresence initial={false}>
-            {showMore && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="grid gap-5 rounded-3xl bg-roast/70 p-5 ring-1 ring-sand/12 md:grid-cols-[16rem_1fr]">
-                  <div>
-                    <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">
-                      <Languages className="size-3.5" /> Lingua
-                    </p>
-                    <OptionPicker
-                      icon={<Languages />}
-                      placeholder="Tutte le lingue"
-                      allLabel="Tutte le lingue"
-                      searchPlaceholder="Cerca una lingua…"
-                      options={(cfg?.locales || []).map((l) => ({ value: l, label: labelOf(cfg?.localeLabels, l) }))}
-                      value={f.locale ? [f.locale] : []}
-                      onChange={(v) => set({ locale: v[0] || "" })}
-                    />
-                  </div>
-                  <div>
-                    <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">
-                      <Hash className="size-3.5" /> Tag popolari
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {(tags.length ? tags : cfg?.suggestedTags || []).slice(0, 28).map((t) => (
-                        <SmallChip key={t} active={f.tag === t} onClick={() => set({ tag: f.tag === t ? "" : t })}>
-                          #{t}
-                        </SmallChip>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {activeChips.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-crema/45">Filtri:</span>
@@ -409,7 +280,6 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
           </>
         )}
 
-        {staff && !publicOpen && <p className="mt-12 text-center text-xs text-crema/40">Anteprima staff: il pubblico vede il messaggio di chiusura.</p>}
       </section>
     </>
   );

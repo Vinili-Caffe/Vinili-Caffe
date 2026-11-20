@@ -47,6 +47,8 @@ import { SmartLink } from "@/components/SmartLink";
 import { DiscordContent } from "@/components/discord/DiscordContent";
 import { Stars } from "./ListingCard";
 import { ListingReviews } from "./ListingReviews";
+import { VetrinaHeroBg } from "./VetrinaChrome";
+import { EMPTY_FILTERS, VetrinaSearch, listHref } from "./VetrinaSearch";
 
 function useSlug() {
   const [slug, setSlug] = useState<string | null>(null);
@@ -168,25 +170,38 @@ export function ListingPage() {
   return (
     <>
       {/* ─── copertina ─── */}
-      <header className="relative isolate overflow-hidden pb-10 pt-8 sm:pt-10">
-        <div className="absolute inset-0 -z-10">
-          {l.bannerUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={l.bannerUrl} alt="" className="size-full scale-105 object-cover opacity-60 blur-[2px]" />
-          ) : (
-            <div className="size-full" style={{ background: `radial-gradient(70% 90% at 20% 0%, ${accent}aa, transparent 65%), radial-gradient(60% 80% at 100% 20%, ${accent}44, transparent 60%)` }} />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-b from-espresso/40 via-espresso/75 to-espresso" />
-        </div>
+      <header className="relative isolate overflow-hidden pb-10 pt-10 sm:pt-14">
+        <VetrinaHeroBg />
         <div className="mx-auto max-w-6xl px-6">
+          {/* stessa ricerca degli elenchi: porta all'elenco con i filtri scelti */}
+          <VetrinaSearch
+            deferred
+            className="mx-auto mb-8 max-w-2xl"
+            kind={l.kind === "bot" ? "bot" : "server"}
+            cfg={cfg}
+            filters={EMPTY_FILTERS}
+            onApply={(f) => {
+              window.location.href = listHref(l.kind === "bot" ? "bot" : "server", f);
+            }}
+          />
           <SmartLink href={page(l.kind === "bot" ? "/vetrina/bot/" : "/vetrina/server/")} className="inline-flex items-center gap-1.5 text-sm text-crema/60 hover:text-crema">
             <ArrowLeft className="size-4" /> {l.kind === "bot" ? "Tutti i bot" : "Tutti i server"}
           </SmartLink>
+          {/* copertina della scheda: il banner, o il suo colore */}
+          <div
+            className="mt-5 h-36 overflow-hidden rounded-[1.75rem] ring-1 ring-sand/15 sm:h-48"
+            style={l.bannerUrl ? undefined : { background: `radial-gradient(70% 120% at 15% 0%, ${accent}cc, transparent 60%), radial-gradient(60% 100% at 100% 100%, ${accent}55, transparent 60%), #1a110c` }}
+          >
+            {l.bannerUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={l.bannerUrl} alt="" className="size-full object-cover" />
+            ) : null}
+          </div>
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-end"
+            className="-mt-16 flex flex-col gap-6 px-2 sm:-mt-20 sm:flex-row sm:items-end sm:px-6"
           >
             <div
               className="relative size-32 shrink-0 overflow-hidden rounded-[2rem] shadow-[0_30px_60px_-25px_rgba(0,0,0,0.9)] ring-4 ring-espresso/80 sm:size-40"

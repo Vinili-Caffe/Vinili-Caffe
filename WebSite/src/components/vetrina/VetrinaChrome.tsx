@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpenCheck, Bot, ChevronDown, Disc3, FolderHeart, House, LogIn, Plus, Server, ShieldCheck, type LucideIcon } from "lucide-react";
+import { BookOpenCheck, Bot, ChevronDown, FolderHeart, House, LogIn, Plus, Server, ShieldCheck, type LucideIcon } from "lucide-react";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { checkStaffAccess, loadBoardsConfig } from "@/lib/boards";
 import { loadStaffAccess } from "@/lib/staff";
-import { page } from "@/lib/site";
+import { cdnUrl, page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { AccessHomeRedirect } from "@/components/AccessHomeRedirect";
 import { SiteShell } from "@/components/SiteShell";
@@ -16,6 +16,7 @@ import { SmartLink } from "@/components/SmartLink";
 import { NavNotifBell } from "@/components/NavNotifBell";
 import { LangMenu } from "@/components/LangMenu";
 import { ThemePrefRow } from "@/components/ThemeToggle";
+import { HERO_ATMO_BAND, HERO_ATMO_VIDEO, HERO_ATMO_VIDEO_MOBILE, HeroBackdrop } from "@/components/HeroBackdrop";
 
 const cleanPath = (p: string) => p.replace(/^\/(en|es)(?=\/)/, "");
 
@@ -60,21 +61,36 @@ export function VetrinaShell({ children }: { children: ReactNode }) {
   );
 }
 
+const BOT_AVATAR = "/webhooks/site-bot-avatar?size=128";
+const LOGO = cdnUrl("/images/logo-disco.png");
+
+/** Avatar del bot, come nella dashboard (col logo del disco se non si carica). */
+function BotLogo() {
+  const [src, setSrc] = useState(BOT_AVATAR);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="" width={36} height={36} onError={() => setSrc(LOGO)} className="size-9 rounded-full object-cover ring-1 ring-caramel/30" />
+  );
+}
+
 function VetrinaTopBar() {
   const pathname = cleanPath(usePathname() || "/");
   return (
     <header className="sticky top-[var(--vc-view-as-h,0px)] z-40 border-b border-sand/10 bg-espresso/85 backdrop-blur-md">
-      {/* tre colonne: logo | schede (al centro esatto) | azioni */}
-      <div className="grid h-16 w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-8">
-        <SmartLink href={page("/vetrina/")} className="group flex shrink-0 items-center gap-2.5 justify-self-start">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-caramel to-ember text-ink shadow-[0_8px_24px_-10px_rgba(240,180,110,0.9)] transition-transform group-hover:rotate-[-12deg]">
-            <Disc3 className="size-5" />
+      {/* tre colonne: logo e lingua | schede (al centro esatto) | notifiche e account */}
+      <div className="grid h-16 w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3 justify-self-start">
+          <SmartLink href={page("/vetrina/")} className="group flex shrink-0 items-center gap-2.5">
+            <BotLogo />
+            <span className="hidden leading-none sm:block">
+              <span className="block font-display text-xl font-semibold text-crema transition-colors group-hover:text-ember">Vetrina</span>
+              <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-crema/40">Vinili &amp; Caffè</span>
+            </span>
+          </SmartLink>
+          <span className="hidden sm:block">
+            <LangMenu />
           </span>
-          <span className="hidden leading-none sm:block">
-            <span className="block font-display text-xl font-semibold text-crema">Vetrina</span>
-            <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-crema/40">Vinili &amp; Caffè</span>
-          </span>
-        </SmartLink>
+        </div>
 
         <nav aria-label="Vetrina" className="flex items-center rounded-full bg-roast p-1 ring-1 ring-sand/12">
           {TABS.map((t) => {
@@ -96,20 +112,37 @@ function VetrinaTopBar() {
         </nav>
 
         <div className="flex shrink-0 items-center gap-2 justify-self-end">
-          <SmartLink
-            href={page("/vetrina/invia/")}
-            className="hidden items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink transition-transform hover:-translate-y-0.5 md:inline-flex"
-          >
-            <Plus className="size-4" /> Metti in vetrina
-          </SmartLink>
-          <span className="hidden sm:block">
-            <LangMenu />
-          </span>
           <NavNotifBell />
           <VetrinaAccountMenu />
         </div>
       </div>
     </header>
+  );
+}
+
+/** Sfondo degli hero come nelle pagine pubbliche: l'atmosfera del caffè, sfumata verso il fondo. */
+export function VetrinaHeroBg() {
+  return (
+    <>
+      <HeroBackdrop
+        poster={HERO_ATMO_BAND}
+        videoSrc={HERO_ATMO_VIDEO}
+        videoSrcMobile={HERO_ATMO_VIDEO_MOBILE}
+        priority
+        imgClassName="size-full object-cover opacity-55 sm:opacity-60"
+        objectPosition="50% 42%"
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 -z-10"
+        style={{
+          background: [
+            "radial-gradient(ellipse 90% 45% at 50% 0%, rgba(217,154,91,0.16), transparent 55%)",
+            "linear-gradient(to bottom, rgba(14,9,6,0.5) 0%, rgba(14,9,6,0.78) 42%, rgba(14,9,6,0.94) 78%, var(--color-espresso) 100%)",
+          ].join(", "),
+        }}
+      />
+    </>
   );
 }
 
@@ -252,10 +285,8 @@ export function VetrinaHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className="relative overflow-hidden px-6 pb-10 pt-12 sm:pt-16">
-      <div aria-hidden className="pointer-events-none absolute -right-24 -top-10 opacity-[0.07]">
-        <Disc3 className="size-96 text-sand" strokeWidth={0.6} />
-      </div>
+    <header className="relative isolate overflow-hidden px-6 pb-14 pt-14 sm:pt-20">
+      <VetrinaHeroBg />
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}

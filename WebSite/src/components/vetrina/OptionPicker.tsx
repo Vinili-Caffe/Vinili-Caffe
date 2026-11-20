@@ -162,6 +162,7 @@ export function OptionPicker({
             style={pos}
             className="z-[80] overflow-hidden rounded-2xl bg-roast/95 shadow-[0_30px_70px_-25px_rgba(0,0,0,0.95)] ring-1 ring-sand/20 backdrop-blur-xl"
             data-lenis-prevent
+            data-vc-picker-panel
           >
             <label className="flex items-center gap-2 border-b border-sand/10 px-4 py-3">
               <Search className="size-4 shrink-0 text-crema/40" />
