@@ -2,8 +2,8 @@
 
 import type { LegalDoc } from "./legal";
 
-const UPDATED_ISO = "2026-11-17";
-const UPDATED_LABEL = "17 novembre 2026";
+const UPDATED_ISO = "2026-11-20";
+const UPDATED_LABEL = "20 novembre 2026";
 
 export const LEGAL_PRIVACY: LegalDoc = {
   slug: "privacy",
@@ -56,6 +56,15 @@ export const LEGAL_PRIVACY: LegalDoc = {
             "Dati operativi delle aree riservate (dashboard e strumenti staff) per utenti autorizzati.",
             "Dati relativi a donazioni e crediti premium, ove tali funzioni siano utilizzate (stato e riferimenti tecnici; i pagamenti sono gestiti dal provider di pagamento)."
           ] },
+        { type: "label", text: "Vetrina (schede di server e bot)" },
+        { type: "ul", items: [
+            "**Schede:** contenuti inseriti dal proprietario (nome, descrizioni, categorie, lingue, tag, link, social, immagini caricate, colore, funzionalità; per i bot anche prefisso, comandi e server di supporto), identificativo Discord del proprietario e dati pubblici del server o del bot letti da Discord (nome, icona, banner, numero di membri o di server, tag del server).",
+            "**Voti e bump:** identificativo Discord di chi vota o fa il bump, data e ora, origine (sito o comando `/bump`), impronta cifrata (hash) dell’indirizzo IP a fini anti-abuso e, per i voti, esito della verifica anti-robot **Cloudflare Turnstile**; l’eventuale richiesta di promemoria per votare di nuovo.",
+            "**Recensioni e risposte:** valutazione, testo, nome e avatar Discord dell’autore (pubblici sulla scheda), «mi piace» e segnalazioni; le recensioni del server e del bot scritte nella pagina Recensioni del sito possono comparire anche sulle relative schede della Vetrina.",
+            "**Statistiche delle schede:** solo **conteggi giornalieri aggregati** per scheda (visite, interazioni, voti, fonte della visita e parole cercate nella Vetrina, tipo di dispositivo, Paese approssimativo fornito da Cloudflare). Per contare una sola visita al giorno per persona si usa l’impronta cifrata dell’IP, tenuta **solo in memoria per 24 ore** e mai salvata: nelle statistiche non sono conservati IP, identificativi o nomi dei visitatori. Il Paese è mostrato al proprietario solo oltre una soglia minima di visite.",
+            "**Gestione della scheda:** richieste di passaggio di proprietà (mittente, destinatario, scadenza), impostazioni dei premi nel server (canali, ruoli, testi dei messaggi), ruoli a tempo assegnati dal bot e relativa scadenza, impronta (hash) della chiave API dei bot — la chiave in chiaro non è conservata.",
+            "**Collegamenti tra schede:** per mostrare quali bot in vetrina sono presenti in un server (e viceversa) il bot verifica tramite le API di Discord se l’account del bot è membro del server; il risultato è tenuto in memoria per un tempo limitato."
+          ] },
         { type: "label", text: "Dati trattati dai bot e dalla community Discord" },
         { type: "ul", items: [
             "Messaggi, comandi, reazioni e metadati necessari a livelli/EXP, ticket Discord, moderazione, minigiochi, eventi, quote/repost/clip e classifiche.",
@@ -88,6 +97,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
             "autenticazione e gestione dell’accesso al sito, alla dashboard e alle aree riservate autorizzate;",
             "erogazione delle funzioni di community e dei bot (profilo, livelli, musica, TTS/voice, partnership, ticket, moderazione, eventi, voti, alert live);",
             "gestione di suggerimenti, recensioni, feedback, candidature, confessionale, donazioni/crediti e richieste di supporto;",
+            "pubblicazione e moderazione delle schede della **Vetrina**, gestione di voti, bump, recensioni e passaggi di proprietà, statistiche aggregate per il proprietario della scheda e premi nel server (messaggi e ruoli a tempo) inviati dal bot secondo le impostazioni del proprietario;",
             "invio di notifiche in-app e, ove attivate, di notifiche push del browser;",
             "misurazione dell’utilizzo del sito (Google Analytics, Google Tag Manager, Microsoft Clarity) al fine di comprenderne traffico, stabilità e usabilità, previo consenso;",
             "misurazione di campagne e interazioni tramite Meta Pixel (anche via Google Tag Manager, ove configurato), previo consenso;",
@@ -121,6 +131,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
         { type: "ul", items: [
             "Discord Inc., per OAuth, hosting della piattaforma e API;",
             "fornitori di hosting, database e infrastruttura;",
+            "Cloudflare, per la protezione e l’instradamento delle richieste verso le API, la verifica anti-robot (Turnstile) e l’indicazione del Paese approssimativo della richiesta;",
             "Google (Google Analytics, Google Tag Manager e Google AdSense), per la misurazione del traffico, la gestione dei tag e la pubblicità;",
             "Microsoft (Microsoft Clarity), per heatmaps e analisi dell’esperienza di navigazione;",
             "Meta Platforms (Meta Pixel), per la misurazione di campagne e interazioni;",
@@ -130,6 +141,8 @@ export const LEGAL_PRIVACY: LegalDoc = {
             "provider di trascrizione vocale (speech-to-text), ove utilizzate clip o trascrizioni;",
             "personale autorizzato (staff), per ticket, confessionale, suggerimenti, moderazione e strumenti operativi;",
             "amministratori del server Discord di appartenenza, per i dati necessari al funzionamento di quel server;",
+            "proprietari delle schede della Vetrina, che vedono statistiche aggregate (senza dati personali dei visitatori) e, nel proprio server, i messaggi di ringraziamento con la menzione di chi vota o fa il bump;",
+            "chiunque visiti la Vetrina, per i contenuti pubblici delle schede e delle recensioni (incluso nome e avatar Discord dell’autore della recensione);",
             "autorità competenti, ove imposto dalla legge o necessario a tutelare la sicurezza del servizio."
           ] },
         { type: "p", text: "Con il consenso espresso tramite il banner cookie, dati tecnici di navigazione possono essere trattati da Google, Microsoft e Meta secondo le rispettive informative, anche per finalità di misurazione e di campagne. I contenuti degli utenti (messaggi Discord, ticket, ecc.) non sono impiegati per l’addestramento di modelli di intelligenza artificiale generativa di terzi." },
@@ -190,6 +203,10 @@ export const LEGAL_PRIVACY: LegalDoc = {
             "**Confessionale:** di norma fino a 24 mesi, accessibile allo staff autorizzato; cancellabile in anticipo su richiesta o moderazione.",
             "**Log di moderazione e partnership:** di norma fino a 36 mesi, per esigenze di sicurezza e gestione delle controversie.",
             "**Iscrizioni push:** fino a revoca del permesso, logout tecnico o cancellazione dell’iscrizione.",
+            "**Schede della Vetrina:** fino all’eliminazione da parte del proprietario o dello staff; l’eliminazione rimuove anche voti, bump, recensioni e statistiche della scheda.",
+            "**Voti, bump e recensioni della Vetrina:** per la durata della scheda, salvo rimozione anticipata su richiesta o moderazione; i conteggi mensili e settimanali si azzerano periodicamente.",
+            "**Statistiche delle schede:** conteggi giornalieri aggregati per la durata della scheda; l’impronta dell’IP usata per non contare due volte la stessa visita resta solo in memoria per 24 ore.",
+            "**Richieste di passaggio di una scheda:** 7 giorni o fino a risposta/annullamento.",
             "**Trascrizioni vocali:** elaborazione dell’audio in modo transitorio; il testo è conservato solo se richiesto dalla funzione, di norma fino a 90 giorni salvo esigenze di moderazione.",
             "**Corpus Markov:** aggiornamento periodico; rimozione o riduzione su richiesta nei limiti tecnici.",
             "**Log tecnici / indirizzi IP:** di norma da 30 a 90 giorni.",
@@ -257,7 +274,7 @@ export const LEGAL_COOKIE: LegalDoc = {
       blocks: [
         { type: "h3", text: "Cookie e storage tecnici (necessari)" },
         { type: "p", text: "Sono utilizzati cookie e memorizzazioni locali strettamente necessari al funzionamento del sito. In loro assenza l’autenticazione e le aree riservate potrebbero non essere disponibili." },
-        { type: "p", text: "**Sessione OAuth Discord** — token e scadenza in *localStorage* (fino a 180 giorni, ovvero fino a logout o scadenza del token).\n\n**Ambito e cache del profilo** — memorizzazione dei permessi di autenticazione e di dati minimi di profilo, al fine di ridurre le chiamate a Discord.\n\n**Preferenza di lingua** — memorizzazione della lingua selezionata.\n\n**Preferenza del banner cookie** — memorizzazione della scelta espressa sull’avviso (fino a 180 giorni).\n\n**Notifiche push (facoltative)** — ove attivate: chiavi locali di stato e service worker del browser.\n\n**Stato tecnico dell’interfaccia** — chiavi locali relative a notifiche in-app, accessi a eventi o anteprime.\n\n**Verifica dell’età** — autodichiarazione di età minima (almeno 13 anni) conservata sul server e associata all’account Discord; eventuale copia tecnica in *localStorage* ai soli fini operativi dell’interfaccia." },
+        { type: "p", text: "**Sessione OAuth Discord** — token e scadenza in *localStorage* (fino a 180 giorni, ovvero fino a logout o scadenza del token).\n\n**Ambito e cache del profilo** — memorizzazione dei permessi di autenticazione e di dati minimi di profilo, al fine di ridurre le chiamate a Discord.\n\n**Preferenza di lingua** — memorizzazione della lingua selezionata.\n\n**Preferenza del banner cookie** — memorizzazione della scelta espressa sull’avviso (fino a 180 giorni).\n\n**Notifiche push (facoltative)** — ove attivate: chiavi locali di stato e service worker del browser.\n\n**Stato tecnico dell’interfaccia** — chiavi locali relative a notifiche in-app, accessi a eventi o anteprime.\n\n**Vetrina** — memorizzazione temporanea (*sessionStorage*, circa 2 minuti) della pagina della Vetrina da cui si apre una scheda, per conteggiare la fonte della visita nelle statistiche aggregate; promemoria di filtri e bozze del modulo di invio in *localStorage*.\n\n**Verifica anti-robot (Cloudflare Turnstile)** — nella pagina di voto della Vetrina può essere caricato il controllo anti-robot di Cloudflare, che può impostare cookie tecnici propri, necessari a prevenire voti automatizzati.\n\n**Verifica dell’età** — autodichiarazione di età minima (almeno 13 anni) conservata sul server e associata all’account Discord; eventuale copia tecnica in *localStorage* ai soli fini operativi dell’interfaccia." },
         { type: "h3", text: "Misurazione e marketing (previo consenso)" },
         { type: "p", text: "Previo consenso espresso tramite il banner cookie sono utilizzati:" },
         { type: "ul", items: [
@@ -371,6 +388,7 @@ export const LEGAL_COOKIE: LegalDoc = {
       title: "Cookie di terzi",
       blocks: [
         { type: "p", text: "Durante l’autenticazione OAuth con Discord possono essere impostati cookie da discord.com, regolati da Discord Inc. secondo la propria informativa." },
+        { type: "p", text: "La verifica anti-robot del voto in Vetrina (Cloudflare Turnstile, challenges.cloudflare.com) può impostare cookie tecnici di Cloudflare, necessari alla sicurezza; si applicano le informative di Cloudflare." },
         { type: "p", text: "Google Analytics, Google Tag Manager e Google AdSense caricano script e cookie di Google (domini googletagmanager.com / google-analytics / googlesyndication.com). Si applicano le informative di Google." },
         { type: "p", text: "Microsoft Clarity carica script e cookie di Microsoft (clarity.ms). Si applicano le informative di Microsoft." },
         { type: "p", text: "Meta Pixel carica script e cookie di Meta (connect.facebook.net / facebook.com). Si applicano le informative di Meta." },
@@ -392,7 +410,9 @@ export const LEGAL_COOKIE: LegalDoc = {
             ["Microsoft Clarity", "Secondo le impostazioni di Microsoft"],
             ["Meta Pixel", "Secondo le impostazioni di Meta"],
             ["OAuth Discord (cookie di discord.com)", "Determinata da Discord"],
-            ["Redirect / state OAuth", "Fino al completamento del login"]
+            ["Redirect / state OAuth", "Fino al completamento del login"],
+            ["Fonte della visita in Vetrina (sessionStorage)", "Circa 2 minuti, o fino alla chiusura della scheda del browser"],
+            ["Cloudflare Turnstile (voto in Vetrina)", "Secondo le impostazioni di Cloudflare"]
           ] },
       ],
     },
@@ -432,6 +452,7 @@ export const LEGAL_TERMS: LegalDoc = {
             "server Discord dedicato a socializzazione, eventi, supporto e attività di community;",
             "bot pubblici e multi-server (musica, TTS/voice, livelli, ticket, moderazione, partnership, utility), configurabili anche tramite dashboard web;",
             "pagine web per voto, profilo, ruoli, wiki, candidature, unban, notifiche, suggerimenti, recensioni, feedback, confessionale, donazioni/crediti e ticket di supporto;",
+            "la **Vetrina**, elenco di server e bot Discord con schede, voti, bump (anche con il comando `/bump`), recensioni, statistiche per il proprietario e premi nel server;",
             "integrazioni live (ad es. Twitch) e relativi alert, ove attivi;",
             "aree riservate per staff e amministratori;",
             "integrazioni con Discord, piattaforme di voto, provider di pagamento e ulteriori servizi tecnici necessari."
@@ -480,6 +501,22 @@ export const LEGAL_TERMS: LegalDoc = {
             "Non è consentito l’uso di bot, multiaccount, VPN abusive o metodi automatici per ottenere ricompense indebite.",
             "Punti, progressi e ricompense possono essere corretti o annullati in caso di abuso.",
             "I webhook di voto possono elaborare l’identificativo Discord dell’utente per assegnare ricompense; i servizi terzi possono variare senza preavviso."
+          ] },
+      ],
+    },
+    {
+      id: "vetrina",
+      title: "Vetrina",
+      blocks: [
+        { type: "ul", items: [
+            "Può mettere in vetrina un server solo chi lo gestisce su Discord; per un bot, chi ne è sviluppatore o è autorizzato a rappresentarlo. Le schede sono controllate dallo staff prima della pubblicazione e possono essere rifiutate, sospese o rimosse in caso di violazioni, anche dopo l’approvazione.",
+            "Il proprietario è responsabile dei contenuti della scheda (testi, immagini, link, comandi) e garantisce di avere i diritti necessari; i contenuti per adulti vanno indicati come tali.",
+            "Voti, bump e recensioni devono essere genuini: è vietato usarli con bot, multiaccount, scambi organizzati, ricompense condizionate a recensioni positive o altri metodi che alterano la classifica. Il bump è consentito una volta ogni 2 ore per server.",
+            "Le recensioni devono riferirsi a un’esperienza reale e rispettare le [[Linee guida delle recensioni|/vetrina/linee-guida-recensioni/]]; il proprietario può rispondere ma non può recensire la propria scheda.",
+            "I premi nel server (messaggi, ruoli a tempo, EXP sul server principale) dipendono dalle impostazioni del proprietario e dal bot presente nel server; possono variare o essere sospesi.",
+            "La chiave API dei bot è personale: chi la riceve deve custodirla e rigenerarla se esposta. È vietato inviare dati falsi (numero di server, comandi) tramite l’API.",
+            "Il passaggio di una scheda a un altro utente avviene solo con l’accettazione del destinatario; lo staff può annullarlo in caso di abuso.",
+            "In caso di abuso lo staff può correggere o annullare voti, bump e recensioni, azzerare le statistiche, sospendere la scheda o escludere l’utente dalla Vetrina."
           ] },
       ],
     },

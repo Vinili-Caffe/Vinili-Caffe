@@ -13,7 +13,7 @@ const { resolveBoardsUser } = require("./boardBanners") as typeof import("./boar
 const { BL, featureGate, emitBoardsChanged, mainBotAppId } = require("./boardReviews") as typeof import("./boardReviews");
 const { sanitizeText, snowflakeOk, preferAnimatedDiscordMediaUrl } = require("./boardSanitize") as typeof import("./boardSanitize");
 
-const MAX_COMMANDS = 150;
+const MAX_COMMANDS = 300;
 const POST_MIN_INTERVAL_MS = 60_000;
 const OWN_SYNC_MS = 30 * 60_000;
 
@@ -225,7 +225,8 @@ async function syncOwnBot(client?, listing?) {
       if (MAIN_GUILD_ID) guildCmds = await rest.get(`/applications/${id}/guilds/${MAIN_GUILD_ID}/commands`);
     } catch (_) {}
     const cmds = [...(Array.isArray(globalCmds) ? globalCmds : []), ...(Array.isArray(guildCmds) ? guildCmds : [])];
-    if (cmds.length) {
+    const hasRuntimeList = Array.isArray(listing.commands) && listing.commands.some((c: any) => c?.type === "prefix");
+    if (cmds.length && !hasRuntimeList) {
       const commands = sanitizeCommands(cmds);
       $set.boardCommands = commands;
       listing.commands = commands;
@@ -312,4 +313,45 @@ async function botDefaults(client?, payload: Record<string, any> = {}) {
   };
 }
 
-export = { backfillBotIcons, getBotApi, regenerateBotApiKey, saveBotCommands, postBotStats, listSupportCandidates, setSupportServer, enrichBotListing, botDefaults, sanitizeCommands };
+/* cartelle dei comandi con prefisso che non si mostrano al pubblico */
+const HIDDEN_PREFIX_FOLDERS = /^(staff|admin|administration|dev|developer|owner|partner|moderation|moderazione|mod|security|sicurezza|backup|config)$/i;
+
+/**
+ * Nel bot principale (con i comandi caricati): manda alla sua scheda in vetrina
+ * tutti i comandi pubblici, slash e con prefisso. All'avvio e poi ogni 6 ore.
+ */
+async function syncRuntimeCommands(client?) {
+  const botId = String(client?.user?.id || "");
+  if (!botId || botId !== mainBotAppId()) return;
+  const out: any[] = [];
+  /* slash e menu: quello che il bot registra su Discord */
+  const arr = Array.isArray(client?.commandArray) ? client.commandArray : [];
+  for (const c of arr) out.push({ name: c?.name, description: c?.description, type: c?.type, options: c?.options });
+  /* prefisso */
+  const reg = client?.pcommands;
+  const seen = new Set<string>();
+  if (reg && typeof reg.values === "function") {
+    for (const mod of reg.values()) {
+      const name = String(mod?.name || "").trim();
+      if (!name || seen.has(name) || mod?.skipPrefix || mod?.hidden || mod?.ownerOnly || mod?.devOnly) continue;
+      if (HIDDEN_PREFIX_FOLDERS.test(String(mod?.folder || ""))) continue;
+      seen.add(name);
+      const usage = String(mod?.usage || "").replace(/^\s*[+!$.?]?\S+\s*/, "").trim();
+      out.push({ name, description: String(mod?.description || ""), type: "prefix", usage, category: String(mod?.folder || "") });
+    }
+  }
+  const commands = sanitizeCommands(out);
+  if (!commands.length) return;
+  const upd = await SiteDocument.updateOne({ docType: BL, boardKind: "bot", boardDiscordId: botId }, { $set: { boardCommands: commands } }).catch(() => null);
+  if (upd?.modifiedCount) global.logger?.info?.(`[site-boards] comandi del bot in vetrina: ${commands.length}`);
+}
+
+let runtimeTimer: NodeJS.Timeout | null = null;
+function startRuntimeCommandsSync(client?) {
+  if (runtimeTimer) return;
+  setTimeout(() => void syncRuntimeCommands(client).catch(() => null), 60_000).unref?.();
+  runtimeTimer = setInterval(() => void syncRuntimeCommands(client).catch(() => null), 6 * 3_600_000);
+  runtimeTimer.unref?.();
+}
+
+export = { startRuntimeCommandsSync, backfillBotIcons, getBotApi, regenerateBotApiKey, saveBotCommands, postBotStats, listSupportCandidates, setSupportServer, enrichBotListing, botDefaults, sanitizeCommands };

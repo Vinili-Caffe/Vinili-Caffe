@@ -540,13 +540,13 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
           e.preventDefault();
           void save(true);
         }}
-        className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]"
+        className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]"
       >
         <div className="min-w-0 space-y-6">
           {/* 1 · tipo */}
           {!editing && (
             <Step n={1} title="Cosa metti in vetrina?">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {(["server", "bot"] as BoardKind[]).map((k) => {
                   const active = kind === k;
                   const Icon = k === "bot" ? Bot : Server;
@@ -584,7 +584,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                   <Server className="size-5 text-ember" /> Server collegato: <strong className="text-crema">{form.name || form.discordId}</strong>
                 </p>
               ) : guilds === null ? (
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {[0, 1, 2, 3].map((i) => (
                     <div key={i} className="h-16 animate-pulse rounded-2xl bg-espresso/50" />
                   ))}
@@ -595,7 +595,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                 </p>
               ) : (
                 <>
-                  <div className="grid max-h-80 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 max-h-80 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
                     {guilds.map((g) => {
                       const locked = Boolean(g.alreadyListed && !g.hasDraft);
                       const active = form.discordId === g.id;
@@ -651,7 +651,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                 </>
               )
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Client ID del bot" hint="Lo trovi nel Developer Portal di Discord, alla voce Application ID: nome e avatar li prendiamo da lì.">
                   <div className="flex items-center gap-2">
                     {form.iconUrl ? (
@@ -737,7 +737,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
           {/* 4 · classificazione */}
           <Step n={editing ? 3 : 4} title="Classificazione">
             <div className="space-y-5">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field group label={`Categorie (${form.categories.length}/${maxCats})`}>
                   <OptionPicker
                     multiple
@@ -869,7 +869,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                   className={INPUT}
                 />
               </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {SOCIAL_KEYS.map((k) => (
                   <Field key={k} label={SOCIAL_LABELS[k]} status={<CheckBadge c={checks[k]} />}>
                     <div className="relative">
@@ -951,7 +951,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
             <div className="space-y-4">
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">Il progetto è…</p>
-                <div className="grid gap-2 sm:grid-cols-2" role="radiogroup">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup">
                   {(
                     [
                       ["free", "Gratis", "Tutte le funzioni principali sono gratuite."],

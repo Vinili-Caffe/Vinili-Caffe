@@ -313,7 +313,7 @@ function ReviewCard({ review, canReply, mine = false, onChange }: { review: Boar
             <Stars value={review.rating} className="text-sm" />
             {review.createdAt ? <span className="text-xs text-crema/40">{timeAgo(review.createdAt)}</span> : null}
           </div>
-          <p className="mt-2 whitespace-pre-line break-words leading-relaxed text-crema/80">{review.content}</p>
+          <p className="mt-2 whitespace-pre-line leading-relaxed text-crema/80 [overflow-wrap:anywhere]">{review.content}</p>
 
           {review.reply && (
             <div className="mt-3 rounded-xl border-l-2 border-ember/60 bg-crema/5 px-4 py-3">
@@ -321,7 +321,7 @@ function ReviewCard({ review, canReply, mine = false, onChange }: { review: Boar
                 <Store className="size-3.5" /> Risposta del proprietario
                 {review.reply.at ? <span className="font-normal normal-case tracking-normal text-crema/40">· {timeAgo(review.reply.at)}</span> : null}
               </p>
-              <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-crema/75">{review.reply.content}</p>
+              <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-crema/75 [overflow-wrap:anywhere]">{review.reply.content}</p>
             </div>
           )}
 

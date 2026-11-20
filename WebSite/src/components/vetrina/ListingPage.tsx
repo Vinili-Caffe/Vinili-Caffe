@@ -169,7 +169,7 @@ export function ListingPage() {
     return (
       <>
         <div className="h-96 animate-pulse bg-roast/60" />
-        <div className="mx-auto mt-8 grid max-w-6xl gap-6 px-6 lg:grid-cols-[1fr_20rem]">
+        <div className="mx-auto mt-8 grid grid-cols-1 max-w-6xl gap-6 px-6 lg:grid-cols-[1fr_20rem]">
           <div className="h-80 animate-pulse rounded-3xl bg-roast/50" />
           <div className="h-80 animate-pulse rounded-3xl bg-roast/50" />
         </div>
@@ -378,18 +378,18 @@ export function ListingPage() {
       </div>
 
       {/* ─── contenuto ─── */}
-      <div className="mx-auto mt-8 grid max-w-6xl gap-6 px-6 pb-28 lg:grid-cols-[minmax(0,1fr)_21rem]">
+      <div className="mx-auto mt-8 grid grid-cols-1 max-w-6xl gap-6 px-6 pb-28 lg:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="min-w-0 space-y-6">
           <Panel title="Descrizione">
             {l.description ? (
-              <DiscordContent text={l.description} className="leading-relaxed text-crema/80 [&_a]:text-ember [&_a]:underline" />
+              <DiscordContent text={l.description} className="min-w-0 leading-relaxed text-crema/80 [overflow-wrap:anywhere] [&_a]:text-ember [&_a]:underline" />
             ) : (
               <p className="text-crema/45">Il proprietario non ha ancora scritto una descrizione.</p>
             )}
             {l.visitorNotes && (
               <div className="mt-6 rounded-2xl bg-caramel/10 p-4 ring-1 ring-caramel/25">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ember">Note per chi entra</p>
-                <p className="mt-2 text-sm leading-relaxed text-crema/75">{l.visitorNotes}</p>
+                <p className="mt-2 text-sm leading-relaxed text-crema/75 [overflow-wrap:anywhere]">{l.visitorNotes}</p>
               </div>
             )}
           </Panel>
@@ -661,7 +661,7 @@ function CommandsPanel({ commands, prefix }: { commands: BotCommand[]; prefix: s
       <ul className="divide-y divide-sand/10">
         {list.map((c, i) => (
           <li key={`${c.type}-${c.name}-${i}`} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:gap-4">
-            <code className="shrink-0 font-mono text-sm font-semibold text-ember">
+            <code className="min-w-0 font-mono text-sm font-semibold text-ember [overflow-wrap:anywhere] sm:shrink-0">
               {label(c)}
               {c.usage ? <span className="font-normal text-crema/45"> {c.usage}</span> : null}
             </code>

@@ -46,7 +46,7 @@ const SECTIONS: { title: string; body: string }[] = [
 export function Guidelines() {
   return (
     <section className="mx-auto max-w-6xl px-4 pb-28 sm:px-6">
-      <div className="grid gap-8 lg:grid-cols-[17rem_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[17rem_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="rounded-3xl bg-roast/80 p-5 ring-1 ring-sand/12">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">In breve</p>

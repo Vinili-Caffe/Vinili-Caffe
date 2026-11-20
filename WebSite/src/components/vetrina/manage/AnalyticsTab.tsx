@@ -112,7 +112,7 @@ export function AnalyticsTab({ listingId, token }: { listingId: string; token: s
       {/* fonti */}
       <div>
         <h3 className="mb-4 font-display text-3xl font-semibold">Fonti di traffico</h3>
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
           <Card title="Da dove arrivano">
             {data ? (
               <DonutWithLegend
@@ -144,7 +144,7 @@ export function AnalyticsTab({ listingId, token }: { listingId: string; token: s
       {/* utenti */}
       <div>
         <h3 className="mb-4 font-display text-3xl font-semibold">Chi la guarda</h3>
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card title="Paesi">
             {data ? <Countries data={data.countries} /> : <div className="h-56 animate-pulse rounded-2xl bg-crema/5" />}
           </Card>

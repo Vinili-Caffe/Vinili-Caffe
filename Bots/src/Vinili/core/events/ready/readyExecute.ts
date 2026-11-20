@@ -199,6 +199,16 @@ async function execute(client?) {
 
     logBotReady(client, readyStartedAt);
 
+    /* Vetrina: comandi (slash + prefisso) del bot nella sua scheda */
+    if (primaryScheduler) {
+      try {
+        const { startRuntimeCommandsSync } = require("../../../site/boards/boardBotApi") as typeof import("../../../site/boards/boardBotApi");
+        startRuntimeCommandsSync(client);
+      } catch (err) {
+        global.logger?.warn?.("[site-boards] comandi del bot:", err?.message || err);
+      }
+    }
+
     if (primaryScheduler) {
       setTimeout(() => {
         try {
