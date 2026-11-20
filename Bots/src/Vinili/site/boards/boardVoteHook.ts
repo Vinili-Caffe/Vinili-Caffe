@@ -17,8 +17,48 @@ const { BL, BV, featureGate } = (() => {
 /** Nome del sito nei messaggi ({service}). */
 const SERVICE_NAME = "Vinili & Caffè";
 const DEFAULT_THANKS = "{user} grazie per il voto su **{service}**! ⭐ Voti totali: {count}.";
-const DEFAULT_REMINDER = "⏰ Puoi votare di nuovo **{server}** su {service}!\n{link}";
 const ROLE_SWEEP_MS = 5 * 60_000;
+
+function emojiOf(key: string) {
+  try {
+    const { E } = require("../../../shared/emojis/emojiCatalog") as typeof import("../../../shared/emojis/emojiCatalog");
+    return String(E?.[key] || "");
+  } catch {
+    return "";
+  }
+}
+
+/** Sample come il DM Top.gg / Discadia, adattato alla Vetrina. */
+function defaultReminderDraft(voteUrl = "", hours = 12) {
+  const h = Math.max(1, Math.floor(Number(hours) || 12));
+  const label = h === 1 ? "1 ora" : `${h} ore`;
+  const eye = emojiOf("VC_Eye") || "👀";
+  const thanks = emojiOf("VC_ThankYou") || "🙏";
+  const link = emojiOf("link") || "🔗";
+  const heart = emojiOf("VC_HeartPink");
+  return T.normalizeDraft({
+    content: "",
+    embed: {
+      enabled: true,
+      title: "",
+      description: [
+        `${eye} Hey! Sono passate ${label}: puoi votare di nuovo **{server}** su {service}.`,
+        `${thanks} **Grazie per il supporto!**`,
+        `${link} Per votare, clicca sul pulsante sottostante:`,
+      ].join("\n"),
+      color: "#6f4e37",
+      footerText: "Promemoria voto Vetrina",
+    },
+    buttons: voteUrl ? [{ label: "Vota cliccando qui", url: voteUrl, emoji: heart, row: 0 }] : [],
+  });
+}
+
+function isLegacyPlainReminder(draft?) {
+  const d = draft && typeof draft === "object" ? draft : {};
+  const content = String(d.content || "");
+  const embedOn = d.embed?.enabled === true;
+  return !embedOn && /Puoi votare di nuovo/.test(content) && /\{(?:link|server)\}/.test(content);
+}
 
 type ReminderMode = "dm" | "site";
 type VoteHook = {
@@ -34,21 +74,59 @@ type VoteHook = {
 
 const restOf = (client?) => client?.rest || client?._rest || null;
 const textDraft = (content: string) => T.normalizeDraft({ content, embed: { enabled: false }, buttons: [] });
+const EMPTY_EXP = { exp: "", fast: "", streak: "", bonus: "", level: "" } as Record<string, string>;
+
+function isMain(guildId?: string) {
+  try {
+    return T.isMainGuild(String(guildId || ""));
+  } catch {
+    return false;
+  }
+}
+
+/** Su server non main toglie le righe legate all'EXP (resta ruolo / ringraziamento). */
+function stripExpFromDraft(draft?) {
+  if (!draft) return draft;
+  const drop = (s: string) =>
+    String(s || "")
+      .split("\n")
+      .filter((line) => !/\{exp\}|\{bonus\}|\{streak\}|\{level\}|\{fast\}/i.test(line))
+      .filter((line) => !/\baltri\s+exp\b|\bexp\s+guadagnat/i.test(line))
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  const walk = (v: any): any => {
+    if (typeof v === "string") return drop(v);
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+    return v;
+  };
+  return walk(draft);
+}
 
 /** Se la scheda non ha ancora impostazioni, parte da quelle che il server usa già per Top.gg. */
-async function seedFromServer(guildId: string): Promise<Partial<VoteHook>> {
+async function seedFromServer(guildId: string, listingDoc?): Promise<Partial<VoteHook>> {
+  const voteUrl = voteUrlOf(listingDoc);
   try {
     const { getConfig } = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
     const cfg: any = await getConfig(guildId, true);
     const topgg = cfg?.votes?.perService?.topgg;
+    const hours = Number(topgg?.hours) || 12;
+    let draft = topgg?.draft && !T.draftIsEmpty(topgg.draft) ? topgg.draft : null;
+    if (draft && !isMain(guildId)) draft = stripExpFromDraft(draft);
+    let reminderDraft =
+      topgg?.reminderDraft && !T.draftIsEmpty(topgg.reminderDraft)
+        ? adaptFromTopgg(topgg.reminderDraft, voteUrl)
+        : defaultReminderDraft(voteUrl, hours);
     return {
       channelId: cfg?.votes?.channelId || null,
       roleId: cfg?.votes?.rewardRoleId || null,
-      hours: Number(topgg?.hours) || 12,
-      draft: topgg?.draft && !T.draftIsEmpty(topgg.draft) ? topgg.draft : null,
+      hours,
+      draft,
+      reminderDraft,
     };
   } catch {
-    return {};
+    return { reminderDraft: defaultReminderDraft(voteUrl, 12) };
   }
 }
 
@@ -77,18 +155,25 @@ function adaptFromTopgg(draft?, voteUrl = "") {
   return draft ? walk(draft) : draft;
 }
 
-function normalizeHook(raw?, seed: Partial<VoteHook> = {}): VoteHook {
+function normalizeHook(raw?, seed: Partial<VoteHook> = {}, voteUrl = ""): VoteHook {
   const r = raw && typeof raw === "object" ? raw : {};
   const hours = Math.floor(Number(r.hours ?? seed.hours));
+  const hoursOk = Number.isFinite(hours) && hours >= 1 && hours <= 720 ? hours : 12;
+  let reminderDraft = r.reminderDraft
+    ? T.normalizeDraft(r.reminderDraft)
+    : seed.reminderDraft
+      ? T.normalizeDraft(seed.reminderDraft)
+      : defaultReminderDraft(voteUrl, hoursOk);
+  if (isLegacyPlainReminder(reminderDraft)) reminderDraft = defaultReminderDraft(voteUrl, hoursOk);
   return {
     enabled: r.enabled === true,
     channelId: T.isId(r.channelId ?? seed.channelId) ? String(r.channelId ?? seed.channelId) : null,
     roleId: T.isId(r.roleId ?? seed.roleId) ? String(r.roleId ?? seed.roleId) : null,
-    hours: Number.isFinite(hours) && hours >= 1 && hours <= 720 ? hours : 12,
+    hours: hoursOk,
     thanksEnabled: r.thanksEnabled !== false,
     draft: r.draft ? T.normalizeDraft(r.draft) : seed.draft ? T.normalizeDraft(seed.draft) : textDraft(DEFAULT_THANKS),
     reminderMode: r.reminderMode === "dm" ? "dm" : "site",
-    reminderDraft: r.reminderDraft ? T.normalizeDraft(r.reminderDraft) : textDraft(DEFAULT_REMINDER),
+    reminderDraft,
   };
 }
 
@@ -140,11 +225,17 @@ async function postDraft(client?, channelId?: string | null, draft?, vars: Recor
 async function getVoteHook(client?, payload: Record<string, any> = {}) {
   const { err, doc, guildId } = await loadOwned(client, payload.accessToken, payload.listingId);
   if (err) return err;
-  const seed = doc.boardVoteHook ? {} : await seedFromServer(guildId);
-  if (seed.draft) seed.draft = adaptFromTopgg(seed.draft, voteUrlOf(doc));
-  const config = normalizeHook(doc.boardVoteHook, seed);
+  const main = isMain(guildId);
+  const voteUrl = voteUrlOf(doc);
+  const seed = doc.boardVoteHook ? {} : await seedFromServer(guildId, doc);
+  if (seed.draft) seed.draft = adaptFromTopgg(seed.draft, voteUrl);
+  if (seed.reminderDraft) seed.reminderDraft = adaptFromTopgg(seed.reminderDraft, voteUrl);
+  const config = normalizeHook(doc.boardVoteHook, seed, voteUrl);
   /* anche un testo salvato prima di questa correzione */
-  config.draft = T.normalizeDraft(adaptFromTopgg(config.draft, voteUrlOf(doc)));
+  let draft = adaptFromTopgg(config.draft, voteUrl);
+  if (!main) draft = stripExpFromDraft(draft);
+  config.draft = T.normalizeDraft(draft);
+  config.reminderDraft = T.normalizeDraft(adaptFromTopgg(config.reminderDraft, voteUrl));
   let pickers: any = { textChannels: [], roles: [], emojis: [], categories: [] };
   try {
     const { listGuildPickerData } = require("../../Partner/dashboard/siteDashboardPartnershipApi") as typeof import("../../Partner/dashboard/siteDashboardPartnershipApi");
@@ -166,13 +257,17 @@ async function getVoteHook(client?, payload: Record<string, any> = {}) {
       categories: [],
     },
     serviceName: SERVICE_NAME,
+    isMainGuild: main,
   };
 }
 
 async function saveVoteHook(client?, payload: Record<string, any> = {}) {
-  const { err, doc } = await loadOwned(client, payload.accessToken, payload.listingId);
+  const { err, doc, guildId } = await loadOwned(client, payload.accessToken, payload.listingId);
   if (err) return err;
-  const config = normalizeHook(payload.config);
+  const voteUrl = voteUrlOf(doc);
+  const config = normalizeHook(payload.config, {}, voteUrl);
+  if (!isMain(guildId)) config.draft = T.normalizeDraft(stripExpFromDraft(config.draft));
+  config.reminderDraft = T.normalizeDraft(adaptFromTopgg(config.reminderDraft, voteUrl));
   doc.boardVoteHook = config;
   doc.markModified("boardVoteHook");
   await doc.save();
@@ -183,12 +278,17 @@ async function saveVoteHook(client?, payload: Record<string, any> = {}) {
 async function testVoteHook(client?, payload: Record<string, any> = {}) {
   const { err, auth, doc, guildId } = await loadOwned(client, payload.accessToken, payload.listingId);
   if (err) return err;
-  const config = normalizeHook(payload.config || doc.boardVoteHook, doc.boardVoteHook ? {} : await seedFromServer(guildId));
+  const voteUrl = voteUrlOf(doc);
+  const config = normalizeHook(payload.config || doc.boardVoteHook, doc.boardVoteHook ? {} : await seedFromServer(guildId, doc), voteUrl);
   if (!config.channelId) return { ok: false, status: 400, error: "no_channel", message: "Scegli prima il canale dei ringraziamenti." };
   const guild = await resolveGuild(client, guildId);
   if (!guild) return { ok: false, status: 400, error: "bot_not_in_guild", message: "Il bot di Vinili & Caffè non è nel server." };
-  const vars = await userVarsFor(client, guild, String(auth.userId), { service: SERVICE_NAME, count: "1", exp: "150", fast: "0", streak: "1", bonus: "", level: "1" });
-  const ok = await postDraft(client, config.channelId, adaptFromTopgg(config.draft, voteUrlOf(doc)), vars, String(auth.userId));
+  const main = isMain(guildId);
+  const expSample = main ? { exp: "150", fast: "0", streak: "1", bonus: "", level: "1" } : EMPTY_EXP;
+  let draft = adaptFromTopgg(config.draft, voteUrl);
+  if (!main) draft = stripExpFromDraft(draft);
+  const vars = await userVarsFor(client, guild, String(auth.userId), { service: SERVICE_NAME, count: "1", ...expSample });
+  const ok = await postDraft(client, config.channelId, draft, vars, String(auth.userId));
   return ok
     ? { ok: true, status: 200, message: "Messaggio di prova inviato nel canale." }
     : { ok: false, status: 502, error: "send_failed", message: "Invio non riuscito: controlla che il bot possa scrivere nel canale." };
@@ -198,7 +298,7 @@ async function testVoteHook(client?, payload: Record<string, any> = {}) {
 async function onListingVoted(client?, listingId?: string, userId?: string) {
   const doc: any = await SiteDocument.findOne({ _id: listingId, docType: BL }).select({ boardVoteHook: 1, boardDiscordId: 1, boardKind: 1, boardSlug: 1 }).lean();
   if (!doc || String(doc.boardKind || "") === "bot") return { ok: false, reason: "not_server" };
-  const config = normalizeHook(doc.boardVoteHook);
+  const config = normalizeHook(doc.boardVoteHook, {}, voteUrlOf(doc));
   if (!config.enabled) return { ok: false, reason: "disabled" };
   const gid = String(doc.boardDiscordId || "");
   const guild = await resolveGuild(client, gid);
@@ -217,7 +317,7 @@ async function onListingVoted(client?, listingId?: string, userId?: string) {
       ensureRoleSweep(client);
     }
   }
-  /* EXP come per un voto su Top.gg (solo dove ci sono i livelli) */
+  /* EXP solo sul server principale (come le recensioni) */
   const votes: any[] = await SiteDocument.find({ docType: BV, boardListingId: String(listingId), userId: String(userId) })
     .select({ createdAt: 1 })
     .sort({ createdAt: -1 })
@@ -225,35 +325,53 @@ async function onListingVoted(client?, listingId?: string, userId?: string) {
     .lean()
     .catch(() => []);
   const count = await SiteDocument.countDocuments({ docType: BV, boardListingId: String(listingId), userId: String(userId) }).catch(() => 1);
-  let expOut: Record<string, string> = { exp: "0", fast: "0", streak: "0", bonus: "", level: "0" };
-  try {
-    const BVR = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
-    const bvCfg: any = await BVR.getConfig(gid, true);
-    expOut = await BVR.giveExp(client, guild, String(userId), "topgg", bvCfg, {
-      previousLastAt: votes[1]?.createdAt ? new Date(votes[1].createdAt).getTime() : null,
-      cooldownMs: config.hours * 3_600_000,
-      firstTime: count <= 1,
-    });
-  } catch (_) {}
+  const main = isMain(gid);
+  let expOut: Record<string, string> = { ...EMPTY_EXP };
+  if (main) {
+    try {
+      const BVR = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
+      const bvCfg: any = await BVR.getConfig(gid, true);
+      expOut = await BVR.giveExp(client, guild, String(userId), "topgg", bvCfg, {
+        previousLastAt: votes[1]?.createdAt ? new Date(votes[1].createdAt).getTime() : null,
+        cooldownMs: config.hours * 3_600_000,
+        firstTime: count <= 1,
+      });
+    } catch (_) {}
+  }
   if (config.thanksEnabled && config.channelId) {
+    let draft = adaptFromTopgg(config.draft, voteUrlOf(doc));
+    if (!main) draft = stripExpFromDraft(draft);
     const vars = await userVarsFor(client, guild, String(userId), { service: SERVICE_NAME, count: String(count || 1), ...expOut });
-    await postDraft(client, config.channelId, adaptFromTopgg(config.draft, voteUrlOf(doc)), vars, String(userId));
+    await postDraft(client, config.channelId, draft, vars, String(userId));
   }
   return { ok: true };
 }
 
-/** Promemoria per rivotare in privato (se la scheda lo vuole): true se inviato. */
-async function sendReminderDm(client?, listingDoc?, userId?: string, link = "") {
-  const config = normalizeHook(listingDoc?.boardVoteHook);
-  if (config.reminderMode !== "dm") return false;
+/**
+ * Promemoria in DM.
+ * Di default solo se reminderMode === "dm"; con force=true anche come fallback della notifica sito.
+ */
+async function sendReminderDm(client?, listingDoc?, userId?: string, link = "", opts: { force?: boolean } = {}) {
+  const voteUrl = link || voteUrlOf(listingDoc);
+  const config = normalizeHook(listingDoc?.boardVoteHook, {}, voteUrl);
+  if (!opts.force && config.reminderMode !== "dm") return false;
   const rest = restOf(client);
   if (!rest) return false;
   try {
     const dm: any = await rest.post(Routes.userChannels(), { body: { recipient_id: String(userId) } });
     if (!dm?.id) return false;
     const guild = await resolveGuild(client, String(listingDoc?.boardDiscordId || ""));
-    const vars = await userVarsFor(client, guild, String(userId), { service: SERVICE_NAME, link, server: String(listingDoc?.title || guild?.name || "") });
-    return await postDraft(client, String(dm.id), config.reminderDraft, vars, null);
+    const hours = config.hours;
+    const hoursLabel = hours === 1 ? "1 ora" : `${hours} ore`;
+    let draft = T.normalizeDraft(adaptFromTopgg(config.reminderDraft, voteUrl));
+    if (draft.buttons?.length) draft.buttons = draft.buttons.map((b) => ({ ...b, url: b.url || voteUrl }));
+    const vars = await userVarsFor(client, guild, String(userId), {
+      service: SERVICE_NAME,
+      link: voteUrl,
+      server: String(listingDoc?.title || guild?.name || ""),
+      hours: hoursLabel,
+    });
+    return await postDraft(client, String(dm.id), draft, vars, null);
   } catch {
     return false;
   }

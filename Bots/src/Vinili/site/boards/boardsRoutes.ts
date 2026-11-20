@@ -224,10 +224,6 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
   );
 
   /* ── recensioni nel server della scheda ── */
-  try {
-    const { ensureRoleSweep: ensureReviewRoleSweep } = require("./boardReviewHook") as typeof import("./boardReviewHook");
-    ensureReviewRoleSweep(client);
-  } catch (_) {}
   const reviewHookRoute = (path: string, run: (H: any, accessToken: string, req: any) => Promise<any>) =>
     async (req?, res?) => {
       try {

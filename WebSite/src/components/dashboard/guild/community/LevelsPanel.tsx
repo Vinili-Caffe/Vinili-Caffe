@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Ban, ChevronDown, Sunrise, CalendarClock, Clock3, Gamepad2, Gift, LineChart, Loader2, Megaphone, MessageSquare, Mic, Play, Plus, RefreshCw, Sparkles, Star, Timer, Trash2, TrendingUp, Trophy, X, type LucideIcon } from "lucide-react";
+import { ArrowRight, Ban, ChevronDown, Sunrise, CalendarClock, Clock3, Gamepad2, Gift, LineChart, Loader2, Megaphone, MessageSquare, Mic, Play, Plus, RefreshCw, Sparkles, Timer, Trash2, TrendingUp, Trophy, X, type LucideIcon } from "lucide-react";
 import { DateTimeField } from "@/components/ui/DateTimeField";
 import { NumberField } from "@/components/ui/NumberField";
 import { MultiSelect, Select } from "@/components/ui/Select";
@@ -1358,27 +1358,6 @@ export function LevelsPanel({
               </Field>
             </div>
           </Card>
-
-          {isMain ? (
-            <Card
-              icon={Star}
-              title="Recensione sul sito"
-              text="Livelli regalati a chi lascia una recensione della community su viniliecaffe.it/recensioni (una volta sola). Non usa Disboard."
-              aside={(cfg.reviewRewardLevels ?? 5) > 0 ? <StatusBadge tone="accent">+{cfg.reviewRewardLevels ?? 5} livelli</StatusBadge> : <StatusBadge>spento</StatusBadge>}
-            >
-              <div className="max-w-xs">
-                <BigNumber
-                  label="Livelli in regalo"
-                  value={cfg.reviewRewardLevels ?? 5}
-                  min={0}
-                  max={100}
-                  onChange={(v) => set({ reviewRewardLevels: Math.max(0, Math.floor(v || 0)) })}
-                  suffix="livelli"
-                  hint="0 = nessun premio."
-                />
-              </div>
-            </Card>
-          ) : null}
 
           <Card icon={Megaphone} title="Annunci di livello" text="Canale e messaggi quando qualcuno sale di livello o sblocca un ruolo premio. Vuoto = canale comandi del bot.">
             <ChannelField label="Canale" value={cfg.levelUpChannelId} channels={channels} onChange={(levelUpChannelId) => set({ levelUpChannelId })} />

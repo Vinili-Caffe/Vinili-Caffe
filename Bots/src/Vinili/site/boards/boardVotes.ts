@@ -425,36 +425,57 @@ async function sweepBoardVoteReminders(client?) {
     const openUrl = slug
       ? `https://www.viniliecaffe.it/vetrina/vota/?slug=${encodeURIComponent(slug)}`
       : `https://www.viniliecaffe.it/vetrina/vota/?id=${encodeURIComponent(listingId)}`;
-    /* la scheda può volere il promemoria in privato: se il messaggio arriva, niente notifica sul sito */
-    try {
-      const { sendReminderDm } = require("./boardVoteHook") as typeof import("./boardVoteHook");
-      if (listing && (await sendReminderDm(client, listing, uid, openUrl))) {
-        vote.boardRemindSentAt = now;
-        await vote.save().catch(() => null);
-        sent += 1;
-        continue;
-      }
-    } catch (_) {}
+    /* dm: prima DM, se fallisce → sito. site: prima sito, se fallisce → DM. */
+    const reminderMode = String(listing?.boardVoteHook?.reminderMode || "site") === "dm" ? "dm" : "site";
+    const { sendReminderDm } = require("./boardVoteHook") as typeof import("./boardVoteHook");
+    if (reminderMode === "dm" && listing) {
+      try {
+        if (await sendReminderDm(client, listing, uid, openUrl)) {
+          vote.boardRemindSentAt = now;
+          await vote.save().catch(() => null);
+          sent += 1;
+          continue;
+        }
+      } catch (_) {}
+    }
+    let siteOk = false;
     try {
       const { enqueueSiteInAppNotification } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
-      const ok = await enqueueSiteInAppNotification({
-        guildId: String(IDs.guilds?.main || "").trim() || "global",
-        userId: uid,
-        title: "Promemoria voto Vetrina",
-        body: `Puoi votare di nuovo per ${name}. Grazie per il supporto!`,
-        kind: "vote_reminder",
-        openUrl,
-        dedupeKey: `vote_reminder_boards_${listingId}_${String(vote._id)}`,
-        dedupeWindowMs: Math.max(60_000, gate.cfg.voteCooldownHours * 60 * 60 * 1000),
-        push: true,
-      });
-      vote.boardRemindSentAt = now;
-      if (!ok) vote.boardRemindAt = null;
-      await vote.save();
-      if (ok) sent += 1;
+      siteOk = Boolean(
+        await enqueueSiteInAppNotification({
+          guildId: String(IDs.guilds?.main || "").trim() || "global",
+          userId: uid,
+          title: "Promemoria voto Vetrina",
+          body: `Puoi votare di nuovo per ${name}. Grazie per il supporto!`,
+          kind: "vote_reminder",
+          openUrl,
+          dedupeKey: `vote_reminder_boards_${listingId}_${String(vote._id)}`,
+          dedupeWindowMs: Math.max(60_000, gate.cfg.voteCooldownHours * 60 * 60 * 1000),
+          push: true,
+        }),
+      );
     } catch (err) {
       global.logger?.warn?.("[boards] vote reminder:", err?.message || err);
     }
+    if (siteOk) {
+      vote.boardRemindSentAt = now;
+      await vote.save().catch(() => null);
+      sent += 1;
+      continue;
+    }
+    if (reminderMode === "site" && listing) {
+      try {
+        if (await sendReminderDm(client, listing, uid, openUrl, { force: true })) {
+          vote.boardRemindSentAt = now;
+          await vote.save().catch(() => null);
+          sent += 1;
+          continue;
+        }
+      } catch (_) {}
+    }
+    vote.boardRemindSentAt = now;
+    vote.boardRemindAt = null;
+    await vote.save().catch(() => null);
   }
   return { ok: true, sent };
 }

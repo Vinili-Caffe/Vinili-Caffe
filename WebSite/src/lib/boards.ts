@@ -606,6 +606,8 @@ export type VoteHookData = {
   bot: { id: string; name: string; avatarUrl: string } | null;
   pickers: { textChannels: PickerChannel[]; roles: PickerRole[]; emojis: PickerEmoji[]; categories: PickerChannel[] };
   serviceName: string;
+  /** EXP dei voti solo sul server principale. */
+  isMainGuild?: boolean;
 };
 
 export async function loadVoteHook(token: string, id: string) {
@@ -637,10 +639,9 @@ export type ReviewHookConfig = {
   enabled: boolean;
   channelId: string | null;
   roleId: string | null;
-  hours: number;
   thanksEnabled: boolean;
   draft: MsgDraft;
-  /** Livelli regalati una tantum (sistema del main). */
+  /** Solo server principale: livelli una tantum. Altri server → 0. */
   rewardLevels: number;
 };
 export type ReviewHookData = {
@@ -651,6 +652,8 @@ export type ReviewHookData = {
   pickers: { textChannels: PickerChannel[]; roles: PickerRole[]; emojis: PickerEmoji[]; categories: PickerChannel[] };
   serviceName: string;
   seededFromMain?: boolean;
+  isMainGuild?: boolean;
+  listingLink?: string;
 };
 
 export async function loadReviewHook(token: string, id: string) {

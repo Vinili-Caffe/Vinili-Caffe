@@ -1,6 +1,6 @@
 /**
- * Bacheche: premi nel server quando qualcuno lascia una recensione in Vetrina.
- * Stesso modello del server principale (livelli una tantum + messaggio in canale + ruolo a tempo).
+ * Premi nel server per una recensione in Vetrina.
+ * Embed come le recensioni sito sul main; livelli solo sul server principale; ruolo permanente.
  */
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { Routes } = require("discord.js") as typeof import("discord.js");
@@ -13,64 +13,99 @@ const { BL, featureGate } = (() => {
 })();
 
 const SERVICE_NAME = "Vinili & Caffè";
-const DEFAULT_THANKS = [
-  "**Nuova recensione!**",
-  "{user} ha lasciato **{rating}★** su **{service}**.",
-  "",
-  "{review}",
-  "",
-  "`Hai guadagnato:`",
-  "{levels}",
-  "{bonus}",
-  "Il ruolo {role} per {hours}",
-].join("\n");
-const ROLE_SWEEP_MS = 5 * 60_000;
-const DEFAULT_REWARD_LEVELS = 5;
+const EMBED_COLOR = "#826bc2";
 
 type ReviewHook = {
   enabled: boolean;
   channelId: string | null;
   roleId: string | null;
-  hours: number;
   thanksEnabled: boolean;
   draft: any;
-  /** Livelli regalati una sola volta (come sul main / Livelli → Recensione sul sito). */
+  /** Solo server principale: livelli una tantum. Altri server → sempre 0. */
   rewardLevels: number;
 };
 
 const restOf = (client?) => client?.rest || client?._rest || null;
-const textDraft = (content: string) => T.normalizeDraft({ content, embed: { enabled: false }, buttons: [] });
 
-function normalizeHook(raw?, seed: Partial<ReviewHook> = {}): ReviewHook {
+function isMain(guildId?: string) {
+  try {
+    return T.isMainGuild(String(guildId || ""));
+  } catch {
+    return false;
+  }
+}
+
+function schedaUrl(doc?) {
+  const slug = String(doc?.boardSlug || doc?.slug || "").trim();
+  const id = String(doc?._id || doc?.id || "").trim();
+  return slug
+    ? `https://www.viniliecaffe.it/vetrina/scheda/?slug=${encodeURIComponent(slug)}`
+    : `https://www.viniliecaffe.it/vetrina/scheda/?id=${encodeURIComponent(id)}`;
+}
+
+function defaultDraft(link = "https://www.viniliecaffe.it/vetrina/") {
+  /* Stesso layout di announceServerReview (recensioni sito sul main). */
+  return T.normalizeDraft({
+    content: "{user}",
+    mentionUsers: true,
+    embed: {
+      enabled: true,
+      title: "Nuova recensione in Vetrina",
+      url: link,
+      description: "Un membro ha pubblicato una recensione della community.",
+      color: EMBED_COLOR,
+      thumbnailUrl: "{avatar}",
+      authorName: "{username}",
+      authorIconUrl: "{avatar}",
+      timestamp: true,
+      footerText: "viniliecaffe.it · Feedback community",
+      fields: [
+        { name: "Valutazione", value: "{stars}", inline: true },
+        { name: "Inviata", value: "{sent}", inline: true },
+        { name: "Testo", value: "{review}", inline: false },
+        { name: "Link", value: `[Apri la scheda]({link})`, inline: false },
+        { name: "Ricompensa", value: "{reward}", inline: false },
+      ],
+    },
+    buttons: [],
+  });
+}
+
+function normalizeHook(raw?, seed: Partial<ReviewHook> = {}, guildId = "", listingLink = ""): ReviewHook {
   const r = raw && typeof raw === "object" ? raw : {};
-  const hours = Math.floor(Number(r.hours ?? seed.hours));
-  /* migrazione: vecchio expAmount → rewardLevels se non c'è già */
-  const rawLevels = r.rewardLevels ?? seed.rewardLevels ?? (r.expAmount != null ? Math.min(20, Math.round(Number(r.expAmount) / 50)) : undefined);
-  const rewardLevels = Math.floor(Number(rawLevels));
+  const main = isMain(guildId);
+  const rawLevels = r.rewardLevels ?? seed.rewardLevels;
+  const rewardLevels = main ? Math.max(0, Math.min(100, Math.floor(Number(rawLevels)))) : 0;
+  const levelsOk = Number.isFinite(rewardLevels) ? rewardLevels : main ? 5 : 0;
+  /* Mai sovrascrivere un draft già salvato/inviato: solo seed se manca del tutto. */
+  const draft = r.draft
+    ? T.normalizeDraft(r.draft)
+    : seed.draft
+      ? T.normalizeDraft(seed.draft)
+      : defaultDraft(listingLink || undefined);
   return {
     enabled: r.enabled === true,
     channelId: T.isId(r.channelId ?? seed.channelId) ? String(r.channelId ?? seed.channelId) : null,
     roleId: T.isId(r.roleId ?? seed.roleId) ? String(r.roleId ?? seed.roleId) : null,
-    hours: Number.isFinite(hours) && hours >= 1 && hours <= 720 ? hours : 24,
     thanksEnabled: r.thanksEnabled !== false,
-    draft: r.draft ? T.normalizeDraft(r.draft) : seed.draft ? T.normalizeDraft(seed.draft) : textDraft(DEFAULT_THANKS),
-    rewardLevels: Number.isFinite(rewardLevels) && rewardLevels >= 0 && rewardLevels <= 100 ? rewardLevels : DEFAULT_REWARD_LEVELS,
+    draft,
+    rewardLevels: levelsOk,
   };
 }
 
-/** Parte dalle impostazioni del main: livelli in regalo + canale annunci recensioni. */
-async function seedFromMain(client?, guildId?: string): Promise<Partial<ReviewHook>> {
-  const out: Partial<ReviewHook> = {};
-  try {
-    if (!T.isMainGuild(String(guildId || ""))) return out;
-  } catch {
+async function seedFromMain(client?, guildId?: string, listingDoc?): Promise<Partial<ReviewHook>> {
+  const out: Partial<ReviewHook> = { draft: defaultDraft(schedaUrl(listingDoc)) };
+  if (!isMain(guildId)) {
+    out.rewardLevels = 0;
     return out;
   }
   try {
     const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
     const cfg: any = await LVL.getConfig(String(guildId));
     if (Number.isFinite(Number(cfg?.reviewRewardLevels))) out.rewardLevels = Math.max(0, Math.floor(Number(cfg.reviewRewardLevels)));
-  } catch (_) {}
+  } catch (_) {
+    out.rewardLevels = 5;
+  }
   try {
     const { FALLBACK_REVIEW_CHANNEL_ID } = require("../../site/http/siteReviews/constants") as typeof import("../../site/http/siteReviews/constants");
     const ch =
@@ -79,7 +114,6 @@ async function seedFromMain(client?, guildId?: string): Promise<Partial<ReviewHo
       String(FALLBACK_REVIEW_CHANNEL_ID || "").trim();
     if (T.isId(ch)) out.channelId = ch;
   } catch (_) {}
-  out.draft = textDraft(DEFAULT_THANKS);
   return out;
 }
 
@@ -114,6 +148,14 @@ async function userVarsFor(client?, guild?, userId?: string, extra: Record<strin
   return T.memberVars(guild || null, user || { id: userId }, extra);
 }
 
+function withListingLink(draft?, link = "") {
+  const d = T.normalizeDraft(draft);
+  if (!link) return d;
+  if (d.embed?.url === "" || d.embed?.url === "https://www.viniliecaffe.it/vetrina/") d.embed.url = link;
+  if (d.buttons.length) d.buttons = d.buttons.map((b) => ({ ...b, url: b.url || link }));
+  return d;
+}
+
 async function postDraft(client?, channelId?: string | null, draft?, vars: Record<string, string> = {}, mentionUserId: string | null = null) {
   const rest = restOf(client);
   if (!rest || !channelId || !draft || T.draftIsEmpty(draft)) return false;
@@ -127,15 +169,26 @@ async function postDraft(client?, channelId?: string | null, draft?, vars: Recor
     });
 }
 
-function fmtHours(h: number) {
-  return h === 1 ? "1 ora" : h % 24 === 0 ? (h === 24 ? "1 giorno" : `${h / 24} giorni`) : `${h} ore`;
+function starsOf(rating?) {
+  const n = Math.max(1, Math.min(5, Math.round(Number(rating) || 5)));
+  return "⭐".repeat(n);
+}
+
+function rewardLine(userId: string, levelsAdded: number, roleId: string | null) {
+  if (levelsAdded > 0) {
+    const roleBit = roleId ? ` Ruolo <@&${roleId}>.` : "";
+    return `<@${userId}>, **+${levelsAdded} livelli** per aver lasciato una recensione.${roleBit}`;
+  }
+  if (roleId) return `<@${userId}>, ruolo <@&${roleId}> per la tua recensione.`;
+  return `Grazie <@${userId}> per il supporto!`;
 }
 
 async function getReviewHook(client?, payload: Record<string, any> = {}) {
   const { err, doc, guildId } = await loadOwned(client, payload.accessToken, payload.listingId);
   if (err) return err;
-  const seed = doc.boardReviewHook ? {} : await seedFromMain(client, guildId);
-  const config = normalizeHook(doc.boardReviewHook, seed);
+  const link = schedaUrl(doc);
+  const seed = doc.boardReviewHook ? {} : await seedFromMain(client, guildId, doc);
+  const config = normalizeHook(doc.boardReviewHook, seed, guildId, link);
   let pickers: any = { textChannels: [], roles: [], emojis: [], categories: [] };
   try {
     const { listGuildPickerData } = require("../../Partner/dashboard/siteDashboardPartnershipApi") as typeof import("../../Partner/dashboard/siteDashboardPartnershipApi");
@@ -143,6 +196,7 @@ async function getReviewHook(client?, payload: Record<string, any> = {}) {
   } catch (_) {}
   const guild = await resolveGuild(client, guildId);
   const me = client?.user;
+  const main = isMain(guildId);
   return {
     ok: true,
     status: 200,
@@ -157,59 +211,56 @@ async function getReviewHook(client?, payload: Record<string, any> = {}) {
       categories: [],
     },
     serviceName: SERVICE_NAME,
-    seededFromMain: Boolean(!doc.boardReviewHook && (() => { try { return T.isMainGuild(guildId); } catch { return false; } })()),
+    isMainGuild: main,
+    seededFromMain: Boolean(!doc.boardReviewHook && main),
+    listingLink: link,
   };
 }
 
 async function saveReviewHook(client?, payload: Record<string, any> = {}) {
-  const { err, doc } = await loadOwned(client, payload.accessToken, payload.listingId);
+  const { err, doc, guildId } = await loadOwned(client, payload.accessToken, payload.listingId);
   if (err) return err;
-  const config = normalizeHook(payload.config);
-  doc.boardReviewHook = config;
-  doc.markModified("boardReviewHook");
-  await doc.save();
+  const config = normalizeHook(payload.config, {}, guildId, schedaUrl(doc));
+  /* $set diretto: evita che strict/schema vecchio in cache butti via il Mixed */
+  await SiteDocument.updateOne({ _id: doc._id, docType: BL }, { $set: { boardReviewHook: config } });
   return { ok: true, status: 200, config, message: "Impostazioni delle recensioni salvate." };
 }
 
 async function testReviewHook(client?, payload: Record<string, any> = {}) {
   const { err, auth, doc, guildId } = await loadOwned(client, payload.accessToken, payload.listingId);
   if (err) return err;
-  const config = normalizeHook(payload.config || doc.boardReviewHook, doc.boardReviewHook ? {} : await seedFromMain(client, guildId));
-  if (!config.channelId) return { ok: false, status: 400, error: "no_channel", message: "Scegli prima il canale dei ringraziamenti." };
+  const link = schedaUrl(doc);
+  const seed = doc.boardReviewHook ? {} : await seedFromMain(client, guildId, doc);
+  const config = normalizeHook(payload.config || doc.boardReviewHook, seed, guildId, link);
+  if (!config.channelId) return { ok: false, status: 400, error: "no_channel", message: "Scegli prima il canale." };
   const guild = await resolveGuild(client, guildId);
   if (!guild) return { ok: false, status: 400, error: "bot_not_in_guild", message: "Il bot di Vinili & Caffè non è nel server." };
-  const role = config.roleId ? `<@&${config.roleId}>` : "—";
-  const levelsLine =
-    config.rewardLevels > 0
-      ? `**+${config.rewardLevels} livelli** per la tua recensione`
-      : "Grazie per il supporto!";
+  const levelsPreview = isMain(guildId) && config.rewardLevels > 0 ? config.rewardLevels : 0;
   const vars = await userVarsFor(client, guild, String(auth.userId), {
     service: SERVICE_NAME,
-    rating: "5",
-    review: "_Testo di prova della recensione._",
-    levels: levelsLine,
-    bonus: "",
-    hours: fmtHours(config.hours),
-    role,
+    stars: starsOf(5),
+    review: "Server bellissimo, staff attivo e tanti eventi!",
+    link,
+    sent: `<t:${Math.floor(Date.now() / 1000)}:R>`,
+    reward: rewardLine(String(auth.userId), levelsPreview, config.roleId),
   });
-  const ok = await postDraft(client, config.channelId, config.draft, vars, String(auth.userId));
+  const ok = await postDraft(client, config.channelId, withListingLink(config.draft, link), vars, String(auth.userId));
   return ok
     ? { ok: true, status: 200, message: "Messaggio di prova inviato nel canale." }
     : { ok: false, status: 502, error: "send_failed", message: "Invio non riuscito: controlla che il bot possa scrivere nel canale." };
 }
 
-/** Come awardServerReviewLevels sul main: +N livelli una tantum. */
 async function awardReviewLevels(client?, guild?, userId?: string, listingId?: string, levelsToAdd = 0) {
   const guildId = String(guild?.id || "").trim();
   const uid = String(userId || "").trim();
   const lid = String(listingId || "").trim();
   const n = Math.max(0, Math.floor(Number(levelsToAdd) || 0));
-  if (!guildId || !uid || !lid || !(n > 0)) return { addedLevels: 0, levelsLine: "Grazie per il supporto!" };
+  if (!guildId || !uid || !lid || !(n > 0) || !isMain(guildId)) return 0;
   try {
     const LVL = require("../../../MultiGuild/services/levelsRuntime") as typeof import("../../../MultiGuild/services/levelsRuntime");
-    if (!LVL.levelsActive(guildId)) return { addedLevels: 0, levelsLine: "Grazie per il supporto!" };
+    if (!LVL.levelsActive(guildId)) return 0;
   } catch {
-    return { addedLevels: 0, levelsLine: "Grazie per il supporto!" };
+    return 0;
   }
   try {
     const { computeExpForLevelReward } = require("../../site/http/siteReviews/rewards") as typeof import("../../site/http/siteReviews/rewards");
@@ -218,7 +269,7 @@ async function awardReviewLevels(client?, guild?, userId?: string, listingId?: s
     const profile = await ActivityUserProfile.findOne({ guildId, userId: uid }).select("profile.totals.exp.totalExp").lean().catch(() => null);
     const currentExp = Number(profile?.profile?.totals?.exp?.totalExp || 0);
     const reward = computeExpForLevelReward(currentExp, n);
-    if (!reward.addedExp) return { addedLevels: 0, levelsLine: "Grazie per il supporto!" };
+    if (!reward.addedExp) return 0;
 
     await ActivityUserProfile.updateOne({ guildId, userId: uid }, { $setOnInsert: { guildId, userId: uid } }, { upsert: true }).catch(() => null);
     const claimed = await ActivityUserProfile.findOneAndUpdate(
@@ -238,93 +289,54 @@ async function awardReviewLevels(client?, guild?, userId?: string, listingId?: s
       },
       { new: true },
     ).catch(() => null);
-    if (!claimed) return { addedLevels: 0, levelsLine: "Grazie per il supporto!" };
+    if (!claimed) return 0;
 
     const expResult = await addExpWithLevel(guild, uid, reward.addedExp, false, false).catch(() => null);
     const finalLevel = Number(expResult?.levelInfo?.level || getLevelInfo(currentExp + reward.addedExp).level || reward.targetLevel);
-    const addedLevels = Math.max(0, finalLevel - reward.currentLevel);
-    return {
-      addedLevels,
-      levelsLine: addedLevels > 0 ? `**+${addedLevels} livelli** per la tua recensione` : "Grazie per il supporto!",
-    };
+    return Math.max(0, finalLevel - reward.currentLevel);
   } catch (err) {
     global.logger?.warn?.("[site-boards] review levels:", (err as any)?.message || err);
-    return { addedLevels: 0, levelsLine: "Grazie per il supporto!" };
+    return 0;
   }
 }
 
-async function onListingReviewed(client?, listingId?: string, userId?: string, rating = 5, reviewText = "") {
-  const doc: any = await SiteDocument.findOne({ _id: listingId, docType: BL }).select({ boardReviewHook: 1, boardDiscordId: 1, boardKind: 1 }).lean();
+/**
+ * Premi + messaggio dopo una recensione (scheda Vetrina o /recensioni/ sul main).
+ * opts.force: annuncia anche se l'hook non è ancora stato “acceso” (es. sync da /recensioni/).
+ */
+async function onListingReviewed(client?, listingId?: string, userId?: string, rating = 5, reviewText = "", opts: { force?: boolean } = {}) {
+  const doc: any = await SiteDocument.findOne({ _id: listingId, docType: BL }).select({ boardReviewHook: 1, boardDiscordId: 1, boardKind: 1, boardSlug: 1 }).lean();
   if (!doc || String(doc.boardKind || "") === "bot") return { ok: false, reason: "not_server" };
-  const config = normalizeHook(doc.boardReviewHook);
-  if (!config.enabled) return { ok: false, reason: "disabled" };
   const gid = String(doc.boardDiscordId || "");
+  const link = schedaUrl(doc);
+  let config = normalizeHook(doc.boardReviewHook, {}, gid, link);
+  if (!doc.boardReviewHook && (opts.force || isMain(gid))) {
+    const seed = await seedFromMain(client, gid, doc);
+    config = normalizeHook({ enabled: true, thanksEnabled: true }, seed, gid, link);
+  }
+  if (!config.enabled && !opts.force) return { ok: false, reason: "disabled" };
   const guild = await resolveGuild(client, gid);
   if (!guild) return { ok: false, reason: "bot_not_in_guild" };
   const rest = restOf(client);
+  /* ruolo permanente: una sola recensione per utente */
   if (config.roleId && rest) {
-    const ok = await rest
-      .put(Routes.guildMemberRole(gid, String(userId), config.roleId), { reason: "Recensione in Vetrina" })
-      .then(() => true)
-      .catch(() => false);
-    if (ok) {
-      await SiteDocument.updateOne(
-        { _id: listingId, docType: BL },
-        {
-          $push: {
-            boardReviewHookRoles: {
-              $each: [{ userId: String(userId), roleId: config.roleId, guildId: gid, until: new Date(Date.now() + config.hours * 3_600_000) }],
-              $slice: -500,
-            },
-          },
-        },
-      ).catch(() => null);
-      ensureRoleSweep(client);
-    }
+    await rest.put(Routes.guildMemberRole(gid, String(userId), config.roleId), { reason: "Recensione in Vetrina" }).catch(() => null);
   }
-  const lvl = await awardReviewLevels(client, guild, String(userId), String(listingId), config.rewardLevels);
-  if (config.thanksEnabled && config.channelId) {
-    const role = config.roleId ? `<@&${config.roleId}>` : "—";
+  const levelsAdded = await awardReviewLevels(client, guild, String(userId), String(listingId), config.rewardLevels);
+  const thanksOn = config.thanksEnabled !== false && (config.enabled || opts.force);
+  if (thanksOn && config.channelId) {
     const body = String(reviewText || "").trim().slice(0, 900) || "—";
     const vars = await userVarsFor(client, guild, String(userId), {
       service: SERVICE_NAME,
-      rating: String(Math.max(1, Math.min(5, Math.round(Number(rating) || 5)))),
-      review: body,
-      levels: lvl.levelsLine,
-      bonus: "",
-      hours: fmtHours(config.hours),
-      role,
+      stars: starsOf(rating),
+      review: body.length > 1020 ? `${body.slice(0, 1017)}…` : body,
+      link,
+      sent: `<t:${Math.floor(Date.now() / 1000)}:R>`,
+      reward: rewardLine(String(userId), levelsAdded, config.roleId),
     });
-    await postDraft(client, config.channelId, config.draft, vars, String(userId));
+    await postDraft(client, config.channelId, withListingLink(config.draft, link), vars, String(userId));
   }
-  return { ok: true };
+  return { ok: true, levelsAdded, channelId: config.channelId || null };
 }
 
-let roleTimer: NodeJS.Timeout | null = null;
-function ensureRoleSweep(client?) {
-  if (roleTimer) return;
-  roleTimer = setInterval(() => void sweepRoles(client).catch(() => null), ROLE_SWEEP_MS);
-  roleTimer.unref?.();
-}
-
-async function sweepRoles(client?) {
-  const now = new Date();
-  const docs: any[] = await SiteDocument.find({ docType: BL, "boardReviewHookRoles.until": { $lte: now } })
-    .select({ boardReviewHookRoles: 1 })
-    .limit(50)
-    .lean();
-  const rest = restOf(client);
-  for (const d of docs) {
-    const list: any[] = Array.isArray(d.boardReviewHookRoles) ? d.boardReviewHookRoles : [];
-    const due = list.filter((x) => x?.until && new Date(x.until) <= now);
-    for (const x of due) {
-      const later = list.some((y) => y !== x && y.userId === x.userId && y.roleId === x.roleId && new Date(y.until) > now);
-      if (!later && rest) {
-        await rest.delete(Routes.guildMemberRole(String(x.guildId), String(x.userId), String(x.roleId)), { reason: "Ruolo della recensione in Vetrina scaduto" }).catch(() => null);
-      }
-    }
-    await SiteDocument.updateOne({ _id: d._id }, { $pull: { boardReviewHookRoles: { until: { $lte: now } } } }).catch(() => null);
-  }
-}
-
-export = { getReviewHook, saveReviewHook, testReviewHook, onListingReviewed, ensureRoleSweep, normalizeHook };
+export = { getReviewHook, saveReviewHook, testReviewHook, onListingReviewed, normalizeHook };

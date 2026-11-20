@@ -435,6 +435,45 @@ async function createListingReview(client?, payload: Record<string, any> = {}, r
 
   const agg = await recomputeListingRating(id);
   emitBoardsChanged("review", { listingId: id });
+
+  /* Scheda del main: stessa recensione anche su /recensioni/ (kind=server) */
+  const listingGid = String(listing.boardDiscordId || "").trim();
+  if (MAIN_GUILD_ID && listingGid === MAIN_GUILD_ID) {
+    try {
+      const RV = SITE_DOCUMENT_TYPE.REVIEW;
+      await SiteDocument.findOneAndUpdate(
+        { docType: RV, guildId: MAIN_GUILD_ID, reviewKind: "server", userId: auth.userId, staffUserId: null },
+        {
+          $setOnInsert: {
+            docType: RV,
+            guildId: MAIN_GUILD_ID,
+            reviewKind: "server",
+            userId: auth.userId,
+            staffUserId: null,
+            createdBy: "site",
+            provider: "board_reviews_mirror",
+          },
+          $set: {
+            rating,
+            content,
+            authorName: String(auth.globalName || auth.username || "Utente").trim() || "Utente",
+            authorAvatarUrl: boardReviewAuthorAvatar(auth),
+            contentLang: "it",
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+      try {
+        const { invalidatePublicReviewsListCache } = require("../http/siteReviews/cache") as typeof import("../http/siteReviews/cache");
+        const { broadcastSiteReviewsChanged } = require("../suggestions/siteSuggestionsBroadcast") as typeof import("../suggestions/siteSuggestionsBroadcast");
+        invalidatePublicReviewsListCache(MAIN_GUILD_ID);
+        broadcastSiteReviewsChanged();
+      } catch (_) {}
+    } catch (err) {
+      global.logger?.warn?.("[site-boards] mirror board→/recensioni/:", (err as any)?.message || err);
+    }
+  }
+
   try {
     const { onListingReviewed } = require("./boardReviewHook") as typeof import("./boardReviewHook");
     void onListingReviewed(client, id, auth.userId, rating, content).catch((err?) =>

@@ -10,25 +10,28 @@ import { showToast } from "@/components/ui";
 import { NumberField } from "@/components/ui/NumberField";
 import { Select } from "@/components/ui/Select";
 import { Field, Notice, PageSection as Section, RowsSkeleton, Toggle, TrackUnsaved } from "@/components/dashboard/guild/bits";
-import { ChannelField, DiscordMessagePreview, DraftEditor, roleOptions, sampleVars } from "@/components/dashboard/guild/community/shared";
+import { ChannelField, DiscordMessagePreview, DraftEditor, EditorWithPreview, roleOptions, sampleVars } from "@/components/dashboard/guild/community/shared";
 
-const THANKS_PLACEHOLDERS = [
+const THANKS_BASE = [
   { token: "{user}", hint: "chi ha votato" },
   { token: "{username}", hint: "il suo nome" },
   { token: "{count}", hint: "quante volte ha votato" },
   { token: "{service}", hint: "Vinili & Caffè" },
   { token: "{server}", hint: "il tuo server" },
+  { token: "{role}", hint: "ruolo ricompensa" },
+  { token: "{hours}", hint: "ore del ruolo" },
+];
+const THANKS_EXP = [
   { token: "{exp}", hint: "EXP guadagnati" },
   { token: "{bonus}", hint: "bonus rapida/streak: mettilo su una riga sua (se vuoto la riga sparisce)" },
   { token: "{streak}", hint: "giorni di streak" },
   { token: "{level}", hint: "livello dopo il voto" },
-  { token: "{role}", hint: "ruolo ricompensa" },
-  { token: "{hours}", hint: "ore del ruolo" },
 ];
 const REMINDER_PLACEHOLDERS = [
   { token: "{server}", hint: "il tuo server" },
   { token: "{service}", hint: "Vinili & Caffè" },
   { token: "{link}", hint: "pagina per votare" },
+  { token: "{hours}", hint: "attesa tra un voto e l'altro" },
 ];
 const fmtHours = (h: number) => (h === 1 ? "1 ora" : h % 24 === 0 ? (h === 24 ? "1 giorno" : `${h / 24} giorni`) : `${h} ore`);
 
@@ -57,6 +60,7 @@ export function VoteHookTab({ listing, token, compact = false }: { listing: Boar
   }, [token, listing.id]);
 
   const service = data?.serviceName || "Vinili & Caffè";
+  const isMain = Boolean(data?.isMainGuild);
   const vars = useMemo(() => {
     const fake = { guild: { id: data?.guild?.id || listing.discordId, name: data?.guild?.name || listing.name, icon: null, banner: null, memberCount: null } } as unknown as CommunityData;
     const roleId = String(cfg?.roleId || "").trim();
@@ -65,16 +69,16 @@ export function VoteHookTab({ listing, token, compact = false }: { listing: Boar
       service,
       count: "12",
       link: `https://www.viniliecaffe.it/vetrina/vota/?slug=${listing.slug}`,
-      /* stessi sample del modulo Voti: i draft seedati da Top.gg usano {exp}/{bonus} */
-      exp: "150",
-      streak: "3",
-      bonus: "🔥 Streak 3 **+20 exp**",
-      level: "42",
-      fast: "0",
+      /* EXP solo sul main: altrove i placeholder restano vuoti (e {bonus} sparisce) */
+      exp: isMain ? "150" : "",
+      streak: isMain ? "3" : "",
+      bonus: isMain ? "🔥 Streak 3 **+20 exp**" : "",
+      level: isMain ? "42" : "",
+      fast: isMain ? "0" : "",
       hours: String(cfg?.hours || 12),
       role: roleId ? `<@&${roleId}>` : "",
     };
-  }, [data, listing, user, service, cfg?.roleId, cfg?.hours]);
+  }, [data, listing, user, service, cfg?.roleId, cfg?.hours, isMain]);
 
   if (err) return <Notice error>{err}</Notice>;
   if (!data || !cfg) return <RowsSkeleton rows={4} />;
@@ -108,12 +112,19 @@ export function VoteHookTab({ listing, token, compact = false }: { listing: Boar
         <div className="border-b border-sand/10 pb-6">
           <h2 className="font-display text-4xl font-semibold">Voti</h2>
           <p className="mt-1 max-w-2xl text-crema/55">
-            Quando qualcuno vota la scheda, il bot di Vinili &amp; Caffè lo ringrazia nel tuo server e gli dà un ruolo per qualche ora.
+            Quando qualcuno vota la scheda in Vetrina, il bot lo ringrazia nel tuo server e gli dà un ruolo per qualche ora
+            {isMain ? ", con EXP" : " (senza EXP: quella resta su Top.gg / Discadia)"}
+            .
           </p>
         </div>
       ) : null}
 
       {!data.botInGuild ? <Notice error>Il bot di Vinili &amp; Caffè non è nel server: invitalo per ringraziamenti e ruoli.</Notice> : null}
+      {!isMain ? (
+        <Notice>
+          L&apos;EXP per i voti in Vetrina c&apos;è solo sul server principale. Top.gg e Discadia restano come nel modulo Voti. Qui puoi dare ruolo e messaggio.
+        </Notice>
+      ) : null}
 
       {/* interruttore generale */}
       <div
@@ -171,7 +182,7 @@ export function VoteHookTab({ listing, token, compact = false }: { listing: Boar
             {(
               [
                 { id: "dm", icon: MessageCircle, title: "In privato su Discord", text: "Il bot gli scrive un messaggio privato (se non può, arriva la notifica sul sito)." },
-                { id: "site", icon: Globe, title: "Solo notifica sul sito", text: "Nessun messaggio privato: solo la notifica sul sito di Vinili & Caffè." },
+                { id: "site", icon: Globe, title: "Notifica sul sito", text: "Arriva sul sito di Vinili & Caffè; se non può, gli manda il promemoria in privato." },
               ] as const
             ).map((o) => {
               const on = cfg.reminderMode === o.id;
@@ -199,7 +210,13 @@ export function VoteHookTab({ listing, token, compact = false }: { listing: Boar
         <Section
           icon={Sparkles}
           title="Messaggi"
-          text={msgKind === "thanks" ? "A ogni voto il bot scrive nel canale scelto." : "Il messaggio privato del promemoria."}
+          text={
+            msgKind === "thanks"
+              ? "A ogni voto il bot scrive nel canale scelto."
+              : cfg.reminderMode === "dm"
+                ? "Messaggio privato del promemoria (stile Top.gg / Discadia)."
+                : "Usato se la notifica sul sito non parte: stesso stile dei promemoria Top.gg / Discadia."
+          }
           right={
             msgKind === "thanks" ? <Toggle size="sm" checked={cfg.thanksEnabled} onChange={(v) => set({ thanksEnabled: v })} label="Ringraziamento" /> : undefined
           }
@@ -229,8 +246,8 @@ export function VoteHookTab({ listing, token, compact = false }: { listing: Boar
                 <ChannelField label="Canale dei ringraziamenti" hint="Vuoto = nessun messaggio, solo il ruolo." value={cfg.channelId} channels={channels} onChange={(channelId) => set({ channelId })} />
               </div>
               {cfg.thanksEnabled && cfg.channelId ? (
-                <Studio
-                  editor={<DraftEditor key="thanks" value={cfg.draft} onChange={(d) => set({ draft: d })} emojis={data.pickers.emojis} placeholders={THANKS_PLACEHOLDERS} maxButtons={5} />}
+                <EditorWithPreview
+                  editor={<DraftEditor key="thanks" value={cfg.draft} onChange={(d) => set({ draft: d })} emojis={data.pickers.emojis} placeholders={isMain ? [...THANKS_BASE, ...THANKS_EXP] : THANKS_BASE} maxButtons={5} />}
                   preview={<DiscordMessagePreview noTest bot={data.bot} draft={cfg.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
                 />
               ) : (
@@ -239,13 +256,11 @@ export function VoteHookTab({ listing, token, compact = false }: { listing: Boar
                 </p>
               )}
             </>
-          ) : cfg.reminderMode === "dm" ? (
-            <Studio
+          ) : (
+            <EditorWithPreview
               editor={<DraftEditor key="reminder" value={cfg.reminderDraft} onChange={(d) => set({ reminderDraft: d })} emojis={data.pickers.emojis} placeholders={REMINDER_PLACEHOLDERS} maxButtons={5} />}
               preview={<DiscordMessagePreview noTest bot={data.bot} draft={cfg.reminderDraft} vars={vars} roles={data.pickers.roles} channels={channels} />}
             />
-          ) : (
-            <p className="rounded-xl bg-espresso/45 px-3 py-6 text-center text-sm text-crema/55 ring-1 ring-sand/10">Il promemoria arriva solo come notifica sul sito: niente messaggio privato da scrivere.</p>
           )}
 
           <div className="mt-4 flex justify-end sm:hidden">
@@ -258,21 +273,6 @@ export function VoteHookTab({ listing, token, compact = false }: { listing: Boar
 
       <TrackUnsaved dirty={dirty} onSave={save} onReset={() => setCfg(JSON.parse(saved) as VoteHookConfig)} />
       {busy === "save" ? <span className="sr-only">Salvataggio…</span> : null}
-    </div>
-  );
-}
-
-/** Editor e anteprima affiancati quando c'è spazio. */
-function Studio({ editor, preview }: { editor: React.ReactNode; preview: React.ReactNode }) {
-  return (
-    <div className="@container">
-      <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
-        <div className="min-w-0">{editor}</div>
-        <div className="min-w-0">
-          <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Anteprima</p>
-          {preview}
-        </div>
-      </div>
     </div>
   );
 }

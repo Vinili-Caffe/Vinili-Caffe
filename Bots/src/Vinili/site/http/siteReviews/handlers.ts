@@ -43,7 +43,6 @@ const {
   enrichPublicReviewDoc,
 } = require("./serialize") as typeof import("./serialize");
 const { notifyHighStaffNewReview, notifyReviewedStafferNewReview } = require("./notify") as typeof import("./notify");
-const { awardServerReviewLevels, announceServerReview } = require("./rewards") as typeof import("./rewards");
 
 async function getSiteReviews(client?, payload: Record<string, any> = {}) {
   const guild = await resolveGuild(client);
@@ -293,14 +292,10 @@ async function submitSiteReview(client?, payload: Record<string, any> = {}) {
     return { ok: false, status: 500, error: "save_failed", message: "Non sono riuscito a salvare la recensione." };
   }
 
-  if (reviewKind === "server" && !existing) {
-    const rewardInfo = await awardServerReviewLevels(client, resolved.guild, resolved.member);
-    await announceServerReview(client, resolved.guild, resolved.member, nextDoc, rewardInfo);
-  }
   if (reviewKind === "server") {
     const prevRating = Math.floor(Number(existing?.rating || 0));
     const nextRating = Math.floor(Number(nextDoc?.rating || payload?.rating || 0));
-        const crossedIntoEligible = nextRating >= 4 && (!existing || prevRating < 4);
+    const crossedIntoEligible = nextRating >= 4 && (!existing || prevRating < 4);
     if (crossedIntoEligible) {
       await syncPersistentAutoValutazioniForMember(resolved.member, {
         allowCreate: true,
@@ -327,7 +322,18 @@ async function submitSiteReview(client?, payload: Record<string, any> = {}) {
   /* compitiReviewsManual1: review_self_4 / review_server_4 non auto-submit (prove manuali) */
 
   if (reviewKind === "server") {
-    await mirrorSiteServerReviewToBoard(nextDoc);
+    /* Specchio su scheda Vetrina del main + stesso messaggio/premi della tab Recensioni in modifica scheda */
+    const mirrored: any = await mirrorSiteServerReviewToBoard(nextDoc);
+    if (!existing && mirrored?.listingId) {
+      try {
+        const { onListingReviewed } = require("../../boards/boardReviewHook") as typeof import("../../boards/boardReviewHook");
+        await onListingReviewed(client, String(mirrored.listingId), String(resolved.userId), Number(nextDoc.rating) || rating, String(nextDoc.content || content), {
+          force: true,
+        });
+      } catch (err) {
+        global.logger?.warn?.("[siteReviewsApi] review hook from /recensioni/:", (err as any)?.message || err);
+      }
+    }
   }
 
   try {

@@ -228,6 +228,8 @@ const siteDocumentSchema = new Schema(
     /* vetrina: cosa fa il bot nel server quando qualcuno vota la scheda (+ ruoli a tempo da togliere) */
     boardVoteHook: { type: Schema.Types.Mixed, default: null },
     boardVoteHookRoles: { type: [Schema.Types.Mixed], default: undefined },
+    /* vetrina: premi/annuncio quando qualcuno recensisce la scheda (senza Mixed, strict lo buttava via) */
+    boardReviewHook: { type: Schema.Types.Mixed, default: null },
     boardListingId: { type: String, default: "", trim: true, maxlength: 32 },
     boardClientIpHash: { type: String, default: "", trim: true, maxlength: 80 },
     /* boardsWizard1 */
