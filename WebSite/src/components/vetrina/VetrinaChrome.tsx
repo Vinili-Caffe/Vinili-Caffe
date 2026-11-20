@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
 import { BookOpenCheck, Bot, ChevronDown, FolderHeart, House, LogIn, Plus, Server, ShieldCheck, type LucideIcon } from "lucide-react";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { checkStaffAccess, loadBoardsConfig } from "@/lib/boards";
@@ -16,6 +16,8 @@ import { SmartLink } from "@/components/SmartLink";
 import { NavNotifBell } from "@/components/NavNotifBell";
 import { LangMenu } from "@/components/LangMenu";
 import { ThemePrefRow } from "@/components/ThemeToggle";
+import { useDeviceFx } from "@/components/effects/DeviceFxProvider";
+import { useAutoHideNav } from "@/lib/use-auto-hide-nav";
 import { HERO_ATMO_BAND, HERO_ATMO_VIDEO, HERO_ATMO_VIDEO_MOBILE, HeroBackdrop } from "@/components/HeroBackdrop";
 
 const cleanPath = (p: string) => p.replace(/^\/(en|es)(?=\/)/, "");
@@ -54,7 +56,7 @@ export function VetrinaShell({ children }: { children: ReactNode }) {
           className="pointer-events-none fixed inset-0 bg-[radial-gradient(60rem_30rem_at_50%_-10%,color-mix(in_srgb,var(--color-caramel)_10%,transparent),transparent_70%)]"
         />
         <VetrinaTopBar />
-        <main className="relative min-h-[calc(100dvh-4rem)]">{children}</main>
+        <main className="relative min-h-dvh">{children}</main>
         <Footer />
       </div>
     </SiteShell>
@@ -73,10 +75,29 @@ function BotLogo() {
   );
 }
 
+/** Come la navbar delle pagine pubbliche: trasparente in cima, scura e sfocata scorrendo, sparisce e torna col mouse in alto. */
 function VetrinaTopBar() {
   const pathname = cleanPath(usePathname() || "/");
+  const { caps } = useDeviceFx();
+  const softBlur = caps.blur;
+  const headerRef = useRef<HTMLElement>(null);
+  const hidden = useAutoHideNav(headerRef, false);
+  const { scrollY } = useScroll();
+  const [scrolled, setScrolled] = useState(false);
+  useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 24));
   return (
-    <header className="sticky top-[var(--vc-view-as-h,0px)] z-40 border-b border-sand/10 bg-espresso/85 backdrop-blur-md">
+    <motion.header
+      ref={headerRef}
+      initial={{ y: -40, opacity: 0 }}
+      animate={{ y: hidden ? "-115%" : 0, opacity: 1 }}
+      transition={{ duration: hidden ? 0.45 : 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className={cn(
+        "fixed inset-x-0 top-[var(--vc-view-as-h,0px)] z-50 transition-[background-color,box-shadow,border-color,backdrop-filter] duration-500",
+        scrolled
+          ? cn("border-b border-sand/15 shadow-[0_12px_40px_-18px_rgba(0,0,0,0.85)]", softBlur ? "bg-roast/80 backdrop-blur-xl vc-ui-blur" : "bg-roast/95")
+          : cn("border-b border-transparent bg-transparent", softBlur ? "light:bg-roast/80 light:backdrop-blur-xl light:vc-ui-blur" : "light:bg-roast/95"),
+      )}
+    >
       {/* tre colonne: logo e lingua | schede (al centro esatto) | notifiche e account */}
       <div className="grid h-16 w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3 justify-self-start">
@@ -116,7 +137,7 @@ function VetrinaTopBar() {
           <VetrinaAccountMenu />
         </div>
       </div>
-    </header>
+    </motion.header>
   );
 }
 
@@ -285,7 +306,7 @@ export function VetrinaHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className="relative isolate overflow-hidden px-6 pb-14 pt-14 sm:pt-20">
+    <header className="relative isolate overflow-hidden px-6 pb-14 pt-28 sm:pt-36">
       <VetrinaHeroBg />
       <motion.div
         initial={{ opacity: 0, y: 14 }}

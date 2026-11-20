@@ -53,7 +53,7 @@ export function VetrinaLanding() {
 
   return (
     <>
-      <header className="relative isolate overflow-hidden px-6 pb-16 pt-14 text-center sm:pt-20">
+      <header className="relative isolate overflow-hidden px-6 pb-16 pt-28 text-center sm:pt-36">
         <VetrinaHeroBg />
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }} className="relative mx-auto max-w-4xl">
           <p className="inline-flex items-center gap-2 rounded-full bg-crema/6 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-caramel ring-1 ring-sand/15">

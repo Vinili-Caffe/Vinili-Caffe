@@ -163,7 +163,7 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
   return (
     <>
       {/* ─── intestazione ─── */}
-      <header className="relative isolate overflow-hidden px-6 pb-16 pt-14 sm:pt-20">
+      <header className="relative isolate overflow-hidden px-6 pb-16 pt-28 sm:pt-36">
         <VetrinaHeroBg />
         <motion.div
           initial={{ opacity: 0, y: 16 }}

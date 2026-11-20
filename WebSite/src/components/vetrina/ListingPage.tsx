@@ -100,7 +100,7 @@ export function ListingPage() {
   if (slug === null || (slug && !listing && !err)) {
     return (
       <>
-        <div className="h-80 animate-pulse bg-roast/60" />
+        <div className="h-96 animate-pulse bg-roast/60" />
         <div className="mx-auto mt-8 grid max-w-6xl gap-6 px-6 lg:grid-cols-[1fr_20rem]">
           <div className="h-80 animate-pulse rounded-3xl bg-roast/50" />
           <div className="h-80 animate-pulse rounded-3xl bg-roast/50" />
@@ -170,8 +170,24 @@ export function ListingPage() {
   return (
     <>
       {/* ─── copertina ─── */}
-      <header className="relative isolate overflow-hidden pb-10 pt-10 sm:pt-14">
-        <VetrinaHeroBg />
+      <header className="relative isolate overflow-hidden pb-10 pt-24 sm:pt-28">
+        {l.bannerUrl ? (
+          <div className="absolute inset-0 -z-10">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={l.bannerUrl} alt="" className="size-full object-cover opacity-70" />
+            <div
+              className="absolute inset-0"
+              style={{
+                background: [
+                  `radial-gradient(ellipse 90% 45% at 50% 0%, ${accent}33, transparent 55%)`,
+                  "linear-gradient(to bottom, rgba(14,9,6,0.35) 0%, rgba(14,9,6,0.7) 45%, rgba(14,9,6,0.92) 80%, var(--color-espresso) 100%)",
+                ].join(", "),
+              }}
+            />
+          </div>
+        ) : (
+          <VetrinaHeroBg />
+        )}
         <div className="mx-auto max-w-6xl px-6">
           {/* stessa ricerca degli elenchi: porta all'elenco con i filtri scelti */}
           <VetrinaSearch
@@ -187,21 +203,11 @@ export function ListingPage() {
           <SmartLink href={page(l.kind === "bot" ? "/vetrina/bot/" : "/vetrina/server/")} className="inline-flex items-center gap-1.5 text-sm text-crema/60 hover:text-crema">
             <ArrowLeft className="size-4" /> {l.kind === "bot" ? "Tutti i bot" : "Tutti i server"}
           </SmartLink>
-          {/* copertina della scheda: il banner, o il suo colore */}
-          <div
-            className="mt-5 h-36 overflow-hidden rounded-[1.75rem] ring-1 ring-sand/15 sm:h-48"
-            style={l.bannerUrl ? undefined : { background: `radial-gradient(70% 120% at 15% 0%, ${accent}cc, transparent 60%), radial-gradient(60% 100% at 100% 100%, ${accent}55, transparent 60%), #1a110c` }}
-          >
-            {l.bannerUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={l.bannerUrl} alt="" className="size-full object-cover" />
-            ) : null}
-          </div>
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="-mt-16 flex flex-col gap-6 px-2 sm:-mt-20 sm:flex-row sm:items-end sm:px-6"
+            className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-end"
           >
             <div
               className="relative size-32 shrink-0 overflow-hidden rounded-[2rem] shadow-[0_30px_60px_-25px_rgba(0,0,0,0.9)] ring-4 ring-espresso/80 sm:size-40"
