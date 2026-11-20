@@ -29,7 +29,10 @@ export type BoardListing = {
   bannerUrl: string;
   iconUrl: string;
   nsfw: boolean;
-  features: string[];
+  /** solo nella scheda completa (in elenco è vuoto) */
+  features: ListingFeatures | string[];
+  socials?: Partial<Record<SocialKey, string>>;
+  stats?: ListingStats;
   score: number;
   votes30d: number;
   votesMonth: number;
@@ -42,6 +45,28 @@ export type BoardListing = {
   updatedAt: string | null;
   moderation?: { notes: string; reviewedBy: string; reviewedAt: string | null; rejectReason: string };
 };
+
+export type SocialKey = "youtube" | "twitch" | "instagram" | "tiktok" | "x" | "github" | "website";
+
+export type ListingFeatures = {
+  paidTier?: "paid" | "free";
+  paidFeaturesAvailable?: boolean;
+  acceptsPartnerships?: boolean;
+  requireVerification?: boolean;
+};
+
+export type ListingStats = {
+  members?: number;
+  name?: string;
+  guildTag?: string;
+  guildTagBadgeUrl?: string;
+  guildTagBadgeColor?: string;
+  refreshedAt?: string;
+};
+
+export function listingFeatures(l: BoardListing): ListingFeatures {
+  return l.features && !Array.isArray(l.features) ? l.features : {};
+}
 
 export type BoardsConfig = {
   ok: boolean;
@@ -216,6 +241,10 @@ export type CreateListingBody = {
   botInviteUrl?: string;
   siteUrl?: string;
   nsfw?: boolean;
+  socials?: Partial<Record<SocialKey, string>>;
+  features?: ListingFeatures;
+  accent?: string;
+  visitorNotes?: string;
   submit?: boolean;
 };
 
@@ -362,3 +391,92 @@ export const SORTS: { id: BoardSort; label: string }[] = [
   { id: "bumps", label: "Riposizionate" },
   { id: "reviews", label: "Stelle" },
 ];
+
+/* ── recensioni ── */
+
+export type ReviewSort = "relevant" | "newest" | "highest";
+
+export type BoardReview = {
+  id: string;
+  listingId: string;
+  userId: string;
+  rating: number;
+  content: string;
+  status: string;
+  authorName: string;
+  authorAvatarUrl: string;
+  likeCount: number;
+  likedByMe: boolean;
+  createdAt: string | null;
+  reply: { content: string; at: string | null; authorId: string } | null;
+};
+
+export type ReviewsPage = {
+  ratingAvg: number;
+  reviewsCount: number;
+  distribution: Record<string, number> | number[];
+  reviews: BoardReview[];
+  page: number;
+  perPage: number;
+  totalPages: number;
+  mine: BoardReview | null;
+  canReview: boolean;
+  isOwner: boolean;
+  canReply: boolean;
+};
+
+export async function loadReviews(token: string | null | undefined, listingId: string, sort: ReviewSort = "relevant", pageNum = 1) {
+  const p = new URLSearchParams({ sort, page: String(pageNum), perPage: "6" });
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(listingId)}/reviews?${p}`, { headers: auth(token), cache: "no-store" });
+  return parse<ReviewsPage>(r);
+}
+
+export async function createReview(token: string, listingId: string, rating: number, content: string) {
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(listingId)}/reviews`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ rating, content }),
+  });
+  return parse<{ review?: BoardReview; message?: string }>(r);
+}
+
+export async function likeReview(token: string, reviewId: string) {
+  const r = await fetch(`${BASE}/reviews/${encodeURIComponent(reviewId)}/like`, { method: "POST", headers: auth(token) });
+  return parse<{ likeCount?: number; liked?: boolean; review?: BoardReview }>(r);
+}
+
+export async function reportReview(token: string, reviewId: string, reason: string) {
+  const r = await fetch(`${BASE}/reviews/${encodeURIComponent(reviewId)}/report`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+  return parse<{ message?: string }>(r);
+}
+
+export async function replyReview(token: string, reviewId: string, content: string, clear = false) {
+  const r = await fetch(`${BASE}/reviews/${encodeURIComponent(reviewId)}/reply`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ content, clear }),
+  });
+  return parse<{ review?: BoardReview; message?: string }>(r);
+}
+
+/** Distribuzione stelle 1…5 da array o mappa. */
+export function starDistribution(d: ReviewsPage["distribution"] | undefined): number[] {
+  const out = [0, 0, 0, 0, 0];
+  if (Array.isArray(d)) d.slice(0, 5).forEach((n, i) => (out[i] = Number(n) || 0));
+  else if (d && typeof d === "object") for (let k = 1; k <= 5; k += 1) out[k - 1] = Number((d as Record<string, number>)[k] ?? (d as Record<string, number>)[String(k)]) || 0;
+  return out;
+}
+
+export const SOCIAL_LABELS: Record<SocialKey, string> = {
+  website: "Sito",
+  youtube: "YouTube",
+  twitch: "Twitch",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+  x: "X",
+  github: "GitHub",
+};

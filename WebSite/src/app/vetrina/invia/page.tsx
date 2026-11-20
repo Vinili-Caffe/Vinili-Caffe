@@ -3,7 +3,7 @@ import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { PlusCircle } from "lucide-react";
-import { PageHero } from "@/components/PageHero";
+import { VetrinaHeader } from "@/components/vetrina/VetrinaChrome";
 import { SiteShell } from "@/components/SiteShell";
 
 const SubmitListing = dynamic(
@@ -23,14 +23,10 @@ export default function Page() {
         title="Vetrina · Invia"
         description="Invia una scheda bot o server alla Vetrina."
       />
-      <PageHero
-        icon={<PlusCircle />}
-        kicker="Vetrina"
-        title="Invia"
-        accent="una scheda"
-        text="Compila la scheda del tuo server o bot e mandala in revisione."
-      />
-      <SubmitListing />
+      <VetrinaHeader icon={<PlusCircle />} kicker="Vetrina" title="Metti in" accent="vetrina" text="Presenta il tuo server o il tuo bot: compila la scheda, la controlliamo e la mettiamo sugli scaffali." />
+      <div className="pt-10">
+        <SubmitListing />
+      </div>
     </SiteShell>
   );
 }

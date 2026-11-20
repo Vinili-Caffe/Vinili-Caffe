@@ -3,7 +3,7 @@ import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { ScrollText } from "lucide-react";
-import { PageHero } from "@/components/PageHero";
+import { VetrinaHeader } from "@/components/vetrina/VetrinaChrome";
 import { SiteShell } from "@/components/SiteShell";
 
 const Guidelines = dynamic(
@@ -23,14 +23,10 @@ export default function Page() {
         title="Vetrina · Linee guida recensioni"
         description="Linee guida per le recensioni in Vetrina."
       />
-      <PageHero
-        icon={<ScrollText />}
-        kicker="Vetrina"
-        title="Linee guida"
-        accent="recensioni"
-        text="Regole per le recensioni sulle schede della Vetrina."
-      />
-      <Guidelines />
+      <VetrinaHeader icon={<ScrollText />} kicker="Vetrina" title="Linee guida" accent="recensioni" text="Come scrivere una recensione utile, cosa è vietato e come gestiamo le segnalazioni." />
+      <div className="pt-10">
+        <Guidelines />
+      </div>
     </SiteShell>
   );
 }
