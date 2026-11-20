@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Bot, Disc3, Hash, Info, Languages, LayoutGrid, LogIn, Search, Server, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { Bot, ChevronLeft, ChevronRight, Disc3, Hash, Info, Languages, LayoutGrid, LogIn, Search, Server, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   SORTS,
@@ -315,14 +315,14 @@ export function VetrinaHome({ initialKind = "" }: { initialKind?: BoardKind | ""
                 value={f.category ? [f.category] : []}
                 onChange={(v) => set({ category: v[0] || "" })}
               />
-              {/* le più usate sugli scaffali: una sola riga che scorre, niente muro */}
-              <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-0.5 [mask-image:linear-gradient(90deg,#000_85%,transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {/* le più usate sugli scaffali: una sola riga che scorre (frecce, rotella, trascinamento) */}
+              <ScrollRow className="min-w-0 flex-1">
                 {topCats.map((c) => (
                   <CatChip key={c} active={f.category === c} onClick={() => set({ category: f.category === c ? "" : c })}>
                     {labelOf(cfg.categoryLabels, c)}
                   </CatChip>
                 ))}
-              </div>
+              </ScrollRow>
             </div>
           ) : null}
 
@@ -462,6 +462,62 @@ function SectionLabel({ kicker, title }: { kicker: string; title: string }) {
     <div className="mb-5">
       <p className="font-script text-2xl text-caramel/85">{kicker}</p>
       <h2 className="font-display text-3xl font-semibold sm:text-4xl">{title}</h2>
+    </div>
+  );
+}
+
+/** Riga orizzontale: frecce ai lati solo quando c'è altro da vedere, e la rotella del mouse scorre di lato. */
+function ScrollRow({ children, className }: { children: React.ReactNode; className?: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [edge, setEdge] = useState({ left: false, right: false });
+  const sync = useCallback(() => {
+    const el = box.current;
+    if (!el) return;
+    setEdge({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+  }, []);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      el.scrollBy({ left: e.deltaY, behavior: "auto" });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("scroll", sync, { passive: true });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("scroll", sync);
+    };
+  }, [sync, children]);
+  const go = (dir: number) => box.current?.scrollBy({ left: dir * Math.max(200, (box.current?.clientWidth || 300) * 0.7), behavior: "smooth" });
+  return (
+    <div className={cn("relative", className)}>
+      <div
+        ref={box}
+        data-lenis-prevent
+        className="flex gap-2 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{
+          maskImage: `linear-gradient(90deg, ${edge.left ? "transparent, #000 3rem" : "#000"}, ${edge.right ? "#000 calc(100% - 3rem), transparent" : "#000"})`,
+          WebkitMaskImage: `linear-gradient(90deg, ${edge.left ? "transparent, #000 3rem" : "#000"}, ${edge.right ? "#000 calc(100% - 3rem), transparent" : "#000"})`,
+        }}
+      >
+        {children}
+      </div>
+      {edge.left && (
+        <button type="button" aria-label="Scorri a sinistra" onClick={() => go(-1)} className="absolute left-0 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-crema text-ink shadow-lg transition hover:scale-105">
+          <ChevronLeft className="size-5" />
+        </button>
+      )}
+      {edge.right && (
+        <button type="button" aria-label="Scorri a destra" onClick={() => go(1)} className="absolute right-0 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-crema text-ink shadow-lg transition hover:scale-105">
+          <ChevronRight className="size-5" />
+        </button>
+      )}
     </div>
   );
 }

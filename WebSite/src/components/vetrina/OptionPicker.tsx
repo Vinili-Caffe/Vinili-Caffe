@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -46,12 +47,41 @@ export function OptionPicker({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
+  const [pos, setPos] = useState<CSSProperties | null>(null);
+
+  /* il pannello vive in document.body (fixed): nessun contenitore con overflow nascosto può tagliarlo */
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const b = trigger.current?.getBoundingClientRect();
+      if (!b) return;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const width = Math.min(416, vw - 24);
+      let left = align === "right" ? b.right - width : b.left;
+      left = Math.max(12, Math.min(left, vw - width - 12));
+      const below = vh - b.bottom;
+      const up = below < 340 && b.top > below;
+      setPos(up ? { position: "fixed", left, width, bottom: vh - b.top + 8 } : { position: "fixed", left, width, top: b.bottom + 8 });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, align]);
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (root.current?.contains(t) || panel.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("pointerdown", onDown);
@@ -89,6 +119,7 @@ export function OptionPicker({
   return (
     <div ref={root} className={cn("relative", className)}>
       <button
+        ref={trigger}
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
@@ -115,17 +146,19 @@ export function OptionPicker({
         </div>
       )}
 
+      {typeof document !== "undefined" &&
+        createPortal(
       <AnimatePresence>
-        {open && (
+        {open && pos && (
           <motion.div
+            ref={panel}
             initial={{ opacity: 0, y: -6, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.16 }}
-            className={cn(
-              "absolute top-[calc(100%+0.5rem)] z-40 w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-roast/95 shadow-[0_30px_70px_-25px_rgba(0,0,0,0.95)] ring-1 ring-sand/20 backdrop-blur-xl",
-              align === "right" ? "right-0" : "left-0",
-            )}
+            style={pos}
+            className="z-[80] overflow-hidden rounded-2xl bg-roast/95 shadow-[0_30px_70px_-25px_rgba(0,0,0,0.95)] ring-1 ring-sand/20 backdrop-blur-xl"
+            data-lenis-prevent
           >
             <label className="flex items-center gap-2 border-b border-sand/10 px-4 py-3">
               <Search className="size-4 shrink-0 text-crema/40" />
@@ -165,7 +198,9 @@ export function OptionPicker({
             )}
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+          document.body,
+        )}
     </div>
   );
 }

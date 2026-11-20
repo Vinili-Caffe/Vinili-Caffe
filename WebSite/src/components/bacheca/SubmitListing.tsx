@@ -19,7 +19,6 @@ import {
   Pencil,
   Plus,
   RefreshCcw,
-  RotateCcw,
   Save,
   Send,
   Server,
@@ -60,6 +59,7 @@ import { SmartLink } from "../SmartLink";
 import { DiscordContent } from "../discord/DiscordContent";
 import { ListingCard } from "@/components/vetrina/ListingCard";
 import { OptionPicker } from "@/components/vetrina/OptionPicker";
+import { ColorPicker } from "@/components/ui/color-picker";
 
 type Guild = { id: string; name: string; iconUrl?: string; alreadyListed?: boolean; botPresent?: boolean; hasDraft?: boolean };
 
@@ -853,23 +853,14 @@ export function SubmitListing() {
                       style={{ background: c }}
                     />
                   ))}
-                  <label className="relative size-9 cursor-pointer overflow-hidden rounded-full bg-[conic-gradient(#f87171,#fbbf24,#4ade80,#38bdf8,#a78bfa,#f472b6,#f87171)] ring-2 ring-sand/20" title="Scegli un colore">
-                    <input type="color" value={HEX.test(form.accent) ? form.accent : DEFAULT_ACCENT} onChange={(e) => set({ accent: e.target.value })} className="absolute inset-0 cursor-pointer opacity-0" />
-                  </label>
-                  <input
-                    value={form.accent}
-                    onChange={(e) => {
-                      const v = e.target.value.trim();
-                      set({ accent: v.startsWith("#") ? v : `#${v}` });
-                    }}
-                    maxLength={7}
-                    className="w-24 rounded-xl bg-espresso/60 px-3 py-2 font-mono text-sm text-crema outline-none ring-1 ring-sand/15 focus:ring-ember/45"
+                  {/* selettore del sito (come nella dashboard), non la tavolozza del browser */}
+                  <ColorPicker
+                    value={HEX.test(form.accent) ? form.accent : DEFAULT_ACCENT}
+                    defaultHex={DEFAULT_ACCENT}
+                    showReset
+                    ariaLabel="Colore della scheda"
+                    onChange={(hex) => set({ accent: hex || DEFAULT_ACCENT })}
                   />
-                  {form.accent.toLowerCase() !== DEFAULT_ACCENT && (
-                    <button type="button" onClick={() => set({ accent: DEFAULT_ACCENT })} className="inline-flex items-center gap-1 text-sm text-crema/50 hover:text-crema">
-                      <RotateCcw className="size-3.5" /> Predefinito
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
