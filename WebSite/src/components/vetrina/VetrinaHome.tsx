@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Bot, ChevronLeft, ChevronRight, Disc3, Hash, Info, Languages, LayoutGrid, LogIn, Search, Server, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { ArrowDownUp, Bot, ChevronLeft, ChevronRight, Disc3, Hash, Info, Languages, LayoutGrid, LogIn, Search, Server, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   SORTS,
@@ -21,7 +21,7 @@ import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { ListingCard, ListingCardSkeleton, Spotlight } from "./ListingCard";
 import { OptionPicker } from "./OptionPicker";
-import { VetrinaNav } from "./VetrinaChrome";
+import { VetrinaLanding } from "./VetrinaLanding";
 
 const PER_PAGE = 24;
 
@@ -65,12 +65,16 @@ const HERO: Record<string, { accent: string; text: string }> = {
   bot: { accent: "dei bot", text: "Musica, moderazione, giochi, utilità: i bot che rendono vivo un server, provati e recensiti dalla community." },
 };
 
-/** Vetrina: directory pubblica di server e bot. */
+/** Vetrina: /vetrina/ è l'ingresso con le due porte, /vetrina/server/ e /vetrina/bot/ gli elenchi (mai mischiati). */
 export function VetrinaHome({ initialKind = "" }: { initialKind?: BoardKind | "" }) {
+  if (!initialKind) return <VetrinaLanding />;
+  return <KindBrowse kind={initialKind} />;
+}
+
+function KindBrowse({ kind }: { kind: BoardKind }) {
   const { ready, token, login } = useAuth();
   const reduce = useReducedMotionSafe();
   const [cfg, setCfg] = useState<BoardsConfig | null>(null);
-  const [kind, setKind] = useState<BoardKind | "">(initialKind);
   const [f, setF] = useState<Filters>(EMPTY);
   const [draftQ, setDraftQ] = useState("");
   const [items, setItems] = useState<BoardListing[]>([]);
@@ -169,11 +173,11 @@ export function VetrinaHome({ initialKind = "" }: { initialKind?: BoardKind | ""
   return (
     <>
       {/* ─── intestazione ─── */}
-      <header className="relative overflow-hidden px-6 pb-14 pt-32 sm:pt-40">
+      <header className="relative overflow-hidden px-6 pb-12 pt-12 sm:pt-16">
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(55%_65%_at_50%_0%,rgba(217,154,91,0.26),transparent_70%),radial-gradient(40%_50%_at_90%_30%,rgba(240,180,110,0.08),transparent_70%)]" />
         {/* nastro di icone che scorre dietro al titolo */}
         {ribbon.length >= 6 && (
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-24 opacity-[0.16] [mask-image:linear-gradient(90deg,transparent,#000_15%,#000_85%,transparent)]">
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-6 opacity-[0.16] [mask-image:linear-gradient(90deg,transparent,#000_15%,#000_85%,transparent)]">
             <motion.div
               className="flex w-max gap-6"
               animate={reduce ? undefined : { x: ["0%", "-50%"] }}
@@ -246,67 +250,13 @@ export function VetrinaHome({ initialKind = "" }: { initialKind?: BoardKind | ""
         </motion.div>
       </header>
 
-      <VetrinaNav />
-
-      <section className="mx-auto max-w-6xl px-4 pb-28 pt-10 sm:px-6">
+      <section className="mx-auto max-w-6xl px-4 pb-28 pt-4 sm:px-6">
         {/* ─── filtri ─── */}
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            {!initialKind && (
-              <div className="inline-flex rounded-full bg-roast p-1 ring-1 ring-sand/15">
-                {([
-                  ["", "Tutto", Sparkles],
-                  ["server", "Server", Server],
-                  ["bot", "Bot", Bot],
-                ] as const).map(([k, label, Icon]) => (
-                  <button
-                    key={k || "all"}
-                    type="button"
-                    aria-pressed={kind === k}
-                    onClick={() => setKind(k)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
-                      kind === k ? "bg-crema text-ink" : "text-crema/55 hover:text-crema",
-                    )}
-                  >
-                    <Icon className="size-3.5" /> {label}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="flex flex-wrap gap-1.5">
-              {SORTS.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  aria-pressed={f.sort === s.id}
-                  onClick={() => set({ sort: s.id })}
-                  className={cn(
-                    "rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                    f.sort === s.id ? "bg-caramel/20 text-ember ring-1 ring-caramel/40" : "text-crema/50 hover:text-crema",
-                  )}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              aria-expanded={showMore}
-              onClick={() => setShowMore((v) => !v)}
-              className={cn(
-                "ml-auto inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold ring-1 transition-colors",
-                showMore || f.tag || f.locale ? "bg-crema/10 text-crema ring-sand/30" : "text-crema/55 ring-sand/15 hover:text-crema",
-              )}
-            >
-              <SlidersHorizontal className="size-4" /> Lingua e tag
-            </button>
-          </div>
-
-          {cfg?.categories?.length ? (
-            <div className="flex items-center gap-2">
+            {cfg?.categories?.length ? (
               <OptionPicker
-                className="w-48 shrink-0 sm:w-56"
+                className="w-full shrink-0 sm:w-56"
                 icon={<LayoutGrid />}
                 placeholder="Tutte le categorie"
                 allLabel="Tutte le categorie"
@@ -315,16 +265,40 @@ export function VetrinaHome({ initialKind = "" }: { initialKind?: BoardKind | ""
                 value={f.category ? [f.category] : []}
                 onChange={(v) => set({ category: v[0] || "" })}
               />
-              {/* le più usate sugli scaffali: una sola riga che scorre (frecce, rotella, trascinamento) */}
-              <ScrollRow className="min-w-0 flex-1">
-                {topCats.map((c) => (
-                  <CatChip key={c} active={f.category === c} onClick={() => set({ category: f.category === c ? "" : c })}>
-                    {labelOf(cfg.categoryLabels, c)}
-                  </CatChip>
-                ))}
-              </ScrollRow>
+            ) : null}
+            {/* le più usate sugli scaffali: una sola riga che scorre (frecce e rotella) */}
+            <ScrollRow className="order-last min-w-0 basis-full lg:order-none lg:basis-0 lg:flex-1">
+              {topCats.map((c) => (
+                <CatChip key={c} active={f.category === c} onClick={() => set({ category: f.category === c ? "" : c })}>
+                  {cfg ? labelOf(cfg.categoryLabels, c) : c}
+                </CatChip>
+              ))}
+            </ScrollRow>
+            <div className="ml-auto flex items-center gap-2">
+              <OptionPicker
+                neutral
+                align="right"
+                className="w-48"
+                icon={<ArrowDownUp />}
+                placeholder="Ordina"
+                searchPlaceholder="Ordina per…"
+                options={SORTS.map((o) => ({ value: o.id, label: o.label }))}
+                value={[f.sort]}
+                onChange={(v) => set({ sort: (v[0] as BoardSort) || "score" })}
+              />
+              <button
+                type="button"
+                aria-expanded={showMore}
+                onClick={() => setShowMore((v) => !v)}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold ring-1 transition-colors",
+                  showMore || f.tag || f.locale ? "bg-crema/10 text-crema ring-sand/30" : "bg-espresso/60 text-crema/60 ring-sand/15 hover:text-crema",
+                )}
+              >
+                <SlidersHorizontal className="size-4" /> Lingua e tag
+              </button>
             </div>
-          ) : null}
+          </div>
 
           <AnimatePresence initial={false}>
             {showMore && (

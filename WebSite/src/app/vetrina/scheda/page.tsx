@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
-import { SiteShell } from "@/components/SiteShell";
-import { VetrinaGate } from "@/components/vetrina/VetrinaChrome";
+import { VetrinaGate, VetrinaShell } from "@/components/vetrina/VetrinaChrome";
 
 const ListingPage = dynamic(() => import("@/components/vetrina/ListingPage").then((m) => m.ListingPage), { loading: () => null });
 
@@ -13,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function Page() {
   return (
-    <SiteShell>
+    <VetrinaShell>
       <DiscordComponentEmbed
         path="/vetrina/scheda/"
         title="Vetrina · Scheda"
@@ -22,6 +21,6 @@ export default function Page() {
       <VetrinaGate>
         <ListingPage />
       </VetrinaGate>
-    </SiteShell>
+    </VetrinaShell>
   );
 }

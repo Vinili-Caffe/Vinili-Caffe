@@ -30,6 +30,7 @@ export function OptionPicker({
   allLabel,
   className,
   align = "left",
+  neutral = false,
 }: {
   options: PickerOption[];
   value: string[];
@@ -43,6 +44,8 @@ export function OptionPicker({
   allLabel?: string;
   className?: string;
   align?: "left" | "right";
+  /** niente evidenziazione quando c'è una scelta (es. l'ordinamento) */
+  neutral?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -125,7 +128,7 @@ export function OptionPicker({
         onClick={() => setOpen((o) => !o)}
         className={cn(
           "flex w-full items-center gap-2 rounded-2xl px-4 py-2.5 text-left text-sm font-semibold ring-1 transition-colors [&>svg:first-child]:size-4 [&>svg:first-child]:shrink-0",
-          value.length && !multiple ? "bg-ember/15 text-ember ring-ember/40" : "bg-espresso/60 text-crema/70 ring-sand/15 hover:text-crema hover:ring-sand/30",
+          value.length && !multiple && !neutral ? "bg-ember/15 text-ember ring-ember/40" : "bg-espresso/60 text-crema/70 ring-sand/15 hover:text-crema hover:ring-sand/30",
         )}
       >
         {icon}

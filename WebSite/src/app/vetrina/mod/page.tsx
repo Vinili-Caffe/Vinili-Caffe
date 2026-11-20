@@ -3,8 +3,7 @@ import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Shield } from "lucide-react";
-import { VetrinaGate, VetrinaHeader } from "@/components/vetrina/VetrinaChrome";
-import { SiteShell } from "@/components/SiteShell";
+import { VetrinaGate, VetrinaHeader, VetrinaShell } from "@/components/vetrina/VetrinaChrome";
 
 const ModQueue = dynamic(
   () => import("@/components/bacheca/ModQueue").then((m) => m.ModQueue),
@@ -17,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function Page() {
   return (
-    <SiteShell>
+    <VetrinaShell>
       <DiscordComponentEmbed
         path="/vetrina/mod/"
         title="Mod Vetrina"
@@ -29,6 +28,6 @@ export default function Page() {
           <ModQueue />
         </div>
       </VetrinaGate>
-    </SiteShell>
+    </VetrinaShell>
   );
 }

@@ -60,6 +60,7 @@ import { DiscordContent } from "../discord/DiscordContent";
 import { ListingCard } from "@/components/vetrina/ListingCard";
 import { OptionPicker } from "@/components/vetrina/OptionPicker";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { GlobalSaveBar, TrackUnsaved } from "@/components/dashboard/guild/bits";
 
 type Guild = { id: string; name: string; iconUrl?: string; alreadyListed?: boolean; botPresent?: boolean; hasDraft?: boolean };
 
@@ -196,11 +197,14 @@ export function SubmitListing() {
   const [descView, setDescView] = useState<"write" | "preview">("write");
   const [checks, setChecks] = useState<Record<string, Check>>({});
   const fileRef = useRef<HTMLInputElement>(null);
+  const [baseline, setBaseline] = useState(() => JSON.stringify(normalize(null)));
+  const dirty = !sent && JSON.stringify(bundle) !== baseline;
 
   const draft = useFormDraft("bacheca", bundle, (v) => setBundle(v), {
     storageKey: DRAFT_KEY,
     watch: true,
     debounceMs: 320,
+    notify: false,
     enabled: !editId,
     isEmpty: (d) => !d.form.discordId.trim() && !d.form.name.trim() && !d.form.tagline.trim() && !d.form.description.trim(),
   });
@@ -216,7 +220,9 @@ export function SubmitListing() {
     void loadMyListing(token, editId).then((r) => {
       if (!r.ok) return setErr(r.message);
       setEditingListing(r.data.listing);
-      setBundle(fromListing(r.data.listing));
+      const loaded = fromListing(r.data.listing);
+      setBundle(loaded);
+      setBaseline(JSON.stringify(loaded));
     });
   }, [ready, token, editId, setBundle]);
 
@@ -459,6 +465,7 @@ export function SubmitListing() {
       if (listing?.id) setSavedId(listing.id);
     }
     setBusy("");
+    setBaseline(JSON.stringify(bundle));
     if (!submit) {
       showToast("Bozza salvata nelle tue schede");
       return;
@@ -471,9 +478,17 @@ export function SubmitListing() {
   }
 
   const status = editing_listing?.status;
+  const liveListing = editing && (status === "approved" || status === "pending");
 
   return (
     <section className="mx-auto max-w-6xl px-4 pb-28 sm:px-6">
+      {/* come nella dashboard: barra in basso solo con modifiche non salvate */}
+      <TrackUnsaved
+        dirty={dirty && Boolean(form.discordId || form.tagline || form.description || form.name)}
+        onSave={() => save(Boolean(liveListing))}
+        onReset={() => setBundle(JSON.parse(baseline) as Bundle)}
+      />
+      <GlobalSaveBar />
       {editing && (
         <div className="mb-6 flex flex-wrap items-center gap-3 rounded-3xl bg-caramel/10 p-4 ring-1 ring-caramel/25">
           <Pencil className="size-5 text-ember" />
@@ -904,7 +919,7 @@ export function SubmitListing() {
         </div>
 
         {/* anteprima e invio */}
-        <aside className="space-y-5 lg:sticky lg:top-36 lg:self-start">
+        <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
           <p className="font-script text-2xl text-caramel/85">Così apparirà</p>
           <div className="pointer-events-none">
             <ListingCard listing={preview} cfg={cfg} />

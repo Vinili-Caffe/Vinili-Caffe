@@ -3,8 +3,7 @@ import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Library } from "lucide-react";
-import { VetrinaGate, VetrinaHeader } from "@/components/vetrina/VetrinaChrome";
-import { SiteShell } from "@/components/SiteShell";
+import { VetrinaGate, VetrinaHeader, VetrinaShell } from "@/components/vetrina/VetrinaChrome";
 
 const MyListings = dynamic(
   () => import("@/components/bacheca/MyListings").then((m) => m.MyListings),
@@ -17,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function Page() {
   return (
-    <SiteShell>
+    <VetrinaShell>
       <DiscordComponentEmbed
         path="/vetrina/le-mie/"
         title="Vetrina · Le mie schede"
@@ -29,6 +28,6 @@ export default function Page() {
           <MyListings />
         </div>
       </VetrinaGate>
-    </SiteShell>
+    </VetrinaShell>
   );
 }

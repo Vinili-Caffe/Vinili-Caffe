@@ -47,7 +47,6 @@ import { SmartLink } from "@/components/SmartLink";
 import { DiscordContent } from "@/components/discord/DiscordContent";
 import { Stars } from "./ListingCard";
 import { ListingReviews } from "./ListingReviews";
-import { VetrinaNav } from "./VetrinaChrome";
 
 function useSlug() {
   const [slug, setSlug] = useState<string | null>(null);
@@ -99,7 +98,7 @@ export function ListingPage() {
   if (slug === null || (slug && !listing && !err)) {
     return (
       <>
-        <div className="h-[26rem] animate-pulse bg-roast/60" />
+        <div className="h-80 animate-pulse bg-roast/60" />
         <div className="mx-auto mt-8 grid max-w-6xl gap-6 px-6 lg:grid-cols-[1fr_20rem]">
           <div className="h-80 animate-pulse rounded-3xl bg-roast/50" />
           <div className="h-80 animate-pulse rounded-3xl bg-roast/50" />
@@ -111,8 +110,6 @@ export function ListingPage() {
   if (!slug || err || !listing) {
     return (
       <>
-        <div className="pt-36" />
-        <VetrinaNav />
         <section className="mx-auto max-w-xl px-6 py-24 text-center">
           <p className="font-display text-5xl text-crema/85">Disco non trovato</p>
           <p className="mt-3 text-crema/55">{err || "Questa scheda non c’è, oppure non è (ancora) pubblica."}</p>
@@ -171,7 +168,7 @@ export function ListingPage() {
   return (
     <>
       {/* ─── copertina ─── */}
-      <header className="relative isolate overflow-hidden pb-10 pt-28 sm:pt-32">
+      <header className="relative isolate overflow-hidden pb-10 pt-8 sm:pt-10">
         <div className="absolute inset-0 -z-10">
           {l.bannerUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -259,8 +256,6 @@ export function ListingPage() {
         </div>
       </header>
 
-      <VetrinaNav />
-
       {/* ─── numeri ─── */}
       <div className="mx-auto mt-8 grid max-w-6xl grid-cols-2 gap-3 px-6 sm:grid-cols-4">
         {l.kind !== "bot" && members > 0 ? (
@@ -297,7 +292,7 @@ export function ListingPage() {
           <ListingReviews listing={l} onAggregate={(avg, count) => setListing((prev) => (prev ? { ...prev, ratingAvg: avg, reviewsCount: count } : prev))} />
         </div>
 
-        <aside className="space-y-6 lg:sticky lg:top-36 lg:self-start">
+        <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
           <Panel title="Informazioni">
             <dl className="space-y-4 text-sm">
               {l.categories.length > 0 && (

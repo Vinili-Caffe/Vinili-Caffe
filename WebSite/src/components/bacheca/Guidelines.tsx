@@ -47,7 +47,7 @@ export function Guidelines() {
   return (
     <section className="mx-auto max-w-6xl px-4 pb-28 sm:px-6">
       <div className="grid gap-8 lg:grid-cols-[17rem_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-36 lg:self-start">
+        <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="rounded-3xl bg-roast/80 p-5 ring-1 ring-sand/12">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">In breve</p>
             <ol className="space-y-1">
@@ -80,7 +80,7 @@ export function Guidelines() {
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(i, 8) * 0.04, duration: 0.45 }}
-                className="scroll-mt-36 rounded-3xl bg-roast/80 p-6 ring-1 ring-sand/12 sm:p-7"
+                className="scroll-mt-24 rounded-3xl bg-roast/80 p-6 ring-1 ring-sand/12 sm:p-7"
               >
                 <div className="flex items-start gap-4">
                   <span className="relative flex size-12 shrink-0 items-center justify-center rounded-2xl bg-caramel/15 text-ember ring-1 ring-caramel/30">
