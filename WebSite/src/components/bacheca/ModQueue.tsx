@@ -64,7 +64,7 @@ export function ModQueue() {
     );
   }
 
-  async function decide(item: BoardListing, decision: "approve" | "reject" | "suspend") {
+  async function decide(item: BoardListing, decision: "approve" | "reject" | "suspend", notes = "") {
     if (!token) return;
     let reason = "";
     if (decision !== "approve") {
@@ -78,7 +78,7 @@ export function ModQueue() {
       if (reason.trim().length < 3) return;
     }
     setBusy(item.id + decision);
-    const r = await modDecide(token, item.id, decision, reason.trim());
+    const r = await modDecide(token, item.id, decision, reason.trim(), notes.trim());
     setBusy("");
     if (!r.ok) return showToast(r.message, true);
     showToast(r.data.message || (decision === "approve" ? `“${item.name}” è in vetrina` : decision === "reject" ? "Scheda rifiutata" : "Scheda sospesa"));
@@ -143,9 +143,12 @@ function ModCard({
   cfg: BoardsConfig | null;
   tab: Tab;
   busy: string;
-  onDecide: (item: BoardListing, d: "approve" | "reject" | "suspend") => void;
+  onDecide: (item: BoardListing, d: "approve" | "reject" | "suspend", notes?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const mod = item.moderation;
+  /* nota interna: la vede solo lo staff, parte con la decisione */
+  const [notes, setNotes] = useState(mod?.notes || "");
   const accent = /^#[0-9a-f]{6}$/i.test(item.accent || "") ? item.accent : "#d99a5b";
   const invite = item.kind === "bot" ? item.botInviteUrl : item.inviteUrl;
   const KindIcon = item.kind === "bot" ? Bot : Server;
@@ -202,6 +205,13 @@ function ModCard({
 
         {reason && tab !== "pending" && <p className="mt-4 rounded-xl bg-ember/10 p-3 text-sm text-ember ring-1 ring-ember/20">Motivo: {reason}</p>}
 
+        {mod?.reviewedAt ? (
+          <p className="mt-3 text-xs text-crema/45">
+            Ultima revisione {timeAgo(mod.reviewedAt)}
+            {mod.reviewedBy ? <span className="font-mono text-crema/35"> · staff {mod.reviewedBy}</span> : null}
+          </p>
+        ) : null}
+
         <button type="button" onClick={() => setOpen((v) => !v)} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-crema/55 hover:text-crema">
           <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} /> {open ? "Nascondi descrizione" : "Leggi la descrizione"}
         </button>
@@ -216,12 +226,23 @@ function ModCard({
           )}
         </AnimatePresence>
 
-        <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-sand/10 pt-4">
+        <label className="mt-4 block">
+          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-crema/45">Nota interna · solo staff</span>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value.slice(0, 1000))}
+            rows={2}
+            placeholder="Appunti per gli altri dello staff (il proprietario non la vede)"
+            className="mt-1.5 w-full resize-y rounded-xl bg-espresso/60 px-3 py-2 text-sm text-crema/85 ring-1 ring-sand/15 outline-none placeholder:text-crema/30 focus:ring-caramel/50"
+          />
+        </label>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-sand/10 pt-4">
           {tab !== "approved" && (
             <button
               type="button"
               disabled={!!busy}
-              onClick={() => onDecide(item, "approve")}
+              onClick={() => onDecide(item, "approve", notes)}
               className="inline-flex items-center gap-1.5 rounded-full bg-[#5f9a6a]/25 px-4 py-2 text-sm font-bold text-[#a7d8b0] ring-1 ring-[#5f9a6a]/45 transition hover:bg-[#5f9a6a]/35 disabled:opacity-50"
             >
               <Check className="size-4" /> Approva
@@ -231,7 +252,7 @@ function ModCard({
             <button
               type="button"
               disabled={!!busy}
-              onClick={() => onDecide(item, "reject")}
+              onClick={() => onDecide(item, "reject", notes)}
               className="inline-flex items-center gap-1.5 rounded-full bg-ember/15 px-4 py-2 text-sm font-bold text-ember ring-1 ring-ember/30 transition hover:bg-ember/25 disabled:opacity-50"
             >
               <X className="size-4" /> Rifiuta
@@ -241,7 +262,7 @@ function ModCard({
             <button
               type="button"
               disabled={!!busy}
-              onClick={() => onDecide(item, "suspend")}
+              onClick={() => onDecide(item, "suspend", notes)}
               className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 px-4 py-2 text-sm font-semibold text-crema/70 ring-1 ring-sand/20 transition hover:text-crema disabled:opacity-50"
             >
               <Pause className="size-4" /> Sospendi

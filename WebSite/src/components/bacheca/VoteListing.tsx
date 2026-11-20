@@ -9,12 +9,13 @@ import {
   loadBoardsConfig,
   loadListing,
   progressVoteSession,
+  setVoteReminder,
   startVoteSession,
   type BoardListing,
   type VoteSession,
 } from "@/lib/boards";
 import { page } from "@/lib/site";
-import { Checkbox } from "@/components/ui";
+import { Checkbox, showToast } from "@/components/ui";
 import { Turnstile } from "@/components/ui/Turnstile";
 import { SmartLink } from "../SmartLink";
 import { cn } from "@/lib/cn";
@@ -41,6 +42,8 @@ export function VoteListing() {
   const [step, setStep] = useState<"idle" | "countdown" | "ad" | "ready" | "done">("idle");
   const [left, setLeft] = useState(0);
   const [remind, setRemind] = useState(true);
+  const [remindAt, setRemindAt] = useState<string | null>(null);
+  const [remindBusy, setRemindBusy] = useState(false);
   const [captcha, setCaptcha] = useState("");
   const [captchaKey, setCaptchaKey] = useState(0);
   const [cfgSiteKey, setCfgSiteKey] = useState("");
@@ -153,6 +156,7 @@ export function VoteListing() {
       setCaptchaKey((n) => n + 1);
       return;
     }
+    setRemindAt(r.data.remindAt || null);
     setMsg(r.data.message || "Voto registrato. Grazie!");
     setStep("done");
     if (r.data.listing) setListing(r.data.listing);
@@ -311,6 +315,31 @@ export function VoteListing() {
               </span>
               <p className="mt-5 font-display text-3xl font-semibold">Voto registrato!</p>
               <p className="mt-2 text-crema/60">{msg || "Grazie: hai dato una spinta a questa scheda."}</p>
+              {/* il promemoria si può cambiare anche dopo aver votato */}
+              <label className="mx-auto mt-5 flex max-w-sm items-center gap-3 rounded-2xl bg-espresso/50 p-4 text-left text-sm text-crema/75 ring-1 ring-sand/12">
+                <Checkbox
+                  checked={remind}
+                  disabled={remindBusy}
+                  onChange={async (next) => {
+                    if (!token || !listingId) return;
+                    setRemindBusy(true);
+                    const r = await setVoteReminder(token, listingId, next);
+                    setRemindBusy(false);
+                    if (!r.ok) return showToast(r.message, true);
+                    setRemind(r.data.enabled);
+                    setRemindAt(r.data.remindAt);
+                    showToast(r.data.enabled ? "Ti avviso quando puoi rivotare" : "Promemoria tolto");
+                  }}
+                />
+                <span>
+                  Avvisami quando posso votare di nuovo
+                  {remind && remindAt ? (
+                    <span className="block text-xs text-crema/45">
+                      {new Date(remindAt).toLocaleString("it-IT", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  ) : null}
+                </span>
+              </label>
               <SmartLink href={back} className="mt-6 inline-flex items-center gap-2 rounded-full bg-crema/10 px-5 py-2.5 text-sm font-semibold ring-1 ring-sand/25 hover:bg-crema/15">
                 <ArrowLeft className="size-4" /> Torna alla scheda
               </SmartLink>

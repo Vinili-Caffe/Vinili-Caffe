@@ -283,6 +283,65 @@ export async function deleteMyListing(token: string, id: string) {
   return parse<{ message?: string }>(r);
 }
 
+/** Bandiera (codice paese flagcdn) per ogni lingua della vetrina. */
+const LOCALE_COUNTRY: Record<string, string> = {
+  it: "it", en: "gb", es: "es", fr: "fr", de: "de", pt: "pt", ru: "ru", zh: "cn", ja: "jp", ko: "kr", ar: "sa", nl: "nl",
+  pl: "pl", tr: "tr", hi: "in", id: "id", uk: "ua", vi: "vn", ro: "ro", sv: "se", cs: "cz", da: "dk", el: "gr", fi: "fi",
+  hu: "hu", no: "no", th: "th", he: "il", bn: "bd", ms: "my", fil: "ph", ca: "es-ct", sk: "sk", bg: "bg", hr: "hr", sr: "rs",
+  sl: "si", et: "ee", lv: "lv", lt: "lt", fa: "ir", ur: "pk", sw: "ke", af: "za", sq: "al", ka: "ge", hy: "am", az: "az",
+  kk: "kz", uz: "uz", mn: "mn", ne: "np", si: "lk", my: "mm", km: "kh", lo: "la", am: "et", ga: "ie", cy: "gb-wls",
+  eu: "es-pv", gl: "es-ga", is: "is", mt: "mt", lb: "lu", be: "by", mk: "mk", bs: "ba", ta: "in", te: "in", yo: "ng",
+};
+
+export function localeFlagUrl(locale: string, w = 40) {
+  const c = LOCALE_COUNTRY[String(locale || "").toLowerCase()];
+  return c ? `https://flagcdn.com/w${w}/${c}.png` : "";
+}
+
+export type ListingActivity = {
+  available: boolean;
+  days: number;
+  activeDays?: number;
+  /** media giornaliera per fascia oraria, 0–23 (ora italiana) */
+  hours: number[];
+  peakHour?: number | null;
+  perDay?: number;
+};
+
+export async function loadListingActivity(id: string, token?: string | null) {
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/activity`, { headers: auth(token) });
+  return parse<ListingActivity>(r);
+}
+
+/** Ricarica da Discord nome, icona, banner, membri e tag di una scheda server. */
+export async function refreshMyListing(token: string, id: string) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/refresh`, {
+    method: "POST",
+    headers: auth(token),
+  });
+  return parse<{ listing: BoardListing; message?: string }>(r);
+}
+
+/** Crea un nuovo invito permanente per una scheda server già esistente. */
+export async function regenerateListingInvite(token: string, id: string) {
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/generate-invite`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: "{}",
+  });
+  return parse<{ inviteUrl: string; listing?: BoardListing; message?: string }>(r);
+}
+
+/** Attiva o toglie il promemoria per rivotare (sull'ultimo voto dato). */
+export async function setVoteReminder(token: string, listingId: string, enable: boolean) {
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(listingId)}/vote-reminder`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ enable }),
+  });
+  return parse<{ remindAt: string | null; enabled: boolean }>(r);
+}
+
 export async function bumpListing(token: string, id: string) {
   const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/bump`, {
     method: "POST",
@@ -339,7 +398,7 @@ export async function castListingVote(token: string, listingId: string, sessionI
       remind: opts.remind === true,
     }),
   });
-  return parse<{ listing: BoardListing; message?: string }>(r);
+  return parse<{ listing: BoardListing; message?: string; remindAt?: string | null }>(r);
 }
 
 /* ── mod ── */
@@ -350,11 +409,11 @@ export async function modListPending(token: string, status = "pending") {
   return parse<{ listings: BoardListing[] }>(r);
 }
 
-export async function modDecide(token: string, listingId: string, decision: "approve" | "reject" | "suspend", reason = "") {
+export async function modDecide(token: string, listingId: string, decision: "approve" | "reject" | "suspend", reason = "", notes = "") {
   const r = await fetch(`${BASE}/mod/listings/${encodeURIComponent(listingId)}`, {
     method: "POST",
     headers: { ...auth(token), "Content-Type": "application/json" },
-    body: JSON.stringify({ decision, reason }),
+    body: JSON.stringify({ decision, reason, notes }),
   });
   return parse<{ listing: BoardListing; message?: string }>(r);
 }

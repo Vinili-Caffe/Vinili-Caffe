@@ -161,6 +161,17 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
+  app.get("/webhooks/site-boards/listings/:id/activity", async (req?, res?) => {
+    try {
+      const { getListingActivity } = require("./boardActivity") as typeof import("./boardActivity");
+      const out: any = await getListingActivity(client, req.params?.id);
+      if (out?.ok) res.setHeader("Cache-Control", "public, max-age=600");
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards activity:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
   app.post("/webhooks/site-boards/listings", async (req?, res?) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);

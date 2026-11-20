@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CircleCheck, CircleDashed, Clock, FolderHeart, LogIn, Pause, Pencil, Plus, Trash2, XCircle, type LucideIcon } from "lucide-react";
+import { CircleCheck, CircleDashed, Clock, FolderHeart, Link2, LogIn, Pause, Pencil, Plus, RefreshCw, Trash2, XCircle, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { deleteMyListing, loadMine, statusLabel, type BoardListing } from "@/lib/boards";
+import { deleteMyListing, loadMine, refreshMyListing, regenerateListingInvite, statusLabel, type BoardListing } from "@/lib/boards";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { SmartLink } from "../SmartLink";
-import { confirmDialog } from "@/components/ui";
+import { confirmDialog, showToast } from "@/components/ui";
 import { ShowMoreButton } from "@/components/ui/ShowMore";
 import { ListingCard, ListingCardSkeleton } from "@/components/vetrina/ListingCard";
 
@@ -21,6 +21,19 @@ const STATUS_STYLE: Record<string, { icon: LucideIcon; cls: string; hint: string
   rejected: { icon: XCircle, cls: "bg-[#a83a2c]/20 text-[#f0a493] ring-[#a83a2c]/40", hint: "Correggi e rimandala in revisione." },
   suspended: { icon: Pause, cls: "bg-[#a83a2c]/15 text-[#f0a493] ring-[#a83a2c]/35", hint: "Sospesa dallo staff." },
 };
+
+function MiniAction({ icon: Icon, label, busy, disabled, onClick }: { icon: LucideIcon; label: string; busy?: boolean; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 px-3 py-1 text-xs font-semibold text-crema/85 ring-1 ring-sand/20 transition hover:bg-crema/15 disabled:opacity-50"
+    >
+      <Icon className={cn("size-3.5", busy && "animate-spin")} /> {label}
+    </button>
+  );
+}
 
 /** Le tue schede: bozze, in revisione, pubblicate. */
 export function MyListings() {
@@ -50,6 +63,11 @@ export function MyListings() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  /** Sostituisce una scheda aggiornata senza ricaricare l'elenco. */
+  const replace = (next?: BoardListing) => {
+    if (next?.id) setList((prev) => (prev ? prev.map((l) => (l.id === next.id ? next : l)) : prev));
+  };
 
   if (ready && !token) {
     return (
@@ -144,6 +162,41 @@ export function MyListings() {
                       )}
                     </div>
                     <p className="mt-0.5 text-xs opacity-80">{item.status === "rejected" && reason ? `Motivo: ${reason}` : st.hint}</p>
+                    {item.kind === "server" && item.status !== "suspended" && (
+                      <div className="mt-2.5 flex flex-wrap gap-1.5 border-t border-current/15 pt-2.5">
+                        <MiniAction
+                          icon={RefreshCw}
+                          label="Aggiorna da Discord"
+                          busy={busyId === `${item.id}:refresh`}
+                          disabled={Boolean(busyId)}
+                          onClick={async () => {
+                            if (!token) return;
+                            setBusyId(`${item.id}:refresh`);
+                            const r = await refreshMyListing(token, item.id);
+                            setBusyId("");
+                            if (!r.ok) return showToast(r.message, true);
+                            showToast(r.data.message || "Dati Discord aggiornati");
+                            replace(r.data.listing);
+                          }}
+                        />
+                        <MiniAction
+                          icon={Link2}
+                          label="Nuovo invito"
+                          busy={busyId === `${item.id}:invite`}
+                          disabled={Boolean(busyId)}
+                          onClick={async () => {
+                            if (!token) return;
+                            if (!(await confirmDialog({ message: "Creare un nuovo invito permanente per questa scheda? Quello attuale verrà sostituito." }))) return;
+                            setBusyId(`${item.id}:invite`);
+                            const r = await regenerateListingInvite(token, item.id);
+                            setBusyId("");
+                            if (!r.ok) return showToast(r.message, true);
+                            showToast("Nuovo invito salvato nella scheda");
+                            if (r.data.listing) replace(r.data.listing);
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               );

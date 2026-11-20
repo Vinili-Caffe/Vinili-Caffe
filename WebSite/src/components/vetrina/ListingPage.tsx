@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { InstagramIcon, TikTokIcon, TwitchIcon, YoutubeIcon } from "@/components/dashboard/guild/LivePlatformIcons";
+import { ListingActivity } from "./ListingActivity";
 import { motion } from "motion/react";
 import {
   ArrowLeft,
@@ -29,6 +31,7 @@ import {
   bumpListing,
   labelOf,
   listingFeatures,
+  localeFlagUrl,
   loadBoardsConfig,
   loadListing,
   reportListing,
@@ -61,6 +64,14 @@ function useSlug() {
 }
 
 const fmt = (n: number) => n.toLocaleString("it-IT");
+
+const SOCIAL_ICON: Partial<Record<SocialKey, ComponentType<{ className?: string }>>> = {
+  website: Globe,
+  instagram: InstagramIcon,
+  tiktok: TikTokIcon,
+  youtube: YoutubeIcon,
+  twitch: TwitchIcon,
+};
 
 /** Scheda completa di un server o bot in vetrina. */
 export function ListingPage() {
@@ -318,7 +329,20 @@ export function ListingPage() {
               )}
               {l.locales.length > 0 && (
                 <InfoRow icon={<Languages />} label="Lingue">
-                  {l.locales.map((x) => labelOf(cfg?.localeLabels, x)).join(" · ")}
+                  <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                    {l.locales.map((x) => {
+                      const flag = localeFlagUrl(x);
+                      return (
+                        <span key={x} className="inline-flex items-center gap-1.5">
+                          {flag ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={flag} alt="" width={20} height={15} loading="lazy" className="h-[15px] w-5 rounded-[3px] object-cover shadow-[0_0_0_1px_rgba(0,0,0,0.25)]" />
+                          ) : null}
+                          {labelOf(cfg?.localeLabels, x)}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </InfoRow>
               )}
               {(feats.acceptsPartnerships || feats.requireVerification || feats.paidFeaturesAvailable) && (
@@ -346,15 +370,21 @@ export function ListingPage() {
                 <InfoRow icon={<Globe />} label="Link">
                   <div className="flex flex-wrap gap-1.5">
                     {l.siteUrl && (
-                      <a href={l.siteUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full bg-crema/8 px-2.5 py-0.5 ring-1 ring-sand/15 hover:text-ember">
-                        Sito <ArrowUpRight className="size-3" />
+                      <a href={l.siteUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 py-0.5 pl-2 pr-2.5 ring-1 ring-sand/15 hover:text-ember">
+                        <Globe className="size-3.5" /> Sito <ArrowUpRight className="size-3 opacity-60" />
                       </a>
                     )}
-                    {socials.map(([k, url]) => (
-                      <a key={k} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full bg-crema/8 px-2.5 py-0.5 ring-1 ring-sand/15 hover:text-ember">
-                        {SOCIAL_LABELS[k] || k} <ArrowUpRight className="size-3" />
-                      </a>
-                    ))}
+                    {socials
+                      /* il sito è già sopra: niente doppione */
+                      .filter(([k, url]) => !(k === "website" && url === l.siteUrl))
+                      .map(([k, url]) => {
+                        const Icon = SOCIAL_ICON[k] || Link2;
+                        return (
+                          <a key={k} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 py-0.5 pl-2 pr-2.5 ring-1 ring-sand/15 hover:text-ember">
+                            <Icon className="size-3.5" /> {SOCIAL_LABELS[k] || k} <ArrowUpRight className="size-3 opacity-60" />
+                          </a>
+                        );
+                      })}
                   </div>
                 </InfoRow>
               )}
@@ -380,6 +410,8 @@ export function ListingPage() {
               </div>
             )}
           </Panel>
+
+          {l.kind !== "bot" && <ListingActivity listingId={l.id} token={token} />}
 
           {l.tags.length > 0 && (
             <Panel title="Tag">
