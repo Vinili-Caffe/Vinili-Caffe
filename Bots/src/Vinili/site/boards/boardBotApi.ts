@@ -193,7 +193,9 @@ async function setSupportServer(client?, payload: Record<string, any> = {}) {
 const ownSyncNext = new Map<string, number>();
 async function syncOwnBot(client?, listing?) {
   const id = String(listing?.discordId || "");
-  if (!id || id !== mainBotAppId() || !client?.rest) return listing;
+  /* in site-api il client Discord ha _rest (client ridotto), nei bot rest */
+  const rest = client?.rest || client?._rest;
+  if (!id || id !== mainBotAppId() || !rest) return listing;
   /* le recensioni del bot scritte su /recensioni/ (una volta sola, finché non riesce) */
   try {
     const { importSiteBotReviewsOnce } = require("./boardReviews") as typeof import("./boardReviews");
@@ -204,7 +206,7 @@ async function syncOwnBot(client?, listing?) {
   const $set: Record<string, any> = {};
   try {
     /* percorsi scritti a mano: non dipendono dalla versione di discord.js */
-    const app: any = await client.rest.get("/applications/@me");
+    const app: any = await rest.get("/applications/@me");
     const count = Number(app?.approximate_guild_count);
     if (Number.isFinite(count) && count > 0) {
       $set["boardStats.serverCount"] = count;
@@ -215,8 +217,15 @@ async function syncOwnBot(client?, listing?) {
     global.logger?.warn?.("[site-boards] server del bot:", err?.message || err);
   }
   try {
-    const cmds: any = await client.rest.get(`/applications/${id}/commands`);
-    if (Array.isArray(cmds) && cmds.length) {
+    const globalCmds: any = await rest.get(`/applications/${id}/commands`);
+    /* quasi tutti i comandi del bot sono registrati sul server principale: li unisco ai globali */
+    let guildCmds: any = [];
+    try {
+      const { MAIN_GUILD_ID } = require("./boardReviews") as typeof import("./boardReviews");
+      if (MAIN_GUILD_ID) guildCmds = await rest.get(`/applications/${id}/guilds/${MAIN_GUILD_ID}/commands`);
+    } catch (_) {}
+    const cmds = [...(Array.isArray(globalCmds) ? globalCmds : []), ...(Array.isArray(guildCmds) ? guildCmds : [])];
+    if (cmds.length) {
       const commands = sanitizeCommands(cmds);
       $set.boardCommands = commands;
       listing.commands = commands;

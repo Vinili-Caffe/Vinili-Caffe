@@ -26,7 +26,7 @@ async function isMember(client?, guildId?: string, userId?: string) {
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.in;
   let inGuild = false;
   try {
-    await client.rest.get(Routes.guildMember(String(guildId), String(userId)));
+    await (client?.rest || client?._rest).get(Routes.guildMember(String(guildId), String(userId)));
     inGuild = true;
   } catch (err) {
     /* 404 = non è nel server; altri errori: non lo sappiamo, non lo mostriamo */
@@ -58,7 +58,8 @@ async function getRelatedListings(client?, listingId?) {
   if (!mongoose.isValidObjectId(id)) return { ok: false, status: 400, error: "invalid_id", message: "ID scheda non valido." };
   const doc: any = await SiteDocument.findOne({ _id: id, docType: BL, status: "approved" }).select({ boardKind: 1, boardDiscordId: 1 }).lean();
   if (!doc) return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata." };
-  if (!client?.rest) return { ok: true, status: 200, items: [] };
+  /* in site-api il client Discord ha _rest (client ridotto) */
+  if (!client?.rest && !client?._rest) return { ok: true, status: 200, items: [] };
   const kind = String(doc.boardKind || "") === "bot" ? "bot" : "server";
   const discordId = String(doc.boardDiscordId || "");
 

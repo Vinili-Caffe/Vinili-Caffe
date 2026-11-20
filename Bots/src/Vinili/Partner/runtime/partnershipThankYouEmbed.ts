@@ -325,7 +325,7 @@ async function sendThankYouMessage(channel?, ty?, above?: string | null, allowed
     }
   }
   /* in site-api il canale può arrivare dalla cache leggera, senza .client: si usa il client passato */
-  const rest = channel.client?.rest || clientHint?.rest || null;
+  const rest = channel.client?.rest || channel.client?._rest || clientHint?.rest || clientHint?._rest || null;
   if (!rest) {
     global.logger?.warn?.("[PARTNER] invio ringraziamento: nessun client REST disponibile");
     return null;
