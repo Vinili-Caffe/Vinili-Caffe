@@ -20,7 +20,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
         { type: "p", text: "La presente Informativa descrive le modalità con cui **Vinili & Caffè** tratta i dati personali nell’ambito di:" },
         { type: "ul", items: [
             "il sito web e la relativa dashboard;",
-            "i bot Discord (tra cui Vinili e i servizi collegati, ivi incluso Caffè);",
+            "i bot Discord (tra cui Vinili e i servizi collegati, ivi inclusi Caffè e Groove);",
             "il **server Discord ufficiale** della community Vinili & Caffè;",
             "i servizi di community resi anche su server Discord di terzi nei quali il bot è stato autorizzato, nei limiti delle funzioni ivi attivate."
           ] },
@@ -601,7 +601,7 @@ export const LEGAL_COPYRIGHT: LegalDoc = {
         { type: "p", text: "Sono oggetto di tutela, a titolo esemplificativo e non esaustivo:" },
         { type: "ul", items: [
             "il **Sito** web, la dashboard e i relativi materiali grafici e testuali;",
-            "i **Bot** Discord (Vinili, Caffè e servizi collegati), il codice e il branding;",
+            "i **Bot** Discord (Vinili, Caffè, Groove e servizi collegati), il codice e il branding;",
             "il **Server Discord ufficiale** (denominazione, marchio, icone, banner, emoji e sticker personalizzati, layout e materiali realizzati dallo staff)."
           ] },
         { type: "p", text: "È vietato l’uso, la riproduzione, la modifica, la ripubblicazione o la distribuzione di tali contenuti senza previa autorizzazione scritta dei titolari." },

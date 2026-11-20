@@ -57,11 +57,15 @@ async function tickMusicInactivity(client?) {
     const gid = String(guildId || "").trim();
     if (!gid || !conn?.channelId) continue;
     try {
-      const { getConfig } = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
-      const voiceCfg = await getConfig(gid, false);
-      if (voiceCfg?.music?.alwaysOn?.enabled && voiceCfg.music.alwaysOn.voiceChannelId) {
-        musicIdleSince.delete(gid);
-        continue;
+      const { botHonorsMusicAlwaysOn } = require("../../music/musicBotHooks") as typeof import("../../music/musicBotHooks");
+      /* Config guild condiviso: senza questo gate Caffè/Groove restano in vocale come la radio di Vinili. */
+      if (botHonorsMusicAlwaysOn()) {
+        const { getConfig } = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
+        const voiceCfg = await getConfig(gid, false);
+        if (voiceCfg?.music?.alwaysOn?.enabled && voiceCfg.music.alwaysOn.voiceChannelId) {
+          musicIdleSince.delete(gid);
+          continue;
+        }
       }
     } catch (_) {}
     const { isGuildClipRecording } = require("../../../Vinili/Community/services/voiceClipService") as typeof import("../../../Vinili/Community/services/voiceClipService");

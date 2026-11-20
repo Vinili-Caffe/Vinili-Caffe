@@ -17,6 +17,7 @@ function resolveDiscordClient(options: Record<string, any> = {}, user = null) {
     user?.client ||
     global.__vinylsDiscordClient ||
     global.__coffeeDiscordClient ||
+    global.__grooveDiscordClient ||
     null
   );
 }

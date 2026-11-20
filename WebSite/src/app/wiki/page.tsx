@@ -8,7 +8,7 @@ import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/wiki/", title: "Wiki", description: "Tutti i comandi dei bot Vinili e Caffè: musica, livelli, statistiche, TTS e minigames." }),
+  ...pageSocialMeta({ path: "/wiki/", title: "Wiki", description: "Tutti i comandi dei bot Vinili, Caffè e Groove: musica, livelli, statistiche, TTS e minigames." }),
 };
 
 export default async function WikiPage() {
@@ -18,7 +18,7 @@ export default async function WikiPage() {
       <DiscordComponentEmbed
         path="/wiki/"
         title="Wiki"
-        description="Tutti i comandi dei bot Vinili e Caffè: musica, livelli, statistiche, TTS e minigames."
+        description="Tutti i comandi dei bot Vinili, Caffè e Groove: musica, livelli, statistiche, TTS e minigames."
       />
       <PageHero
         icon={<BookOpen />}

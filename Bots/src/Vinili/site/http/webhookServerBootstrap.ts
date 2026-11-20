@@ -248,9 +248,31 @@ async function startWebhookServer(client?) {
     }
   });
 
+  app.get("/webhooks/groove/health", async (req?, res?) => {
+    try {
+      const { probeGrooveHealth } = require("./stackHealth") as typeof import("./stackHealth");
+      const groove = await probeGrooveHealth(1500);
+      return res.status(groove.ok ? 200 : 503).json({
+        ok: groove.ok,
+        status: groove.status,
+        service: "groove",
+        bot: groove.bot,
+        ts: new Date().toISOString(),
+      });
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] groove health:", err?.message || err);
+      return res.status(503).json({ ok: false, status: "error", service: "groove" });
+    }
+  });
+
   app.get("/webhooks/health", (req?, res?) => {
     const { sendStackHealth } = require("./stackHealth") as typeof import("./stackHealth");
-    return sendStackHealth(client, req, res, { service: "bots", includeLavalink: true, includeCoffee: true });
+    return sendStackHealth(client, req, res, {
+      service: "bots",
+      includeLavalink: true,
+      includeCoffee: true,
+      includeGroove: true,
+    });
   });
 
   app.use((err?: any, req?, res?, next?) => {

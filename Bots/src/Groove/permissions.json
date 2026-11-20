@@ -1,0 +1,313 @@
+{
+    "slash": {
+        "say": {
+            "roles": [
+                "roles.Founder"
+            ]
+        }
+    },
+    "prefix": {
+        "join": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.noMic"
+            ]
+        },
+        "leave": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.noMic"
+            ]
+        },
+        "set": {
+            "roles": [
+                "roles.Member"
+            ],
+            "subcommands": {
+                "voice": [
+                    "roles.Member"
+                ],
+                "autojoin": [
+                    "roles.HighStaff"
+                ]
+            }
+        },
+        "voices": {
+            "roles": [
+                "roles.Member"
+            ]
+        },
+        "help": {
+            "roles": [
+                "roles.Member"
+            ],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "clear": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "lyrics": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "next": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "now": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "pause": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "play": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "previous": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "queue": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "repeat": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "requested": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "restart": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "resume": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "rewind": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "shuffle": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "skip": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "stop": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "upcoming": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        },
+        "volume": {
+            "roles": ["roles.Member"],
+            "channels": [
+                "channels.commands",
+                "channels.chat",
+                "channels.vocaleLounge1",
+                "channels.vocaleLounge2",
+                "channels.vocaleLounge3",
+                "channels.counting",
+                "channels.info",
+                "channels.noMic"
+            ]
+        }
+    },
+    "channels": {},
+    "buttons": {
+        "help_prev_*": {
+            "roles": [
+                "roles.Member"
+            ]
+        },
+        "help_next_*": {
+            "roles": [
+                "roles.Member"
+            ]
+        }
+    },
+    "selectMenus": {
+        "usage_guide:*": {
+            "ownerSegment": 2
+        }
+    },
+    "modals": {}
+}

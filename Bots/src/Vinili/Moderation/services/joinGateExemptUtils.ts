@@ -5,8 +5,9 @@ const {
 } = require("../../Security/services/securityProfilesService") as typeof import("../../Security/services/securityProfilesService");
 
 const CORE_EXEMPT_USER_IDS = new Set([
-  "1466495522474037463",
-  "1329118940110127204",
+  "1466495522474037463", // Caffè
+  "1329118940110127204", // Vinili
+  "1573032833059131543", // Groove
 ]);
 
 async function resolveJoinGateConfiguredExempt(guild?, userId?, member = null) {

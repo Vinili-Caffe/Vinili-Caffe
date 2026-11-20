@@ -224,6 +224,7 @@ Vinyls/Data/ticketReopenOutsideSessions.json*
 # Runtime-only (VPS / se lanci il bot in locale): non tenere in tree
 Bots/src/Vinili/Data/
 Bots/src/Caffè/Data/
+Bots/src/Groove/Data/
 Bots/src/shared/cache/RoleIcons/
 # Anti-scam image refs: solo VPS (automod); in locale ~3MB inutili
 Bots/src/Vinili/Moderation/config/grabbedScamRefs/

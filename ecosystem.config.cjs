@@ -91,7 +91,7 @@ const tsxImportArgs = "--disable-warning=ExperimentalWarning --import tsx";
 
 function resolveBotScript(relJs) {
   if (!botsUseSrc || !/\.(js)$/.test(relJs)) return { script: relJs, useTs: false };
-  if (!/^(Vinili|Caffè|Vinyls|Coffee|shared)\//.test(relJs)) return { script: relJs, useTs: false };
+  if (!/^(Vinili|Caffè|Groove|Vinyls|Coffee|shared)\//.test(relJs)) return { script: relJs, useTs: false };
   const tsRel = relJs.replace(/\.js$/, ".ts");
   if (fs.existsSync(path.join(botsSrcDir, tsRel))) return { script: path.join(botsTsRootName, "src", tsRel), useTs: true };
   if (fs.existsSync(path.join(botsSrcDir, relJs))) return { script: path.join(botsTsRootName, "src", relJs), useTs: false };
@@ -329,5 +329,6 @@ module.exports = {
     ),
     makeBotsApp("bots-vinyls", "vinyls", "720M", 580),
     makeBotsApp("bots-coffee", "coffee", "420M", 320),
+    makeBotsApp("bots-groove", "groove", "420M", 320),
   ],
 };

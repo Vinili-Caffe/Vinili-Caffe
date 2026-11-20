@@ -266,7 +266,12 @@ function resolveBotClientId(client?) {
   ).trim();
   if (/^\d{17,22}$/.test(official)) return official;
   const live = String(client?.user?.id || "").trim();
-  if (/^\d{17,22}$/.test(live) && live !== String(IDs?.bots?.ViniliCaffeBotTest || "").trim()) {
+  const forbidden = new Set(
+    [IDs?.bots?.ViniliCaffeBotTest, IDs?.bots?.GrooveBot]
+      .map((id) => String(id || "").trim())
+      .filter((id) => /^\d{17,22}$/.test(id)),
+  );
+  if (/^\d{17,22}$/.test(live) && !forbidden.has(live)) {
     return live;
   }
   return "";

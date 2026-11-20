@@ -1,0 +1,32 @@
+{
+  "prefix": ";",
+  "mainGuildId": "1329080093599076474",
+  "channels": {
+    "chat": "1442569130573303898",
+    "commands": "1442569138114662490"
+  },
+  "status": "idle",
+  "presence": {
+    "activityName": "viniliecaffe.it | discord.gg/viniliecaffe",
+    "streamUrl": ""
+  },
+  "tts": {
+    "enabled": true,
+    "lang": "it",
+    "autojoin": false,
+    "includeUsername": false,
+    "stayConnected": false,
+    "restoreVoiceOnRestart": true
+  },
+  "voiceTranscription": {
+    "enabled": false,
+    "channelIds": [],
+    "maxDurationSec": 120,
+    "language": "it",
+    "invite": ".gg/viniliecaffe",
+    "provider": "auto",
+    "restoreOnRestart": true,
+    "restoreLookbackMs": 7200000,
+    "restoreFetchLimit": 50
+  }
+}

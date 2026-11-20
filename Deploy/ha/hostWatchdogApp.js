@@ -20,6 +20,7 @@ const BOOT_GRACE_MS = {
   bots: BOTS_GRACE,
   "bots-vinyls": BOTS_GRACE,
   "bots-coffee": BOTS_GRACE,
+  "bots-groove": BOTS_GRACE,
   "site-api": Math.max(60_000, Number(process.env.HOST_WATCHDOG_SITE_API_GRACE_MS || 90_000) || 90_000),
   lavalink: Math.max(45_000, Number(process.env.HOST_WATCHDOG_LAVALINK_GRACE_MS || 90_000) || 90_000),
   default: Math.max(45_000, Number(process.env.HOST_WATCHDOG_DEFAULT_GRACE_MS || 60_000) || 60_000),
@@ -32,6 +33,8 @@ const LAVALINK_PASSWORD = String(process.env.LAVALINK_PASSWORD || "youshallnotpa
 const CHECKS = [
   /* perfP0: health webhook è sul processo Vinyls (LOADER_BOTS=vinyls) */
   { name: "bots-vinyls", kind: "http", url: "http://127.0.0.1:3000/webhooks/health" },
+  { name: "bots-coffee", kind: "http", url: "http://127.0.0.1:3011/health" },
+  { name: "bots-groove", kind: "http", url: "http://127.0.0.1:3012/health" },
   { name: "site-api", kind: "http", url: "http://127.0.0.1:3020/webhooks/site-api/health" },
   /* Discadia e Top.gg sono lo stesso processo pm2 (voteIntakeApp) */
   { name: "vote-intake", key: "vote-intake:discadia", kind: "http", url: "http://127.0.0.1:3010/webhooks/discadia/health" },
@@ -50,6 +53,7 @@ const PM2_RESTARTABLE = new Set([
   "bots",
   "bots-vinyls",
   "bots-coffee",
+  "bots-groove",
   "site-api",
   "vote-intake",
   "lavalink",

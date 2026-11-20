@@ -47,6 +47,15 @@ function resolveCoffeeHealthTarget() {
   };
 }
 
+function resolveGrooveHealthTarget() {
+  const host = String(process.env.GROOVE_HEALTH_HOST || "127.0.0.1").trim() || "127.0.0.1";
+  const port = Number(process.env.GROOVE_HEALTH_PORT || 3012);
+  return {
+    host,
+    port: Number.isFinite(port) && port > 0 ? Math.floor(port) : 3012,
+  };
+}
+
 function resolveGatewayHealthTarget() {
   const host = String(process.env.BOT_GATEWAY_HEALTH_HOST || "127.0.0.1").trim() || "127.0.0.1";
   const port = Number(process.env.BOT_GATEWAY_HEALTH_PORT || 3000);
@@ -111,6 +120,11 @@ async function probeCoffeeHealth(timeoutMs = 1500) {
   return probeHttpHealth(`http://${host}:${port}/health`, timeoutMs);
 }
 
+async function probeGrooveHealth(timeoutMs = 1500) {
+  const { host, port } = resolveGrooveHealthTarget();
+  return probeHttpHealth(`http://${host}:${port}/health`, timeoutMs);
+}
+
 /** Gateway Discord Vinili (porta 3000) quando site-api è processo separato. */
 async function probeGatewayHealth(timeoutMs = 1500) {
   const { host, port } = resolveGatewayHealthTarget();
@@ -145,6 +159,8 @@ function resolveShardLabel(client?) {
 async function buildStackHealthPayload(client?, opts: Record<string, any> = {}) {
   const includeLavalink = opts.includeLavalink !== false;
   const includeCoffee = opts.includeCoffee !== false;
+  /* Come Caffè: probe + detail nel payload status (watchdog pinga :3012 a parte). */
+  const includeGroove = opts.includeGroove !== false;
   const botReady = Boolean(client?.isReady?.() || client?.user?.id);
   const botTag = client?.user?.tag || client?.user?.username || null;
   const mongoOk = isMongoReady();
@@ -169,9 +185,10 @@ async function buildStackHealthPayload(client?, opts: Record<string, any> = {}) 
   const serviceName = String(opts.service || "bots");
   const preferGatewayProcess = opts.preferGatewayProcess === true || serviceName === "site-api";
 
-  const [restPingLocal, coffee, gateway] = await Promise.all([
+  const [restPingLocal, coffee, groove, gateway] = await Promise.all([
     measureDiscordRestPingMs(client),
     includeCoffee ? probeCoffeeHealth(1500) : Promise.resolve(null),
+    includeGroove ? probeGrooveHealth(1500) : Promise.resolve(null),
     preferGatewayProcess ? probeGatewayHealth(1500) : Promise.resolve(null),
   ]);
   let gatewayPingMs = resolveGatewayPingMs(client);
@@ -200,6 +217,7 @@ async function buildStackHealthPayload(client?, opts: Record<string, any> = {}) 
     mongo: mongoOk && mongoPingMs != null,
     ...(includeLavalink ? { lavalink: Boolean(lavalinkOk) } : {}),
     ...(includeCoffee ? { coffee: Boolean(coffee?.ok) } : {}),
+    ...(includeGroove ? { groove: Boolean(groove?.ok) } : {}),
   };
   const ok = Object.values(checks).every(Boolean);
 
@@ -209,6 +227,7 @@ async function buildStackHealthPayload(client?, opts: Record<string, any> = {}) 
     service: serviceName,
     bot: botOut,
     coffee: coffee?.bot || null,
+    groove: groove?.bot || null,
     checks,
     mongoPingMs,
     gatewayPingMs,
@@ -227,6 +246,19 @@ async function buildStackHealthPayload(client?, opts: Record<string, any> = {}) 
           shard: coffee.shard ?? null,
           uptimeSec: coffee.uptimeSec ?? null,
           memMb: coffee.memMb ?? null,
+        }
+      : null,
+    grooveDetail: groove
+      ? {
+          ok: Boolean(groove.ok),
+          bot: groove.bot || null,
+          status: groove.status || null,
+          gatewayPingMs: groove.gatewayPingMs ?? null,
+          restPingMs: groove.restPingMs ?? null,
+          mongoPingMs: groove.mongoPingMs ?? null,
+          shard: groove.shard ?? null,
+          uptimeSec: groove.uptimeSec ?? null,
+          memMb: groove.memMb ?? null,
         }
       : null,
     ts: new Date().toISOString(),
@@ -252,6 +284,7 @@ function sendStackHealth(client?, req?, res?, opts: Record<string, any> = {}) {
 export = {
   sendStackHealth,
   probeCoffeeHealth,
+  probeGrooveHealth,
   probeGatewayHealth,
   probeLavalinkHttpReady,
 };

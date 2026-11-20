@@ -23,6 +23,7 @@ import {
   Cake,
   TrendingUp,
   Headphones,
+  Store,
   type LucideIcon,
 } from "lucide-react";
 
@@ -39,6 +40,7 @@ export type GuildSectionId =
   | "contatori"
   | "bump"
   | "voti"
+  | "vetrina"
   | "giveaway"
   | "sondaggi"
   | "live"
@@ -107,6 +109,17 @@ export const BACHECA_MODULE_TABS = [
   { id: "clip", label: "Clip" },
   { id: "skull", label: "Skullboard" },
 ] as const satisfies readonly GuildModuleTab[];
+
+export const VETRINA_MODULE_TABS = [
+  { id: "voti", label: "Voti" },
+  { id: "recensioni", label: "Recensioni" },
+] as const satisfies readonly GuildModuleTab[];
+
+export type VetrinaModuleTabId = (typeof VETRINA_MODULE_TABS)[number]["id"];
+
+export function isVetrinaModuleTab(v: string): v is VetrinaModuleTabId {
+  return VETRINA_MODULE_TABS.some((t) => t.id === v);
+}
 
 export type BachecaModuleTabId = (typeof BACHECA_MODULE_TABS)[number]["id"];
 
@@ -226,6 +239,7 @@ export const GUILD_MODULE_SECTIONS = [
   { id: "contatori", label: "Contatori", icon: Gauge, tabs: [] as const },
   { id: "bump", label: "Bump", icon: Rocket, tabs: [] as const },
   { id: "voti", label: "Voti", icon: Vote, tabs: [] as const },
+  { id: "vetrina", label: "Vetrina", icon: Store, tabs: [] as const },
   { id: "giveaway", label: "Giveaway", icon: Gift, tabs: [] as const },
   { id: "sondaggi", label: "Sondaggi", icon: Vote, tabs: [] as const },
   { id: "live", label: "Social Network", icon: Video, tabs: [] as const },
@@ -271,6 +285,7 @@ export function defaultModuleTab(section: GuildSectionId): string | null {
   if (section === "moderation") return "overview";
   if (section === "partnership") return "setup";
   if (section === "bacheca") return "impostazioni";
+  if (section === "vetrina") return "voti";
   if (section === "commands") return "all";
   if (section === "registro") return "settings";
   if (section === "benvenuto") return "welcome";

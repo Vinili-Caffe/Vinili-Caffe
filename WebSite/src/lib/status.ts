@@ -90,6 +90,7 @@ export async function loadLiveProcesses(): Promise<ProcessLive[]> {
   if (!health) return [];
 
   const coffee = (health.coffeeDetail as Record<string, unknown> | null) || null;
+  const groove = (health.grooveDetail as Record<string, unknown> | null) || null;
   const checks = (health.checks as Record<string, boolean> | null) || null;
 
   const vinyls: ProcessLive = {
@@ -122,7 +123,22 @@ export async function loadLiveProcesses(): Promise<ProcessLive[]> {
     checks: null,
   };
 
-  return [vinyls, caffe];
+  const grooveBot: ProcessLive = {
+    id: "groove",
+    name: "Bot Groove",
+    ok: Boolean(groove?.ok ?? checks?.groove),
+    status: String(groove?.status || (checks?.groove ? "online" : "offline")),
+    bot: groove?.bot != null ? String(groove.bot) : health.groove != null ? String(health.groove) : null,
+    gatewayPingMs: numOrNull(groove?.gatewayPingMs),
+    restPingMs: numOrNull(groove?.restPingMs),
+    mongoPingMs: numOrNull(groove?.mongoPingMs),
+    uptimeSec: numOrNull(groove?.uptimeSec),
+    memMb: numOrNull(groove?.memMb),
+    shard: groove?.shard != null ? String(groove.shard) : null,
+    checks: null,
+  };
+
+  return [vinyls, caffe, grooveBot];
 }
 
 function numOrNull(v: unknown): number | null {

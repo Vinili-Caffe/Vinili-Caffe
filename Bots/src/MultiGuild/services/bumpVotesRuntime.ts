@@ -829,6 +829,8 @@ export = {
   regenerateToken,
   handleTenantBumpMessage,
   handleVoteWebhook,
+  giveExp,
+  NO_EXP,
   trySendConfiguredVoteThanks,
   trySendConfiguredVoteReminder,
   startBumpVotesLoop,

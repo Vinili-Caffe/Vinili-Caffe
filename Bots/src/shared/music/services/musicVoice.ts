@@ -6,14 +6,18 @@ const { applyDefaultFooterToEmbeds } = require("../../embeds/defaultFooter") as 
 const path = require("path") as typeof import("path");
 const { logMusic } = require("./musicSearch") as typeof import("./musicSearch");
 const { writeSnapshotWithMeta } = require("../../recovery/snapshotStore") as typeof import("../../recovery/snapshotStore");
-const { getMusicBotHooks } = require("../../music/musicBotHooks") as typeof import("../../music/musicBotHooks");
+const {
+  getMusicBotHooks,
+  isCoffeeStyleProfile,
+  resolveMusicBotFolder,
+  resolveMusicSnapshotKey,
+} = require("../../music/musicBotHooks") as typeof import("../../music/musicBotHooks");
 
 function musicHooks() {
   return getMusicBotHooks();
 }
 
 function clearActiveBotVoiceSession(guildId?) {
-  const coffee = musicHooks()?.profile === "coffee";
   const { getVoiceSessionService } = require("../../voice/voiceSessionService") as typeof import("../../voice/voiceSessionService");
   getVoiceSessionService({
     snapshotPath: path.join(
@@ -21,11 +25,11 @@ function clearActiveBotVoiceSession(guildId?) {
       "..",
       "..",
       "..",
-      coffee ? "Caffè" : "Vinili",
+      resolveMusicBotFolder(musicHooks()?.profile),
       "Data",
       "voiceSessionSnapshot.json",
     ),
-    snapshotKey: coffee ? "coffee_voice_sessions" : "vinyls_voice_sessions",
+    snapshotKey: resolveMusicSnapshotKey(musicHooks()?.profile),
   }).clearVoiceSession(guildId);
 }
 
@@ -61,8 +65,15 @@ const endListeners = new Set();
 const lastMusicEndHandledByGuild = new Map();
 const musicIdleSince = new Map();
 function defaultMusicQueueSnapshotPath() {
-  const coffee = musicHooks()?.profile === "coffee";
-  return path.join(__dirname, "..", "..", "..", coffee ? "Caffè" : "Vinili", "Data", "musicQueueSnapshot.json");
+  return path.join(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    resolveMusicBotFolder(musicHooks()?.profile),
+    "Data",
+    "musicQueueSnapshot.json",
+  );
 }
 const MUSIC_QUEUE_SNAPSHOT_PATH = process.env.MUSIC_QUEUE_SNAPSHOT_PATH
   ? path.resolve(String(process.env.MUSIC_QUEUE_SNAPSHOT_PATH))
@@ -209,7 +220,7 @@ function guildMusicSessionBlocksOtherVoiceChannels(client?, guildId?) {
   const session = guildQueues.get(gid);
   /* Coffee = TTS: non bloccare per la radio 24/7 di Vinili (stesso guildId / snapshot fantasma).
      Solo se QUESTO processo ha davvero Lavalink in vocale. */
-  if (musicHooks()?.profile === "coffee") {
+  if (isCoffeeStyleProfile(musicHooks()?.profile)) {
     const channelId = conn?.channelId
       ? String(conn.channelId)
       : player?.track

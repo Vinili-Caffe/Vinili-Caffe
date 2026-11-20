@@ -327,7 +327,8 @@ export function StaffCardView({
 
       {middle}
 
-      {historyGuildId ? <PartnerHistorySection token={token} guildId={historyGuildId} /> : null}
+      {/* +history del server: solo sui profili Partner Manager, non su Helper/Mod/ecc. */}
+      {historyGuildId && showPm ? <PartnerHistorySection token={token} guildId={historyGuildId} /> : null}
 
       {(access?.canViewResoconti || card.isSelf) && <Resoconto key={userId} token={token} userId={userId} canDecide={Boolean(access?.canViewResoconti && isHS)} onChanged={refresh} />}
 

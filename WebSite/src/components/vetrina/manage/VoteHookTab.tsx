@@ -27,7 +27,7 @@ const REMINDER_PLACEHOLDERS = [
 const fmtHours = (h: number) => (h === 1 ? "1 ora" : h % 24 === 0 ? (h === 24 ? "1 giorno" : `${h / 24} giorni`) : `${h} ore`);
 
 /** Cosa fa il bot nel tuo server quando qualcuno vota la scheda: ringraziamento, ruolo, promemoria. */
-export function VoteHookTab({ listing, token }: { listing: BoardListing; token: string }) {
+export function VoteHookTab({ listing, token, compact = false }: { listing: BoardListing; token: string; compact?: boolean }) {
   const { user } = useAuth();
   const [data, setData] = useState<VoteHookData | null>(null);
   const [cfg, setCfg] = useState<VoteHookConfig | null>(null);
@@ -84,10 +84,14 @@ export function VoteHookTab({ listing, token }: { listing: BoardListing; token: 
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-sand/10 pb-6">
-        <h2 className="font-display text-4xl font-semibold">Voti</h2>
-        <p className="mt-1 max-w-2xl text-crema/55">Quando qualcuno vota la scheda, il bot di Vinili &amp; Caffè lo ringrazia nel tuo server e gli dà un ruolo per qualche ora.</p>
-      </div>
+      {!compact ? (
+        <div className="border-b border-sand/10 pb-6">
+          <h2 className="font-display text-4xl font-semibold">Voti</h2>
+          <p className="mt-1 max-w-2xl text-crema/55">
+            Quando qualcuno vota la scheda, il bot di Vinili &amp; Caffè lo ringrazia nel tuo server e gli dà un ruolo per qualche ora.
+          </p>
+        </div>
+      ) : null}
 
       {!data.botInGuild ? <Notice error>Il bot di Vinili &amp; Caffè non è nel server: invitalo per ringraziamenti e ruoli.</Notice> : null}
 

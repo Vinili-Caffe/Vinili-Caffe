@@ -393,6 +393,7 @@ const ids: Record<string, any> = {
     Poketwo: "716390085896962058",
     ViniliCaffeBot: "1329118940110127204",
     ViniliCaffeBotTest: "1466495522474037463",
+    GrooveBot: "1573032833059131543",
     ViniliTest: "1564724685554589746",
     Discadia: "1222548162741538938",
     Dyno: "155149108183695360",

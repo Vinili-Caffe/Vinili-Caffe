@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, BarChart3, LogIn, Palette, Server, ShieldAlert, Webhook, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, BarChart3, LogIn, Palette, Server, ShieldAlert, Store, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { loadMyListing, type BoardListing, type ListingTransfer } from "@/lib/boards";
 import { page } from "@/lib/site";
@@ -15,18 +15,11 @@ import { VetrinaHeroBg } from "../VetrinaChrome";
 const AnalyticsTab = dynamic(() => import("./AnalyticsTab").then((m) => m.AnalyticsTab), { ssr: false, loading: () => <TabSkeleton /> });
 const OwnershipTab = dynamic(() => import("./OwnershipTab").then((m) => m.OwnershipTab), { ssr: false, loading: () => <TabSkeleton /> });
 const SubmitListing = dynamic(() => import("@/components/bacheca/SubmitListing").then((m) => m.SubmitListing), { ssr: false, loading: () => <TabSkeleton /> });
-const VoteHookTab = dynamic(() => import("./VoteHookTab").then((m) => m.VoteHookTab), { ssr: false, loading: () => <TabSkeleton /> });
 
-type TabId = "statistiche" | "api" | "aspetto" | "proprieta";
+type TabId = "statistiche" | "aspetto" | "proprieta";
 const GROUPS: { label: string; tabs: { id: TabId; label: string; icon: LucideIcon }[] }[] = [
   { label: "Panoramica", tabs: [{ id: "statistiche", label: "Statistiche", icon: BarChart3 }] },
-  {
-    label: "La tua pagina",
-    tabs: [
-      { id: "aspetto", label: "Aspetto", icon: Palette },
-      { id: "api", label: "Voti", icon: Webhook },
-    ],
-  },
+  { label: "La tua pagina", tabs: [{ id: "aspetto", label: "Aspetto", icon: Palette }] },
   { label: "Zona pericolosa", tabs: [{ id: "proprieta", label: "Trasferisci o elimina", icon: ShieldAlert }] },
 ];
 const TAB_IDS = GROUPS.flatMap((g) => g.tabs.map((t) => t.id));
@@ -54,7 +47,11 @@ function useQuery() {
   return q;
 }
 
-/** Pagina di gestione di una scheda server: statistiche, aspetto, voti nel server, proprietà. */
+function dashboardVetrinaHref(guildId: string, tab: "voti" | "recensioni" = "voti") {
+  return page(`/dashboard/guild/?id=${encodeURIComponent(guildId)}&s=vetrina&t=${tab}`);
+}
+
+/** Pagina di gestione di una scheda server: statistiche, aspetto, proprietà. Voti e recensioni sono nella dashboard. */
 export function ManageListing() {
   const q = useQuery();
   const { ready, token, login } = useAuth();
@@ -80,6 +77,18 @@ export function ManageListing() {
       alive = false;
     };
   }, [ready, token, q?.id]);
+
+  /* vecchi link ?tab=api → dashboard Vetrina */
+  useEffect(() => {
+    if (!listing || listing.kind !== "server" || !listing.discordId) return;
+    try {
+      const p = new URLSearchParams(location.search);
+      if (p.get("tab") !== "api") return;
+      location.replace(dashboardVetrinaHref(listing.discordId, "voti"));
+    } catch {
+      /* niente */
+    }
+  }, [listing]);
 
   const go = (id: TabId) => {
     setTab(id);
@@ -191,6 +200,20 @@ export function ManageListing() {
                 </div>
               ))}
             </nav>
+
+            {listing?.discordId ? (
+              <div className="mt-5 space-y-2 border-t border-sand/10 pt-4">
+                <p className="px-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/40">Nella dashboard</p>
+                <SmartLink
+                  href={dashboardVetrinaHref(listing.discordId, "voti")}
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-crema/70 ring-1 ring-sand/15 transition hover:bg-crema/5 hover:text-crema"
+                >
+                  <Store className="size-4 text-ember" />
+                  Voti e recensioni
+                  <ArrowUpRight className="ml-auto size-3.5 opacity-60" />
+                </SmartLink>
+              </div>
+            ) : null}
           </div>
         </aside>
 
@@ -203,7 +226,6 @@ export function ManageListing() {
               <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}>
                 {tab === "statistiche" && <AnalyticsTab listingId={listing.id} token={token} />}
                 {tab === "aspetto" && <SubmitListing editId={listing.id} />}
-                {tab === "api" && <VoteHookTab listing={listing} token={token} />}
                 {tab === "proprieta" && <OwnershipTab listing={listing} token={token} transfer={transfer} onTransfer={setTransfer} />}
               </motion.div>
             </AnimatePresence>

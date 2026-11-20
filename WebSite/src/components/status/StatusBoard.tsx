@@ -4,6 +4,7 @@ import { DiscordContent } from "@/components/discord/DiscordContent";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  AudioLines,
   CircleAlert,
   Clock,
   Coffee,
@@ -141,7 +142,7 @@ function Channel({ s, i }: { s: Service; i: number }) {
 }
 
 function ProcessCard({ p, i }: { p: ProcessLive; i: number }) {
-  const Icon = /caff/i.test(p.name) ? Coffee : Disc3;
+  const Icon = /groove/i.test(p.name) ? AudioLines : /caff/i.test(p.name) ? Coffee : Disc3;
   const ok = p.ok;
   return (
     <motion.li

@@ -52,6 +52,31 @@ async function seedFromServer(guildId: string): Promise<Partial<VoteHook>> {
   }
 }
 
+/** Pagina per votare la scheda. */
+function voteUrlOf(doc?) {
+  const slug = String(doc?.boardSlug || doc?.slug || "").trim();
+  const id = String(doc?._id || doc?.id || "").trim();
+  return slug ? `https://www.viniliecaffe.it/vetrina/vota/?slug=${encodeURIComponent(slug)}` : `https://www.viniliecaffe.it/vetrina/vota/?id=${encodeURIComponent(id)}`;
+}
+
+/**
+ * Il testo copiato da Top.gg parla di Top.gg e punta lì: lo adatta alla vetrina
+ * ("Top.gg" → {service}, link di voto → pagina di voto della scheda).
+ */
+function adaptFromTopgg(draft?, voteUrl = "") {
+  const isVoteLink = (u: string) => /top.gg|discadia|discords.com|/vote/i.test(u);
+  const walk = (v: any, key = ""): any => {
+    if (typeof v === "string") {
+      if ((key === "url" || key.endsWith("Url")) && voteUrl && isVoteLink(v)) return voteUrl;
+      return v.replace(/Top.gg|Discadia/g, "{service}");
+    }
+    if (Array.isArray(v)) return v.map((x) => walk(x, key === "urls" ? "url" : ""));
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x, k)]));
+    return v;
+  };
+  return draft ? walk(draft) : draft;
+}
+
 function normalizeHook(raw?, seed: Partial<VoteHook> = {}): VoteHook {
   const r = raw && typeof raw === "object" ? raw : {};
   const hours = Math.floor(Number(r.hours ?? seed.hours));
@@ -116,7 +141,10 @@ async function getVoteHook(client?, payload: Record<string, any> = {}) {
   const { err, doc, guildId } = await loadOwned(client, payload.accessToken, payload.listingId);
   if (err) return err;
   const seed = doc.boardVoteHook ? {} : await seedFromServer(guildId);
+  if (seed.draft) seed.draft = adaptFromTopgg(seed.draft, voteUrlOf(doc));
   const config = normalizeHook(doc.boardVoteHook, seed);
+  /* anche un testo salvato prima di questa correzione */
+  config.draft = T.normalizeDraft(adaptFromTopgg(config.draft, voteUrlOf(doc)));
   let pickers: any = { textChannels: [], roles: [], emojis: [], categories: [] };
   try {
     const { listGuildPickerData } = require("../../Partner/dashboard/siteDashboardPartnershipApi") as typeof import("../../Partner/dashboard/siteDashboardPartnershipApi");
@@ -159,8 +187,8 @@ async function testVoteHook(client?, payload: Record<string, any> = {}) {
   if (!config.channelId) return { ok: false, status: 400, error: "no_channel", message: "Scegli prima il canale dei ringraziamenti." };
   const guild = await resolveGuild(client, guildId);
   if (!guild) return { ok: false, status: 400, error: "bot_not_in_guild", message: "Il bot di Vinili & Caffè non è nel server." };
-  const vars = await userVarsFor(client, guild, String(auth.userId), { service: SERVICE_NAME, count: "1" });
-  const ok = await postDraft(client, config.channelId, config.draft, vars, String(auth.userId));
+  const vars = await userVarsFor(client, guild, String(auth.userId), { service: SERVICE_NAME, count: "1", exp: "150", fast: "0", streak: "1", bonus: "", level: "1" });
+  const ok = await postDraft(client, config.channelId, adaptFromTopgg(config.draft, voteUrlOf(doc)), vars, String(auth.userId));
   return ok
     ? { ok: true, status: 200, message: "Messaggio di prova inviato nel canale." }
     : { ok: false, status: 502, error: "send_failed", message: "Invio non riuscito: controlla che il bot possa scrivere nel canale." };
@@ -168,7 +196,7 @@ async function testVoteHook(client?, payload: Record<string, any> = {}) {
 
 /** Dopo un voto andato a buon fine: ringraziamento e ruolo a tempo nel server della scheda. */
 async function onListingVoted(client?, listingId?: string, userId?: string) {
-  const doc: any = await SiteDocument.findOne({ _id: listingId, docType: BL }).select({ boardVoteHook: 1, boardDiscordId: 1, boardKind: 1 }).lean();
+  const doc: any = await SiteDocument.findOne({ _id: listingId, docType: BL }).select({ boardVoteHook: 1, boardDiscordId: 1, boardKind: 1, boardSlug: 1 }).lean();
   if (!doc || String(doc.boardKind || "") === "bot") return { ok: false, reason: "not_server" };
   const config = normalizeHook(doc.boardVoteHook);
   if (!config.enabled) return { ok: false, reason: "disabled" };
@@ -189,10 +217,27 @@ async function onListingVoted(client?, listingId?: string, userId?: string) {
       ensureRoleSweep(client);
     }
   }
+  /* EXP come per un voto su Top.gg (solo dove ci sono i livelli) */
+  const votes: any[] = await SiteDocument.find({ docType: BV, boardListingId: String(listingId), userId: String(userId) })
+    .select({ createdAt: 1 })
+    .sort({ createdAt: -1 })
+    .limit(2)
+    .lean()
+    .catch(() => []);
+  const count = await SiteDocument.countDocuments({ docType: BV, boardListingId: String(listingId), userId: String(userId) }).catch(() => 1);
+  let expOut: Record<string, string> = { exp: "0", fast: "0", streak: "0", bonus: "", level: "0" };
+  try {
+    const BVR = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
+    const bvCfg: any = await BVR.getConfig(gid, true);
+    expOut = await BVR.giveExp(client, guild, String(userId), "topgg", bvCfg, {
+      previousLastAt: votes[1]?.createdAt ? new Date(votes[1].createdAt).getTime() : null,
+      cooldownMs: config.hours * 3_600_000,
+      firstTime: count <= 1,
+    });
+  } catch (_) {}
   if (config.thanksEnabled && config.channelId) {
-    const count = await SiteDocument.countDocuments({ docType: BV, boardListingId: String(listingId), userId: String(userId) }).catch(() => 1);
-    const vars = await userVarsFor(client, guild, String(userId), { service: SERVICE_NAME, count: String(count || 1) });
-    await postDraft(client, config.channelId, config.draft, vars, String(userId));
+    const vars = await userVarsFor(client, guild, String(userId), { service: SERVICE_NAME, count: String(count || 1), ...expOut });
+    await postDraft(client, config.channelId, adaptFromTopgg(config.draft, voteUrlOf(doc)), vars, String(userId));
   }
   return { ok: true };
 }

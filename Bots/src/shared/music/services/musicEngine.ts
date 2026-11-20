@@ -157,8 +157,8 @@ async function waitForLavalinkTcpThenInitShoukaku(client?) {
     startMusicInactivityWatcher(client);
     startMusicQueueSnapshotLoop(client);
     try {
-      const { getMusicBotHooks } = require("../../music/musicBotHooks") as typeof import("../../music/musicBotHooks");
-      if (getMusicBotHooks()?.profile !== "coffee") {
+      const { botHonorsMusicAlwaysOn } = require("../../music/musicBotHooks") as typeof import("../../music/musicBotHooks");
+      if (botHonorsMusicAlwaysOn()) {
         const { startAlwaysOnWatcher } = require("./musicAlwaysOn") as typeof import("./musicAlwaysOn");
         startAlwaysOnWatcher(client);
       }

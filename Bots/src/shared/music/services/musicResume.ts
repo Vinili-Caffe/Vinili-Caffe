@@ -89,9 +89,9 @@ async function resumeRestoredMusicSessions(client?, opts: Record<string, any> = 
       const VR = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
       const cfg = await VR.getConfig(gid, true);
       if (cfg?.music?.alwaysOn?.enabled && cfg.music.alwaysOn.voiceChannelId) {
-        const { getMusicBotHooks } = require("../../music/musicBotHooks") as typeof import("../../music/musicBotHooks");
-        /* Coffee non gestisce la radio: togli sessioni fantasma (altrimenti ,join TTS pensa che la musica sia sua). */
-        if (getMusicBotHooks()?.profile === "coffee") {
+        /* Coffee/Groove non gestiscono la radio: togli sessioni fantasma (altrimenti ,join TTS pensa che la musica sia sua). */
+        const { botHonorsMusicAlwaysOn } = require("../../music/musicBotHooks") as typeof import("../../music/musicBotHooks");
+        if (!botHonorsMusicAlwaysOn()) {
           guildQueues.delete(gid);
           persistMusicQueueSnapshotNow(client);
           continue;

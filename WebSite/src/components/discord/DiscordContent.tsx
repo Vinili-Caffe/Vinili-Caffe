@@ -5,8 +5,9 @@ import { cn } from "@/lib/cn";
 import { EmojiText } from "./EmojiText";
 
 // Markdown di Discord reso con elementi React (niente HTML grezzo): **grassetto**, *corsivo*, __sottolineato__,
-// ~~barrato~~, `codice`, ```blocchi```, ||spoiler||, > citazioni, link, <@utente>, <@&ruolo>, <#canale>, <:emoji:id>.
+// ~~barrato~~, `codice` / ``doppi``, ```blocchi```, ||spoiler||, > citazioni, link, <@utente>, <@&ruolo>, <#canale>, <:emoji:id>.
 /* discordMdCrlfFix1: `\r` residuo (CRLF) spezzava endsWith("||") e i header `# ` → || e # grezzi. */
+/* discordMdInlineCodeFix1: `` `testo` `` lasciava i ` esterni; ora N backtick come Discord + placeholder. */
 
 /** `light`: testo su sfondo chiaro (menzioni più scure, link leggibili). */
 type Names = { users?: Record<string, string>; roles?: Record<string, string>; channels?: Record<string, string>; light?: boolean };
@@ -42,9 +43,63 @@ function DiscordEmojiImg({ id, name, animated }: { id: string; name: string; ani
   );
 }
 
-// niente capturing group interni: `split` li includerebbe nei pezzi
+/**
+ * Markdown inline senza i backtick: il codice si estrae prima (stile Discord),
+ * altrimenti `` `testo` `` lascia i ` esterni visibili mentre applica comunque <code>.
+ * Niente capturing group interni: `split` li includerebbe nei pezzi.
+ */
 const INLINE =
-  /(\*\*\*[\s\S]+?\*\*\*|\*\*[\s\S]+?\*\*|__[\s\S]+?__|~~[\s\S]+?~~|\|\|[\s\S]+?\|\||`[^`\n]+`|\*[^*\n]+\*|_[^_\n]+_|\[[^\]]+\]\(\s*<?(?:https?:)?\/\/[^)\s>]+>?\s*\)|<t:\d{9,12}(?::[tTdDfFR])?>|<a?:[a-zA-Z0-9_~]+:\d+>|<@!?\d+>|<@&\d+>|<#\d+>|https?:\/\/[^\s<]+[^\s<.,;:!?)"'])/g;
+  /(\*\*\*[\s\S]+?\*\*\*|\*\*[\s\S]+?\*\*|__[\s\S]+?__|~~[\s\S]+?~~|\|\|[\s\S]+?\|\||\*[^*\n]+\*|_[^_\n]+_|\[[^\]]+\]\(\s*<?(?:https?:)?\/\/[^)\s>]+>?\s*\)|<t:\d{9,12}(?::[tTdDfFR])?>|<a?:[a-zA-Z0-9_~]+:\d+>|<@!?\d+>|<@&\d+>|<#\d+>|https?:\/\/[^\s<]+[^\s<.,;:!?)"'])/g;
+
+/** Placeholder che non collide col markdown Discord (niente `*_~|[]<>`). */
+const CODE_PH = (i: number) => `\uE000c${i}\uE001`;
+const CODE_PH_RE = /\uE000c(\d+)\uE001/g;
+
+/**
+ * Come Discord: N backtick di apertura, stesso N in chiusura; dentro possono esserci meno backtick.
+ * Sostituisce gli span con placeholder così `__…``code``…__` resta un pezzo solo per underline/bold.
+ */
+function extractInlineCode(text: string): { text: string; codes: string[] } {
+  const codes: string[] = [];
+  let i = 0;
+  let out = "";
+  const s = String(text || "");
+  while (i < s.length) {
+    if (s[i] !== "`") {
+      const start = i;
+      while (i < s.length && s[i] !== "`") i += 1;
+      out += s.slice(start, i);
+      continue;
+    }
+    let n = 0;
+    while (i + n < s.length && s[i + n] === "`") n += 1;
+    let j = i + n;
+    let close = -1;
+    while (j < s.length) {
+      if (s[j] !== "`") {
+        j += 1;
+        continue;
+      }
+      let m = 0;
+      while (j + m < s.length && s[j + m] === "`") m += 1;
+      if (m === n) {
+        close = j;
+        break;
+      }
+      j += m;
+    }
+    if (close < 0) {
+      out += s.slice(i, i + n);
+      i += n;
+      continue;
+    }
+    const idx = codes.length;
+    codes.push(s.slice(i + n, close));
+    out += CODE_PH(idx);
+    i = close + n;
+  }
+  return { text: out, codes };
+}
 
 function formatTs(unix: string, style?: string): string {
   const ms = Number(unix) * 1000;
@@ -108,7 +163,28 @@ function isSpoilerToken(p: string): boolean {
   return t.startsWith("||") && t.endsWith("||") && t.length > 4;
 }
 
-function inline(text: string, names: Names, key = "i"): ReactNode[] {
+/** Espande solo i placeholder codice in foglie già senza altro markdown. */
+function expandCodeLeaves(text: string, codes: string[], key: string): ReactNode[] {
+  if (!text.includes("\uE000")) return [<EmojiText key={key} text={text} />];
+  const parts = text.split(CODE_PH_RE);
+  const out: ReactNode[] = [];
+  for (let i = 0; i < parts.length; i += 1) {
+    const chunk = parts[i];
+    if (i % 2 === 1) {
+      const idx = Number(chunk);
+      out.push(
+        <code key={`${key}-code-${i}`} className="break-all rounded bg-black/30 px-1 py-0.5 font-mono text-[0.85em]">
+          {Number.isFinite(idx) ? codes[idx] ?? "" : ""}
+        </code>,
+      );
+      continue;
+    }
+    if (chunk) out.push(<EmojiText key={`${key}-t${i}`} text={chunk} />);
+  }
+  return out;
+}
+
+function inlineMarkdown(text: string, codes: string[], names: Names, key: string): ReactNode[] {
   const parts = text.split(INLINE);
   return parts.map((p, i) => {
     const k = `${key}-${i}`;
@@ -116,33 +192,27 @@ function inline(text: string, names: Names, key = "i"): ReactNode[] {
     if (p.startsWith("***") && p.endsWith("***") && p.length > 6)
       return (
         <strong key={k} className="font-semibold">
-          <em>{inline(p.slice(3, -3), names, k)}</em>
+          <em>{inlineMarkdown(p.slice(3, -3), codes, names, k)}</em>
         </strong>
       );
-    if (p.startsWith("**") && p.endsWith("**") && p.length > 4) return <strong key={k} className="font-semibold">{inline(p.slice(2, -2), names, k)}</strong>;
-    if (p.startsWith("__") && p.endsWith("__") && p.length > 4) return <u key={k}>{inline(p.slice(2, -2), names, k)}</u>;
-    if (p.startsWith("~~") && p.endsWith("~~") && p.length > 4) return <s key={k}>{inline(p.slice(2, -2), names, k)}</s>;
+    if (p.startsWith("**") && p.endsWith("**") && p.length > 4) return <strong key={k} className="font-semibold">{inlineMarkdown(p.slice(2, -2), codes, names, k)}</strong>;
+    if (p.startsWith("__") && p.endsWith("__") && p.length > 4) return <u key={k}>{inlineMarkdown(p.slice(2, -2), codes, names, k)}</u>;
+    if (p.startsWith("~~") && p.endsWith("~~") && p.length > 4) return <s key={k}>{inlineMarkdown(p.slice(2, -2), codes, names, k)}</s>;
     if (isSpoilerToken(p)) {
       const inner = p.trim().slice(2, -2);
       return (
         <Spoiler key={k} light={names.light}>
-          {inline(inner, names, k)}
+          {inlineMarkdown(inner, codes, names, k)}
         </Spoiler>
       );
     }
-    if (p.startsWith("`") && p.endsWith("`") && p.length > 2)
-      return (
-        <code key={k} className="break-all rounded bg-black/30 px-1 py-0.5 font-mono text-[0.85em]">
-          {p.slice(1, -1)}
-        </code>
-      );
-    if (((p.startsWith("*") && p.endsWith("*")) || (p.startsWith("_") && p.endsWith("_"))) && p.length > 2) return <em key={k}>{inline(p.slice(1, -1), names, k)}</em>;
+    if (((p.startsWith("*") && p.endsWith("*")) || (p.startsWith("_") && p.endsWith("_"))) && p.length > 2) return <em key={k}>{inlineMarkdown(p.slice(1, -1), codes, names, k)}</em>;
     const mdLink = p.match(/^\[([^\]]+)\]\(\s*<?((?:https?:)?\/\/[^)\s>]+)>?\s*\)$/i);
     if (mdLink) {
       const href = mdLink[2].startsWith("//") ? `https:${mdLink[2]}` : mdLink[2];
       return (
         <a key={k} href={href} target="_blank" rel="noopener noreferrer nofollow" className={names.light ? "text-[#1f5fbf] underline underline-offset-2" : "text-[#8ab4f8] underline underline-offset-2"}>
-          {inline(mdLink[1], names, k)}
+          {inlineMarkdown(mdLink[1], codes, names, k)}
         </a>
       );
     }
@@ -167,8 +237,15 @@ function inline(text: string, names: Names, key = "i"): ReactNode[] {
           {p}
         </a>
       );
-    return <EmojiText key={k} text={p} />;
+    const leaves = expandCodeLeaves(p, codes, k);
+    return leaves.length === 1 ? leaves[0] : <Fragment key={k}>{leaves}</Fragment>;
   });
+}
+
+/** Prima estrae `codice` / ``doppi`` (placeholder), poi il resto del markdown sul testo mascherato. */
+function inline(text: string, names: Names, key = "i"): ReactNode[] {
+  const { text: masked, codes } = extractInlineCode(text);
+  return inlineMarkdown(masked, codes, names, key);
 }
 
 export function DiscordContent({ text, names = {}, className }: { text: string; names?: Names; className?: string }) {

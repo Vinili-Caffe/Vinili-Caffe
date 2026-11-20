@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Allinea TUTTO il codice dei bot sulla VPS a quello compilato qui (dopo spostamenti/archiviazioni di file):
 # carica ogni .js di build/js e toglie dal server i .js che in locale non esistono più.
-# Non tocca: node_modules, Vinili/Data, Caffè/Data, font/cache binari, log, idsCatalog.js (lo rigenera il bot).
+# Non tocca: node_modules, Vinili/Data, Caffè/Data, Groove/Data, font/cache binari, log, idsCatalog.js (lo rigenera il bot).
 # Backup completo del codice e ripristino in ~/vc_bot_bak_<data>-sync (home dell'utente SSH).
 # VPS: di default quella nuova (vinili-ca), come pubblica.sh. Vecchia: VC_SSH_HOST=vinili bash Deploy/sincronizza.sh
 # Uso:
@@ -14,7 +14,7 @@ REPO_ROOT="$(cd "$DEPLOY_DIR/.." && pwd)"
 BOTS_DIR="$REPO_ROOT/Bots"
 cd "$BOTS_DIR"
 
-PROCS="${PROCS:-bots-vinyls bots-coffee site-api bot-workers vote-intake}"
+PROCS="${PROCS:-bots-vinyls bots-coffee bots-groove site-api bot-workers vote-intake}"
 SSH_HOST="${VC_SSH_HOST:-vinili-ca}"
 echo "VPS: $SSH_HOST"
 # Sync completo ancora compila in locale: serve Bots/node_modules (esbuild).
@@ -53,7 +53,7 @@ fi
 check_js_list build/js "$TMP/lista.txt"
 check_js_list build/archivio "$TMP/lista-archivio.txt"
 
-PRUNE='\( -path "*/node_modules" -o -path ./Vinili/Data -o -path ./Caffè/Data -o -path ./Vinili/Community/utils/Render/Fonts -o -path ./shared/cache/RoleIcons -o -path ./Vinili/Moderation/config/grabbedScamRefs -o -path "*/logs" \) -prune -o'
+PRUNE='\( -path "*/node_modules" -o -path ./Vinili/Data -o -path ./Caffè/Data -o -path ./Groove/Data -o -path ./Vinili/Community/utils/Render/Fonts -o -path ./shared/cache/RoleIcons -o -path ./Vinili/Moderation/config/grabbedScamRefs -o -path "*/logs" \) -prune -o'
 mkdir -p "$TMP"
 ssh "$SSH_HOST" "cd /opt/bot/bots-ts/src && find . $PRUNE -name '*.js' -print | sed 's#^\./##' | LC_ALL=C sort" > "$TMP/vps.txt"
 # Stesso ordinamento qui e sulla VPS (LC_ALL=C): con locale diversi `comm` segna da togliere file che esistono.
@@ -83,7 +83,7 @@ export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 B="$HOME/vc_bot_bak_$(date +%Y%m%d-%H%M%S)-sync"
 mkdir -p "$B"
 cd /opt/bot/bots-ts/src
-find . \( -path "*/node_modules" -o -path ./Vinili/Data -o -path ./Caffè/Data -o -path ./Vinili/Community/utils/Render/Fonts -o -path ./shared/cache/RoleIcons -o -path ./Vinili/Moderation/config/grabbedScamRefs -o -path "*/logs" \) -prune -o -name "*.js" -print > "$B/js-prima.txt"
+find . \( -path "*/node_modules" -o -path ./Vinili/Data -o -path ./Caffè/Data -o -path ./Groove/Data -o -path ./Vinili/Community/utils/Render/Fonts -o -path ./shared/cache/RoleIcons -o -path ./Vinili/Moderation/config/grabbedScamRefs -o -path "*/logs" \) -prune -o -name "*.js" -print > "$B/js-prima.txt"
 tar -czf "$B/js-prima.tgz" -T "$B/js-prima.txt"
 if [ -d /opt/bot/bots-ts/archivio ]; then
   tar -czf "$B/archivio-prima.tgz" -C /opt/bot/bots-ts archivio || true

@@ -1,11 +1,12 @@
 import coffeeSnapshot from "./wiki-coffee.json";
+import grooveSnapshot from "./wiki-groove.json";
 import prodSnapshot from "./wiki-prod.json";
 import { SITE_ORIGIN } from "./site";
 
-// Comandi dei bot: GET /webhooks/site-wiki-help?bot=prod|coffee (catalogo "ospite", senza login).
+// Comandi dei bot: GET /webhooks/site-wiki-help?bot=prod|coffee|groove (catalogo "ospite", senza login).
 // wiki-*.json = copia di riserva se l'API non risponde in build.
 
-export type BotId = "prod" | "coffee";
+export type BotId = "prod" | "coffee" | "groove";
 export type WikiCommand = {
   invoke: string;
   type: string;
@@ -21,11 +22,19 @@ export type WikiBot = { bot: BotId; guest?: boolean; vipRoleId?: string; categor
 export const BOTS: { id: BotId; name: string; prefix: string; tagline: string }[] = [
   { id: "prod", name: "Vinili", prefix: "+", tagline: "Musica, livelli, statistiche e minigames" },
   { id: "coffee", name: "Caffè", prefix: ",", tagline: "Musica e TTS per il server" },
+  { id: "groove", name: "Groove", prefix: ";", tagline: "Musica e TTS — gemello di Caffè" },
 ];
+
+export const BOT_IDS: BotId[] = BOTS.map((b) => b.id);
+
+export function botDisplayName(id: BotId): string {
+  return BOTS.find((b) => b.id === id)?.name ?? id;
+}
 
 const SNAPSHOTS: Record<BotId, WikiBot> = {
   prod: prodSnapshot as WikiBot,
   coffee: coffeeSnapshot as WikiBot,
+  groove: grooveSnapshot as WikiBot,
 };
 
 type ApiCommand = Partial<WikiCommand>;
@@ -71,8 +80,16 @@ export async function loadWikiBot(bot: BotId, origin = "", token?: string | null
 }
 
 export async function loadBuildWiki(): Promise<Record<BotId, WikiBot>> {
-  const [prod, coffee] = await Promise.all([loadWikiBot("prod", SITE_ORIGIN), loadWikiBot("coffee", SITE_ORIGIN)]);
-  return { prod: prod ?? SNAPSHOTS.prod, coffee: coffee ?? SNAPSHOTS.coffee };
+  const [prod, coffee, groove] = await Promise.all([
+    loadWikiBot("prod", SITE_ORIGIN),
+    loadWikiBot("coffee", SITE_ORIGIN),
+    loadWikiBot("groove", SITE_ORIGIN),
+  ]);
+  return {
+    prod: prod ?? SNAPSHOTS.prod,
+    coffee: coffee ?? SNAPSHOTS.coffee,
+    groove: groove ?? SNAPSHOTS.groove,
+  };
 }
 
 /** "+next up" → "cmd-prod-next-up" (id per i link diretti) */

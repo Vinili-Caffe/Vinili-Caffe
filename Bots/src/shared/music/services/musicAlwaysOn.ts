@@ -145,8 +145,8 @@ async function ensureAlwaysOnForGuild(client?, guildId?, opts: { force?: boolean
   const gid = String(guildId || "").trim();
   if (!gid || !client) return false;
   try {
-    const { getMusicBotHooks } = require("../../music/musicBotHooks") as typeof import("../../music/musicBotHooks");
-    if (getMusicBotHooks()?.profile === "coffee") return false;
+    const { botHonorsMusicAlwaysOn } = require("../../music/musicBotHooks") as typeof import("../../music/musicBotHooks");
+    if (!botHonorsMusicAlwaysOn()) return false;
   } catch (_) {}
   if (ensuring.has(gid)) return false;
   const now = Date.now();
@@ -282,6 +282,8 @@ async function guildAlwaysOnEnabled(guildId?) {
   const gid = String(guildId || "").trim();
   if (!gid) return false;
   try {
+    const { botHonorsMusicAlwaysOn } = require("../../music/musicBotHooks") as typeof import("../../music/musicBotHooks");
+    if (!botHonorsMusicAlwaysOn()) return false;
     const VR = require("../../../MultiGuild/services/voiceRuntime") as typeof import("../../../MultiGuild/services/voiceRuntime");
     const cfg = await VR.getConfig(gid, true);
     return Boolean(cfg?.music?.alwaysOn?.enabled && cfg.music.alwaysOn.voiceChannelId);

@@ -10,7 +10,7 @@
 # Percorsi relativi a Bots/src/. Backup in /root/vc_bot_bak_<data>.
 set -euo pipefail
 FILES="${1:?file da pubblicare (relativi a src/, es. Vinili/Utils/x.ts)}"
-PROCS="${2:?processi da riavviare (es. bots-vinyls, bots-coffee, site-api, bot-workers)}"
+PROCS="${2:?processi da riavviare (es. bots-vinyls, bots-coffee, bots-groove, site-api, bot-workers)}"
 
 DEPLOY_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$DEPLOY_DIR/.." && pwd)"

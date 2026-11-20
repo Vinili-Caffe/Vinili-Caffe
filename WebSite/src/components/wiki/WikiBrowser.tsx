@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import {
+  AudioLines,
   Check,
   ChartColumn,
   ChevronDown,
@@ -22,10 +23,16 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { BOTS, commandAnchor, loadWikiBot, type BotId, type WikiBot, type WikiCommand } from "@/lib/wiki";
+import { BOTS, BOT_IDS, botDisplayName, commandAnchor, loadWikiBot, type BotId, type WikiBot, type WikiCommand } from "@/lib/wiki";
 import { cn } from "@/lib/cn";
 import { displayName, useAuth } from "@/lib/auth";
 import { Highlight, norm } from "../Highlight";
+
+function botIcon(id: BotId): LucideIcon {
+  if (id === "prod") return Disc3;
+  if (id === "groove") return AudioLines;
+  return Coffee;
+}
 
 const CAT_ICONS: Record<string, LucideIcon> = {
   utility: Wrench,
@@ -95,7 +102,7 @@ function CommandRow({
   const usage = cmd.usage && cmd.usage !== cmd.invoke ? cmd.usage : "";
   const example = cmd.example && cmd.example !== cmd.invoke && cmd.example !== cmd.usage ? cmd.example : "";
   const [copied, setCopied] = useState(false);
-  const BotIcon = row.bot === "prod" ? Disc3 : Coffee;
+  const BotIcon = botIcon(row.bot);
 
   return (
     <motion.li
@@ -124,7 +131,7 @@ function CommandRow({
           <span className="ml-auto flex items-center gap-2">
           {showBot && (
             <span className="inline-flex items-center gap-1 rounded-full bg-crema/6 px-2 py-0.5 text-xs text-crema/55 ring-1 ring-sand/15">
-              <BotIcon className="size-3" /> {row.bot === "prod" ? "Vinili" : "Caffè"}
+              <BotIcon className="size-3" /> {botDisplayName(row.bot)}
             </span>
           )}
           {vip && (
@@ -221,7 +228,7 @@ export function WikiBrowser({ initial }: { initial: Record<BotId, WikiBot> }) {
   useEffect(() => {
     if (!ready) return;
     let alive = true;
-    for (const b of ["prod", "coffee"] as BotId[]) {
+    for (const b of BOT_IDS) {
       loadWikiBot(b, "", token).then((d) => alive && d && setData((prev) => ({ ...prev, [b]: d })));
     }
     return () => {
@@ -232,7 +239,7 @@ export function WikiBrowser({ initial }: { initial: Record<BotId, WikiBot> }) {
 
   const allRows = useMemo(() => {
     const rows: Row[] = [];
-    for (const b of ["prod", "coffee"] as BotId[]) {
+    for (const b of BOT_IDS) {
       for (const c of data[b].categories) for (const cmd of c.commands) rows.push({ bot: b, cat: c.id, catTitle: c.title, cmd });
     }
     return rows;
@@ -271,7 +278,7 @@ export function WikiBrowser({ initial }: { initial: Record<BotId, WikiBot> }) {
     const map = new Map<string, { title: string; id: string; rows: Row[] }>();
     for (const r of shown) {
       const k = `${searching ? r.bot + ":" : ""}${r.cat}`;
-      if (!map.has(k)) map.set(k, { id: r.cat, title: searching ? `${r.catTitle} · ${r.bot === "prod" ? "Vinili" : "Caffè"}` : r.catTitle, rows: [] });
+      if (!map.has(k)) map.set(k, { id: r.cat, title: searching ? `${r.catTitle} · ${botDisplayName(r.bot)}` : r.catTitle, rows: [] });
       map.get(k)!.rows.push(r);
     }
     return [...map.values()];
@@ -282,11 +289,11 @@ export function WikiBrowser({ initial }: { initial: Record<BotId, WikiBot> }) {
 
   return (
     <div className="mx-auto max-w-5xl px-6 pb-16">
-      {/* i due bot — pt sul grid evita che hover y=-3 / watermark escano tagliati */}
-      <div className="grid gap-4 pt-1 sm:grid-cols-2 sm:gap-5">
+      {/* i tre bot — pt sul grid evita che hover y=-3 / watermark escano tagliati */}
+      <div className="grid gap-4 pt-1 sm:grid-cols-3 sm:gap-5">
         {BOTS.map((b) => {
           const active = !searching && bot === b.id;
-          const Icon = b.id === "prod" ? Disc3 : Coffee;
+          const Icon = botIcon(b.id);
           return (
             <motion.button
               key={b.id}
@@ -326,7 +333,7 @@ export function WikiBrowser({ initial }: { initial: Record<BotId, WikiBot> }) {
                   <p className="mt-1.5 text-sm text-crema/55">{b.tagline}</p>
                 </div>
               </div>
-              <div className="relative mt-5 flex items-center gap-3 text-sm">
+              <div className="relative mt-5 flex flex-wrap items-center gap-3 text-sm">
                 <span className="rounded-lg bg-espresso px-2.5 py-1 font-mono text-ember ring-1 ring-caramel/30">
                   prefisso {b.prefix}
                 </span>
@@ -362,7 +369,7 @@ export function WikiBrowser({ initial }: { initial: Record<BotId, WikiBot> }) {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Cerca un comando in entrambi i bot…"
+          placeholder="Cerca un comando in tutti i bot…"
           aria-label="Cerca un comando"
           className="w-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast py-4 pl-14 pr-12 text-base text-crema ring-1 ring-sand/15 transition-shadow placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60 [&::-webkit-search-cancel-button]:appearance-none"
         />

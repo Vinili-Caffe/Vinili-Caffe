@@ -7,7 +7,7 @@ const child_process = require('child_process') as typeof import("child_process")
 const fs = require('fs') as typeof import("fs");
 const path = require('path') as typeof import("path");
 const os = require('os') as typeof import("os");
-/** Directory codice bot (Vinili/Caffè/shared accanto al loader): in locale = bots-ts/dist, in VPS = /opt/bot. */
+/** Directory codice bot (Vinili/Caffè/Groove/shared accanto al loader): in locale = bots-ts/dist, in VPS = /opt/bot. */
 const baseDir = __dirname;
 /** Root repo (.env, scripts, .git, package.json workspaces). BOT_REPO o parent di bots-ts/dist. */
 function resolveRepoRoot() {
@@ -29,8 +29,9 @@ const ENABLE_LOADER_NPM_INSTALL =
 const ALL_BOTS=[
   {key:'vinyls',label:'Vinili',folderSuffix:'Vinili',startupDelayMs:0},
   {key:'coffee',label:'Caffè',folderSuffix:'Caffè',startupDelayMs:0},
+  {key:'groove',label:'Groove',folderSuffix:'Groove',startupDelayMs:0},
 ];
-/** perfP0: LOADER_BOTS=vinyls|coffee|all — permette PM2 split heap. */
+/** perfP0: LOADER_BOTS=vinyls|coffee|groove|all — permette PM2 split heap. */
 function resolveBotsToStart() {
     const raw = String(process.env.LOADER_BOTS || process.env.BOTS_ONLY || 'all').trim().toLowerCase();
     if (!raw || raw === 'all' || raw === '*') return ALL_BOTS;

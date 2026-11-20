@@ -13,6 +13,10 @@ const CATALOG_STALE_KEEP_MS = 10 * 60 * 1000;
 const catalogCache = new Map();
 const catalogInflight = new Map();
 
+function isTwinWikiBot(bot?) {
+  return bot === "coffee" || bot === "groove";
+}
+
 function catalogCacheKey(bot?, roleIds?) {
   const roles = (Array.isArray(roleIds) ? roleIds : [])
     .map((id?) => String(id || "").trim())
@@ -47,35 +51,35 @@ async function loadCatalogForRoles(client?, bot?, roleIds?) {
   const key = catalogCacheKey(bot, roleIds);
   const hit = readCatalogCache(key);
   if (hit?.fresh) {
-    return { catalog: hit.catalog, economyVisible: hit.economyVisible, coffeeError: null, cached: true };
+    return { catalog: hit.catalog, economyVisible: hit.economyVisible, twinError: null, cached: true };
   }
   if (hit && !hit.fresh) {
     if (!catalogInflight.has(key)) {
       const p = (async () => {
-        if (bot === "coffee") {
-          const coffee = await fetchCoffeeWikiCatalog(roleIds);
-          if (coffee.ok) {
-            writeCatalogCache(key, coffee.catalog, null);
-            return { catalog: coffee.catalog, economyVisible: null, coffeeError: null };
+        if (isTwinWikiBot(bot)) {
+          const twin = await fetchTwinWikiCatalog(bot, roleIds);
+          if (twin.ok) {
+            writeCatalogCache(key, twin.catalog, null);
+            return { catalog: twin.catalog, economyVisible: null, twinError: null };
           }
           return {
             catalog: hit.catalog,
             economyVisible: hit.economyVisible,
-            coffeeError: coffee.error || "coffee_catalog_failed",
+            twinError: twin.error || `${bot}_catalog_failed`,
           };
         }
         const catalog = buildCatalogSafe(client, roleIds);
         const safe =
           catalog && typeof catalog === "object" ? catalog : { categories: [], commandCount: 0 };
         writeCatalogCache(key, safe, catalog?.economyVisible);
-        return { catalog: safe, economyVisible: catalog?.economyVisible ?? null, coffeeError: null };
+        return { catalog: safe, economyVisible: catalog?.economyVisible ?? null, twinError: null };
       })().finally(() => catalogInflight.delete(key));
       catalogInflight.set(key, p);
     }
     return {
       catalog: hit.catalog,
       economyVisible: hit.economyVisible,
-      coffeeError: null,
+      twinError: null,
       cached: true,
       stale: true,
     };
@@ -84,23 +88,23 @@ async function loadCatalogForRoles(client?, bot?, roleIds?) {
   let inflight = catalogInflight.get(key);
   if (!inflight) {
     inflight = (async () => {
-      if (bot === "coffee") {
-        const coffee = await fetchCoffeeWikiCatalog(roleIds);
-        if (!coffee.ok) {
+      if (isTwinWikiBot(bot)) {
+        const twin = await fetchTwinWikiCatalog(bot, roleIds);
+        if (!twin.ok) {
           return {
             catalog: { categories: [], commandCount: 0 },
             economyVisible: null,
-            coffeeError: coffee.error || "coffee_catalog_failed",
+            twinError: twin.error || `${bot}_catalog_failed`,
           };
         }
-        writeCatalogCache(key, coffee.catalog, null);
-        return { catalog: coffee.catalog, economyVisible: null, coffeeError: null };
+        writeCatalogCache(key, twin.catalog, null);
+        return { catalog: twin.catalog, economyVisible: null, twinError: null };
       }
       const catalog = buildCatalogSafe(client, roleIds);
       const safe =
         catalog && typeof catalog === "object" ? catalog : { categories: [], commandCount: 0 };
       writeCatalogCache(key, safe, catalog?.economyVisible);
-      return { catalog: safe, economyVisible: catalog?.economyVisible ?? null, coffeeError: null };
+      return { catalog: safe, economyVisible: catalog?.economyVisible ?? null, twinError: null };
     })().finally(() => catalogInflight.delete(key));
     catalogInflight.set(key, inflight);
   }
@@ -136,10 +140,14 @@ function buildCatalogSafe(client?, roleIds?) {
   }
 }
 
-function resolveCoffeeWikiHelpUrl(roleIds?) {
-  const host = String(process.env.COFFEE_HEALTH_HOST || "127.0.0.1").trim() || "127.0.0.1";
-  const port = Number(process.env.COFFEE_HEALTH_PORT || 3011);
-  const safePort = Number.isFinite(port) && port > 0 ? Math.floor(port) : 3011;
+function resolveTwinWikiHelpUrl(bot?, roleIds?) {
+  const isGroove = bot === "groove";
+  const hostEnv = isGroove ? "GROOVE_HEALTH_HOST" : "COFFEE_HEALTH_HOST";
+  const portEnv = isGroove ? "GROOVE_HEALTH_PORT" : "COFFEE_HEALTH_PORT";
+  const defaultPort = isGroove ? 3012 : 3011;
+  const host = String(process.env[hostEnv] || "127.0.0.1").trim() || "127.0.0.1";
+  const port = Number(process.env[portEnv] || defaultPort);
+  const safePort = Number.isFinite(port) && port > 0 ? Math.floor(port) : defaultPort;
   const roles = (Array.isArray(roleIds) ? roleIds : [])
     .map((id?) => String(id || "").trim())
     .filter((id?) => /^\d{17,22}$/.test(id))
@@ -148,8 +156,9 @@ function resolveCoffeeWikiHelpUrl(roleIds?) {
   return `http://${host}:${safePort}/webhooks/site-wiki-help${q}`;
 }
 
-async function fetchCoffeeWikiCatalog(roleIds?) {
-  const url = resolveCoffeeWikiHelpUrl(roleIds);
+async function fetchTwinWikiCatalog(bot?, roleIds?) {
+  const twin = isTwinWikiBot(bot) ? bot : "coffee";
+  const url = resolveTwinWikiHelpUrl(twin, roleIds);
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), 4500);
   try {
@@ -163,13 +172,13 @@ async function fetchCoffeeWikiCatalog(roleIds?) {
       return {
         ok: false,
         status: res.status || 502,
-        error: data?.error || "coffee_catalog_failed",
+        error: data?.error || `${twin}_catalog_failed`,
       };
     }
     return { ok: true, status: 200, catalog: data.catalog };
   } catch (err) {
-    global.logger?.warn?.("[site-wiki-help] coffee fetch:", err?.message || err);
-    return { ok: false, status: 502, error: "coffee_unreachable" };
+    global.logger?.warn?.(`[site-wiki-help] ${twin} fetch:`, err?.message || err);
+    return { ok: false, status: 502, error: `${twin}_unreachable` };
   } finally {
     clearTimeout(timer);
   }
@@ -178,6 +187,7 @@ async function fetchCoffeeWikiCatalog(roleIds?) {
 function normalizeWikiBot(raw?) {
   const v = String(raw || "prod").trim().toLowerCase();
   if (v === "test" || v === "coffee" || v === "caffe" || v === "caffè") return "coffee";
+  if (v === "groove") return "groove";
   return "prod";
 }
 
@@ -244,11 +254,11 @@ async function getWikiHelpAccess(client?, payload?) {
   const ctx = await resolveWikiRoleContext(client, payload);
   const loaded = await loadCatalogForRoles(client, bot, ctx.roleIds);
 
-  if (bot === "coffee") {
+  if (isTwinWikiBot(bot)) {
     return {
       ok: true,
       status: 200,
-      bot: "coffee",
+      bot,
       guest: ctx.guest,
       userId: ctx.userId,
       roleIds: ctx.roleIds,
@@ -256,7 +266,8 @@ async function getWikiHelpAccess(client?, payload?) {
       vipRoleId: ctx.vipRoleId,
       economyVisible: ctx.economyVisible,
       authError: ctx.authError,
-      coffeeError: loaded.coffeeError || undefined,
+      coffeeError: bot === "coffee" ? loaded.twinError || undefined : undefined,
+      grooveError: bot === "groove" ? loaded.twinError || undefined : undefined,
       catalog: loaded.catalog || { categories: [], commandCount: 0 },
       viewAs: ctx.viewAs || null,
     };

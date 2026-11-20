@@ -265,16 +265,16 @@ async function grantCompitiSwapBonus(guildId?, userId?, amount = 1, { weekKey = 
     monthKeyForWeekKey(wk) ||
     compitiActiveMonthKey(wk);
   const cur = await loadSwapBonus(guildId, userId, mk);
-  if (wk && cur.weekKey === wk && Number(cur.bonus || 0) > 0 && !cur.expired) {
+  /* Stessa week già grantata (anche se bonus speso a 0): non ri-assegnare.
+     Prima con bonus===0 si faceva ri-grant “strict drop” e l’extra tornava
+     infinito finché restava il ruolo Staffer della settimana. */
+  if (wk && cur.weekKey === wk && !cur.expired) {
     return { ok: true, swapBonus: cur.bonus, granted: 0, skipped: true, monthKey: mk };
   }
-  /* compitiSwapSchema1: se week match ma bonus 0 (strict drop storico) → ri-grant. */
   const next =
     cur.expired || !Number(cur.bonus || 0)
       ? add
-      : wk && cur.weekKey === wk
-        ? Math.max(Number(cur.bonus || 0), add)
-        : Number(cur.bonus || 0) + add;
+      : Number(cur.bonus || 0) + add;
   await saveSwapBonusState(guildId, userId, { bonus: next, weekKey: wk || cur.weekKey, monthKey: mk });
   const granted = Math.max(0, next - Math.max(0, Number(cur.expired ? 0 : cur.bonus) || 0));
   return { ok: true, swapBonus: next, granted: granted || (next > 0 ? add : 0), monthKey: mk };
