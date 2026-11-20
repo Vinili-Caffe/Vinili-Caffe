@@ -104,7 +104,7 @@ function VetrinaTopBar() {
           <SmartLink href={page("/vetrina/")} className="group flex shrink-0 items-center gap-2.5">
             <BotLogo />
             <span className="hidden leading-none sm:block">
-              <span className="block font-display text-xl font-semibold text-crema transition-colors group-hover:text-ember">Vetrina</span>
+              <span className="block font-display text-lg font-semibold uppercase tracking-[0.14em] text-crema transition-colors group-hover:text-ember">Vetrina</span>
               <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-crema/40">Vinili &amp; Caffè</span>
             </span>
           </SmartLink>

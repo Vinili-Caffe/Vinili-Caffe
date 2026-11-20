@@ -20,7 +20,6 @@ import {
   Server,
   ShieldCheck,
   Sparkles,
-  Star,
   ThumbsUp,
   Users,
 } from "lucide-react";
@@ -28,7 +27,6 @@ import { useAuth } from "@/lib/auth";
 import {
   SOCIAL_LABELS,
   bumpListing,
-  kindLabel,
   labelOf,
   listingFeatures,
   loadBoardsConfig,
@@ -200,33 +198,34 @@ export function ListingPage() {
               window.location.href = listHref(l.kind === "bot" ? "bot" : "server", f);
             }}
           />
-          <SmartLink href={page(l.kind === "bot" ? "/vetrina/bot/" : "/vetrina/server/")} className="inline-flex items-center gap-1.5 text-sm text-crema/60 hover:text-crema">
-            <ArrowLeft className="size-4" /> {l.kind === "bot" ? "Tutti i bot" : "Tutti i server"}
-          </SmartLink>
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-6 flex flex-col gap-6 sm:flex-row sm:items-end"
+            className="mt-10"
           >
-            <div
-              className="relative size-32 shrink-0 overflow-hidden rounded-[2rem] shadow-[0_30px_60px_-25px_rgba(0,0,0,0.9)] ring-4 ring-espresso/80 sm:size-40"
-              style={{ background: `radial-gradient(circle at 35% 30%, ${accent}88, #1a110c 75%)` }}
-            >
-              {l.iconUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={l.iconUrl} alt="" className="size-full object-cover" />
-              ) : (
-                <KindIcon className="absolute inset-0 m-auto size-14 text-sand/70" />
+            <div className="min-w-0">
+              {(l.status !== "approved" || l.nsfw) && (
+                <p className="mb-3 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase">
+                  {l.status !== "approved" && <span className="rounded-full bg-crema/10 px-2 py-0.5 tracking-wider text-crema/80">{statusLabel(l.status)}</span>}
+                  {l.nsfw && <span className="rounded-full bg-[#a83a2c] px-2 py-0.5 tracking-wider text-crema">18+</span>}
+                </p>
               )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-ember">
-                <KindIcon className="size-4" /> {kindLabel(l.kind)}
-                {l.status !== "approved" && <span className="rounded-full bg-crema/10 px-2 py-0.5 tracking-wider text-crema/80">{statusLabel(l.status)}</span>}
-                {l.nsfw && <span className="rounded-full bg-[#a83a2c] px-2 py-0.5 tracking-wider text-crema">18+</span>}
-              </p>
-              <h1 className="mt-2 font-display text-5xl font-semibold leading-[1.02] text-crema sm:text-6xl">{l.name}</h1>
+              {/* logo affiancato al nome */}
+              <div className="flex items-center gap-4 sm:gap-6">
+                <div
+                  className="relative size-20 shrink-0 overflow-hidden rounded-[1.5rem] shadow-[0_24px_50px_-22px_rgba(0,0,0,0.9)] ring-4 ring-espresso/80 sm:size-28 sm:rounded-[1.75rem]"
+                  style={{ background: `radial-gradient(circle at 35% 30%, ${accent}88, #1a110c 75%)` }}
+                >
+                  {l.iconUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={l.iconUrl} alt="" className="size-full object-cover" />
+                  ) : (
+                    <KindIcon className="absolute inset-0 m-auto size-10 text-sand/70" />
+                  )}
+                </div>
+                <h1 className="min-w-0 font-display text-4xl font-semibold leading-[1.02] text-crema sm:text-6xl">{l.name}</h1>
+              </div>
               {l.tagline && <p className="mt-3 max-w-2xl text-lg text-crema/70">{l.tagline}</p>}
               {l.stats?.guildTag ? (
                 <span
@@ -278,18 +277,8 @@ export function ListingPage() {
       </header>
 
       {/* ─── numeri ─── */}
-      <div className="mx-auto mt-8 grid max-w-6xl grid-cols-2 gap-3 px-6 sm:grid-cols-4">
-        {l.kind !== "bot" && members > 0 ? (
-          <StatTile icon={<Users />} label="Membri" value={fmt(members)} />
-        ) : (
-          <StatTile icon={<Sparkles />} label="Punteggio" value={l.score > 0 ? fmt(Math.round(l.score)) : "—"} hint="posizione in vetrina" />
-        )}
-        <StatTile
-          icon={<Star />}
-          label="Valutazione"
-          value={l.reviewsCount > 0 ? l.ratingAvg.toFixed(1) : "—"}
-          hint={l.reviewsCount > 0 ? `${fmt(l.reviewsCount)} recensioni` : "ancora nessuna"}
-        />
+      <div className={cn("mx-auto mt-8 grid max-w-6xl grid-cols-2 gap-3 px-6", l.kind !== "bot" && members > 0 && "sm:grid-cols-3")}>
+        {l.kind !== "bot" && members > 0 ? <StatTile icon={<Users />} label="Membri" value={fmt(members)} /> : null}
         <StatTile icon={<ThumbsUp />} label="Voti del mese" value={fmt(l.votesMonth || 0)} />
         <StatTile icon={<RefreshCcw />} label="Riposizionamenti" value={fmt(l.bumps7d || 0)} hint="ultimi 7 giorni" />
       </div>
