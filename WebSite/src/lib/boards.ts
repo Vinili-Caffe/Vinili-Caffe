@@ -631,6 +631,49 @@ export async function testVoteHook(token: string, id: string, config: VoteHookCo
   return parse<{ message?: string }>(r);
 }
 
+/* ── recensioni nel server della scheda ── */
+
+export type ReviewHookConfig = {
+  enabled: boolean;
+  channelId: string | null;
+  roleId: string | null;
+  hours: number;
+  thanksEnabled: boolean;
+  draft: MsgDraft;
+  expAmount: number;
+};
+export type ReviewHookData = {
+  config: ReviewHookConfig;
+  botInGuild: boolean;
+  guild: { id: string; name: string } | null;
+  bot: { id: string; name: string; avatarUrl: string } | null;
+  pickers: { textChannels: PickerChannel[]; roles: PickerRole[]; emojis: PickerEmoji[]; categories: PickerChannel[] };
+  serviceName: string;
+};
+
+export async function loadReviewHook(token: string, id: string) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/review-hook`, { headers: auth(token), cache: "no-store" });
+  return parse<ReviewHookData>(r);
+}
+
+export async function saveReviewHook(token: string, id: string, config: ReviewHookConfig) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/review-hook`, {
+    method: "PATCH",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ config }),
+  });
+  return parse<{ config: ReviewHookConfig; message?: string }>(r);
+}
+
+export async function testReviewHook(token: string, id: string, config: ReviewHookConfig) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/review-hook/test`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ config }),
+  });
+  return parse<{ message?: string }>(r);
+}
+
 /* ── passaggio della scheda ── */
 
 export type TransferUser = { id: string; name: string; username: string; avatarUrl: string };

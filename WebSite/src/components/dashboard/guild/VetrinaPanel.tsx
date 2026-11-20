@@ -6,7 +6,7 @@ import { loadMine, type BoardListing } from "@/lib/boards";
 import { page } from "@/lib/site";
 import { SmartLink } from "@/components/SmartLink";
 import { VoteHookTab } from "@/components/vetrina/manage/VoteHookTab";
-import { ListingReviews } from "@/components/vetrina/ListingReviews";
+import { ReviewHookTab } from "@/components/vetrina/manage/ReviewHookTab";
 import { Notice, RowsSkeleton } from "./bits";
 import type { VetrinaModuleTabId } from "../guildSections";
 
@@ -85,7 +85,11 @@ export function VetrinaPanel({
   return (
     <div className="space-y-5">
       <ListingChip listing={listing} />
-      {tab === "voti" ? <VoteHookTab listing={listing} token={token} compact /> : <ListingReviews listing={listing} />}
+      {tab === "voti" ? (
+        <VoteHookTab listing={listing} token={token} compact />
+      ) : (
+        <ReviewHookTab listing={listing} token={token} compact />
+      )}
     </div>
   );
 }
