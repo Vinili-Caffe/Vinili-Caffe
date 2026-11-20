@@ -195,6 +195,34 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
     }
   });
 
+  /* ── voti nel server della scheda (impostazioni della scheda, non del modulo Voti) ── */
+  try {
+    const { ensureRoleSweep } = require("./boardVoteHook") as typeof import("./boardVoteHook");
+    ensureRoleSweep(client);
+  } catch (_) {}
+  const voteHookRoute = (path: string, run: (H: any, accessToken: string, req: any) => Promise<any>) =>
+    async (req?, res?) => {
+      try {
+        const accessToken = normalizeHeaderSecret(req.headers.authorization);
+        if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi con Discord." });
+        const H = require("./boardVoteHook") as typeof import("./boardVoteHook");
+        const out: any = await run(H, accessToken, req);
+        return res.status(Number(out?.status) || 500).json(out);
+      } catch (err) {
+        global.logger?.error?.(`[WEBHOOK] site-boards ${path}:`, err);
+        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+      }
+    };
+  app.get("/webhooks/site-boards/me/listings/:id/vote-hook", voteHookRoute("vote-hook", (H, accessToken, req) => H.getVoteHook(client, { accessToken, listingId: req.params?.id })));
+  app.patch(
+    "/webhooks/site-boards/me/listings/:id/vote-hook",
+    voteHookRoute("vote-hook save", (H, accessToken, req) => H.saveVoteHook(client, { accessToken, listingId: req.params?.id, config: req.body?.config })),
+  );
+  app.post(
+    "/webhooks/site-boards/me/listings/:id/vote-hook/test",
+    voteHookRoute("vote-hook test", (H, accessToken, req) => H.testVoteHook(client, { accessToken, listingId: req.params?.id, config: req.body?.config })),
+  );
+
   /* ── passaggio della scheda ad un altro utente ── */
   const transferRoute = (path: string, run: (T: any, accessToken: string, req: any) => Promise<any>) =>
     async (req?, res?) => {

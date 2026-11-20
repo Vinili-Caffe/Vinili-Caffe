@@ -25,11 +25,10 @@ function normalizeReward(r?) {
   return { roleId: T.isId(r?.roleId) ? String(r.roleId) : null, hours: Number.isFinite(hours) && hours >= 1 && hours <= 720 ? hours : 12 };
 }
 
-/* vetrina: i voti dati sul sito (viniliecaffe.it/vetrina), arrivano senza webhook */
-type VoteService = "topgg" | "discadia" | "vetrina";
-const VOTE_SERVICES: VoteService[] = ["topgg", "discadia", "vetrina"];
-const VOTE_LABEL: Record<VoteService, string> = { topgg: "Top.gg", discadia: "Discadia", vetrina: "Vetrina V&C" };
-const DEFAULT_VOTE_HOURS: Record<VoteService, number> = { topgg: 12, discadia: 24, vetrina: 12 };
+type VoteService = "topgg" | "discadia";
+const VOTE_SERVICES: VoteService[] = ["topgg", "discadia"];
+const VOTE_LABEL: Record<VoteService, string> = { topgg: "Top.gg", discadia: "Discadia" };
+const DEFAULT_VOTE_HOURS: Record<VoteService, number> = { topgg: 12, discadia: 24 };
 const DEFAULT_BUMP_THANKS = "{user} grazie per il bump su **{service}**! 💙 Hai fatto {count} bump.";
 const DEFAULT_REMINDER = "{role} si può di nuovo bumpare su **{service}**! Usa il comando `/bump`.";
 const DEFAULT_VOTE_THANKS = "{user} grazie per il voto su **{service}**! ⭐ Voti totali: {count}.";
@@ -130,7 +129,6 @@ function normalizeConfig(raw?) {
       token: typeof v.token === "string" && /^[a-f0-9]{32}$/.test(v.token) ? v.token : crypto.randomBytes(16).toString("hex"),
       topgg: v.topgg !== false,
       discadia: v.discadia !== false,
-      vetrina: v.vetrina !== false,
       channelId: T.isId(v.channelId) ? String(v.channelId) : null,
       thanks: { enabled: vth.enabled !== false },
       rewardRoleId: T.isId(v.rewardRoleId ?? v.reward?.roleId) ? String(v.rewardRoleId ?? v.reward?.roleId) : null,
@@ -212,7 +210,7 @@ type State = {
   last: Partial<Record<Service, LastBump>>;
   bumps: Record<string, number>;
   votes: Record<string, number>;
-  voteLast: Partial<Record<VoteService, Record<string, number>>>;
+  voteLast: Partial<Record<"topgg" | "discadia", Record<string, number>>>;
   roleExpiry: { userId: string; roleId: string; until: number }[];
 };
 
@@ -471,28 +469,6 @@ async function handleVoteWebhook(client?, guildId?: string, service?: string, to
   return { status: 200, text: "OK" };
 }
 
-/** Voto dato sulla vetrina del sito: stesso ringraziamento e ruolo dei voti di Top.gg/Discadia. */
-async function handleVetrinaVote(client?, guildId?: string, userId?: string) {
-  const gid = String(guildId || "");
-  const uid = String(userId || "");
-  if (!T.isId(gid) || !T.isId(uid)) return { ok: false, reason: "invalid" };
-  if (!(require("../core/moduleSwitches") as typeof import("../core/moduleSwitches")).isModuleOn(gid, "voti")) return { ok: false, reason: "module_off" };
-  const cfg = await getConfig(gid, true);
-  if (!cfg.votes.enabled || !cfg.votes.vetrina) return { ok: false, reason: "disabled" };
-  const guild = await resolveGuild(client, gid);
-  if (!guild) return { ok: false, reason: "bot_not_in_guild" };
-  const st = await getState(gid);
-  const lastMap = (st.voteLast.vetrina = st.voteLast.vetrina || {});
-  lastMap[uid] = Date.now();
-  st.votes[uid] = (st.votes[uid] || 0) + 1;
-  await giveTimedRole(client, gid, uid, { roleId: cfg.votes.rewardRoleId, hours: cfg.votes.perService.vetrina.hours }, st);
-  await saveState(gid, st);
-  if (cfg.votes.thanks.enabled && cfg.votes.channelId) {
-    await sendDraft(client, cfg.votes.channelId, cfg.votes.perService.vetrina.draft, { ...(await userVars(client, guild, uid)), ...NO_EXP, service: VOTE_LABEL.vetrina, count: String(st.votes[uid]) }, uid);
-  }
-  return { ok: true };
-}
-
 /**
  * Ringraziamento voto del percorso classico MAIN: usa i draft della dashboard
  * (Bump e voti → Voti), anche se il modulo webhook voti non è ancora acceso.
@@ -610,7 +586,6 @@ function mainSeedConfig(client?) {
   const hours: Record<VoteService, number> = {
     topgg: Math.max(1, Math.round(Number(cfgMain?.topgg?.voteReminderCooldownHours) || 12)),
     discadia: Math.max(1, Math.round(Number(cfgMain?.discadiaVoteReminder?.cooldownHours) || 24)),
-    vetrina: DEFAULT_VOTE_HOURS.vetrina,
   };
   /* {bonus} su riga sua: fill() la toglie se non ci sono rapida/streak. */
   const bumpThanks = (again: string, withExp: boolean) => ({
@@ -854,7 +829,6 @@ export = {
   regenerateToken,
   handleTenantBumpMessage,
   handleVoteWebhook,
-  handleVetrinaVote,
   trySendConfiguredVoteThanks,
   trySendConfiguredVoteReminder,
   startBumpVotesLoop,

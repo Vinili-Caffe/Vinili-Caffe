@@ -122,7 +122,7 @@ function ServiceCard({
   subtitle,
   children,
 }: {
-  brand: { label: string; initial: string; color: string };
+  brand: (typeof BRAND)[keyof typeof BRAND];
   on: boolean;
   onToggle: (v: boolean) => void;
   subtitle: string;
@@ -610,93 +610,6 @@ export function VotesPanel({ guildId, token, onToast }: PanelProps) {
       </div>
 
       <TrackUnsaved dirty={dirty} onSave={save} onReset={h.reset} />
-    </div>
-  );
-}
-
-/* ───────────── vetrina del sito ───────────── */
-
-const VETRINA_BRAND = { label: "Vetrina V&C", initial: "V", color: "#d99a5b" };
-
-/**
- * Voti dati sulla Vetrina del sito: stesso modulo dei voti (ringraziamento nel canale, ruolo a tempo),
- * ma solo la parte della vetrina. Usato nella pagina Modifica della scheda.
- */
-export function VetrinaVotesPanel({ guildId, token, onToast }: PanelProps) {
-  const h = useBumpVotesConfig(guildId, token);
-  const { data, error, cfg, set, loadError, busy, setBusy, dirty } = h;
-  const baseVars = useSampleVars(data);
-  const vars = useMemo(() => ({ ...baseVars, count: "12", service: VETRINA_BRAND.label }), [baseVars]);
-
-  if (loadError) return <Notice error>{loadError}</Notice>;
-  if (error && !data) return <Notice error>{error}</Notice>;
-  if (!data || !cfg) return <RowsSkeleton rows={4} />;
-
-  const per = cfg.votes.perService.vetrina || { ...cfg.votes.perService.topgg, hours: 12 };
-  const on = cfg.votes.enabled && cfg.votes.vetrina !== false;
-  const roles = [{ value: "", label: "— Nessuno —" }, ...roleOptions(data.pickers.roles, guildId)];
-  const roleName = data.pickers.roles.find((r) => r.id === cfg.votes.rewardRoleId)?.name || null;
-  const channels = data.pickers.textChannels;
-  const setPer = (p: Partial<typeof per>) => set({ ...cfg, votes: { ...cfg.votes, perService: { ...cfg.votes.perService, vetrina: { ...per, ...p } } } });
-
-  const save = async () => {
-    setBusy(true);
-    const r = await communityApi.saveBumpVotes(token, guildId, { votes: { ...cfg.votes, perService: { ...cfg.votes.perService, vetrina: per } } });
-    setBusy(false);
-    if (!r.ok) return onToast(r.message, true);
-    h.markSaved(r.data.config);
-    onToast("Impostazioni dei voti salvate.");
-  };
-
-  return (
-    <div className="space-y-5 pb-4">
-      <ServiceCard
-        brand={VETRINA_BRAND}
-        on={on}
-        onToggle={(v) => set({ ...cfg, votes: { ...cfg.votes, enabled: v ? true : cfg.votes.enabled, vetrina: v } })}
-        subtitle={`Ruolo per ${fmtHours(per.hours)} dopo ogni voto`}
-      />
-
-      <div className={cn("space-y-5 transition-opacity", !on && "pointer-events-none opacity-45")} aria-disabled={!on}>
-        <Section icon={Gift} title="Ricompensa" text="Chi vota la scheda riceve il ruolo nel server; il bot lo toglie da solo allo scadere.">
-          <div className="space-y-3">
-            <RewardSummary roleName={roleName} hours={per.hours} verb="vota" />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Ruolo">
-                <Select value={cfg.votes.rewardRoleId || ""} onChange={(v) => set({ ...cfg, votes: { ...cfg.votes, rewardRoleId: v || null } })} options={roles} className="mt-1.5 h-11 rounded-lg" />
-              </Field>
-              <Field label="Ore del ruolo dopo un voto">
-                <NumberField value={per.hours} min={1} max={720} onChange={(v) => setPer({ hours: Number(v) || 1 })} aria-label="Ore del ruolo" />
-              </Field>
-            </div>
-          </div>
-        </Section>
-
-        <Section
-          icon={Sparkles}
-          title="Ringraziamento"
-          text="A ogni voto il bot scrive nel canale scelto. Il promemoria per rivotare lo sceglie chi vota, sul sito."
-          right={<Toggle size="sm" checked={cfg.votes.thanks.enabled} onChange={(v) => set({ ...cfg, votes: { ...cfg.votes, thanks: { ...cfg.votes.thanks, enabled: v } } })} label="Ringraziamento" />}
-        >
-          <div className="mb-4 max-w-md">
-            <ChannelField label="Canale dei ringraziamenti" hint="Vuoto = nessun messaggio, solo il ruolo." value={cfg.votes.channelId} channels={channels} onChange={(channelId) => set({ ...cfg, votes: { ...cfg.votes, channelId } })} />
-          </div>
-          {cfg.votes.thanks.enabled && cfg.votes.channelId ? (
-            <Studio
-              editor={<DraftEditor key="vetrina" value={per.draft} onChange={(d) => setPer({ draft: d })} emojis={data.pickers.emojis} placeholders={VOTE_PLACEHOLDERS} maxButtons={data.limits.buttons} />}
-              preview={<DiscordMessagePreview testChannelId={cfg.votes.channelId} bot={data.bot} draft={per.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
-            />
-          ) : (
-            <p className="rounded-xl bg-espresso/45 px-3 py-6 text-center text-sm text-crema/55 ring-1 ring-sand/10">
-              {!cfg.votes.channelId ? "Scegli il canale per scrivere il ringraziamento." : "Il ringraziamento è spento."}
-            </p>
-          )}
-        </Section>
-      </div>
-
-      <p className="text-xs text-crema/45">Stesse impostazioni del modulo Voti della dashboard: canale, ruolo e ringraziamento valgono anche per Top.gg e Discadia.</p>
-      <TrackUnsaved dirty={dirty} onSave={save} onReset={h.reset} />
-      {busy ? <span className="sr-only">Salvataggio…</span> : null}
     </div>
   );
 }

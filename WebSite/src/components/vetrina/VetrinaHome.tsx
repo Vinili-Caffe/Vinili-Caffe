@@ -257,7 +257,7 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
             {grid.length > 0 && (
               <div className="mt-14">
                 {spotlight.length === 3 && <SectionLabel kicker="Sugli scaffali" title={kind === "bot" ? "Tutti i bot" : kind === "server" ? "Tutti i server" : "Tutte le schede"} />}
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {grid.map((l, i) => (
                     <ListingCard key={l.id} listing={l} cfg={cfg} query={f.q} i={i % PER_PAGE} />
                   ))}

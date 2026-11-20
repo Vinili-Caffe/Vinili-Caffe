@@ -911,7 +911,8 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                   ))}
                 </div>
               </div>
-              <div className="grid gap-2 sm:grid-cols-3">
+              {/* una sotto l'altra: in tre colonne le scritte andavano a capo male */}
+              <div className="grid grid-cols-1 gap-2">
                 <Toggle on={form.paidFeaturesAvailable} onClick={() => set({ paidFeaturesAvailable: !form.paidFeaturesAvailable })} icon={<Sparkles />} label="Funzioni premium opzionali" />
                 <Toggle on={form.acceptsPartnerships} onClick={() => set({ acceptsPartnerships: !form.acceptsPartnerships })} icon={<Handshake />} label="Accetta partnership" />
                 <Toggle on={form.requireVerification} onClick={() => set({ requireVerification: !form.requireVerification })} icon={<ShieldCheck />} label="Verifica all’ingresso" />
@@ -1061,7 +1062,7 @@ function Toggle({ on, onClick, icon, label, danger = false }: { on: boolean; onC
       )}
     >
       {icon}
-      <span className="flex-1">{label}</span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
       <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", on ? (danger ? "bg-[#a83a2c]" : "bg-ember") : "bg-crema/15")}>
         <span className={cn("absolute top-0.5 size-4 rounded-full bg-crema transition-all", on ? "left-[1.125rem]" : "left-0.5")} />
       </span>

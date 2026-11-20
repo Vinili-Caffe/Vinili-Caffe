@@ -58,7 +58,7 @@ export function ListingCard({
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(i, 12) * 0.035, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className="h-full"
+      className="h-full min-w-0"
     >
       <SmartLink
         href={listingHref(listing)}
@@ -154,9 +154,9 @@ export function Spotlight({ items, cfg }: { items: BoardListing[]; cfg?: BoardsC
   if (!items.length) return null;
   const [first, ...rest] = items;
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
       <SpotCard l={first} rank={1} big cfg={cfg} />
-      <div className="grid gap-4">
+      <div className="grid min-w-0 grid-cols-1 gap-4">
         {rest.map((l, i) => (
           <SpotCard key={l.id} l={l} rank={i + 2} cfg={cfg} />
         ))}
@@ -168,7 +168,7 @@ export function Spotlight({ items, cfg }: { items: BoardListing[]; cfg?: BoardsC
 function SpotCard({ l, rank, big = false, cfg }: { l: BoardListing; rank: number; big?: boolean; cfg?: BoardsConfig | null }) {
   const accent = accentOf(l);
   return (
-    <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: rank * 0.08, duration: 0.5 }} className="h-full">
+    <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: rank * 0.08, duration: 0.5 }} className="h-full min-w-0">
       <SmartLink
         href={listingHref(l)}
         className={cn(

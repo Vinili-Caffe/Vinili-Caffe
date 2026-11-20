@@ -71,7 +71,7 @@ export function ListingReviews({ listing, onAggregate }: { listing: BoardListing
       }
     >
       {/* riepilogo */}
-      <div className="grid gap-6 rounded-2xl bg-espresso/50 p-5 ring-1 ring-sand/10 sm:grid-cols-[11rem_1fr]">
+      <div className="grid grid-cols-1 gap-6 rounded-2xl bg-espresso/50 p-5 ring-1 ring-sand/10 sm:grid-cols-[11rem_minmax(0,1fr)]">
         <div className="text-center sm:border-r sm:border-sand/10 sm:pr-6">
           <p className="font-display text-6xl font-semibold lining-nums text-crema">{count > 0 ? avg.toFixed(1) : "—"}</p>
           <Stars value={count > 0 ? avg : 0} className="mt-1 text-lg" />

@@ -3,12 +3,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, BarChart3, ExternalLink, LogIn, Palette, Server, ShieldAlert, Webhook, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, BarChart3, LogIn, Palette, Server, ShieldAlert, Webhook, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { loadMyListing, type BoardListing, type ListingTransfer } from "@/lib/boards";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
-import { showToast } from "@/components/ui";
 import { SmartLink } from "@/components/SmartLink";
 import { GlobalSaveBar } from "@/components/dashboard/guild/bits";
 import { VetrinaHeroBg } from "../VetrinaChrome";
@@ -16,10 +15,7 @@ import { VetrinaHeroBg } from "../VetrinaChrome";
 const AnalyticsTab = dynamic(() => import("./AnalyticsTab").then((m) => m.AnalyticsTab), { ssr: false, loading: () => <TabSkeleton /> });
 const OwnershipTab = dynamic(() => import("./OwnershipTab").then((m) => m.OwnershipTab), { ssr: false, loading: () => <TabSkeleton /> });
 const SubmitListing = dynamic(() => import("@/components/bacheca/SubmitListing").then((m) => m.SubmitListing), { ssr: false, loading: () => <TabSkeleton /> });
-const VetrinaVotesPanel = dynamic(() => import("@/components/dashboard/guild/community/BumpVotesPanel").then((m) => m.VetrinaVotesPanel), {
-  ssr: false,
-  loading: () => <TabSkeleton />,
-});
+const VoteHookTab = dynamic(() => import("./VoteHookTab").then((m) => m.VoteHookTab), { ssr: false, loading: () => <TabSkeleton /> });
 
 type TabId = "statistiche" | "api" | "aspetto" | "proprieta";
 const GROUPS: { label: string; tabs: { id: TabId; label: string; icon: LucideIcon }[] }[] = [
@@ -28,7 +24,7 @@ const GROUPS: { label: string; tabs: { id: TabId; label: string; icon: LucideIco
     label: "La tua pagina",
     tabs: [
       { id: "aspetto", label: "Aspetto", icon: Palette },
-      { id: "api", label: "API e voti", icon: Webhook },
+      { id: "api", label: "Voti", icon: Webhook },
     ],
   },
   { label: "Zona pericolosa", tabs: [{ id: "proprieta", label: "Trasferisci o elimina", icon: ShieldAlert }] },
@@ -207,7 +203,7 @@ export function ManageListing() {
               <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}>
                 {tab === "statistiche" && <AnalyticsTab listingId={listing.id} token={token} />}
                 {tab === "aspetto" && <SubmitListing editId={listing.id} />}
-                {tab === "api" && <ApiTab listing={listing} token={token} />}
+                {tab === "api" && <VoteHookTab listing={listing} token={token} />}
                 {tab === "proprieta" && <OwnershipTab listing={listing} token={token} transfer={transfer} onTransfer={setTransfer} />}
               </motion.div>
             </AnimatePresence>
@@ -217,26 +213,6 @@ export function ManageListing() {
       {/* la tab Aspetto ha già la sua barra delle modifiche non salvate */}
       {tab !== "aspetto" ? <GlobalSaveBar /> : null}
     </>
-  );
-}
-
-function ApiTab({ listing, token }: { listing: BoardListing; token: string }) {
-  return (
-    <div className="space-y-6">
-      <div className="border-b border-sand/10 pb-6">
-        <h2 className="font-display text-4xl font-semibold">API e voti</h2>
-        <p className="mt-1 max-w-2xl text-crema/55">
-          Quando qualcuno vota la scheda, il bot di Vinili &amp; Caffè può ringraziarlo in un canale del tuo server e dargli un ruolo per qualche ora.
-        </p>
-      </div>
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-espresso/60 px-4 py-3 text-sm text-crema/65 ring-1 ring-sand/12">
-        Serve il bot nel server e il modulo <span className="font-semibold text-crema">Voti</span> acceso in dashboard.
-        <SmartLink href={page(`/dashboard/guild/?id=${encodeURIComponent(listing.discordId)}`)} className="inline-flex items-center gap-1 font-semibold text-ember hover:underline">
-          Apri la dashboard <ExternalLink className="size-3.5" />
-        </SmartLink>
-      </p>
-      <VetrinaVotesPanel guildId={listing.discordId} token={token} onToast={(m, e) => showToast(m, Boolean(e))} />
-    </div>
   );
 }
 

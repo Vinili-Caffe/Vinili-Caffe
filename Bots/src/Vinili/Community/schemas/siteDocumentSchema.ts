@@ -225,6 +225,9 @@ const siteDocumentSchema = new Schema(
     boardModeration: { type: Schema.Types.Mixed, default: null },
     /* vetrina: passaggio della scheda a un altro utente, in attesa che accetti */
     boardTransfer: { type: Schema.Types.Mixed, default: null },
+    /* vetrina: cosa fa il bot nel server quando qualcuno vota la scheda (+ ruoli a tempo da togliere) */
+    boardVoteHook: { type: Schema.Types.Mixed, default: null },
+    boardVoteHookRoles: { type: [Schema.Types.Mixed], default: undefined },
     boardListingId: { type: String, default: "", trim: true, maxlength: 32 },
     boardClientIpHash: { type: String, default: "", trim: true, maxlength: 80 },
     /* boardsWizard1 */

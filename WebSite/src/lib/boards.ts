@@ -1,4 +1,5 @@
 import { SITE_ORIGIN } from "./site";
+import type { MsgDraft, PickerChannel, PickerEmoji, PickerRole } from "./dashboard-community";
 
 /** Bacheca: directory pubblica bot/server — API /webhooks/site-boards (Vinili/Utils/Web/siteBoardsApi.js). */
 
@@ -584,6 +585,50 @@ export type ListingAnalytics = {
 export async function loadListingAnalytics(token: string, id: string, days = 14) {
   const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/analytics?days=${days}`, { headers: auth(token), cache: "no-store" });
   return parse<ListingAnalytics>(r);
+}
+
+/* ── voti nel server della scheda ── */
+
+export type VoteHookConfig = {
+  enabled: boolean;
+  channelId: string | null;
+  roleId: string | null;
+  hours: number;
+  thanksEnabled: boolean;
+  draft: MsgDraft;
+  reminderMode: "dm" | "site";
+  reminderDraft: MsgDraft;
+};
+export type VoteHookData = {
+  config: VoteHookConfig;
+  botInGuild: boolean;
+  guild: { id: string; name: string } | null;
+  bot: { id: string; name: string; avatarUrl: string } | null;
+  pickers: { textChannels: PickerChannel[]; roles: PickerRole[]; emojis: PickerEmoji[]; categories: PickerChannel[] };
+  serviceName: string;
+};
+
+export async function loadVoteHook(token: string, id: string) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/vote-hook`, { headers: auth(token), cache: "no-store" });
+  return parse<VoteHookData>(r);
+}
+
+export async function saveVoteHook(token: string, id: string, config: VoteHookConfig) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/vote-hook`, {
+    method: "PATCH",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ config }),
+  });
+  return parse<{ config: VoteHookConfig; message?: string }>(r);
+}
+
+export async function testVoteHook(token: string, id: string, config: VoteHookConfig) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/vote-hook/test`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ config }),
+  });
+  return parse<{ message?: string }>(r);
 }
 
 /* ── passaggio della scheda ── */

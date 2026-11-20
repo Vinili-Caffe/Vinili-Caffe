@@ -70,7 +70,7 @@ export function VetrinaLanding() {
 
       <section className="mx-auto max-w-6xl px-4 pb-28 sm:px-6">
         {/* le due porte */}
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {DOORS.map((d, i) => {
             const shelf = shelves[d.kind];
             const Icon = d.icon;
@@ -141,7 +141,7 @@ export function VetrinaLanding() {
               {shelf ? (
                 <Spotlight items={shelf.items} cfg={cfg} />
               ) : (
-                <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                   <ListingCardSkeleton />
                   <ListingCardSkeleton i={1} />
                 </div>

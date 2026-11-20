@@ -322,10 +322,8 @@ async function voteListing(client?, payload: Record<string, any> = {}, reqMeta: 
   } catch (_) {}
   if (String(listing.boardKind || "") !== "bot" && String(listing.boardDiscordId || "").trim()) {
     try {
-      const { handleVetrinaVote } = require("../../../MultiGuild/services/bumpVotesRuntime") as typeof import("../../../MultiGuild/services/bumpVotesRuntime");
-      void handleVetrinaVote(client, String(listing.boardDiscordId), auth.userId).catch((err?) =>
-        global.logger?.warn?.("[site-boards] avviso voto nel server:", err?.message || err),
-      );
+      const { onListingVoted } = require("./boardVoteHook") as typeof import("./boardVoteHook");
+      void onListingVoted(client, id, auth.userId).catch((err?) => global.logger?.warn?.("[site-boards] avviso voto nel server:", err?.message || err));
     } catch (_) {}
   }
   return {
@@ -405,7 +403,7 @@ async function sweepBoardVoteReminders(client?) {
         _id: { $in: listingIds },
         docType: BL,
       })
-        .select("title boardSlug")
+        .select("title boardSlug boardVoteHook boardDiscordId boardKind")
         .lean();
       for (const row of listings || []) {
         listingById.set(String(row._id), row);
@@ -427,6 +425,16 @@ async function sweepBoardVoteReminders(client?) {
     const openUrl = slug
       ? `https://www.viniliecaffe.it/vetrina/vota/?slug=${encodeURIComponent(slug)}`
       : `https://www.viniliecaffe.it/vetrina/vota/?id=${encodeURIComponent(listingId)}`;
+    /* la scheda può volere il promemoria in privato: se il messaggio arriva, niente notifica sul sito */
+    try {
+      const { sendReminderDm } = require("./boardVoteHook") as typeof import("./boardVoteHook");
+      if (listing && (await sendReminderDm(client, listing, uid, openUrl))) {
+        vote.boardRemindSentAt = now;
+        await vote.save().catch(() => null);
+        sent += 1;
+        continue;
+      }
+    } catch (_) {}
     try {
       const { enqueueSiteInAppNotification } = require("../notifications/siteInAppNotificationsService") as typeof import("../notifications/siteInAppNotificationsService");
       const ok = await enqueueSiteInAppNotification({

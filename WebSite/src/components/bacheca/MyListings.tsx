@@ -174,7 +174,7 @@ export function MyListings() {
       {token ? <IncomingTransfers token={token} onAccepted={refresh} /> : null}
 
       {!list && (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((i) => (
             <ListingCardSkeleton key={i} i={i} />
           ))}
@@ -193,7 +193,7 @@ export function MyListings() {
 
       {list && list.length > 0 && (
         <>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {(list.length > LIST_INITIAL ? list.slice(0, visible) : list).map((item, i) => {
               const st = STATUS_STYLE[item.status] || STATUS_STYLE.draft;
               const Icon = st.icon;
