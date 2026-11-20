@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 import { BookOpenCheck, Bot, Compass, Disc3, FolderHeart, Plus, Server, ShieldCheck, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { checkStaffAccess } from "@/lib/boards";
+import { checkStaffAccess, loadBoardsConfig } from "@/lib/boards";
+import { loadStaffAccess } from "@/lib/staff";
+import { AccessHomeRedirect } from "@/components/AccessHomeRedirect";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { SmartLink } from "@/components/SmartLink";
@@ -125,4 +127,33 @@ export function VetrinaHeader({
       <VetrinaNav />
     </>
   );
+}
+
+/**
+ * Finché la vetrina è in anteprima (publicOpen=false) la vede solo l'high staff:
+ * tutti gli altri, anche lo staff normale, trovano la pagina chiusa. Il bot fa lo stesso controllo sulle API.
+ */
+export function VetrinaGate({ children }: { children: ReactNode }) {
+  const { ready, token } = useAuth();
+  const [state, setState] = useState<"checking" | "open" | "denied">("checking");
+  useEffect(() => {
+    if (!ready) return;
+    let alive = true;
+    void (async () => {
+      const cfg = await loadBoardsConfig("", token);
+      if (!alive) return;
+      /* config non raggiungibile: lascio decidere alle API (che bloccano comunque) */
+      if (!cfg || cfg.publicOpen) return setState("open");
+      if (!token) return setState("denied");
+      const r = await loadStaffAccess(token);
+      if (!alive) return;
+      setState(r.ok && r.data.isHighStaff ? "open" : "denied");
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [ready, token]);
+  if (state === "denied") return <AccessHomeRedirect active />;
+  if (state === "checking") return <div className="min-h-[80dvh]" aria-busy="true" />;
+  return <>{children}</>;
 }

@@ -53,6 +53,53 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
     if (err === "not_found" || err === "pending_not_public") return 200;
     return code;
   }
+
+  /* Vetrina in anteprima (publicOpen=false): accesso SOLO all'high staff, su tutte le rotte
+     tranne la config pubblica e i file caricati. Niente più bypass con ?allowClosed=1. */
+  const highStaffCache = new Map<string, { ok: boolean; at: number }>();
+  async function isBoardsHighStaff(token?: string) {
+    const t = String(token || "").trim();
+    if (!t) return false;
+    const hit = highStaffCache.get(t);
+    if (hit && Date.now() - hit.at < 60_000) return hit.ok;
+    let ok = false;
+    try {
+      const { assertWebsiteStaffAccess } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
+      const { STAFF_HIGH_STAFF_ELIGIBLE_KEYS, memberHasAnyRoleKey } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
+      const out: any = await assertWebsiteStaffAccess(client, t);
+      ok = Boolean(out?.ok && out.member && memberHasAnyRoleKey(out.member, STAFF_HIGH_STAFF_ELIGIBLE_KEYS));
+    } catch (_) {
+      ok = false;
+    }
+    if (highStaffCache.size > 500) highStaffCache.clear();
+    highStaffCache.set(t, { ok, at: Date.now() });
+    return ok;
+  }
+  app.use("/webhooks/site-boards", async (req?, res?, next?) => {
+    try {
+      if (req.method === "OPTIONS") return next();
+      const sub = String(req.path || "");
+      if (sub === "/config" || sub.startsWith("/files/")) return next();
+      const { boardsConfig } = require("./boardReviews") as typeof import("./boardReviews");
+      const cfg: any = boardsConfig(client);
+      if (!cfg?.enabled || cfg.publicOpen) return next();
+      const token = normalizeHeaderSecret(req.headers.authorization);
+      if (await isBoardsHighStaff(token)) {
+        req.vcBoardsHighStaff = true;
+        return next();
+      }
+      return res.status(403).json({
+        ok: false,
+        status: 403,
+        error: "preview_high_staff_only",
+        message: "La Vetrina è in anteprima: accesso riservato all'high staff.",
+        publicOpen: false,
+      });
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards gate:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
   app.get("/webhooks/site-boards/config", async (req?, res?) => {
     try {
       const out = getBoardsPublicConfig(client);
@@ -76,15 +123,8 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
   });
   app.get("/webhooks/site-boards/listings", async (req?, res?) => {
     try {
-      const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      let allowClosed = String(req.query?.allowClosed || "") === "1";
-      if (accessToken && !allowClosed) {
-        try {
-          const { assertWebsiteStaffAccess } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
-          const staff = await assertWebsiteStaffAccess(client, accessToken);
-          if (staff?.ok) allowClosed = true;
-        } catch (_) {}
-      }
+      /* anteprima: lo lascia passare solo il controllo high staff qui sopra */
+      const allowClosed = Boolean(req.vcBoardsHighStaff);
       const out = await listListings(client, {
         kind: req.query?.kind,
         q: req.query?.q,
@@ -108,14 +148,8 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
   app.get("/webhooks/site-boards/listings/:slug", async (req?, res?) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      let allowClosed = String(req.query?.allowClosed || "") === "1";
-      if (accessToken && !allowClosed) {
-        try {
-          const { assertWebsiteStaffAccess } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
-          const staff = await assertWebsiteStaffAccess(client, accessToken);
-          if (staff?.ok) allowClosed = true;
-        } catch (_) {}
-      }
+      /* anteprima: lo lascia passare solo il controllo high staff qui sopra */
+      const allowClosed = Boolean(req.vcBoardsHighStaff);
       const out = await getListingBySlug(client, req.params?.slug, {
         allowClosed,
         /* boardsPendingRedirect1: owner può aprire slug/id pending */

@@ -3,7 +3,7 @@ import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Library } from "lucide-react";
-import { VetrinaHeader } from "@/components/vetrina/VetrinaChrome";
+import { VetrinaGate, VetrinaHeader } from "@/components/vetrina/VetrinaChrome";
 import { SiteShell } from "@/components/SiteShell";
 
 const MyListings = dynamic(
@@ -23,10 +23,12 @@ export default function Page() {
         title="Vetrina · Le mie schede"
         description="Le tue schede in Vetrina Vinili & Caffè."
       />
-      <VetrinaHeader icon={<Library />} kicker="Vetrina" title="Le tue" accent="schede" text="Bozze, schede in revisione e quelle già in vetrina: modificale, riposizionale, tienile aggiornate." />
-      <div className="pt-10">
-        <MyListings />
-      </div>
+      <VetrinaGate>
+        <VetrinaHeader icon={<Library />} kicker="Vetrina" title="Le tue" accent="schede" text="Bozze, schede in revisione e quelle già in vetrina: modificale, riposizionale, tienile aggiornate." />
+        <div className="pt-10">
+          <MyListings />
+        </div>
+      </VetrinaGate>
     </SiteShell>
   );
 }

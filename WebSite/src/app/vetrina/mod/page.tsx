@@ -3,7 +3,7 @@ import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { Shield } from "lucide-react";
-import { VetrinaHeader } from "@/components/vetrina/VetrinaChrome";
+import { VetrinaGate, VetrinaHeader } from "@/components/vetrina/VetrinaChrome";
 import { SiteShell } from "@/components/SiteShell";
 
 const ModQueue = dynamic(
@@ -23,10 +23,12 @@ export default function Page() {
         title="Mod Vetrina"
         description="Coda moderazione Vetrina."
       />
-      <VetrinaHeader icon={<Shield />} kicker="Staff" title="Coda di" accent="moderazione" text="Schede in attesa: controlla, approva o rimanda indietro con un motivo." />
-      <div className="pt-10">
-        <ModQueue />
-      </div>
+      <VetrinaGate>
+        <VetrinaHeader icon={<Shield />} kicker="Staff" title="Coda di" accent="moderazione" text="Schede in attesa: controlla, approva o rimanda indietro con un motivo." />
+        <div className="pt-10">
+          <ModQueue />
+        </div>
+      </VetrinaGate>
     </SiteShell>
   );
 }
