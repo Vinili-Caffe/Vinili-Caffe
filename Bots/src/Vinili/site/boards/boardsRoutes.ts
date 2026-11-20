@@ -255,6 +255,8 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
       if (client?.user?.id) (global as any).__vcBoardsBotId = String(client.user.id);
       const { importSiteBotReviewsOnce } = require("./boardReviews") as typeof import("./boardReviews");
       void importSiteBotReviewsOnce().catch(() => null);
+      const { backfillBotIcons } = require("./boardBotApi") as typeof import("./boardBotApi");
+      void backfillBotIcons(client).catch(() => null);
     };
     setTimeout(markBot, 30_000).unref?.();
   } catch (_) {}

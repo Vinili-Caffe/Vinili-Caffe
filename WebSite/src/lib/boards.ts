@@ -261,6 +261,7 @@ export type CreateListingBody = {
   accent?: string;
   visitorNotes?: string;
   bannerUrl?: string;
+  iconUrl?: string;
   /** bot */
   prefix?: string;
   supportUrl?: string;
@@ -305,10 +306,10 @@ export async function deleteMyListing(token: string, id: string) {
 const LOCALE_COUNTRY: Record<string, string> = {
   it: "it", en: "gb", es: "es", fr: "fr", de: "de", pt: "pt", ru: "ru", zh: "cn", ja: "jp", ko: "kr", ar: "sa", nl: "nl",
   pl: "pl", tr: "tr", hi: "in", id: "id", uk: "ua", vi: "vn", ro: "ro", sv: "se", cs: "cz", da: "dk", el: "gr", fi: "fi",
-  hu: "hu", no: "no", th: "th", he: "il", bn: "bd", ms: "my", fil: "ph", ca: "es-ct", sk: "sk", bg: "bg", hr: "hr", sr: "rs",
+  hu: "hu", no: "no", th: "th", he: "il", bn: "bd", ms: "my", fil: "ph", ca: "ad", sk: "sk", bg: "bg", hr: "hr", sr: "rs",
   sl: "si", et: "ee", lv: "lv", lt: "lt", fa: "ir", ur: "pk", sw: "ke", af: "za", sq: "al", ka: "ge", hy: "am", az: "az",
   kk: "kz", uz: "uz", mn: "mn", ne: "np", si: "lk", my: "mm", km: "kh", lo: "la", am: "et", ga: "ie", cy: "gb-wls",
-  eu: "es-pv", gl: "es-ga", is: "is", mt: "mt", lb: "lu", be: "by", mk: "mk", bs: "ba", ta: "in", te: "in", yo: "ng",
+  eu: "es", gl: "es", is: "is", mt: "mt", lb: "lu", be: "by", mk: "mk", bs: "ba", ta: "in", te: "in", yo: "ng",
 };
 
 export function localeFlagUrl(locale: string, w = 40) {

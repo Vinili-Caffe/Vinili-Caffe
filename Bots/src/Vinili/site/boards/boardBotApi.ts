@@ -189,37 +189,83 @@ async function setSupportServer(client?, payload: Record<string, any> = {}) {
 
 /* ── lettura pubblica: server di supporto + dati del bot di Vinili & Caffè ── */
 
-const ownSyncAt = new Map<string, number>();
+/* prossimo controllo del bot di Vinili & Caffè: 30 minuti se è andata bene, 5 se no */
+const ownSyncNext = new Map<string, number>();
 async function syncOwnBot(client?, listing?) {
   const id = String(listing?.discordId || "");
   if (!id || id !== mainBotAppId() || !client?.rest) return listing;
-  const last = ownSyncAt.get(id) || 0;
-  if (Date.now() - last < OWN_SYNC_MS) return listing;
-  ownSyncAt.set(id, Date.now());
+  /* le recensioni del bot scritte su /recensioni/ (una volta sola, finché non riesce) */
   try {
-    const app: any = await client.rest.get(Routes.currentApplication()).catch(() => null);
-    const cmds: any = await client.rest.get(Routes.applicationCommands(id)).catch(() => null);
-    const $set: Record<string, any> = {};
+    const { importSiteBotReviewsOnce } = require("./boardReviews") as typeof import("./boardReviews");
+    void importSiteBotReviewsOnce().catch(() => null);
+  } catch (_) {}
+  if (Date.now() < (ownSyncNext.get(id) || 0)) return listing;
+  ownSyncNext.set(id, Date.now() + 5 * 60_000);
+  const $set: Record<string, any> = {};
+  try {
+    /* percorsi scritti a mano: non dipendono dalla versione di discord.js */
+    const app: any = await client.rest.get("/applications/@me");
     const count = Number(app?.approximate_guild_count);
     if (Number.isFinite(count) && count > 0) {
       $set["boardStats.serverCount"] = count;
       $set["boardStats.serverCountAt"] = new Date().toISOString();
       listing.serverCount = count;
     }
+  } catch (err) {
+    global.logger?.warn?.("[site-boards] server del bot:", err?.message || err);
+  }
+  try {
+    const cmds: any = await client.rest.get(`/applications/${id}/commands`);
     if (Array.isArray(cmds) && cmds.length) {
       const commands = sanitizeCommands(cmds);
       $set.boardCommands = commands;
       listing.commands = commands;
     }
-    if (Object.keys($set).length) await SiteDocument.updateOne({ _id: listing.id, docType: BL }, { $set }).catch(() => null);
-  } catch (_) {}
+  } catch (err) {
+    global.logger?.warn?.("[site-boards] comandi del bot:", err?.message || err);
+  }
+  if (Object.keys($set).length) {
+    await SiteDocument.updateOne({ _id: listing.id, docType: BL }, { $set }).catch(() => null);
+    ownSyncNext.set(id, Date.now() + OWN_SYNC_MS);
+  }
   return listing;
+}
+
+/** Avatar del bot da Discord (se la scheda non ce l'ha). */
+async function botAvatarUrl(client?, botId?: string) {
+  const user: any = await client?.users?.fetch?.(String(botId || "")).catch(() => null);
+  if (!user) return "";
+  return typeof user.displayAvatarURL === "function" ? user.displayAvatarURL({ size: 256 }) : "";
+}
+
+/** Recupera gli avatar mancanti di tutte le schede bot (all'avvio). */
+async function backfillBotIcons(client?) {
+  const rows: any[] = await SiteDocument.find({ docType: BL, boardKind: "bot", $or: [{ boardIconUrl: "" }, { boardIconUrl: null }, { boardIconUrl: { $exists: false } }] })
+    .select({ boardDiscordId: 1 })
+    .limit(200)
+    .lean()
+    .catch(() => []);
+  let n = 0;
+  for (const r of rows) {
+    const url = await botAvatarUrl(client, r.boardDiscordId);
+    if (!url) continue;
+    await SiteDocument.updateOne({ _id: r._id, docType: BL }, { $set: { boardIconUrl: url } }).catch(() => null);
+    n += 1;
+  }
+  if (n) global.logger?.info?.(`[site-boards] avatar dei bot recuperati: ${n}`);
 }
 
 /** Aggiunge alla scheda bot il server di supporto collegato (se ancora in vetrina). */
 async function enrichBotListing(client?, listing?) {
   if (!listing || String(listing.kind || "") !== "bot") return listing;
   await syncOwnBot(client, listing);
+  if (!listing.iconUrl && listing.discordId) {
+    const url = await botAvatarUrl(client, listing.discordId);
+    if (url) {
+      listing.iconUrl = url;
+      await SiteDocument.updateOne({ _id: listing.id, docType: BL }, { $set: { boardIconUrl: url } }).catch(() => null);
+    }
+  }
   const sid = String(listing.supportListingId || "");
   if (sid && mongoose.isValidObjectId(sid)) {
     const s: any = await SiteDocument.findOne({ _id: sid, docType: BL, boardKind: "server", status: "approved" })
@@ -257,4 +303,4 @@ async function botDefaults(client?, payload: Record<string, any> = {}) {
   };
 }
 
-export = { getBotApi, regenerateBotApiKey, saveBotCommands, postBotStats, listSupportCandidates, setSupportServer, enrichBotListing, botDefaults, sanitizeCommands };
+export = { backfillBotIcons, getBotApi, regenerateBotApiKey, saveBotCommands, postBotStats, listSupportCandidates, setSupportServer, enrichBotListing, botDefaults, sanitizeCommands };

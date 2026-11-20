@@ -315,6 +315,11 @@ async function voteListing(client?, payload: Record<string, any> = {}, reqMeta: 
   const scores = await recomputeListingScore(id, cfg);
   ensureBoardsVoteReminderScheduler(client);
   emitBoardsChanged("vote", { listingId: id });
+  /* avvisa il proprietario del nuovo voto (una notifica all'ora, col conteggio del mese) */
+  try {
+    const { notifyNewVote } = require("./boardNotify") as typeof import("./boardNotify");
+    void notifyNewVote(listing, { userId: auth.userId, name: auth.globalName || auth.username || "" }, monthInc);
+  } catch (_) {}
   /* statistiche della scheda + avviso nel server (modulo Bump e voti), senza bloccare la risposta */
   try {
     const { trackListingVote } = require("./boardAnalytics") as typeof import("./boardAnalytics");
@@ -557,6 +562,8 @@ async function doBump(client: any, listing: any, who: { userId: string; name?: s
     status: 200,
     bumped: true,
     listingId: id,
+    bannerUrl: String(listing.boardBannerUrl || ""),
+    iconUrl: String(listing.boardIconUrl || ""),
     replyBody,
     bumpedAt: now.toISOString(),
     nextBumpAt: new Date(now.getTime() + BUMP_COOLDOWN_MS).toISOString(),

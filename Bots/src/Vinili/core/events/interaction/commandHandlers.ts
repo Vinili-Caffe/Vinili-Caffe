@@ -162,7 +162,10 @@ async function handleSlashCommand(interaction?, client?) {
   }
   const isAdminCommand=String(command?.category||"").toLowerCase()==="admin";
     let forceEphemeralDefer = !isAdminCommand && command?.publicReply !== true;
-  if (command?.publicReply === true) {
+  /* comandi sempre visibili a tutti (es. /bump della Vetrina): niente preferenza di privacy */
+  if (command?.alwaysPublicReply === true) {
+    forceEphemeralDefer = false;
+  } else if (command?.publicReply === true) {
     const { userWantsPartnershipCommandPrivacy } = require("../../../Partner/tenant/tenantProfileEphemeral") as typeof import("../../../Partner/tenant/tenantProfileEphemeral");
     const wantsPrivate = await userWantsPartnershipCommandPrivacy(
       interaction.guildId || interaction.guild?.id,

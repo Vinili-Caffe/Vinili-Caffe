@@ -446,7 +446,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
         webInterface: kind === "bot" && form.webInterface,
         userInstallable: kind === "bot" && form.userInstallable,
       },
-      ...(kind === "bot" ? { prefix: form.prefix.trim(), supportUrl: form.supportUrl.trim() } : {}),
+      ...(kind === "bot" ? { prefix: form.prefix.trim(), supportUrl: form.supportUrl.trim(), iconUrl: form.iconUrl || undefined } : {}),
       nsfw: form.nsfw,
       accent: form.accent,
       visitorNotes: form.visitorNotes.trim(),

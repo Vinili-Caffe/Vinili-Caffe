@@ -435,6 +435,11 @@ async function createListingReview(client?, payload: Record<string, any> = {}, r
 
   const agg = await recomputeListingRating(id);
   emitBoardsChanged("review", { listingId: id });
+  /* avvisa il proprietario della scheda (campanella + push) */
+  try {
+    const { notifyNewReview } = require("./boardNotify") as typeof import("./boardNotify");
+    void notifyNewReview(listing, { userId: auth.userId, authorName: auth.globalName || auth.username || "", rating });
+  } catch (_) {}
 
   /* Scheda del main: stessa recensione anche su /recensioni/ (kind=server) */
   const listingGid = String(listing.boardDiscordId || "").trim();
@@ -594,6 +599,13 @@ async function upsertListingReviewReply(client?, payload: Record<string, any> = 
   if (!nextDoc) {
     return { ok: false, status: 500, error: "save_failed", message: "Impossibile salvare la risposta." };
   }
+  /* avvisa chi ha scritto la recensione */
+  if (!clear) {
+    try {
+      const { notifyReviewReply } = require("./boardNotify") as typeof import("./boardNotify");
+      void notifyReviewReply(listing, nextDoc);
+    } catch (_) {}
+  }
   return {
     ok: true,
     status: 200,
@@ -725,9 +737,13 @@ async function importSiteBotReviewsOnce() {
   botReviewsImported = true;
   try {
     const { SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-    const rows: any[] = await SiteDocument.find({ docType: SITE_DOCUMENT_TYPE.REVIEW, reviewKind: "bot", guildId: String(MAIN_GUILD_ID || "") }).limit(2000).lean();
-    for (const r of rows) await syncSiteServerReviewToMainBoardListing(r);
-    global.logger?.info?.(`[siteBoardsApi] recensioni del bot importate nella vetrina: ${rows.length}`);
+    const rows: any[] = await SiteDocument.find({ docType: SITE_DOCUMENT_TYPE.REVIEW, reviewKind: "bot" }).limit(2000).lean();
+    let n = 0;
+    for (const r of rows) {
+      const out: any = await syncSiteServerReviewToMainBoardListing(r);
+      if (out?.ok) n += 1;
+    }
+    (global.logger?.info || global.logger?.warn)?.call(global.logger, `[siteBoardsApi] recensioni del bot importate nella vetrina: ${n}/${rows.length}`);
   } catch (err) {
     botReviewsImported = false;
     global.logger?.warn?.("[siteBoardsApi] import recensioni bot:", err?.message || err);

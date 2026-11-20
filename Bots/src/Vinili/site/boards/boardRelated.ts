@@ -64,7 +64,8 @@ async function getRelatedListings(client?, listingId?) {
 
   let ids: string[];
   const hit = cache.get(id);
-  if (hit && Date.now() - hit.at < CACHE_MS) {
+  /* un elenco vuoto si rilegge presto (una scheda appena approvata o un errore di Discord) */
+  if (hit && Date.now() - hit.at < (hit.ids.length ? CACHE_MS : 5 * 60_000)) {
     ids = hit.ids;
   } else {
     /* l'altro tipo di schede, le più in alto prima */
