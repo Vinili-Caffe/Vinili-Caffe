@@ -437,7 +437,7 @@ async function createListingReview(client?, payload: Record<string, any> = {}, r
   emitBoardsChanged("review", { listingId: id });
   try {
     const { onListingReviewed } = require("./boardReviewHook") as typeof import("./boardReviewHook");
-    void onListingReviewed(client, id, auth.userId, rating).catch((err?) =>
+    void onListingReviewed(client, id, auth.userId, rating, content).catch((err?) =>
       global.logger?.warn?.("[site-boards] review hook:", err?.message || err),
     );
   } catch (_) {}

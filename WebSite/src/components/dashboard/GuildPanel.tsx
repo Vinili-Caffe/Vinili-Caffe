@@ -86,8 +86,6 @@ import {
   Zap as IcExp,
   Gift as IcBonus,
   Users as IcCommunity,
-  Vote as IcVoteTab,
-  Star as IcReviewsTab,
   Wrench as IcUtility,
   type LucideIcon,
 } from "lucide-react";
@@ -143,7 +141,6 @@ import {
   MODERATION_MODULE_TABS,
   PARTNERSHIP_MODULE_TABS,
   BACHECA_MODULE_TABS,
-  VETRINA_MODULE_TABS,
   ANNUNCI_MODULE_TABS,
   LIVE_MODULE_TABS,
   defaultModuleTab,
@@ -153,7 +150,6 @@ import {
   isModerationModuleTab,
   isPartnershipModuleTab,
   isBachecaModuleTab,
-  isVetrinaModuleTab,
   isLivelliModuleTab,
   normalizeLivelliModuleTab,
   LIVELLI_MODULE_TABS,
@@ -300,10 +296,6 @@ const BoardsPanel = dynamic(() => import("./guild/BoardsPanel").then((m) => m.Bo
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
 });
-const VetrinaPanel = dynamic(() => import("./guild/VetrinaPanel").then((m) => m.VetrinaPanel), {
-  ssr: false,
-  loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
-});
 const TicketDesk = dynamic(() => import("./guild/TicketDesk").then((m) => m.TicketDesk), {
   ssr: false,
   loading: () => <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />,
@@ -335,7 +327,6 @@ const SECTION_LEAD: Record<Section, string> = {
   contatori: "Canali vocali che mostrano membri, boost e altri numeri, aggiornati da soli.",
   bump: "Bump di Disboard e Discadia: ringraziamenti, ricompense e promemoria quando si può ribumpare.",
   voti: "Voti su Top.gg e Discadia: webhook, ringraziamenti, ruolo e (sul principale) promemoria in DM.",
-  vetrina: "Premi per chi vota o recensisce la scheda: canale, messaggio, ruolo ed EXP.",
   giveaway: "Crea giveaway, guarda chi partecipa ed estrai i vincitori.",
   sondaggi: "Sondaggi di Discord pubblicati dalla dashboard, con i risultati.",
   live: "Avvisi per live, video e post su Twitch, YouTube, Kick, TikTok e Instagram: canali, messaggio e ping.",
@@ -353,7 +344,6 @@ const SECTION_HERO: Partial<Record<string, { text: string; accent: string }>> = 
   salute: { text: "Permessi mancanti, canali che non esistono più e tutto quello che può fermare il bot.", accent: "#7fc48c" },
   registro: { text: "Chi ha cambiato cosa nella dashboard, e quando.", accent: "#b9a389" },
   bacheca: { text: "I messaggi più apprezzati finiscono in bacheca, con lo stile che scegli tu.", accent: "#e8b04b" },
-  vetrina: { text: "Quando qualcuno vota o recensisce la scheda: messaggio, ruolo a tempo ed EXP.", accent: "#d99a5b" },
   tickets: { text: "Assistenza privata con pannelli, form, team dello staff e archivio delle conversazioni.", accent: "#6f9ce8" },
   moderation: { text: "Punizioni automatiche, ricorsi, casi e registro di tutto quello che succede nel server.", accent: "#e0735f" },
   partnership: { text: "Partner in automatico: regole, filtri, manager e storico di ogni accordo.", accent: "#9b8cf0" },
@@ -452,9 +442,6 @@ const SIDE_TAB_ICONS: Record<string, LucideIcon> = {
   kick: KickIcon,
   tiktok: TikTokIcon,
   instagram: InstagramIcon,
-  /* vetrina */
-  voti: IcVoteTab,
-  recensioni: IcReviewsTab,
 };
 const sideTabIcon = (t: { id: string; label: string }) =>
   SIDE_TAB_ICONS[String(t.id || "").toLowerCase()] || SIDE_TAB_ICONS[String(t.label || "").toLowerCase().replace(/\s+/g, "")] || IcGeneric;
@@ -596,7 +583,6 @@ function sanitizeModuleTab(section: Section, raw: string | null | undefined): st
   if (section === "moderation") return isModerationModuleTab(v) ? v : "overview";
   if (section === "partnership") return isPartnershipModuleTab(v) ? v : "setup";
   if (section === "bacheca") return isBachecaModuleTab(v) ? v : "impostazioni";
-  if (section === "vetrina") return isVetrinaModuleTab(v) ? v : "voti";
   if (section === "livelli") return normalizeLivelliModuleTab(v);
   if (section === "vocale") return normalizeVocaleModuleTab(v);
   if (section === "commands") {
@@ -2248,17 +2234,15 @@ export function GuildPanel() {
           ? PARTNERSHIP_MODULE_TABS
           : section === "bacheca"
             ? BACHECA_MODULE_TABS
-            : section === "vetrina"
-              ? VETRINA_MODULE_TABS
-              : section === "benvenuto"
-                ? ANNUNCI_MODULE_TABS
-                : section === "live"
-                  ? LIVE_MODULE_TABS
-                  : section === "livelli"
-                    ? LIVELLI_MODULE_TABS
-                    : section === "vocale"
-                      ? VOCALE_MODULE_TABS
-                      : null;
+            : section === "benvenuto"
+              ? ANNUNCI_MODULE_TABS
+              : section === "live"
+                ? LIVE_MODULE_TABS
+                : section === "livelli"
+                  ? LIVELLI_MODULE_TABS
+                  : section === "vocale"
+                    ? VOCALE_MODULE_TABS
+                    : null;
   const switchActive = moduleTab || defaultModuleTab(section) || "";
   const withSwitchTabs = (node: React.ReactNode) =>
     switchTabs ? (
@@ -2550,15 +2534,6 @@ export function GuildPanel() {
                               setSettingsError(null);
                             }}
                             onToast={showToast}
-                          />,
-                        )
-                      : null}
-                    {section === "vetrina" && guildId && token
-                      ? withSwitchTabs(
-                          <VetrinaPanel
-                            guildId={guildId}
-                            token={token}
-                            tab={(isVetrinaModuleTab(moduleTab || "") ? moduleTab : "voti") as import("./guildSections").VetrinaModuleTabId}
                           />,
                         )
                       : null}

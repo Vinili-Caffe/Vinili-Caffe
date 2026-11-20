@@ -16,9 +16,10 @@ const THANKS_PLACEHOLDERS = [
   { token: "{user}", hint: "chi ha recensito" },
   { token: "{username}", hint: "il suo nome" },
   { token: "{rating}", hint: "stelle (1–5)" },
+  { token: "{review}", hint: "testo della recensione" },
+  { token: "{levels}", hint: "riga premio livelli (o grazie)" },
   { token: "{service}", hint: "Vinili & Caffè" },
   { token: "{server}", hint: "il tuo server" },
-  { token: "{exp}", hint: "EXP guadagnati" },
   { token: "{bonus}", hint: "riga bonus (vuota = sparisce)" },
   { token: "{role}", hint: "ruolo ricompensa" },
   { token: "{hours}", hint: "durata del ruolo" },
@@ -26,7 +27,7 @@ const THANKS_PLACEHOLDERS = [
 
 const fmtHours = (h: number) => (h === 1 ? "1 ora" : h % 24 === 0 ? (h === 24 ? "1 giorno" : `${h / 24} giorni`) : `${h} ore`);
 
-/** Canale, ruolo, messaggio ed EXP quando qualcuno recensisce la scheda. */
+/** Stesso modello del main: livelli una tantum, canale, messaggio, ruolo a tempo. */
 export function ReviewHookTab({ listing, token, compact = false }: { listing: BoardListing; token: string; compact?: boolean }) {
   const { user } = useAuth();
   const [data, setData] = useState<ReviewHookData | null>(null);
@@ -53,17 +54,18 @@ export function ReviewHookTab({ listing, token, compact = false }: { listing: Bo
   const vars = useMemo(() => {
     const fake = { guild: { id: data?.guild?.id || listing.discordId, name: data?.guild?.name || listing.name, icon: null, banner: null, memberCount: null } } as unknown as CommunityData;
     const roleId = String(cfg?.roleId || "").trim();
+    const levels = Number(cfg?.rewardLevels ?? 5);
     return {
       ...sampleVars(fake, {}, user),
       service,
       rating: "5",
-      exp: String(cfg?.expAmount ?? 100),
+      review: "Server bellissimo, staff attivo e tanti eventi!",
+      levels: levels > 0 ? `**+${levels} livelli** per la tua recensione` : "Grazie per il supporto!",
       bonus: "",
-      level: "42",
       hours: fmtHours(cfg?.hours || 24),
       role: roleId ? `<@&${roleId}>` : "—",
     };
-  }, [data, listing, user, service, cfg?.roleId, cfg?.hours, cfg?.expAmount]);
+  }, [data, listing, user, service, cfg?.roleId, cfg?.hours, cfg?.rewardLevels]);
 
   if (err) return <Notice error>{err}</Notice>;
   if (!data || !cfg) return <RowsSkeleton rows={4} />;
@@ -97,12 +99,15 @@ export function ReviewHookTab({ listing, token, compact = false }: { listing: Bo
         <div className="border-b border-sand/10 pb-6">
           <h2 className="font-display text-4xl font-semibold">Recensioni</h2>
           <p className="mt-1 max-w-2xl text-crema/55">
-            Quando qualcuno recensisce la scheda, il bot ringrazia nel tuo server, dà un ruolo e (se i livelli sono attivi) l&apos;EXP.
+            Come sul server principale: a chi recensisce la scheda regali livelli (una volta sola), un ruolo a tempo e un messaggio nel canale. Le recensioni restano sulla scheda pubblica.
           </p>
         </div>
       ) : null}
 
       {!data.botInGuild ? <Notice error>Il bot di Vinili &amp; Caffè non è nel server: invitalo per ringraziamenti e ruoli.</Notice> : null}
+      {data.seededFromMain ? (
+        <Notice>Partenza dal sistema del server principale (canale e livelli in regalo). Puoi modificarli e salvare.</Notice>
+      ) : null}
 
       <div
         className={cn("flex items-center gap-3 rounded-2xl bg-espresso/45 p-4 ring-1 transition-colors", cfg.enabled ? "ring-sand/20" : "opacity-80 ring-sand/10")}
@@ -113,13 +118,17 @@ export function ReviewHookTab({ listing, token, compact = false }: { listing: Bo
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-crema">Premi per le recensioni</p>
-          <p className="truncate text-xs text-crema/55">{cfg.enabled ? `Attivo · ${cfg.expAmount} EXP · ruolo ${fmtHours(cfg.hours)}` : "Spento"}</p>
+          <p className="truncate text-xs text-crema/55">
+            {cfg.enabled
+              ? `Attivo · ${cfg.rewardLevels > 0 ? `+${cfg.rewardLevels} livelli` : "senza livelli"} · ruolo ${fmtHours(cfg.hours)}`
+              : "Spento"}
+          </p>
         </div>
         <button
           type="button"
           disabled={busy === "test" || !cfg.channelId}
           onClick={() => void test()}
-          title={cfg.channelId ? "Manda nel canale il messaggio come se avessi recensito tu" : "Scegli prima il canale"}
+          title={cfg.channelId ? "Manda nel canale il messaggio di prova" : "Scegli prima il canale"}
           className="hidden items-center gap-1.5 rounded-full bg-crema/10 px-3.5 py-2 text-xs font-semibold ring-1 ring-sand/25 hover:bg-crema/15 disabled:opacity-40 sm:inline-flex"
         >
           <FlaskConical className="size-3.5" /> {busy === "test" ? "Invio…" : "Prova"}
@@ -128,35 +137,38 @@ export function ReviewHookTab({ listing, token, compact = false }: { listing: Bo
       </div>
 
       <div className={cn("space-y-5 transition-opacity", !cfg.enabled && "pointer-events-none opacity-45")} aria-disabled={!cfg.enabled}>
-        <Section icon={Gift} title="Ricompensa" text="Chi recensisce riceve ruolo (a tempo) e EXP se i livelli sono attivi sul server.">
+        <Section icon={Gift} title="Ricompensa" text="Come su Livelli → Recensione sul sito: livelli regalati una sola volta. Serve il modulo Livelli attivo.">
           <div className="space-y-3">
             <p className="rounded-xl bg-espresso/45 px-3 py-2.5 text-sm text-crema/75 ring-1 ring-sand/10">
-              {roleName ? (
+              {cfg.rewardLevels > 0 ? (
                 <>
-                  Chi recensisce riceve <span className="font-semibold text-ember">@{roleName}</span> per{" "}
-                  <span className="font-semibold text-crema">{fmtHours(cfg.hours)}</span>
-                  {cfg.expAmount > 0 ? (
+                  Chi recensisce riceve <span className="font-semibold text-crema">+{cfg.rewardLevels} livelli</span>
+                  {roleName ? (
                     <>
                       {" "}
-                      e <span className="font-semibold text-crema">{cfg.expAmount} EXP</span>.
+                      e <span className="font-semibold text-ember">@{roleName}</span> per <span className="font-semibold text-crema">{fmtHours(cfg.hours)}</span>.
                     </>
                   ) : (
-                    <> (senza EXP).</>
+                    <>.</>
                   )}
                 </>
+              ) : roleName ? (
+                <>
+                  Solo ruolo <span className="font-semibold text-ember">@{roleName}</span> per {fmtHours(cfg.hours)} (nessun livello).
+                </>
               ) : (
-                <>Nessun ruolo: scegline uno qui sotto se vuoi premiare chi recensisce.</>
+                <>Nessun premio livelli: alza il numero oppure scegli un ruolo.</>
               )}
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="Livelli in regalo" hint="0 = spento (come sul main)">
+                <NumberField value={cfg.rewardLevels} min={0} max={100} onChange={(v) => set({ rewardLevels: Math.max(0, Math.floor(Number(v) || 0)) })} aria-label="Livelli" />
+              </Field>
               <Field label="Ruolo">
                 <Select value={cfg.roleId || ""} onChange={(v) => set({ roleId: v || null })} options={roles} className="mt-1.5 h-11 rounded-lg" />
               </Field>
               <Field label="Ore del ruolo">
                 <NumberField value={cfg.hours} min={1} max={720} onChange={(v) => set({ hours: Number(v) || 1 })} aria-label="Ore del ruolo" />
-              </Field>
-              <Field label="EXP per recensione" hint="0 = niente EXP">
-                <NumberField value={cfg.expAmount} min={0} max={5000} step={10} onChange={(v) => set({ expAmount: Math.max(0, Number(v) || 0) })} aria-label="EXP" />
               </Field>
             </div>
           </div>
@@ -165,11 +177,11 @@ export function ReviewHookTab({ listing, token, compact = false }: { listing: Bo
         <Section
           icon={Sparkles}
           title="Messaggio"
-          text="A ogni nuova recensione il bot scrive nel canale scelto. Le recensioni restano sulla scheda pubblica."
+          text="Annuncio nel canale a ogni nuova recensione. Le recensioni restano sulla scheda pubblica."
           right={<Toggle size="sm" checked={cfg.thanksEnabled} onChange={(v) => set({ thanksEnabled: v })} label="Messaggio" />}
         >
           <div className="mb-4 max-w-md">
-            <ChannelField label="Canale" hint="Vuoto = nessun messaggio, solo ruolo ed EXP." value={cfg.channelId} channels={channels} onChange={(channelId) => set({ channelId })} />
+            <ChannelField label="Canale" hint="Vuoto = nessun messaggio, solo livelli/ruolo." value={cfg.channelId} channels={channels} onChange={(channelId) => set({ channelId })} />
           </div>
           {cfg.thanksEnabled && cfg.channelId ? (
             <div className="@container">

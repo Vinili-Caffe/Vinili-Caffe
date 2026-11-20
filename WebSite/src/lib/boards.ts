@@ -640,7 +640,8 @@ export type ReviewHookConfig = {
   hours: number;
   thanksEnabled: boolean;
   draft: MsgDraft;
-  expAmount: number;
+  /** Livelli regalati una tantum (sistema del main). */
+  rewardLevels: number;
 };
 export type ReviewHookData = {
   config: ReviewHookConfig;
@@ -649,6 +650,7 @@ export type ReviewHookData = {
   bot: { id: string; name: string; avatarUrl: string } | null;
   pickers: { textChannels: PickerChannel[]; roles: PickerRole[]; emojis: PickerEmoji[]; categories: PickerChannel[] };
   serviceName: string;
+  seededFromMain?: boolean;
 };
 
 export async function loadReviewHook(token: string, id: string) {
