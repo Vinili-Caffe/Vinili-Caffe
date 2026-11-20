@@ -18,6 +18,12 @@ const THANKS_PLACEHOLDERS = [
   { token: "{count}", hint: "quante volte ha votato" },
   { token: "{service}", hint: "Vinili & Caffè" },
   { token: "{server}", hint: "il tuo server" },
+  { token: "{exp}", hint: "EXP guadagnati" },
+  { token: "{bonus}", hint: "bonus rapida/streak: mettilo su una riga sua (se vuoto la riga sparisce)" },
+  { token: "{streak}", hint: "giorni di streak" },
+  { token: "{level}", hint: "livello dopo il voto" },
+  { token: "{role}", hint: "ruolo ricompensa" },
+  { token: "{hours}", hint: "ore del ruolo" },
 ];
 const REMINDER_PLACEHOLDERS = [
   { token: "{server}", hint: "il tuo server" },
@@ -53,8 +59,22 @@ export function VoteHookTab({ listing, token, compact = false }: { listing: Boar
   const service = data?.serviceName || "Vinili & Caffè";
   const vars = useMemo(() => {
     const fake = { guild: { id: data?.guild?.id || listing.discordId, name: data?.guild?.name || listing.name, icon: null, banner: null, memberCount: null } } as unknown as CommunityData;
-    return { ...sampleVars(fake, {}, user), service, count: "12", link: `https://www.viniliecaffe.it/vetrina/vota/?slug=${listing.slug}` };
-  }, [data, listing, user, service]);
+    const roleId = String(cfg?.roleId || "").trim();
+    return {
+      ...sampleVars(fake, {}, user),
+      service,
+      count: "12",
+      link: `https://www.viniliecaffe.it/vetrina/vota/?slug=${listing.slug}`,
+      /* stessi sample del modulo Voti: i draft seedati da Top.gg usano {exp}/{bonus} */
+      exp: "150",
+      streak: "3",
+      bonus: "🔥 Streak 3 **+20 exp**",
+      level: "42",
+      fast: "0",
+      hours: String(cfg?.hours || 12),
+      role: roleId ? `<@&${roleId}>` : "",
+    };
+  }, [data, listing, user, service, cfg?.roleId, cfg?.hours]);
 
   if (err) return <Notice error>{err}</Notice>;
   if (!data || !cfg) return <RowsSkeleton rows={4} />;
