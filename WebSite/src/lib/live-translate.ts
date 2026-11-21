@@ -10,7 +10,7 @@ const STORE = (lang: string) => `vc_live_tr_v1:${lang}`;
 const STORE_MAX = 3000;
 
 const IT_WORDS = new Set(
-  "il lo la gli le un una uno di del della dei degli delle da dal dalla nel nella nei sul sulla per con che non è sono ho hai ha abbiamo molto molta tutti tutto questo questa quello ogni anche più ma se come cosa chi perché sempre mai ancora già qui dove quando bene bello bella server staff gente persone ci si mi ti vi ne".split(" "),
+  "e ed in a o al ai alla con voce musica il lo la gli le un una uno di del della dei degli delle da dal dalla nel nella nei sul sulla per con che non è sono ho hai ha abbiamo molto molta tutti tutto questo questa quello ogni anche più ma se come cosa chi perché sempre mai ancora già qui dove quando bene bello bella server staff gente persone ci si mi ti vi ne".split(" "),
 );
 const EN_WORDS = new Set("the and of to is are you your this that with for from not have has was were will can".split(" "));
 

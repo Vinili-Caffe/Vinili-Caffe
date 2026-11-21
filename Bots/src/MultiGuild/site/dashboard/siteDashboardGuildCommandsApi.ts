@@ -254,7 +254,12 @@ async function buildCommandsResponse(client?, accessToken?, guildId?, opts: Reco
           const name = String(cmd?.name || "").trim();
           if (!name) continue;
           const mod = MS.moduleForCommand(name);
-          if (!mod || MS.isModuleEffectivelyOn(guildId, mod)) continue;
+          if (!mod) continue;
+          const allowed =
+            typeof MS.isCommandAllowedByModule === "function"
+              ? MS.isCommandAllowedByModule(guildId, name)
+              : MS.isModuleEffectivelyOn(guildId, mod);
+          if (allowed) continue;
           const prev = commands[name] ? cloneCommandAcl(commands[name]) : emptyAcl();
           commands[name] = { ...prev, enabled: false, moduleFeatureLocked: true };
         }

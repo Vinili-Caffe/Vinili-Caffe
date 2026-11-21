@@ -86,7 +86,7 @@ function resolveTenantFeaturePrefixBypass(guildId?, commandName?, options: Recor
   const category = resolveTenantPrefixFeatureCategory(commandName);
   if (!category) return null;
 
-  /* Bacheca / moderazione / partnership: modulo acceso + setup minimo. */
+  /* Bacheca / moderazione / partnership: modulo acceso (+ setup minimo, salvo +setup/+settings). */
   try {
     const MS = require("./moduleSwitches") as typeof import("./moduleSwitches");
     const mod =
@@ -97,17 +97,25 @@ function resolveTenantFeaturePrefixBypass(guildId?, commandName?, options: Recor
           : category === "partnership"
             ? "partnership"
             : null;
-    if (mod && typeof MS.isModuleEffectivelyOn === "function" && !MS.isModuleEffectivelyOn(gid, mod)) {
-      if (options.returnDetails) {
-        return {
-          allowed: false,
-          reason: "module_disabled",
-          requiredRoles: null,
-          channels: null,
-          message: MS.DISABLED_COMMAND_MESSAGE || "Questo comando è disattivato su questo server.",
-        };
+    if (mod) {
+      const allowed =
+        typeof MS.isCommandAllowedByModule === "function"
+          ? MS.isCommandAllowedByModule(gid, cmd)
+          : typeof MS.isModuleEffectivelyOn === "function"
+            ? MS.isModuleEffectivelyOn(gid, mod)
+            : true;
+      if (!allowed) {
+        if (options.returnDetails) {
+          return {
+            allowed: false,
+            reason: "module_disabled",
+            requiredRoles: null,
+            channels: null,
+            message: MS.DISABLED_COMMAND_MESSAGE || "Questo comando è disattivato su questo server.",
+          };
+        }
+        return false;
       }
-      return false;
     }
   } catch (_) {}
 

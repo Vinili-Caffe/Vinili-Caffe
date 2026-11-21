@@ -121,7 +121,7 @@ const IT_WORDS = new Set(
   ),
 );
 const EN_WORDS = new Set(
-  "the and of to is are you your this that with for from not be have has was were will can on in at by an or it its if then than which what when where who how all any".split(" "),
+  "the and of to is are you your this that with for from not be have has was were will can on at by an or it its if then than which what when where who how all any".split(" "),
 );
 const OTHER_SCRIPT = /[Ѐ-ӿ؀-ۿऀ-ॿ぀-ヿ一-鿿가-힯]/;
 const OTHER_LANG = /(ş|ğ|ı|ł|ą|ę|ż|ő|ű|ã|õ|ñ|ç|ß|ä|ö|ü|ă|ț|ș|ð|å|ø|æ|ơ|ư|đ|[Ạ-ỿ])/i;
@@ -154,11 +154,17 @@ function looksItalian(s) {
 /* valori di testo nelle proprietà dei componenti (titoli, accenti, kicker…): l'estrattore salta le parole singole minuscole */
 function extractProps(files) {
   const out = new Set();
-  const re = /\b(?:accent|kicker|title|text|label|placeholder|hint|description|teaser|eyebrow|subtitle)=["']([^"'{}]{2,200})["']/g;
+  const re = /\b(?:accent|kicker|title|text|label|placeholder|hint|description|teaser|eyebrow|subtitle|tagline)[=:]\s*["']([^"'{}]{2,200})["']/g;
+  /* pezzi di testo JSX accanto a un valore, es. «prefisso {b.prefix}» o «{n} comandi»: nella pagina diventano nodi a sé */
+  const jsx = /(?:>|\})([^<>{}]{3,120})(?=[<{])/g;
   for (const f of files) {
     const src = fs.readFileSync(f, "utf8");
     let m;
     while ((m = re.exec(src))) out.add(m[1].trim());
+    if (/\.tsx$/.test(f)) while ((m = jsx.exec(src))) {
+      const t = m[1].trim();
+      if (/^[a-zàèéìòù][a-zàèéìòù' ]{2,60}$/i.test(t)) out.add(t);
+    }
   }
   return [...out];
 }

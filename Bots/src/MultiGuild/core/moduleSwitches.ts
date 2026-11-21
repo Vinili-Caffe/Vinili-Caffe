@@ -295,15 +295,33 @@ function isModuleConfigured(guildId?: string, id?: string): boolean {
   return true;
 }
 
+/**
+ * +setup / +settings devono restare usabili con il modulo Partnership solo acceso:
+ * altrimenti non si può completare il setup (uovo e gallina).
+ */
+const MODULE_BOOTSTRAP_COMMANDS = new Set(["setup", "settings"]);
+
+function isModuleBootstrapCommand(commandName?: string): boolean {
+  return MODULE_BOOTSTRAP_COMMANDS.has(normalizeCommandModuleKey(commandName));
+}
+
 /** Acceso in Moduli e pronto (setup minimo fatto). */
 function isModuleEffectivelyOn(guildId?: string, id?: string): boolean {
   return isModuleOn(guildId, id) && isModuleConfigured(guildId, id);
 }
 
+/** true se il comando può partire rispetto agli interruttori Moduli. */
+function isCommandAllowedByModule(guildId?: string, commandName?: string): boolean {
+  const mod = moduleForCommand(commandName);
+  if (!mod) return true;
+  if (!isModuleOn(guildId, mod)) return false;
+  if (isModuleBootstrapCommand(commandName)) return true;
+  return isModuleConfigured(guildId, mod);
+}
+
 /** Se il comando appartiene a un modulo spento o non configurato: il messaggio unico; altrimenti null. */
 function blockedCommandMessage(guildId?: string, commandName?: string): string | null {
-  const mod = moduleForCommand(commandName);
-  if (!mod || isModuleEffectivelyOn(guildId, mod)) return null;
+  if (isCommandAllowedByModule(guildId, commandName)) return null;
   return DISABLED_COMMAND_MESSAGE;
 }
 
@@ -312,6 +330,8 @@ export = {
   isModuleOn,
   isModuleConfigured,
   isModuleEffectivelyOn,
+  isModuleBootstrapCommand,
+  isCommandAllowedByModule,
   listModules,
   setModuleOn,
   moduleExists,
