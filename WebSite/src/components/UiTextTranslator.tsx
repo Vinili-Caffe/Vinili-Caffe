@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
 import { loadUiDict, translateWith, uiTextLang } from "@/lib/i18n-text";
+import { liveLookup, requestLive, wantsLiveTranslation } from "@/lib/live-translate";
 
 /**
  * Traduce sul posto i testi italiani dell'interfaccia quando la lingua non è l'italiano:
@@ -47,6 +48,32 @@ export function UiTextTranslator() {
       const original = prev && cur === prev.shown ? prev.original : cur;
       const next = translateWith(dict, original);
       if (next == null) {
+        /* non è nei dizionari: se è una frase italiana (di solito scritta da un utente) si traduce al volo */
+        if (lang && wantsLiveTranslation(original)) {
+          const lead = original.match(/^\s*/)?.[0] || "";
+          const trail = original.match(/\s*$/)?.[0] || "";
+          const known = liveLookup(lang, original);
+          if (known) {
+            const shown = lead + known + trail;
+            textOrig.set(node, { original, shown });
+            if (cur !== shown) node.nodeValue = shown;
+            return;
+          }
+          requestLive(lang, original, (tr) => {
+            if (stopped || !node.isConnected) return;
+            const now = node.nodeValue || "";
+            const was = textOrig.get(node);
+            if (now !== original && !(was && now === was.shown)) return; /* il testo è cambiato nel frattempo */
+            const shown = lead + tr + trail;
+            applying = true;
+            try {
+              textOrig.set(node, { original, shown });
+              node.nodeValue = shown;
+            } finally {
+              applying = false;
+            }
+          });
+        }
         if (prev && cur === prev.shown && prev.shown !== prev.original) node.nodeValue = prev.original;
         textOrig.delete(node);
         return;

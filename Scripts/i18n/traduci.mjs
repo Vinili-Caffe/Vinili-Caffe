@@ -116,7 +116,7 @@ function client() {
 
 /* parole che compaiono quasi solo in italiano */
 const IT_WORDS = new Set(
-  "il lo la gli le un una uno di del della dello dei degli delle da dal dalla dai nel nella nei nelle sul sulla sui per con che non è sei sono hai ha abbiamo puoi può devi deve questo questa questi queste quello quella tuo tua tuoi tue suo sua nostro nostra ogni qui già ancora anche più meno poi prima dopo quando dove come cosa chi perché oppure senza tra fra se o e ma al alla ai alle negli sugli dagli tutti tutto tutte niente nessun nessuna nessuno ecco sì grazie ciao serve servono scegli scrivi apri invia salva annulla elimina riprova attendi".split(
+  "ed ad od coi col cui mio mia miei tuo nuovo nuova il lo la gli le un una uno di del della dello dei degli delle da dal dalla dai nel nella nei nelle sul sulla sui per con che non è sei sono hai ha abbiamo puoi può devi deve questo questa questi queste quello quella tuo tua tuoi tue suo sua nostro nostra ogni qui già ancora anche più meno poi prima dopo quando dove come cosa chi perché oppure senza tra fra se o e ma al alla ai alle negli sugli dagli tutti tutto tutte niente nessun nessuna nessuno ecco sì grazie ciao serve servono scegli scrivi apri invia salva annulla elimina riprova attendi".split(
     " ",
   ),
 );
@@ -146,8 +146,21 @@ function looksItalian(s) {
   if (it > 0) return it >= en;
   if (en > 0) return false;
   /* frasi brevi senza parole "di servizio": le parole italiane finiscono quasi sempre in vocale */
-  if (real.length <= 3) return real.every((w) => /[aeiouàèéìòù]$/.test(w) && w.length >= 3);
-  return false;
+  const vowelEnd = real.filter((w) => /[aeiouàèéìòù]$/.test(w) && w.length >= 3).length;
+  if (real.length <= 3) return vowelEnd === real.length;
+  return real.length <= 8 && vowelEnd / real.length >= 0.7;
+}
+
+/* valori di testo nelle proprietà dei componenti (titoli, accenti, kicker…): l'estrattore salta le parole singole minuscole */
+function extractProps(files) {
+  const out = new Set();
+  const re = /\b(?:accent|kicker|title|text|label|placeholder|hint|description|teaser|eyebrow|subtitle)=["']([^"'{}]{2,200})["']/g;
+  for (const f of files) {
+    const src = fs.readFileSync(f, "utf8");
+    let m;
+    while ((m = re.exec(src))) out.add(m[1].trim());
+  }
+  return [...out];
 }
 
 function extractWith(files, label) {
@@ -214,7 +227,7 @@ function estrai() {
 
   const dicts = shellDict();
   const shell = dicts.it || {};
-  const sito = [...new Set([...extractWith(siteFiles, "sito"), ...Object.values(shell)])].filter(looksItalian);
+  const sito = [...new Set([...extractWith(siteFiles, "sito"), ...extractProps(siteFiles), ...Object.values(shell)])].filter(looksItalian);
   const bot = [...new Set(extractWith(botFiles, "bot"))].filter(looksItalian);
 
   writeJson(SORGENTI, { sito: sito.sort(), bot: bot.sort(), shell });
@@ -473,10 +486,17 @@ function protectFor(text, tokens) {
 }
 const unprotect = (text, tokens) =>
   text
-    .replace(/\s*⟦\s*(\d+)\s*⟧\s*/g, (m, n) => {
+    .replace(/\s*⟦\s*(\d+)\s*⟧\s*/g, (m, n, at, all) => {
       const tok = tokens[Number(n)];
       if (tok == null) return m;
-      return (tok.sb ? " " : "") + tok.t + (tok.sa ? " " : "");
+      /* nomi e parole protette: Google può spostarli nella frase, quindi lo spazio dipende da cosa c'è
+         attorno nella traduzione (una lettera vuole lo spazio, la punteggiatura no) */
+      const wordy = /^[\p{L}\p{N}]/u.test(tok.t) && /[\p{L}\p{N}]$/u.test(tok.t);
+      const prev = all.slice(0, at).replace(/\s+$/, "").slice(-1);
+      const next = all.slice(at + m.length).replace(/^\s+/, "").slice(0, 1);
+      const before = tok.sb || (wordy && /[\p{L}\p{N}]/u.test(prev));
+      const after = tok.sa || (wordy && /[\p{L}\p{N}]/u.test(next));
+      return (before ? " " : "") + tok.t + (after ? " " : "");
     })
     .replace(/ {2,}/g, " ")
     .replace(/ ([.,)])/g, "$1")

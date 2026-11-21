@@ -66,6 +66,8 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   mountWorkflowRoutes(app, client);
   mountUserWorkflowWebhookRoutes(app, client);
   mountWebTicketRoutes(app, client);
+  /* traduzione al volo dei testi che il sito non ha nei dizionari (recensioni, feedback…) */
+  (require("./siteTranslateApi") as typeof import("./siteTranslateApi")).mountSiteTranslateRoutes(app);
   mountOauthStartWebhookRoutes(app);
   mountLiveWikiWebhookRoutes(app, client, ctx);
   mountRolesWebhookRoutes(app, client, ctx);

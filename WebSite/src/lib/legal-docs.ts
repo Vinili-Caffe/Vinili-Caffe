@@ -132,6 +132,7 @@ export const LEGAL_PRIVACY: LegalDoc = {
             "Discord Inc., per OAuth, hosting della piattaforma e API;",
             "fornitori di hosting, database e infrastruttura;",
             "Cloudflare, per la protezione e l’instradamento delle richieste verso le API, la verifica anti-robot (Turnstile) e l’indicazione del Paese approssimativo della richiesta;",
+            "Google, per la traduzione automatica (Google Traduttore) dei testi mostrati sul sito quando è visualizzato in una lingua diversa dall’italiano, compresi i contenuti pubblici scritti dagli utenti come recensioni e suggerimenti: il testo viene inviato dal nostro server, senza dati che identificano chi sta visitando la pagina;",
             "Google (Google Analytics, Google Tag Manager e Google AdSense), per la misurazione del traffico, la gestione dei tag e la pubblicità;",
             "Microsoft (Microsoft Clarity), per heatmaps e analisi dell’esperienza di navigazione;",
             "Meta Platforms (Meta Pixel), per la misurazione di campagne e interazioni;",
