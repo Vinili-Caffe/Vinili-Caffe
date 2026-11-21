@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect } from "react";
-import { usePathname } from "next/navigation";
+import { sitePathname, useSitePathname } from "@/lib/locale-path";
 import {
   clearPwaUiRestorePending,
   forceScrollTop,
@@ -41,7 +41,7 @@ function navEntryKey(): string {
 const DOC = { booted: false, lastPath: "", seen: new Set<string>(), pop: false, popBound: false };
 
 export function ViewState() {
-  const pathname = usePathname();
+  const pathname = useSitePathname();
 
   useEffect(() => {
     if (DOC.popBound) return;
@@ -170,7 +170,7 @@ export function ViewState() {
       if (window.__vcViewStateRestoring) return;
       // cambio pagina in corso: il router di Next porta già in cima la pagina nuova, quello scroll non va
       // salvato come posizione della pagina vecchia (altrimenti "indietro" la riapre in cima)
-      if (normalizePath(window.location.pathname) !== path) return;
+      if (normalizePath(sitePathname()) !== path) return;
       if (window.__vcDiscardScrollRestore) {
         const y = Math.max(0, Math.floor(window.scrollY || window.pageYOffset || 0));
         if (y < 8) return;

@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { COPYRIGHT_HREF, LEGAL, SOCIAL_LINKS, navGroupsForSeason, navLinkLocked, navLinkSeasonLive } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
@@ -56,7 +56,7 @@ function SocialIcon({ id }: { id: (typeof SOCIAL_LINKS)[number]["id"] }) {
 
 export function Footer() {
   const { t } = useI18n();
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   const year = new Date().getFullYear();
   const { tick: seasonTick, ready: seasonReady } = useNavSeasonTick();
   const navGroups = navGroupsForSeason();

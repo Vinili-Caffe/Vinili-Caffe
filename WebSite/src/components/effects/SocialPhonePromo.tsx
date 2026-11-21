@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { AnimatePresence, motion } from "motion/react";
 import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { Bell, Bookmark, Heart, Share2, UserPlus } from "lucide-react";
@@ -298,7 +298,7 @@ function ScreenTikTok() {
  */
 export function SocialPhonePromo() {
   const reduce = useReducedMotionSafe();
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   const [desktop, setDesktop] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [chromeOpen, setChromeOpen] = useState(false);

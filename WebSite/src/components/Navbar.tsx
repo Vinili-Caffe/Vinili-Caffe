@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
 import {
   BookOpen,
@@ -143,7 +143,7 @@ function eventoLinkActive(pathname: string, href: string, id: string) {
 
 /** Dropdown “Eventi” (Accademia / Gara / Miniera / Puzzle) — blur se locked. */
 function EventoEventiDrop({ items, soon }: { items: EventoNavItemView[]; soon: string }) {
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   const [hover, setHover] = useState(false);
   const [pinned, setPinned] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -272,7 +272,7 @@ function NavDrop({
   eventoNavOpen: boolean;
 }) {
   const { t } = useI18n();
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   const { tick: seasonTick, ready: seasonReady } = useNavSeasonTick();
   const [hover, setHover] = useState(false);
   const [pinned, setPinned] = useState(false);
@@ -618,7 +618,7 @@ export function Navbar() {
   const { t } = useI18n();
   const { bar } = useViewAsChrome();
   const { token } = useAuth();
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { useAuth } from "@/lib/auth";
 import { bindPresence } from "@/lib/presence";
 import { readRealToken } from "@/lib/view-as";
@@ -9,7 +9,7 @@ import { readRealToken } from "@/lib/view-as";
 /** Heartbeat globale: montato da SiteShell. I pallini stanno nei thread. */
 export function PresenceRoot() {
   const { ready, token } = useAuth();
-  const path = usePathname() || "/";
+  const path = useSitePathname() || "/";
 
   useEffect(() => {
     if (!ready) return;

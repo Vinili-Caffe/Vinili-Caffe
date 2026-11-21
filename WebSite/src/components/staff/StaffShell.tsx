@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { ShieldCheck } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { SmartLink } from "@/components/SmartLink";
@@ -80,7 +81,7 @@ export function StaffShell({
 }: Props) {
   const { ready, token } = useAuth();
   const router = useRouter();
-  const pathname = usePathname() || "/staff/";
+  const pathname = useSitePathname() || "/staff/";
   const [access, setAccess] = useState<StaffAccess | null>(null);
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);

@@ -2,7 +2,7 @@
 
 import { DiscordContent } from "@/components/discord/DiscordContent";
 import { useSyncExternalStore } from "react";
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { AnimatePresence, motion } from "motion/react";
 import { Handshake, X } from "lucide-react";
 import {
@@ -49,7 +49,7 @@ function subscribeCfg(cb: () => void) {
 
 /** Vetrina in home del prodotto Sponsor "Sito web". Legge window.__VC_SITE_SPONSOR_AD. */
 export function SponsorAd() {
-  const path = usePathname() || "/";
+  const path = useSitePathname() || "/";
   const home = path === "/" || path === "";
   const cfg = useSyncExternalStore<SponsorAdConfig | null>(subscribeCfg, readSponsorAd, () => null);
   const dismissed = useSyncExternalStore(subscribeDismiss, dismissedId, () => "");

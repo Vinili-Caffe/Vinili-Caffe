@@ -7,6 +7,7 @@ import type { ComponentProps, MouseEvent, PointerEvent } from "react";
 import { useFxCap } from "@/components/effects/DeviceFxProvider";
 import { reportSiteEvent } from "@/lib/site-report";
 import { navProbeSnapshot, startNavProbe } from "@/lib/nav-probe";
+import { stripLocale, useUrlLocale, withLocale } from "@/lib/locale-path";
 
 type Props = Omit<ComponentProps<"a">, "href"> & { href: string };
 
@@ -24,7 +25,8 @@ function clearSoftFallback() {
 function pathKey(href: string) {
   try {
     const u = new URL(href, typeof location !== "undefined" ? location.origin : "https://www.viniliecaffe.it");
-    let p = u.pathname || "/";
+    /* la lingua nell'indirizzo (/en/…) non conta: è la stessa pagina */
+    let p = stripLocale(u.pathname || "/");
     if (p !== "/" && !p.endsWith("/")) p = `${p}/`;
     return `${p}${u.search}${u.hash}`;
   } catch {
@@ -67,9 +69,12 @@ function pageDataArrived(dest: string, since: number) {
   }
 }
 
-export function SmartLink({ href, onClick, onPointerDown, ...rest }: Props) {
+export function SmartLink({ href: rawHref, onClick, onPointerDown, ...rest }: Props) {
   const prefetch = useFxCap("prefetch");
   const router = useRouter();
+  /* link interni con la lingua davanti (/en/faq/), dopo il primo disegno */
+  const urlLocale = useUrlLocale();
+  const href = rawHref.startsWith("/") ? withLocale(rawHref, urlLocale) : rawHref;
 
   if (!href.startsWith("/")) {
     return <a href={href} onClick={onClick} {...rest} />;

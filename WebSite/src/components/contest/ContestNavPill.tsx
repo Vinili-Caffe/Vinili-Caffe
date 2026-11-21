@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { Ghost } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { fetchContestHighlight, type ContestHighlight } from "@/lib/contest";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 /** Pill contest: solo dentro la navbar (niente clone floating quando la nav si nasconde). */
 export function ContestNavPill({ className }: { className?: string }) {
   const { token } = useAuth();
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   const [item, setItem] = useState<ContestHighlight | null>(null);
 
   useEffect(() => {

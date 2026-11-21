@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { AnimatePresence, motion } from "motion/react";
 import { Cookie } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -27,7 +28,7 @@ import {
  */
 export function CookieConsent() {
   const { t } = useI18n();
-  const pathname = usePathname();
+  const pathname = useSitePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const trackedPath = useRef<string | null>(null);

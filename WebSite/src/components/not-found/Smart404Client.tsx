@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { Disc3 } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
 import { resolveSmart404 } from "@/lib/smart404";
 
 /** Alias → redirect; genitore noto → link “Prova …”. Solo percorsi del catalogo. */
 export function Smart404Client({ hintId }: { hintId: string }) {
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   const resolved = useMemo(() => resolveSmart404(pathname), [pathname]);
 
   useEffect(() => {

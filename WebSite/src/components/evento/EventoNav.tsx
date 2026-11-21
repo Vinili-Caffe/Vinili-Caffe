@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { SmartLink } from "@/components/SmartLink";
 import { useEventoStaffAccess } from "@/components/evento/EventoAccessGate";
 import { useEventoSortGate } from "@/components/evento/EventoSortContext";
@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn";
 
 /** Tab sottomenu evento Star Wars (filtrate per HS / finestra pubblica + feature calendar). */
 export function EventoNav({ className }: { className?: string }) {
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   const { ready, access } = useEventoStaffAccess();
   const { needsSort } = useEventoSortGate();
   const primary = ready

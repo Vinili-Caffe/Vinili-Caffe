@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import {
   hasAnalyticsConsent,
   loadAdSenseIfConsented,
@@ -15,7 +15,7 @@ import {
  * Si attivano solo con consenso cookie; PageView Meta anche sulle navigazioni client.
  */
 export function SiteTrackers() {
-  const pathname = usePathname();
+  const pathname = useSitePathname();
   const tracked = useRef<string | null>(null);
 
   useEffect(() => {

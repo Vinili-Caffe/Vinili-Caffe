@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
+import { sitePathname, stripLocale, useSitePathname } from "@/lib/locale-path";
 import { forceScrollTop } from "@/lib/view-state";
 
 function mainContentReady(): boolean {
@@ -27,7 +27,7 @@ function releaseRouteHold() {
  * Si spegne quando il main ha contenuto reale (non solo gate/skeleton).
  */
 export function NavBusyCursor() {
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   const releaseTimer = useRef(0);
 
   useLayoutEffect(() => {
@@ -64,8 +64,8 @@ export function NavBusyCursor() {
       if (a.target && a.target !== "_self") return;
       const url = new URL(href, location.origin);
       if (url.origin !== location.origin) return;
-      if (url.pathname === location.pathname && url.search === location.search && !url.hash) return;
-      if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
+      if (stripLocale(url.pathname) === sitePathname() && url.search === location.search && !url.hash) return;
+      if (stripLocale(url.pathname) === sitePathname() && url.search === location.search && url.hash) return;
       document.documentElement.classList.add("vc-interaction-hold");
       document.documentElement.classList.add("vc-route-hold");
       forceScrollTop();

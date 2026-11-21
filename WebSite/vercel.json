@@ -40,38 +40,74 @@
     {
       "source": "/vetrina/embed",
       "headers": [
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors *; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.bunny.net; font-src 'self' https://fonts.bunny.net data:; img-src 'self' data: https: blob:; connect-src 'self' https://api.viniliecaffe.it https://cdn.discordapp.com https://discord.com" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors *; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.bunny.net; font-src 'self' https://fonts.bunny.net data:; img-src 'self' data: https: blob:; connect-src 'self' https://api.viniliecaffe.it https://cdn.discordapp.com https://discord.com"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
       ]
     },
     {
       "source": "/vetrina/embed/(.*)",
       "headers": [
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors *; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.bunny.net; font-src 'self' https://fonts.bunny.net data:; img-src 'self' data: https: blob:; connect-src 'self' https://api.viniliecaffe.it https://cdn.discordapp.com https://discord.com" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors *; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.bunny.net; font-src 'self' https://fonts.bunny.net data:; img-src 'self' data: https: blob:; connect-src 'self' https://api.viniliecaffe.it https://cdn.discordapp.com https://discord.com"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
       ]
     },
     {
       "source": "/live-stats-extra.json",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=30, s-maxage=45, stale-while-revalidate=60" },
-        { "key": "CDN-Cache-Control", "value": "public, max-age=45" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=30, s-maxage=45, stale-while-revalidate=60"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "public, max-age=45"
+        }
       ]
     },
     {
       "source": "/discord-invite.json",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=60, s-maxage=90, stale-while-revalidate=60" },
-        { "key": "CDN-Cache-Control", "value": "public, max-age=90" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=60, s-maxage=90, stale-while-revalidate=60"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "public, max-age=90"
+        }
       ]
     },
     {
       "source": "/site-analytics.json",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=300, s-maxage=300, stale-while-revalidate=120" },
-        { "key": "CDN-Cache-Control", "value": "public, max-age=300" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300, s-maxage=300, stale-while-revalidate=120"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "public, max-age=300"
+        }
       ]
     },
     {
@@ -97,6 +133,14 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)",
+      "destination": "/"
+    },
+    {
+      "source": "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)/:path*",
+      "destination": "/:path*"
+    },
     {
       "source": "/live-stats-extra.json",
       "destination": "https://api.viniliecaffe.it/live-stats-extra.json"

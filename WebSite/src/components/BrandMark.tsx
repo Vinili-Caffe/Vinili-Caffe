@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { cn } from "@/lib/cn";
 import { cdnUrl } from "@/lib/site";
 import { SmartLink } from "./SmartLink";
@@ -49,7 +49,7 @@ function splitGuildBrand(raw: string): { main: string; tagline: string } {
  * `navUnderline`: home = linea sempre; altre pagine = solo hover.
  */
 export function BrandMark({ className, navUnderline }: { className?: string; navUnderline?: boolean }) {
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   const [icon, setIcon] = useState(FALLBACK);
   const [main, setMain] = useState(FALLBACK_NAME);
   const [tagline, setTagline] = useState("");

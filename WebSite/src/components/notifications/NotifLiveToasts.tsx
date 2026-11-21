@@ -1,5 +1,6 @@
 "use client";
 
+import { sitePathname } from "@/lib/locale-path";
 import { useEffect, useRef, useState } from "react";
 import {
   Bell,
@@ -59,7 +60,7 @@ function kindTone(kind: string) {
 
 function onNotificationsPage() {
   try {
-    return window.location.pathname.replace(/\/+$/, "") === "/notifications";
+    return sitePathname().replace(/\/+$/, "") === "/notifications";
   } catch {
     return false;
   }

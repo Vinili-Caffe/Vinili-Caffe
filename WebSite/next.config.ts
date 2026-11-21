@@ -16,6 +16,9 @@ const nextConfig: NextConfig = {
     // Solo `next dev`: in prod i webhook esterni devono battere api (www Vercel + trailingSlash li rompeva).
     const origin = "https://api.viniliecaffe.it";
     return [
+      /* lingua nell'indirizzo (/en/faq/): stessa pagina, come su Vercel */
+      { source: "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)", destination: "/" },
+      { source: "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)/:path*", destination: "/:path*" },
       { source: "/webhooks/:path*", destination: `${origin}/webhooks/:path*` },
       { source: "/ticket-transcript/:path*", destination: `${origin}/ticket-transcript/:path*` },
     ];

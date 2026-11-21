@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ChevronDown,
@@ -567,7 +567,7 @@ function CreditsChip() {
 /** Menu account in alto a destra: nome utente, voci dell'account e ritorno al sito. */
 function AccountMenu({ inline = false }: { guild: ShellGuild | null; guildNav?: GuildNav; inline?: boolean }) {
   const { user, ready, login, token } = useAuth();
-  const pathname = usePathname() || "";
+  const pathname = useSitePathname() || "";
   const isDev = useSyncExternalStore(subscribeDev, getIsDev, () => null);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -721,7 +721,7 @@ function Sidebar({
   pinned?: boolean;
   onTogglePin?: () => void;
 }) {
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   /* sezioni del server solo con un server aperto (in "I miei server" non si è ancora scelto) */
   const guildId = guild?.id || "";
 
@@ -882,7 +882,7 @@ export function DashboardShell({
   noCrumb?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   useBodyScrollLock(open);
 
   useEffect(() => setOpen(false), [pathname]);

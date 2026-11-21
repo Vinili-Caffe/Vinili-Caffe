@@ -5,6 +5,7 @@
  * Pausa su confessionale, /evento, /puzzle; su /seratafilm resta attiva (mute solo in countdown/film).
  */
 
+import { sitePathname } from "@/lib/locale-path";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MusicDock } from "@/components/MusicDock";
 import { loadYtApi, resolveVinylYt, type YtPlayer } from "@/lib/youtube-player";
@@ -70,7 +71,7 @@ export function VinylMusicRoot() {
     let serataMute = false;
     const sync = () => {
       try {
-        setSuppress(pathSuppressesSiteMusic(location.pathname) || serataMute);
+        setSuppress(pathSuppressesSiteMusic(sitePathname()) || serataMute);
       } catch {
         setSuppress(serataMute);
       }

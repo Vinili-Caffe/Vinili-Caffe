@@ -18,6 +18,8 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "@/lib/auth";
+import { usePathname } from "next/navigation";
+import { localeFromPath, setCurrentUrlLocale, skipsLocale, stripLocale } from "@/lib/locale-path";
 
 export const LOCALES = [
   "it",
@@ -271,8 +273,8 @@ export const DICTS: Record<CuratedLocale, Dict> = {
     "login.requiredTitle": "Accesso richiesto",
     "login.requiredText": "Accedi con Discord per continuare su questa pagina.",
     "footer.aria": "Footer",
-    "footer.tagline": "Ti aspettiamo su Discord.",
-    "footer.taglineSub": "Entri quando vuoi, ed è gratis.",
+    "footer.tagline": "Il caffè è pronto.",
+    "footer.taglineSub": "Manca solo il tuo vinile.",
     "footer.joinCta": "Unisciti alla community",
     "footer.desc":
       "Una community italiana su Discord per chi ama la musica, i giochi e le chiacchiere senza fretta.",
@@ -574,8 +576,8 @@ export const DICTS: Record<CuratedLocale, Dict> = {
     "login.requiredTitle": "Sign in required",
     "login.requiredText": "Sign in with Discord to continue on this page.",
     "footer.aria": "Footer",
-    "footer.tagline": "See you on Discord.",
-    "footer.taglineSub": "Join whenever you like, it's free.",
+    "footer.tagline": "Coffee's ready.",
+    "footer.taglineSub": "Just missing your vinyl.",
     "footer.joinCta": "Join the community",
     "footer.desc":
       "An Italian community on Discord for people who love music, games and unhurried conversation.",
@@ -877,8 +879,8 @@ export const DICTS: Record<CuratedLocale, Dict> = {
     "login.requiredTitle": "Acceso requerido",
     "login.requiredText": "Inicia sesión con Discord para continuar en esta página.",
     "footer.aria": "Pie de página",
-    "footer.tagline": "Te esperamos en Discord.",
-    "footer.taglineSub": "Entra cuando quieras, es gratis.",
+    "footer.tagline": "El café está listo.",
+    "footer.taglineSub": "Solo falta tu vinilo.",
     "footer.joinCta": "Únete a la comunidad",
     "footer.desc":
       "Una comunidad italiana en Discord para quien ama la música, los juegos y charlar sin prisas.",
@@ -1194,9 +1196,13 @@ export function I18nProvider({
   useEffect(() => {
     let cancelled = false;
     const boot = async () => {
-      let next = readStoredLocale() || ("it" as Locale);
-      const remote = await pullChromePrefsLang(token);
-      if (remote) next = remote;
+      /* la lingua scritta nell'indirizzo (/en/…) vince su quella salvata */
+      const fromUrl = localeFromPath(location.pathname) as Locale | null;
+      let next = fromUrl || readStoredLocale() || ("it" as Locale);
+      if (!fromUrl) {
+        const remote = await pullChromePrefsLang(token);
+        if (remote) next = remote;
+      }
       if (cancelled) return;
       /* in transizione: niente #418 nelle parti della pagina non ancora agganciate all'HTML */
       startTransition(() => {
@@ -1224,6 +1230,22 @@ export function I18nProvider({
       cancelled = true;
     };
   }, [locale]);
+
+  /* l'indirizzo porta sempre la lingua: /it/faq/, /en/faq/… anche dopo ogni cambio pagina o lingua */
+  const pathname = usePathname();
+  useEffect(() => {
+    if (!ready) return;
+    setCurrentUrlLocale(locale);
+    try {
+      const path = location.pathname;
+      if (skipsLocale(path)) return;
+      const bare = stripLocale(path);
+      const want = `/${locale}${bare === "/" ? "/" : bare}`;
+      if (path !== want) history.replaceState(history.state, "", want + location.search + location.hash);
+    } catch {
+      /* ignore */
+    }
+  }, [locale, ready, pathname]);
 
   const setLocale = useCallback(
     (lang: Locale) => {

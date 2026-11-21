@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Cake, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { isCookieBannerSkippedPath } from "@/lib/cookie-consent";
 import {
   AGE_MIN,
@@ -22,7 +22,7 @@ import { SmartLink } from "./SmartLink";
  */
 export function AgeGate() {
   const { ready, user, token, logout } = useAuth();
-  const pathname = usePathname();
+  const pathname = useSitePathname();
   const [attested, setAttested] = useState(false);
   const [err, setErr] = useState("");
   const [need, setNeed] = useState(false);

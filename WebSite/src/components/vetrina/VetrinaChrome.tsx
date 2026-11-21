@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
 import { Bot, ChevronDown, FolderHeart, House, LogIn, Server, ShieldCheck, type LucideIcon } from "lucide-react";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
@@ -97,7 +97,7 @@ function BotLogo() {
 
 /** Come la navbar delle pagine pubbliche: trasparente in cima, scura e sfocata scorrendo, sparisce e torna col mouse in alto. */
 function VetrinaTopBar() {
-  const pathname = cleanPath(usePathname() || "/");
+  const pathname = cleanPath(useSitePathname() || "/");
   const { caps } = useDeviceFx();
   const softBlur = caps.blur;
   const headerRef = useRef<HTMLElement>(null);
@@ -191,7 +191,7 @@ export function VetrinaHeroBg() {
 function VetrinaAccountMenu() {
   const { user, ready, login } = useAuth();
   const staff = useIsStaff();
-  const pathname = cleanPath(usePathname() || "/");
+  const pathname = cleanPath(useSitePathname() || "/");
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 

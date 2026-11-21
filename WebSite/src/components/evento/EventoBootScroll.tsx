@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect } from "react";
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { forceScrollTop } from "@/lib/view-state";
 
 /**
@@ -9,7 +9,7 @@ import { forceScrollTop } from "@/lib/view-state";
  * e ripeti dopo hydrate/gate/hero.
  */
 export function EventoBootScroll() {
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
 
   useLayoutEffect(() => {
     try {

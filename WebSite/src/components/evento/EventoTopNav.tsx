@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { ArrowLeft, ChevronDown, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -25,7 +25,7 @@ function linkActive(pathname: string, href: string, id: string) {
 }
 
 function EventiMenu({ items }: { items: EventoNavItemView[] }) {
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const active = items.some((l) => !l.locked && linkActive(pathname, l.href, l.id));
@@ -98,7 +98,7 @@ function EventiMenu({ items }: { items: EventoNavItemView[] }) {
 
 /** Navbar evento: sostituisce la nav del sito (bypass chrome VC). */
 export function EventoTopNav() {
-  const pathname = usePathname() || "/";
+  const pathname = useSitePathname() || "/";
   const { ready, access } = useEventoStaffAccess();
   const { needsSort } = useEventoSortGate();
   const primary = ready

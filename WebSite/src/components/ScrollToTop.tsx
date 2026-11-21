@@ -1,12 +1,13 @@
 "use client";
 
 import { useLayoutEffect } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useSitePathname } from "@/lib/locale-path";
 import { forceScrollTop, isPwaUiRestorePending } from "@/lib/view-state";
 
 /** Dopo ogni navigazione riporta la vista in alto (export statico non ha ScrollRestoration). */
 export function ScrollToTop() {
-  const pathname = usePathname();
+  const pathname = useSitePathname();
   const search = useSearchParams();
 
   useLayoutEffect(() => {

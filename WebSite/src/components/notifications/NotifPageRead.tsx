@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { sitePathname, useSitePathname } from "@/lib/locale-path";
 import { useAuth } from "@/lib/auth";
 import { markNotifsForPage } from "@/lib/notifications";
 
@@ -22,7 +23,7 @@ function entityIdFromHash(raw: string): string {
  */
 export function NotifPageRead() {
   const { ready, token } = useAuth();
-  const pathname = usePathname();
+  const pathname = useSitePathname();
   const search = useSearchParams();
   const last = useRef("");
 
@@ -31,7 +32,7 @@ export function NotifPageRead() {
 
     const run = () => {
       const href = `${location.origin}${location.pathname}${location.search}${location.hash}`;
-      const path = (location.pathname || "/").replace(/\/+$/, "") || "/";
+      const path = (sitePathname() || "/").replace(/\/+$/, "") || "/";
       if (path === "/" || path === "/notifications") return;
 
       if (href === last.current) return;
