@@ -1,4 +1,6 @@
 import type { NextConfig } from "next";
+// indirizzi con il nome della pagina tradotto (/en/who-we-are/): in sviluppo come su Vercel
+import { slugRewrites } from "./scripts/locale-routes.mjs";
 
 // Niente banner telemetry nei log di build (locale + Vercel).
 process.env.NEXT_TELEMETRY_DISABLED = "1";
@@ -16,6 +18,7 @@ const nextConfig: NextConfig = {
     // Solo `next dev`: in prod i webhook esterni devono battere api (www Vercel + trailingSlash li rompeva).
     const origin = "https://api.viniliecaffe.it";
     return [
+      ...slugRewrites().map((r) => ({ source: r.source, destination: r.destination.replace(/index.html$/, "") })),
       /* lingua nell'indirizzo (/en/faq/): stessa pagina, come su Vercel */
       { source: "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)", destination: "/" },
       { source: "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)/:path*", destination: "/:path*" },

@@ -134,6 +134,7074 @@
   ],
   "rewrites": [
     {
+      "source": "/en/who-we-are/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/en/who-we-are",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/en/who-we-are/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/en/rules/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/en/rules",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/en/rules/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/en/leaderboards/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/en/leaderboards",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/en/leaderboards/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/en/tree/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/en/tree",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/en/tree/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/en/reviews/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/en/reviews",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/en/reviews/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/en/roles/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/en/roles",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/en/roles/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/en/donations/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/en/donations",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/en/donations/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/en/profile/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/en/profile",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/en/profile/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/en/confessional/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/en/confessional",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/en/confessional/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/en/resolutions/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/en/resolutions",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/en/resolutions/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/en/board/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/en/board",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/en/board/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/en/applications/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/en/applications",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/en/applications/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/en/appeals/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/en/appeals",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/en/appeals/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/en/your-data/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/en/your-data",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/en/your-data/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/en/showcase/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/en/showcase",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/en/showcase/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/en/showcase/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/en/showcase/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/en/showcase/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/en/showcase/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/en/showcase/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/en/showcase/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/en/showcase/listing/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/en/showcase/listing",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/en/showcase/listing/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/en/showcase/submit/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/en/showcase/submit",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/en/showcase/submit/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/en/showcase/mine/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/en/showcase/mine",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/en/showcase/mine/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/en/showcase/vote/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/en/showcase/vote",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/en/showcase/vote/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/en/showcase/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/en/showcase/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/en/showcase/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/en/showcase/review-guidelines/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/en/showcase/review-guidelines",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/en/showcase/review-guidelines/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/en/movie-night/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/en/movie-night",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/en/movie-night/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/en/movie-night/thanks/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/en/movie-night/thanks",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/en/movie-night/thanks/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/en/movie-night/access-required/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/en/movie-night/access-required",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/en/movie-night/access-required/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/en/customize/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/en/customize",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/en/customize/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/en/dashboard/reviews/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/en/dashboard/reviews",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/en/dashboard/reviews/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/en/dashboard/profile/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/en/dashboard/profile",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/en/dashboard/profile/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/en/dashboard/profile/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/en/dashboard/profile/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/en/dashboard/profile/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/en/staff/profile/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/en/staff/profile",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/en/staff/profile/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/es/quienes-somos/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/es/quienes-somos",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/es/quienes-somos/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/es/reglas/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/es/reglas",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/es/reglas/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/es/clasificaciones/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/es/clasificaciones",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/es/clasificaciones/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/es/arbol/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/es/arbol",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/es/arbol/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/es/resenas/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/es/resenas",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/es/resenas/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/es/roles/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/es/roles",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/es/roles/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/es/donaciones/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/es/donaciones",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/es/donaciones/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/es/perfil/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/es/perfil",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/es/perfil/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/es/confesionario/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/es/confesionario",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/es/confesionario/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/es/propositos/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/es/propositos",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/es/propositos/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/es/tablon/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/es/tablon",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/es/tablon/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/es/candidaturas/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/es/candidaturas",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/es/candidaturas/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/es/apelaciones/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/es/apelaciones",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/es/apelaciones/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/es/tus-datos/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/es/tus-datos",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/es/tus-datos/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/es/escaparate/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/es/escaparate",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/es/escaparate/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/es/escaparate/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/es/escaparate/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/es/escaparate/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/es/escaparate/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/es/escaparate/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/es/escaparate/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/es/escaparate/ficha/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/es/escaparate/ficha",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/es/escaparate/ficha/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/es/escaparate/enviar/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/es/escaparate/enviar",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/es/escaparate/enviar/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/es/escaparate/mias/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/es/escaparate/mias",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/es/escaparate/mias/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/es/escaparate/votar/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/es/escaparate/votar",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/es/escaparate/votar/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/es/escaparate/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/es/escaparate/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/es/escaparate/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/es/escaparate/normas-de-resenas/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/es/escaparate/normas-de-resenas",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/es/escaparate/normas-de-resenas/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/es/noche-de-cine/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/es/noche-de-cine",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/es/noche-de-cine/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/es/noche-de-cine/gracias/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/es/noche-de-cine/gracias",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/es/noche-de-cine/gracias/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/es/noche-de-cine/acceso-requerido/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/es/noche-de-cine/acceso-requerido",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/es/noche-de-cine/acceso-requerido/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/es/personalizar/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/es/personalizar",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/es/personalizar/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/es/dashboard/resenas/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/es/dashboard/resenas",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/es/dashboard/resenas/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/es/dashboard/perfil/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/es/dashboard/perfil",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/es/dashboard/perfil/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/es/dashboard/perfil/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/es/dashboard/perfil/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/es/dashboard/perfil/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/es/staff/perfil/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/es/staff/perfil",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/es/staff/perfil/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/fr/qui-sommes-nous/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/fr/qui-sommes-nous",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/fr/qui-sommes-nous/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/fr/regles/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/fr/regles",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/fr/regles/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/fr/classements/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/fr/classements",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/fr/classements/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/fr/sapin/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/fr/sapin",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/fr/sapin/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/fr/avis/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/fr/avis",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/fr/avis/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/fr/roles/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/fr/roles",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/fr/roles/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/fr/dons/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/fr/dons",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/fr/dons/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/fr/profil/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/fr/profil",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/fr/profil/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/fr/confessionnal/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/fr/confessionnal",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/fr/confessionnal/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/fr/resolutions/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/fr/resolutions",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/fr/resolutions/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/fr/mur/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/fr/mur",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/fr/mur/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/fr/candidatures/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/fr/candidatures",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/fr/candidatures/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/fr/appels/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/fr/appels",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/fr/appels/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/fr/vos-donnees/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/fr/vos-donnees",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/fr/vos-donnees/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/fr/vitrine/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/fr/vitrine",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/fr/vitrine/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/fr/vitrine/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/fr/vitrine/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/fr/vitrine/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/fr/vitrine/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/fr/vitrine/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/fr/vitrine/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/fr/vitrine/fiche/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/fr/vitrine/fiche",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/fr/vitrine/fiche/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/fr/vitrine/soumettre/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/fr/vitrine/soumettre",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/fr/vitrine/soumettre/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/fr/vitrine/les-miennes/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/fr/vitrine/les-miennes",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/fr/vitrine/les-miennes/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/fr/vitrine/voter/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/fr/vitrine/voter",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/fr/vitrine/voter/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/fr/vitrine/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/fr/vitrine/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/fr/vitrine/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/fr/vitrine/regles-des-avis/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/fr/vitrine/regles-des-avis",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/fr/vitrine/regles-des-avis/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/fr/soiree-cinema/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/fr/soiree-cinema",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/fr/soiree-cinema/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/fr/soiree-cinema/merci/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/fr/soiree-cinema/merci",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/fr/soiree-cinema/merci/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/fr/soiree-cinema/acces-requis/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/fr/soiree-cinema/acces-requis",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/fr/soiree-cinema/acces-requis/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/fr/personnaliser/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/fr/personnaliser",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/fr/personnaliser/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/fr/dashboard/avis/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/fr/dashboard/avis",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/fr/dashboard/avis/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/fr/dashboard/profil/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/fr/dashboard/profil",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/fr/dashboard/profil/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/fr/dashboard/profil/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/fr/dashboard/profil/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/fr/dashboard/profil/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/fr/staff/profil/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/fr/staff/profil",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/fr/staff/profil/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/de/uber-uns/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/de/uber-uns",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/de/uber-uns/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/de/regeln/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/de/regeln",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/de/regeln/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/de/ranglisten/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/de/ranglisten",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/de/ranglisten/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/de/baum/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/de/baum",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/de/baum/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/de/bewertungen/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/de/bewertungen",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/de/bewertungen/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/de/rollen/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/de/rollen",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/de/rollen/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/de/spenden/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/de/spenden",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/de/spenden/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/de/profil/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/de/profil",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/de/profil/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/de/beichtstuhl/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/de/beichtstuhl",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/de/beichtstuhl/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/de/vorsatze/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/de/vorsatze",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/de/vorsatze/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/de/pinnwand/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/de/pinnwand",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/de/pinnwand/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/de/bewerbungen/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/de/bewerbungen",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/de/bewerbungen/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/de/einspruche/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/de/einspruche",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/de/einspruche/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/de/deine-daten/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/de/deine-daten",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/de/deine-daten/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/de/schaufenster/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/de/schaufenster",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/de/schaufenster/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/de/schaufenster/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/de/schaufenster/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/de/schaufenster/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/de/schaufenster/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/de/schaufenster/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/de/schaufenster/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/de/schaufenster/eintrag/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/de/schaufenster/eintrag",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/de/schaufenster/eintrag/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/de/schaufenster/einreichen/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/de/schaufenster/einreichen",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/de/schaufenster/einreichen/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/de/schaufenster/meine/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/de/schaufenster/meine",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/de/schaufenster/meine/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/de/schaufenster/abstimmen/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/de/schaufenster/abstimmen",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/de/schaufenster/abstimmen/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/de/schaufenster/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/de/schaufenster/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/de/schaufenster/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/de/schaufenster/bewertungsrichtlinien/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/de/schaufenster/bewertungsrichtlinien",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/de/schaufenster/bewertungsrichtlinien/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/de/filmabend/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/de/filmabend",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/de/filmabend/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/de/filmabend/danke/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/de/filmabend/danke",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/de/filmabend/danke/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/de/filmabend/zugang-erforderlich/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/de/filmabend/zugang-erforderlich",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/de/filmabend/zugang-erforderlich/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/de/anpassen/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/de/anpassen",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/de/anpassen/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/de/dashboard/bewertungen/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/de/dashboard/bewertungen",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/de/dashboard/bewertungen/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/de/dashboard/profil/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/de/dashboard/profil",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/de/dashboard/profil/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/de/dashboard/profil/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/de/dashboard/profil/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/de/dashboard/profil/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/de/staff/profil/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/de/staff/profil",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/de/staff/profil/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/pt/quem-somos/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/pt/quem-somos",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/pt/quem-somos/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/pt/regras/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/pt/regras",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/pt/regras/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/pt/classificacoes/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/pt/classificacoes",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/pt/classificacoes/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/pt/arvore/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/pt/arvore",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/pt/arvore/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/pt/avaliacoes/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/pt/avaliacoes",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/pt/avaliacoes/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/pt/cargos/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/pt/cargos",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/pt/cargos/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/pt/doacoes/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/pt/doacoes",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/pt/doacoes/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/pt/perfil/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/pt/perfil",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/pt/perfil/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/pt/confessionario/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/pt/confessionario",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/pt/confessionario/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/pt/resolucoes/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/pt/resolucoes",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/pt/resolucoes/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/pt/mural/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/pt/mural",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/pt/mural/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/pt/candidaturas/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/pt/candidaturas",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/pt/candidaturas/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/pt/recursos/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/pt/recursos",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/pt/recursos/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/pt/seus-dados/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/pt/seus-dados",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/pt/seus-dados/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/pt/vitrine/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/pt/vitrine",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/pt/vitrine/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/pt/vitrine/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/pt/vitrine/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/pt/vitrine/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/pt/vitrine/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/pt/vitrine/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/pt/vitrine/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/pt/vitrine/ficha/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/pt/vitrine/ficha",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/pt/vitrine/ficha/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/pt/vitrine/enviar/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/pt/vitrine/enviar",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/pt/vitrine/enviar/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/pt/vitrine/minhas/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/pt/vitrine/minhas",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/pt/vitrine/minhas/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/pt/vitrine/votar/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/pt/vitrine/votar",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/pt/vitrine/votar/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/pt/vitrine/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/pt/vitrine/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/pt/vitrine/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/pt/vitrine/diretrizes-de-avaliacao/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/pt/vitrine/diretrizes-de-avaliacao",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/pt/vitrine/diretrizes-de-avaliacao/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/pt/noite-de-cinema/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/pt/noite-de-cinema",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/pt/noite-de-cinema/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/pt/noite-de-cinema/obrigado/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/pt/noite-de-cinema/obrigado",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/pt/noite-de-cinema/obrigado/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/pt/noite-de-cinema/acesso-necessario/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/pt/noite-de-cinema/acesso-necessario",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/pt/noite-de-cinema/acesso-necessario/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/pt/personalizar/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/pt/personalizar",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/pt/personalizar/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/pt/dashboard/avaliacoes/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/pt/dashboard/avaliacoes",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/pt/dashboard/avaliacoes/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/pt/dashboard/perfil/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/pt/dashboard/perfil",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/pt/dashboard/perfil/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/pt/dashboard/perfil/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/pt/dashboard/perfil/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/pt/dashboard/perfil/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/pt/staff/perfil/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/pt/staff/perfil",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/pt/staff/perfil/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/ru/o-nas/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/ru/o-nas",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/ru/o-nas/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/ru/pravila/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/ru/pravila",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/ru/pravila/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/ru/reytingi/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/ru/reytingi",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/ru/reytingi/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/ru/yolka/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/ru/yolka",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/ru/yolka/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/ru/otzyvy/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/ru/otzyvy",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/ru/otzyvy/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/ru/roli/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/ru/roli",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/ru/roli/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/ru/pozhertvovaniya/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/ru/pozhertvovaniya",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/ru/pozhertvovaniya/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/ru/profil/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/ru/profil",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/ru/profil/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/ru/ispovedalnya/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/ru/ispovedalnya",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/ru/ispovedalnya/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/ru/obeshchaniya/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/ru/obeshchaniya",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/ru/obeshchaniya/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/ru/doska/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/ru/doska",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/ru/doska/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/ru/zayavki/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/ru/zayavki",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/ru/zayavki/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/ru/apellyatsii/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/ru/apellyatsii",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/ru/apellyatsii/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/ru/vashi-dannye/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/ru/vashi-dannye",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/ru/vashi-dannye/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/ru/vitrina/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/ru/vitrina",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/ru/vitrina/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/ru/vitrina/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/ru/vitrina/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/ru/vitrina/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/ru/vitrina/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/ru/vitrina/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/ru/vitrina/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/ru/vitrina/kartochka/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/ru/vitrina/kartochka",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/ru/vitrina/kartochka/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/ru/vitrina/otpravit/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/ru/vitrina/otpravit",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/ru/vitrina/otpravit/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/ru/vitrina/moi/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/ru/vitrina/moi",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/ru/vitrina/moi/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/ru/vitrina/golosovat/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/ru/vitrina/golosovat",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/ru/vitrina/golosovat/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/ru/vitrina/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/ru/vitrina/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/ru/vitrina/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/ru/vitrina/pravila-otzyvov/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/ru/vitrina/pravila-otzyvov",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/ru/vitrina/pravila-otzyvov/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/ru/kinovecher/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/ru/kinovecher",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/ru/kinovecher/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/ru/kinovecher/spasibo/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/ru/kinovecher/spasibo",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/ru/kinovecher/spasibo/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/ru/kinovecher/nuzhen-dostup/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/ru/kinovecher/nuzhen-dostup",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/ru/kinovecher/nuzhen-dostup/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/ru/nastroit/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/ru/nastroit",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/ru/nastroit/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/ru/dashboard/otzyvy/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/ru/dashboard/otzyvy",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/ru/dashboard/otzyvy/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/ru/dashboard/profil/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/ru/dashboard/profil",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/ru/dashboard/profil/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/ru/dashboard/profil/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/ru/dashboard/profil/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/ru/dashboard/profil/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/ru/staff/profil/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/ru/staff/profil",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/ru/staff/profil/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/zh/guanyu-women/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/zh/guanyu-women",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/zh/guanyu-women/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/zh/guize/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/zh/guize",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/zh/guize/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/zh/paihangbang/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/zh/paihangbang",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/zh/paihangbang/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/zh/shengdanshu/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/zh/shengdanshu",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/zh/shengdanshu/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/zh/pinglun/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/zh/pinglun",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/zh/pinglun/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/zh/juese/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/zh/juese",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/zh/juese/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/zh/juanzeng/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/zh/juanzeng",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/zh/juanzeng/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/zh/geren-ziliao/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/zh/geren-ziliao",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/zh/geren-ziliao/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/zh/chanhuishi/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/zh/chanhuishi",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/zh/chanhuishi/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/zh/xinnian-yuanwang/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/zh/xinnian-yuanwang",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/zh/xinnian-yuanwang/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/zh/liuyanban/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/zh/liuyanban",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/zh/liuyanban/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/zh/shenqing/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/zh/shenqing",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/zh/shenqing/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/zh/shensu/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/zh/shensu",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/zh/shensu/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/zh/ni-de-shuju/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/zh/ni-de-shuju",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/zh/ni-de-shuju/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/zh/zhanshi/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/zh/zhanshi",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/zh/zhanshi/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/zh/zhanshi/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/zh/zhanshi/xiangqing/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/xiangqing",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/xiangqing/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/zh/zhanshi/tijiao/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/tijiao",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/tijiao/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/zh/zhanshi/wode/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/wode",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/wode/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/zh/zhanshi/toupiao/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/toupiao",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/toupiao/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/zh/zhanshi/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/zh/zhanshi/pinglun-zhinan/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/pinglun-zhinan",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/zh/zhanshi/pinglun-zhinan/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/zh/dianying-zhiye/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/zh/dianying-zhiye",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/zh/dianying-zhiye/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/zh/dianying-zhiye/xiexie/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/zh/dianying-zhiye/xiexie",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/zh/dianying-zhiye/xiexie/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/zh/dianying-zhiye/xuyao-denglu/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/zh/dianying-zhiye/xuyao-denglu",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/zh/dianying-zhiye/xuyao-denglu/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/zh/gexinghua/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/zh/gexinghua",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/zh/gexinghua/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/zh/dashboard/pinglun/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/zh/dashboard/pinglun",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/zh/dashboard/pinglun/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/zh/dashboard/geren-ziliao/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/zh/dashboard/geren-ziliao",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/zh/dashboard/geren-ziliao/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/zh/dashboard/geren-ziliao/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/zh/dashboard/geren-ziliao/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/zh/dashboard/geren-ziliao/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/zh/staff/geren-ziliao/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/zh/staff/geren-ziliao",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/zh/staff/geren-ziliao/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/ja/watashitachi-ni-tsuite/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/ja/watashitachi-ni-tsuite",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/ja/watashitachi-ni-tsuite/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/ja/ruru/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/ja/ruru",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/ja/ruru/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/ja/rankingu/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/ja/rankingu",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/ja/rankingu/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/ja/kurisumasu-tsuri/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/ja/kurisumasu-tsuri",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/ja/kurisumasu-tsuri/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/ja/rebyu/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/ja/rebyu",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/ja/rebyu/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/ja/roru/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/ja/roru",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/ja/roru/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/ja/kifu/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/ja/kifu",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/ja/kifu/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/ja/purofiru/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/ja/purofiru",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/ja/purofiru/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/ja/zangeshitsu/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/ja/zangeshitsu",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/ja/zangeshitsu/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/ja/shinnen-no-mokuhyo/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/ja/shinnen-no-mokuhyo",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/ja/shinnen-no-mokuhyo/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/ja/keijiban/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/ja/keijiban",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/ja/keijiban/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/ja/oubo/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/ja/oubo",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/ja/oubo/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/ja/igi-moshitate/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/ja/igi-moshitate",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/ja/igi-moshitate/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/ja/anata-no-deta/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/ja/anata-no-deta",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/ja/anata-no-deta/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/ja/shokesu/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/ja/shokesu",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/ja/shokesu/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/ja/shokesu/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/ja/shokesu/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/ja/shokesu/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/ja/shokesu/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/ja/shokesu/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/ja/shokesu/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/ja/shokesu/shosai/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/ja/shokesu/shosai",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/ja/shokesu/shosai/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/ja/shokesu/toko/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/ja/shokesu/toko",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/ja/shokesu/toko/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/ja/shokesu/jibun-no/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/ja/shokesu/jibun-no",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/ja/shokesu/jibun-no/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/ja/shokesu/tohyo/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/ja/shokesu/tohyo",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/ja/shokesu/tohyo/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/ja/shokesu/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/ja/shokesu/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/ja/shokesu/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/ja/shokesu/rebyu-gaidorain/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/ja/shokesu/rebyu-gaidorain",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/ja/shokesu/rebyu-gaidorain/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/ja/eiga-no-yoru/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/ja/eiga-no-yoru",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/ja/eiga-no-yoru/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/ja/eiga-no-yoru/arigato/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/ja/eiga-no-yoru/arigato",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/ja/eiga-no-yoru/arigato/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/ja/eiga-no-yoru/akusesu-ga-hitsuyo/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/ja/eiga-no-yoru/akusesu-ga-hitsuyo",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/ja/eiga-no-yoru/akusesu-ga-hitsuyo/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/ja/kasutamaizu/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/ja/kasutamaizu",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/ja/kasutamaizu/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/ja/dashboard/rebyu/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/ja/dashboard/rebyu",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/ja/dashboard/rebyu/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/ja/dashboard/purofiru/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/ja/dashboard/purofiru",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/ja/dashboard/purofiru/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/ja/dashboard/purofiru/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/ja/dashboard/purofiru/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/ja/dashboard/purofiru/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/ja/staff/purofiru/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/ja/staff/purofiru",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/ja/staff/purofiru/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/ko/uri-sogae/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/ko/uri-sogae",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/ko/uri-sogae/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/ko/gyuchik/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/ko/gyuchik",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/ko/gyuchik/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/ko/sunwi/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/ko/sunwi",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/ko/sunwi/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/ko/teuri/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/ko/teuri",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/ko/teuri/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/ko/ribyu/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/ko/ribyu",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/ko/ribyu/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/ko/yeokhal/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/ko/yeokhal",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/ko/yeokhal/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/ko/huwon/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/ko/huwon",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/ko/huwon/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/ko/peurophil/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/ko/peurophil",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/ko/peurophil/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/ko/gohaeseongsil/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/ko/gohaeseongsil",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/ko/gohaeseongsil/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/ko/saehae-dajim/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/ko/saehae-dajim",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/ko/saehae-dajim/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/ko/gesipan/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/ko/gesipan",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/ko/gesipan/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/ko/jiwon/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/ko/jiwon",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/ko/jiwon/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/ko/isinsincheong/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/ko/isinsincheong",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/ko/isinsincheong/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/ko/nae-deiteo/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/ko/nae-deiteo",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/ko/nae-deiteo/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/ko/syokeiseu/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/ko/syokeiseu/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/ko/syokeiseu/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/ko/syokeiseu/sangse/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/sangse",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/sangse/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/ko/syokeiseu/jechul/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/jechul",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/jechul/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/ko/syokeiseu/nae-mokrok/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/nae-mokrok",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/nae-mokrok/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/ko/syokeiseu/tupyo/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/tupyo",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/tupyo/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/ko/syokeiseu/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/ko/syokeiseu/ribyu-gaideu/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/ribyu-gaideu",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/ko/syokeiseu/ribyu-gaideu/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/ko/yeonghwa-ui-bam/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/ko/yeonghwa-ui-bam",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/ko/yeonghwa-ui-bam/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/ko/yeonghwa-ui-bam/gamsahamnida/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/ko/yeonghwa-ui-bam/gamsahamnida",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/ko/yeonghwa-ui-bam/gamsahamnida/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/ko/yeonghwa-ui-bam/jeopgeun-pilyo/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/ko/yeonghwa-ui-bam/jeopgeun-pilyo",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/ko/yeonghwa-ui-bam/jeopgeun-pilyo/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/ko/keoseuteomaijeu/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/ko/keoseuteomaijeu",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/ko/keoseuteomaijeu/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/ko/dashboard/ribyu/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/ko/dashboard/ribyu",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/ko/dashboard/ribyu/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/ko/dashboard/peurophil/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/ko/dashboard/peurophil",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/ko/dashboard/peurophil/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/ko/dashboard/peurophil/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/ko/dashboard/peurophil/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/ko/dashboard/peurophil/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/ko/staff/peurophil/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/ko/staff/peurophil",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/ko/staff/peurophil/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/ar/man-nahnu/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/ar/man-nahnu",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/ar/man-nahnu/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/ar/qawaid/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/ar/qawaid",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/ar/qawaid/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/ar/tartib/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/ar/tartib",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/ar/tartib/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/ar/shajara/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/ar/shajara",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/ar/shajara/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/ar/murajaat/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/ar/murajaat",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/ar/murajaat/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/ar/adwar/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/ar/adwar",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/ar/adwar/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/ar/tabarruat/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/ar/tabarruat",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/ar/tabarruat/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/ar/malaf-shakhsi/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/ar/malaf-shakhsi",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/ar/malaf-shakhsi/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/ar/itiraf/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/ar/itiraf",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/ar/itiraf/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/ar/qararat/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/ar/qararat",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/ar/qararat/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/ar/lawha/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/ar/lawha",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/ar/lawha/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/ar/talabat/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/ar/talabat",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/ar/talabat/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/ar/istinaf/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/ar/istinaf",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/ar/istinaf/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/ar/bayanatuk/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/ar/bayanatuk",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/ar/bayanatuk/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/ar/wajiha/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/ar/wajiha",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/ar/wajiha/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/ar/wajiha/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/ar/wajiha/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/ar/wajiha/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/ar/wajiha/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/ar/wajiha/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/ar/wajiha/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/ar/wajiha/safha/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/ar/wajiha/safha",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/ar/wajiha/safha/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/ar/wajiha/irsal/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/ar/wajiha/irsal",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/ar/wajiha/irsal/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/ar/wajiha/khassati/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/ar/wajiha/khassati",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/ar/wajiha/khassati/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/ar/wajiha/taswit/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/ar/wajiha/taswit",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/ar/wajiha/taswit/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/ar/wajiha/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/ar/wajiha/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/ar/wajiha/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/ar/wajiha/irshadat-al-murajaat/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/ar/wajiha/irshadat-al-murajaat",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/ar/wajiha/irshadat-al-murajaat/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/ar/laylat-al-aflam/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/ar/laylat-al-aflam",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/ar/laylat-al-aflam/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/ar/laylat-al-aflam/shukran/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/ar/laylat-al-aflam/shukran",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/ar/laylat-al-aflam/shukran/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/ar/laylat-al-aflam/mutalab-al-dukhul/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/ar/laylat-al-aflam/mutalab-al-dukhul",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/ar/laylat-al-aflam/mutalab-al-dukhul/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/ar/takhsis/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/ar/takhsis",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/ar/takhsis/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/ar/dashboard/murajaat/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/ar/dashboard/murajaat",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/ar/dashboard/murajaat/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/ar/dashboard/malaf-shakhsi/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/ar/dashboard/malaf-shakhsi",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/ar/dashboard/malaf-shakhsi/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/ar/dashboard/malaf-shakhsi/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/ar/dashboard/malaf-shakhsi/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/ar/dashboard/malaf-shakhsi/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/ar/staff/malaf-shakhsi/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/ar/staff/malaf-shakhsi",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/ar/staff/malaf-shakhsi/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/nl/over-ons/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/nl/over-ons",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/nl/over-ons/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/nl/regels/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/nl/regels",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/nl/regels/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/nl/ranglijsten/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/nl/ranglijsten",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/nl/ranglijsten/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/nl/boom/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/nl/boom",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/nl/boom/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/nl/beoordelingen/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/nl/beoordelingen",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/nl/beoordelingen/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/nl/rollen/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/nl/rollen",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/nl/rollen/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/nl/donaties/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/nl/donaties",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/nl/donaties/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/nl/profiel/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/nl/profiel",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/nl/profiel/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/nl/biechtstoel/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/nl/biechtstoel",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/nl/biechtstoel/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/nl/voornemens/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/nl/voornemens",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/nl/voornemens/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/nl/prikbord/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/nl/prikbord",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/nl/prikbord/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/nl/sollicitaties/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/nl/sollicitaties",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/nl/sollicitaties/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/nl/beroep/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/nl/beroep",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/nl/beroep/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/nl/jouw-gegevens/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/nl/jouw-gegevens",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/nl/jouw-gegevens/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/nl/etalage/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/nl/etalage",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/nl/etalage/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/nl/etalage/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/nl/etalage/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/nl/etalage/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/nl/etalage/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/nl/etalage/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/nl/etalage/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/nl/etalage/vermelding/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/nl/etalage/vermelding",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/nl/etalage/vermelding/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/nl/etalage/indienen/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/nl/etalage/indienen",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/nl/etalage/indienen/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/nl/etalage/mijn/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/nl/etalage/mijn",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/nl/etalage/mijn/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/nl/etalage/stemmen/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/nl/etalage/stemmen",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/nl/etalage/stemmen/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/nl/etalage/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/nl/etalage/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/nl/etalage/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/nl/etalage/beoordelingsrichtlijnen/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/nl/etalage/beoordelingsrichtlijnen",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/nl/etalage/beoordelingsrichtlijnen/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/nl/filmavond/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/nl/filmavond",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/nl/filmavond/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/nl/filmavond/bedankt/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/nl/filmavond/bedankt",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/nl/filmavond/bedankt/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/nl/filmavond/toegang-vereist/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/nl/filmavond/toegang-vereist",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/nl/filmavond/toegang-vereist/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/nl/aanpassen/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/nl/aanpassen",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/nl/aanpassen/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/nl/dashboard/beoordelingen/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/nl/dashboard/beoordelingen",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/nl/dashboard/beoordelingen/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/nl/dashboard/profiel/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/nl/dashboard/profiel",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/nl/dashboard/profiel/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/nl/dashboard/profiel/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/nl/dashboard/profiel/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/nl/dashboard/profiel/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/nl/staff/profiel/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/nl/staff/profiel",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/nl/staff/profiel/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/pl/o-nas/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/pl/o-nas",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/pl/o-nas/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/pl/zasady/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/pl/zasady",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/pl/zasady/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/pl/rankingi/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/pl/rankingi",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/pl/rankingi/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/pl/choinka/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/pl/choinka",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/pl/choinka/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/pl/opinie/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/pl/opinie",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/pl/opinie/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/pl/role/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/pl/role",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/pl/role/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/pl/darowizny/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/pl/darowizny",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/pl/darowizny/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/pl/profil/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/pl/profil",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/pl/profil/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/pl/konfesjonal/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/pl/konfesjonal",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/pl/konfesjonal/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/pl/postanowienia/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/pl/postanowienia",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/pl/postanowienia/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/pl/tablica/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/pl/tablica",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/pl/tablica/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/pl/zgloszenia/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/pl/zgloszenia",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/pl/zgloszenia/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/pl/odwolania/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/pl/odwolania",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/pl/odwolania/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/pl/twoje-dane/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/pl/twoje-dane",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/pl/twoje-dane/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/pl/witryna/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/pl/witryna",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/pl/witryna/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/pl/witryna/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/pl/witryna/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/pl/witryna/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/pl/witryna/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/pl/witryna/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/pl/witryna/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/pl/witryna/karta/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/pl/witryna/karta",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/pl/witryna/karta/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/pl/witryna/dodaj/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/pl/witryna/dodaj",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/pl/witryna/dodaj/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/pl/witryna/moje/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/pl/witryna/moje",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/pl/witryna/moje/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/pl/witryna/glosuj/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/pl/witryna/glosuj",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/pl/witryna/glosuj/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/pl/witryna/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/pl/witryna/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/pl/witryna/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/pl/witryna/zasady-opinii/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/pl/witryna/zasady-opinii",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/pl/witryna/zasady-opinii/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/pl/wieczor-filmowy/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/pl/wieczor-filmowy",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/pl/wieczor-filmowy/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/pl/wieczor-filmowy/dziekujemy/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/pl/wieczor-filmowy/dziekujemy",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/pl/wieczor-filmowy/dziekujemy/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/pl/wieczor-filmowy/wymagany-dostep/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/pl/wieczor-filmowy/wymagany-dostep",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/pl/wieczor-filmowy/wymagany-dostep/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/pl/dostosuj/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/pl/dostosuj",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/pl/dostosuj/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/pl/dashboard/opinie/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/pl/dashboard/opinie",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/pl/dashboard/opinie/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/pl/dashboard/profil/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/pl/dashboard/profil",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/pl/dashboard/profil/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/pl/dashboard/profil/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/pl/dashboard/profil/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/pl/dashboard/profil/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/pl/staff/profil/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/pl/staff/profil",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/pl/staff/profil/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/tr/hakkimizda/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/tr/hakkimizda",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/tr/hakkimizda/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/tr/kurallar/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/tr/kurallar",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/tr/kurallar/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/tr/siralamalar/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/tr/siralamalar",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/tr/siralamalar/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/tr/agac/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/tr/agac",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/tr/agac/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/tr/yorumlar/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/tr/yorumlar",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/tr/yorumlar/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/tr/roller/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/tr/roller",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/tr/roller/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/tr/bagislar/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/tr/bagislar",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/tr/bagislar/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/tr/profil/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/tr/profil",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/tr/profil/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/tr/itiraf/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/tr/itiraf",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/tr/itiraf/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/tr/kararlar/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/tr/kararlar",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/tr/kararlar/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/tr/pano/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/tr/pano",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/tr/pano/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/tr/basvurular/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/tr/basvurular",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/tr/basvurular/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/tr/itirazlar/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/tr/itirazlar",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/tr/itirazlar/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/tr/verilerin/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/tr/verilerin",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/tr/verilerin/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/tr/vitrin/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/tr/vitrin",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/tr/vitrin/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/tr/vitrin/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/tr/vitrin/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/tr/vitrin/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/tr/vitrin/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/tr/vitrin/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/tr/vitrin/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/tr/vitrin/kart/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/tr/vitrin/kart",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/tr/vitrin/kart/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/tr/vitrin/gonder/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/tr/vitrin/gonder",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/tr/vitrin/gonder/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/tr/vitrin/benimkiler/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/tr/vitrin/benimkiler",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/tr/vitrin/benimkiler/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/tr/vitrin/oy-ver/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/tr/vitrin/oy-ver",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/tr/vitrin/oy-ver/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/tr/vitrin/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/tr/vitrin/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/tr/vitrin/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/tr/vitrin/yorum-kurallari/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/tr/vitrin/yorum-kurallari",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/tr/vitrin/yorum-kurallari/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/tr/film-gecesi/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/tr/film-gecesi",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/tr/film-gecesi/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/tr/film-gecesi/tesekkurler/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/tr/film-gecesi/tesekkurler",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/tr/film-gecesi/tesekkurler/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/tr/film-gecesi/erisim-gerekli/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/tr/film-gecesi/erisim-gerekli",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/tr/film-gecesi/erisim-gerekli/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/tr/ozellestir/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/tr/ozellestir",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/tr/ozellestir/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/tr/dashboard/yorumlar/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/tr/dashboard/yorumlar",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/tr/dashboard/yorumlar/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/tr/dashboard/profil/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/tr/dashboard/profil",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/tr/dashboard/profil/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/tr/dashboard/profil/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/tr/dashboard/profil/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/tr/dashboard/profil/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/tr/staff/profil/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/tr/staff/profil",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/tr/staff/profil/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/hi/hamare-bare-mein/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/hi/hamare-bare-mein",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/hi/hamare-bare-mein/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/hi/niyam/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/hi/niyam",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/hi/niyam/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/hi/ranking/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/hi/ranking",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/hi/ranking/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/hi/ped/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/hi/ped",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/hi/ped/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/hi/samiksha/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/hi/samiksha",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/hi/samiksha/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/hi/bhumikaen/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/hi/bhumikaen",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/hi/bhumikaen/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/hi/daan/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/hi/daan",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/hi/daan/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/hi/profile/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/hi/profile",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/hi/profile/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/hi/swikarokti/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/hi/swikarokti",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/hi/swikarokti/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/hi/sankalp/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/hi/sankalp",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/hi/sankalp/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/hi/board/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/hi/board",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/hi/board/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/hi/aavedan/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/hi/aavedan",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/hi/aavedan/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/hi/apeel/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/hi/apeel",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/hi/apeel/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/hi/aapka-data/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/hi/aapka-data",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/hi/aapka-data/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/hi/pradarshan/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/hi/pradarshan",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/hi/pradarshan/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/hi/pradarshan/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/hi/pradarshan/listing/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/listing",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/listing/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/hi/pradarshan/bhejen/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/bhejen",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/bhejen/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/hi/pradarshan/meri/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/meri",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/meri/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/hi/pradarshan/vot/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/vot",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/vot/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/hi/pradarshan/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/hi/pradarshan/samiksha-dishanirdesh/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/samiksha-dishanirdesh",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/hi/pradarshan/samiksha-dishanirdesh/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/hi/film-raat/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/hi/film-raat",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/hi/film-raat/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/hi/film-raat/dhanyavaad/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/hi/film-raat/dhanyavaad",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/hi/film-raat/dhanyavaad/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/hi/film-raat/pahunch-avashyak/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/hi/film-raat/pahunch-avashyak",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/hi/film-raat/pahunch-avashyak/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/hi/anukulit/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/hi/anukulit",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/hi/anukulit/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/hi/dashboard/samiksha/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/hi/dashboard/samiksha",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/hi/dashboard/samiksha/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/hi/dashboard/profile/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/hi/dashboard/profile",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/hi/dashboard/profile/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/hi/dashboard/profile/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/hi/dashboard/profile/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/hi/dashboard/profile/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/hi/staff/profile/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/hi/staff/profile",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/hi/staff/profile/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/id/tentang-kami/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/id/tentang-kami",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/id/tentang-kami/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/id/aturan/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/id/aturan",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/id/aturan/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/id/peringkat/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/id/peringkat",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/id/peringkat/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/id/pohon/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/id/pohon",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/id/pohon/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/id/ulasan/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/id/ulasan",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/id/ulasan/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/id/peran/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/id/peran",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/id/peran/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/id/donasi/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/id/donasi",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/id/donasi/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/id/profil/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/id/profil",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/id/profil/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/id/pengakuan/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/id/pengakuan",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/id/pengakuan/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/id/resolusi/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/id/resolusi",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/id/resolusi/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/id/papan/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/id/papan",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/id/papan/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/id/lamaran/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/id/lamaran",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/id/lamaran/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/id/banding/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/id/banding",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/id/banding/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/id/data-anda/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/id/data-anda",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/id/data-anda/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/id/etalase/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/id/etalase",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/id/etalase/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/id/etalase/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/id/etalase/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/id/etalase/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/id/etalase/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/id/etalase/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/id/etalase/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/id/etalase/daftar/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/id/etalase/daftar",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/id/etalase/daftar/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/id/etalase/kirim/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/id/etalase/kirim",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/id/etalase/kirim/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/id/etalase/milikku/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/id/etalase/milikku",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/id/etalase/milikku/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/id/etalase/pilih/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/id/etalase/pilih",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/id/etalase/pilih/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/id/etalase/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/id/etalase/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/id/etalase/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/id/etalase/pedoman-ulasan/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/id/etalase/pedoman-ulasan",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/id/etalase/pedoman-ulasan/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/id/malam-film/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/id/malam-film",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/id/malam-film/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/id/malam-film/terima-kasih/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/id/malam-film/terima-kasih",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/id/malam-film/terima-kasih/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/id/malam-film/akses-diperlukan/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/id/malam-film/akses-diperlukan",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/id/malam-film/akses-diperlukan/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/id/sesuaikan/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/id/sesuaikan",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/id/sesuaikan/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/id/dashboard/ulasan/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/id/dashboard/ulasan",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/id/dashboard/ulasan/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/id/dashboard/profil/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/id/dashboard/profil",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/id/dashboard/profil/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/id/dashboard/profil/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/id/dashboard/profil/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/id/dashboard/profil/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/id/staff/profil/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/id/staff/profil",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/id/staff/profil/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/uk/pro-nas/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/uk/pro-nas",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/uk/pro-nas/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/uk/pravyla/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/uk/pravyla",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/uk/pravyla/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/uk/reytynhy/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/uk/reytynhy",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/uk/reytynhy/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/uk/yalynka/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/uk/yalynka",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/uk/yalynka/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/uk/vidhuky/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/uk/vidhuky",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/uk/vidhuky/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/uk/roli/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/uk/roli",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/uk/roli/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/uk/pozhertvy/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/uk/pozhertvy",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/uk/pozhertvy/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/uk/profil/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/uk/profil",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/uk/profil/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/uk/spovidalnya/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/uk/spovidalnya",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/uk/spovidalnya/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/uk/obitsyanky/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/uk/obitsyanky",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/uk/obitsyanky/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/uk/doshka/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/uk/doshka",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/uk/doshka/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/uk/zayavky/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/uk/zayavky",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/uk/zayavky/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/uk/apeliatsii/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/uk/apeliatsii",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/uk/apeliatsii/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/uk/vashi-dani/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/uk/vashi-dani",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/uk/vashi-dani/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/uk/vitryna/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/uk/vitryna",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/uk/vitryna/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/uk/vitryna/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/uk/vitryna/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/uk/vitryna/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/uk/vitryna/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/uk/vitryna/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/uk/vitryna/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/uk/vitryna/kartka/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/uk/vitryna/kartka",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/uk/vitryna/kartka/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/uk/vitryna/nadislaty/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/uk/vitryna/nadislaty",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/uk/vitryna/nadislaty/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/uk/vitryna/moi/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/uk/vitryna/moi",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/uk/vitryna/moi/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/uk/vitryna/holosuvaty/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/uk/vitryna/holosuvaty",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/uk/vitryna/holosuvaty/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/uk/vitryna/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/uk/vitryna/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/uk/vitryna/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/uk/vitryna/pravyla-vidhukiv/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/uk/vitryna/pravyla-vidhukiv",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/uk/vitryna/pravyla-vidhukiv/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/uk/kinovechir/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/uk/kinovechir",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/uk/kinovechir/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/uk/kinovechir/dyakuyemo/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/uk/kinovechir/dyakuyemo",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/uk/kinovechir/dyakuyemo/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/uk/kinovechir/potriben-dostup/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/uk/kinovechir/potriben-dostup",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/uk/kinovechir/potriben-dostup/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/uk/nalashtuvaty/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/uk/nalashtuvaty",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/uk/nalashtuvaty/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/uk/dashboard/vidhuky/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/uk/dashboard/vidhuky",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/uk/dashboard/vidhuky/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/uk/dashboard/profil/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/uk/dashboard/profil",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/uk/dashboard/profil/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/uk/dashboard/profil/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/uk/dashboard/profil/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/uk/dashboard/profil/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/uk/staff/profil/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/uk/staff/profil",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/uk/staff/profil/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/vi/ve-chung-toi/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/vi/ve-chung-toi",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/vi/ve-chung-toi/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/vi/quy-tac/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/vi/quy-tac",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/vi/quy-tac/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/vi/bang-xep-hang/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/vi/bang-xep-hang",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/vi/bang-xep-hang/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/vi/cay-thong/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/vi/cay-thong",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/vi/cay-thong/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/vi/danh-gia/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/vi/danh-gia",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/vi/danh-gia/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/vi/vai-tro/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/vi/vai-tro",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/vi/vai-tro/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/vi/quyen-gop/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/vi/quyen-gop",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/vi/quyen-gop/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/vi/ho-so/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/vi/ho-so",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/vi/ho-so/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/vi/xung-toi/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/vi/xung-toi",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/vi/xung-toi/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/vi/quyet-tam/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/vi/quyet-tam",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/vi/quyet-tam/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/vi/bang-tin/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/vi/bang-tin",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/vi/bang-tin/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/vi/ung-tuyen/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/vi/ung-tuyen",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/vi/ung-tuyen/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/vi/khang-nghi/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/vi/khang-nghi",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/vi/khang-nghi/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/vi/du-lieu-cua-ban/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/vi/du-lieu-cua-ban",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/vi/du-lieu-cua-ban/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/vi/trung-bay/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/vi/trung-bay",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/vi/trung-bay/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/vi/trung-bay/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/vi/trung-bay/chi-tiet/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/chi-tiet",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/chi-tiet/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/vi/trung-bay/gui/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/gui",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/gui/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/vi/trung-bay/cua-toi/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/cua-toi",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/cua-toi/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/vi/trung-bay/binh-chon/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/binh-chon",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/binh-chon/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/vi/trung-bay/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/vi/trung-bay/huong-dan-danh-gia/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/huong-dan-danh-gia",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/vi/trung-bay/huong-dan-danh-gia/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/vi/dem-phim/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/vi/dem-phim",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/vi/dem-phim/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/vi/dem-phim/cam-on/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/vi/dem-phim/cam-on",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/vi/dem-phim/cam-on/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/vi/dem-phim/can-truy-cap/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/vi/dem-phim/can-truy-cap",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/vi/dem-phim/can-truy-cap/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/vi/tuy-chinh/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/vi/tuy-chinh",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/vi/tuy-chinh/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/vi/dashboard/danh-gia/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/vi/dashboard/danh-gia",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/vi/dashboard/danh-gia/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/vi/dashboard/ho-so/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/vi/dashboard/ho-so",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/vi/dashboard/ho-so/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/vi/dashboard/ho-so/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/vi/dashboard/ho-so/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/vi/dashboard/ho-so/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/vi/staff/ho-so/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/vi/staff/ho-so",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/vi/staff/ho-so/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/ro/despre-noi/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/ro/despre-noi",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/ro/despre-noi/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/ro/reguli/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/ro/reguli",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/ro/reguli/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/ro/clasamente/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/ro/clasamente",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/ro/clasamente/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/ro/brad/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/ro/brad",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/ro/brad/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/ro/recenzii/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/ro/recenzii",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/ro/recenzii/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/ro/roluri/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/ro/roluri",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/ro/roluri/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/ro/donatii/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/ro/donatii",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/ro/donatii/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/ro/profil/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/ro/profil",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/ro/profil/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/ro/confesional/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/ro/confesional",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/ro/confesional/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/ro/rezolutii/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/ro/rezolutii",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/ro/rezolutii/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/ro/panou/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/ro/panou",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/ro/panou/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/ro/candidaturi/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/ro/candidaturi",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/ro/candidaturi/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/ro/apeluri/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/ro/apeluri",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/ro/apeluri/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/ro/datele-tale/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/ro/datele-tale",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/ro/datele-tale/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/ro/vitrina/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/ro/vitrina",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/ro/vitrina/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/ro/vitrina/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/ro/vitrina/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/ro/vitrina/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/ro/vitrina/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/ro/vitrina/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/ro/vitrina/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/ro/vitrina/fisa/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/ro/vitrina/fisa",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/ro/vitrina/fisa/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/ro/vitrina/trimite/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/ro/vitrina/trimite",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/ro/vitrina/trimite/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/ro/vitrina/ale-mele/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/ro/vitrina/ale-mele",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/ro/vitrina/ale-mele/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/ro/vitrina/voteaza/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/ro/vitrina/voteaza",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/ro/vitrina/voteaza/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/ro/vitrina/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/ro/vitrina/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/ro/vitrina/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/ro/vitrina/reguli-recenzii/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/ro/vitrina/reguli-recenzii",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/ro/vitrina/reguli-recenzii/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/ro/seara-de-film/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/ro/seara-de-film",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/ro/seara-de-film/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/ro/seara-de-film/multumim/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/ro/seara-de-film/multumim",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/ro/seara-de-film/multumim/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/ro/seara-de-film/acces-necesar/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/ro/seara-de-film/acces-necesar",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/ro/seara-de-film/acces-necesar/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/ro/personalizeaza/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/ro/personalizeaza",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/ro/personalizeaza/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/ro/dashboard/recenzii/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/ro/dashboard/recenzii",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/ro/dashboard/recenzii/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/ro/dashboard/profil/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/ro/dashboard/profil",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/ro/dashboard/profil/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/ro/dashboard/profil/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/ro/dashboard/profil/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/ro/dashboard/profil/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/ro/staff/profil/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/ro/staff/profil",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/ro/staff/profil/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
+      "source": "/sv/om-oss/",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/sv/om-oss",
+      "destination": "/chi-siamo/index.html"
+    },
+    {
+      "source": "/sv/om-oss/:file",
+      "destination": "/chi-siamo/:file"
+    },
+    {
+      "source": "/sv/regler/",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/sv/regler",
+      "destination": "/regole/index.html"
+    },
+    {
+      "source": "/sv/regler/:file",
+      "destination": "/regole/:file"
+    },
+    {
+      "source": "/sv/topplistor/",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/sv/topplistor",
+      "destination": "/classifiche/index.html"
+    },
+    {
+      "source": "/sv/topplistor/:file",
+      "destination": "/classifiche/:file"
+    },
+    {
+      "source": "/sv/gran/",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/sv/gran",
+      "destination": "/albero/index.html"
+    },
+    {
+      "source": "/sv/gran/:file",
+      "destination": "/albero/:file"
+    },
+    {
+      "source": "/sv/recensioner/",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/sv/recensioner",
+      "destination": "/recensioni/index.html"
+    },
+    {
+      "source": "/sv/recensioner/:file",
+      "destination": "/recensioni/:file"
+    },
+    {
+      "source": "/sv/roller/",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/sv/roller",
+      "destination": "/ruoli/index.html"
+    },
+    {
+      "source": "/sv/roller/:file",
+      "destination": "/ruoli/:file"
+    },
+    {
+      "source": "/sv/donationer/",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/sv/donationer",
+      "destination": "/donazioni/index.html"
+    },
+    {
+      "source": "/sv/donationer/:file",
+      "destination": "/donazioni/:file"
+    },
+    {
+      "source": "/sv/profil/",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/sv/profil",
+      "destination": "/profilo/index.html"
+    },
+    {
+      "source": "/sv/profil/:file",
+      "destination": "/profilo/:file"
+    },
+    {
+      "source": "/sv/biktstol/",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/sv/biktstol",
+      "destination": "/confessionale/index.html"
+    },
+    {
+      "source": "/sv/biktstol/:file",
+      "destination": "/confessionale/:file"
+    },
+    {
+      "source": "/sv/nyarslofte/",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/sv/nyarslofte",
+      "destination": "/propositi/index.html"
+    },
+    {
+      "source": "/sv/nyarslofte/:file",
+      "destination": "/propositi/:file"
+    },
+    {
+      "source": "/sv/anslagstavla/",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/sv/anslagstavla",
+      "destination": "/bacheca/index.html"
+    },
+    {
+      "source": "/sv/anslagstavla/:file",
+      "destination": "/bacheca/:file"
+    },
+    {
+      "source": "/sv/ansokningar/",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/sv/ansokningar",
+      "destination": "/candidature/index.html"
+    },
+    {
+      "source": "/sv/ansokningar/:file",
+      "destination": "/candidature/:file"
+    },
+    {
+      "source": "/sv/overklaganden/",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/sv/overklaganden",
+      "destination": "/appelli/index.html"
+    },
+    {
+      "source": "/sv/overklaganden/:file",
+      "destination": "/appelli/:file"
+    },
+    {
+      "source": "/sv/dina-uppgifter/",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/sv/dina-uppgifter",
+      "destination": "/dati/index.html"
+    },
+    {
+      "source": "/sv/dina-uppgifter/:file",
+      "destination": "/dati/:file"
+    },
+    {
+      "source": "/sv/skyltfonster/",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster",
+      "destination": "/vetrina/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/:file",
+      "destination": "/vetrina/:file"
+    },
+    {
+      "source": "/sv/skyltfonster/bot/",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/bot",
+      "destination": "/vetrina/bot/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/bot/:file",
+      "destination": "/vetrina/bot/:file"
+    },
+    {
+      "source": "/sv/skyltfonster/server/",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/server",
+      "destination": "/vetrina/server/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/server/:file",
+      "destination": "/vetrina/server/:file"
+    },
+    {
+      "source": "/sv/skyltfonster/sida/",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/sida",
+      "destination": "/vetrina/scheda/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/sida/:file",
+      "destination": "/vetrina/scheda/:file"
+    },
+    {
+      "source": "/sv/skyltfonster/skicka/",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/skicka",
+      "destination": "/vetrina/invia/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/skicka/:file",
+      "destination": "/vetrina/invia/:file"
+    },
+    {
+      "source": "/sv/skyltfonster/mina/",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/mina",
+      "destination": "/vetrina/le-mie/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/mina/:file",
+      "destination": "/vetrina/le-mie/:file"
+    },
+    {
+      "source": "/sv/skyltfonster/rosta/",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/rosta",
+      "destination": "/vetrina/vota/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/rosta/:file",
+      "destination": "/vetrina/vota/:file"
+    },
+    {
+      "source": "/sv/skyltfonster/mod/",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/mod",
+      "destination": "/vetrina/mod/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/mod/:file",
+      "destination": "/vetrina/mod/:file"
+    },
+    {
+      "source": "/sv/skyltfonster/recensionsriktlinjer/",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/recensionsriktlinjer",
+      "destination": "/vetrina/linee-guida-recensioni/index.html"
+    },
+    {
+      "source": "/sv/skyltfonster/recensionsriktlinjer/:file",
+      "destination": "/vetrina/linee-guida-recensioni/:file"
+    },
+    {
+      "source": "/sv/filmkvall/",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/sv/filmkvall",
+      "destination": "/seratafilm/index.html"
+    },
+    {
+      "source": "/sv/filmkvall/:file",
+      "destination": "/seratafilm/:file"
+    },
+    {
+      "source": "/sv/filmkvall/tack/",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/sv/filmkvall/tack",
+      "destination": "/seratafilm/grazie/index.html"
+    },
+    {
+      "source": "/sv/filmkvall/tack/:file",
+      "destination": "/seratafilm/grazie/:file"
+    },
+    {
+      "source": "/sv/filmkvall/atkomst-kravs/",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/sv/filmkvall/atkomst-kravs",
+      "destination": "/seratafilm/accesso-richiesto/index.html"
+    },
+    {
+      "source": "/sv/filmkvall/atkomst-kravs/:file",
+      "destination": "/seratafilm/accesso-richiesto/:file"
+    },
+    {
+      "source": "/sv/anpassa/",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/sv/anpassa",
+      "destination": "/personalizza/index.html"
+    },
+    {
+      "source": "/sv/anpassa/:file",
+      "destination": "/personalizza/:file"
+    },
+    {
+      "source": "/sv/dashboard/recensioner/",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/sv/dashboard/recensioner",
+      "destination": "/dashboard/recensioni/index.html"
+    },
+    {
+      "source": "/sv/dashboard/recensioner/:file",
+      "destination": "/dashboard/recensioni/:file"
+    },
+    {
+      "source": "/sv/dashboard/profil/",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/sv/dashboard/profil",
+      "destination": "/dashboard/profilo/index.html"
+    },
+    {
+      "source": "/sv/dashboard/profil/:file",
+      "destination": "/dashboard/profilo/:file"
+    },
+    {
+      "source": "/sv/dashboard/profil/abbonamento/",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/sv/dashboard/profil/abbonamento",
+      "destination": "/dashboard/profilo/abbonamento/index.html"
+    },
+    {
+      "source": "/sv/dashboard/profil/abbonamento/:file",
+      "destination": "/dashboard/profilo/abbonamento/:file"
+    },
+    {
+      "source": "/sv/staff/profil/",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/sv/staff/profil",
+      "destination": "/staff/profilo/index.html"
+    },
+    {
+      "source": "/sv/staff/profil/:file",
+      "destination": "/staff/profilo/:file"
+    },
+    {
       "source": "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)/",
       "destination": "/index.html"
     },

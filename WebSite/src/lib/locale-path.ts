@@ -11,6 +11,8 @@
  */
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { REACT_PAGES } from "@/lib/site";
+import slugsJson from "@/lib/i18n/slugs.json";
 
 export const URL_LOCALES = ["it", "en", "es", "fr", "de", "pt", "ru", "zh", "ja", "ko", "ar", "nl", "pl", "tr", "hi", "id", "uk", "vi", "ro", "sv"] as const;
 export type UrlLocale = (typeof URL_LOCALES)[number];
@@ -26,14 +28,39 @@ export function localeFromPath(path: string): UrlLocale | null {
   return m ? (m[1] as UrlLocale) : null;
 }
 
-/** Percorso senza lingua: /en/faq/ → /faq/, /it → /. */
+/* nomi delle pagine tradotti (/en/who-we-are/ ↔ /chi-siamo/): stessa logica di scripts/locale-routes.mjs */
+const SLUGS = (slugsJson as { segmenti: Record<string, Record<string, string>> }).segmenti;
+const toLocal = new Map<string, Map<string, string>>(); /* lingua → (percorso italiano → tradotto) */
+const toItalian = new Map<string, Map<string, string>>(); /* lingua → (percorso tradotto → italiano) */
+for (const lang of URL_LOCALES) {
+  if (lang === "it") continue;
+  const fwd = new Map<string, string>();
+  const rev = new Map<string, string>();
+  for (const it of REACT_PAGES) {
+    const segs = it.split("/").filter(Boolean).map((s) => SLUGS[s]?.[lang] || s);
+    const loc = segs.length ? `/${segs.join("/")}/` : "/";
+    if (loc === it || rev.has(loc) || REACT_PAGES.has(loc)) continue;
+    fwd.set(it, loc);
+    rev.set(loc, it);
+  }
+  toLocal.set(lang, fwd);
+  toItalian.set(lang, rev);
+}
+const withSlash = (p: string) => (p.endsWith("/") ? p : `${p}/`);
+
+/** Percorso senza lingua e con i nomi italiani: /en/who-we-are/ → /chi-siamo/, /it → /. */
 export function stripLocale(path: string): string {
   const p = String(path || "/");
-  const out = p.replace(PREFIX, "");
-  return out === "" ? "/" : out.startsWith("/") ? out : `/${out}`;
+  const lang = localeFromPath(p);
+  const out0 = p.replace(PREFIX, "");
+  const out = out0 === "" ? "/" : out0.startsWith("/") ? out0 : `/${out0}`;
+  if (!lang || lang === "it") return out;
+  const it = toItalian.get(lang)?.get(withSlash(out));
+  if (!it) return out;
+  return out.endsWith("/") ? it : it.replace(/\/$/, "");
 }
 
-/** Aggiunge la lingua a un link interno (lascia stare esterni, ancore e percorsi esclusi). */
+/** Aggiunge la lingua (e il nome tradotto della pagina) a un link interno; lascia stare esterni, ancore e percorsi esclusi. */
 export function withLocale(href: string, locale: string | null | undefined): string {
   const h = String(href ?? "");
   if (!locale || !h.startsWith("/") || h.startsWith("//")) return h;
@@ -42,7 +69,8 @@ export function withLocale(href: string, locale: string | null | undefined): str
   const rest = at >= 0 ? h.slice(at) : "";
   const bare = stripLocale(path);
   if (SKIP.test(bare)) return bare + rest;
-  return `/${locale}${bare === "/" ? "/" : bare}${rest}`;
+  const local = toLocal.get(locale)?.get(withSlash(bare)) || bare;
+  return `/${locale}${local === "/" ? "/" : local}${rest}`;
 }
 
 /** Il percorso va tenuto senza lingua? (login, widget, file) */

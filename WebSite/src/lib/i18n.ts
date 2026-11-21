@@ -19,7 +19,7 @@ import {
 } from "react";
 import { useAuth } from "@/lib/auth";
 import { usePathname } from "next/navigation";
-import { localeFromPath, setCurrentUrlLocale, skipsLocale, stripLocale } from "@/lib/locale-path";
+import { localeFromPath, setCurrentUrlLocale, skipsLocale, stripLocale, withLocale } from "@/lib/locale-path";
 
 export const LOCALES = [
   "it",
@@ -1240,7 +1240,7 @@ export function I18nProvider({
       const path = location.pathname;
       if (skipsLocale(path)) return;
       const bare = stripLocale(path);
-      const want = `/${locale}${bare === "/" ? "/" : bare}`;
+      const want = withLocale(bare, locale);
       if (path !== want) history.replaceState(history.state, "", want + location.search + location.hash);
     } catch {
       /* ignore */
