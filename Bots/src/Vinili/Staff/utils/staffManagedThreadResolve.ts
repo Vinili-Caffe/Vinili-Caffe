@@ -69,23 +69,33 @@ async function dedupeStaffThreads(matching?, keepId?, logTag?) {
   }
 }
 
-async function resolveExistingStaffThread(client?, parent?, specName?, savedId?, logTag = "[STAFF THREAD]") {
+function threadMatchesAnySpecName(thread?, names?) {
+  const list = Array.isArray(names) ? names : [names];
+  return list.some((n?) => threadMatchesSpecName(thread, n));
+}
+
+/**
+ * @param {object} [opts]
+ * @param {string[]} [opts.aliasNames] nomi legacy accettati in lookup (es. "Comandi …")
+ * @param {boolean} [opts.acceptSavedUnderParent] se true, l'id salvato sotto il parent vale anche con nome diverso
+ */
+async function resolveExistingStaffThread(client?, parent?, specName?, savedId?, logTag = "[STAFF THREAD]", opts: Record<string, any> = {}) {
   if (!parent?.id) return null;
   const parentId = String(parent.id);
+  const matchNames = [specName, ...(Array.isArray(opts.aliasNames) ? opts.aliasNames : [])].filter(Boolean);
   const threads = await collectThreadsUnderParent(parent);
   const matching = threads.filter(
-    (thread?) => String(thread.parentId || "") === parentId && threadMatchesSpecName(thread, specName),
+    (thread?) => String(thread.parentId || "") === parentId && threadMatchesAnySpecName(thread, matchNames),
   );
 
   if (savedId) {
     const savedThread = await fetchThreadChannel(client, savedId);
-    if (
-      savedThread &&
-      String(savedThread.parentId || "") === parentId &&
-      threadMatchesSpecName(savedThread, specName)
-    ) {
-      await dedupeStaffThreads(matching, savedThread.id, logTag);
-      return savedThread;
+    if (savedThread && String(savedThread.parentId || "") === parentId) {
+      const nameOk = threadMatchesAnySpecName(savedThread, matchNames);
+      if (nameOk || opts.acceptSavedUnderParent) {
+        await dedupeStaffThreads(matching, savedThread.id, logTag);
+        return savedThread;
+      }
     }
   }
 
@@ -100,8 +110,10 @@ async function resolveExistingStaffThread(client?, parent?, specName?, savedId?,
 
 export = {
   resolveExistingStaffThread,
+  normalizeThreadName,
   __test: {
     normalizeThreadName,
     threadMatchesSpecName,
+    threadMatchesAnySpecName,
   },
 };

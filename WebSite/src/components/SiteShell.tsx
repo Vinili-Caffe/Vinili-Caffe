@@ -26,6 +26,7 @@ import { ScrollProgress } from "./magicui/scroll-progress";
 import { EventoChromeProvider } from "./evento/EventoChrome";
 import { EVENTO_CHROME_BYPASS } from "@/lib/evento-starwars";
 import { SiteMotionRoot } from "./motion/SiteMotionRoot";
+import { GuildMentionsProvider } from "./GuildMentionsProvider";
 
 function RichScrollProgress() {
   const { caps } = useDeviceFx();
@@ -75,49 +76,51 @@ export function SiteShell({
       <ShellMotion>
         <SiteMotionRoot smoothScroll={!app}>
           <UiProviders>
-            <ViewAsProvider>
-              <EventoChromeProvider active={evento}>
-                <ErrorReporter />
-                <UiTextTranslator />
-                <VitalsReporter />
-                <DeepLinkFocus />
-                <BootGate />
-                <RealtimeBoot />
-                <OfflineQueueBoot />
-                <StorageGc />
-                <SourceGuard />
-                <RichScrollProgress />
-                <ViewState />
-                <Suspense fallback={null}>
-                  <ScrollToTop />
-                  <NotifPageRead />
-                  <PushSync />
-                  <NotifNavigate />
-                  <PwaKeepLinks />
-                  <PwaShellHealth />
-                </Suspense>
-                <PresenceRoot />
-                <ApiOutageBanner />
-                {app ? (
-                  children
-                ) : (
-                  <>
-                    {!evento ? <SponsorAd /> : null}
-                    <Navbar />
-                    {/* alto almeno quanto lo schermo: il footer parte sotto e non "salta" mentre la pagina carica (CLS) */}
-                    <main className="min-h-dvh">{children}</main>
-                    <Footer />
-                  </>
-                )}
-                <CookieConsent />
-                <AgeGate />
-                <NotifLiveToasts />
-                {evento ? <EventoMusic /> : app ? null : <VinylMusicRoot />}
-                {/* easter egg: "It's time" 1×/giorno alla prima pagina, poi stop */}
-                {!evento && !app ? <ItsTimeIntro /> : null}
-                <SiteEffects />
-              </EventoChromeProvider>
-            </ViewAsProvider>
+            <GuildMentionsProvider>
+              <ViewAsProvider>
+                <EventoChromeProvider active={evento}>
+                  <ErrorReporter />
+                  <UiTextTranslator />
+                  <VitalsReporter />
+                  <DeepLinkFocus />
+                  <BootGate />
+                  <RealtimeBoot />
+                  <OfflineQueueBoot />
+                  <StorageGc />
+                  <SourceGuard />
+                  <RichScrollProgress />
+                  <ViewState />
+                  <Suspense fallback={null}>
+                    <ScrollToTop />
+                    <NotifPageRead />
+                    <PushSync />
+                    <NotifNavigate />
+                    <PwaKeepLinks />
+                    <PwaShellHealth />
+                  </Suspense>
+                  <PresenceRoot />
+                  <ApiOutageBanner />
+                  {app ? (
+                    children
+                  ) : (
+                    <>
+                      {!evento ? <SponsorAd /> : null}
+                      <Navbar />
+                      {/* alto almeno quanto lo schermo: il footer parte sotto e non "salta" mentre la pagina carica (CLS) */}
+                      <main className="min-h-dvh">{children}</main>
+                      <Footer />
+                    </>
+                  )}
+                  <CookieConsent />
+                  <AgeGate />
+                  <NotifLiveToasts />
+                  {evento ? <EventoMusic /> : app ? null : <VinylMusicRoot />}
+                  {/* easter egg: "It's time" 1×/giorno alla prima pagina, poi stop */}
+                  {!evento && !app ? <ItsTimeIntro /> : null}
+                  <SiteEffects />
+                </EventoChromeProvider>
+              </ViewAsProvider>
+            </GuildMentionsProvider>
           </UiProviders>
         </SiteMotionRoot>
       </ShellMotion>

@@ -256,6 +256,12 @@ export = {
         queueCategoryRenumber(client, guildId);
       }
       queueIdsCatalogSync(client, guildId, "channelUpdate");
+      if (nameChanged) {
+        try {
+          const { broadcastSiteRolesMentionsChanged } = require("../../site/suggestions/siteSuggestionsBroadcast") as typeof import("../../site/suggestions/siteSuggestionsBroadcast");
+          broadcastSiteRolesMentionsChanged();
+        } catch (_) {}
+      }
     }
   },
 };

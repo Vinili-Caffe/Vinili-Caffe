@@ -23,14 +23,14 @@ const {
     if (hasHighStaffZone && canSeeStaffCmds) {
       embed.addFields({
         name: `${E.VC_Rocket} **Per sbloccarlo:**`,
-        value: `${E.VC_Arrow} Usa il comando nel thread **Comandi High Staff** sotto #staff-cmds.`,
+        value: `${E.VC_Arrow} Usa il comando nel thread **Commands High Staff** sotto #staff-cmds.`,
       });
       return true;
     }
     if (hasPmZone && canSeeStaffCmds) {
       embed.addFields({
         name: `${E.VC_Rocket} **Per sbloccarlo:**`,
-        value: `${E.VC_Arrow} Usa il comando nel thread **Comandi Partner Manager** sotto #staff-cmds.`,
+        value: `${E.VC_Arrow} Usa il comando nel thread **Commands Partner Manager** sotto #staff-cmds.`,
       });
       return true;
     }

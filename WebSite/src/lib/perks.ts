@@ -42,7 +42,6 @@ export const BOOST: { title: string; role: string; isNew?: boolean; perks: Perk[
       { text: `Reazioni automatiche quando ti @menzionano in chat (max. 5) tramite ${P}`, isNew: true },
       { text: "Attesa fra un comando e l’altro ridotta da 30 a **5 secondi**", isNew: true },
       { text: "Bypass dei requisiti dei giveaway", isNew: true },
-      { text: "Puoi far ripartire il conteggio (al massimo **una volta al giorno**) con il pulsante", isNew: true },
       { text: "**X3** EXP Boost", isNew: true },
     ],
   },

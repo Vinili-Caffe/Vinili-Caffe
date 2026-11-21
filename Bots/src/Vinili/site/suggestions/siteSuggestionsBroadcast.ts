@@ -149,6 +149,13 @@ function broadcastSiteVotesChanged(extra = null) {
   notifyExternalSiteRealtime(payload);
 }
 
+/** Rename ruolo/canale Discord → site-api invalida catalogo menzioni (cache in-process). */
+function broadcastSiteRolesMentionsChanged() {
+  const payload = { type: "roles_mentions_changed", at: new Date().toISOString() };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
 function broadcastSiteNotificationsChanged(extra = null) {
   const payload: Record<string, any> = {
     type: "notifications_changed",
@@ -423,6 +430,7 @@ export = {
   attachSiteSuggestionsWsServer,
   broadcastSiteSuggestionsChanged,
   broadcastSiteVotesChanged,
+  broadcastSiteRolesMentionsChanged,
   broadcastSiteNotificationsChanged,
   broadcastSiteReviewsChanged,
   broadcastSiteConfessionaleChanged,

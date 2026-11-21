@@ -501,13 +501,16 @@ function warmSiteRolesCache(client?) {
 
 async function buildRoleMentionsCatalog(client?) {
   const guildId = resolveGuildId(client);
-  if (!guildId) return { ok: false, error: "missing_guild", roles: [] };
+  if (!guildId) return { ok: false, error: "missing_guild", roles: [], channels: [] };
   const guild =
     client.guilds.cache.get(guildId) ||
     (await client.guilds.fetch(guildId).catch(() => null));
-  if (!guild) return { ok: false, error: "guild_unavailable", roles: [] };
+  if (!guild) return { ok: false, error: "guild_unavailable", roles: [], channels: [] };
   try {
     if (guild.roles?.fetch) await guild.roles.fetch().catch(() => null);
+  } catch (_) {}
+  try {
+    if (guild.channels?.fetch) await guild.channels.fetch().catch(() => null);
   } catch (_) {}
   const everyoneId = String(guild.id || "");
   const roles = [];
@@ -527,7 +530,22 @@ async function buildRoleMentionsCatalog(client?) {
     });
   }
   roles.sort((a?, b?) => String(a.name || "").localeCompare(String(b.name || ""), "it", { sensitivity: "base" }));
-  return { ok: true, roles };
+
+  const channels = [];
+  for (const ch of guild.channels.cache.values()) {
+    if (ch?.isThread?.()) continue;
+    const id = String(ch?.id || "").trim();
+    const name = String(ch?.name || "").trim().replace(/^#/, "");
+    if (!id || !name) continue;
+    channels.push({
+      id,
+      name,
+      type: Number(ch?.type ?? 0),
+      parentId: ch?.parentId ? String(ch.parentId) : null,
+    });
+  }
+  channels.sort((a?, b?) => String(a.name || "").localeCompare(String(b.name || ""), "it", { sensitivity: "base" }));
+  return { ok: true, roles, channels };
 }
 
 async function refreshMentionsCatalog(client?) {

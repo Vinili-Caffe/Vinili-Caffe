@@ -116,7 +116,10 @@ const BADGE_ROLES: [string, string][] = [
 ];
 export function badges(roles: DiscordRole[]) {
   const ids = new Set(roles.map((r) => r.id));
-  return BADGE_ROLES.filter(([id]) => ids.has(id)).map(([id, label]) => ({ id, label, iconUrl: roles.find((r) => r.id === id)?.iconUrl }));
+  return BADGE_ROLES.filter(([id]) => ids.has(id)).map(([id, label]) => {
+    const live = roles.find((r) => r.id === id);
+    return { id, label: live?.name || label, iconUrl: live?.iconUrl };
+  });
 }
 
 /** Ruoli con scheda staff (/staff/profilo/). */

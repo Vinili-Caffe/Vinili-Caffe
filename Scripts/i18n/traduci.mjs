@@ -513,19 +513,58 @@ async function gtx(text, lang) {
 /* spazi iniziali e finali come nella frase originale */
 const edges = (src, tr) => (src.match(/^\s*/)?.[0] || "") + tr + (src.match(/\s*$/)?.[0] || "");
 
-/* più frasi per richiesta, una per riga: molte meno chiamate a Google */
+/* indirizzi che accettano più frasi per richiesta (q=…&q=…) e rispondono con una traduzione per frase;
+   se uno rallenta si passa al successivo */
+const MULTI = [
+  "https://translate.googleapis.com/translate_a/t?client=gtx",
+  "https://clients5.google.com/translate_a/t?client=dict-chrome-ex",
+  "https://translate.googleapis.com/translate_a/t?client=dict-chrome-ex",
+];
+let multiAt = 0;
+
+async function gtxMulti(lines, lang) {
+  let last;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const base = MULTI[multiAt % MULTI.length];
+    const body = new URLSearchParams();
+    for (const l of lines) body.append("q", l);
+    try {
+      const res = await fetch(`${base}&sl=it&tl=${encodeURIComponent(GT[lang] || lang)}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        },
+        body,
+      });
+      if (res.status === 429 || res.status >= 500) {
+        multiAt++;
+        await sleep(1500 * (attempt + 1));
+        continue;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      /* una frase: a volte arriva una stringa sola; con più frasi un elenco (stringhe o [testo, lingua]) */
+      const arr = Array.isArray(data) ? data : [data];
+      const out = arr.map((x) => (Array.isArray(x) ? String(x[0] ?? "") : String(x ?? "")));
+      if (out.length !== lines.length) throw new Error("risposta incompleta");
+      return out;
+    } catch (e) {
+      last = e;
+      multiAt++;
+      await sleep(800 * (attempt + 1));
+    }
+  }
+  throw last || new Error("Google non risponde");
+}
+
+/* più frasi per richiesta: molte meno chiamate a Google */
 async function googleGroup(lang, items) {
   const tokens = items.map(() => []);
   const lines = items.map((s, i) => protectFor(s, tokens[i]).replace(/\s+/g, " ").trim());
+  const back = await gtxMulti(lines, lang);
   const out = {};
-  const raw = await gtx(lines.join("\n"), lang);
-  const back = raw.split("\n");
-  if (back.length === items.length) {
-    back.forEach((l, i) => (out[items[i]] = edges(items[i], unprotect(l, tokens[i]))));
-    return out;
-  }
-  /* righe che non tornano: una frase alla volta */
-  for (let i = 0; i < items.length; i++) out[items[i]] = edges(items[i], unprotect(await gtx(lines[i], lang), tokens[i]));
+  back.forEach((l, i) => (out[items[i]] = edges(items[i], unprotect(l, tokens[i]))));
   return out;
 }
 
@@ -540,7 +579,7 @@ async function google() {
       continue;
     }
     const c = cacheOf(lang);
-    const groups = chunk(todo, 25, 1400);
+    const groups = chunk(todo, 50, 4000);
     let done = 0;
     let ok = 0;
     let bad = 0;

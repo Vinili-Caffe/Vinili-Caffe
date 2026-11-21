@@ -396,6 +396,14 @@ async function main() {
         } catch {
                   }
       }
+      /* liveMentions1: rename ruolo/canale → svuota catalogo menzioni sul processo site-api */
+      if (type === "roles_mentions_changed") {
+        try {
+          const { invalidateSiteRolesCache } = require("../../site/http/siteRolesApi") as typeof import("../../site/http/siteRolesApi");
+          invalidateSiteRolesCache();
+        } catch {
+                  }
+      }
       const { broadcastSiteRealtime } = require("../../site/suggestions/siteSuggestionsBroadcast") as typeof import("../../site/suggestions/siteSuggestionsBroadcast");
       broadcastSiteRealtime({ ...body, at: body.at || new Date().toISOString() });
     } catch (err) {

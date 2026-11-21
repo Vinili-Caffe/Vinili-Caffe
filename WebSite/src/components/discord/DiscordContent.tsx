@@ -1,7 +1,8 @@
 "use client";
 
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useMemo, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { useGuildMentions } from "@/components/GuildMentionsProvider";
 import { EmojiText } from "./EmojiText";
 
 // Markdown di Discord reso con elementi React (niente HTML grezzo): **grassetto**, *corsivo*, __sottolineato__,
@@ -248,7 +249,18 @@ function inline(text: string, names: Names, key = "i"): ReactNode[] {
   return inlineMarkdown(masked, codes, names, key);
 }
 
-export function DiscordContent({ text, names = {}, className }: { text: string; names?: Names; className?: string }) {
+export function DiscordContent({ text, names: namesProp = {}, className }: { text: string; names?: Names; className?: string }) {
+  const guild = useGuildMentions();
+  const names = useMemo<Names>(
+    () => ({
+      ...namesProp,
+      users: namesProp.users,
+      roles: { ...guild.roles, ...namesProp.roles },
+      channels: { ...guild.channels, ...namesProp.channels },
+      light: namesProp.light,
+    }),
+    [guild.roles, guild.channels, namesProp],
+  );
   const normalized = normalizeDiscordText(text);
   // prima i blocchi di codice, poi riga per riga (citazioni e titoli)
   const blocks = normalized.split(/(```[\s\S]*?```)/g);

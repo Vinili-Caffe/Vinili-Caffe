@@ -124,7 +124,7 @@ async function resolvePmCommandsChannelMention(guildId = null) {
     const tenantPm = formatChannelMention(getPartnersChatChannelId(gid));
     if (tenantPm) return tenantPm;
   }
-  return "**Comandi Partner Manager**";
+  return "**Commands Partner Manager**";
 }
 
 function isPartnershipPublishChannel(channel?) {
@@ -189,13 +189,13 @@ async function partnersChatPartnerCommandDeniedReplyContent(channel?, options: R
   const hint = tid
     ? ` Spostati in <#${tid}> (sotto <#${staffCmdsId}>).`
     : staffCmdsId
-      ? ` Apri il thread **Comandi Partner Manager** sotto <#${staffCmdsId}>.`
-      : " Apri il thread **Comandi Partner Manager** sotto #staff-cmds.";
+      ? ` Apri il thread **Commands Partner Manager** sotto <#${staffCmdsId}>.`
+      : " Apri il thread **Commands Partner Manager** sotto #staff-cmds.";
   const chatWarn = inStaffChatZone && staffChatId
     ? ` Non usare i comandi PM nel thread **Chat** sotto <#${staffChatId}>.`
     : "";
   return (
-    `${E.vegax} Partnership, classifica PM, blacklist e pannello profilo staff/PM vanno usati solo nel **thread Comandi Partner Manager**, non qui.` +
+    `${E.vegax} Partnership, classifica PM, blacklist e pannello profilo staff/PM vanno usati solo nel **thread Commands Partner Manager**, non qui.` +
     chatWarn +
     hint
   );

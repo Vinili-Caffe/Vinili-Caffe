@@ -17,27 +17,36 @@ const {
   memberQualifiesForStaffThreadSpec,
 } = require("../../Staff/utils/staffThreadQualification") as typeof import("../../Staff/utils/staffThreadQualification");
 const { getResocontoReviewerUserIdsForSegment } = require("../../Staff/utils/resocontoAccess") as typeof import("../../Staff/utils/resocontoAccess");
-const { resolveExistingStaffThread } = require("../../Staff/utils/staffManagedThreadResolve") as typeof import("../../Staff/utils/staffManagedThreadResolve");
+const {
+  resolveExistingStaffThread,
+  normalizeThreadName,
+} = require("../../Staff/utils/staffManagedThreadResolve") as typeof import("../../Staff/utils/staffManagedThreadResolve");
 
 let ensureCmdsThreadsPromise = null;
+
+/** Nomi italiani legacy: si cercano e si rinominano, senza ricreare il thread. */
+const STAFF_CMDS_THREAD_NAME_ALIASES = {
+  pm: ["Comandi Partner Manager"],
+  high: ["Comandi High Staff"],
+};
 
 const STAFF_CMDS_THREAD_SPECS = [
   {
     key: "pm",
-    name: "Comandi Partner Manager",
+    name: "Commands Partner Manager",
     roleIds: () => [IDs.roles?.PartnerManager].filter(Boolean).map(String),
         reviewerUserIds: () => getResocontoReviewerUserIdsForSegment("pm"),
     introLines: (mentions?) => [
-      `${mentions} **Comandi Partner Manager**`,
+      `${mentions} **Commands Partner Manager**`,
       "Partnership, classifica PM, blacklist, pannello profilo PM e comandi dedicati vanno usati solo qui.",
     ],
   },
   {
     key: "high",
-    name: "Comandi High Staff",
+    name: "Commands High Staff",
     roleIds: () => [IDs.roles?.HighStaff].filter(Boolean).map(String),
     introLines: (mentions?) => [
-      `${mentions} **Comandi High Staff**`,
+      `${mentions} **Commands High Staff**`,
       "Comandi riservati all'High Staff (backup, security, moderazione avanzata, giveaway, ecc.).",
     ],
   },
@@ -201,7 +210,7 @@ async function deleteThreadIfAny(client?, threadId?) {
 }
 
 async function createStaffCmdsThread(parent?, guild?, spec?) {
-  let name = String(spec.name || "Comandi staff").replace(/\s+/g, " ").trim();
+  let name = String(spec.name || "Commands staff").replace(/\s+/g, " ").trim();
   if (name.length > 100) name = name.slice(0, 100);
   const thread = await parent.threads
     .create({
@@ -222,14 +231,28 @@ async function createStaffCmdsThread(parent?, guild?, spec?) {
   return thread;
 }
 
+async function ensureStaffCmdsThreadName(thread?, spec?) {
+  const wanted = String(spec?.name || "").replace(/\s+/g, " ").trim();
+  if (!thread?.setName || !wanted) return thread;
+  if (normalizeThreadName(thread.name) === normalizeThreadName(wanted)) return thread;
+  const renamed = await thread.setName(wanted.slice(0, 100), "Rinomina thread Commands staff").catch((err?) => {
+    global.logger?.warn?.("[STAFF CMDS THREAD] Rinomina fallita:", spec.key, err?.message || err);
+    return null;
+  });
+  return renamed || thread;
+}
+
 async function ensureStaffCmdsThread(client?, guild?, parent?, spec?, savedId?) {
   const logTag = "[STAFF CMDS THREAD]";
-  const existing = await resolveExistingStaffThread(client, parent, spec.name, savedId, logTag);
+  const existing = await resolveExistingStaffThread(client, parent, spec.name, savedId, logTag, {
+    aliasNames: STAFF_CMDS_THREAD_NAME_ALIASES[spec.key] || [],
+    acceptSavedUnderParent: true,
+  });
   if (existing) {
     if (String(existing.id) !== String(savedId || "")) {
       await setStaffCmdsThreadId(spec.key, existing.id);
     }
-    return existing;
+    return ensureStaffCmdsThreadName(existing, spec);
   }
 
   const thread = await createStaffCmdsThread(parent, guild, spec);

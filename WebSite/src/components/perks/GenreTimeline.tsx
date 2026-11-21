@@ -7,6 +7,7 @@ import { nextTier, TIERS, tierFor } from "@/lib/perks";
 import { loadBoard } from "@/lib/leaderboard";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
+import { useLiveRoleName } from "@/components/GuildMentionsProvider";
 import { NewTag, PerkList } from "./PerkList";
 
 // tacche equidistanti (10→200 non è lineare da leggere); la posizione del tuo livello è interpolata tra due tacche
@@ -19,6 +20,11 @@ function levelPos(level: number) {
     if (level < b) return pos(i) + ((level - a) / (b - a)) * (pos(i + 1) - pos(i));
   }
   return 100;
+}
+
+function GenreRoleLabel({ label }: { label: string }) {
+  const live = useLiveRoleName(label, label);
+  return <p className="mt-1 text-sm text-crema/50">Ruolo @{live}</p>;
 }
 
 export function GenreTimeline() {
@@ -170,7 +176,7 @@ export function GenreTimeline() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-caramel">Livello {tier.level}+</p>
               <p className="mt-1 font-display text-4xl font-semibold">{tier.genre}</p>
-              <p className="mt-1 text-sm text-crema/50">Ruolo @{tier.role}</p>
+              <GenreRoleLabel label={tier.role} />
               {tier.isNew && <NewTag className="mt-2" />}
             </div>
           </div>

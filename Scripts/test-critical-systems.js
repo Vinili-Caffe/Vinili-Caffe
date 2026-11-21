@@ -351,7 +351,7 @@ async function run(root) {
     );
     assert(
       matchChannel(
-        { id: "high-thread", isThread: () => true, parentId: staffCmds, name: "Comandi High Staff" },
+        { id: "high-thread", isThread: () => true, parentId: staffCmds, name: "Commands High Staff" },
         [highZone],
       ) === true,
       "thread high staff match highCmds zone",

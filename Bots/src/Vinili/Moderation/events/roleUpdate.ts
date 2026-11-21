@@ -73,5 +73,11 @@ export = {
     if (!nameChanged && !positionChanged) return;
 
     queueIdsCatalogSync(client, guildId, "roleUpdate");
+    if (nameChanged) {
+      try {
+        const { broadcastSiteRolesMentionsChanged } = require("../../site/suggestions/siteSuggestionsBroadcast") as typeof import("../../site/suggestions/siteSuggestionsBroadcast");
+        broadcastSiteRolesMentionsChanged();
+      } catch (_) {}
+    }
   },
 };
