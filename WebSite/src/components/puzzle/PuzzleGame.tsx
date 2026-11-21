@@ -395,7 +395,7 @@ export function PuzzleGame({
   if (imgError) {
     return (
       <p className="rounded-2xl bg-caramel/10 px-4 py-3 text-sm text-crema/80 ring-1 ring-caramel/25">
-        Errore immagine — riprova più tardi.
+        L’immagine non si è caricata, riprova più tardi.
       </p>
     );
   }

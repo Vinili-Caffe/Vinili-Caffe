@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
-import { BookOpenCheck, Bot, ChevronDown, FolderHeart, House, LogIn, Plus, Server, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Bot, ChevronDown, FolderHeart, House, LogIn, Server, ShieldCheck, type LucideIcon } from "lucide-react";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { checkStaffAccess, loadBoardsConfig } from "@/lib/boards";
 import { loadStaffAccess } from "@/lib/staff";
@@ -90,7 +90,7 @@ const LOGO = cdnUrl("/images/logo-disco.png");
 function BotLogo() {
   const [src, setSrc] = useState(BOT_AVATAR);
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+     
     <img src={src} alt="" width={36} height={36} onError={() => setSrc(LOGO)} className="size-9 rounded-full object-cover ring-1 ring-caramel/30" />
   );
 }
@@ -225,9 +225,7 @@ function VetrinaAccountMenu() {
   }
 
   const items: { href: string; label: string; icon: LucideIcon }[] = [
-    { href: "/vetrina/le-mie/", label: "Le mie schede", icon: FolderHeart },
-    { href: "/vetrina/invia/", label: "Metti in vetrina", icon: Plus },
-    { href: "/vetrina/linee-guida-recensioni/", label: "Linee guida recensioni", icon: BookOpenCheck },
+    { href: "/vetrina/le-mie/", label: "Le mie · Seguiti", icon: FolderHeart },
     ...(staff ? [{ href: "/vetrina/mod/", label: "Moderazione", icon: ShieldCheck }] : []),
   ];
 
@@ -241,7 +239,7 @@ function VetrinaAccountMenu() {
         aria-label="Menu account"
         className={cn("flex items-center gap-2 rounded-xl p-1 ring-1 transition sm:py-1 sm:pl-1 sm:pr-2", open ? "bg-crema/[0.07] ring-sand/25" : "ring-sand/10 hover:bg-crema/[0.05] hover:ring-sand/20")}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        { }
         <img src={avatarUrl(user, 64)} alt="" width={28} height={28} className="size-7 shrink-0 rounded-full" />
         <span className="hidden min-w-0 text-left leading-tight sm:block">
           <span className="block max-w-[9rem] truncate text-[0.8rem] font-semibold text-crema">{displayName(user)}</span>
@@ -261,7 +259,7 @@ function VetrinaAccountMenu() {
             className="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right overflow-hidden rounded-2xl bg-roast p-1.5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.75)] ring-1 ring-sand/20"
           >
             <div className="flex items-center gap-2.5 px-2.5 pb-2.5 pt-1.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              { }
               <img src={avatarUrl(user, 64)} alt="" width={36} height={36} className="size-9 shrink-0 rounded-full" />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold text-crema">{displayName(user)}</span>
@@ -348,10 +346,11 @@ export function VetrinaHeader({
 }
 
 /**
- * Finché la vetrina è in anteprima (publicOpen=false) la vede solo l'high staff:
- * tutti gli altri, anche lo staff normale, trovano la pagina chiusa. Il bot fa lo stesso controllo sulle API.
+ * Finché la vetrina è in anteprima (publicOpen=false) elenco/cerca restano high-staff.
+ * Su scheda e voto qualsiasi utente loggato può entrare (segnalare / votare in test);
+ * senza login resta chiusa.
  */
-export function VetrinaGate({ children }: { children: ReactNode }) {
+export function VetrinaGate({ children, allowLoggedInPreview = false }: { children: ReactNode; allowLoggedInPreview?: boolean }) {
   const { ready, token } = useAuth();
   const [state, setState] = useState<"checking" | "open" | "denied">("checking");
   useEffect(() => {
@@ -363,6 +362,7 @@ export function VetrinaGate({ children }: { children: ReactNode }) {
       /* config non raggiungibile: lascio decidere alle API (che bloccano comunque) */
       if (!cfg || cfg.publicOpen) return setState("open");
       if (!token) return setState("denied");
+      if (allowLoggedInPreview) return setState("open");
       const r = await loadStaffAccess(token);
       if (!alive) return;
       setState(r.ok && r.data.isHighStaff ? "open" : "denied");
@@ -370,7 +370,7 @@ export function VetrinaGate({ children }: { children: ReactNode }) {
     return () => {
       alive = false;
     };
-  }, [ready, token]);
+  }, [ready, token, allowLoggedInPreview]);
   if (state === "denied") return <AccessHomeRedirect active />;
   if (state === "checking") return <div className="min-h-[80dvh]" aria-busy="true" />;
   return <>{children}</>;

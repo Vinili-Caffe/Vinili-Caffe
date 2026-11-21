@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 /** Bandiera PNG (flagcdn) — leggibile anche su Windows dove le emoji-bandiera collassano in IT/GB. */
 export function FlagImg({ locale, className, size = 40 }: { locale: Locale; className?: string; size?: 20 | 40 | 80 }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+     
     <img
       src={flagUrl(locale, size)}
       alt=""

@@ -112,7 +112,7 @@ export function PartnerDescPreviewButton({
                           {res.author?.name ? (
                             <p className="mb-1 flex items-center gap-2 text-xs text-crema/55">
                               {res.author.avatarUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element -- avatar Discord piccolo
+                                 
                                 <img src={res.author.avatarUrl} alt="" className="size-5 rounded-full" />
                               ) : null}
                               Messaggio di {res.author.name}

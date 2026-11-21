@@ -5,7 +5,7 @@ import { SerataBoard } from "@/components/seratafilm/SerataBoard";
 import { SerataFilmShell } from "@/components/seratafilm/SerataFilmShell";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/seratafilm/", title: "Serata Film", description: "Serata film di Vinili & Caffè su Discord: countdown e streaming." }),
+  ...pageSocialMeta({ path: "/seratafilm/", title: "Serata Film", description: "La serata film di Vinili & Caffè: si guarda insieme in vocale su Discord. Qui trovi quanto manca alla prossima." }),
 };
 
 export default function Page() {
@@ -13,7 +13,7 @@ export default function Page() {
     <SerataFilmShell
       path="/seratafilm/"
       title="Serata Film"
-      description="Serata film di Vinili & Caffè su Discord: countdown e streaming."
+      description="La serata film di Vinili & Caffè: si guarda insieme in vocale su Discord. Qui trovi quanto manca alla prossima."
       heroIcon={<Clapperboard />}
       heroKicker="Eventi"
       heroTitle="Serata"

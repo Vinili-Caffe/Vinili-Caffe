@@ -12,7 +12,7 @@ const SiteFeedback = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/feedback/", title: "Feedback", description: "Hai un'idea o hai trovato un problema? Condividilo con la community di Vinili & Caffè: vota e commenta le proposte." }),
+  ...pageSocialMeta({ path: "/feedback/", title: "Feedback", description: "Idee e segnalazioni per Vinili & Caffè: proponi qualcosa di nuovo o segnala un problema, e vota le proposte degli altri membri." }),
 };
 
 export default function FeedbackPage() {
@@ -28,7 +28,7 @@ export default function FeedbackPage() {
         kicker="Feedback"
         title="Il tuo feedback per"
         accent="Vinili & Caffè"
-        text="Hai un’idea o hai trovato un problema? Condividilo con la community: puoi scegliere Idea o Problema e allegare foto."
+        text="Hai un’idea per il server o qualcosa non funziona? Scrivilo qui, indica se è un’idea o un problema e aggiungi una foto se aiuta a capire. Gli altri membri possono votare e commentare."
       />
       <SiteFeedback />
     </SiteShell>

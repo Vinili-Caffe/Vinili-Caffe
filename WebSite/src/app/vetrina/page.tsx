@@ -7,7 +7,7 @@ import { VetrinaGate, VetrinaShell } from "@/components/vetrina/VetrinaChrome";
 const VetrinaHome = dynamic(() => import("@/components/vetrina/VetrinaHome").then((m) => m.VetrinaHome), { loading: () => null });
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/vetrina/", title: "Vetrina", description: "Directory di bot e server Discord della community Vinili & Caffè." }),
+  ...pageSocialMeta({ path: "/vetrina/", title: "Vetrina", description: "La Vetrina di Vinili & Caffè: server e bot Discord con schede, voti e recensioni della community." }),
 };
 
 export default function Page() {
@@ -16,7 +16,7 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/"
         title="Vetrina"
-        description="Directory di bot e server Discord della community Vinili & Caffè."
+        description="La Vetrina di Vinili & Caffè: server e bot Discord con schede, voti e recensioni della community."
       />
       <VetrinaGate>
         <VetrinaHome />

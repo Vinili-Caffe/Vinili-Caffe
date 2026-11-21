@@ -6,7 +6,7 @@ const { slugify, sanitizeText, tagMatchesQuery } = require("./boardSanitize") as
 const { uploadBoardBanner, serveBoardBannerFile, resolveBoardsUser } = require("./boardBanners") as typeof import("./boardBanners");
 const { probeBoardLink } = require("./boardLinkProbe") as typeof import("./boardLinkProbe");
 const { BL, listingsCache, listingsInflight, invalidateListingsListCache, boardsConfig, featureGate, listListingReviews, createListingReview, toggleListingReviewLike, reportListingReview, upsertListingReviewReply, syncSiteServerReviewToMainBoardListing, removeSiteServerReviewFromMainBoardListing } = require("./boardReviews") as typeof import("./boardReviews");
-const { clientIp, startListingVoteSession, progressListingVoteSession, voteListing, setListingVoteReminder, sweepBoardVoteReminders, ensureBoardsVoteReminderScheduler, bumpListing, reportListing } = require("./boardVotes") as typeof import("./boardVotes");
+const { clientIp, getListingVoteStatus, startListingVoteSession, progressListingVoteSession, voteListing, setListingVoteReminder, sweepBoardVoteReminders, ensureBoardsVoteReminderScheduler, bumpListing, reportListing, resolveBumpStreak } = require("./boardVotes") as typeof import("./boardVotes");
 const { refreshListingStats, runBoardsStatsJob, ensureBoardsStatsScheduler } = require("./boardStats") as typeof import("./boardStats");
 const { viniliBotInviteUrl, serializeListing, generateInvite, guildBoardDefaults } = require("./boardInvites") as typeof import("./boardInvites");
 const { enrichListingAuthor, modListPending, getListingForStaffReview, modDecide } = require("./boardModeration") as typeof import("./boardModeration");
@@ -31,6 +31,7 @@ function listingsCacheKey(query: Record<string, any> = {}) {
     String(Math.max(1, Number(query.page) || 1)),
     String(Math.min(48, Math.max(1, Number(query.perPage) || 24))),
     query.allowClosed ? "1" : "0",
+    query.excludeNsfw === "1" || query.excludeNsfw === 1 || query.nsfw === "0" || query.nsfw === 0 ? "xnsfw" : "",
   ].join("|");
 }
 
@@ -86,6 +87,8 @@ async function listListingsUncached(client?, query: Record<string, any> = {}) {
   const locale = sanitizeText(query.locale, 16).toLowerCase();
   const guildTag = sanitizeText(query.guildTag || query.guildtag, 8);
   const sort = String(query.sort || "score").trim().toLowerCase();
+  const excludeNsfw =
+    query.excludeNsfw === "1" || query.excludeNsfw === 1 || query.nsfw === "0" || query.nsfw === 0;
   const page = Math.max(1, Number(query.page) || 1);
   const perPage = Math.min(48, Math.max(1, Number(query.perPage) || 24));
   const filter: Record<string, any> = { docType: BL, status: "approved" };
@@ -117,11 +120,46 @@ async function listListingsUncached(client?, query: Record<string, any> = {}) {
       { content: rx },
     ];
   }
+  if (excludeNsfw) {
+    const nsfwExclude = { $nor: [{ boardNsfw: true }, { boardCategories: "nsfw" }] };
+    if (filter.$or) {
+      filter.$and = [{ $or: filter.$or }, nsfwExclude];
+      delete filter.$or;
+    } else {
+      Object.assign(filter, nsfwExclude);
+    }
+  }
   /* server: l'ordine della vetrina è l'ultimo bump (come Disboard); bot: il punteggio */
   let sortSpec: any = kind === "server" ? { boardBumpedAt: -1, boardScore: -1, createdAt: -1 } : { boardScore: -1, boardBumpedAt: -1, createdAt: -1 };
   if (sort === "new") sortSpec = { createdAt: -1 };
   else if (sort === "bumps") sortSpec = { boardBumpedAt: -1, boardScore: -1 };
   else if (sort === "votes") sortSpec = { boardVotes30d: -1, boardScore: -1 };
+  else if (sort === "month" || sort === "votes_month") {
+    sortSpec = { boardVotesMonth: -1, boardScore: -1, createdAt: -1 };
+    try {
+      const { voteCountMonthKeyRome } = require("../../Community/utils/romeVoteMonthKey") as typeof import("../../Community/utils/romeVoteMonthKey");
+      const monthKey = voteCountMonthKeyRome();
+      const monthMatch = {
+        $or: [
+          { boardVotesMonthKey: monthKey },
+          { boardVotesMonthKey: { $exists: false } },
+          { boardVotesMonthKey: null },
+          { boardVotesMonthKey: "" },
+        ],
+      };
+      if (filter.$and) {
+        filter.$and.push(monthMatch);
+      } else if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, monthMatch];
+        delete filter.$or;
+      } else if (filter.$nor) {
+        filter.$and = [{ $nor: filter.$nor }, monthMatch];
+        delete filter.$nor;
+      } else {
+        Object.assign(filter, monthMatch);
+      }
+    } catch (_) {}
+  }
   /* boardsSortReviews1: media stelle, poi n. recensioni */
   else if (sort === "reviews" || sort === "rating" || sort === "recensioni") {
     sortSpec = { boardRatingAvg: -1, boardReviewsCount: -1, boardScore: -1, createdAt: -1 };
@@ -251,15 +289,15 @@ async function getListingBySlug(client?, slug?, opts: Record<string, any> = {}) 
   if (st !== "approved") {
     return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata." };
   }
-  if (!cfg.publicOpen && !opts.allowClosed) {
-    return {
-      ok: false,
-      status: 403,
-      error: "boards_preview",
-      message: "La Vetrina è in anteprima staff.",
-      publicOpen: false,
-    };
-  }
+  /* backfill streak bump da storia (una tantum) prima del serialize */
+  try {
+    const resolved = await resolveBumpStreak(String(doc._id), doc, { persist: true });
+    if (resolved?.bumpStreak > 0) {
+      doc.boardBumpStreak = resolved.bumpStreak;
+      doc.boardBumpStreakDay = resolved.bumpStreakDay;
+    }
+  } catch (_) {}
+  /* Scheda approvata leggibile anche in anteprima (embed iframe + deep link); lista/cerca resta chiusa. */
   let listing = await enrichListingAuthor(client, serializeListing(doc));
   /* refresh membri on-read così la scheda mostra il conteggio (top.gg-like) */
   listing = await refreshListingStats(client, listing);
@@ -379,6 +417,7 @@ export = {
   purgeBoardListingDoc,
   refreshMyListing,
   listClaimableServers,
+  getListingVoteStatus,
   startListingVoteSession,
   progressListingVoteSession,
   voteListing,

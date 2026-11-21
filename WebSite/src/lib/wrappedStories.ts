@@ -74,7 +74,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       key: "messages",
       kicker: "Messaggi",
       title: "Copymaster",
-      body: `Sei un vero copymaster. Hai scritto in totale ${fmt(msg)} messaggi. Praticamente potresti scriverci una tesi!`,
+      body: `Le parole non ti mancano. Hai scritto in totale ${fmt(msg)} messaggi. Praticamente potresti scriverci una tesi!`,
       footnote: pctLine(a.messagesBetterThanPct),
       stat: `${fmt(msg)} messaggi`,
     });
@@ -87,7 +87,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       key: "voice",
       kicker: "Vocale",
       title: "Terrore da microfono",
-      body: "I nostri canali vocali ti terrorizzano talmente tanto da non esserci mai entrato. Nemmeno per sbaglio!",
+      body: "Nei canali vocali non sei mai entrato, nemmeno per sbaglio. Prima o poi ti aspettiamo!",
       stat: "0 ore",
     });
   } else if (voiceH < VOICE_FEW_H) {
@@ -104,7 +104,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       key: "voice",
       kicker: "Vocale",
       title: homeVc.startsWith("#") ? `Residente in ${homeVc}` : "Residente vocale",
-      body: `Praticamente hai preso la residenza in ${homeVc}. Ci hai trascorso ben ${hours(a.voiceTotalSeconds)}. È assolutamente assurdo!`,
+      body: `Praticamente hai preso la residenza in ${homeVc}. Ci hai passato ${hours(a.voiceTotalSeconds)}. Ormai la stanza è un po’ tua.`,
       footnote: pctLine(a.voiceBetterThanPct),
       stat: hours(a.voiceTotalSeconds),
     });
@@ -142,7 +142,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       kicker: "Sostegno",
       title: "Dovere civico",
       stat: `${fmt(votes)} ${votes === 1 ? "voto" : "voti"}`,
-      body: `Hai fatto il tuo dovere civico. Con i tuoi ${fmt(votes)} voti hai contribuito a farci crescere. Grazie!`,
+      body: `Hai dato il tuo contributo. Con i tuoi ${fmt(votes)} voti hai contribuito a farci crescere. Grazie!`,
     });
   }
 
@@ -167,7 +167,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       kicker: "Minigiochi",
       title: "Ludopatia certificata",
       stat: `${fmt(a.minigameTotalExp)} EXP`,
-      body: `Non ti perdi mai niente. Hai accumulato un totale di ${fmt(a.minigameTotalExp)} EXP con i nostri minigames. Soffri decisamente di ludopatia!${streakBit}`,
+      body: `Non ti perdi mai niente. Hai accumulato un totale di ${fmt(a.minigameTotalExp)} EXP con i nostri minigames. Non te ne sfugge uno!${streakBit}`,
       footnote:
         pctLine(a.minigameBetterThanPct) ||
         (a.bestStreak > 1 ? "I minigames ti conoscono per nome e per streak!" : undefined),
@@ -217,7 +217,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
         kicker: "Ti rende particolare",
         title: "Dito sulla chiocciola",
         stat: `${fmt(pings)} tag`,
-        body: `Hai il dito facile sulla chiocciola. Hai taggato gli altri ben ${fmt(pings)} volte. Ma sei un raider o cosa?!?`,
+        body: `Hai il dito facile sulla chiocciola: hai menzionato gli altri ${fmt(pings)} volte. Qualcuno ti avrà pure risposto!`,
       },
     });
   }
@@ -241,7 +241,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
         kicker: "Ti rende particolare",
         title: "Boss dei bot",
         stat: `${fmt(cmds)} comandi`,
-        body: `Hai schiavizzato i nostri bot lanciando ben ${fmt(cmds)} comandi. Speriamo che un giorno non si ribellino...`,
+        body: `Hai fatto lavorare parecchio i nostri bot, con ${fmt(cmds)} comandi. Speriamo che un giorno non si ribellino...`,
       },
     });
   }
@@ -253,7 +253,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
         kicker: "Ti rende particolare",
         title: "Gusti raffinati",
         stat: `:${topEmoji.name}: ×${fmt(topEmoji.count)}`,
-        body: `Le emoji standard ti annoiano. Hai spammato l'emoji :${topEmoji.name}: per ben ${fmt(topEmoji.count)} volte. Gusti decisamente raffinati.`,
+        body: `Le emoji standard ti annoiano. Hai usato l'emoji :${topEmoji.name}: per ben ${fmt(topEmoji.count)} volte. Gusti decisamente raffinati.`,
       },
     });
   }

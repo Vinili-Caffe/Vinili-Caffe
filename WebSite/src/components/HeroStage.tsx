@@ -373,7 +373,7 @@ export function HeroStage({ className }: { className?: string }) {
               "ring-2 ring-[#f4e9d8]/25 transition-transform hover:-translate-y-0.5 active:scale-95",
             )}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            { }
             <img
               key={guildIcon}
               src={guildIcon}

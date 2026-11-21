@@ -700,7 +700,7 @@ export async function openEventoCrate(token: string, crateId: string) {
   }
 }
 
-export async function useEventoItem(token: string, itemId: string) {
+export async function activateEventoItem(token: string, itemId: string) {
   try {
     const r = await fetch(apiUrl("/webhooks/site-evento/items/use"), {
       method: "POST",

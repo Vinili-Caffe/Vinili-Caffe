@@ -34,7 +34,7 @@ const TEXT: Record<AppealType, { label: string; icon: React.ReactNode; why: stri
     info: [
       "Riceverai risposta entro 15 giorni tramite i DM dal bot",
       "Assicurati di avere i DM attivi per ricevere la notifica",
-      "Le richieste false o spam possono comportare un mute più lungo o un ban",
+      "Chi manda richieste false o ripetute rischia un mute più lungo o un ban",
       "Puoi inviare una nuova richiesta ogni 15 giorni (cooldown)",
     ],
   },
@@ -114,8 +114,8 @@ function AppealForm({ type, token }: { type: AppealType; token: string }) {
     return (
       <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="rounded-3xl bg-gradient-to-b from-[#3f7d4e]/20 to-roast p-10 text-center ring-1 ring-[#3f7d4e]/40">
         <CheckCircle2 className="mx-auto size-12 text-[#9fd3ac] light:text-[#2f6b3f]" />
-        <p className="mt-4 font-display text-3xl font-semibold">Richiesta inviata con successo!</p>
-        <p className="mx-auto mt-3 max-w-lg leading-relaxed text-crema/70">Riceverai aggiornamenti tramite DM dal bot. Se non ricevi risposta entro 15 giorni, considera la richiesta rifiutata.</p>
+        <p className="mt-4 font-display text-3xl font-semibold">Richiesta inviata.</p>
+        <p className="mx-auto mt-3 max-w-lg leading-relaxed text-crema/70">Il bot ti scriverà in privato per dirti com’è andata. Se entro 15 giorni non ricevi niente, la richiesta è da considerare respinta.</p>
       </motion.div>
     );
 
@@ -213,16 +213,16 @@ export function AppelliBoard() {
             </li>
             <li className="flex gap-2.5">
               <Check className="mt-0.5 size-4 shrink-0 text-caramel" />
-              Ti sarà inviato l&apos;esito entro 15 giorni tramite il nostro bot.
+              Il bot ti manda l&apos;esito in privato entro 15 giorni.
             </li>
             <li className="flex gap-2.5">
               <Check className="mt-0.5 size-4 shrink-0 text-caramel" />
-              Cooldown: puoi inviare una nuova richiesta ogni 15 giorni.
+              Puoi inviare una nuova richiesta ogni 15 giorni.
             </li>
           </ul>
           <p className="mt-4 rounded-2xl bg-caramel/10 px-4 py-3 text-sm leading-relaxed text-crema/80 ring-1 ring-caramel/25">
-            <span className="font-semibold text-crema">Suggerimento — </span>
-            Spiega con calma la dinamica dell&apos;accaduto e il motivo per il quale sarebbe corretto concederti un&apos;altra possibilità.
+            <span className="font-semibold text-crema">Un consiglio: </span>
+            Racconta con calma cosa è successo e perché pensi di meritare un&apos;altra possibilità.
           </p>
         </div>
 

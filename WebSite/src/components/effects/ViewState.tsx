@@ -114,7 +114,7 @@ export function ViewState() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al primo mount documento
+     
   }, []);
 
   // Navigazione SPA / cambio path: sempre top prima del paint (no mid da LS) — salvo resume PWA

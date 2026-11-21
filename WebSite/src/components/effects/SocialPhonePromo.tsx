@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { Bell, Bookmark, Heart, Share2, UserPlus } from "lucide-react";
 import { Iphone } from "@/components/magicui/iphone";
-import { useChromeOpenListener } from "@/lib/chrome-open";
+import { listenChromeOpen } from "@/lib/chrome-open";
 import { setSocialPhoneOpen } from "@/lib/social-phone-open";
 import { DISCORD_INVITE, SITE_ORIGIN, cdnUrl } from "@/lib/site";
 import { cn } from "@/lib/cn";
@@ -315,7 +315,7 @@ export function SocialPhonePromo() {
   pathRef.current = pathname;
   chromeRef.current = chromeOpen;
 
-  useEffect(() => useChromeOpenListener(setChromeOpen), []);
+  useEffect(() => listenChromeOpen(setChromeOpen), []);
 
   const clearTimers = useCallback(() => {
     if (hideTimer.current) window.clearTimeout(hideTimer.current);

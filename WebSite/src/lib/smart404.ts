@@ -67,7 +67,7 @@ export function parentCandidates(pathname: string): string[] {
 }
 
 /** Risolve alias / genitore noto. */
-export function resolveSmart404(pathname: string, _search = ""): Smart404Result {
+export function resolveSmart404(pathname: string): Smart404Result {
   const path = normPath(pathname);
   const known = knownRoutes();
 

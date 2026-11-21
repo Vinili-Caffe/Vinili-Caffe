@@ -334,11 +334,6 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
     );
   }
 
-  function toggle(list: string[], v: string, max: number) {
-    if (list.includes(v)) return list.filter((x) => x !== v);
-    return list.length >= max ? list : [...list, v];
-  }
-
   function addTag(raw: string) {
     const t = raw.trim().toLowerCase().replace(/^#/, "").replace(/\s+/g, "-").slice(0, 32);
     if (!t || form.tags.includes(t) || form.tags.length >= maxTags) return;
@@ -358,7 +353,10 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
     setBusy("defaults");
     const r = await loadGuildDefaults(token, g.id);
     setBusy("");
-    if (!r.ok) return;
+    if (!r.ok) {
+      showToast(r.message || "Non riesco a leggere i dati del server.", true);
+      return;
+    }
     setBundle((b) => ({
       ...b,
       form: {
@@ -475,14 +473,18 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
       const r = await patchListing(token, id, patch);
       if (!r.ok) {
         setBusy("");
-        return setErr(r.message);
+        setErr(r.message);
+        showToast(r.message, true);
+        return;
       }
       listing = r.data.listing;
       if (submit && listing?.status !== "approved" && listing?.status !== "pending") {
         const s = await submitListing(token, id);
         if (!s.ok) {
           setBusy("");
-          return setErr(s.message);
+          setErr(s.message);
+          showToast(s.message, true);
+          return;
         }
         listing = s.data.listing || listing;
         message = s.data.message || "";
@@ -491,7 +493,9 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
       const r = await createListing(token, body(submit));
       if (!r.ok) {
         setBusy("");
-        return setErr(r.message);
+        setErr(r.message);
+        showToast(r.message, true);
+        return;
       }
       listing = r.data.listing;
       message = r.data.message || "";
@@ -503,8 +507,10 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
       showToast("Bozza salvata nelle tue schede");
       return;
     }
+    const doneMsg = message || (editing ? "Modifiche salvate." : "Scheda inviata in revisione!");
     draft.clear();
-    setSent(message || (editing ? "Modifiche salvate." : "Scheda inviata in revisione!"));
+    setSent(doneMsg);
+    showToast(doneMsg);
     window.setTimeout(() => {
       window.location.href = page(listing?.slug ? `/vetrina/scheda/?slug=${encodeURIComponent(listing.slug)}` : "/vetrina/le-mie/");
     }, 1400);
@@ -591,7 +597,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                 </div>
               ) : guilds.length === 0 ? (
                 <p className="rounded-2xl bg-espresso/50 p-4 text-sm text-crema/60 ring-1 ring-sand/12">
-                  Non trovo server che gestisci. Servono i permessi di gestione del server: se li hai, rifai l’accesso con Discord e autorizza l’elenco dei server.
+                  Non trovo server che gestisci. Ti servono i permessi di gestione del server: se li hai, rientra con Discord e consenti l’accesso all’elenco dei tuoi server.
                 </p>
               ) : (
                 <>
@@ -611,7 +617,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                           )}
                         >
                           {g.iconUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
+                             
                             <img src={g.iconUrl} alt="" className="size-10 rounded-xl object-cover" />
                           ) : (
                             <span className="flex size-10 items-center justify-center rounded-xl bg-mocha font-display text-lg text-crema/70">{g.name.slice(0, 1)}</span>
@@ -655,7 +661,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                 <Field label="Client ID del bot" hint="Lo trovi nel Developer Portal di Discord, alla voce Application ID: nome e avatar li prendiamo da lì.">
                   <div className="flex items-center gap-2">
                     {form.iconUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                       
                       <img src={form.iconUrl} alt="" className="size-11 shrink-0 rounded-xl object-cover ring-1 ring-sand/20" />
                     ) : null}
                     <input
@@ -673,7 +679,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                 <Field label="Nome del bot">
                   <input value={form.name} onChange={(e) => set({ name: e.target.value })} maxLength={100} placeholder="Come si chiama?" className={INPUT} />
                 </Field>
-                <Field label="Prefisso" hint="Se il bot ha anche comandi con prefisso (es. ! o $). Vuoto se usa solo i comandi slash.">
+                <Field label="Prefisso" hint="Se il bot ha anche comandi che iniziano con un simbolo (come ! o $). Lascia vuoto se usa solo i comandi con la barra.">
                   <input value={form.prefix} onChange={(e) => set({ prefix: e.target.value.slice(0, 16) })} maxLength={16} placeholder="!" className={INPUT} />
                 </Field>
               </div>
@@ -718,7 +724,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                     onChange={(e) => set({ description: e.target.value })}
                     rows={10}
                     maxLength={cfg?.maxMarkdownChars || 4000}
-                    placeholder="Racconta cosa si fa, che atmosfera c’è, gli eventi, le funzioni principali…"
+                    placeholder="Racconta cosa si fa, com’è l’atmosfera, gli eventi, le funzioni principali…"
                     className={cn(INPUT, "resize-y leading-relaxed")}
                   />
                 ) : (
@@ -901,7 +907,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                   style={{ background: form.bannerUrl ? undefined : `radial-gradient(120% 140% at 15% 0%, ${form.accent}aa, transparent 55%), #1a110c` }}
                 >
                   {form.bannerUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                     
                     <img src={form.bannerUrl} alt="" className="absolute inset-0 size-full object-cover" />
                   ) : null}
                   <div className="relative flex w-full flex-wrap gap-2 bg-gradient-to-t from-espresso/90 to-transparent p-3">
@@ -1048,7 +1054,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
             <p className="mt-3 text-center text-xs text-crema/40">
               Lo staff controlla ogni scheda prima di pubblicarla.{" "}
               <SmartLink href={page("/vetrina/linee-guida-recensioni/")} className="text-caramel underline-offset-2 hover:underline">
-                Linee guida
+                Linee Guida
               </SmartLink>
               {draft.restored ? " · bozza ripresa" : ""}
             </p>
@@ -1106,19 +1112,6 @@ function CheckBadge({ c }: { c?: Check }) {
     <span className={cn("inline-flex items-center gap-1 normal-case tracking-normal", c.state === "ok" ? "text-[#a7d8b0]" : "text-ember")}>
       {c.state === "ok" ? <CircleCheck className="size-3.5" /> : <CircleX className="size-3.5" />} {c.label || (c.state === "ok" ? "ok" : "non valido")}
     </span>
-  );
-}
-
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn("rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors", active ? "bg-ember/20 text-ember ring-1 ring-ember/40" : "bg-espresso/60 text-crema/55 ring-1 ring-sand/12 hover:text-crema")}
-    >
-      {children}
-    </button>
   );
 }
 

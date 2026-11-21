@@ -19,13 +19,11 @@ import {
   Megaphone,
   MousePointerClick,
   Pencil,
-  Pin,
   Plus,
   RotateCcw,
   Search,
   Server,
   SlidersHorizontal,
-  Ticket,
   Upload,
   UserPlus,
   Users,
@@ -150,7 +148,6 @@ import {
   isModerationModuleTab,
   isPartnershipModuleTab,
   isBachecaModuleTab,
-  isLivelliModuleTab,
   normalizeLivelliModuleTab,
   LIVELLI_MODULE_TABS,
   VOCALE_MODULE_TABS,
@@ -164,14 +161,11 @@ import {
 } from "./guildSections";
 import {
   DashToast,
-  Field,
   MultiCheck,
   Panel,
   PremiumBadge,
   PremiumLock,
-  SettingRow,
   StateCard,
-  Subnav,
   StatTile,
   Toggle,
   dashPrimaryBtn,
@@ -325,14 +319,14 @@ const SECTION_LEAD: Record<Section, string> = {
   benvenuto: "Annunci automatici: ingresso, uscita, boost, clan tag, status, inviti e ruoli custom.",
   risposte: "Il bot risponde da solo quando qualcuno scrive certe parole.",
   contatori: "Canali vocali che mostrano membri, boost e altri numeri, aggiornati da soli.",
-  bump: "Bump di Disboard e Discadia: ringraziamenti, ricompense e promemoria quando si può ribumpare.",
-  voti: "Voti su Top.gg e Discadia: webhook, ringraziamenti, ruolo e (sul principale) promemoria in DM.",
+  bump: "Bump di Disboard e Discadia: ringraziamenti, ricompense e promemoria quando si può rifare.",
+  voti: "Voti su Top.gg e Discadia: collegamento, ringraziamenti, ruolo e, sul server principale, promemoria in privato.",
   giveaway: "Crea giveaway, guarda chi partecipa ed estrai i vincitori.",
   sondaggi: "Sondaggi di Discord pubblicati dalla dashboard, con i risultati.",
-  live: "Avvisi per live, video e post su Twitch, YouTube, Kick, TikTok e Instagram: canali, messaggio e ping.",
+  live: "Avvisi per dirette, video e post su Twitch, YouTube, Kick, TikTok e Instagram: canali, messaggio e menzione.",
   compleanni: "Auguri nel giorno del compleanno: canale, messaggio, ruolo del giorno e privato.",
-  livelli: "EXP da chat e vocale, minigiochi, moltiplicatori, ruoli premio e messaggi di level-up.",
-  backup: "Snapshot Discord del server: crea, elenca, elimina e ripristina (come +backup).",
+  livelli: "EXP da chat e vocale, minigiochi, moltiplicatori, ruoli premio e messaggi quando si sale di livello.",
+  backup: "Copie del server da creare, consultare, eliminare e ripristinare (come +backup).",
   vocale: "Musica e TTS: volume, 24/7 radio/chill, leave automatico, ruoli DJ e canali ammessi.",
 };
 
@@ -355,7 +349,7 @@ const SECTION_HERO: Partial<Record<string, { text: string; accent: string }>> = 
   contatori: { text: "Canali che mostrano numeri sempre aggiornati: membri, boost, online.", accent: "#e8b04b" },
   giveaway: { text: "Estrazioni a premi con requisiti, durata e vincitori scelti dal bot.", accent: "#f08fb0" },
   sondaggi: { text: "Domande al server con voto a pulsanti e risultati in diretta.", accent: "#6f9ce8" },
-  live: { text: "Notifiche social multi-piattaforma: live, video e post con messaggio, canale e ping.", accent: "#9146ff" },
+  live: { text: "Avvisi da più social: dirette, video e post, con messaggio, canale e menzione.", accent: "#9146ff" },
   compleanni: { text: "Gli auguri a chi compie gli anni, con il ruolo del giorno.", accent: "#f08fb0" },
   livelli: { text: "Livelli e EXP del server: tassi, minigiochi, moltiplicatori, premi e annunci di livello.", accent: "#826bc2" },
   backup: { text: "Copia e ripristina la struttura Discord del server: ruoli, canali, messaggi e impostazioni.", accent: "#c4a574" },
@@ -631,10 +625,10 @@ function GuildHero({ guild, premiumActive, prefix }: { guild: GuildOverview; pre
     <section className="overflow-hidden rounded-2xl bg-roast/80 ring-1 ring-sand/10">
       <div className={cn("relative overflow-hidden bg-mocha", guild.bannerUrl ? "h-32 sm:h-40" : "h-24 sm:h-28")} aria-hidden>
         {guild.bannerUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img src={guild.bannerUrl} alt="" className="size-full object-cover" />
         ) : guild.iconUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img src={guild.iconUrl} alt="" className="size-full scale-125 object-cover opacity-40 blur-2xl" />
         ) : (
           <span className="absolute inset-0 bg-gradient-to-br from-caramel/25 via-mocha to-roast" />
@@ -643,7 +637,7 @@ function GuildHero({ guild, premiumActive, prefix }: { guild: GuildOverview; pre
       </div>
       <div className="relative -mt-12 flex flex-wrap items-end gap-4 px-4 sm:px-6">
         {guild.iconUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img src={guild.iconUrl} alt="" width={80} height={80} className="size-20 shrink-0 rounded-2xl object-cover ring-4 ring-roast" />
         ) : (
           <span className="flex size-20 shrink-0 items-center justify-center rounded-2xl bg-mocha font-display text-3xl font-semibold text-crema/70 ring-4 ring-roast">
@@ -894,7 +888,7 @@ function BotIdentityCard({
           className={cn("group relative block h-36 w-full overflow-hidden sm:h-44", canCustomize ? "cursor-pointer" : "cursor-default")}
         >
           {banner ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img src={banner} alt="" className="absolute inset-0 size-full object-cover" />
           ) : (
             <span className="absolute inset-0 bg-gradient-to-br from-mocha via-roast to-caramel/45" aria-hidden />
@@ -915,7 +909,7 @@ function BotIdentityCard({
             )}
           >
             {avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img src={avatar} alt="" width={112} height={112} className="size-28 rounded-full object-cover" />
             ) : (
               <span className="flex size-28 items-center justify-center rounded-full bg-mocha text-crema/60">
@@ -1493,7 +1487,7 @@ function SettingsSection({
               {rolesLocked ? (
                 <p className="mt-1 text-xs text-crema/50">Bloccato su questo server.</p>
               ) : (
-                <p className="mt-1 text-xs text-crema/50">Chi ha uno di questi ruoli può usare la dashboard. All'inizio sono spuntati quelli con Amministratore.</p>
+                <p className="mt-1 text-xs text-crema/50">Chi ha uno di questi ruoli può usare la dashboard. All&apos;inizio sono spuntati quelli con Amministratore.</p>
               )}
             </div>
             <div>

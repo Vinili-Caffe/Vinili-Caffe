@@ -53,9 +53,9 @@ const track = (id: GuildSectionId, text: string, tags?: string[]): Track => ({ i
 
 /** Lato A: tenere in ordine il server. */
 const SIDE_A: Track[] = [
-  track("tickets", "Ogni richiesta ha il suo posto: pannelli, form, team dedicati e risposte pronte, con archivio e transcript.", labels(TICKET_MODULE_TABS).filter((l) => l !== "Panoramica")),
-  track("moderation", "Casi, punizioni automatiche e ricorsi, con il log del server sempre a portata di mano.", labels(MODERATION_MODULE_TABS).filter((l) => l !== "Panoramica")),
-  track("partnership", "Partner manager, filtri, blacklist e cronologia: le partnership girano da sole. E puoi importare da altri bot.", labels(PARTNERSHIP_MODULE_TABS)),
+  track("tickets", "Ogni richiesta finisce nel posto giusto: pannelli, moduli con domande, gruppi dello staff e risposte pronte, con l’archivio delle conversazioni.", labels(TICKET_MODULE_TABS).filter((l) => l !== "Panoramica")),
+  track("moderation", "Casi, punizioni automatiche e ricorsi, con il registro di quello che succede nel server sempre sott’occhio.", labels(MODERATION_MODULE_TABS).filter((l) => l !== "Panoramica")),
+  track("partnership", "Partner manager, filtri, server bloccati e cronologia: le partnership vanno avanti quasi da sole, e puoi portarti dietro lo storico di altri bot.", labels(PARTNERSHIP_MODULE_TABS)),
   track("risposte", "Il bot risponde al posto tuo alle domande che arrivano sempre uguali."),
   track("ruoli", "Ruoli assegnati in automatico, senza rincorrere nessuno."),
   { id: "commands", label: "Comandi", icon: Terminal, text: "Accendi, spegni e regola ogni comando, categoria per categoria." },
@@ -64,7 +64,7 @@ const SIDE_A: Track[] = [
 
 /** Lato B: farlo vivere. */
 const SIDE_B: Track[] = [
-  track("benvenuto", "Benvenuti, addii, boost e traguardi annunciati con embed curati.", labels(ANNUNCI_MODULE_TABS)),
+  track("benvenuto", "Benvenuti, saluti, boost e traguardi annunciati con messaggi fatti come vuoi tu.", labels(ANNUNCI_MODULE_TABS)),
   track("live", "Avvisi appena parte una live o esce un contenuto nuovo.", labels(LIVE_MODULE_TABS)),
   track("compleanni", "Auguri il giorno giusto, a tutto il server o solo a chi vuoi."),
   track("giveaway", "Premi, durata e vincitori estratti dal bot."),
@@ -72,7 +72,7 @@ const SIDE_B: Track[] = [
   track("voti", "Chi vota il server si prende il suo grazie."),
   track("bacheca", "I messaggi migliori finiscono in bacheca, scelti dalla community."),
   track("contatori", "Canali che contano membri e numeri del server da soli."),
-  track("bump", "Ti ricorda quando è ora di spingere il server."),
+  track("bump", "Ti ricorda quando è il momento di fare il bump."),
   track("comandipers", "I comandi che mancano, li crei tu."),
   track("messaggi", "Messaggi ed embed pronti da mandare quando serve."),
 ];
@@ -95,7 +95,7 @@ const EXTRAS: { icon: LucideIcon; label: string }[] = [
 function BotAvatar({ className }: { className?: string }) {
   const [src, setSrc] = useState(BOT_AVATAR);
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- avatar del bot servito dall'API
+     
     <img src={src} alt="" onError={() => setSrc(LOGO)} className={cn("rounded-full object-cover", className)} />
   );
 }
@@ -303,7 +303,7 @@ export function BotShowcase() {
             <span className="bg-gradient-to-r from-caramel via-ember to-caramel bg-clip-text text-transparent">a tutto volume.</span>
           </motion.h1>
           <motion.p initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12, duration: 0.6 }} className="mt-5 max-w-xl text-base leading-relaxed text-crema/65 sm:text-lg">
-            Ticket, moderazione, partnership, annunci, live, compleanni, giveaway e molto altro. Un solo bot, tutto configurabile da qui, senza ricordarti un comando.
+            Ticket, moderazione, partnership, annunci, dirette, compleanni, giveaway e parecchio altro. Un solo bot che imposti da qui, senza dover ricordare un comando.
           </motion.p>
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.6 }} className="mt-8 flex flex-wrap gap-2.5">
             {ready && !user ? (
@@ -337,7 +337,7 @@ export function BotShowcase() {
       <section className="mt-10">
         <Reveal>
           <h2 className="font-display text-3xl font-semibold text-crema sm:text-4xl">Cosa suona Vinili</h2>
-          <p className="mt-2 max-w-2xl text-crema/55">Due lati, un disco: scegli una traccia per vedere cosa fa. Ogni modulo si accende e si spegne quando vuoi.</p>
+          <p className="mt-2 max-w-2xl text-crema/55">Scegli una traccia per vedere cosa fa. Ogni modulo lo accendi o lo spegni quando vuoi.</p>
         </Reveal>
         <Reveal delay={0.08} className="mt-6">
           <Tracklist />

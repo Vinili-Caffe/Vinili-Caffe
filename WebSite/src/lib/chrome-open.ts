@@ -28,7 +28,8 @@ export function setChromeOpen(id: string, open: boolean) {
   }
 }
 
-export function useChromeOpenListener(onChange: (open: boolean) => void) {
+/** Subscribe to chrome-open changes; returns unsubscribe. Not a React Hook. */
+export function listenChromeOpen(onChange: (open: boolean) => void) {
   if (typeof window === "undefined") return () => {};
   const sync = () => onChange(document.documentElement.hasAttribute(ATTR));
   sync();

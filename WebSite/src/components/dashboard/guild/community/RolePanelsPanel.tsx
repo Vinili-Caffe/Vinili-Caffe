@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, ListChecks, MousePointerClick, Plus, Send, ShieldCheck, Smile, SmilePlus, Tags, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { NumberField } from "@/components/ui/NumberField";

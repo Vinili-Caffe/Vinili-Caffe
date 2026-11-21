@@ -154,7 +154,7 @@ export function PersonalizzaBoard() {
             <p className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Personalizzazione</p>
             <h2 className="mt-2 font-display text-3xl font-semibold">Accedi per continuare</h2>
             <p className="mt-3 text-sm leading-relaxed text-crema/60">
-              Collega Discord per regolare colori, wallpaper della rank card, ruoli custom e reazioni.
+              Entra con Discord per cambiare colori, sfondo della rank card, ruoli personalizzati e reazioni.
             </p>
             <ul className="mx-auto mt-5 flex max-w-xs flex-wrap justify-center gap-2 text-xs text-crema/55">
               <li className="rounded-full bg-crema/6 px-3 py-1 ring-1 ring-sand/15">Rank card</li>
@@ -224,7 +224,7 @@ export function PersonalizzaBoard() {
 
       {outsider ? (
         <div className="rounded-2xl bg-caramel/10 px-4 py-3 text-sm text-crema/80 ring-1 ring-caramel/25">
-          Non sei nel server principale: qui puoi impostare il compleanno, che vale in tutti i server dove c&apos;è il bot, e la privacy di ognuno dei tuoi server. Rank card, ruoli e reazioni sono del server principale.
+          Non sei nel server di Vinili & Caffè, ma da qui puoi comunque impostare il compleanno, che vale in tutti i server dove c&apos;è il bot, e la privacy per ognuno dei tuoi server. Rank card, ruoli e reazioni invece funzionano solo sul server principale.
         </div>
       ) : error ? (
         <div className="rounded-2xl bg-caramel/10 px-4 py-3 text-sm text-crema/80 ring-1 ring-caramel/25">{error}</div>

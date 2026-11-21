@@ -29,7 +29,7 @@ export const WEBSITE = {
 export const EVENTS = {
   title: "Eventi",
   badge: "Novità",
-  text: "Un messaggio promozionale studiato su misura, letto durante le nostre attività con la community.",
+  text: "Un messaggio promozionale scritto insieme a te e letto durante le attività in vocale con la community.",
   price: 2.5,
 };
 

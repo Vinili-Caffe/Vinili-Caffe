@@ -2,12 +2,22 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { Eye, MousePointerClick, ThumbsUp } from "lucide-react";
-import { loadListingAnalytics, type ListingAnalytics } from "@/lib/boards";
+import { Eye, Flame, MousePointerClick, ThumbsUp } from "lucide-react";
+import { loadListingAnalytics, saveListingGoals, type ListingAnalytics, type ListingGoals } from "@/lib/boards";
 import { cn } from "@/lib/cn";
+import { page } from "@/lib/site";
+import { showToast } from "@/components/ui";
+import { SmartLink } from "@/components/SmartLink";
 
 const PERIODS = [7, 14, 30, 90] as const;
 type Metric = "views" | "engagements" | "votes";
+const GOAL_PRESETS: { label: string; goals: Partial<ListingGoals> }[] = [
+  { label: "Primi 50 voti", goals: { votes: 50 } },
+  { label: "100 visite", goals: { views: 100 } },
+  { label: "200 interazioni", goals: { engagements: 200 } },
+  { label: "Starter pack", goals: { views: 100, engagements: 50, votes: 50 } },
+];
+
 const METRICS: { id: Metric; label: string; icon: typeof Eye; hint: string }[] = [
   { id: "views", label: "Visite", icon: Eye, hint: "persone diverse che hanno aperto la pagina, al giorno" },
   { id: "engagements", label: "Interazioni", icon: MousePointerClick, hint: "click su Entra, link, voto e condivisione" },
@@ -42,6 +52,8 @@ export function AnalyticsTab({ listingId, token }: { listingId: string; token: s
   const [data, setData] = useState<ListingAnalytics | null>(null);
   const [err, setErr] = useState("");
   const [metric, setMetric] = useState<Metric>("views");
+  const [goals, setGoals] = useState<ListingGoals>({ views: 0, engagements: 0, votes: 0 });
+  const [goalBusy, setGoalBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -50,11 +62,28 @@ export function AnalyticsTab({ listingId, token }: { listingId: string; token: s
       if (!alive) return;
       if (!r.ok) return setErr(r.message);
       setData(r.data);
+      if (r.data.goals) setGoals(r.data.goals);
     });
     return () => {
       alive = false;
     };
   }, [token, listingId, days]);
+
+  async function onSaveGoals(next?: ListingGoals) {
+    const payload = next ?? goals;
+    setGoalBusy(true);
+    const r = await saveListingGoals(token, listingId, payload);
+    setGoalBusy(false);
+    showToast(r.ok ? r.data.message || "Obiettivi salvati." : r.message, !r.ok);
+    if (r.ok && r.data.goals) setGoals(r.data.goals);
+    else if (r.ok) setGoals(payload);
+  }
+
+  function applyPreset(patch: Partial<ListingGoals>) {
+    const next = { ...goals, ...patch };
+    setGoals(next);
+    void onSaveGoals(next);
+  }
 
   return (
     <div className="space-y-10">
@@ -99,6 +128,7 @@ export function AnalyticsTab({ listingId, token }: { listingId: string; token: s
                   <Icon className="size-3.5" /> {m.label}
                 </span>
                 <span className="mt-2 block font-display text-3xl font-semibold tabular-nums sm:text-4xl">{data ? fmt(data.totals[m.id]) : "—"}</span>
+                {data?.delta ? <DeltaBadge value={data.delta[m.id]} prev={data.previousTotals?.[m.id] || 0} /> : null}
               </button>
             );
           })}
@@ -161,8 +191,104 @@ export function AnalyticsTab({ listingId, token }: { listingId: string; token: s
         </div>
       </div>
 
-      <p className="text-xs text-crema/40">Contiamo solo numeri per giorno: niente indirizzi IP né nomi. Le tue visite alla scheda non contano.</p>
+      {/* obiettivi */}
+      <section className="rounded-3xl bg-roast/80 p-6 ring-1 ring-sand/12 sm:p-7">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h3 className="font-display text-3xl font-semibold">Obiettivi del periodo</h3>
+            <p className="mt-1 text-sm text-crema/50">Traguardi personali per questi {days} giorni. Zero = nascosto.</p>
+          </div>
+          <button
+            type="button"
+            disabled={goalBusy}
+            onClick={() => void onSaveGoals()}
+            className="rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2 text-sm font-bold text-ink disabled:opacity-50"
+          >
+            {goalBusy ? "Salvo…" : "Salva obiettivi"}
+          </button>
+        </div>
+        <div className="mb-5 flex flex-wrap gap-2">
+          <span className="w-full text-xs font-semibold uppercase tracking-[0.16em] text-crema/45">Preset rapidi</span>
+          {GOAL_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              disabled={goalBusy}
+              onClick={() => applyPreset(p.goals)}
+              className="rounded-full bg-crema/8 px-3.5 py-1.5 text-sm font-semibold text-crema/75 ring-1 ring-sand/15 transition hover:bg-crema/12 hover:text-crema disabled:opacity-50"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="mb-6 flex flex-wrap items-start gap-3 rounded-2xl bg-caramel/10 p-4 ring-1 ring-caramel/25">
+          <Flame className="mt-0.5 size-5 shrink-0 text-ember" />
+          <p className="min-w-0 flex-1 text-sm text-crema/75">
+            <span className="font-semibold text-crema">Streak 7:</span> attiva i promemoria in{" "}
+            <SmartLink href={page(`/vetrina/modifica/?id=${encodeURIComponent(listingId)}&tab=voti`)} className="font-semibold text-ember hover:underline">
+              Voti
+            </SmartLink>{" "}
+            e{" "}
+            <SmartLink href={page(`/vetrina/modifica/?id=${encodeURIComponent(listingId)}&tab=bump`)} className="font-semibold text-ember hover:underline">
+              Bump
+            </SmartLink>{" "}
+            per non perdere il ritmo settimanale.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          {METRICS.map((m) => {
+            const target = goals[m.id] || 0;
+            const cur = data?.totals[m.id] || 0;
+            const pct = target > 0 ? Math.min(100, Math.round((cur / target) * 100)) : 0;
+            return (
+              <div key={m.id} className="rounded-2xl bg-espresso/50 p-4 ring-1 ring-sand/10">
+                <label className="text-xs font-semibold uppercase tracking-[0.16em] text-crema/45">{m.label}</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={1000000}
+                  value={target || ""}
+                  placeholder="—"
+                  onChange={(e) => setGoals((g) => ({ ...g, [m.id]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
+                  className="mt-2 w-full rounded-xl bg-roast px-3 py-2 font-display text-2xl tabular-nums text-crema outline-none ring-1 ring-sand/15 focus:ring-ember/40"
+                />
+                {target > 0 ? (
+                  <div className="mt-3">
+                    <div className="mb-1 flex justify-between text-xs text-crema/50">
+                      <span>
+                        {fmt(cur)} / {fmt(target)}
+                      </span>
+                      <span className="font-semibold text-crema/80">{pct}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-crema/10">
+                      <motion.div className="h-full rounded-full bg-gradient-to-r from-caramel to-ember" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-crema/35">Nessun obiettivo impostato</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <p className="text-xs text-crema/40">Contiamo solo numeri per giorno: niente indirizzi IP né nomi. Le tue visite alla scheda non contano. Il confronto è con i {days} giorni precedenti.</p>
     </div>
+  );
+}
+
+function DeltaBadge({ value, prev }: { value: number; prev: number }) {
+  if (!value && !prev) return <span className="mt-1 block text-[0.65rem] text-crema/30">pari al periodo prima</span>;
+  const up = value > 0;
+  const flat = value === 0;
+  const pct = prev > 0 ? Math.round((Math.abs(value) / prev) * 100) : null;
+  return (
+    <span className={cn("mt-1 block text-[0.7rem] font-semibold tabular-nums", flat ? "text-crema/40" : up ? "text-[#8fb8ad]" : "text-ember/90")}>
+      {flat ? "≈" : up ? "▲" : "▼"} {flat ? "0" : fmt(Math.abs(value))}
+      {pct != null ? ` (${pct}%)` : ""}
+      <span className="font-normal text-crema/35"> vs prima</span>
+    </span>
   );
 }
 
@@ -332,7 +458,7 @@ function Countries({ data }: { data: ListingAnalytics["countries"] }) {
           const flag = `https://flagcdn.com/w40/${c.code.toLowerCase()}.png`;
           return (
             <li key={c.code} className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              { }
               <img src={flag} alt="" width={22} height={16} className="h-4 w-[22px] rounded-[3px] object-cover shadow-[0_0_0_1px_rgba(0,0,0,0.25)]" />
               <span className="min-w-0 flex-1 truncate text-crema/85">{COUNTRY_NAME?.of(c.code) || c.code}</span>
               <span className="font-semibold tabular-nums text-crema">{fmt(c.count)}</span>

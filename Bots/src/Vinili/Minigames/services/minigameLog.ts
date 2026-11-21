@@ -55,11 +55,14 @@ function warnMinigame(err?) {
     if (msg.includes("treasure_hunt_react_failed:decoy")) return;
   }
   const status = err?.response?.status;
-  const url = err?.response?.config?.url || err?.config?.url;
+  const url = String(err?.response?.config?.url || err?.config?.url || "").trim();
   const is429 = status === 429 || (typeof msg === "string" && msg.includes("429"));
   const is403 = status === 403 || (typeof msg === "string" && msg.includes("403"));
-  if (is403 && typeof url === "string" && /wikipedia\.org\/api\/rest_v1\/page\/summary/i.test(url)) return;
-  if (is429 && typeof url === "string" && /thesportsdb\.com/i.test(url)) {
+  const is503 = status === 503 || (typeof msg === "string" && /status code 503/i.test(msg));
+  const is404 = status === 404 || (typeof msg === "string" && /status code 404/i.test(msg));
+  /* Wikipedia summary: 403/404 tipici mentre si provano titoli/lingue per le immagini */
+  if ((is403 || is404) && /wikipedia\.org\/api\/rest_v1\/page\/summary/i.test(url)) return;
+  if (is429 && /thesportsdb\.com/i.test(url)) {
     noteSportsDb429(err);
     return;
   }
@@ -68,14 +71,12 @@ function warnMinigame(err?) {
   if (is429) last429LogAt = now;
   if (is403 && now - last403LogAt < MINIGAME_403_THROTTLE_MS) return;
   if (is403) last403LogAt = now;
-  const is503 = status === 503 || (typeof msg === "string" && /status code 503/i.test(msg));
-  const is404 = status === 404 || (typeof msg === "string" && /status code 404/i.test(msg));
   let host = null;
-  try { host = url ? new URL(String(url)).host : null; } catch { host = null; }
+  try { host = url ? new URL(url).host : null; } catch { host = null; }
   /* MusicBrainz/Deezer/iTunes: 503/404 tipici (rate limit o brano assente) → un warn ogni tanto */
   const flakyHost =
     typeof host === "string" &&
-    /musicbrainz\.org|deezer\.com|itunes\.apple\.com|apple\.com/i.test(host);
+    /musicbrainz\.org|deezer\.com|itunes\.apple\.com|apple\.com|tvmaze\.com/i.test(host);
   if (flakyHost && (is503 || is404 || is429)) {
     if (now - lastFlakyLogAt < MINIGAME_FLAKY_THROTTLE_MS) return;
     lastFlakyLogAt = now;
@@ -85,10 +86,12 @@ function warnMinigame(err?) {
     logMsg = `429 rate limit${host ? ` (${host})` : ""}`;
   } else if (is503) {
     logMsg = `503 service unavailable${host ? ` (${host})` : ""}`;
-  } else if (is404 && flakyHost) {
+  } else if (is404) {
     logMsg = `404 not found${host ? ` (${host})` : ""}`;
   }
-  if (is403 && url) logMsg += ` URL: ${typeof url === "string" ? url.replace(/\/api\/v1\/json\/[^/]+/, "/api/v1/json/***") : url}`;
+  if ((is403 || is404) && url) {
+    logMsg += ` URL: ${url.replace(/\/api\/v1\/json\/[^/]+/, "/api/v1/json/***")}`;
+  }
   global.logger?.warn?.(`[minigameService] ${logMsg}`);
 }
 

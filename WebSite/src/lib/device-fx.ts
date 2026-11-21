@@ -653,7 +653,7 @@ export function sampleFps(durationMs = 1000): Promise<number> {
 export async function readBattery(): Promise<BatterySnap> {
   try {
     const nav = navigator as Navigator & {
-      getBattery?: () => Promise<{ level: number; charging: boolean; addEventListener: Function }>;
+      getBattery?: () => Promise<{ level: number; charging: boolean; addEventListener: (type: string, listener: () => void) => void }>;
     };
     if (typeof nav.getBattery !== "function") return { level: null, charging: null };
     const b = await nav.getBattery();

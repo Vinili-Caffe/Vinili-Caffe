@@ -151,7 +151,7 @@ export function EventoFactionRanksPanel({
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 {m.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img
                     src={m.avatarUrl}
                     alt=""

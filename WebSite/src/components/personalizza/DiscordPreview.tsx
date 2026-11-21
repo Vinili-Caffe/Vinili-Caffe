@@ -20,7 +20,7 @@ export function parseRoleIcon(value: string): { kind: "none" } | { kind: "img"; 
 export function RoleIconGlyph({ value, className }: { value: string; className?: string }) {
   const icon = parseRoleIcon(value);
   if (icon.kind === "img")
-    // eslint-disable-next-line @next/next/no-img-element
+     
     return <img src={icon.src} alt={`:${icon.name}:`} className={cn("size-5 object-contain", className)} />;
   if (icon.kind === "text") return <span className={cn("text-lg leading-none", className)}>{icon.text}</span>;
   return null;
@@ -47,7 +47,7 @@ export function RolePreview({ name, mode, color, color2, icon }: { name: string;
       </p>
       <div className="flex gap-3 px-4 pb-3 pt-3.5">
         {user ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img src={avatarUrl(user, 80)} alt="" className="size-10 shrink-0 rounded-full" />
         ) : (
           <span className="size-10 shrink-0 rounded-full bg-[#5865f2]" />
@@ -99,7 +99,7 @@ export function VoicePreview({ name, emoji, members }: { name: string; emoji: st
           {people.map((m) => (
             <li key={m.id} className="flex items-center gap-2 py-0.5 text-sm">
               {m.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img src={m.avatarUrl} alt="" className="size-6 rounded-full" />
               ) : (
                 <span className="flex size-6 items-center justify-center rounded-full bg-[#5865f2] text-white">

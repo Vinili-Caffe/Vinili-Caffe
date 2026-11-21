@@ -189,7 +189,7 @@ export function ComposerSuggest({
     };
     textarea.addEventListener("keydown", onKey);
     return () => textarea.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open, items, index, textarea]);
 
   const apply = (pick: SuggestPick, tr: Trigger) => {

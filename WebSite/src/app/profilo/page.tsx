@@ -6,7 +6,7 @@ import { MyProfileRedirect } from "@/components/profile/MyProfileRedirect";
 import { SiteShell } from "@/components/SiteShell";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/profilo/", title: "Il mio profilo", description: "Apre il profilo Discord di chi visita il link." }),
+  ...pageSocialMeta({ path: "/profilo/", title: "Il mio profilo", description: "Apre il tuo profilo su Vinili & Caffè." }),
   robots: { index: false },
 };
 
@@ -16,7 +16,7 @@ export default function ProfiloPage() {
       <DiscordComponentEmbed
         path="/profilo/"
         title="Il mio profilo"
-        description="Apre il profilo Discord di chi visita il link."
+        description="Apre il tuo profilo su Vinili & Caffè."
       />
       <Suspense>
         <MyProfileRedirect />

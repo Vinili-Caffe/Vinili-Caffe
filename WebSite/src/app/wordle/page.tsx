@@ -13,7 +13,7 @@ const WordleBoard = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/wordle/", title: "Wordle", description: "Wordle giornaliero Vinili & Caffè — stessa lingua del sito, una parola al giorno." }),
+  ...pageSocialMeta({ path: "/wordle/", title: "Wordle", description: "Il Wordle di Vinili & Caffè: una parola nuova ogni giorno da indovinare in sei tentativi, nella lingua del sito." }),
 };
 
 export default async function WordlePage() {
@@ -23,14 +23,14 @@ export default async function WordlePage() {
       <DiscordComponentEmbed
         path="/wordle/"
         title="Wordle"
-        description="Wordle giornaliero Vinili & Caffè — stessa lingua del sito, una parola al giorno."
+        description="Il Wordle di Vinili & Caffè: una parola nuova ogni giorno da indovinare in sei tentativi, nella lingua del sito."
       />
       <PageHero
         icon={<Coffee />}
         kicker="Minigioco"
         title="Wordle del"
         accent="server"
-        text="Cinque lettere, sei tentativi, una parola al giorno."
+        text="Cinque lettere e sei tentativi per indovinare la parola del giorno. Domani ce n’è un’altra."
       />
       <WordleBoard initial={initial} />
     </SiteShell>

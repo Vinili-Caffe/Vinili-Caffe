@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Plus, TerminalSquare, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MultiSelect } from "@/components/ui/Select";

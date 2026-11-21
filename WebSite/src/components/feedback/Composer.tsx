@@ -192,7 +192,7 @@ export function Composer({
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, MAX_LEN))}
             rows={6}
-            placeholder="Descrivi l’idea o il problema in modo chiaro..."
+            placeholder="Spiega l’idea o il problema con qualche dettaglio…"
             className="mt-2 w-full resize-y rounded-xl bg-white/60 p-4 font-display text-lg leading-snug outline-none ring-1 ring-ink/15 placeholder:text-ink/35 focus:ring-2 focus:ring-[#9a5a24]"
           />
         </label>

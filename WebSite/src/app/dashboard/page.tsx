@@ -9,7 +9,7 @@ const BotShowcase = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/dashboard/", title: "Vinili · Dashboard", description: "Vinili, il bot di Vinili & Caffè: ticket, moderazione, partnership, annunci, live e molto altro, tutto configurabile dal sito." }),
+  ...pageSocialMeta({ path: "/dashboard/", title: "Vinili · Dashboard", description: "Vinili, il bot di Vinili & Caffè: ticket, moderazione, partnership, annunci, dirette e molto altro, da impostare comodamente dal sito." }),
   robots: { index: false },
 };
 
@@ -19,7 +19,7 @@ export default function DashboardPage() {
       <DiscordComponentEmbed
         path="/dashboard/"
         title="Vinili"
-        description="Vinili, il bot di Vinili & Caffè: ticket, moderazione, partnership, annunci, live e molto altro, tutto configurabile dal sito."
+        description="Vinili, il bot di Vinili & Caffè: ticket, moderazione, partnership, annunci, dirette e molto altro, da impostare comodamente dal sito."
       />
       <BotShowcase />
     </>

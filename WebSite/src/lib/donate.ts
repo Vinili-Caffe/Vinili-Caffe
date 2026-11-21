@@ -40,10 +40,10 @@ export const TIERS: Tier[] = [
     perks: [
       { text: "Tutti i perks del **Donator**" },
       { text: "Aggiungere reazioni ai messaggi in chat" },
-      { text: "Cooldown dei comandi del bot da 30 a **15 secondi**", isNew: true },
+      { text: "Attesa fra un comando e l’altro da 30 a **15 secondi**", isNew: true },
       { text: `Una vocale privata per te e i tuoi amici tramite ${P}`, isNew: true },
       { text: `Reazioni automatiche quando ti @menzionano (max. 3) tramite ${P}`, isNew: true },
-      { text: `Un ruolo personalizzato con colore **GRADIENTE** tramite ${P}`, isNew: true },
+      { text: `Un ruolo personalizzato con colore **sfumato** tramite ${P}`, isNew: true },
       { text: "**X5** EXP boost" },
     ],
   },
@@ -57,9 +57,9 @@ export const TIERS: Tier[] = [
     size: 1,
     perks: [
       { text: "Tutti i perks del **VIP**" },
-      { text: "Cooldown dei comandi del bot da 30 a **1 secondo**", isNew: true },
-      { text: "Sfondo personalizzato per la tua card di +rank, direttamente dal sito", isNew: true },
-      { text: `Un secondo ruolo personalizzato con colore **GRADIENTE** tramite ${P}`, isNew: true },
+      { text: "Attesa fra un comando e l’altro da 30 a **1 secondo**", isNew: true },
+      { text: "Uno sfondo a tua scelta per la card di +rank, da cambiare quando vuoi dal sito", isNew: true },
+      { text: `Un secondo ruolo personalizzato con colore **sfumato** tramite ${P}`, isNew: true },
       { text: `Reazioni automatiche quando ti @menzionano (max. 5) tramite ${P}`, isNew: true },
       { text: "**X6** EXP boost", isNew: true },
     ],
@@ -67,7 +67,7 @@ export const TIERS: Tier[] = [
 ];
 
 export const WHERE = [
-  { title: "La VPS", text: "Il server che tiene acceso il sito e i bot, giorno e notte." },
-  { title: "Bot & database", text: "Sviluppo, hosting e backup di tutto quello che ricordano i bot." },
-  { title: "Eventi & giveaway", text: "Premi, Nitro e le serate che tengono vivo il server." },
+  { title: "La VPS", text: "Il computer che tiene accesi il sito e i bot, giorno e notte." },
+  { title: "Bot & database", text: "Il lavoro sui bot e le copie di sicurezza di tutto quello che ricordano." },
+  { title: "Eventi & giveaway", text: "I premi degli eventi, i giveaway e le serate della community." },
 ];

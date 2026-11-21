@@ -13,7 +13,7 @@ const CandidatureBoard = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/candidature/", title: "Candidature", description: "Candidati allo staff di Vinili & Caffè come Helper o Partner Manager." }),
+  ...pageSocialMeta({ path: "/candidature/", title: "Candidature", description: "Candidati allo staff di Vinili & Caffè come Helper o Partner Manager: cosa fa ciascun ruolo e come si invia la domanda." }),
 };
 
 export default function CandidaturePage() {
@@ -22,14 +22,14 @@ export default function CandidaturePage() {
       <DiscordComponentEmbed
         path="/candidature/"
         title="Candidature"
-        description="Candidati allo staff di Vinili & Caffè come Helper o Partner Manager."
+        description="Candidati allo staff di Vinili & Caffè come Helper o Partner Manager: cosa fa ciascun ruolo e come si invia la domanda."
       />
       <PageHero
         icon={<Coffee />}
         kicker="Candidature"
         title="Candidatura"
         accent="staff"
-        text="Su Vinili & Caffè puoi candidarti a due ruoli: Helper e Partner Manager."
+        text="Cerchiamo due figure. Gli Helper aiutano i membri e tengono d'occhio le chat; i Partner Manager si occupano delle partnership con altri server. Scegli quella che ti somiglia di più e compila il modulo."
       />
       <CandidatureBoard />
     </SiteShell>

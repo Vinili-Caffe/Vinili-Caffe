@@ -136,7 +136,7 @@ export function GuildStaffView({
   useEffect(() => {
     if (!hideNavigator || !onBadges || owns) return;
     onBadges(staff && staff.selectedBadges.length ? <BadgeChips badges={staff.selectedBadges.map((b) => ({ id: b.id, title: b.title, node: <EmojiText text={b.emoji} emojiClassName="size-4" /> }))} /> : null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cambia solo coi badge
+     
   }, [badgeIds, hideNavigator, owns]);
 
   const wrap = embedded ? "space-y-6" : "mx-auto max-w-5xl space-y-6 px-4 pb-20 sm:px-6";
@@ -148,7 +148,7 @@ export function GuildStaffView({
             id: b.id,
             title: b.title,
             node: b.emoji.url ? (
-              // eslint-disable-next-line @next/next/no-img-element -- emoji del badge
+               
               <img src={b.emoji.url} alt="" className="size-4 object-contain" />
             ) : (
               <span>{b.emoji.text}</span>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchEventoStatus,
-  useEventoItem,
+  activateEventoItem,
   type EventoUtilityItemId,
   type EventoWallet,
 } from "@/lib/evento-api";
@@ -84,10 +84,10 @@ export function EventoItemsPanel() {
       .filter((r) => r.qty > 0 || r.buff?.active);
   }, [wallet, catalog, labels]);
 
-  async function useOne(itemId: string) {
+  async function activateOne(itemId: string) {
     if (!token || busy) return;
     setBusy(itemId);
-    const out = await useEventoItem(token, itemId);
+    const out = await activateEventoItem(token, itemId);
     setBusy(null);
     if (!out?.ok) {
       showToast(out?.message || "Uso fallito.", true);
@@ -149,7 +149,7 @@ export function EventoItemsPanel() {
                   <button
                     type="button"
                     disabled={r.qty < 1 || Boolean(busy) || buffOn}
-                    onClick={() => void useOne(r.id)}
+                    onClick={() => void activateOne(r.id)}
                     className="mt-3 w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2 text-sm font-semibold text-ink disabled:opacity-40"
                   >
                     {loading ? "…" : buffOn ? "Già attivo" : "Usa"}

@@ -45,7 +45,7 @@ export function DateField({
   value,
   onChange,
   min,
-  required,
+  required = false,
   disabled,
   className,
   "aria-label": ariaLabel,
@@ -126,6 +126,16 @@ export function DateField({
 
   return (
     <div ref={box} className="relative min-w-0">
+      <input
+        type="text"
+        value={value}
+        readOnly
+        tabIndex={-1}
+        aria-hidden
+        required={required || undefined}
+        className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
+        onChange={() => undefined}
+      />
       <button
         ref={trigger}
         type="button"
@@ -135,7 +145,6 @@ export function DateField({
         aria-haspopup="dialog"
         aria-controls={`${uid}-cal`}
         aria-label={ariaLabel}
-        aria-required={required || undefined}
         onClick={() => !disabled && setOpen((o) => !o)}
         className={cn(
           "inline-flex w-full items-center justify-between gap-2 rounded-xl bg-espresso/70 px-3 py-2 text-left text-sm text-crema outline-none ring-1 ring-sand/15 transition",

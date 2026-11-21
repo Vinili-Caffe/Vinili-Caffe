@@ -95,7 +95,7 @@ export function EventoHubStatus() {
           <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
             {user && w ? (
               <div className="flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                { }
                 <img
                   src={avatarUrl(user, 96)}
                   alt=""
@@ -115,7 +115,7 @@ export function EventoHubStatus() {
                         )}
                       >
                         {factionIcon ? (
-                          // eslint-disable-next-line @next/next/no-img-element
+                           
                           <img
                             src={factionIcon}
                             alt=""

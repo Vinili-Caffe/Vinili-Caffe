@@ -504,7 +504,7 @@ export function CustomChannel({
           {members.map((m) => (
             <li key={m.id} className="flex items-center gap-3 rounded-2xl bg-espresso/50 px-3 py-2 ring-1 ring-sand/10">
               {m.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img src={m.avatarUrl} alt="" className="size-8 rounded-full object-cover" />
               ) : (
                 <span className="flex size-8 items-center justify-center rounded-full bg-crema/10 text-xs">?</span>

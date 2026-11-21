@@ -384,7 +384,7 @@ export function V2Preview({ v2, vars, names, fill }: { v2: MsgV2; vars: Record<s
   if (injectRoundImage) {
     let at = blocks.length;
     while (at > 0 && blocks[at - 1]?.type === "buttons") at -= 1;
-    blocks.splice(at, 0, { type: "media", urls: [previewFallback] } as any);
+    blocks.splice(at, 0, { type: "media", urls: [previewFallback] });
   }
   const body = (
     <div className="flex flex-col gap-2">
@@ -397,7 +397,7 @@ export function V2Preview({ v2, vars, names, fill }: { v2: MsgV2; vars: Record<s
             <div key={i} className="flex items-start gap-3">
               <DiscordContent text={fill(b.content, vars) || "​"} names={names} className="min-w-0 flex-1 whitespace-pre-line text-[16px] leading-[22px]" />
               {thumb ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img src={thumb} alt="" className="size-[85px] shrink-0 rounded-[8px] object-cover" />
               ) : b.accessory === "button" && b.button.url ? (
                 <PreviewLinkButton b={b.button} fill={fill} vars={vars} />
@@ -411,7 +411,7 @@ export function V2Preview({ v2, vars, names, fill }: { v2: MsgV2; vars: Record<s
           return (
             <div key={i} className={cn("grid gap-1 overflow-hidden rounded-[8px]", urls.length === 1 ? "grid-cols-1" : urls.length === 2 || urls.length === 4 ? "grid-cols-2" : "grid-cols-3")}>
               {urls.map((u, j) => (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img key={j} src={u} alt="" className={cn("w-full object-cover", urls.length === 1 ? "max-h-[350px]" : "aspect-square")} />
               ))}
             </div>

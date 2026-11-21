@@ -241,7 +241,7 @@ export function ExtrasPanel({
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Palette colori</p>
               <h3 className="mt-1 font-display text-2xl font-semibold">Ruoli & colori PLUS</h3>
               <p className="mt-1 text-sm text-crema/55">
-                Pronomi, hobby e colori chat. I Colori Plus si sbloccano con boost o donazioni.
+                Pronomi, hobby e colore in chat. I colori Plus si sbloccano con un boost o una donazione.
               </p>
             </div>
           </div>

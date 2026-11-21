@@ -13,7 +13,7 @@ const GestioneBoard = dynamic(
   { loading: () => null },
 );
 
-const DESC = "Organico, pex e depex — come sul sito classico.";
+const DESC = "Organico dello staff, promozioni e retrocessioni.";
 
 export const metadata: Metadata = {
   ...pageSocialMeta({ path: "/staff/gestione/", title: "Gestione · Staff", description: DESC }),

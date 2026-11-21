@@ -343,7 +343,7 @@ export function RulesBrowser({ initial }: { initial: RulesData }) {
             </ul>
             {shown.length === 0 && (
               <p className="px-6 py-10 text-center text-crema/60">
-                Nessuna regola trovata per “{query}”. Prova con un'altra parola.
+                Nessuna regola trovata per “{query}”. Prova con un&apos;altra parola.
               </p>
             )}
           </div>

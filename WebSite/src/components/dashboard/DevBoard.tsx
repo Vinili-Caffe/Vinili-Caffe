@@ -78,7 +78,7 @@ function when(iso: string | null) {
 
 function Avatar({ url, name, round }: { url: string | null; name: string; round?: boolean }) {
   const cls = cn("size-9 shrink-0 object-cover ring-1 ring-sand/15", round ? "rounded-full" : "rounded-lg");
-  // eslint-disable-next-line @next/next/no-img-element
+   
   if (url) return <img src={url} alt="" width={36} height={36} className={cls} />;
   return (
     <span className={cn(cls, "flex items-center justify-center bg-crema/[0.08] text-sm font-bold text-crema/80")} aria-hidden>
@@ -210,12 +210,12 @@ function OwnerCard({ token, userId }: { token: string; userId: string }) {
     <div className="overflow-hidden rounded-xl bg-[#232428] ring-1 ring-sand/10">
       <div className="relative h-14" style={{ background: accent || "linear-gradient(135deg, #3a2a1f, #6b4a2e)" }}>
         {u.bannerUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img src={u.bannerUrl} alt="" className="absolute inset-0 size-full object-cover" />
         ) : null}
       </div>
       <div className="flex items-end gap-3 px-3 pb-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        { }
         <img src={u.avatarUrl} alt="" width={56} height={56} className="relative z-[1] -mt-7 size-14 shrink-0 rounded-full object-cover ring-4 ring-[#232428]" />
         <div className="min-w-0 flex-1 pt-1.5">
           <p className="flex items-center gap-1.5 truncate font-semibold text-white">

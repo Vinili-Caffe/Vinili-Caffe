@@ -144,7 +144,7 @@ export function DeviceFxProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
 
-    const conn = (navigator as Navigator & { connection?: EventTarget & { addEventListener?: Function } }).connection;
+    const conn = (navigator as Navigator & { connection?: EventTarget & { addEventListener?: (type: string, listener: () => void) => void } }).connection;
     const onNet = () => {
       if (!cancelled) refresh();
     };
@@ -256,7 +256,7 @@ export function DeviceFxProvider({ children }: { children: ReactNode }) {
         /* ignore */
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- boot once
+     
   }, []);
 
   const value = useMemo<DeviceFxApi>(() => {

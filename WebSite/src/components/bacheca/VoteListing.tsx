@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, Bot, Check, Clock, LogIn, Server, ThumbsUp, Tv } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Bot, Check, Clock, Disc3, Flame, LogIn, Server, ShieldCheck, ThumbsUp } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   castListingVote,
@@ -14,9 +14,10 @@ import {
   type BoardListing,
   type VoteSession,
 } from "@/lib/boards";
+import { SITE_DISCORD_INVITE } from "@/lib/og";
 import { page } from "@/lib/site";
 import { Checkbox, showToast } from "@/components/ui";
-import { Turnstile } from "@/components/ui/Turnstile";
+import { Turnstile, preloadTurnstile } from "@/components/ui/Turnstile";
 import { SmartLink } from "../SmartLink";
 import { cn } from "@/lib/cn";
 
@@ -33,7 +34,47 @@ function useParams() {
   return { slug, id };
 }
 
-/** Cabina voto: countdown → sponsor → conferma (come API vote-session). */
+function formatNextVote(iso?: string | null) {
+  if (!iso) return "";
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "";
+  return new Date(t).toLocaleString("it-IT", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** House ad della community — sponsorizza la cabina voto gratuita. */
+function SponsorHouseCard({ prominent }: { prominent?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "w-full rounded-2xl bg-gradient-to-br from-roast to-espresso p-5 text-left ring-1 ring-sand/20",
+        prominent ? "mt-6 shadow-[0_30px_70px_-35px_rgba(217,154,91,0.75)] ring-ember/35 sm:p-6" : "mt-5 sm:max-w-xs",
+      )}
+    >
+      <span className="inline-flex items-center rounded-full bg-caramel/20 px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-[0.2em] text-ember ring-1 ring-caramel/35">
+        Sponsor
+      </span>
+      {prominent ? <p className="mt-3 font-script text-xl text-caramel/90">Grazie allo sponsor</p> : null}
+      <p className={cn("font-display font-semibold text-crema", prominent ? "mt-1 text-3xl" : "mt-2.5 text-2xl")}>Vinili &amp; Caffè</p>
+      <p className="mt-1.5 text-sm leading-relaxed text-crema/60">
+        Entra nella community su Discord: chiacchiere, eventi e una mano a chi mette server e bot in vetrina, che resta gratis per tutti.
+      </p>
+      <SmartLink
+        href={SITE_DISCORD_INVITE}
+        className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink transition hover:-translate-y-0.5"
+      >
+        <Disc3 className="size-4" /> Entra su Discord <ArrowUpRight className="size-3.5" />
+      </SmartLink>
+    </div>
+  );
+}
+
+/** Cabina voto: countdown (al posto sponsor finché AdSense non è ok) → Turnstile → conferma. */
 export function VoteListing() {
   const { slug, id: idQ } = useParams();
   const { ready, token, login } = useAuth();
@@ -49,8 +90,10 @@ export function VoteListing() {
   const [cfgSiteKey, setCfgSiteKey] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [nextVoteHint, setNextVoteHint] = useState("");
   const [busy, setBusy] = useState(false);
   const [total, setTotal] = useState(0);
+  const [voteStreak, setVoteStreak] = useState(0);
 
   useEffect(() => {
     if (!ready || !slug) return;
@@ -68,14 +111,21 @@ export function VoteListing() {
   }, [step, left]);
 
   const listingId = idQ || listing?.id || "";
-  /* chiave Turnstile: dalla sessione di voto, altrimenti dalla config della vetrina */
   const siteKey = String(session?.turnstileSiteKey || cfgSiteKey || "").trim();
   const needsCaptcha = Boolean(session?.turnstileRequired);
+  const adsEnabled = Boolean(session?.ads?.provider && session.ads.provider !== "none");
 
   useEffect(() => {
     if (!ready) return;
     void loadBoardsConfig("", token).then((c) => c?.turnstileSiteKey && setCfgSiteKey(c.turnstileSiteKey));
   }, [ready, token]);
+
+  /* Durante il countdown: script Turnstile già in cache + widget montato (nascosto se non ancora ready). */
+  useEffect(() => {
+    if (step === "countdown" || step === "ad" || step === "ready") {
+      if (siteKey) preloadTurnstile();
+    }
+  }, [step, siteKey]);
 
   async function begin() {
     if (!token) return login();
@@ -84,14 +134,21 @@ export function VoteListing() {
       return;
     }
     setErr("");
+    setNextVoteHint("");
     setBusy(true);
+    /* Precarica Cloudflare subito, anche prima della risposta sessione. */
+    if (cfgSiteKey) preloadTurnstile();
     const r = await startVoteSession(token, listingId);
     setBusy(false);
     if (!r.ok) {
       setErr(r.message);
+      showToast(r.message, true);
+      const next = formatNextVote(r.nextVoteAt);
+      if (next) setNextVoteHint(next);
       return;
     }
     setSession(r.data);
+    if (r.data.turnstileSiteKey) preloadTurnstile();
     const sec = Math.max(0, Number(r.data.countdownSeconds) || 0);
     if (sec > 0) {
       setStep("countdown");
@@ -107,6 +164,7 @@ export function VoteListing() {
     const r = await progressVoteSession(token, listingId, sess.sessionId, "countdown");
     if (!r.ok) {
       setErr(r.message);
+      showToast(r.message, true);
       return;
     }
     const adSec = Math.max(0, Number(sess.adSeconds) || 0);
@@ -128,6 +186,7 @@ export function VoteListing() {
     const r = await progressVoteSession(token, listingId, session.sessionId, "ad");
     if (!r.ok) {
       setErr(r.message);
+      showToast(r.message, true);
       return;
     }
     setStep("ready");
@@ -136,13 +195,15 @@ export function VoteListing() {
   useEffect(() => {
     if (step === "countdown" && left === 0 && session) void finishCountdown();
     if (step === "ad" && left === 0) void finishAd();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [step, left]);
 
   async function confirm() {
     if (!token || !listingId || !session) return;
     if (needsCaptcha && !captcha) {
-      setErr("Completa la verifica anti-robot qui sopra.");
+      const msg = "Completa la verifica anti-robot qui sopra.";
+      setErr(msg);
+      showToast(msg, true);
       return;
     }
     setBusy(true);
@@ -151,13 +212,16 @@ export function VoteListing() {
     setBusy(false);
     if (!r.ok) {
       setErr(r.message);
-      /* il token Turnstile vale una volta sola: ne serve uno nuovo per riprovare */
+      showToast(r.message, true);
       setCaptcha("");
       setCaptchaKey((n) => n + 1);
       return;
     }
     setRemindAt(r.data.remindAt || null);
-    setMsg(r.data.message || "Voto registrato. Grazie!");
+    const okMsg = r.data.message || "Voto registrato. Grazie!";
+    setMsg(okMsg);
+    showToast(okMsg);
+    setVoteStreak(Math.max(0, Number(r.data.voteStreak) || 0));
     setStep("done");
     if (r.data.listing) setListing(r.data.listing);
   }
@@ -167,7 +231,7 @@ export function VoteListing() {
       <section className="mx-auto max-w-md px-6 pb-28 text-center">
         <ThumbsUp className="mx-auto size-12 text-ember" />
         <p className="mt-4 font-display text-4xl">Un voto, un passo avanti</p>
-        <p className="mt-2 text-crema/60">Per votare accedi con Discord: ogni account può votare di nuovo dopo qualche ora.</p>
+        <p className="mt-2 text-crema/60">Per votare entra con Discord. Ogni account può votare di nuovo dopo qualche ora.</p>
         <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink">
           <LogIn className="size-4" /> Accedi con Discord
         </button>
@@ -177,30 +241,48 @@ export function VoteListing() {
 
   const accent = listing && /^#[0-9a-f]{6}$/i.test(listing.accent || "") ? listing.accent : "#d99a5b";
   const KindIcon = listing?.kind === "bot" ? Bot : Server;
-  const stepIndex = step === "idle" ? 0 : step === "countdown" ? 1 : step === "ad" ? 2 : 3;
-  const STEPS = [
-    { label: "Attesa", icon: Clock },
-    { label: "Sponsor", icon: Tv },
-    { label: "Conferma", icon: ThumbsUp },
-  ];
+  /* Senza sponsor: Attesa → Verifica → Conferma */
+  const STEPS = adsEnabled
+    ? [
+        { label: "Attesa", icon: Clock },
+        { label: "Sponsor", icon: ShieldCheck },
+        { label: "Conferma", icon: ThumbsUp },
+      ]
+    : [
+        { label: "Attesa", icon: Clock },
+        { label: "Verifica", icon: ShieldCheck },
+        { label: "Conferma", icon: ThumbsUp },
+      ];
+  const stepIndex =
+    step === "idle"
+      ? 0
+      : step === "countdown"
+        ? 1
+        : step === "ad"
+          ? 2
+          : step === "ready"
+            ? adsEnabled
+              ? 3
+              : 2
+            : 3;
   const R = 54;
   const C = 2 * Math.PI * R;
   const frac = total > 0 ? left / total : 0;
   const back = page(slug ? `/vetrina/scheda/?slug=${encodeURIComponent(slug)}` : "/vetrina/");
+  const turnstileLive = Boolean(siteKey) && (step === "countdown" || step === "ad" || step === "ready");
 
   return (
     <section className="mx-auto max-w-xl px-4 pb-28 sm:px-6">
       <div className="overflow-hidden rounded-[2rem] bg-roast ring-1 ring-sand/15 shadow-[0_40px_90px_-40px_rgba(217,154,91,0.55)]">
-        {/* scheda votata */}
         <div className="relative p-6 sm:p-7" style={{ background: `radial-gradient(120% 140% at 0% 0%, ${accent}55, transparent 60%)` }}>
           {listing?.bannerUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img src={listing.bannerUrl} alt="" className="absolute inset-0 size-full object-cover opacity-25" />
           ) : null}
           <div className="relative flex items-center gap-4">
             <span className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl ring-2 ring-crema/15" style={{ background: `${accent}55` }}>
               {listing?.iconUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img src={listing.iconUrl} alt="" className="size-full object-cover" />
               ) : (
                 <KindIcon className="size-7 text-crema/70" />
@@ -214,7 +296,6 @@ export function VoteListing() {
           </div>
         </div>
 
-        {/* passaggi */}
         <ol className="flex items-center gap-2 border-y border-sand/10 px-6 py-4 sm:px-7">
           {STEPS.map((s, i) => {
             const n = i + 1;
@@ -239,11 +320,20 @@ export function VoteListing() {
         </ol>
 
         <div className="p-6 sm:p-8">
-          {err && <p className="mb-5 rounded-xl bg-ember/10 p-3 text-sm text-ember ring-1 ring-ember/25">{err}</p>}
+          {err && (
+            <div className="mb-5 rounded-xl bg-ember/10 p-3 text-sm text-ember ring-1 ring-ember/25">
+              <p>{err}</p>
+              {nextVoteHint ? <p className="mt-1 text-xs text-ember/80">Di nuovo dal {nextVoteHint}</p> : null}
+            </div>
+          )}
 
           {step === "idle" && (
             <div className="text-center">
-              <p className="text-crema/65">Un breve conto alla rovescia, a volte uno sponsor, e poi confermi. Ci vogliono pochi secondi.</p>
+              <p className="text-crema/65">
+                {adsEnabled
+                  ? "Qualche secondo di attesa con il nostro sponsor di casa, poi confermi il voto."
+                  : "Un conto alla rovescia di pochi secondi e la verifica anti-robot: poi confermi il voto."}
+              </p>
               <button
                 type="button"
                 disabled={busy || !listingId}
@@ -256,47 +346,69 @@ export function VoteListing() {
           )}
 
           {(step === "countdown" || step === "ad") && (
-            <div className="flex flex-col items-center text-center">
-              <div className="relative size-36">
-                <svg viewBox="0 0 120 120" className="size-full -rotate-90">
-                  <circle cx="60" cy="60" r={R} fill="none" stroke="currentColor" strokeWidth="8" className="text-crema/10" />
-                  <motion.circle
-                    cx="60"
-                    cy="60"
-                    r={R}
-                    fill="none"
-                    stroke="url(#vote-ring)"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                    strokeDasharray={C}
-                    animate={{ strokeDashoffset: C * (1 - frac) }}
-                    transition={{ duration: 0.9, ease: "linear" }}
-                  />
-                  <defs>
-                    <linearGradient id="vote-ring" x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#d99a5b" />
-                      <stop offset="100%" stopColor="#f0b46e" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center font-display text-6xl font-semibold lining-nums text-crema">{left}</span>
+            <div className={cn("flex flex-col items-center gap-6", step === "ad" ? "text-center sm:flex-col" : "text-center sm:flex-row sm:items-start sm:justify-center sm:text-left")}>
+              <div className="flex shrink-0 flex-col items-center sm:items-center">
+                <div className={cn("relative", step === "ad" ? "size-40" : "size-36")}>
+                  <svg viewBox="0 0 120 120" className="size-full -rotate-90">
+                    <circle cx="60" cy="60" r={R} fill="none" stroke="currentColor" strokeWidth="8" className="text-crema/10" />
+                    <motion.circle
+                      cx="60"
+                      cy="60"
+                      r={R}
+                      fill="none"
+                      stroke="url(#vote-ring)"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={C}
+                      animate={{ strokeDashoffset: C * (1 - frac) }}
+                      transition={{ duration: 0.9, ease: "linear" }}
+                    />
+                    <defs>
+                      <linearGradient id="vote-ring" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#d99a5b" />
+                        <stop offset="100%" stopColor="#f0b46e" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center font-display text-6xl font-semibold lining-nums text-crema">{left}</span>
+                </div>
+                <p className="mt-4 max-w-xs text-crema/60">
+                  {step === "countdown"
+                    ? adsEnabled
+                      ? "Un attimo, sto preparando il voto…"
+                      : "Attendi qualche secondo: nel frattempo carico la verifica di Cloudflare…"
+                    : "La vetrina resta gratuita grazie al supporto della community."}
+                </p>
               </div>
-              <p className="mt-4 text-crema/60">{step === "countdown" ? "Un attimo, sto preparando il voto…" : "Grazie allo sponsor la vetrina resta gratuita."}</p>
+              <SponsorHouseCard prominent={step === "ad"} />
             </div>
           )}
 
+          {/* Turnstile montato una sola volta da countdown→ready (niente remount che invalida il token). */}
+          {turnstileLive ? (
+            <div
+              className={cn(
+                "rounded-2xl bg-espresso/50 p-4 ring-1 ring-sand/12",
+                step === "ready" ? "mt-0" : "mt-5",
+                step !== "ready" && adsEnabled ? "sr-only" : "",
+              )}
+            >
+              <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">Verifica anti-robot</p>
+              <Turnstile key={captchaKey} siteKey={siteKey} onToken={setCaptcha} />
+              {captcha && step === "ready" ? (
+                <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-crema/50">
+                  <Check className="size-3.5 text-ember" /> Verifica pronta
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           {step === "ready" && (
-            <div className="space-y-5">
+            <div className="mt-5 space-y-5">
               <label className="flex items-center gap-3 rounded-2xl bg-espresso/50 p-4 text-sm text-crema/75 ring-1 ring-sand/12">
                 <Checkbox checked={remind} onChange={setRemind} />
                 Avvisami quando posso votare di nuovo
               </label>
-              {siteKey && (
-                <div className="rounded-2xl bg-espresso/50 p-4 ring-1 ring-sand/12">
-                  <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">Verifica anti-robot</p>
-                  <Turnstile key={captchaKey} siteKey={siteKey} onToken={setCaptcha} />
-                </div>
-              )}
               <button
                 type="button"
                 disabled={busy || (needsCaptcha && !captcha)}
@@ -315,7 +427,13 @@ export function VoteListing() {
               </span>
               <p className="mt-5 font-display text-3xl font-semibold">Voto registrato!</p>
               <p className="mt-2 text-crema/60">{msg || "Grazie: hai dato una spinta a questa scheda."}</p>
-              {/* il promemoria si può cambiare anche dopo aver votato */}
+              {voteStreak > 0 ? (
+                <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-ember/15 px-4 py-2 text-sm font-semibold text-ember ring-1 ring-ember/30">
+                  <Flame className="size-4 animate-streak-flicker" fill="currentColor" />
+                  Streak {voteStreak}
+                  {voteStreak >= 7 ? ` · traguardo ${voteStreak >= 30 ? "30+" : voteStreak >= 14 ? "14" : "7"}` : ""}
+                </p>
+              ) : null}
               <label className="mx-auto mt-5 flex max-w-sm items-center gap-3 rounded-2xl bg-espresso/50 p-4 text-left text-sm text-crema/75 ring-1 ring-sand/12">
                 <Checkbox
                   checked={remind}

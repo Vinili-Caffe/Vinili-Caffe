@@ -8,7 +8,7 @@ import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/terms/", title: "Termini di Servizio", description: "Termini di Servizio di Vinili & Caffè per sito, bot Discord e community." }),
+  ...pageSocialMeta({ path: "/terms/", title: "Termini di servizio", description: "Le condizioni d’uso del sito, dei bot e della community Discord di Vinili & Caffè." }),
 };
 
 export default function TermsPage() {
@@ -17,14 +17,14 @@ export default function TermsPage() {
     <SiteShell>
       <DiscordComponentEmbed
         path="/terms/"
-        title="Termini di Servizio"
-        description="Termini di Servizio di Vinili & Caffè per sito, bot Discord e community."
+        title="Termini di servizio"
+        description="Le condizioni d’uso del sito, dei bot e della community Discord di Vinili & Caffè."
       />
       <PageHero
         icon={<FileText />}
         kicker="Legale"
         title="Termini di"
-        accent="Servizio"
+        accent="servizio"
         text={
           doc.updatedIso && doc.updatedLabel
             ? `${doc.updatedPrefix} ${doc.updatedLabel}`

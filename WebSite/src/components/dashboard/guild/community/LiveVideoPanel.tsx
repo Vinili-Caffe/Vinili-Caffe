@@ -49,7 +49,7 @@ const PLATFORM: Record<LivePlatform, PlatformMeta> = {
     handleLabel: "Canale Twitch",
     handlePlaceholder: "nomecanale",
     postWord: null,
-    blurb: "Quando un canale va in live, il bot lo annuncia nel canale scelto, pinga il ruolo e, se vuoi, rinomina il palco.",
+    blurb: "Quando un canale va in diretta, il bot lo annuncia nel canale scelto, menziona il ruolo e, se vuoi, rinomina il palco.",
   },
   youtube: {
     title: "YouTube",

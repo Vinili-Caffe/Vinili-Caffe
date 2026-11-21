@@ -8,7 +8,7 @@ import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/copyright/", title: "Copyright e Licenza", description: "Avvisi ufficiali di proprietà intellettuale e licenza proprietaria di Vinili & Caffè." }),
+  ...pageSocialMeta({ path: "/copyright/", title: "Copyright e licenza", description: "Diritti sui contenuti, sul codice e sul marchio di Vinili & Caffè, e cosa si può riutilizzare." }),
 };
 
 export default function CopyrightPage() {
@@ -17,14 +17,14 @@ export default function CopyrightPage() {
     <SiteShell>
       <DiscordComponentEmbed
         path="/copyright/"
-        title="Copyright e Licenza"
-        description="Avvisi ufficiali di proprietà intellettuale e licenza proprietaria di Vinili & Caffè."
+        title="Copyright e licenza"
+        description="Diritti sui contenuti, sul codice e sul marchio di Vinili & Caffè, e cosa si può riutilizzare."
       />
       <PageHero
         icon={<Copyright />}
         kicker="Legale"
         title="Copyright e"
-        accent="Licenza"
+        accent="licenza"
         text={doc.subtitle ?? undefined}
       />
       <LegalPage doc={doc} />

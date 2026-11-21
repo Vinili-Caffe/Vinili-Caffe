@@ -5,7 +5,7 @@ import { AnimatePresence } from "motion/react";
 import {
   fetchEventoStatus,
   openEventoCrate,
-  useEventoItem,
+  activateEventoItem,
   type EventoUtilityItemId,
   type EventoWallet,
 } from "@/lib/evento-api";
@@ -152,10 +152,10 @@ export function EventoInventoryPanel() {
     else void reload();
   }
 
-  async function useOne(itemId: string) {
+  async function activateOne(itemId: string) {
     if (!token || busy) return;
     setBusy(itemId);
-    const out = await useEventoItem(token, itemId);
+    const out = await activateEventoItem(token, itemId);
     setBusy(null);
     if (!out?.ok) {
       showToast(out?.message || "Uso fallito.", true);
@@ -291,7 +291,7 @@ export function EventoInventoryPanel() {
                     <EventoBtn
                       className="mt-3 w-full"
                       disabled={r.qty < 1 || Boolean(busy) || buffOn}
-                      onClick={() => void useOne(r.id)}
+                      onClick={() => void activateOne(r.id)}
                     >
                       {loading ? "…" : buffOn ? "Già attivo" : "Usa"}
                     </EventoBtn>

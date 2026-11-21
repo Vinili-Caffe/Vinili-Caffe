@@ -5,6 +5,7 @@ import type { ComponentEmbedOpts } from "@/lib/og";
  * Il payload reale va in `<head>` via `scripts/inject-discord-component-embeds.mjs`
  * dopo `next build` (static export: niente API `/embeds/ce`).
  */
-export function DiscordComponentEmbed(_opts: ComponentEmbedOpts) {
+export function DiscordComponentEmbed(opts: ComponentEmbedOpts) {
+  void opts;
   return null;
 }

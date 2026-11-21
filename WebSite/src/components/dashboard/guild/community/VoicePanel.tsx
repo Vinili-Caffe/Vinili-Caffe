@@ -246,7 +246,7 @@ export function VoicePanel({
   const reset = () => {
     try {
       setCfg(JSON.parse(saved) as VoiceConfig);
-    } catch (_) {}
+    } catch {}
   };
 
   const idleMin = Math.max(1, Math.round(cfg.music.inactivityLeaveMs / 60_000));
@@ -405,7 +405,7 @@ export function VoicePanel({
                 </Field>
               ) : (
                 <p className="text-xs text-crema/50">
-                  Chill 24/7: stream già configurato sul bot (non modificabile da qui).
+                  Musica chill sempre accesa: è già impostata sul bot e da qui non si cambia.
                 </p>
               )}
             </FormGroup>
@@ -437,7 +437,7 @@ export function VoicePanel({
                 <div>
                   <p className="font-semibold text-crema">Text-to-speech</p>
                   <p className="mt-0.5 text-xs text-crema/55">
-                    Legge i messaggi in vocale. “Default bot” lascia il valore di config del processo.
+                    Legge ad alta voce i messaggi in vocale. «Predefinito» usa l’impostazione standard del bot.
                   </p>
                 </div>
               </div>
@@ -501,7 +501,7 @@ export function VoicePanel({
 
             <p className="flex items-center gap-2 text-xs text-crema/45">
               <Headphones className="size-3.5 shrink-0" aria-hidden />
-              Musica e TTS non possono stare insieme nello stesso momento: se c’è play, il TTS aspetta.
+              La musica e la lettura dei messaggi non vanno insieme: mentre suona un brano, la voce aspetta.
             </p>
           </motion.div>
         )}

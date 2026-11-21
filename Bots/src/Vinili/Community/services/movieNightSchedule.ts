@@ -92,6 +92,15 @@ const STAR_WARS_MOVIE_NIGHT_SCHEDULE = new Map<string, FixedMovieNightEntry>([
 
 const EXTRA_FIXED_MOVIE_NIGHTS = new Map<string, FixedMovieNightEntry>([
   ["2026-10-28", { title: "La sposa cadavere" }],
+  [
+    "2026-11-21",
+    {
+      title: "Il ragazzo dai pantaloni rosa",
+      poster: serataPoster("il-ragazzo-dai-pantaloni-rosa-poster.jpg"),
+      description:
+        "Andrea, un ragazzo sensibile, indossa un paio di pantaloni rosa e diventa bersaglio di bullismo a scuola. Ispirato a una storia vera, il film racconta famiglia, coraggio e il prezzo di essere se stessi.",
+    },
+  ],
   /* Serate extra Natale 2026 (21:00 Rome). 25 dic assente. Allineato a WebSite SERATA_XMAS_NIGHTS. */
   [
     "2026-12-21",

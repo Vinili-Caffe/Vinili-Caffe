@@ -171,7 +171,7 @@ export function PropSheet({ c, token, viewer, onClose, onUpdate }: { c: Proposit
                 ) : (
                   <p className="inline-flex max-w-[60%] items-center gap-2 font-script text-2xl text-ink/70">
                     {c.authorAvatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                       
                       <img src={c.authorAvatarUrl} alt="" className="size-7 rounded-full object-cover ring-1 ring-ink/15" />
                     ) : null}
                     <span className="truncate">— {c.authorName || "Membro"}</span>

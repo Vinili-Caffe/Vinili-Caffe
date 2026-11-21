@@ -3,8 +3,7 @@
 import { TextTranscriptView, TranscriptSkeleton } from "./TextTranscriptView";
 import { extractTextTranscriptFromHtml } from "@/lib/transcript-text";
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Loader2, LogIn } from "lucide-react";
-import { DiscordContent } from "@/components/discord/DiscordContent";
+import { FileText, LogIn } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { extractPlainTranscript, loadTranscript, readTranscriptToken, type TranscriptMeta } from "@/lib/transcript";
 

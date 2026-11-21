@@ -1,7 +1,7 @@
 "use client";
 
 import { MainAutomationsSection } from "./MainAutomationsSection";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { MessageSquareReply, Plus, Smile, Trash2, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MultiSelect, Select } from "@/components/ui/Select";

@@ -2,27 +2,71 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ChartColumn, Clock } from "lucide-react";
+import { Bot, ChartColumn, Clock, ExternalLink } from "lucide-react";
 import { loadListingActivity, type ListingActivity as Activity } from "@/lib/boards";
 import { cn } from "@/lib/cn";
 
 const hh = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
-/** Attività del server ora per ora (media giornaliera): si mostra solo se il bot ha dati. */
-export function ListingActivity({ listingId, token }: { listingId: string; token?: string | null }) {
+/** Attività del server ora per ora (media giornaliera): se manca il bot, CTA di invito. */
+export function ListingActivity({
+  listingId,
+  token,
+  inviteUrl,
+}: {
+  listingId: string;
+  token?: string | null;
+  inviteUrl?: string | null;
+}) {
   const [data, setData] = useState<Activity | null>(null);
   const [hover, setHover] = useState<number | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!listingId) return;
     let alive = true;
-    void loadListingActivity(listingId, token).then((r) => alive && r.ok && setData(r.data));
+    setLoaded(false);
+    void loadListingActivity(listingId, token).then((r) => {
+      if (!alive) return;
+      if (r.ok) setData(r.data);
+      else setData(null);
+      setLoaded(true);
+    });
     return () => {
       alive = false;
     };
   }, [listingId, token]);
 
-  if (!data?.available || !Array.isArray(data.hours) || data.hours.length !== 24) return null;
+  if (!loaded) {
+    return <div className="h-48 animate-pulse rounded-3xl bg-roast/50 ring-1 ring-sand/10" />;
+  }
+
+  if (!data?.available || !Array.isArray(data.hours) || data.hours.length !== 24) {
+    return (
+      <section className="rounded-3xl bg-roast/80 p-6 ring-1 ring-sand/12 sm:p-7">
+        <h2 className="flex items-center gap-2.5 font-display text-2xl font-semibold">
+          <ChartColumn className="size-5 text-caramel" /> Attività del server
+        </h2>
+        <p className="mt-3 text-sm text-crema/60">
+          Per vedere le ore di punta serve il bot di Vinili &amp; Caffè nel server (messaggi e vocale).
+        </p>
+        {inviteUrl ? (
+          <a
+            href={inviteUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2.5 text-sm font-bold text-ink"
+          >
+            <Bot className="size-4" /> Invita Vinili &amp; Caffè
+            <ExternalLink className="size-3.5 opacity-70" />
+          </a>
+        ) : (
+          <p className="mt-3 text-xs text-crema/40">Chiedi allo staff del server di invitare il bot dalla dashboard.</p>
+        )}
+      </section>
+    );
+  }
+
   const max = Math.max(...data.hours, 1);
   const peak = typeof data.peakHour === "number" ? data.peakHour : data.hours.indexOf(max);
   const shown = hover ?? peak;
@@ -34,7 +78,6 @@ export function ListingActivity({ listingId, token }: { listingId: string; token
         <ChartColumn className="size-5 text-caramel" /> Attività del server
       </h2>
 
-      {/* valore della fascia sotto il mouse (o del picco) */}
       <p className="mt-3 text-sm text-crema/60">
         <span className="font-semibold tabular-nums text-crema">{hh(shown)}</span>
         {" · "}

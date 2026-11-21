@@ -19,7 +19,8 @@ export function isSocialPhoneOpen() {
   return document.documentElement.hasAttribute(ATTR);
 }
 
-export function useSocialPhoneOpenListener(onChange: (open: boolean) => void) {
+/** Subscribe to social-phone open changes; returns unsubscribe. Not a React Hook. */
+export function listenSocialPhoneOpen(onChange: (open: boolean) => void) {
   if (typeof window === "undefined") return () => {};
   const sync = () => onChange(isSocialPhoneOpen());
   sync();

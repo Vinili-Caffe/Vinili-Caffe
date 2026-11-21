@@ -770,7 +770,7 @@ export function AlberoBoard() {
                         {o.anon ? (
                           <VenetianMask className="size-5" aria-hidden />
                         ) : myAvatar ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
+                           
                           <img src={myAvatar} alt="" className="size-full object-cover" />
                         ) : (
                           <UserRound className="size-5 text-crema/60" aria-hidden />

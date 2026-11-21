@@ -18,22 +18,36 @@ const SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explic
 let loader: Promise<TurnstileApi> | null = null;
 
 function loadTurnstile(): Promise<TurnstileApi> {
-  if (window.turnstile) return Promise.resolve(window.turnstile);
+  if (typeof window !== "undefined" && window.turnstile) return Promise.resolve(window.turnstile);
   if (loader) return loader;
   loader = new Promise<TurnstileApi>((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = SRC;
-    s.async = true;
-    s.defer = true;
-    s.dataset.vcTurnstile = "1";
+    const existing = document.querySelector<HTMLScriptElement>('script[data-vc-turnstile="1"]');
+    if (existing && window.turnstile) {
+      resolve(window.turnstile);
+      return;
+    }
+    const s = existing || document.createElement("script");
+    if (!existing) {
+      s.src = SRC;
+      s.async = true;
+      s.defer = true;
+      s.dataset.vcTurnstile = "1";
+      document.head.appendChild(s);
+    }
     s.onload = () => (window.turnstile ? resolve(window.turnstile) : reject(new Error("turnstile missing")));
     s.onerror = () => reject(new Error("turnstile load failed"));
-    document.head.appendChild(s);
+    if (window.turnstile) resolve(window.turnstile);
   }).catch((e) => {
     loader = null;
     throw e;
   });
   return loader;
+}
+
+/** Precarica lo script Cloudflare Turnstile (durante il countdown voto). */
+export function preloadTurnstile(): void {
+  if (typeof window === "undefined") return;
+  void loadTurnstile().catch(() => {});
 }
 
 /** Verifica anti-robot di Cloudflare: chiama onToken col token (stringa vuota se scade o fallisce). */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Disc3 } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
 import { resolveSmart404 } from "@/lib/smart404";
@@ -9,9 +9,7 @@ import { resolveSmart404 } from "@/lib/smart404";
 /** Alias → redirect; genitore noto → link “Prova …”. Solo percorsi del catalogo. */
 export function Smart404Client({ hintId }: { hintId: string }) {
   const pathname = usePathname() || "/";
-  const searchParams = useSearchParams();
-  const search = searchParams?.toString() ? `?${searchParams.toString()}` : "";
-  const resolved = useMemo(() => resolveSmart404(pathname, search), [pathname, search]);
+  const resolved = useMemo(() => resolveSmart404(pathname), [pathname]);
 
   useEffect(() => {
     if (resolved.kind !== "redirect") return;
@@ -46,6 +44,7 @@ export function Smart404Client({ hintId }: { hintId: string }) {
 }
 
 export function BackButton() {
+  const router = useRouter();
   return (
     <button
       type="button"
@@ -54,7 +53,7 @@ export function BackButton() {
           window.history.back();
           return;
         }
-        window.location.href = "/";
+        router.push("/");
       }}
       className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-crema/8 px-4 py-3 text-sm font-semibold text-crema ring-1 ring-sand/25 transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] hover:ring-sand/40"
     >

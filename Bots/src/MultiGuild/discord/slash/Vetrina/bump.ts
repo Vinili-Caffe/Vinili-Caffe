@@ -7,7 +7,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const SITE = "https://www.viniliecaffe.it";
 const VETRINA = `${SITE}/vetrina/`;
 /** Immagine grande del messaggio quando il server non ha un banner. */
-const FALLBACK_IMAGE = "https://cdn.viniliecaffe.it/images/hero-cafe-atmosphere.jpg";
+const FALLBACK_IMAGE = "https://cdn.viniliecaffe.it/images/vetrina-bump-banner.jpg";
 const COLOR = 0xd99a5b;
 const COLOR_WAIT = 0x6f4e37;
 
@@ -30,7 +30,7 @@ export = {
   /* il bump si vede da tutti, come quello di Disboard */
   alwaysPublicReply: true,
   publicReply: true,
-  helpDescription: "Riporta in cima alla Vetrina di Vinili & Caffè la scheda di questo server (ogni 2 ore).",
+  helpDescription: "Riporta in cima alla Vetrina di Vinili & Caffè la scheda di questo server.",
   data: new SlashCommandBuilder()
     .setName("bump")
     .setDescription("Riporta in cima alla Vetrina di Vinili & Caffè la scheda di questo server")
@@ -54,16 +54,7 @@ export = {
       out = { ok: false, message: "Non riesco a fare il bump adesso, riprova tra poco." };
     }
 
-    /* ringraziamento personalizzato (tab Bump della scheda): diventa la risposta al comando */
-    if (out?.ok && out.replyBody) {
-      try {
-        const { Routes } = require("discord.js") as typeof import("discord.js");
-        await c.rest.patch(Routes.webhookMessage(String(c.application?.id || c.user?.id), interaction.token), { body: out.replyBody });
-        return null;
-      } catch (err) {
-        global.logger?.warn?.("[/bump] risposta personalizzata:", err?.message || err);
-      }
-    }
+    /* ringraziamento (tab Bump) → messaggio separato nel canale, gestito da onListingBumped */
 
     const botAvatar = c.user?.displayAvatarURL?.({ size: 128 }) || undefined;
     const listingUrl = out?.slug ? `${SITE}/vetrina/scheda/?slug=${encodeURIComponent(out.slug)}` : VETRINA;

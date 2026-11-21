@@ -317,7 +317,7 @@ export function RankDeck({
         .catch(() => null);
     }, fastRef.current ? 180 : 420);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- previewUrl solo seed cache
+     
   }, [draft, token, opacityDragging]);
 
   useEffect(
@@ -592,10 +592,10 @@ export function RankDeck({
               {hasCustom && (
                 <div className="relative overflow-hidden rounded-2xl ring-2 ring-caramel shadow-[0_0_0_1px_rgba(217,154,91,0.4)]">
                   {draft.wallpaperUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                     
                     <img src={draft.wallpaperUrl} alt="" className="aspect-video w-full object-cover" />
                   ) : previewUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                     
                     <img src={previewUrl} alt="" className="aspect-video w-full object-cover" />
                   ) : (
                     <div className="flex aspect-video items-center justify-center bg-mocha text-crema/40">
@@ -621,7 +621,7 @@ export function RankDeck({
                     )}
                   >
                     {w.previewUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                       
                       <img src={w.previewUrl} alt="" className="aspect-video w-full object-cover" />
                     ) : (
                       <div className="aspect-video" style={{ background: DEFAULT_WALL_CSS }} />

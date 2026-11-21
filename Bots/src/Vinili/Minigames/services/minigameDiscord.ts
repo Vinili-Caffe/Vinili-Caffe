@@ -202,9 +202,10 @@ function embedPlainDescription(embed?) {
   return String(embed?.description || embed?.data?.description || "").trim();
 }
 
+/** True solo su una singola riga di stato (timer / tempo rimasto), non su blocchi multi-riga. */
 function isMinigameStatusLine(content?) {
-  const s = String(content || "");
-  if (!s.trim()) return false;
+  const s = String(content || "").trim();
+  if (!s || s.includes("\n")) return false;
   if (/Hai\s+.+\s+per\s+/i.test(s)) return true;
   if (/minuto/i.test(s) && /Hai/i.test(s)) return true;
   if (/pixeltime/i.test(s)) return true;
@@ -218,7 +219,33 @@ function statusLineFromText(statusText?) {
   if (!raw) return "";
   const lines = raw.split(/\n+/).map((l?) => String(l || "").trim()).filter(Boolean);
   const hit = lines.find((l?) => isMinigameStatusLine(l));
-  return (hit || raw).slice(0, 4000);
+  return (hit || (lines.length <= 1 ? raw : "")).slice(0, 4000);
+}
+
+/**
+ * Sostituisce solo la riga timer dentro un TextDisplay V2.
+ * Non cancellare mai il resto del draft (maschera, prompt, istruzioni).
+ */
+function patchStatusInTextDisplayContent(content?, statusText?) {
+  const next = statusLineFromText(statusText);
+  if (!next) return { content, changed: false };
+  const raw = String(content ?? "");
+  if (!raw) return { content, changed: false };
+  const lines = raw.split(/\n/);
+  let changed = false;
+  const out = lines.map((line?) => {
+    if (isMinigameStatusLine(line)) {
+      changed = true;
+      return next;
+    }
+    return line;
+  });
+  if (changed) return { content: out.join("\n"), changed: true };
+  /* TextDisplay dedicato al solo timer (una riga) */
+  if (isMinigameStatusLine(raw.trim())) {
+    return { content: next, changed: true };
+  }
+  return { content, changed: false };
 }
 
 /** Aggiorna TextDisplay “status” (tempo rimasto / prompt) nei draft V2 custom. */
@@ -230,9 +257,12 @@ function patchV2StatusText(components?, statusText?) {
     (Array.isArray(list) ? list : []).map((c?) => {
       if (!c || typeof c !== "object") return c;
       const out: any = { ...c };
-      if (out.type === 10 && isMinigameStatusLine(out.content)) {
-        patched = true;
-        out.content = next;
+      if (out.type === 10 && typeof out.content === "string") {
+        const { content, changed } = patchStatusInTextDisplayContent(out.content, next);
+        if (changed) {
+          patched = true;
+          out.content = content;
+        }
       }
       if (Array.isArray(out.components)) out.components = walk(out.components);
       return out;

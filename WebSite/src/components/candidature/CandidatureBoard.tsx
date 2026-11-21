@@ -270,7 +270,7 @@ export function CandidatureBoard() {
     return Array.isArray(v) ? v.length > 0 : !!String(v ?? "").trim();
   };
   const page = questions.slice(step * STEP, step * STEP + STEP);
-  const firstEmpty = useMemo(() => questions.findIndex((q) => !filled(q)), [questions, answers]); // eslint-disable-line react-hooks/exhaustive-deps
+  const firstEmpty = useMemo(() => questions.findIndex((q) => !filled(q)), [questions, answers]);  
 
   const next = () => {
     const miss = page.filter((q) => !filled(q)).map((q) => q.id);
@@ -313,7 +313,7 @@ export function CandidatureBoard() {
         <div className="grid gap-4 md:grid-cols-[1.2fr_1fr]">
           <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-7 ring-1 ring-sand/12">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Requisiti</p>
-            <p className="mt-3 text-crema/70">Per candidarti è necessario soddisfare i seguenti requisiti:</p>
+            <p className="mt-3 text-crema/70">Per candidarti servono questi requisiti:</p>
             <ul className="mt-4 space-y-2.5">
               {REQUIREMENTS.map((r) => (
                 <li key={r} className="flex gap-2.5 text-crema/80">
@@ -329,13 +329,13 @@ export function CandidatureBoard() {
             <div className="rounded-3xl bg-gradient-to-br from-mocha/70 to-roast p-7 ring-1 ring-sand/15">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Esito</p>
               <p className="mt-3 leading-relaxed text-crema/75">
-                L’esito della tua candidatura sarà disponibile direttamente sul server. In caso di mancata comunicazione entro 15 giorni, potrai ritentare la candidatura.
+                L’esito ti arriva sul server. Se entro 15 giorni non hai notizie, puoi ricandidarti.
               </p>
             </div>
             <div className="flex gap-3 rounded-2xl bg-caramel/10 p-5 text-sm leading-relaxed text-crema/80 ring-1 ring-caramel/25">
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-caramel" />
               <p>
-                <strong className="text-crema">Importante:</strong> non aprire ticket e non pingare lo staff per chiedere l’esito della candidatura.
+                <strong className="text-crema">Importante:</strong> per sapere com’è andata non serve aprire un ticket o menzionare lo staff: ti rispondiamo appena abbiamo letto.
               </p>
             </div>
           </div>
@@ -457,9 +457,9 @@ export function CandidatureBoard() {
         ) : done ? (
           <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="rounded-3xl bg-gradient-to-b from-[#3f7d4e]/20 to-roast p-10 text-center ring-1 ring-[#3f7d4e]/40">
             <CheckCircle2 className="mx-auto size-12 text-[#9fd3ac] light:text-[#2f6b3f]" />
-            <p className="mt-4 font-display text-3xl font-semibold">Candidatura inviata con successo!</p>
+            <p className="mt-4 font-display text-3xl font-semibold">Candidatura inviata.</p>
             <p className="mx-auto mt-3 max-w-lg whitespace-pre-line leading-relaxed text-crema/70">
-              Il nostro staff esaminerà attentamente la tua candidatura. Se non ricevi risposta entro 15 giorni, potrai riprovare la candidatura.
+              Lo staff la legge con calma. Se entro 15 giorni non ricevi risposta, puoi ricandidarti.
             </p>
           </motion.div>
         ) : !me?.eligible ? (

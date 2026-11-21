@@ -313,7 +313,7 @@ export function BackupPanel({
     const ok = await confirmDialog({
       title: "Crea backup del server?",
       message:
-        "Verrà salvato uno snapshot completo di ruoli, canali, messaggi e impostazioni Discord. Può richiedere alcuni minuti: puoi lasciare la pagina, il lavoro continua sul server.",
+        "Il bot salva una copia completa di ruoli, canali, messaggi e impostazioni del server. Ci vuole qualche minuto: puoi anche chiudere la pagina, il salvataggio va avanti lo stesso.",
       confirmLabel: "Crea backup",
     });
     if (!ok) return;
@@ -345,7 +345,7 @@ export function BackupPanel({
   const remove = async (row: BackupListItem) => {
     const ok = await confirmDialog({
       title: "Eliminare questo backup?",
-      message: `Lo snapshot ${row.backupId} verrà cancellato in modo permanente.`,
+      message: `La copia ${row.backupId} verrà cancellata per sempre.`,
       confirmLabel: "Elimina",
       danger: true,
     });
@@ -400,7 +400,7 @@ export function BackupPanel({
     const ok = await confirmDialog({
       title: "Confermi il ripristino?",
       message:
-        "Operazione distruttiva: canali, ruoli e contenuti del server Discord verranno modificati secondo le azioni scelte. Prima verrà creato un checkpoint automatico.",
+        "Attenzione: canali, ruoli e contenuti del server verranno cambiati secondo le scelte fatte. Prima di cominciare il bot salva da solo una copia dello stato attuale.",
       confirmLabel: "Avvia ripristino",
       danger: true,
     });
@@ -448,7 +448,7 @@ export function BackupPanel({
       <PageHero
         icon={Archive}
         title="Backup"
-        text="Archivio degli snapshot Discord del server: struttura, messaggi e impostazioni, pronti da ripristinare."
+        text="Le copie salvate del server, con struttura, messaggi e impostazioni, pronte da ripristinare."
         aside={
           <div className="flex flex-wrap gap-2">
             <button type="button" className={miniBtn} onClick={() => refresh()} disabled={Boolean(busy)}>
@@ -498,7 +498,7 @@ export function BackupPanel({
           tone="caramel"
           title="Creazione snapshot in corso"
           detail={createStatus.label || "Salvataggio in background…"}
-          meta="Puoi restare qui o cambiare pagina: il lavoro continua sul server. Il ripristino resta bloccato finché non finisce."
+          meta="Puoi restare qui o cambiare pagina, il lavoro va avanti lo stesso. Finché non ha finito non si può avviare un ripristino."
           progress={createPercent(createStatus)}
           action={
             <span className="shrink-0 font-display text-2xl font-semibold tabular-nums text-caramel">
@@ -681,7 +681,7 @@ export function BackupPanel({
                                     <BackupPreviewView preview={preview} />
                                   ) : (
                                     <Notice>
-                                      Anteprima non generata. Riprova o crea un nuovo backup: i nuovi snapshot hanno
+                                      Anteprima non disponibile. Riprova, oppure crea un nuovo backup: quelli nuovi hanno
                                       l’anteprima completa.
                                     </Notice>
                                   )}
@@ -701,7 +701,7 @@ export function BackupPanel({
               <PageSection
                 icon={RotateCcw}
                 title={`Ripristina ${wizard.session.backupId}`}
-                text="Di default ricostruisce tutto lo snapshot. Il server Discord verrà modificato in modo permanente."
+                text="Se non cambi niente ripristina tutta la copia. Le modifiche al server sono definitive."
                 right={
                   <button type="button" className={miniBtn} disabled={Boolean(busy)} onClick={() => setWizard(null)}>
                     <X className="size-3.5" />
@@ -752,7 +752,7 @@ export function BackupPanel({
                           <p className="font-semibold text-crema">Ripristino completo</p>
                           <p className="mt-0.5 text-sm text-crema/55 text-pretty">
                             {isFullRestore
-                              ? "Verrà applicato tutto ciò che è nello snapshot (struttura, membri, messaggi, emoji…)."
+                              ? "Verrà ripristinato tutto quello che c’è nella copia (struttura, membri, messaggi, emoji…)."
                               : "Hai deselezionato alcune parti: non sarà un ripristino completo."}
                           </p>
                         </div>
@@ -945,7 +945,7 @@ export function BackupPanel({
 
                 <PageSection
                   title="Programma automatico"
-                  text="Una copia notturna del server, senza dover ricordarti di crearla a mano."
+                  text="Una copia del server ogni notte, senza doverti ricordare di farla."
                   right={
                     <Toggle
                       size="sm"
@@ -1018,7 +1018,7 @@ export function BackupPanel({
 
                 <PageSection
                   title="Conservazione"
-                  text="Quanti snapshot manuali tenere e per quanto tempo, prima della pulizia automatica."
+                  text="Quante copie manuali tenere e per quanto tempo, prima che il bot cancelli le più vecchie."
                 >
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field label="Max snapshot manuali">

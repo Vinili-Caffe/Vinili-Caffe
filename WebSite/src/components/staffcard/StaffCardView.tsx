@@ -196,8 +196,11 @@ export function StaffCardView({
     let alive = true;
     loadCard(token, userId).then((r) => {
       if (!alive) return;
-      if (r.ok) (setCard(r.data), setErr(""), onTenureRef.current?.(r.data.career?.tenure?.label || null));
-      else setErr(r.message);
+      if (r.ok) {
+        setCard(r.data);
+        setErr("");
+        onTenureRef.current?.(r.data.career?.tenure?.label || null);
+      } else setErr(r.message);
     });
     loadManage(token, userId).then((r) => alive && r.ok && setMng(r.data));
     return () => {
@@ -244,7 +247,7 @@ export function StaffCardView({
         </>
       ) : null,
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cambia solo quando cambiano i contrassegni
+     
   }, [flagsKey, Boolean(card)]);
 
   if (err) return <p className="mx-auto max-w-xl rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-8 text-center text-crema/70 ring-1 ring-sand/12">{err}</p>;

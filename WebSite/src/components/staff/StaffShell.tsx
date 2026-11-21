@@ -1,12 +1,13 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
-import { ClipboardList, LogIn, ShieldAlert, ShieldCheck } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { ShieldCheck } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { SmartLink } from "@/components/SmartLink";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
+import { page } from "@/lib/site";
 import {
   canAccessGestione,
   canAccessInbox,
@@ -31,20 +32,10 @@ export function useStaff(): StaffCtx {
   return v;
 }
 
-function gateDenied(title: string, text: string) {
-  return (
-    <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 ring-1 ring-sand/15 sm:p-8">
-      <div className="flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
-          <ShieldAlert className="size-5" />
-        </span>
-        <div>
-          <h2 className="font-display text-2xl font-semibold">{title}</h2>
-          <p className="mt-1 text-sm text-crema/65">{text}</p>
-        </div>
-      </div>
-    </div>
-  );
+/** Prima pagina staff consentita (nav), altrimenti guida. */
+function staffFallbackHref(access: StaffAccess): string {
+  const nav = staffNavFor(access);
+  return nav[0]?.href || "/staff/guida/";
 }
 
 type Props = {
@@ -65,7 +56,16 @@ type Props = {
   children: React.ReactNode;
 };
 
-/** Shell densità-strumento: gate site-staff-access + nav laterale D1–D9. */
+function loadingBody() {
+  return (
+    <div className="space-y-3" aria-label="Caricamento">
+      <div className="h-10 animate-pulse rounded-2xl bg-crema/8" />
+      <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />
+    </div>
+  );
+}
+
+/** Shell densità-strumento: gate site-staff-access + nav laterale. Senza permesso → redirect, mai pagina deny. */
 export function StaffShell({
   title,
   accent,
@@ -78,18 +78,18 @@ export function StaffShell({
   requireGestione,
   children,
 }: Props) {
-  const { ready, token, login, user } = useAuth();
+  const { ready, token } = useAuth();
+  const router = useRouter();
   const pathname = usePathname() || "/staff/";
   const [access, setAccess] = useState<StaffAccess | null>(null);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
     if (!token) {
       setAccess(null);
-      setError("");
       setLoading(false);
       return;
     }
@@ -99,12 +99,10 @@ export function StaffShell({
       if (!alive) return;
       if (!r.ok) {
         setAccess(null);
-        setError(r.message);
         setLoading(false);
         return;
       }
       setAccess(r.data);
-      setError("");
       setLoading(false);
     });
     return () => {
@@ -112,7 +110,36 @@ export function StaffShell({
     };
   }, [ready, token, tick]);
 
-  const nav = useMemo(() => (access ? staffNavFor(access) : []), [access]);
+  const pageBlocked = useMemo(() => {
+    if (!access) return false;
+    if (requireCompiti && !access.canCompiti) return true;
+    if (requirePmShop && !canAccessPmShop(access)) return true;
+    if (requirePuntiTolti && !canAccessPuntiTolti(access)) return true;
+    if (requireInbox && !canAccessInbox(access)) return true;
+    if (requireGestione && !canAccessGestione(access)) return true;
+    return false;
+  }, [access, requireCompiti, requirePmShop, requirePuntiTolti, requireInbox, requireGestione]);
+
+  /* Senza login / senza staff / pagina non consentita → esci subito (niente schermata deny). */
+  useEffect(() => {
+    if (!ready || loading) return;
+    if (!token) {
+      setRedirecting(true);
+      router.replace(page("/"));
+      return;
+    }
+    if (!access) {
+      setRedirecting(true);
+      router.replace(page("/"));
+      return;
+    }
+    if (pageBlocked) {
+      setRedirecting(true);
+      router.replace(page(staffFallbackHref(access)));
+    }
+  }, [ready, loading, token, access, pageBlocked, router]);
+
+  const nav = useMemo(() => (access && !pageBlocked ? staffNavFor(access) : []), [access, pageBlocked]);
 
   const pathNorm = pathname.replace(/\/+$/, "") || "/";
   const isActive = (href: string) => {
@@ -121,95 +148,11 @@ export function StaffShell({
     return pathNorm === h || pathNorm.startsWith(`${h}/`);
   };
 
+  const gatedOut = !ready || loading || redirecting || !token || !access || pageBlocked;
+
   let body: React.ReactNode;
-  if (!ready || loading) {
-    body = (
-      <div className="space-y-3" aria-label="Caricamento">
-        <div className="h-10 animate-pulse rounded-2xl bg-crema/8" />
-        <div className="h-40 animate-pulse rounded-2xl bg-crema/6" />
-      </div>
-    );
-  } else if (!token) {
-    body = (
-      <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 ring-1 ring-sand/15 sm:p-8">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
-            <LogIn className="size-5" />
-          </span>
-          <div>
-            <h2 className="font-display text-2xl font-semibold">Accedi per continuare</h2>
-            <p className="mt-1 text-sm text-crema/65">
-              L&apos;area staff richiede l&apos;accesso con Discord sullo stesso account del server.
-            </p>
-            <button
-              type="button"
-              onClick={login}
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
-            >
-              <LogIn className="size-4" /> Accedi con Discord
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  } else if (!access) {
-    body = (
-      <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 ring-1 ring-[#a83a2c]/35 sm:p-8">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#a83a2c]/20 text-[#f0a493] light:text-[#a83a2c] ring-1 ring-[#a83a2c]/35">
-            <ShieldAlert className="size-5" />
-          </span>
-          <div>
-            <h2 className="font-display text-2xl font-semibold">Accesso non consentito</h2>
-            <p className="mt-1 text-sm text-crema/65">
-              {error || "Questa area è riservata allo staff del server Vinili & Caffè."}
-            </p>
-            {user ? (
-              <p className="mt-2 text-xs text-crema/40">
-                Sei connesso come {user.global_name || user.username}.
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    );
-  } else if (requireCompiti && !access.canCompiti) {
-    body = (
-      <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 ring-1 ring-sand/15 sm:p-8">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
-            <ClipboardList className="size-5" />
-          </span>
-          <div>
-            <h2 className="font-display text-2xl font-semibold">Compiti non disponibili</h2>
-            <p className="mt-1 text-sm text-crema/65">
-              I compiti settimanali sono riservati allo staff operativo (Helper / Mod / Senior / Director o High
-              Staff).
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  } else if (requirePmShop && !canAccessPmShop(access)) {
-    body = gateDenied(
-      "Shop non disponibile",
-      "Lo shop premi è riservato ai Partner Manager (e all'High Staff per riscatti manuali).",
-    );
-  } else if (requirePuntiTolti && !canAccessPuntiTolti(access)) {
-    body = gateDenied(
-      "Punti tolti non disponibili",
-      "Puoi vedere solo i tuoi punti tolti da Partner Manager, oppure essere High Staff.",
-    );
-  } else if (requireInbox && !canAccessInbox(access)) {
-    body = gateDenied(
-      "Inbox non disponibile",
-      "Nessuna coda di revisione è abilitata per il tuo ruolo.",
-    );
-  } else if (requireGestione && !canAccessGestione(access)) {
-    body = gateDenied(
-      "Gestione non disponibile",
-      "Pex e depex sono riservati all’High Staff (e ai gestori PM sui Partner Manager).",
-    );
+  if (gatedOut) {
+    body = loadingBody();
   } else {
     body = <Ctx.Provider value={{ token, access, reload: () => setTick((n) => n + 1) }}>{children}</Ctx.Provider>;
   }
@@ -225,9 +168,14 @@ export function StaffShell({
           </h1>
           {text ? <p className="mt-1.5 max-w-2xl text-sm text-crema/60">{text}</p> : null}
         </div>
-        {access ? (
+        {access && !pageBlocked ? (
           <div className="flex items-center gap-2.5 rounded-2xl bg-roast/60 px-3 py-2 ring-1 ring-sand/12">
-            <Avatar userId={access.identity.userId} src={access.identity.avatarUrl} name={access.identity.displayName} className="size-8 text-xs" />
+            <Avatar
+              userId={access.identity.userId}
+              src={access.identity.avatarUrl}
+              name={access.identity.displayName}
+              className="size-8 text-xs"
+            />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-crema">{access.identity.displayName}</p>
               <p className="flex items-center gap-1 text-[0.7rem] text-crema/45">
@@ -262,11 +210,6 @@ export function StaffShell({
               </SmartLink>
             );
           })}
-          {!access && !loading && ready ? (
-            <span className="shrink-0 rounded-xl px-3 py-2 text-sm text-crema/35 ring-1 ring-sand/10 lg:w-full">
-              Guida · Compiti · Pause
-            </span>
-          ) : null}
         </nav>
         <div className="min-w-0">{body}</div>
       </div>

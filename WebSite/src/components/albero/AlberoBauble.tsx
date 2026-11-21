@@ -87,7 +87,7 @@ export const AlberoBauble = forwardRef<HTMLButtonElement, Props>(function Albero
         }}
       >
         {!anonymous && ornament.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img
             src={ornament.avatarUrl}
             alt=""

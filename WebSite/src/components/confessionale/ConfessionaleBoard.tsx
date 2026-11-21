@@ -227,7 +227,7 @@ export function ConfessionaleBoard() {
             <p className="flex items-center gap-2 font-display text-2xl font-bold">
               <Feather className="size-5" /> Scrivi una lettera
             </p>
-            <p className="mt-1 text-sm text-ink/60">Il messaggio non salva chi lo ha scritto: niente nome, niente ID Discord.</p>
+            <p className="mt-1 text-sm text-ink/60">Il messaggio non conserva chi l’ha scritto: niente nome e niente account Discord.</p>
             <textarea
               ref={textRef}
               name="message"

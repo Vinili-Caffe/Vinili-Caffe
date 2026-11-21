@@ -190,7 +190,7 @@ export function useOfflineQueueFlush(handler: (item: OfflineAction) => Promise<b
   }, [enabled]);
 }
 
-export const OFFLINE_TOAST_VOTE = "Offline — voto in coda";
-export const OFFLINE_TOAST_REACT = "Offline — reazione in coda";
+export const OFFLINE_TOAST_VOTE = "Sei offline: il voto parte appena torna la connessione";
+export const OFFLINE_TOAST_REACT = "Sei offline: la reazione parte appena torna la connessione";
 export const OFFLINE_TOAST_DRAFT = "Bozza salvata in coda";
 export const OFFLINE_TOAST_FLUSH_OK = "Azioni in coda inviate";

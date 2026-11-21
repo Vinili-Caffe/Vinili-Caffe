@@ -12,7 +12,7 @@ const ProfileView = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/user/", title: "Profilo", description: "Il profilo di un membro di Vinili & Caffè: livello, classifiche, rank card e ruoli." }),
+  ...pageSocialMeta({ path: "/user/", title: "Profilo", description: "Il profilo di un membro di Vinili & Caffè: livello, posizione nelle classifiche, rank card e ruoli." }),
 };
 
 export default function UserPage() {
@@ -21,7 +21,7 @@ export default function UserPage() {
       <DiscordComponentEmbed
         path="/user/"
         title="Profilo"
-        description="Il profilo di un membro di Vinili & Caffè: livello, classifiche, rank card e ruoli."
+        description="Il profilo di un membro di Vinili & Caffè: livello, posizione nelle classifiche, rank card e ruoli."
       />
       {/* l'id arriva da ?id=…: la pagina è statica, il profilo si carica nel browser */}
       <Suspense fallback={<BoardSkeleton className="mx-auto max-w-5xl px-6 py-10" />}>

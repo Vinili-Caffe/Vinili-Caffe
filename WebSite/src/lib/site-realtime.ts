@@ -20,7 +20,7 @@ export type SiteRealtimePing = {
 type Listener = (p: SiteRealtimePing) => void;
 
 let shared: WebSocket | null = null;
-let listeners = new Set<Listener>();
+const listeners = new Set<Listener>();
 let closed = false;
 let retry = 0;
 let timer: ReturnType<typeof setTimeout> | null = null;

@@ -42,7 +42,7 @@ export function DonateBoard() {
         <Reveal className="mb-10 text-center">
           <p className="font-script text-4xl text-caramel">Supportaci</p>
           <h2 className="mt-1 font-display text-4xl font-semibold sm:text-5xl">Scegli un ruolo</h2>
-          <p className="mx-auto mt-3 max-w-xl text-crema/60">Ogni donazione sblocca un ruolo sul server, con i suoi vantaggi. Il resto va a VPS, bot ed eventi.</p>
+          <p className="mx-auto mt-3 max-w-xl text-crema/60">Ogni donazione sblocca un ruolo sul server con i suoi vantaggi, e quello che versi serve a tenere accesi i bot e a organizzare gli eventi.</p>
         </Reveal>
 
         <div className="grid items-stretch gap-5 lg:grid-cols-3">
@@ -118,7 +118,7 @@ export function DonateBoard() {
           <div className="rounded-3xl bg-gradient-to-br from-mocha/70 to-roast p-7 ring-1 ring-sand/15">
             <p className="font-display text-2xl font-semibold">Hai dubbi su una donazione?</p>
             <p className="mt-3 leading-relaxed text-crema/70">
-              <RichText text="Scrivici dai [[Tickets|/tickets/]]: lo staff ti risponde lì. Per vedere tutti gli altri ruoli ottenibili gratis, passa dai [[Perks|/perks/]]." />
+              <RichText text="Scrivici dai [[Ticket|/tickets/]] e lo staff ti risponde lì. I ruoli che si ottengono senza pagare sono tutti nei [[Perks|/perks/]]." />
             </p>
           </div>
           <div className="flex gap-3 rounded-3xl bg-caramel/10 p-7 text-sm leading-relaxed text-crema/80 ring-1 ring-caramel/25">

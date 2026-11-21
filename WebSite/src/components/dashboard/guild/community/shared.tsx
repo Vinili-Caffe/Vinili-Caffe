@@ -220,7 +220,7 @@ export function EmojiButton({
 export function EmojiGlyph({ value, className }: { value: string; className?: string }) {
   const m = String(value || "").match(/^<(a?):([\w~]+):(\d+)>$/);
   if (m) {
-    // eslint-disable-next-line @next/next/no-img-element
+     
     return <img src={customEmojiUrl(m[3], m[1] === "a", 48)} alt={m[2]} className={cn("inline-block size-[1.1em] object-contain", className)} />;
   }
   return value ? <span className={className}>{value}</span> : null;
@@ -671,7 +671,7 @@ function DiscordMessagePreviewBody({
     <>
       {audioAttachment ? <DiscordAudioCard {...audioAttachment} /> : null}
       {attachmentUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
+         
         <img src={attachmentUrl} alt="" className="mb-1 mt-[2px] h-auto max-h-[300px] w-auto max-w-[400px] rounded-[8px] object-contain" />
       ) : null}
     </>
@@ -682,7 +682,7 @@ function DiscordMessagePreviewBody({
       <ScaleToFit width={CHAT_WIDTH}>
         <div className="flex gap-4 pl-4 pr-4 font-sans text-[16px] leading-[22px] text-[#dbdee1] antialiased">
           {bot?.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img src={bot.avatarUrl} alt="" className="mt-[2px] size-10 shrink-0 rounded-full object-cover" />
           ) : (
             <span className="mt-[2px] size-10 shrink-0 animate-pulse rounded-full bg-white/10" aria-hidden />
@@ -708,7 +708,7 @@ function DiscordMessagePreviewBody({
                   {author ? (
                     <p className="mt-2 flex items-center gap-2 text-[14px] font-semibold leading-[22px] text-[#f2f3f5]">
                       {authorIcon ? (
-                        // eslint-disable-next-line @next/next/no-img-element
+                         
                         <img src={authorIcon} alt="" className="size-6 rounded-full object-cover" />
                       ) : null}
                       <span className="min-w-0 break-words">{author}</span>
@@ -719,11 +719,11 @@ function DiscordMessagePreviewBody({
                   <EmbedFieldsPreview fields={fields} vars={vars} names={names} fill={fillVars} />
                 </div>
                 {thumbUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img src={thumbUrl} alt="" className="ml-4 mt-2 max-h-20 max-w-20 justify-self-end rounded-[3px] object-contain" />
                 ) : null}
                 {imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img src={imageUrl} alt="" className="col-span-full mt-4 h-auto max-h-[300px] w-auto max-w-[400px] rounded-[4px] object-contain" />
                 ) : null}
                 {footer || e.timestamp ? (

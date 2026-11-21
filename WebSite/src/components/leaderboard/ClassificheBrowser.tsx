@@ -52,7 +52,7 @@ export function ClassificheBrowser({
     const fromUrl = readScopeFromUrl();
     if (fromUrl !== scope) setScope(fromUrl);
     // solo al mount: allinea URL (es. link dashboard)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const pick = (next: ClassificheScope) => {

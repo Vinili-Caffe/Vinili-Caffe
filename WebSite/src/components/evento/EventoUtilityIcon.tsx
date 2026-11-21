@@ -24,7 +24,7 @@ export function EventoUtilityIcon({
   const src = utilityIconUrl(itemId);
   if (!src) return null;
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+     
     <img
       src={src}
       alt={alt}

@@ -70,7 +70,7 @@ export function ogImageForPath(path: string, version = OG_CARD_VERSION) {
 }
 
 function shortenEmbedTitle(raw: string): string {
-  let title = String(raw || "").trim() || "Vinili & Caffè";
+  const title = String(raw || "").trim() || "Vinili & Caffè";
   // Brand ǀ Pagina → solo il nome pagina (non l’ultima parola del brand, es. “Gaming”)
   if (title.includes("ǀ")) {
     const tail = title.split("ǀ").pop()?.trim() || "";

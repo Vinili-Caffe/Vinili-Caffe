@@ -8,7 +8,7 @@ import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/cookie/", title: "Cookie Policy", description: "Cookie e tecnologie simili usati sul sito Vinili & Caffè: sessione, preferenze, sicurezza e misurazione." }),
+  ...pageSocialMeta({ path: "/cookie/", title: "Cookie Policy", description: "Quali cookie usa il sito di Vinili & Caffè, a cosa servono e come puoi cambiare le tue scelte." }),
 };
 
 export default function CookiePage() {
@@ -18,7 +18,7 @@ export default function CookiePage() {
       <DiscordComponentEmbed
         path="/cookie/"
         title="Cookie Policy"
-        description="Cookie e tecnologie simili usati sul sito Vinili & Caffè: sessione, preferenze, sicurezza e misurazione."
+        description="Quali cookie usa il sito di Vinili & Caffè, a cosa servono e come puoi cambiare le tue scelte."
       />
       <PageHero
         icon={<Cookie />}

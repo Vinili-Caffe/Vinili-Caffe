@@ -113,7 +113,7 @@ function MediaThumb({
     );
   }
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+     
     <img
       src={src}
       alt={name}
@@ -139,7 +139,7 @@ export function BackupPreviewView({ preview }: { preview: BackupPreview }) {
       <div className="relative overflow-hidden rounded-t-2xl">
         <div className="relative h-24 bg-[#111214] sm:h-28">
           {g.bannerURL ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img src={g.bannerURL} alt="" className="absolute inset-0 size-full object-cover" />
           ) : (
             <div
@@ -156,7 +156,7 @@ export function BackupPreviewView({ preview }: { preview: BackupPreview }) {
         <div className="relative -mt-8 flex items-end gap-3 px-4 pb-3 sm:px-5">
           <div className="size-16 shrink-0 overflow-hidden rounded-2xl bg-[#111214] ring-[3px] ring-[#1e1f22] sm:size-[4.5rem]">
             {g.iconURL ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img src={g.iconURL} alt="" className="size-full object-cover" />
             ) : (
               <div className="flex size-full items-center justify-center font-display text-2xl font-semibold text-crema/55">

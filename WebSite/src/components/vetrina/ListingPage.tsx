@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { InstagramIcon, TikTokIcon, TwitchIcon, YoutubeIcon } from "@/components/dashboard/guild/LivePlatformIcons";
 import { ListingActivity } from "./ListingActivity";
 import { motion } from "motion/react";
@@ -11,14 +12,15 @@ import {
   Bot,
   CalendarDays,
   Check,
+  Bell,
   Flag,
+  Flame,
   Globe,
   Handshake,
   Hash,
   Languages,
   Link2,
   LogIn,
-  RefreshCcw,
   Server,
   LifeBuoy,
   MonitorSmartphone,
@@ -32,6 +34,7 @@ import {
   ThumbsUp,
   Users,
 } from "lucide-react";
+import { ListingCompareTab } from "./ListingCompareTab";
 import { useAuth } from "@/lib/auth";
 import {
   SOCIAL_LABELS,
@@ -40,6 +43,10 @@ import {
   listingFeatures,
   localeFlagUrl,
   loadRelatedListings,
+  loadSimilarListings,
+  followListing,
+  unfollowListing,
+  isFollowingListing,
   BUMP_COOLDOWN_MS,
   trackListing,
   type TrackEvent,
@@ -47,7 +54,9 @@ import {
   type TrafficSource,
   loadBoardsConfig,
   loadListing,
+  loadVoteStatus,
   reportListing,
+  REPORT_CATEGORIES,
   statusLabel,
   type BoardListing,
   type BoardsConfig,
@@ -56,24 +65,39 @@ import {
 import { page } from "@/lib/site";
 import { timeAgo } from "@/lib/time";
 import { cn } from "@/lib/cn";
-import { promptDialog, showToast } from "@/components/ui";
+import { chooseDialog, promptDialog, showToast } from "@/components/ui";
 import { SmartLink } from "@/components/SmartLink";
 import { DiscordContent } from "@/components/discord/DiscordContent";
-import { ListingCard, Stars } from "./ListingCard";
+import { ListingCard } from "./ListingCard";
 import { ListingReviews } from "./ListingReviews";
 import { VETRINA_FROM_KEY, VetrinaHeroBg } from "./VetrinaChrome";
 import { EMPTY_FILTERS, VetrinaSearch, listHref } from "./VetrinaSearch";
 
+/** Segue i cambi di ?slug= / ?tab= / ?with=. */
 function useSlug() {
-  const [slug, setSlug] = useState<string | null>(null);
-  useEffect(() => {
+  const sp = useSearchParams();
+  return sp.get("slug") || "";
+}
+
+type SchedaTab = "overview" | "confronta";
+
+function useSchedaTab(): [SchedaTab, (t: SchedaTab) => void] {
+  const sp = useSearchParams();
+  const tabFromUrl: SchedaTab = sp.get("tab") === "confronta" || sp.get("tab") === "compare" ? "confronta" : "overview";
+  const [tab, setTabState] = useState<SchedaTab>(tabFromUrl);
+  useEffect(() => setTabState(tabFromUrl), [tabFromUrl]);
+  function setTab(next: SchedaTab) {
+    setTabState(next);
     try {
-      setSlug(new URLSearchParams(location.search).get("slug") || "");
+      const u = new URL(location.href);
+      if (next === "overview") u.searchParams.delete("tab");
+      else u.searchParams.set("tab", "confronta");
+      history.replaceState(history.state, "", u.toString());
     } catch {
-      setSlug("");
+      /* ignore */
     }
-  }, []);
-  return slug;
+  }
+  return [tab, setTab];
 }
 
 const fmt = (n: number) => n.toLocaleString("it-IT");
@@ -122,10 +146,15 @@ const deviceOf = (): "desktop" | "mobile" => {
 /** Scheda completa di un server o bot in vetrina. */
 export function ListingPage() {
   const slug = useSlug();
+  const [tab, setTab] = useSchedaTab();
+  const [comparePeers, setComparePeers] = useState<string[]>([]);
   const { ready, token, login, user } = useAuth();
   const [listing, setListing] = useState<BoardListing | null>(null);
   const [cfg, setCfg] = useState<BoardsConfig | null>(null);
   const [busy, setBusy] = useState("");
+  const [following, setFollowing] = useState(false);
+  const [notifyVote, setNotifyVote] = useState(true);
+  const [notifyBump, setNotifyBump] = useState(true);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -133,6 +162,7 @@ export function ListingPage() {
     if (!ready || !slug) return;
     let alive = true;
     setErr("");
+    setListing(null);
     void loadListing(slug, token).then((r) => {
       if (!alive) return;
       if (!r.ok) {
@@ -152,6 +182,10 @@ export function ListingPage() {
   const trackedId = useRef("");
   const isOwner = Boolean(user?.id && listing?.ownerUserId && user.id === listing.ownerUserId);
   useEffect(() => {
+    trackedId.current = "";
+    setComparePeers([]);
+  }, [slug]);
+  useEffect(() => {
     if (!listing?.id || trackedId.current === listing.id) return;
     trackedId.current = listing.id;
     if (isOwner) return;
@@ -162,10 +196,55 @@ export function ListingPage() {
   };
 
   useEffect(() => {
-    if (listing?.name) document.title = `${listing.name} · Vetrina · Vinili & Caffè`;
-  }, [listing?.name]);
+    if (!listing?.name) return;
+    document.title = `${listing.name} · Vetrina · Vinili & Caffè`;
+    const desc = (listing.tagline || listing.description || "").replace(/\s+/g, " ").trim().slice(0, 160);
+    const setMeta = (attr: string, key: string, value: string) => {
+      if (!value) return;
+      let el = document.querySelector(`meta[${attr}="${key}"]`) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", value);
+    };
+    setMeta("property", "og:title", `${listing.name} · Vetrina`);
+    setMeta("name", "twitter:title", `${listing.name} · Vetrina`);
+    if (desc) {
+      setMeta("property", "og:description", desc);
+      setMeta("name", "twitter:description", desc);
+      setMeta("name", "description", desc);
+    }
+    const img = String(listing.bannerUrl || listing.iconUrl || "").trim();
+    if (/^https:\/\//i.test(img)) {
+      setMeta("property", "og:image", img);
+      setMeta("name", "twitter:image", img);
+    }
+  }, [listing?.name, listing?.tagline, listing?.description, listing?.bannerUrl, listing?.iconUrl]);
 
-  if (slug === null || (slug && !listing && !err)) {
+  useEffect(() => {
+    if (!token || !listing?.id || isOwner) {
+      setFollowing(false);
+      return;
+    }
+    let alive = true;
+    void isFollowingListing(token, listing.id).then((r) => {
+      if (!alive || !r.ok) return;
+      setFollowing(Boolean(r.data.following));
+      if (r.data.following) {
+        setNotifyVote(r.data.notifyVote !== false);
+        setNotifyBump(r.data.notifyBump !== false);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [token, listing?.id, isOwner]);
+
+  const { wait: voteWait, voteStreak } = useVoteCooldown(listing?.id || "", token, ready);
+
+  if (slug && !listing && !err) {
     return (
       <>
         <div className="h-96 animate-pulse bg-roast/60" />
@@ -215,22 +294,75 @@ export function ListingPage() {
       return;
     }
     showToast("Bump fatto: il server è tornato in cima.");
-    setListing({ ...l, bumpedAt: r.data.bumpedAt || new Date().toISOString(), bumps7d: (l.bumps7d || 0) + 1 });
+    setListing({
+      ...l,
+      bumpedAt: r.data.bumpedAt || new Date().toISOString(),
+      bumps7d: (l.bumps7d || 0) + 1,
+      bumpStreak: typeof r.data.bumpStreak === "number" ? r.data.bumpStreak : (l.bumpStreak || 0) + 1,
+    });
   }
 
   async function onReport() {
     if (!token) return login();
-    const reason = await promptDialog({
+    if (isOwner) {
+      showToast("Non puoi segnalare la tua scheda.", true);
+      return;
+    }
+    const category = await chooseDialog({
       title: "Segnala questa scheda",
+      message: "Che tipo di problema hai trovato?",
+      choices: REPORT_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
+    });
+    if (!category) return;
+    const reason = await promptDialog({
+      title: "Dettagli della segnalazione",
       inputLabel: "Motivo",
-      placeholder: "Cosa non va? (contenuti, link, regole…)",
+      placeholder: "Spiega cosa non va (minimo 8 caratteri)…",
       multiline: true,
     });
-    if (!reason || reason.trim().length < 8) return;
+    if (reason == null) return;
+    if (reason.trim().length < 8) {
+      showToast("Scrivi almeno 8 caratteri nel motivo.", true);
+      return;
+    }
     setBusy("report");
-    const r = await reportListing(token, l.id, reason.trim());
+    const r = await reportListing(token, l.id, reason.trim(), category);
     setBusy("");
-    showToast(r.ok ? r.data.message || "Segnalazione inviata allo staff." : r.message, !r.ok);
+    if (!r.ok) {
+      showToast(r.message || "Segnalazione non inviata. Riprova.", true);
+      return;
+    }
+    showToast(r.data.message || "Segnalazione inviata allo staff.");
+  }
+
+  async function onFollow() {
+    if (!token) return login();
+    setBusy("follow");
+    const r = following
+      ? await unfollowListing(token, l.id)
+      : await followListing(token, l.id, { notifyVote: true, notifyBump: true });
+    setBusy("");
+    if (!r.ok) return showToast(r.message, true);
+    setFollowing(!following);
+    if (!following) {
+      setNotifyVote(true);
+      setNotifyBump(true);
+    }
+    showToast(r.data.message || (following ? "Non la segui più." : "Scheda seguita: ti avvisiamo su voto e bump."));
+  }
+
+  async function patchFollowNotify(next: { notifyVote?: boolean; notifyBump?: boolean }) {
+    if (!token || !following) return;
+    const vote = next.notifyVote ?? notifyVote;
+    const bump = next.notifyBump ?? notifyBump;
+    setNotifyVote(vote);
+    setNotifyBump(bump);
+    const r = await followListing(token, l.id, { notifyVote: vote, notifyBump: bump });
+    if (!r.ok) {
+      showToast(r.message, true);
+      return;
+    }
+    showToast("Preferenze notifiche aggiornate");
   }
 
   async function onShare() {
@@ -251,7 +383,7 @@ export function ListingPage() {
       <header className="relative isolate overflow-hidden pb-10 pt-24 sm:pt-28">
         {l.bannerUrl ? (
           <div className="absolute inset-0 -z-10">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            { }
             <img src={l.bannerUrl} alt="" className="size-full object-cover opacity-70" />
             <div
               className="absolute inset-0"
@@ -298,7 +430,7 @@ export function ListingPage() {
                   style={{ background: `radial-gradient(circle at 35% 30%, ${accent}88, #1a110c 75%)` }}
                 >
                   {l.iconUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                     
                     <img src={l.iconUrl} alt="" className="size-full object-cover" />
                   ) : (
                     <KindIcon className="absolute inset-0 m-auto size-10 text-sand/70" />
@@ -308,17 +440,18 @@ export function ListingPage() {
               </div>
               {l.tagline && <p className="mt-3 max-w-2xl text-lg text-crema/70">{l.tagline}</p>}
               {l.stats?.guildTag ? (
-                <span
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-sm font-bold"
+                <SmartLink
+                  href={listHref("server", { guildTag: l.stats.guildTag })}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-sm font-bold transition hover:brightness-110"
                   style={{ background: `${l.stats.guildTagBadgeColor || accent}33`, color: l.stats.guildTagBadgeColor || "#f4e9d8" }}
-                  title="Tag del server su Discord"
+                  title="Altri server con questo guild tag"
                 >
                   {l.stats.guildTagBadgeUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                     
                     <img src={l.stats.guildTagBadgeUrl} alt="" className="size-4" />
                   ) : null}
                   {l.stats.guildTag}
-                </span>
+                </SmartLink>
               ) : null}
             </div>
           </motion.div>
@@ -339,7 +472,32 @@ export function ListingPage() {
             <IconAction label={copied ? "Copiato" : "Copia link"} onClick={onShare}>
               {copied ? <Check className="size-4" /> : <Link2 className="size-4" />}
             </IconAction>
-            <IconAction label="Segnala" onClick={onReport} disabled={busy === "report"}>
+            {!isOwner ? (
+              <IconAction label={following ? "Seguita" : "Segui"} onClick={() => void onFollow()} disabled={busy === "follow"}>
+                <Bell className={cn("size-4", following && "fill-caramel text-caramel")} />
+              </IconAction>
+            ) : null}
+            {!isOwner && following && token ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-full bg-crema/6 px-3 py-1.5 text-xs text-crema/70 ring-1 ring-sand/15">
+                <button
+                  type="button"
+                  aria-pressed={notifyVote}
+                  onClick={() => void patchFollowNotify({ notifyVote: !notifyVote })}
+                  className={cn("rounded-full px-2 py-0.5 font-semibold", notifyVote ? "bg-ember/20 text-ember" : "text-crema/45")}
+                >
+                  Voto
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={notifyBump}
+                  onClick={() => void patchFollowNotify({ notifyBump: !notifyBump })}
+                  className={cn("rounded-full px-2 py-0.5 font-semibold", notifyBump ? "bg-ember/20 text-ember" : "text-crema/45")}
+                >
+                  Bump
+                </button>
+              </div>
+            ) : null}
+            <IconAction label="Segnala" onClick={() => void onReport()} disabled={busy === "report"}>
               <Flag className="size-4" />
             </IconAction>
             {isOwner ? (
@@ -363,39 +521,89 @@ export function ListingPage() {
       <div className={cn("mx-auto mt-8 grid max-w-6xl grid-cols-2 gap-3 px-6", (isBot ? serverCount > 0 : members > 0) && "sm:grid-cols-3")}>
         {!isBot && members > 0 ? <StatTile icon={<Users />} label="Membri" value={fmt(members)} /> : null}
         {isBot && serverCount > 0 ? <StatTile icon={<Server />} label="Server" value={fmt(serverCount)} /> : null}
-        <ActionTile
-          icon={<ThumbsUp />}
-          label="Voti del mese"
-          value={fmt(l.votesMonth || 0)}
-          action={
-            <SmartLink href={voteHref} onClick={() => track("vote")} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-bold text-ink transition hover:-translate-y-0.5">
-              <ThumbsUp className="size-4" /> Vota
-            </SmartLink>
-          }
+        <VoteTile
+          listing={l}
+          voteHref={voteHref}
+          cooldownHours={cfg?.voteCooldownHours || 12}
+          wait={voteWait}
+          voteStreak={token ? voteStreak : null}
+          onTrack={() => track("vote")}
         />
         {/* bump: solo per i server, una volta ogni 2 ore */}
-        {!isBot ? <BumpTile listing={l} busy={busy === "bump"} onBump={() => void onBump()} /> : null}
+        {!isBot ? (
+          <div id="bump">
+            <BumpTile listing={l} busy={busy === "bump"} onBump={() => void onBump()} />
+          </div>
+        ) : null}
+      </div>
+
+      {/* ─── tab Overview / Confronta (stile top.gg) ─── */}
+      <div className="mx-auto mt-10 max-w-6xl px-6">
+        <div className="flex gap-6 border-b border-sand/15" role="tablist" aria-label="Sezioni scheda">
+          {(
+            [
+              { id: "overview" as const, label: "Panoramica" },
+              { id: "confronta" as const, label: "Confronta" },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                "relative -mb-px pb-3 text-sm font-semibold transition",
+                tab === t.id ? "text-crema" : "text-crema/45 hover:text-crema/75",
+              )}
+            >
+              {t.label}
+              {tab === t.id ? <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-ember" /> : null}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ─── contenuto ─── */}
       <div className="mx-auto mt-8 grid grid-cols-1 max-w-6xl gap-6 px-6 pb-28 lg:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="min-w-0 space-y-6">
-          <Panel title="Descrizione">
-            {l.description ? (
-              <DiscordContent text={l.description} className="min-w-0 leading-relaxed text-crema/80 [overflow-wrap:anywhere] [&_a]:text-ember [&_a]:underline" />
-            ) : (
-              <p className="text-crema/45">Il proprietario non ha ancora scritto una descrizione.</p>
-            )}
-            {l.visitorNotes && (
-              <div className="mt-6 rounded-2xl bg-caramel/10 p-4 ring-1 ring-caramel/25">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ember">Note per chi entra</p>
-                <p className="mt-2 text-sm leading-relaxed text-crema/75 [overflow-wrap:anywhere]">{l.visitorNotes}</p>
-              </div>
-            )}
-          </Panel>
-          {isBot && commands.length > 0 ? <CommandsPanel commands={commands} prefix={l.prefix || ""} /> : null}
-          <RelatedListings listing={l} token={token} />
-          <ListingReviews listing={l} onAggregate={(avg, count) => setListing((prev) => (prev ? { ...prev, ratingAvg: avg, reviewsCount: count } : prev))} />
+          {tab === "confronta" ? (
+            <ListingCompareTab listing={l} token={token} initialPeerIds={comparePeers} />
+          ) : (
+            <>
+              <Panel title="Descrizione">
+                {l.description ? (
+                  <DiscordContent text={l.description} className="min-w-0 leading-relaxed text-crema/80 [overflow-wrap:anywhere] [&_a]:text-ember [&_a]:underline" />
+                ) : (
+                  <p className="text-crema/45">Il proprietario non ha ancora scritto una descrizione.</p>
+                )}
+                {l.visitorNotes && (
+                  <div className="mt-6 rounded-2xl bg-caramel/10 p-4 ring-1 ring-caramel/25">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ember">Note per chi entra</p>
+                    <p className="mt-2 text-sm leading-relaxed text-crema/75 [overflow-wrap:anywhere]">{l.visitorNotes}</p>
+                  </div>
+                )}
+              </Panel>
+              <RelatedListings
+                listing={l}
+                token={token}
+                onCompare={(id) => {
+                  setComparePeers(id === l.id ? [] : [id]);
+                  setTab("confronta");
+                }}
+              />
+              {isBot && commands.length > 0 ? <CommandsPanel commands={commands} prefix={l.prefix || ""} /> : null}
+              <SimilarListings
+                listing={l}
+                token={token}
+                onCompare={(id) => {
+                  setComparePeers(id === l.id ? [] : [id]);
+                  setTab("confronta");
+                }}
+              />
+              <ListingReviews listing={l} onAggregate={(avg, count) => setListing((prev) => (prev ? { ...prev, ratingAvg: avg, reviewsCount: count } : prev))} />
+            </>
+          )}
         </div>
 
         <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
@@ -420,7 +628,7 @@ export function ListingPage() {
                       return (
                         <span key={x} className="inline-flex items-center gap-1.5">
                           {flag ? (
-                            // eslint-disable-next-line @next/next/no-img-element
+                             
                             <img src={flag} alt="" width={20} height={15} loading="lazy" className="h-[15px] w-5 rounded-[3px] object-cover shadow-[0_0_0_1px_rgba(0,0,0,0.25)]" />
                           ) : null}
                           {labelOf(cfg?.localeLabels, x)}
@@ -503,7 +711,7 @@ export function ListingPage() {
             {(l.authorName || l.authorAvatarUrl) && (
               <div className="mt-5 flex items-center gap-3 border-t border-sand/10 pt-4">
                 {l.authorAvatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img src={l.authorAvatarUrl} alt="" className="size-10 rounded-full object-cover ring-2 ring-sand/20" />
                 ) : (
                   <span className="size-10 rounded-full bg-mocha" />
@@ -516,7 +724,17 @@ export function ListingPage() {
             )}
           </Panel>
 
-          {!isBot && <ListingActivity listingId={l.id} token={token} />}
+          {!isBot && (
+            <ListingActivity
+              listingId={l.id}
+              token={token}
+              inviteUrl={
+                cfg?.botInviteUrl
+                  ? `${cfg.botInviteUrl}${cfg.botInviteUrl.includes("?") ? "&" : "?"}guild_id=${encodeURIComponent(l.discordId)}&disable_guild_select=true`
+                  : null
+              }
+            />
+          )}
 
           {isBot && (l.prefix || serverCount > 0) && (
             <Panel title="Dettagli">
@@ -540,7 +758,7 @@ export function ListingPage() {
               <SmartLink href={page(`/vetrina/scheda/?slug=${encodeURIComponent(l.supportServer.slug)}`)} className="group flex items-center gap-3 rounded-2xl bg-espresso/50 p-3 ring-1 ring-sand/12 transition hover:ring-ember/40">
                 <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-mocha">
                   {l.supportServer.iconUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                     
                     <img src={l.supportServer.iconUrl} alt="" className="size-full object-cover" />
                   ) : (
                     <Server className="size-5 text-crema/60" />
@@ -568,18 +786,7 @@ export function ListingPage() {
             </Panel>
           )}
 
-          <SmartLink
-            href={voteHref}
-            className="group block overflow-hidden rounded-3xl p-6 ring-1 ring-caramel/30"
-            style={{ background: `radial-gradient(120% 120% at 0% 0%, ${accent}44, transparent 60%), #1a110c` }}
-          >
-            <p className="font-script text-2xl text-ember">Ti piace?</p>
-            <p className="mt-1 font-display text-2xl font-semibold">Dagli una spinta</p>
-            <p className="mt-2 text-sm text-crema/60">Ogni voto lo fa salire in vetrina. Puoi votare di nuovo ogni {cfg?.voteCooldownHours || 12} ore.</p>
-            <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-crema px-4 py-2 text-sm font-bold text-ink transition-transform group-hover:-translate-y-0.5">
-              <ThumbsUp className="size-4" /> Vota ora
-            </span>
-          </SmartLink>
+          <VotePromoCard voteHref={voteHref} cooldownHours={cfg?.voteCooldownHours || 12} wait={voteWait} accent={accent} onTrack={() => track("vote")} />
         </aside>
       </div>
     </>
@@ -702,23 +909,250 @@ function CommandsPanel({ commands, prefix }: { commands: BotCommand[]; prefix: s
   );
 }
 
-/** Card dei numeri con il pulsante dentro (Vota, Bump). */
-function ActionTile({ icon, label, value, hint, action }: { icon: ReactNode; label: string; value: string; hint?: ReactNode; action: ReactNode }) {
+/** Card dei numeri con il pulsante dentro (Vota, Bump) + streak al centro. */
+function ActionTile({
+  icon,
+  label,
+  value,
+  hint,
+  streak,
+  action,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  hint?: ReactNode;
+  streak?: ReactNode;
+  action: ReactNode;
+}) {
   return (
-    <div className="flex flex-col justify-between gap-3 rounded-2xl bg-roast p-4 ring-1 ring-sand/12 sm:flex-row">
-      <div className="min-w-0">
+    <div className="flex flex-col gap-3 rounded-2xl bg-roast p-4 ring-1 ring-sand/12 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 sm:min-w-[7.5rem]">
         <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-crema/45 [&>svg]:size-3.5 [&>svg]:text-caramel">
           {icon} {label}
         </p>
         <p className="mt-2 font-display text-3xl font-semibold lining-nums text-crema">{value}</p>
         {hint ? <p className="text-xs text-crema/40">{hint}</p> : null}
       </div>
-      <div className="shrink-0 sm:self-end">{action}</div>
+      {streak ? <div className="flex justify-center sm:px-1">{streak}</div> : null}
+      <div className="shrink-0 sm:self-center">{action}</div>
     </div>
   );
 }
 
-/** Card del bump (solo server): un bump ogni 2 ore, con il tempo che manca. */
+const STREAK_MILESTONES = [7, 14, 30] as const;
+
+/** Anello + fiamma stile Discadia (traguardi 7 / 14 / 30). */
+function StreakFlame({
+  value,
+  caption,
+  emptyHint,
+}: {
+  value: number;
+  caption: string;
+  emptyHint?: string;
+}) {
+  const gid = useId().replace(/:/g, "");
+  const n = Math.max(0, Math.floor(value) || 0);
+  const next = STREAK_MILESTONES.find((m) => m > n) ?? 30;
+  const prev = [...STREAK_MILESTONES].reverse().find((m) => m <= n) ?? 0;
+  const pct = n <= 0 ? 0 : n >= 30 ? 1 : Math.min(1, (n - prev) / Math.max(1, next - prev));
+  const r = 18;
+  const circ = 2 * Math.PI * r;
+  const hot = n >= 7;
+  const blaze = n >= 14;
+  const milestone = n >= 30 ? "30+" : n >= 14 ? "14" : n >= 7 ? "7" : null;
+  return (
+    <div
+      className="relative flex min-w-[4.5rem] flex-col items-center"
+      title={n > 0 ? `${n} di fila · prossimo traguardo ${next}` : emptyHint || "Inizia la streak"}
+    >
+      <div className="relative size-[3.25rem] overflow-visible">
+        {/* alone softa tonda — niente filter/drop-shadow (lasciano un quadrato) */}
+        {n > 0 ? (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 size-7 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ember/25 blur-[6px]"
+          />
+        ) : null}
+        <svg className="absolute inset-0 size-full -rotate-90 overflow-visible" viewBox="0 0 44 44" aria-hidden>
+          <circle cx="22" cy="22" r={r} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-crema/10" />
+          <circle
+            cx="22"
+            cy="22"
+            r={r}
+            fill="none"
+            stroke={`url(#${gid})`}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeDasharray={circ}
+            strokeDashoffset={circ * (1 - pct)}
+            className="transition-[stroke-dashoffset] duration-700 ease-out"
+          />
+          <defs>
+            <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#f0b46e" />
+              <stop offset="100%" stopColor="#e07840" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Flame
+            className={cn(
+              "size-5 transition-colors",
+              n > 0 && "animate-streak-flicker",
+              n <= 0 ? "text-crema/25" : blaze ? "text-orange-400" : hot ? "text-ember" : "text-caramel",
+            )}
+            fill={n > 0 ? "currentColor" : "none"}
+          />
+        </div>
+      </div>
+      <p className="mt-0.5 font-display text-lg font-semibold leading-none lining-nums tabular-nums text-crema">{n}</p>
+      <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-crema/40">{caption}</p>
+      {milestone ? (
+        <span className="mt-1 rounded-full bg-gradient-to-r from-caramel/25 to-ember/20 px-2 py-0.5 text-[10px] font-bold text-ember ring-1 ring-ember/30">
+          {milestone} giorni
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function formatCooldownWait(ms: number) {
+  if (ms <= 0) return "";
+  const mins = Math.ceil(ms / 60_000);
+  if (mins >= 60) return `${Math.floor(mins / 60)} h ${mins % 60} min`;
+  return `${mins} min`;
+}
+
+/** Cooldown voto dell’utente loggato (nextVoteAt dall’API) + streak personale. */
+function useVoteCooldown(listingId: string, token?: string | null, ready?: boolean) {
+  const [nextVoteAt, setNextVoteAt] = useState<string | null>(null);
+  const [voteStreak, setVoteStreak] = useState(0);
+  useEffect(() => {
+    if (!ready || !token || !listingId) {
+      setNextVoteAt(null);
+      setVoteStreak(0);
+      return;
+    }
+    let alive = true;
+    void loadVoteStatus(token, listingId).then((r) => {
+      if (!alive) return;
+      setNextVoteAt(r.ok && !r.data.canVote ? r.data.nextVoteAt || null : null);
+      setVoteStreak(r.ok ? Math.max(0, Number(r.data.voteStreak) || 0) : 0);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [ready, token, listingId]);
+
+  const until = nextVoteAt ? Date.parse(nextVoteAt) : 0;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!until || until <= Date.now()) return;
+    const t = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(t);
+  }, [until]);
+  const left = until ? Math.max(0, until - now) : 0;
+  const wait = formatCooldownWait(left);
+  useEffect(() => {
+    if (until && left <= 0) setNextVoteAt(null);
+  }, [until, left]);
+  return { wait, voteStreak };
+}
+
+/** Card voti del mese + countdown cooldown (come bump) + streak utente. */
+function VoteTile({
+  listing,
+  voteHref,
+  cooldownHours,
+  wait,
+  voteStreak,
+  onTrack,
+}: {
+  listing: BoardListing;
+  voteHref: string;
+  cooldownHours: number;
+  wait: string;
+  voteStreak: number | null;
+  onTrack: () => void;
+}) {
+  return (
+    <ActionTile
+      icon={<ThumbsUp />}
+      label="Voti del mese"
+      value={fmt(listing.votesMonth || 0)}
+      hint={wait ? `prossimo tra ${wait}` : `ogni ${cooldownHours} ore`}
+      streak={
+        voteStreak != null ? (
+          <StreakFlame value={voteStreak} caption="la tua" emptyHint="Vota di fila per accendere la streak" />
+        ) : null
+      }
+      action={
+        wait ? (
+          <span
+            title={`Potrai votare di nuovo tra ${wait}`}
+            className="inline-flex items-center gap-2 rounded-full bg-crema/12 px-5 py-2.5 text-sm font-semibold text-crema/50 ring-1 ring-sand/20"
+          >
+            <ThumbsUp className="size-4" /> In attesa
+          </span>
+        ) : (
+          <SmartLink
+            href={voteHref}
+            onClick={onTrack}
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-bold text-ink transition hover:-translate-y-0.5"
+          >
+            <ThumbsUp className="size-4" /> Vota
+          </SmartLink>
+        )
+      }
+    />
+  );
+}
+
+function VotePromoCard({
+  voteHref,
+  cooldownHours,
+  wait,
+  accent,
+  onTrack,
+}: {
+  voteHref: string;
+  cooldownHours: number;
+  wait: string;
+  accent: string;
+  onTrack: () => void;
+}) {
+  return (
+    <div
+      className="overflow-hidden rounded-3xl p-6 ring-1 ring-caramel/30"
+      style={{ background: `radial-gradient(120% 120% at 0% 0%, ${accent}44, transparent 60%), #1a110c` }}
+    >
+      <p className="font-script text-2xl text-ember">Ti piace?</p>
+      <p className="mt-1 font-display text-2xl font-semibold">Dagli una spinta</p>
+      <p className="mt-2 text-sm text-crema/60">
+        {wait
+          ? `Hai già votato: puoi di nuovo tra ${wait}.`
+          : `Ogni voto lo fa salire in vetrina. Puoi votare di nuovo ogni ${cooldownHours} ore.`}
+      </p>
+      {wait ? (
+        <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-crema/15 px-4 py-2 text-sm font-bold text-crema/50">
+          <ThumbsUp className="size-4" /> In attesa
+        </span>
+      ) : (
+        <SmartLink
+          href={voteHref}
+          onClick={onTrack}
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-crema px-4 py-2 text-sm font-bold text-ink transition-transform hover:-translate-y-0.5"
+        >
+          <ThumbsUp className="size-4" /> Vota ora
+        </SmartLink>
+      )}
+    </div>
+  );
+}
+
+/** Card del bump (solo server): un bump ogni 2 ore + streak globale giorni. */
 function BumpTile({ listing, busy, onBump }: { listing: BoardListing; busy: boolean; onBump: () => void }) {
   const until = listing.bumpedAt ? new Date(listing.bumpedAt).getTime() + BUMP_COOLDOWN_MS : 0;
   const [now, setNow] = useState(() => Date.now());
@@ -728,14 +1162,20 @@ function BumpTile({ listing, busy, onBump }: { listing: BoardListing; busy: bool
     return () => clearInterval(t);
   }, [until]);
   const left = Math.max(0, until - now);
-  const mins = Math.ceil(left / 60000);
-  const wait = left ? (mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min`) : "";
+  const wait = formatCooldownWait(left);
   return (
     <ActionTile
       icon={<Rocket />}
       label="Bump"
       value={(listing.bumps7d || 0).toLocaleString("it-IT")}
       hint={wait ? `prossimo tra ${wait}` : "ultimi 7 giorni · anche con /bump su Discord"}
+      streak={
+        <StreakFlame
+          value={listing.bumpStreak || 0}
+          caption="server"
+          emptyHint="Bump almeno una volta al giorno per la streak"
+        />
+      }
       action={
         <button
           type="button"
@@ -752,7 +1192,15 @@ function BumpTile({ listing, busy, onBump }: { listing: BoardListing; busy: bool
 }
 
 /** Bot in vetrina presenti nel server (o server in vetrina che usano il bot). */
-function RelatedListings({ listing, token }: { listing: BoardListing; token?: string | null }) {
+function RelatedListings({
+  listing,
+  token,
+  onCompare,
+}: {
+  listing: BoardListing;
+  token?: string | null;
+  onCompare?: (id: string) => void;
+}) {
   const [items, setItems] = useState<BoardListing[] | null>(null);
   useEffect(() => {
     let alive = true;
@@ -764,8 +1212,74 @@ function RelatedListings({ listing, token }: { listing: BoardListing; token?: st
   if (!items || !items.length) return null;
   const isBot = listing.kind === "bot";
   return (
-    <Panel title={isBot ? "Server che lo usano" : "Bot di questo server"} right={<span className="text-sm text-crema/45">{items.length} in vetrina</span>}>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <section className="overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-caramel/15 via-roast/90 to-roast p-6 ring-1 ring-caramel/25 sm:p-7">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="font-script text-2xl text-caramel/90">{isBot ? "Dove gira" : "Bot in casa"}</p>
+          <h2 className="font-display text-3xl font-semibold text-crema">
+            {isBot ? "Server che lo usano" : "Bot di questo server"}
+          </h2>
+          <p className="mt-1 text-sm text-crema/55">
+            {isBot
+              ? "Community in vetrina dove questo bot è presente."
+              : "Bot già in vetrina trovati in questo server."}
+          </p>
+        </div>
+        <span className="rounded-full bg-crema/8 px-3 py-1 text-sm font-semibold text-crema/70 ring-1 ring-sand/20">
+          {items.length} in vetrina
+        </span>
+      </div>
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {items.slice(0, 6).map((it, i) => (
+          <div key={it.id} className="relative">
+            <ListingCard listing={it} i={i} />
+            {onCompare ? (
+              <button
+                type="button"
+                onClick={() => onCompare(it.id)}
+                className="absolute bottom-3 right-3 z-10 rounded-full bg-espresso/90 px-3 py-1.5 text-xs font-bold text-ember ring-1 ring-ember/40 backdrop-blur-sm hover:bg-espresso"
+              >
+                Confronta
+              </button>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Schede affini per categorie/tag/lingua. */
+function SimilarListings({
+  listing,
+  token,
+  onCompare,
+}: {
+  listing: BoardListing;
+  token?: string | null;
+  onCompare?: (id: string) => void;
+}) {
+  const [items, setItems] = useState<BoardListing[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void loadSimilarListings(listing.id, token).then((r) => alive && setItems(r.ok ? r.data.items || [] : []));
+    return () => {
+      alive = false;
+    };
+  }, [listing.id, token]);
+  if (!items || !items.length) return null;
+  return (
+    <Panel
+      title="Schede simili"
+      right={
+        onCompare ? (
+          <button type="button" onClick={() => onCompare(items[0].id)} className="text-sm text-ember hover:underline">
+            Confronta
+          </button>
+        ) : null
+      }
+    >
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.slice(0, 6).map((it, i) => (
           <ListingCard key={it.id} listing={it} i={i} />
         ))}

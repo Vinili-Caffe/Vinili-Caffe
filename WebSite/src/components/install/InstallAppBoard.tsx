@@ -117,7 +117,7 @@ export function InstallAppBoard() {
     <div className="mx-auto max-w-2xl px-6 pb-24">
       <div className={cn(PANEL, "relative overflow-hidden p-6 sm:p-8")}>
         <div className="flex flex-wrap items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          { }
           <img
             src={cdnUrl("/images/pwa-icon-192.png")}
             alt=""

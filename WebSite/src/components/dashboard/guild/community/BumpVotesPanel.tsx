@@ -301,7 +301,7 @@ export function BumpPanel({ guildId, token, onToast }: PanelProps) {
       <Hero
         icon={Rocket}
         title="Bump"
-        text="Quando qualcuno usa /bump su Disboard o Discadia il bot ringrazia, dà la ricompensa e avvisa quando si può bumpare di nuovo."
+        text="Quando qualcuno usa /bump su Disboard o Discadia il bot ringrazia, dà la ricompensa e avvisa quando si può rifare."
         on={cfg.enabled}
         onToggle={(enabled) => set({ ...cfg, enabled })}
         toggleLabel="Attiva i bump"
@@ -324,7 +324,7 @@ export function BumpPanel({ guildId, token, onToast }: PanelProps) {
         <Section
           icon={MessageSquareHeart}
           title="Messaggi"
-          text="Il ringraziamento risponde al bump; il promemoria avvisa quando si può bumpare di nuovo."
+          text="Il ringraziamento risponde al bump; il promemoria avvisa quando si può rifare."
           right={
             <Toggle
               size="sm"

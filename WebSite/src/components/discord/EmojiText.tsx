@@ -28,7 +28,7 @@ export function twemojiUrl(emoji: string) {
 /** Bandiera come immagine (con il testo originale se l'immagine non carica). */
 export function FlagEmoji({ flag, className }: { flag: string; className?: string }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+     
     <img
       src={twemojiUrl(flag)}
       alt={flag}
@@ -58,7 +58,7 @@ export function EmojiText({ text, className, emojiClassName }: { text: string | 
     const id = m[3];
     const animated = m[1] === "a";
     out.push(
-      // eslint-disable-next-line @next/next/no-img-element
+       
       <img
         key={`e${at}`}
         src={discordEmojiUrl(id, animated)}

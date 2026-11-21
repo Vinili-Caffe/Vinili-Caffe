@@ -8,7 +8,7 @@ import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/privacy/", title: "Privacy Policy", description: "Come Vinili & Caffè raccoglie, utilizza e protegge i dati personali di sito, bot e community Discord." }),
+  ...pageSocialMeta({ path: "/privacy/", title: "Privacy Policy", description: "Quali dati raccoglie Vinili & Caffè tramite sito, bot e server Discord, perché li usa e come puoi chiederne copia o cancellazione." }),
 };
 
 export default function PrivacyPage() {
@@ -18,7 +18,7 @@ export default function PrivacyPage() {
       <DiscordComponentEmbed
         path="/privacy/"
         title="Privacy Policy"
-        description="Come Vinili & Caffè raccoglie, utilizza e protegge i dati personali di sito, bot e community Discord."
+        description="Quali dati raccoglie Vinili & Caffè tramite sito, bot e server Discord, perché li usa e come puoi chiederne copia o cancellazione."
       />
       <PageHero
         icon={<Shield />}

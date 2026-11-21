@@ -55,7 +55,7 @@ export function PuzzleSponsorGate({
       }
       if (result === "canceled") {
         setMode("idle");
-        setHint("Pubblicità interrotta — riprova o annulla.");
+        setHint("L’annuncio si è interrotto: riprova o annulla.");
         return;
       }
       // off / error → countdown di fallback così non resti bloccato
@@ -64,8 +64,8 @@ export function PuzzleSponsorGate({
       setLeft(Math.max(1, watchSec));
       setHint(
         result === "off"
-          ? "AdInPlay non configurato — countdown di sblocco."
-          : "Nessuna pub disponibile (adblock/rete) — countdown di sblocco.",
+          ? "Annuncio non disponibile: parte il conto alla rovescia."
+          : "Nessun annuncio disponibile, forse per un blocco della pubblicità: parte il conto alla rovescia.",
       );
     } finally {
       setBusy(false);
@@ -93,8 +93,8 @@ export function PuzzleSponsorGate({
         <div className="mt-5 rounded-2xl bg-black/35 p-4 ring-1 ring-white/10">
           <p className="text-sm text-crema/70">
             {adsOn
-              ? "Guarda una pubblicità breve (rewarded) per sbloccare il bonus. Solo qui, mai sul resto del sito."
-              : "Attendi il countdown, poi conferma per sbloccare il bonus."}
+              ? "Guarda un breve annuncio per sbloccare il bonus."
+              : "Aspetta la fine del conto alla rovescia, poi conferma per sbloccare il bonus."}
           </p>
         </div>
 

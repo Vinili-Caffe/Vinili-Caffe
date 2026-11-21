@@ -4,7 +4,7 @@ import type { MsgDraft, PickerChannel, PickerEmoji, PickerRole } from "./dashboa
 /** Bacheca: directory pubblica bot/server — API /webhooks/site-boards (Vinili/Utils/Web/siteBoardsApi.js). */
 
 export type BoardKind = "server" | "bot";
-export type BoardSort = "score" | "new" | "bumps" | "votes" | "reviews";
+export type BoardSort = "score" | "new" | "bumps" | "votes" | "month" | "reviews";
 export type ListingStatus = "draft" | "pending" | "approved" | "rejected" | "suspended";
 
 export type BoardListing = {
@@ -39,12 +39,20 @@ export type BoardListing = {
   votesMonth: number;
   bumps7d: number;
   bumpedAt: string | null;
+  /** Giorni consecutivi (Europe/Rome) con almeno un bump — streak globale del server. */
+  bumpStreak?: number;
   ratingAvg: number;
   reviewsCount: number;
   accent: string;
   createdAt: string | null;
   updatedAt: string | null;
-  moderation?: { notes: string; reviewedBy: string; reviewedAt: string | null; rejectReason: string };
+  moderation?: {
+    notes: string;
+    reviewedBy: string;
+    reviewedAt: string | null;
+    rejectReason: string;
+    history?: { at: string | null; by: string; decision: string; reason: string; notes: string }[];
+  };
   /* schede bot */
   prefix?: string;
   supportUrl?: string;
@@ -119,7 +127,9 @@ export type ListingsPage = {
   message?: string;
 };
 
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string; error?: string };
+export type ApiResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; status: number; message: string; error?: string; nextVoteAt?: string };
 
 const BASE = "/webhooks/site-boards";
 
@@ -145,6 +155,7 @@ async function parse<T>(r: Response): Promise<ApiResult<T & { ok?: boolean; mess
       status: Number(j.status) || r.status,
       message: String(j.message || "Errore."),
       error: j.error ? String(j.error) : undefined,
+      ...(j.nextVoteAt ? { nextVoteAt: String(j.nextVoteAt) } : {}),
     };
   }
   return { ok: true, data: j as T & { ok?: boolean } };
@@ -171,6 +182,7 @@ export type ListingsQuery = {
   locale?: string;
   guildTag?: string;
   sort?: BoardSort;
+  excludeNsfw?: boolean;
   page?: number;
   perPage?: number;
 };
@@ -185,6 +197,7 @@ export async function loadListings(query: ListingsQuery = {}, token?: string | n
     if (query.locale) p.set("locale", query.locale);
     if (query.guildTag) p.set("guildTag", query.guildTag);
     if (query.sort) p.set("sort", query.sort);
+    if (query.excludeNsfw) p.set("excludeNsfw", "1");
     p.set("page", String(query.page || 1));
     p.set("perPage", String(query.perPage || 24));
     const r = await fetch(`${origin}${BASE}/listings?${p}`, { headers: auth(token), cache: "no-store" });
@@ -238,9 +251,32 @@ export async function loadMine(token: string): Promise<ApiResult<{ listings: Boa
   return parse(r);
 }
 
-export async function loadClaimableServers(token: string): Promise<ApiResult<{ guilds: { id: string; name: string; iconUrl?: string }[] }>> {
+export type ClaimableGuild = {
+  id: string;
+  name: string;
+  iconUrl?: string;
+  claimable?: boolean;
+  botPresent?: boolean;
+  alreadyListed?: boolean;
+  hasDraft?: boolean;
+  draftId?: string;
+};
+
+export async function loadClaimableServers(token: string): Promise<ApiResult<{ guilds: ClaimableGuild[] }>> {
   const r = await fetch(`${BASE}/me/claimable-servers`, { headers: auth(token), cache: "no-store" });
   return parse(r);
+}
+
+/** Fetch scheda lato server (metadata OG). */
+export async function loadBuildListing(slug: string): Promise<BoardListing | null> {
+  try {
+    const r = await fetch(`${SITE_ORIGIN}${BASE}/listings/${encodeURIComponent(slug)}`, { next: { revalidate: 120 } });
+    const j = await r.json();
+    if (!j?.ok || !j.listing) return null;
+    return j.listing as BoardListing;
+  } catch {
+    return null;
+  }
 }
 
 export type CreateListingBody = {
@@ -366,7 +402,7 @@ export async function bumpListing(token: string, id: string) {
     method: "POST",
     headers: auth(token),
   });
-  return parse<{ listing?: BoardListing; message?: string; bumpedAt?: string; nextBumpAt?: string }>(r);
+  return parse<{ listing?: BoardListing; message?: string; bumpedAt?: string; nextBumpAt?: string; bumpStreak?: number }>(r);
 }
 
 /** Schede collegate: bot in vetrina presenti nel server, o server in vetrina dove c'è il bot. */
@@ -375,16 +411,159 @@ export async function loadRelatedListings(id: string, token?: string | null) {
   return parse<{ kind: BoardKind; items: BoardListing[] }>(r);
 }
 
+/** Schede simili (stessa tipologia + overlap categorie/tag). */
+export async function loadSimilarListings(id: string, token?: string | null) {
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/similar`, { headers: auth(token) });
+  return parse<{ items: BoardListing[] }>(r);
+}
+
+/** Confronto 2–3 schede. */
+export async function loadCompareListings(ids: string[], token?: string | null) {
+  const q = ids.map((x) => encodeURIComponent(x)).join(",");
+  const r = await fetch(`${BASE}/compare?ids=${q}`, { headers: auth(token), cache: "no-store" });
+  return parse<{ listings: BoardListing[] }>(r);
+}
+
 /** Un bump ogni 2 ore per scheda. */
 export const BUMP_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 
-export async function reportListing(token: string, id: string, reason: string) {
+export type ReportCategory = "spam" | "scam" | "nsfw" | "wrong_info" | "impersonation" | "other";
+
+export const REPORT_CATEGORIES: { id: ReportCategory; label: string }[] = [
+  { id: "spam", label: "Spam" },
+  { id: "scam", label: "Truffa / phishing" },
+  { id: "nsfw", label: "Contenuti 18+ non segnalati" },
+  { id: "wrong_info", label: "Info false o fuorvianti" },
+  { id: "impersonation", label: "Impersonificazione" },
+  { id: "other", label: "Altro" },
+];
+
+export async function reportListing(token: string, id: string, reason: string, category: ReportCategory | string = "other") {
   const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/report`, {
     method: "POST",
     headers: { ...auth(token), "Content-Type": "application/json" },
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify({ reason, category }),
   });
   return parse<{ message?: string }>(r);
+}
+
+/* ── segui / ricerche salvate ── */
+
+export type BoardFollow = {
+  id: string;
+  listingId: string;
+  name: string;
+  slug: string;
+  iconUrl: string;
+  kind: string;
+  status: string;
+  notifyVote: boolean;
+  notifyBump: boolean;
+};
+
+export type BoardSavedSearch = {
+  id: string;
+  label: string;
+  filters: { kind: string; q: string; tag: string; category: string; locale: string; guildTag?: string; sort: string };
+  notifyNew?: boolean;
+  createdAt: string | null;
+};
+
+export async function loadWatch(token: string) {
+  const r = await fetch(`${BASE}/me/watch`, { headers: auth(token), cache: "no-store" });
+  return parse<{ follows: BoardFollow[]; searches: BoardSavedSearch[] }>(r);
+}
+
+export async function isFollowingListing(token: string, id: string) {
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/following`, { headers: auth(token), cache: "no-store" });
+  return parse<{ following: boolean; notifyVote?: boolean; notifyBump?: boolean }>(r);
+}
+
+export async function followListing(
+  token: string,
+  id: string,
+  opts?: { notifyVote?: boolean; notifyBump?: boolean },
+) {
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/follow`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify(opts ?? {}),
+  });
+  return parse<{ following: boolean; message?: string }>(r);
+}
+
+export async function unfollowListing(token: string, id: string) {
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/follow`, { method: "DELETE", headers: auth(token) });
+  return parse<{ following: boolean; message?: string }>(r);
+}
+
+export async function saveBoardSearch(
+  token: string,
+  filters: Record<string, unknown>,
+  label?: string,
+  opts?: { notifyNew?: boolean },
+) {
+  const r = await fetch(`${BASE}/me/searches`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ filters, label, notifyNew: opts?.notifyNew !== false }),
+  });
+  return parse<{ id: string; message?: string }>(r);
+}
+
+export async function deleteWatch(token: string, id: string) {
+  const r = await fetch(`${BASE}/me/watch/${encodeURIComponent(id)}`, { method: "DELETE", headers: auth(token) });
+  return parse<{ message?: string }>(r);
+}
+
+/* ── staff: segnalazioni ── */
+
+export type BoardReportItem = {
+  id: string;
+  reportKind?: "listing" | "review" | string;
+  listingId: string;
+  listingName: string;
+  listingSlug: string;
+  listingKind: string;
+  listingIconUrl: string;
+  listingStatus: string;
+  category: string;
+  categoryLabel: string;
+  reason: string;
+  reviewId?: string;
+  reviewAuthor?: string;
+  reviewSnippet?: string;
+  reviewRating?: number;
+  reporterId: string;
+  reporterName: string;
+  status: string;
+  createdAt: string | null;
+  staffNote: string;
+};
+
+export async function modListReports(token: string, status = "open", kind?: "server" | "bot" | "", target?: "listing" | "review" | "") {
+  const p = new URLSearchParams({ status });
+  if (kind === "server" || kind === "bot") p.set("kind", kind);
+  if (target === "listing" || target === "review") p.set("target", target);
+  const r = await fetch(`${BASE}/mod/reports?${p}`, { headers: auth(token), cache: "no-store" });
+  return parse<{ items: BoardReportItem[] }>(r);
+}
+
+export type ModReportAction = "" | "suspend_listing" | "delete_review";
+
+export async function modResolveReport(
+  token: string,
+  id: string,
+  decision: "resolve" | "dismiss",
+  note = "",
+  action: ModReportAction = "",
+) {
+  const r = await fetch(`${BASE}/mod/reports/${encodeURIComponent(id)}`, {
+    method: "POST",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ decision, note, action: action || undefined }),
+  });
+  return parse<{ message?: string; action?: string | null; actionResult?: Record<string, unknown> }>(r);
 }
 
 /* ── voto scheda (sessione + countdown + sponsor) ── */
@@ -398,6 +577,15 @@ export type VoteSession = {
   turnstileRequired: boolean;
   ads: { provider: string; minWatchSeconds?: number };
 };
+
+/** Cooldown voto dell’utente sulla scheda (countdown stile bump). */
+export async function loadVoteStatus(token: string, listingId: string) {
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(listingId)}/vote-status`, {
+    headers: auth(token),
+    cache: "no-store",
+  });
+  return parse<{ canVote: boolean; nextVoteAt: string | null; cooldownHours: number; voteStreak?: number }>(r);
+}
 
 export async function startVoteSession(token: string, listingId: string) {
   const r = await fetch(`${BASE}/listings/${encodeURIComponent(listingId)}/vote-session`, {
@@ -426,13 +614,14 @@ export async function castListingVote(token: string, listingId: string, sessionI
       remind: opts.remind === true,
     }),
   });
-  return parse<{ listing: BoardListing; message?: string; remindAt?: string | null }>(r);
+  return parse<{ listing?: BoardListing; message?: string; remindAt?: string | null; voteStreak?: number; votesMonth?: number }>(r);
 }
 
 /* ── mod ── */
 
-export async function modListPending(token: string, status = "pending") {
+export async function modListPending(token: string, status = "pending", kind?: "server" | "bot" | "") {
   const p = new URLSearchParams({ status });
+  if (kind === "server" || kind === "bot") p.set("kind", kind);
   const r = await fetch(`${BASE}/mod/listings?${p}`, { headers: auth(token), cache: "no-store" });
   return parse<{ listings: BoardListing[] }>(r);
 }
@@ -455,18 +644,19 @@ export function kindLabel(kind: string) {
   return kind === "bot" ? "Bot" : "Server";
 }
 
-export function statusLabel(status: string) {
+export function statusLabel(status: string, count = 1) {
+  const plural = count !== 1;
   switch (status) {
     case "draft":
-      return "Bozza";
+      return plural ? "Bozze" : "Bozza";
     case "pending":
       return "In revisione";
     case "approved":
-      return "Pubblicata";
+      return plural ? "Pubblicate" : "Pubblicata";
     case "rejected":
-      return "Rifiutata";
+      return plural ? "Rifiutate" : "Rifiutata";
     case "suspended":
-      return "Sospesa";
+      return plural ? "Sospese" : "Sospesa";
     default:
       return status;
   }
@@ -474,8 +664,9 @@ export function statusLabel(status: string) {
 
 export const SORTS: { id: BoardSort; label: string }[] = [
   { id: "score", label: "In vetrina" },
+  { id: "month", label: "Top del mese" },
   { id: "new", label: "Nuove" },
-  { id: "votes", label: "Più votate" },
+  { id: "votes", label: "Più votate (30g)" },
   { id: "bumps", label: "Ultimo bump" },
   { id: "reviews", label: "Stelle" },
 ];
@@ -533,11 +724,11 @@ export async function likeReview(token: string, reviewId: string) {
   return parse<{ likeCount?: number; liked?: boolean; review?: BoardReview }>(r);
 }
 
-export async function reportReview(token: string, reviewId: string, reason: string) {
+export async function reportReview(token: string, reviewId: string, reason: string, category: ReportCategory | string = "other") {
   const r = await fetch(`${BASE}/reviews/${encodeURIComponent(reviewId)}/report`, {
     method: "POST",
     headers: { ...auth(token), "Content-Type": "application/json" },
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify({ reason, category }),
   });
   return parse<{ message?: string }>(r);
 }
@@ -598,9 +789,14 @@ export function trackListing(id: string, event: TrackEvent, extra: { source?: Tr
   }
 }
 
+export type ListingGoals = { views: number; engagements: number; votes: number };
+
 export type ListingAnalytics = {
   days: number;
   totals: { views: number; engagements: number; votes: number };
+  previousTotals?: { views: number; engagements: number; votes: number };
+  delta?: { views: number; engagements: number; votes: number };
+  goals?: ListingGoals;
   series: { day: string; views: number; engagements: number; votes: number }[];
   sources: Partial<Record<TrafficSource, number>>;
   leads: { source: string; value: string; count: number }[];
@@ -612,6 +808,15 @@ export type ListingAnalytics = {
 export async function loadListingAnalytics(token: string, id: string, days = 14) {
   const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/analytics?days=${days}`, { headers: auth(token), cache: "no-store" });
   return parse<ListingAnalytics>(r);
+}
+
+export async function saveListingGoals(token: string, id: string, goals: ListingGoals) {
+  const r = await fetch(`${BASE}/me/listings/${encodeURIComponent(id)}/goals`, {
+    method: "PATCH",
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ goals }),
+  });
+  return parse<{ goals: ListingGoals; message?: string }>(r);
 }
 
 /* ── voti nel server della scheda ── */

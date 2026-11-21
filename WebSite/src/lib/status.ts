@@ -37,7 +37,7 @@ export const DOWN = 0;
 export const PENDING = 2;
 export const MAINT = 3;
 
-export async function loadStatus(_origin = ""): Promise<StatusData | null> {
+export async function loadStatus(): Promise<StatusData | null> {
   try {
     const [pageRes, hbRes] = await Promise.all([
       fetch(apiUrl("/status-kuma/api/status-page/vinili"), { cache: "no-store", credentials: "omit" }),

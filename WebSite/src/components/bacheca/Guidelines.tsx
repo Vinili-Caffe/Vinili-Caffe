@@ -1,44 +1,82 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Ban, Copy, EyeOff, Flag, HeartHandshake, PenLine, Scale, Users, VenetianMask, type LucideIcon } from "lucide-react";
+import {
+  Ban,
+  Copy,
+  EyeOff,
+  Flag,
+  HeartHandshake,
+  LogIn,
+  MessageSquareReply,
+  PenLine,
+  Scale,
+  Store,
+  Users,
+  VenetianMask,
+  type LucideIcon,
+} from "lucide-react";
 import { page } from "@/lib/site";
 import { SmartLink } from "../SmartLink";
 
-const ICONS: LucideIcon[] = [HeartHandshake, Ban, Copy, EyeOff, Flag, Users, Scale, VenetianMask];
+const ICONS: LucideIcon[] = [
+  HeartHandshake,
+  LogIn,
+  Ban,
+  Copy,
+  EyeOff,
+  Flag,
+  Users,
+  Scale,
+  VenetianMask,
+  Store,
+  MessageSquareReply,
+];
 
 const SECTIONS: { title: string; body: string }[] = [
   {
     title: "Perché queste linee guida",
-    body: "Le recensioni aiutano la community a scegliere server e bot. Devono essere utili, oneste e rispettose. Lo staff di Vinili & Caffè può moderare, nascondere o rimuovere le recensioni che non rispettano queste regole. Vale anche quanto previsto dai Termini di Servizio e dalle regole della community.",
+    body: "Una recensione serve a chi sta decidendo se entrare in un server o provare un bot. Scrivila con onestà e rispetto: lo staff può nascondere o togliere quelle che non seguono queste regole.",
   },
   {
-    title: "Niente spam, offese o contenuti non correlati",
-    body: "La recensione deve essere utile a chi consulta la scheda. Non sono ammessi copypasta, malware, pubblicità, insulti, messaggi fuori tema, suggerimenti o domande spacciate per recensioni, né contenuti non legati alle funzioni attuali del server/bot.",
+    title: "Una recensione a testa",
+    body: "Entri con Discord e lasci una sola recensione per scheda, con le stelle e un testo. Se cambi idea modifichi quella, senza scriverne un’altra con un secondo account.",
   },
   {
-    title: "Non abusare del sistema di recensioni",
-    body: "Vogliamo feedback genuini. È vietato usare account alternativi per recensire in massa, bombardare utenti con pubblicità non richiesta o manipolare voti/rating in modo artificiale.",
+    title: "Niente spam o fuori tema",
+    body: "Racconta com’è il progetto. Testi copiati, insulti, link truffa e messaggi fuori tema vengono tolti.",
   },
   {
-    title: "Niente contenuti sessualmente espliciti",
-    body: "La Vetrina punta a contenuti sicuri e adatti alla community. Non includere né collegare materiale sessualmente esplicito nelle recensioni.",
+    title: "Niente gonfiaggi",
+    body: "Account multipli, scambi di stelle e ondate organizzate di voti negativi non sono ammessi. Chi ci prova rischia di perdere i voti o di essere escluso dalla Vetrina, insieme alla scheda.",
   },
   {
-    title: "Non usare le recensioni per segnalare violazioni",
-    body: "Per le segnalazioni usa il pulsante Segnala sulla scheda o i canali ufficiali (Discord/ticket). Le recensioni non sostituiscono una gestione dedicata delle violazioni.",
+    title: "Niente contenuti espliciti",
+    body: "Niente contenuti sessuali espliciti o violenti. Se devi segnalare un problema, descrivilo senza riportarlo nei dettagli.",
   },
   {
-    title: "Niente molestie verso persone o gruppi",
-    body: "Vinili & Caffè è inclusiva. Evita attacchi basati su origine, religione, etnia, sesso, genere, orientamento, appartenenza o disabilità. È vietato condividere dati personali identificabili (nome, indirizzo, email, telefono, IP, ecc.).",
+    title: "Segnalazioni e recensioni",
+    body: "Per abusi, truffe o fatti gravi usa il pulsante Segnala o apri un ticket: lo staff può intervenire, una recensione no.",
   },
   {
-    title: "Niente promozione di illegali o violazioni",
-    body: "Non promuovere, discutere o incoraggiare attività illegali o in violazione delle nostre linee guida: violenza, frodi, sostanze illegali, abuso su minori o animali, e simili.",
+    title: "Niente molestie",
+    body: "Niente attacchi a persone o gruppi e niente dati personali di altri. Si critica il progetto, mai chi lo gestisce.",
+  },
+  {
+    title: "Niente illegali",
+    body: "Niente pubblicità ad attività illegali, truffe o raid, nemmeno travestita da recensione.",
   },
   {
     title: "Niente impersonificazione",
-    body: "Non fingerti un altro utente, lo staff, un brand o un servizio. Le recensioni devono riflettere la tua esperienza reale.",
+    body: "Scrivi a nome tuo e racconta la tua esperienza: fingersi un altro utente, lo staff o un marchio non è ammesso.",
+  },
+  {
+    title: "Proprietari: niente auto-recensione",
+    body: "Non puoi recensire una scheda tua. Puoi però rispondere alle recensioni degli altri, con calma e senza attacchi.",
+  },
+  {
+    title: "Mi piace e risposte",
+    body: "Il cuore e le risposte del proprietario servono a mettere in evidenza le recensioni utili. Se qualcuno li usa in modo scorretto, lo staff interviene.",
   },
 ];
 
@@ -67,7 +105,7 @@ export function Guidelines() {
           <div className="rounded-3xl bg-gradient-to-br from-caramel/20 to-transparent p-6 ring-1 ring-caramel/25 sm:p-7">
             <p className="font-script text-2xl text-ember">Prima di scrivere</p>
             <p className="mt-2 text-lg leading-relaxed text-crema/80">
-              Le recensioni aiutano chi sta scegliendo un server o un bot. Racconta la tua esperienza vera, con rispetto: queste regole valgono per ogni testo pubblicato sulle schede della Vetrina.
+              Racconta com’è andata davvero, con rispetto. Queste regole valgono per ogni recensione della Vetrina.
             </p>
           </div>
 
@@ -99,7 +137,7 @@ export function Guidelines() {
           <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-sand/20 p-8 text-center">
             <PenLine className="size-8 text-ember" />
             <p className="font-display text-2xl">Tutto chiaro?</p>
-            <p className="max-w-md text-crema/55">Scegli una scheda dalla vetrina e lascia la tua recensione: bastano qualche riga e le stelle.</p>
+            <p className="max-w-md text-crema/55">Scegli una scheda e lascia la tua: due righe e le stelle bastano.</p>
             <SmartLink href={page("/vetrina/")} className="mt-1 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-bold text-ink">
               Vai alla vetrina
             </SmartLink>

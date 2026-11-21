@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { HeroBackdrop } from "./HeroBackdrop";
 import { HeroStage } from "./HeroStage";
-import { BlurText, GradientText, Magnet } from "./react-bits";
+import { GradientText, Magnet } from "./react-bits";
 import { RotatingText } from "./ui/rotating-text";
 
 const EMBERS = Array.from({ length: 12 }, (_, i) => ({
@@ -135,12 +135,14 @@ export function Hero() {
             </GradientText>
           </motion.h1>
 
-          <BlurText
-            as="p"
-            text={t("home.lead")}
-            delay={0.035}
+          <motion.p
+            initial={reduce ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22, duration: 0.7, ease }}
             className="mx-auto mt-7 max-w-xl text-pretty text-lg leading-relaxed text-crema/80 lg:mx-0"
-          />
+          >
+            {t("home.lead")}
+          </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 16 }}

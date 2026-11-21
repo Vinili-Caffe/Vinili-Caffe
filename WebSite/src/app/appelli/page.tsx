@@ -7,7 +7,7 @@ import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/appelli/", title: "Appelli", description: "Richiedi l'unban o l'unmute dal server Discord di Vinili & Caffè." }),
+  ...pageSocialMeta({ path: "/appelli/", title: "Appelli", description: "Chiedi la revoca di un ban o di un mute ricevuto sul server Discord di Vinili & Caffè." }),
 };
 
 export default function AppelliPage() {
@@ -23,7 +23,7 @@ export default function AppelliPage() {
         kicker="Richieste allo staff"
         title="Una seconda"
         accent="possibilità"
-        text="Richiedi l'unban o l'unmute del tuo account: spiega cosa è successo e lo staff valuterà la tua richiesta."
+        text="Se sei stato bannato o silenziato e pensi di meritare un'altra possibilità, racconta cosa è successo. Lo staff legge ogni richiesta e decide caso per caso."
       />
       <AppelliBoard />
     </SiteShell>

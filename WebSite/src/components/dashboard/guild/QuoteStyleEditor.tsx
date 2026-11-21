@@ -205,7 +205,7 @@ export function QuoteStyleEditor({
 
       <div className="relative overflow-hidden rounded-xl bg-espresso/80 ring-1 ring-sand/15">
         {previewUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img src={previewUrl} alt="Anteprima quote" className="mx-auto max-h-[320px] w-full object-contain" />
         ) : (
           <div className="flex min-h-[160px] items-center justify-center px-4 py-8 text-sm text-crema/60">

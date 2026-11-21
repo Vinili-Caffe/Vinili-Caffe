@@ -148,18 +148,17 @@ export function AgeGate() {
         <p className="mt-2 text-sm leading-relaxed text-crema/70">
           {blocked ? (
             <>
-              L&apos;account risulta bloccato perché è stata dichiarata un&apos;età inferiore a{" "}
-              <strong className="text-crema">{AGE_MIN} anni</strong>. L&apos;autodichiarazione è
-              registrata sul server ed è immutabile. Per assistenza contattare lo staff tramite i
-              canali ufficiali.
+              Questo account è bloccato perché hai dichiarato meno di{" "}
+              <strong className="text-crema">{AGE_MIN} anni</strong>. La dichiarazione resta salvata e
+              non si può cambiare. Se pensi che ci sia un errore, scrivi allo staff sul server.
             </>
           ) : (
             <>
-              L&apos;accesso è consentito esclusivamente a chi abbia compiuto almeno{" "}
-              <strong className="text-crema">{AGE_MIN} anni</strong>, in linea con l&apos;età minima
-              globale di Discord (fermo restando eventuali soglie più elevate richieste dalla legge del
-              Paese di residenza). Al primo accesso è richiesta un&apos;autodichiarazione vincolante
-              all&apos;account Discord: non è pubblicata sul profilo e non è modificabile dopo la
+              Per entrare devi avere almeno{" "}
+              <strong className="text-crema">{AGE_MIN} anni</strong>, la stessa età minima che chiede
+              Discord (o di più, se la legge del tuo Paese lo prevede). Al primo accesso ti chiediamo di
+              dichiarare la tua età: la dichiarazione resta legata al tuo account Discord, non compare
+              sul profilo e non si può modificare dopo la
               conferma.
             </>
           )}

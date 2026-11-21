@@ -318,7 +318,7 @@ export function SetupWizard({
 
             {step === "access" ? (
               rolesLocked ? (
-                <p className="text-sm text-crema/70">Su questo server i ruoli dashboard sono bloccati: passo già a posto.</p>
+                <p className="text-sm text-crema/70">Su questo server i ruoli della dashboard non si cambiano da qui: questo passo è già fatto.</p>
               ) : (
                 <div className="space-y-2">
                   <p className="text-xs leading-relaxed text-crema/55">
@@ -336,7 +336,7 @@ export function SetupWizard({
 
             {step === "updates" ? (
               updatesLocked ? (
-                <p className="text-sm text-crema/70">Su questo server il canale aggiornamenti non si sceglie dalla dashboard: passo già a posto.</p>
+                <p className="text-sm text-crema/70">Su questo server il canale degli aggiornamenti non si sceglie da qui: questo passo è già fatto.</p>
               ) : (
                 <Field label="Canale aggiornamenti">
                   <Select

@@ -12,7 +12,7 @@ const ConfessionaleBoard = dynamic(() => import("@/components/confessionale/Conf
 });
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/confessionale/", title: "Confessionale", description: "Spazio aperto alla community: sfoga o segnala in totale anonimato." }),
+  ...pageSocialMeta({ path: "/confessionale/", title: "Confessionale", description: "Uno spazio della community per sfogarsi o segnalare qualcosa senza firmarsi." }),
   robots: { index: false },
 };
 
@@ -23,14 +23,14 @@ export default function ConfessionalePage() {
       <DiscordComponentEmbed
         path="/confessionale/"
         title="Confessionale"
-        description="Spazio aperto alla community: sfoga o segnala in totale anonimato."
+        description="Uno spazio della community per sfogarsi o segnalare qualcosa senza firmarsi."
       />
       <PageHero
         icon={<Feather />}
         kicker="Community"
         title="Il"
         accent="confessionale"
-        text="Spazio aperto alla community: sfoga o segnala in totale anonimato. Nessun nome, nessun ID Discord, nessun log dell’autore."
+        text="Qui puoi sfogarti o segnalare qualcosa senza firmarti. Il messaggio compare senza nome e senza account Discord, e non teniamo traccia di chi l’ha scritto."
       />
       <ConfessionaleBoard />
     </SiteShell>

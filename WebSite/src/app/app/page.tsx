@@ -33,7 +33,7 @@ export default function InstallAppPage() {
         kicker="Web app"
         title="Portati"
         accent="Vinili & Caffè"
-        text="Istruzioni per il tuo dispositivo: in pochi tocchi l'apri come un'app, con le notifiche più stabili."
+        text="Scegli il tuo dispositivo e segui i passaggi: in pochi tocchi il sito si apre come un'app e le notifiche arrivano con più regolarità."
       />
       <InstallAppBoard />
     </SiteShell>

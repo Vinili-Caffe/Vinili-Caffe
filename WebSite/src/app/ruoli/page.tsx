@@ -8,7 +8,7 @@ import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/ruoli/", title: "Ruoli", description: "I ruoli custom creati dai membri di Vinili & Caffè: scopri chi li ha e richiedi quelli che ti piacciono." }),
+  ...pageSocialMeta({ path: "/ruoli/", title: "Ruoli", description: "I ruoli personalizzati inventati dai membri di Vinili & Caffè: chi li ha creati, chi li porta e come chiederne uno." }),
 };
 
 export default async function RuoliPage() {
@@ -18,14 +18,14 @@ export default async function RuoliPage() {
       <DiscordComponentEmbed
         path="/ruoli/"
         title="Ruoli"
-        description="I ruoli custom creati dai membri di Vinili & Caffè: scopri chi li ha e richiedi quelli che ti piacciono."
+        description="I ruoli personalizzati inventati dai membri di Vinili & Caffè: chi li ha creati, chi li porta e come chiederne uno."
       />
       <PageHero
         icon={<Palette />}
         kicker="Community"
         title="I ruoli"
         accent="dei membri"
-        text="Ruoli personalizzati creati dalla community: chi li ha creati, chi li ha, e come richiederli."
+        text="Sono i ruoli che i membri si sono inventati da soli. Per ognuno vedi chi l'ha creato e chi lo porta, e se ti piace puoi chiederlo anche tu."
       />
       <RolesBrowser initial={initial} />
     </SiteShell>

@@ -20,7 +20,7 @@ function discordEmojiSrc(id: string, animated: boolean, size = 48, preferGif = f
 
 function DiscordEmojiImg({ id, name, animated }: { id: string; name: string; animated: boolean }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+     
     <img
       src={discordEmojiSrc(id, animated)}
       alt={`:${name}:`}

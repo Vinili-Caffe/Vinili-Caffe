@@ -266,7 +266,7 @@ export function WordleBoard({ initial }: Props) {
     return () => {
       if (toastTimer.current) window.clearTimeout(toastTimer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- lock on started day game
+     
   }, [boot, siteLang]);
 
   const submit = useCallback(async () => {

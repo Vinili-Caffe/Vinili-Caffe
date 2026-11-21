@@ -4,6 +4,12 @@
  * SPDX-License-Identifier: LicenseRef-Proprietary-ViniliCaffe — vedi LICENSE.
  */
 const discord = require("discord.js") as typeof import("discord.js");
+/* messaggi tradotti nei server che hanno scelto un'altra lingua (dizionari di Scripts/i18n/traduci.mjs) */
+try {
+  (require("../shared/i18n/outgoingTranslator") as typeof import("../shared/i18n/outgoingTranslator")).installOutgoingTranslator(discord);
+} catch (err) {
+  console.warn("[i18n] traduttore dei messaggi non attivo:", (err as Error)?.message || err);
+}
 const { E } = require("../shared/emojis/emojiCatalog") as typeof import("../shared/emojis/emojiCatalog");
 const { Client, IntentsBitField } = discord;
 const GatewayIntentBits = discord.GatewayIntentBits || IntentsBitField?.Flags || {};

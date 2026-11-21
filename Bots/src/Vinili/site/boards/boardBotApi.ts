@@ -196,11 +196,6 @@ async function syncOwnBot(client?, listing?) {
   /* in site-api il client Discord ha _rest (client ridotto), nei bot rest */
   const rest = client?.rest || client?._rest;
   if (!id || id !== mainBotAppId() || !rest) return listing;
-  /* le recensioni del bot scritte su /recensioni/ (una volta sola, finché non riesce) */
-  try {
-    const { importSiteBotReviewsOnce } = require("./boardReviews") as typeof import("./boardReviews");
-    void importSiteBotReviewsOnce().catch(() => null);
-  } catch (_) {}
   if (Date.now() < (ownSyncNext.get(id) || 0)) return listing;
   ownSyncNext.set(id, Date.now() + 5 * 60_000);
   const $set: Record<string, any> = {};

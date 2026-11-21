@@ -11,7 +11,7 @@ const SubmitListing = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/vetrina/invia/", title: "Vetrina · Invia", description: "Invia una scheda bot o server alla Vetrina." }),
+  ...pageSocialMeta({ path: "/vetrina/invia/", title: "Vetrina · Invia", description: "Proponi il tuo server o il tuo bot Discord per la Vetrina di Vinili & Caffè." }),
 };
 
 export default function Page() {
@@ -20,10 +20,10 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/invia/"
         title="Vetrina · Invia"
-        description="Invia una scheda bot o server alla Vetrina."
+        description="Proponi il tuo server o il tuo bot Discord per la Vetrina di Vinili & Caffè."
       />
       <VetrinaGate>
-        <VetrinaHeader icon={<PlusCircle />} kicker="Vetrina" title="Metti in" accent="vetrina" text="Presenta il tuo server o il tuo bot: compila la scheda, la controlliamo e la mettiamo sugli scaffali." />
+        <VetrinaHeader icon={<PlusCircle />} kicker="Vetrina" title="Metti in" accent="vetrina" text="Presenta il tuo server o il tuo bot: compila la scheda e, dopo il controllo dello staff, compare nella Vetrina." />
         <div className="pt-10">
           <SubmitListing />
         </div>

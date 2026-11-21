@@ -14,7 +14,7 @@ const StatusBoard = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/status/", title: "Stato", description: "Stato in tempo reale del sito, dei bot Discord, del database, della musica e dei voti." }),
+  ...pageSocialMeta({ path: "/status/", title: "Stato", description: "Lo stato del sito e dei bot di Vinili & Caffè, aggiornato in tempo reale." }),
 };
 
 export default async function StatusPage() {
@@ -24,14 +24,14 @@ export default async function StatusPage() {
       <DiscordComponentEmbed
         path="/status/"
         title="Stato"
-        description="Stato in tempo reale del sito, dei bot Discord, del database, della musica e dei voti."
+        description="Lo stato del sito e dei bot di Vinili & Caffè, aggiornato in tempo reale."
       />
       <PageHero
         icon={<Activity />}
         kicker="Sistema"
         title="Stato dei"
         accent="servizi"
-        text="Processi live, latenza API, uptime e storico controlli — aggiornato in tempo reale."
+        text="Se qualcosa non va, qui lo vedi subito: quali servizi funzionano, quanto ci mettono a rispondere e cosa è successo nelle ultime ore. La pagina si aggiorna da sola."
       />
       <StatusBoard initial={initial} />
     </SiteShell>

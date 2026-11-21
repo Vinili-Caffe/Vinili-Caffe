@@ -323,7 +323,7 @@ export function AccademiaArena({
     if (autoStart && pool.length && !runningRef.current && !finishingRef.current) {
       start();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al mount / cambio pool
+     
   }, [autoStart, pool]);
 
   return (

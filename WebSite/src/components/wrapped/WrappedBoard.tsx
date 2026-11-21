@@ -431,7 +431,7 @@ export function WrappedBoard() {
               Pronto, {data.user.displayName}?
             </h2>
             <p className="relative mx-auto mt-3 max-w-sm text-sm leading-relaxed text-crema/60">
-              Rivedi quest'anno passato con noi sul server.
+              Rivedi quest&apos;anno passato con noi sul server.
             </p>
 
             <button

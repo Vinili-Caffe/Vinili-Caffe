@@ -170,8 +170,8 @@ function serializeListing(doc?, opts: Record<string, any> = {}) {
     bannerUrl: preferAnimatedDiscordMediaUrl(String(doc.boardBannerUrl || "")),
     iconUrl: preferAnimatedDiscordMediaUrl(String(doc.boardIconUrl || "")),
     nsfw: Boolean(doc.boardNsfw) || categories.includes("nsfw"),
-    /* boardsFeatures1 */
-    features: card ? [] : sanitizeBoardFeatures(doc.boardFeatures),
+    /* boardsFeatures1: anche in card (badge Free/Verifica/…); dettaglio pieno solo in scheda */
+    features: sanitizeBoardFeatures(doc.boardFeatures),
     score: Number(doc.boardScore) || 0,
     votes30d: Number(doc.boardVotes30d) || 0,
     /* boardsVoteFlow1 */
@@ -179,6 +179,20 @@ function serializeListing(doc?, opts: Record<string, any> = {}) {
     votesMonthKey: voteCountMonthKeyRome(),
     bumps7d: Number(doc.boardBumps7d) || 0,
     bumpedAt: doc.boardBumpedAt ? new Date(doc.boardBumpedAt).toISOString() : null,
+    /* streak bump globale (giorni consecutivi Europe/Rome); 0 se scaduta */
+    bumpStreak: (() => {
+      try {
+        const { dayKeyRome, prevDayKeyRome } = require("../../Community/utils/romeVoteMonthKey") as typeof import("../../Community/utils/romeVoteMonthKey");
+        const n = Math.max(0, Number(doc.boardBumpStreak) || 0);
+        const day = String(doc.boardBumpStreakDay || "").trim();
+        if (!n || !day) return 0;
+        const today = dayKeyRome();
+        if (day === today || day === prevDayKeyRome(today)) return n;
+        return 0;
+      } catch (_) {
+        return Math.max(0, Number(doc.boardBumpStreak) || 0);
+      }
+    })(),
     ratingAvg: Number(doc.boardRatingAvg) || 0,
     reviewsCount: Number(doc.boardReviewsCount) || 0,
     accent: String(doc.boardAccent || ""),
@@ -199,11 +213,19 @@ function serializeListing(doc?, opts: Record<string, any> = {}) {
     updatedAt: doc.updatedAt ? new Date(doc.updatedAt).toISOString() : null,
   };
   if (opts.includeMod) {
+    const historyRaw = Array.isArray(wf.history) ? wf.history : [];
     out.moderation = {
       notes: String(wf.notes || ""),
       reviewedBy: String(wf.reviewedBy || ""),
       reviewedAt: wf.reviewedAt ? String(wf.reviewedAt) : null,
       rejectReason: String(wf.rejectReason || doc.staffReason || ""),
+      history: historyRaw.slice(-20).map((h?) => ({
+        at: h?.at ? String(h.at) : null,
+        by: String(h?.by || ""),
+        decision: String(h?.decision || ""),
+        reason: String(h?.reason || ""),
+        notes: String(h?.notes || ""),
+      })),
     };
   }
   return out;

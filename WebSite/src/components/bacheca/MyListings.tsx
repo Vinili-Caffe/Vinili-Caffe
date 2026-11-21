@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRightLeft, CircleCheck, CircleDashed, Clock, FolderHeart, Link2, LogIn, Pause, Pencil, Plus, RefreshCw, Trash2, XCircle, type LucideIcon } from "lucide-react";
+import { ArrowRight, ArrowRightLeft, Bell, CircleCheck, CircleDashed, Clock, FolderHeart, Link2, LogIn, Pause, Pencil, Plus, RefreshCw, Server, Trash2, XCircle, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import {
   deleteMyListing,
+  loadClaimableServers,
   loadIncomingTransfers,
   loadMine,
   refreshMyListing,
@@ -12,6 +13,7 @@ import {
   respondListingTransfer,
   statusLabel,
   type BoardListing,
+  type ClaimableGuild,
   type IncomingTransfer,
 } from "@/lib/boards";
 import { page } from "@/lib/site";
@@ -20,6 +22,7 @@ import { SmartLink } from "../SmartLink";
 import { confirmDialog, showToast } from "@/components/ui";
 import { ShowMoreButton } from "@/components/ui/ShowMore";
 import { ListingCard, ListingCardSkeleton } from "@/components/vetrina/ListingCard";
+import { FollowedListings } from "@/components/vetrina/FollowedListings";
 
 const LIST_INITIAL = 24;
 const LIST_STEP = 24;
@@ -27,7 +30,7 @@ const LIST_STEP = 24;
 const STATUS_STYLE: Record<string, { icon: LucideIcon; cls: string; hint: string }> = {
   draft: { icon: CircleDashed, cls: "bg-crema/8 text-crema/70 ring-sand/20", hint: "Completa la scheda e mandala in revisione." },
   pending: { icon: Clock, cls: "bg-caramel/15 text-ember ring-caramel/35", hint: "Lo staff la sta controllando." },
-  approved: { icon: CircleCheck, cls: "bg-[#5f9a6a]/20 text-[#a7d8b0] ring-[#5f9a6a]/40", hint: "È in vetrina: ricordati di riposizionarla." },
+  approved: { icon: CircleCheck, cls: "bg-[#5f9a6a]/20 text-[#a7d8b0] ring-[#5f9a6a]/40", hint: "È in vetrina: ricordati di fare il bump ogni tanto." },
   rejected: { icon: XCircle, cls: "bg-[#a83a2c]/20 text-[#f0a493] ring-[#a83a2c]/40", hint: "Correggi e rimandala in revisione." },
   suspended: { icon: Pause, cls: "bg-[#a83a2c]/15 text-[#f0a493] ring-[#a83a2c]/35", hint: "Sospesa dallo staff." },
 };
@@ -73,7 +76,7 @@ function IncomingTransfers({ token, onAccepted }: { token: string; onAccepted: (
         <div key={t.listingId} className="flex flex-wrap items-center gap-4 rounded-2xl bg-caramel/10 p-4 ring-1 ring-caramel/30">
           <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-mocha">
             {t.iconUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img src={t.iconUrl} alt="" className="size-full object-cover" />
             ) : (
               <ArrowRightLeft className="size-5 text-crema/60" />
@@ -95,6 +98,57 @@ function IncomingTransfers({ token, onAccepted }: { token: string; onAccepted: (
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function claimableGuild(g: ClaimableGuild) {
+  if (g.claimable === true) return true;
+  if (g.claimable === false) return false;
+  if (g.alreadyListed) return false;
+  if (typeof g.botPresent === "boolean") return g.botPresent;
+  return true;
+}
+
+/** Server Discord dove puoi aprire subito una scheda. */
+function ClaimableBanner({ token }: { token: string }) {
+  const [guilds, setGuilds] = useState<ClaimableGuild[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void loadClaimableServers(token).then((r) => {
+      if (!alive || !r.ok) return;
+      setGuilds((r.data.guilds || []).filter(claimableGuild));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [token]);
+  if (!guilds.length) return null;
+  const shown = guilds.slice(0, 4);
+  const extra = guilds.length - shown.length;
+  return (
+    <div className="mb-10 rounded-3xl bg-roast p-5 ring-1 ring-caramel/30 sm:p-6">
+      <p className="font-display text-2xl font-semibold text-crema">
+        Hai {guilds.length} {guilds.length === 1 ? "server" : "server"} da mettere in vetrina
+      </p>
+      <p className="mt-1 text-sm text-crema/55">Il bot è già nel server: basta inviare la scheda.</p>
+      <ul className="mt-4 flex flex-wrap gap-2">
+        {shown.map((g) => (
+          <li key={g.id} className="inline-flex items-center gap-2 rounded-full bg-crema/8 px-3 py-1.5 text-sm font-semibold text-crema ring-1 ring-sand/15">
+            {g.iconUrl ? (
+               
+              <img src={g.iconUrl} alt="" className="size-6 rounded-full object-cover" />
+            ) : (
+              <Server className="size-4 text-crema/50" />
+            )}
+            <span className="max-w-[10rem] truncate">{g.name}</span>
+          </li>
+        ))}
+        {extra > 0 ? <li className="self-center text-xs text-crema/45">+{extra} altri</li> : null}
+      </ul>
+      <SmartLink href={page("/vetrina/invia/")} className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-bold text-ink">
+        Metti in vetrina <ArrowRight className="size-4" />
+      </SmartLink>
     </div>
   );
 }
@@ -157,7 +211,7 @@ export function MyListings() {
             const Icon = st.icon;
             return (
               <span key={s} className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ring-1", st.cls)}>
-                <Icon className="size-4" /> {n} {statusLabel(s).toLowerCase()}
+                <Icon className="size-4" /> {n} {statusLabel(s, n).toLowerCase()}
               </span>
             );
           })
@@ -172,6 +226,16 @@ export function MyListings() {
       {err && <p className="mb-4 text-sm text-ember">{err}</p>}
 
       {token ? <IncomingTransfers token={token} onAccepted={refresh} /> : null}
+
+      <div className="mb-10">
+        <div className="mb-4 flex items-center gap-2">
+          <Bell className="size-5 text-caramel" />
+          <h2 className="font-display text-2xl font-semibold text-crema">Schede che segui</h2>
+        </div>
+        <FollowedListings />
+      </div>
+
+      {token ? <ClaimableBanner token={token} /> : null}
 
       {!list && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -222,8 +286,13 @@ export function MyListings() {
                             setBusyId(item.id);
                             const r = await deleteMyListing(token, item.id);
                             setBusyId("");
-                            if (!r.ok) setErr(r.message);
-                            else refresh();
+                            if (!r.ok) {
+                              setErr(r.message);
+                              showToast(r.message, true);
+                              return;
+                            }
+                            showToast("Scheda eliminata.");
+                            refresh();
                           }}
                         >
                           <Trash2 className="size-3.5" /> Elimina

@@ -8,7 +8,7 @@ import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/personalizza/", title: "Personalizza", description: "Personalizza rank card, ruoli custom, vocale privata, colori PLUS e reazioni dal pannello web Vinili & Caffè." }),
+  ...pageSocialMeta({ path: "/personalizza/", title: "Personalizza", description: "Modifica dal sito il tuo profilo su Vinili & Caffè: rank card, ruoli personalizzati, stanza vocale privata, colori e reazioni." }),
 };
 
 export default function PersonalizzaPage() {
@@ -17,14 +17,14 @@ export default function PersonalizzaPage() {
       <DiscordComponentEmbed
         path="/personalizza/"
         title="Personalizza"
-        description="Personalizza rank card, ruoli custom, vocale privata, colori PLUS e reazioni dal pannello web Vinili & Caffè."
+        description="Modifica dal sito il tuo profilo su Vinili & Caffè: rank card, ruoli personalizzati, stanza vocale privata, colori e reazioni."
       />
       <PageHero
         icon={<Disc3 />}
         kicker="Profilo"
         title="Personalizza"
         accent="il profilo"
-        text="Rank card, ruoli, privacy e impostazioni del profilo Discord."
+        text="Da qui cambi la tua rank card, i ruoli personalizzati, le impostazioni della privacy e il resto del profilo, senza scrivere comandi."
       />
       <Suspense
         fallback={

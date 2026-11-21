@@ -127,11 +127,6 @@ export function PartnershipSetupWizard({
     setStep(id);
   };
 
-  const nextOf = (id: StepId) => {
-    const i = STEPS.findIndex((s) => s.id === id);
-    return STEPS[Math.min(STEPS.length - 1, i + 1)]?.id || "complete";
-  };
-
   const prevOf = (id: StepId) => {
     const i = STEPS.findIndex((s) => s.id === id);
     return STEPS[Math.max(0, i - 1)]?.id || "channels";

@@ -20,7 +20,7 @@ import {
   writeVinylMusic,
 } from "@/lib/vinyl-music-store";
 import { subscribeSerataMuteBgm } from "@/lib/serata-mute-bgm";
-import { useSocialPhoneOpenListener } from "@/lib/social-phone-open";
+import { listenSocialPhoneOpen } from "@/lib/social-phone-open";
 
 function pathSuppressesSiteMusic(pathname: string) {
   const p = String(pathname || "").replace(/\/+$/, "") || "/";
@@ -57,7 +57,7 @@ export function VinylMusicRoot() {
   const [phoneOpen, setPhoneOpen] = useState(false);
   const trackTitle = resolveVinylYt().title;
 
-  useEffect(() => useSocialPhoneOpenListener(setPhoneOpen), []);
+  useEffect(() => listenSocialPhoneOpen(setPhoneOpen), []);
 
   useEffect(() => {
     volumeRef.current = volume;

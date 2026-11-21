@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import {
   fetchEventoFaction,
-  useEventoItem,
+  activateEventoItem,
   type EventoFactionHub as FactionPayload,
 } from "@/lib/evento-api";
 import { useAuth } from "@/lib/auth";
@@ -143,10 +143,10 @@ export function EventoFactionHub() {
     });
   }, [bank?.items, bank?.buffs, data?.utilityItems, data?.utilityLabels]);
 
-  async function useOne(itemId: string) {
+  async function activateOne(itemId: string) {
     if (!token || busy) return;
     setBusy(itemId);
-    const out = await useEventoItem(token, itemId);
+    const out = await activateEventoItem(token, itemId);
     setBusy(null);
     if (!out?.ok) {
       showToast(out?.message || "Uso fallito.", true);
@@ -226,7 +226,7 @@ export function EventoFactionHub() {
         <div className="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:items-end sm:text-left">
           <div className="relative shrink-0">
             {crest ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img
                 src={crest}
                 alt=""
@@ -444,7 +444,7 @@ export function EventoFactionHub() {
                     <EventoBtn
                       className="mt-3 w-full"
                       disabled={!canUse}
-                      onClick={() => void useOne(r.id)}
+                      onClick={() => void activateOne(r.id)}
                     >
                       {loadingItem ? "…" : buffOn ? "Già attivo" : r.qty < 1 ? "Esaurito" : "Attiva per la fazione"}
                     </EventoBtn>

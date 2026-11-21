@@ -81,7 +81,7 @@ function PartnershipFormDialog({
       return;
     }
     if (!/discord\.gg\/|discord\.com\/invite\//i.test(description)) {
-      setLocalErr("Nella descrizione serve un invite Discord (discord.gg/…).");
+      setLocalErr("Nella descrizione serve un invito Discord (discord.gg/…).");
       return;
     }
     setLocalErr("");

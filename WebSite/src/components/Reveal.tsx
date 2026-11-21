@@ -13,7 +13,6 @@ export function Reveal({
   y = 48,
   children,
   className,
-  viewportAmount: _viewportAmount,
 }: {
   delay?: number;
   y?: number;

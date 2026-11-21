@@ -96,7 +96,7 @@ export function ImageAttachPreview({ attach }: { attach: ImageAttachState }) {
               exit={{ opacity: 0, scale: 0.8 }}
               className="relative size-16 overflow-hidden rounded-xl ring-1 ring-sand/20"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              { }
               <img src={src} alt="" className="size-full object-cover" data-vc-lightbox-ignore />
               <button
                 type="button"
@@ -122,7 +122,7 @@ export function CommentImages({ urls, className }: { urls?: string[]; className?
     <div className={cn("mt-2 flex flex-wrap gap-2", className)} data-vc-lightbox-gallery>
       {urls.map((u) => (
         <a key={u} href={u} data-vc-lightbox className="block overflow-hidden rounded-xl ring-1 ring-sand/15">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          { }
           <img src={u} alt="Foto nel commento" loading="lazy" className="h-28 w-auto max-w-[14rem] object-cover transition-transform duration-300 hover:scale-105 sm:h-32" />
         </a>
       ))}

@@ -10,6 +10,7 @@ import {
   loadReviews,
   replyReview,
   reportReview,
+  REPORT_CATEGORIES,
   starDistribution,
   type BoardListing,
   type BoardReview,
@@ -19,7 +20,7 @@ import {
 import { page } from "@/lib/site";
 import { timeAgo } from "@/lib/time";
 import { cn } from "@/lib/cn";
-import { promptDialog, showToast } from "@/components/ui";
+import { chooseDialog, promptDialog, showToast } from "@/components/ui";
 import { SmartLink } from "@/components/SmartLink";
 import { Stars } from "./ListingCard";
 import { Panel } from "./ListingPage";
@@ -62,11 +63,12 @@ export function ListingReviews({ listing, onAggregate }: { listing: BoardListing
   const maxBar = Math.max(1, ...dist);
 
   return (
+    <div id="recensioni" className="scroll-mt-24">
     <Panel
       title="Recensioni"
       right={
         <SmartLink href={page("/vetrina/linee-guida-recensioni/")} className="text-xs text-crema/45 hover:text-ember">
-          Linee guida
+          Linee Guida
         </SmartLink>
       }
     >
@@ -176,6 +178,7 @@ export function ListingReviews({ listing, onAggregate }: { listing: BoardListing
         </div>
       )}
     </Panel>
+    </div>
   );
 }
 
@@ -189,7 +192,7 @@ function WriteReview({ listingId, onDone }: { listingId: string; onDone: (avg: n
   const shown = hover || rating;
 
   async function send() {
-    if (!token) return;
+    if (!token) return showToast("Accedi con Discord per recensire.", true);
     if (!rating) return showToast("Scegli da 1 a 5 stelle", true);
     if (text.trim().length < MIN_LEN) return showToast(`Scrivi almeno ${MIN_LEN} caratteri`, true);
     setBusy(true);
@@ -262,7 +265,10 @@ function ReviewCard({ review, canReply, mine = false, onChange }: { review: Boar
 
   async function like() {
     if (!token) return login();
-    if (mine) return;
+    if (mine) {
+      showToast("Non puoi mettere mi piace alla tua recensione.", true);
+      return;
+    }
     const optimistic = { ...review, likedByMe: !review.likedByMe, likeCount: review.likeCount + (review.likedByMe ? -1 : 1) };
     onChange(optimistic);
     const r = await likeReview(token, review.id);
@@ -274,10 +280,33 @@ function ReviewCard({ review, canReply, mine = false, onChange }: { review: Boar
 
   async function report() {
     if (!token) return login();
-    const reason = await promptDialog({ title: "Segnala recensione", inputLabel: "Motivo", placeholder: "Perché va rimossa?", multiline: true });
-    if (!reason || reason.trim().length < 8) return;
-    const r = await reportReview(token, review.id, reason.trim());
-    showToast(r.ok ? r.data.message || "Segnalazione inviata." : r.message, !r.ok);
+    if (mine) {
+      showToast("Non puoi segnalare la tua recensione.", true);
+      return;
+    }
+    const category = await chooseDialog({
+      title: "Segnala recensione",
+      message: "Che tipo di problema hai trovato?",
+      choices: REPORT_CATEGORIES.map((c) => ({ id: c.id, label: c.label })),
+    });
+    if (!category) return;
+    const reason = await promptDialog({
+      title: "Dettagli della segnalazione",
+      inputLabel: "Motivo",
+      placeholder: "Perché va rimossa? (minimo 8 caratteri)",
+      multiline: true,
+    });
+    if (reason == null) return;
+    if (reason.trim().length < 8) {
+      showToast("Scrivi almeno 8 caratteri nel motivo.", true);
+      return;
+    }
+    const r = await reportReview(token, review.id, reason.trim(), category);
+    if (!r.ok) {
+      showToast(r.message || "Segnalazione non inviata. Riprova.", true);
+      return;
+    }
+    showToast(r.data.message || "Segnalazione inviata allo staff.");
   }
 
   async function reply() {
@@ -302,7 +331,7 @@ function ReviewCard({ review, canReply, mine = false, onChange }: { review: Boar
     <motion.article layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={cn("rounded-2xl p-4 ring-1 sm:p-5", mine ? "bg-caramel/10 ring-caramel/30" : "bg-espresso/45 ring-sand/10")}>
       <div className="flex items-start gap-3">
         {review.authorAvatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img src={review.authorAvatarUrl} alt="" className="size-10 shrink-0 rounded-full object-cover ring-1 ring-sand/20" />
         ) : (
           <span className="size-10 shrink-0 rounded-full bg-mocha" />

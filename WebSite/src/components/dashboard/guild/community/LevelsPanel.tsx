@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Ban, ChevronDown, Sunrise, CalendarClock, Clock3, Gamepad2, Gift, LineChart, Loader2, Megaphone, MessageSquare, Mic, Play, Plus, RefreshCw, Sparkles, Timer, Trash2, TrendingUp, Trophy, X, type LucideIcon } from "lucide-react";
+import { ArrowRight, Ban, ChevronDown, Sunrise, CalendarClock, Clock3, Gamepad2, Gift, LineChart, Megaphone, MessageSquare, Mic, Play, Plus, Sparkles, Timer, Trash2, TrendingUp, Trophy, X, type LucideIcon } from "lucide-react";
 import { DateTimeField } from "@/components/ui/DateTimeField";
 import { NumberField } from "@/components/ui/NumberField";
 import { MultiSelect, Select } from "@/components/ui/Select";
@@ -463,12 +463,7 @@ const MINIGAME_PREVIEW: Record<string, MinigamePreviewMeta> = {
  * Immagine anteprima: solo data URL del bot (card canvas). URL remoti spesso non si vedono
  * in dashboard → card client locale (sempre visibile). Hotlink ok solo flagcdn / football-data.
  */
-function resolveMinigamePreviewImage(
-  type: string,
-  cardReady: boolean,
-  real?: Record<string, string>,
-  _notes?: Record<string, string>,
-) {
+function resolveMinigamePreviewImage(type: string, cardReady: boolean, real?: Record<string, string>) {
   const meta = MINIGAME_PREVIEW[type];
   const realImg = String(real?.[type] || "");
   if (realImg.startsWith("data:image/")) return realImg;
@@ -1706,7 +1701,7 @@ export function LevelsPanel({
                 const fastSec = Math.round(scoring.fastGuess.windowMs / 1000);
                 const sharedDraft = gameDraftKind === "win" ? scoring.winDraft || emptyDraft() : scoring.startDraft || emptyDraft();
                 const sharedSampleType = "guessNumber";
-                const sharedSampleImg = resolveMinigamePreviewImage(sharedSampleType, previewCardsReady, realGameImgs, realGameNotes);
+                const sharedSampleImg = resolveMinigamePreviewImage(sharedSampleType, previewCardsReady, realGameImgs);
                 const sharedDraftVars =
                   gameDraftKind === "win"
                     ? { ...minigameVars, exp: "200", total: "1500", streak: "3", user: minigameVars.user || "@Mario" }
@@ -1812,7 +1807,7 @@ export function LevelsPanel({
                           const durSec = Math.max(15, Math.round((row.durationMs || 180000) / 1000));
                           const rowStart = scoring.startDraft || emptyDraft();
                           const rowWin = scoring.winDraft || emptyDraft();
-                          const rowImg = resolveMinigamePreviewImage(row.type, previewCardsReady, realGameImgs, realGameNotes);
+                          const rowImg = resolveMinigamePreviewImage(row.type, previewCardsReady, realGameImgs);
                           const rowStartVars = minigameRowPreviewVars(row, minigameVars, rowImg);
                           const rowWinVars = {
                             ...minigameVars,

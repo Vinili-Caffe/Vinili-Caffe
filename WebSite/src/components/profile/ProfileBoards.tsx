@@ -204,7 +204,7 @@ function Card({
   return (
     <li className="flex flex-col overflow-hidden rounded-2xl bg-crema/[0.04] ring-1 ring-sand/12">
       {item.previewImageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
+         
         <img
           src={item.previewImageUrl}
           alt=""

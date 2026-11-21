@@ -128,7 +128,7 @@ export function NavNotifBell() {
 
   useEffect(() => {
     if (open && ready && token) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo all’open
+     
   }, [open]);
 
   useEffect(() => {

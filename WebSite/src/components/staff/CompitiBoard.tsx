@@ -915,7 +915,7 @@ function ProofsBlock({
                   onClick={() => openLightbox([{ src: p.url, alt: p.name || "prova" }])}
                   className="block size-24 overflow-hidden rounded-xl bg-crema/8 ring-1 ring-sand/15"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  { }
                   <img src={p.url} alt={p.name || "prova"} className="size-full object-cover" loading="lazy" />
                 </button>
               ) : (
@@ -936,7 +936,7 @@ function ProofsBlock({
           <li key={`pend-${i}`} className="relative">
             <div className="size-24 overflow-hidden rounded-xl bg-caramel/15 ring-1 ring-caramel/30">
               {isImgProof(p) ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img src={p.dataUrl} alt="" className="size-full object-cover" />
               ) : (
                 <span className="flex size-full items-center justify-center px-1 text-center text-[0.65rem] text-ember">

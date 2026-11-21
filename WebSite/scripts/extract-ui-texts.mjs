@@ -2,7 +2,7 @@
  * Estrae i testi italiani dell'interfaccia (testi JSX, stringhe e template) da un insieme di file,
  * per tradurli col traduttore di testo (src/lib/i18n-text.ts).
  *
- *   node scripts/extract-ui-texts.mjs <uscita.json> <cartella-o-file> [altri…]
+ *   node scripts/extract-ui-texts.mjs <uscita.json> <cartella-o-file> [altri…]   (o @elenco.txt)
  *
  * Le parti variabili dei template (`${x}`) e i numeri diventano {0}, {1}… come nel traduttore.
  */
@@ -25,7 +25,10 @@ const walk = (p) => {
   if (st.isDirectory()) for (const f of fs.readdirSync(p)) walk(path.join(p, f));
   else if (/\.(tsx?|mts)$/.test(p) && !p.endsWith(".d.ts")) files.push(p);
 };
-inputs.forEach(walk);
+/* @elenco.txt = un percorso per riga (per elenchi troppo lunghi per la riga di comando) */
+inputs
+  .flatMap((p) => (p.startsWith("@") ? fs.readFileSync(p.slice(1), "utf8").split(/\r?\n/).filter(Boolean) : [p]))
+  .forEach(walk);
 
 const SKIP_ATTRS = new Set(["className", "href", "src", "key", "id", "type", "name", "role", "rel", "target", "method", "autoComplete", "inputMode", "lang", "dir", "style", "htmlFor", "accept", "mode", "variant", "size", "tone", "sizes", "loading", "decoding", "as", "aria-haspopup", "aria-live", "aria-current"]);
 const SKIP_PROPS = new Set(["className", "href", "src", "id", "key", "type", "value", "icon", "path", "url", "color", "tone", "mode", "variant", "kind", "status", "level", "area", "match", "behavior", "style", "anchor", "query", "hexcode", "token"]);

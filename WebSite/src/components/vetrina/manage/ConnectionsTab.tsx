@@ -80,7 +80,7 @@ export function ConnectionsTab({ listing, token }: { listing: BoardListing; toke
                   >
                     <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-mocha">
                       {s.iconUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
+                         
                         <img src={s.iconUrl} alt="" className="size-full object-cover" />
                       ) : (
                         <Server className="size-5 text-crema/60" />

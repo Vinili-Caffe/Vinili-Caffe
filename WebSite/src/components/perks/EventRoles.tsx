@@ -119,7 +119,7 @@ function SecretCard() {
           <Lock className="size-5 text-caramel" />
         </span>
         <p className="font-display text-lg font-semibold">Ruolo in arrivo</p>
-        <p className="max-w-[16rem] text-xs text-crema/55">Lo sveliamo all&apos;inizio dell&apos;evento. Resta sintonizzato.</p>
+        <p className="max-w-[16rem] text-xs text-crema/55">Lo sveliamo quando parte l&apos;evento.</p>
       </div>
     </article>
   );

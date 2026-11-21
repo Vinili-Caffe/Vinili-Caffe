@@ -592,7 +592,7 @@ const EmojiPickerPanel = function EmojiPickerPanel({
                         onClick={() => onPick({ type: "custom", id: e.id, name: e.name, animated: e.animated, markup: formatCustomEmoji(e) })}
                         className={cell}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        { }
                         <img src={e.url || customEmojiUrl(e.id, e.animated)} alt="" loading="lazy" className="size-7 object-contain" />
                       </button>
                     ))}
@@ -641,7 +641,7 @@ const EmojiPickerPanel = function EmojiPickerPanel({
           <>
             <span className="flex size-7 items-center justify-center text-2xl leading-none">
               {hover.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img src={hover.url} alt="" className="size-7 object-contain" />
               ) : (
                 <Glyph text={hover.glyph} flag={hover.flag} />

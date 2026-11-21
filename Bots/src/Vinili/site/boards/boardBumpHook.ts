@@ -238,7 +238,7 @@ async function testBumpHook(client?, payload: Record<string, any> = {}) {
 
 /**
  * Dopo un bump: ruolo a tempo, EXP (solo server principale) e ringraziamento.
- * Con /bump e senza canale impostato il ringraziamento torna come risposta al comando (replyBody).
+ * Il ringraziamento è sempre un messaggio nuovo nel canale (mai edit della risposta a /bump).
  */
 async function onListingBumped(client?, listingId?: string, userId?: string, opts: { channelId?: string | null; fromDiscord?: boolean } = {}) {
   const doc: any = await SiteDocument.findOne({ _id: listingId, docType: BL }).select({ boardBumpHook: 1, boardDiscordId: 1, boardKind: 1, boardBumpedAt: 1 }).lean();
@@ -300,13 +300,9 @@ async function onListingBumped(client?, listingId?: string, userId?: string, opt
   const vars = await userVarsFor(client, guild, String(userId), { service: SERVICE_NAME, count: String(count || 1), ...expOut });
   const body = buildBody(draft, vars, String(userId));
   if (!body) return { ok: true };
-  if (config.channelId && config.channelId !== String(opts.channelId || "")) {
-    await postBody(client, config.channelId, body);
-    return { ok: true };
-  }
-  /* stesso canale del /bump (o nessun canale impostato): il ringraziamento è la risposta al comando */
-  if (opts.fromDiscord) return { ok: true, replyBody: body };
-  if (config.channelId) await postBody(client, config.channelId, body);
+  /* canale della tab Bump, altrimenti (solo /bump) il canale del comando — sempre messaggio nuovo */
+  const target = config.channelId || (opts.fromDiscord ? String(opts.channelId || "").trim() : "") || null;
+  if (target) await postBody(client, target, body);
   return { ok: true };
 }
 

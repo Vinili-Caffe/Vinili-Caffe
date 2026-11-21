@@ -33,7 +33,7 @@ function writeCachedAccess(token: string, access: StaffAccess | null, denied: bo
   accessCache = { token, access, denied, at: Date.now() };
 }
 
-function setEventoHold(_on: boolean) {
+function setEventoHold() {
   /* speedRes1: non settare più vc-evento-hold — bloccava BootGate/LCP per secondi. */
 }
 
@@ -68,19 +68,19 @@ export function EventoAccessGate({
       setNetError(false);
       setAccess(acc);
       setVerdict("allow");
-      setEventoHold(false);
+      setEventoHold();
     };
     const finishDeny = () => {
       if (!alive) return;
       setNetError(false);
       setAccess(null);
       setVerdict("deny");
-      setEventoHold(false);
+      setEventoHold();
     };
     const stayLoading = () => {
       if (!alive) return;
       setVerdict("loading");
-      setEventoHold(true);
+      setEventoHold();
     };
 
     if (!ready) {
@@ -145,7 +145,7 @@ export function EventoAccessGate({
         }
         setNetError(true);
         setVerdict("loading");
-        setEventoHold(false);
+        setEventoHold();
       });
     };
     run();
@@ -156,7 +156,7 @@ export function EventoAccessGate({
   }, [ready, token, publicOk, pageId, retryTick]);
 
   useEffect(() => {
-    return () => setEventoHold(false);
+    return () => setEventoHold();
   }, []);
 
   if (verdict === "loading") {

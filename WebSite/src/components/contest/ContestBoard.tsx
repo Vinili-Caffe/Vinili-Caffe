@@ -132,7 +132,7 @@ function Podium({ podium, cat }: { podium: ContestSubmission[]; cat: string }) {
               >
                 {place}
               </span>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              { }
               <img
                 src={contestImageUrl(row.imageUrl)}
                 alt=""
@@ -716,7 +716,7 @@ export function ContestBoard({
               {!status?.submitBanned && mineByCat[catSubmit] ? (
                 <Panel className="space-y-4 !p-3 sm:!p-4">
                   <div className="overflow-hidden rounded-2xl ring-1 ring-crema/12">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    { }
                     <img
                       src={contestImageUrl(mineByCat[catSubmit]!.imageUrl)}
                       alt=""
@@ -824,7 +824,7 @@ export function ContestBoard({
                     onPointerUp={onPointerUp}
                     onPointerCancel={onPointerUp}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    { }
                     <img
                       src={contestImageUrl(top.imageUrl)}
                       alt=""
@@ -911,7 +911,7 @@ export function ContestBoard({
                           <span className="w-8 shrink-0 text-center font-display text-lg font-semibold tabular-nums text-caramel/90">
                             {row.rank ?? "–"}
                           </span>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          { }
                           <img
                             src={contestImageUrl(row.imageUrl)}
                             alt=""

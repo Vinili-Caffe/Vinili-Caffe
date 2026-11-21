@@ -36,7 +36,7 @@ export function ServerSwitcher({
 
   const icon = (g: ProfileGuild, size = "size-5") =>
     g.iconUrl ? (
-      // eslint-disable-next-line @next/next/no-img-element -- icona Discord piccola
+       
       <img src={g.iconUrl} alt="" className={cn(size, "shrink-0 rounded-md")} />
     ) : (
       <span className={cn(size, "flex shrink-0 items-center justify-center rounded-md bg-caramel/15 text-[0.6rem] font-bold text-ember")}>{g.name.slice(0, 1)}</span>

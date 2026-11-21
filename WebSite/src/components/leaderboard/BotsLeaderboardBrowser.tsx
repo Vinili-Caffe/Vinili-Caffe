@@ -64,7 +64,7 @@ function Face({ row, className }: { row: BotsLeaderRow; className?: string }) {
     return <Avatar userId={row.id} src={row.avatarUrl || undefined} name={row.displayName} className={className} />;
   }
   if (row.avatarUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
+     
     return <img src={row.avatarUrl} alt="" className={cn("object-cover", className)} />;
   }
   return (

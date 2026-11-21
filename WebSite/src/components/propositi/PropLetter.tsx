@@ -157,7 +157,7 @@ export function Letter({
           ) : (
             <span className="inline-flex max-w-[50%] items-center gap-2 font-script text-xl text-ink/70">
               {c.authorAvatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img src={c.authorAvatarUrl} alt="" className="size-6 rounded-full object-cover ring-1 ring-ink/15" />
               ) : (
                 <span className="size-6 rounded-full bg-ink/15" aria-hidden />
@@ -181,7 +181,7 @@ export function Letter({
                     <VenetianMask className="size-3" />
                   </span>
                 ) : m.authorAvatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img src={m.authorAvatarUrl} alt="" className="mt-0.5 size-5 shrink-0 rounded-full object-cover" />
                 ) : (
                   <span className="mt-0.5 size-5 shrink-0 rounded-full bg-ink/15" aria-hidden />

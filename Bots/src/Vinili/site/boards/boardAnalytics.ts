@@ -125,7 +125,7 @@ async function getListingAnalytics(client?, payload: Record<string, any> = {}) {
   if (!gate.ok) return gate;
   const id = String(payload.listingId || "").trim();
   if (!mongoose.isValidObjectId(id)) return { ok: false, status: 400, error: "invalid_id", message: "ID scheda non valido." };
-  const doc: any = await SiteDocument.findOne({ _id: id, docType: BL }).select({ userId: 1, boardKind: 1, title: 1 }).lean();
+  const doc: any = await SiteDocument.findOne({ _id: id, docType: BL }).select({ userId: 1, boardKind: 1, title: 1, boardGoals: 1 }).lean();
   if (!doc) return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata." };
   if (!payload.isHighStaff) {
     const auth: any = await resolveBoardsUser(payload.accessToken);
@@ -137,23 +137,39 @@ async function getListingAnalytics(client?, payload: Record<string, any> = {}) {
 
   const days = [7, 14, 30, 90].includes(Number(payload.days)) ? Number(payload.days) : 14;
   const dayKeys: string[] = [];
+  const prevKeys: string[] = [];
   for (let i = days - 1; i >= 0; i -= 1) dayKeys.push(getDayKey(new Date(Date.now() - i * 86400_000)));
-  const uniq = [...new Set(dayKeys)];
+  for (let i = days * 2 - 1; i >= days; i -= 1) prevKeys.push(getDayKey(new Date(Date.now() - i * 86400_000)));
+  const uniq = [...new Set([...dayKeys, ...prevKeys])];
   const rows: any[] = await BoardStatsDay.find({ listingId: id, day: { $in: uniq } }).lean();
   const byDay = new Map(rows.map((r) => [String(r.day), r]));
 
-  const series = uniq.map((day) => {
+  const series = dayKeys.map((day) => {
     const r: any = byDay.get(day) || {};
     return { day, views: Number(r.views) || 0, engagements: Number(r.engagements) || 0, votes: Number(r.votes) || 0 };
   });
-  const totals = series.reduce((a, s) => ({ views: a.views + s.views, engagements: a.engagements + s.engagements, votes: a.votes + s.votes }), { views: 0, engagements: 0, votes: 0 });
+  const prevSeries = prevKeys.map((day) => {
+    const r: any = byDay.get(day) || {};
+    return { day, views: Number(r.views) || 0, engagements: Number(r.engagements) || 0, votes: Number(r.votes) || 0 };
+  });
+  const sum = (arr: { views: number; engagements: number; votes: number }[]) =>
+    arr.reduce((a, s) => ({ views: a.views + s.views, engagements: a.engagements + s.engagements, votes: a.votes + s.votes }), { views: 0, engagements: 0, votes: 0 });
+  const totals = sum(series);
+  const previousTotals = sum(prevSeries);
+  const delta = {
+    views: totals.views - previousTotals.views,
+    engagements: totals.engagements - previousTotals.engagements,
+    votes: totals.votes - previousTotals.votes,
+  };
 
   const sources: Record<string, number> = {};
   const leadsRaw: Record<string, number> = {};
   const devices: Record<string, number> = {};
   const countries: Record<string, number> = {};
   const actions: Record<string, number> = {};
-  for (const r of rows) {
+  for (const day of dayKeys) {
+    const r: any = byDay.get(day);
+    if (!r) continue;
     addInto(sources, r.sources);
     addInto(leadsRaw, r.leads);
     addInto(devices, r.devices);
@@ -171,11 +187,17 @@ async function getListingAnalytics(client?, payload: Record<string, any> = {}) {
     .map(([code, count]) => ({ code, count }))
     .sort((a, b) => b.count - a.count);
 
+  const { sanitizeGoals } = require("./boardGoals") as typeof import("./boardGoals");
+  const goals = sanitizeGoals(doc.boardGoals);
+
   return {
     ok: true,
     status: 200,
     days,
     totals,
+    previousTotals,
+    delta,
+    goals,
     series,
     sources,
     leads,

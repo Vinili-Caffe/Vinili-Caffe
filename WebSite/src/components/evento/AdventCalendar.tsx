@@ -123,7 +123,7 @@ function DoorFace({
           {spoilersHidden ? (
             <Gift className="size-6 text-crema/25 sm:size-7" aria-hidden />
           ) : crateId && crateArtUrl(crateId, false) ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img
               src={crateArtUrl(crateId, false)}
               alt=""

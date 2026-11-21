@@ -19,7 +19,7 @@ type Toast = { msg: string; err: boolean } | null;
 
 function Emoji({ e }: { e: ProfileEmoji }) {
   if (e.url) {
-    // eslint-disable-next-line @next/next/no-img-element
+     
     return <img src={e.url} alt="" width={20} height={20} className="size-5 object-contain" />;
   }
   return <span className="text-base leading-none">{e.text}</span>;
@@ -32,7 +32,7 @@ function AccountCard() {
   return (
     <Panel icon={<UserRound />} title="Account" description="Entri con Discord: i server che vedi sono quelli dove puoi gestire Vinili.">
       <div className="flex flex-wrap items-center gap-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        { }
         <img src={avatarUrl(user, 128)} alt="" width={56} height={56} className="size-14 rounded-full ring-2 ring-sand/15" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-xl font-semibold text-crema">{displayName(user)}</p>
@@ -132,7 +132,7 @@ export function PartnerProfile({
   const badgesKey = selectedBadges ? selectedBadges.map((b) => b.id).join(",") : "";
   useEffect(() => {
     if (selectedBadges && onBadges) onBadges(selectedBadges);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cambia solo quando cambiano i badge scelti
+     
   }, [badgesKey, Boolean(selectedBadges)]);
 
   if (hidden) return null;

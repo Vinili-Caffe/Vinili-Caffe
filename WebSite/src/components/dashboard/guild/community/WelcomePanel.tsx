@@ -51,7 +51,7 @@ export function WelcomePanel({
 
   useEffect(() => {
     if (!data) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- copia locale modificabile dei dati caricati
+     
     setCfg(data.welcome);
     setSaved(JSON.stringify(data.welcome));
   }, [data]);
@@ -106,7 +106,7 @@ export function WelcomePanel({
           firstMessageDaily: firstDaily,
           welcomeGreeting: greeting,
         },
-      } as any);
+      });
       if (!lr.ok) {
         setBusy(null);
         return onToast(lr.message, true);

@@ -28,7 +28,7 @@ import { SmartLink } from "@/components/SmartLink";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { confirmLeaveUnsaved } from "@/lib/unsaved-changes";
-import { readGuildsCache, readLastGuildId, selectGuild, type DashboardGuild } from "@/lib/dashboard";
+import { readGuildsCache, selectGuild, type DashboardGuild } from "@/lib/dashboard";
 import { ensureIsDev, getIsDev, subscribeDev } from "@/lib/dashboard-dev";
 import { ensureCreditsBalance, getCreditsBalance, subscribeCredits } from "@/lib/dashboard-premium";
 import { cdnUrl, page } from "@/lib/site";
@@ -74,7 +74,7 @@ const BOT_AVATAR = "/webhooks/site-bot-avatar?size=128";
 function BotLogo() {
   const [src, setSrc] = useState(BOT_AVATAR);
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+     
     <img
       src={src}
       alt=""
@@ -158,7 +158,7 @@ function samePath(pathname: string, href: string, exact = false) {
 function GuildIcon({ guild, className }: { guild: Pick<ShellGuild, "name" | "iconUrl">; className?: string }) {
   const initial = (guild.name.trim().charAt(0) || "?").toUpperCase();
   return guild.iconUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
+     
     <img src={guild.iconUrl} alt="" width={36} height={36} className={cn("size-9 shrink-0 rounded-xl object-cover", className)} />
   ) : (
     <span
@@ -565,7 +565,7 @@ function CreditsChip() {
 }
 
 /** Menu account in alto a destra: nome utente, voci dell'account e ritorno al sito. */
-function AccountMenu({ guild, guildNav, inline = false }: { guild: ShellGuild | null; guildNav?: GuildNav; inline?: boolean }) {
+function AccountMenu({ inline = false }: { guild: ShellGuild | null; guildNav?: GuildNav; inline?: boolean }) {
   const { user, ready, login, token } = useAuth();
   const pathname = usePathname() || "";
   const isDev = useSyncExternalStore(subscribeDev, getIsDev, () => null);
@@ -644,7 +644,7 @@ function AccountMenu({ guild, guildNav, inline = false }: { guild: ShellGuild | 
           open ? "bg-crema/[0.07] ring-sand/25" : "ring-sand/10 hover:bg-crema/[0.05] hover:ring-sand/20",
         )}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        { }
         <img src={avatarUrl(user, 64)} alt="" width={28} height={28} className={cn("shrink-0 rounded-full", inline ? "size-8" : "size-7")} />
         <span className={cn("min-w-0 text-left leading-tight", inline ? "block flex-1" : "hidden sm:block")}>
           <span className={cn("block truncate text-[0.8rem] font-semibold text-crema", !inline && "max-w-[9rem]")}>{displayName(user)}</span>
@@ -668,7 +668,7 @@ function AccountMenu({ guild, guildNav, inline = false }: { guild: ShellGuild | 
             )}
           >
             <div className={cn("flex items-center gap-2.5 px-2.5 pb-2.5 pt-1.5", inline && "hidden")}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              { }
               <img src={avatarUrl(user, 64)} alt="" width={36} height={36} className="size-9 shrink-0 rounded-full" />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold text-crema">{displayName(user)}</span>
@@ -931,7 +931,7 @@ export function DashboardShell({
       window.cancelAnimationFrame(raf);
       clearHide();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
   const toggleSidePin = () => {
     const next = !sidePinned;

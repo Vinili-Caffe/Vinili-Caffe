@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Music, Pause, Play, Volume1, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useChromeOpenListener } from "@/lib/chrome-open";
+import { listenChromeOpen } from "@/lib/chrome-open";
 import { usePastHero } from "@/lib/use-past-hero";
 import { Range } from "@/components/ui";
 
@@ -52,7 +52,7 @@ export function MusicDock({
   const volBeforeMute = useRef(volume > 0 ? volume : 0.5);
   const pastHero = usePastHero();
 
-  useEffect(() => useChromeOpenListener(setChromeOpen), []);
+  useEffect(() => listenChromeOpen(setChromeOpen), []);
 
   useEffect(() => {
     if (pastHero) setPanel(false);

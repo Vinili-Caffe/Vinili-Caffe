@@ -27,6 +27,7 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
     toggleListingReviewLike,
     reportListingReview,
     upsertListingReviewReply,
+    getListingVoteStatus,
     startListingVoteSession,
     progressListingVoteSession,
     setListingVoteReminder,
@@ -79,8 +80,17 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
     try {
       if (req.method === "OPTIONS") return next();
       const sub = String(req.path || "");
-      /* l'API dei bot (statistiche con la chiave) funziona anche con la vetrina in anteprima */
+      /* config/files/api-bot: ok anche in anteprima. GET scheda / compare: embed + tab Confronta.
+         Segnalazioni: qualsiasi utente loggato (auth nel handler) — altrimenti in anteprima
+         solo l'HS può aprire le schede e non può segnalare le proprie. */
       if (sub === "/config" || sub.startsWith("/files/") || sub.startsWith("/api/")) return next();
+      if (req.method === "GET" && (sub === "/compare" || /^\/listings\/[^/]+$/.test(sub))) return next();
+      if (
+        req.method === "POST" &&
+        (/^\/listings\/[^/]+\/report$/.test(sub) || /^\/reviews\/[^/]+\/report$/.test(sub))
+      ) {
+        return next();
+      }
       const { boardsConfig } = require("./boardReviews") as typeof import("./boardReviews");
       const cfg: any = boardsConfig(client);
       if (!cfg?.enabled || cfg.publicOpen) return next();
@@ -250,11 +260,9 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
 
   /* ── schede bot: chiave API, comandi, server di supporto ── */
   try {
-    /* ID del bot per la sua scheda (recensioni di /recensioni/) + import una tantum delle recensioni già scritte */
+    /* ID del bot per la sua scheda + backfill icone bot */
     const markBot = () => {
       if (client?.user?.id) (global as any).__vcBoardsBotId = String(client.user.id);
-      const { importSiteBotReviewsOnce } = require("./boardReviews") as typeof import("./boardReviews");
-      void importSiteBotReviewsOnce().catch(() => null);
       const { backfillBotIcons } = require("./boardBotApi") as typeof import("./boardBotApi");
       void backfillBotIcons(client).catch(() => null);
     };
@@ -352,6 +360,160 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(Number(out?.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-boards related:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  /* schede simili (stessa tipologia + overlap categorie/tag) */
+  app.get("/webhooks/site-boards/listings/:id/similar", async (req?, res?) => {
+    try {
+      const { getSimilarListings } = require("./boardSimilar") as typeof import("./boardSimilar");
+      const out: any = await getSimilarListings(client, req.params?.id, req.query?.limit);
+      if (out?.ok) res.setHeader("Cache-Control", "public, max-age=300");
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards similar:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  /* confronto 2–3 schede */
+  app.get("/webhooks/site-boards/compare", async (req?, res?) => {
+    try {
+      const raw = String(req.query?.ids || "").split(/[,+\s]+/).map((s) => s.trim()).filter(Boolean).slice(0, 3);
+      const mongoose = require("mongoose") as typeof import("mongoose");
+      const { SiteDocument } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+      const { BL } = require("./boardReviews") as typeof import("./boardReviews");
+      const { serializeListing } = require("./boardInvites") as typeof import("./boardInvites");
+      const ids = raw.filter((id) => mongoose.isValidObjectId(id) || /^[a-z0-9-]{2,80}$/i.test(id));
+      if (ids.length < 2) return res.status(400).json({ ok: false, status: 400, error: "need_two", message: "Servono almeno 2 schede da confrontare." });
+      const objectIds = ids.filter((id) => mongoose.isValidObjectId(id));
+      const slugs = ids.filter((id) => !mongoose.isValidObjectId(id));
+      const or: any[] = [];
+      if (objectIds.length) or.push({ _id: { $in: objectIds } });
+      if (slugs.length) or.push({ boardSlug: { $in: slugs } });
+      const rows: any[] = await SiteDocument.find({ docType: BL, status: "approved", $or: or }).lean();
+      const byKey = new Map<string, any>();
+      for (const r of rows) {
+        byKey.set(String(r._id), r);
+        if (r.boardSlug) byKey.set(String(r.boardSlug), r);
+      }
+      const ordered = ids.map((k) => byKey.get(k)).filter(Boolean);
+      const uniq = [...new Map(ordered.map((r) => [String(r._id), r])).values()].slice(0, 3);
+      if (uniq.length < 2) return res.status(404).json({ ok: false, status: 404, error: "not_found", message: "Schede non trovate." });
+      return res.status(200).json({ ok: true, status: 200, listings: uniq.map((r) => serializeListing(r)) });
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards compare:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  /* segui / ricerche salvate */
+  app.get("/webhooks/site-boards/me/watch", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi per vedere i preferiti." });
+      const W = require("./boardWatch") as typeof import("./boardWatch");
+      const out: any = await W.listWatch(client, { accessToken });
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards watch list:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-boards/listings/:id/following", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      const W = require("./boardWatch") as typeof import("./boardWatch");
+      const out: any = await W.isFollowing(client, { accessToken, listingId: req.params?.id });
+      return res.status(200).json(out);
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-boards/listings/:id/follow", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi per seguire una scheda." });
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const W = require("./boardWatch") as typeof import("./boardWatch");
+      const out: any = await W.followListing(client, { accessToken, listingId: req.params?.id, notifyVote: body.notifyVote, notifyBump: body.notifyBump });
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards follow:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.delete("/webhooks/site-boards/listings/:id/follow", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi." });
+      const W = require("./boardWatch") as typeof import("./boardWatch");
+      const out: any = await W.unfollowListing(client, { accessToken, listingId: req.params?.id });
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards unfollow:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-boards/me/searches", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi per salvare una ricerca." });
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const W = require("./boardWatch") as typeof import("./boardWatch");
+      const out: any = await W.saveSearch(client, {
+        accessToken,
+        label: body.label,
+        filters: body.filters,
+        notifyNew: body.notifyNew,
+      });
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards save search:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.delete("/webhooks/site-boards/me/watch/:id", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi." });
+      const W = require("./boardWatch") as typeof import("./boardWatch");
+      const out: any = await W.deleteWatch(client, { accessToken, id: req.params?.id });
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards delete watch:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.get("/webhooks/site-boards/me/listings/:id/goals", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi." });
+      const G = require("./boardGoals") as typeof import("./boardGoals");
+      const out: any = await G.getListingGoals(client, {
+        accessToken,
+        listingId: req.params?.id,
+        isHighStaff: Boolean(req.vcBoardsHighStaff) || (await isBoardsHighStaff(accessToken)),
+      });
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards goals get:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.patch("/webhooks/site-boards/me/listings/:id/goals", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi." });
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const G = require("./boardGoals") as typeof import("./boardGoals");
+      const out: any = await G.setListingGoals(client, {
+        accessToken,
+        listingId: req.params?.id,
+        goals: body.goals,
+        isHighStaff: Boolean(req.vcBoardsHighStaff) || (await isBoardsHighStaff(accessToken)),
+      });
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards goals set:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
@@ -514,6 +676,26 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
+  app.get("/webhooks/site-boards/listings/:id/vote-status", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) {
+        return res.status(401).json({
+          ok: false,
+          error: "missing_token",
+          message: "Header Authorization: Bearer <token> richiesto.",
+        });
+      }
+      const out = await getListingVoteStatus(client, {
+        accessToken,
+        listingId: req.params?.id,
+      });
+      return res.status(Number(out.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards vote-status:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
   app.post("/webhooks/site-boards/listings/:id/vote-session", async (req?, res?) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
@@ -645,6 +827,7 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
         accessToken,
         listingId: req.params?.id,
         reason: body.reason,
+        category: body.category || body.reportCategory,
       });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
@@ -731,6 +914,7 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
         accessToken,
         reviewId: req.params?.id,
         reason: body.reason,
+        category: body.category || body.reportCategory,
       });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
@@ -905,6 +1089,7 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
       const out = await modListPending(client, {
         accessToken,
         status: req.query?.status,
+        kind: req.query?.kind || req.query?.filter,
       });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
@@ -954,6 +1139,44 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-boards mod decide:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  /* coda segnalazioni schede */
+  app.get("/webhooks/site-boards/mod/reports", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi." });
+      const R = require("./boardReports") as typeof import("./boardReports");
+      const out: any = await R.listBoardReports(client, {
+        accessToken,
+        status: req.query?.status,
+        kind: req.query?.kind || req.query?.filter,
+        target: req.query?.target || req.query?.type,
+      });
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards mod reports:", err);
+      return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+    }
+  });
+  app.post("/webhooks/site-boards/mod/reports/:id", async (req?, res?) => {
+    try {
+      const accessToken = normalizeHeaderSecret(req.headers.authorization);
+      if (!accessToken) return res.status(401).json({ ok: false, error: "missing_token", message: "Accedi." });
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const R = require("./boardReports") as typeof import("./boardReports");
+      const out: any = await R.resolveBoardReport(client, {
+        accessToken,
+        id: req.params?.id,
+        decision: body.decision,
+        note: body.note || body.reason,
+        action: body.action,
+        reviewId: body.reviewId,
+      });
+      return res.status(Number(out?.status) || 500).json(out);
+    } catch (err) {
+      global.logger?.error?.("[WEBHOOK] site-boards mod report resolve:", err);
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });

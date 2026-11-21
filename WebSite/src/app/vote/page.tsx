@@ -11,7 +11,7 @@ const VoteBoard = dynamic(() => import("@/components/vote/VoteBoard").then((m) =
 });
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/vote/", title: "Vota", description: "Vota Vinili & Caffè su Discadia e Top.gg: bonus EXP, ruolo Voter e più visibilità per la community." }),
+  ...pageSocialMeta({ path: "/vote/", title: "Vota", description: "Vota Vinili & Caffè su Discadia e Top.gg: il server si fa trovare da più persone e tu ricevi EXP e il ruolo Voter." }),
 };
 
 export default async function VotePage() {
@@ -21,14 +21,14 @@ export default async function VotePage() {
       <DiscordComponentEmbed
         path="/vote/"
         title="Vota"
-        description="Vota Vinili & Caffè su Discadia e Top.gg: bonus EXP, ruolo Voter e più visibilità per la community."
+        description="Vota Vinili & Caffè su Discadia e Top.gg: il server si fa trovare da più persone e tu ricevi EXP e il ruolo Voter."
       />
       <PageHero
         icon={<Heart />}
         kicker="Sostienici"
         title="Vota il"
         accent="server"
-        text="Un voto su Discadia ogni 24 ore e uno su Top.gg ogni 12: il server sale in classifica e tu guadagni EXP."
+        text="Su Discadia si vota una volta ogni 24 ore, su Top.gg ogni 12. Ogni voto fa salire il server nelle liste dove lo trovano i nuovi membri, e a te porta un po' di EXP."
       />
       <VoteBoard initial={initial} />
     </SiteShell>

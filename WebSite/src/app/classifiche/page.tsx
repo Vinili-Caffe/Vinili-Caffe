@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/classifiche/",
     title: "Classifiche",
-    description: "Classifiche community e bot di Vinili & Caffè: livello, messaggi, vocale, partnership e ingressi.",
+    description: "Le classifiche di Vinili & Caffè: livelli, messaggi, ore in vocale, partnership e nuovi membri portati nel server.",
   }),
 };
 
@@ -29,14 +29,14 @@ export default async function ClassifichePage() {
       <DiscordComponentEmbed
         path="/classifiche/"
         title="Classifiche"
-        description="Classifiche community e bot di Vinili & Caffè: livello, messaggi, vocale, partnership e ingressi."
+        description="Le classifiche di Vinili & Caffè: livelli, messaggi, ore in vocale, partnership e nuovi membri portati nel server."
       />
       <PageHero
         icon={<Trophy />}
         kicker="Classifiche"
         title="I dischi"
         accent="d'oro"
-        text="Community e partnership: chi spacca di più nel server e chi porta più gente."
+        text="Chi scrive di più, chi passa più tempo in vocale e chi ha portato più persone con le partnership. Si aggiornano da sole."
       />
       <ClassificheBrowser initialCommunity={initialCommunity} initialBots={initialBots} />
     </SiteShell>

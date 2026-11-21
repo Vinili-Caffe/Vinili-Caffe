@@ -3,14 +3,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDownUp, Hash, Languages, LayoutGrid, Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowDownUp, Hash, Languages, LayoutGrid, Search, SlidersHorizontal, Tag, X } from "lucide-react";
 import { SORTS, labelOf, type BoardKind, type BoardSort, type BoardsConfig, categoriesFor } from "@/lib/boards";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { OptionPicker } from "./OptionPicker";
 
-export type SearchFilters = { q: string; tag: string; category: string; locale: string; sort: BoardSort };
-export const EMPTY_FILTERS: SearchFilters = { q: "", tag: "", category: "", locale: "", sort: "score" };
+export type SearchFilters = { q: string; tag: string; category: string; locale: string; guildTag: string; sort: BoardSort; excludeNsfw: boolean };
+export const EMPTY_FILTERS: SearchFilters = { q: "", tag: "", category: "", locale: "", guildTag: "", sort: "score", excludeNsfw: false };
 
 /** Indirizzo dell'elenco con i filtri (per la ricerca dalla scheda). */
 export function listHref(kind: BoardKind, f: Partial<SearchFilters>) {
@@ -19,7 +19,9 @@ export function listHref(kind: BoardKind, f: Partial<SearchFilters>) {
   if (f.category) p.set("category", f.category);
   if (f.locale) p.set("locale", f.locale);
   if (f.tag) p.set("tag", f.tag);
+  if (f.guildTag) p.set("guildTag", f.guildTag);
   if (f.sort && f.sort !== "score") p.set("sort", f.sort);
+  if (f.excludeNsfw) p.set("excludeNsfw", "1");
   const qs = p.toString();
   return page(`/vetrina/${kind}/${qs ? `?${qs}` : ""}`);
 }
@@ -60,7 +62,7 @@ export function VetrinaSearch({
     setLocal(next);
     if (!deferred) onApply(next);
   };
-  const active = [local.category, local.locale, local.tag, local.sort !== "score" ? local.sort : ""].filter(Boolean).length;
+  const active = [local.category, local.locale, local.tag, local.guildTag, local.sort !== "score" ? local.sort : "", local.excludeNsfw ? "nsfw" : ""].filter(Boolean).length;
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -169,7 +171,7 @@ export function VetrinaSearch({
                 <div className="mb-4 flex items-center justify-between">
                   <p className="font-display text-xl font-semibold text-crema">Filtri</p>
                   {active > 0 && (
-                    <button type="button" onClick={() => setF({ category: "", locale: "", tag: "", sort: "score" })} className="text-sm text-crema/50 hover:text-crema">
+                    <button type="button" onClick={() => setF({ category: "", locale: "", tag: "", guildTag: "", sort: "score", excludeNsfw: false })} className="text-sm text-crema/50 hover:text-crema">
                       Azzera
                     </button>
                   )}
@@ -195,7 +197,7 @@ export function VetrinaSearch({
                       onChange={(v) => setF({ sort: (v[0] as BoardSort) || "score" })}
                     />
                   </FilterBlock>
-                  <FilterBlock icon={<Languages />} label="Lingua" className="sm:col-span-2">
+                  <FilterBlock icon={<Languages />} label="Lingua">
                     <OptionPicker
                       placeholder="Tutte le lingue"
                       allLabel="Tutte le lingue"
@@ -204,6 +206,30 @@ export function VetrinaSearch({
                       value={local.locale ? [local.locale] : []}
                       onChange={(v) => setF({ locale: v[0] || "" })}
                     />
+                  </FilterBlock>
+                  {kind === "server" ? (
+                    <FilterBlock icon={<Tag />} label="Guild tag">
+                      <input
+                        value={local.guildTag}
+                        maxLength={8}
+                        placeholder="es. VINYL"
+                        onChange={(e) => setF({ guildTag: e.target.value.trim().slice(0, 8) })}
+                        className="w-full rounded-xl bg-espresso/70 px-3 py-2.5 text-sm text-crema outline-none ring-1 ring-sand/15 placeholder:text-crema/35 focus:ring-ember/40"
+                      />
+                    </FilterBlock>
+                  ) : null}
+                  <FilterBlock icon={<Tag />} label="Contenuti" className="sm:col-span-2">
+                    <button
+                      type="button"
+                      aria-pressed={local.excludeNsfw}
+                      onClick={() => setF({ excludeNsfw: !local.excludeNsfw })}
+                      className={cn(
+                        "w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ring-1",
+                        local.excludeNsfw ? "bg-ember/15 text-ember ring-ember/40" : "bg-espresso/70 text-crema/70 ring-sand/15 hover:text-crema",
+                      )}
+                    >
+                      Nascondi 18+
+                    </button>
                   </FilterBlock>
                 </div>
                 {popular.length > 0 && (

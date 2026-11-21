@@ -7,7 +7,7 @@ import { SiteShell } from "@/components/SiteShell";
 import { SponsorBoard } from "@/components/sponsor/SponsorBoard";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/sponsor/", title: "Sponsor", description: "Collaborazioni a pagamento: canale privato e vetrina sul sito." }),
+  ...pageSocialMeta({ path: "/sponsor/", title: "Sponsor", description: "Sponsorizza il tuo server su Vinili & Caffè: un canale dedicato e uno spazio sul sito, con durate e prezzi indicati." }),
 };
 
 export default function SponsorPage() {
@@ -16,14 +16,14 @@ export default function SponsorPage() {
       <DiscordComponentEmbed
         path="/sponsor/"
         title="Sponsor"
-        description="Collaborazioni a pagamento: canale privato e vetrina sul sito."
+        description="Sponsorizza il tuo server su Vinili & Caffè: un canale dedicato e uno spazio sul sito, con durate e prezzi indicati."
       />
       <PageHero
         icon={<Megaphone />}
         kicker="Collaborazioni"
         title="Metti in mostra"
         accent="il tuo server"
-        text="Tipologie, durate e prezzi delle sponsor: componi la tua e apri un ticket High Staff per i dettagli."
+        text="Scegli il tipo di sponsorizzazione e quanto deve durare: il prezzo lo vedi subito. Quando hai deciso, apri un ticket con l'High Staff e vi accordate sui dettagli."
       />
       <SponsorBoard />
     </SiteShell>

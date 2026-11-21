@@ -23,7 +23,7 @@ export function EventoCreditsIcon({
   alt?: string;
 }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+     
     <img
       src={creditiIconUrl()}
       alt={alt}

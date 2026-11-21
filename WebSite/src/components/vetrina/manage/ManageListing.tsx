@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, BarChart3, Bot, Cable, LogIn, Palette, Rocket, Server, ShieldAlert, Star, Terminal, Webhook, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, BarChart3, Bot, Cable, Code2, LogIn, Palette, Rocket, Server, ShieldAlert, Star, Terminal, Webhook, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { loadMyListing, type BoardListing, type ListingTransfer } from "@/lib/boards";
 import { page } from "@/lib/site";
@@ -20,8 +20,9 @@ const ReviewHookTab = dynamic(() => import("./ReviewHookTab").then((m) => m.Revi
 const BumpHookTab = dynamic(() => import("./BumpHookTab").then((m) => m.BumpHookTab), { ssr: false, loading: () => <TabSkeleton /> });
 const CommandsTab = dynamic(() => import("./CommandsTab").then((m) => m.CommandsTab), { ssr: false, loading: () => <TabSkeleton /> });
 const ConnectionsTab = dynamic(() => import("./ConnectionsTab").then((m) => m.ConnectionsTab), { ssr: false, loading: () => <TabSkeleton /> });
+const EmbedTab = dynamic(() => import("./EmbedTab").then((m) => m.EmbedTab), { ssr: false, loading: () => <TabSkeleton /> });
 
-type TabId = "statistiche" | "voti" | "bump" | "recensioni" | "comandi" | "connessioni" | "aspetto" | "proprieta";
+type TabId = "statistiche" | "voti" | "bump" | "recensioni" | "comandi" | "connessioni" | "embed" | "aspetto" | "proprieta";
 type Group = { label: string; tabs: { id: TabId; label: string; icon: LucideIcon }[] };
 /* schede bot: niente premi nel server, ma comandi e server di supporto */
 const BOT_GROUPS: Group[] = [
@@ -33,7 +34,13 @@ const BOT_GROUPS: Group[] = [
       { id: "connessioni", label: "Connessioni", icon: Cable },
     ],
   },
-  { label: "La tua pagina", tabs: [{ id: "aspetto", label: "Aspetto", icon: Palette }] },
+  {
+    label: "La tua pagina",
+    tabs: [
+      { id: "aspetto", label: "Aspetto", icon: Palette },
+      { id: "embed", label: "Embed", icon: Code2 },
+    ],
+  },
   { label: "Zona pericolosa", tabs: [{ id: "proprieta", label: "Trasferisci o elimina", icon: ShieldAlert }] },
 ];
 const GROUPS: Group[] = [
@@ -46,7 +53,13 @@ const GROUPS: Group[] = [
       { id: "recensioni", label: "Recensioni", icon: Star },
     ],
   },
-  { label: "La tua pagina", tabs: [{ id: "aspetto", label: "Aspetto", icon: Palette }] },
+  {
+    label: "La tua pagina",
+    tabs: [
+      { id: "aspetto", label: "Aspetto", icon: Palette },
+      { id: "embed", label: "Embed", icon: Code2 },
+    ],
+  },
   { label: "Zona pericolosa", tabs: [{ id: "proprieta", label: "Trasferisci o elimina", icon: ShieldAlert }] },
 ];
 const TAB_IDS = [...GROUPS, ...BOT_GROUPS].flatMap((g) => g.tabs.map((t) => t.id));
@@ -163,7 +176,7 @@ export function ManageListing() {
       <header className="relative isolate overflow-hidden pb-8 pt-24 sm:pt-28">
         {listing?.bannerUrl ? (
           <div className="absolute inset-0 -z-10">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            { }
             <img src={listing.bannerUrl} alt="" className="size-full object-cover opacity-50" />
             <div className="absolute inset-0 bg-gradient-to-b from-espresso/50 via-espresso/80 to-espresso" />
           </div>
@@ -178,7 +191,7 @@ export function ManageListing() {
             <div className="flex items-center gap-3">
               <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-mocha ring-1 ring-sand/20">
                 {listing?.iconUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img src={listing.iconUrl} alt="" className="size-full object-cover" />
                 ) : isBot ? (
                   <Bot className="size-6 text-crema/60" />
@@ -239,6 +252,7 @@ export function ManageListing() {
                 {shown === "recensioni" && <ReviewHookTab listing={listing} token={token} />}
                 {shown === "comandi" && <CommandsTab listing={listing} token={token} />}
                 {shown === "connessioni" && <ConnectionsTab listing={listing} token={token} />}
+                {shown === "embed" && <EmbedTab listing={listing} />}
                 {shown === "aspetto" && <SubmitListing editId={listing.id} />}
                 {shown === "proprieta" && <OwnershipTab listing={listing} token={token} transfer={transfer} onTransfer={setTransfer} />}
               </motion.div>

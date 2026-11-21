@@ -8,6 +8,8 @@ export type SerataEvent = {
   overrideIso: string;
   filmTitle: string;
   nextFilmTitle: string;
+  /** Trama mostrata sulla pagina (sabato ricorrente). */
+  filmSynopsis?: string;
 };
 
 export type SerataNight = {
@@ -28,15 +30,17 @@ export const SERATA_EVENT: SerataEvent = {
   recurring: { weekday: 6, hour: 21, minute: 0 },
   /** Vuoto = sabato 21:00 Europe/Rome (recurring). Imposta ISO solo per una data fissa. */
   overrideIso: "",
-  filmTitle: "Chiamami col tuo nome",
+  filmTitle: "Il ragazzo dai pantaloni rosa",
   nextFilmTitle: "",
+  filmSynopsis:
+    "Andrea, un ragazzo sensibile, indossa un paio di pantaloni rosa e diventa bersaglio di bullismo a scuola. Ispirato a una storia vera, il film racconta famiglia, coraggio e il prezzo di essere se stessi.",
 };
 
 /** Locandina default (sabato ricorrente) — CDN (`vc-media`). */
 export const FILM_POSTER =
-  "https://cdn.viniliecaffe.it/images/seratafilm/chiamami-col-tuo-nome-poster.jpg?v=20261114cm1";
+  "https://cdn.viniliecaffe.it/images/seratafilm/il-ragazzo-dai-pantaloni-rosa-poster.jpg?v=20261121rosa1";
 
-const POSTER_V = "20261118xmas1";
+const POSTER_V = "20261121rosa1";
 
 /** Locandine ufficiali dei film (CDN R2). */
 function filmPosterUrl(file: string) {
@@ -226,7 +230,7 @@ function nextRecurringSaturdayMs(event: SerataEvent, now: number): number {
   const wantH = Math.max(0, Math.min(23, Math.floor(Number(event.recurring?.hour) ?? 21)));
   const wantM = Math.max(0, Math.min(59, Math.floor(Number(event.recurring?.minute) || 0)));
   const p = zonedParts(now, tz);
-  let daysAhead = (wantWd - p.weekday + 7) % 7;
+  const daysAhead = (wantWd - p.weekday + 7) % 7;
   let d = new Date(Date.UTC(p.year, p.month - 1, p.day + daysAhead));
   let target = localZonedToUtcMs(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), wantH, wantM, tz);
   if (target <= now) {
@@ -249,7 +253,7 @@ function asDefaultResolved(startMs: number, event: SerataEvent): ResolvedSerata 
     startMs,
     night: null,
     title: String(event.nextFilmTitle || event.filmTitle || "il prossimo film").trim() || "il prossimo film",
-    synopsis: "",
+    synopsis: String(event.filmSynopsis || "").trim(),
     poster: FILM_POSTER,
   };
 }

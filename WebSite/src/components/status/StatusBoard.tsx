@@ -367,7 +367,7 @@ export function StatusBoard({ initial }: { initial: StatusData | null }) {
   const [range, setRange] = useState<MetricRange>("day");
 
   const refresh = useCallback(async () => {
-    const [d, live] = await Promise.all([loadStatus(""), loadLiveProcesses()]);
+    const [d, live] = await Promise.all([loadStatus(), loadLiveProcesses()]);
     if (d) {
       setData(d);
       setError(false);
@@ -451,7 +451,7 @@ export function StatusBoard({ initial }: { initial: StatusData | null }) {
       {processes.length > 0 && (
         <section className="mt-10">
           <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-crema/40">Processi live</h2>
-          <p className="mt-2 text-sm text-crema/50">Gateway Discord, API, database, uptime e RAM — letti dai processi live.</p>
+          <p className="mt-2 text-sm text-crema/50">Collegamento a Discord, risposte del sito, database e memoria, letti in tempo reale.</p>
           <ul className="mt-4 space-y-3">
             {processes.map((p, i) => (
               <ProcessCard key={p.id} p={p} i={i} />

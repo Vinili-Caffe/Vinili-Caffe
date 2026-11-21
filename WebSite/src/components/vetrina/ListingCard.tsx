@@ -1,14 +1,15 @@
 "use client";
 
 import { motion } from "motion/react";
-import { ArrowUpRight, Bot, Flame, Server, Star, ThumbsUp } from "lucide-react";
-import { kindLabel, labelOf, type BoardListing, type BoardsConfig } from "@/lib/boards";
+import { ArrowUpRight, BadgeCheck, Bot, Check, Flame, Handshake, MonitorSmartphone, Server, Star, ThumbsUp, Wallet } from "lucide-react";
+import { kindLabel, labelOf, listingFeatures, type BoardListing, type BoardsConfig } from "@/lib/boards";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { SmartLink } from "@/components/SmartLink";
 import { Highlight } from "@/components/Highlight";
 
-export const listingHref = (l: BoardListing) => page(`/vetrina/scheda/?slug=${encodeURIComponent(l.slug || l.id)}`);
+export const listingHref = (l: BoardListing) =>
+  page(`/vetrina/scheda/?slug=${encodeURIComponent(l.slug || l.id)}`);
 
 const accentOf = (l: BoardListing) => (/^#[0-9a-f]{6}$/i.test(l.accent || "") ? l.accent : "#d99a5b");
 
@@ -43,15 +44,25 @@ export function ListingCard({
   cfg,
   query = "",
   i = 0,
+  selected = false,
+  onToggleCompare,
 }: {
   listing: BoardListing;
   cfg?: BoardsConfig | null;
   query?: string;
   i?: number;
+  selected?: boolean;
+  onToggleCompare?: (id: string) => void;
 }) {
   const accent = accentOf(listing);
   const KindIcon = listing.kind === "bot" ? Bot : Server;
   const cat = listing.categories[0];
+  const feat = listingFeatures(listing);
+  const badges: { icon: typeof BadgeCheck; label: string }[] = [];
+  if (feat.requireVerification) badges.push({ icon: BadgeCheck, label: "Verifica" });
+  if (feat.paidTier === "paid" || feat.paidFeaturesAvailable) badges.push({ icon: Wallet, label: "Premium" });
+  if (feat.acceptsPartnerships) badges.push({ icon: Handshake, label: "Partner" });
+  if (feat.webInterface) badges.push({ icon: MonitorSmartphone, label: "Web" });
   return (
     <motion.div
       layout="position"
@@ -62,13 +73,16 @@ export function ListingCard({
     >
       <SmartLink
         href={listingHref(listing)}
-        className="group relative flex h-full flex-col overflow-hidden rounded-[1.6rem] bg-roast ring-1 ring-sand/12 transition duration-300 hover:-translate-y-1 hover:ring-sand/30 hover:shadow-[0_28px_60px_-30px_var(--card-accent)]"
+        className={cn(
+          "group relative flex h-full flex-col overflow-hidden rounded-[1.6rem] bg-roast ring-1 transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_60px_-30px_var(--card-accent)]",
+          selected ? "ring-ember/55 hover:ring-ember/70" : "ring-sand/12 hover:ring-sand/30",
+        )}
         style={{ ["--card-accent" as string]: `${accent}aa` }}
       >
         {/* copertina */}
         <span className="relative block h-28 overflow-hidden sm:h-32">
           {listing.bannerUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img src={listing.bannerUrl} alt="" loading="lazy" className="size-full object-cover transition-transform duration-700 group-hover:scale-105" />
           ) : (
             <span
@@ -79,6 +93,24 @@ export function ListingCard({
             />
           )}
           <span className="absolute inset-0 bg-gradient-to-t from-roast via-roast/20 to-transparent" />
+          {onToggleCompare ? (
+            <button
+              type="button"
+              aria-pressed={selected}
+              aria-label={selected ? "Togli dal confronto" : "Aggiungi al confronto"}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleCompare(listing.id);
+              }}
+              className={cn(
+                "absolute right-3 top-3 z-10 flex size-8 items-center justify-center rounded-full ring-1 backdrop-blur-sm transition",
+                selected ? "bg-ember text-ink ring-ember" : "bg-espresso/75 text-crema/80 ring-sand/20 hover:bg-espresso/90",
+              )}
+            >
+              <Check className="size-4" />
+            </button>
+          ) : null}
           <span className="absolute left-3 top-3 flex flex-wrap gap-1.5">
             <span className="inline-flex items-center gap-1 rounded-full bg-espresso/75 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-crema/85 ring-1 ring-sand/15 backdrop-blur-sm">
               <KindIcon className="size-3" /> {kindLabel(listing.kind)}
@@ -89,6 +121,14 @@ export function ListingCard({
               </span>
             )}
             {listing.nsfw && <span className="rounded-full bg-[#a83a2c]/85 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-crema">18+</span>}
+            {badges.slice(0, 2).map((b) => {
+              const Icon = b.icon;
+              return (
+                <span key={b.label} className="inline-flex items-center gap-1 rounded-full bg-espresso/70 px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-caramel ring-1 ring-caramel/25 backdrop-blur-sm">
+                  <Icon className="size-3" /> {b.label}
+                </span>
+              );
+            })}
           </span>
         </span>
 
@@ -100,7 +140,7 @@ export function ListingCard({
               style={{ background: `radial-gradient(circle at 35% 30%, ${accent}66, #1a110c 75%)` }}
             >
               {listing.iconUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img src={listing.iconUrl} alt="" loading="lazy" className="size-full object-cover" />
               ) : (
                 <KindIcon className="size-7 text-sand/70" />
@@ -178,7 +218,7 @@ function SpotCard({ l, rank, big = false, cfg }: { l: BoardListing; rank: number
         )}
       >
         {l.bannerUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img src={l.bannerUrl} alt="" className="absolute inset-0 size-full object-cover transition-transform duration-700 group-hover:scale-105" />
         ) : (
           <span className="absolute inset-0" style={{ background: `radial-gradient(120% 120% at 0% 0%, ${accent}, transparent 60%), radial-gradient(100% 100% at 100% 100%, ${accent}66, transparent 60%), #1a110c` }} />
@@ -196,7 +236,7 @@ function SpotCard({ l, rank, big = false, cfg }: { l: BoardListing; rank: number
         <span className="relative flex w-full items-end gap-3 sm:gap-4">
           <span className={cn("shrink-0 overflow-hidden rounded-xl ring-2 ring-crema/20 sm:rounded-2xl", big ? "size-12 sm:size-20" : "size-10 sm:size-14")} style={{ background: `${accent}55` }}>
             {l.iconUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img src={l.iconUrl} alt="" className="size-full object-cover" />
             ) : l.kind === "bot" ? (
               <Bot className="m-auto size-1/2 h-full text-crema/70" />

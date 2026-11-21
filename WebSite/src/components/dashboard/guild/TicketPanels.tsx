@@ -271,7 +271,7 @@ export function TicketPanels({
       cancel = true;
     };
     // reload identity changes each render; the ids are the real deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [token, guildId]);
 
   const after = async (res: { ok: true; data: { message: string; warning: string | null } } | { ok: false; message: string }, okText: string) => {

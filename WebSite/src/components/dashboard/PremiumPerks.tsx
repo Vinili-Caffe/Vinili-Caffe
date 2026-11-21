@@ -33,7 +33,7 @@ const PERKS = [
 ] as const;
 
 const EXTRAS = [
-  { icon: BellRing, text: "Promemoria in DM 7, 3 e 1 giorno prima che scada." },
+  { icon: BellRing, text: "Promemoria in privato 7, 3 e 1 giorno prima che scada." },
   { icon: RotateCcw, text: "Se scade, le personalizzazioni si mettono in pausa e tornano appena rinnovi." },
   { icon: Diamond, text: "Si attiva per server: puoi averlo su uno o su tutti quelli che gestisci." },
 ] as const;

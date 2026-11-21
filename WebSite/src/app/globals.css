@@ -46,6 +46,20 @@
       transform: translateX(calc(-50% - var(--marquee-gap, 1rem) / 2));
     }
   }
+  /* Streak fiamma: solo transform (niente filter — crea un quadrato dietro l’icona) */
+  --animate-streak-flicker: streak-flicker 2.4s ease-in-out infinite;
+  @keyframes streak-flicker {
+    0%,
+    100% {
+      transform: scale(1) translateY(0);
+    }
+    45% {
+      transform: scale(1.08) translateY(-1px);
+    }
+    70% {
+      transform: scale(0.96) translateY(0.5px);
+    }
+  }
 }
 
 /* `light:` = solo col tema chiaro attivo (es. light:bg-roast/70) */

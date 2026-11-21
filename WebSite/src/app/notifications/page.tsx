@@ -28,7 +28,7 @@ export default function NotificationsPage() {
         kicker="Notifiche"
         title="Le notifiche di"
         accent="Vinili & Caffè"
-        text="Qui trovi gli avvisi del sito: voti, ticket, risposte e aggiornamenti sul tuo account."
+        text="Qui arrivano gli avvisi del sito: voti, risposte ai ticket, esiti delle richieste e novità sul tuo account."
       />
       <NotificationsBoard />
     </SiteShell>

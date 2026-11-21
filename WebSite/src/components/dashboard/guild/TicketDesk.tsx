@@ -174,7 +174,7 @@ export function TicketDesk({
 
   const markClosed = async (row: TicketListBundle["tickets"][number]) => {
     const ok = await confirmDialog({
-      message: `Segnare chiuso il ticket #${row.ticketNumber ?? "?"}? Si chiude solo qui (nel database), su Discord non succede niente: usalo per i ticket rimasti aperti senza canale.`,
+      message: `Segnare chiuso il ticket #${row.ticketNumber ?? "?"}? Si chiude solo nell’elenco del sito, su Discord non cambia niente: serve per i ticket rimasti aperti senza canale.`,
       danger: true,
     });
     if (!ok) return;

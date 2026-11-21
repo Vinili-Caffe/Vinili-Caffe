@@ -4,9 +4,13 @@
   "version": "2.0.1",
   "description": "Repository di Vinili & Caffè",
   "scripts": {
-    "i18n:tenant": "node Bots/src/Vinili/Partner/i18n/tenantPartnershipI18n/scripts/generate-tenant-i18n.cjs"
+    "i18n:tenant": "node Bots/src/Vinili/Partner/i18n/tenantPartnershipI18n/scripts/generate-tenant-i18n.cjs",
+    "i18n:traduci": "node Scripts/i18n/traduci.mjs"
   },
   "author": "terronizzarsi",
   "license": "MIT",
-  "copyright": "Copyright (c) 2026 Vinili & Caffè. Tutti i diritti riservati."
+  "copyright": "Copyright (c) 2026 Vinili & Caffè. Tutti i diritti riservati.",
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^1.12.0"
+  }
 }

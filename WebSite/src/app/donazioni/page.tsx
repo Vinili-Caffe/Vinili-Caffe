@@ -7,7 +7,7 @@ import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/donazioni/", title: "Donazioni", description: "Supporta Vinili & Caffè: ogni donazione va a VPS, bot ed eventi. Ruoli Donator, VIP e VIP+ con PayPal." }),
+  ...pageSocialMeta({ path: "/donazioni/", title: "Donazioni", description: "Sostieni Vinili & Caffè con una donazione su PayPal: aiuta a tenere accesi i bot e a organizzare gli eventi. In cambio ricevi il ruolo Donator, VIP o VIP+." }),
 };
 
 export default function DonazioniPage() {
@@ -16,14 +16,14 @@ export default function DonazioniPage() {
       <DiscordComponentEmbed
         path="/donazioni/"
         title="Donazioni"
-        description="Supporta Vinili & Caffè: ogni donazione va a VPS, bot ed eventi. Ruoli Donator, VIP e VIP+ con PayPal."
+        description="Sostieni Vinili & Caffè con una donazione su PayPal: aiuta a tenere accesi i bot e a organizzare gli eventi. In cambio ricevi il ruolo Donator, VIP o VIP+."
       />
       <PageHero
         icon={<Heart />}
         kicker="Donazioni"
         title="Supporta"
         accent="il server"
-        text="Anche il più piccolo contributo viene reinvestito interamente sul progetto."
+        text="Le donazioni coprono quello che serve per tenere in piedi il server: i bot, il sito, i premi degli eventi. Anche pochi euro fanno la loro parte, e finiscono tutti lì."
       />
       <DonateBoard />
     </SiteShell>

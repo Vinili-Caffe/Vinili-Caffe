@@ -15,7 +15,7 @@ import {
   withEmbedParent,
   type LiveStream,
 } from "@/lib/live";
-import { useChromeOpenListener } from "@/lib/chrome-open";
+import { listenChromeOpen } from "@/lib/chrome-open";
 import { usePastHero } from "@/lib/use-past-hero";
 import { cn } from "@/lib/cn";
 /** Telefono (touch + viewport stretto): niente PiP. Tablet/desktop restano. */
@@ -128,7 +128,7 @@ export function LiveCorner() {
     if (open && !twitchHere) setOpen(false);
   }
 
-  useEffect(() => useChromeOpenListener(setChromeOpen), []);
+  useEffect(() => listenChromeOpen(setChromeOpen), []);
 
   useEffect(() => {
     if (!open) return;

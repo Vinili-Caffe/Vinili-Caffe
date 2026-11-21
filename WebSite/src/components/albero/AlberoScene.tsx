@@ -13,7 +13,7 @@ export function AlberoScene() {
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-[#0a0604]">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
+      { }
       <img
         src={PHOTO}
         alt=""

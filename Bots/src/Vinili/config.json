@@ -85,7 +85,7 @@
     "maxTags": 12,
     "maxCategories": 12,
     "maxMarkdownChars": 4000,
-    "voteCountdownSeconds": 0,
+    "voteCountdownSeconds": 10,
     "voteAdSeconds": 0,
     "turnstile": {
       "siteKey": "0x4AAAAAAFNGgQZhuRRvtetm",

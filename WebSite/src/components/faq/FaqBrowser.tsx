@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { Calendar, ChevronDown, Gamepad2, Link2, Music, Search, TrendingUp, Users, X, type LucideIcon } from "lucide-react";
+import { Calendar, ChevronDown, Gamepad2, Globe, Info, LayoutGrid, Link2, Music, Search, TrendingUp, Users, X, type LucideIcon } from "lucide-react";
 import { FAQ_CATEGORIES, FAQ_ITEMS, type FaqCategory, type FaqItem } from "@/lib/faq";
 import { getFaqUsefulVote, setFaqUsefulVote, type FaqUsefulVote } from "@/lib/faq-useful";
 import { page } from "@/lib/site";
@@ -11,11 +11,14 @@ import { Highlight, norm } from "../Highlight";
 import { SmartLink } from "../SmartLink";
 
 export const FAQ_ICONS: Record<string, LucideIcon> = {
+  server: Info,
   livelli: TrendingUp,
   voce: Music,
   giochi: Gamepad2,
   eventi: Calendar,
   staff: Users,
+  sito: Globe,
+  vetrina: LayoutGrid,
 };
 
 const plain = (body: string) => body.replace(/\[\[([^|\]]+)\|[^\]]+\]\]/g, "$1");
@@ -139,7 +142,7 @@ function Question({
                   ·
                 </span>
                 {useful ? (
-                  <p className="text-xs text-crema/45">{useful === "yes" ? "Grazie per il feedback." : "Grazie — terremo conto."}</p>
+                  <p className="text-xs text-crema/45">{useful === "yes" ? "Grazie per il feedback." : "Grazie, ne terremo conto."}</p>
                 ) : (
                   <div className="inline-flex items-center gap-2 text-xs text-crema/45">
                     <span>È stato utile?</span>
@@ -343,7 +346,7 @@ export function FaqBrowser({
             className="mt-8 rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-8 text-center ring-1 ring-sand/12"
           >
             <p className="font-display text-2xl">Nessuna domanda trovata per “{query}”</p>
-            <p className="mt-2 text-crema/60">Prova con un'altra parola, oppure chiedi direttamente a noi qui sotto.</p>
+            <p className="mt-2 text-crema/60">Prova con un&apos;altra parola, oppure chiedi direttamente a noi qui sotto.</p>
           </motion.div>
         )}
       </AnimatePresence>

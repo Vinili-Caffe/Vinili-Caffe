@@ -910,7 +910,7 @@ export function PartnershipPanel({
               {history.entries.map((row, i) => (
                 <li key={`${row.guildId || row.invite || i}`} className="flex items-center gap-3 px-4 py-3">
                   {row.iconUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                     
                     <img src={row.iconUrl} alt="" width={36} height={36} className="size-9 shrink-0 rounded-xl object-cover ring-1 ring-sand/15" />
                   ) : (
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.08] text-sm font-bold text-crema/80" aria-hidden>

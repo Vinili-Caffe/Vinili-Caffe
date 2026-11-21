@@ -19,7 +19,7 @@ export function ServerLogsPanel({ guildId, token, onToast }: { guildId: string; 
   useEffect(() => {
     if (!data) return;
     const v = { ...DEFAULT, ...(data.serverLogs || {}), channels: data.serverLogs?.channels || {} };
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- copia locale modificabile dei dati caricati
+     
     setCfg(v);
     setSaved(JSON.stringify(v));
   }, [data]);

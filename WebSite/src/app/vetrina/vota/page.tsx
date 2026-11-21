@@ -11,7 +11,7 @@ const VoteListing = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/vetrina/vota/", title: "Vetrina · Vota", description: "Vota una scheda della Vetrina." }),
+  ...pageSocialMeta({ path: "/vetrina/vota/", title: "Vetrina · Vota", description: "Vota un server o un bot nella Vetrina di Vinili & Caffè." }),
 };
 
 export default function Page() {
@@ -20,10 +20,10 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/vota/"
         title="Vetrina · Vota"
-        description="Vota una scheda della Vetrina."
+        description="Vota un server o un bot nella Vetrina di Vinili & Caffè."
       />
-      <VetrinaGate>
-        <VetrinaHeader icon={<ThumbsUp />} kicker="Vetrina" title="Dai il tuo" accent="voto" text="Ogni voto spinge la scheda più in alto in vetrina. Pochi secondi e hai fatto la tua parte." />
+      <VetrinaGate allowLoggedInPreview>
+        <VetrinaHeader icon={<ThumbsUp />} kicker="Vetrina" title="Dai il tuo" accent="voto" text="Ogni voto fa salire la scheda nell’elenco, così la trovano più persone. Ci vogliono pochi secondi." />
         <div className="pt-10">
           <VoteListing />
         </div>

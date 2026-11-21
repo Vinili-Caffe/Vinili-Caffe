@@ -307,7 +307,7 @@ function Viewer({ state }: { state: LightboxState }) {
       document.removeEventListener("keydown", onKey, true);
       frame?.removeEventListener("wheel", onWheel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // pizzico con due dita
@@ -473,7 +473,7 @@ function Viewer({ state }: { state: LightboxState }) {
                   i === state.index ? "opacity-100 ring-ember" : "opacity-45 ring-transparent hover:opacity-80",
                 )}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                { }
                 <img src={it.url} alt="" className="size-full object-cover" loading="lazy" />
               </button>
             ))}
@@ -512,7 +512,7 @@ export function LightboxImage({
 }) {
   return (
     <button type="button" onClick={() => openLightbox([{ url: src, alt }])} className={className}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
+      { }
       <img src={src} alt={alt} className={imgClassName} />
     </button>
   );

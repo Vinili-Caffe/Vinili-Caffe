@@ -11,7 +11,7 @@ const ModQueue = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/vetrina/mod/", title: "Mod Vetrina", description: "Coda moderazione Vetrina." }),
+  ...pageSocialMeta({ path: "/vetrina/mod/", title: "Mod Vetrina", description: "Le schede della Vetrina in attesa di controllo." }),
 };
 
 export default function Page() {
@@ -20,7 +20,7 @@ export default function Page() {
       <DiscordComponentEmbed
         path="/vetrina/mod/"
         title="Mod Vetrina"
-        description="Coda moderazione Vetrina."
+        description="Le schede della Vetrina in attesa di controllo."
       />
       <VetrinaGate>
         <VetrinaHeader icon={<Shield />} kicker="Staff" title="Coda di" accent="moderazione" text="Schede in attesa: controlla, approva o rimanda indietro con un motivo." />

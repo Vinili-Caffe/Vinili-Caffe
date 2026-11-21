@@ -7,6 +7,9 @@ const { getRecentQuestionKey } = require("./minigameActivity") as typeof import(
 
 const activeGames = new Map();
 const channelWinClosing = new Set();
+/** Scadenza lock chiusura (ms epoch): evita claim eterni dopo crash, senza sbloccare a ogni messaggio. */
+const channelWinClosingUntil = new Map();
+const CHANNEL_WIN_CLOSE_TTL_MS = 60_000;
 const treasureHuntReactLocks = new Set();
 const channelNoRehydrateUntil = new Map();
 const MINIGAME_NO_REHYDRATE_MS = 300_000;
@@ -117,7 +120,22 @@ async function beginMinigameWinClose(client?, cfg?, game = null) {
 }
 
 function endMinigameWinClose(channelId?) {
-  channelWinClosing.delete(String(channelId || "").trim());
+  const id = String(channelId || "").trim();
+  if (!id) return;
+  channelWinClosing.delete(id);
+  channelWinClosingUntil.delete(id);
+}
+
+/** True se il canale è in chiusura vittoria/timeout (TTL: lock stantio si autopulisce). */
+function isMinigameChannelClosing(channelId?) {
+  const id = String(channelId || "").trim();
+  if (!id || !channelWinClosing.has(id)) return false;
+  const until = Number(channelWinClosingUntil.get(id) || 0);
+  if (until > 0 && until <= Date.now()) {
+    endMinigameWinClose(id);
+    return false;
+  }
+  return true;
 }
 
 function recentLimitForBank(list = [], fallback = 40) {
@@ -190,12 +208,13 @@ function pickQuestionAvoidRecent(channelId?, type?, list = [], keySelector?, rec
 function tryClaimMinigameChannelClose(channelId?) {
   const chId = String(channelId || "").trim();
   if (!chId) return false;
-  if (channelWinClosing.has(chId)) return false;
+  if (isMinigameChannelClosing(chId)) return false;
   channelWinClosing.add(chId);
+  channelWinClosingUntil.set(chId, Date.now() + CHANNEL_WIN_CLOSE_TTL_MS);
   return true;
 }
 
 /** Avvio del gioco successivo: lo registra minigameService (così i moduli dei giochi non lo richiamano direttamente). */
 const nextGameHook: { start: null | ((client: any) => Promise<unknown>) } = { start: null };
 
-export = { nextGameHook, activeGames, channelWinClosing, treasureHuntReactLocks, blockMinigameRehydrate, isMinigameRehydrateBlocked, pendingGames, standbyChannels, lastNoParticipationEndAtByChannel, lastPlayedGameTypesByChannel, lastPlayedAtByChannelAndType, startingChannels, recordNoParticipationIfNeeded, clearNoParticipationDelay, clearActiveGame, clearMinigameRoundTimers, beginMinigameWinClose, endMinigameWinClose, isQuestionKeyRecent, pushQuestionKeyToRecent, pickQuestionAvoidRecent, recentLimitForBank, hydrateRecentQuestionKeys, snapshotRecentQuestionKeys, tryClaimMinigameChannelClose };
+export = { nextGameHook, activeGames, channelWinClosing, treasureHuntReactLocks, blockMinigameRehydrate, isMinigameRehydrateBlocked, pendingGames, standbyChannels, lastNoParticipationEndAtByChannel, lastPlayedGameTypesByChannel, lastPlayedAtByChannelAndType, startingChannels, recordNoParticipationIfNeeded, clearNoParticipationDelay, clearActiveGame, clearMinigameRoundTimers, beginMinigameWinClose, endMinigameWinClose, isMinigameChannelClosing, isQuestionKeyRecent, pushQuestionKeyToRecent, pickQuestionAvoidRecent, recentLimitForBank, hydrateRecentQuestionKeys, snapshotRecentQuestionKeys, tryClaimMinigameChannelClose };

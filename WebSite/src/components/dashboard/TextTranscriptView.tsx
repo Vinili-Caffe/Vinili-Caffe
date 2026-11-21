@@ -54,7 +54,7 @@ function AuthorAvatar({ author, bot, avatarUrl, color }: { author: string; bot: 
 
   if (show) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
+       
       <img
         src={src || fallbackBot || ""}
         alt=""
@@ -210,12 +210,12 @@ function MessageRow({ m, prev, fix, avatarUrl }: { m: TextMessage; prev?: TextMe
               {e.title ? <DiscordContent text={fix(e.title)} className="font-semibold text-white" /> : null}
               {e.description ? <DiscordContent text={fix(e.description)} className="text-sm leading-relaxed" /> : null}
               {e.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img src={e.image} alt="" loading="lazy" className="mt-1 max-h-72 rounded object-contain" onError={(ev) => (ev.currentTarget.style.display = "none")} />
               ) : null}
             </div>
             {e.thumbnail ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img src={e.thumbnail} alt="" loading="lazy" className="m-3 size-16 shrink-0 rounded object-cover" onError={(ev) => (ev.currentTarget.style.display = "none")} />
             ) : null}
           </div>
@@ -223,7 +223,7 @@ function MessageRow({ m, prev, fix, avatarUrl }: { m: TextMessage; prev?: TextMe
         {m.attachments.map((url) =>
           isImageUrl(url) ? (
             <a key={url} href={url} target="_blank" rel="noreferrer" className="mt-1.5 block w-fit">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              { }
               <img
                 src={url}
                 alt="Allegato"

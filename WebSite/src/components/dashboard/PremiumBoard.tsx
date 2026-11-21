@@ -80,7 +80,7 @@ function usePremiumData() {
 function GuildIcon({ name, iconUrl, size = "md" }: { name: string; iconUrl: string | null; size?: "sm" | "md" }) {
   const cls = size === "sm" ? "size-8 rounded-lg text-xs" : "size-10 rounded-xl text-sm";
   if (iconUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
+     
     return <img src={iconUrl} alt="" width={40} height={40} className={cn(cls, "shrink-0 object-cover ring-1 ring-sand/15")} />;
   }
   return (
@@ -597,7 +597,7 @@ export function PremiumBoard({ view = "premium" }: { view?: View }) {
 
           {view === "abbonamento" ? (
             <>
-              <Panel icon={<Server />} title="Server con Premium" description="Il bot ti avvisa in DM 7, 3 e 1 giorno prima della scadenza.">
+              <Panel icon={<Server />} title="Server con Premium" description="Il bot ti avvisa in privato 7, 3 e 1 giorno prima della scadenza.">
                 <PremiumList rows={rows} />
               </Panel>
               <div className="flex flex-wrap gap-2">

@@ -759,7 +759,8 @@ export const communityApi = {
   saveBirthdays: (t: string, g: string, config: BirthdaysConfig) => call<{ config: BirthdaysConfig }>(t, g, "/birthdays", "PATCH", { config }),
   getLevels: (t: string, g: string) =>
     call<{ isMainGuild?: boolean; imported?: boolean; config: LevelsConfig; event?: LevelsEvent; scheduled?: LevelsScheduledEvent[] }>(t, g, `/levels?_=${Date.now()}`),
-  saveLevels: (t: string, g: string, config: LevelsConfig) => call<{ config: LevelsConfig }>(t, g, "/levels", "PATCH", { config }),
+  /* PATCH: basta la parte che cambia (es. solo bonuses) */
+  saveLevels: (t: string, g: string, config: Partial<LevelsConfig>) => call<{ config: LevelsConfig }>(t, g, "/levels", "PATCH", { config }),
   setLevelsEvent: (t: string, g: string, body: LevelsEventRequest) => call<{ event: LevelsEvent; scheduled?: LevelsScheduledEvent[] }>(t, g, "/levels/event", "POST", body),
   /** immagine vera del round (canvas o foto) generata dal bot, per le anteprime dei minigiochi */
   getMinigamePreview: (t: string, g: string, type: string) =>

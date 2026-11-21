@@ -51,8 +51,8 @@ const META: ModuleMeta[] = [
   { id: "giveaway", title: "Giveaway", text: "Estrazioni a premi con requisiti e vincitori scelti dal bot.", icon: Gift, page: "giveaway" },
   { id: "sondaggi", title: "Sondaggi", text: "Domande al server con voto e risultati in diretta.", icon: ChartPie, page: "sondaggi" },
   { id: "compleanni", title: "Compleanni", text: "Auguri a chi compie gli anni, con ruolo del giorno e privato.", icon: Cake, page: "compleanni" },
-  { id: "livelli", title: "Livelli & EXP", text: "EXP da chat e vocale, moltiplicatori, ruoli premio e messaggi di level-up.", icon: TrendingUp, page: "livelli" },
-  { id: "backup", title: "Backup", text: "Snapshot Discord di ruoli, canali e messaggi: crea, elenca e ripristina (come +backup).", icon: Archive, page: "backup" },
+  { id: "livelli", title: "Livelli & EXP", text: "EXP da chat e vocale, moltiplicatori, ruoli premio e messaggi quando si sale di livello.", icon: TrendingUp, page: "livelli" },
+  { id: "backup", title: "Backup", text: "Copie di ruoli, canali e messaggi del server da creare, consultare e ripristinare (come +backup).", icon: Archive, page: "backup" },
   { id: "vocale", title: "Vocale", text: "Musica e TTS: volume, radio/chill 24/7, DJ e canali ammessi.", icon: Headphones, page: "vocale" },
   { id: "live", title: "Social Network", text: "Avvisi per live, video e post su Twitch, YouTube, Kick, TikTok e Instagram.", icon: Video, page: "live" },
 ];
@@ -109,8 +109,6 @@ export function ModulesPanel({
 
   if (error && !rows) return <Notice error>{error}</Notice>;
   if (!rows) return <RowsSkeleton rows={6} />;
-
-  const shown = rows.filter((r) => META.some((m) => m.id === r.id) && !hidden.has(r.id));
 
   const toggle = async (id: string, on: boolean) => {
     setBusy(id);

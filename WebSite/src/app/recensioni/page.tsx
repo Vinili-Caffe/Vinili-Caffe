@@ -15,7 +15,7 @@ const ReviewsBrowser = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/recensioni/", title: "Recensioni", description: "Cosa dicono di Vinili & Caffè: recensioni del server e dello staff." }),
+  ...pageSocialMeta({ path: "/recensioni/", title: "Recensioni", description: "Le recensioni dei membri di Vinili & Caffè sul server, sullo staff e sul bot Vinili." }),
 };
 
 export default async function RecensioniPage() {
@@ -25,14 +25,14 @@ export default async function RecensioniPage() {
       <DiscordComponentEmbed
         path="/recensioni/"
         title="Recensioni"
-        description="Cosa dicono di Vinili & Caffè: recensioni del server e dello staff."
+        description="Le recensioni dei membri di Vinili & Caffè sul server, sullo staff e sul bot Vinili."
       />
       <PageHero
         icon={<NotebookPen />}
         kicker="Recensioni"
         title="Le recensioni di"
         accent="Vinili & Caffè"
-        text="Cosa pensano i membri del server, dello staff e del bot Vinili. Lascia anche la tua recensione."
+        text="Qui i membri raccontano come si sono trovati sul server, con lo staff e con il bot Vinili. Se ci passi anche tu, lascia due righe: servono a chi deve ancora entrare."
       />
       <ReviewsBrowser initial={initial} kinds={[...KINDS, ...BOT_KINDS]} />
     </SiteShell>

@@ -145,7 +145,10 @@ export function FeedbackBoard({
     replace({ ...s, upvotedByViewer: up, downvotedByViewer: down, upvoteCount: s.upvoteCount - +s.upvotedByViewer + +up, downvoteCount: s.downvoteCount - +s.downvotedByViewer + +down });
     const r = await api.vote(token, s.id, d);
     if (r.ok) replace(r.data);
-    else (replace(s), flash(r.message));
+    else {
+      replace(s);
+      flash(r.message);
+    }
   };
 
   const shown = useMemo(() => {
@@ -207,14 +210,14 @@ export function FeedbackBoard({
           <div className="flex gap-3 rounded-2xl bg-crema/[0.04] p-5 text-sm leading-relaxed text-crema/70 ring-1 ring-sand/10">
             <Info className="mt-0.5 size-4 shrink-0 text-caramel" />
             <p>
-              <strong className="text-crema">Come funziona:</strong> premi “Nuovo feedback”, scegli Idea o Problema, descrivi il caso e se serve allega delle foto. Commenta e vota le
-              proposte degli altri mentre sono in valutazione.
+              <strong className="text-crema">Come funziona:</strong> premi «Nuovo feedback», scegli se è un’idea o un problema, spiegalo e, se aiuta, allega qualche foto. Finché sono in valutazione puoi
+              commentare e votare anche le proposte degli altri.
             </p>
           </div>
           <div className="flex gap-3 rounded-2xl bg-caramel/10 p-5 text-sm leading-relaxed text-crema/75 ring-1 ring-caramel/25">
             <HeartHandshake className="mt-0.5 size-4 shrink-0 text-caramel" />
             <p>
-              <strong className="text-crema">Linee guida:</strong> il rispetto è la base per costruire una community. Mantieni un comportamento consono e non promuovere altri progetti.
+              <strong className="text-crema">Linee guida:</strong> si discute con rispetto, anche quando non si è d’accordo, e non si fa pubblicità ad altri progetti.
             </p>
           </div>
         </div>

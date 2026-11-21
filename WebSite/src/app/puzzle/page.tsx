@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     path: "/puzzle/",
     title: "Puzzle galattico",
     description:
-      "Ricomponi le rappresentazioni artistiche galattiche in 6 difficoltà differenti. Meno tempo ci impieghi, maggiore sarà il premio.",
+      "Ricomponi le illustrazioni a tema galattico scegliendo fra sei livelli di difficoltà. Più sei veloce, più alto è il premio.",
   }),
   robots: { index: false },
 };
@@ -28,7 +28,7 @@ export default function PuzzlePage() {
       <DiscordComponentEmbed
         path={"/puzzle/"}
         title="Puzzle galattico"
-        description="Ricomponi le rappresentazioni artistiche galattiche in 6 difficoltà differenti. Meno tempo ci impieghi, maggiore sarà il premio."
+        description="Ricomponi le illustrazioni a tema galattico scegliendo fra sei livelli di difficoltà. Più sei veloce, più alto è il premio."
       />
       <EventoSortGate mode="redirect">
         <PuzzleBoard />

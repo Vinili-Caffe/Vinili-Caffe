@@ -188,7 +188,7 @@ export function WrappedShareSheet({ open, data, onClose }: Props) {
 
                 {card && previewUrl ? (
                   <div className="mt-4 overflow-hidden rounded-2xl bg-black/40 ring-1 ring-[#c4a07a]/20">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    { }
                     <img src={previewUrl} alt={card.label} className="mx-auto max-h-[48dvh] w-full object-contain" />
                   </div>
                 ) : card ? (

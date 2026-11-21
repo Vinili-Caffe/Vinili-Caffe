@@ -2,7 +2,7 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { normalizeUserAnswerText } = require("./minigameText") as typeof import("./minigameText");
 const { getActivityWindowMs, getActivityScopeKey, recordActivity, canCountMessageForActivity } = require("./minigameActivity") as typeof import("./minigameActivity");
-const { activeGames, channelWinClosing, endMinigameWinClose, isMinigameRehydrateBlocked, clearActiveGame } = require("./minigameState") as typeof import("./minigameState");
+const { activeGames, isMinigameChannelClosing, isMinigameRehydrateBlocked, clearActiveGame } = require("./minigameState") as typeof import("./minigameState");
 const { purgeExpiredMinigameDbState } = require("./minigameRound") as typeof import("./minigameRound");
 const { getConfig } = require("./minigameConfig") as typeof import("./minigameConfig");
 const { ensureTreasureHuntGame, handleTreasureHuntIncomingMessage } = require("./minigameTreasureHunt") as typeof import("./minigameTreasureHunt");
@@ -32,10 +32,8 @@ async function handleMinigameMessage(message?, client?) {
   const chId = String(message.channelId || "");
   if (!chId) return false;
 
-  // Claim di chiusura stantio: non bloccare le risposte per sempre
-  if (channelWinClosing.has(chId)) {
-    endMinigameWinClose(chId);
-  }
+  // Round in chiusura: ignora risposte (TTL gestisce lock stantii — NON sbloccare qui)
+  if (isMinigameChannelClosing(chId)) return true;
 
   const officialChatId = String(baseCfg.channelId || "");
   const mediaId = String(IDs.channels.media || "").trim();
@@ -111,6 +109,8 @@ async function handleMinigameMessage(message?, client?) {
     }
   }
 
+  if (game._roundClosed || game._claiming || isMinigameChannelClosing(chId)) return true;
+
   if (game.hadParticipation === undefined) game.hadParticipation = false;
   game.hadParticipation = true;
 
@@ -131,6 +131,8 @@ async function handleMinigameMessage(message?, client?) {
       }
     }
   } catch (_) {}
+
+  if (game._roundClosed || game._claiming || isMinigameChannelClosing(chId)) return true;
 
   const content = String(message.content || "").trim();
   const contentForGuess = normalizeUserAnswerText(content);

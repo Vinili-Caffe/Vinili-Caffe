@@ -98,7 +98,7 @@ export function OwnershipTab({
         {transfer ? (
           <div className="mt-5 flex flex-wrap items-center gap-4 rounded-2xl bg-caramel/10 p-4 ring-1 ring-caramel/30">
             {transfer.toAvatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img src={transfer.toAvatarUrl} alt="" className="size-11 rounded-full object-cover" />
             ) : (
               <span className="flex size-11 items-center justify-center rounded-full bg-crema/10">
@@ -140,7 +140,7 @@ export function OwnershipTab({
             {found ? (
               <div className="flex max-w-xl flex-wrap items-center gap-4 rounded-2xl bg-espresso/60 p-4 ring-1 ring-sand/15">
                 {found.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img src={found.avatarUrl} alt="" className="size-11 rounded-full object-cover" />
                 ) : (
                   <span className="flex size-11 items-center justify-center rounded-full bg-crema/10">
@@ -156,7 +156,7 @@ export function OwnershipTab({
                 </button>
               </div>
             ) : null}
-            <p className="text-xs text-crema/40">L&apos;ID si copia da Discord: tasto destro sull&apos;utente → Copia ID utente (serve la modalità sviluppatore).</p>
+            <p className="text-xs text-crema/40">L&apos;ID si copia da Discord: tasto destro sull&apos;utente e poi Copia ID utente (prima va attivata la modalità sviluppatore nelle impostazioni).</p>
           </div>
         )}
       </section>

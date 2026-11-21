@@ -162,7 +162,7 @@ export function Composer({
             ? "Racconta com'è stare nel server…"
             : kind === "bot"
               ? "Racconta come ti trovi con Vinili…"
-              : "Com'è stato il tuo incontro con questo staffer?"
+              : "Come ti sei trovato con questa persona dello staff?"
         }
         className="mt-4 w-full resize-y rounded-2xl bg-espresso px-4 py-3 text-crema ring-1 ring-sand/15 placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/50"
       />

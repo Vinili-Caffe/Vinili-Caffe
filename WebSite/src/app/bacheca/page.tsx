@@ -26,7 +26,7 @@ export default function BachecaPage() {
         kicker="Community"
         title="La"
         accent="bacheca"
-        text="Tutto quello che la community ha quotato, repostato, registrato o premiato con una 💀. Reagisci, pesca a caso e condividi."
+        text="I messaggi che la community ha citato, ripubblicato, registrato o premiato con un 💀. Puoi reagire, pescarne uno a caso e condividerlo."
       />
       <BachecaWall />
     </SiteShell>

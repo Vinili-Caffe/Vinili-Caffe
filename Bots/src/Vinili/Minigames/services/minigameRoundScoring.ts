@@ -237,18 +237,22 @@ async function handleMinigameWin(message?, game?, cfg?) {
   };
   const channelId = String(clearCfg.channelId || "");
 
-  // Feedback immediato prima di Mongo/close
-  await reactMinigameWin(message).catch(() => { });
+  // Claim SINCRONO prima di qualsiasi await: evita multi-vincitori sullo stesso round
+  if (game?._roundClosed || game?._claiming) return;
+  if (channelId && channelWinClosing.has(channelId)) return;
+  if (game && typeof game === "object") game._claiming = true;
 
   try {
     const closed = await beginMinigameWinClose(client, clearCfg, game);
     if (!closed) {
-      // Claim fallito: partita già in chiusura — non lasciare l'utente senza risposta
-      await message
-        .reply({ content: `${E.VC_Attention} Risposta corretta, round già in chiusura.` })
-        .catch(() => { });
+      // Perdenti della race: silenziosi (niente premio, niente reply confusa)
+      if (game && typeof game === "object" && !game._roundClosed) game._claiming = false;
       return;
     }
+
+    // Feedback solo al vincitore effettivo
+    await reactMinigameWin(message).catch(() => { });
+
     try {
       const award = await awardMinigameWinToUser({
         client,

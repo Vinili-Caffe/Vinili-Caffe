@@ -41,6 +41,8 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
     BOARD_REPORT: "board_report",
     /* boardsListingReviews1 */
     BOARD_REVIEW: "board_review",
+    /* vetrina: segui scheda / ricerche salvate */
+    BOARD_WATCH: "board_watch",
     /* starWarsEvent1 */
     STARWARS_EVENT_STATE: "starwars_event_state",
     /* siteAgeAttest1: autodichiarazione età sito (ok|blocked, immutabile) */
@@ -213,6 +215,9 @@ const siteDocumentSchema = new Schema(
     boardVotesMonthKey: { type: String, default: "", trim: true, maxlength: 16 },
     boardBumps7d: { type: Number, default: 0 },
     boardBumpedAt: { type: Date, default: null },
+    /* streak bump globale (giorni calendari Europe/Rome consecutivi con ≥1 bump) */
+    boardBumpStreak: { type: Number, default: 0 },
+    boardBumpStreakDay: { type: String, default: "", trim: true, maxlength: 16 },
     /* boardsListingReviews1 */
     boardRatingAvg: { type: Number, default: 0 },
     boardReviewsCount: { type: Number, default: 0 },
@@ -253,6 +258,15 @@ const siteDocumentSchema = new Schema(
     boardSocials: { type: Schema.Types.Mixed, default: null },
     /* boardsFeatures1: Free/Paid + partnership/verify */
     boardFeatures: { type: Schema.Types.Mixed, default: null },
+    /* vetrina: obiettivi visite/voti (gestisci → statistiche) */
+    boardGoals: { type: Schema.Types.Mixed, default: null },
+    /* board_watch: follow | search */
+    watchKind: { type: String, default: "", trim: true, maxlength: 16 },
+    notifyVote: { type: Boolean, default: true },
+    notifyBump: { type: Boolean, default: true },
+    filters: { type: Schema.Types.Mixed, default: null },
+    /* board_report: categoria segnalazione */
+    reportCategory: { type: String, default: "", trim: true, maxlength: 32 },
 
     /* starWarsSiteGames1: stato giochi evento (accademia/gara/miniera/…) */
     payload: { type: Schema.Types.Mixed, default: null },

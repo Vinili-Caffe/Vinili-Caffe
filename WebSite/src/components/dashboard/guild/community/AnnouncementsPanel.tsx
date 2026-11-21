@@ -98,9 +98,9 @@ const NAMED_GROUPS: Record<"clantag" | "status" | "inviti", { key: NamedAnnounce
   clantag: [{ key: "clantag", title: "Clan tag", hint: "Quando qualcuno ottiene il ruolo Guilded dalla tag." }],
   status: [{ key: "fan", title: "Fan (status)", hint: "Link del server nello status Discord: ruolo dato in automatico." }],
   inviti: [
-    { key: "promoter", title: "Promoter — 5 inviti", hint: "Primo traguardo con il link personalizzato." },
-    { key: "propulsor", title: "Propulsor — 25 inviti", hint: "Secondo traguardo." },
-    { key: "catalyst", title: "Catalyst — 100 inviti", hint: "Traguardo massimo." },
+    { key: "promoter", title: "Promoter · 5 inviti", hint: "Primo traguardo con il link personalizzato." },
+    { key: "propulsor", title: "Propulsor · 25 inviti", hint: "Secondo traguardo." },
+    { key: "catalyst", title: "Catalyst · 100 inviti", hint: "Traguardo massimo." },
   ],
 };
 

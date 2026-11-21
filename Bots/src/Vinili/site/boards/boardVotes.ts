@@ -3,7 +3,7 @@ const crypto = require("crypto") as typeof import("crypto");
 const mongoose = require("mongoose") as typeof import("mongoose");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
-const { voteCountMonthKeyRome } = require("../../Community/utils/romeVoteMonthKey") as typeof import("../../Community/utils/romeVoteMonthKey");
+const { voteCountMonthKeyRome, dayKeyRome, prevDayKeyRome } = require("../../Community/utils/romeVoteMonthKey") as typeof import("../../Community/utils/romeVoteMonthKey");
 const { sanitizeText, preferAnimatedDiscordMediaUrl } = require("./boardSanitize") as typeof import("./boardSanitize");
 const { resolveBoardsUser } = require("./boardBanners") as typeof import("./boardBanners");
 const { BL, BR, emitBoardsChanged, featureGate, hashIp } = require("./boardReviews") as typeof import("./boardReviews");
@@ -16,14 +16,115 @@ function clientIp(req?) {
   return xf || String(req?.socket?.remoteAddress || "").trim();
 }
 
-function dayKey(d = new Date()) {
-  return d.toISOString().slice(0, 10);
+/** Slot anti-race allineato al cooldown (non più “1 voto/giorno UTC”, che bloccava dopo le ore). */
+function voteCooldownDedupeKey(listingId?, userId?, cooldownHours = 12, at = Date.now()) {
+  const hours = Math.max(1, Number(cooldownHours) || 12);
+  const slotMs = hours * 60 * 60 * 1000;
+  const slot = Math.floor(Number(at) / slotMs);
+  return `${String(listingId || "").trim()}:${String(userId || "").trim()}:cd${hours}h:${slot}`;
 }
 
 function listingVotesMonth(doc?) {
   const key = voteCountMonthKeyRome();
   if (String(doc?.boardVotesMonthKey || "") !== key) return 0;
   return Math.max(0, Number(doc?.boardVotesMonth) || 0);
+}
+
+/** Streak voti dell’utente su una scheda: voti consecutivi entro 2× cooldown. */
+async function computeVoteStreak(listingId?, userId?, cooldownHours = 12) {
+  const id = String(listingId || "").trim();
+  const uid = String(userId || "").trim();
+  if (!id || !uid || !mongoose.isValidObjectId(id)) return 0;
+  const hours = Math.max(1, Number(cooldownHours) || 12);
+  const maxGapMs = hours * 2 * 60 * 60 * 1000;
+  const votes: any[] = await SiteDocument.find({
+    docType: BV,
+    boardListingId: id,
+    userId: uid,
+  })
+    .select({ createdAt: 1 })
+    .sort({ createdAt: -1 })
+    .limit(120)
+    .lean();
+  if (!votes.length) return 0;
+  const now = Date.now();
+  const last = new Date(votes[0].createdAt).getTime();
+  if (!Number.isFinite(last) || now - last > maxGapMs) return 0;
+  let streak = 1;
+  for (let i = 1; i < votes.length; i += 1) {
+    const newer = new Date(votes[i - 1].createdAt).getTime();
+    const older = new Date(votes[i].createdAt).getTime();
+    if (!Number.isFinite(newer) || !Number.isFinite(older) || newer - older > maxGapMs) break;
+    streak += 1;
+  }
+  return streak;
+}
+
+/** Streak bump viva dal documento (0 se interrotta). */
+function liveBumpStreakOf(doc?) {
+  const n = Math.max(0, Number(doc?.boardBumpStreak) || 0);
+  const day = String(doc?.boardBumpStreakDay || "").trim();
+  if (!n || !day) return 0;
+  const today = dayKeyRome();
+  if (day === today || day === prevDayKeyRome(today)) return n;
+  return 0;
+}
+
+/** Ricalcola streak bump da storia BB (giorni Rome con ≥1 bump) e opzionalmente persiste. */
+async function resolveBumpStreak(listingId?, doc?, { persist = true } = {}) {
+  const id = String(listingId || doc?._id || "").trim();
+  if (!id || !mongoose.isValidObjectId(id)) return { bumpStreak: 0, bumpStreakDay: "" };
+  const storedDay = String(doc?.boardBumpStreakDay || "").trim();
+  const storedN = Math.max(0, Number(doc?.boardBumpStreak) || 0);
+  const storedLive = liveBumpStreakOf(doc);
+  if (storedLive > 0) return { bumpStreak: storedLive, bumpStreakDay: storedDay };
+  /* già tracciata ma scaduta → non rifare il backfill finché non arriva un bump nuovo */
+  if (storedDay && storedN > 0) return { bumpStreak: 0, bumpStreakDay: storedDay };
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const bumps: any[] = await SiteDocument.find({
+    docType: BB,
+    boardListingId: id,
+    createdAt: { $gte: since },
+  })
+    .select({ createdAt: 1 })
+    .sort({ createdAt: -1 })
+    .limit(400)
+    .lean();
+  if (!bumps.length) return { bumpStreak: 0, bumpStreakDay: "" };
+  const days = new Set<string>();
+  for (const b of bumps) days.add(dayKeyRome(b.createdAt));
+  const today = dayKeyRome();
+  const yesterday = prevDayKeyRome(today);
+  let cur = days.has(today) ? today : days.has(yesterday) ? yesterday : "";
+  if (!cur) return { bumpStreak: 0, bumpStreakDay: "" };
+  let streak = 0;
+  const startDay = cur;
+  while (cur && days.has(cur)) {
+    streak += 1;
+    cur = prevDayKeyRome(cur);
+  }
+  if (persist && streak > 0) {
+    await SiteDocument.updateOne(
+      { _id: id, docType: BL },
+      { $set: { boardBumpStreak: streak, boardBumpStreakDay: startDay } },
+    ).catch(() => null);
+  }
+  return { bumpStreak: streak, bumpStreakDay: startDay };
+}
+
+/** Aggiorna streak bump al momento di un bump riuscito (1 giorno calendariale = +1). */
+function nextBumpStreakAfterBump(listing?, at = new Date()) {
+  const today = dayKeyRome(at);
+  const prev = prevDayKeyRome(today);
+  const lastDay = String(listing?.boardBumpStreakDay || "").trim();
+  const prevStreak = Math.max(0, Number(listing?.boardBumpStreak) || 0);
+  if (lastDay === today) {
+    return { boardBumpStreak: Math.max(1, prevStreak || 1), boardBumpStreakDay: today };
+  }
+  if (lastDay === prev && prevStreak > 0) {
+    return { boardBumpStreak: prevStreak + 1, boardBumpStreakDay: today };
+  }
+  return { boardBumpStreak: 1, boardBumpStreakDay: today };
 }
 
 function computeScore(votes30d?, bumps7d?, cfg?) {
@@ -73,18 +174,9 @@ async function canUserVoteListing(listingId?, userId?, cfg?) {
   const id = String(listingId || "").trim();
   const uid = String(userId || "").trim();
   if (!id || !uid) return { ok: false, status: 400, error: "invalid", message: "Dati voto non validi." };
-  const dedupe = `${id}:${uid}:${dayKey()}`;
-  const existing = await SiteDocument.findOne({ docType: BV, dedupeKey: dedupe }).lean();
-  if (existing) {
-    return {
-      ok: false,
-      status: 429,
-      error: "vote_cooldown",
-      message: `Puoi votare di nuovo tra circa ${cfg.voteCooldownHours} ore (max 1 voto/giorno).`,
-      nextVoteAt: null,
-    };
-  }
-  const since = new Date(Date.now() - cfg.voteCooldownHours * 60 * 60 * 1000);
+  const hours = Math.max(1, Number(cfg?.voteCooldownHours) || 12);
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+  /* Ultimo voto entro il cooldown (indipendente dal giorno UTC). */
   const recent: any = await SiteDocument.findOne({
     docType: BV,
     boardListingId: id,
@@ -94,16 +186,59 @@ async function canUserVoteListing(listingId?, userId?, cfg?) {
     .sort({ createdAt: -1 })
     .lean();
   if (recent) {
-    const next = new Date(new Date(recent.createdAt).getTime() + cfg.voteCooldownHours * 60 * 60 * 1000);
+    const next = new Date(new Date(recent.createdAt).getTime() + hours * 60 * 60 * 1000);
+    const mins = Math.max(1, Math.ceil((next.getTime() - Date.now()) / 60_000));
+    const wait =
+      mins >= 120
+        ? `circa ${Math.ceil(mins / 60)} ore`
+        : mins >= 60
+          ? "circa un'ora"
+          : `circa ${mins} minut${mins === 1 ? "o" : "i"}`;
     return {
       ok: false,
       status: 429,
       error: "vote_cooldown",
-      message: "Hai già votato di recente per questa scheda.",
+      message: `Hai già votato di recente. Potrai votare di nuovo tra ${wait}.`,
       nextVoteAt: next.toISOString(),
     };
   }
   return { ok: true };
+}
+
+/** Stato cooldown voto per la scheda (UI countdown stile bump) + streak utente. */
+async function getListingVoteStatus(client?, payload: Record<string, any> = {}) {
+  const gate = featureGate(client);
+  if (!gate.ok) return gate;
+  const cfg = gate.cfg;
+  const auth = await resolveBoardsUser(payload.accessToken);
+  if (!auth.ok) return auth;
+  const id = String(payload.listingId || payload.id || "").trim();
+  if (!mongoose.isValidObjectId(id)) {
+    return { ok: false, status: 400, error: "invalid_id", message: "ID scheda non valido." };
+  }
+  const [eligibility, voteStreak] = await Promise.all([
+    canUserVoteListing(id, auth.userId, cfg),
+    computeVoteStreak(id, auth.userId, cfg.voteCooldownHours),
+  ]);
+  if (!eligibility.ok && eligibility.error === "vote_cooldown") {
+    return {
+      ok: true,
+      status: 200,
+      canVote: false,
+      nextVoteAt: eligibility.nextVoteAt || null,
+      cooldownHours: cfg.voteCooldownHours,
+      voteStreak,
+    };
+  }
+  if (!eligibility.ok) return eligibility;
+  return {
+    ok: true,
+    status: 200,
+    canVote: true,
+    nextVoteAt: null,
+    cooldownHours: cfg.voteCooldownHours,
+    voteStreak,
+  };
 }
 
 async function recomputeListingScore(listingId?, cfg?) {
@@ -274,7 +409,7 @@ async function voteListing(client?, payload: Record<string, any> = {}, reqMeta: 
   const eligibility = await canUserVoteListing(id, auth.userId, cfg);
   if (!eligibility.ok) return eligibility;
 
-  const dedupe = `${id}:${auth.userId}:${dayKey()}`;
+  const dedupe = voteCooldownDedupeKey(id, auth.userId, cfg.voteCooldownHours);
   const wantRemind = payload.remind === true || payload.reminder === true;
   const remindAt = wantRemind
     ? new Date(Date.now() + cfg.voteCooldownHours * 60 * 60 * 1000)
@@ -331,6 +466,7 @@ async function voteListing(client?, payload: Record<string, any> = {}, reqMeta: 
       void onListingVoted(client, id, auth.userId).catch((err?) => global.logger?.warn?.("[site-boards] avviso voto nel server:", err?.message || err));
     } catch (_) {}
   }
+  const voteStreak = await computeVoteStreak(id, auth.userId, cfg.voteCooldownHours);
   return {
     ok: true,
     status: 200,
@@ -340,6 +476,7 @@ async function voteListing(client?, payload: Record<string, any> = {}, reqMeta: 
     remindAt: remindAt ? remindAt.toISOString() : null,
     voteId: voteDoc ? String(voteDoc._id) : "",
     cooldownHours: cfg.voteCooldownHours,
+    voteStreak,
     ...scores,
   };
 }
@@ -416,6 +553,7 @@ async function sweepBoardVoteReminders(client?) {
     } catch (_) {}
   }
   let sent = 0;
+  const followerNotified = new Set<string>();
   for (const vote of due) {
     const uid = String(vote.userId || "").trim();
     const listingId = String(vote.boardListingId || "").trim();
@@ -430,6 +568,13 @@ async function sweepBoardVoteReminders(client?) {
     const openUrl = slug
       ? `https://www.viniliecaffe.it/vetrina/vota/?slug=${encodeURIComponent(slug)}`
       : `https://www.viniliecaffe.it/vetrina/vota/?id=${encodeURIComponent(listingId)}`;
+    if (!followerNotified.has(listingId)) {
+      followerNotified.add(listingId);
+      try {
+        const { notifyFollowersVoteReady } = require("./boardWatch") as typeof import("./boardWatch");
+        void notifyFollowersVoteReady(listingId, name, openUrl);
+      } catch (_) {}
+    }
     /* dm: prima DM, se fallisce → sito. site: prima sito, se fallisce → DM. */
     const reminderMode = String(listing?.boardVoteHook?.reminderMode || "site") === "dm" ? "dm" : "site";
     const { sendReminderDm } = require("./boardVoteHook") as typeof import("./boardVoteHook");
@@ -486,16 +631,34 @@ async function sweepBoardVoteReminders(client?) {
 }
 
 let voteRemindTimer = null;
+let lastFollowDigestSweepAt = 0;
+const FOLLOW_DIGEST_SWEEP_MS = 6 * 3600_000;
+
 function ensureBoardsVoteReminderScheduler(client?) {
   if (voteRemindTimer) return;
   voteRemindTimer = setInterval(() => {
     sweepBoardVoteReminders(client).catch((err?) => {
       global.logger?.warn?.("[boards] vote remind sweep:", err?.message || err);
     });
+    const now = Date.now();
+    if (now - lastFollowDigestSweepAt >= FOLLOW_DIGEST_SWEEP_MS) {
+      lastFollowDigestSweepAt = now;
+      try {
+        const { sweepFollowWeeklyDigest } = require("./boardWatch") as typeof import("./boardWatch");
+        void sweepFollowWeeklyDigest().catch((err?) => {
+          global.logger?.warn?.("[boards] follow digest sweep:", err?.message || err);
+        });
+      } catch (_) {}
+    }
   }, 60 * 1000);
   if (typeof voteRemindTimer.unref === "function") voteRemindTimer.unref();
   setTimeout(() => {
     sweepBoardVoteReminders(client).catch(() => null);
+    lastFollowDigestSweepAt = Date.now();
+    try {
+      const { sweepFollowWeeklyDigest } = require("./boardWatch") as typeof import("./boardWatch");
+      void sweepFollowWeeklyDigest().catch(() => null);
+    } catch (_) {}
   }, 12_000).unref?.();
 }
 
@@ -530,9 +693,18 @@ async function doBump(client: any, listing: any, who: { userId: string; name?: s
   const id = String(listing._id);
   /* aggiornamento atomico: due bump nello stesso istante non passano entrambi */
   const now = new Date();
+  /* se la streak non è ancora sul documento, ricavala dalla storia BB prima di incrementare */
+  if (!String(listing.boardBumpStreakDay || "").trim()) {
+    const resolved = await resolveBumpStreak(id, listing, { persist: false });
+    if (resolved.bumpStreak > 0) {
+      listing.boardBumpStreak = resolved.bumpStreak;
+      listing.boardBumpStreakDay = resolved.bumpStreakDay;
+    }
+  }
+  const streakSet = nextBumpStreakAfterBump(listing, now);
   const upd = await SiteDocument.updateOne(
     { _id: id, docType: BL, $or: [{ boardBumpedAt: null }, { boardBumpedAt: { $lte: new Date(now.getTime() - BUMP_COOLDOWN_MS) } }] },
-    { $set: { boardBumpedAt: now } },
+    { $set: { boardBumpedAt: now, boardBumpStreak: streakSet.boardBumpStreak, boardBumpStreakDay: streakSet.boardBumpStreakDay } },
   );
   if (!upd?.modifiedCount) {
     return { ok: false, status: 429, error: "bump_cooldown", message: "Qualcuno ha appena fatto il bump.", nextBumpAt: new Date(now.getTime() + BUMP_COOLDOWN_MS).toISOString() };
@@ -549,14 +721,20 @@ async function doBump(client: any, listing: any, who: { userId: string; name?: s
   const scores = await recomputeListingScore(id, cfg);
   emitBoardsChanged("bump", { listingId: id });
   /* ringraziamento, ruolo, EXP e promemoria impostati nella tab Bump della scheda */
-  let replyBody: any = null;
   try {
     const { onListingBumped } = require("./boardBumpHook") as typeof import("./boardBumpHook");
-    const hook: any = await onListingBumped(client, id, String(who.userId), { channelId: who.channelId || null, fromDiscord: who.source === "discord" });
-    replyBody = hook?.replyBody || null;
+    await onListingBumped(client, id, String(who.userId), { channelId: who.channelId || null, fromDiscord: who.source === "discord" });
   } catch (err) {
     global.logger?.warn?.("[site-boards] bump nel server:", err?.message || err);
   }
+  try {
+    const { notifyFollowersBump } = require("./boardWatch") as typeof import("./boardWatch");
+    const slug = String(listing.boardSlug || "").trim();
+    const openUrl = slug
+      ? `https://www.viniliecaffe.it/vetrina/scheda/?slug=${encodeURIComponent(slug)}`
+      : `https://www.viniliecaffe.it/vetrina/scheda/?id=${encodeURIComponent(id)}`;
+    void notifyFollowersBump(id, listing.title, openUrl);
+  } catch (_) {}
   return {
     ok: true,
     status: 200,
@@ -564,11 +742,11 @@ async function doBump(client: any, listing: any, who: { userId: string; name?: s
     listingId: id,
     bannerUrl: String(listing.boardBannerUrl || ""),
     iconUrl: String(listing.boardIconUrl || ""),
-    replyBody,
     bumpedAt: now.toISOString(),
     nextBumpAt: new Date(now.getTime() + BUMP_COOLDOWN_MS).toISOString(),
     slug: String(listing.boardSlug || ""),
     name: String(listing.title || ""),
+    bumpStreak: streakSet.boardBumpStreak,
     ...scores,
   };
 }
@@ -607,22 +785,74 @@ async function reportListing(client?, payload: Record<string, any> = {}) {
   if (!mongoose.isValidObjectId(id)) {
     return { ok: false, status: 400, error: "invalid_id", message: "ID scheda non valido." };
   }
+  const { sanitizeReportCategory, categoryLabel } = require("./boardReports") as typeof import("./boardReports");
+  const category = sanitizeReportCategory(payload.category || payload.reportCategory);
   const reason = sanitizeText(payload.reason, 500);
   if (reason.length < 8) {
-    return { ok: false, status: 400, error: "short_reason", message: "Motivo troppo corto." };
+    return { ok: false, status: 400, error: "short_reason", message: "Spiega meglio il problema (almeno 8 caratteri)." };
   }
   const listing: any = await SiteDocument.findOne({ _id: id, docType: BL }).lean();
   if (!listing) return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata." };
-  await SiteDocument.create({
+  if (String(listing.userId || "") === String(auth.userId)) {
+    return { ok: false, status: 400, error: "own_listing", message: "Non puoi segnalare la tua scheda." };
+  }
+  /* Solo segnalazioni scheda (non recensioni) contano per il rate-limit 24h. */
+  const recent = await SiteDocument.exists({
+    docType: BR,
+    userId: auth.userId,
+    boardListingId: id,
+    reportCategory: { $nin: ["review"] },
+    createdAt: { $gte: new Date(Date.now() - 24 * 3600_000) },
+  });
+  if (recent) {
+    return { ok: false, status: 429, error: "already_reported", message: "Hai già segnalato questa scheda nelle ultime 24 ore." };
+  }
+  const doc = await SiteDocument.create({
     docType: BR,
     userId: auth.userId,
     boardListingId: id,
     guildId: String(listing.boardDiscordId || ""),
+    title: categoryLabel(category),
+    reportCategory: category,
     content: reason,
     status: "open",
     authorName: auth.globalName || auth.username || "",
+    boardModeration: { reportKind: "listing" },
   });
-  return { ok: true, status: 201, reported: true };
+  try {
+    const { notifyBoardsReportStaff } = require("./siteBoardsInboxBridge") as typeof import("./siteBoardsInboxBridge");
+    void notifyBoardsReportStaff(client, {
+      reportId: String(doc._id),
+      listingId: id,
+      listingName: String(listing.title || ""),
+      kind: String(listing.boardKind || ""),
+      reporterId: auth.userId,
+      reporterName: auth.globalName || auth.username || "",
+      categoryLabel: categoryLabel(category),
+      isReview: false,
+    });
+  } catch (_) {}
+  return { ok: true, status: 201, reported: true, message: "Segnalazione inviata allo staff. Grazie." };
 }
 
-export = { BV, BB, clientIp, listingVotesMonth, recomputeListingScore, startListingVoteSession, progressListingVoteSession, voteListing, setListingVoteReminder, sweepBoardVoteReminders, ensureBoardsVoteReminderScheduler, bumpListing, bumpGuildListing, nextBumpAtOf, reportListing };
+export = {
+  BV,
+  BB,
+  clientIp,
+  listingVotesMonth,
+  recomputeListingScore,
+  getListingVoteStatus,
+  startListingVoteSession,
+  progressListingVoteSession,
+  voteListing,
+  setListingVoteReminder,
+  sweepBoardVoteReminders,
+  ensureBoardsVoteReminderScheduler,
+  bumpListing,
+  bumpGuildListing,
+  nextBumpAtOf,
+  reportListing,
+  computeVoteStreak,
+  resolveBumpStreak,
+  liveBumpStreakOf,
+};

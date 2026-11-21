@@ -32,6 +32,48 @@ const REMINDER_PLACEHOLDERS = [
 ];
 const fmtHours = (h: number) => (h === 1 ? "1 ora" : h % 24 === 0 ? (h === 24 ? "1 giorno" : `${h / 24} giorni`) : `${h} ore`);
 
+function plainDraft(content: string): BumpHookConfig["draft"] {
+  return {
+    content,
+    embed: {
+      enabled: false,
+      title: "",
+      description: "",
+      color: "",
+      imageUrl: "",
+      thumbnailUrl: "",
+      footerText: "",
+      timestamp: false,
+      authorName: "",
+      authorIconUrl: "",
+    },
+    buttons: [],
+  };
+}
+
+const BUMP_THANKS_PRESETS = [
+  { id: "classic", label: "Classico", draft: () => plainDraft("{user} grazie per il bump su **{service}**! 💙 Hai fatto {count} bump.") },
+  {
+    id: "streak",
+    label: "Streak + EXP",
+    draft: () =>
+      plainDraft("{user} bump su **{server}** registrato!\nTotale: {count} · streak {streak}\n{bonus}\n+{exp} EXP → livello {level}"),
+  },
+] as const;
+
+const BUMP_REMINDER_PRESETS = [
+  {
+    id: "slash",
+    label: "/bump",
+    draft: () => plainDraft("{role} si può di nuovo fare il bump su **{service}**! Usa il comando `/bump`."),
+  },
+  {
+    id: "soft",
+    label: "Soft",
+    draft: () => plainDraft("Hey {role}: **{server}** può di nuovo salire in vetrina. Digita `/bump` quando vuoi."),
+  },
+] as const;
+
 /** Come la tab Bump della dashboard, ma per i bump della scheda in Vetrina (sito e /bump). */
 export function BumpHookTab({ listing, token }: { listing: BoardListing; token: string }) {
   const { user } = useAuth();
@@ -193,19 +235,41 @@ export function BumpHookTab({ listing, token }: { listing: BoardListing; token: 
           ) : null}
 
           {msgOn ? (
-            <EditorWithPreview
-              editor={
-                <DraftEditor
-                  key={kind}
-                  value={draft}
-                  onChange={(d) => set(kind === "thanks" ? { draft: d } : { reminderDraft: d })}
-                  emojis={data.pickers.emojis}
-                  placeholders={kind === "thanks" ? (data.isMain ? [...THANKS_BASE, ...THANKS_EXP] : THANKS_BASE) : REMINDER_PLACEHOLDERS}
-                  maxButtons={5}
-                />
-              }
-              preview={<DiscordMessagePreview noTest bot={data.bot} draft={draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
-            />
+            <>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {(kind === "thanks" ? BUMP_THANKS_PRESETS : BUMP_REMINDER_PRESETS)
+                  .filter((p) => p.id !== "streak" || data.isMain)
+                  .map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() =>
+                        set(
+                          kind === "thanks"
+                            ? { draft: p.draft() as BumpHookConfig["draft"] }
+                            : { reminderDraft: p.draft() as BumpHookConfig["reminderDraft"] },
+                        )
+                      }
+                      className="rounded-full bg-crema/8 px-3 py-1 text-xs font-semibold text-crema/70 ring-1 ring-sand/15 hover:bg-crema/12 hover:text-crema"
+                    >
+                      Preset · {p.label}
+                    </button>
+                  ))}
+              </div>
+              <EditorWithPreview
+                editor={
+                  <DraftEditor
+                    key={kind}
+                    value={draft}
+                    onChange={(d) => set(kind === "thanks" ? { draft: d } : { reminderDraft: d })}
+                    emojis={data.pickers.emojis}
+                    placeholders={kind === "thanks" ? (data.isMain ? [...THANKS_BASE, ...THANKS_EXP] : THANKS_BASE) : REMINDER_PLACEHOLDERS}
+                    maxButtons={5}
+                  />
+                }
+                preview={<DiscordMessagePreview noTest bot={data.bot} draft={draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
+              />
+            </>
           ) : (
             <p className="rounded-xl bg-espresso/45 px-3 py-6 text-center text-sm text-crema/55 ring-1 ring-sand/10">
               {kind === "thanks" ? "Il ringraziamento è spento." : "Il promemoria è spento."} Accendilo con l&apos;interruttore qui sopra.

@@ -49,6 +49,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
             <button type="button" onClick={() => reset()} className="rounded-full px-6 py-3 font-semibold text-crema/80 ring-1 ring-sand/25 hover:bg-crema/8">
               Riprova
             </button>
+            {/* global-error è fuori dal router Next: <Link> non è utilizzabile qui */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- root error boundary */}
             <a href="/" className="rounded-full px-6 py-3 font-semibold text-crema/80 ring-1 ring-sand/25 hover:bg-crema/8">
               Torna alla home
             </a>

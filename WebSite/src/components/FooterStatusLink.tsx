@@ -24,7 +24,7 @@ export function FooterStatusLink({ active }: { active?: boolean }) {
     let alive = true;
     const tick = () => {
       if (document.hidden || !isOnline()) return;
-      loadStatus("").then((d) => {
+      loadStatus().then((d) => {
         if (alive) setSt(overallStatus(d));
       });
     };

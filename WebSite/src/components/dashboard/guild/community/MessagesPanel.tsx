@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { CalendarClock, Megaphone, Plus, Send, Trash2 } from "lucide-react";
 import { DateField } from "@/components/ui/DateField";
 import { EmptyState } from "@/components/ui/EmptyState";

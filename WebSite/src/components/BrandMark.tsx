@@ -89,7 +89,7 @@ export function BrandMark({ className, navUnderline }: { className?: string; nav
       className={cn("group relative z-[1] flex h-10 min-w-0 items-center gap-2", className)}
       aria-current={isHome ? "page" : undefined}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
+      { }
       <img
         key={icon}
         src={icon}

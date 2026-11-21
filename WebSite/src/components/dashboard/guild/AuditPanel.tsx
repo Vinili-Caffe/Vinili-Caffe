@@ -65,7 +65,7 @@ function AuditEntry({ row, open, onToggle }: { row: AuditRow; open: boolean; onT
       >
         <span className="relative mt-0.5 shrink-0">
           {row.avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img src={row.avatar} alt="" width={32} height={32} className="size-8 rounded-full object-cover" />
           ) : (
             <span className="flex size-8 items-center justify-center rounded-full bg-crema/[0.08] text-xs font-bold text-crema/80">

@@ -13,7 +13,7 @@ import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/perks/", title: "Perks", description: "Tutti i ruoli ottenibili su Vinili & Caffè e i loro vantaggi: Nitro Boost, livelli, verifica e badge." }),
+  ...pageSocialMeta({ path: "/perks/", title: "Perks", description: "I ruoli che si possono ottenere su Vinili & Caffè e cosa sbloccano: boost del server, livelli, verifica e badge." }),
 };
 
 function SectionTitle({ icon, kicker, title, text }: { icon: React.ReactNode; kicker: string; title: string; text?: string }) {
@@ -34,14 +34,14 @@ export default function PerksPage() {
       <DiscordComponentEmbed
         path="/perks/"
         title="Perks"
-        description="Tutti i ruoli ottenibili su Vinili & Caffè e i loro vantaggi: Nitro Boost, livelli, verifica e badge."
+        description="I ruoli che si possono ottenere su Vinili & Caffè e cosa sbloccano: boost del server, livelli, verifica e badge."
       />
       <PageHero
         icon={<Gem />}
         kicker="Vantaggi"
         title="I perks del"
         accent="server"
-        text="Tutti i ruoli che puoi ottenere e cosa sbloccano: boost, livelli, verifica e badge speciali."
+        text="Qui trovi i ruoli che si possono avere sul server, come si ottengono e cosa cambia quando li hai: boost, livelli, verifica e qualche badge speciale."
       />
 
       <div className="mx-auto max-w-5xl space-y-24 px-6 pb-16">
@@ -97,7 +97,7 @@ export default function PerksPage() {
             icon={<Music2 />}
             kicker="Fasce di livello"
             title="Ogni livello, un genere"
-            text="Più scrivi e stai in vocale, più sali: ogni fascia ha il suo genere musicale, il suo ruolo e nuovi vantaggi. Tocca un genere per vederli."
+            text="Più scrivi e stai in vocale, più sali di livello. Ogni fascia prende il nome da un genere musicale e porta con sé un ruolo e qualche vantaggio: tocca un genere per vedere quali."
           />
           <Reveal>
             <GenreTimeline />
@@ -106,7 +106,7 @@ export default function PerksPage() {
 
         {/* verifica selfie */}
         <section>
-          <SectionTitle icon={<Camera />} kicker="Verifica selfie" title="Fatti riconoscere" text="Verifica il tuo profilo per ottenere il badge e qualche permesso in più." />
+          <SectionTitle icon={<Camera />} kicker="Verifica selfie" title="Fatti riconoscere" text="Con la verifica dimostri di essere una persona reale e ottieni un badge e qualche permesso in più. Si fa in privato con lo staff, in pochi minuti." />
           <div className="grid gap-4 md:grid-cols-[1.2fr_1fr]">
             <Reveal>
               <ol className="space-y-3">
@@ -137,14 +137,14 @@ export default function PerksPage() {
             icon={<PartyPopper />}
             kicker="Ruoli evento"
             title="Ricordi da collezione"
-            text="Ogni evento lascia il suo ruolo commemorativo: ecco come si ottengono e quali puoi ancora conquistare."
+            text="Ogni evento lascia un ruolo a ricordo di chi c’era. Qui vedi come si ottenevano e quali sono ancora disponibili."
           />
           <EventRoles />
         </section>
 
         {/* badge */}
         <section>
-          <SectionTitle icon={<Medal />} kicker="Badge e altri ruoli" title="Una collezione da completare" text="Classifiche, inviti, social, voti e anzianità: ecco gli altri ruoli che puoi aggiungere al profilo." />
+          <SectionTitle icon={<Medal />} kicker="Badge e altri ruoli" title="Una collezione da completare" text="Gli altri ruoli arrivano dalle classifiche, dagli inviti, dai social, dai voti e dal tempo passato sul server." />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {BADGES.map((b, i) => (
               <Reveal key={b.role} delay={(i % 3) * 0.06} className="h-full">

@@ -51,7 +51,7 @@ export function SafeImage({ src, alt, className }: { src: string; alt: string; c
       </div>
     );
   }
-  // eslint-disable-next-line @next/next/no-img-element
+   
   return <img src={src} alt={alt} loading="lazy" className={className} onError={() => setBroken(true)} />;
 }
 
@@ -64,7 +64,7 @@ function Avatar({ src, name, className }: { src: string; name: string; className
   if (!src) {
     return <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-full bg-ink/15 text-[0.6rem] font-bold", className)}>{name.slice(0, 1).toUpperCase()}</span>;
   }
-  // eslint-disable-next-line @next/next/no-img-element
+   
   return <img src={src} alt="" loading="lazy" className={cn("size-6 shrink-0 rounded-full object-cover", className)} />;
 }
 
@@ -212,7 +212,7 @@ function PostIt({ item, onReact, onRepost }: { item: BachecaItem; onReact: (e: s
       <Tape className="-top-3 left-1/2 -translate-x-1/2 -rotate-2" />
       {photo && (
         <div className="relative -mx-1 mb-3 rotate-[1.5deg] bg-white p-1.5 shadow-md">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          { }
           <img src={photo} alt="" loading="lazy" className="w-full object-cover" onError={(e) => (e.currentTarget.parentElement!.style.display = "none")} />
         </div>
       )}

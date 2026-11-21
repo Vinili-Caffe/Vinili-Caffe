@@ -11,7 +11,7 @@ const TicketsApp = dynamic(() => import("@/components/tickets/TicketsApp").then(
 });
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/tickets/", title: "Tickets", description: "Assistenza live con lo staff di Vinili & Caffè: apri un ticket con un click e parla in tempo reale." }),
+  ...pageSocialMeta({ path: "/tickets/", title: "Tickets", description: "Assistenza dello staff di Vinili & Caffè: apri un ticket e scrivi direttamente con chi può aiutarti." }),
   robots: { index: false },
 };
 
@@ -21,13 +21,13 @@ export default function TicketsPage() {
       <DiscordComponentEmbed
         path="/tickets/"
         title="Tickets"
-        description="Assistenza live con lo staff di Vinili & Caffè: apri un ticket con un click e parla in tempo reale."
+        description="Assistenza dello staff di Vinili & Caffè: apri un ticket e scrivi direttamente con chi può aiutarti."
       />
       <PageHero
         kicker="Assistenza"
         title="Tickets"
         accent="live"
-        text="Apri un ticket e parla in tempo reale con lo staff."
+        text="Apri un ticket e scrivi con lo staff: le risposte arrivano qui, mentre sei sulla pagina."
         icon={<Ticket />}
       />
       <div className="px-3 pb-8 sm:px-6 sm:pb-10">

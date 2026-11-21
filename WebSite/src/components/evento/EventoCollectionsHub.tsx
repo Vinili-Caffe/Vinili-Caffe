@@ -36,7 +36,7 @@ function CollectionGrid({ deck, accent }: { deck: EventoCollectionDeck; accent: 
           >
             <span className="flex size-10 shrink-0 items-center justify-center sm:size-11">
               {it.thumbUrl || it.silhouetteUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img
                   src={it.owned ? it.thumbUrl || it.silhouetteUrl : it.silhouetteUrl || it.thumbUrl}
                   alt={it.owned ? it.name : ""}

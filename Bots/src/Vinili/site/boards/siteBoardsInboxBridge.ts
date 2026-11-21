@@ -177,7 +177,7 @@ async function notifyBoardsRevisioneStaff(client?, doc?, opts: Record<string, an
     kind,
     dedupeKey: `inbox:revisione:new:${listingId}`,
     /* boardsRevPreview1 + boardsRevLangPath1: scheda?id= resiste a /en/… */
-    openUrl: `/vetrina/scheda/?id=${encodeURIComponent(listingId)}&review=1`,
+    openUrl: `/vetrina/mod/?tab=pending&id=${encodeURIComponent(listingId)}`,
   }).catch(() => 0);
 }
 
@@ -294,6 +294,7 @@ async function onBoardsListingWithdrawn(client?, doc?, opts: Record<string, any>
       /* vetrina1: le notifiche nuove puntano a /vetrina/, quelle vecchie restano su /bacheca/ */
       `/vetrina/scheda/?id=${encodeURIComponent(listingId)}`,
       `/vetrina/scheda/?id=${encodeURIComponent(listingId)}&review=1`,
+      `/vetrina/mod/?tab=pending&id=${encodeURIComponent(listingId)}`,
     ];
     void removeSiteInAppNotificationsMatching({
       exactKeys: [`inbox:revisione:new:${listingId}`, boardsRevisioneDedupeKey(listingId)],
@@ -352,6 +353,43 @@ async function decideBoardsFromWorkflow(client?, access?, body: Record<string, a
   };
 }
 
+/** Segnalazione scheda/recensione → campanella high staff (coda revisione). */
+async function notifyBoardsReportStaff(client?, opts: Record<string, any> = {}) {
+  const reportId = String(opts.reportId || "").trim();
+  const listingName = String(opts.listingName || "una scheda").trim() || "una scheda";
+  const kind = String(opts.kind || "") === "bot" ? "bot" : "server";
+  const isReview = Boolean(opts.isReview);
+  const reporterName = String(opts.reporterName || "").trim() || "Un utente";
+  const categoryLabel = String(opts.categoryLabel || "").trim();
+  const guildId = String(IDs.guilds?.main || "").trim();
+  let guild =
+    client?.guilds?.cache?.get?.(guildId) ||
+    (client?.guilds?.fetch ? await client.guilds.fetch(guildId).catch(() => null) : null);
+  if (!guild) return 0;
+  const { notifyInboxStaffNewItem } = require("../workflow/siteStaffWorkflowNotifications") as typeof import("../workflow/siteStaffWorkflowNotifications");
+  const title = isReview ? "Segnalazione recensione" : "Segnalazione scheda";
+  const catBit = categoryLabel ? ` (${categoryLabel})` : "";
+  const body = isReview
+    ? `${reporterName} ha segnalato una recensione su «${listingName}»${catBit}.`
+    : `${reporterName} ha segnalato «${listingName}» (${kindLabel(kind)})${catBit}.`;
+  return notifyInboxStaffNewItem({
+    guild,
+    queue: QUEUE,
+    subjectUserId: String(opts.reporterId || "").trim(),
+    subjectName: reporterName,
+    title,
+    body,
+    messageId: reportId || String(opts.listingId || ""),
+    itemId: reportId,
+    kind,
+    includeSubject: false,
+    dedupeKey: reportId ? `inbox:boards:report:${reportId}` : `inbox:boards:report:${Date.now()}`,
+    openUrl: reportId
+      ? `/vetrina/mod/?tab=reports&id=${encodeURIComponent(reportId)}`
+      : "/vetrina/mod/?tab=reports",
+  }).catch(() => 0);
+}
+
 export = {
   QUEUE,
   upsertBoardsRevisioneWorkflow,
@@ -359,5 +397,6 @@ export = {
   onBoardsListingDecided,
   onBoardsListingWithdrawn,
   decideBoardsFromWorkflow,
+  notifyBoardsReportStaff,
   kindLabel,
 };

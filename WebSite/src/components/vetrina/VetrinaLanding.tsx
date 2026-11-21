@@ -16,7 +16,7 @@ const DOORS: { kind: BoardKind; title: string; text: string; icon: LucideIcon; h
   {
     kind: "server",
     title: "Server",
-    text: "Community da scoprire: gaming, musica, chiacchiere, eventi. Trova il posto giusto per te.",
+    text: "Community di gaming, musica, chiacchiere ed eventi. Sfogliale e trova quella giusta per te.",
     icon: Server,
     href: "/vetrina/server/",
     tint: "rgba(217,154,91,0.45)",
@@ -24,7 +24,7 @@ const DOORS: { kind: BoardKind; title: string; text: string; icon: LucideIcon; h
   {
     kind: "bot",
     title: "Bot",
-    text: "Musica, moderazione, giochi, utilità: i bot che rendono vivo un server, provati dalla community.",
+    text: "Bot per musica, moderazione, giochi e utilità, provati e recensiti dalla community.",
     icon: Bot,
     href: "/vetrina/bot/",
     tint: "rgba(88,101,242,0.45)",
@@ -36,6 +36,7 @@ export function VetrinaLanding() {
   const { ready, token } = useAuth();
   const [cfg, setCfg] = useState<BoardsConfig | null>(null);
   const [shelves, setShelves] = useState<Record<BoardKind, Shelf>>({ server: null, bot: null });
+  const [monthShelves, setMonthShelves] = useState<Record<BoardKind, Shelf>>({ server: null, bot: null });
 
   useEffect(() => {
     if (!ready) return;
@@ -44,6 +45,9 @@ export function VetrinaLanding() {
     for (const kind of ["server", "bot"] as BoardKind[]) {
       void loadListings({ kind, sort: "score", perPage: 3 }, token).then((l) => {
         if (alive) setShelves((prev) => ({ ...prev, [kind]: { total: l?.total || 0, items: l?.listings || [] } }));
+      });
+      void loadListings({ kind, sort: "month", perPage: 3 }, token).then((l) => {
+        if (alive) setMonthShelves((prev) => ({ ...prev, [kind]: { total: l?.total || 0, items: l?.listings || [] } }));
       });
     }
     return () => {
@@ -63,7 +67,7 @@ export function VetrinaLanding() {
             La vetrina <em className="block font-script text-[1.05em] font-normal not-italic text-ember sm:inline">della community</em>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-crema/60">
-            Server e bot Discord si mettono in mostra: scegli da che parte entrare, sfoglia, vota e lascia una recensione.
+            Un elenco di server e bot Discord, ognuno con la sua scheda. Scegli se cercare un server o un bot, sfoglia, vota e lascia una recensione. Se hai un progetto tuo, lo proponi da «Metti in vetrina».
           </p>
         </motion.div>
       </header>
@@ -89,7 +93,7 @@ export function VetrinaLanding() {
                     <span className="flex -space-x-3">
                       {(shelf?.items || []).map((l) =>
                         l.iconUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
+                           
                           <img key={l.id} src={l.iconUrl} alt="" className="size-9 rounded-full object-cover ring-4 ring-roast sm:size-11" />
                         ) : (
                           <span key={l.id} className="flex size-9 items-center justify-center rounded-full bg-mocha ring-4 ring-roast sm:size-11">
@@ -126,33 +130,65 @@ export function VetrinaLanding() {
         {/* il podio di ciascuno, separati */}
         {DOORS.map((d) => {
           const shelf = shelves[d.kind];
-          if (shelf && shelf.items.length === 0) return null;
+          const monthShelf = monthShelves[d.kind];
+          if (shelf && shelf.items.length === 0 && monthShelf && monthShelf.items.length === 0) return null;
+          const monthHref = page(`${d.href}?sort=month`);
           return (
-            <div key={d.kind} className="mt-16">
-              <div className="mb-5 flex items-end justify-between gap-3">
+            <div key={d.kind} className="mt-16 space-y-16">
+              {shelf && shelf.items.length > 0 ? (
                 <div>
-                  <p className="font-script text-2xl text-caramel/85">In primo piano</p>
-                  <h2 className="font-display text-3xl font-semibold sm:text-4xl">{d.kind === "bot" ? "I bot più in alto" : "I server più in alto"}</h2>
+                  <div className="mb-5 flex items-end justify-between gap-3">
+                    <div>
+                      <p className="font-script text-2xl text-caramel/85">In primo piano</p>
+                      <h2 className="font-display text-3xl font-semibold sm:text-4xl">{d.kind === "bot" ? "I bot più in alto" : "I server più in alto"}</h2>
+                    </div>
+                    <SmartLink href={page(d.href)} className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-crema/60 hover:text-ember">
+                      Vedi tutti <ArrowRight className="size-4" />
+                    </SmartLink>
+                  </div>
+                  {shelf ? (
+                    <Spotlight items={shelf.items} cfg={cfg} />
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+                      <ListingCardSkeleton />
+                      <ListingCardSkeleton i={1} />
+                    </div>
+                  )}
                 </div>
-                <SmartLink href={page(d.href)} className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-crema/60 hover:text-ember">
-                  Vedi tutti <ArrowRight className="size-4" />
-                </SmartLink>
-              </div>
-              {shelf ? (
-                <Spotlight items={shelf.items} cfg={cfg} />
-              ) : (
+              ) : shelf === null ? (
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                   <ListingCardSkeleton />
                   <ListingCardSkeleton i={1} />
                 </div>
-              )}
+              ) : null}
+              {monthShelf && monthShelf.items.length > 0 ? (
+                <div>
+                  <div className="mb-5 flex items-end justify-between gap-3">
+                    <div>
+                      <p className="font-script text-2xl text-caramel/85">Classifiche del mese</p>
+                      <h2 className="font-display text-3xl font-semibold sm:text-4xl">
+                        Top del mese · {d.kind === "bot" ? "Bot" : "Server"}
+                      </h2>
+                    </div>
+                    <SmartLink href={monthHref} className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-crema/60 hover:text-ember">
+                      Classifica completa <ArrowRight className="size-4" />
+                    </SmartLink>
+                  </div>
+                  <Spotlight items={monthShelf.items} cfg={cfg} />
+                </div>
+              ) : monthShelf === null ? (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+                  <ListingCardSkeleton />
+                  <ListingCardSkeleton i={1} />
+                </div>
+              ) : null}
             </div>
           );
         })}
 
         <div className="mt-20 flex flex-col items-center gap-4 rounded-[2rem] border border-dashed border-sand/20 p-10 text-center">
           <p className="font-display text-3xl">Hai un server o un bot?</p>
-          <p className="max-w-md text-crema/55">Mettilo in vetrina: lo controlliamo e finisce sugli scaffali, pronto per voti e recensioni.</p>
+          <p className="max-w-md text-crema/55">Mettilo in vetrina: compili la scheda, lo staff la controlla e dopo l’approvazione può ricevere voti e recensioni.</p>
           <SmartLink href={page("/vetrina/invia/")} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink transition-transform hover:-translate-y-0.5">
             <Plus className="size-4" /> Metti in vetrina
           </SmartLink>

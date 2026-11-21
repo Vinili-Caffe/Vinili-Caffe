@@ -21,8 +21,8 @@ export type WikiBot = { bot: BotId; guest?: boolean; vipRoleId?: string; categor
 
 export const BOTS: { id: BotId; name: string; prefix: string; tagline: string }[] = [
   { id: "prod", name: "Vinili", prefix: "+", tagline: "Musica, livelli, statistiche e minigames" },
-  { id: "coffee", name: "Caffè", prefix: ",", tagline: "Musica e TTS per il server" },
-  { id: "groove", name: "Groove", prefix: ";", tagline: "Musica e TTS — gemello di Caffè" },
+  { id: "coffee", name: "Caffè", prefix: ",", tagline: "Musica e voce sintetica in vocale" },
+  { id: "groove", name: "Groove", prefix: ";", tagline: "Musica e voce sintetica, come Caffè" },
 ];
 
 export const BOT_IDS: BotId[] = BOTS.map((b) => b.id);

@@ -123,7 +123,17 @@ async function modDecide(client?, payload: Record<string, any> = {}) {
   doc.decidedAt = new Date();
   doc.staffReason = sanitizeText(payload.reason, 1000);
   const mod = doc.boardModeration && typeof doc.boardModeration === "object" ? { ...doc.boardModeration } : {};
-  mod.reviewedBy = String(staff.member?.id || staff.user?.id || "").trim();
+  const staffId = String(staff.member?.id || staff.user?.id || "").trim();
+  const history = Array.isArray(mod.history) ? mod.history.slice() : [];
+  history.push({
+    at: new Date().toISOString(),
+    by: staffId,
+    decision,
+    reason: sanitizeText(payload.reason, 1000),
+    notes: sanitizeText(payload.notes, 1000),
+  });
+  mod.history = history.slice(-20);
+  mod.reviewedBy = staffId;
   mod.reviewedAt = new Date().toISOString();
   mod.notes = sanitizeText(payload.notes, 1000);
   mod.rejectReason = doc.staffReason;
@@ -143,7 +153,13 @@ async function modDecide(client?, payload: Record<string, any> = {}) {
       notifyOwner: true,
     }).catch(() => null);
   } catch (_) {}
-  emitBoardsChanged(decision === "approved" ? "mod_approve" : "mod_reject", {
+  if (decision === "approve") {
+    try {
+      const { notifySavedSearchesForListing } = require("./boardWatch") as typeof import("./boardWatch");
+      void notifySavedSearchesForListing(String(doc._id)).catch(() => 0);
+    } catch (_) {}
+  }
+  emitBoardsChanged(decision === "approve" ? "mod_approve" : "mod_reject", {
     listingId: String(doc._id),
     slug: String(doc.boardSlug || ""),
     kind: String(doc.boardKind || ""),

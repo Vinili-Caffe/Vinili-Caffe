@@ -50,14 +50,24 @@ function boardsConfig(client?) {
     /* boardsDescMinPreview1: min caratteri descrizioni */
     minTaglineChars: Math.max(8, Math.min(80, Number(raw.minTaglineChars) || 20)),
     minDescriptionChars: Math.max(20, Math.min(500, Number(raw.minDescriptionChars) || 80)),
-    /* boardsVoteFlow1 + boardsVoteNoCountdown1: 0 = Vota subito (ad+turnstile restano) */
-    voteCountdownSeconds: Math.max(0, Math.min(60, Number(raw.voteCountdownSeconds) || 0)),
+    /* Senza AdSense: default 10s al posto dello sponsor; con ads mock resta configurabile (0 = subito). */
+    voteCountdownSeconds: Math.max(
+      0,
+      Math.min(
+        60,
+        Number.isFinite(Number(raw.voteCountdownSeconds))
+          ? Number(raw.voteCountdownSeconds)
+          : adProvider === "none"
+            ? 10
+            : 0,
+      ),
+    ),
     /* boardsVoteNoAdCountdown1: 0 = niente attesa sponsor */
     voteAdSeconds: Math.max(0, Math.min(120, Number(raw.voteAdSeconds) || Number(ads.minWatchSeconds) || 0)),
     turnstileSiteKey: String(turnstile.siteKey || "").trim(),
     turnstileSecretKey: String(turnstile.secretKey || "").trim(),
     ads: {
-      /* Solo mock/none: niente AdSense (non accettato sul dominio). */
+      /* Solo mock/none: AdSense quando approvato (provider adsense non ancora attivo). */
       provider: ["mock", "none"].includes(adProvider) ? adProvider : "mock",
       minWatchSeconds: Math.max(0, Math.min(120, Number(ads.minWatchSeconds) || Number(raw.voteAdSeconds) || 0)),
     },
@@ -528,22 +538,63 @@ async function reportListingReview(client?, payload: Record<string, any> = {}) {
   if (!mongoose.isValidObjectId(reviewId)) {
     return { ok: false, status: 400, error: "invalid_id", message: "ID recensione non valido." };
   }
+  const { sanitizeReportCategory, categoryLabel } = require("./boardReports") as typeof import("./boardReports");
+  const category = sanitizeReportCategory(payload.category || payload.reportCategory);
   const reason = sanitizeText(payload.reason, 500);
   if (reason.length < 8) {
     return { ok: false, status: 400, error: "short_reason", message: "Motivo troppo corto." };
   }
   const review: any = await SiteDocument.findOne({ _id: reviewId, docType: BREV }).lean();
   if (!review) return { ok: false, status: 404, error: "not_found", message: "Recensione non trovata." };
-  await SiteDocument.create({
+  if (String(review.userId || "") === String(auth.userId)) {
+    return { ok: false, status: 400, error: "own_review", message: "Non puoi segnalare la tua recensione." };
+  }
+  const listingId = String(review.boardListingId || "").trim();
+  const recent = await SiteDocument.exists({
     docType: BR,
     userId: auth.userId,
-    boardListingId: String(review.boardListingId || ""),
+    "boardModeration.reviewId": reviewId,
+    createdAt: { $gte: new Date(Date.now() - 24 * 3600_000) },
+  });
+  if (recent) {
+    return { ok: false, status: 429, error: "already_reported", message: "Hai già segnalato questa recensione nelle ultime 24 ore." };
+  }
+  const listing: any = listingId && mongoose.isValidObjectId(listingId)
+    ? await SiteDocument.findOne({ _id: listingId, docType: BL }).select({ title: 1, boardKind: 1, boardSlug: 1 }).lean()
+    : null;
+  const snippet = String(review.content || "").trim().slice(0, 280);
+  const doc = await SiteDocument.create({
+    docType: BR,
+    userId: auth.userId,
+    boardListingId: listingId,
     guildId: String(review.guildId || ""),
-    content: `review:${reviewId}: ${reason}`,
+    title: `Recensione · ${categoryLabel(category)}`,
+    reportCategory: category,
+    content: reason,
     status: "open",
     authorName: auth.globalName || auth.username || "",
+    boardModeration: {
+      reportKind: "review",
+      reviewId,
+      reviewAuthor: String(review.authorName || ""),
+      reviewSnippet: snippet,
+      reviewRating: Number(review.rating) || 0,
+    },
   });
-  return { ok: true, status: 201, reported: true };
+  try {
+    const { notifyBoardsReportStaff } = require("./siteBoardsInboxBridge") as typeof import("./siteBoardsInboxBridge");
+    void notifyBoardsReportStaff(client, {
+      reportId: String(doc._id),
+      listingId,
+      listingName: String(listing?.title || "scheda"),
+      kind: String(listing?.boardKind || ""),
+      reporterId: auth.userId,
+      reporterName: auth.globalName || auth.username || "",
+      categoryLabel: categoryLabel(category),
+      isReview: true,
+    });
+  } catch (_) {}
+  return { ok: true, status: 201, reported: true, message: "Segnalazione inviata allo staff. Grazie." };
 }
 
 /* boardsReviewReply1: risposta ufficiale del proprietario scheda */
@@ -728,26 +779,69 @@ async function removeSiteServerReviewFromMainBoardListing(userId?, kind = "serve
   }
 }
 
-/** Importa una volta le recensioni del bot già scritte su /recensioni/ nella scheda del bot. */
-let botReviewsImported = false;
-async function importSiteBotReviewsOnce() {
-  if (botReviewsImported) return;
-  const listing = await findMainBotListing();
-  if (!listing) return;
-  botReviewsImported = true;
-  try {
-    const { SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-    const rows: any[] = await SiteDocument.find({ docType: SITE_DOCUMENT_TYPE.REVIEW, reviewKind: "bot" }).limit(2000).lean();
-    let n = 0;
-    for (const r of rows) {
-      const out: any = await syncSiteServerReviewToMainBoardListing(r);
-      if (out?.ok) n += 1;
-    }
-    (global.logger?.info || global.logger?.warn)?.call(global.logger, `[siteBoardsApi] recensioni del bot importate nella vetrina: ${n}/${rows.length}`);
-  } catch (err) {
-    botReviewsImported = false;
-    global.logger?.warn?.("[siteBoardsApi] import recensioni bot:", err?.message || err);
+/** Staff: elimina una recensione (es. da segnalazione) e ricalcola la media. */
+async function staffDeleteListingReview(client?, payload: Record<string, any> = {}) {
+  const gate = featureGate(client);
+  if (!gate.ok) return gate;
+  const { assertWebsiteStaffAccess } = require("../staff/siteStaffAccessApi") as typeof import("../staff/siteStaffAccessApi");
+  const { memberIsHighStaffEligible } = require("../../Staff/utils/staffRoleHierarchy") as typeof import("../../Staff/utils/staffRoleHierarchy");
+  const staff = await assertWebsiteStaffAccess(client, payload.accessToken);
+  if (!staff?.ok) {
+    return {
+      ok: false,
+      status: Number(staff?.status) || 403,
+      error: staff?.error || "forbidden",
+      message: staff?.message || "Accesso staff richiesto.",
+    };
   }
+  if (!memberIsHighStaffEligible(staff.member)) {
+    return { ok: false, status: 403, error: "forbidden", message: "Serve high staff." };
+  }
+  const reviewId = String(payload.reviewId || payload.id || "").trim();
+  if (!mongoose.isValidObjectId(reviewId)) {
+    return { ok: false, status: 400, error: "invalid_id", message: "ID recensione non valido." };
+  }
+  const review: any = await SiteDocument.findOne({ _id: reviewId, docType: BREV }).lean();
+  if (!review) return { ok: false, status: 404, error: "not_found", message: "Recensione non trovata." };
+  const listingId = String(review.boardListingId || "").trim();
+  await SiteDocument.deleteOne({ _id: reviewId, docType: BREV });
+  let rating = { ratingAvg: 0, reviewsCount: 0 };
+  if (mongoose.isValidObjectId(listingId)) {
+    rating = await recomputeListingRating(listingId);
+    emitBoardsChanged("review_deleted", { listingId, reviewId });
+  }
+  return {
+    ok: true,
+    status: 200,
+    deleted: true,
+    listingId,
+    reviewId,
+    ...rating,
+    message: "Recensione eliminata.",
+  };
 }
 
-export = { importSiteBotReviewsOnce, mainBotAppId, BL, MAIN_GUILD_ID, BR, BREV, listingsCache, listingsInflight, invalidateListingsListCache, emitBoardsChanged, boardsConfig, featureGate, fetchGuildPreferLite, hashIp, listListingReviews, createListingReview, toggleListingReviewLike, reportListingReview, upsertListingReviewReply, syncSiteServerReviewToMainBoardListing, removeSiteServerReviewFromMainBoardListing };
+export = {
+  mainBotAppId,
+  BL,
+  MAIN_GUILD_ID,
+  BR,
+  BREV,
+  listingsCache,
+  listingsInflight,
+  invalidateListingsListCache,
+  emitBoardsChanged,
+  boardsConfig,
+  featureGate,
+  fetchGuildPreferLite,
+  hashIp,
+  listListingReviews,
+  createListingReview,
+  toggleListingReviewLike,
+  reportListingReview,
+  upsertListingReviewReply,
+  syncSiteServerReviewToMainBoardListing,
+  removeSiteServerReviewFromMainBoardListing,
+  staffDeleteListingReview,
+  recomputeListingRating,
+};

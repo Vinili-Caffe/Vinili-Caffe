@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Download, Share, X } from "lucide-react";
-import { useChromeOpenListener } from "@/lib/chrome-open";
+import { listenChromeOpen } from "@/lib/chrome-open";
 import { useAuth } from "@/lib/auth";
 import { SmartLink } from "@/components/SmartLink";
 import { page, cdnUrl } from "@/lib/site";
@@ -48,7 +48,7 @@ export function InstallPrompt() {
   const [chromeOpen, setChromeOpen] = useState(false);
   const [blocked, setBlocked] = useState(false);
 
-  useEffect(() => useChromeOpenListener(setChromeOpen), []);
+  useEffect(() => listenChromeOpen(setChromeOpen), []);
 
   useEffect(() => {
     if (!ready) return;
@@ -106,7 +106,7 @@ export function InstallPrompt() {
             <X className="size-4" />
           </button>
           <div className="flex items-start gap-3 pr-6">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            { }
             <img src={cdnUrl("/images/pwa-icon-192.png")} alt="" className="size-12 shrink-0 rounded-2xl ring-1 ring-sand/20" />
             <div className="min-w-0">
               <p className="font-display text-xl font-semibold leading-tight">Vinili &amp; Caffè sul telefono</p>

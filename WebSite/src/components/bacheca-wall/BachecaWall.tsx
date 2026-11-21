@@ -187,7 +187,7 @@ export function BachecaWall() {
       void load();
     }, 0);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [token, kind, sort]);
 
   useLiveRefresh(() => load(true), { topics: ["bacheca"], boot: false, intervalMs: 45_000 });
@@ -200,7 +200,7 @@ export function BachecaWall() {
       if (r.ok) setOpen(r.data);
       else showToast(r.message || "Questo contenuto non è più in bacheca.", true);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const openItem = (it: BachecaItem | null) => {
@@ -504,7 +504,7 @@ function BachecaDetail({
           <>
             {images.map((src, i) => (
               <button key={src} type="button" onClick={() => openLightbox(images, i)} className="block w-full">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                { }
                 <img src={src} alt="" className="w-full rounded-md shadow-md" />
               </button>
             ))}

@@ -100,8 +100,8 @@ export function SponsorBoard() {
       <Reveal>
         <div className="grid gap-4 md:grid-cols-[1.4fr_1fr]">
           <div className="rounded-3xl bg-gradient-to-br from-mocha/70 to-roast p-7 ring-1 ring-sand/15">
-            <p className="font-display text-2xl font-semibold leading-snug">Le sponsor sono collaborazioni a pagamento per mettere in mostra il tuo server davanti alla nostra community.</p>
-            <p className="mt-3 text-crema/60">Tre vetrine: un canale tutto tuo, il sito e gli eventi dal vivo.</p>
+            <p className="font-display text-2xl font-semibold leading-snug">Con una sponsorizzazione presenti il tuo server ai membri di Vinili & Caffè, in cambio di un compenso.</p>
+            <p className="mt-3 text-crema/60">Hai tre spazi a disposizione: un canale tutto tuo, il sito e le attività in vocale con la community.</p>
           </div>
           <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.12] via-roast/90 to-roast p-7 ring-1 ring-sand/15">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Requisiti</p>
@@ -314,7 +314,7 @@ export function SponsorBoard() {
                   {eur(total)}
                 </motion.span>
               </div>
-              <p className="mt-4 text-[0.7rem] leading-relaxed text-ink/50">Prima di pagare apri un ticket High Staff: lì concordi tipologia, date e dettagli.</p>
+              <p className="mt-4 text-[0.7rem] leading-relaxed text-ink/50">Prima di pagare apri un ticket con l’High Staff: lì decidete insieme il tipo di sponsorizzazione, le date e i dettagli.</p>
             </div>
             {/* bordo strappato */}
             <div className="h-3 bg-[linear-gradient(135deg,var(--color-paper)_33%,transparent_33%),linear-gradient(225deg,var(--color-paper)_33%,transparent_33%)] bg-[length:16px_12px] bg-repeat-x" />

@@ -5,7 +5,7 @@ import { GrazieBoard } from "@/components/seratafilm/GrazieBoard";
 import { SerataFilmShell } from "@/components/seratafilm/SerataFilmShell";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/seratafilm/grazie/", title: "Grazie ǀ Serata Film", description: "Fine della serata — grazie per esserci stati." }),
+  ...pageSocialMeta({ path: "/seratafilm/grazie/", title: "Grazie ǀ Serata Film", description: "La serata è finita: grazie a chi c’era." }),
 };
 
 export default function Page() {
@@ -13,7 +13,7 @@ export default function Page() {
     <SerataFilmShell
       path="/seratafilm/grazie/"
       title="Grazie ǀ Serata Film"
-      description="Fine della serata — grazie per esserci stati."
+      description="La serata è finita: grazie a chi c’era."
       heroIcon={<Film />}
       heroKicker="Serata film"
       heroTitle="Grazie"

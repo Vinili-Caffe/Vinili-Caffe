@@ -129,12 +129,12 @@ function shouldNegativeCacheAccessDeny(entry?) {
   if (!entry || entry.ok !== false) return false;
   if (isTransientAccessDeny(entry)) return false;
   const err = String(entry.error || "").trim().toLowerCase();
-    if (err === "invalid_token" || err === "missing_token") return false;
-  if (err === "not_in_guild" || err === "forbidden") {
-    return true;
-  }
+  if (err === "invalid_token" || err === "missing_token") return false;
+  /* forbidden = check ruoli: NON cacheare (pex/depex / PM appena assegnato restano bloccati 10 min). */
+  if (err === "forbidden") return false;
+  if (err === "not_in_guild") return true;
   const st = Number(entry.status) || 0;
-  return st === 403;
+  return st === 403 && err === "not_in_guild";
 }
 
 function memberHasMainServerStaffAccess(member?) {
@@ -142,6 +142,9 @@ function memberHasMainServerStaffAccess(member?) {
   if (memberHasStaffRole(member)) return true;
   const staffRoleId = String(IDs.roles.Staff || "").trim();
   if (staffRoleId && member.roles?.cache?.has?.(staffRoleId)) return true;
+  /* Esplicito: Partner Manager è staff area (guida partners / pause / shop), anche solo-PM. */
+  const pmRoleId = String(IDs.roles.PartnerManager || "").trim();
+  if (pmRoleId && member.roles?.cache?.has?.(pmRoleId)) return true;
   return false;
 }
 
@@ -355,14 +358,30 @@ async function doAssertWebsiteStaffAccess(client?, token?) {
     return deny;
   }
 
-  const member = resolved.member;
+  let member = resolved.member;
   if (!memberHasMainServerStaffAccess(member)) {
-    writeCachedAccess(token, {
-      ok: false,
-      status: 403,
-      error: "forbidden",
-      message: "Questa area è riservata allo staff del server Vinili & Caffè.",
-    });
+    /* Un deny su ruoli stantii (cache bot / pex fresco): un fetch forzato prima del 403. */
+    try {
+      const { ensureWebsiteGuild, fetchWebsiteGuildMember } = require("../http/websiteGuildMemberFetch") as typeof import("../http/websiteGuildMemberFetch");
+      const guildId = String(IDs.guilds.main || "").trim();
+      const guild =
+        member?.guild ||
+        (guildId ? await ensureWebsiteGuild(client, guildId, 4000) : null);
+      const uid = String(member?.id || "").trim();
+      if (guild && uid) {
+        const fresh = await fetchWebsiteGuildMember(guild, uid, {
+          force: true,
+          timeoutMs: 2800,
+          retry: false,
+          soft: true,
+        });
+        if (fresh && memberHasMainServerStaffAccess(fresh)) {
+          member = fresh;
+        }
+      }
+    } catch (_) {}
+  }
+  if (!memberHasMainServerStaffAccess(member)) {
     return {
       ok: false,
       status: 403,

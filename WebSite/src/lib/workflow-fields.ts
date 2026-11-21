@@ -104,7 +104,7 @@ export function parseNumberedQa(text: string): WorkflowField[] {
   const flush = () => {
     if (!current) return;
     const name = String(current.name || "").trim();
-    let value = String(current.value || "").trim();
+    const value = String(current.value || "").trim();
     if (!name && !value) {
       current = null;
       return;

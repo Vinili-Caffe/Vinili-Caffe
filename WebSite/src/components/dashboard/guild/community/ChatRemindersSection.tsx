@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, BellRing, Plus, Trash2 } from "lucide-react";
 import { communityApi, emptyDraft, type ChatReminder, type CommunityData } from "@/lib/dashboard-community";
 import { EditorHeader, Field, FormGroup, Notice, RowsSkeleton, StatusBadge, Toggle, dangerBtn, fieldClass, miniBtn, primaryMini } from "../bits";

@@ -35,6 +35,42 @@ const REMINDER_PLACEHOLDERS = [
 ];
 const fmtHours = (h: number) => (h === 1 ? "1 ora" : h % 24 === 0 ? (h === 24 ? "1 giorno" : `${h / 24} giorni`) : `${h} ore`);
 
+function plainDraft(content: string): VoteHookConfig["draft"] {
+  return {
+    content,
+    embed: {
+      enabled: false,
+      title: "",
+      description: "",
+      color: "",
+      imageUrl: "",
+      thumbnailUrl: "",
+      footerText: "",
+      timestamp: false,
+      authorName: "",
+      authorIconUrl: "",
+    },
+    buttons: [],
+  };
+}
+
+const VOTE_THANKS_PRESETS = [
+  { id: "classic", label: "Classico", draft: () => plainDraft("{user} grazie per il voto su **{service}**! ⭐ Voti totali: {count}.") },
+  {
+    id: "streak",
+    label: "Streak + EXP",
+    draft: () =>
+      plainDraft(
+        "{user} grazie per il voto su **{server}**!\nVoti: {count} · streak {streak}\n{bonus}\n+{exp} EXP → livello {level}",
+      ),
+  },
+  {
+    id: "role",
+    label: "Con ruolo",
+    draft: () => plainDraft("{user} hai votato **{server}** su {service}: ricevi {role} per {hours} ore. Grazie!"),
+  },
+] as const;
+
 /** Cosa fa il bot nel tuo server quando qualcuno vota la scheda: ringraziamento, ruolo, promemoria. */
 export function VoteHookTab({ listing, token, compact = false }: { listing: BoardListing; token: string; compact?: boolean }) {
   const { user } = useAuth();
@@ -246,10 +282,24 @@ export function VoteHookTab({ listing, token, compact = false }: { listing: Boar
                 <ChannelField label="Canale dei ringraziamenti" hint="Vuoto = nessun messaggio, solo il ruolo." value={cfg.channelId} channels={channels} onChange={(channelId) => set({ channelId })} />
               </div>
               {cfg.thanksEnabled && cfg.channelId ? (
-                <EditorWithPreview
-                  editor={<DraftEditor key="thanks" value={cfg.draft} onChange={(d) => set({ draft: d })} emojis={data.pickers.emojis} placeholders={isMain ? [...THANKS_BASE, ...THANKS_EXP] : THANKS_BASE} maxButtons={5} />}
-                  preview={<DiscordMessagePreview noTest bot={data.bot} draft={cfg.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
-                />
+                <>
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {VOTE_THANKS_PRESETS.filter((p) => p.id !== "streak" || isMain).map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => set({ draft: p.draft() as VoteHookConfig["draft"] })}
+                        className="rounded-full bg-crema/8 px-3 py-1 text-xs font-semibold text-crema/70 ring-1 ring-sand/15 hover:bg-crema/12 hover:text-crema"
+                      >
+                        Preset · {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  <EditorWithPreview
+                    editor={<DraftEditor key="thanks" value={cfg.draft} onChange={(d) => set({ draft: d })} emojis={data.pickers.emojis} placeholders={isMain ? [...THANKS_BASE, ...THANKS_EXP] : THANKS_BASE} maxButtons={5} />}
+                    preview={<DiscordMessagePreview noTest bot={data.bot} draft={cfg.draft} vars={vars} roles={data.pickers.roles} channels={channels} />}
+                  />
+                </>
               ) : (
                 <p className="rounded-xl bg-espresso/45 px-3 py-6 text-center text-sm text-crema/55 ring-1 ring-sand/10">
                   {!cfg.channelId ? "Scegli il canale per scrivere il ringraziamento." : "Il ringraziamento è spento."}

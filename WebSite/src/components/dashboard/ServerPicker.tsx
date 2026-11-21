@@ -62,7 +62,7 @@ function GuildCard({ guild, last }: { guild: DashboardGuild; last?: boolean }) {
     >
       <span className="relative block h-20 overflow-hidden bg-mocha" aria-hidden>
         {guild.iconUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img src={guild.iconUrl} alt="" className="size-full scale-125 object-cover opacity-45 blur-xl" loading="lazy" decoding="async" />
         ) : (
           <span className="absolute inset-0 bg-gradient-to-br from-caramel/25 via-mocha to-roast" />
@@ -78,7 +78,7 @@ function GuildCard({ guild, last }: { guild: DashboardGuild; last?: boolean }) {
       <span className="relative -mt-8 flex items-end gap-3 px-4">
         <span className="relative shrink-0">
           {guild.iconUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img
               src={guild.iconUrl}
               alt=""

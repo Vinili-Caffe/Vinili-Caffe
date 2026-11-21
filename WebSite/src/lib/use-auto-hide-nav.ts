@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useChromeOpenListener } from "@/lib/chrome-open";
+import { listenChromeOpen } from "@/lib/chrome-open";
 
 const HIDE_AFTER_MS = 2200;
 const REVEAL_ZONE_PX = 90;
@@ -19,7 +19,7 @@ export function useAutoHideNav(headerRef: React.RefObject<HTMLElement | null>, f
   const timer = useRef<number | null>(null);
   const hovering = useRef(false);
 
-  useEffect(() => useChromeOpenListener(setChromeOpen), []);
+  useEffect(() => listenChromeOpen(setChromeOpen), []);
 
   useEffect(() => {
     if (forceShow || chromeOpen) setHidden(false);

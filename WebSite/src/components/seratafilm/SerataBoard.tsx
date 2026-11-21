@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import { Clapperboard, Ticket } from "lucide-react";
+import { Clapperboard } from "lucide-react";
 import { AuthGateCard } from "@/components/AuthGateCard";
 import { useAuth } from "@/lib/auth";
 import {

@@ -11,7 +11,11 @@ import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/faq/", title: "FAQ", description: "Risposte rapide su livelli, musica, giochi, eventi e staff di Vinili & Caffè." }),
+  ...pageSocialMeta({
+    path: "/faq/",
+    title: "FAQ",
+    description: "Domande su livelli, musica, giochi, eventi, staff, sito e Vetrina di Vinili & Caffè.",
+  }),
 };
 
 export default function FaqPage() {
@@ -20,14 +24,14 @@ export default function FaqPage() {
       <DiscordComponentEmbed
         path="/faq/"
         title="FAQ"
-        description="Risposte rapide su livelli, musica, giochi, eventi e staff di Vinili & Caffè."
+        description="Domande su livelli, musica, giochi, eventi, staff, sito e Vetrina."
       />
       <PageHero
         icon={<BookOpen />}
         kicker="Supporto"
         title="Domande"
         accent="frequenti"
-        text="Livelli, musica, giochi, eventi, staff e il bot Vinili: le risposte rapide a quello che ci chiedete più spesso."
+        text="Quello che ci chiedono più spesso. Se manca la risposta, apri un ticket."
       />
 
       <SiteFaq />

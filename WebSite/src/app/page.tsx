@@ -8,6 +8,7 @@ import { cdnUrl } from "@/lib/site";
 
 /* Below-fold: split dal chunk iniziale (home Speed Insights). */
 const Why = dynamic(() => import("@/components/Why").then((m) => m.Why));
+const HomeEditorial = dynamic(() => import("@/components/HomeEditorial").then((m) => m.HomeEditorial));
 const HomeLoop = dynamic(() => import("@/components/HomeLoop").then((m) => m.HomeLoop));
 const ReviewsMarquee = dynamic(() => import("@/components/ReviewsMarquee").then((m) => m.ReviewsMarquee));
 const Explore = dynamic(() => import("@/components/Explore").then((m) => m.Explore));
@@ -23,13 +24,14 @@ export default async function Home() {
       <DiscordComponentEmbed
         path="/"
         title="Vinili & Caffè"
-        description="Community Discord Italiana chill dove parlare di tutto. Ruoli, eventi, giveaway, bot esclusivi."
+        description="Community italiana su Discord dove si parla di tutto: musica in vocale, eventi, giveaway e bot scritti apposta per il server."
       />
       {/* LCP: atmosfera hero (hoisted in <head>) */}
       <link rel="preload" as="image" href={cdnUrl("/images/hero-cafe-atmosphere.jpg")} type="image/jpeg" />
       <Hero />
       <LiveStats initial={stats} />
       <Why />
+      <HomeEditorial />
       <HomeLoop />
       <ReviewsMarquee />
       <Explore />

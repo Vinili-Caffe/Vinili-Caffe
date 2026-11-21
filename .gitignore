@@ -285,3 +285,7 @@ AGENTS.md
 .taste-skill/**
 Bots/tools/swqa/**
 Video/**
+# traduzioni: chiave API e stato dei lotti restano in locale
+Scripts/i18n/.env
+Scripts/i18n/dati/lotti.json
+Scripts/i18n/dati/_*
