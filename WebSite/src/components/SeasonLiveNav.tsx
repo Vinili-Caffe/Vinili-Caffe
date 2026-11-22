@@ -5,7 +5,9 @@ import { cn } from "@/lib/cn";
 import { useI18n } from "@/lib/i18n";
 import { enableSeasonForces, subscribeSeasonForces } from "@/lib/site-effects";
 
-const ACCENT = "#e24a3b";
+/** rosso per le cose importanti (in corso), verde per le novità */
+const TONES = { live: "#e24a3b", new: "#3fbf7f" } as const;
+type Tone = keyof typeof TONES;
 
 /**
  * Dopo hydration: abilita override localStorage stagione e ricalcola badge.
@@ -32,9 +34,10 @@ export function useNavSeasonTick() {
 }
 
 /** Bollino «in corso» accanto ad Albero / Wrapped (stile tag sconti). */
-export function SeasonLiveNavTag({ className, label }: { className?: string; label?: string }) {
+export function SeasonLiveNavTag({ className, label, tone = "live" }: { className?: string; label?: string; tone?: Tone }) {
   const { t } = useI18n();
   const text = label || t("nav.inProgress");
+  const ACCENT = TONES[tone];
   return (
     <span
       title={text}
@@ -54,12 +57,13 @@ export function SeasonLiveNavTag({ className, label }: { className?: string; lab
 }
 
 /** Punto esclamativo sul gruppo Giochi quando Albero o Wrapped sono live. */
-export function SeasonLiveNavDot({ className }: { className?: string }) {
+export function SeasonLiveNavDot({ className, tone = "live" }: { className?: string; tone?: Tone }) {
   const { t } = useI18n();
+  const ACCENT = TONES[tone];
   return (
     <span
       aria-hidden
-      title={t("nav.inProgress")}
+      title={tone === "new" ? t("nav.new") : t("nav.inProgress")}
       className={cn(
         "relative inline-flex size-3.5 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-black leading-none",
         className,

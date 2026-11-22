@@ -286,8 +286,9 @@ function NavDrop({
     seasonReady &&
     links.some((l) => {
       void seasonTick;
-      return navLinkSeasonLive(l) || (Boolean(l.isNew) && !linkLocked(l, highStaff, eventoNavOpen));
+      return navLinkSeasonLive(l);
     });
+  const newGroup = links.some((l) => Boolean(l.isNew) && !linkLocked(l, highStaff, eventoNavOpen));
 
   const collapse = useCallback(() => {
     setHover(false);
@@ -348,7 +349,11 @@ function NavDrop({
         <NavIcon labelKey={labelKey} className="size-3.5 shrink-0 opacity-75" />
         {label}
         {links.some((l) => isPromoHref(l.href)) ? <PromoNavDot className="-ml-0.5 self-start mt-1" /> : null}
-        {seasonLiveGroup ? <SeasonLiveNavDot className="-ml-0.5 self-center" /> : null}
+        {seasonLiveGroup ? (
+          <SeasonLiveNavDot className="-ml-0.5 self-center" />
+        ) : newGroup ? (
+          <SeasonLiveNavDot className="-ml-0.5 self-center" tone="new" />
+        ) : null}
         <ChevronDown className={cn("size-3.5 opacity-60 transition-transform", open && "rotate-180")} aria-hidden />
       </button>
       <AnimatePresence>
@@ -387,7 +392,7 @@ function NavDrop({
                       >
                         {ico}
                         {t(l.labelKey)}
-                        {live ? <SeasonLiveNavTag className="ml-auto" /> : fresh ? <SeasonLiveNavTag className="ml-auto" label={t("nav.new")} /> : null}
+                        {live ? <SeasonLiveNavTag className="ml-auto" /> : fresh ? <SeasonLiveNavTag className="ml-auto" label={t("nav.new")} tone="new" /> : null}
                         {!live && isPromoHref(l.href) ? <PromoNavTag className="ml-auto" /> : null}
                       </SmartLink>
                     )}
@@ -979,7 +984,7 @@ export function Navbar() {
                               {ico}
                               <span className="inline-flex flex-wrap items-center justify-center gap-1.5">
                                 {t(l.labelKey)}
-                                {live ? <SeasonLiveNavTag /> : fresh ? <SeasonLiveNavTag label={t("nav.new")} /> : null}
+                                {live ? <SeasonLiveNavTag /> : fresh ? <SeasonLiveNavTag label={t("nav.new")} tone="new" /> : null}
                                 {!live && isPromoHref(l.href) ? <PromoNavTag /> : null}
                               </span>
                         </SmartLink>

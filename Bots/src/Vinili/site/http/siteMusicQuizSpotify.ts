@@ -94,7 +94,16 @@ async function fromSpotify(id: string): Promise<Source> {
 
 async function fromApple(url: string): Promise<Source> {
   const res = await axios.get(url, { headers: { "User-Agent": BROWSER_UA }, timeout: 15_000, validateStatus: () => true });
-  if (res.status === 404) throw new ImportError("not_found", "Playlist di Apple Music non trovata.", 404);
+  if (res.status === 404) {
+    /* pl.u-… = playlist di un utente: si apre da fuori solo se è pubblica */
+    throw new ImportError(
+      "not_found",
+      /\/pl\.u-/.test(url)
+        ? "Apple Music dice che questa playlist non esiste: di solito vuol dire che è privata. Nell'app di Musica rendila pubblica (Mostra nel mio profilo / Pubblica la playlist), poi copia di nuovo il link."
+        : "Playlist di Apple Music non trovata.",
+      404,
+    );
+  }
   const html = String(res.data || "");
   const m = html.match(/<script[^>]*id="serialized-server-data"[^>]*>([\s\S]*?)<\/script>/);
   if (!m) throw new ImportError("not_found", "Non riesco a leggere questa playlist di Apple Music. Deve essere pubblica.", 404);
@@ -177,8 +186,9 @@ function detect(input: string): { kind: "spotify" | "apple" | "youtube"; id: str
   const s = String(input || "").trim();
   const sp = s.match(/open\.spotify\.com\/(?:intl-[a-z-]+\/)?playlist\/([A-Za-z0-9]{16,40})/) || s.match(/spotify:playlist:([A-Za-z0-9]{16,40})/);
   if (sp) return { kind: "spotify", id: sp[1]!, url: s };
-  const am = s.match(/https?:\/\/music\.apple\.com\/[a-z]{2}\/playlist\/[^\s?#]*\/(pl\.[A-Za-z0-9.-]+)/);
-  if (am) return { kind: "apple", id: am[1]!, url: am[0]! };
+  /* con o senza il nome nel percorso: /it/playlist/nome/pl.xxx oppure /it/playlist/pl.u-xxx (condivisa da un utente) */
+  const am = s.match(/https?:\/\/(?:embed\.)?music\.apple\.com\/([a-z]{2})\/playlist\/(?:[^\s/?#]+\/)?(pl\.[A-Za-z0-9._-]+)/);
+  if (am) return { kind: "apple", id: am[2]!, url: `https://music.apple.com/${am[1]}/playlist/${am[2]}` };
   const yt = s.match(/(?:youtube\.com|youtu\.be)\/.*[?&]list=([A-Za-z0-9_-]{10,64})/);
   if (yt) return { kind: "youtube", id: yt[1]!, url: s };
   return null;
