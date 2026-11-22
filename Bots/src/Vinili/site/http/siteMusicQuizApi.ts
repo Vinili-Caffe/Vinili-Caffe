@@ -3,6 +3,7 @@ const crypto = require("crypto") as typeof import("crypto");
 const { requireMusicQuizHighStaff, sendAuthError } =
   require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
 const deezer = require("./siteMusicQuizDeezer") as typeof import("./siteMusicQuizDeezer");
+const { buildMusicQuizHub } = require("./siteMusicQuizHub") as typeof import("./siteMusicQuizHub");
 const { SiteDocument, SITE_DOCUMENT_TYPE } =
   require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 
@@ -130,40 +131,8 @@ async function handleMusicQuizHubGet(client?, req?, res?) {
   const auth = await requireMusicQuizHighStaff(client, req);
   if (sendAuthError(res, auth)) return;
   try {
-    const [chartArtists, chartTracks, community] = await Promise.all([
-      deezer.chartArtists(12),
-      deezer.chartTracks(24),
-      SiteDocument.find({
-        docType: SITE_DOCUMENT_TYPE.MUSIC_QUIZ_PACK,
-        "payload.community": true,
-      })
-        .sort({ updatedAt: -1 })
-        .limit(24)
-        .lean(),
-    ]);
-    const featured = chartArtists.slice(0, 9).map((a) => ({
-      slug: `artist-${a.id}`,
-      title: a.name,
-      cover: a.cover,
-      kind: "artist",
-      deezerId: a.id,
-    }));
-    const trending = chartTracks.slice(0, 12).map((t) => ({
-      id: t.id,
-      title: t.title,
-      artist: t.artist,
-      cover: t.cover,
-      previewUrl: t.previewUrl,
-    }));
-    const communityPacks = (community || []).map((p: any) => ({
-      slug: p.boardSlug,
-      title: p.title,
-      cover: p.boardIconUrl || p.payload?.cover || "",
-      plays: Number(p.payload?.plays || 0),
-      trackCount: Array.isArray(p.payload?.tracks) ? p.payload.tracks.length : 0,
-      kind: "community",
-    }));
-    return res.json({ ok: true, featured, trending, community: communityPacks, popular: featured });
+    const hub = await buildMusicQuizHub();
+    return res.json({ ok: true, ...hub, community: hub.communityNew });
   } catch (err: any) {
     global.logger?.warn?.("[music-quiz] hub:", err?.message || err);
     return res.status(500).json({ ok: false, error: "hub_error" });

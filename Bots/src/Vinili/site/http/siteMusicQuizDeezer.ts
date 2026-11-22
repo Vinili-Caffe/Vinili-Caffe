@@ -141,7 +141,63 @@ async function chartArtists(limit = 12) {
     .filter((a?) => a.id && a.name);
 }
 
+/** Brani di una playlist con l'artista completo (foto inclusa): per ricavare gli artisti di una classifica. */
+async function playlistArtists(playlistId?, limit = 20) {
+  const data = await deezerGet(`/playlist/${encodeURIComponent(String(playlistId))}/tracks`, { limit: 100 });
+  const list = Array.isArray(data?.data) ? data.data : [];
+  const seen = new Set<string>();
+  const out: Array<{ id: string; name: string; cover: string; kind: "artist" }> = [];
+  for (const raw of list) {
+    const a = raw?.artist;
+    const id = String(a?.id || "");
+    if (!id || seen.has(id) || !a?.name) continue;
+    seen.add(id);
+    out.push({ id, name: String(a.name), cover: String(a.picture_big || a.picture_medium || ""), kind: "artist" });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** La playlist migliore per una ricerca: prima quelle curate da Deezer, poi la più lunga. */
+async function bestPlaylist(q?, minTracks = 25, exactTitle?) {
+  const data = await deezerGet("/search/playlist", { q: String(q || "").trim(), limit: 15 });
+  const list = (Array.isArray(data?.data) ? data.data : []).filter(
+    (p?) => p?.id && p?.title && Number(p?.nb_tracks || 0) >= minTracks,
+  );
+  const want = String(exactTitle || "").trim().toLowerCase();
+  const best =
+    (want && list.find((p?) => String(p.title).trim().toLowerCase() === want && /deezer/i.test(String(p?.user?.name || "")))) ||
+    (want && list.find((p?) => String(p.title).trim().toLowerCase() === want)) ||
+    list.find((p?) => /deezer|digster|filtr/i.test(String(p?.user?.name || ""))) ||
+    list[0];
+  if (!best) return null;
+  return {
+    id: String(best.id),
+    name: String(best.title),
+    cover: String(best.picture_big || best.picture_medium || ""),
+    trackCount: Number(best.nb_tracks || 0) || 0,
+    kind: "playlist" as const,
+  };
+}
+
+async function genreArtists(genreId?, limit = 14) {
+  const data = await deezerGet(`/genre/${encodeURIComponent(String(genreId))}/artists`);
+  const list = Array.isArray(data?.data) ? data.data : [];
+  return list
+    .slice(0, limit)
+    .map((a?) => ({
+      id: String(a?.id || ""),
+      name: String(a?.name || ""),
+      cover: String(a?.picture_big || a?.picture_medium || ""),
+      kind: "artist" as const,
+    }))
+    .filter((a?) => a.id && a.name);
+}
+
 export = {
+  playlistArtists,
+  bestPlaylist,
+  genreArtists,
   mapTrack,
   searchArtists,
   searchPlaylists,

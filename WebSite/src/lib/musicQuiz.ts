@@ -43,6 +43,8 @@ export type MusicQuizPackCard = {
   plays?: number;
   trackCount?: number;
   authorName?: string;
+  /** nome originale della playlist, quando il titolo mostrato è un'etichetta (es. «Anni '80») */
+  label?: string;
 };
 
 export type MusicQuizTrack = {
@@ -72,13 +74,21 @@ export type MusicQuizMode = "solo" | "party" | "stream";
 /** Tempo per rispondere, da quando parte il brano (uguale al server). */
 export const MUSIC_QUIZ_ANSWER_MS = 30_000;
 
+export type MusicQuizHubData = {
+  featured: MusicQuizPackCard[];
+  trendingArtists?: MusicQuizPackCard[];
+  playlists?: MusicQuizPackCard[];
+  decades?: MusicQuizPackCard[];
+  genres?: Array<{ id: string; name: string; items: MusicQuizPackCard[] }>;
+  communityNew?: MusicQuizPackCard[];
+  communityTop?: MusicQuizPackCard[];
+  community?: MusicQuizPackCard[];
+  popular?: MusicQuizPackCard[];
+  recent?: MusicQuizPackCard[];
+};
+
 export async function loadMusicQuizHub(token: string) {
-  return api<{
-    featured: MusicQuizPackCard[];
-    trending: MusicQuizTrack[];
-    community: MusicQuizPackCard[];
-    popular: MusicQuizPackCard[];
-  }>("/hub", token);
+  return api<MusicQuizHubData>("/hub", token);
 }
 
 export async function searchMusicQuiz(token: string, q: string) {
