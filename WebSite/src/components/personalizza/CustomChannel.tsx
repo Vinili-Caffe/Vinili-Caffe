@@ -12,7 +12,12 @@ import {
   inferColorMode,
   loadGuildEmojis,
   mutateCustomProfile,
+  CUSTOM_MARK_LEAD,
+  CUSTOM_MARK_SEP,
   normalizeHex,
+  parseCustomRoleDisplay,
+  parseCustomVocDisplay,
+  stripCustomNameMarks,
   requirementsFor,
   type ColorMode,
   type CustomProfileState,
@@ -73,16 +78,21 @@ export function CustomChannel({
       setMode("solid");
       return;
     }
-    setName(String(entity.name || "").replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+/u, "").trim() || entity.name || "");
+    if (target === "voice") {
+      const voice = entity as CustomVoiceEntity;
+      const parsed = parseCustomVocDisplay(voice.name);
+      setName(stripCustomNameMarks(parsed.baseName));
+      setEmoji(stripCustomNameMarks(String(voice.emoji || parsed.emoji || "")));
+      setIcon("");
+      return;
+    }
+    setName(parseCustomRoleDisplay(entity.name));
     if ("color" in entity) {
       const role = entity as CustomRoleEntity;
       setHex(normalizeHex(role.color, "#FF66CC"));
       setHex2(normalizeHex(role.color2, "#66CCFF"));
       setMode(inferColorMode(role.color, role.color2, role.colorMode));
       setIcon(String(role.emoji || ""));
-    }
-    if ("emoji" in entity && target === "voice") {
-      setEmoji(String((entity as CustomVoiceEntity).emoji || ""));
     }
   }, [entity, target]);
 
@@ -143,7 +153,7 @@ export function CustomChannel({
         onToast("Qui puoi usare solo emoji normali (non quelle custom del server).", true);
         return;
       }
-      setName((n) => `${pick.text} ${n}`.trim());
+      setName((n) => stripCustomNameMarks(`${pick.text} ${n}`));
       return;
     }
     if (field === "icon") {
@@ -155,7 +165,7 @@ export function CustomChannel({
       onToast("Per la vocale usa un'emoji unicode (es. 🎧).", true);
       return;
     }
-    setEmoji(pick.text);
+    setEmoji(stripCustomNameMarks(pick.text));
   }
 
   const title =
@@ -269,12 +279,38 @@ export function CustomChannel({
           <label htmlFor="name" className="block">
             <span className="text-xs font-semibold uppercase tracking-wider text-crema/50">Nome</span>
             <div className="relative mt-1.5 flex gap-2">
-              <input id="name" name="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="min-w-0 flex-1 rounded-xl bg-espresso/70 px-3 py-2.5 text-sm outline-none ring-1 ring-sand/15 focus:ring-caramel/60"
-                maxLength={80}
-              />
+              <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-xl bg-espresso/70 px-2.5 py-1.5 ring-1 ring-sand/15 focus-within:ring-caramel/60">
+                <span
+                  className="select-none px-0.5 text-sm font-semibold text-crema/35"
+                  title="Fisso · non modificabile"
+                  aria-hidden
+                >
+                  {CUSTOM_MARK_LEAD}
+                </span>
+                {target === "voice" ? (
+                  <>
+                    <span className="select-none text-sm text-crema/50" aria-hidden>
+                      {emoji.trim() || "🎧"}
+                    </span>
+                    <span
+                      className="select-none px-0.5 text-sm font-semibold text-crema/35"
+                      title="Fisso · non modificabile"
+                      aria-hidden
+                    >
+                      {CUSTOM_MARK_SEP}
+                    </span>
+                  </>
+                ) : null}
+                <input
+                  id="name"
+                  name="name"
+                  value={name}
+                  onChange={(e) => setName(stripCustomNameMarks(e.target.value))}
+                  className="min-w-0 flex-1 bg-transparent py-1 text-sm outline-none"
+                  maxLength={80}
+                  autoComplete="off"
+                />
+              </div>
               {target !== "voice" && (
                 <div className="relative">
                   <button
@@ -299,24 +335,47 @@ export function CustomChannel({
               <button
                 type="button"
                 disabled={busy || !name.trim()}
-                onClick={() => run("rename", target === "voice" ? { name: name.trim(), baseName: name.trim() } : { name: name.trim() })}
+                onClick={() =>
+                  run(
+                    "rename",
+                    target === "voice"
+                      ? { name: stripCustomNameMarks(name), baseName: stripCustomNameMarks(name) }
+                      : { name: stripCustomNameMarks(name) },
+                  )
+                }
                 className="rounded-full bg-crema/8 px-4 text-sm font-semibold ring-1 ring-sand/25 hover:bg-crema/12 disabled:opacity-50"
               >
                 Rinomina
               </button>
             </div>
+            <p className="mt-1 text-[0.7rem] text-crema/40">
+              {target === "voice"
+                ? "༄ e ︲ sono fissi: puoi cambiare solo emoji e nome."
+                : "༄ è fisso: puoi cambiare solo il nome del ruolo."}
+            </p>
           </label>
 
           {target === "voice" ? (
             <label htmlFor="emoji" className="block">
               <span className="text-xs font-semibold uppercase tracking-wider text-crema/50">Emoji canale</span>
               <div className="relative mt-1.5 flex gap-2">
-                <input id="emoji" name="emoji"
-                  value={emoji}
-                  onChange={(e) => setEmoji(e.target.value)}
-                  className="min-w-0 flex-1 rounded-xl bg-espresso/70 px-3 py-2.5 text-sm outline-none ring-1 ring-sand/15 focus:ring-caramel/60"
-                  placeholder="🎧"
-                />
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-xl bg-espresso/70 px-2.5 py-1.5 ring-1 ring-sand/15 focus-within:ring-caramel/60">
+                  <span className="select-none px-0.5 text-sm font-semibold text-crema/35" aria-hidden>
+                    {CUSTOM_MARK_LEAD}
+                  </span>
+                  <input
+                    id="emoji"
+                    name="emoji"
+                    value={emoji}
+                    onChange={(e) => setEmoji(stripCustomNameMarks(e.target.value))}
+                    className="min-w-0 flex-1 bg-transparent py-1 text-sm outline-none"
+                    placeholder="🎧"
+                    autoComplete="off"
+                  />
+                  <span className="select-none px-0.5 text-sm font-semibold text-crema/35" aria-hidden>
+                    {CUSTOM_MARK_SEP}
+                  </span>
+                </div>
                 <div className="relative">
                   <button
                     ref={emojiBtn}
@@ -339,7 +398,7 @@ export function CustomChannel({
                 <button
                   type="button"
                   disabled={busy || !emoji.trim()}
-                  onClick={() => run("emoji", { emoji: emoji.trim() })}
+                  onClick={() => run("emoji", { emoji: stripCustomNameMarks(emoji) })}
                   className="rounded-full bg-crema/8 px-4 text-sm font-semibold ring-1 ring-sand/25 hover:bg-crema/12 disabled:opacity-50"
                 >
                   Applica
@@ -390,9 +449,13 @@ export function CustomChannel({
                 type="button"
                 disabled={busy}
                 onClick={() => {
-                  const m = mode === "holo" ? "gradient" : mode;
                   const h1 = mode === "holo" ? HOLO_PRIMARY : normalizeHex(hex);
-                  const h2 = mode === "holo" || mode === "gradient" ? (mode === "holo" ? HOLO_SECONDARY : normalizeHex(hex2)) : "";
+                  const h2 =
+                    mode === "holo"
+                      ? HOLO_SECONDARY
+                      : mode === "gradient"
+                        ? normalizeHex(hex2)
+                        : "";
                   if (mode === "solid" && !h1) {
                     onToast("Inserisci un colore HEX valido (es. #ff66cc).", true);
                     return;
@@ -401,7 +464,8 @@ export function CustomChannel({
                     onToast("Per il gradiente servono primario e secondario HEX validi.", true);
                     return;
                   }
-                  run("color", { mode: m, hex: h1, hex2: h2 });
+                  /* holo deve arrivare come mode=holo (non remappare a gradient). */
+                  run("color", { mode, hex: h1 || "", hex2: h2 || "" });
                 }}
                 className="rounded-full bg-crema/8 px-4 py-2 text-sm font-semibold ring-1 ring-sand/25 hover:bg-crema/12 disabled:opacity-50"
               >

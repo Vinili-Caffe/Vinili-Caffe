@@ -23,11 +23,22 @@ const CUSTOM_ROLE_GRADIENT_HOLO_ROLE_IDS = [IDs?.roles?.VIP, IDs?.roles?.ServerB
 const MAX_ROLE_ICON_BYTES = 2 * 1024 * 1024;
 const HOLO = { primaryColor: 11127295, secondaryColor: 16759788, tertiaryColor: 16761760 };
 
+/** ༄ / ︲ e lookalike: strutturali, mai lasciati all'utente. */
+function stripCustomStructuralMarks(raw?) {
+  return String(raw || "")
+    .replace(/\u0F04/g, "")
+    .replace(/༄/g, "")
+    .replace(/\uFE32/g, "")
+    .replace(/\u01C0/g, "")
+    .replace(/\u2758/g, "")
+    .replace(/[｜│¦︲]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function trimRoleName(name?) {
-  const clean = String(name || "").replace(/\s+/g, " ").trim();
-  const base = clean || "Custom Role";
-  const prefixed = base.startsWith("༄") ? base : `༄ ${base}`;
-  return prefixed.slice(0, 100).trim();
+  const base = stripCustomStructuralMarks(name) || "Custom Role";
+  return `༄ ${base}`.slice(0, 100).trim();
 }
 
 function memberCanCreateCustomVoc(member?) {
@@ -67,6 +78,7 @@ export = {
   ANCHOR_ROLE_ID,
   MAX_ROLE_ICON_BYTES,
   HOLO,
+  stripCustomStructuralMarks,
   trimRoleName,
   memberCanCreateCustomVoc,
   memberHasGradientHoloAccess,

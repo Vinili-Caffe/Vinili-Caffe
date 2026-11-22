@@ -4,7 +4,13 @@ import { motion } from "motion/react";
 import { Headphones, Volume2 } from "lucide-react";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { discordEmojiUrl } from "@/components/discord/EmojiText";
-import { HOLO_PRIMARY, HOLO_SECONDARY, type ColorMode } from "@/lib/personalizza";
+import {
+  formatCustomRolePreview,
+  formatCustomVocPreview,
+  HOLO_PRIMARY,
+  HOLO_SECONDARY,
+  type ColorMode,
+} from "@/lib/personalizza";
 import { cn } from "@/lib/cn";
 
 /** Icona ruolo come la salva il bot: emoji unicode, `<:nome:id>` oppure link https a un'immagine. */
@@ -73,17 +79,18 @@ export function RolePreview({ name, mode, color, color2, icon }: { name: string;
         <span className="inline-flex max-w-full items-center gap-1.5 rounded-[4px] bg-[#232428] px-2 py-1 text-xs font-medium">
           <span className="size-3 shrink-0 rounded-full" style={{ background: fill }} />
           <RoleIconGlyph value={icon} className="size-3.5 text-xs" />
-          <span className="truncate">{name.trim() || "Il tuo ruolo"}</span>
+          <span className="truncate">{formatCustomRolePreview(name)}</span>
         </span>
       </div>
     </div>
   );
 }
 
-/** Riga del canale nell'elenco di Discord: ༄🎧ǀnome, con chi c'è dentro. */
+/** Riga del canale nell'elenco di Discord: ༄emoji︲nome, con chi c'è dentro. */
 export function VoicePreview({ name, emoji, members }: { name: string; emoji: string; members: { id: string; avatarUrl?: string; displayName?: string; username?: string }[] }) {
   const { user } = useAuth();
   const people = members.length ? members.slice(0, 4) : user ? [{ id: user.id, avatarUrl: avatarUrl(user, 48), displayName: displayName(user) }] : [];
+  const label = formatCustomVocPreview(emoji, name);
   return (
     <div className="scheme-dark overflow-hidden rounded-2xl bg-[#2b2d31] text-[#949ba4] ring-1 ring-black/40">
       <p className="border-b border-black/25 px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em]">Come appare su Discord</p>
@@ -91,9 +98,7 @@ export function VoicePreview({ name, emoji, members }: { name: string; emoji: st
         <p className="px-2 pb-1 text-[0.68rem] font-bold uppercase tracking-wide">Vocali private</p>
         <div className="flex items-center gap-1.5 rounded-md bg-[#404249] px-2 py-1.5 text-[#f2f3f5]">
           <Volume2 className="size-4 shrink-0 text-[#949ba4]" />
-          <span className="truncate font-medium">
-            ༄{emoji.trim() || "🎧"}ǀ{name.trim() || "privata"}
-          </span>
+          <span className="truncate font-medium">{label}</span>
         </div>
         <ul className="mt-1 space-y-0.5 pl-8">
           {people.map((m) => (

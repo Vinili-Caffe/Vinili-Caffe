@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Reveal } from "@/components/Reveal";
 import { useAuth } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import {
   KIND_LABEL,
@@ -23,7 +24,9 @@ import {
   clearAllNotifs,
   deleteNotif,
   filterPersonal,
+  kindLabelKey,
   loadNotifications,
+  localizedNotifCopy,
   markAllNotifsRead,
   markNotifRead,
   personalCategory,
@@ -63,7 +66,8 @@ function Pill({ on, onClick, children, className }: { on: boolean; onClick: () =
 }
 
 function kindIconTone(kind: string) {
-  if (kind === "vote" || kind === "vote_reminder" || kind === "success") return "text-ember bg-caramel/15 ring-caramel/25";
+  if (kind === "vote" || kind === "vote_reminder" || kind === "wordle_reminder" || kind === "success")
+    return "text-ember bg-caramel/15 ring-caramel/25";
   if (kind === "contest") return "text-rose-200 bg-rose-500/15 ring-rose-400/25";
   if (kind === "review") return "text-amber-200 bg-amber-500/15 ring-amber-400/25";
   if (kind === "mod" || kind === "staff") return "text-sky-200 bg-sky-500/15 ring-sky-400/25";
@@ -80,6 +84,10 @@ function NotifRow({
   onOpen: (n: SiteNotification) => void;
   onDelete: (id: string) => void;
 }) {
+  const { t } = useI18n();
+  const copy = localizedNotifCopy(n, t);
+  const kindKey = kindLabelKey(String(n.kind));
+  const kindLabel = (kindKey ? t(kindKey) : null) || KIND_LABEL[String(n.kind)] || "Info";
   return (
     <li>
       <div
@@ -102,8 +110,8 @@ function NotifRow({
           <Bell className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-crema"><EmojiText text={n.title} /></p>
-          {n.body ? <p className="mt-0.5 line-clamp-2 text-sm text-crema/55"><EmojiText text={n.body} /></p> : null}
+          <p className="font-semibold text-crema"><EmojiText text={copy.title} /></p>
+          {copy.body ? <p className="mt-0.5 line-clamp-2 text-sm text-crema/55"><EmojiText text={copy.body} /></p> : null}
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-crema/40">
             <span className="lining-nums">{timeAgoNotif(n.at)}</span>
             {!n.read ? <span className="rounded-full bg-caramel/20 px-2 py-0.5 font-semibold text-ember">Non letta</span> : null}
@@ -116,7 +124,7 @@ function NotifRow({
               n.openUrl ? "bg-caramel/15 text-ember ring-1 ring-caramel/25" : n.read ? "bg-crema/8 text-crema/45" : "bg-crema/10 text-crema/60",
             )}
           >
-            {n.openUrl ? "Vai" : KIND_LABEL[String(n.kind)] || "Info"}
+            {n.openUrl ? "Vai" : kindLabel}
           </span>
           <button
             type="button"

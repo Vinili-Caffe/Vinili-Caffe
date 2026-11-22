@@ -67,7 +67,7 @@ function isStanzaAutomodExemptChannel(channel?, guild?) {
   const lobbyId = String(IDs.channels?.stanzaLobbyVoice || "").trim();
   const chId = String(channel.id || "");
   if (lobbyId && chId === lobbyId) return true;
-  if (/Stanza di\s+/i.test(String(channel.name || ""))) return true;
+  if (/Stanza di\s+/i.test(String(channel.name || "")) || /['’]s room$/i.test(String(channel.name || ""))) return true;
   try {
     const vinili = require("../../Voice/services/stanzaVoiceRoomsService") as typeof import("../../Voice/services/stanzaVoiceRoomsService");
     if (typeof vinili.isManagedStanzaRoomChannel === "function") {

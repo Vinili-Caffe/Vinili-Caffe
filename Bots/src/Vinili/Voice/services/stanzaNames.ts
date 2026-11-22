@@ -15,8 +15,9 @@ const stanzaVicePending = new Map();
 const stanzaUsersMemberPending = new Map();
 const stanzaBotRenameUntil = new Map();
 const STANZA_DEFAULT_EMOJI = "🏠";
-const STANZA_CREATE_MIDDLE = `${STANZA_CONNECTOR}Stanza di `;
-const STANZA_ANCHOR = STANZA_CREATE_MIDDLE;
+/** Create only: ༄emoji︲{user}'s room */
+const STANZA_CREATE_SUFFIX = "'s room";
+const STANZA_ANCHOR = `${STANZA_CONNECTOR}${STANZA_CREATE_SUFFIX}`;
 const STANZA_VC_NAME_MAX = 100;
 const STANZA_VC_VOICE_STATUS_MAX = 500;
 const STANZA_SNAPSHOT_VERSION = 1;
@@ -72,13 +73,20 @@ function isStanzaBotRename(channelId?) {
 }
 
 function buildStanzaCreateName(emojiPart?, labelPart?) {
-  return `${STANZA_NAME_LEAD}${String(emojiPart || STANZA_DEFAULT_EMOJI)}${STANZA_CREATE_MIDDLE}${String(labelPart || "")}`.slice(
+  return `${STANZA_NAME_LEAD}${String(emojiPart || STANZA_DEFAULT_EMOJI)}${STANZA_CONNECTOR}${String(labelPart || "")}${STANZA_CREATE_SUFFIX}`.slice(
     0,
     STANZA_VC_NAME_MAX,
   );
 }
 
-/** Rename / emoji / enforce — never inject "Stanza di". */
+function buildStanzaLegacyCreateName(emojiPart?, labelPart?) {
+  return `${STANZA_NAME_LEAD}${String(emojiPart || STANZA_DEFAULT_EMOJI)}${STANZA_CONNECTOR}Stanza di ${String(labelPart || "")}`.slice(
+    0,
+    STANZA_VC_NAME_MAX,
+  );
+}
+
+/** Rename / emoji / enforce — never inject create suffix ("'s room" / legacy "Stanza di"). */
 function buildStanzaFullName(emojiPart?, labelPart?) {
   return `${STANZA_NAME_LEAD}${String(emojiPart || STANZA_DEFAULT_EMOJI)}${STANZA_CONNECTOR}${String(labelPart || "")}`.slice(
     0,
@@ -92,11 +100,15 @@ function isCanonicalStanzaVoiceName(name?) {
   const label = normalizeStanzaUserLabel(parsed.labelPart);
   if (!label) return false;
   const n = String(name || "");
-  // Create form (with Stanza di) OR renamed form (connector only) are both OK.
-  return buildStanzaCreateName(parsed.emojiPart, label) === n || buildStanzaFullName(parsed.emojiPart, label) === n;
+  // Create form ({user}'s room / legacy Stanza di) OR renamed form (connector only) are both OK.
+  return (
+    buildStanzaCreateName(parsed.emojiPart, label) === n ||
+    buildStanzaLegacyCreateName(parsed.emojiPart, label) === n ||
+    buildStanzaFullName(parsed.emojiPart, label) === n
+  );
 }
 
-/** Strip connector / legacy "Stanza di" so rename never duplicates the prefix middle. */
+/** Strip connector / create suffix / legacy "Stanza di" so rename never duplicates the middle. */
 function normalizeStanzaUserLabel(raw?) {
   let s = String(raw || "")
     .replace(/[\n\r\t]/g, " ")
@@ -111,6 +123,9 @@ function normalizeStanzaUserLabel(raw?) {
   }
   if (/^stanza di\s+/i.test(s)) {
     s = s.replace(/^stanza di\s+/i, "").trimStart();
+  }
+  if (/['’]s room$/i.test(s)) {
+    s = s.replace(/['’]s room$/i, "").trimEnd();
   }
   while (s.startsWith(STANZA_CONNECTOR) || s.startsWith("╵") || s.startsWith("｜") || s.startsWith("|")) {
     s = s.slice(1).trimStart();
@@ -127,13 +142,13 @@ function buildStanzaVoiceNameFromUserPart(userInput?, currentVoiceName?) {
   );
   const part = sanitizeStanzaNamePart(normalizeStanzaUserLabel(userInput), maxLabel);
   if (!part) return null;
-  // Rename: ༄ + emoji + ︲ + label (no "Stanza di").
+  // Rename: ༄ + emoji + ︲ + label (no create suffix).
   return buildStanzaFullName(emojiPart, part);
 }
 
 /**
  * Recompute required channel name after any rename (panel or Discord UI).
- * Enforces ༄{emoji}︲{label} — never injects "Stanza di" on rename.
+ * Enforces ༄{emoji}︲{label} — never injects create suffix on rename.
  * Returns null when newName is already canonical (create or renamed form).
  */
 function resolveEnforcedStanzaVoiceName(oldName?, newName?) {

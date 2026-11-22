@@ -9,11 +9,13 @@ import { HeaderNameMarquee } from "./effects/HeaderNameMarquee";
 
 const FALLBACK = cdnUrl("/images/logo-disco.png");
 const FALLBACK_NAME = "📀 VINILI & CAFFÈ ☕";
+/** Brand Discord: disco/tazza + varianti stagionali (Babbo/neve/albero…). */
+const KEEP_BRAND_EMOJI = new Set(["📀", "☕", "🎅", "❄", "🎄", "✨", "🎁", "🎃"]);
 
 /**
  * Discord usa lettere “decorative” (es. ɑ al posto di a) che con `uppercase`
  * diventano glifi fuori dal subset Inter → tofu/quadratino su “CAFFÈ”.
- * Tiene 📀/☕ del brand; toglie solo le altre emoji decorative.
+ * Tiene le emoji brand (📀☕ e stagionali); toglie le altre decorative.
  */
 function scrubDiscordText(raw: string): string {
   return String(raw || "")
@@ -22,7 +24,7 @@ function scrubDiscordText(raw: string): string {
     .replace(/[\u200B-\u200D\uFE0E\uFE0F]/g, "")
     .normalize("NFKC")
     .normalize("NFC")
-    .replace(/\p{Extended_Pictographic}/gu, (ch) => (ch === "📀" || ch === "☕" ? ch : ""))
+    .replace(/\p{Extended_Pictographic}/gu, (ch) => (KEEP_BRAND_EMOJI.has(ch) ? ch : ""))
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -33,10 +35,11 @@ function splitGuildBrand(raw: string): { main: string; tagline: string } {
   const left = (cut > 0 ? cleaned.slice(0, cut) : cleaned).trim();
   const right = cut > 0 ? cleaned.slice(cut + 1).trim() : "";
   if (/vinili\s*&\s*caff/i.test(left)) {
-    const hasDisc = left.includes("📀");
-    const hasCup = left.includes("☕");
+    const prefix = (left.match(/^(?:\p{Extended_Pictographic}\s*)+/u) || [""])[0];
+    const suffix = (left.match(/(?:\s*\p{Extended_Pictographic})+$/u) || [""])[0];
+    const main = `${prefix}VINILI & CAFFÈ${suffix}`.replace(/\s+/g, " ").trim();
     return {
-      main: `${hasDisc ? "📀 " : ""}VINILI & CAFFÈ${hasCup ? " ☕" : ""}`.trim() || FALLBACK_NAME,
+      main: main || FALLBACK_NAME,
       tagline: right,
     };
   }

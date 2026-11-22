@@ -3,10 +3,13 @@
 import { motion } from "motion/react";
 import { BarChart3, Copy, Flame, Share2, Trophy } from "lucide-react";
 import { type WordleStats as Stats } from "@/lib/wordle";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 
 type Props = {
   stats: Stats;
+  /** Classico 6, ×4 fino a 9. */
+  maxAttempts?: number;
   shareText?: string | null;
   onShare?: () => void;
   shareLabel?: string;
@@ -15,23 +18,33 @@ type Props = {
 };
 
 /** Contatore del bancone: partite, serie, distribuzione. */
-export function WordleStats({ stats, shareText, onShare, shareLabel = "Condividi", onCopy, copyLabel = "Copia risultato" }: Props) {
+export function WordleStats({
+  stats,
+  maxAttempts = 6,
+  shareText,
+  onShare,
+  shareLabel,
+  onCopy,
+  copyLabel,
+}: Props) {
+  const { t } = useI18n();
   const winPct = stats.played ? Math.round((stats.won / stats.played) * 100) : 0;
-  const maxBar = Math.max(1, ...stats.distribution);
+  const dist = Array.from({ length: maxAttempts }, (_, i) => Number(stats.distribution[i]) || 0);
+  const maxBar = Math.max(1, ...dist);
 
   const cards = [
-    { label: "Giocate", value: stats.played, icon: BarChart3 },
-    { label: "% vittorie", value: winPct, icon: Trophy },
-    { label: "Serie", value: stats.currentStreak, icon: Flame },
-    { label: "Record", value: stats.maxStreak, icon: Flame },
+    { label: t("wordle.statPlayed"), value: stats.played, icon: BarChart3 },
+    { label: t("wordle.statWinPct"), value: winPct, icon: Trophy },
+    { label: t("wordle.statStreak"), value: stats.currentStreak, icon: Flame },
+    { label: t("wordle.statBest"), value: stats.maxStreak, icon: Flame },
   ];
 
   return (
     <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Statistiche</p>
-          <h3 className="mt-1 font-display text-2xl font-semibold">Le tue partite</h3>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">{t("wordle.statsKicker")}</p>
+          <h3 className="mt-1 font-display text-2xl font-semibold">{t("wordle.statsTitle")}</h3>
         </div>
         {shareText && (onShare || onCopy) ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -42,7 +55,7 @@ export function WordleStats({ stats, shareText, onShare, shareLabel = "Condividi
                 className="inline-flex items-center gap-2 rounded-full bg-crema/8 px-4 py-2 text-sm font-semibold text-crema ring-1 ring-sand/25 transition hover:bg-crema/12"
               >
                 <Copy className="size-4" />
-                <span className="hidden sm:inline">{copyLabel}</span>
+                <span className="hidden sm:inline">{copyLabel || t("wordle.copyResult")}</span>
               </button>
             ) : null}
             {onShare ? (
@@ -52,7 +65,7 @@ export function WordleStats({ stats, shareText, onShare, shareLabel = "Condividi
                 className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
               >
                 <Share2 className="size-4" />
-                <span className="hidden sm:inline">{shareLabel}</span>
+                <span className="hidden sm:inline">{shareLabel || t("wordle.share")}</span>
               </button>
             ) : null}
           </div>
@@ -68,9 +81,9 @@ export function WordleStats({ stats, shareText, onShare, shareLabel = "Condividi
         ))}
       </div>
 
-      <p className="mt-6 text-xs font-semibold uppercase tracking-[0.25em] text-crema/40">Distribuzione</p>
+      <p className="mt-6 text-xs font-semibold uppercase tracking-[0.25em] text-crema/40">{t("wordle.distribution")}</p>
       <ul className="mt-3 space-y-1.5">
-        {stats.distribution.map((n, i) => (
+        {dist.map((n, i) => (
           <li key={i} className="flex items-center gap-2">
             <span className="w-4 shrink-0 text-sm lining-nums text-crema/55">{i + 1}</span>
             <div className="h-7 flex-1 overflow-hidden rounded-lg bg-crema/[0.04] ring-1 ring-sand/10">

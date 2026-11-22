@@ -50,6 +50,7 @@ function filmPosterUrl(file: string) {
 /**
  * Serate extra Natale 2026 (21–27 dic, 21:00 Rome).
  * 25 dic assente di proposito.
+ * Visibili / attive solo in quella settimana (vedi isSerataXmasScheduleLive).
  */
 export const SERATA_XMAS_NIGHTS: SerataNight[] = [
   {
@@ -101,6 +102,9 @@ export const SERATA_XMAS_NIGHTS: SerataNight[] = [
     poster: filmPosterUrl("poltrona-per-due-poster.jpg"),
   },
 ];
+
+/** Finestra calendario Rome in cui programmazione Natale è pubblica. */
+export const SERATA_XMAS_VISIBLE = { startDate: "2026-12-21", endDate: "2026-12-27" } as const;
 
 /** Skip titoli di coda (disattivato). */
 export const CREDITS_SKIP = {
@@ -224,6 +228,21 @@ function nightStartMs(night: SerataNight, event: SerataEvent = SERATA_EVENT): nu
   return localZonedToUtcMs(y, m, d, hour, minute, tz);
 }
 
+/**
+ * True solo nella settimana Natale (21–27 dic Rome), più la live window
+ * dell'ultima serata se sconfina oltre la mezzanotte del 27.
+ */
+export function isSerataXmasScheduleLive(now = Date.now(), event: SerataEvent = SERATA_EVENT): boolean {
+  const tz = event.timezone || "Europe/Rome";
+  const p = zonedParts(now, tz);
+  const key = `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+  if (key >= SERATA_XMAS_VISIBLE.startDate && key <= SERATA_XMAS_VISIBLE.endDate) return true;
+  const last = SERATA_XMAS_NIGHTS[SERATA_XMAS_NIGHTS.length - 1];
+  if (!last) return false;
+  const start = nightStartMs(last, event);
+  return Number.isFinite(start) && now >= start && now - start < LIVE_WINDOW_MS;
+}
+
 function nextRecurringSaturdayMs(event: SerataEvent, now: number): number {
   const tz = event.timezone || "Europe/Rome";
   const wantWd = Math.max(0, Math.min(6, Math.floor(Number(event.recurring?.weekday) || 6)));
@@ -238,6 +257,21 @@ function nextRecurringSaturdayMs(event: SerataEvent, now: number): number {
     target = localZonedToUtcMs(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), wantH, wantM, tz);
   }
   return target;
+}
+
+/** Sabato ricorrente in corso (entro LIVE_WINDOW_MS), altrimenti null. */
+function liveRecurringSaturdayMs(event: SerataEvent, now: number): number | null {
+  const tz = event.timezone || "Europe/Rome";
+  const wantWd = Math.max(0, Math.min(6, Math.floor(Number(event.recurring?.weekday) || 6)));
+  const wantH = Math.max(0, Math.min(23, Math.floor(Number(event.recurring?.hour) ?? 21)));
+  const wantM = Math.max(0, Math.min(59, Math.floor(Number(event.recurring?.minute) || 0)));
+  const p = zonedParts(now, tz);
+  const daysSince = (p.weekday - wantWd + 7) % 7;
+  const d = new Date(Date.UTC(p.year, p.month - 1, p.day - daysSince));
+  const start = localZonedToUtcMs(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), wantH, wantM, tz);
+  if (!Number.isFinite(start)) return null;
+  if (now >= start && now - start < LIVE_WINDOW_MS) return start;
+  return null;
 }
 
 export type ResolvedSerata = {
@@ -278,12 +312,27 @@ export function resolveSerata(event: SerataEvent = SERATA_EVENT, now = Date.now(
     }
   }
 
-  const scheduled = SERATA_XMAS_NIGHTS.map((night) => ({ night, startMs: nightStartMs(night, event) })).filter((x) =>
-    Number.isFinite(x.startMs),
+  const scheduled = (
+    isSerataXmasScheduleLive(now, event)
+      ? SERATA_XMAS_NIGHTS.map((night) => ({ night, startMs: nightStartMs(night, event) })).filter((x) =>
+          Number.isFinite(x.startMs),
+        )
+      : []
   );
 
   const liveNight = scheduled.find((x) => now >= x.startMs && now - x.startMs < LIVE_WINDOW_MS);
   if (liveNight) return asNightResolved(liveNight.night, liveNight.startMs);
+
+  /* Sabato ricorrente: dopo le 21:00 nextRecurring salta alla settimana dopo —
+     senza questo blocco la UI non passa mai in “Serata in corso” e non si può avviare. */
+  const satLive = liveRecurringSaturdayMs(event, now);
+  if (satLive != null) {
+    const liveParts = zonedParts(satLive, event.timezone || "Europe/Rome");
+    const liveKey = `${liveParts.year}-${String(liveParts.month).padStart(2, "0")}-${String(liveParts.day).padStart(2, "0")}`;
+    if (!scheduled.some((x) => x.night.date === liveKey)) {
+      return asDefaultResolved(satLive, event);
+    }
+  }
 
   const candidates: ResolvedSerata[] = scheduled
     .filter((x) => x.startMs > now)

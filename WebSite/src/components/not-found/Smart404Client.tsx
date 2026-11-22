@@ -2,15 +2,31 @@
 
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useSitePathname } from "@/lib/locale-path";
+import { currentUrlLocale, useSitePathname, withLocale } from "@/lib/locale-path";
 import { Disc3 } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
-import { resolveSmart404 } from "@/lib/smart404";
+import { knownRoutes, resolveSmart404, withSlash } from "@/lib/smart404";
 
 /** Alias → redirect; genitore noto → link “Prova …”. Solo percorsi del catalogo. */
 export function Smart404Client({ hintId }: { hintId: string }) {
   const pathname = useSitePathname() || "/";
   const resolved = useMemo(() => resolveSmart404(pathname), [pathname]);
+
+  /* localeSoftNav1: soft-nav Next su /it/faq/ → 404, ma /faq/ esiste: hard reload con rewrite Vercel */
+  useEffect(() => {
+    const bare = withSlash(pathname);
+    if (!knownRoutes().has(bare)) return;
+    try {
+      const want = withLocale(bare, currentUrlLocale()) + (typeof location !== "undefined" ? location.search + location.hash : "");
+      window.location.replace(want || bare);
+    } catch {
+      try {
+        window.location.href = bare;
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (resolved.kind !== "redirect") return;

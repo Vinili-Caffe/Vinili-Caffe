@@ -19,6 +19,7 @@ import {
   filmPoster,
   filmSynopsis,
   filmTitle,
+  isSerataXmasScheduleLive,
   loadSerataAccess,
   liveFilmStartMs,
   nextFilmAtMs,
@@ -391,7 +392,7 @@ export function SerataBoard() {
           <div className="mt-8">
             <Countdown now={now} target={target} />
           </div>
-          {SERATA_XMAS_NIGHTS.length ? (
+          {now != null && isSerataXmasScheduleLive(now) && SERATA_XMAS_NIGHTS.length ? (
             <ul className="mx-auto mt-8 grid max-w-3xl gap-2 text-left sm:grid-cols-2">
               {SERATA_XMAS_NIGHTS.map((n) => {
                 const active = n.title === title;

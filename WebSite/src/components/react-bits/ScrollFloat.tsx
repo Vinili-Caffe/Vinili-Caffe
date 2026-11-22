@@ -105,11 +105,11 @@ export function ScrollFloat({
         );
 
   return (
-    <h2 ref={containerRef} className={cn("overflow-hidden", className)}>
+    <h2 ref={containerRef} className={cn("overflow-hidden pb-[0.3em]", className)}>
       {text !== null ? <span className="sr-only">{text}</span> : null}
       <span
         ref={textRef}
-        className={cn("inline-block leading-tight", textClassName)}
+        className={cn("inline-block leading-snug", textClassName)}
         aria-hidden={text !== null ? true : undefined}
       >
         {split ?? children}

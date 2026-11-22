@@ -166,7 +166,8 @@ const HUB_CHANNEL_GROUP_KEYS = Object.fromEntries(
   ].filter(([id]) => id),
 );
 
-const HUB_LOBBY_CREATE_PHRASE_RE = /\bcrea\s+un[a']?\s+/gi;
+/* Hub lobby IT/EN: "crea una duo" / "create a duo" → spawn solo "duo⁰¹". */
+const HUB_LOBBY_CREATE_PHRASE_RE = /\b(?:crea\s+un[a']?|create\s+an?)\s+/gi;
 
 function stripHubLobbyCreatePhrase(name?) {
   return String(name || "")

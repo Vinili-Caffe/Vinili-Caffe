@@ -1,7 +1,12 @@
 /** Minigiochi: rendering canvas per prompt, cartelli, impiccato. */
 const axios = require("axios") as any;
 const { registerCanvasFonts, fontStackPrimaryOnly } = require("../../Community/utils/Render/canvasFonts") as typeof import("../../Community/utils/Render/canvasFonts");
-const { drawLabelWithEmoji, tokenizeEmojiText } = require("../../Community/utils/Render/canvasEmojiRichText") as typeof import("../../Community/utils/Render/canvasEmojiRichText");
+const {
+  drawLabelWithEmoji,
+  tokenizeEmojiText,
+  wrapRichTextToLines,
+  measureRichTextWidth,
+} = require("../../Community/utils/Render/canvasEmojiRichText") as typeof import("../../Community/utils/Render/canvasEmojiRichText");
 const { AttachmentBuilder } = require("discord.js") as typeof import("discord.js");
 const { polishItalianQuestionText, loadImageBufferFromUrl } = require("./minigameImageRemote") as typeof import("./minigameImageRemote");
 
@@ -706,6 +711,18 @@ function promptLineHasEmoji(text?) {
   );
 }
 
+/** Solo emoji (o quasi): riga grande. Prosa + emoji sparse → font testo normale. */
+function isEmojiHeavyLine(text?) {
+  const tokens = tokenizeEmojiText(String(text || ""));
+  const emojiCount = tokens.filter((t?) => t.type === "emoji" || t.type === "custom_emoji").length;
+  if (!emojiCount) return false;
+  const plain = tokens
+    .filter((t?) => t.type === "text")
+    .map((t?) => String(t.value || "").replace(/[\s\W_]+/g, ""))
+    .join("");
+  return plain.length <= 2;
+}
+
 async function buildEmojiRichPromptImageAttachment(title?, lines = [], fileBaseName = "minigame") {
   try {
     registerCanvasFonts(canvasModule);
@@ -721,8 +738,10 @@ async function buildEmojiRichPromptImageAttachment(title?, lines = [], fileBaseN
     const cardH = height - CANVAS_STYLE.padding * 2;
     fillCanvasCard(ctx, cardX, cardY, cardW, cardH);
 
-    await drawLabelWithEmoji(ctx, String(title || "Minigioco"), width / 2, cardY + 56, {
-      size: 64,
+    const usableWidth = cardW - 140;
+    const titleText = String(title || "Minigioco");
+    await drawLabelWithEmoji(ctx, titleText, width / 2, cardY + 52, {
+      size: 56,
       weight: "700",
       color: CANVAS_STYLE.titleColor,
       align: "center",
@@ -733,40 +752,71 @@ async function buildEmojiRichPromptImageAttachment(title?, lines = [], fileBaseN
     const sourceLines = Array.isArray(lines)
       ? lines.map((line?) => String(line || "").trim()).filter(Boolean)
       : [];
-    const bodyBlocks = sourceLines.map((line?) => ({
-      line,
-      isEmojiLine: promptLineHasEmoji(line),
-    }));
-    if (!bodyBlocks.length) bodyBlocks.push({ line: "...", isEmojiLine: false });
+    if (!sourceLines.length) sourceLines.push("...");
 
-    const emojiSize = 112;
-    const textSize = 44;
-    const emojiBlockH = emojiSize + 36;
-    const textBlockH = textSize + 28;
-    const totalBodyH = bodyBlocks.reduce(
-      (sum?, block?) => sum + (block.isEmojiLine ? emojiBlockH : textBlockH),
-      0,
-    );
-    let y = Math.max(cardY + 180, Math.round(cardY + (cardH - totalBodyH) / 2 + 40));
+    /* Adatta il font: le emoji nelle righe miste restano alla stessa misura del testo (niente 112px). */
+    let textSize = 46;
+    let emojiOnlySize = 96;
+    let wrappedRows: { line: string; heavy: boolean; size: number; h: number }[] = [];
+    const pack = (tSize: number, eSize: number) => {
+      const rows = [];
+      for (const raw of sourceLines) {
+        const heavy = isEmojiHeavyLine(raw);
+        const size = heavy ? eSize : tSize;
+        const parts =
+          heavy && !/\s/.test(raw)
+            ? [raw]
+            : wrapRichTextToLines(ctx, raw, usableWidth, size, "700");
+        const list = parts.length ? parts : [raw];
+        for (const line of list) {
+          const lineHeavy = heavy || isEmojiHeavyLine(line);
+          const lineSize = lineHeavy ? eSize : tSize;
+          rows.push({
+            line,
+            heavy: lineHeavy,
+            size: lineSize,
+            h: lineHeavy ? lineSize + 28 : Math.round(lineSize * 1.28),
+          });
+        }
+      }
+      return rows;
+    };
 
-    for (const block of bodyBlocks) {
-      const size = block.isEmojiLine ? emojiSize : textSize;
-      const blockH = block.isEmojiLine ? emojiBlockH : textBlockH;
-      const centerY = y + Math.round(blockH / 2);
-      await drawLabelWithEmoji(ctx, block.line, width / 2, centerY, {
-        size,
+    for (; textSize >= 32; textSize -= 2, emojiOnlySize = Math.max(64, emojiOnlySize - 4)) {
+      wrappedRows = pack(textSize, emojiOnlySize);
+      const totalH = wrappedRows.reduce((s, r) => s + r.h, 0);
+      const maxBody = cardH - 200;
+      if (totalH <= maxBody && wrappedRows.length <= 6) break;
+    }
+
+    const totalBodyH = wrappedRows.reduce((s, r) => s + r.h, 0);
+    const bodyTop = cardY + 160;
+    const bodyBottom = cardY + cardH - 48;
+    let y = bodyTop + Math.max(0, (bodyBottom - bodyTop - totalBodyH) / 2);
+
+    for (const row of wrappedRows) {
+      if (y + row.h * 0.35 > bodyBottom) break;
+      /* Se ancora troppo largo (emoji custom lunghe), taglia con ellipsis. */
+      let draw = row.line;
+      if (measureRichTextWidth(ctx, draw, row.size, "700") > usableWidth) {
+        const clipped = wrapRichTextToLines(ctx, draw, usableWidth, row.size, "700");
+        draw = clipped[0] || draw;
+      }
+      await drawLabelWithEmoji(ctx, draw, width / 2, y + row.h * 0.45, {
+        size: row.size,
         weight: "700",
         color: CANVAS_STYLE.bodyColor,
         align: "center",
         baseline: "middle",
-        forcePrimaryFont: !block.isEmojiLine,
+        forcePrimaryFont: !row.heavy,
       });
-      y += blockH;
+      y += row.h;
     }
 
     const name = `${String(fileBaseName || "minigame").replace(/[^a-z0-9_-]/gi, "_").toLowerCase()}.png`;
     return new AttachmentBuilder(canvas.toBuffer("image/png"), { name });
-  } catch {
+  } catch (err) {
+    global.logger?.warn?.("[MINIGAMES] buildEmojiRichPromptImageAttachment:", err?.message || err);
     return null;
   }
 }
@@ -1246,19 +1296,23 @@ async function buildStarWarsThemedPromptImage(row?) {
     }
 
     const textSize = heroUrl ? 32 : 42;
-    const emojiSize = heroUrl ? 56 : 72;
+    const emojiOnlySize = heroUrl ? 56 : 72;
     ctx.font = fontStackPrimaryOnly(textSize, "700");
     const wrapped = [];
     for (const raw of lines) {
-      /* sequenze emoji: non spezzare con wrap “a parole” (niente spazi) */
-      if (promptLineHasEmoji(raw) && !/\s/.test(String(raw || "").trim())) {
-        wrapped.push(raw);
+      const heavy = isEmojiHeavyLine(raw);
+      /* sequenze solo-emoji: non spezzare; prosa+emoji → wrap rich */
+      if (heavy && !/\s/.test(String(raw || "").trim())) {
+        wrapped.push({ line: raw, heavy: true });
       } else {
-        wrapped.push(...wrapPromptText(ctx, raw, usableW));
+        const parts = wrapRichTextToLines(ctx, raw, usableW, heavy ? emojiOnlySize : textSize, "700");
+        for (const line of parts.length ? parts : [raw]) {
+          wrapped.push({ line, heavy: isEmojiHeavyLine(line) });
+        }
       }
     }
-    const lineHeights = wrapped.map((line?) =>
-      promptLineHasEmoji(line) ? emojiSize + 16 : heroUrl ? 42 : 56,
+    const lineHeights = wrapped.map((row?) =>
+      row.heavy ? emojiOnlySize + 16 : heroUrl ? 42 : 56,
     );
     const blockH = lineHeights.reduce((sum?, h?) => sum + h, 0);
     const areaBottom = panelY + panelH - 36;
@@ -1267,17 +1321,16 @@ async function buildStarWarsThemedPromptImage(row?) {
       Math.max(0, (areaBottom - contentTop - blockH) / 2) +
       (heroUrl ? 28 : 40);
     for (let i = 0; i < wrapped.length; i += 1) {
-      const line = wrapped[i];
+      const row = wrapped[i];
       const lineH = lineHeights[i];
       if (y + lineH * 0.35 > areaBottom) break;
-      const isEmoji = promptLineHasEmoji(line);
-      await drawLabelWithEmoji(ctx, line, W / 2, y + lineH * 0.45, {
-        size: isEmoji ? emojiSize : textSize,
+      await drawLabelWithEmoji(ctx, row.line, W / 2, y + lineH * 0.45, {
+        size: row.heavy ? emojiOnlySize : textSize,
         weight: "700",
         color: "#f4e9d8",
         align: "center",
         baseline: "middle",
-        forcePrimaryFont: !isEmoji,
+        forcePrimaryFont: !row.heavy,
       });
       y += lineH;
     }

@@ -74,6 +74,19 @@ function allowed(ip: string, n: number): boolean {
   return row.n <= 400;
 }
 
+/** Traduce dall'italiano (o lingua riconosciuta) a `lang`, con la stessa memoria del sito. null se Google non risponde. */
+export async function translateTexts(texts: string[], lang: string): Promise<string[] | null> {
+  if (!LANGS.has(lang)) return null;
+  const out = texts.map((t) => cache.get(`${lang}\u0001${t}`) ?? null);
+  const missing = texts.filter((t, i) => out[i] == null && t.trim());
+  if (missing.length) {
+    const r = await googleMany(missing, lang);
+    if (!r) return null;
+    missing.forEach((t, i) => r[i] && remember(`${lang}\u0001${t}`, r[i]));
+  }
+  return texts.map((t, i) => out[i] ?? cache.get(`${lang}\u0001${t}`) ?? t);
+}
+
 export function mountSiteTranslateRoutes(app: any) {
   app.post("/webhooks/site-translate", async (req: any, res: any) => {
     res.set("Cache-Control", "no-store");

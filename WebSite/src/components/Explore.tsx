@@ -48,11 +48,11 @@ export function Explore() {
       <div className="relative mx-auto max-w-6xl">
       <Reveal className="mb-8 text-center sm:mb-12">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">{t("explore.kicker")}</p>
-        <div className="mt-3 font-display text-3xl font-semibold text-balance sm:text-4xl lg:text-5xl">
-          <GradientText speed={7}>
+        <div className="mt-3 overflow-visible font-display text-3xl font-semibold text-balance sm:text-4xl lg:text-5xl">
+          <GradientText speed={7} className="pb-[0.12em]">
             <ScrollFloat
               className="my-0"
-              textClassName="font-display text-3xl font-semibold sm:text-4xl lg:text-5xl"
+              textClassName="font-display text-3xl font-semibold leading-snug sm:text-4xl lg:text-5xl"
               stagger={0.02}
               distance={80}
             >

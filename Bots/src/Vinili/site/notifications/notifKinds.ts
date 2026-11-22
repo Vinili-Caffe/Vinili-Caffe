@@ -12,6 +12,7 @@ function normalizeKind(kind?) {
     [
       "vote",
       "vote_reminder",
+      "wordle_reminder",
       "success",
       "info",
       "review",
@@ -94,8 +95,8 @@ function inboxQueueIdFromOpenUrl(openUrl?) {
  * notifCats2: staff alerts that already live in a dedicated Inbox queue section.
  * These must not appear as flat Avvisi (or Personali) — only as queue threads.
  *
- * resoBellFlat1: Resoconti NON hanno più riga coda in campanella (resoProfile1) —
- * se restano “dedicated” spariscono ovunque. Li trattiamo come item Inbox normali.
+ * resoBellFlat1 / pauseBellFlat1: Resoconti e Pause aprono la card profilo (non più
+ * la coda Inbox). Se restano “dedicated” spariscono ovunque → item Inbox normali.
  */
 function isDedicatedInboxQueueAlert({ openUrl, dedupeKey, channel, title, body }: any = {}) {
   const ch = String(channel || "").trim().toLowerCase();
@@ -111,23 +112,24 @@ function isDedicatedInboxQueueAlert({ openUrl, dedupeKey, channel, title, body }
   ) {
     return false;
   }
-  /* resoBellFlat1: flat list in campanella Inbox (openUrl → profilo staff) */
+  /* resoBellFlat1 / pauseBellFlat1: flat list in campanella Inbox (openUrl → profilo staff) */
   if (/^inbox:resoconti(?::|$)/.test(key)) return false;
-  if (/^inbox:(pause|candidature|appelli|revisione)(?::|$)/.test(key)) return true;
+  if (/^inbox:pause(?::|$)/.test(key)) return false;
+  if (/^inbox:(candidature|appelli|revisione)(?::|$)/.test(key)) return true;
   if (/^pt-pending:/.test(key)) return true;
   if (/^wfc:(invite|remove|msg):staff:/.test(key)) return true;
   const queue = inboxQueueIdFromOpenUrl(openUrl);
-  if (queue === "resoconti") return false;
+  if (queue === "resoconti" || queue === "pause") return false;
   if (!queue) return false;
   const hay = `${String(title || "")} ${String(body || "")}`.toLowerCase();
   if (
-    /nuovo appello|nuova candidatur|nuova richiesta pausa|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(
+    /nuovo appello|nuova candidatur|nuova richiesta pausa|nuova richiesta mezza giornata|mezza giornata accettata|punti tolti\s*[—\-–]?\s*segnalazione in attesa|richiedente in chat/.test(
       hay,
     )
   ) {
     return true;
   }
-  /* "nuovo resoconto" without queue id → still flat (not dedicated) */
+  /* "nuovo resoconto" / pause senza coda → ancora flat (not dedicated) */
   return false;
 }
 

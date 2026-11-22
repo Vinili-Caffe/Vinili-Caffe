@@ -155,6 +155,73 @@ export const addBotban = (token: string, kind: "user" | "guild", id: string, not
 export const removeBotban = (token: string, kind: "user" | "guild", id: string) =>
   call("DELETE", `/botban/${kind}/${encodeURIComponent(id)}`, token, msg);
 
+/* ── Messaggio ai proprietari ── */
+export type BroadcastJob = {
+  id: string;
+  by: string;
+  startedAt: number;
+  finishedAt: number | null;
+  stopped: boolean;
+  total: number;
+  done: number;
+  channel: number;
+  dm: number;
+  skipped: number;
+  current: string | null;
+  etaMs: number;
+  failed: { guildId: string; name: string; reason: string }[];
+};
+
+export type BroadcastStatus = {
+  servers: number;
+  channel: number;
+  dm: number;
+  gapSeconds: number;
+  job: BroadcastJob | null;
+};
+
+const mapJob = (j: unknown): BroadcastJob | null => {
+  if (!j || typeof j !== "object") return null;
+  const o = j as Record<string, unknown>;
+  return {
+    id: String(o.id || ""),
+    by: String(o.by || ""),
+    startedAt: Number(o.startedAt) || 0,
+    finishedAt: o.finishedAt != null ? Number(o.finishedAt) : null,
+    stopped: o.stopped === true,
+    total: Number(o.total) || 0,
+    done: Number(o.done) || 0,
+    channel: Number(o.channel) || 0,
+    dm: Number(o.dm) || 0,
+    skipped: Number(o.skipped) || 0,
+    current: str(o.current),
+    etaMs: Number(o.etaMs) || 0,
+    failed: list(o.failed).map((f) => ({
+      guildId: String(f.guildId || ""),
+      name: String(f.name || f.guildId || ""),
+      reason: String(f.reason || ""),
+    })),
+  };
+};
+
+export const loadBroadcastStatus = (token: string) =>
+  call<BroadcastStatus>("GET", "/dev/broadcast", token, (d) => ({
+    servers: Number(d.servers) || 0,
+    channel: Number(d.channel) || 0,
+    dm: Number(d.dm) || 0,
+    gapSeconds: Number(d.gapSeconds) || 45,
+    job: mapJob(d.job),
+  }));
+
+export const postBroadcastTest = (token: string, title: string, text: string) =>
+  call("POST", "/dev/broadcast/test", token, msg, { title, text });
+
+export const postBroadcastStart = (token: string, title: string, text: string, translate: boolean) =>
+  call<{ job: BroadcastJob | null }>("POST", "/dev/broadcast/start", token, (d) => ({ job: mapJob(d.job) }), { title, text, translate });
+
+export const postBroadcastStop = (token: string) =>
+  call<{ job: BroadcastJob | null }>("POST", "/dev/broadcast/stop", token, (d) => ({ job: mapJob(d.job) }));
+
 /* ── sono sviluppatore? (una sola richiesta per visita, la usa anche il menu) ── */
 let devState: boolean | null = null;
 let devLoading: Promise<boolean> | null = null;

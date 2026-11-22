@@ -10,6 +10,7 @@ import { MAX_CONTENT, MAX_IMAGE_BYTES, MAX_IMAGES, createTicket, enablePush, pus
 import { cn } from "@/lib/cn";
 import { EmojiText } from "@/components/discord/EmojiText";
 import { UploadRightsHint } from "@/components/UploadRightsHint";
+import { imageFilesFromClipboard } from "@/components/ui/image-attach";
 
 const DMCA_STARTER =
   "Segnalazione copyright\n\n1) Identità e indirizzo e-mail:\n2) Opera protetta e, ove disponibile, prova di titolarità o legittimazione a segnalare:\n3) URL o descrizione precisa del materiale contestato:\n4) Motivazione della richiesta di rimozione:\n";
@@ -80,16 +81,23 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
     else setErr(r.message || "Non sono riuscito ad attivare le notifiche.");
   };
 
-  const addFiles = async (files: FileList | null) => {
+  const addFiles = async (files: FileList | File[] | null) => {
     if (!files) return;
     const out: string[] = [];
-    for (const f of Array.from(files).slice(0, MAX_IMAGES - images.length)) {
+    for (const f of Array.from(files as ArrayLike<File>).slice(0, MAX_IMAGES - images.length)) {
       if (!/^image\//.test(f.type)) continue;
       try {
         out.push(f.type === "image/gif" && f.size <= MAX_IMAGE_BYTES ? await readRaw(f) : await imageToDataUrl(f));
       } catch {}
     }
     setImages((x) => [...x, ...out].slice(0, MAX_IMAGES));
+  };
+
+  const onPasteImages = (e: React.ClipboardEvent) => {
+    const files = imageFilesFromClipboard(e.clipboardData);
+    if (!files.length) return;
+    e.preventDefault();
+    void addFiles(files);
   };
 
   const submit = async () => {
@@ -163,6 +171,7 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
           ref={messageRef}
           value={text}
           onChange={(e) => setText(e.target.value.slice(0, MAX_CONTENT))}
+          onPaste={onPasteImages}
           rows={5}
           placeholder="Spiega in breve il motivo del ticket…"
           className="mt-2 w-full resize-y rounded-2xl bg-espresso/70 p-4 leading-relaxed outline-none ring-1 ring-sand/15 placeholder:text-crema/30 focus:ring-2 focus:ring-caramel/70"

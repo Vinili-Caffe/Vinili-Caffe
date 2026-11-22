@@ -16,6 +16,7 @@ import {
   deleteNotif,
   filterBell,
   loadNotifications,
+  localizedNotifCopy,
   markAllNotifsRead,
   markNotifRead,
   personalCategory,
@@ -219,6 +220,7 @@ export function NavNotifBell() {
           {preview.map((n) => {
             const cat = PERSONAL_CATS.find((c) => c.id === personalCategory(n))?.label || "";
             const href = resolveDestUrl(n.openUrl) || page("/notifications/");
+            const copy = localizedNotifCopy(n, t);
             return (
               <div
                 key={n.id}
@@ -244,18 +246,18 @@ export function NavNotifBell() {
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">
                       <span className={cn("truncate font-medium text-crema", narrow ? "text-[0.95rem]" : "text-sm")}>
-                        <EmojiText text={n.title} />
+                        <EmojiText text={copy.title} />
                       </span>
                       <span className="shrink-0 text-[0.65rem] text-crema/40">{timeAgoNotif(n.at)}</span>
                     </span>
-                    {n.body ? (
+                    {copy.body ? (
                       <span
                         className={cn(
                           "mt-0.5 leading-relaxed text-crema/55",
                           narrow ? "line-clamp-3 text-sm" : "line-clamp-2 text-xs",
                         )}
                       >
-                        <EmojiText text={n.body} />
+                        <EmojiText text={copy.body} />
                       </span>
                     ) : null}
                     {cat ? (

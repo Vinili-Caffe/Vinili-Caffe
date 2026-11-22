@@ -40,7 +40,7 @@ function isPublicHubOrPinVoiceChannel(ch?) {
   const id = String(ch?.id || "").trim();
   if (!id) return false;
   if (getKnownPublicHubOrPinIds().has(id)) return true;
-  if (/crea una\s/i.test(String(ch?.name || ""))) return true;
+  if (/\b(?:crea\s+un[a']?|create\s+an?)\s+/i.test(String(ch?.name || ""))) return true;
   return false;
 }
 
@@ -49,7 +49,7 @@ function isManagedStanzaRoomChannel(ch?, parentId = "") {
   if (parentId && String(ch.parentId || "") !== String(parentId)) return false;
   if (isPublicHubOrPinVoiceChannel(ch)) return false;
   if (stanzaChannelMeta.has(String(ch.id))) return true;
-  if (/Stanza di\s+/i.test(String(ch.name || ""))) return true;
+  if (/Stanza di\s+/i.test(String(ch.name || "")) || /['’]s room$/i.test(String(ch.name || ""))) return true;
   try {
     return Boolean(parseStanzaVoiceName(ch.name));
   } catch (_) {
@@ -146,7 +146,7 @@ async function applyStanzaVoiceCreatePosition(voiceChannel?, position?, reason?)
 const stanzaChannelMeta = new Map();
 
 const STANZA_NAME_LEAD = "༄";
-/** Create only: ༄emoji︲Stanza di label. Rename/enforce: ༄emoji︲label (no "Stanza di"). */
+/** Create: ༄emoji︲{user}'s room (legacy: …Stanza di {user}). Rename/enforce: ༄emoji︲label. */
 const STANZA_CONNECTOR = "︲";
 const STANZA_LEGACY_MIDDLE_RE = /[︲╵｜|]\s*Stanza di\s+/iu;
 

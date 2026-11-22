@@ -62,6 +62,12 @@ const SITE_NOTIF_GROUPS = Object.freeze([
     kinds: Object.freeze(["vote_reminder"]),
   },
   {
+    key: "wordle",
+    label: "Wordle",
+    hint: "Promemoria a mezzanotte per la parola del giorno",
+    kinds: Object.freeze(["wordle_reminder"]),
+  },
+  {
     key: "general",
     label: "Altri avvisi sito",
     hint: "",

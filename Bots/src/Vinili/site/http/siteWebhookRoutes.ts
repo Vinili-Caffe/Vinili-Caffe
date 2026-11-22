@@ -17,6 +17,7 @@ const { mountPublicMiscWebhookRoutes } = require("./webhooks/publicMiscRoutes") 
 const {
   mountUsersLeaderboardWebhookRoutes,
   mountVoteWordleWebhookRoutes,
+  mountMusicQuizWebhookRoutes,
 } = require("./webhooks/engagementRoutes") as typeof import("./webhooks/engagementRoutes");
 const { mountPrefsBootWebhookRoutes } = require("./webhooks/prefsBootRoutes") as typeof import("./webhooks/prefsBootRoutes");
 const {
@@ -56,6 +57,7 @@ function mountSiteWebhookRoutes(app?, client?, deps?) {
   mountBoardsRoutes(app, client, { replyJsonEtag, normalizeHeaderSecret });
   mountBachecaRoutes(app, client);
   mountVoteWordleWebhookRoutes(app, client);
+  mountMusicQuizWebhookRoutes(app, client);
   mountNotificationsRoutes(app, client);
   mountPrefsBootWebhookRoutes(app, client);
   mountDiscordMeWebhookRoutes(app, client, ctx);

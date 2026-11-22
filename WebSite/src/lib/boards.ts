@@ -1,3 +1,4 @@
+import { apiUrl } from "./api";
 import { SITE_ORIGIN } from "./site";
 import type { MsgDraft, PickerChannel, PickerEmoji, PickerRole } from "./dashboard-community";
 
@@ -580,23 +581,40 @@ export type VoteSession = {
 
 /** Cooldown voto dell’utente sulla scheda (countdown stile bump). */
 export async function loadVoteStatus(token: string, listingId: string) {
-  const r = await fetch(`${BASE}/listings/${encodeURIComponent(listingId)}/vote-status`, {
+  const id = cleanBoardListingRef(listingId);
+  if (!id) {
+    return { ok: false as const, status: 400, message: "ID scheda non valido.", error: "invalid_id" };
+  }
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/vote-status`, {
     headers: auth(token),
     cache: "no-store",
   });
   return parse<{ canVote: boolean; nextVoteAt: string | null; cooldownHours: number; voteStreak?: number }>(r);
 }
 
+function cleanBoardListingRef(listingId: string) {
+  return String(listingId || "")
+    .trim()
+    .replace(/\/+$/, "");
+}
+
 export async function startVoteSession(token: string, listingId: string) {
-  const r = await fetch(`${BASE}/listings/${encodeURIComponent(listingId)}/vote-session`, {
+  const id = cleanBoardListingRef(listingId);
+  if (!id) {
+    return { ok: false as const, status: 400, message: "ID scheda non valido.", error: "invalid_id" };
+  }
+  const r = await fetch(apiUrl(`${BASE}/listings/${encodeURIComponent(id)}/vote-session`), {
     method: "POST",
-    headers: auth(token),
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ listingId: id }),
   });
   return parse<VoteSession>(r);
 }
 
 export async function progressVoteSession(token: string, listingId: string, sessionId: string, step: "countdown" | "ad", markStart?: boolean) {
-  const r = await fetch(`${BASE}/listings/${encodeURIComponent(listingId)}/vote-progress`, {
+  const id = cleanBoardListingRef(listingId);
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/vote-progress`, {
     method: "POST",
     headers: { ...auth(token), "Content-Type": "application/json" },
     body: JSON.stringify({ sessionId, step, markStart: markStart === true }),
@@ -605,7 +623,8 @@ export async function progressVoteSession(token: string, listingId: string, sess
 }
 
 export async function castListingVote(token: string, listingId: string, sessionId: string, opts: { turnstileToken?: string; remind?: boolean } = {}) {
-  const r = await fetch(`${BASE}/listings/${encodeURIComponent(listingId)}/vote`, {
+  const id = cleanBoardListingRef(listingId);
+  const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/vote`, {
     method: "POST",
     headers: { ...auth(token), "Content-Type": "application/json" },
     body: JSON.stringify({

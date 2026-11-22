@@ -22,12 +22,17 @@ function clearSoftFallback() {
   softTickTimer = 0;
 }
 
+function withTrailingSlash(path: string) {
+  let p = String(path || "/");
+  if (p !== "/" && !p.endsWith("/")) p = `${p}/`;
+  return p;
+}
+
 function pathKey(href: string) {
   try {
     const u = new URL(href, typeof location !== "undefined" ? location.origin : "https://www.viniliecaffe.it");
     /* la lingua nell'indirizzo (/en/…) non conta: è la stessa pagina */
-    let p = stripLocale(u.pathname || "/");
-    if (p !== "/" && !p.endsWith("/")) p = `${p}/`;
+    const p = withTrailingSlash(stripLocale(u.pathname || "/"));
     return `${p}${u.search}${u.hash}`;
   } catch {
     return href;
@@ -39,6 +44,10 @@ function pathKey(href: string) {
  * Hard assign solo se dopo ~12s la SPA non ha mosso l’URL (niente reload aggressivo).
  * Prima erano 4s: su telefono la prima apertura di una pagina spesso ci mette di più,
  * e il sito ricaricava tutto invece di aspettare (sembrava che il menu "non portasse").
+ *
+ * localeSoftNav1: Next soft-nav verso `/it/faq/` (o `/en/…`) finisce in 404 perché l’export
+ * statico ha solo `/faq/`. Il Link usa il path italiano; i18n rimette la lingua con replaceState.
+ * Hard reload / nuova scheda usano l’URL con lingua (rewrite Vercel).
  */
 const HARD_FALLBACK_MS = 12_000;
 /** Se entro questo tempo i dati della pagina nuova (index.txt) non sono nemmeno arrivati, inutile aspettare 12 s. */
@@ -59,10 +68,10 @@ function isIosInstalledApp() {
   }
 }
 
-/** I dati della pagina di destinazione sono arrivati dopo il click? */
-function pageDataArrived(dest: string, since: number) {
+/** I dati della pagina di destinazione sono arrivati dopo il click? (path senza lingua) */
+function pageDataArrived(destBare: string, since: number) {
   try {
-    const path = new URL(dest, location.origin).pathname.replace(/\/?$/, "/");
+    const path = withTrailingSlash(stripLocale(new URL(destBare, location.origin).pathname || "/"));
     return performance.getEntriesByType("resource").some((e) => e.name.includes(`${path}index.txt`) && e.startTime >= since - 50);
   } catch {
     return true;
@@ -72,9 +81,11 @@ function pageDataArrived(dest: string, since: number) {
 export function SmartLink({ href: rawHref, onClick, onPointerDown, ...rest }: Props) {
   const prefetch = useFxCap("prefetch");
   const router = useRouter();
-  /* link interni con la lingua davanti (/en/faq/), dopo il primo disegno */
   const urlLocale = useUrlLocale();
-  const href = rawHref.startsWith("/") ? withLocale(rawHref, urlLocale) : rawHref;
+  /* soft-nav Next = path italiano; href “vero” con lingua per hard load / nuova scheda */
+  const bare = rawHref.startsWith("/") ? withTrailingSlash(stripLocale(rawHref)) : rawHref;
+  const hrefLocale = rawHref.startsWith("/") ? withLocale(bare, urlLocale) : rawHref;
+  const href = bare;
 
   if (!href.startsWith("/")) {
     return <a href={href} onClick={onClick} {...rest} />;
@@ -85,8 +96,9 @@ export function SmartLink({ href: rawHref, onClick, onPointerDown, ...rest }: Pr
     if (e.defaultPrevented) return;
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 
-    const dest = href;
-    const destKey = pathKey(dest);
+    const destSoft = href;
+    const destHard = hrefLocale;
+    const destKey = pathKey(destSoft);
     const fromKey = pathKey(`${location.pathname}${location.search}${location.hash}`);
     if (destKey === fromKey) return;
 
@@ -99,11 +111,11 @@ export function SmartLink({ href: rawHref, onClick, onPointerDown, ...rest }: Pr
       } catch {
         /* ignore */
       }
-      location.assign(dest);
+      location.assign(destHard);
       return;
     }
 
-    startNavProbe(fromKey, dest, pathKey);
+    startNavProbe(fromKey, destSoft, pathKey);
     const clickedAt = performance.now();
     try {
       /* pwaInAppNav1: navigazione dentro l'app — la home non deve "riprendere" la pagina di prima */
@@ -116,15 +128,15 @@ export function SmartLink({ href: rawHref, onClick, onPointerDown, ...rest }: Pr
       const now = pathKey(`${location.pathname}${location.search}${location.hash}`);
       if (now !== fromKey) return clearSoftFallback();
       /* dati della pagina mai arrivati: si carica subito la pagina invece di aspettare 12 s */
-      if (performance.now() - clickedAt > NO_DATA_FALLBACK_MS && !pageDataArrived(dest, clickedAt)) {
-        reportSiteEvent("nav-reload", `dati della pagina mai arrivati dopo ${NO_DATA_FALLBACK_MS / 1000}s, carico ${dest}`, {
+      if (performance.now() - clickedAt > NO_DATA_FALLBACK_MS && !pageDataArrived(destSoft, clickedAt)) {
+        reportSiteEvent("nav-reload", `dati della pagina mai arrivati dopo ${NO_DATA_FALLBACK_MS / 1000}s, carico ${destHard}`, {
           from: fromKey,
           online: navigator.onLine,
           ...(navProbeSnapshot() || {}),
         });
         clearSoftFallback();
         try {
-          location.assign(dest);
+          location.assign(destHard);
         } catch {
           /* ignore */
         }
@@ -141,14 +153,14 @@ export function SmartLink({ href: rawHref, onClick, onPointerDown, ...rest }: Pr
       if (now !== fromKey) return;
       /* Soft nav bloccata: hard load verso la destinazione cliccata (mai verso home a caso). */
       /* nel log del sito: quante volte succede e su che dispositivi (telefoni lenti?) */
-      reportSiteEvent("nav-reload", `navigazione ferma dopo ${HARD_FALLBACK_MS / 1000}s, ricarico ${dest}`, {
+      reportSiteEvent("nav-reload", `navigazione ferma dopo ${HARD_FALLBACK_MS / 1000}s, ricarico ${destHard}`, {
         from: fromKey,
         online: navigator.onLine,
         conn: (navigator as Navigator & { connection?: { effectiveType?: string } }).connection?.effectiveType || null,
         ...(navProbeSnapshot() || {}),
       });
       try {
-        location.assign(dest);
+        location.assign(destHard);
       } catch {
         /* ignore */
       }

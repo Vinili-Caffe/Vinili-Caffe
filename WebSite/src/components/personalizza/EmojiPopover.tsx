@@ -5,21 +5,7 @@ import { Search, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/cn";
 import { customEmojiUrl, type GuildEmoji } from "@/lib/personalizza";
-
-const UNICODE = [
-  "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "😉", "😊", "😇", "🥰", "😍", "🤩", "😘",
-  "😗", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔", "🤐", "🤨",
-  "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "😌", "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕", "🤢",
-  "🤮", "🥵", "🥶", "🥴", "😵", "🤯", "🤠", "🥳", "🥸", "😎", "🤓", "🧐", "😕", "😟", "🙁", "😮",
-  "😯", "😲", "😳", "🥺", "😦", "😧", "😨", "😰", "😥", "😢", "😭", "😱", "😖", "😣", "😞", "😓",
-  "😩", "😫", "🥱", "😤", "😡", "😠", "🤬", "😈", "👿", "💀", "☠️", "💩", "🤡", "👹", "👺", "👻",
-  "👽", "👾", "🤖", "🎃", "😺", "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾", "👋", "🤚", "🖐️",
-  "✋", "🖖", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "👇", "☝️", "👍",
-  "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝", "🙏", "💪", "🦾", "🦿", "🦵", "🦶",
-  "☕", "🍵", "🧋", "🍺", "🍻", "🥂", "🍷", "🎵", "🎶", "🎤", "🎧", "🎷", "🎸", "🎹", "🎺", "🎻",
-  "🥁", "🎬", "🎮", "🎲", "🧩", "🎯", "🔥", "✨", "⭐", "🌟", "💫", "⚡", "💥", "💢", "💯", "✅",
-  "❤️", "🧡", "💛", "💚", "💙", "💜", "🤎", "🖤", "🤍", "💘", "💝", "💖", "💗", "💓", "💞", "💕",
-];
+import { UNICODE_EMOJI } from "@/lib/unicodeEmoji";
 
 export type EmojiPick =
   | { type: "unicode"; text: string }
@@ -77,7 +63,10 @@ export function EmojiPopover({
     if (unicodeOnly) return [];
     return guildEmojis.filter((e) => !needle || e.name.toLowerCase().includes(needle) || e.id.includes(needle));
   }, [guildEmojis, needle, unicodeOnly]);
-  const unis = useMemo(() => UNICODE.filter((u) => !needle || u.includes(needle)), [needle]);
+  const unis = useMemo(
+    () => UNICODE_EMOJI.filter((u) => !needle || u.includes(needle)),
+    [needle],
+  );
 
   return (
     <AnimatePresence>
@@ -90,7 +79,7 @@ export function EmojiPopover({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 6, scale: 0.98 }}
           transition={{ duration: 0.18 }}
-          className="absolute z-40 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-roast shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-sand/20"
+          className="absolute z-40 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-roast shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] ring-1 ring-sand/20"
         >
           <div className="flex items-center gap-2 border-b border-sand/10 px-3 py-2">
             <Search className="size-3.5 shrink-0 text-crema/40" />
@@ -127,7 +116,7 @@ export function EmojiPopover({
               ))}
             </div>
           )}
-          <div className="grid max-h-56 grid-cols-8 gap-0.5 overflow-y-auto p-2">
+          <div className="grid max-h-72 grid-cols-8 gap-0.5 overflow-y-auto overscroll-contain p-2">
             {tab === "custom" && !unicodeOnly
               ? customs.map((e) => (
                   <button

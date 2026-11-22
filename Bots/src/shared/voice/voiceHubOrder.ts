@@ -226,12 +226,12 @@ function isStanzaLobbyOrRoomChannel(ch?, parentId = "") {
   const pinIds = new Set(getPinnedTopPublicVoiceIds());
   if (pinIds.has(id)) return false;
   const n = String(ch?.name || "");
-  if (/crea una\s/i.test(n)) return false;
+  if (/\b(?:crea\s+un[a']?|create\s+an?)\s+/i.test(n)) return false;
   /* hubSpawnUnderHub3: duo⁰¹/trio⁰¹/squad⁰¹ NON sono stanze Coffee —
      altrimenti finiscono sotto "crea una stanza" e SOPRA gli hub. */
   if (parseVoiceSuffixIndex(n) > 0 && voiceHubGroupKeyFromName(n)) return false;
   /* Coffee crea le stanze: reorder Vinyls le tiene sotto l'hub "crea una stanza". */
-  if (/Stanza di\s+/i.test(n)) return true;
+  if (/Stanza di\s+/i.test(n) || /['’]s room$/i.test(n)) return true;
   if (parentId && String(ch.parentId || "") !== String(parentId)) return false;
   try {
     const vinili = require("../../Vinili/Voice/services/stanzaVoiceRoomsService") as typeof import("../../Vinili/Voice/services/stanzaVoiceRoomsService");
@@ -285,8 +285,8 @@ function buildLimitateCategoryDesiredOrder(guild?, client?, parentId?) {
       hubs.push(ch);
       continue;
     }
-    /* fallback nome: crea una duo/trio/squad… = hub lobby */
-    if (/crea\s+un[a']?\s+/i.test(String(ch.name || "")) && voiceHubGroupKeyFromName(ch.name)) {
+    /* fallback nome: crea/create a duo/trio/squad… = hub lobby */
+    if (/\b(?:crea\s+un[a']?|create\s+an?)\s+/i.test(String(ch.name || "")) && voiceHubGroupKeyFromName(ch.name)) {
       hubs.push(ch);
     }
   }

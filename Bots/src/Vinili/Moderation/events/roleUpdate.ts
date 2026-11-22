@@ -14,6 +14,13 @@ export = {
     if (!isViniliFullFeatureGuild(guildId)) return;
 
     try {
+      const { handleCustomRoleNameUpdate } = require("../../Community/services/customProfileRole") as typeof import("../../Community/services/customProfileRole");
+      await handleCustomRoleNameUpdate(oldRole, newRole);
+    } catch (error) {
+      global.logger?.warn?.("[roleUpdate] custom role name enforce:", error?.message || error);
+    }
+
+    try {
       const nameChanged = oldRole?.name !== newRole?.name;
       const colorChanged = oldRole?.hexColor !== newRole?.hexColor;
       const hoistChanged = Boolean(oldRole?.hoist) !== Boolean(newRole?.hoist);

@@ -9,6 +9,7 @@ import {
   MAX_ATTEMPTS,
   WORD_LEN,
   buildShareText,
+  claimWordleExp,
   emptyStats,
   fetchDailyGame,
   findLocalStartedGame,
@@ -30,11 +31,14 @@ import {
   type Mark,
   type SavedGame,
   type WordleLang,
+  type WordleRewardInfo,
   type WordleStats as StatsData,
   type WordleToday,
 } from "@/lib/wordle";
 import { WordleKeyboard } from "./WordleKeyboard";
 import { WordleStats } from "./WordleStats";
+import { WordleRewardBanner } from "./WordleRewardBanner";
+import { WordleRemindToggle } from "./WordleRemindToggle";
 import { celebrate } from "@/lib/confetti";
 import { useFxCap } from "@/components/effects/DeviceFxProvider";
 import { useAuth } from "@/lib/auth";
@@ -94,7 +98,7 @@ function CoasterTile({
 }
 
 export function WordleBoard({ initial }: Props) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const siteLang = parseLang(locale);
   const [lang, setLang] = useState<WordleLang>(initial?.lang || siteLang);
   const [day, setDay] = useState(initial?.day || "");
@@ -104,13 +108,17 @@ export function WordleBoard({ initial }: Props) {
   const [done, setDone] = useState(false);
   const [won, setWon] = useState(false);
   const confettiRich = useFxCap("confettiRich");
-  const { token } = useAuth();
+  const { token, login } = useAuth();
 
   const [lost, setLost] = useState(false);
   const [answer, setAnswer] = useState("");
   const [keyMarks, setKeyMarks] = useState<KeyMarks>({});
   const [busy, setBusy] = useState(false);
   const [booting, setBooting] = useState(true);
+  const [reward, setReward] = useState<WordleRewardInfo | null>(initial?.reward || null);
+  const [expGained, setExpGained] = useState<number | null>(null);
+  const [remindEnabled, setRemindEnabled] = useState(Boolean(initial?.remindEnabled));
+  const claimTried = useRef(false);
   // statistiche dal profilo (stesse su telefono e PC) appena c'è il login
   useEffect(() => {
     if (!token || booting) return;
@@ -254,8 +262,29 @@ export function WordleBoard({ initial }: Props) {
     setDay(today.day);
     setPlayUrl(today.playUrl);
     setStats(loadStats(bootLang));
+    if (today.reward) setReward(today.reward);
+    if (today.reward?.expAwarded) setExpGained(today.reward.expAwarded);
+    setRemindEnabled(Boolean(today.remindEnabled));
     setBooting(false);
   }, [persist, token]);
+
+  /* dopo login: riscatta EXP se hai già vinto oggi */
+  useEffect(() => {
+    if (!token || booting || !won || !done || claimTried.current) return;
+    if (reward?.claimed || (expGained != null && expGained > 0)) return;
+    const history = board.map((r) => String(r.guess || "").toLowerCase());
+    if (!history.length) return;
+    claimTried.current = true;
+    void claimWordleExp({ token, lang, history }).then((res) => {
+      if (res.reward) setReward(res.reward);
+      if (res.ok && res.expGained) {
+        setExpGained(res.expGained);
+        if (!res.expAlready) showToast(`+${res.expGained} EXP`);
+      } else if (res.message && (res as { error?: string }).error === "not_in_guild") {
+        showToast(res.message);
+      }
+    });
+  }, [token, booting, won, done, reward?.claimed, expGained, board, lang, showToast]);
 
   useEffect(() => {
     /* se oggi c'è già una partita, non ri-bootare al cambio lingua sito */
@@ -274,7 +303,7 @@ export function WordleBoard({ initial }: Props) {
     if (current.length !== WORD_LEN) {
       setShake(true);
       window.setTimeout(() => setShake(false), 400);
-      showToast("Servono 5 lettere");
+      showToast(t("wordle.needLetters"));
       return;
     }
     setBusy(true);
@@ -283,7 +312,7 @@ export function WordleBoard({ initial }: Props) {
     if (!res.ok) {
       setShake(true);
       window.setTimeout(() => setShake(false), 400);
-      showToast(res.message || "Parola non valida");
+      showToast(res.message || t("wordle.invalidWord"));
       setBusy(false);
       return;
     }
@@ -320,7 +349,11 @@ export function WordleBoard({ initial }: Props) {
       });
       showToast(
         res.message ||
-          (nextDone ? (nextWon ? "Già completato oggi" : `Era ${nextAnswer || "…"}`) : "Partita sincronizzata"),
+          (nextDone
+            ? nextWon
+              ? t("wordle.alreadyDone")
+              : t("wordle.wasAnswer", { word: nextAnswer || "…" })
+            : t("wordle.synced")),
       );
       setBusy(false);
       return;
@@ -358,18 +391,27 @@ export function WordleBoard({ initial }: Props) {
       lang: playLang,
     });
 
+    if (res.reward) setReward(res.reward);
+    if (typeof res.expGained === "number" && res.expGained > 0) {
+      setExpGained(res.expGained);
+    }
+
     if (nextDone) {
       const s = recordFinishedGame({ lang: playLang, day, won: nextWon, attempts: nextBoard.length });
       setStats(s);
       if (token) void pushStats(token, playLang, s);
-      showToast(nextWon ? "Bravo!" : `Era ${nextAnswer}`);
+      if (nextWon && res.expGained && !res.expAlready) {
+        showToast(t("wordle.bravoExp", { n: res.expGained }));
+      } else {
+        showToast(nextWon ? t("wordle.bravo") : t("wordle.wasAnswer", { word: nextAnswer || "…" }));
+      }
       // vittoria: coriandoli appena finisce di girare l'ultima riga
       if (nextWon) window.setTimeout(() => celebrate(confettiRich), 650);
     }
 
     window.setTimeout(() => setRevealRow(null), 500);
     setBusy(false);
-  }, [answer, board, busy, current, day, done, keyMarks, lang, persist, showToast, confettiRich, token]);
+  }, [answer, board, busy, current, day, done, keyMarks, lang, persist, showToast, confettiRich, token, t]);
 
   const onKey = useCallback(
     (key: string) => {
@@ -437,13 +479,13 @@ export function WordleBoard({ initial }: Props) {
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareText);
-        setCopyHint("Copiato");
-        showToast("Griglia copiata");
+        setCopyHint(t("wordle.copiedShort"));
+        showToast(t("wordle.copied"));
       } else {
-        showToast("Copia non disponibile");
+        showToast(t("wordle.copyUnavailable"));
       }
     } catch {
-      showToast("Copia non riuscita");
+      showToast(t("wordle.copyFailed"));
     }
     window.setTimeout(() => setCopyHint(""), 2000);
   };
@@ -453,29 +495,38 @@ export function WordleBoard({ initial }: Props) {
     try {
       if (navigator.share) {
         await navigator.share({ text: shareText });
-        setShareHint("Condiviso");
+        setShareHint(t("wordle.shared"));
       } else {
         await copyResult();
-        setShareHint("Copiato");
+        setShareHint(t("wordle.copiedShort"));
         return;
       }
     } catch {
       try {
         await navigator.clipboard.writeText(shareText);
-        setShareHint("Copiato");
-        showToast("Griglia copiata");
+        setShareHint(t("wordle.copiedShort"));
+        showToast(t("wordle.copied"));
       } catch {
-        showToast("Condivisione annullata");
+        showToast(t("wordle.shareCancelled"));
       }
     }
     window.setTimeout(() => setShareHint(""), 2000);
   };
 
   return (
-    <div className="mx-auto max-w-lg space-y-8 px-4 pb-24 sm:px-6">
+    <div className="mx-auto max-w-lg space-y-3 px-4 pb-24 sm:px-6">
+      <WordleRewardBanner
+        reward={reward}
+        mode="classic"
+        won={won && done}
+        attempts={board.length}
+        expGained={expGained}
+        onLogin={login}
+      />
+      <WordleRemindToggle enabled={remindEnabled} onEnabledChange={setRemindEnabled} />
       <Reveal>
         <div>
-          <div className="mb-3 min-h-[1.5rem] text-center" role="status" aria-live="polite">
+          <div className="mb-1 min-h-[1.1rem] text-center" role="status" aria-live="polite">
             <AnimatePresence mode="wait">
               {toast ? (
                 <motion.p
@@ -492,18 +543,19 @@ export function WordleBoard({ initial }: Props) {
           </div>
 
           {lost && answer ? (
-            <p className="mb-3 rounded-2xl bg-crema/8 px-4 py-2.5 text-center text-sm ring-1 ring-sand/15">
-              La parola era <span className="font-display text-base font-bold uppercase tracking-wider text-ember">{answer}</span>
+            <p className="mb-2 rounded-2xl bg-crema/8 px-4 py-2 text-center text-sm ring-1 ring-sand/15">
+              {t("wordle.answerWas")}{" "}
+              <span className="font-display text-base font-bold uppercase tracking-wider text-ember">{answer}</span>
             </p>
           ) : null}
 
           <div
             className={cn(
-              "mx-auto mt-1 grid w-full max-w-[19rem] gap-1.5 sm:max-w-[22rem] sm:gap-2",
+              "mx-auto grid w-full max-w-[19rem] gap-1.5 sm:max-w-[22rem] sm:gap-2",
               booting && "animate-pulse",
             )}
             style={{ gridTemplateRows: `repeat(${MAX_ATTEMPTS}, minmax(0, 1fr))` }}
-            aria-label="Griglia Wordle"
+            aria-label={t("wordle.gridAria")}
           >
             {Array.from({ length: MAX_ATTEMPTS }, (_, r) => {
               const entry = board[r];
@@ -540,7 +592,7 @@ export function WordleBoard({ initial }: Props) {
             })}
           </div>
 
-          <div className="mt-6">
+          <div className="mt-3">
             <WordleKeyboard keyMarks={keyMarks} disabled={busy || done || booting} onKey={onKey} />
           </div>
         </div>
@@ -551,9 +603,9 @@ export function WordleBoard({ initial }: Props) {
           stats={stats}
           shareText={shareText}
           onShare={share}
-          shareLabel={shareHint || "Condividi"}
+          shareLabel={shareHint || t("wordle.share")}
           onCopy={shareText ? copyResult : undefined}
-          copyLabel={copyHint || "Copia risultato"}
+          copyLabel={copyHint || t("wordle.copyResult")}
         />
       </Reveal>
     </div>

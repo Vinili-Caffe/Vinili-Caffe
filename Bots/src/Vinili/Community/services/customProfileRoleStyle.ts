@@ -1,7 +1,7 @@
 "use strict";
 
 /** Custom profile: colore (solido/gradiente/holo) e icona del ruolo custom. */
-const { PermissionsBitField } = require("discord.js") as typeof import("discord.js");
+const { PermissionsBitField, Routes } = require("discord.js") as typeof import("discord.js");
 const axios = require("axios") as any;
 const {
   HOLO,
@@ -11,6 +11,56 @@ const {
   okPersist,
   resolveCustomEmojiFromValue,
 } = require("./customProfileShared") as typeof import("./customProfileShared");
+
+function sleep(ms?) {
+  return new Promise((r?) => setTimeout(r, Math.max(0, Number(ms) || 0)));
+}
+
+function toColorInt(raw?) {
+  if (raw === 0 || raw === "0") return 0;
+  if (raw == null || raw === "") return null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return Math.max(0, Math.floor(raw));
+  const s = String(raw).trim();
+  const hexPart = s.startsWith("#") ? s.slice(1) : s;
+  if (/^[0-9a-fA-F]{3}$/i.test(hexPart) || /^[0-9a-fA-F]{6}$/i.test(hexPart)) {
+    const hex = hexPart.replace(/[^0-9a-fA-F]/g, "");
+    if (hex.length === 3) {
+      return parseInt(
+        hex
+          .split("")
+          .map((c?) => c + c)
+          .join(""),
+        16,
+      );
+    }
+    if (hex.length === 6) return parseInt(hex, 16);
+  }
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+}
+
+function sameColor(a?, b?) {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  return Number(a) === Number(b);
+}
+
+function pickColors(live?) {
+  if (!live) return { primary: null, secondary: null, tertiary: null };
+  const c = live.colors && typeof live.colors === "object" ? live.colors : {};
+  let primary = toColorInt(
+    c.primaryColor ?? c.primary_color ?? c.primary ?? live.color,
+  );
+  if (primary == null) {
+    const hex = String(live.hexColor || "").replace(/^#/, "").trim();
+    if (/^[0-9a-fA-F]{6}$/i.test(hex)) primary = parseInt(hex, 16);
+  }
+  return {
+    primary: primary == null || !Number.isFinite(primary) ? null : primary,
+    secondary: toColorInt(c.secondaryColor ?? c.secondary_color ?? c.secondary),
+    tertiary: toColorInt(c.tertiaryColor ?? c.tertiary_color ?? c.tertiary),
+  };
+}
 
 async function setCustomRoleColor({ guild, member, ownerId, roleId, mode, hex, hex2 }) {
   if (!guild || !roleId) return { ok: false, reason: "invalid_params" };
@@ -63,60 +113,88 @@ async function setCustomRoleColor({ guild, member, ownerId, roleId, mode, hex, h
 
   const readLiveColors = async () => {
     const live = await guild.roles.fetch(resolvedRoleId, { force: true }).catch(() => null);
-    if (!live) return null;
-    const toInt = (raw?) => {
-      if (raw === 0 || raw === "0") return 0;
-      const n = Number(raw);
-      if (Number.isFinite(n) && n >= 0) return Math.floor(n);
-      return null;
-    };
-    let primary = toInt(live.colors?.primaryColor ?? live.color);
-    if (primary == null) {
-      const hex = String(live.hexColor || "").replace(/^#/, "").trim();
-      if (/^[0-9a-fA-F]{6}$/.test(hex)) primary = parseInt(hex, 16);
-    }
-    const secondary = toInt(live.colors?.secondaryColor);
-    const tertiary = toInt(live.colors?.tertiaryColor);
-    return {
-      primary: primary == null || !Number.isFinite(primary) ? null : primary,
-      secondary: secondary == null || !Number.isFinite(secondary) ? null : secondary,
-      tertiary: tertiary == null || !Number.isFinite(tertiary) ? null : tertiary,
-    };
+    return pickColors(live);
   };
 
-  const sameColor = (a?, b?) => {
-    if (a == null && b == null) return true;
-    if (a == null || b == null) return false;
-    return Number(a) === Number(b);
-  };
-
-  const confirmColors = async (want?) => {
-    const live = await readLiveColors();
+  const matchesWant = (live?, want?, opts: { ignoreTertiary?: boolean } = {}) => {
     if (!live || live.primary == null) return false;
     if (!sameColor(live.primary, want.primary)) return false;
     if (!sameColor(live.secondary, want.secondary ?? null)) return false;
-    if (!sameColor(live.tertiary, want.tertiary ?? null)) return false;
+    if (!opts.ignoreTertiary && !sameColor(live.tertiary, want.tertiary ?? null)) return false;
     return true;
   };
 
-  const editRole = async (payload?, reason?) => {
+  const confirmColors = async (want?, opts: { ignoreTertiary?: boolean } = {}) => {
+    for (let i = 0; i < 3; i += 1) {
+      if (i > 0) await sleep(220 * i);
+      const live = await readLiveColors();
+      if (matchesWant(live, want, opts)) return true;
+    }
+    return false;
+  };
+
+  /** Preferisce REST diretto (site-api) o setColors; evita tertiary:null sui gradienti. */
+  const applyColors = async (colorsPayload?, reason?) => {
+    const rest = guild?.client?._rest;
+    if (rest && guild?.id) {
+      try {
+        const { buildRoleColorsApiBody } = require("../../site/http/restUserRole") as typeof import("../../site/http/restUserRole");
+        const colorsBody = buildRoleColorsApiBody(colorsPayload);
+        if (!colorsBody) return { ok: false as const, role: null };
+        const updated = await rest.patch(Routes.guildRole(guild.id, resolvedRoleId), {
+          body: { colors: colorsBody },
+          reason: reason ? String(reason).slice(0, 512) : undefined,
+        });
+        const wrapped = pickColors(updated);
+        if (updated?.id && guild.roles?.cache?.set) {
+          try {
+            const prev = guild.roles.cache.get(resolvedRoleId);
+            if (prev && typeof prev.edit === "function") {
+              /* aggiorna cache colori senza ricostruire tutto */
+              if (prev.colors && typeof prev.colors === "object") {
+                prev.colors.primaryColor = wrapped.primary;
+                prev.colors.secondaryColor = wrapped.secondary;
+                prev.colors.tertiaryColor = wrapped.tertiary;
+              }
+              if (wrapped.primary != null) prev.color = wrapped.primary;
+            }
+          } catch {
+            /* ignore cache */
+          }
+        }
+        return { ok: true as const, role: updated, live: wrapped };
+      } catch (err) {
+        global.logger?.warn?.(
+          "[customProfile] role colors REST failed:",
+          err?.message || err?.code || err,
+        );
+      }
+    }
+
     try {
-      if (typeof role.edit === "function") {
-        await role.edit(payload, reason);
-        return true;
+      if (typeof role.setColors === "function") {
+        const updated = await role.setColors(colorsPayload, reason);
+        return { ok: true as const, role: updated, live: pickColors(updated) };
       }
-      if (typeof guild.roles?.edit === "function") {
-        await guild.roles.edit(resolvedRoleId, payload, reason);
-        return true;
-      }
+    } catch (err) {
+      global.logger?.warn?.(
+        "[customProfile] role.setColors failed:",
+        err?.message || err?.code || err,
+      );
+    }
+
+    try {
+      const editOpts: Record<string, any> = { colors: colorsPayload };
+      if (reason) editOpts.reason = reason;
+      const updated = await role.edit(editOpts);
+      return { ok: true as const, role: updated, live: pickColors(updated) };
     } catch (err) {
       global.logger?.warn?.(
         "[customProfile] role color edit failed:",
         err?.message || err?.code || err,
       );
-      return false;
+      return { ok: false as const, role: null, live: null };
     }
-    return false;
   };
 
   if (colorMode === "gradient" || colorMode === "holo") {
@@ -126,13 +204,20 @@ async function setCustomRoleColor({ guild, member, ownerId, roleId, mode, hex, h
   }
 
   if (colorMode === "holo") {
-    const edited = await editRole({ colors: HOLO }, `Custom role holographic via sito da ${ownerId}`);
-    const applied = await confirmColors({
+    const payload = {
+      primaryColor: HOLO.primaryColor,
+      secondaryColor: HOLO.secondaryColor,
+      tertiaryColor: HOLO.tertiaryColor,
+    };
+    const edited = await applyColors(payload, `Custom role holographic via sito da ${ownerId}`);
+    const want = {
       primary: HOLO.primaryColor,
       secondary: HOLO.secondaryColor,
       tertiary: HOLO.tertiaryColor,
-    });
-    if (!edited || !applied) {
+    };
+    const applied =
+      (edited.live && matchesWant(edited.live, want)) || (await confirmColors(want));
+    if (!edited.ok || !applied) {
       return {
         ok: false,
         reason: "edit_failed",
@@ -152,17 +237,33 @@ async function setCustomRoleColor({ guild, member, ownerId, roleId, mode, hex, h
     const p = hexToInt(h1);
     const s = hexToInt(h2);
     if (p == null || s == null) return { ok: false, reason: "invalid_hex" };
-    const edited = await editRole(
-      { colors: { primaryColor: p, secondaryColor: s, tertiaryColor: null } },
-      `Custom role gradient via sito da ${ownerId}`,
-    );
-    const applied = await confirmColors({ primary: p, secondary: s, tertiary: null });
-    if (!edited || !applied) {
+    /* Solo primary+secondary: niente tertiary (neanche null) — altrimenti Discord resta solido. */
+    const payload = { primaryColor: p, secondaryColor: s };
+    const edited = await applyColors(payload, `Custom role gradient via sito da ${ownerId}`);
+    const want = { primary: p, secondary: s, tertiary: null };
+    let applied =
+      (edited.live && matchesWant(edited.live, want, { ignoreTertiary: true }) && edited.live.secondary != null) ||
+      (await confirmColors(want, { ignoreTertiary: true }));
+    /* Se resta tertiary da holo, ripulisci esplicitamente. */
+    if (applied) {
+      const live = edited.live || (await readLiveColors());
+      if (live?.tertiary != null) {
+        await applyColors(
+          { primaryColor: p, secondaryColor: s, tertiaryColor: null },
+          `Custom role gradient clear tertiary via sito da ${ownerId}`,
+        );
+        applied = await confirmColors(want, { ignoreTertiary: true });
+      }
+    }
+    if (!edited.ok || !applied) {
+      const live = await readLiveColors();
+      const solidOnly = live?.primary != null && sameColor(live.primary, p) && live.secondary == null;
       return {
         ok: false,
         reason: "edit_failed",
-        message:
-          "Discord non ha applicato il gradiente. Seleziona Gradiente (non Solido) e riprova.",
+        message: solidOnly
+          ? "Discord ha applicato solo il colore solido. Seleziona Gradiente (non Solido) e riprova; sul server serve Enhanced Role Styles."
+          : "Discord non ha applicato il gradiente. Seleziona Gradiente (non Solido) e riprova.",
       };
     }
     return okPersist(guild, ownerId, "custom_role_color_gradient", { ok: true, message: "Gradiente aggiornato." });
@@ -174,13 +275,15 @@ async function setCustomRoleColor({ guild, member, ownerId, roleId, mode, hex, h
   }
   const p = hexToInt(h);
   if (p == null) return { ok: false, reason: "invalid_hex" };
-  // Solid: clear secondary/tertiary so Discord doesn't keep old gradient/holo.
-  const edited = await editRole(
-    { colors: { primaryColor: p, secondaryColor: null, tertiaryColor: null } },
+  /* Solid: clear secondary/tertiary so Discord doesn't keep old gradient/holo. */
+  const edited = await applyColors(
+    { primaryColor: p, secondaryColor: null, tertiaryColor: null },
     `Custom role color via sito da ${ownerId}`,
   );
-  const applied = await confirmColors({ primary: p, secondary: null, tertiary: null });
-  if (!edited || !applied) {
+  const want = { primary: p, secondary: null, tertiary: null };
+  const applied =
+    (edited.live && matchesWant(edited.live, want)) || (await confirmColors(want));
+  if (!edited.ok || !applied) {
     return {
       ok: false,
       reason: "edit_failed",

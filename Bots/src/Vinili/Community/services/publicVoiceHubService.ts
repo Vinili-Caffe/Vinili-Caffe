@@ -50,6 +50,14 @@ async function recoverPublicVoiceHubOnStartup(client?) {
       if (!isHubGroupSpawnChannel(ch, hub, client)) continue;
       rememberSpawnedChannel(ch.id, hubId);
       await ensureSpawnedChannelMemberTextAccess(ch, guild);
+      /* Hub EN "create a duo" → spawn deve essere "duo⁰¹", non "create a duo⁰¹". */
+      const idx = parseVoiceSuffixIndex(ch.name);
+      if (idx > 0 && /\b(?:crea\s+un[a']?|create\s+an?)\s+/i.test(String(ch.name || ""))) {
+        const expected = `${resolveHubSpawnBaseName(hub)}${toSuperscriptNumber(idx, MIN_SUFFIX_DIGITS)}`;
+        if (expected && String(ch.name) !== expected) {
+          await ch.setName(expected, "Hub spawn: short name without create/crea").catch(() => null);
+        }
+      }
       spawned += 1;
       if ((await countHumanMembersResolved(ch)) === 0) {
         scheduleSpawnedChannelDelete(ch, client);

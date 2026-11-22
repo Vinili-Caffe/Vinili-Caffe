@@ -8,6 +8,7 @@ export type NotifKind =
   | "success"
   | "vote"
   | "vote_reminder"
+  | "wordle_reminder"
   | "review"
   | "mod"
   | "staff"
@@ -243,6 +244,7 @@ export function personalCategory(n: SiteNotification): PersonalCatId {
   const kind = String(n.kind || "info").toLowerCase();
   const key = String(n.dedupeKey || n.id || "").toLowerCase();
   if (kind === "vote" || kind === "vote_reminder") return "votes";
+  if (kind === "wordle_reminder") return "community";
   if (kind === "web_ticket" || kind === "web_ticket_mention") return "tickets";
   if (kind === "web_ticket_mention" || kind === "workflow_mention" || /^web_ticket:mention:/.test(key) || /^wfc:mention:/.test(key)) {
     return "tickets";
@@ -274,6 +276,7 @@ export function personalCategory(n: SiteNotification): PersonalCatId {
 export const KIND_LABEL: Record<string, string> = {
   vote: "Voto",
   vote_reminder: "Promemoria",
+  wordle_reminder: "Wordle",
   success: "Successo",
   review: "Recensione",
   mod: "Moderazione",
@@ -286,15 +289,44 @@ export const KIND_LABEL: Record<string, string> = {
   info: "Info",
 };
 
+/** Chiavi i18n per kind noti (fallback a KIND_LABEL). */
+export function kindLabelKey(kind: string): string | null {
+  if (kind === "wordle_reminder") return "notif.kind.wordle_reminder";
+  return null;
+}
+
+/** Title/body localizzati quando il kind ha copia fissa (es. promemoria Wordle). */
+export function localizedNotifCopy(
+  n: Pick<SiteNotification, "kind" | "title" | "body">,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): { title: string; body: string } {
+  if (String(n.kind || "").toLowerCase() === "wordle_reminder") {
+    return { title: t("wordle.remindNotifTitle"), body: t("wordle.remindNotifBody") };
+  }
+  return { title: n.title, body: n.body };
+}
+
 export const VOTE_DM_KEYS = new Set(["bump", "vote_topgg"]);
-export const DISCORD_DM_KEYS = new Set(["broadcast", "invites", "perks"]);
+export const DISCORD_DM_KEYS = new Set(["broadcast", "invites", "perks", "wordle"]);
 export const DM_LABEL_OVERRIDE: Record<string, string> = {
   bump: "Discadia",
   vote_topgg: "Top.gg",
+  wordle: "Wordle",
   broadcast: "Avvisi staff",
   invites: "Inviti",
   perks: "Livelli e perk",
 };
+
+/** Override i18n per label preferenze DM/sito. */
+export function prefLabelKey(section: "dm" | "site", key: string): string | null {
+  if (key === "wordle") return section === "dm" ? "notif.dm.wordle" : "notif.pref.wordle";
+  return null;
+}
+
+export function prefHintKey(section: "dm" | "site", key: string): string | null {
+  if (section === "site" && key === "wordle") return "notif.pref.wordleHint";
+  return null;
+}
 export const STAFF_ONLY_SITE_KEYS = new Set(["staff", "ticket_sla", "confessionale"]);
 
 export function filterPersonal(items: SiteNotification[], mode: NotifFilter): SiteNotification[] {

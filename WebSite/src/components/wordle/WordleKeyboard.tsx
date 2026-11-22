@@ -2,6 +2,7 @@
 
 import { Delete } from "lucide-react";
 import { KEYBOARD_ROWS, type KeyMarks, type Mark } from "@/lib/wordle";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 
 const markClass = (m?: Mark) => {
@@ -15,26 +16,37 @@ type Props = {
   keyMarks: KeyMarks;
   disabled?: boolean;
   onKey: (key: string) => void;
+  /** Tasti più bassi (Wordle ×4). */
+  compact?: boolean;
 };
 
 /** Tastiera Wordle del minigioco. */
-export function WordleKeyboard({ keyMarks, disabled, onKey }: Props) {
+export function WordleKeyboard({ keyMarks, disabled, onKey, compact }: Props) {
+  const { t } = useI18n();
+  const keyH = compact
+    ? "h-9 sm:h-10"
+    : "h-12 sm:h-14";
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col gap-1.5" role="group" aria-label="Tastiera">
+    <div
+      className={cn("mx-auto flex w-full flex-col gap-1", compact ? "max-w-3xl gap-1" : "max-w-lg gap-1.5")}
+      role="group"
+      aria-label={t("wordle.keyboardAria")}
+    >
       {KEYBOARD_ROWS.map((line, idx) => (
-        <div key={line} className="flex justify-center gap-1 sm:gap-1.5">
+        <div key={line} className={cn("flex justify-center", compact ? "gap-0.5 sm:gap-1" : "gap-1 sm:gap-1.5")}>
           {idx === 2 && (
             <button
               type="button"
               disabled={disabled}
               onClick={() => onKey("Enter")}
-              aria-label="Invio"
+              aria-label={t("wordle.enterAria")}
               className={cn(
-                "inline-flex h-12 min-w-0 flex-[1.6] items-center justify-center rounded-xl px-2 text-[0.7rem] font-bold uppercase leading-none tracking-wide ring-1 transition sm:h-14 sm:min-w-[4rem] sm:flex-none sm:text-xs",
+                "inline-flex min-w-0 flex-[1.6] items-center justify-center rounded-xl px-2 text-[0.7rem] font-bold uppercase leading-none tracking-wide ring-1 transition sm:min-w-[4rem] sm:flex-none sm:text-xs",
+                keyH,
                 "bg-caramel/20 text-ember ring-caramel/35 hover:bg-caramel/30 disabled:opacity-50",
               )}
             >
-              Invio
+              {t("wordle.enter")}
             </button>
           )}
           {line.split("").map((ch) => (
@@ -43,9 +55,10 @@ export function WordleKeyboard({ keyMarks, disabled, onKey }: Props) {
               type="button"
               disabled={disabled}
               onClick={() => onKey(ch)}
-              aria-label={`Lettera ${ch.toUpperCase()}`}
+              aria-label={t("wordle.letterAria", { letter: ch.toUpperCase() })}
               className={cn(
-                "inline-flex h-12 min-w-0 max-w-10 flex-1 items-center justify-center rounded-xl text-sm font-bold uppercase leading-none ring-1 transition sm:h-14 sm:w-10 sm:flex-none sm:text-base",
+                "inline-flex min-w-0 max-w-10 flex-1 items-center justify-center rounded-xl text-sm font-bold uppercase leading-none ring-1 transition sm:w-10 sm:flex-none sm:text-base",
+                keyH,
                 "disabled:opacity-50",
                 markClass(keyMarks[ch]),
               )}
@@ -58,9 +71,10 @@ export function WordleKeyboard({ keyMarks, disabled, onKey }: Props) {
               type="button"
               disabled={disabled}
               onClick={() => onKey("Backspace")}
-              aria-label="Cancella"
+              aria-label={t("wordle.backspaceAria")}
               className={cn(
-                "inline-flex h-12 min-w-0 flex-[1.6] items-center justify-center rounded-xl px-2 ring-1 transition sm:h-14 sm:min-w-[4rem] sm:flex-none",
+                "inline-flex min-w-0 flex-[1.6] items-center justify-center rounded-xl px-2 ring-1 transition sm:min-w-[4rem] sm:flex-none",
+                keyH,
                 "bg-crema/8 text-crema ring-sand/20 hover:bg-crema/14 disabled:opacity-50",
               )}
             >

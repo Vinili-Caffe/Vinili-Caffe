@@ -41,6 +41,7 @@ import { onComposerEnterSend } from "@/lib/composer-keys";
 import { TicketActions } from "./TicketActions";
 import { EmojiText } from "@/components/discord/EmojiText";
 import { ComposerSuggest } from "./ComposerSuggest";
+import { imageFilesFromClipboard } from "@/components/ui/image-attach";
 import { UploadRightsHint } from "@/components/UploadRightsHint";
 
 function isBarePartnershipCommand(raw: string) {
@@ -520,11 +521,20 @@ export function TicketChat({
     });
   };
 
-  const addFiles = async (files: FileList | null) => {
-    if (!files) return;
+  const addFiles = async (files: FileList | File[] | null) => {
+    if (!files || editing) return;
+    const list = Array.from(files as ArrayLike<File>);
     const out: string[] = [];
-    for (const f of Array.from(files).slice(0, MAX_IMAGES - images.length)) if (/^image\//.test(f.type)) out.push(await imageToDataUrl(f).catch(() => ""));
+    for (const f of list.slice(0, MAX_IMAGES - images.length)) if (/^image\//.test(f.type)) out.push(await imageToDataUrl(f).catch(() => ""));
     setImages((x) => [...x, ...out.filter(Boolean)].slice(0, MAX_IMAGES));
+  };
+
+  const onPasteImages = (e: React.ClipboardEvent) => {
+    if (editing) return;
+    const files = imageFilesFromClipboard(e.clipboardData);
+    if (!files.length) return;
+    e.preventDefault();
+    void addFiles(files);
   };
 
   const dispatchMessage = async (content: string, imgs: string[] = [], rep?: string) => {
@@ -844,6 +854,7 @@ export function TicketChat({
                 ref={taRef}
                 value={text}
                 onChange={(e) => onType(e.target.value, e.target)}
+                onPaste={onPasteImages}
                 onSelect={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
                 onClick={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
                 onKeyUp={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart ?? 0)}

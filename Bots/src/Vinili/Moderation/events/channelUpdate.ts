@@ -233,6 +233,13 @@ export = {
     }
 
     try {
+      const { handleCustomVocChannelUpdate } = require("../../Community/services/customProfileVoc") as typeof import("../../Community/services/customProfileVoc");
+      await handleCustomVocChannelUpdate(oldChannel, newChannel);
+    } catch (error) {
+      global.logger?.warn?.("[channelUpdate] custom voc name enforce:", error?.message || error);
+    }
+
+    try {
       await sendChannelUpdateLog(oldChannel, newChannel);
     } catch (error) {
       global.logger?.error?.("[channelUpdate] channel log failed:", error);

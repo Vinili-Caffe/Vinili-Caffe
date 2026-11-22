@@ -13,11 +13,14 @@ import {
   Ticket,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import { page } from "@/lib/site";
 import {
   KIND_LABEL,
   filterPersonal,
+  kindLabelKey,
   loadNotifications,
+  localizedNotifCopy,
   markNotifRead,
   resolveDestUrl,
   timeAgoNotif,
@@ -39,6 +42,7 @@ const BELL_SYNC = "vc:notif-bell-sync";
 
 function kindIcon(kind: string) {
   if (kind === "vote" || kind === "vote_reminder") return Star;
+  if (kind === "wordle_reminder") return Sparkles;
   if (kind === "success") return CheckCircle2;
   if (kind === "contest") return Heart;
   if (kind === "review" || kind === "suggestion") return MessageSquare;
@@ -49,7 +53,8 @@ function kindIcon(kind: string) {
 }
 
 function kindTone(kind: string) {
-  if (kind === "vote" || kind === "vote_reminder" || kind === "success") return "text-ember bg-caramel/20 ring-caramel/30";
+  if (kind === "vote" || kind === "vote_reminder" || kind === "wordle_reminder" || kind === "success")
+    return "text-ember bg-caramel/20 ring-caramel/30";
   if (kind === "contest") return "text-rose-200 bg-rose-500/20 ring-rose-400/30";
   if (kind === "review") return "text-amber-200 bg-amber-500/20 ring-amber-400/30";
   if (kind === "mod" || kind === "staff") return "text-sky-200 bg-sky-500/20 ring-sky-400/30";
@@ -69,6 +74,7 @@ function onNotificationsPage() {
 /** Toast in alto a destra + catch-up al ritorno tab (non “mangiare” le notif in background). */
 export function NotifLiveToasts() {
   const { ready, token, user } = useAuth();
+  const { t } = useI18n();
   /** Già mostrate (o seed iniziale). */
   const seen = useRef<Set<string> | null>(null);
   /** Arrivate mentre la tab era nascosta → toast al focus. */
@@ -230,7 +236,9 @@ export function NotifLiveToasts() {
         {toasts.map((n) => {
           const href = resolveDestUrl(n.openUrl) || page("/notifications/");
           const Icon = kindIcon(String(n.kind));
-          const label = KIND_LABEL[String(n.kind)] || "Notifica";
+          const kindKey = kindLabelKey(String(n.kind));
+          const label = (kindKey ? t(kindKey) : null) || KIND_LABEL[String(n.kind)] || "Notifica";
+          const copy = localizedNotifCopy(n, t);
           return (
             <a
               key={n.toastKey}
@@ -259,9 +267,9 @@ export function NotifLiveToasts() {
                   </span>
                   <span className="ml-auto shrink-0 text-[0.65rem] text-crema/40">{timeAgoNotif(n.at)}</span>
                 </span>
-                <span className="mt-0.5 block truncate text-sm font-medium text-crema"><EmojiText text={n.title || label} /></span>
-                {n.body ? (
-                  <span className="mt-0.5 block line-clamp-2 text-xs leading-relaxed text-crema/55"><EmojiText text={n.body} /></span>
+                <span className="mt-0.5 block truncate text-sm font-medium text-crema"><EmojiText text={copy.title || label} /></span>
+                {copy.body ? (
+                  <span className="mt-0.5 block line-clamp-2 text-xs leading-relaxed text-crema/55"><EmojiText text={copy.body} /></span>
                 ) : (
                   <span className="mt-0.5 block text-xs text-crema/40">Tocca per aprire</span>
                 )}

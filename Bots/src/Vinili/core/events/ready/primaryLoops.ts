@@ -132,6 +132,11 @@ function startPrimaryLoops(client?, engagementTick?) {
       const { startBirthdayLoop } = require("../../../Community/services/birthdayService") as typeof import("../../../Community/services/birthdayService");
       startBirthdayLoop(client);
     }],
+    ["[WORDLE REMIND] Failed to start loop", () => {
+      if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
+      const { startWordleDailyReminderLoop } = require("../../../Minigames/services/wordleDailyReminderService") as typeof import("../../../Minigames/services/wordleDailyReminderService");
+      startWordleDailyReminderLoop(client);
+    }],
     ["[WEEKLY STAFF RESOCONTO] Failed to start loop", () => {
       if (skipExternalWorkerLoop("COMMUNITY_POLL")) return;
       const { startWeeklyStaffResocontoLoop } = require("../../../Staff/services/weeklyStaffResocontoService") as typeof import("../../../Staff/services/weeklyStaffResocontoService");

@@ -411,8 +411,44 @@ async function handlePossiblePublishedBotUpdate(client?, previous?, updated?) {
   return true;
 }
 
+/** Il server ha impostato il canale aggiornamenti dalla dashboard? */
+function tenantUpdatesChannelOf(guildId?) {
+  const gid = String(guildId || "");
+  return listTenantUpdatesTargetsSync().find((t?) => t.guildId === gid) || null;
+}
+
+/**
+ * Manda un messaggio (testo/embed, senza allegati) nel canale aggiornamenti di un server, con lo stesso
+ * webhook degli aggiornamenti inoltrati. Usato dal «Messaggio ai proprietari» della dashboard sviluppatori.
+ */
+async function sendToTenantUpdatesChannel(client?, guildId?, message: Record<string, any> = {}) {
+  const target = tenantUpdatesChannelOf(guildId);
+  if (!target) return { ok: false, reason: "no_channel" };
+  const payload = {
+    content: message.content,
+    embeds: message.embeds,
+    username: appDisplayName(client),
+    avatarURL: appAvatarDataUriOrUrl(client).url,
+    allowedMentions: { parse: [] },
+  };
+  let webhookId = target.webhookId;
+  if (!webhookId) {
+    const ensured: any = await ensureTenantUpdatesWebhook(client, target.guildId, target.channelId);
+    if (!ensured.ok) return { ok: false, reason: ensured.reason || "webhook" };
+    webhookId = ensured.webhookId;
+  }
+  let result: any = await sendViaWebhook(client, webhookId, payload);
+  if (!result?.ok) {
+    const ensured: any = await ensureTenantUpdatesWebhook(client, target.guildId, target.channelId);
+    if (ensured.ok) result = await sendViaWebhook(client, ensured.webhookId, payload);
+  }
+  return result?.ok ? { ok: true } : { ok: false, reason: result?.reason || "send_failed" };
+}
+
 export = {
   ensureTenantUpdatesWebhook,
   clearTenantUpdatesWebhook,
   handlePossiblePublishedBotUpdate,
+  tenantUpdatesChannelOf,
+  sendToTenantUpdatesChannel,
 };

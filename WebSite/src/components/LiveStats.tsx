@@ -42,32 +42,34 @@ function CountUp({ value, locale }: { value: number; locale: Locale }) {
   const inView = useInView(ref, { once: true, margin: "-15% 0px" });
   const reduce = useReducedMotionSafe();
   const shown = useRef(0);
-  const nf = new Intl.NumberFormat(nfLocale(locale));
+  const localeTag = nfLocale(locale);
 
   useEffect(() => {
     const el = ref.current;
     if (!el || !inView) return;
+    const nf = new Intl.NumberFormat(localeTag);
     if (reduce) {
       el.textContent = nf.format(value);
       shown.current = value;
       return;
     }
-    const controls = animate(shown.current, value, {
-      duration: shown.current === 0 ? 1.6 : 0.6,
+    const from = shown.current;
+    const controls = animate(from, value, {
+      duration: from === 0 ? 1.6 : 0.55,
       ease: [0.22, 1, 0.36, 1],
       onUpdate: (v) => {
         shown.current = v;
         el.textContent = nf.format(Math.round(v));
       },
+      onComplete: () => {
+        shown.current = value;
+        el.textContent = nf.format(value);
+      },
     });
     return () => controls.stop();
-  }, [inView, value, reduce, nf]);
+  }, [inView, value, reduce, localeTag]);
 
-  return (
-    <span ref={ref} className="lining-nums tabular-nums">
-      {nf.format(value)}
-    </span>
-  );
+  return <span ref={ref} className="lining-nums tabular-nums" />;
 }
 
 function TinyPerson({
@@ -460,7 +462,7 @@ export function LiveStats({ initial }: { initial: Stats }) {
   }, [initial]);
 
   /* presence = online Discord; live_stats = snapshot extra (boost/staff/pulse) */
-  useLiveRefresh(pull, { intervalMs: 45_000, topics: ["live_stats", "presence"] });
+  useLiveRefresh(pull, { intervalMs: 15_000, topics: ["live_stats", "presence"] });
 
   const items: {
     id: Exclude<RosterKind, null>;

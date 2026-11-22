@@ -11,6 +11,59 @@ const { fetchPartnerManagerTimedPerkLean, partnerManagerCustomBundleActiveFromLe
 const { accountUsername } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { ANCHOR_ROLE_ID, okPersist, trimRoleName } = require("./customProfileShared") as typeof import("./customProfileShared");
 
+const CUSTOM_ROLE_BOT_RENAME_TTL_MS = 8_000;
+const customRoleBotRenameUntil = new Map();
+
+function markCustomRoleBotRename(roleId?, ttlMs = CUSTOM_ROLE_BOT_RENAME_TTL_MS) {
+  const rid = String(roleId || "").trim();
+  if (!rid) return;
+  customRoleBotRenameUntil.set(rid, Date.now() + Math.max(1_000, Number(ttlMs) || CUSTOM_ROLE_BOT_RENAME_TTL_MS));
+}
+
+function isCustomRoleBotRename(roleId?) {
+  const rid = String(roleId || "").trim();
+  if (!rid) return false;
+  const until = Number(customRoleBotRenameUntil.get(rid) || 0);
+  if (!until) return false;
+  if (Date.now() > until) {
+    customRoleBotRenameUntil.delete(rid);
+    return false;
+  }
+  return true;
+}
+
+/** Dopo rename manuali su Discord: ripristina sempre il prefisso ༄. */
+async function handleCustomRoleNameUpdate(oldRole?, newRole?) {
+  if (!newRole?.guild || !newRole?.id) return false;
+  if (isCustomRoleBotRename(newRole.id)) return false;
+  const oldName = String(oldRole?.name || "");
+  const newName = String(newRole.name || "");
+  if (!oldName || oldName === newName) return false;
+
+  const guild = newRole.guild;
+  const rid = String(newRole.id);
+  const doc = await CustomRole.findOne(
+    { guildId: guild.id, $or: [{ roleId: rid }, { secondaryRoleId: rid }] },
+    { roleId: 1, secondaryRoleId: 1 },
+  )
+    .lean()
+    .catch(() => null);
+  if (!doc) return false;
+
+  const enforced = trimRoleName(newName);
+  if (enforced === newName) return false;
+
+  markCustomRoleBotRename(rid);
+  const ok = await newRole
+    .setName(enforced, "Custom role: ripristino ༄")
+    .then(() => true)
+    .catch((err?) => {
+      global.logger?.warn?.("[customRole] name enforce failed:", err?.message || err);
+      return false;
+    });
+  return ok;
+}
+
 async function createCustomRole({ client, guild, member, ownerId, slot = "primary" }) {
   if (!guild || !member) return { ok: false, reason: "server_missing" };
   const targetSlot = String(slot || "primary").toLowerCase() === "secondary" ? "secondary" : "primary";
@@ -122,6 +175,7 @@ async function renameCustomRole({ guild, member, ownerId, roleId, name }) {
   if (!role) return { ok: false, reason: "role_not_found" };
 
   const newName = trimRoleName(String(name || "").trim() || accountUsername(member) || "Custom Role");
+  markCustomRoleBotRename(roleId);
   const edited = await role.edit({ name: newName }, `Custom role rename via sito da ${ownerId}`).then(() => true).catch(() => false);
   return edited
     ? okPersist(guild, ownerId, "rename_custom_role", { ok: true, name: newName })
@@ -203,4 +257,5 @@ export = {
   renameCustomRole,
   removeCustomRoleMember,
   addCustomRoleMember,
+  handleCustomRoleNameUpdate,
 };

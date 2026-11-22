@@ -62,7 +62,6 @@ async function ensureMovieNightScheduledEventPoster(event?, opts: Record<string,
 
   if (!edited) return { ok: false, skipped: false, reason: "edit_failed", eventId, posterUrl };
   if (eventId) appliedPosterByEventId.set(eventId, posterUrl);
-  global.logger?.info?.("[MOVIE NIGHT POSTER] cover impostata", eventId, posterUrl);
   return { ok: true, changed: true, eventId, posterUrl };
 }
 

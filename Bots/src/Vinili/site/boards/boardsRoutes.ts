@@ -85,9 +85,12 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
          solo l'HS può aprire le schede e non può segnalare le proprie. */
       if (sub === "/config" || sub.startsWith("/files/") || sub.startsWith("/api/")) return next();
       if (req.method === "GET" && (sub === "/compare" || /^\/listings\/[^/]+$/.test(sub))) return next();
+      /* Scheda/voto/segnalazioni: in anteprima OK se loggato (auth nel handler), come VetrinaGate allowLoggedInPreview. */
+      if (req.method === "GET" && /^\/listings\/[^/]+\/vote-status$/.test(sub)) return next();
       if (
         req.method === "POST" &&
-        (/^\/listings\/[^/]+\/report$/.test(sub) || /^\/reviews\/[^/]+\/report$/.test(sub))
+        (/^\/listings\/[^/]+\/(vote-session|vote-progress|vote|vote-reminder|report)$/.test(sub) ||
+          /^\/reviews\/[^/]+\/report$/.test(sub))
       ) {
         return next();
       }
@@ -706,9 +709,10 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
           message: "Header Authorization: Bearer <token> richiesto.",
         });
       }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
       const out = await startListingVoteSession(client, {
         accessToken,
-        listingId: req.params?.id,
+        listingId: req.params?.id || body.listingId || body.id,
       });
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
@@ -729,7 +733,7 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
       const body = req.body && typeof req.body === "object" ? req.body : {};
       const out = await progressListingVoteSession(client, {
         accessToken,
-        listingId: req.params?.id,
+        listingId: req.params?.id || body.listingId || body.id,
         sessionId: body.sessionId,
         step: body.step,
         markStart: body.markStart === true,
@@ -755,7 +759,7 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
         client,
         {
           accessToken,
-          listingId: req.params?.id,
+          listingId: req.params?.id || body.listingId || body.id,
           sessionId: body.sessionId,
           turnstileToken: body.turnstileToken || body["cf-turnstile-response"],
           remind: body.remind === true || body.reminder === true,

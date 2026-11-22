@@ -6,6 +6,7 @@ import { SiteShell } from "@/components/SiteShell";
 import { loadBuildWordle } from "@/lib/wordle";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
+import { WordleModeTabs } from "@/components/wordle/WordleModeTabs";
 
 const WordleBoard = dynamic(
   () => import("@/components/wordle/WordleBoard").then((m) => m.WordleBoard),
@@ -13,7 +14,12 @@ const WordleBoard = dynamic(
 );
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/wordle/", title: "Wordle", description: "Il Wordle di Vinili & Caffè: una parola nuova ogni giorno da indovinare in sei tentativi, nella lingua del sito." }),
+  ...pageSocialMeta({
+    path: "/wordle/",
+    title: "Wordle",
+    description:
+      "Il Wordle di Vinili & Caffè: una parola nuova ogni giorno. Accedi e entra nel server per ricevere EXP in base ai tentativi.",
+  }),
 };
 
 export default async function WordlePage() {
@@ -23,15 +29,17 @@ export default async function WordlePage() {
       <DiscordComponentEmbed
         path="/wordle/"
         title="Wordle"
-        description="Il Wordle di Vinili & Caffè: una parola nuova ogni giorno da indovinare in sei tentativi, nella lingua del sito."
+        description="Il Wordle di Vinili & Caffè: una parola nuova ogni giorno. Accedi e entra nel server per ricevere EXP."
       />
       <PageHero
+        compact
         icon={<Coffee />}
         kicker="Minigioco"
         title="Wordle del"
         accent="server"
-        text="Cinque lettere e sei tentativi per indovinare la parola del giorno. Domani ce n’è un’altra."
+        text="Indovina la parola del giorno. Vinci e guadagni EXP."
       />
+      <WordleModeTabs active="classic" />
       <WordleBoard initial={initial} />
     </SiteShell>
   );

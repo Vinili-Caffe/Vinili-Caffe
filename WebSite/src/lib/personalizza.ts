@@ -342,6 +342,68 @@ export function inferColorMode(hex?: string, hex2?: string, mode?: string): Colo
   return "solid";
 }
 
+/** Formato Discord: ༄emoji︲base (vocali) / ༄ nome (ruoli). Mai editabili dall'utente. */
+export const CUSTOM_MARK_LEAD = "\u0F04"; // ༄
+export const CUSTOM_MARK_SEP = "\uFE32"; // ︲
+const VOC_SEPARATORS = [
+  CUSTOM_MARK_SEP,
+  "\u01C0",
+  "\u2758",
+  "︲",
+  "|",
+  "│",
+  "｜",
+  "⠂",
+  "•",
+  "·",
+  "—",
+  "–",
+  "-",
+];
+
+/** Rimuove ༄ / ︲ e lookalike strutturali dal testo editabile. */
+export function stripCustomNameMarks(raw?: string): string {
+  return String(raw || "")
+    .replace(/\u0F04/g, "")
+    .replace(/༄/g, "")
+    .replace(/\uFE32/g, "")
+    .replace(/\u01C0/g, "")
+    .replace(/\u2758/g, "")
+    .replace(/[｜│¦︲]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function parseCustomVocDisplay(rawName?: string): { emoji: string; baseName: string } {
+  const name = String(rawName || "").trim();
+  if (!name) return { emoji: "", baseName: "privata" };
+  for (const separator of VOC_SEPARATORS) {
+    if (!name.includes(separator)) continue;
+    const parts = name.split(separator);
+    const left = stripCustomNameMarks(String(parts.shift() || ""));
+    const right = stripCustomNameMarks(parts.join(separator));
+    if (separator === "-" && left.length > 8) continue;
+    return { emoji: left, baseName: right || "privata" };
+  }
+  return { emoji: "", baseName: stripCustomNameMarks(name) || "privata" };
+}
+
+export function formatCustomVocPreview(emoji?: string, baseName?: string): string {
+  const parsed = parseCustomVocDisplay(baseName || "");
+  const em = stripCustomNameMarks(emoji || "") || parsed.emoji || "🎧";
+  const base = stripCustomNameMarks(parsed.baseName) || "privata";
+  return `${CUSTOM_MARK_LEAD}${em}${CUSTOM_MARK_SEP}${base}`;
+}
+
+export function parseCustomRoleDisplay(rawName?: string): string {
+  return stripCustomNameMarks(rawName) || "";
+}
+
+export function formatCustomRolePreview(name?: string): string {
+  const base = parseCustomRoleDisplay(name) || "Il tuo ruolo";
+  return `${CUSTOM_MARK_LEAD} ${base}`;
+}
+
 function mapCustomRole(raw: unknown): CustomRoleEntity | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;

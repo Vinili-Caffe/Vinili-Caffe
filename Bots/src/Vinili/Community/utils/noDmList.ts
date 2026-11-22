@@ -163,11 +163,12 @@ async function migrateVoteTopggNoDmSplitOnce() {
   return voteTopggSplitMigrationPromise;
 }
 
-const DM_CATEGORIES = Object.freeze(["bump", "vote_topgg", "broadcast", "invites", "perks"]);
+const DM_CATEGORIES = Object.freeze(["bump", "vote_topgg", "wordle", "broadcast", "invites", "perks"]);
 const DM_CATEGORY_ALL = "all";
 const DM_CATEGORY_LABELS = Object.freeze({
   bump: "Promemoria voto Discadia",
   vote_topgg: "Promemoria voto Top.gg",
+  wordle: "Promemoria Wordle",
   broadcast: "Avvisi dallo staff",
   invites: "Inviti",
   perks: "Livelli e perk",

@@ -81,7 +81,7 @@ function merge(invite: Invite | null, extra: StatsExtra | null, base: Stats): St
 
 async function getJson<T>(url: string, fresh = false): Promise<T | null> {
   try {
-    /* Build/SSR: cache HTTP/CDN. Client live refresh: no-store + bust anti-CDN stale. */
+    /* Build/SSR: cache HTTP/CDN. Client live: no-store + ?t= (niente header custom → no preflight CORS). */
     const href = fresh ? `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}` : url;
     const r = await fetch(href, { cache: fresh ? "no-store" : "default" });
     return r.ok ? ((await r.json()) as T) : null;
@@ -96,9 +96,11 @@ type StatsBundle = { stats: Stats; extra: StatsExtra | null; invite: Invite | nu
 const inflightBundles = new Map<string, Promise<StatsBundle>>();
 
 async function fetchStatsBundle(origin: string, base: Stats, fresh = false): Promise<StatsBundle> {
+  /* Same-origin su www (rewrite → api): niente CORS. origin pieno solo in build/SSR. */
+  const baseOrigin = String(origin || "").trim().replace(/\/+$/, "");
   const [invite, extra] = await Promise.all([
-    getJson<Invite>(`${origin}/discord-invite.json`, fresh),
-    getJson<StatsExtra>(`${origin}/live-stats-extra.json`, fresh),
+    getJson<Invite>(`${baseOrigin}/discord-invite.json`, fresh),
+    getJson<StatsExtra>(`${baseOrigin}/live-stats-extra.json`, fresh),
   ]);
   return { stats: merge(invite, extra, base), extra, invite };
 }

@@ -8,6 +8,20 @@ import { cn } from "@/lib/cn";
 
 export const COMMENT_IMAGES_MAX = 3;
 
+/** Immagini da un paste (screenshot / Ctrl+V): files o items clipboard. */
+export function imageFilesFromClipboard(data: DataTransfer | null | undefined): File[] {
+  if (!data) return [];
+  const fromFiles = [...(data.files || [])].filter((f) => f.type.startsWith("image/"));
+  if (fromFiles.length) return fromFiles;
+  const fromItems: File[] = [];
+  for (const item of data.items || []) {
+    if (!item.type.startsWith("image/")) continue;
+    const f = item.getAsFile();
+    if (f) fromItems.push(f);
+  }
+  return fromItems;
+}
+
 /**
  * Foto da allegare a un commento: tasto "Foto", miniature con la X per toglierle.
  * Le foto si rimpiccioliscono nel browser (max 1600px) prima dell'invio; si possono anche incollare (Ctrl+V)
@@ -33,7 +47,7 @@ export function useImageAttach(max = COMMENT_IMAGES_MAX) {
   };
 
   const onPaste = (e: React.ClipboardEvent) => {
-    const files = [...e.clipboardData.files].filter((f) => f.type.startsWith("image/"));
+    const files = imageFilesFromClipboard(e.clipboardData);
     if (!files.length) return;
     e.preventDefault();
     void add(files);

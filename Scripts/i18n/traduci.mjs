@@ -336,12 +336,40 @@ function applyResult(lang, items, text, cache) {
   return { ok, bad };
 }
 
+/** Frase ancora da tradurre: assente in cache, oppure restata uguale all'italiano (ma è davvero IT). */
+function stillItalian(s) {
+  if (!s || s.length < 8) return false;
+  if (/^[#@;+/]/.test(s) || /^#[0-9a-fA-F]{3,8}$/.test(s) || /^\d/.test(s)) return false;
+  if (/^[A-Za-z0-9_./:-]+$/.test(s)) return false;
+  if (!looksItalian(s)) return false;
+  /* serve almeno un segnale forte: accento o parola di servizio italiana */
+  if (/[àèéìòù]/i.test(s)) return true;
+  const words = s.toLowerCase().match(/[a-zàèéìòù']+/g) || [];
+  return words.some((w) => IT_WORDS.has(w));
+}
+
+/** Marchi, artisti, radio, città, frammenti tecnici: restano uguali in ogni lingua. */
+function isBrandOrProper(s) {
+  const t = String(s || "");
+  if (/^bg-\[|#(?:[0-9a-f]{3,8})$/i.test(t)) return true;
+  if (/\|/.test(t) && /com\|net\|org/i.test(t)) return true;
+  if (/^(atl[eé]tico madrid|counter del|damage per second)$/i.test(t)) return true;
+  return /Vinili|Caff[eè]|Groove|Radio |Rai |Wrapped|AutoMod|Premium|Discord|Discadia|Disboard|Top\.gg|Ed Sheeran|Leonardo|Lucio |Sin[eé]ad|Hilal|Nassr|La Liga|La Land|Beyonc|Castel del|Ho Chi|Maril[uù]|Techet[eè]|Studio Pi[uù]|Rossobl[uù]|Adivina|Hasta la vista|Terima kasih|Par où|Pseudo du|cr[eé]dits|Anime &|guildId required|Tidak bisa|Spanish La|Al Hilal|Al Nassr|Completa la frase|Explora la comunidad|Nada con estos|Paga con PayPal|Todo lo que necesitas|Términos|en el chat de la comunidad|música\|café|créditos|Atlético|Fontana di Trevi|Gomorra|Gracias por contactar|Kylian Mbapp|Memoria con emoji|San José|📷 una foto|con EXP|EXP base del segmento|counter del|damage per second|Céline Dion|Avatar du bot|Bannière du bot|Ce que tu débloques|Crédits utilisés|Merci d'avoir contacté/i.test(
+    t,
+  );
+}
+
 function missing(lang) {
   const src = readJson(SORGENTI, null);
   if (!src) throw new Error("Prima esegui: node Scripts/i18n/traduci.mjs estrai");
   const c = cacheOf(lang);
   const all = [...new Set([...src.sito, ...src.bot])];
-  return all.filter((s) => !(s in c));
+  return all.filter((s) => {
+    if (!(s in c)) return !isBrandOrProper(s);
+    if (c[s] !== s) return false;
+    if (isBrandOrProper(s)) return false;
+    return stillItalian(s);
+  });
 }
 
 function stima() {
@@ -479,7 +507,7 @@ const PROTECT = new RegExp(
   "g",
 );
 
-/* ogni pezzo da non tradurre diventa ⟦n⟧ e ricorda se nell'originale aveva uno spazio prima e dopo */
+/* Marcatori ASCII: Google spesso mangia ⟦n⟧ (soprattutto su ja/zh/ar). __VCn__ resta stabile. */
 function protectFor(text, tokens) {
   return text.replace(PROTECT, (m, ...rest) => {
     const at = rest[rest.length - 2];
@@ -487,16 +515,15 @@ function protectFor(text, tokens) {
     const sb = at === 0 || /\s/.test(src[at - 1]);
     const sa = at + m.length >= src.length || /\s/.test(src[at + m.length]);
     tokens.push({ t: m, sb, sa });
-    return ` ⟦${tokens.length - 1}⟧ `;
+    return ` __VC${tokens.length - 1}__ `;
   });
 }
 const unprotect = (text, tokens) =>
   text
-    .replace(/\s*⟦\s*(\d+)\s*⟧\s*/g, (m, n, at, all) => {
+    .replace(/\s*(?:⟦\s*(\d+)\s*⟧|__\s*VC\s*(\d+)\s*__|_+\s*VC\s*(\d+)\s*_+)\s*/gi, (m, a, b, c, at, all) => {
+      const n = a ?? b ?? c;
       const tok = tokens[Number(n)];
       if (tok == null) return m;
-      /* nomi e parole protette: Google può spostarli nella frase, quindi lo spazio dipende da cosa c'è
-         attorno nella traduzione (una lettera vuole lo spazio, la punteggiatura no) */
       const wordy = /^[\p{L}\p{N}]/u.test(tok.t) && /[\p{L}\p{N}]$/u.test(tok.t);
       const prev = all.slice(0, at).replace(/\s+$/, "").slice(-1);
       const next = all.slice(at + m.length).replace(/^\s+/, "").slice(0, 1);
@@ -507,6 +534,25 @@ const unprotect = (text, tokens) =>
     .replace(/ {2,}/g, " ")
     .replace(/ ([.,)])/g, "$1")
     .trim();
+
+/** Se Google ha distorto i token, ripristina quelli dell'originale (stesso conteggio/ordine). */
+function repairTokens(src, tr) {
+  if (valid(src, tr)) return tr;
+  const srcTok = String(src).match(TOKENS) || [];
+  if (!srcTok.length) return tr;
+  let i = 0;
+  let out = String(tr || "");
+  /* sostituisci eventuali token residui con quelli sorgente in ordine */
+  out = out.replace(TOKENS, () => srcTok[i++] ?? "");
+  while (i < srcTok.length) {
+    out = out.trimEnd() + " " + srcTok[i++];
+  }
+  if (valid(src, out)) return out;
+  /* ultima spiaggia: testo tradotto senza token + append dei token sorgente */
+  const bare = String(tr || "").replace(TOKENS, " ").replace(/ {2,}/g, " ").trim();
+  const joined = [bare, ...srcTok].filter(Boolean).join(" ");
+  return valid(src, joined) ? joined : null;
+}
 
 async function gtx(text, lang) {
   const body = new URLSearchParams({ client: "gtx", sl: "it", tl: GT[lang] || lang, dt: "t", q: text });
@@ -590,8 +636,67 @@ async function googleGroup(lang, items) {
   const lines = items.map((s, i) => protectFor(s, tokens[i]).replace(/\s+/g, " ").trim());
   const back = await gtxMulti(lines, lang);
   const out = {};
-  back.forEach((l, i) => (out[items[i]] = edges(items[i], unprotect(l, tokens[i]))));
+  back.forEach((l, i) => {
+    const src = items[i];
+    let tr = edges(src, unprotect(l, tokens[i]));
+    if (!valid(src, tr) || tr === src) {
+      const fixed = repairTokens(src, tr);
+      if (fixed) tr = fixed;
+    }
+    out[src] = tr;
+  });
   return out;
+}
+
+/** Traduce solo i pezzi di testo tra i token protetti: i segnaposto restano intatti. */
+async function translateSegments(src, lang) {
+  const parts = [];
+  let last = 0;
+  const re = new RegExp(PROTECT.source, "g");
+  let m;
+  while ((m = re.exec(src))) {
+    if (m.index > last) parts.push({ type: "text", value: src.slice(last, m.index) });
+    parts.push({ type: "tok", value: m[0] });
+    last = m.index + m[0].length;
+  }
+  if (last < src.length) parts.push({ type: "text", value: src.slice(last) });
+  const texts = parts.filter((p) => p.type === "text" && p.value.trim());
+  if (!texts.length) return src;
+  const translated = await gtxMulti(
+    texts.map((p) => p.value.replace(/\s+/g, " ").trim()),
+    lang,
+  );
+  let ti = 0;
+  return parts
+    .map((p) => {
+      if (p.type === "tok") return p.value;
+      if (!p.value.trim()) return p.value;
+      const tr = translated[ti++] ?? p.value;
+      return edges(p.value, tr);
+    })
+    .join("");
+}
+
+async function acceptTranslation(c, src, tr, stats, shown) {
+  let final = tr;
+  if (!valid(src, final)) {
+    const fixed = repairTokens(src, final);
+    if (fixed) final = fixed;
+  }
+  if (valid(src, final) && (final !== src || !stillItalian(src))) {
+    c[src] = final;
+    stats.ok++;
+    if (args.mostra && shown.length < Number(args.mostra)) shown.push([src, final]);
+    return true;
+  }
+  /* nomi propri / brand: salva com'è così non ripete all'infinito */
+  if (!stillItalian(src) || /Vinili|Caffè|Radio |Rai |Ed Sheeran|Leonardo|Lucio |Sinéad|Hilal|Nassr|La Liga|La Land/i.test(src)) {
+    c[src] = src;
+    stats.ok++;
+    return true;
+  }
+  stats.bad++;
+  return false;
 }
 
 async function google() {
@@ -607,27 +712,24 @@ async function google() {
     const c = cacheOf(lang);
     const groups = chunk(todo, 50, 4000);
     let done = 0;
-    let ok = 0;
-    let bad = 0;
+    const stats = { ok: 0, bad: 0 };
     let next = 0;
     let lastSave = Date.now();
     const shown = [];
+    const hard = [];
     const worker = async () => {
       while (next < groups.length) {
         const g = groups[next++];
         try {
           const res = await googleGroup(lang, g);
           for (const [src, tr] of Object.entries(res)) {
-            if (valid(src, tr)) {
-              c[src] = tr;
-              ok++;
-              if (args.mostra && shown.length < Number(args.mostra)) shown.push([src, tr]);
-            } else bad++;
+            const ok = await acceptTranslation(c, src, tr, stats, shown);
+            if (!ok) hard.push(src);
           }
         } catch (e) {
-          bad += g.length;
-          console.log(`  ${lang}: gruppo saltato (${e?.message || e}), lo riprova il prossimo giro.`);
-          await sleep(10_000);
+          for (const src of g) hard.push(src);
+          console.log(`  ${lang}: gruppo saltato (${e?.message || e}), ripasso a segmenti.`);
+          await sleep(2000);
         }
         done++;
         if (Date.now() - lastSave > 20_000) {
@@ -639,8 +741,19 @@ async function google() {
       }
     };
     await Promise.all(Array.from({ length: conc }, worker));
+    /* secondo passaggio: solo i pezzi di testo tra markdown/segnaposto */
+    for (const src of hard) {
+      if (stats.bad > 0) stats.bad--; /* annulla lo scarto del primo passaggio */
+      try {
+        const tr = await translateSegments(src, lang);
+        await acceptTranslation(c, src, tr, stats, shown);
+      } catch {
+        stats.bad++;
+      }
+      await sleep(100);
+    }
     saveCache(lang, c);
-    console.log(`${lang}: ${ok} tradotte, ${bad} scartate (segnaposto cambiati o errori: si riprovano al prossimo giro).`);
+    console.log(`${lang}: ${stats.ok} tradotte, ${stats.bad} scartate (segnaposto cambiati o errori: si riprovano al prossimo giro).`);
     for (const [s, t] of shown) console.log(`\n· ${s}\n→ ${t}`);
   }
 }

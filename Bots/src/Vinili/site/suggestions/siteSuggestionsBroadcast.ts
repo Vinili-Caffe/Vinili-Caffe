@@ -191,6 +191,17 @@ function broadcastSiteConfessionaleChanged(action = "") {
   notifyExternalSiteRealtime(payload);
 }
 
+function broadcastSiteMusicQuizParty(roomId = "", action = "") {
+  const payload = {
+    type: "music_quiz_party",
+    roomId: String(roomId || "").trim(),
+    action: String(action || "").trim().toLowerCase() || "changed",
+    at: new Date().toISOString(),
+  };
+  broadcastSiteRealtime(payload);
+  notifyExternalSiteRealtime(payload);
+}
+
 function broadcastSitePropositiChanged(action = "") {
   const payload = {
     type: "propositi_changed",
@@ -434,6 +445,7 @@ export = {
   broadcastSiteNotificationsChanged,
   broadcastSiteReviewsChanged,
   broadcastSiteConfessionaleChanged,
+  broadcastSiteMusicQuizParty,
   broadcastSitePropositiChanged,
   broadcastAlberoChanged,
   broadcastSiteStaffPausesChanged,

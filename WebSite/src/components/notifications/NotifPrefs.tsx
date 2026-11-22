@@ -9,9 +9,11 @@ import {
   VOTE_DM_KEYS,
   loadNotifPrefs,
   mutateNotifPrefs,
+  prefLabelKey,
   type NotifPrefs as Prefs,
   type PrefToggle,
 } from "@/lib/notifications";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 
 type AccId = "vote" | "discord" | "site";
@@ -91,6 +93,7 @@ export function NotifPrefs({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const { t } = useI18n();
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
@@ -165,7 +168,16 @@ export function NotifPrefs({
   const discordRows = dmCats.filter((c) => DISCORD_DM_KEYS.has(c.key));
   const siteRows = siteGroups.filter((g) => (STAFF_ONLY_SITE_KEYS.has(g.key) ? isStaff : true));
 
-  const rowLabel = (c: PrefToggle) => DM_LABEL_OVERRIDE[c.key] || c.label || c.key;
+  const rowLabel = (c: PrefToggle, section: "dm" | "site" = "dm") => {
+    const key = prefLabelKey(section, c.key);
+    if (key) return t(key);
+    return DM_LABEL_OVERRIDE[c.key] || c.label || c.key;
+  };
+  const siteRowLabel = (g: PrefToggle) => {
+    const key = prefLabelKey("site", g.key);
+    if (key) return t(key);
+    return g.label || g.key;
+  };
 
   return (
     <div className="relative">
@@ -209,7 +221,7 @@ export function NotifPrefs({
               <Accordion id="vote" title="Promemoria voto" hint="DM + sito" open={acc.vote} onToggle={() => setAcc((a) => ({ ...a, vote: !a.vote }))}>
                 {voteRows.length ? (
                   voteRows.map((c) => (
-                    <Switch key={c.key} on={c.enabled} label={rowLabel(c)} disabled={busy} onToggle={() => toggle("dm", c.key)} />
+                    <Switch key={c.key} on={c.enabled} label={rowLabel(c, "dm")} disabled={busy} onToggle={() => toggle("dm", c.key)} />
                   ))
                 ) : (
                   <p className="py-2 text-sm text-crema/40">—</p>
@@ -218,7 +230,7 @@ export function NotifPrefs({
               <Accordion id="discord" title="Discord DM" open={acc.discord} onToggle={() => setAcc((a) => ({ ...a, discord: !a.discord }))}>
                 {discordRows.length ? (
                   discordRows.map((c) => (
-                    <Switch key={c.key} on={c.enabled} label={rowLabel(c)} disabled={busy} onToggle={() => toggle("dm", c.key)} />
+                    <Switch key={c.key} on={c.enabled} label={rowLabel(c, "dm")} disabled={busy} onToggle={() => toggle("dm", c.key)} />
                   ))
                 ) : (
                   <p className="py-2 text-sm text-crema/40">—</p>
@@ -227,7 +239,7 @@ export function NotifPrefs({
               <Accordion id="site" title="Sito" open={acc.site} onToggle={() => setAcc((a) => ({ ...a, site: !a.site }))}>
                 {siteRows.length ? (
                   siteRows.map((g) => (
-                    <Switch key={g.key} on={g.enabled} label={g.label || g.key} disabled={busy} onToggle={() => toggle("site_notif", g.key)} />
+                    <Switch key={g.key} on={g.enabled} label={siteRowLabel(g)} disabled={busy} onToggle={() => toggle("site_notif", g.key)} />
                   ))
                 ) : (
                   <p className="py-2 text-sm text-crema/40">—</p>
@@ -237,7 +249,7 @@ export function NotifPrefs({
                     <Switch
                       key={`d-${g.key}`}
                       on={g.enabled}
-                      label={g.label || g.key}
+                      label={siteRowLabel(g)}
                       disabled={busy}
                       onToggle={() => toggle("site_notif", g.key, true)}
                     />

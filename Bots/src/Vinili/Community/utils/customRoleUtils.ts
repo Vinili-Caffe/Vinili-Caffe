@@ -168,7 +168,14 @@ function normalizeCustomVocEmojiValue(raw?) {
 }
 
 function sanitizeVoiceBaseName(name?) {
-  const clean = String(name || "")
+  const stripped = String(name || "")
+    .replace(/\u0F04/g, "")
+    .replace(/༄/g, "")
+    .replace(/\uFE32/g, "")
+    .replace(/\u01C0/g, "")
+    .replace(/\u2758/g, "")
+    .replace(/[｜│¦︲]/g, "");
+  const clean = stripped
     .replace(/[^\p{L}\p{N}_ ',.!?\-']/gu, "")
     .replace(/\s+/g, " ")
     .trim();

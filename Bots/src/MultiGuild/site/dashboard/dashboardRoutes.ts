@@ -489,6 +489,28 @@ function mountDashboardRoutes(app?, client?, ctx: Record<string, any> = {}) {
       return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
     }
   });
+  /* «Messaggio ai proprietari»: stato, prova, avvio e stop (solo sviluppatori del bot) */
+  {
+    const broadcast = require("./siteDashboardBotDevBroadcast") as typeof import("./siteDashboardBotDevBroadcast");
+    const withToken = (handler: (token: string, req: any) => Promise<any>, label: string) => async (req?, res?) => {
+      try {
+        const accessToken = normalizeHeaderSecret(req.headers.authorization);
+        if (!accessToken) {
+          return res.status(401).json({ ok: false, error: "missing_token", message: "Header Authorization: Bearer <token> richiesto." });
+        }
+        res.set("Cache-Control", "no-store");
+        const out = await handler(accessToken, req);
+        return res.status(Number(out.status) || 500).json(out);
+      } catch (err) {
+        global.logger?.error?.(`[WEBHOOK] site-dashboard dev broadcast ${label}:`, err);
+        return res.status(500).json({ ok: false, error: "internal", message: "Errore interno." });
+      }
+    };
+    app.get("/webhooks/site-dashboard/dev/broadcast", withToken((t) => broadcast.getBroadcastStatus(client, t), "status"));
+    app.post("/webhooks/site-dashboard/dev/broadcast/test", withToken((t, req) => broadcast.postBroadcastTest(client, t, req.body || {}), "test"));
+    app.post("/webhooks/site-dashboard/dev/broadcast/start", withToken((t, req) => broadcast.postBroadcastStart(client, t, req.body || {}), "start"));
+    app.post("/webhooks/site-dashboard/dev/broadcast/stop", withToken((t) => broadcast.postBroadcastStop(client, t), "stop"));
+  }
   app.get("/webhooks/site-dashboard/profile", async (req?, res?) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);

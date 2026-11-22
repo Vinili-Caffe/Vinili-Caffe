@@ -49,6 +49,12 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
     SITE_AGE_ATTESTATION: "site_age_attestation",
     /** Albero di Natale community — una palla per utente. */
     XMAS_TREE_ORNAMENT: "xmas_tree_ornament",
+    /** Music Quiz (High Staff): pack Deezer/community. */
+    MUSIC_QUIZ_PACK: "music_quiz_pack",
+    /** Music Quiz: score leaderboard entry. */
+    MUSIC_QUIZ_SCORE: "music_quiz_score",
+    /** Music Quiz: party/stream room. */
+    MUSIC_QUIZ_PARTY: "music_quiz_party",
 });
 
 const siteSuggestionCommentSchema = new Schema(

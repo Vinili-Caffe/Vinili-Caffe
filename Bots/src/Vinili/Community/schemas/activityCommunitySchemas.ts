@@ -653,6 +653,21 @@ const activityUserProfileSchema = new Schema(
         type: Schema.Types.Mixed,
         default: () => ({}),
       },
+      /** Wordle ×4: partita del giorno per lingua */
+      siteWordleQuadDaily: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
+      /** wordleExp1: claim EXP { classic: { "YYYY-MM-DD": { exp, attempts } }, quad: {...} } */
+      siteWordleExpClaims: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
+      /** wordleRemind1: promemoria mezzanotte { enabled, lastRemindedDay } */
+      siteWordleRemind: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
       /** Piano mensile compiti: { "YYYY-MM": { assignedAt, byWeek: { "YYYY-Www": taskId } } } */
       siteStaffCompitiPlan: {
         type: Schema.Types.Mixed,

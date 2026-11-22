@@ -3,7 +3,7 @@
 import { Select } from "@/components/ui/Select";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { Ban, Coins, DoorOpen, History, Lock, LogIn, RotateCcw, Search, Server, ShieldBan, UserX, Users, Wrench } from "lucide-react";
+import { Ban, Coins, DoorOpen, History, Lock, LogIn, Megaphone, RotateCcw, Search, Server, ShieldBan, Square, UserX, Users, Wrench } from "lucide-react";
 import { chooseDialog, confirmDialog } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
@@ -16,14 +16,20 @@ import {
   devResetGuild,
   devRevokePremium,
   loadBotban,
+  loadBroadcastStatus,
   loadCreditHolders,
   loadDevEvents,
   loadDevGuilds,
   loadDevOverview,
   loadDevUser,
   loadUserCredits,
+  postBroadcastStart,
+  postBroadcastStop,
+  postBroadcastTest,
   removeBotban,
   type BotbanEntry,
+  type BroadcastJob,
+  type BroadcastStatus,
   type CreditHolder,
   type DevEvent,
   type DevGuild,
@@ -50,15 +56,22 @@ import {
   primaryMini,
 } from "./guild/bits";
 
-type Tab = "overview" | "servers" | "credits" | "blacklist";
+type Tab = "overview" | "servers" | "credits" | "broadcast" | "blacklist";
 type OnToast = (msg: string, err?: boolean) => void;
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Panoramica" },
   { id: "servers", label: "Server" },
   { id: "credits", label: "Crediti" },
+  { id: "broadcast", label: "Messaggio" },
   { id: "blacklist", label: "Blacklist bot" },
 ];
+
+function etaLabel(ms: number) {
+  if (ms <= 0) return null;
+  const m = Math.ceil(ms / 60_000);
+  return m <= 1 ? "circa 1 minuto" : `circa ${m} minuti`;
+}
 
 const EVENT_TEXT: Record<string, { label: string; tone: "ok" | "warn" | "muted" | "accent" }> = {
   join: { label: "Entrato", tone: "ok" },
@@ -729,6 +742,218 @@ function BlacklistTab({ token, onToast }: { token: string; onToast: OnToast }) {
   );
 }
 
+function BroadcastTab({ token, onToast }: { token: string; onToast: OnToast }) {
+  const [status, setStatus] = useState<BroadcastStatus | null>(null);
+  const [error, setError] = useState("");
+  const [title, setTitle] = useState("");
+  const [text, setText] = useState("");
+  const [translate, setTranslate] = useState(true);
+  const [busy, setBusy] = useState<"test" | "start" | "stop" | null>(null);
+  const job = status?.job ?? null;
+  const running = Boolean(job && !job.finishedAt);
+
+  const refresh = async () => {
+    const r = await loadBroadcastStatus(token);
+    if (!r.ok) {
+      setError(r.message);
+      return null;
+    }
+    setError("");
+    setStatus({ servers: r.servers, channel: r.channel, dm: r.dm, gapSeconds: r.gapSeconds, job: r.job });
+    return r;
+  };
+
+  useEffect(() => {
+    let off = false;
+    void refresh().then((r) => {
+      if (off || !r) return;
+    });
+    return () => {
+      off = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount + token only
+  }, [token]);
+
+  useEffect(() => {
+    if (!running) return;
+    const t = window.setInterval(() => {
+      void refresh();
+    }, 4000);
+    return () => window.clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, running]);
+
+  const bodyOk = text.trim().length > 0;
+
+  const onTest = async () => {
+    if (!bodyOk) return onToast("Scrivi il testo del messaggio.", true);
+    setBusy("test");
+    const r = await postBroadcastTest(token, title.trim(), text.trim());
+    setBusy(null);
+    if (!r.ok) return onToast(r.message, true);
+    onToast("Prova inviata: controlla i tuoi messaggi privati con Vinili.");
+  };
+
+  const onStart = async () => {
+    if (!bodyOk) return onToast("Scrivi il testo del messaggio.", true);
+    if (running) return onToast("C'è già un invio in corso.", true);
+    const servers = status?.servers ?? 0;
+    const ok = await confirmDialog({
+      title: "Mandare il messaggio a tutti i server?",
+      message: `Circa ${servers} server. Dove c'è il canale aggiornamenti va lì; altrimenti in privato al proprietario. Un messaggio ogni ${status?.gapSeconds ?? 45} secondi${translate ? ", tradotto nella lingua del server" : ""}.`,
+      confirmLabel: "Avvia invio",
+    });
+    if (!ok) return;
+    setBusy("start");
+    const r = await postBroadcastStart(token, title.trim(), text.trim(), translate);
+    setBusy(null);
+    if (!r.ok) return onToast(r.message, true);
+    setStatus((s) => (s ? { ...s, job: r.job } : s));
+    onToast("Invio avviato.");
+    void refresh();
+  };
+
+  const onStop = async () => {
+    if (!running) return;
+    const ok = await confirmDialog({
+      title: "Fermare l'invio?",
+      message: "I messaggi già partiti restano. Quelli in coda non partono più.",
+      confirmLabel: "Ferma",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy("stop");
+    const r = await postBroadcastStop(token);
+    setBusy(null);
+    if (!r.ok) return onToast(r.message, true);
+    setStatus((s) => (s ? { ...s, job: r.job } : s));
+    onToast("Invio fermato.");
+    void refresh();
+  };
+
+  const jobSummary = (j: BroadcastJob) => {
+    const parts = [`${j.done}/${j.total}`];
+    if (j.channel) parts.push(`${j.channel} nel canale`);
+    if (j.dm) parts.push(`${j.dm} in privato`);
+    if (j.skipped) parts.push(`${j.skipped} saltati`);
+    return parts.join(" · ");
+  };
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <FormGroup
+        title="Messaggio ai proprietari"
+        description="Annuncio a tutti i server col bot: canale aggiornamenti se impostato, altrimenti privato al proprietario. Solo per novità importanti."
+      >
+        <div className="space-y-3">
+          {error ? <Notice>{error}</Notice> : null}
+          {status ? (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <StatTile icon={<Server />} label="Server" value={String(status.servers)} />
+              <StatTile icon={<Megaphone />} label="Nel canale" value={String(status.channel)} hint="Hanno il canale aggiornamenti" />
+              <StatTile icon={<Users />} label="In privato" value={String(status.dm)} hint="Senza canale → DM al proprietario" />
+            </div>
+          ) : (
+            <div className="h-16 animate-pulse rounded-xl bg-crema/[0.04]" />
+          )}
+          <Field label="Titolo" hint="Facoltativo, compare in cima all'embed">
+            <input
+              name="broadcast-title"
+              value={title}
+              maxLength={200}
+              onChange={(e) => setTitle(e.target.value)}
+              className={fieldClass}
+              placeholder="Novità Vinili"
+              disabled={running}
+            />
+          </Field>
+          <Field label="Testo" hint="Scrivilo in italiano: se attivi la traduzione, ogni server lo riceve nella sua lingua">
+            <textarea
+              name="broadcast-text"
+              value={text}
+              maxLength={3500}
+              rows={7}
+              onChange={(e) => setText(e.target.value)}
+              className={cn(fieldClass, "min-h-[9rem] resize-y")}
+              placeholder="Cosa cambia, cosa devono fare (se devono), link alla dashboard o al supporto…"
+              disabled={running}
+            />
+          </Field>
+          <label className={cn("flex cursor-pointer items-start gap-2.5 rounded-xl bg-espresso/40 px-3 py-2.5 ring-1 ring-sand/10", running && "opacity-60")}>
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 rounded border-sand/30 bg-espresso text-ember focus:ring-ember/40"
+              checked={translate}
+              disabled={running}
+              onChange={(e) => setTranslate(e.target.checked)}
+            />
+            <span className="text-sm text-crema/85">
+              Traduci nella lingua del server
+              <span className="mt-0.5 block text-xs text-crema/50">Se in dashboard hanno scelto inglese (o altra lingua), il messaggio arriva tradotto.</span>
+            </span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={busy !== null || running || !bodyOk} onClick={() => void onTest()} className={cn(miniBtn, "py-2")}>
+              Prova a me
+            </button>
+            <button type="button" disabled={busy !== null || running || !bodyOk} onClick={() => void onStart()} className={cn(primaryMini, "py-2")}>
+              <Megaphone className="size-3.5" aria-hidden /> Avvia invio
+            </button>
+            {running ? (
+              <button type="button" disabled={busy !== null} onClick={() => void onStop()} className={cn(dangerBtn, "py-2")}>
+                <Square className="size-3.5" aria-hidden /> Ferma
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </FormGroup>
+
+      <section className="min-w-0 space-y-3">
+        <h3 className="text-sm font-semibold text-crema">Stato invio</h3>
+        {!job ? (
+          <p className="rounded-xl border border-dashed border-sand/20 px-4 py-8 text-center text-sm text-crema/60">Nessun invio in corso. Usa «Prova a me» prima di mandarlo a tutti.</p>
+        ) : (
+          <div className="space-y-3 rounded-xl bg-espresso/45 p-4 ring-1 ring-sand/10">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone={job.finishedAt ? (job.stopped ? "warn" : "ok") : "accent"}>
+                {job.finishedAt ? (job.stopped ? "Fermato" : "Finito") : "In corso"}
+              </StatusBadge>
+              <span className="text-xs tabular-nums text-crema/60">{jobSummary(job)}</span>
+            </div>
+            {!job.finishedAt ? (
+              <>
+                <div className="h-2 overflow-hidden rounded-full bg-crema/10">
+                  <div
+                    className="h-full rounded-full bg-ember/80 transition-[width] duration-500"
+                    style={{ width: `${job.total ? Math.min(100, Math.round((job.done / job.total) * 100)) : 0}%` }}
+                  />
+                </div>
+                <p className="text-xs text-crema/65">
+                  {job.current ? <>Ora: {job.current}. </> : null}
+                  {etaLabel(job.etaMs) ? <>Manca {etaLabel(job.etaMs)}.</> : null}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-crema/65">
+                {job.channel} nel canale · {job.dm} in privato · {job.skipped} saltati
+              </p>
+            )}
+            {job.failed.length > 0 ? (
+              <ul className="max-h-48 space-y-1.5 overflow-y-auto text-xs text-crema/55">
+                {job.failed.slice(-20).map((f) => (
+                  <li key={`${f.guildId}-${f.reason}`}>
+                    <span className="text-crema/75">{f.name}</span> — {f.reason}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 export function DevBoard() {
   const { ready, token, login } = useAuth();
   const [gate, setGate] = useState<"loading" | "denied" | "ready">("loading");
@@ -759,7 +984,7 @@ export function DevBoard() {
   }, [ready, token]);
 
   return (
-    <DashboardShell title="Sviluppatore" lead="Tutti i server col bot, eventi, crediti e blocchi. Solo per gli sviluppatori di Vinili.">
+    <DashboardShell title="Sviluppatore" lead="Server col bot, crediti, messaggio ai proprietari e blocchi. Solo per gli sviluppatori di Vinili.">
       {ready && !token ? (
         <StateCard
           icon={<LogIn />}
@@ -788,6 +1013,11 @@ export function DevBoard() {
           {tab === "credits" ? (
             <Panel>
               <CreditsTab token={token} onToast={onToast} />
+            </Panel>
+          ) : null}
+          {tab === "broadcast" ? (
+            <Panel>
+              <BroadcastTab token={token} onToast={onToast} />
             </Panel>
           ) : null}
           {tab === "blacklist" ? (

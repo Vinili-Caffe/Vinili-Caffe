@@ -102,17 +102,31 @@ function colorValueToInt(raw?) {
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : null;
 }
 
+/**
+ * Body `colors` per PATCH ruolo.
+ * Per i gradienti: passare solo primary+secondary (senza chiave tertiary).
+ * `tertiary_color: null` insieme al secondary può far restare il ruolo solido su Discord.
+ * Per solid/clear: passare secondaryColor/tertiaryColor esplicitamente a null.
+ */
 function buildRoleColorsApiBody(colorsObj?) {
   if (!colorsObj || typeof colorsObj !== "object") return null;
   const primary = colorValueToInt(colorsObj.primaryColor ?? colorsObj.primary_color);
   if (primary == null) return null;
   const body: Record<string, any> = { primary_color: primary };
-  const secondary = colorValueToInt(colorsObj.secondaryColor ?? colorsObj.secondary_color);
-  if (secondary != null) body.secondary_color = secondary;
-  else body.secondary_color = null;
-  const tertiary = colorValueToInt(colorsObj.tertiaryColor ?? colorsObj.tertiary_color);
-  if (tertiary != null) body.tertiary_color = tertiary;
-  else body.tertiary_color = null;
+  const hasSecondary =
+    Object.prototype.hasOwnProperty.call(colorsObj, "secondaryColor") ||
+    Object.prototype.hasOwnProperty.call(colorsObj, "secondary_color");
+  const hasTertiary =
+    Object.prototype.hasOwnProperty.call(colorsObj, "tertiaryColor") ||
+    Object.prototype.hasOwnProperty.call(colorsObj, "tertiary_color");
+  if (hasSecondary) {
+    const secondary = colorValueToInt(colorsObj.secondaryColor ?? colorsObj.secondary_color);
+    body.secondary_color = secondary != null ? secondary : null;
+  }
+  if (hasTertiary) {
+    const tertiary = colorValueToInt(colorsObj.tertiaryColor ?? colorsObj.tertiary_color);
+    body.tertiary_color = tertiary != null ? tertiary : null;
+  }
   return body;
 }
 
@@ -231,17 +245,21 @@ function wrapRole(raw?, guild = null, existingMembers = null) {
         if (Number.isFinite(wantP) && Number.isFinite(gotP) && wantP !== gotP) {
           throw new Error("role_color_mismatch");
         }
-        const wantS = body.colors.secondary_color;
-        const gotS = wrapped?.colors?.secondaryColor;
-        const wantT = body.colors.tertiary_color;
-        const gotT = wrapped?.colors?.tertiaryColor;
         const sameNullable = (a?, b?) => {
           if (a == null && b == null) return true;
           if (a == null || b == null) return false;
           return Number(a) === Number(b);
         };
-        if (!sameNullable(wantS, gotS) || !sameNullable(wantT, gotT)) {
-          throw new Error("role_color_mismatch");
+        /* Confronta secondary/tertiary solo se presenti nel body (i gradienti omettono tertiary). */
+        if (Object.prototype.hasOwnProperty.call(body.colors, "secondary_color")) {
+          if (!sameNullable(body.colors.secondary_color, wrapped?.colors?.secondaryColor)) {
+            throw new Error("role_color_mismatch");
+          }
+        }
+        if (Object.prototype.hasOwnProperty.call(body.colors, "tertiary_color")) {
+          if (!sameNullable(body.colors.tertiary_color, wrapped?.colors?.tertiaryColor)) {
+            throw new Error("role_color_mismatch");
+          }
         }
       }
       guild.roles.cache.set(roleId, wrapped);

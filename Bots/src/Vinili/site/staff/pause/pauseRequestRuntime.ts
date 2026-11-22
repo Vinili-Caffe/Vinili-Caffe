@@ -272,6 +272,10 @@ async function createPauseRequest({ guild, userId, requesterMention, rawStart, r
       }).catch(() => 0);
     }
   } catch (_) {}
+  try {
+    const { broadcastSiteStaffPausesChanged } = require("../../suggestions/siteSuggestionsBroadcast") as typeof import("../../suggestions/siteSuggestionsBroadcast");
+    broadcastSiteStaffPausesChanged();
+  } catch (_) {}
   return {
     ok: true,
     pauseId,

@@ -4,12 +4,37 @@ const mongoose = require("mongoose") as typeof import("mongoose");
 const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { voteCountMonthKeyRome, dayKeyRome, prevDayKeyRome } = require("../../Community/utils/romeVoteMonthKey") as typeof import("../../Community/utils/romeVoteMonthKey");
-const { sanitizeText, preferAnimatedDiscordMediaUrl } = require("./boardSanitize") as typeof import("./boardSanitize");
+const { sanitizeText, preferAnimatedDiscordMediaUrl, slugify } = require("./boardSanitize") as typeof import("./boardSanitize");
 const { resolveBoardsUser } = require("./boardBanners") as typeof import("./boardBanners");
 const { BL, BR, emitBoardsChanged, featureGate, hashIp } = require("./boardReviews") as typeof import("./boardReviews");
 
 const BV = SITE_DOCUMENT_TYPE.BOARD_VOTE;
 const BB = SITE_DOCUMENT_TYPE.BOARD_BUMP;
+
+/** Accetta ObjectId, slug o snowflake Discord; toglie slash finali (query/trailingSlash). */
+async function resolveApprovedListingRef(raw?) {
+  const s = String(raw ?? "")
+    .trim()
+    .replace(/^\/+|\/+$/g, "");
+  if (!s || s === "undefined" || s === "null") return null;
+  if (mongoose.isValidObjectId(s)) {
+    const byId: any = await SiteDocument.findOne({ _id: s, docType: BL, status: "approved" }).lean();
+    if (byId) return { id: String(byId._id), listing: byId };
+  }
+  if (/^\d{17,22}$/.test(s)) {
+    const byDiscord: any = await SiteDocument.findOne({
+      docType: BL,
+      boardDiscordId: s,
+      status: "approved",
+    }).lean();
+    if (byDiscord) return { id: String(byDiscord._id), listing: byDiscord };
+  }
+  const slug = slugify(s);
+  if (!slug || slug === "listing") return null;
+  const bySlug: any = await SiteDocument.findOne({ docType: BL, boardSlug: slug, status: "approved" }).lean();
+  if (!bySlug) return null;
+  return { id: String(bySlug._id), listing: bySlug };
+}
 
 function clientIp(req?) {
   const xf = String(req?.headers?.["x-forwarded-for"] || "").split(",")[0].trim();
@@ -212,10 +237,11 @@ async function getListingVoteStatus(client?, payload: Record<string, any> = {}) 
   const cfg = gate.cfg;
   const auth = await resolveBoardsUser(payload.accessToken);
   if (!auth.ok) return auth;
-  const id = String(payload.listingId || payload.id || "").trim();
-  if (!mongoose.isValidObjectId(id)) {
+  const resolved = await resolveApprovedListingRef(payload.listingId || payload.id);
+  if (!resolved) {
     return { ok: false, status: 400, error: "invalid_id", message: "ID scheda non valido." };
   }
+  const id = resolved.id;
   const [eligibility, voteStreak] = await Promise.all([
     canUserVoteListing(id, auth.userId, cfg),
     computeVoteStreak(id, auth.userId, cfg.voteCooldownHours),
@@ -265,14 +291,17 @@ async function startListingVoteSession(client?, payload: Record<string, any> = {
   const cfg = gate.cfg;
   const auth = await resolveBoardsUser(payload.accessToken);
   if (!auth.ok) return auth;
-  const id = String(payload.listingId || payload.id || "").trim();
-  if (!mongoose.isValidObjectId(id)) {
+  const rawRef = payload.listingId || payload.id;
+  const resolved = await resolveApprovedListingRef(rawRef);
+  if (!resolved) {
+    global.logger?.warn?.("[boards] vote-session invalid_id", {
+      raw: String(rawRef ?? "").slice(0, 80),
+      type: typeof rawRef,
+    });
     return { ok: false, status: 400, error: "invalid_id", message: "ID scheda non valido." };
   }
-  const listing: any = await SiteDocument.findOne({ _id: id, docType: BL, status: "approved" }).lean();
-  if (!listing) {
-    return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata o non approvata." };
-  }
+  const id = resolved.id;
+  const listing: any = resolved.listing;
   const eligibility = await canUserVoteListing(id, auth.userId, cfg);
   if (!eligibility.ok) return eligibility;
 
@@ -365,10 +394,11 @@ async function voteListing(client?, payload: Record<string, any> = {}, reqMeta: 
   const cfg = gate.cfg;
   const auth = await resolveBoardsUser(payload.accessToken);
   if (!auth.ok) return auth;
-  const id = String(payload.listingId || payload.id || "").trim();
-  if (!mongoose.isValidObjectId(id)) {
+  const resolved = await resolveApprovedListingRef(payload.listingId || payload.id);
+  if (!resolved) {
     return { ok: false, status: 400, error: "invalid_id", message: "ID scheda non valido." };
   }
+  const id = resolved.id;
   const listing = await SiteDocument.findOne({ _id: id, docType: BL, status: "approved" });
   if (!listing) return { ok: false, status: 404, error: "not_found", message: "Scheda non trovata o non approvata." };
 

@@ -13,6 +13,75 @@ const { getLastSunday21BoundaryMsAtOrBefore } = require("../utils/customVocWeekl
 const { accountUsername } = require("../../../shared/discord/guildDiscordIdentity") as typeof import("../../../shared/discord/guildDiscordIdentity");
 const { memberCanCreateCustomVoc, okPersist } = require("./customProfileShared") as typeof import("./customProfileShared");
 
+const CUSTOM_VOC_BOT_RENAME_TTL_MS = 8_000;
+const customVocBotRenameUntil = new Map();
+
+function markCustomVocBotRename(channelId?, ttlMs = CUSTOM_VOC_BOT_RENAME_TTL_MS) {
+  const cid = String(channelId || "").trim();
+  if (!cid) return;
+  customVocBotRenameUntil.set(cid, Date.now() + Math.max(1_000, Number(ttlMs) || CUSTOM_VOC_BOT_RENAME_TTL_MS));
+}
+
+function isCustomVocBotRename(channelId?) {
+  const cid = String(channelId || "").trim();
+  if (!cid) return false;
+  const until = Number(customVocBotRenameUntil.get(cid) || 0);
+  if (!until) return false;
+  if (Date.now() > until) {
+    customVocBotRenameUntil.delete(cid);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Dopo rename manuali su Discord: ripristina sempre ༄{emoji}︲{base}.
+ */
+async function handleCustomVocChannelUpdate(oldChannel?, newChannel?) {
+  if (!newChannel?.guild) return false;
+  if (newChannel.type !== ChannelType.GuildVoice) return false;
+  const cid = String(newChannel.id || "").trim();
+  if (!cid) return false;
+  if (isCustomVocBotRename(cid)) return false;
+
+  const oldName = String(oldChannel?.name || "");
+  const newName = String(newChannel.name || "");
+  if (!oldName || oldName === newName) return false;
+
+  const guild = newChannel.guild;
+  const doc = await CustomRole.findOne(
+    { guildId: guild.id, customVocChannelId: cid },
+    { customVocEmoji: 1, customVocChannelId: 1 },
+  )
+    .lean()
+    .catch(() => null);
+  if (!doc?.customVocChannelId) return false;
+
+  const parsedNew = parseCustomVocName(newName);
+  const parsedOld = parseCustomVocName(oldName);
+  const emoji =
+    normalizeCustomVocEmojiValue(parsedNew.emoji) ||
+    normalizeCustomVocEmojiValue(doc.customVocEmoji) ||
+    normalizeCustomVocEmojiValue(parsedOld.emoji) ||
+    "🎧";
+  const base =
+    sanitizeVoiceBaseName(parsedNew.baseName) ||
+    sanitizeVoiceBaseName(parsedOld.baseName) ||
+    "privata";
+  const enforced = buildCustomVocName(emoji, base);
+  if (enforced === newName) return false;
+
+  markCustomVocBotRename(cid);
+  const ok = await newChannel
+    .setName(enforced, "Custom voc: ripristino ༄/︲")
+    .then(() => true)
+    .catch((err?) => {
+      global.logger?.warn?.("[customVoc] name enforce failed:", err?.message || err);
+      return false;
+    });
+  return ok;
+}
+
 async function createCustomVoc({ client, guild, member, ownerId }) {
   if (!guild || !member) return { ok: false, reason: "server_missing" };
   const [hasExtraUnlock, pmPerkLean] = await Promise.all([
@@ -122,6 +191,7 @@ async function renameCustomVoc({ guild, ownerId, baseName }) {
   }
 
   try {
+    markCustomVocBotRename(channelId);
     await channel.edit({ name: nextName }, `Custom voc rename via sito da ${ownerId}`);
     return okPersist(guild, ownerId, "rename_custom_voc", { ok: true, message: "Nome vocale aggiornato.", name: nextName });
   } catch (err) {
@@ -161,6 +231,7 @@ async function setCustomVocEmoji({ guild, ownerId, emoji }) {
   }
 
   try {
+    markCustomVocBotRename(channelId);
     await channel.edit({ name: nextName }, `Custom voc emoji via sito da ${ownerId}`);
     return okPersist(guild, ownerId, "custom_voc_emoji", { ok: true, message: "Emoji vocale aggiornata.", emoji: normalized });
   } catch (err) {
@@ -247,4 +318,5 @@ export = {
   setCustomVocEmoji,
   addCustomVocMember,
   removeCustomVocMember,
+  handleCustomVocChannelUpdate,
 };

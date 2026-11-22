@@ -23,6 +23,7 @@ export function PageHero({
   videoSrc = HERO_ATMO_VIDEO,
   videoSrcMobile = HERO_ATMO_VIDEO_MOBILE,
   tone = "site",
+  compact = false,
 }: {
   kicker: string;
   title: string;
@@ -34,11 +35,19 @@ export function PageHero({
   videoSrc?: string | null;
   videoSrcMobile?: string | null;
   tone?: "site" | "evento";
+  /** Hero basso: meno padding e titolo più piccolo (minigiochi). */
+  compact?: boolean;
 }) {
   const reduce = useReducedMotionSafe();
   const isEvento = tone === "evento";
   return (
-    <section className="vc-page-hero relative isolate overflow-x-hidden pb-20 pt-36 sm:pb-28 sm:pt-44">
+    <section
+      className={
+        compact
+          ? "vc-page-hero relative isolate overflow-x-hidden pb-6 pt-28 sm:pb-8 sm:pt-32"
+          : "vc-page-hero relative isolate overflow-x-hidden pb-20 pt-36 sm:pb-28 sm:pt-44"
+      }
+    >
       <HeroBackdrop
         poster={isEvento ? imageSrc : imageSrc || HERO_ATMO_BAND}
         posterMobile={imageSrcMobile}
@@ -83,7 +92,9 @@ export function PageHero({
           className={
             isEvento
               ? "mx-auto mt-6 max-w-4xl text-balance font-display text-5xl font-semibold leading-[1.12] tracking-tight text-[#f0e6c8] sm:text-7xl"
-              : "mx-auto mt-6 max-w-4xl text-balance font-display text-5xl font-semibold leading-[1.15] text-crema sm:text-7xl"
+              : compact
+                ? "mx-auto mt-3 max-w-4xl text-balance font-display text-3xl font-semibold leading-[1.15] text-crema sm:text-4xl"
+                : "mx-auto mt-6 max-w-4xl text-balance font-display text-5xl font-semibold leading-[1.15] text-crema sm:text-7xl"
           }
         >
           {title}
@@ -102,7 +113,9 @@ export function PageHero({
             className={
               isEvento
                 ? "mx-auto mt-5 max-w-[38rem] text-pretty text-lg leading-relaxed text-[#f0e6c8]/72"
-                : "mx-auto mt-5 max-w-[38rem] text-pretty text-lg leading-relaxed text-crema/80"
+                : compact
+                  ? "mx-auto mt-2 max-w-[38rem] text-pretty text-sm leading-snug text-crema/70"
+                  : "mx-auto mt-5 max-w-[38rem] text-pretty text-lg leading-relaxed text-crema/80"
             }
           >
             {text}

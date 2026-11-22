@@ -7,6 +7,8 @@ export type SiteRealtimePing = {
   userId?: string;
   unread?: number;
   ticketId?: string;
+  /** Music Quiz: stanza della partita di gruppo */
+  roomId?: string;
   queue?: string;
   stop?: boolean;
   readerId?: string;
@@ -52,6 +54,8 @@ const TYPE_TO_TOPIC: Record<string, string> = {
   serata_changed: "serata",
   evento_wallet_changed: "evento",
   member_left: "live_stats",
+  music_quiz_party: "music_quiz_party",
+  music_quiz_changed: "music_quiz",
 };
 
 function realtimeWsUrl() {

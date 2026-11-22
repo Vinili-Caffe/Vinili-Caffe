@@ -10,6 +10,10 @@ import { listenChromeOpen } from "@/lib/chrome-open";
 import { setSocialPhoneOpen } from "@/lib/social-phone-open";
 import { DISCORD_INVITE, SITE_ORIGIN, cdnUrl } from "@/lib/site";
 import { cn } from "@/lib/cn";
+import { useAuth } from "@/lib/auth";
+import { loadProfile } from "@/lib/profile";
+import { OFFICIAL_ROLE_IDS } from "@/lib/official-role-ids";
+import { detectPwaAlreadyInstalled } from "@/lib/pwa-install";
 import profile from "@/data/social-profile.json";
 
 function InstagramGlyph({ className }: { className?: string }) {
@@ -58,6 +62,9 @@ const CTAS: Cta[] = [
 ];
 
 const LS_KEY = "vc_social_phone_v4";
+const SS_FOLLOWER = "vc_social_follower_v1";
+const SS_FOLLOWER_AT = "vc_social_follower_at";
+const FOLLOWER_CACHE_MS = 30 * 60_000;
 const DESKTOP_MQ = "(min-width: 900px)";
 /** Prima comparsa: abbastanza presto da vederla in una visita normale. */
 const FIRST_DELAY_MS = [20_000, 40_000] as const;
@@ -68,6 +75,43 @@ const CTA_GAP_MS = [3_500, 5_800] as const;
 /** Dopo tab in background / pagina busy: aspetta un po’ prima di uscire. */
 const AFTER_BUSY_MS = [6_000, 12_000] as const;
 const ASSET_V = "20261024socialFix3";
+
+type PromoGates = { ready: boolean; blockSocial: boolean; blockSite: boolean };
+
+async function detectHasFollowerRole(userId: string, token: string): Promise<boolean> {
+  try {
+    const cached = sessionStorage.getItem(SS_FOLLOWER);
+    const at = Number(sessionStorage.getItem(SS_FOLLOWER_AT) || 0);
+    if (cached === "1") return true;
+    if (cached === "0" && at && Date.now() - at < FOLLOWER_CACHE_MS) return false;
+  } catch {
+    /* ignore */
+  }
+  try {
+    const r = await loadProfile(userId, "", token);
+    const has =
+      r.status === "ok" &&
+      Array.isArray(r.data.roles) &&
+      r.data.roles.some((role) => role.id === OFFICIAL_ROLE_IDS.Follower);
+    try {
+      sessionStorage.setItem(SS_FOLLOWER, has ? "1" : "0");
+      sessionStorage.setItem(SS_FOLLOWER_AT, String(Date.now()));
+    } catch {
+      /* ignore */
+    }
+    return has;
+  } catch {
+    return false;
+  }
+}
+
+function channelsAllowed(gates: PromoGates): Channel[] {
+  return CHANNELS.filter((ch) => {
+    if (gates.blockSocial && (ch.id === "instagram" || ch.id === "tiktok")) return false;
+    if (gates.blockSite && ch.id === "site") return false;
+    return true;
+  });
+}
 
 /** Pagine dove il mock disturba (cinema, tool, chat) — si rimanda, non si brucia lo slot. */
 function isBusyPath(pathname: string) {
@@ -295,10 +339,12 @@ function ScreenTikTok() {
  * Promo desktop: iPhone con anteprime reali (IG/TT UI mobile + screenshot sito).
  * Nessuna X. Solo ≥1024px.
  * Non esce su tab in background né su pagine “busy” (seratafilm/tickets/staff…): rimanda.
+ * Gate: Follower Discord → niente IG/TikTok; PWA già installata (anche da telefono via chrome-prefs) → niente mock sito.
  */
 export function SocialPhonePromo() {
   const reduce = useReducedMotionSafe();
   const pathname = useSitePathname() || "/";
+  const { token, user, ready: authReady } = useAuth();
   const [desktop, setDesktop] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [chromeOpen, setChromeOpen] = useState(false);
@@ -310,6 +356,7 @@ export function SocialPhonePromo() {
   const openRef = useRef(false);
   const pathRef = useRef(pathname);
   const chromeRef = useRef(chromeOpen);
+  const gatesRef = useRef<PromoGates>({ ready: false, blockSocial: false, blockSite: false });
   const hideTimer = useRef<number | null>(null);
   const ctaTimer = useRef<number | null>(null);
   pathRef.current = pathname;
@@ -355,9 +402,22 @@ export function SocialPhonePromo() {
         return;
       }
 
+      const gates = gatesRef.current;
+      if (!gates.ready && !force) {
+        deferSoon();
+        return;
+      }
+
       const forced = forcedChannelId();
-      const avoid = CHANNELS.find((c) => c.id === s0.lastChannel) || null;
-      const nextCh = (forced && CHANNELS.find((c) => c.id === forced)) || pick(CHANNELS, avoid);
+      const pool = channelsAllowed(gates);
+      if (!forced && pool.length === 0) return;
+
+      const avoid = pool.find((c) => c.id === s0.lastChannel) || null;
+      const nextCh =
+        (forced && CHANNELS.find((c) => c.id === forced)) ||
+        (pool.length ? pick(pool, avoid) : null);
+      if (!nextCh) return;
+
       const firstCta = pick(ctasFor(nextCh));
 
       setChannel(nextCh);
@@ -403,6 +463,38 @@ export function SocialPhonePromo() {
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
+
+  // Follower → niente IG/TikTok; PWA installata (locale / relatedApps / chrome-prefs anche da telefono) → niente site.
+  useEffect(() => {
+    if (!enabled || !authReady) return;
+    let cancelled = false;
+    gatesRef.current = { ...gatesRef.current, ready: false };
+
+    void (async () => {
+      const [pwa, follower] = await Promise.all([
+        detectPwaAlreadyInstalled(token),
+        user?.id && token ? detectHasFollowerRole(user.id, token) : Promise.resolve(false),
+      ]);
+      if (cancelled) return;
+      gatesRef.current = {
+        ready: true,
+        blockSocial: follower,
+        blockSite: pwa,
+      };
+      // Se il mock era già aperto su un canale ora bloccato, chiudilo.
+      if (openRef.current) {
+        const ch = CHANNELS.find((c) => c.id === (storeRef.current?.lastChannel || channel.id));
+        const allowed = channelsAllowed(gatesRef.current);
+        if (ch && !allowed.some((c) => c.id === ch.id) && !forcedChannelId()) {
+          hideOpen();
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, authReady, token, user?.id, hideOpen, channel.id]);
 
   // Menù chrome / pagina busy: nascondi subito se era aperto, rimanda la prossima.
   useEffect(() => {

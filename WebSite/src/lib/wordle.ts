@@ -24,6 +24,21 @@ export type SavedGame = {
   keyMarks: KeyMarks;
 };
 
+export type WordleRewardInfo = {
+  auth: "guest" | "outsider" | "member";
+  eligible: boolean;
+  needsLogin: boolean;
+  needsJoin: boolean;
+  claimed: boolean;
+  expAwarded: number | null;
+  preview?: {
+    mode?: string;
+    byAttempts?: Record<string, { min: number; max: number }>;
+    maxPossible?: number;
+    minPossible?: number;
+  };
+};
+
 export type WordleToday = {
   day: string;
   lang: WordleLang;
@@ -34,6 +49,8 @@ export type WordleToday = {
   /** wordleOnePerDay1: già iniziata oggi (anche in altra lingua) */
   locked?: boolean;
   lockedLang?: WordleLang | null;
+  reward?: WordleRewardInfo;
+  remindEnabled?: boolean;
 };
 
 export type GuessOk = {
@@ -54,6 +71,9 @@ export type GuessOk = {
   locked?: boolean;
   lockedLang?: WordleLang;
   message?: string;
+  expGained?: number;
+  expAlready?: boolean;
+  reward?: WordleRewardInfo;
 };
 
 export type GuessErr = { ok: false; error?: string; message?: string };
@@ -315,6 +335,8 @@ export async function loadToday(opts: {
       game: j.game && typeof j.game === "object" ? (j.game as SavedGame) : null,
       locked: Boolean(j.locked),
       lockedLang,
+      reward: j.reward && typeof j.reward === "object" ? (j.reward as WordleRewardInfo) : undefined,
+      remindEnabled: Boolean(j.remindEnabled),
     };
   } catch {
     return null;
@@ -427,5 +449,25 @@ export async function pushStats(token: string, lang: WordleLang, stats: WordleSt
     });
   } catch {
     /* si riprova alla prossima apertura */
+  }
+}
+
+/** Riscatta EXP dopo login (vittoria già validabile dal server). */
+export async function claimWordleExp(opts: {
+  token: string;
+  lang: WordleLang;
+  history: string[];
+}): Promise<{ ok: boolean; expGained?: number; expAlready?: boolean; reward?: WordleRewardInfo; message?: string; error?: string }> {
+  try {
+    const r = await fetch("/webhooks/site-wordle/claim", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${opts.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ lang: opts.lang, history: opts.history }),
+    });
+    const j = await r.json().catch(() => null);
+    if (!j) return { ok: false, message: "Rete occupata" };
+    return j;
+  } catch {
+    return { ok: false, message: "Rete occupata" };
   }
 }

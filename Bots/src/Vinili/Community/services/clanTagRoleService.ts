@@ -134,26 +134,8 @@ async function fetchUserClanViaMemberApi(client?, userId?) {
 
 const MEMBER_EVENT_CLAN_SYNC_THROTTLE_MS = 8000;
 const lastClanSyncAfterMemberEventByUser = new Map();
-const CLAN_LOOKUP_FAIL_LOG_COOLDOWN_MS = 30 * 60 * 1000;
-const lastClanLookupFailLogByUser = new Map();
-
-function warnClanLookupFailed(kind?, userId?, guildId = "") {
-  const uid = String(userId || "");
-  if (!uid) return;
-  const now = Date.now();
-  const key = `${kind}:${uid}`;
-  const last = Number(lastClanLookupFailLogByUser.get(key) || 0);
-  if (now - last < CLAN_LOOKUP_FAIL_LOG_COOLDOWN_MS) return;
-  lastClanLookupFailLogByUser.set(key, now);
-  if (lastClanLookupFailLogByUser.size > 2000) {
-    for (const [k, ts] of lastClanLookupFailLogByUser) {
-      if (now - Number(ts || 0) > CLAN_LOOKUP_FAIL_LOG_COOLDOWN_MS) lastClanLookupFailLogByUser.delete(k);
-    }
-  }
-  global.logger?.warn?.(
-    "[ClanTagService] skip rimozione Guilded: lookup clan fallito",
-    uid,
-  );
+function warnClanLookupFailed(_kind?, _userId?, _guildId = "") {
+  /* no-op: lookup falliti sono comuni e riempivano i log */
 }
 
 const GUILDED_ANNOUNCE_COOLDOWN_MS = 24 * 60 * 60 * 1000;

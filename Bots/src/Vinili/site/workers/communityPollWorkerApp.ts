@@ -73,6 +73,12 @@ async function main(shared?: { client?: any } | null) {
   startDailyChannelMessageStatsLoop(client);
   startWeeklyActivityWinnersLoop(client);
   startBirthdayLoop(client);
+  try {
+    const { startWordleDailyReminderLoop } = require("../../Minigames/services/wordleDailyReminderService") as typeof import("../../Minigames/services/wordleDailyReminderService");
+    startWordleDailyReminderLoop(client);
+  } catch (err) {
+    console.error("[COMMUNITY-POLL] wordle remind:", err?.message || err);
+  }
   startGlobalExpEventAnnouncementLoop(client);
   startStreamerStageGuardLoop(client);
   startStafferDellaSettimanaLoop(client);

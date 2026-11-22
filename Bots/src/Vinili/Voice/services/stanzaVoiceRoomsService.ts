@@ -30,7 +30,7 @@ async function isStanzaButtonActorAllowed(interaction?) {
 /**
  * Enforce ༄{emoji}︲{label} after manual Discord renames (and any other name edits).
  * Only for tracked stanza rooms (meta/snapshot) — never other ༄ voice/stage channels.
- * Never injects "Stanza di" on rename (create-only).
+ * Never injects create suffix ("'s room") on rename (create-only).
  * Bot-initiated setName is ignored via stanzaBotRenameUntil to avoid loops.
  */
 async function handleStanzaChannelUpdate(oldChannel?, newChannel?) {

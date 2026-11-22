@@ -12,6 +12,9 @@ const {
 } = require("../../Minigames/data/wordleBanks");
 
 const MAX_ATTEMPTS = 6;
+/** Quordle-style: 4 parole, 9 tentativi condivisi. */
+const QUAD_BOARDS = 4;
+const QUAD_MAX_ATTEMPTS = 9;
 const WORD_LEN = 5;
 
 /** @type {Map<string, object>} */
@@ -108,6 +111,30 @@ function pickDailyAnswer(lang?, day?) {
   return bank[hashPick(`vc-wordle:${k}:${day}`, bank.length)];
 }
 
+/** N risposte distinte del giorno (Wordle ×4). */
+function pickDailyAnswers(lang?, day?, count = QUAD_BOARDS) {
+  const k = normalizeWordleLang(lang);
+  const bank = getAnswers(k);
+  const n = Math.max(1, Math.min(Number(count) || QUAD_BOARDS, Math.max(1, bank.length || 1)));
+  if (!bank.length) {
+    const fallback = k === "en" ? ["crane", "slate", "audio", "pride"] : ["cuore", "ponte", "fiore", "sogno"];
+    return fallback.slice(0, n);
+  }
+  const out = [];
+  const used = new Set();
+  for (let i = 0; i < n; i++) {
+    let idx = hashPick(`vc-wordle-quad:${k}:${day}:${i}`, bank.length);
+    let guard = 0;
+    while (used.has(bank[idx]) && guard < bank.length) {
+      idx = (idx + 1) % bank.length;
+      guard += 1;
+    }
+    used.add(bank[idx]);
+    out.push(bank[idx]);
+  }
+  return out;
+}
+
 function getSession(userId?, lang?) {
   return sessions.get(sessionKey(userId, lang, todayKey())) || null;
 }
@@ -166,6 +193,8 @@ function langLabel(lang?) {
 
 export = {
   MAX_ATTEMPTS,
+  QUAD_BOARDS,
+  QUAD_MAX_ATTEMPTS,
   WORD_LEN,
   WORDLE_LANGS,
   normalizeWord,
@@ -178,4 +207,5 @@ export = {
   statusLabel,
   langLabel,
   pickDailyAnswer,
+  pickDailyAnswers,
 };
