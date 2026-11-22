@@ -50,7 +50,7 @@ export function MusicQuizResults({
   const ratio = maxScore ? score / maxScore : 0;
   const record = score >= best && score > 0;
   return (
-    <div className="mx-auto max-w-2xl space-y-8 px-4 pb-20 pt-6">
+    <div className="mx-auto max-w-2xl space-y-8 px-4 pb-20 pt-24 sm:pt-28">
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}

@@ -32,7 +32,7 @@ export function MusicQuizGate({ children }: { children: React.ReactNode }) {
 
   if (state === "loading") {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center text-sm text-crema/50">
+      <div className="mx-auto max-w-lg px-4 pb-16 pt-28 text-center text-sm text-crema/50">
         {t("musicQuiz.loading")}
       </div>
     );
@@ -40,7 +40,7 @@ export function MusicQuizGate({ children }: { children: React.ReactNode }) {
 
   if (state === "login" || state === "denied") {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+      <div className="mx-auto max-w-lg px-4 pb-16 pt-28 text-center">
         <p className="font-display text-2xl text-crema">{t("musicQuiz.gateTitle")}</p>
         <p className="mt-3 text-sm leading-relaxed text-crema/55">
           {state === "login" ? t("musicQuiz.gateLogin") : t("musicQuiz.gateDenied")}

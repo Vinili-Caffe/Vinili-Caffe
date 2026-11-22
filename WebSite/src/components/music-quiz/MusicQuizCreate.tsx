@@ -84,7 +84,7 @@ export function MusicQuizCreate() {
   const ready = picked.length >= MIN_TRACKS && title.trim().length >= 2;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 pb-20 pt-2">
+    <div className="mx-auto max-w-5xl space-y-6 px-4 pb-20 pt-24 sm:pt-28">
       <SmartLink href={page("/music-quiz/")} className="inline-flex items-center gap-1.5 text-sm text-crema/60 transition hover:text-crema">
         <ArrowLeft className="size-4" aria-hidden /> Tutti i quiz
       </SmartLink>

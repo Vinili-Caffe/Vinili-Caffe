@@ -45,7 +45,7 @@ async function handleMusicQuizPackGet(client?, req?, res?) {
   const auth = await requireMusicQuizHighStaff(client, req);
   if (sendAuthError(res, auth)) return;
   try {
-    let slug = String(req.params?.slug || req.query?.slug || "").trim();
+    let slug = String(req.params?.slug || req.query?.slug || "").trim().replace(/\/+$/, "");
     if (!slug) return res.status(400).json({ ok: false, error: "missing_slug" });
 
     let pack = await SiteDocument.findOne({
@@ -65,7 +65,7 @@ async function handleMusicQuizPackGet(client?, req?, res?) {
       return res.status(404).json({
         ok: false,
         error: "not_found",
-        message: /^(artist|playlist)-d+$/.test(slug)
+        message: /^(artist|playlist)-\d+$/.test(slug)
           ? "Deezer non ha abbastanza brani con l'anteprima per questo quiz."
           : "Questo quiz non esiste più.",
       });

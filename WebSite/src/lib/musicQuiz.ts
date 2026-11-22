@@ -70,7 +70,7 @@ export type MusicQuizDifficulty = "5s" | "3s" | "1s";
 export type MusicQuizMode = "solo" | "party" | "stream";
 
 /** Tempo per rispondere, da quando parte il brano (uguale al server). */
-export const MUSIC_QUIZ_ANSWER_MS = 15_000;
+export const MUSIC_QUIZ_ANSWER_MS = 30_000;
 
 export async function loadMusicQuizHub(token: string) {
   return api<{

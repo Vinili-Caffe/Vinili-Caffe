@@ -29,6 +29,8 @@ function pathSuppressesSiteMusic(pathname: string) {
   /* Evento Star Wars: BGM dedicato (EventoMusic). */
   if (p === "/evento" || p.startsWith("/evento/")) return true;
   if (p === "/puzzle" || p.startsWith("/puzzle/")) return true;
+  /* Music Quiz: si ascoltano i brani del quiz, la musica del sito si toglie (anche il player d'angolo) */
+  if (p === "/music-quiz" || p.startsWith("/music-quiz/")) return true;
   /* Albero Natale: scena immersiva senza player angolo. */
   if (p === "/albero" || p.startsWith("/albero/")) return true;
   /* /seratafilm resta sulla musica sito (o EventoMusic se immersione SW). */

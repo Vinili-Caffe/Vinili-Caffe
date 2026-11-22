@@ -16,7 +16,7 @@ import {
   type MusicQuizPartyPlayer as Player,
   type MusicQuizPartyRoom as Room,
 } from "@/lib/musicQuiz";
-import { AnswerGrid, QuizTurntable, RevealCard, useCountdown, useQuizClip } from "./QuizStage";
+import { AnswerGrid, GameStage, QuizTurntable, RevealCard, useCountdown, useQuizClip } from "./QuizStage";
 
 export function MusicQuizPartyRoom({ roomId }: { roomId: string }) {
   const { token, user } = useAuth();
@@ -76,7 +76,7 @@ export function MusicQuizPartyRoom({ roomId }: { roomId: string }) {
 
   if (!room) {
     return (
-      <div className="mx-auto max-w-md px-4 py-16 text-center">
+      <div className="mx-auto max-w-md px-4 pb-16 pt-28 text-center">
         {err ? (
           <>
             <p className="font-display text-2xl text-crema">{err}</p>
@@ -95,7 +95,7 @@ export function MusicQuizPartyRoom({ roomId }: { roomId: string }) {
   const invite = typeof window !== "undefined" ? `${window.location.origin}${page(`/music-quiz/party/?room=${encodeURIComponent(roomId)}`)}` : "";
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 pb-20 pt-2">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-24 sm:pt-28">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SmartLink href={page(`/music-quiz/pack/?slug=${encodeURIComponent(room.packSlug)}`)} className="inline-flex items-center gap-1.5 text-sm text-crema/60 transition hover:text-crema">
           <ArrowLeft className="size-4" aria-hidden /> {room.packTitle}
@@ -212,15 +212,21 @@ function PartyRound({
   const myPoints = room.players.find((p) => p.userId === me)?.lastPoints ?? 0;
 
   return (
-    <div className="flex flex-col items-center gap-6">
-      <div className="text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">
-          Domanda {room.roundIndex + 1} di {room.totalRounds}
-        </p>
-        <p className="mt-1 font-display text-2xl font-semibold text-crema">Che canzone è?</p>
-      </div>
-
-      <QuizTurntable cover={room.packCover} clip={clip.state} clipMs={room.clipMs} left={revealed ? answerMs : left} totalMs={answerMs} onReplay={clip.replay} />
+    <GameStage
+      cover={room.packCover}
+      top={
+        <>
+          <span className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">
+            Domanda {room.roundIndex + 1} di {room.totalRounds}
+          </span>
+          <span className="text-sm text-crema/65">
+            {answered} su {room.players.length} hanno risposto
+          </span>
+        </>
+      }
+      side={<QuizTurntable cover={room.packCover} clip={clip.state} clipMs={room.clipMs} left={revealed ? answerMs : left} totalMs={answerMs} onReplay={clip.replay} />}
+    >
+      <p className="font-display text-3xl font-semibold text-crema">Che canzone è?</p>
 
       <AnswerGrid
         options={round.options}
@@ -235,16 +241,11 @@ function PartyRound({
       />
 
       {!revealed ? (
-        <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-crema/60">
-          <span>
-            {answered} su {room.players.length} hanno risposto
-          </span>
-          {isHost && room.mode === "stream" ? (
-            <button type="button" disabled={busy} onClick={onReveal} className="rounded-full px-3.5 py-1.5 font-semibold text-crema ring-1 ring-sand/25 transition hover:bg-crema/[0.06]">
-              Mostra la risposta
-            </button>
-          ) : null}
-        </div>
+        isHost && room.mode === "stream" ? (
+          <button type="button" disabled={busy} onClick={onReveal} className="self-start rounded-full px-3.5 py-1.5 text-sm font-semibold text-crema ring-1 ring-sand/25 transition hover:bg-crema/[0.06]">
+            Mostra la risposta
+          </button>
+        ) : null
       ) : (
         <RevealCard
           show
@@ -262,7 +263,7 @@ function PartyRound({
           ) : null}
         </RevealCard>
       )}
-    </div>
+    </GameStage>
   );
 }
 

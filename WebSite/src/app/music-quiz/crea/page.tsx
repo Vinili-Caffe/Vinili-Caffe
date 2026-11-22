@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
-import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { MusicQuizGate } from "@/components/music-quiz/MusicQuizGate";
 import { pageSocialMeta } from "@/lib/og";
@@ -23,7 +22,6 @@ export default function MusicQuizCreatePage() {
   return (
     <SiteShell>
       <DiscordComponentEmbed path="/music-quiz/crea/" title="Crea Music Quiz" description="Quiz community." />
-      <PageHero kicker="Music Quiz" title="Crea un" accent="quiz" compact />
       <MusicQuizGate>
         <MusicQuizCreate />
       </MusicQuizGate>

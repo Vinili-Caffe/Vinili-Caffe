@@ -38,7 +38,7 @@ export function MusicQuizHub() {
   const [top, ...rest] = featured || [];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-12 px-4 pb-20">
+    <div className="mx-auto max-w-6xl space-y-12 px-4 pb-20 pt-24 sm:pt-28">
       {/* ricerca */}
       <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-mocha via-roast to-espresso px-5 py-8 ring-1 ring-sand/15 sm:px-10 sm:py-10">
         <motion.div

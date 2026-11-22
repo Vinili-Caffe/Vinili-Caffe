@@ -10,7 +10,7 @@
 const axios = require("axios") as any;
 
 export const ROUNDS = 10;
-export const ANSWER_MS = 15_000;
+export const ANSWER_MS = 30_000;
 export const DIFF_MS = { "5s": 5000, "3s": 3000, "1s": 1000 } as const;
 export type DiffKey = keyof typeof DIFF_MS;
 
@@ -65,7 +65,11 @@ export function buildRounds(tracks: any[]): QuizRound[] | null {
     return true;
   });
   if (usable.length < 4) return null;
-  const manyArtists = new Set(usable.map((t) => norm(t.artist))).size > 1;
+  /* quiz di un artista (anche con qualche featuring): solo titoli; playlist miste: «Titolo · Artista» */
+  const counts = new Map<string, number>();
+  for (const t of usable) counts.set(norm(t.artist), (counts.get(norm(t.artist)) || 0) + 1);
+  const topShare = Math.max(...counts.values()) / usable.length;
+  const manyArtists = topShare < 0.8;
   const label = (t: any) => (manyArtists ? `${t.title} · ${t.artist}` : String(t.title));
   const picked = shuffle(usable).slice(0, Math.min(ROUNDS, usable.length));
   return picked.map((t, index) => {

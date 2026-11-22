@@ -137,10 +137,23 @@ export function QuizTurntable({
   const r = 118;
   const c = 2 * Math.PI * r;
   const frac = left / totalMs;
-  const urgent = left < 4000;
+  const urgent = left < 8000;
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="relative grid size-[17rem] place-items-center sm:size-[19rem]">
+      <div className="relative grid size-[13rem] place-items-center sm:size-[15rem] lg:size-[17rem]">
+        {/* braccio del giradischi: sul disco mentre suona, alzato quando è fermo */}
+        <motion.svg
+          viewBox="0 0 60 140"
+          aria-hidden
+          className="absolute -right-3 -top-3 z-10 h-[62%] origin-[48px_12px] drop-shadow-[0_6px_10px_rgba(0,0,0,0.6)]"
+          animate={{ rotate: spinning ? 22 : 4 }}
+          transition={{ type: "spring", stiffness: 120, damping: 14 }}
+        >
+          <circle cx="48" cy="12" r="9" className="fill-mocha stroke-sand/40" strokeWidth="1.5" />
+          <circle cx="48" cy="12" r="3.5" className="fill-caramel" />
+          <path d="M48 14 L40 96 Q38 112 26 122" fill="none" className="stroke-sand/70" strokeWidth="3.5" strokeLinecap="round" />
+          <rect x="16" y="118" width="16" height="11" rx="2.5" transform="rotate(-30 24 123)" className="fill-crema/85" />
+        </motion.svg>
         {/* tempo per rispondere */}
         <svg viewBox="0 0 260 260" className="absolute inset-0 size-full -rotate-90" aria-hidden>
           <circle cx="130" cy="130" r={r} fill="none" strokeWidth="6" className="stroke-crema/[0.07]" />
@@ -160,7 +173,7 @@ export function QuizTurntable({
         <motion.div
           animate={spinning ? { rotate: 360 } : { rotate: 0 }}
           transition={spinning ? { repeat: Infinity, ease: "linear", duration: 2.2 } : { duration: 0.6 }}
-          className="relative grid size-[13.5rem] place-items-center rounded-full bg-[repeating-radial-gradient(circle,#0b0705_0_1.5px,#21160f_1.5px_3px)] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] ring-1 ring-sand/15 sm:size-[15rem]"
+          className="relative grid size-[80%] place-items-center rounded-full bg-[repeating-radial-gradient(circle,#0b0705_0_1.5px,#21160f_1.5px_3px)] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] ring-1 ring-sand/15"
         >
           <span className="absolute inset-0 rounded-full bg-[conic-gradient(from_40deg,transparent_0deg,rgba(244,233,216,0.08)_40deg,transparent_80deg,transparent_180deg,rgba(244,233,216,0.06)_220deg,transparent_260deg)]" />
           <span className="relative size-[38%] overflow-hidden rounded-full bg-gradient-to-br from-caramel to-ember ring-4 ring-espresso">
@@ -248,7 +261,7 @@ export function AnswerGrid({
 }) {
   const revealed = correctIndex != null && correctIndex >= 0;
   return (
-    <div className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2">
+    <div className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
       {options.map((opt, i) => {
         const isRight = revealed && i === correctIndex;
         const isWrongPick = revealed && picked === i && i !== correctIndex;
@@ -368,5 +381,26 @@ export function RoundDots({ total, current, results }: { total: number; current:
         />
       ))}
     </div>
+  );
+}
+
+/* ───────── schermata di gioco: scheda unica, sfondo dell'artista, giradischi e risposte affiancati ───────── */
+
+export function GameStage({ cover, top, side, children }: { cover?: string; top: React.ReactNode; side: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="relative overflow-hidden rounded-[2rem] bg-espresso ring-1 ring-sand/15 shadow-[0_40px_80px_-40px_rgba(0,0,0,0.9)]">
+      {cover ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={cover} alt="" aria-hidden className="pointer-events-none absolute inset-0 size-full scale-125 object-cover opacity-30 blur-3xl" />
+      ) : null}
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-espresso/40 via-espresso/70 to-espresso" />
+      <div className="relative">
+        <div className="flex items-center justify-between gap-3 border-b border-sand/10 px-4 py-3 sm:px-6">{top}</div>
+        <div className="grid grid-cols-1 items-center gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:gap-10 lg:p-8">
+          <div className="flex justify-center">{side}</div>
+          <div className="flex min-w-0 flex-col gap-4">{children}</div>
+        </div>
+      </div>
+    </section>
   );
 }

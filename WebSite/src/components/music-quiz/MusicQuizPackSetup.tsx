@@ -110,81 +110,77 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 px-4 pb-20 pt-2">
-      <SmartLink href={page("/music-quiz/")} className="inline-flex items-center gap-1.5 text-sm text-crema/60 transition hover:text-crema">
-        <ArrowLeft className="size-4" aria-hidden /> Tutti i quiz
-      </SmartLink>
-
-      {/* testata */}
-      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-mocha to-roast p-6 ring-1 ring-sand/15 sm:p-8">
+    <div className="mx-auto max-w-5xl space-y-10 px-4 pb-20 pt-24 sm:pt-28">
+      {/* sala d'attesa: chi, quanto ascolti, come giochi */}
+      <section className="relative overflow-hidden rounded-[2rem] bg-espresso ring-1 ring-sand/15 shadow-[0_40px_80px_-40px_rgba(0,0,0,0.9)]">
         {pack?.cover ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={pack.cover} alt="" className="pointer-events-none absolute inset-0 size-full scale-110 object-cover opacity-20 blur-2xl" />
+          <img src={pack.cover} alt="" aria-hidden className="pointer-events-none absolute inset-0 size-full scale-125 object-cover opacity-35 blur-3xl" />
         ) : null}
-        <div className="relative flex flex-col items-center gap-6 text-center sm:flex-row sm:text-left">
-          {pack ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={pack.cover || "/images/logo-disco.png"} alt="" className="size-40 shrink-0 rounded-3xl object-cover shadow-[0_24px_50px_-20px_rgba(0,0,0,0.9)] ring-1 ring-sand/20" />
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">{KIND_LABEL[pack.kind || ""] || "Quiz"}</p>
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-r from-espresso/30 via-espresso/75 to-espresso" />
+        <div className="relative grid grid-cols-1 gap-8 p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center lg:gap-12">
+          <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+            <SmartLink href={page("/music-quiz/")} className="mb-5 inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1.5 text-sm text-crema/70 ring-1 ring-sand/15 transition hover:text-crema">
+              <ArrowLeft className="size-4" aria-hidden /> Tutti i quiz
+            </SmartLink>
+            {pack ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={pack.cover || "/images/logo-disco.png"} alt="" className="size-40 rounded-3xl object-cover shadow-[0_30px_60px_-25px_rgba(0,0,0,0.95)] ring-1 ring-sand/25 sm:size-48" />
+                <p className="mt-5 text-xs font-semibold uppercase tracking-[0.22em] text-caramel">{KIND_LABEL[pack.kind || ""] || "Quiz"}</p>
                 <h1 className="mt-1 font-display text-4xl font-semibold leading-tight text-crema [overflow-wrap:anywhere] sm:text-5xl">{pack.title}</h1>
                 <p className="mt-2 text-sm text-crema/65">
                   {pack.trackCount ? `${pack.trackCount} brani` : "Brani da Deezer"} · {pack.plays ?? 0} partite giocate
                   {pack.authorName ? ` · creato da ${pack.authorName}` : ""}
                 </p>
+              </>
+            ) : (
+              <div className="w-full">
+                <div className="mx-auto size-40 animate-pulse rounded-3xl bg-crema/[0.06] lg:mx-0" />
+                {err ? <p className="mt-4 text-ember">{err}</p> : <div className="mx-auto mt-5 h-10 w-2/3 animate-pulse rounded-xl bg-crema/[0.06] lg:mx-0" />}
               </div>
-            </>
-          ) : (
-            <div className="h-40 w-full animate-pulse rounded-3xl bg-crema/[0.05]">{err ? <p className="p-6 text-sm text-ember">{err}</p> : null}</div>
-          )}
-        </div>
-      </section>
+            )}
+          </div>
 
-      {/* difficoltà */}
-      <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-crema/55">Quanto ascolti</h2>
-        <div className="grid grid-cols-3 gap-2.5">
-          {DIFFS.map((d) => (
-            <button
-              key={d.id}
+          <div className="space-y-5">
+            <div>
+              <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-crema/60">Quanto ascolti</h2>
+              <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-ink/40 p-1.5 ring-1 ring-sand/10">
+                {DIFFS.map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setDifficulty(d.id)}
+                    className={cn("relative rounded-xl px-2 py-3 text-center transition", difficulty === d.id ? "text-ink" : "text-crema/75 hover:text-crema")}
+                  >
+                    {difficulty === d.id ? <motion.span layoutId="mq-diff" className="absolute inset-0 rounded-xl bg-gradient-to-br from-caramel to-ember" transition={{ type: "spring", stiffness: 380, damping: 30 }} /> : null}
+                    <span className="relative block font-display text-xl font-semibold">{d.label}</span>
+                    <span className={cn("relative block text-[0.7rem]", difficulty === d.id ? "text-ink/70" : "text-crema/50")}>{d.hint}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2.5 text-sm text-crema/60">10 canzoni, 4 risposte ciascuna. Hai 30 secondi da quando parte il brano: prima rispondi, più punti prendi.</p>
+            </div>
+
+            <motion.button
               type="button"
-              onClick={() => setDifficulty(d.id)}
-              className={cn(
-                "rounded-2xl px-3 py-4 text-center ring-1 transition",
-                difficulty === d.id ? "bg-caramel/15 ring-caramel/60" : "bg-roast/70 ring-sand/15 hover:ring-caramel/35",
-              )}
+              whileTap={{ scale: 0.98 }}
+              disabled={!pack || Boolean(busy)}
+              onClick={() => void startSolo()}
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-caramel to-ember px-6 py-4 text-ink shadow-[0_20px_40px_-20px_rgba(212,145,80,0.8)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-60"
             >
-              <span className={cn("block font-display text-2xl font-semibold", difficulty === d.id ? "text-caramel" : "text-crema")}>{d.label}</span>
-              <span className="mt-0.5 block text-xs text-crema/55">{d.hint}</span>
-            </button>
-          ))}
+              <Play className="size-6 fill-current" aria-hidden />
+              <span className="font-display text-2xl font-semibold">{busy === "solo" ? "Preparo i brani…" : "Gioca"}</span>
+            </motion.button>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <ModeCard icon={<Users className="size-4" aria-hidden />} title="Con gli amici" hint="Link d'invito, rispondete insieme" busy={busy === "party"} disabled={!pack || Boolean(busy)} onClick={() => void startRoom("party")} />
+              <ModeCard icon={<Radio className="size-4" aria-hidden />} title="In diretta" hint="Guidi tu, gli altri rispondono" busy={busy === "stream"} disabled={!pack || Boolean(busy)} onClick={() => void startRoom("stream")} />
+            </div>
+            {err && pack ? <p className="text-sm text-ember">{err}</p> : null}
+          </div>
         </div>
-        <p className="text-sm text-crema/55">10 canzoni, 4 risposte ciascuna. Hai 15 secondi da quando parte il brano: più rispondi in fretta, più punti prendi.</p>
       </section>
-
-      {/* modi di gioco */}
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-[1.4fr_1fr_1fr]">
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.98 }}
-          disabled={!pack || Boolean(busy)}
-          onClick={() => void startSolo()}
-          className="group relative flex items-center gap-4 overflow-hidden rounded-3xl bg-gradient-to-br from-caramel to-ember p-5 text-left text-ink disabled:opacity-60"
-        >
-          <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-ink/15">
-            <Play className="size-7 fill-current" aria-hidden />
-          </span>
-          <span>
-            <span className="block font-display text-2xl font-semibold">{busy === "solo" ? "Preparo i brani…" : "Gioca da solo"}</span>
-            <span className="block text-sm text-ink/75">Il punteggio entra in classifica</span>
-          </span>
-        </motion.button>
-        <ModeCard icon={<Users className="size-5" aria-hidden />} title="Con gli amici" hint="Stanza con link d'invito, rispondete insieme" busy={busy === "party"} disabled={!pack || Boolean(busy)} onClick={() => void startRoom("party")} />
-        <ModeCard icon={<Radio className="size-5" aria-hidden />} title="In diretta" hint="Guidi tu la partita, gli altri rispondono" busy={busy === "stream"} disabled={!pack || Boolean(busy)} onClick={() => void startRoom("stream")} />
-      </section>
-
-      {err && pack ? <p className="text-sm text-ember">{err}</p> : null}
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <MusicQuizLeaderboard slug={slug} difficulty={difficulty} />
@@ -200,14 +196,13 @@ function ModeCard({ icon, title, hint, busy, disabled, onClick }: { icon: React.
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex items-start gap-3 rounded-3xl bg-roast/80 p-5 text-left ring-1 ring-sand/15 transition hover:-translate-y-0.5 hover:ring-caramel/40 disabled:opacity-60"
+      className="flex items-start gap-2.5 rounded-2xl bg-crema/[0.05] p-3.5 text-left ring-1 ring-sand/15 transition hover:bg-crema/[0.08] hover:ring-caramel/40 disabled:opacity-60"
     >
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-caramel/15 text-caramel">{icon}</span>
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-caramel/15 text-caramel">{icon}</span>
       <span className="min-w-0">
-        <span className="block font-semibold text-crema">{busy ? "Creo la stanza…" : title}</span>
-        <span className="mt-0.5 block text-xs leading-relaxed text-crema/55">{hint}</span>
+        <span className="block text-sm font-semibold text-crema">{busy ? "Creo la stanza…" : title}</span>
+        <span className="mt-0.5 block text-xs leading-snug text-crema/55">{hint}</span>
       </span>
     </button>
   );
 }
-

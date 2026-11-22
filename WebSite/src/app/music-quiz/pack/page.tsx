@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
-import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { MusicQuizGate } from "@/components/music-quiz/MusicQuizGate";
 import { pageSocialMeta } from "@/lib/og";
@@ -24,7 +23,6 @@ export default function MusicQuizPackPage() {
   return (
     <SiteShell>
       <DiscordComponentEmbed path="/music-quiz/pack/" title="Music Quiz" description="Pack Music Quiz." />
-      <PageHero kicker="Giochi" title="Music" accent="Quiz" compact />
       <MusicQuizGate>
         <Suspense fallback={null}>
           <MusicQuizPackPageClient />

@@ -12,7 +12,7 @@ export function MusicQuizPartyPageClient() {
   const roomId = String(sp.get("room") || "").trim();
   if (!roomId) {
     return (
-      <div className="px-4 py-16 text-center">
+      <div className="px-4 pb-16 pt-28 text-center">
         <p className="text-sm text-crema/50">{t("musicQuiz.missingRoom")}</p>
         <SmartLink href={page("/music-quiz/")} className="mt-4 inline-block text-caramel">
           {t("musicQuiz.backHub")}

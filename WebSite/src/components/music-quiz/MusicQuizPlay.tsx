@@ -12,7 +12,7 @@ import {
   type MusicQuizRound,
 } from "@/lib/musicQuiz";
 import { MusicQuizResults, type RoundRecap } from "./MusicQuizResults";
-import { AnswerGrid, QuizTurntable, RevealCard, RoundDots, useCountdown, useQuizClip } from "./QuizStage";
+import { AnswerGrid, GameStage, QuizTurntable, RevealCard, RoundDots, useCountdown, useQuizClip } from "./QuizStage";
 
 type Feedback = { correct: boolean; timeout: boolean; title: string; artist: string; cover?: string; points: number; correctIndex: number; picked: number | null };
 
@@ -135,58 +135,70 @@ export function MusicQuizPlay({
   const dots = Array.from({ length: total }, (_, i) => (recap[i] ? recap[i].correct : null));
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col items-center gap-6 px-4 pb-20 pt-4">
-      <div className="flex w-full items-center justify-between gap-3">
-        <button type="button" onClick={onExit} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-crema/65 ring-1 ring-sand/15 transition hover:text-crema">
-          <ArrowLeft className="size-4" aria-hidden /> Esci
-        </button>
-        <RoundDots total={total} current={round.index} results={dots} />
-        <motion.span
-          key={score}
-          initial={{ scale: 1.25 }}
-          animate={{ scale: 1 }}
-          className="min-w-16 rounded-full bg-caramel/15 px-3 py-1.5 text-center font-display text-lg font-semibold tabular-nums text-caramel ring-1 ring-caramel/30"
-        >
-          {score}
-        </motion.span>
-      </div>
-
-      <div className="text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">
-          Domanda {round.index + 1} di {total}
-        </p>
-        <p className="mt-1 font-display text-2xl font-semibold text-crema">Che canzone è?</p>
-      </div>
-
-      <QuizTurntable cover={packCover} clip={clip.state} clipMs={clipMs} left={feedback ? answerMs : left} totalMs={answerMs} onReplay={clip.replay} />
-
-      <AnswerGrid
-        options={round.options}
-        disabled={Boolean(feedback) || sending || clip.startedAt == null}
-        picked={feedback ? feedback.picked : picked}
-        correctIndex={feedback ? feedback.correctIndex : null}
-        onPick={(i) => void send(i)}
-      />
-
-      <RevealCard
-        show={Boolean(feedback)}
-        correct={Boolean(feedback?.correct)}
-        timeout={feedback?.timeout}
-        points={feedback?.points || 0}
-        title={feedback?.title || ""}
-        artist={feedback?.artist || ""}
-        cover={feedback?.cover}
+    <div className="mx-auto max-w-5xl px-4 pb-16 pt-24 sm:pt-28">
+      <GameStage
+        cover={packCover}
+        top={
+          <>
+            <button type="button" onClick={onExit} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-crema/70 ring-1 ring-sand/15 transition hover:text-crema">
+              <ArrowLeft className="size-4" aria-hidden /> Esci
+            </button>
+            <div className="hidden min-w-0 flex-1 items-center justify-center gap-3 sm:flex">
+              <span className="truncate text-sm font-semibold text-crema/80">{packTitle}</span>
+              <RoundDots total={total} current={round.index} results={dots} />
+            </div>
+            <motion.span
+              key={score}
+              initial={{ scale: 1.25 }}
+              animate={{ scale: 1 }}
+              className="min-w-16 rounded-full bg-caramel/15 px-3 py-1.5 text-center font-display text-lg font-semibold tabular-nums text-caramel ring-1 ring-caramel/30"
+            >
+              {score}
+            </motion.span>
+          </>
+        }
+        side={<QuizTurntable cover={packCover} clip={clip.state} clipMs={clipMs} left={feedback ? answerMs : left} totalMs={answerMs} onReplay={clip.replay} />}
       >
-        <button
-          type="button"
-          onClick={() => void advance()}
-          className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-crema/10 px-3 py-2 text-sm font-semibold text-crema ring-1 ring-sand/20 transition hover:bg-crema/15"
-        >
-          {next?.done ? "Risultati" : "Avanti"} <ArrowRight className="size-4" aria-hidden />
-        </button>
-      </RevealCard>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">
+              Domanda {round.index + 1} di {total}
+            </p>
+            <p className="mt-1 font-display text-3xl font-semibold text-crema">Che canzone è?</p>
+          </div>
+          <span className="sm:hidden">
+            <RoundDots total={total} current={round.index} results={dots} />
+          </span>
+        </div>
 
-      {err ? <p className="text-sm text-ember">{err}</p> : null}
+        <AnswerGrid
+          options={round.options}
+          disabled={Boolean(feedback) || sending || clip.startedAt == null}
+          picked={feedback ? feedback.picked : picked}
+          correctIndex={feedback ? feedback.correctIndex : null}
+          onPick={(i) => void send(i)}
+        />
+
+        <RevealCard
+          show={Boolean(feedback)}
+          correct={Boolean(feedback?.correct)}
+          timeout={feedback?.timeout}
+          points={feedback?.points || 0}
+          title={feedback?.title || ""}
+          artist={feedback?.artist || ""}
+          cover={feedback?.cover}
+        >
+          <button
+            type="button"
+            onClick={() => void advance()}
+            className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-crema/10 px-3 py-2 text-sm font-semibold text-crema ring-1 ring-sand/20 transition hover:bg-crema/15"
+          >
+            {next?.done ? "Risultati" : "Avanti"} <ArrowRight className="size-4" aria-hidden />
+          </button>
+        </RevealCard>
+
+        {err ? <p className="text-sm text-ember">{err}</p> : null}
+      </GameStage>
     </div>
   );
 }
