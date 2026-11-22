@@ -85,7 +85,10 @@ async function ensureDeezerPack(source: "artist" | "playlist", deezerId: string)
     source === "artist"
       ? await deezer.artistTopTracks(deezerId, 50)
       : await deezer.playlistTracks(deezerId, 80);
-  if (!info || tracks.length < 4) return null;
+  if (!info || tracks.length < 4) {
+    global.logger?.warn?.(`[music-quiz] ${slug}: info=${Boolean(info)} brani=${tracks.length}`);
+    return null;
+  }
   pack = await SiteDocument.create({
     docType: SITE_DOCUMENT_TYPE.MUSIC_QUIZ_PACK,
     boardSlug: slug,
@@ -173,7 +176,7 @@ async function handleMusicQuizArtistGet(client?, req?, res?) {
   try {
     const id = String(req.params?.id || "").trim();
     const pack = await ensureDeezerPack("artist", id);
-    if (!pack) return res.status(404).json({ ok: false, error: "not_found" });
+    if (!pack) return res.status(404).json({ ok: false, error: "not_found", message: "Deezer non ha abbastanza brani con l'anteprima per questo quiz." });
     const payload = (pack as any).payload || {};
     return res.json({
       ok: true,
@@ -198,7 +201,7 @@ async function handleMusicQuizPlaylistGet(client?, req?, res?) {
   try {
     const id = String(req.params?.id || "").trim();
     const pack = await ensureDeezerPack("playlist", id);
-    if (!pack) return res.status(404).json({ ok: false, error: "not_found" });
+    if (!pack) return res.status(404).json({ ok: false, error: "not_found", message: "Deezer non ha abbastanza brani con l'anteprima per questo quiz." });
     const payload = (pack as any).payload || {};
     return res.json({
       ok: true,
@@ -228,7 +231,7 @@ async function handleMusicQuizSessionStartPost(client?, req?, res?) {
     const deezerId = String(body.deezerId || "").trim();
     if (!slug && (source === "artist" || source === "playlist") && deezerId) {
       const pack = await ensureDeezerPack(source, deezerId);
-      if (!pack) return res.status(404).json({ ok: false, error: "not_found" });
+      if (!pack) return res.status(404).json({ ok: false, error: "not_found", message: "Deezer non ha abbastanza brani con l'anteprima per questo quiz." });
       slug = String((pack as any).boardSlug);
     }
     const difficulty = parseDifficulty(body.difficulty);

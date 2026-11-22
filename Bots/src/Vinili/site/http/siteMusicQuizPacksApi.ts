@@ -60,7 +60,16 @@ async function handleMusicQuizPackGet(client?, req?, res?) {
         if (created) pack = (created as any).toObject ? (created as any).toObject() : created;
       }
     }
-    if (!pack) return res.status(404).json({ ok: false, error: "not_found" });
+    if (!pack) {
+      global.logger?.warn?.(`[music-quiz] quiz non trovato: slug=${JSON.stringify(slug)}`);
+      return res.status(404).json({
+        ok: false,
+        error: "not_found",
+        message: /^(artist|playlist)-d+$/.test(slug)
+          ? "Deezer non ha abbastanza brani con l'anteprima per questo quiz."
+          : "Questo quiz non esiste più.",
+      });
+    }
     return res.json({ ok: true, pack: serializePack(pack) });
   } catch (err: any) {
     return res.status(500).json({ ok: false, error: "pack_error", message: String(err?.message || "") });

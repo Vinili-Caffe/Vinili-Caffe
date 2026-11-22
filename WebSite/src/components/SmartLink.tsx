@@ -22,10 +22,15 @@ function clearSoftFallback() {
   softTickTimer = 0;
 }
 
+/** Barra finale sul percorso, mai dopo ?query o #ancora (es. /pack/?slug=x resta così, non /pack/?slug=x/). */
 function withTrailingSlash(path: string) {
-  let p = String(path || "/");
+  const raw = String(path || "/");
+  const at = raw.search(/[?#]/);
+  let p = at >= 0 ? raw.slice(0, at) : raw;
+  const rest = at >= 0 ? raw.slice(at) : "";
+  if (!p) p = "/";
   if (p !== "/" && !p.endsWith("/")) p = `${p}/`;
-  return p;
+  return p + rest;
 }
 
 function pathKey(href: string) {
