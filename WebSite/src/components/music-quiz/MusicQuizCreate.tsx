@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, Check, Loader2, Pause, Play, Plus, Search, X } from "lucide-react";
+import { ArrowLeft, Check, Link2, Loader2, Pause, Play, Plus, Search, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { SmartLink } from "@/components/SmartLink";
-import { createMusicQuizPack, searchMusicQuiz, type MusicQuizTrack } from "@/lib/musicQuiz";
+import { createMusicQuizPack, importPlaylistLink, searchMusicQuiz, type MusicQuizTrack } from "@/lib/musicQuiz";
 
 const MAX_TRACKS = 40;
 const MIN_TRACKS = 4;
@@ -25,6 +25,9 @@ export function MusicQuizCreate() {
   const [err, setErr] = useState("");
   const [playing, setPlaying] = useState<string | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
+  const [spLink, setSpLink] = useState("");
+  const [spBusy, setSpBusy] = useState(false);
+  const [spMsg, setSpMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (!token || q.trim().length < 2) {
@@ -71,6 +74,35 @@ export function MusicQuizCreate() {
     });
   }
 
+  async function importLink() {
+    if (!token || !spLink.trim()) return;
+    setSpBusy(true);
+    setSpMsg(null);
+    const r = await importPlaylistLink(token, spLink.trim());
+    setSpBusy(false);
+    if (!r.ok) return setSpMsg({ ok: false, text: r.message });
+    const { playlist, tracks } = r.data;
+    setPicked((prev) => {
+      const next = [...prev];
+      for (const t of tracks) {
+        if (next.length >= MAX_TRACKS) break;
+        if (next.some((p) => p.id === t.id)) continue;
+        next.push(t);
+      }
+      return next;
+    });
+    if (!title.trim() && playlist.name) setTitle(playlist.name);
+    setSpLink("");
+    setSpMsg(
+      tracks.length
+        ? {
+            ok: true,
+            text: `Da «${playlist.name}» ho trovato ${tracks.length} brani con l'anteprima${tracks.length >= MAX_TRACKS ? ` (il quiz ne tiene al massimo ${MAX_TRACKS})` : ""}.`,
+          }
+        : { ok: false, text: "Nessun brano di questa playlist ha un'anteprima disponibile." },
+    );
+  }
+
   async function publish() {
     if (!token) return;
     setBusy(true);
@@ -99,6 +131,42 @@ export function MusicQuizCreate() {
           className="mt-2 w-full border-0 bg-transparent font-display text-4xl font-semibold text-crema outline-none placeholder:text-crema/30"
         />
         <p className="mt-2 text-sm text-crema/60">Scegli almeno {MIN_TRACKS} brani (fino a {MAX_TRACKS}). Ogni partita ne pesca 10 a caso: più brani metti, più il quiz cambia.</p>
+      </section>
+
+      <section className="rounded-3xl bg-roast/70 p-4 ring-1 ring-sand/10 sm:p-5">
+        <div className="flex items-center gap-2.5">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-caramel text-ink">
+            <Link2 className="size-4" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 className="font-semibold text-crema">Hai già una playlist su Spotify, Apple Music o YouTube?</h2>
+            <p className="text-xs text-crema/55">Incolla il link e aggiungiamo i brani per te. La playlist deve essere pubblica; ci vuole qualche secondo.</p>
+          </div>
+        </div>
+        <form
+          className="mt-3 flex flex-col gap-2 sm:flex-row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void importLink();
+          }}
+        >
+          <input
+            value={spLink}
+            onChange={(e) => setSpLink(e.target.value)}
+            placeholder="Link della playlist (Spotify, Apple Music, YouTube…)"
+            inputMode="url"
+            className="min-w-0 flex-1 rounded-full border-0 bg-espresso/80 px-4 py-2.5 text-sm text-crema outline-none ring-1 ring-sand/20 placeholder:text-crema/35 focus:ring-2 focus:ring-caramel/60"
+          />
+          <button
+            type="submit"
+            disabled={spBusy || !spLink.trim() || picked.length >= MAX_TRACKS}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-bold text-ink transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
+          >
+            {spBusy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+            {spBusy ? "Cerco i brani…" : "Importa"}
+          </button>
+        </form>
+        {spMsg ? <p className={cn("mt-2 text-sm", spMsg.ok ? "text-emerald-300" : "text-ember")}>{spMsg.text}</p> : null}
       </section>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">

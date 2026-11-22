@@ -25,7 +25,7 @@ export function useQuizClip(url: string | null | undefined, clipMs: number, key:
   const playFromStart = useCallback(() => {
     const a = audio.current;
     if (!a) return;
-    window.clearTimeout(stopTimer.current);
+    window.clearInterval(stopTimer.current);
     try {
       a.currentTime = 0;
     } catch {
@@ -38,10 +38,16 @@ export function useQuizClip(url: string | null | undefined, clipMs: number, key:
         setStartedAt((prev) => prev ?? now);
         setPlayedAt(now);
         setState("playing");
-        stopTimer.current = window.setTimeout(() => {
-          a.pause();
-          setState("done");
-        }, clipMs);
+        /* si ferma quando il brano ha suonato davvero i secondi scelti: un timer da solo
+           conterebbe anche il tempo in cui l'audio carica o si inceppa */
+        const end = clipMs / 1000;
+        stopTimer.current = window.setInterval(() => {
+          if (a.currentTime >= end || a.ended) {
+            window.clearInterval(stopTimer.current);
+            a.pause();
+            setState("done");
+          }
+        }, 25);
       })
       .catch(() => setState("blocked"));
   }, [clipMs]);
@@ -54,7 +60,7 @@ export function useQuizClip(url: string | null | undefined, clipMs: number, key:
     setState("loading");
     setStartedAt(null);
     setPlayedAt(null);
-    window.clearTimeout(stopTimer.current);
+    window.clearInterval(stopTimer.current);
     window.clearTimeout(failTimer.current);
     const onReady = () => {
       window.clearTimeout(failTimer.current);
@@ -74,7 +80,7 @@ export function useQuizClip(url: string | null | undefined, clipMs: number, key:
     return () => {
       a.removeEventListener("canplaythrough", onReady);
       a.removeEventListener("error", onError);
-      window.clearTimeout(stopTimer.current);
+      window.clearInterval(stopTimer.current);
       window.clearTimeout(failTimer.current);
       a.pause();
     };
@@ -89,7 +95,7 @@ export function useQuizClip(url: string | null | undefined, clipMs: number, key:
   );
 
   const stop = useCallback(() => {
-    window.clearTimeout(stopTimer.current);
+    window.clearInterval(stopTimer.current);
     audio.current?.pause();
   }, []);
 

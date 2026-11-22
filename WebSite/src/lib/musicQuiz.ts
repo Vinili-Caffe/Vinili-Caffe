@@ -94,7 +94,7 @@ export async function loadMusicQuizHub(token: string) {
 export async function searchMusicQuiz(token: string, q: string) {
   return api<{
     artists: Array<{ id: string; name: string; cover: string; fans: number; kind: string }>;
-    playlists: Array<{ id: string; name: string; cover: string; fans: number; trackCount: number; kind: string }>;
+    playlists: Array<{ id: string; name: string; cover: string; fans: number; trackCount: number; owner?: string; kind: string }>;
     tracks: MusicQuizTrack[];
   }>(`/search?q=${encodeURIComponent(q)}`, token);
 }
@@ -102,6 +102,14 @@ export async function searchMusicQuiz(token: string, q: string) {
 export async function loadMusicQuizPack(token: string, slug: string) {
   return api<{ pack: MusicQuizPackCard & { tracks?: MusicQuizTrack[]; community?: boolean; createdBy?: string } }>(
     `/pack/${encodeURIComponent(slug)}`,
+    token,
+  );
+}
+
+/** Brani di una playlist pubblica di Spotify, Apple Music o YouTube, con l'anteprima presa dallo stesso brano su Deezer. */
+export async function importPlaylistLink(token: string, url: string) {
+  return api<{ source: string; playlist: { name: string; cover: string; total: number }; tracks: MusicQuizTrack[] }>(
+    `/import?url=${encodeURIComponent(url)}`,
     token,
   );
 }

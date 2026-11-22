@@ -1,22 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ListMusic, Loader2, Mic2, Search, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { page } from "@/lib/site";
 import { SmartLink } from "@/components/SmartLink";
 import { searchMusicQuiz } from "@/lib/musicQuiz";
+import { QuizCarousel } from "./QuizCarousel";
 
-type Hit = { href: string; title: string; cover: string; sub: string; kind: "artist" | "playlist" };
+type Artist = { href: string; name: string; cover: string; fans: number };
+type Playlist = { href: string; name: string; cover: string; sub: string };
+export type Hits = { artists: Artist[]; playlists: Playlist[] };
 
+const COVER = "/images/logo-disco.png";
 const fmt = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1).replace(".0", "")} mln` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
 
 export function MusicQuizSearch() {
   const { token } = useAuth();
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
-  const [hits, setHits] = useState<Hit[] | null>(null);
+  const [hits, setHits] = useState<Hits | null>(null);
 
   useEffect(() => {
     const query = q.trim();
@@ -31,23 +35,29 @@ export function MusicQuizSearch() {
       void searchMusicQuiz(token, query).then((r) => {
         if (!alive) return;
         setBusy(false);
-        if (!r.ok) return setHits([]);
-        setHits([
-          ...(r.data.artists || []).slice(0, 6).map((a) => ({
-            href: page(`/music-quiz/pack/?slug=artist-${a.id}`),
-            title: a.name,
-            cover: a.cover,
-            sub: a.fans ? `${fmt(a.fans)} fan` : "Artista",
-            kind: "artist" as const,
-          })),
-          ...(r.data.playlists || []).slice(0, 6).map((p) => ({
+        if (!r.ok) return setHits({ artists: [], playlists: [] });
+        /* ordine di Deezer (il nome più simile prima), ma senza i profili omonimi quasi vuoti */
+        const all = r.data.artists || [];
+        const known = all.filter((a) => (a.fans || 0) >= 500);
+        const artists = (known.length >= 3 ? known : all).slice(0, 12).map((a) => ({
+          href: page(`/music-quiz/pack/?slug=artist-${a.id}`),
+          name: a.name,
+          cover: a.cover,
+          fans: a.fans || 0,
+        }));
+        /* prima le playlist curate (Deezer e le etichette), poi quelle degli utenti */
+        const curated = (p: { owner?: string }) => (/deezer|digster|filtr|topsify/i.test(p.owner || "") ? 0 : 1);
+        const playlists = [...(r.data.playlists || [])]
+          .filter((p) => (p.trackCount || 0) >= 8)
+          .sort((x, y) => curated(x) - curated(y))
+          .slice(0, 12)
+          .map((p) => ({
             href: page(`/music-quiz/pack/?slug=playlist-${p.id}`),
-            title: p.name,
+            name: p.name,
             cover: p.cover,
-            sub: p.trackCount ? `${p.trackCount} brani` : "Playlist",
-            kind: "playlist" as const,
-          })),
-        ]);
+            sub: [p.trackCount ? `${p.trackCount} brani` : "", p.owner || ""].filter(Boolean).join(" · "),
+          }));
+        setHits({ artists, playlists });
       });
     }, 300);
     return () => {
@@ -55,6 +65,8 @@ export function MusicQuizSearch() {
       window.clearTimeout(id);
     };
   }, [q, token]);
+
+  const empty = hits && !hits.artists.length && !hits.playlists.length;
 
   return (
     <div className="w-full">
@@ -78,32 +90,81 @@ export function MusicQuizSearch() {
 
       <AnimatePresence>
         {hits ? (
-          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="mt-3">
-            {!hits.length && !busy ? (
-              <p className="rounded-2xl bg-roast/70 px-4 py-5 text-center text-sm text-crema/60 ring-1 ring-sand/10">Niente trovato su Deezer. Prova con un altro nome.</p>
-            ) : (
-              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {hits.map((h) => (
-                  <li key={h.href}>
-                    <SmartLink href={h.href} className="group flex items-center gap-3 rounded-2xl bg-roast/80 p-2 pr-4 ring-1 ring-sand/10 transition hover:bg-mocha/70 hover:ring-caramel/40">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={h.cover || "/images/logo-disco.png"} alt="" className={`size-14 shrink-0 object-cover ${h.kind === "artist" ? "rounded-full" : "rounded-xl"}`} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-semibold text-crema">{h.title}</span>
-                        <span className="flex items-center gap-1.5 text-xs text-crema/55">
-                          {h.kind === "artist" ? <Mic2 className="size-3" aria-hidden /> : <ListMusic className="size-3" aria-hidden />}
-                          {h.sub}
-                        </span>
-                      </span>
-                      <span className="shrink-0 rounded-full bg-caramel/15 px-3 py-1 text-xs font-semibold text-caramel opacity-0 transition group-hover:opacity-100">Gioca</span>
-                    </SmartLink>
-                  </li>
-                ))}
-              </ul>
-            )}
+          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="mt-6 space-y-7">
+            {empty && !busy ? (
+              <p className="rounded-2xl bg-roast/70 px-4 py-5 text-center text-sm text-crema/60 ring-1 ring-sand/10">Niente trovato. Prova con un altro nome.</p>
+            ) : null}
+
+            <SearchResults hits={hits} />
           </motion.div>
         ) : null}
       </AnimatePresence>
     </div>
+  );
+}
+
+/** Artisti in una riga che scorre, playlist su due righe: separato per poterlo vedere anche senza ricerca. */
+export function SearchResults({ hits }: { hits: Hits }) {
+  return (
+    <>
+      {hits.artists.length ? (
+        <section>
+          <ResultsHead icon={<Mic2 className="size-3.5" aria-hidden />} label="Artisti" />
+          <QuizCarousel round>
+            {hits.artists.map((a, i) => (
+              <motion.div
+                key={a.href}
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: Math.min(i, 8) * 0.03 }}
+                className="shrink-0 snap-start"
+              >
+                <SmartLink href={a.href} className="group block w-24 text-center sm:w-28">
+                  <span className="block aspect-square overflow-hidden rounded-full bg-crema/[0.06] ring-1 ring-sand/15 transition group-hover:ring-2 group-hover:ring-caramel">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={a.cover || COVER} alt="" loading="lazy" className="size-full object-cover transition duration-500 group-hover:scale-105" />
+                  </span>
+                  <span className="mt-2 block truncate text-sm font-semibold text-crema">{a.name}</span>
+                  {a.fans ? <span className="block text-[0.7rem] text-crema/45">{fmt(a.fans)} fan</span> : null}
+                </SmartLink>
+              </motion.div>
+            ))}
+          </QuizCarousel>
+        </section>
+      ) : null}
+
+      {hits.playlists.length ? (
+        <section>
+          <ResultsHead icon={<ListMusic className="size-3.5" aria-hidden />} label="Playlist" />
+          <QuizCarousel>
+            <div className="grid shrink-0 auto-cols-[15.5rem] grid-flow-col grid-rows-2 gap-2.5 sm:auto-cols-[18rem]">
+              {hits.playlists.map((p) => (
+                <SmartLink
+                  key={p.href}
+                  href={p.href}
+                  className="group flex items-center gap-3 rounded-2xl bg-crema/[0.04] p-2 pr-3 ring-1 ring-sand/10 transition hover:bg-crema/[0.08] hover:ring-caramel/40"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.cover || COVER} alt="" loading="lazy" className="size-14 shrink-0 rounded-xl object-cover" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-crema">{p.name}</span>
+                    <span className="block truncate text-xs text-crema/50">{p.sub || "Playlist"}</span>
+                  </span>
+                </SmartLink>
+              ))}
+            </div>
+          </QuizCarousel>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+function ResultsHead({ icon, label }: { icon: ReactNode; label: string }) {
+  return (
+    <p className="mb-3 flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-[0.22em] text-crema/55">
+      {icon}
+      {label}
+    </p>
   );
 }

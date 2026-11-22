@@ -116,8 +116,8 @@ async function handleMusicQuizSearchGet(client?, req?, res?) {
     const q = String(req.query?.q || "").trim();
     if (!q) return res.json({ ok: true, artists: [], playlists: [], tracks: [] });
     const [artists, playlists, tracks] = await Promise.all([
-      deezer.searchArtists(q, 10),
-      deezer.searchPlaylists(q, 10),
+      deezer.searchArtists(q, 16),
+      deezer.searchPlaylists(q, 14),
       deezer.searchTracks(q, 16),
     ]);
     return res.json({ ok: true, artists, playlists, tracks });

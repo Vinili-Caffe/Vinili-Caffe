@@ -63,6 +63,7 @@ async function searchPlaylists(q?, limit = 12) {
       cover: String(p?.picture_medium || p?.picture || ""),
       fans: Number(p?.nb_fans || 0) || 0,
       trackCount: Number(p?.nb_tracks || 0) || 0,
+      owner: String(p?.user?.name || ""),
       kind: "playlist" as const,
     }))
     .filter((p?) => p.id && p.name);

@@ -32,11 +32,12 @@ export function useNavSeasonTick() {
 }
 
 /** Bollino «in corso» accanto ad Albero / Wrapped (stile tag sconti). */
-export function SeasonLiveNavTag({ className }: { className?: string }) {
+export function SeasonLiveNavTag({ className, label }: { className?: string; label?: string }) {
   const { t } = useI18n();
+  const text = label || t("nav.inProgress");
   return (
     <span
-      title={t("nav.inProgress")}
+      title={text}
       className={cn(
         "inline-flex shrink-0 items-center rounded-full px-1.5 py-px text-[0.55rem] font-bold uppercase leading-4 tracking-[0.14em] ring-1",
         className,
@@ -47,7 +48,7 @@ export function SeasonLiveNavTag({ className }: { className?: string }) {
         boxShadow: `inset 0 0 0 1px ${ACCENT}66`,
       }}
     >
-      {t("nav.inProgress")}
+      {text}
     </span>
   );
 }

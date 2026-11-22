@@ -47,6 +47,8 @@ export type NavLink = {
   hintKey?: string;
   /** SOON blur: highStaff | evento | albero | wrapped | propositi */
   gate?: "highStaff" | "evento" | "albero" | "wrapped" | "propositi";
+  /** bollino «Novità» sulla voce e «!» sul gruppo, solo per chi la può aprire */
+  isNew?: boolean;
 };
 
 /** Blur / non cliccabile in nav, footer, explore. */
@@ -250,7 +252,7 @@ export const NAV_GROUPS: NavGroup[] = [
     links: [
       { labelKey: "nav.confessionale", href: page("/confessionale/"), hintKey: "nav.hint.confessionale" },
       { labelKey: "nav.wordle", href: page("/wordle/"), hintKey: "nav.hint.wordle" },
-      { labelKey: "nav.musicQuiz", href: page("/music-quiz/"), hintKey: "nav.hint.musicQuiz", gate: "highStaff" },
+      { labelKey: "nav.musicQuiz", href: page("/music-quiz/"), hintKey: "nav.hint.musicQuiz", gate: "highStaff", isNew: true },
       { labelKey: "nav.albero", href: page("/albero/"), hintKey: "nav.hint.albero", gate: "albero" },
       { labelKey: "nav.wrapped", href: page("/wrapped/"), hintKey: "nav.hint.wrapped", gate: "wrapped" },
     ],

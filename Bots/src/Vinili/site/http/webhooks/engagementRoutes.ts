@@ -58,6 +58,10 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
 
   app.get("/webhooks/site-music-quiz/hub", (req?, res?) => quiz.handleMusicQuizHubGet(client, req, res));
   app.get("/webhooks/site-music-quiz/search", (req?, res?) => quiz.handleMusicQuizSearchGet(client, req, res));
+  /* import di una playlist Spotify / Apple Music / YouTube */
+  app.get("/webhooks/site-music-quiz/import", (req?, res?) =>
+    (require("../siteMusicQuizSpotify") as typeof import("../siteMusicQuizSpotify")).handleMusicQuizSpotifyImportGet(client, req, res),
+  );
   app.get("/webhooks/site-music-quiz/artist/:id", (req?, res?) => quiz.handleMusicQuizArtistGet(client, req, res));
   app.get("/webhooks/site-music-quiz/playlist/:id", (req?, res?) => quiz.handleMusicQuizPlaylistGet(client, req, res));
   app.get("/webhooks/site-music-quiz/pack/:slug", (req?, res?) => packs.handleMusicQuizPackGet(client, req, res));
