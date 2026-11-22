@@ -89,8 +89,8 @@ export function MusicQuizHub() {
       <section>
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="font-display text-3xl font-semibold text-crema">Creati dallo staff</h2>
-            <p className="mt-1 text-sm text-crema/55">Quiz con i brani scelti a mano.</p>
+            <h2 className="font-display text-3xl font-semibold text-crema">Creati dalla community</h2>
+            <p className="mt-1 text-sm text-crema/55">Quiz con i brani scelti a mano da chi gioca.</p>
           </div>
           <SmartLink
             href={page("/music-quiz/crea/")}
