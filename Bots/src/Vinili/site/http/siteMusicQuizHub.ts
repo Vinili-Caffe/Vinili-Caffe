@@ -143,13 +143,15 @@ function packCard(p: any): Card {
     kind: String(payload.kind || (payload.community ? "community" : payload.source || "")),
     plays: Number(payload.plays || 0),
     trackCount: Array.isArray(payload.tracks) ? payload.tracks.length : 0,
-    ...(payload.community ? { authorName: String(p.authorName || "") } : {}),
+    ...(payload.community ? { authorName: payload.anonymous ? "" : String(p.authorName || ""), category: String(payload.category || "") } : {}),
   };
 }
 
 async function buildSitePart() {
-  const base = { docType: SITE_DOCUMENT_TYPE.MUSIC_QUIZ_PACK };
-  const fields = "boardSlug title boardIconUrl authorName payload.kind payload.source payload.cover payload.plays payload.community payload.tracks.id";
+  /* i quiz «non in elenco» si aprono solo con il link */
+  const base = { docType: SITE_DOCUMENT_TYPE.MUSIC_QUIZ_PACK, "payload.visibility": { $ne: "unlisted" } };
+  const fields =
+    "boardSlug title boardIconUrl authorName payload.kind payload.source payload.cover payload.plays payload.community payload.anonymous payload.category payload.tracks.id";
   const [communityNew, communityTop, popular, recent] = await Promise.all([
     SiteDocument.find({ ...base, "payload.community": true }).select(fields).sort({ createdAt: -1 }).limit(20).lean(),
     SiteDocument.find({ ...base, "payload.community": true }).select(fields).sort({ "payload.plays": -1 }).limit(20).lean(),

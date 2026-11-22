@@ -55,7 +55,7 @@ export function MusicQuizPlay({
   const advanceTimer = useRef(0);
 
   const total = round.total || 10;
-  const clip = useQuizClip(round.previewUrl, clipMs, round.index);
+  const clip = useQuizClip(round.previewUrl, clipMs, round.index, round.start);
   const left = useCountdown(clip.startedAt, answerMs, !feedback);
 
   async function send(choice: number) {

@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Check, Copy, Crown, Play, RotateCcw, Users } fro
 import { useAuth } from "@/lib/auth";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
+import { preloadClips } from "@/lib/clipCache";
 import { SmartLink } from "@/components/SmartLink";
 import { subscribeSiteRealtime } from "@/lib/site-realtime";
 import {
@@ -21,6 +22,11 @@ import { AnswerGrid, GameStage, QuizTurntable, RevealCard, useCountdown, useQuiz
 export function MusicQuizPartyRoom({ roomId }: { roomId: string }) {
   const { token, user } = useAuth();
   const [room, setRoom] = useState<Room | null>(null);
+  /* i prossimi brani si scaricano mentre si gioca quello attuale */
+  const upcomingKey = (room?.upcoming || []).join("|");
+  useEffect(() => {
+    if (upcomingKey) preloadClips(upcomingKey.split("|"));
+  }, [upcomingKey]);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -196,7 +202,7 @@ function PartyRound({
   const round = room.round!;
   const answerMs = room.answerMs || MUSIC_QUIZ_ANSWER_MS;
   const revealed = room.status === "round_result";
-  const clip = useQuizClip(round.previewUrl, room.clipMs, `${room.roundIndex}-${room.roundStartedAt}`);
+  const clip = useQuizClip(round.previewUrl, room.clipMs, `${room.roundIndex}-${room.roundStartedAt}`, round.start);
   /* il tempo segue il server: parte da quando è iniziato il turno, non da quando il brano è arrivato qui */
   const skew = useRef((room.serverNow || Date.now()) - Date.now());
   const serverStart = useMemo(() => performance.now() - (Date.now() + skew.current - room.roundStartedAt), [room.roundStartedAt]);

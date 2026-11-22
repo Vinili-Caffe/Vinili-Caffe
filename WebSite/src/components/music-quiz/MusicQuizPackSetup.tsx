@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
+import { preloadClips } from "@/lib/clipCache";
 import { SmartLink } from "@/components/SmartLink";
 import {
   createMusicQuizParty,
@@ -18,6 +19,7 @@ import {
 } from "@/lib/musicQuiz";
 import { MusicQuizPlay } from "./MusicQuizPlay";
 import { MusicQuizLeaderboard } from "./MusicQuizLeaderboard";
+import { QUIZ_CATEGORIES } from "./MusicQuizSettings";
 import { MusicQuizComments } from "./MusicQuizComments";
 
 const DIFFS: { id: MusicQuizDifficulty; label: string; hint: string }[] = [
@@ -25,6 +27,11 @@ const DIFFS: { id: MusicQuizDifficulty; label: string; hint: string }[] = [
   { id: "3s", label: "3 secondi", hint: "Ci vuole orecchio" },
   { id: "1s", label: "1 secondo", hint: "Solo per esperti" },
 ];
+
+function categoryLabel(id: string) {
+  const c = QUIZ_CATEGORIES.find((x) => x.id === id);
+  return c ? `${c.emoji} ${c.label}` : id;
+}
 
 const KIND_LABEL: Record<string, string> = { artist: "Artista", playlist: "Playlist", community: "Quiz della community" };
 
@@ -68,6 +75,8 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
     const r = await startMusicQuizSession(token, { slug: pack.slug, difficulty, mode: "solo" });
     setBusy("");
     if (!r.ok) return setErr(r.message);
+    /* tutti i brani della partita in anticipo: le domande partono senza aspettare la rete */
+    preloadClips(r.data.upcoming || [r.data.round.previewUrl]);
     setSession({
       sessionId: r.data.sessionId,
       clipMs: r.data.clipMs,
@@ -133,6 +142,24 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
                   {pack.trackCount ? `${pack.trackCount} brani` : "Brani da Deezer"} · {pack.plays ?? 0} partite giocate
                   {pack.authorName ? ` · creato da ${pack.authorName}` : ""}
                 </p>
+                {pack.description ? <p className="mt-3 max-w-md text-sm leading-relaxed text-crema/75">{pack.description}</p> : null}
+                {pack.category || pack.tags?.length || pack.visibility === "unlisted" ? (
+                  <div className="mt-3 flex flex-wrap justify-center gap-1.5 lg:justify-start">
+                    {pack.category ? (
+                      <span className="rounded-full bg-crema/[0.08] px-2.5 py-1 text-xs font-semibold text-crema/80">
+                        {categoryLabel(pack.category)}
+                      </span>
+                    ) : null}
+                    {pack.visibility === "unlisted" ? (
+                      <span className="rounded-full bg-crema/[0.08] px-2.5 py-1 text-xs font-semibold text-crema/60">Non in elenco</span>
+                    ) : null}
+                    {(pack.tags || []).map((t) => (
+                      <span key={t} className="rounded-full px-2.5 py-1 text-xs text-caramel ring-1 ring-caramel/35">
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </>
             ) : (
               <div className="w-full">

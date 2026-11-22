@@ -3,6 +3,7 @@ const { requireMusicQuizHighStaff, sendAuthError } =
   require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
 const { ensureDeezerPack } = require("./siteMusicQuizApi") as typeof import("./siteMusicQuizApi");
 const deezer = require("./siteMusicQuizDeezer") as typeof import("./siteMusicQuizDeezer");
+const meta = require("./siteMusicQuizMeta") as typeof import("./siteMusicQuizMeta");
 const { SiteDocument, SITE_DOCUMENT_TYPE } =
   require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 
@@ -27,8 +28,9 @@ function serializePack(p: any) {
     community: Boolean(payload.community),
     plays: Number(payload.plays || 0),
     trackCount: Array.isArray(payload.tracks) ? payload.tracks.length : 0,
-    createdBy: p.userId || p.createdBy || "",
-    authorName: p.authorName || "",
+    ...meta.publicMeta(p),
+    /* chi ha scelto «Anonimo» non viene mai collegato al quiz */
+    createdBy: payload.anonymous ? "" : p.userId || p.createdBy || "",
     tracks: Array.isArray(payload.tracks)
       ? payload.tracks.map((t: any) => ({
           id: t.id,
@@ -84,7 +86,8 @@ async function handleMusicQuizPackCreatePost(client?, req?, res?) {
     const title = String(body.title || "").trim().slice(0, 80);
     const trackIds = Array.isArray(body.trackIds) ? body.trackIds.map((x) => String(x).trim()).filter(Boolean) : [];
     const rawTracks = Array.isArray(body.tracks) ? body.tracks : [];
-    if (!title) return res.status(400).json({ ok: false, error: "missing_title" });
+    if (!title) return res.status(400).json({ ok: false, error: "missing_title", message: "Dai un nome al quiz." });
+    const settings = meta.readQuizMeta(body);
 
     let tracks: any[] = [];
     if (rawTracks.length) {
@@ -99,6 +102,15 @@ async function handleMusicQuizPackCreatePost(client?, req?, res?) {
                 album: String(t.album || ""),
                 cover: String(t.cover || ""),
                 previewUrl: String(t.previewUrl || ""),
+                /* domanda personalizzata: da che secondo parte lo spezzone e le risposte scritte a mano */
+                start: Math.max(0, Math.min(25, Math.round(Number(t.start) * 10) / 10 || 0)),
+                answer: String(t.answer || "").trim().slice(0, 90),
+                wrong: Array.isArray(t.wrong)
+                  ? t.wrong
+                      .map((w: unknown) => String(w || "").trim().slice(0, 90))
+                      .filter(Boolean)
+                      .slice(0, 3)
+                  : [],
               }
             : null,
         )
@@ -140,7 +152,13 @@ async function handleMusicQuizPackCreatePost(client?, req?, res?) {
       slug = `c-${base}-${n}`;
     }
 
-    const cover = String(tracks[0]?.cover || "");
+    let cover = String(tracks[0]?.cover || "");
+    if (body.coverImage) {
+      const up = await meta.saveQuizCover(auth.userId, body.coverImage);
+      /* senza strictNullChecks l'unione non si restringe su `ok` */
+      if (!up.ok) return res.status(400).json({ ok: false, error: "bad_cover", message: (up as { message: string }).message });
+      cover = (up as { url: string }).url;
+    }
     const pack = await SiteDocument.create({
       docType: SITE_DOCUMENT_TYPE.MUSIC_QUIZ_PACK,
       boardSlug: slug,
@@ -157,6 +175,7 @@ async function handleMusicQuizPackCreatePost(client?, req?, res?) {
         cover,
         tracks: tracks.slice(0, 40),
         plays: 0,
+        ...settings,
       },
     });
 

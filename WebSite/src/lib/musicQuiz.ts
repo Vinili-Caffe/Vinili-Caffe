@@ -45,6 +45,14 @@ export type MusicQuizPackCard = {
   authorName?: string;
   /** nome originale della playlist, quando il titolo mostrato è un'etichetta (es. «Anni '80») */
   label?: string;
+  /* impostazioni dei quiz della community */
+  description?: string;
+  category?: string;
+  language?: string;
+  languages?: string[];
+  tags?: string[];
+  visibility?: "public" | "unlisted";
+  anonymous?: boolean;
 };
 
 export type MusicQuizTrack = {
@@ -62,6 +70,8 @@ export type MusicQuizRound = {
   total?: number;
   previewUrl: string;
   options: string[];
+  /** secondo da cui parte lo spezzone */
+  start?: number;
   correctIndex?: number;
   title?: string;
   artist?: string;
@@ -96,6 +106,7 @@ export async function searchMusicQuiz(token: string, q: string) {
     artists: Array<{ id: string; name: string; cover: string; fans: number; kind: string }>;
     playlists: Array<{ id: string; name: string; cover: string; fans: number; trackCount: number; owner?: string; kind: string }>;
     tracks: MusicQuizTrack[];
+    quizzes?: MusicQuizPackCard[];
   }>(`/search?q=${encodeURIComponent(q)}`, token);
 }
 
@@ -122,7 +133,21 @@ export async function resolvePlaylistPack(token: string, id: string) {
   return api<{ pack: MusicQuizPackCard }>(`/playlist/${encodeURIComponent(id)}`, token);
 }
 
-export async function createMusicQuizPack(token: string, body: { title: string; tracks: MusicQuizTrack[] }) {
+export async function createMusicQuizPack(
+  token: string,
+  body: {
+    title: string;
+    tracks: MusicQuizTrack[];
+    coverImage?: string;
+    description?: string;
+    language?: string;
+    languages?: string[];
+    category?: string;
+    tags?: string[];
+    visibility?: "public" | "unlisted";
+    anonymous?: boolean;
+  },
+) {
   return api<{ pack: MusicQuizPackCard }>("/pack", token, {
     method: "POST",
     body: JSON.stringify(body),
@@ -143,6 +168,8 @@ export async function startMusicQuizSession(
     round: MusicQuizRound;
     clipMs: number;
     answerMs?: number;
+    /** tutti i brani della partita, da scaricare in anticipo */
+    upcoming?: string[];
   }>("/session/start", token, { method: "POST", body: JSON.stringify(body) });
 }
 
@@ -241,6 +268,8 @@ export type MusicQuizPartyRoom = {
   myChoice?: number | null;
   round: MusicQuizRound | null;
   roundStartedAt: number;
+  /** i prossimi brani, da scaricare in anticipo */
+  upcoming?: string[];
 };
 
 export async function createMusicQuizParty(

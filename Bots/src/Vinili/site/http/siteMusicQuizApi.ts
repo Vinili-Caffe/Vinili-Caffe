@@ -53,6 +53,7 @@ function publicRound(r: SessionRound, total: number) {
     total,
     previewUrl: r.previewUrl,
     options: r.options,
+    start: r.start || 0,
   };
 }
 
@@ -115,12 +116,35 @@ async function handleMusicQuizSearchGet(client?, req?, res?) {
   try {
     const q = String(req.query?.q || "").trim();
     if (!q) return res.json({ ok: true, artists: [], playlists: [], tracks: [] });
-    const [artists, playlists, tracks] = await Promise.all([
+    /* il testo cercato va preso alla lettera, non come espressione regolare */
+    const rx = new RegExp(q.slice(0, 60).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const [artists, playlists, tracks, quizzes] = await Promise.all([
       deezer.searchArtists(q, 16),
       deezer.searchPlaylists(q, 14),
       deezer.searchTracks(q, 16),
+      /* quiz della community: solo quelli pubblici, per nome, tag o categoria */
+      SiteDocument.find({
+        docType: SITE_DOCUMENT_TYPE.MUSIC_QUIZ_PACK,
+        "payload.community": true,
+        "payload.visibility": { $ne: "unlisted" },
+        $or: [{ title: rx }, { "payload.tags": rx }, { "payload.category": rx }],
+      })
+        .select("boardSlug title boardIconUrl authorName payload.plays payload.anonymous payload.category payload.tracks.id")
+        .sort({ "payload.plays": -1 })
+        .limit(10)
+        .lean()
+        .catch(() => []),
     ]);
-    return res.json({ ok: true, artists, playlists, tracks });
+    const quizCards = (quizzes || []).map((p: any) => ({
+      slug: p.boardSlug,
+      title: p.title,
+      cover: p.boardIconUrl || "",
+      plays: Number(p.payload?.plays || 0),
+      trackCount: Array.isArray(p.payload?.tracks) ? p.payload.tracks.length : 0,
+      category: String(p.payload?.category || ""),
+      authorName: p.payload?.anonymous ? "" : String(p.authorName || ""),
+    }));
+    return res.json({ ok: true, artists, playlists, tracks, quizzes: quizCards });
   } catch (err: any) {
     global.logger?.warn?.("[music-quiz] search:", err?.message || err);
     return res.status(502).json({ ok: false, error: "deezer_error", message: "Deezer non disponibile." });
@@ -239,6 +263,8 @@ async function handleMusicQuizSessionStartPost(client?, req?, res?) {
       packTitle: (loaded.pack as any).title || slug,
       packCover: (loaded.pack as any).boardIconUrl || loaded.payload?.cover || "",
       round: publicRound(rounds[0]!, rounds.length),
+      /* tutti i brani della partita: il browser li scarica in anticipo e la domanda parte subito */
+      upcoming: rounds.map((r) => r.previewUrl),
       clipMs: DIFF_MS[difficulty],
       answerMs: ANSWER_MS,
     });

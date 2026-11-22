@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Check, Headphones, Play, RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { clipSource } from "@/lib/clipCache";
 
 /* ───────── audio: un solo lettore, il brano parte quando è pronto e si ferma dopo clipMs ───────── */
 
@@ -14,20 +15,21 @@ export type ClipState = "loading" | "playing" | "done" | "blocked" | "error";
  * da lì si conta il tempo per rispondere. Se il browser blocca l'audio (nessun clic prima) lo stato è
  * «blocked» e basta toccare «Ascolta»; se il brano non si carica parte comunque il tempo.
  */
-export function useQuizClip(url: string | null | undefined, clipMs: number, key: string | number) {
+export function useQuizClip(url: string | null | undefined, clipMs: number, key: string | number, startSec = 0) {
   const audio = useRef<HTMLAudioElement | null>(null);
   const stopTimer = useRef(0);
   const failTimer = useRef(0);
   const [state, setState] = useState<ClipState>("loading");
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [playedAt, setPlayedAt] = useState<number | null>(null);
+  const from = Math.max(0, startSec || 0);
 
   const playFromStart = useCallback(() => {
     const a = audio.current;
     if (!a) return;
     window.clearInterval(stopTimer.current);
     try {
-      a.currentTime = 0;
+      a.currentTime = from;
     } catch {
       /* ancora senza dati */
     }
@@ -40,7 +42,7 @@ export function useQuizClip(url: string | null | undefined, clipMs: number, key:
         setState("playing");
         /* si ferma quando il brano ha suonato davvero i secondi scelti: un timer da solo
            conterebbe anche il tempo in cui l'audio carica o si inceppa */
-        const end = clipMs / 1000;
+        const end = from + clipMs / 1000;
         stopTimer.current = window.setInterval(() => {
           if (a.currentTime >= end || a.ended) {
             window.clearInterval(stopTimer.current);
@@ -50,7 +52,7 @@ export function useQuizClip(url: string | null | undefined, clipMs: number, key:
         }, 25);
       })
       .catch(() => setState("blocked"));
-  }, [clipMs]);
+  }, [clipMs, from]);
 
   useEffect(() => {
     if (!url) return;
@@ -62,6 +64,7 @@ export function useQuizClip(url: string | null | undefined, clipMs: number, key:
     setPlayedAt(null);
     window.clearInterval(stopTimer.current);
     window.clearTimeout(failTimer.current);
+    let alive = true;
     const onReady = () => {
       window.clearTimeout(failTimer.current);
       playFromStart();
@@ -71,14 +74,20 @@ export function useQuizClip(url: string | null | undefined, clipMs: number, key:
       setState("error");
       setStartedAt((prev) => prev ?? performance.now());
     };
-    a.addEventListener("canplaythrough", onReady, { once: true });
+    /* «canplay» e non «canplaythrough»: basta avere l'inizio, aspettare tutto il file faceva partire il brano in ritardo */
+    a.addEventListener("canplay", onReady, { once: true });
     a.addEventListener("error", onError, { once: true });
-    a.src = url;
-    a.load();
     /* brano che non arriva: si gioca lo stesso, il tempo parte */
-    failTimer.current = window.setTimeout(onError, 7000);
+    failTimer.current = window.setTimeout(onError, 8000);
+    /* se il brano è già stato scaricato in anticipo suona dal file locale, subito */
+    void clipSource(url).then((src) => {
+      if (!alive) return;
+      a.src = src;
+      a.load();
+    });
     return () => {
-      a.removeEventListener("canplaythrough", onReady);
+      alive = false;
+      a.removeEventListener("canplay", onReady);
       a.removeEventListener("error", onError);
       window.clearInterval(stopTimer.current);
       window.clearTimeout(failTimer.current);

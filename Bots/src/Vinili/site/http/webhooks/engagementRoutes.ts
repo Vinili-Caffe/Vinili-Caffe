@@ -58,6 +58,10 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
 
   app.get("/webhooks/site-music-quiz/hub", (req?, res?) => quiz.handleMusicQuizHubGet(client, req, res));
   app.get("/webhooks/site-music-quiz/search", (req?, res?) => quiz.handleMusicQuizSearchGet(client, req, res));
+  /* copertine dei quiz salvate su disco quando il CDN non risponde */
+  app.get("/webhooks/site-music-quiz/files/:userId/:fileName", (req?, res?) =>
+    (require("../siteMusicQuizMeta") as typeof import("../siteMusicQuizMeta")).serveQuizCover(req, res),
+  );
   /* import di una playlist Spotify / Apple Music / YouTube */
   app.get("/webhooks/site-music-quiz/import", (req?, res?) =>
     (require("../siteMusicQuizSpotify") as typeof import("../siteMusicQuizSpotify")).handleMusicQuizSpotifyImportGet(client, req, res),

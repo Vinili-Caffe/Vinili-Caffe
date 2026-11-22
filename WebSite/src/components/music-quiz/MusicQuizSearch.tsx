@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ListMusic, Loader2, Mic2, Search, X } from "lucide-react";
+import { Disc3, ListMusic, Loader2, Mic2, Search, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { page } from "@/lib/site";
 import { SmartLink } from "@/components/SmartLink";
@@ -11,7 +11,7 @@ import { QuizCarousel } from "./QuizCarousel";
 
 type Artist = { href: string; name: string; cover: string; fans: number };
 type Playlist = { href: string; name: string; cover: string; sub: string };
-export type Hits = { artists: Artist[]; playlists: Playlist[] };
+export type Hits = { artists: Artist[]; playlists: Playlist[]; quizzes?: Playlist[] };
 
 const COVER = "/images/logo-disco.png";
 const fmt = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1).replace(".0", "")} mln` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
@@ -35,7 +35,7 @@ export function MusicQuizSearch() {
       void searchMusicQuiz(token, query).then((r) => {
         if (!alive) return;
         setBusy(false);
-        if (!r.ok) return setHits({ artists: [], playlists: [] });
+        if (!r.ok) return setHits({ artists: [], playlists: [], quizzes: [] });
         /* ordine di Deezer (il nome più simile prima), ma senza i profili omonimi quasi vuoti */
         const all = r.data.artists || [];
         const known = all.filter((a) => (a.fans || 0) >= 500);
@@ -57,7 +57,15 @@ export function MusicQuizSearch() {
             cover: p.cover,
             sub: [p.trackCount ? `${p.trackCount} brani` : "", p.owner || ""].filter(Boolean).join(" · "),
           }));
-        setHits({ artists, playlists });
+        const quizzes = (r.data.quizzes || []).map((p) => ({
+          href: page(`/music-quiz/pack/?slug=${encodeURIComponent(p.slug)}`),
+          name: p.title,
+          cover: p.cover,
+          sub: [p.trackCount ? `${p.trackCount} brani` : "", p.authorName ? `di ${p.authorName}` : "", p.plays ? `${p.plays} partite` : ""]
+            .filter(Boolean)
+            .join(" · "),
+        }));
+        setHits({ artists, playlists, quizzes });
       });
     }, 300);
     return () => {
@@ -66,7 +74,7 @@ export function MusicQuizSearch() {
     };
   }, [q, token]);
 
-  const empty = hits && !hits.artists.length && !hits.playlists.length;
+  const empty = hits && !hits.artists.length && !hits.playlists.length && !hits.quizzes?.length;
 
   return (
     <div className="w-full">
@@ -133,6 +141,29 @@ export function SearchResults({ hits }: { hits: Hits }) {
         </section>
       ) : null}
 
+      {hits.quizzes?.length ? (
+        <section>
+          <ResultsHead icon={<Disc3 className="size-3.5" aria-hidden />} label="Quiz della community" />
+          <QuizCarousel>
+            <div className="grid shrink-0 auto-cols-[15.5rem] grid-flow-col grid-rows-2 gap-2.5 sm:auto-cols-[18rem]">
+              {hits.quizzes.map((p) => (
+                <SmartLink
+                  key={p.href}
+                  href={p.href}
+                  className="group flex items-center gap-3 rounded-2xl bg-crema/[0.04] p-2 pr-3 ring-1 ring-sand/10 transition hover:bg-crema/[0.08] hover:ring-caramel/40"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.cover || COVER} alt="" loading="lazy" className="size-14 shrink-0 rounded-xl object-cover" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-crema">{p.name}</span>
+                    <span className="block truncate text-xs text-crema/50">{p.sub || "Quiz"}</span>
+                  </span>
+                </SmartLink>
+              ))}
+            </div>
+          </QuizCarousel>
+        </section>
+      ) : null}
       {hits.playlists.length ? (
         <section>
           <ResultsHead icon={<ListMusic className="size-3.5" aria-hidden />} label="Playlist" />

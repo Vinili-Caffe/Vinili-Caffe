@@ -99,6 +99,7 @@ function publicRoom(room: PartyRoom, viewerId: string) {
             total: room.rounds.length,
             previewUrl: round.previewUrl,
             options: round.options,
+            start: round.start || 0,
             correctIndex: revealed ? round.correctIndex : undefined,
             title: revealed ? round.title : undefined,
             artist: revealed ? round.artist : undefined,
@@ -106,6 +107,8 @@ function publicRoom(room: PartyRoom, viewerId: string) {
           }
         : null,
     roundStartedAt: room.roundStartedAt,
+    /* i prossimi brani, da scaricare in anticipo */
+    upcoming: room.rounds.slice(Math.max(0, room.roundIndex), room.roundIndex + 3).map((r) => r.previewUrl),
   };
 }
 

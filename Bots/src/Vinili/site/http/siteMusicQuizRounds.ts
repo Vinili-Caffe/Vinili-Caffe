@@ -23,7 +23,12 @@ export type QuizRound = {
   previewUrl: string;
   options: string[];
   correctIndex: number;
+  /** secondo dell'anteprima da cui parte lo spezzone (scelto da chi ha creato il quiz) */
+  start: number;
 };
+
+/** Spezzone: l'anteprima dura 30 s, lo spezzone più lungo è 5 s. */
+export const MAX_START = 25;
 
 export function parseDifficulty(raw: unknown): DiffKey {
   const d = String(raw || "");
@@ -73,9 +78,15 @@ export function buildRounds(tracks: any[]): QuizRound[] | null {
   const label = (t: any) => (manyArtists ? `${t.title} · ${t.artist}` : String(t.title));
   const picked = shuffle(usable).slice(0, Math.min(ROUNDS, usable.length));
   return picked.map((t, index) => {
-    const correct = label(t);
-    const others = shuffle(usable.filter((x) => x.id !== t.id)).slice(0, 3).map(label);
-    const options = shuffle([correct, ...others]);
+    /* risposte scritte da chi ha creato il quiz: la giusta (se l'ha cambiata) e fino a 3 sbagliate; il resto si riempie con gli altri brani */
+    const correct = String(t.answer || "").trim() || label(t);
+    const custom: string[] = Array.isArray(t.wrong)
+      ? t.wrong.map((w: unknown) => String(w || "").trim()).filter((w: string) => w && norm(w) !== norm(correct))
+      : [];
+    const others = shuffle(usable.filter((x) => x.id !== t.id).map(label)).filter(
+      (o) => norm(o) !== norm(correct) && !custom.some((c) => norm(c) === norm(o)),
+    );
+    const options = shuffle([correct, ...[...new Set(custom)].slice(0, 3), ...others].slice(0, 4));
     return {
       index,
       trackId: String(t.id),
@@ -85,6 +96,7 @@ export function buildRounds(tracks: any[]): QuizRound[] | null {
       previewUrl: String(t.previewUrl),
       options,
       correctIndex: options.indexOf(correct),
+      start: Math.max(0, Math.min(MAX_START, Number(t.start) || 0)),
     };
   });
 }
