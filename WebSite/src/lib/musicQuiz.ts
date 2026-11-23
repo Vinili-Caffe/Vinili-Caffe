@@ -297,6 +297,8 @@ export type MusicQuizPartyPlayer = {
   lastPoints?: number;
   choice?: number | null;
   correctCount?: number;
+  /** punti della stanza (Formula 1) */
+  roomPoints?: number;
 };
 
 export type MusicQuizPartyQueueItem = {
@@ -317,6 +319,7 @@ export type MusicQuizPartySettings = {
   queueActive: boolean;
   queueVisible: "all" | "host";
   queueAdd: "host" | "all";
+  publicRoom?: boolean;
 };
 
 /** reazioni con le emoji durante la partita (le stesse accettate dal server) */
@@ -348,6 +351,8 @@ export type MusicQuizPartyRoom = {
   serverNow?: number;
   maxPlayers?: number;
   settings?: MusicQuizPartySettings;
+  /** la classifica degli altri è nascosta: ognuno vede solo i propri punti */
+  scoresHidden?: boolean;
   queue?: MusicQuizPartyQueueItem[];
   chat?: MusicQuizPartyChatMsg[];
   reactions?: MusicQuizPartyReaction[];
@@ -377,6 +382,24 @@ export async function createMusicQuizParty(
 ) {
   return api<{ room: MusicQuizPartyRoom; joined?: boolean }>("/party", token, { method: "POST", body: JSON.stringify(body) });
 }
+
+export type MusicQuizPublicParty = {
+  roomId: string;
+  roomName: string;
+  packTitle: string;
+  packCover: string;
+  players: number;
+  maxPlayers: number;
+  hostName: string;
+};
+
+/** stanze pubbliche in attesa di giocatori */
+export async function loadPublicMusicQuizParties(token: string) {
+  return api<{ rooms: MusicQuizPublicParty[] }>("/party/public", token);
+}
+
+/** punti della stanza a fine gioco, come in Formula 1 */
+export const MUSIC_QUIZ_ROOM_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1] as const;
 
 /** la partita della chiamata di Discord in cui è aperta l'Attività */
 export async function loadActivityMusicQuizParty(token: string, instanceId: string) {

@@ -32,6 +32,7 @@ import { activityInvite, isDiscordActivity } from "@/lib/discordActivity";
 import {
   formatPartyCode,
   MUSIC_QUIZ_ANSWER_CHOICES_MS,
+  MUSIC_QUIZ_ROOM_POINTS,
   type MusicQuizDifficulty,
   type MusicQuizPartyQueueItem,
   type MusicQuizPartyRoom as Room,
@@ -52,6 +53,7 @@ const DEFAULT_SETTINGS: MusicQuizPartySettings = {
   queueActive: true,
   queueVisible: "all",
   queueAdd: "host",
+  publicRoom: false,
 };
 
 export function MusicQuizPartyLobby({
@@ -267,10 +269,17 @@ export function MusicQuizPartyLobby({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.avatarUrl || "/images/logo-disco.png"} alt="" className="size-10 shrink-0 rounded-full object-cover ring-2 ring-sand/15" />
                   <span className={cn("min-w-0 flex-1 truncate font-semibold", host ? "text-caramel" : "text-crema")}>{p.displayName}</span>
+                  {!room.scoresHidden || mine ? (
+                    (p.roomPoints || 0) > 0 ? (
+                      <span className="inline-flex h-6 items-center rounded-full bg-caramel/15 px-2.5 text-[11px] font-bold tabular-nums leading-none text-caramel" title="Punti della stanza">
+                        {p.roomPoints} pt
+                      </span>
+                    ) : null
+                  ) : null}
                   {mine ? <span className="inline-flex h-6 items-center rounded-full bg-crema/10 px-2.5 text-[10px] font-bold uppercase leading-none tracking-wide text-crema/70">Tu</span> : null}
                   {host ? (
                     <span className="inline-flex h-6 items-center gap-1 rounded-full bg-caramel/20 px-2.5 text-[10px] font-bold uppercase leading-none tracking-wide text-caramel">
-                      <Crown className="size-3" aria-hidden /> Host
+                      <Crown className="size-3" aria-hidden /> {settings.presentationMode ? "Presenta" : "Host"}
                     </span>
                   ) : isHost ? (
                     <button
@@ -388,7 +397,11 @@ export function MusicQuizPartyLobby({
             <Row>
               <Toggle
                 label="Blocca la stanza"
-                hint="Nessun altro può entrare, nemmeno con il codice o il link."
+                hint={
+                  settings.locked
+                    ? "I nuovi giocatori non possono entrare. Chi è già dentro può sempre riconnettersi."
+                    : "Chiunque abbia il codice o il link può entrare finché ci sono posti."
+                }
                 on={settings.locked}
                 onChange={(v) => void patchSettings({ locked: v })}
               />
@@ -396,7 +409,11 @@ export function MusicQuizPartyLobby({
             <Row>
               <Toggle
                 label="Chat"
-                hint="I giocatori scrivono in lobby e mandano reazioni con le emoji durante la partita."
+                hint={
+                  settings.chatEnabled
+                    ? "I giocatori scrivono in lobby e mandano reazioni con le emoji durante la partita."
+                    : "Niente chat e niente reazioni: si gioca e basta."
+                }
                 on={settings.chatEnabled}
                 onChange={(v) => void patchSettings({ chatEnabled: v })}
               />
@@ -434,12 +451,19 @@ export function MusicQuizPartyLobby({
               {advanced ? (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                   <Row>
-                    <Toggle label="Modalità auto" hint="Passa da solo al round successivo dopo 5 secondi." on={settings.autoNext} onChange={(v) => void patchSettings({ autoNext: v })} />
+                    <Toggle
+                      label="Modalità auto"
+                      hint={settings.autoNext ? "Passa da sola al round successivo dopo 5 secondi." : "Ogni round aspetta che l'host vada avanti."}
+                      on={settings.autoNext} onChange={(v) => void patchSettings({ autoNext: v })} />
                   </Row>
                   <Row>
                     <Toggle
                       label="Modalità presentazione"
-                      hint="Tutti, anche l'host, vedono la domanda e giocano in classifica."
+                      hint={
+                        settings.presentationMode
+                          ? "L'host fa sentire i brani dal suo schermo; gli altri vedono solo le risposte sul loro telefono. L'host non gioca e non è in classifica."
+                          : "Ognuno ascolta e risponde dal proprio dispositivo, host compreso."
+                      }
                       on={settings.presentationMode}
                       onChange={(v) => void patchSettings({ presentationMode: v })}
                     />
@@ -447,7 +471,13 @@ export function MusicQuizPartyLobby({
                   <Row>
                     <Seg
                       label="Classifica"
-                      hint="Quando i giocatori vedono la classifica."
+                      hint={
+                        settings.leaderboard === "always"
+                          ? "I giocatori vedono la classifica dopo ogni round e a fine partita."
+                          : settings.leaderboard === "end"
+                            ? "Nascosta tra i round; si vede a fine partita e nella lobby."
+                            : "Sempre nascosta, anche a fine partita e nella lobby: ognuno vede solo i propri punti."
+                      }
                       value={settings.leaderboard}
                       options={[
                         { id: "always", label: "Sempre" },
@@ -486,6 +516,18 @@ export function MusicQuizPartyLobby({
                       </div>
                     </div>
                   </Row>
+                  <Row>
+                    <Toggle
+                      label="Stanza pubblica"
+                      hint={
+                        settings.publicRoom
+                          ? "Compare tra le stanze aperte: chiunque può entrare senza codice."
+                          : "La trova solo chi ha il codice o il link."
+                      }
+                      on={!!settings.publicRoom}
+                      onChange={(v) => void patchSettings({ publicRoom: v })}
+                    />
+                  </Row>
                 </motion.div>
               ) : null}
             </AnimatePresence>
@@ -498,6 +540,8 @@ export function MusicQuizPartyLobby({
             <Tag>Classifica: {settings.leaderboard === "always" ? "sempre" : settings.leaderboard === "end" ? "a fine partita" : "mai"}</Tag>
             <Tag>{settings.chatEnabled ? "Chat attiva" : "Chat spenta"}</Tag>
             <Tag icon={<Users className="size-3" />}>{max} posti</Tag>
+            {settings.presentationMode ? <Tag>L&apos;host presenta</Tag> : null}
+            {settings.publicRoom ? <Tag>Stanza pubblica</Tag> : null}
           </div>
         )}
       </Card>
@@ -558,6 +602,27 @@ export function MusicQuizPartyLobby({
               <HelpStep n={4}>Durante la partita si mandano reazioni con le emoji; in lobby c&apos;è la chat.</HelpStep>
               <HelpStep n={5}>Alla fine c&apos;è il podio, e l&apos;host può far partire il prossimo quiz della coda.</HelpStep>
             </ol>
+            <div className="mt-5">
+              <p className="text-sm font-bold text-crema">Punti della stanza</p>
+              <p className="mt-1 text-sm text-crema/70">
+                Come in Formula 1: alla fine di ogni gioco i primi 10 prendono questi punti, che si sommano per tutta la stanza.
+              </p>
+              <div className="mt-3 grid grid-cols-5 gap-1.5">
+                {MUSIC_QUIZ_ROOM_POINTS.map((pts, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "rounded-xl py-2 text-center ring-1",
+                      i < 3 ? "bg-caramel/15 ring-caramel/40" : "bg-espresso/60 ring-sand/10",
+                    )}
+                  >
+                    <p className="text-[10px] font-bold text-crema/45">#{i + 1}</p>
+                    <p className={cn("font-mono text-lg font-bold tabular-nums", i < 3 ? "text-caramel" : "text-crema")}>{pts}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-crema/45">Dall&apos;11° posto in giù non si prendono punti.</p>
+            </div>
           </Modal>
         ) : null}
       </AnimatePresence>

@@ -3,6 +3,9 @@
  * codice stanza a 6 cifre, sync realtime via broadcast.
  */
 const crypto = require("crypto") as typeof import("crypto");
+const fs = require("fs") as typeof import("fs");
+const os = require("os") as typeof import("os");
+const path = require("path") as typeof import("path");
 const { requireMusicQuizHighStaff, sendAuthError } =
   require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
 const { ensureDeezerPack, loadPackTracks } = require("./siteMusicQuizApi") as typeof import("./siteMusicQuizApi");
@@ -20,6 +23,12 @@ const CHAT_CAP = 100;
 const GRACE_MS = 1500;
 const AUTO_NEXT_MS = 5_000;
 const MIN_START_PLAYERS = 2;
+/** punti della stanza a fine gioco, come in Formula 1 (dall'11° posto in giù niente) */
+const ROOM_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+/** una stanza senza movimenti per tanto tempo si chiude */
+const IDLE_MS = 12 * 60 * 60_000;
+/** le stanze stanno su disco: un riavvio del server non le cancella */
+const STATE_FILE = path.join(os.homedir(), ".vc-state", "music-quiz-party.json");
 
 type PartyPlayer = {
   userId: string;
@@ -50,6 +59,8 @@ type PartySettings = {
   queueActive: boolean;
   queueVisible: "all" | "host";
   queueAdd: "host" | "all";
+  /** compare tra le stanze aperte, chiunque può entrare */
+  publicRoom: boolean;
 };
 
 type ChatMsg = { id: string; userId: string; name: string; text: string; at: number };
@@ -79,8 +90,11 @@ type PartyRoom = {
   /** espulsi dall'host: non possono rientrare in questa stanza */
   kicked: string[];
   maxPlayers: number;
+  /** punti della stanza (Formula 1) sommati gioco dopo gioco */
+  roomPoints: Record<string, number>;
   roundStartedAt: number;
   createdAt: number;
+  updatedAt: number;
   timer: NodeJS.Timeout | null;
   autoNextTimer: NodeJS.Timeout | null;
 };
@@ -114,13 +128,79 @@ function defaultSettings(): PartySettings {
     queueActive: true,
     queueVisible: "all",
     queueAdd: "host",
+    publicRoom: false,
   };
 }
 
+/* ---------- salvataggio su disco ---------- */
+let saveTimer: NodeJS.Timeout | null = null;
+function saveSoon() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    try {
+      const data = {
+        rooms: [...rooms.values()].map(({ timer, autoNextTimer, ...rest }) => rest),
+        activity: [...activityRooms.entries()],
+      };
+      fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
+      const tmp = STATE_FILE + ".tmp";
+      fs.writeFileSync(tmp, JSON.stringify(data), "utf8");
+      fs.renameSync(tmp, STATE_FILE);
+    } catch (err: any) {
+      global.logger?.warn?.("[music-quiz] salvataggio stanze:", err?.message || err);
+    }
+  }, 800);
+  saveTimer.unref?.();
+}
+
+function touch(room: PartyRoom) {
+  room.updatedAt = Date.now();
+  saveSoon();
+}
+
+function loadSaved() {
+  try {
+    if (!fs.existsSync(STATE_FILE)) return;
+    const data = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+    const now = Date.now();
+    for (const raw of Array.isArray(data?.rooms) ? data.rooms : []) {
+      if (!raw?.roomId || now - Number(raw.updatedAt || raw.createdAt || 0) > IDLE_MS) continue;
+      const room: PartyRoom = {
+        ...raw,
+        settings: { ...defaultSettings(), ...(raw.settings || {}) },
+        roomPoints: raw.roomPoints || {},
+        reactions: [],
+        kicked: raw.kicked || [],
+        updatedAt: Number(raw.updatedAt || raw.createdAt || now),
+        timer: null,
+        autoNextTimer: null,
+      };
+      rooms.set(room.roomId, room);
+      /* la partita riprende da dove era */
+      if (room.status === "playing") {
+        const left = room.roundStartedAt + (room.settings.answerMs || ANSWER_MS) + GRACE_MS - now;
+        if (left <= 0) reveal(room);
+        else {
+          room.timer = setTimeout(() => reveal(room), left);
+          room.timer.unref?.();
+        }
+      } else if (room.status === "round_result" && room.settings.autoNext) {
+        scheduleAutoNext(room);
+      }
+    }
+    for (const [inst, id] of Array.isArray(data?.activity) ? data.activity : []) {
+      if (rooms.has(id)) activityRooms.set(String(inst), String(id));
+    }
+  } catch (err: any) {
+    global.logger?.warn?.("[music-quiz] stanze salvate illeggibili:", err?.message || err);
+  }
+}
+
 function pruneRooms() {
-  const cutoff = Date.now() - 3 * 60 * 60_000;
+  const cutoff = Date.now() - IDLE_MS;
   for (const [id, r] of rooms) {
-    if (r.createdAt < cutoff) {
+    if ((r.updatedAt || r.createdAt) < cutoff) {
       if (r.timer) clearTimeout(r.timer);
       if (r.autoNextTimer) clearTimeout(r.autoNextTimer);
       rooms.delete(id);
@@ -159,7 +239,8 @@ function publicRoom(room: PartyRoom, viewerId: string) {
   const me = room.players.find((p) => p.userId === viewerId);
   const showLb =
     room.settings.leaderboard === "always" ||
-    (room.settings.leaderboard === "end" && room.status === "finished");
+    (room.settings.leaderboard === "end" && (room.status === "finished" || room.status === "lobby"));
+  const roomPoints = room.roomPoints || {};
   return {
     roomId: room.roomId,
     roomName: room.roomName,
@@ -177,21 +258,27 @@ function publicRoom(room: PartyRoom, viewerId: string) {
     serverNow: Date.now(),
     maxPlayers: room.maxPlayers,
     settings: { ...room.settings },
+    /* «Mai» (o «A fine partita» durante i round): ognuno vede solo i propri punti */
+    scoresHidden: !showLb,
     queue: publicQueue(room, viewerId),
     chat: room.settings.chatEnabled ? room.chat.slice(-80) : [],
     reactions: room.settings.chatEnabled ? (room.reactions || []).filter((r) => Date.now() - r.at < REACTION_SHOW_MS) : [],
     players: room.players
-      .map((p) => ({
-        userId: p.userId,
-        displayName: p.displayName,
-        avatarUrl: p.avatarUrl,
-        score: showLb || room.status === "lobby" ? p.score : 0,
-        hasAnswered: p.choice != null,
-        lastPoints: revealed && showLb ? p.lastPoints : 0,
-        choice: revealed ? p.choice : null,
-        correctCount: showLb ? p.correctCount : 0,
-      }))
-      .sort((a, b) => b.score - a.score),
+      .map((p) => {
+        const visible = showLb || p.userId === viewerId;
+        return {
+          userId: p.userId,
+          displayName: p.displayName,
+          avatarUrl: p.avatarUrl,
+          score: visible ? p.score : 0,
+          roomPoints: visible ? roomPoints[p.userId] || 0 : 0,
+          hasAnswered: p.choice != null,
+          lastPoints: revealed && visible ? p.lastPoints : 0,
+          choice: revealed ? p.choice : null,
+          correctCount: visible ? p.correctCount : 0,
+        };
+      })
+      .sort((a, b) => (room.status === "lobby" ? b.roomPoints - a.roomPoints : b.score - a.score)),
     myChoice: me?.choice ?? null,
     round:
       round && room.status !== "lobby"
@@ -222,6 +309,14 @@ function clearTimers(room: PartyRoom) {
 function advanceAfterReveal(room: PartyRoom) {
   if (room.roundIndex + 1 >= room.rounds.length) {
     room.status = "finished";
+    /* punti della stanza in stile Formula 1; in presentazione e in diretta l'host non gioca */
+    const ranked = voters(room).slice().sort((a, b) => b.score - a.score);
+    room.roomPoints = room.roomPoints || {};
+    ranked.forEach((p, i) => {
+      const pts = ROOM_POINTS[i] || 0;
+      if (pts) room.roomPoints[p.userId] = (room.roomPoints[p.userId] || 0) + pts;
+    });
+    touch(room);
     if (room.settings.queueActive && room.queue.length > 1) {
       room.queue.shift();
       const next = room.queue[0];
@@ -237,6 +332,7 @@ function advanceAfterReveal(room: PartyRoom) {
   }
   room.roundIndex += 1;
   startRound(room);
+  touch(room);
   broadcastSiteMusicQuizParty(room.roomId, "next");
 }
 
@@ -246,23 +342,38 @@ function reveal(room: PartyRoom) {
   room.timer = null;
   const round = room.rounds[room.roundIndex]!;
   const total = room.settings.answerMs || ANSWER_MS;
+  const playing = new Set(voters(room).map((p) => p.userId));
   for (const p of room.players) {
+    if (!playing.has(p.userId)) {
+      p.lastPoints = 0;
+      continue;
+    }
     const right = p.choice === round.correctIndex;
     p.lastPoints = right ? scorePoints(p.answerMs ?? total, total) : 0;
     p.score += p.lastPoints;
     if (right) p.correctCount += 1;
   }
   room.status = "round_result";
+  touch(room);
   broadcastSiteMusicQuizParty(room.roomId, "reveal");
-  if (room.settings.autoNext) {
-    if (room.autoNextTimer) clearTimeout(room.autoNextTimer);
-    room.autoNextTimer = setTimeout(() => {
-      room.autoNextTimer = null;
-      if (room.status !== "round_result") return;
-      advanceAfterReveal(room);
-    }, AUTO_NEXT_MS);
-    room.autoNextTimer.unref?.();
-  }
+  if (room.settings.autoNext) scheduleAutoNext(room);
+}
+
+function scheduleAutoNext(room: PartyRoom) {
+  if (room.autoNextTimer) clearTimeout(room.autoNextTimer);
+  room.autoNextTimer = setTimeout(() => {
+    room.autoNextTimer = null;
+    if (room.status !== "round_result") return;
+    advanceAfterReveal(room);
+  }, AUTO_NEXT_MS);
+  room.autoNextTimer.unref?.();
+}
+
+/** chi risponde: in presentazione e in diretta l'host conduce e non gioca */
+function voters(room: PartyRoom) {
+  return room.settings.presentationMode || room.mode === "stream"
+    ? room.players.filter((p) => p.userId !== room.hostId)
+    : room.players;
 }
 
 function startRound(room: PartyRoom) {
@@ -322,6 +433,7 @@ async function handleMusicQuizPartyCreatePost(client?, req?, res?) {
           return res.status(400).json({ ok: false, error: "full", message: "La partita di questa chiamata è piena." });
         }
         already.players.push(player(auth));
+        touch(already);
       }
       broadcastSiteMusicQuizParty(already.roomId, "join");
       return res.json({ ok: true, joined: true, room: publicRoom(already, auth.userId) });
@@ -377,13 +489,16 @@ async function handleMusicQuizPartyCreatePost(client?, req?, res?) {
       reactions: [],
       kicked: [],
       maxPlayers: DEFAULT_MAX_PLAYERS,
+      roomPoints: {},
       roundStartedAt: 0,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       timer: null,
       autoNextTimer: null,
     };
     rooms.set(roomId, room);
     if (instanceId) activityRooms.set(instanceId, roomId);
+    saveSoon();
     broadcastSiteMusicQuizParty(roomId, "created");
     return res.json({ ok: true, room: publicRoom(room, auth.userId) });
   } catch (err: any) {
@@ -436,6 +551,7 @@ async function handleMusicQuizPartyJoinPost(client?, req?, res?) {
     return res.status(400).json({ ok: false, error: "finished", message: "Questa partita è già finita." });
   }
   room.players.push(player(auth, nick || undefined));
+  touch(room);
   broadcastSiteMusicQuizParty(roomId, "join");
   return res.json({ ok: true, room: publicRoom(room, auth.userId) });
 }
@@ -485,6 +601,7 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
     if (typeof s.queueActive === "boolean") room.settings.queueActive = s.queueActive;
     if (s.queueVisible === "all" || s.queueVisible === "host") room.settings.queueVisible = s.queueVisible;
     if (s.queueAdd === "host" || s.queueAdd === "all") room.settings.queueAdd = s.queueAdd;
+    if (typeof s.publicRoom === "boolean") room.settings.publicRoom = s.publicRoom;
     if (body.roomName != null) {
       const name = String(body.roomName || "").trim().slice(0, 40);
       if (name) room.roomName = name;
@@ -613,12 +730,11 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
       p.score = 0;
       p.correctCount = 0;
     }
-    room.settings.locked = true;
     startRound(room);
   } else if (action === "answer") {
     if (room.status !== "playing") return res.status(400).json({ ok: false, error: "bad_state", message: "Il turno è già chiuso." });
-    if (room.mode === "stream" && isHost && !room.settings.presentationMode) {
-      return res.status(400).json({ ok: false, error: "host_stream", message: "In diretta l'host non risponde." });
+    if (!voters(room).some((p) => p.userId === auth.userId)) {
+      return res.status(400).json({ ok: false, error: "host_presents", message: "Chi presenta non risponde." });
     }
     const choice = Number(body.choice);
     if (!Number.isInteger(choice) || choice < 0 || choice > 3) return res.status(400).json({ ok: false, error: "bad_choice" });
@@ -628,12 +744,8 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
       const elapsed = Date.now() - room.roundStartedAt;
       me.answerMs = Math.min(Math.max(0, Number(body.ms) || elapsed), elapsed, total);
     }
-    const voters = room.settings.presentationMode
-      ? room.players
-      : room.mode === "stream"
-        ? room.players.filter((p) => p.userId !== room.hostId)
-        : room.players;
-    if (voters.length && voters.every((p) => p.choice != null)) reveal(room);
+    const who = voters(room);
+    if (who.length && who.every((p) => p.choice != null)) reveal(room);
   } else if (action === "reveal") {
     if (!isHost) return res.status(403).json({ ok: false, error: "host_only" });
     reveal(room);
@@ -653,7 +765,6 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
     room.rounds = packData.rounds;
     room.roundIndex = 0;
     room.status = "lobby";
-    room.settings.locked = false;
     clearTimers(room);
     for (const p of room.players) {
       p.score = 0;
@@ -685,11 +796,13 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
       /* stanza vuota: si chiude */
       clearTimers(room);
       rooms.delete(roomId);
+      saveSoon();
       broadcastSiteMusicQuizParty(roomId, "closed");
       return res.json({ ok: true, left: true });
     }
     /* se esce l'host passa al primo arrivato */
     if (isHost) room.hostId = room.players[0]!.userId;
+    touch(room);
     broadcastSiteMusicQuizParty(roomId, "leave");
     return res.json({ ok: true, left: true });
   } else if (action === "nick") {
@@ -699,11 +812,36 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
     return res.status(400).json({ ok: false, error: "bad_action" });
   }
 
+  if (action !== "react") touch(room);
   broadcastSiteMusicQuizParty(roomId, action);
   return res.json({ ok: true, room: publicRoom(room, auth.userId) });
 }
 
+/** stanze pubbliche in attesa di giocatori */
+async function handleMusicQuizPartyPublicGet(client?, req?, res?) {
+  const auth = await requireMusicQuizHighStaff(client, req);
+  if (sendAuthError(res, auth) || !auth.ok) return;
+  pruneRooms();
+  const list = [...rooms.values()]
+    .filter((r) => r.settings.publicRoom && !r.settings.locked && r.status === "lobby" && r.players.length < r.maxPlayers)
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 20)
+    .map((r) => ({
+      roomId: r.roomId,
+      roomName: r.roomName,
+      packTitle: r.packTitle,
+      packCover: r.packCover,
+      players: r.players.length,
+      maxPlayers: r.maxPlayers,
+      hostName: r.players.find((p) => p.userId === r.hostId)?.displayName || "",
+    }));
+  return res.json({ ok: true, rooms: list });
+}
+
+loadSaved();
+
 export = {
+  handleMusicQuizPartyPublicGet,
   handleMusicQuizPartyCreatePost,
   handleMusicQuizPartyGet,
   handleMusicQuizPartyActivityGet,

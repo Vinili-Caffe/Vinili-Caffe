@@ -81,6 +81,7 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
   app.get("/webhooks/site-music-quiz/comments", (req?, res?) => comments.handleMusicQuizCommentsGet(client, req, res));
   app.post("/webhooks/site-music-quiz/comments", (req?, res?) => comments.handleMusicQuizCommentsPost(client, req, res));
   app.post("/webhooks/site-music-quiz/party", (req?, res?) => party.handleMusicQuizPartyCreatePost(client, req, res));
+  app.get("/webhooks/site-music-quiz/party/public", (req?, res?) => party.handleMusicQuizPartyPublicGet(client, req, res));
   app.get("/webhooks/site-music-quiz/party/activity/:instanceId", (req?, res?) => party.handleMusicQuizPartyActivityGet(client, req, res));
   app.get("/webhooks/site-music-quiz/party/:roomId", (req?, res?) => party.handleMusicQuizPartyGet(client, req, res));
   app.post("/webhooks/site-music-quiz/party/:roomId/join", (req?, res?) => party.handleMusicQuizPartyJoinPost(client, req, res));

@@ -207,10 +207,6 @@ export function MusicQuizPartyRoom({ roomId }: { roomId: string }) {
     typeof window !== "undefined"
       ? `${window.location.origin}${page(`/music-quiz/party/?room=${encodeURIComponent(roomId)}`)}`
       : "";
-  const showLb =
-    !room.settings ||
-    room.settings.leaderboard === "always" ||
-    (room.settings.leaderboard === "end" && room.status === "finished");
 
   if (room.status === "lobby") {
     return (
@@ -233,7 +229,7 @@ export function MusicQuizPartyRoom({ roomId }: { roomId: string }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0">
           {room.status === "finished" ? (
-            <Podium room={room} isHost={isHost} busy={busy} onRestart={() => void act("restart")} />
+            <Podium room={room} me={me} isHost={isHost} busy={busy} onRestart={() => void act("restart")} />
           ) : room.round ? (
             <PartyRound
               key={`${room.roundIndex}-${room.roundStartedAt}`}
@@ -241,7 +237,7 @@ export function MusicQuizPartyRoom({ roomId }: { roomId: string }) {
               me={me}
               isHost={isHost}
               busy={busy}
-              onAnswer={(choice, ms) => void act("answer", { choice, ms })}
+              onAnswer={(choice, ms) => void act("answer", ms != null ? { choice, ms } : { choice })}
               onReveal={() => void act("reveal")}
               onNext={() => void act("next")}
             />
@@ -256,7 +252,7 @@ export function MusicQuizPartyRoom({ roomId }: { roomId: string }) {
           ) : null}
           {err ? <p className="mt-4 text-center text-sm text-ember">{err}</p> : null}
         </div>
-        {showLb ? <Scoreboard room={room} me={me} /> : null}
+        <Scoreboard room={room} me={me} />
       </div>
       <FloatingReactions reactions={room.reactions || []} me={me} />
       <ChatDrawer
@@ -284,14 +280,17 @@ function PartyRound({
   me: string;
   isHost: boolean;
   busy: boolean;
-  onAnswer: (choice: number, ms: number) => void;
+  onAnswer: (choice: number, ms?: number) => void;
   onReveal: () => void;
   onNext: () => void;
 }) {
   const round = room.round!;
   const answerMs = room.answerMs || MUSIC_QUIZ_ANSWER_MS;
   const revealed = room.status === "round_result";
-  const clip = useQuizClip(round.previewUrl, room.clipMs, `${room.roundIndex}-${room.roundStartedAt}`, round.start);
+  /* presentazione: i brani si sentono solo dallo schermo dell'host, gli altri vedono le risposte */
+  const presenting = !!room.settings?.presentationMode || room.mode === "stream";
+  const hearsClip = !presenting || isHost;
+  const clip = useQuizClip(hearsClip ? round.previewUrl : null, room.clipMs, `${room.roundIndex}-${room.roundStartedAt}`, round.start);
   const skew = useRef((room.serverNow || Date.now()) - Date.now());
   const serverStart = useMemo(
     () => performance.now() - (Date.now() + skew.current - room.roundStartedAt),
@@ -300,8 +299,7 @@ function PartyRound({
   const left = useCountdown(serverStart, answerMs, !revealed);
   const [picked, setPicked] = useState<number | null>(room.myChoice ?? null);
   const answered = room.players.filter((p) => p.hasAnswered).length;
-  const hostPlays = room.settings?.presentationMode || room.mode !== "stream";
-  const canAnswer = hostPlays || !isHost;
+  const canAnswer = !(presenting && isHost);
 
   useEffect(() => {
     if (revealed) clip.stop();
@@ -343,15 +341,19 @@ function PartyRound({
           disabled={revealed || picked != null || left <= 0}
           picked={picked}
           correctIndex={revealed ? round.correctIndex : null}
-          timedOut={revealed && picked == null && !(room.mode === "stream" && isHost && !room.settings?.presentationMode)}
+          timedOut={revealed && picked == null}
           onPick={(i) => {
             setPicked(i);
+            /* chi non sente il brano: il tempo lo conta il server dall'inizio del round */
+            if (!hearsClip) return onAnswer(i);
             const ms = clip.startedAt != null ? Math.round(performance.now() - clip.startedAt) : answerMs;
             onAnswer(i, ms);
           }}
         />
       ) : (
-        <p className="text-sm text-crema/55">Stai conducendo la diretta — aspetti le risposte degli altri.</p>
+        <p className="text-sm text-crema/55">
+          {room.mode === "stream" ? "Stai conducendo la diretta: aspetti le risposte degli altri." : "Stai presentando: fai sentire il brano a tutti e aspetta le risposte."}
+        </p>
       )}
 
       {!revealed ? (
@@ -395,14 +397,18 @@ function PartyRound({
 
 function Scoreboard({ room, me }: { room: Room; me: string }) {
   const revealed = room.status === "round_result";
+  const presenting = !!room.settings?.presentationMode || room.mode === "stream";
+  const list = presenting ? room.players.filter((p) => p.userId !== room.hostId) : room.players;
+  const hidden = !!room.scoresHidden;
   return (
     <aside className="h-fit rounded-3xl bg-roast/70 p-4 ring-1 ring-sand/10 lg:sticky lg:top-24">
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-crema/55">
-        Giocatori · {room.players.length}
+        Giocatori · {list.length}
       </h2>
+      {hidden ? <p className="-mt-1 mb-3 text-xs text-crema/45">La classifica è nascosta: vedi solo i tuoi punti.</p> : null}
       <ol className="space-y-1.5">
         <AnimatePresence initial={false}>
-          {room.players.map((p, i) => (
+          {list.map((p, i) => (
             <motion.li
               layout
               key={p.userId}
@@ -411,12 +417,14 @@ function Scoreboard({ room, me }: { room: Room; me: string }) {
                 p.userId === me ? "bg-caramel/10 ring-1 ring-caramel/30" : "bg-crema/[0.03]",
               )}
             >
-              <span className="w-4 text-center text-xs font-bold tabular-nums text-crema/50">{i + 1}</span>
+              <span className="w-4 text-center text-xs font-bold tabular-nums text-crema/50">{hidden ? "·" : i + 1}</span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.avatarUrl || "/images/logo-disco.png"} alt="" className="size-8 shrink-0 rounded-full object-cover" />
               <span className="min-w-0 flex-1 truncate text-sm font-medium text-crema">{p.displayName}</span>
               <PlayerState p={p} room={room} revealed={revealed} />
-              <span className="w-10 text-right font-display text-lg font-semibold tabular-nums text-caramel">{p.score}</span>
+              <span className="w-10 text-right font-display text-lg font-semibold tabular-nums text-caramel">
+                {hidden && p.userId !== me ? "—" : p.score}
+              </span>
             </motion.li>
           ))}
         </AnimatePresence>
@@ -445,17 +453,45 @@ function PlayerState({ p, room, revealed }: { p: Player; room: Room; revealed: b
 
 function Podium({
   room,
+  me,
   isHost,
   busy,
   onRestart,
 }: {
   room: Room;
+  me: string;
   isHost: boolean;
   busy: boolean;
   onRestart: () => void;
 }) {
-  const [first, second, third] = room.players;
+  const presenting = !!room.settings?.presentationMode || room.mode === "stream";
+  const ranked = presenting ? room.players.filter((p) => p.userId !== room.hostId) : room.players;
+  const [first, second, third] = ranked;
   const order = [second, first, third].filter(Boolean) as Player[];
+  /* classifica «Mai»: niente podio, solo i propri punti */
+  if (room.scoresHidden) {
+    const mine = room.players.find((p) => p.userId === me);
+    return (
+      <section className="rounded-[2rem] bg-gradient-to-br from-mocha to-roast p-6 text-center ring-1 ring-sand/15 sm:p-10">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">{room.packTitle}</p>
+        <h1 className="mt-1 font-display text-4xl font-semibold text-crema">Partita finita</h1>
+        <p className="mt-6 text-sm text-crema/55">La classifica è nascosta. I tuoi punti:</p>
+        <p className="font-display text-6xl font-semibold tabular-nums text-caramel">{mine?.score ?? 0}</p>
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          {isHost ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onRestart}
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink disabled:opacity-60"
+            >
+              <RotateCcw className="size-4" aria-hidden /> Torna alla lobby
+            </button>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="rounded-[2rem] bg-gradient-to-br from-mocha to-roast p-6 text-center ring-1 ring-sand/15 sm:p-10">
       <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">{room.packTitle}</p>

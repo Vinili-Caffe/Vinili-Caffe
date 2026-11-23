@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogIn, Disc3 } from "lucide-react";
+import { LogIn, Disc3, Globe, Users } from "lucide-react";
 import { useAuth, avatarUrl, displayName } from "@/lib/auth";
-import { formatPartyCode, joinMusicQuizParty } from "@/lib/musicQuiz";
+import { formatPartyCode, joinMusicQuizParty, loadPublicMusicQuizParties, type MusicQuizPublicParty } from "@/lib/musicQuiz";
 import { cn } from "@/lib/cn";
 
 /** Gate stile Quizei: codice stanza + avatar Discord + Continua. */
@@ -19,6 +19,23 @@ export function MusicQuizPartyJoin({
   const [nick, setNick] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [open, setOpen] = useState<MusicQuizPublicParty[]>([]);
+
+  /* stanze pubbliche: si entra senza codice */
+  useEffect(() => {
+    if (!token || roomId) return;
+    let alive = true;
+    const load = () =>
+      void loadPublicMusicQuizParties(token).then((r) => {
+        if (alive && r.ok) setOpen(r.data.rooms || []);
+      });
+    load();
+    const id = window.setInterval(load, 8000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [token, roomId]);
 
   useEffect(() => {
     if (user) setNick(displayName(user));
@@ -31,17 +48,17 @@ export function MusicQuizPartyJoin({
   const digits = code.replace(/\D/g, "").slice(0, 6);
   const readyCode = digits.length === 6;
 
-  async function submit() {
-    if (!token || !readyCode || busy) return;
+  async function submit(target = digits) {
+    if (!token || target.length !== 6 || busy) return;
     setBusy(true);
     setErr("");
-    const r = await joinMusicQuizParty(token, digits, { displayName: nick.trim() || undefined });
+    const r = await joinMusicQuizParty(token, target, { displayName: nick.trim() || undefined });
     setBusy(false);
     if (!r.ok) {
       setErr(r.message);
       return;
     }
-    onJoined(digits);
+    onJoined(target);
   }
 
   return (
@@ -113,6 +130,39 @@ export function MusicQuizPartyJoin({
           </button>
         </div>
       </div>
+
+      {!roomId && open.length ? (
+        <div className="mt-6 w-full">
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.2em] text-crema/50">
+            <Globe className="size-3.5" aria-hidden /> Stanze aperte
+          </p>
+          <ul className="space-y-2">
+            {open.map((r) => (
+              <li key={r.roomId}>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void submit(r.roomId)}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-roast/80 p-2.5 text-left ring-1 ring-sand/12 transition hover:ring-caramel/40"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={r.packCover || "/images/logo-disco.png"} alt="" className="size-12 shrink-0 rounded-xl object-cover" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-crema">{r.roomName}</span>
+                    <span className="block truncate text-xs text-crema/50">
+                      {r.packTitle}
+                      {r.hostName ? ` · host ${r.hostName}` : ""}
+                    </span>
+                  </span>
+                  <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-crema/[0.07] px-2.5 text-[11px] font-bold tabular-nums leading-none text-crema/75">
+                    <Users className="size-3" aria-hidden /> {r.players}/{r.maxPlayers}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }
