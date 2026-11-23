@@ -599,11 +599,16 @@ html[data-theme="light"] .vc-xmas-static-snow {
     transform: translate3d(-5px, 4px, 0) rotate(-6deg);
   }
 }
-/* intenzionale: il drift soft resta anche con riduci-movimento (non è un effetto invasivo) */
+/* riduci-movimento: tutto fermo (anche i fiocchi), niente livelli in più per la scheda video */
 @media (prefers-reduced-motion: reduce) {
   .vc-xmas-glow,
-  .vc-xmas-twinkle {
+  .vc-xmas-twinkle,
+  .vc-xmas-flake {
     animation: none !important;
+    will-change: auto !important;
+  }
+  .vc-xmas-glow {
+    filter: none !important;
   }
   .vc-xmas-twinkle {
     opacity: 0.85 !important;
@@ -615,8 +620,15 @@ html[data-theme="light"] .vc-xmas-static-snow {
   }
 }
 html[data-vc-fx-motion="0"] .vc-xmas-glow,
-html[data-vc-fx-motion="0"] .vc-xmas-twinkle {
+html[data-vc-fx-motion="0"] .vc-xmas-twinkle,
+html[data-vc-fx-motion="0"] .vc-xmas-flake {
   animation: none !important;
+  will-change: auto !important;
+}
+/* decorazioni ferme: ombre luminose spente (sono decine di filtri ridisegnati a ogni scorrimento) */
+.vc-xmas-still [class*="drop-shadow"],
+.vc-xmas-still [style*="drop-shadow"] {
+  filter: none !important;
 }
 html[data-vc-fx-motion="0"] .vc-xmas-twinkle {
   opacity: 0.85 !important;

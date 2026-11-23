@@ -383,7 +383,7 @@ export function ChristmasFx() {
   /* Riduci-movimento / FX off: atmosfera + decor pieni (niente canvas). */
   if (!fxOn || !caps.motion) {
     return (
-      <div className="pointer-events-none fixed inset-0 z-[40] overflow-hidden" aria-hidden>
+      <div className="vc-xmas-still pointer-events-none fixed inset-0 z-[40] overflow-hidden [contain:strict]" aria-hidden>
         <Atmosphere strong={false} />
         <ChristmasDecor live={false} newYear={newYear} befana={befana} />
         {/* Capodanno e Befana fermi ma ben visibili: niente fuochi animati, quindi cielo pieno e saluto sempre su */}
@@ -395,7 +395,7 @@ export function ChristmasFx() {
   }
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[40] overflow-hidden" aria-hidden>
+    <div className="pointer-events-none fixed inset-0 z-[40] overflow-hidden [contain:strict]" aria-hidden>
       <Atmosphere strong={!budget.cssOnly} />
 
       <ChristmasDecor live={caps.continuous} newYear={newYear} befana={befana} />
