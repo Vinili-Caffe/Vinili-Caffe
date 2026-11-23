@@ -248,9 +248,9 @@ export function MusicQuizPartyLobby({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.avatarUrl || "/images/logo-disco.png"} alt="" className="size-10 shrink-0 rounded-full object-cover ring-2 ring-sand/15" />
                   <span className={cn("min-w-0 flex-1 truncate font-semibold", host ? "text-caramel" : "text-crema")}>{p.displayName}</span>
-                  {mine ? <span className="rounded-full bg-crema/10 px-2 py-0.5 text-[10px] font-bold uppercase text-crema/70">Tu</span> : null}
+                  {mine ? <span className="inline-flex h-6 items-center rounded-full bg-crema/10 px-2.5 text-[10px] font-bold uppercase leading-none tracking-wide text-crema/70">Tu</span> : null}
                   {host ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-caramel/20 px-2 py-0.5 text-[10px] font-bold uppercase text-caramel">
+                    <span className="inline-flex h-6 items-center gap-1 rounded-full bg-caramel/20 px-2.5 text-[10px] font-bold uppercase leading-none tracking-wide text-caramel">
                       <Crown className="size-3" aria-hidden /> Host
                     </span>
                   ) : isHost ? (
@@ -580,7 +580,7 @@ function PillButton({ onClick, icon, children }: { onClick: () => void; icon: Re
 
 function Tag({ children, icon }: { children: ReactNode; icon?: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-crema/[0.07] px-2.5 py-1 text-[11px] font-semibold text-crema/75 ring-1 ring-sand/15">
+    <span className="inline-flex h-6 items-center gap-1 rounded-full bg-crema/[0.07] px-2.5 text-[11px] font-semibold leading-none text-crema/75 ring-1 ring-sand/15">
       {icon}
       {children}
     </span>
@@ -657,9 +657,9 @@ function QueueRow({
       <img src={item.cover || "/images/logo-disco.png"} alt="" className="size-14 shrink-0 rounded-xl object-cover" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-crema">{item.title}</p>
-        <div className="mt-1 flex flex-wrap gap-1">
+        <div className="mt-1 flex flex-wrap items-center gap-1">
           <Tag>{diffLabel(item.difficulty)}</Tag>
-          {next ? <span className="rounded-full bg-caramel/25 px-2 py-0.5 text-[10px] font-bold uppercase text-caramel ring-1 ring-caramel/40">Prossimo</span> : null}
+          {next ? <span className="inline-flex h-6 items-center rounded-full bg-caramel/25 px-2.5 text-[10px] font-bold uppercase leading-none tracking-wide text-caramel ring-1 ring-caramel/40">Prossimo</span> : null}
         </div>
       </div>
       {isHost ? (
