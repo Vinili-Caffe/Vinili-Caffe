@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/music-quiz/",
     title: "Music Quiz",
-    description: "Indovina la canzone — anteprima High Staff.",
+    description: "Indovina la canzone da pochi secondi di ascolto, da solo o con gli amici.",
   }),
   robots: { index: false, follow: false },
 };
@@ -22,7 +22,7 @@ export default function MusicQuizPage() {
       <DiscordComponentEmbed
         path="/music-quiz/"
         title="Music Quiz"
-        description="Indovina la canzone — anteprima High Staff."
+        description="Indovina la canzone da pochi secondi di ascolto, da solo o con gli amici."
       />
       <MusicQuizGate>
         <MusicQuizHub />

@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/music-quiz/crea/",
     title: "Crea Music Quiz",
-    description: "Crea un quiz community — High Staff.",
+    description: "Crea il tuo quiz con i brani che vuoi e fallo giocare a tutti.",
   }),
   robots: { index: false, follow: false },
 };
