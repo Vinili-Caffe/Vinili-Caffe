@@ -97,6 +97,7 @@ export async function ensureChatSubscription(broadcasterId: number) {
     throw new Error(`kick_subscribe_${created.status}_${String(row?.error || created.data?.message || "")}`.slice(0, 160));
   }
   subs.set(broadcasterId, { id: String(row.subscription_id), lastUsed: Date.now() });
+  global.logger?.info?.(`[kick] iscritto alla chat di ${broadcasterId}`);
   return String(row.subscription_id);
 }
 
@@ -150,9 +151,14 @@ export async function handleKickWebhookPost(req?: any, res?: any) {
   if (seenIds.has(messageId)) return res.json({ ok: true });
   seenIds.set(messageId, Date.now());
 
+  const p = req.body || {};
+  const broadcasterId = Number(p?.broadcaster?.user_id || 0);
+  /* diagnostica: tipo, canale e se il quiz lo sta ascoltando (mai il testo dei messaggi) */
+  global.logger?.info?.(
+    `[kick webhook] type=${type || "-"} broadcaster=${broadcasterId || "-"} ascoltato=${subs.has(broadcasterId)} campi=${Object.keys(p).slice(0, 8).join(",")}`,
+  );
+
   if (type === EVENT) {
-    const p = req.body || {};
-    const broadcasterId = Number(p?.broadcaster?.user_id || 0);
     const text = String(p?.content || "").trim();
     if (broadcasterId && text) {
       const list = buffers.get(broadcasterId) || [];

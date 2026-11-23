@@ -29,12 +29,27 @@ function parseKickSlug(raw: string) {
   return /^[a-z0-9_-]{2,25}$/.test(slug) ? slug : "";
 }
 
+/** motivo dell'errore di Google, in italiano (senza mai riportare la chiave) */
+let lastYoutubeProblem = "";
+function youtubeProblem(reason: string) {
+  if (/keyInvalid|API_KEY_INVALID|badRequest/i.test(reason)) return "La chiave di YouTube non è valida.";
+  if (/accessNotConfigured|SERVICE_DISABLED|forbidden/i.test(reason)) return "Nel progetto Google della chiave non è attiva la YouTube Data API v3.";
+  if (/quota/i.test(reason)) return "YouTube ha esaurito la quota di oggi: riprova domani.";
+  if (/ipRefererBlocked|REFERRER_BLOCKED|IP_ADDRESS_BLOCKED|API_KEY_SERVICE_BLOCKED/i.test(reason)) return "La chiave di YouTube è limitata ad altri siti o indirizzi: va permesso anche il server.";
+  return "";
+}
+
 async function ytJson(url: URL) {
   const res = await fetch(url, { signal: AbortSignal.timeout(15_000) }).catch(() => null);
   if (!res?.ok) {
     const err = res ? `yt_${res.status}` : "yt_network";
+    const body: any = res ? await res.json().catch(() => null) : null;
+    const reason = [body?.error?.errors?.[0]?.reason, body?.error?.status, ...(body?.error?.details || []).map((d: any) => d?.reason)].filter(Boolean).join(",");
+    lastYoutubeProblem = youtubeProblem(reason);
+    global.logger?.warn?.(`[music-quiz] youtube api ${err} ${reason}`.trim());
     return { ok: false as const, error: err, data: null as any };
   }
+  lastYoutubeProblem = "";
   const data = await res.json().catch(() => null);
   return { ok: true as const, data, error: "" };
 }
@@ -158,7 +173,11 @@ async function handleMusicQuizYoutubeChatGet(client?, req?, res?) {
     let title = "";
     if (!liveChatId) {
       const found = await findYoutubeLiveChatId(channel);
-      if ("error" in found) return res.status(404).json({ ok: false, error: found.error, message: found.message });
+      if ("error" in found) {
+        /* se il problema è la chiave o la quota lo si dice, invece di «canale non trovato» */
+        if (lastYoutubeProblem) return res.status(503).json({ ok: false, error: "youtube_api", message: lastYoutubeProblem });
+        return res.status(404).json({ ok: false, error: found.error, message: found.message });
+      }
       liveChatId = found.liveChatId;
       title = found.title;
     }
@@ -202,6 +221,9 @@ async function handleMusicQuizKickChatGet(client?, req?, res?) {
     return res.json({ ok: true, platform: "kick", slug, live: ch.live, sinceAt: String(lastAt), pollingMs: 1500, messages });
   } catch (err: any) {
     global.logger?.warn?.("[music-quiz] kick chat:", err?.message || err);
+    if (/_429_/.test(String(err?.message || ""))) {
+      return res.status(503).json({ ok: false, error: "kick_rate_limit", message: "Kick ha ricevuto troppi collegamenti: riprova tra un minuto." });
+    }
     return res.status(502).json({ ok: false, error: "kick_chat_error", message: "Kick non risponde, riprova tra poco." });
   }
 }

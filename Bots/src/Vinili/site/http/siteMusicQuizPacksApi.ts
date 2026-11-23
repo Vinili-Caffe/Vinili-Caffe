@@ -140,6 +140,10 @@ async function handleMusicQuizPackCreatePost(client?, req?, res?) {
     const title = String(body.title || "").trim().slice(0, 80);
     if (!title) return res.status(400).json({ ok: false, error: "missing_title", message: "Dai un nome al quiz." });
     const settings = meta.readQuizMeta(body);
+    /* nei quiz nuovi i dettagli sono obbligatori, come sul sito */
+    if (!body.coverImage) return res.status(400).json({ ok: false, error: "missing_cover", message: "Carica una copertina per il quiz." });
+    if (settings.description.length < 10) return res.status(400).json({ ok: false, error: "missing_description", message: "Scrivi una descrizione del quiz." });
+    if (!settings.tags.length) return res.status(400).json({ ok: false, error: "missing_tags", message: "Aggiungi almeno un tag." });
     const tracks = readTracks(body);
     if (tracks.length < MIN_TRACKS) {
       return res.status(400).json({ ok: false, error: "not_enough_tracks", message: `Servono almeno ${MIN_TRACKS} brani con anteprima.` });

@@ -117,7 +117,16 @@ export function MusicQuizCreate() {
     router.push(page(`/music-quiz/pack/?slug=${encodeURIComponent(r.data.pack.slug)}`));
   }
 
-  const ready = questions.length >= MIN_TRACKS && title.trim().length >= 2;
+  /* prima delle domande vanno compilati tutti i dettagli (lingua, categoria, visibilità e creatore hanno già una scelta) */
+  const missing = [
+    title.trim().length < 2 && "il nome",
+    !settings.coverImage && !settings.coverUrl && "la copertina",
+    settings.description.trim().length < 10 && "la descrizione",
+    !settings.tags.length && "almeno un tag",
+  ].filter(Boolean) as string[];
+  const detailsDone = missing.length === 0;
+  const missingText = missing.length > 1 ? `${missing.slice(0, -1).join(", ")} e ${missing[missing.length - 1]}` : missing[0] || "";
+  const ready = questions.length >= MIN_TRACKS && detailsDone;
   const pool = questions.map((q) => q.title);
 
   const publishButton = (
@@ -169,9 +178,10 @@ export function MusicQuizCreate() {
 
       <StepTabs
         step={step}
-        canGo={title.trim().length >= 2}
+        canGo={detailsDone}
+        lockedHint={missingText ? `Manca ${missingText}` : ""}
         count={questions.length}
-        onStep={(st) => (st === "questions" && title.trim().length < 2 ? undefined : setStep(st))}
+        onStep={(st) => (st === "questions" && !detailsDone ? undefined : setStep(st))}
       />
 
       {step === "details" ? (
@@ -199,7 +209,7 @@ export function MusicQuizCreate() {
           <div className="mx-auto max-w-md text-center">
             <button
               type="button"
-              disabled={title.trim().length < 2}
+              disabled={!detailsDone}
               onClick={() => {
                 setStep("questions");
                 window.scrollTo({ top: 0, behavior: "smooth" });
@@ -208,7 +218,7 @@ export function MusicQuizCreate() {
             >
               Continua: aggiungi le domande <ArrowRight className="size-4" aria-hidden />
             </button>
-            {title.trim().length < 2 ? <p className="mt-2 text-sm text-crema/50">Prima dai un nome al quiz.</p> : null}
+            {!detailsDone ? <p className="mt-2 text-sm text-crema/55">Per andare avanti manca {missingText}.</p> : null}
           </div>
         </>
       ) : (
@@ -320,11 +330,13 @@ export function MusicQuizCreate() {
 function StepTabs({
   step,
   canGo,
+  lockedHint,
   count,
   onStep,
 }: {
   step: "details" | "questions";
   canGo: boolean;
+  lockedHint?: string;
   count: number;
   onStep: (s: "details" | "questions") => void;
 }) {
@@ -343,7 +355,7 @@ function StepTabs({
             type="button"
             onClick={() => onStep(t.id)}
             disabled={locked}
-            title={locked ? "Prima dai un nome al quiz" : undefined}
+            title={locked ? lockedHint || "Completa prima i dettagli" : undefined}
             className="relative flex items-center gap-3 rounded-[1.25rem] px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45"
           >
             {on ? <motion.span layoutId="create-step" className="absolute inset-0 rounded-[1.25rem] bg-gradient-to-br from-mocha to-roast ring-1 ring-caramel/45" /> : null}

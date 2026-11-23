@@ -130,7 +130,7 @@ export function MusicQuizSettings({
       <h2 className="font-display text-2xl font-semibold text-crema">Dettagli del quiz</h2>
 
       {/* copertina */}
-      <Field label="Immagine di copertina" hint="Se non la metti, usiamo la copertina del primo brano.">
+      <Field label="Immagine di copertina" required done={Boolean(value.coverImage || value.coverUrl)}>
         <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden" onChange={(e) => void takeFile(e.target.files?.[0])} />
         {value.coverImage || value.coverUrl ? (
           <div className="relative w-full max-w-xs overflow-hidden rounded-2xl ring-1 ring-sand/15">
@@ -175,7 +175,7 @@ export function MusicQuizSettings({
       </Field>
 
       {/* descrizione */}
-      <Field label="Descrizione">
+      <Field label="Descrizione" required done={value.description.trim().length >= 10} hint="Almeno qualche parola: è la prima cosa che legge chi apre il quiz.">
         <textarea
           value={value.description}
           maxLength={300}
@@ -251,7 +251,7 @@ export function MusicQuizSettings({
       </Field>
 
       {/* tag */}
-      <Field label={`Tag (${value.tags.length}/${MAX_TAGS})`} hint="Parole che aiutano a trovare il quiz: un genere, un anno, un'atmosfera.">
+      <Field label={`Tag (${value.tags.length}/${MAX_TAGS})`} required done={value.tags.length > 0} hint="Parole che aiutano a trovare il quiz: un genere, un anno, un'atmosfera.">
         <div className="flex gap-2">
           <input
             value={tag}
@@ -342,10 +342,22 @@ export function MusicQuizSettings({
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+function Field({ label, hint, required, done, children }: { label: string; hint?: string; required?: boolean; done?: boolean; children: ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-crema/55">{label}</p>
+      <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-crema/55">
+        {label}
+        {required ? (
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[0.6rem] tracking-wider",
+              done ? "bg-emerald-500/15 text-emerald-300" : "bg-caramel/15 text-caramel",
+            )}
+          >
+            {done ? "ok" : "obbligatorio"}
+          </span>
+        ) : null}
+      </p>
       {hint ? <p className="mt-1 text-xs text-crema/40">{hint}</p> : null}
       <div className="mt-2.5">{children}</div>
     </div>
