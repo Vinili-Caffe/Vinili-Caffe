@@ -12,6 +12,7 @@ import {
   Disc3,
   HelpCircle,
   ListMusic,
+  Maximize2,
   Lock,
   LogOut,
   Minus,
@@ -53,7 +54,6 @@ const DEFAULT_SETTINGS: MusicQuizPartySettings = {
   queueActive: true,
   queueVisible: "all",
   queueAdd: "host",
-  publicRoom: false,
 };
 
 export function MusicQuizPartyLobby({
@@ -72,6 +72,12 @@ export function MusicQuizPartyLobby({
   onLeave: () => void;
 }) {
   const isHost = room.hostId === me;
+  const allowed = room.settings?.queueAllowed || [];
+  const others = room.players.filter((p) => p.userId !== room.hostId);
+  const canAdd =
+    isHost ||
+    room.settings?.queueAdd === "all" ||
+    (room.settings?.queueAdd === "selected" && allowed.includes(me));
   const [inCall, setInCall] = useState(false);
   useEffect(() => setInCall(isDiscordActivity()), []);
   const settings = room.settings || DEFAULT_SETTINGS;
@@ -95,6 +101,11 @@ export function MusicQuizPartyLobby({
     () => `https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=8&data=${encodeURIComponent(invite)}`,
     [invite],
   );
+  const qrBig = useMemo(
+    () => `https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=12&data=${encodeURIComponent(invite)}`,
+    [invite],
+  );
+  const [qrOpen, setQrOpen] = useState(false);
 
   useEffect(() => {
     setNameDraft(room.roomName || "");
@@ -203,8 +214,19 @@ export function MusicQuizPartyLobby({
         </Card>
       ) : (
       <Card className="flex flex-col items-center gap-4 sm:flex-row">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={qrSrc} alt="QR per entrare nella stanza" className="size-20 shrink-0 rounded-xl bg-crema p-1" />
+        <button
+          type="button"
+          onClick={() => setQrOpen(true)}
+          className="group relative shrink-0 rounded-xl transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caramel"
+          aria-label="Ingrandisci il QR per farlo inquadrare"
+          title="Ingrandisci il QR"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qrSrc} alt="" className="size-20 rounded-xl bg-crema p-1" />
+          <span className="absolute -bottom-1.5 -right-1.5 grid size-6 place-items-center rounded-full bg-caramel text-ink shadow ring-2 ring-roast">
+            <Maximize2 className="size-3" aria-hidden />
+          </span>
+        </button>
         <div className="min-w-0 flex-1 text-center sm:text-left">
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-crema/45">Codice stanza</p>
           <p className="font-mono text-4xl font-bold tracking-[0.18em] text-crema">{formatPartyCode(room.roomId)}</p>
@@ -311,7 +333,7 @@ export function MusicQuizPartyLobby({
       </Card>
 
       {/* coda dei giochi */}
-      {queue.length || isHost || settings.queueAdd === "all" ? (
+      {queue.length || canAdd ? (
         <Card>
           <SectionHead icon={<ListMusic className="size-5" />} kicker="A seguire" title="Coda dei giochi">
             {isHost ? (
@@ -342,14 +364,51 @@ export function MusicQuizPartyLobby({
                     onChange={(v) => void patchSettings({ queueVisible: v as "all" | "host" })}
                   />
                   <Seg
-                    label="Chi aggiunge giochi"
+                    label="Chi può aggiungere giochi"
                     value={settings.queueAdd}
                     options={[
                       { id: "host", label: "Solo l'host" },
+                      { id: "selected", label: "Giocatori scelti" },
                       { id: "all", label: "Tutti" },
                     ]}
-                    onChange={(v) => void patchSettings({ queueAdd: v as "host" | "all" })}
+                    onChange={(v) => void patchSettings({ queueAdd: v as MusicQuizPartySettings["queueAdd"] })}
                   />
+                  {settings.queueAdd === "selected" ? (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-crema/45">Chi può aggiungere</p>
+                      {others.length ? (
+                        <ul className="mt-2 flex flex-wrap gap-1.5">
+                          {others.map((p) => {
+                            const on = allowed.includes(p.userId);
+                            return (
+                              <li key={p.userId}>
+                                <button
+                                  type="button"
+                                  aria-pressed={on}
+                                  onClick={() =>
+                                    void patchSettings({
+                                      queueAllowed: on ? allowed.filter((id) => id !== p.userId) : [...allowed, p.userId],
+                                    })
+                                  }
+                                  className={cn(
+                                    "inline-flex h-8 items-center gap-1.5 rounded-full pl-1 pr-3 text-xs font-semibold ring-1 transition",
+                                    on ? "bg-caramel/20 text-caramel ring-caramel/50" : "text-crema/65 ring-sand/15 hover:text-crema",
+                                  )}
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={p.avatarUrl || "/images/logo-disco.png"} alt="" className="size-6 rounded-full object-cover" />
+                                  {p.displayName}
+                                  {on ? <Check className="size-3.5" aria-hidden /> : null}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : (
+                        <p className="mt-1 text-xs text-crema/45">Non ci sono ancora altri giocatori nella stanza.</p>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               </motion.div>
             ) : null}
@@ -371,7 +430,7 @@ export function MusicQuizPartyLobby({
             ))}
           </ul>
 
-          {(isHost || settings.queueAdd === "all") && settings.queueActive ? (
+          {canAdd && settings.queueActive ? (
             <button
               type="button"
               onClick={() => setAddOpen(true)}
@@ -516,18 +575,6 @@ export function MusicQuizPartyLobby({
                       </div>
                     </div>
                   </Row>
-                  <Row>
-                    <Toggle
-                      label="Stanza pubblica"
-                      hint={
-                        settings.publicRoom
-                          ? "Compare tra le stanze aperte: chiunque può entrare senza codice."
-                          : "La trova solo chi ha il codice o il link."
-                      }
-                      on={!!settings.publicRoom}
-                      onChange={(v) => void patchSettings({ publicRoom: v })}
-                    />
-                  </Row>
                 </motion.div>
               ) : null}
             </AnimatePresence>
@@ -541,7 +588,6 @@ export function MusicQuizPartyLobby({
             <Tag>{settings.chatEnabled ? "Chat attiva" : "Chat spenta"}</Tag>
             <Tag icon={<Users className="size-3" />}>{max} posti</Tag>
             {settings.presentationMode ? <Tag>L&apos;host presenta</Tag> : null}
-            {settings.publicRoom ? <Tag>Stanza pubblica</Tag> : null}
           </div>
         )}
       </Card>
@@ -591,6 +637,24 @@ export function MusicQuizPartyLobby({
                 void onAct("queue_add", { slug, difficulty });
               }}
             />
+          </Modal>
+        ) : null}
+        {qrOpen ? (
+          <Modal title="Inquadra per entrare" onClose={() => setQrOpen(false)}>
+            <div className="flex flex-col items-center text-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qrBig} alt="QR per entrare nella stanza" className="aspect-square w-full max-w-[18rem] rounded-2xl bg-crema p-3" />
+              <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.22em] text-crema/45">Codice stanza</p>
+              <p className="font-mono text-4xl font-bold tracking-[0.18em] text-crema">{formatPartyCode(room.roomId)}</p>
+              <div className="mt-4 flex gap-2">
+                <PillButton onClick={() => copy("link")} icon={copied === "link" ? <Check className="size-4" /> : <Copy className="size-4" />}>
+                  {copied === "link" ? "Link copiato" : "Copia link"}
+                </PillButton>
+                <PillButton onClick={() => void share()} icon={<Share2 className="size-4" />}>
+                  Condividi
+                </PillButton>
+              </div>
+            </div>
           </Modal>
         ) : null}
         {helpOpen ? (

@@ -318,8 +318,8 @@ export type MusicQuizPartySettings = {
   leaderboard: "always" | "end" | "never";
   queueActive: boolean;
   queueVisible: "all" | "host";
-  queueAdd: "host" | "all";
-  publicRoom?: boolean;
+  queueAdd: "host" | "selected" | "all";
+  queueAllowed?: string[];
 };
 
 /** reazioni con le emoji durante la partita (le stesse accettate dal server) */

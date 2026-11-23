@@ -99,7 +99,7 @@ async function startGuessRegionCapitalGame(client?, cfg?) {
   /* foto regione in card canvas; testo solo se wiki non dà immagine */
   const image = await fetchWikiRegionImage(pick.region);
   const regionAttachment =
-    (image ? await buildRemoteGuessImageCardAttachment(image, "Capitale di regione", "guess_region_capital.png").catch(() => null) : null) ||
+    (image ? await buildRemoteGuessImageCardAttachment(image, "Indovina il capoluogo", "guess_region_capital.png").catch(() => null) : null) ||
     buildRegionNameImageAttachment(pick.region) ||
     buildPromptImageAttachment("Indovina il capoluogo", [pick.region], "guess_region_capital", "", client);
   const gameMessage = await sendMinigameMessage(

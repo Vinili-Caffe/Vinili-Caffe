@@ -58,7 +58,9 @@ type PartySettings = {
   leaderboard: "always" | "end" | "never";
   queueActive: boolean;
   queueVisible: "all" | "host";
-  queueAdd: "host" | "all";
+  queueAdd: "host" | "selected" | "all";
+  /** con «Giocatori selezionati»: chi può aggiungere giochi oltre all'host */
+  queueAllowed: string[];
   /** compare tra le stanze aperte, chiunque può entrare */
   publicRoom: boolean;
 };
@@ -111,10 +113,94 @@ function activityRoom(instanceId: string): PartyRoom | null {
   const id = activityRooms.get(instanceId);
   const room = id ? rooms.get(id) : undefined;
   if (!room) {
-    activityRooms.delete(instanceId);
+    /* chiusa ma ricordata: resta collegata alla chiamata, si riapre al rientro */
+    if (!id || !tombs.has(id)) activityRooms.delete(instanceId);
     return null;
   }
   return room;
+}
+
+/** quello che serve per riaprire una stanza chiusa (per scadenza o perché sono usciti tutti) */
+type Tomb = Pick<
+  PartyRoom,
+  "roomId" | "roomName" | "mode" | "packSlug" | "packTitle" | "packCover" | "difficulty" | "queue" | "settings" | "maxPlayers" | "roomPoints"
+> & { closedAt: number };
+const tombs = new Map<string, Tomb>();
+const TOMB_MS = 30 * 24 * 60 * 60_000;
+const TOMB_CAP = 2000;
+
+function bury(room: PartyRoom) {
+  tombs.set(room.roomId, {
+    roomId: room.roomId,
+    roomName: room.roomName,
+    mode: room.mode,
+    packSlug: room.packSlug,
+    packTitle: room.packTitle,
+    packCover: room.packCover,
+    difficulty: room.difficulty,
+    queue: room.queue,
+    settings: room.settings,
+    maxPlayers: room.maxPlayers,
+    roomPoints: room.roomPoints || {},
+    closedAt: Date.now(),
+  });
+  if (tombs.size > TOMB_CAP) {
+    const oldest = [...tombs.values()].sort((a, b) => a.closedAt - b.closedAt).slice(0, tombs.size - TOMB_CAP);
+    for (const t of oldest) tombs.delete(t.roomId);
+  }
+}
+
+/** Rientro in una stanza scaduta: se ne apre una nuova con lo stesso codice, la stessa coda e le stesse
+    impostazioni; chi rientra per primo diventa l'host. */
+const reviving = new Map<string, Promise<PartyRoom | null>>();
+function revive(roomId: string, auth: any): Promise<PartyRoom | null> {
+  const live = rooms.get(roomId);
+  if (live) return Promise.resolve(live);
+  const tomb = tombs.get(roomId);
+  if (!tomb || Date.now() - tomb.closedAt > TOMB_MS) return Promise.resolve(null);
+  const pending = reviving.get(roomId);
+  if (pending) return pending;
+  const job = (async () => {
+    const queue = tomb.queue?.length
+      ? tomb.queue
+      : [{ id: crypto.randomBytes(4).toString("hex"), packSlug: tomb.packSlug, title: tomb.packTitle, cover: tomb.packCover, difficulty: tomb.difficulty }];
+    const head = queue[0]!;
+    const packData = await loadRoundsForSlug(head.packSlug);
+    if (!packData) return null;
+    const room: PartyRoom = {
+      roomId,
+      roomName: tomb.roomName,
+      hostId: auth.userId,
+      mode: tomb.mode,
+      packSlug: head.packSlug,
+      packTitle: head.title,
+      packCover: head.cover,
+      difficulty: head.difficulty,
+      status: "lobby",
+      roundIndex: 0,
+      rounds: packData.rounds,
+      players: [player(auth)],
+      queue,
+      settings: { ...defaultSettings(), ...tomb.settings, locked: false },
+      chat: [],
+      reactions: [],
+      kicked: [],
+      maxPlayers: tomb.maxPlayers || DEFAULT_MAX_PLAYERS,
+      roomPoints: tomb.roomPoints || {},
+      roundStartedAt: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      timer: null,
+      autoNextTimer: null,
+    };
+    rooms.set(roomId, room);
+    tombs.delete(roomId);
+    saveSoon();
+    broadcastSiteMusicQuizParty(roomId, "created");
+    return room;
+  })().finally(() => reviving.delete(roomId));
+  reviving.set(roomId, job);
+  return job;
 }
 
 function defaultSettings(): PartySettings {
@@ -128,6 +214,7 @@ function defaultSettings(): PartySettings {
     queueActive: true,
     queueVisible: "all",
     queueAdd: "host",
+    queueAllowed: [],
     publicRoom: false,
   };
 }
@@ -142,6 +229,7 @@ function saveSoon() {
       const data = {
         rooms: [...rooms.values()].map(({ timer, autoNextTimer, ...rest }) => rest),
         activity: [...activityRooms.entries()],
+        tombs: [...tombs.values()],
       };
       fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
       const tmp = STATE_FILE + ".tmp";
@@ -165,7 +253,11 @@ function loadSaved() {
     const data = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
     const now = Date.now();
     for (const raw of Array.isArray(data?.rooms) ? data.rooms : []) {
-      if (!raw?.roomId || now - Number(raw.updatedAt || raw.createdAt || 0) > IDLE_MS) continue;
+      if (!raw?.roomId) continue;
+      if (now - Number(raw.updatedAt || raw.createdAt || 0) > IDLE_MS) {
+        bury({ ...raw, settings: { ...defaultSettings(), ...(raw.settings || {}) } });
+        continue;
+      }
       const room: PartyRoom = {
         ...raw,
         settings: { ...defaultSettings(), ...(raw.settings || {}) },
@@ -189,8 +281,11 @@ function loadSaved() {
         scheduleAutoNext(room);
       }
     }
+    for (const t of Array.isArray(data?.tombs) ? data.tombs : []) {
+      if (t?.roomId && now - Number(t.closedAt || 0) <= TOMB_MS && !rooms.has(t.roomId)) tombs.set(String(t.roomId), t);
+    }
     for (const [inst, id] of Array.isArray(data?.activity) ? data.activity : []) {
-      if (rooms.has(id)) activityRooms.set(String(inst), String(id));
+      if (rooms.has(id) || tombs.has(id)) activityRooms.set(String(inst), String(id));
     }
   } catch (err: any) {
     global.logger?.warn?.("[music-quiz] stanze salvate illeggibili:", err?.message || err);
@@ -203,10 +298,13 @@ function pruneRooms() {
     if ((r.updatedAt || r.createdAt) < cutoff) {
       if (r.timer) clearTimeout(r.timer);
       if (r.autoNextTimer) clearTimeout(r.autoNextTimer);
+      bury(r);
       rooms.delete(id);
+      saveSoon();
     }
   }
-  for (const [inst, id] of activityRooms) if (!rooms.has(id)) activityRooms.delete(inst);
+  for (const [id, t] of tombs) if (Date.now() - t.closedAt > TOMB_MS) tombs.delete(id);
+  for (const [inst, id] of activityRooms) if (!rooms.has(id) && !tombs.has(id)) activityRooms.delete(inst);
 }
 
 function allocRoomId(): string {
@@ -510,7 +608,8 @@ async function handleMusicQuizPartyCreatePost(client?, req?, res?) {
 async function handleMusicQuizPartyGet(client?, req?, res?) {
   const auth = await requireMusicQuizHighStaff(client, req);
   if (sendAuthError(res, auth) || !auth.ok) return;
-  const room = rooms.get(String(req.params?.roomId || "").trim());
+  pruneRooms();
+  const room = await revive(String(req.params?.roomId || "").trim(), auth);
   if (!room) return res.status(404).json({ ok: false, error: "not_found", message: "Questa stanza non esiste più." });
   const limit = room.settings.answerMs || ANSWER_MS;
   if (room.status === "playing" && Date.now() > room.roundStartedAt + limit + GRACE_MS) reveal(room);
@@ -522,7 +621,11 @@ async function handleMusicQuizPartyActivityGet(client?, req?, res?) {
   const auth = await requireMusicQuizHighStaff(client, req);
   if (sendAuthError(res, auth) || !auth.ok) return;
   const instanceId = cleanInstanceId(req.params?.instanceId);
-  const room = instanceId ? activityRoom(instanceId) : null;
+  pruneRooms();
+  let room = instanceId ? activityRoom(instanceId) : null;
+  /* la partita della chiamata era scaduta: si riapre uguale */
+  const id = instanceId ? activityRooms.get(instanceId) : undefined;
+  if (!room && id) room = await revive(id, auth);
   return res.json({ ok: true, room: room ? publicRoom(room, auth.userId) : null });
 }
 
@@ -530,7 +633,8 @@ async function handleMusicQuizPartyJoinPost(client?, req?, res?) {
   const auth = await requireMusicQuizHighStaff(client, req);
   if (sendAuthError(res, auth) || !auth.ok) return;
   const roomId = String(req.params?.roomId || req.body?.roomId || "").trim();
-  const room = rooms.get(roomId);
+  pruneRooms();
+  const room = await revive(roomId, auth);
   if (!room) return res.status(404).json({ ok: false, error: "not_found", message: "Questa stanza non esiste più." });
   const nick = String(req.body?.displayName || "").trim().slice(0, 32);
   const existing = room.players.find((p) => p.userId === auth.userId);
@@ -600,7 +704,11 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
     }
     if (typeof s.queueActive === "boolean") room.settings.queueActive = s.queueActive;
     if (s.queueVisible === "all" || s.queueVisible === "host") room.settings.queueVisible = s.queueVisible;
-    if (s.queueAdd === "host" || s.queueAdd === "all") room.settings.queueAdd = s.queueAdd;
+    if (s.queueAdd === "host" || s.queueAdd === "selected" || s.queueAdd === "all") room.settings.queueAdd = s.queueAdd;
+    if (Array.isArray(s.queueAllowed)) {
+      const ids = new Set(room.players.map((p) => p.userId));
+      room.settings.queueAllowed = [...new Set<string>(s.queueAllowed.map((x: unknown) => String(x)))].filter((id) => ids.has(id)).slice(0, 20);
+    }
     if (typeof s.publicRoom === "boolean") room.settings.publicRoom = s.publicRoom;
     if (body.roomName != null) {
       const name = String(body.roomName || "").trim().slice(0, 40);
@@ -625,7 +733,11 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
     });
     if (room.chat.length > CHAT_CAP) room.chat.splice(0, room.chat.length - CHAT_CAP);
   } else if (action === "queue_add") {
-    if (room.settings.queueAdd === "host" && !isHost) {
+    const allowed =
+      isHost ||
+      room.settings.queueAdd === "all" ||
+      (room.settings.queueAdd === "selected" && (room.settings.queueAllowed || []).includes(auth.userId));
+    if (!allowed) {
       return res.status(403).json({ ok: false, error: "host_only", message: "Solo l'host può aggiungere giochi." });
     }
     if (room.queue.length >= 20) {
@@ -795,6 +907,7 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
     if (!room.players.length) {
       /* stanza vuota: si chiude */
       clearTimers(room);
+      bury(room);
       rooms.delete(roomId);
       saveSoon();
       broadcastSiteMusicQuizParty(roomId, "closed");
