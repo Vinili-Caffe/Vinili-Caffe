@@ -1,5 +1,6 @@
 "use client";
 
+import { useSitePresence } from "@/lib/presenceState";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, Crown, Eye, Loader2, MessageSquare, Radio, SkipForward, Trophy } from "lucide-react";
@@ -80,6 +81,16 @@ export function MusicQuizStream({
   const answerMs = session?.answerMs || MUSIC_QUIZ_ANSWER_MS;
   const clip = useQuizClip(round?.previewUrl, clipMs, round ? `${session?.id}-${round.index}` : "none", round?.start);
   const left = useCountdown(clip.startedAt, answerMs, Boolean(round) && !reveal);
+  useSitePresence(
+    phase === "setup"
+      ? { details: `Music Quiz in diretta · ${pack.title}`, state: "Collega la chat della live", image: pack.cover }
+      : {
+          details: `Music Quiz in diretta · ${pack.title}`,
+          state: phase === "finished" ? "Classifica della chat" : `Domanda ${(round?.index ?? 0) + 1} di ${session?.total || 10} · la chat risponde`,
+          image: pack.cover,
+        },
+    2,
+  );
 
   live.current = { playing: phase === "playing" && Boolean(round) && !reveal, startedAt: clip.startedAt };
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useSitePresence } from "@/lib/presenceState";
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowLeft, Play, Radio, Users } from "lucide-react";
@@ -59,6 +60,7 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
   const [run, setRun] = useState(0);
   /* «In diretta»: la chat della live risponde con 1-4 */
   const [streaming, setStreaming] = useState(false);
+  useSitePresence(pack ? { details: `Music Quiz · ${pack.title}`, state: "Sceglie come giocare", image: pack.cover, imageText: pack.title } : null);
 
   useEffect(() => {
     if (!token || !slug) return;

@@ -3,6 +3,7 @@
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { apiUrl } from "./api";
 import { isGuestPreview, subscribeViewAs } from "./view-as";
+import { activityAuth, activityStartPath, isDiscordActivity } from "./discordActivity";
 
 // Login Discord: OAuth authorization code + PKCE quando il backend è pronto;
 // altrimenti implicit → bind una tantum in cookie httpOnly (niente AT in localStorage).
@@ -431,6 +432,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     (async () => {
+      /* Dentro Discord (Attività): login con l'SDK di Discord, niente cookie né redirect del sito */
+      if (isDiscordActivity()) {
+        const start = activityStartPath(location.pathname);
+        if (start) {
+          location.replace(start + location.search);
+          return;
+        }
+        const got = await activityAuth();
+        if (cancelled) return;
+        if (got) {
+          startTransition(() => {
+            setToken(got.token);
+            setUser(got.user);
+            setReady(true);
+          });
+        } else finishAnonymous();
+        return;
+      }
+
       /* Migrazione one-shot: AT legacy in localStorage → cookie httpOnly, poi wipe. */
       try {
         const legacy = String(read(TOKEN_KEY) || ssGet(TOKEN_KEY) || "").trim();

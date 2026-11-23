@@ -10,6 +10,7 @@
     "clean": "node -e \"for (const p of ['.next','out','.cache','tsconfig.tsbuildinfo','next-env.d.ts']) { try { require('fs').rmSync(p,{recursive:true,force:true}); console.log('rm',p) } catch (_) {} }\""
   },
   "dependencies": {
+    "@discord/embedded-app-sdk": "2.5.0",
     "@gsap/react": "^2.1.2",
     "@tailwindcss/turbopack": "^4",
     "@types/canvas-confetti": "1.9.0",

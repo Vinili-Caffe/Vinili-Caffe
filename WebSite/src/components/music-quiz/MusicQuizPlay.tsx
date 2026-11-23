@@ -1,5 +1,6 @@
 "use client";
 
+import { useSitePresence } from "@/lib/presenceState";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -57,6 +58,18 @@ export function MusicQuizPlay({
   const total = round.total || 10;
   const clip = useQuizClip(round.previewUrl, clipMs, round.index, round.start);
   const left = useCountdown(clip.startedAt, answerMs, !feedback);
+  /* stato su Discord (PreMiD / Attività): quiz, domanda e punti */
+  const [startedAt] = useState(() => Date.now());
+  useSitePresence(
+    {
+      details: `Music Quiz · ${packTitle}`,
+      state: results ? `Ha finito con ${results.score} punti` : `Domanda ${round.index + 1} di ${round.total || 10} · ${score} punti`,
+      image: packCover,
+      imageText: packTitle,
+      startedAt,
+    },
+    2,
+  );
 
   async function send(choice: number) {
     if (!token || sending || feedback) return;

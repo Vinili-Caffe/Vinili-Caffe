@@ -1,5 +1,6 @@
 "use client";
 
+import { useSitePresence } from "@/lib/presenceState";
 import { useEffect, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { Disc3, Plus } from "lucide-react";
@@ -41,6 +42,7 @@ export function MusicQuizHub() {
   }, [token]);
 
   const loading = hub == null;
+  useSitePresence({ details: "Music Quiz", state: "Sceglie un quiz" });
   const featured = (hub?.featured || []).slice(0, 5);
   const [top, ...rest] = featured;
 

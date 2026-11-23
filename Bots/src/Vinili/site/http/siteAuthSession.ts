@@ -318,6 +318,7 @@ function mountSiteAuthSessionMiddleware(app?) {
 
 export = {
   COOKIE_NAME,
+  discordTokenRequest,
   SESSION_MARKER,
   SESSION_MAX_MS,
   oauthPkceReady,
