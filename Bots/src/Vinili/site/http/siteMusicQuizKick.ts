@@ -23,7 +23,9 @@ let publicKey = { pem: "", at: 0 };
 const channelCache = new Map<string, { at: number; id: number; live: boolean }>();
 /** broadcaster → iscrizione e ultimo uso */
 const subs = new Map<number, { id: string; lastUsed: number }>();
-const buffers = new Map<number, ChatMsg[]>();
+/* messaggi per iscrizione (Kick manda l'id dell'iscrizione in ogni chiamata): così un id del canale diverso
+   tra l'API dei canali e il messaggio non fa perdere nulla */
+const buffers = new Map<string, ChatMsg[]>();
 const seenIds = new Map<string, number>();
 
 export function kickConfigured() {
@@ -116,15 +118,16 @@ export async function ensureChatSubscription(broadcasterId: number) {
     throw new Error(`kick_subscribe_${created.status}_${String(row?.error || created.data?.message || "")}`.slice(0, 160));
   }
   subs.set(broadcasterId, { id: String(row.subscription_id), lastUsed: Date.now() });
-  global.logger?.info?.(`[kick] iscritto alla chat di ${broadcasterId}`);
+  global.logger?.info?.(`[kick] iscritto alla chat di ${broadcasterId}: iscrizione ${row.subscription_id}`);
   return String(row.subscription_id);
 }
 
 /** messaggi arrivati dopo `sinceAt` (orario del server) */
 export function kickMessagesSince(broadcasterId: number, sinceAt: number): ChatMsg[] {
   const sub = subs.get(broadcasterId);
-  if (sub) sub.lastUsed = Date.now();
-  return (buffers.get(broadcasterId) || []).filter((m) => m.at > sinceAt);
+  if (!sub) return [];
+  sub.lastUsed = Date.now();
+  return (buffers.get(sub.id) || []).filter((m) => m.at > sinceAt);
 }
 
 async function kickPublicKey(force = false) {
@@ -154,6 +157,7 @@ export async function handleKickWebhookPost(req?: any, res?: any) {
   const timestamp = String(req.headers["kick-event-message-timestamp"] || "");
   const signature = String(req.headers["kick-event-signature"] || "");
   const type = String(req.headers["kick-event-type"] || "");
+  const subscriptionId = String(req.headers["kick-event-subscription-id"] || "");
   const raw: Buffer | undefined = req.rawBody;
   if (!messageId || !timestamp || !signature || !raw) return res.status(400).json({ ok: false });
 
@@ -174,13 +178,13 @@ export async function handleKickWebhookPost(req?: any, res?: any) {
   const broadcasterId = Number(p?.broadcaster?.user_id || 0);
   /* diagnostica: tipo, canale e se il quiz lo sta ascoltando (mai il testo dei messaggi) */
   global.logger?.info?.(
-    `[kick webhook] type=${type || "-"} broadcaster=${broadcasterId || "-"} ascoltato=${subs.has(broadcasterId)} campi=${Object.keys(p).slice(0, 8).join(",")}`,
+    `[kick webhook] type=${type || "-"} canale=${String(p?.broadcaster?.channel_slug || "-")} broadcaster=${broadcasterId || "-"} iscrizione=${subscriptionId || "-"} nostra=${[...subs.values()].some((x) => x.id === subscriptionId)}`,
   );
 
   if (type === EVENT) {
     const text = String(p?.content || "").trim();
-    if (broadcasterId && text) {
-      const list = buffers.get(broadcasterId) || [];
+    if (subscriptionId && text) {
+      const list = buffers.get(subscriptionId) || [];
       list.push({
         id: String(p.message_id || messageId),
         user: String(p?.sender?.username || "viewer").slice(0, 40),
@@ -188,7 +192,7 @@ export async function handleKickWebhookPost(req?: any, res?: any) {
         at: Date.now(),
       });
       const cutoff = Date.now() - KEEP_MESSAGES_MS;
-      buffers.set(broadcasterId, list.filter((m) => m.at > cutoff).slice(-500));
+      buffers.set(subscriptionId, list.filter((m) => m.at > cutoff).slice(-500));
     }
   }
   return res.json({ ok: true });

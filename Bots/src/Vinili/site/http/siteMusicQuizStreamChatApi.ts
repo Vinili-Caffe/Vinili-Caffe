@@ -43,11 +43,35 @@ function youtubeProblem(reason: string) {
   return "";
 }
 
+/* La chiave YouTube è limitata all'indirizzo IPv4 della VPS, ma verso Google la VPS uscirebbe in IPv6
+   (che Google vede come un altro indirizzo e rifiuta): le richieste a YouTube escono sempre in IPv4. */
+const https = require("https") as typeof import("https");
+function getIPv4(url: URL): Promise<{ status: number; body: any } | null> {
+  return new Promise((resolve) => {
+    const req = https.get(url, { family: 4, timeout: 15_000, headers: { Accept: "application/json" } }, (res) => {
+      let raw = "";
+      res.setEncoding("utf8");
+      res.on("data", (c) => (raw += c));
+      res.on("end", () => {
+        let body: any = null;
+        try {
+          body = JSON.parse(raw);
+        } catch {
+          body = null;
+        }
+        resolve({ status: Number(res.statusCode || 0), body });
+      });
+    });
+    req.on("timeout", () => req.destroy());
+    req.on("error", () => resolve(null));
+  });
+}
+
 async function ytJson(url: URL) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) }).catch(() => null);
-  if (!res?.ok) {
+  const res = await getIPv4(url);
+  if (!res || res.status < 200 || res.status >= 300) {
     const err = res ? `yt_${res.status}` : "yt_network";
-    const body: any = res ? await res.json().catch(() => null) : null;
+    const body: any = res ? res.body : null;
     const reason = [body?.error?.errors?.[0]?.reason, body?.error?.status, ...(body?.error?.details || []).map((d: any) => d?.reason)].filter(Boolean).join(",");
     lastYoutubeProblem = youtubeProblem(reason);
     /* quale chiamata (senza la chiave): videos, search, channels o liveChat/messages */
@@ -55,8 +79,7 @@ async function ytJson(url: URL) {
     return { ok: false as const, error: err, data: null as any };
   }
   lastYoutubeProblem = "";
-  const data = await res.json().catch(() => null);
-  return { ok: true as const, data, error: "" };
+  return { ok: true as const, data: res.body, error: "" };
 }
 
 async function resolveYoutubeChannelId(handleOrId: string): Promise<string | null> {
