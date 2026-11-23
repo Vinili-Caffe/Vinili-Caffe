@@ -16,6 +16,7 @@ const {
 const {
   splitApplicationCommandsForDeploy,
   deployGlobalApplicationCommands,
+  ensureActivityEntryPoint,
   deployGuildApplicationCommands,
   clearGuildApplicationCommands,
 } = require("../../../shared/discord/applicationCommandDeployScopes") as typeof import("../../../shared/discord/applicationCommandDeployScopes");
@@ -248,6 +249,14 @@ export = (client?) => {
       }
     } else if (LOG_COMMANDS) {
       global.logger.info(`[COMMANDS] Nessuna modifica ai comandi globali, deploy REST saltato. scope=${deployCheck.scopeKey} hash=${deployCheck.hash}`);
+    }
+
+    /* pulsante «Avvia» dell'Attività (Music Quiz dentro Discord) */
+    try {
+      const esito = await ensureActivityEntryPoint(rest, clientId);
+      if (esito !== "presente") global.logger.info(`[COMMANDS] Comando di avvio dell'Attività: ${esito}`);
+    } catch {
+      /* non blocca l'avvio */
     }
 
     if (mainGuildDeployRequired) {
