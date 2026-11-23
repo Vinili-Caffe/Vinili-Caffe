@@ -119,8 +119,10 @@ export const LANG_EMOJI: Record<Locale, string> = {
   sv: "🇸🇪",
 };
 
-export function flagUrl(locale: Locale, w = 40) {
-  return `https://flagcdn.com/w${w}/${LANG_FLAG[locale]}.png`;
+export function flagUrl(locale: Locale, _w = 40) {
+  /* Same-origin: nell'Attività Discord flagcdn.com è bloccato senza URL Mapping. */
+  const code = LANG_FLAG[locale];
+  return code ? `/flags/${code}.png` : "";
 }
 
 const STORAGE_KEY = "vc_site_lang";

@@ -1,24 +1,24 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useI18n } from "@/lib/i18n";
+import { useSearchParams, useRouter } from "next/navigation";
 import { page } from "@/lib/site";
-import { SmartLink } from "@/components/SmartLink";
 import { MusicQuizPartyRoom } from "./MusicQuizPartyRoom";
+import { MusicQuizPartyJoin } from "./MusicQuizPartyJoin";
 
 export function MusicQuizPartyPageClient() {
-  const { t } = useI18n();
   const sp = useSearchParams();
-  const roomId = String(sp.get("room") || "").trim();
+  const router = useRouter();
+  const roomId = String(sp.get("room") || "").replace(/\D/g, "").slice(0, 6);
+
   if (!roomId) {
     return (
-      <div className="px-4 pb-16 pt-28 text-center">
-        <p className="text-sm text-crema/50">{t("musicQuiz.missingRoom")}</p>
-        <SmartLink href={page("/music-quiz/")} className="mt-4 inline-block text-caramel">
-          {t("musicQuiz.backHub")}
-        </SmartLink>
-      </div>
+      <MusicQuizPartyJoin
+        onJoined={(id) => {
+          router.replace(page(`/music-quiz/party/?room=${encodeURIComponent(id)}`));
+        }}
+      />
     );
   }
+
   return <MusicQuizPartyRoom roomId={roomId} />;
 }

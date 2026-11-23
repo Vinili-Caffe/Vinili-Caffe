@@ -3,7 +3,7 @@
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { apiUrl } from "./api";
 import { isGuestPreview, subscribeViewAs } from "./view-as";
-import { activityAuth, activityStartPath, isDiscordActivity } from "./discordActivity";
+import { activityAuth, bootDiscordActivityProxy, isDiscordActivity } from "./discordActivity";
 
 // Login Discord: OAuth authorization code + PKCE quando il backend è pronto;
 // altrimenti implicit → bind una tantum in cookie httpOnly (niente AT in localStorage).
@@ -394,12 +394,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearLocalSession();
     setToken(null);
     setUser(null);
+    try {
+      sessionStorage.removeItem("vc_activity_token");
+      sessionStorage.removeItem("vc_activity_user");
+    } catch {
+      /* ignore */
+    }
     void fetch(apiUrl("/webhooks/site-auth/logout"), {
       method: "POST",
       credentials: "include",
       cache: "no-store",
     }).catch(() => {});
     if (toLogin) {
+      if (isDiscordActivity()) {
+        void activityAuth({ force: true, prompt: "consent" }).then((got) => {
+          if (got.token && got.user) {
+            startTransition(() => {
+              setToken(got.token);
+              setUser(got.user);
+              setReady(true);
+              setError(null);
+            });
+          } else {
+            startTransition(() => {
+              setReady(true);
+              setError(`Login Activity: ${"error" in got ? got.error : "fallito"}`);
+            });
+          }
+        });
+        return;
+      }
       void startOAuth("consent");
     }
   }, []);
@@ -432,22 +456,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     (async () => {
-      /* Dentro Discord (Attività): login con l'SDK di Discord, niente cookie né redirect del sito */
+      /* Dentro Discord (Attività): login con l'SDK — niente location.replace (READY una sola volta per iframe). */
       if (isDiscordActivity()) {
-        const start = activityStartPath(location.pathname);
-        if (start) {
-          location.replace(start + location.search);
-          return;
-        }
+        void bootDiscordActivityProxy();
         const got = await activityAuth();
         if (cancelled) return;
-        if (got) {
+        if (got.token && got.user) {
           startTransition(() => {
             setToken(got.token);
             setUser(got.user);
             setReady(true);
           });
-        } else finishAnonymous();
+        } else {
+          if ("error" in got && got.error) {
+            console.warn("[activity] boot auth:", got.error);
+            startTransition(() => setError(`Activity: ${got.error}`));
+          }
+          finishAnonymous();
+        }
         return;
       }
 
@@ -658,6 +684,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [logout]);
 
   const login = useCallback(() => {
+    /* Nell'Activity Discord l'OAuth redirect del sito non funziona: va l'SDK Embedded. */
+    if (isDiscordActivity()) {
+      startTransition(() => {
+        setReady(false);
+        setError(null);
+      });
+      void activityAuth({ force: true, prompt: "consent" }).then((got) => {
+        if (got.token && got.user) {
+          startTransition(() => {
+            setToken(got.token);
+            setUser(got.user);
+            setReady(true);
+            setError(null);
+          });
+        } else {
+          startTransition(() => {
+            setToken(null);
+            setUser(null);
+            setReady(true);
+            setError(`Login Activity: ${"error" in got ? got.error : "non riuscito"}`);
+          });
+        }
+      });
+      return;
+    }
     void startOAuth("none");
   }, []);
 

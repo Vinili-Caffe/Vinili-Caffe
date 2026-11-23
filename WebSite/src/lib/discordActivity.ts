@@ -21,10 +21,16 @@ export const ACTIVITY_URL_MAPPINGS = [
   { prefix: "/discordcdn", target: "cdn.discordapp.com" },
   { prefix: "/vcapi", target: "api.viniliecaffe.it" },
   { prefix: "/vccdn", target: "cdn.viniliecaffe.it" },
+  /* fallback se qualche hotlink flagcdn resta nel codice; le bandiere UI usano /flags/ same-origin */
+  { prefix: "/flagcdn", target: "flagcdn.com" },
+  { prefix: "/qrserver", target: "api.qrserver.com" },
 ];
 
 const TOKEN_KEY = "vc_activity_token";
 const USER_KEY = "vc_activity_user";
+const AUTH_TIMEOUT_MS = 12_000;
+/** Consent UI in Discord: l'utente può metterci più di 12s */
+const AUTH_CONSENT_TIMEOUT_MS = 120_000;
 
 export function isDiscordActivity() {
   if (typeof window === "undefined") return false;
@@ -32,15 +38,35 @@ export function isDiscordActivity() {
 }
 
 type Sdk = import("@discord/embedded-app-sdk").DiscordSDK;
+export type ActivityAuthResult =
+  | { token: string; user: DiscordUser }
+  | { token: null; user: null; error: string };
 let sdkPromise: Promise<Sdk> | null = null;
-let authPromise: Promise<{ token: string; user: DiscordUser } | null> | null = null;
+let authPromise: Promise<ActivityAuthResult> | null = null;
+let patchedEarly = false;
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = window.setTimeout(() => reject(new Error(`timeout:${label}`)), ms);
+    p.then(
+      (v) => {
+        window.clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        window.clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
 
 /** riscrive gli indirizzi esterni sugli indirizzi del proxy di Discord */
 function mapUrl(raw: string) {
   try {
     const u = new URL(raw, window.location.href);
     if (u.origin === window.location.origin) return raw;
-    const m = ACTIVITY_URL_MAPPINGS.find((x) => u.host === x.target);
+    const m = ACTIVITY_URL_MAPPINGS.find((x) => u.host === x.target || u.hostname === x.target);
     return m ? `${m.prefix}${u.pathname}${u.search}` : raw;
   } catch {
     return raw;
@@ -69,7 +95,6 @@ function patchMediaSources() {
       });
     }
   }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["src"] });
-  /* new Audio(url) e audio.src = url */
   const desc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "src");
   if (desc?.set && desc.get) {
     Object.defineProperty(HTMLMediaElement.prototype, "src", {
@@ -84,22 +109,49 @@ function patchMediaSources() {
   }
 }
 
+/** Appena siamo su discordsays: patch URL prima ancora del ready dell'SDK (logo/CDN). */
+export async function bootDiscordActivityProxy() {
+  if (!isDiscordActivity() || patchedEarly) return;
+  patchedEarly = true;
+  try {
+    const mod = await import("@discord/embedded-app-sdk");
+    mod.patchUrlMappings(ACTIVITY_URL_MAPPINGS, { patchFetch: true, patchWebSocket: true, patchXhr: true });
+    patchMediaSources();
+  } catch {
+    /* senza SDK le immagini CDN restano rotte finché non ci sono le mappature /vccdn */
+  }
+}
+
 function getSdk(): Promise<Sdk> {
   if (!sdkPromise) {
     sdkPromise = (async () => {
-      /* l'SDK legge frame_id e instance_id dall'indirizzo: se una pagina li perde (ricarica, cambio lingua) si rimettono */
-      const qs = new URLSearchParams(window.location.search);
-      if (qs.get("frame_id")) ssSet("vc_activity_qs", window.location.search);
-      else {
-        const saved = ssGet("vc_activity_qs");
-        if (saved) window.history.replaceState(window.history.state, "", window.location.pathname + saved + window.location.hash);
+      try {
+        await bootDiscordActivityProxy();
+        /* l'SDK legge frame_id e instance_id dall'indirizzo: se una pagina li perde si rimettono */
+        const qs = new URLSearchParams(window.location.search);
+        if (qs.get("frame_id")) ssSet("vc_activity_qs", window.location.search);
+        else {
+          const saved = ssGet("vc_activity_qs");
+          if (saved && !qs.get("frame_id")) {
+            window.history.replaceState(window.history.state, "", window.location.pathname + saved + window.location.hash);
+          }
+        }
+        if (!new URLSearchParams(window.location.search).get("frame_id")) {
+          throw new Error("missing_frame_id");
+        }
+        const hostId = window.location.hostname.match(/^(\d+)\.discordsays\.com$/i)?.[1];
+        if (hostId && hostId !== ACTIVITY_CLIENT_ID) {
+          throw new Error(`client_id_mismatch:${hostId}`);
+        }
+        const mod = await import("@discord/embedded-app-sdk");
+        const sdk = new mod.DiscordSDK(ACTIVITY_CLIENT_ID);
+        await withTimeout(sdk.ready(), AUTH_TIMEOUT_MS, "sdk.ready");
+        return sdk;
+      } catch (err) {
+        /* Non riusare una promise fallita: retry (tap Accedi) deve ripartire */
+        sdkPromise = null;
+        throw err;
       }
-      const mod = await import("@discord/embedded-app-sdk");
-      mod.patchUrlMappings(ACTIVITY_URL_MAPPINGS, { patchFetch: true, patchWebSocket: true, patchXhr: true });
-      patchMediaSources();
-      const sdk = new mod.DiscordSDK(ACTIVITY_CLIENT_ID);
-      await sdk.ready();
-      return sdk;
     })();
   }
   return sdkPromise;
@@ -121,52 +173,134 @@ function ssSet(k: string, v: string | null) {
   }
 }
 
-async function exchangeCode(code: string): Promise<string | null> {
-  const r = await fetch("/webhooks/site-activity/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code }),
-  }).catch(() => null);
-  const j = (await r?.json().catch(() => null)) as { access_token?: string } | null;
-  return j?.access_token || null;
+function b64urlBytes(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]!);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function makePkce(): Promise<{ verifier: string; challenge: string }> {
+  const raw = crypto.getRandomValues(new Uint8Array(32));
+  const verifier = b64urlBytes(raw);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  return { verifier, challenge: b64urlBytes(new Uint8Array(digest)) };
+}
+
+async function exchangeCode(code: string, codeVerifier: string): Promise<{ token: string | null; detail: string }> {
+  const r = await withTimeout(
+    fetch("/webhooks/site-activity/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ code, code_verifier: codeVerifier }),
+    }),
+    12_000,
+    "exchange",
+  ).catch((e) => {
+    throw new Error(`exchange_network:${e instanceof Error ? e.message : e}`);
+  });
+  const j = (await r.json().catch(() => null)) as {
+    access_token?: string;
+    error?: string;
+    discord?: string;
+    message?: string;
+  } | null;
+  if (!r.ok || !j?.access_token) {
+    return {
+      token: null,
+      detail: `exchange_http_${r.status}:${j?.discord || j?.error || j?.message || "fail"}`,
+    };
+  }
+  return { token: j.access_token, detail: "ok" };
+}
+
+type ActivityAuthOpts = {
+  /** Forza un nuovo authorize (es. tap su «Accedi»). */
+  force?: boolean;
+  /** Default: prova none, poi consent. Con force usa subito consent. */
+  prompt?: "none" | "consent";
+};
+
+async function authorizeCode(sdk: Sdk, mode: "none" | "consent", pkce: { challenge: string }) {
+  /* SDK tipizza prompt solo come 'none' | undefined — undefined = UI di consenso Discord. */
+  const ms = mode === "consent" ? AUTH_CONSENT_TIMEOUT_MS : AUTH_TIMEOUT_MS;
+  const { code } = await withTimeout(
+    sdk.commands.authorize({
+      client_id: ACTIVITY_CLIENT_ID,
+      response_type: "code",
+      state: "",
+      ...(mode === "none" ? { prompt: "none" as const } : {}),
+      code_challenge: pkce.challenge,
+      code_challenge_method: "S256",
+      /* allineato al getting-started ufficiale Discord Activities */
+      scope: ["identify", "guilds", "applications.commands"],
+    }),
+    ms,
+    `authorize:${mode}`,
+  );
+  return code;
 }
 
 /**
- * Login dentro Discord. Al primo avvio Discord chiede il consenso (una volta), poi il token resta per la sessione:
- * cambiando pagina o ricaricando si riusa senza richiederlo.
+ * Login dentro Discord. Timeout duro: se Discord non risponde non lasciamo il sito su «Caricamento…» per sempre.
+ * Non usare l’OAuth redirect del sito: nell’iframe Activity non funziona.
  */
-export function activityAuth(): Promise<{ token: string; user: DiscordUser } | null> {
+export function activityAuth(opts?: ActivityAuthOpts): Promise<ActivityAuthResult> {
+  if (opts?.force) authPromise = null;
   if (!authPromise) {
     authPromise = (async () => {
       try {
         const sdk = await getSdk();
-        let token = ssGet(TOKEN_KEY);
+        let token = opts?.force ? null : ssGet(TOKEN_KEY);
         if (token) {
-          const again = await sdk.commands.authenticate({ access_token: token }).catch(() => null);
+          const again = await withTimeout(
+            sdk.commands.authenticate({ access_token: token }),
+            8_000,
+            "authenticate",
+          ).catch(() => null);
           if (again?.user) return finish(sdk, token, again.user as unknown as DiscordUser);
           ssSet(TOKEN_KEY, null);
         }
-        const { code } = await sdk.commands.authorize({
-          client_id: ACTIVITY_CLIENT_ID,
-          response_type: "code",
-          state: "",
-          prompt: "none",
-          scope: ["identify", "guilds", "rpc.activities.write"],
-        });
-        token = await exchangeCode(code);
-        if (!token) return null;
-        const auth = await sdk.commands.authenticate({ access_token: token });
-        if (!auth?.user) return null;
+        const prefer = opts?.prompt || (opts?.force ? "consent" : "none");
+        const pkce = await makePkce();
+        let code: string | null = null;
+        try {
+          code = await authorizeCode(sdk, prefer, pkce);
+        } catch (err) {
+          if (prefer === "none") {
+            console.warn("[activity] authorize none fallita, ritento con consent:", err);
+            code = await authorizeCode(sdk, "consent", pkce);
+          } else {
+            throw err;
+          }
+        }
+        const ex = await exchangeCode(code, pkce.verifier);
+        if (!ex.token) {
+          authPromise = null;
+          return { token: null, user: null, error: ex.detail };
+        }
+        token = ex.token;
+        const auth = await withTimeout(
+          sdk.commands.authenticate({ access_token: token }),
+          8_000,
+          "authenticate2",
+        );
+        if (!auth?.user) {
+          authPromise = null;
+          return { token: null, user: null, error: "authenticate_failed" };
+        }
         return finish(sdk, token, auth.user as unknown as DiscordUser);
-      } catch {
-        return null;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[activity] auth fallita:", err);
+        authPromise = null;
+        return { token: null, user: null, error: msg || "auth_failed" };
       }
     })();
   }
   return authPromise;
 }
 
-function finish(sdk: Sdk, token: string, raw: DiscordUser) {
+function finish(sdk: Sdk, token: string, raw: DiscordUser): { token: string; user: DiscordUser } {
   const user: DiscordUser = { id: raw.id, username: raw.username, global_name: raw.global_name ?? null, avatar: raw.avatar ?? null };
   ssSet(TOKEN_KEY, token);
   ssSet(USER_KEY, JSON.stringify(user));
@@ -174,7 +308,6 @@ function finish(sdk: Sdk, token: string, raw: DiscordUser) {
   return { token, user };
 }
 
-/* lo stato su Discord segue quello del sito (Music Quiz: quiz, domanda, punti) */
 let bridged = false;
 function startPresenceBridge(sdk: Sdk) {
   if (bridged) return;
@@ -188,7 +321,7 @@ function startPresenceBridge(sdk: Sdk) {
           ...(p.state ? { state: p.state.slice(0, 128) } : {}),
           ...(p.startedAt ? { timestamps: { start: Math.floor(p.startedAt) } } : {}),
           assets: {
-            large_image: p.image && /^https:\/\//.test(p.image) ? p.image : "https://cdn.viniliecaffe.it/images/logo-disco.png",
+            large_image: p.image && /^https:\/\//.test(p.image) ? mapUrl(p.image) : mapUrl("https://cdn.viniliecaffe.it/images/logo-disco.png"),
             large_text: p.imageText || "Vinili & Caffè",
           },
         }
@@ -201,7 +334,10 @@ function startPresenceBridge(sdk: Sdk) {
   onSitePresence(push);
 }
 
-/** la prima pagina dell'Attività è il Music Quiz */
+/** la prima pagina dell'Attività è il Music Quiz (con lingua, così non c'è un secondo redirect) */
 export function activityStartPath(pathname: string) {
-  return /^\/(?:[a-z]{2}\/)?$/.test(pathname) ? "/music-quiz/" : null;
+  if (!/^\/(?:[a-z]{2}\/)?$/.test(pathname)) return null;
+  const m = pathname.match(/^\/([a-z]{2})\//);
+  const lang = m?.[1] || "it";
+  return `/${lang}/music-quiz/`;
 }

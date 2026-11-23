@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { MotionConfig } from "motion/react";
 import { ApiOutageBanner } from "./ApiOutageBanner";
@@ -27,6 +27,8 @@ import { EventoChromeProvider } from "./evento/EventoChrome";
 import { EVENTO_CHROME_BYPASS } from "@/lib/evento-starwars";
 import { SiteMotionRoot } from "./motion/SiteMotionRoot";
 import { GuildMentionsProvider } from "./GuildMentionsProvider";
+import { isDiscordActivity } from "@/lib/discordActivity";
+import { ActivityChrome } from "./music-quiz/ActivityChrome";
 
 function RichScrollProgress() {
   const { caps } = useDeviceFx();
@@ -54,13 +56,14 @@ function ShellMotion({ children }: { children: React.ReactNode }) {
   return <MotionConfig reducedMotion={reducedMotion}>{children}</MotionConfig>;
 }
 
-type SiteShellChrome = "site" | "evento" | "app";
+type SiteShellChrome = "site" | "evento" | "app" | "activity";
 
 /**
  * Navbar + footer del sito.
  * `chrome="evento"`: stesse shell, link nav/footer = pagine evento + BGM SW.
  * `chrome="app"`: solo i servizi del sito (login, notifiche, errori…), senza navbar, footer, sponsor e musica:
  * la pagina disegna da sé il proprio guscio (dashboard del bot).
+ * `chrome="activity"` / auto su discordsays: solo Music Quiz, niente nav/footer/sponsor/consent.
  */
 export function SiteShell({
   children,
@@ -69,38 +72,59 @@ export function SiteShell({
   children: React.ReactNode;
   chrome?: SiteShellChrome;
 }) {
-  const evento = chrome === "evento" && EVENTO_CHROME_BYPASS;
-  const app = chrome === "app";
+  const [activityHost, setActivityHost] = useState(false);
+  useEffect(() => {
+    const on = isDiscordActivity();
+    setActivityHost(on);
+    if (on) document.documentElement.dataset.vcActivity = "1";
+    else delete document.documentElement.dataset.vcActivity;
+  }, []);
+
+  const mode: SiteShellChrome = activityHost ? "activity" : chrome;
+  const evento = mode === "evento" && EVENTO_CHROME_BYPASS;
+  const app = mode === "app";
+  const activity = mode === "activity";
+  const bare = app || activity;
+
   return (
     <DeviceFxProvider>
       <ShellMotion>
-        <SiteMotionRoot smoothScroll={!app}>
+        <SiteMotionRoot smoothScroll={!bare}>
           <UiProviders>
             <GuildMentionsProvider>
               <ViewAsProvider>
                 <EventoChromeProvider active={evento}>
                   <ErrorReporter />
                   <UiTextTranslator />
-                  <VitalsReporter />
+                  {!activity ? <VitalsReporter /> : null}
                   <DeepLinkFocus />
                   <BootGate />
                   <RealtimeBoot />
-                  <OfflineQueueBoot />
+                  {!activity ? <OfflineQueueBoot /> : null}
                   <StorageGc />
                   <SourceGuard />
-                  <RichScrollProgress />
+                  {!bare ? <RichScrollProgress /> : null}
                   <ViewState />
                   <Suspense fallback={null}>
-                    <ScrollToTop />
-                    <NotifPageRead />
-                    <PushSync />
-                    <NotifNavigate />
-                    <PwaKeepLinks />
-                    <PwaShellHealth />
+                    {!activity ? <ScrollToTop /> : null}
+                    {!activity ? (
+                      <>
+                        <NotifPageRead />
+                        <PushSync />
+                        <NotifNavigate />
+                        <PwaKeepLinks />
+                        <PwaShellHealth />
+                      </>
+                    ) : null}
                   </Suspense>
                   <PresenceRoot />
-                  <ApiOutageBanner />
-                  {app ? (
+                  {!activity ? <ApiOutageBanner /> : null}
+                  {activity ? (
+                    <>
+                      <ActivityChrome />
+                      <main className="min-h-dvh bg-espresso text-crema">{children}</main>
+                    </>
+                  ) : app ? (
                     children
                   ) : (
                     <>
@@ -111,13 +135,17 @@ export function SiteShell({
                       <Footer />
                     </>
                   )}
-                  <CookieConsent />
-                  <AgeGate />
-                  <NotifLiveToasts />
-                  {evento ? <EventoMusic /> : app ? null : <VinylMusicRoot />}
+                  {!activity ? (
+                    <>
+                      <CookieConsent />
+                      <AgeGate />
+                      <NotifLiveToasts />
+                    </>
+                  ) : null}
+                  {evento ? <EventoMusic /> : bare ? null : <VinylMusicRoot />}
                   {/* easter egg: "It's time" 1×/giorno alla prima pagina, poi stop */}
-                  {!evento && !app ? <ItsTimeIntro /> : null}
-                  <SiteEffects />
+                  {!evento && !bare ? <ItsTimeIntro /> : null}
+                  {!activity ? <SiteEffects /> : null}
                 </EventoChromeProvider>
               </ViewAsProvider>
             </GuildMentionsProvider>

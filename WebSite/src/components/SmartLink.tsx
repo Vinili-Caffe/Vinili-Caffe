@@ -8,6 +8,7 @@ import { useFxCap } from "@/components/effects/DeviceFxProvider";
 import { reportSiteEvent } from "@/lib/site-report";
 import { navProbeSnapshot, startNavProbe } from "@/lib/nav-probe";
 import { stripLocale, useUrlLocale, withLocale } from "@/lib/locale-path";
+import { isDiscordActivity } from "@/lib/discordActivity";
 
 type Props = Omit<ComponentProps<"a">, "href"> & { href: string };
 
@@ -109,7 +110,9 @@ export function SmartLink({ href: rawHref, onClick, onPointerDown, ...rest }: Pr
 
     clearSoftFallback();
 
-    if (isIosInstalledApp()) {
+    /* Attività Discord: un hard reload uccide READY dell'SDK (una sola handshake per iframe). */
+    const inActivity = isDiscordActivity();
+    if (isIosInstalledApp() && !inActivity) {
       e.preventDefault();
       try {
         sessionStorage.setItem("vc-pwa-inapp-nav", String(Date.now()));
@@ -127,6 +130,11 @@ export function SmartLink({ href: rawHref, onClick, onPointerDown, ...rest }: Pr
       sessionStorage.setItem("vc-pwa-inapp-nav", String(Date.now()));
     } catch {
       /* ignore */
+    }
+
+    if (inActivity) {
+      /* Soft-nav only: niente location.assign di fallback */
+      return;
     }
 
     softTickTimer = window.setInterval(() => {

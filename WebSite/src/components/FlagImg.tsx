@@ -1,10 +1,9 @@
 import { LANG_FLAG, LANG_LABEL, flagUrl, type Locale } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 
-/** Bandiera PNG (flagcdn) — leggibile anche su Windows dove le emoji-bandiera collassano in IT/GB. */
+/** Bandiera PNG same-origin (/flags) — leggibile su Windows e nell'Attività Discord. */
 export function FlagImg({ locale, className, size = 40 }: { locale: Locale; className?: string; size?: 20 | 40 | 80 }) {
   return (
-     
     <img
       src={flagUrl(locale, size)}
       alt=""

@@ -104,6 +104,14 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
     const r = await createMusicQuizParty(token, { slug: pack.slug, difficulty, mode });
     setBusy("");
     if (!r.ok) return setErr(r.message);
+    try {
+      const key = "vc_mq_party_joined_v1";
+      const prev = JSON.parse(sessionStorage.getItem(key) || "[]") as string[];
+      const id = r.data.room.roomId;
+      sessionStorage.setItem(key, JSON.stringify([...new Set([...(Array.isArray(prev) ? prev : []), id])]));
+    } catch {
+      /* ignore */
+    }
     router.push(page(`/music-quiz/party/?room=${encodeURIComponent(r.data.room.roomId)}`));
   }
 

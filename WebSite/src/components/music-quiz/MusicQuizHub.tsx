@@ -12,17 +12,21 @@ import { SmartLink } from "@/components/SmartLink";
 import { loadMusicQuizHub, type MusicQuizHubData, type MusicQuizPackCard } from "@/lib/musicQuiz";
 import { MusicQuizSearch } from "./MusicQuizSearch";
 import { ArtistTile, COVER, CoverTile, packHref } from "./QuizTiles";
-
-
+import { isDiscordActivity } from "@/lib/discordActivity";
 
 export function MusicQuizHub() {
   const { token } = useAuth();
   const [hub, setHub] = useState<MusicQuizHubData | null>(null);
   const [err, setErr] = useState("");
+  const [activity, setActivity] = useState(false);
   /* quiz eliminati dal menu «⋮»: spariscono subito da tutte le righe */
   const [removed, setRemoved] = useState<string[]>([]);
   const visible = (list?: MusicQuizPackCard[]) => list?.filter((p) => !removed.includes(p.slug));
   const onDeleted = (slug: string) => setRemoved((r) => [...r, slug]);
+
+  useEffect(() => {
+    setActivity(isDiscordActivity());
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -47,7 +51,7 @@ export function MusicQuizHub() {
   const [top, ...rest] = featured;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-14 px-4 pb-20 pt-24 sm:pt-28">
+    <div className={cn("mx-auto max-w-6xl space-y-14 px-4 pb-20", activity ? "pt-6 sm:pt-8" : "pt-24 sm:pt-28")}>
       {/* ricerca */}
       <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-mocha via-roast to-espresso px-5 py-8 ring-1 ring-sand/15 sm:px-10 sm:py-10">
         <motion.div

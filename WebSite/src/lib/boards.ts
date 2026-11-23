@@ -349,9 +349,14 @@ const LOCALE_COUNTRY: Record<string, string> = {
   eu: "es", gl: "es", is: "is", mt: "mt", lb: "lu", be: "by", mk: "mk", bs: "ba", ta: "in", te: "in", yo: "ng",
 };
 
-export function localeFlagUrl(locale: string, w = 40) {
+export function localeFlagUrl(locale: string, _w = 40) {
   const c = LOCALE_COUNTRY[String(locale || "").toLowerCase()];
-  return c ? `https://flagcdn.com/w${w}/${c}.png` : "";
+  /* Preferisci /flags same-origin (Activity Discord); fallback flagcdn per codici non shippati. */
+  if (!c) return "";
+  const shipped = new Set([
+    "it", "gb", "es", "fr", "de", "br", "ru", "cn", "jp", "kr", "sa", "nl", "pl", "tr", "in", "id", "ua", "vn", "ro", "se",
+  ]);
+  return shipped.has(c) ? `/flags/${c}.png` : `https://flagcdn.com/w40/${c}.png`;
 }
 
 export type ListingActivity = {

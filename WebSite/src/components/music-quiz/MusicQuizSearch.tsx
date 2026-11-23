@@ -16,7 +16,18 @@ export type Hits = { artists: Artist[]; playlists: Playlist[]; quizzes?: Playlis
 const COVER = "/images/logo-disco.png";
 const fmt = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1).replace(".0", "")} mln` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
 
-export function MusicQuizSearch() {
+function slugFromPackHref(href: string) {
+  try {
+    const u = new URL(href, "https://www.viniliecaffe.it");
+    const m = u.pathname.match(/\/music-quiz\/pack\/?$/i);
+    if (!m) return "";
+    return String(u.searchParams.get("slug") || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+export function MusicQuizSearch({ onPickSlug }: { onPickSlug?: (slug: string) => void } = {}) {
   const { token } = useAuth();
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
@@ -103,7 +114,7 @@ export function MusicQuizSearch() {
               <p className="rounded-2xl bg-roast/70 px-4 py-5 text-center text-sm text-crema/60 ring-1 ring-sand/10">Niente trovato. Prova con un altro nome.</p>
             ) : null}
 
-            <SearchResults hits={hits} />
+            <SearchResults hits={hits} onPickSlug={onPickSlug} />
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -111,8 +122,40 @@ export function MusicQuizSearch() {
   );
 }
 
+function PackHit({
+  href,
+  onPickSlug,
+  className,
+  children,
+}: {
+  href: string;
+  onPickSlug?: (slug: string) => void;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (onPickSlug) {
+    return (
+      <button
+        type="button"
+        className={className}
+        onClick={() => {
+          const slug = slugFromPackHref(href);
+          if (slug) onPickSlug(slug);
+        }}
+      >
+        {children}
+      </button>
+    );
+  }
+  return (
+    <SmartLink href={href} className={className}>
+      {children}
+    </SmartLink>
+  );
+}
+
 /** Artisti in una riga che scorre, playlist su due righe: separato per poterlo vedere anche senza ricerca. */
-export function SearchResults({ hits }: { hits: Hits }) {
+export function SearchResults({ hits, onPickSlug }: { hits: Hits; onPickSlug?: (slug: string) => void }) {
   return (
     <>
       {hits.artists.length ? (
@@ -127,14 +170,14 @@ export function SearchResults({ hits }: { hits: Hits }) {
                 transition={{ delay: Math.min(i, 8) * 0.03 }}
                 className="shrink-0 snap-start"
               >
-                <SmartLink href={a.href} className="group block w-24 text-center sm:w-28">
+                <PackHit href={a.href} onPickSlug={onPickSlug} className="group block w-24 text-center sm:w-28">
                   <span className="block aspect-square overflow-hidden rounded-full bg-crema/[0.06] ring-1 ring-sand/15 transition group-hover:ring-2 group-hover:ring-caramel">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={a.cover || COVER} alt="" loading="lazy" className="size-full object-cover transition duration-500 group-hover:scale-105" />
                   </span>
                   <span className="mt-2 block truncate text-sm font-semibold text-crema">{a.name}</span>
                   {a.fans ? <span className="block text-[0.7rem] text-crema/45">{fmt(a.fans)} fan</span> : null}
-                </SmartLink>
+                </PackHit>
               </motion.div>
             ))}
           </QuizCarousel>
@@ -147,10 +190,11 @@ export function SearchResults({ hits }: { hits: Hits }) {
           <QuizCarousel>
             <div className="grid shrink-0 auto-cols-[15.5rem] grid-flow-col grid-rows-2 gap-2.5 sm:auto-cols-[18rem]">
               {hits.quizzes.map((p) => (
-                <SmartLink
+                <PackHit
                   key={p.href}
                   href={p.href}
-                  className="group flex items-center gap-3 rounded-2xl bg-crema/[0.04] p-2 pr-3 ring-1 ring-sand/10 transition hover:bg-crema/[0.08] hover:ring-caramel/40"
+                  onPickSlug={onPickSlug}
+                  className="group flex items-center gap-3 rounded-2xl bg-crema/[0.04] p-2 pr-3 text-left ring-1 ring-sand/10 transition hover:bg-crema/[0.08] hover:ring-caramel/40"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.cover || COVER} alt="" loading="lazy" className="size-14 shrink-0 rounded-xl object-cover" />
@@ -158,7 +202,7 @@ export function SearchResults({ hits }: { hits: Hits }) {
                     <span className="block truncate text-sm font-semibold text-crema">{p.name}</span>
                     <span className="block truncate text-xs text-crema/50">{p.sub || "Quiz"}</span>
                   </span>
-                </SmartLink>
+                </PackHit>
               ))}
             </div>
           </QuizCarousel>
@@ -170,10 +214,11 @@ export function SearchResults({ hits }: { hits: Hits }) {
           <QuizCarousel>
             <div className="grid shrink-0 auto-cols-[15.5rem] grid-flow-col grid-rows-2 gap-2.5 sm:auto-cols-[18rem]">
               {hits.playlists.map((p) => (
-                <SmartLink
+                <PackHit
                   key={p.href}
                   href={p.href}
-                  className="group flex items-center gap-3 rounded-2xl bg-crema/[0.04] p-2 pr-3 ring-1 ring-sand/10 transition hover:bg-crema/[0.08] hover:ring-caramel/40"
+                  onPickSlug={onPickSlug}
+                  className="group flex items-center gap-3 rounded-2xl bg-crema/[0.04] p-2 pr-3 text-left ring-1 ring-sand/10 transition hover:bg-crema/[0.08] hover:ring-caramel/40"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.cover || COVER} alt="" loading="lazy" className="size-14 shrink-0 rounded-xl object-cover" />
@@ -181,7 +226,7 @@ export function SearchResults({ hits }: { hits: Hits }) {
                     <span className="block truncate text-sm font-semibold text-crema">{p.name}</span>
                     <span className="block truncate text-xs text-crema/50">{p.sub || "Playlist"}</span>
                   </span>
-                </SmartLink>
+                </PackHit>
               ))}
             </div>
           </QuizCarousel>

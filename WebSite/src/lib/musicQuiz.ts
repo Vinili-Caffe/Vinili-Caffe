@@ -299,8 +299,41 @@ export type MusicQuizPartyPlayer = {
   correctCount?: number;
 };
 
+export type MusicQuizPartyQueueItem = {
+  id: string;
+  packSlug: string;
+  title: string;
+  cover: string;
+  difficulty: MusicQuizDifficulty;
+};
+
+export type MusicQuizPartySettings = {
+  locked: boolean;
+  chatEnabled: boolean;
+  answerMs: number;
+  autoNext: boolean;
+  presentationMode: boolean;
+  leaderboard: "always" | "end" | "never";
+  queueActive: boolean;
+  queueVisible: "all" | "host";
+  queueAdd: "host" | "all";
+};
+
+/** reazioni con le emoji durante la partita (le stesse accettate dal server) */
+export const MUSIC_QUIZ_PARTY_REACTIONS = ["🔥", "😂", "😮", "👏", "😭", "🎉", "❤️", "🤯"] as const;
+export type MusicQuizPartyReaction = { id: string; userId: string; name: string; emoji: string; at: number };
+
+export type MusicQuizPartyChatMsg = {
+  id: string;
+  userId: string;
+  name: string;
+  text: string;
+  at: number;
+};
+
 export type MusicQuizPartyRoom = {
   roomId: string;
+  roomName?: string;
   hostId: string;
   mode: "party" | "stream";
   packSlug: string;
@@ -313,6 +346,11 @@ export type MusicQuizPartyRoom = {
   clipMs: number;
   answerMs?: number;
   serverNow?: number;
+  maxPlayers?: number;
+  settings?: MusicQuizPartySettings;
+  queue?: MusicQuizPartyQueueItem[];
+  chat?: MusicQuizPartyChatMsg[];
+  reactions?: MusicQuizPartyReaction[];
   players: MusicQuizPartyPlayer[];
   myChoice?: number | null;
   round: MusicQuizRound | null;
@@ -321,9 +359,19 @@ export type MusicQuizPartyRoom = {
   upcoming?: string[];
 };
 
+export const MUSIC_QUIZ_ANSWER_CHOICES_MS = [15_000, 30_000, 45_000, 60_000, 90_000, 120_000] as const;
+
 export async function createMusicQuizParty(
   token: string,
-  body: { slug?: string; source?: string; deezerId?: string; difficulty: MusicQuizDifficulty; mode: "party" | "stream" },
+  body: {
+    slug?: string;
+    source?: string;
+    deezerId?: string;
+    difficulty: MusicQuizDifficulty;
+    mode: "party" | "stream";
+    roomName?: string;
+    displayName?: string;
+  },
 ) {
   return api<{ room: MusicQuizPartyRoom }>("/party", token, { method: "POST", body: JSON.stringify(body) });
 }
@@ -332,16 +380,25 @@ export async function loadMusicQuizParty(token: string, roomId: string) {
   return api<{ room: MusicQuizPartyRoom }>(`/party/${encodeURIComponent(roomId)}`, token);
 }
 
-export async function joinMusicQuizParty(token: string, roomId: string) {
+export async function joinMusicQuizParty(token: string, roomId: string, body?: { displayName?: string }) {
   return api<{ room: MusicQuizPartyRoom }>(`/party/${encodeURIComponent(roomId)}/join`, token, {
     method: "POST",
-    body: "{}",
+    body: JSON.stringify(body || {}),
   });
 }
 
-export async function musicQuizPartyAction(token: string, roomId: string, body: { action: string; choice?: number; ms?: number }) {
+export async function musicQuizPartyAction(
+  token: string,
+  roomId: string,
+  body: Record<string, unknown> & { action: string },
+) {
   return api<{ room: MusicQuizPartyRoom }>(`/party/${encodeURIComponent(roomId)}/action`, token, {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function formatPartyCode(roomId: string) {
+  const d = String(roomId || "").replace(/\D/g, "").padStart(6, "0").slice(-6);
+  return `${d.slice(0, 3)} ${d.slice(3)}`;
 }
