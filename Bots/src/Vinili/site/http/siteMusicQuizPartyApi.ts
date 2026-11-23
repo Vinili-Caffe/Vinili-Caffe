@@ -559,7 +559,7 @@ async function handleMusicQuizPartyCreatePost(client?, req?, res?) {
     const nick = String(body.displayName || "").trim().slice(0, 32);
     const host = player(auth, nick || undefined);
     const roomName =
-      String(body.roomName || "").trim().slice(0, 40) || `${host.displayName}'s Room`;
+      String(body.roomName || "").trim().slice(0, 40) || `La stanza di ${host.displayName}`;
     const roomId = allocRoomId();
     const queueItem: QueueItem = {
       id: crypto.randomBytes(4).toString("hex"),

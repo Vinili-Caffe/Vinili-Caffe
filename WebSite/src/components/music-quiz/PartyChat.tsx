@@ -21,7 +21,7 @@ export function ChatButton({ unread, onClick, className }: { unread: number; onC
     <button
       type="button"
       onClick={onClick}
-      aria-label={unread ? `Chat, ${unread} messaggi nuovi` : "Apri la chat"}
+      aria-label={unread ? `Chat, ${unread} ${unread === 1 ? "messaggio nuovo" : "messaggi nuovi"}` : "Apri la chat"}
       className={cn(
         "relative grid size-14 shrink-0 place-items-center rounded-2xl bg-crema/[0.08] text-crema ring-1 ring-sand/20 backdrop-blur transition hover:bg-crema/[0.14]",
         className,

@@ -298,7 +298,9 @@ function PartyRound({
   );
   const left = useCountdown(serverStart, answerMs, !revealed);
   const [picked, setPicked] = useState<number | null>(room.myChoice ?? null);
-  const answered = room.players.filter((p) => p.hasAnswered).length;
+  /* chi presenta non risponde: non conta */
+  const voters = presentingNow(room) ? room.players.filter((p) => p.userId !== room.hostId) : room.players;
+  const answered = voters.filter((p) => p.hasAnswered).length;
   const canAnswer = !(presenting && isHost);
 
   useEffect(() => {
@@ -318,7 +320,7 @@ function PartyRound({
             Domanda {room.roundIndex + 1} di {room.totalRounds}
           </span>
           <span className="text-sm text-crema/65">
-            {answered} su {room.players.length} hanno risposto
+            {answered} su {voters.length} hanno risposto
           </span>
         </>
       }
@@ -330,6 +332,7 @@ function PartyRound({
           left={revealed ? answerMs : left}
           totalMs={answerMs}
           onReplay={clip.replay}
+          note={hearsClip ? undefined : "Il brano suona dallo schermo di chi presenta."}
         />
       }
     >
@@ -351,9 +354,20 @@ function PartyRound({
           }}
         />
       ) : (
-        <p className="text-sm text-crema/55">
-          {room.mode === "stream" ? "Stai conducendo la diretta: aspetti le risposte degli altri." : "Stai presentando: fai sentire il brano a tutti e aspetta le risposte."}
-        </p>
+        <>
+          {/* chi presenta mostra le risposte sul suo schermo, senza poterle scegliere */}
+          <AnswerGrid
+            options={round.options}
+            disabled
+            picked={null}
+            correctIndex={revealed ? round.correctIndex : null}
+            timedOut={false}
+            onPick={() => {}}
+          />
+          <p className="text-sm text-crema/55">
+            {room.mode === "stream" ? "Stai conducendo la diretta: aspetti le risposte degli altri." : "Stai presentando: fai sentire il brano a tutti e aspetta le risposte."}
+          </p>
+        </>
       )}
 
       {!revealed ? (
@@ -393,6 +407,10 @@ function PartyRound({
       )}
     </GameStage>
   );
+}
+
+function presentingNow(room: Room) {
+  return !!room.settings?.presentationMode || room.mode === "stream";
 }
 
 function Scoreboard({ room, me }: { room: Room; me: string }) {

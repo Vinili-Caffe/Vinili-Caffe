@@ -140,6 +140,7 @@ export function QuizTurntable({
   left,
   totalMs,
   onReplay,
+  note,
 }: {
   cover?: string;
   clip: ClipState;
@@ -147,6 +148,8 @@ export function QuizTurntable({
   left: number;
   totalMs: number;
   onReplay: () => void;
+  /** al posto dello stato del brano (es. in presentazione il brano suona da un altro schermo) */
+  note?: string;
 }) {
   const spinning = clip === "playing";
   const r = 118;
@@ -211,7 +214,11 @@ export function QuizTurntable({
       </div>
 
       <div className="flex min-h-10 items-center gap-3">
-        {clip === "loading" ? (
+        {note ? (
+          <span className="inline-flex items-center gap-2 text-sm text-crema/70">
+            <Headphones className="size-4" aria-hidden /> {note}
+          </span>
+        ) : clip === "loading" ? (
           <span className="inline-flex items-center gap-2 text-sm text-crema/60">
             <Headphones className="size-4 animate-pulse" aria-hidden /> Carico il brano…
           </span>
