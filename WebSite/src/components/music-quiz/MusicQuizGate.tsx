@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { loadStaffAccess } from "@/lib/staff";
+import { loadMusicQuizHub } from "@/lib/musicQuiz";
 import { DISCORD_INVITE, page } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { SmartLink } from "@/components/SmartLink";
 import { isDiscordActivity } from "@/lib/discordActivity";
 import { cn } from "@/lib/cn";
 
-/** High staff only — senza accesso mostra messaggio + CTA. */
+/** Aperto a chi è nel server Discord: senza accesso mostra messaggio + CTA. */
 export function MusicQuizGate({ children }: { children: React.ReactNode }) {
   const { token, ready, login } = useAuth();
   const { t } = useI18n();
@@ -32,13 +32,16 @@ export function MusicQuizGate({ children }: { children: React.ReactNode }) {
     }
     let alive = true;
     const fail = window.setTimeout(() => {
-      if (alive) setState("denied");
+      if (alive) setState("ok");
     }, 12_000);
-    loadStaffAccess(token).then((r) => {
+    /* il server risponde 403 solo a chi non è nel server Discord; un intoppo di rete non chiude fuori */
+    loadMusicQuizHub(token).then((r) => {
       if (!alive) return;
       window.clearTimeout(fail);
-      if (r.ok && r.data.isHighStaff) setState("ok");
-      else setState("denied");
+      if (r.ok) setState("ok");
+      else if (r.status === 401) setState("login");
+      else if (r.status === 403) setState("denied");
+      else setState("ok");
     });
     return () => {
       alive = false;

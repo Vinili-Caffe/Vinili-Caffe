@@ -1,6 +1,6 @@
 /**
  * Music Quiz «In diretta»: chat YouTube (YOUTUBE_API_KEY, API ufficiale) e Kick (API ufficiale, vedi siteMusicQuizKick).
- * Solo lettura, high staff.
+ * Solo lettura, membri del server.
  */
 const { requireMusicQuizHighStaff, sendAuthError } =
   require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");

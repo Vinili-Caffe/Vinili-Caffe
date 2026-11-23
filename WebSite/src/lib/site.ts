@@ -252,7 +252,7 @@ export const NAV_GROUPS: NavGroup[] = [
     links: [
       { labelKey: "nav.confessionale", href: page("/confessionale/"), hintKey: "nav.hint.confessionale" },
       { labelKey: "nav.wordle", href: page("/wordle/"), hintKey: "nav.hint.wordle", isNew: true },
-      { labelKey: "nav.musicQuiz", href: page("/music-quiz/"), hintKey: "nav.hint.musicQuiz", gate: "highStaff", isNew: true },
+      { labelKey: "nav.musicQuiz", href: page("/music-quiz/"), hintKey: "nav.hint.musicQuiz", isNew: true },
       { labelKey: "nav.albero", href: page("/albero/"), hintKey: "nav.hint.albero", gate: "albero" },
       { labelKey: "nav.wrapped", href: page("/wrapped/"), hintKey: "nav.hint.wrapped", gate: "wrapped" },
     ],

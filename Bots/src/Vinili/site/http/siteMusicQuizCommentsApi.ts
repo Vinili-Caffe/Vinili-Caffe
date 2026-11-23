@@ -1,4 +1,4 @@
-/** Music Quiz: commenti sul pack (high staff). */
+/** Music Quiz: commenti sul pack (membri del server). */
 const { requireMusicQuizHighStaff, sendAuthError } =
   require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
 const { SiteDocument, SITE_DOCUMENT_TYPE } =

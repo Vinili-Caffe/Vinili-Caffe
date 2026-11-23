@@ -1,4 +1,4 @@
-/** Client Music Quiz → `/webhooks/site-music-quiz/*` (high staff). */
+/** Client Music Quiz → `/webhooks/site-music-quiz/*` (membri del server Discord). */
 
 type Res<T> = { ok: true; data: T } | { ok: false; message: string; status?: number; error?: string };
 
