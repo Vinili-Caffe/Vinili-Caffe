@@ -28,7 +28,6 @@ import { EVENTO_CHROME_BYPASS } from "@/lib/evento-starwars";
 import { SiteMotionRoot } from "./motion/SiteMotionRoot";
 import { GuildMentionsProvider } from "./GuildMentionsProvider";
 import { isDiscordActivity } from "@/lib/discordActivity";
-import { ActivityChrome } from "./music-quiz/ActivityChrome";
 
 function RichScrollProgress() {
   const { caps } = useDeviceFx();
@@ -121,7 +120,6 @@ export function SiteShell({
                   {!activity ? <ApiOutageBanner /> : null}
                   {activity ? (
                     <>
-                      <ActivityChrome />
                       <main className="min-h-dvh bg-espresso text-crema">{children}</main>
                     </>
                   ) : app ? (

@@ -922,3 +922,8 @@ html[data-vc-evento="1"][data-vc-theme="light"] .scheme-dark {
     height: auto !important;
   }
 }
+
+/* Attività di Discord: la finestra è piccola (chiamata, telefono), tutto un po' più compatto */
+html[data-vc-activity="1"] {
+  font-size: 14px;
+}

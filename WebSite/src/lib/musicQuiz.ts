@@ -371,9 +371,16 @@ export async function createMusicQuizParty(
     mode: "party" | "stream";
     roomName?: string;
     displayName?: string;
+    /** Attività di Discord: la stanza è quella della chiamata */
+    activityInstanceId?: string;
   },
 ) {
-  return api<{ room: MusicQuizPartyRoom }>("/party", token, { method: "POST", body: JSON.stringify(body) });
+  return api<{ room: MusicQuizPartyRoom; joined?: boolean }>("/party", token, { method: "POST", body: JSON.stringify(body) });
+}
+
+/** la partita della chiamata di Discord in cui è aperta l'Attività */
+export async function loadActivityMusicQuizParty(token: string, instanceId: string) {
+  return api<{ room: MusicQuizPartyRoom | null }>(`/party/activity/${encodeURIComponent(instanceId)}`, token);
 }
 
 export async function loadMusicQuizParty(token: string, roomId: string) {

@@ -86,6 +86,22 @@ type PartyRoom = {
 };
 
 const rooms = new Map<string, PartyRoom>();
+/** Attività di Discord: una stanza per chiamata (instance_id dell'Attività → codice stanza) */
+const activityRooms = new Map<string, string>();
+
+function cleanInstanceId(raw: unknown) {
+  return String(raw || "").trim().replace(/[^\w:-]/g, "").slice(0, 100);
+}
+
+function activityRoom(instanceId: string): PartyRoom | null {
+  const id = activityRooms.get(instanceId);
+  const room = id ? rooms.get(id) : undefined;
+  if (!room) {
+    activityRooms.delete(instanceId);
+    return null;
+  }
+  return room;
+}
 
 function defaultSettings(): PartySettings {
   return {
@@ -110,6 +126,7 @@ function pruneRooms() {
       rooms.delete(id);
     }
   }
+  for (const [inst, id] of activityRooms) if (!rooms.has(id)) activityRooms.delete(inst);
 }
 
 function allocRoomId(): string {
@@ -293,6 +310,22 @@ async function handleMusicQuizPartyCreatePost(client?, req?, res?) {
   try {
     pruneRooms();
     const body = req.body || {};
+    const instanceId = cleanInstanceId(body.activityInstanceId);
+    /* nella chiamata c'è già una partita: si entra in quella e il quiz scelto va in coda */
+    const already = instanceId ? activityRoom(instanceId) : null;
+    if (already && already.status !== "finished") {
+      if (!already.players.some((p) => p.userId === auth.userId)) {
+        if ((already.kicked || []).includes(auth.userId)) {
+          return res.status(403).json({ ok: false, error: "kicked", message: "L'host ti ha tolto dalla partita di questa chiamata." });
+        }
+        if (already.players.length >= already.maxPlayers) {
+          return res.status(400).json({ ok: false, error: "full", message: "La partita di questa chiamata è piena." });
+        }
+        already.players.push(player(auth));
+      }
+      broadcastSiteMusicQuizParty(already.roomId, "join");
+      return res.json({ ok: true, joined: true, room: publicRoom(already, auth.userId) });
+    }
     let slug = String(body.slug || body.packSlug || "").trim();
     const source = String(body.source || "").trim();
     const deezerId = String(body.deezerId || "").trim();
@@ -350,6 +383,7 @@ async function handleMusicQuizPartyCreatePost(client?, req?, res?) {
       autoNextTimer: null,
     };
     rooms.set(roomId, room);
+    if (instanceId) activityRooms.set(instanceId, roomId);
     broadcastSiteMusicQuizParty(roomId, "created");
     return res.json({ ok: true, room: publicRoom(room, auth.userId) });
   } catch (err: any) {
@@ -366,6 +400,15 @@ async function handleMusicQuizPartyGet(client?, req?, res?) {
   const limit = room.settings.answerMs || ANSWER_MS;
   if (room.status === "playing" && Date.now() > room.roundStartedAt + limit + GRACE_MS) reveal(room);
   return res.json({ ok: true, room: publicRoom(room, auth.userId) });
+}
+
+/** la partita della chiamata di Discord in cui è aperta l'Attività (null se non ce n'è una) */
+async function handleMusicQuizPartyActivityGet(client?, req?, res?) {
+  const auth = await requireMusicQuizHighStaff(client, req);
+  if (sendAuthError(res, auth) || !auth.ok) return;
+  const instanceId = cleanInstanceId(req.params?.instanceId);
+  const room = instanceId ? activityRoom(instanceId) : null;
+  return res.json({ ok: true, room: room ? publicRoom(room, auth.userId) : null });
 }
 
 async function handleMusicQuizPartyJoinPost(client?, req?, res?) {
@@ -663,6 +706,7 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
 export = {
   handleMusicQuizPartyCreatePost,
   handleMusicQuizPartyGet,
+  handleMusicQuizPartyActivityGet,
   handleMusicQuizPartyJoinPost,
   handleMusicQuizPartyActionPost,
 };

@@ -246,6 +246,22 @@ async function authorizeCode(sdk: Sdk, mode: "none" | "consent", pkce: { challen
  */
 export function activityAuth(opts?: ActivityAuthOpts): Promise<ActivityAuthResult> {
   if (opts?.force) authPromise = null;
+  /* Già entrato in questa Attività: se la pagina si ricarica (cambio pagina, aggiornamento del sito) l'SDK
+     non risponde più e si finiva su «Caricamento…» e poi «Accedi». Il token salvato basta per il sito:
+     si usa subito e l'SDK si ricollega in sottofondo solo per lo stato «Sta giocando a…». */
+  if (!opts?.force && !authPromise) {
+    const saved = savedSession();
+    if (saved) {
+      authPromise = Promise.resolve(saved);
+      void getSdk()
+        .then(async (sdk) => {
+          await withTimeout(sdk.commands.authenticate({ access_token: saved.token }), 8_000, "authenticate").catch(() => null);
+          startPresenceBridge(sdk);
+        })
+        .catch(() => {});
+      return authPromise;
+    }
+  }
   if (!authPromise) {
     authPromise = (async () => {
       try {
@@ -298,6 +314,38 @@ export function activityAuth(opts?: ActivityAuthOpts): Promise<ActivityAuthResul
     })();
   }
   return authPromise;
+}
+
+function savedSession(): { token: string; user: DiscordUser } | null {
+  const token = ssGet(TOKEN_KEY);
+  const raw = ssGet(USER_KEY);
+  if (!token || !raw) return null;
+  try {
+    const user = JSON.parse(raw) as DiscordUser;
+    return user?.id ? { token, user } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** la chiamata (istanza dell'Attività) in cui si gioca: chi la apre nella stessa chiamata ha lo stesso id */
+export function activityInstanceId(): string | null {
+  if (!isDiscordActivity()) return null;
+  const fromUrl = new URLSearchParams(window.location.search).get("instance_id");
+  if (fromUrl) return fromUrl;
+  const saved = ssGet("vc_activity_qs");
+  return saved ? new URLSearchParams(saved).get("instance_id") : null;
+}
+
+/** apre la finestra di Discord per invitare amici nell'Attività */
+export async function activityInvite(): Promise<boolean> {
+  try {
+    const sdk = await getSdk();
+    await sdk.commands.openInviteDialog();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function finish(sdk: Sdk, token: string, raw: DiscordUser): { token: string; user: DiscordUser } {

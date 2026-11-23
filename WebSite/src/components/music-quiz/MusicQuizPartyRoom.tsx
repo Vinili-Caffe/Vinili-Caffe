@@ -51,7 +51,8 @@ export function MusicQuizPartyRoom({ roomId }: { roomId: string }) {
   const { token, user } = useAuth();
   const router = useRouter();
   const [room, setRoom] = useState<Room | null>(null);
-  const [entered, setEntered] = useState(() => joinedSet().has(roomId));
+  /* dentro Discord si entra subito con il proprio nome: niente schermata «Entra» */
+  const [entered, setEntered] = useState(() => joinedSet().has(roomId) || isDiscordActivity());
   const upcomingKey = (room?.upcoming || []).join("|");
   useEffect(() => {
     if (upcomingKey) preloadClips(upcomingKey.split("|"));

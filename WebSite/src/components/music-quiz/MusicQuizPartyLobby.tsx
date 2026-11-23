@@ -22,12 +22,13 @@ import {
   Share2,
   Timer,
   Trash2,
+  UserPlus,
   UserX,
   Users,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { isDiscordActivity } from "@/lib/discordActivity";
+import { activityInvite, isDiscordActivity } from "@/lib/discordActivity";
 import {
   formatPartyCode,
   MUSIC_QUIZ_ANSWER_CHOICES_MS,
@@ -69,6 +70,8 @@ export function MusicQuizPartyLobby({
   onLeave: () => void;
 }) {
   const isHost = room.hostId === me;
+  const [inCall, setInCall] = useState(false);
+  useEffect(() => setInCall(isDiscordActivity()), []);
   const settings = room.settings || DEFAULT_SETTINGS;
   const queue = room.queue || [];
   const head = queue[0];
@@ -127,7 +130,7 @@ export function MusicQuizPartyLobby({
   }
 
   return (
-    <div className={cn("mx-auto max-w-3xl space-y-4 px-4 pb-40", isDiscordActivity() ? "pt-6" : "pt-24 sm:pt-28")}>
+    <div className={cn("mx-auto max-w-3xl space-y-4 px-4 pb-40", inCall ? "pt-4" : "pt-24 sm:pt-28")}>
       {/* intestazione a strisce */}
       <header
         className="flex items-center gap-3 rounded-3xl px-4 py-3.5 text-ink shadow-[0_18px_40px_-22px_rgba(0,0,0,0.9)] sm:px-5"
@@ -181,7 +184,22 @@ export function MusicQuizPartyLobby({
         </button>
       </header>
 
-      {/* codice della stanza */}
+      {/* codice della stanza (dentro Discord: invito nella chiamata) */}
+      {inCall ? (
+        <Card className="flex flex-col items-center gap-3 sm:flex-row">
+          <div className="min-w-0 flex-1 text-center sm:text-left">
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-crema/45">Partita della chiamata</p>
+            <p className="text-sm text-crema/70">Chi apre il Music Quiz in questa chiamata entra da solo. Per gli altri c'è l'invito di Discord.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void activityInvite()}
+            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-[#5865F2] px-5 text-sm font-bold text-white transition hover:brightness-110"
+          >
+            <UserPlus className="size-4" aria-hidden /> Invita su Discord
+          </button>
+        </Card>
+      ) : (
       <Card className="flex flex-col items-center gap-4 sm:flex-row">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qrSrc} alt="QR per entrare nella stanza" className="size-20 shrink-0 rounded-xl bg-crema p-1" />
@@ -203,6 +221,7 @@ export function MusicQuizPartyLobby({
           </PillButton>
         </div>
       </Card>
+      )}
 
       {/* prossimo gioco */}
       <Card className="flex items-center gap-4">

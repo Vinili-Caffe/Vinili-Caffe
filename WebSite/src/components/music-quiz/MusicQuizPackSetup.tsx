@@ -6,6 +6,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, Play, Radio, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { activityInstanceId } from "@/lib/discordActivity";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { preloadClips } from "@/lib/clipCache";
@@ -60,6 +61,8 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
   const [run, setRun] = useState(0);
   /* «In diretta»: la chat della live risponde con 1-4 */
   const [streaming, setStreaming] = useState(false);
+  const [inCall, setInCall] = useState(false);
+  useEffect(() => setInCall(!!activityInstanceId()), []);
   useSitePresence(pack ? { details: `Music Quiz · ${pack.title}`, state: "Sceglie come giocare", image: pack.cover, imageText: pack.title } : null);
 
   useEffect(() => {
@@ -101,7 +104,9 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
     if (!token || !pack || busy) return;
     setBusy(mode);
     setErr("");
-    const r = await createMusicQuizParty(token, { slug: pack.slug, difficulty, mode });
+    /* dentro Discord la stanza è quella della chiamata: se c'è già una partita si entra lì */
+    const instance = activityInstanceId();
+    const r = await createMusicQuizParty(token, { slug: pack.slug, difficulty, mode, ...(instance ? { activityInstanceId: instance } : {}) });
     setBusy("");
     if (!r.ok) return setErr(r.message);
     try {
@@ -231,7 +236,10 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
             </motion.button>
 
             <div className="grid grid-cols-2 gap-2.5">
-              <ModeCard icon={<Users className="size-4" aria-hidden />} title="Con gli amici" hint="Link d'invito, rispondete insieme" busy={busy === "party"} disabled={!pack || Boolean(busy)} onClick={() => void startRoom("party")} />
+              <ModeCard
+                icon={<Users className="size-4" aria-hidden />}
+                title={inCall ? "Con la chiamata" : "Con gli amici"}
+                hint={inCall ? "Chi è nella chiamata entra con un tocco" : "Link d'invito, rispondete insieme"} busy={busy === "party"} disabled={!pack || Boolean(busy)} onClick={() => void startRoom("party")} />
               <ModeCard icon={<Radio className="size-4" aria-hidden />} title="In diretta" hint="La chat della tua live risponde con 1, 2, 3, 4" busy={false} disabled={!pack || Boolean(busy)} onClick={() => { setStreaming(true); window.scrollTo({ top: 0 }); }} />
             </div>
             {err && pack ? <p className="text-sm text-ember">{err}</p> : null}

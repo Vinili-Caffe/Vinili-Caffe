@@ -13,6 +13,7 @@ import { loadMusicQuizHub, type MusicQuizHubData, type MusicQuizPackCard } from 
 import { MusicQuizSearch } from "./MusicQuizSearch";
 import { ArtistTile, COVER, CoverTile, packHref } from "./QuizTiles";
 import { isDiscordActivity } from "@/lib/discordActivity";
+import { ActivityCallParty } from "./ActivityCallParty";
 
 export function MusicQuizHub() {
   const { token } = useAuth();
@@ -51,9 +52,10 @@ export function MusicQuizHub() {
   const [top, ...rest] = featured;
 
   return (
-    <div className={cn("mx-auto max-w-6xl space-y-14 px-4 pb-20", activity ? "pt-6 sm:pt-8" : "pt-24 sm:pt-28")}>
+    <div className={cn("mx-auto max-w-6xl px-4 pb-20", activity ? "space-y-8 pt-4" : "space-y-14 pt-24 sm:pt-28")}>
+      {activity ? <ActivityCallParty /> : null}
       {/* ricerca */}
-      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-mocha via-roast to-espresso px-5 py-8 ring-1 ring-sand/15 sm:px-10 sm:py-10">
+      <section className={cn("relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-mocha via-roast to-espresso ring-1 ring-sand/15", activity ? "px-5 py-5 sm:px-7 sm:py-6" : "px-5 py-8 sm:px-10 sm:py-10")}>
         <motion.div
           aria-hidden
           animate={{ rotate: 360 }}
