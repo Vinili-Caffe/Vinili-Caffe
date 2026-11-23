@@ -33,9 +33,13 @@ function parseKickSlug(raw: string) {
 let lastYoutubeProblem = "";
 function youtubeProblem(reason: string) {
   if (/keyInvalid|API_KEY_INVALID|badRequest/i.test(reason)) return "La chiave di YouTube non è valida.";
-  if (/accessNotConfigured|SERVICE_DISABLED|forbidden/i.test(reason)) return "Nel progetto Google della chiave non è attiva la YouTube Data API v3.";
+  if (/accessNotConfigured|SERVICE_DISABLED/i.test(reason)) return "Nel progetto Google della chiave non è attiva la YouTube Data API v3.";
   if (/quota/i.test(reason)) return "YouTube ha esaurito la quota di oggi: riprova domani.";
-  if (/ipRefererBlocked|REFERRER_BLOCKED|IP_ADDRESS_BLOCKED|API_KEY_SERVICE_BLOCKED/i.test(reason)) return "La chiave di YouTube è limitata ad altri siti o indirizzi: va permesso anche il server.";
+  if (/ipRefererBlocked|REFERRER_BLOCKED|IP_ADDRESS_BLOCKED/i.test(reason)) return "La chiave di YouTube è limitata ad altri siti o indirizzi: va permesso anche il server.";
+  if (/API_KEY_SERVICE_BLOCKED/i.test(reason)) return "La chiave di YouTube è limitata ad altre API: va aggiunta la YouTube Data API v3.";
+  if (/forbidden|PERMISSION_DENIED|ACCESS_DENIED/i.test(reason)) {
+    return "YouTube rifiuta la chiave: nel progetto Google controlla che la YouTube Data API v3 sia attiva e che la chiave possa usarla.";
+  }
   return "";
 }
 
@@ -46,7 +50,8 @@ async function ytJson(url: URL) {
     const body: any = res ? await res.json().catch(() => null) : null;
     const reason = [body?.error?.errors?.[0]?.reason, body?.error?.status, ...(body?.error?.details || []).map((d: any) => d?.reason)].filter(Boolean).join(",");
     lastYoutubeProblem = youtubeProblem(reason);
-    global.logger?.warn?.(`[music-quiz] youtube api ${err} ${reason}`.trim());
+    /* quale chiamata (senza la chiave): videos, search, channels o liveChat/messages */
+    global.logger?.warn?.(`[music-quiz] youtube api ${url.pathname.replace("/youtube/v3/", "")} ${err} ${reason}`.trim());
     return { ok: false as const, error: err, data: null as any };
   }
   lastYoutubeProblem = "";

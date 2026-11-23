@@ -69,11 +69,29 @@ export async function kickBroadcaster(slug: string): Promise<{ id: number; live:
   if (!id) return null;
   const out = { at: Date.now(), id, live: Boolean(ch?.stream?.is_live) };
   channelCache.set(slug, out);
+  global.logger?.info?.(`[kick] canale ${slug} = ${id} (${out.live ? "in diretta" : "offline"})`);
   return out;
+}
+
+/* Le iscrizioni restano su Kick anche quando site-api si riavvia, ma la lista in memoria si perde:
+   al primo uso dopo un riavvio si cancellano tutte quelle dell'app. Chi sta giocando si riiscrive da solo
+   alla lettura successiva; così non se ne accumulano verso il limite di 1.000 e non arrivano messaggi inutili. */
+let startupCleanup: Promise<void> | null = null;
+function cleanupOldSubscriptions() {
+  if (!startupCleanup) {
+    startupCleanup = (async () => {
+      const list = await kickApi("/events/subscriptions").catch(() => null);
+      const old = (Array.isArray(list?.data?.data) ? list!.data.data : []).filter((s: any) => s?.id && s?.event === EVENT);
+      for (const s of old) await kickApi(`/events/subscriptions?id=${encodeURIComponent(String(s.id))}`, { method: "DELETE" }).catch(() => null);
+      global.logger?.info?.(`[kick] riavvio: cancellate ${old.length} iscrizioni vecchie`);
+    })().catch(() => {});
+  }
+  return startupCleanup;
 }
 
 /** l'app è iscritta alla chat di quel canale? se no si iscrive */
 export async function ensureChatSubscription(broadcasterId: number) {
+  await cleanupOldSubscriptions();
   const known = subs.get(broadcasterId);
   if (known) {
     known.lastUsed = Date.now();
@@ -85,6 +103,7 @@ export async function ensureChatSubscription(broadcasterId: number) {
   );
   if (existing?.id) {
     subs.set(broadcasterId, { id: String(existing.id), lastUsed: Date.now() });
+    global.logger?.info?.(`[kick] chat di ${broadcasterId}: iscrizione già attiva`);
     return String(existing.id);
   }
   const created = await kickApi("/events/subscriptions", {
