@@ -35,10 +35,8 @@ export function MusicQuizComments({ slug }: { slug: string }) {
   }
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-[0.75rem] font-semibold uppercase tracking-[0.14em] text-crema/45">
-        {t("musicQuiz.comments")}
-      </h2>
+    <section className="space-y-4">
+      <h2 className="font-display text-3xl font-semibold text-crema">{t("musicQuiz.comments")}</h2>
       <div className="flex gap-2">
         <input
           value={text}

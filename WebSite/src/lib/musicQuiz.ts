@@ -53,6 +53,9 @@ export type MusicQuizPackCard = {
   tags?: string[];
   visibility?: "public" | "unlisted";
   anonymous?: boolean;
+  /** quiz creato da chi guarda: si può modificare ed eliminare */
+  mine?: boolean;
+  customCover?: boolean;
 };
 
 export type MusicQuizTrack = {
@@ -111,7 +114,13 @@ export async function searchMusicQuiz(token: string, q: string) {
 }
 
 export async function loadMusicQuizPack(token: string, slug: string) {
-  return api<{ pack: MusicQuizPackCard & { tracks?: MusicQuizTrack[]; community?: boolean; createdBy?: string } }>(
+  return api<{
+    pack: MusicQuizPackCard & {
+      tracks?: Array<MusicQuizTrack & { start?: number; answer?: string; wrong?: string[] }>;
+      community?: boolean;
+      createdBy?: string;
+    };
+  }>(
     `/pack/${encodeURIComponent(slug)}`,
     token,
   );
@@ -125,12 +134,52 @@ export async function importPlaylistLink(token: string, url: string) {
   );
 }
 
+/** Quiz da proporre sotto un quiz: quelli della community simili e artisti simili. */
+export async function loadSimilarQuizzes(token: string, slug: string) {
+  return api<{ items: MusicQuizPackCard[] }>(`/similar/${encodeURIComponent(slug)}`, token);
+}
+
+const artistTitlesCache = new Map<string, string[]>();
+/** Titoli dei brani più ascoltati di un artista (per le risposte sbagliate). */
+export async function loadArtistTitles(token: string, artistId: string): Promise<string[]> {
+  const hit = artistTitlesCache.get(artistId);
+  if (hit) return hit;
+  const r = await api<{ titles: string[] }>(`/artist-titles/${encodeURIComponent(artistId)}`, token);
+  const titles = r.ok ? r.data.titles || [] : [];
+  if (titles.length) artistTitlesCache.set(artistId, titles);
+  return titles;
+}
+
 export async function resolveArtistPack(token: string, id: string) {
   return api<{ pack: MusicQuizPackCard }>(`/artist/${encodeURIComponent(id)}`, token);
 }
 
 export async function resolvePlaylistPack(token: string, id: string) {
   return api<{ pack: MusicQuizPackCard }>(`/playlist/${encodeURIComponent(id)}`, token);
+}
+
+export type MusicQuizPackBody = {
+    title: string;
+    tracks: MusicQuizTrack[];
+    coverImage?: string;
+    removeCover?: boolean;
+    description?: string;
+    language?: string;
+    languages?: string[];
+    category?: string;
+    tags?: string[];
+    visibility?: "public" | "unlisted";
+    anonymous?: boolean;
+};
+
+/** Modifica completa di un proprio quiz (il link resta lo stesso). */
+export async function updateMusicQuizPack(token: string, slug: string, body: MusicQuizPackBody) {
+  return api<{ pack: MusicQuizPackCard }>(`/pack/${encodeURIComponent(slug)}`, token, { method: "PUT", body: JSON.stringify(body) });
+}
+
+/** Elimina un proprio quiz e la sua classifica. */
+export async function deleteMusicQuizPack(token: string, slug: string) {
+  return api<{ ok: true }>(`/pack/${encodeURIComponent(slug)}`, token, { method: "DELETE" });
 }
 
 export async function createMusicQuizPack(

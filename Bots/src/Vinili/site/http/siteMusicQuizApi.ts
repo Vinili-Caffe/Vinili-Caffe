@@ -129,7 +129,7 @@ async function handleMusicQuizSearchGet(client?, req?, res?) {
         "payload.visibility": { $ne: "unlisted" },
         $or: [{ title: rx }, { "payload.tags": rx }, { "payload.category": rx }],
       })
-        .select("boardSlug title boardIconUrl authorName payload.plays payload.anonymous payload.category payload.tracks.id")
+        .select("boardSlug title boardIconUrl authorName userId payload.plays payload.anonymous payload.category payload.tracks.id")
         .sort({ "payload.plays": -1 })
         .limit(10)
         .lean()
@@ -143,6 +143,8 @@ async function handleMusicQuizSearchGet(client?, req?, res?) {
       trackCount: Array.isArray(p.payload?.tracks) ? p.payload.tracks.length : 0,
       category: String(p.payload?.category || ""),
       authorName: p.payload?.anonymous ? "" : String(p.authorName || ""),
+      kind: "community",
+      ...(String(p.userId || "") === String((auth as any).userId || "") ? { mine: true } : {}),
     }));
     return res.json({ ok: true, artists, playlists, tracks, quizzes: quizCards });
   } catch (err: any) {
@@ -155,7 +157,7 @@ async function handleMusicQuizHubGet(client?, req?, res?) {
   const auth = await requireMusicQuizHighStaff(client, req);
   if (sendAuthError(res, auth)) return;
   try {
-    const hub = await buildMusicQuizHub();
+    const hub = await buildMusicQuizHub((auth as any).userId);
     return res.json({ ok: true, ...hub, community: hub.communityNew });
   } catch (err: any) {
     global.logger?.warn?.("[music-quiz] hub:", err?.message || err);
@@ -185,6 +187,45 @@ async function handleMusicQuizArtistGet(client?, req?, res?) {
     });
   } catch (err: any) {
     return res.status(502).json({ ok: false, error: "deezer_error", message: String(err?.message || "") });
+  }
+}
+
+/** Quiz simili da mostrare sotto un quiz. */
+async function handleMusicQuizSimilarGet(client?, req?, res?) {
+  const auth = await requireMusicQuizHighStaff(client, req);
+  if (sendAuthError(res, auth)) return;
+  try {
+    const slug = String(req.params?.slug || "").trim();
+    if (!slug || slug.length > 120) return res.status(400).json({ ok: false, error: "bad_slug" });
+    const { buildSimilar } = require("./siteMusicQuizHub") as typeof import("./siteMusicQuizHub");
+    const { withMine } = require("./siteMusicQuizHub") as typeof import("./siteMusicQuizHub");
+    return res.json({ ok: true, items: withMine(await buildSimilar(slug), (auth as any).userId) });
+  } catch (err: any) {
+    global.logger?.warn?.("[music-quiz] similar:", err?.message || err);
+    return res.json({ ok: true, items: [] });
+  }
+}
+
+/** Titoli dei brani più ascoltati di un artista: per riempire le risposte sbagliate quando si crea un quiz. */
+async function handleMusicQuizArtistTitlesGet(client?, req?, res?) {
+  const auth = await requireMusicQuizHighStaff(client, req);
+  if (sendAuthError(res, auth)) return;
+  try {
+    const id = String(req.params?.id || "").trim();
+    if (!/^\d{1,15}$/.test(id)) return res.status(400).json({ ok: false, error: "bad_id" });
+    const tracks = await deezer.artistTopTracks(id, 50);
+    const seen = new Set<string>();
+    const titles: string[] = [];
+    for (const t of tracks) {
+      /* «Titolo (Live)» e «Titolo» sono lo stesso brano */
+      const k = String(t.title || "").toLowerCase().replace(/\s*[([].*?[)\]]/g, "").trim();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      titles.push(String(t.title));
+    }
+    return res.json({ ok: true, titles });
+  } catch (err: any) {
+    return res.status(502).json({ ok: false, error: "deezer_error", message: "Deezer non risponde, riprova." });
   }
 }
 
@@ -403,6 +444,8 @@ export = {
   handleMusicQuizHubGet,
   handleMusicQuizArtistGet,
   handleMusicQuizPlaylistGet,
+  handleMusicQuizArtistTitlesGet,
+  handleMusicQuizSimilarGet,
   handleMusicQuizSessionStartPost,
   handleMusicQuizSessionAnswerPost,
   handleMusicQuizSessionFinishPost,

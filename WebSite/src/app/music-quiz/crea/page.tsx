@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { SiteShell } from "@/components/SiteShell";
@@ -23,7 +24,9 @@ export default function MusicQuizCreatePage() {
     <SiteShell>
       <DiscordComponentEmbed path="/music-quiz/crea/" title="Crea Music Quiz" description="Quiz community." />
       <MusicQuizGate>
-        <MusicQuizCreate />
+        <Suspense fallback={null}>
+          <MusicQuizCreate />
+        </Suspense>
       </MusicQuizGate>
     </SiteShell>
   );

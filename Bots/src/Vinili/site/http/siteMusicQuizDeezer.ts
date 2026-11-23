@@ -195,7 +195,17 @@ async function genreArtists(genreId?, limit = 14) {
     .filter((a?) => a.id && a.name);
 }
 
+/** Artisti simili secondo Deezer. */
+async function relatedArtists(artistId?, limit = 12) {
+  const data = await deezerGet(`/artist/${encodeURIComponent(String(artistId))}/related`, { limit });
+  const list = Array.isArray(data?.data) ? data.data : [];
+  return list
+    .map((a?) => ({ id: String(a?.id || ""), name: String(a?.name || ""), cover: String(a?.picture_big || a?.picture_medium || ""), kind: "artist" as const }))
+    .filter((a?) => a.id && a.name);
+}
+
 export = {
+  relatedArtists,
   playlistArtists,
   bestPlaylist,
   genreArtists,

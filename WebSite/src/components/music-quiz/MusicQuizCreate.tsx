@@ -1,19 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, Check, ListMusic, Loader2, Pause, Play, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ListMusic, Loader2, Pause, Play, Plus, Search, Trash2 } from "lucide-react";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
 import { SmartLink } from "@/components/SmartLink";
-import { createMusicQuizPack, importPlaylistLink, searchMusicQuiz, type MusicQuizTrack } from "@/lib/musicQuiz";
+import { createMusicQuizPack, importPlaylistLink, loadMusicQuizPack, searchMusicQuiz, updateMusicQuizPack, type MusicQuizTrack } from "@/lib/musicQuiz";
 import { DEFAULT_SETTINGS, MusicQuizSettings, type QuizSettings } from "./MusicQuizSettings";
 import { QuestionEditor, asQuestion, isCustomized, type QuizQuestion } from "./QuestionEditor";
 
-const MAX_TRACKS = 40;
-const MIN_TRACKS = 4;
+const MAX_TRACKS = 20;
+const MIN_TRACKS = 5;
 
 /** cosa mostra il riquadro grande: l'editor di una domanda, la ricerca (per aggiungere o cambiare un brano) o l'import */
 type Panel = { kind: "edit"; id: string } | { kind: "add" } | { kind: "replace"; id: string } | { kind: "import" };
@@ -22,11 +22,51 @@ export function MusicQuizCreate() {
   const { token, user } = useAuth();
   const router = useRouter();
   const [settings, setSettings] = useState<QuizSettings>(DEFAULT_SETTINGS);
+  /* prima si imposta il quiz, poi si aggiungono le domande */
+  const [step, setStep] = useState<"details" | "questions">("details");
   const [title, setTitle] = useState("");
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [panel, setPanel] = useState<Panel>({ kind: "add" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  /* ?edit=slug: si modifica un proprio quiz invece di crearne uno */
+  const editSlug = String(useSearchParams().get("edit") || "").trim();
+  const [loadingEdit, setLoadingEdit] = useState(Boolean(editSlug));
+  const [editErr, setEditErr] = useState("");
+
+  useEffect(() => {
+    if (!editSlug || !token) return;
+    let alive = true;
+    void loadMusicQuizPack(token, editSlug).then((r) => {
+      if (!alive) return;
+      setLoadingEdit(false);
+      if (!r.ok) return setEditErr(r.message);
+      const p = r.data.pack;
+      if (!p.mine) return setEditErr("Puoi modificare solo i quiz che hai creato tu.");
+      setTitle(p.title || "");
+      setSettings({
+        ...DEFAULT_SETTINGS,
+        coverUrl: p.customCover ? p.cover || "" : "",
+        description: p.description || "",
+        language: p.language || "it",
+        languages: p.languages || [],
+        category: p.category || "general",
+        tags: p.tags || [],
+        visibility: p.visibility === "unlisted" ? "unlisted" : "public",
+        anonymous: Boolean(p.anonymous),
+      });
+      const qs = (p.tracks || []).map((t) => {
+        const wrong = [...(t.wrong || [])];
+        while (wrong.length < 3) wrong.push("");
+        return { ...t, start: Number(t.start || 0), answer: t.answer || "", wrong: wrong.slice(0, 3) } as QuizQuestion;
+      });
+      setQuestions(qs);
+      if (qs[0]) setPanel({ kind: "edit", id: qs[0].id });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [editSlug, token]);
 
   const current = panel.kind === "edit" ? questions.find((q) => q.id === panel.id) : undefined;
 
@@ -68,7 +108,10 @@ export function MusicQuizCreate() {
       answer: q.answer.trim(),
       wrong: q.wrong.map((w) => w.trim()).filter(Boolean),
     }));
-    const r = await createMusicQuizPack(token, { title: title.trim(), tracks, ...settings });
+    const { coverUrl: _keep, ...rest } = settings;
+    void _keep;
+    const body = { title: title.trim(), tracks, ...rest };
+    const r = editSlug ? await updateMusicQuizPack(token, editSlug, body) : await createMusicQuizPack(token, body);
     setBusy(false);
     if (!r.ok) return setErr(r.message);
     router.push(page(`/music-quiz/pack/?slug=${encodeURIComponent(r.data.pack.slug)}`));
@@ -86,9 +129,13 @@ export function MusicQuizCreate() {
         className="w-full rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
       >
         {busy
-          ? "Pubblico…"
+          ? editSlug
+            ? "Salvo…"
+            : "Pubblico…"
           : ready
-            ? "Pubblica il quiz"
+            ? editSlug
+              ? "Salva le modifiche"
+              : "Pubblica il quiz"
             : questions.length < MIN_TRACKS
               ? `Mancano ${MIN_TRACKS - questions.length} ${MIN_TRACKS - questions.length === 1 ? "brano" : "brani"}`
               : "Scrivi un nome"}
@@ -97,25 +144,74 @@ export function MusicQuizCreate() {
     </>
   );
 
+  if (editSlug && (loadingEdit || editErr)) {
+    return (
+      <div className="mx-auto max-w-lg px-4 pb-20 pt-32 text-center">
+        {editErr ? (
+          <>
+            <p className="text-ember">{editErr}</p>
+            <SmartLink href={page("/music-quiz/")} className="mt-4 inline-block text-sm font-semibold text-caramel">
+              Torna ai quiz
+            </SmartLink>
+          </>
+        ) : (
+          <Loader2 className="mx-auto size-6 animate-spin text-caramel" aria-label="Carico il quiz" />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-24 sm:pt-28">
       <SmartLink href={page("/music-quiz/")} className="inline-flex items-center gap-1.5 text-sm text-crema/60 transition hover:text-crema">
         <ArrowLeft className="size-4" aria-hidden /> Tutti i quiz
       </SmartLink>
 
-      <section className="rounded-[2rem] bg-gradient-to-br from-mocha to-roast p-6 ring-1 ring-sand/15 sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">Nuovo quiz</p>
-        <input
-          value={title}
-          maxLength={80}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Dai un nome al quiz"
-          className="mt-2 w-full border-0 bg-transparent font-display text-4xl font-semibold text-crema outline-none placeholder:text-crema/30"
-        />
-        <p className="mt-2 text-sm text-crema/60">
-          Aggiungi almeno {MIN_TRACKS} brani (fino a {MAX_TRACKS}). Per ognuno puoi scegliere lo spezzone e scrivere le risposte; ogni partita ne pesca 10 a caso.
-        </p>
-      </section>
+      <StepTabs
+        step={step}
+        canGo={title.trim().length >= 2}
+        count={questions.length}
+        onStep={(st) => (st === "questions" && title.trim().length < 2 ? undefined : setStep(st))}
+      />
+
+      {step === "details" ? (
+        <>
+          <section className="rounded-[2rem] bg-gradient-to-br from-mocha to-roast p-6 ring-1 ring-sand/15 sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">{editSlug ? "Modifica quiz" : "Nuovo quiz"}</p>
+            <input
+              value={title}
+              maxLength={80}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Dai un nome al quiz"
+              className="mt-2 w-full border-0 bg-transparent font-display text-4xl font-semibold text-crema outline-none placeholder:text-crema/30"
+            />
+            <p className="mt-2 text-sm text-crema/60">
+              Aggiungi almeno {MIN_TRACKS} brani (fino a {MAX_TRACKS}). Per ognuno puoi scegliere lo spezzone e scrivere le risposte; ogni partita ne pesca 10 a caso.
+            </p>
+          </section>
+
+          <MusicQuizSettings
+            value={settings}
+            onChange={setSettings}
+            creator={{ name: user ? displayName(user) : "", avatar: user ? avatarUrl(user, 128) : "" }}
+          />
+
+          <div className="mx-auto max-w-md text-center">
+            <button
+              type="button"
+              disabled={title.trim().length < 2}
+              onClick={() => {
+                setStep("questions");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
+            >
+              Continua: aggiungi le domande <ArrowRight className="size-4" aria-hidden />
+            </button>
+            {title.trim().length < 2 ? <p className="mt-2 text-sm text-crema/50">Prima dai un nome al quiz.</p> : null}
+          </div>
+        </>
+      ) : (
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[19rem_minmax(0,1fr)]">
         {/* elenco delle domande */}
@@ -196,6 +292,7 @@ export function MusicQuizCreate() {
               index={questions.indexOf(current)}
               total={questions.length}
               pool={pool}
+              token={token}
               onChange={(next) => setQuestions((prev) => prev.map((q) => (q.id === current.id ? next : q)))}
               onReplace={() => setPanel({ kind: "replace", id: current.id })}
               onRemove={() => remove(current.id)}
@@ -215,13 +312,51 @@ export function MusicQuizCreate() {
         </div>
       </div>
 
-      <MusicQuizSettings
-        value={settings}
-        onChange={setSettings}
-        creator={{ name: user ? displayName(user) : "", avatar: user ? avatarUrl(user, 128) : "" }}
-      />
+      )}
+    </div>
+  );
+}
 
-      <div className="mx-auto max-w-md">{publishButton}</div>
+function StepTabs({
+  step,
+  canGo,
+  count,
+  onStep,
+}: {
+  step: "details" | "questions";
+  canGo: boolean;
+  count: number;
+  onStep: (s: "details" | "questions") => void;
+}) {
+  const tabs = [
+    { id: "details" as const, n: 1, label: "Dettagli", sub: "Nome, copertina, categoria…" },
+    { id: "questions" as const, n: 2, label: "Domande", sub: count ? `${count} ${count === 1 ? "brano" : "brani"}` : "Brani e risposte" },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-2 rounded-3xl bg-roast/70 p-1.5 ring-1 ring-sand/10">
+      {tabs.map((t) => {
+        const on = step === t.id;
+        const locked = t.id === "questions" && !canGo;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onStep(t.id)}
+            disabled={locked}
+            title={locked ? "Prima dai un nome al quiz" : undefined}
+            className="relative flex items-center gap-3 rounded-[1.25rem] px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {on ? <motion.span layoutId="create-step" className="absolute inset-0 rounded-[1.25rem] bg-gradient-to-br from-mocha to-roast ring-1 ring-caramel/45" /> : null}
+            <span className={cn("relative grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold", on ? "bg-caramel text-ink" : "bg-crema/[0.08] text-crema/60")}>
+              {t.n}
+            </span>
+            <span className="relative min-w-0">
+              <span className={cn("block font-semibold", on ? "text-crema" : "text-crema/70")}>{t.label}</span>
+              <span className="block truncate text-xs text-crema/45">{t.sub}</span>
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

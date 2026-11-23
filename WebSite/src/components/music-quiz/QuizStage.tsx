@@ -266,20 +266,23 @@ export function AnswerGrid({
   disabled,
   picked,
   correctIndex,
+  timedOut,
   onPick,
 }: {
   options: string[];
   disabled: boolean;
   picked: number | null;
   correctIndex?: number | null;
+  /** tempo scaduto senza risposta: tutte sbagliate, nessuna in verde (la canzone giusta è nel riquadro sotto) */
+  timedOut?: boolean;
   onPick: (i: number) => void;
 }) {
-  const revealed = correctIndex != null && correctIndex >= 0;
+  const revealed = (correctIndex != null && correctIndex >= 0) || Boolean(timedOut);
   return (
     <div className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
       {options.map((opt, i) => {
-        const isRight = revealed && i === correctIndex;
-        const isWrongPick = revealed && picked === i && i !== correctIndex;
+        const isRight = revealed && !timedOut && i === correctIndex;
+        const isWrongPick = timedOut || (revealed && picked === i && i !== correctIndex);
         const isPicked = !revealed && picked === i;
         return (
           <motion.button
@@ -356,7 +359,7 @@ export function RevealCard({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={cover || "/images/logo-disco.png"} alt="" className="size-16 shrink-0 rounded-xl object-cover ring-1 ring-sand/15" />
           <div className="min-w-0 flex-1">
-            <p className={cn("text-xs font-semibold uppercase tracking-[0.18em]", correct ? "text-emerald-300" : timeout ? "text-crema/55" : "text-ember")}>
+            <p className={cn("text-xs font-semibold uppercase tracking-[0.18em]", correct ? "text-emerald-300" : "text-ember")}>
               {correct ? "Giusto!" : timeout ? "Tempo scaduto" : "Sbagliato"}
             </p>
             <p className="mt-0.5 truncate font-display text-xl font-semibold text-crema">{title}</p>

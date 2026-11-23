@@ -24,30 +24,41 @@ export function MusicQuizLeaderboard({ slug, difficulty }: { slug: string; diffi
   }, [token, slug, difficulty]);
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-crema/55">Classifica{difficulty ? ` · ${difficulty.replace("s", " s")}` : ""}</h2>
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-baseline gap-3">
+        <h2 className="font-display text-3xl font-semibold text-crema">Classifica</h2>
+        {difficulty ? (
+          <span className="rounded-full bg-crema/[0.07] px-3 py-1 text-xs font-semibold text-crema/70">ascolto di {difficulty.replace("s", " s")}</span>
+        ) : null}
+      </div>
       {rows == null ? (
-        <div className="h-24 animate-pulse rounded-2xl bg-crema/[0.04]" />
+        <div className="h-32 animate-pulse rounded-3xl bg-crema/[0.04]" />
       ) : !rows.length ? (
-        <p className="rounded-2xl border border-dashed border-sand/20 px-4 py-6 text-center text-sm text-crema/55">Nessun punteggio ancora: il primo posto è libero.</p>
+        <div className="flex flex-col items-center gap-2 rounded-3xl border border-dashed border-sand/20 px-6 py-10 text-center">
+          <Crown className="size-7 text-caramel/70" aria-hidden />
+          <p className="text-crema/70">Nessun punteggio ancora: il primo posto è libero.</p>
+        </div>
       ) : (
-        <ol className="overflow-hidden rounded-2xl bg-roast/60 ring-1 ring-sand/10">
+        <ol className="overflow-hidden rounded-3xl bg-roast/60 ring-1 ring-sand/10">
           {rows.slice(0, 10).map((r) => {
             const mine = r.userId === user?.id;
             return (
-              <li key={`${r.rank}-${r.userId}`} className={cn("flex items-center gap-3 px-3.5 py-2.5 not-last:border-b not-last:border-sand/[0.07]", mine && "bg-caramel/10")}>
+              <li key={`${r.rank}-${r.userId}`} className={cn("flex items-center gap-4 px-5 py-3.5 not-last:border-b not-last:border-sand/[0.07]", mine && "bg-caramel/10")}>
                 <span
                   className={cn(
-                    "grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold tabular-nums",
+                    "grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold tabular-nums",
                     r.rank === 1 ? "bg-caramel text-ink" : r.rank === 2 ? "bg-crema/70 text-ink" : r.rank === 3 ? "bg-ember/70 text-ink" : "bg-crema/[0.07] text-crema/60",
                   )}
                 >
                   {r.rank === 1 ? <Crown className="size-3.5" aria-hidden /> : r.rank}
                 </span>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={r.avatarUrl || "/images/logo-disco.png"} alt="" className="size-8 shrink-0 rounded-full object-cover" />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-crema">{r.displayName}</span>
-                <span className="shrink-0 font-display text-lg font-semibold tabular-nums text-caramel">{r.score}</span>
+                <img src={r.avatarUrl || "/images/logo-disco.png"} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                <span className="min-w-0 flex-1 truncate font-medium text-crema">{r.displayName}</span>
+                <span className="shrink-0 text-right">
+                  <span className="font-display text-2xl font-semibold tabular-nums text-caramel">{r.score}</span>
+                  {r.maxScore ? <span className="ml-1 text-xs tabular-nums text-crema/40">/ {r.maxScore}</span> : null}
+                </span>
               </li>
             );
           })}

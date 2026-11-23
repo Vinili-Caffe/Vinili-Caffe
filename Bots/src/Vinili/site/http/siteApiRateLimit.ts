@@ -103,6 +103,8 @@ function shouldSkipRateLimit(req?) {
     path === "/webhooks/site-chrome-prefs" ||
     path === "/webhooks/site-discord-me" ||
     path === "/webhooks/site-staff-access" ||
+    /* webhook della chat di Kick: raffiche di messaggi, firmati da Kick */
+    (method === "POST" && path === "/webhooks/kick/events") ||
     (method === "POST" &&
       path.startsWith("/webhooks/site-notifications") &&
       (path.includes("/push/subscribe") ||

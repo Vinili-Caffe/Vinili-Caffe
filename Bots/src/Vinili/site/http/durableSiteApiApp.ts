@@ -298,6 +298,8 @@ async function main() {
         const pathOnly = String(req.originalUrl || req.url || req.path || "")
           .split("?")[0]
           .replace(/\/+$/, "") || "/";
+        /* Kick firma il corpo così com'è: serve l'originale per verificare la firma */
+        if (pathOnly === "/webhooks/kick/events") req.rawBody = Buffer.from(buf);
       },
     }),
   );

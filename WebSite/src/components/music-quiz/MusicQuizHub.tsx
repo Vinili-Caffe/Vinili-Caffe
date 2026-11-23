@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { Disc3, ListMusic, Plus } from "lucide-react";
+import { Disc3, Plus } from "lucide-react";
 import { QuizCarousel as Carousel } from "./QuizCarousel";
 import { useAuth } from "@/lib/auth";
 import { page } from "@/lib/site";
@@ -10,20 +10,18 @@ import { cn } from "@/lib/cn";
 import { SmartLink } from "@/components/SmartLink";
 import { loadMusicQuizHub, type MusicQuizHubData, type MusicQuizPackCard } from "@/lib/musicQuiz";
 import { MusicQuizSearch } from "./MusicQuizSearch";
+import { ArtistTile, COVER, CoverTile, packHref } from "./QuizTiles";
 
-const packHref = (p: MusicQuizPackCard) => page(`/music-quiz/pack/?slug=${encodeURIComponent(p.slug)}`);
-const COVER = "/images/logo-disco.png";
 
-function playsLabel(p: MusicQuizPackCard) {
-  if (p.plays) return `${p.plays} ${p.plays === 1 ? "partita" : "partite"}`;
-  if (p.trackCount) return `${p.trackCount} brani`;
-  return "Gioca ora";
-}
 
 export function MusicQuizHub() {
   const { token } = useAuth();
   const [hub, setHub] = useState<MusicQuizHubData | null>(null);
   const [err, setErr] = useState("");
+  /* quiz eliminati dal menu «⋮»: spariscono subito da tutte le righe */
+  const [removed, setRemoved] = useState<string[]>([]);
+  const visible = (list?: MusicQuizPackCard[]) => list?.filter((p) => !removed.includes(p.slug));
+  const onDeleted = (slug: string) => setRemoved((r) => [...r, slug]);
 
   useEffect(() => {
     if (!token) return;
@@ -93,7 +91,7 @@ export function MusicQuizHub() {
 
       <Row title="Playlist in primo piano" note="Classifiche, grandi successi e qualche ricordo" items={hub?.playlists} loading={loading} render={(p) => <CoverTile p={p} />} />
 
-      <CommunitySection hub={hub} loading={loading} />
+      <CommunitySection hub={hub} loading={loading} visible={visible} onDeleted={onDeleted} />
 
       <Row title="Artisti in tendenza" items={hub?.trendingArtists} loading={loading} round render={(p) => <ArtistTile p={p} />} />
 
@@ -111,8 +109,8 @@ export function MusicQuizHub() {
 
       <GenreSection genres={hub?.genres} loading={loading} />
 
-      <Row title="I più giocati qui" note="Quelli su cui si sfidano di più" items={hub?.popular} render={(p) => <CoverTile p={p} showPlays />} hideEmpty />
-      <Row title="Giocati di recente" items={hub?.recent} render={(p) => <CoverTile p={p} showPlays />} hideEmpty />
+      <Row title="I più giocati qui" note="Quelli su cui si sfidano di più" items={visible(hub?.popular)} render={(p) => <CoverTile p={p} showPlays onDeleted={onDeleted} />} hideEmpty />
+      <Row title="Giocati di recente" items={visible(hub?.recent)} render={(p) => <CoverTile p={p} showPlays onDeleted={onDeleted} />} hideEmpty />
     </div>
   );
 }
@@ -192,39 +190,6 @@ function FeatureTile({ p, big, i = 0 }: { p: MusicQuizPackCard; big?: boolean; i
   );
 }
 
-function CoverTile({ p, showPlays }: { p: MusicQuizPackCard; showPlays?: boolean }) {
-  const artist = p.kind === "artist";
-  return (
-    <SmartLink href={packHref(p)} className="group block w-40 sm:w-48">
-      <span className={cn("relative block aspect-square overflow-hidden bg-roast ring-1 ring-sand/10 transition group-hover:ring-caramel/45", artist ? "rounded-full" : "rounded-3xl")}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={p.cover || COVER} alt="" loading="lazy" className="size-full object-cover transition duration-500 group-hover:scale-105" />
-        {!artist && p.kind === "playlist" ? (
-          <span className="absolute bottom-2 right-2 grid size-8 place-items-center rounded-full bg-ink/70 text-crema backdrop-blur">
-            <ListMusic className="size-4" aria-hidden />
-          </span>
-        ) : null}
-      </span>
-      <span className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-crema">{p.title}</span>
-      <span className="mt-0.5 block text-xs text-crema/55">
-        {showPlays ? playsLabel(p) : p.authorName ? `di ${p.authorName}` : p.trackCount ? `${p.trackCount} brani` : "Gioca ora"}
-      </span>
-    </SmartLink>
-  );
-}
-
-function ArtistTile({ p }: { p: MusicQuizPackCard }) {
-  return (
-    <SmartLink href={packHref(p)} className="group block w-32 text-center sm:w-36">
-      <span className="relative block aspect-square overflow-hidden rounded-full bg-roast ring-1 ring-sand/10 transition group-hover:ring-2 group-hover:ring-caramel">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={p.cover || COVER} alt="" loading="lazy" className="size-full object-cover transition duration-500 group-hover:scale-105" />
-      </span>
-      <span className="mt-2 block truncate text-sm font-semibold text-crema">{p.title}</span>
-    </SmartLink>
-  );
-}
-
 function DecadeTile({ p, i }: { p: MusicQuizPackCard; i: number }) {
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.04 }}>
@@ -262,9 +227,19 @@ function Tabs<T extends string>({ value, options, onChange }: { value: T; option
   );
 }
 
-function CommunitySection({ hub, loading }: { hub: MusicQuizHubData | null; loading: boolean }) {
+function CommunitySection({
+  hub,
+  loading,
+  visible,
+  onDeleted,
+}: {
+  hub: MusicQuizHubData | null;
+  loading: boolean;
+  visible: (l?: MusicQuizPackCard[]) => MusicQuizPackCard[] | undefined;
+  onDeleted: (slug: string) => void;
+}) {
   const [tab, setTab] = useState<"new" | "top">("new");
-  const list = (tab === "new" ? hub?.communityNew || hub?.community : hub?.communityTop) || [];
+  const list = visible(tab === "new" ? hub?.communityNew || hub?.community : hub?.communityTop) || [];
   return (
     <section>
       <SectionHead
@@ -300,7 +275,7 @@ function CommunitySection({ hub, loading }: { hub: MusicQuizHubData | null; load
           ? Array.from({ length: 4 }, (_, i) => <div key={i} className="aspect-square w-40 shrink-0 animate-pulse rounded-3xl bg-crema/[0.05] sm:w-48" />)
           : list.map((p) => (
               <div key={p.slug} className="shrink-0 snap-start">
-                <CoverTile p={p} showPlays={tab === "top"} />
+                <CoverTile p={p} showPlays={tab === "top"} onDeleted={onDeleted} />
               </div>
             ))}
         {!loading && !list.length ? (

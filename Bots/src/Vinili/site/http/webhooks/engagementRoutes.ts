@@ -67,9 +67,13 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
     (require("../siteMusicQuizSpotify") as typeof import("../siteMusicQuizSpotify")).handleMusicQuizSpotifyImportGet(client, req, res),
   );
   app.get("/webhooks/site-music-quiz/artist/:id", (req?, res?) => quiz.handleMusicQuizArtistGet(client, req, res));
+  app.get("/webhooks/site-music-quiz/artist-titles/:id", (req?, res?) => quiz.handleMusicQuizArtistTitlesGet(client, req, res));
+  app.get("/webhooks/site-music-quiz/similar/:slug", (req?, res?) => quiz.handleMusicQuizSimilarGet(client, req, res));
   app.get("/webhooks/site-music-quiz/playlist/:id", (req?, res?) => quiz.handleMusicQuizPlaylistGet(client, req, res));
   app.get("/webhooks/site-music-quiz/pack/:slug", (req?, res?) => packs.handleMusicQuizPackGet(client, req, res));
   app.post("/webhooks/site-music-quiz/pack", (req?, res?) => packs.handleMusicQuizPackCreatePost(client, req, res));
+  app.put("/webhooks/site-music-quiz/pack/:slug", (req?, res?) => packs.handleMusicQuizPackUpdatePut(client, req, res));
+  app.delete("/webhooks/site-music-quiz/pack/:slug", (req?, res?) => packs.handleMusicQuizPackDelete(client, req, res));
   app.post("/webhooks/site-music-quiz/session/start", (req?, res?) => quiz.handleMusicQuizSessionStartPost(client, req, res));
   app.post("/webhooks/site-music-quiz/session/answer", (req?, res?) => quiz.handleMusicQuizSessionAnswerPost(client, req, res));
   app.post("/webhooks/site-music-quiz/session/finish", (req?, res?) => quiz.handleMusicQuizSessionFinishPost(client, req, res));
@@ -80,6 +84,17 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
   app.get("/webhooks/site-music-quiz/party/:roomId", (req?, res?) => party.handleMusicQuizPartyGet(client, req, res));
   app.post("/webhooks/site-music-quiz/party/:roomId/join", (req?, res?) => party.handleMusicQuizPartyJoinPost(client, req, res));
   app.post("/webhooks/site-music-quiz/party/:roomId/action", (req?, res?) => party.handleMusicQuizPartyActionPost(client, req, res));
+  const streamChat = require("../siteMusicQuizStreamChatApi") as typeof import("../siteMusicQuizStreamChatApi");
+  app.get("/webhooks/site-music-quiz/stream-chat/youtube", (req?, res?) =>
+    streamChat.handleMusicQuizYoutubeChatGet(client, req, res),
+  );
+  /* Kick manda qui i messaggi della chat (firma verificata con la chiave pubblica di Kick) */
+  app.post("/webhooks/kick/events", (req?, res?) =>
+    (require("../siteMusicQuizKick") as typeof import("../siteMusicQuizKick")).handleKickWebhookPost(req, res),
+  );
+  app.get("/webhooks/site-music-quiz/stream-chat/kick", (req?, res?) =>
+    streamChat.handleMusicQuizKickChatGet(client, req, res),
+  );
 }
 
 export = { mountUsersLeaderboardWebhookRoutes, mountVoteWordleWebhookRoutes, mountMusicQuizWebhookRoutes };

@@ -12,7 +12,7 @@ type Track = NonNullable<ReturnType<typeof import("./siteMusicQuizDeezer").mapTr
 type Wanted = { isrc?: string; artist?: string; title: string };
 type Source = { name: string; cover: string; total: number; items: Wanted[] };
 
-const MAX_TRACKS = 40;
+const MAX_TRACKS = 20;
 const MAX_ITEMS = 150;
 const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 

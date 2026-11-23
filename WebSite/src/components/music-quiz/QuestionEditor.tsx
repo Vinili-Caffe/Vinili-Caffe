@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { Check, Pause, Play, RefreshCw, Shuffle, Trash2 } from "lucide-react";
+import { Check, Loader2, Pause, Play, RefreshCw, Shuffle, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { clipSource } from "@/lib/clipCache";
-import type { MusicQuizTrack } from "@/lib/musicQuiz";
+import { loadArtistTitles, type MusicQuizTrack } from "@/lib/musicQuiz";
 
 /** Un brano del quiz con le scelte di chi lo crea. */
 export type QuizQuestion = MusicQuizTrack & {
@@ -21,6 +21,8 @@ export const PREVIEW_SEC = 30;
 /** lo spezzone più lungo in partita (difficoltà «5 secondi») */
 export const CLIP_SEC = 5;
 export const MAX_START = PREVIEW_SEC - CLIP_SEC;
+/** lo spezzone si sposta a blocchi di 5 secondi: 0–5, 5–10 … 25–30 */
+const SEGMENTS = PREVIEW_SEC / CLIP_SEC;
 
 export const asQuestion = (t: MusicQuizTrack): QuizQuestion => ({ ...t, start: 0, answer: "", wrong: ["", "", ""] });
 
@@ -37,6 +39,7 @@ export function QuestionEditor({
   index,
   total,
   pool,
+  token,
   onChange,
   onReplace,
   onRemove,
@@ -44,8 +47,9 @@ export function QuestionEditor({
   q: QuizQuestion;
   index: number;
   total: number;
-  /** titoli degli altri brani del quiz, per «Riempi a caso» */
+  /** titoli degli altri brani del quiz: riserva per «Riempi a caso» se l'artista ha pochi brani */
   pool: string[];
+  token: string | null;
   onChange: (next: QuizQuestion) => void;
   onReplace: () => void;
   onRemove: () => void;
@@ -54,6 +58,7 @@ export function QuestionEditor({
   const tick = useRef(0);
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(0);
+  const [filling, setFilling] = useState(false);
 
   /* brano o spezzone cambiato: si ferma quello che suonava */
   useEffect(() => {
@@ -108,19 +113,27 @@ export function QuestionEditor({
     else a.addEventListener("canplay", begin, { once: true });
   }
 
-  function fillRandom() {
-    const correct = (q.answer.trim() || q.title).toLowerCase();
-    const choices = [...new Set(pool)].filter((t) => t.toLowerCase() !== correct);
-    for (let i = choices.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [choices[i], choices[j]] = [choices[j]!, choices[i]!];
-    }
-    onChange({ ...q, wrong: [0, 1, 2].map((i) => choices[i] || "") });
+  /** risposte sbagliate credibili: altri brani dello stesso artista (poi, se non bastano, gli altri brani del quiz) */
+  async function fillRandom() {
+    setFilling(true);
+    const fromArtist = token && q.artistId ? await loadArtistTitles(token, q.artistId).catch(() => []) : [];
+    setFilling(false);
+    const key = (t: string) => t.toLowerCase().replace(/\s*[([].*?[)\]]/g, "").trim();
+    const correct = key(q.answer.trim() || q.title);
+    const pick = (list: string[]) => {
+      const out = [...new Set(list)].filter((t) => key(t) && key(t) !== correct);
+      for (let i = out.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [out[i], out[j]] = [out[j]!, out[i]!];
+      }
+      return out;
+    };
+    const seen = new Set<string>();
+    const chosen = [...pick(fromArtist), ...pick(pool)].filter((t) => (seen.has(key(t)) ? false : (seen.add(key(t)), true))).slice(0, 3);
+    onChange({ ...q, wrong: [0, 1, 2].map((i) => chosen[i] || "") });
   }
 
   const setWrong = (i: number, v: string) => onChange({ ...q, wrong: q.wrong.map((w, k) => (k === i ? v : w)) });
-  const left = (q.start / PREVIEW_SEC) * 100;
-  const width = (CLIP_SEC / PREVIEW_SEC) * 100;
 
   return (
     <motion.section
@@ -181,22 +194,9 @@ export function QuestionEditor({
             {mmss(q.start)} – {mmss(q.start + CLIP_SEC)}
           </p>
         </div>
-        <div className="relative mt-3 h-8">
-          <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-crema/10" />
-          <div className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-caramel" style={{ left: `${left}%`, width: `${width}%` }} />
-          <input
-            type="range"
-            min={0}
-            max={MAX_START}
-            step={0.5}
-            value={q.start}
-            onChange={(e) => onChange({ ...q, start: Number(e.target.value) })}
-            aria-label="Da che secondo parte lo spezzone"
-            className="absolute inset-0 w-full cursor-pointer appearance-none bg-transparent [&::-moz-range-thumb]:size-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-crema [&::-webkit-slider-thumb]:size-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-crema [&::-webkit-slider-thumb]:shadow-[0_0_0_4px_rgba(214,154,95,0.45)]"
-          />
-        </div>
+        <SegmentPicker value={Math.round(q.start / CLIP_SEC)} onChange={(i) => onChange({ ...q, start: i * CLIP_SEC })} />
         <p className="mt-2 text-xs leading-relaxed text-crema/45">
-          Deezer dà 30 secondi di anteprima: scegli da dove parte lo spezzone. In partita se ne sentono 5, 3 o 1 secondo a seconda della difficoltà, sempre da questo punto.
+          Deezer dà 30 secondi di anteprima: trascina il pezzo da 5 secondi da far ascoltare, si sposta di 5 secondi alla volta. Con le difficoltà più alte se ne sentono solo i primi 3 o 1 secondo.
         </p>
       </div>
 
@@ -210,14 +210,14 @@ export function QuestionEditor({
           ))}
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-crema/45">Le risposte lasciate vuote si riempiono da sole con altri brani del quiz, diverse a ogni partita.</p>
+          <p className="text-xs text-crema/45">Le risposte lasciate vuote si riempiono da sole con altri brani del quiz, diverse a ogni partita. «A caso» usa altri brani dello stesso artista.</p>
           <button
             type="button"
-            onClick={fillRandom}
-            disabled={pool.length < 2}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-crema/75 transition hover:text-caramel disabled:opacity-40"
+            onClick={() => void fillRandom()}
+            disabled={filling}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-crema/75 transition hover:text-caramel disabled:opacity-50"
           >
-            <Shuffle className="size-4" aria-hidden /> Riempi le opzioni a caso
+            {filling ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Shuffle className="size-4" aria-hidden />} Riempi le opzioni a caso
           </button>
         </div>
       </div>
@@ -260,5 +260,67 @@ function AnswerInput({
         <Check className="size-4" aria-hidden />
       </span>
     </label>
+  );
+}
+
+/** Barra dell'anteprima (30 s): il pezzo da 5 secondi si trascina intero e scatta di 5 in 5. */
+function SegmentPicker({ value, onChange }: { value: number; onChange: (i: number) => void }) {
+  const bar = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+  const at = (clientX: number) => {
+    const r = bar.current!.getBoundingClientRect();
+    return Math.max(0, Math.min(SEGMENTS - 1, Math.floor(((clientX - r.left) / r.width) * SEGMENTS)));
+  };
+  return (
+    <div className="mt-3">
+      <div
+        ref={bar}
+        role="slider"
+        tabIndex={0}
+        aria-label="Pezzo da ascoltare"
+        aria-valuemin={0}
+        aria-valuemax={SEGMENTS - 1}
+        aria-valuenow={value}
+        aria-valuetext={`da ${mmss(value * CLIP_SEC)} a ${mmss((value + 1) * CLIP_SEC)}`}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowRight" || e.key === "ArrowUp") onChange(Math.min(SEGMENTS - 1, value + 1));
+          if (e.key === "ArrowLeft" || e.key === "ArrowDown") onChange(Math.max(0, value - 1));
+        }}
+        onPointerDown={(e) => {
+          dragging.current = true;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          onChange(at(e.clientX));
+        }}
+        onPointerMove={(e) => {
+          if (dragging.current) {
+            const i = at(e.clientX);
+            if (i !== value) onChange(i);
+          }
+        }}
+        onPointerUp={() => (dragging.current = false)}
+        onPointerCancel={() => (dragging.current = false)}
+        className="group relative h-8 cursor-grab touch-none select-none outline-none active:cursor-grabbing"
+      >
+        {/* binario sottile con una tacca ogni 5 secondi */}
+        <span className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-crema/10" />
+        {Array.from({ length: SEGMENTS - 1 }, (_, i) => (
+          <span
+            key={i}
+            className="absolute top-1/2 h-2.5 w-px -translate-y-1/2 bg-crema/20"
+            style={{ left: `${((i + 1) / SEGMENTS) * 100}%` }}
+          />
+        ))}
+        {/* il pezzo da 5 secondi: si sposta intero, a scatti */}
+        <motion.span
+          className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-caramel group-focus-visible:ring-2 group-focus-visible:ring-caramel/50"
+          style={{ width: `${100 / SEGMENTS}%` }}
+          animate={{ left: `${(value / SEGMENTS) * 100}%` }}
+          transition={{ type: "spring", stiffness: 520, damping: 40 }}
+        >
+          <span className="absolute -left-2 top-1/2 size-4 -translate-y-1/2 rounded-full bg-caramel shadow-[0_0_0_4px_rgba(214,154,95,0.25)]" />
+          <span className="absolute -right-2 top-1/2 size-4 -translate-y-1/2 rounded-full bg-caramel shadow-[0_0_0_4px_rgba(214,154,95,0.25)]" />
+        </motion.span>
+      </div>
+    </div>
   );
 }

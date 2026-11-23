@@ -239,6 +239,8 @@ function PartyRound({
         disabled={revealed || picked != null || left <= 0}
         picked={picked}
         correctIndex={revealed ? round.correctIndex : null}
+        /* chi gioca e non ha risposto in tempo: tutte sbagliate; chi conduce la diretta vede la giusta */
+        timedOut={revealed && picked == null && !(room.mode === "stream" && isHost)}
         onPick={(i) => {
           setPicked(i);
           const ms = clip.startedAt != null ? Math.round(performance.now() - clip.startedAt) : answerMs;

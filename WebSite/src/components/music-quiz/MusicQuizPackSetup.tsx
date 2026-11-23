@@ -21,6 +21,9 @@ import { MusicQuizPlay } from "./MusicQuizPlay";
 import { MusicQuizLeaderboard } from "./MusicQuizLeaderboard";
 import { QUIZ_CATEGORIES } from "./MusicQuizSettings";
 import { MusicQuizComments } from "./MusicQuizComments";
+import { MusicQuizSimilar } from "./MusicQuizSimilar";
+import { MusicQuizStream } from "./MusicQuizStream";
+import { QuizCardMenu } from "./QuizCardMenu";
 
 const DIFFS: { id: MusicQuizDifficulty; label: string; hint: string }[] = [
   { id: "5s", label: "5 secondi", hint: "Per scaldarsi" },
@@ -54,6 +57,8 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
   const [busy, setBusy] = useState<"" | "solo" | "party" | "stream">("");
   const [session, setSession] = useState<Session | null>(null);
   const [run, setRun] = useState(0);
+  /* «In diretta»: la chat della live risponde con 1-4 */
+  const [streaming, setStreaming] = useState(false);
 
   useEffect(() => {
     if (!token || !slug) return;
@@ -90,7 +95,7 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function startRoom(mode: "party" | "stream") {
+  async function startRoom(mode: "party") {
     if (!token || !pack || busy) return;
     setBusy(mode);
     setErr("");
@@ -98,6 +103,10 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
     setBusy("");
     if (!r.ok) return setErr(r.message);
     router.push(page(`/music-quiz/party/?room=${encodeURIComponent(r.data.room.roomId)}`));
+  }
+
+  if (streaming && pack) {
+    return <MusicQuizStream pack={pack} difficulty={difficulty} onExit={() => setStreaming(false)} />;
   }
 
   if (session) {
@@ -134,8 +143,19 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
             </SmartLink>
             {pack ? (
               <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={pack.cover || "/images/logo-disco.png"} alt="" className="size-40 rounded-3xl object-cover shadow-[0_30px_60px_-25px_rgba(0,0,0,0.95)] ring-1 ring-sand/25 sm:size-48" />
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={pack.cover || "/images/logo-disco.png"} alt="" className="size-40 rounded-3xl object-cover shadow-[0_30px_60px_-25px_rgba(0,0,0,0.95)] ring-1 ring-sand/25 sm:size-48" />
+                  {pack.mine ? (
+                    <QuizCardMenu
+                      slug={pack.slug}
+                      title={pack.title}
+                      align="left"
+                      className="absolute right-2 top-2 z-10"
+                      onDeleted={() => router.push(page("/music-quiz/"))}
+                    />
+                  ) : null}
+                </div>
                 <p className="mt-5 text-xs font-semibold uppercase tracking-[0.22em] text-caramel">{KIND_LABEL[pack.kind || ""] || "Quiz"}</p>
                 <h1 className="mt-1 font-display text-4xl font-semibold leading-tight text-crema [overflow-wrap:anywhere] sm:text-5xl">{pack.title}</h1>
                 <p className="mt-2 text-sm text-crema/65">
@@ -202,17 +222,17 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
 
             <div className="grid grid-cols-2 gap-2.5">
               <ModeCard icon={<Users className="size-4" aria-hidden />} title="Con gli amici" hint="Link d'invito, rispondete insieme" busy={busy === "party"} disabled={!pack || Boolean(busy)} onClick={() => void startRoom("party")} />
-              <ModeCard icon={<Radio className="size-4" aria-hidden />} title="In diretta" hint="Guidi tu, gli altri rispondono" busy={busy === "stream"} disabled={!pack || Boolean(busy)} onClick={() => void startRoom("stream")} />
+              <ModeCard icon={<Radio className="size-4" aria-hidden />} title="In diretta" hint="La chat della tua live risponde con 1, 2, 3, 4" busy={false} disabled={!pack || Boolean(busy)} onClick={() => { setStreaming(true); window.scrollTo({ top: 0 }); }} />
             </div>
             {err && pack ? <p className="text-sm text-ember">{err}</p> : null}
           </div>
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <MusicQuizLeaderboard slug={slug} difficulty={difficulty} />
-        <MusicQuizComments slug={slug} />
-      </div>
+      {/* classifica a tutta larghezza, poi quiz simili, poi i commenti */}
+      <MusicQuizLeaderboard slug={slug} difficulty={difficulty} />
+      <MusicQuizSimilar slug={slug} />
+      <MusicQuizComments slug={slug} />
     </div>
   );
 }

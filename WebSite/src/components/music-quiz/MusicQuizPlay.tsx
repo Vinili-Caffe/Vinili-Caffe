@@ -176,6 +176,7 @@ export function MusicQuizPlay({
           disabled={Boolean(feedback) || sending || clip.startedAt == null}
           picked={feedback ? feedback.picked : picked}
           correctIndex={feedback ? feedback.correctIndex : null}
+          timedOut={Boolean(feedback?.timeout)}
           onPick={(i) => void send(i)}
         />
 

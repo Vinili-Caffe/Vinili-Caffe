@@ -4,10 +4,15 @@ import { useRef, useState, type Dispatch, type ReactNode, type SetStateAction } 
 import { motion } from "motion/react";
 import { CloudUpload, Globe, Lock, Plus, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { Select } from "@/components/ui/Select";
 
 export type QuizSettings = {
   /** data URL già ridimensionato, pronto da mandare */
   coverImage: string;
+  /** copertina già salvata (quando si modifica un quiz) */
+  coverUrl: string;
+  /** togli la copertina salvata: torna quella del primo brano */
+  removeCover: boolean;
   description: string;
   language: string;
   languages: string[];
@@ -19,6 +24,8 @@ export type QuizSettings = {
 
 export const DEFAULT_SETTINGS: QuizSettings = {
   coverImage: "",
+  coverUrl: "",
+  removeCover: false,
   description: "",
   language: "it",
   languages: [],
@@ -104,7 +111,8 @@ export function MusicQuizSettings({
     if (!/^image\/(png|jpe?g|gif|webp)$/i.test(file.type)) return setCoverErr("Usa un'immagine JPG, PNG, GIF o WEBP.");
     if (file.size > MAX_FILE) return setCoverErr("L'immagine pesa più di 5 MB.");
     try {
-      set("coverImage", await shrinkImage(file));
+      const img = await shrinkImage(file);
+      onChange((prev) => ({ ...prev, coverImage: img, removeCover: false }));
     } catch {
       setCoverErr("Non riesco a leggere questa immagine.");
     }
@@ -124,15 +132,15 @@ export function MusicQuizSettings({
       {/* copertina */}
       <Field label="Immagine di copertina" hint="Se non la metti, usiamo la copertina del primo brano.">
         <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden" onChange={(e) => void takeFile(e.target.files?.[0])} />
-        {value.coverImage ? (
+        {value.coverImage || value.coverUrl ? (
           <div className="relative w-full max-w-xs overflow-hidden rounded-2xl ring-1 ring-sand/15">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={value.coverImage} alt="Copertina scelta" className="aspect-square w-full object-cover" />
+            <img src={value.coverImage || value.coverUrl} alt="Copertina scelta" className="aspect-square w-full object-cover" />
             <div className="absolute inset-x-0 bottom-0 flex gap-2 bg-gradient-to-t from-ink/90 to-transparent p-3">
               <button type="button" onClick={() => fileRef.current?.click()} className="rounded-full bg-crema/15 px-3 py-1.5 text-xs font-semibold text-crema backdrop-blur hover:bg-crema/25">
                 Cambia
               </button>
-              <button type="button" onClick={() => set("coverImage", "")} className="rounded-full bg-crema/15 px-3 py-1.5 text-xs font-semibold text-crema backdrop-blur hover:bg-ember/60">
+              <button type="button" onClick={() => onChange((prev) => ({ ...prev, coverImage: "", coverUrl: "", removeCover: true }))} className="rounded-full bg-crema/15 px-3 py-1.5 text-xs font-semibold text-crema backdrop-blur hover:bg-ember/60">
                 Togli
               </button>
             </div>
@@ -181,20 +189,13 @@ export function MusicQuizSettings({
 
       {/* lingue */}
       <Field label="Lingua principale" hint="La lingua in cui sono cantati quasi tutti i brani.">
-        <select
+        <Select
+          aria-label="Lingua principale"
           value={value.language}
-          onChange={(e) => {
-            const lang = e.target.value;
-            onChange((prev) => ({ ...prev, language: lang, languages: prev.languages.filter((l) => l !== lang) }));
-          }}
-          className="w-full rounded-2xl border-0 bg-espresso/80 px-4 py-3 text-sm text-crema outline-none ring-1 ring-sand/20 focus:ring-2 focus:ring-caramel/60"
-        >
-          {QUIZ_LANGUAGES.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.label}
-            </option>
-          ))}
-        </select>
+          options={QUIZ_LANGUAGES.map((l) => ({ value: l.id, label: l.label }))}
+          onChange={(lang) => onChange((prev) => ({ ...prev, language: lang, languages: prev.languages.filter((l) => l !== lang) }))}
+          className="w-full rounded-2xl bg-espresso/80 px-4 py-3 text-sm text-crema ring-1 ring-sand/20"
+        />
         {moreLangs ? (
           <div className="mt-3 flex flex-wrap gap-2">
             {QUIZ_LANGUAGES.filter((l) => l.id !== value.language).map((l) => {
