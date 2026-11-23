@@ -5,7 +5,8 @@ const presence = new Presence({
 const browsingTimestamp = Math.floor(Date.now() / 1000)
 
 enum ActivityAssets {
-  Logo = 'https://cdn.viniliecaffe.it/images/logo-disco.png',
+  // 512×512 obbligatorio per pmd; il GIF animato resta solo in metadata (logo negozio)
+  Logo = 'https://files.catbox.moe/adu4lq.png',
 }
 
 /** Stato scritto dal sito stesso (Music Quiz: quiz, domanda, punti) in <html data-vc-presence="…"> */
@@ -59,7 +60,8 @@ const PAGES: Record<string, string> = {
 
 function pageTitle(): string {
   const title = document.title || ''
-  const tail = title.includes('ǀ') ? title.split('ǀ').pop()!.trim() : ''
+  const sep = title.includes('ǀ') ? 'ǀ' : title.includes('|') ? '|' : ''
+  const tail = sep ? title.split(sep).pop()!.trim() : ''
   return tail || 'Home'
 }
 
@@ -87,7 +89,6 @@ presence.on('UpdateData', async () => {
       presenceData.state = site.state
     if (site.image && /^https:\/\//.test(site.image)) {
       presenceData.largeImageKey = site.image
-      presenceData.largeImageText = site.imageText || site.details
       presenceData.smallImageKey = ActivityAssets.Logo
       presenceData.smallImageText = 'Vinili & Caffè'
     }
@@ -100,7 +101,8 @@ presence.on('UpdateData', async () => {
       presenceData.state = pageTitle()
   }
 
-  if (showButtons) {
+  // regole di PreMiD: niente pulsante verso la pagina principale
+  if (showButtons && section) {
     presenceData.buttons = [{ label: 'Apri la pagina', url: document.location.href }]
   }
 
