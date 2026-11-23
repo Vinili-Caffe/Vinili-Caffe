@@ -90,6 +90,32 @@ async function fromSpotify(id: string): Promise<Source> {
   };
 }
 
+/** Playlist pubbliche di Spotify per nome (artista, genere…). Quelle create da Spotify stesso
+    («This Is…», Top 50) l'API non le apre più: si saltano. */
+async function searchSpotifyPlaylists(q: string, limit = 24) {
+  const query = String(q || "").trim();
+  if (!query) return [];
+  try {
+    const token = await spotifyToken();
+    if (!token) return [];
+    const r = await spotifyGet(`search?type=playlist&market=IT&limit=${Math.min(50, limit)}&q=${encodeURIComponent(query)}`, token);
+    if (r.status !== 200) return [];
+    return (r.data?.playlists?.items || [])
+      .filter((p: any) => p?.id && p?.name && p?.owner?.id !== "spotify" && Number(p?.tracks?.total || 0) >= 12)
+      .map((p: any) => ({
+        id: String(p.id),
+        name: String(p.name),
+        cover: String(p.images?.[0]?.url || ""),
+        trackCount: Number(p.tracks?.total || 0) || 0,
+        owner: String(p.owner?.display_name || ""),
+        fans: 0,
+        kind: "spotify" as const,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 /* ---------------- Apple Music (pagina pubblica della playlist) ---------------- */
 
 async function fromApple(url: string): Promise<Source> {
@@ -264,7 +290,7 @@ async function findOnDeezer(w: Wanted): Promise<Track | null> {
   return null;
 }
 
-async function importPlaylist(url: string) {
+async function importPlaylist(url: string, maxTracks = MAX_TRACKS) {
   const link = detect(url);
   if (!link) throw new ImportError("bad_link", "Incolla il link di una playlist di Spotify, Apple Music o YouTube.");
   const src =
@@ -274,10 +300,10 @@ async function importPlaylist(url: string) {
     const tracks: Track[] = [];
     const ids = new Set<string>();
     const wanted = src.items.slice(0, MAX_ITEMS);
-    for (let i = 0; i < wanted.length && tracks.length < MAX_TRACKS; i += 6) {
+    for (let i = 0; i < wanted.length && tracks.length < maxTracks; i += 6) {
       const found = await Promise.all(wanted.slice(i, i + 6).map(findOnDeezer));
       for (const t of found) {
-        if (t && !ids.has(t.id) && tracks.length < MAX_TRACKS) {
+        if (t && !ids.has(t.id) && tracks.length < maxTracks) {
           ids.add(t.id);
           tracks.push(t);
         }
@@ -308,4 +334,4 @@ function decodeEntities(s: string) {
     .replace(/&gt;/g, ">");
 }
 
-export = { handleMusicQuizSpotifyImportGet, importPlaylist, detect, cleanVideoTitle, splitArtistTitle };
+export = { handleMusicQuizSpotifyImportGet, importPlaylist, searchSpotifyPlaylists, detect, cleanVideoTitle, splitArtistTitle };

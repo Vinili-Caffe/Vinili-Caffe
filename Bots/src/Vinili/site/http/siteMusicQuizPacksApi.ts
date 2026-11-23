@@ -1,7 +1,7 @@
 /** Music Quiz packs: lettura, creazione, modifica ed eliminazione dei quiz della community. */
 const { requireMusicQuizHighStaff, sendAuthError } =
   require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
-const { ensureDeezerPack } = require("./siteMusicQuizApi") as typeof import("./siteMusicQuizApi");
+const { ensureDeezerPack, ensureSpotifyPack } = require("./siteMusicQuizApi") as typeof import("./siteMusicQuizApi");
 const meta = require("./siteMusicQuizMeta") as typeof import("./siteMusicQuizMeta");
 const { SiteDocument, SITE_DOCUMENT_TYPE } =
   require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
@@ -115,14 +115,19 @@ async function handleMusicQuizPackGet(client?, req?, res?) {
         const created = await ensureDeezerPack(m[1] as "artist" | "playlist", m[2]!);
         if (created) pack = (created as any).toObject ? (created as any).toObject() : created;
       }
+      const sp = /^spotify-([A-Za-z0-9]{10,40})$/.exec(slug);
+      if (sp) {
+        const created = await ensureSpotifyPack(sp[1]!);
+        if (created) pack = (created as any).toObject ? (created as any).toObject() : created;
+      }
     }
     if (!pack) {
       global.logger?.warn?.(`[music-quiz] quiz non trovato: slug=${JSON.stringify(slug)}`);
       return res.status(404).json({
         ok: false,
         error: "not_found",
-        message: /^(artist|playlist)-\d+$/.test(slug)
-          ? "Deezer non ha abbastanza brani con l'anteprima per questo quiz."
+        message: /^(artist|playlist)-\d+$|^spotify-/.test(slug)
+          ? "Non ci sono abbastanza brani con l'anteprima per questo quiz."
           : "Questo quiz non esiste più.",
       });
     }

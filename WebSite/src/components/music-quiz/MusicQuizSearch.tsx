@@ -56,17 +56,17 @@ export function MusicQuizSearch({ onPickSlug }: { onPickSlug?: (slug: string) =>
           cover: a.cover,
           fans: a.fans || 0,
         }));
-        /* prima le playlist curate (Deezer e le etichette), poi quelle degli utenti */
-        const curated = (p: { owner?: string }) => (/deezer|digster|filtr|topsify/i.test(p.owner || "") ? 0 : 1);
+        /* l'ordine lo decide il server (nome cercato nel titolo, poi le più seguite); Spotify e Deezer insieme */
         const playlists = [...(r.data.playlists || [])]
           .filter((p) => (p.trackCount || 0) >= 8)
-          .sort((x, y) => curated(x) - curated(y))
-          .slice(0, 12)
+          .slice(0, 18)
           .map((p) => ({
-            href: page(`/music-quiz/pack/?slug=playlist-${p.id}`),
+            href: page(`/music-quiz/pack/?slug=${p.kind === "spotify" ? "spotify" : "playlist"}-${p.id}`),
             name: p.name,
             cover: p.cover,
-            sub: [p.trackCount ? `${p.trackCount} brani` : "", p.owner || ""].filter(Boolean).join(" · "),
+            sub: [p.kind === "spotify" ? "Spotify" : "Deezer", p.trackCount ? `${p.trackCount} brani` : "", p.owner || ""]
+              .filter(Boolean)
+              .join(" · "),
           }));
         const quizzes = (r.data.quizzes || []).map((p) => ({
           href: page(`/music-quiz/pack/?slug=${encodeURIComponent(p.slug)}`),

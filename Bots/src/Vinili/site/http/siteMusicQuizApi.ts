@@ -110,6 +110,61 @@ async function ensureDeezerPack(source: "artist" | "playlist", deezerId: string)
   return pack;
 }
 
+/** Quiz da una playlist pubblica di Spotify: i brani si cercano su Deezer (stesso codice del brano) per l'anteprima. */
+async function ensureSpotifyPack(spotifyId: string) {
+  const id = String(spotifyId || "").trim();
+  if (!/^[A-Za-z0-9]{10,40}$/.test(id)) return null;
+  const slug = `spotify-${id}`;
+  const found = await SiteDocument.findOne({ docType: SITE_DOCUMENT_TYPE.MUSIC_QUIZ_PACK, boardSlug: slug });
+  if (found) return found;
+  const pending = spotifyPending.get(id);
+  if (pending) return pending;
+  const job = (async () => {
+    try {
+      const { importPlaylist } = require("./siteMusicQuizSpotify") as typeof import("./siteMusicQuizSpotify");
+      const r = await importPlaylist(`https://open.spotify.com/playlist/${id}`, 40);
+      if (!r?.tracks || r.tracks.length < 4) {
+        global.logger?.warn?.(`[music-quiz] ${slug}: brani trovati su Deezer=${r?.tracks?.length || 0}`);
+        return null;
+      }
+      return await SiteDocument.create({
+        docType: SITE_DOCUMENT_TYPE.MUSIC_QUIZ_PACK,
+        boardSlug: slug,
+        title: String(r.playlist?.name || "Playlist").slice(0, 120),
+        boardIconUrl: String(r.playlist?.cover || ""),
+        createdBy: "spotify",
+        payload: {
+          source: "spotify",
+          spotifyId: id,
+          kind: "playlist",
+          cover: r.playlist?.cover || "",
+          tracks: r.tracks,
+          plays: 0,
+          community: false,
+        },
+      });
+    } catch (err: any) {
+      global.logger?.warn?.(`[music-quiz] ${slug}:`, err?.message || err);
+      return null;
+    } finally {
+      spotifyPending.delete(id);
+    }
+  })();
+  spotifyPending.set(id, job);
+  return job;
+}
+const spotifyPending = new Map<string, Promise<any>>();
+
+/** stesso nome senza accenti, maiuscole e simboli */
+function plain(s: string) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 async function handleMusicQuizSearchGet(client?, req?, res?) {
   const auth = await requireMusicQuizHighStaff(client, req);
   if (sendAuthError(res, auth)) return;
@@ -118,9 +173,10 @@ async function handleMusicQuizSearchGet(client?, req?, res?) {
     if (!q) return res.json({ ok: true, artists: [], playlists: [], tracks: [] });
     /* il testo cercato va preso alla lettera, non come espressione regolare */
     const rx = new RegExp(q.slice(0, 60).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-    const [artists, playlists, tracks, quizzes] = await Promise.all([
+    const { searchSpotifyPlaylists } = require("./siteMusicQuizSpotify") as typeof import("./siteMusicQuizSpotify");
+    const [artists, playlists, tracks, quizzes, spotify] = await Promise.all([
       deezer.searchArtists(q, 16),
-      deezer.searchPlaylists(q, 14),
+      deezer.searchPlaylists(q, 30),
       deezer.searchTracks(q, 16),
       /* quiz della community: solo quelli pubblici, per nome, tag o categoria */
       SiteDocument.find({
@@ -134,7 +190,30 @@ async function handleMusicQuizSearchGet(client?, req?, res?) {
         .limit(10)
         .lean()
         .catch(() => []),
+      searchSpotifyPlaylists(q, 30),
     ]);
+    /* playlist: prima quelle col nome cercato nel titolo, poi le più grandi; Spotify e Deezer mescolate */
+    const want = plain(q);
+    const score = (p: { name: string; trackCount: number; fans?: number; kind: string }) => {
+      const title = plain(p.name);
+      let s = 0;
+      if (want && title.includes(want)) s += 100;
+      if (want && title.startsWith(want)) s += 20;
+      if (/\b(best|migliori|meglio|essential|hits?|greatest|top|100)\b/.test(title)) s += 15;
+      s += Math.min(30, Math.log10(1 + (p.fans || 0)) * 6);
+      s += Math.min(15, (p.trackCount || 0) / 10);
+      return s;
+    };
+    const seen = new Set<string>();
+    const mixed = [...(spotify || []), ...(playlists || []).filter((p: any) => (p.trackCount || 0) >= 10)]
+      .filter((p: any) => {
+        const key = plain(p.name);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a: any, b: any) => score(b) - score(a))
+      .slice(0, 24);
     const quizCards = (quizzes || []).map((p: any) => ({
       slug: p.boardSlug,
       title: p.title,
@@ -146,7 +225,7 @@ async function handleMusicQuizSearchGet(client?, req?, res?) {
       kind: "community",
       ...(String(p.userId || "") === String((auth as any).userId || "") ? { mine: true } : {}),
     }));
-    return res.json({ ok: true, artists, playlists, tracks, quizzes: quizCards });
+    return res.json({ ok: true, artists, playlists: mixed, tracks, quizzes: quizCards });
   } catch (err: any) {
     global.logger?.warn?.("[music-quiz] search:", err?.message || err);
     return res.status(502).json({ ok: false, error: "deezer_error", message: "Deezer non disponibile." });
@@ -439,6 +518,7 @@ export = {
   ROUNDS,
   DIFF_MS,
   ensureDeezerPack,
+  ensureSpotifyPack,
   loadPackTracks,
   handleMusicQuizSearchGet,
   handleMusicQuizHubGet,
