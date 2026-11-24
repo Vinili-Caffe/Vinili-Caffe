@@ -17,7 +17,7 @@ import {
   type StreamPlatform,
 } from "@/lib/streamChat";
 import { formatCount, formatNumberQuizValue, type NumberQuizItem } from "@/lib/numberQuiz";
-import { Backdrop, CountUp, GameOver, HC_ROUNDS, Pill, Shell, heat, useDeck, type Loaded, type NQLevel } from "./NumberQuizPlay";
+import { Backdrop, CountUp, GameOver, HC_ROUNDS, Pill, Shell, heat, useDeck, type Loaded } from "./NumberQuizPlay";
 
 const HL_VOTE_MS = 15_000;
 const HC_VOTE_MS = 25_000;
@@ -243,13 +243,11 @@ type SHLPhase = "vote" | "reveal" | "right" | "wrong";
 export function StreamHigherLower({
   data,
   chat,
-  level,
   onExit,
   onRestart,
 }: {
   data: Loaded;
   chat: StreamChat;
-  level: NQLevel;
   onExit: () => void;
   onRestart: () => void;
 }) {
@@ -279,7 +277,7 @@ export function StreamHigherLower({
 
   useEffect(() => {
     const a = next();
-    setPair([a, next(a, { streak: 0, level })]);
+    setPair([a, next(a, { streak: 0 })]);
     openVote();
     const t = timers.current;
     return () => t.forEach((x) => window.clearTimeout(x));
@@ -330,8 +328,8 @@ export function StreamHigherLower({
         }
         timers.current.push(
           window.setTimeout(() => {
-            const keep = a.value >= b.value ? a : b;
-            setPair([keep, next(keep, { streak: streakRef.current, level })]);
+            const keep = b;
+            setPair([keep, next(keep, { streak: streakRef.current })]);
             openVote();
           }, 1800),
         );
@@ -361,7 +359,7 @@ export function StreamHigherLower({
         <AnimatePresence mode="popLayout" initial={false}>
           {[a, b].map((it, idx) => {
             const side = idx as 0 | 1;
-            const revealed = side === 0 ? level !== "hard" || phase !== "vote" : phase !== "vote";
+            const revealed = side === 0 || phase !== "vote";
             const share = total ? Math.round((counts[side] / total) * 100) : 0;
             const won = phase !== "vote" && it.value >= (side === 0 ? b : a).value;
             return (

@@ -45,24 +45,6 @@ export function NumberQuizPlay({ catId }: { catId?: string } = {}) {
   const [mode, setMode] = useState<Mode | null>(null);
   const [run, setRun] = useState(0);
   const [stream, setStream] = useState(false);
-  /* difficoltà di «Più o meno»: ricordata nel browser */
-  const [level, setLevelState] = useState<NQLevel>("normal");
-  useEffect(() => {
-    try {
-      const v = localStorage.getItem("vc-numquiz-level");
-      if (v === "easy" || v === "normal" || v === "hard") setLevelState(v);
-    } catch {
-      /* niente memoria: resta normale */
-    }
-  }, []);
-  const setLevel = (v: NQLevel) => {
-    setLevelState(v);
-    try {
-      localStorage.setItem("vc-numquiz-level", v);
-    } catch {
-      /* ignore */
-    }
-  };
   const chat = useStreamChat();
 
   useEffect(() => {
@@ -114,14 +96,14 @@ export function NumberQuizPlay({ catId }: { catId?: string } = {}) {
   return (
     <>
       {/* si rimonta all'uscita da una partita, così rilegge i record */}
-      <Setup key={mode ? "playing" : `setup-${run}`} data={data} onStart={start} stream={stream} setStream={setStream} chat={chat} level={level} setLevel={setLevel} />
+      <Setup key={mode ? "playing" : `setup-${run}`} data={data} onStart={start} stream={stream} setStream={setStream} chat={chat} />
       <AnimatePresence>
         {stream && mode === "hl" ? (
-          <StreamHigherLower key={`shl-${run}`} data={data} chat={chat} level={level} onExit={() => setMode(null)} onRestart={() => start("hl")} />
+          <StreamHigherLower key={`shl-${run}`} data={data} chat={chat} onExit={() => setMode(null)} onRestart={() => start("hl")} />
         ) : stream && mode === "hc" ? (
           <StreamHotCold key={`shc-${run}`} data={data} chat={chat} onExit={() => setMode(null)} onRestart={() => start("hc")} />
         ) : mode === "hl" ? (
-          <HigherLower key={`hl-${run}`} data={data} level={level} onExit={() => setMode(null)} onRestart={() => start("hl")} />
+          <HigherLower key={`hl-${run}`} data={data} onExit={() => setMode(null)} onRestart={() => start("hl")} />
         ) : mode === "hc" ? (
           <HotCold key={`hc-${run}`} data={data} onExit={() => setMode(null)} onRestart={() => start("hc")} />
         ) : null}
@@ -146,20 +128,16 @@ function Setup({
   stream,
   setStream,
   chat,
-  level,
-  setLevel,
 }: {
   data: Loaded;
   onStart: (m: Mode) => void;
   stream: boolean;
   setStream: (v: boolean) => void;
   chat: StreamChat;
-  level: NQLevel;
-  setLevel: (v: NQLevel) => void;
 }) {
   const c = data.category;
   const [best, setBest] = useState({ hl: 0, hc: 0 });
-  useEffect(() => setBest({ hl: readBest(c.id, hlKey(level)), hc: readBest(c.id, "hc") }), [c.id, level]);
+  useEffect(() => setBest({ hl: readBest(c.id, "hl"), hc: readBest(c.id, "hc") }), [c.id]);
   const previews = useMemo(() => data.items.filter((x) => x.image).slice(0, 6), [data.items]);
 
   return (
@@ -204,27 +182,8 @@ function Setup({
           </div>
         ) : null}
 
-        {/* difficoltà di «Più o meno» */}
-        <div className="mx-auto mt-8 flex max-w-md flex-col items-center">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-crema/45">Difficoltà</p>
-          <div className="mt-2 grid w-full grid-cols-3 gap-1 rounded-2xl bg-ink/50 p-1 ring-1 ring-sand/15">
-            {LEVELS.map((l) => (
-              <button
-                key={l.id}
-                type="button"
-                onClick={() => setLevel(l.id)}
-                className={cn("relative rounded-xl px-2 py-2 text-sm font-bold transition", level === l.id ? "text-ink" : "text-crema/70 hover:text-crema")}
-              >
-                {level === l.id ? <motion.span layoutId="nq-level" className="absolute inset-0 rounded-xl bg-caramel" /> : null}
-                <span className="relative">{l.label}</span>
-              </button>
-            ))}
-          </div>
-          <p className="mt-1.5 text-xs text-crema/50">{LEVELS.find((l) => l.id === level)?.hint}</p>
-        </div>
-
         {/* da solo o con la chat della live, come nel Music Quiz */}
-        <div className="mx-auto mt-5 grid max-w-md grid-cols-2 gap-1 rounded-2xl bg-ink/50 p-1 ring-1 ring-sand/15">
+        <div className="mx-auto mt-8 grid max-w-md grid-cols-2 gap-1 rounded-2xl bg-ink/50 p-1 ring-1 ring-sand/15">
           {[
             { id: false, label: "Da solo", hint: "Gioca tu", icon: <User className="size-4" /> },
             { id: true, label: "In stream", hint: "Gioca la tua chat", icon: <Radio className="size-4" /> },
@@ -334,19 +293,20 @@ export function useDeck(data: Loaded) {
   }, [data.items]);
 
   const next = useCallback(
-    (avoid?: NumberQuizItem, opts?: { streak: number; level: NQLevel }) => {
+    (avoid?: NumberQuizItem, opts?: { streak: number }) => {
       if (deck.current.length < 12) void refill();
-      /* più la serie è lunga, più la nuova carta ha un numero vicino a quella di prima */
-      const t = avoid && opts ? tightness(opts.streak, opts.level) : null;
-      if (avoid && t != null) {
+      /* difficoltà che cambia a ogni carta: a volte vicinissima, a volte media, a volte lontana */
+      if (avoid && opts) {
+        const format = data.category.format;
         const range = Math.max(1e-9, data.max - data.min);
+        const band = pickBand(opts.streak);
         const fresh = deck.current.filter((it) => !seen.current.has(it.name) && it.name !== avoid.name && it.value !== avoid.value);
-        const close = fresh.filter((it) => isClose(avoid.value, it.value, t, data.category.format, range));
-        if (close.length < 4) void refill();
-        const pool = close.length
-          ? close
-          : /* nessuna abbastanza vicina: la più vicina che c'è */
-            fresh.sort((x, y) => gap(avoid.value, x.value, data.category.format, range) - gap(avoid.value, y.value, data.category.format, range)).slice(0, 3);
+        const inBand = fresh.filter((it) => band.test(gapScore(avoid.value, it.value, format, range)));
+        if (inBand.length < 4) void refill();
+        const pool = inBand.length
+          ? inBand
+          : /* niente nella fascia scelta: la più vicina alla fascia */
+            fresh.sort((x, y) => band.miss(gapScore(avoid.value, x.value, format, range)) - band.miss(gapScore(avoid.value, y.value, format, range))).slice(0, 3);
         const it = pool[Math.floor(Math.random() * Math.min(pool.length, 12))];
         if (it) {
           deck.current.splice(deck.current.indexOf(it), 1);
@@ -375,35 +335,34 @@ export function useDeck(data: Loaded) {
 
 /* ───────────── difficoltà ───────────── */
 
-export type NQLevel = "easy" | "normal" | "hard";
-export const LEVELS: Array<{ id: NQLevel; label: string; hint: string }> = [
-  { id: "easy", label: "Facile", hint: "Coppie a caso, vedi il primo numero" },
-  { id: "normal", label: "Normale", hint: "Le coppie si avvicinano con la serie" },
-  { id: "hard", label: "Difficile", hint: "Coppie vicine e numeri tutti nascosti" },
-];
-/** record separati per livello (il normale tiene la chiave di prima) */
-export const hlKey = (level: NQLevel) => (level === "normal" ? "hl" : `hl-${level}`);
-
-/** 0 = numeri qualsiasi, 1 = numeri vicinissimi; null = nessun vincolo */
-function tightness(streak: number, level: NQLevel) {
-  if (level === "easy") return null;
-  const base = level === "hard" ? 0.55 : 0.05;
-  return Math.min(1, base + streak / 14);
+/**
+ * Distanza tra due valori su una scala unica (0 = uguali, 1 = molto lontani):
+ * per gli anni conta la differenza, per i numeri positivi il rapporto, per il resto la parte dell'intervallo.
+ */
+function gapScore(a: number, b: number, format: NumberQuizCategory["format"], range: number) {
+  if (format === "year") return Math.min(1, Math.abs(a - b) / 60);
+  if (a > 0 && b > 0) return Math.min(1, Math.abs(Math.log(a / b)) / Math.log(20));
+  return Math.min(1, Math.abs(a - b) / range);
 }
 
-/** distanza tra due valori: in rapporto per i numeri positivi, in anni per le date */
-function gap(a: number, b: number, format: NumberQuizCategory["format"], range: number) {
-  if (format === "year") return Math.abs(a - b);
-  if (a > 0 && b > 0) return Math.abs(Math.log(a / b));
-  return Math.abs(a - b) / range;
-}
-
-function isClose(a: number, b: number, t: number, format: NumberQuizCategory["format"], range: number) {
-  const g = gap(a, b, format, range);
-  if (g === 0) return false;
-  if (format === "year") return g <= 40 * (1 - t) + 1.5 * t;
-  if (a > 0 && b > 0) return g <= Math.log(8) * (1 - t) + Math.log(1.06) * t;
-  return g <= 0.5 * (1 - t) + 0.02 * t;
+/*
+ * Fasce: vicinissima (≈ entro il 15%, o 1-3 anni), media, lontana.
+ * Con la serie aumentano un po' le vicine, ma una facile ogni tanto arriva sempre.
+ */
+const BANDS = {
+  close: { lo: 0, hi: 0.05 },
+  mid: { lo: 0.05, hi: 0.3 },
+  far: { lo: 0.3, hi: 1 },
+};
+function pickBand(streak: number) {
+  const closeP = Math.min(0.55, 0.3 + streak * 0.02);
+  const farP = Math.max(0.15, 0.3 - streak * 0.01);
+  const r = Math.random();
+  const b = r < closeP ? BANDS.close : r < 1 - farP ? BANDS.mid : BANDS.far;
+  return {
+    test: (g: number) => g > 0 && g >= b.lo && g <= b.hi,
+    miss: (g: number) => (g < b.lo ? b.lo - g : g > b.hi ? g - b.hi : 0),
+  };
 }
 
 export function Shell({ children, onExit, top }: { children: React.ReactNode; onExit: () => void; top: React.ReactNode }) {
@@ -486,21 +445,21 @@ export function Backdrop({ item }: { item: NumberQuizItem }) {
 
 type HLPhase = "pick" | "reveal" | "right" | "wrong";
 
-function HigherLower({ data, level, onExit, onRestart }: { data: Loaded; level: NQLevel; onExit: () => void; onRestart: () => void }) {
+function HigherLower({ data, onExit, onRestart }: { data: Loaded; onExit: () => void; onRestart: () => void }) {
   const c = data.category;
   const next = useDeck(data);
   const [pair, setPair] = useState<[NumberQuizItem, NumberQuizItem] | null>(null);
   const [phase, setPhase] = useState<HLPhase>("pick");
   const [picked, setPicked] = useState<0 | 1 | null>(null);
   const [streak, setStreak] = useState(0);
-  const [best, setBest] = useState(() => readBest(c.id, hlKey(level)));
+  const [best, setBest] = useState(() => readBest(c.id, "hl"));
   const streakRef = useRef(0);
   const bestAtStart = useRef(best);
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
     const a = next();
-    setPair([a, next(a, { streak: 0, level })]);
+    setPair([a, next(a, { streak: 0 })]);
     const t = timers.current;
     return () => t.forEach((x) => window.clearTimeout(x));
   }, [next]);
@@ -523,8 +482,8 @@ function HigherLower({ data, level, onExit, onRestart }: { data: Loaded; level: 
           setStreak((s) => {
             const n = s + 1;
             streakRef.current = n;
-            if (n > bestAtStart.current && n > readBest(c.id, hlKey(level))) {
-              writeBest(c.id, hlKey(level), n);
+            if (n > bestAtStart.current && n > readBest(c.id, "hl")) {
+              writeBest(c.id, "hl", n);
               setBest(n);
             }
             return n;
@@ -532,9 +491,9 @@ function HigherLower({ data, level, onExit, onRestart }: { data: Loaded; level: 
           setPhase("right");
           timers.current.push(
             window.setTimeout(() => {
-              /* la carta più alta resta, a destra ne arriva una nuova */
-              const keep = a.value >= b.value ? a : b;
-              setPair([keep, next(keep, { streak: streakRef.current, level })]);
+              /* la carta appena scoperta passa a sinistra: il numero da battere cambia sempre (niente serie infinite con la più alta) */
+              const keep = b;
+              setPair([keep, next(keep, { streak: streakRef.current })]);
               setPicked(null);
               setPhase("pick");
             }, 1000),
@@ -575,8 +534,7 @@ function HigherLower({ data, level, onExit, onRestart }: { data: Loaded; level: 
         <AnimatePresence mode="popLayout" initial={false}>
           {[a, b].map((it, idx) => {
             const side = idx as 0 | 1;
-            /* difficile: anche il primo numero resta nascosto finché non scegli */
-            const revealed = side === 0 ? level !== "hard" || phase !== "pick" : showB;
+            const revealed = side === 0 || showB;
             const isPicked = picked === side;
             const won = phase !== "pick" && it.value >= (side === 0 ? b : a).value;
             return (
