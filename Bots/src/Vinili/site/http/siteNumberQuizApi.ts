@@ -135,8 +135,22 @@ async function hostSlot(host: string) {
   return () => hostBusy.set(host, Math.max(0, (hostBusy.get(host) || 1) - 1));
 }
 
+/* Wikimedia blocca i programmi che chiedono il file originale (quando la larghezza supera quella vera):
+   in quel caso si riprova con miniature più piccole, che invece dà sempre */
 async function downloadImage(url: URL): Promise<{ type: string; buf: Buffer } | null> {
-  for (let attempt = 0; attempt < 4; attempt++) {
+  const first = await downloadOnce(url, /Special:FilePath/i.test(url.pathname) ? 1 : 4);
+  if (first || !/Special:FilePath/i.test(url.pathname)) return first;
+  for (const w of ["500", "250"]) {
+    const smaller = new URL(url.href);
+    smaller.searchParams.set("width", w);
+    const v = await downloadOnce(smaller, 2);
+    if (v) return v;
+  }
+  return null;
+}
+
+async function downloadOnce(url: URL, tries = 4): Promise<{ type: string; buf: Buffer } | null> {
+  for (let attempt = 0; attempt < tries; attempt++) {
     const release = await hostSlot(url.hostname);
     try {
       const r = await fetch(url, { redirect: "follow", headers: { "User-Agent": "NumberQuizGame/1.0 (quiz images)" }, signal: AbortSignal.timeout(15_000) });
