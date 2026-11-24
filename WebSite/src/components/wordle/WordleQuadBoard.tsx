@@ -39,6 +39,7 @@ import {
 import { WordleKeyboard } from "./WordleKeyboard";
 import { WordleRewardBanner } from "./WordleRewardBanner";
 import { WordleRemindToggle } from "./WordleRemindToggle";
+import { activityShare, isDiscordActivity } from "@/lib/discordActivity";
 import { WordleStats } from "./WordleStats";
 import { celebrate } from "@/lib/confetti";
 import { useFxCap } from "@/components/effects/DeviceFxProvider";
@@ -108,6 +109,8 @@ export function WordleQuadBoard({ initial }: Props) {
   const [expGained, setExpGained] = useState<number | null>(null);
   const [copyHint, setCopyHint] = useState("");
   const [shareHint, setShareHint] = useState("");
+  const [inActivity, setInActivity] = useState(false);
+  useEffect(() => setInActivity(isDiscordActivity()), []);
   const [stats, setStats] = useState<StatsData>(() => emptyStats());
   const [remindEnabled, setRemindEnabled] = useState(Boolean(initial?.remindEnabled));
   const toastTimer = useRef<number | null>(null);
@@ -363,6 +366,12 @@ export function WordleQuadBoard({ initial }: Props) {
 
   const share = async () => {
     if (!shareText) return;
+    /* nell'Attività: finestra di condivisione di Discord (chat o canale), con il link per giocare */
+    if (inActivity) {
+      if (await activityShare(shareText)) setShareHint(t("wordle.shared"));
+      window.setTimeout(() => setShareHint(""), 2000);
+      return;
+    }
     try {
       if (navigator.share) {
         await navigator.share({ text: shareText });
@@ -389,7 +398,8 @@ export function WordleQuadBoard({ initial }: Props) {
         expGained={expGained}
         onLogin={login}
       />
-      <WordleRemindToggle enabled={remindEnabled} onEnabledChange={setRemindEnabled} />
+      {/* il promemoria vale solo sul sito, non nell'Attività di Discord */}
+      {inActivity ? null : <WordleRemindToggle enabled={remindEnabled} onEnabledChange={setRemindEnabled} />}
 
       <div>
         <div className="mb-1 min-h-[1rem] text-center" role="status" aria-live="polite">

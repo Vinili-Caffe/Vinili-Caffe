@@ -18,8 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { ChatPanel, StreamHigherLower, StreamHotCold, useStreamChat, type StreamChat } from "./NumberQuizStream";
-import { SmartLink } from "@/components/SmartLink";
-import { page } from "@/lib/site";
+import { NQLink } from "./NumberQuizNav";
 import { cn } from "@/lib/cn";
 import {
   countNumberQuizPlay,
@@ -37,9 +36,10 @@ export type Loaded = { category: NumberQuizCategory; items: NumberQuizItem[]; mi
 
 export const HC_ROUNDS = 10;
 
-export function NumberQuizPlay() {
+/** catId: categoria scelta dall'esterno (Attività di Discord); altrimenti viene dall'indirizzo (?cat=) */
+export function NumberQuizPlay({ catId }: { catId?: string } = {}) {
   const sp = useSearchParams();
-  const id = String(sp.get("cat") || "").trim();
+  const id = String(catId || sp.get("cat") || "").trim();
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState("");
   const [mode, setMode] = useState<Mode | null>(null);
@@ -114,12 +114,9 @@ export function NumberQuizPlay() {
 
 function BackLink() {
   return (
-    <SmartLink
-      href={page("/quiz/numeri/")}
-      className="mt-5 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-bold text-ink"
-    >
+    <NQLink to="list" className="mt-5 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-bold text-ink">
       <ArrowLeft className="size-4" /> Tutte le categorie
-    </SmartLink>
+    </NQLink>
   );
 }
 
@@ -150,12 +147,12 @@ function Setup({
         <img src={c.cover} alt="" className="absolute inset-0 size-full scale-110 object-cover opacity-25 blur-2xl" />
       ) : null}
       <div className="relative mx-auto w-full max-w-4xl px-4 pb-20 pt-6">
-        <SmartLink
-          href={page("/quiz/numeri/")}
+        <NQLink
+          to="list"
           className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold uppercase tracking-wide text-crema/60 transition hover:bg-crema/[0.06] hover:text-crema"
         >
           <ArrowLeft className="size-4" /> Categorie
-        </SmartLink>
+        </NQLink>
 
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mt-4 text-center">
           <span className="text-5xl" aria-hidden>
@@ -671,9 +668,9 @@ export function GameOver({
               Modalità
             </button>
           </div>
-          <SmartLink href={page("/quiz/numeri/")} className="mt-1 text-xs font-semibold text-crema/50 hover:text-crema">
+          <NQLink to="list" className="mt-1 text-xs font-semibold text-crema/50 hover:text-crema">
             Cambia categoria
-          </SmartLink>
+          </NQLink>
         </div>
       </motion.div>
     </motion.div>

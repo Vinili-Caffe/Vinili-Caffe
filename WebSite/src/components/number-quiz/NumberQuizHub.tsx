@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Flame, Layers, Loader2, Search, X } from "lucide-react";
-import { SmartLink } from "@/components/SmartLink";
-import { page } from "@/lib/site";
+import { NQLink } from "./NumberQuizNav";
 import { cn } from "@/lib/cn";
 import { formatCount, listNumberQuizCategories, readBest, type NumberQuizCategory } from "@/lib/numberQuiz";
 
@@ -113,9 +112,9 @@ function CategoryCard({ c, i }: { c: NumberQuizCategory; i: number }) {
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ delay: Math.min(i, 9) * 0.03, type: "spring", stiffness: 300, damping: 30 }}
     >
-      <SmartLink
-        href={page(`/quiz/numeri/gioca/?cat=${encodeURIComponent(c.id)}`)}
-        className="group relative block aspect-[4/3] overflow-hidden rounded-3xl bg-roast ring-1 ring-sand/12 transition hover:-translate-y-1 hover:ring-caramel/50 hover:shadow-[0_24px_50px_-24px_rgba(214,154,95,0.6)]"
+      <NQLink
+        to={{ cat: c.id }}
+        className="group relative block aspect-[4/3] w-full text-left overflow-hidden rounded-3xl bg-roast ring-1 ring-sand/12 transition hover:-translate-y-1 hover:ring-caramel/50 hover:shadow-[0_24px_50px_-24px_rgba(214,154,95,0.6)]"
       >
         {c.cover ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -153,7 +152,7 @@ function CategoryCard({ c, i }: { c: NumberQuizCategory; i: number }) {
             {c.plays ? <span>{formatCount(c.plays)} partite</span> : null}
           </p>
         </div>
-      </SmartLink>
+      </NQLink>
     </motion.div>
   );
 }

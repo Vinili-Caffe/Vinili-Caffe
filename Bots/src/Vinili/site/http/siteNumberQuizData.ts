@@ -287,21 +287,37 @@ async function deezerTopArtists(n: number) {
 
 /* ───────────── altre API ───────────── */
 
-async function tvmazeShows() {
+/** Stesso scaricamento per più categorie (Pokémon, prodotti, serie, anime): si fa una volta ogni qualche ora. */
+function memo<T>(fn: () => Promise<T>, ms = 6 * 3600_000) {
+  let at = 0;
+  let p: Promise<T> | null = null;
+  return () => {
+    if (!p || Date.now() - at > ms) {
+      at = Date.now();
+      p = fn().catch((e) => {
+        p = null;
+        throw e;
+      });
+    }
+    return p;
+  };
+}
+
+const tvmazeShows = memo(async () => {
   const pages = Array.from({ length: 80 }, (_, i) => i);
   const res = await pool(pages, 3, 150, (p) => getJson(`https://api.tvmaze.com/shows?page=${p}`));
   const shows: any[] = res.flatMap((x) => (Array.isArray(x) ? x : []));
   return shows.filter((s) => Number(s.weight) >= 90 && s.image?.medium);
-}
+});
 
-async function anilist(perPage = 50, pages = 24) {
+async function anilistList(type: "ANIME" | "MANGA", pages = 24) {
   const out: any[] = [];
   for (let page = 1; page <= pages; page++) {
     const r = await getJson("https://graphql.anilist.co", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        query: `{Page(page:${page},perPage:${perPage}){media(type:ANIME,sort:POPULARITY_DESC,isAdult:false){title{romaji english} averageScore popularity seasonYear episodes coverImage{extraLarge large}}}}`,
+        query: `{Page(page:${page},perPage:50){media(type:${type},sort:POPULARITY_DESC,isAdult:false){title{romaji english} averageScore popularity seasonYear startDate{year} episodes chapters volumes duration coverImage{extraLarge large}}}}`,
       }),
     });
     out.push(...(r?.data?.Page?.media || []));
@@ -309,15 +325,22 @@ async function anilist(perPage = 50, pages = 24) {
   }
   return out;
 }
+const anilist = memo(() => anilistList("ANIME"));
+const anilistManga = memo(() => anilistList("MANGA", 20));
 
-async function pokemon() {
+const pokemon = memo(async () => {
   const list = await getJson("https://pokeapi.co/api/v2/pokemon?limit=1025");
   const urls: string[] = (list?.results || []).map((x: any) => x.url);
   const res = await pool(urls, 6, 40, (u) => getJson(u));
   return res.filter(Boolean);
-}
+});
 
-async function foodItaly() {
+const foodItaly = memo(async () => {
+  const res = await foodPages();
+  return res;
+});
+
+async function foodPages() {
   const pages = Array.from({ length: 12 }, (_, i) => i + 1);
   const res = await pool(pages, 2, 700, (p) =>
     getJson(
@@ -329,15 +352,15 @@ async function foodItaly() {
   return res.flatMap((x) => x?.products || []);
 }
 
-async function wikipediaTop(): Promise<NQItem[]> {
+async function wikipediaTop(lang: "it" | "en" = "it"): Promise<NQItem[]> {
   const d = new Date();
   d.setUTCDate(1);
   d.setUTCMonth(d.getUTCMonth() - 1);
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const r = await getJson(`https://wikimedia.org/api/rest_v1/metrics/pageviews/top/it.wikipedia/all-access/${y}/${m}/all-days`);
+  const r = await getJson(`https://wikimedia.org/api/rest_v1/metrics/pageviews/top/${lang}.wikipedia/all-access/${y}/${m}/all-days`);
   const arts: any[] = (r?.items?.[0]?.articles || []).filter(
-    (a: any) => !/^(Pagina_principale|Speciale:|File:|Wikipedia:|Categoria:|Aiuto:|Portale:|Template:|Utente:|Progetto:)/.test(a.article) && a.article !== "-",
+    (a: any) => !/^(Pagina_principale|Main_Page|Speciale:|Special:|File:|Wikipedia:|Categoria:|Category:|Aiuto:|Help:|Portale:|Portal:|Template:|Utente:|User:|Progetto:|XHamster|Pornhub|xHamster)/.test(a.article) && a.article !== "-",
   );
   const items: NQItem[] = arts.slice(0, 900).map((a) => ({ name: clean(a.article.replace(/_/g, " ")), value: Number(a.views) }));
   /* immagini a gruppi di 50 titoli */
@@ -345,7 +368,7 @@ async function wikipediaTop(): Promise<NQItem[]> {
     const chunk = items.slice(i, i + 50);
     const titles = chunk.map((x) => x.name).join("|");
     const q = await getJson(
-      `https://it.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&piprop=thumbnail&pithumbsize=800&redirects=1&titles=${encodeURIComponent(titles)}`,
+      `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&piprop=thumbnail&pithumbsize=800&redirects=1&titles=${encodeURIComponent(titles)}`,
     );
     const pages: any[] = Object.values(q?.query?.pages || {});
     const norm = new Map<string, string>();
@@ -659,7 +682,7 @@ export const CATEGORIES: NQCategory[] = [
     unit: "visite",
     format: "number",
     ttlDays: 3,
-    build: wikipediaTop,
+    build: () => wikipediaTop("it"),
   },
   /* cinema, tv, giochi */
   {
@@ -838,6 +861,393 @@ export const CATEGORIES: NQCategory[] = [
       ),
   },
 ];
+
+/* elementi famosi di una classe: prima il filtro sulla notorietà (veloce), poi la classe */
+const famous = (minLinks: number, tail: string) =>
+  `?i wikibase:sitelinks ?ss. hint:Prior hint:rangeSafe true. FILTER(?ss >= ${minLinks}) ${tail}`;
+
+const yearCat = (
+  id: string,
+  topic: string,
+  title: string,
+  question: string,
+  description: string,
+  emoji: string,
+  where: string,
+  prop: string,
+  extra: Partial<WdSpec> = {},
+): NQCategory => ({
+  id,
+  topic,
+  title,
+  question,
+  description,
+  emoji,
+  unit: "",
+  format: "year",
+  build: () => wikidata({ where, prop, date: true, keep: "min", limit: 9000, ...extra }),
+});
+
+const pokeStat = (stat: string) => (p: any) => Number((p.stats || []).find((s: any) => s.stat?.name === stat)?.base_stat || 0);
+
+const MORE: NQCategory[] = [
+  /* musica */
+  {
+    id: "album-fan-deezer",
+    topic: "Musica",
+    title: "Fan degli album su Deezer",
+    question: "Quale album ha più fan su Deezer?",
+    description: "Gli album degli artisti più seguiti: quanti lo hanno tra i preferiti?",
+    emoji: "📀",
+    unit: "fan",
+    format: "number",
+    ttlDays: 10,
+    build: async () => {
+      const artists = await deezerTopArtists(350);
+      const out: NQItem[] = [];
+      for (const a of artists) {
+        const r = await dz(`/artist/${a.id}/albums?limit=25`);
+        for (const al of (r?.data || []) as any[]) {
+          if (al.record_type !== "album" || !(Number(al.fans) >= 2000)) continue;
+          out.push({ name: clean(al.title), sub: a.name, value: Number(al.fans), image: String(al.cover_xl || "") });
+        }
+      }
+      return dedupe(out, "max");
+    },
+  },
+  yearCat("singoli-anno", "Musica", "Anno di uscita delle canzoni", "Quale canzone è uscita dopo?", "Canzoni famose di ogni epoca: prima o dopo?", "🎶",
+    famous(15, "?i wdt:P31 wd:Q134556."), "P577", { sub: "P175", enwiki: true, minValue: 1900 }),
+  yearCat("band-anno", "Musica", "Anno di nascita delle band", "Quale band si è formata dopo?", "Dai Beatles ai Måneskin: quando si sono formati?", "🎸",
+    famous(30, "?i wdt:P31 wd:Q215380."), "P571", { image: "P18", enwiki: true, minValue: 1900 }),
+  yearCat("cantanti-nascita", "Musica", "Anno di nascita dei cantanti", "Chi è nato dopo?", "Cantanti di tutto il mondo: chi è più giovane?", "🎤",
+    famous(35, "?i wdt:P106 wd:Q177220; wdt:P31 wd:Q5."), "P569", { image: "P18", minValue: 1850 }),
+  /* persone e sport */
+  yearCat("attori-nascita", "Persone", "Anno di nascita degli attori", "Chi è nato dopo?", "Attori e attrici famosi: chi è più giovane?", "🎭",
+    famous(45, "?i wdt:P106 wd:Q33999; wdt:P31 wd:Q5."), "P569", { image: "P18", minValue: 1850 }),
+  yearCat("famosi-morte", "Persone", "Anno di morte dei famosi", "Chi è morto dopo?", "Personaggi storici: chi è vissuto più tardi?", "🕯️",
+    famous(90, "?i wdt:P31 wd:Q5."), "P570", { image: "P18", keep: "max" }),
+  yearCat("calciatori-nascita", "Sport", "Anno di nascita dei calciatori", "Chi è nato dopo?", "Campioni di ieri e di oggi.", "⚽",
+    famous(45, "?i wdt:P106 wd:Q937857; wdt:P31 wd:Q5."), "P569", { image: "P18", minValue: 1850 }),
+  {
+    id: "cestisti-altezza",
+    topic: "Sport",
+    title: "Altezza dei cestisti",
+    question: "Chi è più alto?",
+    description: "Giocatori di basket famosi, in centimetri.",
+    emoji: "🏀",
+    unit: "cm",
+    format: "number",
+    build: () =>
+      wikidata({ where: famous(12, "?i wdt:P106 wd:Q3665646; wdt:P31 wd:Q5."), prop: "P2048", normalized: true, scale: 100, image: "P18", minValue: 150, maxValue: 240 }),
+  },
+  {
+    id: "calciatori-altezza",
+    topic: "Sport",
+    title: "Altezza dei calciatori",
+    question: "Chi è più alto?",
+    description: "Calciatori famosi, in centimetri.",
+    emoji: "📏",
+    unit: "cm",
+    format: "number",
+    build: () =>
+      wikidata({ where: famous(35, "?i wdt:P106 wd:Q937857; wdt:P31 wd:Q5."), prop: "P2048", normalized: true, scale: 100, image: "P18", minValue: 150, maxValue: 215 }),
+  },
+  yearCat("squadre-fondazione", "Sport", "Anno di fondazione delle squadre", "Quale squadra è nata dopo?", "Club di calcio di tutto il mondo.", "🛡️",
+    famous(25, "?i wdt:P31 wd:Q476028."), "P571", { image: "P154", sub: "P17", minValue: 1850 }),
+  yearCat("piloti-nascita", "Sport", "Anno di nascita dei piloti di F1", "Chi è nato dopo?", "Piloti di Formula 1 di ogni epoca.", "🏎️",
+    famous(15, "?i wdt:P106 wd:Q10841764; wdt:P31 wd:Q5."), "P569", { image: "P18", minValue: 1890 }),
+  {
+    id: "arene",
+    topic: "Sport",
+    title: "Capienza dei palazzetti",
+    question: "Quale arena contiene più persone?",
+    description: "Palazzetti e arene coperte di tutto il mondo.",
+    emoji: "🎪",
+    unit: "posti",
+    format: "number",
+    build: () => wikidata({ cls: "Q641226", prop: "P1083", image: "P18", sub: "P131", minLinks: 5, keep: "max", minValue: 1000 }),
+  },
+  /* geografia in più */
+  {
+    id: "paesi-densita",
+    topic: "Geografia",
+    title: "Densità dei Paesi",
+    question: "Quale Paese è più affollato?",
+    description: "Abitanti per km²: da Monaco alla Mongolia.",
+    emoji: "👥",
+    unit: "ab./km²",
+    format: "number",
+    build: async () => {
+      const [pop, area] = await Promise.all([
+        wikidata({ cls: "Q6256", prop: "P1082", image: "P41", keep: "max", minValue: 1000 }),
+        wikidata({ cls: "Q6256", prop: "P2046", normalized: true, scale: 1e-6, keep: "max", minValue: 0.3 }),
+      ]);
+      const areas = new Map(area.map((x) => [x.name, x.value]));
+      return pop
+        .filter((p) => areas.get(p.name))
+        .map((p) => ({ ...p, value: Math.round((p.value / areas.get(p.name)!) * 10) / 10 }));
+    },
+  },
+  {
+    id: "capitali-altitudine",
+    topic: "Geografia",
+    title: "Altitudine delle capitali",
+    question: "Quale capitale è più in alto?",
+    description: "Da La Paz ad Amsterdam: a che quota sono?",
+    emoji: "🏙️",
+    unit: "m",
+    format: "number",
+    build: () => wikidata({ where: "?c wdt:P31 wd:Q6256; wdt:P36 ?i.", prop: "P2044", image: "P18", sub: "P17", keep: "max" }),
+  },
+  yearCat("citta-fondazione", "Geografia", "Anno di fondazione delle città", "Quale città è stata fondata dopo?", "Grandi città del mondo: quando sono nate?", "🏰",
+    "?i wdt:P1082 ?pp. FILTER(?pp > 500000) ?i wdt:P31/wdt:P279* wd:Q515.", "P571", { image: "P18", sub: "P17" }),
+  {
+    id: "province",
+    topic: "Italia",
+    title: "Abitanti delle province italiane",
+    question: "Quale provincia ha più abitanti?",
+    description: "Province e città metropolitane d'Italia.",
+    emoji: "🗺️",
+    unit: "abitanti",
+    format: "number",
+    build: () =>
+      wikidata({ where: "VALUES ?k { wd:Q15089 wd:Q15110 } ?i wdt:P31 ?k.", prop: "P1082", image: "P18", sub: "P131", keep: "max", minValue: 50000 }),
+  },
+  {
+    id: "lingue",
+    topic: "Mondo",
+    title: "Parlanti delle lingue",
+    question: "Quale lingua è parlata da più persone?",
+    description: "Le lingue del mondo e quante persone le parlano.",
+    emoji: "🗣️",
+    unit: "persone",
+    format: "number",
+    build: () => wikidata({ where: famous(40, "VALUES ?k { wd:Q34770 wd:Q1288568 wd:Q33742 } ?i wdt:P31 ?k."), prop: "P1098", keep: "max", minValue: 1000 }),
+  },
+  {
+    id: "aeroporti",
+    topic: "Mondo",
+    title: "Passeggeri degli aeroporti",
+    question: "Quale aeroporto ha più passeggeri?",
+    description: "Passeggeri in un anno, negli aeroporti più grandi.",
+    emoji: "✈️",
+    unit: "passeggeri",
+    format: "number",
+    build: () => wikidata({ where: famous(15, "?i wdt:P31 wd:Q1248784."), prop: "P3872", image: "P18", sub: "P131", keep: "max", minValue: 100000 }),
+  },
+  {
+    id: "ponti",
+    topic: "Mondo",
+    title: "Lunghezza dei ponti",
+    question: "Quale ponte è più lungo?",
+    description: "Ponti famosi di tutto il mondo, in metri.",
+    emoji: "🌉",
+    unit: "m",
+    format: "number",
+    build: () => wikidata({ cls: "Q12280", prop: "P2043", normalized: true, image: "P18", sub: "P131", minLinks: 4, minValue: 20 }),
+  },
+  {
+    id: "musei-visitatori",
+    topic: "Mondo",
+    title: "Visitatori dei musei",
+    question: "Quale museo ha più visitatori?",
+    description: "Visitatori in un anno nei musei più famosi.",
+    emoji: "🖼️",
+    unit: "visitatori",
+    format: "number",
+    build: () => wikidata({ where: famous(15, "VALUES ?k { wd:Q33506 wd:Q207694 wd:Q1007870 wd:Q588140 } ?i wdt:P31 ?k."), prop: "P1174", image: "P18", sub: "P131", keep: "max", minValue: 10000 }),
+  },
+  /* storia, arte, libri */
+  yearCat("battaglie", "Storia", "Anno delle battaglie", "Quale battaglia è avvenuta dopo?", "Dalle Termopili alla Normandia.", "⚔️",
+    famous(12, "?i wdt:P31 wd:Q178561."), "P585", { image: "P18" }),
+  yearCat("quadri", "Arte", "Anno dei quadri famosi", "Quale quadro è stato dipinto dopo?", "Capolavori della pittura: prima o dopo?", "🎨",
+    famous(25, "?i wdt:P31 wd:Q3305213."), "P571", { image: "P18", sub: "P170" }),
+  yearCat("libri", "Libri", "Anno di uscita dei libri", "Quale libro è uscito dopo?", "Romanzi e classici famosi.", "📚",
+    famous(35, "?i wdt:P31 wd:Q7725634."), "P577", { sub: "P50", enwiki: true }),
+  /* aziende e auto */
+  yearCat("aziende-fondazione", "Aziende", "Anno di fondazione delle aziende", "Quale azienda è nata dopo?", "Marchi famosi: quando sono nati?", "🏢",
+    famous(40, "VALUES ?k { wd:Q4830453 wd:Q891723 wd:Q6881511 wd:Q43229 wd:Q167037 } ?i wdt:P31 ?k."), "P571", { image: "P154", sub: "P17", minValue: 1600 }),
+  {
+    id: "aziende-dipendenti",
+    topic: "Aziende",
+    title: "Dipendenti delle aziende",
+    question: "Quale azienda ha più dipendenti?",
+    description: "Le grandi aziende del mondo e quante persone ci lavorano.",
+    emoji: "👔",
+    unit: "dipendenti",
+    format: "number",
+    build: () => wikidata({ where: famous(40, "VALUES ?k { wd:Q4830453 wd:Q891723 wd:Q6881511 wd:Q43229 wd:Q167037 } ?i wdt:P31 ?k."), prop: "P1128", image: "P154", sub: "P17", keep: "max", minValue: 100 }),
+  },
+  yearCat("auto-anno", "Aziende", "Anno di uscita delle auto", "Quale auto è uscita dopo?", "Modelli di auto famosi.", "🚗",
+    famous(15, "?i wdt:P31 wd:Q3231690."), "P571", { image: "P18", sub: "P176", minValue: 1885 }),
+  /* scienza */
+  {
+    id: "elementi-massa",
+    topic: "Scienza",
+    title: "Numero atomico degli elementi",
+    question: "Quale elemento ha il numero atomico più alto?",
+    description: "Tutti gli elementi della tavola periodica.",
+    emoji: "⚛️",
+    unit: "",
+    format: "number",
+    ttlDays: 120,
+    build: () => wikidata({ cls: "Q11344", prop: "P1086", image: "P18", minValue: 1, maxValue: 130 }),
+  },
+  yearCat("elementi-scoperta", "Scienza", "Anno di scoperta degli elementi", "Quale elemento è stato scoperto dopo?", "Dall'antichità ai laboratori moderni.", "🔬",
+    "?i wdt:P31 wd:Q11344.", "P575", { image: "P18", minValue: 1000 }),
+  yearCat("universita", "Scienza", "Anno di fondazione delle università", "Quale università è nata dopo?", "Da Bologna a Stanford.", "🎓",
+    famous(30, "VALUES ?k { wd:Q3918 wd:Q875538 wd:Q902104 } ?i wdt:P31 ?k."), "P571", { image: "P18", sub: "P17" }),
+  /* anime, manga, tv */
+  {
+    id: "anime-episodi",
+    topic: "Anime",
+    title: "Episodi degli anime",
+    question: "Quale anime ha più episodi?",
+    description: "Da One Piece ai film: quanti episodi ha?",
+    emoji: "🔢",
+    unit: "episodi",
+    format: "number",
+    build: async () => (await anilist()).filter((a) => a.episodes).map((a) => ({ name: anTitle(a), value: Number(a.episodes), image: anImg(a) })),
+  },
+  {
+    id: "manga-voto",
+    topic: "Manga",
+    title: "Voto dei manga",
+    question: "Quale manga ha il voto più alto?",
+    description: "Il voto medio su AniList, da 0 a 100.",
+    emoji: "📖",
+    unit: "/100",
+    format: "number",
+    build: async () => (await anilistManga()).filter((a) => a.averageScore).map((a) => ({ name: anTitle(a), value: Number(a.averageScore), image: anImg(a) })),
+  },
+  {
+    id: "manga-popolarita",
+    topic: "Manga",
+    title: "Popolarità dei manga",
+    question: "Quale manga è più seguito?",
+    description: "Quante persone lo hanno in lista su AniList.",
+    emoji: "🔥",
+    unit: "persone",
+    format: "number",
+    build: async () => (await anilistManga()).map((a) => ({ name: anTitle(a), value: Number(a.popularity || 0), image: anImg(a) })),
+  },
+  {
+    id: "manga-capitoli",
+    topic: "Manga",
+    title: "Capitoli dei manga",
+    question: "Quale manga ha più capitoli?",
+    description: "Solo i manga conclusi o con il conteggio noto.",
+    emoji: "📚",
+    unit: "capitoli",
+    format: "number",
+    build: async () => (await anilistManga()).filter((a) => a.chapters).map((a) => ({ name: anTitle(a), value: Number(a.chapters), image: anImg(a) })),
+  },
+  {
+    id: "manga-anno",
+    topic: "Manga",
+    title: "Anno di uscita dei manga",
+    question: "Quale manga è uscito dopo?",
+    description: "Dai classici agli ultimi successi.",
+    emoji: "🗓️",
+    unit: "",
+    format: "year",
+    build: async () => (await anilistManga()).filter((a) => a.startDate?.year).map((a) => ({ name: anTitle(a), value: Number(a.startDate.year), image: anImg(a) })),
+  },
+  {
+    id: "serie-durata",
+    topic: "Cinema e TV",
+    title: "Durata degli episodi delle serie",
+    question: "Quale serie ha gli episodi più lunghi?",
+    description: "Minuti per episodio, in media.",
+    emoji: "⏳",
+    unit: "minuti",
+    format: "number",
+    ttlDays: 14,
+    build: async () =>
+      (await tvmazeShows())
+        .filter((s) => s.averageRuntime || s.runtime)
+        .map((s) => ({ name: clean(s.name), value: Number(s.averageRuntime || s.runtime), sub: clean(s.network?.name || s.webChannel?.name || "", 40), image: String(s.image.original || s.image.medium) })),
+  },
+  /* pokémon in più */
+  ...(
+    [
+      ["pokemon-velocita", "Velocità dei Pokémon", "Quale Pokémon è più veloce?", "speed", "💨"],
+      ["pokemon-attacco", "Attacco dei Pokémon", "Quale Pokémon ha più attacco?", "attack", "🗡️"],
+      ["pokemon-ps", "PS dei Pokémon", "Quale Pokémon ha più PS?", "hp", "💚"],
+      ["pokemon-difesa", "Difesa dei Pokémon", "Quale Pokémon ha più difesa?", "defense", "🛡️"],
+    ] as const
+  ).map(
+    ([id, title, question, stat, emoji]): NQCategory => ({
+      id,
+      topic: "Pokémon",
+      title,
+      question,
+      description: "La statistica base di tutti i Pokémon.",
+      emoji,
+      unit: "",
+      format: "number",
+      ttlDays: 60,
+      build: async () => (await pokemon()).map((p) => ({ name: pokeName(p.name), value: pokeStat(stat)(p), image: pokeImg(p) })).filter((x) => x.value > 0),
+    }),
+  ),
+  {
+    id: "pokemon-numero",
+    topic: "Pokémon",
+    title: "Numero nel Pokédex",
+    question: "Quale Pokémon viene dopo nel Pokédex?",
+    description: "Da Bulbasaur all'ultima generazione.",
+    emoji: "📕",
+    unit: "",
+    format: "number",
+    ttlDays: 60,
+    build: async () => (await pokemon()).map((p) => ({ name: pokeName(p.name), value: Number(p.id), image: pokeImg(p) })),
+  },
+  /* cibo in più */
+  ...(
+    [
+      ["zuccheri", "Zuccheri dei prodotti", "Quale prodotto ha più zuccheri?", "sugars_100g", "🍬", "g di zuccheri / 100 g"],
+      ["grassi", "Grassi dei prodotti", "Quale prodotto ha più grassi?", "fat_100g", "🧈", "g di grassi / 100 g"],
+      ["proteine", "Proteine dei prodotti", "Quale prodotto ha più proteine?", "proteins_100g", "💪", "g di proteine / 100 g"],
+      ["sale", "Sale dei prodotti", "Quale prodotto ha più sale?", "salt_100g", "🧂", "g di sale / 100 g"],
+    ] as const
+  ).map(
+    ([id, title, question, key, emoji, unit]): NQCategory => ({
+      id,
+      topic: "Cibo",
+      title,
+      question,
+      description: "I prodotti più comprati in Italia.",
+      emoji,
+      unit,
+      format: "decimal",
+      ttlDays: 20,
+      build: async () =>
+        dedupe(
+          (await foodItaly())
+            .map((p: any) => ({
+              name: clean(p.product_name_it || p.product_name, 60),
+              sub: clean(String(p.brands || "").split(",")[0], 40),
+              value: Math.round(Number(p.nutriments?.[key]) * 10) / 10,
+              image: String(p.image_front_url || p.image_front_small_url || ""),
+            }))
+            .filter((x) => x.name && x.image && Number.isFinite(x.value) && x.value >= 0 && x.value <= 100),
+        ),
+    }),
+  ),
+  {
+    id: "wikipedia-mondo",
+    topic: "Persone",
+    title: "Visite su Wikipedia nel mondo",
+    question: "Quale pagina è stata letta di più il mese scorso?",
+    description: "Le pagine più lette della Wikipedia inglese nell'ultimo mese.",
+    emoji: "🌐",
+    unit: "visite",
+    format: "number",
+    ttlDays: 3,
+    build: () => wikipediaTop("en"),
+  },
+];
+CATEGORIES.push(...MORE);
 
 function pokeName(n: string) {
   return String(n || "")

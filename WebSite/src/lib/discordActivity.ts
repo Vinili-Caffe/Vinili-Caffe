@@ -348,6 +348,17 @@ export async function activityInvite(): Promise<boolean> {
   }
 }
 
+/** Condivide su Discord (finestra di Discord: scegli chat o canale) un messaggio con il link all'Attività. */
+export async function activityShare(message: string): Promise<boolean> {
+  try {
+    const sdk = await getSdk();
+    const r = await sdk.commands.shareLink({ message: message.slice(0, 1000) });
+    return Boolean(r?.success || r?.didSendMessage || r?.didCopyLink);
+  } catch {
+    return false;
+  }
+}
+
 function finish(sdk: Sdk, token: string, raw: DiscordUser): { token: string; user: DiscordUser } {
   const user: DiscordUser = { id: raw.id, username: raw.username, global_name: raw.global_name ?? null, avatar: raw.avatar ?? null };
   ssSet(TOKEN_KEY, token);

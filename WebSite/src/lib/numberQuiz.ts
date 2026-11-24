@@ -44,11 +44,37 @@ async function api<T>(path: string, init?: RequestInit): Promise<Res<T>> {
   }
 }
 
-export const listNumberQuizCategories = () => api<{ categories: NumberQuizCategory[] }>("/categories");
-export const loadNumberQuizCategory = (id: string, n = 80) =>
-  api<{ category: NumberQuizCategory; items: NumberQuizItem[]; min: number; max: number }>(
-    `/category/${encodeURIComponent(id)}?n=${n}`,
+/* nell'Attività di Discord le immagini esterne sono bloccate: passano dal nostro server */
+function img(url?: string) {
+  if (!url || typeof window === "undefined" || !/\.discordsays\.com$/i.test(window.location.hostname)) return url;
+  return `/webhooks/site-number-quiz/img?u=${encodeURIComponent(url)}`;
+}
+
+/* il server a volte è occupato a preparare una categoria: si riprova un paio di volte prima di arrendersi */
+async function withRetry<T>(fn: () => Promise<Res<T>>) {
+  let r = await fn();
+  for (let i = 0; i < 2 && !r.ok && !r.preparing && r.status !== 404; i++) {
+    await new Promise((ok) => setTimeout(ok, 1500 * (i + 1)));
+    r = await fn();
+  }
+  return r;
+}
+
+export const listNumberQuizCategories = async () => {
+  const r = await withRetry(() => api<{ categories: NumberQuizCategory[] }>("/categories"));
+  if (r.ok) r.data.categories = r.data.categories.map((c) => ({ ...c, cover: img(c.cover) || "" }));
+  return r;
+};
+export const loadNumberQuizCategory = async (id: string, n = 80) => {
+  const r = await withRetry(() =>
+    api<{ category: NumberQuizCategory; items: NumberQuizItem[]; min: number; max: number }>(`/category/${encodeURIComponent(id)}?n=${n}`),
   );
+  if (r.ok) {
+    r.data.category = { ...r.data.category, cover: img(r.data.category.cover) || "" };
+    r.data.items = r.data.items.map((x) => (x.image ? { ...x, image: img(x.image) } : x));
+  }
+  return r;
+};
 export const countNumberQuizPlay = (id: string) => api<object>(`/category/${encodeURIComponent(id)}/play`, { method: "POST" });
 
 const intIt = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 0 });
