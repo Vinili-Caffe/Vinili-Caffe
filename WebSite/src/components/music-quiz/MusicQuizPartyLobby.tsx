@@ -444,6 +444,10 @@ export function MusicQuizPartyLobby({
                 <span className="text-xs text-crema/50">Metti in coda il prossimo quiz della stanza</span>
               </span>
             </button>
+          ) : !canAdd && settings.queueActive ? (
+            <p className="mt-2 rounded-2xl border border-dashed border-sand/20 px-3 py-3 text-xs text-crema/55">
+              Per ora solo l&apos;host può aggiungere giochi: può aprirlo a tutti dalle impostazioni della coda.
+            </p>
           ) : null}
         </Card>
       ) : null}

@@ -12,7 +12,8 @@ import { createMusicQuizPack, importPlaylistLink, loadMusicQuizPack, searchMusic
 import { DEFAULT_SETTINGS, MusicQuizSettings, type QuizSettings } from "./MusicQuizSettings";
 import { QuestionEditor, asQuestion, isCustomized, type QuizQuestion } from "./QuestionEditor";
 
-const MAX_TRACKS = 20;
+/* niente limite vero: solo un tetto di sicurezza, uguale a quello del server */
+const MAX_TRACKS = 500;
 const MIN_TRACKS = 5;
 
 /** cosa mostra il riquadro grande: l'editor di una domanda, la ricerca (per aggiungere o cambiare un brano) o l'import */
@@ -196,7 +197,7 @@ export function MusicQuizCreate() {
               className="mt-2 w-full border-0 bg-transparent font-display text-4xl font-semibold text-crema outline-none placeholder:text-crema/30"
             />
             <p className="mt-2 text-sm text-crema/60">
-              Aggiungi almeno {MIN_TRACKS} brani (fino a {MAX_TRACKS}). Per ognuno puoi scegliere lo spezzone e scrivere le risposte; ogni partita ne pesca 10 a caso.
+              Aggiungi almeno {MIN_TRACKS} brani, quanti ne vuoi. Per ognuno puoi scegliere lo spezzone e scrivere le risposte; ogni partita ne pesca 10 a caso.
             </p>
           </section>
 
@@ -229,7 +230,7 @@ export function MusicQuizCreate() {
           <div className="flex items-center justify-between px-4 pb-2 pt-4">
             <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-crema/55">Domande</h2>
             <span className={cn("text-xs font-semibold tabular-nums", questions.length >= MIN_TRACKS ? "text-caramel" : "text-crema/50")}>
-              {questions.length} / {MAX_TRACKS}
+              {questions.length} {questions.length === 1 ? "brano" : "brani"}
             </span>
           </div>
           <ol data-lenis-prevent className="max-h-[26rem] space-y-1 overflow-y-auto overscroll-contain px-2 pb-2">

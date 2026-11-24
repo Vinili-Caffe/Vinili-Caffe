@@ -17,7 +17,7 @@ import {
   type StreamPlatform,
 } from "@/lib/streamChat";
 import { formatCount, formatNumberQuizValue, type NumberQuizItem } from "@/lib/numberQuiz";
-import { Backdrop, CountUp, GameOver, HC_ROUNDS, Pill, Shell, heat, useDeck, type Loaded } from "./NumberQuizPlay";
+import { Backdrop, CountUp, GameOver, HC_ROUNDS, Pill, Shell, heat, useDeck, type Loaded, type NQLevel } from "./NumberQuizPlay";
 
 const HL_VOTE_MS = 15_000;
 const HC_VOTE_MS = 25_000;
@@ -240,7 +240,19 @@ export function parseChatNumber(raw: string, format: Loaded["category"]["format"
 
 type SHLPhase = "vote" | "reveal" | "right" | "wrong";
 
-export function StreamHigherLower({ data, chat, onExit, onRestart }: { data: Loaded; chat: StreamChat; onExit: () => void; onRestart: () => void }) {
+export function StreamHigherLower({
+  data,
+  chat,
+  level,
+  onExit,
+  onRestart,
+}: {
+  data: Loaded;
+  chat: StreamChat;
+  level: NQLevel;
+  onExit: () => void;
+  onRestart: () => void;
+}) {
   const c = data.category;
   const next = useDeck(data);
   const [pair, setPair] = useState<[NumberQuizItem, NumberQuizItem] | null>(null);
@@ -253,6 +265,7 @@ export function StreamHigherLower({ data, chat, onExit, onRestart }: { data: Loa
   const votes = useRef(new Map<string, { side: 0 | 1; ms: number; user: string }>());
   const live = useRef({ open: false, startedAt: 0 });
   const timers = useRef<number[]>([]);
+  const streakRef = useRef(0);
   const left = useCountdown(phase === "vote" ? deadline : null);
 
   const openVote = useCallback(() => {
@@ -266,7 +279,7 @@ export function StreamHigherLower({ data, chat, onExit, onRestart }: { data: Loa
 
   useEffect(() => {
     const a = next();
-    setPair([a, next(a)]);
+    setPair([a, next(a, { streak: 0, level })]);
     openVote();
     const t = timers.current;
     return () => t.forEach((x) => window.clearTimeout(x));
@@ -311,13 +324,14 @@ export function StreamHigherLower({ data, chat, onExit, onRestart }: { data: Loa
         } else {
           const majority: 0 | 1 = c0 >= c1 ? 0 : 1;
           if (!winners.has(majority)) return setPhase("wrong");
+          streakRef.current += 1;
           setStreak((s) => s + 1);
           setPhase("right");
         }
         timers.current.push(
           window.setTimeout(() => {
             const keep = a.value >= b.value ? a : b;
-            setPair([keep, next(keep)]);
+            setPair([keep, next(keep, { streak: streakRef.current, level })]);
             openVote();
           }, 1800),
         );
@@ -347,7 +361,7 @@ export function StreamHigherLower({ data, chat, onExit, onRestart }: { data: Loa
         <AnimatePresence mode="popLayout" initial={false}>
           {[a, b].map((it, idx) => {
             const side = idx as 0 | 1;
-            const revealed = side === 0 || phase !== "vote";
+            const revealed = side === 0 ? level !== "hard" || phase !== "vote" : phase !== "vote";
             const share = total ? Math.round((counts[side] / total) * 100) : 0;
             const won = phase !== "vote" && it.value >= (side === 0 ? b : a).value;
             return (

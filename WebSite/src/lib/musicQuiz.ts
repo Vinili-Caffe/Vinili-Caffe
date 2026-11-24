@@ -358,6 +358,9 @@ export type MusicQuizPartyRoom = {
   reactions?: MusicQuizPartyReaction[];
   players: MusicQuizPartyPlayer[];
   myChoice?: number | null;
+  /** entrati a partita in corso: giocano dalla prossima */
+  waiting?: Array<{ userId: string; displayName: string; avatarUrl?: string }>;
+  meWaiting?: boolean;
   round: MusicQuizRound | null;
   roundStartedAt: number;
   /** i prossimi brani, da scaricare in anticipo */

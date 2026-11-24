@@ -7,7 +7,8 @@ const { SiteDocument, SITE_DOCUMENT_TYPE } =
   require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 
 const MIN_TRACKS = 5;
-const MAX_TRACKS = 20;
+/* nessun vero limite: solo un tetto di sicurezza (ogni brano importato è una ricerca su Deezer) */
+const MAX_TRACKS = 500;
 
 function slugify(raw: string) {
   return String(raw || "")

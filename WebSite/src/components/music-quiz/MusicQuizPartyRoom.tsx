@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, Check, RotateCcw, UserX } from "lucide-react";
+import { ArrowRight, Check, Hourglass, RotateCcw, UserX } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { page } from "@/lib/site";
@@ -198,6 +198,41 @@ export function MusicQuizPartyRoom({ roomId }: { roomId: string }) {
         ) : (
           <div className="mx-auto h-40 animate-pulse rounded-3xl bg-crema/[0.05]" />
         )}
+      </div>
+    );
+  }
+
+  /* entrato a partita in corso: aspetta che finisca, poi entra in automatico */
+  if (room.meWaiting) {
+    const total = room.totalRounds || room.round?.total || 0;
+    return (
+      <div className={cn("mx-auto max-w-md px-4 pb-16 text-center", isDiscordActivity() ? "pt-10" : "pt-28 sm:pt-32")}>
+        <motion.span
+          className="mx-auto grid size-20 place-items-center rounded-full bg-caramel/15 ring-1 ring-caramel/40"
+          animate={{ scale: [1, 1.06, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          <Hourglass className="size-8 text-caramel" aria-hidden />
+        </motion.span>
+        <p className="mt-5 text-xs font-bold uppercase tracking-[0.22em] text-caramel">Partita in corso</p>
+        <p className="mt-2 font-display text-3xl font-semibold text-crema">{room.packTitle}</p>
+        <p className="mt-2 text-sm text-crema/65">
+          {total ? `Domanda ${Math.min(total, (room.roundIndex || 0) + 1)} di ${total} · ` : ""}
+          {room.players.length} {room.players.length === 1 ? "giocatore" : "giocatori"}
+        </p>
+        <p className="mx-auto mt-5 max-w-sm rounded-2xl bg-roast/80 px-4 py-3 text-sm text-crema/80 ring-1 ring-sand/15">
+          Sei in attesa: entri in gioco appena finisce questa partita, non serve fare niente.
+        </p>
+        {(room.waiting || []).length > 1 ? (
+          <p className="mt-3 text-xs text-crema/50">Aspettano con te: {(room.waiting || []).filter((w) => w.userId !== me).map((w) => w.displayName).join(", ")}</p>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => void leave()}
+          className="mt-6 inline-flex rounded-full px-5 py-2.5 text-sm font-semibold text-crema/70 ring-1 ring-sand/20 transition hover:bg-crema/[0.06] hover:text-crema"
+        >
+          Esci
+        </button>
       </div>
     );
   }

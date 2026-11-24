@@ -109,14 +109,14 @@ export function formatCount(n: number) {
 }
 
 const BEST_PREFIX = "vc-numquiz2";
-export function readBest(cat: string, mode: "hl" | "hc") {
+export function readBest(cat: string, mode: string) {
   try {
     return Number(localStorage.getItem(`${BEST_PREFIX}:${mode}:${cat}`) || 0) || 0;
   } catch {
     return 0;
   }
 }
-export function writeBest(cat: string, mode: "hl" | "hc", n: number) {
+export function writeBest(cat: string, mode: string, n: number) {
   try {
     localStorage.setItem(`${BEST_PREFIX}:${mode}:${cat}`, String(n));
   } catch {

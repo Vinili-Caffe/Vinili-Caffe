@@ -102,6 +102,8 @@ type PartyRoom = {
   roundIndex: number;
   rounds: QuizRound[];
   players: PartyPlayer[];
+  /** entrati a partita in corso: giocano dalla prossima */
+  waiting?: PartyPlayer[];
   queue: QueueItem[];
   settings: PartySettings;
   chat: ChatMsg[];
@@ -264,6 +266,31 @@ function touch(room: PartyRoom) {
   saveSoon();
 }
 
+const inGame = (room: PartyRoom) => room.status === "playing" || room.status === "round_result";
+
+/** Chi è entrato a partita in corso aspetta la fine: poi entra tra i giocatori (finché c'è posto). */
+function admitWaiting(room: PartyRoom) {
+  const list = room.waiting || [];
+  if (!list.length) return;
+  for (const w of list) {
+    if (room.players.length >= room.maxPlayers) break;
+    if (room.players.some((p) => p.userId === w.userId) || (room.kicked || []).includes(w.userId)) continue;
+    room.players.push(w);
+  }
+  room.waiting = [];
+}
+
+/** Fa entrare un giocatore: subito se si è in lobby, in attesa se la partita è in corso. */
+function addPlayer(room: PartyRoom, p: PartyPlayer) {
+  if (inGame(room)) {
+    room.waiting = room.waiting || [];
+    if (!room.waiting.some((w) => w.userId === p.userId)) room.waiting.push(p);
+    return "waiting" as const;
+  }
+  room.players.push(p);
+  return "joined" as const;
+}
+
 function loadSaved() {
   try {
     if (!fs.existsSync(STATE_FILE)) return;
@@ -395,6 +422,9 @@ function publicRoom(room: PartyRoom, viewerId: string) {
       })
       .sort((a, b) => (room.status === "lobby" ? b.roomPoints - a.roomPoints : b.score - a.score)),
     myChoice: me?.choice ?? null,
+    /* entrati a partita in corso: giocano dalla prossima */
+    waiting: (room.waiting || []).map((p) => ({ userId: p.userId, displayName: p.displayName, avatarUrl: p.avatarUrl })),
+    meWaiting: (room.waiting || []).some((p) => p.userId === viewerId),
     round:
       round && room.status !== "lobby"
         ? {
@@ -424,6 +454,7 @@ function clearTimers(room: PartyRoom) {
 function advanceAfterReveal(room: PartyRoom) {
   if (room.roundIndex + 1 >= room.rounds.length) {
     room.status = "finished";
+    admitWaiting(room);
     /* punti della stanza in stile Formula 1; in presentazione e in diretta l'host non gioca */
     const ranked = voters(room).slice().sort((a, b) => b.score - a.score);
     room.roomPoints = room.roomPoints || {};
@@ -544,14 +575,33 @@ async function handleMusicQuizPartyCreatePost(client?, req?, res?) {
         if ((already.kicked || []).includes(auth.userId)) {
           return res.status(403).json({ ok: false, error: "kicked", message: "L'host ti ha tolto dalla partita di questa chiamata." });
         }
-        if (already.players.length >= already.maxPlayers) {
+        if (already.players.length + (already.waiting || []).length >= already.maxPlayers) {
           return res.status(400).json({ ok: false, error: "full", message: "La partita di questa chiamata è piena." });
         }
-        already.players.push(player(auth));
-        touch(already);
+        if (!(already.waiting || []).some((w) => w.userId === auth.userId)) addPlayer(already, player(auth));
       }
+      /* il quiz scelto va in coda (se chi lo sceglie può aggiungere giochi) */
+      let queued = false;
+      const canQueue =
+        already.hostId === auth.userId ||
+        already.settings.queueAdd === "all" ||
+        (already.settings.queueAdd === "selected" && (already.settings.queueAllowed || []).includes(auth.userId));
+      if (canQueue && already.settings.queueActive && already.queue.length < 20) {
+        const pack = await resolvePackSlug(body).catch(() => null);
+        if (pack && !already.queue.some((q) => q.packSlug === pack.slug)) {
+          already.queue.push({
+            id: crypto.randomBytes(4).toString("hex"),
+            packSlug: pack.slug,
+            title: pack.title,
+            cover: pack.cover,
+            difficulty: parseDifficulty(body.difficulty || already.difficulty),
+          });
+          queued = true;
+        }
+      }
+      touch(already);
       broadcastSiteMusicQuizParty(already.roomId, "join");
-      return res.json({ ok: true, joined: true, room: publicRoom(already, auth.userId) });
+      return res.json({ ok: true, joined: true, queued, room: publicRoom(already, auth.userId) });
     }
     let slug = String(body.slug || body.packSlug || "").trim();
     const source = String(body.source || "").trim();
@@ -611,6 +661,8 @@ async function handleMusicQuizPartyCreatePost(client?, req?, res?) {
       timer: null,
       autoNextTimer: null,
     };
+    /* in chiamata si gioca tra amici: chiunque può mettere un gioco in coda */
+    if (instanceId) room.settings.queueAdd = "all";
     rooms.set(roomId, room);
     if (instanceId) activityRooms.set(instanceId, roomId);
     saveSoon();
@@ -654,7 +706,7 @@ async function handleMusicQuizPartyJoinPost(client?, req?, res?) {
   const room = await revive(roomId, auth);
   if (!room) return res.status(404).json({ ok: false, error: "not_found", message: "Questa stanza non esiste più." });
   const nick = String(req.body?.displayName || "").trim().slice(0, 32);
-  const existing = room.players.find((p) => p.userId === auth.userId);
+  const existing = room.players.find((p) => p.userId === auth.userId) || (room.waiting || []).find((p) => p.userId === auth.userId);
   if (existing) {
     if (nick) existing.displayName = nick;
     return res.json({ ok: true, room: publicRoom(room, auth.userId) });
@@ -665,13 +717,13 @@ async function handleMusicQuizPartyJoinPost(client?, req?, res?) {
   if (room.settings.locked) {
     return res.status(403).json({ ok: false, error: "locked", message: "La stanza è bloccata." });
   }
-  if (room.players.length >= room.maxPlayers) {
+  if (room.players.length + (room.waiting || []).length >= room.maxPlayers) {
     return res.status(400).json({ ok: false, error: "full", message: "La stanza è piena." });
   }
   if (room.status === "finished") {
     return res.status(400).json({ ok: false, error: "finished", message: "Questa partita è già finita." });
   }
-  room.players.push(player(auth, nick || undefined));
+  addPlayer(room, player(auth, nick || undefined));
   touch(room);
   broadcastSiteMusicQuizParty(roomId, "join");
   return res.json({ ok: true, room: publicRoom(room, auth.userId) });
@@ -830,6 +882,7 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
     room.packCover = head.cover;
     room.difficulty = head.difficulty;
     room.status = "lobby";
+    admitWaiting(room);
     clearTimers(room);
   } else if (action === "start") {
     if (!isHost) return res.status(403).json({ ok: false, error: "host_only", message: "Solo chi ha creato la stanza può avviarla." });
@@ -894,6 +947,7 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
     room.rounds = packData.rounds;
     room.roundIndex = 0;
     room.status = "lobby";
+    admitWaiting(room);
     clearTimers(room);
     for (const p of room.players) {
       p.score = 0;
@@ -917,9 +971,11 @@ async function handleMusicQuizPartyActionPost(client?, req?, res?) {
     const target = String(body.userId || "");
     if (!target || target === room.hostId) return res.status(400).json({ ok: false, error: "bad_target" });
     const before = room.players.length;
+    room.waiting = (room.waiting || []).filter((p) => p.userId !== target);
     room.players = room.players.filter((p) => p.userId !== target);
     if (room.players.length !== before) room.kicked = [...new Set([...(room.kicked || []), target])];
   } else if (action === "leave") {
+    room.waiting = (room.waiting || []).filter((p) => p.userId !== auth.userId);
     room.players = room.players.filter((p) => p.userId !== auth.userId);
     if (!room.players.length) {
       /* stanza vuota: si chiude */
