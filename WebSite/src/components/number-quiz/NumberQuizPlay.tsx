@@ -365,12 +365,17 @@ function pickBand(streak: number) {
   };
 }
 
+/* blocco dello scorrimento con un contatore: con «Rigioca» la partita nuova si apre mentre la vecchia sta ancora
+   sparendo, e ricordare «com'era prima» lasciava la pagina bloccata per sempre */
+let scrollLocks = 0;
+
 export function Shell({ children, onExit, top }: { children: React.ReactNode; onExit: () => void; top: React.ReactNode }) {
   useEffect(() => {
-    const prev = document.body.style.overflow;
+    scrollLocks += 1;
     document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = prev;
+      scrollLocks = Math.max(0, scrollLocks - 1);
+      if (!scrollLocks) document.body.style.overflow = "";
     };
   }, []);
   return (
