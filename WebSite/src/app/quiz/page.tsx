@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowUpDown, Brain, Grid2x2, Music2, SpellCheck } from "lucide-react";
+import { ArrowUpDown, Brain, Compass, Grid2x2, Music2, SpellCheck } from "lucide-react";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
@@ -41,6 +41,13 @@ export default function QuizPage() {
             icon: <ArrowUpDown className="size-7" />,
           },
           {
+            href: "/quiz/angolo/",
+            title: "Angolo",
+            text: "Indovina l'angolo sul vinile in quattro tentativi.",
+            note: "Uno nuovo ogni giorno",
+            icon: <Compass className="size-7" />,
+          },
+          {
             href: "/wordle/",
             title: "Wordle",
             text: "Una parola nuova ogni giorno: hai sei tentativi per indovinarla.",
@@ -49,7 +56,7 @@ export default function QuizPage() {
           },
           {
             href: "/wordle/quattro/",
-            title: "Wordle ×4",
+            title: "Quordle",
             text: "Quattro parole insieme e nove tentativi condivisi.",
             note: "Per chi vuole la sfida vera",
             icon: <Grid2x2 className="size-7" />,

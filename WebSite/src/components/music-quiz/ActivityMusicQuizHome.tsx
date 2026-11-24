@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { motion } from "motion/react";
 import { Suspense, useEffect, useState } from "react";
-import { ArrowUpDown, Grid2x2, Music2, SpellCheck } from "lucide-react";
+import { ArrowUpDown, Compass, Grid2x2, Music2, SpellCheck } from "lucide-react";
 import { NumberQuizNav } from "@/components/number-quiz/NumberQuizNav";
 import { MusicQuizGate } from "@/components/music-quiz/MusicQuizGate";
 import { isDiscordActivity } from "@/lib/discordActivity";
@@ -13,17 +13,19 @@ const MusicQuizHub = dynamic(() => import("@/components/music-quiz/MusicQuizHub"
 const WordleBoard = dynamic(() => import("@/components/wordle/WordleBoard").then((m) => m.WordleBoard), { loading: () => null });
 const NumberQuizHub = dynamic(() => import("@/components/number-quiz/NumberQuizHub").then((m) => m.NumberQuizHub), { loading: () => null });
 const NumberQuizPlay = dynamic(() => import("@/components/number-quiz/NumberQuizPlay").then((m) => m.NumberQuizPlay), { loading: () => null });
+const AngleGame = dynamic(() => import("@/components/angle/AngleGame").then((m) => m.AngleGame), { loading: () => null });
 const WordleQuadBoard = dynamic(() => import("@/components/wordle/WordleQuadBoard").then((m) => m.WordleQuadBoard), {
   loading: () => null,
 });
 
-type Game = "quiz" | "numeri" | "wordle" | "quad";
+type Game = "quiz" | "numeri" | "angolo" | "wordle" | "quad";
 
 const GAMES: { id: Game; label: string; icon: React.ReactNode }[] = [
   { id: "quiz", label: "Music Quiz", icon: <Music2 className="size-4" /> },
   { id: "numeri", label: "Number Quiz", icon: <ArrowUpDown className="size-4" /> },
+  { id: "angolo", label: "Angolo", icon: <Compass className="size-4" /> },
   { id: "wordle", label: "Wordle", icon: <SpellCheck className="size-4" /> },
-  { id: "quad", label: "Wordle ×4", icon: <Grid2x2 className="size-4" /> },
+  { id: "quad", label: "Quordle", icon: <Grid2x2 className="size-4" /> },
 ];
 
 /**
@@ -35,7 +37,7 @@ const GAMES: { id: Game; label: string; icon: React.ReactNode }[] = [
 export function ActivityMusicQuizHome({ children }: { children: React.ReactNode }) {
   const [activity, setActivity] = useState(false);
   const [game, setGame] = useState<Game>("quiz");
-  const [opened, setOpened] = useState<Record<Game, boolean>>({ quiz: true, numeri: false, wordle: false, quad: false });
+  const [opened, setOpened] = useState<Record<Game, boolean>>({ quiz: true, numeri: false, angolo: false, wordle: false, quad: false });
   /* Number Quiz: categoria aperta (null = elenco), senza cambiare pagina */
   const [numCat, setNumCat] = useState<string | null>(null);
   useEffect(() => {
@@ -84,6 +86,13 @@ export function ActivityMusicQuizHome({ children }: { children: React.ReactNode 
           <NumberQuizNav.Provider value={{ list: () => setNumCat(null), open: (id) => { setNumCat(id); window.scrollTo({ top: 0 }); } }}>
             <Suspense fallback={null}>{numCat ? <NumberQuizPlay key={numCat} catId={numCat} /> : <NumberQuizHub />}</Suspense>
           </NumberQuizNav.Provider>
+        </div>
+      ) : null}
+      {opened.angolo ? (
+        <div className={cn("pt-2", game === "angolo" ? undefined : "hidden")}>
+          <Suspense fallback={null}>
+            <AngleGame />
+          </Suspense>
         </div>
       ) : null}
       {opened.wordle ? (

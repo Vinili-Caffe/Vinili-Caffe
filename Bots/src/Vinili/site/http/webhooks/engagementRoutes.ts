@@ -95,6 +95,10 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
   app.get("/webhooks/site-number-quiz/img", (req?, res?) => numberQuiz.handleNumberQuizImageGet(client, req, res));
   app.post("/webhooks/site-number-quiz/result", (req?, res?) => numberQuiz.handleNumberQuizResultPost(client, req, res));
   app.get("/webhooks/site-number-quiz/me", (req?, res?) => numberQuiz.handleNumberQuizMeGet(client, req, res));
+  /* Angolo: l'angolo del giorno */
+  const angle = require("../siteAngleApi") as typeof import("../siteAngleApi");
+  app.post("/webhooks/site-angle/result", (req?, res?) => angle.handleAngleResultPost(client, req, res));
+  app.get("/webhooks/site-angle/me", (req?, res?) => angle.handleAngleMeGet(client, req, res));
   const streamChat = require("../siteMusicQuizStreamChatApi") as typeof import("../siteMusicQuizStreamChatApi");
   app.get("/webhooks/site-music-quiz/stream-chat/youtube", (req?, res?) =>
     streamChat.handleMusicQuizYoutubeChatGet(client, req, res),

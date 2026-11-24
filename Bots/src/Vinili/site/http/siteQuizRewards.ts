@@ -15,6 +15,8 @@ const GAMES = {
   music: { min: 10, max: 70, label: "Music Quiz" },
   /* una partita del Number Quiz: da 5 a 60 EXP */
   number: { min: 5, max: 60, label: "Number Quiz" },
+  /* l'angolo del giorno: da 15 a 80 EXP, una volta al giorno */
+  angle: { min: 15, max: 80, label: "Angolo" },
 } as const;
 
 type QuizReward = { auth: "guest" | "outsider" | "member"; exp: number; capped?: boolean; todayExp?: number; cap?: number };
@@ -51,7 +53,7 @@ async function claimQuizExp(
     { $inc: { [`${path}.exp`]: grant, [`${path}.games`]: 1 } },
   ).catch(() => null);
   await addExpWithLevel(guild, viewer.userId, grant, false, true, {
-    source: opts.game === "music" ? "site_music_quiz" : "site_number_quiz",
+    source: `site_${opts.game}_quiz`,
     note: opts.note || g.label,
   }).catch(() => null);
   return { auth: "member", exp: grant, capped: grant < want, todayExp: used + grant, cap: DAILY_CAP };
