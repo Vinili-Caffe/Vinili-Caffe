@@ -8,7 +8,24 @@ const os = require("os") as typeof import("os");
 const path = require("path") as typeof import("path");
 const { requireMusicQuizHighStaff, sendAuthError } =
   require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
-const { ensureDeezerPack, loadPackTracks } = require("./siteMusicQuizApi") as typeof import("./siteMusicQuizApi");
+const { ensureDeezerPack, ensureSpotifyPack, loadPackTracks } =
+  require("./siteMusicQuizApi") as typeof import("./siteMusicQuizApi");
+
+/* artisti e playlist dalla ricerca hanno uno slug «virtuale»: il quiz si crea alla prima scelta, come nella pagina del quiz */
+async function loadPackTracksEnsured(slug: string) {
+  const loaded = await loadPackTracks(slug);
+  if (loaded) return loaded;
+  const m = /^(artist|playlist)-(d+)$/.exec(slug);
+  const sp = /^spotify-([A-Za-z0-9]{10,40})$/.exec(slug);
+  try {
+    if (m) await ensureDeezerPack(m[1] as "artist" | "playlist", m[2]!);
+    else if (sp) await ensureSpotifyPack(sp[1]!);
+    else return null;
+  } catch {
+    return null;
+  }
+  return loadPackTracks(slug);
+}
 const { ANSWER_MS, DIFF_MS, buildRounds, refreshPreviews, parseDifficulty } =
   require("./siteMusicQuizRounds") as typeof import("./siteMusicQuizRounds");
 const { broadcastSiteMusicQuizParty } =
@@ -505,7 +522,7 @@ function player(auth: any, nick?: string): PartyPlayer {
 }
 
 async function loadRoundsForSlug(slug: string) {
-  const loaded = await loadPackTracks(slug);
+  const loaded = await loadPackTracksEnsured(slug);
   if (!loaded) return null;
   const built = buildRounds(loaded.tracks);
   const rounds = built ? await refreshPreviews(built) : null;
@@ -670,7 +687,7 @@ async function resolvePackSlug(body: any): Promise<{ slug: string; title: string
     slug = String((pack as any).boardSlug);
   }
   if (!slug) return null;
-  const loaded = await loadPackTracks(slug);
+  const loaded = await loadPackTracksEnsured(slug);
   if (!loaded) return null;
   return {
     slug,
