@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Brain,
   CalendarDays,
   CircleHelp,
   ClipboardList,
@@ -56,6 +57,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   "nav.bachecaWall": Pin,
   "nav.wordle": Grid3x3,
   "nav.musicQuiz": Headphones,
+  "nav.quiz": Brain,
   "nav.albero": TreePine,
   "nav.wrapped": Disc3,
   "nav.evento": Sparkles,
