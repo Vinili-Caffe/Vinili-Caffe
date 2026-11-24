@@ -10,11 +10,14 @@ import {
   Copy,
   Flame,
   Loader2,
+  Radio,
   RotateCcw,
   Thermometer,
   Trophy,
+  User,
   X,
 } from "lucide-react";
+import { ChatPanel, StreamHigherLower, StreamHotCold, useStreamChat, type StreamChat } from "./NumberQuizStream";
 import { SmartLink } from "@/components/SmartLink";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
@@ -29,10 +32,10 @@ import {
   type NumberQuizItem,
 } from "@/lib/numberQuiz";
 
-type Mode = "hl" | "hc";
-type Loaded = { category: NumberQuizCategory; items: NumberQuizItem[]; min: number; max: number };
+export type Mode = "hl" | "hc";
+export type Loaded = { category: NumberQuizCategory; items: NumberQuizItem[]; min: number; max: number };
 
-const HC_ROUNDS = 10;
+export const HC_ROUNDS = 10;
 
 export function NumberQuizPlay() {
   const sp = useSearchParams();
@@ -41,6 +44,8 @@ export function NumberQuizPlay() {
   const [error, setError] = useState("");
   const [mode, setMode] = useState<Mode | null>(null);
   const [run, setRun] = useState(0);
+  const [stream, setStream] = useState(false);
+  const chat = useStreamChat();
 
   useEffect(() => {
     if (!id) {
@@ -91,9 +96,13 @@ export function NumberQuizPlay() {
   return (
     <>
       {/* si rimonta all'uscita da una partita, così rilegge i record */}
-      <Setup key={mode ? "playing" : `setup-${run}`} data={data} onStart={start} />
+      <Setup key={mode ? "playing" : `setup-${run}`} data={data} onStart={start} stream={stream} setStream={setStream} chat={chat} />
       <AnimatePresence>
-        {mode === "hl" ? (
+        {stream && mode === "hl" ? (
+          <StreamHigherLower key={`shl-${run}`} data={data} chat={chat} onExit={() => setMode(null)} onRestart={() => start("hl")} />
+        ) : stream && mode === "hc" ? (
+          <StreamHotCold key={`shc-${run}`} data={data} chat={chat} onExit={() => setMode(null)} onRestart={() => start("hc")} />
+        ) : mode === "hl" ? (
           <HigherLower key={`hl-${run}`} data={data} onExit={() => setMode(null)} onRestart={() => start("hl")} />
         ) : mode === "hc" ? (
           <HotCold key={`hc-${run}`} data={data} onExit={() => setMode(null)} onRestart={() => start("hc")} />
@@ -116,7 +125,19 @@ function BackLink() {
 
 /* ───────────── scelta della modalità ───────────── */
 
-function Setup({ data, onStart }: { data: Loaded; onStart: (m: Mode) => void }) {
+function Setup({
+  data,
+  onStart,
+  stream,
+  setStream,
+  chat,
+}: {
+  data: Loaded;
+  onStart: (m: Mode) => void;
+  stream: boolean;
+  setStream: (v: boolean) => void;
+  chat: StreamChat;
+}) {
   const c = data.category;
   const [best, setBest] = useState({ hl: 0, hc: 0 });
   useEffect(() => setBest({ hl: readBest(c.id, "hl"), hc: readBest(c.id, "hc") }), [c.id]);
@@ -164,20 +185,50 @@ function Setup({ data, onStart }: { data: Loaded; onStart: (m: Mode) => void }) 
           </div>
         ) : null}
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        {/* da solo o con la chat della live, come nel Music Quiz */}
+        <div className="mx-auto mt-8 grid max-w-md grid-cols-2 gap-1 rounded-2xl bg-ink/50 p-1 ring-1 ring-sand/15">
+          {[
+            { id: false, label: "Da solo", hint: "Gioca tu", icon: <User className="size-4" /> },
+            { id: true, label: "In stream", hint: "Gioca la tua chat", icon: <Radio className="size-4" /> },
+          ].map((o) => (
+            <button
+              key={String(o.id)}
+              type="button"
+              onClick={() => setStream(o.id)}
+              className={cn("relative rounded-xl px-3 py-2.5 text-left transition", stream === o.id ? "text-ink" : "text-crema/70 hover:text-crema")}
+            >
+              {stream === o.id ? <motion.span layoutId="nq-who" className="absolute inset-0 rounded-xl bg-crema" /> : null}
+              <span className="relative flex items-center gap-2 text-sm font-bold">
+                {o.icon} {o.label}
+              </span>
+              <span className={cn("relative block text-xs", stream === o.id ? "text-ink/60" : "text-crema/45")}>{o.hint}</span>
+            </button>
+          ))}
+        </div>
+        <AnimatePresence initial={false}>{stream ? <ChatPanel key="chat" chat={chat} /> : null}</AnimatePresence>
+
+        <div className={cn("mt-6 grid gap-4 transition sm:grid-cols-2", stream && !chat.ready && "pointer-events-none opacity-45")}>
           <ModeTile
             icon={<ArrowUpDown className="size-6" />}
             title="Più o meno"
-            text={`${c.question} Tocca la carta giusta e allunga la serie: al primo errore è finita.`}
-            record={best.hl ? `Record: serie di ${best.hl}` : "Nessun record ancora"}
+            text={
+              stream
+                ? `La chat vota 1 o 2 entro 15 secondi: decide la maggioranza, e chi vota giusto e veloce fa più punti.`
+                : `${c.question} Tocca la carta giusta e allunga la serie: al primo errore è finita.`
+            }
+            record={stream ? (chat.ready ? "Classifica della chat a fine partita" : "Collega prima la chat") : best.hl ? `Record: serie di ${best.hl}` : "Nessun record ancora"}
             onClick={() => onStart("hl")}
             primary
           />
           <ModeTile
             icon={<Thermometer className="size-6" />}
             title="Caldo o freddo"
-            text={`Indovina il numero esatto. ${HC_ROUNDS} domande, fino a 1.000 punti l'una: più ti avvicini, più punti fai.`}
-            record={best.hc ? `Record: ${formatCount(best.hc)} punti` : "Nessun record ancora"}
+            text={
+              stream
+                ? `${HC_ROUNDS} domande: la chat scrive il numero (anche «12k» o «3 milioni»), chi si avvicina di più prende più punti.`
+                : `Indovina il numero esatto. ${HC_ROUNDS} domande, fino a 1.000 punti l'una: più ti avvicini, più punti fai.`
+            }
+            record={stream ? (chat.ready ? "Classifica della chat a fine partita" : "Collega prima la chat") : best.hc ? `Record: ${formatCount(best.hc)} punti` : "Nessun record ancora"}
             onClick={() => onStart("hc")}
           />
         </div>
@@ -227,7 +278,7 @@ function ModeTile({
 
 /* ───────────── pezzi comuni ───────────── */
 
-function useDeck(data: Loaded) {
+export function useDeck(data: Loaded) {
   const deck = useRef<NumberQuizItem[]>([]);
   const seen = useRef(new Set<string>());
   const loading = useRef(false);
@@ -266,7 +317,7 @@ function useDeck(data: Loaded) {
   return next;
 }
 
-function Shell({ children, onExit, top }: { children: React.ReactNode; onExit: () => void; top: React.ReactNode }) {
+export function Shell({ children, onExit, top }: { children: React.ReactNode; onExit: () => void; top: React.ReactNode }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -297,7 +348,7 @@ function Shell({ children, onExit, top }: { children: React.ReactNode; onExit: (
   );
 }
 
-function Pill({ icon, label, value, hot }: { icon: React.ReactNode; label: string; value: string | number; hot?: boolean }) {
+export function Pill({ icon, label, value, hot }: { icon: React.ReactNode; label: string; value: string | number; hot?: boolean }) {
   return (
     <span
       className={cn(
@@ -314,7 +365,7 @@ function Pill({ icon, label, value, hot }: { icon: React.ReactNode; label: strin
   );
 }
 
-function CountUp({ to, format }: { to: number; format: NumberQuizCategory["format"] }) {
+export function CountUp({ to, format }: { to: number; format: NumberQuizCategory["format"] }) {
   const [v, setV] = useState(format === "year" ? Math.round(to * 0.98) : 0);
   useEffect(() => {
     const from = format === "year" ? Math.round(to - Math.min(60, Math.abs(to) * 0.03)) : 0;
@@ -328,7 +379,7 @@ function CountUp({ to, format }: { to: number; format: NumberQuizCategory["forma
   return <>{formatNumberQuizValue(v, format)}</>;
 }
 
-function Backdrop({ item }: { item: NumberQuizItem }) {
+export function Backdrop({ item }: { item: NumberQuizItem }) {
   return item.image ? (
     <>
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -535,7 +586,7 @@ function HigherLower({ data, onExit, onRestart }: { data: Loaded; onExit: () => 
   );
 }
 
-function GameOver({
+export function GameOver({
   title,
   subtitle,
   record,
@@ -631,7 +682,7 @@ function GameOver({
 
 /* ───────────── caldo o freddo ───────────── */
 
-function heat(guess: number, real: number, format: NumberQuizCategory["format"]) {
+export function heat(guess: number, real: number, format: NumberQuizCategory["format"]) {
   let closeness: number;
   if (format === "year") {
     closeness = Math.max(0, 1 - Math.abs(guess - real) / 30);
