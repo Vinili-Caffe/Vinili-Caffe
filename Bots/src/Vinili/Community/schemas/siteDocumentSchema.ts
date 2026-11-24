@@ -55,8 +55,6 @@ const SITE_DOCUMENT_TYPE = Object.freeze({
     MUSIC_QUIZ_SCORE: "music_quiz_score",
     /** Music Quiz: party/stream room. */
     MUSIC_QUIZ_PARTY: "music_quiz_party",
-    /** Number Quiz (più o meno): categorie create dagli utenti. */
-    NUMBER_QUIZ_PACK: "number_quiz_pack",
 });
 
 const siteSuggestionCommentSchema = new Schema(

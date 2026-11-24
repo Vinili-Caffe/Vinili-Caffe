@@ -6,7 +6,7 @@ import { SiteShell } from "@/components/SiteShell";
 import { QuizHubCards } from "@/components/number-quiz/QuizHubCards";
 import { pageSocialMeta } from "@/lib/og";
 
-const DESCRIPTION = "Tutti i quiz di Vinili & Caffè: indovina la canzone, sfida i numeri e crea i tuoi.";
+const DESCRIPTION = "Tutti i quiz di Vinili & Caffè: indovina la canzone o sfida i numeri.";
 
 export const metadata: Metadata = {
   ...pageSocialMeta({ path: "/quiz/", title: "Quiz", description: DESCRIPTION }),
@@ -30,7 +30,7 @@ export default function QuizPage() {
             href: "/quiz/numeri/",
             title: "Number Quiz",
             text: "Più o meno? Due voci a confronto: indovina quale numero è più alto.",
-            note: "Puoi anche creare le tue categorie",
+            note: "Oltre 30 categorie, migliaia di voci",
             icon: <ArrowUpDown className="size-7" />,
           },
         ]}

@@ -1,115 +1,159 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "motion/react";
-import { Plus, Trash2, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { Flame, Layers, Loader2, Search, X } from "lucide-react";
 import { SmartLink } from "@/components/SmartLink";
-import { useAuth } from "@/lib/auth";
 import { page } from "@/lib/site";
-import { BUILTIN_NUMBER_QUIZ, deleteNumberQuiz, listNumberQuiz, type NumberQuizPack } from "@/lib/numberQuiz";
+import { cn } from "@/lib/cn";
+import { formatCount, listNumberQuizCategories, readBest, type NumberQuizCategory } from "@/lib/numberQuiz";
 
 export function NumberQuizHub() {
-  const { token } = useAuth();
-  const [community, setCommunity] = useState<NumberQuizPack[] | null>(null);
+  const [cats, setCats] = useState<NumberQuizCategory[] | null>(null);
+  const [error, setError] = useState("");
+  const [topic, setTopic] = useState("Tutte");
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     let alive = true;
-    void listNumberQuiz(token).then((r) => {
-      if (alive) setCommunity(r.ok ? r.data.packs : []);
+    void listNumberQuizCategories().then((r) => {
+      if (!alive) return;
+      if (r.ok) setCats(r.data.categories);
+      else setError(r.message);
     });
     return () => {
       alive = false;
     };
-  }, [token]);
+  }, []);
 
-  async function remove(p: NumberQuizPack) {
-    if (!token || !window.confirm(`Eliminare «${p.title}»? Non si può annullare.`)) return;
-    const r = await deleteNumberQuiz(token, p.slug);
-    if (r.ok) setCommunity((list) => (list || []).filter((x) => x.slug !== p.slug));
-    else window.alert(r.message);
-  }
+  const topics = useMemo(() => ["Tutte", ...new Set((cats || []).map((c) => c.topic))], [cats]);
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return (cats || []).filter(
+      (c) =>
+        (topic === "Tutte" || c.topic === topic) &&
+        (!needle || `${c.title} ${c.description} ${c.topic}`.toLowerCase().includes(needle)),
+    );
+  }, [cats, topic, q]);
+  const total = (cats || []).reduce((s, c) => s + c.count, 0);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-16">
-      <SmartLink
-        href={page("/quiz/numeri/crea/")}
-        className="mb-8 flex items-center gap-4 rounded-3xl border border-dashed border-caramel/40 p-4 transition hover:border-caramel/70 hover:bg-caramel/[0.05] sm:p-5"
-      >
-        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-caramel text-ink">
-          <Plus className="size-6" />
-        </span>
-        <span>
-          <span className="block font-display text-lg text-crema">Crea la tua categoria</span>
-          <span className="text-sm text-crema/55">Scegli un argomento, scrivi le voci con i loro numeri e falla giocare a tutti.</span>
-        </span>
-      </SmartLink>
+    <div className="mx-auto w-full max-w-6xl px-4 pb-20">
+      {cats ? (
+        <p className="mb-5 text-center text-sm text-crema/55">
+          <span className="font-semibold text-caramel">{cats.length} categorie</span> e{" "}
+          <span className="font-semibold text-caramel">{formatCount(total)}</span> voci da confrontare
+        </p>
+      ) : null}
 
-      <h2 className="mb-3 font-display text-xl text-crema">Categorie</h2>
-      <Grid packs={BUILTIN_NUMBER_QUIZ} />
-
-      <h2 className="mb-3 mt-10 flex items-center gap-2 font-display text-xl text-crema">
-        <Users className="size-5 text-caramel" /> Create dalla community
-      </h2>
-      {community == null ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-28 animate-pulse rounded-3xl bg-crema/[0.04]" />
+      <div className="mb-6 space-y-3">
+        <label className="relative block">
+          <span className="sr-only">Cerca una categoria</span>
+          <Search className="pointer-events-none absolute left-5 top-1/2 size-5 -translate-y-1/2 text-crema/45" aria-hidden />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Cerca: montagne, anime, film, Pokémon…"
+            className="h-13 w-full rounded-full border-0 bg-roast/90 py-3.5 pl-14 pr-12 text-base text-crema outline-none ring-1 ring-sand/20 transition placeholder:text-crema/40 focus:ring-2 focus:ring-caramel/60"
+          />
+          {q ? (
+            <button type="button" onClick={() => setQ("")} aria-label="Cancella la ricerca" className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full p-1 text-crema/50 hover:text-crema">
+              <X className="size-4" />
+            </button>
+          ) : null}
+        </label>
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+          {topics.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTopic(t)}
+              className={cn(
+                "relative shrink-0 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wide ring-1 transition",
+                topic === t ? "text-ink ring-caramel" : "text-crema/65 ring-sand/15 hover:text-crema",
+              )}
+            >
+              {topic === t ? <motion.span layoutId="nq-topic" className="absolute inset-0 rounded-full bg-caramel" /> : null}
+              <span className="relative">{t}</span>
+            </button>
           ))}
         </div>
-      ) : community.length ? (
-        <Grid packs={community} onRemove={remove} />
-      ) : (
-        <p className="rounded-3xl bg-roast/60 px-5 py-6 text-center text-sm text-crema/55 ring-1 ring-sand/10">
-          Ancora nessuna. Crea la prima tu!
-        </p>
-      )}
+      </div>
+
+      {error ? <p className="rounded-3xl bg-roast/60 px-5 py-6 text-center text-sm text-crema/60">{error}</p> : null}
+
+      {!cats && !error ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 9 }, (_, i) => (
+            <div key={i} className="aspect-[4/3] animate-pulse rounded-3xl bg-crema/[0.05]" />
+          ))}
+        </div>
+      ) : null}
+
+      <motion.div layout className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <AnimatePresence mode="popLayout">
+          {shown.map((c, i) => (
+            <CategoryCard key={c.id} c={c} i={i} />
+          ))}
+        </AnimatePresence>
+      </motion.div>
+      {cats && !shown.length ? <p className="py-10 text-center text-sm text-crema/55">Nessuna categoria trovata.</p> : null}
     </div>
   );
 }
 
-function Grid({ packs, onRemove }: { packs: NumberQuizPack[]; onRemove?: (p: NumberQuizPack) => void }) {
+function CategoryCard({ c, i }: { c: NumberQuizCategory; i: number }) {
+  const [best, setBest] = useState(0);
+  useEffect(() => setBest(readBest(c.id, "hl")), [c.id]);
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {packs.map((p, i) => {
-        const count = p.items?.length ?? p.itemCount ?? 0;
-        return (
-          <motion.div
-            key={p.slug}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(i, 8) * 0.04 }}
-            className="group relative"
-          >
-            <SmartLink
-              href={page(`/quiz/numeri/gioca/?slug=${encodeURIComponent(p.slug)}`)}
-              className="flex h-full items-start gap-4 rounded-3xl bg-roast/75 p-4 ring-1 ring-sand/12 transition hover:-translate-y-0.5 hover:ring-caramel/40"
-            >
-              <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-espresso/80 text-3xl ring-1 ring-sand/10" aria-hidden>
-                {p.emoji || "🔢"}
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 16, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ delay: Math.min(i, 9) * 0.03, type: "spring", stiffness: 300, damping: 30 }}
+    >
+      <SmartLink
+        href={page(`/quiz/numeri/gioca/?cat=${encodeURIComponent(c.id)}`)}
+        className="group relative block aspect-[4/3] overflow-hidden rounded-3xl bg-roast ring-1 ring-sand/12 transition hover:-translate-y-1 hover:ring-caramel/50 hover:shadow-[0_24px_50px_-24px_rgba(214,154,95,0.6)]"
+      >
+        {c.cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={c.cover}
+            alt=""
+            loading="lazy"
+            className="absolute inset-0 size-full object-cover opacity-70 transition duration-500 group-hover:scale-105 group-hover:opacity-85"
+          />
+        ) : (
+          <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-roast via-espresso to-ink text-7xl opacity-60">{c.emoji}</div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/55 to-ink/5" />
+        <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-ink/70 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-crema/85 ring-1 ring-sand/15 backdrop-blur">
+          <span aria-hidden>{c.emoji}</span> {c.topic}
+        </span>
+        {best ? (
+          <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-caramel/90 px-2.5 py-1 text-[11px] font-bold text-ink">
+            <Flame className="size-3" /> {best}
+          </span>
+        ) : null}
+        <div className="absolute inset-x-0 bottom-0 p-4">
+          <h3 className="font-display text-xl leading-tight text-crema drop-shadow sm:text-2xl">{c.title}</h3>
+          <p className="mt-1 line-clamp-2 text-sm text-crema/70">{c.description}</p>
+          <p className="mt-2 flex items-center gap-3 text-xs font-semibold text-crema/55">
+            {c.ready ? (
+              <span className="inline-flex items-center gap-1">
+                <Layers className="size-3.5" /> {formatCount(c.count)} voci
               </span>
-              <span className="min-w-0 pr-6">
-                <span className="block font-display text-lg leading-snug text-crema">{p.title}</span>
-                {p.description ? <span className="mt-0.5 line-clamp-2 block text-sm text-crema/55">{p.description}</span> : null}
-                <span className="mt-1.5 block text-xs text-crema/40">
-                  {[count ? `${count} voci` : "", p.authorName ? `di ${p.authorName}` : "", p.plays ? `${p.plays} partite` : ""]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-caramel">
+                <Loader2 className="size-3.5 animate-spin" /> In preparazione
               </span>
-            </SmartLink>
-            {onRemove && p.mine ? (
-              <button
-                type="button"
-                onClick={() => onRemove(p)}
-                className="absolute right-3 top-3 rounded-full p-2 text-crema/35 transition hover:bg-ember/20 hover:text-ember"
-                aria-label={`Elimina ${p.title}`}
-              >
-                <Trash2 className="size-4" />
-              </button>
-            ) : null}
-          </motion.div>
-        );
-      })}
-    </div>
+            )}
+            {c.plays ? <span>{formatCount(c.plays)} partite</span> : null}
+          </p>
+        </div>
+      </SmartLink>
+    </motion.div>
   );
 }

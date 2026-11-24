@@ -8,7 +8,7 @@ import { pageSocialMeta } from "@/lib/og";
 
 const NumberQuizHub = dynamic(() => import("@/components/number-quiz/NumberQuizHub").then((m) => m.NumberQuizHub));
 
-const DESCRIPTION = "Più o meno? Due voci a confronto: indovina quale ha il numero più alto e allunga la serie.";
+const DESCRIPTION = "Più o meno? Due voci a confronto: indovina quale ha il numero più alto. Musica, geografia, film, anime, Pokémon e tanto altro.";
 
 export const metadata: Metadata = {
   ...pageSocialMeta({ path: "/quiz/numeri/", title: "Number Quiz", description: DESCRIPTION }),

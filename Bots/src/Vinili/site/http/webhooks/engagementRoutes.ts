@@ -86,13 +86,12 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
   app.get("/webhooks/site-music-quiz/party/:roomId", (req?, res?) => party.handleMusicQuizPartyGet(client, req, res));
   app.post("/webhooks/site-music-quiz/party/:roomId/join", (req?, res?) => party.handleMusicQuizPartyJoinPost(client, req, res));
   app.post("/webhooks/site-music-quiz/party/:roomId/action", (req?, res?) => party.handleMusicQuizPartyActionPost(client, req, res));
-  /* Number Quiz («più o meno»): categorie degli utenti */
+  /* Number Quiz («più o meno»): categorie da API pubbliche, preparate e tenute su disco */
   const numberQuiz = require("../siteNumberQuizApi") as typeof import("../siteNumberQuizApi");
-  app.get("/webhooks/site-number-quiz/packs", (req?, res?) => numberQuiz.handleNumberQuizListGet(client, req, res));
-  app.get("/webhooks/site-number-quiz/pack/:slug", (req?, res?) => numberQuiz.handleNumberQuizPackGet(client, req, res));
-  app.post("/webhooks/site-number-quiz/pack/:slug/play", (req?, res?) => numberQuiz.handleNumberQuizPlayPost(client, req, res));
-  app.post("/webhooks/site-number-quiz/pack", (req?, res?) => numberQuiz.handleNumberQuizCreatePost(client, req, res));
-  app.delete("/webhooks/site-number-quiz/pack/:slug", (req?, res?) => numberQuiz.handleNumberQuizDelete(client, req, res));
+  (require("../siteNumberQuizData") as typeof import("../siteNumberQuizData")).warmNumberQuiz();
+  app.get("/webhooks/site-number-quiz/categories", (req?, res?) => numberQuiz.handleNumberQuizCategoriesGet(client, req, res));
+  app.get("/webhooks/site-number-quiz/category/:id", (req?, res?) => numberQuiz.handleNumberQuizCategoryGet(client, req, res));
+  app.post("/webhooks/site-number-quiz/category/:id/play", (req?, res?) => numberQuiz.handleNumberQuizPlayPost(client, req, res));
   const streamChat = require("../siteMusicQuizStreamChatApi") as typeof import("../siteMusicQuizStreamChatApi");
   app.get("/webhooks/site-music-quiz/stream-chat/youtube", (req?, res?) =>
     streamChat.handleMusicQuizYoutubeChatGet(client, req, res),

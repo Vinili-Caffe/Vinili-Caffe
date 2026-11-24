@@ -16,7 +16,8 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   async rewrites() {
     // Solo `next dev`: in prod i webhook esterni devono battere api (www Vercel + trailingSlash li rompeva).
-    const origin = "https://api.viniliecaffe.it";
+    /* VC_DEV_API: in sviluppo si può puntare un server locale (es. http://localhost:3940) */
+    const origin = process.env.VC_DEV_API || "https://api.viniliecaffe.it";
     return [
       ...slugRewrites().map((r) => ({ source: r.source, destination: r.destination.replace(/index.html$/, "") })),
       /* lingua nell'indirizzo (/en/faq/): stessa pagina, come su Vercel */
