@@ -123,7 +123,7 @@ function responseFromStored(stored?, day?, lang?) {
     keyMarks: stored.keyMarks || mergeKeyMarks(stored.boards),
     message:
       stored.lang && stored.lang !== lang
-        ? "Hai già giocato al Wordle ×4 oggi in un'altra lingua."
+        ? "Hai già giocato al Quordle oggi in un'altra lingua."
         : undefined,
   };
 }
@@ -181,7 +181,7 @@ async function handleSiteWordleQuadTodayGet(client?, req?, res?) {
     return res.json(payload);
   } catch (err) {
     global.logger?.warn?.("[siteWordleQuad] today failed:", err?.message || err);
-    return res.status(503).json({ ok: false, error: "unavailable", message: "Wordle ×4 non pronto." });
+    return res.status(503).json({ ok: false, error: "unavailable", message: "Quordle non pronto." });
   }
 }
 
@@ -376,7 +376,7 @@ async function handleSiteWordleQuadGuessPost(client?, req?, res?) {
     return res.json(payload);
   } catch (err) {
     global.logger?.warn?.("[siteWordleQuad] guess failed:", err?.message || err);
-    return res.status(503).json({ ok: false, error: "unavailable", message: "Wordle ×4 non pronto." });
+    return res.status(503).json({ ok: false, error: "unavailable", message: "Quordle non pronto." });
   }
 }
 
@@ -397,7 +397,7 @@ async function handleSiteWordleQuadClaimPost(client?, req?, res?) {
       return res.status(403).json({
         ok: false,
         error: "not_in_guild",
-        message: "Entra nel server Vinili & Caffè per ricevere l'EXP del Wordle ×4.",
+        message: "Entra nel server Vinili & Caffè per ricevere l'EXP del Quordle.",
         reward: rewardMeta({ kind: "outsider", mode: "quad" }),
       });
     }

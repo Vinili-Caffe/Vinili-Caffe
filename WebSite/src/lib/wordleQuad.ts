@@ -222,7 +222,7 @@ export function buildQuadShareText(opts: {
     return [`#${i + 1}`, ...lines].join("\n");
   });
   const url = opts.playUrl || `${SITE_ORIGIN}/wordle/quattro/`;
-  return [`Vinili & Caffè Wordle ×4 ${flag} ${score}`, opts.day, "", ...blocks, "", url].join("\n");
+  return [`Vinili & Caffè Quordle ${flag} ${score}`, opts.day, "", ...blocks, "", url].join("\n");
 }
 
 export async function loadQuadToday(opts: {

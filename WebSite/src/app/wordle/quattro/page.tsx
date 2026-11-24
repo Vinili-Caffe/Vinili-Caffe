@@ -16,7 +16,7 @@ const WordleQuadBoard = dynamic(
 export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/wordle/quattro/",
-    title: "Wordle ×4",
+    title: "Quordle",
     description:
       "Quattro parole insieme, nove tentativi condivisi. Accedi e entra nel server per EXP in base a quanto sei stato bravo.",
   }),
@@ -28,15 +28,15 @@ export default async function WordleQuattroPage() {
     <SiteShell>
       <DiscordComponentEmbed
         path="/wordle/quattro/"
-        title="Wordle ×4"
+        title="Quordle"
         description="Quattro parole insieme, nove tentativi. EXP sul livello se sei nel server."
       />
       <PageHero
         compact
         icon={<Grid2x2 />}
         kicker="Minigioco"
-        title="Wordle"
-        accent="a quattro"
+        title="Il"
+        accent="Quordle"
         text="Quattro parole, nove tentativi. Vinci e guadagni EXP."
       />
       <WordleModeTabs active="quad" />
