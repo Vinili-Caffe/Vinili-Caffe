@@ -174,7 +174,7 @@ async function downloadOnce(url: URL, tries = 4, extraHost?: RegExp): Promise<{ 
   for (let attempt = 0; attempt < tries; attempt++) {
     const release = await hostSlot(url.hostname);
     try {
-      const r = await fetch(url, { redirect: "follow", headers: { "User-Agent": "NumberQuizGame/1.0 (quiz images)" }, signal: AbortSignal.timeout(15_000) });
+      const r = await fetch(url, { redirect: "follow", headers: { "User-Agent": "ViniliCaffeNumberQuiz/1.0 (https://www.viniliecaffe.it/quiz/numeri/; quiz images)" }, signal: AbortSignal.timeout(15_000) });
       if (r.status === 429 || r.status >= 500) {
         await new Promise((ok) => setTimeout(ok, 800 * (attempt + 1)));
         continue;

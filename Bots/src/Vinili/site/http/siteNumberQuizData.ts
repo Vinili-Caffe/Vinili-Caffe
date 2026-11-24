@@ -24,7 +24,8 @@ export type NQCategory = {
   build: () => Promise<NQItem[]>;
 };
 
-const UA = "NumberQuizGame/1.0 (higher-or-lower quiz; contact via site)";
+/* Wikimedia chiede un contatto nel User-Agent: senza, rifiuta quasi tutto (autorizzato dal proprietario del sito) */
+const UA = "ViniliCaffeNumberQuiz/1.0 (https://www.viniliecaffe.it/quiz/numeri/; quiz game)";
 const DIR = path.join(os.homedir(), ".vc-state", "number-quiz");
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -39,7 +40,9 @@ async function getJson(url: string, init: RequestInit = {}, timeoutMs = 30_000):
         headers: { "User-Agent": UA, Accept: "application/json", ...((init.headers as any) || {}) },
       });
       if (r.status === 429 || r.status >= 500) {
-        await sleep(1500 * (attempt + 1));
+        /* rispetta l'attesa che chiede il servizio (massimo 15 secondi) */
+        const ra = Number(r.headers.get("retry-after"));
+        await sleep(Number.isFinite(ra) && ra > 0 ? Math.min(15, ra) * 1000 : 2000 * (attempt + 1));
         continue;
       }
       if (!r.ok) return null;
@@ -126,10 +129,14 @@ type WdSpec = {
   maxValue?: number;
   /** immagine dalla Wikipedia inglese (locandine e copertine, anche se non libere) */
   enwiki?: boolean;
+  /** frammento SPARQL che lega ?v, al posto di quello costruito da prop (es. follower di una sola piattaforma) */
+  rawValue?: string;
 };
 
 async function wikidata(spec: WdSpec): Promise<NQItem[]> {
-  const value = spec.normalized
+  const value = spec.rawValue
+    ? spec.rawValue
+    : spec.normalized
     ? `?i p:${spec.prop} ?st. ?st psn:${spec.prop}/wikibase:quantityAmount ?v; wikibase:rank ?rk. FILTER(?rk != wikibase:DeprecatedRank)`
     : spec.unit
       ? `?i p:${spec.prop} ?st. ?st psv:${spec.prop} [wikibase:quantityAmount ?v; wikibase:quantityUnit wd:${spec.unit}]; wikibase:rank ?rk. FILTER(?rk != wikibase:DeprecatedRank)`
@@ -200,18 +207,20 @@ async function enwikiImages(items: NQItem[], titles: Map<NQItem, string>) {
 type DzArtist = { id: number; name: string; picture: string };
 let dzArtistsCache: { at: number; list: DzArtist[] } | null = null;
 
-const ITALIAN_SEEDS = [
-  "Vasco Rossi", "Ligabue", "Laura Pausini", "Eros Ramazzotti", "Jovanotti", "Zucchero", "Tiziano Ferro", "Elisa",
-  "Marco Mengoni", "Mahmood", "Blanco", "Annalisa", "Elodie", "Ultimo", "Sfera Ebbasta", "Måneskin", "Geolier",
-  "Lazza", "Tananai", "Angelina Mango", "Lucio Dalla", "Lucio Battisti", "Fabrizio De André", "Mina", "Adriano Celentano",
-  "Franco Battiato", "Pino Daniele", "Renato Zero", "Gianni Morandi", "Max Pezzali", "Cesare Cremonini", "Giorgia",
-  "Negramaro", "Thegiornalisti", "Calcutta", "Coez", "Marracash", "Gué", "Salmo", "Fabri Fibra", "Anna", "Shiva",
-  "Tedua", "Madame", "Irama", "Emma", "Alessandra Amoroso", "Gigi D'Alessio", "Il Volo", "Andrea Bocelli", "Nek",
-  "Raf", "Umberto Tozzi", "Antonello Venditti", "Francesco De Gregori", "Loredana Bertè", "Fiorella Mannoia",
-  "Gianna Nannini", "Subsonica", "Afterhours", "Litfiba", "883", "Articolo 31", "J-Ax", "Fedez", "Achille Lauro",
-  "Rkomi", "Ghali", "Capo Plaza", "Tony Effe", "Olly", "Clara", "Gazzelle", "Carl Brave", "Fulminacci", "Colapesce",
-  "Dimartino", "Levante", "Noemi", "Arisa", "Francesca Michielin", "Diodato", "Brunori Sas", "Niccolò Fabi",
-  "Daniele Silvestri", "Samuele Bersani", "Caparezza", "Modà", "Club Dogo", "Baby K", "Boomdabash", "Paola e Chiara",
+/* artisti di partenza da tutto il mondo: da qui si allarga con gli «artisti simili» di Deezer */
+const GLOBAL_SEEDS = [
+  "Taylor Swift", "Drake", "The Weeknd", "Bad Bunny", "BTS", "Ed Sheeran", "Beyoncé", "Rihanna", "Eminem", "Coldplay",
+  "Imagine Dragons", "Billie Eilish", "Ariana Grande", "Dua Lipa", "Shakira", "Daft Punk", "Metallica", "Queen",
+  "The Beatles", "Michael Jackson", "Madonna", "Rosalía", "Karol G", "Post Malone", "Kendrick Lamar", "Travis Scott",
+  "Adele", "Bruno Mars", "Lady Gaga", "Justin Bieber", "Kanye West", "J Balvin", "BLACKPINK", "Stromae", "AC/DC",
+  "Nirvana", "Linkin Park", "Red Hot Chili Peppers", "Arctic Monkeys", "Harry Styles", "Olivia Rodrigo", "SZA",
+  "Doja Cat", "Sabrina Carpenter", "Peso Pluma", "Rauw Alejandro", "Anitta", "Burna Boy", "Wizkid", "Aya Nakamura",
+  "Indila", "David Guetta", "Calvin Harris", "Avicii", "Martin Garrix", "Marshmello", "Elton John", "David Bowie",
+  "Pink Floyd", "Led Zeppelin", "The Rolling Stones", "ABBA", "Bob Marley", "Whitney Houston", "Celine Dion",
+  "Frank Ocean", "Tyler, The Creator", "Lana Del Rey", "Katy Perry", "Miley Cyrus", "Sia", "Maroon 5", "OneRepublic",
+  "Twenty One Pilots", "Green Day", "Foo Fighters", "Muse", "Gorillaz", "Rammstein", "Måneskin", "Andrea Bocelli",
+  "Laura Pausini", "Enrique Iglesias", "Ricky Martin", "Daddy Yankee", "Ozuna", "Feid", "Stray Kids", "NewJeans",
+  "Jung Kook", "Tame Impala", "The Killers", "Oasis", "Radiohead", "U2", "Bon Jovi", "Guns N' Roses", "Kygo",
 ];
 
 /* Deezer accetta circa 50 richieste ogni 5 secondi: una alla volta, con un passo fisso, e si riprova se dice «troppe» */
@@ -246,8 +255,9 @@ async function deezerArtists(): Promise<(DzArtist & { fans: number })[]> {
     ids.set(a.id, { id: a.id, name: clean(a.name), picture: String(a.picture_xl || a.picture_big || ""), fans });
   };
   const genres = (await dz("/genre"))?.data || [];
-  for (const g of [{ id: 0 }, ...genres]) (await dz(`/chart/${g.id}/artists?limit=100`))?.data?.forEach(add);
-  for (const name of ITALIAN_SEEDS) (await dz(`/search/artist?q=${encodeURIComponent(name)}&limit=1`))?.data?.slice(0, 1).forEach(add);
+  /* le classifiche di Deezer seguono il Paese del server (Italia): si usano poco, il grosso viene dagli artisti mondiali */
+  for (const g of genres.slice(0, 8)) (await dz(`/chart/${g.id}/artists?limit=25`))?.data?.forEach(add);
+  for (const name of GLOBAL_SEEDS) (await dz(`/search/artist?q=${encodeURIComponent(name)}&limit=1`))?.data?.slice(0, 1).forEach(add);
 
   /* allarga a catena con gli artisti simili, finché sono qualche migliaio */
   const queue = [...ids.keys()];
@@ -344,7 +354,7 @@ async function foodPages() {
   const pages = Array.from({ length: 12 }, (_, i) => i + 1);
   const res = await pool(pages, 2, 700, (p) =>
     getJson(
-      `https://world.openfoodfacts.org/api/v2/search?countries_tags_en=italy&sort_by=unique_scans_n&page_size=100&page=${p}&fields=product_name_it,product_name,brands,nutriments,image_front_small_url,image_front_url`,
+      `https://world.openfoodfacts.org/api/v2/search?sort_by=unique_scans_n&page_size=100&page=${p}&fields=product_name_en,product_name,brands,nutriments,image_front_small_url,image_front_url`,
       {},
       40_000,
     ),
@@ -551,28 +561,6 @@ export const CATEGORIES: NQCategory[] = [
       wikidata({ where: "?c wdt:P31 wd:Q6256; wdt:P36 ?i.", prop: "P1082", image: "P18", sub: "P17", keep: "max", minValue: 1000 }),
   },
   {
-    id: "comuni",
-    topic: "Italia",
-    title: "Abitanti dei comuni italiani",
-    question: "Quale comune ha più abitanti?",
-    description: "Quasi 8.000 comuni, dalla metropoli al paesino.",
-    emoji: "🇮🇹",
-    unit: "abitanti",
-    format: "number",
-    build: () => wikidata({ cls: "Q747074", prop: "P1082", image: "P18", sub: "P131", keep: "max", limit: 12000, minValue: 30 }),
-  },
-  {
-    id: "comuni-altitudine",
-    topic: "Italia",
-    title: "Altitudine dei comuni italiani",
-    question: "Quale comune è più in alto?",
-    description: "Dal livello del mare alle Alpi: a che quota sta?",
-    emoji: "⛰️",
-    unit: "m",
-    format: "number",
-    build: () => wikidata({ cls: "Q747074", prop: "P2044", normalized: true, image: "P18", sub: "P131", limit: 12000 }),
-  },
-  {
     id: "montagne",
     topic: "Natura",
     title: "Altezza delle montagne",
@@ -671,18 +659,6 @@ export const CATEGORIES: NQCategory[] = [
         limit: 9000,
         minValue: 1000,
       }),
-  },
-  {
-    id: "wikipedia-visite",
-    topic: "Persone",
-    title: "Visite su Wikipedia",
-    question: "Quale pagina è stata letta di più il mese scorso?",
-    description: "Le pagine più lette di Wikipedia in italiano nell'ultimo mese.",
-    emoji: "📈",
-    unit: "visite",
-    format: "number",
-    ttlDays: 3,
-    build: () => wikipediaTop("it"),
   },
   /* cinema, tv, giochi */
   {
@@ -843,7 +819,7 @@ export const CATEGORIES: NQCategory[] = [
     topic: "Cibo",
     title: "Calorie dei prodotti",
     question: "Quale prodotto ha più calorie?",
-    description: "I prodotti più comprati in Italia: kcal ogni 100 g.",
+    description: "I prodotti più scansionati al mondo: kcal ogni 100 g.",
     emoji: "🍫",
     unit: "kcal / 100 g",
     format: "number",
@@ -852,7 +828,7 @@ export const CATEGORIES: NQCategory[] = [
       dedupe(
         (await foodItaly())
           .map((p: any) => ({
-            name: clean(p.product_name_it || p.product_name, 60),
+            name: clean(p.product_name_en || p.product_name, 60),
             sub: clean(String(p.brands || "").split(",")[0], 40),
             value: Math.round(Number(p.nutriments?.["energy-kcal_100g"])),
             image: String(p.image_front_url || p.image_front_small_url || ""),
@@ -1001,18 +977,6 @@ const MORE: NQCategory[] = [
   },
   yearCat("citta-fondazione", "Geografia", "Anno di fondazione delle città", "Quale città è stata fondata dopo?", "Grandi città del mondo: quando sono nate?", "🏰",
     "?i wdt:P1082 ?pp. FILTER(?pp > 500000) ?i wdt:P31/wdt:P279* wd:Q515.", "P571", { image: "P18", sub: "P17" }),
-  {
-    id: "province",
-    topic: "Italia",
-    title: "Abitanti delle province italiane",
-    question: "Quale provincia ha più abitanti?",
-    description: "Province e città metropolitane d'Italia.",
-    emoji: "🗺️",
-    unit: "abitanti",
-    format: "number",
-    build: () =>
-      wikidata({ where: "VALUES ?k { wd:Q15089 wd:Q15110 } ?i wdt:P31 ?k.", prop: "P1082", image: "P18", sub: "P131", keep: "max", minValue: 50000 }),
-  },
   {
     id: "lingue",
     topic: "Mondo",
@@ -1216,7 +1180,7 @@ const MORE: NQCategory[] = [
       topic: "Cibo",
       title,
       question,
-      description: "I prodotti più comprati in Italia.",
+      description: "I prodotti più scansionati al mondo.",
       emoji,
       unit,
       format: "decimal",
@@ -1225,7 +1189,7 @@ const MORE: NQCategory[] = [
         dedupe(
           (await foodItaly())
             .map((p: any) => ({
-              name: clean(p.product_name_it || p.product_name, 60),
+              name: clean(p.product_name_en || p.product_name, 60),
               sub: clean(String(p.brands || "").split(",")[0], 40),
               value: Math.round(Number(p.nutriments?.[key]) * 10) / 10,
               image: String(p.image_front_url || p.image_front_small_url || ""),
@@ -1296,12 +1260,6 @@ const MORE2: NQCategory[] = [
   yearCat("nba-fondazione", "Sport", "Anno di fondazione delle squadre NBA", "Quale squadra è nata dopo?", "Le squadre di basket NBA.", "🏀",
     "?i wdt:P118 wd:Q155223; wdt:P31 wd:Q13393265.", "P571", { image: "P154" }),
   /* geografia */
-  numCat("comuni-superficie", "Italia", "Superficie dei comuni italiani", "Quale comune è più grande?", "Quasi 8.000 comuni, in km².", "📐", "km²", "decimal",
-    { cls: "Q747074", prop: "P2046", normalized: true, scale: 1e-6, image: "P18", sub: "P131", limit: 12000, minValue: 0.1 }),
-  numCat("montagne-italia", "Italia", "Montagne italiane", "Quale montagna è più alta?", "Vette d'Italia, dalle Alpi agli Appennini.", "🗻", "m", "number",
-    { where: "?i wdt:P17 wd:Q38; wdt:P31 wd:Q8502.", prop: "P2044", image: "P18", sub: "P131", keep: "max", minValue: 300, maxValue: 4900 }),
-  numCat("laghi-italia", "Italia", "Laghi italiani", "Quale lago è più grande?", "Laghi d'Italia, in km².", "🏞️", "km²", "decimal",
-    { where: "?i wdt:P17 wd:Q38; wdt:P31 wd:Q23397.", prop: "P2046", normalized: true, scale: 1e-6, image: "P18", sub: "P131", minValue: 0.05 }),
   numCat("stati-usa", "Geografia", "Popolazione degli Stati USA", "Quale Stato ha più abitanti?", "I 50 Stati degli Stati Uniti.", "🇺🇸", "abitanti", "number",
     { cls: "Q35657", prop: "P1082", image: "P41", keep: "max" }),
   numCat("paesi-isu", "Geografia", "Indice di sviluppo umano", "Quale Paese ha l'indice più alto?", "Da 0 a 1: salute, istruzione e reddito.", "📊", "", "decimal",
@@ -1404,7 +1362,7 @@ const MORE2: NQCategory[] = [
       topic: "Cibo",
       title,
       question,
-      description: "I prodotti più comprati in Italia.",
+      description: "I prodotti più scansionati al mondo.",
       emoji,
       unit,
       format: "decimal",
@@ -1413,7 +1371,7 @@ const MORE2: NQCategory[] = [
         dedupe(
           (await foodItaly())
             .map((p: any) => ({
-              name: clean(p.product_name_it || p.product_name, 60),
+              name: clean(p.product_name_en || p.product_name, 60),
               sub: clean(String(p.brands || "").split(",")[0], 40),
               value: Math.round(Number(p.nutriments?.[key]) * 10) / 10,
               image: String(p.image_front_url || p.image_front_small_url || ""),
@@ -1446,6 +1404,139 @@ const MORE2: NQCategory[] = [
   },
 ];
 CATEGORIES.push(...MORE2);
+
+/* ───────────── quarta infornata: temi mondiali, popolarità e social ───────────── */
+
+/** ultimi 12 mesi interi, nel formato dell'API delle visite di Wikipedia */
+function lastYearRange() {
+  const end = new Date();
+  end.setUTCDate(1);
+  end.setUTCDate(0);
+  const start = new Date(Date.UTC(end.getUTCFullYear() - 1, end.getUTCMonth() + 1, 1));
+  const f = (d: Date) => `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}00`;
+  return { from: f(start), to: f(end) };
+}
+
+/**
+ * «Quanto è cercato»: visite alla pagina inglese di Wikipedia nell'ultimo anno.
+ * Stesso spirito delle ricerche su Google, ma con dati pubblici: vale per qualsiasi tema.
+ */
+async function popularity(where: string, opts: { sub?: string; limit?: number; image?: string } = {}): Promise<NQItem[]> {
+  const q = `SELECT ?i ?l ?en ?img ?subLabel WHERE {
+    ${where}
+    ?art schema:about ?i; schema:isPartOf <https://en.wikipedia.org/>; schema:name ?en.
+    OPTIONAL { ?i wdt:${opts.image || "P18"} ?img }
+    ${opts.sub ? `OPTIONAL { ?i wdt:${opts.sub} ?sub }` : ""}
+    SERVICE wikibase:label { bd:serviceParam wikibase:language "it,en". ?i rdfs:label ?l. ${opts.sub ? "?sub rdfs:label ?subLabel." : ""} }
+  } LIMIT ${opts.limit || 700}`;
+  const rows = await sparql(q);
+  const byId = new Map<string, { item: NQItem; en: string }>();
+  for (const r of rows) {
+    const id = String(r.i?.value || "");
+    const name = clean(r.l?.value);
+    if (!id || byId.has(id) || !name || /^Q\d+$/.test(name) || !r.en?.value) continue;
+    const sub = clean(r.subLabel?.value, 50);
+    byId.set(id, {
+      en: String(r.en.value),
+      item: { name, value: 0, ...(sub && !/^Q\d+$/.test(sub) ? { sub } : {}), ...(r.img?.value ? { image: commonsThumb(r.img.value) } : {}) },
+    });
+  }
+  const { from, to } = lastYearRange();
+  const list = [...byId.values()];
+  /* poche alla volta: Wikimedia rallenta chi esagera */
+  await pool(list, 3, 80, async (x) => {
+    const title = encodeURIComponent(x.en.replace(/ /g, "_"));
+    const r = await getJson(`https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user/${title}/monthly/${from}/${to}`);
+    x.item.value = ((r?.items || []) as any[]).reduce((s, m) => s + Number(m.views || 0), 0);
+  });
+  /* chi non ha immagine su Wikidata la prende dalla pagina inglese */
+  const noImg = list.filter((x) => !x.item.image);
+  const titles = new Map(noImg.map((x) => [x.item, x.en] as const));
+  await enwikiImages(noImg.map((x) => x.item), titles);
+  return dedupe(list.map((x) => x.item).filter((x) => x.value > 1000), "max");
+}
+
+const popCat = (id: string, topic: string, title: string, description: string, emoji: string, where: string, opts: { sub?: string; limit?: number; image?: string } = {}): NQCategory => ({
+  id,
+  topic,
+  title,
+  question: "Quale è stato più cercato?",
+  description,
+  emoji,
+  unit: "visite in un anno",
+  format: "number",
+  ttlDays: 20,
+  build: () => popularity(where, opts),
+});
+
+/* follower su una piattaforma: P8687 con la piattaforma indicata dal qualificatore (account) */
+const followers = (qualifier: string) =>
+  `?i p:P8687 ?st. ?st ps:P8687 ?v; pq:${qualifier} ?acc; wikibase:rank ?rk. FILTER(?rk != wikibase:DeprecatedRank)`;
+
+const MORE3: NQCategory[] = [
+  /* popolarità: quanto è cercato */
+  popCat("cerca-cibi", "Popolarità", "Cibi più cercati", "Pizza, sushi, tacos: quale piatto interessa di più al mondo?", "🍕", famous(25, "?i wdt:P31/wdt:P279? wd:Q746549.")),
+  popCat("cerca-animali", "Popolarità", "Animali più cercati", "Dal leone al panda: quale animale cerca di più la gente?", "🦁", famous(80, "?i wdt:P31 wd:Q16521. ?i wdt:P2067 ?massa.")),
+  popCat("cerca-supereroi", "Popolarità", "Supereroi più cercati", "Marvel, DC e non solo.", "🦸", famous(15, "VALUES ?k { wd:Q188784 wd:Q1114461 wd:Q15773347 } ?i wdt:P31 ?k.")),
+  popCat("cerca-calciatori", "Popolarità", "Calciatori più cercati", "Da Messi a Haaland: chi interessa di più?", "⚽", famous(60, "?i wdt:P106 wd:Q937857; wdt:P31 wd:Q5.")),
+  popCat("cerca-cantanti", "Popolarità", "Cantanti più cercati", "Le star della musica di tutto il mondo.", "🎤", famous(70, "?i wdt:P106 wd:Q177220; wdt:P31 wd:Q5.")),
+  popCat("cerca-attori", "Popolarità", "Attori più cercati", "Le star di Hollywood e non solo.", "🎬", famous(75, "?i wdt:P106 wd:Q33999; wdt:P31 wd:Q5.")),
+  popCat("cerca-squadre", "Popolarità", "Squadre di calcio più cercate", "I club più seguiti del pianeta.", "🛡️", famous(45, "?i wdt:P31 wd:Q476028."), { image: "P154", sub: "P17" }),
+  popCat("cerca-marche", "Popolarità", "Marche più cercate", "Apple, Nike, Coca-Cola…", "🏷️", famous(60, "VALUES ?k { wd:Q4830453 wd:Q891723 wd:Q6881511 wd:Q167037 wd:Q431289 } ?i wdt:P31 ?k."), { image: "P154" }),
+  popCat("cerca-videogiochi", "Popolarità", "Videogiochi più cercati", "Minecraft, GTA, Fortnite…", "🎮", famous(40, "?i wdt:P31 wd:Q7889.")),
+  popCat("cerca-paesi", "Popolarità", "Paesi più cercati", "Quale Paese interessa di più?", "🌍", "?i wdt:P31 wd:Q6256.", { image: "P41" }),
+  popCat("cerca-film", "Popolarità", "Film più cercati", "I film di cui si legge di più.", "🎞️", famous(70, "?i wdt:P31 wd:Q11424.")),
+  popCat("cerca-serie", "Popolarità", "Serie TV più cercate", "Quale serie fa più curiosità?", "📺", famous(45, "?i wdt:P31 wd:Q5398426.")),
+  popCat("cerca-youtuber", "Popolarità", "YouTuber più cercati", "Da MrBeast a PewDiePie.", "▶️", famous(15, "?i wdt:P106 wd:Q17125263; wdt:P31 wd:Q5.")),
+  popCat("cerca-citta", "Popolarità", "Città più cercate", "Le città che incuriosiscono di più.", "🌆", famous(150, "?i wdt:P31/wdt:P279? wd:Q515."), { sub: "P17" }),
+  popCat("cerca-pokemon", "Popolarità", "Pokémon più cercati", "Pikachu batte tutti?", "⚡", famous(15, "?i wdt:P31/wdt:P279 wd:Q3966183.")),
+  /* social e soldi */
+  {
+    id: "follower-instagram",
+    topic: "Social",
+    title: "Follower su Instagram",
+    question: "Chi ha più follower su Instagram?",
+    description: "Star, sportivi e marchi: quanti li seguono?",
+    emoji: "📸",
+    unit: "follower",
+    format: "number",
+    ttlDays: 20,
+    build: () => wikidata({ where: famous(15, ""), prop: "P8687", rawValue: followers("P2003"), image: "P18", keep: "max", minValue: 10000 }),
+  },
+  {
+    id: "iscritti-youtube",
+    topic: "Social",
+    title: "Iscritti su YouTube",
+    question: "Quale canale ha più iscritti?",
+    description: "YouTuber, cantanti e canali famosi.",
+    emoji: "📺",
+    unit: "iscritti",
+    format: "number",
+    ttlDays: 20,
+    build: () => wikidata({ where: famous(20, ""), prop: "P8687", rawValue: followers("P2397"), image: "P18", keep: "max", minValue: 10000, limit: 12000 }),
+  },
+  {
+    id: "follower-x",
+    topic: "Social",
+    title: "Follower su X (Twitter)",
+    question: "Chi ha più follower su X?",
+    description: "Politici, star e sportivi.",
+    emoji: "🐦",
+    unit: "follower",
+    format: "number",
+    ttlDays: 20,
+    build: () => wikidata({ where: famous(50, ""), prop: "P8687", rawValue: followers("P6552"), image: "P18", keep: "max", minValue: 10000, limit: 12000 }),
+  },
+  numCat("patrimonio", "Persone", "Patrimonio delle celebrità", "Chi è più ricco?", "Miliardari, star e sportivi: quanto valgono?", "💎", "$", "money",
+    { where: famous(15, "?i wdt:P31 wd:Q5."), prop: "P2218", unit: "Q4917", image: "P18", keep: "max", minValue: 1e6 }),
+  numCat("altezza-famosi", "Persone", "Altezza dei personaggi famosi", "Chi è più alto?", "Star, sportivi e politici: quanto sono alti?", "📏", "cm", "number",
+    { where: famous(80, "?i wdt:P31 wd:Q5."), prop: "P2048", normalized: true, scale: 100, image: "P18", keep: "max", minValue: 120, maxValue: 240 }),
+  numCat("giochi-venduti", "Cinema e TV", "Videogiochi più venduti", "Quale gioco ha venduto di più?", "Copie vendute nel mondo.", "🕹️", "copie", "number",
+    { cls: "Q7889", prop: "P2664", keep: "max", minValue: 10000, enwiki: true }),
+  numCat("animali-peso", "Natura", "Peso degli animali", "Quale animale pesa di più?", "Dalla balena al colibrì, in chili.", "🐘", "kg", "decimal",
+    { where: famous(40, "?i wdt:P31 wd:Q16521."), prop: "P2067", normalized: true, image: "P18", keep: "max", minValue: 0.001 }),
+];
+CATEGORIES.push(...MORE3);
 
 function pokeName(n: string) {
   return String(n || "")
