@@ -62,7 +62,7 @@ export function NumberQuizHub() {
             </button>
           ) : null}
         </label>
-        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
           {topics.map((t) => (
             <button
               key={t}
