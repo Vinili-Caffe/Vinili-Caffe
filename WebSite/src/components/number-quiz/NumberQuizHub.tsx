@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Flame, Layers, Loader2, Search, X } from "lucide-react";
 import { NQLink } from "./NumberQuizNav";
+import { NQImg } from "./NQImg";
 import { cn } from "@/lib/cn";
 import { formatCount, listNumberQuizCategories, readBest, type NumberQuizCategory } from "@/lib/numberQuiz";
 
@@ -117,8 +118,7 @@ function CategoryCard({ c, i }: { c: NumberQuizCategory; i: number }) {
         className="group relative block aspect-[4/3] w-full text-left overflow-hidden rounded-3xl bg-roast ring-1 ring-sand/12 transition hover:-translate-y-1 hover:ring-caramel/50 hover:shadow-[0_24px_50px_-24px_rgba(214,154,95,0.6)]"
       >
         {c.cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <NQImg
             src={c.cover}
             alt=""
             loading="lazy"

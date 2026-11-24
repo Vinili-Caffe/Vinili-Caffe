@@ -2,6 +2,7 @@
 import fs = require("fs");
 import os = require("os");
 import path = require("path");
+import crypto = require("crypto");
 const data = require("./siteNumberQuizData") as typeof import("./siteNumberQuizData");
 
 const PLAYS_FILE = path.join(os.homedir(), ".vc-state", "number-quiz-plays.json");
@@ -107,6 +108,90 @@ const IMG_HOSTS = [
 ];
 const okHost = (u: URL) => u.protocol === "https:" && IMG_HOSTS.some((re) => re.test(u.hostname));
 
+/* le immagini già scaricate restano: in memoria (le più recenti) e su disco, così non si chiede a Wikimedia ogni volta */
+const IMG_DIR = path.join(os.homedir(), ".vc-state", "number-quiz-img");
+const IMG_MEM_MAX = 80 * 1024 * 1024;
+const imgMem = new Map<string, { type: string; buf: Buffer }>();
+let imgMemBytes = 0;
+const imgPending = new Map<string, Promise<{ type: string; buf: Buffer } | null>>();
+
+function memPut(key: string, v: { type: string; buf: Buffer }) {
+  if (imgMem.has(key)) return;
+  imgMem.set(key, v);
+  imgMemBytes += v.buf.length;
+  while (imgMemBytes > IMG_MEM_MAX && imgMem.size) {
+    const first = imgMem.keys().next().value as string;
+    imgMemBytes -= imgMem.get(first)!.buf.length;
+    imgMem.delete(first);
+  }
+}
+
+/* Wikimedia rifiuta le raffiche: poche richieste alla volta verso lo stesso sito */
+const hostBusy = new Map<string, number>();
+async function hostSlot(host: string) {
+  const max = /wikimedia|wikipedia/.test(host) ? 3 : 8;
+  while ((hostBusy.get(host) || 0) >= max) await new Promise((r) => setTimeout(r, 60));
+  hostBusy.set(host, (hostBusy.get(host) || 0) + 1);
+  return () => hostBusy.set(host, Math.max(0, (hostBusy.get(host) || 1) - 1));
+}
+
+async function downloadImage(url: URL): Promise<{ type: string; buf: Buffer } | null> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const release = await hostSlot(url.hostname);
+    try {
+      const r = await fetch(url, { redirect: "follow", headers: { "User-Agent": "NumberQuizGame/1.0 (quiz images)" }, signal: AbortSignal.timeout(15_000) });
+      if (r.status === 429 || r.status >= 500) {
+        await new Promise((ok) => setTimeout(ok, 800 * (attempt + 1)));
+        continue;
+      }
+      const final = new URL(r.url || url.href);
+      const type = String(r.headers.get("content-type") || "");
+      if (!r.ok || !okHost(final) || !type.startsWith("image/")) return null;
+      const buf = Buffer.from(await r.arrayBuffer());
+      return buf.length > 6 * 1024 * 1024 ? null : { type, buf };
+    } catch {
+      await new Promise((ok) => setTimeout(ok, 500 * (attempt + 1)));
+    } finally {
+      release();
+    }
+  }
+  return null;
+}
+
+async function cachedImage(url: URL) {
+  const key = crypto.createHash("sha1").update(url.href).digest("hex");
+  const hit = imgMem.get(key);
+  if (hit) return hit;
+  try {
+    const type = fs.readFileSync(path.join(IMG_DIR, `${key}.type`), "utf8");
+    const buf = fs.readFileSync(path.join(IMG_DIR, `${key}.bin`));
+    const v = { type, buf };
+    memPut(key, v);
+    return v;
+  } catch {
+    /* non ancora su disco */
+  }
+  let job = imgPending.get(key);
+  if (!job) {
+    job = downloadImage(url).then((v) => {
+      imgPending.delete(key);
+      if (v) {
+        memPut(key, v);
+        try {
+          fs.mkdirSync(IMG_DIR, { recursive: true });
+          fs.writeFileSync(path.join(IMG_DIR, `${key}.bin`), v.buf);
+          fs.writeFileSync(path.join(IMG_DIR, `${key}.type`), v.type);
+        } catch {
+          /* senza disco resta solo in memoria */
+        }
+      }
+      return v;
+    });
+    imgPending.set(key, job);
+  }
+  return job;
+}
+
 async function handleNumberQuizImageGet(_client?, req?, res?) {
   let url: URL;
   try {
@@ -116,15 +201,11 @@ async function handleNumberQuizImageGet(_client?, req?, res?) {
   }
   if (!okHost(url)) return res.status(403).end();
   try {
-    const r = await fetch(url, { redirect: "follow", headers: { "User-Agent": "NumberQuizGame/1.0" }, signal: AbortSignal.timeout(15_000) });
-    const final = new URL(r.url || url.href);
-    const type = String(r.headers.get("content-type") || "");
-    if (!r.ok || !okHost(final) || !type.startsWith("image/")) return res.status(502).end();
-    const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length > 6 * 1024 * 1024) return res.status(413).end();
-    res.set?.("Content-Type", type);
+    const v = await cachedImage(url);
+    if (!v) return res.status(502).end();
+    res.set?.("Content-Type", v.type);
     res.set?.("Cache-Control", "public, max-age=604800, immutable");
-    return res.status(200).send(buf);
+    return res.status(200).send(v.buf);
   } catch {
     return res.status(504).end();
   }

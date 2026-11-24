@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { ChatPanel, StreamHigherLower, StreamHotCold, useStreamChat, type StreamChat } from "./NumberQuizStream";
 import { NQLink } from "./NumberQuizNav";
+import { NQImg } from "./NQImg";
 import { cn } from "@/lib/cn";
 import {
   countNumberQuizPlay,
@@ -143,8 +144,7 @@ function Setup({
   return (
     <div className="relative overflow-hidden">
       {c.cover ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={c.cover} alt="" className="absolute inset-0 size-full scale-110 object-cover opacity-25 blur-2xl" />
+        <NQImg src={c.cover} alt="" className="absolute inset-0 size-full scale-110 object-cover opacity-25 blur-2xl" />
       ) : null}
       <div className="relative mx-auto w-full max-w-4xl px-4 pb-20 pt-6">
         <NQLink
@@ -169,15 +169,15 @@ function Setup({
         {previews.length ? (
           <div className="mt-6 flex justify-center -space-x-3">
             {previews.map((p, i) => (
-              <motion.img
+              <motion.div
                 key={p.name}
-                src={p.image}
-                alt=""
                 initial={{ opacity: 0, y: 10, rotate: 0 }}
                 animate={{ opacity: 1, y: 0, rotate: (i - 2.5) * 4 }}
                 transition={{ delay: 0.1 + i * 0.05 }}
-                className="size-16 rounded-2xl bg-roast object-cover shadow-xl ring-2 ring-espresso sm:size-20"
-              />
+                className="size-16 overflow-hidden rounded-2xl bg-roast shadow-xl ring-2 ring-espresso sm:size-20"
+              >
+                <NQImg src={p.image} alt="" className="size-full object-cover" />
+              </motion.div>
             ))}
           </div>
         ) : null}
@@ -430,10 +430,8 @@ export function CountUp({ to, format }: { to: number; format: NumberQuizCategory
 export function Backdrop({ item }: { item: NumberQuizItem }) {
   return item.image ? (
     <>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={item.image} alt="" className="absolute inset-0 size-full scale-125 object-cover opacity-50 blur-xl" />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={item.image} alt="" className="absolute inset-0 size-full object-cover opacity-90" />
+      <NQImg src={item.image} alt="" className="absolute inset-0 size-full scale-125 object-cover opacity-50 blur-xl" />
+      <NQImg src={item.image} alt="" className="absolute inset-0 size-full object-cover opacity-90" />
       <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/55 to-ink/25" />
     </>
   ) : (
