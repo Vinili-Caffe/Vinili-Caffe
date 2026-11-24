@@ -1,5 +1,5 @@
 /** Music Quiz: commenti sul pack (membri del server). */
-const { requireMusicQuizHighStaff, sendAuthError } =
+const { requireMusicQuizHighStaff, musicQuizViewer, sendAuthError } =
   require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
 const { SiteDocument, SITE_DOCUMENT_TYPE } =
   require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
@@ -21,8 +21,8 @@ function mapComments(pack: any) {
 }
 
 async function handleMusicQuizCommentsGet(client?, req?, res?) {
-  const auth = await requireMusicQuizHighStaff(client, req);
-  if (sendAuthError(res, auth)) return;
+  /* si gioca anche senza accesso (ospite) */
+  const auth = await musicQuizViewer(client, req);
   try {
     const slug = String(req.query?.slug || req.params?.slug || "").trim();
     if (!slug) return res.status(400).json({ ok: false, error: "missing_slug" });

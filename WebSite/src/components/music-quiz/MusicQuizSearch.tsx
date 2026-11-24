@@ -35,7 +35,7 @@ export function MusicQuizSearch({ onPickSlug }: { onPickSlug?: (slug: string) =>
 
   useEffect(() => {
     const query = q.trim();
-    if (!token || query.length < 2) {
+    if (query.length < 2) {
       setHits(null);
       setBusy(false);
       return;
@@ -43,7 +43,7 @@ export function MusicQuizSearch({ onPickSlug }: { onPickSlug?: (slug: string) =>
     let alive = true;
     setBusy(true);
     const id = window.setTimeout(() => {
-      void searchMusicQuiz(token, query).then((r) => {
+      void searchMusicQuiz(token || "", query).then((r) => {
         if (!alive) return;
         setBusy(false);
         if (!r.ok) return setHits({ artists: [], playlists: [], quizzes: [] });

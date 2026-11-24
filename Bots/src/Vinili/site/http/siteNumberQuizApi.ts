@@ -246,4 +246,68 @@ async function handleNumberQuizImageGet(_client?, req?, res?) {
   }
 }
 
-export = { handleNumberQuizCategoriesGet, handleNumberQuizCategoryGet, handleNumberQuizPlayPost, handleNumberQuizImageGet };
+/* ───────────── risultati: record con l'accesso, EXP nel server ───────────── */
+
+const mainGuildId = (client?: any) => {
+  const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
+  return String(client?.config?.mainGuildId || IDs.guilds?.main || "").trim();
+};
+
+/** Fine partita. Body: { cat, mode: "hl" | "hc", score }. Ospite: niente; accesso: record; nel server: anche EXP. */
+async function handleNumberQuizResultPost(client?, req?, res?) {
+  try {
+    const { musicQuizViewer } = require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
+    const viewer = await musicQuizViewer(client, req);
+    const body = req.body || {};
+    const cat = String(body.cat || "").trim();
+    const mode = body.mode === "hc" ? "hc" : "hl";
+    const score = Math.max(0, Math.min(mode === "hc" ? 10_000 : 10_000, Math.floor(Number(body.score) || 0)));
+    if (!data.CATEGORIES.some((c) => c.id === cat)) return res.status(404).json({ ok: false, error: "not_found" });
+    if (viewer.guest) return res.json({ ok: true, saved: false, best: score, reward: { auth: "guest", exp: 0 } });
+
+    const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+    const guildId = mainGuildId(client);
+    const key = `profile.numberQuizBest.${cat.replace(/[^\w-]/g, "")}.${mode}`;
+    await ActivityUserProfile.updateOne({ guildId, userId: viewer.userId }, { $setOnInsert: { guildId, userId: viewer.userId } }, { upsert: true }).catch(() => null);
+    await ActivityUserProfile.updateOne({ guildId, userId: viewer.userId }, { $max: { [key]: score } }).catch(() => null);
+    const doc: any = await ActivityUserProfile.findOne({ guildId, userId: viewer.userId }).select(key).lean().catch(() => null);
+    const best = Number(doc?.profile?.numberQuizBest?.[cat]?.[mode] || score);
+
+    const { claimQuizExp } = require("./siteQuizRewards") as typeof import("./siteQuizRewards");
+    /* serie di 20 (o 10.000 punti in «caldo o freddo») = partita perfetta */
+    const ratio = mode === "hc" ? score / 10_000 : Math.min(1, score / 20);
+    const reward = viewer.inGuild
+      ? await claimQuizExp(client, viewer, { game: "number", ratio, note: `Number Quiz ${cat}` }).catch(() => ({ auth: "member" as const, exp: 0 }))
+      : { auth: "outsider" as const, exp: 0 };
+    return res.json({ ok: true, saved: true, best, reward });
+  } catch (err: any) {
+    global.logger?.warn?.("[number-quiz] risultato:", err?.message || err);
+    return res.status(500).json({ ok: false, error: "result_error" });
+  }
+}
+
+/** I record di chi guarda (con l'accesso): { cat: { hl, hc } } */
+async function handleNumberQuizMeGet(client?, req?, res?) {
+  try {
+    const { musicQuizViewer } = require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
+    const viewer = await musicQuizViewer(client, req);
+    if (viewer.guest) return res.json({ ok: true, guest: true, best: {} });
+    const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+    const doc: any = await ActivityUserProfile.findOne({ guildId: mainGuildId(client), userId: viewer.userId })
+      .select("profile.numberQuizBest")
+      .lean()
+      .catch(() => null);
+    return res.json({ ok: true, guest: false, inGuild: viewer.inGuild, best: doc?.profile?.numberQuizBest || {} });
+  } catch {
+    return res.status(500).json({ ok: false, error: "me_error" });
+  }
+}
+
+export = {
+  handleNumberQuizCategoriesGet,
+  handleNumberQuizCategoryGet,
+  handleNumberQuizPlayPost,
+  handleNumberQuizImageGet,
+  handleNumberQuizResultPost,
+  handleNumberQuizMeGet,
+};

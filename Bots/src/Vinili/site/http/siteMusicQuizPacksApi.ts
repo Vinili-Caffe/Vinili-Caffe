@@ -1,5 +1,5 @@
 /** Music Quiz packs: lettura, creazione, modifica ed eliminazione dei quiz della community. */
-const { requireMusicQuizHighStaff, sendAuthError } =
+const { requireMusicQuizHighStaff, musicQuizViewer, sendAuthError } =
   require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
 const { ensureDeezerPack, ensureSpotifyPack } = require("./siteMusicQuizApi") as typeof import("./siteMusicQuizApi");
 const meta = require("./siteMusicQuizMeta") as typeof import("./siteMusicQuizMeta");
@@ -99,8 +99,8 @@ function readTracks(body: any) {
 const notFound = (res: any) => res.status(404).json({ ok: false, error: "not_found", message: "Questo quiz non esiste più." });
 
 async function handleMusicQuizPackGet(client?, req?, res?) {
-  const auth = await requireMusicQuizHighStaff(client, req);
-  if (sendAuthError(res, auth)) return;
+  /* si gioca anche senza accesso (ospite) */
+  const auth = await musicQuizViewer(client, req);
   try {
     const slug = String(req.params?.slug || req.query?.slug || "").trim().replace(/\/+$/, "");
     if (!slug) return res.status(400).json({ ok: false, error: "missing_slug" });

@@ -13,6 +13,7 @@ import {
   type MusicQuizRound,
 } from "@/lib/musicQuiz";
 import { MusicQuizResults, type RoundRecap } from "./MusicQuizResults";
+import type { QuizReward } from "@/components/number-quiz/QuizRewardNote";
 import { AnswerGrid, GameStage, QuizTurntable, RevealCard, RoundDots, useCountdown, useQuizClip } from "./QuizStage";
 
 type Feedback = { correct: boolean; timeout: boolean; title: string; artist: string; cover?: string; points: number; correctIndex: number; picked: number | null };
@@ -52,7 +53,7 @@ export function MusicQuizPlay({
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [recap, setRecap] = useState<RoundRecap[]>([]);
   const [err, setErr] = useState("");
-  const [results, setResults] = useState<{ score: number; best: number; maxScore: number; correctCount: number; rounds: number } | null>(null);
+  const [results, setResults] = useState<{ score: number; best: number; maxScore: number; correctCount: number; rounds: number; reward?: QuizReward } | null>(null);
   const advanceTimer = useRef(0);
 
   const total = round.total || 10;
@@ -72,11 +73,11 @@ export function MusicQuizPlay({
   );
 
   async function send(choice: number) {
-    if (!token || sending || feedback) return;
+    if (sending || feedback) return;
     setSending(true);
     setPicked(choice >= 0 ? choice : null);
     const ms = clip.startedAt != null ? Math.round(performance.now() - clip.startedAt) : answerMs;
-    const r = await answerMusicQuizRound(token, { sessionId, index: round.index, choice, ms });
+    const r = await answerMusicQuizRound(token || "", { sessionId, index: round.index, choice, ms });
     setSending(false);
     if (!r.ok) {
       setErr(r.message);
@@ -108,11 +109,11 @@ export function MusicQuizPlay({
 
   async function advance() {
     window.clearTimeout(advanceTimer.current);
-    if (!next || !token) return;
+    if (!next) return;
     if (next.done || !next.round) {
-      const fin = await finishMusicQuizSession(token, sessionId);
+      const fin = await finishMusicQuizSession(token || "", sessionId);
       if (fin.ok) {
-        setResults({ score: fin.data.score, best: fin.data.best, maxScore: fin.data.maxScore, correctCount: fin.data.correctCount, rounds: fin.data.rounds });
+        setResults({ score: fin.data.score, best: fin.data.best, maxScore: fin.data.maxScore, correctCount: fin.data.correctCount, rounds: fin.data.rounds, reward: fin.data.reward });
       } else setErr(fin.message);
       return;
     }

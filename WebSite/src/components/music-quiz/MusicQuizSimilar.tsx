@@ -13,10 +13,10 @@ export function MusicQuizSimilar({ slug }: { slug: string }) {
   const [items, setItems] = useState<MusicQuizPackCard[] | null>(null);
 
   useEffect(() => {
-    if (!token || !slug) return;
+    if (!slug) return;
     let alive = true;
     setItems(null);
-    void loadSimilarQuizzes(token, slug).then((r) => {
+    void loadSimilarQuizzes(token || "", slug).then((r) => {
       if (alive) setItems(r.ok ? r.data.items || [] : []);
     });
     return () => {

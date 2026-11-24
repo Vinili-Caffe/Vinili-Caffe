@@ -12,7 +12,8 @@ async function api<T>(
       ...init,
       headers: {
         Accept: "application/json",
-        Authorization: `Bearer ${token}`,
+        /* senza accesso si gioca da ospite: niente intestazione */
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(init?.body ? { "Content-Type": "application/json" } : {}),
         ...(init?.headers || {}),
       },
@@ -247,6 +248,7 @@ export async function finishMusicQuizSession(token: string, sessionId: string) {
     difficulty: MusicQuizDifficulty;
     correctCount: number;
     rounds: number;
+    reward?: { auth: "guest" | "outsider" | "member"; exp: number; capped?: boolean };
   }>("/session/finish", token, { method: "POST", body: JSON.stringify({ sessionId }) });
 }
 

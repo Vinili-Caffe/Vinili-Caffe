@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { ArrowUpDown, Brain, Music2 } from "lucide-react";
+import { ArrowUpDown, Brain, Grid2x2, Music2, SpellCheck } from "lucide-react";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { QuizHubCards } from "@/components/number-quiz/QuizHubCards";
 import { pageSocialMeta } from "@/lib/og";
 
-const DESCRIPTION = "Tutti i quiz di Vinili & Caffè: indovina la canzone o sfida i numeri.";
+const DESCRIPTION = "Tutti i quiz di Vinili & Caffè: indovina la canzone, sfida i numeri, trova la parola del giorno.";
 
 export const metadata: Metadata = {
   ...pageSocialMeta({ path: "/quiz/", title: "Quiz", description: DESCRIPTION }),
@@ -16,22 +16,43 @@ export default function QuizPage() {
   return (
     <SiteShell>
       <DiscordComponentEmbed path="/quiz/" title="Quiz" description={DESCRIPTION} />
-      <PageHero compact icon={<Brain />} kicker="Giochi" title="I nostri" accent="quiz" text="Scegli a cosa giocare: da solo, con gli amici o in chiamata su Discord." />
+      <PageHero
+        compact
+        icon={<Brain />}
+        kicker="Giochi"
+        title="I nostri"
+        accent="quiz"
+        text="Si gioca subito, anche senza accesso. Accedi con Discord per salvare i punteggi; se sei nel server prendi anche EXP."
+      />
       <QuizHubCards
         cards={[
           {
             href: "/music-quiz/",
             title: "Music Quiz",
-            text: "Indovina la canzone da pochi secondi di ascolto, da solo o con gli amici.",
-            note: "Serve essere nel server Discord",
+            text: "Indovina la canzone da pochi secondi di ascolto, da solo, con gli amici o con la tua live.",
+            note: "Migliaia di artisti e playlist",
             icon: <Music2 className="size-7" />,
           },
           {
             href: "/quiz/numeri/",
             title: "Number Quiz",
             text: "Più o meno? Due voci a confronto: indovina quale numero è più alto.",
-            note: "Oltre 30 categorie, migliaia di voci",
+            note: "Oltre 100 categorie",
             icon: <ArrowUpDown className="size-7" />,
+          },
+          {
+            href: "/wordle/",
+            title: "Wordle",
+            text: "Una parola nuova ogni giorno: hai sei tentativi per indovinarla.",
+            note: "Una partita al giorno",
+            icon: <SpellCheck className="size-7" />,
+          },
+          {
+            href: "/wordle/quattro/",
+            title: "Wordle ×4",
+            text: "Quattro parole insieme e nove tentativi condivisi.",
+            note: "Per chi vuole la sfida vera",
+            icon: <Grid2x2 className="size-7" />,
           },
         ]}
       />

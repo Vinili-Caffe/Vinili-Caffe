@@ -75,6 +75,38 @@ export const loadNumberQuizCategory = async (id: string, n = 80) => {
   }
   return r;
 };
+/** Fine partita: con l'accesso si salva il record, nel server Discord arriva anche l'EXP. */
+export async function postNumberQuizResult(token: string | null | undefined, body: { cat: string; mode: "hl" | "hc"; score: number }) {
+  try {
+    const r = await fetch("/webhooks/site-number-quiz/result", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    const data = (await r.json().catch(() => null)) as {
+      ok?: boolean;
+      saved?: boolean;
+      best?: number;
+      reward?: { auth: "guest" | "outsider" | "member"; exp: number; capped?: boolean };
+    } | null;
+    return data?.ok ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** I tuoi record salvati sul server (con l'accesso): { categoria: { hl, hc } } */
+export async function loadMyNumberQuiz(token: string) {
+  try {
+    const r = await fetch("/webhooks/site-number-quiz/me", { headers: { Accept: "application/json", Authorization: `Bearer ${token}` }, cache: "no-store" });
+    const data = (await r.json().catch(() => null)) as { ok?: boolean; best?: Record<string, { hl?: number; hc?: number }> } | null;
+    return data?.ok ? data.best || {} : {};
+  } catch {
+    return {};
+  }
+}
+
 export const countNumberQuizPlay = (id: string) => api<object>(`/category/${encodeURIComponent(id)}/play`, { method: "POST" });
 
 const intIt = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 0 });

@@ -20,6 +20,9 @@ import {
 import { ChatPanel, StreamHigherLower, StreamHotCold, useStreamChat, type StreamChat } from "./NumberQuizStream";
 import { NQLink } from "./NumberQuizNav";
 import { NQImg } from "./NQImg";
+import { QuizRewardNote, type QuizReward } from "./QuizRewardNote";
+import { useAuth } from "@/lib/auth";
+import { loadMyNumberQuiz, postNumberQuizResult } from "@/lib/numberQuiz";
 import { cn } from "@/lib/cn";
 import {
   countNumberQuizPlay,
@@ -138,7 +141,21 @@ function Setup({
 }) {
   const c = data.category;
   const [best, setBest] = useState({ hl: 0, hc: 0 });
-  useEffect(() => setBest({ hl: readBest(c.id, "hl"), hc: readBest(c.id, "hc") }), [c.id]);
+  const { token } = useAuth();
+  useEffect(() => {
+    setBest({ hl: readBest(c.id, "hl"), hc: readBest(c.id, "hc") });
+    /* con l'accesso valgono anche i record salvati sul server (da qualsiasi dispositivo) */
+    if (!token) return;
+    let alive = true;
+    void loadMyNumberQuiz(token).then((all) => {
+      const mine = all[c.id];
+      if (!alive || !mine) return;
+      setBest((b) => ({ hl: Math.max(b.hl, Number(mine.hl) || 0), hc: Math.max(b.hc, Number(mine.hc) || 0) }));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [c.id, token]);
   const previews = useMemo(() => data.items.filter((x) => x.image).slice(0, 6), [data.items]);
 
   return (
@@ -369,6 +386,22 @@ function pickBand(streak: number) {
    sparendo, e ricordare «com'era prima» lasciava la pagina bloccata per sempre */
 let scrollLocks = 0;
 
+/** Manda il risultato una volta sola, a fine partita, e tiene il premio da mostrare. */
+function useQuizResult(cat: string, mode: "hl" | "hc") {
+  const { token } = useAuth();
+  const [reward, setReward] = useState<QuizReward>(null);
+  const sent = useRef(false);
+  const send = useCallback(
+    (score: number) => {
+      if (sent.current) return;
+      sent.current = true;
+      void postNumberQuizResult(token, { cat, mode, score }).then((r) => setReward(r?.reward || (token ? null : { auth: "guest", exp: 0 })));
+    },
+    [token, cat, mode],
+  );
+  return [reward, send] as const;
+}
+
 export function Shell({ children, onExit, top }: { children: React.ReactNode; onExit: () => void; top: React.ReactNode }) {
   useEffect(() => {
     scrollLocks += 1;
@@ -459,6 +492,10 @@ function HigherLower({ data, onExit, onRestart }: { data: Loaded; onExit: () => 
   const streakRef = useRef(0);
   const bestAtStart = useRef(best);
   const timers = useRef<number[]>([]);
+  const [reward, sendResult] = useQuizResult(c.id, "hl");
+  useEffect(() => {
+    if (phase === "wrong") sendResult(streakRef.current);
+  }, [phase, sendResult]);
 
   useEffect(() => {
     const a = next();
@@ -632,6 +669,7 @@ function HigherLower({ data, onExit, onRestart }: { data: Loaded; onExit: () => 
             share={`Ho fatto una serie di ${streak} a «${c.title}» nel Number Quiz di Vinili & Caffè!`}
             onRestart={onRestart}
             onExit={onExit}
+            extra={<QuizRewardNote reward={reward} />}
           />
         ) : null}
       </AnimatePresence>
@@ -788,6 +826,7 @@ function HotCold({ data, onExit, onRestart }: { data: Loaded; onExit: () => void
   const [done, setDone] = useState(false);
   const bestAtStart = useRef(readBest(c.id, "hc"));
   const [history, setHistory] = useState<number[]>([]);
+  const [reward, sendResult] = useQuizResult(c.id, "hc");
 
   useEffect(() => {
     setItem(next());
@@ -807,6 +846,7 @@ function HotCold({ data, onExit, onRestart }: { data: Loaded; onExit: () => void
     if (round >= HC_ROUNDS) {
       const final = total;
       if (final > readBest(c.id, "hc")) writeBest(c.id, "hc", final);
+      sendResult(final);
       setDone(true);
       return;
     }
@@ -967,6 +1007,7 @@ function HotCold({ data, onExit, onRestart }: { data: Loaded; onExit: () => void
             share={`Ho fatto ${formatCount(total)} punti a «${c.title}» (Caldo o freddo) nel Number Quiz di Vinili & Caffè!`}
             onRestart={onRestart}
             onExit={onExit}
+            extra={<QuizRewardNote reward={reward} />}
           />
         ) : null}
       </AnimatePresence>

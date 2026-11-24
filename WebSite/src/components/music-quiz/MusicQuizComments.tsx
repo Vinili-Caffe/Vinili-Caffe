@@ -6,16 +6,16 @@ import { useI18n } from "@/lib/i18n";
 import { loadMusicQuizComments, postMusicQuizComment } from "@/lib/musicQuiz";
 
 export function MusicQuizComments({ slug }: { slug: string }) {
-  const { token } = useAuth();
+  const { token, login } = useAuth();
   const { t } = useI18n();
   const [rows, setRows] = useState<Array<{ id: string; authorName: string; content: string }>>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!token || !slug) return;
+    if (!slug) return;
     let alive = true;
-    void loadMusicQuizComments(token, slug).then((r) => {
+    void loadMusicQuizComments(token || "", slug).then((r) => {
       if (!alive || !r.ok) return;
       setRows(r.data.comments || []);
     });
@@ -25,7 +25,8 @@ export function MusicQuizComments({ slug }: { slug: string }) {
   }, [token, slug]);
 
   async function send() {
-    if (!token || text.trim().length < 2) return;
+    if (!token) return login();
+    if (text.trim().length < 2) return;
     setBusy(true);
     const r = await postMusicQuizComment(token, slug, text.trim());
     setBusy(false);

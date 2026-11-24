@@ -7,6 +7,7 @@ import { SmartLink } from "@/components/SmartLink";
 import { cn } from "@/lib/cn";
 import type { MusicQuizDifficulty } from "@/lib/musicQuiz";
 import { MusicQuizLeaderboard } from "./MusicQuizLeaderboard";
+import { QuizRewardNote, type QuizReward } from "@/components/number-quiz/QuizRewardNote";
 
 export type RoundRecap = { title: string; artist: string; cover?: string; correct: boolean; points: number };
 
@@ -31,6 +32,7 @@ export function MusicQuizResults({
   correctCount,
   rounds,
   recap,
+  reward,
   onAgain,
   onExit,
 }: {
@@ -44,6 +46,7 @@ export function MusicQuizResults({
   correctCount: number;
   rounds: number;
   recap: RoundRecap[];
+  reward?: QuizReward;
   onAgain: () => void;
   onExit: () => void;
 }) {
@@ -72,6 +75,7 @@ export function MusicQuizResults({
           </motion.p>
           <p className="mt-1 text-sm text-crema/60">su {maxScore} punti</p>
           <p className="mt-4 font-display text-2xl text-crema">{verdict(ratio)}</p>
+          <QuizRewardNote reward={reward} />
           <div className="mt-5 flex flex-wrap justify-center gap-2 text-sm">
             <span className="rounded-full bg-crema/[0.07] px-3 py-1 text-crema/80 ring-1 ring-sand/15">
               {correctCount} giuste su {rounds}

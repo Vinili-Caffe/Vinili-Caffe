@@ -51,7 +51,7 @@ type Session = {
 };
 
 export function MusicQuizPackSetup({ slug }: { slug: string }) {
-  const { token } = useAuth();
+  const { token, login } = useAuth();
   const router = useRouter();
   const [pack, setPack] = useState<(MusicQuizPackCard & { trackCount?: number }) | null>(null);
   const [difficulty, setDifficulty] = useState<MusicQuizDifficulty>("5s");
@@ -66,9 +66,9 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
   useSitePresence(pack ? { details: `Music Quiz · ${pack.title}`, state: "Sceglie come giocare", image: pack.cover, imageText: pack.title } : null);
 
   useEffect(() => {
-    if (!token || !slug) return;
+    if (!slug) return;
     let alive = true;
-    void loadMusicQuizPack(token, slug).then((r) => {
+    void loadMusicQuizPack(token || "", slug).then((r) => {
       if (!alive) return;
       if (!r.ok) setErr(r.message);
       else setPack(r.data.pack);
@@ -79,10 +79,10 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
   }, [token, slug]);
 
   async function startSolo() {
-    if (!token || !pack || busy) return;
+    if (!pack || busy) return;
     setBusy("solo");
     setErr("");
-    const r = await startMusicQuizSession(token, { slug: pack.slug, difficulty, mode: "solo" });
+    const r = await startMusicQuizSession(token || "", { slug: pack.slug, difficulty, mode: "solo" });
     setBusy("");
     if (!r.ok) return setErr(r.message);
     /* tutti i brani della partita in anticipo: le domande partono senza aspettare la rete */
@@ -101,7 +101,9 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
   }
 
   async function startRoom(mode: "party") {
-    if (!token || !pack || busy) return;
+    if (!pack || busy) return;
+    /* con gli amici serve sapere chi sei: senza accesso si apre il login */
+    if (!token) return login();
     setBusy(mode);
     setErr("");
     /* dentro Discord la stanza è quella della chiamata: se c'è già una partita si entra lì */

@@ -30,9 +30,8 @@ export function MusicQuizHub() {
   }, []);
 
   useEffect(() => {
-    if (!token) return;
     let alive = true;
-    void loadMusicQuizHub(token).then((r) => {
+    void loadMusicQuizHub(token || "").then((r) => {
       if (!alive) return;
       if (!r.ok) {
         setErr(r.message);

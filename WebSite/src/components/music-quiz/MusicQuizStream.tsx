@@ -146,9 +146,8 @@ export function MusicQuizStream({
   }
 
   async function start() {
-    if (!token) return;
     setErr("");
-    const r = await startMusicQuizSession(token, { slug: pack.slug, difficulty, mode: "stream" });
+    const r = await startMusicQuizSession(token || "", { slug: pack.slug, difficulty, mode: "stream" });
     if (!r.ok) return setErr(r.message);
     preloadClips(r.data.upcoming || [r.data.round.previewUrl]);
     setSession({ id: r.data.sessionId, clipMs: r.data.clipMs, answerMs: r.data.answerMs || MUSIC_QUIZ_ANSWER_MS, total: r.data.round.total || 10 });
@@ -169,11 +168,11 @@ export function MusicQuizStream({
   }
 
   async function doReveal() {
-    if (!token || !session || !round || reveal || revealing) return;
+    if (!session || !round || reveal || revealing) return;
     setRevealing(true);
     clip.stop();
     /* lo streamer non gioca: chiede al server la risposta giusta (nessun punto per lui) */
-    const r = await answerMusicQuizRound(token, { sessionId: session.id, index: round.index, choice: -1, ms: answerMs });
+    const r = await answerMusicQuizRound(token || "", { sessionId: session.id, index: round.index, choice: -1, ms: answerMs });
     setRevealing(false);
     if (!r.ok) return setErr(r.message);
     const correctIndex = r.data.correctIndex;

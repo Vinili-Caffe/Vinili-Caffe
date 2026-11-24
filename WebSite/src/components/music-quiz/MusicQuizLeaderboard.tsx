@@ -13,9 +13,9 @@ export function MusicQuizLeaderboard({ slug, difficulty }: { slug: string; diffi
   const [rows, setRows] = useState<Row[] | null>(null);
 
   useEffect(() => {
-    if (!token || !slug) return;
+    if (!slug) return;
     let alive = true;
-    void loadMusicQuizScores(token, slug, { difficulty, mode: "solo" }).then((r) => {
+    void loadMusicQuizScores(token || "", slug, { difficulty, mode: "solo" }).then((r) => {
       if (alive) setRows(r.ok ? r.data.scores || [] : []);
     });
     return () => {

@@ -1,6 +1,6 @@
 /** Music Quiz: catalogo Deezer + sessioni solo (scoring server-side). */
 const crypto = require("crypto") as typeof import("crypto");
-const { requireMusicQuizHighStaff, sendAuthError } =
+const { musicQuizViewer } =
   require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
 const deezer = require("./siteMusicQuizDeezer") as typeof import("./siteMusicQuizDeezer");
 const { buildMusicQuizHub } = require("./siteMusicQuizHub") as typeof import("./siteMusicQuizHub");
@@ -166,8 +166,8 @@ function plain(s: string) {
 }
 
 async function handleMusicQuizSearchGet(client?, req?, res?) {
-  const auth = await requireMusicQuizHighStaff(client, req);
-  if (sendAuthError(res, auth)) return;
+  /* si gioca anche senza accesso (ospite) */
+  const auth = await musicQuizViewer(client, req);
   try {
     const q = String(req.query?.q || "").trim();
     if (!q) return res.json({ ok: true, artists: [], playlists: [], tracks: [] });
@@ -233,8 +233,8 @@ async function handleMusicQuizSearchGet(client?, req?, res?) {
 }
 
 async function handleMusicQuizHubGet(client?, req?, res?) {
-  const auth = await requireMusicQuizHighStaff(client, req);
-  if (sendAuthError(res, auth)) return;
+  /* si gioca anche senza accesso (ospite) */
+  const auth = await musicQuizViewer(client, req);
   try {
     const hub = await buildMusicQuizHub((auth as any).userId);
     return res.json({ ok: true, ...hub, community: hub.communityNew });
@@ -245,8 +245,8 @@ async function handleMusicQuizHubGet(client?, req?, res?) {
 }
 
 async function handleMusicQuizArtistGet(client?, req?, res?) {
-  const auth = await requireMusicQuizHighStaff(client, req);
-  if (sendAuthError(res, auth)) return;
+  /* si gioca anche senza accesso (ospite) */
+  const auth = await musicQuizViewer(client, req);
   try {
     const id = String(req.params?.id || "").trim();
     const pack = await ensureDeezerPack("artist", id);
@@ -271,8 +271,8 @@ async function handleMusicQuizArtistGet(client?, req?, res?) {
 
 /** Quiz simili da mostrare sotto un quiz. */
 async function handleMusicQuizSimilarGet(client?, req?, res?) {
-  const auth = await requireMusicQuizHighStaff(client, req);
-  if (sendAuthError(res, auth)) return;
+  /* si gioca anche senza accesso (ospite) */
+  const auth = await musicQuizViewer(client, req);
   try {
     const slug = String(req.params?.slug || "").trim();
     if (!slug || slug.length > 120) return res.status(400).json({ ok: false, error: "bad_slug" });
@@ -287,8 +287,8 @@ async function handleMusicQuizSimilarGet(client?, req?, res?) {
 
 /** Titoli dei brani più ascoltati di un artista: per riempire le risposte sbagliate quando si crea un quiz. */
 async function handleMusicQuizArtistTitlesGet(client?, req?, res?) {
-  const auth = await requireMusicQuizHighStaff(client, req);
-  if (sendAuthError(res, auth)) return;
+  /* si gioca anche senza accesso (ospite) */
+  const auth = await musicQuizViewer(client, req);
   try {
     const id = String(req.params?.id || "").trim();
     if (!/^\d{1,15}$/.test(id)) return res.status(400).json({ ok: false, error: "bad_id" });
@@ -309,8 +309,8 @@ async function handleMusicQuizArtistTitlesGet(client?, req?, res?) {
 }
 
 async function handleMusicQuizPlaylistGet(client?, req?, res?) {
-  const auth = await requireMusicQuizHighStaff(client, req);
-  if (sendAuthError(res, auth)) return;
+  /* si gioca anche senza accesso (ospite) */
+  const auth = await musicQuizViewer(client, req);
   try {
     const id = String(req.params?.id || "").trim();
     const pack = await ensureDeezerPack("playlist", id);
@@ -334,8 +334,8 @@ async function handleMusicQuizPlaylistGet(client?, req?, res?) {
 }
 
 async function handleMusicQuizSessionStartPost(client?, req?, res?) {
-  const auth = await requireMusicQuizHighStaff(client, req);
-  if (sendAuthError(res, auth) || !auth.ok) return;
+  /* si gioca anche senza accesso (ospite) */
+  const auth = await musicQuizViewer(client, req);
   try {
     pruneSessions();
     const body = req.body || {};
@@ -359,7 +359,7 @@ async function handleMusicQuizSessionStartPost(client?, req?, res?) {
     const id = crypto.randomBytes(16).toString("hex");
     const session: Session = {
       id,
-      userId: auth.userId,
+      userId: auth.userId || "guest",
       packSlug: slug,
       difficulty,
       mode,
@@ -395,13 +395,13 @@ async function handleMusicQuizSessionStartPost(client?, req?, res?) {
 }
 
 async function handleMusicQuizSessionAnswerPost(client?, req?, res?) {
-  const auth = await requireMusicQuizHighStaff(client, req);
-  if (sendAuthError(res, auth) || !auth.ok) return;
+  /* si gioca anche senza accesso (ospite) */
+  const auth = await musicQuizViewer(client, req);
   try {
     const body = req.body || {};
     const sessionId = String(body.sessionId || "").trim();
     const session = sessions.get(sessionId);
-    if (!session || session.userId !== auth.userId) {
+    if (!session || session.userId !== (auth.userId || "guest")) {
       return res.status(404).json({ ok: false, error: "session_not_found" });
     }
     if (session.expiresAt < Date.now()) {
@@ -442,17 +442,34 @@ async function handleMusicQuizSessionAnswerPost(client?, req?, res?) {
 }
 
 async function handleMusicQuizSessionFinishPost(client?, req?, res?) {
-  const auth = await requireMusicQuizHighStaff(client, req);
-  if (sendAuthError(res, auth) || !auth.ok) return;
+  /* si gioca anche senza accesso (ospite) */
+  const auth = await musicQuizViewer(client, req);
   try {
     const body = req.body || {};
     const sessionId = String(body.sessionId || "").trim();
     const session = sessions.get(sessionId);
-    if (!session || session.userId !== auth.userId) {
+    if (!session || session.userId !== (auth.userId || "guest")) {
       return res.status(404).json({ ok: false, error: "session_not_found" });
     }
     const score = session.answers.reduce((s, a) => s + a.points, 0);
     const maxScore = session.rounds.length * 100;
+    const correctCount = session.answers.filter((a) => a.correct).length;
+    /* ospite: si gioca e basta, niente statistiche né EXP */
+    if (auth.guest) {
+      sessions.delete(sessionId);
+      return res.json({
+        ok: true,
+        score,
+        best: score,
+        maxScore,
+        saved: false,
+        reward: { auth: "guest", exp: 0 },
+        packSlug: session.packSlug,
+        difficulty: session.difficulty,
+        correctCount,
+        rounds: session.rounds.length,
+      });
+    }
     const existing = await SiteDocument.findOne({
       docType: SITE_DOCUMENT_TYPE.MUSIC_QUIZ_SCORE,
       userId: auth.userId,
@@ -497,12 +514,18 @@ async function handleMusicQuizSessionFinishPost(client?, req?, res?) {
       best = Math.max(prev, score);
     }
     sessions.delete(sessionId);
+    /* nel server Discord: EXP in base a come è andata (con un tetto al giorno per tutti i quiz) */
+    const { claimQuizExp } = require("./siteQuizRewards") as typeof import("./siteQuizRewards");
+    const reward = auth.inGuild
+      ? await claimQuizExp(client, auth, { game: "music", ratio: maxScore ? score / maxScore : 0 }).catch(() => ({ auth: "member", exp: 0 }))
+      : { auth: "outsider", exp: 0 };
     return res.json({
       ok: true,
       score,
       best,
       maxScore,
       saved,
+      reward,
       packSlug: session.packSlug,
       difficulty: session.difficulty,
       correctCount: session.answers.filter((a) => a.correct).length,

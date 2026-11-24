@@ -70,6 +70,61 @@ async function requireMusicQuizHighStaff(client?, req?): Promise<MusicQuizAuth> 
   return { ok: true, ...user };
 }
 
+/**
+ * Chi sta giocando, senza obbligare al login: per giocare basta aprire il sito.
+ * - ospite (nessun accesso, o accesso scaduto): gioca, ma niente statistiche
+ * - con l'accesso: le statistiche si salvano
+ * - con l'accesso e nel server Discord: anche l'EXP
+ */
+type MusicQuizViewer = {
+  ok: true;
+  guest: boolean;
+  inGuild: boolean;
+  userId: string;
+  displayName: string;
+  avatarUrl: string;
+  member: any;
+};
+const viewerCache = new Map<string, { at: number; v: MusicQuizViewer }>();
+const GUEST: MusicQuizViewer = { ok: true, guest: true, inGuild: false, userId: "", displayName: "Ospite", avatarUrl: "", member: null };
+
+async function musicQuizViewer(client?, req?): Promise<MusicQuizViewer> {
+  const token = normalizeHeaderSecret(req?.headers?.authorization);
+  if (!token) return GUEST;
+  const hit = viewerCache.get(token);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.v;
+  let v: MusicQuizViewer = GUEST;
+  const auth = await requireMusicQuizHighStaff(client, req).catch(() => null);
+  if (auth?.ok) {
+    v = { ok: true, guest: false, inGuild: true, userId: auth.userId, displayName: auth.displayName, avatarUrl: auth.avatarUrl, member: auth.member };
+  } else if (auth && !auth.ok && (auth as { error: string }).error === "forbidden") {
+    /* fuori dal server: si salvano le statistiche, l'EXP no */
+    try {
+      const r = await fetch("https://discord.com/api/v10/users/@me", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(6000),
+      });
+      const u: any = r.ok ? await r.json() : null;
+      if (u?.id) {
+        v = {
+          ok: true,
+          guest: false,
+          inGuild: false,
+          userId: String(u.id),
+          displayName: String(u.global_name || u.username || "Ospite"),
+          avatarUrl: u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128` : "",
+          member: null,
+        };
+      }
+    } catch {
+      /* Discord non risponde: si gioca da ospite */
+    }
+  }
+  if (viewerCache.size > 400) viewerCache.clear();
+  viewerCache.set(token, { at: Date.now(), v });
+  return v;
+}
+
 function sendAuthError(res?, auth?: MusicQuizAuth) {
   if (!auth || auth.ok) return false;
   /* senza strictNullChecks TypeScript non restringe l'unione su `ok`: il caso è per forza quello d'errore */
@@ -78,4 +133,4 @@ function sendAuthError(res?, auth?: MusicQuizAuth) {
   return true;
 }
 
-export = { requireMusicQuizHighStaff, sendAuthError, normalizeHeaderSecret };
+export = { requireMusicQuizHighStaff, musicQuizViewer, sendAuthError, normalizeHeaderSecret };
