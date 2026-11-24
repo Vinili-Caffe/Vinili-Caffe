@@ -154,14 +154,23 @@ async function downloadImage(url: URL): Promise<{ type: string; buf: Buffer } | 
       const [, wiki, a, ab, file] = orig;
       smaller = new URL(`https://upload.wikimedia.org/wikipedia/${wiki}/thumb/${a}/${ab}/${file}/${w}px-${file}`);
     }
-    if (!smaller) return null;
+    if (!smaller) break;
     const v = await downloadOnce(smaller, 2);
     if (v) return v;
+  }
+  /* ultima possibilità per Wikimedia (locandine dei film, che rifiuta anche in miniatura):
+     il servizio pubblico di immagini weserv; gli si manda solo l'indirizzo pubblico dell'immagine */
+  if (/(^|\.)(wikimedia|wikipedia)\.org$/.test(url.hostname)) {
+    const via = new URL("https://images.weserv.nl/");
+    via.searchParams.set("url", url.href.replace(/^https:\/\//, ""));
+    via.searchParams.set("w", "700");
+    via.searchParams.set("we", "1");
+    return downloadOnce(via, 2, /^images\.weserv\.nl$/);
   }
   return null;
 }
 
-async function downloadOnce(url: URL, tries = 4): Promise<{ type: string; buf: Buffer } | null> {
+async function downloadOnce(url: URL, tries = 4, extraHost?: RegExp): Promise<{ type: string; buf: Buffer } | null> {
   for (let attempt = 0; attempt < tries; attempt++) {
     const release = await hostSlot(url.hostname);
     try {
@@ -172,7 +181,7 @@ async function downloadOnce(url: URL, tries = 4): Promise<{ type: string; buf: B
       }
       const final = new URL(r.url || url.href);
       const type = String(r.headers.get("content-type") || "");
-      if (!r.ok || !okHost(final) || !type.startsWith("image/")) return null;
+      if (!r.ok || !(okHost(final) || (extraHost && final.protocol === "https:" && extraHost.test(final.hostname))) || !type.startsWith("image/")) return null;
       const buf = Buffer.from(await r.arrayBuffer());
       return buf.length > 6 * 1024 * 1024 ? null : { type, buf };
     } catch {
