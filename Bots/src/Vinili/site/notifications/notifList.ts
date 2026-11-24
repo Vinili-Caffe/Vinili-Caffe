@@ -44,18 +44,8 @@ async function listSiteInAppNotificationsForUserUncached(userId?, limit = 50) {
     const openUrl = String(doc.openUrl || "").trim();
     const dedupeKey = String(doc.dedupeKey || "").trim();
     if (isVoteRegisteredNotification({ kind, title, body, dedupeKey })) continue;
-    /* notifCats2/3: never list Discord-queue-only staff alerts as flat notifs. */
-    if (
-      isDedicatedInboxQueueAlert({
-        openUrl,
-        dedupeKey,
-        channel: doc.notifChannel || doc.channel,
-        title,
-        body,
-      })
-    ) {
-      continue;
-    }
+    /* inboxBellShow1: le code dell'Inbox (candidature, appelli, revisioni, punti tolti, chat staff)
+       ora compaiono anche nella campanella, non solo dentro l'Inbox */
     const channel = resolveNotifChannel({
       openUrl,
       dedupeKey,

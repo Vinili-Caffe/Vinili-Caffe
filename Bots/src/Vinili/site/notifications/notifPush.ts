@@ -182,8 +182,19 @@ function fireNotificationPush(
 ) {
   /* notifPushSync1: invalidate before WS fanout so mode=count on other devices is fresh */
   invalidateUnreadCountCache(userId);
-  broadcastInboxChanged(userId);
-  if (push === false) return Promise.resolve({ ok: true, skipped: true, reason: "push_disabled" });
+  if (push === false) {
+    broadcastInboxChanged(userId);
+    return Promise.resolve({ ok: true, skipped: true, reason: "push_disabled" });
+  }
+  /* pushReadRace1: prima si controlla se è ancora da leggere, poi si avvisano i dispositivi aperti.
+     Prima l'avviso partiva subito: una pagina aperta (es. l'Inbox sul PC) la segnava letta in pochi
+     millisecondi e la push veniva scartata per tutti i dispositivi. */
+  let broadcasted = false;
+  const broadcastOnce = () => {
+    if (broadcasted) return;
+    broadcasted = true;
+    broadcastInboxChanged(userId);
+  };
   try {
     const { sendWebPushToUser } = require("../../site/http/siteWebPushService") as typeof import("../../site/http/siteWebPushService");
     /* pushBadgeSyncPhone1: allega unreadCount al content push → badge telefono allineato */
@@ -215,15 +226,19 @@ function fireNotificationPush(
           missingMeansUnread: true,
         });
         if (!stillUnread) {
+          broadcastOnce();
           return { ok: true, sent: 0, skipped: true, reason: "already_read_pushSkipRead1" };
         }
       }
+      broadcastOnce();
       return sendWebPushToUser(userId, payload);
     })().catch((err?) => {
+      broadcastOnce();
       global.logger?.warn?.("[siteInAppNotifications] push send failed:", err?.message || err);
       return { ok: false, sent: 0, failed: 1 };
     });
   } catch (e) {
+    broadcastOnce();
     return Promise.resolve({ ok: false, skipped: true, reason: String(e?.message || e) });
   }
 }
@@ -275,17 +290,7 @@ async function countSiteInAppUnreadForUser(userId?) {
       const openUrl = String(doc.openUrl || "").trim();
       const dedupeKey = String(doc.dedupeKey || "").trim();
       if (isVoteRegisteredNotification({ kind, title, body, dedupeKey })) continue;
-      if (
-        isDedicatedInboxQueueAlert({
-          openUrl,
-          dedupeKey,
-          channel: doc.notifChannel || doc.channel,
-          title,
-          body,
-        })
-      ) {
-        continue;
-      }
+      /* inboxBellShow1: le code dell'Inbox contano anche nel numerino della campanella */
       /* siteApiW3: skip sync via skipCtx — no per-item await
          voteUnreadNoDmFix1: NoDM Discord NON nasconde reminder voto da badge/pending
          (allineato a votePushNoDmFix1 / shouldSkipSiteInAppNotif). */
