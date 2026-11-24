@@ -138,11 +138,23 @@ async function hostSlot(host: string) {
 /* Wikimedia blocca i programmi che chiedono il file originale (quando la larghezza supera quella vera):
    in quel caso si riprova con miniature più piccole, che invece dà sempre */
 async function downloadImage(url: URL): Promise<{ type: string; buf: Buffer } | null> {
-  const first = await downloadOnce(url, /Special:FilePath/i.test(url.pathname) ? 1 : 4);
-  if (first || !/Special:FilePath/i.test(url.pathname)) return first;
-  for (const w of ["500", "250"]) {
-    const smaller = new URL(url.href);
-    smaller.searchParams.set("width", w);
+  const filePath = /Special:FilePath/i.test(url.pathname);
+  /* file originale su upload.wikimedia.org (non una miniatura): stessa cosa, si chiede la miniatura */
+  const orig = url.hostname === "upload.wikimedia.org" && !url.pathname.includes("/thumb/")
+    ? /^\/wikipedia\/([\w-]+)\/([0-9a-f])\/([0-9a-f]{2})\/([^/]+)$/.exec(url.pathname)
+    : null;
+  const first = await downloadOnce(url, filePath || orig ? 1 : 4);
+  if (first) return first;
+  for (const w of ["500", "250", "120"]) {
+    let smaller: URL | null = null;
+    if (filePath) {
+      smaller = new URL(url.href);
+      smaller.searchParams.set("width", w);
+    } else if (orig) {
+      const [, wiki, a, ab, file] = orig;
+      smaller = new URL(`https://upload.wikimedia.org/wikipedia/${wiki}/thumb/${a}/${ab}/${file}/${w}px-${file}`);
+    }
+    if (!smaller) return null;
     const v = await downloadOnce(smaller, 2);
     if (v) return v;
   }
