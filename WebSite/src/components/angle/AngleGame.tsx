@@ -491,7 +491,7 @@ function Practice() {
 /** Sfida a un amico: anonima per tutti e due, stesso angolo, vince chi lo indovina per primo (niente EXP) */
 function AngleDuel({ joinId: joinFrom }: { joinId?: string | null }) {
   const [joinId, setJoinId] = useState(joinFrom || null);
-  const { state, error, busy, start, guess, reset } = useDuel("angle", "duel", "it", joinId);
+  const { state, error, busy, ready, start, guess, reset } = useDuel("angle", "duel", "it", joinId);
   function again() {
     setJoinId(null);
     reset();
@@ -506,7 +506,7 @@ function AngleDuel({ joinId: joinFrom }: { joinId?: string | null }) {
       </div>
     );
   }
-  if (!state) return joinId ? null : <DuelIntro game="angle" busy={busy} onStart={() => void start()} />;
+  if (!state) return !ready || joinId ? null : <DuelIntro game="angle" busy={busy} onStart={() => void start()} />;
   if (state.status === "waiting") return <DuelWaiting state={state} />;
   return (
     <>

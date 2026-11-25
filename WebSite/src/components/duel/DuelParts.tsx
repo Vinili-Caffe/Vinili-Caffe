@@ -26,32 +26,68 @@ export function useDuel(game: DuelGame, mode: "duel" | "practice", lang: string,
   const [state, setState] = useState<DuelState | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  /* false finché non si è provato a riprendere la partita lasciata a metà */
+  const [ready, setReady] = useState(false);
   const id = state?.id || "";
+
+  /* la partita in corso di questo gioco: cambiando scheda o gioco si riprende da lì */
+  const curKey = `vc-duel-cur:${game}:${mode}`;
+  const remember = useCallback(
+    (next: DuelState) => {
+      setState(next);
+      try {
+        localStorage.setItem(curKey, next.id);
+      } catch {
+        /* ignore */
+      }
+    },
+    [curKey],
+  );
+  const forget = useCallback(() => {
+    try {
+      localStorage.removeItem(curKey);
+    } catch {
+      /* ignore */
+    }
+  }, [curKey]);
 
   const start = useCallback(async () => {
     setBusy(true);
     setError("");
     const r = await createDuel(game, mode, lang);
     setBusy(false);
-    if (r.ok) setState(r);
+    if (r.ok) remember(r);
     else setError("Non riesco a creare la partita. Riprova tra poco.");
-  }, [game, mode, lang]);
+  }, [game, mode, lang, remember]);
 
-  /* entrare con il link di una sfida */
+  /* entrare con il link di una sfida, o riprendere quella lasciata a metà */
   useEffect(() => {
-    if (!joinId) return;
+    let saved = "";
+    try {
+      saved = localStorage.getItem(curKey) || "";
+    } catch {
+      /* ignore */
+    }
+    const target = joinId || saved;
+    if (!target) {
+      setReady(true);
+      return;
+    }
     let alive = true;
     setBusy(true);
-    void joinDuel(joinId).then((r) => {
+    void joinDuel(target).then((r) => {
       if (!alive) return;
       setBusy(false);
-      if (r.ok) setState(r);
-      else setError(r.error === "full" ? "Questa sfida è già cominciata tra altri due giocatori." : r.error === "not_found" ? "Questa sfida non c'è più." : "Non riesco a entrare nella sfida.");
+      setReady(true);
+      if (r.ok) remember(r);
+      else if (joinId) {
+        setError(r.error === "full" ? "Questa sfida è già cominciata tra altri due giocatori." : r.error === "not_found" ? "Questa sfida non c'è più." : "Non riesco a entrare nella sfida.");
+      } else forget();
     });
     return () => {
       alive = false;
     };
-  }, [joinId]);
+  }, [joinId, curKey, remember, forget]);
 
   /* in sfida: si guarda come va l'altro finché la partita non è finita */
   const live = state?.mode === "duel" && state.status !== "finished";
@@ -75,12 +111,14 @@ export function useDuel(game: DuelGame, mode: "duel" | "practice", lang: string,
     [id],
   );
 
+  /* «Nuova sfida» o «Un'altra»: la partita finita non si riprende più */
   const reset = useCallback(() => {
+    forget();
     setState(null);
     setError("");
-  }, []);
+  }, [forget]);
 
-  return { state, error, busy, start, guess, reset };
+  return { state, error, busy, ready, start, guess, reset };
 }
 
 /** Prima di cominciare una sfida: cosa succede, e il tasto per crearla */

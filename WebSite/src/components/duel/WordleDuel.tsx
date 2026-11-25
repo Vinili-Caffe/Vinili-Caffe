@@ -51,19 +51,55 @@ function Grid({ board, rows, current, active, small }: { board: DuelBoard; rows:
   );
 }
 
+/** una delle quattro griglie del Quordle, con le stesse caselle di quello del giorno */
+function QuadGrid({ board, rows, current, active }: { board: DuelBoard; rows: number; current: string; active: boolean }) {
+  return (
+    <div className={cn("min-w-0", board.won && "rounded-sm p-0.5 ring-1 ring-[#58a64b]/40")}>
+      <div className="flex flex-col gap-px">
+        {Array.from({ length: rows }, (_, r) => {
+          const entry = board.rows[r];
+          const isCurrent = active && !board.won && r === board.rows.length;
+          return (
+            <div key={r} className="grid grid-cols-5 gap-px">
+              {Array.from({ length: WORD_LEN }, (_, c) => {
+                const letter = entry ? entry.guess.charAt(c) : isCurrent ? current.charAt(c) : "";
+                const mark = entry?.marks?.[c];
+                const filled = Boolean(letter);
+                return (
+                  <motion.div
+                    key={c}
+                    animate={{ scale: filled && !mark ? 1.03 : 1 }}
+                    transition={{ type: "spring", stiffness: 420, damping: 22 }}
+                    className={cn(
+                      "relative grid h-[1.35rem] w-full place-items-center rounded-[3px] font-sans text-[0.62rem] font-bold uppercase leading-none ring-1 sm:h-[1.55rem] sm:text-[0.72rem] md:h-[1.7rem] md:text-xs",
+                      mark ? tileMark(mark) : filled ? "bg-mocha text-crema ring-sand/30" : "bg-roast/90 text-crema/25 ring-sand/12",
+                    )}
+                  >
+                    <span className="relative block leading-none">{letter}</span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** Allenamento o sfida di Wordle (una parola) o Quordle (quattro): le parole le controlla il server */
 export function WordleDuel({ game, mode, lang, joinId: joinFrom }: { game: "wordle" | "quad"; mode: "duel" | "practice"; lang: string; joinId?: string | null }) {
   /* dopo «Nuova sfida» non si rientra più in quella del link */
   const [joinId, setJoinId] = useState(joinFrom || null);
-  const { state, error, busy, start, guess, reset } = useDuel(game, mode, lang, joinId);
+  const { state, error, busy, ready, start, guess, reset } = useDuel(game, mode, lang, joinId);
   const [current, setCurrent] = useState("");
   const [sending, setSending] = useState(false);
   const [note, setNote] = useState("");
 
   /* allenamento: si parte subito */
   useEffect(() => {
-    if (mode === "practice" && !state && !busy && !joinId && !error) void start();
-  }, [mode, state, busy, joinId, start, error]);
+    if (mode === "practice" && ready && !state && !busy && !joinId && !error) void start();
+  }, [mode, ready, state, busy, joinId, start, error]);
 
   const boards = useMemo(() => state?.boards || [], [state?.boards]);
   const playing = state?.status === "playing" && !state.me.done;
@@ -131,7 +167,7 @@ export function WordleDuel({ game, mode, lang, joinId: joinFrom }: { game: "word
     );
   }
   if (!state) {
-    if (mode === "duel" && !joinId) return <DuelIntro game={game} busy={busy} onStart={() => void start()} />;
+    if (mode === "duel" && ready && !busy && !joinId) return <DuelIntro game={game} busy={busy} onStart={() => void start()} />;
     return (
       <div className="grid place-items-center py-16">
         <Loader2 className="size-7 animate-spin text-caramel" />
@@ -147,11 +183,16 @@ export function WordleDuel({ game, mode, lang, joinId: joinFrom }: { game: "word
       <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-crema/50">
         {mode === "practice" ? "Allenamento" : "Sfida"} · tentativo {Math.min(state.me.attempts + (state.me.done ? 0 : 1), state.maxAttempts)} di {state.maxAttempts}
       </p>
-      <div className={cn(quad ? "grid grid-cols-2 gap-3 sm:gap-5" : "")}>
-        {boards.map((b, i) => (
-          <Grid key={i} board={b} rows={state.maxAttempts} current={current} active={playing} small={quad} />
-        ))}
-      </div>
+      {quad ? (
+        /* come il Quordle del giorno: quattro griglie basse e larghe, 2×2 */
+        <div className="mx-auto grid w-full max-w-3xl grid-cols-2 gap-x-3 gap-y-3 sm:gap-x-4 sm:gap-y-4">
+          {boards.map((b, i) => (
+            <QuadGrid key={i} board={b} rows={state.maxAttempts} current={current} active={playing} />
+          ))}
+        </div>
+      ) : (
+        boards.map((b, i) => <Grid key={i} board={b} rows={state.maxAttempts} current={current} active={playing} />)
+      )}
       <p className={cn("mt-3 h-5 text-center text-sm text-ember", !note && "invisible")} role="status">
         {note || "·"}
       </p>
