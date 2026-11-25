@@ -85,8 +85,8 @@ function buildSiteOpts(guildId?, userId?, day?) {
   return {
     guildId: String(guildId || ""),
     userId: String(userId || ""),
-    title: "Wordle del giorno",
-    body: "È mezzanotte: c’è una nuova parola da indovinare. Vinci e guadagni EXP.",
+    title: "Giochi del giorno",
+    body: "È mezzanotte: nuova parola del Wordle, nuovo Quordle e un nuovo angolo da indovinare.",
     kind: "wordle_reminder",
     openUrl: PLAY_URL,
     dedupeKey: `wordle_reminder_${day}`,
@@ -120,6 +120,14 @@ async function dispatchWordleDailyReminder(client?, opts: Record<string, any> = 
   const guild = await getClientGuildCached(client, gid);
   const member = guild ? await getGuildMemberCached(guild, uid) : null;
   if (!guild || !member) return { ok: true, skippedNotInGuild: true };
+
+  /* remindAuto1: spento da /notifications/ (gruppo «Giochi del giorno») → niente promemoria, né sul sito né in DM */
+  try {
+    const { shouldSkipSiteInAppNotif } = require("../../site/http/siteNotifPrefs") as typeof import("../../site/http/siteNotifPrefs");
+    if (await shouldSkipSiteInAppNotif(gid, uid, { kind: "wordle_reminder" })) return { ok: true, skippedMuted: true };
+  } catch {
+    /* in dubbio si manda */
+  }
 
   const claimed = await claimRemindDay(gid, uid, day);
   if (!claimed) return { ok: true, skippedDuplicate: true };
@@ -242,6 +250,36 @@ async function getWordleRemindEnabled(guildId?, userId?) {
   return Boolean(doc?.profile?.siteWordleRemind?.enabled);
 }
 
+/**
+ * remindAuto1: la prima volta che si gioca (Wordle, Quordle o Angolo) il promemoria si accende da solo.
+ * Solo se non è mai stato toccato: chi lo aveva spento resta spento. Si spegne da /notifications/.
+ */
+async function autoEnableDailyReminder(guildId?, userId?) {
+  const gid = String(guildId || mainGuildId()).trim();
+  const uid = String(userId || "").trim();
+  if (!gid || !uid) return false;
+  await ActivityUserProfile.updateOne({ guildId: gid, userId: uid }, { $setOnInsert: { guildId: gid, userId: uid } }, { upsert: true }).catch(() => null);
+  const r = await ActivityUserProfile.updateOne(
+    { guildId: gid, userId: uid, "profile.siteWordleRemind.enabled": { $exists: false } },
+    { $set: { "profile.siteWordleRemind.enabled": true, "profile.siteWordleRemind.auto": true } },
+  ).catch(() => null);
+  return Boolean(r && (r as any).modifiedCount);
+}
+
+/** Dalle chiamate dei giochi: chi è nel server e gioca ha il promemoria (se non l'ha mai spento). */
+async function autoEnableFromRequest(client?, req?) {
+  try {
+    const raw = String(req?.headers?.authorization || "").trim();
+    if (!raw) return;
+    const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestApi") as typeof import("../../site/http/siteRoleRequestApi");
+    const token = raw.toLowerCase().startsWith("bearer ") ? raw.slice(7).trim() : raw;
+    const r: any = await resolveWebsiteGuildMember(client, token).catch(() => null);
+    if (r?.ok && r.userId) await autoEnableDailyReminder(r.guild?.id, r.userId);
+  } catch {
+    /* il promemoria non deve mai bloccare il gioco */
+  }
+}
+
 async function setWordleRemindEnabled(guildId?, userId?, enabled?) {
   const gid = String(guildId || mainGuildId()).trim();
   const uid = String(userId || "").trim();
@@ -258,6 +296,8 @@ async function setWordleRemindEnabled(guildId?, userId?, enabled?) {
 }
 
 export = {
+  autoEnableDailyReminder,
+  autoEnableFromRequest,
   startWordleDailyReminderLoop,
   runWordleRemindTick,
   dispatchWordleDailyReminder,

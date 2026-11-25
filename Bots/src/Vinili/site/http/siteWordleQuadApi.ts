@@ -21,7 +21,7 @@ const {
   quadRange,
 } = require("./siteWordleRewards") as typeof import("./siteWordleRewards");
 const { resolveOptionalAuth } = require("./siteWordleDailyApi") as typeof import("./siteWordleDailyApi");
-const { getWordleRemindEnabled } = require("../../Minigames/services/wordleDailyReminderService") as typeof import("../../Minigames/services/wordleDailyReminderService");
+const { getWordleRemindEnabled, autoEnableFromRequest } = require("../../Minigames/services/wordleDailyReminderService") as typeof import("../../Minigames/services/wordleDailyReminderService");
 
 function parseLang(raw?) {
   return wordle.parseLang(raw) || "it";
@@ -186,6 +186,8 @@ async function handleSiteWordleQuadTodayGet(client?, req?, res?) {
 }
 
 async function handleSiteWordleQuadGuessPost(client?, req?, res?) {
+  /* remindAuto1: prima partita → promemoria acceso (se mai toccato) */
+  void autoEnableFromRequest(client, req);
   try {
     const cfg = client?.config?.minigames?.wordle || null;
     await wordle.ensureReady(cfg);

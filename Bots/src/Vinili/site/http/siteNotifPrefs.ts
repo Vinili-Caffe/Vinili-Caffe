@@ -63,8 +63,8 @@ const SITE_NOTIF_GROUPS = Object.freeze([
   },
   {
     key: "wordle",
-    label: "Wordle",
-    hint: "Promemoria a mezzanotte per la parola del giorno",
+    label: "Giochi del giorno",
+    hint: "Promemoria a mezzanotte: Wordle, Quordle e Angolo",
     kinds: Object.freeze(["wordle_reminder"]),
   },
   {

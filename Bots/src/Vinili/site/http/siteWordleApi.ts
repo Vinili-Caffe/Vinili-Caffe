@@ -25,6 +25,7 @@ const {
 const {
   getWordleRemindEnabled,
   setWordleRemindEnabled,
+  autoEnableFromRequest,
 } = require("../../Minigames/services/wordleDailyReminderService") as typeof import("../../Minigames/services/wordleDailyReminderService");
 
 function parseLang(raw?) {
@@ -158,6 +159,8 @@ async function handleSiteWordleTodayGet(client?, req?, res?) {
 }
 
 async function handleSiteWordleGuessPost(client?, req?, res?) {
+  /* remindAuto1: prima partita → promemoria acceso (se mai toccato) */
+  void autoEnableFromRequest(client, req);
   try {
     const cfg = client?.config?.minigames?.wordle || null;
     await wordle.ensureReady(cfg);
