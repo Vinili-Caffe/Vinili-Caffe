@@ -1,8 +1,8 @@
 /** Angolo: angolo del giorno, link di sfida e salvataggio del risultato. */
 
 export const ANGLE_ATTEMPTS = 4;
-/** vale come indovinato entro questi gradi (uguale sul server) */
-export const ANGLE_TOLERANCE = 2;
+/** si vince solo col grado esatto (uguale sul server) */
+export const ANGLE_TOLERANCE = 0;
 
 function fnv(text: string) {
   let h = 0x811c9dc5;

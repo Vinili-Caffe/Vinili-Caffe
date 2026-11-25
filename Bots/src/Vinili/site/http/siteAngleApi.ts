@@ -6,8 +6,8 @@
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 
 const MAX_ATTEMPTS = 4;
-/** vale come indovinato entro questi gradi */
-const TOLERANCE = 2;
+/** si vince solo col grado esatto */
+const TOLERANCE = 0;
 
 /** stesso calcolo di WebSite/src/lib/angle.ts: FNV-1a sul giorno → angolo interno tra 10° e 170° */
 function dailyAngle(day: string) {

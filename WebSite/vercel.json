@@ -11,13 +11,23 @@
   },
   "redirects": [
     {
-      "source": "/quiz/angolo/:rest*",
-      "destination": "/quiz/angle/:rest*",
+      "source": "/quiz/angolo",
+      "destination": "/quiz/angle/",
       "permanent": true
     },
     {
-      "source": "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)/quiz/angolo/:rest*",
-      "destination": "/:lang/quiz/angle/:rest*",
+      "source": "/quiz/angolo/(.*)",
+      "destination": "/quiz/angle/$1",
+      "permanent": true
+    },
+    {
+      "source": "/(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)/quiz/angolo",
+      "destination": "/$1/quiz/angle/",
+      "permanent": true
+    },
+    {
+      "source": "/(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)/quiz/angolo/(.*)",
+      "destination": "/$1/quiz/angle/$2",
       "permanent": true
     },
     {

@@ -159,16 +159,11 @@ function Round({
             </motion.p>
           ) : null}
         </AnimatePresence>
-        {/* sotto il disco, non sopra i bracci: l'angolo giusto e, se preso non al grado, che vale ±2° */}
+        {/* sotto il disco, non sopra i bracci: l'angolo giusto */}
         <AnimatePresence>
           {over && solved ? (
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-1 text-center text-sm text-crema/60">
-              {(() => {
-                const hit = rows.find((r) => Math.abs(r.diff) <= ANGLE_TOLERANCE);
-                return hit && hit.diff !== 0
-                  ? `Era ${answer}°: con ${hit.guess}° sei entro ${ANGLE_TOLERANCE}°, e vale come preso`
-                  : `Era proprio ${answer}°`;
-              })()}
+              {`Era proprio ${answer}°`}
             </motion.p>
           ) : null}
         </AnimatePresence>
@@ -180,7 +175,7 @@ function Round({
             <p className="text-center text-xs font-bold uppercase tracking-[0.2em] text-crema/50">
               Tentativo {rows.length + 1} di {ANGLE_ATTEMPTS}
             </p>
-            <p className="mt-1 text-center text-[11px] text-crema/40">{`Vale anche se sbagli di ${ANGLE_TOLERANCE}° o meno`}</p>
+            <p className="mt-1 text-center text-[11px] text-crema/40">Serve il grado esatto</p>
             <div className="mt-3 flex items-center justify-center gap-2">
               <StepBtn onClick={() => setValue((v) => Math.max(0, v - 1))} label="Un grado in meno">
                 <Minus className="size-5" />
