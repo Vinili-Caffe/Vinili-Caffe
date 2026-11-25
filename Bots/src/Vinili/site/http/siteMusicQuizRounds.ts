@@ -103,7 +103,7 @@ export async function artistTitlesFor(tracks: any[]): Promise<Map<string, string
   return out;
 }
 
-export function buildRounds(tracks: any[], artistTitles?: Map<string, string[]>): QuizRound[] | null {
+export function buildRounds(tracks: any[], artistTitles?: Map<string, string[]>, order?: string[]): QuizRound[] | null {
   /* un brano per titolo: le versioni live/remix dello stesso pezzo confonderebbero le opzioni */
   const seen = new Set<string>();
   const usable = tracks.filter((t) => {
@@ -120,7 +120,10 @@ export function buildRounds(tracks: any[], artistTitles?: Map<string, string[]>)
   const topShare = Math.max(...counts.values()) / usable.length;
   const manyArtists = topShare < 0.8;
   const label = (t: any) => (manyArtists ? `${t.title} · ${t.artist}` : String(t.title));
-  const picked = shuffle(usable).slice(0, Math.min(ROUNDS, usable.length));
+  /* order: gli stessi brani già pescati (seconda passata, con i titoli degli artisti) */
+  const picked = order?.length
+    ? order.map((id) => usable.find((t) => String(t.id) === id)).filter(Boolean)
+    : shuffle(usable).slice(0, Math.min(ROUNDS, usable.length));
   return picked.map((t, index) => {
     /* risposte scritte da chi ha creato il quiz: la giusta (se l'ha cambiata) e fino a 3 sbagliate; il resto si riempie con gli altri brani */
     const correct = String(t.answer || "").trim() || label(t);
@@ -150,6 +153,18 @@ export function buildRounds(tracks: any[], artistTitles?: Map<string, string[]>)
 }
 
 /** Link freschi alle anteprime (quelli salvati scadono); i brani senza anteprima vengono tolti. */
+/**
+ * Le domande con le risposte sbagliate dello stesso artista: prima si pescano i brani della partita,
+ * poi si chiedono a Deezer i titoli dei loro artisti (solo quelli, anche nelle playlist con tanti artisti).
+ */
+export async function buildRoundsWithArtists(tracks: any[]): Promise<QuizRound[] | null> {
+  const first = buildRounds(tracks);
+  if (!first) return null;
+  const ids = new Set(first.map((r) => r.trackId));
+  const titles = await artistTitlesFor((tracks || []).filter((t) => ids.has(String(t?.id))));
+  return buildRounds(tracks, titles, first.map((r) => r.trackId)) || first;
+}
+
 export async function refreshPreviews(rounds: QuizRound[]): Promise<QuizRound[]> {
   const fresh = await Promise.all(
     rounds.map(async (r) => {

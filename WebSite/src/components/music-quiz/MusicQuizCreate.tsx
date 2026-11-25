@@ -513,6 +513,37 @@ function ImportPanel({
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  /* secondi passati dall'inizio dell'importazione (per far vedere che sta lavorando) */
+  const [elapsed, setElapsed] = useState(0);
+
+  /* mentre importa: chi prova a chiudere, ricaricare o cambiare pagina viene avvisato */
+  useEffect(() => {
+    if (!busy) return;
+    setElapsed(0);
+    const started = Date.now();
+    const t = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    const guardLinks = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement | null)?.closest?.("a[href]");
+      if (!a) return;
+      if (!window.confirm("Sto ancora importando i brani: se esci adesso l'importazione si perde. Vuoi uscire lo stesso?")) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", warn);
+    document.addEventListener("click", guardLinks, true);
+    return () => {
+      window.clearInterval(t);
+      window.removeEventListener("beforeunload", warn);
+      document.removeEventListener("click", guardLinks, true);
+    };
+  }, [busy]);
+
+  const step = elapsed < 4 ? "Leggo la playlist…" : elapsed < 15 ? "Cerco ogni brano su Deezer…" : elapsed < 35 ? "Controllo le anteprime…" : "Quasi fatto: le playlist lunghe richiedono un po' di più…";
 
   async function run() {
     if (!token || !link.trim()) return;
@@ -524,7 +555,12 @@ function ImportPanel({
     const { playlist, tracks } = r.data;
     if (!tracks.length) return setMsg({ ok: false, text: "Nessun brano di questa playlist ha un'anteprima disponibile." });
     setLink("");
-    setMsg({ ok: true, text: `Da «${playlist.name}» ho trovato ${tracks.length} brani con l'anteprima.` });
+    setMsg({
+      ok: true,
+      text: playlist.capped
+        ? `Da «${playlist.name}» ho trovato ${tracks.length} brani con l'anteprima. Apple Music fa leggere solo i primi 300 brani di una playlist: per gli altri, dividila in Musica e importa anche la seconda parte (i brani si aggiungono a questi).`
+        : `Da «${playlist.name}» ho trovato ${tracks.length} brani con l'anteprima.`,
+    });
     onImported(tracks, playlist.name);
   }
 
@@ -557,6 +593,28 @@ function ImportPanel({
           {busy ? "Cerco i brani…" : "Importa"}
         </button>
       </form>
+      {busy ? (
+        /* si vede bene che sta lavorando: barra che scorre, cosa sta facendo, da quanto, e di non uscire */
+        <div className="mt-4 overflow-hidden rounded-2xl bg-espresso/70 ring-1 ring-caramel/30" role="status" aria-live="polite">
+          <div className="relative h-1.5 w-full overflow-hidden bg-crema/[0.07]">
+            <motion.span
+              className="absolute inset-y-0 w-1/3 rounded-full bg-gradient-to-r from-caramel to-ember"
+              animate={{ x: ["-100%", "300%"] }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+            />
+          </div>
+          <div className="flex items-start gap-3 p-4">
+            <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-caramel" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-crema">Sto importando la playlist</p>
+              <p className="mt-0.5 text-sm text-crema/65">
+                {step} <span className="tabular-nums text-crema/45">· {elapsed} s</span>
+              </p>
+              <p className="mt-2 text-xs font-semibold text-ember">Non chiudere e non lasciare questa pagina finché non ho finito.</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {full ? <p className="mt-2 text-sm text-ember">Il quiz ha già {MAX_TRACKS} brani.</p> : null}
       {msg ? <p className={cn("mt-3 text-sm", msg.ok ? "text-emerald-300" : "text-ember")}>{msg.text}</p> : null}
     </section>

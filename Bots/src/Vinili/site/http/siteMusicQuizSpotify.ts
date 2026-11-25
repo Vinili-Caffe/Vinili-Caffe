@@ -311,7 +311,9 @@ async function importPlaylist(url: string, maxTracks = MAX_TRACKS) {
       }
     }
 
-    return { source: link.kind, playlist: { name: src.name.slice(0, 80), cover: src.cover, total: src.total }, tracks };
+    /* Apple Music nella pagina pubblica mostra solo i primi 300 brani: chi ne ha di più lo deve sapere */
+    const capped = link.kind === "apple" && src.items.length >= 300;
+    return { source: link.kind, playlist: { name: src.name.slice(0, 80), cover: src.cover, total: src.total, capped }, tracks };
 }
 
 async function handleMusicQuizSpotifyImportGet(client?, req?, res?) {

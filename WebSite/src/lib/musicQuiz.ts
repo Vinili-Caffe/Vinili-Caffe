@@ -129,7 +129,7 @@ export async function loadMusicQuizPack(token: string, slug: string) {
 
 /** Brani di una playlist pubblica di Spotify, Apple Music o YouTube, con l'anteprima presa dallo stesso brano su Deezer. */
 export async function importPlaylistLink(token: string, url: string) {
-  return api<{ source: string; playlist: { name: string; cover: string; total: number }; tracks: MusicQuizTrack[] }>(
+  return api<{ source: string; playlist: { name: string; cover: string; total: number; capped?: boolean }; tracks: MusicQuizTrack[] }>(
     `/import?url=${encodeURIComponent(url)}`,
     token,
   );
