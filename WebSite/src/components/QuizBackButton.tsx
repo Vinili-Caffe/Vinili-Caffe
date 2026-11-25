@@ -28,7 +28,7 @@ export function QuizBackButton() {
       key={back.href}
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
-      className="pointer-events-none fixed left-3 top-[4.75rem] z-[60] sm:left-5 sm:top-20"
+      className="pointer-events-none fixed left-3 top-[4.75rem] z-[45] sm:left-5 sm:top-20"
     >
       <SmartLink
         href={page(back.href)}

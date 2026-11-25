@@ -7,10 +7,8 @@ import { loadBuildWordleQuad } from "@/lib/wordleQuad";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
-const WordleQuadBoard = dynamic(
-  () => import("@/components/wordle/WordleQuadBoard").then((m) => m.WordleQuadBoard),
-  { loading: () => null },
-);
+/* del giorno, allenamento e sfida a un amico */
+const WordleModes = dynamic(() => import("@/components/duel/WordleModes").then((m) => m.WordleModes), { loading: () => null });
 
 export const metadata: Metadata = {
   ...pageSocialMeta({
@@ -38,7 +36,7 @@ export default async function WordleQuattroPage() {
         accent="Quordle"
         text="Quattro parole, nove tentativi. Vinci e guadagni EXP."
       />
-      <WordleQuadBoard initial={initial} />
+      <WordleModes game="quad" quadInitial={initial} />
     </SiteShell>
   );
 }

@@ -1,0 +1,171 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { motion } from "motion/react";
+import { Loader2 } from "lucide-react";
+import { WordleKeyboard } from "@/components/wordle/WordleKeyboard";
+import { DuelIntro, DuelResult, DuelWaiting, OpponentBar, useDuel } from "@/components/duel/DuelParts";
+import { upgradeKey, WORD_LEN, type KeyMarks, type Mark } from "@/lib/wordle";
+import type { DuelBoard } from "@/lib/duel";
+import { cn } from "@/lib/cn";
+
+const tileMark = (m?: Mark) => {
+  if (m === "g") return "bg-[#58a64b] text-white ring-[#58a64b]/50";
+  if (m === "y") return "bg-[#c9a227] text-ink ring-[#c9a227]/45";
+  if (m === "b") return "bg-mocha text-crema/50 ring-sand/10";
+  return "bg-mocha/80 text-crema ring-sand/18";
+};
+
+function Grid({ board, rows, current, active, small }: { board: DuelBoard; rows: number; current: string; active: boolean; small?: boolean }) {
+  return (
+    <div className={cn("mx-auto grid w-full gap-1", small ? "max-w-[11rem] sm:max-w-[13rem]" : "max-w-[19rem] gap-1.5 sm:max-w-[22rem] sm:gap-2", board.won && small && "opacity-80")}>
+      {Array.from({ length: rows }, (_, r) => {
+        const entry = board.rows[r];
+        const isCurrent = active && !board.won && r === board.rows.length;
+        return (
+          <div key={r} className={cn("grid grid-cols-5", small ? "gap-1" : "gap-1.5 sm:gap-2")}>
+            {Array.from({ length: WORD_LEN }, (_, c) => {
+              const letter = entry ? entry.guess.charAt(c) : isCurrent ? current.charAt(c).toUpperCase() : "";
+              const mark = entry?.marks?.[c];
+              return (
+                <motion.div
+                  key={c}
+                  initial={false}
+                  animate={mark ? { rotateX: [90, 0] } : { rotateX: 0 }}
+                  transition={{ duration: 0.35, delay: mark ? c * 0.05 : 0 }}
+                  className={cn(
+                    "grid aspect-square place-items-center rounded-lg font-mono font-bold uppercase ring-1",
+                    small ? "text-sm sm:text-base" : "text-xl sm:text-2xl",
+                    tileMark(mark),
+                    !mark && letter && "ring-caramel/60",
+                  )}
+                >
+                  {letter}
+                </motion.div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Allenamento o sfida di Wordle (una parola) o Quordle (quattro): le parole le controlla il server */
+export function WordleDuel({ game, mode, lang, joinId: joinFrom }: { game: "wordle" | "quad"; mode: "duel" | "practice"; lang: string; joinId?: string | null }) {
+  /* dopo «Nuova sfida» non si rientra più in quella del link */
+  const [joinId, setJoinId] = useState(joinFrom || null);
+  const { state, error, busy, start, guess, reset } = useDuel(game, mode, lang, joinId);
+  const [current, setCurrent] = useState("");
+  const [sending, setSending] = useState(false);
+  const [note, setNote] = useState("");
+
+  /* allenamento: si parte subito */
+  useEffect(() => {
+    if (mode === "practice" && !state && !busy && !joinId && !error) void start();
+  }, [mode, state, busy, joinId, start, error]);
+
+  const boards = useMemo(() => state?.boards || [], [state?.boards]);
+  const playing = state?.status === "playing" && !state.me.done;
+
+  const keyMarks = useMemo(() => {
+    let k: KeyMarks = {};
+    for (const b of boards) for (const row of b.rows) row.guess.split("").forEach((ch, i) => (k = upgradeKey(k, ch.toLowerCase(), row.marks[i])));
+    return k;
+  }, [boards]);
+
+  const submit = useCallback(async () => {
+    if (current.length !== WORD_LEN || sending) return;
+    setSending(true);
+    const r = await guess(current);
+    setSending(false);
+    if (r.ok) {
+      setCurrent("");
+      setNote("");
+    } else {
+      setNote(r.message);
+      window.setTimeout(() => setNote(""), 2200);
+    }
+  }, [current, guess, sending]);
+
+  const onKey = useCallback(
+    (key: string) => {
+      if (!playing || sending) return;
+      if (key === "Enter") return void submit();
+      if (key === "Backspace") return setCurrent((c) => c.slice(0, -1));
+      const ch = String(key || "").toLowerCase();
+      if (/^[a-z]$/.test(ch)) setCurrent((c) => (c.length >= WORD_LEN ? c : c + ch));
+    },
+    [playing, sending, submit],
+  );
+
+  useEffect(() => {
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      const t = ev.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (ev.key === "Enter" || ev.key === "Backspace" || /^[a-zA-Z]$/.test(ev.key)) {
+        ev.preventDefault();
+        onKey(ev.key.length === 1 ? ev.key.toLowerCase() : ev.key);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onKey]);
+
+  function again() {
+    setCurrent("");
+    setJoinId(null);
+    reset();
+    if (mode === "practice") window.setTimeout(() => void start(), 0);
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-md rounded-3xl bg-roast/80 p-6 text-center text-sm text-crema/70 ring-1 ring-sand/12">
+        {error}
+        <button type="button" onClick={again} className="mt-4 block w-full rounded-xl py-2 text-xs font-bold uppercase tracking-wide text-caramel ring-1 ring-sand/15">
+          {mode === "practice" ? "Riprova" : "Crea una sfida nuova"}
+        </button>
+      </div>
+    );
+  }
+  if (!state) {
+    if (mode === "duel" && !joinId) return <DuelIntro game={game} busy={busy} onStart={() => void start()} />;
+    return (
+      <div className="grid place-items-center py-16">
+        <Loader2 className="size-7 animate-spin text-caramel" />
+      </div>
+    );
+  }
+  if (state.status === "waiting") return <DuelWaiting state={state} />;
+
+  const quad = game === "quad";
+  return (
+    <div className="mx-auto w-full max-w-3xl px-4 pb-16">
+      <OpponentBar state={state} />
+      <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-crema/50">
+        {mode === "practice" ? "Allenamento" : "Sfida"} · tentativo {Math.min(state.me.attempts + (state.me.done ? 0 : 1), state.maxAttempts)} di {state.maxAttempts}
+      </p>
+      <div className={cn(quad ? "grid grid-cols-2 gap-3 sm:gap-5" : "")}>
+        {boards.map((b, i) => (
+          <Grid key={i} board={b} rows={state.maxAttempts} current={current} active={playing} small={quad} />
+        ))}
+      </div>
+      <p className={cn("mt-3 h-5 text-center text-sm text-ember", !note && "invisible")} role="status">
+        {note || "·"}
+      </p>
+      {state.status === "finished" || state.me.done ? (
+        state.status === "finished" ? (
+          <DuelResult state={state} onAgain={again} />
+        ) : (
+          <p className="mt-4 text-center text-sm text-crema/65">Tentativi finiti: vediamo come va l&apos;avversario…</p>
+        )
+      ) : (
+        <div className="mt-2">
+          <WordleKeyboard keyMarks={keyMarks} disabled={!playing || sending} onKey={onKey} compact={quad} />
+        </div>
+      )}
+    </div>
+  );
+}

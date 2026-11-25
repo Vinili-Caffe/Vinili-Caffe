@@ -208,4 +208,5 @@ export = {
   langLabel,
   pickDailyAnswer,
   pickDailyAnswers,
+  getAnswers,
 };

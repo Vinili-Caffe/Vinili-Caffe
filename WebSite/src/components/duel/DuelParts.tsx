@@ -1,0 +1,215 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { motion } from "motion/react";
+import { Check, Copy, Loader2, Swords, Trophy, Users } from "lucide-react";
+import { activityInstanceId, activityShare, isDiscordActivity } from "@/lib/discordActivity";
+import {
+  createDuel,
+  DUEL_LABEL,
+  duelPath,
+  getDuel,
+  guessDuel,
+  joinDuel,
+  sendDuelToCall,
+  type DuelGame,
+  type DuelState,
+} from "@/lib/duel";
+import { page } from "@/lib/site";
+import { cn } from "@/lib/cn";
+
+/**
+ * Una partita di allenamento o di sfida: crea o entra nella stanza, la tiene aggiornata
+ * (in sfida ogni secondo e mezzo, per vedere come va l'avversario) e manda i tentativi.
+ */
+export function useDuel(game: DuelGame, mode: "duel" | "practice", lang: string, joinId?: string | null) {
+  const [state, setState] = useState<DuelState | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const id = state?.id || "";
+
+  const start = useCallback(async () => {
+    setBusy(true);
+    setError("");
+    const r = await createDuel(game, mode, lang);
+    setBusy(false);
+    if (r.ok) setState(r);
+    else setError("Non riesco a creare la partita. Riprova tra poco.");
+  }, [game, mode, lang]);
+
+  /* entrare con il link di una sfida */
+  useEffect(() => {
+    if (!joinId) return;
+    let alive = true;
+    setBusy(true);
+    void joinDuel(joinId).then((r) => {
+      if (!alive) return;
+      setBusy(false);
+      if (r.ok) setState(r);
+      else setError(r.error === "full" ? "Questa sfida è già cominciata tra altri due giocatori." : r.error === "not_found" ? "Questa sfida non c'è più." : "Non riesco a entrare nella sfida.");
+    });
+    return () => {
+      alive = false;
+    };
+  }, [joinId]);
+
+  /* in sfida: si guarda come va l'altro finché la partita non è finita */
+  const live = state?.mode === "duel" && state.status !== "finished";
+  useEffect(() => {
+    if (!id || !live) return;
+    const t = window.setInterval(() => {
+      void getDuel(id).then((r) => {
+        if (r.ok) setState(r);
+      });
+    }, 1500);
+    return () => window.clearInterval(t);
+  }, [id, live]);
+
+  const guess = useCallback(
+    async (value: string | number) => {
+      if (!id) return { ok: false as const, message: "" };
+      const r = await guessDuel(id, value);
+      if (r.ok) setState(r);
+      return r.ok ? { ok: true as const } : { ok: false as const, message: r.message || "Tentativo non valido." };
+    },
+    [id],
+  );
+
+  const reset = useCallback(() => {
+    setState(null);
+    setError("");
+  }, []);
+
+  return { state, error, busy, start, guess, reset };
+}
+
+/** Prima di cominciare una sfida: cosa succede, e il tasto per crearla */
+export function DuelIntro({ game, busy, onStart }: { game: DuelGame; busy: boolean; onStart: () => void }) {
+  return (
+    <div className="mx-auto max-w-md rounded-3xl bg-roast/80 p-6 text-center ring-1 ring-sand/12">
+      <Swords className="mx-auto size-8 text-caramel" />
+      <p className="mt-3 font-display text-2xl text-crema">Sfida un amico</p>
+      <p className="mt-2 text-sm text-crema/65">
+        {game === "angle" ? "Lo stesso angolo per tutti e due" : game === "quad" ? "Le stesse quattro parole per tutti e due" : "La stessa parola per tutti e due"}: vince chi
+        indovina per primo. Nessuno dei due vede chi è l&apos;altro, e non si prende EXP.
+      </p>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onStart}
+        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember text-sm font-bold uppercase tracking-wide text-ink disabled:opacity-60"
+      >
+        {busy ? <Loader2 className="size-4 animate-spin" /> : <Swords className="size-4" />} Crea la sfida
+      </button>
+    </div>
+  );
+}
+
+/** In attesa dell'avversario: il link da mandare (nell'Attività: alla chiamata e con la finestra di Discord) */
+export function DuelWaiting({ state }: { state: DuelState }) {
+  const [copied, setCopied] = useState(false);
+  const [sentCall, setSentCall] = useState(false);
+  const inActivity = typeof window !== "undefined" && isDiscordActivity();
+  const sentOnce = useRef(false);
+  const label = DUEL_LABEL[state.game];
+  const text = `Ti sfido a ${label}: vince chi indovina per primo!`;
+
+  /* nell'Attività la sfida arriva subito a chi è già nella chiamata */
+  useEffect(() => {
+    if (!inActivity || sentOnce.current) return;
+    sentOnce.current = true;
+    const instance = activityInstanceId();
+    if (instance) void sendDuelToCall(instance, state.id).then(setSentCall);
+  }, [inActivity, state.id]);
+
+  async function share() {
+    if (inActivity) {
+      await activityShare(text, `duel-${state.game}-${state.id}`);
+      return;
+    }
+    const link = `${window.location.origin}${page(duelPath(state.game, state.id))}`;
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({ text, url: link });
+        return;
+      }
+    } catch {
+      /* annullato: si copia */
+    }
+    void navigator.clipboard?.writeText(`${text} ${link}`).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    });
+  }
+
+  return (
+    <div className="mx-auto max-w-md rounded-3xl bg-roast/80 p-6 text-center ring-1 ring-sand/12">
+      <Loader2 className="mx-auto size-7 animate-spin text-caramel" />
+      <p className="mt-3 font-display text-2xl text-crema">Aspetto l&apos;avversario</p>
+      <p className="mt-2 text-sm text-crema/65">
+        {inActivity
+          ? sentCall
+            ? "La sfida è arrivata a chi è in chiamata. Puoi mandarla anche fuori."
+            : "Manda la sfida: si comincia appena entra qualcuno."
+          : "Manda il link: si comincia appena qualcuno lo apre."}
+      </p>
+      <button
+        type="button"
+        onClick={() => void share()}
+        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember text-sm font-bold uppercase tracking-wide text-ink"
+      >
+        {copied ? <Check className="size-4" /> : <Copy className="size-4" />} {copied ? "Link copiato" : inActivity ? "Manda su Discord" : "Manda la sfida"}
+      </button>
+    </div>
+  );
+}
+
+/** Come sta andando l'avversario (senza sapere chi è) */
+export function OpponentBar({ state }: { state: DuelState }) {
+  const o = state.opponent;
+  if (!o || state.status === "waiting") return null;
+  return (
+    <div className="mx-auto mb-4 flex max-w-md items-center justify-center gap-2 rounded-full bg-crema/[0.06] px-4 py-2 text-sm text-crema/75 ring-1 ring-sand/12">
+      <Users className="size-4 text-caramel" />
+      Avversario:{" "}
+      <b className="text-crema">
+        {o.solved ? "ha indovinato" : o.done ? "tentativi finiti" : `${o.attempts} di ${state.maxAttempts} tentativi`}
+      </b>
+    </div>
+  );
+}
+
+/** Fine: vinto, perso o pari, e cosa fare dopo */
+export function DuelResult({ state, onAgain }: { state: DuelState; onAgain: () => void }) {
+  if (state.status !== "finished") return null;
+  const practice = state.mode === "practice";
+  const title = practice
+    ? state.result === "win"
+      ? "Indovinato!"
+      : "Non questa volta"
+    : state.result === "win"
+      ? "Hai vinto!"
+      : state.result === "lose"
+        ? "Ha vinto l'avversario"
+        : "Pari";
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mx-auto mt-6 max-w-md text-center">
+      <p className={cn("inline-flex items-center gap-2 font-display text-3xl", state.result === "win" ? "text-emerald-400" : "text-crema")}>
+        {state.result === "win" && !practice ? <Trophy className="size-7" /> : null}
+        {title}
+      </p>
+      {state.answers?.length ? (
+        <p className="mt-2 text-sm text-crema/60">
+          {state.answers.length > 1 ? "Le parole erano" : "La parola era"} <b className="text-crema">{state.answers.join(", ")}</b>
+        </p>
+      ) : null}
+      <button
+        type="button"
+        onClick={onAgain}
+        className="mt-5 inline-flex h-12 items-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember px-8 text-sm font-bold uppercase tracking-wide text-ink"
+      >
+        {practice ? "Un'altra" : "Nuova sfida"}
+      </button>
+    </motion.div>
+  );
+}

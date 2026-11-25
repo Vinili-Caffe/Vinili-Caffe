@@ -30,7 +30,18 @@ async function handleMusicQuizScoresGet(client?, req?, res?) {
       mode: r.payload?.mode || "solo",
       at: r.updatedAt || r.createdAt,
     }));
-    return res.json({ ok: true, scores });
+    /* il tuo record (con l'accesso), anche se sei fuori dai primi: uguale su ogni dispositivo */
+    let me: any = null;
+    const userId = !auth.guest && auth.userId ? String(auth.userId) : "";
+    if (userId) {
+      const mine: any = await SiteDocument.findOne({ ...filter, userId }).sort({ "payload.score": -1 }).lean().catch(() => null);
+      if (mine) {
+        const score = Number(mine.payload?.score || 0);
+        const better = await SiteDocument.countDocuments({ ...filter, "payload.score": { $gt: score } }).catch(() => 0);
+        me = { rank: better + 1, score, maxScore: Number(mine.payload?.maxScore || 1000) };
+      }
+    }
+    return res.json({ ok: true, scores, me });
   } catch (err: any) {
     return res.status(500).json({ ok: false, error: "scores_error" });
   }

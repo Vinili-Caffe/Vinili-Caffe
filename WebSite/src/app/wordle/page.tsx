@@ -7,10 +7,8 @@ import { loadBuildWordle } from "@/lib/wordle";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 
-const WordleBoard = dynamic(
-  () => import("@/components/wordle/WordleBoard").then((m) => m.WordleBoard),
-  { loading: () => null },
-);
+/* del giorno, allenamento e sfida a un amico */
+const WordleModes = dynamic(() => import("@/components/duel/WordleModes").then((m) => m.WordleModes), { loading: () => null });
 
 export const metadata: Metadata = {
   ...pageSocialMeta({
@@ -38,7 +36,7 @@ export default async function WordlePage() {
         accent="server"
         text="Indovina la parola del giorno. Vinci e guadagni EXP."
       />
-      <WordleBoard initial={initial} />
+      <WordleModes game="wordle" initial={initial} />
     </SiteShell>
   );
 }

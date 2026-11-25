@@ -210,7 +210,7 @@ export function QuestionEditor({
           ))}
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-crema/45">Le risposte lasciate vuote si riempiono da sole con altri brani del quiz, diverse a ogni partita. «A caso» usa altri brani dello stesso artista.</p>
+          <p className="text-xs text-crema/45">Le risposte lasciate vuote si riempiono da sole con altri brani dello stesso artista, diverse a ogni partita. «A caso» te le mostra subito, così puoi cambiarle.</p>
           <button
             type="button"
             onClick={() => void fillRandom()}

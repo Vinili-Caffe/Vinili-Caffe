@@ -28,6 +28,7 @@ import { EVENTO_CHROME_BYPASS } from "@/lib/evento-starwars";
 import { SiteMotionRoot } from "./motion/SiteMotionRoot";
 import { GuildMentionsProvider } from "./GuildMentionsProvider";
 import { isDiscordActivity } from "@/lib/discordActivity";
+import { ActivityRouteBar } from "@/components/music-quiz/ActivityRouteBar";
 import { QuizBackButton } from "./QuizBackButton";
 
 function RichScrollProgress() {
@@ -121,7 +122,10 @@ export function SiteShell({
                   {!activity ? <ApiOutageBanner /> : null}
                   {activity ? (
                     <>
-                      <main className="min-h-dvh bg-espresso text-crema">{children}</main>
+                      <main className="min-h-dvh bg-espresso text-crema">
+                        <ActivityRouteBar />
+                        {children}
+                      </main>
                     </>
                   ) : app ? (
                     children

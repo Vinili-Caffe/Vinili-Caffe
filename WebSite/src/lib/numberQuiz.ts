@@ -107,6 +107,55 @@ export async function loadMyNumberQuiz(token: string) {
   }
 }
 
+/** tutti i record del dispositivo: { categoria: { hl, hc } } */
+function readAllBest() {
+  const out: Record<string, { hl?: number; hc?: number }> = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i) || "";
+      const m = k.match(/^vc-numquiz2:(hl|hc):(.+)$/);
+      if (!m) continue;
+      const n = Number(localStorage.getItem(k) || 0) || 0;
+      if (n > 0) (out[m[2]] ||= {})[m[1] as "hl" | "hc"] = n;
+    }
+  } catch {
+    /* ignore */
+  }
+  return out;
+}
+
+let syncing: Promise<boolean> | null = null;
+/**
+ * Con l'accesso: manda i record del dispositivo al server e riprende quelli salvati altrove
+ * (vale il più alto), così sono uguali su telefono e PC. Una volta per caricamento.
+ */
+export function syncNumberQuizBest(token: string) {
+  if (syncing) return syncing;
+  syncing = (async () => {
+    try {
+      const r = await fetch("/webhooks/site-number-quiz/best-sync", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ best: readAllBest() }),
+        cache: "no-store",
+      });
+      const data = (await r.json().catch(() => null)) as { ok?: boolean; best?: Record<string, { hl?: number; hc?: number }> } | null;
+      if (!data?.ok || !data.best) return false;
+      for (const [cat, v] of Object.entries(data.best)) {
+        for (const mode of ["hl", "hc"] as const) {
+          const n = Number(v?.[mode]) || 0;
+          if (n > readBest(cat, mode)) writeBest(cat, mode, n);
+        }
+      }
+      return true;
+    } catch {
+      syncing = null;
+      return false;
+    }
+  })();
+  return syncing;
+}
+
 export const countNumberQuizPlay = (id: string) => api<object>(`/category/${encodeURIComponent(id)}/play`, { method: "POST" });
 
 const intIt = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 0 });

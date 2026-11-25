@@ -12,6 +12,7 @@ const {
   ANSWER_MS,
   DIFF_MS,
   buildRounds,
+  artistTitlesFor,
   refreshPreviews,
   pointsFor,
   parseDifficulty,
@@ -351,7 +352,7 @@ async function handleMusicQuizSessionStartPost(client?, req?, res?) {
     const mode = String(body.mode || "solo").trim() || "solo";
     const loaded = await loadPackTracks(slug);
     if (!loaded) return res.status(404).json({ ok: false, error: "not_found", message: "Quiz non trovato." });
-    const built = buildRounds(loaded.tracks);
+    const built = buildRounds(loaded.tracks, await artistTitlesFor(loaded.tracks));
     const rounds = built ? await refreshPreviews(built) : null;
     if (!rounds || rounds.length < 4) {
       return res.status(400).json({ ok: false, error: "not_enough_tracks", message: "Servono almeno 4 brani con l'anteprima disponibile." });

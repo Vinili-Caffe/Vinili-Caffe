@@ -94,7 +94,16 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
   app.post("/webhooks/site-number-quiz/category/:id/play", (req?, res?) => numberQuiz.handleNumberQuizPlayPost(client, req, res));
   app.get("/webhooks/site-number-quiz/img", (req?, res?) => numberQuiz.handleNumberQuizImageGet(client, req, res));
   app.post("/webhooks/site-number-quiz/result", (req?, res?) => numberQuiz.handleNumberQuizResultPost(client, req, res));
+  app.post("/webhooks/site-number-quiz/best-sync", (req?, res?) => numberQuiz.handleNumberQuizBestSyncPost(client, req, res));
   app.get("/webhooks/site-number-quiz/me", (req?, res?) => numberQuiz.handleNumberQuizMeGet(client, req, res));
+  /* allenamento e sfide anonime (Wordle, Quordle, Angle) */
+  const duel = require("../siteDuelApi") as typeof import("../siteDuelApi");
+  app.post("/webhooks/site-duel/create", (req?, res?) => duel.handleDuelCreate(client, req, res));
+  app.post("/webhooks/site-duel/call", (req?, res?) => duel.handleDuelCallPost(client, req, res));
+  app.get("/webhooks/site-duel/call/:instanceId", (req?, res?) => duel.handleDuelCallGet(client, req, res));
+  app.post("/webhooks/site-duel/:id/join", (req?, res?) => duel.handleDuelJoin(client, req, res));
+  app.post("/webhooks/site-duel/:id/guess", (req?, res?) => duel.handleDuelGuess(client, req, res));
+  app.get("/webhooks/site-duel/:id", (req?, res?) => duel.handleDuelGet(client, req, res));
   /* Angolo: l'angolo del giorno */
   const angle = require("../siteAngleApi") as typeof import("../siteAngleApi");
   app.post("/webhooks/site-angle/result", (req?, res?) => angle.handleAngleResultPost(client, req, res));

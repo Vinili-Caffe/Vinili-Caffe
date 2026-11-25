@@ -668,6 +668,27 @@ const activityUserProfileSchema = new Schema(
         type: Schema.Types.Mixed,
         default: () => ({}),
       },
+      /* quiz del sito: senza questi campi lo schema (strict) li scartava e non si salvava niente */
+      /** Angle: partita del giorno { "YYYY-MM-DD": { guesses, attempts, solved, partial?, at } } */
+      angleDays: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
+      /** Angle: { played, won, streak, maxStreak, lastDay, dist } */
+      angleStats: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
+      /** Number Quiz: record per categoria */
+      numberQuizBest: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
+      /** EXP dei quiz al giorno (tetto comune) { "YYYY-MM-DD": { exp, games } } */
+      siteQuizExp: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
       /** Piano mensile compiti: { "YYYY-MM": { assignedAt, byWeek: { "YYYY-Www": taskId } } } */
       siteStaffCompitiPlan: {
         type: Schema.Types.Mixed,

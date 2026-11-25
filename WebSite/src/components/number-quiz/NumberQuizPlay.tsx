@@ -22,7 +22,7 @@ import { NQLink } from "./NumberQuizNav";
 import { NQImg } from "./NQImg";
 import { QuizRewardNote, type QuizReward } from "./QuizRewardNote";
 import { useAuth } from "@/lib/auth";
-import { loadMyNumberQuiz, postNumberQuizResult } from "@/lib/numberQuiz";
+import { postNumberQuizResult, syncNumberQuizBest } from "@/lib/numberQuiz";
 import { cn } from "@/lib/cn";
 import {
   countNumberQuizPlay,
@@ -147,10 +147,9 @@ function Setup({
     /* con l'accesso valgono anche i record salvati sul server (da qualsiasi dispositivo) */
     if (!token) return;
     let alive = true;
-    void loadMyNumberQuiz(token).then((all) => {
-      const mine = all[c.id];
-      if (!alive || !mine) return;
-      setBest((b) => ({ hl: Math.max(b.hl, Number(mine.hl) || 0), hc: Math.max(b.hc, Number(mine.hc) || 0) }));
+    void syncNumberQuizBest(token).then(() => {
+      if (!alive) return;
+      setBest({ hl: readBest(c.id, "hl"), hc: readBest(c.id, "hc") });
     });
     return () => {
       alive = false;

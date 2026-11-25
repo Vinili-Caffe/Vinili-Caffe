@@ -26,7 +26,7 @@ async function loadPackTracksEnsured(slug: string) {
   }
   return loadPackTracks(slug);
 }
-const { ANSWER_MS, DIFF_MS, buildRounds, refreshPreviews, parseDifficulty } =
+const { ANSWER_MS, DIFF_MS, buildRounds, artistTitlesFor, refreshPreviews, parseDifficulty } =
   require("./siteMusicQuizRounds") as typeof import("./siteMusicQuizRounds");
 const { broadcastSiteMusicQuizParty } =
   require("../suggestions/siteSuggestionsBroadcast") as typeof import("../suggestions/siteSuggestionsBroadcast");
@@ -555,7 +555,7 @@ function player(auth: any, nick?: string): PartyPlayer {
 async function loadRoundsForSlug(slug: string) {
   const loaded = await loadPackTracksEnsured(slug);
   if (!loaded) return null;
-  const built = buildRounds(loaded.tracks);
+  const built = buildRounds(loaded.tracks, await artistTitlesFor(loaded.tracks));
   const rounds = built ? await refreshPreviews(built) : null;
   if (!rounds || rounds.length < 4) return null;
   return { loaded, rounds };

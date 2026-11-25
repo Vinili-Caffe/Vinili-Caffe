@@ -16,7 +16,6 @@ import {
   rotationFor,
   dayNumber,
   decodeChallenge,
-  encodeChallenge,
   loadAngleMe,
   postAngleProgress,
   postAngleResult,
@@ -26,8 +25,9 @@ import {
   type AngleStats,
 } from "@/lib/angle";
 import { QuizRewardNote, type QuizReward } from "@/components/number-quiz/QuizRewardNote";
+import { DuelIntro, DuelResult, DuelWaiting, OpponentBar, useDuel } from "@/components/duel/DuelParts";
 
-type Mode = "daily" | "practice" | "create" | "challenge";
+type Mode = "daily" | "practice" | "duel" | "challenge";
 
 /* ───────────── disegno: un vinile con due bracci ───────────── */
 
@@ -268,19 +268,23 @@ function StepBtn({ onClick, label, children }: { onClick: () => void; label: str
 /* ───────────── pagina ───────────── */
 
 /** challengeCode: nell'Attività Discord la sfida arriva dal link condiviso, non dall'indirizzo */
-export function AngleGame({ challengeCode: fromProp }: { challengeCode?: string | null } = {}) {
+/** duelId: sfida aperta da un link (sul sito ?d=…, nell'Attività dal link condiviso su Discord) */
+export function AngleGame({ challengeCode: fromProp, duelId: duelProp }: { challengeCode?: string | null; duelId?: string | null } = {}) {
   const sp = useSearchParams();
+  /* ?s=…: i vecchi link «indovina il mio angolo» funzionano ancora */
   const challengeCode = fromProp || sp.get("s");
+  const duelId = duelProp || sp.get("d");
   const challenge = useMemo(() => (challengeCode ? decodeChallenge(challengeCode) : null), [challengeCode]);
-  const [mode, setMode] = useState<Mode>(challenge ? "challenge" : "daily");
+  const [mode, setMode] = useState<Mode>(duelId ? "duel" : challenge ? "challenge" : "daily");
   useEffect(() => {
-    if (challenge) setMode("challenge");
-  }, [challenge]);
+    if (duelId) setMode("duel");
+    else if (challenge) setMode("challenge");
+  }, [challenge, duelId]);
 
   const tabs: Array<{ id: Mode; label: string; icon: React.ReactNode }> = [
     { id: "daily", label: "Del giorno", icon: <Sun className="size-4" /> },
     { id: "practice", label: "Allenamento", icon: <Dices className="size-4" /> },
-    { id: "create", label: "Sfida un amico", icon: <Swords className="size-4" /> },
+    { id: "duel", label: "Sfida un amico", icon: <Swords className="size-4" /> },
   ];
 
   return (
@@ -300,7 +304,7 @@ export function AngleGame({ challengeCode: fromProp }: { challengeCode?: string 
         ))}
       </div>
 
-      {mode === "daily" ? <Daily /> : mode === "practice" ? <Practice /> : mode === "create" ? <Create /> : challenge != null ? <Challenge angle={challenge} /> : <Daily />}
+      {mode === "daily" ? <Daily /> : mode === "practice" ? <Practice /> : mode === "duel" ? <AngleDuel key={duelId || "new"} joinId={duelId} /> : challenge != null ? <Challenge key={challenge} angle={challenge} /> : <Daily />}
     </div>
   );
 }
@@ -484,62 +488,42 @@ function Practice() {
   );
 }
 
-function Create() {
-  const [angle, setAngle] = useState(137);
-  const [copied, setCopied] = useState(false);
-  const link = typeof window !== "undefined" ? `${window.location.origin}${page(`/quiz/angle/?s=${encodeChallenge(angle)}`)}` : "";
-  async function share() {
-    const text = `Ti sfido: indovina questo angolo in ${ANGLE_ATTEMPTS} tentativi!`;
-    /* nell'Attività: finestra di Discord, e chi apre il link entra dritto nella sfida */
-    if (isDiscordActivity()) {
-      await activityShare(text, `angolo-${encodeChallenge(angle)}`);
-      return;
-    }
-    try {
-      if (typeof navigator.share === "function") {
-        await navigator.share({ text, url: link });
-        return;
-      }
-    } catch {
-      /* annullato: si copia */
-    }
-    void navigator.clipboard?.writeText(`${text} ${link}`).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    });
+/** Sfida a un amico: anonima per tutti e due, stesso angolo, vince chi lo indovina per primo (niente EXP) */
+function AngleDuel({ joinId: joinFrom }: { joinId?: string | null }) {
+  const [joinId, setJoinId] = useState(joinFrom || null);
+  const { state, error, busy, start, guess, reset } = useDuel("angle", "duel", "it", joinId);
+  function again() {
+    setJoinId(null);
+    reset();
   }
-  return (
-    <div className="grid items-start gap-6 md:grid-cols-[1fr_20rem]">
-      <Disc angle={angle} rotate={rotationFor(angle)} />
-      <div className="rounded-3xl bg-roast/80 p-5 ring-1 ring-sand/12">
-        <p className="font-display text-xl text-crema">Scegli un angolo</p>
-        <p className="mt-1 text-sm text-crema/60">Poi manda il link: chi lo apre deve indovinarlo in {ANGLE_ATTEMPTS} tentativi.</p>
-        <input type="range" min={1} max={179} value={angle} onChange={(e) => setAngle(Number(e.target.value))} aria-label="Angolo da far indovinare" className="mt-5 w-full accent-[#e8b37a]" />
-        <div className="mt-2 flex items-center justify-center gap-2">
-          <StepBtn onClick={() => setAngle((a) => Math.max(1, a - 1))} label="Un grado in meno">
-            <Minus className="size-5" />
-          </StepBtn>
-          <span className="w-24 text-center font-mono text-3xl font-bold text-crema">{angle}°</span>
-          <StepBtn onClick={() => setAngle((a) => Math.min(179, a + 1))} label="Un grado in più">
-            <Plus className="size-5" />
-          </StepBtn>
-        </div>
-        <button
-          type="button"
-          onClick={() => setAngle(5 + Math.floor(Math.random() * 171))}
-          className="mt-3 w-full rounded-xl py-2 text-xs font-bold uppercase tracking-wide text-crema/60 ring-1 ring-sand/15 hover:text-crema"
-        >
-          <Dices className="mr-1 inline size-4" /> A caso
-        </button>
-        <button
-          type="button"
-          onClick={() => void share()}
-          className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember text-sm font-bold uppercase tracking-wide text-ink"
-        >
-          <Link2 className="size-4" /> {copied ? "Link copiato" : "Manda la sfida"}
+  if (error) {
+    return (
+      <div className="mx-auto max-w-md rounded-3xl bg-roast/80 p-6 text-center text-sm text-crema/70 ring-1 ring-sand/12">
+        {error}
+        <button type="button" onClick={again} className="mt-4 block w-full rounded-xl py-2 text-xs font-bold uppercase tracking-wide text-caramel ring-1 ring-sand/15">
+          Crea una sfida nuova
         </button>
       </div>
-    </div>
+    );
+  }
+  if (!state) return joinId ? null : <DuelIntro game="angle" busy={busy} onStart={() => void start()} />;
+  if (state.status === "waiting") return <DuelWaiting state={state} />;
+  return (
+    <>
+      <OpponentBar state={state} />
+      <Round
+        key={state.id}
+        answer={state.angle ?? 90}
+        rotate={state.rotation ?? 0}
+        initial={state.guesses?.length ? state.guesses : undefined}
+        locked={state.status === "finished"}
+        onDone={(g) => void guess(g[g.length - 1])}
+      />
+      {state.me.done && state.status !== "finished" ? (
+        <p className="mt-4 text-center text-sm text-crema/65">Tentativi finiti: vediamo come va l&apos;avversario…</p>
+      ) : null}
+      <DuelResult state={state} onAgain={again} />
+    </>
   );
 }
 

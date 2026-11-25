@@ -59,7 +59,51 @@ const norm = (s: string) =>
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
-export function buildRounds(tracks: any[]): QuizRound[] | null {
+/* titoli più noti di un artista (Deezer), tenuti qualche ora: servono per le risposte sbagliate */
+const artistCache = new Map<string, { at: number; titles: string[] }>();
+const ARTIST_TTL = 6 * 3600_000;
+
+/**
+ * Per le risposte lasciate vuote da chi ha creato il quiz: altri brani dello stesso artista
+ * (come «Riempi le opzioni a caso»), così non si indovina solo perché le altre opzioni sono di altri.
+ */
+export async function artistTitlesFor(tracks: any[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  const need = [
+    ...new Set(
+      (tracks || [])
+        .filter((t) => t?.artistId && /^\d{1,15}$/.test(String(t.artistId)))
+        .filter((t) => (Array.isArray(t.wrong) ? t.wrong.filter((w: unknown) => String(w || "").trim()).length : 0) < 3)
+        .map((t) => String(t.artistId)),
+    ),
+  ].slice(0, 20);
+  if (!need.length) return out;
+  const deezer = require("./siteMusicQuizDeezer") as typeof import("./siteMusicQuizDeezer");
+  await Promise.all(
+    need.map(async (id) => {
+      const hit = artistCache.get(id);
+      if (hit && Date.now() - hit.at < ARTIST_TTL) return void out.set(id, hit.titles);
+      try {
+        const list = await deezer.artistTopTracks(id, 50);
+        const seen = new Set<string>();
+        const titles: string[] = [];
+        for (const t of list || []) {
+          const k = norm(String(t?.title || ""));
+          if (!k || seen.has(k)) continue;
+          seen.add(k);
+          titles.push(String(t.title));
+        }
+        artistCache.set(id, { at: Date.now(), titles });
+        out.set(id, titles);
+      } catch {
+        /* Deezer lento: restano gli altri brani del quiz */
+      }
+    }),
+  );
+  return out;
+}
+
+export function buildRounds(tracks: any[], artistTitles?: Map<string, string[]>): QuizRound[] | null {
   /* un brano per titolo: le versioni live/remix dello stesso pezzo confonderebbero le opzioni */
   const seen = new Set<string>();
   const usable = tracks.filter((t) => {
@@ -83,10 +127,14 @@ export function buildRounds(tracks: any[]): QuizRound[] | null {
     const custom: string[] = Array.isArray(t.wrong)
       ? t.wrong.map((w: unknown) => String(w || "").trim()).filter((w: string) => w && norm(w) !== norm(correct))
       : [];
-    const others = shuffle(usable.filter((x) => x.id !== t.id).map(label)).filter(
-      (o) => norm(o) !== norm(correct) && !custom.some((c) => norm(c) === norm(o)),
-    );
-    const options = shuffle([correct, ...[...new Set(custom)].slice(0, 3), ...others].slice(0, 4));
+    const taken = (o: string) => norm(o) === norm(correct) || norm(o) === norm(String(t.title)) || custom.some((c) => norm(c) === norm(o));
+    /* risposte vuote: prima altri brani dello stesso artista, poi (se non bastano) gli altri brani del quiz */
+    const sameArtist = shuffle(artistTitles?.get(String(t.artistId || "")) || [])
+      .map((title) => (manyArtists ? `${title} · ${t.artist}` : title))
+      .filter((o) => !taken(o) && !taken(String(o).split(" · ")[0] || o));
+    const others = shuffle(usable.filter((x) => x.id !== t.id).map(label)).filter((o) => !taken(o));
+    const fill = [...new Set([...sameArtist, ...others])];
+    const options = shuffle([correct, ...[...new Set(custom)].slice(0, 3), ...fill].slice(0, 4));
     return {
       index,
       trackId: String(t.id),

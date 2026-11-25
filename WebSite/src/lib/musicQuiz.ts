@@ -267,6 +267,8 @@ export async function loadMusicQuizScores(token: string, slug: string, opts?: { 
       difficulty: string;
       mode: string;
     }>;
+    /** il tuo record (con l'accesso), anche fuori dai primi */
+    me?: { rank: number; score: number; maxScore: number } | null;
   }>(`/scores?${q}`, token);
 }
 

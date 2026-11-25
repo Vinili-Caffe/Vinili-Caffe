@@ -286,6 +286,36 @@ async function handleNumberQuizResultPost(client?, req?, res?) {
   }
 }
 
+/**
+ * Unisce i record del dispositivo con quelli del server (il più alto vince), senza EXP.
+ * Body: { best: { cat: { hl?, hc? } } } → { best } aggiornati
+ */
+async function handleNumberQuizBestSyncPost(client?, req?, res?) {
+  try {
+    const { musicQuizViewer } = require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
+    const viewer = await musicQuizViewer(client, req);
+    if (viewer.guest) return res.json({ ok: true, guest: true, best: {} });
+    const incoming = req.body?.best && typeof req.body.best === "object" ? req.body.best : {};
+    const known = new Set(data.CATEGORIES.map((c) => c.id));
+    const $max: Record<string, number> = {};
+    for (const [cat, v] of Object.entries(incoming).slice(0, 400)) {
+      if (!known.has(cat) || !v || typeof v !== "object") continue;
+      for (const mode of ["hl", "hc"] as const) {
+        const n = Math.floor(Number((v as any)[mode]) || 0);
+        if (n > 0) $max[`profile.numberQuizBest.${cat.replace(/[^\w-]/g, "")}.${mode}`] = Math.min(10_000, n);
+      }
+    }
+    const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+    const guildId = mainGuildId(client);
+    await ActivityUserProfile.updateOne({ guildId, userId: viewer.userId }, { $setOnInsert: { guildId, userId: viewer.userId } }, { upsert: true }).catch(() => null);
+    if (Object.keys($max).length) await ActivityUserProfile.updateOne({ guildId, userId: viewer.userId }, { $max }).catch(() => null);
+    const doc: any = await ActivityUserProfile.findOne({ guildId, userId: viewer.userId }).select("profile.numberQuizBest").lean().catch(() => null);
+    return res.json({ ok: true, guest: false, best: doc?.profile?.numberQuizBest || {} });
+  } catch {
+    return res.status(500).json({ ok: false, error: "sync_error" });
+  }
+}
+
 /** I record di chi guarda (con l'accesso): { cat: { hl, hc } } */
 async function handleNumberQuizMeGet(client?, req?, res?) {
   try {
@@ -309,5 +339,5 @@ export = {
   handleNumberQuizPlayPost,
   handleNumberQuizImageGet,
   handleNumberQuizResultPost,
-  handleNumberQuizMeGet,
+  handleNumberQuizMeGet, handleNumberQuizBestSyncPost,
 };

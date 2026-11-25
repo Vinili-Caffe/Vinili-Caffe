@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Crown } from "lucide-react";
+import { Crown, Trophy } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { loadMusicQuizScores } from "@/lib/musicQuiz";
@@ -11,12 +11,15 @@ type Row = { rank: number; userId: string; displayName: string; avatarUrl: strin
 export function MusicQuizLeaderboard({ slug, difficulty }: { slug: string; difficulty?: string }) {
   const { token, user } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [me, setMe] = useState<{ rank: number; score: number; maxScore: number } | null>(null);
 
   useEffect(() => {
     if (!slug) return;
     let alive = true;
     void loadMusicQuizScores(token || "", slug, { difficulty, mode: "solo" }).then((r) => {
-      if (alive) setRows(r.ok ? r.data.scores || [] : []);
+      if (!alive) return;
+      setRows(r.ok ? r.data.scores || [] : []);
+      setMe(r.ok ? r.data.me || null : null);
     });
     return () => {
       alive = false;
@@ -31,6 +34,20 @@ export function MusicQuizLeaderboard({ slug, difficulty }: { slug: string; diffi
           <span className="rounded-full bg-crema/[0.07] px-3 py-1 text-xs font-semibold text-crema/70">ascolto di {difficulty.replace("s", " s")}</span>
         ) : null}
       </div>
+      {/* il tuo record: sta sul tuo account, quindi è lo stesso su telefono e PC */}
+      {token && rows != null ? (
+        <p className="flex items-center gap-2 text-sm text-crema/70">
+          <Trophy className="size-4 text-caramel" aria-hidden />
+          {me ? (
+            <>
+              Il tuo record: <b className="text-crema">{me.score}</b>
+              <span className="text-crema/45">· {me.rank}° posto</span>
+            </>
+          ) : (
+            "Non hai ancora un record a questa velocità di ascolto."
+          )}
+        </p>
+      ) : null}
       {rows == null ? (
         <div className="h-32 animate-pulse rounded-3xl bg-crema/[0.04]" />
       ) : !rows.length ? (

@@ -6,13 +6,21 @@ import { Flame, Layers, Loader2, Search, X } from "lucide-react";
 import { NQLink } from "./NumberQuizNav";
 import { NQImg } from "./NQImg";
 import { cn } from "@/lib/cn";
-import { formatCount, listNumberQuizCategories, readBest, type NumberQuizCategory } from "@/lib/numberQuiz";
+import { formatCount, listNumberQuizCategories, readBest, syncNumberQuizBest, type NumberQuizCategory } from "@/lib/numberQuiz";
+import { useAuth } from "@/lib/auth";
 
 export function NumberQuizHub() {
   const [cats, setCats] = useState<NumberQuizCategory[] | null>(null);
   const [error, setError] = useState("");
   const [topic, setTopic] = useState("Tutte");
   const [q, setQ] = useState("");
+  /* con l'accesso i record arrivano anche dagli altri dispositivi: poi le schede si rileggono */
+  const { token } = useAuth();
+  const [synced, setSynced] = useState(0);
+  useEffect(() => {
+    if (!token) return;
+    void syncNumberQuizBest(token).then((ok) => ok && setSynced((n) => n + 1));
+  }, [token]);
 
   useEffect(() => {
     let alive = true;
@@ -93,7 +101,7 @@ export function NumberQuizHub() {
       <motion.div layout className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <AnimatePresence mode="popLayout">
           {shown.map((c, i) => (
-            <CategoryCard key={c.id} c={c} i={i} />
+            <CategoryCard key={c.id} c={c} i={i} synced={synced} />
           ))}
         </AnimatePresence>
       </motion.div>
@@ -102,9 +110,9 @@ export function NumberQuizHub() {
   );
 }
 
-function CategoryCard({ c, i }: { c: NumberQuizCategory; i: number }) {
+function CategoryCard({ c, i, synced }: { c: NumberQuizCategory; i: number; synced: number }) {
   const [best, setBest] = useState(0);
-  useEffect(() => setBest(readBest(c.id, "hl")), [c.id]);
+  useEffect(() => setBest(readBest(c.id, "hl")), [c.id, synced]);
   return (
     <motion.div
       layout
