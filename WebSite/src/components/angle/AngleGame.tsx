@@ -11,6 +11,8 @@ import {
   ANGLE_ATTEMPTS,
   ANGLE_TOLERANCE,
   dailyAngle,
+  dailyRotation,
+  rotationFor,
   dayNumber,
   decodeChallenge,
   encodeChallenge,
@@ -32,7 +34,7 @@ function polar(cx: number, cy: number, r: number, deg: number) {
   return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as const;
 }
 
-function Disc({ angle, ghost, reveal }: { angle: number; ghost?: number | null; reveal?: boolean }) {
+function Disc({ angle, ghost, reveal, rotate = 0 }: { angle: number; ghost?: number | null; reveal?: boolean; rotate?: number }) {
   const C = 160;
   const R = 128;
   const [ex, ey] = polar(C, C, R, angle);
@@ -54,6 +56,8 @@ function Disc({ angle, ghost, reveal }: { angle: number; ghost?: number | null; 
           <stop offset="100%" stopColor="#8a5a33" />
         </radialGradient>
       </defs>
+      {/* figura girata: il primo braccio non è sempre orizzontale */}
+      <g transform={`rotate(${-rotate} ${C} ${C})`}>
       {/* arco dell'angolo */}
       <path d={`M ${C + 46} ${C} A 46 46 0 ${large} 0 ${ax} ${ay}`} fill="none" stroke="#e8b37a" strokeWidth={4} strokeLinecap="round" opacity={0.9} />
       {/* tentativo (tratteggiato) */}
@@ -75,6 +79,7 @@ function Disc({ angle, ghost, reveal }: { angle: number; ghost?: number | null; 
       />
       <circle cx={C + R} cy={C} r={9} fill="#e8b37a" />
       <motion.circle initial={false} animate={{ cx: ex, cy: ey }} r={9} fill="#e8b37a" />
+      </g>
       <circle cx={C} cy={C} r={11} fill="#f3e3c7" />
       {reveal ? (
         <text x={C} y={C + 74} textAnchor="middle" className="fill-crema font-mono text-[26px] font-bold">
@@ -100,11 +105,13 @@ function closeness(diff: number) {
 
 function Round({
   answer,
+  rotate,
   initial,
   onDone,
   locked,
 }: {
   answer: number;
+  rotate: number;
   initial?: number[];
   onDone: (guesses: number[], solved: boolean) => void;
   locked?: boolean;
@@ -117,7 +124,7 @@ function Round({
 
   function submit() {
     if (over) return;
-    const g = Math.max(0, Math.min(360, Math.round(value)));
+    const g = Math.max(0, Math.min(180, Math.round(value)));
     const next = [...rows, { guess: g, diff: answer - g }];
     setRows(next);
     const win = Math.abs(answer - g) <= ANGLE_TOLERANCE;
@@ -131,7 +138,7 @@ function Round({
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.target as HTMLElement)?.tagName === "INPUT") return;
-      if (e.key === "ArrowUp" || e.key === "ArrowRight") setValue((v) => Math.min(360, v + (e.shiftKey ? 10 : 1)));
+      if (e.key === "ArrowUp" || e.key === "ArrowRight") setValue((v) => Math.min(180, v + (e.shiftKey ? 10 : 1)));
       else if (e.key === "ArrowDown" || e.key === "ArrowLeft") setValue((v) => Math.max(0, v - (e.shiftKey ? 10 : 1)));
       else if (e.key === "Enter") submit();
     }
@@ -143,7 +150,7 @@ function Round({
   return (
     <div className="grid items-start gap-6 md:grid-cols-[1fr_20rem]">
       <div>
-        <Disc angle={answer} ghost={over ? null : last?.guess ?? null} reveal={over} />
+        <Disc angle={answer} rotate={rotate} ghost={over ? null : last?.guess ?? null} reveal={over} />
         <AnimatePresence>
           {over ? (
             <motion.p
@@ -172,20 +179,20 @@ function Round({
                 <input
                   value={value}
                   inputMode="numeric"
-                  onChange={(e) => setValue(Math.max(0, Math.min(360, Number(e.target.value.replace(/\D/g, "")) || 0)))}
+                  onChange={(e) => setValue(Math.max(0, Math.min(180, Number(e.target.value.replace(/\D/g, "")) || 0)))}
                   onKeyDown={(e) => e.key === "Enter" && submit()}
                   className="w-28 rounded-2xl bg-espresso/80 py-2 text-center font-mono text-4xl font-bold tabular-nums text-crema outline-none ring-1 ring-sand/20 focus:ring-2 focus:ring-caramel/60"
                 />
                 <span className="pointer-events-none absolute right-3 top-1 font-mono text-xl text-crema/50">°</span>
               </label>
-              <StepBtn onClick={() => setValue((v) => Math.min(360, v + 1))} label="Un grado in più">
+              <StepBtn onClick={() => setValue((v) => Math.min(180, v + 1))} label="Un grado in più">
                 <Plus className="size-5" />
               </StepBtn>
             </div>
             <input
               type="range"
               min={0}
-              max={360}
+              max={180}
               value={value}
               onChange={(e) => setValue(Number(e.target.value))}
               aria-label="Scegli i gradi"
@@ -295,6 +302,7 @@ function Daily() {
   const { token } = useAuth();
   const day = useMemo(() => romeDay(), []);
   const answer = useMemo(() => dailyAngle(day), [day]);
+  const rotate = useMemo(() => dailyRotation(day), [day]);
   const [saved, setSaved] = useState<number[] | null | undefined>(undefined);
   const [result, setResult] = useState<{ guesses: number[]; solved: boolean } | null>(null);
   const [reward, setReward] = useState<QuizReward>(null);
@@ -344,7 +352,7 @@ function Daily() {
       <p className="mb-4 text-center text-sm text-crema/60">
         Angolo <b className="text-crema">#{dayNumber(day)}</b> · uguale per tutti, cambia a mezzanotte
       </p>
-      <Round answer={answer} initial={saved || undefined} onDone={onDone} />
+      <Round answer={answer} rotate={rotate} initial={saved || undefined} onDone={onDone} />
       {result ? (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mx-auto mt-6 max-w-md text-center">
           <button
@@ -401,12 +409,14 @@ function StatsBox({ stats }: { stats: AngleStats }) {
 }
 
 function Practice() {
-  const [answer, setAnswer] = useState(() => 5 + Math.floor(Math.random() * 351));
+  const [answer, setAnswer] = useState(() => 5 + Math.floor(Math.random() * 171));
+  const [rotate, setRotate] = useState(() => Math.floor(Math.random() * 360));
   const [round, setRound] = useState(0);
   const [streak, setStreak] = useState(0);
   const [done, setDone] = useState<null | boolean>(null);
   function next() {
-    setAnswer(5 + Math.floor(Math.random() * 351));
+    setAnswer(5 + Math.floor(Math.random() * 171));
+    setRotate(Math.floor(Math.random() * 360));
     setRound((r) => r + 1);
     setDone(null);
   }
@@ -421,6 +431,7 @@ function Practice() {
       <Round
         key={round}
         answer={answer}
+        rotate={rotate}
         onDone={(g, solved) => {
           const finished = solved || g.length >= ANGLE_ATTEMPTS;
           if (!finished) return;
@@ -464,23 +475,23 @@ function Create() {
   }
   return (
     <div className="grid items-start gap-6 md:grid-cols-[1fr_20rem]">
-      <Disc angle={angle} reveal />
+      <Disc angle={angle} rotate={rotationFor(angle)} reveal />
       <div className="rounded-3xl bg-roast/80 p-5 ring-1 ring-sand/12">
         <p className="font-display text-xl text-crema">Scegli un angolo</p>
         <p className="mt-1 text-sm text-crema/60">Poi manda il link: chi lo apre deve indovinarlo in {ANGLE_ATTEMPTS} tentativi.</p>
-        <input type="range" min={1} max={359} value={angle} onChange={(e) => setAngle(Number(e.target.value))} aria-label="Angolo da far indovinare" className="mt-5 w-full accent-[#e8b37a]" />
+        <input type="range" min={1} max={179} value={angle} onChange={(e) => setAngle(Number(e.target.value))} aria-label="Angolo da far indovinare" className="mt-5 w-full accent-[#e8b37a]" />
         <div className="mt-2 flex items-center justify-center gap-2">
           <StepBtn onClick={() => setAngle((a) => Math.max(1, a - 1))} label="Un grado in meno">
             <Minus className="size-5" />
           </StepBtn>
           <span className="w-24 text-center font-mono text-3xl font-bold text-crema">{angle}°</span>
-          <StepBtn onClick={() => setAngle((a) => Math.min(359, a + 1))} label="Un grado in più">
+          <StepBtn onClick={() => setAngle((a) => Math.min(179, a + 1))} label="Un grado in più">
             <Plus className="size-5" />
           </StepBtn>
         </div>
         <button
           type="button"
-          onClick={() => setAngle(5 + Math.floor(Math.random() * 351))}
+          onClick={() => setAngle(5 + Math.floor(Math.random() * 171))}
           className="mt-3 w-full rounded-xl py-2 text-xs font-bold uppercase tracking-wide text-crema/60 ring-1 ring-sand/15 hover:text-crema"
         >
           <Dices className="mr-1 inline size-4" /> A caso
@@ -503,7 +514,7 @@ function Challenge({ angle }: { angle: number }) {
   return (
     <>
       <p className="mb-4 text-center text-sm text-crema/60">Un amico ti ha sfidato: indovina il suo angolo!</p>
-      <Round key={round} answer={angle} onDone={(g, solved) => (solved || g.length >= ANGLE_ATTEMPTS) && setDone(true)} />
+      <Round key={round} answer={angle} rotate={rotationFor(angle)} onDone={(g, solved) => (solved || g.length >= ANGLE_ATTEMPTS) && setDone(true)} />
       {done ? (
         <div className="mt-6 text-center">
           <button

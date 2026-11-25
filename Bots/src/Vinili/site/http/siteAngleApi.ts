@@ -9,14 +9,14 @@ const MAX_ATTEMPTS = 4;
 /** vale come indovinato entro questi gradi */
 const TOLERANCE = 2;
 
-/** stesso calcolo di WebSite/src/lib/angle.ts: FNV-1a sul giorno → angolo tra 10° e 350° */
+/** stesso calcolo di WebSite/src/lib/angle.ts: FNV-1a sul giorno → angolo interno tra 10° e 170° */
 function dailyAngle(day: string) {
   let h = 0x811c9dc5;
   for (const ch of `${day}|vc-angolo`) {
     h ^= ch.charCodeAt(0);
     h = Math.imul(h, 0x01000193) >>> 0;
   }
-  return 10 + (h % 341);
+  return 10 + (h % 161);
 }
 
 /** giorno di Roma, come sul sito */
@@ -51,7 +51,7 @@ async function handleAngleResultPost(client?, req?, res?) {
     const yesterday = romeDay(new Date(Date.now() - 86_400_000));
     if (day !== today && day !== yesterday) return res.status(400).json({ ok: false, error: "bad_day" });
     const guesses = (Array.isArray(body.guesses) ? body.guesses : []).slice(0, MAX_ATTEMPTS).map((g: unknown) => Math.round(Number(g)));
-    if (!guesses.length || guesses.some((g: number) => !Number.isFinite(g) || g < 0 || g > 360)) {
+    if (!guesses.length || guesses.some((g: number) => !Number.isFinite(g) || g < 0 || g > 180)) {
       return res.status(400).json({ ok: false, error: "bad_guesses" });
     }
     const answer = dailyAngle(day);
@@ -59,6 +59,11 @@ async function handleAngleResultPost(client?, req?, res?) {
     const solved = hit >= 0;
     const attempts = solved ? hit + 1 : guesses.length;
     if (viewer.guest) return res.json({ ok: true, saved: false, solved, answer, reward: { auth: "guest", exp: 0 } });
+    /* remindAuto1: prima partita → promemoria dei giochi del giorno acceso (se mai toccato) */
+    if (viewer.inGuild) {
+      const { autoEnableDailyReminder } = require("../../Minigames/services/wordleDailyReminderService") as typeof import("../../Minigames/services/wordleDailyReminderService");
+      void autoEnableDailyReminder(mainGuildId(client), viewer.userId).catch(() => false);
+    }
 
     const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
     const guildId = mainGuildId(client);

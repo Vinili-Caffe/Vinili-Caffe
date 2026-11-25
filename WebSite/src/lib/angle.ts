@@ -4,14 +4,27 @@ export const ANGLE_ATTEMPTS = 4;
 /** vale come indovinato entro questi gradi (uguale sul server) */
 export const ANGLE_TOLERANCE = 2;
 
-/** stesso calcolo del server (Bots/src/Vinili/site/http/siteAngleApi.ts): FNV-1a sul giorno → 10°–350° */
-export function dailyAngle(day: string) {
+function fnv(text: string) {
   let h = 0x811c9dc5;
-  for (const ch of `${day}|vc-angolo`) {
+  for (const ch of text) {
     h ^= ch.charCodeAt(0);
     h = Math.imul(h, 0x01000193) >>> 0;
   }
-  return 10 + (h % 341);
+  return h;
+}
+
+/** stesso calcolo del server (Bots/src/Vinili/site/http/siteAngleApi.ts): FNV-1a sul giorno → angolo interno 10°–170° */
+export function dailyAngle(day: string) {
+  return 10 + (fnv(`${day}|vc-angolo`) % 161);
+}
+
+/** di quanto è girata la figura (così il primo braccio non è sempre orizzontale) */
+export function dailyRotation(day: string) {
+  return fnv(`${day}|vc-angolo-giro`) % 360;
+}
+/** rotazione fissa per un angolo (sfide), diversa da angolo ad angolo */
+export function rotationFor(angle: number) {
+  return (Math.round(angle) * 137 + 61) % 360;
 }
 
 /** il giorno di Roma (uguale per tutti, anche sul server) */
@@ -31,7 +44,7 @@ export function encodeChallenge(angle: number) {
 export function decodeChallenge(code: string) {
   const n = parseInt(String(code || ""), 36);
   if (!Number.isFinite(n)) return null;
-  for (let a = 1; a <= 359; a++) if ((a * 7919 + 4242) % 1_000_003 === n) return a;
+  for (let a = 1; a <= 179; a++) if ((a * 7919 + 4242) % 1_000_003 === n) return a;
   return null;
 }
 
@@ -64,7 +77,8 @@ export async function loadAngleMe(token: string) {
 }
 
 /* partita del giorno salvata nel browser (anche senza accesso) */
-const KEY = "vc-angolo-v1";
+/* v2: da quando gli angoli sono solo interni (10°–170°) */
+const KEY = "vc-angolo-v2";
 export function readLocalDay(day: string): number[] | null {
   try {
     const all = JSON.parse(localStorage.getItem(KEY) || "{}");

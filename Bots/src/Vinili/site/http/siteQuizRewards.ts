@@ -7,16 +7,16 @@ const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
 const { addExpWithLevel } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 
-/** EXP massima al giorno da tutti i quiz insieme */
-const DAILY_CAP = 300;
+/** EXP massima al giorno da tutti i quiz insieme (≈ 20 minuti in vocale): i livelli non devono salire solo giocando */
+const DAILY_CAP = 100;
 
 const GAMES = {
-  /* una partita del Music Quiz: da 10 a 70 EXP */
-  music: { min: 10, max: 70, label: "Music Quiz" },
-  /* una partita del Number Quiz: da 5 a 60 EXP */
-  number: { min: 5, max: 60, label: "Number Quiz" },
-  /* l'angolo del giorno: da 15 a 80 EXP, una volta al giorno */
-  angle: { min: 15, max: 80, label: "Angolo" },
+  /* una partita del Music Quiz: da 5 a 25 EXP */
+  music: { min: 5, max: 25, label: "Music Quiz" },
+  /* una partita del Number Quiz: da 3 a 20 EXP */
+  number: { min: 3, max: 20, label: "Number Quiz" },
+  /* l'angolo del giorno: da 10 a 40 EXP, una volta al giorno */
+  angle: { min: 10, max: 40, label: "Angolo" },
 } as const;
 
 type QuizReward = { auth: "guest" | "outsider" | "member"; exp: number; capped?: boolean; todayExp?: number; cap?: number };
