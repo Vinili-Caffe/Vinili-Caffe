@@ -28,6 +28,7 @@ import { EVENTO_CHROME_BYPASS } from "@/lib/evento-starwars";
 import { SiteMotionRoot } from "./motion/SiteMotionRoot";
 import { GuildMentionsProvider } from "./GuildMentionsProvider";
 import { isDiscordActivity } from "@/lib/discordActivity";
+import { QuizBackButton } from "./QuizBackButton";
 
 function RichScrollProgress() {
   const { caps } = useDeviceFx();
@@ -128,6 +129,7 @@ export function SiteShell({
                     <>
                       {!evento ? <SponsorAd /> : null}
                       <Navbar />
+                      <QuizBackButton />
                       {/* alto almeno quanto lo schermo: il footer parte sotto e non "salta" mentre la pagina carica (CLS) */}
                       <main className="min-h-dvh">{children}</main>
                       <Footer />

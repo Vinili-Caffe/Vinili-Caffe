@@ -43,7 +43,6 @@ import { Avatar } from "@/components/Avatar";
 import { SmartLink } from "./SmartLink";
 import { UserMenu } from "./UserMenu";
 import { NavNotifBell } from "./NavNotifBell";
-import { LangMenu } from "./LangMenu";
 import { BrandMark } from "./BrandMark";
 import { navUnderlineClass } from "./NavUnderline";
 import { ThemePrefRow } from "./ThemeToggle";
@@ -720,7 +719,6 @@ export function Navbar() {
         <nav className="flex w-full items-center gap-2 px-3 py-2.5 sm:px-5 sm:py-3 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2 lg:w-full lg:justify-self-start">
             <BrandMark navUnderline />
-            <LangMenu />
           </div>
 
           <ul className="hidden items-center justify-self-center gap-0.5 lg:flex">

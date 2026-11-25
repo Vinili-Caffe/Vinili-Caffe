@@ -6,7 +6,6 @@ import { SiteShell } from "@/components/SiteShell";
 import { loadBuildWordle } from "@/lib/wordle";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
-import { WordleModeTabs } from "@/components/wordle/WordleModeTabs";
 
 const WordleBoard = dynamic(
   () => import("@/components/wordle/WordleBoard").then((m) => m.WordleBoard),
@@ -39,7 +38,6 @@ export default async function WordlePage() {
         accent="server"
         text="Indovina la parola del giorno. Vinci e guadagni EXP."
       />
-      <WordleModeTabs active="classic" />
       <WordleBoard initial={initial} />
     </SiteShell>
   );

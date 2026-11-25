@@ -38,7 +38,6 @@ import {
 } from "@/lib/wordleQuad";
 import { WordleKeyboard } from "./WordleKeyboard";
 import { WordleRewardBanner } from "./WordleRewardBanner";
-import { WordleRemindToggle } from "./WordleRemindToggle";
 import { activityShare, isDiscordActivity } from "@/lib/discordActivity";
 import { WordleStats } from "./WordleStats";
 import { celebrate } from "@/lib/confetti";
@@ -398,8 +397,7 @@ export function WordleQuadBoard({ initial }: Props) {
         expGained={expGained}
         onLogin={login}
       />
-      {/* il promemoria vale solo sul sito, non nell'Attività di Discord */}
-      {inActivity ? null : <WordleRemindToggle enabled={remindEnabled} onEnabledChange={setRemindEnabled} />}
+      {/* promemoria: si accende da solo alla prima partita e si spegne da /notifications/ */}
 
       <div>
         <div className="mb-1 min-h-[1rem] text-center" role="status" aria-live="polite">

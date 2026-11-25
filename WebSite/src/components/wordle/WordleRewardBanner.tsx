@@ -77,14 +77,6 @@ export function WordleRewardBanner({
     );
   }
 
-  if (!won) {
-    return (
-      <p className={cn("text-center text-sm text-crema/55", className)}>
-        <Sparkles className="mr-1 inline size-3.5 text-ember" />
-        {t("wordle.rewardWinHint")}
-      </p>
-    );
-  }
-
+  /* «Vinci e guadagni EXP» c'è già sotto il titolo della pagina: qui non si ripete */
   return null;
 }

@@ -6,7 +6,6 @@ import { SiteShell } from "@/components/SiteShell";
 import { loadBuildWordleQuad } from "@/lib/wordleQuad";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
-import { WordleModeTabs } from "@/components/wordle/WordleModeTabs";
 
 const WordleQuadBoard = dynamic(
   () => import("@/components/wordle/WordleQuadBoard").then((m) => m.WordleQuadBoard),
@@ -39,7 +38,6 @@ export default async function WordleQuattroPage() {
         accent="Quordle"
         text="Quattro parole, nove tentativi. Vinci e guadagni EXP."
       />
-      <WordleModeTabs active="quad" />
       <WordleQuadBoard initial={initial} />
     </SiteShell>
   );

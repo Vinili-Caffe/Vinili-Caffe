@@ -35,7 +35,6 @@ import { cdnUrl, page } from "@/lib/site";
 import { useBodyScrollLock } from "@/lib/use-body-scroll-lock";
 import { NavNotifBell } from "@/components/NavNotifBell";
 import { DASH_PIN_KEY } from "@/lib/dash-side-boot";
-import { LangMenu } from "@/components/LangMenu";
 import { ThemePrefRow } from "@/components/ThemeToggle";
 import {
   GUILD_MODULE_SECTIONS,
@@ -1111,7 +1110,6 @@ export function DashboardShell({
               })()}
             </nav>
             <CreditsChip />
-            <LangMenu />
             <NavNotifBell />
             <div className="hidden sm:block">
               <AccountMenu guild={guild} guildNav={guildNav} />

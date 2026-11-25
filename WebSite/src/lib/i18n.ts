@@ -514,10 +514,10 @@ export const DICTS: Record<CuratedLocale, Dict> = {
     "wordle.remindDisabledMsg": "Promemoria Wordle disattivato.",
     "wordle.remindNotifTitle": "Wordle del giorno",
     "wordle.remindNotifBody": "È mezzanotte: c'è una nuova parola da indovinare. Vinci e guadagni EXP.",
-    "notif.pref.wordle": "Wordle",
-    "notif.pref.wordleHint": "Promemoria a mezzanotte per la parola del giorno",
-    "notif.kind.wordle_reminder": "Wordle",
-    "notif.dm.wordle": "Promemoria Wordle",
+    "notif.pref.wordle": "Giochi del giorno",
+    "notif.pref.wordleHint": "Promemoria a mezzanotte: Wordle, Quordle e Angolo",
+    "notif.kind.wordle_reminder": "Giochi del giorno",
+    "notif.dm.wordle": "Promemoria dei giochi del giorno",
     "why.kicker": "Perché Vinili & Caffè",
     "why.title": "Un posto dove tornare,",
     "why.titleEm": "come la tua community di sempre",
@@ -940,10 +940,10 @@ export const DICTS: Record<CuratedLocale, Dict> = {
     "wordle.remindDisabledMsg": "Wordle reminder off.",
     "wordle.remindNotifTitle": "Daily Wordle",
     "wordle.remindNotifBody": "It’s midnight: a new word is ready. Win and earn EXP.",
-    "notif.pref.wordle": "Wordle",
-    "notif.pref.wordleHint": "Midnight reminder for the daily word",
-    "notif.kind.wordle_reminder": "Wordle",
-    "notif.dm.wordle": "Wordle reminder",
+    "notif.pref.wordle": "Daily games",
+    "notif.pref.wordleHint": "Midnight reminder: Wordle, Quordle and Angle",
+    "notif.kind.wordle_reminder": "Daily games",
+    "notif.dm.wordle": "Daily games reminder",
     "why.kicker": "Why Vinili & Caffè",
     "why.title": "A place to come back to,",
     "why.titleEm": "like your everyday community",
@@ -1366,8 +1366,8 @@ export const DICTS: Record<CuratedLocale, Dict> = {
     "wordle.remindDisabledMsg": "Recordatorio Wordle desactivado.",
     "wordle.remindNotifTitle": "Wordle del día",
     "wordle.remindNotifBody": "Es medianoche: hay una palabra nueva. Gana y obtén EXP.",
-    "notif.pref.wordle": "Wordle",
-    "notif.pref.wordleHint": "Recordatorio a medianoche de la palabra del día",
+    "notif.pref.wordle": "Juegos del día",
+    "notif.pref.wordleHint": "Recordatorio a medianoche: Wordle, Quordle y Ángulo",
     "notif.kind.wordle_reminder": "Wordle",
     "notif.dm.wordle": "Recordatorio Wordle",
     "why.kicker": "Por qué Vinili & Caffè",
@@ -1488,6 +1488,21 @@ function readStoredLocale(): Locale | "" {
   return "";
 }
 
+/**
+ * La lingua del sistema (o del browser; dentro Discord è quella di Discord).
+ * Le lingue che il sito non ha diventano inglese.
+ */
+function systemLocale(): Locale {
+  try {
+    const list = navigator.languages?.length ? navigator.languages : [navigator.language];
+    for (const l of list) {
+      const n = normalizeLocale(l);
+      if (n) return n;
+    }
+  } catch {}
+  return "en" as Locale;
+}
+
 function persistLocale(lang: Locale) {
   try {
     localStorage.setItem(STORAGE_KEY, lang);
@@ -1567,13 +1582,9 @@ export function I18nProvider({
   useEffect(() => {
     let cancelled = false;
     const boot = async () => {
-      /* la lingua scritta nell'indirizzo (/en/…) vince su quella salvata */
-      const fromUrl = localeFromPath(location.pathname) as Locale | null;
-      let next = fromUrl || readStoredLocale() || ("it" as Locale);
-      if (!fromUrl) {
-        const remote = await pullChromePrefsLang(token);
-        if (remote) next = remote;
-      }
+      /* autoLang1: niente più selettore — decide sempre la lingua del sistema / browser
+         (anche sopra a quella scritta nell'indirizzo, che poi si adegua) */
+      const next = systemLocale();
       if (cancelled) return;
       /* in transizione: niente #418 nelle parti della pagina non ancora agganciate all'HTML */
       startTransition(() => {

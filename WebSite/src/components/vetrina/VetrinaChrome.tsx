@@ -14,7 +14,6 @@ import { SiteShell } from "@/components/SiteShell";
 import { Footer } from "@/components/Footer";
 import { SmartLink } from "@/components/SmartLink";
 import { NavNotifBell } from "@/components/NavNotifBell";
-import { LangMenu } from "@/components/LangMenu";
 import { ThemePrefRow } from "@/components/ThemeToggle";
 import { useDeviceFx } from "@/components/effects/DeviceFxProvider";
 import { useAutoHideNav } from "@/lib/use-auto-hide-nav";
@@ -129,7 +128,6 @@ function VetrinaTopBar() {
             </span>
           </SmartLink>
           <span className="hidden sm:block">
-            <LangMenu />
           </span>
         </div>
 
