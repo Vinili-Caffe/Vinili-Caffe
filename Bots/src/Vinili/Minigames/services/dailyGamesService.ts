@@ -112,11 +112,44 @@ export function bestComboStreak(days: DayMap) {
   return best;
 }
 
+/* ───── recupero: Wordle e Quordle salvano già la partita del giorno; se manca nel registro (es. giocata prima
+   che il registro esistesse) la si ricava da lì e la si segna ───── */
+const WORDLE_LANGS = ["it", "en", "es", "fr", "de", "pt"];
+const WORDLE_FIELDS = "profile.siteWordleDaily profile.siteWordleQuadDaily";
+
+function fromWordleSaves(profile: any) {
+  const out: Array<{ game: DailyGame; day: string; solved: boolean; attempts: number; points?: number }> = [];
+  for (const g of Object.values(profile?.siteWordleDaily || {}) as any[]) {
+    if (!g?.done || !g?.day) continue;
+    const board = Array.isArray(g.board) ? g.board : [];
+    out.push({ game: "wordle", day: String(g.day), solved: Boolean(g.won), attempts: board.length });
+  }
+  for (const g of Object.values(profile?.siteWordleQuadDaily || {}) as any[]) {
+    if (!g?.done || !g?.day) continue;
+    const guesses = Array.isArray(g.guesses) ? g.guesses : [];
+    const taken = (Array.isArray(g.boards) ? g.boards : []).filter((b: any) => b?.won).length;
+    out.push({ game: "quad", day: String(g.day), solved: Boolean(g.won), attempts: guesses.length, ...(g.won ? {} : { points: 1 + taken }) });
+  }
+  return out;
+}
+
+/** aggiunge (in memoria e nel profilo) le partite di Wordle e Quordle che mancano nel registro */
+function mergeWordleSaves(userId: string, profile: any, days: DayMap, onlyDays?: Set<string>) {
+  for (const e of fromWordleSaves(profile)) {
+    if (onlyDays && !onlyDays.has(e.day)) continue;
+    if (days[e.day]?.[e.game]) continue;
+    const p = e.points != null ? e.points : pointsFor(e.game, e.solved, e.attempts);
+    days[e.day] = { ...(days[e.day] || {}), [e.game]: { p, s: e.solved, a: e.attempts } };
+    void recordDailyResult(userId, e.game, e.day, { solved: e.solved, attempts: e.attempts, ...(e.points != null ? { points: e.points } : {}) }).catch(() => false);
+  }
+  return days;
+}
+
 /** la situazione di chi guarda: oggi, serie e punti della settimana */
 export async function dailyMe(userId: string) {
   const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-  const doc: any = await ActivityUserProfile.findOne({ guildId: mainGuildId(), userId }).select("profile.dailyGames").lean().catch(() => null);
-  const days: DayMap = doc?.profile?.dailyGames || {};
+  const doc: any = await ActivityUserProfile.findOne({ guildId: mainGuildId(), userId }).select(`profile.dailyGames ${WORDLE_FIELDS}`).lean().catch(() => null);
+  const days: DayMap = mergeWordleSaves(userId, doc?.profile, { ...(doc?.profile?.dailyGames || {}) });
   const today = romeDay();
   const week = weekDays(weekStart(today));
   const weekPoints = week.reduce((sum, d) => sum + DAILY_GAMES.reduce((s, g) => s + (Number(days[d]?.[g]?.p) || 0), 0), 0);
@@ -129,16 +162,22 @@ export type WeekRow = { userId: string; points: number; games: number; solved: n
 export async function weekLeaderboard(monday = weekStart()): Promise<WeekRow[]> {
   const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
   const days = weekDays(monday);
-  const select = ["userId", ...days.map((d) => `profile.dailyGames.${d}`)].join(" ");
+  const select = ["userId", WORDLE_FIELDS, ...days.map((d) => `profile.dailyGames.${d}`)].join(" ");
   const docs: any[] = await ActivityUserProfile.find({
     guildId: mainGuildId(),
-    $or: days.map((d) => ({ [`profile.dailyGames.${d}`]: { $exists: true } })),
+    $or: [
+      ...days.map((d) => ({ [`profile.dailyGames.${d}`]: { $exists: true } })),
+      /* anche chi ha solo Wordle o Quordle salvati (non ancora nel registro) */
+      ...WORDLE_LANGS.flatMap((l) => [{ [`profile.siteWordleDaily.${l}.day`]: { $in: days } }, { [`profile.siteWordleQuadDaily.${l}.day`]: { $in: days } }]),
+    ],
   })
     .select(select)
     .lean()
     .catch(() => []);
   const rows: WeekRow[] = [];
+  const inWeek = new Set(days);
   for (const doc of docs) {
+    if (doc?.profile) doc.profile.dailyGames = mergeWordleSaves(String(doc.userId), doc.profile, { ...(doc.profile.dailyGames || {}) }, inWeek);
     let points = 0;
     let games = 0;
     let solved = 0;
