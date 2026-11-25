@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { setLiveGame } from "@/lib/activityLive";
 import { page } from "@/lib/site";
 import { ACTIVITY_GAME_KEY, ActivityGameBar, type ActivityGame } from "./ActivityMusicQuizHome";
 
@@ -13,7 +15,6 @@ export function ActivityRouteBar() {
   const pathname = usePathname() || "/";
   const router = useRouter();
   const path = pathname.replace(/^\/(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)(?=\/|$)/, "") || "/";
-  if (path === "/" || path.startsWith("/music-quiz/party")) return null;
   const current: ActivityGame | null = path.startsWith("/music-quiz")
     ? "quiz"
     : path.startsWith("/quiz/numeri")
@@ -25,6 +26,12 @@ export function ActivityRouteBar() {
           : path.startsWith("/wordle")
             ? "wordle"
             : null;
+  /* Attività: gli altri della chiamata vedono a cosa stai giocando */
+  const home = path === "/";
+  useEffect(() => {
+    if (!home && current) setLiveGame(current);
+  }, [home, current]);
+  if (home || path.startsWith("/music-quiz/party")) return null;
   return (
     <ActivityGameBar
       game={current}

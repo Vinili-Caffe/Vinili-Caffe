@@ -1,5 +1,6 @@
 "use client";
 
+import { reportLive } from "@/lib/activityLive";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Loader2 } from "lucide-react";
@@ -102,6 +103,19 @@ export function WordleDuel({ game, mode, lang, joinId: joinFrom }: { game: "word
   }, [mode, ready, state, busy, joinId, start, error]);
 
   const boards = useMemo(() => state?.boards || [], [state?.boards]);
+  /* Attività: anteprima per gli altri della chiamata (solo colori, niente lettere) */
+  useEffect(() => {
+    if (!state || state.status === "waiting") return;
+    reportLive({
+      game,
+      mode,
+      grids: boards.map((b) => b.rows.map((r) => r.marks)),
+      attempts: state.me.attempts,
+      max: state.maxAttempts,
+      solved: state.me.solved,
+      done: state.me.done,
+    });
+  }, [state, boards, game, mode]);
   const playing = state?.status === "playing" && !state.me.done;
 
   const keyMarks = useMemo(() => {

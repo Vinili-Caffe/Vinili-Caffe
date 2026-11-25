@@ -96,6 +96,10 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
   app.post("/webhooks/site-number-quiz/result", (req?, res?) => numberQuiz.handleNumberQuizResultPost(client, req, res));
   app.post("/webhooks/site-number-quiz/best-sync", (req?, res?) => numberQuiz.handleNumberQuizBestSyncPost(client, req, res));
   app.get("/webhooks/site-number-quiz/me", (req?, res?) => numberQuiz.handleNumberQuizMeGet(client, req, res));
+  /* Attività: chi della chiamata sta giocando e a cosa (anteprima senza risposte) */
+  const live = require("../siteActivityLiveApi") as typeof import("../siteActivityLiveApi");
+  app.post("/webhooks/site-activity/live", (req?, res?) => live.handleActivityLivePost(client, req, res));
+  app.get("/webhooks/site-activity/live/:instanceId", (req?, res?) => live.handleActivityLiveGet(client, req, res));
   /* allenamento e sfide anonime (Wordle, Quordle, Angle) */
   const duel = require("../siteDuelApi") as typeof import("../siteDuelApi");
   app.post("/webhooks/site-duel/create", (req?, res?) => duel.handleDuelCreate(client, req, res));

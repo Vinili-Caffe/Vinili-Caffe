@@ -1,5 +1,6 @@
 "use client";
 
+import { reportLive } from "@/lib/activityLive";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, animate, motion } from "motion/react";
@@ -487,6 +488,10 @@ function HigherLower({ data, onExit, onRestart }: { data: Loaded; onExit: () => 
   const [phase, setPhase] = useState<HLPhase>("pick");
   const [picked, setPicked] = useState<0 | 1 | null>(null);
   const [streak, setStreak] = useState(0);
+  /* Attività: gli altri della chiamata vedono la serie (non le risposte) */
+  useEffect(() => {
+    reportLive({ game: "numeri", streak });
+  }, [streak]);
   const [best, setBest] = useState(() => readBest(c.id, "hl"));
   const streakRef = useRef(0);
   const bestAtStart = useRef(best);

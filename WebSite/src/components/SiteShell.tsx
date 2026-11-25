@@ -29,6 +29,7 @@ import { SiteMotionRoot } from "./motion/SiteMotionRoot";
 import { GuildMentionsProvider } from "./GuildMentionsProvider";
 import { isDiscordActivity } from "@/lib/discordActivity";
 import { ActivityRouteBar } from "@/components/music-quiz/ActivityRouteBar";
+import { ActivityLiveBar } from "@/components/music-quiz/ActivityLiveBar";
 import { QuizBackButton } from "./QuizBackButton";
 
 function RichScrollProgress() {
@@ -124,6 +125,7 @@ export function SiteShell({
                     <>
                       <main className="min-h-dvh bg-espresso text-crema">
                         <ActivityRouteBar />
+                        <ActivityLiveBar />
                         {children}
                       </main>
                     </>

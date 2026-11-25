@@ -1,5 +1,6 @@
 "use client";
 
+import { reportLive } from "@/lib/activityLive";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { activityShare, isDiscordActivity } from "@/lib/discordActivity";
@@ -106,16 +107,23 @@ function Round({
   initial,
   onDone,
   locked,
+  liveMode,
 }: {
   answer: number;
   rotate: number;
   initial?: number[];
   onDone: (guesses: number[], solved: boolean) => void;
   locked?: boolean;
+  /** Attività: come mostrarla agli altri della chiamata (solo tentativi, mai i gradi) */
+  liveMode?: "daily" | "practice" | "duel";
 }) {
   const [value, setValue] = useState(90);
   const [rows, setRows] = useState<Row[]>(() => (initial || []).map((g) => ({ guess: g, diff: answer - g })));
   const solved = rows.some((r) => Math.abs(r.diff) <= ANGLE_TOLERANCE);
+  useEffect(() => {
+    if (!liveMode) return;
+    reportLive({ game: "angolo", mode: liveMode, attempts: rows.length, max: ANGLE_ATTEMPTS, solved, done: solved || rows.length >= ANGLE_ATTEMPTS });
+  }, [liveMode, rows.length, solved]);
   const over = solved || rows.length >= ANGLE_ATTEMPTS || Boolean(locked);
   const reported = useRef(Boolean(initial && (initial.length >= ANGLE_ATTEMPTS || initial.some((g) => Math.abs(answer - g) <= ANGLE_TOLERANCE))));
 
@@ -386,7 +394,7 @@ function Daily() {
       <p className="mb-4 text-center text-sm text-crema/60">
         Angle <b className="text-crema">#{dayNumber(day)}</b> · uguale per tutti, cambia a mezzanotte
       </p>
-      <Round answer={answer} rotate={rotate} initial={saved || undefined} onDone={onDone} />
+      <Round answer={answer} rotate={rotate} initial={saved || undefined} onDone={onDone} liveMode="daily" />
       {result ? (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mx-auto mt-6 max-w-md text-center">
           <button
@@ -464,6 +472,7 @@ function Practice() {
       </p>
       <Round
         key={round}
+        liveMode="practice"
         answer={answer}
         rotate={rotate}
         onDone={(g, solved) => {
@@ -513,6 +522,7 @@ function AngleDuel({ joinId: joinFrom }: { joinId?: string | null }) {
       <OpponentBar state={state} />
       <Round
         key={state.id}
+        liveMode="duel"
         answer={state.angle ?? 90}
         rotate={state.rotation ?? 0}
         initial={state.guesses?.length ? state.guesses : undefined}

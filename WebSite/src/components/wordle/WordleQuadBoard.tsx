@@ -1,5 +1,6 @@
 "use client";
 
+import { reportLive } from "@/lib/activityLive";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Reveal } from "@/components/Reveal";
@@ -99,6 +100,18 @@ export function WordleQuadBoard({ initial }: Props) {
   const [done, setDone] = useState(Boolean(initial?.game?.done));
   const [won, setWon] = useState(Boolean(initial?.game?.won));
   const [lost, setLost] = useState(Boolean(initial?.game?.lost));
+  /* Attività: anteprima per gli altri della chiamata (solo colori, niente lettere) */
+  useEffect(() => {
+    reportLive({
+      game: "quad",
+      mode: "daily",
+      grids: boards.map((b) => (b.rows || []).map((r) => r.marks)),
+      attempts: guesses.length,
+      max: QUAD_MAX_ATTEMPTS,
+      solved: won,
+      done,
+    });
+  }, [boards, guesses.length, won, done]);
   const [keyMarks, setKeyMarks] = useState<KeyMarks>(() => initial?.game?.keyMarks || {});
   const [busy, setBusy] = useState(false);
   const [booting, setBooting] = useState(true);

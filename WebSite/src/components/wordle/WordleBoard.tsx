@@ -1,5 +1,6 @@
 "use client";
 
+import { reportLive } from "@/lib/activityLive";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Reveal } from "@/components/Reveal";
@@ -111,6 +112,10 @@ export function WordleBoard({ initial }: Props) {
   const { token, login, ready: authReady } = useAuth();
 
   const [lost, setLost] = useState(false);
+  /* Attività: anteprima per gli altri della chiamata (solo colori, niente lettere) */
+  useEffect(() => {
+    reportLive({ game: "wordle", mode: "daily", grids: [board.map((r) => r.marks)], attempts: board.length, max: MAX_ATTEMPTS, solved: won, done });
+  }, [board, won, done]);
   const [answer, setAnswer] = useState("");
   const [keyMarks, setKeyMarks] = useState<KeyMarks>({});
   const [busy, setBusy] = useState(false);

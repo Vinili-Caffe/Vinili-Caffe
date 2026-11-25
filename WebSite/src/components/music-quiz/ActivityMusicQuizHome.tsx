@@ -7,6 +7,7 @@ import { ArrowUpDown, Compass, Grid2x2, Music2, SpellCheck, Swords, X } from "lu
 import { NumberQuizNav } from "@/components/number-quiz/NumberQuizNav";
 import { MusicQuizGate } from "@/components/music-quiz/MusicQuizGate";
 import { activityCustomId, activityInstanceId, isDiscordActivity } from "@/lib/discordActivity";
+import { setLiveGame } from "@/lib/activityLive";
 import { DUEL_LABEL, duelToken, loadCallDuels, sentCallIds, type CallDuel, type DuelGame } from "@/lib/duel";
 import { cn } from "@/lib/cn";
 
@@ -136,6 +137,11 @@ export function ActivityMusicQuizHome({ children }: { children: React.ReactNode 
     openDuel(incoming.game, incoming.duel);
     setIncoming(null);
   }
+
+  /* Attività: gli altri della chiamata vedono a cosa stai giocando */
+  useEffect(() => {
+    if (activity) setLiveGame(game);
+  }, [activity, game]);
 
   function pick(g: Game) {
     setGame(g);
