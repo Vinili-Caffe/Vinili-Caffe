@@ -41,8 +41,8 @@ export default function QuizPage() {
             icon: <ArrowUpDown className="size-7" />,
           },
           {
-            href: "/quiz/angolo/",
-            title: "Angolo",
+            href: "/quiz/angle/",
+            title: "Angle",
             text: "Indovina l'angolo sul vinile in quattro tentativi.",
             note: "Uno nuovo ogni giorno",
             icon: <Compass className="size-7" />,

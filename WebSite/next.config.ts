@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 // indirizzi con il nome della pagina tradotto (/en/who-we-are/): in sviluppo come su Vercel
 import { slugRewrites } from "./scripts/locale-routes.mjs";
@@ -8,26 +9,31 @@ process.env.NEXT_TELEMETRY_DISABLED = "1";
 // Export statico: nginx serve out/ così com'è (beta.viniliecaffe.it), niente server Node sulla VPS.
 // cacheComponents/partialPrefetching richiedono il runtime Node → non usabili con output: "export".
 // `rewrites` vale solo in `next dev` (l'export statico le ignora); serve-out.mjs fa da proxy in anteprima.
+// Solo `next dev`: in prod i webhook esterni devono battere api (www Vercel + trailingSlash li rompeva).
+async function devRewrites() {
+  /* VC_DEV_API: in sviluppo si può puntare un server locale (es. http://localhost:3940) */
+  const origin = process.env.VC_DEV_API || "https://api.viniliecaffe.it";
+  return [
+    ...slugRewrites().map((r) => ({ source: r.source, destination: r.destination.replace(/index.html$/, "") })),
+    /* lingua nell'indirizzo (/en/faq/): stessa pagina, come su Vercel */
+    { source: "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)", destination: "/" },
+    { source: "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)/:path*", destination: "/:path*" },
+    { source: "/webhooks/:path*", destination: `${origin}/webhooks/:path*` },
+    { source: "/ticket-transcript/:path*", destination: `${origin}/ticket-transcript/:path*` },
+  ];
+}
+
 const nextConfig: NextConfig = {
   output: "export",
   /* ora della build: le pagine statiche disegnano gli sconti a orario come erano in quel momento (niente HTML diverso al primo disegno) */
   env: { NEXT_PUBLIC_BUILD_AT: String(Date.now()) },
   trailingSlash: true,
   images: { unoptimized: true },
-  async rewrites() {
-    // Solo `next dev`: in prod i webhook esterni devono battere api (www Vercel + trailingSlash li rompeva).
-    /* VC_DEV_API: in sviluppo si può puntare un server locale (es. http://localhost:3940) */
-    const origin = process.env.VC_DEV_API || "https://api.viniliecaffe.it";
-    return [
-      ...slugRewrites().map((r) => ({ source: r.source, destination: r.destination.replace(/index.html$/, "") })),
-      /* lingua nell'indirizzo (/en/faq/): stessa pagina, come su Vercel */
-      { source: "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)", destination: "/" },
-      { source: "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)/:path*", destination: "/:path*" },
-      { source: "/webhooks/:path*", destination: `${origin}/webhooks/:path*` },
-      { source: "/ticket-transcript/:path*", destination: `${origin}/ticket-transcript/:path*` },
-    ];
-  },
+  /* solo in sviluppo: la build (export statico) non le usa, e definirle fa solo avvisi */
+  ...(process.env.NODE_ENV === "production" ? {} : { rewrites: devRewrites }),
   turbopack: {
+    /* la cartella del sito, non quella del repository (che ha un altro package-lock.json) */
+    root: path.resolve(process.cwd()),
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],

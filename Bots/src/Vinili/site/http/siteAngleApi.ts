@@ -71,8 +71,16 @@ async function handleAngleResultPost(client?, req?, res?) {
     await ActivityUserProfile.updateOne({ guildId, userId }, { $setOnInsert: { guildId, userId } }, { upsert: true }).catch(() => null);
     /* un risultato al giorno: chi lo ha già salvato non lo cambia */
     const claimed = await ActivityUserProfile.findOneAndUpdate(
-      { guildId, userId, $or: [{ [`profile.angleDays.${day}`]: null }, { [`profile.angleDays.${day}`]: { $exists: false } }] },
-      { $set: { [`profile.angleDays.${day}`]: { attempts, solved, at: new Date() } } },
+      {
+        guildId,
+        userId,
+        $or: [
+          { [`profile.angleDays.${day}`]: null },
+          { [`profile.angleDays.${day}`]: { $exists: false } },
+          { [`profile.angleDays.${day}.partial`]: true },
+        ],
+      },
+      { $set: { [`profile.angleDays.${day}`]: { attempts, solved, guesses: guesses.slice(0, attempts), at: new Date() } } },
       { new: true },
     ).catch(() => null);
     if (!claimed) {
@@ -98,12 +106,49 @@ async function handleAngleResultPost(client?, req?, res?) {
     if (viewer.inGuild && solved) {
       const { claimQuizExp } = require("./siteQuizRewards") as typeof import("./siteQuizRewards");
       /* 1 tentativo = tutto, 4 tentativi = un quarto */
-      reward = await claimQuizExp(client, viewer, { game: "angle", ratio: (MAX_ATTEMPTS + 1 - attempts) / MAX_ATTEMPTS, note: `Angolo ${day}` }).catch(() => ({ auth: "member", exp: 0 }));
+      reward = await claimQuizExp(client, viewer, { game: "angle", ratio: (MAX_ATTEMPTS + 1 - attempts) / MAX_ATTEMPTS, note: `Angle ${day}` }).catch(() => ({ auth: "member", exp: 0 }));
     } else if (viewer.inGuild) reward = { auth: "member", exp: 0 };
     return res.json({ ok: true, saved: true, solved, answer, stats, reward });
   } catch (err: any) {
     global.logger?.warn?.("[angolo] risultato:", err?.message || err);
     return res.status(500).json({ ok: false, error: "angle_error" });
+  }
+}
+
+/** Tentativi a metà partita (con l'accesso): così sull'altro dispositivo si riprende da lì. Body: { day, guesses } */
+async function handleAngleProgressPost(client?, req?, res?) {
+  try {
+    const { musicQuizViewer } = require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
+    const viewer = await musicQuizViewer(client, req);
+    if (viewer.guest) return res.json({ ok: true, saved: false });
+    const day = String(req.body?.day || "");
+    if (day !== romeDay()) return res.status(400).json({ ok: false, error: "bad_day" });
+    const guesses = (Array.isArray(req.body?.guesses) ? req.body.guesses : []).slice(0, MAX_ATTEMPTS - 1).map((g: unknown) => Math.round(Number(g)));
+    if (!guesses.length || guesses.some((g: number) => !Number.isFinite(g) || g < 0 || g > 180)) return res.status(400).json({ ok: false, error: "bad_guesses" });
+    const answer = dailyAngle(day);
+    /* una partita già vinta passa da /result */
+    if (guesses.some((g: number) => Math.abs(g - answer) <= TOLERANCE)) return res.status(400).json({ ok: false, error: "finished" });
+    const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
+    const guildId = mainGuildId(client);
+    const userId = viewer.userId;
+    const path = `profile.angleDays.${day}`;
+    await ActivityUserProfile.updateOne({ guildId, userId }, { $setOnInsert: { guildId, userId } }, { upsert: true }).catch(() => null);
+    /* solo se oggi non è finita e i tentativi salvati sono meno */
+    await ActivityUserProfile.updateOne(
+      {
+        guildId,
+        userId,
+        $or: [
+          { [path]: null },
+          { [path]: { $exists: false } },
+          { [`${path}.partial`]: true, [`${path}.guesses.${guesses.length - 1}`]: { $exists: false } },
+        ],
+      },
+      { $set: { [path]: { partial: true, guesses, at: new Date() } } },
+    ).catch(() => null);
+    return res.json({ ok: true, saved: true });
+  } catch {
+    return res.status(500).json({ ok: false, error: "angle_progress_error" });
   }
 }
 
@@ -120,4 +165,4 @@ async function handleAngleMeGet(client?, req?, res?) {
   }
 }
 
-export = { handleAngleResultPost, handleAngleMeGet, dailyAngle };
+export = { handleAngleResultPost, handleAngleProgressPost, handleAngleMeGet, dailyAngle };

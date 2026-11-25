@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { activityShare, isDiscordActivity } from "@/lib/discordActivity";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ArrowUp, Check, Copy, Dices, Flame, Link2, Minus, Plus, Sun, Swords, Target } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -17,6 +18,7 @@ import {
   decodeChallenge,
   encodeChallenge,
   loadAngleMe,
+  postAngleProgress,
   postAngleResult,
   readLocalDay,
   romeDay,
@@ -34,7 +36,7 @@ function polar(cx: number, cy: number, r: number, deg: number) {
   return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as const;
 }
 
-function Disc({ angle, ghost, reveal, rotate = 0 }: { angle: number; ghost?: number | null; reveal?: boolean; rotate?: number }) {
+function Disc({ angle, ghost, rotate = 0 }: { angle: number; ghost?: number | null; rotate?: number }) {
   const C = 160;
   const R = 128;
   const [ex, ey] = polar(C, C, R, angle);
@@ -81,11 +83,6 @@ function Disc({ angle, ghost, reveal, rotate = 0 }: { angle: number; ghost?: num
       <motion.circle initial={false} animate={{ cx: ex, cy: ey }} r={9} fill="#e8b37a" />
       </g>
       <circle cx={C} cy={C} r={11} fill="#f3e3c7" />
-      {reveal ? (
-        <text x={C} y={C + 74} textAnchor="middle" className="fill-crema font-mono text-[26px] font-bold">
-          {angle}°
-        </text>
-      ) : null}
     </svg>
   );
 }
@@ -150,7 +147,7 @@ function Round({
   return (
     <div className="grid items-start gap-6 md:grid-cols-[1fr_20rem]">
       <div>
-        <Disc angle={answer} rotate={rotate} ghost={over ? null : last?.guess ?? null} reveal={over} />
+        <Disc angle={answer} rotate={rotate} ghost={over ? null : last?.guess ?? null} />
         <AnimatePresence>
           {over ? (
             <motion.p
@@ -162,6 +159,19 @@ function Round({
             </motion.p>
           ) : null}
         </AnimatePresence>
+        {/* sotto il disco, non sopra i bracci: l'angolo giusto e, se preso non al grado, che vale ±2° */}
+        <AnimatePresence>
+          {over && solved ? (
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-1 text-center text-sm text-crema/60">
+              {(() => {
+                const hit = rows.find((r) => Math.abs(r.diff) <= ANGLE_TOLERANCE);
+                return hit && hit.diff !== 0
+                  ? `Era ${answer}°: con ${hit.guess}° sei entro ${ANGLE_TOLERANCE}°, e vale come preso`
+                  : `Era proprio ${answer}°`;
+              })()}
+            </motion.p>
+          ) : null}
+        </AnimatePresence>
       </div>
 
       <div className="rounded-3xl bg-roast/80 p-4 ring-1 ring-sand/12">
@@ -170,6 +180,7 @@ function Round({
             <p className="text-center text-xs font-bold uppercase tracking-[0.2em] text-crema/50">
               Tentativo {rows.length + 1} di {ANGLE_ATTEMPTS}
             </p>
+            <p className="mt-1 text-center text-[11px] text-crema/40">{`Vale anche se sbagli di ${ANGLE_TOLERANCE}° o meno`}</p>
             <div className="mt-3 flex items-center justify-center gap-2">
               <StepBtn onClick={() => setValue((v) => Math.max(0, v - 1))} label="Un grado in meno">
                 <Minus className="size-5" />
@@ -261,9 +272,10 @@ function StepBtn({ onClick, label, children }: { onClick: () => void; label: str
 
 /* ───────────── pagina ───────────── */
 
-export function AngleGame() {
+/** challengeCode: nell'Attività Discord la sfida arriva dal link condiviso, non dall'indirizzo */
+export function AngleGame({ challengeCode: fromProp }: { challengeCode?: string | null } = {}) {
   const sp = useSearchParams();
-  const challengeCode = sp.get("s");
+  const challengeCode = fromProp || sp.get("s");
   const challenge = useMemo(() => (challengeCode ? decodeChallenge(challengeCode) : null), [challengeCode]);
   const [mode, setMode] = useState<Mode>(challenge ? "challenge" : "daily");
   useEffect(() => {
@@ -299,7 +311,7 @@ export function AngleGame() {
 }
 
 function Daily() {
-  const { token } = useAuth();
+  const { token, ready: authReady } = useAuth();
   const day = useMemo(() => romeDay(), []);
   const answer = useMemo(() => dailyAngle(day), [day]);
   const rotate = useMemo(() => dailyRotation(day), [day]);
@@ -309,23 +321,41 @@ function Daily() {
   const [stats, setStats] = useState<AngleStats | null>(null);
   const [copied, setCopied] = useState(false);
 
+  /* partita di oggi: dal browser e, con l'accesso, dal server (così vale su tutti i dispositivi) */
   useEffect(() => {
-    const local = readLocalDay(day);
-    setSaved(local);
-    if (local && (local.length >= ANGLE_ATTEMPTS || local.some((g) => Math.abs(answer - g) <= ANGLE_TOLERANCE))) {
-      setResult({ guesses: local, solved: local.some((g) => Math.abs(answer - g) <= ANGLE_TOLERANCE) });
-    }
-  }, [day, answer]);
-
-  useEffect(() => {
-    if (!token) return;
-    void loadAngleMe(token).then((r) => r?.stats && setStats(r.stats));
-  }, [token]);
+    if (!authReady) return;
+    let alive = true;
+    const isOver = (g: number[]) => g.length >= ANGLE_ATTEMPTS || g.some((x) => Math.abs(answer - x) <= ANGLE_TOLERANCE);
+    void (async () => {
+      let guesses = readLocalDay(day);
+      if (token) {
+        const me = await loadAngleMe(token);
+        if (!alive) return;
+        if (me?.stats) setStats(me.stats);
+        const remote = Array.isArray(me?.today?.guesses) ? me.today.guesses : null;
+        if (remote && (!guesses || (isOver(remote) && !isOver(guesses)) || remote.length > guesses.length)) {
+          guesses = remote;
+          writeLocalDay(day, remote);
+        } else if (guesses?.length && !isOver(guesses) && (!remote || guesses.length > remote.length)) {
+          void postAngleProgress(token, day, guesses);
+        }
+      }
+      if (!alive) return;
+      setSaved(guesses);
+      if (guesses && isOver(guesses)) setResult({ guesses, solved: guesses.some((g) => Math.abs(answer - g) <= ANGLE_TOLERANCE) });
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [day, answer, token, authReady]);
 
   function onDone(guesses: number[], solved: boolean) {
     writeLocalDay(day, guesses);
     const finished = solved || guesses.length >= ANGLE_ATTEMPTS;
-    if (!finished) return;
+    if (!finished) {
+      if (token) void postAngleProgress(token, day, guesses);
+      return;
+    }
     setResult({ guesses, solved });
     void postAngleResult(token, day, guesses).then((r) => {
       setReward(r?.reward || (token ? null : { auth: "guest", exp: 0 }));
@@ -339,7 +369,12 @@ function Daily() {
       .map((g) => (Math.abs(answer - g) <= ANGLE_TOLERANCE ? "🎯" : answer > g ? "⬆️" : "⬇️"))
       .join("");
     const score = result.solved ? `${result.guesses.findIndex((g) => Math.abs(answer - g) <= ANGLE_TOLERANCE) + 1}/${ANGLE_ATTEMPTS}` : `X/${ANGLE_ATTEMPTS}`;
-    const text = `Angolo #${dayNumber(day)} ${score}\n${marks}\n${window.location.origin}${page("/quiz/angolo/")}`;
+    /* nell'Attività: finestra di condivisione di Discord */
+    if (isDiscordActivity()) {
+      void activityShare(`Angle #${dayNumber(day)} ${score}\n${marks}`);
+      return;
+    }
+    const text = `Angle #${dayNumber(day)} ${score}\n${marks}\n${window.location.origin}${page("/quiz/angle/")}`;
     void navigator.clipboard?.writeText(text).then(() => {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1600);
@@ -350,7 +385,7 @@ function Daily() {
   return (
     <>
       <p className="mb-4 text-center text-sm text-crema/60">
-        Angolo <b className="text-crema">#{dayNumber(day)}</b> · uguale per tutti, cambia a mezzanotte
+        Angle <b className="text-crema">#{dayNumber(day)}</b> · uguale per tutti, cambia a mezzanotte
       </p>
       <Round answer={answer} rotate={rotate} initial={saved || undefined} onDone={onDone} />
       {result ? (
@@ -457,9 +492,14 @@ function Practice() {
 function Create() {
   const [angle, setAngle] = useState(137);
   const [copied, setCopied] = useState(false);
-  const link = typeof window !== "undefined" ? `${window.location.origin}${page(`/quiz/angolo/?s=${encodeChallenge(angle)}`)}` : "";
+  const link = typeof window !== "undefined" ? `${window.location.origin}${page(`/quiz/angle/?s=${encodeChallenge(angle)}`)}` : "";
   async function share() {
     const text = `Ti sfido: indovina questo angolo in ${ANGLE_ATTEMPTS} tentativi!`;
+    /* nell'Attività: finestra di Discord, e chi apre il link entra dritto nella sfida */
+    if (isDiscordActivity()) {
+      await activityShare(text, `angolo-${encodeChallenge(angle)}`);
+      return;
+    }
     try {
       if (typeof navigator.share === "function") {
         await navigator.share({ text, url: link });
@@ -475,7 +515,7 @@ function Create() {
   }
   return (
     <div className="grid items-start gap-6 md:grid-cols-[1fr_20rem]">
-      <Disc angle={angle} rotate={rotationFor(angle)} reveal />
+      <Disc angle={angle} rotate={rotationFor(angle)} />
       <div className="rounded-3xl bg-roast/80 p-5 ring-1 ring-sand/12">
         <p className="font-display text-xl text-crema">Scegli un angolo</p>
         <p className="mt-1 text-sm text-crema/60">Poi manda il link: chi lo apre deve indovinarlo in {ANGLE_ATTEMPTS} tentativi.</p>

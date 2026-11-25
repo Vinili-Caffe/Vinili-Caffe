@@ -156,7 +156,7 @@ export const REACT_PAGES = new Set([
   "/quiz/",
   "/quiz/numeri/",
   "/quiz/numeri/gioca/",
-  "/quiz/angolo/",
+  "/quiz/angle/",
   "/puzzle/",
   "/evento/",
   "/evento/accademia/",

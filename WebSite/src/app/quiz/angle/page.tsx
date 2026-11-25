@@ -12,13 +12,13 @@ const AngleGame = dynamic(() => import("@/components/angle/AngleGame").then((m) 
 const DESCRIPTION = "Indovina l'angolo sul vinile in quattro tentativi. Uno nuovo ogni giorno, uguale per tutti.";
 
 export const metadata: Metadata = {
-  ...pageSocialMeta({ path: "/quiz/angolo/", title: "Angolo", description: DESCRIPTION }),
+  ...pageSocialMeta({ path: "/quiz/angle/", title: "Angle", description: DESCRIPTION }),
 };
 
 export default function AnglePage() {
   return (
     <SiteShell>
-      <DiscordComponentEmbed path="/quiz/angolo/" title="Angolo" description={DESCRIPTION} />
+      <DiscordComponentEmbed path="/quiz/angle/" title="Angle" description={DESCRIPTION} />
       <PageHero compact icon={<Compass />} kicker="Quiz" title="Indovina" accent="l'angolo" text={DESCRIPTION} />
       <Suspense fallback={null}>
         <AngleGame />

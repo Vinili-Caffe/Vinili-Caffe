@@ -6,7 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { ArrowUpDown, Compass, Grid2x2, Music2, SpellCheck } from "lucide-react";
 import { NumberQuizNav } from "@/components/number-quiz/NumberQuizNav";
 import { MusicQuizGate } from "@/components/music-quiz/MusicQuizGate";
-import { isDiscordActivity } from "@/lib/discordActivity";
+import { activityCustomId, isDiscordActivity } from "@/lib/discordActivity";
 import { cn } from "@/lib/cn";
 
 const MusicQuizHub = dynamic(() => import("@/components/music-quiz/MusicQuizHub").then((m) => m.MusicQuizHub));
@@ -23,7 +23,7 @@ type Game = "quiz" | "numeri" | "angolo" | "wordle" | "quad";
 const GAMES: { id: Game; label: string; icon: React.ReactNode }[] = [
   { id: "quiz", label: "Music Quiz", icon: <Music2 className="size-4" /> },
   { id: "numeri", label: "Number Quiz", icon: <ArrowUpDown className="size-4" /> },
-  { id: "angolo", label: "Angolo", icon: <Compass className="size-4" /> },
+  { id: "angolo", label: "Angle", icon: <Compass className="size-4" /> },
   { id: "wordle", label: "Wordle", icon: <SpellCheck className="size-4" /> },
   { id: "quad", label: "Quordle", icon: <Grid2x2 className="size-4" /> },
 ];
@@ -40,8 +40,16 @@ export function ActivityMusicQuizHome({ children }: { children: React.ReactNode 
   const [opened, setOpened] = useState<Record<Game, boolean>>({ quiz: true, numeri: false, angolo: false, wordle: false, quad: false });
   /* Number Quiz: categoria aperta (null = elenco), senza cambiare pagina */
   const [numCat, setNumCat] = useState<string | null>(null);
+  /* entrati da una sfida dell'Angolo condivisa su Discord */
+  const [angleChallenge, setAngleChallenge] = useState<string | null>(null);
   useEffect(() => {
     setActivity(isDiscordActivity());
+    const id = activityCustomId();
+    if (id?.startsWith("angolo-")) {
+      setAngleChallenge(id.slice(7));
+      setGame("angolo");
+      setOpened((o) => ({ ...o, angolo: true }));
+    }
   }, []);
 
   function pick(g: Game) {
@@ -91,7 +99,7 @@ export function ActivityMusicQuizHome({ children }: { children: React.ReactNode 
       {opened.angolo ? (
         <div className={cn("pt-2", game === "angolo" ? undefined : "hidden")}>
           <Suspense fallback={null}>
-            <AngleGame />
+            <AngleGame challengeCode={angleChallenge} />
           </Suspense>
         </div>
       ) : null}

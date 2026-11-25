@@ -11,6 +11,16 @@
   },
   "redirects": [
     {
+      "source": "/quiz/angolo/:rest*",
+      "destination": "/quiz/angle/:rest*",
+      "permanent": true
+    },
+    {
+      "source": "/:lang(it|en|es|fr|de|pt|ru|zh|ja|ko|ar|nl|pl|tr|hi|id|uk|vi|ro|sv)/quiz/angolo/:rest*",
+      "destination": "/:lang/quiz/angle/:rest*",
+      "permanent": true
+    },
+    {
       "source": "/evento/avvento",
       "destination": "/evento/",
       "permanent": true

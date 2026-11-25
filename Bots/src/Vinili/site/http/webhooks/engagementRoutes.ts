@@ -98,6 +98,7 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
   /* Angolo: l'angolo del giorno */
   const angle = require("../siteAngleApi") as typeof import("../siteAngleApi");
   app.post("/webhooks/site-angle/result", (req?, res?) => angle.handleAngleResultPost(client, req, res));
+  app.post("/webhooks/site-angle/progress", (req?, res?) => angle.handleAngleProgressPost(client, req, res));
   app.get("/webhooks/site-angle/me", (req?, res?) => angle.handleAngleMeGet(client, req, res));
   const streamChat = require("../siteMusicQuizStreamChatApi") as typeof import("../siteMusicQuizStreamChatApi");
   app.get("/webhooks/site-music-quiz/stream-chat/youtube", (req?, res?) =>

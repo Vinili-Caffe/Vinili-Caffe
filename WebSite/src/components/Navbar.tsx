@@ -973,18 +973,21 @@ export function Navbar() {
                             window.setTimeout(() => setOpen(false), 0);
                           }}
                               className={cn(
-                                "flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-[transform,background-color,color] duration-200 ease-out active:scale-[0.98]",
+                                "relative flex min-h-[3.1rem] flex-col items-center justify-center gap-1 rounded-2xl px-2.5 py-2.5 text-center text-sm font-semibold leading-snug ring-1 transition-[transform,background-color,color] duration-200 ease-out active:scale-[0.98]",
                                 on
                                   ? "bg-caramel/15 text-ember ring-caramel/35"
                                   : "bg-crema/[0.05] text-crema/90 ring-sand/12 hover:bg-crema/10",
                               )}
                             >
                               {ico}
-                              <span className="inline-flex flex-wrap items-center justify-center gap-1.5">
-                                {t(l.labelKey)}
-                                {live ? <SeasonLiveNavTag /> : fresh ? <SeasonLiveNavTag label={t("nav.new")} tone="new" /> : null}
-                                {!live && isPromoHref(l.href) ? <PromoNavTag /> : null}
-                              </span>
+                              {t(l.labelKey)}
+                              {/* sul telefono niente etichette: solo un puntino discreto nell'angolo */}
+                              {live || fresh || isPromoHref(l.href) ? (
+                                <span className="absolute right-2 top-2 flex size-2" aria-hidden>
+                                  {live ? <span className="absolute inline-flex size-full animate-ping rounded-full bg-ember/60" /> : null}
+                                  <span className={cn("relative inline-flex size-2 rounded-full", live ? "bg-ember" : "bg-caramel")} />
+                                </span>
+                              ) : null}
                         </SmartLink>
                           )}
                       </li>

@@ -337,6 +337,15 @@ export function activityInstanceId(): string | null {
   return saved ? new URLSearchParams(saved).get("instance_id") : null;
 }
 
+/** il custom_id del link condiviso con cui si è entrati nell'Attività (se c'è) */
+export function activityCustomId(): string | null {
+  if (!isDiscordActivity()) return null;
+  const fromUrl = new URLSearchParams(window.location.search).get("custom_id");
+  if (fromUrl) return fromUrl;
+  const saved = ssGet("vc_activity_qs");
+  return saved ? new URLSearchParams(saved).get("custom_id") : null;
+}
+
 /** apre la finestra di Discord per invitare amici nell'Attività */
 export async function activityInvite(): Promise<boolean> {
   try {
@@ -349,10 +358,11 @@ export async function activityInvite(): Promise<boolean> {
 }
 
 /** Condivide su Discord (finestra di Discord: scegli chat o canale) un messaggio con il link all'Attività. */
-export async function activityShare(message: string): Promise<boolean> {
+export async function activityShare(message: string, customId?: string): Promise<boolean> {
   try {
     const sdk = await getSdk();
-    const r = await sdk.commands.shareLink({ message: message.slice(0, 1000) });
+    /* customId: chi apre il link entra nell'Attività con ?custom_id=… (es. la sfida dell'Angolo) */
+    const r = await sdk.commands.shareLink({ message: message.slice(0, 1000), ...(customId ? { custom_id: customId.slice(0, 64) } : {}) });
     return Boolean(r?.success || r?.didSendMessage || r?.didCopyLink);
   } catch {
     return false;

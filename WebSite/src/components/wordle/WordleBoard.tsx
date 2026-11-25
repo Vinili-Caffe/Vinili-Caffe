@@ -108,7 +108,7 @@ export function WordleBoard({ initial }: Props) {
   const [done, setDone] = useState(false);
   const [won, setWon] = useState(false);
   const confettiRich = useFxCap("confettiRich");
-  const { token, login } = useAuth();
+  const { token, login, ready: authReady } = useAuth();
 
   const [lost, setLost] = useState(false);
   const [answer, setAnswer] = useState("");
@@ -289,6 +289,8 @@ export function WordleBoard({ initial }: Props) {
   }, [token, booting, won, done, reward?.claimed, expGained, board, lang, showToast]);
 
   useEffect(() => {
+    /* aspetta di sapere se c'è l'accesso: così la partita fatta su un altro dispositivo arriva subito */
+    if (!authReady) return;
     /* se oggi c'è già una partita, non ri-bootare al cambio lingua sito */
     if (day && isStartedGame({ day, lang, board, done, won, lost, answer, keyMarks })) {
       return;
@@ -298,7 +300,7 @@ export function WordleBoard({ initial }: Props) {
       if (toastTimer.current) window.clearTimeout(toastTimer.current);
     };
      
-  }, [boot, siteLang]);
+  }, [boot, siteLang, authReady]);
 
   const submit = useCallback(async () => {
     if (done || busy) return;

@@ -87,7 +87,7 @@ function emptyBoards(): QuadBoardState[] {
 export function WordleQuadBoard({ initial }: Props) {
   const { locale, t } = useI18n();
   const siteLang = parseLang(locale);
-  const { token, login } = useAuth();
+  const { token, login, ready: authReady } = useAuth();
   const confettiRich = useFxCap("confettiRich");
 
   const [lang, setLang] = useState<WordleLang>(initial?.lang || siteLang);
@@ -196,11 +196,13 @@ export function WordleQuadBoard({ initial }: Props) {
   );
 
   useEffect(() => {
+    /* aspetta di sapere se c'è l'accesso: così la partita fatta su un altro dispositivo arriva subito */
+    if (!authReady) return;
     void boot(siteLang);
     return () => {
       if (toastTimer.current) window.clearTimeout(toastTimer.current);
     };
-  }, [boot, siteLang]);
+  }, [boot, siteLang, authReady]);
 
   useEffect(() => {
     if (!token || booting || !won || !done || claimTried.current) return;

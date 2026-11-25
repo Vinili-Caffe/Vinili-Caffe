@@ -69,10 +69,24 @@ export async function postAngleResult(token: string | null | undefined, day: str
 export async function loadAngleMe(token: string) {
   try {
     const r = await fetch("/webhooks/site-angle/me", { headers: { Accept: "application/json", Authorization: `Bearer ${token}` }, cache: "no-store" });
-    const data = (await r.json().catch(() => null)) as { ok?: boolean; stats?: AngleStats; today?: { attempts: number; solved: boolean } | null } | null;
+    const data = (await r.json().catch(() => null)) as { ok?: boolean; stats?: AngleStats; today?: { attempts?: number; solved?: boolean; guesses?: number[]; partial?: boolean } | null } | null;
     return data?.ok ? data : null;
   } catch {
     return null;
+  }
+}
+
+/** tentativi a metà partita: con l'accesso si continua su un altro dispositivo */
+export async function postAngleProgress(token: string, day: string, guesses: number[]) {
+  try {
+    await fetch("/webhooks/site-angle/progress", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ day, guesses }),
+      cache: "no-store",
+    });
+  } catch {
+    /* resta nel browser */
   }
 }
 
