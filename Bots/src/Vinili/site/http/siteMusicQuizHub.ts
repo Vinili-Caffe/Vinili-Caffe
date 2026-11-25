@@ -106,6 +106,17 @@ async function buildDeezerPart() {
     }
   }
   const world = await deezer.playlistInfo(TOP_WORLD).catch(() => null);
+  /* in evidenza: un po' Italia e un po' mondo, alternati */
+  const worldArtists = await deezer.playlistArtists(TOP_WORLD, 24).catch(() => [] as typeof italy);
+  const mixed: typeof italy = [];
+  const seenArtist = new Set<string>();
+  for (let i = 0; i < Math.max(italy.length, worldArtists.length); i++) {
+    for (const a of [italy[i], worldArtists[i]]) {
+      if (!a || seenArtist.has(String(a.id))) continue;
+      seenArtist.add(String(a.id));
+      mixed.push(a);
+    }
+  }
 
   const decades = (
     await inBatches(DECADES, 3, async (d) => {
@@ -134,8 +145,8 @@ async function buildDeezerPart() {
   ).filter(Boolean);
 
   return {
-    featured: italy.slice(0, 5).map(artistCard),
-    trendingArtists: italy.slice(5, 24).map(artistCard),
+    featured: mixed.slice(0, 5).map(artistCard),
+    trendingArtists: mixed.slice(5, 30).map(artistCard),
     playlists,
     decades,
     genres,

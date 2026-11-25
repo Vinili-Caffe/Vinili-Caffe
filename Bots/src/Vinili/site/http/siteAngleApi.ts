@@ -83,6 +83,9 @@ async function handleAngleResultPost(client?, req?, res?) {
       { $set: { [`profile.angleDays.${day}`]: { attempts, solved, guesses: guesses.slice(0, attempts), at: new Date() } } },
       { new: true },
     ).catch(() => null);
+    /* giochi del giorno: classifica settimanale e serie combinata (solo la prima partita conta) */
+    const { recordDailyResult } = require("../../Minigames/services/dailyGamesService") as typeof import("../../Minigames/services/dailyGamesService");
+    void recordDailyResult(userId, "angle", day, { solved, attempts }).catch(() => false);
     if (!claimed) {
       const { stats } = await loadStats(client, userId);
       return res.json({ ok: true, saved: false, already: true, solved, answer, stats, reward: { auth: viewer.inGuild ? "member" : "outsider", exp: 0 } });

@@ -9,7 +9,7 @@ import { getLivePreview, loadLive, onLivePreview, postLive, type LivePlayer, typ
 import type { Mark } from "@/lib/wordle";
 import { cn } from "@/lib/cn";
 
-const GAME_LABEL: Record<string, string> = { quiz: "Music Quiz", numeri: "Number Quiz", angolo: "Angle", wordle: "Wordle", quad: "Quordle" };
+const GAME_LABEL: Record<string, string> = { quiz: "Music Quiz", numeri: "Number Quiz", angolo: "Angle", wordle: "Wordle", quad: "Quordle", canzone: "Canzone del giorno", copertina: "Copertina del giorno" };
 const MODE_LABEL: Record<string, string> = { daily: "Del giorno", practice: "Allenamento", duel: "Sfida un amico" };
 
 const dot = (m: Mark) => (m === "g" ? "bg-[#58a64b]" : m === "y" ? "bg-[#c9a227]" : "bg-crema/15");

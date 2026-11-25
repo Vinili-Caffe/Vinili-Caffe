@@ -96,6 +96,15 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
   app.post("/webhooks/site-number-quiz/result", (req?, res?) => numberQuiz.handleNumberQuizResultPost(client, req, res));
   app.post("/webhooks/site-number-quiz/best-sync", (req?, res?) => numberQuiz.handleNumberQuizBestSyncPost(client, req, res));
   app.get("/webhooks/site-number-quiz/me", (req?, res?) => numberQuiz.handleNumberQuizMeGet(client, req, res));
+  /* giochi del giorno: Canzone e Copertina, riepilogo (serie) e classifica della settimana */
+  const dailyMusic = require("../siteDailyMusicApi") as typeof import("../siteDailyMusicApi");
+  app.get("/webhooks/site-daily/me", (req?, res?) => dailyMusic.handleDailyMeGet(client, req, res));
+  app.get("/webhooks/site-daily/week", (req?, res?) => dailyMusic.handleDailyWeekGet(client, req, res));
+  app.get("/webhooks/site-daily/search", (req?, res?) => dailyMusic.handleDailySearchGet(client, req, res));
+  app.get("/webhooks/site-daily/cover/img", (req?, res?) => dailyMusic.handleDailyCoverImgGet(client, req, res));
+  app.get("/webhooks/site-daily/:kind/today", (req?, res?) => dailyMusic.handleDailyTodayGet(client, req, res));
+  app.get("/webhooks/site-daily/:kind/me", (req?, res?) => dailyMusic.handleDailyKindMeGet(client, req, res));
+  app.post("/webhooks/site-daily/:kind/guess", (req?, res?) => dailyMusic.handleDailyGuessPost(client, req, res));
   /* Attività: chi della chiamata sta giocando e a cosa (anteprima senza risposte) */
   const live = require("../siteActivityLiveApi") as typeof import("../siteActivityLiveApi");
   app.post("/webhooks/site-activity/live", (req?, res?) => live.handleActivityLivePost(client, req, res));

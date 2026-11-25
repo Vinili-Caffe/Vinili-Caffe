@@ -291,6 +291,23 @@ async function publishWeeklyActivityWinners(client?, options: Record<string, any
   if (mode === "weekly" && !suppressMinigameThisWeek && minigameRows.length) {
     embedDescLines.push("", `${E.VC_Events} • **Classifica minigames:**`, ...minigameRows);
   }
+  /* giochi del giorno del sito (Wordle, Quordle, Angle, Canzone e Copertina): la settimana da lunedì a oggi, senza ruolo */
+  let dailyTop: Array<{ userId: string; points: number }> = [];
+  if (mode === "weekly") {
+    try {
+      const dailyGames = require("../../Minigames/services/dailyGamesService") as typeof import("../../Minigames/services/dailyGamesService");
+      dailyTop = (await dailyGames.weekLeaderboard(dailyGames.weekStart(dailyGames.romeDay()))).slice(0, 3);
+    } catch (err: any) {
+      global.logger?.warn?.("[WEEKLY ACTIVITY] giochi del giorno:", err?.message || err);
+    }
+    if (dailyTop.length) {
+      embedDescLines.push(
+        "",
+        `${E.VC_Events} • **Classifica giochi del giorno** ([sito](https://www.viniliecaffe.it/quiz/)):`,
+        ...dailyTop.map((r, i) => formatRankLine(i, `<@${r.userId}>`, r.points, "pt")),
+      );
+    }
+  }
   const embed = new EmbedBuilder()
     .setColor("#6f4e37")
     .setDescription(embedDescLines.join("\n"))
@@ -325,12 +342,16 @@ async function publishWeeklyActivityWinners(client?, options: Record<string, any
     mode === "weekly" && MINIGAME_WINNER_ROLE_ID && !suppressMinigameThisWeek
       ? `\n${E.VC_Podio1} Con un totale di **${minigameWinnerTotal} pt**, ${minigameWinnerMention} ottieni il primo posto per **__minigames__** e il ruolo ${safeMinigameWinnerRoleMention}.`
       : "";
+  const dailyAnnounceLine = dailyTop[0]
+    ? `
+${E.VC_Podio1} Con un totale di **${dailyTop[0].points} pt**, <@${dailyTop[0].userId}> è primo nei **__giochi del giorno__** del sito.`
+    : "";
   const payload = {
     content: `<@&1442568949605597264>
 ${introLine}
 
 ${E.VC_Podio1} Con un totale di **${messageWinnerTotal} messaggi**, ${messageWinnerMention} ottieni il primo posto per **__chat testuale__** e il ruolo <@&1544830834849087630>.
-${E.VC_Podio1} Con un totale di **${formatVoiceHoursFromExp(voiceWinnerTotal)}** in vocale, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__** e il ruolo <@&1544830836686200992>.${minigameAnnounceLine}
+${E.VC_Podio1} Con un totale di **${formatVoiceHoursFromExp(voiceWinnerTotal)}** in vocale, ${voiceWinnerMention} ottieni il primo posto per **__chat vocale__** e il ruolo <@&1544830836686200992>.${minigameAnnounceLine}${dailyAnnounceLine}
 _ _`,
     embeds: [embed],
     components: [button],

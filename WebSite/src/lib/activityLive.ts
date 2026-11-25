@@ -6,7 +6,7 @@
 import { isDiscordActivity } from "@/lib/discordActivity";
 import type { Mark } from "@/lib/wordle";
 
-export type LiveGame = "quiz" | "numeri" | "angolo" | "wordle" | "quad";
+export type LiveGame = "quiz" | "numeri" | "angolo" | "wordle" | "quad" | "canzone" | "copertina";
 export type LivePreview = {
   game: LiveGame;
   mode?: "daily" | "practice" | "duel" | "stream" | "party" | "solo";

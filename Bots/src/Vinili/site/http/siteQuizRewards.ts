@@ -17,6 +17,9 @@ const GAMES = {
   number: { min: 3, max: 20, label: "Number Quiz" },
   /* l'angolo del giorno: da 10 a 40 EXP, una volta al giorno */
   angle: { min: 10, max: 40, label: "Angle" },
+  /* canzone e copertina del giorno: da 10 a 40 EXP, una volta al giorno */
+  song: { min: 10, max: 40, label: "Canzone del giorno" },
+  cover: { min: 10, max: 40, label: "Copertina del giorno" },
 } as const;
 
 type QuizReward = { auth: "guest" | "outsider" | "member"; exp: number; capped?: boolean; todayExp?: number; cap?: number };

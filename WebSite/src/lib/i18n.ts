@@ -515,7 +515,7 @@ export const DICTS: Record<CuratedLocale, Dict> = {
     "wordle.remindNotifTitle": "Wordle del giorno",
     "wordle.remindNotifBody": "È mezzanotte: c'è una nuova parola da indovinare. Vinci e guadagni EXP.",
     "notif.pref.wordle": "Giochi del giorno",
-    "notif.pref.wordleHint": "Promemoria a mezzanotte: Wordle, Quordle e Angle",
+    "notif.pref.wordleHint": "Promemoria a mezzanotte: Wordle, Quordle, Angle, Canzone e Copertina del giorno",
     "notif.kind.wordle_reminder": "Giochi del giorno",
     "notif.dm.wordle": "Promemoria dei giochi del giorno",
     "why.kicker": "Perché Vinili & Caffè",

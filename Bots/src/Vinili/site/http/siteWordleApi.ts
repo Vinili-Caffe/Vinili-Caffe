@@ -28,6 +28,8 @@ const {
   autoEnableFromRequest,
 } = require("../../Minigames/services/wordleDailyReminderService") as typeof import("../../Minigames/services/wordleDailyReminderService");
 
+const { recordDailyResult } = require("../../Minigames/services/dailyGamesService") as typeof import("../../Minigames/services/dailyGamesService");
+
 function parseLang(raw?) {
   return wordle.parseLang(raw) || "it";
 }
@@ -217,6 +219,8 @@ async function handleSiteWordleGuessPost(client?, req?, res?) {
       const board = publicBoard(history, answer, marksRows);
       const won = history.some((g?) => g === answer);
       const lost = !won && history.length >= wordle.MAX_ATTEMPTS;
+      /* giochi del giorno: classifica settimanale e serie combinata */
+      if (auth) void recordDailyResult(auth.userId, "wordle", day, { solved: won, attempts: winningAttempts(history, answer) || history.length }).catch(() => false);
       if (auth) {
         const kept = await saveDailyGame(
           auth.guild?.id,
@@ -281,6 +285,7 @@ async function handleSiteWordleGuessPost(client?, req?, res?) {
     const won = check.word === answer;
     const lost = !won && nextHistory.length >= wordle.MAX_ATTEMPTS;
     const done = won || lost;
+    if (auth && done) void recordDailyResult(auth.userId, "wordle", day, { solved: won, attempts: nextHistory.length }).catch(() => false);
 
     if (auth) {
       const kept = await saveDailyGame(

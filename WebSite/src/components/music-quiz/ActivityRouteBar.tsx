@@ -19,7 +19,11 @@ export function ActivityRouteBar() {
     ? "quiz"
     : path.startsWith("/quiz/numeri")
       ? "numeri"
-      : path.startsWith("/quiz/angle")
+      : path.startsWith("/quiz/canzone")
+        ? "canzone"
+        : path.startsWith("/quiz/copertina")
+          ? "copertina"
+          : path.startsWith("/quiz/angle")
         ? "angolo"
         : path.startsWith("/wordle/quattro")
           ? "quad"

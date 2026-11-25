@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "motion/react";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { ArrowUpDown, Compass, Grid2x2, Music2, SpellCheck, Swords, X } from "lucide-react";
+import { ArrowUpDown, Compass, Disc3, Grid2x2, Image as ImageIcon, Music2, SpellCheck, Swords, X } from "lucide-react";
 import { NumberQuizNav } from "@/components/number-quiz/NumberQuizNav";
 import { MusicQuizGate } from "@/components/music-quiz/MusicQuizGate";
 import { activityCustomId, activityInstanceId, isDiscordActivity } from "@/lib/discordActivity";
@@ -16,9 +16,10 @@ const MusicQuizHub = dynamic(() => import("@/components/music-quiz/MusicQuizHub"
 const WordleModes = dynamic(() => import("@/components/duel/WordleModes").then((m) => m.WordleModes), { loading: () => null });
 const NumberQuizHub = dynamic(() => import("@/components/number-quiz/NumberQuizHub").then((m) => m.NumberQuizHub), { loading: () => null });
 const NumberQuizPlay = dynamic(() => import("@/components/number-quiz/NumberQuizPlay").then((m) => m.NumberQuizPlay), { loading: () => null });
+const DailyMusicGame = dynamic(() => import("@/components/daily/DailyMusicGame").then((m) => m.DailyMusicGame), { loading: () => null });
 const AngleGame = dynamic(() => import("@/components/angle/AngleGame").then((m) => m.AngleGame), { loading: () => null });
 
-export type ActivityGame = "quiz" | "numeri" | "angolo" | "wordle" | "quad";
+export type ActivityGame = "quiz" | "numeri" | "angolo" | "wordle" | "quad" | "canzone" | "copertina";
 type Game = ActivityGame;
 /** gioco scelto dalla barra mentre si era su un'altra pagina (es. /music-quiz/): la home lo apre */
 export const ACTIVITY_GAME_KEY = "vc_activity_game";
@@ -29,6 +30,8 @@ const GAMES: { id: Game; label: string; icon: React.ReactNode }[] = [
   { id: "angolo", label: "Angle", icon: <Compass className="size-4" /> },
   { id: "wordle", label: "Wordle", icon: <SpellCheck className="size-4" /> },
   { id: "quad", label: "Quordle", icon: <Grid2x2 className="size-4" /> },
+  { id: "canzone", label: "Canzone", icon: <Disc3 className="size-4" /> },
+  { id: "copertina", label: "Copertina", icon: <ImageIcon className="size-4" /> },
 ];
 
 /** la barra dei giochi in alto nell'Attività (anche sulle pagine del Music Quiz) */
@@ -67,7 +70,7 @@ export function ActivityGameBar({ game, onPick }: { game: Game | null; onPick: (
 export function ActivityMusicQuizHome({ children }: { children: React.ReactNode }) {
   const [activity, setActivity] = useState(false);
   const [game, setGame] = useState<Game>("quiz");
-  const [opened, setOpened] = useState<Record<Game, boolean>>({ quiz: true, numeri: false, angolo: false, wordle: false, quad: false });
+  const [opened, setOpened] = useState<Record<Game, boolean>>({ quiz: true, numeri: false, angolo: false, wordle: false, quad: false, canzone: false, copertina: false });
   /* Number Quiz: categoria aperta (null = elenco), senza cambiare pagina */
   const [numCat, setNumCat] = useState<string | null>(null);
   /* sfida aperta (link condiviso su Discord o avviso dalla chiamata): una per gioco */
@@ -208,6 +211,11 @@ export function ActivityMusicQuizHome({ children }: { children: React.ReactNode 
       {game === "wordle" ? (
         <div className="mx-auto max-w-3xl pt-2">
           <WordleModes key={duelIds.wordle || "wordle"} game="wordle" duelId={duelIds.wordle} />
+        </div>
+      ) : null}
+      {game === "canzone" || game === "copertina" ? (
+        <div className="pt-2">
+          <DailyMusicGame key={game} kind={game === "canzone" ? "song" : "cover"} />
         </div>
       ) : null}
       {game === "quad" ? (

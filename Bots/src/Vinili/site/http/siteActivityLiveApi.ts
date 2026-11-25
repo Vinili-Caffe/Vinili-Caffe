@@ -24,7 +24,7 @@ type Entry = { userId: string; name: string; avatar: string; preview: Preview; a
 
 const rooms = new Map<string, Map<string, Entry>>();
 const FRESH_MS = 20_000;
-const GAMES = new Set(["quiz", "numeri", "angolo", "wordle", "quad"]);
+const GAMES = new Set(["quiz", "numeri", "angolo", "wordle", "quad", "canzone", "copertina"]);
 const MODES = new Set(["daily", "practice", "duel", "stream", "party", "solo"]);
 
 const int = (v: unknown, max: number) => Math.max(0, Math.min(max, Math.floor(Number(v) || 0)));

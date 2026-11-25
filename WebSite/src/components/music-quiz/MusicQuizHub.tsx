@@ -77,7 +77,7 @@ export function MusicQuizHub() {
 
       {/* in evidenza */}
       <section>
-        <SectionHead title="In evidenza" note="I nomi più ascoltati in Italia in questo momento" />
+        <SectionHead title="In evidenza" note="I nomi più ascoltati in questo momento, in Italia e nel mondo" />
         {loading ? (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {Array.from({ length: 5 }, (_, i) => (

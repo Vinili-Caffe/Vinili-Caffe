@@ -18,6 +18,8 @@ const wordle = require("./wordleService") as typeof import("./wordleService");
 
 const DEFAULT_TZ = "Europe/Rome";
 const PLAY_URL = "https://www.viniliecaffe.it/wordle/";
+/* tutti i giochi del giorno in una pagina, con la serie e la classifica della settimana */
+const DAILY_URL = "https://www.viniliecaffe.it/quiz/";
 const QUAD_URL = "https://www.viniliecaffe.it/wordle/quattro/";
 
 let cronMain: any = null;
@@ -86,9 +88,9 @@ function buildSiteOpts(guildId?, userId?, day?) {
     guildId: String(guildId || ""),
     userId: String(userId || ""),
     title: "Giochi del giorno",
-    body: "È mezzanotte: nuova parola del Wordle, nuovo Quordle e un nuovo angolo da indovinare.",
+    body: "È mezzanotte: nuovi Wordle, Quordle e Angle, e la canzone e la copertina del giorno. Falli tutti per allungare la serie.",
     kind: "wordle_reminder",
-    openUrl: PLAY_URL,
+    openUrl: DAILY_URL,
     dedupeKey: `wordle_reminder_${day}`,
     dedupeWindowMs: 20 * 60 * 60 * 1000,
   };
@@ -97,12 +99,12 @@ function buildSiteOpts(guildId?, userId?, day?) {
 function buildDmPayload() {
   const embed = new EmbedBuilder()
     .setColor(0xd99a5b)
-    .setTitle("Wordle del giorno")
-    .setDescription("Nuova parola (e anche le quattro, se ti va). Vinci e guadagni EXP sul livello.")
-    .setURL(PLAY_URL);
+    .setTitle("Giochi del giorno")
+    .setDescription("Nuovi Wordle, Quordle e Angle, e la canzone e la copertina del giorno. Falli tutti per allungare la serie e salire nella classifica della settimana.")
+    .setURL(DAILY_URL);
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Gioca").setURL(PLAY_URL),
-    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Quattro parole").setURL(QUAD_URL),
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Gioca").setURL(DAILY_URL),
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel("Wordle").setURL(PLAY_URL),
   );
   return { embeds: [embed], components: [row] };
 }
@@ -251,7 +253,7 @@ async function getWordleRemindEnabled(guildId?, userId?) {
 }
 
 /**
- * remindAuto1: la prima volta che si gioca (Wordle, Quordle o Angolo) il promemoria si accende da solo.
+ * remindAuto1: la prima volta che si gioca (Wordle, Quordle, Angle, Canzone o Copertina) il promemoria si accende da solo.
  * Solo se non è mai stato toccato: chi lo aveva spento resta spento. Si spegne da /notifications/.
  */
 async function autoEnableDailyReminder(guildId?, userId?) {

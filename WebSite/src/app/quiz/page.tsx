@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
-import { ArrowUpDown, Brain, Compass, Grid2x2, Music2, SpellCheck } from "lucide-react";
+import dynamic from "next/dynamic";
+import { ArrowUpDown, Brain, Compass, Disc3, Grid2x2, Image as ImageIcon, Music2, SpellCheck } from "lucide-react";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { QuizHubCards } from "@/components/number-quiz/QuizHubCards";
 import { pageSocialMeta } from "@/lib/og";
+
+/* giochi del giorno: fatto o da fare, serie combinata e classifica della settimana */
+const DailyGamesPanel = dynamic(() => import("@/components/daily/DailyGamesPanel").then((m) => m.DailyGamesPanel));
 
 const DESCRIPTION = "Tutti i quiz di Vinili & Caffè: indovina la canzone, sfida i numeri, trova la parola del giorno.";
 
@@ -24,6 +28,7 @@ export default function QuizPage() {
         accent="quiz"
         text="Si gioca subito, anche senza accesso. Accedi con Discord per salvare i punteggi; se sei nel server prendi anche EXP."
       />
+      <DailyGamesPanel />
       <QuizHubCards
         cards={[
           {
@@ -39,6 +44,20 @@ export default function QuizPage() {
             text: "Più o meno? Due voci a confronto: indovina quale numero è più alto.",
             note: "Oltre 100 categorie",
             icon: <ArrowUpDown className="size-7" />,
+          },
+          {
+            href: "/quiz/canzone/",
+            title: "Canzone del giorno",
+            text: "La senti per un secondo, poi sempre di più: hai sei tentativi per dire che brano è.",
+            note: "Una nuova ogni giorno",
+            icon: <Disc3 className="size-7" />,
+          },
+          {
+            href: "/quiz/copertina/",
+            title: "Copertina del giorno",
+            text: "Una copertina a quadretti che si vede meglio a ogni errore: di che album è?",
+            note: "Una nuova ogni giorno",
+            icon: <ImageIcon className="size-7" />,
           },
           {
             href: "/quiz/angle/",

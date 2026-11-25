@@ -684,6 +684,21 @@ const activityUserProfileSchema = new Schema(
         type: Schema.Types.Mixed,
         default: () => ({}),
       },
+      /** Giochi del giorno: { "YYYY-MM-DD": { wordle|quad|angle|song|cover: { p, s, a } } } (classifica settimanale e serie combinata) */
+      dailyGames: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
+      /** Canzone del giorno: { "YYYY-MM-DD": { guesses, solved, done } } */
+      songDays: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
+      /** Copertina del giorno: { "YYYY-MM-DD": { guesses, solved, done } } */
+      coverDays: {
+        type: Schema.Types.Mixed,
+        default: () => ({}),
+      },
       /** EXP dei quiz al giorno (tetto comune) { "YYYY-MM-DD": { exp, games } } */
       siteQuizExp: {
         type: Schema.Types.Mixed,

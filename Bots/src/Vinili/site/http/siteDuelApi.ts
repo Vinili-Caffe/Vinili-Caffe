@@ -3,7 +3,7 @@
  * Sfida: due giocatori, stessa parola (o angolo), vince chi indovina per primo. Ognuno vede nome e foto dell'altro
  * (chi non ha fatto l'accesso compare come «Ospite»).
  * Allenamento: una partita da soli con una parola (o un angolo) a caso. Niente EXP, niente statistiche.
- * Le stanze stanno in memoria per qualche ora: dopo non servono più.
+ * Le stanze sono salvate nel database per 3 giorni (sopravvivono ai riavvii del server); in memoria c'è una copia veloce.
  */
 "use strict";
 
@@ -31,7 +31,37 @@ type Room = {
 };
 
 const rooms = new Map<string, Room>();
-const TTL = 6 * 3600_000;
+const TTL = 3 * 86_400_000;
+
+/* ───── salvataggio: una stanza per documento, che Mongo cancella da solo dopo 3 giorni ───── */
+const mongoose = require("mongoose") as typeof import("mongoose");
+const duelSchema = new mongoose.Schema(
+  {
+    _id: { type: String },
+    room: { type: mongoose.Schema.Types.Mixed, default: null },
+    expiresAt: { type: Date, required: true },
+  },
+  { versionKey: false, minimize: false },
+);
+duelSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+const DuelRoom: any = mongoose.models.SiteDuelRoom || mongoose.model("SiteDuelRoom", duelSchema, "siteduelrooms");
+
+async function saveRoom(r: Room) {
+  rooms.set(r.id, r);
+  await DuelRoom.updateOne({ _id: r.id }, { $set: { room: r, expiresAt: new Date(r.createdAt + TTL) } }, { upsert: true }).catch((err: any) =>
+    global.logger?.warn?.("[sfide] salvataggio:", err?.message || err),
+  );
+}
+
+async function loadRoom(id: string): Promise<Room | null> {
+  if (!id) return null;
+  const hit = rooms.get(id);
+  if (hit) return hit;
+  const doc: any = await DuelRoom.findById(id).lean().catch(() => null);
+  if (!doc?.room || Date.now() - Number(doc.room.createdAt || 0) > TTL) return null;
+  rooms.set(id, doc.room as Room);
+  return doc.room as Room;
+}
 const MAX_ROOMS = 20_000;
 const ANGLE_ATTEMPTS = 4;
 
@@ -155,7 +185,7 @@ async function handleDuelCreate(client?, req?, res?) {
       players: [{ token: rid(16), guesses: [], solved: false, done: false, at: 0, ...(await whoIs(client, req)) }],
       winner: null,
     };
-    rooms.set(room.id, room);
+    await saveRoom(room);
     return res.json({ ...view(room, 0), token: room.players[0].token });
   } catch (err: any) {
     global.logger?.warn?.("[sfide] crea:", err?.message || err);
@@ -165,7 +195,7 @@ async function handleDuelCreate(client?, req?, res?) {
 
 /** Entrare con il link. Body: { token? } — chi c'è già rientra; il secondo prende il posto libero */
 async function handleDuelJoin(client?, req?, res?) {
-  const r = rooms.get(String(req.params?.id || ""));
+  const r = await loadRoom(String(req.params?.id || ""));
   if (!r) return res.status(404).json({ ok: false, error: "not_found" });
   const mine = findMe(r, String(req.body?.token || ""));
   if (mine >= 0) return res.json({ ...view(r, mine), token: r.players[mine].token });
@@ -175,11 +205,12 @@ async function handleDuelJoin(client?, req?, res?) {
   if (who.userId && who.userId === r.players[0]?.userId) return res.status(409).json({ ok: false, error: "self" });
   r.players.push({ token: rid(16), guesses: [], solved: false, done: false, at: 0, ...who });
   r.startedAt = Date.now();
+  await saveRoom(r);
   return res.json({ ...view(r, 1), token: r.players[1].token });
 }
 
 async function handleDuelGet(client?, req?, res?) {
-  const r = rooms.get(String(req.params?.id || ""));
+  const r = await loadRoom(String(req.params?.id || ""));
   if (!r) return res.status(404).json({ ok: false, error: "not_found" });
   const me = findMe(r, String(req.query?.t || ""));
   if (me < 0) return res.status(403).json({ ok: false, error: "not_player" });
@@ -189,7 +220,7 @@ async function handleDuelGet(client?, req?, res?) {
 /** Body: { token, guess } */
 async function handleDuelGuess(client?, req?, res?) {
   try {
-    const r = rooms.get(String(req.params?.id || ""));
+    const r = await loadRoom(String(req.params?.id || ""));
     if (!r) return res.status(404).json({ ok: false, error: "not_found" });
     const me = findMe(r, String(req.body?.token || ""));
     if (me < 0) return res.status(403).json({ ok: false, error: "not_player" });
@@ -222,6 +253,7 @@ async function handleDuelGuess(client?, req?, res?) {
     p.done = p.solved || p.guesses.length >= maxAttempts(r);
     if (p.solved) p.at = Date.now();
     settle(r);
+    await saveRoom(r);
     return res.json(view(r, me));
   } catch (err: any) {
     global.logger?.warn?.("[sfide] tentativo:", err?.message || err);
@@ -237,7 +269,7 @@ const CALL_TTL = 30 * 60_000;
 /** Body: { instanceId, duel } */
 async function handleDuelCallPost(client?, req?, res?) {
   const instanceId = String(req.body?.instanceId || "").slice(0, 80);
-  const r = rooms.get(String(req.body?.duel || ""));
+  const r = await loadRoom(String(req.body?.duel || ""));
   if (!/^[\w-]{4,80}$/.test(instanceId) || !r || r.mode !== "duel") return res.status(400).json({ ok: false, error: "bad_request" });
   const now = Date.now();
   const list = (calls.get(instanceId) || []).filter((c) => now - c.at < CALL_TTL);

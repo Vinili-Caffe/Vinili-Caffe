@@ -23,6 +23,8 @@ const {
 const { resolveOptionalAuth } = require("./siteWordleDailyApi") as typeof import("./siteWordleDailyApi");
 const { getWordleRemindEnabled, autoEnableFromRequest } = require("../../Minigames/services/wordleDailyReminderService") as typeof import("../../Minigames/services/wordleDailyReminderService");
 
+const { recordDailyResult } = require("../../Minigames/services/dailyGamesService") as typeof import("../../Minigames/services/dailyGamesService");
+
 function parseLang(raw?) {
   return wordle.parseLang(raw) || "it";
 }
@@ -243,6 +245,8 @@ async function handleSiteWordleQuadGuessPost(client?, req?, res?) {
       const boards = buildBoardsFromHistory(answers, history);
       const won = boards.every((b?) => b.won);
       const lost = !won;
+      /* giochi del giorno: se non le prendi tutte, 1 punto più 1 per ogni parola presa */
+      if (auth) void recordDailyResult(auth.userId, "quad", day, { solved: won, attempts: history.length, ...(won ? {} : { points: 1 + boards.filter((b?) => b.won).length }) }).catch(() => false);
       /* reveal remaining answers on lose */
       for (let i = 0; i < boards.length; i++) {
         if (!boards[i].won) {
@@ -312,6 +316,7 @@ async function handleSiteWordleQuadGuessPost(client?, req?, res?) {
     const won = boards.every((b?) => b.won);
     const lost = !won && nextHistory.length >= wordle.QUAD_MAX_ATTEMPTS;
     const done = won || lost;
+    if (auth && done) void recordDailyResult(auth.userId, "quad", day, { solved: won, attempts: nextHistory.length, ...(won ? {} : { points: 1 + boards.filter((b?) => b.won).length }) }).catch(() => false);
     if (done) {
       for (let i = 0; i < boards.length; i++) {
         if (!boards[i].won) {
