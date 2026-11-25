@@ -8,6 +8,7 @@ import { NumberQuizNav } from "@/components/number-quiz/NumberQuizNav";
 import { MusicQuizGate } from "@/components/music-quiz/MusicQuizGate";
 import { activityCustomId, activityInstanceId, isDiscordActivity } from "@/lib/discordActivity";
 import { setLiveGame } from "@/lib/activityLive";
+import { useAuth } from "@/lib/auth";
 import { DUEL_LABEL, duelToken, loadCallDuels, sentCallIds, type CallDuel, type DuelGame } from "@/lib/duel";
 import { cn } from "@/lib/cn";
 
@@ -101,7 +102,9 @@ export function ActivityMusicQuizHome({ children }: { children: React.ReactNode 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* sfide mandate da chi è nella stessa chiamata: avviso in basso, senza dire chi è */
+  /* sfide mandate da chi è nella stessa chiamata: avviso in basso, con chi ti sfida */
+  const { user } = useAuth();
+  const myId = user?.id || "";
   const [incoming, setIncoming] = useState<CallDuel | null>(null);
   const seen = useRef<Set<string> | null>(null);
   useEffect(() => {
@@ -117,7 +120,7 @@ export function ActivityMusicQuizHome({ children }: { children: React.ReactNode 
         seen.current = new Set(list.filter((c) => Date.now() - c.at > 3 * 60_000).map((c) => c.id));
       }
       /* non le proprie (create qui o su questo dispositivo) */
-      const fresh = list.filter((c) => !seen.current!.has(c.id) && !sentCallIds.has(c.id) && !duelToken(c.duel));
+      const fresh = list.filter((c) => !seen.current!.has(c.id) && !sentCallIds.has(c.id) && !duelToken(c.duel) && (!myId || c.fromId !== myId));
       const last = fresh[fresh.length - 1];
       if (last) {
         for (const c of fresh) seen.current.add(c.id);
@@ -130,7 +133,7 @@ export function ActivityMusicQuizHome({ children }: { children: React.ReactNode 
       alive = false;
       window.clearInterval(t);
     };
-  }, [activity]);
+  }, [activity, myId]);
 
   function playIncoming() {
     if (!incoming) return;
@@ -162,9 +165,14 @@ export function ActivityMusicQuizHome({ children }: { children: React.ReactNode 
             exit={{ opacity: 0, y: 24 }}
             className="fixed inset-x-4 bottom-4 z-[80] mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-roast/95 p-3 pl-4 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] ring-1 ring-caramel/35 backdrop-blur-xl"
           >
-            <Swords className="size-5 shrink-0 text-caramel" />
+            {incoming.fromAvatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={incoming.fromAvatar} alt="" className="size-8 shrink-0 rounded-full object-cover" />
+            ) : (
+              <Swords className="size-5 shrink-0 text-caramel" />
+            )}
             <p className="min-w-0 flex-1 text-sm text-crema">
-              Ti hanno sfidato a <b>{DUEL_LABEL[incoming.game]}</b>: vince chi indovina per primo
+              <b>{incoming.fromName || "Qualcuno"}</b> ti sfida a <b>{DUEL_LABEL[incoming.game]}</b>: vince chi indovina per primo
             </p>
             <button type="button" onClick={playIncoming} className="h-9 shrink-0 rounded-xl bg-caramel px-4 text-xs font-bold uppercase tracking-wide text-ink">
               Gioca

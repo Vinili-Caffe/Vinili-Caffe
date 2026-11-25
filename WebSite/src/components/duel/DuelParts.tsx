@@ -81,7 +81,7 @@ export function useDuel(game: DuelGame, mode: "duel" | "practice", lang: string,
       setReady(true);
       if (r.ok) remember(r);
       else if (joinId) {
-        setError(r.error === "full" ? "Questa sfida è già cominciata tra altri due giocatori." : r.error === "not_found" ? "Questa sfida non c'è più." : "Non riesco a entrare nella sfida.");
+        setError(r.error === "full" ? "Questa sfida è già cominciata tra altri due giocatori." : r.error === "not_found" ? "Questa sfida non c'è più." : r.error === "self" ? "Non puoi accettare una sfida creata da te: mandala a qualcun altro." : "Non riesco a entrare nella sfida.");
       } else forget();
     });
     return () => {
@@ -129,7 +129,7 @@ export function DuelIntro({ game, busy, onStart }: { game: DuelGame; busy: boole
       <p className="mt-3 font-display text-2xl text-crema">Sfida un amico</p>
       <p className="mt-2 text-sm text-crema/65">
         {game === "angle" ? "Lo stesso angolo per tutti e due" : game === "quad" ? "Le stesse quattro parole per tutti e due" : "La stessa parola per tutti e due"}: vince chi
-        indovina per primo. Nessuno dei due vede chi è l&apos;altro, e non si prende EXP.
+        indovina per primo. Quando qualcuno accetta vedi chi è, e non si prende EXP.
       </p>
       <button
         type="button"
@@ -202,16 +202,25 @@ export function DuelWaiting({ state }: { state: DuelState }) {
   );
 }
 
-/** Come sta andando l'avversario (senza sapere chi è) */
+/** Chi è l'avversario e come sta andando */
 export function OpponentBar({ state }: { state: DuelState }) {
   const o = state.opponent;
   if (!o || state.status === "waiting") return null;
   return (
-    <div className="mx-auto mb-4 flex max-w-md items-center justify-center gap-2 rounded-full bg-crema/[0.06] px-4 py-2 text-sm text-crema/75 ring-1 ring-sand/12">
-      <Users className="size-4 text-caramel" />
-      Avversario:{" "}
-      <b className="text-crema">
-        {o.solved ? "ha indovinato" : o.done ? "tentativi finiti" : `${o.attempts} di ${state.maxAttempts} tentativi`}
+    <div className="mx-auto mb-4 flex max-w-md items-center gap-3 rounded-full bg-crema/[0.06] py-1.5 pl-1.5 pr-4 text-sm text-crema/75 ring-1 ring-sand/12">
+      {o.avatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={o.avatar} alt="" className="size-8 shrink-0 rounded-full object-cover" />
+      ) : (
+        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-crema/10">
+          <Users className="size-4 text-caramel" />
+        </span>
+      )}
+      <span className="min-w-0 flex-1 truncate">
+        Contro <b className="text-crema">{o.name || "Ospite"}</b>
+      </span>
+      <b className={cn("shrink-0 text-xs", o.solved ? "text-emerald-400" : "text-crema")}>
+        {o.solved ? "ha indovinato" : o.done ? "tentativi finiti" : `${o.attempts} di ${state.maxAttempts}`}
       </b>
     </div>
   );
@@ -228,7 +237,7 @@ export function DuelResult({ state, onAgain }: { state: DuelState; onAgain: () =
     : state.result === "win"
       ? "Hai vinto!"
       : state.result === "lose"
-        ? "Ha vinto l'avversario"
+        ? "Hai perso"
         : "Pari";
   const win = state.result === "win";
   const subtitle = practice
@@ -236,10 +245,10 @@ export function DuelResult({ state, onAgain }: { state: DuelState; onAgain: () =
       ? `In ${state.me.attempts} su ${state.maxAttempts}`
       : "Tentativi finiti"
     : win
-      ? "Hai indovinato per primo"
+      ? `Hai indovinato prima di ${state.opponent?.name || "Ospite"}`
       : state.result === "lose"
-        ? "L'avversario ha indovinato prima di te"
-        : "Nessuno dei due ha indovinato";
+        ? `${state.opponent?.name || "Ospite"} ha indovinato prima di te`
+        : `Né tu né ${state.opponent?.name || "Ospite"} avete indovinato`;
   const Icon = win ? Trophy : state.result === "lose" ? Frown : Handshake;
   return (
     /* una scheda a sé, sotto il gioco: titolo, cosa è successo, la soluzione e il tasto */

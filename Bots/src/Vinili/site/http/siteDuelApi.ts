@@ -1,6 +1,7 @@
 /**
  * Allenamento e sfide a un amico per Wordle, Quordle e Angle.
- * Sfida: due giocatori anonimi, stessa parola (o angolo), vince chi indovina per primo.
+ * Sfida: due giocatori, stessa parola (o angolo), vince chi indovina per primo. Ognuno vede nome e foto dell'altro
+ * (chi non ha fatto l'accesso compare come «Ospite»).
  * Allenamento: una partita da soli con una parola (o un angolo) a caso. Niente EXP, niente statistiche.
  * Le stanze stanno in memoria per qualche ora: dopo non servono più.
  */
@@ -11,7 +12,7 @@ const crypto = require("node:crypto") as typeof import("node:crypto");
 const wordle = require("../../Minigames/services/wordleService") as typeof import("../../Minigames/services/wordleService");
 
 type Game = "wordle" | "quad" | "angle";
-type Player = { token: string; guesses: string[]; solved: boolean; done: boolean; at: number };
+type Player = { token: string; guesses: string[]; solved: boolean; done: boolean; at: number; name: string; avatar: string; userId: string };
 type Room = {
   id: string;
   game: Game;
@@ -93,7 +94,19 @@ function boardsFor(r: Room, guesses: string[]) {
   });
 }
 
-/** quello che vede un giocatore: mai chi è l'altro, solo come sta andando */
+/** chi gioca: nome e foto dall'accesso, altrimenti «Ospite» */
+async function whoIs(client: any, req: any) {
+  try {
+    const { musicQuizViewer } = require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
+    const v = await musicQuizViewer(client, req);
+    if (v.guest || !v.userId) return { name: "Ospite", avatar: "", userId: "" };
+    return { name: String(v.displayName || "Giocatore").slice(0, 40), avatar: String(v.avatarUrl || ""), userId: String(v.userId) };
+  } catch {
+    return { name: "Ospite", avatar: "", userId: "" };
+  }
+}
+
+/** quello che vede un giocatore: come sta andando l'altro, con nome e foto */
 function view(r: Room, me: number) {
   const p = r.players[me];
   const opp = r.mode === "duel" ? r.players.find((_, i) => i !== me) || null : null;
@@ -111,7 +124,7 @@ function view(r: Room, me: number) {
       ? { angle: r.angle, rotation: r.rotation, guesses: p.guesses.map(Number) }
       : { boards: boardsFor(r, p.guesses) }),
     me: { attempts: p.guesses.length, solved: p.solved, done: p.done },
-    opponent: opp ? { attempts: opp.guesses.length, solved: opp.solved, done: opp.done } : null,
+    opponent: opp ? { attempts: opp.guesses.length, solved: opp.solved, done: opp.done, name: opp.name, avatar: opp.avatar } : null,
     result: !finished ? null : r.winner === -1 ? "draw" : r.winner === me ? "win" : "lose",
     answers: (finished || p.done) && r.game !== "angle" ? r.answers.map((a) => a.toUpperCase()) : undefined,
   };
@@ -139,7 +152,7 @@ async function handleDuelCreate(client?, req?, res?) {
       answers: game === "angle" ? [] : pickWords(lang, game === "quad" ? wordle.QUAD_BOARDS : 1),
       angle: 10 + crypto.randomInt(161),
       rotation: crypto.randomInt(360),
-      players: [{ token: rid(16), guesses: [], solved: false, done: false, at: 0 }],
+      players: [{ token: rid(16), guesses: [], solved: false, done: false, at: 0, ...(await whoIs(client, req)) }],
       winner: null,
     };
     rooms.set(room.id, room);
@@ -157,7 +170,10 @@ async function handleDuelJoin(client?, req?, res?) {
   const mine = findMe(r, String(req.body?.token || ""));
   if (mine >= 0) return res.json({ ...view(r, mine), token: r.players[mine].token });
   if (r.mode !== "duel" || r.players.length >= 2) return res.status(409).json({ ok: false, error: "full" });
-  r.players.push({ token: rid(16), guesses: [], solved: false, done: false, at: 0 });
+  const who = await whoIs(client, req);
+  /* non contro sé stessi (stesso account su un altro dispositivo) */
+  if (who.userId && who.userId === r.players[0]?.userId) return res.status(409).json({ ok: false, error: "self" });
+  r.players.push({ token: rid(16), guesses: [], solved: false, done: false, at: 0, ...who });
   r.startedAt = Date.now();
   return res.json({ ...view(r, 1), token: r.players[1].token });
 }
@@ -213,8 +229,8 @@ async function handleDuelGuess(client?, req?, res?) {
   }
 }
 
-/* ───── nella stessa chiamata (Attività Discord): la sfida arriva a chi è già dentro, senza nomi ───── */
-type CallItem = { id: string; game: Game; duel: string; at: number };
+/* ───── nella stessa chiamata (Attività Discord): la sfida arriva a chi è già dentro ───── */
+type CallItem = { id: string; game: Game; duel: string; at: number; fromName: string; fromAvatar: string; fromId: string };
 const calls = new Map<string, CallItem[]>();
 const CALL_TTL = 30 * 60_000;
 
@@ -225,7 +241,8 @@ async function handleDuelCallPost(client?, req?, res?) {
   if (!/^[\w-]{4,80}$/.test(instanceId) || !r || r.mode !== "duel") return res.status(400).json({ ok: false, error: "bad_request" });
   const now = Date.now();
   const list = (calls.get(instanceId) || []).filter((c) => now - c.at < CALL_TTL);
-  const item: CallItem = { id: rid(6), game: r.game, duel: r.id, at: now };
+  const host = r.players[0];
+  const item: CallItem = { id: rid(6), game: r.game, duel: r.id, at: now, fromName: host?.name || "Ospite", fromAvatar: host?.avatar || "", fromId: host?.userId || "" };
   calls.set(instanceId, [...list, item].slice(-20));
   return res.json({ ok: true, id: item.id });
 }

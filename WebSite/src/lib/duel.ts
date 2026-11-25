@@ -1,6 +1,6 @@
 /**
  * Allenamento e sfide a un amico (Wordle, Quordle, Angle).
- * Sfida: anonima per entrambi, stessa parola o angolo, vince chi indovina per primo. Niente EXP.
+ * Sfida: stessa parola o angolo, vince chi indovina per primo; ognuno vede chi è l'altro. Niente EXP.
  */
 import type { Mark } from "@/lib/wordle";
 
@@ -19,7 +19,7 @@ export type DuelState = {
   rotation?: number;
   guesses?: number[];
   me: { attempts: number; solved: boolean; done: boolean };
-  opponent: { attempts: number; solved: boolean; done: boolean } | null;
+  opponent: { attempts: number; solved: boolean; done: boolean; name: string; avatar: string } | null;
   result: "win" | "lose" | "draw" | null;
   answers?: string[];
   token?: string;
@@ -86,8 +86,8 @@ export function duelPath(game: DuelGame, id: string) {
 
 export const DUEL_LABEL: Record<DuelGame, string> = { wordle: "Wordle", quad: "Quordle", angle: "Angle" };
 
-/* ───── Attività Discord: la sfida arriva a chi è già nella stessa chiamata (senza nomi) ───── */
-export type CallDuel = { id: string; game: DuelGame; duel: string; at: number };
+/* ───── Attività Discord: la sfida arriva a chi è già nella stessa chiamata ───── */
+export type CallDuel = { id: string; game: DuelGame; duel: string; at: number; fromName: string; fromAvatar: string; fromId: string };
 
 export async function sendDuelToCall(instanceId: string, duel: string) {
   try {
