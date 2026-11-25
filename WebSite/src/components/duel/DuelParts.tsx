@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
-import { Check, Copy, Loader2, Swords, Trophy, Users } from "lucide-react";
+import { Check, Copy, Frown, Handshake, Loader2, RotateCcw, Swords, Trophy, Users } from "lucide-react";
 import { activityInstanceId, activityShare, isDiscordActivity } from "@/lib/discordActivity";
 import {
   createDuel,
@@ -230,22 +230,48 @@ export function DuelResult({ state, onAgain }: { state: DuelState; onAgain: () =
       : state.result === "lose"
         ? "Ha vinto l'avversario"
         : "Pari";
+  const win = state.result === "win";
+  const subtitle = practice
+    ? win
+      ? `In ${state.me.attempts} su ${state.maxAttempts}`
+      : "Tentativi finiti"
+    : win
+      ? "Hai indovinato per primo"
+      : state.result === "lose"
+        ? "L'avversario ha indovinato prima di te"
+        : "Nessuno dei due ha indovinato";
+  const Icon = win ? Trophy : state.result === "lose" ? Frown : Handshake;
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mx-auto mt-6 max-w-md text-center">
-      <p className={cn("inline-flex items-center gap-2 font-display text-3xl", state.result === "win" ? "text-emerald-400" : "text-crema")}>
-        {state.result === "win" && !practice ? <Trophy className="size-7" /> : null}
-        {title}
-      </p>
+    /* una scheda a sé, sotto il gioco: titolo, cosa è successo, la soluzione e il tasto */
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={cn(
+        "mx-auto mt-6 flex w-full max-w-sm flex-col items-center rounded-3xl p-6 text-center ring-1",
+        win ? "bg-emerald-500/10 ring-emerald-400/30" : "bg-roast/80 ring-sand/12",
+      )}
+    >
+      <span className={cn("grid size-14 place-items-center rounded-full", win ? "bg-emerald-500/20 text-emerald-300" : "bg-crema/[0.07] text-crema/70")}>
+        <Icon className="size-7" />
+      </span>
+      <p className={cn("mt-3 font-display text-3xl leading-tight", win ? "text-emerald-300" : "text-crema")}>{title}</p>
+      <p className="mt-1 text-sm text-crema/60">{subtitle}</p>
       {state.answers?.length ? (
-        <p className="mt-2 text-sm text-crema/60">
-          {state.answers.length > 1 ? "Le parole erano" : "La parola era"} <b className="text-crema">{state.answers.join(", ")}</b>
+        <p className="mt-3 text-sm text-crema/60">
+          {state.answers.length > 1 ? "Le parole erano" : "La parola era"}{" "}
+          <b className="font-mono uppercase tracking-wide text-crema">{state.answers.join(" · ")}</b>
+        </p>
+      ) : state.game === "angle" && state.angle != null ? (
+        <p className="mt-3 text-sm text-crema/60">
+          Risposta giusta: <b className="font-mono text-crema">{state.angle}°</b>
         </p>
       ) : null}
       <button
         type="button"
         onClick={onAgain}
-        className="mt-5 inline-flex h-12 items-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember px-8 text-sm font-bold uppercase tracking-wide text-ink"
+        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember text-sm font-bold uppercase tracking-wide text-ink"
       >
+        {practice ? <RotateCcw className="size-4" /> : <Swords className="size-4" />}
         {practice ? "Un'altra" : "Nuova sfida"}
       </button>
     </motion.div>
