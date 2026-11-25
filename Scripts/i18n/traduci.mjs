@@ -233,7 +233,12 @@ function estrai() {
 
   const dicts = shellDict();
   const shell = dicts.it || {};
-  const sito = [...new Set([...extractWith(siteFiles, "sito"), ...extractProps(siteFiles), ...Object.values(shell)])].filter(looksItalian);
+  /* testi che stanno nel bot ma si leggono sul sito (titoli e descrizioni delle categorie del Number Quiz,
+     messaggi dei quiz e del Wordle): vanno anche tra quelli del sito, se no restano in italiano */
+  const shownOnSite = botFiles.filter((p) => /[\\/]site[\\/]http[\\/](siteNumberQuiz|siteMusicQuiz|siteAngle|siteQuiz|siteWordle)[^\\/]*\.ts$/.test(p));
+  const sito = [
+    ...new Set([...extractWith(siteFiles, "sito"), ...extractProps(siteFiles), ...Object.values(shell), ...extractWith(shownOnSite, "sito-dal-bot")]),
+  ].filter(looksItalian);
   const bot = [...new Set(extractWith(botFiles, "bot"))].filter(looksItalian);
 
   writeJson(SORGENTI, { sito: sito.sort(), bot: bot.sort(), shell });
