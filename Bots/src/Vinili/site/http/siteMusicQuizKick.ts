@@ -91,6 +91,17 @@ function cleanupOldSubscriptions() {
   return startupCleanup;
 }
 
+/**
+ * All'avvio del server: le iscrizioni rimaste da prima (in memoria non c'è più nessuna diretta collegata)
+ * si cancellano subito, anche se nessuno usa Kick dopo il riavvio. Prima succedeva solo al primo uso,
+ * e un'iscrizione di prova poteva restare attiva per sempre.
+ */
+export function startKickStartupCleanup() {
+  if (!kickConfigured()) return;
+  const t = setTimeout(() => void cleanupOldSubscriptions(), 20_000);
+  (t as any).unref?.();
+}
+
 /** l'app è iscritta alla chat di quel canale? se no si iscrive */
 export async function ensureChatSubscription(broadcasterId: number) {
   await cleanupOldSubscriptions();

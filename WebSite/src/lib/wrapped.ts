@@ -10,11 +10,19 @@ export type WrappedChannel = {
 
 export type WrappedPayload = {
   ok: true;
+  period?: "yearly" | "monthly";
+  monthKey?: string | null;
+  periodLabel?: string;
   year: number;
   from?: string;
   to?: string;
   generatedAt: string;
   recentDays: number;
+  available?: {
+    yearly?: boolean;
+    monthly?: boolean;
+    previousMonthKey?: string;
+  };
   user: {
     id: string;
     username: string;
@@ -101,9 +109,18 @@ export function hours(seconds?: number | null) {
   return `${fmt(Math.round(h))} h`;
 }
 
-export async function loadWrapped(token: string): Promise<WrappedResult> {
+export type LoadWrappedOpts = {
+  period?: "yearly" | "monthly" | "auto";
+  month?: string;
+};
+
+export async function loadWrapped(token: string, opts: LoadWrappedOpts = {}): Promise<WrappedResult> {
   try {
-    const r = await fetch(apiUrl("/webhooks/site-wrapped"), {
+    const q = new URLSearchParams();
+    if (opts.period && opts.period !== "auto") q.set("period", opts.period);
+    if (opts.month) q.set("month", opts.month);
+    const qs = q.toString();
+    const r = await fetch(apiUrl(`/webhooks/site-wrapped${qs ? `?${qs}` : ""}`), {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
       cache: "no-store",
     });
@@ -120,13 +137,24 @@ export async function loadWrapped(token: string): Promise<WrappedResult> {
   }
 }
 
-/** Fine slideshow → ruolo WrappedViewer sul server (idempotente). */
-export async function completeWrapped(token: string): Promise<{ ok: boolean; roleGranted?: boolean }> {
+/** Fine slideshow → ruolo WrappedViewer solo sull’annuale (idempotente). */
+export async function completeWrapped(
+  token: string,
+  opts: LoadWrappedOpts = {},
+): Promise<{ ok: boolean; roleGranted?: boolean }> {
   try {
     const r = await fetch(apiUrl("/webhooks/site-wrapped/complete"), {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
       cache: "no-store",
+      body: JSON.stringify({
+        period: opts.period || undefined,
+        month: opts.month || undefined,
+      }),
     });
     const j = await r.json().catch(() => null);
     if (!r.ok || !j?.ok) return { ok: false };
@@ -136,11 +164,19 @@ export async function completeWrapped(token: string): Promise<{ ok: boolean; rol
   }
 }
 
+export function wrappedPeriodLabel(data: WrappedPayload): string {
+  if (data.period === "monthly") {
+    return String(data.periodLabel || data.monthKey || "").trim() || String(data.year);
+  }
+  return String(data.periodLabel || data.year);
+}
+
 export function buildShareText(data: WrappedPayload): string {
   const a = data.allTime;
   const name = data.user.displayName || data.user.username || "io";
+  const label = wrappedPeriodLabel(data);
   return [
-    `✦ Vinili Wrapped ${data.year}`,
+    `✦ Vinili Wrapped · ${label}`,
     `${name} · ${data.archetype.label}`,
     `Lv.${a.level} (#${a.allTimeRank}) · top ${a.betterThanPct}%`,
     `${fmt(a.messagesTotal)} msg · ${hours(a.voiceTotalSeconds)} in call`,

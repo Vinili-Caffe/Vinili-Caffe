@@ -1,21 +1,21 @@
 "use client";
 
 /**
- * Vinili Wrapped — landing stile pagine sito (PageHero) → poi story immersiva.
+ * Vinili Wrapped — pagina d'ingresso (WrappedLanding) → poi la storia a tutta pagina.
  * Non apre lo slideshow all’arrivo: serve “Gira il vinile”.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
-import { Disc3, Loader2, LogIn, Share2, Volume2, VolumeX, X } from "lucide-react";
-import { Avatar } from "@/components/Avatar";
-import { PageHero } from "@/components/PageHero";
+import { Share2, Volume2, VolumeX, X } from "lucide-react";
 import { VinylRecord } from "@/components/VinylRecord";
 import { WrappedSlideDecor } from "@/components/wrapped/WrappedSlideDecor";
 import { WrappedShareSheet } from "@/components/wrapped/WrappedShareSheet";
 import { WrappedRecap } from "@/components/wrapped/WrappedRecap";
+import { WrappedStorySlide } from "@/components/wrapped/WrappedStorySlide";
+import { WrappedLanding } from "@/components/wrapped/WrappedLanding";
 import { useFxCap } from "@/components/effects/DeviceFxProvider";
 import { useAuth } from "@/lib/auth";
 import { celebrate } from "@/lib/confetti";
@@ -30,98 +30,24 @@ import {
   unlockWrappedAudio,
 } from "@/lib/wrappedAudio";
 import { moodForStoryKey, type WrappedMood } from "@/lib/wrappedMoods";
-import { isWrappedSeason } from "@/lib/site-effects";
+import { isWrappedSeason, isWrappedYearlySeason } from "@/lib/site-effects";
 import { loadStaffAccess } from "@/lib/staff";
-import { completeWrapped, loadWrapped, type WrappedPayload } from "@/lib/wrapped";
+import {
+  completeWrapped,
+  loadWrapped,
+  wrappedPeriodLabel,
+  type LoadWrappedOpts,
+  type WrappedPayload,
+} from "@/lib/wrapped";
 import { prefetchWrappedShareCards } from "@/lib/wrappedShareCard";
 import { buildStoryCards, type StoryCard } from "@/lib/wrappedStories";
 
-type Field = {
-  key: string;
-  mood: WrappedMood;
-  titleText: string;
-  kicker: string;
-  line: ReactNode;
-  whisper?: ReactNode;
-  celebrate?: boolean;
-};
-
 const ease = [0.22, 1, 0.36, 1] as const;
 
-function StaggerTitle({ text, accent }: { text: string; accent: string }) {
-  const chars = Array.from(text);
-  return (
-    <span className="inline-block text-[0.72em] leading-[1.05]" style={{ color: accent }}>
-      {chars.map((ch, i) => (
-        <motion.span
-          key={`${i}-${ch}`}
-          className="inline-block whitespace-pre"
-          initial={{ opacity: 0, y: 18, filter: "blur(6px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{ delay: Math.min(0.45, i * 0.028), duration: 0.45, ease }}
-        >
-          {ch}
-        </motion.span>
-      ))}
-    </span>
-  );
-}
+type Field = { key: string; mood: WrappedMood; card: StoryCard; celebrate?: boolean };
 
 function buildFields(stories: StoryCard[]): Field[] {
-  return stories.map((s) => {
-    const isShare = s.key === "share";
-    const mood = moodForStoryKey(s.key);
-    return {
-      key: s.key,
-      mood,
-      titleText: s.title,
-      kicker: s.kicker,
-      celebrate: s.celebrate,
-      line: isShare ? null : <StaggerTitle text={s.title} accent="#f4e9d8" />,
-      whisper: isShare ? undefined : (
-        <>
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.28, duration: 0.5, ease }}
-            className="text-base text-[#f4e9d8]/80 sm:text-lg"
-          >
-            {s.body}
-          </motion.p>
-          {s.footnote ? (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.45 }}
-              className="mt-4 text-sm font-semibold"
-              style={{ color: mood.accent }}
-            >
-              {s.footnote}
-            </motion.p>
-          ) : null}
-        </>
-      ),
-    };
-  });
-}
-
-function WrappedShell({
-  children,
-  title = "Vinili & Caffè Wrapped",
-  accent,
-  text = "Il tuo 2026 insieme a noi.",
-}: {
-  children: ReactNode;
-  title?: string;
-  accent?: string;
-  text?: string;
-}) {
-  return (
-    <>
-      <PageHero icon={<Disc3 />} kicker="Studio" title={title} accent={accent} text={text} />
-      <div className="relative mx-auto max-w-lg px-6 pb-28">{children}</div>
-    </>
-  );
+  return stories.map((s) => ({ key: s.key, mood: moodForStoryKey(s.key), card: s, celebrate: s.celebrate }));
 }
 
 export function WrappedBoard() {
@@ -139,6 +65,9 @@ export function WrappedBoard() {
   const [immersive, setImmersive] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [soundOn, setSoundOn] = useState(() => !isWrappedAudioMuted());
+  const [periodOpts, setPeriodOpts] = useState<LoadWrappedOpts>(() =>
+    isWrappedYearlySeason() ? { period: "yearly" } : { period: "monthly" },
+  );
   const siteMusicWasOn = useRef(false);
   const completeSent = useRef(false);
 
@@ -157,7 +86,7 @@ export function WrappedBoard() {
     };
 
     const run = async () => {
-      /* Fuori stagione: solo high staff. Override test: localStorage vc_wrapped_force=1 */
+      /* Fuori stagione (né annuale né mensile): solo high staff. Override: vc_wrapped_force=1 */
       const inSeason = isWrappedSeason();
       if (!inSeason) {
         if (!token) {
@@ -188,7 +117,7 @@ export function WrappedBoard() {
       setImmersive(false);
       setLaunching(false);
       completeSent.current = false;
-      const res = await loadWrapped(token);
+      const res = await loadWrapped(token, periodOpts);
       if (!alive) return;
       setLoading(false);
       if (res.status === "ok") {
@@ -210,7 +139,7 @@ export function WrappedBoard() {
     return () => {
       alive = false;
     };
-  }, [ready, token, router]);
+  }, [ready, token, router, periodOpts]);
 
   const stories = useMemo(() => (data ? buildStoryCards(data) : []), [data]);
   const fields = useMemo(() => buildFields(stories), [stories]);
@@ -282,13 +211,13 @@ export function WrappedBoard() {
     prefetchWrappedShareCards(data);
   }, [data]);
 
-  /* Ultima slide (share) = Wrapped finito → ruolo Discord. */
+  /* Ultima slide (share) = Wrapped finito → ruolo Discord solo sull’annuale. */
   useEffect(() => {
     if (!immersive || !token || !field || field.key !== "share") return;
     if (completeSent.current) return;
     completeSent.current = true;
-    void completeWrapped(token);
-  }, [immersive, field, token]);
+    void completeWrapped(token, periodOpts);
+  }, [immersive, field, token, periodOpts]);
 
   const openShare = useCallback(() => {
     if (!data) return;
@@ -335,140 +264,55 @@ export function WrappedBoard() {
     setLaunching(true);
   };
 
-  if (!ready || (token && loading && !disabled)) {
-    return (
-      <WrappedShell text="Masterizziamo il tuo vinile…">
-        <div className="flex flex-col items-center gap-5 py-10 text-center">
-          <motion.div
-            className="size-28"
-            animate={reduce ? undefined : { rotate: 360 }}
-            transition={reduce ? undefined : { duration: 2.8, repeat: Infinity, ease: "linear" }}
-          >
-            <VinylRecord className="size-full drop-shadow-[0_16px_40px_rgba(0,0,0,0.55)]" />
-          </motion.div>
-          <p className="inline-flex items-center gap-2 text-sm text-crema/55">
-            <Loader2 className="size-4 animate-spin text-caramel" aria-hidden />
-            Stiamo rivedendo il tuo 2026 insieme a noi…
-          </p>
-        </div>
-      </WrappedShell>
-    );
-  }
-
   if (disabled) {
     return null;
   }
 
-  if (!token) {
-    return (
-      <WrappedShell accent="preview" text="Accedi con Discord per guardare il tuo Wrapped.">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, ease }}
-          className="rounded-[1.75rem] bg-ink/40 px-6 py-10 text-center ring-1 ring-crema/10 backdrop-blur-sm"
-        >
-          <div className="mx-auto size-28">
-            <VinylRecord className="size-full drop-shadow-[0_16px_40px_rgba(0,0,0,0.55)]" />
-          </div>
-          <p className="mt-6 text-sm text-crema/60">Serve il login Discord per aprire il Wrapped.</p>
-          <button
-            type="button"
-            onClick={login}
-            className="mt-8 inline-flex min-h-12 items-center gap-2 rounded-full bg-[#5865f2] px-7 text-sm font-semibold text-white transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.97]"
-          >
-            <LogIn className="size-4" aria-hidden /> Accedi con Discord
-          </button>
-        </motion.div>
-      </WrappedShell>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <WrappedShell title="Non disponibile" text={error || "Nessun dato."}>
-        <div className="rounded-[1.75rem] bg-ink/40 px-6 py-8 text-center ring-1 ring-crema/10">
-          <p className="text-sm text-crema/55">{error || "Riprova tra poco."}</p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="mt-6 inline-flex min-h-11 items-center rounded-full bg-caramel/90 px-6 text-sm font-semibold text-espresso"
-          >
-            Riprova
-          </button>
-        </div>
-      </WrappedShell>
-    );
-  }
+  /* pagina d'ingresso: una sola, con titolo enorme, la tua busta e le copertine delle schede a ventaglio */
+  if (!ready || (token && loading)) return <WrappedLanding mode="loading" />;
+  if (!token) return <WrappedLanding mode="login" onAction={login} />;
+  if (error || !data) return <WrappedLanding mode="error" message={error || undefined} onAction={() => window.location.reload()} />;
 
   if (!immersive) {
+    const periodLabel = wrappedPeriodLabel(data);
+    const monthly = data.period === "monthly";
+    const canYearly = Boolean(data.available?.yearly) || isWrappedYearlySeason();
+    const canMonthly = data.available?.monthly !== false;
     return (
       <>
-        <WrappedShell accent={String(data.year)} text="Rivivi l'anno passato con noi.">
-          <motion.div
-            initial={reduce ? false : { opacity: 0, y: 20 }}
-            animate={{ opacity: launching ? 0.35 : 1, y: 0 }}
-            transition={{ duration: 0.6, ease }}
-            className="relative overflow-hidden rounded-[1.75rem] bg-ink/45 px-6 py-12 text-center ring-1 ring-crema/12 backdrop-blur-sm"
-          >
-            <div
-              className="pointer-events-none absolute -right-10 -top-12 size-40 rounded-full bg-caramel/15 blur-3xl"
-              aria-hidden
-            />
-            <div
-              className="pointer-events-none absolute -bottom-16 -left-10 size-44 rounded-full bg-ember/10 blur-3xl"
-              aria-hidden
-            />
-
-            <Avatar
-              userId={data.user.id}
-              src={data.user.avatarUrl || undefined}
-              name={data.user.displayName}
-              className="relative mx-auto size-24 ring-2 ring-caramel/45"
-            />
-
-            <h2 className="relative mt-6 font-display text-4xl font-semibold leading-tight text-crema sm:text-5xl">
-              Pronto, {data.user.displayName}?
-            </h2>
-            <p className="relative mx-auto mt-3 max-w-sm text-sm leading-relaxed text-crema/60">
-              Rivedi quest&apos;anno passato con noi sul server.
-            </p>
-
-            <button
-              type="button"
-              onClick={startWrapped}
-              disabled={launching}
-              className="relative mt-8 inline-flex min-h-12 items-center gap-2 rounded-full bg-caramel px-9 text-sm font-semibold text-espresso shadow-[0_12px_40px_-12px_rgba(240,180,110,0.55)] transition hover:brightness-105 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-70"
-            >
-              <Disc3 className="size-4" aria-hidden />
-              {launching ? "Gira…" : "Gira il vinile"}
-            </button>
-
-            {/* Disco centrato: solo VinylRecord, niente braccio decentrato */}
-            <div className="relative mx-auto mt-10 flex size-36 items-center justify-center sm:size-40">
-              <motion.div
-                className="size-full"
-                animate={
-                  launching
-                    ? { rotate: 360 * 3, scale: 1.06 }
-                    : reduce
-                      ? { rotate: 0 }
-                      : { rotate: 360 }
-                }
-                transition={
-                  launching
-                    ? { duration: 1.05, ease: "linear" }
-                    : reduce
-                      ? undefined
-                      : { duration: 14, repeat: Infinity, ease: "linear" }
-                }
-                style={{ transformOrigin: "50% 50%" }}
-              >
-                <VinylRecord className="size-full drop-shadow-[0_18px_42px_rgba(0,0,0,0.6)]" />
-              </motion.div>
-            </div>
-          </motion.div>
-        </WrappedShell>
+        <WrappedLanding
+          mode="ready"
+          name={data.user.displayName}
+          userId={data.user.id}
+          avatarUrl={data.user.avatarUrl}
+          periodLabel={periodLabel}
+          monthly={monthly}
+          launching={launching}
+          onAction={startWrapped}
+          periodSwitch={
+            canYearly && canMonthly ? (
+              <div className="inline-flex rounded-full bg-[#f4e9d8]/10 p-1 ring-1 ring-[#f4e9d8]/15" role="group" aria-label="Periodo Wrapped">
+                {([
+                  ["yearly", "Anno"],
+                  ["monthly", "Mese"],
+                ] as const).map(([p, label]) => {
+                  const on = (p === "monthly") === monthly;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      disabled={launching || on}
+                      onClick={() => setPeriodOpts({ period: p })}
+                      className={on ? "rounded-full bg-[#f4e9d8] px-4 py-1.5 text-xs font-bold text-[#140d09]" : "rounded-full px-4 py-1.5 text-xs font-semibold text-[#f4e9d8]/70 transition hover:text-[#f4e9d8]"}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null
+          }
+        />
 
         <AnimatePresence>
           {launching ? (
@@ -505,80 +349,72 @@ export function WrappedBoard() {
 
   if (!field) return null;
 
+  const ink = field.mood.ink;
+  const iconBtn = "inline-flex size-10 items-center justify-center rounded-full backdrop-blur-sm transition hover:scale-105";
   return (
     <div
-      className="fixed inset-0 z-[90] flex flex-col text-[#f4e9d8]"
-      style={{ background: field.mood.bg }}
+      className="fixed inset-0 z-[90] flex flex-col"
+      style={{ background: field.mood.paper, color: ink }}
       role="dialog"
       aria-modal="true"
-      aria-label="Vinili & Caffè Wrapped 2026"
+      aria-label="Vinili & Caffè Wrapped"
     >
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="sync">
         <motion.div
           key={`bg-${field.key}`}
           className="absolute inset-0"
-          style={{ background: field.mood.bg }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: reduce ? 0.15 : 0.5 }}
+          initial={reduce ? { opacity: 0 } : { clipPath: dir > 0 ? "circle(0% at 100% 50%)" : "circle(0% at 0% 50%)" }}
+          animate={reduce ? { opacity: 1 } : { clipPath: dir > 0 ? "circle(150% at 100% 50%)" : "circle(150% at 0% 50%)" }}
+          exit={{ opacity: 1 }}
+          transition={{ duration: reduce ? 0.15 : 0.7, ease }}
         >
           <WrappedSlideDecor mood={field.mood} celebrate={field.celebrate} />
         </motion.div>
       </AnimatePresence>
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex gap-1.5 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      {/* tacche in alto: una per scheda */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex gap-1 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         {fields.map((f, i) => (
-          <div key={f.key} className="h-1 flex-1 overflow-hidden rounded-full bg-[#f4e9d8]/12">
+          <div key={f.key} className="h-1 flex-1 overflow-hidden rounded-full" style={{ background: `${ink}26` }}>
             <motion.div
               className="h-full rounded-full"
-              style={{ background: field.mood.accent }}
+              style={{ background: ink }}
               initial={false}
-              animate={{ width: i < index ? "100%" : i === index ? "100%" : "0%" }}
+              animate={{ width: i <= index ? "100%" : "0%" }}
               transition={{ duration: reduce ? 0 : 0.45, ease }}
             />
           </div>
         ))}
       </div>
 
-      <div className="absolute right-3 top-[max(1.25rem,env(safe-area-inset-top))] z-30 flex gap-2">
-        <button
-          type="button"
-          onClick={toggleSound}
-          className="inline-flex size-11 items-center justify-center rounded-full bg-[#f4e9d8]/10 text-[#f4e9d8] ring-1 ring-[#f4e9d8]/15 backdrop-blur-sm"
-          aria-label={soundOn ? "Disattiva suoni" : "Attiva suoni"}
-        >
-          {soundOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
-        </button>
-        <button
-          type="button"
-          onClick={openShare}
-          className="inline-flex size-11 items-center justify-center rounded-full bg-[#f4e9d8]/10 text-[#f4e9d8] ring-1 ring-[#f4e9d8]/15 backdrop-blur-sm"
-          aria-label="Condividi"
-        >
-          <Share2 className="size-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setImmersive(false)}
-          className="inline-flex size-11 items-center justify-center rounded-full bg-[#f4e9d8]/10 text-[#f4e9d8] ring-1 ring-[#f4e9d8]/15 backdrop-blur-sm"
-          aria-label="Chiudi"
-        >
-          <X className="size-4" />
-        </button>
+      <div className="absolute inset-x-3 top-[max(1.4rem,env(safe-area-inset-top))] z-30 flex items-center justify-between gap-2">
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.25em]" style={{ opacity: 0.7 }}>
+          Vinili Wrapped · {wrappedPeriodLabel(data)}
+        </p>
+        <div className="flex gap-1.5">
+          <button type="button" onClick={toggleSound} className={iconBtn} style={{ background: `${ink}1a` }} aria-label={soundOn ? "Disattiva suoni" : "Attiva suoni"}>
+            {soundOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+          </button>
+          <button type="button" onClick={openShare} className={iconBtn} style={{ background: `${ink}1a` }} aria-label="Condividi">
+            <Share2 className="size-4" />
+          </button>
+          <button type="button" onClick={() => setImmersive(false)} className={iconBtn} style={{ background: `${ink}1a` }} aria-label="Chiudi">
+            <X className="size-4" />
+          </button>
+        </div>
       </div>
 
       <div className="relative z-10 flex min-h-0 flex-1 cursor-pointer select-none flex-col" onClick={onStagePointer}>
-        <div className={cn("flex flex-1 flex-col px-6 pb-16 pt-20 sm:px-12", field.key === "share" ? "overflow-y-auto" : "justify-center")}>
+        <div className={cn("flex flex-1 flex-col px-6 pb-14 pt-24 sm:px-14", field.key === "share" ? "overflow-y-auto" : "justify-end sm:justify-center")}>
           <AnimatePresence mode="wait" custom={dir}>
             <motion.div
               key={field.key}
               custom={dir}
-              initial={reduce ? { opacity: 0 } : { opacity: 0, y: dir * 36, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, y: dir * -24, scale: 1.02 }}
-              transition={{ duration: reduce ? 0.15 : 0.48, ease }}
-              className={cn("mx-auto w-full max-w-3xl text-center", field.key === "share" && "my-auto")}
+              initial={reduce ? { opacity: 0 } : { opacity: 0, x: dir * 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, x: dir * -30 }}
+              transition={{ duration: reduce ? 0.15 : 0.4, ease }}
+              className={cn("mx-auto w-full max-w-4xl", field.key === "share" && "my-auto text-center")}
             >
               {field.key === "share" ? (
                 <WrappedRecap
@@ -592,27 +428,21 @@ export function WrappedBoard() {
                   }}
                 />
               ) : (
-                <>
-              <motion.p
-                initial={{ opacity: 0, letterSpacing: "0.4em" }}
-                animate={{ opacity: 0.75, letterSpacing: "0.28em" }}
-                transition={{ duration: 0.55, ease }}
-                className="text-[0.7rem] font-semibold uppercase"
-                style={{ color: field.mood.accent }}
-              >
-                {field.kicker}
-              </motion.p>
-              <h1 className="mt-5 font-display text-[clamp(3rem,12vw,6.5rem)] font-semibold leading-[0.92] tracking-tight drop-shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
-                {field.line}
-              </h1>
-              {field.whisper ? (
-                <div className="mx-auto mt-6 max-w-md text-base text-[#f4e9d8]/70 sm:text-lg">{field.whisper}</div>
-              ) : null}
-                </>
+                <WrappedStorySlide card={field.card} mood={field.mood} data={data} />
               )}
             </motion.div>
           </AnimatePresence>
         </div>
+        {index === 0 ? (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.6 }}
+            transition={{ delay: 1.6 }}
+            className="pointer-events-none absolute inset-x-0 bottom-5 text-center text-xs font-semibold uppercase tracking-[0.2em]"
+          >
+            Tocca per andare avanti →
+          </motion.p>
+        ) : null}
       </div>
 
       {data ? <WrappedShareSheet open={shareOpen} data={data} onClose={() => setShareOpen(false)} /> : null}

@@ -19,6 +19,12 @@ export type WrappedMood = {
   bg: string;
   glow: string;
   accent: string;
+  /** colore pieno della scheda (stile copertina) */
+  paper: string;
+  /** testo sulla scheda */
+  ink: string;
+  /** evidenziatore e dettagli sulla scheda */
+  mark: string;
   particle: "vinyl" | "steam" | "spark" | "wave" | "star" | "coin" | "note" | "confetti";
   /** Frequenze motif (Hz) suonate in sequenza */
   motif: number[];
@@ -28,6 +34,9 @@ export type WrappedMood = {
 const MOODS: Record<WrappedMoodId, WrappedMood> = {
   hello: {
     id: "hello",
+    paper: "#1b1410",
+    ink: "#f4e9d8",
+    mark: "#f0b46e",
     bg: "radial-gradient(120% 80% at 50% 20%, #4a2a18 0%, #1a100c 45%, #0a0604 100%)",
     glow: "rgba(240,180,110,0.35)",
     accent: "#f0b46e",
@@ -37,6 +46,9 @@ const MOODS: Record<WrappedMoodId, WrappedMood> = {
   },
   days: {
     id: "days",
+    paper: "#efe3cc",
+    ink: "#2a1a10",
+    mark: "#c8553d",
     bg: "radial-gradient(100% 90% at 30% 10%, #3a2818 0%, #1c120e 50%, #0c0806 100%)",
     glow: "rgba(212,165,116,0.28)",
     accent: "#e8c49a",
@@ -46,6 +58,9 @@ const MOODS: Record<WrappedMoodId, WrappedMood> = {
   },
   messages: {
     id: "messages",
+    paper: "#d4512c",
+    ink: "#fff1e0",
+    mark: "#2a120a",
     bg: "radial-gradient(110% 85% at 70% 0%, #5a3018 0%, #24160f 48%, #0e0906 100%)",
     glow: "rgba(255,170,90,0.32)",
     accent: "#ffb86b",
@@ -55,6 +70,9 @@ const MOODS: Record<WrappedMoodId, WrappedMood> = {
   },
   voice: {
     id: "voice",
+    paper: "#183b45",
+    ink: "#e6f3ef",
+    mark: "#7fd1c0",
     bg: "radial-gradient(120% 90% at 50% 100%, #2a1810 0%, #120c18 40%, #080610 100%)",
     glow: "rgba(180,120,255,0.18)",
     accent: "#d4a574",
@@ -64,6 +82,9 @@ const MOODS: Record<WrappedMoodId, WrappedMood> = {
   },
   support: {
     id: "support",
+    paper: "#e6a935",
+    ink: "#2b1a06",
+    mark: "#7a2e12",
     bg: "radial-gradient(100% 80% at 50% 0%, #3a2410 0%, #1a120c 55%, #0a0806 100%)",
     glow: "rgba(255,200,100,0.3)",
     accent: "#ffd27a",
@@ -73,6 +94,9 @@ const MOODS: Record<WrappedMoodId, WrappedMood> = {
   },
   boost: {
     id: "boost",
+    paper: "#7b2f55",
+    ink: "#ffe9f2",
+    mark: "#ffb0d0",
     bg: "radial-gradient(110% 90% at 20% 0%, #5a2810 0%, #2a140c 40%, #100808 100%)",
     glow: "rgba(255,140,60,0.4)",
     accent: "#ff9a4a",
@@ -82,6 +106,9 @@ const MOODS: Record<WrappedMoodId, WrappedMood> = {
   },
   games: {
     id: "games",
+    paper: "#4f6428",
+    ink: "#f3f6df",
+    mark: "#e5f28a",
     bg: "radial-gradient(100% 85% at 80% 20%, #243018 0%, #141810 50%, #080a08 100%)",
     glow: "rgba(160,220,100,0.28)",
     accent: "#b8e070",
@@ -91,6 +118,9 @@ const MOODS: Record<WrappedMoodId, WrappedMood> = {
   },
   particular: {
     id: "particular",
+    paper: "#2b2150",
+    ink: "#eeeaff",
+    mark: "#c7b6ff",
     bg: "radial-gradient(120% 100% at 50% 0%, #1a1030 0%, #100818 45%, #06040c 100%)",
     glow: "rgba(160,120,255,0.28)",
     accent: "#c4a0ff",
@@ -100,6 +130,9 @@ const MOODS: Record<WrappedMoodId, WrappedMood> = {
   },
   role: {
     id: "role",
+    paper: "#f2e6d0",
+    ink: "#1b1410",
+    mark: "#c8553d",
     bg: "radial-gradient(100% 90% at 50% 30%, #4a3018 0%, #1c120c 50%, #0a0604 100%)",
     glow: "rgba(240,190,120,0.42)",
     accent: "#f5d09a",
@@ -109,6 +142,9 @@ const MOODS: Record<WrappedMoodId, WrappedMood> = {
   },
   share: {
     id: "share",
+    paper: "#160f0b",
+    ink: "#f4e9d8",
+    mark: "#e8c49a",
     bg: "radial-gradient(110% 85% at 50% 10%, #3a2818 0%, #18110c 55%, #0a0705 100%)",
     glow: "rgba(212,160,100,0.3)",
     accent: "#e8c49a",
@@ -118,6 +154,9 @@ const MOODS: Record<WrappedMoodId, WrappedMood> = {
   },
   default: {
     id: "default",
+    paper: "#2a1c14",
+    ink: "#f4e9d8",
+    mark: "#f0b46e",
     bg: "radial-gradient(100% 80% at 50% 0%, #2a1c14 0%, #120c0a 60%, #080604 100%)",
     glow: "rgba(200,150,100,0.25)",
     accent: "#f0b46e",

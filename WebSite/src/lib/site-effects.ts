@@ -129,16 +129,36 @@ export function isAlberoSeason(now = new Date()): boolean {
 }
 
 /**
- * Vinili Wrapped (Rome): 10 dic alle 12 → 7 gen alle 12.
- * Override test: localStorage `vc_wrapped_force` = 1.
+ * Vinili Wrapped annuale (Rome): 10 dic alle 12 → 7 gen alle 12.
  */
-export function isWrappedSeason(now = new Date()): boolean {
-  if (seasonForce("vc_wrapped_force")) return true;
+export function isWrappedYearlySeason(now = new Date()): boolean {
   const { y, m, d, h } = romeParts(now);
   if (!y || !m || !d) return false;
   if (m === 12 && (d > 10 || (d === 10 && h >= 12))) return true;
   if (m === 1 && (d < 7 || (d === 7 && h < 12))) return true;
   return false;
+}
+
+/**
+ * Mensile = periodo dentro la stagione Wrapped, non una apertura anticipata.
+ * Stessa finestra dell’annuale (dal 10 dic).
+ */
+export function isWrappedMonthlySeason(now = new Date()): boolean {
+  return isWrappedYearlySeason(now);
+}
+
+/** Badge «in corso»: solo stagione annuale (10 dic → 7 gen). */
+export function isWrappedSeasonLive(now = new Date()): boolean {
+  return isWrappedYearlySeason(now);
+}
+
+/**
+ * Nav / accesso Wrapped: solo dal 10 dic 12:00 (Rome) al 7 gen 12:00.
+ * Fuori: High Staff. Override test: localStorage `vc_wrapped_force` = 1.
+ */
+export function isWrappedSeason(now = new Date()): boolean {
+  if (seasonForce("vc_wrapped_force")) return true;
+  return isWrappedYearlySeason(now);
 }
 
 /**

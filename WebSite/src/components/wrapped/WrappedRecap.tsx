@@ -5,7 +5,7 @@ import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 import { RotateCcw, Share2 } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { VinylRecord } from "@/components/VinylRecord";
-import { fmt, type WrappedPayload } from "@/lib/wrapped";
+import { fmt, wrappedPeriodLabel, type WrappedPayload } from "@/lib/wrapped";
 import { moodForStoryKey } from "@/lib/wrappedMoods";
 import type { StoryCard } from "@/lib/wrappedStories";
 
@@ -65,7 +65,7 @@ export function WrappedRecap({
           </span>
           <div className="min-w-0 pr-16 sm:pr-24">
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.24em]" style={{ color: accent }}>
-              Vinili Wrapped · {data.year}
+              Vinili Wrapped · {wrappedPeriodLabel(data)}
             </p>
             <p className="mt-1 truncate font-display text-3xl font-semibold leading-tight text-[#f4e9d8] sm:text-4xl">{data.user.displayName}</p>
             <p className="mt-0.5 truncate text-sm text-[#f4e9d8]/70">{role ? role.title : data.archetype.label}</p>

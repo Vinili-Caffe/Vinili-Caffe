@@ -130,6 +130,8 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
   app.post("/webhooks/site-activity/token", (req?, res?) =>
     (require("../siteDiscordActivityApi") as typeof import("../siteDiscordActivityApi")).handleSiteActivityTokenPost(req, res),
   );
+  /* all'avvio: via le iscrizioni Kick rimaste da prima del riavvio (es. canali di prova) */
+  (require("../siteMusicQuizKick") as typeof import("../siteMusicQuizKick")).startKickStartupCleanup();
   /* Kick manda qui i messaggi della chat (firma verificata con la chiave pubblica di Kick) */
   app.post("/webhooks/kick/events", (req?, res?) =>
     (require("../siteMusicQuizKick") as typeof import("../siteMusicQuizKick")).handleKickWebhookPost(req, res),

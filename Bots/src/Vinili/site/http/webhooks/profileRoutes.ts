@@ -40,7 +40,9 @@ function mountProfileWebhookRoutes(app?, client?, ctx: Record<string, any> = {})
   app.get("/webhooks/site-wrapped", async (req?, res?) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      const out = await getSiteWrapped(client, { accessToken });
+      const period = String(req.query?.period || "").trim();
+      const month = String(req.query?.month || "").trim();
+      const out = await getSiteWrapped(client, { accessToken, period, month });
       if (out?.ok) res.setHeader("Cache-Control", "private, max-age=60");
       else res.setHeader("Cache-Control", "no-store");
       return res.status(Number(out.status) || 500).json(out);
@@ -52,7 +54,10 @@ function mountProfileWebhookRoutes(app?, client?, ctx: Record<string, any> = {})
   app.post("/webhooks/site-wrapped/complete", async (req?, res?) => {
     try {
       const accessToken = normalizeHeaderSecret(req.headers.authorization);
-      const out = await completeSiteWrapped(client, { accessToken });
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const period = String(body.period || req.query?.period || "").trim();
+      const month = String(body.month || req.query?.month || "").trim();
+      const out = await completeSiteWrapped(client, { accessToken, period, month });
       res.setHeader("Cache-Control", "no-store");
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {

@@ -3,5 +3,9 @@ services:
     image: ghcr.io/kikkia/yt-cipher:master
     container_name: yt-cipher
     restart: unless-stopped
+    # IAS = variante player che risolve in modo stabile (README kikkia/yt-cipher).
+    # Senza override, player nuovi (es. 05a4ffc0) rompono EJS: addOnDisposeCallback.
+    environment:
+      OVERRIDE_SCRIPT_VARIANT: IAS
     ports:
       - "127.0.0.1:8001:8001"

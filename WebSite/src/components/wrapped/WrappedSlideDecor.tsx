@@ -2,149 +2,86 @@
 
 import { motion } from "motion/react";
 import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
+import { VinylRecord } from "@/components/VinylRecord";
 import type { WrappedMood } from "@/lib/wrappedMoods";
-import { cn } from "@/lib/cn";
 
-const SPARKS = Array.from({ length: 14 }, (_, i) => ({
-  id: i,
-  left: `${6 + ((i * 17) % 88)}%`,
-  top: `${8 + ((i * 29) % 78)}%`,
-  size: 2 + (i % 4),
-  delay: (i % 7) * 0.18,
-  dur: 2.4 + (i % 5) * 0.35,
-}));
+/* dove sta il disco su ogni scheda: così ogni pagina ha una composizione sua */
+const LAYOUT: Record<string, { x: string; y: string; size: string; show: boolean }> = {
+  hello: { x: "62%", y: "-18%", size: "min(115vw,46rem)", show: true },
+  days: { x: "-38%", y: "52%", size: "min(95vw,38rem)", show: true },
+  messages: { x: "58%", y: "58%", size: "min(90vw,36rem)", show: false },
+  voice: { x: "48%", y: "-30%", size: "min(110vw,44rem)", show: true },
+  support: { x: "-30%", y: "-24%", size: "min(85vw,34rem)", show: false },
+  boost: { x: "56%", y: "50%", size: "min(100vw,40rem)", show: true },
+  games: { x: "-34%", y: "-20%", size: "min(90vw,36rem)", show: false },
+  particular: { x: "50%", y: "54%", size: "min(100vw,40rem)", show: true },
+  role: { x: "-40%", y: "58%", size: "min(90vw,36rem)", show: false },
+  share: { x: "60%", y: "-26%", size: "min(100vw,40rem)", show: true },
+};
 
-const RINGS = [1, 2, 3, 4];
-
+/**
+ * Sfondo di una scheda: carta a colore pieno, un retino a puntini, i solchi di un disco
+ * e (su alcune) un vinile vero che entra dal bordo e gira piano.
+ */
 export function WrappedSlideDecor({ mood, celebrate }: { mood: WrappedMood; celebrate?: boolean }) {
   const reduce = useReducedMotionSafe();
+  const l = LAYOUT[mood.id] || LAYOUT.hello!;
 
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-      {/* bloom centrale */}
-      <motion.div
-        className="absolute left-1/2 top-[38%] size-[min(90vw,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
-        style={{ background: mood.glow }}
-        animate={reduce ? { opacity: 0.45 } : { opacity: [0.25, 0.55, 0.35], scale: [0.92, 1.08, 1] }}
-        transition={reduce ? undefined : { duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      {/* blob secondario */}
-      <motion.div
-        className="absolute -right-16 top-24 size-56 rounded-full blur-3xl opacity-40"
-        style={{ background: mood.accent }}
-        animate={reduce ? undefined : { y: [0, 24, 0], x: [0, -12, 0] }}
-        transition={reduce ? undefined : { duration: 7, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute -left-20 bottom-10 size-64 rounded-full blur-3xl opacity-30"
-        style={{ background: mood.glow }}
-        animate={reduce ? undefined : { y: [0, -18, 0] }}
-        transition={reduce ? undefined : { duration: 6.2, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      {/* grain soft */}
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ background: mood.paper }} aria-hidden>
+      {/* retino a puntini, come una stampa */}
       <div
-        className="absolute inset-0 opacity-[0.12] mix-blend-overlay"
+        className="absolute -left-10 top-1/3 h-[60vh] w-[60vw] opacity-[0.18] [mask-image:radial-gradient(closest-side,black,transparent)]"
+        style={{ backgroundImage: `radial-gradient(${mood.mark} 1.6px, transparent 1.7px)`, backgroundSize: "14px 14px" }}
+      />
+
+      {/* solchi (sempre), o il disco intero dove c'è spazio */}
+      <motion.div
+        className="absolute"
+        style={{ left: l.x, top: l.y, width: l.size, height: l.size }}
+        initial={reduce ? false : { opacity: 0, scale: 0.9, rotate: -20 }}
+        animate={reduce ? { opacity: 1 } : { opacity: 1, scale: 1, rotate: 0 }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <motion.div
+          className="size-full"
+          animate={reduce ? undefined : { rotate: 360 }}
+          transition={reduce ? undefined : { duration: 24, repeat: Infinity, ease: "linear" }}
+        >
+          {l.show ? (
+            <VinylRecord className="size-full opacity-95 drop-shadow-[0_30px_60px_rgba(0,0,0,0.45)]" />
+          ) : (
+            <div className="relative size-full">
+              {[0, 7, 14, 21, 28, 35, 42].map((m) => (
+                <span key={m} className="absolute rounded-full border" style={{ inset: `${m}%`, borderColor: mood.ink, opacity: 0.09 }} />
+              ))}
+            </div>
+          )}
+        </motion.div>
+      </motion.div>
+
+      {/* grana leggera, per non sembrare un colore piatto di plastica */}
+      <div
+        className="absolute inset-0 opacity-[0.09] mix-blend-overlay"
         style={{
           backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.55'/></svg>\")",
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
         }}
       />
 
-      {mood.particle === "vinyl" || mood.particle === "wave" ? (
-        <div className="absolute left-1/2 top-1/2 size-[min(120vw,42rem)] -translate-x-1/2 -translate-y-1/2">
-          {RINGS.map((r) => (
-            <motion.span
-              key={r}
-              className="absolute inset-0 rounded-full border border-[#f4e9d8]/10"
-              style={{ margin: `${r * 7}%` }}
-              animate={
-                reduce
-                  ? { opacity: 0.2 }
-                  : mood.particle === "wave"
-                    ? { scale: [1, 1.04, 1], opacity: [0.12, 0.35, 0.12] }
-                    : { rotate: 360, opacity: [0.08, 0.22, 0.08] }
-              }
-              transition={
-                reduce
-                  ? undefined
-                  : mood.particle === "wave"
-                    ? { duration: 2.2 + r * 0.35, repeat: Infinity, ease: "easeInOut" }
-                    : { duration: 18 + r * 4, repeat: Infinity, ease: "linear" }
-              }
-            />
-          ))}
-        </div>
-      ) : null}
-
-      {mood.particle === "steam" ? (
-        <>
-          {[0, 1, 2, 3, 4].map((i) => (
+      {/* festa: coriandoli quadrati dal basso */}
+      {celebrate && !reduce
+        ? Array.from({ length: 18 }, (_, i) => (
             <motion.span
               key={i}
-              className="absolute bottom-[18%] rounded-full bg-[#f4e9d8]/25 blur-md"
-              style={{ left: `${36 + i * 7}%`, width: 18 + i * 4, height: 40 + i * 8 }}
-              animate={reduce ? { opacity: 0.15 } : { y: [0, -120 - i * 20], opacity: [0, 0.45, 0], scaleX: [1, 1.4] }}
-              transition={reduce ? undefined : { duration: 3.2 + i * 0.4, repeat: Infinity, delay: i * 0.45, ease: "easeOut" }}
+              className="absolute bottom-0 size-2.5"
+              style={{ left: `${5 + ((i * 37) % 90)}%`, background: i % 3 === 0 ? mood.ink : mood.mark }}
+              initial={{ y: 40, opacity: 0, rotate: 0 }}
+              animate={{ y: [-20, -260 - (i % 5) * 60], opacity: [0, 1, 0], rotate: (i % 2 ? 1 : -1) * 240 }}
+              transition={{ duration: 1.8 + (i % 4) * 0.3, delay: 0.15 + (i % 6) * 0.07, ease: "easeOut" }}
             />
-          ))}
-        </>
-      ) : null}
-
-      {(mood.particle === "spark" || mood.particle === "star" || mood.particle === "coin" || mood.particle === "confetti" || mood.particle === "note") &&
-        SPARKS.map((s) => (
-          <motion.span
-            key={s.id}
-            className={cn(
-              "absolute rounded-full",
-              mood.particle === "star" && "rotate-45",
-              mood.particle === "note" && "rounded-[2px]",
-            )}
-            style={{
-              left: s.left,
-              top: s.top,
-              width: s.size,
-              height: mood.particle === "note" ? s.size * 2.2 : s.size,
-              background: mood.accent,
-              boxShadow: `0 0 ${6 + s.size}px ${mood.glow}`,
-            }}
-            animate={
-              reduce
-                ? { opacity: 0.35 }
-                : {
-                    opacity: [0.15, 0.95, 0.2],
-                    y: mood.particle === "confetti" ? [0, 40 + (s.id % 5) * 8, 0] : [0, -10, 0],
-                    scale: [0.7, 1.25, 0.8],
-                    rotate: mood.particle === "confetti" ? [0, 40, -20] : 0,
-                  }
-            }
-            transition={reduce ? undefined : { duration: s.dur, delay: s.delay, repeat: Infinity, ease: "easeInOut" }}
-          />
-        ))}
-
-      {celebrate && !reduce ? (
-        <>
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <motion.span
-              key={`c-${i}`}
-              className="absolute left-1/2 top-[42%] size-2 rounded-full"
-              style={{ background: mood.accent }}
-              initial={{ opacity: 0, x: 0, y: 0, scale: 0.4 }}
-              animate={{
-                opacity: [0, 1, 0],
-                x: Math.cos((i / 6) * Math.PI * 2) * (90 + i * 12),
-                y: Math.sin((i / 6) * Math.PI * 2) * (70 + i * 10),
-                scale: [0.4, 1.2, 0.2],
-              }}
-              transition={{ duration: 1.4, delay: 0.1 + i * 0.05, ease: "easeOut" }}
-            />
-          ))}
-        </>
-      ) : null}
-
-      {/* vignette */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(0,0,0,0.55)_100%)]" />
+          ))
+        : null}
     </div>
   );
 }

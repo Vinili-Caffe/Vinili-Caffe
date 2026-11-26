@@ -1,10 +1,14 @@
-import { fmt, hours, type WrappedPayload } from "./wrapped";
+import { fmt, hours, wrappedPeriodLabel, type WrappedPayload } from "./wrapped";
 
-/** Soglie soft (all-time / ultimi ~2 mesi voti). */
+/** Soglie soft — annuali; in mensile usiamo soglie più basse. */
 const MSG_MANY = 1500;
+const MSG_MANY_MONTH = 400;
 const VOICE_FEW_H = 12;
+const VOICE_FEW_H_MONTH = 4;
 const VOICE_MANY_H = 40;
+const VOICE_MANY_H_MONTH = 12;
 const VOTES_MANY = 20;
+const VOTES_MANY_MONTH = 5;
 const NIGHT_MSG_MIN = 40;
 const MENTION_RECV_MIN = 80;
 const MENTION_MADE_MIN = 80;
@@ -40,16 +44,24 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
   const a = data.allTime;
   const r = data.recent;
   const name = data.user.displayName;
+  const monthly = data.period === "monthly";
+  const label = wrappedPeriodLabel(data);
+  const msgMany = monthly ? MSG_MANY_MONTH : MSG_MANY;
+  const voiceFew = monthly ? VOICE_FEW_H_MONTH : VOICE_FEW_H;
+  const voiceMany = monthly ? VOICE_MANY_H_MONTH : VOICE_MANY_H;
+  const votesMany = monthly ? VOTES_MANY_MONTH : VOTES_MANY;
   const cards: StoryCard[] = [
     {
       key: "hello",
-      kicker: `Vinili Wrapped · ${data.year}`,
+      kicker: `Vinili Wrapped · ${label}`,
       title: `Ciao, ${name}`,
-      body: "Rivivi l'anno passato con noi.",
+      body: monthly
+        ? `Il tuo mese su Vinili & Caffè: ${label}.`
+        : "Rivivi l'anno passato con noi.",
     },
   ];
 
-  if (data.user.daysInServer) {
+  if (!monthly && data.user.daysInServer) {
     cards.push({
       key: "days",
       kicker: "Nel server",
@@ -60,12 +72,14 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
   }
 
   const msg = a.messagesTotal;
-  if (msg < MSG_MANY) {
+  if (msg < msgMany) {
     cards.push({
       key: "messages",
       kicker: "Messaggi",
       title: "Fantasma preferito",
-      body: `Ti piace osservare nell'ombra. Hai letto tantissimo ma hai inviato solo ${fmt(msg)} messaggi. Sei il nostro fantasma preferito!`,
+      body: monthly
+        ? `Questo mese hai inviato solo ${fmt(msg)} messaggi. Silenzioso, ma presente.`
+        : `Ti piace osservare nell'ombra. Hai letto tantissimo ma hai inviato solo ${fmt(msg)} messaggi. Sei il nostro fantasma preferito!`,
       footnote: pctLine(a.messagesBetterThanPct),
       stat: `${fmt(msg)} messaggi`,
     });
@@ -74,7 +88,9 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       key: "messages",
       kicker: "Messaggi",
       title: "Copymaster",
-      body: `Le parole non ti mancano. Hai scritto in totale ${fmt(msg)} messaggi. Praticamente potresti scriverci una tesi!`,
+      body: monthly
+        ? `Che mese di chat: ${fmt(msg)} messaggi. Il bancone ti ha sentito.`
+        : `Le parole non ti mancano. Hai scritto in totale ${fmt(msg)} messaggi. Praticamente potresti scriverci una tesi!`,
       footnote: pctLine(a.messagesBetterThanPct),
       stat: `${fmt(msg)} messaggi`,
     });
@@ -87,24 +103,30 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       key: "voice",
       kicker: "Vocale",
       title: "Terrore da microfono",
-      body: "Nei canali vocali non sei mai entrato, nemmeno per sbaglio. Prima o poi ti aspettiamo!",
+      body: monthly
+        ? "Questo mese zero minuti in call. Magari il prossimo?"
+        : "Nei canali vocali non sei mai entrato, nemmeno per sbaglio. Prima o poi ti aspettiamo!",
       stat: "0 ore",
     });
-  } else if (voiceH < VOICE_FEW_H) {
+  } else if (voiceH < voiceFew) {
     cards.push({
       key: "voice",
       kicker: "Vocale",
       title: "Un po' in soggezione",
-      body: `I nostri canali vocali ti mettono un po' in soggezione: hai trascorso solo ${hours(a.voiceTotalSeconds)} a parlare con noi.`,
+      body: monthly
+        ? `In call solo ${hours(a.voiceTotalSeconds)} questo mese. Un assaggio.`
+        : `I nostri canali vocali ti mettono un po' in soggezione: hai trascorso solo ${hours(a.voiceTotalSeconds)} a parlare con noi.`,
       footnote: pctLine(a.voiceBetterThanPct),
       stat: hours(a.voiceTotalSeconds),
     });
-  } else if (voiceH >= VOICE_MANY_H) {
+  } else if (voiceH >= voiceMany) {
     cards.push({
       key: "voice",
       kicker: "Vocale",
       title: homeVc.startsWith("#") ? `Residente in ${homeVc}` : "Residente vocale",
-      body: `Praticamente hai preso la residenza in ${homeVc}. Ci hai passato ${hours(a.voiceTotalSeconds)}. Ormai la stanza è un po’ tua.`,
+      body: monthly
+        ? `Questo mese hai praticamente vissuto in ${homeVc}: ${hours(a.voiceTotalSeconds)}.`
+        : `Praticamente hai preso la residenza in ${homeVc}. Ci hai passato ${hours(a.voiceTotalSeconds)}. Ormai la stanza è un po’ tua.`,
       footnote: pctLine(a.voiceBetterThanPct),
       stat: hours(a.voiceTotalSeconds),
     });
@@ -113,7 +135,9 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       key: "voice",
       kicker: "Vocale",
       title: hours(a.voiceTotalSeconds),
-      body: `Hai passato ${hours(a.voiceTotalSeconds)} in call. Né fantasma né inquilino fisso.`,
+      body: monthly
+        ? `Hai passato ${hours(a.voiceTotalSeconds)} in call questo mese.`
+        : `Hai passato ${hours(a.voiceTotalSeconds)} in call. Né fantasma né inquilino fisso.`,
       footnote: pctLine(a.voiceBetterThanPct),
       stat: hours(a.voiceTotalSeconds),
     });
@@ -126,15 +150,19 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       kicker: "Sostegno",
       title: "0 voti",
       stat: "0 voti",
-      body: "Voti per il server? Quali voti? Hai supportato la nostra crescita esattamente 0 volte. Tranquillo, ti facciamo godere i frutti del lavoro altrui gratis.",
+      body: monthly
+        ? "Questo mese zero voti. Nessun giudizio — il prossimo round è gratis."
+        : "Voti per il server? Quali voti? Hai supportato la nostra crescita esattamente 0 volte. Tranquillo, ti facciamo godere i frutti del lavoro altrui gratis.",
     });
-  } else if (votes >= VOTES_MANY) {
+  } else if (votes >= votesMany) {
     cards.push({
       key: "support",
       kicker: "Sostegno",
       title: "PR di fiducia",
       stat: `${fmt(votes)} voti`,
-      body: `Sei il nostro PR di fiducia! Hai votato il server ben ${fmt(votes)} volte. Il nostro reparto marketing dovrebbe seriamente pagarti lo stipendio.`,
+      body: monthly
+        ? `Questo mese hai votato ${fmt(votes)} volte. Il marketing ti deve un caffè.`
+        : `Sei il nostro PR di fiducia! Hai votato il server ben ${fmt(votes)} volte. Il nostro reparto marketing dovrebbe seriamente pagarti lo stipendio.`,
     });
   } else {
     cards.push({
@@ -142,7 +170,9 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
       kicker: "Sostegno",
       title: "Dovere civico",
       stat: `${fmt(votes)} ${votes === 1 ? "voto" : "voti"}`,
-      body: `Hai dato il tuo contributo. Con i tuoi ${fmt(votes)} voti hai contribuito a farci crescere. Grazie!`,
+      body: monthly
+        ? `Con ${fmt(votes)} ${votes === 1 ? "voto" : "voti"} questo mese hai dato una mano. Grazie!`
+        : `Hai dato il tuo contributo. Con i tuoi ${fmt(votes)} voti hai contribuito a farci crescere. Grazie!`,
     });
   }
 
@@ -273,7 +303,7 @@ export function buildStoryCards(data: WrappedPayload): StoryCard[] {
 
   cards.push({
     key: "share",
-    kicker: "Il tuo anno",
+    kicker: monthly ? "Il tuo mese" : "Il tuo anno",
     title: name,
     body: `${data.archetype.label} · Lv.${a.level} · #${a.allTimeRank} · ${fmt(a.messagesTotal)} msg · ${hours(a.voiceTotalSeconds)}`,
   });

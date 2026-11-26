@@ -1,6 +1,6 @@
 import { sizedDiscordCdn } from "@/lib/discord-cdn";
 import { cdnUrl } from "@/lib/site";
-import { fmt, type WrappedPayload } from "@/lib/wrapped";
+import { fmt, wrappedPeriodLabel, type WrappedPayload } from "@/lib/wrapped";
 import { moodForStoryKey } from "@/lib/wrappedMoods";
 import { buildStoryCards } from "@/lib/wrappedStories";
 
@@ -30,7 +30,7 @@ let cache: CacheEntry | null = null;
 let inflight: { key: string; promise: Promise<WrappedShareCard[]> } | null = null;
 
 function cacheKey(data: WrappedPayload) {
-  return `${data.user.id}:${data.year}:${data.allTime.level}:${data.allTime.messagesTotal}:${data.allTime.voiceTotalSeconds}:${data.allTime.votesTotal}:${data.archetype.id}:recap2`;
+  return `${data.user.id}:${data.period || "yearly"}:${data.monthKey || data.year}:${data.allTime.level}:${data.allTime.messagesTotal}:${data.allTime.voiceTotalSeconds}:${data.allTime.votesTotal}:${data.archetype.id}:recap2`;
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -255,7 +255,7 @@ async function makeCard(
   ctx.textBaseline = "top";
   ctx.fillStyle = accent;
   ctx.font = `600 ${story ? 20 : 16}px ${FONT_BODY}`;
-  ctx.fillText(`VINILI WRAPPED · ${data.year}`, textX, avCy - (story ? 58 : 44));
+  ctx.fillText(`VINILI WRAPPED · ${wrappedPeriodLabel(data).toUpperCase()}`, textX, avCy - (story ? 58 : 44));
   ctx.fillStyle = "#f4e9d8";
   ctx.font = `600 ${story ? 58 : 44}px ${FONT_DISPLAY}`;
   ctx.fillText(fit(ctx, name, textW), textX, avCy - (story ? 30 : 22));
@@ -364,7 +364,8 @@ async function makeCard(
   ctx.fillText("viniliecaffe.it/wrapped", width / 2, height - (story ? 40 : 22));
 
   const blob = await canvasToJpegBlob(canvas);
-  const fileName = `vinili-wrapped-${data.year}-${format}.jpg`;
+  const slug = data.period === "monthly" ? String(data.monthKey || data.year) : String(data.year);
+  const fileName = `vinili-wrapped-${slug}-${format}.jpg`;
   const file = new File([blob], fileName, { type: "image/jpeg" });
   const objectUrl = URL.createObjectURL(blob);
 

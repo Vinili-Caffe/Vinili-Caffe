@@ -141,8 +141,10 @@ function topFromMap(mapLike?, limit = 3) {
     .slice(0, limit);
 }
 
-function summarizeRecentDaily(daily?, cutoffKey?) {
+function summarizeRecentDaily(daily?, fromKey?, toKey?) {
   const bag = daily && typeof daily === "object" ? daily : {};
+  const from = fromKey && /^\d{4}-\d{2}-\d{2}$/.test(String(fromKey)) ? String(fromKey) : null;
+  const to = toKey && /^\d{4}-\d{2}-\d{2}$/.test(String(toKey)) ? String(toKey) : null;
   let messages = 0;
   let voiceSeconds = 0;
   let activeDays = 0;
@@ -150,7 +152,9 @@ function summarizeRecentDaily(daily?, cutoffKey?) {
   const voiceChannels: Record<string, any> = {};
   let peak = null;
   for (const [dateKey, row] of Object.entries(bag)) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || dateKey < cutoffKey) continue;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) continue;
+    if (from && dateKey < from) continue;
+    if (to && dateKey > to) continue;
     const text = nInt(row?.textCount);
     const voice = nInt(row?.voiceSeconds);
     if (text <= 0 && voice <= 0) continue;
@@ -169,16 +173,18 @@ function summarizeRecentDaily(daily?, cutoffKey?) {
   return { messages, voiceSeconds, activeDays, textChannels, voiceChannels, peak };
 }
 
-function summarizeHourlyOwl(hourly?, cutoffDayKey = null) {
+function summarizeHourlyOwl(hourly?, fromDayKey = null, toDayKey = null) {
   const bag = hourly && typeof hourly === "object" ? hourly : {};
   const byHour = Array.from({ length: 24 }, () => 0);
   let nightMessages = 0;
-  const cutoff = cutoffDayKey && /^\d{4}-\d{2}-\d{2}$/.test(String(cutoffDayKey)) ? String(cutoffDayKey) : null;
+  const from = fromDayKey && /^\d{4}-\d{2}-\d{2}$/.test(String(fromDayKey)) ? String(fromDayKey) : null;
+  const to = toDayKey && /^\d{4}-\d{2}-\d{2}$/.test(String(toDayKey)) ? String(toDayKey) : null;
   for (const [hourKey, row] of Object.entries(bag)) {
     const m = String(hourKey || "").match(/^(\d{4}-\d{2}-\d{2})T(\d{2})$/);
     if (!m) continue;
     const dayKey = m[1];
-    if (cutoff && dayKey < cutoff) continue;
+    if (from && dayKey < from) continue;
+    if (to && dayKey > to) continue;
     const h = Number(m[2]);
     if (!Number.isFinite(h) || h < 0 || h > 23) continue;
     const text = nInt(row?.textCount);
@@ -233,6 +239,82 @@ function sumYearVotesFromLeaf(leaf?, year?) {
   counter(leaf?.voteCountMonthKey, nInt(leaf?.voteCountTopgg) + nInt(leaf?.voteCountDiscadia) + nInt(leaf?.voteCount));
   counter(leaf?.prevVoteCountMonthKey, nInt(leaf?.prevVoteCountTopgg) + nInt(leaf?.prevVoteCountDiscadia));
   return Object.values(months).reduce((a, b) => a + b, 0);
+}
+
+/** Voti di un solo mese ("YYYY-MM"). */
+function sumMonthVotesFromLeaf(leaf?, monthKey?) {
+  const mk = String(monthKey || "").trim();
+  if (!/^\d{4}-\d{2}$/.test(mk)) return 0;
+  const raw = leaf?.voteMonths && typeof leaf.voteMonths === "object" ? leaf.voteMonths : {};
+  let n = nInt(raw[mk]);
+  if (String(leaf?.voteCountMonthKey || "") === mk) {
+    n = Math.max(n, nInt(leaf?.voteCountTopgg) + nInt(leaf?.voteCountDiscadia) + nInt(leaf?.voteCount));
+  }
+  if (String(leaf?.prevVoteCountMonthKey || "") === mk) {
+    n = Math.max(n, nInt(leaf?.prevVoteCountTopgg) + nInt(leaf?.prevVoteCountDiscadia));
+  }
+  return n;
+}
+
+/** Mese calendario precedente (Europe/Rome) → "YYYY-MM". */
+function previousMonthKey(date = new Date()) {
+  const { y, m } = romeParts(date);
+  if (!y || !m) return "";
+  if (m === 1) return `${y - 1}-12`;
+  return `${y}-${String(m - 1).padStart(2, "0")}`;
+}
+
+function monthStartDayKey(monthKey?) {
+  const mk = String(monthKey || "").trim();
+  if (!/^\d{4}-\d{2}$/.test(mk)) return "";
+  return `${mk}-01`;
+}
+
+function monthEndDayKey(monthKey?) {
+  const mk = String(monthKey || "").trim();
+  const m = mk.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return "";
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  /* Date.UTC(y, mo, 0) con mo 1-based = ultimo giorno del mese */
+  return romeDayKey(new Date(Date.UTC(y, mo, 0, 12, 0, 0)));
+}
+
+function formatMonthLabel(monthKey?) {
+  const mk = String(monthKey || "").trim();
+  const m = mk.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return mk;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  try {
+    const raw = new Intl.DateTimeFormat("it-IT", {
+      timeZone: "Europe/Rome",
+      month: "long",
+      year: "numeric",
+    }).format(new Date(Date.UTC(y, mo - 1, 15, 12, 0, 0)));
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  } catch {
+    return mk;
+  }
+}
+
+/**
+ * Il mensile non ha una stagione pubblica propria: si apre solo con l’annuale
+ * (dal 10 dic). Fuori stagione → High Staff (preview).
+ */
+function isWrappedMonthlySeasonRome(now = new Date()) {
+  return isWrappedSeasonRome(now);
+}
+
+function daysInMonthKey(monthKey?) {
+  const from = monthStartDayKey(monthKey);
+  const to = monthEndDayKey(monthKey);
+  if (!from || !to) return 1;
+  const [fy, fm, fd] = from.split("-").map(Number);
+  const [ty, tm, td] = to.split("-").map(Number);
+  const a = Date.UTC(fy, fm - 1, fd);
+  const b = Date.UTC(ty, tm - 1, td);
+  return Math.max(1, Math.round((b - a) / 86400000) + 1);
 }
 
 /**
@@ -331,7 +413,7 @@ async function countActivePool(guildId?) {
   return value;
 }
 
-/** Finestra pubblica Wrapped (Rome): 10 dic 12:00 → 7 gen 12:00. */
+/** Finestra pubblica Wrapped annuale (Rome): 10 dic 12:00 → 7 gen 12:00. */
 function isWrappedSeasonRome(now = new Date()) {
   const { y, m, d, h } = romeParts(now);
   if (!y || !m || !d) return false;
@@ -344,7 +426,63 @@ function isWrappedPublicEnabled(now = new Date()) {
   const env = String(process.env.WEBSITE_WRAPPED_HTTP || "").trim().toLowerCase();
   if (env === "0" || env === "false" || env === "off" || env === "no") return false;
   if (env === "1" || env === "true" || env === "yes" || env === "on") return true;
+  /* Solo stagione annuale (10 dic 12:00 → 7 gen 12:00). Mensile = periodo, non unlock anticipato. */
   return isWrappedSeasonRome(now);
+}
+
+/**
+ * period=yearly|monthly|auto, month=YYYY-MM.
+ * Default: in stagione annuale → yearly; altrimenti monthly del mese precedente.
+ */
+function resolveWrappedPeriodRequest(payload?, now = new Date()) {
+  const rawPeriod = String(payload?.period || "").trim().toLowerCase();
+  const rawMonth = String(payload?.month || "").trim();
+  const prev = previousMonthKey(now);
+  const wantMonth = /^\d{4}-\d{2}$/.test(rawMonth) ? rawMonth : "";
+
+  if (rawPeriod === "monthly" || wantMonth) {
+    const monthKey = wantMonth || prev;
+    return {
+      kind: "monthly",
+      monthKey,
+      year: Number(monthKey.slice(0, 4)) || wrappedYear(now),
+      from: monthStartDayKey(monthKey),
+      to: monthEndDayKey(monthKey),
+      periodLabel: formatMonthLabel(monthKey),
+    };
+  }
+  if (rawPeriod === "yearly" || rawPeriod === "year") {
+    const year = wrappedYear(now);
+    return {
+      kind: "yearly",
+      monthKey: null,
+      year,
+      from: yearStartDayKey(year),
+      to: romeDayKey(now),
+      periodLabel: String(year),
+    };
+  }
+  /* auto */
+  if (isWrappedSeasonRome(now)) {
+    const year = wrappedYear(now);
+    return {
+      kind: "yearly",
+      monthKey: null,
+      year,
+      from: yearStartDayKey(year),
+      to: romeDayKey(now),
+      periodLabel: String(year),
+    };
+  }
+  const monthKey = prev;
+  return {
+    kind: "monthly",
+    monthKey,
+    year: Number(monthKey.slice(0, 4)) || wrappedYear(now),
+    from: monthStartDayKey(monthKey),
+    to: monthEndDayKey(monthKey),
+    periodLabel: formatMonthLabel(monthKey),
+  };
 }
 
 function memberIsWrappedPreviewStaff(member?) {
@@ -373,7 +511,9 @@ function wrappedViewerRoleId() {
 }
 
 /**
- * Fine slideshow Wrapped → assegna ruolo commemorativo (una volta per anno).
+ * Fine slideshow Wrapped.
+ * - yearly → ruolo commemorativo (una volta per anno).
+ * - monthly → solo flag completedAt sul mese (niente ruolo).
  */
 async function completeSiteWrapped(client?, payload?) {
   const accessToken = String(payload?.accessToken || "").trim();
@@ -390,14 +530,47 @@ async function completeSiteWrapped(client?, payload?) {
   const guildId = resolveGuildId(client);
   const userId = String(resolved.userId || "").trim();
   const roleId = wrappedViewerRoleId();
-  if (!guildId || !userId || !roleId) {
-    return { ok: false, status: 500, error: "misconfigured", message: "Guild/user/ruolo non risolti." };
+  if (!guildId || !userId) {
+    return { ok: false, status: 500, error: "misconfigured", message: "Guild/user non risolti." };
   }
 
-  const year = wrappedYear();
+  const period = resolveWrappedPeriodRequest(payload);
+  const nowIso = new Date().toISOString();
+
+  /* Mensile: traccia completamento, nessun ruolo Discord. */
+  if (period.kind === "monthly") {
+    const mk = String(period.monthKey || previousMonthKey());
+    const completedPath = `profile.events.wrapped.monthly.${mk}.completedAt`;
+    await ActivityUserProfile.findOneAndUpdate(
+      { guildId, userId },
+      {
+        $set: {
+          [completedPath]: nowIso,
+          "profile.events.wrapped.updatedAt": nowIso,
+        },
+        $setOnInsert: { guildId, userId },
+      },
+      { upsert: true },
+    ).catch(() => null);
+    return {
+      ok: true,
+      status: 200,
+      period: "monthly",
+      monthKey: mk,
+      year: period.year,
+      roleId: null,
+      roleGranted: false,
+      already: false,
+    };
+  }
+
+  if (!roleId) {
+    return { ok: false, status: 500, error: "misconfigured", message: "Ruolo Wrapped non risolto." };
+  }
+
+  const year = period.year || wrappedYear();
   const completedPath = `profile.events.wrapped.${year}.completedAt`;
   const rolePath = `profile.events.wrapped.${year}.roleGranted`;
-  const nowIso = new Date().toISOString();
 
   const existing = await ActivityUserProfile.findOne({ guildId, userId })
     .select(`profile.events.wrapped.${year}`)
@@ -443,6 +616,7 @@ async function completeSiteWrapped(client?, payload?) {
   return {
     ok: true,
     status: 200,
+    period: "yearly",
     year,
     roleId,
     roleGranted: Boolean(roleGranted),
@@ -510,15 +684,34 @@ async function getSiteWrapped(client?, payload?) {
   const totals = doc?.profile?.totals || {};
   const exp = totals.exp || {};
   const minigame = exp.minigame || {};
-  const year = wrappedYear();
-  const yearFromKey = yearStartDayKey(year);
-  /* Activity Wrapped = YTD (1° gen → oggi) dai daily/hourly disponibili. */
-  const ytd = summarizeRecentDaily(totals.daily, yearFromKey);
+  const period = resolveWrappedPeriodRequest(payload);
+  const isMonthly = period.kind === "monthly";
+  const year = period.year;
+  const windowFrom = period.from;
+  const windowTo = period.to;
+
+  /* Pubblico: mensile solo mese precedente. High staff può chiedere altri mesi. */
+  if (isMonthly) {
+    const prev = previousMonthKey();
+    if (period.monthKey !== prev && !memberIsWrappedPreviewStaff(member)) {
+      return {
+        ok: false,
+        status: 400,
+        error: "month_not_available",
+        message: "Il Wrapped mensile pubblico è solo quello del mese precedente.",
+      };
+    }
+  }
+
+  /* Activity Wrapped = finestra periodo (YTD oppure mese) dai daily/hourly. */
+  const windowStats = summarizeRecentDaily(totals.daily, windowFrom, windowTo);
   const messagesLifetime = nInt(totals.messagesTotal);
   const voiceLifetime = nInt(totals.voiceTotalSeconds);
-  const messagesTotal = ytd.messages > 0 ? ytd.messages : messagesLifetime;
+  const messagesTotal =
+    windowStats.messages > 0 ? windowStats.messages : isMonthly ? 0 : messagesLifetime;
   const messagesWeekly = nInt(totals.messagesWeekly);
-  const voiceTotalSeconds = ytd.voiceSeconds > 0 ? ytd.voiceSeconds : voiceLifetime;
+  const voiceTotalSeconds =
+    windowStats.voiceSeconds > 0 ? windowStats.voiceSeconds : isMonthly ? 0 : voiceLifetime;
   const voiceWeeklySeconds = nInt(totals.voiceWeeklySeconds);
   const privateVoiceSeconds = nInt(doc?.profile?.stanzaVoiceTotalSeconds);
   const disconnects = nInt(totals.voiceDisconnectCount);
@@ -526,13 +719,18 @@ async function getSiteWrapped(client?, payload?) {
   const bestStreak = nInt(minigame.bestStreak);
   const currentStreak = nInt(minigame.currentStreak);
 
-  const cutoffKey = addDaysToKey(romeDayKey(), -(RECENT_DAYS - 1));
-  const recent = summarizeRecentDaily(totals.daily, cutoffKey);
-  const hourSummary = summarizeHourlyOwl(totals.hourly, yearFromKey);
+  const cutoffKey = isMonthly
+    ? windowFrom
+    : addDaysToKey(romeDayKey(), -(RECENT_DAYS - 1));
+  const recentTo = isMonthly ? windowTo : romeDayKey();
+  const recent = isMonthly
+    ? windowStats
+    : summarizeRecentDaily(totals.daily, cutoffKey, recentTo);
+  const hourSummary = summarizeHourlyOwl(totals.hourly, windowFrom, windowTo);
   const owl = hourSummary.owl;
   const nightMessages = nInt(hourSummary.nightMessages);
   const guild = client?.guilds?.cache?.get?.(guildId) || null;
-  const ytdChannels = ytd.messages > 0 || ytd.voiceSeconds > 0 ? ytd : recent;
+  const channelBag = windowStats.messages > 0 || windowStats.voiceSeconds > 0 ? windowStats : recent;
   const [messagesHigher, voiceHigher, minigameHigher, topText, topVoice] = await Promise.all([
     ActivityUserProfile.countDocuments({
       guildId,
@@ -546,14 +744,16 @@ async function getSiteWrapped(client?, payload?) {
       guildId,
       "profile.totals.exp.minigame.totalExp": { $gt: minigameTotalExp },
     }).catch(() => 0),
-    labelTopChannels(guild, topFromMap(ytdChannels.textChannels, 3), "count"),
-    labelTopChannels(guild, topFromMap(ytdChannels.voiceChannels, 3), "seconds"),
+    labelTopChannels(guild, topFromMap(channelBag.textChannels, 3), "count"),
+    labelTopChannels(guild, topFromMap(channelBag.voiceChannels, 3), "seconds"),
   ]);
 
   const voteLeaf = exp?.bumpVoteRewards?.discadia_vote || {};
-  const votesTotal = sumYearVotesFromLeaf(voteLeaf, year);
+  const votesTotal = isMonthly
+    ? sumMonthVotesFromLeaf(voteLeaf, period.monthKey)
+    : sumYearVotesFromLeaf(voteLeaf, year);
   const boostYear = resolveYearBoostCount(member, year, doc?.profile?.serverBoostAnnouncedSlotCount);
-  const boosts = nInt(boostYear.boosts);
+  const boosts = isMonthly ? (boostYear.isBoosting ? Math.max(1, nInt(boostYear.boosts)) : 0) : nInt(boostYear.boosts);
   const isBoosting = Boolean(boostYear.isBoosting);
 
   const emojiUses = totals.emojiUses && typeof totals.emojiUses === "object" ? totals.emojiUses : {};
@@ -591,18 +791,22 @@ async function getSiteWrapped(client?, payload?) {
     Math.floor((Date.now() - yearStartMsRome(year)) / 86400000) + 1,
   );
   const joinedMs = joinedAt ? new Date(joinedAt).getTime() : 0;
-  const ytdMemberDays = Math.max(
-    1,
-    Math.min(
-      yearElapsedDays,
-      joinedMs > 0 ? Math.floor((Date.now() - Math.max(joinedMs, yearStartMsRome(year))) / 86400000) + 1 : yearElapsedDays,
-    ),
-  );
+  const periodMemberDays = isMonthly
+    ? Math.max(1, windowStats.activeDays || daysInMonthKey(period.monthKey))
+    : Math.max(
+        1,
+        Math.min(
+          yearElapsedDays,
+          joinedMs > 0
+            ? Math.floor((Date.now() - Math.max(joinedMs, yearStartMsRome(year))) / 86400000) + 1
+            : yearElapsedDays,
+        ),
+      );
   const avgMessagesPerDay =
-    messagesTotal > 0 ? Math.round((messagesTotal / ytdMemberDays) * 10) / 10 : null;
+    messagesTotal > 0 ? Math.round((messagesTotal / periodMemberDays) * 10) / 10 : null;
   const avgVoiceHoursPerWeek =
     voiceTotalSeconds > 0
-      ? Math.round((voiceTotalSeconds / 3600 / (ytdMemberDays / 7)) * 10) / 10
+      ? Math.round((voiceTotalSeconds / 3600 / (periodMemberDays / 7)) * 10) / 10
       : null;
   const coffeeCups = Math.max(0, Math.round(voiceTotalSeconds / 3600));
   const milestonesHit = LEVEL_MILESTONES.filter((m?) => level >= m);
@@ -613,14 +817,25 @@ async function getSiteWrapped(client?, payload?) {
     guildMemberDisplayAvatarUrlForSite(member, { size: 512, preferAnimated: true }) || "";
   const avatarUrl = animatedDiscordCdnAvatarUrl(liveAvatar, { size: 512 }) || liveAvatar || null;
 
+  const recentDays = isMonthly ? daysInMonthKey(period.monthKey) : RECENT_DAYS;
+
   return {
     ok: true,
     status: 200,
+    period: isMonthly ? "monthly" : "yearly",
+    monthKey: isMonthly ? period.monthKey : null,
+    periodLabel: period.periodLabel,
     year,
-    from: yearFromKey,
-    to: romeDayKey(),
+    from: windowFrom,
+    to: windowTo,
     generatedAt: new Date().toISOString(),
-    recentDays: RECENT_DAYS,
+    recentDays,
+    available: {
+      /* Entrambi i periodi solo in stagione pubblica (o preview HS). */
+      yearly: isWrappedSeasonRome() || memberIsWrappedPreviewStaff(member),
+      monthly: isWrappedSeasonRome() || memberIsWrappedPreviewStaff(member),
+      previousMonthKey: previousMonthKey(),
+    },
     user: {
       id: userId,
       username: String(member?.user?.username || "").trim(),
@@ -650,10 +865,11 @@ async function getSiteWrapped(client?, payload?) {
       voiceRank,
       privateVoiceSeconds,
       disconnects,
-      minigameTotalExp,
-      minigameRank,
-      bestStreak,
-      currentStreak,
+      /* Minigiochi/streak: lifetime (no bucket mensile). In mensile li nascondiamo nelle story. */
+      minigameTotalExp: isMonthly ? 0 : minigameTotalExp,
+      minigameRank: isMonthly ? null : minigameRank,
+      bestStreak: isMonthly ? 0 : bestStreak,
+      currentStreak: isMonthly ? 0 : currentStreak,
       avgMessagesPerDay,
       avgVoiceHoursPerWeek,
       coffeeCups,
@@ -664,18 +880,19 @@ async function getSiteWrapped(client?, payload?) {
       boosts,
       isBoosting,
       nightMessages,
-      gifsTotal: nInt(totals.gifsTotal),
-      imagesTotal: nInt(totals.imagesTotal),
-      mentionsMade: nInt(totals.mentionsMade),
-      mentionsReceived: nInt(totals.mentionsReceived),
-      rolePings: nInt(totals.rolePings),
-      commandsTotal: nInt(totals.commandsTotal),
-      topEmoji,
+      /* Contatori lifetime-only: in mensile non li mostriamo (evita copy “dell’anno”). */
+      gifsTotal: isMonthly ? 0 : nInt(totals.gifsTotal),
+      imagesTotal: isMonthly ? 0 : nInt(totals.imagesTotal),
+      mentionsMade: isMonthly ? 0 : nInt(totals.mentionsMade),
+      mentionsReceived: isMonthly ? 0 : nInt(totals.mentionsReceived),
+      rolePings: isMonthly ? 0 : nInt(totals.rolePings),
+      commandsTotal: isMonthly ? 0 : nInt(totals.commandsTotal),
+      topEmoji: isMonthly ? null : topEmoji,
     },
     recent: {
-      days: RECENT_DAYS,
+      days: recentDays,
       from: cutoffKey,
-      to: romeDayKey(),
+      to: recentTo,
       activeDays: recent.activeDays,
       messages: recent.messages,
       voiceSeconds: recent.voiceSeconds,
@@ -697,4 +914,12 @@ async function getSiteWrapped(client?, payload?) {
   };
 }
 
-export = { getSiteWrapped, completeSiteWrapped, isWrappedSeasonRome, isWrappedPublicEnabled };
+export = {
+  getSiteWrapped,
+  completeSiteWrapped,
+  isWrappedSeasonRome,
+  isWrappedMonthlySeasonRome,
+  isWrappedPublicEnabled,
+  previousMonthKey,
+  resolveWrappedPeriodRequest,
+};

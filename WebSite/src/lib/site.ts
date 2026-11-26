@@ -1,6 +1,6 @@
 // Dati condivisi del sito: link, sezioni, testi. Un solo posto da aggiornare.
 
-import { isAlberoSeason, isPropositiSeason, isWrappedSeason } from "@/lib/site-effects";
+import { isAlberoSeason, isPropositiSeason, isWrappedSeason, isWrappedSeasonLive } from "@/lib/site-effects";
 
 export const SITE_ORIGIN = "https://www.viniliecaffe.it";
 /**
@@ -68,7 +68,8 @@ export function navLinkLocked(
 /** Badge «in corso»: solo mentre la stagione pubblica è davvero aperta (non preview HS fuori periodo). */
 export function navLinkSeasonLive(l: NavLink, now = new Date()): boolean {
   if (l.gate === "albero") return isAlberoSeason(now);
-  if (l.gate === "wrapped") return isWrappedSeason(now);
+  /* Wrapped: annuale in stagione, oppure primi 7 gg del mese (nuovo wrap mensile). */
+  if (l.gate === "wrapped") return isWrappedSeasonLive(now);
   if (l.gate === "propositi") return isPropositiSeason(now);
   return false;
 }
