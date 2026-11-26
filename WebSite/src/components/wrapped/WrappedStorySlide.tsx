@@ -11,38 +11,86 @@ import type { StoryCard } from "@/lib/wrappedStories";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-/** «1.234 messaggi» → numero e unità, per scriverlo enorme */
+/** «1.234 messaggi» / «12,5 h» → cifra grezza + unità */
 function splitStat(stat?: string) {
-  const m = String(stat || "").match(/^([\d.,]+)\s*(.*)$/);
+  const m = String(stat || "")
+    .replace(/\u00a0|\u202f/g, " ")
+    .trim()
+    .match(/^([\d.,]+)\s*(.*)$/);
   if (!m) return null;
   /* «h» e «min» per esteso: sotto un numero enorme si leggono meglio */
   const unit = m[2] === "h" ? "ore" : m[2] === "min" ? "minuti" : m[2] || "";
   return { num: m[1]!, unit };
 }
 
-/* il numero conta da zero (solo interi, scritti all'italiana con il punto delle migliaia) */
+/** Intero da stringa it-IT («1.272.342» / «112.103» / «155» / «12,5»). */
+function parseStatInt(value: string): number | null {
+  const raw = String(value || "")
+    .replace(/\u00a0|\u202f/g, "")
+    .trim();
+  if (!raw) return null;
+  /* solo interi con punti migliaia */
+  if (/^\d{1,3}(\.\d{3})+$/.test(raw) || /^\d+$/.test(raw)) {
+    const n = Number(raw.replace(/\./g, ""));
+    return Number.isFinite(n) ? n : null;
+  }
+  /* decimali it: 12,5 → 13 arrotondato per il count-up */
+  if (/^\d{1,3}(\.\d{3})*,\d+$/.test(raw) || /^\d+,\d+$/.test(raw)) {
+    const n = Number(raw.replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) ? Math.round(n) : null;
+  }
+  /* fallback: tieni solo le cifre */
+  const digits = raw.replace(/[^\d]/g, "");
+  if (!digits) return null;
+  const n = Number(digits);
+  return Number.isFinite(n) ? n : null;
+}
+
+/* il numero conta da zero (interi, scritti all'italiana) */
 function CountUp({ value }: { value: string }) {
   const reduce = useReducedMotionSafe();
-  const target = /^\d{1,3}(\.\d{3})*$/.test(value) ? Number(value.replace(/\./g, "")) : null;
-  const [n, setN] = useState(target == null || reduce ? null : 0);
+  const target = parseStatInt(value);
+  /* null finché non sappiamo se animare: così non restiamo bloccati su 0
+     quando useReducedMotionSafe passa false→true dopo il mount. */
+  const [n, setN] = useState<number | null>(null);
+  const [ready, setReady] = useState(false);
   useEffect(() => {
-    if (target == null || reduce) return;
+    setReady(true);
+  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    if (target == null) {
+      setN(null);
+      return;
+    }
+    if (reduce) {
+      setN(target);
+      return;
+    }
+    setN(0);
     let raf = 0;
+    let alive = true;
     const start = performance.now();
     const tick = (t: number) => {
+      if (!alive) return;
       const p = Math.min(1, (t - start) / 1100);
       setN(Math.round(target * (1 - Math.pow(1 - p, 3))));
       if (p < 1) raf = requestAnimationFrame(tick);
+      else setN(target);
     };
     raf = requestAnimationFrame(tick);
-    /* se il browser rallenta le animazioni (scheda in secondo piano), il numero giusto arriva comunque */
-    const done = window.setTimeout(() => setN(target), 1400);
+    /* garanzia: anche con RAF sospeso (tab in background) il valore finale arriva */
+    const done = window.setTimeout(() => {
+      if (alive) setN(target);
+    }, 1200);
     return () => {
+      alive = false;
       cancelAnimationFrame(raf);
       window.clearTimeout(done);
     };
-  }, [target, reduce]);
-  return <>{n == null ? value : new Intl.NumberFormat("it-IT").format(n)}</>;
+  }, [ready, target, reduce]);
+  if (n == null) return <>{value}</>;
+  return <>{new Intl.NumberFormat("it-IT").format(n)}</>;
 }
 
 function Kicker({ text, mood }: { text: string; mood: WrappedMood }) {
@@ -184,7 +232,7 @@ export function WrappedStorySlide({ card, mood, data }: { card: StoryCard; mood:
             className="mt-4 font-display text-[clamp(5rem,26vw,13rem)] font-semibold leading-[0.82] tracking-tight lining-nums"
             style={{ color: mood.ink }}
           >
-            <CountUp value={stat.num} />
+            <CountUp key={stat.num} value={stat.num} />
           </motion.p>
           {stat.unit ? (
             <motion.p
