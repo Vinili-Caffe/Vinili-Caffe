@@ -65,9 +65,8 @@ export function WrappedBoard() {
   const [immersive, setImmersive] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [soundOn, setSoundOn] = useState(() => !isWrappedAudioMuted());
-  const [periodOpts, setPeriodOpts] = useState<LoadWrappedOpts>(() =>
-    isWrappedYearlySeason() ? { period: "yearly" } : { period: "monthly" },
-  );
+  /* Default sempre annuale (come prima). Mensile solo dal toggle Anno/Mese. */
+  const [periodOpts, setPeriodOpts] = useState<LoadWrappedOpts>({ period: "yearly" });
   const siteMusicWasOn = useRef(false);
   const completeSent = useRef(false);
 

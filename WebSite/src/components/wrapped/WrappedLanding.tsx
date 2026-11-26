@@ -35,11 +35,16 @@ type Props = {
 export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, monthly, launching, message, periodSwitch, onAction }: Props) {
   const reduce = useReducedMotionSafe();
   const ready = mode === "ready";
+  /* il nome senza emoji né simboli decorativi (🎅SantaLore❄️ → SantaLore) */
+  const plainName = String(name || "")
+    .replace(/[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\u{FE0F}\u{200D}\u{20E3}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim() || String(name || "").trim();
 
   return (
     /* un riquadro unico con gli angoli arrotondati: non passa sotto la navbar e finisce pulito prima del fondo pagina */
-    <section className="px-3 pb-12 pt-24 sm:px-5 sm:pt-28">
-      <div className="relative isolate mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-[#140d09] text-[#f4e9d8] shadow-[0_40px_100px_-40px_rgba(0,0,0,0.9)] ring-1 ring-[#f4e9d8]/10 sm:rounded-[2.75rem]">
+    <section className="flex min-h-[100dvh] items-center px-3 pb-8 pt-20 sm:px-5 sm:pt-[5.5rem]">
+      <div className="relative isolate mx-auto w-full max-w-7xl overflow-hidden rounded-[2rem] bg-[#140d09] text-[#f4e9d8] shadow-[0_40px_100px_-40px_rgba(0,0,0,0.9)] ring-1 ring-[#f4e9d8]/10 sm:rounded-[2.75rem]">
       {/* fascia di colore e retino: la pagina sembra il retro di un vinile */}
       <div className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-full bg-[#d4512c] [clip-path:polygon(58%_0,100%_0,100%_100%,38%_100%)] max-lg:[clip-path:polygon(0_62%,100%_48%,100%_100%,0_100%)]" />
       <div
@@ -47,7 +52,7 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
         style={{ backgroundImage: "radial-gradient(#2a120a 1.6px, transparent 1.7px)", backgroundSize: "14px 14px" }}
       />
 
-      <div className="mx-auto grid min-h-[min(46rem,calc(100dvh-10rem))] max-w-6xl items-center gap-10 px-6 py-14 sm:px-10 lg:grid-cols-[1.05fr_1fr] lg:gap-6 lg:py-16">
+      <div className="mx-auto grid min-h-[min(52rem,calc(100dvh-8.5rem))] max-w-6xl items-center gap-10 px-6 py-12 sm:px-10 lg:grid-cols-[1.05fr_1fr] lg:gap-6 lg:py-12">
         {/* testo */}
         <div className="relative z-10">
           <motion.p
@@ -65,20 +70,21 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
             transition={{ delay: 0.08, duration: 0.7, ease }}
             className="mt-5 font-display text-[clamp(3.6rem,11vw,7.8rem)] font-semibold leading-[0.86] tracking-tight"
           >
-            {ready && name ? (
-              <>
-                Il disco
-                <br />
-                di <span className="italic text-[#f0b46e]">{name}</span>
-              </>
-            ) : (
-              <>
-                Il tuo
-                <br />
-                <span className="italic text-[#f0b46e]">Wrapped</span>
-              </>
-            )}
+            Il tuo
+            <br />
+            <span className="italic text-[#f0b46e]">Wrapped</span>
           </motion.h1>
+          {/* il nome resta piccolo, senza emoji: il titolo grande è uguale per tutti */}
+          {ready && plainName ? (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.15 }}
+              className="mt-4 text-sm font-bold uppercase tracking-[0.22em] text-[#f0b46e]"
+            >
+              Il disco di {plainName}
+            </motion.p>
+          ) : null}
           <motion.p
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
@@ -192,7 +198,7 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
               )}
             </div>
             <div className="relative">
-              <p className="font-display text-[clamp(2.3rem,8vw,3.6rem)] font-semibold leading-[0.88]">{ready && name ? name : "Il tuo nome qui"}</p>
+              <p className="font-display text-[clamp(2.3rem,8vw,3.6rem)] font-semibold leading-[0.88]">{ready && plainName ? plainName : "Il tuo nome qui"}</p>
               <p className="mt-2 text-[0.68rem] font-bold uppercase tracking-[0.22em] text-[#c8553d]">Lato A · 33 giri</p>
             </div>
           </motion.div>

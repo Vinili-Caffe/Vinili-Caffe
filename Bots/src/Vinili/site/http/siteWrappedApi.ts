@@ -432,7 +432,7 @@ function isWrappedPublicEnabled(now = new Date()) {
 
 /**
  * period=yearly|monthly|auto, month=YYYY-MM.
- * Default: in stagione annuale → yearly; altrimenti monthly del mese precedente.
+ * Default sempre yearly (come prima del mensile). Monthly solo se chiesto esplicitamente.
  */
 function resolveWrappedPeriodRequest(payload?, now = new Date()) {
   const rawPeriod = String(payload?.period || "").trim().toLowerCase();
@@ -451,37 +451,15 @@ function resolveWrappedPeriodRequest(payload?, now = new Date()) {
       periodLabel: formatMonthLabel(monthKey),
     };
   }
-  if (rawPeriod === "yearly" || rawPeriod === "year") {
-    const year = wrappedYear(now);
-    return {
-      kind: "yearly",
-      monthKey: null,
-      year,
-      from: yearStartDayKey(year),
-      to: romeDayKey(now),
-      periodLabel: String(year),
-    };
-  }
-  /* auto */
-  if (isWrappedSeasonRome(now)) {
-    const year = wrappedYear(now);
-    return {
-      kind: "yearly",
-      monthKey: null,
-      year,
-      from: yearStartDayKey(year),
-      to: romeDayKey(now),
-      periodLabel: String(year),
-    };
-  }
-  const monthKey = prev;
+
+  const year = wrappedYear(now);
   return {
-    kind: "monthly",
-    monthKey,
-    year: Number(monthKey.slice(0, 4)) || wrappedYear(now),
-    from: monthStartDayKey(monthKey),
-    to: monthEndDayKey(monthKey),
-    periodLabel: formatMonthLabel(monthKey),
+    kind: "yearly",
+    monthKey: null,
+    year,
+    from: yearStartDayKey(year),
+    to: romeDayKey(now),
+    periodLabel: String(year),
   };
 }
 
@@ -753,7 +731,7 @@ async function getSiteWrapped(client?, payload?) {
     ? sumMonthVotesFromLeaf(voteLeaf, period.monthKey)
     : sumYearVotesFromLeaf(voteLeaf, year);
   const boostYear = resolveYearBoostCount(member, year, doc?.profile?.serverBoostAnnouncedSlotCount);
-  const boosts = isMonthly ? (boostYear.isBoosting ? Math.max(1, nInt(boostYear.boosts)) : 0) : nInt(boostYear.boosts);
+  const boosts = nInt(boostYear.boosts);
   const isBoosting = Boolean(boostYear.isBoosting);
 
   const emojiUses = totals.emojiUses && typeof totals.emojiUses === "object" ? totals.emojiUses : {};
@@ -865,11 +843,10 @@ async function getSiteWrapped(client?, payload?) {
       voiceRank,
       privateVoiceSeconds,
       disconnects,
-      /* Minigiochi/streak: lifetime (no bucket mensile). In mensile li nascondiamo nelle story. */
-      minigameTotalExp: isMonthly ? 0 : minigameTotalExp,
-      minigameRank: isMonthly ? null : minigameRank,
-      bestStreak: isMonthly ? 0 : bestStreak,
-      currentStreak: isMonthly ? 0 : currentStreak,
+      minigameTotalExp,
+      minigameRank,
+      bestStreak,
+      currentStreak,
       avgMessagesPerDay,
       avgVoiceHoursPerWeek,
       coffeeCups,
@@ -880,14 +857,13 @@ async function getSiteWrapped(client?, payload?) {
       boosts,
       isBoosting,
       nightMessages,
-      /* Contatori lifetime-only: in mensile non li mostriamo (evita copy “dell’anno”). */
-      gifsTotal: isMonthly ? 0 : nInt(totals.gifsTotal),
-      imagesTotal: isMonthly ? 0 : nInt(totals.imagesTotal),
-      mentionsMade: isMonthly ? 0 : nInt(totals.mentionsMade),
-      mentionsReceived: isMonthly ? 0 : nInt(totals.mentionsReceived),
-      rolePings: isMonthly ? 0 : nInt(totals.rolePings),
-      commandsTotal: isMonthly ? 0 : nInt(totals.commandsTotal),
-      topEmoji: isMonthly ? null : topEmoji,
+      gifsTotal: nInt(totals.gifsTotal),
+      imagesTotal: nInt(totals.imagesTotal),
+      mentionsMade: nInt(totals.mentionsMade),
+      mentionsReceived: nInt(totals.mentionsReceived),
+      rolePings: nInt(totals.rolePings),
+      commandsTotal: nInt(totals.commandsTotal),
+      topEmoji,
     },
     recent: {
       days: recentDays,
