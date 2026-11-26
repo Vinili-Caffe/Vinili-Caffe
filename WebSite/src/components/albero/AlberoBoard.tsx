@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { Check, Loader2, LogIn, Sparkles, Trash2, TreePine, UserRound, VenetianMask, X } from "lucide-react";
 import { AlberoBauble } from "@/components/albero/AlberoBauble";
 import { AlberoScene } from "@/components/albero/AlberoScene";
-import { PageHero } from "@/components/PageHero";
 import { avatarUrl, useAuth } from "@/lib/auth";
 import {
   ALBERO_COLORS,
@@ -36,20 +35,52 @@ type Draft = {
   anonymous: boolean;
 };
 
-function AlberoShell({
-  children,
-  title = "L'albero della community",
-  text = "Scrivi un desiderio, appendi la tua palla e spostala sull'albero.",
-}: {
-  children: ReactNode;
-  title?: string;
-  text?: string;
-}) {
+/** il riquadro arrotondato della pagina (come /wrapped): staccato dalla navbar, centrato in altezza */
+function AlberoFrame({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <section className="flex min-h-[100dvh] items-center px-3 pb-8 pt-20 sm:px-5 sm:pt-[5.5rem]">
+      <div
+        className={cn(
+          "relative isolate mx-auto w-full max-w-7xl overflow-hidden rounded-[2rem] bg-[#0a0604] text-[#f4e9d8] shadow-[0_40px_100px_-40px_rgba(0,0,0,0.9)] ring-1 ring-[#f4e9d8]/10 sm:rounded-[2.75rem]",
+          className,
+        )}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function AlberoTitle({ count }: { count?: number }) {
   return (
     <>
-      <PageHero icon={<TreePine />} kicker="Natale" title={title} text={text} />
-      <div className="relative mx-auto w-full max-w-7xl px-3 pb-28 sm:px-6">{children}</div>
+      <p className="inline-flex items-center gap-2 rounded-full border border-[#f4e9d8]/25 bg-black/20 px-3.5 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.24em] backdrop-blur-sm">
+        <TreePine className="size-3.5 text-[#f0b46e]" aria-hidden />
+        Natale · Vinili & Caffè
+      </p>
+      <h1 className="mt-4 font-display text-[clamp(2.4rem,5.5vw,4.6rem)] font-semibold leading-[0.9] tracking-tight drop-shadow-[0_4px_24px_rgba(0,0,0,0.6)]">
+        L&apos;albero
+        <br />
+        <span className="italic text-[#f0b46e]">della community</span>
+      </h1>
+      <p className="mt-3 max-w-xs text-sm leading-snug text-[#f4e9d8]/80 drop-shadow">
+        Scrivi un desiderio, appendi la tua palla e spostala sull&apos;albero.
+        {count ? <span className="mt-1 block font-semibold text-[#f0b46e]">{count === 1 ? "1 palla appesa" : `${count} palle appese`}</span> : null}
+      </p>
     </>
+  );
+}
+
+function AlberoShell({ children, title, text }: { children: ReactNode; title?: string; text?: string }) {
+  return (
+    <AlberoFrame className="grid min-h-[min(40rem,calc(100dvh-8.5rem))] place-items-center">
+      <div className="px-6 py-16 text-center">
+        <TreePine className="mx-auto size-10 text-[#f0b46e]" aria-hidden />
+        {title ? <p className="mt-4 font-display text-3xl">{title}</p> : null}
+        {text ? <p className="mt-2 text-sm text-[#f4e9d8]/65">{text}</p> : null}
+        {children}
+      </div>
+    </AlberoFrame>
   );
 }
 
@@ -482,78 +513,74 @@ export function AlberoBoard() {
 
   return (
     <>
-      <PageHero
-        icon={<TreePine />}
-        kicker="Natale"
-        title="L'albero della community"
-        text="Scrivi un desiderio, appendi la tua palla e spostala sull'albero."
-      />
-
       {/*
-        Mobile: CTA fuori foto; scena 16:9.
-        Desktop: scena alta quanto lo schermo, staccata dall’hero e dal footer:
-        scorrendo arriva a riempire tutto lo schermo senza bande sopra o sotto.
+        Un riquadro arrotondato (come /wrapped), staccato dalla navbar e centrato in altezza.
+        Telefono: titolo e tasto sopra, poi la scena 16:9. Computer: la scena riempie il riquadro,
+        titolo e tasto in alto a sinistra sopra la foto.
       */}
-      <div data-albero-stage className="relative mb-12 mt-4 w-full sm:mb-20 sm:mt-10">
-        {/* bottone fuori dalla foto — solo telefono */}
-        {!token || !mine ? (
-          <div className="flex justify-center px-4 py-3 sm:hidden">
-            {!token ? (
-              <button
-                type="button"
-                onClick={login}
-                className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[#5865f2] px-5 text-sm font-semibold text-white"
-              >
-                <LogIn className="size-4" /> Accedi con Discord
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setDraft((d) => ({ ...d, x: TREE_DEFAULT.x, y: TREE_DEFAULT.y }));
-                  setComposerOpen(true);
-                }}
-                className="inline-flex min-h-10 items-center gap-2 rounded-full bg-caramel px-5 text-sm font-semibold text-espresso shadow-[0_12px_40px_-12px_rgba(240,180,110,0.55)]"
-              >
-                <Sparkles className="size-4" /> Scrivi una lettera per Babbo Natale
-              </button>
-            )}
-          </div>
-        ) : null}
-
-        <div className="relative w-full sm:h-[100svh]">
-          <div
-            ref={stageRef}
-            className="relative aspect-[16/9] w-full touch-none select-none overflow-hidden sm:h-full sm:aspect-auto"
-            onPointerDown={placeNew}
-          >
-            <AlberoScene />
-
-            {/* CTA sulla foto — solo desktop */}
-            {!token || !mine ? (
-              <div className="pointer-events-none absolute inset-x-0 top-0 z-30 hidden justify-center px-4 pt-7 sm:flex">
+      <AlberoFrame>
+        <div data-albero-stage className="relative">
+          {/* telefono: titolo e tasto sopra la scena */}
+          <div className="px-5 pb-4 pt-6 sm:hidden">
+            <AlberoTitle count={ornaments.length} />
+            <div className="mt-4">
                 {!token ? (
                   <button
                     type="button"
                     onClick={login}
-                    className="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full bg-[#5865f2] px-6 text-sm font-semibold text-white shadow-[0_12px_36px_-10px_rgba(0,0,0,0.65)]"
+                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#5865f2] px-6 text-sm font-bold text-white shadow-[0_12px_36px_-10px_rgba(0,0,0,0.65)] transition hover:-translate-y-0.5"
                   >
                     <LogIn className="size-4" /> Accedi con Discord
                   </button>
-                ) : (
+                ) : !mine ? (
                   <button
                     type="button"
                     onClick={() => {
                       setDraft((d) => ({ ...d, x: TREE_DEFAULT.x, y: TREE_DEFAULT.y }));
                       setComposerOpen(true);
                     }}
-                    className="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full bg-caramel px-7 text-sm font-semibold text-espresso shadow-[0_12px_40px_-12px_rgba(240,180,110,0.55)]"
+                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#f0b46e] px-6 text-sm font-bold text-[#140d09] shadow-[0_14px_40px_-12px_rgba(240,180,110,0.65)] transition hover:-translate-y-0.5"
                   >
                     <Sparkles className="size-4" /> Scrivi una lettera per Babbo Natale
                   </button>
-                )}
+                ) : null}
+            </div>
+          </div>
+
+          <div
+            ref={stageRef}
+            className="relative aspect-[16/9] w-full touch-none select-none overflow-hidden sm:aspect-auto sm:h-[min(56rem,calc(100dvh-8.5rem))]"
+            onPointerDown={placeNew}
+          >
+            <AlberoScene />
+
+            {/* computer: titolo e tasto in alto a sinistra, con un'ombra per leggerli sulla foto */}
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-30 hidden w-[42%] bg-gradient-to-r from-black/70 via-black/35 to-transparent sm:block" />
+            <div className="pointer-events-none absolute left-0 top-0 z-30 hidden max-w-md p-10 sm:block lg:p-12">
+              <AlberoTitle count={ornaments.length} />
+              <div className="mt-6">
+                {!token ? (
+                  <button
+                    type="button"
+                    onClick={login}
+                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#5865f2] px-6 text-sm font-bold text-white shadow-[0_12px_36px_-10px_rgba(0,0,0,0.65)] transition hover:-translate-y-0.5"
+                  >
+                    <LogIn className="size-4" /> Accedi con Discord
+                  </button>
+                ) : !mine ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraft((d) => ({ ...d, x: TREE_DEFAULT.x, y: TREE_DEFAULT.y }));
+                      setComposerOpen(true);
+                    }}
+                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#f0b46e] px-6 text-sm font-bold text-[#140d09] shadow-[0_14px_40px_-12px_rgba(240,180,110,0.65)] transition hover:-translate-y-0.5"
+                  >
+                    <Sparkles className="size-4" /> Scrivi una lettera per Babbo Natale
+                  </button>
+                ) : null}
               </div>
-            ) : null}
+            </div>
 
             {hint && composerOpen ? (
               <p className="pointer-events-none absolute inset-x-0 top-20 z-40 text-center text-sm font-medium text-caramel drop-shadow">
@@ -672,7 +699,7 @@ export function AlberoBoard() {
             </AnimatePresence>
           </div>
         </div>
-      </div>
+      </AlberoFrame>
 
       <AnimatePresence>
         {composerOpen ? (

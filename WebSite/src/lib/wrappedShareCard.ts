@@ -30,7 +30,7 @@ let cache: CacheEntry | null = null;
 let inflight: { key: string; promise: Promise<WrappedShareCard[]> } | null = null;
 
 function cacheKey(data: WrappedPayload) {
-  return `${data.user.id}:${data.period || "yearly"}:${data.monthKey || data.year}:${data.allTime.level}:${data.allTime.messagesTotal}:${data.allTime.voiceTotalSeconds}:${data.allTime.votesTotal}:${data.archetype.id}:recap2`;
+  return `${data.user.id}:${data.period || "yearly"}:${data.monthKey || data.year}:${data.allTime.level}:${data.allTime.messagesTotal}:${data.allTime.voiceTotalSeconds}:${data.allTime.votesTotal}:${data.archetype.id}:sleeve2`;
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -70,21 +70,6 @@ function loadImage(src: string, cors = true, timeoutMs = 900): Promise<HTMLImage
     };
     img.src = src;
   });
-}
-
-function paintBg(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  const g = ctx.createRadialGradient(w * 0.5, h * 0.12, 40, w * 0.5, h * 0.45, h * 0.85);
-  g.addColorStop(0, "#4a3018");
-  g.addColorStop(0.4, "#1c120e");
-  g.addColorStop(1, "#070504");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
-
-  const glow = ctx.createRadialGradient(w * 0.7, h * 0.2, 8, w * 0.7, h * 0.2, w * 0.45);
-  glow.addColorStop(0, "rgba(255,170,90,0.2)");
-  glow.addColorStop(1, "rgba(255,170,90,0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, w, h);
 }
 
 function paintAvatar(
@@ -156,30 +141,76 @@ function fit(ctx: CanvasRenderingContext2D, text: string, maxW: number) {
   return `${t.trimEnd()}…`;
 }
 
-/** Disco grande in un angolo, mezzo fuori dalla card (come nel resoconto). */
-function paintCornerRecord(ctx: CanvasRenderingContext2D, logo: HTMLImageElement | null, cx: number, cy: number, r: number) {
+/* il nome senza emoji (su un'immagine escono spesso come quadratini) */
+function plainName(raw: string) {
+  const out = String(raw || "")
+    .replace(/[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\u{FE0F}\u{200D}\u{20E3}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return out || String(raw || "").trim() || "Tu";
+}
+
+/** «1.234 messaggi» → numero e unità (h e min per esteso) */
+function splitStat(stat?: string) {
+  const m = String(stat || "").match(/^([\d.,]+)\s*(.*)$/);
+  if (!m) return { num: String(stat || ""), unit: "" };
+  const unit = m[2] === "h" ? "ore" : m[2] === "min" ? "minuti" : m[2] || "";
+  return { num: m[1]!, unit };
+}
+
+/* retino a puntini, come una stampa */
+function paintDots(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string, step = 18, r = 2.2) {
   ctx.save();
-  ctx.globalAlpha = 0.5;
-  if (logo) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.drawImage(logo, cx - r, cy - r, r * 2, r * 2);
-  } else {
-    for (let i = 0; i < 18; i++) {
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.fillStyle = color;
+  for (let yy = y + step / 2; yy < y + h; yy += step) {
+    for (let xx = x + step / 2; xx < x + w; xx += step) {
       ctx.beginPath();
-      ctx.arc(cx, cy, r - i * (r / 22), 0, Math.PI * 2);
-      ctx.strokeStyle = i % 2 ? "rgba(0,0,0,0.5)" : "rgba(244,233,216,0.06)";
-      ctx.lineWidth = r / 22;
-      ctx.stroke();
+      ctx.arc(xx, yy, r, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
   ctx.restore();
 }
 
+/* il vinile: il logo del disco, o solchi disegnati se non si carica */
+function paintRecord(ctx: CanvasRenderingContext2D, logo: HTMLImageElement | null, cx: number, cy: number, r: number) {
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.55)";
+  ctx.shadowBlur = 40;
+  ctx.shadowOffsetY = 18;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = "#111";
+  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.clip();
+  if (logo) ctx.drawImage(logo, cx - r, cy - r, r * 2, r * 2);
+  else {
+    for (let i = 0; i < 20; i++) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - i * (r / 24), 0, Math.PI * 2);
+      ctx.strokeStyle = i % 2 ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.5)";
+      ctx.lineWidth = r / 24;
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = "#c98b50";
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 /**
- * La card è il resoconto finale del Wrapped: chi sei, i quattro numeri grossi
- * e la scaletta delle schede viste, ognuna col suo dato.
+ * L'immagine da condividere, nello stile del Wrapped: fondo espresso con la fascia terracotta,
+ * la tua «busta» color crema (foto, nome, ruolo) con il disco che spunta, e i numeri principali
+ * in riquadri a colore pieno, con gli stessi colori delle schede.
  */
 async function makeCard(
   data: WrappedPayload,
@@ -196,172 +227,192 @@ async function makeCard(
   const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) throw new Error("no_2d");
 
-  const accent = moodForStoryKey("share").accent;
   const stories = buildStoryCards(data);
   const role = stories.find((c) => c.key === "role");
-  const tracks = stories.filter((c) => c.key !== "hello" && c.key !== "share" && c.key !== "role" && c.stat);
+  const tiles = stories.filter((c) => c.key !== "hello" && c.key !== "share" && c.key !== "role" && c.stat).slice(0, 8);
   const a = data.allTime;
-  const name = data.user.displayName || data.user.username || "Tu";
+  /* livello, classifica e top %: le pillole sotto la busta, come nel resoconto */
+  const pills: { label: string; strong?: boolean }[] = [
+    { label: `Livello ${fmt(a.level)}` },
+    { label: `#${fmt(a.allTimeRank)} in classifica` },
+    ...(a.betterThanPct > 0 ? [{ label: `Top ${Math.max(1, 100 - a.betterThanPct)}% del server`, strong: true }] : []),
+  ];
+  const name = plainName(data.user.displayName || data.user.username || "Tu");
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((p) => p[0] || "")
     .join("");
-  const pad = story ? 54 : 44;
-  const inner = width - pad * 2;
+  const period = wrappedPeriodLabel(data);
+  const pad = story ? 56 : 40;
 
-  paintBg(ctx, width, height);
-
-  /* scheda in alto: vinile nell'angolo, avatar, nome e ruolo */
-  const boxPad = story ? 30 : 24;
-  const avSize = story ? 128 : 96;
-  const pillH = story ? 44 : 34;
-  const headH = boxPad + avSize + (story ? 26 : 18) + pillH + boxPad;
-  /* scaletta: quante righe stanno; poi tutto il blocco va centrato in altezza */
-  const minTop = story ? 70 : 40;
-  const footH = story ? 90 : 60;
-  const listGap = story ? 22 : 16;
-  const rowH = story ? 92 : 66;
-  const listHead = story ? 64 : 48;
-  const maxRows = Math.max(0, Math.floor((height - footH - minTop - headH - listGap - listHead - 20) / rowH));
-  const rows = tracks.slice(0, maxRows);
-  const listH = rows.length ? listHead + rows.length * rowH + (story ? 14 : 8) : 0;
-  const headTop = Math.max(minTop, Math.round((height - footH - (headH + (listH ? listGap + listH : 0))) / 2));
-  roundRect(ctx, pad, headTop, inner, headH, 34);
-  ctx.fillStyle = "rgba(244,233,216,0.06)";
-  ctx.fill();
+  /* fondo: espresso con la fascia terracotta in diagonale e il retino */
+  ctx.fillStyle = "#140d09";
+  ctx.fillRect(0, 0, width, height);
   ctx.save();
-  roundRect(ctx, pad, headTop, inner, headH, 34);
-  ctx.clip();
-  paintCornerRecord(ctx, logo, pad + inner - (story ? 40 : 30), headTop + (story ? 40 : 30), story ? 170 : 130);
-  ctx.restore();
-  roundRect(ctx, pad, headTop, inner, headH, 34);
-  ctx.strokeStyle = "rgba(196,160,122,0.3)";
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-
-  const avCx = pad + boxPad + avSize / 2;
-  const avCy = headTop + boxPad + avSize / 2;
   ctx.beginPath();
-  ctx.arc(avCx, avCy, avSize / 2 + 5, 0, Math.PI * 2);
-  ctx.fillStyle = accent;
+  if (story) {
+    ctx.moveTo(0, height * 0.2);
+    ctx.lineTo(width, height * 0.12);
+    ctx.lineTo(width, height * 0.62);
+    ctx.lineTo(0, height * 0.7);
+  } else {
+    ctx.moveTo(width * 0.52, 0);
+    ctx.lineTo(width, 0);
+    ctx.lineTo(width, height);
+    ctx.lineTo(width * 0.34, height);
+  }
+  ctx.closePath();
+  ctx.fillStyle = "#d4512c";
   ctx.fill();
-  paintAvatar(ctx, avatar, avCx, avCy, avSize, initials || "?");
+  ctx.clip();
+  paintDots(ctx, 0, 0, width, height, "rgba(42,18,10,0.22)", 16, 2);
+  ctx.restore();
 
-  const textX = pad + boxPad + avSize + (story ? 24 : 18);
-  const textW = pad + inner - textX - (story ? 110 : 80);
   ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.fillStyle = accent;
-  ctx.font = `600 ${story ? 20 : 16}px ${FONT_BODY}`;
-  ctx.fillText(`VINILI WRAPPED · ${wrappedPeriodLabel(data).toUpperCase()}`, textX, avCy - (story ? 58 : 44));
-  ctx.fillStyle = "#f4e9d8";
-  ctx.font = `600 ${story ? 58 : 44}px ${FONT_DISPLAY}`;
-  ctx.fillText(fit(ctx, name, textW), textX, avCy - (story ? 30 : 22));
-  ctx.fillStyle = "rgba(244,233,216,0.72)";
-  ctx.font = `500 ${story ? 24 : 19}px ${FONT_BODY}`;
-  ctx.fillText(fit(ctx, role?.title || data.archetype.label, textW), textX, avCy + (story ? 36 : 28));
+  ctx.textBaseline = "alphabetic";
 
-  /* livello, classifica e top %: badge sotto il nome (messaggi e vocale stanno già nella scaletta) */
-  const pills: { label: string; strong?: boolean }[] = [
-    { label: `Livello ${fmt(a.level)}` },
-    { label: `#${fmt(a.allTimeRank)} in classifica` },
-    ...(a.betterThanPct > 0 ? [{ label: `Top ${Math.max(1, 100 - a.betterThanPct)}% del server`, strong: true }] : []),
-  ];
+  /* titolo */
+  const titleX = pad;
+  let y = story ? 120 : 92;
+  ctx.fillStyle = "#f0b46e";
+  ctx.font = `700 ${story ? 20 : 15}px ${FONT_BODY}`;
+  ctx.fillText(`VINILI & CAFFÈ · WRAPPED ${period.toUpperCase()}`, titleX, y);
+  y += story ? 92 : 72;
+  ctx.fillStyle = "#f4e9d8";
+  ctx.font = `600 ${story ? 96 : 72}px ${FONT_DISPLAY}`;
+  ctx.fillText("Il tuo", titleX, y);
+  y += story ? 86 : 64;
+  ctx.fillStyle = "#f0b46e";
+  ctx.font = `italic 600 ${story ? 96 : 72}px ${FONT_DISPLAY}`;
+  ctx.fillText("Wrapped", titleX, y);
+
+  /* la busta: in basso a destra nel quadrato, al centro nella storia */
+  const sleeve = story ? 400 : 300;
+  const sx = story ? (width - sleeve) / 2 - 40 : width - pad - sleeve + 10;
+  const sy = story ? y + 46 : pad + 10;
+  /* il disco che spunta a destra */
+  paintRecord(ctx, logo, sx + sleeve * (story ? 0.98 : 0.82), sy + sleeve / 2, sleeve * 0.45);
+
+  ctx.save();
+  ctx.translate(sx + sleeve / 2, sy + sleeve / 2);
+  ctx.rotate((-2 * Math.PI) / 180);
+  ctx.translate(-(sx + sleeve / 2), -(sy + sleeve / 2));
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 50;
+  ctx.shadowOffsetY = 26;
+  ctx.fillStyle = "#f2e6d0";
+  ctx.fillRect(sx, sy, sleeve, sleeve);
+  ctx.shadowColor = "transparent";
+  paintDots(ctx, sx + sleeve * 0.55, sy + sleeve * 0.55, sleeve * 0.45, sleeve * 0.45, "rgba(200,85,61,0.3)", story ? 16 : 12, story ? 2.4 : 1.8);
+
+  const ip = story ? 34 : 22;
+  ctx.fillStyle = "rgba(27,20,16,0.7)";
+  ctx.font = `700 ${story ? 17 : 12}px ${FONT_BODY}`;
+  ctx.textAlign = "left";
+  ctx.fillText("VINILI WRAPPED", sx + ip, sy + ip + (story ? 14 : 10));
+  ctx.textAlign = "right";
+  ctx.fillText(period.toUpperCase(), sx + sleeve - ip, sy + ip + (story ? 14 : 10));
+
+  const av = story ? 124 : 76;
+  const acx = sx + ip + av / 2;
+  const acy = sy + ip + (story ? 50 : 32) + av / 2;
+  ctx.beginPath();
+  ctx.arc(acx, acy, av / 2 + (story ? 7 : 5), 0, Math.PI * 2);
+  ctx.fillStyle = "#c8553d";
+  ctx.fill();
+  paintAvatar(ctx, avatar, acx, acy, av, initials || "?");
+
+  ctx.textAlign = "left";
+  const nameSize = story ? 56 : 38;
+  ctx.fillStyle = "#1b1410";
+  ctx.font = `600 ${nameSize}px ${FONT_DISPLAY}`;
+  ctx.fillText(fit(ctx, name, sleeve - ip * 2), sx + ip, sy + sleeve - ip - (story ? 54 : 34));
+  ctx.fillStyle = "#c8553d";
+  ctx.font = `700 ${story ? 19 : 13}px ${FONT_BODY}`;
+  ctx.fillText(fit(ctx, `LATO A · ${(role?.title || data.archetype.label).toUpperCase()}`, sleeve - ip * 2), sx + ip, sy + sleeve - ip - (story ? 14 : 8));
+  ctx.restore();
+
+  /* le pillole: nella storia sotto la busta, nel quadrato sotto il titolo (a capo se non stanno) */
+  const pillH = story ? 44 : 32;
+  const pillGap = story ? 10 : 8;
+  let pillsBottom = 0;
   {
-    let x = pad + boxPad;
-    const y = headTop + boxPad + avSize + (story ? 26 : 18);
-    ctx.font = `700 ${story ? 21 : 16}px ${FONT_BODY}`;
-    ctx.textAlign = "left";
+    const maxX = story ? width - pad : sx - 24;
+    let px = pad;
+    let py = story ? sy + sleeve + 34 : y + 30;
+    ctx.font = `700 ${story ? 19 : 14}px ${FONT_BODY}`;
     ctx.textBaseline = "middle";
-    for (const pill of pills) {
-      const w = ctx.measureText(pill.label).width + (story ? 40 : 30);
-      if (x + w > pad + inner - boxPad) break;
-      roundRect(ctx, x, y, w, pillH, pillH / 2);
-      ctx.fillStyle = pill.strong ? accent : "rgba(0,0,0,0.3)";
+    ctx.textAlign = "left";
+    for (const p of pills) {
+      const w = ctx.measureText(p.label).width + (story ? 36 : 26);
+      if (px + w > maxX && px > pad) {
+        px = pad;
+        py += pillH + pillGap;
+      }
+      roundRect(ctx, px, py, w, pillH, pillH / 2);
+      ctx.fillStyle = p.strong ? "#f0b46e" : "rgba(244,233,216,0.1)";
       ctx.fill();
-      if (!pill.strong) {
-        ctx.strokeStyle = "rgba(244,233,216,0.18)";
+      if (!p.strong) {
+        ctx.strokeStyle = "rgba(244,233,216,0.25)";
         ctx.lineWidth = 1.2;
         ctx.stroke();
       }
-      ctx.fillStyle = pill.strong ? "#1a120c" : "#f4e9d8";
-      ctx.fillText(pill.label, x + (story ? 20 : 15), y + pillH / 2 + 1);
-      x += w + (story ? 12 : 9);
+      ctx.fillStyle = p.strong ? "#140d09" : "#f4e9d8";
+      ctx.fillText(p.label, px + (story ? 18 : 13), py + pillH / 2 + 1);
+      px += w + pillGap;
     }
+    pillsBottom = py + pillH;
+    ctx.textBaseline = "alphabetic";
   }
 
-  /* la scaletta: le schede viste, una riga per scheda (quante ne stanno) */
-  const listTop = headTop + headH + listGap;
-  if (rows.length) {
-    roundRect(ctx, pad, listTop, inner, listH, 34);
-    ctx.fillStyle = "rgba(0,0,0,0.28)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(244,233,216,0.1)";
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    ctx.fillStyle = "rgba(196,160,122,0.85)";
-    ctx.font = `600 ${story ? 17 : 13}px ${FONT_BODY}`;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.fillText("LATO B · LA TUA SCALETTA", pad + boxPad, listTop + (story ? 28 : 20));
-
-    rows.forEach((t, i) => {
-      const y = listTop + listHead + i * rowH;
-      const mid = y + rowH / 2;
-      const tone = moodForStoryKey(t.key).accent;
-      const left = pad + boxPad;
-      const right = pad + inner - boxPad;
-      if (i < rows.length - 1) {
-        ctx.save();
-        ctx.setLineDash([6, 6]);
-        ctx.strokeStyle = "rgba(244,233,216,0.12)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(left, y + rowH);
-        ctx.lineTo(right, y + rowH);
-        ctx.stroke();
-        ctx.restore();
-      }
-      ctx.textBaseline = "middle";
-      ctx.textAlign = "left";
-      ctx.fillStyle = "rgba(244,233,216,0.35)";
-      ctx.font = `500 ${story ? 18 : 14}px ui-monospace, Menlo, monospace`;
-      ctx.fillText(String(i + 1).padStart(2, "0"), left, mid);
-      ctx.beginPath();
-      ctx.arc(left + (story ? 46 : 36), mid, story ? 6 : 5, 0, Math.PI * 2);
-      ctx.fillStyle = tone;
+  /* ogni scheda con un dato, in un riquadro a colore pieno (colori delle schede) */
+  if (tiles.length) {
+    const cols = 2;
+    const gap = story ? 14 : 10;
+    const top = (story ? pillsBottom : Math.max(sy + sleeve, pillsBottom)) + (story ? 30 : 24);
+    const bottom = height - (story ? 76 : 42);
+    const rows = Math.ceil(tiles.length / cols);
+    const tw = (width - pad * 2 - gap) / cols;
+    const th = Math.min(story ? 150 : 120, (bottom - top - gap * (rows - 1)) / rows);
+    const k = th / (story ? 150 : 120);
+    tiles.forEach((t, i) => {
+      const m = moodForStoryKey(t.key);
+      const tx = pad + (i % cols) * (tw + gap);
+      const ty = top + Math.floor(i / cols) * (th + gap);
+      roundRect(ctx, tx, ty, tw, th, Math.max(12, (story ? 24 : 16) * k));
+      ctx.fillStyle = m.paper;
       ctx.fill();
-
-      ctx.textAlign = "right";
-      ctx.fillStyle = tone;
-      ctx.font = `600 ${story ? 34 : 26}px ${FONT_DISPLAY}`;
-      const stat = fit(ctx, t.stat || "", inner * 0.38);
-      const statW = ctx.measureText(stat).width;
-      ctx.fillText(stat, right, mid);
-
-      const tx = left + (story ? 66 : 52);
-      const tw = right - statW - 20 - tx;
+      const { num, unit } = splitStat(t.stat);
+      const tp = Math.max(12, (story ? 22 : 15) * k);
       ctx.textAlign = "left";
-      ctx.fillStyle = "#f4e9d8";
-      ctx.font = `600 ${story ? 25 : 19}px ${FONT_BODY}`;
-      const same = t.title === t.stat;
-      ctx.fillText(fit(ctx, same ? t.kicker : t.title, tw), tx, same ? mid : mid - (story ? 13 : 10));
-      if (!same) {
-        ctx.fillStyle = "rgba(244,233,216,0.42)";
-        ctx.font = `600 ${story ? 14 : 11}px ${FONT_BODY}`;
-        ctx.fillText(fit(ctx, t.kicker.toUpperCase(), tw), tx, mid + (story ? 17 : 13));
+      ctx.fillStyle = m.ink;
+      /* in alto: la scheda e il suo titolo («MESSAGGI · COPYMASTER») */
+      ctx.globalAlpha = 0.78;
+      ctx.font = `700 ${Math.max(10, Math.round((story ? 15 : 12) * Math.max(0.8, k)))}px ${FONT_BODY}`;
+      const label = t.title && t.title !== t.stat ? `${t.kicker} · ${t.title}` : t.kicker;
+      ctx.fillText(fit(ctx, label.toUpperCase(), tw - tp * 2), tx + tp, ty + tp + 10 * Math.max(0.8, k));
+      ctx.globalAlpha = 1;
+      /* in basso: il numero grande e l'unità */
+      ctx.font = `600 ${Math.round((story ? 60 : 46) * k)}px ${FONT_DISPLAY}`;
+      const numText = fit(ctx, num, tw - tp * 2);
+      ctx.fillText(numText, tx + tp, ty + th - tp);
+      if (unit) {
+        const nw = ctx.measureText(numText).width;
+        ctx.font = `700 ${Math.max(10, Math.round((story ? 16 : 13) * Math.max(0.8, k)))}px ${FONT_BODY}`;
+        ctx.globalAlpha = 0.78;
+        ctx.fillText(fit(ctx, unit.toUpperCase(), tw - tp * 2 - nw - 10), tx + tp + nw + 10, ty + th - tp - 3);
+        ctx.globalAlpha = 1;
       }
     });
   }
 
-  ctx.fillStyle = "rgba(244,233,216,0.45)";
-  ctx.font = `500 ${story ? 20 : 16}px ${FONT_BODY}`;
-  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(244,233,216,0.55)";
+  ctx.font = `600 ${story ? 20 : 14}px ${FONT_BODY}`;
+  ctx.textAlign = story ? "center" : "left";
   ctx.textBaseline = "bottom";
-  ctx.fillText("viniliecaffe.it/wrapped", width / 2, height - (story ? 40 : 22));
+  ctx.fillText("viniliecaffe.it/wrapped", story ? width / 2 : pad, height - (story ? 40 : 18));
 
   const blob = await canvasToJpegBlob(canvas);
   const slug = data.period === "monthly" ? String(data.monthKey || data.year) : String(data.year);
