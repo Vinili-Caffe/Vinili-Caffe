@@ -805,9 +805,14 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
           message: "Header Authorization: Bearer <token> richiesto.",
         });
       }
+      const body = req.body && typeof req.body === "object" ? req.body : {};
       const out = await bumpListing(
         client,
-        { accessToken, listingId: req.params?.id },
+        {
+          accessToken,
+          listingId: req.params?.id,
+          turnstileToken: body.turnstileToken || body["cf-turnstile-response"],
+        },
         { ip: boardsClientIp(req) },
       );
       return res.status(Number(out.status) || 500).json(out);
@@ -827,12 +832,17 @@ function mountBoardsRoutes(app?, client?, ctx: Record<string, any> = {}) {
         });
       }
       const body = req.body && typeof req.body === "object" ? req.body : {};
-      const out = await reportListing(client, {
-        accessToken,
-        listingId: req.params?.id,
-        reason: body.reason,
-        category: body.category || body.reportCategory,
-      });
+      const out = await reportListing(
+        client,
+        {
+          accessToken,
+          listingId: req.params?.id,
+          reason: body.reason,
+          category: body.category || body.reportCategory,
+          turnstileToken: body.turnstileToken || body["cf-turnstile-response"],
+        },
+        { ip: boardsClientIp(req) },
+      );
       return res.status(Number(out.status) || 500).json(out);
     } catch (err) {
       global.logger?.error?.("[WEBHOOK] site-boards report:", err);

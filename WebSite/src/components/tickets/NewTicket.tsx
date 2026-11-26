@@ -6,11 +6,12 @@ import { motion } from "motion/react";
 import { BellRing, Check, Crown, Gem, Handshake, ImagePlus, LifeBuoy, Loader2, Send, X } from "lucide-react";
 import { useFormDraft } from "@/components/ui/form-drafts";
 import { imageToDataUrl } from "@/lib/feedback";
-import { MAX_CONTENT, MAX_IMAGE_BYTES, MAX_IMAGES, createTicket, enablePush, pushIsOn, type Category, type Ticket } from "@/lib/tickets";
+import { MAX_CONTENT, MAX_IMAGE_BYTES, MAX_IMAGES, createTicket, enablePush, loadMeta, pushIsOn, type Category, type Ticket } from "@/lib/tickets";
 import { cn } from "@/lib/cn";
 import { EmojiText } from "@/components/discord/EmojiText";
 import { UploadRightsHint } from "@/components/UploadRightsHint";
 import { imageFilesFromClipboard } from "@/components/ui/image-attach";
+import { turnstileGate } from "@/components/ui";
 
 const DMCA_STARTER =
   "Segnalazione copyright\n\n1) Identità e indirizzo e-mail:\n2) Opera protetta e, ove disponibile, prova di titolarità o legittimazione a segnalare:\n3) URL o descrizione precisa del materiale contestato:\n4) Motivazione della richiesta di rimozione:\n";
@@ -103,9 +104,26 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
   const submit = async () => {
     if (!cat) return setErr("Scegli una categoria.");
     if (!text.trim() && !images.length) return setErr("Scrivi il motivo del ticket.");
-    setBusy(true);
     setErr("");
-    const r = await createTicket(token, cat, text.trim(), images);
+    let captcha = "";
+    if (!isStaff) {
+      const meta = await loadMeta(token);
+      const siteKey = meta.ok ? String(meta.data.turnstileSiteKey || "").trim() : "";
+      const needCaptcha = Boolean(meta.ok && meta.data.turnstileRequired && siteKey);
+      if (needCaptcha) {
+        const tok = await turnstileGate({
+          siteKey,
+          title: "Verifica anti-robot",
+          message: "Conferma di non essere un robot prima di aprire il ticket.",
+          confirmLabel: "Apri il ticket",
+        });
+        if (tok == null) return;
+        if (!tok) return setErr("Completa la verifica anti-robot.");
+        captcha = tok;
+      }
+    }
+    setBusy(true);
+    const r = await createTicket(token, cat, text.trim(), images, { turnstileToken: captcha });
     setBusy(false);
     if (!r.ok) {
       if (r.error === "push_required") setPush(false);

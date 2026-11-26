@@ -93,18 +93,21 @@ function signR2Request(opts: {
   key: string;
   body: Buffer;
   contentType: string;
+  cacheControl?: string;
   cfg: NonNullable<ReturnType<typeof r2Config>>;
 }) {
   const { method, key, body, contentType, cfg } = opts;
+  const cacheControl = String(opts.cacheControl || "public, max-age=31536000, immutable").trim();
   const { amz, day } = amzDate();
   const payloadHash = sha256Hex(body);
   const canonicalUri = `/${cfg.bucket}/${normalizeKey(key).split("/").map(encodeURIComponent).join("/")}`;
   const canonicalHeaders =
+    `cache-control:${cacheControl}\n` +
     `content-type:${contentType}\n` +
     `host:${cfg.host}\n` +
     `x-amz-content-sha256:${payloadHash}\n` +
     `x-amz-date:${amz}\n`;
-  const signedHeaders = "content-type;host;x-amz-content-sha256;x-amz-date";
+  const signedHeaders = "cache-control;content-type;host;x-amz-content-sha256;x-amz-date";
   const canonicalRequest = [
     method,
     canonicalUri,
@@ -126,6 +129,7 @@ function signR2Request(opts: {
   return {
     path: canonicalUri,
     headers: {
+      "cache-control": cacheControl,
       "content-type": contentType,
       host: cfg.host,
       "x-amz-content-sha256": payloadHash,

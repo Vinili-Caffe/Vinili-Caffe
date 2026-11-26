@@ -403,10 +403,11 @@ export async function setVoteReminder(token: string, listingId: string, enable: 
   return parse<{ remindAt: string | null; enabled: boolean }>(r);
 }
 
-export async function bumpListing(token: string, id: string) {
+export async function bumpListing(token: string, id: string, opts: { turnstileToken?: string } = {}) {
   const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/bump`, {
     method: "POST",
-    headers: auth(token),
+    headers: { ...auth(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ turnstileToken: opts.turnstileToken || "" }),
   });
   return parse<{ listing?: BoardListing; message?: string; bumpedAt?: string; nextBumpAt?: string; bumpStreak?: number }>(r);
 }
@@ -444,11 +445,17 @@ export const REPORT_CATEGORIES: { id: ReportCategory; label: string }[] = [
   { id: "other", label: "Altro" },
 ];
 
-export async function reportListing(token: string, id: string, reason: string, category: ReportCategory | string = "other") {
+export async function reportListing(
+  token: string,
+  id: string,
+  reason: string,
+  category: ReportCategory | string = "other",
+  opts: { turnstileToken?: string } = {},
+) {
   const r = await fetch(`${BASE}/listings/${encodeURIComponent(id)}/report`, {
     method: "POST",
     headers: { ...auth(token), "Content-Type": "application/json" },
-    body: JSON.stringify({ reason, category }),
+    body: JSON.stringify({ reason, category, turnstileToken: opts.turnstileToken || "" }),
   });
   return parse<{ message?: string }>(r);
 }

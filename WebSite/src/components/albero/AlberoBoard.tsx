@@ -554,9 +554,21 @@ export function AlberoBoard() {
           >
             <AlberoScene />
 
-            {/* computer: titolo e tasto in alto a sinistra, con un'ombra per leggerli sulla foto */}
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-30 hidden w-[42%] bg-gradient-to-r from-black/70 via-black/35 to-transparent sm:block" />
-            <div className="pointer-events-none absolute left-0 top-0 z-30 hidden max-w-md p-10 sm:block lg:p-12">
+            {/* computer: titolo e tasto in alto a sinistra, con un'ombra per leggerli sulla foto.
+                Spariscono mentre leggi un desiderio (si proietta sul camino, proprio lì) o sposti la tua palla. */}
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-y-0 left-0 z-30 hidden w-[42%] bg-gradient-to-r from-black/70 via-black/35 to-transparent transition-opacity duration-300 sm:block",
+                (peek || dragging) && "opacity-0",
+              )}
+            />
+            <div
+              aria-hidden={Boolean(peek || dragging)}
+              className={cn(
+                "pointer-events-none absolute left-0 top-0 z-30 hidden max-w-md p-10 transition-[opacity,transform] duration-300 sm:block lg:p-12",
+                (peek || dragging) && "-translate-y-2 opacity-0 [&_button]:pointer-events-none",
+              )}
+            >
               <AlberoTitle count={ornaments.length} />
               <div className="mt-6">
                 {!token ? (

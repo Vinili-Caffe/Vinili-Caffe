@@ -132,11 +132,21 @@ export const loadList = (token: string, o: { scope?: "staff"; status?: string; c
   if (o.category) q.set("category", o.category);
   return call<ListData>(`${base}?${q}`, token);
 };
-export const loadMeta = (token: string) => call<{ categories: Category[] }>(`${base}/meta`, token);
+export const loadMeta = (token: string) =>
+  call<{ categories: Category[]; turnstileSiteKey?: string; turnstileRequired?: boolean }>(`${base}/meta`, token);
 export const loadDetail = (token: string, id: string) => call<Detail>(`${base}/${id}`, token);
 
-export const createTicket = (token: string, category: string, content: string, images: string[]) =>
-  call<{ ticket: Ticket; messages: Message[] }>(base, token, { method: "POST", body: { category, content, images } });
+export const createTicket = (
+  token: string,
+  category: string,
+  content: string,
+  images: string[],
+  opts: { turnstileToken?: string } = {},
+) =>
+  call<{ ticket: Ticket; messages: Message[] }>(base, token, {
+    method: "POST",
+    body: { category, content, images, turnstileToken: opts.turnstileToken || "" },
+  });
 
 export const sendMessage = (token: string, id: string, content: string, images: string[], replyToId?: string) =>
   call<{ ticket?: Ticket; message: Message }>(`${base}/${id}/messages`, token, { method: "POST", body: { content, images, replyToId: replyToId || undefined } });

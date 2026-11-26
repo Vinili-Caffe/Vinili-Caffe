@@ -197,6 +197,11 @@ const STRICT_WEBHOOK_PREFIXES = [
   "/webhooks/site-unmute",
   "/webhooks/site-users",
   "/webhooks/site-notifications",
+  /* bump / report / create listing: più stretti degli altri webhook */
+  "/webhooks/site-boards",
+  "/webhooks/site-confessionale",
+  "/webhooks/site-propositi",
+  "/webhooks/site-feedback",
 ];
 
 function mountSiteApiRateLimit(app?) {

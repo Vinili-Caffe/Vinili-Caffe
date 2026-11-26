@@ -83,10 +83,13 @@ const MAX_MESSAGES_FETCH = 120;
 async function handleSiteWebTicketsMetaGet(client?, req?, res?) {
   const guildId = resolveGuildId(client);
   const categories = await resolveWebTicketCategories(guildId);
+  const { publicTurnstileMeta } = require("../http/siteTurnstile") as typeof import("../http/siteTurnstile");
+  const turnstile = publicTurnstileMeta(client);
   return res.status(200).json({
     ok: true,
     guildId: guildId || null,
     categories,
+    ...turnstile,
     limits: {
       maxOpenPerUser: MAX_OPEN_PER_USER,
       maxSubject: MAX_SUBJECT,
@@ -314,6 +317,22 @@ async function handleSiteWebTicketsCreatePost(client?, req?, res?) {
 
   const category = normalizeCategory(req.body?.category);
   const openerIsStaff = Boolean(actor.isStaff);
+  if (!openerIsStaff) {
+    const { verifySiteTurnstile } = require("../http/siteTurnstile") as typeof import("../http/siteTurnstile");
+    const { clientIp } = require("../boards/boardVotes") as typeof import("../boards/boardVotes");
+    const ts = await verifySiteTurnstile(
+      client,
+      req.body?.turnstileToken || req.body?.["cf-turnstile-response"],
+      clientIp(req),
+    );
+    if (!ts.ok) {
+      return res.status(400).json({
+        ok: false,
+        error: ts.error || "turnstile_failed",
+        message: ts.message || "Completa la verifica anti-robot.",
+      });
+    }
+  }
   /* ticketPushApi1 / apiWarmSwr1: utenti devono avere push attiva (staff skip) */
   if (!openerIsStaff) {
     try {

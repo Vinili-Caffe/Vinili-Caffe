@@ -65,7 +65,7 @@ import {
 import { page } from "@/lib/site";
 import { timeAgo } from "@/lib/time";
 import { cn } from "@/lib/cn";
-import { chooseDialog, promptDialog, showToast } from "@/components/ui";
+import { chooseDialog, promptDialog, showToast, turnstileGate } from "@/components/ui";
 import { SmartLink } from "@/components/SmartLink";
 import { DiscordContent } from "@/components/discord/DiscordContent";
 import { ListingCard } from "./ListingCard";
@@ -282,10 +282,30 @@ export function ListingPage() {
   const KindIcon = l.kind === "bot" ? Bot : Server;
   const voteHref = page(`/vetrina/vota/?slug=${encodeURIComponent(l.slug)}&id=${encodeURIComponent(l.id)}`);
 
+  async function ensureTurnstile(title: string, confirmLabel: string) {
+    const cfg = await loadBoardsConfig("", token);
+    const siteKey = String(cfg?.turnstileSiteKey || "").trim();
+    if (!siteKey || !cfg?.turnstileRequired) return "";
+    const tok = await turnstileGate({
+      siteKey,
+      title,
+      message: "Conferma di non essere un robot per continuare.",
+      confirmLabel,
+    });
+    if (tok == null) return null;
+    if (!tok) {
+      showToast("Completa la verifica anti-robot.", true);
+      return null;
+    }
+    return tok;
+  }
+
   async function onBump() {
     if (!token) return login();
+    const captcha = await ensureTurnstile("Verifica per il bump", "Conferma bump");
+    if (captcha == null) return;
     setBusy("bump");
-    const r = await bumpListing(token, l.id);
+    const r = await bumpListing(token, l.id, { turnstileToken: captcha });
     setBusy("");
     if (!r.ok) {
       showToast(r.message, true);
@@ -325,8 +345,10 @@ export function ListingPage() {
       showToast("Scrivi almeno 8 caratteri nel motivo.", true);
       return;
     }
+    const captcha = await ensureTurnstile("Verifica per la segnalazione", "Invia segnalazione");
+    if (captcha == null) return;
     setBusy("report");
-    const r = await reportListing(token, l.id, reason.trim(), category);
+    const r = await reportListing(token, l.id, reason.trim(), category, { turnstileToken: captcha });
     setBusy("");
     if (!r.ok) {
       showToast(r.message || "Segnalazione non inviata. Riprova.", true);

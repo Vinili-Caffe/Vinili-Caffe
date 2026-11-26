@@ -787,6 +787,11 @@ async function bumpListing(client?, payload: Record<string, any> = {}, reqMeta: 
   if (!gate.ok) return gate;
   const auth = await resolveBoardsUser(payload.accessToken);
   if (!auth.ok) return auth;
+  const { verifySiteTurnstile } = require("../http/siteTurnstile") as typeof import("../http/siteTurnstile");
+  const ts = await verifySiteTurnstile(client, payload.turnstileToken || payload.cfTurnstile, reqMeta.ip);
+  if (!ts.ok) {
+    return { ok: false, status: 400, error: ts.error || "turnstile_failed", message: ts.message || "Completa la verifica anti-robot." };
+  }
   const id = String(payload.listingId || payload.id || "").trim();
   if (!mongoose.isValidObjectId(id)) {
     return { ok: false, status: 400, error: "invalid_id", message: "ID scheda non valido." };
@@ -806,11 +811,16 @@ async function bumpGuildListing(client?, guildId?: string, user: { id: string; n
   return doBump(client, listing, { userId: String(user.id), name: user.name || "", source: "discord", channelId: user.channelId || "" });
 }
 
-async function reportListing(client?, payload: Record<string, any> = {}) {
+async function reportListing(client?, payload: Record<string, any> = {}, reqMeta: Record<string, any> = {}) {
   const gate = featureGate(client);
   if (!gate.ok) return gate;
   const auth = await resolveBoardsUser(payload.accessToken);
   if (!auth.ok) return auth;
+  const { verifySiteTurnstile } = require("../http/siteTurnstile") as typeof import("../http/siteTurnstile");
+  const ts = await verifySiteTurnstile(client, payload.turnstileToken || payload.cfTurnstile, reqMeta.ip);
+  if (!ts.ok) {
+    return { ok: false, status: 400, error: ts.error || "turnstile_failed", message: ts.message || "Completa la verifica anti-robot." };
+  }
   const id = String(payload.listingId || payload.id || "").trim();
   if (!mongoose.isValidObjectId(id)) {
     return { ok: false, status: 400, error: "invalid_id", message: "ID scheda non valido." };
