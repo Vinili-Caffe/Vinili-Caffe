@@ -107,7 +107,25 @@ function normalizeConfig(raw?): VoiceConfig {
   };
 }
 
-type VoiceConfig = ReturnType<typeof defaultConfig>;
+/* scritto per esteso: ricavarlo da defaultConfig() (che lo usa come tipo di ritorno) era un giro circolare */
+type VoiceConfig = {
+  music: {
+    defaultVolume: number;
+    inactivityLeaveMs: number;
+    textChannelIds: string[];
+    djRoleIds: string[];
+    alwaysOn: ReturnType<typeof defaultAlwaysOn>;
+  };
+  tts: {
+    enabled: boolean;
+    autojoin: boolean | null;
+    includeUsername: boolean | null;
+    stayConnected: boolean | null;
+    defaultLang: string;
+    textChannelIds: string[];
+  };
+  userSaved: boolean;
+};
 
 function putCache(guildId: string, cfg: VoiceConfig) {
   syncCache.set(String(guildId), { at: Date.now(), cfg });

@@ -523,7 +523,7 @@ function fillEmptyMinigameDrafts(scoring: MinigameScoring, raw?: any): MinigameS
         mentionRoles: true,
         v2: {
           ...d.v2,
-          blocks: [{ type: "text", content: "{ping}" }, ...blocks],
+          blocks: [{ type: "text" as const, content: "{ping}" }, ...blocks],
         },
       };
     }

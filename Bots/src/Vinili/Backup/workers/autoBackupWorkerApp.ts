@@ -38,7 +38,7 @@ async function main() {
   });
   global.botClient = client;
 
-  const targetIds = listAutoBackupGuildIds(client);
+  const targetIds = await listAutoBackupGuildIds(client);
   for (const gid of targetIds) {
     await client.guilds.fetch(gid).catch((err?) => {
       console.warn(`[AUTO-BACKUP] fetch guild ${gid} failed:`, err?.message || err);

@@ -37,7 +37,9 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
   const ready = mode === "ready";
 
   return (
-    <section className="relative isolate overflow-hidden bg-[#140d09] text-[#f4e9d8]">
+    /* un riquadro unico con gli angoli arrotondati: non passa sotto la navbar e finisce pulito prima del fondo pagina */
+    <section className="px-3 pb-12 pt-24 sm:px-5 sm:pt-28">
+      <div className="relative isolate mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-[#140d09] text-[#f4e9d8] shadow-[0_40px_100px_-40px_rgba(0,0,0,0.9)] ring-1 ring-[#f4e9d8]/10 sm:rounded-[2.75rem]">
       {/* fascia di colore e retino: la pagina sembra il retro di un vinile */}
       <div className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-full bg-[#d4512c] [clip-path:polygon(58%_0,100%_0,100%_100%,38%_100%)] max-lg:[clip-path:polygon(0_62%,100%_48%,100%_100%,0_100%)]" />
       <div
@@ -45,7 +47,7 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
         style={{ backgroundImage: "radial-gradient(#2a120a 1.6px, transparent 1.7px)", backgroundSize: "14px 14px" }}
       />
 
-      <div className="mx-auto grid min-h-[calc(100dvh-4rem)] max-w-6xl items-center gap-10 px-6 pb-16 pt-28 lg:grid-cols-[1.05fr_1fr] lg:gap-6 lg:pt-24">
+      <div className="mx-auto grid min-h-[min(46rem,calc(100dvh-10rem))] max-w-6xl items-center gap-10 px-6 py-14 sm:px-10 lg:grid-cols-[1.05fr_1fr] lg:gap-6 lg:py-16">
         {/* testo */}
         <div className="relative z-10">
           <motion.p
@@ -195,6 +197,7 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
             </div>
           </motion.div>
         </div>
+      </div>
       </div>
     </section>
   );

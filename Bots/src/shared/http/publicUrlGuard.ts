@@ -70,7 +70,10 @@ async function resolvePublicHostname(hostname?) {
   }
 }
 
-async function assertPublicHttpUrl(raw?) {
+/* un tipo solo (non un'unione): con strictNullChecks spento TypeScript non distingue i due casi da `!ok` */
+type PublicUrlCheck = { ok: boolean; reason?: string; url?: string; hostname?: string; addresses?: string[] };
+
+async function assertPublicHttpUrl(raw?): Promise<PublicUrlCheck> {
   const input = String(raw || "").trim();
   if (!/^https?:\/\//i.test(input)) {
     return { ok: false as const, reason: "invalid_url" };
@@ -88,7 +91,7 @@ async function assertPublicHttpUrl(raw?) {
     return { ok: false as const, reason: "userinfo_forbidden" };
   }
   const resolved = await resolvePublicHostname(u.hostname);
-  if (!resolved.ok) return resolved;
+  if (resolved.ok === false) return { ok: false as const, reason: resolved.reason };
   return { ok: true as const, url: u.toString(), hostname: u.hostname, addresses: resolved.addresses };
 }
 

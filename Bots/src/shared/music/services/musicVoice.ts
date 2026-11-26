@@ -360,8 +360,8 @@ function withMusicVoiceJoinLock(guildId?, fn?) {
     return Promise.resolve(typeof fn === "function" ? fn() : undefined);
   }
   const prev = musicVoiceJoinChains.get(gid) || Promise.resolve();
-  let settle = () => {};
-  const gate = new Promise((resolve?) => {
+  let settle: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
     settle = resolve;
   });
   const chained = prev.then(

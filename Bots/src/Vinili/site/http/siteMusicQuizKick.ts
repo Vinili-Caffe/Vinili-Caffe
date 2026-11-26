@@ -27,6 +27,8 @@ const subs = new Map<number, { id: string; lastUsed: number }>();
    tra l'API dei canali e il messaggio non fa perdere nulla */
 const buffers = new Map<string, ChatMsg[]>();
 const seenIds = new Map<string, number>();
+/* iscrizioni sconosciute che si è già provato a cancellare (una volta sola ciascuna) */
+const orphanTried = new Set<string>();
 
 export function kickConfigured() {
   return Boolean(String(process.env.KICK_CLIENT_ID || "").trim() && String(process.env.KICK_CLIENT_SECRET || "").trim());
@@ -84,8 +86,12 @@ function cleanupOldSubscriptions() {
     startupCleanup = (async () => {
       const list = await kickApi("/events/subscriptions").catch(() => null);
       const old = (Array.isArray(list?.data?.data) ? list!.data.data : []).filter((s: any) => s?.id && s?.event === EVENT);
-      for (const s of old) await kickApi(`/events/subscriptions?id=${encodeURIComponent(String(s.id))}`, { method: "DELETE" }).catch(() => null);
-      global.logger?.info?.(`[kick] riavvio: cancellate ${old.length} iscrizioni vecchie`);
+      let failed = 0;
+      for (const s of old) {
+        const r = await kickApi(`/events/subscriptions?id=${encodeURIComponent(String(s.id))}`, { method: "DELETE" }).catch(() => null);
+        if (!r?.ok) failed += 1;
+      }
+      global.logger?.info?.(`[kick] riavvio: ${old.length} iscrizioni vecchie, ${old.length - failed} cancellate${failed ? `, ${failed} rifiutate da Kick` : ""}`);
     })().catch(() => {});
   }
   return startupCleanup;
@@ -187,10 +193,20 @@ export async function handleKickWebhookPost(req?: any, res?: any) {
 
   const p = req.body || {};
   const broadcasterId = Number(p?.broadcaster?.user_id || 0);
-  /* diagnostica: tipo, canale e se il quiz lo sta ascoltando (mai il testo dei messaggi) */
-  global.logger?.info?.(
-    `[kick webhook] type=${type || "-"} canale=${String(p?.broadcaster?.channel_slug || "-")} broadcaster=${broadcasterId || "-"} iscrizione=${subscriptionId || "-"} nostra=${[...subs.values()].some((x) => x.id === subscriptionId)}`,
-  );
+  /* iscrizione che nessuna diretta sta usando (es. una di prova rimasta): si cancella e non si registra niente */
+  if (subscriptionId && ![...subs.values()].some((x) => x.id === subscriptionId)) {
+    if (!orphanTried.has(subscriptionId)) {
+      orphanTried.add(subscriptionId);
+      void kickApi(`/events/subscriptions?id=${encodeURIComponent(subscriptionId)}`, { method: "DELETE" })
+        .then((r) =>
+          global.logger?.info?.(
+            `[kick] iscrizione non usata (${String(p?.broadcaster?.channel_slug || broadcasterId || "-")}): ${r.ok ? "cancellata" : `Kick ha risposto ${r.status}`}`,
+          ),
+        )
+        .catch(() => null);
+    }
+    return res.json({ ok: true });
+  }
 
   if (type === EVENT) {
     const text = String(p?.content || "").trim();

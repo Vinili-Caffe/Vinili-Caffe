@@ -166,7 +166,7 @@ function buildSetCookie(value: string, maxAgeSec: number, clear = false): string
   return parts.join("; ");
 }
 
-function appendSetCookie(res?, line: string) {
+function appendSetCookie(res: any, line: string) {
   if (!res || !line) return;
   const prev = res.getHeader?.("Set-Cookie");
   if (!prev) {
@@ -180,7 +180,7 @@ function appendSetCookie(res?, line: string) {
   res.setHeader("Set-Cookie", [String(prev), line]);
 }
 
-function setSessionCookie(res?, payload: SessionPayload) {
+function setSessionCookie(res: any, payload: SessionPayload) {
   const sealed = sealSession(payload);
   const maxAgeMs = Math.min(SESSION_MAX_MS, Math.max(60_000, (payload.exp || Date.now() + SESSION_MAX_MS) - Date.now() + 7 * 24 * 60 * 60 * 1000));
   appendSetCookie(res, buildSetCookie(sealed, maxAgeMs / 1000, false));
