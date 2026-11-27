@@ -15,8 +15,10 @@ const { SiteDocument, SITE_DOCUMENT_TYPE } = require("../../Community/schemas/co
 
 const DOC = SITE_DOCUMENT_TYPE.WEB_PUSH_SUBSCRIPTION;
 const DEFAULT_SITE_ORIGIN = "https://www.viniliecaffe.it";
-/* PNG statico: una GIF come icona a volte fa fallire la notifica (Chrome) o il formato Apple. */
-const PUSH_NOTIFICATION_ICON = "/images/og-server-icon-still.png";
+/* PNG statico: una GIF come icona a volte fa fallire la notifica (Chrome) o il formato Apple.
+   icon = grande a colori nella scheda; badge = silhouette monocroma status bar Android. */
+const PUSH_NOTIFICATION_ICON = "/images/push-icon-192.png";
+const PUSH_NOTIFICATION_BADGE = "/images/push-badge-96.png";
 /* Dispositivi tenuti per utente: i più recenti (ogni apertura del sito rinfresca il proprio). */
 const MAX_PUSH_SUBS_PER_USER = 15;
 const DEFAULT_TTL_SEC = 12 * 60 * 60;
@@ -281,7 +283,7 @@ function buildClassicPayload(fields?) {
     ...(fields.unreadCount >= 0 ? { app_badge: fields.unreadCount } : {}),
     tag: fields.tag,
     icon: fields.icon,
-    badge: fields.icon,
+    badge: fields.badge || fields.icon,
   };
 }
 
@@ -410,6 +412,7 @@ function buildFields(payload?, text?) {
     unreadCount: clampBadge(payload.unreadCount),
     tag: id ? `vc-site-${id}` : "",
     icon: `${origin}${PUSH_NOTIFICATION_ICON}`,
+    badge: `${origin}${PUSH_NOTIFICATION_BADGE}`,
   };
 }
 

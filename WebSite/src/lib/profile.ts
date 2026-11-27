@@ -94,16 +94,20 @@ export async function loadProfile(userId: string, origin = "", token = ""): Prom
 export const rankCardUrl = (userId: string) =>
   apiUrl(`/webhooks/site-rank-card-public?userId=${encodeURIComponent(userId)}`);
 
-/** Badge principali, in ordine, dai ruoli (stessi id del sito attuale). */
+/** Badge principali, in ordine, dai ruoli (allineati a officialGuildIds / scala staff). */
 const BADGE_ROLES: [string, string][] = [
   ["1442568886988963923", "Founder"],
   ["1521562607339704442", "Manager"],
-  ["1544831233404575835", "Staff del Mese"],
-  ["1550462300291604551", "Staffer della Settimana"],
+  ["1442568893435478097", "Admin"],
   ["1502322782602530977", "Director"],
   ["1544831228690046976", "High Staff"],
+  ["1544831236868931636", "Senior Moderator"],
+  ["1442568901887000618", "Moderator"],
+  ["1442568904311570555", "Helper"],
   ["1442568910070349985", "Staff"],
   ["1544831242510270464", "Partner Manager"],
+  ["1544831233404575835", "Staff del Mese"],
+  ["1550462300291604551", "Staffer della Settimana"],
   ["1544830838443741194", "Member of The Month"],
   ["1544830834849087630", "Top Weekly Text"],
   ["1544830836686200992", "Top Weekly Voc"],
@@ -126,12 +130,16 @@ export function badges(roles: DiscordRole[]) {
 const STAFF_PROFILE_ROLE_IDS = new Set([
   "1442568886988963923", // Founder
   "1521562607339704442", // Manager
-  "1544831233404575835", // Staff del Mese
-  "1550462300291604551", // Staffer della Settimana
+  "1442568893435478097", // Admin
   "1502322782602530977", // Director
   "1544831228690046976", // High Staff
+  "1544831236868931636", // Senior Moderator
+  "1442568901887000618", // Mod
+  "1442568904311570555", // Helper
   "1442568910070349985", // Staff
   "1544831242510270464", // Partner Manager
+  "1544831233404575835", // Staff del Mese
+  "1550462300291604551", // Staffer della Settimana
 ]);
 
 export function hasStaffProfile(roles: DiscordRole[]) {

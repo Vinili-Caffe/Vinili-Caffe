@@ -44,7 +44,7 @@ async function upsertVerifiedMember(guildId?, userId?, verifiedAt = new Date()) 
  * Le soglie e i ruoli sono quelli della dashboard (Annunci automatici → Anzianità): qui restano solo
  * i controlli del principale (niente ruoli a chi è mutato o in timeout).
  */
-async function applyTenureForMember(member?, _record?) {
+async function applyTenureForMember(member?, record?) {
   if (!member?.guild) return;
   const mutedRoleId = String(IDs.roles?.Muted || "").trim();
   if (mutedRoleId && member.roles?.cache?.has?.(mutedRoleId)) return;
@@ -53,7 +53,27 @@ async function applyTenureForMember(member?, _record?) {
     (member?.communicationDisabledUntil ? new Date(member.communicationDisabledUntil).getTime() : 0);
   if (Number.isFinite(timeoutUntil) && timeoutUntil > Date.now()) return;
   const A = require("../../../MultiGuild/services/announcementsRuntime") as typeof import("../../../MultiGuild/services/announcementsRuntime");
-  await A.reapplyTenureForMember(member);
+  /* Preferisci verificationTenure.verifiedAt: dopo leave/rejoin Discord joinedAt è "oggi"
+     e altrimenti torneresti Nuovo anche con mesi di carriera salvati. */
+  let sinceMs = 0;
+  const verifiedAt = record?.profile?.verificationTenure?.verifiedAt;
+  if (verifiedAt) {
+    const t = new Date(verifiedAt).getTime();
+    if (Number.isFinite(t) && t > 0) sinceMs = t;
+  }
+  if (!sinceMs) {
+    try {
+      const doc = await ActivityUserProfile.findOne({ guildId: member.guild.id, userId: member.id })
+        .select("profile.verificationTenure.verifiedAt")
+        .lean();
+      const at = (doc as any)?.profile?.verificationTenure?.verifiedAt;
+      if (at) {
+        const t = new Date(at).getTime();
+        if (Number.isFinite(t) && t > 0) sinceMs = t;
+      }
+    } catch (_) {}
+  }
+  await A.reapplyTenureForMember(member, sinceMs > 0 ? sinceMs : undefined);
 }
 
 async function backfillVerificationTenure(client?) {

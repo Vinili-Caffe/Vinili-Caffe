@@ -1,5 +1,5 @@
 /* Vinili & Caffè — service worker: notifiche push, clic sulle notifiche, badge dell'app e pagina offline.
-   build: pushClickNavIos5-20261108
+   build: pushBadgeVinyl1-20261127
    Le pagine vere non si mettono mai in cache, così non si vedono versioni vecchie.
 
    Regola delle push (vale per tutti i browser): OGNI push mostra una notifica. Una push che non mostra
@@ -17,7 +17,8 @@ const OFFLINE_ASSETS = [OFFLINE_URL, "/favicon.ico", "/favicon-32.png"];
 /* La destinazione del clic sopravvive all'avvio della PWA (lib/pwa-notif-nav-boot.ts la legge). */
 const NAV_CACHE = "vc-notif-pending-v1";
 const NAV_REQ = "/__vc_notif_pending";
-const STILL_ICON = "https://cdn.viniliecaffe.it/images/discord-still.png";
+const STILL_ICON = "https://www.viniliecaffe.it/images/push-icon-192.png";
+const STILL_BADGE = "https://www.viniliecaffe.it/images/push-badge-96.png";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -167,11 +168,12 @@ function readPush(event) {
 async function show(p) {
   const title = p.title || p.body.slice(0, 120) || "Vinili & Caffè";
   const body = p.body && p.body !== title ? p.body : "";
-  const safeIcon = (s) => (!s || /\.gif(?:\?|$)/i.test(s) ? STILL_ICON : s);
+  const safeIcon = (s, fallback) => (!s || /\.gif(?:\?|$)/i.test(s) ? fallback : s);
   const options = {
     body,
-    icon: safeIcon(p.icon),
-    badge: safeIcon(p.badgeIcon),
+    icon: safeIcon(p.icon, STILL_ICON),
+    /* Android status bar: silhouette monocroma (non riusare l'icona colorata). */
+    badge: safeIcon(p.badgeIcon, STILL_BADGE),
     data: { ...p.data, url: p.data.openUrl },
     lang: "it",
   };

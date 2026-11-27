@@ -447,15 +447,40 @@ async function runTenureRoles(client?) {
       const now = Date.now();
       /* sul principale l'anzianità vale solo per chi ha completato la verifica (ruolo Member) */
       let mainMemberRole = "";
-      if (T.isMainGuild(gid)) {
+      const isMain = T.isMainGuild(gid);
+      if (isMain) {
         try {
           mainMemberRole = String((require("../../Vinili/Config/ids") as any)?.roles?.Member || "");
         } catch (_) {}
       }
+      const eligible = [];
       for (const member of guild.members.cache.values()) {
         if (member.user?.bot || !member.joinedTimestamp) continue;
         if (mainMemberRole && !member.roles.cache.has(mainMemberRole)) continue;
-        const daysIn = Math.floor((now - member.joinedTimestamp) / 86_400_000);
+        eligible.push(member);
+      }
+      /* Dopo leave/rejoin Discord joinedAt è "oggi": sul principale usa verificationTenure.verifiedAt. */
+      const verifiedSinceByUser = new Map();
+      if (isMain && eligible.length) {
+        try {
+          const { ActivityUserProfile } = require("../../Vinili/Community/schemas/communitySchemas") as any;
+          const rows = await ActivityUserProfile.find({
+            guildId: gid,
+            userId: { $in: eligible.map((m) => m.id) },
+            "profile.verificationTenure.verifiedAt": { $ne: null },
+          })
+            .select("userId profile.verificationTenure.verifiedAt")
+            .lean();
+          for (const row of rows || []) {
+            const t = new Date(row?.profile?.verificationTenure?.verifiedAt).getTime();
+            if (Number.isFinite(t) && t > 0) verifiedSinceByUser.set(String(row.userId), t);
+          }
+        } catch (_) {}
+      }
+      for (const member of eligible) {
+        const sinceMs = verifiedSinceByUser.get(String(member.id)) || Number(member.joinedTimestamp || 0);
+        if (!sinceMs) continue;
+        const daysIn = Math.floor((now - sinceMs) / 86_400_000);
         /* soglia più alta raggiunta (rules ordinate per giorni) */
         const reached = rules.filter((r) => daysIn >= Number(r.days));
         if (!reached.length) continue;
@@ -476,10 +501,11 @@ async function runTenureRoles(client?) {
           st.tenureGiven[key] = now;
           changed = true;
         }
-        /* togli i ruoli delle soglie più basse */
+        /* togli i ruoli delle soglie più basse (e quelli superiori non più giustificati) */
         if (cfg.tenure.removePrevious) {
-          const lower = reached.slice(0, -1).map((r) => r.roleId as string).filter((id) => id !== role.id && member.roles.cache.has(id));
-          if (lower.length) await member.roles.remove(lower, "Anzianità: soglia successiva raggiunta").catch(() => null);
+          const keepId = role.id;
+          const others = rules.map((r) => r.roleId as string).filter((id) => id !== keepId && member.roles.cache.has(id));
+          if (others.length) await member.roles.remove(others, "Anzianità: tiene solo la soglia raggiunta").catch(() => null);
         }
       }
       if (changed) await T.setGuildBlob("announcementsState", gid, st);
@@ -510,7 +536,18 @@ async function reapplyTenureForMember(member?, joinedMs?: number) {
     const memberRole = String((require("../../Vinili/Config/ids") as any)?.roles?.Member || "");
     if (memberRole && !member.roles.cache.has(memberRole)) return true;
   }
-  const since = Number(joinedMs) > 0 ? Number(joinedMs) : Number(member.joinedTimestamp || 0);
+  let since = Number(joinedMs) > 0 ? Number(joinedMs) : 0;
+  if (!since && T.isMainGuild(gid)) {
+    try {
+      const { ActivityUserProfile } = require("../../Vinili/Community/schemas/communitySchemas") as any;
+      const doc = await ActivityUserProfile.findOne({ guildId: gid, userId: member.id })
+        .select("profile.verificationTenure.verifiedAt")
+        .lean();
+      const t = new Date(doc?.profile?.verificationTenure?.verifiedAt).getTime();
+      if (Number.isFinite(t) && t > 0) since = t;
+    } catch (_) {}
+  }
+  if (!since) since = Number(member.joinedTimestamp || 0);
   if (!since) return true;
   const daysIn = Math.floor((Date.now() - since) / 86_400_000);
   const reached = rules.filter((r) => daysIn >= Number(r.days));
