@@ -1,7 +1,7 @@
 const { getRomeWeekKey, getRomeSaturdayKeyForWeek, getMovieNightFinalAnnouncementSlot, shouldAttemptMovieNightEventStartRecovery, shouldAttemptMovieNightStageCloseRecovery, getMovieNightStartupRecoverySlot, hasMovieNightSpareggio, getHarryPotterMovieNightScheduleForWeek, getFixedMovieTitleForWeek, resolveExtraMovieNightDateKey, getMovieNightEventStartDate } = require("./movieNightSchedule") as typeof import("./movieNightSchedule");
 const { MOVIE_NIGHT_NAME, isTargetMovieNightEvent, isFixedScheduleMovieNightEvent, findCurrentWeekMovieNightEvent } = require("./movieNightEvents") as typeof import("./movieNightEvents");
 const { EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID, FINAL_ANNOUNCEMENT_EXTRA_BEFORE_PING_SATURDAYS, buildMovieNightAnnouncementMessage, buildDiscordEventUrl, buildFinalMovieNightAnnouncementMessage, buildMovieNightStartAnnouncementMessage } = require("./movieNightMessages") as typeof import("./movieNightMessages");
-const { isFallbackMovieDescription, fetchItalianMovieDescription } = require("./movieNightDescriptions") as typeof import("./movieNightDescriptions");
+const { isFallbackMovieDescription, movieDescriptionNeedsRefresh, fetchItalianMovieDescription } = require("./movieNightDescriptions") as typeof import("./movieNightDescriptions");
 const { ANNOUNCEMENT_CHANNEL_ID, maybePublishTieBreakerPoll, hydrateMovieNightStateForWeek, resolveMovieNightThread, resolveFinalMovieTitle, describeFinalMovieTitleMiss } = require("./movieNightVotes") as typeof import("./movieNightVotes");
 const { STATE_KEY, fetchAnnouncementChannel, isMovieNightFinalPublicAnnouncePresent, movieNightStaffCommunicationStatePatch, resolveMovieNightFinalAnnounceStatus, resolveMovieNightEventStartStatus, repairMovieNightFinalAnnounceState, logMovieNightFinalResult } = require("./movieNightStatus") as typeof import("./movieNightStatus");
 const { pickOpenReviewThreadStateFields, ensureMovieNightReviewThreadTracking, closeMovieNightReviewThreadIfDue } = require("./movieNightReviewThread") as typeof import("./movieNightReviewThread");
@@ -170,7 +170,7 @@ async function runMovieNightFinalAnnouncementCheck(client?, opts: Record<string,
         /* movieDescWiki1: ripara anche descrizione fallback (non solo title drift) */
         const needsDescRepair =
           Boolean(announceStatus.repairTitle) ||
-          isFallbackMovieDescription(state?.finalMovieDescription);
+          movieDescriptionNeedsRefresh(state?.finalMovieDescription);
         if (needsDescRepair) {
           await repairFinalMovieNightAnnouncementDescription(client).catch((err?) => {
             global.logger?.warn?.("[MOVIE NIGHT FINAL] description repair failed:", err?.message || err);

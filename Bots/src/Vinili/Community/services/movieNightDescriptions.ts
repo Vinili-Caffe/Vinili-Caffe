@@ -354,4 +354,9 @@ async function resolveCanonicalMovieTitle(rawTitle?) {
   return extracted;
 }
 
-export = { isFallbackMovieDescription, fetchItalianMovieDescription, resolveCanonicalMovieTitle };
+/** descrizione da rifare: quella di ripiego o una che non parla di un film (es. biografia di una persona omonima) */
+function movieDescriptionNeedsRefresh(text?) {
+  return isFallbackMovieDescription(text) || !wikipediaExtractLooksLikeFilm(text);
+}
+
+export = { isFallbackMovieDescription, movieDescriptionNeedsRefresh, fetchItalianMovieDescription, resolveCanonicalMovieTitle };

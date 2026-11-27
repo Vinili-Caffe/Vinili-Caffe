@@ -1,7 +1,7 @@
 /** Serata film: riparazione di annunci e messaggi staff venuti male. */
 const { getRomeWeekKey, getRomeSaturdayKeyForWeek, shouldAllowMovieNightStaffCommunication, resolveMovieNightStaffAnnounceSlot, getMovieNightStartupRecoverySlot, isMovieNightFixedScheduleSkipWeek, getFixedMovieTitleForWeek } = require("./movieNightSchedule") as typeof import("./movieNightSchedule");
 const { EVENTS_ROLE_ID, SERATA_FILM_ROLE_ID, buildDiscordEventUrl, buildFinalMovieNightAnnouncementMessage, buildMovieNightStaffCommunicationPayload } = require("./movieNightMessages") as typeof import("./movieNightMessages");
-const { isFallbackMovieDescription, fetchItalianMovieDescription } = require("./movieNightDescriptions") as typeof import("./movieNightDescriptions");
+const { movieDescriptionNeedsRefresh, fetchItalianMovieDescription } = require("./movieNightDescriptions") as typeof import("./movieNightDescriptions");
 const { hydrateMovieNightStateForWeek, resolveFinalMovieTitle } = require("./movieNightVotes") as typeof import("./movieNightVotes");
 const { STATE_KEY, STAFF_COMMUNICATION_CHANNEL_ID, isStageCloseMessageForWeekKey, fetchStaffCommunicationChannel, isMovieNightFinalPublicAnnouncePresent, movieNightStaffCommunicationStatePatch, fetchFinalAnnouncementMessage, resolveMovieNightStaffCommunicationStatus } = require("./movieNightStatus") as typeof import("./movieNightStatus");
 const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
@@ -101,7 +101,7 @@ async function repairFinalMovieNightAnnouncementDescription(client?) {
     const needsDescriptionFetch =
       savedTitle !== title ||
       !savedDesc ||
-      isFallbackMovieDescription(savedDesc) ||
+      movieDescriptionNeedsRefresh(savedDesc) ||
       savedHogwartsBlock;
     const description = needsDescriptionFetch
       ? await fetchItalianMovieDescription(title)
