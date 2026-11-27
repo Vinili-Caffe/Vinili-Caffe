@@ -105,6 +105,7 @@ const IMG_HOSTS = [
   /^s4\.anilist\.co$/,
   /^raw\.githubusercontent\.com$/,
   /^images\.openfoodfacts\.org$/,
+  /(^|\.)transfermarkt\.technology$/,
 ];
 const okHost = (u: URL) => u.protocol === "https:" && IMG_HOSTS.some((re) => re.test(u.hostname));
 

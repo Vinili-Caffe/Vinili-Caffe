@@ -202,6 +202,230 @@ async function enwikiImages(items: NQItem[], titles: Map<NQItem, string>) {
   }
 }
 
+/* ───────────── Transfermarkt (valori di mercato via ID Wikidata) ───────────── */
+
+const TM_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+async function getText(url: string, timeoutMs = 30_000): Promise<string | null> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const r = await fetch(url, {
+        signal: ctrl.signal,
+        headers: { "User-Agent": TM_UA, Accept: "text/html,application/xhtml+xml" },
+      });
+      if (r.status === 429 || r.status >= 500) {
+        const ra = Number(r.headers.get("retry-after"));
+        await sleep(Number.isFinite(ra) && ra > 0 ? Math.min(15, ra) * 1000 : 2000 * (attempt + 1));
+        continue;
+      }
+      if (!r.ok) return null;
+      return await r.text();
+    } catch {
+      await sleep(800 * (attempt + 1));
+    } finally {
+      clearTimeout(t);
+    }
+  }
+  return null;
+}
+
+/** Interpreta importi TM tipo €1.30B / 45.00M / 850k */
+function parseTmEuro(amount: string, unit?: string): number | null {
+  const n = Number(String(amount).replace(/,/g, ""));
+  if (!Number.isFinite(n)) return null;
+  const u = String(unit || "").trim().toUpperCase();
+  if (u === "B") return Math.round(n * 1e9);
+  if (u === "M") return Math.round(n * 1e6);
+  if (u === "K" || u === "TH.") return Math.round(n * 1e3);
+  return Math.round(n);
+}
+
+type TmWdRow = { name: string; tmId: string; image?: string; sub?: string };
+
+async function wikidataWithTmId(opts: {
+  where: string;
+  tmProp: "P2446" | "P7223";
+  image?: string;
+  sub?: string;
+  limit?: number;
+}): Promise<TmWdRow[]> {
+  const q = `SELECT ?i ?l ?tm ?img ?subLabel WHERE {
+    ${opts.where}
+    ?i wdt:${opts.tmProp} ?tm.
+    OPTIONAL { ?i wdt:${opts.image || "P18"} ?img }
+    ${opts.sub ? `OPTIONAL { ?i wdt:${opts.sub} ?sub }` : ""}
+    SERVICE wikibase:label { bd:serviceParam wikibase:language "it,en". ?i rdfs:label ?l. ${opts.sub ? "?sub rdfs:label ?subLabel." : ""} }
+  } ORDER BY DESC(?ss) LIMIT ${opts.limit || 150}`;
+  const rows = await sparql(q);
+  const out: TmWdRow[] = [];
+  const seen = new Set<string>();
+  for (const r of rows) {
+    const name = clean(r.l?.value);
+    const tmId = String(r.tm?.value || "").replace(/\D/g, "");
+    if (!name || !tmId || /^Q\d+$/.test(name) || seen.has(tmId)) continue;
+    seen.add(tmId);
+    const sub = clean(r.subLabel?.value, 50);
+    const image = r.img?.value ? commonsThumb(r.img.value) : "";
+    out.push({ name, tmId, ...(sub && !/^Q\d+$/.test(sub) ? { sub } : {}), ...(image ? { image } : {}) });
+  }
+  return out;
+}
+
+/** True se la risposta è una challenge Cloudflare (tipico dalla VPS). */
+function tmBlocked(htmlOrBody: string | null | undefined) {
+  if (!htmlOrBody) return true;
+  const s = String(htmlOrBody).slice(0, 800).toLowerCase();
+  return s.includes("just a moment") || s.includes("cf-browser-verification") || s.includes("challenge-platform");
+}
+
+async function tmPlayerMarketValue(tmId: string): Promise<number | null> {
+  const data = await getJson(
+    `https://www.transfermarkt.com/ceapi/marketValueDevelopment/graph/${tmId}`,
+    { headers: { "User-Agent": TM_UA, Accept: "application/json" } },
+    20_000,
+  );
+  if (!data || !Array.isArray(data.list)) return null;
+  const last = data.list[data.list.length - 1];
+  const y = Number(last?.y);
+  return Number.isFinite(y) && y > 0 ? Math.round(y) : null;
+}
+
+type TmRankRow = { tmId: string; name: string; value: number; image?: string; sub?: string };
+
+/** Classifiche TM: nome + valore (+ foto TM). Wikidata arricchisce le immagini se disponibile. */
+async function tmRankingRows(kind: "player" | "club", pages = 5): Promise<TmRankRow[]> {
+  const base =
+    kind === "player"
+      ? "https://www.transfermarkt.com/spieler-statistik/wertvollstespieler/marktwertetop"
+      : "https://www.transfermarkt.com/spieler-statistik/wertvollstemannschaften/marktwertetop";
+  const byId = new Map<string, TmRankRow>();
+  for (let page = 1; page <= pages; page++) {
+    const url = page === 1 ? base : `${base}/plus/?page=${page}`;
+    const html = await getText(url);
+    if (!html || tmBlocked(html)) break;
+    let hits = 0;
+    if (kind === "player") {
+      const re =
+        /portrait\/small\/(\d+)-\d+\.jpg[^"]*"\s+title="([^"]+)"[\s\S]*?marktwertverlauf\/spieler\/\1">€([\d.,]+)([KMB])/gi;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(html))) {
+        const value = parseTmEuro(m[3]!, m[4]);
+        const name = clean(m[2]);
+        if (value == null || !name) continue;
+        const tmId = m[1]!;
+        const image = `https://img.a.transfermarkt.technology/portrait/header/${tmId}.jpg`;
+        if (!byId.has(tmId)) byId.set(tmId, { tmId, name, value, image });
+        hits++;
+      }
+    } else {
+      const re =
+        /wappen\/tiny\/(\d+)\.png[^>]*title="([^"]+)"[\s\S]*?startseite\/verein\/\1"[^>]*>[\s\S]*?<td class="rechts"><b>€([\d.,]+)([KMB])<\/b>/gi;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(html))) {
+        const value = parseTmEuro(m[3]!, m[4]);
+        const name = clean(m[2]);
+        if (value == null || !name) continue;
+        const tmId = m[1]!;
+        const image = `https://img.a.transfermarkt.technology/wappen/medium/${tmId}.png`;
+        if (!byId.has(tmId)) byId.set(tmId, { tmId, name, value, image });
+        hits++;
+      }
+    }
+    if (!hits) break;
+    await sleep(400);
+  }
+  return [...byId.values()];
+}
+
+/** Immagini Wikidata per ID Transfermarkt (P2446 giocatori / P7223 club). */
+async function wikidataImagesByTm(tmProp: "P2446" | "P7223", tmIds: string[], imageProp: string) {
+  const map = new Map<string, string>();
+  if (!tmIds.length) return map;
+  for (let i = 0; i < tmIds.length; i += 40) {
+    const chunk = tmIds.slice(i, i + 40);
+    const values = chunk.map((id) => `"${id}"`).join(" ");
+    const rows = await sparql(`SELECT ?tm ?img WHERE {
+      VALUES ?tm { ${values} }
+      ?i wdt:${tmProp} ?tm; wdt:${imageProp} ?img.
+    }`);
+    for (const r of rows) {
+      const tm = String(r.tm?.value || "").replace(/\D/g, "");
+      const img = r.img?.value ? commonsThumb(r.img.value) : "";
+      if (tm && img) map.set(tm, img);
+    }
+    await sleep(200);
+  }
+  return map;
+}
+
+const tmPlayerRankingCached = memo(() => tmRankingRows("player", 6), 5 * 86_400_000);
+const tmClubRankingCached = memo(() => tmRankingRows("club", 5), 5 * 86_400_000);
+
+async function buildPlayerMarketValues(): Promise<NQItem[]> {
+  let rows = await tmPlayerRankingCached();
+  /* Fallback: lista famosi da Wikidata + CEAPI, se le classifiche TM non rispondono (es. Cloudflare). */
+  if (!rows.length) {
+    const wd = await wikidataWithTmId({
+      where: famous(35, "?i wdt:P106 wd:Q937857; wdt:P31 wd:Q5."),
+      tmProp: "P2446",
+      image: "P18",
+      limit: 80,
+    });
+    const values = await pool(wd, 2, 350, async (row) => {
+      const value = await tmPlayerMarketValue(row.tmId);
+      if (value == null) return null;
+      return { tmId: row.tmId, name: row.name, value, ...(row.image ? { image: row.image } : {}) } as TmRankRow;
+    });
+    rows = values.filter(Boolean) as TmRankRow[];
+  } else {
+    const imgs = await wikidataImagesByTm(
+      "P2446",
+      rows.map((r) => r.tmId),
+      "P18",
+    );
+    for (const r of rows) {
+      const img = imgs.get(r.tmId);
+      if (img) r.image = img;
+    }
+  }
+  return dedupe(
+    rows.map((r) => ({ name: r.name, value: r.value, ...(r.image ? { image: r.image } : {}) })),
+    "max",
+  );
+}
+
+async function buildClubMarketValues(): Promise<NQItem[]> {
+  let rows = await tmClubRankingCached();
+  if (!rows.length) {
+    const wd = await wikidataWithTmId({
+      where: famous(20, "?i wdt:P31 wd:Q476028."),
+      tmProp: "P7223",
+      image: "P154",
+      sub: "P17",
+      limit: 80,
+    });
+    /* senza classifica TM non abbiamo i valori: lascia vuoto (si tiene la cache precedente) */
+    void wd;
+    return [];
+  }
+  const imgs = await wikidataImagesByTm(
+    "P7223",
+    rows.map((r) => r.tmId),
+    "P154",
+  );
+  for (const r of rows) {
+    const img = imgs.get(r.tmId);
+    if (img) r.image = img;
+  }
+  return dedupe(
+    rows.map((r) => ({ name: r.name, value: r.value, ...(r.image ? { image: r.image } : {}) })),
+    "max",
+  );
+}
+
 /* ───────────── Deezer ───────────── */
 
 type DzArtist = { id: number; name: string; picture: string };
@@ -927,6 +1151,93 @@ const MORE: NQCategory[] = [
     format: "number",
     build: () =>
       wikidata({ where: famous(35, "?i wdt:P106 wd:Q937857; wdt:P31 wd:Q5."), prop: "P2048", normalized: true, scale: 100, image: "P18", minValue: 150, maxValue: 215 }),
+  },
+  {
+    id: "calciatori-vdm",
+    topic: "Sport",
+    title: "Valore di mercato dei calciatori",
+    question: "Chi vale di più?",
+    description: "Valore di mercato attuale (Transfermarkt), in euro.",
+    emoji: "💶",
+    unit: "€",
+    format: "money",
+    ttlDays: 7,
+    build: () => buildPlayerMarketValues(),
+  },
+  {
+    id: "squadre-vdm",
+    topic: "Sport",
+    title: "Valore di mercato delle squadre",
+    question: "Quale squadra vale di più?",
+    description: "Valore totale della rosa (Transfermarkt), in euro.",
+    emoji: "🏟️",
+    unit: "€",
+    format: "money",
+    ttlDays: 7,
+    build: () => buildClubMarketValues(),
+  },
+  {
+    id: "calciatori-gol",
+    topic: "Sport",
+    title: "Gol in carriera",
+    question: "Chi ha segnato di più in carriera?",
+    description: "Reti totali dei calciatori più noti.",
+    emoji: "⚽",
+    unit: "gol",
+    format: "number",
+    build: () =>
+      wikidata({
+        where: famous(8, "?i wdt:P106 wd:Q937857; wdt:P31 wd:Q5."),
+        prop: "P6509",
+        image: "P18",
+        keep: "max",
+        minValue: 10,
+        limit: 12000,
+      }),
+  },
+  {
+    id: "calciatori-presenze",
+    topic: "Sport",
+    title: "Presenze in carriera",
+    question: "Chi ha più presenze in carriera?",
+    description: "Partite disputate dai calciatori più noti.",
+    emoji: "🦵",
+    unit: "partite",
+    format: "number",
+    build: () =>
+      wikidata({
+        where: famous(8, "?i wdt:P106 wd:Q937857; wdt:P31 wd:Q5."),
+        prop: "P1350",
+        image: "P18",
+        keep: "max",
+        minValue: 20,
+        limit: 12000,
+      }),
+  },
+  {
+    id: "calciatori-eta",
+    topic: "Sport",
+    title: "Età dei calciatori",
+    question: "Chi è più vecchio?",
+    description: "Età in anni dei calciatori famosi.",
+    emoji: "🎂",
+    unit: "anni",
+    format: "number",
+    build: async () => {
+      const year = new Date().getFullYear();
+      const born = await wikidata({
+        where: famous(45, "?i wdt:P106 wd:Q937857; wdt:P31 wd:Q5."),
+        prop: "P569",
+        date: true,
+        image: "P18",
+        minValue: year - 90,
+        maxValue: year - 16,
+        limit: 9000,
+      });
+      return born
+        .map((it) => ({ ...it, value: year - it.value }))
+        .filter((it) => it.value >= 16 && it.value <= 90);
+    },
   },
   yearCat("squadre-fondazione", "Sport", "Anno di fondazione delle squadre", "Quale squadra è nata dopo?", "Club di calcio di tutto il mondo.", "🛡️",
     famous(25, "?i wdt:P31 wd:Q476028."), "P571", { image: "P154", sub: "P17", minValue: 1850 }),
