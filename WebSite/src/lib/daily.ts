@@ -66,6 +66,19 @@ export const loadDailyKindMe = (token: string, kind: DailyKind) => get<{ ok: tru
 export const loadDailyMe = (token: string) => get<DailyMe>("/me", token);
 export const loadDailyWeek = (token: string | null | undefined, prev = false) => get<DailyWeek>(`/week${prev ? "?prev=1" : ""}`, token);
 
+/** SSR / build: classifica settimana (pubblica). */
+export async function loadBuildDailyWeek(prev = false): Promise<DailyWeek | null> {
+  try {
+    const { SITE_ORIGIN } = await import("./site");
+    const path = `/webhooks/site-daily/week${prev ? "?prev=1" : ""}`;
+    const r = await fetch(`${SITE_ORIGIN.replace(/\/$/, "")}${path}`, { cache: "no-store" });
+    const data = (await r.json().catch(() => null)) as (DailyWeek & { ok?: boolean }) | null;
+    return data?.ok ? data : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function searchDaily(kind: DailyKind, q: string): Promise<DailyHit[]> {
   const r = await get<{ ok: true; results: DailyHit[] }>(`/search?type=${kind === "cover" ? "album" : "track"}&q=${encodeURIComponent(q)}`);
   return r?.results || [];

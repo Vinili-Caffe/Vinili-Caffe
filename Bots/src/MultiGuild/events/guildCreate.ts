@@ -8,7 +8,6 @@ const {
   clearTenantGuildApplicationCommands,
   deployGuildApplicationCommands,
 } = require("../../shared/discord/applicationCommandDeployScopes") as typeof import("../../shared/discord/applicationCommandDeployScopes");
-const { REST } = require("@discordjs/rest") as typeof import("@discordjs/rest");
 const {
   isGuildBotUsageBlacklisted,
   leaveGuildIfPresent,
@@ -35,7 +34,8 @@ async function syncTenantGiveawayCommands(client?, guildId?) {
     process.env.DISCORD_CLIENT_ID_OFFICIAL ||
     client?.application?.id;
   if (!token || !clientId) return false;
-  const rest = new REST({ version: "10" }).setToken(token);
+  const { createTunedREST } = require("../../shared/discord/discordRestTuning") as typeof import("../../shared/discord/discordRestTuning");
+  const rest = createTunedREST(token);
   try {
     await deployGuildApplicationCommands(rest, clientId, gid, [giveawayCmd]);
     return true;

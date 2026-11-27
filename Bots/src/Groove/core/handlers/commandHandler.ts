@@ -1,4 +1,3 @@
-const { REST } = require("@discordjs/rest") as typeof import("@discordjs/rest");
 const { Routes } = require("discord-api-types/v10") as typeof import("discord-api-types/v10");
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
@@ -91,7 +90,8 @@ export = (client?) => {
       null;
     if (!token) return;
 
-    const rest = new REST({ version: "10" }).setToken(token);
+    const { createTunedREST } = require("../../../shared/discord/discordRestTuning") as typeof import("../../../shared/discord/discordRestTuning");
+    const rest = createTunedREST(token);
     if (!clientId) {
       try {
         const app: any = await rest.get(Routes.currentApplication());

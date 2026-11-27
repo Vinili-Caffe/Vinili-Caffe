@@ -1,4 +1,4 @@
-const { REST, Routes, ApplicationCommandPermissionType } = require("discord.js") as typeof import("discord.js");
+const { Routes, ApplicationCommandPermissionType } = require("discord.js") as typeof import("discord.js");
 
 const TYPE_CHAT = 1;
 const TYPE_USER = 2;
@@ -37,7 +37,8 @@ function parseSlashAclKey(raw?) {
 }
 
 function createBotRest(botToken?) {
-  return new REST({ version: "10" }).setToken(String(botToken || "").trim());
+  const { createTunedREST } = require("../../../shared/discord/discordRestTuning") as typeof import("../../../shared/discord/discordRestTuning");
+  return createTunedREST(String(botToken || "").trim());
 }
 
 function mapCommandsListToByKey(list?) {

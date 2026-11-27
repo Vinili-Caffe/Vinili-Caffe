@@ -294,7 +294,6 @@ export const WHY = [
 
 /** Link legali + status in footer (copyright sta sul testo ©). */
 export const LEGAL: NavLink[] = [
-  { labelKey: "footer.about", href: page("/chi-siamo/") },
   { labelKey: "footer.status", href: page("/status/") },
   { labelKey: "footer.installApp", href: page("/app/") },
   { labelKey: "footer.terms", href: page("/terms/") },
@@ -302,6 +301,7 @@ export const LEGAL: NavLink[] = [
   { labelKey: "footer.cookies", href: page("/cookie/") },
   { labelKey: "footer.yourData", href: page("/dati/") },
   { labelKey: "footer.guidelines", href: page("/vetrina/linee-guida-recensioni/") },
+  { labelKey: "footer.about", href: page("/chi-siamo/") },
 ];
 
 export const COPYRIGHT_HREF = page("/copyright/");

@@ -71,7 +71,7 @@ async function handleNumberQuizCategoryGet(_client?, req?, res?) {
     if (!items?.length) {
       return res.status(202).json({ ok: false, error: "preparing", message: "Stiamo preparando questa categoria: riprova tra un minuto." });
     }
-    const n = Math.max(10, Math.min(120, Number(req.query?.n) || 80));
+    const n = Math.max(10, Math.min(400, Number(req.query?.n) || 300));
     let min = Infinity;
     let max = -Infinity;
     for (const x of items) {
@@ -175,7 +175,14 @@ async function downloadOnce(url: URL, tries = 4, extraHost?: RegExp): Promise<{ 
   for (let attempt = 0; attempt < tries; attempt++) {
     const release = await hostSlot(url.hostname);
     try {
-      const r = await fetch(url, { redirect: "follow", headers: { "User-Agent": "ViniliCaffeNumberQuiz/1.0 (https://www.viniliecaffe.it/quiz/numeri/; quiz images)" }, signal: AbortSignal.timeout(15_000) });
+      const headers: Record<string, string> = {
+        "User-Agent": "ViniliCaffeNumberQuiz/1.0 (https://www.viniliecaffe.it/quiz/numeri/; quiz images)",
+      };
+      if (/(^|\.)transfermarkt\.technology$/.test(url.hostname)) {
+        headers.Referer = "https://www.transfermarkt.com/";
+        headers.Accept = "image/avif,image/webp,image/apng,image/*,*/*;q=0.8";
+      }
+      const r = await fetch(url, { redirect: "follow", headers, signal: AbortSignal.timeout(15_000) });
       if (r.status === 429 || r.status >= 500) {
         await new Promise((ok) => setTimeout(ok, 800 * (attempt + 1)));
         continue;

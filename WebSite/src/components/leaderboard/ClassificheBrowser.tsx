@@ -2,25 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { Bot, Users } from "lucide-react";
+import { Bot, Gamepad2, Users } from "lucide-react";
 import { LeaderboardBrowser } from "./LeaderboardBrowser";
 import { BotsLeaderboardBrowser } from "./BotsLeaderboardBrowser";
+import { DailyLeaderboardBrowser } from "./DailyLeaderboardBrowser";
 import type { LeaderPage } from "@/lib/leaderboard";
 import type { BotsLeaderPage } from "@/lib/bots-leaderboard";
+import type { DailyWeek } from "@/lib/daily";
 import { cn } from "@/lib/cn";
 
-export type ClassificheScope = "community" | "bots";
+export type ClassificheScope = "community" | "bots" | "giochi";
 
 const SCOPES: { id: ClassificheScope; label: string; icon: typeof Users }[] = [
   { id: "community", label: "Community", icon: Users },
   { id: "bots", label: "Bots", icon: Bot },
+  { id: "giochi", label: "Giochi", icon: Gamepad2 },
 ];
 
 function readScopeFromUrl(): ClassificheScope {
   if (typeof window === "undefined") return "community";
   try {
     const v = new URLSearchParams(window.location.search).get("scope");
-    return v === "bots" ? "bots" : "community";
+    if (v === "bots" || v === "giochi") return v;
+    return "community";
   } catch {
     return "community";
   }
@@ -30,7 +34,7 @@ function writeScopeToUrl(scope: ClassificheScope) {
   try {
     const url = new URL(window.location.href);
     if (scope === "community") url.searchParams.delete("scope");
-    else url.searchParams.set("scope", "bots");
+    else url.searchParams.set("scope", scope);
     window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
   } catch {
     /* ignore */
@@ -40,10 +44,12 @@ function writeScopeToUrl(scope: ClassificheScope) {
 export function ClassificheBrowser({
   initialCommunity,
   initialBots,
+  initialDaily,
   initialScope = "community",
 }: {
   initialCommunity: LeaderPage | null;
   initialBots: BotsLeaderPage | null;
+  initialDaily: DailyWeek | null;
   initialScope?: ClassificheScope;
 }) {
   const [scope, setScope] = useState<ClassificheScope>(initialScope);
@@ -108,6 +114,8 @@ export function ClassificheBrowser({
         >
           {scope === "bots" ? (
             <BotsLeaderboardBrowser initial={initialBots} />
+          ) : scope === "giochi" ? (
+            <DailyLeaderboardBrowser initial={initialDaily} />
           ) : (
             <LeaderboardBrowser initial={initialCommunity} />
           )}

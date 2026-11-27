@@ -1,4 +1,4 @@
-const { REST, Routes } = require("discord.js") as typeof import("discord.js");
+const { Routes } = require("discord.js") as typeof import("discord.js");
 const { userGuildsPath } = require("./restPaths") as typeof import("./restPaths");
 const { asCacheMap } = require("./restPermissions") as typeof import("./restPermissions");
 const { wrapUser } = require("./restUserRole") as typeof import("./restUserRole");
@@ -9,10 +9,10 @@ const { wrapGuild } = require("./restGuildWrap") as typeof import("./restGuildWr
 
 
 async function createSiteApiRestClient(config?, token?, options: Record<string, any> = {}) {
-  const rest = new REST({
-    version: "10",
-        timeout: Math.max(3000, Number(options.restTimeoutMs) || 8000),
-  }).setToken(token);
+  const { createTunedREST } = require("../../../shared/discord/discordRestTuning") as typeof import("../../../shared/discord/discordRestTuning");
+  const rest = createTunedREST(token, {
+    timeout: Math.max(3000, Number(options.restTimeoutMs) || 12_000),
+  });
   /* siteApiMeRetry1: Discord a volte risponde 500 su /users/@me → non far crashare site-api */
   let me = null;
   let lastErr = null;

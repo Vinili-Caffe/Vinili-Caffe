@@ -65,7 +65,7 @@ export const listNumberQuizCategories = async () => {
   if (r.ok) r.data.categories = r.data.categories.map((c) => ({ ...c, cover: img(c.cover) || "" }));
   return r;
 };
-export const loadNumberQuizCategory = async (id: string, n = 80) => {
+export const loadNumberQuizCategory = async (id: string, n = 300) => {
   const r = await withRetry(() =>
     api<{ category: NumberQuizCategory; items: NumberQuizItem[]; min: number; max: number }>(`/category/${encodeURIComponent(id)}?n=${n}`),
   );

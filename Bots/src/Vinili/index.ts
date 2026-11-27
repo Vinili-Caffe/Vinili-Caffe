@@ -106,18 +106,18 @@ try {
   const baseIntents = resolveGatewayIntents(discord, { includePresences: true });
   const basePartials = resolveGatewayPartials(discord);
 
+  const { buildDiscordJsRestOptions, preferIpv4Dns } = require("../shared/discord/discordRestTuning") as typeof import("../shared/discord/discordRestTuning");
+  const { installRestRttProbe } = require("../shared/discord/discordRestPing") as typeof import("../shared/discord/discordRestPing");
+  preferIpv4Dns();
   client = new Client({
     intents: baseIntents,
     partials: basePartials,
     ...buildDiscordClientMemoryOptions(discord),
     presence: buildInitialClientPresenceOptions(vinylsConfig),
-    rest: {
-      timeout: 30_000,
-      offset: 50,
-      retries: 3,
-    },
+    rest: buildDiscordJsRestOptions({ timeout: 15_000, retries: 2 }),
   });
   client.config = vinylsConfig;
+  installRestRttProbe(client);
   patchClientPresenceGuard(client);
   try {
     /* contatori per stato (online/inattivo/dnd/offline) della dashboard */

@@ -7,7 +7,7 @@ import { SiteShell } from "@/components/SiteShell";
 import { QuizHubCards } from "@/components/number-quiz/QuizHubCards";
 import { pageSocialMeta } from "@/lib/og";
 
-/* giochi del giorno: fatto o da fare, serie combinata e classifica della settimana */
+/* giochi del giorno: fatto o da fare e serie combinata */
 const DailyGamesPanel = dynamic(() => import("@/components/daily/DailyGamesPanel").then((m) => m.DailyGamesPanel));
 
 const DESCRIPTION = "Tutti i quiz di Vinili & Caffè: indovina la canzone, sfida i numeri, trova la parola del giorno.";

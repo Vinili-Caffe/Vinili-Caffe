@@ -1,4 +1,3 @@
-const { REST } = require("@discordjs/rest") as typeof import("@discordjs/rest");
 const { Routes } = require("discord-api-types/v10") as typeof import("discord-api-types/v10");
 
 const GLOBAL_TENANT_COMMAND_NAMES = new Set([
@@ -100,7 +99,8 @@ async function clearTenantGuildApplicationCommands(client?, guildId?) {
     process.env.DISCORD_CLIENT_ID_OFFICIAL ||
     client?.application?.id;
   if (!token || !clientId) return false;
-  const rest = new REST({ version: "10" }).setToken(token);
+  const { createTunedREST } = require("./discordRestTuning") as typeof import("./discordRestTuning");
+  const rest = createTunedREST(token);
   try {
     await clearGuildApplicationCommands(rest, clientId, gid);
     return true;

@@ -295,7 +295,7 @@ async function tmPlayerMarketValue(tmId: string): Promise<number | null> {
 
 type TmRankRow = { tmId: string; name: string; value: number; image?: string; sub?: string };
 
-/** Classifiche TM: nome + valore (+ foto TM). Wikidata arricchisce le immagini se disponibile. */
+/** Classifiche TM: nome + valore (+ foto TM reali, non URL inventati). */
 async function tmRankingRows(kind: "player" | "club", pages = 5): Promise<TmRankRow[]> {
   const base =
     kind === "player"
@@ -308,15 +308,16 @@ async function tmRankingRows(kind: "player" | "club", pages = 5): Promise<TmRank
     if (!html || tmBlocked(html)) break;
     let hits = 0;
     if (kind === "player") {
+      /* portrait/small/ID-TIMESTAMP.jpg → usiamo /big/ che esiste davvero (header/ID.jpg fa 404) */
       const re =
-        /portrait\/small\/(\d+)-\d+\.jpg[^"]*"\s+title="([^"]+)"[\s\S]*?marktwertverlauf\/spieler\/\1">€([\d.,]+)([KMB])/gi;
+        /portrait\/small\/((\d+)-\d+)\.jpg[^"]*"\s+title="([^"]+)"[\s\S]*?marktwertverlauf\/spieler\/\2">€([\d.,]+)([KMB])/gi;
       let m: RegExpExecArray | null;
       while ((m = re.exec(html))) {
-        const value = parseTmEuro(m[3]!, m[4]);
-        const name = clean(m[2]);
+        const value = parseTmEuro(m[4]!, m[5]);
+        const name = clean(m[3]);
         if (value == null || !name) continue;
-        const tmId = m[1]!;
-        const image = `https://img.a.transfermarkt.technology/portrait/header/${tmId}.jpg`;
+        const tmId = m[2]!;
+        const image = `https://img.a.transfermarkt.technology/portrait/big/${m[1]}.jpg`;
         if (!byId.has(tmId)) byId.set(tmId, { tmId, name, value, image });
         hits++;
       }
@@ -361,8 +362,8 @@ async function wikidataImagesByTm(tmProp: "P2446" | "P7223", tmIds: string[], im
   return map;
 }
 
-const tmPlayerRankingCached = memo(() => tmRankingRows("player", 6), 5 * 86_400_000);
-const tmClubRankingCached = memo(() => tmRankingRows("club", 5), 5 * 86_400_000);
+const tmPlayerRankingCached = memo(() => tmRankingRows("player", 50), 5 * 86_400_000);
+const tmClubRankingCached = memo(() => tmRankingRows("club", 30), 5 * 86_400_000);
 
 async function buildPlayerMarketValues(): Promise<NQItem[]> {
   let rows = await tmPlayerRankingCached();
@@ -381,6 +382,7 @@ async function buildPlayerMarketValues(): Promise<NQItem[]> {
     });
     rows = values.filter(Boolean) as TmRankRow[];
   } else {
+    /* Preferisci foto Wikimedia (proxy stabile); se manca resta il ritratto TM. */
     const imgs = await wikidataImagesByTm(
       "P2446",
       rows.map((r) => r.tmId),
@@ -392,25 +394,16 @@ async function buildPlayerMarketValues(): Promise<NQItem[]> {
     }
   }
   return dedupe(
-    rows.map((r) => ({ name: r.name, value: r.value, ...(r.image ? { image: r.image } : {}) })),
+    rows
+      .filter((r) => r.image)
+      .map((r) => ({ name: r.name, value: r.value, image: r.image })),
     "max",
   );
 }
 
 async function buildClubMarketValues(): Promise<NQItem[]> {
   let rows = await tmClubRankingCached();
-  if (!rows.length) {
-    const wd = await wikidataWithTmId({
-      where: famous(20, "?i wdt:P31 wd:Q476028."),
-      tmProp: "P7223",
-      image: "P154",
-      sub: "P17",
-      limit: 80,
-    });
-    /* senza classifica TM non abbiamo i valori: lascia vuoto (si tiene la cache precedente) */
-    void wd;
-    return [];
-  }
+  if (!rows.length) return [];
   const imgs = await wikidataImagesByTm(
     "P7223",
     rows.map((r) => r.tmId),
@@ -421,10 +414,133 @@ async function buildClubMarketValues(): Promise<NQItem[]> {
     if (img) r.image = img;
   }
   return dedupe(
-    rows.map((r) => ({ name: r.name, value: r.value, ...(r.image ? { image: r.image } : {}) })),
+    rows
+      .filter((r) => r.image)
+      .map((r) => ({ name: r.name, value: r.value, image: r.image })),
     "max",
   );
 }
+
+const TM_LEAGUES: Array<[string, string]> = [
+  ["laliga", "ES1"],
+  ["premier-league", "GB1"],
+  ["serie-a", "IT1"],
+  ["bundesliga", "L1"],
+  ["ligue-1", "FR1"],
+  ["liga-portugal-bwin", "PO1"],
+  ["eredivisie", "NL1"],
+  ["super-lig", "TR1"],
+  ["jupiler-pro-league", "BE1"],
+  ["scottish-premiership", "SC1"],
+  ["bundesliga", "A1"],
+  ["superligaen", "DK1"],
+  ["eliteserien", "NO1"],
+  ["allsvenskan", "SE1"],
+  ["premier-liga", "RU1"],
+  ["campeonato-brasileiro-serie-a", "BRA1"],
+  ["liga-mx-clausura", "MEX1"],
+  ["major-league-soccer", "MLS1"],
+  ["j1-league", "JAP1"],
+  ["saudi-pro-league", "SA1"],
+];
+
+/** Righe gol/presenze dalle classifiche storiche TM (ritratto + apps + gol). */
+function parseTmScorerRows(html: string) {
+  const out: Array<{ tmId: string; name: string; apps: number; goals: number; image: string }> = [];
+  const re =
+    /portrait\/medium\/((\d+)-\d+)\.jpg[^>]*title="([^"]+)"[\s\S]*?leistungsdaten\/spieler\/\2[^>]*>\s*(\d+)\s*<\/a><\/td><td class="zentriert">[\d.]+<\/td><td class="zentriert">[\d.]+<\/td><td class="zentriert hauptlink"><a[^>]*>\s*(\d+)\s*<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    const name = clean(m[3]);
+    const apps = Number(m[4]);
+    const goals = Number(m[5]);
+    if (!name || !Number.isFinite(apps) || !Number.isFinite(goals)) continue;
+    out.push({
+      tmId: m[2]!,
+      name,
+      apps,
+      goals,
+      image: `https://img.a.transfermarkt.technology/portrait/big/${m[1]}.jpg`,
+    });
+  }
+  return out;
+}
+
+function parseTmIntlRows(html: string) {
+  const out: Array<{ tmId: string; name: string; goals: number; caps: number; image: string }> = [];
+  const re =
+    /portrait\/medium\/([0-9][0-9-]*)\.jpg[^>]*title="([^"]+)"[\s\S]*?<td class="zentriert">(\d+)<\/td><td class="zentriert hauptlink">(\d+)<\/td>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    const tmId = m[1]!.split("-")[0]!;
+    const name = clean(m[2]);
+    const goals = Number(m[3]);
+    const caps = Number(m[4]);
+    if (!tmId || !name || !Number.isFinite(caps)) continue;
+    out.push({
+      tmId,
+      name,
+      goals,
+      caps,
+      image: `https://img.a.transfermarkt.technology/portrait/big/${m[1]}.jpg`,
+    });
+  }
+  return out;
+}
+
+async function tmFootballStatsCached(): Promise<{ goals: NQItem[]; apps: NQItem[] }> {
+  const byGoals = new Map<string, NQItem & { tmId: string }>();
+  const byApps = new Map<string, NQItem & { tmId: string }>();
+  const put = (map: Map<string, NQItem & { tmId: string }>, tmId: string, name: string, value: number, image: string) => {
+    const prev = map.get(tmId);
+    if (!prev || value > prev.value) map.set(tmId, { tmId, name, value, image });
+  };
+  for (const [slug, code] of TM_LEAGUES) {
+    for (const sort of ["tore", "einsaetze.desc"]) {
+      for (let page = 1; page <= 12; page++) {
+        const base = `https://www.transfermarkt.com/${slug}/ewigetorschuetzen/wettbewerb/${code}/sort/${sort}`;
+        const html = await getText(page === 1 ? base : `${base}?page=${page}`);
+        if (!html || tmBlocked(html)) break;
+        const rows = parseTmScorerRows(html);
+        if (!rows.length) break;
+        for (const r of rows) {
+          put(byGoals, r.tmId, r.name, r.goals, r.image);
+          put(byApps, r.tmId, r.name, r.apps, r.image);
+        }
+        await sleep(220);
+      }
+    }
+  }
+  for (let page = 1; page <= 30; page++) {
+    const url =
+      page === 1
+        ? "https://www.transfermarkt.com/statistik/rekordnationalspieler"
+        : `https://www.transfermarkt.com/statistik/rekordnationalspieler?page=${page}`;
+    const html = await getText(url);
+    if (!html || tmBlocked(html)) break;
+    const rows = parseTmIntlRows(html);
+    if (!rows.length) break;
+    for (const r of rows) {
+      if (r.goals >= 10) put(byGoals, r.tmId, r.name, r.goals, r.image);
+      if (r.caps >= 25) put(byApps, r.tmId, r.name, r.caps, r.image);
+    }
+    await sleep(220);
+  }
+  return {
+    goals: dedupe(
+      [...byGoals.values()].filter((x) => x.value >= 10).map(({ name, value, image }) => ({ name, value, image })),
+      "max",
+    ),
+    apps: dedupe(
+      [...byApps.values()].filter((x) => x.value >= 25).map(({ name, value, image }) => ({ name, value, image })),
+      "max",
+    ),
+  };
+}
+
+const footballStatsCached = memo(() => tmFootballStatsCached(), 5 * 86_400_000);
+const buildFootballGoals = async () => (await footballStatsCached()).goals;
+const buildFootballApps = async () => (await footballStatsCached()).apps;
 
 /* ───────────── Deezer ───────────── */
 
@@ -1185,15 +1301,8 @@ const MORE: NQCategory[] = [
     emoji: "⚽",
     unit: "gol",
     format: "number",
-    build: () =>
-      wikidata({
-        where: famous(8, "?i wdt:P106 wd:Q937857; wdt:P31 wd:Q5."),
-        prop: "P6509",
-        image: "P18",
-        keep: "max",
-        minValue: 10,
-        limit: 12000,
-      }),
+    ttlDays: 7,
+    build: () => buildFootballGoals(),
   },
   {
     id: "calciatori-presenze",
@@ -1204,15 +1313,8 @@ const MORE: NQCategory[] = [
     emoji: "🦵",
     unit: "partite",
     format: "number",
-    build: () =>
-      wikidata({
-        where: famous(8, "?i wdt:P106 wd:Q937857; wdt:P31 wd:Q5."),
-        prop: "P1350",
-        image: "P18",
-        keep: "max",
-        minValue: 20,
-        limit: 12000,
-      }),
+    ttlDays: 7,
+    build: () => buildFootballApps(),
   },
   {
     id: "calciatori-eta",
@@ -1226,17 +1328,17 @@ const MORE: NQCategory[] = [
     build: async () => {
       const year = new Date().getFullYear();
       const born = await wikidata({
-        where: famous(45, "?i wdt:P106 wd:Q937857; wdt:P31 wd:Q5."),
+        where: famous(15, "?i wdt:P106 wd:Q937857; wdt:P31 wd:Q5. ?i wdt:P18 ?hasImg."),
         prop: "P569",
         date: true,
         image: "P18",
-        minValue: year - 90,
+        minValue: year - 95,
         maxValue: year - 16,
-        limit: 9000,
+        limit: 12000,
       });
       return born
         .map((it) => ({ ...it, value: year - it.value }))
-        .filter((it) => it.value >= 16 && it.value <= 90);
+        .filter((it) => it.value >= 16 && it.value <= 95 && it.image);
     },
   },
   yearCat("squadre-fondazione", "Sport", "Anno di fondazione delle squadre", "Quale squadra è nata dopo?", "Club di calcio di tutto il mondo.", "🛡️",

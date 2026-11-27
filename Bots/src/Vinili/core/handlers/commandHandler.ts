@@ -1,4 +1,3 @@
-const { REST } = require("@discordjs/rest") as typeof import("@discordjs/rest");
 const { Routes } = require("discord-api-types/v10") as typeof import("discord-api-types/v10");
 const fs = require("fs") as typeof import("fs");
 const path = require("path") as typeof import("path");
@@ -211,7 +210,8 @@ export = (client?) => {
     const forceDeploy = shouldForceSlashDeploy();
     const mainGuildDeployRequired =
       forceDeploy || mainGuildDeployChecks.some((row?) => row.required);
-    const rest = new REST({ version: "10" }).setToken(token);
+    const { createTunedREST } = require("../../../shared/discord/discordRestTuning") as typeof import("../../../shared/discord/discordRestTuning");
+    const rest = createTunedREST(token);
 
     if (deployCheck.required || forceDeploy) {
       if (LOG_COMMANDS) {

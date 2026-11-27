@@ -101,13 +101,17 @@ installProcessHandlers({
 const intentList = resolveGatewayIntents(discord, { includePresences: false });
 const partialList = resolveGatewayPartials(discord);
 const coffeeConfig = require("./config.json") as typeof import("./config.json");
+const { buildDiscordJsRestOptions, preferIpv4Dns } = require("../shared/discord/discordRestTuning") as typeof import("../shared/discord/discordRestTuning");
+const { installRestRttProbe } = require("../shared/discord/discordRestPing") as typeof import("../shared/discord/discordRestPing");
+preferIpv4Dns();
 const client = new Client({
   intents: intentList,
   partials: partialList,
   ...buildDiscordClientMemoryOptions(discord),
   presence: buildInitialClientPresenceOptions(coffeeConfig),
-  rest: { timeout: 30_000, offset: 50, retries: 3 },
+  rest: buildDiscordJsRestOptions({ timeout: 15_000, retries: 2 }),
 });
+installRestRttProbe(client);
 
 function resolveEventListenersCeiling(configLike?) {
   const raw = Number(configLike?.eventListeners ?? 50);

@@ -30,15 +30,8 @@ function json(res?, status?, payload?) {
 }
 
 async function measureDiscordRestPingMs(client?) {
-  if (!client?.rest?.get) return null;
-  const { Routes } = require("discord-api-types/v10") as typeof import("discord-api-types/v10");
-  const t0 = Date.now();
-  try {
-    await client.rest.get(Routes.user("@me"));
-    return Math.max(0, Date.now() - t0);
-  } catch {
-    return null;
-  }
+  const { measureDiscordRestPingMs: measure } = require("../../../shared/discord/discordRestPing") as typeof import("../../../shared/discord/discordRestPing");
+  return measure(client);
 }
 
 async function measureMongoPingMs() {
