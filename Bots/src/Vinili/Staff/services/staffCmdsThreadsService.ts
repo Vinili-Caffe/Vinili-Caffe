@@ -33,7 +33,7 @@ const STAFF_CMDS_THREAD_NAME_ALIASES = {
 const STAFF_CMDS_THREAD_SPECS = [
   {
     key: "pm",
-    name: "Commands Partner Manager",
+    name: "༄💧︲partner᲼cmds",
     roleIds: () => [IDs.roles?.PartnerManager].filter(Boolean).map(String),
         reviewerUserIds: () => getResocontoReviewerUserIdsForSegment("pm"),
     introLines: (mentions?) => [
@@ -43,7 +43,7 @@ const STAFF_CMDS_THREAD_SPECS = [
   },
   {
     key: "high",
-    name: "Commands High Staff",
+    name: "༄🌡️︲high᲼cmds",
     roleIds: () => [IDs.roles?.HighStaff].filter(Boolean).map(String),
     introLines: (mentions?) => [
       `${mentions} **Commands High Staff**`,

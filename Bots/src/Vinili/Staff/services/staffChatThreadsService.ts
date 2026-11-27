@@ -1,18 +1,9 @@
 const { ThreadAutoArchiveDuration, ChannelType, MessageType } = require("discord.js") as typeof import("discord.js");
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
 const { getGuildChannelCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
-const {
-  getStaffChatThreadIds,
-  setStaffChatThreadId,
-  getStaffChatHubMessageId,
-  setStaffChatHubMessageId,
-} = require("../../Community/services/globalSettingsBucket") as typeof import("../../Community/services/globalSettingsBucket");
+const { getStaffChatThreadIds, setStaffChatThreadId, getStaffChatHubMessageId, setStaffChatHubMessageId } = require("../../Community/services/globalSettingsBucket") as typeof import("../../Community/services/globalSettingsBucket");
 const { addUserIdsToThread, hydrateGuildMembersForRolePings, collectHumanMemberIdsWithRole } = require("../../Community/utils/threadRoleMembers") as typeof import("../../Community/utils/threadRoleMembers");
-const {
-  resolveStaffThreadQualifyingRoleIds,
-  memberHasStaffThreadAccess,
-  memberQualifiesForStaffThreadSpec,
-} = require("../../Staff/utils/staffThreadQualification") as typeof import("../../Staff/utils/staffThreadQualification");
+const { resolveStaffThreadQualifyingRoleIds, memberHasStaffThreadAccess, memberQualifiesForStaffThreadSpec } = require("../../Staff/utils/staffThreadQualification") as typeof import("../../Staff/utils/staffThreadQualification");
 const { getResocontoReviewerUserIdsForSegment } = require("../../Staff/utils/resocontoAccess") as typeof import("../../Staff/utils/resocontoAccess");
 const { resolveExistingStaffThread } = require("../../Staff/utils/staffManagedThreadResolve") as typeof import("../../Staff/utils/staffManagedThreadResolve");
 
@@ -21,7 +12,7 @@ let ensureChatThreadsPromise = null;
 const STAFF_CHAT_THREAD_SPECS = [
   {
     key: "pm",
-    name: "Chat Partner Manager",
+    name: "༄🪾︲partners",
     roleIds: () => [IDs.roles?.PartnerManager].filter(Boolean).map(String),
         reviewerUserIds: () => getResocontoReviewerUserIdsForSegment("pm"),
     introLines: (mentions?) => [
@@ -32,7 +23,7 @@ const STAFF_CHAT_THREAD_SPECS = [
   /* bloggerChat1: come la chat PM, per i Blogger */
   {
     key: "blogger",
-    name: "Chat Blogger",
+    name: "༄🧣︲bloggers",
     roleIds: () => [IDs.roles?.Blogger].filter(Boolean).map(String),
     introLines: (mentions?) => [
       `${mentions} **Chat Blogger**`,
@@ -41,7 +32,7 @@ const STAFF_CHAT_THREAD_SPECS = [
   },
   {
     key: "senior",
-    name: "Chat Senior Mod & Director",
+    name: "༄🧥︲middlers",
     roleIds: () => [IDs.roles?.SeniorModerator, IDs.roles?.Director].filter(Boolean).map(String),
     introLines: (mentions?) => [
       `${mentions} **Chat Senior Mod & Director**`,
@@ -50,7 +41,7 @@ const STAFF_CHAT_THREAD_SPECS = [
   },
   {
     key: "highStaff",
-    name: "Chat High Staff",
+    name: "༄🥶︲highers",
     roleIds: () => [IDs.roles?.HighStaff].filter(Boolean).map(String),
     introLines: (mentions?) => [
       `${mentions} **Chat High Staff**`,

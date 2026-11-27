@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   ...pageSocialMeta({
     path: "/propositi/",
     title: "Buoni propositi",
-    description: "Capodanno: lascia un proposito anonimo o pubblico. A mezzanotte del 4 gennaio bruciano tutti.",
+    description: "Lascia un proposito per l’anno nuovo: in anonimo o col tuo nome.",
   }),
   robots: { index: false },
 };
@@ -27,14 +27,14 @@ export default function PropositiPage() {
       <DiscordComponentEmbed
         path="/propositi/"
         title="Buoni propositi"
-        description="Capodanno: lascia un proposito anonimo o pubblico. A mezzanotte del 4 gennaio bruciano tutti."
+        description="Lascia un proposito per l’anno nuovo: in anonimo o col tuo nome."
       />
       <PageHero
         icon={<Sparkles />}
         kicker="Capodanno"
         title="Buoni"
         accent="propositi"
-        text="Dal 28 dicembre al 4 gennaio: scrivi un proposito in anonimo o col tuo nome Discord. A mezzanotte del 4 gennaio bruciano e spariscono."
+        text="Cosa ti aspetti dall’anno nuovo? Scrivilo qui, in anonimo o col tuo nome."
       />
       <PropositiBoard />
     </SiteShell>

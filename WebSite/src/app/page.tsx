@@ -4,8 +4,6 @@ import { LiveStats } from "@/components/LiveStats";
 import { SiteShell } from "@/components/SiteShell";
 import { loadBuildStats } from "@/lib/stats";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
-import { cdnUrl } from "@/lib/site";
-import { isChristmasSeason } from "@/lib/site-effects";
 import { ActivityMusicQuizHome } from "@/components/music-quiz/ActivityMusicQuizHome";
 
 /* Below-fold: split dal chunk iniziale (home Speed Insights). */
@@ -29,17 +27,9 @@ export default async function Home() {
         description="Community italiana su Discord dove si parla di tutto: musica in vocale, eventi, giveaway e bot scritti apposta per il server."
       />
       <ActivityMusicQuizHome>
-        {/* LCP: atmosfera hero (hoisted in <head>); in Natale il client scambia xmas in HeroBackdrop */}
-        <link
-          rel="preload"
-          as="image"
-          href={cdnUrl(
-            isChristmasSeason()
-              ? "/images/hero-cafe-atmosphere-xmas.jpg"
-              : "/images/hero-cafe-atmosphere.jpg",
-          )}
-          type="image/jpeg"
-        />
+        {/* niente <link rel="preload">: l'immagine dell'hero è già un <img fetchPriority="high"> nell'HTML.
+            Il preload (della foto natalizia, che l'hero non usa) restava inutilizzato e React lo lasciava
+            nell'head anche cambiando pagina → avvisi in console su ogni pagina. */}
         <Hero />
         <LiveStats initial={stats} />
         <Why />
