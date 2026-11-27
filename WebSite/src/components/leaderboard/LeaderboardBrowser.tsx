@@ -11,6 +11,7 @@ import {
   Loader2,
   MessageSquare,
   Mic,
+  Puzzle,
   Search,
   TrendingUp,
   Trophy,
@@ -35,6 +36,8 @@ import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { Avatar } from "@/components/Avatar";
 import { Pagination } from "@/components/ui/Pagination";
 import { ShowMoreButton } from "@/components/ui/ShowMore";
+import { SmartLink } from "@/components/SmartLink";
+import { DAILY_GAMES, loadDailyWeek, type DailyWeek } from "@/lib/daily";
 
 const BOARD_ICONS: Record<BoardId, LucideIcon> = {
   level: TrendingUp,
@@ -42,6 +45,23 @@ const BOARD_ICONS: Record<BoardId, LucideIcon> = {
   voice: Mic,
   minigames: Gamepad2,
 };
+
+/* «Giochi del giorno»: una classifica come le altre, ma solo settimanale (questa / scorsa) */
+type ViewBoard = BoardId | "daily";
+const VIEW_BOARDS: { id: ViewBoard; label: string; icon: LucideIcon }[] = [
+  ...BOARDS.map((b) => ({ id: b.id as ViewBoard, label: b.label, icon: BOARD_ICONS[b.id] })),
+  { id: "daily", label: "Giochi del giorno", icon: Puzzle },
+];
+const DAILY_PERIODS = [
+  { id: false, label: "Questa settimana", icon: CalendarDays },
+  { id: true, label: "Settimana scorsa", icon: Calendar },
+] as const;
+
+type Metric = { main: string; sub?: string; pct: number };
+
+function prettyDay(day: string) {
+  return new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
+}
 
 const PERIOD_ICONS: Record<PeriodId, LucideIcon> = {
   alltime: InfinityIcon,
@@ -61,18 +81,15 @@ const profileHref = (id: string) => page(`/user/?id=${id}`);
 function PodiumDisc({
   row,
   place,
-  board,
-  period,
+  m,
   me,
 }: {
   row: LeaderRow;
   place: 0 | 1 | 2;
-  board: BoardId;
-  period: PeriodId;
+  m: Metric;
   me: boolean;
 }) {
   const p = PODIUM[place];
-  const m = metric(board, period, row);
   const size = place === 0 ? "size-28 sm:size-52" : "size-24 sm:size-44";
   return (
     <motion.a
@@ -122,18 +139,15 @@ function PodiumDisc({
 
 function Row({
   row,
-  board,
-  period,
+  m,
   me,
   flash,
 }: {
   row: LeaderRow;
-  board: BoardId;
-  period: PeriodId;
+  m: Metric;
   me: boolean;
   flash?: boolean;
 }) {
-  const m = metric(board, period, row);
   return (
     <motion.li
       layout="position"
@@ -173,10 +187,222 @@ function Row({
   );
 }
 
-export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) {
-  const { user } = useAuth();
-  const [board, setBoard] = useState<BoardId>("level");
+export function LeaderboardBrowser({
+  initial,
+  initialDaily = null,
+  initialBoard = "level",
+}: {
+  initial: LeaderPage | null;
+  initialDaily?: DailyWeek | null;
+  initialBoard?: ViewBoard;
+}) {
+  const [board, setBoard] = useState<ViewBoard>(initialBoard);
   const [period, setPeriod] = useState<PeriodId>("alltime");
+  const [prevWeek, setPrevWeek] = useState(false);
+
+  useEffect(() => {
+    setBoard(initialBoard);
+  }, [initialBoard]);
+
+  const periods =
+    board === "daily"
+      ? DAILY_PERIODS.map((p) => ({ key: String(p.id), label: p.label, icon: p.icon, active: prevWeek === p.id, pick: () => setPrevWeek(p.id) }))
+      : PERIODS.map((p) => ({ key: p.id, label: p.label, icon: PERIOD_ICONS[p.id], active: period === p.id, pick: () => setPeriod(p.id) }));
+
+  return (
+    <div className="mx-auto max-w-5xl px-6 pb-16">
+      {/* classifiche */}
+      <LayoutGroup id="boards">
+        <div className="flex flex-wrap justify-center gap-2" role="tablist" aria-label="Classifiche">
+          {VIEW_BOARDS.map((b) => {
+            const active = board === b.id;
+            const Icon = b.icon;
+            return (
+              <button
+                key={b.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setBoard(b.id)}
+                className={cn(
+                  "relative isolate inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                  active ? "text-espresso" : "text-crema/70 hover:text-crema",
+                )}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="board-pill"
+                    className="absolute inset-0 -z-10 rounded-full bg-gradient-to-b from-crema to-sand"
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  />
+                )}
+                {!active && <span className="absolute inset-0 -z-10 rounded-full bg-crema/6 ring-1 ring-sand/15" />}
+                <Icon className="size-4" />
+                {b.label}
+              </button>
+            );
+          })}
+        </div>
+      </LayoutGroup>
+
+      <LayoutGroup id="periods">
+        <div className="mt-3 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Periodo">
+          {periods.map((p) => {
+            const Icon = p.icon;
+            return (
+              <button
+                key={p.key}
+                type="button"
+                role="tab"
+                aria-selected={p.active}
+                onClick={p.pick}
+                className={cn(
+                  "relative isolate inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors sm:text-sm",
+                  p.active ? "text-espresso" : "text-crema/65 hover:text-crema",
+                )}
+              >
+                {p.active && (
+                  <motion.span
+                    layoutId="period-pill"
+                    className="absolute inset-0 -z-10 rounded-full bg-gradient-to-b from-crema to-sand"
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  />
+                )}
+                {!p.active && <span className="absolute inset-0 -z-10 rounded-full bg-crema/6 ring-1 ring-sand/15" />}
+                <Icon className="size-3.5 sm:size-4" />
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+      </LayoutGroup>
+
+      {board === "daily" ? (
+        <DailyBoard initial={initialDaily} prev={prevWeek} />
+      ) : (
+        <CommunityBoard initial={initial} board={board} period={period} />
+      )}
+    </div>
+  );
+}
+
+/** Giochi del giorno: punti della settimana, stesso podio e stesse righe delle altre classifiche */
+function DailyBoard({ initial, prev }: { initial: DailyWeek | null; prev: boolean }) {
+  const { token, ready, user } = useAuth();
+  const [week, setWeek] = useState<DailyWeek | null>(prev ? null : initial);
+  const [loading, setLoading] = useState(!week);
+  const [listVisible, setListVisible] = useState(50);
+  const LIST_CHUNK = 50;
+
+  useEffect(() => {
+    if (!ready) return;
+    let alive = true;
+    setLoading(true);
+    void loadDailyWeek(token, prev).then((w) => {
+      if (!alive) return;
+      setWeek(w);
+      setLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [ready, token, prev]);
+
+  const rows: LeaderRow[] = (week?.top ?? []).map((r) => ({
+    rank: r.rank,
+    userId: r.userId,
+    displayName: r.name,
+    avatarUrl: r.avatar || undefined,
+  }));
+  const byId = new Map((week?.top ?? []).map((r) => [r.userId, r]));
+  const maxPts = Math.max(1, ...(week?.top ?? []).map((r) => r.points));
+  const m = (row: LeaderRow): Metric => {
+    const r = byId.get(row.userId);
+    const pts = r?.points ?? 0;
+    return {
+      main: `${pts.toLocaleString("it-IT")} ${pts === 1 ? "punto" : "punti"}`,
+      sub: r ? `${r.solved}/${r.games} indovinati` : undefined,
+      pct: (pts / maxPts) * 100,
+    };
+  };
+  const top = rows.slice(0, 3);
+  const rest = rows.slice(3);
+  const restVisible = rest.length > LIST_CHUNK ? rest.slice(0, listVisible) : rest;
+  const restRemaining = rest.length > LIST_CHUNK ? Math.max(0, rest.length - listVisible) : 0;
+  const range =
+    week?.days?.length === 7 ? `dal ${prettyDay(week.days[0]!)} al ${prettyDay(week.days[6]!)}` : null;
+  const busy = loading && !week;
+
+  return (
+    <>
+      <p className="mt-4 text-center text-sm text-crema/50">
+        {week ? `${week.players.toLocaleString("it-IT")} giocatori in classifica · ordinati per punti${range ? ` · ${range}` : ""}` : " "}
+      </p>
+      <p className="mx-auto mt-2 max-w-xl text-center text-xs text-crema/40">
+        Più punti se indovini con meno tentativi. La domenica sera esce anche su Discord, nell&apos;annuncio dei membri della settimana.
+      </p>
+      <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+        {DAILY_GAMES.map((g) => (
+          <SmartLink
+            key={g.id}
+            href={page(g.href)}
+            className="rounded-full bg-crema/[0.05] px-3 py-1 text-xs font-medium text-crema/60 ring-1 ring-sand/12 transition hover:bg-crema/[0.09] hover:text-crema"
+          >
+            {g.label}
+          </SmartLink>
+        ))}
+      </div>
+
+      <div className="relative mt-12 min-h-[18rem]">
+        <AnimatePresence mode="wait">
+          {busy ? (
+            <motion.div key="load" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid h-72 grid-cols-3 items-end gap-2 sm:gap-8" aria-busy aria-label="Caricamento podio">
+              {[1, 0, 2].map((place) => (
+                <div key={place} className="flex flex-col items-center gap-3">
+                  <span className={`animate-pulse rounded-full bg-crema/[0.08] ${place === 0 ? "size-24 sm:size-28" : "size-20 sm:size-24"}`} />
+                  <span className="animate-pulse h-3.5 w-20 rounded bg-crema/[0.08]" />
+                </div>
+              ))}
+            </motion.div>
+          ) : top.length ? (
+            <motion.div key={`daily-${prev}`} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-3 items-end gap-2 sm:gap-8">
+              {top.map((r, i) => (
+                <PodiumDisc key={r.userId} row={r} place={i as 0 | 1 | 2} m={m(r)} me={r.userId === user?.id} />
+              ))}
+            </motion.div>
+          ) : (
+            <motion.p key="empty" className="py-20 text-center text-crema/60">
+              Ancora nessun punto questa settimana: il primo posto è libero.
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {week?.me && week.me.rank > rows.length ? (
+        <p className="mt-10 text-center text-sm text-crema/65">
+          Tu sei <b className="text-crema">{week.me.rank}°</b> con <b className="text-crema">{week.me.points} punti</b>.
+        </p>
+      ) : null}
+
+      {rest.length > 0 ? (
+        <div className="mt-10 overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
+          <div className="flex items-center gap-2 border-b border-sand/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-crema/40 sm:px-6">
+            <Trophy className="size-3.5" /> Classifica
+          </div>
+          <ul>
+            {restVisible.map((r) => (
+              <Row key={r.userId} row={r} m={m(r)} me={r.userId === user?.id} />
+            ))}
+          </ul>
+          <ShowMoreButton remaining={restRemaining} onClick={() => setListVisible((n) => n + LIST_CHUNK)} />
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function CommunityBoard({ initial, board, period }: { initial: LeaderPage | null; board: BoardId; period: PeriodId }) {
+  const { user } = useAuth();
   const [pageNum, setPageNum] = useState(1);
   const [data, setData] = useState<LeaderPage | null>(initial);
   const [podium, setPodium] = useState<LeaderRow[]>(initial?.rows.slice(0, 3) ?? []);
@@ -289,74 +515,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
       : "Nessun dato in classifica al momento.";
 
   return (
-    <div className="mx-auto max-w-5xl px-6 pb-16">
-      {/* classifiche */}
-      <LayoutGroup id="boards">
-        <div className="flex flex-wrap justify-center gap-2" role="tablist" aria-label="Classifiche">
-          {BOARDS.map((b) => {
-            const active = board === b.id;
-            const Icon = BOARD_ICONS[b.id];
-            return (
-              <button
-                key={b.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setBoard(b.id)}
-                className={cn(
-                  "relative isolate inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                  active ? "text-espresso" : "text-crema/70 hover:text-crema",
-                )}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="board-pill"
-                    className="absolute inset-0 -z-10 rounded-full bg-gradient-to-b from-crema to-sand"
-                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                  />
-                )}
-                {!active && <span className="absolute inset-0 -z-10 rounded-full bg-crema/6 ring-1 ring-sand/15" />}
-                <Icon className="size-4" />
-                {b.label}
-              </button>
-            );
-          })}
-        </div>
-      </LayoutGroup>
-
-      <LayoutGroup id="periods">
-        <div className="mt-3 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Periodo">
-          {PERIODS.map((p) => {
-            const active = period === p.id;
-            const Icon = PERIOD_ICONS[p.id];
-            return (
-              <button
-                key={p.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setPeriod(p.id)}
-                className={cn(
-                  "relative isolate inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors sm:text-sm",
-                  active ? "text-espresso" : "text-crema/65 hover:text-crema",
-                )}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="period-pill"
-                    className="absolute inset-0 -z-10 rounded-full bg-gradient-to-b from-crema to-sand"
-                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                  />
-                )}
-                {!active && <span className="absolute inset-0 -z-10 rounded-full bg-crema/6 ring-1 ring-sand/15" />}
-                <Icon className="size-3.5 sm:size-4" />
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-      </LayoutGroup>
-
+    <>
       <p className="mt-4 text-center text-sm text-crema/50">
         {dataReady ? `${data!.total.toLocaleString("it-IT")} membri in classifica · ordinati per ${unit}` : " "}
       </p>
@@ -377,7 +536,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
           ) : top.length ? (
             <motion.div key={`${board}-${viewPeriod}`} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-3 items-end gap-2 sm:gap-8">
               {top.map((r, i) => (
-                <PodiumDisc key={r.userId} row={r} place={i as 0 | 1 | 2} board={board} period={viewPeriod} me={r.userId === user?.id} />
+                <PodiumDisc key={r.userId} row={r} place={i as 0 | 1 | 2} m={metric(board, viewPeriod, r)} me={r.userId === user?.id} />
               ))}
             </motion.div>
           ) : (
@@ -447,7 +606,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
               </div>
               {found.row ? (
                 <ul>
-                  <Row row={found.row} board={board} period={viewPeriod} me={found.row.userId === user?.id} />
+                  <Row row={found.row} m={metric(board, viewPeriod, found.row)} me={found.row.userId === user?.id} />
                 </ul>
               ) : (
                 <p className="px-4 py-4 text-sm text-crema/65 sm:px-6">
@@ -484,7 +643,7 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
             </div>
             <ul>
               {restVisible.map((r) => (
-                <Row key={r.userId} row={r} board={board} period={viewPeriod} me={r.userId === user?.id} />
+                <Row key={r.userId} row={r} m={metric(board, viewPeriod, r)} me={r.userId === user?.id} />
               ))}
             </ul>
             <ShowMoreButton
@@ -497,6 +656,6 @@ export function LeaderboardBrowser({ initial }: { initial: LeaderPage | null }) 
       {data && data.totalPages > 1 && (
         <Pagination page={data.page} totalPages={data.totalPages} onChange={setPageNum} scrollToId="lb-list" />
       )}
-    </div>
+    </>
   );
 }

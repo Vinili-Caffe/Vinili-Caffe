@@ -2,28 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { Bot, Gamepad2, Users } from "lucide-react";
+import { Bot, Users } from "lucide-react";
 import { LeaderboardBrowser } from "./LeaderboardBrowser";
 import { BotsLeaderboardBrowser } from "./BotsLeaderboardBrowser";
-import { DailyLeaderboardBrowser } from "./DailyLeaderboardBrowser";
 import type { LeaderPage } from "@/lib/leaderboard";
 import type { BotsLeaderPage } from "@/lib/bots-leaderboard";
 import type { DailyWeek } from "@/lib/daily";
 import { cn } from "@/lib/cn";
 
-export type ClassificheScope = "community" | "bots" | "giochi";
+/* «giochi» non è più una tab: i vecchi link ?scope=giochi aprono Community → Giochi del giorno */
+export type ClassificheScope = "community" | "bots";
 
 const SCOPES: { id: ClassificheScope; label: string; icon: typeof Users }[] = [
   { id: "community", label: "Community", icon: Users },
   { id: "bots", label: "Bots", icon: Bot },
-  { id: "giochi", label: "Giochi", icon: Gamepad2 },
 ];
 
 function readScopeFromUrl(): ClassificheScope {
   if (typeof window === "undefined") return "community";
   try {
     const v = new URLSearchParams(window.location.search).get("scope");
-    if (v === "bots" || v === "giochi") return v;
+    if (v === "bots") return v;
     return "community";
   } catch {
     return "community";
@@ -53,10 +52,19 @@ export function ClassificheBrowser({
   initialScope?: ClassificheScope;
 }) {
   const [scope, setScope] = useState<ClassificheScope>(initialScope);
+  const [communityBoard, setCommunityBoard] = useState<"level" | "daily">("level");
 
   useEffect(() => {
     const fromUrl = readScopeFromUrl();
     if (fromUrl !== scope) setScope(fromUrl);
+    try {
+      if (new URLSearchParams(window.location.search).get("scope") === "giochi") {
+        setCommunityBoard("daily");
+        writeScopeToUrl("community");
+      }
+    } catch {
+      /* ignore */
+    }
     // solo al mount: allinea URL (es. link dashboard)
      
   }, []);
@@ -114,10 +122,8 @@ export function ClassificheBrowser({
         >
           {scope === "bots" ? (
             <BotsLeaderboardBrowser initial={initialBots} />
-          ) : scope === "giochi" ? (
-            <DailyLeaderboardBrowser initial={initialDaily} />
           ) : (
-            <LeaderboardBrowser initial={initialCommunity} />
+            <LeaderboardBrowser initial={initialCommunity} initialDaily={initialDaily} initialBoard={communityBoard} />
           )}
         </motion.div>
       </AnimatePresence>
