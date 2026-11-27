@@ -98,6 +98,8 @@ function scoreMovieTitleMatch(movieTitle?, pageTitle?) {
   const page = compactMovieTitle(pageTitle);
   if (!movie || !page) return 0;
   if (page === movie) return 1000;
+  /* titoli corti («Up», «Her»): solo uguali, altrimenti «Up» → «Blow-Up» */
+  if (Math.min(movie.length, page.length) < 5) return 0;
   if (page.startsWith(movie) || movie.startsWith(page)) return 900;
   if (page.includes(movie) || movie.includes(page)) return 800;
   return 0;
@@ -129,14 +131,30 @@ function pickBestWikipediaSearchResult(movieTitle?, results?) {
     const pageTitle = String(entry?.title || "").trim();
     if (!pageTitle || wikipediaPageLooksLikeMovieNoise(pageTitle)) continue;
     const page = compactMovieTitle(pageTitle);
-    if (movie && page && (page.includes(movie) || movie.includes(page))) return pageTitle;
+    if (movie && page && Math.min(movie.length, page.length) >= 5 && (page.includes(movie) || movie.includes(page))) return pageTitle;
   }
   return null;
 }
 
+/* movieDescFilmOnly1: la pagina deve parlare di un film. Prima bastava che il titolo somigliasse:
+   una persona con lo stesso nome (es. un'attrice) passava e finiva la sua biografia nell'annuncio. */
+function wikipediaExtractLooksLikeFilm(text?) {
+  const head = String(text || "").replace(/\s+/g, " ").trim().slice(0, 420);
+  if (!head) return false;
+  /* niente \b prima di «è»: in JS la è accentata non è una lettera per \b */
+  const m =
+    head.match(/(?:^|[\s)])(?:è|e') (?:un|una|il|lo|la|l')[\s'][^.]{0,60}?\b(?:film|lungometraggio|cortometraggio|pellicola|anime)\b/i) ||
+    head.match(/\b(?:is|was) (?:an?|the) [^.]{0,120}?\b(?:film|movie|motion picture|anime)\b/i);
+  if (!m) return false;
+  /* «è un'attrice di film…», «is an American film actress»: persone, non film (guarda anche poco dopo) */
+  const around = head.slice(Math.max(0, (m.index || 0)), (m.index || 0) + m[0].length + 40);
+  return !/\b(?:attor[ei]|attrici?|regista|cantante|modella|pornostar|personaggio|actor|actress|director|singer|model|performer|character|person|pornograf\w*|nat[oa]|born)\b/i.test(around);
+}
+
 async function searchWikipediaPageTitle(lang?, title?) {
   const safeLang = String(lang || "it").toLowerCase();
-  /* movieDesc429Fix1: prima solo titolo; se fallisce UNA variante "film …" */
+  /* movieDesc429Fix1: prima solo titolo; se fallisce UNA variante "film …".
+     movieDescFilmOnly1: una richiesta sola restituisce titoli e introduzioni → si scartano le pagine che non sono film */
   const queries = [
     ...buildMovieSearchQueries(title, { lean: true }),
     `film ${String(title || "").trim()}`,
@@ -147,13 +165,23 @@ async function searchWikipediaPageTitle(lang?, title?) {
     seen.add(query);
     const searchUrl = new URL(`https://${safeLang}.wikipedia.org/w/api.php`);
     searchUrl.searchParams.set("action", "query");
-    searchUrl.searchParams.set("list", "search");
+    searchUrl.searchParams.set("generator", "search");
+    searchUrl.searchParams.set("gsrlimit", "8");
+    searchUrl.searchParams.set("gsrsearch", query);
+    searchUrl.searchParams.set("prop", "extracts");
+    searchUrl.searchParams.set("exintro", "1");
+    searchUrl.searchParams.set("explaintext", "1");
+    searchUrl.searchParams.set("exsentences", "2");
+    searchUrl.searchParams.set("exlimit", "max");
+    searchUrl.searchParams.set("redirects", "1");
     searchUrl.searchParams.set("format", "json");
     searchUrl.searchParams.set("origin", "*");
-    searchUrl.searchParams.set("srlimit", "8");
-    searchUrl.searchParams.set("srsearch", query);
     const search = await fetchJson(searchUrl.toString());
-    const pageTitle = pickBestWikipediaSearchResult(title, search?.query?.search);
+    const pages = search?.query?.pages ? Object.values(search.query.pages) : [];
+    const films = (pages as any[])
+      .filter((p) => wikipediaExtractLooksLikeFilm(p?.extract))
+      .sort((a, b) => Number(a?.index || 0) - Number(b?.index || 0));
+    const pageTitle = pickBestWikipediaSearchResult(title, films);
     if (pageTitle) return pageTitle;
   }
   return null;
@@ -182,7 +210,7 @@ async function fetchWikipediaExtract(lang?, pageTitle?) {
   const extract = await fetchJson(extractUrl.toString());
   const pages = extract?.query?.pages ? Object.values(extract.query.pages) : [];
   const text = pages[0]?.extract || null;
-  return wikipediaExtractIsUsable(text) ? text : null;
+  return wikipediaExtractIsUsable(text) && wikipediaExtractLooksLikeFilm(text) ? text : null;
 }
 
 function wikidataLooksLikeMovie(entity?) {
@@ -226,7 +254,8 @@ async function searchWikidataMoviePageTitle(title?, targetLang?) {
     }
     if (ids.length >= 3) break;
   }
-  const candidateIds = ids.length ? ids : fallbackIds;
+  /* movieDescFilmOnly1: niente ripiego su voci che non sono film (persone, album…) */
+  const candidateIds = ids;
   if (!candidateIds.length) return null;
 
   const entitiesUrl = new URL("https://www.wikidata.org/w/api.php");
