@@ -98,13 +98,16 @@ function PodiumDisc({
       whileHover="hover"
       className={cn("group flex min-w-0 flex-col items-center text-center", place === 0 ? "order-2 sm:-mt-6" : place === 1 ? "order-1" : "order-3")}
     >
-      <div className="relative">
+      <div className="relative [perspective:900px]">
         <div className="absolute inset-[-14%] rounded-full blur-2xl" style={{ background: `radial-gradient(circle, ${p.glow}, transparent 65%)` }} />
-        {/* il disco: gira solo all'hover (a riposo zero CPU) */}
+        {/* carta girevole (idea: Kokonut «card flip»): davanti il disco, al passaggio si gira e mostra il lato B con i numeri */}
         <motion.div
-          variants={{ hover: { rotate: 180 } }}
-          transition={{ duration: 1.6, ease: "easeInOut" }}
-          className={cn("relative rounded-full shadow-[0_20px_40px_-15px_rgba(0,0,0,0.9)] ring-1", size, p.ring)}
+          variants={{ hover: { rotateY: 180 } }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className={cn("relative [transform-style:preserve-3d]", size)}
+        >
+        <motion.div
+          className={cn("relative rounded-full shadow-[0_20px_40px_-15px_rgba(0,0,0,0.9)] ring-1 [backface-visibility:hidden]", size, p.ring)}
           style={{
             background: `repeating-radial-gradient(circle, #0b0b0b 0 1.5px, #1b1b1b 1.5px 3px), radial-gradient(circle, transparent 60%, ${p.grooves}33 61%, transparent 75%)`,
             backgroundBlendMode: "screen",
@@ -117,6 +120,21 @@ function PodiumDisc({
           <div className={cn("absolute inset-[30%] overflow-hidden rounded-full bg-gradient-to-br p-[6%]", p.label2)}>
             <Avatar userId={row.userId} src={row.avatarUrl} name={row.displayName} className="size-full" />
           </div>
+        </motion.div>
+        {/* lato B: l'etichetta del disco con le statistiche */}
+        <div
+          className={cn(
+            "absolute inset-0 flex flex-col items-center justify-center rounded-full bg-gradient-to-br p-[14%] text-center text-espresso shadow-[0_20px_40px_-15px_rgba(0,0,0,0.9)] ring-1 [backface-visibility:hidden] [transform:rotateY(180deg)]",
+            p.label2,
+            p.ring,
+          )}
+        >
+          <span className="text-[0.5rem] font-bold uppercase tracking-[0.3em] opacity-70 sm:text-[0.6rem]">Lato B</span>
+          <span className="mt-0.5 font-display text-xl font-bold leading-none sm:text-4xl">#{row.rank}</span>
+          <span className="mt-1 text-[0.6rem] font-bold leading-tight sm:text-sm">{m.main}</span>
+          {m.sub ? <span className="mt-0.5 hidden text-[0.55rem] leading-tight opacity-75 sm:block sm:text-xs">{m.sub}</span> : null}
+          {row.level != null && !/^Lv./.test(m.main) ? <span className="mt-1 hidden rounded-full bg-espresso/15 px-2 py-0.5 text-[0.55rem] font-bold sm:inline sm:text-[0.65rem]">Livello {row.level}</span> : null}
+        </div>
         </motion.div>
         <span
           className={cn(

@@ -23,6 +23,9 @@ import {
 } from "@/lib/daily";
 import { page } from "@/lib/site";
 import { cn } from "@/lib/cn";
+import { celebrate } from "@/lib/confetti";
+import { CoverRevealSlider } from "./CoverRevealSlider";
+import { SplitFlapCountdown } from "./SplitFlapCountdown";
 import { QuizRewardNote, type QuizReward } from "@/components/number-quiz/QuizRewardNote";
 
 const NAME: Record<DailyKind, string> = { song: "Canzone del giorno", cover: "Copertina del giorno" };
@@ -103,6 +106,8 @@ export function DailyMusicGame({ kind }: { kind: DailyKind }) {
       writeLocalDaily(kind, today.day, next);
       setState(s);
       if (s.reward) setReward(s.reward);
+      /* coriandoli solo quando indovini adesso (non quando riapri la pagina) */
+      if (s.solved) window.setTimeout(() => celebrate(true), 350);
     },
     [today, done, busy, raw, token, kind],
   );
@@ -375,6 +380,9 @@ function Result({ kind, state, reward }: { kind: DailyKind; state: DailyState; r
           </div>
         </div>
       ) : null}
+      {kind === "cover" && state.answer?.cover ? (
+        <CoverRevealSlider before={coverImageUrl(state.day, 0)} after={proxied(state.answer.cover)} />
+      ) : null}
       <p className="mt-4 text-2xl tracking-[0.15em]">{squares}</p>
       <button
         type="button"
@@ -384,7 +392,7 @@ function Result({ kind, state, reward }: { kind: DailyKind; state: DailyState; r
         <Copy className="size-4" /> {copied ? "Copiato" : "Condividi il risultato"}
       </button>
       <QuizRewardNote reward={reward} />
-      <p className="mt-3 text-xs text-crema/45">Torna domani per {kind === "song" ? "una canzone nuova" : "una copertina nuova"}.</p>
+      <SplitFlapCountdown label={kind === "song" ? "Nuova canzone tra" : "Nuova copertina tra"} />
     </motion.div>
   );
 }

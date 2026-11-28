@@ -14,6 +14,7 @@ import { loadReviews, type Review } from "@/lib/reviews";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { useI18n } from "@/lib/i18n";
 import { page } from "@/lib/site";
+import { SplitRevealText } from "@/components/ui/SplitRevealText";
 
 function ReviewCard({ r }: { r: Review }) {
   return (
@@ -90,7 +91,7 @@ export function ReviewsMarquee() {
         <Reveal className="text-center sm:text-left">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">{t("reviews.kicker")}</p>
           <h2 className="mt-3 font-display text-4xl font-semibold leading-tight sm:text-5xl">
-            {t("reviews.title")} <span className="italic text-sand">{t("reviews.titleEm")}</span>
+            <SplitRevealText text={t("reviews.title")} /> <span className="italic text-sand"><SplitRevealText text={t("reviews.titleEm")} /></span>
           </h2>
           <SmartLink
             href={page("/recensioni/")}

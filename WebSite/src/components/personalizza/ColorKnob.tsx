@@ -4,6 +4,7 @@ import { useId } from "react";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { cn } from "@/lib/cn";
 import { normalizeHex } from "@/lib/personalizza";
+import { SwatchFan } from "./SwatchFan";
 
 /** Manopola colore del mixer: etichetta + selettore colore del sito (niente picker del sistema). */
 export function ColorKnob({
@@ -32,6 +33,7 @@ export function ColorKnob({
         <span className="block text-sm font-semibold text-crema">{label}</span>
         {subtitle && <span className="block truncate text-xs text-crema/45">{subtitle}</span>}
       </span>
+      <SwatchFan value={hex} disabled={disabled} onPick={(next) => onChange(normalizeHex(next, hex))} />
       <ColorPicker
         id={`${base}-hex`}
         name={name ? `${name}Hex` : `${base}-hex`}

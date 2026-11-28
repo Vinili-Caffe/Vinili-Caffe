@@ -19,6 +19,8 @@ import { Avatar } from "@/components/Avatar";
 import { Reveal } from "./Reveal";
 import { cn } from "@/lib/cn";
 import { AvatarCircles } from "./ui/avatar-circles";
+import { SplitRevealText } from "@/components/ui/SplitRevealText";
+import { OnlineLine } from "@/components/OnlineLine";
 
 function userIdFromProfile(url?: string) {
   if (!url) return "";
@@ -351,12 +353,14 @@ function HoursBody({
   slots,
   blurb,
   onlineNow,
+  series,
   locale,
   t,
 }: {
   slots: HourSlot[];
   blurb?: string;
   onlineNow?: number;
+  series?: { t: number; n: number }[];
   locale: Locale;
   t: (k: string, v?: Record<string, string | number>) => string;
 }) {
@@ -377,6 +381,7 @@ function HoursBody({
           </p>
         ) : null}
       </div>
+      {series && series.length > 1 ? <OnlineLine series={series} /> : null}
       {blurb ? <p className="mb-4 max-w-2xl px-1 text-sm leading-relaxed text-crema/60">{blurb}</p> : null}
       {!slots.length ? (
         <p className="px-1 text-sm text-crema/50">{t("stats.rosterEmpty")}</p>
@@ -532,7 +537,7 @@ export function LiveStats({ initial }: { initial: Stats }) {
       <Reveal className="mb-10 text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">{t("stats.kicker")}</p>
         <h2 className="mt-3 font-display text-4xl font-semibold text-balance sm:text-5xl">
-          {t("stats.title")}
+          <SplitRevealText text={t("stats.title")} />
         </h2>
         {fetchedAt ? <StatsUpdatedAgo atMs={fetchedAt} /> : null}
       </Reveal>
@@ -613,6 +618,7 @@ export function LiveStats({ initial }: { initial: Stats }) {
                 slots={hours?.slots || []}
                 blurb={hours?.blurb}
                 onlineNow={stats.online}
+                series={extra?.onlineSeries}
                 locale={locale}
                 t={t}
               />

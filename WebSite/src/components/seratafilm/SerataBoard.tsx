@@ -29,6 +29,7 @@ import {
 import { page } from "@/lib/site";
 import { setSerataMuteBgm } from "@/lib/serata-mute-bgm";
 import { cn } from "@/lib/cn";
+import { FilmTicket } from "./FilmTicket";
 
 function Countdown({ now, target }: { now: number | null; target: number }) {
   const c = now == null ? { live: false, days: 0, hours: 0, minutes: 0, seconds: 0 } : countdownParts(target, now);
@@ -391,6 +392,7 @@ export function SerataBoard() {
             Prossima serata: <span className="italic text-sand">{title}</span>
           </h2>
           {synopsis ? <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-crema/70 sm:text-base">{synopsis}</p> : null}
+          {now != null && poster ? <FilmTicket title={title} poster={poster} atMs={target} /> : null}
           <div className="mt-8">
             <Countdown now={now} target={target} />
           </div>

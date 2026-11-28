@@ -15,6 +15,7 @@ import { CandyCollection, CustomStuff, RankCard, RolesList } from "./ProfileSect
 import { ProfileBoards } from "./ProfileBoards";
 import { BotPrefsCard } from "./BotPrefsCard";
 import { Tracklist } from "./Tracklist";
+import { ActivityRings } from "./ActivityRings";
 
 // ruoli che rendono un profilo "staff": Founder, Manager, Director, High Staff, Staff, Partner Manager
 const STAFF_ROLE_IDS = new Set(["1442568886988963923", "1521562607339704442", "1502322782602530977", "1544831228690046976", "1442568910070349985", "1544831242510270464"]);
@@ -264,6 +265,7 @@ export function ProfileView() {
         <div className="space-y-20 pb-20 pt-2 sm:pt-4">
           {outsider ? null : <Tracklist p={p} />}
           <div className="mx-auto max-w-5xl space-y-20 px-6">
+            {outsider ? null : <ActivityRings p={p} />}
             {outsider ? null : <RankCard p={p} owns={owns} />}
             {outsider ? null : <CustomStuff p={p} owns={owns} />}
             {outsider ? null : <CandyCollection p={p} />}

@@ -47,6 +47,8 @@ export type StatsExtra = {
     onlineNow?: number;
   };
   communityHours?: { slots?: HourSlot[]; blurb?: string };
+  /** online nelle ultime 24 ore, un punto ogni 15 minuti */
+  onlineSeries?: { t: number; n: number }[];
 };
 
 export const FALLBACK_STATS: Stats = { members: 2300, online: 150, boosts: 45, staff: 11 };

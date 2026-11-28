@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ArrowUp, Check, Copy, Dices, Flame, Link2, Minus, Plus, Sun, Swords, Target } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
+import { celebrate } from "@/lib/confetti";
 import { page } from "@/lib/site";
 import {
   ANGLE_ATTEMPTS,
@@ -364,6 +365,7 @@ function Daily() {
       return;
     }
     setResult({ guesses, solved });
+    if (solved) window.setTimeout(() => celebrate(true), 350);
     void postAngleResult(token, day, guesses).then((r) => {
       setReward(r?.reward || (token ? null : { auth: "guest", exp: 0 }));
       if (r?.stats) setStats(r.stats);

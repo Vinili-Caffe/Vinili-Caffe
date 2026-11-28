@@ -1,7 +1,8 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion} from "motion/react";
 import { cn } from "@/lib/cn";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 
 const WEEKS = 12;
 const DAY_MS = 86_400_000;
@@ -28,7 +29,7 @@ function tone(p: number) {
  * per settimana (lunedì in alto), più scuro = più punti quel giorno. Oggi ha il bordo.
  */
 export function DailyHeatmap({ history, today }: { history: Record<string, number>; today: string }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const dow = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7; /* 0 = lunedì */
   const firstMonday = shift(today, -dow - (WEEKS - 1) * 7);
   const weeks = Array.from({ length: WEEKS }, (_, w) => Array.from({ length: 7 }, (_, d) => shift(firstMonday, w * 7 + d)));

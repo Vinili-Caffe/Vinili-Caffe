@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion} from "motion/react";
 import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import { loadDailyHistory, type DailyKind, type DailyPast } from "@/lib/daily";
 import { cn } from "@/lib/cn";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 
 const SIDE = 3; /* copertine visibili per lato */
 
@@ -17,7 +18,7 @@ function prettyDay(day: string) {
  * a coverflow come uno scaffale di dischi (idea: Motion «carousel coverflow»).
  */
 export function DailyPastShelf({ kind }: { kind: DailyKind }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const [items, setItems] = useState<DailyPast[] | null>(null);
   const [i, setI] = useState(0);
 

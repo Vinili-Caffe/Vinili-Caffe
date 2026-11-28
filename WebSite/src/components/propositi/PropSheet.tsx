@@ -143,8 +143,23 @@ export function PropSheet({ c, token, viewer, onClose, onUpdate }: { c: Proposit
           </button>
         </div>
 
-        <div className="space-y-8 p-5 sm:p-7">
-          <article className="relative overflow-hidden rounded-sm bg-[#ece0c8] p-6 text-ink shadow-[0_24px_40px_-24px_rgba(0,0,0,1)] sm:p-8">
+        <div className="space-y-8 p-5 [perspective:1600px] sm:p-7">
+          {/* la pagina si apre girando sul bordo sinistro, come in un libro (idea: Kokonut «page flip») */}
+          <motion.article
+            initial={{ rotateY: -96, opacity: 0.6 }}
+            animate={{ rotateY: 0, opacity: 1 }}
+            transition={{ delay: 0.18, duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
+            style={{ transformOrigin: "0% 50%" }}
+            className="relative overflow-hidden rounded-sm bg-[#ece0c8] p-6 text-ink shadow-[0_24px_40px_-24px_rgba(0,0,0,1)] sm:p-8"
+          >
+            {/* l'ombra della pagina che si alza */}
+            <motion.span
+              aria-hidden
+              initial={{ opacity: 0.55 }}
+              animate={{ opacity: 0 }}
+              transition={{ delay: 0.25, duration: 0.8 }}
+              className="pointer-events-none absolute inset-0 z-20 bg-gradient-to-r from-black/60 via-black/20 to-transparent"
+            />
             <Seal status={c.status} className="absolute -top-4 right-6 z-10 rotate-[-8deg]" />
             {c.status === "soft_deleted" && (
               <p className="relative z-10 mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-ink/55">Eliminato</p>
@@ -179,7 +194,7 @@ export function PropSheet({ c, token, viewer, onClose, onUpdate }: { c: Proposit
                 )}
               </div>
             </div>
-          </article>
+          </motion.article>
 
           {c.staffReason && c.status !== "active" && (
             <p className="rounded-2xl bg-crema/[0.04] p-5 text-sm leading-relaxed text-crema/75 ring-1 ring-sand/10">

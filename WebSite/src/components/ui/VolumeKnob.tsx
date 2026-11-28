@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion} from "motion/react";
 import { cn } from "@/lib/cn";
+import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
 
 /** tacche della corona: una ogni 10% (11 in tutto), da -135° a +135° */
 const TICKS = Array.from({ length: 11 }, (_, i) => i * 10);
@@ -24,7 +25,7 @@ export function VolumeKnob({
   label?: string;
   className?: string;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionSafe();
   const drag = useRef<{ x: number; y: number; start: number } | null>(null);
   const v = Math.round(Math.min(100, Math.max(0, value)));
   const set = (n: number) => {

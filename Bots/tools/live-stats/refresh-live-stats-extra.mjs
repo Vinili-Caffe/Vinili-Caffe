@@ -472,6 +472,31 @@ async function main() {
 
   const outRaw = process.env.VC_LIVE_STATS_JSON_OUT?.trim();
   const out = outRaw || path.join(HERE, "live-stats-extra.json");
+
+  /* onlineSeries1: quanti online nelle ultime 24 ore, un punto ogni 15 minuti (linea dei numeri in home).
+     La serie si legge dal file scritto al giro prima e si allunga di un punto. */
+  try {
+    let prev = [];
+    try {
+      const old = JSON.parse(fs.readFileSync(out, "utf8"));
+      if (Array.isArray(old?.onlineSeries)) prev = old.onlineSeries;
+    } catch {
+      /* primo giro o file illeggibile: si parte da zero */
+    }
+    const n = payload.memberPulse?.onlineNow;
+    const now = Date.now();
+    const slot = Math.floor(now / 900_000) * 900_000;
+    let series = prev.filter((p) => p && Number.isFinite(p.t) && Number.isFinite(p.n) && p.t > now - 24 * 3_600_000);
+    if (n != null && Number.isFinite(Number(n))) {
+      series = series.filter((p) => p.t !== slot);
+      series.push({ t: slot, n: Math.max(0, Math.floor(Number(n))) });
+    }
+    series.sort((x, y) => x.t - y.t);
+    if (series.length) payload.onlineSeries = series.slice(-96);
+  } catch (err) {
+    console.warn("[live-stats-extra] serie online:", err?.message || err);
+  }
+
   try {
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, JSON.stringify(payload), "utf8");

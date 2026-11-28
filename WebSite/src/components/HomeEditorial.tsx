@@ -2,6 +2,7 @@
 
 import { Coffee, Disc3, Globe } from "lucide-react";
 import { Reveal } from "./Reveal";
+import { SplitRevealText } from "@/components/ui/SplitRevealText";
 
 const BLOCKS = [
   {
@@ -42,7 +43,7 @@ export function HomeEditorial() {
           La community
         </p>
         <h2 className="mt-3 font-display text-3xl font-semibold leading-tight text-balance sm:text-4xl">
-          Com’è fatto Vinili & Caffè
+          <SplitRevealText text="Com’è fatto Vinili & Caffè" />
         </h2>
         <p className="mt-4 text-lg leading-relaxed text-crema/65">
           Tre cose da sapere se è la prima volta che passi di qui.
