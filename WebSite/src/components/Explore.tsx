@@ -11,7 +11,8 @@ import { loadStaffAccess } from "@/lib/staff";
 import { isEventoHighStaff } from "@/lib/evento-starwars";
 import { MotionLink } from "./SmartLink";
 import { Reveal } from "./Reveal";
-import { GlareHover, GradientText, ScrollFloat } from "./react-bits";
+import { motion } from "motion/react";
+import { GlareHover, GradientText } from "./react-bits";
 import { Spotlight } from "./ui/spotlight-card";
 import { SeasonLiveNavTag, useNavSeasonTick } from "./SeasonLiveNav";
 
@@ -49,16 +50,19 @@ export function Explore() {
       <Reveal className="mb-8 text-center sm:mb-12">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">{t("explore.kicker")}</p>
         <div className="mt-3 overflow-visible font-display text-3xl font-semibold text-balance sm:text-4xl lg:text-5xl">
-          <GradientText speed={7} className="pb-[0.12em]">
-            <ScrollFloat
-              className="my-0"
-              textClassName="font-display text-3xl font-semibold leading-snug sm:text-4xl lg:text-5xl"
-              stagger={0.02}
-              distance={80}
-            >
+          {/* il titolo sale tutto insieme: con le lettere animate una per una il testo sfumato
+              (sfondo ritagliato sulle lettere) spariva su Chrome/Brave */}
+          <motion.h2
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            className="leading-snug"
+          >
+            <GradientText speed={7} className="pb-[0.12em]">
               {t("explore.title")}
-            </ScrollFloat>
-          </GradientText>
+            </GradientText>
+          </motion.h2>
         </div>
       </Reveal>
 
